@@ -1,81 +1,66 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "Run Wino AppKit PoC (macOS)",
-            "type": "process",
-            "command": "dotnet",
-            "args": [
-                "run",
-                "--project",
-                "${workspaceFolder}/src/Wino.Mail.AppKit.Poc/Wino.Mail.AppKit.Poc.csproj",
-                "-p:EnableWindowsTargeting=true"
-            ],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "isBackground": true,
-            "problemMatcher": {
-                "owner": "dotnet",
-                "pattern": [
-                    {
-                        "regexp": "^(.+):(\\d+):(\\d+):\\s+(warning|error)\\s+([A-Z]+\\d+):\\s+(.*)$",
-                        "file": 1,
-                        "line": 2,
-                        "column": 3,
-                        "severity": 4,
-                        "code": 5,
-                        "message": 6
-                    }
-                ],
-                "background": {
-                    "activeOnStart": true,
-                    "beginsPattern": ".*",
-                    "endsPattern": ".*"
-                }
-            }
-        },
-        {
-            "label": "Run Wino Mail (Sandbox, Debug x64)",
-            "type": "process",
-            "command": "pwsh",
-            "args": [
-                "-NoProfile",
-                "-File",
-                "${workspaceFolder}/scripts/development/start-wino.ps1",
-                "-Target",
-                "sandbox"
-            ],
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "Build Wino Mail (Debug, x64)",
-            "type": "process",
-            "command": "dotnet",
-            "args": [
-                "build",
-                "${workspaceFolder}/src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj",
-                "-c",
-                "Debug",
-                "-p:Platform=x64",
-                "-p:RuntimeIdentifier=win-x64"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "Run Wino Mail (packaged, x64)",
-            "type": "process",
-            "command": "pwsh",
-            "args": [
-                "-NoProfile",
-                "-File",
-                "${workspaceFolder}/scripts/development/start-wino.ps1"
-            ],
-            "problemMatcher": "$msCompile"
-        }
-    ]
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run Wino Mail (Sandbox, Debug x64)",
+      "type": "process",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-File",
+        "${workspaceFolder}/scripts/development/start-wino.ps1",
+        "-Target",
+        "sandbox"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Build Wino Mail (Debug, x64)",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj",
+        "-c",
+        "Debug",
+        "-p:Platform=x64",
+        "-p:RuntimeIdentifier=win-x64"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Run Wino Mail (packaged, x64)",
+      "type": "process",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-File",
+        "${workspaceFolder}/scripts/development/start-wino.ps1"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Build Wino Mail (macOS, arm64)",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/Wino.Mail.MacOS/Wino.Mail.MacOS.csproj",
+        "-c",
+        "Debug",
+        "-r",
+        "osx-arm64",
+        "-p:WinoTargetPlatform=MacOS",
+        "-p:EnableWindowsTargeting=true"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$msCompile"
+    }
+  ]
 }

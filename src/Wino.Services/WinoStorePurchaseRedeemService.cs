@@ -18,7 +18,8 @@ public sealed class WinoStorePurchaseRedeemService(
     IDatabaseService databaseService,
     IWinoAccountApiClient apiClient,
     IMicrosoftStoreService storeService,
-    IConfigurationService configuration) : IWinoStorePurchaseRedeemService
+    IConfigurationService configuration,
+    IPlatformCapabilities capabilities) : IWinoStorePurchaseRedeemService
 {
     private const string HiddenKeyPrefix = "StoreUnlimitedRedeemHidden_";
     private const string StoreUserIdClaim = "http://schemas.microsoft.com/marketplace/2015/08/claims/key/userId";
@@ -33,6 +34,10 @@ public sealed class WinoStorePurchaseRedeemService(
 
     public async Task<WinoStoreRedeemCandidate?> GetRedeemCandidateAsync(CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!capabilities.MicrosoftStore)
+            return null;
+
         try
         {
             var account = await databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false);
@@ -79,6 +84,10 @@ public sealed class WinoStorePurchaseRedeemService(
     public async Task<WinoStorePurchaseRedeemOutcome> RedeemUnlimitedAccountsAsync(WinoStoreRedeemCandidate candidate, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(candidate);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!capabilities.MicrosoftStore)
+            return WinoStorePurchaseRedeemOutcome.Unavailable;
 
         // A second click while the first redeem runs sees the first one's result on the account.
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);

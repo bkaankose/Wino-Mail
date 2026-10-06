@@ -1,0 +1,1608 @@
+#nullable enable
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Ai;
+using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Intelligence;
+using Wino.Core.ViewModels.Data;
+using Wino.Mail.Api.Contracts.Billing;
+using Wino.Mail.Api.Contracts.Common;
+using Wino.Mail.Contracts.Intelligence;
+using Wino.Messaging.Client.Navigation;
+using Wino.Messaging.UI;
+
+namespace Wino.Core.ViewModels;
+
+public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
+    IRecipient<WinoAccountProfileUpdatedMessage>,
+    IRecipient<WinoAccountProfileDeletedMessage>,
+    IRecipient<WinoIntelligenceAccessChanged>,
+    IRecipient<WinoIntelligenceEntitlementChanged>
+{
+    private readonly IWinoAccountProfileService _profileService;
+    private readonly IMailDialogService _dialogService;
+    private readonly IWinoBillingService _billingService;
+    private readonly IPlatformCapabilities _platformCapabilities;
+    private readonly IWinoAccountApiClient _apiClient;
+    private readonly IAccountService _accountService;
+    private readonly IMailIntelligenceCoordinator _semanticIndexCoordinator;
+    private readonly IPreferencesService _preferencesService;
+    private bool _isAiLanguageInitialized;
+    private readonly IWinoAccountIntelligenceSnapshotService? _snapshotService;
+    private readonly WinoAddOnItemViewModel _aiPackAddOn;
+    private readonly WinoAddOnItemViewModel _unlimitedAccountsAddOn;
+    private readonly System.Threading.SemaphoreSlim _loadLock = new(1, 1);
+    private readonly IWinoPurchaseReconciliationService? _purchaseReconciliation;
+    private readonly IWinoAccountSessionService? _sessions;
+    private readonly IWinoLogger? _logger;
+    private readonly IMicrosoftStoreService? _storeService;
+    private readonly IWinoStorePurchaseRedeemService? _storeRedeemService;
+    private WinoStoreRedeemCandidate? _storeRedeemCandidate;
+    private string _intelligencePolicyVersion = string.Empty;
+    public string IntelligencePolicyVersion => _intelligencePolicyVersion;
+    public string IntelligencePolicyVersionText => string.Format(Translator.MacOSMail_ConsentPolicyVersion, _intelligencePolicyVersion);
+
+    public ObservableCollection<WinoAddOnItemViewModel> AddOns { get; } = [];
+    public ObservableCollection<WinoIntelligenceMailboxItemViewModel> IntelligenceMailboxes { get; } = [];
+
+    /// <summary>
+    /// Every quota bucket the server reports, in a fixed order. Counts, because a
+    /// percentage of a budget the user was never shown is not something they can act on.
+    /// </summary>
+    public ObservableCollection<IntelligenceUsageItem> IntelligenceUsageItems { get; } = [];
+
+    /// <summary>
+    /// The signed-out offer grid. Fixed content, seeded once in the constructor.
+    /// </summary>
+    public ObservableCollection<WinoAccountBenefitItemViewModel> Benefits { get; } = [];
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RefreshPurchasesCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DeleteIntelligenceCommand))]
+    public partial bool IsBusy { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsSignedOut))]
+    public partial bool IsSignedIn { get; set; }
+
+    [ObservableProperty]
+    public partial string AccountEmail { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(PurchaseAddOnCommand))]
+    public partial bool IsCheckoutInProgress { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IntelligenceStatusShortText))]
+    public partial bool HasIntelligenceAccess { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsIntelligenceUsageAvailable { get; set; }
+
+    [ObservableProperty]
+    public partial double IntelligenceUsagePercentage { get; set; }
+
+    [ObservableProperty]
+    public partial string IntelligenceUsageSummary { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string IntelligenceResetText { get; set; } = string.Empty;
+
+    /// <summary>
+    /// How many of the mail accounts on this device take part in the briefing. Intelligence
+    /// results are device-local, so this is the only mailbox fact the account page reports.
+    /// </summary>
+    [ObservableProperty]
+    public partial string IntelligenceMailboxesSummary { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The monthly allowance of the headline bucket, as "1,500 messages". Empty without usage data.
+    /// </summary>
+    [ObservableProperty]
+    public partial string IntelligenceIncludedText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string IntelligenceConsentStatusText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool IsConsentBusy { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsConsentGranted { get; set; }
+
+    [ObservableProperty]
+    public partial Uri? ConsentPolicyUri { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsConsentDeletionPending))]
+    [NotifyPropertyChangedFor(nameof(IsConsentDeletionFailed))]
+    public partial string ConsentDataDeletionStatus { get; set; } = IntelligenceDeletionStatuses.NotRequired;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasConsentError))]
+    public partial string ConsentErrorMessage { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasIntelligenceDataError))]
+    public partial string IntelligenceDataError { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool IsIntelligenceRefreshing { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasIntelligenceRefreshError))]
+    public partial string IntelligenceRefreshError { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPurchaseStatus))]
+    public partial string PurchaseStatusMessage { get; set; } = string.Empty;
+
+    public bool HasPurchaseStatus => !string.IsNullOrWhiteSpace(PurchaseStatusMessage);
+
+    [ObservableProperty]
+    public partial string IntelligenceLastUpdatedText { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Billing window for the AI pack, from the subscription's current period.
+    /// </summary>
+    [ObservableProperty]
+    public partial string AiPackBillingPeriodText { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Reads "Renews {date}" normally, but "Cancels {date}" once the subscription is
+    /// set to lapse at the end of the period.
+    /// </summary>
+    [ObservableProperty]
+    public partial string AiPackRenewalOrCancellationText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string AiPackSubtitleText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string UnlimitedAccountsSubtitleText { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Shown when this device has a Microsoft Store Unlimited Accounts purchase that the signed-in
+    /// Wino Account can redeem. Redeeming is always the user's choice.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RedeemStorePurchaseCommand))]
+    public partial bool ShowStoreRedeemCard { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RedeemStorePurchaseCommand))]
+    public partial bool IsStoreRedeemInProgress { get; set; }
+
+    [ObservableProperty]
+    public partial string AccountUsageText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial double AccountUsagePercentage { get; set; }
+
+    public WinoAddOnItemViewModel AiPackAddOn => _aiPackAddOn;
+
+    public WinoAddOnItemViewModel UnlimitedAccountsAddOn => _unlimitedAccountsAddOn;
+
+    /// <summary>
+    /// The offer whose detail panel is shown under the grid. Never null once the
+    /// constructor has run.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDeviceTransferBenefitSelected))]
+    [NotifyPropertyChangedFor(nameof(IsEntitlementsBenefitSelected))]
+    [NotifyPropertyChangedFor(nameof(IsIntelligenceBenefitSelected))]
+    [NotifyPropertyChangedFor(nameof(IsUnlimitedAccountsBenefitSelected))]
+    public partial WinoAccountBenefitItemViewModel? SelectedBenefit { get; set; }
+
+    /// <summary>
+    /// The detail panel binds straight through this property, so it must never
+    /// stay null: a null offer leaves the detail panel showing a previously
+    /// selected offer and pushes an unset value into the compiled binding
+    /// update. Fall back to the first offer instead.
+    /// </summary>
+    partial void OnSelectedBenefitChanged(WinoAccountBenefitItemViewModel? value)
+    {
+        if (value is null && Benefits.Count > 0)
+        {
+            SelectedBenefit = Benefits[0];
+        }
+    }
+
+    /// <summary>
+    /// Each illustration in the detail panel is its own piece of XAML, so the panel loads
+    /// exactly one of these four at a time rather than switching a template.
+    /// </summary>
+    public bool IsDeviceTransferBenefitSelected => SelectedBenefit?.Type == WinoAccountBenefitType.DeviceTransfer;
+
+    public bool IsEntitlementsBenefitSelected => SelectedBenefit?.Type == WinoAccountBenefitType.Entitlements;
+
+    public bool IsIntelligenceBenefitSelected => SelectedBenefit?.Type == WinoAccountBenefitType.Intelligence;
+
+    public bool IsUnlimitedAccountsBenefitSelected => SelectedBenefit?.Type == WinoAccountBenefitType.UnlimitedAccounts;
+
+    /// <summary>
+    /// Compact intelligence state for the account header, next to the mail account count.
+    /// </summary>
+    public string IntelligenceStatusShortText => HasIntelligenceAccess
+        ? Translator.WinoAccount_Management_ActiveShort
+        : Translator.WinoAccount_Management_NotActiveShort;
+
+    public bool HasIntelligenceDataError => !string.IsNullOrWhiteSpace(IntelligenceDataError);
+    public bool HasIntelligenceRefreshError => !string.IsNullOrWhiteSpace(IntelligenceRefreshError);
+
+    public bool HasConsentError => !string.IsNullOrWhiteSpace(ConsentErrorMessage);
+
+    public bool IsConsentDeletionPending => ConsentDataDeletionStatus == IntelligenceDeletionStatuses.Pending;
+
+    public bool IsConsentDeletionFailed => ConsentDataDeletionStatus == IntelligenceDeletionStatuses.Failed;
+
+    public bool IsSignedOut => !IsSignedIn;
+
+    public WinoAccountManagementPageViewModel(IWinoAccountProfileService profileService,
+                                               IMailDialogService dialogService,
+                                               IWinoBillingService billingService,
+                                               IWinoAccountApiClient apiClient,
+                                               IAccountService accountService,
+                                               IMailIntelligenceCoordinator semanticIndexCoordinator,
+                                               IPreferencesService preferencesService,
+                                               IPlatformCapabilities platformCapabilities,
+                                               IWinoAccountIntelligenceSnapshotService? snapshotService = null,
+                                               IWinoPurchaseReconciliationService? purchaseReconciliation = null,
+                                               IWinoAccountSessionService? sessions = null,
+                                               IWinoLogger? logger = null,
+                                               IMicrosoftStoreService? storeService = null,
+                                               IWinoStorePurchaseRedeemService? storeRedeemService = null)
+    {
+        _profileService = profileService;
+        _dialogService = dialogService;
+        _billingService = billingService;
+        _apiClient = apiClient;
+        _accountService = accountService;
+        _semanticIndexCoordinator = semanticIndexCoordinator;
+        _preferencesService = preferencesService;
+        _platformCapabilities = platformCapabilities;
+        _snapshotService = snapshotService;
+        _purchaseReconciliation = purchaseReconciliation;
+        _sessions = sessions;
+        _logger = logger;
+        _storeService = storeService;
+        _storeRedeemService = storeRedeemService;
+
+        _aiPackAddOn = CreateAddOnItem(WinoAddOnProductType.AI_PACK);
+        _unlimitedAccountsAddOn = CreateAddOnItem(WinoAddOnProductType.UNLIMITED_ACCOUNTS);
+        AddOns.Add(_aiPackAddOn);
+        AddOns.Add(_unlimitedAccountsAddOn);
+
+        SeedBenefits();
+
+        ApplySubtitleTexts();
+        ApplyAccountUsage(mailAccountCount: 0, hasUnlimitedAccounts: false);
+        InitializeAiLanguageOptions();
+    }
+
+    /// <summary>
+    /// Builds the four signed-out offers. Every call to action starts with sign-in,
+    /// including the two add-ons: a purchase cannot begin without an authenticated Wino
+    /// Account, which is what <see cref="PurchaseAddOnAsync"/> enforces anyway.
+    /// </summary>
+    private void SeedBenefits()
+    {
+        Benefits.Add(new WinoAccountBenefitItemViewModel(
+            WinoAccountBenefitType.DeviceTransfer,
+            Translator.WinoAccount_Management_Benefit_Transfer_Title,
+            Translator.WinoAccount_Management_Benefit_Transfer_Caption,
+            Translator.WinoAccount_Management_FreeBadge,
+            isFreeBadge: true,
+            Translator.WinoAccount_Management_Benefit_Transfer_Lede,
+            (string[])
+            [
+                Translator.WinoAccount_Management_Benefit_Transfer_Point1,
+                Translator.WinoAccount_Management_Benefit_Transfer_Point2,
+                Translator.WinoAccount_Management_Benefit_Transfer_Point3,
+                Translator.WinoAccount_Management_Benefit_Transfer_Point4
+            ],
+            Translator.WinoAccount_Management_Benefit_Transfer_Cta,
+            WinoIconGlyph.BenefitDeviceTransfer)
+        { CtaCommand = SignInCommand });
+
+        Benefits.Add(new WinoAccountBenefitItemViewModel(
+            WinoAccountBenefitType.Entitlements,
+            Translator.WinoAccount_Management_Benefit_Entitlements_Title,
+            Translator.WinoAccount_Management_Benefit_Entitlements_Caption,
+            Translator.WinoAccount_Management_FreeBadge,
+            isFreeBadge: true,
+            Translator.WinoAccount_Management_Benefit_Entitlements_Lede,
+            (string[])
+            [
+                Translator.WinoAccount_Management_Benefit_Entitlements_Point1,
+                Translator.WinoAccount_Management_Benefit_Entitlements_Point2,
+                Translator.WinoAccount_Management_Benefit_Entitlements_Point3,
+                Translator.WinoAccount_Management_Benefit_Entitlements_Point4
+            ],
+            Translator.WinoAccount_Management_Benefit_Entitlements_Cta,
+            WinoIconGlyph.BenefitEntitlements)
+        { CtaCommand = SignInCommand });
+
+        Benefits.Add(new WinoAccountBenefitItemViewModel(
+            WinoAccountBenefitType.Intelligence,
+            Translator.WinoAccount_Management_Benefit_Intelligence_Title,
+            Translator.WinoAccount_Management_Benefit_Intelligence_Caption,
+            Translator.WinoAccount_Management_AddOnBadge,
+            isFreeBadge: false,
+            Translator.WinoAccount_Management_Benefit_Intelligence_Lede,
+            // The briefing leads because it is the feature; the on-demand actions follow it.
+            (string[])
+            [
+                Translator.WinoAccount_Management_Benefit_Intelligence_PointBriefing,
+                Translator.WinoAccount_Management_Benefit_Intelligence_Point3,
+                Translator.WinoAccount_Management_Benefit_Intelligence_Point1,
+                Translator.WinoAccount_Management_Benefit_Intelligence_Point2,
+                Translator.WinoAccount_Management_Benefit_Intelligence_Point4,
+                Translator.WinoAccount_Management_Benefit_Intelligence_Point5
+            ],
+            Translator.WinoAccount_Management_Benefit_Intelligence_Cta,
+            WinoIconGlyph.WinoIntelligence)
+        { CtaCommand = SignInCommand });
+
+        Benefits.Add(new WinoAccountBenefitItemViewModel(
+            WinoAccountBenefitType.UnlimitedAccounts,
+            Translator.WinoAccount_Management_Benefit_Unlimited_Title,
+            Translator.WinoAccount_Management_Benefit_Unlimited_Caption,
+            Translator.WinoAccount_Management_AddOnBadge,
+            isFreeBadge: false,
+            string.Format(Translator.WinoAccount_Management_Benefit_Unlimited_Lede, Constants.FreeAccountLimit),
+            (string[])
+            [
+                Translator.WinoAccount_Management_Benefit_Unlimited_Point1,
+                Translator.WinoAccount_Management_Benefit_Unlimited_Point2,
+                Translator.WinoAccount_Management_Benefit_Unlimited_Point3,
+                Translator.WinoAccount_Management_Benefit_Unlimited_Point4,
+            Translator.WinoAccount_Management_Benefit_Unlimited_Point5
+            ],
+            Translator.WinoAccount_Management_Benefit_Unlimited_Cta,
+            WinoIconGlyph.BenefitUnlimitedAccounts)
+        { CtaCommand = SignInCommand });
+
+        SelectedBenefit = Benefits[0];
+    }
+
+    /// <summary>
+    /// Target languages for the AI actions Wino Intelligence performs on a message.
+    /// </summary>
+    public List<AiTranslateLanguageOption> AvailableAiLanguages { get; } = [];
+
+    [ObservableProperty]
+    public partial AiTranslateLanguageOption? SelectedDefaultTranslationLanguage { get; set; }
+
+    [ObservableProperty]
+    public partial AiTranslateLanguageOption? SelectedSummarizeLanguage { get; set; }
+
+    private void InitializeAiLanguageOptions()
+    {
+        var translateLanguageOptions = AiActionCatalog.GetTranslateLanguageOptions();
+
+        if (translateLanguageOptions is not null)
+        {
+            AvailableAiLanguages.AddRange(translateLanguageOptions);
+        }
+
+        SelectedDefaultTranslationLanguage = FindAiLanguageOption(_preferencesService.AiDefaultTranslationLanguageCode);
+        SelectedSummarizeLanguage = FindAiLanguageOption(_preferencesService.AiSummarizeLanguageCode);
+
+        _isAiLanguageInitialized = true;
+    }
+
+    private AiTranslateLanguageOption? FindAiLanguageOption(string languageCode)
+    {
+        var option = string.IsNullOrWhiteSpace(languageCode)
+            ? null
+            : AvailableAiLanguages.Find(candidate => candidate.Code == languageCode);
+
+        return option
+               ?? AvailableAiLanguages.Find(candidate => candidate.Code == "en-US")
+               ?? AvailableAiLanguages.FirstOrDefault();
+    }
+
+    partial void OnSelectedDefaultTranslationLanguageChanged(AiTranslateLanguageOption? value)
+    {
+        if (!_isAiLanguageInitialized || value is null)
+            return;
+
+        _preferencesService.AiDefaultTranslationLanguageCode = value.Code;
+    }
+
+    partial void OnSelectedSummarizeLanguageChanged(AiTranslateLanguageOption? value)
+    {
+        if (!_isAiLanguageInitialized || value is null)
+            return;
+
+        _preferencesService.AiSummarizeLanguageCode = value.Code;
+    }
+
+    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        => await InitializeAsync(mode, parameters);
+
+    public async Task InitializeAsync(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedTo(mode, parameters);
+        var forceProfileRefresh = parameters is WinoAccountManagementActivationReason.CheckoutCompleted;
+        await LoadAsync(forceProfileRefresh: true, checkoutCompleted: forceProfileRefresh);
+    }
+
+    [RelayCommand]
+    private async Task RegisterAsync()
+    {
+        var account = await _dialogService.ShowWinoAccountRegistrationDialogAsync();
+        if (account == null)
+        {
+            return;
+        }
+
+        _dialogService.InfoBarMessage(Translator.GeneralTitle_Info,
+                                      string.Format(Translator.WinoAccount_RegisterSuccessMessage, account.Email),
+                                      InfoBarMessageType.Success);
+    }
+
+    [RelayCommand]
+    private async Task SignInAsync()
+    {
+        var account = await _dialogService.ShowWinoAccountLoginDialogAsync();
+        if (account == null)
+        {
+            return;
+        }
+
+        _dialogService.InfoBarMessage(Translator.GeneralTitle_Info,
+                                      string.Format(Translator.WinoAccount_LoginSuccessMessage, account.Email),
+                                      InfoBarMessageType.Success);
+    }
+
+    [RelayCommand]
+    private async Task SignOutAsync()
+    {
+        var account = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
+        if (account == null)
+        {
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Warning,
+                                          Translator.WinoAccount_SignOut_NoAccountMessage,
+                                          InfoBarMessageType.Warning);
+            return;
+        }
+
+        await _profileService.SignOutAsync().ConfigureAwait(false);
+
+        _dialogService.InfoBarMessage(Translator.GeneralTitle_Info,
+                                      string.Format(Translator.WinoAccount_SignOut_SuccessMessage, account.Email),
+                                      InfoBarMessageType.Success);
+    }
+
+    [RelayCommand]
+    private async Task ChangePasswordAsync()
+    {
+        var account = await _profileService.GetActiveAccountAsync();
+        if (account == null)
+        {
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Warning,
+                                          Translator.WinoAccount_SignOut_NoAccountMessage,
+                                          InfoBarMessageType.Warning);
+            return;
+        }
+
+        // Backups have their own password, so a new account password leaves them readable.
+        var shouldContinue = await _dialogService.ShowConfirmationDialogAsync(
+            string.Format(Translator.WinoAccount_ChangePassword_ConfirmationMessage, account.Email),
+            Translator.WinoAccount_ChangePassword_Title,
+            Translator.WinoAccount_ChangePassword_Action);
+
+        if (!shouldContinue)
+        {
+            return;
+        }
+
+        var response = await _profileService.ForgotPasswordAsync(account.Email);
+        if (!response.IsSuccess)
+        {
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
+                                          TranslateForgotPasswordError(response.ErrorCode),
+                                          InfoBarMessageType.Error);
+            return;
+        }
+
+        _dialogService.InfoBarMessage(Translator.GeneralTitle_Info,
+                                      string.Format(Translator.WinoAccount_ForgotPasswordDialog_SuccessMessage, account.Email),
+                                      InfoBarMessageType.Success);
+    }
+
+    private static string TranslateForgotPasswordError(string? errorCode)
+        => errorCode switch
+        {
+            ApiErrorCodes.EmailNotRegistered => Translator.WinoAccount_Error_EmailNotRegistered,
+            ApiErrorCodes.ValidationFailed => Translator.WinoAccount_Error_ValidationFailed,
+            _ when string.IsNullOrWhiteSpace(errorCode) => Translator.GeneralTitle_Error,
+            _ => errorCode!
+        };
+
+    [RelayCommand(CanExecute = nameof(CanPurchaseAddOn))]
+    private async Task PurchaseAddOnAsync(WinoAddOnItemViewModel? addOn)
+    {
+        if (addOn == null || !CanPurchaseAddOn(addOn))
+        {
+            return;
+        }
+
+        // Unlimited Accounts is still sold in the Microsoft Store, so the user picks the channel first.
+        if (addOn.ProductType == WinoAddOnProductType.UNLIMITED_ACCOUNTS &&
+            _platformCapabilities.MicrosoftStore && _storeService != null)
+        {
+            var channel = await _dialogService.ShowUnlimitedAccountsPurchaseChannelDialogAsync();
+
+            if (channel == UnlimitedAccountsPurchaseChannel.MicrosoftStore)
+            {
+                if (await UnlimitedAccountsStorePurchase.PurchaseAsync(_storeService, _dialogService, _logger, _platformCapabilities).ConfigureAwait(false))
+                {
+                    // A forced refresh offers the redeem card when a Wino Account is signed in.
+                    await LoadAsync(forceProfileRefresh: true).ConfigureAwait(false);
+                }
+
+                return;
+            }
+
+            if (channel != UnlimitedAccountsPurchaseChannel.WinoAccount)
+                return;
+        }
+
+        WinoAccount? authenticatedAccount;
+        try
+        {
+            authenticatedAccount = await _profileService.GetAuthenticatedAccountAsync().ConfigureAwait(false);
+        }
+        catch (WinoAccountApiException ex)
+        {
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
+                                          WinoAccountApiErrorTranslator.Translate(ex.ErrorCode),
+                                          InfoBarMessageType.Error);
+            return;
+        }
+
+        if (authenticatedAccount == null)
+        {
+            _dialogService.InfoBarMessage(
+                Translator.GeneralTitle_Warning,
+                Translator.WinoAccount_Management_CheckoutSignInRequired,
+                InfoBarMessageType.Warning);
+            return;
+        }
+
+        await ExecuteUIThread(() =>
+        {
+            IsCheckoutInProgress = true;
+            addOn.IsPurchaseInProgress = true;
+        });
+
+        try
+        {
+            if (!await _billingService.OpenCheckoutAsync(addOn.ProductType).ConfigureAwait(false))
+            {
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
+                                              Translator.WinoAccount_Management_PurchaseStartFailed,
+                                              InfoBarMessageType.Error);
+                return;
+            }
+
+            _dialogService.InfoBarMessage(
+                Translator.GeneralTitle_Info,
+                Translator.WinoAccount_Management_CheckoutOpened,
+                InfoBarMessageType.Information);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception)
+        {
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
+                                          Translator.WinoAccount_Management_PurchaseStartFailed,
+                                          InfoBarMessageType.Error);
+        }
+        finally
+        {
+            await ExecuteUIThread(() =>
+            {
+                IsCheckoutInProgress = false;
+                addOn.IsPurchaseInProgress = false;
+            });
+        }
+    }
+
+    private bool CanPurchaseAddOn(WinoAddOnItemViewModel? addOn)
+        => addOn != null && !addOn.IsPurchased && !addOn.IsLoading && !IsCheckoutInProgress;
+
+    [RelayCommand(CanExecute = nameof(CanRefreshPurchases))]
+    private Task RefreshPurchasesAsync() => LoadAsync(forceProfileRefresh: true);
+
+    private bool CanRefreshPurchases() => !IsBusy;
+
+    [RelayCommand(CanExecute = nameof(CanManageIntelligenceMailbox))]
+    private void ManageIntelligenceMailbox(WinoIntelligenceMailboxItemViewModel? mailbox)
+    {
+        if (!HasIntelligenceAccess || mailbox?.LocalAccountId is not Guid localAccountId)
+        {
+            return;
+        }
+
+        Messenger.Send(new BreadcrumbNavigationRequested(
+            Translator.SettingsManageAccountSettings_Title,
+            WinoPage.ManageAccountsPage));
+        Messenger.Send(new BreadcrumbNavigationRequested(
+            mailbox.Address,
+            WinoPage.AccountDetailsPage,
+            localAccountId));
+        Messenger.Send(new BreadcrumbNavigationRequested(
+            Translator.SemanticIndex_PageTitle,
+            WinoPage.WinoIntelligenceManagementPage,
+            localAccountId));
+    }
+
+    private static bool CanManageIntelligenceMailbox(WinoIntelligenceMailboxItemViewModel? mailbox)
+        => mailbox?.CanManage == true;
+
+    [RelayCommand]
+    private void OpenIntelligenceManagement()
+    {
+        if (HasIntelligenceAccess)
+            Messenger.Send(new SettingsRootNavigationRequested(WinoPage.WinoIntelligencePage));
+    }
+
+    /// <summary>
+    /// Wino Account backups live on the Backup and restore page, next to the backup file.
+    /// </summary>
+    [RelayCommand]
+    private void OpenBackupRestore()
+        => Messenger.Send(new SettingsRootNavigationRequested(WinoPage.BackupRestorePage));
+
+    public async Task<bool> SetIntelligenceConsentAsync(bool granted, string? expectedPolicyVersion = null)
+    {
+        if (granted && !HasIntelligenceAccess)
+            return false;
+
+        await ExecuteUIThread(() =>
+        {
+            IsConsentBusy = true;
+            ConsentErrorMessage = string.Empty;
+        });
+
+        try
+        {
+            var policyVersionToAccept = _intelligencePolicyVersion;
+            if (granted)
+            {
+                var currentConsent = await _apiClient.GetIntelligenceConsentAsync().ConfigureAwait(false);
+                if (string.IsNullOrWhiteSpace(currentConsent.CurrentPolicyVersion))
+                    throw new InvalidOperationException(ApiErrorCodes.ValidationFailed);
+
+                await ExecuteUIThread(() => ApplyIntelligenceConsent(currentConsent));
+                if (expectedPolicyVersion is not null &&
+                    !string.Equals(expectedPolicyVersion, currentConsent.CurrentPolicyVersion, StringComparison.Ordinal))
+                {
+                    await ExecuteUIThread(() => ConsentErrorMessage = Translator.MacOSMail_ConsentPolicyChanged);
+                    return false;
+                }
+                policyVersionToAccept = currentConsent.CurrentPolicyVersion;
+            }
+
+            var consent = granted
+                ? await _apiClient.AcceptIntelligenceConsentAsync(
+                    policyVersionToAccept,
+                    ConsentActionSources.ConsentPage).ConfigureAwait(false)
+                : await _apiClient.RevokeIntelligenceConsentAsync(
+                    ConsentActionSources.ConsentPage).ConfigureAwait(false);
+
+            if (!granted)
+                await DisableAndClearAllLocalIntelligenceAsync().ConfigureAwait(false);
+
+            await ExecuteUIThread(() => ApplyIntelligenceConsent(consent));
+            await LoadIntelligenceDataAsync().ConfigureAwait(false);
+            WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
+            return IsCurrentIntelligenceConsent(consent);
+        }
+        catch (Exception exception)
+        {
+            await ExecuteUIThread(() =>
+                ConsentErrorMessage = WinoAccountApiErrorTranslator.Translate(exception.Message));
+            return IsConsentGranted;
+        }
+        finally
+        {
+            await ExecuteUIThread(() => IsConsentBusy = false);
+        }
+    }
+
+    /// <summary>
+    /// Mailbox pages read consent from the cached snapshot. Without this they keep the
+    /// pre-change consent and refuse to enable a mailbox until the next server refresh.
+    /// </summary>
+    private async Task CacheIntelligenceConsentAsync(IntelligenceConsentDto consent)
+    {
+        if (_snapshotService is null)
+            return;
+
+        var account = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
+        if (account is null)
+            return;
+
+        var cached = await _snapshotService.GetCachedAsync(account.Id).ConfigureAwait(false)
+            ?? WinoAccountIntelligenceSnapshot.Empty(account.Id);
+        await _snapshotService.SaveAsync(cached with
+        {
+            Consent = consent,
+            ConsentUpdatedAtUtc = DateTimeOffset.UtcNow
+        }).ConfigureAwait(false);
+    }
+
+    private async Task DisableAndClearAllLocalIntelligenceAsync()
+    {
+        foreach (var account in await _accountService.GetAccountsAsync().ConfigureAwait(false) ?? [])
+        {
+            await _semanticIndexCoordinator.DeleteLocalIntelligenceAsync(account.Id).ConfigureAwait(false);
+            if (!account.Preferences.IsSemanticIndexingEnabled)
+                continue;
+
+            account.Preferences.IsSemanticIndexingEnabled = false;
+            await _accountService.UpdateAccountAsync(account).ConfigureAwait(false);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanDeleteIntelligence))]
+    private async Task DeleteIntelligenceAsync(WinoIntelligenceMailboxItemViewModel? mailbox)
+    {
+        if (mailbox == null || !await _dialogService.ShowConfirmationDialogAsync(
+                string.Format(Translator.WinoAccount_Management_IntelligenceDeleteConfirmation, mailbox.Address),
+                Translator.WinoAccount_Management_IntelligenceDeleteTitle,
+                Translator.Buttons_Delete))
+        {
+            return;
+        }
+
+        await ExecuteUIThread(() =>
+        {
+            mailbox.IsDeleting = true;
+            DeleteIntelligenceCommand.NotifyCanExecuteChanged();
+        });
+
+        try
+        {
+            if (mailbox.LocalAccountId is Guid localAccountId)
+            {
+                // Results are device-local, so deleting them is a local operation. Any
+                // outstanding server job is cancelled with it.
+                await _semanticIndexCoordinator.CancelAsync(localAccountId).ConfigureAwait(false);
+                await _semanticIndexCoordinator.DeleteLocalIntelligenceAsync(localAccountId).ConfigureAwait(false);
+                var account = await _accountService.GetAccountAsync(localAccountId).ConfigureAwait(false);
+                if (account != null)
+                {
+                    account.Preferences.IsSemanticIndexingEnabled = false;
+                    await _accountService.UpdateAccountAsync(account).ConfigureAwait(false);
+                }
+            }
+
+            await LoadIntelligenceDataAsync().ConfigureAwait(false);
+            WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
+        }
+        catch (Exception exception)
+        {
+            _dialogService.InfoBarMessage(
+                Translator.GeneralTitle_Error,
+                WinoAccountApiErrorTranslator.Translate(exception.Message),
+                InfoBarMessageType.Error);
+        }
+        finally
+        {
+            await ExecuteUIThread(() =>
+            {
+                mailbox.IsDeleting = false;
+                DeleteIntelligenceCommand.NotifyCanExecuteChanged();
+            });
+        }
+    }
+
+    private bool CanDeleteIntelligence(WinoIntelligenceMailboxItemViewModel? mailbox)
+        => mailbox?.HasServerIntelligence == true && !mailbox.IsDeleting && !IsBusy;
+
+    [RelayCommand]
+    private async Task ToggleIntelligenceMailboxAsync(WinoIntelligenceMailboxItemViewModel? mailbox)
+    {
+        if (mailbox?.LocalAccountId is not Guid localAccountId || mailbox.IsChangingEnabled)
+            return;
+
+        var requested = !mailbox.IsEnabled;
+        if (requested && !HasIntelligenceAccess)
+            return;
+        await ExecuteUIThread(() => mailbox.IsChangingEnabled = true);
+        try
+        {
+            var account = await _accountService.GetAccountAsync(localAccountId).ConfigureAwait(false);
+            if (account == null)
+                return;
+
+            if (!requested)
+            {
+                await _semanticIndexCoordinator.CancelAsync(localAccountId).ConfigureAwait(false);
+                await _semanticIndexCoordinator.DeleteLocalIntelligenceAsync(localAccountId).ConfigureAwait(false);
+            }
+
+            account.Preferences.IsSemanticIndexingEnabled = requested;
+            await _accountService.UpdateAccountAsync(account).ConfigureAwait(false);
+            await ExecuteUIThread(() => mailbox.IsEnabled = requested);
+            WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
+        }
+        catch (Exception exception)
+        {
+            await ExecuteUIThread(() =>
+            {
+                // The CheckBox is intentionally one-way bound. Pulse the value so a failed
+                // server enable immediately restores the authoritative preference on screen.
+                mailbox.IsEnabled = requested;
+                mailbox.IsEnabled = !requested;
+            });
+            _dialogService.InfoBarMessage(
+                Translator.GeneralTitle_Error,
+                WinoAccountApiErrorTranslator.Translate(exception.Message),
+                InfoBarMessageType.Error);
+        }
+        finally
+        {
+            await ExecuteUIThread(() => mailbox.IsChangingEnabled = false);
+        }
+    }
+
+    protected override void RegisterRecipients()
+    {
+        lock (_acceptedWorkGate) _acceptMessageWork = true;
+        base.RegisterRecipients();
+
+        Messenger.Register<WinoAccountProfileUpdatedMessage>(this);
+        Messenger.Register<WinoAccountProfileDeletedMessage>(this);
+        Messenger.Register<WinoIntelligenceAccessChanged>(this);
+        Messenger.Register<WinoIntelligenceEntitlementChanged>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        lock (_acceptedWorkGate) _acceptMessageWork = false;
+        base.UnregisterRecipients();
+
+        Messenger.Unregister<WinoAccountProfileUpdatedMessage>(this);
+        Messenger.Unregister<WinoAccountProfileDeletedMessage>(this);
+        Messenger.Unregister<WinoIntelligenceAccessChanged>(this);
+        Messenger.Unregister<WinoIntelligenceEntitlementChanged>(this);
+    }
+
+    public void Receive(WinoAccountProfileUpdatedMessage message)
+        => TrackAcceptedWork(() => LoadAsync(forceProfileRefresh: false, waitForLoad: true));
+
+    public void Receive(WinoAccountProfileDeletedMessage message)
+        => TrackAcceptedWork(() => LoadAsync(forceProfileRefresh: false, waitForLoad: true));
+
+    public void Receive(WinoIntelligenceAccessChanged message)
+        => TrackAcceptedWork(ApplyCachedAccessChangeAsync);
+
+    public void Receive(WinoIntelligenceEntitlementChanged message)
+        => TrackAcceptedWork(() => ExecuteUIThread(() => ApplyEntitlement(message.Entitlement)));
+
+    private async Task ApplyCachedAccessChangeAsync()
+    {
+        if (_snapshotService is null || _loadLock.CurrentCount == 0) return;
+
+        try
+        {
+            var session = _sessions is null ? null : await _sessions.CaptureAsync().ConfigureAwait(false);
+            var account = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
+            if (account is null) return;
+
+            var snapshot = await _snapshotService.GetCachedAsync(account.Id).ConfigureAwait(false);
+            if (snapshot is not null)
+                await ApplyAccountIntelligenceSnapshotAsync(snapshot, null, session).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception) { /* Explicit refresh owns the recoverable error UI. */ }
+    }
+
+    private async Task LoadAsync(bool forceProfileRefresh = true, bool checkoutCompleted = false, bool waitForLoad = false)
+    {
+        if (forceProfileRefresh || waitForLoad)
+            await _loadLock.WaitAsync().ConfigureAwait(false);
+        else if (!await _loadLock.WaitAsync(0).ConfigureAwait(false))
+            return;
+        WinoAccount? cachedAccount = null;
+        WinoAccountSession? session = null;
+
+        try
+        {
+            session = _sessions is null ? null : await _sessions.CaptureAsync().ConfigureAwait(false);
+            cachedAccount = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
+
+            if (cachedAccount != null)
+            {
+                await ApplyAccountStateAsync(cachedAccount, session).ConfigureAwait(false);
+            }
+
+            if (cachedAccount is null)
+            {
+                await ResetStateAsync().ConfigureAwait(false);
+                return;
+            }
+
+            if (_snapshotService is null)
+            {
+                await ExecuteUIThread(() => IsBusy = true);
+                await ResetAddOnStatesAsync().ConfigureAwait(false);
+                await ResetIntelligenceDataAsync().ConfigureAwait(false);
+                var resolvedAccount = cachedAccount;
+                try
+                {
+                    var authenticatedAccount = await _profileService.GetAuthenticatedAccountAsync().ConfigureAwait(false);
+                    if (authenticatedAccount is not null)
+                    {
+                        resolvedAccount = authenticatedAccount;
+                        if (forceProfileRefresh || IsAccessTokenExpired(cachedAccount))
+                        {
+                            var refreshed = await _profileService.RefreshProfileAsync().ConfigureAwait(false);
+                            if (refreshed.IsSuccess && refreshed.Account is not null) resolvedAccount = refreshed.Account;
+                        }
+                    }
+                }
+                catch { }
+                await ApplyAccountStateAsync(resolvedAccount, session).ConfigureAwait(false);
+                await LoadAddOnsAsync(resolvedAccount).ConfigureAwait(false);
+                await RefreshStoreRedeemCandidateAsync(session).ConfigureAwait(false);
+                return;
+            }
+
+            var cachedSnapshot = await _snapshotService.GetCachedAsync(cachedAccount.Id).ConfigureAwait(false);
+            if (cachedSnapshot?.HasData == true)
+                await ApplyAccountIntelligenceSnapshotAsync(cachedSnapshot, null, session).ConfigureAwait(false);
+            else
+                await ExecuteUIThread(() => IsBusy = true);
+
+            await RefreshAccountIntelligenceSnapshotAsync(forceProfileRefresh, checkoutCompleted, session).ConfigureAwait(false);
+            await RefreshStoreRedeemCandidateAsync(session).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            if (cachedAccount == null)
+            {
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
+                                              Translator.WinoAccount_Management_LoadFailed,
+                                              InfoBarMessageType.Error);
+                await ResetStateAsync().ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            await ExecuteUIThread(() => IsBusy = false);
+            _loadLock.Release();
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanRefreshPurchases))]
+    private Task RetryIntelligenceRefreshAsync() => LoadAsync(forceProfileRefresh: true);
+
+    private async Task RefreshAccountIntelligenceSnapshotAsync(bool forceProfileRefresh, bool checkoutCompleted = false, WinoAccountSession? session = null)
+    {
+        if (_snapshotService is null) return;
+        await ApplySessionUIAsync(session, () =>
+        {
+            IsIntelligenceRefreshing = true;
+            IsBusy = true;
+            IntelligenceRefreshError = string.Empty;
+            PurchaseStatusMessage = string.Empty;
+        });
+        try
+        {
+            if (forceProfileRefresh && _purchaseReconciliation is not null)
+            {
+                var purchase = await _purchaseReconciliation.RefreshAsync(checkoutCompleted, session?.CancellationToken ?? default).ConfigureAwait(false);
+                if (purchase.Outcome == WinoPurchaseRefreshOutcome.SignInRequired)
+                {
+                    await ResetStateAsync().ConfigureAwait(false);
+                    return;
+                }
+
+                if (purchase.Account is not null)
+                    await ApplyAccountStateAsync(purchase.Account, session).ConfigureAwait(false);
+                if (purchase.Snapshot is not null)
+                    await ApplyAccountIntelligenceSnapshotAsync(purchase.Snapshot, null, session).ConfigureAwait(false);
+
+                await ApplySessionUIAsync(session, () =>
+                {
+                    PurchaseStatusMessage = purchase.Outcome == WinoPurchaseRefreshOutcome.Pending ? Translator.WinoAccount_PurchasePending : string.Empty;
+                    IntelligenceRefreshError = purchase.Outcome == WinoPurchaseRefreshOutcome.Failed ? Translator.WinoAccount_PurchaseRefreshFailed : string.Empty;
+                });
+                if (purchase.Outcome != WinoPurchaseRefreshOutcome.Refreshed) return;
+            }
+            else if (forceProfileRefresh)
+            {
+                var profile = await _profileService.RefreshProfileAsync().ConfigureAwait(false);
+                if (!profile.IsSuccess)
+                {
+                    await ApplySessionUIAsync(session, () => IntelligenceRefreshError = Translator.WinoAccount_PurchaseRefreshFailed);
+                    return;
+                }
+            }
+            var result = await _snapshotService.RefreshAsync(session?.CancellationToken ?? default).ConfigureAwait(false);
+            if (result is not null)
+                await ApplyAccountIntelligenceSnapshotAsync(result.Snapshot, result.Error, session).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (session?.CancellationToken.IsCancellationRequested == true) { }
+        catch (Exception exception)
+        {
+            _logger?.CaptureException(exception, nameof(RefreshAccountIntelligenceSnapshotAsync));
+            await ApplySessionUIAsync(session, () => IntelligenceRefreshError = Translator.WinoAccount_PurchaseRefreshFailed);
+        }
+        finally
+        {
+            await ExecuteUIThread(() =>
+            {
+                IsBusy = false;
+                IsIntelligenceRefreshing = false;
+            });
+        }
+    }
+
+    /// <summary>
+    /// Looks for a Store purchase to redeem after the profile is known. The service returns nothing
+    /// when signed out, when the account already has the add-on, or when the user hid the card.
+    /// </summary>
+    private async Task RefreshStoreRedeemCandidateAsync(WinoAccountSession? session)
+    {
+        if (!_platformCapabilities.MicrosoftStore || _storeRedeemService is null)
+            return;
+
+        WinoStoreRedeemCandidate? candidate = null;
+        try
+        {
+            candidate = await _storeRedeemService.GetRedeemCandidateAsync(session?.CancellationToken ?? default).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { return; }
+        catch (Exception exception)
+        {
+            _logger?.CaptureException(exception, nameof(RefreshStoreRedeemCandidateAsync));
+        }
+
+        await ApplySessionUIAsync(session, () =>
+        {
+            _storeRedeemCandidate = candidate;
+            ShowStoreRedeemCard = IsSignedIn && candidate is not null;
+        });
+    }
+
+    private bool CanRedeemStorePurchase()
+        => _platformCapabilities.MicrosoftStore && ShowStoreRedeemCard && !IsStoreRedeemInProgress;
+
+    [RelayCommand(CanExecute = nameof(CanRedeemStorePurchase))]
+    private async Task RedeemStorePurchaseAsync()
+    {
+        var candidate = _storeRedeemCandidate;
+        if (!_platformCapabilities.MicrosoftStore || _storeRedeemService is null || candidate is null)
+            return;
+
+        await ExecuteUIThread(() => IsStoreRedeemInProgress = true);
+
+        var outcome = WinoStorePurchaseRedeemOutcome.Failed;
+        try
+        {
+            outcome = await _storeRedeemService.RedeemUnlimitedAccountsAsync(candidate).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            _logger?.CaptureException(exception, nameof(RedeemStorePurchaseAsync));
+        }
+        finally
+        {
+            await ExecuteUIThread(() => IsStoreRedeemInProgress = false);
+        }
+
+        // Only a failure keeps the card, so the user can try again.
+        if (outcome != WinoStorePurchaseRedeemOutcome.Failed)
+        {
+            await ExecuteUIThread(() =>
+            {
+                _storeRedeemCandidate = null;
+                ShowStoreRedeemCard = false;
+            });
+        }
+
+        ReportStorePurchaseRedeem(outcome);
+
+        if (outcome == WinoStorePurchaseRedeemOutcome.Redeemed)
+            await LoadAsync(forceProfileRefresh: true).ConfigureAwait(false);
+    }
+
+    private void ReportStorePurchaseRedeem(WinoStorePurchaseRedeemOutcome outcome)
+    {
+        if (outcome == WinoStorePurchaseRedeemOutcome.Redeemed)
+        {
+            _dialogService.InfoBarMessage(Translator.Info_PurchaseThankYouTitle,
+                                          Translator.WinoAccount_StorePurchaseLinked,
+                                          InfoBarMessageType.Success);
+        }
+        else if (outcome == WinoStorePurchaseRedeemOutcome.AlreadyLinked)
+        {
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Warning,
+                                          Translator.WinoAccount_StorePurchaseAlreadyLinked,
+                                          InfoBarMessageType.Warning);
+        }
+        else if (outcome == WinoStorePurchaseRedeemOutcome.Failed)
+        {
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
+                                          Translator.WinoAccount_StorePurchaseRedeemFailed,
+                                          InfoBarMessageType.Error);
+        }
+    }
+
+    private async Task ApplyAccountIntelligenceSnapshotAsync(WinoAccountIntelligenceSnapshot snapshot, string? refreshError, WinoAccountSession? session = null)
+    {
+        var localAccounts = await _accountService.GetAccountsAsync().ConfigureAwait(false) ?? [];
+        var aiPack = snapshot.Billing?.AiPack;
+        var usage = snapshot.Usage;
+        var hasUnlimitedAccounts = snapshot.Billing?.IsUnlimitedAccountsEnabled == true ||
+            await _billingService.HasUnlimitedAccountsAsync().ConfigureAwait(false);
+        var processedCounts = await LoadProcessedMessageCountsAsync(localAccounts).ConfigureAwait(false);
+        await ApplySessionUIAsync(session, () =>
+        {
+            _unlimitedAccountsAddOn.IsPurchased = hasUnlimitedAccounts;
+            _unlimitedAccountsAddOn.IsLoading = false;
+            ApplyAccountUsage(localAccounts.Count, hasUnlimitedAccounts);
+            var entitlement = ResolveEntitlement(snapshot);
+            _aiPackAddOn.IsPurchased = entitlement.CanAccessSurfaces;
+            _aiPackAddOn.IsLoading = false;
+            _aiPackAddOn.ErrorText = string.Empty;
+            _aiPackAddOn.RenewalText = aiPack?.RenewsAtUtc is DateTimeOffset renewal ? string.Format(Translator.WinoAccount_Management_AiPackRenews, renewal.LocalDateTime) : string.Empty;
+            HasIntelligenceAccess = entitlement.CanAccessSurfaces;
+            ApplyAiPackBillingTexts(aiPack);
+            if (snapshot.Consent is not null) ApplyIntelligenceConsent(snapshot.Consent);
+            var mailboxItems = localAccounts.Select(account => CreateLocalIntelligenceMailboxItem(account, processedCounts)).ToArray();
+            IntelligenceMailboxes.Clear();
+            foreach (var item in mailboxItems.OrderBy(item => item.Address, StringComparer.OrdinalIgnoreCase))
+            {
+                IntelligenceMailboxes.Add(item);
+            }
+            ApplyIntelligenceUsage(usage);
+            IntelligenceResetText = usage?.ResetsAtUtc is DateTimeOffset reset ? string.Format(Translator.WinoAccount_Management_IntelligenceResets, reset.LocalDateTime) : string.Empty;
+            IntelligenceMailboxesSummary = DescribeBriefingMailboxes(mailboxItems);
+            IntelligenceLastUpdatedText = snapshot.LastSuccessfulRefreshUtc is DateTimeOffset updated ? updated.LocalDateTime.ToString("g") : string.Empty;
+            IntelligenceRefreshError = string.IsNullOrWhiteSpace(refreshError) ? string.Empty : string.Format(
+                Translator.WinoIntelligence_CachedRefreshFailed,
+                string.IsNullOrWhiteSpace(IntelligenceLastUpdatedText) ? Translator.GeneralTitle_Info : IntelligenceLastUpdatedText);
+            ApplySubtitleTexts();
+            PurchaseAddOnCommand.NotifyCanExecuteChanged();
+        });
+    }
+
+    private async Task ApplyAccountStateAsync(Wino.Core.Domain.Entities.Shared.WinoAccount? account, WinoAccountSession? session = null)
+    {
+        await ApplySessionUIAsync(session, () =>
+        {
+            IsSignedIn = account != null;
+            AccountEmail = account?.Email ?? string.Empty;
+            ApplyProfileEditor(account, session);
+        });
+        if (account is not null)
+        {
+            var avatarPath = await _profileService.GetAvatarPathAsync(account.Id, account.AvatarRevision).ConfigureAwait(false);
+            await ApplySessionUIAsync(session, () =>
+            {
+                if (_profileAccountId == account.Id && _avatarRevision == account.AvatarRevision)
+                    AccountAvatarPath = avatarPath;
+            });
+        }
+    }
+
+    private Task ApplySessionUIAsync(WinoAccountSession? session, Action action)
+        => _sessions is null ? ExecuteUIThread(action)
+            : session is null ? Task.CompletedTask
+            : _sessions.CommitAsync(session, () => ExecuteUIThread(action));
+
+    private async Task ResetStateAsync()
+    {
+        await ExecuteUIThread(() =>
+        {
+            IsSignedIn = false;
+            PurchaseStatusMessage = string.Empty;
+            AccountEmail = string.Empty;
+            ApplyProfileEditor(null);
+            IsCheckoutInProgress = false;
+            _storeRedeemCandidate = null;
+            ShowStoreRedeemCard = false;
+            PurchaseAddOnCommand.NotifyCanExecuteChanged();
+        });
+
+        await ResetAddOnStatesAsync().ConfigureAwait(false);
+        await ResetIntelligenceDataAsync().ConfigureAwait(false);
+    }
+
+    private WinoAddOnItemViewModel CreateAddOnItem(WinoAddOnProductType productType)
+    {
+        return new WinoAddOnItemViewModel(productType)
+        {
+            PurchaseCommand = PurchaseAddOnCommand,
+            RenewalText = string.Empty
+        };
+    }
+
+    private async Task ResetAddOnStatesAsync()
+    {
+        await ExecuteUIThread(() =>
+        {
+            ResetAddOnItem(_aiPackAddOn);
+            ResetAddOnItem(_unlimitedAccountsAddOn);
+            AiPackBillingPeriodText = string.Empty;
+            AiPackRenewalOrCancellationText = string.Empty;
+            ApplySubtitleTexts();
+            PurchaseAddOnCommand.NotifyCanExecuteChanged();
+        });
+    }
+
+    private void ApplyAccountUsage(int mailAccountCount, bool hasUnlimitedAccounts)
+    {
+        AccountUsageText = hasUnlimitedAccounts
+            ? string.Format(Translator.WinoAccount_Management_AccountUsageUnlimited, mailAccountCount)
+            : string.Format(Translator.WinoAccount_Management_AccountUsage, mailAccountCount, Constants.FreeAccountLimit);
+
+        // A full meter reads as "no headroom left", which is exactly wrong once the limit is lifted.
+        AccountUsagePercentage = hasUnlimitedAccounts
+            ? 0
+            : Math.Min(100d, mailAccountCount * 100d / Constants.FreeAccountLimit);
+    }
+
+    private void ApplyAiPackBillingTexts(AiPackBillingStatusDto? aiPack)
+    {
+        AiPackBillingPeriodText = aiPack?.CurrentPeriodStartUtc is DateTimeOffset periodStart &&
+                                  aiPack.CurrentPeriodEndUtc is DateTimeOffset periodEnd
+            ? string.Format(Translator.WinoAccount_Management_AiPackBillingPeriodValue,
+                            periodStart.LocalDateTime,
+                            periodEnd.LocalDateTime)
+            : string.Empty;
+
+        if (aiPack?.CancelAtPeriodEnd == true && aiPack.CurrentPeriodEndUtc is DateTimeOffset cancelsAt)
+        {
+            AiPackRenewalOrCancellationText = string.Format(
+                Translator.WinoAccount_Management_AiPackCancels,
+                cancelsAt.LocalDateTime);
+        }
+        else
+        {
+            AiPackRenewalOrCancellationText = _aiPackAddOn.RenewalText;
+        }
+    }
+
+    private void ApplySubtitleTexts()
+    {
+        // Price is deliberately absent everywhere in the app. Stripe Checkout is the only
+        // place that can state it correctly for the customer's currency and locale.
+        AiPackSubtitleText = _aiPackAddOn.IsPurchased
+            ? Translator.WinoAccount_Management_AiPackOwnedSubtitle
+            : Translator.WinoAccount_Management_AiPackUnownedSubtitle;
+
+        UnlimitedAccountsSubtitleText = _unlimitedAccountsAddOn.IsPurchased
+            ? Translator.WinoAccount_Management_UnlimitedOwnedSubtitle
+            : string.Format(Translator.WinoAccount_Management_UnlimitedUnownedSubtitle, Constants.FreeAccountLimit);
+    }
+
+    private static void ResetAddOnItem(WinoAddOnItemViewModel addOn)
+    {
+        addOn.IsLoading = true;
+        addOn.IsPurchased = false;
+        addOn.IsPurchaseInProgress = false;
+        addOn.ErrorText = string.Empty;
+        addOn.RenewalText = string.Empty;
+    }
+
+    private static bool IsAccessTokenExpired(WinoAccount account)
+        => string.IsNullOrWhiteSpace(account.AccessToken) || account.AccessTokenExpiresAtUtc <= DateTime.UtcNow;
+
+    private async Task LoadAddOnsAsync(WinoAccount? account)
+    {
+        ApiEnvelope<BillingStatusResultDto>? response = null;
+        var hasIntelligenceAccess = false;
+        try
+        {
+            if (account != null)
+            {
+                response = await _billingService.GetStatusAsync().ConfigureAwait(false);
+            }
+
+            var hasUnlimitedAccounts = await _billingService.HasUnlimitedAccountsAsync().ConfigureAwait(false) ||
+                                       response?.Result?.IsUnlimitedAccountsEnabled == true;
+            var mailAccountCount = (await _accountService.GetAccountsAsync().ConfigureAwait(false))?.Count ?? 0;
+
+            await ExecuteUIThread(() =>
+            {
+                _unlimitedAccountsAddOn.IsPurchased = hasUnlimitedAccounts;
+                _unlimitedAccountsAddOn.ErrorText = string.Empty;
+                _unlimitedAccountsAddOn.IsLoading = false;
+
+                ApplyAccountUsage(mailAccountCount, hasUnlimitedAccounts);
+
+                var aiPack = response?.Result?.AiPack;
+                var entitlement = account is not null && response?.IsSuccess == true && response.Result is not null
+                    ? WinoIntelligenceEntitlementSnapshot.Evaluate(
+                        account.Id,
+                        response.Result,
+                        usage: null,
+                        DateTimeOffset.UtcNow,
+                        isFreshBilling: true)
+                    : WinoIntelligenceEntitlementSnapshot.SignedOut(DateTimeOffset.UtcNow);
+                _aiPackAddOn.IsPurchased = entitlement.CanAccessSurfaces;
+                hasIntelligenceAccess = _aiPackAddOn.IsPurchased;
+                HasIntelligenceAccess = hasIntelligenceAccess;
+                _aiPackAddOn.ErrorText = account != null && (response == null || !response.IsSuccess || response.Result == null)
+                    ? Translator.WinoAccount_Management_AddOnLoadFailed
+                    : string.Empty;
+                _aiPackAddOn.RenewalText = aiPack?.RenewsAtUtc is DateTimeOffset renewalDateUtc
+                    ? string.Format(Translator.WinoAccount_Management_AiPackRenews, renewalDateUtc.LocalDateTime)
+                    : string.Empty;
+                _aiPackAddOn.IsLoading = false;
+
+                ApplyAiPackBillingTexts(aiPack);
+                ApplySubtitleTexts();
+                PurchaseAddOnCommand.NotifyCanExecuteChanged();
+            });
+
+            if (account is not null && response?.IsSuccess == true && response.Result is not null)
+            {
+                Messenger.Send(new WinoIntelligenceEntitlementChanged(
+                    WinoIntelligenceEntitlementSnapshot.Evaluate(
+                        account.Id,
+                        response.Result,
+                        usage: null,
+                        DateTimeOffset.UtcNow,
+                        isFreshBilling: true)));
+                WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
+            }
+
+            if (account != null)
+            {
+                await LoadIntelligenceDataAsync().ConfigureAwait(false);
+            }
+            else
+            {
+                await ResetIntelligenceDataAsync().ConfigureAwait(false);
+            }
+        }
+        catch (Exception)
+        {
+            await ExecuteUIThread(() =>
+            {
+                _aiPackAddOn.ErrorText = Translator.WinoAccount_Management_AddOnLoadFailed;
+                _unlimitedAccountsAddOn.ErrorText = Translator.WinoAccount_Management_AddOnLoadFailed;
+            });
+        }
+        finally
+        {
+            await ExecuteUIThread(() =>
+            {
+                _aiPackAddOn.IsLoading = false;
+                _unlimitedAccountsAddOn.IsLoading = false;
+                PurchaseAddOnCommand.NotifyCanExecuteChanged();
+            });
+        }
+    }
+
+    private async Task LoadIntelligenceDataAsync()
+    {
+        IntelligenceConsentDto? consent = null;
+        var consentError = string.Empty;
+        try
+        {
+            consent = await _apiClient.GetIntelligenceConsentAsync().ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            consentError = WinoAccountApiErrorTranslator.Translate(exception.Message);
+        }
+
+        if (consent != null)
+            await ExecuteUIThread(() => ApplyIntelligenceConsent(consent));
+
+        ApiEnvelope<AiUsageStatusDto>? usageResponse = null;
+        try
+        {
+            usageResponse = await _apiClient.GetAiUsageAsync().ConfigureAwait(false);
+        }
+        catch
+        {
+            // Mailbox intelligence remains useful when only the period-usage endpoint is unavailable.
+        }
+
+        var localAccounts = await _accountService.GetAccountsAsync().ConfigureAwait(false) ?? [];
+        // Intelligence is device-local, so the list comes from the accounts on this device
+        // rather than from a server mailbox registry.
+        var mailboxError = string.Empty;
+        var processedCounts = await LoadProcessedMessageCountsAsync(localAccounts).ConfigureAwait(false);
+        var mailboxItems = localAccounts.Select(account => CreateLocalIntelligenceMailboxItem(account, processedCounts)).ToArray();
+
+        var usage = usageResponse?.IsSuccess == true ? usageResponse.Result : null;
+        await ExecuteUIThread(() =>
+        {
+            IntelligenceMailboxes.Clear();
+            foreach (var item in mailboxItems.OrderBy(item => item.Address, StringComparer.OrdinalIgnoreCase))
+            {
+                IntelligenceMailboxes.Add(item);
+            }
+
+            ApplyIntelligenceUsage(usage);
+            IntelligenceResetText = usage?.ResetsAtUtc is DateTimeOffset resetsAtUtc
+                ? string.Format(Translator.WinoAccount_Management_IntelligenceResets, resetsAtUtc.LocalDateTime)
+                : string.Empty;
+            IntelligenceMailboxesSummary = DescribeBriefingMailboxes(mailboxItems);
+            IntelligenceDataError = mailboxError;
+            if (consent != null)
+                ApplyIntelligenceConsent(consent);
+            else
+            {
+                IsConsentGranted = false;
+                IntelligenceConsentStatusText = Translator.WinoAccount_IntelligenceConsentNotGranted;
+            }
+            ConsentErrorMessage = consentError;
+        });
+    }
+
+    /// <summary>
+    /// Reads each account's processed-message count from the device's intelligence database,
+    /// the same number the per-mailbox management page shows. The item summaries bind OneTime,
+    /// so the counts must be known before the items are created.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<Guid, int>> LoadProcessedMessageCountsAsync(
+        IReadOnlyCollection<Wino.Core.Domain.Entities.Shared.MailAccount> accounts)
+    {
+        var counts = new Dictionary<Guid, int>();
+        foreach (var account in accounts)
+        {
+            try
+            {
+                var state = await _semanticIndexCoordinator.GetStateAsync(account.Id).ConfigureAwait(false);
+                counts[account.Id] = state?.ProcessedMessageCount ?? 0;
+            }
+            catch (Exception exception)
+            {
+                // One unreadable mailbox must not blank the whole list.
+                _logger?.CaptureException(exception, nameof(LoadProcessedMessageCountsAsync));
+            }
+        }
+
+        return counts;
+    }
+
+    private static string DescribeLocalIntelligence(int processedMessageCount)
+        => processedMessageCount > 0
+            ? string.Format(Translator.SemanticIndex_IndexedCount, processedMessageCount)
+            : Translator.WinoAccount_Management_NoIntelligenceData;
+
+    private IntelligenceMailboxData CreateLocalIntelligenceMailboxItem(
+        Wino.Core.Domain.Entities.Shared.MailAccount account,
+        IReadOnlyDictionary<Guid, int> processedCounts)
+        => new()
+        {
+            MailboxId = account.Id,
+            Address = account.Address,
+            ProviderType = account.ProviderType,
+            SpecialProvider = account.SpecialImapProvider,
+            LocalAccountId = account.Id,
+            Account = account,
+            HasServerIntelligence = false,
+            IsEnabled = account.Preferences?.IsSemanticIndexingEnabled == true,
+            CanToggle = account.Preferences?.IsSemanticIndexingEnabled == true ||
+                        HasIntelligenceAccess && IsConsentGranted,
+            StorageSizeBytes = 0,
+            IntelligenceSummary = DescribeLocalIntelligence(processedCounts.GetValueOrDefault(account.Id)),
+            ManageCommand = ManageIntelligenceMailboxCommand,
+            DeleteCommand = DeleteIntelligenceCommand,
+            ToggleEnabledCommand = ToggleIntelligenceMailboxCommand,
+        };
+
+    /// <summary>
+    /// Renders one usage response: every monthly bucket, with the intelligence bucket as the headline.
+    /// </summary>
+    private void ApplyIntelligenceUsage(AiUsageStatusDto? usage)
+    {
+        var items = IntelligenceUsage.Describe(usage);
+
+        IntelligenceUsageItems.Clear();
+        foreach (var item in items)
+        {
+            IntelligenceUsageItems.Add(item);
+        }
+
+        IsIntelligenceUsageAvailable = items.Count > 0;
+
+        var headline = IntelligenceUsage.Headline(usage);
+        IntelligenceUsagePercentage = headline?.Percentage ?? 0;
+        IntelligenceIncludedText = headline is null
+            ? string.Empty
+            : string.Format(Translator.WinoAccount_Management_IncludedMessagesValue, headline.Limit);
+        IntelligenceUsageSummary = headline is null
+            ? Translator.WinoAccount_Management_IntelligenceUsageUnavailable
+            : string.Format(
+                Translator.WinoAccount_Management_IntelligenceUsageSummary, headline.Used, headline.Remaining);
+    }
+
+    private Task ResetIntelligenceDataAsync() => ExecuteUIThread(() =>
+    {
+        HasIntelligenceAccess = false;
+        ApplyIntelligenceUsage(null);
+        IntelligenceUsageSummary = string.Empty;
+        IntelligenceResetText = string.Empty;
+        IntelligenceMailboxesSummary = string.Empty;
+        IntelligenceConsentStatusText = string.Empty;
+        IsConsentGranted = false;
+        IsConsentBusy = false;
+        ConsentPolicyUri = null;
+        ConsentDataDeletionStatus = IntelligenceDeletionStatuses.NotRequired;
+        ConsentErrorMessage = string.Empty;
+        IntelligenceDataError = string.Empty;
+        IntelligenceMailboxes.Clear();
+    });
+
+    private WinoIntelligenceEntitlementSnapshot ResolveEntitlement(WinoAccountIntelligenceSnapshot snapshot)
+    {
+        var current = _snapshotService?.CurrentEntitlement;
+        if (current?.WinoAccountId == snapshot.WinoAccountId)
+            return current;
+
+        return WinoIntelligenceEntitlementSnapshot.Evaluate(
+            snapshot.WinoAccountId,
+            snapshot.Billing,
+            snapshot.Usage,
+            DateTimeOffset.UtcNow,
+            isFreshBilling: false);
+    }
+
+    private void ApplyEntitlement(WinoIntelligenceEntitlementSnapshot entitlement)
+    {
+        var canAccess = entitlement.CanAccessSurfaces;
+        HasIntelligenceAccess = canAccess;
+        _aiPackAddOn.IsPurchased = canAccess;
+        PurchaseAddOnCommand.NotifyCanExecuteChanged();
+    }
+
+    private void ApplyIntelligenceConsent(IntelligenceConsentDto consent)
+    {
+        _intelligencePolicyVersion = consent.CurrentPolicyVersion;
+        OnPropertyChanged(nameof(IntelligencePolicyVersion));
+        OnPropertyChanged(nameof(IntelligencePolicyVersionText));
+        ConsentPolicyUri = Uri.TryCreate(consent.PrivacyPolicyUrl, UriKind.Absolute, out var uri) ? uri : null;
+        IsConsentGranted = IsCurrentIntelligenceConsent(consent);
+        ConsentDataDeletionStatus = consent.DataDeletionStatus;
+        IntelligenceConsentStatusText = IsConsentGranted
+            ? Translator.WinoAccount_IntelligenceConsentGranted
+            : Translator.WinoAccount_IntelligenceConsentNotGranted;
+    }
+
+    private static bool IsCurrentIntelligenceConsent(IntelligenceConsentDto consent)
+        => consent.Status == ConsentStatuses.Active &&
+           consent.AcceptedPolicyVersion == consent.CurrentPolicyVersion;
+
+    private static string DescribeBriefingMailboxes(IReadOnlyCollection<IntelligenceMailboxData> mailboxes)
+        => string.Format(
+            Translator.WinoAccount_Management_BriefingMailboxesSummary,
+            mailboxes.Count(mailbox => mailbox.IsEnabled),
+            mailboxes.Count);
+
+    private sealed partial class IntelligenceMailboxData : WinoIntelligenceMailboxItemViewModel
+    {
+        public required long StorageSizeBytes { get; init; }
+    }
+
+}

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-macos</TargetFramework>
+    <SupportedOSPlatformVersion>14.0</SupportedOSPlatformVersion>
+    <WinoTargetPlatform>MacOS</WinoTargetPlatform>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <ApplicationTitle>Wino Mail</ApplicationTitle>
+    <ApplicationId>com.winomail.desktop</ApplicationId>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <CodesignEntitlements>Entitlements.plist</CodesignEntitlements>
+    <EnableCodeSigning>true</EnableCodeSigning>
+    <CodesignKey Condition="'$(CodesignKey)' == ''">-</CodesignKey>
+    <PublishAot>false</PublishAot>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj" />
+    <ProjectReference Include="../Wino.Core/Wino.Core.csproj" />
+    <ProjectReference Include="../Wino.Platform.MacOS/Wino.Platform.MacOS.csproj" />
+    <ProjectReference Include="../../controls/Wino.Presentation.AppKit/Wino.Presentation.AppKit.csproj" />
+    <ProjectReference Include="../../controls/Wino.Mail.Controls.AppKit/Wino.Mail.Controls.AppKit.csproj" />
+    <ProjectReference Include="../../controls/Wino.Editor.AppKit/Wino.Editor.AppKit.csproj" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+</Project>

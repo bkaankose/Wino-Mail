@@ -1,10 +1,14 @@
 # Controls
 
-This directory contains reusable Wino Mail UI controls and the one WinUI 3 playground app used to develop them without starting the full mail client.
+Reusable presentation lives here. Windows uses WinUI 3; macOS uses AppKit. The only playground is the Windows sample host.
 
-- `Wino.Editor` provides the shared WebView2 mail reader and editor, including its embedded HTML, CSS, and JavaScript.
-- `Wino.Mail.Controls.Core` contains the platform-neutral models and collection logic used by mail controls.
-- `Wino.Mail.Controls` contains the WinUI controls built on the core abstractions.
-- `Wino.Mail.Controls.Playground` is the single demo app. It references both control libraries and provides a page for every public UI control.
+- `Wino.Mail.Controls.Core` owns platform-neutral projection and collection rules.
+- `Wino.Mail.Controls.WinUI` retains the existing reusable WinUI controls and CLR namespaces.
+- `Wino.Mail.Controls.AppKit` presents observable collections with native table rows.
+- `Wino.Presentation.AppKit` provides typed bindings, disposable scopes, command error handling, and Auto Layout helpers.
+- `Wino.Editor.Core` owns portable sessions, JSON contracts, operation queues, document policies, and the sole embedded reader/editor asset tree in `Editor/`.
+- `Wino.Editor.WinUI` provides WebView2 controls and Windows session adapters.
+- `Wino.Editor.AppKit` implements WKWebView sessions with generation-correlated messages and native delegate ownership.
+- `Wino.Mail.Controls.Playground.WinUI` demonstrates every public Windows control. Native Mac scenarios belong in `src/Wino.Mail.MacOS`.
 
-Keep reusable UI and its supporting abstractions here. When adding a public control, add its demonstration page to `Wino.Mail.Controls.Playground` in the same change.
+See [agent guidance](AGENTS.md) for build, resource ownership, and verification rules. Build evidence does not replace manual lab checks.

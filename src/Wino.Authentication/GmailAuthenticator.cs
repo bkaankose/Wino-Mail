@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.IO;
+using System.Security.Cryptography;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
@@ -21,15 +21,19 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
     private static readonly HttpClient HttpClient = new();
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> TokenLocks = new(StringComparer.Ordinal);
     private readonly WinoGmailCodeReceiver _codeReceiver;
-    private readonly string _tokenStorePath;
+    private readonly IGoogleTokenStore _tokenStore;
 
     public GmailAuthenticator(
         IAuthenticatorConfig authConfig,
-        INativeAppService nativeAppService,
-        IExternalBrowserAuthenticationPresenter? authenticationPresenter) : base(authConfig)
+        IExternalLauncher externalLauncher,
+        IExternalBrowserAuthenticationPresenter? authenticationPresenter,
+        IGoogleTokenStore tokenStore) : base(authConfig)
     {
-        _codeReceiver = new WinoGmailCodeReceiver(nativeAppService, authenticationPresenter, authConfig.ApplicationDisplayName);
-        _tokenStorePath = authConfig.GmailTokenStorePath;
+        ArgumentNullException.ThrowIfNull(externalLauncher);
+        ArgumentNullException.ThrowIfNull(tokenStore);
+
+        _codeReceiver = new WinoGmailCodeReceiver(externalLauncher, authenticationPresenter, authConfig.ApplicationDisplayName);
+        _tokenStore = tokenStore;
     }
 
     public string ClientId => AuthenticatorConfig.GmailAuthenticatorClientId;
@@ -37,15 +41,15 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
 
     public async Task<TokenInformationEx> GenerateTokenInformationAsync(
         MailAccount account,
-        IReadOnlyCollection<ProviderFeature> requestedFeatures = null)
+        IReadOnlyCollection<ProviderFeature> requestedFeatures = null, CancellationToken cancellationToken = default)
     {
         var credentialKey = GetCredentialKey(account);
         var tokenLock = GetTokenLock(credentialKey);
-        await tokenLock.WaitAsync().ConfigureAwait(false);
+        await tokenLock.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
-            var storedToken = await AuthorizeInteractivelyAsync(account, credentialKey, requestedFeatures).ConfigureAwait(false);
+            var storedToken = await AuthorizeInteractivelyAsync(account, credentialKey, requestedFeatures, cancellationToken).ConfigureAwait(false);
             return new TokenInformationEx(storedToken.AccessToken, account?.Address);
         }
         finally
@@ -56,15 +60,15 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
 
     public async Task<TokenInformationEx> GetTokenInformationAsync(
         MailAccount account,
-        IReadOnlyCollection<ProviderFeature> requiredFeatures = null)
+        IReadOnlyCollection<ProviderFeature> requiredFeatures = null, CancellationToken cancellationToken = default)
     {
         var credentialKey = GetCredentialKey(account);
         var tokenLock = GetTokenLock(credentialKey);
-        await tokenLock.WaitAsync().ConfigureAwait(false);
+        await tokenLock.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
-            var storedToken = await ReadTokenAsync(credentialKey).ConfigureAwait(false);
+            var storedToken = await ReadTokenAsync(credentialKey, cancellationToken).ConfigureAwait(false);
 
             if (storedToken == null)
             {
@@ -72,7 +76,7 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
             }
             else if (storedToken.ExpiresAtUtc <= DateTimeOffset.UtcNow.AddMinutes(5))
             {
-                storedToken = await RefreshTokenAsync(account, storedToken, credentialKey).ConfigureAwait(false);
+                storedToken = await RefreshTokenAsync(account, storedToken, credentialKey, cancellationToken).ConfigureAwait(false);
             }
 
             return new TokenInformationEx(storedToken.AccessToken, account?.Address);
@@ -85,22 +89,22 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
 
     public async Task<TokenInformationEx> RefreshTokenInformationAsync(
         MailAccount account,
-        IReadOnlyCollection<ProviderFeature> requiredFeatures = null)
+        IReadOnlyCollection<ProviderFeature> requiredFeatures = null, CancellationToken cancellationToken = default)
     {
         var credentialKey = GetCredentialKey(account);
         var tokenLock = GetTokenLock(credentialKey);
-        await tokenLock.WaitAsync().ConfigureAwait(false);
+        await tokenLock.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
-            var storedToken = await ReadTokenAsync(credentialKey).ConfigureAwait(false);
+            var storedToken = await ReadTokenAsync(credentialKey, cancellationToken).ConfigureAwait(false);
 
             if (storedToken == null)
             {
                 throw new AuthenticationAttentionException(account);
             }
 
-            storedToken = await RefreshTokenAsync(account, storedToken, credentialKey).ConfigureAwait(false);
+            storedToken = await RefreshTokenAsync(account, storedToken, credentialKey, cancellationToken).ConfigureAwait(false);
             return new TokenInformationEx(storedToken.AccessToken, account?.Address);
         }
         finally
@@ -109,20 +113,15 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
         }
     }
 
-    public async Task DeleteTokenInformationAsync(MailAccount account)
+    public async Task DeleteTokenInformationAsync(MailAccount account, CancellationToken cancellationToken = default)
     {
         var credentialKey = GetCredentialKey(account);
         var tokenLock = GetTokenLock(credentialKey);
-        await tokenLock.WaitAsync().ConfigureAwait(false);
+        await tokenLock.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
-            var tokenPath = GetTokenPath(credentialKey);
-            if (File.Exists(tokenPath))
-            {
-                File.Delete(tokenPath);
-            }
-
+            await _tokenStore.DeleteAsync(credentialKey, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -133,7 +132,7 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
     private async Task<StoredGoogleToken> AuthorizeInteractivelyAsync(
         MailAccount account,
         string credentialKey,
-        IReadOnlyCollection<ProviderFeature> requestedFeatures)
+        IReadOnlyCollection<ProviderFeature> requestedFeatures, CancellationToken cancellationToken)
     {
         var scopes = AuthenticatorConfig.GetGmailScopes(
             ProviderAuthorizationRequest.ForAccount(account, requestedFeatures));
@@ -144,9 +143,9 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
         {
             authorization = await _codeReceiver.ReceiveCodeAsync(
                 (redirectUri, state) => BuildAuthorizationUri(redirectUri, state, scopes),
-                CancellationToken.None).ConfigureAwait(false);
+                cancellationToken).ConfigureAwait(false);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             // The user dismissed the in-app waiting dialog. Callers treat this like any other
             // interactive sign-in cancellation and back out silently.
@@ -162,21 +161,21 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
             ["grant_type"] = "authorization_code"
         });
 
-        using var response = await HttpClient.PostAsync("https://oauth2.googleapis.com/token", requestContent).ConfigureAwait(false);
-        var tokenResponse = await ReadTokenResponseAsync(response).ConfigureAwait(false);
-        var previousToken = await ReadTokenAsync(credentialKey).ConfigureAwait(false);
+        using var response = await HttpClient.PostAsync("https://oauth2.googleapis.com/token", requestContent, cancellationToken).ConfigureAwait(false);
+        var tokenResponse = await ReadTokenResponseAsync(response, cancellationToken).ConfigureAwait(false);
+        var previousToken = await ReadTokenAsync(credentialKey, cancellationToken).ConfigureAwait(false);
         var storedToken = CreateStoredToken(
             tokenResponse,
             string.IsNullOrWhiteSpace(tokenResponse.RefreshToken) ? previousToken?.RefreshToken : tokenResponse.RefreshToken,
             previousToken?.Scopes);
-        await WriteTokenAsync(credentialKey, storedToken).ConfigureAwait(false);
+        await WriteTokenAsync(credentialKey, storedToken, cancellationToken).ConfigureAwait(false);
         return storedToken;
     }
 
     private async Task<StoredGoogleToken> RefreshTokenAsync(
         MailAccount account,
         StoredGoogleToken currentToken,
-        string credentialKey)
+        string credentialKey, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(currentToken.RefreshToken))
         {
@@ -190,7 +189,7 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
             ["grant_type"] = "refresh_token"
         });
 
-        using var response = await HttpClient.PostAsync("https://oauth2.googleapis.com/token", requestContent).ConfigureAwait(false);
+        using var response = await HttpClient.PostAsync("https://oauth2.googleapis.com/token", requestContent, cancellationToken).ConfigureAwait(false);
 
         if (response.StatusCode is System.Net.HttpStatusCode.BadRequest or
             System.Net.HttpStatusCode.Unauthorized or
@@ -199,9 +198,9 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
             throw new AuthenticationAttentionException(account);
         }
 
-        var tokenResponse = await ReadTokenResponseAsync(response).ConfigureAwait(false);
+        var tokenResponse = await ReadTokenResponseAsync(response, cancellationToken).ConfigureAwait(false);
         var storedToken = CreateStoredToken(tokenResponse, currentToken.RefreshToken, currentToken.Scopes);
-        await WriteTokenAsync(credentialKey, storedToken).ConfigureAwait(false);
+        await WriteTokenAsync(credentialKey, storedToken, cancellationToken).ConfigureAwait(false);
         return storedToken;
     }
 
@@ -226,9 +225,9 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
         => string.Join("&", System.Linq.Enumerable.Select(values,
             static pair => $"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value)}"));
 
-    private static async Task<GoogleOAuthTokenResponse> ReadTokenResponseAsync(HttpResponseMessage response)
+    private static async Task<GoogleOAuthTokenResponse> ReadTokenResponseAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
-        var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
             throw new HttpRequestException($"Google OAuth token request failed ({(int)response.StatusCode}): {content}", null, response.StatusCode);
@@ -252,63 +251,34 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
                 : response.Scope.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList()
         };
 
-    private async Task<StoredGoogleToken?> ReadTokenAsync(string credentialKey)
+    private async Task<StoredGoogleToken?> ReadTokenAsync(string credentialKey, CancellationToken cancellationToken)
     {
-        var tokenPath = GetTokenPath(credentialKey);
-        if (!File.Exists(tokenPath))
-            return null;
-
-        return await DeserializeTokenAsync(tokenPath).ConfigureAwait(false);
-    }
-
-    private static async Task<StoredGoogleToken?> DeserializeTokenAsync(string tokenPath)
-    {
-        await using var stream = new FileStream(
-            tokenPath,
-            FileMode.Open,
-            FileAccess.Read,
-            FileShare.Read | FileShare.Delete,
-            bufferSize: 4096,
-            useAsync: true);
-        return await JsonSerializer.DeserializeAsync(stream, GoogleOAuthJsonContext.Default.StoredGoogleToken).ConfigureAwait(false);
-    }
-
-    private async Task WriteTokenAsync(string credentialKey, StoredGoogleToken token)
-    {
-        Directory.CreateDirectory(_tokenStorePath);
-        var tokenPath = GetTokenPath(credentialKey);
-        var temporaryPath = Path.Combine(_tokenStorePath, $".{credentialKey}.{Guid.NewGuid():N}.tmp");
+        var bytes = await _tokenStore.ReadAsync(credentialKey, cancellationToken).ConfigureAwait(false);
+        if (bytes is null) return null;
 
         try
         {
-            await using (var stream = new FileStream(
-                temporaryPath,
-                FileMode.CreateNew,
-                FileAccess.Write,
-                FileShare.None,
-                bufferSize: 4096,
-                useAsync: true))
-            {
-                await JsonSerializer
-                    .SerializeAsync(stream, token, GoogleOAuthJsonContext.Default.StoredGoogleToken)
-                    .ConfigureAwait(false);
-                await stream.FlushAsync().ConfigureAwait(false);
-            }
-
-            File.Move(temporaryPath, tokenPath, overwrite: true);
+            return JsonSerializer.Deserialize(bytes, GoogleOAuthJsonContext.Default.StoredGoogleToken)
+                ?? throw new InvalidOperationException("The stored Google token is empty.");
         }
         finally
         {
-            if (File.Exists(temporaryPath))
-            {
-                File.Delete(temporaryPath);
-            }
+            CryptographicOperations.ZeroMemory(bytes);
         }
     }
 
-    private string GetTokenPath(string credentialKey)
-        => Path.Combine(_tokenStorePath, $"{credentialKey}.json");
-
+    private async Task WriteTokenAsync(string credentialKey, StoredGoogleToken token, CancellationToken cancellationToken)
+    {
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(token, GoogleOAuthJsonContext.Default.StoredGoogleToken);
+        try
+        {
+            await _tokenStore.WriteAsync(credentialKey, bytes, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(bytes);
+        }
+    }
     private static string GetCredentialKey(MailAccount account)
         => account?.Id.ToString("N") ?? "default";
 

@@ -11,7 +11,8 @@ public readonly record struct HotKeyGesture(string Key, ModifierKeys Modifiers)
         "Control", "LeftControl", "RightControl",
         "Menu", "LeftMenu", "RightMenu",
         "Shift", "LeftShift", "RightShift",
-        "LeftWindows", "RightWindows"
+        "LeftWindows", "RightWindows",
+        "Command", "LeftCommand", "RightCommand"
     };
 
     public static HotKeyGesture Default { get; } = new("Space", ModifierKeys.Control | ModifierKeys.Shift);
@@ -19,10 +20,10 @@ public readonly record struct HotKeyGesture(string Key, ModifierKeys Modifiers)
     public bool IsValid =>
         !string.IsNullOrWhiteSpace(Key) &&
         Modifiers != ModifierKeys.None &&
-        (Modifiers & ~(ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift | ModifierKeys.Windows)) == 0 &&
+        (Modifiers & ~(ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift | ModifierKeys.Windows | ModifierKeys.Command)) == 0 &&
         !ModifierKeyNames.Contains(Key.Trim()) &&
         !string.Equals(Key.Trim(), "F12", StringComparison.OrdinalIgnoreCase);
 
     public HotKeyGesture Normalize() => new(Key?.Trim() ?? string.Empty,
-        Modifiers & (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift | ModifierKeys.Windows));
+        Modifiers & (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift | ModifierKeys.Windows | ModifierKeys.Command));
 }

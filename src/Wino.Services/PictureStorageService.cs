@@ -22,11 +22,13 @@ public sealed class PictureStorageService : IPictureStorageService
     private const int MaximumDimension = 8192;
 
     private readonly string _dataFolder;
+    private readonly IApplicationResourceResolver _resourceResolver;
     private readonly ILogger _logger = Log.ForContext<PictureStorageService>();
 
-    public PictureStorageService(IApplicationConfiguration applicationConfiguration)
+    public PictureStorageService(IApplicationConfiguration applicationConfiguration, IApplicationResourceResolver resourceResolver)
     {
         _dataFolder = applicationConfiguration.ApplicationDataFolderPath;
+        _resourceResolver = resourceResolver;
 
         foreach (var kind in new[] { PictureKind.Contact, PictureKind.AccountProfile })
             Directory.CreateDirectory(GetFolder(kind));
@@ -44,7 +46,7 @@ public sealed class PictureStorageService : IPictureStorageService
     public Uri GetPictureUri(PictureKind kind, Guid fileId)
         => GetPicturePath(kind, fileId) == null
             ? null
-            : new Uri($"ms-appdata:///local/{GetSubFolder(kind)}/{GetFileName(kind, fileId)}");
+            : _resourceResolver.ResolveLocalResource($"{GetSubFolder(kind)}/{GetFileName(kind, fileId)}");
 
     public async Task<Guid> SavePictureAsync(
         PictureKind kind,

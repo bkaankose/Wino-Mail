@@ -86,7 +86,7 @@ public class AliasIdentityTests
             .Returns(fails ? Task.FromException(new IOException("Write failed")) : Task.CompletedTask);
         var dialogs = new Mock<IMailDialogService>();
         var logger = new Mock<IWinoLogger>();
-        var vm = new AliasManagementPageViewModel(dialogs.Object, accounts.Object, Certificates(), logger.Object)
+        var vm = new AliasManagementPageViewModel(dialogs.Object, accounts.Object, Certificates(), Mock.Of<IPlatformCapabilities>(p => p.Smime), logger.Object)
         {
             Account = new MailAccount { Id = accountId }, AccountAliases = [stale]
         };
@@ -106,7 +106,7 @@ public class AliasIdentityTests
         var alias = new MailAccountAlias { Id = Guid.NewGuid(), AccountId = Guid.NewGuid(), AliasAddress = "root@example.com", IsPrimary = true };
         var accounts = new Mock<IAccountService>();
         accounts.Setup(s => s.GetAccountAliasesAsync(alias.AccountId)).ReturnsAsync([alias]);
-        var vm = new AliasManagementPageViewModel(Mock.Of<IMailDialogService>(), accounts.Object, Certificates(), Mock.Of<IWinoLogger>())
+        var vm = new AliasManagementPageViewModel(Mock.Of<IMailDialogService>(), accounts.Object, Certificates(), Mock.Of<IPlatformCapabilities>(p => p.Smime), Mock.Of<IWinoLogger>())
         {
             Account = new MailAccount { Id = alias.AccountId }, AccountAliases = [alias]
         };
@@ -130,7 +130,7 @@ public class AliasIdentityTests
         var accounts = new Mock<IAccountService>();
         accounts.Setup(s => s.AddAccountAliasAsync(accountId, alias)).ReturnsAsync(false);
         accounts.Setup(s => s.GetAccountAliasesAsync(accountId)).ReturnsAsync([alias]);
-        var vm = new AliasManagementPageViewModel(dialogs.Object, accounts.Object, Certificates(), Mock.Of<IWinoLogger>())
+        var vm = new AliasManagementPageViewModel(dialogs.Object, accounts.Object, Certificates(), Mock.Of<IPlatformCapabilities>(p => p.Smime), Mock.Of<IWinoLogger>())
         {
             Account = new MailAccount { Id = accountId }, AccountAliases = []
         };
@@ -146,15 +146,15 @@ public class AliasIdentityTests
     private static ISmimeCertificateService Certificates()
     {
         var service = new Mock<ISmimeCertificateService>();
-        service.Setup(s => s.GetCertificates(It.IsAny<StoreName>(), It.IsAny<StoreLocation>(), It.IsAny<string>()))
+        service.Setup(s => s.GetCertificates(It.IsAny<Wino.Core.Domain.Enums.SmimeCertificatePurpose>(), It.IsAny<string>(), It.IsAny<System.Threading.CancellationToken>()))
             .Returns(Array.Empty<X509Certificate2>());
         return service.Object;
     }
 
     private static ComposePageViewModel Composer(IAccountService accounts, IDraftSaveService save)
         => new(Mock.Of<IMailDialogService>(), Mock.Of<IMailService>(), Mock.Of<IMimeFileService>(), Mock.Of<IFileService>(),
-            Mock.Of<INativeAppService>(), Mock.Of<IFolderService>(), accounts, Mock.Of<IEmailTemplateService>(),
+            Mock.Of<IFolderService>(), accounts, Mock.Of<IEmailTemplateService>(),
             Mock.Of<IWinoRequestDelegator>(), Mock.Of<IContactService>(), Mock.Of<IPreferencesService>(),
-            Certificates(), Mock.Of<IActivationStateService>(), Mock.Of<IDraftSyncRetryService>(), Mock.Of<IDraftUpdateCoordinator>(),
+            Certificates(), Mock.Of<IPlatformCapabilities>(p => p.Smime), Mock.Of<IActivationStateService>(), Mock.Of<IDraftSyncRetryService>(), Mock.Of<IDraftUpdateCoordinator>(),
             new DraftUpdateRegistry(), save, Mock.Of<IRecipientSuggestionService>(), Mock.Of<IRecipientHistoryService>());
 }

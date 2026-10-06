@@ -29,7 +29,7 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
     {
         _databaseService = new InMemoryDatabaseService();
         await _databaseService.InitializeAsync();
-        _service = new WinoAccountProfileService(_databaseService, _apiClient.Object);
+        _service = new WinoAccountProfileService(_databaseService, _apiClient.Object, Wino.Core.Tests.Helpers.TestAccountCredentialPersistence.Instance);
     }
 
     public async Task DisposeAsync()
@@ -336,6 +336,7 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
         var localizedService = new WinoAccountProfileService(
             _databaseService,
             _apiClient.Object,
+            Wino.Core.Tests.Helpers.TestAccountCredentialPersistence.Instance,
             translationService.Object);
 
         _apiClient

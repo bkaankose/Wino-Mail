@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Intelligence;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Intelligence.Keys;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.AI.Cryptography;
@@ -16,8 +17,8 @@ namespace Wino.Services;
 
 /// <summary>
 /// Device result keys in the intelligence database. The private key is PKCS#8 wrapped by
-/// DPAPI with the Wino user id as entropy, so a copied database is useless on another
-/// machine, another Windows profile or for another Wino account.
+/// the host secret protector with the Wino user id as context. Windows retains CurrentUser
+/// DPAPI and its legacy entropy; macOS supplies Keychain-backed authenticated protection.
 /// </summary>
 internal sealed class IntelligenceResultKeyStore : IIntelligenceResultKeyStore, IDisposable
 {
@@ -25,14 +26,14 @@ internal sealed class IntelligenceResultKeyStore : IIntelligenceResultKeyStore, 
     private const int MaximumResultCiphertextBytes = 64 * 1024 * 1024;
 
     private readonly IIntelligenceResultKeyRows _rows;
-    private readonly IIntelligenceKeyProtector _protector;
+    private readonly ISecretProtector _protector;
     private readonly IntelligenceResultKeyPresence _presence;
     private readonly TimeProvider _time;
     private readonly SemaphoreSlim _createLock = new(1, 1);
 
     public IntelligenceResultKeyStore(
         IIntelligenceResultKeyRows rows,
-        IIntelligenceKeyProtector protector,
+        ISecretProtector protector,
         IntelligenceResultKeyPresence presence,
         TimeProvider? time = null)
     {
@@ -73,6 +74,7 @@ internal sealed class IntelligenceResultKeyStore : IIntelligenceResultKeyStore, 
             // still knows to look.
             _presence.MarkPresent();
             var row = CreateRow(winoUserId, _time.GetUtcNow());
+
             await _rows.InsertAsync(row, cancellationToken).ConfigureAwait(false);
             return Map(row);
         }
@@ -109,9 +111,11 @@ internal sealed class IntelligenceResultKeyStore : IIntelligenceResultKeyStore, 
 
         byte[]? pkcs8 = null;
         char[]? pem = null;
+        var context = Entropy(row.WinoUserId);
+
         try
         {
-            pkcs8 = _protector.Unprotect(row.PrivateKeyProtected, Entropy(row.WinoUserId));
+            pkcs8 = _protector.Unprotect(row.PrivateKeyProtected, context);
             pem = PemEncoding.Write("PRIVATE KEY", pkcs8);
 
             // The decryptor takes PEM as a string, which cannot be cleared. It lives only for
@@ -126,14 +130,11 @@ internal sealed class IntelligenceResultKeyStore : IIntelligenceResultKeyStore, 
         {
             throw new IntelligenceResultKeyLostException(keyId, exception);
         }
-        catch (PlatformNotSupportedException exception)
-        {
-            throw new IntelligenceResultKeyLostException(keyId, exception);
-        }
         finally
         {
             if (pkcs8 is not null) CryptographicOperations.ZeroMemory(pkcs8);
             if (pem is not null) Array.Clear(pem);
+            CryptographicOperations.ZeroMemory(context);
             CryptographicOperations.ZeroMemory(envelope.WrappedKey);
             CryptographicOperations.ZeroMemory(envelope.Ciphertext);
         }
@@ -155,6 +156,8 @@ internal sealed class IntelligenceResultKeyStore : IIntelligenceResultKeyStore, 
         using var rsa = RSA.Create(IntelligenceResultKeyIds.KeySizeInBits);
         var spki = rsa.ExportSubjectPublicKeyInfo();
         var pkcs8 = rsa.ExportPkcs8PrivateKey();
+        var context = Entropy(winoUserId);
+
         try
         {
             var fingerprint = Convert.ToHexStringLower(SHA256.HashData(spki));
@@ -163,7 +166,7 @@ internal sealed class IntelligenceResultKeyStore : IIntelligenceResultKeyStore, 
                 KeyId = IntelligenceResultKeyIds.Create(fingerprint, now),
                 WinoUserId = winoUserId,
                 PublicKeyPem = PemEncoding.WriteString("PUBLIC KEY", spki),
-                PrivateKeyProtected = _protector.Protect(pkcs8, Entropy(winoUserId)),
+                PrivateKeyProtected = _protector.Protect(pkcs8, context),
                 Fingerprint = fingerprint,
                 CreatedUtc = now.UtcDateTime,
                 Status = IntelligenceResultKeyStatuses.Active,
@@ -172,6 +175,7 @@ internal sealed class IntelligenceResultKeyStore : IIntelligenceResultKeyStore, 
         finally
         {
             CryptographicOperations.ZeroMemory(pkcs8);
+            CryptographicOperations.ZeroMemory(context);
         }
     }
 
@@ -190,16 +194,4 @@ public static class IntelligenceResultKeyIds
     /// <summary>"dev-{yyyyMM}-{first 8 hex of SHA-256(SubjectPublicKeyInfo)}".</summary>
     public static string Create(string fingerprintHex, DateTimeOffset createdUtc)
         => string.Create(CultureInfo.InvariantCulture, $"dev-{createdUtc.UtcDateTime:yyyyMM}-{fingerprintHex[..8].ToLowerInvariant()}");
-}
-
-/// <summary>DPAPI for the current Windows user, the same primitive the DAV credential store uses.</summary>
-internal sealed class DpapiIntelligenceKeyProtector : IIntelligenceKeyProtector
-{
-#pragma warning disable CA1416
-    public byte[] Protect(byte[] data, byte[] entropy)
-        => ProtectedData.Protect(data, entropy, DataProtectionScope.CurrentUser);
-
-    public byte[] Unprotect(byte[] data, byte[] entropy)
-        => ProtectedData.Unprotect(data, entropy, DataProtectionScope.CurrentUser);
-#pragma warning restore CA1416
 }

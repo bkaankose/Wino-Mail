@@ -1,0 +1,212 @@
+﻿using System;
+using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.ComponentModel;
+using Itenso.TimePeriod;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Extensions;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
+
+namespace Wino.Calendar.ViewModels.Data;
+
+public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, ICalendarItemViewModel
+{
+    public CalendarItem CalendarItem { get; }
+
+    public string Title => CalendarItem.Title;
+    public string Location => CalendarItem.Location;
+    public string DisplayTimeRange => CalendarSettings == null
+        ? $"{StartDate:t} – {EndDate:t}"
+        : $"{CalendarSettings.GetTimeString(StartDate.TimeOfDay)} – {CalendarSettings.GetTimeString(EndDate.TimeOfDay)}";
+    public string DisplayStartTime => CalendarSettings == null
+        ? $"{StartDate:t}"
+        : CalendarSettings.GetTimeString(StartDate.TimeOfDay);
+
+    public Guid Id => CalendarItem.Id;
+
+    public IAccountCalendar AssignedCalendar => CalendarItem.AssignedCalendar;
+
+    /// <summary>
+    /// Gets or sets the start date converted to user's local timezone for display.
+    /// The underlying CalendarItem stores dates according to their timezone.
+    /// </summary>
+    public DateTime StartDate
+    {
+        get
+        {
+            // Get start date in user's local timezone
+            return CalendarItem.LocalStartDate;
+        }
+        set
+        {
+            // All-day events use floating dates and should not shift across timezones.
+            CalendarItem.StartDate = CalendarItem.IsAllDayEvent
+                ? value.Date
+                : value.ToTimeZoneFromLocal(CalendarItem.StartTimeZone);
+        }
+    }
+
+    /// <summary>
+    /// Gets the end date converted to user's local timezone for display.
+    /// The underlying CalendarItem stores dates according to their timezone.
+    /// </summary>
+    public DateTime EndDate
+    {
+        get
+        {
+            // Get end date in user's local timezone
+            return CalendarItem.LocalEndDate;
+        }
+    }
+
+    public double DurationInSeconds { get => CalendarItem.DurationInSeconds; set => CalendarItem.DurationInSeconds = value; }
+
+    /// <summary>
+    /// Gets the time period in local time.
+    /// </summary>
+    public ITimePeriod Period
+    {
+        get
+        {
+            // Return a period using local times for UI display
+            return new TimeRange(StartDate, EndDate);
+        }
+    }
+
+    public bool IsAllDayEvent => CalendarItem.IsAllDayEvent;
+    public bool IsMultiDayEvent => CalendarItem.IsMultiDayEvent;
+    public bool IsRecurringEvent => CalendarItem.IsRecurringEvent;
+    public bool IsRecurringChild => CalendarItem.IsRecurringChild;
+    public bool IsRecurringParent => CalendarItem.IsRecurringParent;
+    public bool CanDragDrop => !IsBusy && CalendarItem.CanChangeStartAndEndDate;
+
+    [ObservableProperty]
+    public partial bool IsSelected { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanDragDrop))]
+    public partial bool IsBusy { get; set; }
+
+    /// <summary>
+    /// The period of the day where this item is currently being displayed.
+    /// Used for multi-day event title formatting.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayTitle))]
+    public partial ITimePeriod DisplayingPeriod { get; set; }
+
+    /// <summary>
+    /// Calendar settings for time formatting.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayTitle))]
+    [NotifyPropertyChangedFor(nameof(DisplayTimeRange))]
+    [NotifyPropertyChangedFor(nameof(DisplayStartTime))]
+    public partial CalendarSettings CalendarSettings { get; set; }
+
+    /// <summary>
+    /// Gets the display title based on the current displaying period.
+    /// </summary>
+    public string DisplayTitle
+    {
+        get
+        {
+            if (DisplayingPeriod == null || CalendarSettings == null)
+                return Title;
+
+            return GetDisplayTitle(DisplayingPeriod, CalendarSettings);
+        }
+    }
+
+    public ObservableCollection<CalendarEventAttendee> Attendees { get; } = new ObservableCollection<CalendarEventAttendee>();
+
+    public CalendarItemViewModel(CalendarItem calendarItem)
+    {
+        CalendarItem = calendarItem;
+    }
+
+    /// <summary>
+    /// Updates the underlying CalendarItem with new data and raises property change notifications.
+    /// </summary>
+    /// <param name="calendarItem">The updated calendar item data.</param>
+    public void UpdateFrom(CalendarItem calendarItem)
+    {
+        if (calendarItem == null || calendarItem.Id != CalendarItem.Id)
+            return;
+
+        // Update all mutable properties
+        CalendarItem.Title = calendarItem.Title;
+        CalendarItem.Description = calendarItem.Description;
+        CalendarItem.Location = calendarItem.Location;
+        CalendarItem.StartDate = calendarItem.StartDate;
+        CalendarItem.StartTimeZone = calendarItem.StartTimeZone;
+        CalendarItem.EndTimeZone = calendarItem.EndTimeZone;
+        CalendarItem.DurationInSeconds = calendarItem.DurationInSeconds;
+        CalendarItem.Recurrence = calendarItem.Recurrence;
+        CalendarItem.RecurringCalendarItemId = calendarItem.RecurringCalendarItemId;
+        CalendarItem.OrganizerDisplayName = calendarItem.OrganizerDisplayName;
+        CalendarItem.OrganizerEmail = calendarItem.OrganizerEmail;
+        CalendarItem.IsLocked = calendarItem.IsLocked;
+        CalendarItem.IsHidden = calendarItem.IsHidden;
+        CalendarItem.CustomEventColorHex = calendarItem.CustomEventColorHex;
+        CalendarItem.HtmlLink = calendarItem.HtmlLink;
+        CalendarItem.DirectJoinLink = calendarItem.DirectJoinLink;
+        CalendarItem.Status = calendarItem.Status;
+        CalendarItem.Visibility = calendarItem.Visibility;
+        CalendarItem.ShowAs = calendarItem.ShowAs;
+        CalendarItem.UpdatedAt = calendarItem.UpdatedAt;
+        CalendarItem.AssignedCalendar = calendarItem.AssignedCalendar;
+
+        // Raise property changed for all bindable properties
+        OnPropertyChanged(nameof(Title));
+        OnPropertyChanged(nameof(Location));
+        OnPropertyChanged(nameof(DisplayTimeRange));
+        OnPropertyChanged(nameof(DisplayStartTime));
+        OnPropertyChanged(nameof(StartDate));
+        OnPropertyChanged(nameof(EndDate));
+        OnPropertyChanged(nameof(DurationInSeconds));
+        OnPropertyChanged(nameof(Period));
+        OnPropertyChanged(nameof(IsAllDayEvent));
+        OnPropertyChanged(nameof(IsMultiDayEvent));
+        OnPropertyChanged(nameof(IsRecurringEvent));
+        OnPropertyChanged(nameof(IsRecurringChild));
+        OnPropertyChanged(nameof(IsRecurringParent));
+        OnPropertyChanged(nameof(CanDragDrop));
+        OnPropertyChanged(nameof(AssignedCalendar));
+        OnPropertyChanged(nameof(DisplayTitle));
+    }
+
+    /// <summary>
+    /// Gets the display title for this calendar item when rendered in a specific day.
+    /// </summary>
+    public string GetDisplayTitle(ITimePeriod displayingPeriod, CalendarSettings calendarSettings)
+    {
+        if (!IsMultiDayEvent)
+            return Title;
+
+        var periodRelation = Period.GetRelation(displayingPeriod);
+
+        if (periodRelation == PeriodRelation.StartInside || periodRelation == PeriodRelation.EnclosingStartTouching)
+        {
+            // Event starts within this day: "HH:mm -> Title"
+            return $"{calendarSettings.GetTimeString(StartDate.TimeOfDay)} -> {Title}";
+        }
+        else if (periodRelation == PeriodRelation.EndInside || periodRelation == PeriodRelation.EnclosingEndTouching)
+        {
+            // Event ends within this day: "Title <- HH:mm"
+            return $"{Title} <- {calendarSettings.GetTimeString(EndDate.TimeOfDay)}";
+        }
+        else if (periodRelation == PeriodRelation.Enclosing)
+        {
+            // Event spans the entire day
+            return $"{Translator.CalendarItemAllDay} {Title}";
+        }
+        else
+        {
+            return Title;
+        }
+    }
+
+    public override string ToString() => CalendarItem.Title;
+}

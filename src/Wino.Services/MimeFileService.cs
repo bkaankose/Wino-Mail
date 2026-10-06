@@ -19,14 +19,16 @@ namespace Wino.Services;
 public class MimeFileService : IMimeFileService
 {
     private readonly IApplicationConfiguration _applicationConfiguration;
+    private readonly ISmimeCertificateService _smimeCertificateService;
     private ILogger _logger = Log.ForContext<MimeFileService>();
 
     private readonly DraftUpdateRegistry _draftUpdates;
     private readonly ConcurrentDictionary<(Guid, Guid), SemaphoreSlim> _writeLocks = new();
 
-    public MimeFileService(IApplicationConfiguration applicationConfiguration, DraftUpdateRegistry draftUpdates = null)
+    public MimeFileService(IApplicationConfiguration applicationConfiguration, ISmimeCertificateService smimeCertificateService, DraftUpdateRegistry draftUpdates = null)
     {
         _applicationConfiguration = applicationConfiguration;
+        _smimeCertificateService = smimeCertificateService ?? throw new ArgumentNullException(nameof(smimeCertificateService));
         _draftUpdates = draftUpdates;
     }
 
@@ -120,7 +122,7 @@ public class MimeFileService : IMimeFileService
 
     public HtmlPreviewVisitor CreateHTMLPreviewVisitor(MimeMessage message, string _)
     {
-        var visitor = new HtmlPreviewVisitor();
+        var visitor = new HtmlPreviewVisitor(() => _smimeCertificateService.CreateContext());
 
         message.Accept(visitor);
 

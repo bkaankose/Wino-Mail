@@ -5,6 +5,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
+using System.Threading;
 using Microsoft.Graphics.Canvas;
 using Microsoft.Graphics.Canvas.Printing;
 using Windows.Data.Pdf;
@@ -14,6 +15,7 @@ using WinRT.Interop;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Printing;
+using Wino.Mail.WinUI.Interfaces;
 using DomainPrintCollation = Wino.Core.Domain.Enums.PrintCollation;
 using DomainPrintDuplex = Wino.Core.Domain.Enums.PrintDuplex;
 using DomainPrintMediaSize = Wino.Core.Domain.Enums.PrintMediaSize;
@@ -24,19 +26,21 @@ namespace Wino.Mail.WinUI.Services;
 /// <summary>
 /// Printer service that uses the WinRT print preview UI with a WebView2-backed PDF render callback.
 /// </summary>
-public class PrintService : IPrintService
+public class PrintService : IWindowsPrintService
 {
     private const float PdfRenderDpi = 300f;
     private const float DefaultDpi = 96f;
 
+    private readonly SemaphoreSlim _sessionGate = new(1, 1);
+    private readonly SemaphoreSlim _renderGate = new(1, 1);
     private TaskCompletionSource<PrintingResult>? _taskCompletionSource;
     private CanvasPrintDocument? _printDocument;
     private PrintTask? _printTask;
     private PrintTaskOptionDetails? _printTaskOptionDetails;
     private PrintManager? _printManager;
     private PdfDocument? _pdfDocument;
-    private Func<WebView2PrintSettingsModel, Task<Stream>>? _renderPdfStreamAsync;
-    private WebView2PrintSettingsModel _currentRenderSettings = new();
+    private Func<MailPrintOptions, Task<Stream>>? _renderPdfStreamAsync;
+    private MailPrintOptions _currentRenderSettings = new();
     private string _printTitle = string.Empty;
 
     private readonly List<CanvasBitmap> _bitmaps = new();
@@ -47,40 +51,66 @@ public class PrintService : IPrintService
     private int _columns = 1;
     private int _rows = 1;
     private int _sheetCount;
+    private bool _previewFailed;
 
-    public async Task<PrintingResult> PrintAsync(nint windowHandle, string printTitle, Func<WebView2PrintSettingsModel, Task<Stream>> renderPdfStreamAsync)
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsWindow(nint windowHandle);
+
+    public async Task<PrintingResult> PrintAsync(nint windowHandle, string printTitle, Func<MailPrintOptions, Task<Stream>> renderPdfStreamAsync, CancellationToken cancellationToken = default)
     {
-        if (windowHandle == IntPtr.Zero)
-            return PrintingResult.Failed;
+        cancellationToken.ThrowIfCancellationRequested();
 
-        if (_taskCompletionSource != null)
-        {
-            _taskCompletionSource.TrySetResult(PrintingResult.Abandoned);
-            CleanupPrintSession();
-        }
+        if (windowHandle == IntPtr.Zero || !IsWindow(windowHandle))
+            return PrintingResult.Unavailable;
 
-        _taskCompletionSource = new TaskCompletionSource<PrintingResult>();
-        _renderPdfStreamAsync = renderPdfStreamAsync ?? throw new ArgumentNullException(nameof(renderPdfStreamAsync));
-        _printTitle = printTitle ?? throw new ArgumentNullException(nameof(printTitle));
-        _currentRenderSettings = new WebView2PrintSettingsModel();
+        ArgumentNullException.ThrowIfNull(renderPdfStreamAsync);
+        ArgumentNullException.ThrowIfNull(printTitle);
 
-        _printDocument = new CanvasPrintDocument();
-        _printDocument.PrintTaskOptionsChanged += OnDocumentTaskOptionsChanged;
-        _printDocument.Preview += OnDocumentPreview;
-        _printDocument.Print += OnDocumentPrint;
-
-        _printManager = PrintManagerInterop.GetForWindow(windowHandle);
-        _printManager.PrintTaskRequested += OnPrintTaskRequested;
+        // A singleton cannot replace an active native print session safely.
+        if (!await _sessionGate.WaitAsync(0, cancellationToken))
+            return PrintingResult.Unavailable;
 
         try
         {
+            var completion = new TaskCompletionSource<PrintingResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _taskCompletionSource = completion;
+            _renderPdfStreamAsync = renderPdfStreamAsync ?? throw new ArgumentNullException(nameof(renderPdfStreamAsync));
+            _printTitle = printTitle ?? throw new ArgumentNullException(nameof(printTitle));
+            _currentRenderSettings = new MailPrintOptions();
+            _previewFailed = false;
+
+            _printDocument = new CanvasPrintDocument();
+            _printDocument.PrintTaskOptionsChanged += OnDocumentTaskOptionsChanged;
+            _printDocument.Preview += OnDocumentPreview;
+            _printDocument.Print += OnDocumentPrint;
+
+            _printManager = PrintManagerInterop.GetForWindow(windowHandle);
+            _printManager.PrintTaskRequested += OnPrintTaskRequested;
+
             await ReloadPdfDocumentAsync(_currentRenderSettings);
-            await PrintManagerInterop.ShowPrintUIForWindowAsync(windowHandle);
-            return await _taskCompletionSource.Task;
+
+            if (cancellationToken.IsCancellationRequested)
+                return PrintingResult.Canceled;
+
+            if (!await PrintManagerInterop.ShowPrintUIForWindowAsync(windowHandle))
+                return PrintingResult.Abandoned;
+
+            // WinRT exposes no cancellation for an opened print UI. Retain the
+            // document and singleton gate until native completion, then report cancellation.
+            var result = await completion.Task;
+            return cancellationToken.IsCancellationRequested ? PrintingResult.Canceled
+                : _previewFailed ? PrintingResult.Failed : result;
         }
         finally
         {
-            CleanupPrintSession();
+            try
+            {
+                await _renderGate.WaitAsync();
+                try { CleanupPrintSession(); }
+                finally { _renderGate.Release(); }
+            }
+            finally { _sessionGate.Release(); }
         }
     }
 
@@ -174,12 +204,16 @@ public class PrintService : IPrintService
 
     private void OnPrintTaskRequested(PrintManager sender, PrintTaskRequestedEventArgs args)
     {
+        if (!ReferenceEquals(sender, _printManager))
+            return;
+
+        var document = _printDocument;
         _printTask = args.Request.CreatePrintTask(_printTitle, createPrintTaskArgs =>
         {
-            if (_printDocument == null)
+            if (document == null)
                 return;
 
-            createPrintTaskArgs.SetSource(_printDocument);
+            createPrintTaskArgs.SetSource(document);
         });
 
         _printTask.Completed += OnPrintTaskCompleted;
@@ -197,19 +231,27 @@ public class PrintService : IPrintService
     }
 
     private void OnPrintTaskCompleted(PrintTask sender, PrintTaskCompletedEventArgs args)
-        => _taskCompletionSource?.TrySetResult(args.Completion switch
+    {
+        if (!ReferenceEquals(sender, _printTask))
+            return;
+
+        _taskCompletionSource?.TrySetResult(args.Completion switch
         {
             PrintTaskCompletion.Submitted => PrintingResult.Submitted,
             PrintTaskCompletion.Canceled => PrintingResult.Canceled,
             PrintTaskCompletion.Failed => PrintingResult.Failed,
             _ => PrintingResult.Abandoned
         });
+    }
 
     private void OnPrintTaskOptionChanged(PrintTaskOptionDetails sender, PrintTaskOptionChangedEventArgs args)
         => _printDocument?.InvalidatePreview();
 
     private async void OnDocumentTaskOptionsChanged(CanvasPrintDocument sender, CanvasPrintTaskOptionsChangedEventArgs args)
     {
+        if (!ReferenceEquals(sender, _printDocument))
+            return;
+
         var deferral = args.GetDeferral();
 
         try
@@ -225,8 +267,17 @@ public class PrintService : IPrintService
                 _currentRenderSettings = newSettings;
             }
 
+            if (!ReferenceEquals(sender, _printDocument))
+                return;
+
             UpdatePreviewLayout(args.PrintTaskOptions);
             sender.InvalidatePreview();
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Error(ex, "Failed to refresh the native print preview.");
+            if (ReferenceEquals(sender, _printDocument))
+                _previewFailed = true;
         }
         finally
         {
@@ -234,32 +285,40 @@ public class PrintService : IPrintService
         }
     }
 
-    private async Task ReloadPdfDocumentAsync(WebView2PrintSettingsModel settings)
+    private async Task ReloadPdfDocumentAsync(MailPrintOptions settings)
     {
-        if (_renderPdfStreamAsync == null)
-            throw new InvalidOperationException("No PDF render callback is registered.");
-
-        await using var pdfStream = await _renderPdfStreamAsync(settings);
-        var randomAccessStream = pdfStream.AsRandomAccessStream();
-
-        _pdfDocument = await PdfDocument.LoadFromStreamAsync(randomAccessStream);
-        _currentRenderSettings = settings;
-
-        ClearBitmaps();
-
-        if (_printDocument == null || _pdfDocument == null)
-            return;
-
-        for (var i = 0; i < _pdfDocument.PageCount; i++)
+        var session = _taskCompletionSource;
+        await _renderGate.WaitAsync();
+        try
         {
-            using var page = _pdfDocument.GetPage((uint)i);
-            using var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
-            var renderOptions = CreateRenderOptions(page);
-            await page.RenderToStreamAsync(stream, renderOptions);
-            stream.Seek(0);
-            var bitmap = await CanvasBitmap.LoadAsync(_printDocument, stream);
-            _bitmaps.Add(bitmap);
+            if (session == null || !ReferenceEquals(session, _taskCompletionSource))
+                return;
+            if (_renderPdfStreamAsync == null)
+                throw new InvalidOperationException("No PDF render callback is registered.");
+
+            await using var pdfStream = await _renderPdfStreamAsync(settings);
+            var randomAccessStream = pdfStream.AsRandomAccessStream();
+
+            _pdfDocument = await PdfDocument.LoadFromStreamAsync(randomAccessStream);
+            _currentRenderSettings = settings;
+
+            ClearBitmaps();
+
+            if (_printDocument == null || _pdfDocument == null)
+                return;
+
+            for (var i = 0; i < _pdfDocument.PageCount; i++)
+            {
+                using var page = _pdfDocument.GetPage((uint)i);
+                using var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+                var renderOptions = CreateRenderOptions(page);
+                await page.RenderToStreamAsync(stream, renderOptions);
+                stream.Seek(0);
+                var bitmap = await CanvasBitmap.LoadAsync(_printDocument, stream);
+                _bitmaps.Add(bitmap);
+            }
         }
+        finally { _renderGate.Release(); }
     }
 
     private static PdfPageRenderOptions CreateRenderOptions(PdfPage page)
@@ -347,7 +406,7 @@ public class PrintService : IPrintService
         drawingSession.DrawImage(bitmap, new Windows.Foundation.Rect(targetOffset.X, targetOffset.Y, targetSize.X, targetSize.Y));
     }
 
-    private WebView2PrintSettingsModel CreateRenderSettings(PrintTaskOptions printTaskOptions)
+    private MailPrintOptions CreateRenderSettings(PrintTaskOptions printTaskOptions)
         => new()
         {
             Orientation = GetOrientation(printTaskOptions),
@@ -365,7 +424,7 @@ public class PrintService : IPrintService
             ScaleFactor = _currentRenderSettings.ScaleFactor
         };
 
-    private bool ShouldReloadPdf(WebView2PrintSettingsModel newSettings)
+    private bool ShouldReloadPdf(MailPrintOptions newSettings)
         => newSettings.Orientation != _currentRenderSettings.Orientation
            || newSettings.MediaSize != _currentRenderSettings.MediaSize
            || newSettings.ShouldPrintBackgrounds != _currentRenderSettings.ShouldPrintBackgrounds

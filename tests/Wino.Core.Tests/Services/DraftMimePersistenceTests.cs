@@ -17,7 +17,7 @@ public sealed class DraftMimePersistenceTests
         var root = Path.Combine(Path.GetTempPath(), "wino-draft-test-" + Guid.NewGuid());
         var configuration = new Mock<IApplicationConfiguration>(); configuration.Setup(x => x.MimeStorageFolderPath).Returns(root);
         var registry = new DraftUpdateRegistry();
-        var files = new MimeFileService(configuration.Object, registry);
+        var files = new MimeFileService(configuration.Object, Mock.Of<ISmimeCertificateService>(), registry);
         var account = Guid.NewGuid(); var file = Guid.NewGuid();
         try
         {

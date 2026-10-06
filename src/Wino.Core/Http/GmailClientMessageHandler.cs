@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
@@ -36,7 +36,7 @@ internal sealed class GmailClientMessageHandler : DelegatingHandler
         // Every Google API call of the synchronizer passes here; an account waiting for a fix stays offline.
         _mailAccount.ThrowIfNetworkAccessBlocked();
 
-        var tokenInformation = await _gmailAuthenticator.GetTokenInformationAsync(_mailAccount, _requiredFeatures);
+        var tokenInformation = await _gmailAuthenticator.GetTokenInformationAsync(_mailAccount, _requiredFeatures, cancellationToken);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenInformation.AccessToken);
 
         var response = await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
@@ -57,13 +57,13 @@ internal sealed class GmailClientMessageHandler : DelegatingHandler
             // Another parallel Google request may already have refreshed the shared account token.
             // Reuse it when it differs from the token rejected by this request.
             refreshedToken = await _gmailAuthenticator
-                .GetTokenInformationAsync(_mailAccount, _requiredFeatures)
+                .GetTokenInformationAsync(_mailAccount, _requiredFeatures, cancellationToken)
                 .ConfigureAwait(false);
 
             if (string.Equals(refreshedToken.AccessToken, tokenInformation.AccessToken, StringComparison.Ordinal))
             {
                 refreshedToken = await _gmailAuthenticator
-                    .RefreshTokenInformationAsync(_mailAccount, _requiredFeatures)
+                    .RefreshTokenInformationAsync(_mailAccount, _requiredFeatures, cancellationToken)
                     .ConfigureAwait(false);
             }
         }

@@ -24,7 +24,7 @@ public sealed class WinoAccountApiClientSessionTests
         });
         using var handler = new RefreshHandler(accountId);
         using var http = new HttpClient(handler) { BaseAddress = new Uri("https://api.example.test/") };
-        using var client = new WinoAccountApiClient(database, http);
+        using var client = new WinoAccountApiClient(database, Wino.Core.Tests.Helpers.TestAccountCredentialPersistence.Instance, http);
 
         var response = await client.GetCurrentUserAsync();
 

@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using System.Threading;
 using Wino.Core.Domain.Entities.Shared;
 
 namespace Wino.Core.Domain.Interfaces;
@@ -14,6 +15,6 @@ namespace Wino.Core.Domain.Interfaces;
 /// </summary>
 public interface ISubstrateTaskTokenProvider
 {
-    Task<string> GetSubstrateTaskTokenAsync(MailAccount account);
-    Task EnsureSubstrateTaskConsentAsync(MailAccount account);
+    Task<string> GetSubstrateTaskTokenAsync(MailAccount account, CancellationToken cancellationToken = default);
+    Task EnsureSubstrateTaskConsentAsync(MailAccount account, CancellationToken cancellationToken = default);
 }

@@ -85,6 +85,6 @@ The editor extension is a convenience. The pinned command-line result is the for
 - Use generated `Translator` properties. XAML translation bindings use `Mode=OneTime` because `Translator` does not implement `INotifyPropertyChanged`.
 - Treat non-English resource files as externally managed and do not edit them.
 - SQLite data lives in the publisher cache. EML files live in app local storage and are resolved through `MimeFileService.GetMimeMessagePath()`.
-- `controls/Wino.Editor` is the only reader/editor HTML, CSS, and JavaScript asset source. Preserve its document-ready bridge and on-demand MIME loading.
+- `controls/Wino.Editor.Core` is the only reader/editor HTML, CSS, and JavaScript asset source. Preserve its document-ready bridge and on-demand MIME loading.
 
 

@@ -7,5 +7,6 @@ public enum AttachmentFileOperationStatus
     Cancelled,
     ConfirmationRequired,
     PolicyBlocked,
-    Failed
+    Failed,
+    Unavailable
 }

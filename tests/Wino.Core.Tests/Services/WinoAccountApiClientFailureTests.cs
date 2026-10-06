@@ -133,7 +133,7 @@ public sealed class WinoAccountApiClientFailureTests : IAsyncLifetime
     {
         await InsertAccountAsync(DateTime.UtcNow.AddHours(-1));
         using var client = CreateClient(_ => throw new HttpRequestException("No connection could be made."));
-        var profileService = new WinoAccountProfileService(_database, client);
+        var profileService = new WinoAccountProfileService(_database, client, Wino.Core.Tests.Helpers.TestAccountCredentialPersistence.Instance);
 
         var getSettings = () => profileService.GetSyncSnapshotAsync();
         var getAccount = () => profileService.GetAuthenticatedAccountAsync();
@@ -148,7 +148,7 @@ public sealed class WinoAccountApiClientFailureTests : IAsyncLifetime
     }
 
     private WinoAccountApiClient CreateClient(Func<HttpRequestMessage, HttpResponseMessage> respond)
-        => new(_database, new HttpClient(new StubHandler(respond)) { BaseAddress = new Uri("https://api.example.test/") });
+        => new(_database, Wino.Core.Tests.Helpers.TestAccountCredentialPersistence.Instance, new HttpClient(new StubHandler(respond)) { BaseAddress = new Uri("https://api.example.test/") });
 
     private Task InsertAccountAsync(DateTime accessTokenExpiresAtUtc)
         => _database.Connection.InsertAsync(new WinoAccount

@@ -79,13 +79,17 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        => await InitializeAsync(mode, parameters);
+
+    /// <summary>Awaitable entry for hosts that own account-setup navigation and shutdown.</summary>
+    public Task InitializeAsync(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 
         // Only run on fresh navigation, not on back-navigation
-        if (mode == NavigationMode.Back) return;
+        if (mode == NavigationMode.Back) return Task.CompletedTask;
 
-        await RunSetupAsync();
+        return RunSetupAsync();
     }
 
     private void BuildSteps()

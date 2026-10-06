@@ -149,7 +149,8 @@ internal sealed partial class NativeTrayIcon : IDisposable
             return true;
         }
 
-        if (!normalized.Value.IsValid ||
+        if (normalized.Value.Modifiers.HasFlag(ModifierKeys.Command) ||
+            !normalized.Value.IsValid ||
             !Enum.TryParse(normalized.Value.Key, true, out VirtualKey key) ||
             key is VirtualKey.None or VirtualKey.F12)
         {

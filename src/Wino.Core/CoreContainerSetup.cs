@@ -11,6 +11,7 @@ using Wino.Core.Synchronizers.Errors.Imap;
 using Wino.Core.Synchronizers.Errors.Outlook;
 using Wino.Core.Synchronizers.ImapSync;
 using Wino.Core.Synchronizers.CardDav;
+using Wino.Services;
 
 namespace Wino.Core;
 
@@ -30,6 +31,25 @@ public static class CoreContainerSetup
         services.AddSingleton<ISynchronizationManager>(provider => SynchronizationManager.Instance);
         services.AddTransient<IApplicationLocalRequestExecutor, ApplicationLocalRequestExecutor>();
         services.AddTransient<SynchronizationManagerInitializer>();
+        services.AddSingleton(provider => new ApplicationRuntimeInitialization(
+            () => provider.GetRequiredService<IDatabaseService>(),
+            () => provider.GetRequiredService<IMailIntelligenceStore>(),
+            () => provider.GetRequiredService<ITranslationService>(),
+            () => provider.GetRequiredService<SynchronizationManagerInitializer>(),
+            () => provider.GetRequiredService<IKeyboardShortcutService>(),
+            () => provider.GetRequiredService<Wino.Services.AccountProfilePictureMaintenance>(),
+            () => provider.GetRequiredService<Wino.Services.AccountSenderPictureDirectory>(),
+            () => provider.GetRequiredService<IWinoAccountIntelligenceSnapshotService>(),
+            () => provider.GetRequiredService<IMailIntelligenceCoordinator>(),
+            () => provider.GetRequiredService<Wino.Services.IntelligenceResultKeyLifecycle>()));
+        services.AddSingleton<IApplicationRuntime>(provider => new ApplicationRuntime(
+            provider.GetRequiredService<ISynchronizationManager>(),
+            provider.GetRequiredService<IAccountService>(),
+            provider.GetRequiredService<IPreferencesService>(),
+            provider.GetRequiredService<CommunityToolkit.Mvvm.Messaging.IMessenger>(),
+            provider.GetRequiredService<IWinoLogger>(),
+            provider.GetRequiredService<ApplicationRuntimeInitialization>().InitializeAsync,
+            provider.GetRequiredService<ApplicationRuntimeInitialization>().RunBackgroundStartupAsync));
 
         services.AddTransient<IGmailChangeProcessor, GmailChangeProcessor>();
         services.AddTransient<IImapChangeProcessor, ImapChangeProcessor>();
@@ -49,7 +69,9 @@ public static class CoreContainerSetup
         services.AddTransient<IMailServerTestService, MailServerTestService>();
         services.AddTransient<IPop3ClientFactory, MailKitPop3ClientFactory>();
         services.AddTransient<ISmtpTransport, MailKitSmtpTransport>();
-        services.AddTransient<IAuthenticationProvider, AuthenticationProvider>();
+        services.AddTransient<IAuthenticationProvider>(provider => new AuthenticationProvider(
+            () => provider.GetRequiredService<IOutlookAuthenticator>(),
+            () => provider.GetRequiredService<IGmailAuthenticator>()));
         services.AddTransient<IAutoDiscoveryService, AutoDiscoveryService>();
         services.AddTransient<IUnsubscriptionService, UnsubscriptionService>();
         services.AddTransient<IOutlookAuthenticator, OutlookAuthenticator>();

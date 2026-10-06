@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net10.0;net10.0-windows10.0.26100.0</TargetFrameworks>
+    <TargetFrameworks Condition="'$(WinoTargetPlatform)' != 'MacOS'">net10.0;net10.0-windows10.0.26100.0</TargetFrameworks>
+    <TargetFramework Condition="'$(WinoTargetPlatform)' == 'MacOS'">net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Wino.Mail.Controls.Core</RootNamespace>

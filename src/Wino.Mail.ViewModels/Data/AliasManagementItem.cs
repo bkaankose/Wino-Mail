@@ -13,7 +13,7 @@ namespace Wino.Mail.ViewModels.Data;
 /// One alias row on the alias management page. The page reloads the whole list after every write,
 /// so this item is a snapshot over its alias: it shapes the row's text and never mutates it in place.
 /// </summary>
-public sealed class AliasManagementItem(MailAccountAlias alias)
+public sealed class AliasManagementItem(MailAccountAlias alias, bool smimeAvailable = true)
 {
     private const string Separator = " • ";
 
@@ -60,9 +60,12 @@ public sealed class AliasManagementItem(MailAccountAlias alias)
         : Translator.AccountAlias_SmimeOff;
 
     /// <summary>The collapsed row's second line: where the alias came from, where replies go, and its S/MIME state.</summary>
-    public string DescriptionText => string.Join(Separator, (string[])[SourceText, ReplyToText, SmimeSummaryText]);
+    public string DescriptionText => string.Join(Separator, IsSmimeAvailable
+        ? (string[])[SourceText, ReplyToText, SmimeSummaryText]
+        : (string[])[SourceText, ReplyToText]);
 
-    public bool IsSmimeEncryptionEnabled => Alias.IsSmimeEncryptionEnabled;
+    public bool IsSmimeAvailable => smimeAvailable;
+    public bool IsSmimeEncryptionEnabled => IsSmimeAvailable && Alias.IsSmimeEncryptionEnabled;
 
     public ObservableCollection<X509Certificate2> Certificates => Alias.Certificates;
 
@@ -92,6 +95,6 @@ public sealed class AliasManagementItem(MailAccountAlias alias)
 
     public string EncryptionAutomationId => $"AliasManagementEncryption_{AliasAddress}";
 
-    public static IReadOnlyList<AliasManagementItem> Create(IEnumerable<MailAccountAlias> aliases)
-        => aliases.Select(alias => new AliasManagementItem(alias)).ToArray();
+    public static IReadOnlyList<AliasManagementItem> Create(IEnumerable<MailAccountAlias> aliases, bool smimeAvailable = true)
+        => aliases.Select(alias => new AliasManagementItem(alias, smimeAvailable)).ToArray();
 }

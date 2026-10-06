@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -46,7 +46,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private readonly ICalendarService _calendarService;
     private readonly IMailDialogService _dialogService;
     private readonly IPreferencesService _preferencesService;
-    private readonly INativeAppService _nativeAppService;
+    private readonly ITaskCompletionSound _taskCompletionSound;
     private readonly NewTaskListMenuItem _newListMenuItem = new();
     private readonly SeperatorItem _commandSeparator = new();
     private readonly SeperatorItem _smartViewSeparator = new();
@@ -67,7 +67,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private readonly Dictionary<Guid, Guid> _pendingDeletedListIds = [];
     private readonly SemaphoreSlim _reloadSemaphore = new(1, 1);
     private bool _isPaneCompact;
-    private bool _isPreparedForShellShutdown;
+    private volatile bool _isPreparedForShellShutdown;
     private bool _applyStartViewOnReload;
     private bool _isCompletionScopeExplicit;
     private int _suppressSurfaceReloadDepth;
@@ -75,6 +75,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private long _requestedFullReloadVersion;
     private long _completedFullReloadVersion;
     private long _taskReloadVersion;
+    private int _activeTaskReloads;
+    private int _activeFullReloads;
     private long _accountLoadVersion;
     private Guid? _selectedAccountId;
     private bool _isUpdatingTaskSelection;
@@ -250,6 +252,10 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     public ObservableCollection<TaskItemViewModel> SelectedTasks { get; } = [];
 
     public bool IsEmpty => !IsLoading && TaskGroups.Sum(group => group.Count) == 0;
+    public bool HasPendingPresentationWork => IsLoading || Volatile.Read(ref _activeTaskReloads) != 0 || _reloadSemaphore.CurrentCount == 0 ||
+        Volatile.Read(ref _activeFullReloads) != 0 ||
+        AddTaskCommand.IsRunning || SaveTaskCommand.IsRunning || CreateListCommand.IsRunning || DeleteListCommand.IsRunning ||
+        RenameSelectedListCommand.IsRunning || DeleteTaskCommand.IsRunning || ToggleTaskCommand.IsRunning || ToggleImportanceCommand.IsRunning || ToggleMyDayCommand.IsRunning;
     public bool HasSuggestions => Suggestions.Count > 0;
     public bool IsDetailVisible => SelectedTasks.Count > 0;
     public bool IsTaskListSurfaceVisible => Readiness.IsReady && (!IsCompactLayout || SelectedTasks.Count == 0);
@@ -469,7 +475,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         ICalendarService calendarService,
         IMailDialogService dialogService,
         IPreferencesService preferencesService = null,
-        INativeAppService nativeAppService = null,
+        ITaskCompletionSound taskCompletionSound = null,
         IAppModeReadinessService appModeReadinessService = null,
         IMailShellClient mailShell = null)
     {
@@ -481,7 +487,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         _calendarService = calendarService;
         _dialogService = dialogService;
         _preferencesService = preferencesService;
-        _nativeAppService = nativeAppService;
+        _taskCompletionSound = taskCompletionSound;
         TaskGroups = new ReadOnlyObservableCollection<TaskGroup>(_taskGroups);
         Readiness = new ModeReadinessViewModel(
             WinoApplicationMode.Tasks,
@@ -499,6 +505,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     private void ReadinessChanged(object sender, EventArgs e)
     {
+        if (_isPreparedForShellShutdown) return;
         _newListMenuItem.IsEnabled = Readiness.IsReady;
         OnPropertyChanged(nameof(CanCreateTask));
         OnPropertyChanged(nameof(CanCreateList));
@@ -912,6 +919,15 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         _ = Readiness.ActivateAsync();
     }
 
+    public async Task InitializeNavigationAsync(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedTo(mode, parameters);
+        _isPreparedForShellShutdown = false;
+        _applyStartViewOnReload = parameters is null && _preferencesService is not null;
+        await Readiness.ActivateAsync();
+        await ReloadAsync();
+    }
+
     public override void OnNavigatedFrom(NavigationMode mode, object parameters)
     {
         base.OnNavigatedFrom(mode, parameters);
@@ -1129,6 +1145,15 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     [RelayCommand]
     private async Task ReloadAsync()
     {
+        if (_isPreparedForShellShutdown) return;
+        Interlocked.Increment(ref _activeFullReloads);
+        try { await ReloadLoopAsync().ConfigureAwait(false); }
+        finally { Interlocked.Decrement(ref _activeFullReloads); }
+    }
+
+    private async Task ReloadLoopAsync()
+    {
+        if (_isPreparedForShellShutdown) return;
         Interlocked.Increment(ref _requestedFullReloadVersion);
         await _reloadSemaphore.WaitAsync().ConfigureAwait(false);
         try
@@ -1148,7 +1173,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     private async Task ReloadCoreAsync()
     {
-        await ExecuteUIThread(() => IsLoading = true).ConfigureAwait(false);
+        if (_isPreparedForShellShutdown) return;
+        await ExecuteUIThread(() => { if (!_isPreparedForShellShutdown) IsLoading = true; }).ConfigureAwait(false);
         try
         {
             var accounts = (await _accountService.GetAccountsAsync().ConfigureAwait(false))
@@ -1159,6 +1185,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
             foreach (var account in accounts.Where(RequiresLocalFallbackList))
             {
+                if (_isPreparedForShellShutdown) return;
                 if (lists.Any(list => list.MailAccountId == account.Id && list.SourceKind == TaskSourceKind.Local))
                     continue;
 
@@ -1186,6 +1213,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
             await ExecuteUIThread(() =>
             {
+                if (_isPreparedForShellShutdown) return;
                 var selectedListId = SelectedList?.Id;
                 ReconcileAccounts(accounts);
                 ReconcileTaskListGroups(listGroups);
@@ -1231,27 +1259,37 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
                 SyncShellMenuItems();
                 ApplyMenuCounts();
             }).ConfigureAwait(false);
-            await ReloadTasksAsync().ConfigureAwait(false);
+            if (!_isPreparedForShellShutdown) await ReloadTasksAsync().ConfigureAwait(false);
         }
         finally
         {
-            await ExecuteUIThread(() => IsLoading = false).ConfigureAwait(false);
+            if (!_isPreparedForShellShutdown)
+                await ExecuteUIThread(() => { if (!_isPreparedForShellShutdown) IsLoading = false; }).ConfigureAwait(false);
         }
     }
 
     [RelayCommand]
     private async Task ReloadTasksAsync()
     {
+        Interlocked.Increment(ref _activeTaskReloads);
+        try { await ReloadTasksCoreAsync().ConfigureAwait(false); }
+        finally { Interlocked.Decrement(ref _activeTaskReloads); }
+    }
+
+    private async Task ReloadTasksCoreAsync()
+    {
+        if (_isPreparedForShellShutdown) return;
         var reloadVersion = Interlocked.Increment(ref _taskReloadVersion);
         TaskReloadSnapshot snapshot = null;
-        await ExecuteUIThread(() => snapshot = new TaskReloadSnapshot(
+        await ExecuteUIThread(() => { if (_isPreparedForShellShutdown) return; snapshot = new TaskReloadSnapshot(
             SelectedList?.Id,
             SelectedList is null ? SelectedView : TaskViewKind.All,
             SelectedSort,
             IsMyDaySelected,
             SelectedList is null,
             _pendingTaskStates.Values.Select(RequestEntityCloner.Task).ToList(),
-            _pendingDeletedTaskIds.Keys.ToHashSet())).ConfigureAwait(false);
+            _pendingDeletedTaskIds.Keys.ToHashSet()); }).ConfigureAwait(false);
+        if (snapshot is null || _isPreparedForShellShutdown) return;
 
         var tasks = await _taskService.GetTasksAsync(
             listId: snapshot.ListId,
@@ -1264,7 +1302,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
         await ExecuteUIThread(() =>
         {
-            if (reloadVersion != Volatile.Read(ref _taskReloadVersion))
+            if (_isPreparedForShellShutdown || reloadVersion != Volatile.Read(ref _taskReloadVersion))
                 return;
 
             var previousSelectionIds = SelectedTasks.Select(item => item.Id).ToList();
@@ -1358,7 +1396,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             OriginalTask: original)).ConfigureAwait(false);
 
         if (desired.IsCompleted && _preferencesService?.IsTaskCompletionSoundEnabled == true)
-            _nativeAppService?.PlayTaskCompletionSound();
+            _taskCompletionSound?.Play();
     }
 
     [RelayCommand]
@@ -1608,7 +1646,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         await QueueMutationsAsync(requests).ConfigureAwait(false);
 
         if (isCompleted && requests.Count > 0 && _preferencesService?.IsTaskCompletionSoundEnabled == true)
-            _nativeAppService?.PlayTaskCompletionSound();
+            _taskCompletionSound?.Play();
     }
 
     [RelayCommand]
@@ -2406,7 +2444,13 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private string ResolveListName(AccountTask task)
         => TaskLists.FirstOrDefault(list => list.Id == task.TaskListId)?.Title ?? string.Empty;
 
-    private void SelectSurface(TaskViewKind view, AccountTaskList list)
+    public async Task SelectPresentationSurfaceAsync(TaskViewKind view, AccountTaskList list)
+    {
+        SelectSurface(view, list, false);
+        await ReloadTasksAsync();
+    }
+
+    private void SelectSurface(TaskViewKind view, AccountTaskList list, bool reload = true)
     {
         if (list is null && _selectedAccountId is not null)
         {
@@ -2443,7 +2487,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         _isCompletionScopeExplicit = false;
 
         UpdateSelectedMenuItemReference();
-        _ = ReloadTasksAsync();
+        if (reload) _ = ReloadTasksAsync();
     }
 
     private void ReconcileLoadedTasks(IReadOnlyList<AccountTask> tasks, bool showListName)

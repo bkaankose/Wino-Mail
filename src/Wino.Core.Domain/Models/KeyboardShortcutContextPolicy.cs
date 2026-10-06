@@ -20,7 +20,7 @@ public static class KeyboardShortcutContextPolicy
         if (action == KeyboardShortcutAction.Delete || modifierKeys == ModifierKeys.None)
             return false;
 
-        if (!modifierKeys.HasFlag(ModifierKeys.Control))
+        if (!modifierKeys.HasFlag(ModifierKeys.Control) && !modifierKeys.HasFlag(ModifierKeys.Command))
             return true;
 
         return key.ToUpperInvariant() is not ("A" or "B" or "C" or "F" or "I" or "K" or "S" or "U" or "V" or "X" or "Y" or "Z");

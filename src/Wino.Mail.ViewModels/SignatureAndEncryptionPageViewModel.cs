@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -9,6 +9,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Common;
+using Wino.Core.Domain.Models.Navigation;
 
 namespace Wino.Mail.ViewModels;
 
@@ -17,6 +18,7 @@ public partial class SignatureAndEncryptionPageViewModel : MailBaseViewModel
     private readonly ISmimeCertificateService _smimeCertificateService;
     private readonly IDialogServiceBase _dialogService;
     private readonly IFileService _fileService;
+    public bool IsSmimeAvailable { get; }
 
     public ObservableCollection<X509Certificate2> PersonalCertificates { get; } = [];
     public ObservableCollection<X509Certificate2> RecipientCertificates { get; } = [];
@@ -28,9 +30,11 @@ public partial class SignatureAndEncryptionPageViewModel : MailBaseViewModel
     public SignatureAndEncryptionPageViewModel(
         IDialogServiceBase dialogService,
         ISmimeCertificateService smimeCertificateService,
-        IFileService fileService
+        IFileService fileService,
+        IPlatformCapabilities platformCapabilities
     )
     {
+        IsSmimeAvailable = platformCapabilities.Smime;
         _dialogService = dialogService;
         _fileService = fileService;
         _smimeCertificateService = smimeCertificateService;
@@ -41,7 +45,9 @@ public partial class SignatureAndEncryptionPageViewModel : MailBaseViewModel
 
     private void LoadAllCertificates()
     {
-        PersonalCertificates.Clear();
+        DisposeCertificates();
+        if (!IsSmimeAvailable) return;
+
         var personalCerts = _smimeCertificateService.GetCertificates();
         foreach (var cert in personalCerts)
         {
@@ -50,27 +56,29 @@ public partial class SignatureAndEncryptionPageViewModel : MailBaseViewModel
 
         // Recipient certificates
         RecipientCertificates.Clear();
-        var recipientCerts = _smimeCertificateService.GetCertificates(storeName: StoreName.AddressBook);
+        var recipientCerts = _smimeCertificateService.GetCertificates(purpose: SmimeCertificatePurpose.Recipient);
         foreach (var cert in recipientCerts)
         {
             RecipientCertificates.Add(cert);
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(IsSmimeAvailable))]
     public async Task ImportPersonalCertificatesAsync()
     {
-        await ImportCertificates(StoreName.My);
+        await ImportCertificates(SmimeCertificatePurpose.Personal);
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(IsSmimeAvailable))]
     public async Task ImportRecipientCertificatesAsync()
     {
-        await ImportCertificates(StoreName.AddressBook);
+        await ImportCertificates(SmimeCertificatePurpose.Recipient);
     }
 
-    private async Task ImportCertificates(StoreName storeName)
+    private async Task ImportCertificates(SmimeCertificatePurpose purpose)
     {
+        if (!IsSmimeAvailable) return;
+
         var files = await PickCertificateFilesAsync();
         var failedImports = new List<string>();
         var successCount = 0;
@@ -85,7 +93,7 @@ public partial class SignatureAndEncryptionPageViewModel : MailBaseViewModel
             try
             {
                 _smimeCertificateService.ImportCertificate(file.FileExtension, file.Data, password,
-                    storeName: storeName);
+                    purpose: purpose);
                 successCount++;
             }
             catch (Exception ex)
@@ -110,20 +118,21 @@ public partial class SignatureAndEncryptionPageViewModel : MailBaseViewModel
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(IsSmimeAvailable))]
     public async Task RemovePersonalCertificatesAsync()
     {
-        await RemoveCertificatesAsync(SelectedPersonalCertificates, StoreName.My);
+        await RemoveCertificatesAsync(SelectedPersonalCertificates, SmimeCertificatePurpose.Personal);
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(IsSmimeAvailable))]
     public async Task RemoveRecipientCertificatesAsync()
     {
-        await RemoveCertificatesAsync(SelectedRecipientCertificates, StoreName.AddressBook);
+        await RemoveCertificatesAsync(SelectedRecipientCertificates, SmimeCertificatePurpose.Recipient);
     }
 
-    private async Task RemoveCertificatesAsync(List<X509Certificate2> certificates, StoreName storeName)
+    private async Task RemoveCertificatesAsync(List<X509Certificate2> certificates, SmimeCertificatePurpose purpose)
     {
+        if (!IsSmimeAvailable) return;
         if (certificates.Any())
         {
             var confirm = await ConfirmAsync(string.Format(Translator.Smime_RemoveCertificates_Confirm,
@@ -132,7 +141,7 @@ public partial class SignatureAndEncryptionPageViewModel : MailBaseViewModel
             {
                 foreach (var cert in certificates)
                 {
-                    _smimeCertificateService.RemoveCertificate(cert.Thumbprint, storeName: storeName);
+                    _smimeCertificateService.RemoveCertificate(cert.Thumbprint, purpose: purpose);
                 }
 
                 LoadAllCertificates();
@@ -145,13 +154,13 @@ public partial class SignatureAndEncryptionPageViewModel : MailBaseViewModel
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(IsSmimeAvailable))]
     public async Task ExportPersonalCertificatesAsync()
     {
         await ExportCertificatesAsync(SelectedPersonalCertificates);
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(IsSmimeAvailable))]
     public async Task ExportRecipientCertificatesAsync()
     {
         await ExportCertificatesAsync(SelectedRecipientCertificates);
@@ -160,6 +169,8 @@ public partial class SignatureAndEncryptionPageViewModel : MailBaseViewModel
     // Export logic for .cer or .pem
     private async Task ExportCertificatesAsync(IEnumerable<X509Certificate2> cert)
     {
+        if (!IsSmimeAvailable) return;
+
         var failedExports = new List<string>();
         var successCount = 0;
         foreach (var certificate in cert)
@@ -207,6 +218,26 @@ public partial class SignatureAndEncryptionPageViewModel : MailBaseViewModel
         }
     }
 
+    private void DisposeCertificates()
+    {
+        foreach (var certificate in PersonalCertificates.Concat(RecipientCertificates)) certificate.Dispose();
+        SelectedPersonalCertificates.Clear();
+        SelectedRecipientCertificates.Clear();
+        PersonalCertificates.Clear();
+        RecipientCertificates.Clear();
+    }
+
+    public override void OnNavigatedTo(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedTo(mode, parameters);
+        if (IsSmimeAvailable && PersonalCertificates.Count == 0 && RecipientCertificates.Count == 0) LoadAllCertificates();
+    }
+
+    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    {
+        DisposeCertificates();
+        base.OnNavigatedFrom(mode, parameters);
+    }
     private async Task ShowCertificateDetailsAsync(X509Certificate2 cert)
     {
         var details = string.Format(Translator.Smime_CertificateDetails, cert.Subject, cert.Issuer, cert.NotBefore,

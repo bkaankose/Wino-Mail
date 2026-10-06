@@ -96,7 +96,9 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly IMimeFileService _mimeFileService;
     private readonly IAccountReauthenticationService _accountReauthenticationService;
 
-    private readonly INativeAppService _nativeAppService;
+    private readonly IReaderRuntimeService _readerRuntimeService;
+    private readonly IStartupIntegrationService _startupIntegrationService;
+    public IPlatformCapabilities PlatformCapabilities { get; }
     private readonly IMailService _mailService;
     private bool _hasRegisteredPersistentRecipients;
     private int _isCreatingNewMail;
@@ -112,7 +114,9 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     public MailAppShellViewModel(IMailDialogService dialogService,
                              INavigationService navigationService,
                              IMimeFileService mimeFileService,
-                             INativeAppService nativeAppService,
+                             IReaderRuntimeService readerRuntimeService,
+                             IStartupIntegrationService startupIntegrationService,
+                             IPlatformCapabilities platformCapabilities,
                              IMailService mailService,
                              IMailCategoryService mailCategoryService,
                              IAccountService accountService,
@@ -136,7 +140,9 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
         _configurationService = configurationService;
         _mimeFileService = mimeFileService;
-        _nativeAppService = nativeAppService;
+        _readerRuntimeService = readerRuntimeService;
+        _startupIntegrationService = startupIntegrationService;
+        PlatformCapabilities = platformCapabilities;
         _mailService = mailService;
         _mailCategoryService = mailCategoryService;
         _folderService = folderService;
@@ -272,6 +278,9 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        => await InitializeNavigationAsync(mode, parameters);
+
+    public async Task InitializeNavigationAsync(NavigationMode mode, object parameters)
     {
         if (!_hasRegisteredPersistentRecipients)
         {
@@ -344,7 +353,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     private async Task ValidateWebView2RuntimeAsync()
     {
-        var isRuntimeAvailable = await _nativeAppService.IsWebView2RuntimeAvailableAsync();
+        var isRuntimeAvailable = await _readerRuntimeService.IsAvailableAsync();
 
         if (!isRuntimeAvailable)
         {
@@ -382,9 +391,12 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     private async Task MakeSureEnableStartupLaunchAsync()
     {
+        if (!PlatformCapabilities.StartupIntegration)
+            return;
+
         if (!_configurationService.Get<bool>(IsActivateStartupLaunchAskedKey, false))
         {
-            var currentBehavior = await _nativeAppService.GetCurrentStartupBehaviorAsync();
+            var currentBehavior = await _startupIntegrationService.GetCurrentBehaviorAsync();
 
             // User somehow already enabled Wino before the first launch.
             if (currentBehavior == StartupBehaviorResult.Enabled)
@@ -403,7 +415,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
             if (isAccepted)
             {
-                var behavior = await _nativeAppService.ToggleStartupBehavior(true);
+                var behavior = await _startupIntegrationService.SetEnabledAsync(true);
 
                 shouldDisplayLaterOnMessage = behavior != StartupBehaviorResult.Enabled;
             }
@@ -1001,7 +1013,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }
         else if (clickedMenuItem is RateMenuItem)
         {
-            await _storeService.LaunchStorePageForReviewAsync();
+            if (PlatformCapabilities.MicrosoftStore)
+                await _storeService.LaunchStorePageForReviewAsync();
         }
         else if (clickedMenuItem is NewMailMenuItem)
         {
@@ -1014,7 +1027,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             // Theory: This is a special folder like Categories or More. Don't navigate to it.
 
             // Prompt user rating dialog if eligible.
-            _ = _storeService.PromptRatingDialogAsync();
+            if (PlatformCapabilities.MicrosoftStore)
+                _ = _storeService.PromptRatingDialogAsync();
 
             await NavigateFolderAsync(baseFolderMenuItem);
         }
@@ -1240,7 +1254,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     public async Task HandleCreateNewMailAsync()
     {
-        _ = _storeService.PromptRatingDialogAsync();
+        if (PlatformCapabilities.MicrosoftStore)
+            _ = _storeService.PromptRatingDialogAsync();
 
         MailAccount operationAccount = null;
 
@@ -1949,9 +1964,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     public Task OnMenuSelectionChangedAsync(IMenuItem menuItem)
         => menuItem == null ? Task.CompletedTask : MenuItemInvokedOrSelectedAsync(menuItem);
 }
-
-
-
 
 
 

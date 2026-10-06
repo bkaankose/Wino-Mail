@@ -24,7 +24,7 @@ public sealed class WinoAccountIntelligenceSnapshotServiceTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         await _database.InitializeAsync();
-        _sessions = new(_database);
+        _sessions = new(_database, TestAccountCredentialPersistence.Instance);
         await _sessions.ReplaceAsync(new WinoAccount { Id = _accountId }, () => Task.CompletedTask);
         _api.Setup(x => x.GetIntelligenceConsentAsync(It.IsAny<CancellationToken>())).ThrowsAsync(new InvalidOperationException("Offline"));
         _store.Setup(x => x.SaveAccountSnapshotJsonAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))

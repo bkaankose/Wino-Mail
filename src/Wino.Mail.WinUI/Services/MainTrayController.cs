@@ -1,3 +1,4 @@
+using Wino.Mail.WinUI.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.IO;

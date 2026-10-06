@@ -27,7 +27,7 @@ public sealed class WinoPurchaseReconciliationServiceTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         await _database.InitializeAsync();
-        _sessions = new(_database);
+        _sessions = new(_database, TestAccountCredentialPersistence.Instance);
         await _sessions.ReplaceAsync(_account, () => Task.CompletedTask);
         _profile.Setup(x => x.RefreshProfileAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(WinoAccountOperationResult.Success(_account));

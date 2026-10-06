@@ -42,6 +42,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly IDatabaseService _databaseService;
+    private readonly IAccountCredentialPersistence _credentialPersistence;
     private readonly IContentEnvelopeEncryptor _contentEnvelopeEncryptor;
     private readonly ITranslationService? _translationService;
     private readonly IWinoAccountSessionService _sessions;
@@ -55,6 +56,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
     public WinoAccountApiClient(
         IDatabaseService databaseService,
+        IAccountCredentialPersistence credentialPersistence,
         HttpClient? httpClient = null,
         IContentEnvelopeEncryptor? contentEnvelopeEncryptor = null,
         ITranslationService? translationService = null,
@@ -64,7 +66,8 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         ArgumentOutOfRangeException.ThrowIfLessThan(maximumEncryptedAttempts, 1);
 
         _databaseService = databaseService;
-        _sessions = sessionService ?? WinoAccountSessionService.For(databaseService);
+        _credentialPersistence = credentialPersistence;
+        _sessions = sessionService ?? WinoAccountSessionService.For(databaseService, credentialPersistence);
         _contentEnvelopeEncryptor = contentEnvelopeEncryptor ??
             new PemContentEnvelopeEncryptor(EmbeddedIntelligencePublicKeyProvider.Load());
         _translationService = translationService;
@@ -991,6 +994,8 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     private async Task<string?> GetAccessTokenAsync()
     {
         var account = await _databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false);
+        if (account is not null)
+            await _credentialPersistence.RestoreWinoAccountSecretsAsync(account).ConfigureAwait(false);
         return string.IsNullOrWhiteSpace(account?.AccessToken) ? null : account.AccessToken;
     }
 

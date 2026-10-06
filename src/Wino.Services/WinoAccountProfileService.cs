@@ -26,6 +26,7 @@ namespace Wino.Services;
 public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccountProfileService
 {
     private readonly IWinoAccountApiClient _apiClient;
+    private readonly IAccountCredentialPersistence _credentialPersistence;
     private readonly ISyncSnapshotKeyService? _snapshotKeys;
     private readonly ITranslationService? _translationService;
     private readonly IMailIntelligenceCoordinator? _semanticIndexCoordinator;
@@ -36,6 +37,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
     public WinoAccountProfileService(IDatabaseService databaseService,
                                      IWinoAccountApiClient apiClient,
+                                     IAccountCredentialPersistence credentialPersistence,
                                      ITranslationService? translationService = null,
                                      IMailIntelligenceCoordinator? semanticIndexCoordinator = null,
                                      IMailIntelligenceStore? localIntelligenceStore = null,
@@ -45,10 +47,11 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
     {
         _snapshotKeys = snapshotKeys;
         _apiClient = apiClient;
+        _credentialPersistence = credentialPersistence;
         _translationService = translationService;
         _semanticIndexCoordinator = semanticIndexCoordinator;
         _localIntelligenceStore = localIntelligenceStore;
-        _sessions = sessionService ?? WinoAccountSessionService.For(databaseService);
+        _sessions = sessionService ?? WinoAccountSessionService.For(databaseService, credentialPersistence);
         _pendingCheckouts = pendingCheckouts;
     }
 
@@ -76,6 +79,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
     public async Task<WinoAccountOperationResult> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
     {
         var response = await _apiClient.LoginAsync(email, password, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         var result = await PersistResponseAsync(response).ConfigureAwait(false);
 
         if (result.IsSuccess && result.Account != null)
@@ -138,6 +142,8 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
     public async Task<WinoAccount?> GetActiveAccountAsync()
     {
         var account = await Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false);
+        if (account is not null)
+            await _credentialPersistence.RestoreWinoAccountSecretsAsync(account).ConfigureAwait(false);
         return account;
     }
 
@@ -245,7 +251,8 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
             var refreshed = MergeAccountProfile(current!, response.Result);
             if (!AreEquivalentProfiles(current!, refreshed))
             {
-                await Connection.UpdateAsync(refreshed, typeof(WinoAccount)).ConfigureAwait(false);
+                var stored = await _credentialPersistence.PrepareWinoAccountForStorageAsync(refreshed, cancellationToken).ConfigureAwait(false);
+                await Connection.UpdateAsync(stored, typeof(WinoAccount)).ConfigureAwait(false);
                 if (current!.AvatarRevision != refreshed.AvatarRevision) ClearAvatarCache(refreshed.Id, refreshed.AvatarRevision);
                 PublishProfileUpdated(refreshed);
             }
@@ -301,7 +308,14 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
     public async Task SignOutAsync(CancellationToken cancellationToken = default)
     {
-        var account = await GetActiveAccountAsync().ConfigureAwait(false);
+        WinoAccount? account;
+        var canRevokeRemoteToken = true;
+        try { account = await GetActiveAccountAsync().ConfigureAwait(false); }
+        catch (AccountCredentialMissingException)
+        {
+            account = await Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false);
+            canRevokeRemoteToken = false;
+        }
 
         // Account-owned local intelligence must be gone before local sign-out can succeed.
         await _sessions.ReplaceAsync(null, async () =>
@@ -321,7 +335,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
             ReportUIChange(new WinoAccountSignedOutMessage(account));
         }
 
-        if (account != null && !string.IsNullOrWhiteSpace(account.RefreshToken))
+        if (canRevokeRemoteToken && account != null && !string.IsNullOrWhiteSpace(account.RefreshToken))
         {
             try
             {
@@ -358,7 +372,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
     {
         await _sessions.ReplaceAsync(account, async () =>
         {
-            var existingAccount = await GetActiveAccountAsync().ConfigureAwait(false);
+            var existingAccount = await Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false);
             if (existingAccount is not null && existingAccount.Id != account.Id)
                 await PurgeLocalIntelligenceAsync().ConfigureAwait(false);
             else if (existingAccount is not null && existingAccount.AvatarRevision != account.AvatarRevision)
@@ -368,7 +382,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
     private async Task PurgeLocalIntelligenceAsync(CancellationToken cancellationToken = default)
     {
-        var account = await GetActiveAccountAsync().ConfigureAwait(false);
+        var account = await Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false);
         if (account is not null)
         {
             _pendingCheckouts?.Clear(account.Id);

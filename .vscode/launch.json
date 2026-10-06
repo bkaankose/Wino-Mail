@@ -1,42 +1,42 @@
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Debug Wino AppKit PoC (macOS)",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "Run Wino AppKit PoC (macOS)",
-            "program": "${workspaceFolder}/src/Wino.Mail.AppKit.Poc/bin/Debug/net10.0-macos/Wino.Mail.AppKit.Poc.dll",
-            "args": [],
-            "cwd": "${workspaceFolder}/src/Wino.Mail.AppKit.Poc",
-            "stopAtEntry": false,
-            "console": "internalConsole",
-            "justMyCode": true,
-            "env": {
-                "DOTNET_EnableDiagnostics": "1"
-            }
-        },
-        {
-            "name": "Run Wino Mail (Sandbox, Debug x64)",
-            "type": "node-terminal",
-            "request": "launch",
-            "command": "pwsh -NoProfile -File \"${workspaceFolder}/scripts/development/start-wino.ps1\" -Target sandbox",
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "name": "Debug Wino Mail (packaged, x64)",
-            "type": "coreclr",
-            "request": "attach",
-            "processName": "Wino.Mail.WinUI",
-            "preLaunchTask": "Run Wino Mail (packaged, x64)",
-            "justMyCode": true,
-            "requireExactSource": true,
-            "symbolOptions": {
-                "searchPaths": [
-                    "${workspaceFolder}/src/Wino.Mail.WinUI/bin/x64/Debug/net10.0-windows10.0.26100.0/win-x64"
-                ],
-                "searchMicrosoftSymbolServer": false
-            }
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Wino Mail (Sandbox, Debug x64)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "pwsh -NoProfile -File \"${workspaceFolder}/scripts/development/start-wino.ps1\" -Target sandbox",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Debug Wino Mail (packaged, x64)",
+      "type": "coreclr",
+      "request": "attach",
+      "processName": "Wino.Mail.WinUI",
+      "preLaunchTask": "Run Wino Mail (packaged, x64)",
+      "justMyCode": true,
+      "requireExactSource": true,
+      "symbolOptions": {
+        "searchPaths": [
+          "${workspaceFolder}/src/Wino.Mail.WinUI/bin/x64/Debug/net10.0-windows10.0.26100.0/win-x64"
+        ],
+        "searchMicrosoftSymbolServer": false
+      }
+    },
+    {
+      "name": "Debug Wino Mail (macOS, arm64)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "Build Wino Mail (macOS, arm64)",
+      "program": "${workspaceFolder}/src/Wino.Mail.MacOS/bin/Debug/net10.0-macos/osx-arm64/Wino.Mail.MacOS.app/Contents/MacOS/Wino.Mail.MacOS",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false,
+      "console": "internalConsole",
+      "justMyCode": true,
+      "env": {
+        "DOTNET_EnableDiagnostics": "1"
+      }
+    }
+  ]
 }

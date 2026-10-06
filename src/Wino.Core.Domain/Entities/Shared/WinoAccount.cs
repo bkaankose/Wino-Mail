@@ -5,6 +5,8 @@ namespace Wino.Core.Domain.Entities.Shared;
 
 public class WinoAccount
 {
+    public WinoAccount CloneForCredentialStorage() => (WinoAccount)MemberwiseClone();
+
     [PrimaryKey]
     public Guid Id { get; set; }
 

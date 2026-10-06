@@ -7,6 +7,8 @@ namespace Wino.Core.Domain.Entities.Shared;
 
 public class CustomServerInformation
 {
+    public CustomServerInformation CloneForCredentialStorage() => (CustomServerInformation)MemberwiseClone();
+
     [PrimaryKey]
     public Guid Id { get; set; }
 

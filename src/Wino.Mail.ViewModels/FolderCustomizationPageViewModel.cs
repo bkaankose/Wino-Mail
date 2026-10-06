@@ -36,6 +36,7 @@ public partial class FolderCustomizationPageViewModel : MailBaseViewModel
 
     private Guid _accountId;
     private bool _isLoaded;
+    public bool HasLoadedAccount => _isLoaded;
 
     [ObservableProperty]
     public partial string AccountName { get; set; }
@@ -57,7 +58,11 @@ public partial class FolderCustomizationPageViewModel : MailBaseViewModel
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        => await InitializeAsync(mode, parameters);
+
+    public async Task InitializeAsync(NavigationMode mode, object parameters)
     {
+        _isLoaded = false;
         base.OnNavigatedTo(mode, parameters);
 
         if (parameters is not Guid accountId)

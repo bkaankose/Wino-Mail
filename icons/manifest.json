@@ -13,7 +13,7 @@
       "file": "WinoIcons.ttf",
       "family": "WinoIcons",
       "copies": [
-        "controls/Wino.Mail.Controls/Assets"
+        "controls/Wino.Mail.Controls.WinUI/Assets"
       ]
     },
     "light": {

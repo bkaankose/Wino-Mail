@@ -297,13 +297,11 @@
 	<PackageReference Include="Wino.Mail.Contracts" />
   </ItemGroup>
   <ItemGroup>
-	<ProjectReference Include="..\Wino.Calendar.ViewModels\Wino.Calendar.ViewModels.csproj" />
 	<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
-	<ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
-	<ProjectReference Include="..\..\controls\Wino.Editor\Wino.Editor.csproj" />
+	<ProjectReference Include="..\..\controls\Wino.Editor.WinUI\Wino.Editor.WinUI.csproj" />
 	<ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
 	<ProjectReference Include="..\Wino.NotificationHost.Contracts\Wino.NotificationHost.Contracts.csproj" />
-	<ProjectReference Include="..\..\controls\Wino.Mail.Controls\Wino.Mail.Controls.csproj" />
+	<ProjectReference Include="..\..\controls\Wino.Mail.Controls.WinUI\Wino.Mail.Controls.WinUI.csproj" />
 	<ProjectReference Include="..\..\controls\Wino.Mail.Controls.Core\Wino.Mail.Controls.Core.csproj" />
 	<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
   </ItemGroup>
@@ -509,4 +507,7 @@
     <MSBuild Projects="$(MSBuildProjectDirectory)\..\Wino.NotificationHost\Wino.NotificationHost.csproj" Targets="Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);PublishDir=$(NotificationHostOutput);Restore=false" />
   </Target>
 
+	<ItemGroup>
+		<ProjectReference Include="..\Wino.Platform.Windows\Wino.Platform.Windows.csproj" />
+	</ItemGroup>
 </Project>

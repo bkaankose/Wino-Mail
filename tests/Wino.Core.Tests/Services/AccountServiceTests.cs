@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
 using FluentAssertions;
@@ -404,7 +404,7 @@ public class AccountServiceTests : IAsyncLifetime
         }
 
         authenticator.Verify(value => value.DeleteTokenInformationAsync(
-            It.Is<MailAccount>(candidate => candidate.Id == account.Id)), Times.Once);
+            It.Is<MailAccount>(candidate => candidate.Id == account.Id), It.IsAny<CancellationToken>()), Times.Once);
         var updated = await _databaseService.Connection.FindAsync<MailAccount>(account.Id);
         updated.AttentionReason.Should().Be(AccountAttentionReason.InvalidCredentials);
         notification.Should().NotBeNull();
@@ -535,6 +535,7 @@ public class AccountServiceTests : IAsyncLifetime
             authenticationProvider,
             mimeFileService.Object,
             preferencesService.Object,
-            pictureStorageService ?? Mock.Of<IPictureStorageService>());
+            pictureStorageService ?? Mock.Of<IPictureStorageService>(),
+            credentialPersistence: Wino.Core.Tests.Helpers.TestAccountCredentialPersistence.Instance);
     }
 }

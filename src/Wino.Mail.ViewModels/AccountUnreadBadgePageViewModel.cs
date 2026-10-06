@@ -99,7 +99,11 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        => await InitializeAsync(mode, parameters);
+
+    public async Task InitializeAsync(NavigationMode mode, object parameters)
     {
+        await DrainPreferenceWritesAsync();
         base.OnNavigatedTo(mode, parameters);
 
         if (parameters is not Guid accountId)
@@ -110,6 +114,7 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
 
     private async Task LoadAccountAsync(Guid accountId)
     {
+        PreferenceError = string.Empty;
         _isLoaded = false;
 
         _account = await _accountService.GetAccountAsync(accountId);
@@ -143,7 +148,9 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
 
             foreach (var folder in folders.Where(folder => folder.IsMoveTarget))
             {
-                Folders.Add(new UnreadBadgeFolderViewModel(folder, OnFolderCountedChangedAsync, OnFolderBadgeChangedAsync));
+                Folders.Add(new UnreadBadgeFolderViewModel(folder,
+                    row => { PreferenceWrites.Enqueue(() => OnFolderCountedChangedAsync(row)); return Task.CompletedTask; },
+                    row => { PreferenceWrites.Enqueue(() => OnFolderBadgeChangedAsync(row)); return Task.CompletedTask; }));
             }
         });
     }
@@ -223,35 +230,42 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
         RequestUnreadCountRefresh();
     }
 
-    protected override async void OnPropertyChanged(PropertyChangedEventArgs e)
+    private AccountSettingsWriteLifetime _preferenceWrites;
+    public bool HasPendingPreferenceWrites => _preferenceWrites?.HasPending == true;
+    public Task DrainPreferenceWritesAsync() => _preferenceWrites?.DrainAsync() ?? Task.CompletedTask;
+    [ObservableProperty] public partial string PreferenceError { get; set; } = string.Empty;
+    private AccountSettingsWriteLifetime PreferenceWrites => _preferenceWrites ??= new(_ =>
+        ExecuteUIThread(() => PreferenceError = Translator.MacOSMail_OperationFailed));
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
-
         if (!_isLoaded || _account == null) return;
 
         switch (e.PropertyName)
         {
             case nameof(IsAccountBadgeEnabled):
-                _account.Preferences.IsAccountBadgeEnabled = IsAccountBadgeEnabled;
-                await SaveAndRefreshAsync();
+                var accountBadge = IsAccountBadgeEnabled;
+                PreferenceWrites.Enqueue(async () => { _account.Preferences.IsAccountBadgeEnabled = accountBadge; await SaveAndRefreshAsync(); });
                 break;
             case nameof(IsTaskbarBadgeEnabled):
-                _account.Preferences.IsTaskbarBadgeEnabled = IsTaskbarBadgeEnabled;
-                await SaveAndRefreshAsync();
+                var taskbarBadge = IsTaskbarBadgeEnabled;
+                PreferenceWrites.Enqueue(async () => { _account.Preferences.IsTaskbarBadgeEnabled = taskbarBadge; await SaveAndRefreshAsync(); });
                 break;
             case nameof(AreFolderBadgesEnabled):
-                _account.Preferences.AreFolderBadgesEnabled = AreFolderBadgesEnabled;
-                await SaveAndRefreshAsync();
+                var folderBadges = AreFolderBadgesEnabled;
+                PreferenceWrites.Enqueue(async () => { _account.Preferences.AreFolderBadgesEnabled = folderBadges; await SaveAndRefreshAsync(); });
                 break;
             case nameof(IsInboxOnlySource):
-                _account.Preferences.UnreadBadgeCountSource = IsInboxOnlySource
-                    ? UnreadBadgeCountSource.InboxOnly
-                    : UnreadBadgeCountSource.SelectedFolders;
-                await SaveAndRefreshAsync();
+                var inboxOnly = IsInboxOnlySource;
+                PreferenceWrites.Enqueue(async () =>
+                {
+                    _account.Preferences.UnreadBadgeCountSource = inboxOnly ? UnreadBadgeCountSource.InboxOnly : UnreadBadgeCountSource.SelectedFolders;
+                    await SaveAndRefreshAsync();
+                });
                 break;
         }
     }
-
     [RelayCommand]
     private async Task RestoreDefaultsAsync()
     {
@@ -288,6 +302,15 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
         RequestUnreadCountRefresh();
     }
 
+    public async Task ReleaseAccountAsync()
+    {
+        await DrainPreferenceWritesAsync();
+        _isLoaded = false;
+        _account = null;
+        Account = null;
+        Folders.Clear();
+        IllustrationFolders.Clear();
+    }
     private void RequestUnreadCountRefresh()
         => Messenger.Send(new RefreshUnreadCountsMessage(_account.Id));
 }

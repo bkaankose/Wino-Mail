@@ -46,6 +46,8 @@ public sealed class WinoIntelligenceSessionSafetyTests
             IsQuotaAvailable = true
         };
 
+        // Presentation registration owns whether incoming account messages are accepted.
+        await viewModel.InitializeAsync(Wino.Core.Domain.Models.Navigation.NavigationMode.New, null!);
         var pending = viewModel.RetryRemoteRefreshCommand.ExecuteAsync(null);
         await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
         cancellation.Cancel();

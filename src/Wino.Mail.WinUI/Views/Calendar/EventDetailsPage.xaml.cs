@@ -86,7 +86,7 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
     {
         try
         {
-            await ViewModel.NativeAppService.LaunchUriAsync(args.Uri);
+            (await ViewModel.ExternalLauncher.LaunchUriAsync(args.Uri)).ThrowIfNotSucceeded();
         }
         catch (Exception ex)
         {

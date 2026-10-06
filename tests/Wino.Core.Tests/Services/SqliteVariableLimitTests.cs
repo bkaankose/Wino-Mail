@@ -70,7 +70,8 @@ public class SqliteVariableLimitTests : IAsyncLifetime
             authProvider.Object,
             mimeFileService.Object,
             preferencesService.Object,
-            contactPictureFileService.Object);
+            contactPictureFileService.Object,
+            credentialPersistence: Wino.Core.Tests.Helpers.TestAccountCredentialPersistence.Instance);
 
         _mailCategoryService = new MailCategoryService(_databaseService);
         _folderService = new FolderService(_databaseService, accountService, _mailCategoryService);

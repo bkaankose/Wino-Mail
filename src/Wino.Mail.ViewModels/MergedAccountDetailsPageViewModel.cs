@@ -175,6 +175,9 @@ public partial class MergedAccountDetailsPageViewModel : MailBaseViewModel,
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        => await InitializeAsync(mode, parameters);
+
+    public async Task InitializeAsync(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 
@@ -183,6 +186,8 @@ public partial class MergedAccountDetailsPageViewModel : MailBaseViewModel,
 
         if (parameters is MergedAccountProviderDetailViewModel editingMergedAccount)
         {
+            LinkedAccounts.Clear();
+            UnlinkedAccounts.Clear();
             MergedAccountName = editingMergedAccount.MergedInbox.Name;
             EditingMergedAccount = editingMergedAccount;
 

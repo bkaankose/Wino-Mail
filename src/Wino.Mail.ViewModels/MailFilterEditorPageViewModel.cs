@@ -532,8 +532,11 @@ public partial class MailFilterEditorPageViewModel(
             or MailFilterActionType.SoftDelete
             or MailFilterActionType.HardDelete;
 
+    public bool LastSaveSucceeded { get; private set; }
+
     public async Task SaveAsync()
     {
+        LastSaveSucceeded = false;
         if (Account == null || IsSaving)
             return;
         if (string.IsNullOrWhiteSpace(FilterName))
@@ -612,6 +615,7 @@ public partial class MailFilterEditorPageViewModel(
                 await _mailFilterService.UpdateFilterAsync(filter).ConfigureAwait(false);
             }
 
+            LastSaveSucceeded = true;
             await ExecuteUIThread(() => NavigationService.GoBack());
         }
         catch (Exception ex)

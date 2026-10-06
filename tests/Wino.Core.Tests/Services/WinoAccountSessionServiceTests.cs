@@ -14,7 +14,7 @@ public sealed class WinoAccountSessionServiceTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         await _database.InitializeAsync();
-        _sessions = new(_database);
+        _sessions = new(_database, TestAccountCredentialPersistence.Instance);
         await _sessions.ReplaceAsync(Account(), () => Task.CompletedTask);
     }
 

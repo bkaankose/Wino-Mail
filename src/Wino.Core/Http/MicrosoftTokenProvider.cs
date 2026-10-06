@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -35,7 +35,7 @@ public class MicrosoftTokenProvider : IAccessTokenProvider
         // Every Graph call of the synchronizer asks for a token first; an account waiting for a fix stays offline.
         _account.ThrowIfNetworkAccessBlocked();
 
-        var tokenInfo = await _authenticator.GetTokenInformationAsync(_account, _requiredFeatures);
+        var tokenInfo = await _authenticator.GetTokenInformationAsync(_account, _requiredFeatures, cancellationToken);
 
         return tokenInfo.AccessToken;
     }

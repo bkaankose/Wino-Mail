@@ -12,5 +12,6 @@ public enum ModifierKeys
     Control = 1,
     Alt = 2,
     Shift = 4,
-    Windows = 8
+    Windows = 8,
+    Command = 16
 }

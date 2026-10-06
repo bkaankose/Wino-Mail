@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Wino.Editor</RootNamespace>
+    <Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings>
+    <IsAotCompatible>true</IsAotCompatible><EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Editor\**\*">
+      <Link>Editor\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <LogicalName>Wino.Editor.Assets.Editor.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+</Project>

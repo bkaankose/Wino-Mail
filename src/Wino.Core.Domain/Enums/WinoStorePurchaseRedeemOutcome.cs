@@ -15,5 +15,8 @@ public enum WinoStorePurchaseRedeemOutcome
     NotOwned,
 
     /// <summary>The Store or the Wino Account API could not be reached, or returned an error.</summary>
-    Failed
+    Failed,
+
+    /// <summary>This platform cannot access Microsoft Store purchases; account entitlements remain valid.</summary>
+    Unavailable
 }

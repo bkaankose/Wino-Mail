@@ -82,6 +82,10 @@ internal sealed partial class KeyboardShortcutController : IDisposable
         var mode = _modeProvider();
         foreach (var shortcut in _shortcutService.EnabledShortcutsSnapshot.Where(item => item.Mode == mode))
         {
+            // Synced macOS gestures have no physical Command key on Windows; never register a weaker gesture.
+            if (shortcut.ModifierKeys.HasFlag(ModifierKeys.Command))
+                continue;
+
             if (!Enum.TryParse(shortcut.Key, true, out VirtualKey key) || key == VirtualKey.None)
                 continue;
 

@@ -18,10 +18,3 @@ internal interface IIntelligenceResultKeyRows
     Task DeleteAsync(string keyId, CancellationToken cancellationToken);
     Task DeleteAllAsync(CancellationToken cancellationToken);
 }
-
-/// <summary>Wraps the private key for the current Windows user. DPAPI in the app, a fake in tests.</summary>
-internal interface IIntelligenceKeyProtector
-{
-    byte[] Protect(byte[] data, byte[] entropy);
-    byte[] Unprotect(byte[] data, byte[] entropy);
-}

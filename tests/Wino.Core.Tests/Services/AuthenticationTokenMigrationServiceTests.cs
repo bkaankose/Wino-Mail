@@ -2,6 +2,7 @@ using System.Text.Json;
 using FluentAssertions;
 using Moq;
 using Wino.Authentication;
+using Wino.Core.Tests.Authentication;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -90,8 +91,8 @@ public sealed class AuthenticationTokenMigrationServiceTests
 
             var authenticator = new GmailAuthenticator(
                 new MailAuthenticatorConfiguration(configuration),
-                Mock.Of<INativeAppService>(),
-                authenticationPresenter: null);
+                Mock.Of<IExternalLauncher>(),
+                authenticationPresenter: null, tokenStore: new TestGoogleTokenStore(AuthenticationTokenStorePaths.GetGmailTokenStorePath(configuration)));
             var tokenInformation = await authenticator.GetTokenInformationAsync(new MailAccount
             {
                 Id = gmailAccountId,

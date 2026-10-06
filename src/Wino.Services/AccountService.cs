@@ -12,6 +12,7 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Models.Accounts;
@@ -31,6 +32,7 @@ public class AccountService : BaseDatabaseService, IAccountService
     private readonly IMimeFileService _mimeFileService;
     private readonly IPreferencesService _preferencesService;
     private readonly IPictureStorageService _pictureStorageService;
+    private readonly IAccountCredentialPersistence _credentialPersistence;
     private readonly IServerCertificateTrustService _serverCertificateTrustService;
     private readonly ISemanticIndexJobRegistry _semanticIndexJobRegistry;
     private readonly IMailIntelligenceStore _localIntelligenceStore;
@@ -45,6 +47,7 @@ public class AccountService : BaseDatabaseService, IAccountService
                           IMimeFileService mimeFileService,
                           IPreferencesService preferencesService,
                           IPictureStorageService pictureStorageService,
+                          IAccountCredentialPersistence credentialPersistence,
                           IServerCertificateTrustService serverCertificateTrustService = null,
                           ISemanticIndexJobRegistry semanticIndexJobRegistry = null,
                           IMailIntelligenceStore localIntelligenceStore = null,
@@ -56,6 +59,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         _mimeFileService = mimeFileService;
         _preferencesService = preferencesService;
         _pictureStorageService = pictureStorageService;
+        _credentialPersistence = credentialPersistence;
         _serverCertificateTrustService = serverCertificateTrustService ?? new ServerCertificateTrustService(databaseService);
         _semanticIndexJobRegistry = semanticIndexJobRegistry;
         _localIntelligenceStore = localIntelligenceStore;
@@ -248,7 +252,15 @@ public class AccountService : BaseDatabaseService, IAccountService
         {
             // Load IMAP server configuration.
             if (account.ProviderType.IsCustomMailProvider())
-                account.ServerInformation = await GetAccountCustomServerInformationAsync(account.Id);
+            {
+                try { account.ServerInformation = await GetAccountCustomServerInformationAsync(account.Id); }
+                catch (AccountCredentialMissingException)
+                {
+                    // Keep the recovery list available without exposing a reference as a password.
+                    account.ServerInformation = null;
+                    account.AttentionReason = AccountAttentionReason.InvalidCredentials;
+                }
+            }
 
             // Load MergedInbox information.
             if (account.MergedInboxId != null)
@@ -345,7 +357,6 @@ public class AccountService : BaseDatabaseService, IAccountService
         if (_semanticIndexJobRegistry is not null)
             await _semanticIndexJobRegistry.CancelAndWaitAsync(account.Id).ConfigureAwait(false);
 
-        await DeleteProviderTokenAsync(account).ConfigureAwait(false);
         if (_localIntelligenceStore is not null)
             await _localIntelligenceStore.DeleteAccountAsync(account.Id).ConfigureAwait(false);
 
@@ -407,8 +418,6 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         if (_cardDavSynchronizationStore is not null)
             await _cardDavSynchronizationStore.DeleteAccountStateAsync(account.Id).ConfigureAwait(false);
-        if (_davCredentialStore is not null)
-            await _davCredentialStore.DeleteAsync(account.Id).ConfigureAwait(false);
 
         await Connection.RunInTransactionAsync(transaction =>
         {
@@ -460,6 +469,10 @@ public class AccountService : BaseDatabaseService, IAccountService
             await Connection.DeleteAsync<MailAccountPreferences>(account.Preferences.Id);
 
         await Connection.DeleteAsync<MailAccount>(account.Id);
+        await _credentialPersistence.DeleteMailAccountSecretsAsync(account.Id).ConfigureAwait(false);
+        await DeleteProviderTokenAsync(account).ConfigureAwait(false);
+        if (_davCredentialStore is not null)
+            await _davCredentialStore.DeleteAsync(account.Id).ConfigureAwait(false);
 
         await _mimeFileService.DeleteUserMimeCacheAsync(account.Id).ConfigureAwait(false);
 
@@ -522,16 +535,18 @@ public class AccountService : BaseDatabaseService, IAccountService
         }
         else if (account.ProviderType.IsCustomMailProvider())
         {
-            var serverInformation = await GetAccountCustomServerInformationAsync(account.Id).ConfigureAwait(false);
+            var serverInformation = await ReadServerInformationMetadataAsync(account.Id).ConfigureAwait(false);
 
             if (serverInformation is not null)
             {
                 serverInformation.IncomingServerPassword = string.Empty;
                 serverInformation.OutgoingServerPassword = string.Empty;
                 serverInformation.CalDavPassword = string.Empty;
-                await Connection.UpdateAsync(serverInformation, typeof(CustomServerInformation)).ConfigureAwait(false);
+                var stored = await _credentialPersistence.PrepareServerInformationForStorageAsync(serverInformation).ConfigureAwait(false);
+                await Connection.UpdateAsync(stored, typeof(CustomServerInformation)).ConfigureAwait(false);
                 account.ServerInformation = serverInformation;
             }
+            await _credentialPersistence.DeleteMailAccountSecretsAsync(account.Id).ConfigureAwait(false);
         }
 
         account.AttentionReason = AccountAttentionReason.InvalidCredentials;
@@ -657,7 +672,35 @@ public class AccountService : BaseDatabaseService, IAccountService
         return null;
     }
 
-    public Task<CustomServerInformation> GetAccountCustomServerInformationAsync(Guid accountId)
+    public async Task<CustomServerInformation> GetAccountCustomServerInformationAsync(Guid accountId)
+    {
+        var information = await ReadServerInformationMetadataAsync(accountId).ConfigureAwait(false);
+        if (information is not null)
+            await _credentialPersistence.RestoreServerInformationSecretsAsync(information).ConfigureAwait(false);
+        return information;
+    }
+
+    public async Task<MailAccount> GetAccountMetadataAsync(Guid accountId)
+    {
+        // SQLite materializes detached entities. Never hydrate this recovery-only read.
+        var account = await Connection.Table<MailAccount>().FirstOrDefaultAsync(a => a.Id == accountId).ConfigureAwait(false);
+        if (account is null) return null;
+
+        account.Preferences = await GetAccountPreferencesAsync(accountId).ConfigureAwait(false);
+        if (account.ProviderType.IsCustomMailProvider())
+        {
+            var information = await ReadServerInformationMetadataAsync(accountId).ConfigureAwait(false);
+            if (information is not null)
+            {
+                information = information.CloneForCredentialStorage();
+                information.IncomingServerPassword = information.OutgoingServerPassword = information.CalDavPassword = string.Empty;
+                account.ServerInformation = information;
+            }
+        }
+        return account;
+    }
+
+    private Task<CustomServerInformation> ReadServerInformationMetadataAsync(Guid accountId)
         => Connection.Table<CustomServerInformation>().FirstOrDefaultAsync(a => a.AccountId == accountId);
 
     public async Task UpdateAccountAsync(MailAccount account)
@@ -691,8 +734,9 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public async Task UpdateAccountCustomServerInformationAsync(CustomServerInformation customServerInformation)
     {
-        var previous = await GetAccountCustomServerInformationAsync(customServerInformation.AccountId).ConfigureAwait(false);
-        await Connection.InsertOrReplaceAsync(customServerInformation, typeof(CustomServerInformation)).ConfigureAwait(false);
+        var previous = await ReadServerInformationMetadataAsync(customServerInformation.AccountId).ConfigureAwait(false);
+        var stored = await _credentialPersistence.PrepareServerInformationForStorageAsync(customServerInformation).ConfigureAwait(false);
+        await Connection.InsertOrReplaceAsync(stored, typeof(CustomServerInformation)).ConfigureAwait(false);
         await UpdateCertificateTrustsAsync(previous, customServerInformation).ConfigureAwait(false);
     }
 
@@ -701,13 +745,14 @@ public class AccountService : BaseDatabaseService, IAccountService
         Guard.IsNotNull(account);
         Guard.IsNotNull(customServerInformation);
 
-        var previous = await GetAccountCustomServerInformationAsync(account.Id).ConfigureAwait(false);
+        var previous = await ReadServerInformationMetadataAsync(account.Id).ConfigureAwait(false);
         customServerInformation.AccountId = account.Id;
         account.Preferences?.PrepareForStorage();
 
+        var stored = await _credentialPersistence.PrepareServerInformationForStorageAsync(customServerInformation).ConfigureAwait(false);
         await Connection.RunInTransactionAsync(connection =>
         {
-            connection.InsertOrReplace(customServerInformation, typeof(CustomServerInformation));
+            connection.InsertOrReplace(stored, typeof(CustomServerInformation));
             if (account.Preferences != null)
                 connection.Update(account.Preferences, typeof(MailAccountPreferences));
             connection.Update(account, typeof(MailAccount));
@@ -998,6 +1043,13 @@ public class AccountService : BaseDatabaseService, IAccountService
         if (await AccountAddressExistsAsync(account.Address).ConfigureAwait(false))
             throw new InvalidOperationException(Translator.DialogMessage_AccountAddressExistsMessage);
 
+        CustomServerInformation storedServerInformation = null;
+        if (customServerInformation is not null)
+        {
+            customServerInformation.AccountId = account.Id;
+            storedServerInformation = await _credentialPersistence.PrepareServerInformationForStorageAsync(customServerInformation).ConfigureAwait(false);
+        }
+
         if (!account.CreatedAt.HasValue)
         {
             account.CreatedAt = DateTime.UtcNow;
@@ -1092,8 +1144,7 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         if (customServerInformation != null)
         {
-            customServerInformation.AccountId = account.Id;
-            await Connection.InsertAsync(customServerInformation, typeof(CustomServerInformation));
+            await Connection.InsertAsync(storedServerInformation, typeof(CustomServerInformation));
             await _serverCertificateTrustService.SaveTrustsAsync(account.Id, customServerInformation.PendingCertificateTrusts).ConfigureAwait(false);
             customServerInformation.PendingCertificateTrusts.Clear();
         }

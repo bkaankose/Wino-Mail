@@ -11,22 +11,37 @@ namespace Wino.Services.Dav;
 public sealed class DavCredentialStore : IDavCredentialStore
 {
     private readonly string _root;
+    private readonly ISecretProtector _protector;
 
-    public DavCredentialStore(IApplicationConfiguration configuration)
+    public DavCredentialStore(IApplicationConfiguration configuration, ISecretProtector protector)
     {
+        ArgumentNullException.ThrowIfNull(protector);
+
         _root = Path.Combine(configuration.ApplicationDataFolderPath, "credentials", "dav");
+        _protector = protector;
     }
 
     public async Task<string> GetPasswordAsync(Guid accountId, CancellationToken cancellationToken = default)
     {
         var path = PathFor(accountId);
-        if (!File.Exists(path)) return null;
+        if (!File.Exists(path))
+            return null;
+
         var protectedBytes = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
-#pragma warning disable CA1416
-        var clearBytes = ProtectedData.Unprotect(protectedBytes, Entropy(accountId), DataProtectionScope.CurrentUser);
-#pragma warning restore CA1416
-        try { return Encoding.UTF8.GetString(clearBytes); }
-        finally { CryptographicOperations.ZeroMemory(clearBytes); }
+        var context = Entropy(accountId);
+        byte[] clearBytes = null;
+
+        try
+        {
+            clearBytes = _protector.Unprotect(protectedBytes, context);
+            return Encoding.UTF8.GetString(clearBytes);
+        }
+        finally
+        {
+            if (clearBytes is not null) CryptographicOperations.ZeroMemory(clearBytes);
+            CryptographicOperations.ZeroMemory(protectedBytes);
+            CryptographicOperations.ZeroMemory(context);
+        }
     }
 
     public async Task SavePasswordAsync(Guid accountId, string password, CancellationToken cancellationToken = default)
@@ -34,29 +49,36 @@ public sealed class DavCredentialStore : IDavCredentialStore
         ArgumentException.ThrowIfNullOrWhiteSpace(password);
         Directory.CreateDirectory(_root);
         var clearBytes = Encoding.UTF8.GetBytes(password);
+        var context = Entropy(accountId);
         byte[] protectedBytes = null;
+        string temporary = null;
+
         try
         {
-#pragma warning disable CA1416
-            protectedBytes = ProtectedData.Protect(clearBytes, Entropy(accountId), DataProtectionScope.CurrentUser);
-#pragma warning restore CA1416
+            protectedBytes = _protector.Protect(clearBytes, context);
             var destination = PathFor(accountId);
-            var temporary = destination + $".{Guid.NewGuid():N}.tmp";
+            temporary = destination + $".{Guid.NewGuid():N}.tmp";
             await File.WriteAllBytesAsync(temporary, protectedBytes, cancellationToken).ConfigureAwait(false);
             File.Move(temporary, destination, true);
         }
         finally
         {
             CryptographicOperations.ZeroMemory(clearBytes);
+            CryptographicOperations.ZeroMemory(context);
             if (protectedBytes is not null) CryptographicOperations.ZeroMemory(protectedBytes);
+
+            if (temporary is not null && File.Exists(temporary))
+                File.Delete(temporary);
         }
     }
 
     public Task DeleteAsync(Guid accountId, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+
         var path = PathFor(accountId);
         if (File.Exists(path)) File.Delete(path);
+
         return Task.CompletedTask;
     }
 

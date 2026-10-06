@@ -33,7 +33,7 @@ var closed = false;
 try
 {
     await database.InitializeAsync();
-    var credentials = new DavCredentialStore(configuration);
+    var credentials = new DavCredentialStore(configuration, new Wino.Platform.Windows.DpapiSecretProtector());
     var accounts = new List<object>();
     var users = new[] { "alice", "bob", "empty" };
     var colors = new[] { "#2675BF", "#B05A32", "#577B49" };

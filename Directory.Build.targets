@@ -5,7 +5,7 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(TargetFramework)' != 'netstandard2.0' and '$(IsTestProject)' != 'true'">
+  <PropertyGroup Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(TargetFramework)' != 'netstandard2.0' and '$(IsTestProject)' != 'true' and !$(TargetFramework.Contains('-macos'))">
     <!-- Release is the repository-wide Native AOT compatibility gate. -->
     <IsAotCompatible>true</IsAotCompatible>
     <IsTrimmable>true</IsTrimmable>
@@ -13,6 +13,13 @@
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
     <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- Native AppKit uses the macOS workload's managed runtime for the foundation.
+       The portable libraries and Windows release retain their AOT analyzer gates. -->
+  <PropertyGroup Condition="$(TargetFramework.Contains('-macos'))">
+    <IsAotCompatible>false</IsAotCompatible>
+    <PublishAot>false</PublishAot>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(TargetFramework)' == 'netstandard2.0'">

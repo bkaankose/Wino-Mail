@@ -397,7 +397,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     partial void OnAutomaticallyIndexNewMessagesChanged(bool value)
     {
         if (!_isApplyingProfile && Account is not null)
-            _ = SaveAutomaticIndexingPreferenceAsync(value);
+            TrackAcceptedWork(() => SaveAutomaticIndexingPreferenceAsync(value));
     }
 
     partial void OnNewMessageModeIndexChanged(int value)
@@ -475,6 +475,9 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     partial void OnEstimatedMissingMessageCountChanged(int value) => RefreshHeroState();
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        => await InitializeAsync(mode, parameters);
+
+    public async Task InitializeAsync(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
         if (parameters is not Guid accountId)
@@ -851,14 +854,14 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
 
     public void Receive(WinoIntelligenceAccessChanged message)
     {
-        if (Account is not null) _ = ApplyAccessChangeAsync(Account);
+        if (Account is { } account) TrackAcceptedWork(() => ApplyAccessChangeAsync(account));
     }
 
-    public void Receive(WinoAccountProfileDeletedMessage message) => _ = ResetAccountAccessAsync();
+    public void Receive(WinoAccountProfileDeletedMessage message) => TrackAcceptedWork(ResetAccountAccessAsync);
 
     public void Receive(WinoAccountProfileUpdatedMessage message)
     {
-        if (Account is not null) _ = ReloadAccountAccessAsync(Account);
+        if (Account is { } account) TrackAcceptedWork(() => ReloadAccountAccessAsync(account));
     }
 
     private async Task ReloadAccountAccessAsync(MailAccount account)
@@ -992,20 +995,23 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     {
         if (Account?.Id != message.AccountId)
             return;
-        _ = ExecuteUIThread(() => ApplySnapshot(message.Snapshot));
+        TrackAcceptedWork(() => ExecuteUIThread(() => ApplySnapshot(message.Snapshot)));
         if (message.Snapshot.Status is
             MailIntelligenceJobStatus.Completed or
             MailIntelligenceJobStatus.PausedForQuota or
             MailIntelligenceJobStatus.Failed or
             MailIntelligenceJobStatus.Cancelled)
         {
-            _ = RefreshAfterJobAsync();
+            TrackAcceptedWork(RefreshAfterJobAsync);
         }
     }
 
     protected override void RegisterRecipients()
     {
         base.RegisterRecipients();
+        // MailBaseViewModel registration first invokes virtual UnregisterRecipients.
+        // Open this lifetime only after that reset, so active recipients accept work.
+        lock (_acceptedWorkGate) _acceptMessageWork = true;
         Messenger.Register<MailIntelligenceJobChanged>(this);
         Messenger.Register<WinoIntelligenceAccessChanged>(this);
         Messenger.Register<WinoAccountProfileDeletedMessage>(this);
@@ -1014,6 +1020,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
 
     protected override void UnregisterRecipients()
     {
+        lock (_acceptedWorkGate) _acceptMessageWork = false;
         Messenger.Unregister<MailIntelligenceJobChanged>(this);
         Messenger.Unregister<WinoIntelligenceAccessChanged>(this);
         Messenger.Unregister<WinoAccountProfileDeletedMessage>(this);

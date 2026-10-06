@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System;
 using System.ComponentModel;
 using System.Threading.Tasks;
@@ -280,7 +280,7 @@ public class WinoLogger : IWinoLogger
 
     internal static bool ShouldDropHandledSynchronizationEvent(SentryEvent sentryEvent, bool isAccountSetupError)
     {
-        if (sentryEvent.Exception is WindowsAttachmentPolicyException { IsCancellation: true })
+        if (sentryEvent.Exception is Wino.Core.Domain.Models.Attachments.AttachmentPolicyCancellationException)
             return true;
 
         if (isAccountSetupError || sentryEvent.Level == SentryLevel.Fatal)

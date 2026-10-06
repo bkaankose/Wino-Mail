@@ -14,7 +14,8 @@ public sealed class WinoBillingService(
     IDatabaseService databaseService,
     IWinoAccountApiClient apiClient,
     IMicrosoftStoreService storeService,
-    INativeAppService nativeAppService,
+    IExternalLauncher externalLauncher,
+    IPlatformCapabilities capabilities,
     IWinoPendingCheckoutStore? pendingCheckouts = null,
     IWinoAccountSessionService? sessions = null) : IWinoBillingService
 {
@@ -41,7 +42,7 @@ public sealed class WinoBillingService(
         var launched = false;
         try
         {
-            launched = await nativeAppService.LaunchUriAsync(checkoutUri).ConfigureAwait(false);
+            launched = (await externalLauncher.LaunchUriAsync(checkoutUri, cancellationToken).ConfigureAwait(false)).IsSuccess;
             return launched;
         }
         finally
@@ -64,7 +65,8 @@ public sealed class WinoBillingService(
             return true;
         }
 
-        return await storeService.HasProductAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS).ConfigureAwait(false);
+        return capabilities.MicrosoftStore &&
+            await storeService.HasProductAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS).ConfigureAwait(false);
     }
 
     private static string GetProductCode(WinoAddOnProductType productType)

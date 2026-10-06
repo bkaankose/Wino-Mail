@@ -182,7 +182,7 @@ internal sealed class ConsoleNotificationBuilder : INotificationBuilder
 /// Supplies paths and a parent window. Interactive Microsoft sign-in (WAM) needs a window
 /// handle, so the console window is used, or a hidden window when there is none.
 /// </summary>
-internal sealed class ConsoleNativeAppService : INativeAppService, IAppMetadataService
+internal sealed class ConsoleNativeAppService : IAppMetadataService
 {
     private readonly string _applicationDataFolder;
     private readonly IntPtr _ownerWindow;
@@ -236,7 +236,6 @@ internal sealed class ConsoleNativeAppService : INativeAppService, IAppMetadataS
     public bool IsAppRunning() => true;
     public string GetFullAppVersion() => AppVersion;
     public Task PinAppToTaskbarAsync() => Task.CompletedTask;
-    public WindowsTaskbarPosition GetTaskbarPosition() => WindowsTaskbarPosition.Bottom;
     public string GetCalendarAttachmentsFolderPath() => Path.Combine(_applicationDataFolder, "CalendarAttachments");
 
     private static IntPtr ResolveOwnerWindow()

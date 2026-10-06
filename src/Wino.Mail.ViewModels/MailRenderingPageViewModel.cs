@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -61,10 +61,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     private MailItemViewModel initializedMailItemViewModel = null;
     private MimeMessageInformation initializedMimeMessageInformation = null;
 
-    // Func to get WebView2 to save current HTML as PDF to given location.
-    // Used in 'Save as' functionality.
-    public Func<string, Task<bool>> SaveHTMLasPDFFunc { get; set; }
-    public Func<WebView2PrintSettingsModel, Task<Stream>> RenderPdfStreamFuncAsync { get; set; }
+    public IMailPrintPresenter PrintPresenter { get; set; }
     public Func<string, Task> RenderHtmlAsyncFunc { get; set; }
     public Func<Task> ClearRenderedHtmlAsyncFunc { get; set; }
 
@@ -162,10 +159,11 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
     #endregion
 
-    public INativeAppService NativeAppService { get; }
+    public IExternalLauncher ExternalLauncher { get; }
+    private readonly IClipboardService _clipboardService;
     public IStatePersistanceService StatePersistenceService { get; }
     public IPreferencesService PreferencesService { get; }
-    public IPrintService PrintService { get; }
+    public IPlatformCapabilities PlatformCapabilities { get; }
     public Guid? CurrentMailAccountId => initializedMailItemViewModel?.MailCopy.AssignedAccount?.Id;
     public Guid? CurrentMailFileId => initializedMailItemViewModel?.MailCopy.FileId;
 
@@ -199,7 +197,8 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     }
 
     public MailRenderingPageViewModel(IMailDialogService dialogService,
-        INativeAppService nativeAppService,
+        IExternalLauncher externalLauncher,
+        IClipboardService clipboardService,
         IUnderlyingThemeService underlyingThemeService,
         IMimeFileService mimeFileService,
         IMailService mailService,
@@ -210,16 +209,17 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         IContactService contactService,
         IUnsubscriptionService unsubscriptionService,
         IPreferencesService preferencesService,
-        IPrintService printService,
+        IPlatformCapabilities platformCapabilities,
         IApplicationConfiguration applicationConfiguration,
         IAttachmentFileService attachmentFileService = null)
     {
         _dialogService = dialogService;
-        NativeAppService = nativeAppService;
+        ExternalLauncher = externalLauncher;
+        _clipboardService = clipboardService;
         StatePersistenceService = statePersistenceService;
         _contactService = contactService;
         PreferencesService = preferencesService;
-        PrintService = printService;
+        PlatformCapabilities = platformCapabilities;
         _applicationConfiguration = applicationConfiguration;
         _attachmentFileService = attachmentFileService;
         _unsubscriptionService = unsubscriptionService;
@@ -237,7 +237,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     {
         try
         {
-            await NativeAppService.CopyClipboardAsync(copyText);
+            (await _clipboardService.CopyTextAsync(copyText)).ThrowIfNotSucceeded();
 
             _dialogService.InfoBarMessage(Translator.ClipboardTextCopied_Title, string.Format(Translator.ClipboardTextCopied_Message, copyText), InfoBarMessageType.Information);
         }
@@ -294,7 +294,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                 confirmed = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationGoToWebsiteMessage, FromName), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.DialogMessage_UnsubscribeConfirmationGoToWebsiteConfirmButton);
                 if (!confirmed) return;
 
-                await NativeAppService.LaunchUriAsync(new Uri(CurrentRenderModel.UnsubscribeInfo.HttpLink));
+                (await ExternalLauncher.LaunchUriAsync(new Uri(CurrentRenderModel.UnsubscribeInfo.HttpLink))).ThrowIfNotSucceeded();
             }
         }
         else if (CurrentRenderModel.UnsubscribeInfo.MailToLink is not null)
@@ -305,7 +305,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
             // TODO: Implement automatic mail send after user confirms the action.
             // Currently it will launch compose page and user should manually press send button.
-            await NativeAppService.LaunchUriAsync(new Uri(CurrentRenderModel.UnsubscribeInfo.MailToLink));
+            (await ExternalLauncher.LaunchUriAsync(new Uri(CurrentRenderModel.UnsubscribeInfo.MailToLink))).ThrowIfNotSucceeded();
         }
     }
 
@@ -319,6 +319,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
     private async Task HandleMailOperationAsync(MailOperation operation)
     {
+        if ((operation == MailOperation.Print && !PlatformCapabilities.Printing) ||
+            ((operation is MailOperation.SaveAs or MailOperation.SaveAsPdf) && !PlatformCapabilities.PdfExport))
+            return;
+
         try
         {
             if (operation == MailOperation.SaveAs)
@@ -346,7 +350,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                 {
                     return;
                 }
-                else if (printingResult == PrintingResult.Failed)
+                else if (printingResult is PrintingResult.Failed or PrintingResult.Unavailable)
                 {
                     _dialogService.InfoBarMessage(Translator.DialogMessage_PrintingFailedTitle, Translator.DialogMessage_PrintingFailedMessage, InfoBarMessageType.Error);
                 }
@@ -424,6 +428,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     private int _downloadLoadVersion;
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        => await InitializeNavigationAsync(mode, parameters);
+
+    public async Task InitializeNavigationAsync(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 
@@ -755,10 +762,14 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         var menuItems = new List<IMenuOperation>();
 
         // Save As PDF
-        menuItems.Add(MailOperationMenuItem.Create(MailOperation.SaveAs, true, true));
+        if (PlatformCapabilities.PdfExport)
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.SaveAs, true, true));
+        else
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.SaveAsEml, true, true));
 
         // Print
-        menuItems.Add(MailOperationMenuItem.Create(MailOperation.Print, true, true));
+        if (PlatformCapabilities.Printing)
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.Print, true, true));
 
         if (initializedMailItemViewModel == null)
         {
@@ -910,7 +921,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                 }
             }
 
-            if (result.Status is AttachmentFileOperationStatus.Failed or AttachmentFileOperationStatus.PolicyBlocked)
+            if (result.Status is AttachmentFileOperationStatus.Failed or AttachmentFileOperationStatus.PolicyBlocked or AttachmentFileOperationStatus.Unavailable)
                 throw new IOException(result.ErrorMessage);
         }
         catch (Exception ex)
@@ -1035,7 +1046,12 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
             var pdfFilePath = Path.Combine(pickedFolder, $"{GetSuggestedSaveAsFileName()}.pdf");
 
-            bool isSaved = await SaveHTMLasPDFFunc(pdfFilePath);
+            if (PrintPresenter == null)
+                throw new PlatformNotSupportedException("PDF presentation is unavailable.");
+
+            var result = await PrintPresenter.ExportPdfAsync(pdfFilePath);
+            result.ThrowIfNotSucceeded();
+            bool isSaved = result.IsSuccess;
 
             if (isSaved)
             {
@@ -1087,18 +1103,14 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
     private async Task<PrintingResult> PrintAsync()
     {
-        if (RenderPdfStreamFuncAsync == null)
-            return PrintingResult.Failed;
-
-        var windowHandle = NativeAppService.GetCoreWindowHwnd();
-        if (windowHandle == IntPtr.Zero)
-            return PrintingResult.Failed;
+        if (!PlatformCapabilities.Printing || PrintPresenter == null)
+            return PrintingResult.Unavailable;
 
         var printTitle = string.IsNullOrWhiteSpace(Subject)
             ? Translator.MailItemNoSubject
             : Subject;
 
-        return await PrintService.PrintAsync(windowHandle, printTitle, RenderPdfStreamFuncAsync);
+        return await PrintPresenter.PrintAsync(new MailPrintRequest(printTitle));
     }
 
     private void BeginAttachmentInspection(MailAttachmentViewModel attachmentViewModel, CancellationToken cancellationToken)

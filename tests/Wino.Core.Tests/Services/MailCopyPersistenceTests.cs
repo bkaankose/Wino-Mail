@@ -473,7 +473,8 @@ public class MailCopyPersistenceTests : IAsyncLifetime
             authProvider.Object,
             mimeFileService.Object,
             preferencesService.Object,
-            Mock.Of<IPictureStorageService>());
+            Mock.Of<IPictureStorageService>(),
+            credentialPersistence: Wino.Core.Tests.Helpers.TestAccountCredentialPersistence.Instance);
 
         var mailCategoryService = new MailCategoryService(db);
         var folderService = new FolderService(db, accountService, mailCategoryService);

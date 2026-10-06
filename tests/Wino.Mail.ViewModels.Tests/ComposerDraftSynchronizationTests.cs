@@ -187,13 +187,13 @@ public class ComposerDraftSynchronizationTests
         var templates = new Mock<IEmailTemplateService>();
         templates.Setup(s => s.GetEmailTemplatesAsync()).ReturnsAsync(new List<EmailTemplate>());
         var certificates = new Mock<ISmimeCertificateService>();
-        certificates.Setup(s => s.GetCertificates(It.IsAny<StoreName>(), It.IsAny<StoreLocation>(), It.IsAny<string>()))
+        certificates.Setup(s => s.GetCertificates(It.IsAny<Wino.Core.Domain.Enums.SmimeCertificatePurpose>(), It.IsAny<string>(), It.IsAny<System.Threading.CancellationToken>()))
             .Returns(Array.Empty<X509Certificate2>());
         var registry = new DraftUpdateRegistry();
         var vm = new ComposePageViewModel(Mock.Of<IMailDialogService>(), mails.Object, Mock.Of<IMimeFileService>(),
-            Mock.Of<IFileService>(), Mock.Of<INativeAppService>(), Mock.Of<IFolderService>(), Mock.Of<IAccountService>(),
+            Mock.Of<IFileService>(), Mock.Of<IFolderService>(), Mock.Of<IAccountService>(),
             templates.Object, Mock.Of<IWinoRequestDelegator>(), Mock.Of<IContactService>(), Mock.Of<IPreferencesService>(),
-            certificates.Object, Mock.Of<IActivationStateService>(), Mock.Of<IDraftSyncRetryService>(),
+            certificates.Object, Mock.Of<IPlatformCapabilities>(p => p.Smime), Mock.Of<IActivationStateService>(), Mock.Of<IDraftSyncRetryService>(),
             Mock.Of<IDraftUpdateCoordinator>(), registry, Mock.Of<IDraftSaveService>(),
             Mock.Of<IRecipientSuggestionService>(), Mock.Of<IRecipientHistoryService>(), synchronizationManager: manager.Object);
         vm.CurrentMailDraftItem = new MailItemViewModel(draft);

@@ -25,6 +25,7 @@ internal sealed class ContextFlyoutShortcutResolver(IKeyboardShortcutService sho
     {
         var shortcut = shortcutService.EnabledShortcutsSnapshot
             .Where(candidate => candidate.Mode == mode && candidate.Action == action)
+            .Where(candidate => !candidate.ModifierKeys.HasFlag(ModifierKeys.Command))
             .Where(candidate => KeyboardShortcutContextPolicy.CanExecute(
                 candidate.Action,
                 candidate.Key,

@@ -58,8 +58,12 @@ public partial class CreateEmailTemplatePageViewModel(
         return template?.HtmlContent ?? string.Empty;
     }
 
+    public bool LastSaveSucceeded { get; private set; }
+    public bool LastDeleteSucceeded { get; private set; }
+
     public async Task SaveAsync(string htmlContent)
     {
+        LastSaveSucceeded = false;
         var trimmedName = TemplateName?.Trim() ?? string.Empty;
 
         if (string.IsNullOrWhiteSpace(trimmedName))
@@ -90,11 +94,13 @@ public partial class CreateEmailTemplatePageViewModel(
         }
 
         _editingTemplate = template;
+        LastSaveSucceeded = true;
         await ExecuteUIThread(() => NavigationService.GoBack()).ConfigureAwait(false);
     }
 
     public async Task DeleteAsync()
     {
+        LastDeleteSucceeded = false;
         if (_editingTemplate == null)
             return;
 
@@ -108,6 +114,7 @@ public partial class CreateEmailTemplatePageViewModel(
             return;
 
         await _emailTemplateService.DeleteEmailTemplateAsync(_editingTemplate).ConfigureAwait(false);
+        LastDeleteSucceeded = true;
         await ExecuteUIThread(() => NavigationService.GoBack()).ConfigureAwait(false);
     }
 }

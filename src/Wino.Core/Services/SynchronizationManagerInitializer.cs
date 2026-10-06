@@ -41,6 +41,7 @@ public class SynchronizationManagerInitializer : IInitializeAsync
             preferencesService,
             draftSyncRetryService,
             _serviceProvider.GetRequiredService<IDraftUpdateCoordinator>(),
-            _serviceProvider.GetRequiredService<IMailService>());
+            _serviceProvider.GetRequiredService<IMailService>(),
+            _serviceProvider.GetService<IPlatformCapabilities>());
     }
 }

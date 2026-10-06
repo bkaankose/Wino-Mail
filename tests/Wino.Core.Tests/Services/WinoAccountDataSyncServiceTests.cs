@@ -875,6 +875,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
             Mock.Of<IAuthenticationProvider>(),
             Mock.Of<IMimeFileService>(),
             preferencesService,
-            Mock.Of<IPictureStorageService>());
+            Mock.Of<IPictureStorageService>(),
+            Wino.Core.Tests.Helpers.TestAccountCredentialPersistence.Instance);
     }
 }
