@@ -279,11 +279,11 @@ Build all affected hosts, including the intelligence console, lab generator and 
 
 Root RID/TFM, asset embedding and assembly changes touch Release/AOT/package behavior, so P1/P4/P5 also require the repository's Release build without launch and affected release-script checks. Preserve the checked-in release process; historical custom native commands are not new development wrappers. Windows build/restore must not require an Apple workload. Mac graph evaluation/build must not select Windows RIDs or restore Windows UI projects accidentally. Explicit target selection must work on both hosts; OS-name-only conditions are insufficient.
 
-After project creation, validate these proposed Mac commands against actual output on the Mac host:
+The native builds were verified on `mac.local`. Use the explicit runtime selector because the macOS SDK clears `RuntimeIdentifier` on portable project-reference builds:
 
 ```sh
-dotnet build src/Wino.Mail.MacOS/Wino.Mail.MacOS.csproj -c Debug -r osx-arm64
-dotnet build src/Wino.Mail.MacOS/Wino.Mail.MacOS.csproj -c Debug -r osx-x64
+dotnet build src/Wino.Mail.MacOS/Wino.Mail.MacOS.csproj -c Debug -r osx-arm64 -p:WinoTargetRuntimeIdentifier=osx-arm64 -p:WinoTargetPlatform=MacOS -p:EnableWindowsTargeting=true
+dotnet build src/Wino.Mail.MacOS/Wino.Mail.MacOS.csproj -c Debug -r osx-x64 -p:WinoTargetRuntimeIdentifier=osx-x64 -p:WinoTargetPlatform=MacOS -p:EnableWindowsTargeting=true
 ```
 
 Create `WinoMail.MacOS.slnx` with only the native Mac head, portable shared libraries and Mac controls/services. Keep `WinoMail.slnx` as the Windows entry point. Pin a compatible workload/Xcode combination after checking [dotnet/macios](https://github.com/dotnet/macios); distinguish build-host requirements from the app deployment minimum. Update the existing SDK configuration only with explicit compatibility evidence.
