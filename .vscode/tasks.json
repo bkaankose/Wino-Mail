@@ -61,7 +61,17 @@
       "options": {
         "cwd": "${workspaceFolder}"
       },
-      "problemMatcher": "$msCompile"
+      "problemMatcher": "$msCompile",
+      "dependsOn": "Prepare Wino Mail macOS debugger"
+    },
+    {
+      "label": "Prepare Wino Mail macOS debugger",
+      "type": "process",
+      "command": "/bin/bash",
+      "args": [
+        "${workspaceFolder}/scripts/maintenance/setup-macos-debugger.sh"
+      ],
+      "problemMatcher": []
     }
   ]
 }

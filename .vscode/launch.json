@@ -27,16 +27,30 @@
       "name": "Debug Wino Mail (macOS, arm64)",
       "type": "coreclr",
       "request": "launch",
+      "justMyCode": true,
+      "pipeTransport": {
+        "pipeProgram": "/bin/zsh",
+        "pipeArgs": [
+          "-c",
+          "${debuggerCommand}"
+        ],
+        "debuggerPath": "${env:HOME}/.local/share/wino-vsdbg/vsdbg",
+        "pipeEnv": {
+          "TMPDIR": "${env:HOME}/Library/Containers/com.winomail.desktop/Data/tmp"
+        },
+        "quoteArgs": false
+      },
       "preLaunchTask": "Build Wino Mail (macOS, arm64)",
       "program": "${workspaceFolder}/src/Wino.Mail.MacOS/bin/Debug/net10.0-macos/osx-arm64/Wino Mail.app/Contents/MacOS/Wino.Mail.MacOS",
-      "args": [],
       "cwd": "${workspaceFolder}",
+      "args": [],
       "stopAtEntry": false,
       "console": "internalConsole",
-      "justMyCode": true,
       "env": {
-        "DOTNET_EnableDiagnostics": "1"
-      }
+        "DOTNET_EnableDiagnostics": "1",
+        "TMPDIR": "${env:HOME}/Library/Containers/com.winomail.desktop/Data/tmp"
+      },
+      "requireExactSource": true
     }
   ]
 }

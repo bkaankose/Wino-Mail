@@ -197,3 +197,37 @@ pwsh -File scripts/maintenance/format-xaml.ps1 -Changed -Check
 ```
 
 The [script index](../../scripts/README.md) describes every retained script category.
+
+## Native macOS F5
+
+On Apple Silicon, open [WinoMail.MacOS.code-workspace](../../WinoMail.MacOS.code-workspace), select **Debug Wino Mail (macOS, arm64)**, and press **F5**. The workspace selects `WinoMail.MacOS.slnx`; the repository folder's Windows solution default stays unchanged.
+
+Install the SDK selected by `global.json`, the matching macOS workload and Xcode, and Microsoft's C# extension. Let the extension finish installing its debugger. VS Code must run on the Mac, either locally or with an extension host on the Mac. Native AppKit windows appear on the Mac desktop.
+
+The build task first runs [setup-macos-debugger.sh](../../scripts/maintenance/setup-macos-debugger.sh), then uses plain `dotnet build`:
+
+```sh
+dotnet build src/Wino.Mail.MacOS/Wino.Mail.MacOS.csproj -c Debug -r osx-arm64 -p:WinoTargetRuntimeIdentifier=osx-arm64 -p:WinoTargetPlatform=MacOS -p:EnableWindowsTargeting=true
+```
+
+The C# debugger launches the bundle's native executable under `Wino Mail.app/Contents/MacOS/Wino.Mail.MacOS`. This production Debug build uses CoreCLR. Both the application environment and `pipeTransport.pipeEnv` set `TMPDIR` to `~/Library/Containers/com.winomail.desktop/Data/tmp`. Setting only `launch.env` does not change the debugger's environment. The supported [C# pipe transport](https://github.com/dotnet/vscode-csharp/blob/main/docs/debugger/Attaching-to-remote-processes.md) uses `/bin/zsh -c` to start the prepared debugger on the same machine.
+
+### Debugger compatibility on macOS 26
+
+The C# extension tested here is `2.160.4`, with debugger `18.12.10903.2`. Its bundled diagnostic shim `9.0.12.27201` did not establish the sandboxed launch handshake: the app ran, while source breakpoints remained unprocessed. Microsoft tracks the macOS 26 semaphore restriction in [runtime issue 116545](https://github.com/dotnet/runtime/issues/116545); current shims use startup FIFOs.
+
+The maintenance task discovers the installed C# extension through `code --locate-extension ms-dotnettools.csharp`, copies its matching debugger into `~/.local/share/wino-vsdbg`, and replaces only the copied `libdbgshim.dylib` with Microsoft's [Microsoft.Diagnostics.DbgShim.osx-arm64 10.0.745401](https://www.nuget.org/packages/Microsoft.Diagnostics.DbgShim.osx-arm64/10.0.745401) package (native version `10.0.14.45401`). It checks the package SHA-256 `adcac4c69e2e5a29f6dc9df8a8ba589011a183bf505882cc37d137f63545375e` and installed shim checksum. This is a versioned compatibility workaround, not a debugger distribution supplied by the C# extension. No binaries are checked into the repository.
+
+The installed extension remains untouched. Setup repeats after an extension/debugger version change or a missing/corrupt prepared shim; unchanged tooling requires no download. Do not substitute an independently downloaded `vsdbg`: the tested `getvsdbgsh -v latest` returned `18.10.10709.3`, which rejected the `18.12` adapter's source breakpoint requests with `Incorrect breakpoint request format.` Extension updates require another breakpoint check; the shim pin is not a guarantee of compatibility with future adapters.
+
+Run setup manually to repair tooling:
+
+```sh
+bash scripts/maintenance/setup-macos-debugger.sh
+```
+
+The first setup needs access to nuget.org. If the VS Code CLI is outside `PATH` and the standard `/Applications/Visual Studio Code.app` location, set `WINO_VSCODE_CLI` to its executable path. Setup preserves replaced debugger directories as `~/.local/share/wino-vsdbg.previous.<timestamp>`. To roll back, stop debugging, move the current prepared directory aside and restore the previous one; automatic F5 setup will prepare the currently configured shim again, so a deliberate rollback also requires reverting the setup pin/configuration. The app's sandbox, signing entitlements, identity, account database and Keychain references are unchanged.
+
+### Mac F5 acceptance
+
+On 2026-10-07, the production arm64 app hit a source breakpoint at `Program.cs:9`, stepped to line 10, then hit `AppDelegate.StartAsync` at `AppDelegate.cs:38` with locals and managed stack frames visible. Continuing opened the saved account's native shell and Inbox. A final run through the Mac workspace repeated the `Program.cs:9` breakpoint, stepping and shell continuation with exact source checks and automatic maintenance setup. Evidence is recorded locally in `artifacts/appkit-macos-f5-acceptance.txt`, with a breakpoint screenshot inline in the Codex chat. These checks establish debugger startup and continuation; fresh authentication, Remote SSH debugging, full UI parity and manual lab acceptance remain separate work.
