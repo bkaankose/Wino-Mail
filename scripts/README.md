@@ -13,6 +13,7 @@ See [development commands](../docs/harness/development.md) for VS Code F5.
 | Release | `release/whats-new/validate.ps1` | Validate release notes and illustration references |
 | Lab | `lab/local-lab.ps1` | Provision Docker mail/DAV servers and generate test account data |
 | Maintenance | `maintenance/format-xaml.ps1` | Format XAML or check formatting with the pinned XAML Styler |
+| Maintenance | `maintenance/setup-macos-debugger.sh` | Prepare the matching VS Code C# debugger and pinned Microsoft diagnostic shim for sandboxed Mac F5 |
 | Maintenance | `maintenance/audit-xaml-accessibility.ps1` | Report XAML controls without accessible labels |
 | Maintenance | `maintenance/audit-xaml-icons.ps1` | Check use of the Wino icon system |
 | Maintenance | `maintenance/build-notification-icons.ps1` | Render toast button icons with theme, contrast, and scale variants; `-AttributionLogos` adds missing app logo target sizes to the app and the beta artwork |
