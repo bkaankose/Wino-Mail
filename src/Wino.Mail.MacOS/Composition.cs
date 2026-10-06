@@ -18,7 +18,7 @@ namespace Wino.Mail.MacOS;
 
 internal static class Composition
 {
-    public static ServiceProvider Create(IDispatcher dispatcher, Func<NSWindow?> owner, Action<NSViewController> host, Action<Exception> error)
+    public static ServiceProvider Create(IDispatcher dispatcher, Func<NSWindow?> owner, Func<NSViewController, Action?> host, Action<Exception> error)
     {
         // Paths/protection precede database or credential service construction.
         var paths = new MacOSPaths(NSBundle.MainBundle.ResourcePath ?? AppContext.BaseDirectory);

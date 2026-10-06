@@ -13,7 +13,7 @@ The accepted scope is the platform extraction and native AppKit foundation, with
 ## Windows verification
 
 - WinUI Debug x64: passed, 0 warnings, 0 errors (`artifacts/appkit-windows-debug.log`).
-- WinUI Release x64: passed, 0 warnings, 0 errors; MSIX output generated without deployment or launch (`artifacts/appkit-windows-release.log`). The coordinating Windows chat also reported the final incremental check passed in 2:09 with 0 warnings and 0 errors (`artifacts/appkit-windows-release-final.log`).
+- WinUI Release x64: passed, 0 warnings, 0 errors; MSIX output generated without deployment or launch (`artifacts/appkit-windows-release.log`). The coordinating Windows chat also reported the final incremental check passed in 2:09 with 0 warnings and 0 errors (`artifacts/appkit-windows-release-final.log`). Its Release check after importing Mac integration commit `01ac2770` passed in 2:39 with 0 warnings and 0 errors (`artifacts/appkit-windows-release-mac-integrated.log`).
 - ViewModel suite: 90/90 passed; final affected lifecycle follow-up passed 6/6. Notification capability/runtime follow-up passed 9/9.
 - Collection/editor boundary tests: 31 passed. Binding lifetime tests: 3 passed.
 - Shared foundation/auth/recovery/runtime/Store checks and affected tool builds: see [import manifest](platform-import-manifest.md).
@@ -40,7 +40,7 @@ Verified on 2026-10-07 on Apple Silicon, macOS 26.7, .NET SDK 10.0.401/runtime 1
 - Built Info.plist has `CFBundleIdentifier=com.winomail.desktop`. Effective arm64 entitlements contain App Sandbox, network client/server, user-selected file read/write and JIT. `codesign --verify --deep --strict` passed for both bundles; the Intel launcher is Mach-O x86_64. Ad-hoc development signing is not distribution signing/notarization evidence.
 - Launched the production arm64 `.app` with `open`; the native Welcome page appeared. First launch exposed missing `ILogger<WinoTelemetryService>` registration; the Mac composition now registers logging through Serilog. Failed startup quit previously attempted to stop an uninitialized runtime; shutdown now stops it only after successful startup. The application delegate is retained across the AppKit run loop, and Welcome window delegates have managed owners.
 - Startup logs subsequently recorded initialized synchronization dependencies and Welcome appeared without a startup error. The three recorded error entries came from the earlier failed startup and its two quit attempts. Production data is under `~/Library/Containers/com.winomail.desktop/Data/Library/Application Support/com.winomail.desktop`; preferences, database and log files were created there. No data/credential deletion or sandbox bypass was used. Restart showed Welcome; no OAuth account persistence claim is made.
-- The app remains running for the user's manual OAuth/folder test. That outcome is pending and must be recorded separately. No UI automation scripts were created or run.
+- The user manually verified Outlook OAuth and setup synchronization, but reported no transition to the shell and a null-value error on restart. The follow-up and remaining manual acceptance are recorded below. No UI automation scripts were created or run.
 - CodeGraph 1.6.2 CLI is installed and usable on this Mac. Repository synchronization completed with 5,659 files, 109,137 nodes and 201,195 edges; its database is ignored local output.
 
 ## Manual acceptance and next packages
@@ -52,3 +52,27 @@ For the requested Mac foundation, manually verify Welcome -> provider -> browser
 Full parity is tracked in [the Windows source inventory](appkit-parity-inventory.csv). Its proposed Mac paths identify future work; they are not evidence that a file exists or a feature is accepted. Source-present rows still require native build and manual verification. Remaining packages include reader/editor/compose/send, remaining settings/calendar/contacts/tasks dialogs, native notification actions/reminders and Dock behavior, startup/tray equivalents, menus/accessibility/IME, print/PDF, S-MIME, additional windows, general activation/global hotkeys, and Apple distribution/minimum-OS/physical Intel validation. Microsoft Store UI is the explicit exclusion; Wino Account billing stays shared.
 
 The bidirectional [donor comparison](appkit-donor-comparison.csv) records normalized source/hash comparisons against donor 62858db and destination 40bae46a at import start. Imported changes are selective; current destination-only recovery and consent behavior is retained. Other locales were not imported. Keychain abandoned credential revisions require a later committed-reference reconciliation audit; failed database writes retain prior usable revisions.
+
+
+## Persisted-account shell follow-up (2026-10-07)
+
+The user reported Outlook OAuth and setup synchronization succeeded, but the shell did not appear; restarting displayed “Value cannot be null”. The sandbox log identified a handled managed startup exception, rather than an OS crash. No matching production native crash report was present in DiagnosticReports.
+
+```text
+System.ArgumentNullException: Value cannot be null. (Parameter 'value')
+  at ObjCRuntime.ThrowHelper.ThrowArgumentNullException(String argumentName)
+  at ObjCRuntime.NativeObjectExtensions.GetNonNullHandle(INativeObject self, String argumentName)
+  at AppKit.NSWindow.set_ContentViewController(NSViewController value)
+  at Wino.Mail.MacOS.AppDelegate.HostController(NSViewController controller) [pre-fix line 61]
+  at Wino.Mail.MacOS.Infrastructure.AppKitNavigationService.<ShowShellAsync>b__1() [pre-fix line 110]
+  at Wino.Mail.MacOS.Infrastructure.AppKitDispatcher.ExecuteOnUIThread(Action action) [line 14]
+  at Wino.Mail.MacOS.Infrastructure.AppKitNavigationService.ShowShellAsync() [pre-fix line 110]
+```
+
+The native host assigned null to the binding's non-null `ContentViewController` setter when switching from Welcome/loading to the shell. This path is shared by onboarding completion and saved-account startup. The Mac host now retains the old window/controller until the router awaits controller release, then closes and disposes that window. The replacement window is shown before publication. The router publishes shell/current route state only after hosting succeeds and disposes an unhosted candidate on failure, so a failed host cannot permanently poison its shell state. No shared ViewModel changes were needed.
+
+Native startup verification after the fix loaded the persisted Outlook account into the real shell: account and Inbox, Sent Items, Drafts, Archive, Deleted Items and Junk Email rows were visible, and Inbox messages were populated. The sandbox log after that startup contained no error/fatal entries. Saved account/database/Keychain data was preserved. This establishes saved-account startup and visible real folders; the user must repeat the first-run OAuth-to-shell transition and manually verify folder selection, restart/refresh and cancellation/retry. Host-failure recovery is source/build verified, without injected native failure or UI automation scripts.
+
+Follow-up build logs are `artifacts/appkit-macos-shell-fix-arm64.log` and `artifacts/appkit-macos-shell-fix-x64.log`. Final native Debug arm64 passed with 17 warnings/0 errors in 16.88 seconds; x64 passed with 9 warnings/0 errors in 5.08 seconds. `codesign --verify --deep --strict` passed for the rebuilt arm64 bundle. The current app is left open for manual folder switching and quit/relaunch acceptance; the final window-retirement ordering was build checked after the visible-folder check and needs that manual restart check.
+
+Production Debug evaluates `UseMonoRuntime=false`, and its bundle contains `libcoreclr.dylib`, `libclrjit.dylib` and `libclrgc.dylib`. VS Code `type: coreclr` and the native bundle launcher are compatible with that runtime. Production F5/breakpoint behavior has not been exercised; the earlier breakpoint evidence applies only to the retained PoC. Do not remove the PoC until production debugger, dialog and navigation evidence is complete.

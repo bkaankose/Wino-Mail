@@ -51,24 +51,28 @@ public sealed class AppDelegate : NSApplicationDelegate
         catch (Exception error) { ReportError(error); }
     }
 
-    private void HostController(NSViewController controller)
+    private Action? HostController(NSViewController controller)
     {
-        if (_terminating) { controller.Dispose(); return; }
+        if (_terminating) throw new InvalidOperationException("The application is terminating.");
         var isShell = controller is WinoAppShellViewController;
         if (_window == null || isShell != _shellWindow)
         {
             var oldWindow = _window;
-            if (oldWindow != null) oldWindow.ContentViewController = null;
-            _window = isShell ? new WinoShellWindow(controller) : new WelcomeWindow(controller);
+            NSWindow nextWindow = isShell ? new WinoShellWindow(controller) : new WelcomeWindow(controller);
+            try { nextWindow.MakeKeyAndOrderFront(null); }
+            catch { nextWindow.Dispose(); throw; }
+            _window = nextWindow;
             _shellWindow = isShell;
-            oldWindow?.Close();
-            oldWindow?.Dispose();
+            oldWindow?.OrderOut(null);
+            // The router releases the old controller before disposing its native owner.
+            return oldWindow is null ? null : () => { oldWindow.Close(); oldWindow.Dispose(); };
         }
         else
         {
             _window.ContentViewController = controller;
         }
         _window.MakeKeyAndOrderFront(null);
+        return null;
     }
 
     public override bool ApplicationShouldTerminateAfterLastWindowClosed(NSApplication sender) => false;

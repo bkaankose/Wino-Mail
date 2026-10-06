@@ -19,7 +19,7 @@ public sealed class AppKitNavigationService : INavigationService, IDisposable,
 {
     private readonly IServiceProvider _services;
     private readonly IDispatcher _dispatcher;
-    private readonly Action<NSViewController> _host;
+    private readonly Func<NSViewController, Action?> _host;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly Stack<(WinoPage Page, object? Parameter)> _history = new();
     private NSViewController? _current;
@@ -31,7 +31,7 @@ public sealed class AppKitNavigationService : INavigationService, IDisposable,
     private Task _pending = Task.CompletedTask;
     public bool CanQuit => _page != WinoPage.AccountSetupProgressPage || _current is not IWinoViewController { HasPendingWork: true };
 
-    public AppKitNavigationService(IServiceProvider services, IDispatcher dispatcher, Action<NSViewController> host)
+    public AppKitNavigationService(IServiceProvider services, IDispatcher dispatcher, Func<NSViewController, Action?> host)
     {
         _services = services; _dispatcher = dispatcher; _host = host;
         WeakReferenceMessenger.Default.Register<BreadcrumbNavigationRequested>(this);
@@ -77,18 +77,26 @@ public sealed class AppKitNavigationService : INavigationService, IDisposable,
             }
             NSViewController controller = null!;
             await _dispatcher.ExecuteOnUIThread(() => controller = CreateController(page));
-            if (addHistory && _current != null) _history.Push((_page, _parameter));
-            _page = page; _parameter = parameter;
             if (_shell is not null && page is WinoPage.AboutPage or WinoPage.MailListPage)
             {
                 await _shell.SetContentAsync(controller, parameter);
+                if (addHistory) _history.Push((_page, _parameter));
+                _page = page; _parameter = parameter;
                 return;
             }
             var previous = _current;
+            Action? releaseWindow = null;
+            try { await _dispatcher.ExecuteOnUIThread(() => releaseWindow = _host(controller)); }
+            catch
+            {
+                await _dispatcher.ExecuteOnUIThread(controller.Dispose);
+                throw;
+            }
+            if (addHistory && previous != null) _history.Push((_page, _parameter));
+            _page = page; _parameter = parameter;
             _current = controller;
-            await _dispatcher.ExecuteOnUIThread(() => _host(controller));
             if (previous is IWinoViewController old) await old.ReleaseAsync();
-            await _dispatcher.ExecuteOnUIThread(() => previous?.Dispose());
+            await _dispatcher.ExecuteOnUIThread(() => { previous?.Dispose(); releaseWindow?.Invoke(); });
             await ((IWinoViewController)controller).ActivateAsync(mode, parameter);
         }
         finally { _gate.Release(); }
@@ -105,11 +113,18 @@ public sealed class AppKitNavigationService : INavigationService, IDisposable,
             WinoAppShellViewController shell = null!;
             await _dispatcher.ExecuteOnUIThread(() => shell = _services.GetRequiredService<WinoAppShellViewController>());
             var previous = _current;
+            Action? releaseWindow = null;
+            try { await _dispatcher.ExecuteOnUIThread(() => releaseWindow = _host(shell)); }
+            catch
+            {
+                await shell.ReleaseAsync();
+                await _dispatcher.ExecuteOnUIThread(shell.Dispose);
+                throw;
+            }
             _shell = shell; _current = shell; _page = WinoPage.None; _parameter = null;
             _history.Clear();
-            await _dispatcher.ExecuteOnUIThread(() => _host(shell));
             if (previous is IWinoViewController old) await old.ReleaseAsync();
-            await _dispatcher.ExecuteOnUIThread(() => previous?.Dispose());
+            await _dispatcher.ExecuteOnUIThread(() => { previous?.Dispose(); releaseWindow?.Invoke(); });
             activatedShell = shell;
         }
         finally { _gate.Release(); }
