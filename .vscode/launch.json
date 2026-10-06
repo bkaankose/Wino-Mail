@@ -5,16 +5,14 @@
             "name": "Debug Wino AppKit PoC (macOS)",
             "type": "coreclr",
             "request": "launch",
-            "preLaunchTask": "Run Wino AppKit PoC (macOS)",
-            "program": "${workspaceFolder}/src/Wino.Mail.AppKit.Poc/bin/Debug/net10.0-macos/Wino.Mail.AppKit.Poc.dll",
+            "preLaunchTask": "Build Wino AppKit PoC (macOS)",
+            "program": "${workspaceFolder}/src/Wino.Mail.AppKit.Poc/bin/Debug/net10.0-macos/osx-arm64/Wino AppKit Infrastructure PoC.app/Contents/MacOS/Wino.Mail.AppKit.Poc",
             "args": [],
             "cwd": "${workspaceFolder}/src/Wino.Mail.AppKit.Poc",
-            "stopAtEntry": false,
+            "stopAtEntry": true,
             "console": "internalConsole",
             "justMyCode": true,
-            "env": {
-                "DOTNET_EnableDiagnostics": "1"
-            }
+            "requireExactSource": true
         },
         {
             "name": "Run Wino Mail (Sandbox, Debug x64)",
