@@ -237,7 +237,7 @@ The script needs the R2 credentials described in the [environment guide](local-s
 For each selected channel the script:
 
 1. Checks that the App Installer file points at its permanent feed URL and that every package it references exists locally.
-2. Uploads the bundle and dependencies under the versioned directory, with `application/msixbundle` (or the matching package type) and a one-year immutable cache lifetime. Files that are already published with the same size are skipped; a published file with a different size stops the run, because published versions are never replaced.
+2. Uploads the bundle and dependencies under the versioned directory, with `application/msixbundle` (or the matching package type) and `Cache-Control: no-cache`. Files already published under the same key are overwritten, so rebuilding and republishing a version replaces its packages.
 3. Verifies the packages over HTTPS, then uploads the App Installer file last with `application/appinstaller` and `no-cache`.
 4. Confirms that the feed now serves the new version.
 

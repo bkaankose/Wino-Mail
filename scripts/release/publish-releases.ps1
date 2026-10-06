@@ -7,8 +7,8 @@ Lists the versions under the release output folder (see build-releases.ps1), sho
 channels each version contains and which version each channel currently serves, and uploads
 the selected channels to the Cloudflare R2 bucket behind download.winomail.app.
 
-Bundles and dependency packages go to <bundle name>/<file>, so a published version is never
-replaced. Each channel's .appinstaller feed is uploaded last, after every package it references
+Bundles and dependency packages go to <bundle name>/<file> and overwrite any object already
+published under the same key. Each channel's .appinstaller feed is uploaded last, after every package it references
 is in place. Uploads use R2's S3-compatible API because bundles exceed the 300 MB single-request
 limit of the Cloudflare API and wrangler. See docs/releases.md.
 #>
@@ -257,18 +257,9 @@ function Publish-Releases {
 
     $credentials = Get-PublishCredentials
     # Packages first for every channel; feeds last, so no feed ever points at a package that is not online yet.
+    # Existing objects are overwritten, so packages revalidate instead of being cached as immutable.
     foreach ($release in $Selected) {
-        foreach ($file in $release.Packages) {
-            $existing = Get-PublicObject $file.Key
-            if ($null -ne $existing) {
-                if ($existing.Size -ne $file.Size) {
-                    throw "$($script:PublicBaseUri)$($file.Key) is already published with a different size. Published versions are never replaced; build a new version."
-                }
-                Write-Host "Already published: $($file.Key)"
-                continue
-            }
-            Send-ReleaseFile $credentials $file 'public, max-age=31536000, immutable'
-        }
+        foreach ($file in $release.Packages) { Send-ReleaseFile $credentials $file 'no-cache' }
     }
     foreach ($release in $Selected) {
         foreach ($file in $release.Packages) {
