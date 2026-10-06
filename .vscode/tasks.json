@@ -2,6 +2,40 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "Run Wino AppKit PoC (macOS)",
+            "type": "process",
+            "command": "dotnet",
+            "args": [
+                "run",
+                "--project",
+                "${workspaceFolder}/src/Wino.Mail.AppKit.Poc/Wino.Mail.AppKit.Poc.csproj",
+                "-p:EnableWindowsTargeting=true"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "isBackground": true,
+            "problemMatcher": {
+                "owner": "dotnet",
+                "pattern": [
+                    {
+                        "regexp": "^(.+):(\\d+):(\\d+):\\s+(warning|error)\\s+([A-Z]+\\d+):\\s+(.*)$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "severity": 4,
+                        "code": 5,
+                        "message": 6
+                    }
+                ],
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".*",
+                    "endsPattern": ".*"
+                }
+            }
+        },
+        {
             "label": "Run Wino Mail (Sandbox, Debug x64)",
             "type": "process",
             "command": "pwsh",

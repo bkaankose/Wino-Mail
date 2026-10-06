@@ -41,14 +41,14 @@ internal static class BindingExtensions
 
     public static IDisposable BindCommand(this NSButton button, ICommand command)
     {
+        var disposed = false;
+
         void UpdateCanExecute() => NSApplication.SharedApplication.InvokeOnMainThread(
             () =>
             {
                 if (!disposed)
                     button.Enabled = command.CanExecute(null);
             });
-
-        var disposed = false;
         EventHandler canExecuteChanged = (_, _) => UpdateCanExecute();
         EventHandler activated = (_, _) =>
         {

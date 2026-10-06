@@ -102,7 +102,7 @@ internal sealed class AboutPageViewController : NSViewController, IDisposable
         _viewModel.OnNavigatedFrom(mode, parameters!);
     }
 
-    public void Dispose()
+    public new void Dispose()
     {
         if (_disposed)
             return;

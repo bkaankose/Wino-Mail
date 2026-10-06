@@ -26,12 +26,12 @@ public sealed class AppDelegate : NSApplicationDelegate
             NSWindowStyle.Miniaturizable |
             NSWindowStyle.Resizable,
             NSBackingStore.Buffered,
-            defer: false)
+            false)
         {
             Title = Translator.GetTranslatedString("SettingsAbout_Title"),
             ContentViewController = _aboutPageController,
-            ReleasedWhenClosed = false
         };
+        _window.ReleaseWhenClosed(false);
 
         _windowDelegate = new MainWindowDelegate(OnWindowClosed);
         _window.Delegate = _windowDelegate;
