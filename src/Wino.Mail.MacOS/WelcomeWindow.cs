@@ -9,10 +9,14 @@ public sealed class WelcomeWindow : NSWindow
 {
     private readonly SetupWindowDelegate _windowDelegate = new();
     public WelcomeWindow(NSViewController controller) : base(new CGRect(0, 0, 720, 640),
-        NSWindowStyle.Titled | NSWindowStyle.Closable | NSWindowStyle.Miniaturizable | NSWindowStyle.Resizable,
+        NSWindowStyle.Titled | NSWindowStyle.Closable | NSWindowStyle.Miniaturizable | NSWindowStyle.Resizable | NSWindowStyle.FullSizeContentView,
         NSBackingStore.Buffered, false)
     {
         Title = "Wino Mail";
+        // Onboarding content runs under a transparent title bar, as in the design boards.
+        TitlebarAppearsTransparent = true;
+        TitleVisibility = NSWindowTitleVisibility.Hidden;
+        ContentMinSize = new CGSize(640, 560);
         ContentViewController = controller;
         Delegate = _windowDelegate;
         ReleaseWhenClosed(false);

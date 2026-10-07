@@ -3,7 +3,12 @@ using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.MacOS.Views.Mail;
 
-public sealed class MailListPage : NSView
+/// <summary>Root view of the mail page. Hosts the list/reader split; the theme backdrop shows behind both panes.</summary>
+public sealed class MailListPage : WinoSurfaceView
 {
-    public MailListPage(params NSView[] content) => Wino.Presentation.AppKit.Layout.Fill(Wino.Presentation.AppKit.Layout.Stack(NSUserInterfaceLayoutOrientation.Vertical, content), this, 12);
+    public MailListPage()
+    {
+        Fill = null; // the shell paints the theme backdrop behind both panes
+        AccessibilityElement = false;
+    }
 }

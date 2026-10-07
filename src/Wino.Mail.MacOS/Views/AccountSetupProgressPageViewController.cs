@@ -1,9 +1,7 @@
 using AppKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Mail.Controls.AppKit;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.ViewModels;
 using Wino.Presentation.AppKit;
@@ -14,18 +12,21 @@ public sealed class AccountSetupProgressPageViewController(AccountSetupProgressP
     : WinoViewController<AccountSetupProgressPageViewModel>(viewModel, dispatcher, logger)
 {
     public override bool HasPendingWork => base.HasPendingWork || ViewModel.TryAgainCommand.IsRunning;
+
     public override void LoadView()
     {
-        var steps = Bindings.Own(new WinoCollectionView<AccountSetupStepModel>(step => step.Title, step => step.AutomationName, Dispatcher, ReportError));
-        steps.Bind(ViewModel.Steps);
-        steps.HeightAnchor.ConstraintEqualTo(280).Active = true;
-        var error = NSTextField.CreateLabel(string.Empty);
-        BindText(error, nameof(ViewModel.FailureMessage), vm => vm.FailureMessage);
-        var retry = CommandButton(Translator.Buttons_Retry, ViewModel.TryAgainCommand);
-        var back = CommandButton(Translator.Buttons_Back, ViewModel.GoBackCommand);
-        Bindings.Own(new PropertyBinding<AccountSetupProgressPageViewModel, bool>(ViewModel, nameof(ViewModel.IsSetupFailed),
-            vm => vm.IsSetupFailed, failed => { retry.Hidden = !failed; back.Hidden = !failed; }, Dispatcher, ReportError));
-        View = new AccountSetupProgressPage(NSTextField.CreateLabel(Translator.WelcomeWizard_Step3Title), steps, error, retry, back);
+        var back = CommandButton(Translator.AccountSetup_GoBackButton, ViewModel.GoBackCommand);
+        var retry = CommandButton(Translator.AccountSetup_TryAgainButton, ViewModel.TryAgainCommand);
+        var page = new AccountSetupProgressPage(back, retry);
+        Bindings.Own(page.Steps.Bind(ViewModel.Steps, Dispatcher, ReportError));
+        Bind(nameof(ViewModel.IsSetupComplete), vm => vm.IsSetupComplete, value => page.IsSetupComplete = value);
+        Bind(nameof(ViewModel.IsSetupFailed), vm => vm.IsSetupFailed, value => page.IsSetupFailed = value);
+        Bind(nameof(ViewModel.FailureMessage), vm => vm.FailureMessage, value => page.FailureMessage = value);
+        View = page;
     }
+
+    private void Bind<TValue>(string property, Func<AccountSetupProgressPageViewModel, TValue> read, Action<TValue> apply)
+        => Bindings.Own(new PropertyBinding<AccountSetupProgressPageViewModel, TValue>(ViewModel, property, read, apply, Dispatcher, ReportError));
+
     protected override Task InitializeAsync(NavigationMode mode, object? parameter) => ViewModel.InitializeAsync(mode, parameter!);
 }

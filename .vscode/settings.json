@@ -1,5 +1,5 @@
 {
-    "dotnet.defaultSolution": "WinoMail.slnx",
+    "dotnet.defaultSolution": "WinoMail.MacOS.slnx",
     "winapp.appDirectories": [
         "src/Wino.Mail.WinUI"
     ],

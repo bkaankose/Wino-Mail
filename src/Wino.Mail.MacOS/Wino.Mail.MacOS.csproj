@@ -6,12 +6,14 @@
     <WinoTargetPlatform>MacOS</WinoTargetPlatform>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <ApplicationTitle>Wino Mail</ApplicationTitle>
-    <ApplicationId>com.winomail.desktop</ApplicationId>
+    <ApplicationId>com.winomail.macos</ApplicationId>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <CodesignEntitlements>Entitlements.plist</CodesignEntitlements>
     <EnableCodeSigning>true</EnableCodeSigning>
-    <CodesignKey Condition="'$(CodesignKey)' == ''">-</CodesignKey>
+    <!-- Team 4VB7YWRAQ9 development identity and profile for com.winomail.macos. Pass -p:CodesignKey=- -p:CodesignProvision= to sign ad hoc. -->
+    <CodesignKey Condition="'$(CodesignKey)' == ''">Apple Development</CodesignKey>
+    <CodesignProvision Condition="'$(CodesignProvision)' == ''">Wino Mail macOS Development</CodesignProvision>
     <PublishAot>false</PublishAot>
   </PropertyGroup>
   <ItemGroup>
@@ -24,11 +26,31 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Serilog.Extensions.Logging" />
   </ItemGroup>
+  <!-- The WinoIcons fonts are built once into the WinUI assets (icons/README.md); the Mac bundle
+       carries the same files and registers them at startup (WinoIcons.Register). -->
+  <ItemGroup>
+    <BundleResource Include="../Wino.Mail.WinUI/Assets/WinoIcons.ttf" LogicalName="Fonts/WinoIcons.ttf" />
+    <BundleResource Include="../Wino.Mail.WinUI/Assets/WinoIconsColor-Light.ttf" LogicalName="Fonts/WinoIconsColor-Light.ttf" />
+    <BundleResource Include="../Wino.Mail.WinUI/Assets/WinoIconsColor-Dark.ttf" LogicalName="Fonts/WinoIconsColor-Dark.ttf" />
+  </ItemGroup>
+  <!-- Predefined theme wallpapers and preview images, shared with Windows (BackgroundImages). -->
+  <ItemGroup>
+    <BundleResource Include="../Wino.Mail.WinUI/BackgroundImages/*.jpg" Exclude="../Wino.Mail.WinUI/BackgroundImages/Acrylic.jpg;../Wino.Mail.WinUI/BackgroundImages/Mica.jpg" LogicalName="Themes/%(Filename)%(Extension)" />
+  </ItemGroup>
+  <!-- What's New release notes and illustrations, shared with Windows. WhatsNewService reads them beside the assembly. -->
+  <ItemGroup>
+    <None Include="../Wino.Mail.WinUI/Assets/WhatsNew/*.json;../Wino.Mail.WinUI/Assets/WhatsNew/*.png" Link="Assets/WhatsNew/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <!-- scripts/release/build-macos-release.sh passes a generated plist with the release version, which
+       overrides the development values in Info.plist. Other builds do not set WinoVersionPlist. -->
+  <ItemGroup Condition="'$(WinoVersionPlist)' != ''">
+    <PartialAppManifest Include="$(WinoVersionPlist)" />
+  </ItemGroup>
   <!-- The shared model loader resolves assets beside its assembly in MonoBundle. -->
   <Target Name="WinoBundleModelAssets" BeforeTargets="_ComputePublishLocation">
     <ItemGroup>
       <ResolvedFileToPublish Update="@(ResolvedFileToPublish)"
-                             Condition="$([System.String]::Copy('%(ResolvedFileToPublish.RelativePath)').StartsWith('Models'))">
+                             Condition="$([System.String]::Copy('%(ResolvedFileToPublish.RelativePath)').StartsWith('Models')) Or $([System.String]::Copy('%(ResolvedFileToPublish.RelativePath)').StartsWith('Assets'))">
         <PublishFolderType>Assembly</PublishFolderType>
       </ResolvedFileToPublish>
     </ItemGroup>

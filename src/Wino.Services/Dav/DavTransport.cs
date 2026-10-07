@@ -74,9 +74,7 @@ public sealed class DavTransport : IDavTransport
             if (!IsRedirect(response.StatusCode) || response.Headers.Location is null)
                 return response;
 
-            var redirected = response.Headers.Location.IsAbsoluteUri
-                ? response.Headers.Location
-                : new Uri(target, response.Headers.Location);
+            var redirected = DavUri.Resolve(target, response.Headers.Location);
             response.Dispose();
 
             if (!SameOrigin(target, redirected))

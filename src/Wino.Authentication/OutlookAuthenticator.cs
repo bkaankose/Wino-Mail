@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -7,6 +8,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Identity.Client;
+using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -22,6 +24,22 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
     // folded into GetScope and has to be acquired on its own.
     private static readonly string[] SubstrateTaskScopes = ["https://outlook.office.com/Tasks.ReadWrite"];
     private static readonly HttpClient GraphProfileHttpClient = new();
+
+    // Reuse an access token until shortly before it expires.
+    private static readonly TimeSpan AccessTokenReuseMargin = TimeSpan.FromMinutes(5);
+    private static readonly ILogger Logger = Log.ForContext<OutlookAuthenticator>();
+
+    // MSAL serves a cached access token only when its granted scopes cover every requested scope.
+    // Personal Microsoft accounts never grant the *.Shared scopes, so without the broker each
+    // AcquireTokenSilent call redeems the refresh token. Concurrent synchronizer requests then
+    // trigger Entra loop detection (AADSTS50196) and the account ends in "needs attention".
+    // Keep the issued token per account and scope set, and let one caller refresh at a time.
+    // The authenticator is transient, so this state is shared by every instance.
+    private static readonly ConcurrentDictionary<string, CachedAccessToken> AccessTokens = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> AccessTokenGates = new(StringComparer.Ordinal);
+
+    private sealed record CachedAccessToken(TokenInformationEx TokenInformation, DateTimeOffset ExpiresOn, DateTimeOffset AcquiredOn);
+    private sealed record TokenAcquisition(TokenInformationEx TokenInformation, DateTimeOffset ExpiresOn);
 
     public override MailProviderType ProviderType => MailProviderType.Outlook;
 
@@ -111,6 +129,8 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
             var mailboxAddress = await ResolveMailboxAddressAsync(authResult.AccessToken, authResult.Account.Username, cancellationToken)
                 .ConfigureAwait(false);
 
+            ClearCachedAccessTokens(account);
+
             return new TokenInformationEx(authResult.AccessToken, mailboxAddress, authResult.Account.Username);
         }
         catch (MsalClientException msalClientException)
@@ -154,9 +174,12 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
 
             return authResult.AccessToken;
         }
-        catch (MsalException)
+        catch (MsalException ex)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            Logger.Debug("Substrate task token is unavailable. ErrorCode: {ErrorCode}, Classification: {Classification}",
+                ex.ErrorCode, (ex as MsalUiRequiredException)?.Classification);
 
             return null;
         }
@@ -183,6 +206,8 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
 
         if (account == null)
             return;
+
+        ClearCachedAccessTokens(account);
 
         var authenticationAddress = string.IsNullOrWhiteSpace(account.AuthenticationAddress)
             ? account.Address
@@ -235,28 +260,112 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
         IReadOnlyCollection<ProviderFeature> requiredFeatures,
         bool forceRefresh, CancellationToken cancellationToken)
     {
+        var scopes = GetScope(account, requiredFeatures);
+        var cacheKey = GetAccessTokenCacheKey(account, scopes);
+        var requestedOn = DateTimeOffset.UtcNow;
+
+        if (!forceRefresh && TryGetReusableAccessToken(cacheKey, DateTimeOffset.MinValue, out var reusableToken))
+            return reusableToken;
+
+        var gate = AccessTokenGates.GetOrAdd(cacheKey, static _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
         try
         {
-            return await TryGetCachedTokenInformationAsync(account, requiredFeatures, forceRefresh, cancellationToken).ConfigureAwait(false);
+            // Another caller may have acquired a token while this one waited. A forced refresh
+            // accepts only a token issued after this request started.
+            if (TryGetReusableAccessToken(cacheKey, forceRefresh ? requestedOn : DateTimeOffset.MinValue, out reusableToken))
+                return reusableToken;
+
+            var acquisition = await TryGetCachedTokenInformationAsync(account, scopes, forceRefresh, cancellationToken).ConfigureAwait(false);
+
+            if (acquisition == null)
+            {
+                AccessTokens.TryRemove(cacheKey, out _);
+                return null;
+            }
+
+            AccessTokens[cacheKey] = new CachedAccessToken(acquisition.TokenInformation, acquisition.ExpiresOn, DateTimeOffset.UtcNow);
+            return acquisition.TokenInformation;
         }
-        catch (MsalUiRequiredException)
+        catch (MsalUiRequiredException ex)
         {
+            AccessTokens.TryRemove(cacheKey, out _);
+            LogSilentTokenFailure(ex, forceRefresh);
             return null;
         }
-        catch (MsalClientException)
+        catch (MsalClientException ex)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            AccessTokens.TryRemove(cacheKey, out _);
+            LogSilentTokenFailure(ex, forceRefresh);
             return null;
+        }
+        finally
+        {
+            gate.Release();
         }
     }
 
-    private async Task<TokenInformationEx> TryGetCachedTokenInformationAsync(
+    private static bool TryGetReusableAccessToken(string cacheKey, DateTimeOffset issuedAfter, out TokenInformationEx tokenInformation)
+    {
+        tokenInformation = null;
+
+        if (!AccessTokens.TryGetValue(cacheKey, out var cachedToken) ||
+            cachedToken.AcquiredOn < issuedAfter ||
+            cachedToken.ExpiresOn - AccessTokenReuseMargin <= DateTimeOffset.UtcNow)
+        {
+            return false;
+        }
+
+        tokenInformation = cachedToken.TokenInformation;
+        return true;
+    }
+
+    private static string GetAccessTokenCacheKey(MailAccount account, IEnumerable<string> scopes)
+    {
+        var normalizedScopes = scopes
+            .Where(scope => !string.IsNullOrWhiteSpace(scope))
+            .Select(scope => scope.Trim().ToLowerInvariant())
+            .Distinct()
+            .OrderBy(scope => scope, StringComparer.Ordinal);
+
+        return $"{GetAccessTokenCacheAccountPrefix(account)}{string.Join(' ', normalizedScopes)}";
+    }
+
+    private static string GetAccessTokenCacheAccountPrefix(MailAccount account)
+        => $"{account?.Id}|{GetAuthenticationAddress(account)?.Trim().ToLowerInvariant()}|";
+
+    private static void ClearCachedAccessTokens(MailAccount account)
+    {
+        var prefix = GetAccessTokenCacheAccountPrefix(account);
+
+        foreach (var key in AccessTokens.Keys.Where(key => key.StartsWith(prefix, StringComparison.Ordinal)))
+        {
+            AccessTokens.TryRemove(key, out _);
+        }
+    }
+
+    private static void LogSilentTokenFailure(MsalException exception, bool forceRefresh)
+    {
+        // Error codes and MSAL messages carry no tokens while MSAL PII logging stays disabled.
+        Logger.Warning(
+            "Silent Outlook token acquisition failed. ForceRefresh: {ForceRefresh}, Exception: {ExceptionType}, ErrorCode: {ErrorCode}, Classification: {Classification}, StatusCode: {StatusCode}, CorrelationId: {CorrelationId}, Message: {Message}",
+            forceRefresh,
+            exception.GetType().Name,
+            exception.ErrorCode,
+            (exception as MsalUiRequiredException)?.Classification,
+            (exception as MsalServiceException)?.StatusCode,
+            exception.CorrelationId,
+            exception.Message);
+    }
+
+    private async Task<TokenAcquisition> TryGetCachedTokenInformationAsync(
         MailAccount account,
-        IReadOnlyCollection<ProviderFeature> requiredFeatures,
+        string[] scopes,
         bool forceRefresh, CancellationToken cancellationToken)
     {
-        var scopes = GetScope(account, requiredFeatures);
         var cachedAccounts = (await _publicClientApplication.GetAccountsAsync().WaitAsync(cancellationToken).ConfigureAwait(false)).ToList();
         var storedAccount = FindStoredAccount(cachedAccounts, account);
 
@@ -268,7 +377,9 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
                 .ExecuteAsync(cancellationToken)
                 .ConfigureAwait(false);
 
-            return new TokenInformationEx(authResult.AccessToken, account?.Address, authResult.Account.Username);
+            return new TokenAcquisition(
+                new TokenInformationEx(authResult.AccessToken, account?.Address, authResult.Account.Username),
+                authResult.ExpiresOn);
         }
 
         foreach (var cachedAccount in cachedAccounts)
@@ -287,7 +398,7 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
             forceRefresh, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task<TokenInformationEx> TryGetMatchingTokenInformationAsync(
+    private async Task<TokenAcquisition> TryGetMatchingTokenInformationAsync(
         MailAccount account,
         IEnumerable<string> scopes,
         IAccount cachedAccount,
@@ -301,16 +412,20 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
                 .ExecuteAsync(cancellationToken)
                 .ConfigureAwait(false);
 
-            return await GetValidatedTokenInformationAsync(account, authResult, cancellationToken).ConfigureAwait(false);
+            var tokenInformation = await GetValidatedTokenInformationAsync(account, authResult, cancellationToken).ConfigureAwait(false);
+
+            return tokenInformation == null ? null : new TokenAcquisition(tokenInformation, authResult.ExpiresOn);
         }
-        catch (MsalUiRequiredException)
+        catch (MsalUiRequiredException ex)
         {
+            LogSilentTokenFailure(ex, forceRefresh);
             return null;
         }
-        catch (MsalClientException)
+        catch (MsalClientException ex)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            LogSilentTokenFailure(ex, forceRefresh);
             return null;
         }
     }

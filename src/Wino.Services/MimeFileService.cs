@@ -100,7 +100,7 @@ public class MimeFileService : IMimeFileService
         }
     }
 
-    private string GetEMLPath(string resourcePath) => $"{resourcePath}\\mail.eml";
+    private static string GetEMLPath(string resourcePath) => Path.Combine(resourcePath, "mail.eml");
 
     public Task<string> GetMimeResourcePathAsync(Guid accountId, Guid fileId)
     {

@@ -69,7 +69,9 @@ internal static class Composition
         services.AddSingleton<IUserPresenceStateProvider, MacUserPresenceStateProvider>();
         services.AddSingleton<INotificationBuilder, MacNotificationBuilder>();
         services.AddSingleton<IStatePersistanceService, MacStatePersistenceService>();
-        services.AddSingleton<INewThemeService, MacThemeService>();
+        // The app-level theme service adds the predefined Wino themes (accent + backdrop) on top of native appearance.
+        services.AddSingleton<MacWinoThemeService>();
+        services.AddSingleton<INewThemeService>(provider => provider.GetRequiredService<MacWinoThemeService>());
         services.AddSingleton<IMicrosoftStoreService, MacMicrosoftStoreService>();
         // Unsupported foundation features are visible in the parity matrix, never counted as complete.
         services.AddSingleton<IPlatformCapabilities>(new PlatformCapabilities());
@@ -80,7 +82,7 @@ internal static class Composition
             false
 #endif
         ));
-        services.AddSingleton<IMailDialogService>(_ => new AppKitDialogService(dispatcher, owner, error));
+        services.AddSingleton<IMailDialogService>(provider => new AppKitDialogService(dispatcher, owner, error, provider));
         services.AddSingleton<IDialogServiceBase>(provider => provider.GetRequiredService<IMailDialogService>());
         services.AddSingleton<IExternalBrowserAuthenticationPresenter>(_ => new AppKitExternalBrowserAuthenticationPresenter(dispatcher, owner, error));
         services.AddSingleton<AppKitNavigationService>(provider => new(provider, dispatcher, host));

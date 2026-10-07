@@ -547,7 +547,20 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         }
     }
 
-    private async Task HandleSingleItemDownloadAsync(MailItemViewModel mailItemViewModel)
+    private void ShowMissingMimeMessage(MailAccount account)
+    {
+        // The shell already shows the account attention state with its fix action.
+        if (account != null && account.AttentionReason != AccountAttentionReason.None)
+        {
+            Log.Information("MIME for the selected mail is unavailable because account {AccountId} needs attention.", account.Id);
+            return;
+        }
+
+        _dialogService.InfoBarMessage(Translator.Info_ComposerMissingMIMETitle, Translator.Info_ComposerMissingMIMEMessage, InfoBarMessageType.Warning);
+    }
+
+    /// <returns>True when a download failure was already shown to the user.</returns>
+    private async Task<bool> HandleSingleItemDownloadAsync(MailItemViewModel mailItemViewModel)
     {
         // A transfer that gets superseded still runs to completion so the MIME lands in the cache,
         // but from that moment it must not touch the reader's progress.
@@ -565,14 +578,18 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             await SynchronizationManager.Instance.DownloadMimeMessageAsync(
                 mailItemViewModel.MailCopy,
                 mailItemViewModel.MailCopy.AssignedAccount.Id).ConfigureAwait(false);
+
+            return false;
         }
         catch (OperationCanceledException)
         {
             Log.Information("MIME download is canceled.");
+            return false;
         }
         catch (Exception ex)
         {
             _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
+            return true;
         }
         finally
         {
@@ -592,11 +609,28 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
         if (!isMimeExists)
         {
-            await HandleSingleItemDownloadAsync(mailItemViewModel);
+            var downloadFailureReported = await HandleSingleItemDownloadAsync(mailItemViewModel);
+
+            // A download can take seconds, which is long enough for the user to select something else.
+            // The transfer still finishes and caches the MIME; it just no longer owns the reader.
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // The download returns without a file when the account needs attention, the device is
+            // offline, or the server rejects the request. Reading the MIME then throws, so report
+            // the state once and leave the reader empty.
+            isMimeExists = await _mimeFileService.IsMimeExistAsync(mailItemViewModel.MailCopy.AssignedAccount.Id, mailItemViewModel.MailCopy.FileId);
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!isMimeExists)
+            {
+                if (!downloadFailureReported)
+                    ShowMissingMimeMessage(mailItemViewModel.MailCopy.AssignedAccount);
+
+                return;
+            }
         }
 
-        // A download can take seconds, which is long enough for the user to select something else.
-        // The transfer still finishes and caches the MIME; it just no longer owns the reader.
         cancellationToken.ThrowIfCancellationRequested();
 
         // Find the MIME for this item and render it.

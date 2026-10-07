@@ -33,7 +33,30 @@ public sealed class MacOSOutlookAuthenticationHost : IOutlookAuthenticationHost,
         Client = PublicClientApplicationBuilder.Create(authenticatorConfig.OutlookAuthenticatorClientId)
             .WithDefaultRedirectUri()
             .WithAuthority("https://login.microsoftonline.com/common")
+            // MSAL's own diagnostics land in wino.log. The authenticator swallows MsalUiRequired and
+            // MsalClient exceptions, so without this the log only ever shows the resulting attention state.
+            .WithLogging(ForwardMsalLog, MsalLogLevel, enablePiiLogging: false, enableDefaultPlatformLogging: false)
             .Build();
+    }
+
+#if DEBUG
+    private const LogLevel MsalLogLevel = LogLevel.Verbose;
+#else
+    private const LogLevel MsalLogLevel = LogLevel.Info;
+#endif
+
+    private static readonly Serilog.ILogger MsalLogger = Serilog.Log.ForContext("SourceContext", "MSAL");
+
+    private static void ForwardMsalLog(LogLevel level, string message, bool containsPii)
+    {
+        if (containsPii) return;
+        switch (level)
+        {
+            case LogLevel.Error: MsalLogger.Error("{Message}", message); break;
+            case LogLevel.Warning: MsalLogger.Warning("{Message}", message); break;
+            case LogLevel.Info: MsalLogger.Debug("{Message}", message); break;
+            default: MsalLogger.Verbose("{Message}", message); break;
+        }
     }
 
     public IPublicClientApplication Client { get; }

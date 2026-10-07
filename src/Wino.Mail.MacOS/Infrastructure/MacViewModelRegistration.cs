@@ -5,6 +5,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.ViewModels;
 using Wino.Mail.MacOS.Views;
 using Wino.Mail.MacOS.Views.Mail;
+using Wino.Mail.MacOS.Views.Onboarding;
 using Wino.Mail.MacOS.Views.Settings;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
@@ -13,7 +14,11 @@ using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Mail.MacOS.Infrastructure;
 
-public static class MacViewModelRegistration
+/// <summary>
+/// Shared registrations live here. Feature views and their ViewModels register in
+/// MacViewModelRegistration.Mail.cs and MacViewModelRegistration.Settings.cs.
+/// </summary>
+public static partial class MacViewModelRegistration
 {
     public static IServiceCollection RegisterMacViewModels(this IServiceCollection services)
     {
@@ -22,8 +27,8 @@ public static class MacViewModelRegistration
         services.AddTransient<WelcomeHostPageViewModel>();
         services.AddTransient<ProviderSelectionPageViewModel>();
         services.AddTransient<AccountSetupProgressPageViewModel>();
-        services.AddTransient<AboutPageViewModel>();
-        services.AddTransient<MailListPageViewModel>();
+        services.AddTransient<SpecialImapCredentialsPageViewModel>();
+        services.AddTransient<ImapCalDavSettingsPageViewModel>();
         services.AddSingleton<MailAppShellViewModel>();
         services.AddSingleton<IMailShellClient>(provider => provider.GetRequiredService<MailAppShellViewModel>());
         services.AddSingleton<CalendarAppShellViewModel>();
@@ -44,9 +49,26 @@ public static class MacViewModelRegistration
         services.AddTransient<WelcomePageV2ViewController>();
         services.AddTransient<ProviderSelectionPageViewController>();
         services.AddTransient<AccountSetupProgressPageViewController>();
-        services.AddTransient<AboutPageViewController>();
-        services.AddTransient<MailListPageViewController>();
+        services.AddTransient<SpecialImapCredentialsPageViewController>();
+        services.AddTransient<ImapCalDavSettingsPageViewController>();
+#if DEBUG
+        OnboardingDebug.Register();
+#endif
         services.AddTransient<WinoAppShellViewController>();
+        services.AddSingleton<MacPageRegistry>();
+        RegisterMailViews(services);
+        RegisterSettingsViews(services);
+        RegisterCalendarViews(services);
+        RegisterTasksViews(services);
+        RegisterContactsViews(services);
+        RegisterShellExtrasViews(services);
         return services;
     }
+
+    static partial void RegisterMailViews(IServiceCollection services);
+    static partial void RegisterSettingsViews(IServiceCollection services);
+    static partial void RegisterCalendarViews(IServiceCollection services);
+    static partial void RegisterTasksViews(IServiceCollection services);
+    static partial void RegisterContactsViews(IServiceCollection services);
+    static partial void RegisterShellExtrasViews(IServiceCollection services);
 }

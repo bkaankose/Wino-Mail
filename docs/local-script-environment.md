@@ -57,6 +57,20 @@ Only selected channels require valid feed settings. Beta and stable sideload mus
 | --- | --- | --- |
 | `WINO_RELEASES_ROOT` | `D:\Wino Releases` | Where `build-releases.ps1` writes packages and `publish-releases.ps1` looks for them. The `-OutputRoot` and `-ReleasesRoot` parameters override it for one run. |
 
+## macOS DMG notarization
+
+`build-macos-release.sh` runs on a Mac and submits the DMG with `xcrun notarytool`.
+Set these variables in the shell profile, such as `~/.zprofile`, with `export KEY=value`. Open a new Terminal window after changes.
+
+| Key | Value | Purpose and source |
+| --- | --- | --- |
+| `WINO_NOTARY_KEY_PATH` | Full path to `AuthKey_<key id>.p8` | App Store Connect API key file. Users and Access → Integrations → App Store Connect API. The file downloads once; keep it outside the repository. |
+| `WINO_NOTARY_KEY_ID` | Ten-character key ID | The same page → Key ID. Not a secret. |
+| `WINO_NOTARY_ISSUER_ID` | Issuer GUID | The same page → Issuer ID. Not a secret. |
+
+The key needs the **Developer** role or higher. The script passes the key to `notarytool` and never prints or copies it.
+`WINO_RELEASES_ROOT` also applies on the Mac. Its default there is `~/Wino Releases`.
+
 ## Publishing Beta and stable sideload releases
 
 `publish-releases.ps1` uploads to the `wino-downloads` Cloudflare R2 bucket that serves `https://download.winomail.app`.

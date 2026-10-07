@@ -1,16 +1,23 @@
+using System.Text.Json;
 using AppKit;
+using CommunityToolkit.Mvvm.Messaging;
 using Foundation;
 using Microsoft.Extensions.DependencyInjection;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Translations;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.MacOS.Views;
+using Wino.Messaging.Client.Shell;
+using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.MacOS;
 
 [Register("WinoMailAppDelegate")]
-public sealed class AppDelegate : NSApplicationDelegate
+public sealed class AppDelegate : NSApplicationDelegate, IRecipient<LanguageChanged>
 {
+    private const string ApplicationName = "Wino Mail";
     private readonly AppKitDispatcher _dispatcher = new();
     private ServiceProvider? _services;
     private NSWindow? _window;
@@ -23,6 +30,13 @@ public sealed class AppDelegate : NSApplicationDelegate
     public override void DidFinishLaunching(NSNotification notification)
     {
         NSApplication.SharedApplication.ActivationPolicy = NSApplicationActivationPolicy.Regular;
+        // The menu bar exists before the translation service loads the user's language. Seed the
+        // English source so the first menu shows text, then rebuild on every LanguageChanged
+        // (the translation service sends one when it finishes initializing).
+        SeedEnglishTranslations();
+        WeakReferenceMessenger.Default.Register<LanguageChanged>(this);
+        // The View menu has its own Enter Full Screen item; AppKit would add a second one.
+        NSUserDefaults.StandardUserDefaults.SetBool(false, "NSFullScreenMenuItemEverywhere");
         InstallMenus();
         var loading = new NSViewController { View = new NSView() };
         _window = new WelcomeWindow(loading);
@@ -35,12 +49,17 @@ public sealed class AppDelegate : NSApplicationDelegate
     {
         try
         {
+            WinoIcons.Register();
             _services = Composition.Create(_dispatcher, () => _window, HostController, ReportError);
             var configuration = _services.GetRequiredService<IApplicationConfiguration>();
             _services.GetRequiredService<IWinoLogger>().SetupLogger(Path.Combine(configuration.ApplicationDataFolderPath, "Logs", "wino.log"));
             var runtime = _services.GetRequiredService<IApplicationRuntime>();
             await runtime.StartAsync();
+            await _services.GetRequiredService<INewThemeService>().InitializeAsync();
             _runtimeStarted = true;
+#if DEBUG
+            await _dispatcher.ExecuteOnUIThread(() => MacDebugBridge.Start(_services));
+#endif
             var accounts = await _services.GetRequiredService<IAccountService>().GetAccountsAsync();
             await _dispatcher.ExecuteOnUIThread(() =>
             {
@@ -122,24 +141,190 @@ public sealed class AppDelegate : NSApplicationDelegate
         }
     }
 
-    private void InstallMenus()
+    public void Receive(LanguageChanged message)
+    {
+        // The translation service publishes from a background thread.
+        NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
+        {
+            if (!_terminating) RetitleMenus();
+        });
+    }
+
+    /// <summary>
+    /// Re-labels the installed main menu from a freshly built copy. Replacing MainMenu instead makes
+    /// AppKit insert its own Edit and View items (Dictation, Emoji &amp; Symbols, Full Screen) again.
+    /// </summary>
+    private void RetitleMenus()
+    {
+        var current = NSApplication.SharedApplication.MainMenu;
+        if (current is null) { InstallMenus(); return; }
+        Retitle(current, BuildMenus(install: false));
+
+        static void Retitle(NSMenu target, NSMenu source)
+        {
+            // Assigning a title, even an unchanged one, makes AppKit add its Edit items again.
+            if (target.Title != source.Title) target.Title = source.Title;
+            for (nint index = 0; index < source.Count && index < target.Count; index++)
+            {
+                var from = source.ItemAt(index);
+                var to = target.ItemAt(index);
+                if (from is null || to is null || from.IsSeparatorItem) continue;
+                if (to.Title != from.Title) to.Title = from.Title;
+                if (from.Submenu is not null && to.Submenu is not null) Retitle(to.Submenu, from.Submenu);
+            }
+        }
+    }
+
+    private static void SeedEnglishTranslations()
+    {
+        var resources = Translator.Resources;
+        if (resources.Count > 0) return;
+        try
+        {
+            using var stream = WinoTranslationDictionary.GetLanguageStream(AppLanguage.English);
+            if (stream == null) return;
+            var values = JsonSerializer.Deserialize(stream, BasicTypesJsonContext.Default.DictionaryStringString);
+            if (values == null) return;
+            foreach (var pair in values) resources.TryAdd(pair.Key, pair.Value);
+        }
+        catch (Exception error) { Serilog.Log.Warning(error, "Could not seed English menu translations."); }
+    }
+
+    private void InstallMenus() => BuildMenus(install: true);
+
+    private NSMenu BuildMenus(bool install)
     {
         var menu = new NSMenu();
-        var application = new NSMenu("Wino Mail");
-        application.AddItem(new NSMenuItem("About Wino Mail", (_, _) =>
-        {
-            if (_services != null) Observe(_services.GetRequiredService<AppKitNavigationService>().NavigateAsync(WinoPage.AboutPage));
-        }));
+
+        var application = new NSMenu(ApplicationName);
+        application.AddItem(new NSMenuItem(string.Format(Translator.MacOSMenu_About, ApplicationName), (_, _) => Navigate(navigation => navigation.Navigate(WinoPage.AboutPage))));
         application.AddItem(NSMenuItem.SeparatorItem);
-        application.AddItem(new NSMenuItem("Quit Wino Mail", "q", (_, _) => NSApplication.SharedApplication.Terminate(null)));
+        application.AddItem(Item(Translator.MenuSettings + "…", ",", NSEventModifierMask.CommandKeyMask,
+            () => Navigate(navigation => navigation.ChangeApplicationMode(WinoApplicationMode.Settings))));
+        application.AddItem(NSMenuItem.SeparatorItem);
+        application.AddItem(new NSMenuItem(string.Format(Translator.MacOSMenu_Hide, ApplicationName), new ObjCRuntime.Selector("hide:"), "h"));
+        application.AddItem(new NSMenuItem(Translator.MacOSMenu_HideOthers, new ObjCRuntime.Selector("hideOtherApplications:"), "h")
+        {
+            KeyEquivalentModifierMask = NSEventModifierMask.CommandKeyMask | NSEventModifierMask.AlternateKeyMask
+        });
+        application.AddItem(new NSMenuItem(Translator.MacOSMenu_ShowAll, new ObjCRuntime.Selector("unhideAllApplications:"), string.Empty));
+        application.AddItem(NSMenuItem.SeparatorItem);
+        application.AddItem(new NSMenuItem(string.Format(Translator.MacOSMenu_Quit, ApplicationName), "q", (_, _) => NSApplication.SharedApplication.Terminate(null)));
         menu.AddItem(new NSMenuItem { Submenu = application });
-        var edit = new NSMenu("Edit");
-        edit.AddItem(new NSMenuItem("Cut", new ObjCRuntime.Selector("cut:"), "x"));
-        edit.AddItem(new NSMenuItem("Copy", new ObjCRuntime.Selector("copy:"), "c"));
-        edit.AddItem(new NSMenuItem("Paste", new ObjCRuntime.Selector("paste:"), "v"));
-        edit.AddItem(new NSMenuItem("Select All", new ObjCRuntime.Selector("selectAll:"), "a"));
+
+        var file = new NSMenu(Translator.MacOSMenu_File);
+        file.AddItem(Item(Translator.MenuNewMail, "n", NSEventModifierMask.CommandKeyMask, () => Shell()?.NewItem()));
+        file.AddItem(NSMenuItem.SeparatorItem);
+        file.AddItem(new NSMenuItem(Translator.MacOSMenu_CloseWindow, new ObjCRuntime.Selector("performClose:"), "w"));
+        menu.AddItem(new NSMenuItem { Submenu = file });
+
+        var edit = new NSMenu(Translator.MacOSMenu_Edit);
+        edit.AddItem(new NSMenuItem(Translator.MacOSMenu_Undo, new ObjCRuntime.Selector("undo:"), "z"));
+        edit.AddItem(new NSMenuItem(Translator.MacOSMenu_Redo, new ObjCRuntime.Selector("redo:"), "z")
+        {
+            KeyEquivalentModifierMask = NSEventModifierMask.CommandKeyMask | NSEventModifierMask.ShiftKeyMask
+        });
+        edit.AddItem(NSMenuItem.SeparatorItem);
+        edit.AddItem(new NSMenuItem(Translator.MacOSMenu_Cut, new ObjCRuntime.Selector("cut:"), "x"));
+        edit.AddItem(new NSMenuItem(Translator.MacOSMenu_Copy, new ObjCRuntime.Selector("copy:"), "c"));
+        edit.AddItem(new NSMenuItem(Translator.MacOSMenu_Paste, new ObjCRuntime.Selector("paste:"), "v"));
+        edit.AddItem(new NSMenuItem(Translator.MacOSMenu_PasteAndMatchStyle, new ObjCRuntime.Selector("pasteAsPlainText:"), "v")
+        {
+            KeyEquivalentModifierMask = NSEventModifierMask.CommandKeyMask | NSEventModifierMask.AlternateKeyMask | NSEventModifierMask.ShiftKeyMask
+        });
+        edit.AddItem(new NSMenuItem(Translator.MacOSMenu_SelectAll, new ObjCRuntime.Selector("selectAll:"), "a"));
+        edit.AddItem(NSMenuItem.SeparatorItem);
+        edit.AddItem(Item(Translator.SearchBarPlaceholder, "f", NSEventModifierMask.CommandKeyMask | NSEventModifierMask.AlternateKeyMask, () => Shell()?.FocusSearch()));
         menu.AddItem(new NSMenuItem { Submenu = edit });
+
+        var view = new NSMenu(Translator.MacOSMenu_View);
+        // Mode shortcuts follow the pane switcher order: Mail, Calendar, Contacts, To Do.
+        view.AddItem(Item(Translator.KeyboardShortcuts_ModeMail, "1", NSEventModifierMask.CommandKeyMask,
+            () => Navigate(navigation => navigation.ChangeApplicationMode(WinoApplicationMode.Mail))));
+        view.AddItem(Item(Translator.KeyboardShortcuts_ModeCalendar, "2", NSEventModifierMask.CommandKeyMask,
+            () => Navigate(navigation => navigation.ChangeApplicationMode(WinoApplicationMode.Calendar))));
+        view.AddItem(Item(Translator.KeyboardShortcuts_ModeContacts, "3", NSEventModifierMask.CommandKeyMask,
+            () => Navigate(navigation => navigation.ChangeApplicationMode(WinoApplicationMode.Contacts))));
+        view.AddItem(Item(Translator.KeyboardShortcuts_ModeTasks, "4", NSEventModifierMask.CommandKeyMask,
+            () => Navigate(navigation => navigation.ChangeApplicationMode(WinoApplicationMode.Tasks))));
+        view.AddItem(NSMenuItem.SeparatorItem);
+        view.AddItem(Item(Translator.MacOSMenu_ToggleSidebar, "s", NSEventModifierMask.CommandKeyMask | NSEventModifierMask.ControlKeyMask, () => Shell()?.ToggleSidebar()));
+        view.AddItem(new NSMenuItem(Translator.MacOSMenu_EnterFullScreen, new ObjCRuntime.Selector("toggleFullScreen:"), "f")
+        {
+            KeyEquivalentModifierMask = NSEventModifierMask.CommandKeyMask | NSEventModifierMask.ControlKeyMask
+        });
+        menu.AddItem(new NSMenuItem { Submenu = view });
+
+        // Message actions mirror the toolbar. Items stay enabled for their key equivalents and
+        // reflect availability while the menu is open; the shell re-checks before executing.
+        var message = new NSMenu(Translator.MacOSMenu_Message) { AutoEnablesItems = false };
+        var commands = new (ShellCommand Command, string Title, string Key, NSEventModifierMask Mask)[]
+        {
+            (ShellCommand.Reply, Translator.MailOperation_Reply, "r", NSEventModifierMask.CommandKeyMask),
+            (ShellCommand.ReplyAll, Translator.MailOperation_ReplyAll, "r", NSEventModifierMask.CommandKeyMask | NSEventModifierMask.ShiftKeyMask),
+            (ShellCommand.Forward, Translator.MailOperation_Forward, "f", NSEventModifierMask.CommandKeyMask | NSEventModifierMask.ShiftKeyMask),
+            (ShellCommand.Archive, Translator.MailOperation_Archive, "a", NSEventModifierMask.CommandKeyMask | NSEventModifierMask.ControlKeyMask),
+            (ShellCommand.Delete, Translator.MailOperation_Delete, string.Empty, 0),
+            (ShellCommand.Move, Translator.MailOperation_Move + "…", "m", NSEventModifierMask.CommandKeyMask | NSEventModifierMask.ControlKeyMask),
+            (ShellCommand.Flag, Translator.MailOperation_Flag, "l", NSEventModifierMask.CommandKeyMask | NSEventModifierMask.ShiftKeyMask),
+            (ShellCommand.ToggleRead, Translator.MailOperation_MarkAsRead, "u", NSEventModifierMask.CommandKeyMask | NSEventModifierMask.ShiftKeyMask)
+        };
+        var messageItems = new List<(ShellCommand, NSMenuItem)>();
+        foreach (var command in commands)
+        {
+            if (command.Command is ShellCommand.Archive or ShellCommand.Flag) message.AddItem(NSMenuItem.SeparatorItem);
+            var item = Item(command.Title, command.Key, command.Mask, () => Shell()?.ExecuteCommand(command.Command));
+            message.AddItem(item);
+            messageItems.Add((command.Command, item));
+        }
+        if (install)
+        {
+            _messageMenuDelegate = new MessageMenuDelegate(Shell, messageItems);
+            message.Delegate = _messageMenuDelegate;
+        }
+        menu.AddItem(new NSMenuItem { Submenu = message });
+
+        var window = new NSMenu(Translator.MacOSMenu_Window);
+        window.AddItem(new NSMenuItem(Translator.MacOSMenu_Minimize, new ObjCRuntime.Selector("performMiniaturize:"), "m"));
+        window.AddItem(new NSMenuItem(Translator.MacOSMenu_Zoom, new ObjCRuntime.Selector("performZoom:"), string.Empty));
+        window.AddItem(NSMenuItem.SeparatorItem);
+        window.AddItem(new NSMenuItem(Translator.MacOSMenu_BringAllToFront, new ObjCRuntime.Selector("arrangeInFront:"), string.Empty));
+        menu.AddItem(new NSMenuItem { Submenu = window });
+
+        if (!install) return menu;
         NSApplication.SharedApplication.MainMenu = menu;
+        NSApplication.SharedApplication.WindowsMenu = window;
+        return menu;
+    }
+
+    private MessageMenuDelegate? _messageMenuDelegate;
+
+    private static NSMenuItem Item(string title, string key, NSEventModifierMask mask, Action action)
+        => new(title, key, (_, _) => action()) { KeyEquivalentModifierMask = mask };
+
+    private WinoAppShellViewController? Shell()
+        => _services?.GetRequiredService<AppKitNavigationService>().Shell;
+
+    private void Navigate(Func<AppKitNavigationService, bool> navigate)
+    {
+        if (_services != null) navigate(_services.GetRequiredService<AppKitNavigationService>());
+    }
+
+    /// <summary>Shows Message menu availability while it is open; re-enables afterwards so shortcuts keep working.</summary>
+    private sealed class MessageMenuDelegate(Func<WinoAppShellViewController?> shell, List<(ShellCommand Command, NSMenuItem Item)> items) : NSMenuDelegate
+    {
+        public override void MenuWillOpen(NSMenu menu)
+        {
+            var current = shell();
+            foreach (var (command, item) in items) item.Enabled = current?.CanExecuteCommand(command) == true;
+        }
+
+        public override void MenuDidClose(NSMenu menu)
+        {
+            foreach (var (_, item) in items) item.Enabled = true;
+        }
+
+        public override void MenuWillHighlightItem(NSMenu menu, NSMenuItem? item) { }
     }
 
     private void Observe(Task task) => _ = task.ContinueWith(t => ReportError(t.Exception!.GetBaseException()), TaskContinuationOptions.OnlyOnFaulted);

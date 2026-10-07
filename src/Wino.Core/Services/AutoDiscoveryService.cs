@@ -588,9 +588,7 @@ public class AutoDiscoveryService : IAutoDiscoveryService
         if (response.Headers.Location == null)
             return false;
 
-        resolvedUri = response.Headers.Location.IsAbsoluteUri
-            ? response.Headers.Location
-            : new Uri(baseUri, response.Headers.Location);
+        resolvedUri = Wino.Services.Dav.DavUri.Resolve(baseUri, response.Headers.Location);
 
         return true;
     }

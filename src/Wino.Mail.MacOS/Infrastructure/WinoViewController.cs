@@ -13,9 +13,16 @@ public interface IWinoViewController
     Task ReleaseAsync();
 }
 
-public abstract class WinoViewController<TViewModel> : NSViewController, IWinoViewController where TViewModel : CoreBaseViewModel
+/// <summary>Exposes a page's ViewModel to the router (back confirmation and results).</summary>
+public interface IViewModelHost
+{
+    object AssociatedViewModel { get; }
+}
+
+public abstract class WinoViewController<TViewModel> : NSViewController, IWinoViewController, IViewModelHost where TViewModel : CoreBaseViewModel
 {
     protected TViewModel ViewModel { get; }
+    object IViewModelHost.AssociatedViewModel => ViewModel;
     protected IDispatcher Dispatcher { get; }
     protected IWinoLogger Logger { get; }
     protected BindingScope Bindings { get; } = new();

@@ -414,3 +414,11 @@ docs/design-prototypes/*
 # Release tooling is source, not a build output directory.
 !/scripts/release/
 !/scripts/release/**
+
+# Apple signing and notarization material (keys stay on the signing Mac, never in the repo)
+*.p8
+*.p12
+*.mobileprovision
+*.provisionprofile
+*.certSigningRequest
+AuthKey_*

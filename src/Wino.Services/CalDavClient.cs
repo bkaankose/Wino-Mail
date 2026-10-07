@@ -199,9 +199,7 @@ public sealed class CalDavClient : ICalDavClient
         using var response = await SendAsync(connectionSettings, request, cancellationToken).ConfigureAwait(false);
         var resultHref = response.Headers.Location == null
             ? resourceUri
-            : response.Headers.Location.IsAbsoluteUri
-                ? response.Headers.Location
-                : new Uri(resourceUri, response.Headers.Location);
+            : Dav.DavUri.Resolve(resourceUri, response.Headers.Location);
         var eTag = response.Headers.ETag?.ToString() ?? string.Empty;
 
         return new CalDavWriteResult
@@ -1123,13 +1121,7 @@ public sealed class CalDavClient : ICalDavClient
         return $"#{color.ToUpperInvariant()}";
     }
 
-    private static Uri CreateAbsoluteUri(Uri baseUri, string href)
-    {
-        if (Uri.TryCreate(href, UriKind.Absolute, out var absolute))
-            return absolute;
-
-        return new Uri(baseUri, href);
-    }
+    private static Uri CreateAbsoluteUri(Uri baseUri, string href) => Dav.DavUri.Resolve(baseUri, href);
 
     private static Uri EnsureCollectionUri(Uri uri)
         => uri.AbsoluteUri.EndsWith("/", StringComparison.Ordinal)

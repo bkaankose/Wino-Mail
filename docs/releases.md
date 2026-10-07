@@ -268,6 +268,52 @@ It also enables background checks, which Windows schedules every eight hours.
 It does not force downgrades or block application startup.
 See Microsoft's [update settings](https://learn.microsoft.com/en-us/windows/msix/app-installer/update-settings).
 
+## macOS DMG
+
+`scripts/release/build-macos-release.sh` builds the macOS app as a signed, notarized, and stapled DMG.
+It runs on a Mac and uses the same manifest version as Windows: `2.0.55.0` becomes app version `2.0.55`.
+It does not change `Info.plist` or any other source file.
+
+One-time setup on the Mac:
+
+1. Install Xcode and the .NET SDK selected by `global.json`, then run `dotnet workload install macos`.
+2. Import the **Developer ID Application: Burak Kaan Kose (4VB7YWRAQ9)** certificate with its private key into the login keychain.
+3. Set the notarization variables in [Local script environment](local-script-environment.md).
+
+Run from the repository root in Terminal:
+
+```bash
+bash scripts/release/build-macos-release.sh
+```
+
+Select **Apple silicon only** or **Universal**. Universal is the default and also runs on Intel Macs.
+For unattended runs, use `--non-interactive --arch universal` or `--arch arm64`.
+
+The script checks the tools, signing identity, and credentials before it compiles.
+It publishes Release with the Developer ID identity, the hardened runtime, and the app's sandbox entitlements, without a provisioning profile.
+Debug builds keep the Apple Development identity and profile.
+It verifies the signature, entitlements, bundle ID, version, and architectures, then creates and signs the DMG.
+Notarization usually takes a few minutes. When Apple rejects the DMG, the script prints the issues from the notarization log.
+After acceptance, it staples the ticket and requires Gatekeeper to report `source=Notarized Developer ID` for the DMG and the app.
+
+Outputs appear under `~/Wino Releases`, or `WINO_RELEASES_ROOT` or `--output-root`:
+
+```text
+2.0.55.0/
+  macOS/
+    WinoMail_2.0.55_universal.dmg
+    WinoMail_2.0.55_universal.dmg.sha256
+    WinoMail_2.0.55_universal.notarization.json
+    Symbols/universal/                  (dSYM and PDB files, when produced)
+```
+
+The script stops if the DMG already exists. Failed runs keep their logs under `.staging/macos-<run>` in the output root.
+The DMG opens a standard window with the app and an Applications link.
+
+Codesign needs the login keychain, which is unavailable to SSH sessions (`errSecInternalComponent`).
+To build over SSH, start `screen -dmS winosign` in Terminal on the Mac and run the script inside that session.
+This is not required when the script runs in Terminal.
+
 ## Failures and repeated builds
 
 If a selected destination exists, the script stops before compilation. It never replaces an existing release.
