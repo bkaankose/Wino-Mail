@@ -32,6 +32,7 @@
 
     <StackPanel
         MaxWidth="{x:Bind GetContentMaxWidth(ViewModel.IsSignInStepVisible), Mode=OneWay}"
+        Margin="24,0"
         Padding="0,0,0,24"
         HorizontalAlignment="Stretch"
         Spacing="12">
@@ -59,6 +60,7 @@
             finished first step. Editing an account has no steps.
         -->
         <StackPanel
+            HorizontalAlignment="Center"
             AutomationProperties.AutomationId="ImapSetupStepper"
             Orientation="Horizontal"
             Spacing="8"
@@ -590,29 +592,44 @@
         </StackPanel>
 
         <!--  ============ Actions ============  -->
-        <Grid Margin="0,12,0,0" ColumnSpacing="8">
+        <Grid
+            Margin="0,12,0,0"
+            ColumnSpacing="8"
+            RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <StackPanel
+            <Grid
+                Grid.ColumnSpan="3"
                 VerticalAlignment="Center"
-                Orientation="Horizontal"
-                Spacing="8"
+                ColumnSpacing="8"
                 Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
                 <ProgressRing
                     Width="16"
                     Height="16"
+                    VerticalAlignment="Center"
                     IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" />
                 <TextBlock
+                    Grid.Column="1"
                     VerticalAlignment="Center"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Text="{x:Bind ViewModel.BusyText, Mode=OneWay}" />
-            </StackPanel>
+                    Text="{x:Bind ViewModel.BusyText, Mode=OneWay}"
+                    TextWrapping="WrapWholeWords" />
+            </Grid>
 
             <Button
+                Grid.Row="1"
                 Grid.Column="1"
                 MinWidth="100"
                 AutomationProperties.AutomationId="ImapSetupBackButton"
@@ -620,6 +637,7 @@
                 Content="{x:Bind domain:Translator.Buttons_Back, Mode=OneTime}"
                 Visibility="{x:Bind ViewModel.IsCreateMode, Mode=OneWay}" />
             <Button
+                Grid.Row="1"
                 Grid.Column="1"
                 MinWidth="100"
                 AutomationProperties.AutomationId="ImapSetupCancelButton"
@@ -627,6 +645,7 @@
                 Content="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}"
                 Visibility="{x:Bind ViewModel.IsEditMode, Mode=OneWay}" />
             <Button
+                Grid.Row="1"
                 Grid.Column="2"
                 MinWidth="140"
                 AutomationProperties.AutomationId="ImapSetupPrimaryButton"
