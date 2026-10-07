@@ -513,6 +513,12 @@ public partial class WinoMailListView : ListView, IDisposable
 
     protected override bool IsItemItsOwnContainerOverride(object item) => item is WinoMailListViewItem;
 
+    /// <summary>Hosts can supply a localized summary without exposing domain types to the control.</summary>
+    public virtual string GetRowAutomationName(MailListRow row)
+        => row.IsThreadHead && row.Thread is { } thread
+            ? $"{thread.RepresentativeItem.NameSortKey}, {thread.Count} messages, {(thread.IsExpanded ? "expanded" : "collapsed")}"
+            : row.SourceItem.NameSortKey;
+
     protected override void PrepareContainerForItemOverride(DependencyObject element, object item)
     {
         base.PrepareContainerForItemOverride(element, item);

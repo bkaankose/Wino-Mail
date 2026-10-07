@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -688,6 +688,24 @@ public static class XamlHelpers
             ? contactText
             : $"{normalizedLabel}: {contactText}";
     }
+
+    public static string FormatAutomationName(string format, string? value)
+        => string.Format(AppDisplayCulture, format, value ?? string.Empty);
+
+    public static string GetItemActionAutomationName(string action, string? item)
+        => string.IsNullOrWhiteSpace(item) ? action : string.Format(AppDisplayCulture, Translator.Accessibility_ItemAction, action, item);
+
+    public static string GetAccountAutomationName(string? name, string? address)
+        => JoinAutomationDetails(name, address);
+
+    public static string GetContactAutomationName(string? name, string? address, string? source, bool isFavorite)
+        => JoinAutomationDetails(name, address, source, isFavorite ? Translator.ContactEditor_Favorite : null);
+
+    public static string GetShortcutAutomationName(string? action, string? keys, string? mode)
+        => JoinAutomationDetails(action, keys, mode);
+
+    private static string JoinAutomationDetails(params string?[] values)
+        => string.Join(", ", values.Where(value => !string.IsNullOrWhiteSpace(value)).Distinct());
 
     public static string GetCalendarsForAccountAutomationName(string? accountName)
         => string.Format(Translator.Accessibility_CalendarsForAccount, accountName ?? string.Empty);

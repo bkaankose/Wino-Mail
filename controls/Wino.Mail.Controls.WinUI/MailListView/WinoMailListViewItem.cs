@@ -1,11 +1,14 @@
 using System;
 using System.Numerics;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Windows.Input;
 using CommunityToolkit.WinUI;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation.Peers;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
@@ -78,6 +81,89 @@ public sealed partial class WinoMailListViewItem : ListViewItem
     /// </summary>
     [GeneratedDependencyProperty(DefaultValue = true)]
     public partial bool AreSwipeOperationsEnabled { get; set; }
+
+    private readonly List<IMailListSourceItem> _automationSources = [];
+
+    private MailListRow? _automationRow;
+    private bool _automationExpanded;
+
+    public WinoMailListViewItem()
+    {
+        // This is a templated control, with no XAML code-behind lifecycle events.
+        Loaded += OnAutomationLoaded;
+        Unloaded += OnAutomationUnloaded;
+    }
+
+    private void OnAutomationLoaded(object sender, RoutedEventArgs args)
+    {
+        _automationExpanded = _automationRow?.IsExpanded == true;
+        if (_automationRow is not null)
+        {
+            _automationRow.PropertyChanged -= OnAutomationRowChanged;
+            _automationRow.PropertyChanged += OnAutomationRowChanged;
+        }
+        RefreshAutomationSources();
+        InvalidateAutomationPeer();
+    }
+
+    private void OnAutomationUnloaded(object sender, RoutedEventArgs args)
+    {
+        if (_automationRow is not null) _automationRow.PropertyChanged -= OnAutomationRowChanged;
+        foreach (var source in _automationSources) source.PropertyChanged -= OnAutomationSourceChanged;
+        _automationSources.Clear();
+    }
+
+    partial void OnRowChanged(MailListRow? newValue)
+    {
+        if (_automationRow is not null) _automationRow.PropertyChanged -= OnAutomationRowChanged;
+        _automationRow = newValue;
+        _automationExpanded = newValue?.IsExpanded == true;
+        if (IsLoaded && newValue is not null) newValue.PropertyChanged += OnAutomationRowChanged;
+        RefreshAutomationSources();
+        InvalidateAutomationPeer();
+    }
+
+    private void OnAutomationRowChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName == nameof(MailListRow.IsExpanded) && Row?.IsThreadHead == true)
+        {
+            var expanded = Row.IsExpanded;
+            if (expanded != _automationExpanded)
+            {
+                FrameworkElementAutomationPeer.FromElement(this)?.RaisePropertyChangedEvent(
+                    ExpandCollapsePatternIdentifiers.ExpandCollapseStateProperty,
+                    _automationExpanded ? ExpandCollapseState.Expanded : ExpandCollapseState.Collapsed,
+                    expanded ? ExpandCollapseState.Expanded : ExpandCollapseState.Collapsed);
+                _automationExpanded = expanded;
+            }
+        }
+        // A thread can keep its row identity while gaining or losing messages.
+        if (args.PropertyName is nameof(MailListRow.Thread) or nameof(MailListRow.LeafItems))
+            RefreshAutomationSources();
+        InvalidateAutomationPeer();
+    }
+
+    private void RefreshAutomationSources()
+    {
+        foreach (var source in _automationSources) source.PropertyChanged -= OnAutomationSourceChanged;
+        _automationSources.Clear();
+        if (!IsLoaded || Row is null) return;
+        foreach (var source in Row.LeafItems)
+        {
+            _automationSources.Add(source);
+            source.PropertyChanged += OnAutomationSourceChanged;
+        }
+    }
+
+    private void OnAutomationSourceChanged(object? sender, PropertyChangedEventArgs args) => InvalidateAutomationPeer();
+
+    private void InvalidateAutomationPeer()
+    {
+        if (DispatcherQueue.HasThreadAccess)
+            FrameworkElementAutomationPeer.FromElement(this)?.InvalidatePeer();
+        else
+            DispatcherQueue.TryEnqueue(() => FrameworkElementAutomationPeer.FromElement(this)?.InvalidatePeer());
+    }
 
     protected override void OnApplyTemplate()
     {

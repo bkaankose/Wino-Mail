@@ -587,7 +587,10 @@
 
     <!--  Visible date range picker  -->
     <DataTemplate x:Key="CalendarDatePickerTemplate" x:DataType="menu:CalendarDatePickerMenuItem">
-        <muxc:NavigationViewItem AutomationProperties.AutomationId="CalendarPaneDatePickerHost" Style="{StaticResource ShellPaneHostNavigationViewItemStyle}">
+        <muxc:NavigationViewItem
+            AutomationProperties.AutomationId="CalendarPaneDatePickerHost"
+            AutomationProperties.Name="{x:Bind domain:Translator.Accessibility_CalendarDatePicker, Mode=OneTime}"
+            Style="{StaticResource ShellPaneHostNavigationViewItemStyle}">
             <coreControls:ShellCalendarView
                 Margin="12,0,12,8"
                 HorizontalAlignment="Stretch"
@@ -604,12 +607,16 @@
 
     <!--  One account's calendars  -->
     <DataTemplate x:Key="AccountCalendarGroupTemplate" x:DataType="data:AccountCalendarGroupMenuItem">
-        <muxc:NavigationViewItem AutomationProperties.AutomationId="AccountCalendarGroupHost" Style="{StaticResource ShellPaneHostNavigationViewItemStyle}">
+        <muxc:NavigationViewItem
+            AutomationProperties.AutomationId="AccountCalendarGroupHost"
+            AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetCalendarsForAccountAutomationName(Parameter.Account.Name), Mode=OneWay}"
+            Style="{StaticResource ShellPaneHostNavigationViewItemStyle}">
             <muxc:Expander
                 Margin="8,2"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Stretch"
                 AutomationProperties.AutomationId="AccountCalendarGroupExpander"
+                AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetCalendarsForAccountAutomationName(Parameter.Account.Name), Mode=OneWay}"
                 IsExpanded="{x:Bind Parameter.IsExpanded, Mode=TwoWay}">
                 <muxc:Expander.Header>
                     <Grid ColumnSpacing="8">

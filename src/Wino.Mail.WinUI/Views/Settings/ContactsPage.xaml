@@ -42,6 +42,7 @@
         <DataTemplate x:Key="ContactTemplate" x:DataType="viewModels:AccountContactViewModel">
             <Grid
                 Padding="8,6"
+                helpers:Accessibility.ContainerName="{x:Bind helpers:XamlHelpers.GetContactAutomationName(Name, SecondaryValue, SourceLabel, IsFavorite), Mode=OneWay}"
                 ColumnSpacing="12"
                 ContextRequested="ContactCardContextRequested"
                 ToolTipService.ToolTip="{x:Bind SecondaryValue, Mode=OneTime}">
@@ -93,6 +94,7 @@
                     Grid.Column="2"
                     VerticalAlignment="Center"
                     AutomationProperties.AutomationId="ContactsPageFavoriteToggle"
+                    AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetItemActionAutomationName(FavoriteActionText, Name), Mode=OneWay}"
                     Click="ToggleFavorite_Click"
                     CommandParameter="{x:Bind}"
                     Style="{StaticResource SubtleButtonStyle}"
@@ -218,6 +220,7 @@
                 Grid.Row="0"
                 Padding="6,4"
                 toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
+                AutomationProperties.Name="{x:Bind domain:Translator.Accessibility_ContactList, Mode=OneTime}"
                 CanDragItems="True"
                 ContextRequested="ContactsListView_ContextRequested"
                 DragItemsCompleted="ContactsListView_DragItemsCompleted"
@@ -252,6 +255,7 @@
                                     MinHeight="36"
                                     Padding="12,6"
                                     VerticalAlignment="Center"
+                                    helpers:Accessibility.ContainerName="{x:Bind Key}"
                                     Background="{ThemeResource LayerFillColorDefaultBrush}">
                                     <TextBlock
                                         VerticalAlignment="Center"
@@ -358,6 +362,7 @@
                             HorizontalAlignment="Right"
                             VerticalAlignment="Top"
                             AutomationProperties.AutomationId="ContactDetailFavorite"
+                            AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetItemActionAutomationName(ViewModel.SelectedContact.FavoriteActionText, ViewModel.SelectedContact.Name), Mode=OneWay}"
                             Click="ToggleFavorite_Click"
                             CommandParameter="{x:Bind ViewModel.SelectedContact, Mode=OneWay}"
                             Style="{StaticResource SubtleButtonStyle}"
@@ -431,6 +436,7 @@
                         Spacing="6">
                         <Button
                             AutomationProperties.AutomationId="ContactDetailSendMail"
+                            AutomationProperties.Name="{x:Bind domain:Translator.ContactAction_SendMail, Mode=OneTime}"
                             Command="{x:Bind ViewModel.ComposeToContactCommand}"
                             CommandParameter="{x:Bind ViewModel.SelectedContact, Mode=OneWay}"
                             Style="{StaticResource AccentButtonStyle}">
@@ -441,6 +447,7 @@
                         </Button>
                         <Button
                             AutomationProperties.AutomationId="ContactDetailEdit"
+                            AutomationProperties.Name="{x:Bind domain:Translator.ContactAction_Edit, Mode=OneTime}"
                             Command="{x:Bind ViewModel.EditContactCommand}"
                             CommandParameter="{x:Bind ViewModel.SelectedContact, Mode=OneWay}"
                             IsEnabled="{x:Bind ViewModel.SelectedContact.IsEditable, Mode=OneWay}"
@@ -449,6 +456,7 @@
                         </Button>
                         <Button
                             AutomationProperties.AutomationId="ContactDetailRemoveFromList"
+                            AutomationProperties.Name="{x:Bind domain:Translator.ContactAction_RemoveFromList, Mode=OneTime}"
                             Command="{x:Bind ViewModel.RemoveFromCurrentListCommand}"
                             CommandParameter="{x:Bind ViewModel.SelectedContact, Mode=OneWay}"
                             ToolTipService.ToolTip="{x:Bind domain:Translator.ContactAction_RemoveFromList, Mode=OneTime}"
@@ -457,6 +465,7 @@
                         </Button>
                         <Button
                             AutomationProperties.AutomationId="ContactDetailDelete"
+                            AutomationProperties.Name="{x:Bind domain:Translator.ContactAction_Delete, Mode=OneTime}"
                             Command="{x:Bind ViewModel.DeleteContactCommand}"
                             CommandParameter="{x:Bind ViewModel.SelectedContact, Mode=OneWay}"
                             IsEnabled="{x:Bind ViewModel.SelectedContact.IsEditable, Mode=OneWay}"

@@ -15,6 +15,30 @@ namespace Wino.Calendar.Helpers;
 
 public static class CalendarXamlHelpers
 {
+    public static string GetEventAutomationName(string title, DateTime start, DateTime end, bool isAllDay,
+        bool isRecurring, string location, string calendarName, CalendarSettings settings)
+        => string.Join(", ", new[]
+        {
+            title,
+            CalendarAccessibilityFormatter.FormatPeriod(start, end, isAllDay, settings),
+            isRecurring ? Translator.CalendarEventCompose_Recurring : null,
+            location,
+            calendarName
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    public static string GetEventDateAutomationName(DateTime start, DateTime end, bool isAllDay, CalendarSettings settings)
+        => start == default ? string.Empty : CalendarAccessibilityFormatter.FormatPeriod(start, end, isAllDay, settings);
+
+    public static string GetAttendeeAutomationName(string name, string email, AttendeeStatus status, bool isOrganizer, bool isOptional)
+        => string.Join(", ", new[]
+        {
+            name,
+            email,
+            GetAttendeeStatusText(status),
+            isOrganizer ? Translator.CalendarEventDetails_Organizer : null,
+            isOptional ? Translator.CalendarEventCompose_AttendeeOptional : null
+        }.Where(value => !string.IsNullOrWhiteSpace(value)).Distinct());
+
     public static CalendarItemViewModel GetFirstAllDayEvent(CalendarEventCollection collection)
         => collection.AllDayEvents.OfType<CalendarItemViewModel>().FirstOrDefault()!;
 

@@ -1,4 +1,4 @@
-﻿<abstract:AliasManagementPageAbstract
+<abstract:AliasManagementPageAbstract
     x:Class="Wino.Views.Settings.AliasManagementPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -137,7 +137,7 @@
                 -->
                 <Button
                     AutomationProperties.AutomationId="{x:Bind MoreActionsAutomationId}"
-                    AutomationProperties.Name="{x:Bind RowAutomationName}"
+                    AutomationProperties.Name="{x:Bind helpers:XamlHelpers.FormatAutomationName(domain:Translator.Accessibility_AliasActions, AliasAddress)}"
                     Style="{ThemeResource TransparentActionButtonStyle}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.AccountAlias_MoreActions, Mode=OneTime}">
                     <coreControls:WinoFontIcon
@@ -310,6 +310,7 @@
                 <Button
                     Grid.Column="2"
                     AutomationProperties.AutomationId="AliasManagementAddButton"
+                    AutomationProperties.Name="{x:Bind domain:Translator.Buttons_AddNewAlias, Mode=OneTime}"
                     Command="{x:Bind ViewModel.AddNewAliasCommand}"
                     Style="{ThemeResource AccentButtonStyle}">
                     <StackPanel Orientation="Horizontal" Spacing="8">

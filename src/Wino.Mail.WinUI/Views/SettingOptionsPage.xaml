@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:accessibilityControls="using:Wino.Mail.WinUI.Controls"
     xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
@@ -24,8 +25,10 @@
 
     <Page.Resources>
         <DataTemplate x:Key="RootAccountTemplate" x:DataType="mailViewModelData:AccountProviderDetailViewModel">
-            <controls:SettingsCard
+            <accessibilityControls:WinoSettingsCard
                 Margin="0,2,0,0"
+                helpers:Accessibility.ContainerName="{x:Bind helpers:XamlHelpers.GetAccountAutomationName(Account.Name, Account.Address), Mode=OneWay}"
+                AutomationInvoked="AccountSettingClicked"
                 AutomationProperties.AutomationId="SettingOptionsPageSettingsCard"
                 Click="AccountSettingClicked"
                 CommandParameter="{x:Bind}"
@@ -38,11 +41,12 @@
                 <controls:SettingsCard.HeaderIcon>
                     <accountIcon:WinoAccountIcon Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account)}" />
                 </controls:SettingsCard.HeaderIcon>
-            </controls:SettingsCard>
+            </accessibilityControls:WinoSettingsCard>
         </DataTemplate>
 
         <DataTemplate x:Key="MergedAccountTemplate" x:DataType="viewModelData:MergedAccountProviderDetailViewModel">
             <controls:SettingsExpander
+                helpers:Accessibility.ContainerName="{x:Bind helpers:XamlHelpers.GetAccountAutomationName(MergedInbox.Name, AccountAddresses), Mode=OneWay}"
                 AutomationProperties.AutomationId="SettingOptionsPageSettingsExpander"
                 Description="{x:Bind AccountAddresses}"
                 Header="{x:Bind MergedInbox.Name}">
@@ -50,7 +54,8 @@
                     <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="People" />
                 </controls:SettingsExpander.HeaderIcon>
                 <controls:SettingsExpander.Items>
-                    <controls:SettingsCard
+                    <accessibilityControls:WinoSettingsCard
+                        AutomationInvoked="MergedAccountSettingClicked"
                         AutomationProperties.AutomationId="SettingOptionsPageSettingsCard2"
                         Click="MergedAccountSettingClicked"
                         CommandParameter="{x:Bind}"
@@ -60,7 +65,7 @@
                         <controls:SettingsCard.HeaderIcon>
                             <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Link" />
                         </controls:SettingsCard.HeaderIcon>
-                    </controls:SettingsCard>
+                    </accessibilityControls:WinoSettingsCard>
                     <controls:SettingsCard
                         HorizontalContentAlignment="Stretch"
                         VerticalContentAlignment="Stretch"
@@ -142,6 +147,7 @@
                     Spacing="12">
                     <Button
                         AutomationProperties.AutomationId="SettingOptionsPageButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.SettingsPaypal_Title, Mode=OneTime}"
                         Command="{x:Bind ViewModel.NavigateExternalCommand}"
                         CommandParameter="{x:Bind ViewModel.PaypalUrl, Mode=OneWay}"
                         Style="{StaticResource DefaultButtonStyle}"
@@ -156,6 +162,7 @@
 
                     <Button
                         AutomationProperties.AutomationId="SettingOptionsPageButton2"
+                        AutomationProperties.Name="{x:Bind domain:Translator.SettingsAboutGithub_Title, Mode=OneTime}"
                         Command="{x:Bind ViewModel.NavigateExternalCommand}"
                         CommandParameter="{x:Bind ViewModel.GitHubUrl, Mode=OneWay}"
                         Style="{StaticResource DefaultButtonStyle}"
@@ -170,6 +177,7 @@
 
                     <Button
                         AutomationProperties.AutomationId="SettingOptionsPageButton3"
+                        AutomationProperties.Name="{x:Bind domain:Translator.SettingsStore_Title, Mode=OneTime}"
                         Command="{x:Bind ViewModel.NavigateExternalCommand}"
                         CommandParameter="Store"
                         ToolTipService.ToolTip="{x:Bind domain:Translator.SettingsStore_Title}">

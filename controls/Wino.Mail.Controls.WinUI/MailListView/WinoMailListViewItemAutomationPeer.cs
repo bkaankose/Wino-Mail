@@ -57,12 +57,8 @@ internal sealed partial class WinoMailListViewItemAutomationPeer :
             return name;
         }
 
-        return _owner.Row switch
-        {
-            { IsThreadHead: true, Thread: { } thread } =>
-                $"Thread {thread.Key}, {thread.Count} messages, {(thread.IsExpanded ? "expanded" : "collapsed")}",
-            { SourceItem: { } item } => item.NameSortKey,
-            _ => base.GetNameCore(),
-        };
+        return _owner.Row is { } row
+            ? _owner.OwnerList?.GetRowAutomationName(row) ?? row.SourceItem.NameSortKey
+            : base.GetNameCore();
     }
 }

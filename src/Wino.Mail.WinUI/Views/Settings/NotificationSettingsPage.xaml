@@ -1,4 +1,4 @@
-﻿<abstract:NotificationSettingsPageAbstract
+<abstract:NotificationSettingsPageAbstract
     x:Class="Wino.Views.Settings.NotificationSettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -9,6 +9,7 @@
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:viewModels="using:Wino.Core.ViewModels.Data"
     x:Name="PageRoot"
@@ -219,6 +220,7 @@
                     Header="{x:Bind domain:Translator.NotificationSettings_Mail_Scope_Title, Mode=OneTime}">
                     <ComboBox
                         AutomationProperties.AutomationId="NotificationSettingsMailScopeComboBox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_Mail_Scope_Title, Mode=OneTime}"
                         ItemsSource="{x:Bind ViewModel.ScopeOptions, Mode=OneTime}"
                         SelectedItem="{x:Bind ViewModel.SelectedMailScope, Mode=TwoWay}">
                         <ComboBox.ItemTemplate>
@@ -235,6 +237,7 @@
                     Header="{x:Bind domain:Translator.NotificationSettings_Mail_Content_Title, Mode=OneTime}">
                     <ComboBox
                         AutomationProperties.AutomationId="NotificationSettingsMailContentComboBox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_Mail_Content_Title, Mode=OneTime}"
                         ItemsSource="{x:Bind ViewModel.ContentOptions, Mode=OneTime}"
                         SelectedItem="{x:Bind ViewModel.SelectedMailContent, Mode=TwoWay}">
                         <ComboBox.ItemTemplate>
@@ -251,6 +254,7 @@
                     Header="{x:Bind domain:Translator.NotificationSettings_Mail_FirstAction_Title, Mode=OneTime}">
                     <ComboBox
                         AutomationProperties.AutomationId="NotificationSettingsMailFirstActionComboBox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_Mail_FirstAction_Title, Mode=OneTime}"
                         ItemsSource="{x:Bind ViewModel.MailActionOptions, Mode=OneTime}"
                         SelectedItem="{x:Bind ViewModel.SelectedFirstAction, Mode=TwoWay}">
                         <ComboBox.ItemTemplate>
@@ -267,6 +271,7 @@
                     Header="{x:Bind domain:Translator.NotificationSettings_Mail_SecondAction_Title, Mode=OneTime}">
                     <ComboBox
                         AutomationProperties.AutomationId="NotificationSettingsMailSecondActionComboBox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_Mail_SecondAction_Title, Mode=OneTime}"
                         ItemsSource="{x:Bind ViewModel.MailActionOptions, Mode=OneTime}"
                         SelectedItem="{x:Bind ViewModel.SelectedSecondAction, Mode=TwoWay}">
                         <ComboBox.ItemTemplate>
@@ -284,6 +289,7 @@
                     <StackPanel Orientation="Horizontal" Spacing="4">
                         <ComboBox
                             AutomationProperties.AutomationId="NotificationSettingsMailSoundComboBox"
+                            AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetItemActionAutomationName(domain:Translator.NotificationSound_Title, domain:Translator.NotificationSettings_Mail_Title), Mode=OneTime}"
                             ItemsSource="{x:Bind ViewModel.SoundOptions, Mode=OneTime}"
                             SelectedItem="{x:Bind ViewModel.SelectedMailSound, Mode=TwoWay}">
                             <ComboBox.ItemTemplate>
@@ -327,6 +333,7 @@
                     Header="{x:Bind domain:Translator.CalendarSettings_DefaultReminder_Header, Mode=OneTime}">
                     <ComboBox
                         AutomationProperties.AutomationId="NotificationSettingsCalendarReminderComboBox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.CalendarSettings_DefaultReminder_Header, Mode=OneTime}"
                         ItemsSource="{x:Bind ViewModel.ReminderOptions, Mode=OneWay}"
                         SelectedIndex="{x:Bind ViewModel.SelectedReminderIndex, Mode=TwoWay}" />
                 </controls:SettingsCard>
@@ -337,6 +344,7 @@
                     Header="{x:Bind domain:Translator.CalendarSettings_DefaultSnoozeDuration_Header, Mode=OneTime}">
                     <ComboBox
                         AutomationProperties.AutomationId="NotificationSettingsCalendarSnoozeComboBox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.CalendarSettings_DefaultSnoozeDuration_Header, Mode=OneTime}"
                         ItemsSource="{x:Bind ViewModel.CalendarSnoozeOptions, Mode=OneWay}"
                         SelectedIndex="{x:Bind ViewModel.SelectedCalendarSnoozeIndex, Mode=TwoWay}" />
                 </controls:SettingsCard>
@@ -348,6 +356,7 @@
                     <StackPanel Orientation="Horizontal" Spacing="4">
                         <ComboBox
                             AutomationProperties.AutomationId="NotificationSettingsCalendarSoundComboBox"
+                            AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetItemActionAutomationName(domain:Translator.NotificationSound_Title, domain:Translator.NotificationSettings_Calendar_Title), Mode=OneTime}"
                             ItemsSource="{x:Bind ViewModel.SoundOptions, Mode=OneTime}"
                             SelectedItem="{x:Bind ViewModel.SelectedCalendarSound, Mode=TwoWay}">
                             <ComboBox.ItemTemplate>
@@ -391,6 +400,7 @@
                     Header="{x:Bind domain:Translator.NotificationSettings_Tasks_Timing_Title, Mode=OneTime}">
                     <ComboBox
                         AutomationProperties.AutomationId="NotificationSettingsTaskTimingComboBox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_Tasks_Timing_Title, Mode=OneTime}"
                         ItemsSource="{x:Bind ViewModel.TaskReminderTimingOptions, Mode=OneTime}"
                         SelectedItem="{x:Bind ViewModel.SelectedTaskReminderTiming, Mode=TwoWay}">
                         <ComboBox.ItemTemplate>
@@ -407,6 +417,7 @@
                     Header="{x:Bind domain:Translator.NotificationSettings_Tasks_Snooze_Title, Mode=OneTime}">
                     <ComboBox
                         AutomationProperties.AutomationId="NotificationSettingsTaskSnoozeComboBox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_Tasks_Snooze_Title, Mode=OneTime}"
                         ItemsSource="{x:Bind ViewModel.TaskSnoozeOptions, Mode=OneWay}"
                         SelectedIndex="{x:Bind ViewModel.SelectedTaskSnoozeIndex, Mode=TwoWay}" />
                 </controls:SettingsCard>
@@ -418,6 +429,7 @@
                     <StackPanel Orientation="Horizontal" Spacing="4">
                         <ComboBox
                             AutomationProperties.AutomationId="NotificationSettingsTaskSoundComboBox"
+                            AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetItemActionAutomationName(domain:Translator.NotificationSound_Title, domain:Translator.NotificationSettings_Tasks_Title), Mode=OneTime}"
                             ItemsSource="{x:Bind ViewModel.SoundOptions, Mode=OneTime}"
                             SelectedItem="{x:Bind ViewModel.SelectedTaskSound, Mode=TwoWay}">
                             <ComboBox.ItemTemplate>
@@ -457,7 +469,10 @@
             </ItemsControl.ItemContainerTransitions>
             <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="viewModels:AccountNotificationSettingsViewModel">
-                    <controls:SettingsExpander Margin="0,0,0,4" AutomationProperties.AutomationId="NotificationSettingsPageSettingsExpander">
+                    <controls:SettingsExpander
+                        Margin="0,0,0,4"
+                        AutomationProperties.AutomationId="NotificationSettingsPageSettingsExpander"
+                        AutomationProperties.Name="{x:Bind helpers:XamlHelpers.FormatAutomationName(domain:Translator.Accessibility_AccountNotifications, AccountAddress), Mode=OneWay}">
                         <controls:SettingsExpander.Header>
                             <appControls:AccountIdentityRowControl Account="{x:Bind Account}" Description="{x:Bind AccountAddress}" />
                         </controls:SettingsExpander.Header>
@@ -470,7 +485,10 @@
                                 VerticalAlignment="Center"
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 Text="{x:Bind StatusText, Mode=OneWay}" />
-                            <ToggleSwitch AutomationProperties.AutomationId="NotificationSettingsPageToggleSwitch" IsOn="{x:Bind AreNotificationsEnabled, Mode=TwoWay}" />
+                            <ToggleSwitch
+                                AutomationProperties.AutomationId="NotificationSettingsPageToggleSwitch"
+                                AutomationProperties.Name="{x:Bind helpers:XamlHelpers.FormatAutomationName(domain:Translator.Accessibility_AccountNotifications, AccountAddress), Mode=OneWay}"
+                                IsOn="{x:Bind AreNotificationsEnabled, Mode=TwoWay}" />
                         </StackPanel>
 
                         <controls:SettingsExpander.Items>
@@ -498,7 +516,10 @@
                                 Description="{x:Bind domain:Translator.NotificationSettings_Account_NewMail_Description, Mode=OneTime}"
                                 Header="{x:Bind domain:Translator.NotificationSettings_Account_NewMail_Title, Mode=OneTime}"
                                 IsEnabled="{x:Bind AreOverrideFieldsEnabled, Mode=OneWay}">
-                                <ToggleSwitch AutomationProperties.AutomationId="NotificationSettingsPageToggleSwitch2" IsOn="{x:Bind IsNewMailNotificationEnabled, Mode=TwoWay}" />
+                                <ToggleSwitch
+                                    AutomationProperties.AutomationId="NotificationSettingsPageToggleSwitch2"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_Account_NewMail_Title, Mode=OneTime}"
+                                    IsOn="{x:Bind IsNewMailNotificationEnabled, Mode=TwoWay}" />
                             </controls:SettingsCard>
 
                             <controls:SettingsCard
@@ -508,6 +529,7 @@
                                 IsEnabled="{x:Bind AreOverrideFieldsEnabled, Mode=OneWay}">
                                 <ComboBox
                                     AutomationProperties.AutomationId="NotificationSettingsPageComboBox"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_Mail_Scope_Title, Mode=OneTime}"
                                     ItemsSource="{x:Bind ScopeOptions}"
                                     SelectedItem="{x:Bind SelectedScope, Mode=TwoWay}">
                                     <ComboBox.ItemTemplate>
@@ -525,6 +547,7 @@
                                 IsEnabled="{x:Bind AreOverrideFieldsEnabled, Mode=OneWay}">
                                 <ComboBox
                                     AutomationProperties.AutomationId="NotificationSettingsPageComboBox2"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_Mail_Content_Title, Mode=OneTime}"
                                     ItemsSource="{x:Bind ContentOptions}"
                                     SelectedItem="{x:Bind SelectedContent, Mode=TwoWay}">
                                     <ComboBox.ItemTemplate>
@@ -543,6 +566,7 @@
                                 <StackPanel Orientation="Horizontal" Spacing="4">
                                     <ComboBox
                                         AutomationProperties.AutomationId="NotificationSettingsPageComboBox3"
+                                        AutomationProperties.Name="{x:Bind domain:Translator.NotificationSound_Title, Mode=OneTime}"
                                         ItemsSource="{x:Bind SoundOptions}"
                                         SelectedItem="{x:Bind SelectedSound, Mode=TwoWay}">
                                         <ComboBox.ItemTemplate>
@@ -570,7 +594,10 @@
                                 Description="{x:Bind domain:Translator.NotificationSettings_Account_Calendar_Description, Mode=OneTime}"
                                 Header="{x:Bind domain:Translator.NotificationSettings_Account_Calendar_Title, Mode=OneTime}"
                                 IsEnabled="{x:Bind AreOverrideFieldsEnabled, Mode=OneWay}">
-                                <ToggleSwitch AutomationProperties.AutomationId="NotificationSettingsPageToggleSwitch3" IsOn="{x:Bind AreCalendarRemindersEnabled, Mode=TwoWay}" />
+                                <ToggleSwitch
+                                    AutomationProperties.AutomationId="NotificationSettingsPageToggleSwitch3"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_Account_Calendar_Title, Mode=OneTime}"
+                                    IsOn="{x:Bind AreCalendarRemindersEnabled, Mode=TwoWay}" />
                             </controls:SettingsCard>
 
                             <controls:SettingsCard
@@ -580,6 +607,7 @@
                                 IsEnabled="{x:Bind AreNotificationsEnabled, Mode=OneWay}">
                                 <ComboBox
                                     AutomationProperties.AutomationId="NotificationSettingsPageComboBox4"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_Account_QuietHours_Title, Mode=OneTime}"
                                     ItemsSource="{x:Bind QuietHoursOptions}"
                                     SelectedItem="{x:Bind SelectedQuietHoursStance, Mode=TwoWay}">
                                     <ComboBox.ItemTemplate>

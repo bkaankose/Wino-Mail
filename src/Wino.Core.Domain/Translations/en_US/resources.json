@@ -1,4 +1,18 @@
 {
+  "Accessibility_ItemAction": "{0}: {1}",
+  "Accessibility_AliasActions": "Actions for {0}",
+  "Accessibility_PreviousCalendarPeriod": "Previous calendar period",
+  "Accessibility_NextCalendarPeriod": "Next calendar period",
+  "Accessibility_CalendarDatePicker": "Calendar date picker",
+  "Accessibility_DayHeaderPreset": "Day header format preset",
+  "Accessibility_ResizeNavigationPane": "Resize navigation pane",
+  "Accessibility_ResizeMessageList": "Resize message list",
+  "Accessibility_MailList": "Messages",
+  "Accessibility_ContactList": "Contacts",
+  "Accessibility_AccountNotifications": "Notifications for {0}",
+  "Accessibility_ShortcutEnabled": "Enable shortcut: {0}",
+  "Accessibility_EventResponse": "Response: {0}",
+
   "WinoAccount_Profile_EditName": "Edit display name",
   "WinoAccount_Profile_Saving": "Saving…",
   "WinoAccount_Profile_NameOptional": "Display name (optional)",

@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:accessibilityControls="using:Wino.Mail.WinUI.Controls"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -36,7 +37,7 @@
             Style="{StaticResource BodyTextBlockStyle}"
             Text="{x:Bind domain:Translator.SettingsAboutWinoDescription}" />
 
-        <controls:SettingsCard
+        <accessibilityControls:WinoSettingsCard
             AutomationProperties.AutomationId="AboutPageWhatsNewSettingsCard"
             Command="{x:Bind ViewModel.OpenWhatsNewCommand}"
             Description="{x:Bind domain:Translator.SettingsWhatsNew_Description}"
@@ -48,9 +49,9 @@
                     VerticalAlignment="Center"
                     Icon="Announcement" />
             </controls:SettingsCard.HeaderIcon>
-        </controls:SettingsCard>
+        </accessibilityControls:WinoSettingsCard>
 
-        <controls:SettingsCard
+        <accessibilityControls:WinoSettingsCard
             AutomationProperties.AutomationId="AboutPageSettingsCard"
             Command="{x:Bind ViewModel.NavigateCommand}"
             CommandParameter="{x:Bind ViewModel.WebsiteUrl}"
@@ -69,9 +70,9 @@
                     VerticalAlignment="Center"
                     Icon="Open" />
             </controls:SettingsCard.ActionIcon>
-        </controls:SettingsCard>
+        </accessibilityControls:WinoSettingsCard>
 
-        <controls:SettingsCard
+        <accessibilityControls:WinoSettingsCard
             AutomationProperties.AutomationId="AboutPageSettingsCard2"
             Command="{x:Bind ViewModel.NavigateCommand}"
             CommandParameter="{x:Bind ViewModel.GitHubUrl}"
@@ -90,9 +91,9 @@
                     VerticalAlignment="Center"
                     Icon="Open" />
             </controls:SettingsCard.ActionIcon>
-        </controls:SettingsCard>
+        </accessibilityControls:WinoSettingsCard>
 
-        <controls:SettingsCard
+        <accessibilityControls:WinoSettingsCard
             AutomationProperties.AutomationId="AboutPageSettingsCard3"
             Command="{x:Bind ViewModel.NavigateCommand}"
             CommandParameter="{x:Bind ViewModel.DiscordChannelUrl}"
@@ -111,9 +112,9 @@
                     VerticalAlignment="Center"
                     Icon="Open" />
             </controls:SettingsCard.ActionIcon>
-        </controls:SettingsCard>
+        </accessibilityControls:WinoSettingsCard>
 
-        <controls:SettingsCard
+        <accessibilityControls:WinoSettingsCard
             AutomationProperties.AutomationId="AboutPageSettingsCard4"
             Command="{x:Bind ViewModel.NavigateCommand}"
             CommandParameter="Store"
@@ -132,9 +133,9 @@
                     VerticalAlignment="Center"
                     Icon="Open" />
             </controls:SettingsCard.ActionIcon>
-        </controls:SettingsCard>
+        </accessibilityControls:WinoSettingsCard>
 
-        <controls:SettingsCard
+        <accessibilityControls:WinoSettingsCard
             AutomationProperties.AutomationId="AboutPageSettingsCard5"
             Command="{x:Bind ViewModel.NavigateCommand}"
             CommandParameter="{x:Bind ViewModel.PaypalUrl}"
@@ -150,9 +151,9 @@
                     VerticalAlignment="Center"
                     Icon="Open" />
             </controls:SettingsCard.ActionIcon>
-        </controls:SettingsCard>
+        </accessibilityControls:WinoSettingsCard>
 
-        <controls:SettingsCard
+        <accessibilityControls:WinoSettingsCard
             AutomationProperties.AutomationId="AboutPageSettingsCard6"
             Command="{x:Bind ViewModel.NavigateCommand}"
             CommandParameter="{x:Bind ViewModel.PrivacyPolicyUrl}"
@@ -171,7 +172,7 @@
                     VerticalAlignment="Center"
                     Icon="Open" />
             </controls:SettingsCard.ActionIcon>
-        </controls:SettingsCard>
+        </accessibilityControls:WinoSettingsCard>
 
         <controls:SettingsExpander
             AutomationProperties.AutomationId="AboutPageSettingsExpander"

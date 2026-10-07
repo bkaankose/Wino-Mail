@@ -18,6 +18,7 @@
             <StackPanel Spacing="8">
                 <ComboBox
                     AutomationProperties.AutomationId="PeopleNewContactDestinationBehavior"
+                    AutomationProperties.Name="{x:Bind domain:Translator.PeopleSettings_NewContacts_Header, Mode=OneTime}"
                     ItemsSource="{x:Bind ViewModel.DestinationBehaviors}"
                     SelectedItem="{x:Bind ViewModel.SelectedDestinationBehavior, Mode=TwoWay}">
                     <ComboBox.ItemTemplate>

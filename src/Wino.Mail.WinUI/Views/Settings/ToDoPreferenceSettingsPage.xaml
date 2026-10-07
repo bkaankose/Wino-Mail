@@ -18,6 +18,7 @@
             <StackPanel Spacing="8">
                 <ComboBox
                     AutomationProperties.AutomationId="ToDoNewTaskDestinationBehavior"
+                    AutomationProperties.Name="{x:Bind domain:Translator.ToDoSettings_NewTasks_Header, Mode=OneTime}"
                     ItemsSource="{x:Bind ViewModel.DestinationBehaviors}"
                     SelectedItem="{x:Bind ViewModel.SelectedDestinationBehavior, Mode=TwoWay}">
                     <ComboBox.ItemTemplate>
@@ -50,6 +51,7 @@
             <StackPanel Spacing="8">
                 <ComboBox
                     AutomationProperties.AutomationId="ToDoStartView"
+                    AutomationProperties.Name="{x:Bind domain:Translator.ToDoSettings_StartView_Header, Mode=OneTime}"
                     ItemsSource="{x:Bind ViewModel.StartViews}"
                     SelectedItem="{x:Bind ViewModel.SelectedStartView, Mode=TwoWay}">
                     <ComboBox.ItemTemplate>
@@ -82,6 +84,7 @@
             <StackPanel Spacing="8">
                 <ComboBox
                     AutomationProperties.AutomationId="ToDoCompletedTaskTreatment"
+                    AutomationProperties.Name="{x:Bind domain:Translator.ToDoSettings_Completed_Header, Mode=OneTime}"
                     ItemsSource="{x:Bind ViewModel.CompletedTaskTreatments}"
                     SelectedItem="{x:Bind ViewModel.SelectedCompletedTaskTreatment, Mode=TwoWay}">
                     <ComboBox.ItemTemplate>

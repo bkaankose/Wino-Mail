@@ -6,6 +6,7 @@
     xmlns:calendarControls="using:Wino.Calendar.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
@@ -41,6 +42,7 @@
                 </Grid.ColumnDefinitions>
                 <Button
                     AutomationProperties.AutomationId="CalendarTitleBarContentButton"
+                    AutomationProperties.Name="{x:Bind domain:Translator.Accessibility_PreviousCalendarPeriod, Mode=OneTime}"
                     Click="PreviousDateClicked"
                     Style="{StaticResource CalendarNavigationButtonStyle}">
                     <Viewbox Width="12">
@@ -51,6 +53,7 @@
                 <Button
                     Grid.Column="1"
                     AutomationProperties.AutomationId="CalendarTitleBarContentButton2"
+                    AutomationProperties.Name="{x:Bind domain:Translator.Accessibility_NextCalendarPeriod, Mode=OneTime}"
                     Click="NextDateClicked"
                     Style="{StaticResource CalendarNavigationButtonStyle}">
                     <Viewbox Width="12">

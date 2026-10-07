@@ -545,6 +545,7 @@
             <DataTemplate x:Key="MailGroupHeaderDefaultTemplate" x:DataType="mailListCore:MailListGroup">
                 <Grid
                     Margin="0,0,0,6"
+                    helpers:Accessibility.ContainerName="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Key)}"
                     AllowFocusOnInteraction="False"
                     AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Key)}"
                     Background="{ThemeResource MailListHeaderBackgroundColor}"
@@ -917,6 +918,7 @@
                                 toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
                                 toolkitExt:ScrollViewerExtensions.VerticalScrollBarMargin="-6"
                                 AutomationProperties.AutomationId="MailListView"
+                                AutomationProperties.Name="{x:Bind domain:Translator.Accessibility_MailList, Mode=OneTime}"
                                 CanDragItems="True"
                                 CenterHoverAction="{x:Bind helpers:XamlHelpers.GetHoverActionKind(ViewModel.PreferencesService.CenterHoverAction), Mode=OneWay}"
                                 GroupHeaderTemplateSelector="{StaticResource MailGroupHeaderTemplateSelector}"
@@ -1080,6 +1082,7 @@
             Width="16"
             HorizontalAlignment="Left"
             AutomationProperties.AccessibilityView="Raw"
+            AutomationProperties.Name="{x:Bind domain:Translator.Accessibility_ResizeMessageList, Mode=OneTime}"
             Binding="{x:Bind ViewModel.MailListLength, Mode=TwoWay}"
             Canvas.ZIndex="20"
             IsTabStop="False"

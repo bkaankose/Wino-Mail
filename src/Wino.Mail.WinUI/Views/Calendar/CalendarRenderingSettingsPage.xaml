@@ -130,6 +130,7 @@
                         <Slider
                             x:Name="HourCellSlider"
                             AutomationProperties.AutomationId="HourCellSlider"
+                            AutomationProperties.Name="{x:Bind domain:Translator.CalendarSettings_HourHeight_Header, Mode=OneTime}"
                             LargeChange="10"
                             Maximum="120"
                             Minimum="40"
@@ -172,6 +173,7 @@
                         <ComboBox
                             Width="180"
                             AutomationProperties.AutomationId="CalendarRenderingSettingsPageTimeFormatComboBox"
+                            AutomationProperties.Name="{x:Bind domain:Translator.SettingsTimeFormat_Title, Mode=OneTime}"
                             ItemsSource="{x:Bind ViewModel.TimeFormatPreferenceOptions, Mode=OneTime}"
                             SelectedIndex="{x:Bind ViewModel.SelectedTimeFormatPreferenceIndex, Mode=TwoWay}" />
                         <TextBlock
@@ -188,10 +190,12 @@
                     <StackPanel Spacing="8">
                         <TextBox
                             AutomationProperties.AutomationId="CalendarRenderingSettingsPageTextBox"
+                            AutomationProperties.Name="{x:Bind domain:Translator.CalendarSettings_TimedDayHeaderFormat_Header, Mode=OneTime}"
                             PlaceholderText="{x:Bind domain:Translator.CalendarSettings_TimedDayHeaderFormat_Placeholder, Mode=OneTime}"
                             Text="{x:Bind ViewModel.TimedDayHeaderDateFormat, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         <ComboBox
                             AutomationProperties.AutomationId="CalendarRenderingSettingsPageComboBox4"
+                            AutomationProperties.Name="{x:Bind domain:Translator.Accessibility_DayHeaderPreset, Mode=OneTime}"
                             ItemsSource="{x:Bind ViewModel.TimedDayHeaderFormatPresets, Mode=OneWay}"
                             SelectedIndex="{x:Bind ViewModel.SelectedTimedDayHeaderFormatPresetIndex, Mode=TwoWay}" />
                         <TextBlock

@@ -1,5 +1,9 @@
 using System;
 using System.Linq;
+using System.Collections.Generic;
+using System.Globalization;
+using Wino.Mail.Controls.Core;
+using Wino.Helpers;
 using System.Windows.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -45,6 +49,30 @@ public sealed partial class ThreadedMailListView : WinoMailListView
     }
 
     public event EventHandler<MailDragStateChangedEventArgs>? MailDragStateChanged;
+
+    public override string GetRowAutomationName(MailListRow row)
+    {
+        var source = row.IsThreadHead ? row.Thread?.RepresentativeItem ?? row.SourceItem : row.SourceItem;
+        if (source is not MailItemViewModel mail) return base.GetRowAutomationName(row);
+
+        var culture = CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
+        var mails = row.LeafItems.OfType<MailItemViewModel>().ToList();
+        var details = new List<string>
+        {
+            mail.NameSortKey,
+            XamlHelpers.GetMailItemSubjectForListing(mail.Subject),
+            XamlHelpers.GetCreationDateString(mail.CreationDate, XamlHelpers.CurrentMailTimeFormatPreference),
+            mails.Any(item => !item.IsRead) ? Translator.Accessibility_MailItemReadState_Unread : Translator.Accessibility_MailItemReadState_Read
+        };
+        if (mails.Any(item => item.IsFlagged)) details.Add(Translator.Accessibility_MailItemFlagged);
+        if (mails.Any(item => item.HasAttachments)) details.Add(Translator.Accessibility_MailItemHasAttachments);
+        if (row.IsThreadHead && row.Thread is { } thread)
+        {
+            details.Add(string.Format(culture, Translator.Accessibility_MailThreadMessageCount, thread.Count));
+            details.Add(thread.IsExpanded ? Translator.Accessibility_MailThreadExpanded : Translator.Accessibility_MailThreadCollapsed);
+        }
+        return string.Join(", ", details.Where(value => !string.IsNullOrWhiteSpace(value)));
+    }
 
     protected override void OnApplyTemplate()
     {

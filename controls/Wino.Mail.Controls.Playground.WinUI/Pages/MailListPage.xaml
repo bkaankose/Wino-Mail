@@ -10,6 +10,7 @@
     xmlns:hoverActions="using:Wino.Mail.Controls.HoverActions"
     xmlns:hoverCore="using:Wino.Mail.Controls.Core.HoverActions"
     xmlns:intelligenceTiles="using:Wino.Mail.Controls.IntelligenceTileBar"
+    xmlns:local="using:Wino.Mail.Controls.Playground.Pages"
     xmlns:models="using:Wino.Mail.Controls.Playground.Models"
     xmlns:search="using:Wino.Mail.Controls.SearchBar">
     <Page.Resources>
@@ -260,11 +261,12 @@
                             </AppBarToggleButton>
                         </CommandBar>
                     </Grid>
-                    <controls:WinoMailListView
+                    <local:AccessiblePlaygroundMailListView
                         x:Name="MailList"
                         Grid.Row="1"
                         Margin="4,0,4,4"
                         AutomationProperties.AutomationId="MailListSelectionControl"
+                        AutomationProperties.Name="Sample messages"
                         CenterHoverAction="ToggleRead"
                         HoverActionCommand="{x:Bind InvokeHoverActionCommand}"
                         HoverActionLabels="{x:Bind HoverActionLabels}"

@@ -1,8 +1,10 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Input;
 using Windows.ApplicationModel.DataTransfer;
 using Wino.Calendar.ViewModels.Data;
@@ -62,9 +64,27 @@ public sealed partial class CalendarItemControl : UserControl
     {
         if (d is CalendarItemControl control)
         {
+            if (e.OldValue is CalendarItemViewModel previous) previous.PropertyChanged -= control.OnEventPropertyChanged;
+            if (control.IsLoaded && e.NewValue is CalendarItemViewModel current) current.PropertyChanged += control.OnEventPropertyChanged;
             control.UpdateVisualStates();
+            FrameworkElementAutomationPeer.FromElement(control)?.InvalidatePeer();
         }
     }
+
+    private void OnControlLoaded(object sender, RoutedEventArgs args)
+    {
+        if (CalendarItem is null) return;
+        CalendarItem.PropertyChanged -= OnEventPropertyChanged;
+        CalendarItem.PropertyChanged += OnEventPropertyChanged;
+    }
+
+    private void OnControlUnloaded(object sender, RoutedEventArgs args)
+    {
+        if (CalendarItem is not null) CalendarItem.PropertyChanged -= OnEventPropertyChanged;
+    }
+
+    private void OnEventPropertyChanged(object? sender, PropertyChangedEventArgs args)
+        => FrameworkElementAutomationPeer.FromElement(this)?.InvalidatePeer();
 
     private void UpdateVisualStates()
     {
@@ -133,6 +153,17 @@ public sealed partial class CalendarItemControl : UserControl
         {
             WeakReferenceMessenger.Default.Send(new CalendarItemTappedMessage(CalendarItem));
         }
+    }
+
+    protected override AutomationPeer OnCreateAutomationPeer() => new CalendarItemControlAutomationPeer(this);
+
+    internal bool IsAccessibleEvent => CalendarItem is not null && (!CalendarItem.IsMultiDayEvent || IsCustomEventArea);
+
+    internal void OpenAccessibleDetails()
+    {
+        if (!IsAccessibleEvent || CalendarItem.IsBusy) return;
+        isSingleTap = false;
+        WeakReferenceMessenger.Default.Send(new CalendarItemDoubleTappedMessage(CalendarItem));
     }
 
     private void ControlDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)

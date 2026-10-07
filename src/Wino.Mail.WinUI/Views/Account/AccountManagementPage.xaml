@@ -3,11 +3,13 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:accessibilityControls="using:Wino.Mail.WinUI.Controls"
     xmlns:controls="using:Wino.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Core.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
     xmlns:interfaces="using:Wino.Core.Domain.Interfaces"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
@@ -20,29 +22,34 @@
     <Page.Resources>
         <!--  Root Account Template  -->
         <DataTemplate x:Key="RootAccountTemplate" x:DataType="viewModelData:AccountProviderDetailViewModel">
-            <winuiControls:SettingsCard
+            <accessibilityControls:WinoSettingsCard
                 Margin="0,2,0,0"
+                helpers:Accessibility.ContainerName="{x:Bind helpers:XamlHelpers.GetAccountAutomationName(Account.Name, Account.Address), Mode=OneWay}"
+                AutomationInvoked="RootAccountTemplate_Click"
                 AutomationProperties.AutomationId="AccountManagementPageSettingsCard"
+                AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetAccountAutomationName(Account.Name, Account.Address), Mode=OneWay}"
                 Click="RootAccountTemplate_Click"
                 CommandParameter="{x:Bind}"
                 IsClickEnabled="True">
                 <winuiControls:SettingsCard.Header>
                     <controls:AccountIdentityRowControl Account="{x:Bind Account}" Description="{x:Bind DescriptionText}" />
                 </winuiControls:SettingsCard.Header>
-            </winuiControls:SettingsCard>
+            </accessibilityControls:WinoSettingsCard>
         </DataTemplate>
 
         <!--  Merged Account Template  -->
         <DataTemplate x:Key="MergedAccountTemplate" x:DataType="data:MergedAccountProviderDetailViewModel">
             <winuiControls:SettingsExpander
+                helpers:Accessibility.ContainerName="{x:Bind helpers:XamlHelpers.GetAccountAutomationName(MergedInbox.Name, AccountAddresses), Mode=OneWay}"
                 AutomationProperties.AutomationId="AccountManagementPageSettingsExpander"
                 Description="{x:Bind AccountAddresses}"
                 Header="{x:Bind MergedInbox.Name}">
                 <winuiControls:SettingsExpander.Items>
                     <!--  Edit Linked Inbox  -->
-                    <winuiControls:SettingsCard
+                    <accessibilityControls:WinoSettingsCard
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Stretch"
+                        AutomationInvoked="EditMergedAccounts_Click"
                         AutomationProperties.AutomationId="AccountManagementPageSettingsCard2"
                         Click="EditMergedAccounts_Click"
                         CommandParameter="{x:Bind}"
@@ -52,7 +59,7 @@
                         <winuiControls:SettingsCard.HeaderIcon>
                             <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Link" />
                         </winuiControls:SettingsCard.HeaderIcon>
-                    </winuiControls:SettingsCard>
+                    </accessibilityControls:WinoSettingsCard>
                     <!--  Individual accounts  -->
                     <winuiControls:SettingsCard
                         HorizontalContentAlignment="Stretch"
@@ -103,6 +110,7 @@
                 Height="200"
                 Margin="0,12"
                 AutomationProperties.AutomationId="AccountManagementPageButton"
+                AutomationProperties.Name="{x:Bind domain:Translator.Buttons_AddAccount, Mode=OneTime}"
                 Command="{x:Bind ViewModel.AddNewAccountCommand}">
                 <Button.Content>
                     <Grid>
@@ -193,6 +201,7 @@
                             HorizontalAlignment="Right"
                             VerticalAlignment="Bottom"
                             AutomationProperties.AutomationId="AccountManagementPageButton2"
+                            AutomationProperties.Name="{x:Bind domain:Translator.WinoUpgradeMessage, Mode=OneTime}"
                             Command="{x:Bind ViewModel.PurchaseUnlimitedAccountCommand}"
                             Style="{StaticResource AccentButtonStyle}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
@@ -224,7 +233,7 @@
             SelectionMode="None">
             <ListView.Header>
                 <StackPanel>
-                    <winuiControls:SettingsCard
+                    <accessibilityControls:WinoSettingsCard
                         AutomationProperties.AutomationId="AccountManagementPageSettingsCard7"
                         Command="{x:Bind ViewModel.CreateMergedAccountCommand}"
                         Description="{x:Bind domain:Translator.SettingsLinkAccounts_Description}"
@@ -246,8 +255,8 @@
                         <winuiControls:SettingsCard.HeaderIcon>
                             <coreControls:WinoFontIcon Icon="PeopleLink" />
                         </winuiControls:SettingsCard.HeaderIcon>
-                    </winuiControls:SettingsCard>
-                    <winuiControls:SettingsCard
+                    </accessibilityControls:WinoSettingsCard>
+                    <accessibilityControls:WinoSettingsCard
                         AutomationProperties.AutomationId="AccountManagementPageSettingsCard8"
                         Command="{x:Bind ViewModel.ReorderAccountsCommand}"
                         Description="{x:Bind domain:Translator.SettingsReorderAccounts_Description}"
@@ -257,7 +266,7 @@
                         <winuiControls:SettingsCard.HeaderIcon>
                             <coreControls:WinoFontIcon Icon="ArrowSort" />
                         </winuiControls:SettingsCard.HeaderIcon>
-                    </winuiControls:SettingsCard>
+                    </accessibilityControls:WinoSettingsCard>
                 </StackPanel>
             </ListView.Header>
             <ListView.ItemsPanel>
