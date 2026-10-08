@@ -738,7 +738,6 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
     private Task NotYetAsync() => NotYetAsync<bool>();
 
     public Task<AccountCreationDialogResult> ShowAccountProviderSelectionDialogAsync(List<IProviderDetail> availableProviders) => NotYetAsync<AccountCreationDialogResult>();
-    public Task<AccountSignature> ShowSignatureEditorDialog(AccountSignature? signatureModel = null) => NotYetAsync<AccountSignature>();
     /// <summary>
     /// Windows ImapValidationFailedDialog as a warning alert sheet: the error, the protocol log in a
     /// scrolling monospaced view, Close as the default button and Copy diagnostics.

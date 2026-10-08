@@ -51,7 +51,7 @@ public sealed partial class AppDelegate
         if (_launchedAtLogin) Serilog.Log.Information("Wino was launched at login; starting in the background until the close behaviour is known.");
     }
 
-    /// <summary>Whether DidFinishLaunching should keep the window hidden and the Dock icon away.</summary>
+    /// <summary>Whether launching should keep the Dock icon away and the first window hidden.</summary>
     private bool StartsInBackground => _launchedAtLogin;
 
     partial void CompanionServicesReady()

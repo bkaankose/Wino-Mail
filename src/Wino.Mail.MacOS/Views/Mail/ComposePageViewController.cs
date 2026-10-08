@@ -32,8 +32,9 @@ namespace Wino.Mail.MacOS.Views.Mail;
 public sealed class ComposePageViewController : WinoViewController<ComposePageViewModel>, IReadingPaneChild
 {
     private static readonly HashSet<ComposePageViewController> Detached = new();
-    private static readonly string[] Fonts = ["Helvetica Neue", "Helvetica", "Arial", "Times New Roman", "Georgia", "Verdana", "Courier New"];
-    private static readonly int[] FontSizes = [8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 48];
+    /// <summary>Composer font vocabulary, shared with the signature editor sheet.</summary>
+    internal static readonly string[] Fonts = ["Helvetica Neue", "Helvetica", "Arial", "Times New Roman", "Georgia", "Verdana", "Courier New"];
+    internal static readonly int[] FontSizes = [8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 48];
 
     private readonly IExternalLauncher _launcher;
     private readonly Dictionary<string, string> _recipientNames = new(StringComparer.OrdinalIgnoreCase);
