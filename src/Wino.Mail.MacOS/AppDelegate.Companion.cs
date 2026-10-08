@@ -106,7 +106,9 @@ public sealed partial class AppDelegate
                 _windowClosingObserver.Dispose();
                 _windowClosingObserver = null;
             }
-            _statusItem?.Dispose();
+            // A teardown failure must not abort quitting.
+            try { _statusItem?.Dispose(); }
+            catch (Exception exception) { Serilog.Log.Warning(exception, "Menu bar item cleanup failed while quitting."); }
             _statusItem = null;
         });
     }
