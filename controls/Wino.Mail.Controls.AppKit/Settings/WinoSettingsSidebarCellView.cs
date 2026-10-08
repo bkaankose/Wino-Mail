@@ -38,7 +38,8 @@ public sealed class WinoSettingsSidebarCellView : NSTableCellView
         AddSubview(row);
         NSLayoutConstraint.ActivateConstraints(
         [
-            row.LeadingAnchor.ConstraintEqualTo(LeadingAnchor, 22),
+            // The accent pipe ends at x = 6; the glyph sits 8pt beside it and centres under the header circles.
+            row.LeadingAnchor.ConstraintEqualTo(LeadingAnchor, 14),
             row.TrailingAnchor.ConstraintLessThanOrEqualTo(TrailingAnchor, -18),
             row.CenterYAnchor.ConstraintEqualTo(CenterYAnchor)
         ]);

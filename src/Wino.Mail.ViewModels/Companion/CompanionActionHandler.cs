@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,9 +15,9 @@ using Wino.Core.Requests;
 using Wino.Core.Requests.Tasks;
 using Wino.Mail.ViewModels.Data;
 
-namespace Wino.Mail.WinUI.Services.Companion;
+namespace Wino.Mail.ViewModels.Companion;
 
-internal sealed class CompanionActionHandler(
+public sealed class CompanionActionHandler(
     IServiceProvider services,
     CompanionNavigationCallbacks navigation) : ICompanionActionHandler
 {

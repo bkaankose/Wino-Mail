@@ -38,6 +38,9 @@ public sealed partial class MailListPageViewController
     private NSPopUpButton _filterButton = null!;
     private NSMenu _filterMenu = null!;
     private WinoInfoBar _infoBar = null!;
+    private WinoSurfaceView _infoBarHost = null!;
+    private double _tileLayoutWidth;
+    private int _tileRelayoutScheduled;
     private WinoMailRowDensity? _densityOverride;
     private bool _syncingSelectAll;
     private NSView _onlineSearchPanel = null!;
@@ -102,11 +105,15 @@ public sealed partial class MailListPageViewController
         header.SetClippingResistancePriority(200, NSLayoutConstraintOrientation.Horizontal);
 
         // Windows "Update Info Bar": IsClosable="False", DismissInterval="2", IsOpen bound two-way.
+        // It floats over the bottom of the list (added to listHost below) so showing it never moves the
+        // rows or the scroll position; it dismisses itself after two seconds, so it needs no content inset.
         _infoBar = new WinoInfoBar { Hidden = true, IsClosable = false, AutoDismissInterval = TimeSpan.FromSeconds(2) };
         _infoBar.Closed += (_, _) => ViewModel.IsBarOpen = false;
-        var infoBarHost = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
-        WinoLayout.Fill(_infoBar, infoBarHost, 4, 4, 6, 4);
-        infoBarHost.Hidden = true;
+        // The bar's severity tint is translucent; an opaque, shadowed base keeps it readable over the rows
+        // (the same treatment as the window-level InlineInfoBarPresenter).
+        _infoBarHost = new WinoSurfaceView { Fill = NSColor.WindowBackground, CornerRadius = WinoStyle.GroupRadius, Hidden = true };
+        _infoBarHost.Shadow = new NSShadow { ShadowColor = NSColor.Black.ColorWithAlphaComponent(0.22f), ShadowBlurRadius = 12, ShadowOffset = new CGSize(0, -3) };
+        WinoLayout.Fill(_infoBar, _infoBarHost);
 
         _table = new MailTableView(this)
         {
@@ -152,9 +159,13 @@ public sealed partial class MailListPageViewController
         WinoLayout.Fill(_scroll, listHost);
         listHost.AddSubview(_emptyLabel);
         listHost.AddSubview(_listProgress);
+        listHost.AddSubview(_infoBarHost, NSWindowOrderingMode.Above, null);
         listHost.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Vertical);
         NSLayoutConstraint.ActivateConstraints(
         [
+            _infoBarHost.LeadingAnchor.ConstraintEqualTo(listHost.LeadingAnchor, 8),
+            _infoBarHost.TrailingAnchor.ConstraintEqualTo(listHost.TrailingAnchor, -8),
+            _infoBarHost.BottomAnchor.ConstraintEqualTo(listHost.BottomAnchor, -8),
             _emptyLabel.CenterXAnchor.ConstraintEqualTo(listHost.CenterXAnchor),
             _emptyLabel.CenterYAnchor.ConstraintEqualTo(listHost.CenterYAnchor),
             _emptyLabel.WidthAnchor.ConstraintLessThanOrEqualTo(listHost.WidthAnchor, 1, -40),
@@ -173,7 +184,7 @@ public sealed partial class MailListPageViewController
             Distribution = NSStackViewDistribution.Fill,
             TranslatesAutoresizingMaskIntoConstraints = false
         };
-        foreach (var view in new NSView[] { header, infoBarHost, BuildScopeBar(), listHost, _onlineSearchPanel })
+        foreach (var view in new NSView[] { header, BuildScopeBar(), listHost, _onlineSearchPanel })
         {
             stack.AddArrangedSubview(view);
             view.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
@@ -374,7 +385,7 @@ public sealed partial class MailListPageViewController
             _ => WinoInfoBarSeverity.Informational
         };
         _infoBar.Hidden = !open;
-        if (_infoBar.Superview is { } host) host.Hidden = !open;
+        _infoBarHost.Hidden = !open;
     }
 
     private void UpdateOverlays()
@@ -393,6 +404,8 @@ public sealed partial class MailListPageViewController
         _selectionMode = enabled;
         _selectModeButton.State = enabled ? NSCellStateValue.On : NSCellStateValue.Off;
         _selectModeButton.ContentTintColor = enabled ? WinoStyle.Accent : WinoStyle.PrimaryText;
+        // The checkbox narrows the text column, which can wrap the tile row onto another line.
+        ScheduleTileRelayout(force: true);
         _table.EnumerateAvailableRowViews((rowView, _) =>
         {
             if (rowView is WinoMailTableRowView mailRow)
@@ -544,11 +557,57 @@ public sealed partial class MailListPageViewController
         for (nint index = visible.Location; index < visible.Location + visible.Length; index++)
         {
             if (RowAt(index) is not { } row || _table.GetView(0, index, false) is not WinoMailRowView cell) continue;
-            bool hadTiles = cell.Model.HasTileLine;
+            var before = cell.Model;
             BindCell(cell, row);
-            if (cell.Model.HasTileLine != hadTiles) heights.Add((nuint)index);
+            if (TileLayoutChanged(before, cell.Model)) heights.Add((nuint)index);
         }
-        if (heights.Count > 0) _table.NoteHeightOfRowsWithIndexesChanged(heights);
+        if (heights.Count > 0) NoteHeightsChanged(heights);
+    }
+
+    /// <summary>True when the row's tile line appeared, disappeared or got other tiles (which can wrap differently).</summary>
+    private static bool TileLayoutChanged(WinoMailRowModel before, WinoMailRowModel after)
+        => before.HasTileLine != after.HasTileLine
+            || (after.HasTileLine && !WinoMailRowMetrics.SameTileLayout(before.Tiles, after.Tiles));
+
+    /// <summary>Re-measures rows without the default height animation.</summary>
+    private void NoteHeightsChanged(NSIndexSet indexes)
+    {
+        NSAnimationContext.BeginGrouping();
+        NSAnimationContext.CurrentContext.Duration = 0;
+        _table.NoteHeightOfRowsWithIndexesChanged(indexes);
+        NSAnimationContext.EndGrouping();
+    }
+
+    /// <summary>
+    /// The tile row wraps by width, so rows with tiles change height when the list is resized or the
+    /// select-mode checkbox appears. Coalesced to one re-measure per run-loop turn, and only for those rows.
+    /// </summary>
+    private void ScheduleTileRelayout(bool force = false)
+    {
+        if (!_listBound || Density == WinoMailRowDensity.Compact) return;
+        double width = TableRowWidth;
+        if (!force && Math.Abs(width - _tileLayoutWidth) < 0.5) return;
+        if (Interlocked.Exchange(ref _tileRelayoutScheduled, 1) == 1) return;
+        CoreFoundation.DispatchQueue.MainQueue.DispatchAsync(() =>
+        {
+            Interlocked.Exchange(ref _tileRelayoutScheduled, 0);
+            if (_released || !_listBound) return;
+            _tileLayoutWidth = TableRowWidth;
+            var indexes = new NSMutableIndexSet();
+            for (int index = 0; index < _entries.Count; index++)
+                if (_entries[index].Row is { } row && MailRowMapper.HasTiles(row)) indexes.Add((nuint)index);
+            if (indexes.Count > 0) NoteHeightsChanged(indexes);
+        });
+    }
+
+    private double TableRowWidth
+    {
+        get
+        {
+            var columns = _table.TableColumns();
+            double width = columns.Length > 0 ? (double)columns[0].Width : 0;
+            return width > 0 ? width : (double)_scroll.ContentView.Bounds.Width;
+        }
     }
 
     private static string SelectionKey(MailListRow row)
@@ -619,7 +678,13 @@ public sealed partial class MailListPageViewController
     private nfloat RowHeight(nint index)
     {
         if (RowAt(index) is not { } row) return (nfloat)WinoMailRowMetrics.GroupRowHeight;
-        return (nfloat)WinoMailRowModel.HeightFor(Density, MailRowMapper.HasTiles(row));
+        var density = Density;
+        if (density == WinoMailRowDensity.Compact || !MailRowMapper.HasTiles(row))
+            return (nfloat)WinoMailRowModel.HeightFor(density, [], 0);
+        var kind = row.Kind == MailListRowKind.ThreadChild ? WinoMailRowKind.ThreadChild : WinoMailRowKind.Single;
+        _tileLayoutWidth = TableRowWidth;
+        var textWidth = WinoMailRowMetrics.TextWidth(_tileLayoutWidth, density, kind, _preferences.IsShowSenderPicturesEnabled, _selectionMode);
+        return (nfloat)WinoMailRowModel.HeightFor(density, MailRowMapper.Tiles(row), textWidth);
     }
 
     private NSView CreateCell(NSTableView tableView, nint index)
@@ -669,7 +734,7 @@ public sealed partial class MailListPageViewController
         cell.Apply(MailRowMapper.Map(row, _preferences, ViewModel.IsMergedAccountView, _densityOverride));
 
         var leaves = (row.IsThreadHead ? row.LeafItems : [row.SourceItem]).OfType<INotifyPropertyChanged>().ToArray();
-        bool hadTiles = cell.Model.HasTileLine;
+        var shown = cell.Model;
         // A synchronized mail raises many property changes in a row (and a thread head hears all of
         // its leaves). Coalesce them into one re-map per run-loop turn instead of one per property.
         int pending = 0;
@@ -683,19 +748,15 @@ public sealed partial class MailListPageViewController
             {
                 Interlocked.Exchange(ref pending, 0);
                 if (!active || _released || !ReferenceEquals(cell.Item, row)) return;
-                if (rebind)
-                {
-                    // The thread gained or lost leaves: subscribe to the new set.
-                    BindCell(cell, row);
-                    hadTiles = cell.Model.HasTileLine;
-                }
+                // The thread gained or lost leaves: subscribe to the new set.
+                if (rebind) BindCell(cell, row);
                 else cell.Apply(MailRowMapper.Map(row, _preferences, ViewModel.IsMergedAccountView, _densityOverride));
-                if (cell.Model.HasTileLine != hadTiles)
+                if (TileLayoutChanged(shown, cell.Model))
                 {
-                    hadTiles = cell.Model.HasTileLine;
                     nint index = _table.RowForView(cell);
-                    if (index >= 0) _table.NoteHeightOfRowsWithIndexesChanged(new NSIndexSet((nuint)index));
+                    if (index >= 0) NoteHeightsChanged(new NSIndexSet((nuint)index));
                 }
+                shown = cell.Model;
             });
         }
         PropertyChangedEventHandler handler = (_, args) =>
@@ -789,6 +850,15 @@ public sealed partial class MailListPageViewController
         MacDebugBridge.Register("mailinfo", _ => Task.FromResult(_released ? "released" :
             $"rows={_entries.Count(entry => entry.Row is not null)} selected={ViewModel.SelectedItemsCount} " +
             string.Join(" | ", ViewModel.SelectedItems.Take(3).Select(item => $"'{item.Subject}' read={item.IsRead} flagged={item.IsFlagged} folder={item.MailCopy.FolderId}"))));
+        // "listbar" opens the list's own status InfoBar, as a finished synchronization does.
+        MacDebugBridge.Register("listbar", _ =>
+        {
+            ViewModel.BarSeverity = InfoBarMessageType.Success;
+            ViewModel.BarTitle = "Inbox";
+            ViewModel.BarMessage = "up to date";
+            ViewModel.IsBarOpen = true;
+            return Task.FromResult("ok");
+        });
         MacDebugBridge.Register("density", args =>
         {
             _densityOverride = args.Length == 0 ? null : args[0].ToLowerInvariant() switch
@@ -883,7 +953,11 @@ public sealed partial class MailListPageViewController
         {
             var columns = TableColumns();
             var width = EnclosingScrollView?.ContentView.Bounds.Width ?? Bounds.Width;
-            if (columns.Length > 0 && width > 0 && Math.Abs(columns[0].Width - width) > 0.5) columns[0].Width = width;
+            if (columns.Length > 0 && width > 0 && Math.Abs(columns[0].Width - width) > 0.5)
+            {
+                columns[0].Width = width;
+                owner.ScheduleTileRelayout();
+            }
             base.Layout();
         }
 

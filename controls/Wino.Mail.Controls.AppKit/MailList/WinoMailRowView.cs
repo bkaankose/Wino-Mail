@@ -9,12 +9,13 @@ using Wino.Presentation.AppKit;
 namespace Wino.Mail.Controls.AppKit.MailList;
 
 /// <summary>
-/// The Wino mail row, laid out like the Windows MailListItemTemplates: an 8pt gutter for the
-/// selection pill, the avatar, then three lines that each span to the trailing edge.
+/// The Wino mail row, laid out like the Windows MailListItemTemplates: a highlight box (inset by
+/// <see cref="WinoMailRowMetrics.RowGap"/> so neighbours do not touch) that holds the selection pill,
+/// the avatar, then three lines that each span to the trailing edge.
 /// Line 1: nickname, draft tag, sender (bold when unread), thread count, then the attachment and
 /// flag glyphs right-aligned. Line 2: thread chevron, subject (semibold accent when unread), the
-/// date right-aligned and the unread dot. Line 3: the preview. Detailed rows add a tile line for
-/// categories and intelligence; compact rows collapse the tiles into line 1.
+/// date right-aligned and the unread dot. Line 3: the preview. Detailed rows add a tile row for
+/// categories and intelligence that wraps onto more lines; compact rows collapse the tiles into line 1.
 /// Hover actions overlay the trailing edge; select mode adds a checkbox before the avatar.
 /// </summary>
 public class WinoMailRowView : NSTableCellView
@@ -44,7 +45,7 @@ public class WinoMailRowView : NSTableCellView
     private readonly NSTextField _date;
     private readonly WinoSurfaceView _unreadDot;
     private readonly NSTextField _preview;
-    private readonly NSStackView _tiles;
+    private readonly WinoFlowView _tiles;
     private readonly WinoSurfaceView _hoverBar;
     private readonly NSButton _archiveButton;
     private readonly NSButton _deleteButton;
@@ -78,8 +79,8 @@ public class WinoMailRowView : NSTableCellView
         [
             _boxLeading,
             _box.TrailingAnchor.ConstraintEqualTo(TrailingAnchor, -(nfloat)WinoMailRowMetrics.ContentTrailing),
-            _box.TopAnchor.ConstraintEqualTo(TopAnchor),
-            _box.BottomAnchor.ConstraintEqualTo(BottomAnchor)
+            _box.TopAnchor.ConstraintEqualTo(TopAnchor, (nfloat)WinoMailRowMetrics.RowGap),
+            _box.BottomAnchor.ConstraintEqualTo(BottomAnchor, -(nfloat)WinoMailRowMetrics.RowGap)
         ]);
 
         _checkbox = WinoCheckbox.Create(null, () => CheckboxToggled?.Invoke(this, EventArgs.Empty));
@@ -143,29 +144,32 @@ public class WinoMailRowView : NSTableCellView
         _preview = WinoStyle.Label(string.Empty, NSFont.SystemFontOfSize(12), NSColor.Label.ColorWithAlphaComponent((nfloat)0.7));
         _preview.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
         _preview.SetContentCompressionResistancePriority(200, NSLayoutConstraintOrientation.Horizontal);
-        _tiles = WinoLayout.HStack(4);
-        _tiles.Hidden = true;
-        _tiles.SetClippingResistancePriority(200, NSLayoutConstraintOrientation.Horizontal);
+        // Windows: a WinoWrapPanel with 4pt vertical spacing, so many tiles wrap instead of clipping.
+        _tiles = new WinoFlowView { Spacing = WinoMailRowMetrics.TileSpacing, LineSpacing = WinoMailRowMetrics.TileLineSpacing, Hidden = true };
         _tiles.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
+        _tiles.SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Vertical);
 
         _text = WinoLayout.VStack(WinoMailRowMetrics.LineSpacing, _line1, _line2, _preview, _tiles);
         _text.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
         _text.SetContentCompressionResistancePriority(200, NSLayoutConstraintOrientation.Horizontal);
-        foreach (var line in new NSView[] { _line1, _line2, _preview })
+        // The flow view spans the column so it knows where to wrap; tiles keep their fitting width inside it.
+        foreach (var line in new NSView[] { _line1, _line2, _preview, _tiles })
             line.TrailingAnchor.ConstraintEqualTo(_text.TrailingAnchor).Active = true;
-        // Tiles hug their content from the leading edge; pinning the row to full width stretched the first tile.
-        _tiles.TrailingAnchor.ConstraintLessThanOrEqualTo(_text.TrailingAnchor).Active = true;
 
-        _content = WinoLayout.HStack(8, _checkbox, _avatar, _text);
+        _content = WinoLayout.HStack(WinoMailRowMetrics.AvatarSpacing, _checkbox, _avatar, _text);
         _content.Distribution = NSStackViewDistribution.Fill;
-        _content.SetCustomSpacing(6, _checkbox);
+        _content.SetCustomSpacing((nfloat)WinoMailRowMetrics.CheckboxSpacing, _checkbox);
         _box.AddSubview(_content);
-        _contentTop = _content.TopAnchor.ConstraintGreaterThanOrEqualTo(_box.TopAnchor, 6);
-        _contentBottom = _content.BottomAnchor.ConstraintLessThanOrEqualTo(_box.BottomAnchor, -6);
+        _contentTop = _content.TopAnchor.ConstraintGreaterThanOrEqualTo(_box.TopAnchor, (nfloat)WinoMailRowMetrics.Padding(WinoMailRowDensity.Medium));
+        _contentBottom = _content.BottomAnchor.ConstraintLessThanOrEqualTo(_box.BottomAnchor, -(nfloat)WinoMailRowMetrics.Padding(WinoMailRowDensity.Medium));
+        // The table sizes the row from WinoMailRowMetrics; if a measurement is a point off, let the
+        // padding give instead of breaking the centring.
+        _contentTop.Priority = 999;
+        _contentBottom.Priority = 999;
         NSLayoutConstraint.ActivateConstraints(
         [
-            _content.LeadingAnchor.ConstraintEqualTo(_box.LeadingAnchor, 8),
-            _content.TrailingAnchor.ConstraintEqualTo(_box.TrailingAnchor, -8),
+            _content.LeadingAnchor.ConstraintEqualTo(_box.LeadingAnchor, (nfloat)WinoMailRowMetrics.InnerLeading),
+            _content.TrailingAnchor.ConstraintEqualTo(_box.TrailingAnchor, -(nfloat)WinoMailRowMetrics.InnerTrailing),
             _content.CenterYAnchor.ConstraintEqualTo(_box.CenterYAnchor),
             _contentTop,
             _contentBottom
@@ -189,7 +193,7 @@ public class WinoMailRowView : NSTableCellView
         AddSubview(_hoverBar);
         NSLayoutConstraint.ActivateConstraints(
         [
-            _hoverBar.TrailingAnchor.ConstraintEqualTo(_box.TrailingAnchor, -8),
+            _hoverBar.TrailingAnchor.ConstraintEqualTo(_box.TrailingAnchor, -(nfloat)WinoMailRowMetrics.InnerTrailing),
             _hoverBar.CenterYAnchor.ConstraintEqualTo(_box.CenterYAnchor)
         ]);
 
@@ -371,7 +375,7 @@ public class WinoMailRowView : NSTableCellView
     private void ApplyTiles(WinoMailRowModel model)
     {
         bool compact = model.Density == WinoMailRowDensity.Compact;
-        var tiles = model.Tiles.Take(6).ToList();
+        var tiles = model.Tiles.Take(WinoMailRowMetrics.MaxTiles).ToList();
         if (compact != _shownCompactTiles || !tiles.SequenceEqual(_shownTiles))
             SyncTiles(tiles, compact);
         _compactTiles.Hidden = !compact || model.Tiles.Count == 0;
@@ -413,13 +417,14 @@ public class WinoMailRowView : NSTableCellView
             else DetailedTile(tiles[i], _tileViews[i]);
         }
 
-        var target = compact ? _compactTiles : _tiles;
         for (int i = keep; i < tiles.Count; i++)
         {
             var view = compact ? CompactTile(tiles[i], null) : DetailedTile(tiles[i], null);
             _tileViews.Add(view);
-            target.AddArrangedSubview(view);
+            if (compact) _compactTiles.AddArrangedSubview(view);
+            else _tiles.AddItem(view);
         }
+        if (!compact) _tiles.ItemsChanged();
 
         _shownTiles = tiles;
         _shownCompactTiles = compact;
@@ -451,8 +456,8 @@ public class WinoMailRowView : NSTableCellView
         return chip;
     }
 
-    /// <summary>Configures <paramref name="existing"/> or creates a new detailed tile.</summary>
-    private static NSView DetailedTile(WinoMailRowTile tile, NSView? existing)
+    /// <summary>Configures <paramref name="existing"/> or creates a new detailed tile (also the measuring prototype).</summary>
+    internal static NSView DetailedTile(WinoMailRowTile tile, NSView? existing)
     {
         if (existing is not WinoChipView chip)
         {

@@ -31,7 +31,6 @@ namespace Wino.Mail.ViewModels;
 
 public partial class AccountManagementViewModel : AccountManagementPageViewModelBase
 {
-    private const string LocalExportFileName = "wino-backup.winosnap";
 
     private readonly IWinoAccountDataSyncService _syncService;
     private readonly IWinoLogger _winoLogger;
@@ -220,8 +219,11 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     {
         try
         {
+            // Write to exactly the path the platform returns. On macOS this is the URL of the save
+            // panel, the only location the sandbox grants; on Windows it is the picked folder plus this name.
+            var suggestedFileName = WinoAccountSyncFileExportResult.CreateFileName(DateTime.Now);
             var exportPath = await ExecuteUIThreadAsync(
-                () => MailDialogService.PickFilePathAsync(LocalExportFileName))
+                () => MailDialogService.PickFilePathAsync(suggestedFileName))
                 .ConfigureAwait(false);
 
             if (string.IsNullOrWhiteSpace(exportPath))
@@ -232,7 +234,6 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
             await ExecuteUIThread(() => IsDataTransferInProgress = true);
 
             var exportResult = await _syncService.ExportToFileAsync(new(), PromptSyncSecretAsync).ConfigureAwait(false);
-            exportPath = Path.Combine(Path.GetDirectoryName(exportPath) ?? exportPath, exportResult.FileName);
             await File.WriteAllBytesAsync(exportPath, exportResult.Content).ConfigureAwait(false);
 
             DialogService.InfoBarMessage(

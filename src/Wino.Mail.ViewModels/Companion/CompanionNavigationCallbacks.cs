@@ -1,10 +1,15 @@
+#nullable enable
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Wino.Mail.WinUI.Services.Companion;
+namespace Wino.Mail.ViewModels.Companion;
 
-internal sealed record CompanionNavigationCallbacks(
+/// <summary>
+/// The host's navigation into the main app. Each platform fills these with its own window and
+/// activation routes (Windows App.xaml.cs, the macOS AppDelegate).
+/// </summary>
+public sealed record CompanionNavigationCallbacks(
     Func<CancellationToken, Task> OpenWino,
     Func<CancellationToken, Task> OpenCalendar,
     Func<CancellationToken, Task> OpenTasks,

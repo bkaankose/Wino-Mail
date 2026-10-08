@@ -29,6 +29,11 @@ internal sealed class ShellPaneCell : NSTableCellView
 {
     public const string ReuseIdentifier = "WinoShellPaneCell";
     private const double AccountIconSize = 28;
+    // Leading insets from the cell edge (the pane edge on root rows). The selection pipe ends at
+    // x = 7, so avatars sit 5pt and 16pt glyphs 9pt beside it, as in the Windows NavigationView.
+    private const int AvatarInset = 12;
+    private const int GlyphInset = 14;
+    private const int IconTextSpacing = 10;
 
     private readonly ShellPaneContext _context;
     private readonly NSView _leadingBox = new() { TranslatesAutoresizingMaskIntoConstraints = false };
@@ -119,8 +124,9 @@ internal sealed class ShellPaneCell : NSTableCellView
         _chevron.WidthAnchor.ConstraintEqualTo(12).Active = true;
 
         _row = WinoLayout.HStack(12, _leadingBox, text, _attention, _pill, _action, _chevron);
-        _row.EdgeInsets = new NSEdgeInsets(0, 12, 0, 10);
+        _row.EdgeInsets = new NSEdgeInsets(0, AvatarInset, 0, 10);
         _row.Distribution = NSStackViewDistribution.Fill;
+        _row.SetCustomSpacing((nfloat)IconTextSpacing, _leadingBox);
         _row.SetCustomSpacing(8, _pill);
         WinoLayout.Fill(_row, this);
         // The text block's centre is pinned to the icon column's centre (avatar, glyph or checkbox).
@@ -330,7 +336,7 @@ internal sealed class ShellPaneCell : NSTableCellView
         _title.TextColor = WinoStyle.PrimaryText;
         _titleChip.Fill = null;
         foreach (var inset in _chipInsets) inset.Constant = 0;
-        _row.EdgeInsets = new NSEdgeInsets(0, 12, 0, 10);
+        _row.EdgeInsets = new NSEdgeInsets(0, AvatarInset, 0, 10);
         if (_dotTrailing is not null) { _dotTrailing.Active = false; _dotTrailing = null; }
     }
 
@@ -355,7 +361,7 @@ internal sealed class ShellPaneCell : NSTableCellView
     private void Leading(double width)
     {
         _leadingWidth.Constant = (nfloat)width;
-        _row.EdgeInsets = new NSEdgeInsets(0, width >= AccountIconSize ? 12 : 16, 0, 10);
+        _row.EdgeInsets = new NSEdgeInsets(0, width >= AccountIconSize ? AvatarInset : GlyphInset, 0, 10);
     }
 
     private void GlyphRow(WinoIconGlyph glyph, double size, NSColor? tint)
@@ -417,7 +423,7 @@ internal sealed class ShellPaneCell : NSTableCellView
     }
 }
 
-/// <summary>Section caption between groups (Windows ShellSectionHeaderTemplate: 11pt tertiary, 14/12/12/2).</summary>
+/// <summary>Section caption between groups (Windows ShellSectionHeaderTemplate: 11pt tertiary), aligned with the row glyphs.</summary>
 internal sealed class ShellSectionHeaderCell : NSTableCellView
 {
     public const string ReuseIdentifier = "WinoShellSectionHeader";
@@ -430,7 +436,7 @@ internal sealed class ShellSectionHeaderCell : NSTableCellView
         TextField = _label;
         NSLayoutConstraint.ActivateConstraints(
         [
-            _label.LeadingAnchor.ConstraintEqualTo(LeadingAnchor, 18),
+            _label.LeadingAnchor.ConstraintEqualTo(LeadingAnchor, 16),
             _label.TrailingAnchor.ConstraintLessThanOrEqualTo(TrailingAnchor, -12),
             _label.BottomAnchor.ConstraintEqualTo(BottomAnchor, -3)
         ]);
@@ -717,7 +723,8 @@ internal sealed class ShellCalendarGroupCell : NSTableCellView
             var name = WinoStyle.Label(calendar.Name, NSFont.SystemFontOfSize(12));
             name.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
             var row = WinoLayout.HStack(10, check, dot, name);
-            row.EdgeInsets = new NSEdgeInsets(0, 44, 0, 10);
+            // The calendar checkbox sits under the account colour dot of the header.
+            row.EdgeInsets = new NSEdgeInsets(0, 38, 0, 10);
             row.HeightAnchor.ConstraintEqualTo((nfloat)CalendarRowHeight).Active = true;
             _calendars.AddArrangedSubview(row);
             row.WidthAnchor.ConstraintEqualTo(_calendars.WidthAnchor).Active = true;

@@ -73,10 +73,11 @@ internal static class Composition
         services.AddSingleton<MacWinoThemeService>();
         services.AddSingleton<INewThemeService>(provider => provider.GetRequiredService<MacWinoThemeService>());
         services.AddSingleton<IMicrosoftStoreService, MacMicrosoftStoreService>();
-        // Tray, global hotkeys, additional windows and the Microsoft Store stay unsupported on macOS.
+        // The tray is the menu bar icon (MacStatusItemController), so every close behaviour is offered.
+        // Global hotkeys, additional windows and the Microsoft Store stay unsupported on macOS.
         services.AddSingleton<IPlatformCapabilities>(new PlatformCapabilities(
             Printing: true, PdfExport: true, Smime: true, Notifications: true, NotificationActions: true,
-            StartupIntegration: true, GeneralActivation: true,
+            StartupIntegration: true, Tray: true, GeneralActivation: true,
 #if WINO_APPSTORE
             AppleAppStore: true
 #else

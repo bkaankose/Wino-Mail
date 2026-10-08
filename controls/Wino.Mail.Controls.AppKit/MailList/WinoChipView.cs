@@ -169,6 +169,19 @@ public sealed class WinoFlowView : NSView
             view.TranslatesAutoresizingMaskIntoConstraints = true;
             AddSubview(view);
         }
+        ItemsChanged();
+    }
+
+    /// <summary>Appends one item; call <see cref="ItemsChanged"/> after a batch of changes.</summary>
+    public void AddItem(NSView view)
+    {
+        view.TranslatesAutoresizingMaskIntoConstraints = true;
+        AddSubview(view);
+    }
+
+    /// <summary>Re-flows the items after they were added, removed or resized in place.</summary>
+    public void ItemsChanged()
+    {
         NeedsLayout = true;
         InvalidateIntrinsicContentSize();
     }

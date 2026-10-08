@@ -196,8 +196,9 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
 
     public async Task<byte[]> PickWindowsFileContentAsync(params object[] typeFilters)
     {
+        // Like Windows, a cancelled pick is an empty array; shared callers test Length, not null.
         string? path = (await PickPathsAsync(false, false, typeFilters)).FirstOrDefault();
-        return path is null ? null! : await File.ReadAllBytesAsync(path);
+        return path is null ? [] : await File.ReadAllBytesAsync(path);
     }
 
     public async Task<List<SharedFile>> PickFilesAsync(params object[] typeFilters)
@@ -210,9 +211,24 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
     public async Task<List<PickedFileMetadata>> PickFilesMetadataAsync(params object[] typeFilters) =>
         (await PickPathsAsync(false, true, typeFilters)).Select(path => new PickedFileMetadata(path, new FileInfo(path).Length)).ToList();
 
+    /// <summary>
+    /// Returns the exact file URL the user confirmed. The sandbox grants write access to that path
+    /// only, so callers must write there and not to another name in the same folder.
+    /// </summary>
     public Task<string> PickFilePathAsync(string saveFileName) => PresentAsync(window =>
     {
         var panel = NSSavePanel.SavePanel; panel.NameFieldStringValue = saveFileName;
+        panel.CanCreateDirectories = true;
+        // Keep the suggested extension when the user renames the file, so the matching open panel
+        // (for example the .winosnap filter on restore) still finds it. Other types stay allowed.
+        var extension = Path.GetExtension(saveFileName).TrimStart('.');
+        if (extension.Length > 0)
+        {
+#pragma warning disable CA1422 // AllowedFileTypes keeps extension filters simple; UTType mapping is not needed here.
+            panel.AllowedFileTypes = [extension];
+#pragma warning restore CA1422
+            panel.AllowsOtherFileTypes = true;
+        }
         var completion = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         var closing = NSNotificationCenter.DefaultCenter.AddObserver(NSWindow.WillCloseNotification, _ => panel.Cancel(null), window);
         panel.BeginSheet(window, response => { NSNotificationCenter.DefaultCenter.RemoveObserver(closing); closing.Dispose(); completion.TrySetResult((long)response == 1 ? panel.Url?.Path! : null!); panel.Dispose(); });

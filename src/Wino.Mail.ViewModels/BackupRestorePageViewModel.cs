@@ -25,7 +25,6 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
     IRecipient<WinoAccountProfileUpdatedMessage>,
     IRecipient<WinoAccountProfileDeletedMessage>
 {
-    private const string LocalExportFileName = "wino-backup.winosnap";
 
     private readonly IMailDialogService _dialogService;
     private readonly IWinoAccountDataSyncService _syncService;
@@ -192,8 +191,11 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
     {
         try
         {
+            // Write to exactly the path the platform returns. On macOS this is the URL of the save
+            // panel, the only location the sandbox grants; on Windows it is the picked folder plus this name.
+            var suggestedFileName = WinoAccountSyncFileExportResult.CreateFileName(DateTime.Now);
             var exportPath = await ExecuteUIThreadAsync(
-                () => _dialogService.PickFilePathAsync(LocalExportFileName))
+                () => _dialogService.PickFilePathAsync(suggestedFileName))
                 .ConfigureAwait(false);
 
             if (string.IsNullOrWhiteSpace(exportPath))
@@ -204,7 +206,6 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
             await ExecuteUIThread(() => IsDataTransferInProgress = true);
 
             var exportResult = await _syncService.ExportToFileAsync(new(), PromptSyncSecretAsync).ConfigureAwait(false);
-            exportPath = Path.Combine(Path.GetDirectoryName(exportPath) ?? exportPath, exportResult.FileName);
             await File.WriteAllBytesAsync(exportPath, exportResult.Content).ConfigureAwait(false);
 
             _dialogService.InfoBarMessage(
