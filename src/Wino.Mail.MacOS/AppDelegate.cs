@@ -53,10 +53,23 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
     /// </summary>
     partial void NotificationsStopping(ref Task? stopping);
 
+    /// <summary>First thing in DidFinishLaunching: how Wino was launched (AppDelegate.Companion.cs).</summary>
+    partial void CompanionLaunching();
+
+    /// <inheritdoc cref="ActivationServicesReady"/>
+    partial void CompanionServicesReady();
+
+    /// <summary>At the start of quitting, while services are still alive.</summary>
+    partial void CompanionStopping();
+
     public override void DidFinishLaunching(NSNotification notification)
     {
         ActivationLaunching();
-        NSApplication.SharedApplication.ActivationPolicy = NSApplicationActivationPolicy.Regular;
+        CompanionLaunching();
+        // A login launch starts without a Dock icon or window until the close behaviour is known.
+        NSApplication.SharedApplication.ActivationPolicy = StartsInBackground
+            ? NSApplicationActivationPolicy.Accessory
+            : NSApplicationActivationPolicy.Regular;
         // The menu bar exists before the translation service loads the user's language. Seed the
         // English source so the first menu shows text, then rebuild on every LanguageChanged
         // (the translation service sends one when it finishes initializing).
@@ -67,8 +80,11 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
         InstallMenus();
         var loading = new NSViewController { View = new NSView() };
         _window = new WelcomeWindow(loading);
-        _window.MakeKeyAndOrderFront(null);
-        NSApplication.SharedApplication.ActivateIgnoringOtherApps(true);
+        if (!StartsInBackground)
+        {
+            _window.MakeKeyAndOrderFront(null);
+            NSApplication.SharedApplication.ActivateIgnoringOtherApps(true);
+        }
         _startup = StartAsync();
     }
 
@@ -87,6 +103,7 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
             ActivationServicesReady();
             NotificationsServicesReady();
             DockServicesReady();
+            CompanionServicesReady();
 #if DEBUG
             await _dispatcher.ExecuteOnUIThread(() => MacDebugBridge.Start(_services));
 #endif
@@ -107,8 +124,9 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
         if (_window == null || isShell != _shellWindow)
         {
             var oldWindow = _window;
-            NSWindow nextWindow = isShell ? new WinoShellWindow(controller) : new WelcomeWindow(controller);
-            try { nextWindow.MakeKeyAndOrderFront(null); }
+            NSWindow nextWindow = isShell ? new WinoShellWindow(controller) { ShouldClose = ShellWindowShouldClose } : new WelcomeWindow(controller);
+            // In the background (closed to the menu bar, or a login launch) windows wait for the user.
+            try { if (!IsInBackground) nextWindow.MakeKeyAndOrderFront(null); }
             catch { nextWindow.Dispose(); throw; }
             _window = nextWindow;
             _shellWindow = isShell;
@@ -120,16 +138,16 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
         {
             _window.ContentViewController = controller;
         }
-        _window.MakeKeyAndOrderFront(null);
+        if (!IsInBackground) _window.MakeKeyAndOrderFront(null);
         return null;
     }
 
     public override bool ApplicationShouldTerminateAfterLastWindowClosed(NSApplication sender) => false;
 
+    /// <summary>Launching Wino again (Dock, Finder, Spotlight) also brings it back from the background.</summary>
     public override bool ApplicationShouldHandleReopen(NSApplication sender, bool hasVisibleWindows)
     {
-        _window?.MakeKeyAndOrderFront(null);
-        sender.ActivateIgnoringOtherApps(true);
+        ShowMainWindow();
         return true;
     }
 
@@ -156,6 +174,7 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
             if (_startup != null) await _startup;
             if (_services != null)
             {
+                CompanionStopping();
                 if (_runtimeStarted)
                 {
                     Task? notificationsStopping = null;

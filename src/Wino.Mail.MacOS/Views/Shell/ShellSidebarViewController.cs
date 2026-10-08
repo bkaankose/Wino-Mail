@@ -227,6 +227,20 @@ internal sealed class ShellSidebarViewController : NSViewController
     {
         public Func<CGPoint, bool>? PrepareMenu { get; set; }
 
+        /// <summary>
+        /// AppKit reserves an 18pt disclosure gutter before every outline cell even though the pane
+        /// never shows the outline cell (expansion uses the trailing chevron). Dropping it puts root
+        /// rows right beside the selection pipe, like the Windows NavigationView, and leaves only
+        /// <see cref="NSOutlineView.IndentationPerLevel"/> per nesting level.
+        /// </summary>
+        public override CGRect GetCellFrame(nint column, nint row)
+        {
+            var frame = base.GetCellFrame(column, row);
+            if (row < 0 || column != 0) return frame;
+            var x = Math.Min(frame.X, (nfloat)(LevelForRow(row) * IndentationPerLevel));
+            return new CGRect(x, frame.Y, frame.Right - x, frame.Height);
+        }
+
         public override NSMenu? MenuForEvent(NSEvent theEvent)
         {
             var point = ConvertPointFromView(theEvent.LocationInWindow, null);

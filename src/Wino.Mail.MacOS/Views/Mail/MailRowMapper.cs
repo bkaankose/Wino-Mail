@@ -30,6 +30,27 @@ internal static class MailRowMapper
         return false;
     }
 
+    /// <summary>The row's category and intelligence tiles, as the row shows them (thread heads merge their leaves).</summary>
+    public static IReadOnlyList<WinoMailRowTile> Tiles(MailListRow row)
+    {
+        if (!HasTiles(row)) return [];
+        var leaves = row.IsThreadHead ? row.LeafItems.OfType<MailItemViewModel>().ToArray() : [(MailItemViewModel)row.SourceItem];
+        return Tiles(leaves);
+    }
+
+    private static List<WinoMailRowTile> Tiles(MailItemViewModel[] leaves)
+    {
+        var tiles = new List<WinoMailRowTile>();
+        foreach (var category in leaves.SelectMany(static leaf => leaf.Categories).Where(static category => category is not null).DistinctBy(static category => category.Id))
+        {
+            var background = WinoStyle.FromHexString(category.BackgroundColorHex);
+            tiles.Add(new WinoMailRowTile(category.Name ?? string.Empty, null, background, WinoStyle.FromHexString(category.TextColorHex), false));
+        }
+        foreach (var tile in leaves.Where(static leaf => leaf.HasRowIntelligenceTiles).SelectMany(static leaf => leaf.RowIntelligenceTiles).DistinctBy(static tile => tile.Text + tile.Glyph))
+            tiles.Add(new WinoMailRowTile(tile.Text ?? string.Empty, tile.Glyph, null, null, true, tile.IsWarning, tile.AccessibleText));
+        return tiles;
+    }
+
     public static WinoMailRowModel Map(MailListRow row, IPreferencesService preferences, bool showAccountColor, WinoMailRowDensity? densityOverride = null)
     {
         var item = (MailItemViewModel)row.SourceItem;
@@ -44,14 +65,7 @@ internal static class MailRowMapper
         bool unread = leaves.Any(static leaf => !leaf.IsRead);
         bool flagged = leaves.Any(static leaf => leaf.IsFlagged);
         int attachments = leaves.Count(static leaf => leaf.HasAttachments);
-        var tiles = new List<WinoMailRowTile>();
-        foreach (var category in leaves.SelectMany(static leaf => leaf.Categories).Where(static category => category is not null).DistinctBy(static category => category.Id))
-        {
-            var background = WinoStyle.FromHexString(category.BackgroundColorHex);
-            tiles.Add(new WinoMailRowTile(category.Name ?? string.Empty, null, background, WinoStyle.FromHexString(category.TextColorHex), false));
-        }
-        foreach (var tile in leaves.Where(static leaf => leaf.HasRowIntelligenceTiles).SelectMany(static leaf => leaf.RowIntelligenceTiles).DistinctBy(static tile => tile.Text + tile.Glyph))
-            tiles.Add(new WinoMailRowTile(tile.Text ?? string.Empty, tile.Glyph, null, null, true, tile.IsWarning, tile.AccessibleText));
+        var tiles = Tiles(leaves);
 
         var sender = string.IsNullOrWhiteSpace(item.FromName) ? item.FromAddress ?? string.Empty : item.FromName;
         var subject = string.IsNullOrWhiteSpace(item.Subject) ? Translator.MailItemNoSubject : item.Subject;

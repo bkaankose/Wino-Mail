@@ -177,10 +177,11 @@ public partial class SignatureAndEncryptionPageViewModel : MailBaseViewModel
         {
             var fileName = $"{certificate.Subject.Replace("CN=", "")}.cer";
             var path = await _dialogService.PickFilePathAsync(fileName);
-            if (path != null)
+            if (!string.IsNullOrEmpty(path))
             {
+                // Write to the exact picked path; a sandboxed save panel grants no other name.
                 var folderPath = System.IO.Path.GetDirectoryName(path);
-                await using var stream = await _fileService.GetFileStreamAsync(folderPath, fileName);
+                await using var stream = await _fileService.GetFileStreamAsync(folderPath, System.IO.Path.GetFileName(path));
                 if (stream != null)
                 {
                     try

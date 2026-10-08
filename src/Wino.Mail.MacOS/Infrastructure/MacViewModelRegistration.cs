@@ -67,6 +67,7 @@ public static partial class MacViewModelRegistration
         RegisterSmimeSettingsViews(services);
         RegisterBackupSettingsViews(services);
         RegisterWinoAccountSettingsViews(services);
+        RegisterCompanionSettingsViews(services);
         RegisterActivationServices(services);
         RegisterNotificationServices(services);
         return services;
@@ -86,6 +87,7 @@ public static partial class MacViewModelRegistration
     static partial void RegisterSmimeSettingsViews(IServiceCollection services);
     static partial void RegisterBackupSettingsViews(IServiceCollection services);
     static partial void RegisterWinoAccountSettingsViews(IServiceCollection services);
+    static partial void RegisterCompanionSettingsViews(IServiceCollection services);
     static partial void RegisterActivationServices(IServiceCollection services);
     static partial void RegisterNotificationServices(IServiceCollection services);
 }

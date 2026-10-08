@@ -148,7 +148,7 @@ public sealed class MacNotificationResponseHandler : UNUserNotificationCenterDel
     #region Calendar
 
     /// <summary>App.HandleCalendarToastNavigationAsync.</summary>
-    private async Task NavigateCalendarItemAsync(Guid calendarItemId)
+    internal async Task NavigateCalendarItemAsync(Guid calendarItemId)
     {
         var calendarItem = await Services.GetRequiredService<ICalendarService>().GetCalendarItemAsync(calendarItemId);
         if (calendarItem is null)
@@ -170,7 +170,7 @@ public sealed class MacNotificationResponseHandler : UNUserNotificationCenterDel
             .SnoozeCalendarItemAsync(calendarItemId, DateTime.Now.AddMinutes(MacNotificationCategories.CalendarSnoozeMinutes));
 
     /// <summary>App.HandleCalendarToastJoinOnlineAsync.</summary>
-    private async Task JoinOnlineAsync(Guid calendarItemId)
+    internal async Task JoinOnlineAsync(Guid calendarItemId)
     {
         var calendarItem = await Services.GetRequiredService<ICalendarService>().GetCalendarItemAsync(calendarItemId);
         if (!CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out var joinUri)) return;
@@ -182,7 +182,7 @@ public sealed class MacNotificationResponseHandler : UNUserNotificationCenterDel
     #region Mail
 
     /// <summary>App.HandleToastNavigationAsync.</summary>
-    private async Task NavigateMailAsync(Guid mailUniqueId)
+    internal async Task NavigateMailAsync(Guid mailUniqueId)
     {
         var mailService = Services.GetRequiredService<IMailService>();
         var account = await mailService.GetMailAccountByUniqueIdAsync(mailUniqueId);

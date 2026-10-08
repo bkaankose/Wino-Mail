@@ -87,9 +87,13 @@ public sealed partial class WinoIntelligenceHeaderView : WinoSurfaceView
         _title = WinoStyle.Label(Translator.WinoIntelligence_HeaderTitle, WinoStyle.BodyStrong);
         _briefing = WinoStyle.Label(string.Empty, WinoStyle.Body, WinoStyle.PrimaryText, 2);
         _subtitle = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
+        foreach (var label in new[] { _title, _briefing, _subtitle }) label.Alignment = NSTextAlignment.Left;
         _titleBlock = WinoLayout.VStack(2, _title, _briefing, _subtitle);
-        _titleBlock.Alignment = NSLayoutAttribute.Width;
-        _titleBlock.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
+        _titleBlock.Alignment = NSLayoutAttribute.Leading;
+        foreach (var label in new[] { _title, _briefing, _subtitle })
+            label.WidthAnchor.ConstraintLessThanOrEqualTo(_titleBlock.WidthAnchor).Active = true;
+        // NSStackView ignores content hugging for its own size; its hugging priority is what lets it stretch.
+        _titleBlock.SetHuggingPriority(1, NSLayoutConstraintOrientation.Horizontal);
         _titleBlock.SetContentCompressionResistancePriority(200, NSLayoutConstraintOrientation.Horizontal);
         // The title block toggles the body, like the whole Windows header row.
         _titleBlock.AddGestureRecognizer(new NSClickGestureRecognizer(() => ToggleExpanded()));
@@ -113,8 +117,12 @@ public sealed partial class WinoIntelligenceHeaderView : WinoSurfaceView
         _chevron = IconButton(WinoIconGlyph.ChevronDown, Translator.WinoIntelligence_HeaderTitle);
         _chevron.Activated += (_, _) => ToggleExpanded();
 
+        // Fill gives the spare width to the title block (lowest hugging), keeping the status,
+        // Process and chevron pinned to the trailing edge; gravity areas left them after the text.
+        _processingRow.SetHuggingPriority(750, NSLayoutConstraintOrientation.Horizontal);
         var headerRow = WinoLayout.HStack(10, sparkle, _titleBlock, _processingRow, _copyCodeButton, _processButton, _chevron);
         headerRow.Alignment = NSLayoutAttribute.CenterY;
+        headerRow.Distribution = NSStackViewDistribution.Fill;
 
         // ---- Tiles (always visible while the header is) ----
         _tiles = new WinoFlowView { Spacing = 6, LineSpacing = 6 };

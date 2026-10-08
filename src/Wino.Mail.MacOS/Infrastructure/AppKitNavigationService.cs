@@ -276,10 +276,16 @@ public sealed class AppKitNavigationService : INavigationService, IDisposable,
         return true;
     }
 
-    /// <summary>Activates the app and orders <paramref name="window"/> front, restoring it from the Dock if minimized.</summary>
+    /// <summary>
+    /// Activates the app and orders <paramref name="window"/> front, restoring it from the Dock if minimized.
+    /// Brings back the Dock icon and menu bar when Wino was running in the background (Accessory policy).
+    /// </summary>
     public static void BringToFront(NSWindow? window)
     {
-        NSApplication.SharedApplication.ActivateIgnoringOtherApps(true);
+        var application = NSApplication.SharedApplication;
+        if (application.ActivationPolicy != NSApplicationActivationPolicy.Regular)
+            application.ActivationPolicy = NSApplicationActivationPolicy.Regular;
+        application.ActivateIgnoringOtherApps(true);
         if (window is null) return;
         if (window.IsMiniaturized) window.Deminiaturize(null);
         window.MakeKeyAndOrderFront(null);

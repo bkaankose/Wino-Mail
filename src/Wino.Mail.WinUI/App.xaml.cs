@@ -49,6 +49,7 @@ using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Client.Shell;
 using Wino.Mail.WinUI.Services.Companion;
+using Wino.Mail.ViewModels.Companion;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Wino.Services;

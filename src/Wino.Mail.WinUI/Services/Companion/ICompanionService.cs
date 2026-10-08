@@ -1,15 +1,9 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Wino.Mail.ViewModels.Companion;
 
 namespace Wino.Mail.WinUI.Services.Companion;
-
-internal enum CompanionReadinessState
-{
-    Initializing,
-    NoAccounts,
-    Ready
-}
 
 internal interface ICompanionService
 {

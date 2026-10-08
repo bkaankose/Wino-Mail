@@ -29,7 +29,6 @@ namespace Wino.Services;
 public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 {
     private const int DefaultMaxConcurrentClients = 5;
-    private const string FileNamePrefix = "wino-backup-";
 
     private readonly IWinoAccountProfileService _profileService;
     private readonly IPreferencesService _preferencesService;
@@ -105,7 +104,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         return new WinoAccountSyncFileExportResult
         {
             Content = Seal(prepared.Document, key),
-            FileName = $"{FileNamePrefix}{DateTime.Now:yyyyMMdd-HHmm}{SyncSnapshotFormat.FileExtension}",
+            FileName = WinoAccountSyncFileExportResult.CreateFileName(DateTime.Now),
             ExportResult = prepared.ExportResult
         };
     }

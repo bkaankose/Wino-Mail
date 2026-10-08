@@ -7,8 +7,8 @@ namespace Wino.Mail.Controls.AppKit.MailList;
 
 /// <summary>
 /// Row container for <see cref="WinoMailRowView"/>. Selection is the Windows look: a subtle
-/// fill on the content box (after the 8pt gutter, 4pt radius) and a 4pt accent pill in the
-/// gutter. In select mode checked rows get a 12% accent tint instead. Hover is tracked here
+/// fill on the content box (inset by the row gap, 6pt radius) with a 3pt accent pill inside its
+/// leading edge. In select mode checked rows get a 12% accent tint instead. Hover is tracked here
 /// and forwarded to the cell so the hover actions appear at the trailing edge.
 /// </summary>
 public class WinoMailTableRowView : NSTableRowView
@@ -50,14 +50,16 @@ public class WinoMailTableRowView : NSTableRowView
         }
     }
 
+    /// <summary>The highlight box; the cell lays its content out inside the same rectangle.</summary>
     private CGRect ContentBox
-        => new((nfloat)(WinoMailRowMetrics.ContentLeading + Indent), 0,
-            Bounds.Width - (nfloat)(WinoMailRowMetrics.ContentLeading + Indent + WinoMailRowMetrics.ContentTrailing), Bounds.Height);
+        => new((nfloat)(WinoMailRowMetrics.ContentLeading + Indent), (nfloat)WinoMailRowMetrics.RowGap,
+            Bounds.Width - (nfloat)(WinoMailRowMetrics.ContentLeading + Indent + WinoMailRowMetrics.ContentTrailing),
+            Bounds.Height - (nfloat)(2 * WinoMailRowMetrics.RowGap));
 
     private void FillBox(NSColor color)
     {
         color.SetFill();
-        NSBezierPath.FromRoundedRect(ContentBox, 4, 4).Fill();
+        NSBezierPath.FromRoundedRect(ContentBox, 6, 6).Fill();
     }
 
     public override void DrawSelection(CGRect dirtyRect)
@@ -69,8 +71,11 @@ public class WinoMailTableRowView : NSTableRowView
         }
         FillBox(WinoStyle.Dynamic(NSColor.Black.ColorWithAlphaComponent((nfloat)0.06), NSColor.White.ColorWithAlphaComponent((nfloat)0.10)));
         WinoStyle.Accent.SetFill();
-        var pill = new CGRect((nfloat)(WinoMailRowMetrics.Gutter + Indent), 16, (nfloat)WinoMailRowMetrics.PillWidth, Bounds.Height - 32);
-        NSBezierPath.FromRoundedRect(pill, 2, 2).Fill();
+        // Windows ListViewItem pill: inside the fill, vertically centred, shorter than the row.
+        var box = ContentBox;
+        var pillHeight = (nfloat)Math.Clamp((double)box.Height - 28, 16, 40);
+        var pill = new CGRect(box.X + (nfloat)WinoMailRowMetrics.PillInset, box.Y + (box.Height - pillHeight) / 2, (nfloat)WinoMailRowMetrics.PillWidth, pillHeight);
+        NSBezierPath.FromRoundedRect(pill, (nfloat)(WinoMailRowMetrics.PillWidth / 2), (nfloat)(WinoMailRowMetrics.PillWidth / 2)).Fill();
     }
 
     public override void DrawBackground(CGRect dirtyRect)
@@ -180,8 +185,8 @@ public class WinoMailGroupHeaderView : NSTableCellView
         _strip.AddSubview(_title);
         NSLayoutConstraint.ActivateConstraints(
         [
-            _strip.LeadingAnchor.ConstraintEqualTo(LeadingAnchor, (nfloat)(WinoMailRowMetrics.Gutter + WinoMailRowMetrics.PillWidth)),
-            _strip.TrailingAnchor.ConstraintEqualTo(TrailingAnchor, -(nfloat)(WinoMailRowMetrics.Gutter + WinoMailRowMetrics.PillWidth)),
+            _strip.LeadingAnchor.ConstraintEqualTo(LeadingAnchor, (nfloat)WinoMailRowMetrics.ContentLeading),
+            _strip.TrailingAnchor.ConstraintEqualTo(TrailingAnchor, -(nfloat)WinoMailRowMetrics.ContentTrailing),
             _strip.TopAnchor.ConstraintEqualTo(TopAnchor),
             _strip.BottomAnchor.ConstraintEqualTo(BottomAnchor, -6),
             _title.LeadingAnchor.ConstraintEqualTo(_strip.LeadingAnchor, 12),

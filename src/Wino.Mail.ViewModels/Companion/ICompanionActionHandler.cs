@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -5,9 +6,9 @@ using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.ViewModels.Data;
 
-namespace Wino.Mail.WinUI.Services.Companion;
+namespace Wino.Mail.ViewModels.Companion;
 
-internal interface ICompanionActionHandler
+public interface ICompanionActionHandler
 {
     Task OpenWinoAsync(CancellationToken cancellationToken);
     Task OpenCalendarAsync(CancellationToken cancellationToken);

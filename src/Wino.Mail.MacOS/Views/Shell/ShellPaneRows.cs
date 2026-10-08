@@ -15,7 +15,7 @@ namespace Wino.Mail.MacOS.Views.Shell;
 internal static class ShellPaneRows
 {
     /// <summary>Indent of child rows under their parent, the Windows pane child offset.</summary>
-    public const double ChildIndent = 14;
+    public const double ChildIndent = 12;
 
     public static double Height(IMenuItem item) => item switch
     {

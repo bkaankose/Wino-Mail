@@ -10,6 +10,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Mail.WinUI.Services.Companion;
+using Wino.Mail.ViewModels.Companion;
 
 namespace Wino.Mail.WinUI.Services;
 
