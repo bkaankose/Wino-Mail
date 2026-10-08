@@ -1,0 +1,48 @@
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Wino.Mail.WinUI.Controls">
+
+    <!--  Indicator glyphs share one square box so they line up when placed side by side.  -->
+    <!--  The implicit WinoFontIcon style does not reach these templates, so each icon sets the font explicitly.  -->
+
+    <!--  Flagged  -->
+    <DataTemplate x:Key="FlaggedSymbolControlTemplate">
+        <Viewbox
+            Width="14"
+            Height="14"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+            <controls:WinoFontIcon
+                FontFamily="{ThemeResource WinoIconFontFamily}"
+                Foreground="{StaticResource FlaggedBrush}"
+                Icon="Flag" />
+        </Viewbox>
+    </DataTemplate>
+
+    <!--  Attachments  -->
+    <DataTemplate x:Key="AttachmentSymbolControlTemplate">
+        <Viewbox
+            x:Name="AttachmentSymbol"
+            Width="14"
+            Height="14"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+            <controls:WinoFontIcon
+                FontFamily="{ThemeResource WinoIconFontFamily}"
+                Foreground="{StaticResource AttachmentBrush}"
+                Icon="Attachment" />
+        </Viewbox>
+    </DataTemplate>
+
+    <!--  Calendar invitation  -->
+    <DataTemplate x:Key="CalendarInvitationSymbolControlTemplate">
+        <Viewbox
+            Width="14"
+            Height="14"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+            <controls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Calendar" />
+        </Viewbox>
+    </DataTemplate>
+</ResourceDictionary>

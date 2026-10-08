@@ -1,0 +1,584 @@
+﻿using System;
+using System.ComponentModel;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models.Reader;
+
+namespace Wino.Core.Domain.Interfaces;
+
+public interface IPreferencesService : INotifyPropertyChanged
+{
+    /// <summary>
+    /// When any of the preferences are changed.
+    /// </summary>
+    event EventHandler<string> PreferenceChanged;
+
+    #region Common
+
+    /// <summary>
+    /// Setting: Whether logs are enabled or not.
+    /// </summary>
+    bool IsLoggingEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Display language for the application.
+    /// </summary>
+    AppLanguage CurrentLanguage { get; set; }
+
+    /// <summary>
+    /// Diagnostic ID for the application.
+    /// Changes per-install.
+    /// </summary>
+    string DiagnosticId { get; set; }
+
+    /// <summary>
+    /// Setting: Whether Microsoft Store update notifications should be shown.
+    /// </summary>
+    bool IsStoreUpdateNotificationsEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Whether the system tray icon should be created while the shell is available.
+    /// </summary>
+    bool IsSystemTrayIconEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Whether the tray companion flyout is enabled.
+    /// </summary>
+    bool IsCompanionEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Which unread messages are shown in the companion flyout.
+    /// </summary>
+    CompanionUnreadMessageBehavior CompanionUnreadMessageBehavior { get; set; }
+
+    /// <summary>
+    /// Setting: Whether calendar events are shown in the companion flyout.
+    /// </summary>
+    bool ShowCalendarInCompanion { get; set; }
+
+    /// <summary>
+    /// Setting: Whether unread messages are shown in the companion flyout.
+    /// </summary>
+    bool ShowUnreadMailInCompanion { get; set; }
+
+    /// <summary>
+    /// Setting: Whether tasks are shown in the companion flyout.
+    /// </summary>
+    bool ShowTasksInCompanion { get; set; }
+
+    /// <summary>
+    /// Setting: Whether favorite contacts are shown in the companion flyout.
+    /// </summary>
+    bool ShowFavoriteContactsInCompanion { get; set; }
+
+    /// <summary>
+    /// Setting: Whether the companion flyout can be toggled with a system-wide hot key.
+    /// </summary>
+    bool IsCompanionHotKeyEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: The non-modifier key used by the companion system-wide hot key.
+    /// </summary>
+    string CompanionHotKeyKey { get; set; }
+
+    /// <summary>
+    /// Setting: The modifiers used by the companion system-wide hot key.
+    /// </summary>
+    ModifierKeys CompanionHotKeyModifiers { get; set; }
+
+    /// <summary>
+    /// Setting: The snooze currently in effect, or <see cref="NotificationSnoozePreset.None"/> when
+    /// notifications are delivering. Persisted rather than held in memory so the choice survives a
+    /// restart, and so the companion flyout and the shell agree on it without either owning the state.
+    /// </summary>
+    NotificationSnoozePreset NotificationSnoozePreset { get; set; }
+
+    /// <summary>
+    /// Setting: When the current snooze ends, in UTC ticks. Zero means the snooze runs until it is
+    /// turned back on. Stored as ticks because the configuration layer round-trips values through
+    /// <see cref="System.Convert.ChangeType(object, System.Type)"/>, which cannot handle
+    /// <see cref="System.DateTimeOffset"/> and is culture-sensitive for <see cref="System.DateTime"/>.
+    /// </summary>
+    long NotificationSnoozeUntilUtcTicks { get; set; }
+
+    /// <summary>
+    /// Setting: The last snooze duration the user chose. Seeds the snooze when it is turned on
+    /// without picking a duration first.
+    /// </summary>
+    NotificationSnoozePreset LastUsedSnoozePreset { get; set; }
+
+    /// <summary>
+    /// Setting: Whether notifications are held on a daily schedule.
+    /// </summary>
+    bool AreQuietHoursEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Time of day quiet hours begin.
+    /// </summary>
+    TimeSpan QuietHoursStart { get; set; }
+
+    /// <summary>
+    /// Setting: Time of day quiet hours end. Earlier than the start time means the window spans midnight.
+    /// </summary>
+    TimeSpan QuietHoursEnd { get; set; }
+
+    /// <summary>
+    /// Setting: Days the quiet hours schedule runs on.
+    /// </summary>
+    QuietHoursDays QuietHoursDays { get; set; }
+
+    /// <summary>
+    /// Setting: Whether notifications are held while a full-screen app or a screen share is active.
+    /// </summary>
+    bool SnoozeWhilePresenting { get; set; }
+
+    /// <summary>
+    /// Setting: Whether new mail raises a notification at all.
+    /// </summary>
+    bool AreNewMailNotificationsEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Which folders raise a notification when new mail arrives.
+    /// </summary>
+    MailNotificationScope MailNotificationScope { get; set; }
+
+    /// <summary>
+    /// Setting: How much of a message is shown on its notification.
+    /// </summary>
+    MailNotificationContent MailNotificationContent { get; set; }
+
+    /// <summary>
+    /// Setting: Whether calendar events raise reminder notifications.
+    /// </summary>
+    bool AreCalendarRemindersEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Whether tasks raise reminder notifications.
+    /// </summary>
+    bool AreTaskRemindersEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: When a task reminder is raised relative to its due time.
+    /// </summary>
+    TaskReminderTiming TaskReminderTiming { get; set; }
+
+    /// <summary>
+    /// Setting: Default snooze duration in minutes for task reminder notifications.
+    /// </summary>
+    int TaskReminderSnoozeMinutes { get; set; }
+
+    /// <summary>
+    /// Setting: System sound played for task reminder notifications.
+    /// </summary>
+    NotificationSoundEvent TaskNotificationSoundEvent { get; set; }
+
+    /// <summary>
+    /// Setting: What Wino should do when the shell window is closed.
+    /// </summary>
+    AppCloseBehavior AppCloseBehavior { get; set; }
+
+    /// <summary>
+    /// Serializes the current syncable preferences snapshot.
+    /// </summary>
+    string ExportPreferences();
+
+    /// <summary>
+    /// Deserializes and applies a preferences snapshot.
+    /// Returns the applied and failed property counts.
+    /// </summary>
+    (int appliedCount, int failedCount) ImportPreferences(string settingsJson);
+
+    #endregion
+
+    #region Mail
+
+    /// <summary>
+    /// Setting: Monochrome or colorful WinoIcons font. Defaults to monochrome.
+    /// </summary>
+    WinoIconStyle IconStyle { get; set; }
+
+    /// <summary>
+    /// Setting: Preferred time format for mail list and reader display.
+    /// </summary>
+    TimeFormatPreference MailTimeFormatPreference { get; set; }
+
+    /// <summary>
+    /// Setting: Defines the user's preference of default search mode in mail list.
+    /// Local search will still offer online search at the end of local search results.
+    /// </summary>
+    SearchMode DefaultSearchMode { get; set; }
+
+    /// <summary>
+    /// Setting: Interval in minutes for background email synchronization.
+    /// </summary>
+    int EmailSyncIntervalMinutes { get; set; }
+
+    /// <summary>
+    /// Setting: Whether sending drafts should be held briefly so it can be undone.
+    /// </summary>
+    bool IsUndoSendingDraftsEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: How many seconds sending drafts is held before synchronizers execute it.
+    /// </summary>
+    int UndoSendingDraftsIntervalInSeconds { get; set; }
+
+    /// <summary>
+    /// Setting: Whether deleting mails should be held briefly so it can be undone.
+    /// </summary>
+    bool IsUndoDeletingMailsEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: How many seconds deleting mails is held before synchronizers execute it.
+    /// </summary>
+    int UndoDeletingMailsIntervalInSeconds { get; set; }
+
+    /// <summary>
+    /// Setting: For changing the mail display container mode.
+    /// </summary>
+    MailListDisplayMode MailItemDisplayMode { get; set; }
+
+    /// <summary>
+    /// Setting: Show account menu items in a compact, single-line layout.
+    /// </summary>
+    bool IsCompactAccountMenuItemEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Show locally ignored Daily Briefing items for review.
+    /// </summary>
+    bool IsDailyBriefingShowingIgnored { get; set; }
+
+    /// <summary>
+    /// Setting: Marking the item as read preference mode.
+    /// </summary>
+    MailMarkAsOption MarkAsPreference { get; set; }
+
+    /// <summary>
+    /// Setting: How many seconds should be waited on rendering page to mark item as read.
+    /// </summary>
+    int MarkAsDelay { get; set; }
+
+    /// <summary>
+    /// Setting: Ask confirmation from the user during permanent delete.
+    /// </summary>
+    bool IsHardDeleteProtectionEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Show the empty-folder command for junk/spam folders.
+    /// </summary>
+    bool IsShowEmptyJunkFolderEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Thread mails into conversations.
+    /// </summary>
+    bool IsThreadingEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Whether the newest message in a conversation should appear first.
+    /// </summary>
+    bool IsNewestThreadMailFirst { get; set; }
+
+    /// <summary>
+    /// Setting: Show sender pictures in mail list.
+    /// </summary>
+    bool IsShowSenderPicturesEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Show preview text in mail list.
+    /// </summary>
+    bool IsShowPreviewEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Show group headers in mail list.
+    /// </summary>
+    bool IsMailListGroupHeadersEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Show an unread message notice for the Other tab while viewing Focused Inbox.
+    /// </summary>
+    bool IsOtherInboxUnreadNoticeEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Set whether 'img' tags in rendered HTMLs should be removed.
+    /// </summary>
+    bool RenderImages { get; set; }
+
+    /// <summary>
+    /// Setting: Set whether 'style' tags in rendered HTMls should be removed.
+    /// </summary>
+    bool RenderStyles { get; set; }
+
+    /// <summary>
+    /// Setting: Set whether plaintext links should be automatically converted to clickable links.
+    /// </summary>
+    bool RenderPlaintextLinks { get; set; }
+
+    /// <summary>
+    /// Gets the preferred rendering options for HTML rendering.
+    /// </summary>
+    MailRenderingOptions GetRenderingOptions();
+
+    /// <summary>
+    /// Setting: Whether swipe actions are enabled for mail list items.
+    /// </summary>
+    bool IsSwipeActionsEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Swipe mail operation when mails are swiped to right.
+    /// </summary>
+    MailOperation RightSwipeOperation { get; set; }
+
+    /// <summary>
+    /// Setting: Swipe mail operation when mails are swiped to left.
+    /// </summary>
+    MailOperation LeftSwipeOperation { get; set; }
+
+    /// <summary>
+    /// Setting: Whether hover actions on mail pointer hover is enabled or not.
+    /// </summary>
+    bool IsHoverActionsEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Hover action on the left when the mail is hovered over.
+    /// </summary>
+    MailOperation LeftHoverAction { get; set; }
+
+    /// <summary>
+    /// Setting: Hover action on the center when the mail is hovered over.
+    /// </summary>
+    MailOperation CenterHoverAction { get; set; }
+
+    /// <summary>
+    /// Setting: Hover action on the right when the mail is hovered over.
+    /// </summary>
+    MailOperation RightHoverAction { get; set; }
+
+    /// <summary>
+    /// Setting: Entrance animation played when hover actions become visible.
+    /// </summary>
+    MailHoverActionAnimation HoverActionAnimation { get; set; }
+
+    /// <summary>
+    /// Setting: Where hover actions are placed inside the mail row.
+    /// </summary>
+    MailHoverActionPosition HoverActionPosition { get; set; }
+
+    /// <summary>
+    /// Setting: Size of hover action buttons inside the mail row.
+    /// </summary>
+    MailHoverActionButtonSize HoverActionButtonSize { get; set; }
+
+    /// <summary>
+    /// Setting: Which entity id (merged account or folder) should be expanded automatically on startup.
+    /// </summary>
+    Guid? StartupEntityId { get; set; }
+
+    /// <summary>
+    /// Setting: When the whole taskbar badge belongs to a single account, open the folder holding that
+    /// unread mail instead of <see cref="StartupEntityId"/>. Only affects a normal mail launch; toast,
+    /// protocol, jump list and compose activations keep their explicit destination.
+    /// </summary>
+    bool IsTaskbarBadgeLaunchNavigationEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: First action button displayed on mail toast notifications.
+    /// </summary>
+    MailOperation FirstMailNotificationAction { get; set; }
+
+    /// <summary>
+    /// Setting: Second action button displayed on mail toast notifications.
+    /// </summary>
+    MailOperation SecondMailNotificationAction { get; set; }
+
+    /// <summary>
+    /// Setting: System sound played for mail notifications.
+    /// </summary>
+    NotificationSoundEvent MailNotificationSoundEvent { get; set; }
+
+    /// <summary>
+    /// Setting: Display font for the mail reader.
+    /// </summary>
+    string ReaderFont { get; set; }
+
+    /// <summary>
+    /// Setting: Font size for the mail reader.
+    /// </summary>
+    int ReaderFontSize { get; set; }
+
+    /// <summary>
+    /// Setting: Display font for the mail composer.
+    /// </summary>
+    string ComposerFont { get; set; }
+
+    /// <summary>
+    /// Setting: Font size for the mail composer.
+    /// </summary>
+    int ComposerFontSize { get; set; }
+
+    /// <summary>
+    /// Setting: Whether spellchecking is enabled in the mail composer.
+    /// </summary>
+    bool IsComposerSpellCheckEnabled { get; set; }
+
+    /// <summary>Automatically correct unambiguous spelling errors while composing.</summary>
+    bool IsComposerAutoCorrectEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: BCP-47 language code used by the composer spellchecker.
+    /// </summary>
+    string ComposerSpellCheckLanguageCode { get; set; }
+
+
+
+    /// <summary>
+    /// Setting: Whether the next item should be automatically selected once the current item is moved or removed.
+    /// </summary>
+    bool AutoSelectNextItem { get; set; }
+
+    /// <summary>
+    /// Setting: Whether the mail list action bar is enabled or not.
+    /// </summary>
+    bool IsMailListActionBarEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Whether the mail rendering page will show the action labels
+    /// </summary>
+    bool IsShowActionLabelsEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Enable/disable Gravatar for sender avatars.
+    /// </summary>
+    bool IsGravatarEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Enable/disable Favicon for sender avatars.
+    /// </summary>
+    bool IsFaviconEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: The position of the account nickname indicator.
+    /// </summary>
+    AccountNicknamePosition AccountNicknamePosition { get; set; }
+
+    #endregion
+
+    #region Intelligence
+
+    /// <summary>
+    /// Setting: Default target language code used for AI translation actions.
+    /// </summary>
+    string AiDefaultTranslationLanguageCode { get; set; }
+
+    /// <summary>
+    /// Setting: Preferred target language code for AI summarize actions.
+    /// </summary>
+    string AiSummarizeLanguageCode { get; set; }
+
+    #endregion
+
+    #region Shell
+
+    /// <summary>
+    /// Setting: Whether the navigation pane is opened on the last session or not.
+    /// </summary>
+    bool IsNavigationPaneOpened { get; set; }
+
+    /// <summary>
+    /// Setting: Whether the Wino account profile button in the shell title bar should be hidden.
+    /// </summary>
+    bool IsWinoAccountButtonHidden { get; set; }
+
+    #endregion
+
+    #region Calendar
+
+    DayOfWeek FirstDayOfWeek { get; set; }
+    bool IsWorkingHoursEnabled { get; set; }
+    TimeSpan WorkingHourStart { get; set; }
+    TimeSpan WorkingHourEnd { get; set; }
+    DayOfWeek WorkingDayStart { get; set; }
+    DayOfWeek WorkingDayEnd { get; set; }
+    double HourHeight { get; set; }
+    string CalendarTimedDayHeaderDateFormat { get; set; }
+
+    /// <summary>
+    /// Setting: Interval in minutes for background calendar synchronization.
+    /// </summary>
+    int CalendarSyncIntervalMinutes { get; set; }
+
+    /// <summary>
+    /// Setting: Preferred time format for calendar header display.
+    /// </summary>
+    TimeFormatPreference CalendarTimeFormatPreference { get; set; }
+
+    /// <summary>
+    /// Setting: Default reminder duration in seconds for new calendar events.
+    /// Set to 0 to disable default reminders.
+    /// </summary>
+    long DefaultReminderDurationInSeconds { get; set; }
+
+    /// <summary>
+    /// Setting: Default snooze duration in minutes for calendar reminder notifications.
+    /// </summary>
+    int DefaultSnoozeDurationInMinutes { get; set; }
+
+    /// <summary>
+    /// Setting: How the New Event button chooses a calendar.
+    /// </summary>
+    NewEventButtonBehavior NewEventButtonBehavior { get; set; }
+
+    /// <summary>
+    /// Setting: Default calendar used when New Event is configured to always use a specific calendar.
+    /// </summary>
+    Guid? DefaultNewEventCalendarId { get; set; }
+
+    /// <summary>
+    /// Setting: Whether calendar accounts are shown as expandable groups in the shell pane.
+    /// </summary>
+    bool IsCalendarAccountsGrouped { get; set; }
+
+    /// <summary>
+    /// Setting: Account selected when the ungrouped calendar shell pane is initialized.
+    /// </summary>
+    Guid? CalendarStartupAccountId { get; set; }
+
+    /// <summary>
+    /// Setting: Whether the compact calendar date picker is expanded in the shell pane.
+    /// </summary>
+    bool IsCalendarDatePickerExpanded { get; set; }
+
+    /// <summary>
+    /// Setting: System sound played for calendar reminder notifications.
+    /// </summary>
+    NotificationSoundEvent CalendarNotificationSoundEvent { get; set; }
+
+    CalendarEventDisplayMode CalendarEventDisplayMode { get; set; }
+
+    CalendarSettings GetCurrentCalendarSettings();
+
+    #endregion
+
+    #region People
+
+    NewItemDestinationBehavior ContactCreationBehavior { get; set; }
+    Guid? SpecificContactAddressBookId { get; set; }
+    Guid? LastUsedContactAddressBookId { get; set; }
+    ContactNameDisplayFormat ContactNameDisplayFormat { get; set; }
+    ContactSortOrder ContactSortOrder { get; set; }
+
+    #endregion
+
+    #region To Do
+
+    NewItemDestinationBehavior TaskCreationBehavior { get; set; }
+    Guid? SpecificTaskListId { get; set; }
+    Guid? LastUsedTaskListId { get; set; }
+    ToDoStartView ToDoStartView { get; set; }
+    Guid? ToDoStartTaskListId { get; set; }
+    CompletedTaskTreatment CompletedTaskTreatment { get; set; }
+    CompletedTaskHideDelay CompletedTaskHideDelay { get; set; }
+    bool IsTaskCompletionSoundEnabled { get; set; }
+    bool IsTaskDeleteConfirmationEnabled { get; set; }
+
+    #endregion
+}

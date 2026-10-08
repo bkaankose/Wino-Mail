@@ -1,0 +1,286 @@
+using System;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Data;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Navigation;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.Foundation;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Models.Contacts;
+using Wino.Helpers;
+using Wino.Mail.Controls.Core.SearchBar;
+using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Data;
+using Wino.Mail.WinUI.Controls;
+using Wino.Mail.WinUI.Helpers;
+using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.WinUI.Models;
+using Wino.Views.Abstract;
+
+namespace Wino.Views.Settings;
+
+public sealed partial class ContactsPage : ContactsPageAbstract, ITitleBarSearchHost
+{
+    public ObservableCollection<TitleBarSearchSuggestion> SearchSuggestions { get; } = [];
+    public SearchBarMode SearchMode => SearchBarMode.Contacts;
+    private CancellationTokenSource _searchCancellationTokenSource;
+    private string _searchText = string.Empty;
+
+    private CollectionViewSource ContactCollectionViewSource => (CollectionViewSource)Resources["ContactCollectionViewSource"];
+
+    public string SearchText
+    {
+        get => _searchText;
+        set => _searchText = value ?? string.Empty;
+    }
+
+    public ContactsPage()
+    {
+        InitializeComponent();
+
+        ContactCollectionViewSource.Source = ViewModel.ContactGroups;
+
+        // Native AOT needs the grouped view handed to the list in code. The generated
+        // x:Bind path to CollectionViewSource.View does not root the grouped ABI.
+        ContactsListView.ItemsSource = ContactCollectionViewSource.View;
+
+        Loaded += ContactsPageLoaded;
+        Unloaded += ContactsPageUnloaded;
+    }
+
+    private void ContactsPageLoaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        ViewModel.PropertyChanged -= ViewModelPropertyChanged;
+        ViewModel.PropertyChanged += ViewModelPropertyChanged;
+
+        if (ViewModel.ListScrollOffset is double verticalOffset)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                ContactsListView.UpdateLayout();
+                var scrollViewer = WinoVisualTreeHelper.GetChildObject<ScrollViewer>(ContactsListView, string.Empty);
+                scrollViewer?.ChangeView(null, verticalOffset, null, true);
+            });
+        }
+    }
+
+    protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
+    {
+        var scrollViewer = WinoVisualTreeHelper.GetChildObject<ScrollViewer>(ContactsListView, string.Empty);
+        if (scrollViewer is not null)
+            ViewModel.ListScrollOffset = scrollViewer.VerticalOffset;
+
+        base.OnNavigatingFrom(e);
+    }
+
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        base.OnNavigatedFrom(e);
+        DetachFromViewModel();
+    }
+
+    public override void PrepareForClose()
+    {
+        // A mode switch clears the frame content without OnNavigatedFrom.
+        DetachFromViewModel();
+        base.PrepareForClose();
+    }
+
+    /// <summary>
+    /// The view model outlives the page, so everything that connects the two is taken down
+    /// here: its events, the bindings, the grouped view the list is bound to, and the commands
+    /// the buttons and menu items subscribed to.
+    /// </summary>
+    private void DetachFromViewModel()
+    {
+        ViewModel.PropertyChanged -= ViewModelPropertyChanged;
+        _searchCancellationTokenSource?.Cancel();
+        _searchCancellationTokenSource?.Dispose();
+        _searchCancellationTokenSource = null;
+
+        Bindings.StopTracking();
+        ContactsListView.SelectionChanged -= ContactsListView_SelectionChanged;
+        ContactsListView.ItemsSource = null;
+        ContactCollectionViewSource.Source = null;
+        CommandSourceHelper.ReleaseCommands(this);
+    }
+
+    private void ToggleFavorite_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        if (sender is Button { CommandParameter: AccountContactViewModel contact })
+        {
+            ViewModel.ToggleFavoriteCommand.Execute(contact);
+        }
+    }
+
+    private async void ContactCardContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (sender is not FrameworkElement { DataContext: AccountContactViewModel contact } target)
+            return;
+
+        args.Handled = true;
+        Point? position = args.TryGetPosition(target, out var targetPosition) ? targetPosition : null;
+        var flyout = (ContactCardMenuFlyout)Resources["ContactCardContextFlyout"];
+        await flyout.ShowForAsync(target, position, ViewModel, contact);
+    }
+
+    private async void ContactsListView_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (args.Handled ||
+            sender is not ListView listView ||
+            listView.SelectedItem is not AccountContactViewModel contact ||
+            listView.ContainerFromItem(contact) is not FrameworkElement target)
+        {
+            return;
+        }
+
+        args.Handled = true;
+        var flyout = (ContactCardMenuFlyout)Resources["ContactCardContextFlyout"];
+        await flyout.ShowForAsync(target, null, ViewModel, contact);
+    }
+
+    private void ContactsListView_DragItemsStarting(object sender, DragItemsStartingEventArgs args)
+    {
+        var draggedContacts = args.Items.OfType<AccountContactViewModel>().ToList();
+        var dragPackage = new ContactDragPackage(ViewModel.ResolveContactDragIds(draggedContacts));
+        if (dragPackage.ContactIds.Count == 0)
+        {
+            args.Cancel = true;
+            return;
+        }
+
+        args.Data.Properties.Add(ContactDragPackage.DataPropertyName, dragPackage);
+        var draggingText = dragPackage.ContactIds.Count == 1
+            ? Translator.ContactDrag_SingleCaption
+            : string.Format(Translator.ContactDrag_MultipleCaption, dragPackage.ContactIds.Count);
+        args.Data.SetText(draggingText);
+        args.Data.Properties.Title = draggingText;
+        args.Data.RequestedOperation = DataPackageOperation.Copy;
+    }
+
+    private void ContactsListView_DragItemsCompleted(ListViewBase sender, DragItemsCompletedEventArgs args)
+    {
+        foreach (var filter in ViewModel.FilterGroups.SelectMany(group => group))
+            filter.IsDraggingItemOver = false;
+    }
+
+    private void ContactsListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        // Extended selection allows Ctrl and Shift multi-select outside selection mode,
+        // so the view model tracks the list selection in both modes.
+        if (sender is not ListView)
+            return;
+
+        foreach (var removedItem in e.RemovedItems.OfType<AccountContactViewModel>())
+        {
+            var selectedContact = ViewModel.SelectedContacts.FirstOrDefault(c => c.Id == removedItem.Id);
+
+            if (selectedContact != null)
+            {
+                ViewModel.SelectedContacts.Remove(selectedContact);
+            }
+        }
+
+        foreach (var addedItem in e.AddedItems.OfType<AccountContactViewModel>())
+        {
+            var alreadySelected = ViewModel.SelectedContacts.Any(c => c.Id == addedItem.Id);
+
+            if (!alreadySelected)
+            {
+                ViewModel.SelectedContacts.Add(addedItem);
+            }
+        }
+    }
+
+    private void ViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ContactsPageViewModel.IsSelectionMode) && !ViewModel.IsSelectionMode)
+        {
+            ClearSelection();
+        }
+    }
+
+    private void ContactsPageUnloaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        ViewModel.PropertyChanged -= ViewModelPropertyChanged;
+        _searchCancellationTokenSource?.Cancel();
+        _searchCancellationTokenSource?.Dispose();
+        _searchCancellationTokenSource = null;
+    }
+
+    private void ClearSelection()
+    {
+        ContactsListView.SelectionChanged -= ContactsListView_SelectionChanged;
+        ContactsListView.SelectedItems.Clear();
+        ContactsListView.SelectionChanged += ContactsListView_SelectionChanged;
+        ViewModel.SelectedContacts.Clear();
+    }
+
+    public async Task OnTitleBarSearchTextChangedAsync()
+    {
+        _searchCancellationTokenSource?.Cancel();
+        _searchCancellationTokenSource?.Dispose();
+        _searchCancellationTokenSource = null;
+        SearchSuggestions.Clear();
+
+        var queryText = SearchText;
+        if (string.IsNullOrWhiteSpace(queryText))
+            return;
+
+        _searchCancellationTokenSource = new CancellationTokenSource();
+        var cancellationToken = _searchCancellationTokenSource.Token;
+
+        try
+        {
+            await Task.Delay(150, cancellationToken);
+            var contacts = await ViewModel.SearchContactsAsync(queryText, 6);
+
+            if (cancellationToken.IsCancellationRequested || !string.Equals(SearchText, queryText, StringComparison.Ordinal))
+                return;
+
+            foreach (var contact in contacts)
+            {
+                var subtitle = string.Join(" • ", new[] { contact.SecondaryValue, contact.SourceLabel }
+                    .Where(value => !string.IsNullOrWhiteSpace(value)));
+                SearchSuggestions.Add(new TitleBarSearchSuggestion(
+                    contact.Name ?? contact.SourceContact.DisplayValue,
+                    subtitle,
+                    contact,
+                    XamlHelpers.GetContactPicture(contact)));
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    public void OnTitleBarSearchSuggestionChosen(TitleBarSearchSuggestion suggestion)
+    {
+        SearchText = suggestion.Title;
+    }
+
+    public async Task OnTitleBarSearchSubmittedAsync(string queryText, TitleBarSearchSuggestion? chosenSuggestion)
+    {
+        SearchText = chosenSuggestion?.Title ?? queryText;
+
+        var suggestedContact = chosenSuggestion?.Tag as AccountContactViewModel
+            ?? (await ViewModel.SearchContactsAsync(queryText, 1)).FirstOrDefault();
+        if (suggestedContact is null)
+            return;
+
+        SearchSuggestions.Clear();
+        var loadedContact = await ViewModel.LoadAndSelectContactAsync(suggestedContact.Id);
+        if (loadedContact is null)
+            return;
+
+        ContactsListView.SelectedItem = loadedContact;
+        ContactsListView.ScrollIntoView(loadedContact, ScrollIntoViewAlignment.Leading);
+    }
+}

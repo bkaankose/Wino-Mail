@@ -1,0 +1,164 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Badges;
+using Wino.Core.Domain.Models.Folders;
+using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Synchronization;
+
+namespace Wino.Core.Domain.Interfaces;
+
+public interface IFolderService
+{
+    Task<AccountFolderTree> GetFolderStructureForAccountAsync(Guid accountId, bool includeHiddenFolders);
+
+    /// <summary>
+    /// Returns the visible folders of an account shaped the way the navigation menu shows them:
+    /// menu order, sticky folders at the root, Gmail category labels under a virtual Categories
+    /// folder, and the remaining folders under a virtual More folder.
+    /// </summary>
+    Task<List<IMailItemFolder>> GetFolderStructureForDisplayAsync(Guid accountId);
+    Task<MailItemFolder> GetFolderAsync(Guid folderId);
+    Task<MailItemFolder> GetFolderAsync(Guid accountId, string remoteFolderId);
+    Task<List<MailItemFolder>> GetFoldersAsync(Guid accountId);
+    Task<List<MailItemFolder>> GetFoldersByIdsAsync(IReadOnlyCollection<Guid> folderIds, CancellationToken cancellationToken = default);
+    Task<MailItemFolder> GetSpecialFolderByAccountIdAsync(Guid accountId, SpecialFolderType type);
+    Task<int> GetCurrentItemCountForFolder(Guid folderId);
+    /// <summary>
+    /// Unread count of a single folder, applying the Focused Inbox filter and the item-count rule
+    /// Draft and Junk use. This is the raw number; folder badge visibility is not considered here.
+    /// </summary>
+    Task<int> GetFolderUnreadCountAsync(Guid folderId);
+
+    /// <summary>
+    /// Unread count of a single folder for the requested Focused Inbox section.
+    /// </summary>
+    Task<int> GetFolderUnreadCountAsync(Guid folderId, bool isFocused);
+
+    /// <summary>
+    /// Unread counts of the folders that feed the account total, honoring the account count source.
+    /// </summary>
+    Task<List<UnreadBadgeFolderContribution>> GetCountedFolderUnreadCountsAsync(Guid accountId);
+    Task ChangeStickyStatusAsync(Guid folderId, bool isSticky);
+
+    /// <summary>
+    /// Toggles a folder's visibility in the navigation menu.
+    /// Hidden folders are still synchronized if sync is enabled.
+    /// </summary>
+    Task ChangeFolderHiddenStatusAsync(Guid folderId, bool isHidden);
+
+    /// <summary>
+    /// Persists a new custom ordering for the given folders.
+    /// The first id becomes Order=1, second Order=2, etc.
+    /// Caller is responsible for notifying the shell to refresh.
+    /// </summary>
+    Task UpdateFolderOrdersAsync(Guid accountId, IReadOnlyList<Guid> orderedFolderIds);
+
+    /// <summary>
+    /// Wipes every user folder customization for the account: clears custom Order,
+    /// un-hides folders, and restores IsSticky on system folders.
+    /// </summary>
+    Task ResetFolderCustomizationAsync(Guid accountId);
+
+    /// <summary>
+    /// Parks folder navigation settings that arrived from a Wino Account import before the folder existed locally.
+    /// The settings are applied and the row deleted when the synchronizer creates the folder.
+    /// </summary>
+    Task UpsertFolderConfigurationOverrideAsync(FolderConfigurationOverride configurationOverride);
+
+    /// <summary>
+    /// Returns the parked folder configuration overrides for the account. Used by tests and diagnostics.
+    /// </summary>
+    Task<List<FolderConfigurationOverride>> GetFolderConfigurationOverridesAsync(Guid accountId);
+
+    /// <summary>
+    /// Drops every parked folder configuration override for the account.
+    /// Called once the folder structure is fully synchronized, so overrides for folders that no longer
+    /// exist remotely cannot linger, and when the account is deleted.
+    /// </summary>
+    Task ClearFolderConfigurationOverridesAsync(Guid accountId);
+
+    Task<MailAccount> UpdateSystemFolderConfigurationAsync(Guid accountId, SystemFolderConfiguration configuration);
+    Task ChangeFolderSynchronizationStateAsync(Guid folderId, bool isSynchronizationEnabled);
+    Task ChangeFolderShowUnreadCountStateAsync(Guid folderId, bool showUnreadCount);
+    Task ChangeFolderCountedInAccountTotalStateAsync(Guid folderId, bool isCounted);
+    Task ChangeFolderJumpListStateAsync(Guid folderId, bool isEnabled);
+
+    Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(MailSynchronizationOptions options);
+
+    /// <summary>
+    /// Returns the folder - mail mapping for the given mail copy ids.
+    /// </summary>
+    Task<List<MailFolderPairMetadata>> GetMailFolderPairMetadatasAsync(IEnumerable<string> mailCopyIds);
+
+    /// <summary>
+    /// Returns the folder - mail mapping for the given mail copy id.
+    /// </summary>
+    Task<List<MailFolderPairMetadata>> GetMailFolderPairMetadatasAsync(string mailCopyId);
+
+    /// <summary>
+    /// Deletes the folder for the given account by remote folder id.
+    /// </summary>
+    /// <param name="accountId">Account to remove from.</param>
+    /// <param name="remoteFolderId">Remote folder id.</param>
+    /// <returns></returns>
+    Task DeleteFolderAsync(Guid accountId, string remoteFolderId);
+
+    /// <summary>
+    /// Adds a new folder.
+    /// </summary>
+    /// <param name="folder">Folder to add.</param>
+    Task InsertFolderAsync(MailItemFolder folder);
+
+
+    /// <summary>
+    /// Returns the known uids for the given folder.
+    /// Only used for IMAP
+    /// </summary>
+    /// <param name="folderId">Folder to get uIds for</param>
+    Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId);
+
+    /// <summary>
+    /// Checks if Inbox special folder exists for an account.
+    /// </summary>
+    /// <param name="accountId">Account id to check for.</param>
+    /// <returns>True if Inbox exists, False if not.</returns>
+    Task<bool> IsInboxAvailableForAccountAsync(Guid accountId);
+
+    /// <summary>
+    /// Updates folder's LastSynchronizedDate to now.
+    /// </summary>
+    /// <param name="folderId">Folder to update.</param>
+    Task UpdateFolderLastSyncDateAsync(Guid folderId);
+
+    /// <summary>
+    /// Updates the given folder.
+    /// </summary>
+    /// <param name="folder">Folder to update.</param>
+    Task UpdateFolderAsync(MailItemFolder folder);
+
+    /// <summary>
+    /// Updates only IMAP HighestModeSeq for the given folder.
+    /// </summary>
+    /// <param name="folderId">Folder id to update.</param>
+    /// <param name="highestModeSeq">Latest known mod-seq value.</param>
+    Task UpdateFolderHighestModeSeqAsync(Guid folderId, long highestModeSeq);
+
+    /// <summary>
+    /// Returns the active folder menu items for the given account for UI.
+    /// </summary>
+    /// <param name="accountMenuItem">Account to get folder menu items for.</param>
+    Task<IEnumerable<IMenuItem>> GetAccountFoldersForDisplayAsync(IAccountMenuItem accountMenuItem);
+
+    /// <summary>
+    /// Returns a list of unread item counts for the given account ids.
+    /// Every folder that is marked as show unread badge is included.
+    /// </summary>
+    /// <param name="accountIds">Account ids to get unread folder counts for.</param>
+    Task<List<UnreadItemCountResult>> GetUnreadItemCountResultsAsync(IEnumerable<Guid> accountIds);
+}

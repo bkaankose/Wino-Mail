@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleIdentifier</key><string>com.winomail.macos</string>
+  <key>CFBundleName</key><string>Wino Mail</string>
+  <key>CFBundleShortVersionString</key><string>0.1.0</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>LSMinimumSystemVersion</key><string>14.0</string>
+  <key>NSHighResolutionCapable</key><true/>
+  <!-- App icon from the Windows Mail entry (Assets/AppEntries/Mail.svg), rendered on Apple's 824/1024 grid. -->
+  <key>XSAppIconAssets</key><string>Assets.xcassets/AppIcon.appiconset</string>
+  <!-- OS activation (WS8): mail links, Wino deep links (checkout return) and calendar subscriptions. -->
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key><string>com.winomail.macos.mailto</string>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>CFBundleURLSchemes</key><array><string>mailto</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleURLName</key><string>com.winomail.macos.wino</string>
+      <key>CFBundleTypeRole</key><string>Viewer</string>
+      <key>CFBundleURLSchemes</key><array><string>wino</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleURLName</key><string>com.winomail.macos.webcal</string>
+      <key>CFBundleTypeRole</key><string>Viewer</string>
+      <key>CFBundleURLSchemes</key><array><string>webcal</string><string>webcals</string></array>
+    </dict>
+  </array>
+  <!-- Calendar invitations and contact cards open in Wino as an alternative handler. .eml is deferred. -->
+  <key>CFBundleDocumentTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key><string>iCalendar Event</string>
+      <key>CFBundleTypeRole</key><string>Viewer</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>LSItemContentTypes</key><array><string>com.apple.ical.ics</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key><string>vCard</string>
+      <key>CFBundleTypeRole</key><string>Viewer</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>LSItemContentTypes</key><array><string>public.vcard</string></array>
+    </dict>
+  </array>
+</dict></plist>

@@ -1,0 +1,54 @@
+using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Xaml;
+using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.WinUI.Models;
+
+namespace Wino.Mail.WinUI.Services;
+
+public static class HostedContentPopoutCoordinator
+{
+    public static async Task<bool> PopOutCurrentContentAsync(IHostedPopoutSource source)
+    {
+        if (!source.CanPopOutCurrentContent())
+            return false;
+
+        var content = source.GetCurrentHostedContent();
+        if (content is not FrameworkElement frameworkElement || frameworkElement is not IPopoutClient client || !client.SupportsPopOut)
+            return false;
+
+        var descriptor = source.CreatePopoutDescriptor(client);
+        var windowManager = WinoApplication.Current.Services.GetRequiredService<IWinoWindowManager>();
+
+        if (windowManager.GetWindow(WinoWindowKind.HostedPopout, descriptor.WindowName) is HostedContentPopoutWindow existingWindow)
+        {
+            windowManager.ActivateWindow(existingWindow);
+            return false;
+        }
+
+        // Mark the client before detaching it from its Frame. Detaching causes
+        // navigation lifecycle callbacks, and a hosted page must not dispose
+        // itself while it is being reparented into the pop-out window.
+        client.OnPopoutStateChanged(true);
+        var detachedContent = source.DetachHostedContent();
+
+        // The content is attached inside the factory so the window is complete before the
+        // window manager applies the theme and shows it.
+        await windowManager.ShowThemedWindowAsync(
+            WinoWindowKind.HostedPopout,
+            () =>
+            {
+                var popoutWindow = new HostedContentPopoutWindow(descriptor, () =>
+                {
+                    source.OnHostedPopoutClosed(detachedContent, descriptor);
+                });
+
+                popoutWindow.SetHostedContent(detachedContent);
+                source.OnHostedContentPoppedOut(detachedContent, popoutWindow, descriptor);
+                return popoutWindow;
+            },
+            descriptor.WindowName);
+
+        return true;
+    }
+}

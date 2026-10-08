@@ -1,0 +1,435 @@
+﻿using System;
+using System.IO;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using HtmlAgilityPack;
+using MimeKit;
+using MimeKit.Cryptography;
+using Serilog;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Reader;
+using Wino.Services.Extensions;
+
+namespace Wino.Services;
+
+public class MimeFileService : IMimeFileService
+{
+    private readonly IApplicationConfiguration _applicationConfiguration;
+    private readonly ISmimeCertificateService _smimeCertificateService;
+    private ILogger _logger = Log.ForContext<MimeFileService>();
+
+    private readonly DraftUpdateRegistry _draftUpdates;
+    private readonly ConcurrentDictionary<(Guid, Guid), SemaphoreSlim> _writeLocks = new();
+
+    public MimeFileService(IApplicationConfiguration applicationConfiguration, ISmimeCertificateService smimeCertificateService, DraftUpdateRegistry draftUpdates = null)
+    {
+        _applicationConfiguration = applicationConfiguration;
+        _smimeCertificateService = smimeCertificateService ?? throw new ArgumentNullException(nameof(smimeCertificateService));
+        _draftUpdates = draftUpdates;
+    }
+
+    public async Task<MimeMessageInformation> GetMimeMessageInformationAsync(Guid fileId, Guid accountId, CancellationToken cancellationToken = default)
+    {
+        var resourcePath = await GetMimeResourcePathAsync(accountId, fileId).ConfigureAwait(false);
+        var mimeFilePath = GetEMLPath(resourcePath);
+
+        var loadedMimeMessage = await MimeMessage.LoadAsync(mimeFilePath, cancellationToken).ConfigureAwait(false);
+
+        return new MimeMessageInformation(loadedMimeMessage, resourcePath);
+    }
+
+    public async Task<MimeMessageInformation> GetMimeMessageInformationAsync(byte[] fileBytes, string emlDirectoryPath, CancellationToken cancellationToken = default)
+    {
+        var memoryStream = new MemoryStream(fileBytes);
+
+        var loadedMimeMessage = await MimeMessage.LoadAsync(memoryStream, cancellationToken).ConfigureAwait(false);
+        return new MimeMessageInformation(loadedMimeMessage, emlDirectoryPath);
+    }
+
+    public Task<bool> SaveMimeMessageAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId)
+        => SaveMimeCoreAsync(fileId, mimeMessage, accountId, false);
+
+    public Task<bool> SaveRemoteMimeMessageAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId, string remoteId)
+        => SaveMimeCoreAsync(fileId, mimeMessage, accountId, false, remoteId);
+
+    public Task<bool> SaveDraftMimeMessageAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId)
+        => SaveMimeCoreAsync(fileId, mimeMessage, accountId, true);
+
+    private async Task<bool> SaveMimeCoreAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId, bool localSave, string remoteId = null)
+    {
+        var version = _draftUpdates?.FileVersion(accountId, fileId);
+        var gate = _writeLocks.GetOrAdd((accountId, fileId), _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync().ConfigureAwait(false);
+        string temporaryPath = null;
+        try
+        {
+            if (!localSave && (_draftUpdates?.IsFileProtected(accountId, fileId) == true ||
+                _draftUpdates?.IsStaleRemote(accountId, remoteId) == true || version != _draftUpdates?.FileVersion(accountId, fileId))) return true;
+            var resourcePath = await GetMimeResourcePathAsync(accountId, fileId).ConfigureAwait(false);
+            var completeFilePath = GetEMLPath(resourcePath);
+            temporaryPath = Path.Combine(resourcePath, $"{Guid.NewGuid():N}.tmp");
+
+            await using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                await mimeMessage.WriteToAsync(stream).ConfigureAwait(false);
+                await stream.FlushAsync().ConfigureAwait(false);
+            }
+
+            if (!localSave && (_draftUpdates?.IsFileProtected(accountId, fileId) == true ||
+                _draftUpdates?.IsStaleRemote(accountId, remoteId) == true || version != _draftUpdates?.FileVersion(accountId, fileId))) return true;
+            File.Move(temporaryPath, completeFilePath, overwrite: true);
+            return true;
+        }
+        catch (Exception)
+        {
+            _logger.Warning("Could not save MIME for account {AccountId}, file {FileId}.", accountId, fileId);
+            return false;
+        }
+        finally
+        {
+            gate.Release();
+            if (temporaryPath != null)
+            {
+                try { File.Delete(temporaryPath); }
+                catch (Exception) { /* Best-effort removal of an incomplete local write. */ }
+            }
+        }
+    }
+
+    private static string GetEMLPath(string resourcePath) => Path.Combine(resourcePath, "mail.eml");
+
+    public Task<string> GetMimeResourcePathAsync(Guid accountId, Guid fileId)
+    {
+        var mimeDirectory = Path.Combine(_applicationConfiguration.MimeStorageFolderPath, accountId.ToString(), fileId.ToString());
+
+        if (!Directory.Exists(mimeDirectory))
+            Directory.CreateDirectory(mimeDirectory);
+
+        return Task.FromResult(mimeDirectory);
+    }
+
+    public async Task<bool> IsMimeExistAsync(Guid accountId, Guid fileId)
+    {
+        var resourcePath = await GetMimeResourcePathAsync(accountId, fileId);
+        var completeFilePath = GetEMLPath(resourcePath);
+
+        return File.Exists(completeFilePath);
+    }
+
+    public HtmlPreviewVisitor CreateHTMLPreviewVisitor(MimeMessage message, string _)
+    {
+        var visitor = new HtmlPreviewVisitor(() => _smimeCertificateService.CreateContext());
+
+        message.Accept(visitor);
+
+        foreach (var error in visitor.CryptographyErrors)
+            _logger.Warning(error, "An S/MIME operation failed while preparing a mail preview");
+
+        return visitor;
+    }
+
+    public async Task<bool> DeleteMimeMessageAsync(Guid accountId, Guid fileId)
+    {
+        var resourcePath = await GetMimeResourcePathAsync(accountId, fileId);
+        var completeFilePath = GetEMLPath(resourcePath);
+
+        if (File.Exists(completeFilePath))
+        {
+            try
+            {
+                File.Delete(completeFilePath);
+
+                _logger.Information("Mime file deleted for {FileId}", fileId);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Could not delete mime file for {FileId}", fileId);
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
+    public async Task<string> GetTranslationMapJsonAsync(Guid accountId, Guid fileId, string cacheKey, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var path = await GetTranslationMapPathAsync(accountId, fileId, cacheKey).ConfigureAwait(false);
+            return File.Exists(path) ? await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false) : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Could not read translation map cache for FileId: {FileId}", fileId);
+            return null;
+        }
+    }
+
+    public async Task SaveTranslationMapJsonAsync(Guid accountId, Guid fileId, string cacheKey, string json, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return;
+        try
+        {
+            var path = await GetTranslationMapPathAsync(accountId, fileId, cacheKey).ConfigureAwait(false);
+            await File.WriteAllTextAsync(path, json, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Could not save translation map cache for FileId: {FileId}", fileId);
+        }
+    }
+
+    public async Task<string> GetSummaryTextAsync(Guid accountId, Guid fileId, string cacheKey, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var summaryPath = await GetSummaryTextPathAsync(accountId, fileId, cacheKey).ConfigureAwait(false);
+            return File.Exists(summaryPath) ? await File.ReadAllTextAsync(summaryPath, cancellationToken).ConfigureAwait(false) : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Could not read versioned summary cache for FileId: {FileId}", fileId);
+            return null;
+        }
+    }
+
+    public async Task SaveSummaryTextAsync(Guid accountId, Guid fileId, string cacheKey, string summary, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(summary))
+            return;
+        try
+        {
+            var summaryPath = await GetSummaryTextPathAsync(accountId, fileId, cacheKey).ConfigureAwait(false);
+            await File.WriteAllTextAsync(summaryPath, NormalizeSummaryText(summary), cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Could not save versioned summary cache for FileId: {FileId}", fileId);
+        }
+    }
+
+    public MailRenderModel GetMailRenderModel(MimeMessage message, string mimeLocalPath, MailRenderingOptions options = null)
+    {
+        var visitor = CreateHTMLPreviewVisitor(message, mimeLocalPath);
+
+        string finalRenderHtml = visitor.HtmlBody;
+
+        // Check whether we need to purify the generated HTML from visitor.
+        // No need to create HtmlDocument if not required.
+
+        if (options != null && options.IsPurifyingNeeded())
+        {
+            var document = new HtmlAgilityPack.HtmlDocument();
+            document.LoadHtml(visitor.HtmlBody);
+
+            // Clear <img> src attribute.
+
+            if (!options.LoadImages)
+                document.ClearImages();
+
+            if (!options.LoadStyles)
+                document.ClearStyles();
+
+            // Update final HTML.
+            finalRenderHtml = document.DocumentNode.OuterHtml;
+        }
+
+        var accessibleText = !string.IsNullOrWhiteSpace(message.TextBody)
+            ? message.TextBody.Trim()
+            : HtmlAgilityPackExtensions.GetAccessibleText(finalRenderHtml);
+
+        var renderingModel = new MailRenderModel(finalRenderHtml, options, accessibleText);
+
+        renderingModel.Signatures = visitor.Signatures;
+
+        // S/MIME encryption detection: if the body is ApplicationPkcs7Mime and SecureMimeType is EnvelopedData
+        renderingModel.IsSmimeEncrypted = message.Body is ApplicationPkcs7Mime encrypted &&
+            encrypted.SecureMimeType == SecureMimeType.EnvelopedData;
+
+        // Create attachments.
+        foreach (var attachment in visitor.Attachments.OfType<MimePart>().Where(MailAttachmentExtensions.IsMailAttachment))
+        {
+            renderingModel.Attachments.Add(attachment);
+        }
+
+        if (message.Headers.Contains(HeaderId.ListUnsubscribe))
+        {
+            var unsubscribeLinks = message.Headers[HeaderId.ListUnsubscribe]
+                .Normalize()
+                .Split([','], StringSplitOptions.RemoveEmptyEntries)
+                .Select(x => x.Trim().Trim(['<', '>']));
+
+            // Only two types of unsubscribe links are possible.
+            // So each has it's own property to simplify the usage.
+            renderingModel.UnsubscribeInfo = new UnsubscribeInfo()
+            {
+                HttpLink = unsubscribeLinks.FirstOrDefault(x => x.StartsWith("http", StringComparison.OrdinalIgnoreCase)),
+                MailToLink = unsubscribeLinks.FirstOrDefault(x => x.StartsWith("mailto", StringComparison.OrdinalIgnoreCase)),
+                IsOneClick = message.Headers.Contains(HeaderId.ListUnsubscribePost)
+            };
+        }
+
+        return renderingModel;
+    }
+
+    public Task DeleteUserMimeCacheAsync(Guid accountId)
+    {
+        var mimeDirectory = Path.Combine(_applicationConfiguration.MimeStorageFolderPath, accountId.ToString());
+
+        try
+        {
+            if (Directory.Exists(mimeDirectory))
+            {
+                Directory.Delete(mimeDirectory, true);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to remove user's mime cache folder.");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task<string> GetTranslationMapPathAsync(Guid accountId, Guid fileId, string cacheKey)
+    {
+        var resourcePath = await GetMimeResourcePathAsync(accountId, fileId).ConfigureAwait(false);
+        return Path.Combine(resourcePath, $"translation-map-{SanitizeFileNamePart(cacheKey)}.json");
+    }
+
+    private async Task<string> GetSummaryTextPathAsync(Guid accountId, Guid fileId, string cacheKey)
+    {
+        var resourcePath = await GetMimeResourcePathAsync(accountId, fileId).ConfigureAwait(false);
+        return Path.Combine(resourcePath, $"summary-{SanitizeFileNamePart(cacheKey)}.txt");
+    }
+
+    private static string SanitizeFileNamePart(string value)
+    {
+        var invalidCharacters = Path.GetInvalidFileNameChars();
+        var sanitizedChars = value
+            .Trim()
+            .Select(ch => invalidCharacters.Contains(ch) ? '_' : char.ToLowerInvariant(ch))
+            .ToArray();
+
+        return sanitizedChars.Length == 0 ? "default" : new string(sanitizedChars);
+    }
+
+    private static string NormalizeSummaryText(string summary)
+    {
+        if (string.IsNullOrWhiteSpace(summary))
+        {
+            return string.Empty;
+        }
+
+        if (!summary.Contains('<'))
+        {
+            return summary.Trim();
+        }
+
+        var document = new HtmlDocument();
+        document.LoadHtml(summary);
+
+        var lineBreakNodes = document.DocumentNode.SelectNodes("//br|//p|//div|//li");
+        if (lineBreakNodes != null)
+        {
+            foreach (var node in lineBreakNodes)
+            {
+                if (node.Name.Equals("li", StringComparison.OrdinalIgnoreCase))
+                {
+                    node.ParentNode?.InsertBefore(document.CreateTextNode(Environment.NewLine + "- "), node);
+                }
+                else
+                {
+                    node.ParentNode?.InsertBefore(document.CreateTextNode(Environment.NewLine), node);
+                }
+            }
+        }
+
+        var plainText = HtmlEntity.DeEntitize(document.DocumentNode.InnerText ?? string.Empty);
+        return string.Join(
+            Environment.NewLine,
+            plainText
+                .Split([Environment.NewLine], StringSplitOptions.None)
+                .Select(line => line.Trim())
+                .Where(line => !string.IsNullOrWhiteSpace(line)));
+    }
+
+    public string GetMimeRootPath() => _applicationConfiguration.MimeStorageFolderPath;
+
+    public Task<Dictionary<Guid, long>> GetAccountsMimeStorageSizesAsync(IEnumerable<Guid> accountIds)
+    {
+        var mimeRoot = GetMimeRootPath();
+        var result = new Dictionary<Guid, long>();
+
+        foreach (var accountId in accountIds)
+        {
+            var accountPath = Path.Combine(mimeRoot, accountId.ToString());
+            result[accountId] = GetDirectorySizeSafe(accountPath);
+        }
+
+        return Task.FromResult(result);
+    }
+
+    public Task<int> DeleteMimeStorageAsync(Guid accountId, IEnumerable<Guid> fileIds)
+    {
+        var accountPath = Path.Combine(GetMimeRootPath(), accountId.ToString());
+        int deletedFolderCount = 0;
+
+        foreach (var fileId in fileIds.Distinct())
+        {
+            var mimeDirectory = Path.Combine(accountPath, fileId.ToString());
+
+            if (!Directory.Exists(mimeDirectory))
+                continue;
+
+            try
+            {
+                Directory.Delete(mimeDirectory, true);
+                deletedFolderCount++;
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Failed to delete MIME directory {DirectoryPath}", mimeDirectory);
+            }
+        }
+
+        return Task.FromResult(deletedFolderCount);
+    }
+
+    private static long GetDirectorySizeSafe(string directoryPath)
+    {
+        if (!Directory.Exists(directoryPath))
+            return 0;
+
+        long total = 0;
+
+        try
+        {
+            foreach (var filePath in Directory.EnumerateFiles(directoryPath, "*", SearchOption.AllDirectories))
+            {
+                try
+                {
+                    total += new FileInfo(filePath).Length;
+                }
+                catch
+                {
+                    // Ignore unreadable files and continue calculating.
+                }
+            }
+        }
+        catch
+        {
+            return 0;
+        }
+
+        return total;
+    }
+}

@@ -1,0 +1,1251 @@
+﻿<abstract:MailListPageAbstract
+    x:Class="Wino.Views.Mail.MailListPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:advanced="using:Wino.Mail.WinUI.Controls.Advanced"
+    xmlns:animatedvisuals="using:Microsoft.UI.Xaml.Controls.AnimatedVisuals"
+    xmlns:animations="using:CommunityToolkit.WinUI.Animations"
+    xmlns:contextFlyout="using:Wino.Mail.Controls.ContextFlyout"
+    xmlns:controls="using:Wino.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Mail.ViewModels.Collections"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:enums="using:Wino.Core.Domain.Enums"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:illustrations="using:Wino.Controls.Illustrations"
+    xmlns:intelligenceCore="using:Wino.Mail.Controls.Core.IntelligenceTileBar"
+    xmlns:interfaces="using:Wino.Core.Domain.Interfaces"
+    xmlns:listview="using:Wino.Mail.WinUI.Controls.ListView"
+    xmlns:mail="using:Wino.Core.Domain.Entities.Mail"
+    xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
+    xmlns:mailListCore="using:Wino.Mail.Controls.Core"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:menuflyouts="using:Wino.MenuFlyouts"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:primitives="using:Wino.Mail.Controls.Primitives"
+    xmlns:search="using:Wino.Mail.ViewModels.Search"
+    xmlns:selectors="using:Wino.Selectors"
+    xmlns:selectors1="using:Wino.Mail.WinUI.Selectors"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    xmlns:toolkitExt="using:CommunityToolkit.WinUI"
+    xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
+    xmlns:wino="using:Wino.Mail.WinUI"
+    xmlns:xamlData="using:Microsoft.UI.Xaml.Data"
+    x:Name="root"
+    KeyboardAcceleratorPlacementMode="Hidden"
+    Loaded="MailListPageLoaded"
+    ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
+    SelectedHeaderButtonTitle="{x:Bind ViewModel.SelectedHeaderButtonTitle, Mode=OneWay}"
+    SizeChanged="PageSizeChanged"
+    mc:Ignorable="d">
+
+    <abstract:MailListPageAbstract.HeaderFlyout>
+        <MenuFlyout>
+            <!--  Tag is the MailSearchScope name the item selects.  -->
+            <RadioMenuFlyoutItem
+                AutomationProperties.AutomationId="MailSearchCurrentFolder"
+                Click="SearchHeaderItemClicked"
+                GroupName="MailSearchScope"
+                IsChecked="{x:Bind helpers:XamlHelpers.IsMailSearchScope(ViewModel.SearchScope, 'CurrentFolder'), Mode=OneWay}"
+                Tag="CurrentFolder"
+                Text="{x:Bind domain:Translator.SearchBar_CurrentFolder}" />
+            <RadioMenuFlyoutItem
+                AutomationProperties.AutomationId="MailSearchSubfolders"
+                Click="SearchHeaderItemClicked"
+                GroupName="MailSearchScope"
+                IsChecked="{x:Bind helpers:XamlHelpers.IsMailSearchScope(ViewModel.SearchScope, 'Subfolders'), Mode=OneWay}"
+                Tag="Subfolders"
+                Text="{x:Bind domain:Translator.SearchBar_Subfolders}" />
+            <RadioMenuFlyoutItem
+                AutomationProperties.AutomationId="MailSearchAllFolders"
+                Click="SearchHeaderItemClicked"
+                GroupName="MailSearchScope"
+                IsChecked="{x:Bind helpers:XamlHelpers.IsMailSearchScope(ViewModel.SearchScope, 'AllFolders'), Mode=OneWay}"
+                Tag="AllFolders"
+                Text="{x:Bind domain:Translator.SearchBar_AllFolders}" />
+        </MenuFlyout>
+    </abstract:MailListPageAbstract.HeaderFlyout>
+    <abstract:MailListPageAbstract.FilterFlyout>
+        <!--
+            Filters every backend can apply: local search, Gmail, Outlook and IMAP. The fields edit
+            ViewModel.SearchFilterEditor, a copy that becomes the search only when Search is pressed.
+        -->
+        <Flyout
+            x:Name="SearchFilterFlyout"
+            Closed="SearchFilterFlyoutClosed"
+            Opening="SearchFilterFlyoutOpening">
+            <Flyout.FlyoutPresenterStyle>
+                <Style BasedOn="{StaticResource DefaultFlyoutPresenterStyle}" TargetType="FlyoutPresenter">
+                    <Setter Property="MaxWidth" Value="500" />
+                    <Setter Property="Padding" Value="16,14,16,14" />
+                </Style>
+            </Flyout.FlyoutPresenterStyle>
+            <Grid
+                Width="440"
+                AutomationProperties.AutomationId="MailSearchFilterPanel"
+                AutomationProperties.Name="{x:Bind domain:Translator.SearchBar_Filters, Mode=OneTime}"
+                ColumnSpacing="12"
+                KeyDown="SearchFilterPanelKeyDown"
+                RowSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="100" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock
+                    Grid.ColumnSpan="2"
+                    Margin="0,0,0,4"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.SearchBar_Filters, Mode=OneTime}" />
+
+                <TextBlock
+                    Grid.Row="1"
+                    VerticalAlignment="Center"
+                    Text="{x:Bind domain:Translator.SearchBar_SearchIn, Mode=OneTime}" />
+                <ComboBox
+                    Grid.Row="1"
+                    Grid.Column="1"
+                    HorizontalAlignment="Stretch"
+                    AutomationProperties.AutomationId="MailSearchFilterScope"
+                    AutomationProperties.Name="{x:Bind domain:Translator.SearchBar_SearchIn, Mode=OneTime}"
+                    ItemsSource="{x:Bind ViewModel.SearchFilterEditor.ScopeOptions, Mode=OneTime}"
+                    SelectedItem="{x:Bind ViewModel.SearchFilterEditor.SelectedScope, Mode=TwoWay}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="search:MailSearchFilterOption">
+                            <TextBlock Text="{x:Bind Title}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <TextBlock
+                    Grid.Row="2"
+                    VerticalAlignment="Center"
+                    Text="{x:Bind domain:Translator.SearchBar_From, Mode=OneTime}" />
+                <TextBox
+                    x:Name="SearchFilterSenderBox"
+                    Grid.Row="2"
+                    Grid.Column="1"
+                    AutomationProperties.AutomationId="MailSearchFilterSender"
+                    AutomationProperties.Name="{x:Bind domain:Translator.SearchBar_From, Mode=OneTime}"
+                    PlaceholderText="{x:Bind domain:Translator.SearchBar_SenderPlaceholder, Mode=OneTime}"
+                    Text="{x:Bind ViewModel.SearchFilterEditor.Sender, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBlock
+                    Grid.Row="3"
+                    VerticalAlignment="Center"
+                    Text="{x:Bind domain:Translator.SearchBar_Subject, Mode=OneTime}" />
+                <TextBox
+                    Grid.Row="3"
+                    Grid.Column="1"
+                    AutomationProperties.AutomationId="MailSearchFilterSubject"
+                    AutomationProperties.Name="{x:Bind domain:Translator.SearchBar_Subject, Mode=OneTime}"
+                    PlaceholderText="{x:Bind domain:Translator.SearchBar_SubjectPlaceholder, Mode=OneTime}"
+                    Text="{x:Bind ViewModel.SearchFilterEditor.Subject, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBlock
+                    Grid.Row="4"
+                    Margin="0,6,0,0"
+                    VerticalAlignment="Top"
+                    Text="{x:Bind domain:Translator.SearchBar_Keywords, Mode=OneTime}" />
+                <StackPanel
+                    Grid.Row="4"
+                    Grid.Column="1"
+                    Spacing="4">
+                    <TextBox
+                        AutomationProperties.AutomationId="MailSearchFilterKeywords"
+                        AutomationProperties.Name="{x:Bind domain:Translator.SearchBar_Keywords, Mode=OneTime}"
+                        PlaceholderText="{x:Bind domain:Translator.SearchBar_KeywordsPlaceholder, Mode=OneTime}"
+                        Text="{x:Bind ViewModel.SearchFilterEditor.Keywords, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.SearchBar_KeywordsLocalHint, Mode=OneTime}"
+                        TextWrapping="Wrap"
+                        Visibility="{x:Bind ViewModel.SearchFilterEditor.IsLocalSearch, Mode=OneWay}" />
+                </StackPanel>
+
+                <TextBlock
+                    Grid.Row="5"
+                    VerticalAlignment="Center"
+                    Text="{x:Bind domain:Translator.SearchBar_Date, Mode=OneTime}" />
+                <ComboBox
+                    Grid.Row="5"
+                    Grid.Column="1"
+                    HorizontalAlignment="Stretch"
+                    AutomationProperties.AutomationId="MailSearchFilterDate"
+                    AutomationProperties.Name="{x:Bind domain:Translator.SearchBar_Date, Mode=OneTime}"
+                    ItemsSource="{x:Bind ViewModel.SearchFilterEditor.DateRangeOptions, Mode=OneTime}"
+                    SelectedItem="{x:Bind ViewModel.SearchFilterEditor.SelectedDateRange, Mode=TwoWay}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="search:MailSearchFilterOption">
+                            <TextBlock Text="{x:Bind Title}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <Grid
+                    Grid.Row="6"
+                    Grid.Column="1"
+                    ColumnSpacing="8"
+                    Visibility="{x:Bind ViewModel.SearchFilterEditor.IsCustomDateRange, Mode=OneWay}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <CalendarDatePicker
+                        HorizontalAlignment="Stretch"
+                        AutomationProperties.AutomationId="MailSearchFilterDateStart"
+                        AutomationProperties.Name="{x:Bind domain:Translator.SearchBar_DateStart, Mode=OneTime}"
+                        Date="{x:Bind ViewModel.SearchFilterEditor.CustomStartDate, Mode=TwoWay}"
+                        PlaceholderText="{x:Bind domain:Translator.SearchBar_DateStart, Mode=OneTime}" />
+                    <CalendarDatePicker
+                        Grid.Column="1"
+                        HorizontalAlignment="Stretch"
+                        AutomationProperties.AutomationId="MailSearchFilterDateEnd"
+                        AutomationProperties.Name="{x:Bind domain:Translator.SearchBar_DateEnd, Mode=OneTime}"
+                        Date="{x:Bind ViewModel.SearchFilterEditor.CustomEndDate, Mode=TwoWay}"
+                        PlaceholderText="{x:Bind domain:Translator.SearchBar_DateEnd, Mode=OneTime}" />
+                </Grid>
+
+                <TextBlock
+                    Grid.Row="7"
+                    VerticalAlignment="Center"
+                    Text="{x:Bind domain:Translator.SearchBar_ReadStatus, Mode=OneTime}" />
+                <ComboBox
+                    Grid.Row="7"
+                    Grid.Column="1"
+                    HorizontalAlignment="Stretch"
+                    AutomationProperties.AutomationId="MailSearchFilterReadStatus"
+                    AutomationProperties.Name="{x:Bind domain:Translator.SearchBar_ReadStatus, Mode=OneTime}"
+                    ItemsSource="{x:Bind ViewModel.SearchFilterEditor.ReadStatusOptions, Mode=OneTime}"
+                    SelectedItem="{x:Bind ViewModel.SearchFilterEditor.SelectedReadStatus, Mode=TwoWay}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="search:MailSearchFilterOption">
+                            <TextBlock Text="{x:Bind Title}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <TextBlock
+                    Grid.Row="8"
+                    VerticalAlignment="Center"
+                    Text="{x:Bind domain:Translator.SearchBar_OnlyShow, Mode=OneTime}" />
+                <StackPanel
+                    Grid.Row="8"
+                    Grid.Column="1"
+                    Orientation="Horizontal"
+                    Spacing="16">
+                    <CheckBox
+                        AutomationProperties.AutomationId="MailSearchFilterAttachments"
+                        Content="{x:Bind domain:Translator.SearchBar_HasAttachments, Mode=OneTime}"
+                        IsChecked="{x:Bind ViewModel.SearchFilterEditor.HasAttachments, Mode=TwoWay}" />
+                    <CheckBox
+                        AutomationProperties.AutomationId="MailSearchFilterFlagged"
+                        Content="{x:Bind domain:Translator.SearchBar_Flagged, Mode=OneTime}"
+                        IsChecked="{x:Bind ViewModel.SearchFilterEditor.IsFlagged, Mode=TwoWay}" />
+                </StackPanel>
+
+                <Rectangle
+                    Grid.Row="9"
+                    Grid.ColumnSpan="2"
+                    Height="1"
+                    Margin="0,4,0,0"
+                    Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                <Grid
+                    Grid.Row="10"
+                    Grid.ColumnSpan="2"
+                    ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Button
+                        AutomationProperties.AutomationId="MailSearchFilterReset"
+                        Command="{x:Bind ViewModel.SearchFilterEditor.ResetCommand}"
+                        Content="{x:Bind domain:Translator.SearchBar_ResetFilters, Mode=OneTime}" />
+                    <Button
+                        Grid.Column="2"
+                        AutomationProperties.AutomationId="MailSearchFilterCancel"
+                        Click="SearchFilterCancelClicked"
+                        Content="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}" />
+                    <Button
+                        Grid.Column="3"
+                        MinWidth="96"
+                        AutomationProperties.AutomationId="MailSearchFilterSearch"
+                        Click="SearchFilterSearchClicked"
+                        Content="{x:Bind domain:Translator.SearchBar_SearchButton, Mode=OneTime}"
+                        Style="{StaticResource AccentButtonStyle}" />
+                </Grid>
+            </Grid>
+        </Flyout>
+    </abstract:MailListPageAbstract.FilterFlyout>
+
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="UnreadMailSubjectForegroundBrush" Color="{ThemeResource SystemAccentColor}" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="UnreadMailSubjectForegroundBrush" Color="{ThemeResource SystemAccentColorLight2}" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <StaticResource x:Key="UnreadMailSubjectForegroundBrush" ResourceKey="SystemColorWindowTextColorBrush" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
+            <x:Double x:Key="ItemContainerDisabledOpacity">1</x:Double>
+
+            <listview:WinoMailItemContainerStyleSelector
+                x:Key="WinoMailItemContainerStyleSelector"
+                IsSwipeActionsEnabled="{x:Bind ViewModel.PreferencesService.IsSwipeActionsEnabled, Mode=OneWay}"
+                MailItemStyle="{StaticResource DefaultMailListViewItemStyle}"
+                MailItemStyleWithoutSwipe="{StaticResource DefaultMailListViewItemStyleWithoutSwipe}"
+                ThreadStyle="{StaticResource DefaultThreadListViewItemStyle}"
+                ThreadStyleWithoutSwipe="{StaticResource DefaultThreadListViewItemStyleWithoutSwipe}" />
+
+            <Thickness x:Key="ExpanderHeaderPadding">0,0,0,0</Thickness>
+            <Thickness x:Key="ExpanderChevronMargin">0,0,12,0</Thickness>
+            <Thickness x:Key="ExpanderHeaderBorderThickness">0,0,0,0</Thickness>
+
+            <SolidColorBrush x:Key="ExpanderContentBorderBrush">Transparent</SolidColorBrush>
+
+            <StaticResource x:Key="ExpanderContentBackground" ResourceKey="CardBackgroundFillColorSecondaryBrush" />
+            <StaticResource x:Key="ExpanderHeaderBackground" ResourceKey="CardBackgroundFillColorDefaultBrush" />
+
+            <SolidColorBrush x:Key="SystemControlRevealFocusVisualBrush" Color="#FF4C4A48" />
+            <SolidColorBrush x:Key="SystemControlFocusVisualSecondaryBrush" Color="#FFFFFFFF" />
+
+            <SolidColorBrush x:Key="ButtonBackgroundDisabled">Transparent</SolidColorBrush>
+
+            <!--  Calendar Mail Item Template  -->
+            <DataTemplate x:Key="CalendarMailItemTemplate" x:DataType="viewModelData:MailItemViewModel">
+                <controls:CalendarMailItemDisplayInformationControl
+                    x:DefaultBindMode="OneWay"
+                    ContextRequested="MailItemContextRequested"
+                    MailItem="{x:Bind}" />
+            </DataTemplate>
+
+            <!--
+                The list selects stable projected rows. These lightweight wrappers keep the
+                existing mail visuals bound to their original view-model types.
+            -->
+            <!--
+                Each row wraps a template typed for MailItemViewModel. The presenter also gets the item
+                as its DataContext: while a recycled row has no Content yet, the inner template would
+                otherwise inherit the MailListRow, and its compiled binding cast crashes the app.
+            -->
+            <DataTemplate x:Key="CompactSingleMailRowTemplate" x:DataType="mailListCore:MailListRow">
+                <Grid
+                    Margin="{x:Bind helpers:XamlHelpers.GetCompactMailListRowMargin(Kind), Mode=OneTime}"
+                    Background="Transparent"
+                    ContextRequested="MailItemContextRequested">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <mailControls:WinoContactPicture
+                        x:Name="CompactSenderPicture"
+                        Width="28"
+                        Height="28"
+                        Margin="8,0,6,0"
+                        VerticalAlignment="Center"
+                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
+                        x:Phase="1"
+                        ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
+                        FontSize="12"
+                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                    <ContentPresenter
+                        Grid.Column="1"
+                        Content="{x:Bind SourceItem}"
+                        ContentTemplate="{StaticResource CompactSingleMailItemTemplate}"
+                        DataContext="{x:Bind SourceItem}" />
+                </Grid>
+            </DataTemplate>
+
+            <DataTemplate x:Key="MediumSingleMailRowTemplate" x:DataType="mailListCore:MailListRow">
+                <Grid
+                    Margin="{x:Bind helpers:XamlHelpers.GetDetailedMailListRowMargin(Kind), Mode=OneTime}"
+                    Background="Transparent"
+                    ContextRequested="MailItemContextRequested">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <mailControls:WinoContactPicture
+                        x:Name="MediumSenderPicture"
+                        Width="30"
+                        Height="30"
+                        Margin="8,0,8,0"
+                        VerticalAlignment="Center"
+                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
+                        x:Phase="1"
+                        ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
+                        FontSize="12"
+                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                    <ContentPresenter
+                        Grid.Column="1"
+                        Content="{x:Bind SourceItem}"
+                        ContentTemplate="{StaticResource MediumSingleMailItemTemplate}"
+                        DataContext="{x:Bind SourceItem}" />
+                </Grid>
+            </DataTemplate>
+
+            <DataTemplate x:Key="SpaciousSingleMailRowTemplate" x:DataType="mailListCore:MailListRow">
+                <Grid
+                    Margin="{x:Bind helpers:XamlHelpers.GetDetailedMailListRowMargin(Kind), Mode=OneTime}"
+                    Background="Transparent"
+                    ContextRequested="MailItemContextRequested">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <mailControls:WinoContactPicture
+                        x:Name="SpaciousSenderPicture"
+                        Width="36"
+                        Height="36"
+                        Margin="4,0,8,0"
+                        VerticalAlignment="Center"
+                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
+                        x:Phase="1"
+                        ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
+                        FontSize="12"
+                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                    <ContentPresenter
+                        Grid.Column="1"
+                        Content="{x:Bind SourceItem}"
+                        ContentTemplate="{StaticResource SpaciousSingleMailItemTemplate}"
+                        DataContext="{x:Bind SourceItem}" />
+                </Grid>
+            </DataTemplate>
+
+            <DataTemplate x:Key="CompactThreadMailRowTemplate" x:DataType="mailListCore:MailListRow">
+                <Grid Background="Transparent" ContextRequested="MailItemContextRequested">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <mailControls:WinoContactPicture
+                        x:Name="CompactThreadSenderPicture"
+                        Width="28"
+                        Height="28"
+                        Margin="8,0,6,0"
+                        VerticalAlignment="Center"
+                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
+                        x:Phase="1"
+                        ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
+                        FontSize="12"
+                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                    <!--  The subject row of the shared body owns the thread chevron.  -->
+                    <ContentPresenter
+                        Grid.Column="1"
+                        Content="{x:Bind SourceItem}"
+                        ContentTemplate="{StaticResource CompactSingleMailItemTemplate}"
+                        DataContext="{x:Bind SourceItem}" />
+                </Grid>
+            </DataTemplate>
+
+            <DataTemplate x:Key="MediumThreadMailRowTemplate" x:DataType="mailListCore:MailListRow">
+                <Grid Background="Transparent" ContextRequested="MailItemContextRequested">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <mailControls:WinoContactPicture
+                        x:Name="MediumThreadSenderPicture"
+                        Width="30"
+                        Height="30"
+                        Margin="8,0,8,0"
+                        VerticalAlignment="Center"
+                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
+                        x:Phase="1"
+                        ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
+                        FontSize="12"
+                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                    <!--  The subject row of the shared body owns the thread chevron.  -->
+                    <ContentPresenter
+                        Grid.Column="1"
+                        Content="{x:Bind SourceItem}"
+                        ContentTemplate="{StaticResource MediumSingleMailItemTemplate}"
+                        DataContext="{x:Bind SourceItem}" />
+                </Grid>
+            </DataTemplate>
+
+            <DataTemplate x:Key="SpaciousThreadMailRowTemplate" x:DataType="mailListCore:MailListRow">
+                <Grid Background="Transparent" ContextRequested="MailItemContextRequested">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <mailControls:WinoContactPicture
+                        x:Name="SpaciousThreadSenderPicture"
+                        Width="36"
+                        Height="36"
+                        Margin="4,0,8,0"
+                        VerticalAlignment="Center"
+                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
+                        x:Phase="1"
+                        ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
+                        FontSize="12"
+                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                    <!--  The subject row of the shared body owns the thread chevron.  -->
+                    <ContentPresenter
+                        Grid.Column="1"
+                        Content="{x:Bind SourceItem}"
+                        ContentTemplate="{StaticResource SpaciousSingleMailItemTemplate}"
+                        DataContext="{x:Bind SourceItem}" />
+                </Grid>
+            </DataTemplate>
+
+            <DataTemplate x:Key="CalendarMailRowTemplate" x:DataType="mailListCore:MailListRow">
+                <Grid Margin="{x:Bind helpers:XamlHelpers.GetDetailedMailListRowMargin(Kind), Mode=OneTime}">
+                    <ContentPresenter
+                        Content="{x:Bind SourceItem}"
+                        ContentTemplate="{StaticResource CalendarMailItemTemplate}"
+                        DataContext="{x:Bind SourceItem}" />
+                </Grid>
+            </DataTemplate>
+
+            <listview:WinoMailItemTemplateSelector
+                x:Key="MailItemTemplateSelector"
+                CalendarMailItemTemplate="{StaticResource CalendarMailRowTemplate}"
+                CompactSingleMailItemTemplate="{StaticResource CompactSingleMailRowTemplate}"
+                CompactThreadMailItemTemplate="{StaticResource CompactThreadMailRowTemplate}"
+                MediumSingleMailItemTemplate="{StaticResource MediumSingleMailRowTemplate}"
+                MediumThreadMailItemTemplate="{StaticResource MediumThreadMailRowTemplate}"
+                SpaciousSingleMailItemTemplate="{StaticResource SpaciousSingleMailRowTemplate}"
+                SpaciousThreadMailItemTemplate="{StaticResource SpaciousThreadMailRowTemplate}" />
+
+            <CollectionViewSource x:Key="MailCollectionViewSource" IsSourceGrouped="True" />
+
+            <DataTemplate x:Key="MailGroupHeaderDefaultTemplate" x:DataType="mailListCore:MailListGroup">
+                <Grid
+                    Margin="0,0,0,6"
+                    helpers:Accessibility.ContainerName="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Key)}"
+                    AllowFocusOnInteraction="False"
+                    AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Key)}"
+                    Background="{ThemeResource MailListHeaderBackgroundColor}"
+                    CornerRadius="6">
+                    <TextBlock
+                        Padding="12"
+                        VerticalAlignment="Center"
+                        AllowFocusOnInteraction="False"
+                        FontWeight="SemiBold"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Key)}" />
+                </Grid>
+            </DataTemplate>
+
+            <DataTemplate x:Key="MailGroupHeaderEmptyTemplate" x:DataType="mailListCore:MailListGroup">
+                <Grid />
+            </DataTemplate>
+
+            <DataTemplate x:Key="MailSemanticZoomGroupTemplate" x:DataType="xamlData:ICollectionViewGroup">
+                <Border
+                    MinHeight="52"
+                    Margin="4"
+                    Padding="12"
+                    AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Group)}"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6">
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontWeight="SemiBold"
+                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                        Text="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Group)}"
+                        TextTrimming="CharacterEllipsis" />
+                </Border>
+            </DataTemplate>
+
+            <listview:WinoMailGroupHeaderTemplateSelector
+                x:Key="MailGroupHeaderTemplateSelector"
+                DefaultHeaderTemplate="{StaticResource MailGroupHeaderDefaultTemplate}"
+                EmptyHeaderTemplate="{StaticResource MailGroupHeaderEmptyTemplate}" />
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <FlyoutBase.AttachedFlyout>
+        <contextFlyout:WinoContextFlyout
+            x:Name="MailContextFlyout"
+            Language="{x:Bind ContextFlyoutLanguage, Mode=OneTime}"
+            NoResultsText="{x:Bind domain:Translator.ContextFlyout_NoResults, Mode=OneTime}"
+            SearchPlaceholderText="{x:Bind domain:Translator.ContextFlyout_SearchPlaceholder, Mode=OneTime}" />
+    </FlyoutBase.AttachedFlyout>
+
+    <Page.KeyboardAccelerators>
+        <KeyboardAccelerator
+            Key="Z"
+            Invoked="UndoKeyboardAcceleratorInvoked"
+            Modifiers="Control" />
+    </Page.KeyboardAccelerators>
+
+    <Grid x:Name="RootGrid" Padding="0,2,0,0">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="MailListColumn" Width="{x:Bind helpers:XamlHelpers.DoubleToGridLength(ViewModel.MailListLength), Mode=OneWay}" />
+            <ColumnDefinition x:Name="RendererColumn" Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!--  Mail Items  -->
+        <Border
+            x:Name="MailListContainer"
+            Grid.Column="0"
+            Margin="6,2"
+            Padding="5,5,5,0"
+            HorizontalAlignment="Stretch"
+            Background="{ThemeResource WinoContentZoneBackgroud}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Translation="0,0,20">
+            <Border.Shadow>
+                <ThemeShadow />
+            </Border.Shadow>
+            <Grid x:Name="MailListGrid">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!--  Action bar  -->
+                <Grid
+                    x:Name="ActionBarGrid"
+                    Margin="0,0,0,5"
+                    x:Load="{x:Bind ViewModel.PreferencesService.IsMailListActionBarEnabled}"
+                    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+                    CornerRadius="8">
+                    <coreControls:OperationCommandBar
+                        HorizontalAlignment="Left"
+                        DefaultLabelPosition="Collapsed"
+                        IsAIActionsPaneToggleVisible="False"
+                        IsEnabled="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.SelectedItemsCount), Mode=OneWay}"
+                        ItemInvokedCommand="{x:Bind ViewModel.ExecuteTopBarActionCommand}"
+                        MenuItems="{x:Bind ViewModel.ActionItems, Mode=OneWay}"
+                        OverflowButtonVisibility="Auto" />
+                </Grid>
+
+                <!--  Pivot + Sync + Multi Select  -->
+                <Grid Grid.Row="1" Padding="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!--  Select All Checkbox  -->
+                    <CheckBox
+                        x:Name="SelectAllCheckbox"
+                        Grid.Row="1"
+                        MinWidth="0"
+                        Margin="8,0,0,0"
+                        VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="SelectAllCheckbox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.Accessibility_SelectAllMessages}"
+                        Canvas.ZIndex="100"
+                        Checked="SelectAllCheckboxChecked"
+                        Unchecked="SelectAllCheckboxUnchecked" />
+
+
+                    <!--  Folders  -->
+                    <Grid Grid.Row="1" Grid.Column="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <toolkit:Segmented
+                            ItemsSource="{x:Bind ViewModel.PivotFolders, Mode=OneWay}"
+                            SelectedItem="{x:Bind ViewModel.SelectedFolderPivot, Mode=TwoWay}"
+                            SelectionChanged="FolderPivotChanged"
+                            Style="{StaticResource PivotSegmentedStyle}">
+                            <toolkit:Segmented.ItemTemplate>
+                                <DataTemplate x:DataType="viewModelData:FolderPivotViewModel">
+                                    <StackPanel AutomationProperties.Name="{x:Bind FolderTitle}" Orientation="Horizontal">
+                                        <TextBlock Text="{x:Bind FolderTitle}" />
+                                        <TextBlock
+                                            Margin="4,0,0,0"
+                                            FontWeight="SemiBold"
+                                            Visibility="{x:Bind ShouldDisplaySelectedItemCount, Mode=OneWay}">
+                                            <Run Text="(" /><Run Text="{x:Bind SelectedItemCount, Mode=OneWay}" /><Run Text=")" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </toolkit:Segmented.ItemTemplate>
+                        </toolkit:Segmented>
+                        <Viewbox Grid.Column="1" Width="16">
+                            <coreControls:WinoFontIcon
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center"
+                                Icon="GlobeSearch"
+                                Visibility="{x:Bind ViewModel.AreSearchResultsOnline, Mode=OneWay}" />
+                        </Viewbox>
+                    </Grid>
+
+                    <!--  Sync + Multi Select + Filtering  -->
+                    <StackPanel
+                        Grid.Row="1"
+                        Grid.Column="2"
+                        Orientation="Horizontal">
+                        <Button
+                            AutomationProperties.AutomationId="XBindDomainTranslatorFolderOperationEmpty"
+                            AutomationProperties.Name="{x:Bind domain:Translator.FolderOperation_Empty}"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Command="{x:Bind ViewModel.EmptyFolderCommand}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.FolderOperation_Empty}"
+                            Visibility="{x:Bind ViewModel.IsEmptyFolderButtonVisible, Mode=OneWay}">
+                            <coreControls:WinoFontIcon FontSize="18" Icon="EmptyFolder" />
+                        </Button>
+                        <ToggleButton
+                            x:Name="SelectionModeToggle"
+                            Width="36"
+                            Height="36"
+                            AutomationProperties.AutomationId="SelectionModeToggle"
+                            AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Multiselect}"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Checked="MultiSelectChecked"
+                            IsChecked="{x:Bind ViewModel.IsMultiSelectionModeEnabled, Mode=TwoWay}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Multiselect}"
+                            Unchecked="MultiSelectUnchecked">
+                            <coreControls:WinoFontIcon FontSize="16" Icon="MultiSelect" />
+                        </ToggleButton>
+                        <DropDownButton
+                            Height="36"
+                            AutomationProperties.Name="{x:Bind domain:Translator.Accessibility_FilterMessages}"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Content="{x:Bind ViewModel.SelectedFilterOption.Title, Mode=OneWay}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.Accessibility_FilterMessages}">
+                            <DropDownButton.Flyout>
+                                <menuflyouts:FilterMenuFlyout
+                                    x:Name="FilterMenuFlyout"
+                                    AreOpenCloseAnimationsEnabled="True"
+                                    FilterOptions="{x:Bind ViewModel.FilterOptions, Mode=OneTime}"
+                                    Placement="Bottom"
+                                    SelectedFilterChangedCommand="{x:Bind ViewModel.SelectedFilterChangedCommand}"
+                                    SelectedFilterOption="{x:Bind ViewModel.SelectedFilterOption, Mode=TwoWay}"
+                                    SelectedSortingOption="{x:Bind ViewModel.SelectedSortingOption, Mode=TwoWay}"
+                                    SelectedSortingOptionChangedCommand="{x:Bind ViewModel.SelectedSortingChangedCommand}"
+                                    SortingOptions="{x:Bind ViewModel.SortingOptions, Mode=OneTime}" />
+                            </DropDownButton.Flyout>
+                        </DropDownButton>
+                    </StackPanel>
+
+                    <InfoBar
+                        x:Name="SyncDisabledInfoBar"
+                        Title="{x:Bind domain:Translator.InfoBarTitle_SynchronizationDisabledFolder}"
+                        Grid.Row="0"
+                        Grid.ColumnSpan="3"
+                        x:Load="{x:Bind ViewModel.IsSyncButtonVisible, Mode=OneWay}"
+                        IsClosable="True"
+                        IsOpen="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsFolderSynchronizationEnabled), Mode=OneWay}"
+                        Message="{x:Bind domain:Translator.InfoBarMessage_SynchronizationDisabledFolder}"
+                        Severity="Informational">
+                        <InfoBar.ActionButton>
+                            <Button
+                                AutomationProperties.AutomationId="MailListPageButton"
+                                Command="{x:Bind ViewModel.EnableFolderSynchronizationCommand}"
+                                Content="Enable" />
+                        </InfoBar.ActionButton>
+                    </InfoBar>
+
+                    <HyperlinkButton
+                        x:Name="OtherInboxUnreadNoticeLink"
+                        Grid.Row="2"
+                        Grid.ColumnSpan="3"
+                        Margin="4,2,4,0"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Left"
+                        x:Load="{x:Bind ViewModel.IsOtherInboxUnreadNoticeVisible, Mode=OneWay}"
+                        AutomationProperties.AutomationId="OtherInboxUnreadNoticeLink"
+                        Command="{x:Bind ViewModel.OpenOtherInboxCommand}">
+                        <TextBlock Text="{x:Bind ViewModel.OtherInboxUnreadNoticeText, Mode=OneWay}" TextWrapping="Wrap" />
+                    </HyperlinkButton>
+
+                    <!--  Active search filters. Removing one searches again without it.  -->
+                    <Grid
+                        x:Name="SearchFilterChipsGrid"
+                        Grid.Row="3"
+                        Grid.ColumnSpan="3"
+                        Margin="4,6,4,0"
+                        x:Load="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.ActiveSearchFilterCount), Mode=OneWay}"
+                        ColumnSpacing="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ItemsControl
+                            AutomationProperties.AutomationId="MailSearchFilterChips"
+                            AutomationProperties.Name="{x:Bind domain:Translator.SearchBar_Filters, Mode=OneTime}"
+                            IsTabStop="False"
+                            ItemsSource="{x:Bind ViewModel.SearchFilterChips, Mode=OneTime}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <primitives:WinoWrapPanel HorizontalSpacing="6" VerticalSpacing="6" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="search:MailSearchFilterChip">
+                                    <Border
+                                        Height="26"
+                                        Padding="10,0,2,0"
+                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                        BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="13">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <TextBlock
+                                                MaxWidth="220"
+                                                VerticalAlignment="Center"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                Text="{x:Bind Text}"
+                                                TextTrimming="CharacterEllipsis" />
+                                            <Button
+                                                Width="22"
+                                                Height="22"
+                                                Padding="0"
+                                                VerticalAlignment="Center"
+                                                AutomationProperties.AutomationId="MailSearchFilterChipRemove"
+                                                AutomationProperties.Name="{x:Bind RemoveText}"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                Click="SearchFilterChipRemoveClicked"
+                                                CornerRadius="11"
+                                                Tag="{x:Bind}"
+                                                ToolTipService.ToolTip="{x:Bind RemoveText}">
+                                                <coreControls:WinoFontIcon
+                                                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                                                    FontSize="9"
+                                                    Icon="Dismiss" />
+                                            </Button>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <HyperlinkButton
+                            Grid.Column="1"
+                            Height="26"
+                            Padding="6,0"
+                            VerticalAlignment="Top"
+                            AutomationProperties.AutomationId="MailSearchFilterClearAll"
+                            Click="SearchFilterClearAllClicked"
+                            Content="{x:Bind domain:Translator.SearchBar_ClearAllFilters, Mode=OneTime}"
+                            FontSize="12" />
+                    </Grid>
+                </Grid>
+
+                <!--  No items createria  -->
+                <StackPanel
+                    x:Name="NoItemsPanel"
+                    Grid.Row="2"
+                    Grid.RowSpan="3"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Center"
+                    Spacing="10">
+
+                    <illustrations:WinoEmptyFolderIllustration
+                        Width="112"
+                        Height="112"
+                        HorizontalAlignment="Center"
+                        Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay}" />
+
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        FontWeight="ExtraLight"
+                        Foreground="{ThemeResource InformationBrush}"
+                        Opacity="0.4"
+                        Style="{StaticResource SubtitleTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.NoMessageEmptyFolder}"
+                        Visibility="{x:Bind ViewModel.IsFolderEmpty, Mode=OneWay}" />
+
+                    <ProgressRing
+                        x:Name="LoadingProgressIndicator"
+                        Grid.Row="2"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        x:Load="{x:Bind ViewModel.IsProgressRing, Mode=OneWay}"
+                        Canvas.ZIndex="2000" />
+                </StackPanel>
+
+                <!--  Mail Items  -->
+                <Grid Grid.Row="2" Margin="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <SemanticZoom
+                        x:Name="MailSemanticZoom"
+                        AutomationProperties.AutomationId="MailListSemanticZoom"
+                        IsZoomedInViewActive="True">
+                        <SemanticZoom.ZoomedInView>
+                            <listview:ThreadedMailListView
+                                x:Name="MailListView"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"
+                                toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
+                                toolkitExt:ScrollViewerExtensions.VerticalScrollBarMargin="-6"
+                                AutomationProperties.AutomationId="MailListView"
+                                AutomationProperties.Name="{x:Bind domain:Translator.Accessibility_MailList, Mode=OneTime}"
+                                CanDragItems="True"
+                                CenterHoverAction="{x:Bind helpers:XamlHelpers.GetHoverActionKind(ViewModel.PreferencesService.CenterHoverAction), Mode=OneWay}"
+                                GroupHeaderTemplateSelector="{StaticResource MailGroupHeaderTemplateSelector}"
+                                HoverActionAnimation="{x:Bind helpers:XamlHelpers.GetHoverActionAnimation(ViewModel.PreferencesService.HoverActionAnimation), Mode=OneWay}"
+                                HoverActionButtonSize="{x:Bind helpers:XamlHelpers.GetHoverActionButtonSize(ViewModel.PreferencesService.HoverActionButtonSize), Mode=OneWay}"
+                                HoverActionCommand="{x:Bind ViewModel.ExecuteHoverActionCommand}"
+                                HoverActionLabels="{x:Bind helpers:XamlHelpers.GetHoverActionLabels(), Mode=OneTime}"
+                                HoverActionPosition="{x:Bind helpers:XamlHelpers.GetHoverActionPosition(ViewModel.PreferencesService.HoverActionPosition), Mode=OneWay}"
+                                IsHoverActionsEnabled="{x:Bind ViewModel.PreferencesService.IsHoverActionsEnabled, Mode=OneWay}"
+                                IsTouchMultiSelectMode="{x:Bind ViewModel.IsMultiSelectionModeEnabled, Mode=OneWay}"
+                                ItemContainerStyleSelector="{StaticResource WinoMailItemContainerStyleSelector}"
+                                ItemTemplateSelector="{StaticResource MailItemTemplateSelector}"
+                                LeftHoverAction="{x:Bind helpers:XamlHelpers.GetHoverActionKind(ViewModel.PreferencesService.LeftHoverAction), Mode=OneWay}"
+                                LoadMoreCommand="{x:Bind ViewModel.LoadMoreItemsCommand}"
+                                MailItemsSource="{x:Bind ViewModel.MailCollection.Items, Mode=OneWay}"
+                                ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
+                                ProjectionOptions="{x:Bind ViewModel.MailListOptions, Mode=OneWay}"
+                                RightHoverAction="{x:Bind helpers:XamlHelpers.GetHoverActionKind(ViewModel.PreferencesService.RightHoverAction), Mode=OneWay}"
+                                SelectAdjacentOnRemoval="{x:Bind ViewModel.PreferencesService.AutoSelectNextItem, Mode=OneWay}"
+                                SelectionMode="Extended"
+                                SelectionSnapshotChanged="MailListViewSelectionSnapshotChanged">
+                                <listview:ThreadedMailListView.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <ItemsStackPanel AreStickyGroupHeadersEnabled="True" GroupPadding="4,0,4,4" />
+                                    </ItemsPanelTemplate>
+                                </listview:ThreadedMailListView.ItemsPanel>
+                                <listview:ThreadedMailListView.ItemContainerTransitions>
+                                    <TransitionCollection>
+                                        <RepositionThemeTransition IsStaggeringEnabled="False" />
+                                    </TransitionCollection>
+                                </listview:ThreadedMailListView.ItemContainerTransitions>
+                                <listview:ThreadedMailListView.Resources>
+                                    <ResourceDictionary>
+                                        <Style BasedOn="{StaticResource MailListHeaderStyle}" TargetType="ListViewHeaderItem" />
+                                    </ResourceDictionary>
+                                </listview:ThreadedMailListView.Resources>
+                            </listview:ThreadedMailListView>
+                        </SemanticZoom.ZoomedInView>
+                        <SemanticZoom.ZoomedOutView>
+                            <ListView
+                                x:Name="MailGroupNavigator"
+                                Padding="4"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"
+                                AutomationProperties.AutomationId="MailListGroupNavigator"
+                                AutomationProperties.Name="{x:Bind domain:Translator.SettingsMessageList_Title}"
+                                ItemTemplate="{StaticResource MailSemanticZoomGroupTemplate}"
+                                SelectionMode="None" />
+                        </SemanticZoom.ZoomedOutView>
+                    </SemanticZoom>
+
+                    <Border
+                        x:Name="DraggingMessageBorder"
+                        Grid.Row="0"
+                        Margin="14"
+                        Padding="10,6"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Bottom"
+                        x:Load="{x:Bind ViewModel.IsDragInProgress, Mode=OneWay}"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <TextBlock
+                            FontWeight="SemiBold"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind ViewModel.DraggingMessageText, Mode=OneWay}" />
+                    </Border>
+
+                    <!--  Try online search panel.  -->
+                    <Grid Grid.Row="1" Visibility="{x:Bind ViewModel.IsOnlineSearchButtonVisible, Mode=OneWay}">
+                        <Button
+                            Margin="24"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch"
+                            AutomationProperties.AutomationId="MailListPageButton2"
+                            Command="{x:Bind ViewModel.PerformOnlineSearchCommand}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <AnimatedIcon x:Name="SearchAnimatedIcon" Width="30">
+                                    <AnimatedIcon.Source>
+                                        <animatedvisuals:AnimatedFindVisualSource />
+                                    </AnimatedIcon.Source>
+                                    <AnimatedIcon.FallbackIconSource>
+                                        <coreControls:WinoFontIconSource Icon="Find" />
+                                    </AnimatedIcon.FallbackIconSource>
+                                </AnimatedIcon>
+
+                                <Grid
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        Text="{x:Bind domain:Translator.OnlineSearchTry_Line1}"
+                                        TextWrapping="Wrap" />
+                                    <TextBlock
+                                        Grid.Row="1"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        FontWeight="SemiBold"
+                                        Text="{x:Bind domain:Translator.OnlineSearchTry_Line2}"
+                                        TextWrapping="Wrap" />
+                                </Grid>
+
+                            </Grid>
+                        </Button>
+                    </Grid>
+                </Grid>
+
+                <StackPanel
+                    Grid.Row="2"
+                    Margin="0,0,0,5"
+                    VerticalAlignment="Bottom"
+                    Spacing="4">
+
+                    <coreControls:WinoInfoBar
+                        Title="{x:Bind ViewModel.UndoMailActionBarTitle, Mode=OneWay}"
+                        AnimationType="SlideFromBottomToTop"
+                        DismissInterval="{x:Bind ViewModel.UndoMailActionBarDismissInterval, Mode=OneWay}"
+                        IsClosable="False"
+                        IsIconVisible="True"
+                        IsOpen="{x:Bind ViewModel.IsUndoMailActionBarOpen, Mode=TwoWay}"
+                        Severity="{x:Bind helpers:XamlHelpers.InfoBarSeverityConverter(ViewModel.UndoMailActionBarSeverity), Mode=OneWay}">
+                        <InfoBar.ActionButton>
+                            <Button AutomationProperties.AutomationId="MailListPageUndoMailActionButton" Command="{x:Bind ViewModel.UndoLatestQueuedActionCommand}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <!--<coreControls:WinoFontIcon Icon="ArrowUndo" />-->
+                                    <TextBlock Text="{x:Bind domain:Translator.UndoActions_Button, Mode=OneTime}" />
+                                </StackPanel>
+                            </Button>
+                        </InfoBar.ActionButton>
+                    </coreControls:WinoInfoBar>
+
+                    <!--  Update Info Bar  -->
+                    <coreControls:WinoInfoBar
+                        Title="{x:Bind ViewModel.BarTitle, Mode=OneWay}"
+                        AnimationType="SlideFromBottomToTop"
+                        DismissInterval="2"
+                        IsClosable="False"
+                        IsOpen="{x:Bind ViewModel.IsBarOpen, Mode=TwoWay}"
+                        Message="{x:Bind ViewModel.BarMessage, Mode=OneWay}"
+                        Severity="{x:Bind helpers:XamlHelpers.InfoBarSeverityConverter(ViewModel.BarSeverity), Mode=OneWay}" />
+                </StackPanel>
+
+            </Grid>
+        </Border>
+
+        <toolkit:PropertySizer
+            x:Name="MailListSizer"
+            Grid.Column="1"
+            Width="16"
+            HorizontalAlignment="Left"
+            AutomationProperties.AccessibilityView="Raw"
+            AutomationProperties.Name="{x:Bind domain:Translator.Accessibility_ResizeMessageList, Mode=OneTime}"
+            Binding="{x:Bind ViewModel.MailListLength, Mode=TwoWay}"
+            Canvas.ZIndex="20"
+            IsTabStop="False"
+            ManipulationCompleted="MailListSizerManipulationCompleted"
+            Maximum="{x:Bind ViewModel.MaxMailListLength, Mode=OneWay}"
+            Minimum="270"
+            Opacity="0" />
+
+        <Grid
+            x:Name="RenderingGrid"
+            Grid.Column="1"
+            Margin="0,3,8,4">
+            <!--  Mail Rendering Frame  -->
+            <Frame x:Name="RenderingFrame" IsNavigationStackEnabled="False" />
+
+            <!--
+                No Mail Selected Message. The layout states own the wrapper's Visibility; the
+                custom theme binding stays on the inner panel so Bindings.Update() (for example
+                after an async entitlement refresh) can't undo the state.
+            -->
+            <Grid x:Name="NoMailSelectedPanel">
+                <StackPanel
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="6"
+                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.ThemeService.IsCustomTheme)}">
+
+                    <illustrations:WinoNoMailSelectedIllustration Width="140" HorizontalAlignment="Center" />
+
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        Opacity="0.5"
+                        Style="{StaticResource SubheaderTextBlockStyle}"
+                        Text="{x:Bind ViewModel.SelectedMessageText, Mode=OneWay}" />
+
+                    <StackPanel
+                        Width="244"
+                        Margin="0,12,0,0"
+                        Spacing="2"
+                        Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.SelectedItemsCount), Mode=OneWay}">
+                        <HyperlinkButton
+                            MinHeight="44"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            AutomationProperties.AutomationId="MailListPageDeleteSelectedButton"
+                            AutomationProperties.Name="{x:Bind domain:Translator.MailOperation_Delete, Mode=OneTime}"
+                            Command="{x:Bind ViewModel.RequestIdleDeleteCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <coreControls:WinoFontIcon
+                                    Width="20"
+                                    FontSize="16"
+                                    Icon="Delete" />
+                                <TextBlock Text="{x:Bind domain:Translator.MailOperation_Delete, Mode=OneTime}" />
+                            </StackPanel>
+                        </HyperlinkButton>
+
+                        <HyperlinkButton
+                            MinHeight="44"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            AutomationProperties.AutomationId="MailListPageFlagSelectedButton"
+                            AutomationProperties.Name="{x:Bind domain:Translator.MailOperation_Flag, Mode=OneTime}"
+                            Command="{x:Bind ViewModel.RequestIdleFlagCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <coreControls:WinoFontIcon
+                                    Width="20"
+                                    FontSize="16"
+                                    Icon="Flag" />
+                                <TextBlock Text="{x:Bind domain:Translator.MailOperation_Flag, Mode=OneTime}" />
+                            </StackPanel>
+                        </HyperlinkButton>
+
+                        <HyperlinkButton
+                            MinHeight="44"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            AutomationProperties.AutomationId="MailListPageToggleReadSelectedButton"
+                            AutomationProperties.Name="{x:Bind domain:Translator.MarkReadUnread, Mode=OneTime}"
+                            Command="{x:Bind ViewModel.RequestIdleToggleReadCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <coreControls:WinoFontIcon
+                                    Width="20"
+                                    FontSize="16"
+                                    Icon="MarkRead" />
+                                <TextBlock Text="{x:Bind domain:Translator.MarkReadUnread, Mode=OneTime}" />
+                            </StackPanel>
+                        </HyperlinkButton>
+
+                        <HyperlinkButton
+                            MinHeight="44"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            AutomationProperties.AutomationId="MailListPageMoveSelectedButton"
+                            AutomationProperties.Name="{x:Bind domain:Translator.MailOperation_Move, Mode=OneTime}"
+                            Command="{x:Bind ViewModel.RequestIdleMoveCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <coreControls:WinoFontIcon
+                                    Width="20"
+                                    FontSize="16"
+                                    Icon="Move" />
+                                <TextBlock Text="{x:Bind domain:Translator.MailOperation_Move, Mode=OneTime}" />
+                            </StackPanel>
+                        </HyperlinkButton>
+
+                        <Rectangle
+                            Height="1"
+                            Margin="0,8"
+                            Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                        <HyperlinkButton
+                            MinHeight="44"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            AutomationProperties.AutomationId="MailListPageUnselectAllButton"
+                            AutomationProperties.Name="{x:Bind domain:Translator.Buttons_UnselectAll, Mode=OneTime}"
+                            Command="{x:Bind ViewModel.UnselectAllCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <coreControls:WinoFontIcon
+                                    Width="20"
+                                    FontSize="16"
+                                    Icon="Dismiss" />
+                                <TextBlock Text="{x:Bind domain:Translator.Buttons_UnselectAll, Mode=OneTime}" />
+                            </StackPanel>
+                        </HyperlinkButton>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </Grid>
+
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="LayoutStates">
+                <VisualState x:Name="BothPanelsNoMailSelected">
+                    <VisualState.Setters>
+                        <Setter Target="RenderingFrame.Visibility" Value="Collapsed" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="BothPanelsMailSelected">
+                    <VisualState.Setters>
+                        <Setter Target="NoMailSelectedPanel.Visibility" Value="Collapsed" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="NarrowMailList">
+                    <VisualState.Setters>
+                        <Setter Target="MailListContainer.(Grid.ColumnSpan)" Value="2" />
+                        <Setter Target="MailListSizer.Visibility" Value="Collapsed" />
+                        <Setter Target="RenderingGrid.Visibility" Value="Collapsed" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="NarrowRenderer">
+                    <VisualState.Setters>
+                        <Setter Target="RenderingGrid.(Grid.Column)" Value="0" />
+                        <Setter Target="RenderingGrid.(Grid.ColumnSpan)" Value="2" />
+                        <Setter Target="RenderingGrid.Margin" Value="0" />
+                        <Setter Target="RenderingGrid.Visibility" Value="Visible" />
+                        <Setter Target="NoMailSelectedPanel.Visibility" Value="Collapsed" />
+                        <Setter Target="MailListSizer.Visibility" Value="Collapsed" />
+                        <Setter Target="MailListContainer.Visibility" Value="Collapsed" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+    </Grid>
+</abstract:MailListPageAbstract>
+
+
+

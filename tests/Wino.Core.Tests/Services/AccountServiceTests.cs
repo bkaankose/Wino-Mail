@@ -1,0 +1,541 @@
+using System;
+using System.Linq;
+using CommunityToolkit.Mvvm.Messaging;
+using FluentAssertions;
+using Moq;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Intelligence;
+using Wino.Core.Misc;
+using Wino.Core.Tests.Helpers;
+using Wino.Messaging.UI;
+using Wino.Services;
+using Xunit;
+
+namespace Wino.Core.Tests.Services;
+
+public class AccountServiceTests : IAsyncLifetime
+{
+    private InMemoryDatabaseService _databaseService = null!;
+    private AccountService _accountService = null!;
+    private Mock<IPictureStorageService> _profilePictureFileService = null!;
+    private Mock<IAuthenticationProvider> _authenticationProvider = null!;
+
+    public async Task InitializeAsync()
+    {
+        _databaseService = new InMemoryDatabaseService();
+        await _databaseService.InitializeAsync();
+        _profilePictureFileService = new Mock<IPictureStorageService>();
+        _authenticationProvider = new Mock<IAuthenticationProvider>();
+        _accountService = CreateService(
+            _databaseService,
+            _profilePictureFileService.Object,
+            _authenticationProvider.Object);
+    }
+
+    public async Task DisposeAsync()
+    {
+        await _databaseService.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task UpdateAccountPreferencesAsync_PersistsAndPublishesIntelligenceVisibility()
+    {
+        var accountId = Guid.NewGuid();
+        var preferences = new MailAccountPreferences
+        {
+            Id = Guid.NewGuid(),
+            AccountId = accountId
+        };
+        await _databaseService.Connection.InsertAsync(preferences);
+
+        IntelligenceVisibilityChanged? notification = null;
+        var recipient = new object();
+        WeakReferenceMessenger.Default.Register<IntelligenceVisibilityChanged>(
+            recipient,
+            (_, message) => notification = message);
+
+        try
+        {
+            preferences.ExcludedIntelligenceIndicatorIds =
+            [IntelligenceIndicatorId.FactPriority, IntelligenceIndicatorId.FactHeadline];
+
+            await _accountService.UpdateAccountPreferencesAsync(preferences);
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.UnregisterAll(recipient);
+        }
+
+        var persisted = await _accountService.GetAccountPreferencesAsync(accountId);
+        persisted.ExcludedIntelligenceIndicatorIds.Should().BeEquivalentTo(
+            IntelligenceIndicatorId.FactPriority,
+            IntelligenceIndicatorId.FactHeadline);
+        notification.Should().NotBeNull();
+        notification!.LocalAccountId.Should().Be(accountId);
+        notification.ExcludedIndicatorIds.Should().BeEquivalentTo(
+            IntelligenceIndicatorId.FactPriority,
+            IntelligenceIndicatorId.FactHeadline);
+    }
+
+    [Fact]
+    public async Task CreateAccountAsync_ImapLocalOnly_CreatesSinglePrimaryDefaultCalendar()
+    {
+        var accountId = Guid.NewGuid();
+        var account = CreateImapAccount(accountId);
+        var server = new CustomServerInformation
+        {
+            Id = Guid.NewGuid(),
+            AccountId = accountId,
+            CalendarSupportMode = ImapCalendarSupportMode.LocalOnly
+        };
+
+        await _accountService.CreateAccountAsync(account, server);
+
+        var calendars = await _databaseService.Connection.Table<Wino.Core.Domain.Entities.Calendar.AccountCalendar>()
+            .Where(a => a.AccountId == accountId)
+            .ToListAsync();
+
+        calendars.Should().HaveCount(1);
+        calendars[0].IsPrimary.Should().BeTrue();
+        calendars[0].Name.Should().Be(Translator.AccountDetailsPage_TabCalendar);
+        ColorHelpers.GetFlatColorPalette().Should().Contain(calendars[0].BackgroundColorHex);
+    }
+
+    [Fact]
+    public async Task CreateAccountAsync_Pop3_CreatesFixedLocalFoldersAndLocalCalendar()
+    {
+        var accountId = Guid.NewGuid();
+        var account = new MailAccount
+        {
+            Id = accountId,
+            Name = "POP3",
+            Address = "pop3@test.local",
+            ProviderType = MailProviderType.POP3,
+            IsCalendarAccessEnabled = true,
+            CalendarIntegrationSource = AccountIntegrationSource.Local
+        };
+        var server = new CustomServerInformation
+        {
+            Id = Guid.NewGuid(),
+            AccountId = accountId,
+            IncomingServerType = CustomIncomingServerType.POP3,
+            CalendarSupportMode = ImapCalendarSupportMode.LocalOnly
+        };
+
+        await _accountService.CreateAccountAsync(account, server, shouldAppendMessagesToSentFolder: false);
+
+        var folders = await _databaseService.Connection.Table<MailItemFolder>()
+            .Where(folder => folder.MailAccountId == accountId)
+            .ToListAsync();
+        folders.Select(folder => folder.SpecialFolderType).Should().BeEquivalentTo([
+            SpecialFolderType.Inbox,
+            SpecialFolderType.Draft,
+            SpecialFolderType.Sent,
+            SpecialFolderType.Archive,
+            SpecialFolderType.Deleted]);
+        folders.Single(folder => folder.SpecialFolderType == SpecialFolderType.Inbox).IsSynchronizationEnabled.Should().BeTrue();
+        folders.Where(folder => folder.SpecialFolderType != SpecialFolderType.Inbox)
+            .Should().OnlyContain(folder => !folder.IsSynchronizationEnabled);
+        (await _databaseService.Connection.Table<Wino.Core.Domain.Entities.Calendar.AccountCalendar>()
+            .CountAsync(calendar => calendar.AccountId == accountId)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task CreateAccountAsync_ImapCalDav_DoesNotCreateDefaultLocalCalendar()
+    {
+        var accountId = Guid.NewGuid();
+        var account = CreateImapAccount(accountId);
+        var server = new CustomServerInformation
+        {
+            Id = Guid.NewGuid(),
+            AccountId = accountId,
+            CalendarSupportMode = ImapCalendarSupportMode.CalDav
+        };
+
+        await _accountService.CreateAccountAsync(account, server);
+
+        var calendars = await _databaseService.Connection.Table<Wino.Core.Domain.Entities.Calendar.AccountCalendar>()
+            .Where(a => a.AccountId == accountId)
+            .ToListAsync();
+
+        calendars.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task CreateAccountAsync_DefaultsToAppendingSentMessages()
+    {
+        var accountId = Guid.NewGuid();
+        var account = CreateImapAccount(accountId);
+        var server = new CustomServerInformation
+        {
+            Id = Guid.NewGuid(),
+            AccountId = accountId,
+            CalendarSupportMode = ImapCalendarSupportMode.LocalOnly
+        };
+
+        await _accountService.CreateAccountAsync(account, server);
+
+        var preferences = await _databaseService.Connection
+            .Table<MailAccountPreferences>()
+            .FirstAsync(item => item.AccountId == accountId);
+
+        preferences.ShouldAppendMessagesToSentFolder.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CreateAccountAsync_UsesRequestedSentMessageAppendPreference()
+    {
+        var accountId = Guid.NewGuid();
+        var account = CreateImapAccount(accountId, "No sent append", "no-append@test.local");
+        var server = new CustomServerInformation
+        {
+            Id = Guid.NewGuid(),
+            AccountId = accountId,
+            CalendarSupportMode = ImapCalendarSupportMode.LocalOnly
+        };
+
+        await _accountService.CreateAccountAsync(account, server, shouldAppendMessagesToSentFolder: false);
+
+        var preferences = await _databaseService.Connection
+            .Table<MailAccountPreferences>()
+            .FirstAsync(item => item.AccountId == accountId);
+
+        preferences.ShouldAppendMessagesToSentFolder.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CreateAccountAsync_NewOAuthAccountWithMailFiltersEnabled_PersistsActiveFeature()
+    {
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = "Gmail",
+            Address = "gmail@test.local",
+            ProviderType = MailProviderType.Gmail,
+            IsMailAccessGranted = true
+        };
+
+        await _accountService.CreateAccountAsync(account, null, enableMailFilters: true);
+
+        var feature = await _databaseService.Connection.Table<AccountProviderFeature>()
+            .FirstAsync(item => item.MailAccountId == account.Id && item.Feature == ProviderFeature.MailFilters);
+
+        feature.AuthorizationState.Should().Be(ProviderFeatureAuthorizationState.Active);
+        feature.EnabledAtUtc.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        feature.LastAuthorizedAtUtc.Should().Be(feature.EnabledAtUtc);
+    }
+
+    [Fact]
+    public async Task CreateAccountAsync_ExistingAccountImport_DoesNotEnableMailFiltersByDefault()
+    {
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = "Imported Gmail",
+            Address = "imported-gmail@test.local",
+            ProviderType = MailProviderType.Gmail,
+            IsMailAccessGranted = true
+        };
+
+        await _accountService.CreateAccountAsync(account, null);
+
+        var featureCount = await _databaseService.Connection.Table<AccountProviderFeature>()
+            .CountAsync(item => item.MailAccountId == account.Id && item.Feature == ProviderFeature.MailFilters);
+
+        featureCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task CreateAccountAsync_ImapLocalOnly_AssignsDistinctCalendarColorsAcrossAccounts()
+    {
+        var firstAccountId = Guid.NewGuid();
+        var secondAccountId = Guid.NewGuid();
+
+        await _accountService.CreateAccountAsync(
+            CreateImapAccount(firstAccountId, "IMAP Test Account 1", "imap1@test.local"),
+            new CustomServerInformation
+            {
+                Id = Guid.NewGuid(),
+                AccountId = firstAccountId,
+                CalendarSupportMode = ImapCalendarSupportMode.LocalOnly
+            });
+
+        await _accountService.CreateAccountAsync(
+            CreateImapAccount(secondAccountId, "IMAP Test Account 2", "imap2@test.local"),
+            new CustomServerInformation
+            {
+                Id = Guid.NewGuid(),
+                AccountId = secondAccountId,
+                CalendarSupportMode = ImapCalendarSupportMode.LocalOnly
+            });
+
+        var calendars = await _databaseService.Connection.Table<Wino.Core.Domain.Entities.Calendar.AccountCalendar>()
+            .OrderBy(a => a.AccountId)
+            .ToListAsync();
+
+        calendars.Should().HaveCount(2);
+        calendars.Select(a => a.BackgroundColorHex).Should().OnlyHaveUniqueItems();
+        calendars.Should().OnlyContain(a => ColorHelpers.GetFlatColorPalette().Contains(a.BackgroundColorHex));
+    }
+
+    [Fact]
+    public void FlatCalendarPalette_ProvidesAtLeastFiftyDistinctColors()
+    {
+        ColorHelpers.GetFlatColorPalette()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count()
+            .Should()
+            .BeGreaterThanOrEqualTo(50);
+    }
+
+    [Fact]
+    public async Task UpdateProfileInformationAsync_DownloadedPicture_UsesAccountOwnedStorageWithoutCreatingContact()
+    {
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = "Gmail",
+            Address = "profile@test.local",
+            SenderName = "Old name",
+            ProviderType = MailProviderType.Gmail
+        };
+        var newFileId = Guid.NewGuid();
+        var imageData = new byte[] { 1, 2, 3 };
+        await _databaseService.Connection.InsertAsync(account);
+        _profilePictureFileService
+            .Setup(service => service.SavePictureAsync(PictureKind.AccountProfile, imageData, null, default))
+            .ReturnsAsync(newFileId);
+
+        await _accountService.UpdateProfileInformationAsync(
+            account.Id,
+            new ProfileInformation("New name", ProfilePictureFetchResult.Downloaded(imageData), account.Address));
+
+        var updated = await _databaseService.Connection.FindAsync<MailAccount>(account.Id);
+        updated.ProfilePictureFileId.Should().Be(newFileId);
+        updated.IsProfilePictureBackfillComplete.Should().BeTrue();
+        (await _databaseService.Connection.Table<AccountContact>().CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task UpdateProfileInformationAsync_FetchFailed_PreservesManualPictureAndBackfillState()
+    {
+        var manualFileId = Guid.NewGuid();
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = "Outlook",
+            Address = "profile@test.local",
+            ProviderType = MailProviderType.Outlook,
+            ProfilePictureFileId = manualFileId,
+            IsProfilePictureBackfillComplete = false
+        };
+        await _databaseService.Connection.InsertAsync(account);
+
+        await _accountService.UpdateProfileInformationAsync(
+            account.Id,
+            new ProfileInformation("Name", ProfilePictureFetchResult.FetchFailed, account.Address));
+
+        var updated = await _databaseService.Connection.FindAsync<MailAccount>(account.Id);
+        updated.ProfilePictureFileId.Should().Be(manualFileId);
+        updated.IsProfilePictureBackfillComplete.Should().BeFalse();
+        _profilePictureFileService.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task UpdateProfileInformationAsync_ExplicitConfirmedAbsent_RemovesCurrentPicture()
+    {
+        var currentFileId = Guid.NewGuid();
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = "Outlook",
+            Address = "profile@test.local",
+            ProviderType = MailProviderType.Outlook,
+            ProfilePictureFileId = currentFileId
+        };
+        await _databaseService.Connection.InsertAsync(account);
+
+        await _accountService.UpdateProfileInformationAsync(
+            account.Id,
+            new ProfileInformation("Name", ProfilePictureFetchResult.ConfirmedAbsent, account.Address),
+            removePictureWhenConfirmedAbsent: true);
+
+        var updated = await _databaseService.Connection.FindAsync<MailAccount>(account.Id);
+        updated.ProfilePictureFileId.Should().BeNull();
+        updated.IsProfilePictureBackfillComplete.Should().BeTrue();
+        _profilePictureFileService.Verify(
+            service => service.DeletePictureAsync(PictureKind.AccountProfile, currentFileId),
+            Times.Once);
+    }
+
+    [Theory]
+    [InlineData(MailProviderType.Gmail)]
+    [InlineData(MailProviderType.Outlook)]
+    public async Task DeleteAccountAuthenticationDataAsync_OAuthProvider_DeletesTokenAndMarksAttention(
+        MailProviderType providerType)
+    {
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = providerType.ToString(),
+            Address = $"{providerType.ToString().ToLowerInvariant()}@test.local",
+            ProviderType = providerType
+        };
+        var authenticator = new Mock<IAuthenticator>();
+        _authenticationProvider.Setup(provider => provider.GetAuthenticator(providerType))
+            .Returns(authenticator.Object);
+        await _databaseService.Connection.InsertAsync(account);
+
+        AccountUpdatedMessage? notification = null;
+        var recipient = new object();
+        WeakReferenceMessenger.Default.Register<AccountUpdatedMessage>(recipient, (_, message) => notification = message);
+        try
+        {
+            await _accountService.DeleteAccountAuthenticationDataAsync(account.Id);
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.UnregisterAll(recipient);
+        }
+
+        authenticator.Verify(value => value.DeleteTokenInformationAsync(
+            It.Is<MailAccount>(candidate => candidate.Id == account.Id), It.IsAny<CancellationToken>()), Times.Once);
+        var updated = await _databaseService.Connection.FindAsync<MailAccount>(account.Id);
+        updated.AttentionReason.Should().Be(AccountAttentionReason.InvalidCredentials);
+        notification.Should().NotBeNull();
+        notification!.Account.Id.Should().Be(account.Id);
+        notification.Account.AttentionReason.Should().Be(AccountAttentionReason.InvalidCredentials);
+    }
+
+    [Fact]
+    public async Task DeleteAccountAuthenticationDataAsync_Imap_BlanksPasswordsAndPreservesConnectionDetails()
+    {
+        var account = CreateImapAccount(Guid.NewGuid());
+        var server = new CustomServerInformation
+        {
+            Id = Guid.NewGuid(),
+            AccountId = account.Id,
+            IncomingServer = "imap.test.local",
+            IncomingServerUsername = "incoming-user",
+            IncomingServerPassword = "incoming-secret",
+            OutgoingServer = "smtp.test.local",
+            OutgoingServerUsername = "outgoing-user",
+            OutgoingServerPassword = "outgoing-secret",
+            CalDavServiceUrl = "https://caldav.test.local/user",
+            CalDavUsername = "calendar-user",
+            CalDavPassword = "calendar-secret"
+        };
+        await _databaseService.Connection.InsertAsync(account);
+        await _databaseService.Connection.InsertAsync(server);
+
+        await _accountService.DeleteAccountAuthenticationDataAsync(account.Id);
+
+        var updatedAccount = await _databaseService.Connection.FindAsync<MailAccount>(account.Id);
+        var updatedServer = await _databaseService.Connection.FindAsync<CustomServerInformation>(server.Id);
+        updatedAccount.AttentionReason.Should().Be(AccountAttentionReason.InvalidCredentials);
+        updatedServer.IncomingServerPassword.Should().BeEmpty();
+        updatedServer.OutgoingServerPassword.Should().BeEmpty();
+        updatedServer.CalDavPassword.Should().BeEmpty();
+        updatedServer.IncomingServer.Should().Be("imap.test.local");
+        updatedServer.IncomingServerUsername.Should().Be("incoming-user");
+        updatedServer.OutgoingServer.Should().Be("smtp.test.local");
+        updatedServer.OutgoingServerUsername.Should().Be("outgoing-user");
+        updatedServer.CalDavServiceUrl.Should().Be("https://caldav.test.local/user");
+        updatedServer.CalDavUsername.Should().Be("calendar-user");
+        _authenticationProvider.VerifyNoOtherCalls();
+    }
+
+    private static MailAccount CreateImapAccount(Guid accountId, string name = "IMAP Test Account", string address = "imap@test.local")
+    {
+        return new MailAccount
+        {
+            Id = accountId,
+            Name = name,
+            Address = address,
+            SenderName = "IMAP Test",
+            ProviderType = MailProviderType.IMAP4
+        };
+    }
+
+    [Fact]
+    public async Task DeleteAccountMailDataAsync_ClearsMessagesAndDeltaIdentifiersButKeepsFolders()
+    {
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = "Work",
+            ProviderType = MailProviderType.Outlook,
+            SynchronizationDeltaIdentifier = "history-42"
+        };
+        var otherAccount = new MailAccount { Id = Guid.NewGuid(), Name = "Other", SynchronizationDeltaIdentifier = "history-7" };
+        await _databaseService.Connection.InsertAsync(account);
+        await _databaseService.Connection.InsertAsync(otherAccount);
+
+        var folder = new MailItemFolder { Id = Guid.NewGuid(), MailAccountId = account.Id, RemoteFolderId = "inbox", FolderName = "Inbox", DeltaToken = "delta-1" };
+        var otherFolder = new MailItemFolder { Id = Guid.NewGuid(), MailAccountId = otherAccount.Id, RemoteFolderId = "inbox", FolderName = "Inbox", DeltaToken = "delta-2" };
+        await _databaseService.Connection.InsertAsync(folder);
+        await _databaseService.Connection.InsertAsync(otherFolder);
+        await _databaseService.Connection.InsertAsync(new MailCopy { UniqueId = Guid.NewGuid(), Id = "m1", FolderId = folder.Id });
+        await _databaseService.Connection.InsertAsync(new MailCopy { UniqueId = Guid.NewGuid(), Id = "m2", FolderId = otherFolder.Id });
+
+        AccountCacheResetMessage? notification = null;
+        var recipient = new object();
+        WeakReferenceMessenger.Default.Register<AccountCacheResetMessage>(recipient, (_, message) => notification = message);
+
+        try
+        {
+            await _accountService.DeleteAccountMailDataAsync(account.Id);
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.UnregisterAll(recipient);
+        }
+
+        (await _databaseService.Connection.Table<MailCopy>().ToListAsync()).Should().ContainSingle(copy => copy.Id == "m2");
+        (await _databaseService.Connection.Table<MailItemFolder>().CountAsync()).Should().Be(2);
+        (await _databaseService.Connection.GetAsync<MailItemFolder>(folder.Id)).DeltaToken.Should().BeNull();
+        (await _databaseService.Connection.GetAsync<MailItemFolder>(otherFolder.Id)).DeltaToken.Should().Be("delta-2");
+        (await _databaseService.Connection.GetAsync<MailAccount>(account.Id)).SynchronizationDeltaIdentifier.Should().BeNull();
+        (await _databaseService.Connection.GetAsync<MailAccount>(otherAccount.Id)).SynchronizationDeltaIdentifier.Should().Be("history-7");
+        notification.Should().NotBeNull();
+        notification!.AccountId.Should().Be(account.Id);
+        notification.Reason.Should().Be(AccountCacheResetReason.MailAccessDisabled);
+    }
+
+    private static AccountService CreateService(
+        InMemoryDatabaseService databaseService,
+        IPictureStorageService pictureStorageService = null,
+        IAuthenticationProvider authenticationProvider = null)
+    {
+        var signatureService = new Mock<ISignatureService>();
+        signatureService
+            .Setup(a => a.CreateDefaultSignatureAsync(It.IsAny<Guid>()))
+            .ReturnsAsync((Guid accountId) => new AccountSignature
+            {
+                Id = Guid.NewGuid(),
+                MailAccountId = accountId,
+                Name = "Default",
+                HtmlBody = string.Empty
+            });
+
+        authenticationProvider ??= Mock.Of<IAuthenticationProvider>();
+        var mimeFileService = new Mock<IMimeFileService>();
+
+        var preferencesService = new Mock<IPreferencesService>();
+        preferencesService.SetupProperty(a => a.StartupEntityId);
+
+        return new AccountService(
+            databaseService,
+            signatureService.Object,
+            authenticationProvider,
+            mimeFileService.Object,
+            preferencesService.Object,
+            pictureStorageService ?? Mock.Of<IPictureStorageService>(),
+            credentialPersistence: Wino.Core.Tests.Helpers.TestAccountCredentialPersistence.Instance);
+    }
+}

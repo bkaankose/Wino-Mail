@@ -1,0 +1,5 @@
+:root { color-scheme: light; }
+html { box-sizing: border-box; height: 100%; margin: 0; background: #ffffff; }
+body { box-sizing: border-box; min-height: 100%; margin: 0; background: transparent; }
+:root[data-surface="dark"] { color-scheme: dark; background: Canvas; }
+#wino-reader { display: block; min-height: 100vh; visibility: hidden; outline: none; }

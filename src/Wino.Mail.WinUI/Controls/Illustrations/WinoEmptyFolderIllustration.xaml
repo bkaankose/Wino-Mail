@@ -1,0 +1,53 @@
+<UserControl
+    x:Class="Wino.Controls.Illustrations.WinoEmptyFolderIllustration"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    IsHitTestVisible="False"
+    mc:Ignorable="d">
+
+    <!--
+        "Folder, nothing filed." The dashed letter above says what would be here, so the state
+        reads as empty rather than broken. Accent carries the folder; nothing else is coloured.
+    -->
+    <Viewbox Stretch="Uniform">
+        <Canvas Width="128" Height="128">
+            <Ellipse
+                Canvas.Left="30"
+                Canvas.Top="99"
+                Width="68"
+                Height="10"
+                Fill="{ThemeResource WinoIllustrationShadowBrush}" />
+
+            <!--  The letter that is not there  -->
+            <Rectangle
+                Canvas.Left="45"
+                Canvas.Top="14"
+                Width="38"
+                Height="28"
+                RadiusX="6"
+                RadiusY="6"
+                Stroke="{ThemeResource WinoIllustrationLineBrush}"
+                StrokeDashArray="2.4,2.8"
+                StrokeDashCap="Round"
+                StrokeThickness="2.5" />
+            <Path
+                Data="M45,20 L64,32 L83,20"
+                Stroke="{ThemeResource WinoIllustrationLineBrush}"
+                StrokeDashArray="2.4,2.8"
+                StrokeDashCap="Round"
+                StrokeLineJoin="Round"
+                StrokeThickness="2.5" />
+
+            <!--  Folder back  -->
+            <Path
+                Data="M16,54 C16,49 20,46 24,46 L47,46 L55,56 L104,56 C108,56 112,59 112,64 L112,92 C112,97 108,100 104,100 L24,100 C20,100 16,97 16,92 Z"
+                Fill="{ThemeResource WinoIllustrationAccentBrush}"
+                Opacity="0.2" />
+
+            <!--  Folder front  -->
+            <Path Data="M16,68 C16,64 19,62 23,62 L105,62 C109,62 112,64 112,68 L112,92 C112,97 108,100 104,100 L24,100 C20,100 16,97 16,92 Z" Fill="{ThemeResource WinoIllustrationAccentBrush}" />
+        </Canvas>
+    </Viewbox>
+</UserControl>

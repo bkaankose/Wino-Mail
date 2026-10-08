@@ -1,0 +1,62 @@
+<UserControl
+    x:Class="Wino.Controls.Illustrations.WinoNoContactSelectedIllustration"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    IsHitTestVisible="False"
+    mc:Ignorable="d">
+
+    <!--
+        "One of three, chosen." The accent ring is the whole message: pick someone and they
+        come into focus. Survives down to 48px because it is three circles and a silhouette.
+    -->
+    <Viewbox Stretch="Uniform">
+        <Canvas Width="128" Height="128">
+            <Ellipse
+                Canvas.Left="28"
+                Canvas.Top="99"
+                Width="72"
+                Height="10"
+                Fill="{ThemeResource WinoIllustrationShadowBrush}" />
+
+            <!--  The two unselected  -->
+            <Ellipse
+                Canvas.Left="13"
+                Canvas.Top="52"
+                Width="28"
+                Height="28"
+                Fill="{ThemeResource WinoIllustrationLineSoftBrush}" />
+            <Ellipse
+                Canvas.Left="87"
+                Canvas.Top="52"
+                Width="28"
+                Height="28"
+                Fill="{ThemeResource WinoIllustrationLineSoftBrush}" />
+
+            <!--  The selected one: accent ring, then accent fill  -->
+            <Ellipse
+                Canvas.Left="38"
+                Canvas.Top="36"
+                Width="52"
+                Height="52"
+                Fill="{ThemeResource WinoIllustrationAccentBrush}"
+                Opacity="0.2" />
+            <Ellipse
+                Canvas.Left="45"
+                Canvas.Top="43"
+                Width="38"
+                Height="38"
+                Fill="{ThemeResource WinoIllustrationAccentBrush}" />
+
+            <!--  Silhouette knocked out in surface  -->
+            <Ellipse
+                Canvas.Left="57.4"
+                Canvas.Top="49.9"
+                Width="13.2"
+                Height="13.2"
+                Fill="{ThemeResource WinoIllustrationSurfaceBrush}" />
+            <Path Data="M52.5,74.5 A11.8,11.8 0 0 1 75.5,74.5 Z" Fill="{ThemeResource WinoIllustrationSurfaceBrush}" />
+        </Canvas>
+    </Viewbox>
+</UserControl>

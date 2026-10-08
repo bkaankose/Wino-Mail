@@ -1,0 +1,17 @@
+{
+  "Distribution": "Beta",
+  "PackageName": "WinoMail.Beta",
+  "Publisher": "CN=Burak Kaan Köse, O=Burak Kaan Köse, L=Wroclaw, S=Dolnośląskie, C=PL",
+  "DisplayNames": {
+    "Mail": "Wino Mail Beta",
+    "Calendar": "Wino Calendar Beta",
+    "People": "Wino People Beta",
+    "Tasks": "Wino To Do Beta"
+  },
+  "NotificationActivatorIds": {
+    "Mail": "831a4df3-e11b-55ae-953c-5296e497a280",
+    "Calendar": "0f0a1f79-ecea-528c-a9a3-3e7738e5a3da",
+    "People": "55e206fb-32fb-523d-93b1-ad5075989338",
+    "Tasks": "a793835d-e218-5842-814a-e4443db6fa5f"
+  }
+}

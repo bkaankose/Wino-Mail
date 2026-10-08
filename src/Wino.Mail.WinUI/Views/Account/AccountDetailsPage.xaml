@@ -1,0 +1,928 @@
+﻿<abstract:AccountDetailsPageAbstract
+    x:Class="Wino.Views.AccountDetailsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:accessibilityControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
+    xmlns:accounts="using:Wino.Core.Domain.Models.Accounts"
+    xmlns:calendar="using:Wino.Core.Domain.Entities.Calendar"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:controls1="using:Wino.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Core.ViewModels.Data"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:folders="using:Wino.Core.Domain.Models.Folders"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:interfaces="using:Wino.Core.Domain.Interfaces"
+    xmlns:local="using:Wino.Views"
+    xmlns:mailViewModels="using:Wino.Mail.ViewModels"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:ui="using:CommunityToolkit.WinUI"
+    x:Name="PageRoot"
+    mc:Ignorable="d">
+    <Page.Resources>
+        <DataTemplate x:Key="FolderStructureMenuFlyoutItemTemplate" x:DataType="folders:IMailItemFolder">
+            <TreeViewItem
+                CanDrag="False"
+                IsExpanded="True"
+                ItemsSource="{x:Bind ChildFolders}">
+                <Grid Height="32">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="300" />
+                    </Grid.ColumnDefinitions>
+                    <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        FontSize="20"
+                        Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(SpecialFolderType)}" />
+                    <TextBlock
+                        Grid.Column="1"
+                        Margin="12,0"
+                        VerticalAlignment="Center"
+                        Text="{x:Bind FolderName}" />
+
+                    <Grid Grid.Column="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <CheckBox
+                            MinWidth="0"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            AutomationProperties.AutomationId="AccountDetailsPageCheckBox"
+                            Checked="SyncFolderToggled"
+                            IsChecked="{x:Bind IsSynchronizationEnabled}"
+                            Tag="{x:Bind}"
+                            Unchecked="SyncFolderToggled"
+                            Visibility="{x:Bind IsMoveTarget}" />
+
+                        <CheckBox
+                            x:Name="FolderJumpListCheckBox"
+                            Grid.Column="1"
+                            MinWidth="0"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            AutomationProperties.AutomationId="AccountDetailsPageCheckBox3"
+                            Checked="JumpListCheckboxToggled"
+                            IsChecked="{x:Bind IsJumpListEnabled}"
+                            Loaded="JumpListCheckBoxLoaded"
+                            Tag="{x:Bind}"
+                            Unchecked="JumpListCheckboxToggled"
+                            Visibility="{x:Bind IsMoveTarget}" />
+                    </Grid>
+                </Grid>
+            </TreeViewItem>
+        </DataTemplate>
+    </Page.Resources>
+
+    <Grid RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <controls:Segmented
+            x:Name="TabSelector"
+            Grid.Row="0"
+            HorizontalAlignment="Center"
+            SelectedIndex="{x:Bind ViewModel.SelectedTabIndex, Mode=TwoWay}">
+            <controls:SegmentedItem Content="{x:Bind domain:Translator.AccountDetailsPage_TabGeneral, Mode=OneTime}">
+                <controls:SegmentedItem.Icon>
+                    <coreControls:WinoFontIcon Icon="ContactCard" />
+                </controls:SegmentedItem.Icon>
+            </controls:SegmentedItem>
+            <controls:SegmentedItem Content="{x:Bind domain:Translator.AccountDetailsPage_TabMail, Mode=OneTime}" Visibility="{x:Bind ViewModel.HasMailAccess, Mode=OneWay}">
+                <controls:SegmentedItem.Icon>
+                    <coreControls:WinoFontIcon Icon="Mail" />
+                </controls:SegmentedItem.Icon>
+            </controls:SegmentedItem>
+            <controls:SegmentedItem Content="{x:Bind domain:Translator.AccountDetailsPage_TabCalendar, Mode=OneTime}" Visibility="{x:Bind ViewModel.HasCalendarAccess, Mode=OneWay}">
+                <controls:SegmentedItem.Icon>
+                    <coreControls:WinoFontIcon Icon="Calendar" />
+                </controls:SegmentedItem.Icon>
+            </controls:SegmentedItem>
+            <controls:SegmentedItem Content="{x:Bind domain:Translator.AccountDetailsPage_TabPeople, Mode=OneTime}" Visibility="{x:Bind ViewModel.HasContactAccess, Mode=OneWay}">
+                <controls:SegmentedItem.Icon>
+                    <coreControls:WinoFontIcon Icon="People" />
+                </controls:SegmentedItem.Icon>
+            </controls:SegmentedItem>
+            <controls:SegmentedItem Content="{x:Bind domain:Translator.AccountDetailsPage_TabToDo, Mode=OneTime}" Visibility="{x:Bind ViewModel.HasTaskAccess, Mode=OneWay}">
+                <controls:SegmentedItem.Icon>
+                    <coreControls:WinoFontIcon Icon="Checkmark" />
+                </controls:SegmentedItem.Icon>
+            </controls:SegmentedItem>
+        </controls:Segmented>
+
+        <Grid
+            x:Name="GeneralSettingsPanel"
+            Grid.Row="2"
+            Visibility="Collapsed">
+            <StackPanel>
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsProfilePictureCard"
+                    Description="{x:Bind domain:Translator.AccountDetailsPage_ProfilePictureDescription, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.AccountDetailsPage_ProfilePictureTitle, Mode=OneTime}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="Person" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <accountIcon:WinoAccountIcon
+                            Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(ViewModel.Account), Mode=OneWay}"
+                            AutomationProperties.Name="{x:Bind domain:Translator.AccountDetailsPage_ProfilePictureTitle, Mode=OneTime}"
+                            IconSize="48" />
+                        <StackPanel
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Orientation="Horizontal"
+                            Spacing="8">
+                            <Button
+                                AutomationProperties.AutomationId="AccountDetailsProfilePictureChangeButton"
+                                Command="{x:Bind ViewModel.ChangeProfilePictureCommand}"
+                                Content="{x:Bind domain:Translator.AccountDetailsPage_ProfilePictureChange, Mode=OneTime}" />
+                            <Button
+                                AutomationProperties.AutomationId="AccountDetailsProfilePictureRemoveButton"
+                                Command="{x:Bind ViewModel.RemoveProfilePictureCommand}"
+                                Content="{x:Bind domain:Translator.AccountDetailsPage_ProfilePictureRemove, Mode=OneTime}" />
+                            <Button
+                                AutomationProperties.AutomationId="AccountDetailsProfilePictureRefreshButton"
+                                Command="{x:Bind ViewModel.RefreshProfilePictureCommand}"
+                                Content="{x:Bind domain:Translator.AccountDetailsPage_ProfilePictureRefresh, Mode=OneTime}"
+                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.CanRefreshProfilePicture), Mode=OneWay}" />
+                            <ProgressRing
+                                Width="20"
+                                Height="20"
+                                AutomationProperties.Name="{x:Bind domain:Translator.AccountDetailsPage_ProfilePictureBusy, Mode=OneTime}"
+                                IsActive="{x:Bind ViewModel.IsProfilePictureBusy, Mode=OneWay}"
+                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsProfilePictureBusy), Mode=OneWay}" />
+                        </StackPanel>
+                    </Grid>
+                </controls:SettingsCard>
+
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsCard"
+                    Description="{x:Bind domain:Translator.AccountEditDialog_Message}"
+                    Header="{x:Bind domain:Translator.AccountDetailsPage_Title}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="Person" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <TextBox
+                        Width="250"
+                        AutomationProperties.AutomationId="AccountDetailsPageTextBox"
+                        PlaceholderText="{x:Bind domain:Translator.AccountSettingsDialog_AccountNamePlaceholder}"
+                        Text="{x:Bind ViewModel.AccountName, Mode=TwoWay}" />
+                </controls:SettingsCard>
+
+                <controls:SettingsExpander
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsCard4"
+                    Description="{x:Bind domain:Translator.AccountDetailsPage_CapabilityDescription, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.AccountDetailsPage_CapabilityTitle, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.IsOAuthCapabilityEditable, Mode=OneWay}">
+                    <controls:SettingsExpander.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="Calendar" />
+                    </controls:SettingsExpander.HeaderIcon>
+                    <controls:SettingsExpander.ItemsHeader>
+                        <muxc:InfoBar
+                            AutomationProperties.AutomationId="AccountCapabilitiesReauthenticationInfo"
+                            IsClosable="False"
+                            IsOpen="{x:Bind ViewModel.IsCapabilitySelectionChanged, Mode=OneWay}"
+                            Message="{x:Bind domain:Translator.AccountDetailsPage_CapabilityReauthenticationMessage, Mode=OneTime}"
+                            Severity="Informational" />
+                    </controls:SettingsExpander.ItemsHeader>
+                    <controls:SettingsExpander.ItemsFooter>
+                        <Button
+                            Margin="16,12"
+                            HorizontalAlignment="Right"
+                            AutomationProperties.AutomationId="ApplyAccountCapabilities"
+                            Command="{x:Bind ViewModel.ApplyCapabilitiesCommand}"
+                            Content="{x:Bind domain:Translator.Buttons_Apply, Mode=OneTime}" />
+                    </controls:SettingsExpander.ItemsFooter>
+                    <controls:SettingsExpander.Items>
+                        <controls:SettingsCard AutomationProperties.AutomationId="AccountCapabilityMailCard" Header="{x:Bind domain:Translator.ProviderSelection_UseForMail, Mode=OneTime}">
+                            <controls:SettingsCard.HeaderIcon>
+                                <coreControls:WinoFontIcon Icon="Mail" />
+                            </controls:SettingsCard.HeaderIcon>
+                            <ToggleSwitch
+                                AutomationProperties.AutomationId="AccountCapabilityMail"
+                                IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsApplyingCapabilities), Mode=OneWay}"
+                                IsOn="{x:Bind ViewModel.IsMailCapabilitySelected, Mode=TwoWay}" />
+                        </controls:SettingsCard>
+                        <controls:SettingsCard AutomationProperties.AutomationId="AccountCapabilityCalendarCard" Header="{x:Bind domain:Translator.ProviderSelection_UseForCalendar, Mode=OneTime}">
+                            <controls:SettingsCard.HeaderIcon>
+                                <coreControls:WinoFontIcon Icon="Calendar" />
+                            </controls:SettingsCard.HeaderIcon>
+                            <ToggleSwitch
+                                AutomationProperties.AutomationId="AccountCapabilityCalendar"
+                                IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsApplyingCapabilities), Mode=OneWay}"
+                                IsOn="{x:Bind ViewModel.IsCalendarCapabilitySelected, Mode=TwoWay}" />
+                        </controls:SettingsCard>
+                        <controls:SettingsCard AutomationProperties.AutomationId="AccountCapabilityContactsCard" Header="{x:Bind domain:Translator.ProviderSelection_UseForContacts, Mode=OneTime}">
+                            <controls:SettingsCard.HeaderIcon>
+                                <coreControls:WinoFontIcon Icon="People" />
+                            </controls:SettingsCard.HeaderIcon>
+                            <ToggleSwitch
+                                AutomationProperties.AutomationId="AccountCapabilityContacts"
+                                IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsApplyingCapabilities), Mode=OneWay}"
+                                IsOn="{x:Bind ViewModel.IsContactsCapabilitySelected, Mode=TwoWay}" />
+                        </controls:SettingsCard>
+                        <controls:SettingsCard AutomationProperties.AutomationId="AccountCapabilityTasksCard" Header="{x:Bind domain:Translator.ProviderSelection_UseForTasks, Mode=OneTime}">
+                            <controls:SettingsCard.HeaderIcon>
+                                <coreControls:WinoFontIcon Icon="Checkmark" />
+                            </controls:SettingsCard.HeaderIcon>
+                            <ToggleSwitch
+                                AutomationProperties.AutomationId="AccountCapabilityTasks"
+                                IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsApplyingCapabilities), Mode=OneWay}"
+                                IsOn="{x:Bind ViewModel.IsTasksCapabilitySelected, Mode=TwoWay}" />
+                        </controls:SettingsCard>
+                    </controls:SettingsExpander.Items>
+                </controls:SettingsExpander>
+
+                <controls:SettingsCard
+                    HorizontalContentAlignment="Stretch"
+                    VerticalContentAlignment="Stretch"
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsCard5"
+                    ContentAlignment="Vertical"
+                    Description="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Description}"
+                    Header="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Title}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="Color" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <GridView
+                            AutomationProperties.AutomationId="AccountDetailsPageGridView"
+                            ItemTemplate="{StaticResource AccountColorTemplate}"
+                            ItemsSource="{x:Bind ViewModel.AvailableColors}"
+                            SelectedItem="{x:Bind ViewModel.SelectedColor, Mode=TwoWay}" />
+
+                        <Button
+                            Grid.Row="1"
+                            Width="100"
+                            HorizontalAlignment="Right"
+                            AutomationProperties.AutomationId="AccountDetailsPageButton"
+                            Command="{x:Bind ViewModel.ResetColorCommand}"
+                            Content="{x:Bind domain:Translator.Buttons_Reset}" />
+                    </Grid>
+                </controls:SettingsCard>
+
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsCard6"
+                    Description="{x:Bind domain:Translator.SettingsEditAccountDetails_ImapCalDavSettings_Description}"
+                    Header="{x:Bind domain:Translator.SettingsEditAccountDetails_ImapCalDavSettings_Title}"
+                    Visibility="{x:Bind ViewModel.IsImapServer, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="GlobeDesktop" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <Button
+                        Width="160"
+                        HorizontalAlignment="Right"
+                        AutomationProperties.AutomationId="AccountDetailsPageButton2"
+                        Command="{x:Bind ViewModel.EditImapCalDavSettingsCommand}"
+                        Content="{x:Bind domain:Translator.SettingsEditAccountDetails_ImapCalDavSettings_Action}"
+                        Style="{ThemeResource AccentButtonStyle}" />
+                </controls:SettingsCard>
+
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsProtocolLogEnabledCard"
+                    Description="{x:Bind domain:Translator.ProtocolLog_EnableDescription, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.ProtocolLog_EnableTitle, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.IsImapServer, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="Pulse" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <CheckBox
+                        AutomationProperties.AutomationId="AccountDetailsProtocolLogEnabledCheckBox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.ProtocolLog_EnableTitle, Mode=OneTime}"
+                        Content="{x:Bind domain:Translator.ProtocolLog_EnableCheckbox, Mode=OneTime}"
+                        IsChecked="{x:Bind ViewModel.IsProtocolLogEnabled, Mode=TwoWay}" />
+                </controls:SettingsCard>
+
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsProtocolLogExportCard"
+                    Description="{x:Bind domain:Translator.ProtocolLog_ExportDescription, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.ProtocolLog_ExportTitle, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.IsImapServer, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="ArrowDownload" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button
+                            AutomationProperties.AutomationId="AccountDetailsProtocolLogExportButton"
+                            Command="{x:Bind ViewModel.ExportProtocolLogsCommand}"
+                            Content="{x:Bind domain:Translator.ProtocolLog_ExportAction, Mode=OneTime}" />
+                        <Button
+                            AutomationProperties.AutomationId="AccountDetailsProtocolLogUploadButton"
+                            Command="{x:Bind ViewModel.UploadProtocolLogsCommand}"
+                            Content="{x:Bind domain:Translator.ProtocolLog_UploadAction, Mode=OneTime}" />
+                    </StackPanel>
+                </controls:SettingsCard>
+
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsCard7"
+                    Description="{x:Bind domain:Translator.Buttons_Save}"
+                    Header="{x:Bind domain:Translator.SettingsEditAccountDetails_Title}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="Save" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <Button
+                        Width="100"
+                        HorizontalAlignment="Right"
+                        AutomationProperties.AutomationId="AccountDetailsPageButton3"
+                        Command="{x:Bind ViewModel.SaveChangesCommand}"
+                        Content="{x:Bind domain:Translator.Buttons_Save}"
+                        Style="{ThemeResource AccentButtonStyle}" />
+                </controls:SettingsCard>
+
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsCard8"
+                    Description="{x:Bind domain:Translator.SettingsDeleteAccount_Description}"
+                    Header="{x:Bind domain:Translator.SettingsDeleteAccount_Title}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="Delete" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <Button
+                        Width="100"
+                        AutomationProperties.AutomationId="AccountDetailsPageButton4"
+                        Background="{ThemeResource DeleteBrush}"
+                        Command="{x:Bind ViewModel.DeleteAccountCommand}"
+                        Content="{x:Bind domain:Translator.Buttons_Delete}"
+                        Foreground="White">
+                        <Button.Resources>
+                            <SolidColorBrush x:Key="ButtonForeground" Color="White" />
+                            <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="White" />
+                            <SolidColorBrush x:Key="ButtonForegroundPressed" Color="White" />
+                            <SolidColorBrush x:Key="ButtonForegroundDisabled" Color="White" />
+                        </Button.Resources>
+                    </Button>
+                </controls:SettingsCard>
+            </StackPanel>
+
+
+        </Grid>
+
+        <!--  Mail Settings Panel  -->
+        <Grid
+            x:Name="MailSettingsPanel"
+            Grid.Row="2"
+            x:Load="{x:Bind ViewModel.HasMailAccess, Mode=OneWay}"
+            Visibility="Collapsed">
+            <StackPanel Spacing="4">
+                <StackPanel.ChildrenTransitions>
+                    <TransitionCollection>
+                        <RepositionThemeTransition IsStaggeringEnabled="False" />
+                    </TransitionCollection>
+                </StackPanel.ChildrenTransitions>
+
+                <muxc:InfoBar
+                    Title="{x:Bind domain:Translator.AccountDetailsPage_InitialSynchronization_Title}"
+                    Margin="0,0,0,8"
+                    IsOpen="True"
+                    Message="{x:Bind ViewModel.InitialSynchronizationSummary, Mode=OneWay}"
+                    Severity="Informational"
+                    Visibility="{x:Bind ViewModel.IsInitialSynchronizationSummaryVisible, Mode=OneWay}" />
+
+                <muxc:InfoBar
+                    x:Name="ProviderManagedSenderNameInfoBar"
+                    Margin="0,0,0,8"
+                    x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsSenderNameEditable), Mode=OneWay}"
+                    AutomationProperties.AutomationId="AccountDetailsProviderManagedSenderNameInfoBar"
+                    IsClosable="False"
+                    IsOpen="True"
+                    Message="{x:Bind domain:Translator.AccountDetailsPage_SenderNameProviderManagedNote}"
+                    Severity="Informational" />
+
+                <!--
+                    Sender display name only reaches the recipient on IMAP. Outlook and Gmail
+                    resolve it from the provider, so the field is not shown there at all.
+                -->
+                <controls:SettingsCard
+                    x:Name="SenderDisplayNameCard"
+                    x:Load="{x:Bind ViewModel.IsSenderNameEditable, Mode=OneWay}"
+                    AutomationProperties.AutomationId="AccountDetailsSenderNameCard"
+                    Description="{x:Bind domain:Translator.SettingsEditAccountDetails_Description}"
+                    Header="{x:Bind domain:Translator.AccountSettingsDialog_AccountName}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="Person" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <TextBox
+                        Width="250"
+                        AutomationProperties.AutomationId="AccountDetailsSenderNameTextBox"
+                        PlaceholderText="{x:Bind domain:Translator.AccountSettingsDialog_AccountNamePlaceholder}"
+                        Text="{x:Bind ViewModel.SenderName, Mode=TwoWay}" />
+                </controls:SettingsCard>
+
+                <controls:SettingsCard AutomationProperties.AutomationId="AccountDetailsMailAddressCard" Header="{x:Bind domain:Translator.IMAPSetupDialog_MailAddress}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="Mail" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <TextBox
+                        Width="250"
+                        AutomationProperties.AutomationId="AccountDetailsMailAddressTextBox"
+                        IsReadOnly="True"
+                        Text="{x:Bind ViewModel.Address, Mode=OneWay}" />
+                </controls:SettingsCard>
+
+
+
+                <accessibilityControls:WinoSettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsWinoIntelligenceCard"
+                    Command="{x:Bind ViewModel.ManageWinoIntelligenceCommand}"
+                    Description="{x:Bind domain:Translator.SemanticIndex_Description, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.SemanticIndex_Title, Mode=OneTime}"
+                    IsClickEnabled="True"
+                    Visibility="{x:Bind ViewModel.CanAccessWinoIntelligence, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" Icon="WinoIntelligence" />
+                    </controls:SettingsCard.HeaderIcon>
+                </accessibilityControls:WinoSettingsCard>
+
+                <accessibilityControls:WinoSettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsCard9"
+                    Command="{x:Bind ViewModel.EditAliasesCommand}"
+                    Description="{x:Bind domain:Translator.SettingsManageAliases_Description}"
+                    Header="{x:Bind domain:Translator.SettingsManageAliases_Title}"
+                    IsClickEnabled="True">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="PersonSwap" />
+                    </controls:SettingsCard.HeaderIcon>
+                </accessibilityControls:WinoSettingsCard>
+
+                <accessibilityControls:WinoSettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsCard10"
+                    Command="{x:Bind ViewModel.EditCategoriesCommand}"
+                    Description="{x:Bind domain:Translator.SettingsMailCategories_Description}"
+                    Header="{x:Bind domain:Translator.SettingsMailCategories_Title}"
+                    IsClickEnabled="True">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="Tag" />
+                    </controls:SettingsCard.HeaderIcon>
+                </accessibilityControls:WinoSettingsCard>
+
+
+
+                <controls:SettingsExpander
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsExpander"
+                    Description="{x:Bind domain:Translator.SettingsFolderOptions_Description}"
+                    Header="{x:Bind domain:Translator.SettingsFolderOptions_Title}">
+                    <controls:SettingsExpander.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="FolderSync" />
+                    </controls:SettingsExpander.HeaderIcon>
+                    <controls:SettingsExpander.Items>
+                        <accessibilityControls:WinoSettingsCard
+                            AutomationProperties.AutomationId="AccountDetailsPageSettingsCard11"
+                            Command="{x:Bind ViewModel.CustomizeFolderListCommand}"
+                            Description="{x:Bind domain:Translator.FolderCustomization_EntryCardDescription}"
+                            Header="{x:Bind domain:Translator.FolderCustomization_EntryCardTitle}"
+                            IsClickEnabled="True">
+                            <controls:SettingsCard.HeaderIcon>
+                                <coreControls:WinoFontIcon Icon="List" />
+                            </controls:SettingsCard.HeaderIcon>
+                        </accessibilityControls:WinoSettingsCard>
+                        <accessibilityControls:WinoSettingsCard
+                            AutomationProperties.AutomationId="AccountDetailsPageSettingsCard12"
+                            Command="{x:Bind ViewModel.SetupSpecialFoldersCommand}"
+                            Description="{x:Bind domain:Translator.SettingsConfigureSpecialFolders_Description}"
+                            Header="{x:Bind domain:Translator.SettingsConfigureSpecialFolders_Title}"
+                            IsClickEnabled="True">
+                            <controls:SettingsCard.HeaderIcon>
+                                <coreControls:WinoFontIcon Icon="Settings" />
+                            </controls:SettingsCard.HeaderIcon>
+                        </accessibilityControls:WinoSettingsCard>
+                        <controls:SettingsCard
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch"
+                            AutomationProperties.AutomationId="AccountDetailsPageSettingsCard13"
+                            ContentAlignment="Vertical">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="300" />
+                                </Grid.ColumnDefinitions>
+
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <!--  Headers  -->
+                                <Grid Grid.Column="1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock
+                                        FontWeight="SemiBold"
+                                        Text="{x:Bind domain:Translator.SettingsFolderSynchronize_Title, Mode=OneTime}"
+                                        TextWrapping="Wrap" />
+                                    <TextBlock
+                                        Grid.Column="1"
+                                        FontWeight="SemiBold"
+                                        Text="{x:Bind domain:Translator.SettingsFolderJumpList_Title, Mode=OneTime}"
+                                        TextWrapping="Wrap" />
+                                </Grid>
+
+                                <!--  TODO: Items here are draggable. Which is causing tree view to crash.  -->
+                                <TreeView
+                                    x:Name="FolderTreeView"
+                                    Grid.Row="1"
+                                    Grid.ColumnSpan="2"
+                                    AutomationProperties.AutomationId="FolderTreeView"
+                                    CanDragItems="False"
+                                    CanReorderItems="False"
+                                    ItemTemplate="{StaticResource FolderStructureMenuFlyoutItemTemplate}"
+                                    ItemsSource="{x:Bind ViewModel.CurrentFolders, Mode=OneWay}"
+                                    SelectionMode="None" />
+                            </Grid>
+                        </controls:SettingsCard>
+                    </controls:SettingsExpander.Items>
+                </controls:SettingsExpander>
+
+
+                <controls:SettingsExpander
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsExpander2"
+                    Description="{x:Bind domain:Translator.SettingsNotificationsAndTaskbar_Description}"
+                    Header="{x:Bind domain:Translator.SettingsNotificationsAndTaskbar_Title}">
+                    <controls:SettingsExpander.HeaderIcon>
+                        <coreControls:WinoFontIcon
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Icon="Alert" />
+                    </controls:SettingsExpander.HeaderIcon>
+                    <controls:SettingsExpander.Items>
+                        <accessibilityControls:WinoSettingsCard
+                            AutomationProperties.AutomationId="AccountDetailsPageSettingsCard15"
+                            Command="{x:Bind ViewModel.ConfigureUnreadBadgesCommand}"
+                            Description="{x:Bind domain:Translator.SettingsUnreadBadges_Card_Description}"
+                            Header="{x:Bind domain:Translator.SettingsUnreadBadges_Card_Title}"
+                            IsClickEnabled="True">
+                            <controls:SettingsCard.HeaderIcon>
+                                <coreControls:WinoFontIcon Icon="AlertBadge" />
+                            </controls:SettingsCard.HeaderIcon>
+                        </accessibilityControls:WinoSettingsCard>
+                        <controls:SettingsCard
+                            AutomationProperties.AutomationId="AccountDetailsPageSettingsCard16"
+                            Description="{x:Bind domain:Translator.SettingsJumpList_Description}"
+                            Header="{x:Bind domain:Translator.SettingsJumpList_Title}">
+                            <controls:SettingsCard.HeaderIcon>
+                                <coreControls:WinoFontIcon Icon="TaskList" />
+                            </controls:SettingsCard.HeaderIcon>
+                            <ToggleSwitch
+                                AutomationProperties.AutomationId="AccountDetailsPageToggleSwitch3"
+                                IsOn="{x:Bind ViewModel.IsJumpListEnabled, Mode=TwoWay}"
+                                Toggled="JumpListMasterToggled" />
+                        </controls:SettingsCard>
+                    </controls:SettingsExpander.Items>
+                </controls:SettingsExpander>
+
+
+
+                <!--  TODO  -->
+                <!--<accessibilityControls:WinoSettingsCard
+        AutomationProperties.AutomationId="AccountDetailsPageSettingsCard17"
+        Header="Special Folders"
+        IsClickEnabled="True"
+        Command="{x:Bind ViewModel.SpecialFoldersCommand}"
+        Description="Setup functional folders for Wino to work with like Spam, Trash, Archive etc.">
+        <controls:SettingsCard.HeaderIcon>
+            <coreControls:WinoFontIcon Icon="Folder" />
+        </controls:SettingsCard.HeaderIcon>
+    </accessibilityControls:WinoSettingsCard>-->
+
+                <accessibilityControls:WinoSettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsMailFiltersCard"
+                    Command="{x:Bind ViewModel.ManageMailFiltersCommand}"
+                    Description="{x:Bind domain:Translator.MailFilters_AccountCardDescription, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.MailFilters_Title, Mode=OneTime}"
+                    IsClickEnabled="True">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="Filter" />
+                    </controls:SettingsCard.HeaderIcon>
+                </accessibilityControls:WinoSettingsCard>
+
+                <accessibilityControls:WinoSettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsCard18"
+                    Command="{x:Bind ViewModel.EditSignatureCommand}"
+                    Description="{x:Bind domain:Translator.SettingsSignature_Description}"
+                    Header="{x:Bind domain:Translator.SettingsSignature_Title}"
+                    IsClickEnabled="True">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="Signature" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <ToggleSwitch AutomationProperties.AutomationId="AccountDetailsPageToggleSwitch4" IsOn="{x:Bind ViewModel.IsSignatureEnabled, Mode=TwoWay}" />
+                </accessibilityControls:WinoSettingsCard>
+
+
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsCard19"
+                    Description="{x:Bind domain:Translator.SettingsFocusedInbox_Description}"
+                    Header="{x:Bind domain:Translator.SettingsFocusedInbox_Title}"
+                    Visibility="{x:Bind ViewModel.IsFocusedInboxSupportedForAccount, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="MailInboxCheckmark" />
+                    </controls:SettingsCard.HeaderIcon>
+
+                    <ToggleSwitch AutomationProperties.AutomationId="AccountDetailsPageToggleSwitch5" IsOn="{x:Bind ViewModel.IsFocusedInboxEnabled, Mode=TwoWay}" />
+                </controls:SettingsCard>
+
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsCard20"
+                    Description="{x:Bind domain:Translator.SettingsAccountManagementAppendMessage_Description}"
+                    Header="{x:Bind domain:Translator.SettingsAccountManagementAppendMessage_Title}"
+                    Visibility="{x:Bind ViewModel.IsAppendMessageSettingVisible, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Icon="MailArrowUp" />
+                    </controls:SettingsCard.HeaderIcon>
+
+                    <ToggleSwitch AutomationProperties.AutomationId="AccountDetailsPageToggleSwitch6" IsOn="{x:Bind ViewModel.IsAppendMessageSettinEnabled, Mode=TwoWay}" />
+                </controls:SettingsCard>
+            </StackPanel>
+        </Grid>
+
+        <!--  Calendar Settings Panel  -->
+        <Grid
+            x:Name="CalendarSettingsPanel"
+            Grid.Row="2"
+            x:Load="{x:Bind ViewModel.HasCalendarAccess, Mode=OneWay}"
+            Visibility="Collapsed">
+            <StackPanel MaxWidth="900" Spacing="12">
+
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsCard21"
+                    Description="{x:Bind domain:Translator.CalendarAccountSettings_PrimaryCalendarDescription, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.CalendarAccountSettings_PrimaryCalendar, Mode=OneTime}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="Star" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <ComboBox
+                        AutomationProperties.AutomationId="AccountDetailsPageComboBox2"
+                        ItemsSource="{x:Bind ViewModel.AccountCalendars, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedPrimaryCalendar, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="calendar:AccountCalendar">
+                                <TextBlock Text="{x:Bind Name}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </controls:SettingsCard>
+
+                <!--  Calendars List  -->
+                <ItemsControl ItemsSource="{x:Bind ViewModel.AccountCalendarSettingsItems, Mode=OneWay}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="mailViewModels:AccountCalendarSettingsItemViewModel">
+                            <controls:SettingsExpander
+                                Margin="0,0,0,8"
+                                AutomationProperties.AutomationId="AccountDetailsPageSettingsExpander3"
+                                Description="{x:Bind TimeZone, Mode=OneWay}"
+                                Header="{x:Bind Name, Mode=OneWay}"
+                                IsExpanded="False">
+                                <controls:SettingsExpander.HeaderIcon>
+                                    <coreControls:WinoFontIcon
+                                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                                        Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}"
+                                        Icon="Calendar" />
+                                </controls:SettingsExpander.HeaderIcon>
+                                <controls:SettingsExpander.Items>
+
+                                    <controls:SettingsCard
+                                        AutomationProperties.AutomationId="AccountDetailsPageSettingsCard22"
+                                        Description="{x:Bind domain:Translator.CalendarAccountSettings_AccountColorDescription, Mode=OneTime}"
+                                        Header="{x:Bind domain:Translator.CalendarAccountSettings_AccountColor, Mode=OneTime}">
+                                        <controls:SettingsCard.HeaderIcon>
+                                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Color" />
+                                        </controls:SettingsCard.HeaderIcon>
+                                        <Button
+                                            MinWidth="40"
+                                            MinHeight="40"
+                                            Padding="4"
+                                            AutomationProperties.AutomationId="AccountDetailsPageButton5"
+                                            Tag="{x:Bind}">
+                                            <Button.Flyout>
+                                                <Flyout Placement="BottomEdgeAlignedLeft">
+                                                    <GridView
+                                                        Width="220"
+                                                        AutomationProperties.AutomationId="AccountDetailsPageGridView2"
+                                                        IsItemClickEnabled="True"
+                                                        ItemClick="CalendarColorItemClick"
+                                                        ItemTemplate="{StaticResource AccountColorTemplate}"
+                                                        ItemsSource="{x:Bind AvailableColors, Mode=OneWay}"
+                                                        SelectedItem="{x:Bind SelectedColor, Mode=TwoWay}"
+                                                        SelectionMode="Single"
+                                                        Tag="{x:Bind}" />
+                                                </Flyout>
+                                            </Button.Flyout>
+                                            <Border
+                                                Width="24"
+                                                Height="24"
+                                                Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}"
+                                                CornerRadius="4" />
+                                        </Button>
+                                    </controls:SettingsCard>
+
+                                    <controls:SettingsCard
+                                        AutomationProperties.AutomationId="AccountDetailsPageSettingsCard23"
+                                        Description="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabledDescription, Mode=OneTime}"
+                                        Header="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabled, Mode=OneTime}">
+                                        <controls:SettingsCard.HeaderIcon>
+                                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Sync" />
+                                        </controls:SettingsCard.HeaderIcon>
+                                        <ToggleSwitch
+                                            AutomationProperties.AutomationId="AccountDetailsPageToggleSwitch7"
+                                            IsOn="{x:Bind IsSynchronizationEnabled, Mode=OneWay}"
+                                            Tag="{x:Bind}"
+                                            Toggled="CalendarSynchronizationToggled" />
+                                    </controls:SettingsCard>
+
+                                    <controls:SettingsCard
+                                        AutomationProperties.AutomationId="AccountDetailsPageSettingsCard24"
+                                        Description="{x:Bind domain:Translator.CalendarAccountSettings_DefaultShowAsDescription, Mode=OneTime}"
+                                        Header="{x:Bind domain:Translator.CalendarAccountSettings_DefaultShowAs, Mode=OneTime}">
+                                        <controls:SettingsCard.HeaderIcon>
+                                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Calendar" />
+                                        </controls:SettingsCard.HeaderIcon>
+                                        <ComboBox
+                                            AutomationProperties.AutomationId="AccountDetailsPageComboBox3"
+                                            ItemsSource="{x:Bind ShowAsOptions, Mode=OneWay}"
+                                            SelectedItem="{x:Bind SelectedShowAsOption, Mode=OneWay}"
+                                            SelectionChanged="CalendarShowAsSelectionChanged"
+                                            Tag="{x:Bind}">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate x:DataType="mailViewModels:AccountCalendarShowAsOption">
+                                                    <TextBlock Text="{x:Bind DisplayText}" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </controls:SettingsCard>
+                                </controls:SettingsExpander.Items>
+                            </controls:SettingsExpander>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+            </StackPanel>
+        </Grid>
+
+        <Grid
+            x:Name="PeopleSettingsPanel"
+            Grid.Row="2"
+            x:Load="{x:Bind ViewModel.HasContactAccess, Mode=OneWay}"
+            Visibility="Collapsed">
+            <StackPanel MaxWidth="900" Spacing="4">
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsPeopleSourceCard"
+                    Description="{x:Bind domain:Translator.AccountDetailsPage_PeopleSourceDescription}"
+                    Header="{x:Bind domain:Translator.AccountDetailsPage_PeopleSourceTitle}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="People" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="AccountDetailsPeopleSourceText"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="{x:Bind ViewModel.ContactIntegrationSourceText, Mode=OneWay}" />
+                </controls:SettingsCard>
+
+                <accessibilityControls:WinoSettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsPeopleCategoriesCard"
+                    Command="{x:Bind ViewModel.EditCategoriesCommand}"
+                    Description="{x:Bind domain:Translator.SettingsMailCategories_Description}"
+                    Header="{x:Bind domain:Translator.SettingsMailCategories_Title}"
+                    IsClickEnabled="True">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="Tag" />
+                    </controls:SettingsCard.HeaderIcon>
+                </accessibilityControls:WinoSettingsCard>
+
+                <muxc:InfoBar
+                    AutomationProperties.AutomationId="AccountContactsReauthorizationInfo"
+                    IsClosable="False"
+                    IsOpen="{x:Bind ViewModel.IsContactReauthorizationRequired, Mode=OneWay}"
+                    Message="{x:Bind domain:Translator.AccountDetailsPage_ContactsReauthorizationMessage, Mode=OneTime}"
+                    Severity="Warning">
+                    <muxc:InfoBar.ActionButton>
+                        <Button
+                            AutomationProperties.AutomationId="ReconnectAccountContacts"
+                            Command="{x:Bind ViewModel.ReauthorizeContactsCommand}"
+                            Content="{x:Bind domain:Translator.AccountDetailsPage_ReconnectContacts, Mode=OneTime}" />
+                    </muxc:InfoBar.ActionButton>
+                </muxc:InfoBar>
+            </StackPanel>
+        </Grid>
+
+        <Grid
+            x:Name="ToDoSettingsPanel"
+            Grid.Row="2"
+            x:Load="{x:Bind ViewModel.HasTaskAccess, Mode=OneWay}"
+            Visibility="Collapsed">
+            <StackPanel MaxWidth="900" Spacing="4">
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsTasksSourceCard"
+                    Description="{x:Bind domain:Translator.AccountDetailsPage_TasksSourceDescription}"
+                    Header="{x:Bind domain:Translator.AccountDetailsPage_TasksSourceTitle}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="Checkmark" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="AccountDetailsTasksSourceText"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="{x:Bind ViewModel.TaskIntegrationSourceText, Mode=OneWay}" />
+                </controls:SettingsCard>
+
+                <muxc:InfoBar
+                    AutomationProperties.AutomationId="AccountTasksReauthorizationInfo"
+                    IsClosable="False"
+                    IsOpen="{x:Bind ViewModel.IsTaskReauthorizationRequired, Mode=OneWay}"
+                    Message="{x:Bind domain:Translator.AccountDetailsPage_TasksReauthorizationMessage, Mode=OneTime}"
+                    Severity="Warning">
+                    <muxc:InfoBar.ActionButton>
+                        <Button
+                            AutomationProperties.AutomationId="ReconnectAccountTasks"
+                            Command="{x:Bind ViewModel.ReauthorizeTasksCommand}"
+                            Content="{x:Bind domain:Translator.AccountDetailsPage_ReconnectTasks, Mode=OneTime}" />
+                    </muxc:InfoBar.ActionButton>
+                </muxc:InfoBar>
+            </StackPanel>
+        </Grid>
+
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="TabStates">
+                <VisualState x:Name="GeneralTab">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind helpers:XamlHelpers.AreEqual(ViewModel.SelectedTabIndex, 0), Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="GeneralSettingsPanel.Visibility" Value="Visible" />
+                        <Setter Target="MailSettingsPanel.Visibility" Value="Collapsed" />
+                        <Setter Target="CalendarSettingsPanel.Visibility" Value="Collapsed" />
+                        <Setter Target="PeopleSettingsPanel.Visibility" Value="Collapsed" />
+                        <Setter Target="ToDoSettingsPanel.Visibility" Value="Collapsed" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="MailTab">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind helpers:XamlHelpers.AreEqual(ViewModel.SelectedTabIndex, 1), Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="GeneralSettingsPanel.Visibility" Value="Collapsed" />
+                        <Setter Target="MailSettingsPanel.Visibility" Value="Visible" />
+                        <Setter Target="CalendarSettingsPanel.Visibility" Value="Collapsed" />
+                        <Setter Target="PeopleSettingsPanel.Visibility" Value="Collapsed" />
+                        <Setter Target="ToDoSettingsPanel.Visibility" Value="Collapsed" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="CalendarTab">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind helpers:XamlHelpers.AreEqual(ViewModel.SelectedTabIndex, 2), Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="GeneralSettingsPanel.Visibility" Value="Collapsed" />
+                        <Setter Target="MailSettingsPanel.Visibility" Value="Collapsed" />
+                        <Setter Target="CalendarSettingsPanel.Visibility" Value="Visible" />
+                        <Setter Target="PeopleSettingsPanel.Visibility" Value="Collapsed" />
+                        <Setter Target="ToDoSettingsPanel.Visibility" Value="Collapsed" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="PeopleTab">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind helpers:XamlHelpers.AreEqual(ViewModel.SelectedTabIndex, 3), Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="GeneralSettingsPanel.Visibility" Value="Collapsed" />
+                        <Setter Target="MailSettingsPanel.Visibility" Value="Collapsed" />
+                        <Setter Target="CalendarSettingsPanel.Visibility" Value="Collapsed" />
+                        <Setter Target="PeopleSettingsPanel.Visibility" Value="Visible" />
+                        <Setter Target="ToDoSettingsPanel.Visibility" Value="Collapsed" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="ToDoTab">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind helpers:XamlHelpers.AreEqual(ViewModel.SelectedTabIndex, 4), Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="GeneralSettingsPanel.Visibility" Value="Collapsed" />
+                        <Setter Target="MailSettingsPanel.Visibility" Value="Collapsed" />
+                        <Setter Target="CalendarSettingsPanel.Visibility" Value="Collapsed" />
+                        <Setter Target="PeopleSettingsPanel.Visibility" Value="Collapsed" />
+                        <Setter Target="ToDoSettingsPanel.Visibility" Value="Visible" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+    </Grid>
+</abstract:AccountDetailsPageAbstract>

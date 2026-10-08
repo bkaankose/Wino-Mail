@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Headless Wino host for trying mail synchronization and Wino Intelligence indexing against the
+    real app database. It runs the same services the app runs; see README.md.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+    <Platforms>x86;x64;arm64</Platforms>
+    <!-- Host stubs use DispatchProxy, so this tool stays out of the Release AOT gate. -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Wino.Intelligence.ConsoleApp</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Wino.Core\Wino.Core.csproj" />
+    <ProjectReference Include="..\..\src\Wino.Services\Wino.Services.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Wino.Platform.Windows/Wino.Platform.Windows.csproj" />
+  </ItemGroup>
+</Project>

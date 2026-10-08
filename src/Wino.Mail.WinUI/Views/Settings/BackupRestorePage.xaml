@@ -1,0 +1,98 @@
+﻿<abstract:BackupRestorePageAbstract
+    x:Class="Wino.Views.Settings.BackupRestorePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
+        <!--  ─── Back up ───  -->
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="BackupRestoreBackupExpander"
+            Description="{x:Bind domain:Translator.SettingsBackupRestore_BackupDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.SettingsBackupRestore_BackupHeader, Mode=OneTime}"
+            IsExpanded="True">
+            <controls:SettingsExpander.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="Save" />
+            </controls:SettingsExpander.HeaderIcon>
+
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="BackupRestoreBackupFileCard"
+                    Description="{x:Bind domain:Translator.SettingsBackupRestore_BackupFileDescription, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.SettingsBackupRestore_FileTarget, Mode=OneTime}">
+                    <Button
+                        AutomationProperties.AutomationId="BackupRestoreExportButton"
+                        Command="{x:Bind ViewModel.ExportLocalDataCommand}"
+                        Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataExportAction, Mode=OneTime}" />
+                </controls:SettingsCard>
+
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="BackupRestoreBackupWinoAccountCard"
+                    Description="{x:Bind domain:Translator.SettingsBackupRestore_BackupWinoAccountDescription, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.SettingsBackupRestore_WinoAccountTarget, Mode=OneTime}"
+                    IsEnabled="{x:Bind ViewModel.IsWinoAccountSignedIn, Mode=OneWay}">
+                    <Button
+                        AutomationProperties.AutomationId="BackupRestoreWinoAccountExportButton"
+                        Command="{x:Bind ViewModel.ExportToWinoAccountCommand}"
+                        Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataExportAction, Mode=OneTime}" />
+                </controls:SettingsCard>
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+
+        <!--  ─── Restore ───  -->
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="BackupRestoreRestoreExpander"
+            Description="{x:Bind domain:Translator.SettingsBackupRestore_RestoreDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.SettingsBackupRestore_RestoreHeader, Mode=OneTime}"
+            IsExpanded="True">
+            <controls:SettingsExpander.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="ArrowDownload" />
+            </controls:SettingsExpander.HeaderIcon>
+
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="BackupRestoreRestoreFileCard"
+                    Description="{x:Bind domain:Translator.SettingsBackupRestore_RestoreFileDescription, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.SettingsBackupRestore_FileTarget, Mode=OneTime}">
+                    <Button
+                        AutomationProperties.AutomationId="BackupRestoreImportButton"
+                        Command="{x:Bind ViewModel.ImportLocalDataCommand}"
+                        Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataImportAction, Mode=OneTime}" />
+                </controls:SettingsCard>
+
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="BackupRestoreRestoreWinoAccountCard"
+                    Description="{x:Bind domain:Translator.SettingsBackupRestore_RestoreWinoAccountDescription, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.SettingsBackupRestore_WinoAccountTarget, Mode=OneTime}"
+                    IsEnabled="{x:Bind ViewModel.IsWinoAccountSignedIn, Mode=OneWay}">
+                    <Button
+                        AutomationProperties.AutomationId="BackupRestoreWinoAccountImportButton"
+                        Command="{x:Bind ViewModel.ImportFromWinoAccountCommand}"
+                        Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataImportAction, Mode=OneTime}" />
+                </controls:SettingsCard>
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+
+        <StackPanel
+            AutomationProperties.AutomationId="BackupRestoreProgressPanel"
+            AutomationProperties.LiveSetting="Polite"
+            Orientation="Horizontal"
+            Spacing="8"
+            Visibility="{x:Bind ViewModel.IsDataTransferInProgress, Mode=OneWay}">
+            <ProgressRing
+                Width="16"
+                Height="16"
+                IsActive="{x:Bind ViewModel.IsDataTransferInProgress, Mode=OneWay}" />
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="{x:Bind domain:Translator.SettingsBackupRestore_InProgress, Mode=OneTime}" />
+        </StackPanel>
+    </StackPanel>
+</abstract:BackupRestorePageAbstract>

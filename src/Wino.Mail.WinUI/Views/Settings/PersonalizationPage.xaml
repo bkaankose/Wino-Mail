@@ -1,0 +1,151 @@
+﻿<abstract:PersonalizationPageAbstract
+    x:Class="Wino.Views.Settings.PersonalizationPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:accessibilityControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:data="using:Wino.Core.ViewModels.Data"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:personalization="using:Wino.Core.Domain.Models.Personalization"
+    Title="Personalization">
+
+    <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="PersonalizationAccentExpander"
+            Description="{x:Bind domain:Translator.SettingsAccentColor_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.SettingsAccentColor_Title, Mode=OneTime}"
+            IsExpanded="True">
+            <controls:SettingsExpander.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="Color" />
+            </controls:SettingsExpander.HeaderIcon>
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard
+                    HorizontalContentAlignment="Stretch"
+                    AutomationProperties.AutomationId="PersonalizationAccentCard"
+                    ContentAlignment="Vertical">
+                    <StackPanel Spacing="8">
+                        <GridView
+                            AutomationProperties.AutomationId="PersonalizationAccentGrid"
+                            ItemsSource="{x:Bind ViewModel.Colors}"
+                            SelectedItem="{x:Bind ViewModel.SelectedAppColor, Mode=TwoWay}">
+                            <GridView.ItemTemplate>
+                                <DataTemplate x:DataType="data:AppColorViewModel">
+                                    <Border
+                                        Width="40"
+                                        Height="40"
+                                        Background="{x:Bind Hex}"
+                                        CornerRadius="4" />
+                                </DataTemplate>
+                            </GridView.ItemTemplate>
+                        </GridView>
+                        <CheckBox
+                            AutomationProperties.AutomationId="PersonalizationUseSystemAccentCheckBox"
+                            Content="{x:Bind domain:Translator.SettingsAccentColor_UseWindowsAccentColor, Mode=OneTime}"
+                            IsChecked="{x:Bind ViewModel.UseAccentColor, Mode=TwoWay}" />
+                    </StackPanel>
+                </controls:SettingsCard>
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="PersonalizationElementThemeCard"
+            Description="{x:Bind domain:Translator.SettingsElementTheme_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.SettingsElementTheme_Title, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="DarkTheme" />
+            </controls:SettingsCard.HeaderIcon>
+            <ComboBox
+                AutomationProperties.AutomationId="PersonalizationElementThemeComboBox"
+                IsEnabled="{x:Bind ViewModel.CanSelectElementTheme, Mode=OneWay}"
+                ItemsSource="{x:Bind ViewModel.ElementThemes}"
+                SelectedItem="{x:Bind ViewModel.SelectedElementTheme, Mode=TwoWay}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="personalization:ElementThemeContainer">
+                        <TextBlock Text="{x:Bind Title}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </controls:SettingsCard>
+
+        <TextBlock
+            x:Name="ElementThemeUnavailableText"
+            Margin="4,0,0,0"
+            x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.CanSelectElementTheme), Mode=OneWay}"
+            Text="{x:Bind domain:Translator.SettingsElementThemeSelectionDisabled, Mode=OneTime}"
+            TextWrapping="Wrap" />
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="PersonalizationIconStyleCard"
+            Description="{x:Bind domain:Translator.SettingsIconStyle_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.SettingsIconStyle_Title, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="IconStyle" />
+            </controls:SettingsCard.HeaderIcon>
+            <ComboBox
+                AutomationProperties.AutomationId="PersonalizationIconStyleComboBox"
+                ItemsSource="{x:Bind ViewModel.IconStyles}"
+                SelectedItem="{x:Bind ViewModel.SelectedIconStyle, Mode=TwoWay}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="personalization:IconStyleContainer">
+                        <TextBlock Text="{x:Bind Title}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </controls:SettingsCard>
+
+        <accessibilityControls:WinoSettingsCard
+            AutomationProperties.AutomationId="PersonalizationApplicationThemesCard"
+            Command="{x:Bind ViewModel.NavigateApplicationThemesCommand}"
+            Description="{x:Bind domain:Translator.ApplicationThemeGallery_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.ApplicationThemeGallery_Title, Mode=OneTime}"
+            IsClickEnabled="True">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="PaintBrush" />
+            </controls:SettingsCard.HeaderIcon>
+        </accessibilityControls:WinoSettingsCard>
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="PersonalizationBackdropCard"
+            Description="{x:Bind domain:Translator.SettingsWindowBackdrop_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.SettingsWindowBackdrop_Title, Mode=OneTime}"
+            IsEnabled="{x:Bind ViewModel.CanSelectElementTheme, Mode=OneWay}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="Color" />
+            </controls:SettingsCard.HeaderIcon>
+            <ComboBox
+                Width="160"
+                AutomationProperties.AutomationId="PersonalizationBackdropComboBox"
+                ItemsSource="{x:Bind ViewModel.AvailableBackdropTypes, Mode=OneWay}"
+                SelectedItem="{x:Bind ViewModel.SelectedBackdropType, Mode=TwoWay}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="personalization:BackdropTypeWrapper">
+                        <TextBlock Text="{x:Bind DisplayName}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </controls:SettingsCard>
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="PersonalizationCompactAccountMenuCard"
+            Description="{x:Bind domain:Translator.SettingsCompactAccountMenuItem_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.SettingsCompactAccountMenuItem_Title, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="List" />
+            </controls:SettingsCard.HeaderIcon>
+            <ToggleSwitch AutomationProperties.AutomationId="PersonalizationCompactAccountMenuToggle" IsOn="{x:Bind ViewModel.PreferencesService.IsCompactAccountMenuItemEnabled, Mode=TwoWay}" />
+        </controls:SettingsCard>
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="PersonalizationHideWinoAccountButtonCard"
+            Description="{x:Bind domain:Translator.SettingsAppPreferences_HideWinoAccountButton_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.SettingsAppPreferences_HideWinoAccountButton_Title, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="Person" />
+            </controls:SettingsCard.HeaderIcon>
+            <ToggleSwitch AutomationProperties.AutomationId="PersonalizationHideWinoAccountButtonToggle" IsOn="{x:Bind ViewModel.PreferencesService.IsWinoAccountButtonHidden, Mode=TwoWay}" />
+        </controls:SettingsCard>
+    </StackPanel>
+</abstract:PersonalizationPageAbstract>

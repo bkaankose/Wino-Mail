@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>{{title}}</title>
+<style>
+  :root {
+    --bg: #f3f3f3;
+    --card: #ffffff;
+    --text: #1b1b1b;
+    --muted: #5f6368;
+    --border: rgba(0, 0, 0, 0.08);
+    --success: #0f7b3d;
+    --success-bg: #e6f4ea;
+    --error: #c42b1c;
+    --error-bg: #fde7e9;
+    --accent: #0067c0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #202020;
+      --card: #2b2b2b;
+      --text: #ffffff;
+      --muted: #c5c5c5;
+      --border: rgba(255, 255, 255, 0.08);
+      --success: #6ccb5f;
+      --success-bg: rgba(108, 203, 95, 0.14);
+      --error: #ff99a4;
+      --error-bg: rgba(255, 153, 164, 0.14);
+      --accent: #4cc2ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .card {
+    width: min(440px, 100%);
+    padding: 40px 36px 32px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
+    text-align: center;
+  }
+  .logo { width: 88px; height: 88px; margin: 0 auto 8px; }
+  .logo svg { width: 100%; height: 100%; display: block; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 0 20px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .badge svg { width: 16px; height: 16px; }
+  .success .badge { color: var(--success); background: var(--success-bg); }
+  .error .badge { color: var(--error); background: var(--error-bg); }
+  h1 { margin: 0 0 10px; font-size: 22px; font-weight: 600; line-height: 1.25; }
+  p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.5; }
+  .detail {
+    margin-top: 16px;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: 12px;
+    color: var(--muted);
+    word-break: break-all;
+  }
+  .detail:empty { display: none; }
+  .footer { margin-top: 28px; font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body class="{{state}}">
+  <main class="card" role="main">
+    <div class="logo" aria-hidden="true">{{logo}}</div>
+    <div class="badge">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{badgeIcon}}</svg>
+      <span>{{badge}}</span>
+    </div>
+    <h1>{{heading}}</h1>
+    <p>{{message}}</p>
+    <div class="detail">{{detail}}</div>
+    <div class="footer">{{appName}}</div>
+  </main>
+</body>
+</html>

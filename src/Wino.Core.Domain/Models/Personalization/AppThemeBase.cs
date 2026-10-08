@@ -1,0 +1,40 @@
+﻿using System;
+using System.Threading.Tasks;
+using Wino.Core.Domain.Enums;
+
+namespace Wino.Core.Domain.Models.Personalization;
+
+/// <summary>
+/// Base class for all app themes.
+/// </summary>
+public abstract class AppThemeBase
+{
+    public Guid Id { get; set; }
+    public string ThemeName { get; set; }
+    public ApplicationElementTheme ForceElementTheme { get; set; }
+    public ThemeCompatibility Compatibility { get; set; } = ThemeCompatibility.Both;
+    public string AccentColor { get; set; }
+    public bool IsAccentColorAssigned => !string.IsNullOrEmpty(AccentColor);
+    public string PreviewImage { get; private set; } = string.Empty;
+    public abstract AppThemeType AppThemeType { get; }
+    public bool IsCustomTheme => AppThemeType == AppThemeType.Custom;
+    public string CompatibilityTitle => Compatibility switch
+    {
+        ThemeCompatibility.Light => Translator.ApplicationThemeGallery_Light,
+        ThemeCompatibility.Dark => Translator.ApplicationThemeGallery_Dark,
+        _ => Translator.ApplicationThemeGallery_Both
+    };
+
+    protected AppThemeBase(string themeName, Guid id)
+    {
+        ThemeName = themeName;
+        Id = id;
+    }
+
+    public abstract Task<string> GetThemeResourceDictionaryContentAsync();
+
+    public async Task LoadPreviewImageAsync()
+        => PreviewImage = await GetPreviewImagePathAsync();
+
+    protected abstract Task<string> GetPreviewImagePathAsync();
+}

@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "Wino.Mail.WinUI (Package)": {
+      "commandName": "MsixPackage",
+      "doNotLaunchApp": false,
+      "nativeDebugging": false
+    }
+  }
+}

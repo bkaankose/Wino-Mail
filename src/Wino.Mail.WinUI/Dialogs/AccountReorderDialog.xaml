@@ -1,0 +1,122 @@
+﻿<ContentDialog
+    x:Class="Wino.Dialogs.AccountReorderDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
+    xmlns:controls="using:Wino.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:interfaces="using:Wino.Core.Domain.Interfaces"
+    xmlns:local="using:Wino.Dialogs"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:selectors="using:Wino.Selectors"
+    Title="Reorder Accounts"
+    Closed="DialogClosed"
+    DefaultButton="Secondary"
+    Opened="DialogOpened"
+    SecondaryButtonText="{x:Bind domain:Translator.Buttons_Cancel}"
+    Style="{StaticResource WinoDialogStyle}"
+    mc:Ignorable="d">
+
+    <ContentDialog.Resources>
+        <x:Double x:Key="ContentDialogMinWidth">420</x:Double>
+
+        <DataTemplate x:Key="RootAccountReorderTemplate" x:DataType="interfaces:IAccountProviderDetailViewModel">
+            <Border
+                Padding="12"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="6">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <coreControls:WinoFontIcon
+                        VerticalAlignment="Center"
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        FontSize="16"
+                        Icon="ReOrderDotsVertical"
+                        Opacity="0.5" />
+                    <accountIcon:WinoAccountIcon
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account)}"
+                        IconSize="28" />
+                    <StackPanel
+                        Grid.Column="2"
+                        VerticalAlignment="Center"
+                        Spacing="2">
+                        <TextBlock Style="{ThemeResource BodyStrongTextBlockStyle}" Text="{x:Bind StartupEntityTitle}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{ThemeResource CaptionTextBlockStyle}"
+                            Text="{x:Bind StartupEntityAddresses}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="MergedAccountReorderTemplate" x:DataType="interfaces:IAccountProviderDetailViewModel">
+            <Border
+                Padding="12"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="6">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <coreControls:WinoFontIcon
+                        VerticalAlignment="Center"
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        FontSize="16"
+                        Icon="ReOrderDotsVertical"
+                        Opacity="0.5" />
+                    <coreControls:WinoFontIcon
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        Icon="PeopleLink" />
+                    <StackPanel
+                        Grid.Column="2"
+                        VerticalAlignment="Center"
+                        Spacing="2">
+                        <TextBlock Style="{ThemeResource BodyStrongTextBlockStyle}" Text="{x:Bind StartupEntityTitle}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{ThemeResource CaptionTextBlockStyle}"
+                            Text="{x:Bind StartupEntityAddresses}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <selectors:AccountReorderTemplateSelector
+            x:Key="AccountReorderTemplateSelector"
+            MergedAccountReorderTemplate="{StaticResource MergedAccountReorderTemplate}"
+            RootAccountReorderTemplate="{StaticResource RootAccountReorderTemplate}" />
+    </ContentDialog.Resources>
+
+    <ListView
+        AllowDrop="True"
+        AutomationProperties.AutomationId="AccountReorderDialogListView"
+        CanReorderItems="True"
+        ItemTemplateSelector="{StaticResource AccountReorderTemplateSelector}"
+        ItemsSource="{x:Bind Accounts}"
+        SelectionMode="None">
+        <ListView.ItemContainerStyle>
+            <Style TargetType="ListViewItem">
+                <Setter Property="Margin" Value="0,2" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            </Style>
+        </ListView.ItemContainerStyle>
+    </ListView>
+</ContentDialog>

@@ -1,0 +1,657 @@
+﻿<abstract:ImapCalDavSettingsPageAbstract
+    x:Class="Wino.Views.ImapCalDavSettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:winoControls="using:Wino.Controls"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <Style
+            x:Key="ImapSetupGroupHeaderStyle"
+            BasedOn="{StaticResource BodyStrongTextBlockStyle}"
+            TargetType="TextBlock">
+            <Setter Property="Margin" Value="2,12,2,4" />
+        </Style>
+
+        <Style
+            x:Key="ImapSetupStepNumberStyle"
+            BasedOn="{StaticResource CaptionTextBlockStyle}"
+            TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+    </Page.Resources>
+
+    <StackPanel
+        MaxWidth="{x:Bind GetContentMaxWidth(ViewModel.IsSignInStepVisible), Mode=OneWay}"
+        Margin="24,0"
+        Padding="0,0,0,24"
+        HorizontalAlignment="Stretch"
+        Spacing="12">
+
+        <InfoBar
+            Title="{x:Bind ViewModel.PageInfoBarTitle, Mode=OneWay}"
+            AutomationProperties.AutomationId="ImapSetupErrorInfoBar"
+            CloseButtonCommand="{x:Bind ViewModel.HidePageErrorCommand}"
+            IsClosable="True"
+            IsOpen="{x:Bind ViewModel.IsPageInfoBarOpen, Mode=OneWay}"
+            Message="{x:Bind ViewModel.PageInfoBarMessage, Mode=OneWay}"
+            Severity="Error" />
+
+        <InfoBar
+            Title="{x:Bind domain:Translator.POP3Setup_LimitationsTitle, Mode=OneTime}"
+            AutomationProperties.AutomationId="Pop3AccountLimitationsInfoBar"
+            IsClosable="False"
+            IsOpen="True"
+            Message="{x:Bind domain:Translator.POP3Setup_LimitationsMessage, Mode=OneTime}"
+            Severity="Informational"
+            Visibility="{x:Bind ViewModel.IsPop3, Mode=OneWay}" />
+
+        <!--
+            Adding an account: the features were chosen on the provider page, so they show as the
+            finished first step. Editing an account has no steps.
+        -->
+        <StackPanel
+            HorizontalAlignment="Center"
+            AutomationProperties.AutomationId="ImapSetupStepper"
+            Orientation="Horizontal"
+            Spacing="8"
+            Visibility="{x:Bind ViewModel.IsCreateMode, Mode=OneWay}">
+            <StackPanel
+                VerticalAlignment="Center"
+                Orientation="Horizontal"
+                Spacing="8">
+                <Grid Width="22" Height="22">
+                    <Ellipse Fill="{ThemeResource AccentFillColorDefaultBrush}" />
+                    <coreControls:WinoFontIcon
+                        FontSize="11"
+                        Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                        Icon="Checkmark" />
+                </Grid>
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="{x:Bind domain:Translator.ImapSetup_StepFeatures, Mode=OneTime}" />
+            </StackPanel>
+
+            <Rectangle
+                Width="24"
+                Height="1"
+                VerticalAlignment="Center"
+                Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+            <StackPanel
+                VerticalAlignment="Center"
+                Orientation="Horizontal"
+                Spacing="8">
+                <Grid Width="22" Height="22">
+                    <Ellipse Fill="{ThemeResource AccentFillColorDefaultBrush}" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                        Style="{StaticResource ImapSetupStepNumberStyle}"
+                        Text="2"
+                        Visibility="{x:Bind ViewModel.IsSignInStepCurrent, Mode=OneWay}" />
+                    <coreControls:WinoFontIcon
+                        FontSize="11"
+                        Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                        Icon="Checkmark"
+                        Visibility="{x:Bind ViewModel.IsSignInStepDone, Mode=OneWay}" />
+                </Grid>
+                <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.ImapSetup_StepSignIn, Mode=OneTime}" />
+            </StackPanel>
+
+            <Rectangle
+                Width="24"
+                Height="1"
+                VerticalAlignment="Center"
+                Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+            <StackPanel
+                VerticalAlignment="Center"
+                Orientation="Horizontal"
+                Spacing="8">
+                <Grid Width="22" Height="22">
+                    <Ellipse Fill="{ThemeResource AccentFillColorDefaultBrush}" Visibility="{x:Bind ViewModel.IsServersStepCurrent, Mode=OneWay}" />
+                    <Ellipse
+                        Stroke="{ThemeResource ControlStrongStrokeColorDefaultBrush}"
+                        StrokeThickness="1"
+                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsServersStepCurrent), Mode=OneWay}" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                        Style="{StaticResource ImapSetupStepNumberStyle}"
+                        Text="3"
+                        Visibility="{x:Bind ViewModel.IsServersStepCurrent, Mode=OneWay}" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource ImapSetupStepNumberStyle}"
+                        Text="3"
+                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsServersStepCurrent), Mode=OneWay}" />
+                </Grid>
+                <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.ImapSetup_StepServers, Mode=OneTime}" />
+            </StackPanel>
+        </StackPanel>
+
+        <!--  ============ Sign in (adding an account) ============  -->
+        <StackPanel
+            Margin="0,8,0,0"
+            Spacing="16"
+            Visibility="{x:Bind ViewModel.IsSignInStepVisible, Mode=OneWay}">
+            <StackPanel Spacing="4">
+                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind ViewModel.SignInTitle, Mode=OneWay}" />
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="{x:Bind ViewModel.SignInDescription, Mode=OneWay}"
+                    TextWrapping="WrapWholeWords" />
+            </StackPanel>
+
+            <!--  One column, so each label sits directly above its field.  -->
+            <StackPanel
+                MaxWidth="440"
+                HorizontalAlignment="Stretch"
+                Spacing="16">
+                <TextBox
+                    AutomationProperties.AutomationId="ImapSetupSenderNameTextBox"
+                    Description="{x:Bind domain:Translator.ImapSetup_YourNameDescription, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.ImapSetup_YourName, Mode=OneTime}"
+                    PlaceholderText="{x:Bind domain:Translator.IMAPSetupDialog_DisplayNamePlaceholder, Mode=OneTime}"
+                    Text="{x:Bind ViewModel.DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    Visibility="{x:Bind ViewModel.IsSignInSenderNameVisible, Mode=OneWay}" />
+                <TextBox
+                    AutomationProperties.AutomationId="ImapSetupAddressTextBox"
+                    Header="{x:Bind ViewModel.SignInAddressHeader, Mode=OneWay}"
+                    InputScope="EmailSmtpAddress"
+                    PlaceholderText="{x:Bind domain:Translator.IMAPSetupDialog_MailAddressPlaceholder, Mode=OneTime}"
+                    Text="{x:Bind ViewModel.EmailAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBox
+                    AutomationProperties.AutomationId="ImapSetupServerAddressTextBox"
+                    Header="{x:Bind domain:Translator.ImapSetup_ServerAddressOptional, Mode=OneTime}"
+                    InputScope="Url"
+                    PlaceholderText="{x:Bind domain:Translator.ImapSetup_ServerAddressPlaceholder, Mode=OneTime}"
+                    Text="{x:Bind ViewModel.CalDavServiceUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    Visibility="{x:Bind ViewModel.IsSignInServerAddressVisible, Mode=OneWay}" />
+                <StackPanel Spacing="4">
+                    <PasswordBox
+                        AutomationProperties.AutomationId="ImapSetupPasswordBox"
+                        Header="{x:Bind domain:Translator.IMAPSetupDialog_Password, Mode=OneTime}"
+                        Password="{x:Bind ViewModel.Password, Mode=TwoWay}" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind ViewModel.AppPasswordHelpText, Mode=OneWay}"
+                        TextWrapping="WrapWholeWords" />
+                    <HyperlinkButton
+                        Padding="0"
+                        AutomationProperties.AutomationId="ImapSetupAppPasswordHelpLink"
+                        Command="{x:Bind ViewModel.OpenAppPasswordHelpCommand}"
+                        Content="{x:Bind domain:Translator.ImapSetup_AppPasswordHelpLink, Mode=OneTime}"
+                        FontSize="12"
+                        Visibility="{x:Bind ViewModel.HasAppPasswordHelpLink, Mode=OneWay}" />
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+
+        <!--  ============ Features (editing an account) ============  -->
+        <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.IsEditMode, Mode=OneWay}">
+            <TextBlock Style="{StaticResource ImapSetupGroupHeaderStyle}" Text="{x:Bind domain:Translator.ImapSetup_FeaturesGroup, Mode=OneTime}" />
+            <winoControls:AccountCapabilityPicker AutomationProperties.AutomationId="ImapSetupCapabilityPicker" Selection="{x:Bind ViewModel.Capabilities}" />
+        </StackPanel>
+
+        <!--  ============ Sign-in (editing an account) ============  -->
+        <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.IsEditSignInVisible, Mode=OneWay}">
+            <TextBlock Style="{StaticResource ImapSetupGroupHeaderStyle}" Text="{x:Bind domain:Translator.ImapSetup_SignInGroup, Mode=OneTime}" />
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="ImapSetupSenderNameCard"
+                Description="{x:Bind domain:Translator.ImapSetup_YourNameDescription, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.ImapSetup_YourName, Mode=OneTime}"
+                Visibility="{x:Bind ViewModel.IsSignInSenderNameVisible, Mode=OneWay}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="Person" />
+                </controls:SettingsCard.HeaderIcon>
+                <TextBox
+                    Width="280"
+                    AutomationProperties.AutomationId="ImapSetupEditSenderNameTextBox"
+                    AutomationProperties.Name="{x:Bind domain:Translator.ImapSetup_YourName, Mode=OneTime}"
+                    Text="{x:Bind ViewModel.DisplayName, Mode=TwoWay}" />
+            </controls:SettingsCard>
+            <controls:SettingsCard AutomationProperties.AutomationId="ImapSetupAddressCard" Header="{x:Bind ViewModel.SignInAddressHeader, Mode=OneWay}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="Mail" />
+                </controls:SettingsCard.HeaderIcon>
+                <TextBox
+                    Width="280"
+                    AutomationProperties.AutomationId="ImapSetupEditAddressTextBox"
+                    AutomationProperties.Name="{x:Bind ViewModel.SignInAddressHeader, Mode=OneWay}"
+                    Text="{x:Bind ViewModel.EmailAddress, Mode=TwoWay}" />
+            </controls:SettingsCard>
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="ImapSetupPasswordCard"
+                Description="{x:Bind ViewModel.AppPasswordHelpText, Mode=OneWay}"
+                Header="{x:Bind domain:Translator.IMAPSetupDialog_Password, Mode=OneTime}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="Key" />
+                </controls:SettingsCard.HeaderIcon>
+                <PasswordBox
+                    Width="280"
+                    AutomationProperties.AutomationId="ImapSetupEditPasswordBox"
+                    AutomationProperties.Name="{x:Bind domain:Translator.IMAPSetupDialog_Password, Mode=OneTime}"
+                    Password="{x:Bind ViewModel.Password, Mode=TwoWay}" />
+            </controls:SettingsCard>
+        </StackPanel>
+
+        <!--  ============ Servers ============  -->
+        <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.IsServersStepVisible, Mode=OneWay}">
+            <InfoBar
+                AutomationProperties.AutomationId="ImapSetupDiscoveryFoundInfoBar"
+                IsClosable="False"
+                IsOpen="{x:Bind ViewModel.IsDiscoveryFoundVisible, Mode=OneWay}"
+                Message="{x:Bind ViewModel.DiscoveryFoundMessage, Mode=OneWay}"
+                Severity="Success" />
+            <InfoBar
+                AutomationProperties.AutomationId="ImapSetupDiscoveryNotFoundInfoBar"
+                IsClosable="False"
+                IsOpen="{x:Bind ViewModel.IsDiscoveryNotFoundVisible, Mode=OneWay}"
+                Message="{x:Bind ViewModel.DiscoveryNotFoundMessage, Mode=OneWay}"
+                Severity="Warning" />
+
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Style="{StaticResource ImapSetupGroupHeaderStyle}"
+                    Text="{x:Bind domain:Translator.ImapSetup_ConnectionsGroup, Mode=OneTime}" />
+                <Button
+                    Grid.Column="1"
+                    Margin="0,8,0,0"
+                    VerticalAlignment="Center"
+                    AutomationProperties.AutomationId="ImapSetupTestConnectionsButton"
+                    Command="{x:Bind ViewModel.TestConnectionsCommand}"
+                    Content="{x:Bind domain:Translator.ImapSetup_TestConnections, Mode=OneTime}" />
+            </Grid>
+
+            <!--  Incoming mail  -->
+            <controls:SettingsExpander
+                AutomationProperties.AutomationId="ImapSetupIncomingExpander"
+                Description="{x:Bind ViewModel.IncomingSummary, Mode=OneWay}"
+                Header="{x:Bind ViewModel.IncomingSettingsTitle, Mode=OneWay}"
+                IsExpanded="{x:Bind ViewModel.IsIncomingExpanded, Mode=TwoWay}"
+                Visibility="{x:Bind ViewModel.IsMailSupportEnabled, Mode=OneWay}">
+                <controls:SettingsExpander.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="ArrowDownload" />
+                </controls:SettingsExpander.HeaderIcon>
+                <winoControls:ConnectionStatusPill State="{x:Bind ViewModel.MailConnectionState, Mode=OneWay}" />
+                <controls:SettingsExpander.Items>
+                    <controls:SettingsCard
+                        HorizontalContentAlignment="Stretch"
+                        AutomationProperties.AutomationId="ImapSetupIncomingFieldsCard"
+                        ContentAlignment="Vertical">
+                        <StackPanel Spacing="12">
+                            <InfoBar
+                                Title="{x:Bind domain:Translator.IMAPSetupDialog_ValidationFailed_Title, Mode=OneTime}"
+                                AutomationProperties.AutomationId="ImapSetupMailErrorInfoBar"
+                                IsClosable="False"
+                                IsOpen="{x:Bind ViewModel.HasMailConnectionError, Mode=OneWay}"
+                                Message="{x:Bind ViewModel.MailConnectionError, Mode=OneWay}"
+                                Severity="Error" />
+                            <Grid ColumnSpacing="12" RowSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <TextBox
+                                    AutomationProperties.AutomationId="ImapSetupIncomingServerTextBox"
+                                    Header="{x:Bind domain:Translator.ImapSetup_ServerHeader, Mode=OneTime}"
+                                    Text="{x:Bind ViewModel.IncomingServer, Mode=TwoWay}" />
+                                <TextBox
+                                    Grid.Column="1"
+                                    AutomationProperties.AutomationId="ImapSetupIncomingPortTextBox"
+                                    Header="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServerPort, Mode=OneTime}"
+                                    InputScope="Number"
+                                    Text="{x:Bind ViewModel.IncomingServerPort, Mode=TwoWay}" />
+                                <ComboBox
+                                    Grid.Row="1"
+                                    HorizontalAlignment="Stretch"
+                                    AutomationProperties.AutomationId="ImapSetupIncomingSecurityComboBox"
+                                    Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_ConnectionSecurityHeader, Mode=OneTime}"
+                                    ItemsSource="{x:Bind ViewModel.AvailableConnectionSecurityDisplayNames}"
+                                    SelectedIndex="{x:Bind ViewModel.SelectedIncomingServerConnectionSecurityIndex, Mode=TwoWay}" />
+                                <ComboBox
+                                    Grid.Row="1"
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Stretch"
+                                    AutomationProperties.AutomationId="ImapSetupIncomingAuthenticationComboBox"
+                                    Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_AuthenticationMethodHeader, Mode=OneTime}"
+                                    ItemsSource="{x:Bind ViewModel.AvailableAuthenticationMethodDisplayNames}"
+                                    SelectedIndex="{x:Bind ViewModel.SelectedIncomingServerAuthenticationMethodIndex, Mode=TwoWay}" />
+                                <TextBox
+                                    Grid.Row="2"
+                                    AutomationProperties.AutomationId="ImapSetupIncomingUsernameTextBox"
+                                    Header="{x:Bind domain:Translator.IMAPSetupDialog_Username, Mode=OneTime}"
+                                    Text="{x:Bind ViewModel.IncomingServerUsername, Mode=TwoWay}" />
+                                <PasswordBox
+                                    Grid.Row="2"
+                                    Grid.Column="1"
+                                    AutomationProperties.AutomationId="ImapSetupIncomingPasswordBox"
+                                    Header="{x:Bind domain:Translator.IMAPSetupDialog_Password, Mode=OneTime}"
+                                    Password="{x:Bind ViewModel.IncomingServerPassword, Mode=TwoWay}" />
+                            </Grid>
+                        </StackPanel>
+                    </controls:SettingsCard>
+                </controls:SettingsExpander.Items>
+            </controls:SettingsExpander>
+
+            <!--  Outgoing mail  -->
+            <controls:SettingsExpander
+                AutomationProperties.AutomationId="ImapSetupOutgoingExpander"
+                Description="{x:Bind ViewModel.OutgoingSummary, Mode=OneWay}"
+                Header="{x:Bind domain:Translator.ImapSetup_OutgoingTitle, Mode=OneTime}"
+                IsExpanded="{x:Bind ViewModel.IsOutgoingExpanded, Mode=TwoWay}"
+                Visibility="{x:Bind ViewModel.IsMailSupportEnabled, Mode=OneWay}">
+                <controls:SettingsExpander.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="ArrowUpload" />
+                </controls:SettingsExpander.HeaderIcon>
+                <winoControls:ConnectionStatusPill State="{x:Bind ViewModel.MailConnectionState, Mode=OneWay}" />
+                <controls:SettingsExpander.Items>
+                    <controls:SettingsCard
+                        HorizontalContentAlignment="Stretch"
+                        AutomationProperties.AutomationId="ImapSetupOutgoingFieldsCard"
+                        ContentAlignment="Vertical">
+                        <StackPanel Spacing="12">
+                            <Grid ColumnSpacing="12" RowSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <TextBox
+                                    AutomationProperties.AutomationId="ImapSetupOutgoingServerTextBox"
+                                    Header="{x:Bind domain:Translator.ImapSetup_ServerHeader, Mode=OneTime}"
+                                    Text="{x:Bind ViewModel.OutgoingServer, Mode=TwoWay}" />
+                                <TextBox
+                                    Grid.Column="1"
+                                    AutomationProperties.AutomationId="ImapSetupOutgoingPortTextBox"
+                                    Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServerPort, Mode=OneTime}"
+                                    InputScope="Number"
+                                    Text="{x:Bind ViewModel.OutgoingServerPort, Mode=TwoWay}" />
+                                <ComboBox
+                                    Grid.Row="1"
+                                    HorizontalAlignment="Stretch"
+                                    AutomationProperties.AutomationId="ImapSetupOutgoingSecurityComboBox"
+                                    Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_ConnectionSecurityHeader, Mode=OneTime}"
+                                    ItemsSource="{x:Bind ViewModel.AvailableConnectionSecurityDisplayNames}"
+                                    SelectedIndex="{x:Bind ViewModel.SelectedOutgoingServerConnectionSecurityIndex, Mode=TwoWay}" />
+                                <ComboBox
+                                    Grid.Row="1"
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Stretch"
+                                    AutomationProperties.AutomationId="ImapSetupOutgoingAuthenticationComboBox"
+                                    Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_AuthenticationMethodHeader, Mode=OneTime}"
+                                    ItemsSource="{x:Bind ViewModel.AvailableAuthenticationMethodDisplayNames}"
+                                    SelectedIndex="{x:Bind ViewModel.SelectedOutgoingServerAuthenticationMethodIndex, Mode=TwoWay}" />
+                            </Grid>
+                            <CheckBox
+                                AutomationProperties.AutomationId="ImapSetupSameOutgoingSignInCheckBox"
+                                Content="{x:Bind domain:Translator.ImapSetup_UseIncomingSignInForOutgoing, Mode=OneTime}"
+                                IsChecked="{x:Bind ViewModel.UseIncomingCredentialsForOutgoing, Mode=TwoWay}" />
+                            <Grid ColumnSpacing="12" Visibility="{x:Bind ViewModel.IsOutgoingCredentialsVisible, Mode=OneWay}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox
+                                    AutomationProperties.AutomationId="ImapSetupOutgoingUsernameTextBox"
+                                    Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServerUsername, Mode=OneTime}"
+                                    Text="{x:Bind ViewModel.OutgoingServerUsername, Mode=TwoWay}" />
+                                <PasswordBox
+                                    Grid.Column="1"
+                                    AutomationProperties.AutomationId="ImapSetupOutgoingPasswordBox"
+                                    Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServerPassword, Mode=OneTime}"
+                                    Password="{x:Bind ViewModel.OutgoingServerPassword, Mode=TwoWay}" />
+                            </Grid>
+                        </StackPanel>
+                    </controls:SettingsCard>
+                </controls:SettingsExpander.Items>
+            </controls:SettingsExpander>
+
+            <!--  Calendar (CalDAV)  -->
+            <controls:SettingsExpander
+                AutomationProperties.AutomationId="ImapSetupCalDavExpander"
+                Description="{x:Bind ViewModel.CalDavSummary, Mode=OneWay}"
+                Header="{x:Bind domain:Translator.ImapSetup_CalDavTitle, Mode=OneTime}"
+                IsExpanded="{x:Bind ViewModel.IsCalDavExpanded, Mode=TwoWay}"
+                Visibility="{x:Bind ViewModel.IsCalDavSettingsVisible, Mode=OneWay}">
+                <controls:SettingsExpander.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="Calendar" />
+                </controls:SettingsExpander.HeaderIcon>
+                <winoControls:ConnectionStatusPill State="{x:Bind ViewModel.CalDavConnectionState, Mode=OneWay}" />
+                <controls:SettingsExpander.Items>
+                    <controls:SettingsCard
+                        HorizontalContentAlignment="Stretch"
+                        AutomationProperties.AutomationId="ImapSetupCalDavFieldsCard"
+                        ContentAlignment="Vertical">
+                        <StackPanel Spacing="12">
+                            <InfoBar
+                                AutomationProperties.AutomationId="ImapSetupCalDavErrorInfoBar"
+                                IsClosable="False"
+                                IsOpen="{x:Bind ViewModel.HasCalDavConnectionError, Mode=OneWay}"
+                                Message="{x:Bind ViewModel.CalDavConnectionError, Mode=OneWay}"
+                                Severity="Error" />
+                            <TextBox
+                                AutomationProperties.AutomationId="ImapSetupCalDavUrlTextBox"
+                                Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_CalDavServiceUrl, Mode=OneTime}"
+                                InputScope="Url"
+                                Text="{x:Bind ViewModel.CalDavServiceUrl, Mode=TwoWay}" />
+                            <CheckBox
+                                AutomationProperties.AutomationId="ImapSetupSameDavSignInCheckBox"
+                                Content="{x:Bind domain:Translator.ImapSetup_UseMailSignInForDav, Mode=OneTime}"
+                                IsChecked="{x:Bind ViewModel.UseMailCredentialsForDav, Mode=TwoWay}"
+                                Visibility="{x:Bind ViewModel.IsDavCredentialsOptionVisible, Mode=OneWay}" />
+                            <Grid ColumnSpacing="12" Visibility="{x:Bind ViewModel.IsDavCredentialsVisible, Mode=OneWay}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox
+                                    AutomationProperties.AutomationId="ImapSetupDavUsernameTextBox"
+                                    Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_DavUsername, Mode=OneTime}"
+                                    Text="{x:Bind ViewModel.CalDavUsername, Mode=TwoWay}" />
+                                <PasswordBox
+                                    Grid.Column="1"
+                                    AutomationProperties.AutomationId="ImapSetupDavPasswordBox"
+                                    Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_DavPassword, Mode=OneTime}"
+                                    Password="{x:Bind ViewModel.CalDavPassword, Mode=TwoWay}" />
+                            </Grid>
+                        </StackPanel>
+                    </controls:SettingsCard>
+                </controls:SettingsExpander.Items>
+            </controls:SettingsExpander>
+
+            <!--  Contacts (CardDAV)  -->
+            <controls:SettingsExpander
+                AutomationProperties.AutomationId="ImapSetupCardDavExpander"
+                Description="{x:Bind ViewModel.CardDavSummary, Mode=OneWay}"
+                Header="{x:Bind domain:Translator.ImapSetup_CardDavTitle, Mode=OneTime}"
+                IsExpanded="{x:Bind ViewModel.IsCardDavExpanded, Mode=TwoWay}"
+                Visibility="{x:Bind ViewModel.IsCardDavSettingsVisible, Mode=OneWay}">
+                <controls:SettingsExpander.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="People" />
+                </controls:SettingsExpander.HeaderIcon>
+                <controls:SettingsExpander.Items>
+                    <controls:SettingsCard
+                        HorizontalContentAlignment="Stretch"
+                        AutomationProperties.AutomationId="ImapSetupCardDavFieldsCard"
+                        ContentAlignment="Vertical">
+                        <StackPanel Spacing="12">
+                            <TextBox
+                                AutomationProperties.AutomationId="ImapSetupCardDavUrlTextBox"
+                                Description="{x:Bind domain:Translator.ImapSetup_CardDavSharedSignIn, Mode=OneTime}"
+                                Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_CardDavServiceUrl, Mode=OneTime}"
+                                InputScope="Url"
+                                PlaceholderText="{x:Bind domain:Translator.ImapCalDavSettingsPage_CardDavDiscoveryPlaceholder, Mode=OneTime}"
+                                Text="{x:Bind ViewModel.CardDavServiceUrl, Mode=TwoWay}" />
+                            <!--  Without a calendar row, the shared DAV sign-in is set here instead.  -->
+                            <CheckBox
+                                AutomationProperties.AutomationId="ImapSetupCardDavSameSignInCheckBox"
+                                Content="{x:Bind domain:Translator.ImapSetup_UseMailSignInForDav, Mode=OneTime}"
+                                IsChecked="{x:Bind ViewModel.UseMailCredentialsForDav, Mode=TwoWay}"
+                                Visibility="{x:Bind ViewModel.IsCardDavCredentialsOptionVisible, Mode=OneWay}" />
+                            <Grid ColumnSpacing="12" Visibility="{x:Bind ViewModel.IsCardDavCredentialsVisible, Mode=OneWay}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox
+                                    AutomationProperties.AutomationId="ImapSetupCardDavUsernameTextBox"
+                                    Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_DavUsername, Mode=OneTime}"
+                                    Text="{x:Bind ViewModel.CalDavUsername, Mode=TwoWay}" />
+                                <PasswordBox
+                                    Grid.Column="1"
+                                    AutomationProperties.AutomationId="ImapSetupCardDavPasswordBox"
+                                    Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_DavPassword, Mode=OneTime}"
+                                    Password="{x:Bind ViewModel.CalDavPassword, Mode=TwoWay}" />
+                            </Grid>
+                        </StackPanel>
+                    </controls:SettingsCard>
+                </controls:SettingsExpander.Items>
+            </controls:SettingsExpander>
+
+            <!--  Advanced  -->
+            <controls:SettingsExpander
+                Margin="0,8,0,0"
+                AutomationProperties.AutomationId="ImapSetupAdvancedExpander"
+                Description="{x:Bind domain:Translator.ImapSetup_AdvancedDescription, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.ImapSetup_AdvancedTitle, Mode=OneTime}">
+                <controls:SettingsExpander.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="Settings" />
+                </controls:SettingsExpander.HeaderIcon>
+                <controls:SettingsExpander.Items>
+                    <controls:SettingsCard
+                        AutomationProperties.AutomationId="ImapSetupProxyCard"
+                        Description="{x:Bind domain:Translator.ImapSetup_ProxyDescription, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.ImapSetup_ProxyTitle, Mode=OneTime}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBox
+                                Width="200"
+                                AutomationProperties.AutomationId="ImapSetupProxyServerTextBox"
+                                AutomationProperties.Name="{x:Bind domain:Translator.ImapSetup_ProxyTitle, Mode=OneTime}"
+                                PlaceholderText="{x:Bind domain:Translator.ImapSetup_ServerHeader, Mode=OneTime}"
+                                Text="{x:Bind ViewModel.ProxyServer, Mode=TwoWay}" />
+                            <TextBox
+                                Width="90"
+                                AutomationProperties.AutomationId="ImapSetupProxyPortTextBox"
+                                AutomationProperties.Name="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServerPort, Mode=OneTime}"
+                                InputScope="Number"
+                                PlaceholderText="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServerPort, Mode=OneTime}"
+                                Text="{x:Bind ViewModel.ProxyServerPort, Mode=TwoWay}" />
+                        </StackPanel>
+                    </controls:SettingsCard>
+                    <controls:SettingsCard
+                        AutomationProperties.AutomationId="ImapSetupConcurrencyCard"
+                        Description="{x:Bind domain:Translator.ImapSetup_ConcurrencyDescription, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.ImapSetup_ConcurrencyTitle, Mode=OneTime}"
+                        Visibility="{x:Bind ViewModel.IsMailAdvancedOptionsVisible, Mode=OneWay}">
+                        <NumberBox
+                            Width="120"
+                            AutomationProperties.AutomationId="ImapSetupConcurrencyNumberBox"
+                            AutomationProperties.Name="{x:Bind domain:Translator.ImapSetup_ConcurrencyTitle, Mode=OneTime}"
+                            Maximum="20"
+                            Minimum="1"
+                            SpinButtonPlacementMode="Inline"
+                            Value="{x:Bind ViewModel.MaxConcurrentClientsValue, Mode=TwoWay}" />
+                    </controls:SettingsCard>
+                    <controls:SettingsCard
+                        AutomationProperties.AutomationId="ImapSetupAppendSentCopyCard"
+                        Description="{x:Bind domain:Translator.SettingsAccountManagementAppendMessage_Description, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.SettingsAccountManagementAppendMessage_Title, Mode=OneTime}"
+                        Visibility="{x:Bind ViewModel.IsMailAdvancedOptionsVisible, Mode=OneWay}">
+                        <ToggleSwitch
+                            AutomationProperties.AutomationId="ImapSetupAppendSentCopyToggle"
+                            AutomationProperties.Name="{x:Bind domain:Translator.SettingsAccountManagementAppendMessage_Title, Mode=OneTime}"
+                            IsOn="{x:Bind ViewModel.ShouldAppendMessagesToSentFolder, Mode=TwoWay}" />
+                    </controls:SettingsCard>
+                </controls:SettingsExpander.Items>
+            </controls:SettingsExpander>
+        </StackPanel>
+
+        <!--  ============ Actions ============  -->
+        <Grid
+            Margin="0,12,0,0"
+            ColumnSpacing="8"
+            RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Grid
+                Grid.ColumnSpan="3"
+                VerticalAlignment="Center"
+                ColumnSpacing="8"
+                Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <ProgressRing
+                    Width="16"
+                    Height="16"
+                    VerticalAlignment="Center"
+                    IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" />
+                <TextBlock
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="{x:Bind ViewModel.BusyText, Mode=OneWay}"
+                    TextWrapping="WrapWholeWords" />
+            </Grid>
+
+            <Button
+                Grid.Row="1"
+                Grid.Column="1"
+                MinWidth="100"
+                AutomationProperties.AutomationId="ImapSetupBackButton"
+                Command="{x:Bind ViewModel.BackCommand}"
+                Content="{x:Bind domain:Translator.Buttons_Back, Mode=OneTime}"
+                Visibility="{x:Bind ViewModel.IsCreateMode, Mode=OneWay}" />
+            <Button
+                Grid.Row="1"
+                Grid.Column="1"
+                MinWidth="100"
+                AutomationProperties.AutomationId="ImapSetupCancelButton"
+                Command="{x:Bind ViewModel.CancelCommand}"
+                Content="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}"
+                Visibility="{x:Bind ViewModel.IsEditMode, Mode=OneWay}" />
+            <Button
+                Grid.Row="1"
+                Grid.Column="2"
+                MinWidth="140"
+                AutomationProperties.AutomationId="ImapSetupPrimaryButton"
+                Command="{x:Bind ViewModel.PrimaryActionCommand}"
+                Content="{x:Bind ViewModel.PrimaryActionText, Mode=OneWay}"
+                Style="{StaticResource AccentButtonStyle}" />
+        </Grid>
+    </StackPanel>
+</abstract:ImapCalDavSettingsPageAbstract>

@@ -1,0 +1,2464 @@
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.Windows.AppLifecycle;
+using Microsoft.Windows.AppNotifications;
+using Serilog;
+using Windows.ApplicationModel.Activation;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.Storage;
+using Wino.Calendar.ViewModels;
+using Wino.Calendar.ViewModels.Interfaces;
+using Wino.Core;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models;
+using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models.Common;
+using Wino.Core.Domain.Models.Contacts;
+using Wino.Core.Domain.Models.Launch;
+using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.ViewModels;
+using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Data;
+using Wino.Mail.WinUI.Activation;
+using Wino.Mail.WinUI.Extensions;
+using Wino.Mail.WinUI.Helpers;
+using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.WinUI.Models;
+using Wino.Mail.WinUI.Navigation;
+using Wino.Mail.WinUI.Navigation.Rules;
+using Wino.Mail.WinUI.Services;
+using Wino.Mail.WinUI.ViewModels;
+using Wino.Messaging.Client.Accounts;
+using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Client.Navigation;
+using Wino.Messaging.Client.Shell;
+using Wino.Mail.WinUI.Services.Companion;
+using Wino.Mail.ViewModels.Companion;
+using Wino.Messaging.Server;
+using Wino.Messaging.UI;
+using Wino.Services;
+using Wino.Shell.ViewModels;
+using Wino.Views;
+using WinUIEx;
+using PendingBootstrapActivation = Wino.Core.Activation.PendingBootstrapActivation;
+using PendingBootstrapActivationKind = Wino.Core.Activation.PendingBootstrapActivationKind;
+namespace Wino.Mail.WinUI;
+
+public partial class App : WinoApplication,
+    IRecipient<AccountSynchronizationCompleted>,
+    IRecipient<AccountCreatedMessage>,
+    IRecipient<AccountRemovedMessage>,
+    IRecipient<AccountUpdatedMessage>,
+    IRecipient<GetStartedFromWelcomeRequested>,
+    IRecipient<WelcomeImportCompletedMessage>
+{
+    private IApplicationRuntime? _applicationRuntime;
+    private const string ToggleDefaultModeLaunchArgument = "--mode=toggle-default";
+    private ISynchronizationManager? _synchronizationManager;
+    private IPreferencesService? _preferencesService;
+    private IAccountService? _accountService;
+    private bool _windowManagerConfigured;
+    private bool _hasConfiguredAccounts;
+    private bool _isExiting;
+    private bool _activationInfrastructureInitialized;
+    private bool _appHostInfrastructureInitialized;
+    private int _initialNotificationActivationHandled;
+    private int _initialShareActivationHandled;
+    private readonly SemaphoreSlim _activationInfrastructureSemaphore = new(1, 1);
+    private readonly SemaphoreSlim _appHostInfrastructureSemaphore = new(1, 1);
+    private readonly AppNotificationHandler _notificationHandler;
+    private readonly AppActivationHandler _activationHandler;
+    private readonly DispatcherQueue? _applicationDispatcherQueue;
+    private readonly DateTimeOffset _sessionStartedAtUtc = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    /// Completes after the launch activation, including the first frame of its window. Automatic
+    /// synchronization waits for it so the first sync does not compete with that frame.
+    /// </summary>
+    private readonly TaskCompletionSource _launchCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private MainTrayController? _companionIntegration;
+    private Window? _backgroundLifetimeWindow;
+    private Microsoft.UI.Xaml.LaunchActivatedEventArgs? _pendingMigrationLaunchArgs;
+    private AppActivationArguments? _pendingMigrationActivation;
+    private readonly record struct ShellWindowActivationResult(IWinoShellWindow? ShellWindow, bool WasCreated);
+
+    internal bool IsExiting => _isExiting;
+
+    internal bool TryExitApplicationOnShellWindowClose(AppCloseBehavior closeBehavior)
+    {
+        if (_isExiting)
+            return true;
+
+        LogActivation($"Shell window close requested. AppCloseBehavior: {closeBehavior}.");
+
+        if (closeBehavior != AppCloseBehavior.Terminate)
+            return false;
+
+        ExitApplication();
+
+        return true;
+    }
+
+    /// <summary>
+    /// Closing the welcome window before onboarding completes ends the application: without an
+    /// account there is nothing to run in the background. Returns true when the caller must cancel
+    /// the close so the window keeps the XAML dispatcher alive until the exit sequence completes.
+    /// </summary>
+    internal bool TryExitApplicationOnWelcomeWindowClose(WelcomeWindow welcomeWindow)
+    {
+        if (_isExiting)
+            return false;
+
+        // A shell window owns the application lifetime. Closing the welcome window then only closes it.
+        if (HasShellWindow())
+            return false;
+
+        LogActivation("Welcome window closed before onboarding completed. Exiting the application.");
+
+        void HideAndExit()
+        {
+            try
+            {
+                // The window stays alive as the XAML lifetime owner until Application.Exit runs.
+                welcomeWindow.AppWindow.Hide();
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to hide the welcome window before exiting.");
+            }
+
+            ExitApplication();
+        }
+
+        // Run the exit outside the AppWindow.Closing callback.
+        if (_applicationDispatcherQueue?.TryEnqueue(HideAndExit) != true)
+            HideAndExit();
+
+        return true;
+    }
+
+    internal bool TryPrepareForBackgroundShellWindowClose(AppCloseBehavior closeBehavior)
+    {
+        var isBackgroundBehavior = closeBehavior is AppCloseBehavior.RunInBackgroundWithTrayIcon
+            or AppCloseBehavior.RunInBackgroundWithoutTrayIcon;
+
+        if (_isExiting || !isBackgroundBehavior)
+            return false;
+
+        var createdLifetimeWindow = false;
+
+        if (_backgroundLifetimeWindow == null)
+        {
+            try
+            {
+                // Closing the last WinUI Window ends the XAML application loop. Keep a contentless,
+                // never-activated window alive so background services can continue without retaining
+                // ShellWindow or any part of its XAML tree.
+                var lifetimeWindow = new Window();
+                lifetimeWindow.AppWindow.IsShownInSwitchers = false;
+                lifetimeWindow.Closed += BackgroundLifetimeWindowClosed;
+                _backgroundLifetimeWindow = lifetimeWindow;
+                createdLifetimeWindow = true;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex,
+                    "Failed to create the background lifetime window. Shell close was canceled to preserve the running application.");
+                return false;
+            }
+        }
+
+        if (closeBehavior == AppCloseBehavior.RunInBackgroundWithoutTrayIcon)
+        {
+            DisposeTrayIcon();
+            LogActivation("Background shell close prepared without a system tray icon.");
+            return true;
+        }
+
+        EnsureTrayIconCreated();
+
+        if (_companionIntegration != null)
+        {
+            LogActivation("Background shell close prepared with the tray companion.");
+            return true;
+        }
+
+        if (createdLifetimeWindow)
+            ReleaseBackgroundLifetimeWindow();
+
+        Log.Error(
+            "System tray mode is selected, but the tray icon could not be created. Shell close was canceled to avoid leaving the application inaccessible.");
+        return false;
+    }
+
+    private void ReleaseBackgroundLifetimeWindow()
+    {
+        var lifetimeWindow = _backgroundLifetimeWindow;
+        if (lifetimeWindow == null)
+            return;
+
+        _backgroundLifetimeWindow = null;
+        lifetimeWindow.Closed -= BackgroundLifetimeWindowClosed;
+        lifetimeWindow.Close();
+    }
+
+    private void BackgroundLifetimeWindowClosed(object sender, WindowEventArgs args)
+    {
+        if (sender is Window lifetimeWindow)
+            lifetimeWindow.Closed -= BackgroundLifetimeWindowClosed;
+
+        if (ReferenceEquals(_backgroundLifetimeWindow, sender))
+            _backgroundLifetimeWindow = null;
+    }
+
+    public App()
+    {
+        _applicationDispatcherQueue = DispatcherQueue.GetForCurrentThread();
+        _notificationHandler = new AppNotificationHandler(this);
+        _activationHandler = new AppActivationHandler(this, _notificationHandler);
+
+        InitializeComponent();
+
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        RegisterRecipients();
+    }
+
+    private void EnsureWindowManagerConfigured()
+    {
+        if (_windowManagerConfigured)
+            return;
+
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        windowManager.ActiveWindowChanged -= OnActiveWindowChanged;
+        windowManager.ActiveWindowChanged += OnActiveWindowChanged;
+        windowManager.WindowRemoved -= OnManagedWindowRemoved;
+        windowManager.WindowRemoved += OnManagedWindowRemoved;
+
+        var nativeAppService = Services.GetRequiredService<INativeAppService>();
+        nativeAppService.GetCoreWindowHwnd = () =>
+        {
+            var window = windowManager.ActiveWindow
+                         ?? windowManager.GetWindow(WinoWindowKind.Migration)
+                         ?? windowManager.GetWindow(WinoWindowKind.Shell)
+                         ?? windowManager.GetWindow(WinoWindowKind.Welcome)
+                         ?? MainWindow;
+
+            return window == null
+                ? IntPtr.Zero
+                : WinRT.Interop.WindowNative.GetWindowHandle(window);
+        };
+
+        _windowManagerConfigured = true;
+    }
+
+    private void OnActiveWindowChanged(object? sender, WindowEx? window)
+    {
+        if (window == null)
+            return;
+
+        MainWindow = window;
+        InitializeNavigationDispatcher();
+    }
+
+    private void OnManagedWindowRemoved(object? sender, WindowEx window)
+    {
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        var activeWindow = windowManager.ActiveWindow;
+
+        MainWindow = ReferenceEquals(activeWindow, window)
+                     ? null
+                     : activeWindow
+                     ?? windowManager.GetWindow(WinoWindowKind.Migration)
+                     ?? windowManager.GetWindow(WinoWindowKind.Shell)
+                     ?? windowManager.GetWindow(WinoWindowKind.Welcome);
+
+        if (window is IWinoShellWindow)
+        {
+            UpdateTrayIconState(allowCreation: !_isExiting);
+        }
+
+        InitializeNavigationDispatcher();
+    }
+
+    private void EnsureTrayIconCreated()
+    {
+        if (_companionIntegration != null)
+            return;
+
+        var dispatcher = DispatcherQueue.GetForCurrentThread()
+            ?? throw new InvalidOperationException("The native tray must be created on the application UI thread.");
+
+        var navigation = new CompanionNavigationCallbacks(
+            cancellationToken => ExecuteCompanionNavigationAsync(ActivatePreferredWindowAsync, cancellationToken),
+            cancellationToken => ExecuteCompanionNavigationAsync(
+                () => _hasConfiguredAccounts
+                    ? ActivateShellFromTrayAsync(WinoApplicationMode.Calendar)
+                    : ActivateWelcomeWindowAsync(),
+                cancellationToken),
+            cancellationToken => ExecuteCompanionNavigationAsync(
+                () => EnsureShellWindowAsync(WinoApplicationMode.Tasks, activateWindow: true),
+                cancellationToken),
+            (accountId, cancellationToken) => ExecuteCompanionNavigationAsync(
+                () => OpenCompanionInboxAsync(accountId),
+                cancellationToken),
+            (accountId, mailId, cancellationToken) => ExecuteCompanionNavigationAsync(
+                () => HandleToastNavigationAsync(mailId),
+                cancellationToken),
+            (accountId, eventId, cancellationToken) => ExecuteCompanionNavigationAsync(
+                () => HandleCalendarToastNavigationAsync(eventId),
+                cancellationToken),
+            (accountId, eventId, cancellationToken) => ExecuteCompanionNavigationAsync(
+                () => HandleCalendarToastJoinOnlineAsync(eventId),
+                cancellationToken),
+            (query, cancellationToken) => ExecuteCompanionNavigationAsync(
+                () => FindCompanionContactAsync(query),
+                cancellationToken),
+            (accountId, cancellationToken) => ExecuteCompanionNavigationAsync(
+                () => OpenCompanionNewMailAsync(accountId),
+                cancellationToken),
+            (accountId, startAt, cancellationToken) => ExecuteCompanionNavigationAsync(
+                () => OpenCompanionNewEventAsync(accountId, startAt),
+                cancellationToken),
+            cancellationToken => ExecuteCompanionNavigationAsync(OpenCompanionSettingsAsync, cancellationToken));
+
+        _companionIntegration = new MainTrayController(
+            dispatcher,
+            Services,
+            Services.GetRequiredService<INativeAppService>(),
+            _sessionStartedAtUtc,
+            navigation,
+            ActivatePreferredWindowAsync,
+            () => ActivateShellFromTrayAsync(WinoApplicationMode.Calendar),
+            ExitApplicationAsync);
+
+        var companion = _companionIntegration;
+        companion.TryConfigureHotKey(
+            _preferencesService?.IsCompanionHotKeyEnabled ?? false,
+            GetConfiguredCompanionHotKey());
+        _ = EnableCompanionAsync(companion);
+    }
+
+    internal bool TryConfigureCompanionHotKey(bool enabled, HotKeyGesture gesture)
+        => _companionIntegration?.TryConfigureHotKey(enabled, gesture) ?? gesture.IsValid;
+
+    private HotKeyGesture GetConfiguredCompanionHotKey() => new(
+        _preferencesService?.CompanionHotKeyKey ?? HotKeyGesture.Default.Key,
+        _preferencesService?.CompanionHotKeyModifiers ?? HotKeyGesture.Default.Modifiers);
+
+    private async Task EnableCompanionAsync(MainTrayController companion)
+    {
+        await companion.SetCompanionEnabledAsync(_preferencesService?.IsCompanionEnabled ?? true);
+        await companion.SetReadinessAsync(_activationInfrastructureInitialized
+            ? _hasConfiguredAccounts ? CompanionReadinessState.Ready : CompanionReadinessState.NoAccounts
+            : CompanionReadinessState.Initializing);
+    }
+
+    private void DisposeTrayIcon()
+    {
+        if (_companionIntegration == null)
+            return;
+
+        LogActivation("Disconnecting the tray companion.");
+        var companion = _companionIntegration;
+        _companionIntegration = null;
+        _ = companion.ShutdownAsync();
+    }
+
+    private void EnsurePreferenceChangedSubscription()
+    {
+        if (_preferencesService == null)
+            return;
+
+        _preferencesService.PreferenceChanged -= PreferencesServiceChanged;
+        _preferencesService.PreferenceChanged += PreferencesServiceChanged;
+    }
+
+    private bool ShouldCreateTrayIcon()
+        => (_preferencesService?.AppCloseBehavior ?? AppCloseBehavior.RunInBackgroundWithTrayIcon) == AppCloseBehavior.RunInBackgroundWithTrayIcon;
+
+    private void UpdateTrayIconState(bool allowCreation)
+    {
+        var shouldCreateTrayIcon = ShouldCreateTrayIcon();
+        LogActivation($"Updating tray companion state. AllowCreation: {allowCreation}, ShouldCreate: {shouldCreateTrayIcon}, HasConfiguredAccounts: {_hasConfiguredAccounts}, AppCloseBehavior: {_preferencesService?.AppCloseBehavior.ToString() ?? "Unknown"}");
+
+        if (!allowCreation || !shouldCreateTrayIcon)
+        {
+            DisposeTrayIcon();
+            return;
+        }
+
+        EnsureTrayIconCreated();
+    }
+
+    private Task ActivatePreferredWindowAsync()
+    {
+        if (!_hasConfiguredAccounts)
+            return ActivateWelcomeWindowAsync();
+
+        return ActivateShellFromTrayAsync(WinoApplicationMode.Mail);
+    }
+
+    private Task ActivateShellFromTrayAsync(WinoApplicationMode mode)
+        => EnsureShellWindowAsync(mode, activateWindow: true);
+
+    private async Task ExecuteCompanionNavigationAsync(Func<Task> action, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!HasActivationUiThreadAccess())
+        {
+            await ExecuteOnActivationUiThreadAsync(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await action();
+            });
+            return;
+        }
+
+        await action();
+    }
+
+    private async Task FindCompanionContactAsync(string? query)
+    {
+        await EnsureShellWindowAsync(WinoApplicationMode.Contacts, activateWindow: true);
+        if (string.IsNullOrWhiteSpace(query))
+            return;
+
+        var contactsViewModel = Services.GetRequiredService<ContactsPageViewModel>();
+        var matches = await contactsViewModel.SearchContactsAsync(query, 1);
+        var match = matches.FirstOrDefault();
+        if (match != null)
+            await contactsViewModel.LoadAndSelectContactAsync(match.Id);
+    }
+
+    private async Task OpenCompanionSettingsAsync()
+    {
+        if (HasShellWindow())
+        {
+            await EnsureShellWindowAsync(WinoApplicationMode.Settings, activateWindow: true);
+            return;
+        }
+
+        // Building a new shell straight into Settings mode crashes Native AOT builds inside the
+        // navigation view. Bring the shell up the way a normal launch does, let it load, and then
+        // switch to Settings the way the in-app Settings entry does.
+        await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow: true);
+
+        var dispatcherQueue = GetActivationDispatcherQueue()
+                              ?? throw new InvalidOperationException("Activation UI dispatcher is not available.");
+        var shellLoaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        if (!dispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => shellLoaded.SetResult()))
+            throw new InvalidOperationException("Failed to enqueue activation work on the UI dispatcher.");
+
+        await shellLoaded.Task;
+
+        await ExecuteOnActivationUiThreadAsync(() =>
+        {
+            Services.GetRequiredService<INavigationService>().Navigate(WinoPage.SettingsPage);
+            return Task.CompletedTask;
+        });
+    }
+
+    private async Task OpenCompanionInboxAsync(Guid? accountId)
+    {
+        await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow: true);
+
+        await ExecuteOnActivationUiThreadAsync(async () =>
+        {
+            var mailShell = Services.GetRequiredService<MailAppShellViewModel>();
+            if (accountId is { } id && mailShell.MenuItems.TryGetAccountMenuItem(id, out IAccountMenuItem accountMenuItem))
+                await mailShell.ChangeLoadedAccountAsync(accountMenuItem, navigateInbox: true);
+        });
+    }
+
+    private async Task OpenCompanionNewMailAsync(Guid? accountId)
+    {
+        await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow: true);
+
+        var mailShell = Services.GetRequiredService<MailAppShellViewModel>();
+        if (accountId is { } id)
+        {
+            var account = await Services.GetRequiredService<IAccountService>().GetAccountAsync(id);
+            if (account?.IsMailAccessGranted == true)
+            {
+                await ExecuteOnActivationUiThreadAsync(() => mailShell.CreateNewMailForAsync(account));
+                return;
+            }
+        }
+
+        await ExecuteOnActivationUiThreadAsync(mailShell.HandleCreateNewMailAsync);
+    }
+
+    private async Task OpenCompanionNewEventAsync(Guid? accountId, DateTimeOffset? startAt)
+    {
+        await EnsureShellWindowAsync(WinoApplicationMode.Calendar, activateWindow: true);
+
+        Guid? calendarId = null;
+        if (accountId is { } id)
+        {
+            calendarId = (await Services.GetRequiredService<ICalendarService>().GetAccountCalendarsAsync(id))
+                .FirstOrDefault(calendar => !calendar.IsReadOnly)?.Id;
+        }
+
+        var start = startAt?.LocalDateTime ?? DateTime.Now;
+        var args = new CalendarEventComposeNavigationArgs
+        {
+            SelectedCalendarId = calendarId,
+            StartDate = start,
+            EndDate = start.AddHours(1),
+            RequireCalendarPickerWhenUnresolved = calendarId == null
+        };
+
+        await ExecuteOnActivationUiThreadAsync(() =>
+        {
+            Services.GetRequiredService<INavigationService>()
+                .Navigate(WinoPage.CalendarEventComposePage, args);
+            return Task.CompletedTask;
+        });
+    }
+
+    private async Task ActivateWelcomeWindowAsync()
+    {
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        var welcomeWindow = windowManager.GetWindow(WinoWindowKind.Welcome) as WelcomeWindow;
+
+        if (welcomeWindow == null)
+        {
+            CreateWelcomeWindow();
+            welcomeWindow = MainWindow as WelcomeWindow;
+        }
+
+        if (welcomeWindow == null)
+            return;
+
+        await ActivateWindowAsync(welcomeWindow);
+        CloseShellWindowIfPresent();
+    }
+
+    private void CloseWelcomeWindowIfPresent()
+    {
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        if (windowManager.GetWindow(WinoWindowKind.Welcome) is not WelcomeWindow welcomeWindow)
+            return;
+
+        welcomeWindow.PrepareForClose();
+        welcomeWindow.AllowClose();
+        welcomeWindow.Close();
+    }
+
+    private void CloseShellWindowIfPresent()
+    {
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        if (windowManager.GetWindow(WinoWindowKind.Shell) is not ShellWindow shellWindow)
+            return;
+
+        DisposeTrayIcon();
+        if (ReferenceEquals(MainWindow, shellWindow))
+        {
+            MainWindow = null;
+            InitializeNavigationDispatcher();
+        }
+
+        shellWindow.PrepareForClose();
+        shellWindow.Close();
+    }
+
+    private async Task ActivateWindowAsync(WindowEx window, bool applyThemeToWindow = true)
+    {
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        MainWindow = window;
+
+        if (applyThemeToWindow)
+        {
+            await NewThemeService.ApplyThemeToActiveWindowAsync();
+        }
+
+        // Theme resources and the backdrop must be ready before the HWND becomes visible.
+        // Activating first lets WinUI render one frame with its default light theme.
+        windowManager.ActivateWindow(window);
+
+        EnqueueTrayIconStateUpdate();
+    }
+
+    /// <summary>
+    /// Creating the native tray icon and its companion is UI-thread work that no window's first
+    /// frame needs, so it runs at low priority after the frame the activation just queued.
+    /// </summary>
+    private void EnqueueTrayIconStateUpdate()
+    {
+        if (_applicationDispatcherQueue?.TryEnqueue(
+                DispatcherQueuePriority.Low,
+                () => UpdateTrayIconState(allowCreation: !_isExiting)) == true)
+        {
+            return;
+        }
+
+        UpdateTrayIconState(allowCreation: !_isExiting);
+    }
+
+    private async Task ExitApplicationAsync()
+    {
+        if (_isExiting) return;
+        _isExiting = true;
+
+        try
+        {
+            var updates = Services.GetService<IDraftUpdateCoordinator>();
+            // Stop accepts no further work before draft shutdown begins. Both operations
+            // share the existing five-second bound; local drafts are already durable.
+            var runtimeStop = _applicationRuntime?.StopAsync() ?? Task.CompletedTask;
+            var draftStop = updates?.DisposeAsync().AsTask() ?? Task.CompletedTask;
+            await Task.WhenAll(runtimeStop, draftStop).WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        catch (Exception)
+        {
+            // Shutdown is bounded. Draft content is already persisted locally.
+        }
+        finally
+        {
+            // Every step before Application.Exit is bounded and guarded. A failure here must not
+            // leave an exiting process alive without a window, which swallows every relaunch.
+            if (_companionIntegration != null)
+            {
+                var companion = _companionIntegration;
+                _companionIntegration = null;
+
+                try
+                {
+                    await companion.ShutdownAsync().WaitAsync(TimeSpan.FromSeconds(3));
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Tray companion shutdown did not complete during application exit.");
+                }
+            }
+
+            try
+            {
+                ReleaseBackgroundLifetimeWindow();
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to release the background lifetime window during application exit.");
+            }
+
+            LogActivation("Exiting application.");
+            ScheduleForcedProcessExit();
+            Application.Current.Exit();
+        }
+    }
+
+    /// <summary>
+    /// Application.Exit ends the XAML loop, but the process can still outlive it. A lingering
+    /// process keeps the single-instance key, so later launches redirect to it and show nothing.
+    /// </summary>
+    private static void ScheduleForcedProcessExit()
+    {
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+
+            Log.Warning("The process is still running 5 seconds after Application.Exit. Forcing process exit.");
+            Log.CloseAndFlush();
+            Environment.Exit(0);
+        });
+    }
+
+    internal async void ExitApplication() => await ExitApplicationAsync();
+
+    public bool IsNotificationActivation(out AppNotificationActivatedEventArgs args)
+    {
+        var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
+
+        if (activationArgs.Kind == ExtendedActivationKind.AppNotification)
+        {
+            args = ((AppNotificationActivatedEventArgs)activationArgs.Data);
+            return true;
+        }
+
+        args = null!;
+        return false;
+    }
+
+    #region Dependency Injection
+
+
+    private void RegisterUWPServices(IServiceCollection services)
+    {
+        // Order matters: page specific rules get first refusal, then the broader route-kind
+        // rules act as the catch-all.
+        services.AddSingleton<INavigationReentryRule, MailFolderReentryRule>();
+        services.AddSingleton<INavigationReentryRule, CalendarDateReentryRule>();
+        services.AddSingleton<INavigationReentryRule, RenderingReuseRule>();
+        services.AddSingleton<INavigationReentryRule, ModeRootReentryRule>();
+        services.AddSingleton<INavigationService, NavigationService>();
+        services.AddSingleton<IMailDialogService, DialogService>();
+        services.AddSingleton<ISearchHistoryService, SearchHistoryService>();
+        services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
+        services.AddSingleton<IAccountCalendarStateService, Wino.Calendar.ViewModels.Services.AccountCalendarStateService>();
+        services.AddSingleton<IDateContextProvider, SystemDateContextProvider>();
+        services.AddSingleton<ICalendarRangeTextFormatter, CalendarRangeTextFormatter>();
+    }
+
+    private void RegisterViewModels(IServiceCollection services)
+    {
+        services.AddSingleton(typeof(MailAppShellViewModel));
+        services.AddSingleton(typeof(CalendarAppShellViewModel));
+        services.AddSingleton(typeof(SettingsMenuProvider));
+        // The app shell owns window-specific binding state and must die with its window.
+        // Mode providers remain application services so background synchronization can keep
+        // running, but a newly created ShellWindow always receives a fresh shell host VM.
+        services.AddSingleton<IShellMenuProviderResolver>(provider => new ShellMenuProviderResolver(
+            () => provider.GetRequiredService<IMailShellClient>(),
+            () => provider.GetRequiredService<ICalendarShellClient>(),
+            () => provider.GetRequiredService<ContactsPageViewModel>(),
+            () => provider.GetRequiredService<ToDoPageViewModel>(),
+            () => provider.GetRequiredService<SettingsMenuProvider>()));
+        services.AddTransient(typeof(WinoAppShellViewModel));
+
+        services.AddSingleton<IMailShellClient>(serviceProvider => serviceProvider.GetRequiredService<MailAppShellViewModel>());
+        services.AddSingleton<ICalendarShellClient>(serviceProvider => serviceProvider.GetRequiredService<CalendarAppShellViewModel>());
+
+        // Breaks the calendar shell / calendar page constructor cycle and keeps the whole
+        // calendar object graph out of a session that never opens the calendar.
+        services.AddSingleton(serviceProvider =>
+            new Lazy<CalendarPageViewModel>(serviceProvider.GetRequiredService<CalendarPageViewModel>));
+
+        services.AddTransient(typeof(MailListPageViewModel));
+        services.AddTransient(typeof(MailRenderingPageViewModel));
+        services.AddTransient(typeof(AccountManagementViewModel));
+        services.AddTransient(typeof(WelcomePageV2ViewModel));
+        services.AddTransient(typeof(MigrationPageViewModel));
+        services.AddTransient(typeof(ProviderSelectionPageViewModel));
+        services.AddTransient(typeof(AccountSetupProgressPageViewModel));
+        services.AddTransient(typeof(SpecialImapCredentialsPageViewModel));
+        services.AddSingleton(typeof(WelcomeWizardContext));
+
+        services.AddTransient(typeof(ComposePageViewModel));
+        services.AddTransient(typeof(IdlePageViewModel));
+
+        services.AddTransient(typeof(ImapCalDavSettingsPageViewModel));
+        services.AddTransient(typeof(AccountDetailsPageViewModel));
+        services.AddTransient(typeof(WinoIntelligenceManagementPageViewModel));
+        services.AddTransient(typeof(IntelligenceCoveragePageViewModel));
+        services.AddTransient(typeof(DailyBriefingPanelViewModel));
+        services.AddTransient(typeof(FolderCustomizationPageViewModel));
+        services.AddTransient(typeof(SignatureManagementPageViewModel));
+        services.AddTransient(typeof(MessageListPageViewModel));
+        services.AddTransient(typeof(UnreadBadgeSettingsPageViewModel));
+        services.AddTransient(typeof(CompanionSettingsPageViewModel));
+        services.AddTransient(typeof(NotificationSettingsPageViewModel));
+        services.AddTransient(typeof(AccountUnreadBadgePageViewModel));
+        services.AddTransient(typeof(ReadComposePanePageViewModel));
+        services.AddTransient(typeof(MergedAccountDetailsPageViewModel));
+        services.AddTransient(typeof(TestPageViewModel));
+        services.AddTransient(typeof(AppPreferencesPageViewModel));
+        services.AddTransient(typeof(MailPreferencesPageViewModel));
+        services.AddTransient(typeof(BackupRestorePageViewModel));
+        services.AddTransient(typeof(StoragePageViewModel));
+        services.AddTransient(typeof(WinoAccountManagementPageViewModel));
+        services.AddTransient(typeof(AliasManagementPageViewModel));
+        services.AddTransient(typeof(MailCategoryManagementPageViewModel));
+        services.AddTransient(typeof(MailFiltersPageViewModel));
+        services.AddTransient(typeof(MailFilterEditorPageViewModel));
+        services.AddSingleton(typeof(ContactsPageViewModel));
+        services.AddSingleton(typeof(ToDoPageViewModel));
+        services.AddTransient(typeof(ContactEditPageViewModel));
+        services.AddTransient(typeof(SignatureAndEncryptionPageViewModel));
+        services.AddTransient(typeof(EmailTemplatesPageViewModel));
+        services.AddTransient(typeof(CreateEmailTemplatePageViewModel));
+        services.AddSingleton(typeof(CalendarPageViewModel));
+        services.AddTransient(typeof(CalendarRenderingSettingsPageViewModel));
+        services.AddTransient(typeof(CalendarPreferenceSettingsPageViewModel));
+        services.AddTransient(typeof(ContactsPreferenceSettingsPageViewModel));
+        services.AddTransient(typeof(ToDoPreferenceSettingsPageViewModel));
+        services.AddTransient(typeof(CalendarAccountSettingsPageViewModel));
+        services.AddTransient(typeof(EventDetailsPageViewModel));
+        services.AddTransient(typeof(CalendarEventComposePageViewModel));
+    }
+
+    #endregion
+
+    public override IServiceProvider ConfigureServices()
+    {
+        var services = new ServiceCollection();
+
+        services.AddLogging(builder =>
+        {
+            builder.ClearProviders();
+            builder.AddSerilog(dispose: false);
+        });
+
+        services.RegisterCoreServices();
+        services.RegisterSharedServices();
+        services.RegisterCoreUWPServices();
+        services.RegisterCoreViewModels();
+
+        RegisterUWPServices(services);
+        RegisterViewModels(services);
+
+        return services.BuildServiceProvider();
+    }
+
+    private bool IsStartupTaskLaunch() => AppInstance.GetCurrent().GetActivatedEventArgs()?.Kind == ExtendedActivationKind.StartupTask;
+    public bool IsAppRunning()
+    {
+        var windowManager = Services.GetService<IWinoWindowManager>();
+
+        return MainWindow != null ||
+               windowManager?.GetWindow(WinoWindowKind.Migration) != null ||
+               windowManager?.GetWindow(WinoWindowKind.Shell) != null ||
+               windowManager?.GetWindow(WinoWindowKind.Welcome) != null;
+    }
+
+    private bool HasShellWindow()
+        => Services.GetRequiredService<IWinoWindowManager>().GetWindow(WinoWindowKind.Shell) is IWinoShellWindow;
+
+    private async Task EnsureActivationInfrastructureAsync()
+    {
+        await EnsureCoreActivationInfrastructureAsync();
+        await EnsureAppHostInfrastructureAsync();
+    }
+
+    private async Task EnsureCoreActivationInfrastructureAsync()
+    {
+        if (_activationInfrastructureInitialized)
+            return;
+
+        await _activationInfrastructureSemaphore.WaitAsync();
+
+        try
+        {
+            if (_activationInfrastructureInitialized)
+                return;
+
+            _applicationRuntime = Services.GetRequiredService<IApplicationRuntime>();
+            await _applicationRuntime.InitializeAsync();
+
+            _synchronizationManager = Services.GetRequiredService<ISynchronizationManager>();
+            _preferencesService = Services.GetRequiredService<IPreferencesService>();
+            _accountService = Services.GetRequiredService<IAccountService>();
+
+            _hasConfiguredAccounts = (await _accountService.GetAccountsAsync()).Any();
+
+            if (_companionIntegration != null)
+            {
+                await _companionIntegration.SetReadinessAsync(_hasConfiguredAccounts
+                    ? CompanionReadinessState.Ready
+                    : CompanionReadinessState.NoAccounts);
+            }
+
+            _activationInfrastructureInitialized = true;
+        }
+        finally
+        {
+            _activationInfrastructureSemaphore.Release();
+        }
+    }
+
+    private async Task EnsureAppHostInfrastructureAsync()
+    {
+        await EnsureCoreActivationInfrastructureAsync();
+
+        if (_appHostInfrastructureInitialized)
+            return;
+
+        await _appHostInfrastructureSemaphore.WaitAsync();
+
+        try
+        {
+            if (_appHostInfrastructureInitialized)
+                return;
+
+            EnsureWindowManagerConfigured();
+            EnsurePreferenceChangedSubscription();
+
+            if (_hasConfiguredAccounts)
+            {
+                _ = StartRuntimeAfterLaunchAsync();
+            }
+
+            _appHostInfrastructureInitialized = true;
+        }
+        finally
+        {
+            _appHostInfrastructureSemaphore.Release();
+        }
+    }
+
+    private bool TryMarkInitialNotificationActivationHandled()
+        => Interlocked.Exchange(ref _initialNotificationActivationHandled, 1) == 0;
+
+    private bool TryMarkInitialShareActivationHandled()
+        => Interlocked.Exchange(ref _initialShareActivationHandled, 1) == 0;
+
+    protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+    {
+        base.OnLaunched(args);
+
+        // Every window resolves the icon font when its XAML loads, but NewThemeService.InitializeAsync
+        // runs only after the first window exists. Application.Resources is not usable in the constructor.
+        NewThemeService.ApplyIconStyle();
+
+        _preferencesService ??= Services.GetRequiredService<IPreferencesService>();
+        var activationArgs = ResolveStartupActivation();
+
+        try
+        {
+            // A normal launch shows a window first; ActivateWindowAsync adds the tray after that
+            // window's first frame. Other activations may never show one, so they get the tray now.
+            if (activationArgs.Kind != ExtendedActivationKind.Launch && ShouldCreateTrayIcon())
+            {
+                EnsureTrayIconCreated();
+                if (_companionIntegration != null)
+                    await _companionIntegration.SetReadinessAsync(CompanionReadinessState.Initializing);
+            }
+
+            await TranslationService.InitializeAsync();
+            if (await TryShowMigrationAsync(args, activationArgs))
+                return;
+
+            await EnsureCoreActivationInfrastructureAsync();
+            await _activationHandler.HandleLaunchAsync(args, activationArgs);
+        }
+        finally
+        {
+            // Low priority runs after the first frame of whatever window the launch activated.
+            // A launch route can also finish without a window, for example a forwarded notification.
+            if (_applicationDispatcherQueue?.TryEnqueue(DispatcherQueuePriority.Low, CompleteLaunch) != true)
+            {
+                CompleteLaunch();
+            }
+        }
+    }
+
+    private void CompleteLaunch()
+    {
+        UpdateTrayIconState(allowCreation: !_isExiting);
+        _launchCompleted.TrySetResult();
+    }
+
+    private async Task<bool> TryShowMigrationAsync(
+        Microsoft.UI.Xaml.LaunchActivatedEventArgs? launchArgs,
+        AppActivationArguments activationArgs)
+    {
+        var plan = await Services.GetRequiredService<IMigrationCoordinator>().InspectAsync();
+        if (plan.Status == Wino.Core.Domain.Models.Migration.MigrationStatus.NotRequired)
+            return false;
+
+        _pendingMigrationLaunchArgs ??= launchArgs;
+        _pendingMigrationActivation = activationArgs;
+
+        if (activationArgs.Kind == ExtendedActivationKind.StartupTask)
+        {
+            LogActivation("Migration is pending. Startup-task activation is exiting without application-data initialization.");
+            ExitApplication();
+            return true;
+        }
+
+        if (!HasActivationUiThreadAccess())
+        {
+            await ExecuteOnActivationUiThreadAsync(ShowMigrationWindowAsync);
+            return true;
+        }
+
+        await ShowMigrationWindowAsync();
+        return true;
+    }
+
+    private async Task ShowMigrationWindowAsync()
+    {
+        EnsureWindowManagerConfigured();
+
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        if (windowManager.GetWindow(WinoWindowKind.Migration) is not MigrationWindow migrationWindow)
+        {
+            MainWindow = windowManager.CreateWindow(WinoWindowKind.Migration, () => new MigrationWindow());
+            migrationWindow = (MigrationWindow)MainWindow;
+            migrationWindow.GetRootFrame().Navigate(
+                typeof(Views.MigrationPage),
+                null,
+                new SuppressNavigationTransitionInfo());
+            InitializeNavigationDispatcher();
+        }
+
+        await NewThemeService.InitializeAsync();
+        await ActivateWindowAsync(migrationWindow, applyThemeToWindow: false);
+        LogActivation("Migration window created and activated before database initialization.");
+    }
+
+    public async Task CompleteMigrationLaunchAsync()
+    {
+        var validation = await Services.GetRequiredService<IDatabaseSchemaService>()
+            .ValidateAsync(Path.Combine(
+                AppConfiguration.ApplicationDataFolderPath,
+                Wino.Services.DatabaseService.CurrentDatabaseName),
+                requireCompletedMigration: true);
+        if (!validation.IsValid)
+            throw new InvalidOperationException($"The migrated database cannot be launched: {validation.ErrorMessage ?? validation.IntegrityResult}");
+
+        await EnsureCoreActivationInfrastructureAsync();
+
+        var pendingLaunchArgs = _pendingMigrationLaunchArgs;
+        var pendingActivation = _pendingMigrationActivation;
+        _pendingMigrationLaunchArgs = null;
+        _pendingMigrationActivation = null;
+
+        if (pendingLaunchArgs != null && pendingActivation != null)
+        {
+            await _activationHandler.HandleLaunchAsync(pendingLaunchArgs, pendingActivation);
+        }
+        else
+        {
+            await EnsureAppHostInfrastructureAsync();
+            if (_hasConfiguredAccounts)
+                await CreateAndActivateWindow(null);
+            else
+                await LaunchWelcomeWindowAsync();
+        }
+
+        // Keep the migration window alive until its replacement is active. Closing the only active
+        // XAML window first can terminate the process natively before shell activation settles.
+        await EnsurePostMigrationWindowActiveAsync();
+
+        CloseMigrationWindowIfPresent();
+    }
+
+    private async Task EnsurePostMigrationWindowActiveAsync()
+    {
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        var replacementWindow = windowManager.GetWindow(WinoWindowKind.Shell)
+                                ?? windowManager.GetWindow(WinoWindowKind.Welcome);
+        if (replacementWindow == null)
+            throw new InvalidOperationException("Migration completed without creating a replacement application window.");
+
+        await ActivateWindowAsync(replacementWindow);
+        LogActivation("Replacement window activated before closing the migration window.");
+    }
+
+    private AppActivationArguments ResolveStartupActivation()
+        => AppInstance.GetCurrent().GetActivatedEventArgs();
+
+    /// <summary>
+    /// Handles toast notification activation scenarios.
+    /// </summary>
+    private Task HandleToastActivationAsync(NotificationArguments toastArguments, IDictionary<string, string>? userInput = null)
+        => _notificationHandler.HandleActivationAsync(toastArguments, userInput);
+
+    private Task HandleToastActivationAsync(string toastArgument, IDictionary<string, string>? userInput = null)
+        => _notificationHandler.HandleActivationAsync(toastArgument, userInput);
+
+    private async Task<bool> HandleShareTargetActivationAsync(AppActivationArguments activationArgs, bool activateWindow)
+    {
+        if (activationArgs.Kind != ExtendedActivationKind.ShareTarget ||
+            activationArgs.Data is not ShareTargetActivatedEventArgs shareTargetArgs)
+        {
+            return false;
+        }
+
+        var shareRequest = await ExtractMailShareRequestAsync(shareTargetArgs);
+
+        if (shareRequest?.Files == null || shareRequest.Files.Count == 0)
+        {
+            Services.GetRequiredService<IActivationStateService>().ClearPendingShareRequest();
+            return false;
+        }
+
+        var activationStateService = Services.GetRequiredService<IActivationStateService>();
+        activationStateService.PendingShareRequest = shareRequest;
+
+        if (!_hasConfiguredAccounts)
+        {
+            activationStateService.ClearPendingShareRequest();
+            return false;
+        }
+
+        var shellWindowAlreadyExists = HasShellWindow();
+
+        await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow, suppressStartupFlows: true);
+
+        if (shellWindowAlreadyExists)
+        {
+            await ExecuteOnActivationUiThreadAsync(
+                () => Services.GetRequiredService<MailAppShellViewModel>().HandlePendingShareRequestAsync());
+        }
+
+        return true;
+    }
+
+    private async Task<bool> HandleMailToProtocolActivationAsync(MailToUri mailToUri, bool activateWindow)
+    {
+        if (mailToUri == null)
+            return false;
+
+        Services.GetRequiredService<IActivationStateService>().MailToUri = mailToUri;
+
+        if (!_hasConfiguredAccounts)
+            return false;
+
+        await EnsureShellWindowAsync(
+            WinoApplicationMode.Mail,
+            activateWindow,
+            suppressStartupFlows: true,
+            activationParameter: mailToUri);
+
+        return true;
+    }
+
+    private async Task<MailShareRequest?> ExtractMailShareRequestAsync(ShareTargetActivatedEventArgs shareTargetArgs)
+    {
+        var shareOperation = shareTargetArgs.ShareOperation;
+
+        try
+        {
+            shareOperation.ReportStarted();
+
+            if (!shareOperation.Data.Contains(StandardDataFormats.StorageItems))
+            {
+                shareOperation.ReportCompleted();
+                return null;
+            }
+
+            var storageItems = await shareOperation.Data.GetStorageItemsAsync();
+            List<SharedFile> sharedFiles = [];
+
+            foreach (var storageFile in storageItems.OfType<StorageFile>())
+            {
+                sharedFiles.Add(await storageFile.ToSharedFileAsync());
+            }
+
+            shareOperation.ReportDataRetrieved();
+            shareOperation.ReportCompleted();
+
+            return sharedFiles.Count == 0
+                ? null
+                : new MailShareRequest(sharedFiles);
+        }
+        catch (Exception ex)
+        {
+            LogActivation($"Failed to extract share target payload: {ex.GetType().Name} - {ex.Message}");
+
+            try
+            {
+                shareOperation.ReportError(ex.Message);
+            }
+            catch
+            {
+                // Ignore share reporting failures and fall back to normal launch flow.
+            }
+
+            return null;
+        }
+    }
+
+    private async Task LaunchWelcomeWindowAsync()
+    {
+        if (!HasActivationUiThreadAccess())
+        {
+            await ExecuteOnActivationUiThreadAsync(LaunchWelcomeWindowAsync);
+            return;
+        }
+
+        CreateWelcomeWindow();
+        await NewThemeService.InitializeAsync();
+
+        if (MainWindow is WindowEx window)
+        {
+            await ActivateWindowAsync(window, applyThemeToWindow: false);
+        }
+
+        LogActivation("Welcome window created and activated.");
+    }
+
+    private async Task<ShellWindowActivationResult> EnsureShellWindowAsync(WinoApplicationMode mode,
+                                                                           bool activateWindow,
+                                                                           bool suppressStartupFlows = true,
+                                                                           object? activationParameter = null,
+                                                                           bool applyThemeToExistingWindow = true)
+    {
+        if (!HasActivationUiThreadAccess())
+        {
+            return await ExecuteOnActivationUiThreadAsync(
+                () => EnsureShellWindowAsync(
+                    mode,
+                    activateWindow,
+                    suppressStartupFlows,
+                    activationParameter,
+                    applyThemeToExistingWindow));
+        }
+
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        var navigationService = Services.GetRequiredService<INavigationService>();
+        var shellWindow = windowManager.GetWindow(WinoWindowKind.Shell) as IWinoShellWindow;
+        var wasCreated = false;
+
+        if (shellWindow == null)
+        {
+            LogActivation($"Creating shell window for {mode} activation.");
+            wasCreated = true;
+
+            var initialWinoAccount = _hasConfiguredAccounts ? ReadInitialWinoAccountAsync() : null;
+
+            CreateWindow(
+                null,
+                AppEntryConstants.GetModeLaunchArgument(mode),
+                new ShellModeActivationContext
+                {
+                    SuppressStartupFlows = suppressStartupFlows,
+                    Parameter = activationParameter
+                });
+
+            await NewThemeService.InitializeAsync();
+
+            if (initialWinoAccount != null)
+            {
+                PublishInitialWinoAccount(await initialWinoAccount);
+            }
+
+            shellWindow = windowManager.GetWindow(WinoWindowKind.Shell) as IWinoShellWindow ?? MainWindow as IWinoShellWindow;
+        }
+        else
+        {
+            ApplyShellWindowTaskbarIdentity(shellWindow, mode);
+
+            // Bring an existing, not-yet-visible shell to the requested mode before it is
+            // activated (for example, a shell created by a non-foreground activation).
+            navigationService.RestoreShell(mode, new ShellModeActivationContext
+            {
+                SuppressStartupFlows = suppressStartupFlows,
+                Parameter = activationParameter
+            });
+
+            if (activateWindow && shellWindow is WindowEx existingWindow)
+            {
+                // Tray/background restores may need to rebuild released theme/backdrop state.
+                // Foreground notification navigation skips that work to avoid flashing an
+                // already-rendered shell while it switches mode and navigates to the message.
+                await ActivateWindowAsync(existingWindow, applyThemeToExistingWindow);
+                activateWindow = false;
+            }
+        }
+
+        ApplyShellWindowTaskbarIdentity(shellWindow, mode);
+
+        if (activateWindow && shellWindow is WindowEx window)
+        {
+            await ActivateWindowAsync(window, applyThemeToWindow: wasCreated);
+        }
+
+        // A real app window now owns the WinUI lifetime. The contentless background host is only
+        // needed while every user-facing window is gone.
+        if (shellWindow != null)
+        {
+            ReleaseBackgroundLifetimeWindow();
+        }
+
+        return new ShellWindowActivationResult(shellWindow, wasCreated);
+    }
+
+    private async Task HandleStoreUpdateToastAsync()
+    {
+        if (!IsAppRunning())
+            await CreateAndActivateWindow(null!);
+        else
+            await ExecuteOnActivationUiThreadAsync(() =>
+            {
+                EnsureMainWindowVisibleAndForeground();
+                return Task.CompletedTask;
+            });
+
+        var storeService = Services.GetRequiredService<IMicrosoftStoreService>();
+        await storeService.StartUpdateAsync();
+    }
+
+    private async Task HandleCalendarToastNavigationAsync(Guid calendarItemId)
+    {
+        var calendarService = Services.GetRequiredService<ICalendarService>();
+        var fallbackNavigationArgs = new CalendarPageNavigationArgs
+        {
+            RequestDefaultNavigation = true
+        };
+
+        if (!HasShellWindow())
+        {
+            await EnsureShellWindowAsync(
+                WinoApplicationMode.Calendar,
+                activateWindow: true,
+                activationParameter: fallbackNavigationArgs);
+        }
+
+        var calendarItem = await calendarService.GetCalendarItemAsync(calendarItemId);
+        if (calendarItem == null)
+        {
+            LogActivation($"Calendar notification navigation item was not found for {calendarItemId}. Opening calendar shell only.");
+
+            await EnsureShellWindowAsync(
+                WinoApplicationMode.Calendar,
+                activateWindow: true,
+                activationParameter: fallbackNavigationArgs);
+            return;
+        }
+
+        var target = new CalendarItemTarget(calendarItem, CalendarEventTargetType.Single);
+        var navigationArgs = new CalendarPageNavigationArgs
+        {
+            NavigationDate = calendarItem.LocalStartDate,
+            PendingTarget = target
+        };
+
+        await EnsureShellWindowAsync(
+            WinoApplicationMode.Calendar,
+            activateWindow: true,
+            activationParameter: navigationArgs);
+    }
+
+    private async Task HandleCalendarToastSnoozeAsync(IDictionary<string, string>? userInput, Guid calendarItemId)
+    {
+        if (!TryGetSnoozeDurationMinutes(userInput, out var snoozeDurationMinutes))
+            return;
+
+        var calendarService = Services.GetRequiredService<ICalendarService>();
+        var snoozedUntilLocal = DateTime.Now.AddMinutes(snoozeDurationMinutes);
+
+        await calendarService.SnoozeCalendarItemAsync(calendarItemId, snoozedUntilLocal);
+    }
+
+    private async Task HandleCalendarToastJoinOnlineAsync(Guid calendarItemId)
+    {
+        var calendarService = Services.GetRequiredService<ICalendarService>();
+        var nativeAppService = Services.GetRequiredService<INativeAppService>();
+
+        var calendarItem = await calendarService.GetCalendarItemAsync(calendarItemId);
+        if (!CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out var joinUri))
+        {
+            return;
+        }
+
+        await nativeAppService.LaunchUriAsync(joinUri);
+    }
+
+    private void CompleteStartupTaskLaunch(bool hasAnyAccount)
+    {
+        if (!hasAnyAccount)
+        {
+            LogActivation("Launched by startup task without configured accounts. Exiting without creating a window.");
+            ExitApplication();
+            return;
+        }
+
+        _ = ExecuteOnActivationUiThreadAsync(() =>
+        {
+            UpdateTrayIconState(allowCreation: true);
+            return Task.CompletedTask;
+        });
+
+        LogActivation("Launched by startup task. Running in background without creating a window.");
+    }
+
+    private async Task CompleteStandardLaunchAsync(Microsoft.UI.Xaml.LaunchActivatedEventArgs args,
+                                                   bool hasAnyAccount)
+    {
+        if (!HasActivationUiThreadAccess())
+        {
+            await ExecuteOnActivationUiThreadAsync(() => CompleteStandardLaunchAsync(args, hasAnyAccount));
+            return;
+        }
+
+        var initialWinoAccount = hasAnyAccount ? ReadInitialWinoAccountAsync() : null;
+
+        CreateWindow(args);
+
+        await NewThemeService.InitializeAsync();
+
+        if (initialWinoAccount != null)
+        {
+            PublishInitialWinoAccount(await initialWinoAccount);
+        }
+
+        LogActivation("Theme service initialized.");
+
+        if (MainWindow is WindowEx window)
+        {
+            await ActivateWindowAsync(window, applyThemeToWindow: false);
+        }
+
+        LogActivation("Window created and activated.");
+    }
+
+    private bool TryGetSnoozeDurationMinutes(IDictionary<string, string>? userInput, out int snoozeDurationMinutes)
+    {
+        snoozeDurationMinutes = _preferencesService?.DefaultSnoozeDurationInMinutes ?? 0;
+
+        if (userInput == null ||
+            !userInput.TryGetValue(Constants.ToastCalendarSnoozeDurationInputId, out var selectedValue) ||
+            selectedValue == null)
+        {
+            return snoozeDurationMinutes > 0;
+        }
+
+        var selectedText = selectedValue.ToString();
+
+        return int.TryParse(selectedText, out snoozeDurationMinutes) && snoozeDurationMinutes > 0;
+    }
+
+    /// <summary>
+    /// Handles toast notification click for navigation.
+    /// Creates window if not running, sets up navigation parameter.
+    /// </summary>
+    private async Task HandleToastNavigationAsync(Guid mailItemUniqueId)
+    {
+        var mailService = Services.GetRequiredService<IMailService>();
+
+        var account = await mailService.GetMailAccountByUniqueIdAsync(mailItemUniqueId);
+        if (account == null)
+        {
+            LogActivation($"Notification navigation mail account was not found for {mailItemUniqueId}.");
+            await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow: true);
+            return;
+        }
+
+        var mailItem = await mailService.GetSingleMailItemAsync(mailItemUniqueId);
+        if (mailItem == null)
+        {
+            LogActivation($"Notification navigation mail item was not found for {mailItemUniqueId}.");
+            await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow: true);
+            return;
+        }
+
+        var shellWindowAlreadyExists = HasShellWindow();
+        var isMailModeActive = Services.GetRequiredService<IStatePersistanceService>().ApplicationMode == WinoApplicationMode.Mail;
+        var deferNavigationUntilMailIsReady = !shellWindowAlreadyExists || !isMailModeActive;
+
+        if (deferNavigationUntilMailIsReady)
+        {
+            // A new or switching shell consumes this after its mail menu has been rebuilt.
+            // Mode activation is asynchronous, so looking up the folder immediately would
+            // race the menu initialization when the notification was opened from another mode.
+            Services.GetRequiredService<IActivationStateService>().LaunchParameter =
+                new AccountMenuItemExtended(mailItem.AssignedFolder.Id, mailItem);
+        }
+
+        await EnsureShellWindowAsync(
+            WinoApplicationMode.Mail,
+            activateWindow: true,
+            applyThemeToExistingWindow: false);
+
+        if (deferNavigationUntilMailIsReady)
+            return;
+
+        await ExecuteOnActivationUiThreadAsync(async () =>
+        {
+            var mailShellViewModel = Services.GetRequiredService<MailAppShellViewModel>();
+            var navigatedToFolder = false;
+
+            if (mailShellViewModel.MenuItems.TryGetFolderMenuItem(mailItem.AssignedFolder.Id, out IBaseFolderMenuItem folderMenuItem))
+            {
+                await mailShellViewModel.NavigateFolderAsync(folderMenuItem);
+                navigatedToFolder = true;
+            }
+            else if (mailShellViewModel.MenuItems.TryGetAccountMenuItem(account.Id, out IAccountMenuItem accountMenuItem))
+            {
+                await mailShellViewModel.ChangeLoadedAccountAsync(accountMenuItem, navigateInbox: false);
+
+                if (mailShellViewModel.MenuItems.TryGetFolderMenuItem(mailItem.AssignedFolder.Id, out folderMenuItem))
+                {
+                    await mailShellViewModel.NavigateFolderAsync(folderMenuItem);
+                    navigatedToFolder = true;
+                }
+            }
+
+            if (!navigatedToFolder)
+            {
+                LogActivation($"Notification navigation folder was not found for mail {mailItemUniqueId}.");
+                return;
+            }
+
+            // NavigateFolderAsync completes only once MailListPage has initialized, so its
+            // recipient is ready for the selection request.
+            WeakReferenceMessenger.Default.Send(new MailItemNavigationRequested(mailItemUniqueId, ScrollToItem: true));
+        });
+    }
+
+    /// <summary>
+    /// Handles toast action button clicks (Mark as Read, Delete, etc.).
+    /// Executes the action without showing UI and exits the app.
+    /// </summary>
+    private async Task HandleToastActionAsync(MailOperation action, Guid mailItemUniqueId)
+    {
+        LogActivation($"Handling toast action: {action} for mail {mailItemUniqueId}");
+
+        var mailService = Services.GetRequiredService<IMailService>();
+        var mailItem = await mailService.GetSingleMailItemAsync(mailItemUniqueId);
+
+        if (mailItem == null)
+        {
+            LogActivation("Mail item not found. Exiting.");
+            ExitApplication();
+            return;
+        }
+
+        var package = new MailOperationPreperationRequest(action, mailItem);
+
+        // Check if app is already running (has a window).
+        if (HasShellWindow())
+        {
+            // App is running - use the simple delegator pattern.
+            // The synchronization will happen in the background.
+            LogActivation("App is running. Queueing request via delegator.");
+
+            var delegator = Services.GetRequiredService<IWinoRequestDelegator>();
+            await delegator.ExecuteAsync(package);
+
+            // Don't exit - app continues running.
+            LogActivation($"Toast action {action} queued successfully.");
+        }
+        else
+        {
+            // App is not running - we need to wait for sync before exiting.
+            LogActivation("App is not running. Executing synchronization and waiting for completion.");
+
+            if (_synchronizationManager == null)
+            {
+                LogActivation("Synchronization manager is not initialized. Exiting.");
+                ExitApplication();
+                return;
+            }
+
+            var processor = Services.GetRequiredService<IWinoRequestProcessor>();
+            var notificationBuilder = Services.GetRequiredService<INotificationBuilder>();
+
+            // Prepare the requests for the action.
+            var requests = await processor.PrepareRequestsAsync(package);
+
+            if (requests != null && requests.Any())
+            {
+                // Group requests by account ID (usually just one account).
+                var accountIds = requests.GroupBy(a => a.Item.AssignedAccount.Id);
+
+                foreach (var accountGroup in accountIds)
+                {
+                    var accountId = accountGroup.Key;
+
+                    // Queue all requests for this account.
+                    foreach (var request in accountGroup)
+                    {
+                        await _synchronizationManager.QueueRequestAsync(request, accountId, triggerSynchronization: false);
+                    }
+
+                    // Create synchronization options to execute the queued requests.
+                    var syncOptions = new MailSynchronizationOptions()
+                    {
+                        AccountId = accountId,
+                        Type = MailSynchronizationType.ExecuteRequests
+                    };
+
+                    LogActivation($"Executing synchronization for account {accountId}...");
+
+                    // Wait for synchronization to complete before exiting.
+                    var syncResult = await _synchronizationManager.SynchronizeMailAsync(syncOptions);
+
+                    LogActivation($"Toast action {action} completed. Sync result: {syncResult.CompletedState}");
+                }
+
+                await notificationBuilder.UpdateTaskbarIconBadgeAsync();
+            }
+
+            LogActivation("Toast action handling complete. Exiting app.");
+
+            // Exit the app after synchronization is complete.
+            ExitApplication();
+        }
+    }
+
+    private async Task HandleToastComposeActionAsync(MailOperation action, Guid mailItemUniqueId)
+    {
+        LogActivation($"Handling compose toast action: {action} for mail {mailItemUniqueId}");
+
+        var mailService = Services.GetRequiredService<IMailService>();
+        var folderService = Services.GetRequiredService<IFolderService>();
+        var mimeFileService = Services.GetRequiredService<IMimeFileService>();
+        var navigationService = Services.GetRequiredService<INavigationService>();
+        var requestDelegator = Services.GetRequiredService<IWinoRequestDelegator>();
+        var mailShellViewModel = Services.GetRequiredService<MailAppShellViewModel>();
+
+        var mailItem = await mailService.GetSingleMailItemAsync(mailItemUniqueId);
+        if (mailItem == null)
+        {
+            LogActivation($"Compose toast mail item was not found for {mailItemUniqueId}.");
+            return;
+        }
+
+        var account = await mailService.GetMailAccountByUniqueIdAsync(mailItemUniqueId) ?? mailItem.AssignedAccount;
+        if (account == null)
+        {
+            LogActivation($"Compose toast account was not found for {mailItemUniqueId}.");
+            return;
+        }
+
+        var draftFolder = await folderService.GetSpecialFolderByAccountIdAsync(account.Id, SpecialFolderType.Draft);
+        if (draftFolder == null)
+        {
+            LogActivation($"Compose toast draft folder is missing for account {account.Id}.");
+            return;
+        }
+
+        var mimeInformation = await mimeFileService.GetMimeMessageInformationAsync(mailItem.FileId, account.Id);
+        if (mimeInformation?.MimeMessage == null)
+        {
+            LogActivation($"Compose toast MIME payload was not found for mail {mailItemUniqueId}.");
+            return;
+        }
+
+        await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow: true);
+
+        await ExecuteOnActivationUiThreadAsync(async () =>
+        {
+            if (mailShellViewModel.MenuItems.TryGetAccountMenuItem(account.Id, out IAccountMenuItem accountMenuItem))
+            {
+                await mailShellViewModel.ChangeLoadedAccountAsync(accountMenuItem, navigateInbox: false);
+            }
+
+            if (mailShellViewModel.MenuItems.TryGetSpecialFolderMenuItem(account.Id, SpecialFolderType.Draft, out var draftFolderMenuItem))
+            {
+                await mailShellViewModel.NavigateFolderAsync(draftFolderMenuItem);
+            }
+        });
+
+        var draftOptions = new DraftCreationOptions
+        {
+            Reason = action switch
+            {
+                MailOperation.Reply => DraftCreationReason.Reply,
+                MailOperation.ReplyAll => DraftCreationReason.ReplyAll,
+                MailOperation.Forward => DraftCreationReason.Forward,
+                _ => DraftCreationReason.Empty
+            },
+            ReferencedMessage = new ReferencedMessage
+            {
+                MimeMessage = mimeInformation.MimeMessage,
+                MailCopy = mailItem
+            }
+        };
+
+        var (draftMailCopy, draftBase64MimeMessage) = await mailService.CreateDraftAsync(account.Id, draftOptions);
+        var draftPreparationRequest = new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason, mailItem);
+
+        await requestDelegator.ExecuteAsync(draftPreparationRequest);
+
+        await ExecuteOnActivationUiThreadAsync(() =>
+        {
+            navigationService.Navigate(WinoPage.ComposePage,
+                                       new MailItemViewModel(draftMailCopy) { ShouldFocusComposerOnOpen = true },
+                                       NavigationReferenceFrame.RenderingFrame,
+                                       NavigationTransitionType.DrillIn);
+
+            return Task.CompletedTask;
+        });
+    }
+
+    /// <summary>
+    /// Creates the main window and activates it.
+    /// </summary>
+    private async Task CreateAndActivateWindow(Microsoft.UI.Xaml.LaunchActivatedEventArgs? args)
+    {
+        if (!HasActivationUiThreadAccess())
+        {
+            await ExecuteOnActivationUiThreadAsync(() => CreateAndActivateWindow(args));
+            return;
+        }
+
+        CreateWindow(args);
+
+        // Initialize theme service after window is created.
+        await NewThemeService.InitializeAsync();
+
+        if (MainWindow is WindowEx window)
+        {
+            await ActivateWindowAsync(window, applyThemeToWindow: false);
+        }
+
+        LogActivation("Window created and activated.");
+    }
+
+    public Task OpenManageAccountsFromWelcomeAsync()
+    {
+        Services.GetRequiredService<INavigationService>()
+            .Navigate(WinoPage.SettingsPage, WinoPage.ManageAccountsPage, NavigationReferenceFrame.ShellFrame, NavigationTransitionType.DrillIn);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Creates the main window without activating it.
+    /// Used for both normal launch and startup task launch (tray only).
+    /// </summary>
+    private void CreateWindow(Microsoft.UI.Xaml.LaunchActivatedEventArgs? args,
+                              string? forcedLaunchArguments = null,
+                              ShellModeActivationContext? activationContextOverride = null)
+    {
+        LogActivation("Creating main window.");
+
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        MainWindow = windowManager.CreateWindow(WinoWindowKind.Shell, () => new ShellWindow());
+        InitializeNavigationDispatcher();
+
+        if (MainWindow is not IWinoShellWindow shellWindow)
+            throw new ArgumentException("MainWindow must implement IWinoShellWindow");
+
+        var navigationService = Services.GetRequiredService<INavigationService>();
+        var defaultMode = WinoApplicationMode.Mail;
+        var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
+
+        if (activationContextOverride != null)
+        {
+            var targetMode = !string.IsNullOrWhiteSpace(forcedLaunchArguments)
+                ? AppModeActivationResolver.Resolve(forcedLaunchArguments, null, null, defaultMode)
+                : TryResolveActivationMode(activationArgs, defaultMode, out var resolvedActivationMode)
+                    ? resolvedActivationMode
+                    : AppModeActivationResolver.Resolve(args?.Arguments, GetCurrentLaunchTileId(), Environment.CommandLine, defaultMode);
+
+            ApplyShellWindowTaskbarIdentity(shellWindow, targetMode);
+            navigationService.RestoreShell(targetMode, activationContextOverride);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(forcedLaunchArguments))
+        {
+            shellWindow.HandleAppActivation(forcedLaunchArguments);
+            return;
+        }
+
+        if (activationArgs.Kind == ExtendedActivationKind.Launch &&
+            activationArgs.Data is ILaunchActivatedEventArgs launchArgs)
+        {
+            var launchArguments = launchArgs.Arguments;
+
+            if (Program.TryConsumeCurrentProcessAlternateModeOverride())
+            {
+                launchArguments = AppendLaunchArgument(launchArguments, ToggleDefaultModeLaunchArgument);
+            }
+
+            shellWindow.HandleAppActivation(launchArguments, launchArgs.TileId, Environment.CommandLine);
+            return;
+        }
+
+        if (TryResolveActivationMode(activationArgs, defaultMode, out var activationMode))
+        {
+            shellWindow.HandleAppActivation(AppEntryConstants.GetModeLaunchArgument(activationMode));
+            return;
+        }
+
+        shellWindow.HandleAppActivation(args?.Arguments, GetCurrentLaunchTileId(), Environment.CommandLine);
+    }
+
+    private static void ApplyShellWindowTaskbarIdentity(IWinoShellWindow? shellWindow, WinoApplicationMode mode)
+    {
+        if (shellWindow is not WindowEx window)
+            return;
+
+        var packagedApplicationId = AppEntryConstants.GetPackagedApplicationId(mode);
+        if (packagedApplicationId == null)
+            return;
+
+        WindowAppUserModelIdHelper.TrySet(window, AppEntryConstants.GetAppUserModelId(mode));
+    }
+
+    private void CreateWelcomeWindow()
+    {
+        LogActivation("Creating welcome window.");
+
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        MainWindow = windowManager.CreateWindow(WinoWindowKind.Welcome, () => new WelcomeWindow());
+        if (MainWindow is WelcomeWindow welcomeWindow)
+        {
+            var rootFrame = welcomeWindow.GetRootFrame();
+
+            if (rootFrame.Content is WelcomeHostPage welcomeHostPage)
+            {
+                welcomeHostPage.ResetWizard();
+            }
+            else
+            {
+                rootFrame.BackStack.Clear();
+                rootFrame.ForwardStack.Clear();
+                rootFrame.Navigate(typeof(WelcomeHostPage), null, new SuppressNavigationTransitionInfo());
+            }
+        }
+
+        InitializeNavigationDispatcher();
+    }
+
+    private void CloseMigrationWindowIfPresent()
+    {
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        if (windowManager.GetWindow(WinoWindowKind.Migration) is not MigrationWindow migrationWindow)
+            return;
+
+        migrationWindow.AllowClose();
+        migrationWindow.Close();
+    }
+
+    private void InitializeNavigationDispatcher()
+    {
+        if (MainWindow == null)
+            return;
+
+        if (Services.GetService<IDispatcher>() is WinUIDispatcher dispatcher)
+        {
+            dispatcher.Initialize(MainWindow.DispatcherQueue);
+        }
+    }
+
+    private void EnsureMainWindowVisibleAndForeground()
+    {
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        var currentWindow = windowManager.ActiveWindow
+                            ?? windowManager.GetWindow(WinoWindowKind.Migration)
+                            ?? windowManager.GetWindow(WinoWindowKind.Shell)
+                            ?? windowManager.GetWindow(WinoWindowKind.Welcome)
+                            ?? MainWindow;
+
+        if (currentWindow == null)
+            return;
+
+        MainWindow = currentWindow;
+        windowManager.ActivateWindow(currentWindow);
+    }
+
+    private void RegisterRecipients()
+    {
+        WeakReferenceMessenger.Default.Register<AccountSynchronizationCompleted>(this);
+        WeakReferenceMessenger.Default.Register<AccountCreatedMessage>(this);
+        WeakReferenceMessenger.Default.Register<AccountRemovedMessage>(this);
+        WeakReferenceMessenger.Default.Register<AccountUpdatedMessage>(this);
+        WeakReferenceMessenger.Default.Register<GetStartedFromWelcomeRequested>(this);
+        WeakReferenceMessenger.Default.Register<WelcomeImportCompletedMessage>(this);
+        WeakReferenceMessenger.Default.Register<LanguageChanged>(this);
+    }
+
+    public void Receive(AccountSynchronizationCompleted message)
+    {
+        if ((message.Result is SynchronizationCompletedState.Success or SynchronizationCompletedState.PartiallyCompleted) &&
+            (message.Type is MailSynchronizationType.FullFolders or MailSynchronizationType.FoldersOnly))
+            QueueJumpListOptionsUpdateOnUiThread();
+    }
+
+    public void Receive(AccountCreatedMessage message)
+    {
+        _hasConfiguredAccounts = true;
+        _ = _companionIntegration?.SetReadinessAsync(CompanionReadinessState.Ready);
+        EnsurePreferenceChangedSubscription();
+        QueueJumpListOptionsUpdateOnUiThread();
+
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+
+        // Only transition when the account was created from the WelcomeWindow.
+        if (windowManager.GetWindow(WinoWindowKind.Welcome) == null)
+        {
+            _ = SynchronizeCreatedAccountAndStartAutoSynchronizationAsync(message.Account);
+            return;
+        }
+
+        MainWindow?.DispatcherQueue?.TryEnqueue(async () =>
+        {
+            // Create and activate ShellWindow — ActiveWindowChanged fires and rebinds the dispatcher.
+            var initialMode = message.Account.IsMailAccessGranted
+                ? WinoApplicationMode.Mail
+                : message.Account.IsCalendarAccessGranted
+                    ? WinoApplicationMode.Calendar
+                    : message.Account.IsTaskAccessGranted
+                        ? WinoApplicationMode.Tasks
+                    : WinoApplicationMode.Contacts;
+            CreateWindow(
+                null,
+                AppEntryConstants.GetModeLaunchArgument(initialMode),
+                new ShellModeActivationContext
+                {
+                    // Account setup owns the initial synchronization sequence below.
+                    SuppressStartupFlows = true
+                });
+
+            // Keep the welcome window alive until the shell is active. Closing the only active
+            // XAML window first can terminate the process natively before shell activation runs.
+            if (MainWindow != null)
+                await ActivateWindowAsync(MainWindow);
+
+            CloseWelcomeWindowIfPresent();
+
+            await SynchronizeCreatedAccountAsync(message.Account);
+
+            await StartRuntimeAfterLaunchAsync();
+        });
+    }
+
+    private async Task SynchronizeCreatedAccountAndStartAutoSynchronizationAsync(
+        Wino.Core.Domain.Entities.Shared.MailAccount account)
+    {
+        await SynchronizeCreatedAccountAsync(account).ConfigureAwait(false);
+        await StartRuntimeAfterLaunchAsync().ConfigureAwait(false);
+    }
+
+    private Task SynchronizeCreatedAccountAsync(Wino.Core.Domain.Entities.Shared.MailAccount account)
+        => _applicationRuntime!.SynchronizeCreatedAccountAsync(account);
+
+    private async Task StartRuntimeAfterLaunchAsync()
+    {
+        await _launchCompleted.Task.ConfigureAwait(false);
+        if (_isExiting || _applicationRuntime == null)
+            return;
+
+        try
+        {
+            await _applicationRuntime.StartAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Could not start the application runtime.");
+        }
+    }
+    public void Receive(WelcomeImportCompletedMessage message)
+    {
+        _hasConfiguredAccounts = message.ImportedMailboxCount > 0;
+        _ = _companionIntegration?.SetReadinessAsync(_hasConfiguredAccounts
+            ? CompanionReadinessState.Ready
+            : CompanionReadinessState.NoAccounts);
+
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        if (windowManager.GetWindow(WinoWindowKind.Welcome) == null)
+            return;
+
+        MainWindow?.DispatcherQueue?.TryEnqueue(async () =>
+        {
+            EnsurePreferenceChangedSubscription();
+
+            CreateWindow(
+                null,
+                AppEntryConstants.GetModeLaunchArgument(WinoApplicationMode.Mail),
+                new ShellModeActivationContext
+                {
+                    SuppressStartupFlows = true
+                });
+
+            await LoadInitialWinoAccountAsync();
+
+            // Preserve an active XAML window throughout the welcome-to-shell handoff.
+            if (MainWindow != null)
+            {
+                await ActivateWindowAsync(MainWindow);
+            }
+
+            CloseWelcomeWindowIfPresent();
+
+            if (message.Appearance != null)
+            {
+                try
+                {
+                    Services.GetRequiredService<IWinoAccountDataSyncService>().ApplyAppearance(message.Appearance);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Restored appearance could not be applied.");
+                }
+            }
+
+            await StartRuntimeAfterLaunchAsync();
+            await UpdateJumpListOptionsSafeAsync();
+
+            Services.GetRequiredService<IMailDialogService>().InfoBarMessage(
+                Translator.GeneralTitle_Info,
+                Translator.WinoAccount_Management_ImportReloginReminder,
+                InfoBarMessageType.Information);
+        });
+    }
+
+    public void Receive(AccountRemovedMessage message)
+    {
+        QueueJumpListOptionsUpdateOnUiThread();
+
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+
+        // Only handle when ShellWindow is active (not during wizard rollback)
+        if (windowManager.GetWindow(WinoWindowKind.Shell) == null)
+            return;
+
+        _ = ExecuteOnActivationUiThreadAsync(HandleAccountRemovedAsync);
+    }
+
+    private async Task HandleAccountRemovedAsync()
+    {
+        var accounts = await _accountService!.GetAccountsAsync();
+        _hasConfiguredAccounts = accounts.Any();
+        if (_companionIntegration != null)
+        {
+            await _companionIntegration.SetReadinessAsync(_hasConfiguredAccounts
+                ? CompanionReadinessState.Ready
+                : CompanionReadinessState.NoAccounts);
+        }
+        if (_hasConfiguredAccounts)
+            return;
+
+        Services.GetRequiredService<WelcomeWizardContext>().Reset();
+        UpdateTrayIconState(allowCreation: true);
+
+        // Keep an active XAML window throughout the shell-to-welcome handoff. Closing
+        // the last active window first can terminate the WinUI application before the
+        // welcome window is created.
+        await ActivateWelcomeWindowAsync();
+    }
+
+    public void Receive(AccountUpdatedMessage message)
+        => QueueJumpListOptionsUpdateOnUiThread();
+
+    private void QueueJumpListOptionsUpdateOnUiThread()
+        => TryEnqueueActivationOnUiThread(() => _ = UpdateJumpListOptionsSafeAsync());
+
+    private async Task UpdateJumpListOptionsSafeAsync()
+    {
+        try
+        {
+            await Services.GetRequiredService<INotificationBuilder>().UpdateJumpListOptionsAsync();
+        }
+        catch
+        {
+        }
+    }
+
+    public void Receive(GetStartedFromWelcomeRequested message)
+    {
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+
+        if (windowManager.GetWindow(WinoWindowKind.Welcome) == null)
+            return;
+
+        MainWindow?.DispatcherQueue?.TryEnqueue(async () =>
+        {
+            CreateWindow(null);
+            windowManager.HideWindow(WinoWindowKind.Welcome);
+
+            if (MainWindow is WindowEx window)
+            {
+                await ActivateWindowAsync(window);
+            }
+        });
+    }
+
+    private void PreferencesServiceChanged(object? sender, string propertyName)
+    {
+        if (propertyName == nameof(IPreferencesService.IsCompanionEnabled))
+        {
+            _applicationDispatcherQueue.TryEnqueue(() =>
+            {
+                if (_companionIntegration is { } companion)
+                {
+                    var isEnabled = _preferencesService?.IsCompanionEnabled ?? true;
+                    _ = companion.SetCompanionEnabledAsync(isEnabled);
+                }
+            });
+            return;
+        }
+
+        if (propertyName is nameof(IPreferencesService.IsCompanionHotKeyEnabled) or
+            nameof(IPreferencesService.CompanionHotKeyKey) or
+            nameof(IPreferencesService.CompanionHotKeyModifiers))
+        {
+            _applicationDispatcherQueue.TryEnqueue(() =>
+            {
+                _companionIntegration?.TryConfigureHotKey(
+                    _preferencesService?.IsCompanionHotKeyEnabled ?? false,
+                    GetConfiguredCompanionHotKey());
+            });
+
+            return;
+        }
+
+        if (propertyName is nameof(IPreferencesService.AppCloseBehavior) or nameof(IPreferencesService.IsSystemTrayIconEnabled))
+        {
+            UpdateTrayIconState(allowCreation: true);
+        }
+    }
+
+    private async Task LoadInitialWinoAccountAsync()
+        => PublishInitialWinoAccount(await ReadInitialWinoAccountAsync());
+
+    /// <summary>
+    /// Start this before the shell window is constructed. The read runs off the UI thread while
+    /// the window builds, and the result is published before activation so the title bar's
+    /// first frame already shows the signed-in account.
+    /// </summary>
+    private Task<Wino.Core.Domain.Entities.Shared.WinoAccount?> ReadInitialWinoAccountAsync()
+        => Services.GetRequiredService<IWinoAccountProfileService>().GetActiveAccountAsync();
+
+    private static void PublishInitialWinoAccount(Wino.Core.Domain.Entities.Shared.WinoAccount? winoAccount)
+    {
+        if (winoAccount != null)
+        {
+            WeakReferenceMessenger.Default.Send(new WinoAccountProfileUpdatedMessage(winoAccount));
+        }
+    }
+
+    /// <summary>
+    /// Handles activation redirected from another instance (single-instancing).
+    /// This is called when a second instance tries to launch and redirects to this existing instance.
+    /// </summary>
+    public async void HandleRedirectedActivation(AppActivationArguments args)
+    {
+        if (_isExiting)
+        {
+            // Do not re-show a window that the exit sequence is closing.
+            LogActivation("Ignoring redirected activation because the application is exiting.");
+            return;
+        }
+
+        try
+        {
+            var route = _activationHandler.ResolveRedirectedActivationRoute(args);
+            await ExecuteOnActivationUiThreadAsync(() => HandleRedirectedActivationOnUiThreadAsync(route));
+        }
+        catch (Exception ex)
+        {
+            LogActivation($"Redirected activation failed: {ex.GetType().Name} - {ex.Message}");
+        }
+    }
+
+    private async Task HandleRedirectedActivationOnUiThreadAsync(RedirectedActivationRoute route)
+    {
+        await TranslationService.InitializeAsync();
+        if (await TryShowMigrationAsync(null, route.ActivationArgs))
+            return;
+
+        await _activationHandler.HandleResolvedRedirectedActivationAsync(route);
+    }
+
+    internal void TryActivateExistingWindowForRedirectedActivation(AppActivationArguments args)
+    {
+        if (_isExiting || !Program.ShouldBringWindowToForegroundAfterRedirection(args))
+        {
+            return;
+        }
+
+        var existingWindowManager = Services.GetRequiredService<IWinoWindowManager>();
+        if (existingWindowManager.GetWindow(WinoWindowKind.Migration) is MigrationWindow migrationWindow)
+        {
+            _ = TryEnqueueActivationOnUiThread(() => existingWindowManager.ActivateWindow(migrationWindow));
+            return;
+        }
+
+        if (!_appHostInfrastructureInitialized)
+            return;
+
+        _ = TryEnqueueActivationOnUiThread(() =>
+        {
+            var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+            var activationWindow = windowManager.GetWindow(WinoWindowKind.Migration)
+                                   ?? windowManager.GetWindow(WinoWindowKind.Shell)
+                                   ?? windowManager.GetWindow(WinoWindowKind.Welcome)
+                                   ?? MainWindow;
+
+            // A tracked window can still be waiting for theme and navigation initialization.
+            // Only the full activation route may show it for the first time.
+            if (activationWindow == null || !activationWindow.AppWindow.IsVisible)
+                return;
+
+            MainWindow = activationWindow;
+            windowManager.ActivateWindow(activationWindow);
+        });
+    }
+
+    private async Task ActivateRedirectedShellAsync(RedirectedActivationRoute route)
+    {
+        if (!HasActivationUiThreadAccess())
+        {
+            await ExecuteOnActivationUiThreadAsync(() => ActivateRedirectedShellAsync(route));
+            return;
+        }
+
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        var shellWindow = MainWindow as IWinoShellWindow
+                          ?? windowManager.GetWindow(WinoWindowKind.Shell) as IWinoShellWindow;
+        var shellActivationHandled = false;
+        var shellActivationAppId = AppEntryConstants.GetAppUserModelId(route.ActivationMode);
+
+        if (!string.IsNullOrWhiteSpace(route.ShellActivationArguments) && shellWindow != null)
+        {
+            shellWindow.HandleAppActivation(route.ShellActivationArguments, route.ShellActivationTileId, shellActivationAppId);
+            shellActivationHandled = true;
+        }
+
+        if (route.ShouldActivateWindow && shellWindow == null && _hasConfiguredAccounts)
+        {
+            var result = await EnsureShellWindowAsync(route.ActivationMode, activateWindow: true);
+            shellWindow = result.ShellWindow;
+            route = route with { ShouldActivateWindow = false };
+        }
+
+        if (!shellActivationHandled &&
+            !string.IsNullOrWhiteSpace(route.ShellActivationArguments) &&
+            shellWindow != null)
+        {
+            shellWindow.HandleAppActivation(route.ShellActivationArguments, route.ShellActivationTileId, shellActivationAppId);
+        }
+
+        // Redirected launches can target a shell window that is currently hidden in the tray.
+        // Restore it through the window manager so Show/BringToFront/Activate happen together.
+        var activationWindow = shellWindow as WindowEx
+                               ?? windowManager.GetWindow(WinoWindowKind.Welcome)
+                               ?? MainWindow;
+
+        if (route.ShouldActivateWindow && activationWindow != null)
+        {
+            await ActivateWindowAsync(activationWindow, applyThemeToWindow: !activationWindow.AppWindow.IsVisible);
+        }
+    }
+
+    private async Task<bool> HandlePendingBootstrapActivationAsync(PendingBootstrapActivation pendingBootstrapActivation)
+    {
+        if (pendingBootstrapActivation.Mode is not (WinoApplicationMode.Calendar or WinoApplicationMode.Contacts or WinoApplicationMode.Tasks))
+            return false;
+
+        if (pendingBootstrapActivation.Kind == PendingBootstrapActivationKind.File)
+        {
+            await HandleFileActivationAsync(
+                pendingBootstrapActivation.Mode,
+                pendingBootstrapActivation.FilePaths,
+                activateWindow: true);
+
+            return true;
+        }
+
+        object? navigationArgs = pendingBootstrapActivation.Mode == WinoApplicationMode.Calendar
+            ? new CalendarPageNavigationArgs { RequestDefaultNavigation = true }
+            : null;
+
+        await EnsureShellWindowAsync(
+            pendingBootstrapActivation.Mode,
+            activateWindow: true,
+            activationParameter: navigationArgs);
+
+        return true;
+    }
+
+    private async Task HandleFileActivationAsync(WinoApplicationMode mode,
+                                                  IReadOnlyList<string> filePaths,
+                                                  bool activateWindow)
+    {
+        if (mode is not (WinoApplicationMode.Calendar or WinoApplicationMode.Contacts))
+            return;
+
+        var importService = Services.GetRequiredService<IActivationFileImportService>();
+
+        if (mode == WinoApplicationMode.Calendar)
+        {
+            var composeArgs = await importService.ImportCalendarEventAsync(filePaths);
+            object activationParameter = composeArgs is null
+                ? new CalendarPageNavigationArgs { RequestDefaultNavigation = true }
+                : composeArgs;
+
+            await EnsureShellWindowAsync(
+                WinoApplicationMode.Calendar,
+                activateWindow,
+                activationParameter: activationParameter);
+
+            if (composeArgs == null)
+            {
+                Services.GetRequiredService<IMailDialogService>().InfoBarMessage(
+                    Translator.FileActivation_ImportFailedTitle,
+                    Translator.FileActivation_CalendarImportFailedMessage,
+                    InfoBarMessageType.Warning);
+            }
+
+            return;
+        }
+
+        var importDraft = await importService.ImportContactAsync(filePaths);
+
+        await EnsureShellWindowAsync(
+            WinoApplicationMode.Contacts,
+            activateWindow,
+            activationParameter: importDraft == null
+                ? null
+                : new ContactEditNavigationParameter(ImportDraft: importDraft));
+
+        if (importDraft == null)
+        {
+            Services.GetRequiredService<IMailDialogService>().InfoBarMessage(
+                Translator.FileActivation_ImportFailedTitle,
+                Translator.FileActivation_ContactImportFailedMessage,
+                InfoBarMessageType.Warning);
+        }
+    }
+
+    private static string AppendLaunchArgument(string? launchArguments, string launchArgument)
+    {
+        return string.IsNullOrWhiteSpace(launchArguments)
+            ? launchArgument
+            : $"{launchArguments} {launchArgument}";
+    }
+
+    private static bool TryResolveActivationMode(AppActivationArguments activationArgs, WinoApplicationMode defaultMode, out WinoApplicationMode mode)
+    {
+        mode = defaultMode;
+
+        if (activationArgs.Kind == ExtendedActivationKind.Protocol &&
+            activationArgs.Data is IProtocolActivatedEventArgs protocolArgs)
+        {
+            var scheme = protocolArgs.Uri?.Scheme;
+
+            if (string.Equals(scheme, "webcal", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(scheme, "webcals", StringComparison.OrdinalIgnoreCase))
+            {
+                mode = WinoApplicationMode.Calendar;
+                return true;
+            }
+
+            if (string.Equals(scheme, "mailto", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(scheme, "google.pw.oauth2", StringComparison.OrdinalIgnoreCase))
+            {
+                mode = WinoApplicationMode.Mail;
+                return true;
+            }
+
+        }
+
+        if (activationArgs.Kind == ExtendedActivationKind.ShareTarget)
+        {
+            mode = WinoApplicationMode.Mail;
+            return true;
+        }
+
+        if (activationArgs.Kind == ExtendedActivationKind.File &&
+            activationArgs.Data is IFileActivatedEventArgs fileArgs)
+        {
+            var fileItem = fileArgs.Files?.FirstOrDefault();
+            var extension = Path.GetExtension(fileItem?.Name ?? string.Empty);
+
+            if (string.Equals(extension, ".ics", StringComparison.OrdinalIgnoreCase))
+            {
+                mode = WinoApplicationMode.Calendar;
+                return true;
+            }
+
+            if (string.Equals(extension, ".vcf", StringComparison.OrdinalIgnoreCase))
+            {
+                mode = WinoApplicationMode.Contacts;
+                return true;
+            }
+
+            if (string.Equals(extension, ".eml", StringComparison.OrdinalIgnoreCase))
+            {
+                mode = WinoApplicationMode.Mail;
+                return true;
+            }
+        }
+
+        if (activationArgs.Kind == ExtendedActivationKind.Launch &&
+            activationArgs.Data is ILaunchActivatedEventArgs launchArgs)
+        {
+            mode = AppModeActivationResolver.Resolve(launchArgs.Arguments, launchArgs.TileId, Environment.CommandLine, defaultMode);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string? GetCurrentLaunchTileId()
+    {
+        var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
+
+        if (activationArgs.Kind == ExtendedActivationKind.Launch &&
+            activationArgs.Data is ILaunchActivatedEventArgs launchArgs)
+        {
+            return launchArgs.TileId;
+        }
+
+        return null;
+    }
+
+    private bool HasActivationUiThreadAccess()
+        => GetActivationDispatcherQueue()?.HasThreadAccess == true;
+
+    private DispatcherQueue? GetActivationDispatcherQueue()
+    {
+        if (_applicationDispatcherQueue != null)
+            return _applicationDispatcherQueue;
+
+        var windowManager = Services.GetService<IWinoWindowManager>();
+        var currentWindow = windowManager?.ActiveWindow
+                           ?? windowManager?.GetWindow(WinoWindowKind.Migration)
+                           ?? windowManager?.GetWindow(WinoWindowKind.Shell)
+                           ?? windowManager?.GetWindow(WinoWindowKind.Welcome);
+
+        return currentWindow?.DispatcherQueue
+               ?? MainWindow?.DispatcherQueue;
+    }
+
+    private Task ExecuteOnActivationUiThreadAsync(Func<Task> action)
+        => ExecuteOnActivationUiThreadAsync(async () =>
+        {
+            await action();
+            return true;
+        });
+
+    private Task<T> ExecuteOnActivationUiThreadAsync<T>(Func<Task<T>> action)
+    {
+        if (action == null)
+            throw new ArgumentNullException(nameof(action));
+
+        var dispatcherQueue = GetActivationDispatcherQueue()
+                              ?? throw new InvalidOperationException("Activation UI dispatcher is not available.");
+
+        if (dispatcherQueue.HasThreadAccess)
+            return action();
+
+        var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        if (!dispatcherQueue.TryEnqueue(async () =>
+        {
+            try
+            {
+                completion.SetResult(await action());
+            }
+            catch (Exception ex)
+            {
+                completion.SetException(ex);
+            }
+        }))
+        {
+            completion.SetException(new InvalidOperationException("Failed to enqueue activation work on the UI dispatcher."));
+        }
+
+        return completion.Task;
+    }
+
+    private bool TryEnqueueActivationOnUiThread(Action action)
+    {
+        var dispatcherQueue = GetActivationDispatcherQueue();
+
+        if (dispatcherQueue == null)
+            return false;
+
+        if (dispatcherQueue.HasThreadAccess)
+        {
+            action();
+            return true;
+        }
+
+        return dispatcherQueue.TryEnqueue(() => action());
+    }
+
+}

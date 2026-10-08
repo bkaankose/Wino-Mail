@@ -1,0 +1,77 @@
+﻿<UserControl
+    x:Class="Wino.Mail.Controls.HoverActions.HoverActionsControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
+    xmlns:local="using:Wino.Mail.Controls.HoverActions">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <StaticResource x:Key="HoverActionsSurfaceBrush" ResourceKey="SolidBackgroundFillColorBaseBrush" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <StaticResource x:Key="HoverActionsSurfaceBrush" ResourceKey="AccentTextFillColorTertiaryBrush" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <StaticResource x:Key="HoverActionsSurfaceBrush" ResourceKey="SystemControlBackgroundAltHighBrush" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
+            <Style
+                x:Key="HoverActionButtonStyle"
+                BasedOn="{StaticResource DefaultButtonStyle}"
+                TargetType="local:HoverActionButton">
+                <Setter Property="Width" Value="24" />
+                <Setter Property="Height" Value="24" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
+                <Setter Property="UseSystemFocusVisuals" Value="True" />
+            </Style>
+
+            <DataTemplate x:Key="ActionButtonTemplate" x:DataType="local:HoverActionButtonItem">
+                <local:HoverActionButton
+                    AutomationProperties.AutomationId="{x:Bind AutomationId, Mode=OneTime}"
+                    AutomationProperties.Name="{x:Bind Label, Mode=OneTime}"
+                    ButtonSize="{x:Bind ButtonSize, Mode=OneTime}"
+                    Command="{x:Bind Command, Mode=OneTime}"
+                    CommandParameter="{x:Bind CommandParameter, Mode=OneTime}"
+                    Style="{StaticResource HoverActionButtonStyle}"
+                    ToolTipService.ToolTip="{x:Bind Label, Mode=OneTime}">
+                    <local:HoverActionButton.Resources>
+                        <SolidColorBrush x:Key="ButtonBackgroundPointerOver">Transparent</SolidColorBrush>
+                        <StaticResource x:Key="ButtonBorderBrushPointerOver" ResourceKey="ButtonBorderBrush" />
+                        <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="SystemAccentColor" />
+                    </local:HoverActionButton.Resources>
+                    <accountIcon:WinoFontIcon FontSize="14" Glyph="{x:Bind Glyph, Mode=OneTime}" />
+                </local:HoverActionButton>
+            </DataTemplate>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Border
+        Padding="4"
+        Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
+        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+        BorderThickness="1"
+        CornerRadius="{ThemeResource ControlCornerRadius}">
+        <ItemsControl
+            x:Name="ActionsItemsControl"
+            ItemTemplate="{StaticResource ActionButtonTemplate}"
+            ItemsSource="{x:Bind ActionItems, Mode=OneWay}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <StackPanel.Transitions>
+                            <TransitionCollection>
+                                <EdgeUIThemeTransition Edge="Right" />
+                            </TransitionCollection>
+                        </StackPanel.Transitions>
+                    </StackPanel>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+        </ItemsControl>
+    </Border>
+</UserControl>

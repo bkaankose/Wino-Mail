@@ -1,0 +1,46 @@
+using System.Collections.Generic;
+
+namespace Wino.Core.Domain.Models.Ai;
+
+/// <summary>
+/// The fixed lists of translation languages and rewrite modes the AI actions offer.
+/// </summary>
+public static class AiActionCatalog
+{
+    public static IReadOnlyList<AiTranslateLanguageOption> GetTranslateLanguageOptions()
+    {
+        return new AiTranslateLanguageOption[]
+        {
+            new("en-US", Translator.Composer_AiTranslateLanguageEnglish),
+            new("tr-TR", Translator.Composer_AiTranslateLanguageTurkish),
+            new("de-DE", Translator.Composer_AiTranslateLanguageGerman),
+            new("fr-FR", Translator.Composer_AiTranslateLanguageFrench),
+            new("es-ES", Translator.Composer_AiTranslateLanguageSpanish),
+            new("it-IT", Translator.Composer_AiTranslateLanguageItalian),
+            new("pt-BR", Translator.Composer_AiTranslateLanguagePortugueseBrazil),
+            new("nl-NL", Translator.Composer_AiTranslateLanguageDutch),
+            new("pl-PL", Translator.Composer_AiTranslateLanguagePolish),
+            new("uk-UA", Translator.Composer_AiTranslateLanguageUkrainian),
+            new("ru-RU", Translator.Composer_AiTranslateLanguageRussian),
+            new("ja-JP", Translator.Composer_AiTranslateLanguageJapanese),
+            new("ko-KR", Translator.Composer_AiTranslateLanguageKorean),
+            new("zh-CN", Translator.Composer_AiTranslateLanguageChineseSimplified),
+            new("ar-SA", Translator.Composer_AiTranslateLanguageArabic),
+            new("hi-IN", Translator.Composer_AiTranslateLanguageHindi),
+        };
+    }
+
+    public static IReadOnlyList<AiRewriteModeOption> GetRewriteModeOptions()
+    {
+        return new AiRewriteModeOption[]
+        {
+            new("polite", Translator.Composer_AiRewritePolite),
+            new("angry", Translator.Composer_AiRewriteAngry),
+            new("happy", Translator.Composer_AiRewriteHappy),
+            new("formal", Translator.Composer_AiRewriteFormal),
+            new("friendly", Translator.Composer_AiRewriteFriendly),
+            new("shorter", Translator.Composer_AiRewriteShorter),
+            new("clearer", Translator.Composer_AiRewriteClearer),
+        };
+    }
+}

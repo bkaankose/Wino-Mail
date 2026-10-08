@@ -1,0 +1,1239 @@
+{
+  "schemaVersion": 1,
+  "providers": [
+    {
+      "id": "icloud",
+      "specialImapProvider": "iCloud",
+      "displayName": "iCloud",
+      "setupVisible": true,
+      "setupFeatured": true,
+      "setupOrder": 10,
+      "emailDomains": [
+        "icloud.com",
+        "me.com",
+        "mac.com"
+      ],
+      "incomingHosts": [
+        "imap.mail.me.com"
+      ],
+      "incoming": {
+        "host": "imap.mail.me.com",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "LocalPart"
+      },
+      "outgoing": {
+        "host": "smtp.mail.me.com",
+        "port": 587,
+        "security": "StartTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AppPassword",
+      "setupHint": "AppPasswordRequired",
+      "calDavServiceUrl": "https://caldav.icloud.com/",
+      "cardDavServiceUrl": "https://contacts.icloud.com/",
+      "appPasswordHelpUrl": "https://support.apple.com/102654",
+      "folderAliases": [
+        {
+          "role": "Sent",
+          "value": "Sent Messages"
+        },
+        {
+          "role": "Deleted",
+          "value": "Deleted Messages"
+        },
+        {
+          "role": "Draft",
+          "value": "Drafts"
+        },
+        {
+          "role": "Junk",
+          "value": "Junk"
+        },
+        {
+          "role": "Archive",
+          "value": "Archive"
+        }
+      ]
+    },
+    {
+      "id": "yahoo",
+      "specialImapProvider": "Yahoo",
+      "displayName": "Yahoo Mail",
+      "setupVisible": true,
+      "setupFeatured": true,
+      "setupOrder": 20,
+      "emailDomains": [
+        "yahoo.com",
+        "yahoo.ca",
+        "yahoo.co.uk",
+        "yahoo.com.au",
+        "yahoo.co.in",
+        "yahoo.de",
+        "yahoo.es",
+        "yahoo.fr",
+        "yahoo.it",
+        "ymail.com",
+        "rocketmail.com",
+        "myyahoo.com"
+      ],
+      "incomingHosts": [
+        "imap.mail.yahoo.com"
+      ],
+      "incoming": {
+        "host": "imap.mail.yahoo.com",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "smtp.mail.yahoo.com",
+        "port": 587,
+        "security": "StartTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AppPassword",
+      "setupHint": "AppPasswordRequired",
+      "calDavServiceUrl": "https://caldav.calendar.yahoo.com/",
+      "cardDavServiceUrl": "",
+      "appPasswordHelpUrl": "https://help.yahoo.com/kb/generate-manage-third-party-passwords-sln15241.html",
+      "folderAliases": [
+        {
+          "role": "Draft",
+          "value": "Draft"
+        },
+        {
+          "role": "Junk",
+          "value": "Bulk"
+        },
+        {
+          "role": "Archive",
+          "value": "Archive"
+        }
+      ]
+    },
+    {
+      "id": "aol",
+      "specialImapProvider": "Aol",
+      "displayName": "AOL",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [
+        "aol.com",
+        "aim.com"
+      ],
+      "incomingHosts": [
+        "imap.aol.com"
+      ],
+      "incoming": {
+        "host": "imap.aol.com",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "smtp.aol.com",
+        "port": 465,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AppPassword",
+      "setupHint": "AppPasswordRequired",
+      "calDavServiceUrl": "",
+      "cardDavServiceUrl": "",
+      "appPasswordHelpUrl": "https://help.aol.com/articles/create-and-manage-app-password",
+      "folderAliases": [
+        {
+          "role": "Draft",
+          "value": "Draft"
+        },
+        {
+          "role": "Junk",
+          "value": "Bulk"
+        },
+        {
+          "role": "Archive",
+          "value": "Archive"
+        }
+      ]
+    },
+    {
+      "id": "att",
+      "specialImapProvider": "AttMail",
+      "displayName": "AT&T Mail",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [
+        "att.net",
+        "sbcglobal.net",
+        "bellsouth.net",
+        "ameritech.net",
+        "pacbell.net",
+        "swbell.net"
+      ],
+      "incomingHosts": [
+        "imap.mail.att.net"
+      ],
+      "incoming": {
+        "host": "imap.mail.att.net",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "smtp.mail.att.net",
+        "port": 465,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AppPassword",
+      "setupHint": "AppPasswordRequired",
+      "calDavServiceUrl": "",
+      "cardDavServiceUrl": "",
+      "appPasswordHelpUrl": "https://www.att.com/support/article/email-support/KM1240308",
+      "folderAliases": []
+    },
+    {
+      "id": "btmail",
+      "specialImapProvider": "BtMail",
+      "displayName": "BT Mail",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [
+        "btinternet.com",
+        "btopenworld.com"
+      ],
+      "incomingHosts": [
+        "mail.btinternet.com"
+      ],
+      "incoming": {
+        "host": "mail.btinternet.com",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "mail.btinternet.com",
+        "port": 465,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AccountPassword",
+      "setupHint": "None",
+      "calDavServiceUrl": "",
+      "cardDavServiceUrl": "",
+      "appPasswordHelpUrl": "",
+      "folderAliases": []
+    },
+    {
+      "id": "comcast",
+      "specialImapProvider": "Comcast",
+      "displayName": "Comcast / Xfinity",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [
+        "comcast.net",
+        "xfinity.com"
+      ],
+      "incomingHosts": [
+        "imap.comcast.net"
+      ],
+      "incoming": {
+        "host": "imap.comcast.net",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "smtp.comcast.net",
+        "port": 587,
+        "security": "StartTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AccountPassword",
+      "setupHint": "ThirdPartyAccessRequired",
+      "calDavServiceUrl": "",
+      "cardDavServiceUrl": "",
+      "appPasswordHelpUrl": "https://www.xfinity.com/support/articles/third-party-email-access",
+      "folderAliases": []
+    },
+    {
+      "id": "fastmail",
+      "specialImapProvider": "Fastmail",
+      "displayName": "Fastmail",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [
+        "fastmail.com",
+        "fastmail.fm"
+      ],
+      "incomingHosts": [
+        "imap.fastmail.com"
+      ],
+      "incoming": {
+        "host": "imap.fastmail.com",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "smtp.fastmail.com",
+        "port": 465,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AppPassword",
+      "setupHint": "AppPasswordRequired",
+      "calDavServiceUrl": "https://caldav.fastmail.com/",
+      "cardDavServiceUrl": "https://carddav.fastmail.com/",
+      "appPasswordHelpUrl": "https://www.fastmail.help/hc/en-us/articles/360058752854-App-passwords",
+      "folderAliases": []
+    },
+    {
+      "id": "gmx",
+      "specialImapProvider": "Gmx",
+      "displayName": "GMX",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [
+        "gmx.net",
+        "gmx.de",
+        "gmx.at",
+        "gmx.ch",
+        "gmx.eu"
+      ],
+      "incomingHosts": [
+        "imap.gmx.net"
+      ],
+      "incoming": {
+        "host": "imap.gmx.net",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "mail.gmx.net",
+        "port": 587,
+        "security": "StartTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AccountPassword",
+      "setupHint": "ImapDisabledByDefault",
+      "calDavServiceUrl": "",
+      "cardDavServiceUrl": "",
+      "appPasswordHelpUrl": "https://hilfe.gmx.net/pop-imap/einschalten.html",
+      "folderAliases": []
+    },
+    {
+      "id": "infomaniak",
+      "specialImapProvider": "Infomaniak",
+      "displayName": "Infomaniak",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [
+        "ik.me",
+        "ikmail.com",
+        "etik.com"
+      ],
+      "incomingHosts": [
+        "mail.infomaniak.com"
+      ],
+      "incoming": {
+        "host": "mail.infomaniak.com",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "mail.infomaniak.com",
+        "port": 465,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AccountPassword",
+      "setupHint": "None",
+      "calDavServiceUrl": "https://sync.infomaniak.com/",
+      "cardDavServiceUrl": "https://sync.infomaniak.com/",
+      "appPasswordHelpUrl": "",
+      "folderAliases": []
+    },
+    {
+      "id": "ionos",
+      "specialImapProvider": "Ionos",
+      "displayName": "IONOS",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [],
+      "incomingHosts": [
+        "imap.ionos.com",
+        "imap.ionos.de",
+        "imap.ionos.fr",
+        "imap.ionos.es"
+      ],
+      "incoming": {
+        "host": "imap.ionos.com",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "smtp.ionos.com",
+        "port": 587,
+        "security": "StartTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AccountPassword",
+      "setupHint": "None",
+      "regions": [
+        {
+          "id": "com",
+          "displayName": "International (ionos.com)",
+          "incomingHost": "imap.ionos.com",
+          "outgoingHost": "smtp.ionos.com",
+          "calDavServiceUrl": "",
+          "cardDavServiceUrl": ""
+        },
+        {
+          "id": "de",
+          "displayName": "Germany (ionos.de)",
+          "incomingHost": "imap.ionos.de",
+          "outgoingHost": "smtp.ionos.de",
+          "calDavServiceUrl": "",
+          "cardDavServiceUrl": ""
+        },
+        {
+          "id": "fr",
+          "displayName": "France (ionos.fr)",
+          "incomingHost": "imap.ionos.fr",
+          "outgoingHost": "smtp.ionos.fr",
+          "calDavServiceUrl": "",
+          "cardDavServiceUrl": ""
+        },
+        {
+          "id": "es",
+          "displayName": "Spain (ionos.es)",
+          "incomingHost": "imap.ionos.es",
+          "outgoingHost": "smtp.ionos.es",
+          "calDavServiceUrl": "",
+          "cardDavServiceUrl": ""
+        }
+      ],
+      "calDavServiceUrl": "",
+      "cardDavServiceUrl": "",
+      "appPasswordHelpUrl": "",
+      "folderAliases": []
+    },
+    {
+      "id": "libero",
+      "specialImapProvider": "Libero",
+      "displayName": "Libero",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [
+        "libero.it",
+        "iol.it",
+        "inwind.it",
+        "blu.it",
+        "giallo.it"
+      ],
+      "incomingHosts": [
+        "imapmail.libero.it"
+      ],
+      "incoming": {
+        "host": "imapmail.libero.it",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "smtp.libero.it",
+        "port": 465,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AccountPassword",
+      "setupHint": "None",
+      "calDavServiceUrl": "",
+      "cardDavServiceUrl": "",
+      "appPasswordHelpUrl": "",
+      "folderAliases": []
+    },
+    {
+      "id": "mailcom",
+      "specialImapProvider": "MailCom",
+      "displayName": "Mail.com",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [
+        "mail.com",
+        "email.com"
+      ],
+      "incomingHosts": [
+        "imap.mail.com"
+      ],
+      "incoming": {
+        "host": "imap.mail.com",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "smtp.mail.com",
+        "port": 587,
+        "security": "StartTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AccountPassword",
+      "setupHint": "ImapDisabledByDefault",
+      "calDavServiceUrl": "",
+      "cardDavServiceUrl": "",
+      "appPasswordHelpUrl": "https://support.mail.com/email/pop-imap/enable.html",
+      "folderAliases": []
+    },
+    {
+      "id": "mailru",
+      "specialImapProvider": "MailRu",
+      "displayName": "Mail.ru",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [
+        "mail.ru",
+        "bk.ru",
+        "inbox.ru",
+        "list.ru",
+        "internet.ru"
+      ],
+      "incomingHosts": [
+        "imap.mail.ru"
+      ],
+      "incoming": {
+        "host": "imap.mail.ru",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "smtp.mail.ru",
+        "port": 465,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AppPassword",
+      "setupHint": "AppPasswordRequired",
+      "calDavServiceUrl": "",
+      "cardDavServiceUrl": "",
+      "appPasswordHelpUrl": "https://help.mail.ru/mail/security/protection/external",
+      "folderAliases": []
+    },
+    {
+      "id": "mailboxorg",
+      "specialImapProvider": "MailboxOrg",
+      "displayName": "mailbox.org",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [
+        "mailbox.org"
+      ],
+      "incomingHosts": [
+        "imap.mailbox.org"
+      ],
+      "incoming": {
+        "host": "imap.mailbox.org",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "smtp.mailbox.org",
+        "port": 465,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AccountPassword",
+      "setupHint": "None",
+      "calDavServiceUrl": "https://dav.mailbox.org/caldav/",
+      "cardDavServiceUrl": "https://dav.mailbox.org/carddav/",
+      "appPasswordHelpUrl": "",
+      "folderAliases": []
+    },
+    {
+      "id": "migadu",
+      "specialImapProvider": "Migadu",
+      "displayName": "Migadu",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [],
+      "incomingHosts": [
+        "imap.migadu.com"
+      ],
+      "incoming": {
+        "host": "imap.migadu.com",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "smtp.migadu.com",
+        "port": 465,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AccountPassword",
+      "setupHint": "None",
+      "calDavServiceUrl": "",
+      "cardDavServiceUrl": "",
+      "appPasswordHelpUrl": "",
+      "folderAliases": []
+    },
+    {
+      "id": "netease",
+      "specialImapProvider": "NetEase",
+      "displayName": "NetEase 163 Mail",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [
+        "163.com"
+      ],
+      "incomingHosts": [
+        "imap.163.com"
+      ],
+      "incoming": {
+        "host": "imap.163.com",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "smtp.163.com",
+        "port": 465,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AppPassword",
+      "setupHint": "AuthorizationCodeRequired",
+      "calDavServiceUrl": "",
+      "cardDavServiceUrl": "",
+      "appPasswordHelpUrl": "https://help.mail.163.com/",
+      "folderAliases": []
+    },
+    {
+      "id": "orange",
+      "specialImapProvider": "Orange",
+      "displayName": "Orange",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [
+        "orange.fr",
+        "wanadoo.fr"
+      ],
+      "incomingHosts": [
+        "imap.orange.fr"
+      ],
+      "incoming": {
+        "host": "imap.orange.fr",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "smtp.orange.fr",
+        "port": 465,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AccountPassword",
+      "setupHint": "None",
+      "calDavServiceUrl": "",
+      "cardDavServiceUrl": "",
+      "appPasswordHelpUrl": "",
+      "folderAliases": []
+    },
+    {
+      "id": "posteo",
+      "specialImapProvider": "Posteo",
+      "displayName": "Posteo",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [
+        "posteo.de",
+        "posteo.net",
+        "posteo.eu",
+        "posteo.at",
+        "posteo.ch"
+      ],
+      "incomingHosts": [
+        "posteo.de"
+      ],
+      "incoming": {
+        "host": "posteo.de",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "posteo.de",
+        "port": 465,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AccountPassword",
+      "setupHint": "None",
+      "calDavServiceUrl": "https://posteo.de:8443/",
+      "cardDavServiceUrl": "https://posteo.de:8843/",
+      "appPasswordHelpUrl": "",
+      "folderAliases": []
+    },
+    {
+      "id": "proton",
+      "specialImapProvider": "Proton",
+      "displayName": "Proton Mail",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [
+        "proton.me",
+        "protonmail.com",
+        "pm.me",
+        "protonmail.ch"
+      ],
+      "incomingHosts": [
+        "127.0.0.1"
+      ],
+      "incoming": {
+        "host": "127.0.0.1",
+        "port": 1143,
+        "security": "StartTls",
+        "authentication": "NormalPassword",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "127.0.0.1",
+        "port": 1025,
+        "security": "StartTls",
+        "authentication": "NormalPassword",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 3,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "BridgePassword",
+      "setupHint": "LocalBridgeRequired",
+      "calDavServiceUrl": "",
+      "cardDavServiceUrl": "",
+      "appPasswordHelpUrl": "https://proton.me/support/protonmail-bridge-install",
+      "folderAliases": [
+        {
+          "role": "Deleted",
+          "value": "Trash"
+        },
+        {
+          "role": "Junk",
+          "value": "Spam"
+        },
+        {
+          "role": "Archive",
+          "value": "Archive"
+        },
+        {
+          "role": "Starred",
+          "value": "Starred"
+        }
+      ]
+    },
+    {
+      "id": "qqmail",
+      "specialImapProvider": "QqMail",
+      "displayName": "QQ Mail",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [
+        "qq.com",
+        "foxmail.com"
+      ],
+      "incomingHosts": [
+        "imap.qq.com"
+      ],
+      "incoming": {
+        "host": "imap.qq.com",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "smtp.qq.com",
+        "port": 465,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AppPassword",
+      "setupHint": "AuthorizationCodeRequired",
+      "calDavServiceUrl": "",
+      "cardDavServiceUrl": "",
+      "appPasswordHelpUrl": "https://service.mail.qq.com/detail/0/75",
+      "folderAliases": []
+    },
+    {
+      "id": "runbox",
+      "specialImapProvider": "Runbox",
+      "displayName": "Runbox",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [
+        "runbox.com",
+        "runbox.no"
+      ],
+      "incomingHosts": [
+        "mail.runbox.com"
+      ],
+      "incoming": {
+        "host": "mail.runbox.com",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "mail.runbox.com",
+        "port": 465,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AccountPassword",
+      "setupHint": "None",
+      "calDavServiceUrl": "",
+      "cardDavServiceUrl": "",
+      "appPasswordHelpUrl": "",
+      "folderAliases": []
+    },
+    {
+      "id": "seznam",
+      "specialImapProvider": "Seznam",
+      "displayName": "Seznam",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [
+        "seznam.cz",
+        "email.cz",
+        "post.cz",
+        "spoluzaci.cz"
+      ],
+      "incomingHosts": [
+        "imap.seznam.cz"
+      ],
+      "incoming": {
+        "host": "imap.seznam.cz",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "smtp.seznam.cz",
+        "port": 465,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AccountPassword",
+      "setupHint": "None",
+      "calDavServiceUrl": "",
+      "cardDavServiceUrl": "",
+      "appPasswordHelpUrl": "",
+      "folderAliases": []
+    },
+    {
+      "id": "strato",
+      "specialImapProvider": "Strato",
+      "displayName": "STRATO",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [],
+      "incomingHosts": [
+        "imap.strato.de"
+      ],
+      "incoming": {
+        "host": "imap.strato.de",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "smtp.strato.de",
+        "port": 465,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AccountPassword",
+      "setupHint": "None",
+      "calDavServiceUrl": "",
+      "cardDavServiceUrl": "",
+      "appPasswordHelpUrl": "",
+      "folderAliases": []
+    },
+    {
+      "id": "tonline",
+      "specialImapProvider": "TOnline",
+      "displayName": "T-Online",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [
+        "t-online.de",
+        "magenta.de"
+      ],
+      "incomingHosts": [
+        "secureimap.t-online.de"
+      ],
+      "incoming": {
+        "host": "secureimap.t-online.de",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "securesmtp.t-online.de",
+        "port": 465,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AppPassword",
+      "setupHint": "SeparateEmailPasswordRequired",
+      "calDavServiceUrl": "",
+      "cardDavServiceUrl": "",
+      "appPasswordHelpUrl": "https://www.telekom.de/hilfe/e-mail/passwort-fuer-e-mail-programme",
+      "folderAliases": []
+    },
+    {
+      "id": "webde",
+      "specialImapProvider": "WebDe",
+      "displayName": "WEB.DE",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [
+        "web.de"
+      ],
+      "incomingHosts": [
+        "imap.web.de"
+      ],
+      "incoming": {
+        "host": "imap.web.de",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "smtp.web.de",
+        "port": 587,
+        "security": "StartTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AccountPassword",
+      "setupHint": "ImapDisabledByDefault",
+      "calDavServiceUrl": "",
+      "cardDavServiceUrl": "",
+      "appPasswordHelpUrl": "https://hilfe.web.de/pop-imap/einschalten.html",
+      "folderAliases": []
+    },
+    {
+      "id": "yandex",
+      "specialImapProvider": "Yandex",
+      "displayName": "Yandex Mail",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [
+        "yandex.com",
+        "yandex.ru",
+        "ya.ru",
+        "yandex.by",
+        "yandex.kz"
+      ],
+      "incomingHosts": [
+        "imap.yandex.com"
+      ],
+      "incoming": {
+        "host": "imap.yandex.com",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "smtp.yandex.com",
+        "port": 465,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AppPassword",
+      "setupHint": "AppPasswordRequired",
+      "calDavServiceUrl": "https://caldav.yandex.ru/",
+      "cardDavServiceUrl": "https://carddav.yandex.ru/",
+      "appPasswordHelpUrl": "https://yandex.com/support/id/authorization/app-passwords.html",
+      "folderAliases": []
+    },
+    {
+      "id": "zoho",
+      "specialImapProvider": "Zoho",
+      "displayName": "Zoho Mail",
+      "setupVisible": true,
+      "setupFeatured": false,
+      "setupOrder": 100,
+      "emailDomains": [
+        "zohomail.com",
+        "zoho.com",
+        "zohomail.eu",
+        "zohomail.in",
+        "zohomail.com.au"
+      ],
+      "incomingHosts": [
+        "imap.zoho.com",
+        "imap.zoho.eu",
+        "imap.zoho.in",
+        "imap.zoho.com.au"
+      ],
+      "incoming": {
+        "host": "imap.zoho.com",
+        "port": 993,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "outgoing": {
+        "host": "smtp.zoho.com",
+        "port": 465,
+        "security": "SslTls",
+        "authentication": "Auto",
+        "usernamePolicy": "FullAddress"
+      },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "passwordKind": "AppPassword",
+      "setupHint": "AppPasswordRequired",
+      "regions": [
+        {
+          "id": "us",
+          "displayName": "United States (zoho.com)",
+          "incomingHost": "imap.zoho.com",
+          "outgoingHost": "smtp.zoho.com",
+          "calDavServiceUrl": "",
+          "cardDavServiceUrl": ""
+        },
+        {
+          "id": "eu",
+          "displayName": "Europe (zoho.eu)",
+          "incomingHost": "imap.zoho.eu",
+          "outgoingHost": "smtp.zoho.eu",
+          "calDavServiceUrl": "",
+          "cardDavServiceUrl": ""
+        },
+        {
+          "id": "in",
+          "displayName": "India (zoho.in)",
+          "incomingHost": "imap.zoho.in",
+          "outgoingHost": "smtp.zoho.in",
+          "calDavServiceUrl": "",
+          "cardDavServiceUrl": ""
+        },
+        {
+          "id": "au",
+          "displayName": "Australia (zoho.com.au)",
+          "incomingHost": "imap.zoho.com.au",
+          "outgoingHost": "smtp.zoho.com.au",
+          "calDavServiceUrl": "",
+          "cardDavServiceUrl": ""
+        }
+      ],
+      "calDavServiceUrl": "",
+      "cardDavServiceUrl": "",
+      "appPasswordHelpUrl": "https://www.zoho.com/mail/help/imap-access.html",
+      "folderAliases": []
+    }
+  ],
+  "genericFolderAliases": [
+    {
+      "role": "Sent",
+      "value": "Sent"
+    },
+    {
+      "role": "Sent",
+      "value": "Sent Mail"
+    },
+    {
+      "role": "Sent",
+      "value": "Sent Items"
+    },
+    {
+      "role": "Sent",
+      "value": "Sent Messages"
+    },
+    {
+      "role": "Draft",
+      "value": "Drafts"
+    },
+    {
+      "role": "Draft",
+      "value": "Draft"
+    },
+    {
+      "role": "Deleted",
+      "value": "Trash"
+    },
+    {
+      "role": "Deleted",
+      "value": "Bin"
+    },
+    {
+      "role": "Deleted",
+      "value": "Deleted"
+    },
+    {
+      "role": "Deleted",
+      "value": "Deleted Items"
+    },
+    {
+      "role": "Deleted",
+      "value": "Deleted Messages"
+    },
+    {
+      "role": "Junk",
+      "value": "Junk"
+    },
+    {
+      "role": "Junk",
+      "value": "Junk Mail"
+    },
+    {
+      "role": "Junk",
+      "value": "Junk Email"
+    },
+    {
+      "role": "Junk",
+      "value": "Spam"
+    },
+    {
+      "role": "Archive",
+      "value": "Archive"
+    },
+    {
+      "role": "Archive",
+      "value": "Archives"
+    }
+  ],
+  "appPasswordHelp": []
+}

@@ -1,0 +1,795 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Threading;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.Windows.AppNotifications;
+using Microsoft.Windows.AppNotifications.Builder;
+using Serilog;
+using Windows.Data.Xml.Dom;
+using Windows.UI.Notifications;
+using Windows.UI.StartScreen;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Badges;
+using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models.Notifications;
+using Wino.Helpers;
+using Wino.Mail.WinUI.Activation;
+using Wino.Messaging.UI;
+using Wino.NotificationHost.Contracts;
+
+namespace Wino.Mail.WinUI.Services;
+
+public class NotificationBuilder : INotificationBuilder
+{
+    private const string NotificationIconRootUri = "ms-appx:///Assets/NotificationIcons/";
+    private const string ProviderIconRootUri = "ms-appx:///Assets/Providers/";
+    private static readonly Uri DefaultJumpListIconUri = new("ms-appx:///Assets/AppEntries/MailAssets/Square44x44Logo.scale-200.png");
+    private static int _calendarTaskbarBadgeCount;
+    private static readonly SemaphoreSlim TaskbarBadgeUpdateLock = new(1, 1);
+    private static readonly MailOperation[] SupportedMailNotificationActions =
+    [
+        MailOperation.MarkAsRead,
+        MailOperation.SoftDelete,
+        MailOperation.MoveToJunk,
+        MailOperation.Archive,
+        MailOperation.Reply,
+        MailOperation.ReplyAll,
+        MailOperation.Forward
+    ];
+
+    private readonly IAccountService _accountService;
+    private readonly IFolderService _folderService;
+    private readonly IUnreadBadgeService _unreadBadgeService;
+    private readonly IMailService _mailService;
+    private readonly IThumbnailService _thumbnailService;
+    private readonly IPreferencesService _preferencesService;
+    private readonly IPictureStorageService _pictureStorageService;
+    private readonly INotificationHostClient _notificationHostClient;
+    private readonly INotificationPolicyService _notificationPolicyService;
+
+    public NotificationBuilder(IAccountService accountService,
+                               IFolderService folderService,
+                               IUnreadBadgeService unreadBadgeService,
+                               IMailService mailService,
+                               IThumbnailService thumbnailService,
+                               IPreferencesService preferencesService,
+                               IPictureStorageService pictureStorageService,
+                               INotificationHostClient notificationHostClient,
+                               INotificationPolicyService notificationPolicyService)
+    {
+        _accountService = accountService;
+        _folderService = folderService;
+        _unreadBadgeService = unreadBadgeService;
+        _mailService = mailService;
+        _thumbnailService = thumbnailService;
+        _preferencesService = preferencesService;
+        _pictureStorageService = pictureStorageService;
+        _notificationHostClient = notificationHostClient;
+        _notificationPolicyService = notificationPolicyService;
+
+        WeakReferenceMessenger.Default.Register<MailReadStatusChanged>(this, (r, msg) =>
+        {
+            QueueRemoveNotifications(new[] { msg.UniqueId });
+        });
+
+        WeakReferenceMessenger.Default.Register<BulkMailReadStatusChanged>(this, (r, msg) =>
+        {
+            QueueRemoveNotifications(msg.UniqueIds);
+        });
+
+        WeakReferenceMessenger.Default.Register<BulkMailUpdatedMessage>(this, (r, msg) =>
+        {
+            if (msg.Source == EntityUpdateSource.Server &&
+                (msg.ChangedProperties & (MailCopyChangeFlags.IsRead | MailCopyChangeFlags.FolderId)) != 0)
+            {
+                _ = UpdateTaskbarIconBadgeAsync();
+            }
+        });
+    }
+
+    public async Task CreateNotificationsAsync(IEnumerable<MailCopy> downloadedMailItems)
+    {
+        try
+        {
+            var inboxMailItems = new List<(MailCopy MailItem, MailAccountPreferences? Preferences)>();
+            var accounts = await _accountService.GetAccountsAsync();
+
+            foreach (var item in downloadedMailItems)
+            {
+                var mailItem = await _mailService.GetSingleMailItemAsync(item.UniqueId);
+                if (ShouldCreateMailNotification(mailItem, accounts))
+                {
+                    var account = accounts.FirstOrDefault(account => account.Id == mailItem.AssignedFolder.MailAccountId);
+                    inboxMailItems.Add((mailItem, account?.Preferences));
+                }
+            }
+
+            var mailCount = inboxMailItems.Count;
+            if (mailCount == 0)
+                return;
+
+            if (mailCount > 3)
+            {
+                var builder = CreateBuilder();
+                builder.AddText(Translator.Notifications_MultipleNotificationsTitle);
+                builder.AddText(string.Format(Translator.Notifications_MultipleNotificationsMessage, mailCount));
+                builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
+                builder.AddButton(CreateDismissButton());
+                builder.SetAudioEvent((AppNotificationSoundEvent)NotificationSettingsResolver.ResolveMail(_preferencesService, null).Sound);
+
+                await ShowNotificationAsync(NotificationHostApplication.Mail, builder);
+            }
+            else
+            {
+                foreach (var (mailItem, accountPreferences) in inboxMailItems)
+                {
+                    await CreateSingleNotificationAsync(mailItem, accountPreferences);
+                }
+            }
+
+            await UpdateTaskbarIconBadgeAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to create notifications.");
+        }
+    }
+
+    public async Task CreateTestNotificationsAsync(IEnumerable<MailCopy> mailItems)
+    {
+        try
+        {
+            foreach (var mailItem in mailItems)
+            {
+                await CreateSingleNotificationAsync(mailItem);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to create test notifications.");
+        }
+    }
+
+    /// <summary>
+    /// Snapshot the currently displayed taskbar badge was built from. Launch routing reads this
+    /// instead of counting again, so the number on the icon and the folder Wino opens always match.
+    /// </summary>
+    public static UnreadBadgeSnapshot LastSnapshot { get; private set; }
+
+    public async Task UpdateTaskbarIconBadgeAsync()
+    {
+        await TaskbarBadgeUpdateLock.WaitAsync().ConfigureAwait(false);
+
+        try
+        {
+            var snapshot = await _unreadBadgeService.GetSnapshotAsync().ConfigureAwait(false);
+            var totalUnreadCount = snapshot.TaskbarUnreadCount;
+
+            LastSnapshot = snapshot;
+
+            UpdateBadge(AppEntryConstants.MailApplicationId, totalUnreadCount > 0 ? totalUnreadCount : null);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error while updating taskbar badge.");
+        }
+        finally
+        {
+            TaskbarBadgeUpdateLock.Release();
+        }
+    }
+
+    public async Task UpdateJumpListOptionsAsync()
+    {
+        try
+        {
+            if (!JumpList.IsSupported())
+                return;
+
+            var jumpList = await JumpList.LoadCurrentAsync();
+
+            await ApplyRemovedJumpListItemsAsync(jumpList.Items.Where(item => item.RemovedByUser));
+
+            jumpList.SystemGroupKind = JumpListSystemGroupKind.None;
+            jumpList.Items.Clear();
+
+            var accounts = await _accountService.GetAccountsAsync();
+            foreach (var account in accounts.Where(account => account.IsMailAccessGranted && account.Preferences.IsJumpListEnabled))
+            {
+                var folders = await _folderService.GetFoldersAsync(account.Id);
+                foreach (var folder in folders.Where(folder => folder.IsMoveTarget && folder.IsJumpListEnabled))
+                {
+                    jumpList.Items.Add(CreateMailFolderJumpListItem(account, folder));
+                }
+            }
+
+            await jumpList.SaveAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error while updating taskbar jump list.");
+        }
+    }
+
+    public Task AddCalendarTaskbarBadgeCountAsync(int newlyDownloadedCount)
+    {
+        if (newlyDownloadedCount <= 0)
+            return Task.CompletedTask;
+
+        var badgeCount = Interlocked.Add(ref _calendarTaskbarBadgeCount, newlyDownloadedCount);
+        UpdateBadge(AppEntryConstants.CalendarApplicationId, badgeCount > 0 ? badgeCount : null);
+        return Task.CompletedTask;
+    }
+
+    public Task ClearCalendarTaskbarBadgeAsync()
+    {
+        Interlocked.Exchange(ref _calendarTaskbarBadgeCount, 0);
+        UpdateBadge(AppEntryConstants.CalendarApplicationId, null);
+        return Task.CompletedTask;
+    }
+
+    public void RemoveNotification(Guid mailUniqueId)
+    {
+        QueueRemoveNotifications(new[] { mailUniqueId });
+    }
+
+    private void QueueRemoveNotifications(IEnumerable<Guid> mailUniqueIds)
+    {
+        var uniqueIds = mailUniqueIds?
+            .Where(x => x != Guid.Empty)
+            .Distinct()
+            .ToList();
+
+        if (uniqueIds == null || uniqueIds.Count == 0)
+            return;
+
+        _ = RemoveNotificationsAsync(uniqueIds);
+    }
+
+    private async Task RemoveNotificationsAsync(IReadOnlyList<Guid> mailUniqueIds)
+    {
+        foreach (var mailUniqueId in mailUniqueIds)
+        {
+            try
+            {
+                await _notificationHostClient
+                    .RemoveByTagAsync(NotificationHostApplication.Mail, mailUniqueId.ToString())
+                    .ConfigureAwait(false);
+            }
+            catch (ArgumentException)
+            {
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to remove notification for mail {MailUniqueId}", mailUniqueId);
+            }
+        }
+    }
+
+    public void CreateAttentionRequiredNotification(MailAccount account)
+    {
+        if (account?.Preferences?.IsNotificationsEnabled != true)
+            return;
+
+        var builder = CreateBuilder();
+        builder.AddText(Translator.Exception_AccountNeedsAttention_Title);
+        builder.AddText(string.Format(Translator.Exception_AccountNeedsAttention_Message, account.Name));
+        builder.AddArgument(Constants.ToastMailAccountIdKey, account.Id.ToString());
+        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
+        builder.AddButton(CreateButton(Translator.Buttons_FixAccount, "account-fix")
+            .AddArgument(Constants.ToastMailAccountIdKey, account.Id.ToString())
+            .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail));
+        builder.AddButton(CreateDismissButton());
+
+        QueueShowNotification(NotificationHostApplication.Mail, builder, kindOverride: NotificationKind.Other);
+    }
+
+    public void CreateWebView2RuntimeMissingNotification()
+    {
+        var builder = CreateBuilder();
+        builder.AddText(Translator.Exception_WebView2RuntimeMissing_Title);
+        builder.AddText(Translator.Exception_WebView2RuntimeMissing_Message);
+        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
+        builder.AddButton(CreateDismissButton());
+
+        QueueShowNotification(NotificationHostApplication.Mail, builder, kindOverride: NotificationKind.Other);
+    }
+
+    public async Task CreateCalendarReminderNotificationAsync(CalendarItem calendarItem, long reminderDurationInSeconds)
+    {
+        if (calendarItem == null)
+            return;
+
+        // Resolved so the account's own calendar-reminder switch and quiet hours stance apply,
+        // not just the app-wide default.
+        var accountPreferences = await GetCalendarAccountPreferencesAsync(calendarItem).ConfigureAwait(false);
+        var builder = CreateBuilder(AppNotificationScenario.Reminder);
+        var localStart = calendarItem.GetLocalStartDate();
+        var reminderContext = GetCalendarReminderContext(localStart, DateTime.Now);
+
+        builder.AddText(calendarItem.Title);
+        builder.AddText($"{reminderContext} - {localStart:g}");
+
+        if (!string.IsNullOrWhiteSpace(calendarItem.Location))
+            builder.AddText(calendarItem.Location);
+
+        builder.AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarNavigateAction);
+        builder.AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString());
+        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar);
+        builder.SetAudioEvent((AppNotificationSoundEvent)_preferencesService.CalendarNotificationSoundEvent);
+
+        var allowedSnoozeMinutes = CalendarReminderSnoozeOptions.GetAllowedSnoozeMinutes(
+            reminderDurationInSeconds,
+            _preferencesService.DefaultReminderDurationInSeconds);
+
+        if (allowedSnoozeMinutes.Count > 0)
+        {
+            var preferredSnoozeMinutes = _preferencesService.DefaultSnoozeDurationInMinutes;
+            var defaultSnoozeMinutes = allowedSnoozeMinutes.Contains(preferredSnoozeMinutes)
+                ? preferredSnoozeMinutes
+                : allowedSnoozeMinutes[0];
+
+            var selectionBox = new AppNotificationComboBox(Constants.ToastCalendarSnoozeDurationInputId)
+                .SetSelectedItem(defaultSnoozeMinutes.ToString());
+
+            foreach (var snoozeMinutes in allowedSnoozeMinutes)
+            {
+                selectionBox.AddItem(
+                    snoozeMinutes.ToString(),
+                    string.Format(Translator.CalendarReminder_SnoozeMinutesOption, snoozeMinutes));
+            }
+
+            builder.AddComboBox(selectionBox);
+            builder.AddButton(CreateButton(Translator.CalendarReminder_SnoozeAction, "calendar-snooze")
+                .AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarSnoozeAction)
+                .AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString())
+                .AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar));
+        }
+
+        builder.AddButton(CreateOpenButton()
+            .AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarNavigateAction)
+            .AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString())
+            .AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar));
+
+        if (CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out _))
+        {
+            builder.AddButton(CreateButton(Translator.CalendarEventDetails_JoinOnline, "calendar-join")
+                .AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarJoinOnlineAction)
+                .AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString())
+                .AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar));
+        }
+
+        builder.AddButton(CreateDismissButton());
+
+        var tag = $"calendar-reminder-{calendarItem.Id:N}-{reminderDurationInSeconds}";
+
+        await ShowNotificationAsync(NotificationHostApplication.Calendar, builder, tag, accountPreferences).ConfigureAwait(false);
+    }
+
+    private async Task<MailAccountPreferences?> GetCalendarAccountPreferencesAsync(CalendarItem calendarItem)
+    {
+        if (calendarItem.AssignedCalendar?.AccountId is not { } accountId)
+            return null;
+
+        var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+
+        return account?.Preferences;
+    }
+
+    public Task CreateTestCalendarReminderNotificationAsync(CalendarItem calendarItem)
+    {
+        var reminderDurationInSeconds = Math.Max(
+            _preferencesService.DefaultReminderDurationInSeconds,
+            (long)TimeSpan.FromMinutes(30).TotalSeconds);
+
+        return CreateCalendarReminderNotificationAsync(calendarItem, reminderDurationInSeconds);
+    }
+
+    public Task CreateTestPeopleNotificationAsync(AccountContact contact)
+    {
+        if (contact == null)
+            return Task.CompletedTask;
+
+        var builder = CreateBuilder();
+        var displayName = string.IsNullOrWhiteSpace(contact.DisplayValue)
+            ? Translator.Buttons_TestNotification
+            : contact.DisplayValue;
+        var secondaryText = contact.PrimaryEmailAddress ?? contact.PrimaryPhoneNumber;
+
+        if (contact.ContactPictureFileId is { } pictureFileId)
+        {
+            builder.SetAppLogoOverride(
+                _pictureStorageService.GetPictureUri(PictureKind.Contact, pictureFileId),
+                AppNotificationImageCrop.Circle);
+        }
+
+        builder.AddText(displayName);
+        builder.AddText(string.IsNullOrWhiteSpace(secondaryText)
+            ? Translator.Buttons_TestNotification
+            : secondaryText);
+        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModePeople);
+        builder.AddButton(CreateOpenButton()
+            .AddArgument(Constants.ToastModeKey, Constants.ToastModePeople));
+        builder.AddButton(CreateDismissButton());
+        builder.SetAudioEvent((AppNotificationSoundEvent)_preferencesService.MailNotificationSoundEvent);
+
+        return ShowNotificationAsync(NotificationHostApplication.People, builder, $"people-test-{contact.Id:N}");
+    }
+
+    public Task CreateTestTaskReminderNotificationAsync(AccountTask task)
+    {
+        if (task == null)
+            return Task.CompletedTask;
+
+        var builder = CreateBuilder(AppNotificationScenario.Reminder);
+        var title = string.IsNullOrWhiteSpace(task.Title)
+            ? Translator.Buttons_TestNotification
+            : task.Title;
+        var reminderText = task.DueDate is { } dueDate
+            ? dueDate.ToString("D")
+            : Translator.Buttons_TestNotification;
+
+        builder.AddText(title);
+        builder.AddText(reminderText);
+        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeTasks);
+        builder.AddButton(CreateOpenButton()
+            .AddArgument(Constants.ToastModeKey, Constants.ToastModeTasks));
+        builder.AddButton(CreateDismissButton());
+        builder.SetAudioEvent((AppNotificationSoundEvent)_preferencesService.CalendarNotificationSoundEvent);
+
+        return ShowNotificationAsync(NotificationHostApplication.Tasks, builder, $"task-test-{task.Id:N}");
+    }
+
+    private async Task CreateSingleNotificationAsync(MailCopy mailItem, MailAccountPreferences? accountPreferences = null)
+    {
+        var settings = NotificationSettingsResolver.ResolveMail(_preferencesService, accountPreferences);
+        var builder = CreateBuilder();
+
+        var senderPictureUri = GetSenderPictureUri(mailItem);
+        if (senderPictureUri == null)
+        {
+            var avatarThumbnail = await _thumbnailService.GetThumbnailAsync(mailItem.FromAddress, awaitLoad: true);
+            senderPictureUri = avatarThumbnail == null ? null : new Uri(avatarThumbnail.AppDataUri);
+        }
+
+        if (senderPictureUri != null)
+            builder.SetAppLogoOverride(senderPictureUri, AppNotificationImageCrop.Circle);
+
+        builder.SetTimeStamp(mailItem.CreationDate.ToLocalTime());
+
+        AddMailNotificationText(builder, mailItem, settings.Content);
+
+        builder.AddArgument(Constants.ToastMailUniqueIdKey, mailItem.UniqueId.ToString());
+        builder.AddArgument(Constants.ToastActionKey, MailOperation.Navigate.ToString());
+        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
+
+        var (firstAction, secondAction) = GetConfiguredMailNotificationActions();
+        builder.AddButton(CreateMailNotificationActionButton(firstAction, mailItem.UniqueId));
+        builder.AddButton(CreateMailNotificationActionButton(secondAction, mailItem.UniqueId));
+        builder.AddButton(CreateDismissButton());
+        builder.SetAudioEvent((AppNotificationSoundEvent)settings.Sound);
+
+        await ShowNotificationAsync(NotificationHostApplication.Mail, builder, mailItem.UniqueId.ToString(), accountPreferences);
+    }
+
+    /// <summary>
+    /// Writes as much of the message onto the toast as the account's content setting allows, so a
+    /// shared machine can show that mail arrived without showing who it is from or what it says.
+    /// </summary>
+    private static void AddMailNotificationText(AppNotificationBuilder builder, MailCopy mailItem, MailNotificationContent content)
+    {
+        if (content == MailNotificationContent.Nothing)
+        {
+            builder.AddText(Translator.Notifications_MultipleNotificationsTitle);
+            return;
+        }
+
+        builder.AddText(mailItem.FromName);
+
+        if (content == MailNotificationContent.SenderOnly)
+            return;
+
+        builder.AddText(mailItem.Subject);
+
+        if (content == MailNotificationContent.SenderSubjectPreview)
+        {
+            builder.AddText(mailItem.PreviewText);
+        }
+    }
+
+    private bool ShouldCreateMailNotification(MailCopy mailItem, IReadOnlyCollection<MailAccount> accounts)
+    {
+        var account = accounts.FirstOrDefault(account => account.Id == mailItem.AssignedFolder.MailAccountId);
+        var settings = NotificationSettingsResolver.ResolveMail(_preferencesService, account?.Preferences);
+
+        return settings.IsEnabled && IsWithinNotificationScope(mailItem, settings.Scope);
+    }
+
+    /// <summary>
+    /// Applies the folder scope. Note this narrows previous behaviour: every downloaded message used
+    /// to raise a notification regardless of the folder it landed in.
+    /// </summary>
+    private static bool IsWithinNotificationScope(MailCopy mailItem, MailNotificationScope scope)
+    {
+        if (scope == MailNotificationScope.AllFolders)
+            return true;
+
+        var isInbox = mailItem.AssignedFolder?.SpecialFolderType == SpecialFolderType.Inbox;
+
+        return scope switch
+        {
+            MailNotificationScope.InboxOnly => isInbox,
+            MailNotificationScope.FocusedInboxOnly => isInbox && mailItem.IsFocused,
+            MailNotificationScope.InboxAndCustomFolders => isInbox || mailItem.AssignedFolder?.SpecialFolderType == SpecialFolderType.Other,
+            _ => true
+        };
+    }
+
+    private void UpdateBadge(string applicationId, int? badgeCount)
+    {
+        var badgeUpdater = BadgeUpdateManager.CreateBadgeUpdaterForApplication(applicationId);
+
+        if (!badgeCount.HasValue || badgeCount.Value <= 0)
+        {
+            badgeUpdater.Clear();
+            return;
+        }
+
+        XmlDocument badgeXml = BadgeUpdateManager.GetTemplateContent(BadgeTemplateType.BadgeNumber);
+        if (badgeXml.SelectSingleNode("/badge") is not XmlElement badgeElement)
+        {
+            badgeUpdater.Clear();
+            return;
+        }
+
+        badgeElement.SetAttribute("value", badgeCount.Value.ToString());
+        badgeUpdater.Update(new BadgeNotification(badgeXml));
+    }
+
+    private static string GetCalendarReminderContext(DateTime localStart, DateTime nowLocal)
+    {
+        var delta = localStart - nowLocal;
+        var absDelta = delta.Duration();
+
+        if (absDelta < TimeSpan.FromMinutes(1))
+            return delta.TotalSeconds >= 0 ? Translator.CalendarReminder_StartingNow : Translator.CalendarReminder_StartedNow;
+
+        if (delta.TotalSeconds > 0)
+        {
+            if (delta.TotalHours >= 1)
+            {
+                var hours = Math.Max(1, (int)Math.Floor(delta.TotalHours));
+                return string.Format(Translator.CalendarReminder_StartsInHours, hours);
+            }
+
+            var minutes = Math.Max(1, (int)Math.Floor(delta.TotalMinutes));
+            return string.Format(Translator.CalendarReminder_StartsInMinutes, minutes);
+        }
+
+        if (absDelta.TotalHours >= 1)
+        {
+            var hoursAgo = Math.Max(1, (int)Math.Floor(absDelta.TotalHours));
+            return string.Format(Translator.CalendarReminder_StartedHoursAgo, hoursAgo);
+        }
+
+        var minutesAgo = Math.Max(1, (int)Math.Floor(absDelta.TotalMinutes));
+        return string.Format(Translator.CalendarReminder_StartedMinutesAgo, minutesAgo);
+    }
+
+    private (MailOperation FirstAction, MailOperation SecondAction) GetConfiguredMailNotificationActions()
+    {
+        var firstAction = ResolveMailNotificationAction(_preferencesService.FirstMailNotificationAction, MailOperation.MarkAsRead);
+        var secondAction = ResolveMailNotificationAction(_preferencesService.SecondMailNotificationAction, MailOperation.SoftDelete);
+
+        if (secondAction == firstAction)
+        {
+            secondAction = SupportedMailNotificationActions.First(action => action != firstAction);
+        }
+
+        return (firstAction, secondAction);
+    }
+
+    private static MailOperation ResolveMailNotificationAction(MailOperation configuredAction, MailOperation fallbackAction)
+        => SupportedMailNotificationActions.Contains(configuredAction) ? configuredAction : fallbackAction;
+
+    private static AppNotificationButton CreateMailNotificationActionButton(MailOperation action, Guid mailUniqueId)
+        => CreateButton(XamlHelpers.GetOperationString(action), GetMailActionIconName(action))
+            .AddArgument(Constants.ToastMailUniqueIdKey, mailUniqueId.ToString())
+            .AddArgument(Constants.ToastActionKey, action.ToString())
+            .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
+
+    private static string GetMailActionIconName(MailOperation action)
+        => action switch
+        {
+            MailOperation.Archive => "mail-archive",
+            MailOperation.SoftDelete => "mail-delete",
+            MailOperation.MarkAsRead => "mail-markread",
+            MailOperation.MoveToJunk => "mail-junk",
+            MailOperation.Reply => "mail-reply",
+            MailOperation.ReplyAll => "mail-replyall",
+            MailOperation.Forward => "mail-forward",
+            _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Mail notification action has no icon.")
+        };
+
+    private static AppNotificationButton CreateOpenButton()
+        => CreateButton(Translator.Buttons_Open, "open");
+
+    private static AppNotificationButton CreateDismissButton()
+        => CreateButton(Translator.Buttons_Dismiss, "dismiss")
+            .AddArgument(Constants.ToastDismissActionKey, bool.TrueString);
+
+    /// <summary>
+    /// Every toast button is created here. Windows switches all buttons of a toast to the icon-button
+    /// style once one of them has an icon, so a button without one would render inconsistently.
+    /// </summary>
+    private static AppNotificationButton CreateButton(string content, string iconName)
+        => new AppNotificationButton(content).SetIcon(GetNotificationIconUri(iconName));
+
+    private static AppNotificationBuilder CreateBuilder(AppNotificationScenario scenario = AppNotificationScenario.Default)
+        => new AppNotificationBuilder().SetScenario(scenario);
+
+    /// <summary>
+    /// The single gate every notification passes through. Snooze, quiet hours, the per-type switches
+    /// and the per-account overrides are all resolved here so no caller can bypass one of them.
+    /// Suppressed notifications are dropped rather than queued.
+    /// </summary>
+    private async Task ShowNotificationAsync(
+        NotificationHostApplication application,
+        AppNotificationBuilder builder,
+        string? tag = null,
+        MailAccountPreferences? accountPreferences = null,
+        NotificationKind? kindOverride = null)
+    {
+        var decision = _notificationPolicyService.Evaluate(kindOverride ?? ToNotificationKind(application), accountPreferences, DateTimeOffset.Now);
+
+        if (!decision.ShouldDeliver)
+            return;
+
+        var notification = builder.BuildNotification();
+
+        if (!string.IsNullOrWhiteSpace(tag))
+        {
+            notification.Tag = tag;
+        }
+
+        await _notificationHostClient.ShowAsync(application, notification).ConfigureAwait(false);
+    }
+
+    private void QueueShowNotification(
+        NotificationHostApplication application,
+        AppNotificationBuilder builder,
+        string? tag = null,
+        MailAccountPreferences? accountPreferences = null,
+        NotificationKind? kindOverride = null)
+    {
+        _ = ShowNotificationAsync(application, builder, tag, accountPreferences, kindOverride).ContinueWith(
+            task => Log.Error(task.Exception, "Failed to dispatch {Application} notification.", application),
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+    }
+
+    private static NotificationKind ToNotificationKind(NotificationHostApplication application)
+        => application switch
+        {
+            NotificationHostApplication.Mail => NotificationKind.Mail,
+            NotificationHostApplication.Calendar => NotificationKind.CalendarReminder,
+            NotificationHostApplication.Tasks => NotificationKind.TaskReminder,
+            _ => NotificationKind.Other
+        };
+
+    private Uri? GetSenderPictureUri(MailCopy mailItem)
+        => mailItem.SenderContact?.ContactPictureFileId is { } fileId
+            ? _pictureStorageService.GetPictureUri(PictureKind.Contact, fileId)
+            : null;
+
+    private static Uri GetNotificationIconUri(string iconName)
+        => new($"{NotificationIconRootUri}{iconName}.png");
+
+    private async Task ApplyRemovedJumpListItemsAsync(IEnumerable<JumpListItem> removedItems)
+    {
+        foreach (var removedItem in removedItems)
+        {
+            try
+            {
+                if (TryGetJumpListFolderId(removedItem.Arguments, out var folderId))
+                {
+                    await _folderService.ChangeFolderJumpListStateAsync(folderId, false);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to sync removed jump list item {Arguments}.", removedItem.Arguments);
+            }
+        }
+    }
+
+    private JumpListItem CreateMailFolderJumpListItem(MailAccount account, MailItemFolder folder)
+    {
+        var accountDisplayName = GetJumpListAccountDisplayName(account);
+        var item = JumpListItem.CreateWithArguments(
+            CreateMailFolderJumpListArguments(account.Id, folder.Id),
+            $"{folder.FolderName} - {accountDisplayName}");
+
+        item.GroupName = Translator.JumpList_QuickFoldersGroup;
+
+        TrySetJumpListItemLogo(item, GetProviderIconUri(account));
+
+        return item;
+    }
+
+    private static string GetJumpListAccountDisplayName(MailAccount account)
+        => string.IsNullOrWhiteSpace(account.Name)
+            ? account.Address
+            : account.Name;
+
+    private static string CreateMailFolderJumpListArguments(Guid accountId, Guid folderId)
+    {
+        var arguments = new Dictionary<string, string>
+        {
+            [Constants.JumpListActionKey] = Constants.JumpListOpenMailFolderAction,
+            [Constants.JumpListAccountIdKey] = accountId.ToString(),
+            [Constants.JumpListFolderIdKey] = folderId.ToString()
+        };
+
+        return $"{AppEntryConstants.MailLaunchArgument};{string.Join(';', arguments.Select(pair => $"{WebUtility.UrlEncode(pair.Key)}={WebUtility.UrlEncode(pair.Value)}"))}";
+    }
+
+    private static bool TryGetJumpListFolderId(string arguments, out Guid folderId)
+    {
+        folderId = Guid.Empty;
+
+        var parsedArguments = NotificationArguments.Parse(arguments);
+
+        return parsedArguments.TryGetValue(Constants.JumpListActionKey, out var action) &&
+               string.Equals(action, Constants.JumpListOpenMailFolderAction, StringComparison.Ordinal) &&
+               parsedArguments.TryGetValue(Constants.JumpListFolderIdKey, out var folderIdString) &&
+               Guid.TryParse(folderIdString, out folderId);
+    }
+
+    private static void TrySetJumpListItemLogo(JumpListItem item, Uri providerIconUri)
+    {
+        if (TrySetJumpListItemLogo(item, providerIconUri, "provider"))
+            return;
+
+        TrySetJumpListItemLogo(item, DefaultJumpListIconUri, "default");
+    }
+
+    private static bool TrySetJumpListItemLogo(JumpListItem item, Uri iconUri, string iconKind)
+    {
+        try
+        {
+            item.Logo = iconUri;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to set {IconKind} jump list icon {IconUri}.", iconKind, iconUri);
+            return false;
+        }
+    }
+
+    private Uri GetProviderIconUri(MailAccount account)
+    {
+        if (account.ProfilePictureFileId is { } fileId &&
+            _pictureStorageService.GetPictureUri(PictureKind.AccountProfile, fileId) is { } profilePictureUri)
+        {
+            return profilePictureUri;
+        }
+
+        var iconName = account.SpecialImapProvider != SpecialImapProvider.None
+            ? account.SpecialImapProvider.ToString()
+            : account.ProviderType.ToString();
+
+        return new Uri($"{ProviderIconRootUri}{iconName}.png");
+    }
+}

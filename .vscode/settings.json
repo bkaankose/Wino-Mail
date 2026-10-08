@@ -1,0 +1,7 @@
+{
+    "dotnet.defaultSolution": "WinoMail.MacOS.slnx",
+    "winapp.appDirectories": [
+        "src/Wino.Mail.WinUI"
+    ],
+    "debug.hideSlowPreLaunchWarning": true
+}

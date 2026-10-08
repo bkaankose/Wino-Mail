@@ -1,0 +1,998 @@
+﻿<abstract:ComposePageAbstract
+    x:Class="Wino.Views.Mail.ComposePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:contactControls="using:Wino.Mail.Controls.ContactPicture"
+    xmlns:contacts="using:Wino.Core.Domain.Models.Contacts"
+    xmlns:controls="using:Wino.Controls"
+    xmlns:controls1="using:Wino.Mail.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:customcontrols="using:Wino.Mail.WinUI.Controls.CustomControls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Mail.ViewModels.Data"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:editor="using:Wino.Editor"
+    xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:intelligenceProgress="using:Wino.Mail.Controls.IntelligenceProgressRing"
+    xmlns:mail="using:Wino.Core.Domain.Entities.Mail"
+    xmlns:mailkit="using:MimeKit"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:reader="using:Wino.Core.Domain.Models.Reader"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
+    x:Name="root"
+    d:Background="White"
+    AutomationProperties.AutomationId="ComposePageRoot"
+    Loaded="ComposerLoaded"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <Style x:Key="ComposeFieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="MinWidth" Value="56" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+        </Style>
+
+        <DataTemplate x:Key="ContactTokenTemplate" x:DataType="entities:IContactDisplayItem">
+            <Grid ContextRequested="ContactTokenContextRequested">
+
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <ToolTipService.ToolTip>
+                    <ToolTip Content="{x:Bind Address}" />
+                </ToolTipService.ToolTip>
+
+                <Viewbox Width="24">
+                    <contactControls:WinoContactPicture
+                        ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(PreviewContact, DisplayName, Address), Mode=OneTime}"
+                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                </Viewbox>
+
+                <TextBlock
+                    Grid.Column="1"
+                    Margin="6,0,8,0"
+                    VerticalAlignment="Center"
+                    Text="{x:Bind DisplayName}" />
+            </Grid>
+        </DataTemplate>
+
+        <!--  Recipient suggestion. The matched text is semibold, the source sits at the right, and a remembered correspondent can be dismissed without closing the list.  -->
+        <DataTemplate x:Key="RecipientSuggestionTemplate" x:DataType="contacts:RecipientSuggestion">
+            <Grid
+                Padding="0,6"
+                AutomationProperties.Name="{x:Bind DisplayName}"
+                ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <contactControls:WinoContactPicture
+                    Width="32"
+                    Height="32"
+                    VerticalAlignment="Center"
+                    ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(PreviewContact, DisplayName, Address), Mode=OneTime}"
+                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+
+                <StackPanel
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Spacing="1">
+                    <TextBlock
+                        winuiHelpers:TextMatchHighlighter.Query="{x:Bind MatchQuery}"
+                        winuiHelpers:TextMatchHighlighter.Text="{x:Bind DisplayName}"
+                        MaxLines="1"
+                        TextTrimming="CharacterEllipsis" />
+                    <TextBlock
+                        winuiHelpers:TextMatchHighlighter.Query="{x:Bind MatchQuery}"
+                        winuiHelpers:TextMatchHighlighter.Text="{x:Bind SecondaryText}"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        MaxLines="1"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+
+                <TextBlock
+                    Grid.Column="2"
+                    MaxWidth="140"
+                    VerticalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                    MaxLines="1"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind SourceCaption}"
+                    TextTrimming="CharacterEllipsis" />
+
+                <!--  Never takes focus, so pressing it keeps the list open and the caret in the box.  -->
+                <Button
+                    Grid.Column="3"
+                    Width="28"
+                    Height="28"
+                    Padding="0"
+                    VerticalAlignment="Center"
+                    AllowFocusOnInteraction="False"
+                    AutomationProperties.AutomationId="ComposeSuppressSuggestion"
+                    AutomationProperties.Name="{x:Bind domain:Translator.RecipientSuggestion_DontSuggest, Mode=OneTime}"
+                    Click="SuppressSuggestionClicked"
+                    IsTabStop="False"
+                    Style="{StaticResource TransparentActionButtonStyle}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.RecipientSuggestion_DontSuggest, Mode=OneTime}"
+                    Visibility="{x:Bind CanSuppress, Mode=OneTime}">
+                    <!--  The implicit icon style does not reach the suggestion popup, so the font is set here.  -->
+                    <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        FontSize="12"
+                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                        Icon="Dismiss" />
+                </Button>
+            </Grid>
+        </DataTemplate>
+
+        <!--  Attachment tile. Remove lives in the item menu so no destructive icon repeats across the tray.  -->
+        <DataTemplate x:Key="ComposerFileAttachmentTemplate" x:DataType="data:MailAttachmentViewModel">
+            <Grid
+                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                ContextRequested="AttachmentContextRequested"
+                CornerRadius="4">
+                <ToolTipService.ToolTip>
+                    <ToolTip Content="{x:Bind FileName}" />
+                </ToolTipService.ToolTip>
+
+                <Grid Padding="8,5,2,5" ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="20" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <ContentControl
+                        Width="20"
+                        Height="20"
+                        VerticalAlignment="Center"
+                        Content="{x:Bind AttachmentType}"
+                        ContentTemplateSelector="{StaticResource FileTypeIconSelector}"
+                        IsTabStop="False" />
+
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <!--  The full name wraps; it only trims past two lines.  -->
+                        <TextBlock
+                            AutomationProperties.AutomationId="ComposeAttachmentName"
+                            MaxLines="2"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind FileName}"
+                            TextTrimming="CharacterEllipsis"
+                            TextWrapping="Wrap" />
+
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <coreControls:WinoFontIcon
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="ComposeAttachmentContentTypeWarning"
+                                AutomationProperties.Name="{x:Bind ContentTypeWarningText, Mode=OneWay}"
+                                FontFamily="{ThemeResource WinoIconFontFamily}"
+                                FontSize="12"
+                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                Icon="Warning"
+                                ToolTipService.ToolTip="{x:Bind ContentTypeWarningText, Mode=OneWay}"
+                                Visibility="{x:Bind HasContentTypeMismatch, Mode=OneWay}" />
+                            <TextBlock
+                                FontSize="11"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ReadableSize}" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Button
+                        Grid.Column="2"
+                        Width="24"
+                        Height="24"
+                        Padding="0"
+                        VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="ComposeAttachmentMoreButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.Composer_AttachmentMoreOptions, Mode=OneTime}"
+                        Click="AttachmentMoreButton_Click"
+                        Style="{StaticResource TransparentActionButtonStyle}"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AttachmentMoreOptions, Mode=OneTime}">
+                        <coreControls:WinoFontIcon
+                            FontFamily="{ThemeResource WinoIconFontFamily}"
+                            FontSize="14"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Icon="More" />
+                    </Button>
+                </Grid>
+
+                <!--  A content type mismatch outlines the whole tile, not only its icon.  -->
+                <Border
+                    BorderBrush="{ThemeResource SystemFillColorCautionBrush}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    IsHitTestVisible="False"
+                    Opacity="0.6"
+                    Visibility="{x:Bind HasContentTypeMismatch, Mode=OneWay}" />
+            </Grid>
+        </DataTemplate>
+    </Page.Resources>
+
+    <Grid
+        AllowDrop="True"
+        DragLeave="OnComposeGridDragLeave"
+        DragOver="OnComposeGridDragOver"
+        RowSpacing="7">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <muxc:InfoBar
+            x:Name="DraftSyncFailedInfoBar"
+            Title="{x:Bind domain:Translator.Draft_SyncFailedInfoBarTitle, Mode=OneTime}"
+            Grid.Row="0"
+            x:Load="{x:Bind ViewModel.IsDraftSyncFailed, Mode=OneWay}"
+            IsClosable="False"
+            IsOpen="{x:Bind ViewModel.IsDraftSyncFailed, Mode=OneWay}"
+            Message="{x:Bind ViewModel.DraftSyncErrorMessage, Mode=OneWay}"
+            Severity="Warning">
+            <muxc:InfoBar.ActionButton>
+                <Button
+                    AutomationProperties.AutomationId="ComposeRetryDraftUploadButton"
+                    Command="{x:Bind ViewModel.SendToServerCommand}"
+                    Content="{x:Bind domain:Translator.Draft_RetryUpload, Mode=OneTime}" />
+            </muxc:InfoBar.ActionButton>
+        </muxc:InfoBar>
+
+        <Border
+            Grid.Row="1"
+            Background="{ThemeResource WinoContentZoneBackgroud}"
+            BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="7">
+            <Grid>
+                <Grid.Resources>
+                    <SolidColorBrush x:Key="AutoSuggestBoxBorderThemeBrush">Transparent</SolidColorBrush>
+                </Grid.Resources>
+
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!--  Format  -->
+                <controls1:EditorTabbedCommandBarControl
+                    x:Name="EditorCommandBar"
+                    CommandTarget="{x:Bind WebViewEditor}"
+                    SpellCheckEnabledChanged="EditorCommandBar_SpellCheckEnabledChanged"
+                    SpellCheckLanguageChanged="EditorCommandBar_SpellCheckLanguageChanged">
+                    <controls1:EditorTabbedCommandBarControl.PaneCustomContent>
+                        <toolkit:TabbedCommandBarItem
+                            CommandAlignment="Right"
+                            IsDynamicOverflowEnabled="True"
+                            OverflowButtonAlignment="Left">
+                            <AppBarElementContainer VerticalContentAlignment="Center" Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.AvailableEmailTemplates.Count), Mode=OneWay}">
+                                <ComboBox
+                                    x:Name="EmailTemplatesComboBox"
+                                    Height="32"
+                                    MinWidth="200"
+                                    Margin="0,0,8,0"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="EmailTemplatesComboBox"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.Composer_EmailTemplatesPlaceholder, Mode=OneTime}"
+                                    ItemsSource="{x:Bind ViewModel.AvailableEmailTemplates, Mode=OneWay}"
+                                    PlaceholderText="{x:Bind domain:Translator.Composer_EmailTemplatesPlaceholder}"
+                                    SelectionChanged="EmailTemplateSelectionChanged"
+                                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_EmailTemplatesPlaceholder, Mode=OneTime}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="mail:EmailTemplate">
+                                            <TextBlock Text="{x:Bind Name}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </AppBarElementContainer>
+
+                            <!--  Draft autosave. A spinner alone says something is happening but not what.  -->
+                            <AppBarElementContainer VerticalContentAlignment="Center" Visibility="{x:Bind ViewModel.IsDraftBusy, Mode=OneWay}">
+                                <StackPanel
+                                    Margin="4,0,8,0"
+                                    VerticalAlignment="Center"
+                                    Orientation="Horizontal"
+                                    Spacing="8">
+                                    <ProgressRing
+                                        Width="16"
+                                        Height="16"
+                                        IsActive="True" />
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind domain:Translator.Composer_SavingDraft, Mode=OneTime}" />
+                                </StackPanel>
+                            </AppBarElementContainer>
+
+                            <!--  Wino Intelligence rewrite. The tones are added from code so they follow the shared catalog.  -->
+                            <AppBarButton
+                                x:Name="ComposeRewriteButton"
+                                MinWidth="40"
+                                AutomationProperties.AutomationId="ComposeRewriteButton"
+                                AutomationProperties.Name="{x:Bind domain:Translator.Composer_AiRewrite, Mode=OneTime}"
+                                IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.RewriteSession.IsBusy), Mode=OneWay}"
+                                LabelPosition="Collapsed"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AiRewrite, Mode=OneTime}"
+                                Visibility="{x:Bind ViewModel.RewriteSession.IsAvailable, Mode=OneWay}">
+                                <AppBarButton.Icon>
+                                    <coreControls:WinoFontIcon Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" Icon="WinoIntelligence" />
+                                </AppBarButton.Icon>
+                                <AppBarButton.Flyout>
+                                    <MenuFlyout x:Name="ComposeRewriteModesFlyout" Placement="Bottom" />
+                                </AppBarButton.Flyout>
+                            </AppBarButton>
+                            <AppBarButton
+                                MinWidth="40"
+                                AutomationProperties.AutomationId="XBindDomainTranslatorButtonsPopOutModeOneTime"
+                                AutomationProperties.Name="{x:Bind domain:Translator.Buttons_PopOut, Mode=OneTime}"
+                                Click="PopOutButton_Click"
+                                LabelPosition="Collapsed"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_PopOut}"
+                                Visibility="{x:Bind GetPopOutButtonVisibility(), Mode=OneTime}">
+                                <AppBarButton.Icon>
+                                    <coreControls:WinoFontIcon Icon="OpenInNewWindow" />
+                                </AppBarButton.Icon>
+                            </AppBarButton>
+                            <AppBarButton
+                                MinWidth="40"
+                                AutomationProperties.AutomationId="XBindGetEditorThemeToolTipWebViewEditorIsEditorDarkModeModeOneWay"
+                                AutomationProperties.Name="{x:Bind GetEditorThemeToolTip(WebViewEditor.IsEditorDarkMode), Mode=OneWay}"
+                                Click="ToggleEditorThemeClicked"
+                                LabelPosition="Collapsed"
+                                ToolTipService.ToolTip="{x:Bind GetEditorThemeToolTip(WebViewEditor.IsEditorDarkMode), Mode=OneWay}">
+                                <AppBarButton.Icon>
+                                    <coreControls:WinoFontIcon Icon="{x:Bind GetEditorThemeIcon(WebViewEditor.IsEditorDarkMode), Mode=OneWay}" />
+                                </AppBarButton.Icon>
+                            </AppBarButton>
+
+                            <AppBarSeparator />
+
+                            <AppBarButton
+                                AutomationProperties.AutomationId="ComposePageAppBarButton3"
+                                Command="{x:Bind ViewModel.DiscardCommand}"
+                                Label="{x:Bind domain:Translator.Buttons_Discard}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Discard, Mode=OneTime}">
+                                <AppBarButton.Icon>
+                                    <coreControls:WinoFontIcon Icon="Delete" />
+                                </AppBarButton.Icon>
+                            </AppBarButton>
+
+                            <!--  Send is the one thing this page exists for, so it is the only accented control on it.  -->
+                            <AppBarElementContainer VerticalContentAlignment="Center" Visibility="{x:Bind ViewModel.ShouldShowSendButton, Mode=OneWay}">
+                                <Button
+                                    Height="32"
+                                    Margin="4,0,8,0"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="ComposePageAppBarButton4"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Send, Mode=OneTime}"
+                                    Command="{x:Bind ViewModel.SendCommand}"
+                                    Style="{StaticResource AccentButtonStyle}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <coreControls:WinoFontIcon FontSize="14" Icon="Send" />
+                                        <TextBlock Text="{x:Bind domain:Translator.Buttons_Send, Mode=OneTime}" />
+                                    </StackPanel>
+                                </Button>
+                            </AppBarElementContainer>
+
+                            <AppBarElementContainer VerticalContentAlignment="Center" Visibility="{x:Bind ViewModel.ShouldShowSendToServerButton, Mode=OneWay}">
+                                <Button
+                                    Height="32"
+                                    Margin="4,0,8,0"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="ComposePageAppBarButton5"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.Buttons_SendToServer, Mode=OneTime}"
+                                    Command="{x:Bind ViewModel.SendToServerCommand}"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_LocalDraftSyncInfo}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <coreControls:WinoFontIcon FontSize="14" Icon="SendNew" />
+                                        <TextBlock Text="{x:Bind domain:Translator.Buttons_SendToServer, Mode=OneTime}" />
+                                    </StackPanel>
+                                </Button>
+                            </AppBarElementContainer>
+                        </toolkit:TabbedCommandBarItem>
+                    </controls1:EditorTabbedCommandBarControl.PaneCustomContent>
+
+                    <controls1:EditorTabbedCommandBarControl.InsertCustomContent>
+                        <StackPanel Orientation="Horizontal">
+                            <AppBarButton
+                                x:Name="FilesButton"
+                                AutomationProperties.AutomationId="FilesButton"
+                                AutomationProperties.Name="{x:Bind domain:Translator.Composer_AttachFiles, Mode=OneTime}"
+                                Command="{x:Bind ViewModel.AttachFilesCommand}"
+                                Label="{x:Bind domain:Translator.Composer_AttachFiles, Mode=OneTime}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AttachFilesDescription, Mode=OneTime}">
+                                <AppBarButton.Icon>
+                                    <coreControls:WinoFontIcon Icon="Attachment" />
+                                </AppBarButton.Icon>
+                            </AppBarButton>
+                        </StackPanel>
+                    </controls1:EditorTabbedCommandBarControl.InsertCustomContent>
+
+                    <controls1:EditorTabbedCommandBarControl.OptionsCustomContent>
+                        <StackPanel Orientation="Horizontal">
+
+                            <!--  Importance is a three way choice, so it reads as a checked list instead of an on/off button.  -->
+                            <AppBarButton
+                                x:Name="ImportanceButton"
+                                AutomationProperties.AutomationId="ImportanceSplitButton"
+                                AutomationProperties.Name="{x:Bind domain:Translator.Composer_Importance, Mode=OneTime}"
+                                Label="{x:Bind domain:Translator.Composer_Importance, Mode=OneTime}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_ImportanceDescription, Mode=OneTime}">
+                                <AppBarButton.Icon>
+                                    <coreControls:WinoFontIcon x:Name="ImportanceButtonIcon" Icon="Important" />
+                                </AppBarButton.Icon>
+                                <AppBarButton.Flyout>
+                                    <MenuFlyout x:Name="ImportanceFlyout" Placement="Bottom">
+                                        <RadioMenuFlyoutItem
+                                            x:Name="HighImportanceMenuItem"
+                                            AutomationProperties.AutomationId="HighImportanceMenuItem"
+                                            Click="ImportanceClicked"
+                                            GroupName="ComposerImportance"
+                                            Text="{x:Bind domain:Translator.Composer_HighImportance, Mode=OneTime}">
+                                            <RadioMenuFlyoutItem.Tag>
+                                                <mailkit:MessageImportance>High</mailkit:MessageImportance>
+                                            </RadioMenuFlyoutItem.Tag>
+                                            <RadioMenuFlyoutItem.Icon>
+                                                <coreControls:WinoFontIcon Icon="Important" />
+                                            </RadioMenuFlyoutItem.Icon>
+                                        </RadioMenuFlyoutItem>
+                                        <RadioMenuFlyoutItem
+                                            x:Name="NormalImportanceMenuItem"
+                                            AutomationProperties.AutomationId="NormalImportanceMenuItem"
+                                            Click="ImportanceClicked"
+                                            GroupName="ComposerImportance"
+                                            IsChecked="True"
+                                            Text="{x:Bind domain:Translator.Composer_NormalImportance, Mode=OneTime}">
+                                            <RadioMenuFlyoutItem.Tag>
+                                                <mailkit:MessageImportance>Normal</mailkit:MessageImportance>
+                                            </RadioMenuFlyoutItem.Tag>
+                                        </RadioMenuFlyoutItem>
+                                        <RadioMenuFlyoutItem
+                                            x:Name="LowImportanceMenuItem"
+                                            AutomationProperties.AutomationId="LowImportanceMenuItem"
+                                            Click="ImportanceClicked"
+                                            GroupName="ComposerImportance"
+                                            Text="{x:Bind domain:Translator.Composer_LowImportance, Mode=OneTime}">
+                                            <RadioMenuFlyoutItem.Tag>
+                                                <mailkit:MessageImportance>Low</mailkit:MessageImportance>
+                                            </RadioMenuFlyoutItem.Tag>
+                                            <RadioMenuFlyoutItem.Icon>
+                                                <coreControls:WinoFontIcon Icon="ArrowDown" />
+                                            </RadioMenuFlyoutItem.Icon>
+                                        </RadioMenuFlyoutItem>
+                                    </MenuFlyout>
+                                </AppBarButton.Flyout>
+                            </AppBarButton>
+
+                            <AppBarToggleButton
+                                x:Name="SignatureToggleButton"
+                                AutomationProperties.AutomationId="SignatureToggleButton"
+                                AutomationProperties.Name="{x:Bind domain:Translator.Composer_EnableSmimeSignature, Mode=OneTime}"
+                                IsChecked="{x:Bind ViewModel.IsSmimeSignatureEnabled, Mode=TwoWay}"
+                                IsEnabled="{x:Bind ViewModel.AreCertificatesAvailable, Mode=OneWay}"
+                                Label="{x:Bind domain:Translator.Composer_SmimeSignature, Mode=OneTime}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_EnableSmimeSignature}">
+                                <AppBarToggleButton.Icon>
+                                    <coreControls:WinoFontIcon Icon="Certificate" />
+                                </AppBarToggleButton.Icon>
+                            </AppBarToggleButton>
+
+                            <!--  Which certificate signs the mail is a separate question from whether it is signed at all.  -->
+                            <AppBarButton
+                                x:Name="SigningCertificateButton"
+                                MinWidth="40"
+                                AutomationProperties.AutomationId="SigningCertificateButton"
+                                AutomationProperties.Name="{x:Bind domain:Translator.Composer_SigningCertificate, Mode=OneTime}"
+                                IsEnabled="{x:Bind ViewModel.AreCertificatesAvailable, Mode=OneWay}"
+                                LabelPosition="Collapsed"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_SigningCertificate, Mode=OneTime}">
+                                <!--  Reads as the dropdown half of the signature toggle it sits next to.  -->
+                                <AppBarButton.Icon>
+                                    <coreControls:WinoFontIcon Icon="ChevronDown" />
+                                </AppBarButton.Icon>
+                                <AppBarButton.Flyout>
+                                    <Flyout Placement="Bottom">
+                                        <StackPanel Spacing="8">
+                                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.Composer_SigningCertificate, Mode=OneTime}" />
+                                            <ListView
+                                                Width="320"
+                                                AutomationProperties.AutomationId="ComposePageListView"
+                                                ItemsSource="{x:Bind ViewModel.AvailableCertificates, Mode=OneWay}"
+                                                SelectedItem="{x:Bind ViewModel.SelectedSigningCertificate, Mode=TwoWay}">
+                                                <ListView.ItemTemplate>
+                                                    <DataTemplate xmlns:x509="using:System.Security.Cryptography.X509Certificates" x:DataType="x509:X509Certificate2">
+                                                        <StackPanel Padding="8,4" Orientation="Vertical">
+                                                            <TextBlock FontWeight="SemiBold" Text="{x:Bind Subject}" />
+                                                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind Issuer}" />
+                                                            <TextBlock>
+                                                                <Run Text="{x:Bind domain:Translator.Composer_CertificateExpires, Mode=OneTime}" />
+                                                                <Run Text="{x:Bind NotAfter, Mode=OneTime}" />
+                                                            </TextBlock>
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ListView.ItemTemplate>
+                                            </ListView>
+                                        </StackPanel>
+                                    </Flyout>
+                                </AppBarButton.Flyout>
+                            </AppBarButton>
+
+                            <AppBarToggleButton
+                                x:Name="EncryptionToggleButton"
+                                AutomationProperties.AutomationId="EncryptionToggleButton"
+                                AutomationProperties.Name="{x:Bind domain:Translator.Composer_EnableSmimeEncryption, Mode=OneTime}"
+                                IsChecked="{x:Bind ViewModel.IsSmimeEncryptionEnabled, Mode=TwoWay}"
+                                Label="{x:Bind domain:Translator.Composer_SmimeEncryption, Mode=OneTime}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_EnableSmimeEncryption}">
+                                <AppBarToggleButton.Icon>
+                                    <coreControls:WinoFontIcon Icon="LockClosed" />
+                                </AppBarToggleButton.Icon>
+                            </AppBarToggleButton>
+
+                            <AppBarToggleButton
+                                x:Name="ReadReceiptToggleButton"
+                                AutomationProperties.AutomationId="XBindDomainTranslatorComposerRequestReadReceiptModeOneTime"
+                                AutomationProperties.Name="{x:Bind domain:Translator.Composer_RequestReadReceipt, Mode=OneTime}"
+                                IsChecked="{x:Bind ViewModel.IsReadReceiptRequested, Mode=TwoWay}"
+                                Label="{x:Bind domain:Translator.Composer_ReadReceipt, Mode=OneTime}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_RequestReadReceipt}">
+                                <AppBarToggleButton.Icon>
+                                    <coreControls:WinoFontIcon Icon="MailCheckmark" />
+                                </AppBarToggleButton.Icon>
+                            </AppBarToggleButton>
+                        </StackPanel>
+                    </controls1:EditorTabbedCommandBarControl.OptionsCustomContent>
+                </controls1:EditorTabbedCommandBarControl>
+
+                <!--  Mime Info  -->
+                <Grid
+                    Grid.Row="1"
+                    Padding="16,0,16,4"
+                    ColumnSpacing="12"
+                    RowSpacing="3">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!--  From  -->
+                    <TextBlock
+                        AutomationProperties.AutomationId="ComposeFromLabel"
+                        Style="{StaticResource ComposeFieldLabelStyle}"
+                        Text="{x:Bind domain:Translator.ComposerFrom, Mode=OneTime}" />
+
+                    <ComboBox
+                        x:Name="AccountsComboBox"
+                        Grid.Column="1"
+                        AutomationProperties.AutomationId="AccountsComboBox"
+                        IsEditable="False"
+                        ItemsSource="{x:Bind ViewModel.AvailableAliases, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedAlias, Mode=TwoWay}"
+                        TabIndex="0">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="mail:MailAccountAlias">
+                                <TextBlock Text="{x:Bind AliasAddress}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <!--  To  -->
+                    <TextBlock
+                        Grid.Row="1"
+                        Margin="0,4,0,0"
+                        AutomationProperties.AutomationId="ComposeToLabel"
+                        Style="{StaticResource ComposeFieldLabelStyle}"
+                        Text="{x:Bind domain:Translator.ComposerTo, Mode=OneTime}" />
+
+                    <Grid
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <toolkit:TokenizingTextBox
+                            x:Name="ToBox"
+                            Grid.Column="0"
+                            VerticalAlignment="Center"
+                            BorderThickness="0"
+                            ItemsSource="{x:Bind ViewModel.ToItems, Mode=OneTime}"
+                            LostFocus="AddressBoxLostFocus"
+                            PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"
+                            SuggestedItemTemplate="{StaticResource RecipientSuggestionTemplate}"
+                            TabIndex="1"
+                            Tag="ToBox"
+                            TokenDelimiter=";"
+                            TokenItemAdded="TokenItemAdded"
+                            TokenItemAdding="TokenItemAdding"
+                            TokenItemTemplate="{StaticResource ContactTokenTemplate}" />
+
+                        <Button
+                            x:Name="CCBCCShowButton"
+                            Grid.Column="1"
+                            Margin="6,6,0,0"
+                            VerticalAlignment="Center"
+                            AutomationProperties.AutomationId="CCBCCShowButton"
+                            Click="ShowCCBCCClicked"
+                            GotFocus="CCBBCGotFocus"
+                            TabIndex="2"
+                            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsCCBCCVisible), Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <coreControls:WinoFontIcon
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Icon="PersonAdd" />
+                                <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Composer_CcBcc}" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+
+                    <!--  CC BCC  -->
+                    <TextBlock
+                        x:Name="CCTextBlock"
+                        Grid.Row="2"
+                        Margin="0,4,0,0"
+                        Style="{StaticResource ComposeFieldLabelStyle}"
+                        Text="Cc: "
+                        Visibility="{x:Bind ViewModel.IsCCBCCVisible, Mode=OneWay}" />
+
+                    <toolkit:TokenizingTextBox
+                        x:Name="CCBox"
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
+                        ItemsSource="{x:Bind ViewModel.CCItems, Mode=OneTime}"
+                        LostFocus="AddressBoxLostFocus"
+                        PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"
+                        SuggestedItemTemplate="{StaticResource RecipientSuggestionTemplate}"
+                        TabIndex="3"
+                        Tag="CCBox"
+                        TokenDelimiter=";"
+                        TokenItemAdded="TokenItemAdded"
+                        TokenItemAdding="TokenItemAdding"
+                        TokenItemTemplate="{StaticResource ContactTokenTemplate}"
+                        Visibility="{x:Bind ViewModel.IsCCBCCVisible, Mode=OneWay}" />
+
+                    <TextBlock
+                        x:Name="BccTextBlock"
+                        Grid.Row="3"
+                        Style="{StaticResource ComposeFieldLabelStyle}"
+                        Text="Bcc: "
+                        Visibility="{x:Bind ViewModel.IsCCBCCVisible, Mode=OneWay}" />
+
+                    <toolkit:TokenizingTextBox
+                        x:Name="BccBox"
+                        Grid.Row="3"
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
+                        ItemsSource="{x:Bind ViewModel.BCCItems, Mode=OneTime}"
+                        LostFocus="AddressBoxLostFocus"
+                        PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"
+                        SuggestedItemTemplate="{StaticResource RecipientSuggestionTemplate}"
+                        TabIndex="4"
+                        Tag="BCCBox"
+                        TokenDelimiter=";"
+                        TokenItemAdded="TokenItemAdded"
+                        TokenItemAdding="TokenItemAdding"
+                        TokenItemTemplate="{StaticResource ContactTokenTemplate}"
+                        Visibility="{x:Bind ViewModel.IsCCBCCVisible, Mode=OneWay}" />
+
+                    <!--  Subject  -->
+                    <TextBlock
+                        Grid.Row="4"
+                        Margin="0,4,0,0"
+                        AutomationProperties.AutomationId="ComposeSubjectLabel"
+                        Style="{StaticResource ComposeFieldLabelStyle}"
+                        Text="{x:Bind domain:Translator.ComposerSubject, Mode=OneTime}" />
+
+                    <TextBox
+                        x:Name="SubjectTextBox"
+                        Grid.Row="4"
+                        Grid.Column="1"
+                        Margin="0,4,0,0"
+                        AutomationProperties.AutomationId="SubjectTextBox"
+                        BorderThickness="0"
+                        PreviewKeyDown="SubjectTextBoxPreviewKeyDown"
+                        TabIndex="5"
+                        Text="{x:Bind ViewModel.Subject, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <!--  Rewrite status. Shown while a rewrite runs and until the user keeps or undoes it.  -->
+                    <Border
+                        x:Name="ComposeRewritePanel"
+                        Grid.Row="5"
+                        Grid.ColumnSpan="2"
+                        Margin="0,6,0,0"
+                        Padding="10,6"
+                        AutomationProperties.AutomationId="ComposeRewritePanel"
+                        AutomationProperties.LiveSetting="Polite"
+                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Visibility="{x:Bind ViewModel.RewriteSession.IsPanelVisible, Mode=OneWay}">
+                        <Grid ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <Grid
+                                Width="24"
+                                Height="24"
+                                VerticalAlignment="Center">
+                                <intelligenceProgress:WinoIntelligenceProgressRing
+                                    Width="24"
+                                    Height="24"
+                                    Animation="Rewrite"
+                                    AutomationProperties.AccessibilityView="Raw"
+                                    IsActive="{x:Bind ViewModel.RewriteSession.IsBusy, Mode=OneWay}"
+                                    Visibility="{x:Bind ViewModel.RewriteSession.IsBusy, Mode=OneWay}" />
+                                <coreControls:WinoFontIcon
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.AccessibilityView="Raw"
+                                    FontSize="14"
+                                    Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}"
+                                    Icon="WinoIntelligence"
+                                    Visibility="{x:Bind ViewModel.RewriteSession.IsResultVisible, Mode=OneWay}" />
+                            </Grid>
+
+                            <TextBlock
+                                x:Name="ComposeRewriteStatusText"
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="ComposeRewriteStatusText"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ViewModel.RewriteSession.StatusText, Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis" />
+
+                            <StackPanel
+                                Grid.Column="2"
+                                Orientation="Horizontal"
+                                Spacing="4">
+                                <Button
+                                    AutomationProperties.AutomationId="ComposeRewriteCancelButton"
+                                    Command="{x:Bind ViewModel.RewriteSession.CancelCommand}"
+                                    Content="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}"
+                                    Visibility="{x:Bind ViewModel.RewriteSession.IsBusy, Mode=OneWay}" />
+                                <Button
+                                    AutomationProperties.AutomationId="ComposeRewriteToggleOriginalButton"
+                                    AutomationProperties.Name="{x:Bind ViewModel.RewriteSession.ToggleText, Mode=OneWay}"
+                                    Command="{x:Bind ViewModel.RewriteSession.ToggleOriginalCommand}"
+                                    Content="{x:Bind ViewModel.RewriteSession.ToggleText, Mode=OneWay}"
+                                    Visibility="{x:Bind ViewModel.RewriteSession.IsResultVisible, Mode=OneWay}" />
+                                <Button
+                                    Width="32"
+                                    Height="32"
+                                    Padding="0"
+                                    AutomationProperties.AutomationId="ComposeRewriteRegenerateButton"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.WinoIntelligence_Regenerate, Mode=OneTime}"
+                                    Command="{x:Bind ViewModel.RewriteSession.RegenerateCommand}"
+                                    Style="{StaticResource TransparentActionButtonStyle}"
+                                    ToolTipService.ToolTip="{x:Bind domain:Translator.WinoIntelligence_Regenerate, Mode=OneTime}"
+                                    Visibility="{x:Bind ViewModel.RewriteSession.IsResultVisible, Mode=OneWay}">
+                                    <coreControls:WinoFontIcon FontSize="14" Icon="ArrowClockwise" />
+                                </Button>
+                                <Button
+                                    AutomationProperties.AutomationId="ComposeRewriteKeepButton"
+                                    Command="{x:Bind ViewModel.RewriteSession.KeepCommand}"
+                                    Content="{x:Bind domain:Translator.Composer_AiRewriteKeep, Mode=OneTime}"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    Visibility="{x:Bind ViewModel.RewriteSession.IsResultVisible, Mode=OneWay}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!--  Attachments  -->
+                    <Grid
+                        x:Name="AttachmentsTray"
+                        Grid.Row="6"
+                        Grid.ColumnSpan="2"
+                        Margin="0,4,0,0"
+                        Padding="0,6,0,0"
+                        x:Load="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.IncludedAttachments.Count), Mode=OneWay}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="0,1,0,0"
+                        RowSpacing="6">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <coreControls:WinoFontIcon
+                                Width="14"
+                                Height="14"
+                                VerticalAlignment="Center"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Icon="Attachment" />
+
+                            <TextBlock
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="ComposeAttachmentsSummary"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ViewModel.AttachmentsSummary, Mode=OneWay}" />
+
+                            <HyperlinkButton
+                                Grid.Column="2"
+                                Padding="6,2"
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="ComposeRemoveAllAttachmentsButton"
+                                Command="{x:Bind ViewModel.RemoveAllAttachmentsCommand}"
+                                FontSize="12">
+                                <TextBlock Text="{x:Bind domain:Translator.Composer_RemoveAllAttachments, Mode=OneTime}" />
+                            </HyperlinkButton>
+                        </Grid>
+
+                        <ListView
+                            x:Name="AttachmentsListView"
+                            Grid.Row="1"
+                            AutomationProperties.AutomationId="AttachmentsListView"
+                            IsItemClickEnabled="True"
+                            ItemClick="AttachmentClicked"
+                            ItemTemplate="{StaticResource ComposerFileAttachmentTemplate}"
+                            ItemsSource="{x:Bind ViewModel.IncludedAttachments, Mode=OneWay}"
+                            KeyDown="AttachmentsListView_KeyDown"
+                            SelectionMode="None">
+                            <ListView.ItemContainerStyle>
+                                <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
+                                    <Setter Property="Margin" Value="0" />
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="MinWidth" Value="0" />
+                                    <Setter Property="MinHeight" Value="0" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                            <ListView.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <customcontrols:UniformColumnPanel
+                                        ColumnSpacing="6"
+                                        MinColumnWidth="190"
+                                        RowSpacing="6" />
+                                </ItemsPanelTemplate>
+                            </ListView.ItemsPanel>
+                        </ListView>
+                    </Grid>
+                </Grid>
+
+                <!--  Dropzone  -->
+                <Grid
+                    Grid.Row="0"
+                    Grid.RowSpan="2"
+                    AllowDrop="True"
+                    DragLeave="OnFileDropGridDragLeave"
+                    DragOver="OnFileDropGridDragOver"
+                    Drop="OnFileDropGridFileDropped"
+                    Visibility="{x:Bind ViewModel.IsDraggingOverComposerGrid, Mode=OneWay}">
+                    <Grid Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}" CornerRadius="9">
+                        <Rectangle
+                            x:Name="FilesDropZoneBorder"
+                            Fill="Transparent"
+                            Opacity="0.5"
+                            RadiusX="9"
+                            RadiusY="9"
+                            Stroke="{ThemeResource TextFillColorPrimaryBrush}"
+                            StrokeDashArray="3,4"
+                            StrokeThickness="2" />
+                        <TextBlock
+                            x:Name="FilesDropZoneText"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Opacity="0.5"
+                            Style="{StaticResource SubtitleTextBlockStyle}"
+                            Text="{x:Bind domain:Translator.ComposerAttachmentsDropZone_Message}" />
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Border>
+        <Border
+            Grid.Row="2"
+            Background="{ThemeResource ReadingPaneBackgroundColorBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="{ThemeResource ControlCornerRadius}">
+            <Grid CornerRadius="{ThemeResource ControlCornerRadius}">
+                <editor:WinoMailEditor
+                    x:Name="WebViewEditor"
+                    AutomationProperties.AutomationId="ComposeMailEditor"
+                    IsEditorWebViewEditor="False"
+                    IsTabStop="True"
+                    TabIndex="6" />
+
+                <!--  Dropzone for images  -->
+                <Grid
+                    AllowDrop="True"
+                    DragEnter="OnImageDropGridDragEnter"
+                    DragLeave="OnImageDropGridDragLeave"
+                    Drop="OnImageDropGridImageDropped"
+                    Visibility="{x:Bind ViewModel.IsDraggingOverComposerGrid, Mode=OneWay}">
+                    <Grid Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}" CornerRadius="9">
+                        <Rectangle
+                            x:Name="ImagesDropZoneBorder"
+                            Fill="Transparent"
+                            Opacity="0.5"
+                            RadiusX="9"
+                            RadiusY="9"
+                            Stroke="{ThemeResource TextFillColorPrimaryBrush}"
+                            StrokeDashArray="3,4"
+                            StrokeThickness="2" />
+                        <TextBlock
+                            x:Name="ImagesDropZoneText"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Opacity="0.5"
+                            Style="{StaticResource SubtitleTextBlockStyle}"
+                            Text="{x:Bind domain:Translator.ComposerImagesDropZone_Message}" />
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Border>
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="FilesDropZoneState">
+                <VisualState x:Name="FilesDropZoneHovered">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind ViewModel.IsDraggingOverFilesDropZone, Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="FilesDropZoneText.Opacity" Value="1" />
+                        <Setter Target="FilesDropZoneBorder.Opacity" Value="1" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="FilesDropZoneNotHovered" />
+            </VisualStateGroup>
+            <VisualStateGroup x:Name="ImagesDropZoneState">
+                <VisualState x:Name="ImagesDropZoneHovered">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind ViewModel.IsDraggingOverImagesDropZone, Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="ImagesDropZoneText.Opacity" Value="1" />
+                        <Setter Target="ImagesDropZoneBorder.Opacity" Value="1" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="ImagesDropZoneNotHovered" />
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+    </Grid>
+
+
+</abstract:ComposePageAbstract>
+
+

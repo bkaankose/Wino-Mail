@@ -1,0 +1,468 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Google.Apis.Calendar.v3.Data;
+using MimeKit;
+using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models.Synchronization;
+using Wino.Services;
+
+namespace Wino.Core.Integration.Processors;
+
+/// <summary>
+/// Database change processor that handles common operations for all synchronizers.
+/// When a synchronizer detects a change, it should call the appropriate method in this class to reflect the change in the database.
+/// Different synchronizers might need additional implementations.
+/// <see cref="IGmailChangeProcessor"/>,  <see cref="IOutlookChangeProcessor"/> and  <see cref="IImapChangeProcessor"/>
+/// None of the synchronizers can directly change anything in the database.
+/// </summary>
+public interface IDefaultChangeProcessor
+{
+    Task UpdateAccountAsync(MailAccount account);
+    // Task<string> UpdateAccountDeltaSynchronizationIdentifierAsync(Guid accountId, string deltaSynchronizationIdentifier);
+    Task DeleteAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId);
+    Task ChangeMailReadStatusAsync(string mailCopyId, bool isRead);
+    Task ChangeFlagStatusAsync(string mailCopyId, bool isFlagged);
+    Task<bool> CreateMailAsync(Guid AccountId, NewMailItemPackage package);
+    Task CreateMailsAsync(Guid accountId, IReadOnlyList<NewMailItemPackage> packages);
+    Task DeleteMailAsync(Guid accountId, string mailId);
+    Task DeleteMailsAsync(Guid accountId, IEnumerable<string> mailIds);
+    Task<List<MailCopy>> GetDownloadedUnreadMailsAsync(Guid accountId, IEnumerable<string> downloadedMailCopyIds);
+    Task SaveMimeFileAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId);
+    Task SaveMimeFileAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId, string remoteId);
+    Task DeleteFolderAsync(Guid accountId, string remoteFolderId);
+    Task InsertFolderAsync(MailItemFolder folder);
+    Task UpdateFolderAsync(MailItemFolder folder);
+    Task<List<MailItemFolder>> GetLocalFoldersAsync(Guid accountId);
+    Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(MailSynchronizationOptions options);
+    Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId);
+    Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId, uint imapUid, uint imapUidValidity);
+    Task UpdateDraftIdentityAsync(Guid accountId, Guid uniqueId, DraftUpdateIdentity identity);
+    Task MarkDraftSyncFailedAsync(Guid mailUniqueId, string error);
+    Task<bool> IsMailExistsAsync(Guid accountId, Guid mailUniqueId);
+    Task UpdateFolderLastSyncDateAsync(Guid folderId);
+    Task UpdateRemoteAliasInformationAsync(MailAccount account, List<RemoteAccountAlias> remoteAccountAliases);
+    Task UpdateAliasSendCapabilityAsync(Guid accountId, string aliasAddress, AliasSendCapability capability);
+    // Calendar
+    Task<List<AccountCalendar>> GetAccountCalendarsAsync(Guid accountId);
+
+    Task DeleteCalendarItemAsync(Guid calendarItemId);
+    Task DeleteCalendarItemAsync(string calendarRemoteEventId, Guid calendarId);
+    Task<CalendarItem> GetCalendarItemAsync(Guid calendarId, string remoteEventId);
+
+    Task DeleteAccountCalendarAsync(AccountCalendar accountCalendar);
+    Task InsertAccountCalendarAsync(AccountCalendar accountCalendar);
+    Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar);
+
+    Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);
+
+    /// <summary>
+    /// Deletes local events inside the synchronized window whose provider ID was not
+    /// returned by a full download. Used after a calendar is re-anchored to a new window.
+    /// </summary>
+    Task ReconcileCalendarEventsAsync(AccountCalendar calendar, DateTimeOffset windowStartUtc, DateTimeOffset windowEndUtc, IReadOnlySet<string> remoteProviderEventIds);
+    Task PersistCreatedCalendarEventAsync(
+        CalendarItem calendarItem,
+        List<CalendarEventAttendee> attendees,
+        List<Reminder> reminders,
+        string remoteEventId);
+    Task<List<MailCopy>> GetMailCopiesAsync(IEnumerable<string> mailCopyIds);
+    Task<List<MailCopy>> GetMailsByFolderIdAsync(Guid folderId);
+    Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package);
+    Task ApplyMailStateUpdatesAsync(IEnumerable<MailCopyStateUpdate> updates);
+    Task CreateAssignmentsAsync(Guid accountId, IEnumerable<MailFolderAssignmentUpdate> assignments);
+    Task DeleteAssignmentsAsync(Guid accountId, IEnumerable<MailFolderAssignmentUpdate> assignments);
+    Task DeleteUserMailCacheAsync(Guid accountId);
+    Task UpsertMailInvitationCalendarMappingAsync(MailInvitationCalendarMapping mapping);
+    Task<MailInvitationCalendarMapping> GetMailInvitationCalendarMappingAsync(Guid accountId, string mailCopyId);
+
+    /// <summary>
+    /// Checks whether the mail exists in the folder.
+    /// When deciding Create or Update existing mail, we need to check if the mail exists in the folder.
+    /// Also duplicate assignments for Gmail's virtual Archive folder is ignored.
+    /// </summary>
+    /// <param name="messageId">Message id</param>
+    /// <param name="folderId">Folder's local id.</param>
+    /// <returns>Whether mail exists in the folder or not.</returns>
+    Task<bool> IsMailExistsInFolderAsync(string messageId, Guid folderId);
+    Task<List<string>> AreMailsExistsAsync(IEnumerable<string> mailCopyIds);
+    Task<string> UpdateAccountDeltaSynchronizationIdentifierAsync(Guid accountId, string synchronizationDeltaIdentifier);
+
+    Task CommitContactMutationAsync(Guid contactId, AccountContact contact, bool deleted);
+    Task CommitTaskListMutationAsync(Guid listId, AccountTaskList list, bool deleted);
+    Task CommitTaskMutationAsync(
+        Guid taskId,
+        AccountTask task,
+        bool deleted,
+        AccountTask requestedTask = null,
+        TaskSynchronizerOperation? completedOperation = null);
+    Task CommitTaskStepMutationAsync(
+        Guid stepId,
+        AccountTaskStep step,
+        bool deleted,
+        AccountTaskStep requestedStep = null,
+        TaskSynchronizerOperation? completedOperation = null);
+}
+
+public interface IGmailChangeProcessor : IDefaultChangeProcessor
+{
+    Task<bool> HasAccountAnyDraftAsync(Guid accountId);
+    Task MapLocalDraftAsync(string mailCopyId, string newDraftId, string newThreadId);
+    Task<bool> RefreshMappedDraftMetadataAsync(Guid accountId, Guid uniqueId, MailCopy remoteCopy);
+    Task CreateAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId);
+    Task ManageCalendarEventAsync(Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount);
+    Task<GmailArchiveComparisonResult> GetGmailArchiveComparisonResultAsync(Guid archiveFolderId, List<string> onlineArchiveMailIds);
+}
+
+public interface IOutlookChangeProcessor : IDefaultChangeProcessor
+{
+    /// <summary>
+    /// Updates Folder's delta synchronization identifier.
+    /// Only used in Outlook since it does per-folder sync.
+    /// </summary>
+    /// <param name="folderId">Folder id</param>
+    /// <param name="synchronizationIdentifier">New synchronization identifier.</param>
+    /// <returns>New identifier if success.</returns>
+    Task UpdateFolderDeltaSynchronizationIdentifierAsync(Guid folderId, string deltaSynchronizationIdentifier);
+
+    /// <summary>
+    /// Outlook may expire folder's delta token after a while.
+    /// Recommended action for this scenario is to reset token and do full sync.
+    /// This method resets the token for the given folder.
+    /// </summary>
+    /// <param name="folderId">Local folder id to reset token for.</param>
+    /// <returns>Empty string to assign folder delta sync for.</returns>
+    Task<string> ResetFolderDeltaTokenAsync(Guid folderId);
+
+    Task ManageCalendarEventAsync(Microsoft.Graph.Models.Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount);
+}
+
+public interface IImapChangeProcessor : IDefaultChangeProcessor
+{
+    /// <summary>
+    /// Returns all known uids for the given folder.
+    /// </summary>
+    /// <param name="folderId">Folder id to retrieve uIds for.</param>
+    Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId);
+
+    /// <summary>
+    /// Gets the most recent mail IDs for a folder (for notification purposes).
+    /// </summary>
+    /// <param name="folderId">Folder ID.</param>
+    /// <param name="count">Number of recent mails to return.</param>
+    Task<IEnumerable<string>> GetRecentMailIdsForFolderAsync(Guid folderId, int count);
+
+    Task ManageCalendarEventAsync(CalDavCalendarEvent calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount);
+    Task SaveCalendarItemIcsAsync(Guid accountId, Guid calendarId, Guid calendarItemId, string remoteEventId, string remoteResourceHref, string eTag, string icsContent);
+    Task<CalDavResourceSnapshot> GetCalendarItemIcsAsync(Guid accountId, Guid calendarId, Guid calendarItemId);
+    Task<string> GetCalendarItemIcsETagAsync(Guid accountId, Guid calendarId, Guid calendarItemId);
+    Task DeleteCalendarItemIcsAsync(Guid accountId, Guid calendarItemId);
+    Task DeleteCalendarIcsForCalendarAsync(Guid accountId, Guid calendarId);
+}
+
+public class DefaultChangeProcessor(IDatabaseService databaseService,
+                              IFolderService folderService,
+                              IMailService mailService,
+                              ICalendarService calendarService,
+                              IAccountService accountService,
+                              IMimeFileService mimeFileService,
+                              IContactService contactService = null,
+                              ITaskService taskService = null) : BaseDatabaseService(databaseService), IDefaultChangeProcessor
+{
+    protected IMailService MailService = mailService;
+    protected ICalendarService CalendarService = calendarService;
+    protected IFolderService FolderService = folderService;
+    protected IAccountService AccountService = accountService;
+
+    private readonly IMimeFileService _mimeFileService = mimeFileService;
+    private readonly IContactService _contactService = contactService;
+    private readonly ITaskService _taskService = taskService;
+
+    public Task CommitContactMutationAsync(Guid contactId, AccountContact contact, bool deleted)
+        => (_contactService ?? throw new InvalidOperationException("Contact persistence is unavailable."))
+            .CompleteMutationAsync(contactId, contact, deleted);
+
+    public Task CommitTaskListMutationAsync(Guid listId, AccountTaskList list, bool deleted)
+        => (_taskService ?? throw new InvalidOperationException("Task persistence is unavailable."))
+            .CompleteListMutationAsync(listId, list, deleted);
+
+    public Task CommitTaskMutationAsync(
+        Guid taskId,
+        AccountTask task,
+        bool deleted,
+        AccountTask requestedTask = null,
+        TaskSynchronizerOperation? completedOperation = null)
+        => (_taskService ?? throw new InvalidOperationException("Task persistence is unavailable."))
+            .CompleteTaskMutationAsync(taskId, task, deleted, requestedTask, completedOperation);
+
+    public Task CommitTaskStepMutationAsync(
+        Guid stepId,
+        AccountTaskStep step,
+        bool deleted,
+        AccountTaskStep requestedStep = null,
+        TaskSynchronizerOperation? completedOperation = null)
+        => (_taskService ?? throw new InvalidOperationException("Task persistence is unavailable."))
+            .CompleteStepMutationAsync(stepId, step, deleted, requestedStep, completedOperation);
+
+    public Task<string> UpdateAccountDeltaSynchronizationIdentifierAsync(Guid accountId, string synchronizationDeltaIdentifier)
+        => AccountService.UpdateSyncIdentifierRawAsync(accountId, synchronizationDeltaIdentifier);
+
+    public async Task PersistCreatedCalendarEventAsync(
+        CalendarItem calendarItem,
+        List<CalendarEventAttendee> attendees,
+        List<Reminder> reminders,
+        string remoteEventId)
+    {
+        ArgumentNullException.ThrowIfNull(calendarItem);
+
+        if (string.IsNullOrWhiteSpace(remoteEventId))
+            throw new ArgumentException("A remote event ID is required.", nameof(remoteEventId));
+
+        var existingRemoteItem = await CalendarService
+            .GetCalendarItemAsync(calendarItem.CalendarId, remoteEventId)
+            .ConfigureAwait(false);
+
+        if (existingRemoteItem != null && existingRemoteItem.Id != calendarItem.Id)
+        {
+            ReassignCalendarItemId(reminders, existingRemoteItem.Id);
+            await CalendarService.SaveRemindersAsync(existingRemoteItem.Id, reminders).ConfigureAwait(false);
+            return;
+        }
+
+        calendarItem.RemoteEventId = remoteEventId;
+        calendarItem.AssignedCalendar ??= await CalendarService
+            .GetAccountCalendarAsync(calendarItem.CalendarId)
+            .ConfigureAwait(false);
+
+        ReassignCalendarItemId(attendees, calendarItem.Id);
+        ReassignCalendarItemId(reminders, calendarItem.Id);
+
+        var existingLocalItem = await CalendarService.GetCalendarItemAsync(calendarItem.Id).ConfigureAwait(false);
+        if (existingLocalItem == null)
+        {
+            await CalendarService.CreateNewCalendarItemAsync(calendarItem, attendees).ConfigureAwait(false);
+        }
+        else
+        {
+            await CalendarService.UpdateCalendarItemAsync(calendarItem, attendees).ConfigureAwait(false);
+        }
+
+        await CalendarService.SaveRemindersAsync(calendarItem.Id, reminders).ConfigureAwait(false);
+    }
+
+    private static void ReassignCalendarItemId(IEnumerable<CalendarEventAttendee> attendees, Guid calendarItemId)
+    {
+        if (attendees == null)
+            return;
+
+        foreach (var attendee in attendees)
+            attendee.CalendarItemId = calendarItemId;
+    }
+
+    private static void ReassignCalendarItemId(IEnumerable<Reminder> reminders, Guid calendarItemId)
+    {
+        if (reminders == null)
+            return;
+
+        foreach (var reminder in reminders)
+            reminder.CalendarItemId = calendarItemId;
+    }
+
+    public Task ChangeFlagStatusAsync(string mailCopyId, bool isFlagged)
+        => MailService.ChangeFlagStatusAsync(mailCopyId, isFlagged);
+
+    public Task<List<string>> AreMailsExistsAsync(IEnumerable<string> mailCopyIds)
+        => MailService.AreMailsExistsAsync(mailCopyIds);
+
+    public Task<List<MailCopy>> GetMailsByFolderIdAsync(Guid folderId)
+        => MailService.GetMailsByFolderIdAsync(folderId);
+
+    public Task<List<MailCopy>> GetMailCopiesAsync(IEnumerable<string> mailCopyIds)
+        => MailService.GetMailItemsAsync(mailCopyIds);
+
+    public Task ChangeMailReadStatusAsync(string mailCopyId, bool isRead)
+        => MailService.ChangeReadStatusAsync(mailCopyId, isRead);
+
+    public Task ApplyMailStateUpdatesAsync(IEnumerable<MailCopyStateUpdate> updates)
+        => MailService.ApplyMailStateUpdatesAsync(updates);
+
+    public Task DeleteAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId)
+        => MailService.DeleteAssignmentAsync(accountId, mailCopyId, remoteFolderId);
+
+    public Task DeleteAssignmentsAsync(Guid accountId, IEnumerable<MailFolderAssignmentUpdate> assignments)
+        => MailService.DeleteAssignmentsAsync(accountId, assignments);
+
+    public Task DeleteMailAsync(Guid accountId, string mailId)
+        => MailService.DeleteMailAsync(accountId, mailId);
+
+    public Task DeleteMailsAsync(Guid accountId, IEnumerable<string> mailIds)
+        => MailService.DeleteMailsAsync(accountId, mailIds);
+
+    public Task<bool> CreateMailAsync(Guid accountId, NewMailItemPackage package)
+        => MailService.CreateMailAsync(accountId, package);
+
+    public Task CreateMailsAsync(Guid accountId, IReadOnlyList<NewMailItemPackage> packages)
+        => MailService.CreateMailsAsync(accountId, packages);
+
+    public Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package)
+        => MailService.CreateMailRawAsync(account, mailItemFolder, package);
+
+    public Task CreateAssignmentsAsync(Guid accountId, IEnumerable<MailFolderAssignmentUpdate> assignments)
+        => MailService.CreateAssignmentsAsync(accountId, assignments);
+
+    public Task UpdateDraftIdentityAsync(Guid accountId, Guid uniqueId, DraftUpdateIdentity identity)
+        => MailService.UpdateDraftIdentityAsync(accountId, uniqueId, identity);
+
+    public Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId)
+        => MailService.MapLocalDraftAsync(accountId, localDraftCopyUniqueId, newMailCopyId, newDraftId, newThreadId);
+
+    public Task<bool> RefreshMappedDraftMetadataAsync(Guid accountId, Guid uniqueId, MailCopy remoteCopy)
+        => MailService.RefreshMappedDraftMetadataAsync(accountId, uniqueId, remoteCopy);
+
+    public Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId, uint imapUid, uint imapUidValidity)
+        => MailService.MapLocalDraftAsync(accountId, localDraftCopyUniqueId, newMailCopyId, newDraftId, newThreadId, imapUid, imapUidValidity);
+
+    public Task MarkDraftSyncFailedAsync(Guid mailUniqueId, string error)
+        => MailService.MarkDraftSyncFailedAsync(mailUniqueId, error);
+
+    public Task<bool> IsMailExistsAsync(Guid accountId, Guid mailUniqueId)
+        => MailService.IsMailExistsAsync(accountId, mailUniqueId);
+
+    public Task<List<MailItemFolder>> GetLocalFoldersAsync(Guid accountId)
+        => FolderService.GetFoldersAsync(accountId);
+
+    public Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(MailSynchronizationOptions options)
+        => FolderService.GetSynchronizationFoldersAsync(options);
+
+    public Task DeleteFolderAsync(Guid accountId, string remoteFolderId)
+        => FolderService.DeleteFolderAsync(accountId, remoteFolderId);
+
+    public Task InsertFolderAsync(MailItemFolder folder)
+        => FolderService.InsertFolderAsync(folder);
+
+    public Task UpdateFolderAsync(MailItemFolder folder)
+        => FolderService.UpdateFolderAsync(folder);
+
+    public Task<List<MailCopy>> GetDownloadedUnreadMailsAsync(Guid accountId, IEnumerable<string> downloadedMailCopyIds)
+        => MailService.GetDownloadedUnreadMailsAsync(accountId, downloadedMailCopyIds);
+
+    public Task SaveMimeFileAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId)
+        => _mimeFileService.SaveMimeMessageAsync(fileId, mimeMessage, accountId);
+
+    public Task SaveMimeFileAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId, string remoteId)
+        => remoteId == null ? _mimeFileService.SaveMimeMessageAsync(fileId, mimeMessage, accountId)
+            : _mimeFileService.SaveRemoteMimeMessageAsync(fileId, mimeMessage, accountId, remoteId);
+
+    public Task UpdateFolderLastSyncDateAsync(Guid folderId)
+        => FolderService.UpdateFolderLastSyncDateAsync(folderId);
+
+    public Task UpdateAccountAsync(MailAccount account)
+        => AccountService.UpdateAccountAsync(account);
+
+    public Task UpdateRemoteAliasInformationAsync(MailAccount account, List<RemoteAccountAlias> remoteAccountAliases)
+        => AccountService.UpdateRemoteAliasInformationAsync(account, remoteAccountAliases);
+
+    public Task UpdateAliasSendCapabilityAsync(Guid accountId, string aliasAddress, AliasSendCapability capability)
+        => AccountService.UpdateAliasSendCapabilityAsync(accountId, aliasAddress, capability);
+
+    public Task<List<AccountCalendar>> GetAccountCalendarsAsync(Guid accountId)
+        => CalendarService.GetAccountCalendarsAsync(accountId);
+
+    public virtual Task DeleteCalendarItemAsync(Guid calendarItemId)
+        => CalendarService.DeleteCalendarItemAsync(calendarItemId);
+
+    public virtual Task DeleteCalendarItemAsync(string calendarRemoteEventId, Guid calendarId)
+        => CalendarService.DeleteCalendarItemAsync(calendarRemoteEventId, calendarId);
+
+    public Task<CalendarItem> GetCalendarItemAsync(Guid calendarId, string remoteEventId)
+        => CalendarService.GetCalendarItemAsync(calendarId, remoteEventId);
+
+    public Task DeleteAccountCalendarAsync(AccountCalendar accountCalendar)
+        => CalendarService.DeleteAccountCalendarAsync(accountCalendar);
+
+    public Task InsertAccountCalendarAsync(AccountCalendar accountCalendar)
+        => CalendarService.InsertAccountCalendarAsync(accountCalendar);
+
+    public Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar)
+        => CalendarService.UpdateAccountCalendarAsync(accountCalendar);
+
+    public Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken)
+        => CalendarService.UpdateCalendarDeltaSynchronizationToken(calendarId, deltaToken);
+
+    public async Task ReconcileCalendarEventsAsync(AccountCalendar calendar, DateTimeOffset windowStartUtc, DateTimeOffset windowEndUtc, IReadOnlySet<string> remoteProviderEventIds)
+    {
+        if (calendar == null || remoteProviderEventIds == null)
+            return;
+
+        var window = new Itenso.TimePeriod.TimeRange(windowStartUtc.UtcDateTime, windowEndUtc.UtcDateTime);
+        var localEvents = await CalendarService.GetCalendarEventsAsync(calendar, window).ConfigureAwait(false);
+
+        foreach (var localEvent in localEvents)
+        {
+            if (string.IsNullOrWhiteSpace(localEvent.RemoteEventId))
+                continue;
+
+            // Locally created events waiting for upload only carry a client placeholder ID.
+            if (localEvent.RemoteEventId.IsClientTrackingPlaceholder())
+                continue;
+
+            if (remoteProviderEventIds.Contains(localEvent.RemoteEventId.GetProviderRemoteEventId()))
+                continue;
+
+            await DeleteCalendarItemAsync(localEvent.Id).ConfigureAwait(false);
+        }
+    }
+
+    public async Task DeleteUserMailCacheAsync(Guid accountId)
+    {
+        await _mimeFileService.DeleteUserMimeCacheAsync(accountId).ConfigureAwait(false);
+        await AccountService.DeleteAccountMailCacheAsync(accountId, AccountCacheResetReason.ExpiredCache).ConfigureAwait(false);
+    }
+
+    public async Task UpsertMailInvitationCalendarMappingAsync(MailInvitationCalendarMapping mapping)
+    {
+        if (mapping == null || mapping.AccountId == Guid.Empty || string.IsNullOrWhiteSpace(mapping.MailCopyId))
+            return;
+
+        var existing = await Connection.Table<MailInvitationCalendarMapping>()
+            .FirstOrDefaultAsync(x => x.AccountId == mapping.AccountId && x.MailCopyId == mapping.MailCopyId)
+            .ConfigureAwait(false);
+
+        if (existing == null)
+        {
+            if (mapping.Id == Guid.Empty)
+                mapping.Id = Guid.NewGuid();
+
+            mapping.UpdatedAtUtc = DateTime.UtcNow;
+            await Connection.InsertAsync(mapping, typeof(MailInvitationCalendarMapping)).ConfigureAwait(false);
+            return;
+        }
+
+        existing.InvitationUid = mapping.InvitationUid;
+        existing.CalendarId = mapping.CalendarId;
+        existing.CalendarItemId = mapping.CalendarItemId;
+        existing.CalendarRemoteEventId = mapping.CalendarRemoteEventId;
+        existing.UpdatedAtUtc = DateTime.UtcNow;
+
+        await Connection.UpdateAsync(existing, typeof(MailInvitationCalendarMapping)).ConfigureAwait(false);
+    }
+
+    public Task<MailInvitationCalendarMapping> GetMailInvitationCalendarMappingAsync(Guid accountId, string mailCopyId)
+    {
+        if (accountId == Guid.Empty || string.IsNullOrWhiteSpace(mailCopyId))
+            return Task.FromResult<MailInvitationCalendarMapping>(null);
+
+        return Connection.Table<MailInvitationCalendarMapping>()
+            .FirstOrDefaultAsync(x => x.AccountId == accountId && x.MailCopyId == mailCopyId);
+    }
+
+    public Task<bool> IsMailExistsInFolderAsync(string messageId, Guid folderId)
+            => MailService.IsMailExistsAsync(messageId, folderId);
+}

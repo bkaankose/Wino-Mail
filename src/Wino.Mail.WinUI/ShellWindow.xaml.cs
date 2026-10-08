@@ -1,0 +1,1131 @@
+﻿using System;
+using System.Linq;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using CommunityToolkit.WinUI;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Data;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Hosting;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Intelligence;
+using Wino.Core.Domain.Models.Launch;
+using Wino.Core.Domain.Models.Navigation;
+using Wino.Extensions;
+using Wino.Mail.Controls.Core.SearchBar;
+using Wino.Mail.WinUI.Activation;
+using Wino.Mail.WinUI.Extensions;
+using Wino.Mail.WinUI.Helpers;
+using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.WinUI.Models;
+using Wino.Mail.WinUI.Services;
+using Wino.Mail.WinUI.Views;
+using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Client.Shell;
+using Wino.Messaging.UI;
+using Wino.Views.Mail;
+using WinUIEx;
+
+namespace Wino.Mail.WinUI;
+
+public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
+    IWinoFrameProvider,
+    IRecipient<ApplicationThemeChanged>,
+    IRecipient<InfoBarMessageRequested>,
+    IRecipient<TitleBarShellContentUpdated>,
+    IRecipient<WinoAccountProfileUpdatedMessage>,
+    IRecipient<WinoAccountProfileDeletedMessage>,
+    IRecipient<DailyBriefingStateChanged>,
+    IRecipient<IntelligenceMetadataChanged>,
+    IRecipient<WinoIntelligenceAccessChanged>,
+    IRecipient<WinoIntelligenceEntitlementChanged>,
+    IRecipient<WhatsNewOpened>,
+    IRecipient<WhatsNewOpenRequested>,
+    IRecipient<AccountSynchronizationProgressUpdatedMessage>
+{
+    private bool _allowClose;
+    public IStatePersistanceService StatePersistanceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception("StatePersistanceService not registered in DI container.");
+    public IPreferencesService PreferencesService { get; } = WinoApplication.Current.Services.GetService<IPreferencesService>() ?? throw new Exception("PreferencesService not registered in DI container.");
+    public INavigationService NavigationService { get; } = WinoApplication.Current.Services.GetService<INavigationService>() ?? throw new Exception("NavigationService not registered in DI container.");
+    private IMailDialogService MailDialogService { get; } = WinoApplication.Current.Services.GetRequiredService<IMailDialogService>();
+    private IWinoAccountProfileService WinoAccountProfileService { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoAccountProfileService>();
+    private IWinoAccountIntelligenceSnapshotService EntitlementService { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoAccountIntelligenceSnapshotService>();
+    private ILocalIntelligenceService LocalIntelligenceService { get; } = WinoApplication.Current.Services.GetRequiredService<ILocalIntelligenceService>();
+    private IWhatsNewService WhatsNewService { get; } = WinoApplication.Current.Services.GetRequiredService<IWhatsNewService>();
+    private IWinoWindowManager WindowManager { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoWindowManager>();
+
+    private bool _calendarReminderServerStartAttempted;
+    private ITitleBarSearchHost? _activeTitleBarSearchHost;
+    private IShellMenuProvider? _activeSynchronizationProvider;
+    private float? _shellTitleOpacity;
+    private const double ShellTitleSynchronizationButtonInset = 40;
+    private bool _isBackButtonVisibilityReady;
+    private bool _isSynchronizingTitleBarSearch;
+    private bool _hasDailyBriefingAccess;
+    private ISearchHistoryService SearchHistoryService { get; } = WinoApplication.Current.Services.GetRequiredService<ISearchHistoryService>();
+    private bool _isPreparedForClose;
+    private bool _isCloseRequestInProgress;
+    private readonly Microsoft.UI.Xaml.Input.PointerEventHandler _pointerPressedHandler;
+
+    public ShellWindow()
+    {
+        InitializeComponent();
+
+        // Use the same root as NewThemeService. A local theme on ShellRoot would override
+        // later changes to the outer WinUIEx content root instead of inheriting them.
+        var configuration = WinoApplication.Current.Services.GetRequiredService<IConfigurationService>();
+        GetRootContent().RequestedTheme = configuration.Get(UnderlyingThemeService.SelectedAppThemeKey, ApplicationElementTheme.Default).ToWindowsElementTheme();
+
+        _pointerPressedHandler = OnPointerPressed;
+        RegisterRecipients();
+        StatePersistanceService.StatePropertyChanged += StatePersistenceServiceChanged;
+        PreferencesService.PreferenceChanged += PreferencesServiceChanged;
+        DailyBriefingPanelControl.IsOpenChanged += DailyBriefingPanelIsOpenChanged;
+
+        MinWidth = 420;
+        MinHeight = 420;
+        ConfigureTitleBar();
+        UpdateShellTitles();
+        UpdateWinoAccountButtonVisibility();
+        ApplyTitleBarSearchHost();
+        ApplyShellSynchronizationProvider();
+        _ = RefreshDailyBriefingStateAsync();
+        _ = RefreshWhatsNewButtonAsync();
+        _ = EntitlementService.RefreshEntitlementAsync();
+
+        // Handle window closing event for terminate vs background/tray behavior.
+        Closed += OnWindowClosed;
+
+        // Use the AppWindow.Closing event to handle the close request
+        AppWindow.Closing += OnAppWindowClosing;
+
+        // Register global mouse button listener for back button
+        RegisterMouseBackButtonListener();
+
+        this.SetIcon("Assets/Wino_Icon.ico");
+
+        AttachTitleBarWidthStates();
+    }
+
+    /// <summary>
+    /// The adaptive triggers live in XAML; applying their result does not. A VisualState Setter can
+    /// only reach a named element in its own namescope, and everything the width states have to
+    /// touch sits inside the TitleBar's template, so the state change is forwarded here instead.
+    /// </summary>
+    private void AttachTitleBarWidthStates()
+    {
+        var group = VisualStateManager.GetVisualStateGroups(TitleBarStateHost).FirstOrDefault(x => x.Name == "TitleBarWidthStates");
+        if (group is null) return;
+
+        // The triggers move CurrentState on their own, but the change notification is not something
+        // to lean on here, so the state is also re-read after every resize and after load.
+        group.CurrentStateChanged += (_, e) => ApplyTitleBarWidthState(e.NewState?.Name);
+        TitleBarStateHost.Loaded += (_, _) => ApplyTitleBarWidthState(group.CurrentState?.Name);
+        ShellRoot.SizeChanged += (_, _) => DispatcherQueue.TryEnqueue(() => ApplyTitleBarWidthState(group.CurrentState?.Name));
+    }
+
+    private void ApplyTitleBarWidthState(string? stateName)
+    {
+        var isCompact = stateName is not null and not "WideTitleBarState";
+
+        ShellTitleHost.Visibility = stateName == "MinimalTitleBarState" ? Visibility.Collapsed : Visibility.Visible;
+        TitleBarSearchBox.IsCompact = isCompact;
+
+        // The wide field contracts with the title bar before switching to the compact icon. The icon
+        // is the whole control in compact mode, so the wide layout's width floor must then disappear.
+        TitleBarSearchBox.MinWidth = isCompact ? 0 : 210;
+        TitleBarSearchBox.MaxWidth = isCompact ? 48 : 390;
+        TitleBarSearchBox.HorizontalAlignment = isCompact ? HorizontalAlignment.Left : HorizontalAlignment.Stretch;
+    }
+
+    private void ConfigureTitleBar()
+    {
+        AppWindow.TitleBar.ExtendsContentIntoTitleBar = true;
+
+        // Apply initial theme colors
+        var themeService = WinoApplication.Current.Services.GetService<INewThemeService>();
+        if (themeService != null)
+        {
+            var underlyingThemeService = WinoApplication.Current.Services.GetService<IUnderlyingThemeService>();
+            if (underlyingThemeService != null)
+            {
+                UpdateTitleBarColors(underlyingThemeService.IsUnderlyingThemeDark());
+            }
+        }
+    }
+
+    private void RegisterMouseBackButtonListener()
+    {
+        // Subscribe to pointer pressed events on the root content
+        if (Content is UIElement rootElement)
+        {
+            rootElement.AddHandler(UIElement.PointerPressedEvent, _pointerPressedHandler, true);
+        }
+    }
+
+    private void OnPointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        // Check if it's the back button (XButton1)
+        var pointerPoint = e.GetCurrentPoint(null);
+        var properties = pointerPoint.Properties;
+
+        // XButton1 is the back button on most mice
+        if (properties.IsXButton1Pressed)
+        {
+            // Call GoBack on NavigationService
+            NavigationService.GoBack();
+            e.Handled = true;
+        }
+    }
+
+    public void HandleAppActivation(string? launchArguments, string? tileId = null, string? appId = null)
+    {
+        var targetMode = AppModeActivationResolver.Resolve(launchArguments, tileId, appId, WinoApplicationMode.Mail);
+        WindowAppUserModelIdHelper.TrySet(this, AppEntryConstants.GetAppUserModelId(targetMode));
+
+        if (TryCreateMailFolderLaunchRequest(launchArguments, out var folderLaunchRequest))
+        {
+            NavigationService.RestoreShell(targetMode, new ShellModeActivationContext
+            {
+                Parameter = folderLaunchRequest
+            });
+
+            return;
+        }
+
+        NavigationService.RestoreShell(targetMode);
+    }
+
+    private static bool TryCreateMailFolderLaunchRequest(string? launchArguments, out MailFolderLaunchRequest? request)
+    {
+        request = null;
+
+        var arguments = NotificationArguments.Parse(launchArguments);
+
+        if (!arguments.TryGetValue(Constants.JumpListActionKey, out var action) ||
+            !string.Equals(action, Constants.JumpListOpenMailFolderAction, StringComparison.Ordinal) ||
+            !arguments.TryGetValue(Constants.JumpListAccountIdKey, out var accountIdString) ||
+            !arguments.TryGetValue(Constants.JumpListFolderIdKey, out var folderIdString) ||
+            !Guid.TryParse(accountIdString, out var accountId) ||
+            !Guid.TryParse(folderIdString, out var folderId))
+        {
+            return false;
+        }
+
+        request = new MailFolderLaunchRequest(accountId, folderId);
+        return true;
+    }
+
+    public Microsoft.UI.Xaml.Controls.TitleBar GetTitleBar() => ShellTitleBar;
+
+    public Frame GetMainFrame() => MainShellFrame;
+
+    public Frame? GetFrame(NavigationReferenceFrame frameType)
+        => frameType == NavigationReferenceFrame.ShellFrame ? MainShellFrame : null;
+
+    public FrameworkElement GetRootContent() => Content as Grid ?? throw new Exception("RootContent is not a Grid or empty.");
+
+    private void BackButtonClicked(Microsoft.UI.Xaml.Controls.TitleBar sender, object args)
+    {
+        NavigationService.GoBack();
+    }
+
+    private void MainFrameNavigated(object sender, Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+    {
+        if (!_calendarReminderServerStartAttempted)
+        {
+            _calendarReminderServerStartAttempted = true;
+            _ = StartCalendarReminderServerAsync();
+        }
+
+        _isBackButtonVisibilityReady = true;
+        ApplyTitleBarSearchHost();
+        ApplyShellSynchronizationProvider();
+        RefreshBackButtonVisibility();
+    }
+
+    private async Task StartCalendarReminderServerAsync()
+    {
+        try
+        {
+            var reminderServer = WinoApplication.Current.Services.GetService<ICalendarReminderServer>();
+            if (reminderServer != null)
+            {
+                await reminderServer.StartAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _calendarReminderServerStartAttempted = false;
+            Serilog.Log.Error(ex, "Failed to start calendar reminder server.");
+        }
+    }
+
+    private void PaneButtonClicked(Microsoft.UI.Xaml.Controls.TitleBar sender, object args)
+    {
+        PreferencesService.IsNavigationPaneOpened = !PreferencesService.IsNavigationPaneOpened;
+    }
+
+    public void Receive(TitleBarShellContentUpdated message)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            ApplyTitleBarSearchHost();
+            ApplyShellSynchronizationProvider();
+            RefreshBackButtonVisibility();
+        });
+    }
+
+    public void Receive(ApplicationThemeChanged message)
+    {
+        DispatcherQueue.TryEnqueue(() => UpdateTitleBarColors(message.IsUnderlyingThemeDark));
+    }
+
+    public void Receive(InfoBarMessageRequested message)
+    {
+        DispatcherQueue.TryEnqueue(() => ShowInfoBarMessage(message));
+    }
+
+    public void Receive(WinoAccountProfileUpdatedMessage message)
+    {
+        DispatcherQueue.TryEnqueue(() => UpdateWinoAccountState(message.Account));
+        _ = RefreshDailyBriefingStateAsync();
+    }
+
+    public void Receive(WinoAccountProfileDeletedMessage message)
+    {
+        DispatcherQueue.TryEnqueue(() => UpdateWinoAccountState(null));
+        _ = RefreshDailyBriefingStateAsync();
+    }
+
+    public async void Receive(DailyBriefingStateChanged message) => await RefreshDailyBriefingStateAsync();
+
+    /// <summary>Freshly imported artifacts can make the briefing unseen again, so the badge is re-evaluated.</summary>
+    public async void Receive(IntelligenceMetadataChanged message) => await RefreshDailyBriefingStateAsync();
+
+    public async void Receive(WinoIntelligenceAccessChanged message) => await RefreshDailyBriefingStateAsync();
+
+    public void Receive(WinoIntelligenceEntitlementChanged message)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            _hasDailyBriefingAccess = message.Entitlement.CanAccessSurfaces;
+            if (!_hasDailyBriefingAccess)
+            {
+                DailyBriefingPanelControl.Close();
+                DailyBriefingUnseenBadge.Visibility = Visibility.Collapsed;
+            }
+
+            RefreshDailyBriefingButtonVisibility();
+            SynchronizeTitleBarSearchBox();
+        });
+
+        if (message.Entitlement.CanAccessSurfaces)
+            _ = RefreshDailyBriefingStateAsync();
+    }
+
+    public void Receive(WhatsNewOpened message)
+        => DispatcherQueue.TryEnqueue(() => WhatsNewButton.Visibility = Visibility.Collapsed);
+
+    /// <summary>The button stays until the window has been opened once for the running version.</summary>
+    private async Task RefreshWhatsNewButtonAsync()
+    {
+        try
+        {
+            var shouldShow = await WhatsNewService.ShouldShowShellEntryAsync().ConfigureAwait(false);
+            DispatcherQueue.TryEnqueue(() => WhatsNewButton.Visibility = shouldShow ? Visibility.Visible : Visibility.Collapsed);
+        }
+        catch (Exception exception)
+        {
+            Serilog.Log.Error(exception, "Failed to refresh the What's New title-bar button.");
+        }
+    }
+
+    private async void WhatsNewButtonClicked(object sender, RoutedEventArgs e)
+        => await ShowWhatsNewAsync();
+
+    public async void Receive(WhatsNewOpenRequested message)
+        => await ShowWhatsNewAsync();
+
+    private async Task ShowWhatsNewAsync()
+    {
+        await WindowManager.ShowThemedWindowAsync(WinoWindowKind.WhatsNew, () => new WhatsNewWindow());
+
+        WhatsNewService.MarkOpenedForCurrentVersion();
+        WeakReferenceMessenger.Default.Send(new WhatsNewOpened());
+    }
+
+    private async void DailyBriefingToggleButtonClicked(object sender, RoutedEventArgs e)
+    {
+        await DailyBriefingPanelControl.ToggleAsync();
+        DailyBriefingToggleButton.IsChecked = DailyBriefingPanelControl.IsOpen;
+    }
+
+    private void DailyBriefingPanelIsOpenChanged(object? sender, bool isOpen)
+        => DailyBriefingToggleButton.IsChecked = isOpen;
+
+    private async Task RefreshDailyBriefingStateAsync()
+    {
+        try
+        {
+            var entitlement = await EntitlementService.GetEntitlementAsync().ConfigureAwait(false);
+            var hasAccess = entitlement.CanAccessSurfaces;
+            var eligible = hasAccess
+                ? await LocalIntelligenceService.GetEligibleAccountsAsync().ConfigureAwait(false)
+                : [];
+            var unseen = eligible.Count > 0
+                ? await LocalIntelligenceService.GetUnseenStateAsync().ConfigureAwait(false)
+                : new DailyBriefingUnseenState(false, null);
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                _hasDailyBriefingAccess = hasAccess;
+                DailyBriefingUnseenBadge.Visibility = unseen.HasUnseenContent ? Visibility.Visible : Visibility.Collapsed;
+                RefreshDailyBriefingButtonVisibility();
+            });
+        }
+        catch (Exception exception)
+        {
+            Serilog.Log.Error(exception, "Failed to refresh the Daily Briefing title-bar state.");
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                _hasDailyBriefingAccess = false;
+                DailyBriefingUnseenBadge.Visibility = Visibility.Collapsed;
+                RefreshDailyBriefingButtonVisibility();
+            });
+        }
+    }
+
+    private void RefreshDailyBriefingButtonVisibility()
+    {
+        var isMailMode = StatePersistanceService.ApplicationMode == WinoApplicationMode.Mail;
+        DailyBriefingToggleButton.Visibility = isMailMode && _hasDailyBriefingAccess
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private void UpdateTitleBarColors(bool isDarkTheme)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (AppWindow == null) return;
+
+            SystemCaptionButtonColorHelper.Apply(AppWindow.TitleBar, isDarkTheme);
+        });
+    }
+
+    private void ApplyTitleBarSearchHost()
+    {
+        if (ReferenceEquals(_activeTitleBarSearchHost, ResolveActiveTitleBarSearchHost()))
+        {
+            SynchronizeTitleBarSearchBox();
+            return;
+        }
+        ClearPageSearchBindings();
+        _activeTitleBarSearchHost = ResolveActiveTitleBarSearchHost();
+        if (_activeTitleBarSearchHost is BasePage page)
+        {
+            TitleBarSearchBox.SetBinding(Wino.Mail.Controls.SearchBar.WinoSearchBar.HeaderFlyoutProperty,
+                new Binding { Source = page, Path = new PropertyPath(nameof(BasePage.HeaderFlyout)), Mode = BindingMode.OneWay });
+            TitleBarSearchBox.SetBinding(Wino.Mail.Controls.SearchBar.WinoSearchBar.FilterFlyoutProperty,
+                new Binding { Source = page, Path = new PropertyPath(nameof(BasePage.FilterFlyout)), Mode = BindingMode.OneWay });
+            TitleBarSearchBox.SetBinding(Wino.Mail.Controls.SearchBar.WinoSearchBar.SelectedHeaderButtonTitleProperty,
+                new Binding { Source = page, Path = new PropertyPath(nameof(BasePage.SelectedHeaderButtonTitle)), Mode = BindingMode.OneWay });
+        }
+        SynchronizeTitleBarSearchBox(resetReach: true);
+    }
+
+    private void ClearPageSearchBindings()
+    {
+        TitleBarSearchBox.HeaderFlyout?.Hide();
+        TitleBarSearchBox.FilterFlyout?.Hide();
+        TitleBarSearchBox.ClearValue(Wino.Mail.Controls.SearchBar.WinoSearchBar.HeaderFlyoutProperty);
+        TitleBarSearchBox.ClearValue(Wino.Mail.Controls.SearchBar.WinoSearchBar.FilterFlyoutProperty);
+        TitleBarSearchBox.ClearValue(Wino.Mail.Controls.SearchBar.WinoSearchBar.SelectedHeaderButtonTitleProperty);
+    }
+
+    private void StatePersistenceServiceChanged(object? sender, string propertyName)
+    {
+        if (!DispatcherQueue.HasThreadAccess)
+        {
+            var enqueued = DispatcherQueue.TryEnqueue(() => StatePersistenceServiceChanged(sender, propertyName));
+            if (!enqueued)
+                throw new InvalidOperationException("Could not marshal shell state changes onto the UI thread.");
+
+            return;
+        }
+
+        if (propertyName is nameof(IStatePersistanceService.AppModeTitle)
+            or nameof(IStatePersistanceService.CoreWindowTitle))
+        {
+            UpdateShellTitles();
+        }
+
+        // The briefing panel belongs to the mail surface it was opened over. A mode switch replaces
+        // that surface, so the panel goes with it instead of hanging over the new one.
+        if (propertyName == nameof(IStatePersistanceService.ApplicationMode))
+        {
+            DailyBriefingPanelControl.Close();
+            RefreshDailyBriefingButtonVisibility();
+
+            var applicationMode = StatePersistanceService.ApplicationMode;
+
+            // Settings belongs to whichever app entry opened it. The three primary modes,
+            // however, must follow their own taskbar entries even when switched in-app.
+            if (applicationMode != WinoApplicationMode.Settings)
+            {
+                WindowAppUserModelIdHelper.TrySet(this, AppEntryConstants.GetAppUserModelId(applicationMode));
+            }
+        }
+
+        if (propertyName == nameof(IStatePersistanceService.ApplicationMode) ||
+            propertyName == nameof(IStatePersistanceService.IsReadingMail) ||
+            propertyName == nameof(IStatePersistanceService.IsReaderNarrowed) ||
+            propertyName == nameof(IStatePersistanceService.IsEventDetailsVisible))
+        {
+            RefreshBackButtonVisibility();
+        }
+    }
+
+    private void RefreshBackButtonVisibility()
+    {
+        if (!_isBackButtonVisibilityReady)
+        {
+            ShellTitleBar.IsBackButtonVisible = false;
+            return;
+        }
+
+        ShellTitleBar.IsBackButtonVisible = NavigationService.CanGoBack();
+    }
+
+    private ITitleBarSearchHost? ResolveActiveTitleBarSearchHost()
+    {
+        if (MainShellFrame.Content is WinoAppShell shellPage)
+        {
+            return shellPage.GetFrame(NavigationReferenceFrame.InnerShellFrame)?.Content as ITitleBarSearchHost;
+        }
+
+        return MainShellFrame.Content as ITitleBarSearchHost;
+    }
+
+    private void SynchronizeTitleBarSearchBox(bool resetReach = false)
+    {
+        _isSynchronizingTitleBarSearch = true;
+        try
+        {
+            TitleBarSearchBox.IsEnabled = _activeTitleBarSearchHost != null;
+            TitleBarSearchBox.Mode = _activeTitleBarSearchHost?.SearchMode ?? SearchBarMode.Mail;
+            TitleBarSearchBox.PlaceholderText = Translator.SearchBarPlaceholder;
+            TitleBarSearchBox.ItemsSource = _activeTitleBarSearchHost?.SearchSuggestions;
+            TitleBarSearchBox.Text = _activeTitleBarSearchHost?.SearchText ?? string.Empty;
+            TitleBarSearchBox.SearchHistoryItemsSource = _activeTitleBarSearchHost is null
+                ? null
+                : SearchHistoryService.GetHistory(_activeTitleBarSearchHost.SearchMode);
+            if (resetReach && _activeTitleBarSearchHost is IMailTitleBarSearchHost)
+                ApplyDefaultSearchMode();
+        }
+        finally
+        {
+            _isSynchronizingTitleBarSearch = false;
+        }
+    }
+
+    /// <summary>
+    /// Seeds the search bar from the user's default search mode. This only decides where a search
+    /// starts; changing the reach toggle during a search still wins.
+    /// </summary>
+    private void ApplyDefaultSearchMode()
+    {
+        var defaultSearchMode = PreferencesService.DefaultSearchMode;
+
+        TitleBarSearchBox.SearchReach = defaultSearchMode == SearchMode.Online
+            ? SearchBarReach.IncludeServer
+            : SearchBarReach.DownloadedOnly;
+    }
+
+    private async void TitleBarSearchTextChanged(object? sender, SearchBarTextChangedEventArgs args)
+    {
+        if (_isSynchronizingTitleBarSearch || _activeTitleBarSearchHost == null)
+            return;
+
+        _activeTitleBarSearchHost.SearchText = args.Text;
+        await _activeTitleBarSearchHost.OnTitleBarSearchTextChangedAsync();
+    }
+
+    private void TitleBarClearSearchHistoryRequested(object? sender, EventArgs e)
+    {
+        if (_activeTitleBarSearchHost == null)
+            return;
+
+        SearchHistoryService.Clear(_activeTitleBarSearchHost.SearchMode);
+        TitleBarSearchBox.SearchHistoryItemsSource = [];
+    }
+
+    private void TitleBarSearchDismissed(object? sender, EventArgs args)
+    {
+        if (_activeTitleBarSearchHost is BasePage page)
+        {
+            if (FocusManager.FindFirstFocusableElement(page) is Control first)
+                first.Focus(FocusState.Programmatic);
+            else
+                page.Focus(FocusState.Programmatic);
+        }
+    }
+
+    private async void TitleBarSearchSubmitted(object? sender, SearchBarSubmittedEventArgs args)
+    {
+        if (_activeTitleBarSearchHost == null)
+            return;
+
+        SearchHistoryService.Record(args.Mode, args.QueryText);
+        if (_activeTitleBarSearchHost is IMailTitleBarSearchHost mailHost)
+            await mailHost.OnMailSearchSubmittedAsync(args);
+        else
+        {
+            var suggestion = args.ChosenSuggestion as TitleBarSearchSuggestion;
+            if (suggestion is not null)
+                _activeTitleBarSearchHost.OnTitleBarSearchSuggestionChosen(suggestion);
+            await _activeTitleBarSearchHost.OnTitleBarSearchSubmittedAsync(args.QueryText, suggestion);
+        }
+
+        SynchronizeTitleBarSearchBox();
+    }
+
+    private async void OnAppWindowClosing(object sender, AppWindowClosingEventArgs e)
+    {
+        var app = Application.Current as App;
+
+        if (_allowClose || app?.IsExiting == true)
+            return;
+
+        // Snapshot the preference once so a single close request cannot take different branches
+        // before and after asynchronous draft/compose confirmation.
+        var closeBehavior = PreferencesService.AppCloseBehavior;
+
+        if (app?.TryExitApplicationOnShellWindowClose(closeBehavior) == true)
+            return;
+
+        e.Cancel = true;
+
+        if (_isCloseRequestInProgress)
+            return;
+
+        _isCloseRequestInProgress = true;
+
+        try
+        {
+            if (!await PrepareMailModeForCloseAsync())
+                return;
+
+            if (app?.TryPrepareForBackgroundShellWindowClose(closeBehavior) != true)
+                return;
+
+            PrepareForClose();
+
+            // PrepareForClose removes this handler and permits the real close. The managed
+            // app and tray keep running, but this HWND and its complete XAML tree do not.
+            Close();
+        }
+        finally
+        {
+            _isCloseRequestInProgress = false;
+        }
+    }
+
+    private void PreferencesServiceChanged(object? sender, string propertyName)
+    {
+        if (propertyName != nameof(IPreferencesService.IsWinoAccountButtonHidden))
+            return;
+
+        if (DispatcherQueue.HasThreadAccess)
+        {
+            UpdateWinoAccountButtonVisibility();
+            return;
+        }
+
+        DispatcherQueue.TryEnqueue(UpdateWinoAccountButtonVisibility);
+    }
+
+    private void UpdateShellTitles()
+    {
+        // The TitleBar's own Title/Subtitle stay unset. Rendering them ourselves is what
+        // lets a running synchronization fade them without collapsing their columns.
+        ShellTitleText.Text = StatePersistanceService.AppModeTitle;
+        ShellSubtitleText.Text = StatePersistanceService.CoreWindowTitle;
+        Title = string.IsNullOrWhiteSpace(StatePersistanceService.CoreWindowTitle)
+            ? StatePersistanceService.AppModeTitle
+            : $"{StatePersistanceService.AppModeTitle} - {StatePersistanceService.CoreWindowTitle}";
+    }
+
+    private void UpdateWinoAccountButtonVisibility()
+        => WinoAccountButton.Visibility = PreferencesService.IsWinoAccountButtonHidden
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+
+    public void PrepareForClose()
+    {
+        if (_isPreparedForClose)
+            return;
+
+        _isPreparedForClose = true;
+        _allowClose = true;
+
+        AppWindow.Closing -= OnAppWindowClosing;
+        StatePersistanceService.StatePropertyChanged -= StatePersistenceServiceChanged;
+        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
+        DailyBriefingPanelControl.IsOpenChanged -= DailyBriefingPanelIsOpenChanged;
+        UnregisterRecipients();
+
+        if (Content is UIElement rootElement)
+        {
+            rootElement.RemoveHandler(UIElement.PointerPressedEvent, _pointerPressedHandler);
+        }
+
+        DetachTitleBarSearchHost();
+        DetachShellSynchronizationProvider();
+        CloseHostedPopoutWindows();
+
+        if (MainShellFrame.Content is WinoAppShell shellPage)
+        {
+            shellPage.PrepareForWindowClose();
+        }
+
+        Bindings.StopTracking();
+
+        var rootContent = Content;
+        WindowCleanupHelper.CleanupObject(rootContent);
+        Content = null;
+    }
+
+    private void DetachTitleBarSearchHost()
+    {
+        ClearPageSearchBindings();
+        _activeTitleBarSearchHost = null;
+        TitleBarSearchBox.ItemsSource = null;
+        TitleBarSearchBox.SearchHistoryItemsSource = null;
+    }
+
+    #region Title bar synchronization
+
+    /// <summary>
+    /// Rebinds the title bar's synchronization button to whichever mode is publishing a
+    /// menu. The window never learns what any mode synchronizes; it only forwards the
+    /// surface <see cref="IShellMenuProvider"/> exposes.
+    /// </summary>
+    private void ApplyShellSynchronizationProvider()
+    {
+        var provider = ResolveActiveShellMenuProvider();
+
+        if (!ReferenceEquals(_activeSynchronizationProvider, provider))
+        {
+            if (_activeSynchronizationProvider != null)
+            {
+                _activeSynchronizationProvider.PropertyChanged -= ShellSynchronizationProviderPropertyChanged;
+            }
+
+            _activeSynchronizationProvider = provider;
+
+            if (_activeSynchronizationProvider != null)
+            {
+                _activeSynchronizationProvider.PropertyChanged += ShellSynchronizationProviderPropertyChanged;
+            }
+        }
+
+        RefreshShellSynchronizationButton();
+    }
+
+    private IShellMenuProvider? ResolveActiveShellMenuProvider()
+        => MainShellFrame.Content is WinoAppShell shellPage ? shellPage.CurrentShellMenuProvider : null;
+
+    private void ShellSynchronizationProviderPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (!ReferenceEquals(sender, _activeSynchronizationProvider))
+            return;
+
+        if (e.PropertyName is not (nameof(IShellMenuProvider.IsSynchronizationSupported)
+            or nameof(IShellMenuProvider.CanSynchronize)
+            or nameof(IShellMenuProvider.SynchronizationState)
+            or nameof(IShellMenuProvider.SynchronizationDescription)
+            or nameof(IShellMenuProvider.SynchronizationToolTip)))
+        {
+            return;
+        }
+
+        DispatcherQueue.TryEnqueue(RefreshShellSynchronizationButton);
+    }
+
+    /// <summary>
+    /// The provider computes its state from the synchronization manager on every read, so
+    /// progress updates only have to nudge the button rather than carry a payload.
+    /// </summary>
+    public void Receive(AccountSynchronizationProgressUpdatedMessage message)
+        => DispatcherQueue.TryEnqueue(RefreshShellSynchronizationButton);
+
+    private void RefreshShellSynchronizationButton()
+    {
+        var provider = _activeSynchronizationProvider;
+
+        if (provider?.IsSynchronizationSupported != true)
+        {
+            ShellSynchronizationButton.Visibility = Visibility.Collapsed;
+            ShellSynchronizationButton.IsSynchronizing = false;
+            SetShellTitleReservesSynchronizationButton(false);
+
+            // Switching to a mode without synchronization while the pill was out must not
+            // leave the title faded behind it.
+            SetShellTitleFaded(false);
+
+            return;
+        }
+
+        var state = provider.SynchronizationState;
+
+        ShellSynchronizationButton.Visibility = Visibility.Visible;
+        SetShellTitleReservesSynchronizationButton(true);
+        ShellSynchronizationButton.IsSynchronizing = state.IsSynchronizing;
+        ShellSynchronizationButton.IsIndeterminate = state.IsIndeterminate;
+        ShellSynchronizationButton.Progress = state.ProgressPercentage;
+        ShellSynchronizationButton.Description = provider.SynchronizationDescription ?? string.Empty;
+        ShellSynchronizationButton.IdleToolTip = provider.SynchronizationToolTip ?? string.Empty;
+
+        // A running synchronization leaves the button looking enabled - the click handler
+        // is what refuses to restart it - because the disabled visual state dims the glyph,
+        // and dimming it would wash out the pill the state is being reported in.
+        ShellSynchronizationButton.IsEnabled = provider.CanSynchronize || state.IsSynchronizing;
+
+        // The expanded pill overhangs the title, so the title steps aside while it is out.
+        SetShellTitleFaded(state.IsSynchronizing);
+
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(ShellSynchronizationButton,
+            state.IsSynchronizing
+                ? provider.SynchronizationDescription ?? string.Empty
+                : provider.SynchronizationToolTip ?? string.Empty);
+    }
+
+    private async void ShellSynchronizationButtonClicked(object sender, RoutedEventArgs e)
+    {
+        var provider = _activeSynchronizationProvider;
+
+        if (provider?.IsSynchronizationSupported != true || !provider.CanSynchronize)
+            return;
+
+        try
+        {
+            await provider.SynchronizeAsync();
+        }
+        catch (Exception exception)
+        {
+            // Failures are reported by the synchronizers through the shell info bar. The
+            // button only has to stop claiming that something is running.
+            Serilog.Log.Error(exception, "Title bar synchronization request failed.");
+        }
+        finally
+        {
+            RefreshShellSynchronizationButton();
+        }
+    }
+
+    /// <summary>
+    /// The title sits after the synchronization button's 36px footprint (plus its -2 overhang
+    /// and spacing), so modes without synchronization, such as Settings, pull it back to the edge.
+    /// Moving the title shifts the search box, and the TitleBar only recomputes its passthrough
+    /// rects on resize, so they are refreshed here after the new layout is in place.
+    /// </summary>
+    private void SetShellTitleReservesSynchronizationButton(bool reserve)
+    {
+        var margin = new Thickness(reserve ? ShellTitleSynchronizationButtonInset : 0, 0, 0, 0);
+
+        if (ShellTitleHost.Margin == margin)
+            return;
+
+        ShellTitleHost.Margin = margin;
+        ShellTitleBar.UpdateLayout();
+        ShellTitleBar.RecomputeDragRegions();
+    }
+
+    /// <summary>
+    /// Fades the title and subtitle while the synchronization pill is expanded over them.
+    /// Opacity, not visibility: their layout has to stay put or the search box slides out of
+    /// the middle of the window.
+    /// </summary>
+    private void SetShellTitleFaded(bool isFaded)
+    {
+        var targetOpacity = isFaded ? 0f : 1f;
+
+        if (_shellTitleOpacity is not null && Math.Abs(_shellTitleOpacity.Value - targetOpacity) < 0.001f)
+            return;
+
+        _shellTitleOpacity = targetOpacity;
+
+        var visual = ElementCompositionPreview.GetElementVisual(ShellTitleHost);
+        var compositor = visual.Compositor;
+
+        var animation = compositor.CreateScalarKeyFrameAnimation();
+        animation.InsertKeyFrame(1f, targetOpacity);
+        animation.Duration = TimeSpan.FromMilliseconds(isFaded ? 140 : 220);
+
+        // Coming back has to wait for the pill to finish collapsing over it.
+        if (!isFaded)
+        {
+            animation.DelayTime = TimeSpan.FromMilliseconds(90);
+        }
+
+        visual.StartAnimation("Opacity", animation);
+    }
+
+    private void DetachShellSynchronizationProvider()
+    {
+        if (_activeSynchronizationProvider != null)
+        {
+            _activeSynchronizationProvider.PropertyChanged -= ShellSynchronizationProviderPropertyChanged;
+            _activeSynchronizationProvider = null;
+        }
+    }
+
+    #endregion
+
+    private static void CloseHostedPopoutWindows()
+    {
+        var windowManager = WinoApplication.Current.Services.GetService<IWinoWindowManager>();
+        var hostedPopouts = windowManager?.GetWindows().OfType<HostedContentPopoutWindow>().ToList() ?? [];
+
+        foreach (var hostedPopout in hostedPopouts)
+        {
+            hostedPopout.Close();
+        }
+    }
+
+    private void OnWindowClosed(object sender, WindowEventArgs e)
+    {
+        Closed -= OnWindowClosed;
+        AppWindow.Closing -= OnAppWindowClosing;
+
+        // No need to prepare for close or cleanup if the application is exiting, as the process will be terminated shortly after.
+        if ((Application.Current as App)?.IsExiting == true)
+            return;
+
+        PrepareForClose();
+    }
+
+    private async Task<bool> PrepareMailModeForCloseAsync()
+    {
+        if (MainShellFrame.Content is not WinoAppShell shellPage)
+            return true;
+
+        if (shellPage.GetFrame(NavigationReferenceFrame.InnerShellFrame)?.Content is not MailListPage mailListPage)
+            return true;
+
+        await mailListPage.ClearMailSelectionAsync();
+        WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
+
+        return true;
+    }
+
+    private void RegisterRecipients()
+    {
+        WeakReferenceMessenger.Default.Register<TitleBarShellContentUpdated>(this);
+        WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
+        WeakReferenceMessenger.Default.Register<InfoBarMessageRequested>(this);
+        WeakReferenceMessenger.Default.Register<WinoAccountProfileUpdatedMessage>(this);
+        WeakReferenceMessenger.Default.Register<WinoAccountProfileDeletedMessage>(this);
+        WeakReferenceMessenger.Default.Register<DailyBriefingStateChanged>(this);
+        WeakReferenceMessenger.Default.Register<IntelligenceMetadataChanged>(this);
+        WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this);
+        WeakReferenceMessenger.Default.Register<WinoIntelligenceEntitlementChanged>(this);
+        WeakReferenceMessenger.Default.Register<WhatsNewOpened>(this);
+        WeakReferenceMessenger.Default.Register<WhatsNewOpenRequested>(this);
+        WeakReferenceMessenger.Default.Register<AccountSynchronizationProgressUpdatedMessage>(this);
+    }
+
+    private void UnregisterRecipients()
+    {
+        WeakReferenceMessenger.Default.Unregister<TitleBarShellContentUpdated>(this);
+        WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<InfoBarMessageRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<WinoAccountProfileUpdatedMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<WinoAccountProfileDeletedMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<DailyBriefingStateChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<IntelligenceMetadataChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<WinoIntelligenceAccessChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<WinoIntelligenceEntitlementChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<WhatsNewOpened>(this);
+        WeakReferenceMessenger.Default.Unregister<WhatsNewOpenRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<AccountSynchronizationProgressUpdatedMessage>(this);
+    }
+
+    private readonly Queue<InfoBarMessageRequested> _pendingInfoBarMessages = new();
+
+    private void ShellInfoBar_Closed(InfoBar sender, InfoBarClosedEventArgs args)
+    {
+        if (_pendingInfoBarMessages.TryDequeue(out var message))
+            ShowInfoBarMessage(message);
+    }
+
+    private void ShowInfoBarMessage(InfoBarMessageRequested message)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (ShellInfoBar.IsOpen)
+            {
+                _pendingInfoBarMessages.Enqueue(message);
+                return;
+            }
+
+            if (string.IsNullOrEmpty(message.ActionButtonTitle) || message.Action == null)
+            {
+                ShellInfoBar.ActionButton = null;
+            }
+            else
+            {
+                ShellInfoBar.ActionButton = new Button()
+                {
+                    Content = message.ActionButtonTitle,
+                    Command = new RelayCommand(message.Action)
+                };
+            }
+
+            ShellInfoBar.Message = message.Message;
+            ShellInfoBar.Title = message.Title;
+            ShellInfoBar.Severity = message.Severity.AsMUXCInfoBarSeverity();
+            ShellInfoBar.IsOpen = true;
+        });
+    }
+
+    private int _accountPresentationVersion;
+
+    private void UpdateWinoAccountState(WinoAccount? account)
+    {
+        var isSignedIn = account != null;
+
+        WinoAccountSignedOutView.Visibility = isSignedIn ? Visibility.Collapsed : Visibility.Visible;
+        WinoAccountSignedInView.Visibility = isSignedIn ? Visibility.Visible : Visibility.Collapsed;
+
+        WinoAccountButtonPicture.Visibility = isSignedIn ? Visibility.Visible : Visibility.Collapsed;
+        WinoAccountSignedOutIcon.Visibility = isSignedIn ? Visibility.Collapsed : Visibility.Visible;
+
+        var displayName = string.IsNullOrWhiteSpace(account?.DisplayName) ? account?.Email : account.DisplayName;
+        var initials = GetInitials(displayName);
+
+        WinoAccountButtonPicture.Initials = initials;
+        WinoAccountFlyoutPicture.Initials = initials;
+        WinoAccountButtonPicture.DisplayName = displayName ?? Translator.WinoAccount_Titlebar_SignedOutTitle;
+        WinoAccountFlyoutPicture.DisplayName = displayName ?? Translator.WinoAccount_Titlebar_SignedOutTitle;
+
+        WinoAccountFlyoutNameText.Text = displayName ?? string.Empty;
+        WinoAccountFlyoutEmailText.Text = account?.Email ?? string.Empty;
+        WinoAccountButtonPicture.ProfilePicture = null;
+        WinoAccountFlyoutPicture.ProfilePicture = null;
+        var version = ++_accountPresentationVersion;
+        if (account is not null) _ = LoadWinoAccountAvatarAsync(account, version);
+    }
+
+    private async Task LoadWinoAccountAvatarAsync(WinoAccount account, int version)
+    {
+        var path = await WinoAccountProfileService.GetAvatarPathAsync(account.Id, account.AvatarRevision);
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (version != _accountPresentationVersion) return;
+            var image = Wino.Helpers.XamlHelpers.AccountAvatarToBitmapImage(path);
+            WinoAccountButtonPicture.ProfilePicture = image;
+            WinoAccountFlyoutPicture.ProfilePicture = image;
+        });
+    }
+
+    private async void WinoAccountFlyoutOpened(object sender, object args)
+    {
+        try
+        {
+            await WinoAccountProfileService.RefreshProfileAsync();
+            var account = await WinoAccountProfileService.GetActiveAccountAsync();
+            UpdateWinoAccountState(account);
+        }
+        catch (Exception exception)
+        {
+            WinoApplication.Current.Services.GetRequiredService<IWinoLogger>().CaptureException(exception, nameof(WinoAccountFlyoutOpened));
+        }
+    }
+
+    private static string GetInitials(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return "W";
+        }
+
+        var localPart = email.Split('@')[0];
+        var segments = localPart
+            .Split(['.', '_', '-', ' '], StringSplitOptions.RemoveEmptyEntries)
+            .Where(segment => !string.IsNullOrWhiteSpace(segment))
+            .Take(2)
+            .ToArray();
+
+        if (segments.Length == 0)
+        {
+            return email[..1].ToUpperInvariant();
+        }
+
+        return string.Concat(segments.Select(segment => char.ToUpperInvariant(segment[0])));
+    }
+
+    private async void RegisterWinoAccountClicked(object sender, RoutedEventArgs e)
+    {
+        WinoAccountFlyout.Hide();
+        var account = await MailDialogService.ShowWinoAccountRegistrationDialogAsync();
+        if (account != null)
+        {
+            ShowInfoBarMessage(new InfoBarMessageRequested(
+                InfoBarMessageType.Success,
+                Translator.GeneralTitle_Info,
+                string.Format(Translator.WinoAccount_RegisterSuccessMessage, account.Email)));
+        }
+    }
+
+    private async void LoginWinoAccountClicked(object sender, RoutedEventArgs e)
+    {
+        WinoAccountFlyout.Hide();
+        var account = await MailDialogService.ShowWinoAccountLoginDialogAsync();
+        if (account != null)
+        {
+            ShowInfoBarMessage(new InfoBarMessageRequested(
+                InfoBarMessageType.Success,
+                Translator.GeneralTitle_Info,
+                string.Format(Translator.WinoAccount_LoginSuccessMessage, account.Email)));
+        }
+    }
+
+    private void ManageWinoAccountClicked(object sender, RoutedEventArgs e)
+    {
+        WinoAccountFlyout.Hide();
+
+        // Navigate switches the shell into Settings mode when the target is a settings-only page.
+        NavigationService.Navigate(WinoPage.WinoAccountManagementPage);
+    }
+
+    private async void SignOutWinoAccountClicked(object sender, RoutedEventArgs e)
+    {
+        var activeAccount = await WinoAccountProfileService.GetActiveAccountAsync();
+        if (activeAccount == null)
+        {
+            ShowInfoBarMessage(new InfoBarMessageRequested(
+                InfoBarMessageType.Warning,
+                Translator.GeneralTitle_Info,
+                Translator.WinoAccount_SignOut_NoAccountMessage));
+            return;
+        }
+
+        await WinoAccountProfileService.SignOutAsync();
+
+        ShowInfoBarMessage(new InfoBarMessageRequested(
+            InfoBarMessageType.Success,
+            Translator.GeneralTitle_Info,
+            string.Format(Translator.WinoAccount_SignOut_SuccessMessage, activeAccount.Email)));
+    }
+
+}

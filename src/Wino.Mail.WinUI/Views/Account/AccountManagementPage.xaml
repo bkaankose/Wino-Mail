@@ -1,0 +1,306 @@
+﻿<abstract:AccountManagementPageAbstract
+    x:Class="Wino.Views.AccountManagementPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:accessibilityControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:controls="using:Wino.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Core.ViewModels.Data"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:interfaces="using:Wino.Core.Domain.Interfaces"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:selectors="using:Wino.Selectors"
+    xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
+    xmlns:winuiControls="using:CommunityToolkit.WinUI.Controls"
+    x:Name="root"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <!--  Root Account Template  -->
+        <DataTemplate x:Key="RootAccountTemplate" x:DataType="viewModelData:AccountProviderDetailViewModel">
+            <accessibilityControls:WinoSettingsCard
+                Margin="0,2,0,0"
+                helpers:Accessibility.ContainerName="{x:Bind helpers:XamlHelpers.GetAccountAutomationName(Account.Name, Account.Address), Mode=OneWay}"
+                AutomationInvoked="RootAccountTemplate_Click"
+                AutomationProperties.AutomationId="AccountManagementPageSettingsCard"
+                AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetAccountAutomationName(Account.Name, Account.Address), Mode=OneWay}"
+                Click="RootAccountTemplate_Click"
+                CommandParameter="{x:Bind}"
+                IsClickEnabled="True">
+                <winuiControls:SettingsCard.Header>
+                    <controls:AccountIdentityRowControl Account="{x:Bind Account}" Description="{x:Bind DescriptionText}" />
+                </winuiControls:SettingsCard.Header>
+            </accessibilityControls:WinoSettingsCard>
+        </DataTemplate>
+
+        <!--  Merged Account Template  -->
+        <DataTemplate x:Key="MergedAccountTemplate" x:DataType="data:MergedAccountProviderDetailViewModel">
+            <winuiControls:SettingsExpander
+                helpers:Accessibility.ContainerName="{x:Bind helpers:XamlHelpers.GetAccountAutomationName(MergedInbox.Name, AccountAddresses), Mode=OneWay}"
+                AutomationProperties.AutomationId="AccountManagementPageSettingsExpander"
+                Description="{x:Bind AccountAddresses}"
+                Header="{x:Bind MergedInbox.Name}">
+                <winuiControls:SettingsExpander.Items>
+                    <!--  Edit Linked Inbox  -->
+                    <accessibilityControls:WinoSettingsCard
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        AutomationInvoked="EditMergedAccounts_Click"
+                        AutomationProperties.AutomationId="AccountManagementPageSettingsCard2"
+                        Click="EditMergedAccounts_Click"
+                        CommandParameter="{x:Bind}"
+                        Description="{x:Bind domain:Translator.SettingsEditLinkedInbox_Description}"
+                        Header="{x:Bind domain:Translator.SettingsEditLinkedInbox_Title}"
+                        IsClickEnabled="True">
+                        <winuiControls:SettingsCard.HeaderIcon>
+                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Link" />
+                        </winuiControls:SettingsCard.HeaderIcon>
+                    </accessibilityControls:WinoSettingsCard>
+                    <!--  Individual accounts  -->
+                    <winuiControls:SettingsCard
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch"
+                        AutomationProperties.AutomationId="AccountManagementPageSettingsCard3"
+                        ContentAlignment="Vertical">
+                        <ListView
+                            Padding="-12,0"
+                            AutomationProperties.AutomationId="AccountManagementPageListView"
+                            IsItemClickEnabled="False"
+                            ItemTemplate="{StaticResource RootAccountTemplate}"
+                            ItemsSource="{x:Bind HoldingAccounts}"
+                            SelectionMode="None" />
+                    </winuiControls:SettingsCard>
+                </winuiControls:SettingsExpander.Items>
+                <winuiControls:SettingsExpander.HeaderIcon>
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="People" />
+                </winuiControls:SettingsExpander.HeaderIcon>
+            </winuiControls:SettingsExpander>
+        </DataTemplate>
+
+        <selectors:AccountProviderViewModelTemplateSelector
+            x:Key="AccountProviderViewModelTemplateSelector"
+            MergedAccountTemplate="{StaticResource MergedAccountTemplate}"
+            RootAccountTemplate="{StaticResource RootAccountTemplate}" />
+    </Page.Resources>
+
+    <Grid
+        MaxWidth="900"
+        Margin="-12,0"
+        Padding="20"
+        HorizontalAlignment="Stretch"
+        RowSpacing="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <!--  Add account button.  -->
+            <Button
+                Grid.Row="0"
+                Width="200"
+                Height="200"
+                Margin="0,12"
+                AutomationProperties.AutomationId="AccountManagementPageButton"
+                AutomationProperties.Name="{x:Bind domain:Translator.Buttons_AddAccount, Mode=OneTime}"
+                Command="{x:Bind ViewModel.AddNewAccountCommand}">
+                <Button.Content>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="12">
+                            <Viewbox Width="46">
+                                <coreControls:WinoFontIcon Icon="Add" />
+                            </Viewbox>
+                            <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.Buttons_AddAccount}" />
+                        </StackPanel>
+                    </Grid>
+                </Button.Content>
+            </Button>
+
+            <!--  Account Limits  -->
+            <Grid
+                x:Name="PurchasePanel"
+                Grid.Column="1"
+                x:Load="{x:Bind ViewModel.IsPurchasePanelVisible, Mode=OneWay}">
+                <winuiControls:SettingsCard
+                    Margin="0,12"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    VerticalContentAlignment="Stretch"
+                    AutomationProperties.AutomationId="AccountManagementPageSettingsCard4"
+                    ContentAlignment="Vertical">
+                    <Grid MinHeight="160" RowSpacing="6">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Viewbox
+                                Width="32"
+                                Height="32"
+                                HorizontalAlignment="Left">
+                                <coreControls:WinoFontIcon
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Icon="PersonSquare" />
+                            </Viewbox>
+
+                            <TextBlock
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                FontWeight="SemiBold"
+                                Style="{StaticResource BodyTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.WinoUpgradeDescription}"
+                                TextTrimming="CharacterEllipsis" />
+                        </Grid>
+
+                        <!--  The Store channel never needs a Wino Account; Stripe does, so say which channels are open.  -->
+                        <TextBlock
+                            Grid.Row="1"
+                            AutomationProperties.AutomationId="AccountManagementPurchaseChannelsText"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind ViewModel.PurchaseChannelsDescription, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+
+                        <StackPanel
+                            Grid.Row="2"
+                            VerticalAlignment="Center"
+                            Spacing="12">
+
+                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind ViewModel.UsedAccountsString, Mode=OneWay}" />
+                            <ProgressBar
+                                AutomationProperties.AutomationId="AccountUsageProgressBar"
+                                Maximum="{x:Bind ViewModel.FREE_ACCOUNT_COUNT}"
+                                ShowError="{x:Bind ViewModel.IsAccountCreationBlocked, Mode=OneWay}"
+                                ShowPaused="{x:Bind ViewModel.IsAccountCreationAlmostOnLimit, Mode=OneWay}"
+                                Value="{x:Bind ViewModel.UsedAccountCount, Mode=OneWay}" />
+                        </StackPanel>
+
+                        <Button
+                            Grid.Row="3"
+                            MinHeight="45"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Bottom"
+                            AutomationProperties.AutomationId="AccountManagementPageButton2"
+                            AutomationProperties.Name="{x:Bind domain:Translator.WinoUpgradeMessage, Mode=OneTime}"
+                            Command="{x:Bind ViewModel.PurchaseUnlimitedAccountCommand}"
+                            Style="{StaticResource AccentButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <coreControls:WinoFontIcon
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Icon="Sparkle" />
+                                <TextBlock
+                                    Text="{x:Bind domain:Translator.WinoUpgradeMessage}"
+                                    TextAlignment="Center"
+                                    TextWrapping="WrapWholeWords" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </winuiControls:SettingsCard>
+            </Grid>
+        </Grid>
+
+        <!--  Current Accounts  -->
+        <ListView
+            x:Name="AccountsListView"
+            Grid.Row="1"
+            x:Load="{x:Bind ViewModel.HasAccountsDefined, Mode=OneWay}"
+            AutomationProperties.AutomationId="AccountsListView"
+            CanReorderItems="True"
+            ItemContainerStyle="{StaticResource StretchedItemContainerStyle}"
+            ItemTemplateSelector="{StaticResource AccountProviderViewModelTemplateSelector}"
+            ItemsSource="{x:Bind ViewModel.Accounts, Mode=OneWay}"
+            SelectionMode="None">
+            <ListView.Header>
+                <StackPanel>
+                    <accessibilityControls:WinoSettingsCard
+                        AutomationProperties.AutomationId="AccountManagementPageSettingsCard7"
+                        Command="{x:Bind ViewModel.CreateMergedAccountCommand}"
+                        Description="{x:Bind domain:Translator.SettingsLinkAccounts_Description}"
+                        Header="{x:Bind domain:Translator.SettingsLinkAccounts_Title}"
+                        IsActionIconVisible="False"
+                        IsClickEnabled="True">
+                        <!--  Linked inboxes group accounts, but only the Mail mode reads the grouping.  -->
+                        <Border
+                            Padding="8,2"
+                            Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4">
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.SettingsLinkAccounts_MailOnlyScope}" />
+                        </Border>
+                        <winuiControls:SettingsCard.HeaderIcon>
+                            <coreControls:WinoFontIcon Icon="PeopleLink" />
+                        </winuiControls:SettingsCard.HeaderIcon>
+                    </accessibilityControls:WinoSettingsCard>
+                    <accessibilityControls:WinoSettingsCard
+                        AutomationProperties.AutomationId="AccountManagementPageSettingsCard8"
+                        Command="{x:Bind ViewModel.ReorderAccountsCommand}"
+                        Description="{x:Bind domain:Translator.SettingsReorderAccounts_Description}"
+                        Header="{x:Bind domain:Translator.SettingsReorderAccounts_Title}"
+                        IsActionIconVisible="False"
+                        IsClickEnabled="True">
+                        <winuiControls:SettingsCard.HeaderIcon>
+                            <coreControls:WinoFontIcon Icon="ArrowSort" />
+                        </winuiControls:SettingsCard.HeaderIcon>
+                    </accessibilityControls:WinoSettingsCard>
+                </StackPanel>
+            </ListView.Header>
+            <ListView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <ItemsStackPanel Orientation="Vertical" />
+                </ItemsPanelTemplate>
+            </ListView.ItemsPanel>
+        </ListView>
+
+        <!--  No Accounts Panel  -->
+        <Grid
+            x:Name="NoAccountsPanel"
+            Grid.Row="1"
+            x:Load="{x:Bind ViewModel.HasAccountsDefined, Mode=OneWay, Converter={StaticResource ReverseBooleanConverter}}">
+            <StackPanel
+                Margin="0,150,0,0"
+                VerticalAlignment="Top"
+                Spacing="12">
+                <Viewbox
+                    Width="90"
+                    Height="90"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                    <coreControls:WinoFontIcon
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Icon="PeopleTeam" />
+                </Viewbox>
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource SubheaderTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.SettingsNoAccountSetupMessage}" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</abstract:AccountManagementPageAbstract>

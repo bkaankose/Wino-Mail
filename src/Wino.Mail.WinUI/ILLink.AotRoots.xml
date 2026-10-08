@@ -1,0 +1,10 @@
+<linker>
+  <!--
+    Wino never uses MimeKit's reflection-based DefaultSecureMimeContext. All S/MIME
+    operations construct WindowsSecureMimeContext explicitly; keep its complete surface
+    because certificate-store dispatch reaches implementation members indirectly.
+  -->
+  <assembly fullname="MimeKit">
+    <type fullname="MimeKit.Cryptography.WindowsSecureMimeContext" preserve="all" />
+  </assembly>
+</linker>

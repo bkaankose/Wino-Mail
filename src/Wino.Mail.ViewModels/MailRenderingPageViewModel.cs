@@ -1,0 +1,1322 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using MailKit;
+
+using MimeKit;
+using MimeKit.Cryptography;
+using Serilog;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models;
+using Wino.Core.Domain.Models.Attachments;
+using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Menus;
+using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Printing;
+using Wino.Core.Domain.Models.Reader;
+using Wino.Core.Services;
+using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Models;
+using Wino.Messaging.Client.Mails;
+using Wino.Messaging.UI;
+using IMailService = Wino.Core.Domain.Interfaces.IMailService;
+
+namespace Wino.Mail.ViewModels;
+
+public partial class MailRenderingPageViewModel : MailBaseViewModel,
+    IRecipient<ThumbnailAdded>,
+    ITransferProgress // For listening IMAP message download progress.
+{
+    private const int AttachmentPreviewLimit = 5;
+
+    public event EventHandler CloseRequested;
+    public event EventHandler<ComposeDraftRequestedEventArgs> ComposeRequested;
+
+    private readonly IMailDialogService _dialogService;
+    private readonly IUnderlyingThemeService _underlyingThemeService;
+
+    private readonly IMimeFileService _mimeFileService;
+    private readonly Core.Domain.Interfaces.IMailService _mailService;
+    private readonly IFolderService _folderService;
+    private readonly IFileService _fileService;
+    private readonly IWinoRequestDelegator _requestDelegator;
+    private readonly IContactService _contactService;
+    private readonly IUnsubscriptionService _unsubscriptionService;
+    private readonly IApplicationConfiguration _applicationConfiguration;
+    private readonly IAttachmentFileService _attachmentFileService;
+    private bool forceImageLoading = false;
+
+    private MailItemViewModel initializedMailItemViewModel = null;
+    private MimeMessageInformation initializedMimeMessageInformation = null;
+
+    public IMailPrintPresenter PrintPresenter { get; set; }
+    public Func<string, Task> RenderHtmlAsyncFunc { get; set; }
+    public Func<Task> ClearRenderedHtmlAsyncFunc { get; set; }
+
+    #region Properties
+
+    public bool ShouldDisplayDownloadProgress => IsIndetermineProgress || (CurrentDownloadPercentage > 0 && CurrentDownloadPercentage <= 100);
+    public bool CanUnsubscribe => CurrentRenderModel?.UnsubscribeInfo?.CanUnsubscribe ?? false;
+    public bool IsSmimeSigned => (CurrentRenderModel?.Signatures?.Count ?? 0) > 0;
+    public bool IsSmimeEncrypted => CurrentRenderModel?.IsSmimeEncrypted ?? false;
+    public bool IsJunkMail => initializedMailItemViewModel?.MailCopy.AssignedFolder != null && initializedMailItemViewModel.MailCopy.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk;
+    public bool SmimeSignaturesValid => CurrentRenderModel?.Signatures?.Any(x => x.Value) ?? false;
+    public bool SmimeSignaturesInvalid => !SmimeSignaturesValid;
+    public bool CanShowAllAttachments => Attachments.Count > AttachmentPreviewLimit && !IsShowingAllAttachments;
+
+    public bool IsImageRenderingDisabled
+    {
+        get
+        {
+            if (IsJunkMail)
+            {
+                return !forceImageLoading;
+            }
+            else
+            {
+                return !CurrentRenderModel?.MailRenderingOptions?.LoadImages ?? false;
+            }
+        }
+    }
+
+    private bool isDarkWebviewRenderer;
+    public bool IsDarkWebviewRenderer
+    {
+        get => isDarkWebviewRenderer;
+        set
+        {
+            if (SetProperty(ref isDarkWebviewRenderer, value))
+            {
+                InitializeCommandBarItems();
+            }
+        }
+    }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShouldDisplayDownloadProgress))]
+    public partial bool IsIndetermineProgress { get; set; }
+
+    /// <summary>
+    /// False from the moment a message starts loading until its body has been handed to the renderer.
+    /// The reader shows skeletons while it is false, so no half-populated header is ever on screen.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsLoadingMailContent))]
+    public partial bool IsMailContentReady { get; set; }
+
+    public bool IsLoadingMailContent => !IsMailContentReady;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShouldDisplayDownloadProgress))]
+    public partial double CurrentDownloadPercentage { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanUnsubscribe))]
+    [NotifyPropertyChangedFor(nameof(IsSmimeSigned))]
+    [NotifyPropertyChangedFor(nameof(IsSmimeEncrypted))]
+    [NotifyPropertyChangedFor(nameof(SmimeSignaturesValid))]
+    [NotifyPropertyChangedFor(nameof(SmimeSignaturesInvalid))]
+    public partial MailRenderModel CurrentRenderModel { get; set; }
+
+    [ObservableProperty]
+    public partial string Subject { get; set; }
+
+    [ObservableProperty]
+    public partial string FromAddress { get; set; }
+
+    [ObservableProperty]
+    public partial string FromName { get; set; }
+
+    [ObservableProperty]
+    public partial IMailItemDisplayInformation CurrentMailItemDisplayInformation { get; set; }
+
+    [ObservableProperty]
+    public partial DateTime CreationDate { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanShowAllAttachments))]
+    public partial bool IsShowingAllAttachments { get; set; }
+
+    public ObservableCollection<AccountContactViewModel> ToItems { get; set; } = [];
+    public ObservableCollection<AccountContactViewModel> CcItems { get; set; } = [];
+    public ObservableCollection<AccountContactViewModel> BccItems { get; set; } = [];
+    public ObservableCollection<MailAttachmentViewModel> Attachments { get; set; } = [];
+    public ObservableCollection<MailAttachmentViewModel> DisplayedAttachments { get; set; } = [];
+    [ObservableProperty]
+    public partial IReadOnlyList<IMenuOperation> MenuItems { get; set; } = [];
+
+    #endregion
+
+    public IExternalLauncher ExternalLauncher { get; }
+    private readonly IClipboardService _clipboardService;
+    public IStatePersistanceService StatePersistenceService { get; }
+    public IPreferencesService PreferencesService { get; }
+    public IPlatformCapabilities PlatformCapabilities { get; }
+    public Guid? CurrentMailAccountId => initializedMailItemViewModel?.MailCopy.AssignedAccount?.Id;
+    public Guid? CurrentMailFileId => initializedMailItemViewModel?.MailCopy.FileId;
+
+    public override async Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args)
+    {
+        if (args.Handled || args.Mode != WinoApplicationMode.Mail || initializedMailItemViewModel is null ||
+            args.InputContext is not (KeyboardShortcutInputContext.Reader or KeyboardShortcutInputContext.PopOutReader))
+        {
+            return;
+        }
+
+        var operation = args.Action switch
+        {
+            KeyboardShortcutAction.ToggleReadUnread => initializedMailItemViewModel.IsRead ? MailOperation.MarkAsUnread : MailOperation.MarkAsRead,
+            KeyboardShortcutAction.ToggleFlag => initializedMailItemViewModel.IsFlagged ? MailOperation.ClearFlag : MailOperation.SetFlag,
+            KeyboardShortcutAction.ToggleArchive => initializedMailItemViewModel.MailCopy.AssignedFolder?.SpecialFolderType == SpecialFolderType.Archive
+                ? MailOperation.UnArchive
+                : MailOperation.Archive,
+            KeyboardShortcutAction.Delete => MailOperation.SoftDelete,
+            KeyboardShortcutAction.Move => MailOperation.Move,
+            KeyboardShortcutAction.Reply => MailOperation.Reply,
+            KeyboardShortcutAction.ReplyAll => MailOperation.ReplyAll,
+            _ => MailOperation.None
+        };
+
+        if (operation == MailOperation.None)
+            return;
+
+        await HandleMailOperationAsync(operation);
+        args.Handled = true;
+    }
+
+    public MailRenderingPageViewModel(IMailDialogService dialogService,
+        IExternalLauncher externalLauncher,
+        IClipboardService clipboardService,
+        IUnderlyingThemeService underlyingThemeService,
+        IMimeFileService mimeFileService,
+        IMailService mailService,
+        IFolderService folderService,
+        IFileService fileService,
+        IWinoRequestDelegator requestDelegator,
+        IStatePersistanceService statePersistenceService,
+        IContactService contactService,
+        IUnsubscriptionService unsubscriptionService,
+        IPreferencesService preferencesService,
+        IPlatformCapabilities platformCapabilities,
+        IApplicationConfiguration applicationConfiguration,
+        IAttachmentFileService attachmentFileService = null)
+    {
+        _dialogService = dialogService;
+        ExternalLauncher = externalLauncher;
+        _clipboardService = clipboardService;
+        StatePersistenceService = statePersistenceService;
+        _contactService = contactService;
+        PreferencesService = preferencesService;
+        PlatformCapabilities = platformCapabilities;
+        _applicationConfiguration = applicationConfiguration;
+        _attachmentFileService = attachmentFileService;
+        _unsubscriptionService = unsubscriptionService;
+        _underlyingThemeService = underlyingThemeService;
+        _mimeFileService = mimeFileService;
+        _mailService = mailService;
+        _folderService = folderService;
+        _fileService = fileService;
+        _requestDelegator = requestDelegator;
+        IsDarkWebviewRenderer = _underlyingThemeService.IsUnderlyingThemeDark();
+    }
+
+    [RelayCommand]
+    private async Task CopyClipboard(string copyText)
+    {
+        try
+        {
+            (await _clipboardService.CopyTextAsync(copyText)).ThrowIfNotSucceeded();
+
+            _dialogService.InfoBarMessage(Translator.ClipboardTextCopied_Title, string.Format(Translator.ClipboardTextCopied_Message, copyText), InfoBarMessageType.Information);
+        }
+        catch (Exception)
+        {
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, string.Format(Translator.ClipboardTextCopyFailed_Message, copyText), InfoBarMessageType.Error);
+        }
+    }
+
+    [RelayCommand]
+    private async Task ForceImageLoading()
+    {
+        if (initializedMailItemViewModel == null && initializedMimeMessageInformation == null) return;
+
+        await RenderAsync(initializedMimeMessageInformation, ignoreJunkFilter: true);
+    }
+
+    [RelayCommand]
+    private async Task UnsubscribeAsync()
+    {
+        if (!(CurrentRenderModel?.UnsubscribeInfo?.CanUnsubscribe ?? false)) return;
+
+        bool confirmed;
+
+        // Try to unsubscribe by http first.
+        if (CurrentRenderModel.UnsubscribeInfo.HttpLink is not null)
+        {
+            if (!Uri.IsWellFormedUriString(CurrentRenderModel.UnsubscribeInfo.HttpLink, UriKind.RelativeOrAbsolute))
+            {
+                _dialogService.InfoBarMessage(Translator.Info_UnsubscribeLinkInvalidTitle, Translator.Info_UnsubscribeLinkInvalidMessage, InfoBarMessageType.Error);
+                return;
+            }
+
+            // Support for List-Unsubscribe-Post header. It can be done without launching browser.
+            // https://datatracker.ietf.org/doc/html/rfc8058
+            if (CurrentRenderModel.UnsubscribeInfo.IsOneClick)
+            {
+                confirmed = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationOneClickMessage, FromName), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.Unsubscribe);
+                if (!confirmed) return;
+
+                bool isOneClickUnsubscribed = await _unsubscriptionService.OneClickUnsubscribeAsync(CurrentRenderModel.UnsubscribeInfo);
+
+                if (isOneClickUnsubscribed)
+                {
+                    _dialogService.InfoBarMessage(Translator.Unsubscribe, string.Format(Translator.Info_UnsubscribeSuccessMessage, FromName), InfoBarMessageType.Success);
+                }
+                else
+                {
+                    _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, Translator.Info_UnsubscribeErrorMessage, InfoBarMessageType.Error);
+                }
+            }
+            else
+            {
+                confirmed = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationGoToWebsiteMessage, FromName), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.DialogMessage_UnsubscribeConfirmationGoToWebsiteConfirmButton);
+                if (!confirmed) return;
+
+                (await ExternalLauncher.LaunchUriAsync(new Uri(CurrentRenderModel.UnsubscribeInfo.HttpLink))).ThrowIfNotSucceeded();
+            }
+        }
+        else if (CurrentRenderModel.UnsubscribeInfo.MailToLink is not null)
+        {
+            confirmed = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationMailtoMessage, FromName, new string(CurrentRenderModel.UnsubscribeInfo.MailToLink.Skip(7).ToArray())), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.Unsubscribe);
+
+            if (!confirmed) return;
+
+            // TODO: Implement automatic mail send after user confirms the action.
+            // Currently it will launch compose page and user should manually press send button.
+            (await ExternalLauncher.LaunchUriAsync(new Uri(CurrentRenderModel.UnsubscribeInfo.MailToLink))).ThrowIfNotSucceeded();
+        }
+    }
+
+    [RelayCommand]
+    private async Task OperationClicked(IMenuOperation menuItem)
+    {
+        if (menuItem is not MailOperationMenuItem mailOperationMenuItem) return;
+
+        await HandleMailOperationAsync(mailOperationMenuItem.Operation);
+    }
+
+    private async Task HandleMailOperationAsync(MailOperation operation)
+    {
+        if ((operation == MailOperation.Print && !PlatformCapabilities.Printing) ||
+            ((operation is MailOperation.SaveAs or MailOperation.SaveAsPdf) && !PlatformCapabilities.PdfExport))
+            return;
+
+        try
+        {
+            if (operation == MailOperation.SaveAs)
+            {
+                await SaveAsPdfAsync();
+            }
+            else if (operation == MailOperation.SaveAsPdf)
+            {
+                await SaveAsPdfAsync();
+            }
+            else if (operation == MailOperation.SaveAsEml)
+            {
+                await SaveAsEmlAsync();
+            }
+            else if (operation == MailOperation.Print)
+            {
+                var printingResult = await PrintAsync();
+
+                // TODO: More detailed printing result handling.
+                if (printingResult == PrintingResult.Submitted)
+                {
+                    _dialogService.InfoBarMessage(Translator.DialogMessage_PrintingSuccessTitle, Translator.DialogMessage_PrintingSuccessMessage, InfoBarMessageType.Success);
+                }
+                else if (printingResult == PrintingResult.Canceled)
+                {
+                    return;
+                }
+                else if (printingResult is PrintingResult.Failed or PrintingResult.Unavailable)
+                {
+                    _dialogService.InfoBarMessage(Translator.DialogMessage_PrintingFailedTitle, Translator.DialogMessage_PrintingFailedMessage, InfoBarMessageType.Error);
+                }
+
+            }
+            else if (operation == MailOperation.ViewMessageSource)
+            {
+                await _dialogService.ShowMessageSourceDialogAsync(initializedMimeMessageInformation.MimeMessage.ToString());
+            }
+            else if (operation == MailOperation.Reply || operation == MailOperation.ReplyAll || operation == MailOperation.Forward)
+            {
+                if (initializedMailItemViewModel == null) return;
+
+                // Create new draft.
+                var draftOptions = new DraftCreationOptions()
+                {
+                    Reason = operation switch
+                    {
+                        MailOperation.Reply => DraftCreationReason.Reply,
+                        MailOperation.ReplyAll => DraftCreationReason.ReplyAll,
+                        MailOperation.Forward => DraftCreationReason.Forward,
+                        _ => DraftCreationReason.Empty
+                    },
+                    ReferencedMessage = new ReferencedMessage()
+                    {
+                        MimeMessage = initializedMimeMessageInformation.MimeMessage,
+                        MailCopy = initializedMailItemViewModel.MailCopy
+                    }
+                };
+
+                var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(initializedMailItemViewModel.MailCopy.AssignedAccount.Id, draftOptions).ConfigureAwait(false);
+
+                var draftPreparationRequest = new DraftPreparationRequest(initializedMailItemViewModel.MailCopy.AssignedAccount, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason, initializedMailItemViewModel.MailCopy);
+
+                await _requestDelegator.ExecuteAsync(draftPreparationRequest).ConfigureAwait(false);
+                await ExecuteUIThread(() =>
+                    ComposeRequested?.Invoke(this, new ComposeDraftRequestedEventArgs(draftMailCopy.UniqueId)));
+
+            }
+            else if (initializedMailItemViewModel != null)
+            {
+                // All other operations require a mail item.
+                var prepRequest = new MailOperationPreperationRequest(operation, initializedMailItemViewModel.MailCopy);
+                await _requestDelegator.ExecuteAsync(prepRequest);
+            }
+        }
+        catch (UnavailableSpecialFolderException unavailableSpecialFolderException)
+        {
+            _dialogService.InfoBarMessage(Translator.Info_MissingFolderTitle,
+                                          string.Format(Translator.Info_MissingFolderMessage, unavailableSpecialFolderException.SpecialFolderType),
+                                          InfoBarMessageType.Warning,
+                                          Translator.SettingConfigureSpecialFolders_Button,
+                                          () =>
+                                          {
+                                              _dialogService.HandleSystemFolderConfigurationDialogAsync(unavailableSpecialFolderException.AccountId, _folderService);
+                                          });
+        }
+        catch (MimePersistenceException ex)
+        {
+            _dialogService.InfoBarMessage(Translator.Info_DraftCreationFailed, ex.Message, InfoBarMessageType.Error);
+        }
+        catch (NotImplementedException)
+        {
+            _dialogService.ShowNotSupportedMessage();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Mail operation execution failed. Operation: {Operation}", operation);
+            _dialogService.InfoBarMessage(Translator.Info_RequestCreationFailedTitle, ex.Message, InfoBarMessageType.Error);
+        }
+    }
+
+    private CancellationTokenSource renderCancellationTokenSource = new CancellationTokenSource();
+    private int _loadVersion;
+    private int _downloadLoadVersion;
+
+    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        => await InitializeNavigationAsync(mode, parameters);
+
+    public async Task InitializeNavigationAsync(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedTo(mode, parameters);
+
+        BeginMailContentLoad();
+
+        // Only a fresh navigation blanks the renderer. Re-entry keeps the previous body on screen
+        // behind the loading treatment, which is what removes the flash between two messages.
+        if (ClearRenderedHtmlAsyncFunc != null)
+        {
+            await ExecuteUIThreadAsync(ClearRenderedHtmlAsyncFunc);
+        }
+
+        await LoadContentAsync(parameters);
+    }
+
+    /// <summary>
+    /// Puts the reader into its loading state and drops every trace of the message it was showing.
+    /// </summary>
+    /// <remarks>
+    /// The page is reused across selections, so this is the only thing standing between the previous
+    /// message's sender, date, recipients and attachments and the next message's body.
+    /// </remarks>
+    public void BeginMailContentLoad()
+    {
+        _loadVersion++;
+
+        // Recreated rather than nulled or disposed: a render that is still resuming reads this
+        // token, and both ThrowIfCancellationRequested and any registration on a disposed source
+        // would fault instead of cancelling.
+        var previousCancellationTokenSource = renderCancellationTokenSource;
+
+        renderCancellationTokenSource = new CancellationTokenSource();
+
+        previousCancellationTokenSource?.Cancel();
+
+        IsMailContentReady = false;
+
+        initializedMailItemViewModel = null;
+        initializedMimeMessageInformation = null;
+        CurrentMailItemDisplayInformation = null;
+        CurrentRenderModel = null;
+
+        Subject = string.Empty;
+        FromName = string.Empty;
+        FromAddress = string.Empty;
+        CreationDate = default;
+
+        // The recipient and attachment collections are deliberately left alone: RenderAsync clears
+        // and repopulates them in one UI pass, and they stay hidden behind the loading treatment
+        // until then. Emptying them here would add a second teardown of the items controls bound to
+        // them, which a fast switch can interleave with that repopulation.
+        IsShowingAllAttachments = false;
+
+        ResetProgress();
+
+        // With no initialized item this leaves only Save As and Print, so nothing message-specific
+        // is invocable while the reader is loading.
+        InitializeCommandBarItems();
+    }
+
+    /// <summary>
+    /// Renders the given selection or EML file into the reader.
+    /// </summary>
+    /// <remarks>
+    /// This page is reached for two purposes: a selected mail item, and an existing EML file passed
+    /// as a <see cref="MimeMessageInformation"/>. EML rendering is read-only, so it gets no
+    /// message-specific command bar items.
+    /// </remarks>
+    public async Task LoadContentAsync(object parameters)
+    {
+        var loadVersion = _loadVersion;
+
+        try
+        {
+            IsDarkWebviewRenderer = _underlyingThemeService.IsUnderlyingThemeDark();
+
+            // Mime content might not be available for now and might require a download.
+            if (parameters is MailItemViewModel selectedMailItemViewModel)
+                await RenderAsync(selectedMailItemViewModel, renderCancellationTokenSource.Token);
+            else if (parameters is MimeMessageInformation mimeMessageInformation)
+                await RenderAsync(mimeMessageInformation);
+
+            InitializeCommandBarItems();
+
+            if (loadVersion == _loadVersion)
+                await ExecuteUIThread(() => IsMailContentReady = true);
+        }
+        catch (OperationCanceledException)
+        {
+            // A newer load owns the reader now, including its loading state.
+            Log.Information("Canceled mail rendering.");
+        }
+        catch (Exception ex)
+        {
+            ShowMailRenderingFailedMessage(ex);
+
+            Log.Error(ex, "Failed to render mail.");
+
+            // Leave an empty reader behind the error rather than a skeleton that never resolves.
+            if (loadVersion == _loadVersion)
+                await ExecuteUIThread(() => IsMailContentReady = true);
+        }
+    }
+
+    private void ShowMailRenderingFailedMessage(Exception ex)
+    {
+        if (string.Equals(ex.Message, Translator.Exception_WebView2RuntimeMissing_Message, StringComparison.Ordinal))
+        {
+            _dialogService.InfoBarMessage(Translator.Exception_WebView2RuntimeMissing_Title, Translator.Exception_WebView2RuntimeMissing_Message, InfoBarMessageType.Error);
+        }
+        else
+        {
+            _dialogService.InfoBarMessage(Translator.Info_MailRenderingFailedTitle, string.Format(Translator.Info_MailRenderingFailedMessage, ex.Message), InfoBarMessageType.Error);
+        }
+    }
+
+    private void ShowMissingMimeMessage(MailAccount account)
+    {
+        // The shell already shows the account attention state with its fix action.
+        if (account != null && account.AttentionReason != AccountAttentionReason.None)
+        {
+            Log.Information("MIME for the selected mail is unavailable because account {AccountId} needs attention.", account.Id);
+            return;
+        }
+
+        _dialogService.InfoBarMessage(Translator.Info_ComposerMissingMIMETitle, Translator.Info_ComposerMissingMIMEMessage, InfoBarMessageType.Warning);
+    }
+
+    /// <returns>True when a download failure was already shown to the user.</returns>
+    private async Task<bool> HandleSingleItemDownloadAsync(MailItemViewModel mailItemViewModel)
+    {
+        // A transfer that gets superseded still runs to completion so the MIME lands in the cache,
+        // but from that moment it must not touch the reader's progress.
+        var downloadVersion = _loadVersion;
+
+        _downloadLoadVersion = downloadVersion;
+
+        try
+        {
+            // Only IMAP reports transferred bytes. Everything else has to show a marquee, or the
+            // download reads as a hung reader.
+            await ExecuteUIThread(() => IsIndetermineProgress = true);
+
+            // Download missing MIME message using SynchronizationManager
+            await SynchronizationManager.Instance.DownloadMimeMessageAsync(
+                mailItemViewModel.MailCopy,
+                mailItemViewModel.MailCopy.AssignedAccount.Id).ConfigureAwait(false);
+
+            return false;
+        }
+        catch (OperationCanceledException)
+        {
+            Log.Information("MIME download is canceled.");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
+            return true;
+        }
+        finally
+        {
+            if (downloadVersion == _loadVersion)
+            {
+                await ExecuteUIThread(ResetProgress);
+            }
+        }
+    }
+
+    private async Task RenderAsync(MailItemViewModel mailItemViewModel, CancellationToken cancellationToken = default)
+    {
+        ResetProgress();
+        var isMimeExists = await _mimeFileService.IsMimeExistAsync(mailItemViewModel.MailCopy.AssignedAccount.Id, mailItemViewModel.MailCopy.FileId);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!isMimeExists)
+        {
+            var downloadFailureReported = await HandleSingleItemDownloadAsync(mailItemViewModel);
+
+            // A download can take seconds, which is long enough for the user to select something else.
+            // The transfer still finishes and caches the MIME; it just no longer owns the reader.
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // The download returns without a file when the account needs attention, the device is
+            // offline, or the server rejects the request. Reading the MIME then throws, so report
+            // the state once and leave the reader empty.
+            isMimeExists = await _mimeFileService.IsMimeExistAsync(mailItemViewModel.MailCopy.AssignedAccount.Id, mailItemViewModel.MailCopy.FileId);
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!isMimeExists)
+            {
+                if (!downloadFailureReported)
+                    ShowMissingMimeMessage(mailItemViewModel.MailCopy.AssignedAccount);
+
+                return;
+            }
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // Find the MIME for this item and render it.
+        var mimeMessageInformation = await _mimeFileService.GetMimeMessageInformationAsync(mailItemViewModel.MailCopy.FileId,
+                                                                                           mailItemViewModel.MailCopy.AssignedAccount.Id,
+                                                                                           cancellationToken).ConfigureAwait(false);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (mimeMessageInformation == null)
+        {
+            _dialogService.InfoBarMessage(Translator.Info_MessageCorruptedTitle, Translator.Info_MessageCorruptedMessage, InfoBarMessageType.Error);
+            return;
+        }
+
+        initializedMailItemViewModel = mailItemViewModel;
+        await ExecuteUIThread(() => { CurrentMailItemDisplayInformation = mailItemViewModel; });
+        await RenderAsync(mimeMessageInformation);
+    }
+
+    private async Task RenderAsync(MimeMessageInformation mimeMessageInformation, bool ignoreJunkFilter = false)
+    {
+        forceImageLoading = ignoreJunkFilter;
+
+        var message = mimeMessageInformation.MimeMessage;
+        var messagePath = mimeMessageInformation.Path;
+
+        initializedMimeMessageInformation = mimeMessageInformation;
+
+        // TODO: Handle S/MIME decryption.
+        // initializedMimeMessageInformation.MimeMessage.Body is MultipartSigned
+
+        var renderingOptions = PreferencesService.GetRenderingOptions();
+
+        // Prepare account contacts info in advance, to avoid UI shifts after clearing collections.
+        var toAccountContacts = await GetAccountContacts(message.To);
+        var ccAccountContacts = await GetAccountContacts(message.Cc);
+        var bccAccountContacts = await GetAccountContacts(message.Bcc);
+
+        await ExecuteUIThread(() =>
+        {
+            Attachments.Clear();
+            DisplayedAttachments.Clear();
+            ToItems.Clear();
+            CcItems.Clear();
+            BccItems.Clear();
+            IsShowingAllAttachments = false;
+
+            foreach (var item in toAccountContacts)
+                ToItems.Add(item);
+            foreach (var item in ccAccountContacts)
+                CcItems.Add(item);
+            foreach (var item in bccAccountContacts)
+                BccItems.Add(item);
+
+            Subject = string.IsNullOrWhiteSpace(message.Subject) ? Translator.MailItemNoSubject : message.Subject;
+
+            // TODO: FromName and FromAddress is probably not correct here for mail lists.
+            FromAddress = message.From.Mailboxes.FirstOrDefault()?.Address ?? Translator.UnknownAddress;
+            FromName = message.From.Mailboxes.FirstOrDefault()?.Name ?? Translator.UnknownSender;
+
+            // Use the received date from MailCopy if available, otherwise fall back to the sent date from MIME message
+            CreationDate = initializedMailItemViewModel?.MailCopy.CreationDate ?? message.Date.DateTime;
+
+            // Automatically block remote image loading for Junk folder to reduce pixel tracking.
+            // This can only work for selected mail item rendering, not for EML file rendering.
+            if (initializedMailItemViewModel != null &&
+                initializedMailItemViewModel.MailCopy.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk)
+            {
+                renderingOptions.LoadImages = false;
+            }
+
+            // Load images if forced.
+            if (ignoreJunkFilter)
+            {
+                renderingOptions.LoadImages = true;
+            }
+
+            CurrentRenderModel = _mimeFileService.GetMailRenderModel(message, messagePath, renderingOptions);
+
+            foreach (var attachment in CurrentRenderModel.Attachments)
+            {
+                var attachmentViewModel = new MailAttachmentViewModel(attachment);
+                Attachments.Add(attachmentViewModel);
+                BeginAttachmentInspection(attachmentViewModel, renderCancellationTokenSource.Token);
+            }
+
+            RefreshDisplayedAttachments();
+
+            OnPropertyChanged(nameof(IsImageRenderingDisabled));
+
+            StatePersistenceService.IsReadingMail = true;
+        });
+
+        if (RenderHtmlAsyncFunc != null)
+        {
+            await ExecuteUIThreadAsync(() => RenderHtmlAsyncFunc(CurrentRenderModel.RenderHtml))
+                .ConfigureAwait(false);
+        }
+    }
+
+    private async Task<List<AccountContactViewModel>> GetAccountContacts(InternetAddressList internetAddresses)
+    {
+        List<AccountContactViewModel> accounts = [];
+        foreach (var item in internetAddresses)
+        {
+            if (item is MailboxAddress mailboxAddress)
+            {
+                var foundContact = await _contactService.GetContactByAddressAsync(CurrentMailAccountId, mailboxAddress.Address).ConfigureAwait(false)
+                    ?? new AccountContact() { Name = mailboxAddress.Name, Address = mailboxAddress.Address };
+
+                var contactViewModel = new AccountContactViewModel(foundContact);
+
+                // Make sure that user account first in the list.
+                if (string.Equals(contactViewModel.Address, initializedMailItemViewModel?.MailCopy.AssignedAccount?.Address, StringComparison.OrdinalIgnoreCase))
+                {
+                    contactViewModel.IsMe = true;
+                    accounts.Insert(0, contactViewModel);
+                }
+                else
+                {
+                    accounts.Add(contactViewModel);
+                }
+            }
+            else if (item is GroupAddress groupAddress)
+            {
+                accounts.AddRange(await GetAccountContacts(groupAddress.Members));
+            }
+        }
+
+        if (accounts.Count > 0)
+            accounts[^1].IsSemicolon = false;
+
+        return accounts;
+    }
+
+    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedFrom(mode, parameters);
+
+        renderCancellationTokenSource?.Cancel();
+
+        CurrentDownloadPercentage = 0d;
+        IsMailContentReady = false;
+
+        initializedMailItemViewModel = null;
+        initializedMimeMessageInformation = null;
+        CurrentMailItemDisplayInformation = null;
+
+        forceImageLoading = false;
+
+        StatePersistenceService.IsReadingMail = false;
+    }
+
+    private void ResetProgress()
+    {
+        CurrentDownloadPercentage = 0;
+        IsIndetermineProgress = false;
+    }
+
+    private void InitializeCommandBarItems()
+    {
+        var menuItems = new List<IMenuOperation>();
+
+        // Save As PDF
+        if (PlatformCapabilities.PdfExport)
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.SaveAs, true, true));
+        else
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.SaveAsEml, true, true));
+
+        // Print
+        if (PlatformCapabilities.Printing)
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.Print, true, true));
+
+        if (initializedMailItemViewModel == null)
+        {
+            MenuItems = menuItems;
+            return;
+        }
+
+        var assignedFolder = initializedMailItemViewModel.MailCopy.AssignedFolder;
+
+        if (assignedFolder == null)
+        {
+            Log.Warning("Skipping folder-specific mail commands because AssignedFolder is missing for {MailUniqueId}",
+                initializedMailItemViewModel.MailCopy.UniqueId);
+            MenuItems = menuItems;
+            return;
+        }
+
+        menuItems.Add(MailOperationMenuItem.Create(MailOperation.Seperator));
+
+        // You can't do these to draft items.
+        if (!initializedMailItemViewModel.IsDraft)
+        {
+            // Reply
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.Reply));
+
+            // Reply All
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.ReplyAll));
+
+            // Forward
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.Forward));
+        }
+
+        if (initializedMimeMessageInformation?.MimeMessage != null)
+        {
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.ViewMessageSource, true, true));
+        }
+
+        // Archive - Unarchive
+        if (assignedFolder.SpecialFolderType == SpecialFolderType.Archive)
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.UnArchive));
+        else
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.Archive));
+
+        // Delete
+        menuItems.Add(MailOperationMenuItem.Create(MailOperation.SoftDelete));
+
+        // Flag - Clear Flag
+        if (initializedMailItemViewModel.IsFlagged)
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.ClearFlag));
+        else
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.SetFlag));
+
+        // Secondary items.
+
+        // Read - Unread
+        if (initializedMailItemViewModel.IsRead)
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.MarkAsUnread, true, false));
+        else
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.MarkAsRead, true, false));
+
+        if (assignedFolder.SpecialFolderType == SpecialFolderType.Junk)
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.MarkAsNotJunk, true, true));
+        else if (!initializedMailItemViewModel.IsDraft &&
+                 assignedFolder.SpecialFolderType != SpecialFolderType.Sent)
+            menuItems.Add(MailOperationMenuItem.Create(MailOperation.MoveToJunk, true, true));
+
+        MenuItems = menuItems;
+    }
+
+    protected override async void OnMailUpdated(MailCopy updatedMail, EntityUpdateSource source, MailCopyChangeFlags changedProperties)
+    {
+        base.OnMailUpdated(updatedMail, source, changedProperties);
+
+        if (initializedMailItemViewModel == null) return;
+
+        // Check if the updated mail is the same mail item we are rendering.
+        // This is done with UniqueId to include FolderId into calculations.
+        if (initializedMailItemViewModel.MailCopy.UniqueId != updatedMail.UniqueId) return;
+
+        await ExecuteUIThread(() => { InitializeCommandBarItems(); });
+    }
+
+    protected override async void OnMailStateUpdated(MailStateChange updatedState, EntityUpdateSource source)
+    {
+        base.OnMailStateUpdated(updatedState, source);
+
+        if (initializedMailItemViewModel == null || updatedState == null)
+            return;
+
+        if (initializedMailItemViewModel.MailCopy.UniqueId != updatedState.UniqueId)
+            return;
+
+        await ExecuteUIThread(() =>
+        {
+            initializedMailItemViewModel.ApplyStateChanges(updatedState.IsRead, updatedState.IsFlagged);
+            InitializeCommandBarItems();
+        });
+    }
+
+    protected override async void OnMailRemoved(MailCopy removedMail, EntityUpdateSource source)
+    {
+        base.OnMailRemoved(removedMail, source);
+
+        if (initializedMailItemViewModel?.MailCopy == null)
+            return;
+
+        if (initializedMailItemViewModel.MailCopy.UniqueId != removedMail.UniqueId)
+            return;
+
+        await ExecuteUIThread(() => CloseRequested?.Invoke(this, EventArgs.Empty));
+    }
+
+    [RelayCommand]
+    private async Task OpenAttachmentAsync(MailAttachmentViewModel attachmentViewModel)
+    {
+        if (attachmentViewModel == null || initializedMimeMessageInformation == null)
+            return;
+
+        try
+        {
+            attachmentViewModel.IsBusy = true;
+            var detection = await attachmentViewModel.GetInspectionAsync();
+            var source = attachmentViewModel.CreateFileSource(AttachmentFileOrigin.Received);
+            var result = await _attachmentFileService.OpenAsync(
+                source,
+                initializedMimeMessageInformation.Path,
+                detection,
+                mismatchApproved: false);
+
+            if (result.Status == AttachmentFileOperationStatus.ConfirmationRequired)
+            {
+                var approved = await _dialogService.ShowWinoCustomMessageDialogAsync(
+                    Translator.Attachment_ContentTypeMismatchTitle,
+                    string.Format(
+                        Translator.Attachment_ContentTypeMismatchMessage,
+                        attachmentViewModel.FileName,
+                        detection.Description ?? detection.Label ?? Translator.Attachment_UnknownContentType),
+                    Translator.Attachment_OpenAnyway,
+                    WinoCustomMessageDialogIcon.Warning,
+                    Translator.Buttons_Cancel);
+
+                if (approved)
+                {
+                    result = await _attachmentFileService.OpenAsync(
+                        source,
+                        initializedMimeMessageInformation.Path,
+                        detection,
+                        mismatchApproved: true);
+                }
+            }
+
+            if (result.Status is AttachmentFileOperationStatus.Failed or AttachmentFileOperationStatus.PolicyBlocked or AttachmentFileOperationStatus.Unavailable)
+                throw new IOException(result.ErrorMessage);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to open attachment.");
+
+            _dialogService.InfoBarMessage(Translator.Info_AttachmentOpenFailedTitle, Translator.Info_AttachmentOpenFailedMessage, InfoBarMessageType.Error);
+        }
+        finally
+        {
+            attachmentViewModel.IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SaveAttachmentAsync(MailAttachmentViewModel attachmentViewModel)
+    {
+        if (attachmentViewModel == null)
+            return;
+
+        try
+        {
+            attachmentViewModel.IsBusy = true;
+
+            var pickedPath = await _dialogService.PickWindowsFolderAsync();
+
+            if (string.IsNullOrEmpty(pickedPath)) return;
+
+            var result = await _attachmentFileService.SaveAsync(
+                attachmentViewModel.CreateFileSource(AttachmentFileOrigin.Received),
+                pickedPath);
+
+            if (!result.IsSuccess)
+                throw new IOException(result.ErrorMessage);
+
+            _dialogService.InfoBarMessage(Translator.Info_AttachmentSaveSuccessTitle, Translator.Info_AttachmentSaveSuccessMessage, InfoBarMessageType.Success);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to save attachment.");
+
+            _dialogService.InfoBarMessage(Translator.Info_AttachmentSaveFailedTitle, Translator.Info_AttachmentSaveFailedMessage, InfoBarMessageType.Error);
+        }
+        finally
+        {
+            attachmentViewModel.IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private void ShowAllAttachments()
+    {
+        IsShowingAllAttachments = true;
+    }
+
+    partial void OnIsShowingAllAttachmentsChanged(bool value)
+    {
+        RefreshDisplayedAttachments();
+    }
+
+    private void RefreshDisplayedAttachments()
+    {
+        DisplayedAttachments.Clear();
+
+        var attachmentsToDisplay = IsShowingAllAttachments
+            ? Attachments
+            : Attachments.Take(AttachmentPreviewLimit);
+
+        foreach (var attachment in attachmentsToDisplay)
+        {
+            DisplayedAttachments.Add(attachment);
+        }
+
+        OnPropertyChanged(nameof(CanShowAllAttachments));
+    }
+
+    [RelayCommand]
+    private async Task SaveAllAttachmentsAsync()
+    {
+        var pickedPath = await _dialogService.PickWindowsFolderAsync();
+
+        if (string.IsNullOrEmpty(pickedPath)) return;
+
+        try
+        {
+            var failedAttachmentCount = 0;
+            foreach (var attachmentViewModel in Attachments)
+            {
+                var result = await _attachmentFileService.SaveAsync(
+                    attachmentViewModel.CreateFileSource(AttachmentFileOrigin.Received),
+                    pickedPath);
+
+                if (!result.IsSuccess)
+                    failedAttachmentCount++;
+            }
+
+            if (failedAttachmentCount == 0)
+            {
+                _dialogService.InfoBarMessage(Translator.Info_AttachmentSaveSuccessTitle, Translator.Info_AttachmentSaveSuccessMessage, InfoBarMessageType.Success);
+            }
+            else
+            {
+                Log.Warning("Failed to save {FailedAttachmentCount} of {AttachmentCount} attachments.", failedAttachmentCount, Attachments.Count);
+                _dialogService.InfoBarMessage(Translator.Info_AttachmentSaveFailedTitle, Translator.Info_AttachmentSaveFailedMessage, InfoBarMessageType.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to save attachment.");
+
+            _dialogService.InfoBarMessage(Translator.Info_AttachmentSaveFailedTitle, Translator.Info_AttachmentSaveFailedMessage, InfoBarMessageType.Error);
+        }
+    }
+
+    private async Task SaveAsPdfAsync()
+    {
+        try
+        {
+            var pickedFolder = await _dialogService.PickWindowsFolderAsync();
+
+            if (string.IsNullOrEmpty(pickedFolder)) return;
+
+            var pdfFilePath = Path.Combine(pickedFolder, $"{GetSuggestedSaveAsFileName()}.pdf");
+
+            if (PrintPresenter == null)
+                throw new PlatformNotSupportedException("PDF presentation is unavailable.");
+
+            var result = await PrintPresenter.ExportPdfAsync(pdfFilePath);
+            result.ThrowIfNotSucceeded();
+            bool isSaved = result.IsSuccess;
+
+            if (isSaved)
+            {
+                _dialogService.InfoBarMessage(Translator.Info_PDFSaveSuccessTitle,
+                    string.Format(Translator.Info_PDFSaveSuccessMessage, pdfFilePath),
+                    InfoBarMessageType.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to save as PDF.");
+            _dialogService.InfoBarMessage(Translator.Info_PDFSaveFailedTitle, ex.Message, InfoBarMessageType.Error);
+        }
+    }
+
+    private async Task SaveAsEmlAsync()
+    {
+        try
+        {
+            if (initializedMimeMessageInformation?.MimeMessage == null)
+            {
+                _dialogService.InfoBarMessage(Translator.Info_EMLSaveFailedTitle, Translator.Info_ComposerMissingMIMEMessage, InfoBarMessageType.Error);
+                return;
+            }
+
+            var pickedFolder = await _dialogService.PickWindowsFolderAsync();
+
+            if (string.IsNullOrEmpty(pickedFolder)) return;
+
+            var fileName = $"{GetSuggestedSaveAsFileName()}.eml";
+            var emlFilePath = Path.Combine(pickedFolder, fileName);
+
+            await using (var stream = await _fileService.GetFileStreamAsync(pickedFolder, fileName))
+            {
+                await initializedMimeMessageInformation.MimeMessage.WriteToAsync(stream);
+            }
+
+            _dialogService.InfoBarMessage(
+                Translator.Info_EMLSaveSuccessTitle,
+                string.Format(Translator.Info_EMLSaveSuccessMessage, emlFilePath),
+                InfoBarMessageType.Success);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to save as EML.");
+            _dialogService.InfoBarMessage(Translator.Info_EMLSaveFailedTitle, ex.Message, InfoBarMessageType.Error);
+        }
+    }
+
+    private async Task<PrintingResult> PrintAsync()
+    {
+        if (!PlatformCapabilities.Printing || PrintPresenter == null)
+            return PrintingResult.Unavailable;
+
+        var printTitle = string.IsNullOrWhiteSpace(Subject)
+            ? Translator.MailItemNoSubject
+            : Subject;
+
+        return await PrintPresenter.PrintAsync(new MailPrintRequest(printTitle));
+    }
+
+    private void BeginAttachmentInspection(MailAttachmentViewModel attachmentViewModel, CancellationToken cancellationToken)
+    {
+        if (_attachmentFileService == null)
+            return;
+
+        var inspection = _attachmentFileService
+            .InspectAsync(attachmentViewModel.CreateFileSource(AttachmentFileOrigin.Received), cancellationToken)
+            .AsTask();
+        attachmentViewModel.BeginInspection(inspection);
+        _ = ApplyAttachmentInspectionAsync(attachmentViewModel, inspection);
+    }
+
+    private async Task ApplyAttachmentInspectionAsync(
+        MailAttachmentViewModel attachmentViewModel,
+        Task<ContentTypeDetectionResult> inspection)
+    {
+        try
+        {
+            var detection = await inspection.ConfigureAwait(false);
+            await ExecuteUIThread(() => attachmentViewModel.ContentTypeDetection = detection).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private string GetSuggestedSaveAsFileName()
+    {
+        var suggestedName = initializedMailItemViewModel?.FromAddress;
+
+        if (string.IsNullOrWhiteSpace(suggestedName))
+        {
+            suggestedName = string.IsNullOrWhiteSpace(Subject) ? Translator.MailItemNoSubject : Subject;
+        }
+
+        return SanitizeFileNamePart(suggestedName);
+    }
+
+    private static string SanitizeFileNamePart(string value)
+    {
+        var invalidCharacters = Path.GetInvalidFileNameChars();
+        var sanitizedChars = value.Trim().ToCharArray();
+
+        for (var i = 0; i < sanitizedChars.Length; i++)
+        {
+            if (Array.IndexOf(invalidCharacters, sanitizedChars[i]) >= 0)
+            {
+                sanitizedChars[i] = '_';
+            }
+        }
+
+        var sanitized = new string(sanitizedChars).Trim();
+        return string.IsNullOrWhiteSpace(sanitized) ? "email" : sanitized;
+    }
+
+    void ITransferProgress.Report(long bytesTransferred, long totalSize)
+    {
+        // A superseded transfer keeps running to completion, but it must not drive the reader.
+        if (_downloadLoadVersion != _loadVersion) return;
+
+        _ = ExecuteUIThread(() =>
+        {
+            IsIndetermineProgress = false;
+            CurrentDownloadPercentage = bytesTransferred * 100 / Math.Max(1, totalSize);
+        });
+    }
+
+    // For upload.
+    void ITransferProgress.Report(long bytesTransferred) { }
+
+    public void Receive(ThumbnailAdded message)
+    {
+        _ = ExecuteUIThread(() =>
+        {
+            UpdateThumbnails(ToItems, message.Email);
+            UpdateThumbnails(CcItems, message.Email);
+            UpdateThumbnails(BccItems, message.Email);
+        });
+    }
+
+    private static void UpdateThumbnails(ObservableCollection<AccountContactViewModel> items, string email)
+    {
+        if (items.Count == 0) return;
+
+        foreach (var item in items)
+        {
+            if (item.Address.Equals(email, StringComparison.OrdinalIgnoreCase))
+            {
+                item.ThumbnailUpdatedEvent = !item.ThumbnailUpdatedEvent;
+            }
+        }
+    }
+
+    [RelayCommand]
+    private async Task ShowSmimeSigningCertificateInfoAsync()
+    {
+        if (IsSmimeSigned)
+        {
+            MimePart signaturePart;
+            if (initializedMimeMessageInformation?.MimeMessage?.Body is MultipartSigned signed && signed[1] is MimePart signaturePart1)
+            {
+                signaturePart = signaturePart1;
+            }
+            else if (initializedMimeMessageInformation?.MimeMessage?.Body is ApplicationPkcs7Mime pkcs7)
+            {
+                signaturePart = null;
+            }
+            else
+            {
+                //_dialogService.InfoBarMessage(Translator.Info_SmimeSignatureNotFoundTitle, Translator.Info_SmimeSignatureNotFoundMessage, InfoBarMessageType.Error);
+                return;
+            }
+
+            string info = $"{Translator.SmimeSignaturesInMessage}:\n";
+            foreach (var (signature, valid) in CurrentRenderModel.Signatures)
+            {
+                info += string.Format(Translator.SmimeSignatureEntry, valid ? "✅" : "❌", signature.SignerCertificate.Name, signature.SignerCertificate.Fingerprint, signature.SignerCertificate.CreationDate, signature.SignerCertificate.ExpirationDate);
+            }
+            await ShowSmimeCertificateInfoAsync(signaturePart, info, Translator.SmimeSigningCertificateInfoTitle);
+        }
+
+    }
+
+    private async Task ShowSmimeCertificateInfoAsync(MimePart certificateAttachment, string additionalInfo = "", string title = null)
+    {
+        {
+            if (certificateAttachment == null)
+            {
+                await _dialogService.ShowConfirmationDialogAsync(
+                    $"{additionalInfo}\n{Translator.SmimeNoCertificateFileFound}", title ?? Translator.SmimeCertificateInfoTitle, Translator.Buttons_OK);
+                return;
+            }
+            var fileName = certificateAttachment.FileName ?? "smime.p7s";
+            var contentType = certificateAttachment.ContentType?.MimeType ?? "application/pkcs7-signature";
+            var size = certificateAttachment.Content?.Stream?.Length ?? 0;
+            var info = string.Format(Translator.SmimeCertificateFileInfo, fileName, contentType, size);
+
+            var result = await _dialogService.ShowConfirmationDialogAsync(
+                $"{additionalInfo}\n{info}", title ?? Translator.SmimeCertificateInfoTitle,
+                Translator.SmimeSaveCertificate);
+            if (result)
+            {
+                var pickedPath = await _dialogService.PickFilePathAsync(fileName);
+                if (!string.IsNullOrEmpty(pickedPath))
+                {
+                    var pickedDirectory = Path.GetDirectoryName(pickedPath);
+                    var pickedFileName = Path.GetFileName(pickedPath);
+                    await using (var stream = await _fileService.GetFileStreamAsync(pickedDirectory, pickedFileName))
+                    {
+                        await certificateAttachment.Content!.DecodeToAsync(stream);
+                    }
+
+                    _dialogService.InfoBarMessage(Translator.SmimeCertificate, string.Format(Translator.SmimeCertificateSavedTo, pickedPath),
+                        InfoBarMessageType.Success);
+                }
+            }
+        }
+    }
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+
+        Messenger.Register<ThumbnailAdded>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+
+        Messenger.Unregister<ThumbnailAdded>(this);
+    }
+}

@@ -1,0 +1,60 @@
+name: wino-local-lab
+services:
+  mail:
+    image: ghcr.io/docker-mailserver/docker-mailserver:16.0.1
+    hostname: mail.wino.test
+    environment:
+      SSL_TYPE: ''
+      ENABLE_AMAVIS: '0'
+      ENABLE_CLAMAV: '0'
+      ENABLE_RSPAMD: '0'
+      ENABLE_OPENDKIM: '0'
+      ENABLE_OPENDMARC: '0'
+      ENABLE_POLICYD_SPF: '0'
+      ENABLE_DNSBL: '0'
+      ENABLE_UPDATE_CHECK: '0'
+      ENABLE_QUOTAS: '0'
+      POSTFIX_INET_PROTOCOLS: ipv4
+      DOVECOT_INET_PROTOCOLS: ipv4
+      POSTFIX_MESSAGE_SIZE_LIMIT: '26214400'
+    ports:
+      - '127.0.0.1:1143:143'
+      - '127.0.0.1:1587:587'
+    volumes:
+      - mail-data:/var/mail
+      - mail-state:/var/mail-state
+      - mail-config:/tmp/docker-mailserver
+      - ./provision:/lab:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'supervisorctl status dovecot postfix | grep -c RUNNING | grep -q 2']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  dav:
+    # Baikal 0.10.1, pinned to the inspected nginx image rather than a moving tag.
+    image: ckulka/baikal:nginx@sha256:1a901125d121a3e414cda87c617bd322c57ae86b9d2aedbff7b3a7ac84bb23aa
+    ports:
+      - '127.0.0.1:8800:80'
+    volumes:
+      - dav-config:/var/www/baikal/config
+      - dav-data:/var/www/baikal/Specific
+      - ./provision:/lab:ro
+    healthcheck:
+      test: ['CMD-SHELL', "curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1/dav.php/ | grep -q '^401$'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  seed:
+    image: python:3.13.7-slim
+    profiles: [tools]
+    volumes:
+      - ./seed:/lab:ro
+      - ./.state:/state
+    working_dir: /lab
+    entrypoint: ['python', '/lab/seed.py']
+volumes:
+  mail-data:
+  mail-state:
+  mail-config:
+  dav-config:
+  dav-data:

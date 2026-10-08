@@ -1,0 +1,429 @@
+﻿using CommunityToolkit.Mvvm.Messaging;
+using FluentAssertions;
+using Itenso.TimePeriod;
+using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Tests.Helpers;
+using Wino.Messaging.Client.Calendar;
+using Wino.Services;
+using Xunit;
+
+namespace Wino.Core.Tests.Services;
+
+/// <summary>
+/// Tests for CalendarService, focusing on the GetCalendarEventsAsync method.
+/// Note: Recurring event occurrences are now synced from the server as individual instances,
+/// not calculated locally from recurrence patterns.
+/// </summary>
+public class CalendarServiceTests : IAsyncLifetime
+{
+    private InMemoryDatabaseService _databaseService = null!;
+    private CalendarService _calendarService = null!;
+    private AccountCalendar _testCalendar = null!;
+
+    public async Task InitializeAsync()
+    {
+        _databaseService = new InMemoryDatabaseService();
+        await _databaseService.InitializeAsync();
+        _calendarService = new CalendarService(_databaseService);
+
+        // Create a test calendar
+        _testCalendar = new AccountCalendar
+        {
+            Id = Guid.NewGuid(),
+            AccountId = Guid.NewGuid(),
+            Name = "Test Calendar",
+            TimeZone = "UTC",
+            IsPrimary = true,
+            BackgroundColorHex = "#FF5733",
+            TextColorHex = "#FFFFFF"
+        };
+
+        await _calendarService.InsertAccountCalendarAsync(_testCalendar);
+    }
+
+    public async Task DisposeAsync()
+    {
+        await _databaseService.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task GetCalendarItemAsync_OccurrenceWithoutMaster_DoesNotAliasSeriesOrSiblings()
+    {
+        await _databaseService.Connection.InsertAsync(new MailAccount { Id = _testCalendar.AccountId });
+        var child = new CalendarItem
+        {
+            Id = Guid.NewGuid(),
+            CalendarId = _testCalendar.Id,
+            RemoteEventId = "series::20260914T100000Z",
+            StartDate = new DateTime(2026, 9, 14, 10, 0, 0),
+            DurationInSeconds = 3600
+        };
+        await _calendarService.CreateNewCalendarItemAsync(child, null);
+
+        (await _calendarService.GetCalendarItemAsync(_testCalendar.Id, child.RemoteEventId))!.Id.Should().Be(child.Id);
+        (await _calendarService.GetCalendarItemAsync(_testCalendar.Id, "series")).Should().BeNull();
+        (await _calendarService.GetCalendarItemAsync(_testCalendar.Id, "series::20260915T100000Z")).Should().BeNull();
+
+        await _calendarService.DeleteCalendarItemAsync("series::20260915T100000Z", _testCalendar.Id);
+        (await _databaseService.Connection.FindAsync<CalendarItem>(child.Id)).Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task GetCalendarItemAsync_GuidTrackedOccurrence_ResolvesByFullProviderIdentity()
+    {
+        await _databaseService.Connection.InsertAsync(new MailAccount { Id = _testCalendar.AccountId });
+        var itemId = Guid.NewGuid();
+        const string occurrenceId = "series::20260914T100000Z";
+        var child = new CalendarItem
+        {
+            Id = itemId,
+            CalendarId = _testCalendar.Id,
+            RemoteEventId = $"{occurrenceId}::{itemId:N}",
+            StartDate = new DateTime(2026, 9, 14, 10, 0, 0),
+            DurationInSeconds = 3600
+        };
+        await _calendarService.CreateNewCalendarItemAsync(child, null);
+
+        (await _calendarService.GetCalendarItemAsync(_testCalendar.Id, occurrenceId))!.Id.Should().Be(itemId);
+        (await _calendarService.GetCalendarItemAsync(_testCalendar.Id, child.RemoteEventId))!.Id.Should().Be(itemId);
+        (await _calendarService.GetCalendarItemAsync(_testCalendar.Id, "series")).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetCalendarEventsAsync_WithNoEvents_ReturnsEmptyList()
+    {
+        // Arrange
+        var period = new TimeRange(DateTime.UtcNow.Date, DateTime.UtcNow.Date.AddDays(7));
+
+        // Act
+        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar, period);
+
+        // Assert
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetCalendarEventsAsync_WithSingleNonRecurringEvent_ReturnsEvent()
+    {
+        // Arrange
+        var startDate = new DateTime(2025, 1, 15, 10, 0, 0, DateTimeKind.Utc);
+        var calendarItem = new CalendarItem
+        {
+            Id = Guid.NewGuid(),
+            Title = "Team Meeting",
+            Description = "Weekly sync",
+            StartDate = startDate,
+            DurationInSeconds = 3600, // 1 hour
+            CalendarId = _testCalendar.Id,
+            IsHidden = false
+        };
+
+        await _calendarService.CreateNewCalendarItemAsync(calendarItem, null);
+
+        var period = new TimeRange(
+            new DateTime(2025, 1, 15, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2025, 1, 16, 0, 0, 0, DateTimeKind.Utc));
+
+        // Act
+        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar, period);
+
+        // Assert
+        result.Should().HaveCount(1);
+        result[0].Title.Should().Be("Team Meeting");
+        result[0].StartDate.Should().Be(startDate);
+    }
+
+    [Fact]
+    public async Task CreateNewCalendarItemAsync_ExtractsDirectJoinLinkFromDescription()
+    {
+        var calendarItem = new CalendarItem
+        {
+            Id = Guid.NewGuid(),
+            Title = "Online meeting",
+            Description = "Join at https://meet.google.com/abc-defg-hij",
+            StartDate = DateTime.UtcNow,
+            DurationInSeconds = 3600,
+            CalendarId = _testCalendar.Id
+        };
+
+        await _calendarService.CreateNewCalendarItemAsync(calendarItem, null);
+
+        var stored = await _databaseService.Connection.FindAsync<CalendarItem>(calendarItem.Id);
+        stored.DirectJoinLink.Should().Be("https://meet.google.com/abc-defg-hij");
+    }
+
+    [Fact]
+    public async Task GetCalendarEventsAsync_UsesLocalDisplayPeriod_ForTimezoneAwareEvents()
+    {
+        // Arrange
+        var storedUtcStart = new DateTime(2025, 1, 15, 23, 30, 0);
+        var localStart = DateTime.SpecifyKind(storedUtcStart, DateTimeKind.Utc).ToLocalTime();
+        var calendarItem = new CalendarItem
+        {
+            Id = Guid.NewGuid(),
+            Title = "Late Meeting",
+            StartDate = storedUtcStart,
+            DurationInSeconds = 3600,
+            StartTimeZone = TimeZoneInfo.Utc.Id,
+            EndTimeZone = TimeZoneInfo.Utc.Id,
+            CalendarId = _testCalendar.Id,
+            IsHidden = false
+        };
+
+        await _calendarService.CreateNewCalendarItemAsync(calendarItem, null);
+
+        var period = new TimeRange(localStart.Date, localStart.Date.AddDays(1));
+
+        // Act
+        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar, period);
+
+        // Assert
+        result.Should().ContainSingle();
+        result[0].Title.Should().Be("Late Meeting");
+        result[0].LocalStartDate.Should().Be(localStart);
+    }
+
+    [Fact]
+    public async Task GetCalendarEventsAsync_WithNonRecurringEvent_OutsidePeriod_ReturnsEmpty()
+    {
+        // Arrange
+        var startDate = new DateTime(2025, 1, 15, 10, 0, 0, DateTimeKind.Utc);
+        var calendarItem = new CalendarItem
+        {
+            Id = Guid.NewGuid(),
+            Title = "Team Meeting",
+            StartDate = startDate,
+            DurationInSeconds = 3600,
+            CalendarId = _testCalendar.Id,
+            IsHidden = false
+        };
+
+        await _calendarService.CreateNewCalendarItemAsync(calendarItem, null);
+
+        // Query for a different week
+        var period = new TimeRange(
+            new DateTime(2025, 1, 22, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2025, 1, 29, 0, 0, 0, DateTimeKind.Utc));
+
+        // Act
+        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar, period);
+
+        // Assert
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetCalendarEventsAsync_WithHiddenEvent_ExcludesFromResults()
+    {
+        // Arrange
+        var startDate = new DateTime(2025, 1, 15, 10, 0, 0, DateTimeKind.Utc);
+        var hiddenEvent = new CalendarItem
+        {
+            Id = Guid.NewGuid(),
+            Title = "Hidden Event",
+            StartDate = startDate,
+            DurationInSeconds = 3600,
+            CalendarId = _testCalendar.Id,
+            IsHidden = true
+        };
+
+        await _calendarService.CreateNewCalendarItemAsync(hiddenEvent, null);
+
+        var period = new TimeRange(
+            new DateTime(2025, 1, 15, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2025, 1, 16, 0, 0, 0, DateTimeKind.Utc));
+
+        // Act
+        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar, period);
+
+        // Assert
+        result.Should().BeEmpty("because hidden events should be excluded");
+    }
+
+    [Fact]
+    public async Task GetCalendarEventsAsync_WithAllDayEvent_ReturnsEvent()
+    {
+        // Arrange
+        var startDate = new DateTime(2025, 1, 15, 0, 0, 0, DateTimeKind.Utc); // Midnight
+        var allDayEvent = new CalendarItem
+        {
+            Id = Guid.NewGuid(),
+            Title = "Company Holiday",
+            StartDate = startDate,
+            DurationInSeconds = 86400, // 24 hours
+            CalendarId = _testCalendar.Id,
+            IsHidden = false
+        };
+
+        await _calendarService.CreateNewCalendarItemAsync(allDayEvent, null);
+
+        var period = new TimeRange(
+            new DateTime(2025, 1, 15, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2025, 1, 16, 0, 0, 0, DateTimeKind.Utc));
+
+        // Act
+        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar, period);
+
+        // Assert
+        result.Should().HaveCount(1);
+        result[0].Title.Should().Be("Company Holiday");
+        result[0].IsAllDayEvent.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetCalendarEventsAsync_WithMultipleCalendars_ReturnsOnlyRequestedCalendarEvents()
+    {
+        // Arrange - Create another calendar
+        var secondCalendar = new AccountCalendar
+        {
+            Id = Guid.NewGuid(),
+            AccountId = _testCalendar.AccountId,
+            Name = "Second Calendar",
+            TimeZone = "UTC",
+            IsPrimary = false,
+            BackgroundColorHex = "#00FF00",
+            TextColorHex = "#000000"
+        };
+
+        await _calendarService.InsertAccountCalendarAsync(secondCalendar);
+
+        // Add events to both calendars
+        var startDate = new DateTime(2025, 1, 15, 10, 0, 0, DateTimeKind.Utc);
+
+        var event1 = new CalendarItem
+        {
+            Id = Guid.NewGuid(),
+            Title = "Calendar 1 Event",
+            StartDate = startDate,
+            DurationInSeconds = 3600,
+            CalendarId = _testCalendar.Id,
+            IsHidden = false
+        };
+
+        var event2 = new CalendarItem
+        {
+            Id = Guid.NewGuid(),
+            Title = "Calendar 2 Event",
+            StartDate = startDate,
+            DurationInSeconds = 3600,
+            CalendarId = secondCalendar.Id,
+            IsHidden = false
+        };
+
+        await _calendarService.CreateNewCalendarItemAsync(event1, null);
+        await _calendarService.CreateNewCalendarItemAsync(event2, null);
+
+        var period = new TimeRange(
+            new DateTime(2025, 1, 15, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2025, 1, 16, 0, 0, 0, DateTimeKind.Utc));
+
+        // Act - Query only the first calendar
+        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar, period);
+
+        // Assert
+        result.Should().HaveCount(1);
+        result[0].Title.Should().Be("Calendar 1 Event");
+        result[0].CalendarId.Should().Be(_testCalendar.Id);
+    }
+
+    [Fact]
+    public async Task GetCalendarEventsAsync_WithRecurringChildEvent_ReturnsChildAsRecurringChild()
+    {
+        // Arrange - Create a parent and child event
+        var parentId = Guid.NewGuid();
+        var parentEvent = new CalendarItem
+        {
+            Id = parentId,
+            Title = "Parent Recurring Event",
+            StartDate = new DateTime(2025, 1, 15, 10, 0, 0, DateTimeKind.Utc),
+            DurationInSeconds = 3600,
+            CalendarId = _testCalendar.Id,
+            IsHidden = false,
+            Recurrence = "RRULE:FREQ=DAILY"
+        };
+
+        var childEvent = new CalendarItem
+        {
+            Id = Guid.NewGuid(),
+            Title = "Occurrence Instance",
+            StartDate = new DateTime(2025, 1, 16, 10, 0, 0, DateTimeKind.Utc),
+            DurationInSeconds = 3600,
+            CalendarId = _testCalendar.Id,
+            RecurringCalendarItemId = parentId,
+            IsHidden = false
+        };
+
+        await _calendarService.CreateNewCalendarItemAsync(parentEvent, null);
+        await _calendarService.CreateNewCalendarItemAsync(childEvent, null);
+
+        var period = new TimeRange(
+            new DateTime(2025, 1, 16, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2025, 1, 17, 0, 0, 0, DateTimeKind.Utc));
+
+        // Act
+        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar, period);
+
+        // Assert
+        result.Should().HaveCount(1);
+        result[0].Title.Should().Be("Occurrence Instance");
+        result[0].IsRecurringChild.Should().BeTrue();
+        result[0].RecurringCalendarItemId.Should().Be(parentId);
+    }
+    [Fact]
+    public async Task DeleteAccountCalendarDataAsync_RemovesCalendarsEventsAndChildRowsAndNotifies()
+    {
+        var otherCalendar = new AccountCalendar
+        {
+            Id = Guid.NewGuid(),
+            AccountId = Guid.NewGuid(),
+            Name = "Other account",
+            TimeZone = "UTC"
+        };
+        await _calendarService.InsertAccountCalendarAsync(otherCalendar);
+
+        var calendarItem = new CalendarItem
+        {
+            Id = Guid.NewGuid(),
+            Title = "Review",
+            StartDate = new DateTime(2026, 9, 28, 9, 0, 0, DateTimeKind.Utc),
+            DurationInSeconds = 1800,
+            CalendarId = _testCalendar.Id
+        };
+        var otherItem = new CalendarItem
+        {
+            Id = Guid.NewGuid(),
+            Title = "Keep me",
+            StartDate = calendarItem.StartDate,
+            DurationInSeconds = 1800,
+            CalendarId = otherCalendar.Id
+        };
+        await _calendarService.CreateNewCalendarItemAsync(calendarItem, [new CalendarEventAttendee { Id = Guid.NewGuid(), CalendarItemId = calendarItem.Id, Email = "a@example.test" }]);
+        await _calendarService.CreateNewCalendarItemAsync(otherItem, null);
+        await _calendarService.SaveRemindersAsync(calendarItem.Id, [new Reminder { Id = Guid.NewGuid(), CalendarItemId = calendarItem.Id, DurationInSeconds = 600 }]);
+        await _calendarService.InsertOrReplaceAttachmentsAsync([new CalendarAttachment { Id = Guid.NewGuid(), CalendarItemId = calendarItem.Id, FileName = "agenda.pdf" }]);
+
+        var deletedItems = new List<CalendarItem>();
+        var deletedCalendars = new List<AccountCalendar>();
+        var recipient = new object();
+        WeakReferenceMessenger.Default.Register<CalendarItemDeleted>(recipient, (_, message) => deletedItems.Add(message.CalendarItem));
+        WeakReferenceMessenger.Default.Register<CalendarListDeleted>(recipient, (_, message) => deletedCalendars.Add(message.AccountCalendar));
+
+        try
+        {
+            await _calendarService.DeleteAccountCalendarDataAsync(_testCalendar.AccountId);
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.UnregisterAll(recipient);
+        }
+
+        (await _databaseService.Connection.Table<AccountCalendar>().ToListAsync()).Should().ContainSingle(calendar => calendar.Id == otherCalendar.Id);
+        (await _databaseService.Connection.Table<CalendarItem>().ToListAsync()).Should().ContainSingle(item => item.Id == otherItem.Id);
+        (await _databaseService.Connection.Table<CalendarEventAttendee>().CountAsync()).Should().Be(0);
+        (await _databaseService.Connection.Table<Reminder>().CountAsync()).Should().Be(0);
+        (await _databaseService.Connection.Table<CalendarAttachment>().CountAsync()).Should().Be(0);
+        deletedItems.Should().ContainSingle().Which.Id.Should().Be(calendarItem.Id);
+        deletedCalendars.Should().ContainSingle().Which.Id.Should().Be(_testCalendar.Id);
+    }
+}

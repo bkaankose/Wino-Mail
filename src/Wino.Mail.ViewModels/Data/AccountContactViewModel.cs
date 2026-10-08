@@ -1,0 +1,223 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using CommunityToolkit.Mvvm.ComponentModel;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
+
+namespace Wino.Mail.ViewModels.Data;
+
+public partial class AccountContactViewModel : ObservableObject, IMailItemDisplayInformation
+{
+    private readonly ContactNameDisplayFormat _displayFormat;
+    private readonly ContactSortOrder _sortOrder;
+    public AccountContact SourceContact { get; private set; }
+    public string Address { get; set; }
+    public string Name { get; set; }
+    public Guid? ContactPictureFileId { get; set; }
+    public bool IsRootContact { get; set; }
+    public bool IsOverridden { get; set; }
+    public Guid Id => SourceContact.Id;
+    public string SecondaryValue => SourceContact.PrimaryEmailAddress ?? SourceContact.PrimaryPhoneNumber ?? string.Empty;
+    public string SourceLabel { get; }
+    public bool IsEditable { get; }
+    public bool CanEdit => IsEditable;
+    public bool CanDelete => IsEditable;
+    public bool CanSendMail => !string.IsNullOrWhiteSpace(SourceContact.PrimaryEmailAddress);
+    public string FavoriteActionText => IsFavorite ? Translator.ContactAction_Unfavorite : Translator.ContactAction_Favorite;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasUnread))]
+    [NotifyPropertyChangedFor(nameof(UnreadCountText))]
+    public partial int UnreadCount { get; set; }
+
+    public bool HasUnread => UnreadCount > 0;
+    public string UnreadCountText => UnreadCount > 9 ? "9+" : UnreadCount.ToString();
+
+    /// <summary>
+    /// Local-only favorite marker. Writes through to the underlying contact so that a
+    /// toggle is reflected without reloading the page.
+    /// </summary>
+    public bool IsFavorite
+    {
+        get => SourceContact.IsFavorite;
+        set
+        {
+            if (SourceContact.IsFavorite == value) return;
+            SourceContact.IsFavorite = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(FavoriteActionText));
+        }
+    }
+
+    /// <summary>
+    /// "Job title · Company", or whichever of the two is present.
+    /// </summary>
+    public string JobTitleOrCompany
+        => string.Join(" · ", new[] { SourceContact.JobTitle, SourceContact.CompanyName }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    /// <summary>
+    /// First name of the contact. Falls back to the first word of the display name,
+    /// or to the local part of the address when no name is known.
+    /// </summary>
+    public string FirstName
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(SourceContact.GivenName))
+                return SourceContact.GivenName.Trim();
+
+            var source = (string.IsNullOrWhiteSpace(Name) ? SourceContact.DisplayValue : Name)?.Trim();
+            if (string.IsNullOrWhiteSpace(source))
+                return string.Empty;
+
+            var separatorIndex = source.IndexOfAny([' ', ',']);
+            if (separatorIndex > 0)
+                return source[..separatorIndex];
+
+            var addressIndex = source.IndexOf('@');
+            return addressIndex > 0 ? source[..addressIndex] : source;
+        }
+    }
+
+    /// <summary>
+    /// Alphabetical section key. Non-letters collapse into a single "#" section.
+    /// </summary>
+    public string InitialLetter
+    {
+        get
+        {
+            var source = GetSortValue(SourceContact, _sortOrder);
+            if (string.IsNullOrWhiteSpace(source))
+                source = SourceContact.DisplayValue;
+
+            var first = source?.TrimStart().FirstOrDefault() ?? '#';
+            return char.IsLetter(first) ? char.ToUpperInvariant(first).ToString() : "#";
+        }
+    }
+
+    public AccountContactViewModel(AccountContact contact, string accountName = null, bool isAuthorized = true,
+        ContactNameDisplayFormat displayFormat = ContactNameDisplayFormat.ProviderDisplayName,
+        ContactSortOrder sortOrder = ContactSortOrder.ProviderDisplayName)
+    {
+        _displayFormat = displayFormat;
+        _sortOrder = sortOrder;
+        SourceContact = contact;
+        Address = contact.Address;
+        Name = GetDisplayName(contact, displayFormat);
+        ContactPictureFileId = contact.ContactPictureFileId;
+        IsRootContact = contact.IsRootContact;
+        IsOverridden = contact.IsOverridden;
+        SourceLabel = string.IsNullOrWhiteSpace(accountName) ? contact.SourceKind.ToString() : $"{accountName} · {contact.SourceKind}";
+        IsEditable = contact.SourceKind == ContactSourceKind.Local || isAuthorized;
+    }
+
+    /// <summary>Replaces the presentation snapshot and raises the dependent binding notifications.</summary>
+    public void ApplySnapshot(AccountContact contact)
+    {
+        ArgumentNullException.ThrowIfNull(contact);
+
+        SourceContact = contact;
+        Address = contact.Address;
+        Name = GetDisplayName(contact, _displayFormat);
+        ContactPictureFileId = contact.ContactPictureFileId;
+        IsRootContact = contact.IsRootContact;
+        IsOverridden = contact.IsOverridden;
+
+        OnPropertyChanged(nameof(SourceContact));
+        OnPropertyChanged(nameof(Categories));
+        OnPropertyChanged(nameof(HasCategories));
+        OnPropertyChanged(nameof(Address));
+        OnPropertyChanged(nameof(Name));
+        OnPropertyChanged(nameof(ContactPictureFileId));
+        OnPropertyChanged(nameof(SecondaryValue));
+        OnPropertyChanged(nameof(IsFavorite));
+        OnPropertyChanged(nameof(FavoriteActionText));
+        OnPropertyChanged(nameof(FirstName));
+        OnPropertyChanged(nameof(JobTitleOrCompany));
+        OnPropertyChanged(nameof(InitialLetter));
+        OnPropertyChanged(nameof(ShortDisplayName));
+        OnPropertyChanged(nameof(DisplayName));
+        OnPropertyChanged(nameof(SenderContact));
+    }
+
+    private static string GetDisplayName(AccountContact contact, ContactNameDisplayFormat format)
+    {
+        var structured = format switch
+        {
+            ContactNameDisplayFormat.FirstNameFirst => string.Join(" ", new[] { contact.GivenName, contact.MiddleName, contact.Surname }.Where(value => !string.IsNullOrWhiteSpace(value))),
+            ContactNameDisplayFormat.LastNameFirst => string.Join(" ", new[] { contact.Surname, contact.GivenName, contact.MiddleName }.Where(value => !string.IsNullOrWhiteSpace(value))),
+            _ => contact.DisplayName
+        };
+        return string.IsNullOrWhiteSpace(structured) ? contact.DisplayValue : structured;
+    }
+
+    private static string GetSortValue(AccountContact contact, ContactSortOrder order)
+        => order switch
+        {
+            ContactSortOrder.FirstName => contact.GivenName ?? contact.Surname ?? contact.SortKey,
+            ContactSortOrder.LastName => contact.Surname ?? contact.GivenName ?? contact.SortKey,
+            _ => contact.SortKey
+        };
+
+    /// <summary>
+    /// Gets or sets whether the contact is the current account.
+    /// </summary>
+    public bool IsMe { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the ShortNameOrYOu should have semicolon.
+    /// </summary>
+    public bool IsSemicolon { get; set; } = true;
+
+    /// <summary>
+    /// Provides a short name of the contact.
+    /// <see cref="ShortDisplayName"/> or "You"
+    /// </summary>
+    public string ShortNameOrYou => (IsMe ? Translator.AccountContactNameYou : ShortDisplayName) + (IsSemicolon ? ";" : string.Empty);
+
+    /// <summary>
+    /// Short display name of the contact.
+    /// Either Name or Address.
+    /// </summary>
+    public string ShortDisplayName => Address == Name || string.IsNullOrWhiteSpace(Name) ? Address?.ToLowerInvariant() ?? SourceContact.DisplayValue : Name;
+
+    /// <summary>
+    /// Display name of the contact in a format: Name <Address>.
+    /// </summary>
+    public string DisplayName => Address == Name || string.IsNullOrWhiteSpace(Name) ? Address?.ToLowerInvariant() ?? SourceContact.DisplayValue : string.IsNullOrWhiteSpace(Address) ? Name : $"{Name} <{Address.ToLowerInvariant()}>";
+
+    [ObservableProperty]
+    public partial bool ThumbnailUpdatedEvent { get; set; }
+
+    // IMailItemDisplayInformation implementation for avatar-only rendering.
+    public string Subject => string.Empty;
+    public string FromName => Name ?? string.Empty;
+    public string FromAddress => Address ?? string.Empty;
+    public string PreviewText => string.Empty;
+    public bool IsRead => true;
+    public bool IsDraft => false;
+    public bool IsLocalDraft => false;
+    public bool IsDraftSyncFailed => false;
+    public bool ShouldShowDraftSyncWarning => false;
+    public string DraftSyncTooltip => string.Empty;
+    public bool HasAttachments => false;
+    public bool IsCalendarEvent => false;
+    public bool IsFlagged => false;
+    public DateTime CreationDate => default;
+    public bool IsBusy => false;
+    public bool IsThreadExpanded => false;
+    public bool HasReadReceiptTracking => false;
+    public bool IsReadReceiptAcknowledged => false;
+    public string ReadReceiptDisplayText => string.Empty;
+    public string AccountNickname => string.Empty;
+    public string AccountColorHex => string.Empty;
+    public AccountNicknamePosition AccountNicknamePosition => Wino.Core.Domain.Enums.AccountNicknamePosition.None;
+    public IReadOnlyList<MailCategory> Categories => SourceContact.Categories ?? [];
+    public bool HasCategories => Categories.Count > 0;
+    public AccountContact SenderContact => SourceContact;
+}

@@ -1,0 +1,48 @@
+﻿<abstract:EmailTemplatesPageAbstract
+    x:Class="Wino.Views.Settings.EmailTemplatesPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:accessibilityControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:entities="using:Wino.Core.Domain.Entities.Mail"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
+        <accessibilityControls:WinoSettingsCard
+            AutomationInvoked="NewTemplateClicked"
+            AutomationProperties.AutomationId="EmailTemplatesPageSettingsCard"
+            Click="NewTemplateClicked"
+            Description="{x:Bind domain:Translator.SettingsEmailTemplates_NewTemplateDescription}"
+            Header="{x:Bind domain:Translator.SettingsEmailTemplates_NewTemplateTitle}"
+            IsClickEnabled="True">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="Add" />
+            </controls:SettingsCard.HeaderIcon>
+        </accessibilityControls:WinoSettingsCard>
+
+        <ItemsControl ItemsSource="{x:Bind ViewModel.EmailTemplates, Mode=OneWay}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="entities:EmailTemplate">
+                    <accessibilityControls:WinoSettingsCard
+                        Margin="0,0,0,4"
+                        AutomationInvoked="TemplateClicked"
+                        AutomationProperties.AutomationId="EmailTemplatesPageSettingsCard2"
+                        Click="TemplateClicked"
+                        Description="{x:Bind Description}"
+                        Header="{x:Bind Name}"
+                        IsClickEnabled="True"
+                        Tag="{x:Bind}">
+                        <controls:SettingsCard.HeaderIcon>
+                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Edit" />
+                        </controls:SettingsCard.HeaderIcon>
+                    </accessibilityControls:WinoSettingsCard>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </StackPanel>
+</abstract:EmailTemplatesPageAbstract>

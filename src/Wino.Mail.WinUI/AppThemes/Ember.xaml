@@ -1,0 +1,64 @@
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:xaml="using:Microsoft.UI.Xaml">
+
+    <x:String x:Key="ThemeName">Ember</x:String>
+    <x:String x:Key="Wallpaper">ms-appx:///BackgroundImages/Ember.jpg</x:String>
+    <x:String x:Key="PreviewImage">ms-appx:///BackgroundImages/Ember.jpg</x:String>
+
+    <ImageBrush x:Key="WinoApplicationBackgroundColor" ImageSource="{StaticResource Wallpaper}" />
+    <SolidColorBrush x:Key="AppBarBackgroundColor">Transparent</SolidColorBrush>
+
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Name="Light">
+            <!--
+                Illustration palette. Dusk wallpaper, forced Dark. The accent is already amber, so the warm role keeps a softer, lighter ember tone.
+            -->
+            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#FFFFFF</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#E0C9B6</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#F3E6DC</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationWarmBrush">#E58E26</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationShadowBrush">#14201414</SolidColorBrush>
+            <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#F7DFC5</SolidColorBrush>
+            <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush">#33F7DFC5</SolidColorBrush>
+            <SolidColorBrush x:Key="CalendarHoverHourBackgroundBrush">#40E58E26</SolidColorBrush>
+            <SolidColorBrush x:Key="CalendarWorkHourBackgroundBrush">#66F7DFC5</SolidColorBrush>
+            <SolidColorBrush x:Key="CalendarSelectedHourBackgroundBrush">#4D0078D4</SolidColorBrush>
+            <SolidColorBrush x:Key="WelcomeOverlayBrush">#D9FFFFFF</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionFlyoutBackgroundBrush">#FBF3EC</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionCardBackgroundBrush">#FFFFFF</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionSubtleBackgroundBrush">#F1E1D3</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionSecondaryTextBrush">#61483C</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionTertiaryTextBrush">#785D4E</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionDividerBrush">#C8AF9E</SolidColorBrush>
+        </ResourceDictionary>
+        <ResourceDictionary x:Name="Dark">
+            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#3A2A2E</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#543D40</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#473337</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationWarmBrush">#F5A25C</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationShadowBrush">#52000000</SolidColorBrush>
+            <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#59241419</SolidColorBrush>
+            <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush">#22241419</SolidColorBrush>
+            <SolidColorBrush x:Key="CalendarHoverHourBackgroundBrush">#4DE58E26</SolidColorBrush>
+            <SolidColorBrush x:Key="CalendarWorkHourBackgroundBrush">#59241419</SolidColorBrush>
+            <SolidColorBrush x:Key="CalendarSelectedHourBackgroundBrush">#66399BFF</SolidColorBrush>
+            <SolidColorBrush x:Key="WelcomeOverlayBrush">#E61F1F1F</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionFlyoutBackgroundBrush">#17100F</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionCardBackgroundBrush">#241917</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionSubtleBackgroundBrush">#33221F</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionSecondaryTextBrush">#DDC7BC</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionTertiaryTextBrush">#C2A899</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionDividerBrush">#5C4139</SolidColorBrush>
+        </ResourceDictionary>
+        <ResourceDictionary x:Name="HighContrast">
+            <StaticResource x:Key="CompanionFlyoutBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="CompanionCardBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="CompanionSubtleBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="CompanionSecondaryTextBrush" ResourceKey="SystemColorWindowTextBrush" />
+            <StaticResource x:Key="CompanionTertiaryTextBrush" ResourceKey="SystemColorWindowTextBrush" />
+            <StaticResource x:Key="CompanionDividerBrush" ResourceKey="SystemColorWindowTextBrush" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>

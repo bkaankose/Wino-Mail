@@ -1,0 +1,34 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using Wino.Core.Domain.Models.Calendar;
+
+namespace Wino.Core.Domain.Interfaces;
+
+public interface ICalDavClient
+{
+    Task<IReadOnlyList<CalDavCalendar>> DiscoverCalendarsAsync(
+        CalDavConnectionSettings connectionSettings,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<CalDavCalendarEvent>> GetCalendarEventsAsync(
+        CalDavConnectionSettings connectionSettings,
+        CalDavCalendar calendar,
+        DateTimeOffset startUtc,
+        DateTimeOffset endUtc,
+        CancellationToken cancellationToken = default);
+
+    Task<CalDavWriteResult> UpsertCalendarEventAsync(
+        CalDavConnectionSettings connectionSettings,
+        CalDavCalendar calendar,
+        CalDavWriteRequest writeRequest,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteCalendarEventAsync(
+        CalDavConnectionSettings connectionSettings,
+        string exactHref,
+        string eTag,
+        CancellationToken cancellationToken = default);
+}
+

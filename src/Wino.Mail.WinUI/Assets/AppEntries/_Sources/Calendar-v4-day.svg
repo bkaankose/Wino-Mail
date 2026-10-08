@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <title>Wino Calendar - Day</title>
+  <defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="200" y2="200" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#007DE3"/><stop offset="1" stop-color="#0046AC"/>
+  </linearGradient>
+  <linearGradient id="paper" x1="0" y1="20" x2="0" y2="180" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#F1F5FB"/>
+  </linearGradient>
+  <linearGradient id="acc" x1="0" y1="50" x2="0" y2="160" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#00BCFF"/><stop offset="1" stop-color="#0090F7"/>
+  </linearGradient>
+  <linearGradient id="ring" x1="0" y1="24" x2="0" y2="42" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#E2E4E7"/><stop offset="1" stop-color="#CDD0D5"/>
+  </linearGradient>
+  <filter id="sh" x="-30%" y="-30%" width="160%" height="180%">
+    <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#001B44" flood-opacity="0.34"/>
+  </filter>
+  <filter id="shs" x="-40%" y="-40%" width="180%" height="200%">
+    <feDropShadow dx="0" dy="2" stdDeviation="2.4" flood-color="#001B44" flood-opacity="0.38"/>
+  </filter>
+  <clipPath id="card"><rect x="36" y="36" width="128" height="128" rx="16"/></clipPath>
+</defs>
+  <rect x="0" y="0" width="200" height="200" rx="45.5" fill="url(#bg)"/>
+  <g filter="url(#sh)">
+    <rect x="36" y="36" width="128" height="128" rx="16" fill="url(#paper)"/>
+    <g clip-path="url(#card)"><rect x="36" y="36" width="128" height="34" fill="url(#acc)"/></g>
+  </g>
+  <circle cx="100" cy="122" r="29" fill="url(#acc)"/>
+</svg>

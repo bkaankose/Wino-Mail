@@ -1,0 +1,224 @@
+﻿<UserControl
+    x:Class="Wino.Controls.AccountCapabilityPicker"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <!--  The app logos read better at the size the setup wizard has always used.  -->
+        <x:Double x:Key="SettingsCardHeaderIconMaxSize">36</x:Double>
+
+        <Style
+            x:Key="CapabilityOptionDescriptionStyle"
+            BasedOn="{StaticResource CaptionTextBlockStyle}"
+            TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Setter Property="TextWrapping" Value="WrapWholeWords" />
+        </Style>
+    </UserControl.Resources>
+
+    <!--
+        One card per capability. The switch turns a capability on or off; the expander items
+        choose where it lives. The account wizard and the IMAP server settings page both host
+        this control, so a capability looks and behaves the same in both places.
+    -->
+    <StackPanel Spacing="4">
+
+        <!--  Mail. The wizard puts its download range under the card; other hosts show a plain card.  -->
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="AccountCapabilityMailExpander"
+            Description="{x:Bind Selection.MailDescription, Mode=OneWay}"
+            Header="{x:Bind domain:Translator.ProviderSelection_UseForMail, Mode=OneTime}"
+            IsExpanded="{x:Bind Selection.IsMailEnabled, Mode=OneWay}"
+            Visibility="{x:Bind ShowMailOptions, Mode=OneWay}">
+            <controls:SettingsExpander.HeaderIcon>
+                <ImageIcon Source="ms-appx:///Assets/AppEntries/Mail.svg" />
+            </controls:SettingsExpander.HeaderIcon>
+            <ToggleSwitch
+                AutomationProperties.AutomationId="AccountCapabilityMailOptionsToggle"
+                AutomationProperties.Name="{x:Bind domain:Translator.ProviderSelection_UseForMail, Mode=OneTime}"
+                IsOn="{x:Bind Selection.IsMailEnabled, Mode=TwoWay}" />
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard
+                    HorizontalContentAlignment="Stretch"
+                    AutomationProperties.AutomationId="AccountCapabilityMailOptionsCard"
+                    ContentAlignment="Vertical"
+                    IsEnabled="{x:Bind Selection.IsMailEnabled, Mode=OneWay}">
+                    <ContentPresenter HorizontalContentAlignment="Stretch" Content="{x:Bind MailOptionsContent, Mode=OneWay}" />
+                </controls:SettingsCard>
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="AccountCapabilityMailCard"
+            Description="{x:Bind Selection.MailDescription, Mode=OneWay}"
+            Header="{x:Bind domain:Translator.ProviderSelection_UseForMail, Mode=OneTime}"
+            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ShowMailOptions), Mode=OneWay}">
+            <controls:SettingsCard.HeaderIcon>
+                <ImageIcon Source="ms-appx:///Assets/AppEntries/Mail.svg" />
+            </controls:SettingsCard.HeaderIcon>
+            <ToggleSwitch
+                AutomationProperties.AutomationId="AccountCapabilityMailToggle"
+                AutomationProperties.Name="{x:Bind domain:Translator.ProviderSelection_UseForMail, Mode=OneTime}"
+                IsOn="{x:Bind Selection.IsMailEnabled, Mode=TwoWay}" />
+        </controls:SettingsCard>
+
+        <!--  Calendar  -->
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="AccountCapabilityCalendarExpander"
+            Description="{x:Bind domain:Translator.ProviderSelection_CalendarStepDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.ProviderSelection_UseForCalendar, Mode=OneTime}"
+            IsExpanded="{x:Bind Selection.IsCalendarEnabled, Mode=OneWay}">
+            <controls:SettingsExpander.HeaderIcon>
+                <ImageIcon Source="ms-appx:///Assets/AppEntries/Calendar.svg" />
+            </controls:SettingsExpander.HeaderIcon>
+            <ToggleSwitch
+                AutomationProperties.AutomationId="AccountCapabilityCalendarToggle"
+                AutomationProperties.Name="{x:Bind domain:Translator.ProviderSelection_UseForCalendar, Mode=OneTime}"
+                IsOn="{x:Bind Selection.IsCalendarEnabled, Mode=TwoWay}" />
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard
+                    HorizontalContentAlignment="Left"
+                    AutomationProperties.AutomationId="AccountCapabilityCalendarModeCard"
+                    ContentAlignment="Left"
+                    IsEnabled="{x:Bind Selection.IsCalendarEnabled, Mode=OneWay}"
+                    Visibility="{x:Bind Selection.IsCalendarModeChoiceVisible, Mode=OneWay}">
+                    <StackPanel Spacing="8">
+                        <RadioButton
+                            AutomationProperties.AutomationId="AccountCapabilityCalendarProviderOption"
+                            AutomationProperties.Name="{x:Bind Selection.CalendarProviderOptionText, Mode=OneWay}"
+                            GroupName="AccountCapabilityCalendarMode"
+                            IsChecked="{x:Bind Selection.IsCalendarProviderSelected, Mode=TwoWay}">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{x:Bind Selection.CalendarProviderOptionText, Mode=OneWay}" />
+                                <TextBlock Style="{StaticResource CapabilityOptionDescriptionStyle}" Text="{x:Bind Selection.CalendarProviderOptionDescription, Mode=OneWay}" />
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton
+                            AutomationProperties.AutomationId="AccountCapabilityCalendarLocalOption"
+                            AutomationProperties.Name="{x:Bind domain:Translator.CapabilityPicker_LocalOption, Mode=OneTime}"
+                            GroupName="AccountCapabilityCalendarMode"
+                            IsChecked="{x:Bind Selection.IsCalendarLocalSelected, Mode=TwoWay}">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{x:Bind domain:Translator.CapabilityPicker_LocalOption, Mode=OneTime}" />
+                                <TextBlock Style="{StaticResource CapabilityOptionDescriptionStyle}" Text="{x:Bind domain:Translator.ProviderSelection_Why_CalendarLocal, Mode=OneTime}" />
+                            </StackPanel>
+                        </RadioButton>
+                    </StackPanel>
+                </controls:SettingsCard>
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountCapabilityCalendarLocalNoteCard"
+                    Description="{x:Bind domain:Translator.ProviderSelection_Why_CalendarLocal, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.CapabilityPicker_LocalOption, Mode=OneTime}"
+                    Visibility="{x:Bind Selection.IsCalendarLocalOnlyNoteVisible, Mode=OneWay}" />
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+
+        <!--  Contacts  -->
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="AccountCapabilityContactsExpander"
+            Description="{x:Bind domain:Translator.ProviderSelection_ContactsStepDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.ProviderSelection_UseForContacts, Mode=OneTime}"
+            IsExpanded="{x:Bind Selection.IsContactEnabled, Mode=OneWay}">
+            <controls:SettingsExpander.HeaderIcon>
+                <ImageIcon Source="ms-appx:///Assets/AppEntries/People.svg" />
+            </controls:SettingsExpander.HeaderIcon>
+            <ToggleSwitch
+                AutomationProperties.AutomationId="AccountCapabilityContactsToggle"
+                AutomationProperties.Name="{x:Bind domain:Translator.ProviderSelection_UseForContacts, Mode=OneTime}"
+                IsOn="{x:Bind Selection.IsContactEnabled, Mode=TwoWay}" />
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard
+                    HorizontalContentAlignment="Left"
+                    AutomationProperties.AutomationId="AccountCapabilityContactsModeCard"
+                    ContentAlignment="Left"
+                    IsEnabled="{x:Bind Selection.IsContactEnabled, Mode=OneWay}"
+                    Visibility="{x:Bind Selection.IsContactModeChoiceVisible, Mode=OneWay}">
+                    <StackPanel Spacing="8">
+                        <RadioButton
+                            AutomationProperties.AutomationId="AccountCapabilityContactsProviderOption"
+                            AutomationProperties.Name="{x:Bind Selection.ContactProviderOptionText, Mode=OneWay}"
+                            GroupName="AccountCapabilityContactsMode"
+                            IsChecked="{x:Bind Selection.IsContactProviderSelected, Mode=TwoWay}">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{x:Bind Selection.ContactProviderOptionText, Mode=OneWay}" />
+                                <TextBlock Style="{StaticResource CapabilityOptionDescriptionStyle}" Text="{x:Bind Selection.ContactProviderOptionDescription, Mode=OneWay}" />
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton
+                            AutomationProperties.AutomationId="AccountCapabilityContactsLocalOption"
+                            AutomationProperties.Name="{x:Bind domain:Translator.CapabilityPicker_LocalOption, Mode=OneTime}"
+                            GroupName="AccountCapabilityContactsMode"
+                            IsChecked="{x:Bind Selection.IsContactLocalSelected, Mode=TwoWay}">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{x:Bind domain:Translator.CapabilityPicker_LocalOption, Mode=OneTime}" />
+                                <TextBlock Style="{StaticResource CapabilityOptionDescriptionStyle}" Text="{x:Bind domain:Translator.ProviderSelection_Why_ContactsLocal, Mode=OneTime}" />
+                            </StackPanel>
+                        </RadioButton>
+                    </StackPanel>
+                </controls:SettingsCard>
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountCapabilityContactsLocalNoteCard"
+                    Description="{x:Bind domain:Translator.ProviderSelection_Why_ContactsLocal, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.CapabilityPicker_LocalOption, Mode=OneTime}"
+                    Visibility="{x:Bind Selection.IsContactLocalOnlyNoteVisible, Mode=OneWay}" />
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+
+        <!--  To Do  -->
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="AccountCapabilityTasksExpander"
+            Description="{x:Bind domain:Translator.ProviderSelection_TasksStepDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.ProviderSelection_UseForTasks, Mode=OneTime}"
+            IsExpanded="{x:Bind Selection.IsTaskEnabled, Mode=OneWay}">
+            <controls:SettingsExpander.HeaderIcon>
+                <ImageIcon Source="ms-appx:///Assets/AppEntries/ToDo.svg" />
+            </controls:SettingsExpander.HeaderIcon>
+            <ToggleSwitch
+                AutomationProperties.AutomationId="AccountCapabilityTasksToggle"
+                AutomationProperties.Name="{x:Bind domain:Translator.ProviderSelection_UseForTasks, Mode=OneTime}"
+                IsOn="{x:Bind Selection.IsTaskEnabled, Mode=TwoWay}" />
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard
+                    HorizontalContentAlignment="Left"
+                    AutomationProperties.AutomationId="AccountCapabilityTasksModeCard"
+                    ContentAlignment="Left"
+                    IsEnabled="{x:Bind Selection.IsTaskEnabled, Mode=OneWay}"
+                    Visibility="{x:Bind Selection.IsTaskModeChoiceVisible, Mode=OneWay}">
+                    <StackPanel Spacing="8">
+                        <RadioButton
+                            AutomationProperties.AutomationId="AccountCapabilityTasksProviderOption"
+                            AutomationProperties.Name="{x:Bind Selection.TaskProviderOptionText, Mode=OneWay}"
+                            GroupName="AccountCapabilityTasksMode"
+                            IsChecked="{x:Bind Selection.IsTaskProviderSelected, Mode=TwoWay}">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{x:Bind Selection.TaskProviderOptionText, Mode=OneWay}" />
+                                <TextBlock Style="{StaticResource CapabilityOptionDescriptionStyle}" Text="{x:Bind Selection.TaskProviderOptionDescription, Mode=OneWay}" />
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton
+                            AutomationProperties.AutomationId="AccountCapabilityTasksLocalOption"
+                            AutomationProperties.Name="{x:Bind domain:Translator.CapabilityPicker_LocalOption, Mode=OneTime}"
+                            GroupName="AccountCapabilityTasksMode"
+                            IsChecked="{x:Bind Selection.IsTaskLocalSelected, Mode=TwoWay}">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{x:Bind domain:Translator.CapabilityPicker_LocalOption, Mode=OneTime}" />
+                                <TextBlock Style="{StaticResource CapabilityOptionDescriptionStyle}" Text="{x:Bind domain:Translator.ProviderSelection_Why_TasksLocal, Mode=OneTime}" />
+                            </StackPanel>
+                        </RadioButton>
+                    </StackPanel>
+                </controls:SettingsCard>
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountCapabilityTasksLocalNoteCard"
+                    Description="{x:Bind Selection.TaskLocalOnlyNote, Mode=OneWay}"
+                    Header="{x:Bind domain:Translator.CapabilityPicker_LocalOption, Mode=OneTime}"
+                    Visibility="{x:Bind Selection.IsTaskLocalOnlyNoteVisible, Mode=OneWay}" />
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+    </StackPanel>
+</UserControl>

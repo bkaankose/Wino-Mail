@@ -1,0 +1,470 @@
+﻿<UserControl
+    x:Class="Wino.Controls.ThemeSurfacePreview"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Wino.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    x:Name="PreviewRoot"
+    MinHeight="156"
+    x:DefaultBindMode="OneWay"
+    IsTabStop="False"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <Style x:Key="ThemePreviewBarStyle" TargetType="Border">
+            <Setter Property="CornerRadius" Value="2" />
+            <Setter Property="Height" Value="5" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+    </UserControl.Resources>
+
+    <Border
+        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+        BorderThickness="1"
+        CornerRadius="8">
+        <Border.Background>
+            <ImageBrush
+                AlignmentX="{x:Bind controls:ThemeSurfacePreview.GetWallpaperAlignmentX(WallpaperAlignment)}"
+                AlignmentY="{x:Bind controls:ThemeSurfacePreview.GetWallpaperAlignmentY(WallpaperAlignment)}"
+                ImageSource="{x:Bind WallpaperSource}"
+                Stretch="{x:Bind controls:ThemeSurfacePreview.GetWallpaperStretch(WallpaperFit)}" />
+        </Border.Background>
+
+        <Grid>
+            <!--  The base surface plate, painted over the wallpaper exactly as the shell paints it.  -->
+            <Border Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.MainCustomThemeColor)}" />
+
+            <!--  Window backdrop: the plate itself, framed by the title bar and two empty panes.  -->
+            <Grid x:Name="WindowScene" x:Load="{x:Bind controls:ThemeSurfacePreview.IsWindowScene(Scene)}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="18" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <StackPanel
+                    Padding="6,0"
+                    VerticalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="6">
+                    <Border
+                        Width="9"
+                        Height="9"
+                        Background="{x:Bind controls:ThemeSurfacePreview.GetAccentBrush(AccentColorHex)}"
+                        CornerRadius="2" />
+                    <Border
+                        Width="64"
+                        Height="10"
+                        Background="{x:Bind controls:ThemeSurfacePreview.GetPlaceholderBrush(Palette)}"
+                        CornerRadius="5" />
+                </StackPanel>
+
+                <Grid
+                    Grid.Row="1"
+                    Margin="6,0,6,6"
+                    ColumnSpacing="5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="0.8*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border
+                        BorderBrush="{x:Bind controls:ThemeSurfacePreview.GetEdgeBrush(Palette)}"
+                        BorderThickness="1"
+                        CornerRadius="5" />
+                    <Border
+                        Grid.Column="1"
+                        BorderBrush="{x:Bind controls:ThemeSurfacePreview.GetEdgeBrush(Palette)}"
+                        BorderThickness="1"
+                        CornerRadius="5" />
+                </Grid>
+            </Grid>
+
+            <!--  Navigation: the content grid beside the shell menu, not the menu pane.  -->
+            <Grid x:Name="NavigationScene" x:Load="{x:Bind controls:ThemeSurfacePreview.IsNavigationScene(Scene)}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="0.42*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Padding="8" Spacing="6">
+                    <Border
+                        Width="52"
+                        Height="10"
+                        Background="{x:Bind controls:ThemeSurfacePreview.GetAccentBrush(AccentColorHex)}"
+                        CornerRadius="3" />
+                    <Border
+                        Width="46"
+                        Background="{x:Bind controls:ThemeSurfacePreview.GetPlaceholderBrush(Palette)}"
+                        Style="{StaticResource ThemePreviewBarStyle}" />
+                    <Border
+                        Width="58"
+                        Background="{x:Bind controls:ThemeSurfacePreview.GetPlaceholderBrush(Palette)}"
+                        Style="{StaticResource ThemePreviewBarStyle}" />
+                    <Border
+                        Width="40"
+                        Background="{x:Bind controls:ThemeSurfacePreview.GetPlaceholderBrush(Palette)}"
+                        Style="{StaticResource ThemePreviewBarStyle}" />
+                </StackPanel>
+
+                <Border
+                    Grid.Column="1"
+                    Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.NavigationViewContentBackground)}"
+                    BorderBrush="{x:Bind controls:ThemeSurfacePreview.GetEdgeBrush(Palette)}"
+                    BorderThickness="1,1,0,0"
+                    CornerRadius="6,0,0,0">
+                    <StackPanel Padding="9" Spacing="6">
+                        <Border
+                            Width="62"
+                            Height="7"
+                            Background="{x:Bind controls:ThemeSurfacePreview.GetSubtleInkBrush(Palette)}"
+                            CornerRadius="2" />
+                        <Border
+                            Width="86"
+                            Background="{x:Bind controls:ThemeSurfacePreview.GetPlaceholderBrush(Palette)}"
+                            Style="{StaticResource ThemePreviewBarStyle}" />
+                        <Border
+                            Width="74"
+                            Background="{x:Bind controls:ThemeSurfacePreview.GetPlaceholderBrush(Palette)}"
+                            Style="{StaticResource ThemePreviewBarStyle}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!--  Workspace: the mail list card and every page root border.  -->
+            <Grid
+                x:Name="WorkspaceScene"
+                Padding="10"
+                x:Load="{x:Bind controls:ThemeSurfacePreview.IsWorkspaceScene(Scene)}">
+                <Border
+                    Padding="6"
+                    Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.WinoContentZoneBackgroud)}"
+                    BorderBrush="{x:Bind controls:ThemeSurfacePreview.GetEdgeBrush(Palette)}"
+                    BorderThickness="1"
+                    CornerRadius="6">
+                    <StackPanel Spacing="5">
+                        <Border
+                            Padding="5,4"
+                            Background="{x:Bind controls:ThemeSurfacePreview.GetPlaceholderBrush(Palette)}"
+                            CornerRadius="3">
+                            <StackPanel Spacing="4">
+                                <Border
+                                    Width="58"
+                                    Height="6"
+                                    HorizontalAlignment="Left"
+                                    Background="{x:Bind controls:ThemeSurfacePreview.GetInkBrush(Palette)}"
+                                    CornerRadius="2" />
+                                <Border
+                                    Width="92"
+                                    Background="{x:Bind controls:ThemeSurfacePreview.GetSubtleInkBrush(Palette)}"
+                                    Style="{StaticResource ThemePreviewBarStyle}" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel Padding="5,2" Spacing="4">
+                            <Border
+                                Width="48"
+                                Height="6"
+                                HorizontalAlignment="Left"
+                                Background="{x:Bind controls:ThemeSurfacePreview.GetInkBrush(Palette)}"
+                                CornerRadius="2" />
+                            <Border
+                                Width="80"
+                                Background="{x:Bind controls:ThemeSurfacePreview.GetSubtleInkBrush(Palette)}"
+                                Style="{StaticResource ThemePreviewBarStyle}" />
+                        </StackPanel>
+                        <StackPanel Padding="5,2" Spacing="4">
+                            <Border
+                                Width="62"
+                                Height="6"
+                                HorizontalAlignment="Left"
+                                Background="{x:Bind controls:ThemeSurfacePreview.GetInkBrush(Palette)}"
+                                CornerRadius="2" />
+                            <Border
+                                Width="70"
+                                Background="{x:Bind controls:ThemeSurfacePreview.GetSubtleInkBrush(Palette)}"
+                                Style="{StaticResource ThemePreviewBarStyle}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!--  Date pills and name chips, both drawn inside the mail list card.  -->
+            <Grid
+                x:Name="MailListHeaderScene"
+                Padding="10"
+                x:Load="{x:Bind controls:ThemeSurfacePreview.IsMailListHeaderScene(Scene)}">
+                <Border
+                    Padding="6"
+                    Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.WinoContentZoneBackgroud)}"
+                    BorderBrush="{x:Bind controls:ThemeSurfacePreview.GetEdgeBrush(Palette)}"
+                    BorderThickness="1"
+                    CornerRadius="6">
+                    <StackPanel Spacing="6">
+                        <Border
+                            Padding="7,4"
+                            HorizontalAlignment="Stretch"
+                            Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.MailListHeaderBackgroundColor)}"
+                            CornerRadius="4">
+                            <Border
+                                Width="34"
+                                Height="6"
+                                HorizontalAlignment="Left"
+                                Background="{x:Bind controls:ThemeSurfacePreview.GetInkBrush(Palette)}"
+                                CornerRadius="2" />
+                        </Border>
+
+                        <Grid ColumnSpacing="6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Ellipse
+                                Width="14"
+                                Height="14"
+                                Fill="{x:Bind controls:ThemeSurfacePreview.GetAccentBrush(AccentColorHex)}" />
+                            <StackPanel
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Spacing="4">
+                                <Border
+                                    Width="52"
+                                    Background="{x:Bind controls:ThemeSurfacePreview.GetInkBrush(Palette)}"
+                                    Style="{StaticResource ThemePreviewBarStyle}" />
+                                <Border
+                                    Width="78"
+                                    Height="4"
+                                    HorizontalAlignment="Left"
+                                    Background="{x:Bind controls:ThemeSurfacePreview.GetSubtleInkBrush(Palette)}"
+                                    CornerRadius="2" />
+                            </StackPanel>
+                            <Border
+                                Grid.Column="2"
+                                Padding="5,2"
+                                VerticalAlignment="Center"
+                                Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.MailListHeaderBackgroundColor)}"
+                                CornerRadius="3">
+                                <Border
+                                    Width="22"
+                                    Height="4"
+                                    Background="{x:Bind controls:ThemeSurfacePreview.GetInkBrush(Palette)}"
+                                    CornerRadius="2" />
+                            </Border>
+                        </Grid>
+
+                        <Grid ColumnSpacing="6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Ellipse
+                                Width="14"
+                                Height="14"
+                                Fill="{x:Bind controls:ThemeSurfacePreview.GetPlaceholderBrush(Palette)}" />
+                            <StackPanel
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Spacing="4">
+                                <Border
+                                    Width="44"
+                                    Background="{x:Bind controls:ThemeSurfacePreview.GetInkBrush(Palette)}"
+                                    Style="{StaticResource ThemePreviewBarStyle}" />
+                                <Border
+                                    Width="64"
+                                    Height="4"
+                                    HorizontalAlignment="Left"
+                                    Background="{x:Bind controls:ThemeSurfacePreview.GetSubtleInkBrush(Palette)}"
+                                    CornerRadius="2" />
+                            </StackPanel>
+                            <Border
+                                Grid.Column="2"
+                                Padding="5,2"
+                                VerticalAlignment="Center"
+                                Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.MailListHeaderBackgroundColor)}"
+                                CornerRadius="3">
+                                <Border
+                                    Width="30"
+                                    Height="4"
+                                    Background="{x:Bind controls:ThemeSurfacePreview.GetInkBrush(Palette)}"
+                                    CornerRadius="2" />
+                            </Border>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!--  Reading pane: the reader header card and the message body card.  -->
+            <Grid
+                x:Name="ReadingPaneScene"
+                Padding="10"
+                x:Load="{x:Bind controls:ThemeSurfacePreview.IsReadingPaneScene(Scene)}"
+                RowSpacing="6">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Border
+                    Padding="8,7"
+                    Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.ReadingPaneBackgroundColorBrush)}"
+                    BorderBrush="{x:Bind controls:ThemeSurfacePreview.GetEdgeBrush(Palette)}"
+                    BorderThickness="1"
+                    CornerRadius="6">
+                    <StackPanel Spacing="5">
+                        <TextBlock
+                            FontSize="11"
+                            FontWeight="SemiBold"
+                            Foreground="{x:Bind controls:ThemeSurfacePreview.GetInkBrush(Palette)}"
+                            Text="{x:Bind domain:Translator.ApplicationThemeEditor_Preview, Mode=OneTime}"
+                            TextTrimming="CharacterEllipsis" />
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <Ellipse
+                                Width="11"
+                                Height="11"
+                                Fill="{x:Bind controls:ThemeSurfacePreview.GetAccentBrush(AccentColorHex)}" />
+                            <Border
+                                Width="70"
+                                Height="4"
+                                VerticalAlignment="Center"
+                                Background="{x:Bind controls:ThemeSurfacePreview.GetSubtleInkBrush(Palette)}"
+                                CornerRadius="2" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border
+                    Grid.Row="1"
+                    Padding="8,7"
+                    Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.ReadingPaneBackgroundColorBrush)}"
+                    BorderBrush="{x:Bind controls:ThemeSurfacePreview.GetEdgeBrush(Palette)}"
+                    BorderThickness="1"
+                    CornerRadius="6">
+                    <TextBlock
+                        FontSize="10"
+                        Foreground="{x:Bind controls:ThemeSurfacePreview.GetSubtleInkBrush(Palette)}"
+                        Text="{x:Bind domain:Translator.ApplicationThemeEditor_PreviewBody, Mode=OneTime}"
+                        TextTrimming="CharacterEllipsis"
+                        TextWrapping="Wrap" />
+                </Border>
+            </Grid>
+
+            <!--  Calendar hours: one grid shared by the four slot colors, marking the edited one.  -->
+            <Grid
+                x:Name="CalendarScene"
+                Padding="9"
+                x:Load="{x:Bind controls:ThemeSurfacePreview.IsCalendarScene(Scene)}">
+                <Grid
+                    x:Name="CalendarSlotGrid"
+                    ColumnSpacing="2"
+                    RowSpacing="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition />
+                        <RowDefinition />
+                        <RowDefinition />
+                        <RowDefinition />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                        <ColumnDefinition />
+                        <ColumnDefinition />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+
+                    <Border
+                        Grid.Row="0"
+                        Grid.Column="0"
+                        Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.CalendarDefaultHourBackgroundBrush)}"
+                        CornerRadius="2" />
+                    <Border
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.CalendarDefaultHourBackgroundBrush)}"
+                        CornerRadius="2" />
+                    <Border
+                        Grid.Row="0"
+                        Grid.Column="2"
+                        Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.CalendarDefaultHourBackgroundBrush)}"
+                        CornerRadius="2" />
+                    <Border
+                        Grid.Row="0"
+                        Grid.Column="3"
+                        Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.CalendarDefaultHourBackgroundBrush)}"
+                        CornerRadius="2" />
+
+                    <Border
+                        Grid.Row="1"
+                        Grid.Column="0"
+                        Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.CalendarWorkHourBackgroundBrush)}"
+                        CornerRadius="2" />
+                    <Border
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.CalendarWorkHourBackgroundBrush)}"
+                        CornerRadius="2" />
+                    <Border
+                        Grid.Row="1"
+                        Grid.Column="2"
+                        Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.CalendarWorkHourBackgroundBrush)}"
+                        CornerRadius="2" />
+                    <Border
+                        Grid.Row="1"
+                        Grid.Column="3"
+                        Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.CalendarWorkHourBackgroundBrush)}"
+                        CornerRadius="2" />
+
+                    <Border
+                        Grid.Row="2"
+                        Grid.Column="0"
+                        Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.CalendarWorkHourBackgroundBrush)}"
+                        CornerRadius="2" />
+                    <Border
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.CalendarWorkHourBackgroundBrush)}"
+                        CornerRadius="2" />
+                    <Border
+                        Grid.Row="2"
+                        Grid.Column="2"
+                        Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.CalendarHoverHourBackgroundBrush)}"
+                        CornerRadius="2" />
+                    <Border
+                        Grid.Row="2"
+                        Grid.Column="3"
+                        Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.CalendarWorkHourBackgroundBrush)}"
+                        CornerRadius="2" />
+
+                    <Border
+                        Grid.Row="3"
+                        Grid.Column="0"
+                        Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.CalendarWorkHourBackgroundBrush)}"
+                        CornerRadius="2" />
+                    <Border
+                        Grid.Row="3"
+                        Grid.Column="1"
+                        Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.CalendarSelectedHourBackgroundBrush)}"
+                        CornerRadius="2" />
+                    <Border
+                        Grid.Row="3"
+                        Grid.Column="2"
+                        Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.CalendarSelectedHourBackgroundBrush)}"
+                        CornerRadius="2" />
+                    <Border
+                        Grid.Row="3"
+                        Grid.Column="3"
+                        Background="{x:Bind controls:ThemeSurfacePreview.GetBrush(Palette.CalendarWorkHourBackgroundBrush)}"
+                        CornerRadius="2" />
+
+                    <!--  Points at the slot the selected color paints.  -->
+                    <Border
+                        Grid.Row="{x:Bind controls:ThemeSurfacePreview.GetCalendarHighlightRow(HighlightedKey)}"
+                        Grid.Column="{x:Bind controls:ThemeSurfacePreview.GetCalendarHighlightColumn(HighlightedKey)}"
+                        Margin="-2"
+                        BorderBrush="{x:Bind controls:ThemeSurfacePreview.GetAccentBrush(AccentColorHex)}"
+                        BorderThickness="2"
+                        CornerRadius="4" />
+                </Grid>
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>

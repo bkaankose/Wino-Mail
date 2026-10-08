@@ -1,0 +1,63 @@
+#nullable enable
+using CommunityToolkit.Mvvm.ComponentModel;
+using System.Windows.Input;
+using Wino.Core.Domain.Enums;
+
+namespace Wino.Core.ViewModels.Data;
+
+public partial class WinoAddOnItemViewModel : ObservableObject
+{
+    public WinoAddOnProductType ProductType { get; }
+
+    public string NameKey => $"WinoAddOn_{ProductType}_Name";
+    public string DescriptionKey => $"WinoAddOn_{ProductType}_Description";
+    public string KeywordsKey => $"WinoAddOn_{ProductType}_Keywords";
+
+    public WinoIconGlyph Icon => ProductType switch
+    {
+        WinoAddOnProductType.AI_PACK => WinoIconGlyph.Sparkle,
+        WinoAddOnProductType.UNLIMITED_ACCOUNTS => WinoIconGlyph.People,
+        _ => WinoIconGlyph.Home
+    };
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowPurchaseState))]
+    [NotifyPropertyChangedFor(nameof(IsNotPurchased))]
+    public partial bool IsPurchased { get; set; }
+
+    public ICommand? PurchaseCommand { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowLoadingState))]
+    [NotifyPropertyChangedFor(nameof(ShowPurchaseState))]
+    [NotifyPropertyChangedFor(nameof(ShowErrorState))]
+    public partial bool IsLoading { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsPurchaseInProgress { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowErrorState))]
+    public partial string ErrorText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string RenewalText { get; set; } = string.Empty;
+
+    public bool ShowLoadingState => IsLoading;
+
+    public bool ShowPurchaseState => !IsPurchased && !IsLoading && string.IsNullOrWhiteSpace(ErrorText);
+
+    /// <summary>
+    /// Drives the unowned half of a product card. Ownership is surfaced by a disabled
+    /// "Purchased" button rather than a separate success badge, so there is no
+    /// ShowPurchasedState counterpart.
+    /// </summary>
+    public bool IsNotPurchased => !IsPurchased;
+
+    public bool ShowErrorState => !IsLoading && !string.IsNullOrWhiteSpace(ErrorText);
+
+    public WinoAddOnItemViewModel(WinoAddOnProductType productType)
+    {
+        ProductType = productType;
+    }
+}

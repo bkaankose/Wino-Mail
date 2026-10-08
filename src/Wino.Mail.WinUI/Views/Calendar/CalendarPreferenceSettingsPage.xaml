@@ -1,0 +1,239 @@
+﻿<abstract:CalendarPreferenceSettingsPageAbstract
+    x:Class="Wino.Mail.WinUI.Views.Calendar.CalendarPreferenceSettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
+    xmlns:calendarViewModels="using:Wino.Calendar.ViewModels"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Calendar.ViewModels.Data"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:shared="using:Wino.Core.Domain.Entities.Shared"
+    mc:Ignorable="d">
+
+    <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="CalendarOverlapBehaviorExpander"
+            Description="{x:Bind domain:Translator.CalendarSettings_Overlap_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.CalendarSettings_Overlap_Header, Mode=OneTime}"
+            IsExpanded="True">
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard AutomationProperties.AutomationId="CalendarOverlappingEventsSettingCard" Header="{x:Bind domain:Translator.CalendarSettings_OverlappingEvents_Header, Mode=OneTime}">
+                    <StackPanel MaxWidth="320" Spacing="8">
+                        <ComboBox
+                            MinWidth="180"
+                            AutomationProperties.AutomationId="CalendarEventDisplayModeComboBox"
+                            AutomationProperties.Name="{x:Bind domain:Translator.CalendarSettings_Overlap_Header, Mode=OneTime}"
+                            ItemsSource="{x:Bind ViewModel.EventDisplayModeOptions, Mode=OneTime}"
+                            SelectedItem="{x:Bind ViewModel.SelectedEventDisplayModeOption, Mode=TwoWay}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="data:CalendarEventDisplayModeOption">
+                                    <TextBlock Text="{x:Bind DisplayName}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="{x:Bind ViewModel.SelectedEventDisplayModeOption.Description, Mode=OneWay}"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                </controls:SettingsCard>
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+        <controls:SettingsCard
+            HorizontalContentAlignment="Stretch"
+            AutomationProperties.AutomationId="CalendarOverlapPreviewCard"
+            ContentAlignment="Vertical"
+            Description="{x:Bind domain:Translator.CalendarSettings_Overlap_PreviewDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.CalendarSettings_Overlap_Preview, Mode=OneTime}">
+            <Viewbox
+                MaxWidth="410"
+                HorizontalAlignment="Left"
+                Stretch="Uniform"
+                StretchDirection="DownOnly">
+                <Grid
+                    Width="410"
+                    Height="196"
+                    AutomationProperties.Name="{x:Bind domain:Translator.CalendarSettings_Overlap_PreviewDescription, Mode=OneTime}"
+                    Background="{ThemeResource LayerFillColorDefaultBrush}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="44" />
+                        <ColumnDefinition Width="366" />
+                    </Grid.ColumnDefinitions>
+                    <Canvas>
+                        <TextBlock
+                            Canvas.Top="4"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="09:00" />
+                        <TextBlock
+                            Canvas.Top="64"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="10:00" />
+                        <TextBlock
+                            Canvas.Top="124"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="11:00" />
+                    </Canvas>
+                    <Canvas Grid.Column="1" IsHitTestVisible="False">
+                        <Rectangle
+                            Canvas.Top="4"
+                            Width="360"
+                            Height="1"
+                            Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                        <Rectangle
+                            Canvas.Top="64"
+                            Width="360"
+                            Height="1"
+                            Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                        <Rectangle
+                            Canvas.Top="124"
+                            Width="360"
+                            Height="1"
+                            Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                        <Rectangle
+                            Canvas.Top="184"
+                            Width="360"
+                            Height="1"
+                            Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                    </Canvas>
+                    <ItemsControl
+                        Grid.Column="1"
+                        Margin="0,4,0,0"
+                        IsTabStop="False"
+                        ItemsSource="{x:Bind ViewModel.OverlapPreviewItems, Mode=OneWay}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <Canvas />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="data:CalendarOverlapPreviewItem">
+                                <Border
+                                    Width="{x:Bind Width}"
+                                    Height="{x:Bind Height}"
+                                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="4">
+                                    <Border.RenderTransform>
+                                        <TranslateTransform X="{x:Bind Left}" Y="{x:Bind Top}" />
+                                    </Border.RenderTransform>
+                                    <TextBlock
+                                        Margin="6,4,6,0"
+                                        VerticalAlignment="Top"
+                                        Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind Title}"
+                                        TextTrimming="CharacterEllipsis" />
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Grid>
+            </Viewbox>
+        </controls:SettingsCard>
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="CalendarPreferenceSyncIntervalCard"
+            Description="{x:Bind domain:Translator.CalendarSettings_SyncInterval_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.CalendarSettings_SyncInterval_Title, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="Sync" />
+            </controls:SettingsCard.HeaderIcon>
+            <NumberBox
+                AutomationProperties.AutomationId="CalendarPreferenceSyncIntervalNumberBox"
+                Minimum="1"
+                PlaceholderText="5"
+                SmallChange="1"
+                SpinButtonPlacementMode="Inline"
+                Value="{x:Bind ViewModel.CalendarSyncIntervalMinutes, Mode=TwoWay}" />
+        </controls:SettingsCard>
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="CalendarPreferenceAccountLayoutSettingsCard"
+            Description="{x:Bind domain:Translator.CalendarSettings_AccountGrouping_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.CalendarSettings_AccountGrouping_Header, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="Folder" />
+            </controls:SettingsCard.HeaderIcon>
+            <controls:SettingsCard.Content>
+                <StackPanel Spacing="12">
+                    <ToggleSwitch
+                        AutomationProperties.AutomationId="CalendarPreferenceAccountGroupingToggle"
+                        AutomationProperties.Name="{x:Bind domain:Translator.CalendarSettings_AccountGrouping_Header, Mode=OneTime}"
+                        IsOn="{x:Bind ViewModel.IsCalendarAccountsGrouped, Mode=TwoWay}" />
+
+                    <StackPanel Spacing="6" Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.ShouldShowCalendarStartupAccount), Mode=OneWay}">
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind domain:Translator.CalendarSettings_StartupAccount_Description, Mode=OneTime}"
+                            TextWrapping="Wrap" />
+                        <ComboBox
+                            AutomationProperties.AutomationId="CalendarPreferenceStartupAccountComboBox"
+                            Header="{x:Bind domain:Translator.CalendarSettings_StartupAccount_Header, Mode=OneTime}"
+                            ItemsSource="{x:Bind ViewModel.CalendarStartupAccounts, Mode=OneWay}"
+                            SelectedItem="{x:Bind ViewModel.SelectedCalendarStartupAccount, Mode=TwoWay}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="shared:MailAccount">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="{x:Bind Name, Mode=OneTime}" />
+                                        <TextBlock
+                                            FontSize="12"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Text="{x:Bind Address, Mode=OneTime}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                </StackPanel>
+            </controls:SettingsCard.Content>
+        </controls:SettingsCard>
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="CalendarPreferenceNewEventSettingsCard"
+            Description="{x:Bind domain:Translator.CalendarSettings_NewEventBehavior_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.CalendarSettings_NewEventBehavior_Header, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="Calendar" />
+            </controls:SettingsCard.HeaderIcon>
+            <controls:SettingsCard.Content>
+                <StackPanel Spacing="12">
+                    <ComboBox
+                        AutomationProperties.AutomationId="CalendarPreferenceNewEventBehaviorComboBox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.CalendarSettings_NewEventBehavior_Header, Mode=OneTime}"
+                        ItemsSource="{x:Bind ViewModel.NewEventBehaviorOptions, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedNewEventBehaviorOption, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="calendarViewModels:CalendarNewEventBehaviorOption">
+                                <TextBlock Text="{x:Bind DisplayText, Mode=OneTime}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <ComboBox
+                        AutomationProperties.AutomationId="CalendarPreferenceNewEventCalendarComboBox"
+                        ItemsSource="{x:Bind ViewModel.AvailableNewEventCalendars, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedNewEventCalendar, Mode=TwoWay}"
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.ShouldShowSpecificNewEventCalendar), Mode=OneWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="data:AccountCalendarViewModel">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="{x:Bind Name, Mode=OneWay}" />
+                                    <TextBlock
+                                        FontSize="12"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Text="{x:Bind Account.Address, Mode=OneWay}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+            </controls:SettingsCard.Content>
+        </controls:SettingsCard>
+    </StackPanel>
+</abstract:CalendarPreferenceSettingsPageAbstract>

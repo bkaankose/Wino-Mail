@@ -1,0 +1,98 @@
+using System.Collections.Generic;
+using Wino.Core.Domain.Enums;
+
+namespace Wino.Core.Domain.Models.Connectivity;
+
+public sealed record KnownImapProviderCatalogDocument
+{
+    public int SchemaVersion { get; init; }
+    public IReadOnlyList<KnownImapProviderDefinition> Providers { get; init; } = [];
+    public IReadOnlyList<KnownImapFolderAlias> GenericFolderAliases { get; init; } = [];
+
+    /// <summary>
+    /// App-password guidance for providers that need no special setup of their own. A provider
+    /// listed here only changes the hint under the password field; its servers are discovered.
+    /// </summary>
+    public IReadOnlyList<KnownAppPasswordHelpDefinition> AppPasswordHelp { get; init; } = (KnownAppPasswordHelpDefinition[])[];
+}
+
+public sealed record KnownAppPasswordHelpDefinition
+{
+    public string Id { get; init; } = string.Empty;
+    public string DisplayName { get; init; } = string.Empty;
+    public IReadOnlyList<string> EmailDomains { get; init; } = (string[])[];
+    public string HelpUrl { get; init; } = string.Empty;
+}
+
+/// <summary>
+/// Where to learn how to create an app password for an email address.
+/// </summary>
+public sealed record KnownAppPasswordHelp(string ProviderName, string HelpUrl);
+
+public sealed record KnownImapProviderDefinition
+{
+    public string Id { get; init; } = string.Empty;
+    public SpecialImapProvider SpecialImapProvider { get; init; }
+
+    /// <summary>
+    /// The brand name shown in setup. It is not translated.
+    /// </summary>
+    public string DisplayName { get; init; } = string.Empty;
+
+    public bool SetupVisible { get; init; }
+
+    /// <summary>
+    /// Featured providers get a tile on the first setup step; the rest live in the searchable catalog.
+    /// </summary>
+    public bool SetupFeatured { get; init; }
+
+    public int SetupOrder { get; init; }
+    public KnownImapPasswordKind PasswordKind { get; init; } = KnownImapPasswordKind.AccountPassword;
+    public KnownImapSetupHint SetupHint { get; init; } = KnownImapSetupHint.None;
+
+    /// <summary>
+    /// Server hosts that depend on where the account was created. Empty for most providers;
+    /// when present, the first region is the default and the user picks one during setup.
+    /// </summary>
+    public IReadOnlyList<KnownImapProviderRegion> Regions { get; init; } = [];
+    public IReadOnlyList<string> EmailDomains { get; init; } = [];
+    public IReadOnlyList<string> IncomingHosts { get; init; } = [];
+    public KnownImapServerDefinition Incoming { get; init; } = new();
+    public KnownImapServerDefinition Outgoing { get; init; } = new();
+    public int MaxConcurrentClients { get; init; } = 5;
+    public ImapConnectionPolicyVersion ConnectionPolicyVersion { get; init; } = ImapConnectionPolicyVersion.Corrected;
+    public string CalDavServiceUrl { get; init; } = string.Empty;
+    public string CardDavServiceUrl { get; init; } = string.Empty;
+    public string AppPasswordHelpUrl { get; init; } = string.Empty;
+    public IReadOnlyList<KnownImapFolderAlias> FolderAliases { get; init; } = [];
+}
+
+/// <summary>
+/// One data-center choice for a provider whose hosts differ per region. Only the hosts and DAV
+/// URLs change; ports, security and username policies come from the provider definition.
+/// </summary>
+public sealed record KnownImapProviderRegion
+{
+    public string Id { get; init; } = string.Empty;
+    public string DisplayName { get; init; } = string.Empty;
+    public string IncomingHost { get; init; } = string.Empty;
+    public string OutgoingHost { get; init; } = string.Empty;
+    public string CalDavServiceUrl { get; init; } = string.Empty;
+    public string CardDavServiceUrl { get; init; } = string.Empty;
+}
+
+public sealed record KnownImapServerDefinition
+{
+    public string Host { get; init; } = string.Empty;
+    public int Port { get; init; }
+    public ImapConnectionSecurity Security { get; init; }
+    public ImapAuthenticationMethod Authentication { get; init; }
+    public ImapUsernamePolicy UsernamePolicy { get; init; }
+}
+
+public sealed record KnownImapFolderAlias
+{
+    public SpecialFolderType Role { get; init; }
+    public string Value { get; init; } = string.Empty;
+    public bool MatchFullPath { get; init; }
+}

@@ -1,0 +1,394 @@
+#nullable enable
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Intelligence;
+using Wino.Core.Domain.Models.SemanticIndexing;
+using Wino.Mail.AI.Abstractions;
+using MailBodyLocator = Wino.Core.Domain.Models.Intelligence.MailBodyLocator;
+
+namespace Wino.Services;
+
+public sealed class IntelligenceMessageContextResolver(
+    IDatabaseService databaseService,
+    IAccountService accountService,
+    IMimeFileService mimeFileService,
+    ISynchronizationManager synchronizationManager) : IIntelligenceMessageContextResolver
+{
+    public async Task<SemanticIndexAvailableRange?> GetAvailableRangeAsync(
+        Guid localAccountId,
+        CancellationToken cancellationToken = default)
+    {
+        var inventory = await GetCoverageInventoryAsync(localAccountId, cancellationToken).ConfigureAwait(false);
+        if (inventory.TotalMessageCount == 0)
+            return null;
+
+        var counts = new Dictionary<DateOnly, int>();
+        foreach (var ticks in inventory.ReceivedAtUtcTicks)
+        {
+            var day = DateOnly.FromDateTime(new DateTime(ticks, DateTimeKind.Utc));
+            counts[day] = counts.GetValueOrDefault(day) + 1;
+        }
+        return new SemanticIndexAvailableRange(counts.Keys.Min(), counts.Keys.Max(), counts);
+    }
+
+    public async Task<IntelligenceCoverageInventory> GetCoverageInventoryAsync(
+        Guid localAccountId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var account = await accountService.GetAccountAsync(localAccountId).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("The mail account no longer exists.");
+
+        // Identity and date only, and no folder filter: the coverage editor answers every
+        // per-folder question from this one read, including for folders the user has not picked yet.
+        var sql = $"""
+            SELECT m.Id AS ProviderMessageId, m.CreationDate, m.ImapUid, m.ImapUidValidity,
+                   f.RemoteFolderId, f.UidValidity AS FolderUidValidity
+            FROM MailCopy m
+            INNER JOIN MailItemFolder f ON f.Id = m.FolderId
+            WHERE f.MailAccountId = ? AND m.IsDraft = 0 AND f.RemoteFolderId IS NOT NULL AND f.RemoteFolderId <> ''
+              AND {IntelligenceFolderFilter.SqlNotInClause("f")};
+            """;
+        var rows = await databaseService.Connection.QueryAsync<AvailabilityRow>(sql,
+            [account.Id, .. IntelligenceFolderFilter.ExcludedSpecialFolderTypeArguments()]).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var inventoryRows = new List<IntelligenceCoverageInventoryRow>(rows.Count);
+        foreach (var row in rows)
+        {
+            var remoteMessageId = RemoteMessageIdentity.TryCreate(
+                account.ProviderType,
+                row.ProviderMessageId,
+                row.RemoteFolderId,
+                row.ImapUidValidity == 0 ? row.FolderUidValidity : row.ImapUidValidity,
+                row.ImapUid);
+            if (remoteMessageId is null)
+                continue;
+            inventoryRows.Add(new IntelligenceCoverageInventoryRow(
+                remoteMessageId, ToUtc(row.CreationDate), row.RemoteFolderId));
+        }
+
+        return IntelligenceCoverageInventory.Create(account.Id, inventoryRows);
+    }
+
+    public async Task<IReadOnlyList<IntelligenceMessageCandidate>> GetCandidatesAsync(
+        Guid localAccountId,
+        DateTimeOffset? cutoffUtc = null,
+        CancellationToken cancellationToken = default)
+        => await GetCandidatesCoreAsync(localAccountId, null, cutoffUtc, null, cancellationToken).ConfigureAwait(false);
+
+    public async Task<IReadOnlyList<IntelligenceMessageCandidate>> GetCandidatesAsync(
+        Guid localAccountId,
+        DateTimeOffset? cutoffUtc,
+        DateTimeOffset? throughUtcExclusive,
+        CancellationToken cancellationToken = default)
+        => await GetCandidatesCoreAsync(localAccountId, null, cutoffUtc, throughUtcExclusive, cancellationToken).ConfigureAwait(false);
+
+    public Task<IReadOnlyList<IntelligenceMessageCandidate>> GetBackfillCandidatesAsync(
+        Guid localAccountId,
+        IReadOnlySet<string> selectedRemoteFolderIds,
+        CancellationToken cancellationToken = default)
+        => selectedRemoteFolderIds.Count == 0
+            ? Task.FromResult<IReadOnlyList<IntelligenceMessageCandidate>>([])
+            : GetCandidatesCoreAsync(localAccountId, selectedRemoteFolderIds, null, null, cancellationToken);
+
+    private async Task<IReadOnlyList<IntelligenceMessageCandidate>> GetCandidatesCoreAsync(
+        Guid localAccountId,
+        IReadOnlySet<string>? selectedRemoteFolderIds,
+        DateTimeOffset? cutoffUtc,
+        DateTimeOffset? throughUtcExclusive,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var account = await accountService.GetAccountAsync(localAccountId).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("The mail account no longer exists.");
+        var cutoffClause = cutoffUtc is null ? string.Empty : " AND m.CreationDate >= ?";
+        var throughClause = throughUtcExclusive is null ? string.Empty : " AND m.CreationDate < ?";
+        var folderClause = selectedRemoteFolderIds is null
+            ? string.Empty
+            : $" AND f.RemoteFolderId IN ({string.Join(", ", selectedRemoteFolderIds.Select(_ => "?"))})";
+        var sql = $$"""
+            SELECT m.UniqueId, m.Id AS ProviderMessageId, m.FileId, m.Subject, m.FromAddress, m.FromName, m.CreationDate,
+                   m.IsRead, m.IsFlagged, m.HasAttachments,
+                   m.ThreadId, m.Importance, m.ImapUid, m.ImapUidValidity, f.RemoteFolderId,
+                   f.UidValidity AS FolderUidValidity, f.SpecialFolderType
+            FROM MailCopy m
+            INNER JOIN MailItemFolder f ON f.Id = m.FolderId
+            WHERE f.MailAccountId = ? AND m.IsDraft = 0 AND f.RemoteFolderId IS NOT NULL AND f.RemoteFolderId <> ''
+              AND {{IntelligenceFolderFilter.SqlNotInClause("f")}}
+              {{folderClause}}{{cutoffClause}}{{throughClause}}
+            ORDER BY m.CreationDate DESC, m.Id;
+            """;
+        var arguments = new List<object> { account.Id };
+        arguments.AddRange(IntelligenceFolderFilter.ExcludedSpecialFolderTypeArguments());
+        if (selectedRemoteFolderIds is not null) arguments.AddRange(selectedRemoteFolderIds);
+        if (cutoffUtc is not null) arguments.Add(cutoffUtc.Value.UtcDateTime);
+        if (throughUtcExclusive is not null) arguments.Add(throughUtcExclusive.Value.UtcDateTime);
+        var rows = await databaseService.Connection.QueryAsync<CandidateRow>(sql, arguments.ToArray()).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var candidates = rows.Select(row => ToCandidate(account.ProviderType, account.Address, row))
+            .GroupBy(x => x.RemoteMessageId, StringComparer.Ordinal)
+            .Select(group => group.First() with
+            {
+                RemoteFolderIds = group.SelectMany(x => x.RemoteFolderIds).Distinct(StringComparer.Ordinal).ToArray(),
+                FileIds = group.SelectMany(x => x.FileIds).Distinct().ToArray(),
+                IsOutgoing = group.Any(x => x.IsOutgoing),
+            })
+            .OrderByDescending(x => x.ReceivedAt)
+            .ThenBy(x => x.RemoteMessageId, StringComparer.Ordinal)
+            .ToList();
+        var latestOutgoingByThread = candidates
+            .Where(x => x.IsOutgoing && !string.IsNullOrWhiteSpace(x.ThreadId))
+            .GroupBy(x => x.ThreadId!, StringComparer.Ordinal)
+            .ToDictionary(x => x.Key, x => x.Max(y => y.ReceivedAt), StringComparer.Ordinal);
+        return candidates.Select(candidate => candidate with
+        {
+            HasLaterOutgoingReply = !string.IsNullOrWhiteSpace(candidate.ThreadId) &&
+                                    latestOutgoingByThread.TryGetValue(candidate.ThreadId, out var sentAt) &&
+                                    sentAt > candidate.ReceivedAt,
+        }).ToArray();
+    }
+
+    public async Task<IntelligenceMessageCandidate?> FindCandidateAsync(
+        Guid localAccountId,
+        string messageId,
+        CancellationToken cancellationToken = default)
+        => (await GetCandidatesAsync(localAccountId, null, cancellationToken).ConfigureAwait(false))
+            .FirstOrDefault(x => string.Equals(x.RemoteMessageId, messageId, StringComparison.Ordinal) ||
+                                 string.Equals(x.ProviderMessageId, messageId, StringComparison.Ordinal));
+
+    public async Task<SemanticMailContent> GetContentAsync(
+        Guid localAccountId,
+        IntelligenceMessageCandidate candidate,
+        CancellationToken cancellationToken = default)
+        => await ResolveContentAsync(
+            mimeFileService,
+            localAccountId,
+            candidate.FileIds,
+            async () =>
+            {
+                var bodySynchronizer = await synchronizationManager.GetSynchronizerAsync(localAccountId).ConfigureAwait(false)
+                    as ISemanticMailBodySynchronizer
+                    ?? throw new NotSupportedException("Mail body retrieval is not supported for this account.");
+                return await bodySynchronizer.GetSemanticBodyAsync(candidate.Locator, cancellationToken).ConfigureAwait(false);
+            },
+            cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
+    /// Bodies the provider is asked for one message at a time run at most this many at once.
+    /// Microsoft Graph allows four concurrent requests per mailbox; more are throttled with a
+    /// Retry-After that stalls the whole selection.
+    /// </summary>
+    private const int RemoteBodyConcurrency = 4;
+
+    public async Task<IReadOnlyDictionary<string, SemanticMailContent>> GetContentsAsync(
+        Guid localAccountId,
+        IReadOnlyList<IntelligenceMessageCandidate> candidates,
+        CancellationToken cancellationToken = default)
+    {
+        var contents = new System.Collections.Concurrent.ConcurrentDictionary<string, SemanticMailContent>(StringComparer.Ordinal);
+
+        // Local MIME first. It is a file read, so it runs wide.
+        var remote = new System.Collections.Concurrent.ConcurrentBag<IntelligenceMessageCandidate>();
+        await Parallel.ForEachAsync(candidates, new ParallelOptions
+        {
+            MaxDegreeOfParallelism = Math.Clamp(Environment.ProcessorCount, 4, 16),
+            CancellationToken = cancellationToken,
+        }, async (candidate, token) =>
+        {
+            try
+            {
+                var local = await TryReadLocalContentAsync(localAccountId, candidate.FileIds, token).ConfigureAwait(false);
+                if (local is not null)
+                {
+                    contents[candidate.RemoteMessageId] = local;
+                }
+                else
+                {
+                    remote.Add(candidate);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                remote.Add(candidate);
+            }
+        }).ConfigureAwait(false);
+
+        if (remote.IsEmpty)
+        {
+            return contents;
+        }
+
+        var synchronizer = await synchronizationManager.GetSynchronizerAsync(localAccountId).ConfigureAwait(false);
+        var pending = remote.ToList();
+
+        // A provider that reads many bodies per round trip gets the whole remainder at once.
+        if (synchronizer is ISemanticMailBodyBatchSynchronizer batch)
+        {
+            try
+            {
+                var fetched = await batch.GetSemanticBodiesAsync(
+                    pending.Select(static candidate => candidate.Locator).ToArray(), cancellationToken).ConfigureAwait(false);
+                foreach (var (remoteMessageId, content) in fetched)
+                {
+                    contents[remoteMessageId] = content;
+                }
+
+                pending = pending.Where(candidate => !contents.ContainsKey(candidate.RemoteMessageId)).ToList();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                // The batch as a whole failed; each message is tried on its own below.
+            }
+        }
+
+        if (pending.Count == 0 || synchronizer is not ISemanticMailBodySynchronizer single)
+        {
+            return contents;
+        }
+
+        await Parallel.ForEachAsync(pending, new ParallelOptions
+        {
+            MaxDegreeOfParallelism = RemoteBodyConcurrency,
+            CancellationToken = cancellationToken,
+        }, async (candidate, token) =>
+        {
+            try
+            {
+                contents[candidate.RemoteMessageId] = await single.GetSemanticBodyAsync(candidate.Locator, token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                // Unreadable; left out of the result.
+            }
+        }).ConfigureAwait(false);
+
+        return contents;
+    }
+
+    private async Task<SemanticMailContent?> TryReadLocalContentAsync(
+        Guid localAccountId, IReadOnlyList<Guid> fileIds, CancellationToken cancellationToken)
+    {
+        foreach (var fileId in fileIds)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!await mimeFileService.IsMimeExistAsync(localAccountId, fileId).ConfigureAwait(false))
+                continue;
+            var mime = await mimeFileService.GetMimeMessageInformationAsync(fileId, localAccountId, cancellationToken).ConfigureAwait(false);
+            return GetLocalContent(mime.MimeMessage);
+        }
+
+        return null;
+    }
+
+    internal static async Task<SemanticMailContent> ResolveContentAsync(
+        IMimeFileService mimeFileService,
+        Guid localAccountId,
+        IReadOnlyList<Guid> fileIds,
+        Func<Task<SemanticMailContent>> resolveRemoteAsync,
+        CancellationToken cancellationToken = default)
+    {
+        foreach (var fileId in fileIds)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!await mimeFileService.IsMimeExistAsync(localAccountId, fileId).ConfigureAwait(false))
+                continue;
+            var mime = await mimeFileService.GetMimeMessageInformationAsync(fileId, localAccountId, cancellationToken).ConfigureAwait(false);
+            return GetLocalContent(mime.MimeMessage);
+        }
+        return await resolveRemoteAsync().ConfigureAwait(false);
+    }
+
+    private static IntelligenceMessageCandidate ToCandidate(MailProviderType providerType, string accountAddress, CandidateRow row)
+    {
+        var canonical = RemoteMessageIdentity.TryCreate(
+            providerType,
+            row.ProviderMessageId,
+            row.RemoteFolderId,
+            row.ImapUidValidity == 0 ? row.FolderUidValidity : row.ImapUidValidity,
+            row.ImapUid)
+            ?? throw new InvalidOperationException("The mail item has no canonical intelligence identity.");
+        var uidValidity = row.ImapUidValidity == 0 ? row.FolderUidValidity : row.ImapUidValidity;
+        var isOutgoing = row.SpecialFolderType == SpecialFolderType.Sent ||
+                         string.Equals(row.FromAddress, accountAddress, StringComparison.OrdinalIgnoreCase);
+        return new(row.UniqueId, canonical, row.ProviderMessageId, [row.FileId], row.Subject ?? string.Empty,
+            row.FromAddress ?? string.Empty, row.FromName ?? string.Empty, row.CreationDate, row.ThreadId, isOutgoing,
+            row.IsRead, row.IsFlagged, row.HasAttachments, false,
+            row.Importance.ToString().ToLowerInvariant(), [row.RemoteFolderId],
+            new MailBodyLocator(canonical, row.RemoteFolderId, row.ImapUid, uidValidity, row.ProviderMessageId));
+    }
+
+    private static DateTimeOffset ToUtc(DateTime value) => value.Kind switch
+    {
+        DateTimeKind.Utc => new DateTimeOffset(value),
+        DateTimeKind.Local => new DateTimeOffset(value.ToUniversalTime()),
+        _ => new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)),
+    };
+
+    private static SemanticMailContent GetLocalContent(MimeKit.MimeMessage message)
+    {
+        var body = !string.IsNullOrWhiteSpace(message.HtmlBody)
+            ? new MailBodyContent(MailBodyFormat.Html, message.HtmlBody)
+            : !string.IsNullOrWhiteSpace(message.TextBody)
+                ? new MailBodyContent(MailBodyFormat.PlainText, message.TextBody)
+                : new MailBodyContent(MailBodyFormat.PlainText, string.Empty);
+        return new SemanticMailContent(
+            body,
+            message.From.Mailboxes.Select(x => new MailAddress(x.Address, x.Name)).ToArray(),
+            message.To.Mailboxes.Select(x => x.Address).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray(),
+            message.Cc.Mailboxes.Select(x => x.Address).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray(),
+            message.BodyParts.OfType<MimeKit.MimePart>()
+                .Where(static part => part.IsAttachment)
+                .Select(static part => new SemanticMailAttachment(
+                    part.FileName ?? string.Empty,
+                    part.ContentType.MimeType ?? string.Empty))
+                .ToArray(),
+            // Read from the header rather than inferred from the body. Whether a message
+            // can be unsubscribed from is a fact, and the classifier uses it to decide
+            // whether an Unsubscribe action can be offered at all.
+            message.Headers.Contains(MimeKit.HeaderId.ListUnsubscribe));
+    }
+
+    private class AvailabilityRow
+    {
+        public string ProviderMessageId { get; set; } = string.Empty;
+        public DateTime CreationDate { get; set; }
+        public uint ImapUid { get; set; }
+        public uint ImapUidValidity { get; set; }
+        public string RemoteFolderId { get; set; } = string.Empty;
+        public uint FolderUidValidity { get; set; }
+    }
+
+    private sealed class CandidateRow : AvailabilityRow
+    {
+        public Guid UniqueId { get; set; }
+        public Guid FileId { get; set; }
+        public string? Subject { get; set; }
+        public string? FromAddress { get; set; }
+        public string? FromName { get; set; }
+        public bool IsRead { get; set; }
+        public bool IsFlagged { get; set; }
+        public bool HasAttachments { get; set; }
+        public string? ThreadId { get; set; }
+        public MailImportance Importance { get; set; }
+        public SpecialFolderType SpecialFolderType { get; set; }
+    }
+}

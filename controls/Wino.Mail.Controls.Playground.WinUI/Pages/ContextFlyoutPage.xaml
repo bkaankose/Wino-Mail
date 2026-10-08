@@ -1,0 +1,85 @@
+﻿<Page
+    x:Class="Wino.Mail.Controls.Playground.Pages.ContextFlyoutPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:contextFlyout="using:Wino.Mail.Controls.ContextFlyout">
+    <ScrollViewer>
+        <StackPanel
+            MaxWidth="760"
+            Margin="32"
+            HorizontalAlignment="Left"
+            Spacing="20">
+            <TextBlock Style="{ThemeResource TitleTextBlockStyle}" Text="Context flyout" />
+            <TextBlock
+                MaxWidth="640"
+                Text="Right-click the card or use the button. Menus can use bound .NET definitions or declarative XAML items. The card opts into root search and header commands; the button demonstrates nested XAML items."
+                TextWrapping="Wrap" />
+
+            <Border
+                Padding="24"
+                AutomationProperties.AutomationId="ContextFlyoutPlaygroundTarget"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+                <Border.ContextFlyout>
+                    <contextFlyout:WinoContextFlyout
+                        x:Name="CardContextFlyout"
+                        HeaderItemsSource="{x:Bind HeaderItems, Mode=OneTime}"
+                        IsSearchEnabled="True"
+                        ItemsSource="{x:Bind CardItems, Mode=OneTime}" />
+                </Border.ContextFlyout>
+                <TextBlock Text="Right-click this card" />
+            </Border>
+
+            <Button AutomationProperties.AutomationId="DeclarativeContextFlyoutButton" Content="Declarative XAML items">
+                <Button.Flyout>
+                    <contextFlyout:WinoContextFlyout x:Name="DeclarativeContextFlyout">
+                        <contextFlyout:WinoContextFlyoutItem
+                            AutomationId="DeclarativeReplyItem"
+                            Command="{x:Bind SampleCommand}"
+                            CommandParameter="Reply from XAML"
+                            IconGlyph="&#xF176;"
+                            ShortcutControl="True"
+                            ShortcutKey="R"
+                            ShortcutText="Ctrl+R"
+                            Text="Reply" />
+                        <contextFlyout:WinoContextFlyoutSubItem
+                            AutomationId="DeclarativeMoveSubItem"
+                            IconGlyph="&#xE7B8;"
+                            SearchKeywords="folder destination"
+                            Text="Move to">
+                            <contextFlyout:WinoContextFlyoutItem
+                                AutomationId="DeclarativeMoveArchiveItem"
+                                Command="{x:Bind SampleCommand}"
+                                CommandParameter="Move to Archive"
+                                IconGlyph="&#xE643;"
+                                Text="Archive" />
+                            <contextFlyout:WinoContextFlyoutItem
+                                AutomationId="DeclarativeMoveProjectsItem"
+                                Command="{x:Bind SampleCommand}"
+                                CommandParameter="Move to Projects"
+                                IconGlyph="&#xE643;"
+                                Text="Projects" />
+                        </contextFlyout:WinoContextFlyoutSubItem>
+                        <contextFlyout:WinoContextFlyoutSeparator />
+                        <contextFlyout:WinoContextFlyoutItem
+                            AutomationId="DeclarativeDeleteItem"
+                            Command="{x:Bind SampleCommand}"
+                            CommandParameter="Delete from XAML"
+                            IconGlyph="&#xEEA6;"
+                            IsDestructive="True"
+                            ShortcutKey="Delete"
+                            ShortcutText="Delete"
+                            Text="Delete" />
+                    </contextFlyout:WinoContextFlyout>
+                </Button.Flyout>
+            </Button>
+
+            <TextBlock
+                x:Name="StatusTextBlock"
+                AutomationProperties.AutomationId="ContextFlyoutPlaygroundStatus"
+                Text="No command invoked." />
+        </StackPanel>
+    </ScrollViewer>
+</Page>

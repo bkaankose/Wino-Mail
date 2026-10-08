@@ -1,0 +1,191 @@
+﻿<abstract:MergedAccountDetailsPageAbstract
+    x:Class="Wino.Views.Account.MergedAccountDetailsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:accessibilityControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:controls1="using:Wino.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Mail.ViewModels.Data"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    x:Name="MainPage"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <DataTemplate x:Key="LinkedAccountTemplate" x:DataType="data:AccountProviderDetailViewModel">
+            <accessibilityControls:WinoSettingsCard
+                Margin="0,2,0,0"
+                AutomationInvoked="UnlinkAccount_Click"
+                AutomationProperties.AutomationId="MergedAccountDetailsPageSettingsCard"
+                Click="UnlinkAccount_Click"
+                CommandParameter="{x:Bind}"
+                Description="{x:Bind Account.Address}"
+                Header="{x:Bind Account.Name}"
+                IsClickEnabled="True">
+                <controls:SettingsCard.Resources>
+                    <x:Double x:Key="SettingsCardHeaderIconMaxSize">28</x:Double>
+                </controls:SettingsCard.Resources>
+                <controls:SettingsCard.HeaderIcon>
+                    <accountIcon:WinoAccountIcon Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account)}" IconSize="28" />
+                </controls:SettingsCard.HeaderIcon>
+                <controls:SettingsCard.ActionIcon>
+                    <coreControls:WinoFontIcon
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        Icon="ChevronRight" />
+                </controls:SettingsCard.ActionIcon>
+            </accessibilityControls:WinoSettingsCard>
+        </DataTemplate>
+
+        <DataTemplate x:Key="UnlinkedAccountTemplate" x:DataType="data:AccountProviderDetailViewModel">
+            <accessibilityControls:WinoSettingsCard
+                Margin="0,2,0,0"
+                AutomationInvoked="LinkAccount_Click"
+                AutomationProperties.AutomationId="MergedAccountDetailsPageSettingsCard2"
+                Click="LinkAccount_Click"
+                CommandParameter="{x:Bind}"
+                Description="{x:Bind Account.Address}"
+                FlowDirection="RightToLeft"
+                Header="{x:Bind Account.Name}"
+                IsClickEnabled="True">
+                <controls:SettingsCard.Resources>
+                    <x:Double x:Key="SettingsCardHeaderIconMaxSize">28</x:Double>
+                </controls:SettingsCard.Resources>
+                <controls:SettingsCard.HeaderIcon>
+                    <accountIcon:WinoAccountIcon Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account)}" IconSize="28" />
+                </controls:SettingsCard.HeaderIcon>
+
+                <controls:SettingsCard.ActionIcon>
+                    <coreControls:WinoFontIcon
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        Icon="ChevronRight" />
+                </controls:SettingsCard.ActionIcon>
+            </accessibilityControls:WinoSettingsCard>
+        </DataTemplate>
+    </Page.Resources>
+
+    <StackPanel>
+        <accessibilityControls:WinoSettingsCard
+            AutomationProperties.AutomationId="MergedAccountDetailsPageSettingsCard3"
+            Command="{x:Bind ViewModel.RenameLinkCommand}"
+            Description="{x:Bind domain:Translator.SettingsRenameMergeAccount_Description}"
+            Header="{x:Bind domain:Translator.SettingsRenameMergeAccount_Title}"
+            IsActionIconVisible="False"
+            IsClickEnabled="True">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="Rename" />
+            </controls:SettingsCard.HeaderIcon>
+        </accessibilityControls:WinoSettingsCard>
+        <accessibilityControls:WinoSettingsCard
+            Grid.Row="2"
+            Grid.ColumnSpan="3"
+            AutomationProperties.AutomationId="MergedAccountDetailsPageSettingsCard4"
+            Command="{x:Bind ViewModel.UnlinkAccountsCommand}"
+            Description="{x:Bind domain:Translator.SettingsUnlinkAccounts_Description}"
+            Header="{x:Bind domain:Translator.SettingsUnlinkAccounts_Title}"
+            IsActionIconVisible="False"
+            IsClickEnabled="True">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Foreground="{StaticResource DeleteBrush}" Icon="SubtractCircle" />
+            </controls:SettingsCard.HeaderIcon>
+        </accessibilityControls:WinoSettingsCard>
+        <controls:SettingsCard
+            HorizontalContentAlignment="Stretch"
+            VerticalContentAlignment="Stretch"
+            AutomationProperties.AutomationId="MergedAccountDetailsPageSettingsCard5"
+            ContentAlignment="Vertical"
+            Description="{x:Bind domain:Translator.SettingsManageLink_Description}"
+            Header="{x:Bind domain:Translator.SettingsManageLink_Title}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Icon="ArrowSyncCircle" />
+            </controls:SettingsCard.HeaderIcon>
+
+            <Grid Margin="0,12,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="20" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Column="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        FontWeight="SemiBold"
+                        Text="{x:Bind domain:Translator.LinkedAccountsTitle}" />
+                    <ListView
+                        Grid.Row="1"
+                        AutomationProperties.AutomationId="MergedAccountDetailsPageListView"
+                        IsItemClickEnabled="False"
+                        ItemTemplate="{StaticResource LinkedAccountTemplate}"
+                        ItemsSource="{x:Bind ViewModel.LinkedAccounts}"
+                        SelectionMode="None">
+                        <ListView.Header>
+                            <TextBlock
+                                x:Name="NoLinkedAccountsMessage"
+                                Grid.Row="1"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Foreground="{ThemeResource InfoBarWarningSeverityIconBackground}"
+                                HorizontalTextAlignment="Center"
+                                Text="{x:Bind domain:Translator.LinkedAccountsCreatePolicyMessage}"
+                                Visibility="{x:Bind ViewModel.ShouldDeleteMergedAccount, Mode=OneWay}" />
+                        </ListView.Header>
+                    </ListView>
+                </Grid>
+
+                <Grid Grid.Column="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        FontWeight="SemiBold"
+                        Text="{x:Bind domain:Translator.MergedAccountsAvailableAccountsTitle}" />
+                    <ListView
+                        Grid.Row="1"
+                        AutomationProperties.AutomationId="MergedAccountDetailsPageListView2"
+                        IsItemClickEnabled="False"
+                        ItemTemplate="{StaticResource UnlinkedAccountTemplate}"
+                        ItemsSource="{x:Bind ViewModel.UnlinkedAccounts}"
+                        SelectionMode="None" />
+                </Grid>
+
+                <accessibilityControls:WinoSettingsCard
+                    Grid.Row="1"
+                    Grid.ColumnSpan="3"
+                    Margin="0,24,0,6"
+                    AutomationProperties.AutomationId="MergedAccountDetailsPageSettingsCard6"
+                    Command="{x:Bind ViewModel.SaveChangesCommand}"
+                    Description="{x:Bind domain:Translator.SettingsLinkedAccountsSave_Description}"
+                    Header="{x:Bind domain:Translator.SettingsLinkedAccountsSave_Title}"
+                    IsClickEnabled="True">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="Save" />
+                    </controls:SettingsCard.HeaderIcon>
+                </accessibilityControls:WinoSettingsCard>
+            </Grid>
+        </controls:SettingsCard>
+    </StackPanel>
+</abstract:MergedAccountDetailsPageAbstract>

@@ -1,0 +1,23 @@
+﻿<Page
+    x:Class="Wino.Mail.Controls.Playground.Pages.HotKeyInputPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:hotKey="using:Wino.Mail.Controls.HotKeyInput">
+    <StackPanel
+        MaxWidth="520"
+        Padding="32"
+        HorizontalAlignment="Left"
+        Spacing="16">
+        <TextBlock Style="{ThemeResource TitleTextBlockStyle}" Text="Hot key input" />
+        <TextBlock Text="Activate the control, press a modified shortcut, and release its non-modifier key." TextWrapping="Wrap" />
+        <hotKey:WinoHotKeyInput
+            x:Name="HotKeyInput"
+            AutomationProperties.AutomationId="PlaygroundHotKeyInput"
+            AutomationProperties.Name="Global shortcut"
+            HotKeyCommitted="HotKeyInput_HotKeyCommitted"
+            ListeningPrompt="Press a shortcut now"
+            NormalPrompt="Press shortcut" />
+        <TextBlock x:Name="CommittedValue" Text="No shortcut committed in this session." />
+        <hotKey:WinoHotKeyInput AutomationProperties.Name="Disabled global shortcut" IsEnabled="False" />
+    </StackPanel>
+</Page>

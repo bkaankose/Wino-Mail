@@ -1,0 +1,56 @@
+#nullable enable
+using System;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Models.Accounts;
+using Wino.Mail.Api.Contracts.Ai;
+using Wino.Mail.Api.Contracts.Auth;
+using Wino.Mail.Api.Contracts.Common;
+using Wino.Mail.Api.Contracts.Users;
+using Wino.Mail.AI.Abstractions;
+using System.Collections.Generic;
+
+namespace Wino.Core.Domain.Interfaces;
+
+public interface IWinoAccountProfileService
+{
+    Task<WinoAccountOperationResult> RegisterWithProfileAsync(string email, string password, string? displayName, CancellationToken cancellationToken = default)
+        => RegisterAsync(email, password, cancellationToken);
+    Task<ApiEnvelope<AuthUserDto>> UpdateProfileAsync(string? displayName, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+    Task<ApiEnvelope<AuthUserDto>> UploadAvatarAsync(byte[] payload, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+    Task<ApiEnvelope<AuthUserDto>> DeleteAvatarAsync(CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+    Task<byte[]> PrepareAvatarAsync(byte[] payload, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+    Task<string?> GetAvatarPathAsync(Guid accountId, Guid? revision, CancellationToken cancellationToken = default)
+        => Task.FromResult<string?>(null);
+
+    Task<WinoAccountOperationResult> RegisterAsync(string email, string password, CancellationToken cancellationToken = default);
+    Task<WinoAccountOperationResult> LoginAsync(string email, string password, CancellationToken cancellationToken = default);
+    Task<WinoAccountOperationResult> RefreshAsync(CancellationToken cancellationToken = default);
+    Task<WinoAccountOperationResult> RefreshProfileAsync(CancellationToken cancellationToken = default);
+    Task<ApiEnvelope<EmailConfirmationResendResultDto>> ResendEmailConfirmationAsync(string endpoint, string ticket, CancellationToken cancellationToken = default);
+    Task<ApiEnvelope<JsonElement>> ForgotPasswordAsync(string email, CancellationToken cancellationToken = default);
+    Task<WinoAccount?> GetActiveAccountAsync();
+    /// <summary>
+    /// Returns the signed-in account with a usable access token, refreshing it when it expired.
+    /// Returns null when no account is signed in or its credentials were rejected.
+    /// </summary>
+    /// <exception cref="Exceptions.WinoAccountApiException">The Wino service could not be reached to refresh the token.</exception>
+    Task<WinoAccount?> GetAuthenticatedAccountAsync(CancellationToken cancellationToken = default);
+    Task<bool> HasActiveAccountAsync();
+    Task<ApiEnvelope<AuthUserDto>> GetCurrentUserAsync(CancellationToken cancellationToken = default);
+    Task<ApiEnvelope<AiSummaryResultDto>> SummarizeAsync(IReadOnlyList<MailContentSegment> segments, string targetLanguage, CancellationToken cancellationToken = default);
+    Task<ApiEnvelope<AiTranslationResultDto>> TranslateAsync(IReadOnlyList<MailContentSegment> segments, string? sourceLanguage, string targetLanguage, CancellationToken cancellationToken = default);
+    /// <param name="context">A <see cref="RewriteContexts"/> value: reading a received message or composing a draft.</param>
+    Task<ApiEnvelope<AiTextResultDto>> RewriteAsync(string html, string mode, string context, CancellationToken cancellationToken = default);
+    Task<WinoSyncSnapshotDownload?> GetSyncSnapshotAsync(CancellationToken cancellationToken = default);
+    Task<UserSyncSnapshotStatusDto> PutSyncSnapshotAsync(byte[] payload, long? expectedRevision = null, CancellationToken cancellationToken = default);
+    Task<UserMailboxSyncListDto> GetMailboxesAsync(CancellationToken cancellationToken = default);
+    Task ReplaceMailboxesAsync(ReplaceUserMailboxesRequestDto request, CancellationToken cancellationToken = default);
+    Task SignOutAsync(CancellationToken cancellationToken = default);
+}

@@ -1,0 +1,515 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>Wino.Mail.WinUI</RootNamespace>
+    <!-- Version-resource strings. Windows labels the tray icon in Settings > Taskbar with FileDescription. -->
+    <AssemblyTitle>Wino Mail</AssemblyTitle>
+    <Product>Wino Mail</Product>
+    <Company>Burak Kaan Köse</Company>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
+    <Platforms>x86;x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+    <!-- Visual Studio solution builds set Platform but do not set RuntimeIdentifier. -->
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' == 'x86'">win-x86</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' == 'x64'">win-x64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' == 'ARM64'">win-arm64</RuntimeIdentifier>
+    <PublishProfile>win-$(Platform).pubxml</PublishProfile>
+    <UseWinUI>true</UseWinUI>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <WindowsPackageType>MSIX</WindowsPackageType>
+    <!-- Packaging writes symbol payloads (XAML, sources) under AppPackages; never glob them back into the build. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);AppPackages\**</DefaultItemExcludes>
+    <!-- Bundle the Windows App SDK and .NET runtime into per-architecture MSIX outputs. -->
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
+    <UseNativeAot Condition="'$(UseNativeAot)' == ''">true</UseNativeAot>
+    <PublishAot Condition="'$(WinoIsReleaseBuild)' == 'true'">$(UseNativeAot)</PublishAot>
+    <PublishTrimmed Condition="'$(WinoIsReleaseBuild)' == 'true'">$(UseNativeAot)</PublishTrimmed>
+    <TrimMode Condition="'$(WinoIsReleaseBuild)' == 'true'">full</TrimMode>
+    <IncludePublishItemsOutputGroup Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(PublishAot)' == 'true' and '$(GenerateAppxPackageOnBuild)' == 'true'">true</IncludePublishItemsOutputGroup>
+    <!--
+      Ical.Net 5.2.3 intentionally reflects over its RFC 5545 model and serializer types,
+      MimeKit's otherwise-unused default context probes SQLite dynamically, and CsWinRT's
+      generic WinRT fallback marshaler lacks the linker annotations required by IL2081.
+      Wino.Mail.AI.Abstractions also carries the package-level IL3053 summary for its
+      contract JSON converters; Wino serializes the concrete payloads it uses through
+      generated JSON contexts.
+      Wino roots Ical.Net and the explicit Windows S/MIME context below, so only these
+      upstream analyzer limitations are suppressed during the whole-program AOT link.
+      Ordinary Release analyzer builds remain unsuppressed and continue to reject
+      first-party IL warnings.
+    -->
+    <NoWarn Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(PublishAot)' == 'true'">$(NoWarn);IL2026;IL2070;IL2072;IL2075;IL2077;IL2080;IL2081;IL2087;IL3053</NoWarn>
+    <Nullable>enable</Nullable>
+	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	<!-- Single instancing -->
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+	<NotificationHostBuildSuffix>bin\$(Platform)\$(Configuration)\net10.0-windows10.0.26100.0\$(RuntimeIdentifier)\</NotificationHostBuildSuffix>
+	<NotificationHostPublishRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)\$(BaseIntermediateOutputPath)$(Platform)\$(Configuration)\NotificationHosts'))</NotificationHostPublishRoot>
+	<NotificationHostOutput Condition="'$(WinoIsReleaseBuild)' != 'true'">$(MSBuildProjectDirectory)\..\Wino.NotificationHost\$(NotificationHostBuildSuffix)</NotificationHostOutput>
+	<NotificationHostOutput Condition="'$(WinoIsReleaseBuild)' == 'true'">$(NotificationHostPublishRoot)</NotificationHostOutput>
+</PropertyGroup>
+
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="Wino.CardDavContacts" Value="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Remove="Assets\BadgeLogo.scale-100.png" />
+    <Content Remove="Assets\BadgeLogo.scale-125.png" />
+    <Content Remove="Assets\BadgeLogo.scale-150.png" />
+    <Content Remove="Assets\BadgeLogo.scale-200.png" />
+    <Content Remove="Assets\BadgeLogo.scale-400.png" />
+    <Content Remove="Assets\CalendarAppBase.png" />
+    <Content Remove="Assets\CalendarLargeTile.png" />
+    <Content Remove="Assets\CalendarSmallTile.png" />
+    <Content Remove="Assets\CalendarSquare150x150Logo.png" />
+    <Content Remove="Assets\CalendarSquare44x44Logo.png" />
+    <Content Remove="Assets\LargeTile.scale-100.png" />
+    <Content Remove="Assets\LargeTile.scale-125.png" />
+    <Content Remove="Assets\LargeTile.scale-150.png" />
+    <Content Remove="Assets\LargeTile.scale-200.png" />
+    <Content Remove="Assets\LargeTile.scale-400.png" />
+    <Content Remove="Assets\SmallTile.scale-100.png" />
+    <Content Remove="Assets\SmallTile.scale-125.png" />
+    <Content Remove="Assets\SmallTile.scale-150.png" />
+    <Content Remove="Assets\SmallTile.scale-200.png" />
+    <Content Remove="Assets\SmallTile.scale-400.png" />
+    <Content Remove="Assets\SplashScreen.scale-100.png" />
+    <Content Remove="Assets\SplashScreen.scale-125.png" />
+    <Content Remove="Assets\SplashScreen.scale-150.png" />
+    <Content Remove="Assets\SplashScreen.scale-400.png" />
+    <Content Remove="Assets\Square150x150Logo.scale-100.png" />
+    <Content Remove="Assets\Square150x150Logo.scale-125.png" />
+    <Content Remove="Assets\Square150x150Logo.scale-150.png" />
+    <Content Remove="Assets\Square150x150Logo.scale-400.png" />
+    <Content Remove="Assets\Square44x44Logo.altform-lightunplated_targetsize-16.png" />
+    <Content Remove="Assets\Square44x44Logo.altform-lightunplated_targetsize-24.png" />
+    <Content Remove="Assets\Square44x44Logo.altform-lightunplated_targetsize-256.png" />
+    <Content Remove="Assets\Square44x44Logo.altform-lightunplated_targetsize-32.png" />
+    <Content Remove="Assets\Square44x44Logo.altform-lightunplated_targetsize-48.png" />
+    <Content Remove="Assets\Square44x44Logo.altform-unplated_targetsize-16.png" />
+    <Content Remove="Assets\Square44x44Logo.altform-unplated_targetsize-256.png" />
+    <Content Remove="Assets\Square44x44Logo.altform-unplated_targetsize-32.png" />
+    <Content Remove="Assets\Square44x44Logo.altform-unplated_targetsize-48.png" />
+    <Content Remove="Assets\Square44x44Logo.scale-100.png" />
+    <Content Remove="Assets\Square44x44Logo.scale-125.png" />
+    <Content Remove="Assets\Square44x44Logo.scale-150.png" />
+    <Content Remove="Assets\Square44x44Logo.scale-400.png" />
+    <Content Remove="Assets\Square44x44Logo.targetsize-16.png" />
+    <Content Remove="Assets\Square44x44Logo.targetsize-24.png" />
+    <Content Remove="Assets\Square44x44Logo.targetsize-256.png" />
+    <Content Remove="Assets\Square44x44Logo.targetsize-32.png" />
+    <Content Remove="Assets\Square44x44Logo.targetsize-48.png" />
+    <Content Remove="Assets\StoreLogo.backup.png" />
+    <Content Remove="Assets\Wide310x150Logo.scale-100.png" />
+    <Content Remove="Assets\Wide310x150Logo.scale-125.png" />
+    <Content Remove="Assets\Wide310x150Logo.scale-150.png" />
+    <Content Remove="Assets\Wide310x150Logo.scale-400.png" />
+    <Content Remove="Assets\AppEntries\MailAssets\Square44x44Logo.altform-unplated_targetsize-24.png" />
+    <Content Remove="Assets\AppEntries\CalendarAssets\Square44x44Logo.altform-unplated_targetsize-24.png" />
+    <Content Remove="Assets\AppEntries\PeopleAssets\Square44x44Logo.altform-unplated_targetsize-24.png" />
+    <Content Remove="Assets\AppEntries\ToDoAssets\Square44x44Logo.altform-unplated_targetsize-24.png" />
+    <Content Remove="Assets\AppEntries\_Sources\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="Assets\AIPackIcon.png" />
+    <None Remove="Assets\CalendarWide310x150Logo.png" />
+    <None Remove="Assets\StoreLogo.scale-100.png" />
+    <None Remove="Assets\StoreLogo.scale-125.png" />
+    <None Remove="Assets\StoreLogo.scale-150.png" />
+    <None Remove="Assets\StoreLogo.scale-200.png" />
+    <None Remove="Assets\StoreLogo.scale-400.png" />
+    <None Remove="Assets\WinoLogo.png" />
+    <None Remove="Assets\AppEntries\Mail.svg" />
+    <None Remove="Assets\AppEntries\ToDo.svg" />
+    <None Remove="Assets\AppEntries\Calendar.svg" />
+    <None Remove="Assets\AppEntries\People.svg" />
+    <None Remove="BackgroundImages\Acrylic.jpg" />
+    <None Remove="BackgroundImages\Clouds.jpg" />
+    <None Remove="BackgroundImages\Forest.jpg" />
+    <None Remove="BackgroundImages\Garden.jpg" />
+    <None Remove="BackgroundImages\Mica.jpg" />
+    <None Remove="BackgroundImages\Nighty.jpg" />
+    <None Remove="BackgroundImages\Snowflake.jpg" />
+    <None Remove="BackgroundImages\Dunes.jpg" />
+    <None Remove="BackgroundImages\Lavender.jpg" />
+    <None Remove="BackgroundImages\Coastline.jpg" />
+    <None Remove="BackgroundImages\Blossom.jpg" />
+    <None Remove="BackgroundImages\Poppy.jpg" />
+    <None Remove="BackgroundImages\Aurora.jpg" />
+    <None Remove="BackgroundImages\Ember.jpg" />
+    <None Remove="BackgroundImages\Nebula.jpg" />
+    <None Remove="BackgroundImages\Skyline.jpg" />
+    <None Remove="BackgroundImages\Graphite.jpg" />
+    <None Remove="BackgroundImages\Mist.jpg" />
+    <None Remove="BackgroundImages\Cocoa.jpg" />
+    <None Remove="BackgroundImages\Moss.jpg" />
+    <None Remove="BackgroundImages\Rose.jpg" />
+    <None Remove="BackgroundImages\Indigo.jpg" />
+    <None Remove="Controls\ListView\WinoListViewStyles.xaml" />
+    <None Remove="Controls\Calendar\CalendarPeriodControl.xaml" />
+    <None Remove="ShellWindow.xaml" />
+    <None Remove="Styles\WinoAppShellNavigationViewStyle.xaml" />
+    <None Remove="Styles\CalendarThemeResources.xaml" />
+    <None Remove="Styles\CalendarViewStyles.xaml" />
+    <None Remove="Styles\WinoCalendarTypeSelectorControl.xaml" />
+    <None Remove="Views\Calendar\CalendarAppShell.xaml" />
+    <None Remove="Views\Calendar\CalendarPage.xaml" />
+    <None Remove="Views\Calendar\EventDetailsPage.xaml" />
+    <None Remove="Views\Settings\ContactsPage.xaml" />
+    <None Remove="Views\TestPage.xaml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Remove="AppThemes\Acrylic.xaml" />
+    <Page Remove="AppThemes\Clouds.xaml" />
+    <Page Remove="AppThemes\Custom.xaml" />
+    <Page Remove="AppThemes\Default.xaml" />
+    <Page Remove="AppThemes\Forest.xaml" />
+    <Page Remove="AppThemes\Garden.xaml" />
+    <Page Remove="AppThemes\Nighty.xaml" />
+    <Page Remove="AppThemes\Snowflake.xaml" />
+    <Page Remove="AppThemes\Dunes.xaml" />
+    <Page Remove="AppThemes\Lavender.xaml" />
+    <Page Remove="AppThemes\Coastline.xaml" />
+    <Page Remove="AppThemes\Blossom.xaml" />
+    <Page Remove="AppThemes\Poppy.xaml" />
+    <Page Remove="AppThemes\Aurora.xaml" />
+    <Page Remove="AppThemes\Ember.xaml" />
+    <Page Remove="AppThemes\Nebula.xaml" />
+    <Page Remove="AppThemes\Skyline.xaml" />
+    <Page Remove="AppThemes\Graphite.xaml" />
+    <Page Remove="AppThemes\Mist.xaml" />
+    <Page Remove="AppThemes\Cocoa.xaml" />
+    <Page Remove="AppThemes\Moss.xaml" />
+    <Page Remove="AppThemes\Rose.xaml" />
+    <Page Remove="AppThemes\Indigo.xaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="AppThemes\Acrylic.xaml" />
+    <Content Include="AppThemes\Clouds.xaml" />
+    <Content Include="AppThemes\Custom.xaml" />
+    <Content Include="AppThemes\Default.xaml" />
+    <Content Include="AppThemes\Forest.xaml" />
+    <Content Include="AppThemes\Garden.xaml" />
+    <Content Include="AppThemes\Nighty.xaml" />
+    <Content Include="AppThemes\Snowflake.xaml" />
+    <Content Include="AppThemes\Dunes.xaml" />
+    <Content Include="AppThemes\Lavender.xaml" />
+    <Content Include="AppThemes\Coastline.xaml" />
+    <Content Include="AppThemes\Blossom.xaml" />
+    <Content Include="AppThemes\Poppy.xaml" />
+    <Content Include="AppThemes\Aurora.xaml" />
+    <Content Include="AppThemes\Ember.xaml" />
+    <Content Include="AppThemes\Nebula.xaml" />
+    <Content Include="AppThemes\Skyline.xaml" />
+    <Content Include="AppThemes\Graphite.xaml" />
+    <Content Include="AppThemes\Mist.xaml" />
+    <Content Include="AppThemes\Cocoa.xaml" />
+    <Content Include="AppThemes\Moss.xaml" />
+    <Content Include="AppThemes\Rose.xaml" />
+    <Content Include="AppThemes\Indigo.xaml" />
+    <Content Include="Assets\WhatsNew\*.json" />
+    <Content Include="Assets\AppEntries\Mail.svg" />
+    <Content Include="Assets\AppEntries\ToDo.svg" />
+    <Content Include="Assets\AppEntries\Calendar.svg" />
+    <Content Include="Assets\AppEntries\People.svg" />
+    <Content Include="release-profile.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Assets\Wino_Icon.ico" />
+    <Content Include="Assets\WinoLogo.png" />
+    <Content Include="BackgroundImages\Acrylic.jpg" />
+    <Content Include="BackgroundImages\Clouds.jpg" />
+    <Content Include="BackgroundImages\Forest.jpg" />
+    <Content Include="BackgroundImages\Garden.jpg" />
+    <Content Include="BackgroundImages\Mica.jpg" />
+    <Content Include="BackgroundImages\Nighty.jpg" />
+    <Content Include="BackgroundImages\Snowflake.jpg" />
+    <Content Include="BackgroundImages\Dunes.jpg" />
+    <Content Include="BackgroundImages\Lavender.jpg" />
+    <Content Include="BackgroundImages\Coastline.jpg" />
+    <Content Include="BackgroundImages\Blossom.jpg" />
+    <Content Include="BackgroundImages\Poppy.jpg" />
+    <Content Include="BackgroundImages\Aurora.jpg" />
+    <Content Include="BackgroundImages\Ember.jpg" />
+    <Content Include="BackgroundImages\Nebula.jpg" />
+    <Content Include="BackgroundImages\Skyline.jpg" />
+    <Content Include="BackgroundImages\Graphite.jpg" />
+    <Content Include="BackgroundImages\Mist.jpg" />
+    <Content Include="BackgroundImages\Cocoa.jpg" />
+    <Content Include="BackgroundImages\Moss.jpg" />
+    <Content Include="BackgroundImages\Rose.jpg" />
+    <Content Include="BackgroundImages\Indigo.jpg" />
+    <Content Include="$(NotificationHostOutput)Wino.NotificationHost.exe" Link="Wino.NotificationHost.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="$(NotificationHostOutput)Wino.NotificationHost.dll" Link="Wino.NotificationHost.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoIsReleaseBuild)' != 'true'" />
+    <Content Include="$(NotificationHostOutput)Wino.NotificationHost.deps.json" Link="Wino.NotificationHost.deps.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoIsReleaseBuild)' != 'true'" />
+    <Content Include="$(NotificationHostOutput)Wino.NotificationHost.runtimeconfig.json" Link="Wino.NotificationHost.runtimeconfig.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoIsReleaseBuild)' != 'true'" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Manifest Include="$(ApplicationManifest)" />
+  </ItemGroup>
+
+  <!--
+    Defining the "Msix" ProjectCapability here allows the Single-project MSIX Packaging
+    Tools extension to be activated for this project even if the Windows App SDK Nuget
+    package has not yet been restored.
+  -->
+  <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+    <ProjectCapability Include="Msix" />
+  </ItemGroup>
+	
+  <ItemGroup>
+	<PackageReference Include="CommunityToolkit.Common" />
+	<PackageReference Include="CommunityToolkit.Diagnostics" />
+	<PackageReference Include="CommunityToolkit.Mvvm" />
+	<PackageReference Include="CommunityToolkit.Labs.WinUI.DependencyPropertyGenerator" />
+    <PackageReference Include="CommunityToolkit.WinUI.Animations" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.Segmented" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.RangeSelector" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.Sizers" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.TabbedCommandBar" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.TokenizingTextBox" />
+    <PackageReference Include="CommunityToolkit.WinUI.Extensions" />
+	  
+    <PackageReference Include="Microsoft.Graphics.Win2D" />
+    <PackageReference Include="Microsoft.Windows.CsWinRT" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.MSIX">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
+	<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+	<PackageReference Include="Microsoft.Extensions.Logging" />
+	<PackageReference Include="Microsoft.Identity.Client" />
+	  
+	<PackageReference Include="ColorHashSharp" />
+	<PackageReference Include="Sentry.Serilog" />
+	<PackageReference Include="Serilog.Extensions.Logging" />
+	<PackageReference Include="sqlite-net-pcl" />
+	<PackageReference Include="EmailValidation" />
+	<PackageReference Include="WinUIEx" />
+	<PackageReference Include="Wino.Mail.Contracts" />
+  </ItemGroup>
+  <ItemGroup>
+	<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+	<ProjectReference Include="..\..\controls\Wino.Editor.WinUI\Wino.Editor.WinUI.csproj" />
+	<ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
+	<ProjectReference Include="..\Wino.NotificationHost.Contracts\Wino.NotificationHost.Contracts.csproj" />
+	<ProjectReference Include="..\..\controls\Wino.Mail.Controls.WinUI\Wino.Mail.Controls.WinUI.csproj" />
+	<ProjectReference Include="..\..\controls\Wino.Mail.Controls.Core\Wino.Mail.Controls.Core.csproj" />
+	<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Build the notification host before the app's packaging target publishes it. -->
+    <ProjectReference Include="..\Wino.NotificationHost\Wino.NotificationHost.csproj" ReferenceOutputAssembly="false" Private="false" />
+  </ItemGroup>
+  <ItemDefinitionGroup>
+    <!-- Project-only runs have no solution/global Platform or RID. Propagate the
+         app's evaluated defaults to direct and SDK-added transitive references.
+         Packaging consumes SetPlatform separately from compilation properties. -->
+    <ProjectReference>
+      <AdditionalProperties>Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier)</AdditionalProperties>
+      <SetPlatform>Platform=$(Platform)</SetPlatform>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemGroup Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(PublishAot)' == 'true'">
+    <TrimmerRootAssembly Include="Ical.Net" />
+    <TrimmerRootDescriptor Include="ILLink.AotRoots.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Wino.SourceGenerators\Wino.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="PublishAot;PublishTrimmed;TrimMode;SelfContained" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Views\Settings\ContactsPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Controls\ListView\WinoListViewStyles.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="ShellWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="MailAppShell.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Controls\MailItemDisplayInformationControl.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Dialogs\AccountReorderDialog.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Dialogs\CreateAccountAliasDialog.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Dialogs\MessageSourceDialog.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Dialogs\MoveMailDialog.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Dialogs\SignatureEditorDialog.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Dialogs\SystemFolderConfigurationDialog.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Styles\WinoContactPicture.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Styles\ItemContainerStyles.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Styles\WinoExpanderStyle.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Account\AccountDetailsPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Account\AccountManagementPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Account\ImapCalDavSettingsPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Account\MergedAccountDetailsPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\ComposePage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\IdlePage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\MailListPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\MailRenderingPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Settings\AboutPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Settings\AliasManagementPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Settings\AppPreferencesPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Settings\CreateEmailTemplatePage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Settings\EmailTemplatesPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Settings\MailFilterEditorPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Settings\MailFiltersPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Settings\MessageListPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Settings\PersonalizationPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Settings\ReadComposePanePage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Settings\SignatureManagementPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\WelcomePage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Views\Mail\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Views\TestPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Controls\Calendar\CalendarPeriodControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Styles\CalendarViewStyles.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Styles\WinoAppShellNavigationViewStyle.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Styles\CalendarThemeResources.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Styles\WinoCalendarTypeSelectorControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Views\Calendar\CalendarAppShell.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Calendar\CalendarPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Calendar\EventDetailsPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
+  <!--
+    Defining the "HasPackageAndPublishMenuAddedByProject" property here allows the Solution
+    Explorer "Package and Publish" context menu entry to be enabled for this project even if
+    the Windows App SDK Nuget package has not yet been restored.
+  -->
+  <PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+    <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
+  </PropertyGroup>
+
+  <!-- Publish Properties -->
+  <PropertyGroup>  
+    <GenerateTemporaryStoreCertificate>False</GenerateTemporaryStoreCertificate>
+    <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
+    <AppxPackageSigningEnabled>False</AppxPackageSigningEnabled>
+    <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
+    <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
+    <GenerateTestArtifacts>True</GenerateTestArtifacts>
+    <AppxBundle>Always</AppxBundle>
+    <AppxBundlePlatforms>x86|x64|arm64</AppxBundlePlatforms>
+    <AppxPackageDir Condition="'$(AppxPackageDir)' == ''">$(MSBuildProjectDirectory)\AppPackages\</AppxPackageDir>
+    <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
+    <AppxSymbolPackageEnabled>True</AppxSymbolPackageEnabled>
+  </PropertyGroup>
+
+  <Import Project="..\..\scripts\release\Wino.Release.targets" Condition="'$(WinoReleaseStagingRoot)' != ''" />
+
+  <Target Name="PublishNotificationHost" BeforeTargets="PrepareForBuild" Condition="'$(WinoIsReleaseBuild)' == 'true'">
+    <MakeDir Directories="$(NotificationHostOutput)" />
+    <MSBuild Projects="$(MSBuildProjectDirectory)\..\Wino.NotificationHost\Wino.NotificationHost.csproj" Targets="Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);PublishDir=$(NotificationHostOutput);Restore=false" />
+  </Target>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Wino.Platform.Windows\Wino.Platform.Windows.csproj" />
+	</ItemGroup>
+</Project>

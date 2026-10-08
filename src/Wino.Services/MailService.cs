@@ -1,0 +1,3008 @@
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Net;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
+using MimeKit;
+using Serilog;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Extensions;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Misc;
+using Wino.Core.Domain.Models.Intelligence;
+using Wino.Core.Domain.Models.MailItem;
+using Wino.Mail.AI.Abstractions;
+using Wino.Mail.Contracts.Intelligence;
+using Wino.Messaging.UI;
+using Wino.Services.Extensions;
+
+namespace Wino.Services;
+
+public class MailService : BaseDatabaseService, IMailService
+{
+    private const int ItemLoadCount = 100;
+    private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _draftLifecycleLocks = new();
+
+    private readonly DraftUpdateRegistry _draftUpdates;
+    private readonly IFolderService _folderService;
+    private readonly IContactService _contactService;
+    private readonly IAccountService _accountService;
+    private readonly ISignatureService _signatureService;
+    private readonly IMimeFileService _mimeFileService;
+    private readonly IPreferencesService _preferencesService;
+    private readonly ISentMailReceiptService _sentMailReceiptService;
+    private readonly IMailCategoryService _mailCategoryService;
+    private readonly IWinoAccountProfileService _winoAccountProfileService;
+    private readonly IMailIntelligenceStore _localIntelligenceStore;
+    private readonly IRecipientHistoryService _recipientHistoryService;
+
+    private readonly ILogger _logger = Log.ForContext<MailService>();
+
+    public MailService(IDatabaseService databaseService,
+                       IFolderService folderService,
+                       IContactService contactService,
+                       IAccountService accountService,
+                       ISignatureService signatureService,
+                       IMimeFileService mimeFileService,
+                       IPreferencesService preferencesService,
+                       ISentMailReceiptService sentMailReceiptService,
+                       IMailCategoryService mailCategoryService,
+                       IWinoAccountProfileService winoAccountProfileService = null,
+                       IMailIntelligenceStore localIntelligenceStore = null,
+                       DraftUpdateRegistry draftUpdates = null,
+                       IRecipientHistoryService recipientHistoryService = null) : base(databaseService)
+    {
+        _draftUpdates = draftUpdates;
+        _recipientHistoryService = recipientHistoryService;
+        _folderService = folderService;
+        _contactService = contactService;
+        _accountService = accountService;
+        _signatureService = signatureService;
+        _mimeFileService = mimeFileService;
+        _preferencesService = preferencesService;
+        _sentMailReceiptService = sentMailReceiptService;
+        _mailCategoryService = mailCategoryService;
+        _winoAccountProfileService = winoAccountProfileService;
+        _localIntelligenceStore = localIntelligenceStore;
+    }
+
+    public async Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(Guid accountId, DraftCreationOptions draftCreationOptions)
+    {
+        var composerAccount = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+        var selectedAlias = await ResolveDraftAliasAsync(composerAccount, draftCreationOptions).ConfigureAwait(false);
+        var createdDraftMimeMessage = await CreateDraftMimeAsync(composerAccount, draftCreationOptions, selectedAlias).ConfigureAwait(false);
+
+        var draftFolder = await _folderService.GetSpecialFolderByAccountIdAsync(composerAccount.Id, SpecialFolderType.Draft);
+
+        if (draftFolder == null)
+            throw new UnavailableSpecialFolderException(SpecialFolderType.Draft, accountId);
+
+        // Get locally created unique id from the mime headers.
+        // This header will be used to map the local draft copy with the remote draft copy.
+        var mimeUniqueId = createdDraftMimeMessage.Headers[Constants.WinoLocalDraftHeader];
+
+        var primaryAlias = await _accountService.GetPrimaryAccountAliasAsync(accountId).ConfigureAwait(false);
+
+        var copy = new MailCopy
+        {
+            UniqueId = Guid.Parse(mimeUniqueId),
+            Id = Guid.NewGuid().ToString(), // This will be replaced after network call with the remote draft id.
+            CreationDate = DateTime.UtcNow,
+            FromAddress = selectedAlias?.AliasAddress ?? primaryAlias?.AliasAddress ?? composerAccount.Address,
+            FromName = selectedAlias?.AliasSenderName ?? composerAccount.SenderName,
+            HasAttachments = false,
+            Importance = MailImportance.Normal,
+            Subject = createdDraftMimeMessage.Subject,
+            PreviewText = NormalizePreviewText(createdDraftMimeMessage.TextBody),
+            IsRead = true,
+            IsDraft = true,
+            FolderId = draftFolder.Id,
+            DraftId = $"{Constants.LocalDraftStartPrefix}{Guid.NewGuid()}",
+            DraftSyncState = DraftSyncState.PendingSync,
+            AssignedFolder = draftFolder,
+            AssignedAccount = composerAccount,
+            FileId = Guid.NewGuid(),
+            MessageId = GetNormalizedMimeMessageId(createdDraftMimeMessage),
+            InReplyTo = GetNormalizedMimeInReplyTo(createdDraftMimeMessage),
+            References = GetNormalizedMimeReferences(createdDraftMimeMessage)
+        };
+
+        // Drafts are published to the UI immediately, before a later database
+        // query can hydrate ignored navigation properties. Populate the sender
+        // contact now so a blank draft can show the composing user's avatar.
+        copy.SenderContact = await GetSenderContactForAccountAsync(composerAccount, copy.FromAddress).ConfigureAwait(false);
+
+        if (draftCreationOptions.ReferencedMessage != null)
+        {
+            if (!string.IsNullOrEmpty(draftCreationOptions.ReferencedMessage.MailCopy?.ThreadId))
+                copy.ThreadId = draftCreationOptions.ReferencedMessage.MailCopy.ThreadId;
+
+            // Fallback local threading when provider/native thread id is unavailable.
+            if (string.IsNullOrWhiteSpace(copy.ThreadId))
+                copy.ThreadId = MailHeaderExtensions.SplitMessageIds(copy.References).FirstOrDefault() ?? copy.InReplyTo;
+        }
+
+        var isMimeSaved = await _mimeFileService
+            .SaveMimeMessageAsync(copy.FileId, createdDraftMimeMessage, composerAccount.Id)
+            .ConfigureAwait(false);
+
+        if (!isMimeSaved)
+            throw new MimePersistenceException("The draft could not be saved to local storage.");
+
+        try
+        {
+            await Connection.InsertAsync(copy, typeof(MailCopy)).ConfigureAwait(false);
+        }
+        catch
+        {
+            await _mimeFileService.DeleteMimeMessageAsync(composerAccount.Id, copy.FileId).ConfigureAwait(false);
+            throw;
+        }
+
+        ReportUIChange(new DraftCreated(copy, composerAccount));
+
+        return (copy, createdDraftMimeMessage.GetBase64MimeMessage());
+    }
+
+    public async Task<List<MailCopy>> GetMailsByFolderIdAsync(Guid folderId)
+    {
+        var mails = await Connection.QueryAsync<MailCopy>("SELECT * FROM MailCopy WHERE FolderId = ?", folderId).ConfigureAwait(false);
+
+        return await HydrateMailCopiesAsync(mails).ConfigureAwait(false);
+    }
+
+    public Task<List<MailCopy>> GetImapSynchronizationMailsAsync(Guid folderId)
+        => Connection.QueryAsync<MailCopy>(
+            "SELECT Id, UniqueId, FolderId, ImapUid, ImapUidValidity, IsRead, IsFlagged, IsDraft, DraftId FROM MailCopy WHERE FolderId = ?",
+            folderId);
+
+    public async Task<bool> HasAccountAnyDraftAsync(Guid accountId)
+    {
+        // Get the draft folder.
+        var draftFolder = await _folderService.GetSpecialFolderByAccountIdAsync(accountId, SpecialFolderType.Draft);
+
+        if (draftFolder == null) return false;
+
+        var draftCount = await Connection.Table<MailCopy>().Where(a => a.FolderId == draftFolder.Id).CountAsync();
+
+        return draftCount > 0;
+    }
+
+    public async Task<List<MailCopy>> GetUnreadMailsByFolderIdAsync(Guid folderId)
+    {
+        var unreadMails = await Connection.QueryAsync<MailCopy>("SELECT * FROM MailCopy WHERE FolderId = ? AND IsRead = 0", folderId).ConfigureAwait(false);
+
+        return await HydrateMailCopiesAsync(unreadMails).ConfigureAwait(false);
+    }
+
+    public async Task<Dictionary<string, int>> GetUnreadSenderCountsAsync(
+        IReadOnlyCollection<Guid> folderIds,
+        IReadOnlyCollection<string> senderAddresses,
+        CancellationToken cancellationToken = default)
+    {
+        if (folderIds is null || folderIds.Count == 0 || senderAddresses is null || senderAddresses.Count == 0)
+            return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var normalizedAddresses = senderAddresses
+            .Select(ContactEmailAddress.Normalize)
+            .Where(static address => !string.IsNullOrWhiteSpace(address))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (normalizedAddresses.Length == 0)
+            return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        var folderPlaceholders = string.Join(",", folderIds.Select(static _ => "?"));
+        var folderParameters = folderIds.Cast<object>().ToArray();
+        var senderCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var addressChunk in SqliteVariableLimit.Batch(normalizedAddresses, fixedParameters: folderParameters.Length))
+        {
+            var addressPlaceholders = string.Join(",", addressChunk.Select(static _ => "?"));
+            var parameters = folderParameters.Concat(addressChunk.Cast<object>()).ToArray();
+            var rows = await Connection.QueryAsync<UnreadSenderCountRow>(
+            $"""
+             SELECT NormalizedAddress, COUNT(*) AS UnreadCount
+             FROM
+             (
+                 SELECT UPPER(TRIM(mail.FromAddress)) AS NormalizedAddress,
+                        ROW_NUMBER() OVER
+                        (
+                            PARTITION BY folder.MailAccountId,
+                                CASE WHEN mail.Id IS NULL OR mail.Id = '' THEN hex(mail.UniqueId) ELSE mail.Id END
+                            ORDER BY mail.CreationDate DESC, hex(mail.UniqueId)
+                        ) AS DuplicateRank
+                 FROM MailCopy mail
+                 INNER JOIN MailItemFolder folder ON folder.Id = mail.FolderId
+                 WHERE mail.FolderId IN ({folderPlaceholders})
+                   AND mail.IsRead = 0
+                   AND mail.IsDraft = 0
+                   AND UPPER(TRIM(mail.FromAddress)) IN ({addressPlaceholders})
+             )
+             WHERE DuplicateRank = 1
+             GROUP BY NormalizedAddress;
+             """,
+            parameters).ConfigureAwait(false);
+
+            foreach (var row in rows)
+            {
+                senderCounts[row.NormalizedAddress] = senderCounts.TryGetValue(row.NormalizedAddress, out var count)
+                    ? count + row.UnreadCount
+                    : row.UnreadCount;
+            }
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return senderCounts;
+    }
+
+    private sealed class UnreadSenderCountRow
+    {
+        public string NormalizedAddress { get; set; }
+        public int UnreadCount { get; set; }
+    }
+
+    public async Task<MailCopy> GetMailCopyByMessageIdAsync(Guid accountId, string messageId)
+    {
+        var normalizedMessageId = MailHeaderExtensions.StripAngleBrackets(messageId)?.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedMessageId))
+            return null;
+
+        var mailCopy = await Connection.FindWithQueryAsync<MailCopy>(
+            "SELECT MailCopy.* FROM MailCopy " +
+            "INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id " +
+            "WHERE MailItemFolder.MailAccountId = ? AND MailCopy.MessageId = ? " +
+            "ORDER BY MailCopy.IsDraft ASC, MailCopy.CreationDate DESC LIMIT 1",
+            accountId,
+            normalizedMessageId).ConfigureAwait(false);
+
+        return await HydrateMailCopyAsync(mailCopy).ConfigureAwait(false);
+    }
+
+    private static (string Query, object[] Parameters) BuildMailFetchQuery(
+        MailListInitializationOptions options,
+        bool pinnedOnly = false,
+        bool unpinnedOnly = false,
+        MailFetchCursor cursor = null,
+        int? takeOverride = null,
+        bool includeExistingUniqueIds = true,
+        bool countOnly = false)
+    {
+        var sql = new StringBuilder();
+        if (countOnly)
+        {
+            sql.Append("SELECT COUNT(*) FROM (SELECT 1 FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id");
+            if (options.IsCategoryView)
+                sql.Append(" INNER JOIN MailCategoryAssignment ON MailCopy.UniqueId = MailCategoryAssignment.MailCopyUniqueId");
+        }
+        else
+        {
+            sql.Append(options.IsCategoryView
+                ? "SELECT DISTINCT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id INNER JOIN MailCategoryAssignment ON MailCopy.UniqueId = MailCategoryAssignment.MailCopyUniqueId"
+                : "SELECT MailCopy.* FROM MailCopy");
+        }
+
+        var whereClauses = new List<string>();
+        var parameters = new List<object>();
+
+        // Folder filter
+        var folderPlaceholders = string.Join(",", options.Folders.Select(_ => "?"));
+        whereClauses.Add($"MailCopy.FolderId IN ({folderPlaceholders})");
+        parameters.AddRange(options.Folders.Select(f => (object)f.Id));
+
+        if (options.IsCategoryView)
+        {
+            var categoryPlaceholders = string.Join(",", options.CategoryIds.Select(_ => "?"));
+            whereClauses.Add($"MailCategoryAssignment.MailCategoryId IN ({categoryPlaceholders})");
+            parameters.AddRange(options.CategoryIds.Select(a => (object)a));
+        }
+
+        // Filter type
+        switch (options.FilterType)
+        {
+            case FilterOptionType.Unread:
+                whereClauses.Add("MailCopy.IsRead = 0");
+                break;
+            case FilterOptionType.Flagged:
+                whereClauses.Add("MailCopy.IsFlagged = 1");
+                break;
+            case FilterOptionType.Files:
+                whereClauses.Add("MailCopy.HasAttachments = 1");
+                break;
+        }
+
+        if (pinnedOnly)
+        {
+            whereClauses.Add("MailCopy.IsPinned = 1");
+        }
+        else if (unpinnedOnly)
+        {
+            whereClauses.Add("MailCopy.IsPinned = 0");
+        }
+
+        // Focused filter
+        if (options.IsFocusedOnly != null)
+        {
+            whereClauses.Add($"MailCopy.IsFocused = {(options.IsFocusedOnly.Value ? "1" : "0")}");
+        }
+
+        // Search query
+        if (!string.IsNullOrEmpty(options.SearchQuery))
+        {
+            whereClauses.Add("(MailCopy.PreviewText LIKE ? OR MailCopy.Subject LIKE ? OR MailCopy.FromName LIKE ? OR MailCopy.FromAddress LIKE ?)");
+            var searchPattern = $"%{options.SearchQuery}%";
+            parameters.Add(searchPattern);
+            parameters.Add(searchPattern);
+            parameters.Add(searchPattern);
+            parameters.Add(searchPattern);
+        }
+
+        // Sender and subject match part of the text, like every provider's server search.
+        if (!string.IsNullOrWhiteSpace(options.Sender))
+        {
+            var senderPattern = $"%{options.Sender.Trim()}%";
+            whereClauses.Add("(MailCopy.FromName LIKE ? OR MailCopy.FromAddress LIKE ?)");
+            parameters.Add(senderPattern);
+            parameters.Add(senderPattern);
+        }
+        if (!string.IsNullOrWhiteSpace(options.Subject))
+        {
+            whereClauses.Add("MailCopy.Subject LIKE ?");
+            parameters.Add($"%{options.Subject.Trim()}%");
+        }
+        if (options.ReceivedAfterUtc is { } receivedAfter)
+        {
+            whereClauses.Add("MailCopy.CreationDate >= ?");
+            parameters.Add(receivedAfter.UtcDateTime);
+        }
+        if (options.ReceivedBeforeUtc is { } receivedBefore)
+        {
+            whereClauses.Add("MailCopy.CreationDate < ?");
+            parameters.Add(receivedBefore.UtcDateTime);
+        }
+        if (options.RequireAttachments) whereClauses.Add("MailCopy.HasAttachments = 1");
+        if (options.ReadStatus == MailReadStatusFilter.Unread) whereClauses.Add("MailCopy.IsRead = 0");
+        if (options.ReadStatus == MailReadStatusFilter.Read) whereClauses.Add("MailCopy.IsRead = 1");
+        if (options.RequireFlagged) whereClauses.Add("MailCopy.IsFlagged = 1");
+        if (options.ExcludeDrafts) whereClauses.Add("MailCopy.IsDraft = 0");
+
+        // A message that sits in several of the searched folders (Gmail labels) is stored once per
+        // folder. Within an account only one copy is listed: the newest, then the lowest UniqueId.
+        // The count query below groups by the same account and server id.
+        if (options.DeduplicateByServerId && !countOnly)
+        {
+            whereClauses.Add(
+                "(TRIM(COALESCE(MailCopy.Id, '')) = '' OR NOT EXISTS (" +
+                "SELECT 1 FROM MailCopy AS DuplicateCopy " +
+                "INNER JOIN MailItemFolder AS DuplicateFolder ON DuplicateFolder.Id = DuplicateCopy.FolderId " +
+                "WHERE DuplicateCopy.Id = MailCopy.Id " +
+                $"AND DuplicateCopy.FolderId IN ({folderPlaceholders}) " +
+                "AND DuplicateFolder.MailAccountId = (SELECT OwnFolder.MailAccountId FROM MailItemFolder AS OwnFolder WHERE OwnFolder.Id = MailCopy.FolderId) " +
+                "AND (DuplicateCopy.CreationDate > MailCopy.CreationDate OR " +
+                "(DuplicateCopy.CreationDate = MailCopy.CreationDate AND DuplicateCopy.UniqueId < MailCopy.UniqueId))))");
+            parameters.AddRange(options.Folders.Select(f => (object)f.Id));
+        }
+
+        // Exclude existing items
+        if (includeExistingUniqueIds && (options.ExistingUniqueIds?.Any() ?? false))
+        {
+            var excludePlaceholders = string.Join(",", options.ExistingUniqueIds.Select(_ => "?"));
+            whereClauses.Add($"MailCopy.UniqueId NOT IN ({excludePlaceholders})");
+            parameters.AddRange(options.ExistingUniqueIds.Keys.Select(id => (object)id));
+        }
+
+        if (cursor != null)
+        {
+            if (options.SortingOptionType == SortingOptionType.Sender)
+            {
+                whereClauses.Add(
+                    "(COALESCE(MailCopy.FromName, '') > ? OR " +
+                    "(COALESCE(MailCopy.FromName, '') = ? AND " +
+                    "(MailCopy.CreationDate < ? OR " +
+                    "(MailCopy.CreationDate = ? AND MailCopy.UniqueId > ?))))");
+                parameters.Add(cursor.SenderName ?? string.Empty);
+                parameters.Add(cursor.SenderName ?? string.Empty);
+                parameters.Add(cursor.CreationDate);
+                parameters.Add(cursor.CreationDate);
+                parameters.Add(cursor.UniqueId);
+            }
+            else
+            {
+                whereClauses.Add(
+                    "(MailCopy.CreationDate < ? OR " +
+                    "(MailCopy.CreationDate = ? AND MailCopy.UniqueId > ?))");
+                parameters.Add(cursor.CreationDate);
+                parameters.Add(cursor.CreationDate);
+                parameters.Add(cursor.UniqueId);
+            }
+        }
+
+        if (whereClauses.Any())
+        {
+            sql.Append(" WHERE ");
+            sql.Append(string.Join(" AND ", whereClauses));
+        }
+
+        if (countOnly)
+        {
+            sql.Append(options.DeduplicateByServerId
+                ? " GROUP BY MailItemFolder.MailAccountId, CASE WHEN TRIM(COALESCE(MailCopy.Id, '')) = '' THEN MailCopy.UniqueId ELSE MailCopy.Id END)"
+                : " GROUP BY MailCopy.UniqueId)");
+
+            return (sql.ToString(), parameters.ToArray());
+        }
+
+        // Sorting
+        if (options.SortingOptionType == SortingOptionType.ReceiveDate)
+            sql.Append(" ORDER BY IsPinned DESC, CreationDate DESC, UniqueId ASC");
+        else if (options.SortingOptionType == SortingOptionType.Sender)
+            sql.Append(" ORDER BY IsPinned DESC, COALESCE(FromName, '') ASC, CreationDate DESC, UniqueId ASC");
+
+        // Pagination
+        if (!pinnedOnly)
+        {
+            var limit = takeOverride ?? (options.Take > 0 ? options.Take : ItemLoadCount);
+            sql.Append($" LIMIT {limit}");
+
+            if (options.Skip > 0)
+            {
+                sql.Append($" OFFSET {options.Skip}");
+            }
+        }
+
+        return (sql.ToString(), parameters.ToArray());
+    }
+
+    private static List<MailCopy> ApplyOptionsToPreFetchedMails(MailListInitializationOptions options, bool pinnedOnly = false)
+    {
+        var allowedFolderIds = options.Folders.Select(f => f.Id).ToHashSet();
+        var accountIdsByFolderId = options.Folders
+            .Where(folder => folder != null)
+            .GroupBy(folder => folder.Id)
+            .ToDictionary(group => group.Key, group => group.First().MailAccountId);
+
+        IEnumerable<MailCopy> query = options.PreFetchMailCopies
+            .Where(m => m != null && allowedFolderIds.Contains(m.FolderId));
+
+        switch (options.FilterType)
+        {
+            case FilterOptionType.Unread:
+                query = query.Where(m => !m.IsRead);
+                break;
+            case FilterOptionType.Flagged:
+                query = query.Where(m => m.IsFlagged);
+                break;
+            case FilterOptionType.Files:
+                query = query.Where(m => m.HasAttachments);
+                break;
+        }
+
+        if (options.IsFocusedOnly is bool isFocused)
+        {
+            query = query.Where(m => m.IsFocused == isFocused);
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.SearchQuery))
+        {
+            var search = options.SearchQuery.Trim();
+            query = query.Where(m =>
+                (!string.IsNullOrEmpty(m.PreviewText) && m.PreviewText.Contains(search, StringComparison.OrdinalIgnoreCase))
+                || (!string.IsNullOrEmpty(m.Subject) && m.Subject.Contains(search, StringComparison.OrdinalIgnoreCase))
+                || (!string.IsNullOrEmpty(m.FromName) && m.FromName.Contains(search, StringComparison.OrdinalIgnoreCase))
+                || (!string.IsNullOrEmpty(m.FromAddress) && m.FromAddress.Contains(search, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        // Online results come through here too: a filter a provider cannot apply on its server
+        // (Outlook read state and flags, IMAP attachments) is applied now.
+        query = query.Where(m => MailSearchFilterMatcher.Matches(
+            m,
+            options.Sender,
+            options.Subject,
+            options.ReceivedAfterUtc,
+            options.ReceivedBeforeUtc,
+            options.ReadStatus,
+            options.RequireAttachments,
+            options.RequireFlagged));
+        if (options.ExcludeDrafts) query = query.Where(m => !m.IsDraft);
+
+        if (options.ExistingUniqueIds?.Any() ?? false)
+        {
+            query = query.Where(m => !options.ExistingUniqueIds.ContainsKey(m.UniqueId));
+        }
+
+        if (pinnedOnly)
+        {
+            query = query.Where(m => m.IsPinned);
+        }
+
+        query = options.DeduplicateByServerId
+            ? query
+                .GroupBy(m => (ResolveMailAccountId(m, accountIdsByFolderId), ResolveServerMailId(m)))
+                .Select(group => group
+                    .OrderByDescending(m => allowedFolderIds.Contains(m.FolderId))
+                    .ThenByDescending(m => m.CreationDate)
+                    .ThenBy(m => m.FolderId)
+                    .ThenBy(m => m.UniqueId)
+                    .First())
+            : query
+                .GroupBy(m => m.UniqueId)
+                .Select(group => group.First());
+
+        if (!options.PreservePreFetchedOrder)
+        {
+            query = options.SortingOptionType switch
+            {
+                SortingOptionType.Sender => query
+                    .OrderByDescending(m => m.IsPinned)
+                    .ThenBy(m => m.FromName)
+                    .ThenByDescending(m => m.CreationDate),
+                _ => query
+                    .OrderByDescending(m => m.IsPinned)
+                    .ThenByDescending(m => m.CreationDate)
+            };
+        }
+
+        if (!pinnedOnly && options.Skip > 0)
+        {
+            query = query.Skip(options.Skip);
+        }
+
+        if (!pinnedOnly && options.Take > 0)
+        {
+            query = query.Take(options.Take);
+        }
+
+        return query.ToList();
+    }
+
+    private static Guid ResolveMailAccountId(MailCopy mail, IReadOnlyDictionary<Guid, Guid> accountIdsByFolderId)
+    {
+        if (mail?.AssignedAccount != null)
+            return mail.AssignedAccount.Id;
+
+        if (mail != null && accountIdsByFolderId.TryGetValue(mail.FolderId, out var accountId))
+            return accountId;
+
+        return Guid.Empty;
+    }
+
+    private static string ResolveServerMailId(MailCopy mail)
+        => string.IsNullOrWhiteSpace(mail?.Id) ? mail?.UniqueId.ToString("N") ?? string.Empty : mail.Id;
+
+    public async Task<MailFetchPage> FetchMailPageAsync(
+        MailListInitializationOptions options,
+        MailFetchCursor cursor = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (options.Folders == null || options.Folders.Count == 0)
+            return new([], cursor, false);
+        if (cursor != null && cursor.SortingOptionType != options.SortingOptionType)
+            throw new ArgumentException("The mail cursor does not match the requested sorting mode.", nameof(cursor));
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var stopwatch = Stopwatch.StartNew();
+        var existingIds = options.ExistingUniqueIds?.Keys.ToHashSet() ?? [];
+
+        if (options.PreFetchMailCopies != null && !options.IsCategoryView)
+        {
+            var prefetched = ApplyOptionsToPreFetchedMails(options);
+            var hydrated = await ExpandAndHydrateAsync(prefetched, options, existingIds, cancellationToken).ConfigureAwait(false);
+            stopwatch.Stop();
+            _logger.Debug(
+                "Fetched {MailCount} prefetched mails in {ElapsedMilliseconds} ms.",
+                hydrated.Count,
+                stopwatch.ElapsedMilliseconds);
+            return new(hydrated, null, false);
+        }
+
+        var pinned = new List<MailCopy>();
+        if (cursor == null)
+        {
+            var (pinnedQuery, pinnedParameters) = BuildMailFetchQuery(
+                options,
+                pinnedOnly: true,
+                includeExistingUniqueIds: false);
+            pinned = await Connection.QueryAsync<MailCopy>(pinnedQuery, pinnedParameters).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        var (regular, nextCursor, hasMore) = await FetchRegularSeedsAsync(
+            options,
+            cursor,
+            existingIds,
+            cancellationToken).ConfigureAwait(false);
+
+        var seeds = pinned
+            .Concat(regular)
+            .Where(mail => !existingIds.Contains(mail.UniqueId))
+            .DistinctBy(mail => mail.UniqueId)
+            .ToList();
+        var queryMilliseconds = stopwatch.ElapsedMilliseconds;
+        var mails = await ExpandAndHydrateAsync(seeds, options, existingIds, cancellationToken).ConfigureAwait(false);
+
+        stopwatch.Stop();
+        _logger.Debug(
+            "Fetched mail page with {SeedCount} seeds and {MailCount} hydrated mails in {ElapsedMilliseconds} ms ({QueryMilliseconds} ms query). HasMore: {HasMore}.",
+            seeds.Count,
+            mails.Count,
+            stopwatch.ElapsedMilliseconds,
+            queryMilliseconds,
+            hasMore);
+
+        return new(mails, nextCursor, hasMore);
+    }
+
+    public async Task<List<MailCopy>> FetchMailsAsync(
+        MailListInitializationOptions options,
+        CancellationToken cancellationToken = default)
+        => [.. (await FetchMailPageAsync(options, cancellationToken: cancellationToken).ConfigureAwait(false)).Items];
+
+    public async Task<int> CountMailsAsync(
+        MailListInitializationOptions options,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (options.Folders == null || options.Folders.Count == 0)
+            return 0;
+
+        cancellationToken.ThrowIfCancellationRequested();
+        if (options.PreFetchMailCopies != null && !options.IsCategoryView)
+            return ApplyOptionsToPreFetchedMails(options).Count;
+
+        var (query, parameters) = BuildMailFetchQuery(options, countOnly: true);
+        var count = await Connection.ExecuteScalarAsync<int>(query, parameters).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return count;
+    }
+
+    public async Task<List<MailCopy>> FetchPinnedMailsAsync(
+        MailListInitializationOptions options,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (options.Folders == null || options.Folders.Count == 0)
+            return [];
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var (query, parameters) = BuildMailFetchQuery(
+            options,
+            pinnedOnly: true,
+            includeExistingUniqueIds: false);
+        var pinned = await Connection.QueryAsync<MailCopy>(query, parameters).ConfigureAwait(false);
+        return await ExpandAndHydrateAsync(
+            pinned,
+            options,
+            options.ExistingUniqueIds?.Keys.ToHashSet() ?? [],
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<(List<MailCopy> Seeds, MailFetchCursor Cursor, bool HasMore)> FetchRegularSeedsAsync(
+        MailListInitializationOptions options,
+        MailFetchCursor cursor,
+        HashSet<Guid> existingIds,
+        CancellationToken cancellationToken)
+    {
+        var targetCount = options.Take > 0 ? options.Take : ItemLoadCount;
+        var seeds = new List<MailCopy>(targetCount);
+        var seenIds = new HashSet<Guid>();
+        var scanCursor = cursor;
+        var hasMore = false;
+
+        while (seeds.Count < targetCount)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var remaining = targetCount - seeds.Count;
+            var queryLimit = remaining + 1;
+            var (query, parameters) = BuildMailFetchQuery(
+                options,
+                unpinnedOnly: true,
+                cursor: scanCursor,
+                takeOverride: queryLimit,
+                includeExistingUniqueIds: false);
+            var rows = await Connection.QueryAsync<MailCopy>(query, parameters).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (rows.Count == 0)
+            {
+                hasMore = false;
+                break;
+            }
+
+            var consumedCount = rows.Count == queryLimit ? rows.Count - 1 : rows.Count;
+            var consumed = rows.Take(consumedCount).ToList();
+            if (consumed.Count == 0)
+            {
+                hasMore = rows.Count > 0;
+                break;
+            }
+
+            foreach (var mail in consumed)
+            {
+                if (!existingIds.Contains(mail.UniqueId) && seenIds.Add(mail.UniqueId))
+                {
+                    seeds.Add(mail);
+                }
+            }
+
+            scanCursor = CreateCursor(options.SortingOptionType, consumed[^1]);
+            hasMore = rows.Count == queryLimit;
+            if (!hasMore)
+                break;
+        }
+
+        return (seeds, scanCursor, hasMore);
+    }
+
+    private async Task<List<MailCopy>> ExpandAndHydrateAsync(
+        IEnumerable<MailCopy> seedMails,
+        MailListInitializationOptions options,
+        HashSet<Guid> existingIds,
+        CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var mails = seedMails?
+            .Where(mail => mail != null && !existingIds.Contains(mail.UniqueId))
+            .DistinctBy(mail => mail.UniqueId)
+            .ToList() ?? [];
+        if (mails.Count == 0)
+            return [];
+
+        var seedCopyIds = mails.Select(mail => mail.UniqueId).ToHashSet();
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (options.CreateThreads)
+        {
+            var threadIds = mails
+                .Where(mail => !string.IsNullOrWhiteSpace(mail.ThreadId))
+                .Select(mail => mail.ThreadId)
+                .Distinct()
+                .ToList();
+
+            if (threadIds.Count > 0)
+            {
+                var seedMailIds = mails
+                    .Select(mail => mail.UniqueId)
+                    .ToHashSet();
+                var threadMails = await GetMailsByThreadIdsAsync(seedMailIds).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                mails = mails
+                    .Concat(threadMails ?? [])
+                    .Where(mail => mail != null && !existingIds.Contains(mail.UniqueId))
+                    .DistinctBy(mail => mail.UniqueId)
+                    .ToList();
+            }
+        }
+
+        var folderCache = options.Folders
+            .OfType<MailItemFolder>()
+            .GroupBy(folder => folder.Id)
+            .ToDictionary(group => group.Key, group => group.First());
+        var uncachedFolderIds = mails
+            .Select(mail => mail.FolderId)
+            .Distinct()
+            .Where(folderId => !folderCache.ContainsKey(folderId))
+            .ToArray();
+
+        if (uncachedFolderIds.Length > 0)
+        {
+            var folders = await _folderService
+                .GetFoldersByIdsAsync(uncachedFolderIds, cancellationToken)
+                .ConfigureAwait(false);
+            foreach (var folder in folders.Where(folder => folder != null))
+            {
+                folderCache[folder.Id] = folder;
+            }
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
+        var accountCache = accounts.ToDictionary(account => account.Id);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var contactCache = await BuildAccountContactCacheAsync(mails, folderCache).ConfigureAwait(false);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        AssignPropertiesFromCaches(mails, folderCache, accountCache, contactCache);
+        mails.RemoveAll(mail => mail.AssignedAccount == null || mail.AssignedFolder == null);
+
+        var activeFolderIds = options.Folders.Select(folder => folder.Id).ToHashSet();
+        mails = mails.GroupBy(MailConversationIdentity.MessageKey)
+            .Select(group => group.OrderByDescending(mail => seedCopyIds.Contains(mail.UniqueId))
+                .ThenByDescending(mail => activeFolderIds.Contains(mail.FolderId))
+                .ThenBy(MailConversationIdentity.CopyRank)
+                .ThenBy(mail => mail.UniqueId)
+                .First())
+            .ToList();
+        await _sentMailReceiptService.PopulateReceiptStatesAsync(mails).ConfigureAwait(false);
+        await HydrateIntelligenceMetadataAsync(mails, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        stopwatch.Stop();
+        _logger.Debug(
+            "Expanded and hydrated {MailCount} mails in {ElapsedMilliseconds} ms.",
+            mails.Count,
+            stopwatch.ElapsedMilliseconds);
+        return mails;
+    }
+
+    private static MailFetchCursor CreateCursor(SortingOptionType sortingOptionType, MailCopy mail) =>
+        new(
+            sortingOptionType,
+            mail.CreationDate,
+            mail.FromName ?? string.Empty,
+            mail.UniqueId);
+
+    /// <summary>
+    /// Assigns AssignedFolder, AssignedAccount, and SenderContact to each mail from pre-loaded
+    /// in-memory dictionaries. No DB calls are made here.
+    /// </summary>
+    private async Task<Dictionary<(Guid AccountId, string Address), AccountContact>> BuildAccountContactCacheAsync(
+        IEnumerable<MailCopy> mails,
+        IReadOnlyDictionary<Guid, MailItemFolder> folderCache)
+    {
+        var cache = new Dictionary<(Guid, string), AccountContact>();
+        var accountAddressGroups = mails
+            .Where(mail => !string.IsNullOrWhiteSpace(mail.FromAddress) && folderCache.ContainsKey(mail.FolderId))
+            .GroupBy(mail => folderCache[mail.FolderId].MailAccountId);
+
+        foreach (var group in accountAddressGroups)
+        {
+            var addresses = group.Select(mail => mail.FromAddress).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            foreach (var address in addresses)
+            {
+                var contact = await _contactService.GetContactByAddressAsync(group.Key, address).ConfigureAwait(false);
+                if (contact is not null)
+                    cache[(group.Key, ContactEmailAddress.Normalize(address))] = contact;
+            }
+        }
+
+        return cache;
+    }
+
+    private void AssignPropertiesFromCaches(
+        List<MailCopy> mails,
+        Dictionary<Guid, MailItemFolder> folderCache,
+        Dictionary<Guid, MailAccount> accountCache,
+        Dictionary<(Guid AccountId, string Address), AccountContact> contactCache)
+    {
+        foreach (var mail in mails)
+        {
+            if (!folderCache.TryGetValue(mail.FolderId, out var folder))
+                continue;
+
+            if (!accountCache.TryGetValue(folder.MailAccountId, out var account))
+                continue;
+
+            mail.AssignedFolder = folder;
+            mail.AssignedAccount = account;
+
+            // Self-sent mails (e.g. Sent folder): construct contact from account meta
+            // to get the up-to-date profile picture without a DB roundtrip.
+            if (!string.IsNullOrEmpty(mail.FromAddress) &&
+                string.Equals(mail.FromAddress, account.Address, StringComparison.OrdinalIgnoreCase))
+            {
+                if (contactCache.TryGetValue((account.Id, ContactEmailAddress.Normalize(mail.FromAddress)), out var ownContact))
+                {
+                    mail.SenderContact = ownContact;
+                }
+                else
+                {
+                    mail.SenderContact = new AccountContact
+                    {
+                        Address = account.Address,
+                        Name = account.SenderName
+                    };
+                }
+            }
+            else
+            {
+                contactCache.TryGetValue((account.Id, ContactEmailAddress.Normalize(mail.FromAddress) ?? string.Empty), out var contact);
+                mail.SenderContact = contact ?? CreateUnknownContact(mail.FromName, mail.FromAddress);
+            }
+        }
+    }
+
+    // AssignedAccount is loaded through AccountService so IMAP server information,
+    // preferences, and other account-side ignored properties are populated as well.
+    private async Task<List<MailCopy>> HydrateMailCopiesAsync(List<MailCopy> mails)
+    {
+        if (mails == null || mails.Count == 0)
+            return mails ?? [];
+
+        var folderIds = mails
+            .Select(m => m.FolderId)
+            .Distinct()
+            .ToList();
+
+        if (folderIds.Count == 0)
+            return mails;
+
+        var folders = await Task.WhenAll(folderIds.Select(id => _folderService.GetFolderAsync(id))).ConfigureAwait(false);
+        var folderCache = folders
+            .Where(f => f != null)
+            .ToDictionary(f => f.Id);
+
+        if (folderCache.Count == 0)
+            return mails;
+
+        var accountIds = folderCache.Values
+            .Select(f => f.MailAccountId)
+            .Distinct()
+            .ToHashSet();
+
+        var allAccounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
+        var accountCache = allAccounts
+            .Where(a => accountIds.Contains(a.Id))
+            .ToDictionary(a => a.Id);
+
+        var contactCache = await BuildAccountContactCacheAsync(mails, folderCache).ConfigureAwait(false);
+
+        AssignPropertiesFromCaches(mails, folderCache, accountCache, contactCache);
+        await _sentMailReceiptService.PopulateReceiptStatesAsync(mails).ConfigureAwait(false);
+        await HydrateIntelligenceMetadataAsync(mails).ConfigureAwait(false);
+
+        return mails;
+    }
+
+    public async Task HydrateIntelligenceMetadataAsync(
+        IReadOnlyCollection<MailCopy> mailCopies,
+        CancellationToken cancellationToken = default)
+    {
+        if (mailCopies is null || mailCopies.Count == 0 ||
+            _localIntelligenceStore is null || _winoAccountProfileService is null ||
+            !_localIntelligenceStore.DatabaseExists)
+        {
+            return;
+        }
+
+        if (!await _winoAccountProfileService.HasActiveAccountAsync().ConfigureAwait(false))
+            return;
+
+        foreach (var accountGroup in mailCopies
+                     .Where(static mail => mail?.AssignedAccount is not null)
+                     .GroupBy(static mail => mail.AssignedAccount.Id))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var mailsByRemoteId = accountGroup
+                .Select(mail => (Mail: mail, RemoteId: RemoteMessageIdentity.TryCreate(mail)))
+                .Where(static item => item.RemoteId is not null)
+                .GroupBy(static item => item.RemoteId!, StringComparer.Ordinal)
+                .ToDictionary(
+                    static group => group.Key,
+                    static group => group.Select(static item => item.Mail).ToArray(),
+                    StringComparer.Ordinal);
+            if (mailsByRemoteId.Count == 0)
+                continue;
+
+            var remoteIds = mailsByRemoteId.Keys.ToArray();
+            var classificationByRemoteId = await _localIntelligenceStore.GetClassificationArtifactsAsync(
+                accountGroup.Key, remoteIds, cancellationToken).ConfigureAwait(false);
+            var enrichmentByRemoteId = await _localIntelligenceStore.GetEnrichmentArtifactsAsync(
+                accountGroup.Key, remoteIds, cancellationToken).ConfigureAwait(false);
+
+            foreach (var (remoteId, matchingMails) in mailsByRemoteId)
+            {
+                var metadata = CreateIntelligenceMetadata(remoteId, classificationByRemoteId, enrichmentByRemoteId);
+                foreach (var mail in matchingMails)
+                    mail.IntelligenceMetadata = metadata;
+            }
+        }
+    }
+
+    internal static MailIntelligenceMetadata CreateIntelligenceMetadata(
+        string remoteMessageId,
+        IReadOnlyDictionary<string, ClassificationArtifact> classificationArtifacts,
+        IReadOnlyDictionary<string, EnrichmentArtifact> enrichmentArtifacts)
+    {
+        if (!classificationArtifacts.TryGetValue(remoteMessageId, out var classification))
+        {
+            return null;
+        }
+
+        enrichmentArtifacts.TryGetValue(remoteMessageId, out var enrichment);
+        return MailIntelligenceMetadata.From(classification, enrichment);
+    }
+
+    private async Task<MailCopy> HydrateMailCopyAsync(MailCopy mailCopy)
+    {
+        if (mailCopy == null)
+            return null;
+
+        var hydratedMails = await HydrateMailCopiesAsync([mailCopy]).ConfigureAwait(false);
+        return hydratedMails.FirstOrDefault();
+    }
+
+    private async Task<List<MailCopy>> GetMailsByThreadIdsAsync(HashSet<Guid> seedIds)
+    {
+        if (seedIds.Count == 0)
+            return [];
+
+        var threadMails = new List<MailCopy>();
+
+        foreach (var idChunk in SqliteVariableLimit.Batch(seedIds))
+        {
+            var placeholders = string.Join(",", idChunk.Select(_ => "?"));
+        var sql = $"""
+            SELECT DISTINCT mail.* FROM MailCopy mail
+            INNER JOIN MailItemFolder folder ON folder.Id = mail.FolderId
+            INNER JOIN MailCopy seed ON seed.ThreadId = mail.ThreadId
+            INNER JOIN MailItemFolder seedFolder ON seedFolder.Id = seed.FolderId
+            WHERE seed.UniqueId IN ({placeholders})
+              AND seed.ThreadId IS NOT NULL AND seed.ThreadId <> ''
+              AND seedFolder.MailAccountId = folder.MailAccountId
+            """;
+            threadMails.AddRange(await Connection.QueryAsync<MailCopy>(sql, idChunk.Cast<object>().ToArray()).ConfigureAwait(false));
+        }
+
+        return threadMails.DistinctBy(static mail => mail.UniqueId).ToList();
+    }
+
+    private static AccountContact CreateUnknownContact(string fromName, string fromAddress)
+    {
+        if (string.IsNullOrEmpty(fromName) && string.IsNullOrEmpty(fromAddress))
+        {
+            return new AccountContact()
+            {
+                Name = Translator.UnknownSender,
+                Address = Translator.UnknownAddress
+            };
+        }
+        else
+        {
+            if (string.IsNullOrEmpty(fromName)) fromName = fromAddress;
+
+            return new AccountContact()
+            {
+                Name = fromName,
+                Address = fromAddress
+            };
+        }
+    }
+
+    private async Task<List<MailCopy>> GetMailCopiesByIdAsync(IEnumerable<string> mailCopyIds)
+    {
+        var distinctMailCopyIds = mailCopyIds?
+            .Where(a => !string.IsNullOrWhiteSpace(a))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (distinctMailCopyIds == null || distinctMailCopyIds.Count == 0)
+            return [];
+
+        var mailCopies = new List<MailCopy>();
+
+        const int batchSize = 200;
+
+        for (int i = 0; i < distinctMailCopyIds.Count; i += batchSize)
+        {
+            var batchIds = distinctMailCopyIds.Skip(i).Take(batchSize).ToList();
+            var placeholders = string.Join(",", batchIds.Select(_ => "?"));
+            var sql = $"SELECT * FROM MailCopy WHERE Id IN ({placeholders})";
+
+            var batch = await Connection.QueryAsync<MailCopy>(sql, batchIds.Cast<object>().ToArray()).ConfigureAwait(false);
+            mailCopies.AddRange(batch);
+        }
+
+        return await HydrateMailCopiesAsync(mailCopies).ConfigureAwait(false);
+    }
+
+    private Task<AccountContact> GetSenderContactForAccountAsync(MailAccount account, string fromAddress)
+    {
+        // Make sure to return the latest up to date contact information for the original account.
+        if (string.Equals(fromAddress, account.Address, StringComparison.OrdinalIgnoreCase))
+        {
+            return GetOwnSenderContactAsync(account);
+        }
+        else
+        {
+            return _contactService.GetContactByAddressAsync(account.Id, fromAddress);
+        }
+    }
+
+    private async Task<AccountContact> GetOwnSenderContactAsync(MailAccount account)
+    {
+        var contact = await _contactService.GetContactByAddressAsync(account.Id, account.Address).ConfigureAwait(false);
+
+        return contact ?? new AccountContact
+        {
+            Address = account.Address,
+            Name = account.SenderName
+        };
+    }
+
+    public async Task<MailCopy> GetSingleMailItemWithoutFolderAssignmentAsync(string mailCopyId)
+    {
+        var mailCopy = await Connection.Table<MailCopy>().FirstOrDefaultAsync(a => a.Id == mailCopyId).ConfigureAwait(false);
+
+        return await HydrateMailCopyAsync(mailCopy).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Using this override is dangerous.
+    /// Gmail stores multiple copies of same mail in different folders.
+    /// This one will always return the first one. Use with caution.
+    /// </summary>
+    /// <param name="mailCopyId">Mail copy id.</param>
+    public async Task<MailCopy> GetSingleMailItemAsync(string mailCopyId)
+    {
+        var mailCopy = await Connection.FindWithQueryAsync<MailCopy>(
+            "SELECT MailCopy.* FROM MailCopy WHERE MailCopy.Id = ?",
+            mailCopyId).ConfigureAwait(false);
+
+        return await HydrateMailCopyAsync(mailCopy).ConfigureAwait(false);
+    }
+
+    public async Task<MailCopy> GetSingleMailItemAsync(string mailCopyId, string remoteFolderId)
+    {
+        var mailItem = await Connection.FindWithQueryAsync<MailCopy>(
+            "SELECT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id WHERE MailCopy.Id = ? AND MailItemFolder.RemoteFolderId = ?",
+            mailCopyId, remoteFolderId).ConfigureAwait(false);
+
+        return await HydrateMailCopyAsync(mailItem).ConfigureAwait(false);
+    }
+
+    public async Task<MailCopy> GetSingleMailItemAsync(Guid uniqueMailId)
+    {
+        var mailItem = await Connection.FindAsync<MailCopy>(uniqueMailId).ConfigureAwait(false);
+
+        return await HydrateMailCopyAsync(mailItem).ConfigureAwait(false);
+    }
+
+    // v2
+
+    public async Task DeleteMailAsync(Guid accountId, string mailCopyId)
+    {
+        await DeleteMailsAsync(accountId, [mailCopyId]).ConfigureAwait(false);
+    }
+
+    public async Task DeleteMailsAsync(Guid accountId, IEnumerable<string> mailCopyIds)
+    {
+        var targetMailIds = mailCopyIds?
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToList() ?? [];
+
+        if (targetMailIds.Count == 0)
+            return;
+
+        var allMails = (await GetMailCopiesByIdAsync(targetMailIds).ConfigureAwait(false))
+            .Where(x => x.AssignedAccount?.Id == accountId).ToList();
+        await DeleteMailCopiesAsync(allMails, preserveMimeFile: false, reportUiChange: true).ConfigureAwait(false);
+    }
+
+    private void ReportAddedMails(IReadOnlyList<MailCopy> addedMails)
+    {
+        if (addedMails == null || addedMails.Count == 0)
+            return;
+
+        if (addedMails.Count == 1)
+            ReportUIChange(new MailAddedMessage(addedMails[0], EntityUpdateSource.Server));
+        else
+            ReportUIChange(new BulkMailAddedMessage(addedMails, EntityUpdateSource.Server));
+    }
+
+    private void ReportUpdatedMails(IReadOnlyList<MailCopy> updatedMails, MailCopyChangeFlags changedProperties = MailCopyChangeFlags.None)
+    {
+        if (updatedMails == null || updatedMails.Count == 0)
+            return;
+
+        if (updatedMails.Count == 1)
+            ReportUIChange(new MailUpdatedMessage(updatedMails[0], EntityUpdateSource.Server, changedProperties));
+        else
+            ReportUIChange(new BulkMailUpdatedMessage(updatedMails, EntityUpdateSource.Server, changedProperties));
+    }
+
+    private void ReportRemovedMails(IReadOnlyList<MailCopy> removedMails)
+    {
+        if (removedMails == null || removedMails.Count == 0)
+            return;
+
+        if (removedMails.Count == 1)
+            ReportUIChange(new MailRemovedMessage(removedMails[0], EntityUpdateSource.Server));
+        else
+            ReportUIChange(new BulkMailRemovedMessage(removedMails, EntityUpdateSource.Server));
+    }
+
+    #region Repository Calls
+
+    /// <summary>
+    /// Previews render as a single line. Trims leading and trailing whitespace, including the
+    /// invisible padding characters that marketing mails use to fill the preheader, and collapses
+    /// inner whitespace runs to a single space.
+    /// </summary>
+    internal static string NormalizePreviewText(string previewText)
+    {
+        if (string.IsNullOrEmpty(previewText))
+            return previewText;
+
+        var builder = new StringBuilder(previewText.Length);
+        var pendingSpace = false;
+
+        foreach (var character in previewText)
+        {
+            if (char.IsWhiteSpace(character) || IsInvisiblePreviewPadding(character))
+            {
+                pendingSpace = builder.Length > 0;
+                continue;
+            }
+
+            if (pendingSpace)
+            {
+                builder.Append(' ');
+                pendingSpace = false;
+            }
+
+            builder.Append(character);
+        }
+
+        return builder.ToString();
+    }
+
+    private static bool IsInvisiblePreviewPadding(char character)
+        => character is '͏' or '­' or '​' or '‌' or '‍' or '⁠' or '﻿';
+
+    private static void NormalizePreviewText(MailCopy mailCopy)
+    {
+        if (mailCopy != null)
+            mailCopy.PreviewText = NormalizePreviewText(mailCopy.PreviewText);
+    }
+
+    private async Task<MailCopy> InsertMailAsync(MailCopy mailCopy, bool reportUiChange)
+    {
+        if (mailCopy == null)
+        {
+            _logger.Warning("Null mail passed to InsertMailAsync call.");
+            return null;
+        }
+
+        NormalizePreviewText(mailCopy);
+
+        if (mailCopy.FolderId == Guid.Empty)
+        {
+            _logger.Warning("Invalid FolderId for MailCopyId {Id} for InsertMailAsync", mailCopy.Id);
+            return null;
+        }
+
+        _logger.Debug("Inserting mail {MailCopyId} to {FolderName}", mailCopy.Id, mailCopy.AssignedFolder.FolderName);
+
+        var inserted = false;
+        await Connection.RunInTransactionAsync(connection =>
+        {
+            var accountId = mailCopy.AssignedAccount.Id;
+            if (_draftUpdates?.IsRemoteProtected(accountId, mailCopy) == true ||
+                _draftUpdates?.IsStaleRemote(accountId, mailCopy.Id) == true) return;
+            connection.Insert(mailCopy, typeof(MailCopy));
+            inserted = true;
+        }).ConfigureAwait(false);
+        if (!inserted) return null;
+
+        var hydratedMailCopy = await HydrateMailCopyAsync(mailCopy).ConfigureAwait(false);
+        if (reportUiChange)
+            ReportAddedMails([hydratedMailCopy]);
+
+        return hydratedMailCopy;
+    }
+
+    public async Task SaveDraftMetadataAsync(Guid accountId, MailCopy snapshot)
+    {
+        var gate = _draftUpdates?.Get(accountId, snapshot.UniqueId).PersistenceLock
+                   ?? _draftLifecycleLocks.GetOrAdd(snapshot.UniqueId, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var current = await GetSingleMailItemAsync(snapshot.UniqueId).ConfigureAwait(false);
+            if (current?.AssignedAccount?.Id != accountId || !current.IsDraft)
+                throw new InvalidOperationException("Draft no longer exists.");
+
+            current.Subject = snapshot.Subject;
+            current.PreviewText = NormalizePreviewText(snapshot.PreviewText);
+            current.FromAddress = snapshot.FromAddress;
+            current.FromName = snapshot.FromName;
+            current.HasAttachments = snapshot.HasAttachments;
+            current.Importance = snapshot.Importance;
+            await Connection.UpdateAsync(current, typeof(MailCopy)).ConfigureAwait(false);
+            ReportUpdatedMails([current]);
+        }
+        finally { gate.Release(); }
+    }
+
+    public async Task UpdateDraftIdentityAsync(Guid accountId, Guid uniqueId, DraftUpdateIdentity identity)
+    {
+        var gate = _draftUpdates?.Get(accountId, uniqueId).PersistenceLock
+                   ?? _draftLifecycleLocks.GetOrAdd(uniqueId, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var current = await GetSingleMailItemAsync(uniqueId).ConfigureAwait(false);
+            if (current?.AssignedAccount?.Id != accountId || !current.IsDraft) return;
+
+            _draftUpdates?.Remember(accountId, uniqueId, current.Id);
+            _draftUpdates?.ConfirmIdentity(accountId, uniqueId, identity.MessageId);
+            var duplicates = await Connection.QueryAsync<MailCopy>(
+                "SELECT * FROM MailCopy WHERE Id = ? AND FolderId = ? AND UniqueId <> ?",
+                identity.MessageId, current.FolderId, uniqueId).ConfigureAwait(false);
+            foreach (var duplicate in duplicates)
+            {
+                await Connection.DeleteAsync<MailCopy>(duplicate.UniqueId).ConfigureAwait(false);
+                await Connection.ExecuteAsync("DELETE FROM MailCategoryAssignment WHERE MailCopyUniqueId = ?", duplicate.UniqueId).ConfigureAwait(false);
+            }
+            if (duplicates.Count > 0) ReportRemovedMails(await HydrateMailCopiesAsync(duplicates).ConfigureAwait(false));
+            identity.Apply(current);
+            await Connection.UpdateAsync(current, typeof(MailCopy)).ConfigureAwait(false);
+            _draftUpdates?.ConfirmMapping(accountId, uniqueId, DraftUpdateIdentity.From(current));
+            ReportUpdatedMails([current], MailCopyChangeFlags.Id | MailCopyChangeFlags.DraftId | MailCopyChangeFlags.ThreadId);
+        }
+        finally { gate.Release(); }
+    }
+
+    public async Task UpdateMailAsync(MailCopy mailCopy)
+        => await UpdateMailAsync(mailCopy, reportUiChange: true).ConfigureAwait(false);
+
+    private async Task<MailCopy> UpdateMailAsync(MailCopy mailCopy, bool reportUiChange, MailCopy existingMailCopy = null)
+    {
+        var accountId = mailCopy?.AssignedAccount?.Id ?? Guid.Empty;
+        var gate = mailCopy?.IsDraft == true ? _draftUpdates?.Get(accountId, mailCopy.UniqueId).PersistenceLock : null;
+        if (gate != null) await gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (mailCopy?.IsDraft == true)
+            {
+                existingMailCopy = await Connection.FindAsync<MailCopy>(mailCopy.UniqueId).ConfigureAwait(false);
+                if (_draftUpdates?.IsStaleRemote(accountId, mailCopy.Id) == true)
+                    return existingMailCopy == null ? null : await HydrateMailCopyAsync(existingMailCopy).ConfigureAwait(false);
+            }
+            return await UpdateMailCoreAsync(mailCopy, reportUiChange, existingMailCopy).ConfigureAwait(false);
+        }
+        finally { gate?.Release(); }
+    }
+
+    private async Task<MailCopy> UpdateMailCoreAsync(MailCopy mailCopy, bool reportUiChange, MailCopy existingMailCopy = null)
+    {
+        if (mailCopy == null)
+        {
+            _logger.Warning("Null mail passed to UpdateMailAsync call.");
+
+            return null;
+        }
+
+        _logger.Debug("Updating mail {MailCopyId} with Folder {FolderId}", mailCopy.Id, mailCopy.FolderId);
+
+        NormalizePreviewText(mailCopy);
+
+        existingMailCopy ??= mailCopy.UniqueId != Guid.Empty
+            ? await Connection.FindAsync<MailCopy>(mailCopy.UniqueId).ConfigureAwait(false)
+            : null;
+
+        if (existingMailCopy != null && _draftUpdates?.IsProtected(mailCopy.AssignedAccount?.Id ?? Guid.Empty, existingMailCopy.UniqueId) == true)
+            return await HydrateMailCopyAsync(existingMailCopy).ConfigureAwait(false);
+
+        if (existingMailCopy != null)
+        {
+            // Pinning is managed locally for now, so server refreshes should not clear it.
+            mailCopy.IsPinned = existingMailCopy.IsPinned;
+            mailCopy.DraftSyncState = existingMailCopy.DraftSyncState;
+            mailCopy.DraftSyncAttemptCount = existingMailCopy.DraftSyncAttemptCount;
+            mailCopy.LastDraftSyncAttemptUtc = existingMailCopy.LastDraftSyncAttemptUtc;
+            mailCopy.LastDraftSyncError = existingMailCopy.LastDraftSyncError;
+        }
+
+        await Connection.UpdateAsync(mailCopy, typeof(MailCopy)).ConfigureAwait(false);
+
+        var hydratedMailCopy = await HydrateMailCopyAsync(mailCopy).ConfigureAwait(false);
+        if (reportUiChange)
+            ReportUpdatedMails([hydratedMailCopy]);
+
+        return hydratedMailCopy;
+    }
+
+    private async Task<MailCopy> DeleteMailInternalAsync(MailCopy mailCopy, bool preserveMimeFile, bool reportUiChange)
+    {
+        var gate = mailCopy?.IsDraft == true ? _draftUpdates?.Get(mailCopy.AssignedAccount.Id, mailCopy.UniqueId).PersistenceLock : null;
+        if (gate != null) await gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (mailCopy?.IsDraft == true)
+            {
+                var current = await Connection.FindAsync<MailCopy>(mailCopy.UniqueId).ConfigureAwait(false);
+                if (current == null || current.Id != mailCopy.Id) return null;
+            }
+            return await DeleteMailCoreAsync(mailCopy, preserveMimeFile, reportUiChange).ConfigureAwait(false);
+        }
+        finally { gate?.Release(); }
+    }
+
+    private async Task<MailCopy> DeleteMailCoreAsync(MailCopy mailCopy, bool preserveMimeFile, bool reportUiChange)
+    {
+        if (mailCopy == null)
+        {
+            _logger.Warning("Null mail passed to DeleteMailAsync call.");
+
+            return null;
+        }
+
+        if (_draftUpdates?.IsProtected(mailCopy.AssignedAccount.Id, mailCopy.UniqueId) == true) return null;
+
+        _logger.Debug("Deleting mail {Id} from folder {FolderName}", mailCopy.Id, mailCopy.AssignedFolder.FolderName);
+
+        await Connection.DeleteAsync<MailCopy>(mailCopy.UniqueId).ConfigureAwait(false);
+        await Connection.ExecuteAsync("DELETE FROM MailCategoryAssignment WHERE MailCopyUniqueId = ?", mailCopy.UniqueId).ConfigureAwait(false);
+
+        // If there are no more copies exists of the same mail, delete the MIME file as well.
+        var isMailExists = await IsMailExistsAsync(mailCopy.Id).ConfigureAwait(false);
+
+        if (!isMailExists && !preserveMimeFile)
+        {
+            await _mimeFileService.DeleteMimeMessageAsync(mailCopy.AssignedAccount.Id, mailCopy.FileId).ConfigureAwait(false);
+        }
+
+        if (reportUiChange)
+            ReportRemovedMails([mailCopy]);
+
+        return mailCopy;
+    }
+
+    private async Task<List<MailCopy>> DeleteMailCopiesAsync(IReadOnlyList<MailCopy> mailCopies, bool preserveMimeFile, bool reportUiChange)
+    {
+        if (mailCopies == null || mailCopies.Count == 0)
+            return [];
+
+        var removedMails = new List<MailCopy>(mailCopies.Count);
+
+        foreach (var mailCopy in mailCopies)
+        {
+            var removedMail = await DeleteMailInternalAsync(mailCopy, preserveMimeFile, reportUiChange: false).ConfigureAwait(false);
+
+            if (removedMail != null)
+                removedMails.Add(removedMail);
+        }
+
+        if (reportUiChange)
+            ReportRemovedMails(removedMails);
+
+        return removedMails;
+    }
+
+    #endregion
+
+    private async Task PersistMailCopyUpdatesAsync(IReadOnlyList<(MailCopy MailCopy, MailCopyChangeFlags ChangedProperties)> pendingUpdates)
+    {
+        if (pendingUpdates == null || pendingUpdates.Count == 0)
+            return;
+
+        var appliedUpdates = new List<(MailCopy MailCopy, MailCopyChangeFlags ChangedProperties)>();
+
+        await Connection.RunInTransactionAsync(connection =>
+        {
+            foreach (var (mailCopy, changedProperties) in pendingUpdates)
+            {
+                var persisted = mailCopy;
+                const MailCopyChangeFlags stateFlags = MailCopyChangeFlags.IsRead | MailCopyChangeFlags.IsFlagged |
+                    MailCopyChangeFlags.IsPinned | MailCopyChangeFlags.IsFocused;
+
+                if (mailCopy.IsDraft && (changedProperties & ~stateFlags) == 0)
+                {
+                    // A state response may have been captured before a local save or remote replacement.
+                    // Merge only its state fields into the current row, never its content or identity.
+                    persisted = connection.Find<MailCopy>(mailCopy.UniqueId);
+                    if (persisted == null || persisted.Id != mailCopy.Id)
+                        continue;
+
+                    if ((changedProperties & MailCopyChangeFlags.IsRead) != 0) persisted.IsRead = mailCopy.IsRead;
+                    if ((changedProperties & MailCopyChangeFlags.IsFlagged) != 0) persisted.IsFlagged = mailCopy.IsFlagged;
+                    if ((changedProperties & MailCopyChangeFlags.IsPinned) != 0) persisted.IsPinned = mailCopy.IsPinned;
+                    if ((changedProperties & MailCopyChangeFlags.IsFocused) != 0) persisted.IsFocused = mailCopy.IsFocused;
+                }
+                else if (mailCopy.IsDraft && (_draftUpdates?.IsRemoteProtected(mailCopy.AssignedAccount?.Id ?? Guid.Empty, mailCopy) == true ||
+                    _draftUpdates?.IsStaleRemote(mailCopy.AssignedAccount?.Id ?? Guid.Empty, mailCopy.Id) == true))
+                {
+                    continue;
+                }
+
+                NormalizePreviewText(persisted);
+                connection.Update(persisted, typeof(MailCopy));
+                appliedUpdates.Add((persisted, changedProperties));
+            }
+        }).ConfigureAwait(false);
+
+        pendingUpdates = appliedUpdates;
+
+        var readMailUniqueIds = pendingUpdates
+            .Where(x => (x.ChangedProperties & MailCopyChangeFlags.IsRead) != 0 &&
+                        x.MailCopy?.IsRead == true &&
+                        x.MailCopy.UniqueId != Guid.Empty)
+            .Select(x => x.MailCopy.UniqueId)
+            .Distinct()
+            .ToList();
+
+        if (readMailUniqueIds.Count > 0)
+        {
+            WeakReferenceMessenger.Default.Send(new BulkMailReadStatusChanged(readMailUniqueIds));
+        }
+
+        var hydratedUpdatesByUniqueId = (await HydrateMailCopiesAsync(
+                pendingUpdates
+                    .Where(x => x.MailCopy != null)
+                    .Select(x => x.MailCopy)
+                    .GroupBy(x => x.UniqueId)
+                    .Select(group => group.First())
+                    .ToList())
+            .ConfigureAwait(false))
+            .Where(x => x != null)
+            .ToDictionary(x => x.UniqueId);
+
+        foreach (var updateGroup in pendingUpdates
+                     .Where(x => x.MailCopy != null)
+                     .GroupBy(x => x.ChangedProperties))
+        {
+            var updatedMails = updateGroup
+                .Select(x => hydratedUpdatesByUniqueId.GetValueOrDefault(x.MailCopy.UniqueId, x.MailCopy))
+                .Where(x => x != null)
+                .ToList();
+
+            if (updatedMails.Count == 0)
+                continue;
+
+            ReportUIChange(new BulkMailUpdatedMessage(updatedMails, EntityUpdateSource.Server, updateGroup.Key));
+        }
+    }
+
+    private async Task UpdateAllMailCopiesAsync(string mailCopyId, Func<MailCopy, MailCopyChangeFlags> action)
+    {
+        var mailCopies = await GetMailCopiesByIdAsync([mailCopyId]).ConfigureAwait(false);
+
+        if (mailCopies == null || !mailCopies.Any())
+        {
+            _logger.Warning("Updating mail copies failed because there are no copies available with Id {MailCopyId}", mailCopyId);
+
+            return;
+        }
+
+        var pendingUpdates = new List<(MailCopy MailCopy, MailCopyChangeFlags ChangedProperties)>();
+
+        foreach (var mailCopy in mailCopies)
+        {
+            var changedProperties = action(mailCopy);
+
+            if (changedProperties != MailCopyChangeFlags.None)
+            {
+                pendingUpdates.Add((mailCopy, changedProperties));
+            }
+        }
+
+        if (pendingUpdates.Count == 0)
+            return;
+
+        _logger.Debug("Updating {MailCopyCount} changed mail copies with Id {MailCopyId}", pendingUpdates.Count, mailCopyId);
+        await PersistMailCopyUpdatesAsync(pendingUpdates).ConfigureAwait(false);
+    }
+
+    public Task ChangeReadStatusAsync(string mailCopyId, bool isRead)
+        => UpdateAllMailCopiesAsync(mailCopyId, (item) =>
+        {
+            if (item.IsRead == isRead) return MailCopyChangeFlags.None;
+
+            item.IsRead = isRead;
+
+            return MailCopyChangeFlags.IsRead;
+        });
+
+    public Task ChangeFlagStatusAsync(string mailCopyId, bool isFlagged)
+        => UpdateAllMailCopiesAsync(mailCopyId, (item) =>
+        {
+            if (item.IsFlagged == isFlagged) return MailCopyChangeFlags.None;
+
+            item.IsFlagged = isFlagged;
+
+            return MailCopyChangeFlags.IsFlagged;
+        });
+
+    public async Task ChangePinnedStatusAsync(IEnumerable<Guid> uniqueMailIds, bool isPinned)
+    {
+        var distinctUniqueIds = uniqueMailIds?
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToList() ?? [];
+
+        if (distinctUniqueIds.Count == 0)
+            return;
+
+        var mailCopies = new List<MailCopy>();
+
+        foreach (var idChunk in SqliteVariableLimit.Batch(distinctUniqueIds))
+        {
+            var placeholders = string.Join(",", idChunk.Select(_ => "?"));
+            mailCopies.AddRange(await Connection
+                .QueryAsync<MailCopy>($"SELECT * FROM MailCopy WHERE UniqueId IN ({placeholders})", idChunk.Cast<object>().ToArray())
+                .ConfigureAwait(false));
+        }
+
+        if (mailCopies.Count == 0)
+        {
+            _logger.Warning("Changing pin status failed because there are no matching copies for {MailCopyCount} unique ids.", distinctUniqueIds.Count);
+            return;
+        }
+
+        var pendingUpdates = new List<(MailCopy MailCopy, MailCopyChangeFlags ChangedProperties)>();
+
+        foreach (var mailCopy in mailCopies)
+        {
+            if (mailCopy.IsPinned == isPinned)
+                continue;
+
+            mailCopy.IsPinned = isPinned;
+            pendingUpdates.Add((mailCopy, MailCopyChangeFlags.IsPinned));
+        }
+
+        await PersistMailCopyUpdatesAsync(pendingUpdates).ConfigureAwait(false);
+    }
+
+    public async Task ApplyMailStateUpdatesAsync(IEnumerable<MailCopyStateUpdate> updates)
+    {
+        var updateLookup = new Dictionary<string, MailCopyStateUpdate>(StringComparer.Ordinal);
+
+        foreach (var update in updates ?? [])
+        {
+            if (update == null || string.IsNullOrWhiteSpace(update.MailCopyId))
+                continue;
+
+            if (updateLookup.TryGetValue(update.MailCopyId, out var existingUpdate))
+            {
+                updateLookup[update.MailCopyId] = new MailCopyStateUpdate(
+                    update.MailCopyId,
+                    update.IsRead ?? existingUpdate.IsRead,
+                    update.IsFlagged ?? existingUpdate.IsFlagged,
+                    update.IsFocused ?? existingUpdate.IsFocused);
+            }
+            else
+            {
+                updateLookup[update.MailCopyId] = update;
+            }
+        }
+
+        if (updateLookup.Count == 0)
+            return;
+
+        var mailCopies = await GetMailCopiesByIdAsync(updateLookup.Keys).ConfigureAwait(false);
+
+        if (mailCopies.Count == 0)
+        {
+            _logger.Warning("Applying mail state updates failed because there are no matching copies for {MailCopyCount} ids.", updateLookup.Count);
+            return;
+        }
+
+        var pendingUpdates = new List<(MailCopy MailCopy, MailCopyChangeFlags ChangedProperties)>();
+
+        foreach (var mailCopy in mailCopies)
+        {
+            if (!updateLookup.TryGetValue(mailCopy.Id, out var update))
+                continue;
+
+            var changedProperties = MailCopyChangeFlags.None;
+
+            if (update.IsRead.HasValue && mailCopy.IsRead != update.IsRead.Value)
+            {
+                mailCopy.IsRead = update.IsRead.Value;
+                changedProperties |= MailCopyChangeFlags.IsRead;
+            }
+
+            if (update.IsFlagged.HasValue && mailCopy.IsFlagged != update.IsFlagged.Value)
+            {
+                mailCopy.IsFlagged = update.IsFlagged.Value;
+                changedProperties |= MailCopyChangeFlags.IsFlagged;
+            }
+
+            if (update.IsFocused.HasValue && mailCopy.IsFocused != update.IsFocused.Value)
+            {
+                mailCopy.IsFocused = update.IsFocused.Value;
+                changedProperties |= MailCopyChangeFlags.IsFocused;
+            }
+
+            if (changedProperties != MailCopyChangeFlags.None)
+            {
+                pendingUpdates.Add((mailCopy, changedProperties));
+            }
+        }
+
+        await PersistMailCopyUpdatesAsync(pendingUpdates).ConfigureAwait(false);
+    }
+
+    public async Task CreateAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId)
+        => await CreateAssignmentsAsync(accountId, [new MailFolderAssignmentUpdate(mailCopyId, remoteFolderId)]).ConfigureAwait(false);
+
+    public async Task CreateAssignmentsAsync(Guid accountId, IEnumerable<MailFolderAssignmentUpdate> assignments)
+    {
+        var targetAssignments = assignments?
+            .Where(x => x != null &&
+                        !string.IsNullOrWhiteSpace(x.MailCopyId) &&
+                        !string.IsNullOrWhiteSpace(x.RemoteFolderId))
+            .GroupBy(x => $"{x.MailCopyId}\u001f{x.RemoteFolderId}", StringComparer.Ordinal)
+            .Select(group => group.First())
+            .ToList() ?? [];
+
+        if (targetAssignments.Count == 0)
+            return;
+
+        var addedMails = new List<MailCopy>(targetAssignments.Count);
+        var removedMails = new List<MailCopy>();
+
+        foreach (var assignment in targetAssignments)
+        {
+            var (addedMail, removedMail) = await CreateAssignmentInternalAsync(accountId, assignment.MailCopyId, assignment.RemoteFolderId).ConfigureAwait(false);
+
+            if (removedMail != null)
+                removedMails.Add(removedMail);
+
+            if (addedMail != null)
+                addedMails.Add(addedMail);
+        }
+
+        ReportRemovedMails(removedMails);
+        ReportAddedMails(addedMails);
+    }
+
+    private async Task<(MailCopy AddedMail, MailCopy RemovedMail)> CreateAssignmentInternalAsync(Guid accountId, string mailCopyId, string remoteFolderId)
+    {
+        // Note: Folder might not be available at the moment due to user not syncing folders before the delta processing.
+        // This is a problem, because assignments won't be created.
+        // Therefore we sync folders every time before the delta processing.
+
+        var localFolder = await _folderService.GetFolderAsync(accountId, remoteFolderId);
+
+        if (localFolder == null)
+        {
+            _logger.Warning("Local folder not found for remote folder {RemoteFolderId}", remoteFolderId);
+            _logger.Warning("Skipping assignment creation for the the message {MailCopyId}", mailCopyId);
+
+            return (null, null);
+        }
+
+        if (await IsMailExistsAsync(mailCopyId, localFolder.Id).ConfigureAwait(false))
+        {
+            _logger.Debug("Skipping assignment creation for {MailCopyId} because folder {FolderId} already has a local copy.",
+                mailCopyId, localFolder.Id);
+            return (null, null);
+        }
+
+        var mailCopy = await GetSingleMailItemWithoutFolderAssignmentAsync(mailCopyId);
+
+        if (mailCopy == null)
+        {
+            _logger.Warning("Can't create assignment for mail {MailCopyId} because it does not exist.", mailCopyId);
+
+            return (null, null);
+        }
+
+        MailCopy removedMail = null;
+        var mailCopyToInsert = mailCopy;
+
+        if (mailCopy.AssignedFolder.SpecialFolderType == SpecialFolderType.Sent &&
+            localFolder.SpecialFolderType == SpecialFolderType.Deleted)
+        {
+            // Sent item is deleted.
+            // Gmail does not delete the sent items, but moves them to the deleted folder.
+            // API doesn't allow removing Sent label.
+            // Here we intercept this behavior, removing the Sent copy of the mail and adding the Deleted copy.
+            // This way item will only be visible in Trash folder as in Gmail Web UI.
+            // Don't delete MIME file since if exists.
+
+            mailCopyToInsert = CloneMailCopy(mailCopy);
+            removedMail = await DeleteMailInternalAsync(mailCopy, preserveMimeFile: true, reportUiChange: false).ConfigureAwait(false);
+        }
+
+        // Copy one of the mail copy and assign it to the new folder.
+        // We don't need to create a new MIME pack.
+        // Therefore FileId is not changed for the new MailCopy.
+
+        mailCopyToInsert.UniqueId = Guid.NewGuid();
+        mailCopyToInsert.FolderId = localFolder.Id;
+        mailCopyToInsert.AssignedFolder = localFolder;
+
+        var addedMail = await InsertMailAsync(mailCopyToInsert, reportUiChange: false).ConfigureAwait(false);
+        return (addedMail, removedMail);
+    }
+
+    public async Task DeleteAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId)
+        => await DeleteAssignmentsAsync(accountId, [new MailFolderAssignmentUpdate(mailCopyId, remoteFolderId)]).ConfigureAwait(false);
+
+    public async Task DeleteAssignmentsAsync(Guid accountId, IEnumerable<MailFolderAssignmentUpdate> assignments)
+    {
+        var targetAssignments = assignments?
+            .Where(x => x != null &&
+                        !string.IsNullOrWhiteSpace(x.MailCopyId) &&
+                        !string.IsNullOrWhiteSpace(x.RemoteFolderId))
+            .GroupBy(x => $"{x.MailCopyId}\u001f{x.RemoteFolderId}", StringComparer.Ordinal)
+            .Select(group => group.First())
+            .ToList() ?? [];
+
+        if (targetAssignments.Count == 0)
+            return;
+
+        var removedMails = new List<MailCopy>(targetAssignments.Count);
+
+        foreach (var assignment in targetAssignments)
+        {
+            var removedMail = await DeleteAssignmentInternalAsync(accountId, assignment.MailCopyId, assignment.RemoteFolderId).ConfigureAwait(false);
+
+            if (removedMail != null)
+                removedMails.Add(removedMail);
+        }
+
+        ReportRemovedMails(removedMails);
+    }
+
+    private async Task<MailCopy> DeleteAssignmentInternalAsync(Guid accountId, string mailCopyId, string remoteFolderId)
+    {
+        var mailItem = await GetSingleMailItemAsync(mailCopyId, remoteFolderId).ConfigureAwait(false);
+
+        if (mailItem == null)
+        {
+            _logger.Warning("Mail not found with id {MailCopyId} with remote folder {RemoteFolderId}", mailCopyId, remoteFolderId);
+
+            return null;
+        }
+
+        var localFolder = await _folderService.GetFolderAsync(accountId, remoteFolderId);
+
+        if (localFolder == null)
+        {
+            _logger.Warning("Local folder not found for remote folder {RemoteFolderId}", remoteFolderId);
+
+            return null;
+        }
+
+        return await DeleteMailInternalAsync(mailItem, preserveMimeFile: false, reportUiChange: false).ConfigureAwait(false);
+    }
+
+    private static MailCopy CloneMailCopy(MailCopy source)
+    {
+        if (source == null)
+            return null;
+
+        return new MailCopy
+        {
+            UniqueId = source.UniqueId,
+            Id = source.Id,
+            FolderId = source.FolderId,
+            ImapUid = source.ImapUid,
+            ImapUidValidity = source.ImapUidValidity,
+            ThreadId = source.ThreadId,
+            MessageId = source.MessageId,
+            References = source.References,
+            InReplyTo = source.InReplyTo,
+            FromName = source.FromName,
+            FromAddress = source.FromAddress,
+            Subject = source.Subject,
+            PreviewText = source.PreviewText,
+            CreationDate = source.CreationDate,
+            Importance = source.Importance,
+            IsRead = source.IsRead,
+            IsFlagged = source.IsFlagged,
+            IsPinned = source.IsPinned,
+            IsFocused = source.IsFocused,
+            HasAttachments = source.HasAttachments,
+            ItemType = source.ItemType,
+            DraftId = source.DraftId,
+            IsDraft = source.IsDraft,
+            FileId = source.FileId,
+            AssignedFolder = source.AssignedFolder,
+            AssignedAccount = source.AssignedAccount,
+            SenderContact = source.SenderContact,
+            IsReadReceiptRequested = source.IsReadReceiptRequested,
+            ReadReceiptStatus = source.ReadReceiptStatus,
+            ReadReceiptAcknowledgedAtUtc = source.ReadReceiptAcknowledgedAtUtc,
+            ReadReceiptMessageUniqueId = source.ReadReceiptMessageUniqueId,
+            Categories = source.Categories == null ? [] : [.. source.Categories],
+            IntelligenceMetadata = source.IntelligenceMetadata
+        };
+    }
+
+    public async Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package)
+    {
+        var mailCopy = package.Copy;
+        var mimeMessage = package.Mime;
+
+        mailCopy.UniqueId = Guid.NewGuid();
+        mailCopy.AssignedAccount = account;
+        mailCopy.AssignedFolder = mailItemFolder;
+        mailCopy.SenderContact = await GetSenderContactForAccountAsync(account, mailCopy.FromAddress).ConfigureAwait(false);
+        mailCopy.FolderId = mailItemFolder.Id;
+
+        var mimeSaveTask = _mimeFileService.SaveMimeMessageAsync(mailCopy.FileId, mimeMessage, account.Id);
+        var insertMailTask = InsertMailAsync(mailCopy, reportUiChange: true);
+
+        await Task.WhenAll(mimeSaveTask, insertMailTask).ConfigureAwait(false);
+        await _sentMailReceiptService.TrackSentMailAsync(mailCopy, mimeMessage).ConfigureAwait(false);
+        await _sentMailReceiptService.ProcessIncomingReceiptAsync(mailCopy, mimeMessage).ConfigureAwait(false);
+        await RecordRecipientHistoryAsync(account, mailCopy, package).ConfigureAwait(false);
+    }
+
+    public async Task CreateMailAsyncEx(Guid accountId, NewMailItemPackage package)
+    {
+
+    }
+
+    public async Task CreateMailsAsync(Guid accountId, IReadOnlyList<NewMailItemPackage> packages)
+    {
+        var targetPackages = packages?
+            .Where(package => package != null)
+            .ToList() ?? [];
+
+        if (targetPackages.Count == 0)
+            return;
+
+        var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+
+        if (account == null)
+            return;
+
+        if (account.ProviderType != MailProviderType.Gmail)
+        {
+            foreach (var package in targetPackages)
+                await CreateMailAsync(accountId, package).ConfigureAwait(false);
+
+            return;
+        }
+
+        var pendingInserts = new List<(MailCopy MailCopy, NewMailItemPackage Package, MimeMessage MimeMessage)>();
+        var historyInserts = new List<(MailCopy MailCopy, NewMailItemPackage Package)>();
+        var historyKeysInBatch = new HashSet<string>(StringComparer.Ordinal);
+        var pendingUpdates = new List<(MailCopy MailCopy, MailCopy ExistingMailCopy, NewMailItemPackage Package, MimeMessage MimeMessage)>();
+
+        foreach (var package in targetPackages)
+        {
+            if (_draftUpdates?.IsRemoteProtected(accountId, package.Copy) == true || _draftUpdates?.IsStaleRemote(accountId, package.Copy.Id) == true) continue;
+
+            if (string.IsNullOrEmpty(package.AssignedRemoteFolderId))
+            {
+                _logger.Warning("Remote folder id is not set for {MailCopyId}.", package.Copy?.Id);
+                _logger.Warning("Ignoring creation of mail.");
+                continue;
+            }
+
+            var assignedFolder = await _folderService.GetFolderAsync(accountId, package.AssignedRemoteFolderId).ConfigureAwait(false);
+
+            if (assignedFolder == null)
+            {
+                _logger.Warning("Assigned folder not found for {MailCopyId}.", package.Copy?.Id);
+                _logger.Warning("Ignoring creation of mail.");
+                continue;
+            }
+
+            var mailCopy = package.Copy;
+            var mimeMessage = package.Mime;
+
+            mailCopy.UniqueId = Guid.NewGuid();
+            mailCopy.AssignedAccount = account;
+            mailCopy.AssignedFolder = assignedFolder;
+            mailCopy.SenderContact = await GetSenderContactForAccountAsync(account, mailCopy.FromAddress).ConfigureAwait(false);
+            mailCopy.FolderId = assignedFolder.Id;
+
+            if (mimeMessage != null)
+            {
+                var isMimeExists = await _mimeFileService.IsMimeExistAsync(accountId, mailCopy.FileId).ConfigureAwait(false);
+
+                if (!isMimeExists)
+                {
+                    bool isMimeSaved = await _mimeFileService.SaveMimeMessageAsync(mailCopy.FileId, mimeMessage, accountId).ConfigureAwait(false);
+
+                    if (!isMimeSaved)
+                    {
+                        _logger.Warning("Failed to save mime file for {MailCopyId}.", mailCopy.Id);
+                    }
+                }
+            }
+
+            var existingCopyItem = await Connection.Table<MailCopy>()
+                                                   .FirstOrDefaultAsync(a => a.Id == mailCopy.Id && a.FolderId == assignedFolder.Id)
+                                                   .ConfigureAwait(false);
+
+            if (existingCopyItem != null)
+            {
+                mailCopy.UniqueId = existingCopyItem.UniqueId;
+                if (mimeMessage == null)
+                    mailCopy.FileId = existingCopyItem.FileId;
+
+                pendingUpdates.Add((mailCopy, existingCopyItem, package, mimeMessage));
+            }
+            else
+            {
+                pendingInserts.Add((mailCopy, package, mimeMessage));
+
+                // Gmail delivers one package per label, so only the first copy of a message counts.
+                if (await IsFirstCopyForRecipientHistoryAsync(accountId, mailCopy, historyKeysInBatch).ConfigureAwait(false))
+                    historyInserts.Add((mailCopy, package));
+            }
+        }
+
+        var insertedMails = new List<MailCopy>(pendingInserts.Count);
+        foreach (var pendingInsert in pendingInserts)
+        {
+            var insertedMail = await InsertMailAsync(pendingInsert.MailCopy, reportUiChange: false).ConfigureAwait(false);
+
+            if (insertedMail != null && !pendingInsert.Package.SuppressUiChange)
+                insertedMails.Add(insertedMail);
+        }
+
+        var updatedMails = new List<MailCopy>(pendingUpdates.Count);
+        foreach (var pendingUpdate in pendingUpdates)
+        {
+            var updatedMail = await UpdateMailAsync(
+                pendingUpdate.MailCopy,
+                reportUiChange: false,
+                existingMailCopy: pendingUpdate.ExistingMailCopy).ConfigureAwait(false);
+
+            if (updatedMail != null && !pendingUpdate.Package.SuppressUiChange)
+                updatedMails.Add(updatedMail);
+        }
+
+        ReportAddedMails(insertedMails);
+        ReportUpdatedMails(updatedMails);
+
+        foreach (var pendingInsert in pendingInserts)
+        {
+            await ReplaceMailCategoriesForPackageAsync(accountId, pendingInsert.MailCopy, pendingInsert.Package).ConfigureAwait(false);
+            await _sentMailReceiptService.TrackSentMailAsync(pendingInsert.MailCopy, pendingInsert.MimeMessage).ConfigureAwait(false);
+            await _sentMailReceiptService.ProcessIncomingReceiptAsync(pendingInsert.MailCopy, pendingInsert.MimeMessage).ConfigureAwait(false);
+        }
+
+        foreach (var pendingUpdate in pendingUpdates)
+        {
+            await ReplaceMailCategoriesForPackageAsync(accountId, pendingUpdate.MailCopy, pendingUpdate.Package).ConfigureAwait(false);
+            await _sentMailReceiptService.TrackSentMailAsync(pendingUpdate.MailCopy, pendingUpdate.MimeMessage).ConfigureAwait(false);
+            await _sentMailReceiptService.ProcessIncomingReceiptAsync(pendingUpdate.MailCopy, pendingUpdate.MimeMessage).ConfigureAwait(false);
+        }
+
+        if (historyInserts.Count > 0)
+        {
+            var ownAddresses = await GetOwnAddressesAsync(account).ConfigureAwait(false);
+            foreach (var historyInsert in historyInserts)
+                await RecordRecipientHistoryAsync(account, historyInsert.MailCopy, historyInsert.Package, ownAddresses).ConfigureAwait(false);
+        }
+    }
+
+    public async Task<bool> CreateMailAsync(Guid accountId, NewMailItemPackage package)
+    {
+        if (_draftUpdates?.IsRemoteProtected(accountId, package.Copy) == true || _draftUpdates?.IsStaleRemote(accountId, package.Copy.Id) == true) return false;
+        var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+
+        if (account == null) return false;
+
+        if (string.IsNullOrEmpty(package.AssignedRemoteFolderId))
+        {
+            _logger.Warning("Remote folder id is not set for {MailCopyId}.", package.Copy.Id);
+            _logger.Warning("Ignoring creation of mail.");
+
+            return false;
+        }
+
+        var assignedFolder = await _folderService.GetFolderAsync(accountId, package.AssignedRemoteFolderId).ConfigureAwait(false);
+
+        if (assignedFolder == null)
+        {
+            _logger.Warning("Assigned folder not found for {MailCopyId}.", package.Copy.Id);
+            _logger.Warning("Ignoring creation of mail.");
+
+            return false;
+        }
+
+        var mailCopy = package.Copy;
+        var mimeMessage = package.Mime;
+
+        mailCopy.UniqueId = Guid.NewGuid();
+        mailCopy.AssignedAccount = account;
+        mailCopy.AssignedFolder = assignedFolder;
+        mailCopy.SenderContact = await GetSenderContactForAccountAsync(account, mailCopy.FromAddress).ConfigureAwait(false);
+        mailCopy.FolderId = assignedFolder.Id;
+
+        // Count message history once even when several IMAP folders contain a copy.
+        var isFirstCopyForHistory = await IsFirstCopyForRecipientHistoryAsync(accountId, mailCopy).ConfigureAwait(false);
+
+        // Message-ID identifies message content, not folder membership. A server COPY
+        // can leave valid copies in both folders with different UIDs and flags.
+
+        // Only save MIME files if they don't exists.
+        // This is because 1 mail may have multiple copies in different folders.
+        // but only single MIME to represent all.
+
+        // Save mime file to disk if provided.
+
+        if (mimeMessage != null)
+        {
+            var isMimeExists = await _mimeFileService.IsMimeExistAsync(accountId, mailCopy.FileId).ConfigureAwait(false);
+
+            if (!isMimeExists)
+            {
+                bool isMimeSaved = await _mimeFileService.SaveMimeMessageAsync(mailCopy.FileId, mimeMessage, accountId).ConfigureAwait(false);
+
+                if (!isMimeSaved)
+                {
+                    _logger.Warning("Failed to save mime file for {MailCopyId}.", mailCopy.Id);
+                }
+            }
+
+        }
+
+        // Create mail copy in the database.
+        // Update if exists.
+
+        var existingCopyItem = await Connection.Table<MailCopy>()
+                                                .FirstOrDefaultAsync(a => a.Id == mailCopy.Id && a.FolderId == assignedFolder.Id);
+
+        if (existingCopyItem != null)
+        {
+            mailCopy.UniqueId = existingCopyItem.UniqueId;
+            if (mimeMessage == null)
+                mailCopy.FileId = existingCopyItem.FileId;
+
+            await UpdateMailAsync(
+                mailCopy,
+                reportUiChange: !package.SuppressUiChange,
+                existingMailCopy: existingCopyItem).ConfigureAwait(false);
+            await ReplaceMailCategoriesForPackageAsync(accountId, mailCopy, package).ConfigureAwait(false);
+            await _sentMailReceiptService.TrackSentMailAsync(mailCopy, mimeMessage).ConfigureAwait(false);
+            await _sentMailReceiptService.ProcessIncomingReceiptAsync(mailCopy, mimeMessage).ConfigureAwait(false);
+
+            return false;
+        }
+        else
+        {
+            if (account.ProviderType != MailProviderType.Gmail)
+            {
+                // Make sure there is only 1 instance left of this mail copy id.
+                await DeleteMailAsync(accountId, mailCopy.Id).ConfigureAwait(false);
+            }
+
+            await InsertMailAsync(mailCopy, reportUiChange: !package.SuppressUiChange).ConfigureAwait(false);
+            await ReplaceMailCategoriesForPackageAsync(accountId, mailCopy, package).ConfigureAwait(false);
+            await _sentMailReceiptService.TrackSentMailAsync(mailCopy, mimeMessage).ConfigureAwait(false);
+            await _sentMailReceiptService.ProcessIncomingReceiptAsync(mailCopy, mimeMessage).ConfigureAwait(false);
+
+            if (isFirstCopyForHistory)
+                await RecordRecipientHistoryAsync(account, mailCopy, package).ConfigureAwait(false);
+
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// True when no non-draft copy of this message exists in the account yet, so recording it
+    /// in recipient history cannot double count a label copy, a moved message, or a re-sync.
+    /// </summary>
+    private async Task<bool> IsFirstCopyForRecipientHistoryAsync(Guid accountId, MailCopy mailCopy, HashSet<string> keysInBatch = null)
+    {
+        if (_recipientHistoryService == null || mailCopy == null || mailCopy.IsDraft)
+            return false;
+
+        var id = mailCopy.Id ?? string.Empty;
+        var messageId = MailHeaderExtensions.NormalizeMessageId(mailCopy.MessageId) ?? string.Empty;
+
+        if (keysInBatch != null)
+        {
+            var isNewId = keysInBatch.Add($"id:{id}");
+            var isNewMessageId = messageId.Length == 0 || keysInBatch.Add($"mid:{messageId}");
+            if (!isNewId || !isNewMessageId)
+                return false;
+        }
+
+        var existingCount = await Connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM MailCopy " +
+            "INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id " +
+            "WHERE MailItemFolder.MailAccountId = ? AND MailCopy.IsDraft = 0 " +
+            "AND (MailCopy.Id = ? OR (? <> '' AND MailCopy.MessageId = ?))",
+            accountId,
+            id,
+            messageId,
+            messageId).ConfigureAwait(false);
+
+        return existingCount == 0;
+    }
+
+    /// <summary>
+    /// Remembers who the account corresponds with. Mail from one of the account's own addresses,
+    /// or filed in Sent, records its recipients; any other mail records its sender.
+    /// </summary>
+    private async Task RecordRecipientHistoryAsync(MailAccount account, MailCopy mailCopy, NewMailItemPackage package, HashSet<string> ownAddresses = null)
+    {
+        if (_recipientHistoryService == null || account == null || mailCopy == null || mailCopy.IsDraft)
+            return;
+
+        var folderType = mailCopy.AssignedFolder?.SpecialFolderType;
+        if (folderType is SpecialFolderType.Draft or SpecialFolderType.Deleted or SpecialFolderType.Junk)
+            return;
+
+        var fromAddress = mailCopy.FromAddress?.Trim();
+        if (string.IsNullOrEmpty(fromAddress))
+            return;
+
+        try
+        {
+            ownAddresses ??= await GetOwnAddressesAsync(account).ConfigureAwait(false);
+            var whenUtc = mailCopy.CreationDate == default ? DateTime.UtcNow : mailCopy.CreationDate;
+
+            if (ownAddresses.Contains(fromAddress) || folderType == SpecialFolderType.Sent)
+            {
+                var recipients = GetSentRecipients(package, fromAddress, ownAddresses);
+                await _recipientHistoryService.RecordSentAsync(account.Id, recipients, whenUtc).ConfigureAwait(false);
+            }
+            else
+            {
+                await _recipientHistoryService.RecordReceivedAsync(account.Id, fromAddress, mailCopy.FromName, whenUtc).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            // History only ranks suggestions. It must never fail mail synchronization.
+            _logger.Warning(ex, "Failed to record recipient history for {MailCopyId}.", mailCopy.Id);
+        }
+    }
+
+    private static List<RecipientAddress> GetSentRecipients(NewMailItemPackage package, string fromAddress, HashSet<string> ownAddresses)
+    {
+        IEnumerable<RecipientAddress> candidates = package?.Mime != null
+            ? package.Mime.To.Mailboxes
+                .Concat(package.Mime.Cc.Mailboxes)
+                .Concat(package.Mime.Bcc.Mailboxes)
+                .Select(mailbox => new RecipientAddress(mailbox.Address, mailbox.Name))
+            // Provider metadata does not say which address was a recipient, but for a sent mail
+            // every address other than the sender and the account's own is one.
+            : package?.ExtractedContacts?
+                .Where(contact => contact != null)
+                .Select(contact => new RecipientAddress(contact.Address, contact.Name)) ?? [];
+
+        return candidates
+            .Where(recipient => !string.IsNullOrWhiteSpace(recipient.Address))
+            .Where(recipient => !string.Equals(recipient.Address.Trim(), fromAddress, StringComparison.OrdinalIgnoreCase))
+            .Where(recipient => !ownAddresses.Contains(recipient.Address.Trim()))
+            .ToList();
+    }
+
+    private Task ReplaceMailCategoriesForPackageAsync(Guid accountId, MailCopy mailCopy, NewMailItemPackage package)
+        => package?.CategoryNames == null
+            ? Task.CompletedTask
+            : _mailCategoryService.ReplaceMailAssignmentsAsync(accountId, mailCopy.UniqueId, package.CategoryNames);
+
+    private async Task<MimeMessage> CreateDraftMimeAsync(MailAccount account, DraftCreationOptions draftCreationOptions, MailAccountAlias selectedAlias)
+    {
+        // This unique id is stored in mime headers for Wino to identify remote message with local copy.
+        // Same unique id will be used for the local copy as well.
+        // Synchronizer will map this unique id to the local draft copy after synchronization.
+
+        var message = new MimeMessage()
+        {
+            Headers = { { Constants.WinoLocalDraftHeader, Guid.NewGuid().ToString() } },
+        };
+        EnsureOutgoingMessageId(message);
+
+        selectedAlias ??= await _accountService.GetPrimaryAccountAliasAsync(account.Id) ?? throw new MissingAliasException();
+
+        // Set FromName and FromAddress by alias.
+        message.From.Add(new MailboxAddress(selectedAlias.AliasSenderName ?? account.SenderName, selectedAlias.AliasAddress));
+
+        if (!string.IsNullOrWhiteSpace(selectedAlias.ReplyToAddress))
+        {
+            message.ReplyTo.Add(new MailboxAddress(selectedAlias.ReplyToAddress, selectedAlias.ReplyToAddress));
+        }
+
+        var builder = new BodyBuilder();
+
+        var signature = await GetSignature(account, draftCreationOptions.Reason);
+        var ownAddresses = await GetOwnAddressesAsync(account).ConfigureAwait(false);
+
+        _ = draftCreationOptions.Reason switch
+        {
+            DraftCreationReason.Empty => CreateEmptyDraft(builder, message, draftCreationOptions, signature),
+            _ => CreateReferencedDraft(builder, message, draftCreationOptions, signature, ownAddresses),
+        };
+
+        // TODO: Migration
+        // builder.SetHtmlBody(builder.HtmlBody);
+
+        message.Body = builder.ToMessageBody();
+
+        return message;
+    }
+
+    private async Task<MailAccountAlias> ResolveDraftAliasAsync(MailAccount account, DraftCreationOptions draftCreationOptions)
+    {
+        var aliases = await _accountService.GetAccountAliasesAsync(account.Id).ConfigureAwait(false);
+        var primaryAlias = aliases.FirstOrDefault(a => a.IsPrimary) ?? aliases.FirstOrDefault();
+
+        if (draftCreationOptions?.ReferencedMessage?.MimeMessage == null)
+            return primaryAlias;
+
+        var referencedMessage = draftCreationOptions.ReferencedMessage.MimeMessage;
+
+        MailAccountAlias FindAlias(string address)
+        {
+            if (string.IsNullOrWhiteSpace(address))
+                return null;
+
+            return aliases.FirstOrDefault(a => a.AliasAddress.Equals(address.Trim(), StringComparison.OrdinalIgnoreCase));
+        }
+
+        var deliveredToAlias = FindAlias(ExtractAddressFromHeader(referencedMessage.Headers["Delivered-To"]))
+            ?? FindAlias(ExtractAddressFromHeader(referencedMessage.Headers["X-Original-To"]));
+        if (deliveredToAlias != null)
+            return deliveredToAlias;
+
+        foreach (var mailbox in referencedMessage.To.Mailboxes)
+        {
+            var matchedAlias = FindAlias(mailbox.Address);
+            if (matchedAlias != null)
+                return matchedAlias;
+        }
+
+        foreach (var mailbox in referencedMessage.Cc.Mailboxes)
+        {
+            var matchedAlias = FindAlias(mailbox.Address);
+            if (matchedAlias != null)
+                return matchedAlias;
+        }
+
+        return primaryAlias;
+    }
+
+    private static string ExtractAddressFromHeader(string headerValue)
+    {
+        if (string.IsNullOrWhiteSpace(headerValue))
+            return string.Empty;
+
+        var trimmed = headerValue.Trim();
+        var leftBracketIndex = trimmed.LastIndexOf('<');
+        var rightBracketIndex = trimmed.LastIndexOf('>');
+
+        if (leftBracketIndex >= 0 && rightBracketIndex > leftBracketIndex)
+            return trimmed[(leftBracketIndex + 1)..rightBracketIndex].Trim();
+
+        return trimmed.Trim().Trim('<', '>', '"', '\'');
+    }
+
+    private string CreateHtmlGap()
+    {
+        var template = $"""<div style="font-family: '{_preferencesService.ComposerFont}', Arial, sans-serif; font-size: {_preferencesService.ComposerFontSize}px"><br></div>""";
+        return string.Concat(Enumerable.Repeat(template, 2));
+    }
+
+    private async Task<string> GetSignature(MailAccount account, DraftCreationReason reason)
+    {
+        if (account.Preferences.IsSignatureEnabled)
+        {
+            var signatureId = reason == DraftCreationReason.Empty ?
+                account.Preferences.SignatureIdForNewMessages :
+                account.Preferences.SignatureIdForFollowingMessages;
+
+            if (signatureId != null)
+            {
+                var signature = await _signatureService.GetSignatureAsync(signatureId.Value);
+
+                return signature.HtmlBody;
+            }
+        }
+
+        return null;
+    }
+
+    private MimeMessage CreateEmptyDraft(BodyBuilder builder, MimeMessage message, DraftCreationOptions draftCreationOptions, string signature)
+    {
+        builder.HtmlBody = CreateHtmlGap();
+        if (draftCreationOptions.MailToUri != null)
+        {
+            if (draftCreationOptions.MailToUri.Subject != null)
+                message.Subject = draftCreationOptions.MailToUri.Subject;
+
+            if (draftCreationOptions.MailToUri.Body != null)
+            {
+                // TODO: In .NET 6+ replace with string "ReplaceLineEndings" method.
+                var escapedBody = draftCreationOptions.MailToUri.Body.Replace("\r\n", "<br>").Replace("\n", "<br>").Replace("\r", "<br>");
+                builder.HtmlBody = $"""<div style="font-family: '{_preferencesService.ComposerFont}', Arial, sans-serif; font-size: {_preferencesService.ComposerFontSize}px">{escapedBody}</div>""" + builder.HtmlBody;
+            }
+
+            if (draftCreationOptions.MailToUri.To.Any())
+                message.To.AddRange(draftCreationOptions.MailToUri.To.Select(x => new MailboxAddress(x, x)));
+
+            if (draftCreationOptions.MailToUri.Cc.Any())
+                message.Cc.AddRange(draftCreationOptions.MailToUri.Cc.Select(x => new MailboxAddress(x, x)));
+
+            if (draftCreationOptions.MailToUri.Bcc.Any())
+                message.Bcc.AddRange(draftCreationOptions.MailToUri.Bcc.Select(x => new MailboxAddress(x, x)));
+        }
+
+        if (signature != null)
+            builder.HtmlBody += signature;
+
+        return message;
+    }
+
+    private MimeMessage CreateReferencedDraft(BodyBuilder builder,
+                                              MimeMessage message,
+                                              DraftCreationOptions draftCreationOptions,
+                                              string signature,
+                                              ISet<string> ownAddresses)
+    {
+        var reason = draftCreationOptions.Reason;
+        var referenceMessage = draftCreationOptions.ReferencedMessage.MimeMessage;
+        var referenceMailCopy = draftCreationOptions.ReferencedMessage.MailCopy;
+        ownAddresses ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var gap = CreateHtmlGap();
+        builder.HtmlBody = gap + CreateHtmlForReferencingMessage(referenceMessage);
+
+        if (signature != null)
+        {
+            builder.HtmlBody = gap + signature + builder.HtmlBody;
+        }
+
+        if (!string.IsNullOrWhiteSpace(draftCreationOptions.InitialBodyText))
+        {
+            var encoded = WebUtility.HtmlEncode(draftCreationOptions.InitialBodyText)
+                .Replace("\r\n", "<br>", StringComparison.Ordinal)
+                .Replace("\n", "<br>", StringComparison.Ordinal)
+                .Replace("\r", "<br>", StringComparison.Ordinal);
+            builder.HtmlBody = $"""<div style="font-family: '{_preferencesService.ComposerFont}', Arial, sans-serif; font-size: {_preferencesService.ComposerFontSize}px">{encoded}</div>""" + builder.HtmlBody;
+        }
+
+        // Manage "To"
+        if (reason == DraftCreationReason.Reply || reason == DraftCreationReason.ReplyAll)
+        {
+            var toRecipients = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var ccRecipients = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            void AddToRecipient(MailboxAddress mailbox, bool allowSelf)
+            {
+                var address = mailbox?.Address?.Trim();
+                if (string.IsNullOrWhiteSpace(address))
+                    return;
+                if (!allowSelf && ownAddresses.Contains(address))
+                    return;
+                if (!toRecipients.Add(address))
+                    return;
+
+                message.To.Add(new MailboxAddress(mailbox.Name, address));
+            }
+
+            void AddCcRecipient(MailboxAddress mailbox, bool allowSelf)
+            {
+                var address = mailbox?.Address?.Trim();
+                if (string.IsNullOrWhiteSpace(address))
+                    return;
+                if (!allowSelf && ownAddresses.Contains(address))
+                    return;
+                if (toRecipients.Contains(address) || !ccRecipients.Add(address))
+                    return;
+
+                message.Cc.Add(new MailboxAddress(mailbox.Name, address));
+            }
+
+            // Reply target follows Reply-To first, then From, then Sender.
+            if (referenceMessage.ReplyTo.Mailboxes.Any())
+            {
+                foreach (var mailbox in referenceMessage.ReplyTo.Mailboxes)
+                    AddToRecipient(mailbox, allowSelf: true);
+            }
+            else if (referenceMessage.From.Mailboxes.Any())
+            {
+                foreach (var mailbox in referenceMessage.From.Mailboxes)
+                    AddToRecipient(mailbox, allowSelf: true);
+            }
+            else if (referenceMessage.Sender is MailboxAddress senderMailbox)
+            {
+                AddToRecipient(senderMailbox, allowSelf: true);
+            }
+
+            if (reason == DraftCreationReason.ReplyAll)
+            {
+                // Include all of the other original recipients
+                foreach (var mailbox in referenceMessage.To.Mailboxes)
+                    AddToRecipient(mailbox, allowSelf: false);
+
+                foreach (var mailbox in referenceMessage.Cc.Mailboxes)
+                    AddCcRecipient(mailbox, allowSelf: false);
+            }
+
+            // Self email can be present at this step, when replying to own message. It should be removed only in case there no other recipients.
+            if (message.To.Mailboxes.Count() > 1)
+            {
+                var selfRecipients = message.To.Mailboxes
+                    .Where(m => ownAddresses.Contains(m.Address ?? string.Empty))
+                    .ToList();
+
+                foreach (var self in selfRecipients)
+                {
+                    message.To.Remove(self);
+                }
+            }
+
+            var referenceMessageId = MailHeaderExtensions.NormalizeMessageId(referenceMessage.Headers[HeaderId.MessageId]);
+            if (string.IsNullOrEmpty(referenceMessageId))
+                referenceMessageId = MailHeaderExtensions.NormalizeMessageId(referenceMailCopy?.MessageId);
+
+            if (!string.IsNullOrEmpty(referenceMessageId))
+            {
+                message.InReplyTo = referenceMessageId;
+
+                var existingReferences = referenceMessage.References?.Select(MailHeaderExtensions.NormalizeMessageId).ToList() ?? [];
+                if (existingReferences.Count == 0)
+                    existingReferences = MailHeaderExtensions.SplitMessageIds(referenceMailCopy?.References).ToList();
+
+                var refs = MailHeaderExtensions.BuildReferencesChain(existingReferences, referenceMessageId);
+
+                foreach (var referenceId in refs)
+                    message.References.Add(referenceId);
+            }
+
+            if (!string.IsNullOrEmpty(referenceMessage.Subject))
+                message.Headers.Add("Thread-Topic", referenceMessage.Subject);
+        }
+
+        // Manage Subject
+        var referenceSubject = referenceMessage?.Subject ?? string.Empty;
+        if (reason == DraftCreationReason.Forward && !referenceSubject.StartsWith("FW: ", StringComparison.OrdinalIgnoreCase))
+            message.Subject = $"FW: {referenceSubject}";
+        else if ((reason == DraftCreationReason.Reply || reason == DraftCreationReason.ReplyAll) && !referenceSubject.StartsWith("Re:", StringComparison.OrdinalIgnoreCase))
+            message.Subject = $"Re: {referenceSubject}";
+        else
+            message.Subject = referenceSubject;
+
+        // Only include attachments if forwarding.
+        if (reason == DraftCreationReason.Forward && (referenceMessage?.Attachments?.Any() ?? false))
+        {
+            foreach (var attachment in referenceMessage.Attachments)
+            {
+                builder.Attachments.Add(attachment);
+            }
+        }
+
+        return message;
+
+        // Generates html representation of To/Cc/From/Time and so on from referenced message.
+        string CreateHtmlForReferencingMessage(MimeMessage referenceMessage)
+        {
+            var htmlMimeInfo = string.Empty;
+            // Separation Line
+            htmlMimeInfo += "<hr style='display:inline-block;width:100%' tabindex='-1'>";
+
+            var visitor = _mimeFileService.CreateHTMLPreviewVisitor(referenceMessage, string.Empty);
+            visitor.Visit(referenceMessage);
+
+            htmlMimeInfo += $"""
+                <div id="divRplyFwdMsg" dir="ltr">
+                  <font face="Calibri, sans-serif" style="font-size: 11pt;" color="#000000">
+                    <b>From:</b> {ParticipantsToHtml(referenceMessage.From)}<br>
+                    <b>Sent:</b> {referenceMessage.Date.ToLocalTime()}<br>
+                    <b>To:</b> {ParticipantsToHtml(referenceMessage.To)}<br>
+                    {(referenceMessage.Cc.Count > 0 ? $"<b>Cc:</b> {ParticipantsToHtml(referenceMessage.Cc)}<br>" : string.Empty)}
+                    <b>Subject:</b> {referenceMessage.Subject}
+                  </font>
+                  <div>&nbsp;</div>
+                  {visitor.HtmlBody}
+                </div>
+                """;
+
+            return htmlMimeInfo;
+        }
+
+        static string ParticipantsToHtml(InternetAddressList internetAddresses) =>
+            string.Join("; ", internetAddresses.Mailboxes
+                                        .Select(x => $"{x.Name ?? Translator.UnknownSender} &lt;<a href=\"mailto:{x.Address ?? Translator.UnknownAddress}\">{x.Address ?? Translator.UnknownAddress}</a>&gt;"));
+    }
+
+    public async Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId)
+        => await MapLocalDraftAsync(accountId, localDraftCopyUniqueId, newMailCopyId, newDraftId, newThreadId, null, null).ConfigureAwait(false);
+
+    public async Task<bool> RefreshMappedDraftMetadataAsync(Guid accountId, Guid uniqueId, MailCopy remoteCopy)
+    {
+        var lifecycleLock = _draftUpdates?.Get(accountId, uniqueId).PersistenceLock
+                            ?? _draftLifecycleLocks.GetOrAdd(uniqueId, static _ => new SemaphoreSlim(1, 1));
+        await lifecycleLock.WaitAsync().ConfigureAwait(false);
+
+        try
+        {
+            var current = await GetSingleMailItemAsync(uniqueId).ConfigureAwait(false);
+            if (current?.AssignedAccount?.Id != accountId || !current.IsDraft ||
+                current.Id != remoteCopy.Id || _draftUpdates?.IsProtected(accountId, uniqueId) == true)
+                return false;
+
+            current.Subject = remoteCopy.Subject;
+            current.PreviewText = NormalizePreviewText(remoteCopy.PreviewText);
+            current.FromName = remoteCopy.FromName;
+            current.FromAddress = remoteCopy.FromAddress;
+            current.HasAttachments = remoteCopy.HasAttachments;
+            current.Importance = remoteCopy.Importance;
+            current.MessageId = remoteCopy.MessageId;
+            current.IsReadReceiptRequested = remoteCopy.IsReadReceiptRequested;
+            current.InReplyTo = remoteCopy.InReplyTo;
+            current.References = remoteCopy.References;
+            current.CreationDate = remoteCopy.CreationDate;
+
+            await Connection.UpdateAsync(current, typeof(MailCopy)).ConfigureAwait(false);
+            ReportUpdatedMails([current]);
+            return true;
+        }
+        finally
+        {
+            lifecycleLock.Release();
+        }
+    }
+
+    public async Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId, uint imapUid, uint imapUidValidity)
+        => await MapLocalDraftAsync(accountId, localDraftCopyUniqueId, newMailCopyId, newDraftId, newThreadId, (uint?)imapUid, imapUidValidity).ConfigureAwait(false);
+
+    private async Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId, uint? imapUid, uint? imapUidValidity)
+    {
+        var lifecycleLock = _draftUpdates?.Get(accountId, localDraftCopyUniqueId).PersistenceLock
+                            ?? _draftLifecycleLocks.GetOrAdd(localDraftCopyUniqueId, static _ => new SemaphoreSlim(1, 1));
+        await lifecycleLock.WaitAsync().ConfigureAwait(false);
+
+        try
+        {
+            var localDraftCopy = await Connection.FindWithQueryAsync<MailCopy>(
+                "SELECT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id WHERE MailCopy.UniqueId = ? AND MailItemFolder.MailAccountId = ?",
+                localDraftCopyUniqueId, accountId);
+
+            if (localDraftCopy == null)
+            {
+                _logger.Warning("Draft mapping failed because local draft copy with unique id {LocalDraftCopyUniqueId} does not exist.", localDraftCopyUniqueId);
+
+                return false;
+            }
+
+            if (_draftUpdates?.IsStaleIdentity(accountId, localDraftCopyUniqueId, newMailCopyId) == true ||
+                (!localDraftCopy.IsLocalDraft && _draftUpdates?.IsProtected(accountId, localDraftCopyUniqueId) == true))
+                return true;
+
+            var oldLocalDraftId = localDraftCopy.Id;
+
+            localDraftCopy = await HydrateMailCopyAsync(localDraftCopy).ConfigureAwait(false);
+
+            localDraftCopy.Id = newMailCopyId;
+            if (!string.IsNullOrEmpty(newDraftId))
+                localDraftCopy.DraftId = newDraftId;
+            if (!string.IsNullOrEmpty(newThreadId))
+                localDraftCopy.ThreadId = newThreadId;
+
+            if (imapUid.HasValue)
+                localDraftCopy.ImapUid = imapUid.Value;
+            if (imapUidValidity.HasValue)
+                localDraftCopy.ImapUidValidity = imapUidValidity.Value;
+
+            localDraftCopy.DraftSyncState = DraftSyncState.Synced;
+            localDraftCopy.DraftSyncAttemptCount = 0;
+            localDraftCopy.LastDraftSyncError = null;
+
+            await Connection.UpdateAsync(localDraftCopy, typeof(MailCopy)).ConfigureAwait(false);
+            var hydratedDraftCopy = await HydrateMailCopyAsync(localDraftCopy).ConfigureAwait(false);
+            ReportUpdatedMails([hydratedDraftCopy], MailCopyChangeFlags.Id |
+                                                     MailCopyChangeFlags.DraftId |
+                                                     MailCopyChangeFlags.ThreadId |
+                                                     MailCopyChangeFlags.DraftSyncState);
+
+            _draftUpdates?.ConfirmMapping(accountId, localDraftCopyUniqueId, DraftUpdateIdentity.From(hydratedDraftCopy));
+            ReportUIChange(new DraftMapped(oldLocalDraftId, hydratedDraftCopy.DraftId));
+
+            return true;
+        }
+        finally
+        {
+            lifecycleLock.Release();
+        }
+    }
+
+    public async Task<MailCopy> DiscardLocalDraftAsync(Guid accountId, Guid uniqueMailId)
+    {
+        var lifecycleLock = _draftUpdates?.Get(accountId, uniqueMailId).PersistenceLock
+                            ?? _draftLifecycleLocks.GetOrAdd(uniqueMailId, static _ => new SemaphoreSlim(1, 1));
+        await lifecycleLock.WaitAsync().ConfigureAwait(false);
+
+        try
+        {
+            var currentDraft = await GetSingleMailItemAsync(uniqueMailId).ConfigureAwait(false);
+            if (currentDraft == null || currentDraft.AssignedAccount?.Id != accountId)
+                return null;
+
+            if (!currentDraft.IsLocalDraft)
+                return currentDraft;
+
+            _draftUpdates?.Release(accountId, uniqueMailId);
+            await DeleteMailCoreAsync(currentDraft, preserveMimeFile: false, reportUiChange: true)
+                .ConfigureAwait(false);
+            return null;
+        }
+        finally
+        {
+            lifecycleLock.Release();
+        }
+    }
+
+    public async Task MapLocalDraftAsync(string mailCopyId, string newDraftId, string newThreadId)
+    {
+        var copies = await GetMailCopiesByIdAsync(new string[] { mailCopyId }).ConfigureAwait(false);
+        foreach (var copy in copies)
+        {
+            await MapLocalDraftAsync(copy.AssignedAccount.Id, copy.UniqueId, copy.Id,
+                string.IsNullOrEmpty(newDraftId) ? copy.DraftId : newDraftId,
+                string.IsNullOrEmpty(newThreadId) ? copy.ThreadId : newThreadId).ConfigureAwait(false);
+        }
+    }
+
+    public async Task MarkDraftSyncFailedAsync(Guid mailUniqueId, string error)
+    {
+        var draftCopy = await GetSingleMailItemAsync(mailUniqueId).ConfigureAwait(false);
+        if (draftCopy == null || !draftCopy.IsLocalDraft || draftCopy.DraftSyncState == DraftSyncState.SyncFailed)
+            return;
+
+        draftCopy.DraftSyncState = DraftSyncState.SyncFailed;
+        draftCopy.LastDraftSyncError = string.IsNullOrWhiteSpace(error) ? "Draft upload failed." : error;
+        draftCopy.LastDraftSyncAttemptUtc = DateTime.UtcNow;
+
+        await Connection.UpdateAsync(draftCopy, typeof(MailCopy)).ConfigureAwait(false);
+        var hydratedDraftCopy = await HydrateMailCopyAsync(draftCopy).ConfigureAwait(false);
+        ReportUpdatedMails([hydratedDraftCopy], MailCopyChangeFlags.DraftSyncState);
+        ReportUIChange(new DraftFailed(hydratedDraftCopy, hydratedDraftCopy.AssignedAccount));
+    }
+
+    public async Task MarkDraftSyncAttemptAsync(Guid mailUniqueId)
+    {
+        var draftCopy = await GetSingleMailItemAsync(mailUniqueId).ConfigureAwait(false);
+        if (draftCopy == null || !draftCopy.IsLocalDraft)
+            return;
+
+        draftCopy.DraftSyncState = DraftSyncState.PendingSync;
+        draftCopy.DraftSyncAttemptCount++;
+        draftCopy.LastDraftSyncAttemptUtc = DateTime.UtcNow;
+        draftCopy.LastDraftSyncError = null;
+
+        await Connection.UpdateAsync(draftCopy, typeof(MailCopy)).ConfigureAwait(false);
+        var hydratedDraftCopy = await HydrateMailCopyAsync(draftCopy).ConfigureAwait(false);
+        ReportUpdatedMails([hydratedDraftCopy], MailCopyChangeFlags.DraftSyncState);
+    }
+
+    public async Task<List<MailCopy>> GetUnsyncedLocalDraftsAsync(Guid accountId)
+    {
+        var drafts = await Connection.QueryAsync<MailCopy>($@"
+SELECT MailCopy.*
+FROM MailCopy
+INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id
+WHERE MailItemFolder.MailAccountId = ?
+  AND MailCopy.IsDraft = 1
+  AND MailCopy.DraftSyncState != ?
+  AND MailCopy.DraftId LIKE 'localDraft\_%' ESCAPE '\'",
+            accountId,
+            (int)DraftSyncState.Synced).ConfigureAwait(false);
+
+        return await HydrateMailCopiesAsync(drafts).ConfigureAwait(false);
+    }
+
+    public async Task<List<MailCopy>> GetDownloadedUnreadMailsAsync(Guid accountId, IEnumerable<string> downloadedMailCopyIds)
+    {
+        var mailCopies = new List<MailCopy>();
+
+        foreach (var idChunk in SqliteVariableLimit.Batch(downloadedMailCopyIds, fixedParameters: 3))
+        {
+            var placeholders = string.Join(",", idChunk.Select(_ => "?"));
+            var sql = $"SELECT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id WHERE MailCopy.Id IN ({placeholders}) AND MailCopy.IsRead = ? AND MailItemFolder.MailAccountId = ? AND MailItemFolder.SpecialFolderType = ?";
+            var parameters = new List<object>();
+            parameters.AddRange(idChunk.Cast<object>());
+            parameters.Add(false);
+            parameters.Add(accountId);
+            parameters.Add((int)SpecialFolderType.Inbox);
+
+            mailCopies.AddRange(await Connection.QueryAsync<MailCopy>(sql, parameters.ToArray()).ConfigureAwait(false));
+        }
+        return await HydrateMailCopiesAsync(mailCopies).ConfigureAwait(false);
+    }
+
+    public Task<MailAccount> GetMailAccountByUniqueIdAsync(Guid uniqueMailId)
+    {
+        return Connection.FindWithQueryAsync<MailAccount>(
+            "SELECT MailAccount.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id INNER JOIN MailAccount ON MailItemFolder.MailAccountId = MailAccount.Id WHERE MailCopy.UniqueId = ?",
+            uniqueMailId);
+    }
+
+    public Task<bool> IsMailExistsAsync(string mailCopyId)
+        => Connection.ExecuteScalarAsync<bool>("SELECT EXISTS(SELECT 1 FROM MailCopy WHERE Id = ?)", mailCopyId);
+
+    public Task<bool> IsMailExistsAsync(Guid accountId, Guid mailUniqueId)
+        => Connection.ExecuteScalarAsync<bool>(@"
+SELECT EXISTS(
+    SELECT 1
+    FROM MailCopy
+    INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id
+    WHERE MailCopy.UniqueId = ? AND MailItemFolder.MailAccountId = ?)", mailUniqueId, accountId);
+
+    public async Task<List<MailCopy>> GetExistingMailsAsync(Guid folderId, IEnumerable<MailKit.UniqueId> uniqueIds)
+    {
+        var uidList = uniqueIds?
+            .Where(a => a.IsValid)
+            .Select(a => a.Id)
+            .Distinct()
+            .ToList() ?? [];
+
+        if (uidList.Count == 0)
+            return [];
+
+        var mailCopies = new List<MailCopy>();
+
+        foreach (var uidChunk in SqliteVariableLimit.Batch(uidList, parametersPerItem: 2, fixedParameters: 1))
+        {
+            var chunkLocalMailIds = uidChunk.Select(a => MailkitClientExtensions.CreateUid(folderId, a)).ToArray();
+            var uidPlaceholders = string.Join(",", uidChunk.Select(_ => "?"));
+            var idPlaceholders = string.Join(",", chunkLocalMailIds.Select(_ => "?"));
+            var sql = $"SELECT * FROM MailCopy WHERE FolderId = ? AND (ImapUid IN ({uidPlaceholders}) OR Id IN ({idPlaceholders}))";
+
+            var parameters = new List<object> { folderId };
+            parameters.AddRange(uidChunk.Cast<object>());
+            parameters.AddRange(chunkLocalMailIds.Cast<object>());
+
+            mailCopies.AddRange(await Connection.QueryAsync<MailCopy>(sql, parameters.ToArray()).ConfigureAwait(false));
+        }
+        return await HydrateMailCopiesAsync(mailCopies).ConfigureAwait(false);
+    }
+
+    public Task<bool> IsMailExistsAsync(string mailCopyId, Guid folderId)
+        => Connection.ExecuteScalarAsync<bool>("SELECT EXISTS(SELECT 1 FROM MailCopy WHERE Id = ? AND FolderId = ?)", mailCopyId, folderId);
+
+    public async Task<GmailArchiveComparisonResult> GetGmailArchiveComparisonResultAsync(Guid archiveFolderId, List<string> onlineArchiveMailIds)
+    {
+        onlineArchiveMailIds ??= [];
+
+        var localArchiveMails = await Connection.Table<MailCopy>()
+                                            .Where(a => a.FolderId == archiveFolderId)
+                                            .ToListAsync().ConfigureAwait(false);
+
+        var onlineArchiveIdSet = onlineArchiveMailIds
+            .Where(a => !string.IsNullOrWhiteSpace(a))
+            .ToHashSet(StringComparer.Ordinal);
+
+        var localArchiveIdSet = localArchiveMails
+            .Select(a => a.Id)
+            .Where(a => !string.IsNullOrWhiteSpace(a))
+            .ToHashSet(StringComparer.Ordinal);
+
+        var removedMails = localArchiveIdSet.Except(onlineArchiveIdSet).ToArray();
+        var addedMails = onlineArchiveIdSet.Except(localArchiveIdSet).ToArray();
+
+        return new GmailArchiveComparisonResult(addedMails, removedMails);
+    }
+
+    private async Task<HashSet<string>> GetOwnAddressesAsync(MailAccount account)
+    {
+        var ownAddresses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (!string.IsNullOrWhiteSpace(account?.Address))
+            ownAddresses.Add(account.Address.Trim());
+
+        var aliases = await _accountService.GetAccountAliasesAsync(account.Id).ConfigureAwait(false);
+        if (aliases != null)
+        {
+            foreach (var alias in aliases)
+            {
+                if (!string.IsNullOrWhiteSpace(alias?.AliasAddress))
+                    ownAddresses.Add(alias.AliasAddress.Trim());
+            }
+        }
+
+        return ownAddresses;
+    }
+
+    private static void EnsureOutgoingMessageId(MimeMessage message)
+    {
+        if (message == null)
+            return;
+
+        var messageId = MailHeaderExtensions.NormalizeMessageId(MessageIdGenerator.Generate());
+
+        if (string.IsNullOrEmpty(messageId))
+            return;
+
+        var headerValue = MailHeaderExtensions.ToHeaderMessageId(messageId);
+
+        if (message.Headers.Contains(HeaderId.MessageId))
+            message.Headers.Remove(HeaderId.MessageId);
+
+        message.Headers.Add(HeaderId.MessageId, headerValue);
+        message.MessageId = messageId;
+    }
+
+    private static string GetNormalizedMimeMessageId(MimeMessage message)
+        => MailHeaderExtensions.NormalizeMessageId(message?.Headers[HeaderId.MessageId]);
+
+    private static string GetNormalizedMimeInReplyTo(MimeMessage message)
+    {
+        if (message == null)
+            return string.Empty;
+
+        var inReplyTo = string.IsNullOrWhiteSpace(message.InReplyTo)
+            ? message.Headers[HeaderId.InReplyTo]
+            : message.InReplyTo;
+
+        return MailHeaderExtensions.NormalizeMessageId(inReplyTo);
+    }
+
+    private static string GetNormalizedMimeReferences(MimeMessage message)
+    {
+        if (message == null)
+            return string.Empty;
+
+        if (message.References?.Count > 0)
+            return MailHeaderExtensions.JoinStoredReferences(message.References);
+
+        return MailHeaderExtensions.NormalizeReferences(message.Headers[HeaderId.References]);
+    }
+
+    public async Task<IEnumerable<string>> GetRecentMailIdsForFolderAsync(Guid folderId, int count)
+    {
+        var recentMails = await Connection.Table<MailCopy>()
+            .Where(a => a.FolderId == folderId)
+            .OrderByDescending(a => a.CreationDate)
+            .Take(count)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        return recentMails.Select(m => m.Id);
+    }
+
+    public async Task<List<MailCopy>> GetMailItemsAsync(IEnumerable<string> mailCopyIds)
+    {
+        if (!mailCopyIds.Any()) return [];
+
+        var mailCopies = new List<MailCopy>();
+
+        foreach (var idChunk in SqliteVariableLimit.Batch(mailCopyIds))
+        {
+            var placeholders = string.Join(",", idChunk.Select(_ => "?"));
+            var sql = $"SELECT MailCopy.* FROM MailCopy WHERE MailCopy.Id IN ({placeholders})";
+
+            mailCopies.AddRange(await Connection.QueryAsync<MailCopy>(sql, idChunk.Cast<object>().ToArray()));
+        }
+
+        if (mailCopies.Count == 0) return [];
+
+        return await HydrateMailCopiesAsync(mailCopies).ConfigureAwait(false);
+    }
+
+    public async Task<List<string>> AreMailsExistsAsync(IEnumerable<string> mailCopyIds)
+    {
+        var idList = mailCopyIds?.ToList() ?? [];
+        if (idList.Count == 0)
+            return [];
+
+        var existingIds = new List<string>();
+
+        foreach (var idChunk in SqliteVariableLimit.Batch(idList))
+        {
+            var placeholders = string.Join(",", idChunk.Select(_ => "?"));
+            var sql = $"SELECT Id FROM MailCopy WHERE Id IN ({placeholders})";
+
+            existingIds.AddRange(await Connection.QueryScalarsAsync<string>(sql, idChunk.Cast<object>().ToArray()));
+        }
+
+        return existingIds;
+    }
+
+    public async Task<List<MailCopy>> GetMailCopiesBeforeDateAsync(Guid accountId, DateTime cutoffDateUtc)
+    {
+        const string query = """
+                             SELECT MailCopy.*
+                             FROM MailCopy
+                             INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id
+                             WHERE MailItemFolder.MailAccountId = ?
+                               AND MailCopy.CreationDate < ?
+                             """;
+
+        var mailCopies = await Connection.QueryAsync<MailCopy>(query, accountId, cutoffDateUtc).ConfigureAwait(false);
+        return await HydrateMailCopiesAsync(mailCopies).ConfigureAwait(false);
+    }
+}

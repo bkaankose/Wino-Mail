@@ -1,0 +1,27 @@
+<Project>
+  <!-- Opt-in export only. These targets never start a build or a publish operation. -->
+  <PropertyGroup>
+    <_WinoReleaseExportDir>$(WinoReleaseStagingRoot)\$(Platform)\</_WinoReleaseExportDir>
+  </PropertyGroup>
+
+  <Target Name="WinoExportReleasePayload" AfterTargets="_ComputeAppxPackagePayload"
+          Condition="'$(Configuration)' == 'Release' and '$(DesignTimeBuild)' != 'true'">
+    <Error Condition="'@(AppxPackagePayload)' == ''" Text="The release package payload is empty." />
+    <Error Condition="!Exists('$(ProjectPriFullPath)')" Text="The complete application PRI is missing." />
+    <MakeDir Directories="$(_WinoReleaseExportDir)payload" />
+    <Copy SourceFiles="@(AppxPackagePayload)"
+          DestinationFiles="@(AppxPackagePayload->'$(_WinoReleaseExportDir)payload\%(TargetPath)')" />
+    <Copy SourceFiles="$(ProjectPriFullPath)" DestinationFiles="$(_WinoReleaseExportDir)application.pri" />
+    <WriteLinesToFile File="$(_WinoReleaseExportDir)application-pri-path.txt"
+                      Lines="@(ProjectPriFile->'%(TargetPath)')" Overwrite="true" Encoding="UTF-8" />
+    <WriteLinesToFile File="$(_WinoReleaseExportDir)payload-paths.txt"
+                      Lines="@(AppxPackagePayload->'%(TargetPath)')" Overwrite="true" Encoding="UTF-8" />
+  </Target>
+
+  <Target Name="WinoExportReleaseManifest" AfterTargets="_GenerateAppxManifest"
+          Condition="'$(Configuration)' == 'Release' and '$(DesignTimeBuild)' != 'true'">
+    <Error Condition="'@(FinalAppxManifest)' == ''" Text="The generated release manifest is missing." />
+    <MakeDir Directories="$(_WinoReleaseExportDir)payload" />
+    <Copy SourceFiles="@(FinalAppxManifest)" DestinationFiles="$(_WinoReleaseExportDir)payload\AppxManifest.xml" />
+  </Target>
+</Project>

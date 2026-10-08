@@ -1,0 +1,33 @@
+﻿<UserControl
+    x:Class="Wino.Editor.EditorSelectorBar"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Loaded="EditorSelectorBar_Loaded">
+    <ScrollViewer
+        HorizontalScrollBarVisibility="Auto"
+        HorizontalScrollMode="Auto"
+        VerticalScrollMode="Disabled">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+            <ToggleButton
+                x:Name="FormattingButton"
+                Click="CategoryButton_Click"
+                Content="Format"
+                Tag="Formatting" />
+            <ToggleButton
+                x:Name="InsertButton"
+                Click="CategoryButton_Click"
+                Content="Insert"
+                Tag="Insert" />
+            <ToggleButton
+                x:Name="TableButton"
+                Click="CategoryButton_Click"
+                Content="Table"
+                Tag="Table" />
+            <ToggleButton
+                x:Name="SecurityButton"
+                Click="CategoryButton_Click"
+                Content="Security"
+                Tag="Security" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

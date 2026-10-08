@@ -1,0 +1,33 @@
+﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Folders;
+
+namespace Wino.Core.Domain.Models.MailItem;
+
+public record MailListInitializationOptions(IReadOnlyList<IMailItemFolder> Folders,
+                                            FilterOptionType FilterType,
+                                            SortingOptionType SortingOptionType,
+                                            bool CreateThreads,
+                                            bool? IsFocusedOnly,
+                                            string SearchQuery,
+                                            ConcurrentDictionary<Guid, bool> ExistingUniqueIds = null,
+                                            List<MailCopy> PreFetchMailCopies = null,
+                                            bool DeduplicateByServerId = false,
+                                            bool PreservePreFetchedOrder = false,
+                                            int Skip = 0,
+                                            int Take = 0)
+{
+    public IReadOnlyList<Guid> CategoryIds { get; init; }
+    public string Sender { get; init; } = string.Empty;
+    public string Subject { get; init; } = string.Empty;
+    public DateTimeOffset? ReceivedAfterUtc { get; init; }
+    public DateTimeOffset? ReceivedBeforeUtc { get; init; }
+    public bool RequireAttachments { get; init; }
+    public MailReadStatusFilter ReadStatus { get; init; }
+    public bool RequireFlagged { get; init; }
+    public bool ExcludeDrafts { get; init; }
+    public bool IsCategoryView => CategoryIds?.Count > 0;
+}

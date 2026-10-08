@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<!--
+  What's New illustration template. Copy this file to scripts/whats-new/scenes/<version>/<image-name>.html,
+  replace the content of <main class="scene">, and render it with render-illustration.ps1.
+
+  Rules (see .claude/skills/whats-new/SKILL.md):
+  - Keep the canvas at 560x300 CSS pixels. The renderer captures it at 2x (1120x600).
+  - Keep the background tokens. Every release shares the same space gradient.
+  - The stage overlaps the canvas edge: part of the gradient stays visible, then the feature begins.
+  - Use made-up data only. Never paste real mail, names, or addresses.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    /* Space gradient. Do not change these per scene. */
+    --space-0: #070b1d;
+    --space-1: #10173a;
+    --space-2: #1d1850;
+    --space-3: #35205f;
+    --nebula-a: rgba(94, 92, 230, 0.35);
+    --nebula-b: rgba(168, 85, 247, 0.22);
+    --nebula-c: rgba(56, 189, 248, 0.16);
+
+    /* Fluent dark surfaces for the feature mimic. */
+    --surface: rgba(32, 32, 44, 0.94);
+    --surface-raised: rgba(255, 255, 255, 0.06);
+    --surface-hover: rgba(255, 255, 255, 0.09);
+    --stroke: rgba(255, 255, 255, 0.09);
+    --text-primary: rgba(255, 255, 255, 0.92);
+    --text-secondary: rgba(255, 255, 255, 0.62);
+    --shimmer: rgba(255, 255, 255, 0.10);
+    --shimmer-strong: rgba(255, 255, 255, 0.18);
+    --accent: #60cdff;
+    --accent-soft: rgba(96, 205, 255, 0.18);
+
+    /* Palette shared with the colorful icon style. */
+    --blue: #4ca8ff; --teal: #3fd1c6; --green: #6ccb5f; --amber: #f7c948;
+    --orange: #f7894a; --red: #ff6b6b; --purple: #b28cff; --gray: #9aa3b5;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 560px;
+    height: 300px;
+    overflow: hidden;
+    font-family: "Segoe UI Variable Text", "Segoe UI", sans-serif;
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    position: relative;
+    background:
+      radial-gradient(60% 80% at 12% 8%, var(--nebula-a) 0%, transparent 70%),
+      radial-gradient(55% 70% at 92% 88%, var(--nebula-b) 0%, transparent 70%),
+      radial-gradient(40% 50% at 70% 10%, var(--nebula-c) 0%, transparent 70%),
+      linear-gradient(135deg, var(--space-0) 0%, var(--space-1) 38%, var(--space-2) 72%, var(--space-3) 100%);
+  }
+
+  /* A sparse, dim star field. Kept faint so it never competes with the feature. */
+  body::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 8% 22%, rgba(255,255,255,.55), transparent 60%),
+      radial-gradient(1px 1px at 23% 78%, rgba(255,255,255,.35), transparent 60%),
+      radial-gradient(1.5px 1.5px at 41% 12%, rgba(255,255,255,.45), transparent 60%),
+      radial-gradient(1px 1px at 57% 64%, rgba(255,255,255,.30), transparent 60%),
+      radial-gradient(1px 1px at 76% 30%, rgba(255,255,255,.40), transparent 60%),
+      radial-gradient(1.5px 1.5px at 88% 70%, rgba(255,255,255,.35), transparent 60%),
+      radial-gradient(1px 1px at 95% 12%, rgba(255,255,255,.45), transparent 60%),
+      radial-gradient(1px 1px at 4% 92%, rgba(255,255,255,.30), transparent 60%);
+  }
+
+  /* Soft glow that sits behind the stage. */
+  body::after {
+    content: "";
+    position: absolute;
+    left: 140px; top: 70px;
+    width: 380px; height: 260px;
+    background: radial-gradient(closest-side, rgba(120, 110, 255, 0.28), transparent);
+    filter: blur(8px);
+  }
+
+  .scene { position: absolute; inset: 0; z-index: 1; }
+
+  /* The feature mimic. Default placement overlaps the right and bottom edges. */
+  .stage {
+    position: absolute;
+    left: 56px; top: 44px;
+    width: 540px; height: 300px;
+    background: var(--surface);
+    border: 1px solid var(--stroke);
+    border-radius: 10px;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+  }
+
+  .titlebar {
+    height: 32px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--stroke);
+    font-size: 12px; color: var(--text-secondary);
+  }
+
+  .row { display: flex; align-items: center; gap: 10px; }
+  .col { display: flex; flex-direction: column; gap: 6px; }
+  .card { background: var(--surface-raised); border: 1px solid var(--stroke); border-radius: 8px; padding: 10px 12px; }
+  .selected { background: var(--surface-hover); position: relative; }
+  .selected::before { content: ""; position: absolute; left: 0; top: 30%; bottom: 30%; width: 3px; border-radius: 2px; background: var(--accent); }
+
+  .title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .caption { font-size: 11px; color: var(--text-secondary); }
+
+  .shimmer { height: 8px; border-radius: 4px; background: linear-gradient(90deg, var(--shimmer) 0%, var(--shimmer-strong) 50%, var(--shimmer) 100%); }
+  .shimmer.w30 { width: 30%; } .shimmer.w45 { width: 45%; } .shimmer.w60 { width: 60%; } .shimmer.w80 { width: 80%; }
+
+  .avatar { width: 28px; height: 28px; border-radius: 50%; flex: none; }
+  .pill { padding: 3px 10px; border-radius: 999px; font-size: 11px; background: var(--accent-soft); color: var(--accent); }
+  .button { padding: 5px 12px; border-radius: 4px; font-size: 12px; background: var(--surface-raised); border: 1px solid var(--stroke); }
+  .button.accent { background: var(--accent); color: #002a3f; border-color: transparent; font-weight: 600; }
+</style>
+</head>
+<body>
+<main class="scene">
+  <!-- Sample scene: replace everything inside <main>. -->
+  <div class="stage">
+    <div class="titlebar"><span>Wino Mail</span></div>
+    <div class="col" style="padding: 12px; gap: 8px;">
+      <div class="card selected row">
+        <div class="avatar" style="background: var(--purple);"></div>
+        <div class="col" style="flex: 1;"><div class="shimmer w45"></div><div class="shimmer w80"></div></div>
+      </div>
+      <div class="card row">
+        <div class="avatar" style="background: var(--teal);"></div>
+        <div class="col" style="flex: 1;"><div class="shimmer w30"></div><div class="shimmer w60"></div></div>
+      </div>
+      <div class="card row">
+        <div class="avatar" style="background: var(--amber);"></div>
+        <div class="col" style="flex: 1;"><div class="shimmer w45"></div><div class="shimmer w60"></div></div>
+      </div>
+    </div>
+  </div>
+</main>
+</body>
+</html>

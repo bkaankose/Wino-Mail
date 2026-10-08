@@ -1,170 +1,90 @@
-# AGENTS.md
+# Wino Mail agent guidance
 
-This file provides guidance to AI agent when working with code in this repository.
+Wino Mail is a native Windows mail client. The active app is `src/Wino.Mail.WinUI`, in `WinoMail.slnx`.
+Do not change the deprecated UWP project.
 
-## Project Overview
+## Scope and completion
 
-Wino Mail is a native Windows mail client (Windows 10 1809+ / Windows 11) replacing the deprecated Windows Mail & Calendar. It's **transitioning from UWP to WinUI 3** - always work with WinUI projects (Wino.Mail.WinUI), never edit the deprecated Wino.Mail UWP project.
+- Start with the requested behavior and named files. Preserve unrelated worktree changes.
+- Complete implementation and the applicable verification in the current task.
+- If the user requests review only or prohibits launch, obey that boundary and report the remaining verification.
+- After a passing check, repeat it only for changed inputs, new failures, or unresolved concerns.
+- Report the result, verification evidence, and remaining limits. A build alone does not prove runtime behavior.
 
-## Build and Development Commands
+## Discovery and references
 
-```bash
-# Open solution
-# WinoMail.slnx is the main solution file (VS 2022+)
+Use CodeGraph first for code discovery when `.codegraph/` exists:
 
-# Build WinUI project (Debug x64)
-dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config -p:Platform=x64 -p:RuntimeIdentifier=win-x64 && dotnet build Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false
-
-# Build WinUI project with diagnostic XAML/compiler logging (use when plain build only shows "XamlCompiler.exe exited with code 1")
-dotnet build Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false "/flp:logfile=winui-build.log;verbosity=diagnostic" /bl:winui-build.binlog
-
-# Run tests (Debug x64)
-dotnet test Wino.Core.Tests/Wino.Core.Tests.csproj -c Debug /p:Platform=x64
-
-# Keep the launched app open for follow-up UIA exploration with winapp ui commands
-.\scripts\winapp-smoke.ps1 -Mode Mail -KeepRunning
-
-# Audit WinUI XAML controls for stable UI Automation selectors
-.\scripts\audit-xaml-automationids.ps1
-
-# Copilot CLI build command (Debug x64)
-dotnet restore Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config -p:Platform=x64 -p:RuntimeIdentifier=win-x64 && dotnet build Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false
+```powershell
+codegraph explore "named symbol or affected behavior"
 ```
 
-**Prerequisites:** Visual Studio 2022+ with ".NET desktop development" workload, .NET SDK 10+
+If the result is unrelated or omits the requested script, use a targeted file read or `rg` search.
+CodeGraph results can miss tests. Use the changed behavior to select additional checks.
+Read only references that apply to the task:
 
-**Startup project:** Wino.Mail.WinUI
+| Task | Reference |
+| --- | --- |
+| C#, XAML, translations, storage, or editor changes | Relevant sections of [implementation rules](docs/harness/implementation-rules.md) |
+| Build failure, deployment, or runtime verification | Relevant sections of [development commands](docs/harness/development.md) |
+| New UI feature or visual pattern | [Wino design guideline](docs/wino-design-guideline.md) |
+| Reusable controls or playground | [controls/AGENTS.md](controls/AGENTS.md) |
+| Icons, icon fonts, or the colorful icon style | [icons/README.md](icons/README.md) and the Icons section of the [implementation rules](docs/harness/implementation-rules.md) |
+| Intelligence jobs, artifacts, or the daily briefing | [mail intelligence](docs/mail-intelligence.md) |
+| Release packaging | [release guide](docs/releases.md) |
+| What's New notes and illustrations | [whats-new skill](.claude/skills/whats-new/SKILL.md) |
 
-**Platforms:** x86, x64, ARM64
+Repository commands and package rules take precedence over stale personal skill instructions.
+Use focused skills for the affected subsystem. Avoid loading overlapping general workflows for the same operation.
 
-## Efficient Workflow
+## Development loop
 
-- Start with targeted symbol or file search before reading full files
-- Prefer one focused task per thread; use a new thread for unrelated follow-up work
-- Keep verification narrow: build only the affected project, not the full solution, unless cross-project changes require it
-- After the first restore, prefer `--no-restore` builds unless package or project references changed
-- Summarize long build logs and inspect only the files named in diagnostics instead of loading large logs into context
-- When the prompt already names likely files, types, or symbols, start there instead of re-mapping the repository
-- If a WinUI build only reports `XamlCompiler.exe exited with code 1`, rerun with the diagnostic logging command above and inspect the terminal output plus `winui-build.log` for real `WMC`/`WMC1121`/binding diagnostics before guessing
+Use plain `dotnet` and `winapp` commands. Use Debug and x64 for development:
 
-## Architecture
-
-### Solution Structure
-```
-Wino.Core.Domain       → Entities, interfaces, translations, enums (shared contracts)
-Wino.Core              → Synchronization engine, authenticators, request processing
-Wino.Services          → Database, mail, folder, account services
-Wino.Authentication    → OAuth2 authenticators (Outlook, Gmail)
-Wino.Mail.ViewModels   → Mail-specific ViewModels
-Wino.Core.ViewModels   → Shared ViewModels (settings, personalization)
-Wino.Messaging         → Pub-sub message definitions
-Wino.Mail.WinUI        → **Active WinUI 3 UI project** (use this)
-Wino.Mail              → **Deprecated UWP project** (DO NOT EDIT)
+```powershell
+dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64
+dotnet test tests/Wino.Core.Tests/Wino.Core.Tests.csproj -c Debug -p:Platform=x64 --filter "FullyQualifiedName~RelevantTestClass"
+winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --arch x64 --detach
 ```
 
-### Mail Synchronization Flow
-1. **WinoRequestDelegator** → Validates and delegates user actions (mark read, delete, move)
-2. **WinoRequestProcessor** → Batches requests using RequestComparer, queues to synchronizers
-3. **Synchronizers** (OutlookSynchronizer, GmailSynchronizer, ImapSynchronizer) → Execute batched operations
-4. **ChangeProcessors** → Apply changes to local SQLite database
-5. Database updates trigger **Messenger** events (MailAddedMessage, MailUpdatedMessage, etc.)
+Build and run commands restore dependencies by default. Use the SDK's normal incremental behavior.
+VS Code F5 uses the approved `scripts/development/start-wino.ps1` helper to reuse unchanged Debug x64 output.
+This is the only development wrapper and input-hash cache. Keep custom debug build targets out of the project.
+Release packaging retains its scripts and targets under `scripts/release`.
+See [development commands](docs/harness/development.md) for VS Code F5 and package troubleshooting.
+See [script categories](scripts/README.md) for maintenance, localization, release, and lab commands.
 
-### Synchronizer Types
-- **OutlookSynchronizer** - Microsoft Graph SDK for Office 365
-- **GmailSynchronizer** - Gmail API
-- **ImapSynchronizer** - MimeKit/MailKit for IMAP/SMTP
+## Package and runtime boundaries
 
-### Queue-Based Sync Pattern
-- Initial sync queues mail IDs first (MailItemQueue table), downloads metadata only
-- MIME content downloaded on-demand when user opens mail
-- Check `MailItemFolder.IsInitialSyncCompleted` for sync state
-- See QUEUE_SYNC_IMPLEMENTATION.md for details
+- Keep the app packaged as MSIX with the checked-in manifest identity and publisher.
+- Use WinApp CLI 0.7+ project mode for development deployment and activation.
+- Preserve application data. Do not use `--clean`, unregister packages, or create another development identity.
+- Before deployment, compare the installed package identity and publisher with the manifest. Stop on a mismatch or a signed non-development installation.
+- Close the Debug application, including its tray process, before deployment if it holds package files open.
+- Never launch the packaged executable directly. Release validation compiles and packages without launching.
+- Agent-driven UI automation is retired. Do not create or run UI test scripts or require `winapp ui` audits.
+- The [local Docker lab](tools/local-lab/README.md) is the application testing environment. Use manual interaction for UI checks.
+- Keep unit tests and release-script tests. Report manual verification as pending unless someone performed it.
 
-### Dependency Injection
-- `RegisterCoreServices()` in Wino.Core/CoreContainerSetup.cs
-- `RegisterSharedServices()` in Wino.Services/ServicesContainerSetup.cs
-- ViewModels registered in App.xaml.cs
+## Verification scope
 
-## Key Patterns
+| Change | Required evidence |
+| --- | --- |
+| Documentation or tooling | Valid links, command configuration, and affected script checks |
+| Domain or service logic | Affected project build and directly affected unit tests |
+| ViewModel behavior | Affected unit tests and manual lab checks for UI behavior |
+| XAML, navigation, activation, windows, or controls | Debug build and manual checks in the lab |
+| Localization | English source only, generated output build, other locales untouched |
+| Package, trimming, or Native AOT | Release build without launch, plus release-script tests when applicable |
 
-### MVVM with Source Generators
-**CORRECT - use public partial properties:**
-```csharp
-[ObservableProperty]
-public partial string SearchQuery { get; set; } = string.Empty;
-```
+Format changed XAML before building with `scripts/maintenance/format-xaml.ps1 -Changed`.
+Run the same command with `-Check` before handoff.
+A passing build does not prove UI behavior. State which manual checks remain.
 
-**WRONG - will not work:**
-```csharp
-[ObservableProperty]
-private string searchQuery = string.Empty;
-```
-
-### Messenger Pattern
-- ViewModels inherit from CoreBaseViewModel or MailBaseViewModel
-- Register handlers in `RegisterRecipients()`, unregister in `UnregisterRecipients()`
-- Send via `WeakReferenceMessenger.Default.Send(new MessageType(...))`
-- Messenger recipients are raised from a background thread by default. In any `Receive(...)` handler, marshal UI-bound work and UI-affine WinRT APIs through `ExecuteUIThread(...)`, `DispatcherQueue.TryEnqueue(...)`, or an existing dispatcher helper before touching XAML state, navigation, windows, AppWindow/taskbar APIs, JumpList, or observable collections.
-
-### Data Binding - No Converters
-- **NEVER** create IValueConverter classes
-- WinUI 3 auto-converts bool to Visibility: `Visibility="{x:Bind IsVisible, Mode=OneWay}"`
-- Use XamlHelpers for complex conversions: `{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(Prop)}`
-- `x:Bind` does not implicitly convert `double` to `GridLength`; when binding `RowDefinition.Height` or `ColumnDefinition.Width`, use a `XamlHelpers` method such as `DoubleToGridLength(...)`
-- For `ComboBox` controls in XAML, never use `DisplayMemberPath` or `SelectedValuePath`; use a typed `ItemTemplate` and bind `SelectedItem` explicitly, preferably with `x:Bind`
-
-## Localization
-
-1. Add English strings ONLY to Wino.Core.Domain/Translations/en_US/resources.json
-2. Build project - source generators create Translator properties
-3. Use Translator.{PropertyName} in code/XAML
-4. NEVER edit any resources.json file outside Wino.Core.Domain/Translations/en_US/resources.json
-5. Treat all non-en_US translation files as managed externally and leave them untouched, even when adding new localization keys
-6. In XAML, translation bindings must use `Mode=OneTime` because `Wino.Core.Domain/Translator.cs` does not implement `INotifyPropertyChanged`
-
-## Storage
-
-- **SQLite database** in publisher cache folder (shared with future Wino Calendar)
-- **EML files** in app local storage, referenced by `MailCopy.FileId`
-- Paths resolved via `MimeFileService.GetMimeMessagePath()`
-
-## WebView2 Mail Rendering
-
-- `reader.html` for reading mails, `editor.html` for composing (Jodit editor)
-- Virtual host mapping: `https://wino.mail/reader.html`
-- JavaScript interop via `ExecuteScriptFunctionAsync()`
-- MIME content downloaded on-demand, not during sync
-
-## Common Pitfalls
-
-- Forgetting to register ViewModels in App.xaml.cs `RegisterViewModels()`
-- Not calling `RegisterRecipients()` for message handlers
-- Using private fields with `[ObservableProperty]` instead of public partial
-- Creating IValueConverter classes instead of using XamlHelpers
-- Editing UWP project files instead of WinUI equivalents
-- Hardcoding strings instead of using Translator
-- Forgetting to unregister Messenger recipients (memory leaks)
-- Putting authentication validation, token refresh, account API calls, settings serialization/deserialization, or preference-application logic into ViewModels instead of the corresponding service
-
-## Code Style
-
-- Avoid introducing new NuGet packages when possible
-- Use existing libraries (MimeKit, MailKit, Microsoft Graph, Gmail API)
-- Use `var` where type is obvious
-- String interpolation over string.Format
-- Wrap async operations in try-catch
-- Log errors via IWinoLogger
-- For dependency properties in WinUI code, always prefer `[GeneratedDependencyProperty]` from CommunityToolkit over manual `DependencyProperty.Register(...)` declarations.
-- When a `[RelayCommand]` needs enable/disable logic, prefer the command's `CanExecute` over binding `Button.IsEnabled` in XAML; use `[NotifyCanExecuteChangedFor]` on dependent properties and call `NotifyCanExecuteChanged()` explicitly when non-generated state affects the command.
-- In ViewModels, update all UI-bound properties/collections via `ExecuteUIThread(...)` (especially after awaited calls and any use of `ConfigureAwait(false)`).
-- `ConfigureAwait(false)` continues execution on a background thread. Any UI-bound property change, `INotifyPropertyChanged` notification, collection mutation, or similar UI-facing state update after that point must be marshaled back with `ExecuteUIThread(...)` or the appropriate dispatcher call, otherwise the app can crash.
-- Messenger messages are raised from a background thread by default, while UI control event handlers such as `Button.Click` start on the UI thread. Never assume a `Receive(...)` handler is on the UI thread; dispatch before calling UI-affine WinRT APIs such as `JumpList.LoadCurrentAsync()`, taskbar/window APIs, navigation, or before updating UI-bound state.
-- ViewModels should only handle UI interaction/state and delegate business logic to services; account-management work belongs in `WinoAccountProfileService`, and preferences import/export/apply logic belongs in `PreferencesService`.
-- In `EventDetailsPageViewModel.LoadAttendeesAsync`, never mutate `CurrentEvent.Attendees` outside `ExecuteUIThread(...)`.
-- Never create pure C# controls or controls that heavily manipulate UI structure from `.cs` files. Define controls in XAML and keep UI composition in XAML.
-- Never add XAML-backed UI controls to `.xaml.cs`. If a view has XAML, all control declarations, flyouts, templates, and visual composition belong in the `.xaml` file; keep `.xaml.cs` limited to event handling and view glue.
-- Never subscribe to framework events like `Loaded`, `Unloaded`, or input events from constructors in `.xaml.cs` for XAML-backed controls and pages; wire them directly in XAML instead.
-- If you use `x:Load` in XAML, always give that `UIElement` an `x:Name`.
-
-
-
+Published cross-repository dependencies must use unconditional `PackageReference` items.
+If a dependency change requires publication, audit and publish the version, then update every consumer.
+Publish without asking for approval. When `NUGET_API_KEY` is set, pack and push the package locally. This does not need a git commit or push. Never print or log the key.
+Never substitute a local feed, local package reference, or sibling project reference.
+When `NUGET_API_KEY` is set in the local environment, pack and push the package to nuget.org yourself.
+Then wait until nuget.org indexes the version before you restore consumers.
+Never print or log the key.

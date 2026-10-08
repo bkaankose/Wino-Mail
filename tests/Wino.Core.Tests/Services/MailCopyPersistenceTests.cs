@@ -1,0 +1,530 @@
+using CommunityToolkit.Mvvm.Messaging;
+using FluentAssertions;
+using MimeKit;
+using Moq;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Tests.Helpers;
+using Wino.Messaging.UI;
+using Wino.Services;
+using Wino.Services.Extensions;
+using Xunit;
+
+namespace Wino.Core.Tests.Services;
+
+public class MailCopyPersistenceTests : IAsyncLifetime
+{
+    private InMemoryDatabaseService _databaseService = null!;
+    private MailService _mailService = null!;
+    private MailAccount _account = null!;
+    private MailItemFolder _inboxFolder = null!;
+    private MailItemFolder _deletedFolder = null!;
+
+    public async Task InitializeAsync()
+    {
+        _databaseService = new InMemoryDatabaseService();
+        await _databaseService.InitializeAsync();
+
+        _account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = "IMAP Test",
+            Address = "me@test.local",
+            SenderName = "Test User",
+            ProviderType = MailProviderType.IMAP4
+        };
+
+        _inboxFolder = new MailItemFolder
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = _account.Id,
+            FolderName = "Inbox",
+            RemoteFolderId = "INBOX",
+            SpecialFolderType = SpecialFolderType.Inbox,
+            IsSynchronizationEnabled = true
+        };
+
+        _deletedFolder = new MailItemFolder
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = _account.Id,
+            FolderName = "Deleted",
+            RemoteFolderId = "Deleted",
+            SpecialFolderType = SpecialFolderType.Deleted,
+            IsSynchronizationEnabled = true
+        };
+
+        await _databaseService.Connection.InsertAsync(_account, typeof(MailAccount));
+        await _databaseService.Connection.InsertAsync(_inboxFolder, typeof(MailItemFolder));
+        await _databaseService.Connection.InsertAsync(_deletedFolder, typeof(MailItemFolder));
+
+        _mailService = BuildMailService(_databaseService);
+    }
+
+    public async Task DisposeAsync() => await _databaseService.DisposeAsync();
+
+    [Theory]
+    [InlineData(MailProviderType.Gmail)]
+    [InlineData(MailProviderType.Outlook)]
+    public async Task Metadata_refresh_preserves_cached_mime_identity(MailProviderType provider)
+    {
+        _account.ProviderType = provider;
+        await _databaseService.Connection.UpdateAsync(_account, typeof(MailAccount));
+        var original = new MailCopy
+        {
+            UniqueId = Guid.NewGuid(), Id = "remote", FolderId = _inboxFolder.Id,
+            FileId = Guid.NewGuid(), Subject = "Before", IsPinned = true
+        };
+        await _databaseService.Connection.InsertAsync(original, typeof(MailCopy));
+        var refreshed = new MailCopy { Id = original.Id, FileId = Guid.NewGuid(), Subject = "After" };
+        var package = new NewMailItemPackage(refreshed, null, _inboxFolder.RemoteFolderId);
+
+        if (provider == MailProviderType.Gmail)
+            await _mailService.CreateMailsAsync(_account.Id, new List<NewMailItemPackage> { package });
+        else
+            await _mailService.CreateMailAsync(_account.Id, package);
+
+        var stored = await _databaseService.Connection.FindAsync<MailCopy>(original.UniqueId);
+        stored.FileId.Should().Be(original.FileId);
+        stored.Subject.Should().Be("After");
+        stored.IsPinned.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("   Subscription canceled", "Subscription canceled")]
+    [InlineData("\r\n\t Hello\r\n\r\nworld  ", "Hello world")]
+    [InlineData("͏ ‌ ‌Preheader‌ ‌", "Preheader")]
+    [InlineData("Subscription canceled     Your subscription", "Subscription canceled Your subscription")]
+    [InlineData(" ​﻿ ", "")]
+    [InlineData(null, null)]
+    public void NormalizePreviewText_TrimsAndCollapsesWhitespace(string? input, string? expected)
+        => MailService.NormalizePreviewText(input).Should().Be(expected);
+
+    [Fact]
+    public async Task CreateAndRefreshMail_StoresNormalizedPreviewText()
+    {
+        var mail = new MailCopy
+        {
+            Id = "preview-mail", FileId = Guid.NewGuid(), Subject = "Hello",
+            PreviewText = "͏  \r\n  First preview", CreationDate = DateTime.UtcNow
+        };
+        await _mailService.CreateMailAsync(_account.Id, new NewMailItemPackage(mail, null, _inboxFolder.RemoteFolderId));
+
+        var stored = await _databaseService.Connection.Table<MailCopy>().FirstAsync(m => m.Id == mail.Id);
+        stored.PreviewText.Should().Be("First preview");
+
+        var refreshed = new MailCopy
+        {
+            Id = mail.Id, FileId = Guid.NewGuid(), Subject = "Hello",
+            PreviewText = "\t\t Second   preview  ", CreationDate = DateTime.UtcNow
+        };
+        await _mailService.CreateMailAsync(_account.Id, new NewMailItemPackage(refreshed, null, _inboxFolder.RemoteFolderId));
+
+        stored = await _databaseService.Connection.FindAsync<MailCopy>(stored.UniqueId);
+        stored.PreviewText.Should().Be("Second preview");
+    }
+
+    [Fact]
+    public async Task DelayedDraftStateUpdate_PreservesLatestSavedContent()
+    {
+        var uniqueId = Guid.NewGuid();
+        var fileId = Guid.NewGuid();
+        var current = new MailCopy
+        {
+            UniqueId = uniqueId, Id = "remote-draft", FolderId = _inboxFolder.Id,
+            IsDraft = true, Subject = "Newest local subject", FileId = fileId
+        };
+        await _databaseService.Connection.InsertAsync(current, typeof(MailCopy));
+
+        var stale = new MailCopy
+        {
+            UniqueId = uniqueId, Id = current.Id, FolderId = _inboxFolder.Id,
+            IsDraft = true, Subject = "Old remote subject", FileId = Guid.NewGuid(), IsRead = true
+        };
+        var method = typeof(MailService).GetMethod("PersistMailCopyUpdatesAsync",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var pending = new List<(MailCopy, MailCopyChangeFlags)> { (stale, MailCopyChangeFlags.IsRead) };
+        await (Task)method.Invoke(_mailService, [pending])!;
+
+        var saved = await _databaseService.Connection.FindAsync<MailCopy>(uniqueId);
+        saved.Subject.Should().Be(current.Subject);
+        saved.FileId.Should().Be(fileId);
+        saved.IsRead.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CreateMailAsync_ForImapMessageIdInOtherFolder_PreservesIndependentCopies()
+    {
+        const string messageId = "same-message@test.local";
+        var existingFileId = Guid.NewGuid();
+
+        await _databaseService.Connection.InsertAsync(new MailCopy
+        {
+            UniqueId = Guid.NewGuid(),
+            Id = MailkitClientExtensions.CreateUid(_inboxFolder.Id, 10),
+            ImapUid = 10,
+            ImapUidValidity = 123,
+            FolderId = _inboxFolder.Id,
+            MessageId = messageId,
+            FileId = existingFileId,
+            FromAddress = "sender@test.local",
+            FromName = "Sender",
+            Subject = "Hello",
+            CreationDate = DateTime.UtcNow
+        }, typeof(MailCopy));
+
+        var deletedCopy = new MailCopy
+        {
+            Id = MailkitClientExtensions.CreateUid(_deletedFolder.Id, 77),
+            ImapUid = 77,
+            ImapUidValidity = 456,
+            MessageId = messageId,
+            FileId = Guid.NewGuid(),
+            FromAddress = "sender@test.local",
+            FromName = "Sender",
+            Subject = "Hello",
+            CreationDate = DateTime.UtcNow
+        };
+
+        var inserted = await _mailService.CreateMailAsync(
+            _account.Id,
+            new NewMailItemPackage(deletedCopy, null, _deletedFolder.RemoteFolderId));
+
+        inserted.Should().BeTrue();
+
+        var allCopies = await _databaseService.Connection.Table<MailCopy>().ToListAsync();
+        allCopies.Should().HaveCount(2);
+        allCopies.Single(copy => copy.FolderId == _inboxFolder.Id).FileId.Should().Be(existingFileId);
+        var savedCopy = allCopies.Single(copy => copy.FolderId == _deletedFolder.Id);
+        savedCopy.MessageId.Should().Be(messageId);
+        savedCopy.FileId.Should().Be(deletedCopy.FileId).And.NotBe(existingFileId);
+        savedCopy.ImapUid.Should().Be(77);
+        savedCopy.ImapUidValidity.Should().Be(456);
+    }
+
+    [Fact]
+    public async Task CreateMailAsync_ForImapMissingMessageId_KeepsOtherFolderCopy()
+    {
+        await _databaseService.Connection.InsertAsync(new MailCopy
+        {
+            UniqueId = Guid.NewGuid(),
+            Id = MailkitClientExtensions.CreateUid(_inboxFolder.Id, 10),
+            ImapUid = 10,
+            FolderId = _inboxFolder.Id,
+            FileId = Guid.NewGuid(),
+            FromAddress = "sender@test.local",
+            FromName = "Sender",
+            Subject = "Hello",
+            CreationDate = DateTime.UtcNow
+        }, typeof(MailCopy));
+
+        var deletedCopy = new MailCopy
+        {
+            Id = MailkitClientExtensions.CreateUid(_deletedFolder.Id, 77),
+            ImapUid = 77,
+            FileId = Guid.NewGuid(),
+            FromAddress = "sender@test.local",
+            FromName = "Sender",
+            Subject = "Hello",
+            CreationDate = DateTime.UtcNow
+        };
+
+        var inserted = await _mailService.CreateMailAsync(
+            _account.Id,
+            new NewMailItemPackage(deletedCopy, null, _deletedFolder.RemoteFolderId));
+
+        inserted.Should().BeTrue();
+
+        var allCopies = await _databaseService.Connection.Table<MailCopy>().ToListAsync();
+        allCopies.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task CreateMailAsync_WithSuppressedUiChange_PersistsWithoutMailAddedMessage()
+    {
+        const string messageId = "filtered-arrival@test.local";
+        var existingCopy = new MailCopy
+        {
+            UniqueId = Guid.NewGuid(),
+            Id = MailkitClientExtensions.CreateUid(_deletedFolder.Id, 87),
+            ImapUid = 87,
+            FolderId = _deletedFolder.Id,
+            MessageId = messageId,
+            FileId = Guid.NewGuid(),
+            FromAddress = "sender@test.local",
+            FromName = "Sender",
+            Subject = "Filtered arrival",
+            CreationDate = DateTime.UtcNow
+        };
+        await _databaseService.Connection.InsertAsync(existingCopy, typeof(MailCopy));
+
+        var mailCopy = new MailCopy
+        {
+            Id = MailkitClientExtensions.CreateUid(_inboxFolder.Id, 88),
+            ImapUid = 88,
+            MessageId = messageId,
+            FileId = Guid.NewGuid(),
+            FromAddress = "sender@test.local",
+            FromName = "Sender",
+            Subject = "Filtered arrival",
+            CreationDate = DateTime.UtcNow
+        };
+        var recipient = new MailRetrievalRecipient(mailCopy.Id, existingCopy.Id);
+        WeakReferenceMessenger.Default.Register<MailAddedMessage>(recipient);
+        WeakReferenceMessenger.Default.Register<BulkMailAddedMessage>(recipient);
+        WeakReferenceMessenger.Default.Register<MailRemovedMessage>(recipient);
+        WeakReferenceMessenger.Default.Register<BulkMailRemovedMessage>(recipient);
+
+        try
+        {
+            var inserted = await _mailService.CreateMailAsync(
+                _account.Id,
+                new NewMailItemPackage(
+                    mailCopy,
+                    null,
+                    _inboxFolder.RemoteFolderId,
+                    SuppressUiChange: true));
+
+            inserted.Should().BeTrue();
+            var persisted = await _databaseService.Connection
+                .Table<MailCopy>()
+                .FirstOrDefaultAsync(copy => copy.Id == mailCopy.Id);
+            persisted.Should().NotBeNull();
+            recipient.MatchingUiChangeCount.Should().Be(0);
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.UnregisterAll(recipient);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Mapping_is_published_after_persistence_for_both_mapping_paths(bool legacyPath)
+    {
+        var registry = new DraftUpdateRegistry();
+        var service = BuildMailService(_databaseService, registry);
+        var draft = new MailCopy
+        {
+            UniqueId = Guid.NewGuid(), Id = "local-copy", DraftId = "localDraft_initial",
+            IsDraft = true, FolderId = _inboxFolder.Id, AssignedAccount = _account,
+            Subject = "local edits", CreationDate = DateTime.UtcNow
+        };
+        await _databaseService.Connection.InsertAsync(draft, typeof(MailCopy));
+        var observed = new TaskCompletionSource<MailCopy>();
+        using var subscription = registry.Get(_account.Id, draft.UniqueId).Mapping.Observe(state =>
+        {
+            if (state.HasRemoteMapping)
+                observed.SetResult(_databaseService.Connection.FindAsync<MailCopy>(draft.UniqueId).GetAwaiter().GetResult());
+        });
+
+        if (legacyPath)
+            await service.MapLocalDraftAsync(draft.Id, "remote-draft", "thread");
+        else
+            await service.MapLocalDraftAsync(_account.Id, draft.UniqueId, "Drafts_42", "remote-draft", "thread", 42, 5);
+
+        var persisted = await observed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        persisted.DraftId.Should().Be("remote-draft");
+        persisted.DraftSyncState.Should().Be(DraftSyncState.Synced);
+        registry.Get(_account.Id, draft.UniqueId).Mapping.ApplyTo(draft);
+        draft.Id.Should().Be(persisted.Id);
+        draft.ImapUid.Should().Be(persisted.ImapUid);
+    }
+
+    [Fact]
+    public async Task Failed_persistence_does_not_confirm_mapping()
+    {
+        var registry = new DraftUpdateRegistry();
+        var service = BuildMailService(_databaseService, registry);
+        var draft = new MailCopy
+        {
+            UniqueId = Guid.NewGuid(), Id = "local-copy", DraftId = "localDraft_initial",
+            IsDraft = true, FolderId = _inboxFolder.Id, AssignedAccount = _account,
+            CreationDate = DateTime.UtcNow
+        };
+        await _databaseService.Connection.InsertAsync(draft, typeof(MailCopy));
+        await _databaseService.Connection.ExecuteAsync(
+            "CREATE TRIGGER reject_mapping BEFORE UPDATE ON MailCopy BEGIN SELECT RAISE(ABORT, 'mapping rejected'); END");
+
+        await Assert.ThrowsAnyAsync<Exception>(() => service.MapLocalDraftAsync(_account.Id, draft.UniqueId, "remote", "draft", "thread"));
+
+        registry.Get(_account.Id, draft.UniqueId).Mapping.HasRemoteMapping.Should().BeFalse();
+        (await service.GetSingleMailItemAsync(draft.UniqueId)).IsLocalDraft.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Missing_draft_does_not_confirm_mapping()
+    {
+        var registry = new DraftUpdateRegistry();
+        var service = BuildMailService(_databaseService, registry);
+        var uniqueId = Guid.NewGuid();
+
+        (await service.MapLocalDraftAsync(_account.Id, uniqueId, "remote", "draft", "thread")).Should().BeFalse();
+
+        registry.Get(_account.Id, uniqueId).Mapping.HasRemoteMapping.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Draft_identity_updates_preserve_newest_content_and_reject_stale_sync()
+    {
+        var registry = new DraftUpdateRegistry();
+        var service = BuildMailService(_databaseService, registry);
+        var draft = new MailCopy
+        {
+            UniqueId = Guid.NewGuid(), Id = "original", DraftId = "draft", FileId = Guid.NewGuid(),
+            IsDraft = true, FolderId = _inboxFolder.Id, AssignedAccount = _account, AssignedFolder = _inboxFolder,
+            MessageId = "draft@test.local", Subject = "latest local", FromAddress = _account.Address,
+            CreationDate = DateTime.UtcNow
+        };
+        await _databaseService.Connection.InsertAsync(draft, typeof(MailCopy));
+        registry.Protect(_account.Id, draft);
+        await service.UpdateDraftIdentityAsync(_account.Id, draft.UniqueId, new("replacement", "draft", "thread", 42, 5));
+        await service.MapLocalDraftAsync(_account.Id, draft.UniqueId, "original", "draft", "old-thread");
+        await service.DeleteMailAsync(_account.Id, "replacement");
+        var saved = await service.GetSingleMailItemAsync(draft.UniqueId);
+        saved.Id.Should().Be("replacement"); saved.Subject.Should().Be("latest local");
+        saved.FileId.Should().Be(draft.FileId); saved.ImapUid.Should().Be(42);
+        registry.Get(_account.Id, draft.UniqueId).Mapping.ApplyTo(draft);
+        draft.Id.Should().Be("replacement");
+        draft.ImapUid.Should().Be(42);
+        registry.Release(_account.Id, draft.UniqueId);
+        await service.MapLocalDraftAsync(_account.Id, draft.UniqueId, "original", "draft", "old-thread");
+        (await service.GetSingleMailItemAsync(draft.UniqueId)).Id.Should().Be("replacement");
+        (await _databaseService.Connection.Table<MailCopy>().CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Draft_metadata_save_cannot_restore_an_obsolete_remote_id()
+    {
+        var registry = new DraftUpdateRegistry();
+        var service = BuildMailService(_databaseService, registry);
+        var draft = new MailCopy
+        {
+            UniqueId = Guid.NewGuid(), Id = "original", DraftId = "draft", FileId = Guid.NewGuid(),
+            IsDraft = true, FolderId = _inboxFolder.Id, AssignedAccount = _account, AssignedFolder = _inboxFolder,
+            Subject = "old", FromAddress = _account.Address, CreationDate = DateTime.UtcNow
+        };
+        await _databaseService.Connection.InsertAsync(draft, typeof(MailCopy));
+        await service.UpdateDraftIdentityAsync(_account.Id, draft.UniqueId, new("replacement", "draft", "thread"));
+        draft.Subject = "new local subject";
+        await service.SaveDraftMetadataAsync(_account.Id, draft);
+        var saved = await service.GetSingleMailItemAsync(draft.UniqueId);
+        saved.Id.Should().Be("replacement"); saved.Subject.Should().Be("new local subject");
+    }
+
+    [Fact]
+    public async Task Remote_draft_refresh_updates_list_metadata_only_for_current_unprotected_identity()
+    {
+        var registry = new DraftUpdateRegistry();
+        var service = BuildMailService(_databaseService, registry);
+        var draft = new MailCopy
+        {
+            UniqueId = Guid.NewGuid(), Id = "replacement", DraftId = "draft", FileId = Guid.NewGuid(),
+            IsDraft = true, FolderId = _inboxFolder.Id, AssignedAccount = _account, AssignedFolder = _inboxFolder,
+            Subject = "old subject", PreviewText = "old body", CreationDate = DateTime.UtcNow
+        };
+        await _databaseService.Connection.InsertAsync(draft, typeof(MailCopy));
+
+        var remote = new MailCopy
+        {
+            Id = "replacement", Subject = "remote subject", PreviewText = "remote body",
+            HasAttachments = true, CreationDate = draft.CreationDate.AddMinutes(1)
+        };
+
+        registry.Protect(_account.Id, draft);
+        (await service.RefreshMappedDraftMetadataAsync(_account.Id, draft.UniqueId, remote)).Should().BeFalse();
+        registry.Release(_account.Id, draft.UniqueId);
+
+        remote.Id = "obsolete";
+        (await service.RefreshMappedDraftMetadataAsync(_account.Id, draft.UniqueId, remote)).Should().BeFalse();
+
+        remote.Id = "replacement";
+        (await service.RefreshMappedDraftMetadataAsync(_account.Id, draft.UniqueId, remote)).Should().BeTrue();
+        var saved = await service.GetSingleMailItemAsync(draft.UniqueId);
+        saved.Subject.Should().Be("remote subject");
+        saved.PreviewText.Should().Be("remote body");
+        saved.HasAttachments.Should().BeTrue();
+        saved.FileId.Should().Be(draft.FileId);
+    }
+
+    internal static MailService BuildMailService(InMemoryDatabaseService db, DraftUpdateRegistry? registry = null, IRecipientHistoryService? recipientHistoryService = null)
+    {
+        var signatureService = new Mock<ISignatureService>();
+        var authProvider = new Mock<IAuthenticationProvider>();
+        var mimeFileService = new Mock<IMimeFileService>();
+        mimeFileService
+            .Setup(x => x.SaveMimeMessageAsync(It.IsAny<Guid>(), It.IsAny<MimeMessage>(), It.IsAny<Guid>()))
+            .ReturnsAsync(true);
+        mimeFileService
+            .Setup(x => x.CreateHTMLPreviewVisitor(It.IsAny<MimeMessage>(), It.IsAny<string>()))
+            .Returns<MimeMessage, string>((_, _) => new HtmlPreviewVisitor(string.Empty));
+
+        var preferencesService = new Mock<IPreferencesService>();
+        preferencesService.SetupProperty(x => x.ComposerFont, "Calibri");
+        preferencesService.SetupProperty(x => x.ComposerFontSize, 12);
+
+        var accountService = new AccountService(
+            db,
+            signatureService.Object,
+            authProvider.Object,
+            mimeFileService.Object,
+            preferencesService.Object,
+            Mock.Of<IPictureStorageService>(),
+            credentialPersistence: Wino.Core.Tests.Helpers.TestAccountCredentialPersistence.Instance);
+
+        var mailCategoryService = new MailCategoryService(db);
+        var folderService = new FolderService(db, accountService, mailCategoryService);
+        var contactService = new ContactService(db);
+        var sentMailReceiptService = new SentMailReceiptService(db, folderService, accountService);
+
+        return new MailService(
+            db,
+            folderService,
+            contactService,
+            accountService,
+            signatureService.Object,
+            mimeFileService.Object,
+            preferencesService.Object,
+            sentMailReceiptService,
+            mailCategoryService, draftUpdates: registry, recipientHistoryService: recipientHistoryService);
+    }
+
+    public sealed class MailRetrievalRecipient(params string[] targetMailIds) :
+        IRecipient<MailAddedMessage>,
+        IRecipient<BulkMailAddedMessage>,
+        IRecipient<MailRemovedMessage>,
+        IRecipient<BulkMailRemovedMessage>
+    {
+        private readonly HashSet<string> _targetMailIds = targetMailIds.ToHashSet(StringComparer.Ordinal);
+
+        public int MatchingUiChangeCount { get; private set; }
+
+        public void Receive(MailAddedMessage message)
+        {
+            if (message.AddedMail != null && _targetMailIds.Contains(message.AddedMail.Id))
+                MatchingUiChangeCount++;
+        }
+
+        public void Receive(BulkMailAddedMessage message)
+        {
+            MatchingUiChangeCount += message.AddedMails.Count(
+                mail => mail != null && _targetMailIds.Contains(mail.Id));
+        }
+
+        public void Receive(MailRemovedMessage message)
+        {
+            if (message.RemovedMail != null && _targetMailIds.Contains(message.RemovedMail.Id))
+                MatchingUiChangeCount++;
+        }
+
+        public void Receive(BulkMailRemovedMessage message)
+        {
+            MatchingUiChangeCount += message.RemovedMails.Count(
+                mail => mail != null && _targetMailIds.Contains(mail.Id));
+        }
+    }
+}

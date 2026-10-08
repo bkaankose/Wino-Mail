@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<RootNamespace>Wino.Authentication</RootNamespace>
+		<Platforms>x86;x64;arm64</Platforms>
+		<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+		<IsTrimmable>true</IsTrimmable>
+		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="CommunityToolkit.Diagnostics" />
+		<PackageReference Include="CommunityToolkit.Mvvm" />
+		<PackageReference Include="Microsoft.Identity.Client" />
+		<PackageReference Include="Sentry.Serilog" />
+	</ItemGroup>
+	<ItemGroup>
+		<EmbeddedResource Include="Assets\AuthorizationResult.html" LogicalName="Wino.Authentication.Assets.AuthorizationResult.html" />
+		<EmbeddedResource Include="..\Wino.Mail.WinUI\Assets\AppEntries\Wino.svg" Link="Assets\WinoLogo.svg" LogicalName="Wino.Authentication.Assets.WinoLogo.svg" />
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+		<ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
+	</ItemGroup>
+</Project>

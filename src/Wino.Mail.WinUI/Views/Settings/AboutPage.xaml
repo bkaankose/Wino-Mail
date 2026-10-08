@@ -1,0 +1,248 @@
+﻿<abstract:AboutPageAbstract
+    x:Class="Wino.Views.Settings.AboutPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:accessibilityControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:release="using:Wino.NotificationHost.Contracts"
+    mc:Ignorable="d">
+
+    <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
+        <StackPanel.ChildrenTransitions>
+            <TransitionCollection>
+                <RepositionThemeTransition IsStaggeringEnabled="False" />
+            </TransitionCollection>
+        </StackPanel.ChildrenTransitions>
+        <Image
+            Width="128"
+            Height="128"
+            Margin="0,0,0,12"
+            HorizontalAlignment="Center"
+            Source="ms-appx:///Assets/WinoLogo.png"
+            Stretch="Uniform" />
+        <TextBlock
+            Margin="0,6,0,4"
+            HorizontalAlignment="Center"
+            Style="{StaticResource SubheaderTextBlockStyle}"
+            Text="{x:Bind release:ReleaseIdentity.Current.MailDisplayName, Mode=OneTime}" />
+
+        <TextBlock
+            Margin="0,0,0,12"
+            HorizontalAlignment="Center"
+            Style="{StaticResource BodyTextBlockStyle}"
+            Text="{x:Bind domain:Translator.SettingsAboutWinoDescription}" />
+
+        <accessibilityControls:WinoSettingsCard
+            AutomationProperties.AutomationId="AboutPageWhatsNewSettingsCard"
+            Command="{x:Bind ViewModel.OpenWhatsNewCommand}"
+            Description="{x:Bind domain:Translator.SettingsWhatsNew_Description}"
+            Header="{x:Bind domain:Translator.SettingsWhatsNew_Title}"
+            IsClickEnabled="True">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Icon="Announcement" />
+            </controls:SettingsCard.HeaderIcon>
+        </accessibilityControls:WinoSettingsCard>
+
+        <accessibilityControls:WinoSettingsCard
+            AutomationProperties.AutomationId="AboutPageSettingsCard"
+            Command="{x:Bind ViewModel.NavigateCommand}"
+            CommandParameter="{x:Bind ViewModel.WebsiteUrl}"
+            Description="{x:Bind domain:Translator.SettingsWebsite_Description}"
+            Header="{x:Bind domain:Translator.SettingsWebsite_Title}"
+            IsClickEnabled="True">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Icon="Globe" />
+            </controls:SettingsCard.HeaderIcon>
+            <controls:SettingsCard.ActionIcon>
+                <coreControls:WinoFontIcon
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Icon="Open" />
+            </controls:SettingsCard.ActionIcon>
+        </accessibilityControls:WinoSettingsCard>
+
+        <accessibilityControls:WinoSettingsCard
+            AutomationProperties.AutomationId="AboutPageSettingsCard2"
+            Command="{x:Bind ViewModel.NavigateCommand}"
+            CommandParameter="{x:Bind ViewModel.GitHubUrl}"
+            Description="{x:Bind domain:Translator.SettingsAboutGithub_Description}"
+            Header="{x:Bind domain:Translator.SettingsAboutGithub_Title}"
+            IsClickEnabled="True">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Icon="GitHub" />
+            </controls:SettingsCard.HeaderIcon>
+            <controls:SettingsCard.ActionIcon>
+                <coreControls:WinoFontIcon
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Icon="Open" />
+            </controls:SettingsCard.ActionIcon>
+        </accessibilityControls:WinoSettingsCard>
+
+        <accessibilityControls:WinoSettingsCard
+            AutomationProperties.AutomationId="AboutPageSettingsCard3"
+            Command="{x:Bind ViewModel.NavigateCommand}"
+            CommandParameter="{x:Bind ViewModel.DiscordChannelUrl}"
+            Description="{x:Bind domain:Translator.SettingsDiscord_Description}"
+            Header="{x:Bind domain:Translator.SettingsDiscord_Title}"
+            IsClickEnabled="True">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Icon="Discord" />
+            </controls:SettingsCard.HeaderIcon>
+            <controls:SettingsCard.ActionIcon>
+                <coreControls:WinoFontIcon
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Icon="Open" />
+            </controls:SettingsCard.ActionIcon>
+        </accessibilityControls:WinoSettingsCard>
+
+        <accessibilityControls:WinoSettingsCard
+            AutomationProperties.AutomationId="AboutPageSettingsCard4"
+            Command="{x:Bind ViewModel.NavigateCommand}"
+            CommandParameter="Store"
+            Description="{x:Bind domain:Translator.SettingsStore_Description}"
+            Header="{x:Bind domain:Translator.SettingsStore_Title}"
+            IsClickEnabled="True">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Icon="MicrosoftStore" />
+            </controls:SettingsCard.HeaderIcon>
+            <controls:SettingsCard.ActionIcon>
+                <coreControls:WinoFontIcon
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Icon="Open" />
+            </controls:SettingsCard.ActionIcon>
+        </accessibilityControls:WinoSettingsCard>
+
+        <accessibilityControls:WinoSettingsCard
+            AutomationProperties.AutomationId="AboutPageSettingsCard5"
+            Command="{x:Bind ViewModel.NavigateCommand}"
+            CommandParameter="{x:Bind ViewModel.PaypalUrl}"
+            Description="{x:Bind domain:Translator.SettingsPaypal_Description}"
+            Header="{x:Bind domain:Translator.SettingsPaypal_Title}"
+            IsClickEnabled="True">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="PayPal" />
+            </controls:SettingsCard.HeaderIcon>
+            <controls:SettingsCard.ActionIcon>
+                <coreControls:WinoFontIcon
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Icon="Open" />
+            </controls:SettingsCard.ActionIcon>
+        </accessibilityControls:WinoSettingsCard>
+
+        <accessibilityControls:WinoSettingsCard
+            AutomationProperties.AutomationId="AboutPageSettingsCard6"
+            Command="{x:Bind ViewModel.NavigateCommand}"
+            CommandParameter="{x:Bind ViewModel.PrivacyPolicyUrl}"
+            Description="{x:Bind domain:Translator.SettingsPrivacyPolicy_Description}"
+            Header="{x:Bind domain:Translator.SettingsPrivacyPolicy_Title}"
+            IsClickEnabled="True">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Icon="Eye" />
+            </controls:SettingsCard.HeaderIcon>
+            <controls:SettingsCard.ActionIcon>
+                <coreControls:WinoFontIcon
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Icon="Open" />
+            </controls:SettingsCard.ActionIcon>
+        </accessibilityControls:WinoSettingsCard>
+
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="AboutPageSettingsExpander"
+            Description="{x:Bind domain:Translator.SettingsDiagnostics_Description}"
+            Header="{x:Bind domain:Translator.SettingsDiagnostics_Title}">
+            <controls:SettingsExpander.HeaderIcon>
+                <coreControls:WinoFontIcon
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Icon="Bug" />
+            </controls:SettingsExpander.HeaderIcon>
+
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AboutPageSettingsCard7"
+                    Description="{x:Bind domain:Translator.SettingsEnableLogs_Description}"
+                    Header="{x:Bind domain:Translator.SettingsEnableLogs_Title}">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button
+                            AutomationProperties.AutomationId="AboutPageButton"
+                            Command="{x:Bind ViewModel.ShareWinoLogCommand}"
+                            Content="{x:Bind domain:Translator.Buttons_Share}" />
+                        <Button
+                            AutomationProperties.AutomationId="AboutPageButton2"
+                            Command="{x:Bind ViewModel.UploadWinoLogsCommand}"
+                            Content="{x:Bind domain:Translator.Buttons_UploadLogs}" />
+                        <ToggleSwitch AutomationProperties.AutomationId="AboutPageToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsLoggingEnabled, Mode=TwoWay}" />
+                    </StackPanel>
+                </controls:SettingsCard>
+                <controls:SettingsCard
+                    HorizontalContentAlignment="Stretch"
+                    VerticalContentAlignment="Stretch"
+                    AutomationProperties.AutomationId="AboutPageSettingsCard8"
+                    ContentAlignment="Vertical"
+                    Description="{x:Bind domain:Translator.SettingsDiagnostics_DiagnosticId_Description}"
+                    Header="{x:Bind domain:Translator.SettingsDiagnostics_DiagnosticId_Title}">
+                    <StackPanel Orientation="Horizontal" Spacing="16">
+
+                        <Button
+                            Grid.Column="1"
+                            HorizontalAlignment="Right"
+                            AutomationProperties.AutomationId="AboutPageButton3"
+                            Command="{x:Bind ViewModel.CopyDiagnosticIdCommand}">
+                            <coreControls:WinoFontIcon
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Icon="Copy" />
+                        </Button>
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            FontWeight="SemiBold"
+                            Foreground="{StaticResource DiagnosticIdCopyBrush}"
+                            IsTextSelectionEnabled="True"
+                            Text="{x:Bind ViewModel.PreferencesService.DiagnosticId}" />
+                    </StackPanel>
+                </controls:SettingsCard>
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+
+        <controls:SettingsCard AutomationProperties.AutomationId="AboutPageSettingsCard9" Header="{x:Bind release:ReleaseIdentity.Current.MailDisplayName, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <ImageIcon
+                    Width="24"
+                    Height="24"
+                    Source="ms-appx:///Assets/WinoLogo.png" />
+            </controls:SettingsCard.HeaderIcon>
+            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" IsTextSelectionEnabled="True">
+                <Run Text="{x:Bind domain:Translator.SettingsAboutVersion}" /><Run Text="{x:Bind ViewModel.VersionName}" />
+            </TextBlock>
+        </controls:SettingsCard>
+    </StackPanel>
+</abstract:AboutPageAbstract>
+

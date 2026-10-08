@@ -1,0 +1,251 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap10 rescap com desktop">
+	
+	<!-- Publisher Cache Folders -->
+	<Extensions>
+		<Extension Category="windows.publisherCacheFolders">
+			<PublisherCacheFolders>
+				<Folder Name="WinoShared" />
+			</PublisherCacheFolders>
+		</Extension>
+	</Extensions>
+	
+  <Identity
+    Name="58272BurakKSE.WinoMailPreview"
+    Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
+    Version="2.2.0.0" />
+
+  <mp:PhoneIdentity PhoneProductId="7b7e90e9-cc55-4409-9769-99b4b5ed6e9b" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
+
+  <Properties>
+    <DisplayName>Wino Mail</DisplayName>
+    <PublisherDisplayName>Burak KÖSE</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="x-generate"/>
+  </Resources>
+
+  <Applications>
+    <Application Id="App"
+      Executable="$targetnametoken$.exe"
+      EntryPoint="$targetentrypoint$"
+      uap10:Parameters="--wino-mail">
+      <uap:VisualElements
+        DisplayName="Wino Mail"
+        Description="Wino.Mail.WinUI"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\AppEntries\MailAssets\Square150x150Logo.png"
+        Square44x44Logo="Assets\AppEntries\MailAssets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\AppEntries\MailAssets\Wide310x150Logo.png" Square71x71Logo="Assets\AppEntries\MailAssets\SmallTile.png" Square310x310Logo="Assets\AppEntries\MailAssets\LargeTile.png">
+          <uap:ShowNameOnTiles>
+            <uap:ShowOn Tile="square150x150Logo" />
+            <uap:ShowOn Tile="wide310x150Logo" />
+            <uap:ShowOn Tile="square310x310Logo" />
+          </uap:ShowNameOnTiles>
+        </uap:DefaultTile>
+        <uap:SplashScreen Image="Assets\AppEntries\MailAssets\SplashScreen.png" />
+      </uap:VisualElements>
+
+		<Extensions>
+			<uap5:Extension Category="windows.startupTask">
+				<uap5:StartupTask
+					TaskId="WinoStartupId"
+					Enabled="true"
+					DisplayName="Wino Mail" />
+			</uap5:Extension>
+
+			<!-- Protocol activation: mailto -->
+			<uap:Extension Category="windows.protocol">
+				<uap:Protocol Name="mailto" />
+			</uap:Extension>
+
+			<!-- Protocol activation: Google oAuth -->
+			<uap:Extension Category="windows.protocol">
+				<uap:Protocol Name="google.pw.oauth2">
+					<uap:DisplayName>Google Auth Protocol</uap:DisplayName>
+				</uap:Protocol>
+			</uap:Extension>
+
+			<!-- Protocol activation: Wino deep links -->
+			<uap:Extension Category="windows.protocol">
+				<uap:Protocol Name="wino">
+					<uap:DisplayName>Wino Mail Protocol</uap:DisplayName>
+				</uap:Protocol>
+			</uap:Extension>
+
+			<!-- Share target activation -->
+			<uap:Extension Category="windows.shareTarget">
+				<uap:ShareTarget>
+					<uap:SupportedFileTypes>
+						<uap:SupportsAnyFileType />
+					</uap:SupportedFileTypes>
+				</uap:ShareTarget>
+			</uap:Extension>
+
+			<!-- File Assosication: EML -->
+			<uap:Extension Category="windows.fileTypeAssociation">
+				<uap:FileTypeAssociation Name="eml">
+					<uap:Logo>EML\eml.png</uap:Logo>
+					<uap:SupportedFileTypes>
+						<uap:FileType>.eml</uap:FileType>
+					</uap:SupportedFileTypes>
+				</uap:FileTypeAssociation>
+			</uap:Extension>
+
+			<!-- Toast activation: Windows starts the notification host, not the UI executable. -->
+			<desktop:Extension Category="windows.toastNotificationActivation">
+				<desktop:ToastNotificationActivation ToastActivatorCLSID="b67c209f-9f3b-4220-ad8f-828073616967" />
+			</desktop:Extension>
+			<com:Extension Category="windows.comServer">
+				<com:ComServer>
+					<com:ExeServer Executable="Wino.NotificationHost.exe" Arguments="----AppNotificationActivated:" DisplayName="Wino Mail notification host">
+						<com:Class Id="b67c209f-9f3b-4220-ad8f-828073616967" DisplayName="Wino Mail notification host" />
+					</com:ExeServer>
+				</com:ComServer>
+			</com:Extension>
+		</Extensions>
+    </Application>
+
+    <Application Id="CalendarApp"
+      Executable="$targetnametoken$.exe"
+      EntryPoint="$targetentrypoint$"
+      uap10:Parameters="--wino-calendar">
+      <uap:VisualElements
+        DisplayName="Wino Calendar"
+        Description="Wino.Mail.WinUI.Calendar"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\AppEntries\CalendarAssets\Square150x150Logo.png"
+        Square44x44Logo="Assets\AppEntries\CalendarAssets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\AppEntries\CalendarAssets\Wide310x150Logo.png" Square71x71Logo="Assets\AppEntries\CalendarAssets\SmallTile.png" Square310x310Logo="Assets\AppEntries\CalendarAssets\LargeTile.png">
+          <uap:ShowNameOnTiles>
+            <uap:ShowOn Tile="square150x150Logo" />
+            <uap:ShowOn Tile="wide310x150Logo" />
+            <uap:ShowOn Tile="square310x310Logo" />
+          </uap:ShowNameOnTiles>
+        </uap:DefaultTile>
+        <uap:SplashScreen Image="Assets\AppEntries\CalendarAssets\SplashScreen.png" />
+      </uap:VisualElements>
+
+      <Extensions>
+        <uap:Extension Category="windows.protocol">
+          <uap:Protocol Name="webcal">
+            <uap:DisplayName>Calendar Protocol</uap:DisplayName>
+          </uap:Protocol>
+        </uap:Extension>
+
+        <uap:Extension Category="windows.protocol">
+          <uap:Protocol Name="webcals">
+            <uap:DisplayName>Calendar Protocol (Secure)</uap:DisplayName>
+          </uap:Protocol>
+        </uap:Extension>
+
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="ics">
+            <uap:Logo>Assets\AppEntries\CalendarAssets\Square44x44Logo.png</uap:Logo>
+            <uap:SupportedFileTypes>
+              <uap:FileType>.ics</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+
+        <desktop:Extension Category="windows.toastNotificationActivation">
+          <desktop:ToastNotificationActivation ToastActivatorCLSID="a075d82f-106f-4007-b69a-5c4135b2ac58" />
+        </desktop:Extension>
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:ExeServer Executable="Wino.NotificationHost.exe" Arguments="----AppNotificationActivated:" DisplayName="Wino Calendar notification host">
+              <com:Class Id="a075d82f-106f-4007-b69a-5c4135b2ac58" DisplayName="Wino Calendar notification host" />
+            </com:ExeServer>
+          </com:ComServer>
+        </com:Extension>
+      </Extensions>
+    </Application>
+    <Application Id="ContactsApp"
+      Executable="$targetnametoken$.exe"
+      EntryPoint="$targetentrypoint$"
+      uap10:Parameters="--wino-contacts">
+      <uap:VisualElements
+        DisplayName="Wino People"
+        Description="Wino.Mail.WinUI.Contacts"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\AppEntries\PeopleAssets\Square150x150Logo.png"
+        Square44x44Logo="Assets\AppEntries\PeopleAssets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\AppEntries\PeopleAssets\Wide310x150Logo.png" Square71x71Logo="Assets\AppEntries\PeopleAssets\SmallTile.png" Square310x310Logo="Assets\AppEntries\PeopleAssets\LargeTile.png">
+          <uap:ShowNameOnTiles>
+            <uap:ShowOn Tile="square150x150Logo" />
+            <uap:ShowOn Tile="wide310x150Logo" />
+            <uap:ShowOn Tile="square310x310Logo" />
+          </uap:ShowNameOnTiles>
+        </uap:DefaultTile>
+        <uap:SplashScreen Image="Assets\AppEntries\PeopleAssets\SplashScreen.png" />
+      </uap:VisualElements>
+
+      <Extensions>
+        <desktop:Extension Category="windows.toastNotificationActivation">
+          <desktop:ToastNotificationActivation ToastActivatorCLSID="427688f0-3b7f-4f5b-938f-f76535aa7970" />
+        </desktop:Extension>
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:ExeServer Executable="Wino.NotificationHost.exe" Arguments="----AppNotificationActivated:" DisplayName="Wino People notification host">
+              <com:Class Id="427688f0-3b7f-4f5b-938f-f76535aa7970" DisplayName="Wino People notification host" />
+            </com:ExeServer>
+          </com:ComServer>
+        </com:Extension>
+      </Extensions>
+    </Application>
+    <Application Id="ToDoApp"
+      Executable="$targetnametoken$.exe"
+      EntryPoint="$targetentrypoint$"
+      uap10:Parameters="--wino-todo">
+      <uap:VisualElements
+        DisplayName="Wino To Do"
+        Description="Wino.Mail.WinUI.ToDo"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\AppEntries\ToDoAssets\Square150x150Logo.png"
+        Square44x44Logo="Assets\AppEntries\ToDoAssets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\AppEntries\ToDoAssets\Wide310x150Logo.png" Square71x71Logo="Assets\AppEntries\ToDoAssets\SmallTile.png" Square310x310Logo="Assets\AppEntries\ToDoAssets\LargeTile.png">
+          <uap:ShowNameOnTiles>
+            <uap:ShowOn Tile="square150x150Logo" />
+            <uap:ShowOn Tile="wide310x150Logo" />
+            <uap:ShowOn Tile="square310x310Logo" />
+          </uap:ShowNameOnTiles>
+        </uap:DefaultTile>
+        <uap:SplashScreen Image="Assets\AppEntries\ToDoAssets\SplashScreen.png" />
+      </uap:VisualElements>
+
+      <Extensions>
+        <desktop:Extension Category="windows.toastNotificationActivation">
+          <desktop:ToastNotificationActivation ToastActivatorCLSID="a5851908-6870-4384-912c-be36b23f142f" />
+        </desktop:Extension>
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:ExeServer Executable="Wino.NotificationHost.exe" Arguments="----AppNotificationActivated:" DisplayName="Wino To Do notification host">
+              <com:Class Id="a5851908-6870-4384-912c-be36b23f142f" DisplayName="Wino To Do notification host" />
+            </com:ExeServer>
+          </com:ComServer>
+        </com:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

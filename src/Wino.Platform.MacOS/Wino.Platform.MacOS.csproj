@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-macos</TargetFramework>
+    <SupportedOSPlatformVersion>14.0</SupportedOSPlatformVersion>
+    <WinoTargetPlatform>MacOS</WinoTargetPlatform>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Wino.Core.Domain/Wino.Core.Domain.csproj" />
+    <ProjectReference Include="../Wino.Authentication/Wino.Authentication.csproj" />
+    <ProjectReference Include="../Wino.Services/Wino.Services.csproj" />
+    <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" />
+  </ItemGroup>
+</Project>
