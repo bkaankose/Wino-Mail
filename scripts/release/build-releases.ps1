@@ -282,6 +282,12 @@ function Invoke-ReleaseTool {
         if ($key -like 'AZURE_*' -or $key -like 'WINO_*' -or $key -like 'OPENAI_*') { $null = $start.Environment.Remove($key) }
     }
     foreach ($key in $SigningEnvironment.Keys) { $start.Environment[$key] = $SigningEnvironment[$key] }
+    # Native AOT links through vcvarsall.bat, which runs vswhere.exe from PATH. The Visual Studio installer
+    # does not always add its directory to PATH.
+    $vsInstaller = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer'
+    if (Test-Path -LiteralPath (Join-Path $vsInstaller 'vswhere.exe')) {
+        $start.Environment['PATH'] = "$($start.Environment['PATH']);$vsInstaller"
+    }
 
     $null = New-Item -ItemType Directory -Path (Split-Path $LogPath) -Force
     [pscustomobject]@{ Executable = $Executable; Arguments = $Arguments; StartedUtc = [DateTime]::UtcNow } |

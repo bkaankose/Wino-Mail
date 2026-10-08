@@ -208,7 +208,7 @@ public class MailCopy
     /// Passive intelligence artifacts loaded from the separate local intelligence store.
     /// </summary>
     [Ignore]
-    public MailIntelligenceMetadata IntelligenceMetadata { get; set; }
+    public MailIntelligenceMetadata? IntelligenceMetadata { get; set; }
 
     public IEnumerable<Guid> GetContainingIds() => [UniqueId];
     public override string ToString() => $"{Subject} <-> {Id}";
