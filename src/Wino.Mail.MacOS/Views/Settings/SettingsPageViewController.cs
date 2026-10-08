@@ -14,6 +14,10 @@ namespace Wino.Mail.MacOS.Views.Settings;
 public interface ISettingsPageTitleSource
 {
     string? PageTitle { get; }
+
+    /// <summary>The line under the title; null keeps the page catalog description.</summary>
+    string? PageDescription => null;
+
     event EventHandler? PageTitleChanged;
 }
 

@@ -8,8 +8,6 @@ public sealed partial class MacPageRegistry
 {
     private static readonly WinoPage[] DeferredSettingsPages =
     [
-        WinoPage.EmailTemplatesPage, WinoPage.CreateEmailTemplatePage,
-        WinoPage.MailFiltersPage, WinoPage.MailFilterEditorPage,
         WinoPage.ApplicationThemeGalleryPage, WinoPage.ApplicationThemeEditorPage
     ];
 
@@ -22,6 +20,8 @@ public sealed partial class MacPageRegistry
     partial void RegisterCompanionSettingsPages();
     partial void RegisterAccountExtrasSettingsPages();
     partial void RegisterSignatureSettingsPages();
+    partial void RegisterFilterSettingsPages();
+    partial void RegisterTemplateSettingsPages();
 
     partial void RegisterSettingsPages()
     {
@@ -60,6 +60,8 @@ public sealed partial class MacPageRegistry
         RegisterCompanionSettingsPages();
         RegisterAccountExtrasSettingsPages();
         RegisterSignatureSettingsPages();
+        RegisterFilterSettingsPages();
+        RegisterTemplateSettingsPages();
 
         // Pages without a native implementation yet show a clear placeholder inside the window.
         foreach (var page in DeferredSettingsPages)

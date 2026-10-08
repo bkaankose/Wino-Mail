@@ -245,7 +245,7 @@ public sealed class SettingsWindowPresenter : ISettingsWindowPresenter, IRecipie
             await _dispatcher.ExecuteOnUIThread(() =>
             {
                 Detach(previous);
-                _window.SetPage(controller, title, target.Page, SettingsPageCatalog.RootPage(target.Page));
+                _window.SetPage(controller, title, target.Page, SettingsPageCatalog.RootPage(target.Page), ResolveDescription(controller));
                 Attach(controller);
                 _window.SetNavigationState(_back.Count > 0, _forward.Count > 0);
             });
@@ -280,6 +280,9 @@ public sealed class SettingsWindowPresenter : ISettingsWindowPresenter, IRecipie
     private static string ResolveTitle(NSViewController controller, WinoPage page)
         => controller is ISettingsPageTitleSource { PageTitle: { Length: > 0 } title } ? title : SettingsPageCatalog.Title(page);
 
+    private static string? ResolveDescription(NSViewController controller)
+        => (controller as ISettingsPageTitleSource)?.PageDescription;
+
     private void Attach(NSViewController controller)
     {
         if (controller is ISettingsPageTitleSource source) source.PageTitleChanged += PageTitleChanged;
@@ -294,7 +297,7 @@ public sealed class SettingsWindowPresenter : ISettingsWindowPresenter, IRecipie
     {
         if (sender is not NSViewController controller || !ReferenceEquals(controller, _currentController) || _current is null) return;
         var page = _current.Page;
-        _ = _dispatcher.ExecuteOnUIThread(() => _window?.SetTitle(ResolveTitle(controller, page), page, SettingsPageCatalog.RootPage(page)));
+        _ = _dispatcher.ExecuteOnUIThread(() => _window?.SetTitle(ResolveTitle(controller, page), page, SettingsPageCatalog.RootPage(page), ResolveDescription(controller)));
     }
 
     private async Task ReleaseAsync(NSViewController? controller)
