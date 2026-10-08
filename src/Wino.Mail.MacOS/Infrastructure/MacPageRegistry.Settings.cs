@@ -8,14 +8,19 @@ public sealed partial class MacPageRegistry
 {
     private static readonly WinoPage[] DeferredSettingsPages =
     [
-        WinoPage.WinoAccountManagementPage,
-        WinoPage.CompanionSettingsPage, WinoPage.BackupRestorePage,
-        WinoPage.SignatureAndEncryptionPage, WinoPage.SignatureManagementPage, WinoPage.EmailTemplatesPage, WinoPage.CreateEmailTemplatePage,
-        WinoPage.CalendarAccountSettingsPage,
-        WinoPage.MergedAccountDetailsPage, WinoPage.FolderCustomizationPage, WinoPage.MailCategoryManagementPage,
+        WinoPage.CompanionSettingsPage,
+        WinoPage.SignatureManagementPage, WinoPage.EmailTemplatesPage, WinoPage.CreateEmailTemplatePage,
+        WinoPage.MergedAccountDetailsPage, WinoPage.FolderCustomizationPage,
         WinoPage.MailFiltersPage, WinoPage.MailFilterEditorPage, WinoPage.AccountUnreadBadgePage,
         WinoPage.ApplicationThemeGalleryPage, WinoPage.ApplicationThemeEditorPage
     ];
+
+    // Pages being ported in their own partial files (MacPageRegistry.Settings.<Feature>.cs).
+    partial void RegisterCalendarSettingsPages();
+    partial void RegisterCategorySettingsPages();
+    partial void RegisterSmimeSettingsPages();
+    partial void RegisterBackupSettingsPages();
+    partial void RegisterWinoAccountPages();
 
     partial void RegisterSettingsPages()
     {
@@ -45,6 +50,12 @@ public sealed partial class MacPageRegistry
         Register<WinoIntelligencePageViewController>(WinoPage.WinoIntelligencePage, MacPageHost.SettingsWindow);
         Register<WinoIntelligenceManagementPageViewController>(WinoPage.WinoIntelligenceManagementPage, MacPageHost.SettingsWindow);
         Register<IntelligenceCoveragePageViewController>(WinoPage.IntelligenceCoveragePage, MacPageHost.SettingsWindow);
+
+        RegisterCalendarSettingsPages();
+        RegisterCategorySettingsPages();
+        RegisterSmimeSettingsPages();
+        RegisterBackupSettingsPages();
+        RegisterWinoAccountPages();
 
         // Pages without a native implementation yet show a clear placeholder inside the window.
         foreach (var page in DeferredSettingsPages)

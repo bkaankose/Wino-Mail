@@ -28,6 +28,7 @@ internal sealed class QuickEventPopover : NSPopover
     private readonly WinoSurfaceView _header;
     private readonly NSTextField _calendarName;
     private readonly NSTextField _accountName;
+    private readonly NSStackView _readOnlyNote;
     private bool _closedByUs;
 
     public QuickEventPopover(CalendarPageViewModel viewModel, IDispatcher dispatcher, Action<Exception> error)
@@ -71,9 +72,18 @@ internal sealed class QuickEventPopover : NSPopover
         more.Activated += (_, _) => { _closedByUs = true; Close(); _viewModel.GoToEventComposePageCommand.Execute(null); _viewModel.SelectedQuickEventDate = null; };
         var buttons = WinoLayout.HStack(8, WinoLayout.Spacer(), more, _save);
 
-        var form = WinoLayout.VStack(12, nameRow, timeRow, _range, locationRow, buttons);
+        // A read-only calendar cannot take the event (CanSaveQuickEvent is false); say why Save is off.
+        var readOnlyText = WinoStyle.Label($"{Translator.CalendarReadOnly_Title}. {Translator.CalendarReadOnly_Message}", WinoStyle.Caption, WinoStyle.SecondaryText, 0);
+        readOnlyText.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+        readOnlyText.PreferredMaxLayoutWidth = 290;
+        _readOnlyNote = WinoLayout.HStack(8, new WinoIconView(Wino.Core.Domain.Enums.WinoIconGlyph.Warning, 14, WinoStyle.Caution), readOnlyText);
+        _readOnlyNote.Alignment = NSLayoutAttribute.Top;
+        _readOnlyNote.Hidden = true;
+
+        var form = WinoLayout.VStack(12, _readOnlyNote, nameRow, timeRow, _range, locationRow, buttons);
+        form.DetachesHiddenViews = true;
         form.EdgeInsets = new NSEdgeInsets(12, 12, 12, 12);
-        foreach (var view in new NSView[] { nameRow, timeRow, locationRow, buttons })
+        foreach (var view in new NSView[] { _readOnlyNote, nameRow, timeRow, locationRow, buttons })
             view.WidthAnchor.ConstraintEqualTo(form.WidthAnchor, 1, -24).Active = true;
         _location.WidthAnchor.ConstraintGreaterThanOrEqualTo(200).Active = true;
 
@@ -123,6 +133,7 @@ internal sealed class QuickEventPopover : NSPopover
         _accountName.TextColor = text.ColorWithAlphaComponent((nfloat)0.85);
         _calendarName.StringValue = _viewModel.SelectedQuickEventAccountCalendarName ?? string.Empty;
         _calendarName.TextColor = text;
+        _readOnlyNote.Hidden = calendar?.IsReadOnly != true;
     }
 
     public void Present(CGRect anchor, NSView positioningView, NSRectEdge edge)

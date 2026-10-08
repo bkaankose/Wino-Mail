@@ -61,6 +61,12 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
     /// <summary>The mode currently on screen.</summary>
     public WinoApplicationMode? ActiveMode => _activeMode;
 
+    /// <summary>The mail shell client, available in every mode (sidebar context menus use it).</summary>
+    internal IMailShellClient? MailClient => _services.GetService<IMailShellClient>();
+
+    /// <summary>The application router.</summary>
+    internal AppKitNavigationService Navigation => _services.GetRequiredService<AppKitNavigationService>();
+
     public override void LoadView()
     {
         var pictures = _services.GetService<IPictureStorageService>();
@@ -69,7 +75,8 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
                 ? MailAccountIconInfoFactory.CreateProviderFallback(account.ProviderType, account.SpecialImapProvider)
                 : MailAccountIconInfoFactory.Create(account, pictures),
             () => ViewModel.PreferencesService.FirstDayOfWeek);
-        _sidebar = new ShellSidebarViewController(Dispatcher, ReportError, Select, SwitchMode, FixAccount, context);
+        var menus = new ShellSidebarMenuContext(MailClient, Navigation, Dispatcher, ReportError, FixAccountAsync);
+        _sidebar = new ShellSidebarViewController(Dispatcher, ReportError, Select, SwitchMode, FixAccount, context, menus);
         _sidebarItem = NSSplitViewItem.FromViewController(_sidebar);
         _sidebarItem.MinimumThickness = 220;
         _sidebarItem.MaximumThickness = 380;
@@ -355,15 +362,14 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
 
     private async void FixAccount(IMenuItem item)
     {
-        try
-        {
-            if (_provider is IMailShellClient mail && item is IAccountNavigationMenuItem { Account: { } account })
-                await mail.HandleAccountAttentionAsync(account);
-            else
-                await ViewModel.InvokeMenuItemAsync(item);
-        }
+        try { await FixAccountAsync(item); }
         catch (Exception exception) { ReportError(exception); }
     }
+
+    private Task FixAccountAsync(IMenuItem item)
+        => _provider is IMailShellClient mail && item is IAccountNavigationMenuItem { Account: { } account }
+            ? mail.HandleAccountAttentionAsync(account)
+            : ViewModel.InvokeMenuItemAsync(item);
 
     private async void Synchronize()
     {

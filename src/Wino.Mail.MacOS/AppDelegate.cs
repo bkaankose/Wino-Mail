@@ -15,7 +15,7 @@ using Wino.Presentation.AppKit;
 namespace Wino.Mail.MacOS;
 
 [Register("WinoMailAppDelegate")]
-public sealed class AppDelegate : NSApplicationDelegate, IRecipient<LanguageChanged>
+public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<LanguageChanged>
 {
     private const string ApplicationName = "Wino Mail";
     private readonly AppKitDispatcher _dispatcher = new();
@@ -27,8 +27,35 @@ public sealed class AppDelegate : NSApplicationDelegate, IRecipient<LanguageChan
     private bool _shellWindow;
     private bool _runtimeStarted;
 
+    /// <summary>The application services, once composition has finished.</summary>
+    internal IServiceProvider? Services => _services;
+
+    /// <summary>Whether the application runtime started; the *ServicesReady hooks have run.</summary>
+    internal bool RuntimeStarted => _runtimeStarted;
+
+    // Feature hooks, implemented in AppDelegate.<Feature>.cs partial files.
+
+    /// <summary>First thing in DidFinishLaunching, before any window exists (OS activation, notification delegate).</summary>
+    partial void ActivationLaunching();
+
+    /// <summary>On the startup task right after the runtime started; services are available.</summary>
+    partial void ActivationServicesReady();
+
+    /// <inheritdoc cref="ActivationServicesReady"/>
+    partial void NotificationsServicesReady();
+
+    /// <inheritdoc cref="ActivationServicesReady"/>
+    partial void DockServicesReady();
+
+    /// <summary>
+    /// At the start of quitting, while services are still alive. Assign <paramref name="stopping"/>
+    /// to have quitting wait for asynchronous cleanup.
+    /// </summary>
+    partial void NotificationsStopping(ref Task? stopping);
+
     public override void DidFinishLaunching(NSNotification notification)
     {
+        ActivationLaunching();
         NSApplication.SharedApplication.ActivationPolicy = NSApplicationActivationPolicy.Regular;
         // The menu bar exists before the translation service loads the user's language. Seed the
         // English source so the first menu shows text, then rebuild on every LanguageChanged
@@ -57,6 +84,9 @@ public sealed class AppDelegate : NSApplicationDelegate, IRecipient<LanguageChan
             await runtime.StartAsync();
             await _services.GetRequiredService<INewThemeService>().InitializeAsync();
             _runtimeStarted = true;
+            ActivationServicesReady();
+            NotificationsServicesReady();
+            DockServicesReady();
 #if DEBUG
             await _dispatcher.ExecuteOnUIThread(() => MacDebugBridge.Start(_services));
 #endif
@@ -126,6 +156,12 @@ public sealed class AppDelegate : NSApplicationDelegate, IRecipient<LanguageChan
             if (_startup != null) await _startup;
             if (_services != null)
             {
+                if (_runtimeStarted)
+                {
+                    Task? notificationsStopping = null;
+                    NotificationsStopping(ref notificationsStopping);
+                    if (notificationsStopping != null) await notificationsStopping;
+                }
                 await _services.GetRequiredService<AppKitNavigationService>().StopAsync();
                 if (_runtimeStarted) await _services.GetRequiredService<IApplicationRuntime>().StopAsync();
                 await _services.DisposeAsync();

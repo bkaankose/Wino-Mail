@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -33,6 +34,7 @@ using Wino.Mail.Controls.Core.IntelligenceHeader;
 using Wino.Mail.Controls.Core.IntelligenceTileBar;
 using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Intelligence;
 using Wino.Mail.ViewModels.Models;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Extensions;
@@ -52,16 +54,9 @@ namespace Wino.Views.Mail;
 public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     IPopoutClient,
     IReentryTarget,
-    IRecipient<ApplicationThemeChanged>,
-    IRecipient<MailIntelligenceJobChanged>,
-    IRecipient<WinoIntelligenceAccessChanged>,
-    IRecipient<WinoIntelligenceEntitlementChanged>,
-    IRecipient<IntelligenceMetadataChanged>,
-    IRecipient<IntelligenceVisibilityChanged>
+    IRecipient<ApplicationThemeChanged>
 {
     private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>()!;
-    private readonly IMailDialogService _dialogService = App.Current.Services.GetService<IMailDialogService>()!;
-    private readonly IMailContentProjector _contentProjector = App.Current.Services.GetRequiredService<IMailContentProjector>();
 
     // Selections can overlap: one message's render may still be awaiting its intelligence context
     // when the next arrives. Only the newest render is allowed to touch reader state.
@@ -159,10 +154,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         Interlocked.Increment(ref _activeRenderCount);
 
         _currentRenderedHtml = htmlBody ?? string.Empty;
-        _translationProjection = _contentProjector.Project(_currentRenderedHtml, MailContentProjectionProfile.Translation);
-        _inferenceProjection = _contentProjector.Project(_currentRenderedHtml, MailContentProjectionProfile.Inference).Projection;
-        _translationMap = null;
-        _isShowingTranslation = false;
+        _intelligence.SetRenderedContent(_currentRenderedHtml);
 
         try
         {
@@ -190,9 +182,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     private async Task RenderActiveContentAsync()
     {
-        var html = _isShowingTranslation && _translationProjection is not null && _translationMap is not null
-            ? _translationProjection.ApplyTranslations(_translationMap)
-            : _currentRenderedHtml;
+        var html = _intelligence.ResolveActiveHtml(_currentRenderedHtml);
         var renderMode = IsReaderViewEnabled
             ? HtmlMailRenderMode.Readability
             : HtmlMailRenderMode.Original;
@@ -268,10 +258,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private void ResetReaderContentState()
     {
         _currentRenderedHtml = string.Empty;
-        _translationProjection = null;
-        _inferenceProjection = null;
-        _translationMap = null;
-        _isShowingTranslation = false;
+        _intelligence.ResetContent();
     }
 
     public async Task PrepareForIdleAsync()
@@ -279,6 +266,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         // Clearing the renderer means this item is no longer being shown. The page stays alive for
         // a short grace period, so a re-selection must not be suppressed as an already-loaded item.
         _currentMailItem = null;
+        _intelligence.ForgetMailItem();
 
         await ClearRenderedContentAsync();
         await _readerSession.EnterIdleAsync();
@@ -299,7 +287,8 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         ViewModel.PrintPresenter = null;
         ViewModel.RenderHtmlAsyncFunc = null;
         ViewModel.ClearRenderedHtmlAsyncFunc = null;
-        ClearIntelligenceContext();
+        _intelligence.ClearContext();
+        _intelligence.ForgetMailItem();
         _currentMailItem = null;
         _currentRenderedHtml = string.Empty;
         RendererCommandBar.PopOutClicked -= RendererCommandBar_PopOutClicked;
@@ -342,11 +331,11 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             // Abandons a render that is still in flight for the previous message.
             Interlocked.Increment(ref _renderVersion);
 
-            ClearIntelligenceContext();
+            _intelligence.ClearContext();
             ResetReaderContentState();
 
             _currentMailItem = mailItemViewModel;
-            ShowIntelligenceHeaderImmediately(_currentMailItem);
+            _intelligence.BeginMailItem(_currentMailItem);
 
             // Deliberately no _readerSession.ClearAsync(). The previous body stays loaded behind the
             // opaque loading overlay instead of blanking the pane, which is what removes the flash.
@@ -367,9 +356,8 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         ViewModel.PrintPresenter = CreatePrintPresenter();
-        ClearIntelligenceContext();
         _currentMailItem = e.Parameter as MailItemViewModel;
-        ShowIntelligenceHeaderImmediately(_currentMailItem);
+        _intelligence.BeginMailItem(_currentMailItem);
         ViewModel.RenderHtmlAsyncFunc = RenderInternalAsync;
         ViewModel.ClearRenderedHtmlAsyncFunc = ClearRenderedContentAsync;
         RendererCommandBar.PopOutClicked -= RendererCommandBar_PopOutClicked;
@@ -497,7 +485,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         base.RegisterRecipients();
 
         WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
-        RegisterWinoIntelligenceRecipients();
+        _intelligence.Attach();
     }
 
     protected override void UnregisterRecipients()
@@ -505,7 +493,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         base.UnregisterRecipients();
 
         WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
-        UnregisterWinoIntelligenceRecipients();
+        _intelligence.Detach();
     }
 
     private void EscapeInvoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender, Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)
@@ -515,511 +503,153 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     #region Wino Intelligence
 
-    private readonly INavigationService _navigationService = App.Current.Services.GetRequiredService<INavigationService>();
-    private readonly IWinoIntelligenceCoordinator _intelligenceCoordinator = App.Current.Services.GetRequiredService<IWinoIntelligenceCoordinator>();
-    private readonly IMailService _mailService = App.Current.Services.GetRequiredService<IMailService>();
-    private readonly IClipboardService _clipboardService = App.Current.Services.GetRequiredService<IClipboardService>();
-    private readonly HashSet<Guid> _liveFeatureRequestIds = [];
-
-    private MailContentProjectionResult? _translationProjection;
-    private MailContentProjection? _inferenceProjection;
-    private IReadOnlyDictionary<string, string>? _translationMap;
-    private bool _isShowingTranslation;
+    // The shared presenter owns the intelligence context, snapshot and requests. This page copies
+    // its state onto the header control and routes the header's events back to it.
+    private WinoIntelligenceHeaderPresenter _intelligence = null!;
     private MailItemViewModel? _currentMailItem;
-    private WinoIntelligenceContext? _intelligenceContext;
-    private WinoIntelligenceSnapshot? _intelligenceSnapshot;
-    private CancellationTokenSource? _intelligenceContextCancellation;
-    private Guid? _translationRequestId;
 
     private void InitializeWinoIntelligenceHeader()
     {
-        IntelligenceHeader.TranslationLanguages = new[]
-        {
-            new WinoIntelligenceLanguageOption(string.Empty, Translator.WinoIntelligence_DetectLanguage),
-        }.Concat(AiActionCatalog.GetTranslateLanguageOptions()
-            .Select(x => new WinoIntelligenceLanguageOption(x.Code, x.Label))).ToArray();
-        IntelligenceHeader.SelectedSourceLanguage = string.Empty;
-        IntelligenceHeader.SelectedTargetLanguage = _preferencesService.AiDefaultTranslationLanguageCode;
-    }
+        _intelligence = ActivatorUtilities.CreateInstance<WinoIntelligenceHeaderPresenter>(
+            App.Current.Services, new PageQueueDispatcher(this));
 
-    private void RegisterWinoIntelligenceRecipients()
-    {
-        WeakReferenceMessenger.Default.Register<MailIntelligenceJobChanged>(this);
-        WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this);
-        WeakReferenceMessenger.Default.Register<WinoIntelligenceEntitlementChanged>(this);
-        WeakReferenceMessenger.Default.Register<IntelligenceMetadataChanged>(this);
-        WeakReferenceMessenger.Default.Register<IntelligenceVisibilityChanged>(this);
-    }
+        IntelligenceHeader.TranslationLanguages = _intelligence.TranslationLanguages;
+        IntelligenceHeader.SelectedSourceLanguage = _intelligence.SelectedSourceLanguage;
+        IntelligenceHeader.SelectedTargetLanguage = _intelligence.SelectedTargetLanguage;
 
-    private void UnregisterWinoIntelligenceRecipients()
-    {
-        WeakReferenceMessenger.Default.Unregister<MailIntelligenceJobChanged>(this);
-        WeakReferenceMessenger.Default.Unregister<WinoIntelligenceAccessChanged>(this);
-        WeakReferenceMessenger.Default.Unregister<WinoIntelligenceEntitlementChanged>(this);
-        WeakReferenceMessenger.Default.Unregister<IntelligenceMetadataChanged>(this);
-        WeakReferenceMessenger.Default.Unregister<IntelligenceVisibilityChanged>(this);
-    }
-
-    private async Task LoadIntelligenceContextAsync()
-    {
-        var mailCopy = _currentMailItem?.MailCopy;
-        var account = mailCopy?.AssignedAccount;
-        if (mailCopy is null || account is null || mailCopy.IsDraft || string.IsNullOrWhiteSpace(_currentRenderedHtml))
-        {
-            IntelligenceHeader.Visibility = Visibility.Collapsed;
-            return;
-        }
-
-        ShowIntelligenceHeaderImmediately(_currentMailItem);
-
-        var contentKey = $"{account.Id:N}:{mailCopy.UniqueId:N}";
-        if (_intelligenceContext is null || !string.Equals(_intelligenceContext.ContentKey, contentKey, StringComparison.Ordinal))
-        {
-            ClearIntelligenceContext();
-            IntelligenceHeader.ContentKey = contentKey;
-            _intelligenceContextCancellation = new CancellationTokenSource();
-            _intelligenceContext = new WinoIntelligenceContext(
-                contentKey,
-                account.Id,
-                mailCopy.UniqueId,
-                mailCopy.FileId,
-                mailCopy.Id,
-                account.Address,
-                account.ProviderType,
-                account.Preferences?.IsSemanticIndexingEnabled == true,
-                ViewModel.Subject ?? string.Empty,
-                ViewModel.FromAddress ?? string.Empty,
-                ToUtc(ViewModel.CreationDate),
-                _currentRenderedHtml,
-                _inferenceProjection,
-                _translationProjection?.Projection,
-                mailCopy.IntelligenceMetadata);
-        }
-        else
-        {
-            // Metadata can arrive after the reader context was created. Keep the same cancellation
-            // scope, but refresh the immutable context so the snapshot sees imported artifacts.
-            _intelligenceContext = _intelligenceContext with
-            {
-                IsSemanticIndexingEnabled = account.Preferences?.IsSemanticIndexingEnabled == true,
-                Html = _currentRenderedHtml,
-                InferenceProjection = _inferenceProjection,
-                TranslationProjection = _translationProjection?.Projection,
-                IntelligenceMetadata = mailCopy.IntelligenceMetadata,
-            };
-        }
-
-        await RefreshIntelligenceSnapshotAsync();
-    }
-
-    private void ShowIntelligenceHeaderImmediately(MailItemViewModel mailItem)
-    {
-        // Eligibility is resolved asynchronously. Start collapsed so ineligible accounts never
-        // see an Intelligence header flash while the shared access snapshot is loading.
-        var canLoad = mailItem?.MailCopy is { IsDraft: false };
-        IntelligenceHeader.Visibility = Visibility.Collapsed;
-        IntelligenceHeader.IntelligenceTiles = mailItem?.IntelligenceTiles;
-        if (!canLoad)
-            return;
-
-        if (mailItem.MailCopy.IntelligenceMetadata is { } metadata)
-            ApplyPassiveIntelligenceMetadata(metadata);
-        else
-            ClearPassiveIntelligenceMetadata();
-
-        IntelligenceHeader.IsSummaryAvailable = false;
-        IntelligenceHeader.IsTranslateAvailable = false;
-        IntelligenceHeader.IsProcessingAvailable = false;
+        // Suggested replies, find-similar, deadlines and reply status are no longer produced.
         IntelligenceHeader.IsSuggestedRepliesAvailable = false;
         IntelligenceHeader.IsFindSimilarMailAvailable = false;
-        IntelligenceHeader.ProcessingState = WinoIntelligenceProcessingState.NotProcessed;
-    }
-
-    private async Task RefreshIntelligenceSnapshotAsync()
-    {
-        var context = _intelligenceContext;
-        var cancellation = _intelligenceContextCancellation;
-        if (context is null || cancellation is null || cancellation.IsCancellationRequested)
-            return;
-        try
-        {
-            var snapshot = await _intelligenceCoordinator.GetSnapshotAsync(context, cancellation.Token);
-            if (cancellation.IsCancellationRequested || !ReferenceEquals(context, _intelligenceContext))
-                return;
-            _intelligenceSnapshot = snapshot;
-            ApplyIntelligenceSnapshot(snapshot);
-        }
-        catch (OperationCanceledException)
-        {
-        }
-    }
-
-    private void ApplyIntelligenceSnapshot(WinoIntelligenceSnapshot snapshot)
-    {
-        IntelligenceHeader.IsSummaryAvailable = snapshot.IsSummaryAvailable;
-        IntelligenceHeader.IsTranslateAvailable = snapshot.IsTranslateAvailable;
-        IntelligenceHeader.IsProcessingAvailable = snapshot.IsProcessingAvailable;
-        IntelligenceHeader.IsSuggestedRepliesAvailable = false;
-        IntelligenceHeader.IsFindSimilarMailAvailable = false;
-        IntelligenceHeader.ProcessingState = MapProcessingState(snapshot.ProcessingState);
-        if (_currentMailItem?.MailCopy.IntelligenceMetadata is { } metadata)
-            ApplyPassiveIntelligenceMetadata(metadata);
-        else
-        {
-            var excludedIndicators = _currentMailItem?.MailCopy?.AssignedAccount?.Preferences?
-                .ExcludedIntelligenceIndicatorIds;
-
-            IntelligenceHeader.NeedsReply = false;
-            IntelligenceHeader.NeedsReplyDetailText = string.Empty;
-            IntelligenceHeader.BriefingFactText = string.Empty;
-            IntelligenceHeader.DeadlineText = string.Empty;
-            IntelligenceHeader.DeadlineDetailText = string.Empty;
-            IntelligenceHeader.IsAddToCalendarAvailable = false;
-        }
-        if (!string.IsNullOrWhiteSpace(snapshot.CachedSummary))
-            IntelligenceHeader.SummaryText = snapshot.CachedSummary;
-        IntelligenceHeader.IntelligenceTiles = _currentMailItem?.IntelligenceTiles;
-        IntelligenceHeader.Visibility = snapshot.IsVisible ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    private void ApplyPassiveIntelligenceMetadata(MailIntelligenceMetadata metadata)
-    {
-        var excludedIndicators = _currentMailItem?.MailCopy?.AssignedAccount?.Preferences?
-            .ExcludedIntelligenceIndicatorIds;
-        var showBriefing = IntelligenceVisibilityPolicy.IsVisible(excludedIndicators, IntelligenceFactKind.Briefing);
-
         IntelligenceHeader.NeedsReply = false;
         IntelligenceHeader.NeedsReplyDetailText = string.Empty;
-        IntelligenceHeader.BriefingFactText = showBriefing ? metadata.Headline : string.Empty;
-        IntelligenceHeader.DeadlineText = string.Empty;
-        IntelligenceHeader.DeadlineDetailText = string.Empty;
         IntelligenceHeader.IsAddToCalendarAvailable = false;
-        IntelligenceHeader.VerificationCode = string.Empty;
+
+        _intelligence.PropertyChanged += Intelligence_PropertyChanged;
+        _intelligence.RerenderRequested += RenderActiveContentAsync;
+        _intelligence.SummaryCompleted += (requestId, summary) => IntelligenceHeader.CompleteSummary(requestId, summary);
+        _intelligence.SummaryFailed += requestId => IntelligenceHeader.FailRequest(requestId);
     }
 
-    private void ClearPassiveIntelligenceMetadata()
+    private Task LoadIntelligenceContextAsync()
+        => _intelligence.OnHtmlRendered(_currentRenderedHtml, ViewModel.Subject, ViewModel.FromAddress, ViewModel.CreationDate);
+
+    private void Intelligence_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        IntelligenceHeader.NeedsReply = false;
-        IntelligenceHeader.NeedsReplyDetailText = string.Empty;
-        IntelligenceHeader.BriefingFactText = string.Empty;
-        IntelligenceHeader.DeadlineText = string.Empty;
-        IntelligenceHeader.DeadlineDetailText = string.Empty;
-        IntelligenceHeader.IsAddToCalendarAvailable = false;
-        IntelligenceHeader.VerificationCode = string.Empty;
+        switch (e.PropertyName)
+        {
+            case nameof(WinoIntelligenceHeaderPresenter.IsVisible):
+                IntelligenceHeader.Visibility = _intelligence.IsVisible ? Visibility.Visible : Visibility.Collapsed;
+                break;
+            case nameof(WinoIntelligenceHeaderPresenter.ContentKey):
+                IntelligenceHeader.ContentKey = _intelligence.ContentKey;
+                break;
+            case nameof(WinoIntelligenceHeaderPresenter.ProcessingState):
+                IntelligenceHeader.ProcessingState = _intelligence.ProcessingState;
+                break;
+            case nameof(WinoIntelligenceHeaderPresenter.IsSummaryAvailable):
+                IntelligenceHeader.IsSummaryAvailable = _intelligence.IsSummaryAvailable;
+                break;
+            case nameof(WinoIntelligenceHeaderPresenter.IsTranslateAvailable):
+                IntelligenceHeader.IsTranslateAvailable = _intelligence.IsTranslateAvailable;
+                break;
+            case nameof(WinoIntelligenceHeaderPresenter.IsProcessingAvailable):
+                IntelligenceHeader.IsProcessingAvailable = _intelligence.IsProcessingAvailable;
+                break;
+            case nameof(WinoIntelligenceHeaderPresenter.BriefingFactText):
+                IntelligenceHeader.BriefingFactText = _intelligence.BriefingFactText;
+                break;
+            case nameof(WinoIntelligenceHeaderPresenter.DeadlineText):
+                IntelligenceHeader.DeadlineText = _intelligence.DeadlineText;
+                break;
+            case nameof(WinoIntelligenceHeaderPresenter.DeadlineDetailText):
+                IntelligenceHeader.DeadlineDetailText = _intelligence.DeadlineDetailText;
+                break;
+            case nameof(WinoIntelligenceHeaderPresenter.VerificationCode):
+                IntelligenceHeader.VerificationCode = _intelligence.VerificationCode;
+                break;
+            case nameof(WinoIntelligenceHeaderPresenter.SummaryText):
+                IntelligenceHeader.SummaryText = _intelligence.SummaryText;
+                break;
+            case nameof(WinoIntelligenceHeaderPresenter.IntelligenceTiles):
+                IntelligenceHeader.IntelligenceTiles = _intelligence.IntelligenceTiles;
+                break;
+            case nameof(WinoIntelligenceHeaderPresenter.SelectedSourceLanguage):
+                IntelligenceHeader.SelectedSourceLanguage = _intelligence.SelectedSourceLanguage;
+                break;
+            case nameof(WinoIntelligenceHeaderPresenter.SelectedTargetLanguage):
+                IntelligenceHeader.SelectedTargetLanguage = _intelligence.SelectedTargetLanguage;
+                break;
+            case nameof(WinoIntelligenceHeaderPresenter.IsTranslationBusy):
+                IntelligenceHeader.IsTranslationBusy = _intelligence.IsTranslationBusy;
+                break;
+            case nameof(WinoIntelligenceHeaderPresenter.HasTranslationResult):
+                IntelligenceHeader.HasTranslationResult = _intelligence.HasTranslationResult;
+                break;
+            case nameof(WinoIntelligenceHeaderPresenter.IsTranslationApplied):
+                IntelligenceHeader.IsTranslationApplied = _intelligence.IsTranslationApplied;
+                break;
+            case nameof(WinoIntelligenceHeaderPresenter.TranslationStatusText):
+                IntelligenceHeader.TranslationStatusText = _intelligence.TranslationStatusText;
+                break;
+        }
     }
 
     private async void IntelligenceHeader_CopyCodeRequested(object? sender, EventArgs e)
-    {
-        if (!string.IsNullOrWhiteSpace(IntelligenceHeader.VerificationCode))
-            (await _clipboardService.CopyTextAsync(IntelligenceHeader.VerificationCode)).ThrowIfNotSucceeded();
-    }
-
-    private void ClearIntelligenceContext()
-    {
-        if (_translationRequestId is { } translationRequestId)
-            _intelligenceCoordinator.CancelRequest(translationRequestId);
-        _translationRequestId = null;
-        IntelligenceHeader.IsTranslationBusy = false;
-        IntelligenceHeader.HasTranslationResult = false;
-        IntelligenceHeader.IsTranslationApplied = false;
-        IntelligenceHeader.TranslationStatusText = string.Empty;
-        _intelligenceContextCancellation?.Cancel();
-        _intelligenceContextCancellation?.Dispose();
-        _intelligenceContextCancellation = null;
-        if (_intelligenceContext is { } context)
-            _intelligenceCoordinator.CancelContext(context.ContentKey);
-        foreach (var requestId in _liveFeatureRequestIds.ToArray())
-        {
-            _intelligenceCoordinator.CancelRequest(requestId);
-            IntelligenceHeader.FailRequest(requestId);
-        }
-        _liveFeatureRequestIds.Clear();
-        _intelligenceContext = null;
-        _intelligenceSnapshot = null;
-        IntelligenceHeader.Visibility = Visibility.Collapsed;
-        IntelligenceHeader.VerificationCode = string.Empty;
-    }
+        => await _intelligence.CopyVerificationCodeAsync();
 
     private async void IntelligenceHeader_FeatureRequested(object? sender, WinoIntelligenceRequestEventArgs e)
     {
-        var context = _intelligenceContext;
-        if (context is null)
-        {
-            IntelligenceHeader.FailRequest(e.RequestId);
-            return;
-        }
-        _liveFeatureRequestIds.Add(e.RequestId);
-        var result = e.Feature == WinoIntelligenceFeature.Summary
-            ? await _intelligenceCoordinator.SummarizeAsync(context, e.RequestId)
-            : null;
         // Suggested replies and find-similar are no longer offered; the header never
         // raises them, and an unexpected request fails rather than hanging.
-        if (e.Feature is WinoIntelligenceFeature.SuggestedReplies or WinoIntelligenceFeature.FindSimilarMail)
+        if (e.Feature != WinoIntelligenceFeature.Summary)
         {
-            _liveFeatureRequestIds.Remove(e.RequestId);
             IntelligenceHeader.FailRequest(e.RequestId);
             return;
         }
 
-        _liveFeatureRequestIds.Remove(e.RequestId);
-        if (result is null || !IsCurrent(result.ContentKey) || result.IsCanceled)
-            return;
-        if (!result.IsSuccess)
-        {
-            ReportFeatureFailure(e.RequestId, result.Error);
-            return;
-        }
-        IntelligenceHeader.CompleteSummary(e.RequestId, result.Value ?? string.Empty);
+        await _intelligence.RunSummaryAsync(e.RequestId);
     }
 
     private void IntelligenceHeader_FeatureCancelRequested(object? sender, WinoIntelligenceCancelRequestedEventArgs e)
-    {
-        _liveFeatureRequestIds.Remove(e.RequestId);
-        _intelligenceCoordinator.CancelRequest(e.RequestId);
-    }
+        => _intelligence.CancelSummaryRequest(e.RequestId);
 
     private async void IntelligenceHeader_ProcessRequested(object? sender, EventArgs e)
-    {
-        var context = _intelligenceContext;
-        if (context is null)
-            return;
-        try
-        {
-            IntelligenceHeader.ProcessingState = WinoIntelligenceProcessingState.Processing;
-            await _intelligenceCoordinator.RequestProcessingAsync(context);
-            if (!IsCurrent(context.ContentKey))
-                return;
-            IntelligenceHeader.ProcessingState = WinoIntelligenceProcessingState.Processed;
-            await RefreshIntelligenceSnapshotAsync();
-        }
-        catch (Exception exception)
-        {
-            if (!IsCurrent(context.ContentKey))
-                return;
-            IntelligenceHeader.ProcessingState = WinoIntelligenceProcessingState.Failed;
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, WinoAccountApiErrorTranslator.Translate(exception.Message), InfoBarMessageType.Error);
-        }
-    }
+        => await _intelligence.RequestProcessingAsync();
 
     private async void IntelligenceHeader_ActionInvoked(object? sender, WinoIntelligenceActionEventArgs e)
     {
-        var context = _intelligenceContext;
-        if (context is null)
-            return;
-        try
+        switch (e.Action)
         {
-            switch (e.Action)
-            {
-                case WinoIntelligenceAction.Translate:
-                    await TranslateCurrentMessageAsync(context);
-                    break;
-                case WinoIntelligenceAction.CancelTranslation:
-                    CancelTranslation();
-                    break;
-                case WinoIntelligenceAction.AddDeadlineToCalendar:
-                    // Deadlines are no longer produced, so the header never offers this.
-                    break;
-            }
-        }
-        catch (Exception exception)
-        {
-            if (IsCurrent(context.ContentKey))
-                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, WinoAccountApiErrorTranslator.Translate(exception.Message), InfoBarMessageType.Error);
+            case WinoIntelligenceAction.Translate:
+                // The header owns the language pickers.
+                _intelligence.SelectedSourceLanguage = IntelligenceHeader.SelectedSourceLanguage;
+                _intelligence.SelectedTargetLanguage = IntelligenceHeader.SelectedTargetLanguage;
+                await _intelligence.TranslateAsync();
+                break;
+            case WinoIntelligenceAction.CancelTranslation:
+                _intelligence.CancelTranslation();
+                break;
+            case WinoIntelligenceAction.AddDeadlineToCalendar:
+                // Deadlines are no longer produced, so the header never offers this.
+                break;
         }
     }
-
-
-    private async Task TranslateCurrentMessageAsync(WinoIntelligenceContext context)
-    {
-        if (_isShowingTranslation)
-        {
-            _isShowingTranslation = false;
-            IntelligenceHeader.IsTranslationApplied = false;
-            await RenderActiveContentAsync();
-            return;
-        }
-
-        if (_translationMap is not null)
-        {
-            _isShowingTranslation = true;
-            IntelligenceHeader.IsTranslationApplied = true;
-            await RenderActiveContentAsync();
-            return;
-        }
-
-        var requestId = Guid.NewGuid();
-        _translationRequestId = requestId;
-        IntelligenceHeader.IsTranslationBusy = true;
-        IntelligenceHeader.TranslationStatusText = Translator.WinoIntelligence_Translating;
-        var sourceLanguage = string.IsNullOrWhiteSpace(IntelligenceHeader.SelectedSourceLanguage)
-            ? null
-            : IntelligenceHeader.SelectedSourceLanguage;
-        var targetLanguage = IntelligenceHeader.SelectedTargetLanguage;
-        _preferencesService.AiDefaultTranslationLanguageCode = targetLanguage;
-        WinoIntelligenceOperationResult<MailTranslationResult> result;
-        try
-        {
-            result = await _intelligenceCoordinator.TranslateAsync(
-                context,
-                requestId,
-                sourceLanguage,
-                targetLanguage);
-        }
-        finally
-        {
-            if (_translationRequestId == requestId)
-            {
-                _translationRequestId = null;
-                IntelligenceHeader.IsTranslationBusy = false;
-            }
-        }
-        if (!IsCurrent(result.ContentKey) || result.IsCanceled)
-            return;
-        if (!result.IsSuccess)
-            throw new InvalidOperationException(result.Error);
-        if (result.Value is null)
-            throw new InvalidOperationException("Translation response was empty.");
-        _translationMap = result.Value.Translations.ToDictionary(x => x.Id, x => x.Text, StringComparer.Ordinal);
-        _isShowingTranslation = true;
-        IntelligenceHeader.HasTranslationResult = true;
-        IntelligenceHeader.IsTranslationApplied = true;
-        IntelligenceHeader.TranslationStatusText = $"{result.Value.DetectedSourceLanguage} → {targetLanguage}";
-        await RenderActiveContentAsync();
-    }
-
-    private void CancelTranslation()
-    {
-        if (_translationRequestId is not { } requestId)
-            return;
-        _intelligenceCoordinator.CancelRequest(requestId);
-        _translationRequestId = null;
-        IntelligenceHeader.IsTranslationBusy = false;
-        IntelligenceHeader.TranslationStatusText = Translator.WinoIntelligence_TranslationCanceled;
-    }
-
-    private void ReportFeatureFailure(Guid requestId, string? error)
-    {
-        if (IntelligenceHeader.FailRequest(requestId))
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, error ?? Translator.WinoIntelligence_ActionFailed, InfoBarMessageType.Error);
-    }
-
-    private bool IsCurrent(string contentKey)
-        => _intelligenceContext is { } context && string.Equals(context.ContentKey, contentKey, StringComparison.Ordinal);
-
-    private static WinoIntelligenceProcessingState MapProcessingState(MailMessageIntelligenceState state) => state switch
-    {
-        MailMessageIntelligenceState.NotProcessed => WinoIntelligenceProcessingState.NotProcessed,
-        MailMessageIntelligenceState.Queued => WinoIntelligenceProcessingState.Queued,
-        MailMessageIntelligenceState.Processing => WinoIntelligenceProcessingState.Processing,
-        MailMessageIntelligenceState.Processed => WinoIntelligenceProcessingState.Processed,
-        MailMessageIntelligenceState.Failed => WinoIntelligenceProcessingState.Failed,
-        _ => WinoIntelligenceProcessingState.Unavailable,
-    };
-
-    private static string FormatInitials(string displayName)
-        => string.Concat((displayName ?? string.Empty)
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-            .Take(2)
-            .Select(part => char.ToUpper(part[0], CultureInfo.CurrentCulture)));
-
-    private static DateTimeOffset ToUtc(DateTime value) => value.Kind switch
-    {
-        DateTimeKind.Utc => new DateTimeOffset(value),
-        DateTimeKind.Local => new DateTimeOffset(value.ToUniversalTime()),
-        _ => new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)),
-    };
-
-    void IRecipient<MailIntelligenceJobChanged>.Receive(MailIntelligenceJobChanged message)
-    {
-        if (_intelligenceContext?.LocalAccountId != message.AccountId)
-            return;
-
-        DispatcherQueue.TryEnqueue(async () => await RefreshIntelligenceSnapshotAsync());
-    }
-
-    void IRecipient<WinoIntelligenceAccessChanged>.Receive(WinoIntelligenceAccessChanged message)
-    {
-        _intelligenceCoordinator.InvalidateAccess();
-        DispatcherQueue.TryEnqueue(async () => await RefreshIntelligenceSnapshotAsync());
-    }
-
-    void IRecipient<WinoIntelligenceEntitlementChanged>.Receive(WinoIntelligenceEntitlementChanged message)
-    {
-        DispatcherQueue.TryEnqueue(async () =>
-        {
-            if (!message.Entitlement.CanAccessSurfaces)
-            {
-                _intelligenceCoordinator.CancelContext(_intelligenceContext?.ContentKey ?? string.Empty);
-                IntelligenceHeader.Visibility = Visibility.Collapsed;
-                return;
-            }
-
-            await RefreshIntelligenceSnapshotAsync();
-        });
-    }
-
-    void IRecipient<IntelligenceMetadataChanged>.Receive(IntelligenceMetadataChanged message)
-    {
-        var mail = _currentMailItem?.MailCopy;
-        if (mail?.AssignedAccount is null)
-            return;
-
-        var remoteId = RemoteMessageIdentity.TryCreate(mail);
-        var matches = message.Scope == IntelligenceMetadataChangeScope.DatabaseReset ||
-            (message.LocalAccountId == mail.AssignedAccount.Id &&
-             (message.Scope == IntelligenceMetadataChangeScope.MailboxReset ||
-              (remoteId is not null && message.RemoteMessageIds.Contains(remoteId))));
-        if (matches)
-            DispatcherQueue.TryEnqueue(async () => await RefreshCurrentIntelligenceMetadataAsync(message.Scope));
-    }
-
-    void IRecipient<IntelligenceVisibilityChanged>.Receive(IntelligenceVisibilityChanged message)
-    {
-        var mailItem = _currentMailItem;
-        if (mailItem is null || mailItem.MailCopy?.AssignedAccount?.Id != message.LocalAccountId)
-            return;
-
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            mailItem.ApplyIntelligenceVisibility(message.ExcludedIndicatorIds);
-            if (!ReferenceEquals(_currentMailItem, mailItem))
-                return;
-
-            IntelligenceHeader.IntelligenceTiles = mailItem.IntelligenceTiles;
-            if (mailItem.MailCopy.IntelligenceMetadata is { } metadata)
-                ApplyPassiveIntelligenceMetadata(metadata);
-            else
-                IntelligenceHeader.IntelligenceTiles = mailItem.IntelligenceTiles;
-        });
-    }
-
 
     public override void OnLanguageChanged()
     {
         base.OnLanguageChanged();
 
-        DispatcherQueue.TryEnqueue(async () =>
-        {
-            _currentMailItem?.RefreshIntelligenceTiles();
-            IntelligenceHeader.IntelligenceTiles = _currentMailItem?.IntelligenceTiles;
-            await RefreshIntelligenceSnapshotAsync();
-        });
+        _intelligence.OnLanguageChanged();
     }
 
-    private async Task RefreshCurrentIntelligenceMetadataAsync(IntelligenceMetadataChangeScope scope)
+    /// <summary>Queues presenter callbacks on this page's thread, like DispatcherQueue.TryEnqueue.</summary>
+    private sealed class PageQueueDispatcher(MailRenderingPage page) : IDispatcher
     {
-        var mailItem = _currentMailItem;
-        if (mailItem?.MailCopy is null)
-            return;
-
-        if (scope == IntelligenceMetadataChangeScope.Messages)
-            await _mailService.HydrateIntelligenceMetadataAsync(new[] { mailItem.MailCopy });
-        else
-            mailItem.MailCopy.IntelligenceMetadata = null;
-
-        mailItem.UpdateFrom(mailItem.MailCopy, MailCopyChangeFlags.IntelligenceMetadata);
-        ShowIntelligenceHeaderImmediately(mailItem);
-        await LoadIntelligenceContextAsync();
+        public Task ExecuteOnUIThread(Action action)
+        {
+            page.DispatcherQueue.TryEnqueue(() => action());
+            return Task.CompletedTask;
+        }
     }
 
     #endregion

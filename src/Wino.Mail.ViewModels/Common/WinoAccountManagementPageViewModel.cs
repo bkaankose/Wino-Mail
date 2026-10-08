@@ -543,12 +543,21 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         }
 
         // Unlimited Accounts is still sold in the Microsoft Store, so the user picks the channel first.
+        // App Store builds show the same choice with the Apple channel marked as coming soon.
         if (addOn.ProductType == WinoAddOnProductType.UNLIMITED_ACCOUNTS &&
-            _platformCapabilities.MicrosoftStore && _storeService != null)
+            ((_platformCapabilities.MicrosoftStore && _storeService != null) || _platformCapabilities.AppleAppStore))
         {
             var channel = await _dialogService.ShowUnlimitedAccountsPurchaseChannelDialogAsync();
 
-            if (channel == UnlimitedAccountsPurchaseChannel.MicrosoftStore)
+            if (channel == UnlimitedAccountsPurchaseChannel.AppleAppStore)
+            {
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Info,
+                                              Translator.UnlimitedAccountsPurchaseDialog_AppleAppStoreComingSoon,
+                                              InfoBarMessageType.Information);
+                return;
+            }
+
+            if (channel == UnlimitedAccountsPurchaseChannel.MicrosoftStore && _storeService != null)
             {
                 if (await UnlimitedAccountsStorePurchase.PurchaseAsync(_storeService, _dialogService, _logger, _platformCapabilities).ConfigureAwait(false))
                 {

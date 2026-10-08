@@ -117,13 +117,22 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     [RelayCommand]
     private async Task PurchaseUnlimitedAccountAsync()
     {
-        if (!PlatformCapabilities.MicrosoftStore)
+        if (!PlatformCapabilities.MicrosoftStore && !PlatformCapabilities.AppleAppStore)
         {
             await PurchaseUnlimitedAccountWithWinoAccountAsync();
             return;
         }
 
         var channel = await MailDialogService.ShowUnlimitedAccountsPurchaseChannelDialogAsync();
+
+        // In-app purchases through the Apple App Store are not offered yet.
+        if (channel == UnlimitedAccountsPurchaseChannel.AppleAppStore)
+        {
+            DialogService.InfoBarMessage(Translator.GeneralTitle_Info,
+                                         Translator.UnlimitedAccountsPurchaseDialog_AppleAppStoreComingSoon,
+                                         InfoBarMessageType.Information);
+            return;
+        }
 
         if (channel == UnlimitedAccountsPurchaseChannel.WinoAccount)
         {

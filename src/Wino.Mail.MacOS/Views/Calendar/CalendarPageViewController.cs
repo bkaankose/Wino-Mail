@@ -210,7 +210,7 @@ public sealed class CalendarPageViewController : WinoViewController<CalendarPage
 
     private static NSMenuItem MenuItem(CalendarContextMenuItem entry, CalendarItemViewModel item)
     {
-        var menuItem = new NSMenuItem(CalendarContextMenuLabels.Label(entry.Action)) { Enabled = entry.IsEnabled };
+        var menuItem = new NSMenuItem(CalendarContextMenuLabels.Label(entry.Action)) { Enabled = CalendarContextMenuLabels.IsEnabled(entry, item) };
         var glyph = CalendarContextMenuLabels.Glyph(entry.Action);
         if (glyph != WinoIconGlyph.None) menuItem.Image = WinoIcons.Image(glyph, 14);
         if (entry.HasChildren)
@@ -340,7 +340,13 @@ public sealed class CalendarPageViewController : WinoViewController<CalendarPage
     }
 
 #if DEBUG
-    /// <summary>Debug bridge commands: calprev, calnext, caltoday, caltype Day|Week|WorkWeek|Month, calselect [N], calnew, calslot.</summary>
+    private List<CalendarItemViewModel> VisibleItems()
+        => ViewModel.CalendarItems.Where(item => ViewModel.CurrentVisibleRange?.Contains(item.StartDate) == true).OrderBy(item => item.StartDate).ToList();
+
+    /// <summary>
+    /// Debug bridge commands: calprev, calnext, caltoday, caltype Day|Week|WorkWeek|Month, calselect [N], calnew, calslot,
+    /// cal-readonly-info (read-only calendars, visible read-only items, quick event and details state), cal-details N.
+    /// </summary>
     private void RegisterDebugCommands()
     {
         MacDebugBridge.Register("calprev", _ => { _shell.PreviousDateRangeCommand.Execute(null); return Task.FromResult("ok"); });
@@ -371,6 +377,30 @@ public sealed class CalendarPageViewController : WinoViewController<CalendarPage
                 SelectedCalendarId = calendar?.Id, StartDate = start, EndDate = start.AddMinutes(30), Title = "Design sync · macOS shell", Location = "Microsoft Teams"
             });
             return Task.FromResult("ok");
+        });
+        MacDebugBridge.Register("cal-readonly-info", _ =>
+        {
+            var calendars = _shell.AccountCalendarStateService.AllCalendars.Where(calendar => calendar.IsReadOnly).Select(calendar => $"{calendar.Name} ({calendar.Id})").ToList();
+            var visible = VisibleItems();
+            var readOnlyItems = visible.Select((item, index) => (item, index)).Where(pair => CalendarTileMapper.IsReadOnly(pair.item)).Select(pair => $"{pair.index}:{pair.item.Title}").ToList();
+            var quick = ViewModel.SelectedQuickEventAccountCalendar;
+            return Task.FromResult($"readOnlyCalendars=[{string.Join("; ", calendars)}] visibleReadOnlyItems=[{string.Join("; ", readOnlyItems)}] " +
+                $"quickCalendar={quick?.Name} quickReadOnly={quick?.IsReadOnly} canSaveQuick={ViewModel.CanSaveQuickEvent} details={(_detailsChild as EventDetailsPageViewController)?.DescribeReadOnlyState()}");
+        });
+        MacDebugBridge.Register("cal-details", async args =>
+        {
+            // "cal-details N" opens the details of the Nth visible item and reports the read-only presentation.
+            int index = args.Length > 0 ? int.Parse(args[0]) : 0;
+            var visible = VisibleItems();
+            if (index < 0 || index >= visible.Count) return $"only {visible.Count} visible items";
+            WeakReferenceMessenger.Default.Send(new CalendarItemTappedMessage(visible[index]));
+            for (int attempt = 0; attempt < 20; attempt++)
+            {
+                await Task.Delay(100);
+                if (_detailsChild is EventDetailsPageViewController details && ReferenceEquals(ViewModel.DisplayDetailsCalendarItemViewModel, visible[index]))
+                    return details.DescribeReadOnlyState();
+            }
+            return "details did not open";
         });
         MacDebugBridge.Register("calslot", _ =>
         {
@@ -486,6 +516,17 @@ internal static class CalendarContextMenuLabels
             CalendarContextMenuActionType.Respond => Wino.Core.Domain.Translator.CalendarContextMenu_Respond,
             _ => Wino.Core.Domain.Translator.Buttons_Open
         };
+    }
+
+    /// <summary>
+    /// Windows CalendarItemCommandBarFlyout: busy items take no action, and a read-only calendar's
+    /// events cannot be deleted, re-marked (Show as) or answered.
+    /// </summary>
+    public static bool IsEnabled(CalendarContextMenuItem entry, CalendarItemViewModel item)
+    {
+        bool isMutation = entry.Action.ActionType is CalendarContextMenuActionType.Delete
+            or CalendarContextMenuActionType.ShowAs or CalendarContextMenuActionType.Respond;
+        return entry.IsEnabled && !item.IsBusy && (!isMutation || !CalendarTileMapper.IsReadOnly(item));
     }
 
     public static string ShowAsText(CalendarItemShowAs showAs) => showAs switch

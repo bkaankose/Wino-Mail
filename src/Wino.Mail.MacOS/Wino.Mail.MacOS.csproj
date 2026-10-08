@@ -16,6 +16,10 @@
     <CodesignProvision Condition="'$(CodesignProvision)' == ''">Wino Mail macOS Development</CodesignProvision>
     <PublishAot>false</PublishAot>
   </PropertyGroup>
+  <!-- Mac App Store builds pass -p:WinoMacDistribution=AppStore; DMG builds leave it unset. -->
+  <PropertyGroup Condition="'$(WinoMacDistribution)' == 'AppStore'">
+    <DefineConstants>$(DefineConstants);WINO_APPSTORE</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj" />
     <ProjectReference Include="../Wino.Core/Wino.Core.csproj" />

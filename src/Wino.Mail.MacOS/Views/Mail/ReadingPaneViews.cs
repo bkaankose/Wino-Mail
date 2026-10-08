@@ -612,3 +612,103 @@ internal sealed class MailReaderCommandBar : NSView
         menu.PopUpMenu(null, new CGPoint(0, _moreButton.Bounds.Height + 4), _moreButton);
     }
 }
+
+/// <summary>
+/// The status row under the reader's sender row (Windows MailRenderingPage header): the
+/// Unsubscribe link, the S/MIME signature button with its valid (success) or invalid (caution)
+/// badge, and the encrypted lock. Hidden when the message has none of them.
+/// </summary>
+internal sealed class MailReaderStatusRow : NSView
+{
+    private readonly NSButton _unsubscribe;
+    private readonly Wino.Mail.Controls.AppKit.Extras.WinoPressableView _signature;
+    private readonly WinoSurfaceView _signatureBadge;
+    private readonly WinoIconView _encrypted;
+    private bool _signaturesValid;
+
+    public MailReaderStatusRow()
+    {
+        TranslatesAutoresizingMaskIntoConstraints = false;
+
+        _unsubscribe = new NSButton
+        {
+            Title = Translator.Unsubscribe,
+            Bordered = false,
+            Image = WinoIcons.Image(WinoIconGlyph.PersonDelete, 14, null, Translator.Unsubscribe),
+            ImagePosition = NSCellImagePosition.ImageLeading,
+            Hidden = true,
+            TranslatesAutoresizingMaskIntoConstraints = false
+        };
+        _unsubscribe.Activated += (_, _) => UnsubscribeInvoked?.Invoke(this, EventArgs.Empty);
+        ApplyAccent();
+        WinoStyle.AccentChanged += AccentChanged;
+
+        // Certificate glyph with a corner badge, like the Windows InfoBadge on the signature button.
+        var certificate = new WinoIconView(WinoIconGlyph.Certificate, 16);
+        _signatureBadge = new WinoSurfaceView { CornerRadius = 4, Fill = WinoStyle.Success };
+        WinoLayout.Size(_signatureBadge, 8, 8);
+        _signature = new Wino.Mail.Controls.AppKit.Extras.WinoPressableView { Hidden = true, ToolTip = Translator.SmimeSignedTooltip };
+        WinoLayout.Size(_signature, 22, 22);
+        _signature.AddSubview(certificate);
+        _signature.AddSubview(_signatureBadge);
+        NSLayoutConstraint.ActivateConstraints(
+        [
+            certificate.CenterXAnchor.ConstraintEqualTo(_signature.CenterXAnchor),
+            certificate.CenterYAnchor.ConstraintEqualTo(_signature.CenterYAnchor),
+            _signatureBadge.TrailingAnchor.ConstraintEqualTo(_signature.TrailingAnchor),
+            _signatureBadge.TopAnchor.ConstraintEqualTo(_signature.TopAnchor, 1)
+        ]);
+        _signature.Clicked += (_, _) => SignatureInvoked?.Invoke(this, EventArgs.Empty);
+
+        _encrypted = new WinoIconView(WinoIconGlyph.LockClosed, 16) { Hidden = true, ToolTip = Translator.SmimeEncryptedTooltip };
+        WinoAccessibility.Label(_encrypted, Translator.SmimeEncryptedTooltip);
+        _encrypted.AccessibilityElement = true;
+        _encrypted.AccessibilityRole = NSAccessibilityRoles.ImageRole;
+
+        var stack = WinoLayout.HStack(10, _unsubscribe, _signature, _encrypted);
+        WinoLayout.Fill(stack, this);
+        Hidden = true;
+    }
+
+    /// <summary>The Unsubscribe link was clicked.</summary>
+    public event EventHandler? UnsubscribeInvoked;
+
+    /// <summary>The S/MIME signature button was clicked.</summary>
+    public event EventHandler? SignatureInvoked;
+
+    public void Update(bool canUnsubscribe, bool isSigned, bool signaturesValid, bool isEncrypted)
+    {
+        _unsubscribe.Hidden = !canUnsubscribe;
+        _signature.Hidden = !isSigned;
+        _signaturesValid = signaturesValid;
+        _signatureBadge.Fill = signaturesValid ? WinoStyle.Success : WinoStyle.Caution;
+        // Windows shows the same tooltip for both states; the certificate details dialog states validity.
+        _signature.AccessibilityLabel = Translator.SmimeSignedTooltip;
+        _encrypted.Hidden = !isEncrypted;
+        Hidden = !canUnsubscribe && !isSigned && !isEncrypted;
+    }
+
+    /// <summary>A one-line description of the visible indicators, for the debug bridge.</summary>
+    public string Dump()
+        => $"row={(Hidden ? "hidden" : "visible")} unsubscribe={!_unsubscribe.Hidden} signed={!_signature.Hidden} " +
+           $"badge={(_signaturesValid ? "valid" : "invalid")} encrypted={!_encrypted.Hidden}";
+
+    private void AccentChanged(object? sender, EventArgs args) => ApplyAccent();
+
+    private void ApplyAccent()
+    {
+        var accent = WinoStyle.Accent;
+        _unsubscribe.ContentTintColor = accent;
+        _unsubscribe.AttributedTitle = new Foundation.NSAttributedString(Translator.Unsubscribe, new NSStringAttributes
+        {
+            ForegroundColor = accent,
+            Font = NSFont.SystemFontOfSize(12)
+        });
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) WinoStyle.AccentChanged -= AccentChanged;
+        base.Dispose(disposing);
+    }
+}

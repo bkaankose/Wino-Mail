@@ -14,9 +14,10 @@ using Wino.Presentation.AppKit;
 namespace Wino.Mail.MacOS.Views.Settings;
 
 /// <summary>
-/// Manage accounts: account identity rows (profile picture or provider icon like the shell pane, name, provider, capability
-/// summary and address, attention state, chevron to account details), merged inboxes, Add account,
-/// Merge inboxes and Reorder (Windows AccountManagementPage).
+/// Manage accounts: Add account, the account-limit card (purchase channels, used/free meter and
+/// purchase), the Merge inboxes and Reorder cards, account identity rows (profile picture or provider
+/// icon like the shell pane, name, provider, capability summary and address, attention state, chevron
+/// to account details) and merged inboxes (Windows AccountManagementPage).
 /// </summary>
 public sealed class ManageAccountsPageViewController(AccountManagementViewModel viewModel, IPictureStorageService pictures, IDispatcher dispatcher, IWinoLogger logger)
     : SettingsPageViewController<AccountManagementViewModel>(viewModel, dispatcher, logger)
@@ -30,17 +31,16 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
     {
         var vm = ViewModel;
 
-        var add = Bind.Button(Translator.Buttons_AddAccount, vm.AddNewAccountCommand, primary: true, icon: WinoIconGlyph.Add);
-        var merge = Bind.Button(Translator.SettingsLinkAccounts_Title, vm.CreateMergedAccountCommand, icon: WinoIconGlyph.Link);
-        var reorder = Bind.Button(Translator.SettingsReorderAccounts_Title, vm.ReorderAccountsCommand, icon: WinoIconGlyph.ArrowSort);
-        Add(Row(add, merge, reorder));
+        Add(Row(Bind.Button(Translator.Buttons_AddAccount, vm.AddNewAccountCommand, primary: true, icon: WinoIconGlyph.Add)));
+        Bind.Visible(Add(Group(null, PurchaseCard())), vm, nameof(vm.IsPurchasePanelVisible), s => s.IsPurchasePanelVisible);
 
-        // Account limit and purchase, shown while the unlimited add-on is not owned.
-        var usage = Bind.Label(vm, nameof(vm.UsedAccountsString), s => s.UsedAccountsString, WinoStyle.Description, WinoStyle.SecondaryText);
-        var purchase = Card(Translator.WinoUpgradeMessage, Translator.WinoUpgradeDescription, WinoIconGlyph.Star,
-            Row(usage, Bind.Button(Translator.Buttons_Purchase, vm.PurchaseUnlimitedAccountCommand)));
-        Bind.Visible(Add(Group(null, purchase)), vm, nameof(vm.IsPurchasePanelVisible), s => s.IsPurchasePanelVisible);
-        Bind.Bind(vm, nameof(vm.HasUnlimitedAccountProduct), s => s.HasUnlimitedAccountProduct, _ => usage.StringValue = vm.UsedAccountsString);
+        // Windows list header: Merge inboxes (with its "Mail only" scope tag) and Reorder, above the accounts.
+        var merge = CommandCard(Translator.SettingsLinkAccounts_Title, Translator.SettingsLinkAccounts_Description, WinoIconGlyph.PeopleLink, vm.CreateMergedAccountCommand);
+        merge.ShowsChevron = false;
+        merge.Content = ScopeTag(Translator.SettingsLinkAccounts_MailOnlyScope);
+        var reorder = CommandCard(Translator.SettingsReorderAccounts_Title, Translator.SettingsReorderAccounts_Description, WinoIconGlyph.ArrowSort, vm.ReorderAccountsCommand);
+        reorder.ShowsChevron = false;
+        Bind.Visible(Add(Group(null, merge, reorder)), vm, nameof(vm.HasAccountsDefined), s => s.HasAccountsDefined);
 
         _accounts.Title = Translator.SettingsManageAccountSettings_Title;
         Add(_accounts);
@@ -49,6 +49,50 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
         Add(_empty);
 
         Bind.Collection(vm.Accounts, RebuildAccounts);
+    }
+
+    /// <summary>
+    /// Account limits (Windows PurchasePanel): what the add-on lifts, which purchase channels are open,
+    /// the used/free count with its meter (amber one below the limit, red at the limit) and the purchase button.
+    /// </summary>
+    private WinoSettingsCard PurchaseCard()
+    {
+        var vm = ViewModel;
+        var purchase = Bind.Button(Translator.WinoUpgradeMessage, vm.PurchaseUnlimitedAccountCommand, primary: true, icon: WinoIconGlyph.Sparkle);
+        var card = Card(Translator.WinoUpgradeDescription, vm.PurchaseChannelsDescription, WinoIconGlyph.PersonSquare, purchase);
+        Bind.Bind(vm, nameof(vm.PurchaseChannelsDescription), s => s.PurchaseChannelsDescription, text => card.Description = text);
+
+        var usage = WinoStyle.Label(vm.UsedAccountsString, NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText);
+        var meter = new WinoBarView();
+        WinoAccessibility.Label(meter, Translator.WinoUpgradeDescription);
+        void UpdateUsage()
+        {
+            usage.StringValue = vm.UsedAccountsString;
+            meter.Value = vm.FREE_ACCOUNT_COUNT <= 0 ? 0 : Math.Min(100, 100.0 * vm.UsedAccountCount / vm.FREE_ACCOUNT_COUNT);
+            meter.ShowError = vm.IsAccountCreationBlocked;
+            meter.Tint = vm.IsAccountCreationAlmostOnLimit ? WinoStyle.Caution : null;
+            WinoAccessibility.Help(meter, vm.UsedAccountsString);
+        }
+        // Counts are computed properties raised together with the account list and the purchase state.
+        Bind.Bind(vm, nameof(vm.UsedAccountsString), s => s.UsedAccountsString, _ => UpdateUsage());
+        Bind.Bind(vm, nameof(vm.IsAccountCreationBlocked), s => s.IsAccountCreationBlocked, _ => UpdateUsage());
+        Bind.Bind(vm, nameof(vm.HasUnlimitedAccountProduct), s => s.HasUnlimitedAccountProduct, _ => UpdateUsage());
+        Bind.Collection(vm.Accounts, UpdateUsage);
+
+        var bottom = WinoLayout.VStack(6, usage, meter);
+        bottom.Alignment = NSLayoutAttribute.Leading;
+        meter.WidthAnchor.ConstraintEqualTo(bottom.WidthAnchor).Active = true;
+        card.BottomContent = bottom;
+        return card;
+    }
+
+    /// <summary>The small bordered caption the Windows merge card shows ("Mail only").</summary>
+    private static NSView ScopeTag(string text)
+    {
+        var label = WinoStyle.Label(text, NSFont.SystemFontOfSize(11), WinoStyle.SecondaryText);
+        var tag = new WinoSurfaceView { Fill = WinoSettingsStyle.CardFill, Stroke = WinoSettingsStyle.CardStroke, CornerRadius = 4, TranslatesAutoresizingMaskIntoConstraints = false };
+        WinoLayout.Fill(label, tag, 2, 8, 2, 8);
+        return tag;
     }
 
     protected override Task InitializeAsync(NavigationMode mode, object? parameter)

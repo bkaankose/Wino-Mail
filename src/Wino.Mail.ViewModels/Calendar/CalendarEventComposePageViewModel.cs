@@ -604,7 +604,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
                 continue;
 
             var calendars = await _calendarService.GetAccountCalendarsAsync(account.Id).ConfigureAwait(false);
-            var viewModels = calendars
+            var viewModels = SelectWritableCalendars(calendars)
                 .Select(calendar => new AccountCalendarViewModel(account, calendar))
                 .ToList();
 
@@ -632,6 +632,13 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
             }
         });
     }
+
+    /// <summary>
+    /// Calendars a new event can be saved to. This page only creates events, so read-only
+    /// calendars are never offered, even when the navigation preselected one.
+    /// </summary>
+    internal static IEnumerable<AccountCalendar> SelectWritableCalendars(IEnumerable<AccountCalendar> calendars)
+        => calendars.Where(calendar => !calendar.IsReadOnly);
 
     private void ApplyNavigationArgs(CalendarEventComposeNavigationArgs args)
     {

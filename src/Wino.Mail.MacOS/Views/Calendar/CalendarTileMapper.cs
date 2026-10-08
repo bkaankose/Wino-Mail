@@ -33,6 +33,9 @@ internal static class CalendarTileMapper
             viewModel?.IsBusy ?? false);
     }
 
+    /// <summary>True when the item belongs to a read-only calendar (subscribed, birthdays, shared without write access).</summary>
+    public static bool IsReadOnly(ICalendarItem? item) => item?.AssignedCalendar?.IsReadOnly == true;
+
     /// <summary>The calendar colour (Windows binds the assigned calendar's background), falling back to the accent.</summary>
     public static NSColor Fill(ICalendarItem item)
     {

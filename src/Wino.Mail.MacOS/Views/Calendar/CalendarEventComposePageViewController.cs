@@ -273,11 +273,15 @@ public sealed class CalendarEventComposePageViewController(CalendarEventComposeP
     {
         var menu = _calendarPicker.Menu!;
         menu.RemoveAllItems();
+        var selectedCalendar = ViewModel.SelectedCalendar;
         foreach (var group in ViewModel.AvailableCalendarGroups)
         {
+            // The ViewModel already offers only writable calendars; never list a read-only one as a save target.
+            var calendars = group.AccountCalendars.Where(calendar => !calendar.IsReadOnly || ReferenceEquals(calendar, selectedCalendar)).ToList();
+            if (calendars.Count == 0) continue;
             var header = new NSMenuItem($"{group.Account.Name} ({group.Account.Address})") { Enabled = false };
             menu.AddItem(header);
-            foreach (var calendar in group.AccountCalendars)
+            foreach (var calendar in calendars)
             {
                 var item = new NSMenuItem(calendar.Name) { RepresentedObject = new CalendarChoice(calendar), IndentationLevel = 1 };
                 item.Image = ColorDot(WinoStyle.FromHexString(calendar.BackgroundColorHex) ?? WinoStyle.Accent);

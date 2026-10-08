@@ -26,7 +26,7 @@ namespace Wino.Mail.MacOS.Infrastructure;
 /// to the key window (main window or Settings window). Specialized editors that are not ported yet
 /// say so with a message instead of failing silently (docs/macos-design-decisions.md, A13/A14).
 /// </summary>
-public sealed class AppKitDialogService(IDispatcher dispatcher, Func<NSWindow?> owner, Action<Exception> error, IServiceProvider? services = null) : IMailDialogService
+public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSWindow?> owner, Action<Exception> error, IServiceProvider? services = null) : IMailDialogService
 {
     private readonly SemaphoreSlim _presentations = new(1, 1);
 
@@ -165,7 +165,7 @@ public sealed class AppKitDialogService(IDispatcher dispatcher, Func<NSWindow?> 
     private const string NotYetOnMac = "This feature is not available in Wino Mail for Mac yet.";
 
     public void ShowNotSupportedMessage() => ShowNotice("Wino Mail", NotYetOnMac, InfoBarMessageType.Information);
-    public void ShowReadOnlyCalendarMessage() => ShowNotSupportedMessage();
+    public void ShowReadOnlyCalendarMessage() => ShowNotice(Translator.CalendarReadOnly_Title, Translator.CalendarReadOnly_Message, InfoBarMessageType.Warning);
 
     public Task<bool> ShowHardDeleteConfirmationAsync()
         => ShowWinoCustomMessageDialogAsync(Translator.DialogMessage_HardDeleteConfirmationMessage, Translator.DialogMessage_HardDeleteConfirmationTitle,
@@ -722,15 +722,7 @@ public sealed class AppKitDialogService(IDispatcher dispatcher, Func<NSWindow?> 
     private Task NotYetAsync() => NotYetAsync<bool>();
 
     public Task<AccountCreationDialogResult> ShowAccountProviderSelectionDialogAsync(List<IProviderDetail> availableProviders) => NotYetAsync<AccountCreationDialogResult>();
-    public Task HandleSystemFolderConfigurationDialogAsync(Guid accountId, IFolderService folderService) => NotYetAsync();
-    public Task<AccountCalendarPickingResult> ShowSingleCalendarPickerDialogAsync(List<CalendarPickerAccountGroup> availableCalendarGroups) => NotYetAsync<AccountCalendarPickingResult>();
-    public Task<ContactCreateDestination?> ShowContactDestinationPickerDialogAsync(IReadOnlyList<ContactCreateDestination> destinations) => NotYetAsync<ContactCreateDestination?>();
-    public Task<ContactListCreationResult?> ShowNewContactListDialogAsync(IReadOnlyList<MailAccount> accounts, MailAccount? selectedAccount) => NotYetAsync<ContactListCreationResult?>();
-    public Task<AccountTaskList?> ShowTaskListPickerDialogAsync(IReadOnlyList<AccountTaskList> taskLists, IReadOnlyList<MailAccount> accounts) => NotYetAsync<AccountTaskList?>();
     public Task<AccountSignature> ShowSignatureEditorDialog(AccountSignature? signatureModel = null) => NotYetAsync<AccountSignature>();
-    public Task<ICreateAccountAliasDialog> ShowCreateAccountAliasDialogAsync() => NotYetAsync<ICreateAccountAliasDialog>();
-    public Task<MailCategoryDialogResult> ShowEditMailCategoryDialogAsync(MailCategory category = null!) => NotYetAsync<MailCategoryDialogResult>();
-    public Task ShowMessageSourceDialogAsync(string messageSource) => ShowMessageAsync(messageSource, Translator.MailOperation_ViewMessageSource, WinoCustomMessageDialogIcon.Information);
     /// <summary>
     /// Windows ImapValidationFailedDialog as a warning alert sheet: the error, the protocol log in a
     /// scrolling monospaced view, Close as the default button and Copy diagnostics.
@@ -749,8 +741,6 @@ public sealed class AppKitDialogService(IDispatcher dispatcher, Func<NSWindow?> 
             pasteboard.SetStringForType($"{errorMessage}{Environment.NewLine}{Environment.NewLine}{protocolLog}", NSPasteboard.NSPasteboardTypeString);
         });
     }
-    public Task<bool> ShowServerCertificateTrustDialogAsync(string summary, byte[] certificateRawData)
-        => ShowWinoCustomMessageDialogAsync("Trust this server certificate?", summary, "Trust", WinoCustomMessageDialogIcon.Warning, Translator.Buttons_Cancel);
     public async Task<WinoAccount?> ShowWinoAccountRegistrationDialogAsync()
     {
         var profile = services!.GetRequiredService<IWinoAccountProfileService>();
@@ -779,8 +769,6 @@ public sealed class AppKitDialogService(IDispatcher dispatcher, Func<NSWindow?> 
         return outcome?.Account;
     }
     public Task<bool> ShowWinoAccountExportDialogAsync() => ShowConfirmationDialogAsync("Export your backup to Wino Account?", "Backup", "Export");
-    public Task<string?> ShowWinoAccountSyncSecretDialogAsync(SyncSnapshotSecretRequest request) => NotYetAsync<string?>();
-    public Task<UnlimitedAccountsPurchaseChannel?> ShowUnlimitedAccountsPurchaseChannelDialogAsync() => NotYetAsync<UnlimitedAccountsPurchaseChannel?>();
 
     // Account work never owns the modal gate: browser authentication must remain presentable.
     private sealed class AccountProgress(IDispatcher dispatcher, Func<NSWindow?> owner, Action<Exception> error) : IAccountCreationDialog

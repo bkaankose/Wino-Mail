@@ -41,6 +41,8 @@ public sealed class AppKitNavigationService : INavigationService, IDisposable,
     private NavigationResult? _result;
     private bool _stopping;
     private Task _pending = Task.CompletedTask;
+    // Completes once the current shell finished its first mode activation (its menus and first route).
+    private Task _shellActivated = Task.CompletedTask;
     public bool CanQuit => _page != WinoPage.AccountSetupProgressPage || _current is not IWinoViewController { HasPendingWork: true };
 
     public AppKitNavigationService(IServiceProvider services, IDispatcher dispatcher, Func<NSViewController, Action?> host)
@@ -211,6 +213,7 @@ public sealed class AppKitNavigationService : INavigationService, IDisposable,
     public async Task ShowShellAsync()
     {
         WinoAppShellViewController? activatedShell = null;
+        TaskCompletionSource? activation = null;
         await _gate.WaitAsync();
         try
         {
@@ -229,14 +232,57 @@ public sealed class AppKitNavigationService : INavigationService, IDisposable,
             }
             _shell = shell; _current = shell; _page = WinoPage.None; _parameter = null;
             _history.Clear();
+            activation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _shellActivated = activation.Task;
             if (previous is IWinoViewController old) await old.ReleaseAsync();
             await _dispatcher.ExecuteOnUIThread(() => { previous?.Dispose(); releaseWindow?.Invoke(); });
             activatedShell = shell;
         }
+        catch
+        {
+            activation?.TrySetResult();
+            throw;
+        }
         finally { _gate.Release(); }
         // Mail shell initialization awaits its first folder route. That route uses this
         // same router, so it must be allowed to enter before initialization can finish.
-        if (activatedShell is not null) await activatedShell.ActivateAsync(NavigationMode.New, null);
+        if (activatedShell is not null)
+        {
+            try { await activatedShell.ActivateAsync(NavigationMode.New, null); }
+            finally { activation?.TrySetResult(); }
+        }
+    }
+
+    /// <summary>True when the shell is shown and has finished its first mode activation.</summary>
+    public bool IsShellReady => _shell is not null && _shellActivated.IsCompleted;
+
+    /// <summary>
+    /// Windows App.EnsureShellWindowAsync for OS activation (URL schemes, files, notifications, Dock menu):
+    /// shows the shell if needed, waits until its first activation finished, brings the window to the
+    /// front and switches to <paramref name="mode"/>. A non-null <paramref name="parameter"/> is handed
+    /// to the mode's provider as <see cref="ShellModeActivationContext.Parameter"/>, also when the mode is
+    /// already active. Returns false while stopping or while onboarding owns the main window.
+    /// </summary>
+    public async Task<bool> EnsureShellAsync(WinoApplicationMode mode, object? parameter = null)
+    {
+        if (_stopping || mode == WinoApplicationMode.Settings) return false;
+        // Account setup in progress owns the main window; do not replace it.
+        if (_shell is null && _current is IWinoViewController { HasPendingWork: true }) return false;
+        await ShowShellAsync();
+        await _shellActivated;
+        if (_stopping || _shell is not { } shell) return false;
+        await _dispatcher.ExecuteOnUIThread(() => BringToFront(shell.View.Window));
+        await shell.ActivateModeAsync(mode, parameter is null ? null : new ShellModeActivationContext { Parameter = parameter });
+        return true;
+    }
+
+    /// <summary>Activates the app and orders <paramref name="window"/> front, restoring it from the Dock if minimized.</summary>
+    public static void BringToFront(NSWindow? window)
+    {
+        NSApplication.SharedApplication.ActivateIgnoringOtherApps(true);
+        if (window is null) return;
+        if (window.IsMiniaturized) window.Deminiaturize(null);
+        window.MakeKeyAndOrderFront(null);
     }
 
     private NSViewController CreateController(WinoPage page)

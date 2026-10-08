@@ -27,6 +27,8 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
     private static readonly NSColor CardFill = WinoStyle.Dynamic(WinoStyle.Hex(0xF7F7F8), WinoStyle.Hex(0xFFFFFF, 0.06));
 
     private NSStackView _column = null!;
+    private WinoInfoBar _readOnlyBar = null!;
+    private bool _isReadOnly;
     private ActionBarButton _join = null!;
     private ActionBarButton _rsvp = null!;
     private ActionBarButton _delete = null!;
@@ -56,6 +58,15 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
     {
         _column = WinoLayout.VStack(12);
         _column.EdgeInsets = new NSEdgeInsets(16, 16, 16, 16);
+
+        // Read-only calendars (subscriptions, birthdays, shared without write access) keep the event
+        // viewable but drop the actions that would change it.
+        _readOnlyBar = new WinoInfoBar(WinoInfoBarSeverity.Warning, Translator.CalendarReadOnly_Title, Translator.CalendarReadOnly_Message)
+        {
+            IsClosable = false,
+            Hidden = true
+        };
+        AddRow(_readOnlyBar);
 
         // Action bar
         _join = Action(WinoIconGlyph.EventJoinOnline, Translator.CalendarEventDetails_JoinOnline, ViewModel.JoinOnlineCommand);
@@ -176,6 +187,13 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         view.WidthAnchor.ConstraintEqualTo(_column.WidthAnchor, 1, -32).Active = true;
     }
 
+    /// <summary>Whether the shown event is on a read-only calendar (debug bridge and tests).</summary>
+    internal bool IsReadOnlyEvent => _isReadOnly;
+
+    /// <summary>A one-line summary of the read-only presentation, for the debug bridge.</summary>
+    internal string DescribeReadOnlyState()
+        => $"title='{ViewModel.CurrentEvent?.Title}' readOnly={_isReadOnly} bar={!_readOnlyBar.Hidden} delete={!_delete.Hidden} rsvp={!_rsvp.Hidden} showAs={_showAs.Enabled}";
+
     private ActionBarButton Action(WinoIconGlyph glyph, string title, System.Windows.Input.ICommand command)
     {
         var button = new ActionBarButton(glyph, title, title);
@@ -196,7 +214,7 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
     {
         ViewModel.OnNavigatedTo(mode, parameter!);
         Bind(nameof(ViewModel.CurrentEvent), vm => vm.CurrentEvent, _ => ApplyEvent());
-        Bind(nameof(ViewModel.IsRsvpPanelVisible), vm => vm.IsRsvpPanelVisible, visible => _rsvpPanel.Hidden = !visible);
+        Bind(nameof(ViewModel.IsRsvpPanelVisible), vm => vm.IsRsvpPanelVisible, visible => _rsvpPanel.Hidden = !visible || _isReadOnly);
         Bind(nameof(ViewModel.RsvpMessage), vm => vm.RsvpMessage, value => { if (_rsvpMessage.StringValue != value) _rsvpMessage.StringValue = value ?? string.Empty; });
         Bind(nameof(ViewModel.SelectedShowAsOption), vm => vm.SelectedShowAsOption, option => { if (option is not null) _showAs.SelectItem(option.DisplayText); });
         Bind(nameof(ViewModel.CurrentRsvpText), vm => vm.CurrentRsvpText, _ => ApplyRsvp());
@@ -241,6 +259,19 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         _calendar.Text = calendar is null ? null : string.IsNullOrEmpty(calendar.MailAccount?.Name) ? calendar.Name : $"{calendar.Name} · {calendar.MailAccount.Name}";
         UpdateReminderRow();
         ApplyDescription(item.CalendarItem.Description);
+        ApplyReadOnly(item);
+    }
+
+    /// <summary>Shows the read-only notice and hides Delete and RSVP, and locks Show as, for read-only calendars.</summary>
+    private void ApplyReadOnly(CalendarItemViewModel item)
+    {
+        _isReadOnly = CalendarTileMapper.IsReadOnly(item);
+        _readOnlyBar.Hidden = !_isReadOnly;
+        _delete.Hidden = _isReadOnly;
+        _rsvp.Hidden = _isReadOnly;
+        _showAs.Enabled = !_isReadOnly;
+        if (_isReadOnly) _rsvpPanel.Hidden = true;
+        else _rsvpPanel.Hidden = !ViewModel.IsRsvpPanelVisible;
     }
 
     private void UpdateReminderRow()

@@ -1,3 +1,4 @@
+using System.Security.Cryptography.X509Certificates;
 using AppKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
@@ -14,7 +15,8 @@ namespace Wino.Mail.MacOS.Views.Settings;
 /// <summary>
 /// Aliases of one account (Manage accounts › account › Aliases): Add and Sync buttons, the summary
 /// line, then one card per alias with its source, reply-to and send status, Set primary and Delete
-/// (Windows AliasManagementPage). The reply-to and S/MIME editors are not on Mac yet.
+/// (Windows AliasManagementPage). With S/MIME available each alias is an expander whose nested rows
+/// hold the encryption switch and the signing certificate pop-up (enabled while encryption is on).
 /// </summary>
 public sealed class AliasManagementPageViewController(AliasManagementPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
     : SettingsPageViewController<AliasManagementPageViewModel>(viewModel, dispatcher, logger), ISettingsPageTitleSource
@@ -84,9 +86,66 @@ public sealed class AliasManagementPageViewController(AliasManagementPageViewMod
                 delete.ToolTip = Translator.AccountAlias_DeleteAction;
                 controls.AddArrangedSubview(delete);
             }
-            var card = new WinoSettingsCard(header, description, item.IsPrimary ? WinoIconGlyph.Star : WinoIconGlyph.Mail, controls);
-            _aliases.Add(card);
+            var icon = item.IsPrimary ? WinoIconGlyph.Star : WinoIconGlyph.Mail;
+            if (!item.IsSmimeAvailable)
+            {
+                _aliases.Add(new WinoSettingsCard(header, description, icon, controls));
+                continue;
+            }
+
+            var expander = new WinoSettingsExpander(header, description, icon, controls);
+            expander.HeaderCard.AccessibilityLabel = item.RowAutomationName;
+            AddSmimeRows(expander, rows, item);
+            _aliases.Add(expander);
         }
         _aliases.Hidden = _aliases.RowCount == 0;
+    }
+
+    /// <summary>Windows AliasManagementPage encryption card and signing certificate card for one alias.</summary>
+    private void AddSmimeRows(WinoSettingsExpander expander, SettingsBinder rows, AliasManagementItem item)
+    {
+        var encryption = new WinoLabeledSwitch { IsOn = item.IsSmimeEncryptionEnabled };
+        WinoAccessibility.Label(encryption.Switch, $"{Translator.AccountAlias_Encryption_Title}, {item.AliasAddress}");
+        rows.OnActivated(encryption.Switch, () =>
+        {
+            if (encryption.IsOn == item.IsSmimeEncryptionEnabled) return;
+            Run(ViewModel.SetAliasSmimeEncryption(item.Alias, encryption.IsOn));
+        });
+        expander.Add(new WinoSettingsCard(Translator.AccountAlias_Encryption_Title, Translator.AccountAlias_Encryption_Description, WinoIconGlyph.LockClosed, encryption));
+
+        // The ViewModel keeps a blank first entry: it is the "None" choice.
+        var certificates = item.Certificates.ToList();
+        var signing = new NSPopUpButton { TranslatesAutoresizingMaskIntoConstraints = false };
+        foreach (var certificate in certificates)
+            signing.Menu!.AddItem(new NSMenuItem(certificate is null ? Translator.SettingsSignatureAndEncryption_SigningCertificatePlaceholder : CertificateTitle(certificate)));
+        var selected = item.SelectedSigningCertificate is null ? 0 : certificates.FindIndex(certificate => certificate?.Thumbprint == item.SelectedSigningCertificate.Thumbprint);
+        signing.SelectItem(Math.Max(0, selected));
+        signing.WidthAnchor.ConstraintLessThanOrEqualTo(320).Active = true;
+        WinoAccessibility.Label(signing, $"{Translator.SettingsSignatureAndEncryption_SigningCertificate}, {item.AliasAddress}");
+        rows.OnActivated(signing, () =>
+        {
+            var index = (int)signing.IndexOfSelectedItem;
+            if (index < 0 || index >= certificates.Count) return;
+            var certificate = certificates[index];
+            if (certificate?.Thumbprint == item.SelectedSigningCertificate?.Thumbprint) return;
+            Run(ViewModel.SetSelectedSigningCertificate(item.Alias, certificate!));
+        });
+
+        var signingCard = new WinoSettingsCard(Translator.SettingsSignatureAndEncryption_SigningCertificate, item.CertificateDescriptionText, WinoIconGlyph.Certificate, signing);
+        signingCard.IsEnabled = item.IsSmimeEncryptionEnabled && item.HasCertificates;
+        expander.Add(signingCard);
+    }
+
+    private static string CertificateTitle(X509Certificate2 certificate)
+    {
+        var name = certificate.GetNameInfo(X509NameType.SimpleName, false);
+        if (string.IsNullOrWhiteSpace(name)) name = certificate.Subject;
+        return $"{name} ({certificate.NotAfter:d})";
+    }
+
+    private async void Run(Task operation)
+    {
+        try { await operation; }
+        catch (Exception exception) { ReportError(exception); }
     }
 }

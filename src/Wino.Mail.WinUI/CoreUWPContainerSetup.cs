@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.ViewModels;
+using Wino.Mail.ViewModels.Intelligence;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Services;
 using Wino.Services;
@@ -67,7 +68,6 @@ public static class CoreUWPContainerSetup
         services.AddSingleton(provider => new Lazy<INewThemeService>(provider.GetRequiredService<INewThemeService>));
         services.AddSingleton<INotificationHostClient, NotificationHostClient>();
         services.AddTransient<INotificationBuilder, NotificationBuilder>();
-        services.AddSingleton<ICalendarReminderServer, CalendarReminderServer>();
         services.AddSingleton<IWindowsPrintService, PrintService>();
 
     }
@@ -84,6 +84,7 @@ public static class CoreUWPContainerSetup
         services.AddTransient(typeof(WelcomeHostPageViewModel));
         services.AddTransient(typeof(KeyboardShortcutsPageViewModel));
         services.AddTransient(typeof(WhatsNewPageViewModel));
+        services.AddTransient<WinoIntelligenceHeaderPresenter>();
     }
 }
 

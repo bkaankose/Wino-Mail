@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.MacOS.Views.Mail;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Intelligence;
 
 namespace Wino.Mail.MacOS.Infrastructure;
 
@@ -18,6 +19,7 @@ public static partial class MacViewModelRegistration
         services.AddTransient<MailRenderingPageViewModel>();
         services.AddTransient<ComposePageViewModel>();
         services.AddTransient<IdlePageViewModel>();
+        services.AddTransient<WinoIntelligenceHeaderPresenter>();
 
         services.AddTransient<MailListPageViewController>();
         services.AddTransient<MailRenderingPageViewController>();

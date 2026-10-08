@@ -1,6 +1,7 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
 using AppKit;
+using CoreGraphics;
 using Foundation;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
@@ -27,7 +28,9 @@ internal sealed class ShellSidebarViewController : NSViewController
     private readonly Action<WinoApplicationMode> _selectMode;
     private readonly Action<IMenuItem> _attention;
     private readonly ShellPaneContext _context;
-    private readonly NSOutlineView _outline = new();
+    private readonly ShellSidebarMenuContext? _menus;
+    private readonly ShellOutlineView _outline = new();
+    private readonly NSMenu _contextMenu = new() { AutoEnablesItems = false };
     private readonly Rows _rows;
     private readonly Selection _selection;
     private readonly WinoModeSwitcher _switcher = new();
@@ -37,8 +40,9 @@ internal sealed class ShellSidebarViewController : NSViewController
     private nint _selectionHandledRow = -1;
 
     public ShellSidebarViewController(IDispatcher dispatcher, Action<Exception> error, Action<IMenuItem> invoke,
-        Action<WinoApplicationMode> selectMode, Action<IMenuItem> attention, ShellPaneContext context)
+        Action<WinoApplicationMode> selectMode, Action<IMenuItem> attention, ShellPaneContext context, ShellSidebarMenuContext? menus = null)
     {
+        _menus = menus;
         _dispatcher = dispatcher;
         _error = error;
         _invoke = invoke;
@@ -72,6 +76,9 @@ internal sealed class ShellSidebarViewController : NSViewController
         _outline.DataSource = _rows;
         _outline.Delegate = _selection;
         _outline.Activated += Clicked;
+        // Right clicks build the row's context menu; NSTableView then outlines the clicked row natively.
+        _outline.Menu = _contextMenu;
+        _outline.PrepareMenu = PrepareContextMenu;
         WinoAccessibility.Label(_outline, Translator.KeyboardShortcuts_ModeMail);
 
         var scroll = new NSScrollView
@@ -100,6 +107,9 @@ internal sealed class ShellSidebarViewController : NSViewController
             _switcher.BottomAnchor.ConstraintEqualTo(root.BottomAnchor)
         ]);
         View = root;
+#if DEBUG
+        RegisterDebugCommands();
+#endif
     }
 
     /// <summary>Replaces the menu shown in the pane.</summary>
@@ -177,11 +187,149 @@ internal sealed class ShellSidebarViewController : NSViewController
         else _outline.ExpandItem(node);
     }
 
+    #region Context menus
+
+    /// <summary>Fills the shared context menu for the row under <paramref name="point"/>; false when it has no actions.</summary>
+    private bool PrepareContextMenu(CGPoint point)
+    {
+        _contextMenu.RemoveAllItems();
+        if (_menus is null || TargetAt(_outline.GetRow(point), point) is not { } target) return false;
+        try { ShellSidebarContextMenus.Populate(_contextMenu, target, _menus); }
+        catch (Exception exception) { _error(exception); return false; }
+        return _contextMenu.Count > 0;
+    }
+
+    /// <summary>
+    /// The model a right click targets. An account's calendar group draws its calendars inside one
+    /// row (<see cref="ShellCalendarGroupCell"/>), so the pointer's offset below the header picks the calendar.
+    /// </summary>
+    private ShellSidebarMenuTarget? TargetAt(nint row, CGPoint point)
+    {
+        if (row < 0 || _outline.ItemAtRow(row) is not Node node) return null;
+        var item = node.Item;
+        if (!ShellPaneRows.IsEnabled(item)) return null;
+        object? part = null;
+        if (item is AccountCalendarGroupMenuItem { Parameter: { IsExpanded: true } group })
+        {
+            // The cell's column starts 2pt below the row top (ShellCalendarGroupCell).
+            var offset = point.Y - _outline.RectForRow(row).Y - 2 - ShellCalendarGroupCell.HeaderHeight;
+            if (offset >= 0)
+            {
+                var index = (int)(offset / ShellCalendarGroupCell.CalendarRowHeight);
+                if (index < group.AccountCalendars.Count) part = group.AccountCalendars[index];
+            }
+        }
+        return new ShellSidebarMenuTarget(item, part);
+    }
+
+    /// <summary>The pane's outline view: hands right clicks to the owner so menus follow the clicked row.</summary>
+    private sealed class ShellOutlineView : NSOutlineView
+    {
+        public Func<CGPoint, bool>? PrepareMenu { get; set; }
+
+        public override NSMenu? MenuForEvent(NSEvent theEvent)
+        {
+            var point = ConvertPointFromView(theEvent.LocationInWindow, null);
+            return PrepareMenu?.Invoke(point) == true ? base.MenuForEvent(theEvent) : null;
+        }
+    }
+
+#if DEBUG
+    /// <summary>
+    /// Debug bridge: "sidebar-menu ROW" lists the context menu of a visible pane row,
+    /// "sidebar-menu-run ROW INDEX" runs an entry (INDEX "2.1" picks a submenu entry) and
+    /// "sidebar-popup ROW [NAME]" opens the menu at the row, snapshots and dismisses it.
+    /// ROW "4.1" targets the second calendar inside the calendar group on row 4.
+    /// </summary>
+    private void RegisterDebugCommands()
+    {
+        Infrastructure.MacDebugBridge.Register("sidebar-menu", args =>
+        {
+            if (DebugMenu(args) is not { } menu) return Task.FromResult("no menu");
+            var lines = new List<string>();
+            Describe(menu, string.Empty, lines);
+            return Task.FromResult(string.Join(" | ", lines));
+        });
+        Infrastructure.MacDebugBridge.Register("sidebar-menu-run", args =>
+        {
+            if (args.Length < 2 || DebugMenu(args) is not { } menu) return Task.FromResult("usage: sidebar-menu-run ROW INDEX");
+            var path = args[1].Split('.').Select(int.Parse).ToArray();
+            for (int level = 0; level < path.Length; level++)
+            {
+                var entries = ShellSidebarContextMenus.Entries(menu);
+                if (path[level] < 0 || path[level] >= entries.Count) return Task.FromResult($"only {entries.Count} entries");
+                var entry = entries[path[level]];
+                if (level < path.Length - 1)
+                {
+                    if (entry.Submenu is not { } submenu) return Task.FromResult($"'{entry.Title}' has no submenu");
+                    menu = submenu;
+                    continue;
+                }
+                if (!entry.Enabled) return Task.FromResult($"'{entry.Title}' is disabled");
+                menu.PerformActionForItem(menu.IndexOf(entry));
+                return Task.FromResult("ran " + entry.Title);
+            }
+            return Task.FromResult("nothing ran");
+        });
+        Infrastructure.MacDebugBridge.Register("sidebar-popup", args =>
+        {
+            if (!TryDebugRow(args, out _, out var point) || !PrepareContextMenu(point)) return Task.FromResult("no menu");
+            var name = args.Length > 1 ? args[1] : "sidebar-popup";
+            string snapshot = string.Empty;
+            // The menu runs its own tracking loop; a common-mode timer snapshots and dismisses it.
+            var timer = NSTimer.CreateTimer(0.8, _ =>
+            {
+                snapshot = Infrastructure.MacDebugBridge.Snap(name);
+                _contextMenu.CancelTracking();
+            });
+            NSRunLoop.Main.AddTimer(timer, NSRunLoopMode.Common);
+            _contextMenu.PopUpMenu(null, point, _outline);
+            timer.Invalidate();
+            return Task.FromResult($"{ShellSidebarContextMenus.Entries(_contextMenu).Count} entries; {snapshot}");
+        });
+    }
+
+    private NSMenu? DebugMenu(string[] args)
+        => TryDebugRow(args, out _, out var point) && PrepareContextMenu(point) ? _contextMenu : null;
+
+    /// <summary>Parses "ROW" or "ROW.CALENDAR" into a visible row and a point inside it.</summary>
+    private bool TryDebugRow(string[] args, out nint row, out CGPoint point)
+    {
+        row = -1; point = CGPoint.Empty;
+        if (args.Length == 0) return false;
+        var parts = args[0].Split('.');
+        if (!int.TryParse(parts[0], out var index) || index < 0 || index >= _outline.RowCount) return false;
+        row = index;
+        var rect = _outline.RectForRow(row);
+        var y = rect.Y + Math.Min(rect.Height / 2, ShellCalendarGroupCell.HeaderHeight / 2);
+        if (parts.Length > 1 && int.TryParse(parts[1], out var calendar))
+            y = rect.Y + 2 + ShellCalendarGroupCell.HeaderHeight + (calendar + 0.5) * ShellCalendarGroupCell.CalendarRowHeight;
+        point = new CGPoint(rect.X + rect.Width / 2, y);
+        return true;
+    }
+
+    private static void Describe(NSMenu menu, string prefix, List<string> lines)
+    {
+        var entries = ShellSidebarContextMenus.Entries(menu);
+        for (int index = 0; index < entries.Count; index++)
+        {
+            var entry = entries[index];
+            lines.Add($"{prefix}{index}:{entry.Title}{(entry.Enabled ? string.Empty : " [disabled]")}");
+            if (entry.Submenu is { } submenu) Describe(submenu, $"{prefix}{index}.", lines);
+        }
+    }
+#endif
+
+    #endregion
+
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
             _outline.Activated -= Clicked;
+            _outline.PrepareMenu = null;
+            _outline.Menu = null;
+            _contextMenu.RemoveAllItems();
             _outline.DataSource = null;
             _outline.Delegate = null;
             _rows.Dispose();

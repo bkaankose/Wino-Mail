@@ -572,14 +572,8 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
         if (pickedCalendar == null)
         {
-            var availableGroups = AccountCalendarStateService.GroupedAccountCalendars
-                .Where(group => group.AccountCalendars.Count > 0)
-                .Select(group => new CalendarPickerAccountGroup
-                {
-                    Account = group.Account,
-                    Calendars = group.AccountCalendars.Select(calendar => calendar.AccountCalendar).ToList()
-                })
-                .ToList();
+            // New events cannot be written to read-only calendars, so the picker never offers them.
+            var availableGroups = BuildWritableCalendarPickerGroups(AccountCalendarStateService.GroupedAccountCalendars);
 
             if (availableGroups.Count == 0)
             {
@@ -686,6 +680,23 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
             .AccountCalendar;
     }
 
+    /// <summary>
+    /// Picker groups for a new event: read-only calendars are left out, and accounts left without
+    /// a writable calendar are dropped.
+    /// </summary>
+    internal static List<CalendarPickerAccountGroup> BuildWritableCalendarPickerGroups(IEnumerable<GroupedAccountCalendarViewModel> groups)
+        => groups
+            .Select(group => new CalendarPickerAccountGroup
+            {
+                Account = group.Account,
+                Calendars = group.AccountCalendars
+                    .Select(calendar => calendar.AccountCalendar)
+                    .Where(calendar => !calendar.IsReadOnly)
+                    .ToList()
+            })
+            .Where(group => group.Calendars.Count > 0)
+            .ToList();
+
     internal async Task<bool> PrepareImportedComposeArgsAsync(CalendarEventComposeNavigationArgs composeArgs)
     {
         if (!composeArgs.RequireCalendarPickerWhenUnresolved)
@@ -718,17 +729,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
         if (pickedCalendar == null)
         {
-            var availableGroups = AccountCalendarStateService.GroupedAccountCalendars
-                .Select(group => new CalendarPickerAccountGroup
-                {
-                    Account = group.Account,
-                    Calendars = group.AccountCalendars
-                        .Select(calendar => calendar.AccountCalendar)
-                        .Where(calendar => !calendar.IsReadOnly)
-                        .ToList()
-                })
-                .Where(group => group.Calendars.Count > 0)
-                .ToList();
+            var availableGroups = BuildWritableCalendarPickerGroups(AccountCalendarStateService.GroupedAccountCalendars);
 
             if (availableGroups.Count == 0)
             {

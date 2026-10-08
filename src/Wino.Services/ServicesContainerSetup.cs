@@ -38,6 +38,8 @@ public static class ServicesContainerSetup
         services.AddSingleton<IAttachmentFileService, AttachmentFileService>();
         services.AddSingleton<ICalendarIcsFileService, CalendarIcsFileService>();
         services.AddSingleton<IActivationFileImportService, ActivationFileImportService>();
+        // Needs the platform INotificationBuilder; each head starts it once its shell is running.
+        services.AddSingleton<ICalendarReminderServer, CalendarReminderServer>();
 
         services.AddTransient<ICalendarService, CalendarService>();
         services.AddTransient<IMailService, MailService>();

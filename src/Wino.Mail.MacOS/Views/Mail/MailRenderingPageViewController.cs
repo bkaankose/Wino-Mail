@@ -23,14 +23,18 @@ namespace Wino.Mail.MacOS.Views.Mail;
 /// <summary>
 /// Reading pane message view, laid out like the Windows MailRenderingPage inside the reader zone:
 /// the command bar on top (Reply, Reply all, Forward | Archive, Delete, Move, Flag, Mark read, More),
-/// the header (subject 19 bold, 40pt sender avatar, name, address, recipients, date, intelligence
-/// and category chips), the remote-image banner, the HTML body in a card through the shared reader
-/// engine, the attachment strip with Save all, and the loading skeleton.
+/// the header (subject 19 bold, 40pt sender avatar, name, address, recipients, date, the status row
+/// with Unsubscribe and the S/MIME indicators, category chips, the Wino Intelligence header), the
+/// remote-image banner, the HTML body in a card through the shared reader engine, the attachment
+/// strip with Save all, and the loading skeleton. Print and Save as PDF go through
+/// <see cref="MacMailPrintPresenter"/> while the reader is active.
 /// The controller is reused across selections; <see cref="RenavigateAsync"/> loads the next message.
+/// The Wino Intelligence header lives in MailRenderingPageViewController.Intelligence.cs.
 /// </summary>
-public sealed class MailRenderingPageViewController(MailRenderingPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
+public sealed partial class MailRenderingPageViewController(MailRenderingPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger, IServiceProvider services)
     : WinoViewController<MailRenderingPageViewModel>(viewModel, dispatcher, logger)
 {
+    private readonly IServiceProvider _services = services;
     private MailReaderCommandBar _commandBar = null!;
     private NSTextField _subject = null!;
     private WinoContactPicture _avatar = null!;
@@ -38,7 +42,9 @@ public sealed class MailRenderingPageViewController(MailRenderingPageViewModel v
     private NSTextField _senderAddress = null!;
     private NSTextField _recipients = null!;
     private NSTextField _date = null!;
+    private MailReaderStatusRow _statusRow = null!;
     private NSStackView _chips = null!;
+    private NSView _intelligenceHost = null!;
     private WinoInfoBar _imageBanner = null!;
     private WKWebView _webView = null!;
     private AppKitHtmlMailReaderSession? _reader;
@@ -47,6 +53,7 @@ public sealed class MailRenderingPageViewController(MailRenderingPageViewModel v
     private NSButton _saveAllButton = null!;
     private MailLoadingView _loading = null!;
     private MailItemViewModel? _currentItem;
+    private string _currentRenderedHtml = string.Empty;
     private bool _dark;
     private bool _disposedReader;
 
@@ -78,6 +85,11 @@ public sealed class MailRenderingPageViewController(MailRenderingPageViewModel v
         _date.SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Horizontal);
         var senderRow = WinoLayout.HStack(12, _avatar, senderText, _date);
 
+        // Unsubscribe link and S/MIME indicators, under the sender like the Windows header.
+        _statusRow = new MailReaderStatusRow();
+        _statusRow.UnsubscribeInvoked += (_, _) => Observe(ViewModel.UnsubscribeCommand.ExecuteAsync(null));
+        _statusRow.SignatureInvoked += (_, _) => Observe(ViewModel.ShowSmimeSigningCertificateInfoCommand.ExecuteAsync(null));
+
         _chips = WinoLayout.HStack(8);
         _chips.Distribution = NSStackViewDistribution.Fill;
         _chips.SetHuggingPriority(750, NSLayoutConstraintOrientation.Horizontal);
@@ -93,12 +105,17 @@ public sealed class MailRenderingPageViewController(MailRenderingPageViewModel v
         };
         _imageBanner.ActionInvoked += (_, _) => Observe(ViewModel.ForceImageLoadingCommand.ExecuteAsync(null));
 
-        var header = WinoLayout.VStack(12, _subject, senderRow, _chips, _imageBanner);
+        // Hosts the Wino Intelligence header; hidden until the intelligence partial fills it.
+        _intelligenceHost = new NSView { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
+        BuildIntelligenceHeader(_intelligenceHost);
+
+        var header = WinoLayout.VStack(12, _subject, senderRow, _statusRow, _chips, _intelligenceHost, _imageBanner);
         header.EdgeInsets = new NSEdgeInsets(18, 24, 10, 24);
-        foreach (var view in new NSView[] { _subject, senderRow, _imageBanner })
+        foreach (var view in new NSView[] { _subject, senderRow, _intelligenceHost, _imageBanner })
             view.WidthAnchor.ConstraintEqualTo(header.WidthAnchor, 1, -48).Active = true;
         // The tile row hugs its chips from the leading edge; it is only capped (and clips) at the header width.
         _chips.WidthAnchor.ConstraintLessThanOrEqualTo(header.WidthAnchor, 1, -48).Active = true;
+        _statusRow.WidthAnchor.ConstraintLessThanOrEqualTo(header.WidthAnchor, 1, -48).Active = true;
 
         // ---- Body card ----
         _webView = new WKWebView(CGRect.Empty, new WKWebViewConfiguration()) { TranslatesAutoresizingMaskIntoConstraints = false };
@@ -170,12 +187,14 @@ public sealed class MailRenderingPageViewController(MailRenderingPageViewModel v
         View = root;
 #if DEBUG
         MacDebugBridge.Register("readerbar", _ => Task.FromResult(_commandBar.Dump() + " menu=" + ViewModel.MenuItems.Count));
+        RegisterReaderDebugCommands();
 #endif
     }
 
     protected override async Task InitializeAsync(NavigationMode mode, object? parameter)
     {
         _currentItem = parameter as MailItemViewModel;
+        IntelligenceBeginItem(_currentItem);
         _reader = new AppKitHtmlMailReaderSession(_webView);
         _reader.Configure(ViewModel.ExternalLauncher);
         _reader.OperationFailed += (_, exception) => ReportError(exception);
@@ -183,6 +202,7 @@ public sealed class MailRenderingPageViewController(MailRenderingPageViewModel v
         ViewModel.IsDarkWebviewRenderer = _dark;
         ViewModel.RenderHtmlAsyncFunc = RenderAsync;
         ViewModel.ClearRenderedHtmlAsyncFunc = ClearAsync;
+        ViewModel.PrintPresenter = new MacMailPrintPresenter(() => _disposedReader ? null : _webView, Dispatcher);
         ViewModel.CloseRequested += CloseRequested;
 
         Bind(nameof(ViewModel.Subject), vm => vm.Subject, subject =>
@@ -199,6 +219,7 @@ public sealed class MailRenderingPageViewController(MailRenderingPageViewModel v
         Bind(nameof(ViewModel.CurrentRenderModel), vm => vm.CurrentRenderModel, _ =>
         {
             _imageBanner.Hidden = !ViewModel.IsImageRenderingDisabled;
+            _statusRow.Update(ViewModel.CanUnsubscribe, ViewModel.IsSmimeSigned, ViewModel.SmimeSignaturesValid, ViewModel.IsSmimeEncrypted);
             UpdateRecipients();
             UpdateAttachments();
         });
@@ -219,6 +240,7 @@ public sealed class MailRenderingPageViewController(MailRenderingPageViewModel v
         await Dispatcher.ExecuteOnUIThread(() =>
         {
             _currentItem = parameter as MailItemViewModel;
+            IntelligenceBeginItem(_currentItem);
             UpdateChips();
         });
         await ViewModel.InitializeNavigationAsync(NavigationMode.New, parameter!);
@@ -260,7 +282,7 @@ public sealed class MailRenderingPageViewController(MailRenderingPageViewModel v
         _date.StringValue = MailRowMapper.FormatReaderDate(ViewModel.CreationDate);
     }
 
-    /// <summary>Intelligence tiles (accent, Sparkle glyph) and category chips under the sender row.</summary>
+    /// <summary>Category chips under the sender row. The intelligence tiles live in the Wino Intelligence header.</summary>
     private void UpdateChips()
     {
         foreach (var view in _chips.ArrangedSubviews)
@@ -271,18 +293,6 @@ public sealed class MailRenderingPageViewController(MailRenderingPageViewModel v
         }
         if (_currentItem is { } item)
         {
-            if (item.HasIntelligenceTiles)
-            {
-                foreach (var tile in item.IntelligenceTiles.Take(4))
-                {
-                    var chip = new WinoChipView(22) { CornerRadius = 4, Text = tile.Text, ToolTip = tile.AccessibleText, MaxTextWidth = 220 };
-                    var tint = tile.IsWarning ? WinoStyle.Caution : WinoStyle.Accent;
-                    chip.Fill = tint.ColorWithAlphaComponent((nfloat)0.13);
-                    chip.TextColor = tint;
-                    chip.SetGlyph(string.IsNullOrEmpty(tile.Glyph) ? WinoIcons.Glyph(WinoIconGlyph.Sparkle) : tile.Glyph, 12);
-                    _chips.AddArrangedSubview(chip);
-                }
-            }
             foreach (var category in item.Categories.Take(4))
             {
                 var background = WinoStyle.FromHexString(category.BackgroundColorHex) ?? WinoStyle.SubtleFill;
@@ -431,11 +441,11 @@ public sealed class MailRenderingPageViewController(MailRenderingPageViewModel v
     private async Task RenderAsync(string html)
     {
         if (_reader is null || _disposedReader) return;
-        var options = ViewModel.CurrentRenderModel?.MailRenderingOptions;
-        var policy = (options?.LoadImages ?? true) ? RemoteContentPolicy.ImagesAndFontsAllowed : RemoteContentPolicy.Blocked;
+        _currentRenderedHtml = html ?? string.Empty;
         await _reader.SetThemeAsync(_dark);
-        await _reader.RenderAsync(new HtmlMailReaderRequest(string.IsNullOrEmpty(html) ? " " : html, policy,
-            HtmlMailRenderMode.Original, options?.RenderPlaintextLinks ?? true));
+        // The intelligence context loads while the body renders, like the Windows reader.
+        var intelligence = IntelligenceHtmlRendered(_currentRenderedHtml);
+        await RenderActiveContentAsync();
         await _reader.SetAccessibilityContextAsync(new ReaderAccessibilityContext(
             string.IsNullOrWhiteSpace(ViewModel.Subject) ? Translator.MailItemNoSubject : ViewModel.Subject,
             string.IsNullOrWhiteSpace(ViewModel.FromName) ? ViewModel.FromAddress : $"{ViewModel.FromName} <{ViewModel.FromAddress}>",
@@ -443,9 +453,26 @@ public sealed class MailRenderingPageViewController(MailRenderingPageViewModel v
             Translator.Reader_MessageBodyAutomationName,
             Translator.Reader_PlainTextFallbackAutomationName,
             ViewModel.CurrentRenderModel?.AccessibleText ?? string.Empty));
+        await intelligence;
     }
 
-    private Task ClearAsync() => _reader is null || _disposedReader ? Task.CompletedTask : _reader.ClearAsync();
+    /// <summary>Renders the current message body, or its translation while one is shown.</summary>
+    private async Task RenderActiveContentAsync()
+    {
+        if (_reader is null || _disposedReader) return;
+        var html = await ResolveActiveHtmlAsync(_currentRenderedHtml);
+        var options = ViewModel.CurrentRenderModel?.MailRenderingOptions;
+        var policy = (options?.LoadImages ?? true) ? RemoteContentPolicy.ImagesAndFontsAllowed : RemoteContentPolicy.Blocked;
+        await _reader.RenderAsync(new HtmlMailReaderRequest(string.IsNullOrEmpty(html) ? " " : html, policy,
+            HtmlMailRenderMode.Original, options?.RenderPlaintextLinks ?? true));
+    }
+
+    private Task ClearAsync()
+    {
+        _currentRenderedHtml = string.Empty;
+        IntelligenceContentCleared();
+        return _reader is null || _disposedReader ? Task.CompletedTask : _reader.ClearAsync();
+    }
 
     private bool IsDarkAppearance()
         => View.EffectiveAppearance.FindBestMatch([NSAppearance.NameAqua.ToString(), NSAppearance.NameDarkAqua.ToString()]) == NSAppearance.NameDarkAqua.ToString();
@@ -460,6 +487,72 @@ public sealed class MailRenderingPageViewController(MailRenderingPageViewModel v
         Observe(_reader.SetThemeAsync(dark));
     }
 
+    // ---- Wino Intelligence hooks (MailRenderingPageViewController.Intelligence.cs) ----
+
+    /// <summary>Returns the HTML the body shows: the translation while one is applied, otherwise <paramref name="html"/>.</summary>
+    private partial Task<string> ResolveActiveHtmlAsync(string html);
+
+    /// <summary>Builds the intelligence header inside <paramref name="host"/> (hidden, between the chips and the image banner).</summary>
+    private partial void BuildIntelligenceHeader(NSView host);
+
+    /// <summary>A new message is about to load into the reader.</summary>
+    private partial void IntelligenceBeginItem(MailItemViewModel? item);
+
+    /// <summary>The body HTML of the current message is being rendered; completes when the intelligence context is loaded.</summary>
+    private partial Task IntelligenceHtmlRendered(string html);
+
+    /// <summary>The rendered body was cleared (the reader went idle); any translation of it is dropped.</summary>
+    private partial void IntelligenceContentCleared();
+
+    /// <summary>The reader is leaving or being disposed. Must be safe to call more than once.</summary>
+    private partial void IntelligenceDispose();
+
+#if DEBUG
+    /// <summary>
+    /// Debug-bridge commands for the reader (DEBUG builds only): <c>reader-badges</c> (unsubscribe
+    /// and S/MIME state with the status row), <c>reader-print</c> (opens the print panel sheet and
+    /// returns at once so <c>snap</c> can capture it), <c>reader-pdf PATH</c> (exports the message;
+    /// a relative path lands in the debug folder) and <c>reader-source</c> (opens the message source sheet).
+    /// </summary>
+    private void RegisterReaderDebugCommands()
+    {
+        MacDebugBridge.Register("reader-badges", _ => ReaderDebugAsync(() =>
+            $"canUnsubscribe={ViewModel.CanUnsubscribe} signed={ViewModel.IsSmimeSigned} valid={ViewModel.SmimeSignaturesValid} " +
+            $"encrypted={ViewModel.IsSmimeEncrypted} | {_statusRow.Dump()} | printPresenter={(ViewModel.PrintPresenter is null ? "none" : "set")}"));
+        MacDebugBridge.Register("reader-print", _ => ReaderDebugAsync(() =>
+        {
+            if (_disposedReader || ViewModel.PrintPresenter is not { } presenter) return "no print presenter";
+            Observe(presenter.PrintAsync(new Wino.Core.Domain.Models.Printing.MailPrintRequest(string.IsNullOrWhiteSpace(ViewModel.Subject) ? Translator.MailItemNoSubject : ViewModel.Subject)));
+            return "print panel requested";
+        }));
+        MacDebugBridge.Register("reader-pdf", async args =>
+        {
+            if (args.Length == 0) return "usage: reader-pdf PATH";
+            var path = string.Join(' ', args);
+            if (!Path.IsPathRooted(path)) path = Path.Combine(Path.GetTempPath(), "wino-debug", path);
+            IMailPrintPresenter? presenter = null;
+            await Dispatcher.ExecuteOnUIThread(() => presenter = _disposedReader ? null : ViewModel.PrintPresenter);
+            if (presenter is null) return "no print presenter";
+            var result = await presenter.ExportPdfAsync(path);
+            return $"{result.Status} {path} {result.ErrorMessage}".TrimEnd();
+        });
+        MacDebugBridge.Register("reader-source", _ => ReaderDebugAsync(() =>
+        {
+            var item = ViewModel.MenuItems.OfType<MailOperationMenuItem>().FirstOrDefault(candidate => candidate.Operation == MailOperation.ViewMessageSource);
+            if (item is null) return "no message source operation";
+            Observe(ViewModel.OperationClickedCommand.ExecuteAsync(item));
+            return "message source requested";
+        }));
+    }
+
+    private async Task<string> ReaderDebugAsync(Func<string> read)
+    {
+        var result = string.Empty;
+        await Dispatcher.ExecuteOnUIThread(() => result = read());
+        return result;
+    }
+#endif
+
     private void CloseRequested(object? sender, EventArgs args) => WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
 
     private async void Observe(Task task)
@@ -473,7 +566,9 @@ public sealed class MailRenderingPageViewController(MailRenderingPageViewModel v
         ViewModel.CloseRequested -= CloseRequested;
         ViewModel.RenderHtmlAsyncFunc = null;
         ViewModel.ClearRenderedHtmlAsyncFunc = null;
+        ViewModel.PrintPresenter = null!;
         ViewModel.OnNavigatedFrom(NavigationMode.New, null!);
+        IntelligenceDispose();
         await DisposeReaderAsync();
     }
 
@@ -481,6 +576,7 @@ public sealed class MailRenderingPageViewController(MailRenderingPageViewModel v
     {
         if (_reader is null || _disposedReader) return;
         _disposedReader = true;
+        ViewModel.PrintPresenter = null!;
         try { await _reader.DisposeAsync(); }
         catch (Exception exception) { ReportError(exception); }
     }
@@ -490,6 +586,7 @@ public sealed class MailRenderingPageViewController(MailRenderingPageViewModel v
         if (disposing)
         {
             ViewModel.CloseRequested -= CloseRequested;
+            IntelligenceDispose();
             if (!_disposedReader && _reader is not null) _ = DisposeReaderAsync();
         }
         base.Dispose(disposing);

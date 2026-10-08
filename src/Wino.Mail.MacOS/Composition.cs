@@ -73,8 +73,16 @@ internal static class Composition
         services.AddSingleton<MacWinoThemeService>();
         services.AddSingleton<INewThemeService>(provider => provider.GetRequiredService<MacWinoThemeService>());
         services.AddSingleton<IMicrosoftStoreService, MacMicrosoftStoreService>();
-        // Unsupported foundation features are visible in the parity matrix, never counted as complete.
-        services.AddSingleton<IPlatformCapabilities>(new PlatformCapabilities());
+        // Tray, global hotkeys, additional windows and the Microsoft Store stay unsupported on macOS.
+        services.AddSingleton<IPlatformCapabilities>(new PlatformCapabilities(
+            Printing: true, PdfExport: true, Smime: true, Notifications: true, NotificationActions: true,
+            StartupIntegration: true, GeneralActivation: true,
+#if WINO_APPSTORE
+            AppleAppStore: true
+#else
+            AppleAppStore: false
+#endif
+        ));
         services.AddSingleton<IAppMetadataService>(new MacAppMetadataService("0.1.0", MacOSApplicationIdentity.Value,
 #if DEBUG
             true

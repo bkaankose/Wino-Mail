@@ -62,6 +62,13 @@ public static partial class MacViewModelRegistration
         RegisterTasksViews(services);
         RegisterContactsViews(services);
         RegisterShellExtrasViews(services);
+        RegisterCalendarSettingsViews(services);
+        RegisterCategorySettingsViews(services);
+        RegisterSmimeSettingsViews(services);
+        RegisterBackupSettingsViews(services);
+        RegisterWinoAccountSettingsViews(services);
+        RegisterActivationServices(services);
+        RegisterNotificationServices(services);
         return services;
     }
 
@@ -71,4 +78,14 @@ public static partial class MacViewModelRegistration
     static partial void RegisterTasksViews(IServiceCollection services);
     static partial void RegisterContactsViews(IServiceCollection services);
     static partial void RegisterShellExtrasViews(IServiceCollection services);
+
+    // Feature registrations being ported in their own partial files. These run last, so a
+    // registration here replaces an earlier one for the same service.
+    static partial void RegisterCalendarSettingsViews(IServiceCollection services);
+    static partial void RegisterCategorySettingsViews(IServiceCollection services);
+    static partial void RegisterSmimeSettingsViews(IServiceCollection services);
+    static partial void RegisterBackupSettingsViews(IServiceCollection services);
+    static partial void RegisterWinoAccountSettingsViews(IServiceCollection services);
+    static partial void RegisterActivationServices(IServiceCollection services);
+    static partial void RegisterNotificationServices(IServiceCollection services);
 }

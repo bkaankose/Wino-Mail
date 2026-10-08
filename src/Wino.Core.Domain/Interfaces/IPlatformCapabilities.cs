@@ -13,4 +13,5 @@ public interface IPlatformCapabilities
     bool GlobalHotkeys { get; }
     bool GeneralActivation { get; }
     bool MicrosoftStore { get; }
+    bool AppleAppStore { get; }
 }
