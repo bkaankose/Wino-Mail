@@ -171,7 +171,7 @@ public sealed class ProviderSelectionPageViewController(ProviderSelectionPageVie
 
         var calendarOnlyHint = new WinoInfoBar(WinoInfoBarSeverity.Informational, null, Translator.ProviderSelection_CalendarOnlyServerHint);
         _form.Visible(calendarOnlyHint, nameof(vm.IsCalendarOnlyServerHintVisible), s => s.IsCalendarOnlyServerHintVisible);
-        var localOnlyHint = new WinoInfoBar(WinoInfoBarSeverity.Informational, null, Translator.ProviderSelection_LocalOnlyHint);
+        var localOnlyHint = new WinoInfoBar(WinoInfoBarSeverity.Informational, null, Translator.ProviderSelection_LocalOnlyHint_Device);
         _form.Visible(localOnlyHint, nameof(vm.IsLocalOnlyHintVisible), s => s.IsLocalOnlyHintVisible);
         var cardDavHint = new WinoInfoBar(WinoInfoBarSeverity.Informational, null, vm.DavContactAvailabilityMessage);
         _form.Visible(cardDavHint, nameof(vm.IsCardDavDiscoveryHintVisible), s => s.IsCardDavDiscoveryHintVisible);

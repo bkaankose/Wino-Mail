@@ -59,6 +59,12 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
     /// <inheritdoc cref="ActivationServicesReady"/>
     partial void CompanionServicesReady();
 
+    /// <summary>After the runtime started: menu key equivalents follow the user's keyboard shortcuts.</summary>
+    partial void ShortcutMenusServicesReady();
+
+    /// <summary>At the start of quitting: stop following shortcut changes.</summary>
+    partial void ShortcutMenusStopping();
+
     /// <summary>At the start of quitting, while services are still alive.</summary>
     partial void CompanionStopping();
 
@@ -100,6 +106,7 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
             NotificationsServicesReady();
             DockServicesReady();
             CompanionServicesReady();
+            ShortcutMenusServicesReady();
 #if DEBUG
             await _dispatcher.ExecuteOnUIThread(() => MacDebugBridge.Start(_services));
 #endif
@@ -171,6 +178,7 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
             if (_services != null)
             {
                 CompanionStopping();
+                ShortcutMenusStopping();
                 if (_runtimeStarted)
                 {
                     Task? notificationsStopping = null;
@@ -264,7 +272,7 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
         menu.AddItem(new NSMenuItem { Submenu = application });
 
         var file = new NSMenu(Translator.MacOSMenu_File);
-        file.AddItem(Item(Translator.MenuNewMail, "n", NSEventModifierMask.CommandKeyMask, () => Shell()?.NewItem()));
+        file.AddItem(TrackShortcut(Item(Translator.MenuNewMail, "n", NSEventModifierMask.CommandKeyMask, () => Shell()?.NewItem()), KeyboardShortcutAction.NewMail, install));
         file.AddItem(NSMenuItem.SeparatorItem);
         file.AddItem(new NSMenuItem(Translator.MacOSMenu_CloseWindow, new ObjCRuntime.Selector("performClose:"), "w"));
         menu.AddItem(new NSMenuItem { Submenu = file });
@@ -325,6 +333,7 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
         {
             if (command.Command is ShellCommand.Archive or ShellCommand.Flag) message.AddItem(NSMenuItem.SeparatorItem);
             var item = Item(command.Title, command.Key, command.Mask, () => Shell()?.ExecuteCommand(command.Command));
+            if (ShortcutActionFor(command.Command) is { } action) TrackShortcut(item, action, install);
             message.AddItem(item);
             messageItems.Add((command.Command, item));
         }
@@ -349,6 +358,19 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
     }
 
     private MessageMenuDelegate? _messageMenuDelegate;
+
+    /// <summary>The configurable shortcut action behind a Message menu command (Forward has none).</summary>
+    private static KeyboardShortcutAction? ShortcutActionFor(ShellCommand command) => command switch
+    {
+        ShellCommand.Reply => KeyboardShortcutAction.Reply,
+        ShellCommand.ReplyAll => KeyboardShortcutAction.ReplyAll,
+        ShellCommand.Archive => KeyboardShortcutAction.ToggleArchive,
+        ShellCommand.Delete => KeyboardShortcutAction.Delete,
+        ShellCommand.Move => KeyboardShortcutAction.Move,
+        ShellCommand.Flag => KeyboardShortcutAction.ToggleFlag,
+        ShellCommand.ToggleRead => KeyboardShortcutAction.ToggleReadUnread,
+        _ => null
+    };
 
     private static NSMenuItem Item(string title, string key, NSEventModifierMask mask, Action action)
         => new(title, key, (_, _) => action()) { KeyEquivalentModifierMask = mask };
@@ -386,7 +408,7 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
         _ = _dispatcher.ExecuteOnUIThread(() =>
         {
             var alert = new NSAlert { MessageText = "Wino Mail", InformativeText = error.Message };
-            alert.AddButton("OK");
+            alert.AddButton(Translator.Buttons_OK);
             if (_window != null) alert.BeginSheet(_window, _ => alert.Dispose());
             else { alert.RunModal(); alert.Dispose(); }
         });

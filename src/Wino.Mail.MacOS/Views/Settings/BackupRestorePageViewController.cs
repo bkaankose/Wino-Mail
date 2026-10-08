@@ -22,14 +22,14 @@ public sealed class BackupRestorePageViewController(BackupRestorePageViewModel v
         var vm = ViewModel;
 
         var backup = Expander(Translator.SettingsBackupRestore_BackupHeader, Translator.SettingsBackupRestore_BackupDescription, WinoIconGlyph.Save, null,
-            Card(Translator.SettingsBackupRestore_FileTarget, Translator.SettingsBackupRestore_BackupFileDescription, WinoIconGlyph.None,
+            Card(Translator.SettingsBackupRestore_FileTarget_Device, Translator.SettingsBackupRestore_BackupFileDescription_Device, WinoIconGlyph.None,
                 Bind.Button(Translator.WinoAccount_Management_LocalDataExportAction, vm.ExportLocalDataCommand)),
             WinoAccountRow(Translator.SettingsBackupRestore_BackupWinoAccountDescription, Translator.WinoAccount_Management_LocalDataExportAction, vm.ExportToWinoAccountCommand));
         backup.IsExpanded = true;
         Add(backup);
 
         var restore = Expander(Translator.SettingsBackupRestore_RestoreHeader, Translator.SettingsBackupRestore_RestoreDescription, WinoIconGlyph.ArrowDownload, null,
-            Card(Translator.SettingsBackupRestore_FileTarget, Translator.SettingsBackupRestore_RestoreFileDescription, WinoIconGlyph.None,
+            Card(Translator.SettingsBackupRestore_FileTarget_Device, Translator.SettingsBackupRestore_RestoreFileDescription, WinoIconGlyph.None,
                 Bind.Button(Translator.WinoAccount_Management_LocalDataImportAction, vm.ImportLocalDataCommand)),
             WinoAccountRow(Translator.SettingsBackupRestore_RestoreWinoAccountDescription, Translator.WinoAccount_Management_LocalDataImportAction, vm.ImportFromWinoAccountCommand));
         restore.IsExpanded = true;

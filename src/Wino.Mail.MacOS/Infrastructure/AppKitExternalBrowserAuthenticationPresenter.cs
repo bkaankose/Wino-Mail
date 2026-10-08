@@ -34,9 +34,9 @@ public sealed class AppKitExternalBrowserAuthenticationPresenter(IDispatcher dis
         public Session(IDispatcher dispatcher, NSWindow owner, ExternalBrowserAuthenticationRequest request, Action cancelRequested, Action<Exception> error)
         {
             _dispatcher = dispatcher; _owner = owner; _cancelRequested = cancelRequested; _error = error; _authorizationUri = request.AuthorizationUri;
-            _window = new NSWindow(new CGRect(0, 0, 480, 210), NSWindowStyle.Titled | NSWindowStyle.Closable, NSBackingStore.Buffered, false) { Title = "Sign in to " + request.ProviderDisplayName, ReleasedWhenClosed = false };
+            _window = new NSWindow(new CGRect(0, 0, 480, 210), NSWindowStyle.Titled | NSWindowStyle.Closable, NSBackingStore.Buffered, false) { Title = Translator.ExternalBrowserAuthenticationDialog_Title, ReleasedWhenClosed = false };
             _message = new NSTextField { StringValue = string.Format(Translator.ExternalBrowserAuthenticationDialog_Message, request.ProviderDisplayName), Editable = false, Selectable = false, Bordered = false, DrawsBackground = false };
-            _copy = new NSButton { Title = "Copy sign-in link" };
+            _copy = new NSButton { Title = Translator.ExternalBrowserAuthenticationDialog_CopyLink };
             _cancel = new NSButton { Title = Translator.Buttons_Cancel };
             _copy.Activated += CopyLink;
             _cancel.Activated += Cancel;
@@ -61,7 +61,7 @@ public sealed class AppKitExternalBrowserAuthenticationPresenter(IDispatcher dis
         }
         public Task NotifyBrowserLaunchFailedAsync() => _dispatcher.ExecuteOnUIThread(() =>
         {
-            if (_disposed == 0) _message.StringValue = "The browser could not open. Copy the sign-in link and paste it into your browser.";
+            if (_disposed == 0) _message.StringValue = Translator.ExternalBrowserAuthenticationDialog_BrowserNotOpened;
         });
         public Task NotifyRedirectReceivedAsync() => _dispatcher.ExecuteOnUIThread(() =>
         {

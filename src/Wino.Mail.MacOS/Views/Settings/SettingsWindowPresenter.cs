@@ -66,7 +66,20 @@ public sealed class SettingsWindowPresenter : ISettingsWindowPresenter, IRecipie
         }
 
         var target = new Entry(page.Value, parameter);
-        if (_current is { } current && current.Page == target.Page && Equals(current.Parameter, target.Parameter)) return;
+        if (_current is { } current && current.Page == target.Page)
+        {
+            // An open page that accepts the parameter handles it in place (the checkout return on Wino Account).
+            if (parameter is not null && _currentController is ISettingsPageParameterReceiver receiver)
+            {
+                try
+                {
+                    if (await receiver.ReceiveParameterAsync(parameter)) return;
+                }
+                catch (Exception exception) { _logger.CaptureException(exception, nameof(SettingsWindowPresenter)); }
+            }
+
+            if (Equals(current.Parameter, target.Parameter)) return;
+        }
         await NavigateAsync(target, NavigationMode.New);
     }
 

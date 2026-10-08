@@ -35,7 +35,7 @@ public static class WinoAccountApiErrorTranslator
 
         return errorCode switch
         {
-            ApiErrorCodes.SyncSnapshotConflict => Translator.WinoAccount_Error_SyncSnapshotConflict,
+            ApiErrorCodes.SyncSnapshotConflict => Translator.WinoAccount_Error_SyncSnapshotConflict_Device,
             ApiErrorCodes.SyncSnapshotTooLarge => Translator.WinoAccount_Error_SyncSnapshotTooLarge,
             ApiErrorCodes.SyncSnapshotInvalid => Translator.WinoAccount_Error_SyncSnapshotInvalid,
             ApiErrorCodes.InvalidCredentials => Translator.WinoAccount_Error_InvalidCredentials,

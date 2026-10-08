@@ -1,4 +1,5 @@
 using MimeKit.Cryptography;
+using Org.BouncyCastle.Pkix;
 using Org.BouncyCastle.X509;
 
 namespace Wino.Platform.MacOS.Services;
@@ -39,5 +40,17 @@ internal sealed class MacSecureMimeContext : TemporarySecureMimeContext
                 Import(parser.ReadCertificate(entry.Payload), cancellationToken);
             }
         }
+    }
+
+    /// <summary>
+    /// MimeKit's temporary context only trusts self-signed certificates that were imported into it, so a
+    /// signature from a public CA would never chain to a root. Add the macOS system roots (loaded once per
+    /// process, never copied into the keychain or the Wino store).
+    /// </summary>
+    protected override ISet<TrustAnchor> GetTrustedAnchors()
+    {
+        var anchors = base.GetTrustedAnchors();
+        MacSystemTrustAnchors.AddTo(anchors);
+        return anchors;
     }
 }

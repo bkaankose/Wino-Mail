@@ -50,7 +50,7 @@ public sealed partial class WinoAccountManagementPageViewController
         WinoLayout.Size(mark, 56, 56);
 
         var title = WinoStyle.Label(Translator.WinoAccount_Management_SignedOutTitle, WinoStyle.BodyStrong, WinoStyle.PrimaryText, 0);
-        var description = WinoStyle.Label(Translator.WinoAccount_Management_SignedOutDescription, WinoStyle.Body, WinoStyle.SecondaryText, 0);
+        var description = WinoStyle.Label(Translator.WinoAccount_Management_SignedOutDescription_Device, WinoStyle.Body, WinoStyle.SecondaryText, 0);
         var privacy = WinoStyle.Label(Translator.WinoAccount_Management_SignedOutPrivacyNote, WinoStyle.Caption, WinoStyle.TertiaryText, 0);
         var text = WinoLayout.VStack(2, title, description, privacy);
         text.Alignment = NSLayoutAttribute.Leading;

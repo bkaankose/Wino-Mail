@@ -23,6 +23,17 @@ public interface IRenderingFrameHost
     Task ClearAsync();
 }
 
+/// <summary>
+/// A Settings page that can take a new navigation parameter while it is already on screen (for example
+/// the billing return reaching an open Wino Account page). The presenter hands the parameter to the open
+/// page instead of ignoring the repeated navigation.
+/// </summary>
+public interface ISettingsPageParameterReceiver
+{
+    /// <summary>Returns true when the page handled <paramref name="parameter"/> in place.</summary>
+    Task<bool> ReceiveParameterAsync(object? parameter);
+}
+
 /// <summary>The Settings window (Cmd+,). Implemented by the Settings feature and resolved optionally.</summary>
 public interface ISettingsWindowPresenter
 {

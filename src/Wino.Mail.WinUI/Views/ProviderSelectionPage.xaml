@@ -544,7 +544,7 @@
                             AutomationProperties.AutomationId="ProviderSelectionLocalOnlyHint"
                             IsClosable="False"
                             IsOpen="True"
-                            Message="{x:Bind domain:Translator.ProviderSelection_LocalOnlyHint, Mode=OneTime}"
+                            Message="{x:Bind domain:Translator.ProviderSelection_LocalOnlyHint_Device, Mode=OneTime}"
                             Severity="Informational"
                             Visibility="{x:Bind ViewModel.IsLocalOnlyHintVisible, Mode=OneWay}" />
 

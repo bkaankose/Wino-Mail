@@ -139,7 +139,7 @@ internal sealed class FormBinder<TSource>(TSource source, BindingScope scope, ID
         string providerTextProperty, Func<AccountCapabilitySelection, string> providerText,
         string availableProperty, Func<AccountCapabilitySelection, bool> available, string accessibilityLabel)
     {
-        var popUp = form.PopUp([providerText(form.Source), Translator.ProviderSelection_Choice_Local, Translator.ProviderSelection_Choice_Off],
+        var popUp = form.PopUp([providerText(form.Source), Translator.ProviderSelection_Choice_Local_Device, Translator.ProviderSelection_Choice_Off],
             property, s => Array.IndexOf(Modes, read(s)), (s, index) => write(s, Modes[index]), accessibilityLabel);
         popUp.AutoEnablesItems = false;
         form.Bind(providerTextProperty, providerText, text => popUp.ItemAtIndex(0)!.Title = text);
@@ -149,11 +149,13 @@ internal sealed class FormBinder<TSource>(TSource source, BindingScope scope, ID
 }
 
 /// <summary>
-/// A Preferences-style form: right-aligned labels in a fixed column, controls filling the second.
+/// A Preferences-style form: right-aligned labels in a column sized to the longest label (up to
+/// <see cref="LabelWidth"/>, after which labels wrap), controls filling the second.
 /// Rows can be hidden; a row without a label puts its control in the control column.
 /// </summary>
 internal sealed class FormGrid : NSGridView
 {
+    /// <summary>The widest the label column grows; longer labels wrap onto a second line.</summary>
     public const double LabelWidth = 150;
 
     public FormGrid()
@@ -171,12 +173,37 @@ internal sealed class FormGrid : NSGridView
         var row = AddRow([label ?? (NSView)NSGridCell.EmptyContentView, control]);
         if (ColumnCount == 2 && RowCount == 1)
         {
-            var labels = GetColumn(0);
-            labels.X = NSGridCellPlacement.Trailing;
-            labels.Width = (nfloat)LabelWidth;
+            GetColumn(0).X = NSGridCellPlacement.Trailing;
             GetColumn(1).X = NSGridCellPlacement.Fill;
         }
+        FitLabelColumn();
         return row;
+    }
+
+    /// <summary>Labels can change text after binding, so the column is measured again on every layout pass.</summary>
+    public override void Layout()
+    {
+        FitLabelColumn();
+        base.Layout();
+    }
+
+    /// <summary>Sizes the label column to the longest single-line label, capped at <see cref="LabelWidth"/>.</summary>
+    private void FitLabelColumn()
+    {
+        if (ColumnCount < 2) return;
+
+        var labels = GetColumn(0);
+        double widest = 0;
+        for (nint row = 0; row < RowCount; row++)
+        {
+            if (GetCell(0, row).ContentView is NSTextField { StringValue.Length: > 0 } label)
+                widest = Math.Max(widest, Math.Ceiling(label.AttributedStringValue.Size.Width) + 4);
+        }
+
+        if (widest <= 0) return;
+
+        var width = (nfloat)Math.Min(LabelWidth, widest);
+        if (Math.Abs(labels.Width - width) > 0.5) labels.Width = width;
     }
 
     public static NSTextField FieldLabel(string text)

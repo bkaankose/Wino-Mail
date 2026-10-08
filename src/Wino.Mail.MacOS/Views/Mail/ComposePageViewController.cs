@@ -161,6 +161,7 @@ public sealed class ComposePageViewController : WinoViewController<ComposePageVi
         WinoAccessibility.Label(_fontPopup, Translator.SettingsFontFamily_Title);
         _sizePopup = new NSPopUpButton { PullsDown = false, ControlSize = NSControlSize.Small, TranslatesAutoresizingMaskIntoConstraints = false };
         _sizePopup.AddItems(FontSizes.Select(static size => size.ToString()).ToArray());
+        _sizePopup.SelectItem(Array.FindIndex(FontSizes, size => size >= ViewModel.PreferencesService.ComposerFontSize) is var preferredSize and >= 0 ? preferredSize : FontSizes.Length - 1);
         _sizePopup.Activated += (_, _) => Run(EditorCommand.SetFontSize(FontSizes[Math.Max(0, (int)_sizePopup.IndexOfSelectedItem)]));
         WinoAccessibility.Label(_sizePopup, Translator.SettingsFontSize_Title);
         _boldButton = FormatButton(WinoIconGlyph.TextBold, Translator.Composer_Bold, EditorCommand.ToggleBold);
@@ -558,7 +559,7 @@ public sealed class ComposePageViewController : WinoViewController<ComposePageVi
         if (await ViewModel.UpdateMimeChangesAsync())
         {
             // No translation key exists for the composer's save status.
-            await Dispatcher.ExecuteOnUIThread(() => _draftStatus.StringValue = $"Draft saved {DateTime.Now.ToString("t", System.Globalization.CultureInfo.CurrentCulture)}");
+            await Dispatcher.ExecuteOnUIThread(() => _draftStatus.StringValue = string.Format(Translator.MacOS_Composer_DraftSaved, DateTime.Now.ToString("t", System.Globalization.CultureInfo.CurrentCulture)));
         }
     }
 

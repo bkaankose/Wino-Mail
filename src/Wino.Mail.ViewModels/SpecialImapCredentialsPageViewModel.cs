@@ -99,7 +99,7 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
             {
                 KnownImapSetupHint.AppPasswordRequired => Translator.ProviderSelection_SetupHint_AppPasswordRequired,
                 KnownImapSetupHint.ImapDisabledByDefault => Translator.ProviderSelection_SetupHint_ImapDisabledByDefault,
-                KnownImapSetupHint.LocalBridgeRequired => Translator.ProviderSelection_SetupHint_LocalBridgeRequired,
+                KnownImapSetupHint.LocalBridgeRequired => Translator.ProviderSelection_SetupHint_LocalBridgeRequired_Device,
                 KnownImapSetupHint.AuthorizationCodeRequired => Translator.ProviderSelection_SetupHint_AuthorizationCodeRequired,
                 KnownImapSetupHint.ThirdPartyAccessRequired => Translator.ProviderSelection_SetupHint_ThirdPartyAccessRequired,
                 KnownImapSetupHint.SeparateEmailPasswordRequired => Translator.ProviderSelection_SetupHint_SeparateEmailPasswordRequired,

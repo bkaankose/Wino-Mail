@@ -96,7 +96,7 @@ public partial class AccountCapabilitySelection : ObservableObject
     /// Shown under To Do when the provider has no task service.
     /// </summary>
     [ObservableProperty]
-    public partial string TaskLocalOnlyNote { get; set; } = Translator.ProviderSelection_TaskProviderUnavailable;
+    public partial string TaskLocalOnlyNote { get; set; } = Translator.ProviderSelection_TaskProviderUnavailable_Device;
 
     public bool IsMailEnabled
     {

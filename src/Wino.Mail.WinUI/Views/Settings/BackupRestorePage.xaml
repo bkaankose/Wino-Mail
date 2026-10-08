@@ -24,8 +24,8 @@
             <controls:SettingsExpander.Items>
                 <controls:SettingsCard
                     AutomationProperties.AutomationId="BackupRestoreBackupFileCard"
-                    Description="{x:Bind domain:Translator.SettingsBackupRestore_BackupFileDescription, Mode=OneTime}"
-                    Header="{x:Bind domain:Translator.SettingsBackupRestore_FileTarget, Mode=OneTime}">
+                    Description="{x:Bind domain:Translator.SettingsBackupRestore_BackupFileDescription_Device, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.SettingsBackupRestore_FileTarget_Device, Mode=OneTime}">
                     <Button
                         AutomationProperties.AutomationId="BackupRestoreExportButton"
                         Command="{x:Bind ViewModel.ExportLocalDataCommand}"
@@ -59,7 +59,7 @@
                 <controls:SettingsCard
                     AutomationProperties.AutomationId="BackupRestoreRestoreFileCard"
                     Description="{x:Bind domain:Translator.SettingsBackupRestore_RestoreFileDescription, Mode=OneTime}"
-                    Header="{x:Bind domain:Translator.SettingsBackupRestore_FileTarget, Mode=OneTime}">
+                    Header="{x:Bind domain:Translator.SettingsBackupRestore_FileTarget_Device, Mode=OneTime}">
                     <Button
                         AutomationProperties.AutomationId="BackupRestoreImportButton"
                         Command="{x:Bind ViewModel.ImportLocalDataCommand}"

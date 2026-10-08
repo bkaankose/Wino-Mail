@@ -295,11 +295,11 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     {
         Benefits.Add(new WinoAccountBenefitItemViewModel(
             WinoAccountBenefitType.DeviceTransfer,
-            Translator.WinoAccount_Management_Benefit_Transfer_Title,
+            Translator.WinoAccount_Management_Benefit_Transfer_Title_Device,
             Translator.WinoAccount_Management_Benefit_Transfer_Caption,
             Translator.WinoAccount_Management_FreeBadge,
             isFreeBadge: true,
-            Translator.WinoAccount_Management_Benefit_Transfer_Lede,
+            Translator.WinoAccount_Management_Benefit_Transfer_Lede_Device,
             (string[])
             [
                 Translator.WinoAccount_Management_Benefit_Transfer_Point1,
@@ -314,13 +314,13 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         Benefits.Add(new WinoAccountBenefitItemViewModel(
             WinoAccountBenefitType.Entitlements,
             Translator.WinoAccount_Management_Benefit_Entitlements_Title,
-            Translator.WinoAccount_Management_Benefit_Entitlements_Caption,
+            Translator.WinoAccount_Management_Benefit_Entitlements_Caption_Device,
             Translator.WinoAccount_Management_FreeBadge,
             isFreeBadge: true,
-            Translator.WinoAccount_Management_Benefit_Entitlements_Lede,
+            Translator.WinoAccount_Management_Benefit_Entitlements_Lede_Device,
             (string[])
             [
-                Translator.WinoAccount_Management_Benefit_Entitlements_Point1,
+                Translator.WinoAccount_Management_Benefit_Entitlements_Point1_Device,
                 Translator.WinoAccount_Management_Benefit_Entitlements_Point2,
                 Translator.WinoAccount_Management_Benefit_Entitlements_Point3,
                 Translator.WinoAccount_Management_Benefit_Entitlements_Point4
@@ -356,7 +356,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             Translator.WinoAccount_Management_Benefit_Unlimited_Caption,
             Translator.WinoAccount_Management_AddOnBadge,
             isFreeBadge: false,
-            string.Format(Translator.WinoAccount_Management_Benefit_Unlimited_Lede, Constants.FreeAccountLimit),
+            string.Format(Translator.WinoAccount_Management_Benefit_Unlimited_Lede_Device, Constants.FreeAccountLimit),
             (string[])
             [
                 Translator.WinoAccount_Management_Benefit_Unlimited_Point1,

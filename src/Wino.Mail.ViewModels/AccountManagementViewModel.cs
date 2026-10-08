@@ -456,7 +456,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
         if (result.SkippedDuplicateMailboxCount > 0)
         {
-            parts.Add(string.Format(Translator.WinoAccount_Management_ImportDuplicateAccountsSkipped, result.SkippedDuplicateMailboxCount));
+            parts.Add(string.Format(Translator.WinoAccount_Management_ImportDuplicateAccountsSkipped_Device, result.SkippedDuplicateMailboxCount));
         }
 
         if (result.AppliedAccountDataCount > 0)
