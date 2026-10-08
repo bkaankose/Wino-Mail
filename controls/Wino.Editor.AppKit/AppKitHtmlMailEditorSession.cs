@@ -87,6 +87,45 @@ public sealed class AppKitHtmlMailEditorSession : NSObject, IHtmlMailEditorSessi
             }
         }, cancellationToken);
 
+    /// <summary>Highlights every match of <paramref name="query"/> and moves the current match; nothing is written into the draft.</summary>
+    public Task<EditorFindResult> FindAsync(string query, bool ignoreCase, bool wholeWords, EditorFindDirection direction, CancellationToken cancellationToken = default) =>
+        EvaluateFindAsync($"window.WinoEditor.find({Quote(query)}, {Bool(ignoreCase)}, {Bool(wholeWords)}, {Quote(direction.ToString().ToLowerInvariant())})", cancellationToken);
+
+    /// <summary>Replaces the current match (one undo step) and keeps the next one current.</summary>
+    public Task<EditorFindResult> ReplaceAsync(string replacement, CancellationToken cancellationToken = default) =>
+        EvaluateFindAsync($"window.WinoEditor.replaceCurrent({Quote(replacement)})", cancellationToken);
+
+    /// <summary>Replaces every match of the active query; returns the number of replacements.</summary>
+    public Task<int> ReplaceAllAsync(string replacement, CancellationToken cancellationToken = default) =>
+        _host.Queue.RunAsync(async token =>
+        {
+            await EnsureReadyAsync(token);
+            return int.TryParse(await _host.EvaluateAsync($"window.WinoEditor.replaceAll({Quote(replacement)})"), out var count) ? count : 0;
+        }, cancellationToken);
+
+    /// <summary>Removes the find highlights and selects the last current match.</summary>
+    public Task ClearFindAsync(CancellationToken cancellationToken = default) =>
+        RunAsync(() => _host.EvaluateAsync("window.WinoEditor.clearFind()"), cancellationToken);
+
+    /// <summary>
+    /// Swaps the signature block (<c>div[data-wino-signature]</c>); empty <paramref name="html"/> removes it.
+    /// <paramref name="previousHtml"/> locates a signature inserted before the wrapper existed.
+    /// </summary>
+    public Task SetSignatureAsync(string? html, string? previousHtml, CancellationToken cancellationToken = default) =>
+        RunAsync(() => _host.EvaluateAsync($"window.WinoEditor.setSignature({Quote(Base64(html))}, {Quote(Base64(previousHtml))})"), cancellationToken);
+
+    private static string Base64(string? value) => string.IsNullOrEmpty(value) ? string.Empty : Convert.ToBase64String(Encoding.UTF8.GetBytes(value));
+
+    private Task<EditorFindResult> EvaluateFindAsync(string expression, CancellationToken cancellationToken) =>
+        _host.Queue.RunAsync(async token =>
+        {
+            await EnsureReadyAsync(token);
+            var parts = (await _host.EvaluateAsync(expression) ?? string.Empty).Split(',');
+            return parts.Length == 2 && int.TryParse(parts[0], out var index) && int.TryParse(parts[1], out var count)
+                ? new EditorFindResult(index, count)
+                : new EditorFindResult(0, 0);
+        }, cancellationToken);
+
     public Task ExecuteCommandAsync(EditorCommand command) => ExecuteCommandAsync(command, default);
     public Task ExecuteCommandAsync(EditorCommand command, CancellationToken cancellationToken) => RunAsync(async () =>
     {
@@ -169,3 +208,15 @@ public sealed class AppKitHtmlMailEditorSession : NSObject, IHtmlMailEditorSessi
 
     });
 }
+
+/// <summary>Which match <see cref="AppKitHtmlMailEditorSession.FindAsync"/> makes current.</summary>
+public enum EditorFindDirection
+{
+    /// <summary>A new or changed query: the first match, or the current one when only the text changed.</summary>
+    Start,
+    Next,
+    Previous
+}
+
+/// <summary>One-based current match and total; (0, 0) when nothing matches.</summary>
+public readonly record struct EditorFindResult(int Index, int Count);

@@ -17,6 +17,7 @@ public sealed class WinoShellRowView : NSTableRowView
 
     private bool _showsIndicator;
     private bool _highlightable = true;
+    private bool _isDropTarget;
 
     /// <summary>Draws the accent pipe even while the row is not selected.</summary>
     public bool ShowsIndicator
@@ -30,6 +31,16 @@ public sealed class WinoShellRowView : NSTableRowView
     {
         get => _highlightable;
         set { if (_highlightable == value) return; _highlightable = value; NeedsDisplay = true; }
+    }
+
+    /// <summary>
+    /// Marks the row as the target of a drag in progress: an accent fill at 16% with a 2pt inset accent
+    /// ring (the Windows IsDraggingItemOver state), drawn instead of the native blue drop outline.
+    /// </summary>
+    public bool IsDropTarget
+    {
+        get => _isDropTarget;
+        set { if (_isDropTarget == value) return; _isDropTarget = value; NeedsDisplay = true; }
     }
 
     /// <summary>Cells keep their own colours; nothing is inverted on selection.</summary>
@@ -48,7 +59,22 @@ public sealed class WinoShellRowView : NSTableRowView
     {
         base.DrawBackground(dirtyRect);
         if (!Selected && _showsIndicator) DrawIndicator();
+        if (_isDropTarget) DrawDropTarget();
     }
+
+    private void DrawDropTarget()
+    {
+        var rect = new CGRect(Bounds.X + HorizontalInset, Bounds.Y + 0.5, Bounds.Width - HorizontalInset * 2, Bounds.Height - 1);
+        WinoStyle.Accent.ColorWithAlphaComponent(0.16f).SetFill();
+        NSBezierPath.FromRoundedRect(rect, (nfloat)CornerRadius, (nfloat)CornerRadius).Fill();
+        var ring = NSBezierPath.FromRoundedRect(rect.Inset(1, 1), (nfloat)(CornerRadius - 1), (nfloat)(CornerRadius - 1));
+        ring.LineWidth = 2;
+        WinoStyle.Accent.SetStroke();
+        ring.Stroke();
+    }
+
+    /// <summary>The pane draws its own drop highlight (<see cref="IsDropTarget"/>).</summary>
+    public override void DrawDraggingDestinationFeedback(CGRect dirtyRect) { }
 
     private void DrawIndicator()
     {

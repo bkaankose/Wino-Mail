@@ -79,6 +79,7 @@ public sealed partial class AppDelegate
                 () => NSApplication.SharedApplication.Terminate(null));
             _statusItem.SetCompanionEnabled(preferences.IsCompanionEnabled);
             UpdateStatusItem();
+            StartCompanionHotKey();
             // Other windows (Settings, compose) keep the Dock icon; the last titled window closing finishes it.
             _windowClosingObserver = NSNotificationCenter.DefaultCenter.AddObserver(NSWindow.WillCloseNotification,
                 _ => NSApplication.SharedApplication.BeginInvokeOnMainThread(TryEnterBackground));
@@ -106,6 +107,7 @@ public sealed partial class AppDelegate
                 _windowClosingObserver.Dispose();
                 _windowClosingObserver = null;
             }
+            StopCompanionHotKey();
             // A teardown failure must not abort quitting.
             try { _statusItem?.Dispose(); }
             catch (Exception exception) { Serilog.Log.Warning(exception, "Menu bar item cleanup failed while quitting."); }
@@ -234,6 +236,7 @@ public sealed partial class AppDelegate
 
     private void CompanionPreferenceChanged(object? sender, string propertyName)
     {
+        CompanionHotKeyPreferenceChanged(propertyName);
         if (propertyName is not (nameof(IPreferencesService.AppCloseBehavior) or nameof(IPreferencesService.IsCompanionEnabled))) return;
         _ = _dispatcher.ExecuteOnUIThread(() =>
         {

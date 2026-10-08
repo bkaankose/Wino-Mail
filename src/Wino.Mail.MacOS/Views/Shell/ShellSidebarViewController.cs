@@ -20,7 +20,7 @@ namespace Wino.Mail.MacOS.Views.Shell;
 /// theme backdrop, and the mode switcher card at the bottom. The shell owns the ViewModel
 /// lifetime; this controller only presents and forwards clicks.
 /// </summary>
-internal sealed class ShellSidebarViewController : NSViewController
+internal sealed partial class ShellSidebarViewController : NSViewController
 {
     private readonly IDispatcher _dispatcher;
     private readonly Action<Exception> _error;
@@ -80,6 +80,7 @@ internal sealed class ShellSidebarViewController : NSViewController
         _outline.Menu = _contextMenu;
         _outline.PrepareMenu = PrepareContextMenu;
         WinoAccessibility.Label(_outline, Translator.KeyboardShortcuts_ModeMail);
+        SetUpMailDrop();
 
         var scroll = new NSScrollView
         {
@@ -227,6 +228,21 @@ internal sealed class ShellSidebarViewController : NSViewController
     {
         public Func<CGPoint, bool>? PrepareMenu { get; set; }
 
+        /// <summary>Raised when a drag leaves the pane or ends, to clear the drop highlight.</summary>
+        public Action? DragFinished { get; set; }
+
+        public override void DraggingExited(INSDraggingInfo? sender)
+        {
+            base.DraggingExited(sender);
+            DragFinished?.Invoke();
+        }
+
+        public override void DraggingEnded(INSDraggingInfo sender)
+        {
+            base.DraggingEnded(sender);
+            DragFinished?.Invoke();
+        }
+
         /// <summary>
         /// AppKit reserves an 18pt disclosure gutter before every outline cell even though the pane
         /// never shows the outline cell (expansion uses the trailing chevron). Dropping it puts root
@@ -342,6 +358,7 @@ internal sealed class ShellSidebarViewController : NSViewController
         {
             _outline.Activated -= Clicked;
             _outline.PrepareMenu = null;
+            _outline.DragFinished = null;
             _outline.Menu = null;
             _contextMenu.RemoveAllItems();
             _outline.DataSource = null;
@@ -494,6 +511,12 @@ internal sealed class ShellSidebarViewController : NSViewController
 
         public override bool ItemExpandable(NSOutlineView outlineView, NSObject item) => Items(item).Count > 0;
 
+        public override NSDragOperation ValidateDrop(NSOutlineView outlineView, INSDraggingInfo info, NSObject? item, nint index)
+            => owner.ValidateMailDrop(info);
+
+        public override bool AcceptDrop(NSOutlineView outlineView, INSDraggingInfo info, NSObject? item, nint index)
+            => owner.AcceptMailDrop(info);
+
         protected override void Dispose(bool disposing)
         {
             if (disposing)
@@ -577,6 +600,7 @@ internal sealed class ShellSidebarViewController : NSViewController
             var menuItem = ((Node)item).Item;
             var row = outlineView.MakeView("WinoShellRow", this) as WinoShellRowView ?? new WinoShellRowView { Identifier = "WinoShellRow" };
             row.Highlightable = ShellPaneRows.IsHighlightable(menuItem);
+            row.IsDropTarget = false;
             row.ShowsIndicator = ShellPaneRows.ShowsIndicator(menuItem);
             return row;
         }

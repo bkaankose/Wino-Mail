@@ -160,6 +160,7 @@ public sealed partial class MailListPageViewController
         listHost.AddSubview(_emptyLabel);
         listHost.AddSubview(_listProgress);
         listHost.AddSubview(_infoBarHost, NSWindowOrderingMode.Above, null);
+        BuildDragBanner(listHost);
         listHost.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Vertical);
         NSLayoutConstraint.ActivateConstraints(
         [
@@ -271,6 +272,7 @@ public sealed partial class MailListPageViewController
         WinoStyle.AccentChanged += AccentChanged;
         WinoStyle.BackdropChanged += AccentChanged;
         RegisterDebugCommands();
+        BindDrag();
         _boundsObserver = NSNotificationCenter.DefaultCenter.AddObserver(NSView.BoundsChangedNotification, _ => CheckLoadMore(), _scroll.ContentView);
     }
 
@@ -919,6 +921,14 @@ public sealed partial class MailListPageViewController
     private sealed class MailListTableDataSource(MailListPageViewController owner) : NSTableViewDataSource
     {
         public override nint GetRowCount(NSTableView tableView) => owner._entries.Count;
+
+        public override INSPasteboardWriting? GetPasteboardWriterForRow(NSTableView tableView, nint row) => owner.PasteboardWriterForRow(row);
+
+        public override void DraggingSessionWillBegin(NSTableView tableView, NSDraggingSession draggingSession, CGPoint willBeginAtScreenPoint, NSIndexSet rowIndexes)
+            => owner.DragWillBegin(draggingSession, willBeginAtScreenPoint, rowIndexes);
+
+        public override void DraggingSessionEnded(NSTableView tableView, NSDraggingSession draggingSession, CGPoint endedAtScreenPoint, NSDragOperation operation)
+            => owner.DragEnded();
     }
 
     private sealed class MailListTableDelegate(MailListPageViewController owner) : NSTableViewDelegate

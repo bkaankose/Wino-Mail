@@ -27,9 +27,16 @@ public sealed class WinoCalendarItemView : NSView
 {
     private const double StripeWidth = 3;
     private const double CornerRadius = 2;
+    /// <summary>Height of the bottom-edge strip that resizes a timed tile instead of moving it.</summary>
+    public const double ResizeHandleHeight = 6;
+    private const double DragThreshold = 4;
     private CalendarTileModel? _model;
     private CalendarPlacementKind _kind;
     private bool _hover;
+    private bool _allowsResize;
+    private NSEvent? _pressEvent;
+    private bool _pressOnResizeHandle;
+    private bool _dragging;
 
     public WinoCalendarItemView()
     {
@@ -52,9 +59,29 @@ public sealed class WinoCalendarItemView : NSView
         set { _kind = value; NeedsDisplay = true; }
     }
 
+    /// <summary>The day this tile is placed on (set by the hosting surface).</summary>
+    internal DateOnly Date { get; set; }
+
+    /// <summary>Whether the bottom edge shows the resize cursor and starts a resize drag.</summary>
+    public bool AllowsResize
+    {
+        get => _allowsResize;
+        set
+        {
+            if (_allowsResize == value) return;
+            _allowsResize = value;
+            Window?.InvalidateCursorRectsForView(this);
+        }
+    }
+
     public event EventHandler<NSEvent>? Clicked;
     public event EventHandler<NSEvent>? DoubleClicked;
     public event EventHandler<NSEvent>? RightClicked;
+
+    /// <summary>The pointer moved past the drag threshold: the press event and whether it grabbed the resize edge.</summary>
+    internal event EventHandler<(NSEvent Press, bool Resize)>? DragBegan;
+    internal event EventHandler<NSEvent>? DragMoved;
+    internal event EventHandler<NSEvent>? DragEnded;
 
     public override bool IsFlipped => true;
     public override bool AcceptsFirstMouse(NSEvent? theEvent) => true;
@@ -63,8 +90,40 @@ public sealed class WinoCalendarItemView : NSView
 
     public override void MouseDown(NSEvent theEvent)
     {
+        _dragging = false;
+        _pressEvent = theEvent.ClickCount == 1 ? theEvent : null;
+        _pressOnResizeHandle = _allowsResize && ConvertPointFromView(theEvent.LocationInWindow, null).Y >= Bounds.Height - ResizeHandleHeight;
         if (theEvent.ClickCount == 2) DoubleClicked?.Invoke(this, theEvent);
         else if (theEvent.ClickCount == 1) Clicked?.Invoke(this, theEvent);
+    }
+
+    public override void MouseDragged(NSEvent theEvent)
+    {
+        if (_pressEvent is not { } press) return;
+        if (!_dragging)
+        {
+            var dx = theEvent.LocationInWindow.X - press.LocationInWindow.X;
+            var dy = theEvent.LocationInWindow.Y - press.LocationInWindow.Y;
+            if (Math.Sqrt(dx * dx + dy * dy) < DragThreshold) return;
+            _dragging = true;
+            DragBegan?.Invoke(this, (press, _pressOnResizeHandle));
+        }
+        DragMoved?.Invoke(this, theEvent);
+    }
+
+    public override void MouseUp(NSEvent theEvent)
+    {
+        bool wasDragging = _dragging;
+        _dragging = false;
+        _pressEvent = null;
+        if (wasDragging) DragEnded?.Invoke(this, theEvent);
+    }
+
+    public override void ResetCursorRects()
+    {
+        base.ResetCursorRects();
+        if (_allowsResize && Bounds.Height > ResizeHandleHeight * 2)
+            AddCursorRect(new CGRect(0, Bounds.Height - ResizeHandleHeight, Bounds.Width, ResizeHandleHeight), NSCursor.ResizeUpDownCursor);
     }
 
     public override void RightMouseDown(NSEvent theEvent) => RightClicked?.Invoke(this, theEvent);

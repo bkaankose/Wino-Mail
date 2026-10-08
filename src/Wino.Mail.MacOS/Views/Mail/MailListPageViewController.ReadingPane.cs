@@ -19,6 +19,12 @@ public interface IReadingPaneHost
 
     /// <summary>Puts an already active child back into the pane, releasing whatever the pane showed.</summary>
     Task DockAsync(NSViewController child);
+
+    /// <summary>
+    /// A popped-out reader started Reply, Reply all or Forward: the composer for <paramref name="draftUniqueId"/>
+    /// opens in its own window too (Windows PopoutHostActionKind.PopOutNextNavigation).
+    /// </summary>
+    void PopOutNextComposer(Guid draftUniqueId);
 }
 
 /// <summary>Implemented by reading pane pages that need their host, such as the detachable composer.</summary>
@@ -35,6 +41,7 @@ public sealed partial class MailListPageViewController : IRenderingFrameHost, IR
     private NSViewController? _paneChild;
     private int _paneVersion;
     private bool _detachedComposerActive;
+    private Guid? _popOutNextDraftId;
 
     private NSView BuildReadingPane()
     {
@@ -54,6 +61,7 @@ public sealed partial class MailListPageViewController : IRenderingFrameHost, IR
 
     public async Task ShowAsync(NSViewController controller, object? parameter)
     {
+        ComposePageViewController? popOutComposer = null;
         int version = Interlocked.Increment(ref _paneVersion);
         await _paneGate.WaitAsync();
         try
@@ -80,8 +88,22 @@ public sealed partial class MailListPageViewController : IRenderingFrameHost, IR
 
             await ReplacePaneChildAsync(controller);
             if (controller is IWinoViewController next) await next.ActivateAsync(NavigationMode.New, parameter);
+            popOutComposer = TakePendingPopOut(controller, parameter);
         }
         finally { _paneGate.Release(); }
+        // Outside the gate: popping out takes it again.
+        if (popOutComposer is not null) Observe(popOutComposer.PopOutFromHostAsync());
+    }
+
+    void IReadingPaneHost.PopOutNextComposer(Guid draftUniqueId) => _popOutNextDraftId = draftUniqueId;
+
+    /// <summary>The composer a popped-out reader asked for, once it is active in the pane.</summary>
+    private ComposePageViewController? TakePendingPopOut(NSViewController controller, object? parameter)
+    {
+        if (_popOutNextDraftId is not { } pending || controller is not ComposePageViewController composer) return null;
+        if (parameter is not MailItemViewModel draft || draft.MailCopy?.UniqueId != pending) return null;
+        _popOutNextDraftId = null;
+        return composer;
     }
 
     public async Task ClearAsync()

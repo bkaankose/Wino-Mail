@@ -16,8 +16,15 @@
 
 ::highlight(wino-auto-correction) { background-color: rgba(46, 160, 67, 0.34); }
 
+/* Find in message: view-only highlights, never part of the draft HTML. */
+::highlight(wino-find) { background-color: #FFF2A8; color: #1b1b1b; }
+::highlight(wino-find-current) { background-color: #FFB000; color: #1b1b1b; }
+:root[data-theme="dark"] ::highlight(wino-find) { background-color: rgba(255, 214, 10, 0.38); color: inherit; }
+:root[data-theme="dark"] ::highlight(wino-find-current) { background-color: #FFB000; color: #1b1b1b; }
+
 @media (forced-colors: active) {
     ::highlight(wino-auto-correction) { background-color: Highlight; color: HighlightText; }
+    ::highlight(wino-find), ::highlight(wino-find-current) { background-color: Mark; color: MarkText; }
 }
 
 :root[data-theme="light"] {

@@ -937,8 +937,14 @@
 
     document.execCommand("styleWithCSS", false, false);
 
+    // An input method (Japanese, Chinese, Korean...) owns every key while it composes:
+    // keyCode 229 / isComposing keydowns must reach it untouched.
+    function isImeKey(event) {
+        return event.isComposing || event.keyCode === 229;
+    }
+
     document.addEventListener("keydown", event => {
-        if (event.repeat) return;
+        if (event.repeat || isImeKey(event)) return;
 
         if (event.key === "Escape" && linkBubble.classList.contains("is-visible")) {
             event.preventDefault();
@@ -981,7 +987,8 @@
         post({ type: "applicationShortcut", gesture: applicationShortcut });
     }, true);
     document.addEventListener("keyup", event => {
-        if (event.key.toLowerCase() === "v") pasteAsPlainTextOnce = false;
+        if (isImeKey(event)) return;
+        if (String(event.key || "").toLowerCase() === "v") pasteAsPlainTextOnce = false;
     }, true);
 
     document.addEventListener("selectionchange", () => {
@@ -1080,6 +1087,10 @@
             /^[\s.,;:!?]$/.test(event.data || "") && !event.isComposing) {
             requestAutoCorrection();
         }
+        if (event.isComposing) {
+            sendContentChanged();
+            return;
+        }
         const isLinkBoundary = event.inputType === "insertParagraph" ||
             event.inputType === "insertLineBreak" ||
             event.inputType === "insertFromPaste" ||
@@ -1090,7 +1101,7 @@
         }
         sendContentChanged();
     });
-    editor.addEventListener("keyup", sendState);
+    editor.addEventListener("keyup", event => { if (!isImeKey(event)) sendState(); });
     editor.addEventListener("mouseup", () => { sendState(); updateLinkBubble(); });
     editor.addEventListener("focus", sendState);
     editor.addEventListener("click", event => {
@@ -1112,6 +1123,240 @@
         event.preventDefault();
         removeLink(displayedLink);
     });
+
+    // ---- Find in message ----
+    // Matches are live Ranges painted with the CSS Custom Highlight API, so nothing is written
+    // into the draft. Text is matched per block, so a match never spans two paragraphs.
+    const findState = { query: "", ignoreCase: true, wholeWords: false, matches: [], index: -1 };
+    const blockSelector = "p,div,li,td,th,blockquote,pre,h1,h2,h3,h4,h5,h6,dd,dt";
+
+    function escapeRegExp(value) {
+        return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
+    function collectFindMatches() {
+        const matches = [];
+        if (!findState.query) return matches;
+        let pattern = escapeRegExp(findState.query);
+        if (findState.wholeWords) pattern = `(?<![\\p{L}\\p{N}_])${pattern}(?![\\p{L}\\p{N}_])`;
+        let expression;
+        try { expression = new RegExp(pattern, findState.ignoreCase ? "giu" : "gu"); }
+        catch (ignored) { return matches; }
+
+        const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, {
+            acceptNode(node) {
+                const parent = node.parentElement;
+                if (!parent || parent.closest("[data-wino-editor-artifact],script,style")) return NodeFilter.FILTER_REJECT;
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        });
+        let group = [];
+        let groupBlock = null;
+        let text = "";
+        const flush = () => {
+            if (group.length === 0) return;
+            expression.lastIndex = 0;
+            let match;
+            while ((match = expression.exec(text)) !== null) {
+                if (match[0].length === 0) { expression.lastIndex++; continue; }
+                const range = rangeFromGroup(group, match.index, match.index + match[0].length);
+                if (range) matches.push(range);
+            }
+            group = [];
+            text = "";
+        };
+        let node;
+        while ((node = walker.nextNode())) {
+            const block = node.parentElement.closest(blockSelector) || editor;
+            if (block !== groupBlock) {
+                flush();
+                groupBlock = block;
+            }
+            group.push({ node, start: text.length });
+            text += node.data;
+        }
+        flush();
+        return matches;
+    }
+
+    function rangeFromGroup(group, start, end) {
+        let first = null;
+        let last = null;
+        for (const entry of group) {
+            const entryEnd = entry.start + entry.node.length;
+            if (!first && start >= entry.start && start < entryEnd) first = { node: entry.node, offset: start - entry.start };
+            if (first && end > entry.start && end <= entryEnd) { last = { node: entry.node, offset: end - entry.start }; break; }
+        }
+        if (!first || !last) return null;
+        const range = document.createRange();
+        range.setStart(first.node, first.offset);
+        range.setEnd(last.node, last.offset);
+        return range;
+    }
+
+    function paintFind() {
+        if (!(window.CSS && CSS.highlights && window.Highlight)) return;
+        CSS.highlights.delete("wino-find");
+        CSS.highlights.delete("wino-find-current");
+        if (findState.matches.length === 0) return;
+        const others = findState.matches.filter((_, index) => index !== findState.index);
+        if (others.length > 0) CSS.highlights.set("wino-find", new Highlight(...others));
+        const current = findState.matches[findState.index];
+        if (current) {
+            CSS.highlights.set("wino-find-current", new Highlight(current));
+            const element = current.startContainer.parentElement;
+            if (element) element.scrollIntoView({ block: "nearest", inline: "nearest" });
+        }
+    }
+
+    function findResult() {
+        return `${findState.matches.length === 0 ? 0 : findState.index + 1},${findState.matches.length}`;
+    }
+
+    // direction: "start" re-runs the query near the current match, "next"/"previous" step.
+    function find(query, ignoreCase, wholeWords, direction) {
+        const changed = findState.query !== String(query || "") ||
+            findState.ignoreCase !== Boolean(ignoreCase) || findState.wholeWords !== Boolean(wholeWords);
+        const previous = findState.matches[findState.index];
+        findState.query = String(query || "");
+        findState.ignoreCase = Boolean(ignoreCase);
+        findState.wholeWords = Boolean(wholeWords);
+        findState.matches = collectFindMatches();
+        const count = findState.matches.length;
+        if (count === 0) {
+            findState.index = -1;
+        } else if (changed || findState.index < 0 || !previous) {
+            findState.index = changed ? 0 : Math.min(Math.max(findState.index, 0), count - 1);
+        } else {
+            let index = findState.matches.findIndex(range =>
+                range.compareBoundaryPoints(Range.START_TO_START, previous) >= 0);
+            if (index < 0) index = 0;
+            const same = findState.matches[index] &&
+                findState.matches[index].compareBoundaryPoints(Range.START_TO_START, previous) === 0;
+            if (direction === "next") index = same ? (index + 1) % count : index;
+            else if (direction === "previous") index = (index - 1 + count) % count;
+            findState.index = index;
+        }
+        paintFind();
+        return findResult();
+    }
+
+    function replaceCurrent(replacement) {
+        const current = findState.matches[findState.index];
+        if (!current || current.collapsed) return findResult();
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(current);
+        document.execCommand("insertText", false, String(replacement || ""));
+        rememberSelection();
+        sendContentChanged();
+        const index = findState.index;
+        findState.matches = collectFindMatches();
+        findState.index = findState.matches.length === 0 ? -1 : Math.min(index, findState.matches.length - 1);
+        paintFind();
+        return findResult();
+    }
+
+    function replaceAll(replacement) {
+        const matches = collectFindMatches();
+        const selection = window.getSelection();
+        for (let index = matches.length - 1; index >= 0; index--) {
+            selection.removeAllRanges();
+            selection.addRange(matches[index]);
+            document.execCommand("insertText", false, String(replacement || ""));
+        }
+        rememberSelection();
+        if (matches.length > 0) sendContentChanged();
+        findState.matches = collectFindMatches();
+        findState.index = findState.matches.length === 0 ? -1 : 0;
+        paintFind();
+        return `${matches.length}`;
+    }
+
+    // Closing the bar clears the highlights and leaves the current match selected.
+    function clearFind() {
+        const current = findState.matches[findState.index];
+        if (window.CSS && CSS.highlights) {
+            CSS.highlights.delete("wino-find");
+            CSS.highlights.delete("wino-find-current");
+        }
+        if (current && editor.contains(current.startContainer)) {
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(current);
+            rememberSelection();
+        }
+        findState.query = "";
+        findState.matches = [];
+        findState.index = -1;
+        return true;
+    }
+
+    // ---- Signature ----
+    // The signature lives in a <div data-wino-signature> so it can be swapped. Drafts made before
+    // the wrapper existed carry the signature bare; it is found by its text and wrapped first.
+    const signatureAttribute = "data-wino-signature";
+
+    function normalizeText(value) {
+        return String(value || "").replace(/\s+/g, " ").trim();
+    }
+
+    function wrapLegacySignature(previousHtml) {
+        const probe = document.createElement("div");
+        probe.innerHTML = sanitizeHtml(previousHtml);
+        const target = normalizeText(probe.textContent);
+        if (!target) return null;
+        const nodes = Array.from(editor.childNodes);
+        for (let start = 0; start < nodes.length; start++) {
+            if (!normalizeText(nodes[start].textContent)) continue;
+            let text = "";
+            for (let end = start; end < nodes.length; end++) {
+                text += " " + (nodes[end].textContent || "");
+                const normalized = normalizeText(text);
+                if (normalized === target) {
+                    const host = document.createElement("div");
+                    host.setAttribute(signatureAttribute, "true");
+                    editor.insertBefore(host, nodes[start]);
+                    for (let index = start; index <= end; index++) host.appendChild(nodes[index]);
+                    return host;
+                }
+                if (!target.startsWith(normalized)) break;
+            }
+        }
+        return null;
+    }
+
+    function signatureAnchor() {
+        const reply = editor.querySelector("#divRplyFwdMsg");
+        if (!reply) return null;
+        let anchor = reply;
+        while (anchor.parentNode && anchor.parentNode !== editor) anchor = anchor.parentNode;
+        if (anchor.parentNode !== editor) return null;
+        const previous = anchor.previousElementSibling;
+        return previous && previous.localName === "hr" ? previous : anchor;
+    }
+
+    function setSignature(base64Html, previousBase64Html) {
+        const html = decodeBase64(base64Html || "");
+        let host = editor.querySelector(`[${signatureAttribute}]`);
+        if (!host && previousBase64Html) host = wrapLegacySignature(decodeBase64(previousBase64Html));
+        if (!html) {
+            if (host) host.remove();
+            sendContentChanged();
+            return true;
+        }
+        if (!host) {
+            host = document.createElement("div");
+            host.setAttribute(signatureAttribute, "true");
+            const anchor = signatureAnchor();
+            if (anchor) editor.insertBefore(host, anchor);
+            else editor.appendChild(host);
+        }
+        host.innerHTML = unwrapComposeRoot(sanitizeHtml(html));
+        refreshDarkColors();
+        sendContentChanged();
+        return true;
+    }
 
     window.WinoEditor = {
         exec,
@@ -1148,6 +1393,11 @@
             correctionRevision++;
         },
         setApplicationShortcuts,
+        find,
+        replaceCurrent,
+        replaceAll,
+        clearFind,
+        setSignature,
         setParagraphStyle,
         setLineHeight(value) { return applyStyle("lineHeight", value || "normal"); },
         insertEmoji(value) { return insertHtml(String(value || "")); },

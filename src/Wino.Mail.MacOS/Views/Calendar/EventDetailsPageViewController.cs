@@ -33,6 +33,7 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
     private ActionBarButton _rsvp = null!;
     private ActionBarButton _delete = null!;
     private ActionBarButton _series = null!;
+    private ActionBarButton _openInWindow = null!;
     private NSPopUpButton _showAs = null!;
     private NSPopUpButton _reminder = null!;
     private WinoSurfaceView _rsvpPanel = null!;
@@ -73,6 +74,10 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         _rsvp = Action(WinoIconGlyph.EventRespond, Translator.CalendarEventResponse_NotResponded, ViewModel.ToggleRsvpPanelCommand);
         _delete = Action(WinoIconGlyph.Delete, Translator.Buttons_Delete, ViewModel.DeleteCommand);
         _series = Action(WinoIconGlyph.EventEditSeries, Translator.CalendarEventDetails_EditSeries, ViewModel.ViewSeriesCommand);
+        // Mac addition: the details pane can open the event in its own window (EventDetailsWindow).
+        _openInWindow = new ActionBarButton(WinoIconGlyph.OpenInNewWindow, null, Translator.CalendarEventDetails_OpenInNewWindow);
+        _openInWindow.Activated += (_, _) => OpenInNewWindow();
+        _openInWindow.Hidden = IsInOwnWindow || !EventDetailsWindow.IsAvailable;
         _showAs = new NSPopUpButton { ControlSize = NSControlSize.Small, TranslatesAutoresizingMaskIntoConstraints = false, ToolTip = Translator.CalendarEventDetails_ShowAs };
         _showAs.Font = NSFont.SystemFontOfSize(12);
         _showAs.WidthAnchor.ConstraintEqualTo(130).Active = true;
@@ -97,9 +102,12 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         var actions = new NSStackView { Orientation = NSUserInterfaceLayoutOrientation.Horizontal, Spacing = 2, TranslatesAutoresizingMaskIntoConstraints = false };
         actions.Alignment = NSLayoutAttribute.CenterY;
         foreach (var view in new NSView[] { _join, _rsvp, _delete, _series }) actions.AddArrangedSubview(view);
+        actions.AddArrangedSubview(WinoLayout.Spacer());
+        actions.AddArrangedSubview(_openInWindow);
         var secondary = WinoLayout.HStack(10, showAsRow, reminderRow, WinoLayout.Spacer());
         var actionColumn = WinoLayout.VStack(4, actions, secondary);
         actionColumn.EdgeInsets = new NSEdgeInsets(6, 6, 6, 6);
+        actions.WidthAnchor.ConstraintEqualTo(actionColumn.WidthAnchor, 1, -12).Active = true;
         var actionCard = new WinoSurfaceView { Fill = CardFill, CornerRadius = 7 };
         WinoLayout.Fill(actionColumn, actionCard);
         AddRow(actionCard);
@@ -185,6 +193,21 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
     {
         _column.AddArrangedSubview(view);
         view.WidthAnchor.ConstraintEqualTo(_column.WidthAnchor, 1, -32).Active = true;
+    }
+
+    /// <summary>True when this page is hosted by an <see cref="EventDetailsWindow"/> rather than the calendar pane.</summary>
+    internal bool IsInOwnWindow { get; set; }
+
+    private void OpenInNewWindow()
+    {
+        if (ViewModel.CurrentEvent?.CalendarItem is not { } item) return;
+        _ = OpenAsync();
+
+        async Task OpenAsync()
+        {
+            try { await EventDetailsWindow.OpenAsync(item); }
+            catch (Exception exception) { ReportError(exception); }
+        }
     }
 
     /// <summary>Whether the shown event is on a read-only calendar (debug bridge and tests).</summary>

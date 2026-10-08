@@ -33,12 +33,12 @@ public sealed class CalendarItemClickedEventArgs(ICalendarItem item, WinoCalenda
 /// drawn in a few custom views. Event tiles are pooled and reused across ranges, but each tile is
 /// layer-backed, so the layer count grows with the number of visible events.
 /// </summary>
-public sealed class WinoCalendarSurfaceView : NSView
+public sealed partial class WinoCalendarSurfaceView : NSView
 {
     public const double HourColumnWidth = 64;
     public const double TimedHeaderHeight = 44;
     public const double MonthHeaderHeight = 36;
-    private const double TimelinePadding = 8;
+    internal const double TimelinePadding = 8;
     private const double GridIntervalMinutes = 30;
 
     private readonly HeaderView _header;
@@ -275,13 +275,16 @@ public sealed class WinoCalendarSurfaceView : NSView
                 }
                 view.Item = placement.Item;
                 view.Kind = placement.Kind;
+                view.Date = placement.Date;
                 view.Model = Owner.Tile(placement.Item, placement.Date);
                 view.Frame = placement.Bounds;
+                view.AllowsResize = Owner.AllowsResize(placement.Item, placement.Kind);
             }
             foreach (var key in _active.Keys.Where(k => !seen.Contains(k)).ToList())
             {
                 var view = _active[key];
                 _active.Remove(key);
+                Owner.TileRecycled(view);
                 view.Hidden = true;
                 view.Item = null;
                 if (_spare.Count < 64) _spare.Push(view);
@@ -291,6 +294,16 @@ public sealed class WinoCalendarSurfaceView : NSView
             if (_active.Values.Any(v => v.Kind == CalendarPlacementKind.MultiDayGhost))
                 foreach (var view in _active.Values.Where(v => v.Kind != CalendarPlacementKind.MultiDayGhost)) AddSubview(view);
         }
+
+        /// <summary>The tile currently showing <paramref name="item"/>, if any.</summary>
+        internal WinoCalendarItemView? FindTile(ICalendarItem item)
+            => _active.FirstOrDefault(pair => ReferenceEquals(pair.Key.Item, item) && pair.Value.Kind != CalendarPlacementKind.MultiDayGhost).Value;
+
+        /// <summary>Where a dragged tile lands for the pointer at <paramref name="point"/> (host coordinates); null to keep the last target.</summary>
+        internal virtual DragTarget? ResolveDrag(DragSession session, CGPoint point) => null;
+
+        /// <summary>The pointer offset a debug preview applies for a move of <paramref name="days"/> days and <paramref name="minutes"/> minutes.</summary>
+        internal virtual CGSize PreviewOffset(int days, double minutes) => CGSize.Empty;
 
         public void RefreshModels()
         {
@@ -306,6 +319,9 @@ public sealed class WinoCalendarSurfaceView : NSView
             tile.Clicked += (sender, native) => Owner.RaiseItemClicked((WinoCalendarItemView)sender!, native, 1);
             tile.DoubleClicked += (sender, native) => Owner.RaiseItemClicked((WinoCalendarItemView)sender!, native, 2);
             tile.RightClicked += (sender, native) => Owner.RaiseItemClicked((WinoCalendarItemView)sender!, native, -1);
+            tile.DragBegan += (sender, press) => Owner.BeginTileDrag(this, (WinoCalendarItemView)sender!, ConvertPointFromView(press.Press.LocationInWindow, null), press.Press, press.Resize);
+            tile.DragMoved += (_, native) => Owner.MoveTileDrag(native);
+            tile.DragEnded += (_, _) => Owner.EndTileDrag(commit: true);
             return tile;
         }
 
@@ -406,6 +422,23 @@ public sealed class WinoCalendarSurfaceView : NSView
             SyncTiles(placements);
             NeedsDisplay = true;
         }
+
+        private double DayWidth => Owner.Dates.Count == 0 ? 0 : Math.Max(0, _contentWidth - HourColumnWidth) / Owner.Dates.Count;
+
+        /// <summary>All-day tiles move by whole days along the strip.</summary>
+        internal override DragTarget? ResolveDrag(DragSession session, CGPoint point)
+        {
+            var dates = Owner.Dates;
+            double dayWidth = DayWidth;
+            if (dayWidth <= 0 || dates.Count == 0) return null;
+            int DayAt(double x) => Math.Clamp((int)Math.Floor((x - HourColumnWidth) / dayWidth), 0, dates.Count - 1);
+            int delta = DayAt(point.X) - DayAt(session.DownPoint.X);
+            var frame = session.OriginFrame;
+            return new DragTarget(session.OriginalStart.AddDays(delta), session.OriginalEnd.AddDays(delta),
+                new CGRect(frame.X + delta * dayWidth, frame.Y, frame.Width, frame.Height));
+        }
+
+        internal override CGSize PreviewOffset(int days, double minutes) => new(days * DayWidth, 0);
 
         public override void DrawRect(CGRect dirtyRect)
         {
@@ -535,6 +568,56 @@ public sealed class WinoCalendarSurfaceView : NSView
             }
         }
 
+        /// <summary>
+        /// Timed tiles move by day and by the snap interval, keeping their duration; a resize keeps the
+        /// start and moves the end within the start's day (at least one snap interval long).
+        /// </summary>
+        internal override DragTarget? ResolveDrag(DragSession session, CGPoint point)
+        {
+            var dates = Owner.Dates;
+            double dayWidth = Owner.DayWidth;
+            double hourHeight = Owner.HourHeight;
+            if (dayWidth <= 0 || dates.Count == 0 || hourHeight <= 0) return null;
+            int DayAt(double x) => Math.Clamp((int)Math.Floor((x - HourColumnWidth) / dayWidth), 0, dates.Count - 1);
+            double deltaMinutes = (point.Y - session.DownPoint.Y) / hourHeight * 60;
+            var frame = session.OriginFrame;
+
+            if (session.Resize)
+            {
+                var minimum = session.OriginalStart.AddMinutes(Owner.DragSnapMinutes);
+                var maximum = session.OriginalStart.Date.AddDays(1);
+                var end = Owner.Snap(session.OriginalEnd.AddMinutes(deltaMinutes));
+                end = end < minimum ? minimum : end > maximum ? maximum : end;
+                double height = frame.Height + (end - session.OriginalEnd).TotalHours * hourHeight;
+                return new DragTarget(session.OriginalStart, end, new CGRect(frame.X, frame.Y, frame.Width, Math.Max(4, height)));
+            }
+
+            int deltaDays = DayAt(point.X) - DayAt(session.DownPoint.X);
+            var duration = session.OriginalEnd - session.OriginalStart;
+            var start = Owner.Snap(session.OriginalStart.AddDays(deltaDays).AddMinutes(deltaMinutes));
+            var firstDay = dates[0].ToDateTime(TimeOnly.MinValue);
+            var lastStart = dates[^1].ToDateTime(TimeOnly.MinValue).AddDays(1).AddMinutes(-Owner.DragSnapMinutes);
+            start = start < firstDay ? firstDay : start > lastStart ? lastStart : start;
+
+            int originIndex = IndexOf(dates, session.Tile.Date);
+            int targetIndex = IndexOf(dates, DateOnly.FromDateTime(start));
+            double columnOffset = frame.X - (HourColumnWidth + Math.Max(0, originIndex) * dayWidth);
+            double rowOffset = frame.Y - (TimelinePadding + session.OriginalStart.TimeOfDay.TotalHours * hourHeight);
+            double y = TimelinePadding + start.TimeOfDay.TotalHours * hourHeight + rowOffset;
+            double bottom = TimelinePadding + 24 * hourHeight;
+            double ghostHeight = Math.Max(4, Math.Min(frame.Height, bottom - y));
+            return new DragTarget(start, start + duration,
+                new CGRect(HourColumnWidth + Math.Max(0, targetIndex) * dayWidth + columnOffset, y, frame.Width, ghostHeight));
+        }
+
+        internal override CGSize PreviewOffset(int days, double minutes) => new(days * Owner.DayWidth, minutes / 60 * Owner.HourHeight);
+
+        private static int IndexOf(IReadOnlyList<DateOnly> dates, DateOnly date)
+        {
+            for (int index = 0; index < dates.Count; index++) if (dates[index] == date) return index;
+            return -1;
+        }
+
         private static string HourLabel(CalendarSettings? settings, int hour)
             => settings is null ? $"{hour:00}:00" : settings.GetTimeString(TimeSpan.FromHours(hour));
 
@@ -611,6 +694,28 @@ public sealed class WinoCalendarSurfaceView : NSView
                 FillRect(new CGRect(0, Math.Min(bounds.Height - 1, Math.Round(row * cellHeight)), bounds.Width, 1));
             for (int column = 1; column < CalendarLayoutCalculator.MonthColumns; column++)
                 FillRect(new CGRect(Math.Round(column * cellWidth), 0, 1, bounds.Height));
+        }
+
+        /// <summary>Month tiles move by whole days to the cell under the pointer, keeping their time of day.</summary>
+        internal override DragTarget? ResolveDrag(DragSession session, CGPoint point)
+        {
+            if (_cells.Count == 0) return null;
+            var clamped = new CGPoint(Math.Clamp(point.X, 0, Bounds.Width - 1), Math.Clamp(point.Y, 0, Bounds.Height - 1));
+            var origin = _cells.FirstOrDefault(c => c.Date == session.Tile.Date);
+            var target = _cells.FirstOrDefault(c => c.Bounds.Contains(clamped));
+            if (origin is null || target is null) return null;
+            int delta = target.Date.DayNumber - origin.Date.DayNumber;
+            var frame = session.OriginFrame;
+            return new DragTarget(session.OriginalStart.AddDays(delta), session.OriginalEnd.AddDays(delta),
+                new CGRect(frame.X + target.Bounds.X - origin.Bounds.X, frame.Y + target.Bounds.Y - origin.Bounds.Y, frame.Width, frame.Height));
+        }
+
+        internal override CGSize PreviewOffset(int days, double minutes)
+        {
+            double cellWidth = Bounds.Width / CalendarLayoutCalculator.MonthColumns;
+            double cellHeight = Bounds.Height / CalendarLayoutCalculator.MonthRows;
+            int rows = (int)Math.Floor(days / 7.0);
+            return new CGSize((days - rows * 7) * cellWidth, rows * cellHeight);
         }
 
         public override void MouseDown(NSEvent theEvent)
