@@ -154,6 +154,23 @@ public sealed partial class ComposePageViewController
         _sendButton.ToolTip = $"{Translator.Buttons_Send} ({ShortcutText(key, mask)})";
     }
 
+    /// <summary>
+    /// Send answers its key equivalent only while the focus is in the composer (Windows Compose /
+    /// PopOutCompose input context), so a docked composer never sends from the mail list or reader.
+    /// </summary>
+    private bool IsSendKeyEquivalentInScope()
+    {
+        if (Bindings.IsDisposed || !ViewLoaded || View.Window is not { } window) return false;
+        var responder = window.FirstResponder;
+        // A popped-out composer owns its whole window.
+        return IsInComposer(responder) || (_window is not null && ReferenceEquals(window, _window));
+    }
+
+    private sealed class ComposeSendButton(Func<bool> inScope) : NSButton
+    {
+        public override bool PerformKeyEquivalent(NSEvent theEvent) => inScope() && base.PerformKeyEquivalent(theEvent);
+    }
+
     private static string ShortcutText(string key, NSEventModifierMask mask)
     {
         var text = string.Empty;
@@ -171,7 +188,8 @@ public sealed partial class ComposePageViewController
         NSEventModifierMask expected = 0;
         if (shortcut.ModifierKeys.HasFlag(ModifierKeys.Alt)) expected |= NSEventModifierMask.AlternateKeyMask;
         if (shortcut.ModifierKeys.HasFlag(ModifierKeys.Shift)) expected |= NSEventModifierMask.ShiftKeyMask;
-        if (flags != expected) return false;
+        // A bare key would send on the first matching letter typed in the body.
+        if (expected == 0 || flags != expected) return false;
 
         var name = shortcut.Key?.Trim().ToUpperInvariant() ?? string.Empty;
         return name switch

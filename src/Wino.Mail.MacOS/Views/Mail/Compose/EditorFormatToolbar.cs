@@ -98,6 +98,8 @@ internal sealed class EditorFormatToolbar : NSView
     private EventHandler<EditorShortcutKind>? _shortcutHandler;
     private EventHandler? _imageHandler;
     private ColorPanelTarget? _colorTarget;
+    /// <summary>The target the shared colour panel currently sends to (AppKit has no getter for it).</summary>
+    private static ColorPanelTarget? s_colorPanelOwner;
     private EditorState _state = new();
     private string _spellLanguage;
     private bool _detached;
@@ -617,6 +619,7 @@ internal sealed class EditorFormatToolbar : NSView
         panel.ShowsAlpha = false;
         panel.Continuous = false;
         panel.SetTarget(_colorTarget);
+        s_colorPanelOwner = _colorTarget;
         panel.SetAction(new Selector("colorChanged:"));
         panel.OrderFront(null);
     }
@@ -632,8 +635,14 @@ internal sealed class EditorFormatToolbar : NSView
     {
         if (_colorTarget is null) return;
         var panel = NSColorPanel.SharedColorPanel;
-        panel.SetTarget(null!);
-        panel.SetAction(null!);
+        // Another editor (a signature sheet over the composer) may own the panel now.
+        if (ReferenceEquals(s_colorPanelOwner, _colorTarget))
+        {
+            panel.SetTarget(null!);
+            panel.SetAction(null!);
+            if (panel.IsVisible) panel.OrderOut(null);
+            s_colorPanelOwner = null;
+        }
         _colorTarget.Dispose();
         _colorTarget = null;
     }

@@ -396,7 +396,7 @@ public sealed partial class ComposePageViewController
             addresses.Add(suggestion.Address);
         }
 
-        var (_, range) = TypedText(editor);
+        var (query, range) = TypedText(editor);
         _committingSuggestion = true;
         try
         {
@@ -412,8 +412,31 @@ public sealed partial class ComposePageViewController
             }
         }
         finally { _committingSuggestion = false; }
-        ScheduleRecipientSync(field);
+
+        // The happy path tokenizes and ShouldAddObjects syncs. If the programmatic insert did not tokenize,
+        // write the tokens directly (the mechanism used before the popup) and keep the caret at the end.
+        if (!IsCommitted(field, addresses))
+        {
+            var tokens = existing.Where(token => !string.Equals(token, query, StringComparison.OrdinalIgnoreCase)).Concat(addresses).ToArray();
+            _committingSuggestion = true;
+            try
+            {
+                field.ObjectValue = NSArray.FromNSObjects(tokens.Select(static token => (NSObject)new NSString(token)).ToArray());
+                Window()?.MakeFirstResponder(field);
+                if (field.CurrentEditor is NSTextView current) current.SelectedRange = new NSRange((nint)(current.Value?.Length ?? 0), 0);
+            }
+            finally { _committingSuggestion = false; }
+            ScheduleRecipientSync(field);
+        }
         return Task.CompletedTask;
+    }
+
+    /// <summary>True when every address is now a token and no typed text is left over.</summary>
+    private static bool IsCommitted(NSTokenField field, IReadOnlyList<string> addresses)
+    {
+        if (field.CurrentEditor is NSTextView editor && TypedText(editor).Query.Length > 0) return false;
+        var tokens = ReadTokens(field);
+        return addresses.All(address => tokens.Contains(address, StringComparer.OrdinalIgnoreCase));
     }
 
     /// <summary>Hides a remembered correspondent from suggestions without closing the list.</summary>

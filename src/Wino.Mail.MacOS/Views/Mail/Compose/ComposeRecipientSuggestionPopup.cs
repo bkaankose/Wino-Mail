@@ -183,7 +183,7 @@ internal sealed class ComposeRecipientSuggestionPopup : NSObject
 
     private void AnnounceSelection()
     {
-        if (Highlighted is { } suggestion)
+        if (Highlighted is not null)
             NSAccessibility.PostNotification(_table, new NSString("AXSelectedRowsChanged"));
     }
 

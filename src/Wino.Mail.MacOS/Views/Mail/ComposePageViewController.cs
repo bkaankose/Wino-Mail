@@ -101,7 +101,7 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
         WinoLayout.Fill(_syncFailedBar, syncFailedHost, 10, 12, 0, 12);
 
         // ---- Command row ----
-        _sendButton = new NSButton { Title = Translator.Buttons_Send, BezelStyle = NSBezelStyle.Rounded, TranslatesAutoresizingMaskIntoConstraints = false };
+        _sendButton = new ComposeSendButton(() => IsSendKeyEquivalentInScope()) { Title = Translator.Buttons_Send, BezelStyle = NSBezelStyle.Rounded, TranslatesAutoresizingMaskIntoConstraints = false };
         _sendButton.Image = WinoIcons.Image(WinoIconGlyph.Send, 14, null, Translator.Buttons_Send);
         _sendButton.ImagePosition = NSCellImagePosition.ImageLeading;
         _sendButton.BezelColor = WinoStyle.Accent;

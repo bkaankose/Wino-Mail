@@ -226,8 +226,17 @@ internal sealed class WinoRichTextEditorView : NSView
     /// <summary>The editor body. Deterministic: an unchanged document returns the same string every time.</summary>
     public Task<string?> GetHtmlBodyAsync() => _editor.GetHtmlBodyAsync();
 
-    /// <summary>Renders the editor light or dark.</summary>
-    public async Task SetThemeAsync(bool dark)
+    /// <summary>
+    /// Renders the editor light or dark. An explicit theme from the host wins over
+    /// <see cref="WinoRichTextEditorOptions.FollowsAppearance"/> from then on.
+    /// </summary>
+    public Task SetThemeAsync(bool dark)
+    {
+        _themeOverridden = true;
+        return ApplyThemeAsync(dark);
+    }
+
+    private async Task ApplyThemeAsync(bool dark)
     {
         if (_disposed) return;
         IsDarkTheme = dark;
@@ -288,14 +297,14 @@ internal sealed class WinoRichTextEditorView : NSView
     {
         if (!_options.FollowsAppearance || _themeOverridden || !IsReady || _disposed) return;
         var dark = IsDark(EffectiveAppearance);
-        if (dark != IsDarkTheme) Observe(SetThemeAsync(dark));
+        if (dark != IsDarkTheme) Observe(ApplyThemeAsync(dark));
     }
 
     private void ToggleTheme()
     {
         if (_disposed) return;
         _themeOverridden = true;
-        Observe(SetThemeAsync(!IsDarkTheme));
+        Observe(ApplyThemeAsync(!IsDarkTheme));
     }
 
     private static string ThemeLabel(bool dark) => dark ? Translator.Composer_LightTheme : Translator.Composer_DarkTheme;
