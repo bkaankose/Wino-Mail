@@ -325,6 +325,7 @@
   "CalendarEventCompose_NoCalendarsMessage": "There are no calendars available for event creation yet.",
   "CalendarEventCompose_NoCalendarsTitle": "No calendars available",
   "CalendarEventCompose_NoEndDate": "No end date",
+  "CalendarMac_RecurrenceEndsOnDate": "On date",
   "CalendarEventCompose_Notes": "Notes",
   "CalendarEventCompose_PickCalendarTitle": "Pick a calendar",
   "CalendarEventCompose_Recurring": "Recurring",

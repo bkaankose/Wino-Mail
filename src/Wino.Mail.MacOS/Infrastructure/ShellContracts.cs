@@ -109,3 +109,23 @@ public interface IWinoAccountPresenter
 {
     void Show(NSView anchor);
 }
+
+/// <summary>
+/// Optional companion to <see cref="IShellSearchTarget"/> for pages that show suggestions under the
+/// toolbar search field (for example with <c>ShellSearchSuggestionList</c>). Pages that do not
+/// implement it get the plain field behaviour.
+/// </summary>
+public interface IShellSearchSuggestionTarget
+{
+    /// <summary>Called before <see cref="IShellSearchTarget.SearchTextChangedAsync"/> with the field, so the page can anchor its list.</summary>
+    void SearchFieldEditing(NSSearchField field);
+
+    /// <summary>
+    /// Key commands while the field edits (<c>moveUp:</c>, <c>moveDown:</c>, <c>insertNewline:</c>,
+    /// <c>cancelOperation:</c>). Return true when handled; false keeps the field's default behaviour.
+    /// </summary>
+    bool SearchFieldCommand(NSSearchField field, string selector);
+
+    /// <summary>The field stopped editing (focus moved elsewhere).</summary>
+    void SearchFieldEndedEditing(NSSearchField field);
+}

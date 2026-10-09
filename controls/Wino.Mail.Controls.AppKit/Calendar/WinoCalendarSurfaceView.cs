@@ -10,12 +10,18 @@ using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.Controls.AppKit.Calendar;
 
-/// <summary>Raised when an empty slot is clicked: the slot start and its rectangle in surface coordinates.</summary>
-public sealed class CalendarSlotClickedEventArgs(DateTime start, CGRect anchor, bool isAllDay) : EventArgs
+/// <summary>
+/// Raised when an empty slot is clicked, or a range was dragged across slots: the start, its
+/// rectangle in surface coordinates, and for a drag the exclusive <see cref="End"/>.
+/// </summary>
+public sealed class CalendarSlotClickedEventArgs(DateTime start, CGRect anchor, bool isAllDay, DateTime? end = null) : EventArgs
 {
     public DateTime Start { get; } = start;
     public CGRect Anchor { get; } = anchor;
     public bool IsAllDay { get; } = isAllDay;
+
+    /// <summary>The end of a dragged range (exclusive); null for a plain click.</summary>
+    public DateTime? End { get; } = end;
 }
 
 public sealed class CalendarItemClickedEventArgs(ICalendarItem item, WinoCalendarItemView view, NSEvent? nativeEvent) : EventArgs
@@ -236,6 +242,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
         if (disposing)
         {
             _clock.Invalidate();
+            CancelSlotSelection();
             WinoStyle.AccentChanged -= AccentChanged;
             if (_observableItems is not null) _observableItems.CollectionChanged -= ItemsChanged;
         }
@@ -566,6 +573,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
                 if (dayIndex >= 0)
                     NSBezierPath.FromOvalInRect(new CGRect(HourColumnWidth + dayIndex * dayWidth - 5, y - 5, 10, 10)).Fill();
             }
+            Owner.DrawTimedSelection();
         }
 
         /// <summary>
@@ -621,19 +629,23 @@ public sealed partial class WinoCalendarSurfaceView : NSView
         private static string HourLabel(CalendarSettings? settings, int hour)
             => settings is null ? $"{hour:00}:00" : settings.GetTimeString(TimeSpan.FromHours(hour));
 
+        /// <summary>A click picks the 30-minute slot; a drag selects a range (WinoCalendarSurfaceView.Selection).</summary>
         public override void MouseDown(NSEvent theEvent)
         {
             var point = ConvertPointFromView(theEvent.LocationInWindow, null);
             var dates = Owner.Dates;
             double dayWidth = Owner.DayWidth;
-            if (dayWidth <= 0 || point.X < HourColumnWidth) return;
+            if (dayWidth <= 0 || dates.Count == 0 || point.X < HourColumnWidth) return;
             int dayIndex = Math.Clamp((int)((point.X - HourColumnWidth) / dayWidth), 0, dates.Count - 1);
             double intervalHeight = Owner.HourHeight * GridIntervalMinutes / 60;
             int slot = Math.Clamp((int)((point.Y - TimelinePadding) / intervalHeight), 0, (int)(24 * 60 / GridIntervalMinutes) - 1);
             var start = dates[dayIndex].ToDateTime(TimeOnly.MinValue).AddMinutes(slot * GridIntervalMinutes);
             var anchor = new CGRect(HourColumnWidth + dayIndex * dayWidth, TimelinePadding + slot * intervalHeight, dayWidth, intervalHeight);
-            Owner.RaiseSlotClicked(start, anchor, this, false);
+            Owner.BeginSlotPress(this, month: false, point, () => Owner.RaiseSlotClicked(start, anchor, this, false));
         }
+
+        public override void MouseDragged(NSEvent theEvent) => Owner.DragSlotPress(theEvent);
+        public override void MouseUp(NSEvent theEvent) => Owner.EndSlotPress(theEvent);
     }
 
     // ---------------------------------------------------------------- month grid
@@ -694,6 +706,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
                 FillRect(new CGRect(0, Math.Min(bounds.Height - 1, Math.Round(row * cellHeight)), bounds.Width, 1));
             for (int column = 1; column < CalendarLayoutCalculator.MonthColumns; column++)
                 FillRect(new CGRect(Math.Round(column * cellWidth), 0, 1, bounds.Height));
+            Owner.DrawMonthSelection(_cells);
         }
 
         /// <summary>Month tiles move by whole days to the cell under the pointer, keeping their time of day.</summary>
@@ -718,13 +731,28 @@ public sealed partial class WinoCalendarSurfaceView : NSView
             return new CGSize((days - rows * 7) * cellWidth, rows * cellHeight);
         }
 
+        /// <summary>A click picks the day; a drag selects a range of days (WinoCalendarSurfaceView.Selection).</summary>
         public override void MouseDown(NSEvent theEvent)
         {
             var point = ConvertPointFromView(theEvent.LocationInWindow, null);
             var cell = _cells.FirstOrDefault(c => c.Bounds.Contains(point));
             if (cell is null) return;
-            Owner.RaiseSlotClicked(cell.Date.ToDateTime(TimeOnly.MinValue), cell.Bounds, this, true);
+            Owner.BeginSlotPress(this, month: true, point, () => Owner.RaiseSlotClicked(cell.Date.ToDateTime(TimeOnly.MinValue), cell.Bounds, this, true));
         }
+
+        public override void MouseDragged(NSEvent theEvent) => Owner.DragSlotPress(theEvent);
+        public override void MouseUp(NSEvent theEvent) => Owner.EndSlotPress(theEvent);
+
+        /// <summary>The day cell under <paramref name="point"/>; with <paramref name="clamp"/>, the nearest cell when outside the grid.</summary>
+        internal DateTime? CellAt(CGPoint point, bool clamp = false)
+        {
+            if (_cells.Count == 0) return null;
+            if (clamp) point = new CGPoint(Math.Clamp(point.X, 0, Bounds.Width - 1), Math.Clamp(point.Y, 0, Bounds.Height - 1));
+            var cell = _cells.FirstOrDefault(c => c.Bounds.Contains(point));
+            return cell?.Date.ToDateTime(TimeOnly.MinValue);
+        }
+
+        internal CGRect? CellBounds(DateOnly date) => _cells.FirstOrDefault(c => c.Date == date)?.Bounds;
     }
 
     // ---------------------------------------------------------------- drawing helpers

@@ -54,6 +54,12 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
     private WinoSurfaceView _attachmentsCard = null!;
     private NSStackView _attachmentList = null!;
     private BindingScope? _eventBindings;
+    private BindingScope? _attachmentBindings;
+    private bool _saving;
+    private bool _savePending;
+    private bool _released;
+    private CalendarItemShowAs? _persistedShowAs;
+    private bool _reminderMenuQueued;
 
     public override void LoadView()
     {
@@ -82,22 +88,13 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         _showAs.Font = NSFont.SystemFontOfSize(12);
         _showAs.WidthAnchor.ConstraintEqualTo(130).Active = true;
         foreach (var option in ViewModel.ShowAsOptions) _showAs.AddItem(option.DisplayText);
-        _showAs.Activated += (_, _) =>
-        {
-            var index = (int)_showAs.IndexOfSelectedItem;
-            if (index >= 0 && index < ViewModel.ShowAsOptions.Count) ViewModel.SelectedShowAsOption = ViewModel.ShowAsOptions[index];
-        };
+        // The details pane is an inspector: a Show as choice commits at once (like the Windows context menu).
+        _showAs.Activated += (_, _) => ShowAsChosen();
         var showAsRow = WinoLayout.HStack(6, new WinoIconView(WinoIconGlyph.CalendarShowAs, 16, WinoStyle.SecondaryText), _showAs);
         _reminder = new NSPopUpButton { PullsDown = true, ControlSize = NSControlSize.Small, TranslatesAutoresizingMaskIntoConstraints = false, ToolTip = Translator.CalendarEventDetails_Reminder };
         _reminder.Font = NSFont.SystemFontOfSize(12);
-        _reminder.AddItem(Translator.CalendarEventDetails_Reminder);
-        foreach (var option in ViewModel.ReminderOptions)
-        {
-            var item = new NSMenuItem(option.DisplayText) { State = option.IsSelected ? NSCellStateValue.On : NSCellStateValue.Off };
-            var captured = option;
-            item.Activated += (_, _) => { captured.IsSelected = !captured.IsSelected; item.State = captured.IsSelected ? NSCellStateValue.On : NSCellStateValue.Off; UpdateReminderRow(); };
-            _reminder.Menu!.AddItem(item);
-        }
+        RebuildReminderMenu();
+        ViewModel.ReminderOptions.CollectionChanged += ReminderOptionsChanged;
         var reminderRow = WinoLayout.HStack(6, new WinoIconView(WinoIconGlyph.Reminder, 16, WinoStyle.SecondaryText), _reminder);
         var actions = new NSStackView { Orientation = NSUserInterfaceLayoutOrientation.Horizontal, Spacing = 2, TranslatesAutoresizingMaskIntoConstraints = false };
         actions.Alignment = NSLayoutAttribute.CenterY;
@@ -235,6 +232,9 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
 
     protected override Task InitializeAsync(NavigationMode mode, object? parameter)
     {
+        // Saving keeps the pane (or the pop-out window) open; the pop-out never navigates the shell.
+        ViewModel.NavigatesBackAfterSave = false;
+        ViewModel.CanNavigateShell = !IsInOwnWindow;
         ViewModel.OnNavigatedTo(mode, parameter!);
         Bind(nameof(ViewModel.CurrentEvent), vm => vm.CurrentEvent, _ => ApplyEvent());
         Bind(nameof(ViewModel.IsRsvpPanelVisible), vm => vm.IsRsvpPanelVisible, visible => _rsvpPanel.Hidden = !visible || _isReadOnly);
@@ -242,7 +242,7 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         Bind(nameof(ViewModel.SelectedShowAsOption), vm => vm.SelectedShowAsOption, option => { if (option is not null) _showAs.SelectItem(option.DisplayText); });
         Bind(nameof(ViewModel.CurrentRsvpText), vm => vm.CurrentRsvpText, _ => ApplyRsvp());
         Bind(nameof(ViewModel.CanEditSeries), vm => vm.CanEditSeries, can => _series.Hidden = !can);
-        Bind(nameof(ViewModel.Reminders), vm => vm.Reminders, _ => UpdateReminderRow());
+        Bind(nameof(ViewModel.Reminders), vm => vm.Reminders, _ => QueueReminderMenu());
         Bind(nameof(ViewModel.HasAttachments), vm => vm.HasAttachments, _ => ApplyAttachments());
         return Task.CompletedTask;
     }
@@ -256,6 +256,7 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         _eventBindings?.Dispose();
         _eventBindings = null;
         if (item is null) return;
+        if (!_saving) _persistedShowAs = item.CalendarItem.ShowAs;
         _eventBindings = new BindingScope();
         _eventBindings.Own(new PropertyBinding<CalendarItemViewModel, string>(item, nameof(item.Title), i => i.Title, _ => ApplyEventFields(item), Dispatcher, ReportError));
         _eventBindings.Own(new PropertyBinding<CalendarItemViewModel, bool>(item, nameof(item.IsBusy), i => i.IsBusy, busy => View.AlphaValue = busy ? (nfloat)0.7 : 1, Dispatcher, ReportError));
@@ -293,8 +294,154 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         _delete.Hidden = _isReadOnly;
         _rsvp.Hidden = _isReadOnly;
         _showAs.Enabled = !_isReadOnly;
+        _reminder.Enabled = !_isReadOnly;
         if (_isReadOnly) _rsvpPanel.Hidden = true;
         else _rsvpPanel.Hidden = !ViewModel.IsRsvpPanelVisible;
+    }
+
+    // ------------------------------------------------------------ commit on change
+
+    /// <summary>
+    /// Saves the Show as and reminder choice. Saves never overlap: a request during a save runs one
+    /// more save afterwards (the shared command refuses concurrent executions).
+    /// </summary>
+    private void RequestSave()
+    {
+        if (_isReadOnly || _released || ViewModel.CurrentEvent is null) return;
+        if (_saving) { _savePending = true; return; }
+        _ = SaveLoopAsync();
+    }
+
+    private async Task SaveLoopAsync()
+    {
+        _saving = true;
+        try
+        {
+            do
+            {
+                _savePending = false;
+                var persisted = _persistedShowAs;
+                await ViewModel.SaveCommand.ExecuteAsync(null);
+                bool succeeded = ViewModel.LastMutationSucceeded;
+                await Dispatcher.ExecuteOnUIThread(() =>
+                {
+                    if (_released) return;
+                    if (succeeded) _persistedShowAs = ViewModel.SelectedShowAsOption?.ShowAs ?? persisted;
+                    else { RevertToPersisted(persisted); _savePending = false; }
+                });
+            }
+            while (_savePending && !_released);
+        }
+        catch (Exception exception) { ReportError(exception); }
+        finally { _saving = false; }
+    }
+
+    /// <summary>A failed save leaves the controls on the persisted values, not on the rejected choice.</summary>
+    private void RevertToPersisted(CalendarItemShowAs? persistedShowAs)
+    {
+        if (persistedShowAs is { } showAs)
+        {
+            if (ViewModel.CurrentEvent?.CalendarItem is { } calendarItem) calendarItem.ShowAs = showAs;
+            ViewModel.SelectedShowAsOption = ViewModel.ShowAsOptions.FirstOrDefault(option => option.ShowAs == showAs) ?? ViewModel.SelectedShowAsOption;
+            if (ViewModel.SelectedShowAsOption is { } selected) _showAs.SelectItem(selected.DisplayText);
+        }
+        var minutes = (ViewModel.Reminders ?? []).Select(reminder => (int)(reminder.DurationInSeconds / 60)).ToHashSet();
+        foreach (var option in ViewModel.ReminderOptions) option.IsSelected = minutes.Contains(option.Minutes);
+        RebuildReminderMenu();
+    }
+
+    private void ReminderOptionsChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs args) => QueueReminderMenu();
+
+    /// <summary>The ViewModel replaces the reminder options when an event loads; rebuild the menu once per burst.</summary>
+    private void QueueReminderMenu()
+    {
+        if (_reminderMenuQueued) return;
+        _reminderMenuQueued = true;
+        _ = Dispatcher.ExecuteOnUIThread(() =>
+        {
+            _reminderMenuQueued = false;
+            if (!_released) RebuildReminderMenu();
+        });
+    }
+
+    private void ShowAsChosen()
+    {
+        var index = (int)_showAs.IndexOfSelectedItem;
+        if (index < 0 || index >= ViewModel.ShowAsOptions.Count) return;
+        var option = ViewModel.ShowAsOptions[index];
+        if (ReferenceEquals(option, ViewModel.SelectedShowAsOption)) return;
+        ViewModel.SelectedShowAsOption = option;
+        RequestSave();
+    }
+
+    private void ToggleReminder(ReminderOption option, NSMenuItem item)
+    {
+        option.IsSelected = !option.IsSelected;
+        item.State = option.IsSelected ? NSCellStateValue.On : NSCellStateValue.Off;
+        UpdateReminderRow();
+        RequestSave();
+    }
+
+#if DEBUG
+    /// <summary>Debug bridge: picks a Show as value through the popup path and waits for the save.</summary>
+    internal async Task<string> DebugChooseShowAsAsync(string value)
+    {
+        await Dispatcher.ExecuteOnUIThread(() =>
+        {
+            if (!Enum.TryParse<CalendarItemShowAs>(value, true, out var showAs)) return;
+            var option = ViewModel.ShowAsOptions.FirstOrDefault(candidate => candidate.ShowAs == showAs);
+            if (option is null) return;
+            _showAs.SelectItem(ViewModel.ShowAsOptions.IndexOf(option));
+            ShowAsChosen();
+        });
+        return await DebugAfterSaveAsync();
+    }
+
+    /// <summary>Debug bridge: toggles the reminder with <paramref name="minutes"/> through the menu path and waits for the save.</summary>
+    internal async Task<string> DebugToggleReminderAsync(int minutes)
+    {
+        await Dispatcher.ExecuteOnUIThread(() =>
+        {
+            var option = ViewModel.ReminderOptions.FirstOrDefault(candidate => candidate.Minutes == minutes);
+            var item = option is null ? null : _reminder.Menu!.Items.FirstOrDefault(candidate => candidate.Title == option.DisplayText);
+            if (option is not null && item is not null) ToggleReminder(option, item);
+        });
+        return await DebugAfterSaveAsync();
+    }
+
+    private async Task<string> DebugAfterSaveAsync()
+    {
+        for (int attempt = 0; attempt < 50 && (_saving || _savePending); attempt++) await Task.Delay(100);
+        string result = string.Empty;
+        await Dispatcher.ExecuteOnUIThread(() => result =
+            $"saved={ViewModel.LastMutationSucceeded} showAs={ViewModel.CurrentEvent?.CalendarItem.ShowAs} popup={_showAs.TitleOfSelectedItem} " +
+            $"reminders=[{string.Join(",", (ViewModel.Reminders ?? []).Select(reminder => reminder.DurationInSeconds / 60))}] row='{_reminderRow.Text}' inWindow={IsInOwnWindow}");
+        return result;
+    }
+
+    /// <summary>Debug bridge: runs Save on the attachment at <paramref name="index"/> (the folder panel needs a manual choice).</summary>
+    internal string DebugSaveAttachment(int index)
+    {
+        if (index < 0 || index >= ViewModel.Attachments.Count) return $"only {ViewModel.Attachments.Count} attachments";
+        SaveAttachment(ViewModel.Attachments[index]);
+        return "save started for " + ViewModel.Attachments[index].FileName;
+    }
+#endif
+
+    /// <summary>Pull-down: the first item is the title; each option toggles its checkmark and commits.</summary>
+    private void RebuildReminderMenu()
+    {
+        var menu = _reminder.Menu!;
+        menu.RemoveAllItems();
+        menu.AddItem(new NSMenuItem(Translator.CalendarEventDetails_Reminder));
+        foreach (var option in ViewModel.ReminderOptions)
+        {
+            var captured = option;
+            var item = new NSMenuItem(option.DisplayText) { State = option.IsSelected ? NSCellStateValue.On : NSCellStateValue.Off };
+            item.Activated += (_, _) => ToggleReminder(captured, item);
+            menu.AddItem(item);
+        }
+        UpdateReminderRow();
     }
 
     private void UpdateReminderRow()
@@ -392,36 +539,95 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         return start == 0 && end == value.Length ? text : text.Substring(start, end - start);
     }
 
+    /// <summary>
+    /// Attachment rows like the mail reader: a click opens, the right-click menu offers Open and Save,
+    /// and the inline Open and Save buttons stay visible. A spinner replaces the buttons while busy.
+    /// </summary>
     private void ApplyAttachments()
     {
+        _attachmentBindings?.Dispose();
+        _attachmentBindings = new BindingScope();
         foreach (var view in _attachmentList.ArrangedSubviews.ToArray()) { _attachmentList.RemoveArrangedSubview(view); view.RemoveFromSuperview(); }
         _attachmentsCard.Hidden = !ViewModel.HasAttachments;
         if (!ViewModel.HasAttachments) return;
         foreach (var attachment in ViewModel.Attachments)
         {
+            var captured = attachment;
             var icon = new WinoIconView(WinoIconGlyph.Attachment, 16, WinoStyle.SecondaryText);
             var name = WinoStyle.Label(attachment.FileName, WinoStyle.Body);
+            name.LineBreakMode = NSLineBreakMode.TruncatingMiddle;
+            name.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
             var size = WinoStyle.Label(attachment.ReadableSize, WinoStyle.Caption, WinoStyle.TertiaryText);
-            var open = new NSButton { Title = Translator.Buttons_Open, BezelStyle = NSBezelStyle.Inline, ControlSize = NSControlSize.Small, TranslatesAutoresizingMaskIntoConstraints = false };
-            var captured = attachment;
-            open.Activated += (_, _) => ViewModel.OpenAttachmentCommand.Execute(captured);
-            var row = WinoLayout.HStack(8, icon, name, size, WinoLayout.Spacer(), open);
+            var open = InlineButton(Translator.Buttons_Open, $"{Translator.Buttons_Open} {attachment.FileName}", () => OpenAttachment(captured));
+            var save = InlineButton(Translator.Buttons_Save, $"{Translator.Buttons_Save} {attachment.FileName}", () => SaveAttachment(captured));
+            var spinner = new NSProgressIndicator { Style = NSProgressIndicatorStyle.Spinning, ControlSize = NSControlSize.Small, TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
+            var content = WinoLayout.HStack(8, icon, name, size, WinoLayout.Spacer(), spinner, open, save);
+            var row = new AttachmentRow(() => OpenAttachment(captured), () => AttachmentMenu(captured));
+            WinoLayout.Fill(content, row);
             WinoLayout.Size(row, -1, 30);
+            _attachmentBindings.Own(new PropertyBinding<CalendarAttachmentViewModel, bool>(attachment, nameof(attachment.IsBusy), a => a.IsBusy, busy =>
+            {
+                open.Hidden = save.Hidden = busy;
+                spinner.Hidden = !busy;
+                if (busy) spinner.StartAnimation(null); else spinner.StopAnimation(null);
+            }, Dispatcher, ReportError));
             _attachmentList.AddArrangedSubview(row);
             row.WidthAnchor.ConstraintEqualTo(_attachmentList.WidthAnchor).Active = true;
         }
     }
 
+    private static NSButton InlineButton(string title, string accessibilityLabel, Action action)
+    {
+        var button = new NSButton { Title = title, BezelStyle = NSBezelStyle.Inline, ControlSize = NSControlSize.Small, TranslatesAutoresizingMaskIntoConstraints = false, ToolTip = accessibilityLabel };
+        WinoAccessibility.Label(button, accessibilityLabel);
+        button.Activated += (_, _) => action();
+        return button;
+    }
+
+    private NSMenu AttachmentMenu(CalendarAttachmentViewModel attachment)
+    {
+        var menu = new NSMenu { AutoEnablesItems = false };
+        menu.AddItem(new NSMenuItem(Translator.Buttons_Open, (_, _) => OpenAttachment(attachment)) { Image = WinoIcons.Image(WinoIconGlyph.Open, 14), Enabled = !attachment.IsBusy });
+        menu.AddItem(new NSMenuItem(Translator.Buttons_Save, (_, _) => SaveAttachment(attachment)) { Image = WinoIcons.Image(WinoIconGlyph.Save, 14), Enabled = !attachment.IsBusy });
+        return menu;
+    }
+
+    private void OpenAttachment(CalendarAttachmentViewModel attachment)
+    {
+        if (!attachment.IsBusy) Observe(ViewModel.OpenAttachmentCommand.ExecuteAsync(attachment));
+    }
+
+    private void SaveAttachment(CalendarAttachmentViewModel attachment)
+    {
+        if (!attachment.IsBusy) Observe(ViewModel.SaveAttachmentCommand.ExecuteAsync(attachment));
+    }
+
+    private async void Observe(Task task)
+    {
+        try { await task; }
+        catch (Exception exception) { ReportError(exception); }
+    }
+
     protected override Task DeactivateAsync()
     {
+        _released = true;
+        ViewModel.ReminderOptions.CollectionChanged -= ReminderOptionsChanged;
         _eventBindings?.Dispose();
         _eventBindings = null;
+        _attachmentBindings?.Dispose();
+        _attachmentBindings = null;
         return base.DeactivateAsync();
     }
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) { _eventBindings?.Dispose(); _eventBindings = null; }
+        if (disposing)
+        {
+            _released = true;
+            ViewModel.ReminderOptions.CollectionChanged -= ReminderOptionsChanged;
+            _eventBindings?.Dispose(); _eventBindings = null;
+            _attachmentBindings?.Dispose(); _attachmentBindings = null;
+        }
         base.Dispose(disposing);
     }
 
@@ -441,6 +647,33 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
             AppearanceChanged?.Invoke();
         }
     }
+}
+
+/// <summary>An attachment row: a click opens (as in the mail reader), a right click shows the Open/Save menu.</summary>
+internal sealed class AttachmentRow : NSView
+{
+    private readonly Action _open;
+    private readonly Func<NSMenu> _menu;
+    private bool _pressed;
+
+    public AttachmentRow(Action open, Func<NSMenu> menu)
+    {
+        _open = open;
+        _menu = menu;
+        TranslatesAutoresizingMaskIntoConstraints = false;
+    }
+
+    public override void MouseDown(NSEvent theEvent) => _pressed = true;
+
+    public override void MouseUp(NSEvent theEvent)
+    {
+        // The first click of a double click already opened the file.
+        bool inside = Bounds.Contains(ConvertPointFromView(theEvent.LocationInWindow, null));
+        if (_pressed && inside && theEvent.ClickCount <= 1) _open();
+        _pressed = false;
+    }
+
+    public override NSMenu? MenuForEvent(NSEvent theEvent) => _menu();
 }
 
 /// <summary>A glyph + label row (Clock, Location, Reminder, Calendar) that hides itself when empty.</summary>
