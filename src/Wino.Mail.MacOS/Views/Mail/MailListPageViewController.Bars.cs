@@ -135,6 +135,14 @@ public sealed partial class MailListPageViewController
         return _otherInboxRow;
     }
 
+    /// <summary>Accent-coloured views that do not follow the static accent event themselves.</summary>
+    private void RefreshBarsAccent()
+    {
+        _otherInboxText.TextColor = WinoStyle.Accent;
+        _otherInboxButton.RefreshAccent();
+        _multiSelectionView.RefreshAccent();
+    }
+
     private void UpdateOtherInboxLink()
     {
         bool show = ViewModel.IsOtherInboxUnreadNoticeVisible;

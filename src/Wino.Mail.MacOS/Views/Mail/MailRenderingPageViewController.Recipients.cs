@@ -4,6 +4,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.Controls.AppKit.MailList;
+using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.AppKit;
 
@@ -18,6 +19,8 @@ public sealed partial class MailRenderingPageViewController
 {
     private MailRecipientRows _recipientRows = null!;
     private NSPopover? _contactCard;
+    private NSView? _contactCardContent;
+    private Foundation.NSObject? _contactCardObserver;
 
     private NSView BuildRecipientRows()
     {
@@ -40,12 +43,28 @@ public sealed partial class MailRenderingPageViewController
         {
             Image = WinoIcons.Image(WinoIconGlyph.Copy, 16)
         });
-        WinoAccessibility.Label(link, Translator.ComposerFrom);
+        WinoAccessibility.Label(link, Translator.ComposerFrom.Trim());
         WinoLayout.Fill(link, nameLine);
         _senderLink = link;
     }
 
     private MailLinkButton? _senderLink;
+
+    /// <summary>
+    /// Follows accent changes for the reader's links through the page's binding scope, so the static
+    /// event never outlives the page (the links themselves do not subscribe).
+    /// </summary>
+    private void BindRecipientAccent()
+    {
+        EventHandler handler = (_, _) => _ = Dispatcher.ExecuteOnUIThread(() =>
+        {
+            if (Bindings.IsDisposed) return;
+            _senderLink?.RefreshAccent();
+            _recipientRows.RefreshAccent();
+        });
+        WinoStyle.AccentChanged += handler;
+        Bindings.Own(new ActionDisposable(() => WinoStyle.AccentChanged -= handler));
+    }
 
     private void UpdateRecipientRows()
     {
@@ -56,7 +75,7 @@ public sealed partial class MailRenderingPageViewController
         if (_senderLink is not null)
         {
             var sender = string.IsNullOrWhiteSpace(ViewModel.FromName) ? ViewModel.FromAddress : $"{ViewModel.FromName} <{ViewModel.FromAddress}>";
-            WinoAccessibility.Label(_senderLink, $"{Translator.ComposerFrom} {sender}");
+            WinoAccessibility.Label(_senderLink, $"{Translator.ComposerFrom.Trim()} {sender}");
         }
     }
 
@@ -93,21 +112,52 @@ public sealed partial class MailRenderingPageViewController
         var content = WinoLayout.HStack(10, picture, text);
         content.EdgeInsets = new NSEdgeInsets(12, 12, 12, 14);
 
-        _contactCard = new NSPopover
+        var card = new NSPopover
         {
             Behavior = NSPopoverBehavior.Transient,
             Animates = true,
             ContentViewController = new NSViewController { View = content }
         };
-        _contactCard.Show(anchor.Bounds, anchor, NSRectEdge.MaxYEdge);
+        // A transient dismissal releases the card too, outside the popover's own close callback.
+        _contactCardObserver = Foundation.NSNotificationCenter.DefaultCenter.AddObserver(NSPopover.DidCloseNotification,
+            _ => NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
+            {
+                if (ReferenceEquals(_contactCard, card)) CloseContactCard();
+            }), card);
+        _contactCard = card;
+        _contactCardContent = content;
+        card.Show(anchor.Bounds, anchor, NSRectEdge.MaxYEdge);
     }
 
+    /// <summary>Closes the card and disposes its views (the address link and its closure over this page).</summary>
     private void CloseContactCard()
     {
-        if (_contactCard is null) return;
-        _contactCard.Close();
-        _contactCard.Dispose();
+        var card = _contactCard;
+        var content = _contactCardContent;
+        var observer = _contactCardObserver;
         _contactCard = null;
+        _contactCardContent = null;
+        _contactCardObserver = null;
+        if (observer is not null) Foundation.NSNotificationCenter.DefaultCenter.RemoveObserver(observer);
+        if (card is not null)
+        {
+            card.Close();
+            card.Dispose();
+        }
+        if (content is null) return;
+        foreach (var view in Descendants(content)) view.Dispose();
+    }
+
+    private static List<NSView> Descendants(NSView root)
+    {
+        var views = new List<NSView>();
+        void Walk(NSView view)
+        {
+            foreach (var child in view.Subviews) Walk(child);
+            views.Add(view);
+        }
+        Walk(root);
+        return views;
     }
 }
 
@@ -184,6 +234,13 @@ internal sealed class MailRecipientRows : NSView
         }
         target.Container.Hidden = target.Contacts.Length == 0;
         Hidden = _rows.All(static candidate => candidate.Container.Hidden);
+    }
+
+    /// <summary>Re-applies the accent to the links (the owner follows the accent event).</summary>
+    public void RefreshAccent()
+    {
+        foreach (var row in _rows)
+            foreach (var link in row.Flow.Subviews.OfType<MailLinkButton>()) link.RefreshAccent();
     }
 
     /// <summary>Collapses expanded rows again, for the next message.</summary>

@@ -336,7 +336,12 @@ public sealed partial class MailListPageViewController
             else BarsPreferenceChanged(name);
         });
 
-    private void AccentChanged(object? sender, EventArgs args) => OnUI(() => { if (_listBound) ReloadNow(); });
+    private void AccentChanged(object? sender, EventArgs args) => OnUI(() =>
+    {
+        if (!_listBound) return;
+        ReloadNow();
+        RefreshBarsAccent();
+    });
 
     private void PivotFoldersChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs args) => OnUI(UpdatePivots);
 

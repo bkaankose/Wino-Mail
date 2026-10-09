@@ -95,8 +95,7 @@ internal sealed class MailMultiSelectionView : NSView
         _unselectAll = new NSButton { Bordered = false, Title = Translator.Buttons_UnselectAll, TranslatesAutoresizingMaskIntoConstraints = false };
         _unselectAll.Activated += (_, _) => UnselectAllInvoked?.Invoke(this, EventArgs.Empty);
         WinoAccessibility.Label(_unselectAll, Translator.Buttons_UnselectAll);
-        ApplyAccent();
-        WinoStyle.AccentChanged += AccentChanged;
+        RefreshAccent();
 
         var stack = WinoLayout.VStack(16, _avatars, _title, _summary, grid, separator, _unselectAll);
         stack.SetCustomSpacing(12, grid);
@@ -126,10 +125,11 @@ internal sealed class MailMultiSelectionView : NSView
     /// <summary>Unselect All was clicked.</summary>
     public event EventHandler? UnselectAllInvoked;
 
-    private void AccentChanged(object? sender, EventArgs args) => ApplyAccent();
-
-    /// <summary>The inline link look of the reader's Unsubscribe button.</summary>
-    private void ApplyAccent()
+    /// <summary>
+    /// The inline link look of the reader's Unsubscribe button. The owning page calls this from its own
+    /// accent subscription; the view does not subscribe to the static event, so it never roots the page.
+    /// </summary>
+    public void RefreshAccent()
         => _unselectAll.AttributedTitle = new Foundation.NSAttributedString(Translator.Buttons_UnselectAll, new NSStringAttributes
         {
             ForegroundColor = WinoStyle.Accent,
@@ -179,7 +179,6 @@ internal sealed class MailMultiSelectionView : NSView
         {
             ActionInvoked = null;
             UnselectAllInvoked = null;
-            WinoStyle.AccentChanged -= AccentChanged;
         }
         base.Dispose(disposing);
     }
@@ -805,6 +804,8 @@ internal sealed class MailReaderStatusRow : NSView
 /// A borderless text link (recipient tokens, the sender, the Other inbox notice): accent title,
 /// pointing-hand cursor and the Link accessibility role. With <see cref="NSButton.Transparent"/> set it
 /// covers a wrapping label and only provides the click, cursor and accessibility.
+/// It does not subscribe to <see cref="WinoStyle.AccentChanged"/> itself (a static event would root the
+/// owning page): the owner calls <see cref="RefreshAccent"/> from a subscription in its binding scope.
 /// </summary>
 internal sealed class MailLinkButton : NSButton
 {
@@ -823,7 +824,6 @@ internal sealed class MailLinkButton : NSButton
         AccessibilityRole = NSAccessibilityRoles.LinkRole;
         SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
         ApplyTitle();
-        WinoStyle.AccentChanged += AccentChanged;
     }
 
     public string Text
@@ -836,7 +836,8 @@ internal sealed class MailLinkButton : NSButton
         }
     }
 
-    private void AccentChanged(object? sender, EventArgs args) => ApplyTitle();
+    /// <summary>Re-applies the title in the current accent colour.</summary>
+    public void RefreshAccent() => ApplyTitle();
 
     private void ApplyTitle()
     {
@@ -851,10 +852,4 @@ internal sealed class MailLinkButton : NSButton
     }
 
     public override void ResetCursorRects() => AddCursorRect(Bounds, NSCursor.PointingHandCursor);
-
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing) WinoStyle.AccentChanged -= AccentChanged;
-        base.Dispose(disposing);
-    }
 }

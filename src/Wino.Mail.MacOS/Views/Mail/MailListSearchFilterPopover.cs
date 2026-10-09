@@ -33,6 +33,8 @@ internal sealed class MailListSearchFilterPopover : NSObject
     private readonly NSButton _attachments;
     private readonly NSButton _flagged;
     private bool _updating;
+    private bool _disposed;
+    private NSObject? _closeObserver;
 
     /// <param name="search">Runs when the user presses Search; the editor holds the edited values.</param>
     public MailListSearchFilterPopover(MailSearchFilterEditor editor, Action search)
@@ -112,8 +114,12 @@ internal sealed class MailListSearchFilterPopover : NSObject
             Animates = true,
             ContentViewController = controller
         };
+        _closeObserver = NSNotificationCenter.DefaultCenter.AddObserver(NSPopover.DidCloseNotification, _ => Closed?.Invoke(this, EventArgs.Empty), _popover);
         Load();
     }
+
+    /// <summary>The popover closed (Search, Cancel, Esc or a click outside). Raised inside AppKit's close callback.</summary>
+    public event EventHandler? Closed;
 
     /// <summary>Shows the popover under <paramref name="anchor"/> and focuses the From field.</summary>
     public void Show(NSView anchor)
@@ -124,7 +130,10 @@ internal sealed class MailListSearchFilterPopover : NSObject
 
     public bool IsShown => _popover.Shown;
 
-    public void Close() => _popover.Close();
+    public void Close()
+    {
+        if (!_disposed) _popover.Close();
+    }
 
     private void Search()
     {
@@ -139,8 +148,14 @@ internal sealed class MailListSearchFilterPopover : NSObject
             _editor.CustomStartDate = end;
             _editor.CustomEndDate = start;
         }
-        Close();
-        _search();
+        // Deferred: Return arrives inside the field editor's insertNewline: command, which should
+        // finish before the popover (and its field editor) is torn down.
+        NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
+        {
+            if (_disposed) return;
+            Close();
+            _search();
+        });
     }
 
     /// <summary>Reads every control from the editor (after Load, Reset or a date range change).</summary>
@@ -242,6 +257,10 @@ internal sealed class MailListSearchFilterPopover : NSObject
     {
         if (disposing)
         {
+            _disposed = true;
+            Closed = null;
+            if (_closeObserver is not null) NSNotificationCenter.DefaultCenter.RemoveObserver(_closeObserver);
+            _closeObserver = null;
             _popover.Close();
             _popover.Dispose();
         }

@@ -129,8 +129,14 @@ public sealed partial class MailListPageViewController : IShellSearchTarget
         if (_released || anchor.Window is null) return;
         CloseSearchFilters();
         ViewModel.SearchFilterEditor.Load(ViewModel.SearchScope, _searchText, ViewModel.SearchFilters ?? MailSearchFilters.Empty, !_scopeBar.IsOnline);
-        _filterPopover = new MailListSearchFilterPopover(ViewModel.SearchFilterEditor, () => Observe(ApplySearchFiltersAsync()));
-        _filterPopover.Show(anchor);
+        var popover = new MailListSearchFilterPopover(ViewModel.SearchFilterEditor, () => Observe(ApplySearchFiltersAsync()));
+        // Released once it closes, outside the popover's own close callback.
+        popover.Closed += (_, _) => NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
+        {
+            if (ReferenceEquals(_filterPopover, popover)) CloseSearchFilters();
+        });
+        _filterPopover = popover;
+        popover.Show(anchor);
     }
 
     private void CloseSearchFilters()

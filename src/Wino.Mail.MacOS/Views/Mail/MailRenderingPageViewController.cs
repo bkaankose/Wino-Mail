@@ -235,6 +235,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         ObserveCollection(ViewModel.ToItems);
         ObserveCollection(ViewModel.CcItems);
         ObserveCollection(ViewModel.BccItems);
+        BindRecipientAccent();
         ObserveCollection(ViewModel.DisplayedAttachments, attachments: true);
         ObserveCollection(ViewModel.Attachments, attachments: true);
         UpdateChips();

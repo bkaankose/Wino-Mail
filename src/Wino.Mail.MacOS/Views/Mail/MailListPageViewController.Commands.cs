@@ -92,13 +92,13 @@ public sealed partial class MailListPageViewController
     /// <summary>
     /// True when the key matches an enabled Mail-mode Delete shortcut that has no Command or Control
     /// modifier. Those are not menu key equivalents (AppDelegate.Shortcuts leaves them to the views),
-    /// so the list honours them itself. Key names follow the Mac shortcut recorder.
+    /// so the list honours them itself. Keys are named by <see cref="ShortcutKeys"/>, as the recorder names them.
     /// </summary>
     internal bool IsCustomDeleteShortcut(NSEvent theEvent)
     {
         var flags = theEvent.ModifierFlags;
         if ((flags & (NSEventModifierMask.CommandKeyMask | NSEventModifierMask.ControlKeyMask)) != 0) return false;
-        var name = ShortcutKeyName(theEvent);
+        var name = ShortcutKeys.KeyName(theEvent);
         if (name is null) return false;
         var modifiers = ModifierKeys.None;
         if (flags.HasFlag(NSEventModifierMask.AlternateKeyMask)) modifiers |= ModifierKeys.Alt;
@@ -110,30 +110,6 @@ public sealed partial class MailListPageViewController
                 return true;
         }
         return false;
-    }
-
-    /// <summary>The key name the Mac shortcut recorder stores (AppKitDialogService.ShortcutRecorder.KeyName).</summary>
-    private static string? ShortcutKeyName(NSEvent theEvent)
-    {
-        switch (theEvent.KeyCode)
-        {
-            case 36: return "Enter";
-            case 48: return "Tab";
-            case 49: return "Space";
-            case 51: return "Back";
-            case 117: return "Delete";
-            case 53: return "Escape";
-            case 123: return "Left";
-            case 124: return "Right";
-            case 125: return "Down";
-            case 126: return "Up";
-        }
-        var characters = theEvent.CharactersIgnoringModifiers;
-        if (string.IsNullOrEmpty(characters)) return null;
-        var character = char.ToUpperInvariant(characters[0]);
-        if (char.IsLetter(character)) return character.ToString();
-        if (char.IsDigit(character)) return "Number" + character;
-        return null;
     }
 
     // ---- Move popover ----
@@ -328,6 +304,7 @@ public sealed partial class MailListPageViewController
 
     private NSMenuItem CategoryItem(MailCategory category, IReadOnlyCollection<Guid> assigned, IReadOnlyList<MailItemViewModel> targets)
     {
+        // Captured at build time on purpose: the menu closes after a click and is rebuilt on the next open.
         bool assignedToAll = assigned.Contains(category.Id);
         var menuItem = new NSMenuItem(category.Name ?? string.Empty,
             (_, _) => Observe(ViewModel.ToggleCategoryAssignmentAsync(category, targets, assignedToAll)))
