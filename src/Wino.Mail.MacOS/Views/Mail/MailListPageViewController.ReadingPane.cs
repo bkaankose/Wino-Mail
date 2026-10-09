@@ -54,8 +54,14 @@ public sealed partial class MailListPageViewController : IRenderingFrameHost, IR
         _multiSelectionView.Hidden = false;
         WinoLayout.Fill(overlay, pane);
         _multiSelectionView.ActionInvoked += (sender, command) => Execute(command, sender as NSView);
+        _multiSelectionView.UnselectAllInvoked += (_, _) => ViewModel.UnselectAllCommand.Execute(null);
         return pane;
     }
+
+    /// <summary>True when the first responder sits in a composer hosted by the reading pane (its editor keeps its own undo).</summary>
+    private bool IsComposerFocused(NSResponder? responder)
+        => _paneChild is ComposePageViewController composer && composer.ViewLoaded
+            && responder is NSView view && view.IsDescendantOf(composer.View);
 
     bool IReadingPaneHost.IsAvailable => !_released;
 

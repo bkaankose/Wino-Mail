@@ -237,9 +237,12 @@ internal sealed class ShellToolbar : NSToolbarDelegate
     public void FocusSearch() => _searchItem?.BeginSearchInteraction();
 
     /// <summary>Clears the field without notifying, for example after a folder change.</summary>
-    public void ResetSearch()
+    public void ResetSearch() => SetSearchText(string.Empty);
+
+    /// <summary>Sets the field text without notifying, for example the keywords applied from the search filters.</summary>
+    public void SetSearchText(string text)
     {
-        if (_searchItem?.SearchField is { } field) field.StringValue = string.Empty;
+        if (_searchItem?.SearchField is { } field) field.StringValue = text ?? string.Empty;
     }
 
     /// <summary>Re-reads search support from the current content page.</summary>

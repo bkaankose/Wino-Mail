@@ -330,6 +330,9 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
 
     public void FocusSearch() => _toolbar?.FocusSearch();
 
+    /// <summary>Sets the toolbar search text without notifying the search target.</summary>
+    public void SetSearchText(string text) => _toolbar?.SetSearchText(text);
+
     /// <summary>Raised when the current page's command availability changes, for menu validation.</summary>
     public event EventHandler? CommandStateChanged;
 
