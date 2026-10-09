@@ -22,7 +22,7 @@ namespace Wino.Mail.MacOS.Views.Calendar;
 /// 320pt event details zone on the right that hosts <see cref="EventDetailsPageViewController"/>.
 /// The event composer, also routed to the rendering frame, opens as a sheet.
 /// </summary>
-public sealed class CalendarPageViewController : WinoViewController<CalendarPageViewModel>, IRenderingFrameHost
+public sealed partial class CalendarPageViewController : WinoViewController<CalendarPageViewModel>, IRenderingFrameHost
 {
     private const double DetailsWidth = 320;
     private readonly AppKitNavigationService _navigation;
@@ -138,6 +138,7 @@ public sealed class CalendarPageViewController : WinoViewController<CalendarPage
 
 #if DEBUG
         RegisterDebugCommands();
+        RegisterSearchDebugCommands();
         // Until the shell switches modes, "page CalendarPage" in the debug bridge lands here without
         // the calendar shell having loaded account calendars; run its activation like Windows does.
         if (parameter is null && !_shell.AccountCalendarStateService.GroupedAccountCalendars.Any())
@@ -513,6 +514,7 @@ public sealed class CalendarPageViewController : WinoViewController<CalendarPage
         _released = true;
         _navigation.DetachRenderingHost(this);
         CloseQuickEvent();
+        await Dispatcher.ExecuteOnUIThread(ReleaseSearch);
         await _paneGate.WaitAsync();
         try
         {
@@ -537,6 +539,7 @@ public sealed class CalendarPageViewController : WinoViewController<CalendarPage
             _released = true;
             _navigation.DetachRenderingHost(this);
             CloseQuickEvent();
+            ReleaseSearch();
             var child = _detailsChild; _detailsChild = null;
             if (child is not null) { child.View.RemoveFromSuperview(); child.RemoveFromParentViewController(); child.Dispose(); }
             if (_composerSheet is not null) { View.Window?.EndSheet(_composerSheet); _composerSheet.OrderOut(null); _composerSheet = null; }
