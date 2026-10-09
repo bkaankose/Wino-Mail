@@ -41,7 +41,6 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private WinoContactPicture _avatar = null!;
     private NSTextField _senderName = null!;
     private NSTextField _senderAddress = null!;
-    private NSTextField _recipients = null!;
     private NSTextField _date = null!;
     private MailReaderStatusRow _statusRow = null!;
     private NSStackView _chips = null!;
@@ -57,6 +56,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private string _currentRenderedHtml = string.Empty;
     private bool _dark;
     private bool _disposedReader;
+    private bool _readerViewEnabled;
 
     public override void LoadView()
     {
@@ -70,16 +70,14 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _subject.Selectable = true;
 
         _avatar = new WinoContactPicture(40);
+        // The sender line is one link that opens the sender's contact card (AttachSenderLink).
         _senderName = WinoStyle.Label(string.Empty, WinoStyle.BodyStrong);
-        _senderName.Selectable = true;
         _senderAddress = WinoStyle.Label(string.Empty, WinoStyle.Body, WinoStyle.SecondaryText);
-        _senderAddress.Selectable = true;
         _senderAddress.SetContentCompressionResistancePriority(200, NSLayoutConstraintOrientation.Horizontal);
         var nameLine = WinoLayout.HStack(6, _senderName, _senderAddress);
         nameLine.Alignment = NSLayoutAttribute.FirstBaseline;
-        _recipients = WinoStyle.Label(string.Empty, NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText);
-        _recipients.SetContentCompressionResistancePriority(200, NSLayoutConstraintOrientation.Horizontal);
-        var senderText = WinoLayout.VStack(1, nameLine, _recipients);
+        AttachSenderLink(nameLine);
+        var senderText = WinoLayout.VStack(1, nameLine);
         senderText.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
         senderText.SetContentCompressionResistancePriority(200, NSLayoutConstraintOrientation.Horizontal);
         _date = WinoStyle.Label(string.Empty, NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText);
@@ -110,9 +108,14 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _intelligenceHost = new NSView { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
         BuildIntelligenceHeader(_intelligenceHost);
 
-        var header = WinoLayout.VStack(12, _subject, senderRow, _statusRow, _chips, _intelligenceHost, _imageBanner);
+        // To, Cc and Bcc under the sender, indented to the name column (avatar 40 + spacing 12).
+        var recipients = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
+        WinoLayout.Fill(BuildRecipientRows(), recipients, 0, 52, 0, 0);
+
+        var header = WinoLayout.VStack(12, _subject, senderRow, recipients, _statusRow, _chips, _intelligenceHost, _imageBanner);
         header.EdgeInsets = new NSEdgeInsets(18, 24, 10, 24);
-        foreach (var view in new NSView[] { _subject, senderRow, _intelligenceHost, _imageBanner })
+        header.SetCustomSpacing(4, senderRow);
+        foreach (var view in new NSView[] { _subject, senderRow, recipients, _intelligenceHost, _imageBanner })
             view.WidthAnchor.ConstraintEqualTo(header.WidthAnchor, 1, -48).Active = true;
         // The tile row hugs its chips from the leading edge; it is only capped (and clips) at the header width.
         _chips.WidthAnchor.ConstraintLessThanOrEqualTo(header.WidthAnchor, 1, -48).Active = true;
@@ -231,6 +234,8 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         });
         ObserveCollection(ViewModel.ToItems);
         ObserveCollection(ViewModel.CcItems);
+        ObserveCollection(ViewModel.BccItems);
+        BindRecipientAccent();
         ObserveCollection(ViewModel.DisplayedAttachments, attachments: true);
         ObserveCollection(ViewModel.Attachments, attachments: true);
         UpdateChips();
@@ -248,6 +253,8 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
             _currentItem = parameter as MailItemViewModel;
             IntelligenceBeginItem(_currentItem);
             UpdateChips();
+            CloseContactCard();
+            _recipientRows.ResetExpansion();
         });
         await ViewModel.InitializeNavigationAsync(NavigationMode.New, parameter!);
     }
@@ -277,14 +284,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
 
     private void UpdateRecipients()
     {
-        static string Names(IEnumerable<AccountContactViewModel> contacts)
-            => string.Join(", ", contacts.Select(static contact => string.IsNullOrWhiteSpace(contact.Name) ? contact.Address : contact.Name));
-        var parts = new List<string>();
-        if (ViewModel.ToItems.Count > 0) parts.Add($"{Translator.ComposerTo.Trim()} {Names(ViewModel.ToItems)}");
-        // "Cc:" is the protocol label; no translation key exists.
-        if (ViewModel.CcItems.Count > 0) parts.Add($"Cc: {Names(ViewModel.CcItems)}");
-        _recipients.StringValue = string.Join(" · ", parts);
-        _recipients.ToolTip = _recipients.StringValue;
+        UpdateRecipientRows();
         _date.StringValue = MailRowMapper.FormatReaderDate(ViewModel.CreationDate);
     }
 
@@ -330,6 +330,13 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         var primary = new HashSet<MailOperation>();
         if (!items.Any(item => PrimaryOrder.Contains(item.Operation)))
         {
+            if (_currentItem is null && items.Length > 0)
+            {
+                // A saved .eml has only Save As and Print; show just those, like Windows.
+                foreach (var item in items) { var captured = item; commands.Add(new MailReaderCommand(MailOperationPresentation.Glyph(item.Operation), BarTitle(item.Operation), () => Observe(ViewModel.OperationClickedCommand.ExecuteAsync(captured)), item.IsEnabled)); }
+                _commandBar.SetCommands(commands, null);
+                return;
+            }
             // Nothing loaded yet (or the message failed to load): the default set, disabled, like the Windows bar.
             foreach (var operation in new[] { MailOperation.Reply, MailOperation.ReplyAll, MailOperation.Forward, MailOperation.None, MailOperation.Archive, MailOperation.SoftDelete, MailOperation.Move, MailOperation.SetFlag, MailOperation.MarkAsRead })
                 commands.Add(operation == MailOperation.None ? null : new MailReaderCommand(MailOperationPresentation.Glyph(operation), BarTitle(operation), () => { }, false));
@@ -374,13 +381,28 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
             previousSeparator = false;
         }
         if (!previousSeparator) menu.AddItem(NSMenuItem.SeparatorItem);
-        // Windows OperationCommandBar: the editor theme toggle.
+        // Windows OperationCommandBar: the Reader View toggle (simplified Readability layout) and the editor theme toggle.
+        var readerView = new NSMenuItem(Translator.Reader_ReaderView, (_, _) => ToggleReaderView())
+        {
+            State = _readerViewEnabled ? NSCellStateValue.On : NSCellStateValue.Off,
+            Enabled = !string.IsNullOrWhiteSpace(_currentRenderedHtml),
+            Image = WinoIcons.Image(WinoIconGlyph.Document, 16)
+        };
+        menu.AddItem(readerView);
         var theme = new NSMenuItem(_dark ? Translator.Composer_LightTheme : Translator.Composer_DarkTheme, (_, _) => ToggleTheme())
         {
             Image = WinoIcons.Image(_dark ? WinoIconGlyph.LightEditor : WinoIconGlyph.DarkEditor, 16)
         };
         menu.AddItem(theme);
         return menu;
+    }
+
+    /// <summary>Re-renders the current message (or its translation) in the other layout; kept for this reader's lifetime.</summary>
+    private void ToggleReaderView()
+    {
+        if (_reader is null || _disposedReader) return;
+        _readerViewEnabled = !_readerViewEnabled;
+        if (!string.IsNullOrWhiteSpace(_currentRenderedHtml)) Observe(RenderActiveContentAsync());
     }
 
     private void ToggleTheme()
@@ -471,7 +493,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         var options = ViewModel.CurrentRenderModel?.MailRenderingOptions;
         var policy = (options?.LoadImages ?? true) ? RemoteContentPolicy.ImagesAndFontsAllowed : RemoteContentPolicy.Blocked;
         await _reader.RenderAsync(new HtmlMailReaderRequest(string.IsNullOrEmpty(html) ? " " : html, policy,
-            HtmlMailRenderMode.Original, options?.RenderPlaintextLinks ?? true));
+            _readerViewEnabled ? HtmlMailRenderMode.Readability : HtmlMailRenderMode.Original, options?.RenderPlaintextLinks ?? true));
     }
 
     private Task ClearAsync()
@@ -543,6 +565,17 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
             var result = await presenter.ExportPdfAsync(path);
             return $"{result.Status} {path} {result.ErrorMessage}".TrimEnd();
         });
+        MacDebugBridge.Register("reader-view", args => ReaderDebugAsync(() =>
+        {
+            if (args.Length > 0 && (args[0] == "on") != _readerViewEnabled) ToggleReaderView();
+            return $"readerView={_readerViewEnabled} rendered={!string.IsNullOrWhiteSpace(_currentRenderedHtml)}";
+        }));
+        MacDebugBridge.Register("reader-recipients", args => ReaderDebugAsync(() =>
+        {
+            // "reader-recipients card" opens the sender's contact card.
+            if (args.Length > 0 && args[0] == "card" && _senderLink is not null) ShowContactCard(ViewModel.FromName, ViewModel.FromAddress, _senderLink);
+            return _recipientRows.Dump() + $" card={_contactCard?.Shown == true}";
+        }));
         MacDebugBridge.Register("reader-source", _ => ReaderDebugAsync(() =>
         {
             var item = ViewModel.MenuItems.OfType<MailOperationMenuItem>().FirstOrDefault(candidate => candidate.Operation == MailOperation.ViewMessageSource);
@@ -577,6 +610,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     {
         ViewModel.CloseRequested -= CloseRequested;
         ViewModel.ComposeRequested -= ComposeRequested;
+        CloseContactCard();
         ViewModel.RenderHtmlAsyncFunc = null;
         ViewModel.ClearRenderedHtmlAsyncFunc = null;
         ViewModel.PrintPresenter = null!;

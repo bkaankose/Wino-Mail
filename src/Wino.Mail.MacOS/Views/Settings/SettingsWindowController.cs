@@ -140,6 +140,7 @@ public sealed class SettingsWindowController : NSWindowController
         window.Toolbar = toolbar;
         _sidebar.PageSelected += (_, page) => SidebarPageSelected?.Invoke(this, page);
         window.WillClose += (_, _) => Closing?.Invoke(this, EventArgs.Empty);
+        window.WindowShouldClose = _ => ShouldClose?.Invoke() ?? true;
         window.DidBecomeKey += (_, _) => ActiveChanged?.Invoke(this, true);
         window.DidResignKey += (_, _) => ActiveChanged?.Invoke(this, window.IsMainWindow);
     }
@@ -148,6 +149,9 @@ public sealed class SettingsWindowController : NSWindowController
     public event EventHandler? ForwardRequested;
     public event EventHandler<WinoPage>? SidebarPageSelected;
     public event EventHandler? Closing;
+
+    /// <summary>NSWindowDelegate windowShouldClose: false keeps the window open (a page asks first).</summary>
+    public Func<bool>? ShouldClose { get; set; }
     public event EventHandler<bool>? ActiveChanged;
 
     public SettingsSidebarViewController Sidebar => _sidebar;

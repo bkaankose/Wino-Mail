@@ -6,6 +6,7 @@ using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Messaging.Client.Mails;
+using Wino.Messaging.UI;
 using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.MacOS.Views.Mail;
@@ -23,7 +24,8 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
     IRecipient<ClearMailSelectionsRequested>,
     IRecipient<DisposeRenderingFrameRequested>,
     IRecipient<ComposeDetachedDraftRequested>,
-    IRecipient<SelectMailItemContainerEvent>
+    IRecipient<SelectMailItemContainerEvent>,
+    IRecipient<WinoIntelligenceEntitlementChanged>
 {
     private const string SplitAutosaveName = "WinoMailListReaderSplit";
     private const double DefaultListWidth = 386;
@@ -31,6 +33,8 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
     private readonly AppKitNavigationService _navigation;
     private readonly IFolderService _folderService;
     private readonly IPreferencesService _preferences;
+    private readonly IWinoAccountIntelligenceSnapshotService _entitlementService;
+    private readonly IKeyboardShortcutService _shortcuts;
     private NSSplitViewController _split = null!;
     private WinoZoneView _listZone = null!;
     private WinoZoneView _readerZone = null!;
@@ -38,11 +42,14 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
     private bool _released;
 
     public MailListPageViewController(MailListPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger,
-        AppKitNavigationService navigation, IFolderService folderService)
+        AppKitNavigationService navigation, IFolderService folderService,
+        IWinoAccountIntelligenceSnapshotService entitlementService, IKeyboardShortcutService shortcuts)
         : base(viewModel, dispatcher, logger)
     {
         _navigation = navigation;
         _folderService = folderService;
+        _entitlementService = entitlementService;
+        _shortcuts = shortcuts;
         _preferences = viewModel.PreferencesService;
     }
 
@@ -61,7 +68,7 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
         WinoLayout.Fill(_listZone, listHost, 2, WinoStyle.ZoneGutter, 8, 0);
         WinoLayout.Fill(BuildListPane(), _listZone.ContentView);
         var readerHost = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
-        _readerZone = new WinoZoneView();
+        _readerZone = new WinoZoneView { Fill = WinoThemeSurfaces.ReadingPaneFill };
         WinoLayout.Fill(_readerZone, readerHost, 3, 0, 8, 8);
         WinoLayout.Fill(BuildReadingPane(), _readerZone.ContentView);
 
@@ -131,6 +138,7 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
         UnregisterRecipients();
         _navigation.DetachRenderingHost(this);
         CloseMovePopover();
+        CloseSearchFilters();
         await ReleaseReadingPaneAsync();
         ReleaseList();
         await ViewModel.DeactivateAsync(NavigationMode.New, null!);
@@ -152,6 +160,8 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
         messenger.Register<DisposeRenderingFrameRequested>(this);
         messenger.Register<ComposeDetachedDraftRequested>(this);
         messenger.Register<SelectMailItemContainerEvent>(this);
+        messenger.Register<WinoIntelligenceEntitlementChanged>(this);
+        Observe(RefreshIntelligenceEntitlementAsync());
     }
 
     private void UnregisterRecipients()
@@ -184,6 +194,7 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
             _released = true;
             UnregisterRecipients();
             _navigation.DetachRenderingHost(this);
+            CloseSearchFilters();
             ReleaseList();
             DisposeReadingPane();
         }

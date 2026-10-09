@@ -94,6 +94,7 @@ internal sealed partial class ShellSidebarViewController : NSViewController
 
         var root = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
         WinoLayout.Fill(new WinoPaneBackdropView(), root);
+        WinoLayout.Fill(new WinoSurfaceView { Fill = WinoThemeSurfaces.NavigationFill }, root);
         root.AddSubview(scroll);
         root.AddSubview(_switcher);
         _switcher.ModeSelected += (_, mode) => _selectMode(mode);

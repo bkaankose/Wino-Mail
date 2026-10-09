@@ -14,13 +14,14 @@ public sealed partial class MailListPageViewController : IShellSearchTarget
     private static readonly MailSearchScope[] Scopes = [MailSearchScope.CurrentFolder, MailSearchScope.Subfolders, MailSearchScope.AllFolders];
     private WinoSearchScopeBar _scopeBar = null!;
     private string _searchText = string.Empty;
+    private MailListSearchFilterPopover? _filterPopover;
 
     private NSView BuildScopeBar()
     {
-        // No translation key exists for "Done".
-        _scopeBar = new WinoSearchScopeBar(Translator.SettingsAppPreferences_SearchMode_Local, Translator.SettingsAppPreferences_SearchMode_Online, "Done")
+        _scopeBar = new WinoSearchScopeBar(Translator.SettingsAppPreferences_SearchMode_Local, Translator.SettingsAppPreferences_SearchMode_Online, Translator.Buttons_Done)
         {
-            Hidden = true
+            Hidden = true,
+            FiltersTitle = Translator.SearchBar_Filters
         };
         _scopeBar.SetScopes([Translator.SearchBar_CurrentFolder, Translator.SearchBar_ScopeSubfolders, Translator.SearchBar_AllFolders], 0);
         _scopeBar.ReachChanged += (_, _) => Observe(RerunSearchAsync());
@@ -32,6 +33,7 @@ public sealed partial class MailListPageViewController : IShellSearchTarget
         };
         _scopeBar.DoneClicked += (_, _) => Observe(SearchClearedAsync());
         _scopeBar.ChipClicked += (_, chip) => Observe(ToggleChipAsync(chip));
+        _scopeBar.FiltersClicked += (sender, _) => ShowSearchFilters(sender as NSView ?? _scopeBar);
         return _scopeBar;
     }
 
@@ -57,14 +59,17 @@ public sealed partial class MailListPageViewController : IShellSearchTarget
 
         var filters = ViewModel.SearchFilters ?? MailSearchFilters.Empty;
         var chips = new List<WinoSearchChip>();
+        // Value filters are removable tokens; "Read" is one too, since the Unread toggle below cannot show it.
         foreach (var chip in MailSearchFilterChip.From(filters))
         {
-            if (chip.Kind is MailSearchFilterKind.Sender or MailSearchFilterKind.Subject or MailSearchFilterKind.Date)
+            if (chip.Kind is MailSearchFilterKind.Sender or MailSearchFilterKind.Subject or MailSearchFilterKind.Date
+                || (chip.Kind == MailSearchFilterKind.ReadStatus && filters.ReadStatus == MailReadStatusFilter.Read))
                 chips.Add(new WinoSearchChip(chip.Kind, chip.Text, null, true, true));
         }
         chips.Add(new WinoSearchChip(MailSearchFilterKind.ReadStatus, Translator.SearchBar_Unread, null, filters.ReadStatus == MailReadStatusFilter.Unread));
         chips.Add(new WinoSearchChip(MailSearchFilterKind.Attachments, Translator.SearchBar_HasAttachments, null, filters.HasAttachments));
         chips.Add(new WinoSearchChip(MailSearchFilterKind.Flagged, Translator.SearchBar_Flagged, null, filters.IsFlagged));
+        _scopeBar.ActiveFilterCount = ViewModel.ActiveSearchFilterCount;
         _scopeBar.SetChips(chips);
     }
 
@@ -74,6 +79,8 @@ public sealed partial class MailListPageViewController : IShellSearchTarget
         var filters = ViewModel.SearchFilters ?? MailSearchFilters.Empty;
         ViewModel.SearchFilters = kind switch
         {
+            // The Unread toggle; a removable "Read" token clears the status instead.
+            MailSearchFilterKind.ReadStatus when chip.IsRemovable => filters with { ReadStatus = MailReadStatusFilter.All },
             MailSearchFilterKind.ReadStatus => filters with { ReadStatus = filters.ReadStatus == MailReadStatusFilter.Unread ? MailReadStatusFilter.All : MailReadStatusFilter.Unread },
             MailSearchFilterKind.Attachments => filters with { HasAttachments = !filters.HasAttachments },
             MailSearchFilterKind.Flagged => filters with { IsFlagged = !filters.IsFlagged },
@@ -113,6 +120,44 @@ public sealed partial class MailListPageViewController : IShellSearchTarget
     }
 
     private Task RerunSearchAsync() => RunSearchOrCloseAsync(_searchText);
+
+    // ---- Search filter editor (Windows SearchFilterFlyout) ----
+
+    /// <summary>Opens the filter editor under <paramref name="anchor"/>, loaded with the current search.</summary>
+    private void ShowSearchFilters(NSView anchor)
+    {
+        if (_released || anchor.Window is null) return;
+        CloseSearchFilters();
+        ViewModel.SearchFilterEditor.Load(ViewModel.SearchScope, _searchText, ViewModel.SearchFilters ?? MailSearchFilters.Empty, !_scopeBar.IsOnline);
+        var popover = new MailListSearchFilterPopover(ViewModel.SearchFilterEditor, () => Observe(ApplySearchFiltersAsync()));
+        // Released once it closes, outside the popover's own close callback.
+        popover.Closed += (_, _) => NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
+        {
+            if (ReferenceEquals(_filterPopover, popover)) CloseSearchFilters();
+        });
+        _filterPopover = popover;
+        popover.Show(anchor);
+    }
+
+    private void CloseSearchFilters()
+    {
+        _filterPopover?.Dispose();
+        _filterPopover = null;
+    }
+
+    /// <summary>Windows ApplySearchFilterEditorAsync: the keywords become the search box text.</summary>
+    private Task ApplySearchFiltersAsync()
+    {
+        var editor = ViewModel.SearchFilterEditor;
+        var keywords = (editor.Keywords ?? string.Empty).Trim();
+        ViewModel.SearchScope = editor.Scope;
+        ViewModel.SearchFilters = editor.ToFilters();
+        _searchText = keywords;
+        ViewModel.SearchQuery = keywords;
+        _navigation.Shell?.SetSearchText(keywords);
+        UpdateScopeBar();
+        return RunSearchOrCloseAsync(keywords);
+    }
 
     private async Task RunOnlineSearchAsync()
     {

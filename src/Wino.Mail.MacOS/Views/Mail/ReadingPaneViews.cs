@@ -53,12 +53,19 @@ internal sealed class MailIdleView : NSView
     }
 }
 
-/// <summary>Reader state "multi-selection": overlapping avatars, count, summary and bulk actions.</summary>
+/// <summary>
+/// Reader state "multi-selection": overlapping avatars, count, summary and bulk actions
+/// (Windows MailListPage multi-selection pane: Delete, Flag, Mark read, Move, then Unselect All).
+/// Flag and Mark read toggle, so their titles say what the click will do.
+/// </summary>
 internal sealed class MailMultiSelectionView : NSView
 {
     private readonly NSStackView _avatars;
     private readonly NSTextField _title;
     private readonly NSTextField _summary;
+    private readonly NSButton _flag;
+    private readonly NSButton _read;
+    private readonly NSButton _unselectAll;
 
     public MailMultiSelectionView()
     {
@@ -72,16 +79,27 @@ internal sealed class MailMultiSelectionView : NSView
 
         var archive = Action(Translator.MailOperation_Archive, ShellCommand.Archive);
         var delete = Action(Translator.MailOperation_Delete, ShellCommand.Delete);
-        var read = Action(Translator.MailOperation_MarkAsRead, ShellCommand.ToggleRead);
+        _flag = Action(Translator.MailOperation_Flag, ShellCommand.Flag);
+        _read = Action(Translator.MailOperation_MarkAsRead, ShellCommand.ToggleRead);
         var move = Action($"{Translator.MailOperation_Move}…", ShellCommand.Move);
-        var grid = NSGridView.Create(new NSView[][] { [archive, delete], [read, move] });
+        var grid = NSGridView.Create(new NSView[][] { [archive, delete], [_flag, _read], [move, NSGridCell.EmptyContentView] });
         grid.ColumnSpacing = 8;
         grid.RowSpacing = 8;
         grid.X = NSGridCellPlacement.Fill;
         grid.TranslatesAutoresizingMaskIntoConstraints = false;
+        grid.GetRow(2).MergeCells(new Foundation.NSRange(0, 2));
         WinoLayout.Size(grid, 220, -1);
 
-        var stack = WinoLayout.VStack(16, _avatars, _title, _summary, grid);
+        var separator = new WinoSeparator();
+        WinoLayout.Size(separator, 220, -1);
+        _unselectAll = new NSButton { Bordered = false, Title = Translator.Buttons_UnselectAll, TranslatesAutoresizingMaskIntoConstraints = false };
+        _unselectAll.Activated += (_, _) => UnselectAllInvoked?.Invoke(this, EventArgs.Empty);
+        WinoAccessibility.Label(_unselectAll, Translator.Buttons_UnselectAll);
+        RefreshAccent();
+
+        var stack = WinoLayout.VStack(16, _avatars, _title, _summary, grid, separator, _unselectAll);
+        stack.SetCustomSpacing(12, grid);
+        stack.SetCustomSpacing(8, separator);
         stack.Alignment = NSLayoutAttribute.CenterX;
         stack.TranslatesAutoresizingMaskIntoConstraints = false;
         AddSubview(stack);
@@ -103,6 +121,20 @@ internal sealed class MailMultiSelectionView : NSView
 
     /// <summary>Raised with the bulk command; the sender is the button, used as the Move popover anchor.</summary>
     public event EventHandler<ShellCommand>? ActionInvoked;
+
+    /// <summary>Unselect All was clicked.</summary>
+    public event EventHandler? UnselectAllInvoked;
+
+    /// <summary>
+    /// The inline link look of the reader's Unsubscribe button. The owning page calls this from its own
+    /// accent subscription; the view does not subscribe to the static event, so it never roots the page.
+    /// </summary>
+    public void RefreshAccent()
+        => _unselectAll.AttributedTitle = new Foundation.NSAttributedString(Translator.Buttons_UnselectAll, new NSStringAttributes
+        {
+            ForegroundColor = WinoStyle.Accent,
+            Font = NSFont.SystemFontOfSize(13)
+        });
 
     public void Update(IReadOnlyList<(string Name, string Address)> senders, int count, int unread, int flagged, int attachments)
     {
@@ -126,11 +158,28 @@ internal sealed class MailMultiSelectionView : NSView
         _summary.StringValue = string.Join(" · ", parts);
         _summary.Hidden = parts.Count == 0;
         AccessibilityLabel = _title.StringValue;
+        // ShellCommand.Flag and ToggleRead clear or set based on the whole selection.
+        SetTitle(_flag, count > 0 && flagged == count ? Translator.MailOperation_ClearFlag : Translator.MailOperation_Flag);
+        SetTitle(_read, count > 0 && unread == 0 ? Translator.MailOperation_MarkAsUnread : Translator.MailOperation_MarkAsRead);
     }
+
+    private static void SetTitle(NSButton button, string title)
+    {
+        if (button.Title == title) return;
+        button.Title = title;
+        WinoAccessibility.Label(button, title);
+    }
+
+    /// <summary>Debug: the bulk action titles.</summary>
+    internal string Dump() => $"flag='{_flag.Title}' read='{_read.Title}' unselect='{_unselectAll.Title}' hidden={Hidden}";
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) ActionInvoked = null;
+        if (disposing)
+        {
+            ActionInvoked = null;
+            UnselectAllInvoked = null;
+        }
         base.Dispose(disposing);
     }
 }
@@ -364,7 +413,15 @@ internal sealed class MailSkeletonView : NSView
 }
 
 /// <summary>One reader command: a Wino glyph, a label, and what it runs.</summary>
-internal sealed record MailReaderCommand(WinoIconGlyph Glyph, string Title, Action Run, bool IsEnabled = true);
+/// <remarks><see cref="RunFrom"/>, when set, runs instead of <see cref="Run"/> with the clicked view as an anchor (Move popover).</remarks>
+internal sealed record MailReaderCommand(WinoIconGlyph Glyph, string Title, Action Run, bool IsEnabled = true, Action<NSView>? RunFrom = null)
+{
+    public void Invoke(NSView anchor)
+    {
+        if (RunFrom is not null) RunFrom(anchor);
+        else Run();
+    }
+}
 
 /// <summary>
 /// The reader command bar (Windows OperationCommandBar on MailRenderingPage): Reply, Reply all,
@@ -380,6 +437,8 @@ internal sealed class MailReaderCommandBar : NSView
 
     private readonly NSStackView _stack;
     private readonly NSButton _moreButton;
+    private readonly WinoSurfaceView _separator;
+    private bool _iconOnly;
     private readonly List<Slot> _slots = new();
     private Func<NSMenu>? _moreMenu;
     private bool _labelsHidden;
@@ -406,7 +465,7 @@ internal sealed class MailReaderCommandBar : NSView
         _moreButton = Button(WinoIconGlyph.More, Translator.More, ShowMore);
         _moreButton.ImagePosition = NSCellImagePosition.ImageOnly;
         WinoLayout.Size(_moreButton, MoreWidth, 30);
-        var separator = new WinoSurfaceView { Fill = WinoStyle.ZoneStroke };
+        var separator = _separator = new WinoSurfaceView { Fill = WinoStyle.ZoneStroke };
         AddSubview(_stack);
         AddSubview(separator);
         NSLayoutConstraint.ActivateConstraints(
@@ -422,6 +481,26 @@ internal sealed class MailReaderCommandBar : NSView
         ]);
         AccessibilityElement = true;
         AccessibilityRole = NSAccessibilityRoles.ToolbarRole;
+    }
+
+    /// <summary>
+    /// Icon-only bar (the mail list action bar, Windows DefaultLabelPosition="Collapsed"): labels are
+    /// never shown or measured, commands that do not fit move into More, and the bottom separator is hidden.
+    /// The owning host carries the toolbar accessibility role, so the bar itself drops it.
+    /// </summary>
+    public bool IconOnly
+    {
+        get => _iconOnly;
+        set
+        {
+            if (_iconOnly == value) return;
+            _iconOnly = value;
+            _separator.Hidden = value;
+            AccessibilityElement = !value;
+            foreach (var slot in _slots) if (slot.Button is not null) Measure(slot);
+            _shown = -1;
+            NeedsLayout = true;
+        }
     }
 
     private static NSButton Button(WinoIconGlyph glyph, string title, Action run)
@@ -507,7 +586,8 @@ internal sealed class MailReaderCommandBar : NSView
             }
             Slot? slot = null;
             // The slot's command is swapped in place by SetCommands, so the button runs the latest action.
-            var button = Button(command.Glyph, command.Title, () => slot?.Command?.Run());
+            NSButton? created = null;
+            var button = created = Button(command.Glyph, command.Title, () => slot?.Command?.Invoke(created!));
             button.Enabled = command.IsEnabled;
             slot = new Slot(button, button, command);
             Measure(slot);
@@ -521,9 +601,16 @@ internal sealed class MailReaderCommandBar : NSView
     }
 
     /// <summary>Records the intrinsic width with and without the label; <see cref="Apply"/> sets the shown form.</summary>
-    private static void Measure(Slot slot)
+    private void Measure(Slot slot)
     {
         var button = slot.Button!;
+        if (_iconOnly)
+        {
+            button.ImagePosition = NSCellImagePosition.ImageOnly;
+            button.Title = string.Empty;
+            slot.IconWidth = (double)button.IntrinsicContentSize.Width;
+            return;
+        }
         button.ImagePosition = NSCellImagePosition.ImageLeading;
         button.Title = slot.Command!.Title;
         slot.LabelledWidth = (double)button.IntrinsicContentSize.Width;
@@ -558,7 +645,7 @@ internal sealed class MailReaderCommandBar : NSView
         int total = _slots.Count(static slot => slot.Button is not null);
         if (total == 0) { _moreButton.Hidden = _moreMenu is null; return; }
         double available = (double)Bounds.Width;
-        bool labels = RequiredWidth(true, total, total) <= available;
+        bool labels = !_iconOnly && RequiredWidth(true, total, total) <= available;
         int shown = total;
         if (!labels) while (shown > 0 && RequiredWidth(false, shown, total) > available) shown--;
         if (labels != _labelsHidden && shown == _shown) return;
@@ -603,7 +690,7 @@ internal sealed class MailReaderCommandBar : NSView
         for (int i = hidden.Count - 1; i >= 0; i--)
         {
             var command = hidden[i];
-            menu.InsertItem(new NSMenuItem(command.Title, (_, _) => command.Run())
+            menu.InsertItem(new NSMenuItem(command.Title, (_, _) => command.Invoke(_moreButton))
             {
                 Enabled = command.IsEnabled,
                 Image = WinoIcons.Image(command.Glyph, 16)
@@ -711,4 +798,58 @@ internal sealed class MailReaderStatusRow : NSView
         if (disposing) WinoStyle.AccentChanged -= AccentChanged;
         base.Dispose(disposing);
     }
+}
+
+/// <summary>
+/// A borderless text link (recipient tokens, the sender, the Other inbox notice): accent title,
+/// pointing-hand cursor and the Link accessibility role. With <see cref="NSButton.Transparent"/> set it
+/// covers a wrapping label and only provides the click, cursor and accessibility.
+/// It does not subscribe to <see cref="WinoStyle.AccentChanged"/> itself (a static event would root the
+/// owning page): the owner calls <see cref="RefreshAccent"/> from a subscription in its binding scope.
+/// </summary>
+internal sealed class MailLinkButton : NSButton
+{
+    private string _text;
+    private readonly NSFont _font;
+    private readonly NSColor? _color;
+
+    public MailLinkButton(string text, NSFont? font = null, NSColor? color = null)
+    {
+        _text = text ?? string.Empty;
+        _font = font ?? WinoStyle.Body;
+        _color = color;
+        Bordered = false;
+        TranslatesAutoresizingMaskIntoConstraints = false;
+        SetButtonType(NSButtonType.MomentaryChange);
+        AccessibilityRole = NSAccessibilityRoles.LinkRole;
+        SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+        ApplyTitle();
+    }
+
+    public string Text
+    {
+        get => _text;
+        set
+        {
+            _text = value ?? string.Empty;
+            ApplyTitle();
+        }
+    }
+
+    /// <summary>Re-applies the title in the current accent colour.</summary>
+    public void RefreshAccent() => ApplyTitle();
+
+    private void ApplyTitle()
+    {
+        AttributedTitle = new Foundation.NSAttributedString(_text, new NSStringAttributes
+        {
+            ForegroundColor = _color ?? WinoStyle.Accent,
+            Font = _font,
+            ParagraphStyle = new NSMutableParagraphStyle { LineBreakMode = NSLineBreakMode.TruncatingTail }
+        });
+        var label = ((NSView)this).AccessibilityLabel;
+        if (string.IsNullOrEmpty(label)) WinoAccessibility.Label(this, _text);
+    }
+
+    public override void ResetCursorRects() => AddCursorRect(Bounds, NSCursor.PointingHandCursor);
 }

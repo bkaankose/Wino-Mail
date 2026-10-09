@@ -80,6 +80,9 @@ public interface IShellSearchTarget
     Task SearchTextChangedAsync(string text);
     Task SearchSubmittedAsync(string text);
     Task SearchClearedAsync();
+
+    /// <summary>The toolbar field's placeholder while this page is current; null keeps the generic "Search".</summary>
+    string? SearchPlaceholder => null;
 }
 
 /// <summary>
@@ -108,4 +111,24 @@ public interface IWhatsNewPresenter
 public interface IWinoAccountPresenter
 {
     void Show(NSView anchor);
+}
+
+/// <summary>
+/// Optional companion to <see cref="IShellSearchTarget"/> for pages that show suggestions under the
+/// toolbar search field (for example with <c>ShellSearchSuggestionList</c>). Pages that do not
+/// implement it get the plain field behaviour.
+/// </summary>
+public interface IShellSearchSuggestionTarget
+{
+    /// <summary>Called before <see cref="IShellSearchTarget.SearchTextChangedAsync"/> with the field, so the page can anchor its list.</summary>
+    void SearchFieldEditing(NSSearchField field);
+
+    /// <summary>
+    /// Key commands while the field edits (<c>moveUp:</c>, <c>moveDown:</c>, <c>insertNewline:</c>,
+    /// <c>cancelOperation:</c>). Return true when handled; false keeps the field's default behaviour.
+    /// </summary>
+    bool SearchFieldCommand(NSSearchField field, string selector);
+
+    /// <summary>The field stopped editing (focus moved elsewhere).</summary>
+    void SearchFieldEndedEditing(NSSearchField field);
 }

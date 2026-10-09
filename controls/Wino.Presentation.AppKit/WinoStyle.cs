@@ -75,7 +75,7 @@ public static class WinoStyle
     /// The Windows WinoContentZoneBackgroud: opaque white in light, a translucent layer in dark
     /// so the wallpaper glows through the reader and list.
     /// </summary>
-    public static NSColor ZoneFill => Dynamic(NSColor.White, Hex(0x2B2B2F, 0.82));
+    public static NSColor ZoneFill => WinoThemeSurfaces.Dynamic(WinoThemeSurface.Workspace, Dynamic(NSColor.White, Hex(0x2B2B2F, 0.82)));
     public static NSColor ZoneStroke => Dynamic(Hex(0x000000, 0.08), Hex(0xFFFFFF, 0.08));
 
     /// <summary>A colour that resolves per appearance.</summary>
