@@ -90,9 +90,52 @@ public sealed class SettingsWindowPresenter : ISettingsWindowPresenter, IRecipie
         return true;
     }
 
-    public Task GoBackAsync() => NavigateAsync(null, NavigationMode.Back);
+    public async Task GoBackAsync()
+    {
+        if (await ConfirmLeaveAsync()) await NavigateAsync(null, NavigationMode.Back);
+    }
 
-    public Task GoForwardAsync() => NavigateAsync(null, NavigationMode.Forward);
+    public async Task GoForwardAsync()
+    {
+        if (await ConfirmLeaveAsync()) await NavigateAsync(null, NavigationMode.Forward);
+    }
+
+    // ---- Leaving a page that asks first (Windows SettingsPage consults IConfirmBackNavigation) ----
+
+    private bool _closeConfirmed;
+
+    private IConfirmBackNavigation? CurrentConfirmation()
+        => (_currentController as IViewModelHost)?.AssociatedViewModel as IConfirmBackNavigation;
+
+    /// <summary>Asks the current page, outside the navigation gate, whether it may be left.</summary>
+    private async Task<bool> ConfirmLeaveAsync()
+    {
+        IConfirmBackNavigation? confirm = null;
+        await _dispatcher.ExecuteOnUIThread(() => confirm = CurrentConfirmation());
+        return confirm is null || await confirm.CanNavigateBackAsync();
+    }
+
+    private async Task LeaveToSidebarPageAsync(WinoPage page)
+    {
+        if (await ConfirmLeaveAsync())
+        {
+            await NavigateAsync(new Entry(page, null), NavigationMode.New);
+            return;
+        }
+        // Refused: the sidebar goes back to the page that stays.
+        if (_current is { } current) await _dispatcher.ExecuteOnUIThread(() => _window?.Sidebar.Select(SettingsPageCatalog.RootPage(current.Page)));
+    }
+
+    private async Task ConfirmCloseAsync(IConfirmBackNavigation confirm)
+    {
+        if (!await confirm.CanNavigateBackAsync()) return;
+        await _dispatcher.ExecuteOnUIThread(() =>
+        {
+            _closeConfirmed = true;
+            try { _window?.Window?.PerformClose(null); }
+            finally { _closeConfirmed = false; }
+        });
+    }
 
     public async Task CloseAsync()
     {
@@ -171,7 +214,14 @@ public sealed class SettingsWindowPresenter : ISettingsWindowPresenter, IRecipie
         window.SidebarPageSelected += (_, page) =>
         {
             if (_current?.Page == page) return;
-            _ = ObserveAsync(NavigateAsync(new Entry(page, null), NavigationMode.New));
+            _ = ObserveAsync(LeaveToSidebarPageAsync(page));
+        };
+        // A page with unsaved work (the theme editor) is asked before the window closes, then closed.
+        window.ShouldClose = () =>
+        {
+            if (_closeConfirmed || CurrentConfirmation() is not { } confirm) return true;
+            _ = ObserveAsync(ConfirmCloseAsync(confirm));
+            return false;
         };
         window.ActiveChanged += (_, active) => _isActive = active;
         window.Closing += (_, _) =>
