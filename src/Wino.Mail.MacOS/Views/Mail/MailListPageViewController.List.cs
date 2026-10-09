@@ -88,6 +88,12 @@ public sealed partial class MailListPageViewController
             var captured = option;
             _filterMenu.AddItem(new NSMenuItem(option.Title, (_, _) => Observe(ViewModel.SelectedSortingChangedCommand.ExecuteAsync(captured))));
         }
+        // Opens the search filter editor, so a filtered search can start without typing a query.
+        _filterMenu.AddItem(NSMenuItem.SeparatorItem);
+        _filterMenu.AddItem(new NSMenuItem(Translator.MacOS_MailList_SearchFilters, (_, _) => ShowSearchFilters(_filterButton))
+        {
+            Image = WinoIcons.Image(WinoIconGlyph.Filter, 16)
+        });
         _filterButton = NSPopUpButton.CreatePullDownButton(ViewModel.SelectedFilterOption?.Title ?? string.Empty, WinoIcons.Image(WinoIconGlyph.Filter, 14), _filterMenu);
         _filterButton.TranslatesAutoresizingMaskIntoConstraints = false;
         _filterButton.ControlSize = NSControlSize.Regular;
@@ -159,14 +165,17 @@ public sealed partial class MailListPageViewController
         WinoLayout.Fill(_scroll, listHost);
         listHost.AddSubview(_emptyLabel);
         listHost.AddSubview(_listProgress);
-        listHost.AddSubview(_infoBarHost, NSWindowOrderingMode.Above, null);
+        // The undo bar stacks above the update bar; both float over the bottom of the list.
+        var bottomBars = WinoLayout.VStack(4, BuildUndoBar(), _infoBarHost);
+        foreach (var bar in bottomBars.ArrangedSubviews) bar.WidthAnchor.ConstraintEqualTo(bottomBars.WidthAnchor).Active = true;
+        listHost.AddSubview(bottomBars, NSWindowOrderingMode.Above, null);
         BuildDragBanner(listHost);
         listHost.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Vertical);
         NSLayoutConstraint.ActivateConstraints(
         [
-            _infoBarHost.LeadingAnchor.ConstraintEqualTo(listHost.LeadingAnchor, 8),
-            _infoBarHost.TrailingAnchor.ConstraintEqualTo(listHost.TrailingAnchor, -8),
-            _infoBarHost.BottomAnchor.ConstraintEqualTo(listHost.BottomAnchor, -8),
+            bottomBars.LeadingAnchor.ConstraintEqualTo(listHost.LeadingAnchor, 8),
+            bottomBars.TrailingAnchor.ConstraintEqualTo(listHost.TrailingAnchor, -8),
+            bottomBars.BottomAnchor.ConstraintEqualTo(listHost.BottomAnchor, -8),
             _emptyLabel.CenterXAnchor.ConstraintEqualTo(listHost.CenterXAnchor),
             _emptyLabel.CenterYAnchor.ConstraintEqualTo(listHost.CenterYAnchor),
             _emptyLabel.WidthAnchor.ConstraintLessThanOrEqualTo(listHost.WidthAnchor, 1, -40),
@@ -185,7 +194,7 @@ public sealed partial class MailListPageViewController
             Distribution = NSStackViewDistribution.Fill,
             TranslatesAutoresizingMaskIntoConstraints = false
         };
-        foreach (var view in new NSView[] { header, BuildScopeBar(), listHost, _onlineSearchPanel })
+        foreach (var view in new NSView[] { BuildActionBar(), header, BuildSyncBar(), BuildOtherInboxLink(), BuildScopeBar(), listHost, _onlineSearchPanel })
         {
             stack.AddArrangedSubview(view);
             view.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
@@ -267,11 +276,13 @@ public sealed partial class MailListPageViewController
             UpdateMultiSelectionOverlay();
             CommandStateChanged?.Invoke(this, EventArgs.Empty);
         });
+        BindBars();
 
         _preferences.PreferenceChanged += PreferenceChanged;
         WinoStyle.AccentChanged += AccentChanged;
         WinoStyle.BackdropChanged += AccentChanged;
         RegisterDebugCommands();
+        RegisterParityDebugCommands();
         BindDrag();
         _boundsObserver = NSNotificationCenter.DefaultCenter.AddObserver(NSView.BoundsChangedNotification, _ => CheckLoadMore(), _scroll.ContentView);
     }
@@ -322,6 +333,7 @@ public sealed partial class MailListPageViewController
                 or nameof(_preferences.IsShowSenderPicturesEnabled) or nameof(_preferences.IsHoverActionsEnabled)
                 or nameof(_preferences.AccountNicknamePosition))
                 ReloadNow();
+            else BarsPreferenceChanged(name);
         });
 
     private void AccentChanged(object? sender, EventArgs args) => OnUI(() => { if (_listBound) ReloadNow(); });
@@ -379,13 +391,7 @@ public sealed partial class MailListPageViewController
         bool open = ViewModel.IsBarOpen && !string.IsNullOrWhiteSpace(ViewModel.BarMessage);
         _infoBar.Title = ViewModel.BarTitle;
         _infoBar.Message = ViewModel.BarMessage;
-        _infoBar.Severity = ViewModel.BarSeverity switch
-        {
-            InfoBarMessageType.Success => WinoInfoBarSeverity.Success,
-            InfoBarMessageType.Warning => WinoInfoBarSeverity.Warning,
-            InfoBarMessageType.Error => WinoInfoBarSeverity.Error,
-            _ => WinoInfoBarSeverity.Informational
-        };
+        _infoBar.Severity = MapSeverity(ViewModel.BarSeverity);
         _infoBar.Hidden = !open;
         _infoBarHost.Hidden = !open;
     }
@@ -974,15 +980,25 @@ public sealed partial class MailListPageViewController
         public override void KeyDown(NSEvent theEvent)
         {
             var key = theEvent.CharactersIgnoringModifiers;
+            // Esc clears the selection (Windows list accelerator); with nothing selected it keeps propagating.
+            if (theEvent.KeyCode == EscapeKeyCode && SelectedRowCount > 0) { DeselectAll(null); return; }
             if (!string.IsNullOrEmpty(key) && owner.RowAt(SelectedRow) is { } row)
             {
                 char character = key[0];
                 if (character == (char)NSFunctionKey.RightArrow && row.IsThreadHead && !row.IsExpanded) { owner.ToggleThread(row); return; }
                 if (character == (char)NSFunctionKey.LeftArrow && row.IsThreadHead && row.IsExpanded) { owner.ToggleThread(row); return; }
-                if (character is (char)127 or (char)NSFunctionKey.Delete) { owner.Execute(Wino.Mail.MacOS.Infrastructure.ShellCommand.Delete, null); return; }
+                // The built-in Delete and Backspace keys stay (Windows hard-codes Delete in the list too); a
+                // customised Mail Delete shortcut without Command or Control (the menu bar owns those) also deletes.
+                if (character is (char)127 or (char)NSFunctionKey.Delete || owner.IsCustomDeleteShortcut(theEvent))
+                {
+                    owner.Execute(Wino.Mail.MacOS.Infrastructure.ShellCommand.Delete, null);
+                    return;
+                }
             }
             base.KeyDown(theEvent);
         }
+
+        private const ushort EscapeKeyCode = 53;
 
         public override NSMenu? MenuForEvent(NSEvent theEvent)
         {

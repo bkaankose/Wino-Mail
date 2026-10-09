@@ -70,6 +70,15 @@ public sealed class WinoSearchScopeBar : WinoSurfaceView
     public event EventHandler? DoneClicked;
     public event EventHandler<WinoSearchChip>? ChipClicked;
 
+    /// <summary>The trailing Filters token was clicked; the sender is the token, for anchoring a popover.</summary>
+    public event EventHandler? FiltersClicked;
+
+    /// <summary>Title of a trailing Filters token after the filter tokens; null leaves it out.</summary>
+    public string? FiltersTitle { get; set; }
+
+    /// <summary>Active filters shown on the Filters token; above zero the token is tinted.</summary>
+    public int ActiveFilterCount { get; set; }
+
     public bool IsOnline
     {
         get => _reach.SelectedSegment == 1;
@@ -112,6 +121,23 @@ public sealed class WinoSearchScopeBar : WinoSurfaceView
             chip.Clicked += (_, _) => ChipClicked?.Invoke(this, spec);
             views.Add(chip);
         }
+        if (!string.IsNullOrEmpty(FiltersTitle))
+        {
+            var title = ActiveFilterCount > 0 ? $"{FiltersTitle} ({ActiveFilterCount})" : FiltersTitle;
+            var filters = new WinoChipView(22)
+            {
+                Text = title,
+                IsClickable = true,
+                Fill = ActiveFilterCount > 0 ? WinoStyle.Accent.ColorWithAlphaComponent((nfloat)0.14) : NSColor.ControlBackground,
+                Stroke = ActiveFilterCount > 0 ? null : NSColor.Separator,
+                TextColor = WinoStyle.PrimaryText
+            };
+            filters.SetGlyph(Wino.Core.Domain.Enums.WinoIconGlyph.Filter, 10);
+            filters.AccessibilityRole = NSAccessibilityRoles.ButtonRole;
+            filters.AccessibilityLabel = title;
+            filters.Clicked += (sender, _) => FiltersClicked?.Invoke(sender, EventArgs.Empty);
+            views.Add(filters);
+        }
         var previous = _chips.Subviews;
         _chips.SetItems(views);
         foreach (var old in previous) old.Dispose();
@@ -126,6 +152,7 @@ public sealed class WinoSearchScopeBar : WinoSurfaceView
             ScopeChanged = null;
             DoneClicked = null;
             ChipClicked = null;
+            FiltersClicked = null;
         }
         base.Dispose(disposing);
     }

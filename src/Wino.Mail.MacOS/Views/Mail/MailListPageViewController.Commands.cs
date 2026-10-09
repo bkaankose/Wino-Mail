@@ -1,5 +1,6 @@
 using AppKit;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
@@ -87,6 +88,53 @@ public sealed partial class MailListPageViewController
 
     private static IReadOnlyList<MailItemViewModel> Leaves(MailListRow row)
         => (row.IsThreadHead ? row.LeafItems : [row.SourceItem]).OfType<MailItemViewModel>().ToArray();
+
+    /// <summary>
+    /// True when the key matches an enabled Mail-mode Delete shortcut that has no Command or Control
+    /// modifier. Those are not menu key equivalents (AppDelegate.Shortcuts leaves them to the views),
+    /// so the list honours them itself. Key names follow the Mac shortcut recorder.
+    /// </summary>
+    internal bool IsCustomDeleteShortcut(NSEvent theEvent)
+    {
+        var flags = theEvent.ModifierFlags;
+        if ((flags & (NSEventModifierMask.CommandKeyMask | NSEventModifierMask.ControlKeyMask)) != 0) return false;
+        var name = ShortcutKeyName(theEvent);
+        if (name is null) return false;
+        var modifiers = ModifierKeys.None;
+        if (flags.HasFlag(NSEventModifierMask.AlternateKeyMask)) modifiers |= ModifierKeys.Alt;
+        if (flags.HasFlag(NSEventModifierMask.ShiftKeyMask)) modifiers |= ModifierKeys.Shift;
+        foreach (var shortcut in _shortcuts.EnabledShortcutsSnapshot)
+        {
+            if (shortcut.Mode == WinoApplicationMode.Mail && shortcut.Action == KeyboardShortcutAction.Delete
+                && shortcut.ModifierKeys == modifiers && string.Equals(shortcut.Key?.Trim(), name, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>The key name the Mac shortcut recorder stores (AppKitDialogService.ShortcutRecorder.KeyName).</summary>
+    private static string? ShortcutKeyName(NSEvent theEvent)
+    {
+        switch (theEvent.KeyCode)
+        {
+            case 36: return "Enter";
+            case 48: return "Tab";
+            case 49: return "Space";
+            case 51: return "Back";
+            case 117: return "Delete";
+            case 53: return "Escape";
+            case 123: return "Left";
+            case 124: return "Right";
+            case 125: return "Down";
+            case 126: return "Up";
+        }
+        var characters = theEvent.CharactersIgnoringModifiers;
+        if (string.IsNullOrEmpty(characters)) return null;
+        var character = char.ToUpperInvariant(characters[0]);
+        if (char.IsLetter(character)) return character.ToString();
+        if (char.IsDigit(character)) return "Number" + character;
+        return null;
+    }
 
     // ---- Move popover ----
 
@@ -210,6 +258,7 @@ public sealed partial class MailListPageViewController
             Image = WinoIcons.Image(allPinned ? WinoIconGlyph.UnPin : WinoIconGlyph.Pin, 16)
         };
         menu.AddItem(pin);
+        AddCategoryMenu(menu, targets);
 
         if (row.IsThreadHead && row.Thread is { Count: > 1 })
         {
@@ -217,6 +266,91 @@ public sealed partial class MailListPageViewController
             var toggle = new NSMenuItem(row.IsExpanded ? Translator.MacOS_MailList_CollapseThread : Translator.MacOS_MailList_ExpandThread, (_, _) => ToggleThread(row));
             menu.AddItem(toggle);
         }
+    }
+
+    // ---- Categories (Windows MailContextFlyoutBuilder.CreateCategoriesItem) ----
+
+    private int _categoryMenuVersion;
+
+    /// <summary>
+    /// Adds the Category submenu. The menu is built synchronously, so the categories load in the
+    /// background and fill the submenu while the menu is open; the item hides when there are none
+    /// (including a mixed-account selection) or the load fails.
+    /// </summary>
+    private void AddCategoryMenu(NSMenu menu, IReadOnlyList<MailItemViewModel> targets)
+    {
+        var separator = NSMenuItem.SeparatorItem;
+        var submenu = new NSMenu { AutoEnablesItems = false };
+        submenu.AddItem(new NSMenuItem(Translator.MacOS_MailList_CategoriesLoading) { Enabled = false });
+        var item = new NSMenuItem(Translator.MailCategoryMenuItem)
+        {
+            Submenu = submenu,
+            Image = WinoIcons.Image(WinoIconGlyph.SpecialFolderCategory, 16)
+        };
+        menu.AddItem(separator);
+        menu.AddItem(item);
+        int version = ++_categoryMenuVersion;
+        _ = LoadCategoryMenuAsync(menu, separator, item, submenu, targets, version);
+    }
+
+    private async Task LoadCategoryMenuAsync(NSMenu menu, NSMenuItem separator, NSMenuItem item, NSMenu submenu,
+        IReadOnlyList<MailItemViewModel> targets, int version)
+    {
+        IReadOnlyList<MailCategory> categories = [];
+        IReadOnlyCollection<Guid> assigned = [];
+        bool failed = false;
+        try { (categories, assigned) = await ViewModel.GetAvailableCategoriesAsync(targets).ConfigureAwait(false); }
+        catch (Exception exception)
+        {
+            failed = true;
+            ReportError(exception);
+        }
+
+        // The main queue also runs while the menu tracks the mouse, so an open menu fills in place.
+        CoreFoundation.DispatchQueue.MainQueue.DispatchAsync(() =>
+        {
+            if (_released || version != _categoryMenuVersion || _contextMenuDelegate is null
+                || !ReferenceEquals(menu.Delegate, _contextMenuDelegate)) return;
+            if (failed || categories.Count == 0)
+            {
+                separator.Hidden = true;
+                item.Hidden = true;
+                return;
+            }
+            submenu.RemoveAllItems();
+            var favorites = categories.Where(static category => category.IsFavorite).ToArray();
+            var others = categories.Where(static category => !category.IsFavorite).ToArray();
+            foreach (var category in favorites) submenu.AddItem(CategoryItem(category, assigned, targets));
+            if (favorites.Length > 0 && others.Length > 0) submenu.AddItem(NSMenuItem.SeparatorItem);
+            foreach (var category in others) submenu.AddItem(CategoryItem(category, assigned, targets));
+        });
+    }
+
+    private NSMenuItem CategoryItem(MailCategory category, IReadOnlyCollection<Guid> assigned, IReadOnlyList<MailItemViewModel> targets)
+    {
+        bool assignedToAll = assigned.Contains(category.Id);
+        var menuItem = new NSMenuItem(category.Name ?? string.Empty,
+            (_, _) => Observe(ViewModel.ToggleCategoryAssignmentAsync(category, targets, assignedToAll)))
+        {
+            State = assignedToAll ? NSCellStateValue.On : NSCellStateValue.Off,
+            Image = CategoryImage(category)
+        };
+        return menuItem;
+    }
+
+    /// <summary>A 12pt dot in the category colour; the tinted category glyph when the colour is missing.</summary>
+    private static NSImage? CategoryImage(MailCategory category)
+    {
+        if (WinoStyle.FromHexString(category.BackgroundColorHex) is not { } color)
+            return WinoIcons.Image(WinoIconGlyph.SpecialFolderCategory, 14, WinoStyle.FromHexString(category.TextColorHex));
+        var image = NSImage.ImageWithSize(new CoreGraphics.CGSize(12, 12), false, rect =>
+        {
+            color.SetFill();
+            NSBezierPath.FromOvalInRect(rect.Inset(1, 1)).Fill();
+            return true;
+        });
+        image.AccessibilityDescription = category.Name;
+        return image;
     }
 
     private sealed class MailContextMenuDelegate(MailListPageViewController owner) : NSMenuDelegate
