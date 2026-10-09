@@ -29,7 +29,7 @@ Install Wino Mail from the Microsoft Store or directly with App Installer.
 | Distribution | Recommended for | Installation |
 | --- | --- | --- |
 | Microsoft Store | Most users | [Install Wino Mail from Microsoft Store](https://apps.microsoft.com/detail/Wino%20Mail/9NCRCVJC50WL?launch=true&mode=full) |
-| Direct download | Users who prefer to install outside Microsoft Store | [Install Wino Mail with App Installer](https://download.winomail.app/wino.appinstaller) |
+| Direct download | Users who prefer to install outside Microsoft Store | [Install Wino Mail with App Installer](https://download.winomail.app/WinoMail.appinstaller) |
 
 <a href="https://apps.microsoft.com/detail/Wino%20Mail/9NCRCVJC50WL?launch=true&mode=full">
   <img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200" alt="Get Wino Mail from Microsoft Store">
