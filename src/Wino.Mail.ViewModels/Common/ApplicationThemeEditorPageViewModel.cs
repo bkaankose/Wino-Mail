@@ -14,9 +14,18 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Personalization;
 using Wino.Core.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
+#if WINRT_EXPOSED
+using WinRT;
+#endif
 
 namespace Wino.Core.ViewModels;
 
+// Surface previews in the color-option template bind to these properties through the page.
+#if WINRT_EXPOSED
+[GeneratedBindableCustomProperty(
+    new string[] { nameof(PreviewPalette), nameof(WallpaperAlignment), nameof(WallpaperFit) },
+    new Type[] { })]
+#endif
 public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
     IConfirmBackNavigation,
     IBreadcrumbNavigationResultProvider

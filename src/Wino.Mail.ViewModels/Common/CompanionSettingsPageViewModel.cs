@@ -21,7 +21,7 @@ public partial class CompanionSettingsPageViewModel(IPreferencesService preferen
 
     public IPreferencesService PreferencesService { get; } = preferencesService;
 
-    public IReadOnlyList<CompanionUnreadBehaviorOption> UnreadBehaviorOptions { get; } =
+    public IReadOnlyList<CompanionUnreadBehaviorOption> UnreadBehaviorOptions { get; } = (CompanionUnreadBehaviorOption[])
     [
         new(CompanionUnreadMessageBehavior.AfterAppSession, Translator.CompanionSettings_UnreadBehavior_AfterAppSession),
         new(CompanionUnreadMessageBehavior.Everything, Translator.CompanionSettings_UnreadBehavior_Everything)

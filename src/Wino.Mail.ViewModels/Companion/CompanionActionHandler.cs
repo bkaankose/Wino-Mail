@@ -37,8 +37,8 @@ public sealed class CompanionActionHandler(
         var stored = await services.GetRequiredService<IMailService>()
             .GetSingleMailItemAsync(mail.Id)
             .ConfigureAwait(false);
-        if (stored?.AssignedAccount?.Id == mail.MailCopy.AssignedAccount?.Id)
-            await navigation.OpenMail(stored.AssignedAccount.Id, stored.UniqueId, cancellationToken).ConfigureAwait(false);
+        if (stored?.AssignedAccount is { } account && account.Id == mail.MailCopy.AssignedAccount?.Id)
+            await navigation.OpenMail(account.Id, stored.UniqueId, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task OpenCalendarEventAsync(CalendarItemViewModel calendarItem, CancellationToken cancellationToken)
@@ -46,8 +46,8 @@ public sealed class CompanionActionHandler(
         var stored = await services.GetRequiredService<ICalendarService>()
             .GetCalendarItemAsync(calendarItem.Id)
             .ConfigureAwait(false);
-        if (stored?.AssignedCalendar?.AccountId == calendarItem.AssignedCalendar?.AccountId)
-            await navigation.OpenCalendarEvent(stored.AssignedCalendar.AccountId, stored.Id, cancellationToken).ConfigureAwait(false);
+        if (stored?.AssignedCalendar is { } calendar && calendar.AccountId == calendarItem.AssignedCalendar?.AccountId)
+            await navigation.OpenCalendarEvent(calendar.AccountId, stored.Id, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task JoinCalendarEventAsync(CalendarItemViewModel calendarItem, CancellationToken cancellationToken)
@@ -55,8 +55,8 @@ public sealed class CompanionActionHandler(
         var stored = await services.GetRequiredService<ICalendarService>()
             .GetCalendarItemAsync(calendarItem.Id)
             .ConfigureAwait(false);
-        if (stored?.AssignedCalendar?.AccountId == calendarItem.AssignedCalendar?.AccountId)
-            await navigation.JoinCalendarEvent(stored.AssignedCalendar.AccountId, stored.Id, cancellationToken).ConfigureAwait(false);
+        if (stored?.AssignedCalendar is { } calendar && calendar.AccountId == calendarItem.AssignedCalendar?.AccountId)
+            await navigation.JoinCalendarEvent(calendar.AccountId, stored.Id, cancellationToken).ConfigureAwait(false);
     }
 
     public Task FindContactAsync(AccountContactViewModel? contact, CancellationToken cancellationToken)
@@ -167,7 +167,7 @@ public sealed class CompanionActionHandler(
         var stored = await services.GetRequiredService<IMailService>()
             .GetSingleMailItemAsync(mail.Id)
             .ConfigureAwait(false);
-        if (stored?.AssignedAccount?.Id != mail.MailCopy.AssignedAccount?.Id)
+        if (stored?.AssignedAccount is not { } account || account.Id != mail.MailCopy.AssignedAccount?.Id)
             return;
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -179,7 +179,7 @@ public sealed class CompanionActionHandler(
 
         SetTrace(requests);
         await services.GetRequiredService<IWinoRequestDelegator>()
-            .ExecuteAsync(stored.AssignedAccount.Id, requests)
+            .ExecuteAsync(account.Id, requests)
             .ConfigureAwait(false);
     }
 
