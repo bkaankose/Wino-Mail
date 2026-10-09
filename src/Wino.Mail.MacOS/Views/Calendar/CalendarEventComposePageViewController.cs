@@ -10,6 +10,7 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.MacOS.Infrastructure;
+using Wino.Mail.MacOS.Views.Dialogs;
 using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.MacOS.Views.Calendar;
@@ -17,10 +18,12 @@ namespace Wino.Mail.MacOS.Views.Calendar;
 /// <summary>
 /// The event composer (Windows CalendarEventComposePage) as a sheet over the shell window: a
 /// command bar (calendar, show as, reminder, private, online meeting, Cancel, Save/Send), the
-/// event form (title, when, repeat, location, notes) and the 340pt side pane with attendees and
-/// attachments. The calendar page hosts it through the rendering frame route.
+/// event form (title, when with time zone, repeat with the custom editor, location, rich-text
+/// notes) and the 340pt side pane with attendees (contact suggestions) and attachments. The
+/// calendar page hosts it through the rendering frame route.
 /// </summary>
-public sealed class CalendarEventComposePageViewController(CalendarEventComposePageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
+public sealed partial class CalendarEventComposePageViewController(CalendarEventComposePageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger,
+    IExternalLauncher launcher, IPreferencesService preferences)
     : WinoViewController<CalendarEventComposePageViewModel>(viewModel, dispatcher, logger)
 {
     private const double SidePaneWidth = 340;
@@ -44,7 +47,16 @@ public sealed class CalendarEventComposePageViewController(CalendarEventComposeP
     private NSPopUpButton _repeat = null!;
     private NSTextField _recurrenceSummary = null!;
     private NSTextField _location = null!;
-    private NSTextView _notes = null!;
+    private WinoRichTextEditorView _notesEditor = null!;
+    private NSView _notesHost = null!;
+    private NSProgressIndicator _notesSpinner = null!;
+    private string _originalNotesHtml = string.Empty;
+    private string? _baselineNotesBody;
+    private bool _notesReady;
+    private bool _notesEdited;
+    private bool _notesFailed;
+    private NSPopUpButton _timeZone = null!;
+    private NSTextField _localTimeHint = null!;
     private NSTextField _attendeesTitle = null!;
     private NSTextField _invite = null!;
     private NSStackView _attendeeList = null!;
@@ -87,8 +99,9 @@ public sealed class CalendarEventComposePageViewController(CalendarEventComposeP
         _private.ToolTip = Translator.CalendarEventCompose_PrivateTooltip;
         _onlineMeeting = Checkbox(string.Empty, () => ViewModel.IsOnlineMeeting = _onlineMeeting.State == NSCellStateValue.On);
         var cancel = new NSButton { Title = Translator.Buttons_Cancel, BezelStyle = NSBezelStyle.Rounded, KeyEquivalent = "\u001b", TranslatesAutoresizingMaskIntoConstraints = false };
-        cancel.Activated += (_, _) => CloseRequested?.Invoke(this, EventArgs.Empty);
-        _save = new NSButton { Title = Translator.Buttons_Save, BezelStyle = NSBezelStyle.Rounded, KeyEquivalent = "\r", TranslatesAutoresizingMaskIntoConstraints = false };
+        cancel.Activated += (_, _) => { _closing = true; CloseRequested?.Invoke(this, EventArgs.Empty); };
+        // ⌘↩ like the mail composer and the signature editor: a plain Return belongs to the notes editor.
+        _save = new NSButton { Title = Translator.Buttons_Save, BezelStyle = NSBezelStyle.Rounded, KeyEquivalent = "\r", KeyEquivalentModifierMask = NSEventModifierMask.CommandKeyMask, TranslatesAutoresizingMaskIntoConstraints = false };
         var createBinding = Bindings.Own(new CommandBinding(ViewModel.CreateCommand, () => null, enabled => _save.Enabled = enabled, Dispatcher, ReportError));
         _save.Activated += (_, _) => createBinding.Execute();
 #if DEBUG
@@ -130,27 +143,45 @@ public sealed class CalendarEventComposePageViewController(CalendarEventComposeP
         var endsLabel = FieldLabel(Translator.CalendarEventCompose_Ends);
         var startsRow = WinoLayout.HStack(8, startsLabel, _startDate, _startTime, _allDay);
         var endsRow = WinoLayout.HStack(8, endsLabel, _endDate, _endTime, _duration);
-        var whenColumn = WinoLayout.VStack(8, startsRow, endsRow, _rangeError);
+        _timeZone = Popup(Translator.CalendarEventCompose_TimeZone);
+        _timeZone.Cell.LineBreakMode = NSLineBreakMode.TruncatingMiddle;
+        _timeZone.WidthAnchor.ConstraintLessThanOrEqualTo(320).Active = true;
+        _timeZone.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+        WinoAccessibility.Label(_timeZone, Translator.CalendarEventCompose_TimeZone);
+        _timeZone.Activated += (_, _) => { if (_timeZone.SelectedItem?.RepresentedObject is TimeZoneChoice choice && !ReferenceEquals(choice.Option, ViewModel.SelectedTimeZoneOption)) ViewModel.SelectedTimeZoneOption = choice.Option; };
+        var timeZoneRow = WinoLayout.HStack(8, new WinoIconView(WinoIconGlyph.Globe, 14, WinoStyle.SecondaryText), _timeZone);
+        _localTimeHint = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText, 2);
+        _localTimeHint.Hidden = true;
+        var whenColumn = WinoLayout.VStack(8, startsRow, endsRow, _rangeError, timeZoneRow, _localTimeHint);
+        whenColumn.DetachesHiddenViews = true;
         var whenRow = Row(WinoIconGlyph.Clock, whenColumn);
 
         _repeat = Popup(Translator.CalendarEventCompose_Repeat);
         _repeat.Activated += (_, _) => Select(ViewModel.RepeatOptions, _repeat, option => ViewModel.SelectedRepeatOption = option);
         _recurrenceSummary = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText, 2);
-        var repeatRow = Row(WinoIconGlyph.CalendarEventRepeat, WinoLayout.VStack(6, _repeat, _recurrenceSummary));
+        var repeatColumn = WinoLayout.VStack(8, _repeat, BuildCustomRecurrence(), BuildRecurrenceEnd(), _recurrenceSummary);
+        repeatColumn.DetachesHiddenViews = true;
+        var repeatRow = Row(WinoIconGlyph.CalendarEventRepeat, repeatColumn);
 
         _location = new NSTextField { PlaceholderString = Translator.CalendarEventCompose_LocationPlaceholder, TranslatesAutoresizingMaskIntoConstraints = false };
         _location.Changed += (_, _) => ViewModel.Location = _location.StringValue;
         var locationRow = Row(WinoIconGlyph.Location, _location);
 
-        _notes = new NSTextView { Font = NSFont.SystemFontOfSize(13), RichText = false, AutomaticSpellingCorrectionEnabled = ViewModel.IsComposerAutoCorrectEnabled, ContinuousSpellCheckingEnabled = ViewModel.IsComposerSpellCheckEnabled };
-        _notes.TextContainerInset = new CGSize(6, 8);
-        _notes.AutoresizingMask = NSViewResizingMask.WidthSizable;
-        _notes.TextContainer!.WidthTracksTextView = true;
-        _notes.VerticallyResizable = true;
-        var notesScroll = new NSScrollView { DocumentView = _notes, HasVerticalScroller = true, AutohidesScrollers = true, BorderType = NSBorderType.NoBorder, DrawsBackground = false, TranslatesAutoresizingMaskIntoConstraints = false };
-        var notesCard = new WinoSurfaceView { Fill = WinoStyle.SubtleFill, Stroke = WinoStyle.GroupStroke, CornerRadius = 6 };
-        WinoLayout.Fill(notesScroll, notesCard);
-        notesCard.HeightAnchor.ConstraintGreaterThanOrEqualTo(180).Active = true;
+        // Rich-text notes (Windows WinoMailEditor): untouched notes are saved exactly as they arrived.
+        _notesEditor = new WinoRichTextEditorView(new WinoRichTextEditorOptions(), Translator.CalendarEventCompose_Notes, launcher, preferences, ReportError);
+        _notesEditor.EditorSurface.HeightAnchor.ConstraintEqualTo(300).Active = true;
+        _notesEditor.ContentChanged += NotesContentChanged;
+        _notesSpinner = new NSProgressIndicator { Style = NSProgressIndicatorStyle.Spinning, ControlSize = NSControlSize.Small, TranslatesAutoresizingMaskIntoConstraints = false };
+        _notesHost = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
+        WinoLayout.Fill(_notesEditor, _notesHost);
+        _notesHost.AddSubview(_notesSpinner);
+        NSLayoutConstraint.ActivateConstraints(
+        [
+            _notesSpinner.CenterXAnchor.ConstraintEqualTo(_notesEditor.EditorSurface.CenterXAnchor),
+            _notesSpinner.CenterYAnchor.ConstraintEqualTo(_notesEditor.EditorSurface.CenterYAnchor)
+        ]);
+        var notesCard = _notesHost;
+        _location.NextKeyView = _notesEditor.EditorView;
         var notesLabel = WinoStyle.Label(Translator.CalendarEventCompose_Notes, WinoStyle.CaptionStrong, WinoStyle.SecondaryText);
         var notesRow = Row(WinoIconGlyph.Note, WinoLayout.VStack(6, notesLabel, notesCard));
 
@@ -171,7 +202,8 @@ public sealed class CalendarEventComposePageViewController(CalendarEventComposeP
         _attendeesTitle = WinoStyle.Label(Translator.CalendarEventCompose_Attendees, WinoStyle.BodyStrong);
         var attendeesHeader = WinoLayout.HStack(8, new WinoIconView(WinoIconGlyph.CalendarAttendees, 16, WinoStyle.SecondaryText), _attendeesTitle);
         _invite = new NSTextField { PlaceholderString = Translator.CalendarEventDetails_InviteSomeone, TranslatesAutoresizingMaskIntoConstraints = false };
-        _invite.Activated += (_, _) => Observe(AddAttendeeAsync());
+        WinoAccessibility.Label(_invite, Translator.CalendarEventDetails_InviteSomeone);
+        ConfigureInviteField();
         _attendeeList = WinoLayout.VStack(2);
         _attachmentsTitle = WinoStyle.Label(Translator.CalendarEventDetails_Attachments, WinoStyle.BodyStrong);
         _addAttachment = new NSButton { Title = Translator.CalendarEventCompose_AddAttachment, BezelStyle = NSBezelStyle.Rounded, ControlSize = NSControlSize.Small, TranslatesAutoresizingMaskIntoConstraints = false };
@@ -217,13 +249,15 @@ public sealed class CalendarEventComposePageViewController(CalendarEventComposeP
 
     protected override Task InitializeAsync(NavigationMode mode, object? parameter)
     {
-        ViewModel.GetHtmlNotesAsync = () => Task.FromResult(NotesHtml());
+        _originalNotesHtml = (parameter as CalendarEventComposeNavigationArgs)?.NotesHtml ?? string.Empty;
+        ViewModel.GetHtmlNotesAsync = GetNotesHtmlAsync;
         ViewModel.OnNavigatedTo(mode, parameter!);
-        if (parameter is CalendarEventComposeNavigationArgs { NotesHtml: { Length: > 0 } notes }) _notes.Value = StripHtml(notes);
 
         Bind(nameof(ViewModel.Title), vm => vm.Title, value => { if (_title.StringValue != value) _title.StringValue = value ?? string.Empty; });
         Bind(nameof(ViewModel.Location), vm => vm.Location, value => { if (_location.StringValue != value) _location.StringValue = value ?? string.Empty; });
-        Bind(nameof(ViewModel.IsAllDay), vm => vm.IsAllDay, value => { _allDay.State = value ? NSCellStateValue.On : NSCellStateValue.Off; _startTime.Hidden = _endTime.Hidden = value; });
+        Bind(nameof(ViewModel.IsAllDay), vm => vm.IsAllDay, value => { _allDay.State = value ? NSCellStateValue.On : NSCellStateValue.Off; _startTime.Hidden = _endTime.Hidden = value; _timeZone.Superview!.Hidden = value; });
+        Bind(nameof(ViewModel.SelectedTimeZoneOption), vm => vm.SelectedTimeZoneOption, SelectTimeZone);
+        Bind(nameof(ViewModel.LocalTimeHintText), vm => vm.LocalTimeHintText, text => { _localTimeHint.StringValue = text ?? string.Empty; _localTimeHint.Hidden = string.IsNullOrEmpty(text); });
         Bind(nameof(ViewModel.IsPrivate), vm => vm.IsPrivate, value => _private.State = value ? NSCellStateValue.On : NSCellStateValue.Off);
         Bind(nameof(ViewModel.IsOnlineMeeting), vm => vm.IsOnlineMeeting, value => _onlineMeeting.State = value ? NSCellStateValue.On : NSCellStateValue.Off);
         Bind(nameof(ViewModel.StartDate), vm => vm.StartDate, _ => PullDates());
@@ -241,10 +275,133 @@ public sealed class CalendarEventComposePageViewController(CalendarEventComposeP
         Bind(nameof(ViewModel.AttendeeCount), vm => vm.AttendeeCount, _ => ApplyAttendees());
         Bind(nameof(ViewModel.AttachmentCount), vm => vm.AttachmentCount, _ => ApplyAttachments());
         Bind(nameof(ViewModel.CanAddOnlineMeeting), vm => vm.CanAddOnlineMeeting, _ => ApplyCalendar());
-        Bind(nameof(ViewModel.LastCreatedResult), vm => vm.LastCreatedResult, result => { if (result is not null) CloseRequested?.Invoke(this, EventArgs.Empty); });
+        Bind(nameof(ViewModel.LastCreatedResult), vm => vm.LastCreatedResult, result => { if (result is not null) { _closing = true; CloseRequested?.Invoke(this, EventArgs.Empty); } });
+        BindRecurrence();
         FillPopups();
         View.Window?.MakeFirstResponder(_title);
+        _ = Dispatcher.ExecuteOnUIThread(() => Observe(LoadNotesAsync()));
+#if DEBUG
+        RegisterComposeDebugCommands();
+#endif
         return Task.CompletedTask;
+    }
+
+    protected override async Task DeactivateAsync()
+    {
+        _released = true;
+        await Dispatcher.ExecuteOnUIThread(ReleaseInvite);
+        _notesEditor.ContentChanged -= NotesContentChanged;
+        // Disposes the editor session even when it never became ready (idempotent).
+        try { await _notesEditor.DisposeAsync(); }
+        catch (Exception exception) { ReportError(exception); }
+        await base.DeactivateAsync();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _released = true;
+            ReleaseInvite();
+            if (_notesEditor is not null)
+            {
+                _notesEditor.ContentChanged -= NotesContentChanged;
+                Observe(_notesEditor.DisposeAsync().AsTask());
+            }
+        }
+        base.Dispose(disposing);
+    }
+
+    private bool _released;
+
+    // ------------------------------------------------------------ notes
+
+    private async Task LoadNotesAsync()
+    {
+        _notesSpinner.StartAnimation(null);
+        try
+        {
+            await _notesEditor.LoadAsync(_originalNotesHtml, WinoRichTextEditorView.IsDark(View.EffectiveAppearance));
+            string? baseline = null;
+            try { baseline = await _notesEditor.GetHtmlBodyAsync(); }
+            catch (Exception exception) { ReportError(exception); }
+            await Dispatcher.ExecuteOnUIThread(() =>
+            {
+                _baselineNotesBody = baseline;
+                _notesReady = true;
+                _notesSpinner.StopAnimation(null);
+                _notesSpinner.Hidden = true;
+            });
+        }
+        catch (Exception exception)
+        {
+            ReportError(exception);
+            await Dispatcher.ExecuteOnUIThread(ShowNotesFallback);
+        }
+    }
+
+    private void NotesContentChanged(object? sender, EventArgs args)
+    {
+        if (_notesReady) _notesEdited = true;
+    }
+
+    private async Task<string> GetNotesHtmlAsync()
+    {
+        if (!_notesReady || _notesFailed) return _originalNotesHtml;
+        string? current = null;
+        try { current = await _notesEditor.GetHtmlBodyAsync(); }
+        catch (Exception exception) { ReportError(exception); }
+        return CalendarNotesHtmlResolver.Resolve(_originalNotesHtml, _baselineNotesBody, current, _notesReady, _notesEdited);
+    }
+
+    /// <summary>The editor failed to load: show the notes as read-only text and save the original HTML unchanged.</summary>
+    private void ShowNotesFallback()
+    {
+        if (_released) return;
+        _notesFailed = true;
+        _notesSpinner.StopAnimation(null);
+        _notesSpinner.Hidden = true;
+        _notesEditor.Hidden = true;
+        var text = new NSTextView { Editable = false, Selectable = true, DrawsBackground = false, Font = NSFont.SystemFontOfSize(13), Value = StripHtml(_originalNotesHtml) };
+        text.TextContainerInset = new CGSize(6, 8);
+        text.AutoresizingMask = NSViewResizingMask.WidthSizable;
+        text.TextContainer!.WidthTracksTextView = true;
+        text.VerticallyResizable = true;
+        var scroll = new NSScrollView { DocumentView = text, HasVerticalScroller = true, AutohidesScrollers = true, BorderType = NSBorderType.NoBorder, DrawsBackground = false, TranslatesAutoresizingMaskIntoConstraints = false };
+        var card = new WinoSurfaceView { Fill = WinoStyle.SubtleFill, Stroke = WinoStyle.GroupStroke, CornerRadius = 6 };
+        WinoLayout.Fill(scroll, card);
+        WinoLayout.Fill(card, _notesHost);
+    }
+
+    // ------------------------------------------------------------ time zone
+
+    private sealed class TimeZoneChoice(CalendarComposeTimeZoneOption option) : NSObject
+    {
+        public CalendarComposeTimeZoneOption Option { get; } = option;
+    }
+
+    /// <summary>Windows time zone ComboBox; the local zone is repeated on top so it is one click away.</summary>
+    private void FillTimeZones()
+    {
+        var menu = _timeZone.Menu!;
+        menu.RemoveAllItems();
+        var local = ViewModel.TimeZoneOptions.FirstOrDefault(option => option.Id == TimeZoneInfo.Local.Id);
+        if (local is not null)
+        {
+            menu.AddItem(new NSMenuItem(local.DisplayText) { RepresentedObject = new TimeZoneChoice(local) });
+            menu.AddItem(NSMenuItem.SeparatorItem);
+        }
+        foreach (var option in ViewModel.TimeZoneOptions)
+            menu.AddItem(new NSMenuItem(option.DisplayText) { RepresentedObject = new TimeZoneChoice(option) });
+        SelectTimeZone(ViewModel.SelectedTimeZoneOption);
+    }
+
+    /// <summary>Selects by option identity (the first match, so the local shortcut wins for the local zone).</summary>
+    private void SelectTimeZone(CalendarComposeTimeZoneOption? option)
+    {
+        if (option is null) return;
+        foreach (var item in _timeZone.Menu!.Items)
+            if (item.RepresentedObject is TimeZoneChoice choice && ReferenceEquals(choice.Option, option)) { _timeZone.SelectItem(item); return; }
     }
 
     private void Bind<TValue>(string property, Func<CalendarEventComposePageViewModel, TValue> read, Action<TValue> apply)
@@ -261,6 +418,8 @@ public sealed class CalendarEventComposePageViewController(CalendarEventComposeP
         if (ViewModel.SelectedShowAsOption is { } showAs) _showAs.SelectItem(showAs.DisplayText);
         if (ViewModel.SelectedReminderOption is { } reminder) _reminder.SelectItem(reminder.DisplayText);
         if (ViewModel.SelectedRepeatOption is { } repeat) _repeat.SelectItem(repeat.DisplayText);
+        FillTimeZones();
+        FillFrequencies();
         ApplyCalendar();
     }
 
@@ -347,21 +506,6 @@ public sealed class CalendarEventComposePageViewController(CalendarEventComposeP
     private static NSDate ToNSDate(DateTime local) => NSDate.FromTimeIntervalSinceReferenceDate((DateTime.SpecifyKind(local, DateTimeKind.Local).ToUniversalTime() - Reference).TotalSeconds);
     private static DateTime FromNSDate(NSDate date) => Reference.AddSeconds(date.SecondsSinceReferenceDate).ToLocalTime();
 
-    private async Task AddAttendeeAsync()
-    {
-        var text = _invite.StringValue.Trim();
-        if (text.Length == 0) return;
-        try
-        {
-            var attendee = await ViewModel.GetAttendeeAsync(text);
-            if (attendee is null) { ViewModel.NotifyInvalidEmail(text); return; }
-            if (ViewModel.Attendees.Any(existing => string.Equals(existing.Email, attendee.Email, StringComparison.OrdinalIgnoreCase))) { ViewModel.NotifyAddressExists(); return; }
-            ViewModel.AddAttendee(attendee);
-            _invite.StringValue = string.Empty;
-        }
-        catch (Exception exception) { ReportError(exception); }
-    }
-
     private void ApplyAttendees()
     {
         Clear(_attendeeList);
@@ -423,14 +567,6 @@ public sealed class CalendarEventComposePageViewController(CalendarEventComposeP
         foreach (var view in stack.ArrangedSubviews.ToArray()) { stack.RemoveArrangedSubview(view); view.RemoveFromSuperview(); }
     }
 
-    private string NotesHtml()
-    {
-        var text = _notes.Value ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
-        var paragraphs = text.Replace("\r\n", "\n").Split('\n').Select(line => $"<p>{System.Net.WebUtility.HtmlEncode(line)}</p>");
-        return string.Concat(paragraphs);
-    }
-
     private static string StripHtml(string html)
     {
         var text = System.Text.RegularExpressions.Regex.Replace(html, "<br\\s*/?>|</p>|</div>", "\n", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
@@ -484,7 +620,7 @@ public sealed class CalendarEventComposePageViewController(CalendarEventComposeP
     private async void Observe(Task task)
     {
         try { await task; }
-        catch (Exception exception) { ReportError(exception); }
+        catch (Exception exception) { if (!_released) ReportError(exception); }
     }
 
     private sealed class FlippedView : NSView

@@ -478,6 +478,25 @@ public sealed class CalendarPageViewController : WinoViewController<CalendarPage
         MacDebugBridge.Register("cal-move", args => Task.FromResult(DebugDrag(args, resize: false)));
         MacDebugBridge.Register("cal-resize", args => Task.FromResult(DebugDrag(args, resize: true)));
         MacDebugBridge.Register("cal-drag-off", _ => { _surface.FinishPreviewDrag(false); return Task.FromResult("ok"); });
+        // "cal-details-showas N VALUE", "cal-details-reminder N MINUTES", "cal-attach-save N" act on the open details.
+        MacDebugBridge.Register("cal-details-showas", args => _detailsChild is EventDetailsPageViewController details && args.Length > 0
+            ? details.DebugChooseShowAsAsync(args[^1]) : Task.FromResult("open an event's details first (cal-details N)"));
+        MacDebugBridge.Register("cal-details-reminder", args => _detailsChild is EventDetailsPageViewController details && args.Length > 0 && int.TryParse(args[^1], out var minutes)
+            ? details.DebugToggleReminderAsync(minutes) : Task.FromResult("open an event's details first (cal-details N)"));
+        MacDebugBridge.Register("cal-attach-save", args => Task.FromResult(_detailsChild is EventDetailsPageViewController details
+            ? details.DebugSaveAttachment(args.Length > 0 ? int.Parse(args[0]) : 0) : "open an event's details first (cal-details N)"));
+        // "calnew-notes HTML" opens the composer with imported notes (check with cal-notes).
+        MacDebugBridge.Register("calnew-notes", args =>
+        {
+            var start = (ViewModel.CurrentVisibleRange?.Dates.FirstOrDefault() ?? _dateContext.GetToday()).ToDateTime(new TimeOnly(10, 0));
+            var calendar = _shell.AccountCalendarStateService.ActiveCalendars.FirstOrDefault(item => !item.IsReadOnly);
+            _navigation.Navigate(WinoPage.CalendarEventComposePage, new CalendarEventComposeNavigationArgs
+            {
+                SelectedCalendarId = calendar?.Id, StartDate = start, EndDate = start.AddMinutes(30), Title = "Notes check",
+                NotesHtml = args.Length > 0 ? string.Join(' ', args) : "<div dir=\"ltr\"><b>Agenda</b>&nbsp;<a href=\"https://example.com\">link</a></div>\r\n"
+            });
+            return Task.FromResult("ok");
+        });
         MacDebugBridge.Register("calslot", _ =>
         {
             var date = ViewModel.CurrentVisibleRange?.Dates.FirstOrDefault() ?? _dateContext.GetToday();
