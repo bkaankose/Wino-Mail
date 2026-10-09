@@ -28,7 +28,7 @@
       <key>CFBundleURLSchemes</key><array><string>webcal</string><string>webcals</string></array>
     </dict>
   </array>
-  <!-- Calendar invitations and contact cards open in Wino as an alternative handler. .eml is deferred. -->
+  <!-- Calendar invitations, contact cards and saved messages (.eml, read-only reader window) open in Wino as an alternative handler. -->
   <key>CFBundleDocumentTypes</key>
   <array>
     <dict>
@@ -42,6 +42,12 @@
       <key>CFBundleTypeRole</key><string>Viewer</string>
       <key>LSHandlerRank</key><string>Alternate</string>
       <key>LSItemContentTypes</key><array><string>public.vcard</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key><string>Email Message</string>
+      <key>CFBundleTypeRole</key><string>Viewer</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>LSItemContentTypes</key><array><string>com.apple.mail.email</string><string>public.email-message</string></array>
     </dict>
   </array>
 </dict></plist>
