@@ -21,6 +21,22 @@ public sealed partial class EditorPage : Page, IDisposable, IPlaygroundLifetimeA
 
     private const string FallbackHtml = "<p>Short confirmation: the meeting starts at 10:00.</p>";
 
+    // Transparent quoted headers must adapt to the writing surface, while authored
+    // panels retain their own contrast. Toggle repeatedly, then inspect saved HTML.
+    private const string ComposeHtml = """
+        <p>Hi team,</p><p>Here is the latest design review summary. Please add comments before Friday.</p>
+        <p>Thanks,<br>Avery</p><hr>
+        <div style="color:#000000">
+          <b>From:</b> Morgan &lt;<a href="mailto:morgan@example.com">morgan@example.com</a>&gt;<br>
+          <b>Sent:</b> Friday, October 9, 2026 10:00<br>
+          <b>To:</b> Avery &lt;<a href="mailto:avery@example.com">avery@example.com</a>&gt;<br>
+          <b>Subject:</b> Design review follow-up
+        </div>
+        <p style="color:#333333">The quoted message uses an explicit text color on a transparent background.</p>
+        <div style="background:#fff3cd;color:#856404;padding:12px">A light notice should remain readable.</div>
+        <div style="background:#0b3d91;color:#ffffff;padding:12px">A brand banner should keep its colors.</div>
+        """;
+
     private const string NewsletterHtml = """
         <header><a href="https://example.com/archive">Archive</a> · <a href="https://example.com/preferences">Preferences</a></header>
         <aside><h2>Today only</h2><p>Buy three unrelated products and invite ten friends.</p></aside>
@@ -127,7 +143,7 @@ public sealed partial class EditorPage : Page, IDisposable, IPlaygroundLifetimeA
     {
         await ComposeEditor.ConfigureSpellCheckAsync(true, "en-US");
         await ComposeEditor.ConfigureAutoCorrectAsync(true);
-        await ComposeEditor.SetHtmlAsync("<p>Hi team,</p><p>Here is the latest design review summary. Please add comments before Friday.</p><p>Thanks,<br/>Avery</p>");
+        await ComposeEditor.SetHtmlAsync(ComposeHtml);
         await ComposeEditor.SetApplicationShortcutsAsync(
             new List<EditorApplicationShortcutGesture>
             {

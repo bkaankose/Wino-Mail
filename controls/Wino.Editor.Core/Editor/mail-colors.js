@@ -210,7 +210,7 @@
     const borderSides = ["top", "right", "bottom", "left"];
 
     // Returns [{ element, property, value }] that adapt `root` for a dark `surfaceColor`.
-    function computeDarkOverrides(root, surfaceColor) {
+    function computeDarkOverrides(root, surfaceColor, { rootIsSurface = false } = {}) {
         const surface = parseColor(surfaceColor) || { r: 18, g: 18, b: 18, a: 1 };
         const surfaceOpaque = { r: surface.r, g: surface.g, b: surface.b, a: 1 };
         const surfaceHsl = toHsl(surfaceOpaque);
@@ -245,7 +245,12 @@
 
             let background = parentBackground;
             let originalBackground = parentOriginalBackground;
-            const ownBackground = parseColor(style.backgroundColor);
+            // The compose host paints the current theme's Canvas, not an authored mail
+            // background. Keep the original white backdrop for its transparent children.
+            // Reader roots and explicit backgrounds inside the message still participate.
+            const ownBackground = element === root && rootIsSurface
+                ? null
+                : parseColor(style.backgroundColor);
             if (ownBackground && ownBackground.a > 0) {
                 originalBackground = blend(ownBackground, parentOriginalBackground);
                 const mapped = mapBackground(ownBackground, surfaceHsl);

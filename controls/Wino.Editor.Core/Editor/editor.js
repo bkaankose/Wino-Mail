@@ -100,7 +100,7 @@
         const byElement = new Map();
         if (darkMode && window.WinoMailColors) {
             const surface = getComputedStyle(editor).backgroundColor;
-            window.WinoMailColors.computeDarkOverrides(editor, surface).forEach(override => {
+            window.WinoMailColors.computeDarkOverrides(editor, surface, { rootIsSurface: true }).forEach(override => {
                 if (override.element === editor) return;
                 let declarations = byElement.get(override.element);
                 if (!declarations) byElement.set(override.element, declarations = []);
