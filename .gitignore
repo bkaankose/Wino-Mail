@@ -422,3 +422,4 @@ docs/design-prototypes/*
 *.provisionprofile
 *.certSigningRequest
 AuthKey_*
+.DS_Store
