@@ -12,6 +12,7 @@ using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics.Imaging;
 using Windows.Storage;
 using Windows.UI;
+using WinRT;
 using Wino.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
@@ -21,6 +22,10 @@ using Wino.Views.Abstract;
 
 namespace Wino.Views.Settings;
 
+// The color-option template reads ViewModel through an ElementName binding.
+[GeneratedBindableCustomProperty(
+    new string[] { nameof(ViewModel) },
+    new Type[] { })]
 public sealed partial class ApplicationThemeEditorPage : ApplicationThemeEditorPageAbstract
 {
     private const string DefaultAccentColorHex = "#FF4CC2FF";

@@ -379,7 +379,7 @@
                                         Padding="-1,2"
                                         AutomationProperties.AutomationId="XBindHelpersXamlHelpersGetMailAddressAutomationNameDomainTranslatorComposerFromViewModelFromNameViewModelFromAddressModeOneWay"
                                         AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetMailAddressAutomationName(domain:Translator.ComposerFrom, ViewModel.FromName, ViewModel.FromAddress), Mode=OneWay}"
-                                        Command="{Binding ElementName=root, Path=ViewModel.CopyClipboardCommand}"
+                                        Command="{x:Bind ViewModel.CopyClipboardCommand}"
                                         CommandParameter="{x:Bind ViewModel.FromAddress, Mode=OneWay}"
                                         FontWeight="SemiBold">
                                         <Grid>

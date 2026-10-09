@@ -358,7 +358,7 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
             SortingOptionType.ReceiveDate,
             CreateThreads: false,
             IsFocusedOnly: null,
-            SearchQuery: null,
+            SearchQuery: string.Empty,
             DeduplicateByServerId: true,
             Take: MaximumMail)
         {
@@ -853,7 +853,7 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
     private CancellationToken CurrentToken => _visibilityCancellation?.Token ?? CancellationToken.None;
 
     private static bool HasJoinUri(CalendarItemViewModel? item)
-        => CalendarJoinLinkResolver.TryGetEffectiveJoinUri(item?.CalendarItem, out _);
+        => item?.CalendarItem is { } calendarItem && CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out _);
 
     private Task RunOnUIAsync(Action action) => _dispatcher.ExecuteOnUIThread(action);
 
