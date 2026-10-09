@@ -368,9 +368,9 @@ internal sealed class ThemeGalleryItem : NSCollectionViewItem
     {
         _ = View;
         _editAction = edit;
-        if (_tile is not null) { _stack.RemoveArrangedSubview(_tile); _tile.RemoveFromSuperview(); _tile.Dispose(); }
-        _stack.RemoveArrangedSubview(_compatibility); _compatibility.RemoveFromSuperview();
-        _stack.RemoveArrangedSubview(_edit); _edit.RemoveFromSuperview();
+        if (_tile is not null) { RemoveArranged(_tile); _tile.Dispose(); }
+        RemoveArranged(_compatibility);
+        RemoveArranged(_edit);
 
         var gradient = theme.IsCustomTheme ? null : MacWinoThemeService.GradientFor(theme.ThemeName);
         _tile = new WinoThemeTile(theme.ThemeName ?? string.Empty, gradient is null ? ThemeThumbnailView.ImageFor(theme) : null, gradient,
@@ -391,6 +391,14 @@ internal sealed class ThemeGalleryItem : NSCollectionViewItem
             ? [new NSAccessibilityCustomAction(Translator.Buttons_Edit, () => { edit(); return true; }),
                new NSAccessibilityCustomAction(Translator.Buttons_Delete, () => { delete(); return true; })]
             : [];
+    }
+
+    // NSStackView asserts when asked to remove a view it does not arrange, which a fresh item's
+    // compatibility label and Edit button are not yet.
+    private void RemoveArranged(NSView view)
+    {
+        if (_stack.ArrangedSubviews.Contains(view)) _stack.RemoveArrangedSubview(view);
+        view.RemoveFromSuperview();
     }
 
     /// <summary>
