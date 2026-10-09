@@ -70,7 +70,8 @@ internal static class Composition
         services.AddSingleton<MacNotificationSounds>();
         services.AddSingleton<INotificationBuilder, MacNotificationBuilder>();
         services.AddSingleton<IStatePersistanceService, MacStatePersistenceService>();
-        // The app-level theme service adds the predefined Wino themes (accent + backdrop) on top of native appearance.
+        // The app-level theme service adds the Wino themes (accent + backdrop, custom themes in the Windows file layout) on top of native appearance.
+        services.AddSingleton(provider => new Wino.Services.Themes.CustomThemeFileStore(provider.GetRequiredService<IApplicationConfiguration>()));
         services.AddSingleton<MacWinoThemeService>();
         services.AddSingleton<INewThemeService>(provider => provider.GetRequiredService<MacWinoThemeService>());
         services.AddSingleton<IMicrosoftStoreService, MacMicrosoftStoreService>();

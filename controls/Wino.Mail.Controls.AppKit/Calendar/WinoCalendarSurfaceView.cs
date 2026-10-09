@@ -524,7 +524,8 @@ public sealed partial class WinoCalendarSurfaceView : NSView
             // Working hours: lighten the non-working slots like the Windows DefaultHourBackground.
             if (settings?.IsWorkingHoursEnabled == true)
             {
-                var offHours = WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.02), WinoStyle.Hex(0x000000, 0.10));
+                var offHours = WinoThemeSurfaces.Dynamic(WinoThemeSurface.CalendarDefaultHour, WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.02), WinoStyle.Hex(0x000000, 0.10)));
+                var workHours = WinoThemeSurfaces.Dynamic(WinoThemeSurface.CalendarWorkHour, NSColor.Clear);
                 double workStart = settings.WorkingHourStart.TotalHours, workEnd = settings.WorkingHourEnd.TotalHours;
                 for (int index = 0; index < dates.Count; index++)
                 {
@@ -534,6 +535,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
                     if (!workingDay) { FillRect(new CGRect(x, top, dayWidth, hourHeight * 24)); continue; }
                     FillRect(new CGRect(x, top, dayWidth, workStart * hourHeight));
                     FillRect(new CGRect(x, top + workEnd * hourHeight, dayWidth, Math.Max(0, (24 - workEnd) * hourHeight)));
+                    workHours.SetFill(); FillRect(new CGRect(x, top + workStart * hourHeight, dayWidth, Math.Max(0, (workEnd - workStart) * hourHeight)));
                 }
             }
 

@@ -11,7 +11,7 @@ namespace Wino.Mail.MacOS;
 
 /// <summary>
 /// OS activation: URL schemes (mailto, wino, webcal, webcals) and documents opened from Finder
-/// (.ics, .vcf). AppKit can deliver them before DidFinishLaunching, so they wait in a queue until
+/// (.ics, .vcf, and .eml, which opens read-only in its own reader window). AppKit can deliver them before DidFinishLaunching, so they wait in a queue until
 /// the services exist and are then routed by <see cref="MacActivationCoordinator"/>.
 /// </summary>
 public sealed partial class AppDelegate
@@ -81,6 +81,7 @@ public sealed partial class AppDelegate
             await coordinator.HandleAsync([url]);
             return "ok " + MacActivationCoordinator.Classify(url);
         });
+        Views.Mail.EmlReaderWindow.RegisterDebugCommands(coordinator, _services!.GetRequiredService<IDispatcher>());
         MacDebugBridge.Register("login-status", async _ =>
         {
             var behavior = await _services!.GetRequiredService<IStartupIntegrationService>().GetCurrentBehaviorAsync();

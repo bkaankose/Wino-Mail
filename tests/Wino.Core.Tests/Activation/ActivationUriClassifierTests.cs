@@ -29,13 +29,22 @@ public class ActivationUriClassifierTests
     [InlineData("wino://billing/success?session_id=secret")]
     [InlineData("wino://mail/open")]
     [InlineData("https://example.com/invite.ics")]
-    [InlineData("file:///Users/test/Downloads/message.eml")]
-    [InlineData("/Users/test/Downloads/message.eml")]
     [InlineData("/Users/test/Downloads/notes.txt")]
     [InlineData("not a url")]
     public void Classify_RejectsUnsupportedActivations(string? value)
     {
         ActivationUriClassifier.Classify(value).Should().Be(ActivationUriKind.Unsupported);
+    }
+
+    [Theory]
+    [InlineData("file:///Users/test/Downloads/message.eml")]
+    [InlineData("file:///Users/test/Downloads/My%20Message.EML")]
+    [InlineData("/Users/test/Downloads/message.eml")]
+    [InlineData("/Users/test/Downloads/MESSAGE.Eml")]
+    public void Classify_RecognizesMailFiles(string value)
+    {
+        ActivationUriClassifier.Classify(value).Should().Be(ActivationUriKind.MailFile);
+        ActivationUriClassifier.ClassifyFilePath(value.StartsWith('/') ? value : new Uri(value).LocalPath).Should().Be(ActivationUriKind.MailFile);
     }
 
     [Fact]
@@ -46,6 +55,7 @@ public class ActivationUriClassifierTests
 
     [Theory]
     [InlineData(ActivationUriKind.MailTo, WinoApplicationMode.Mail)]
+    [InlineData(ActivationUriKind.MailFile, WinoApplicationMode.Mail)]
     [InlineData(ActivationUriKind.Webcal, WinoApplicationMode.Calendar)]
     [InlineData(ActivationUriKind.CalendarFile, WinoApplicationMode.Calendar)]
     [InlineData(ActivationUriKind.ContactFile, WinoApplicationMode.Contacts)]

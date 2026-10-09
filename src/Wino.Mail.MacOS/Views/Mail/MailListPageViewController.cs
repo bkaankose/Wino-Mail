@@ -68,7 +68,7 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
         WinoLayout.Fill(_listZone, listHost, 2, WinoStyle.ZoneGutter, 8, 0);
         WinoLayout.Fill(BuildListPane(), _listZone.ContentView);
         var readerHost = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
-        _readerZone = new WinoZoneView();
+        _readerZone = new WinoZoneView { Fill = WinoThemeSurfaces.ReadingPaneFill };
         WinoLayout.Fill(_readerZone, readerHost, 3, 0, 8, 8);
         WinoLayout.Fill(BuildReadingPane(), _readerZone.ContentView);
 

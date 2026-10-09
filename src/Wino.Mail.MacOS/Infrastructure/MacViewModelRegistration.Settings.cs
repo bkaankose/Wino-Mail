@@ -9,8 +9,11 @@ namespace Wino.Mail.MacOS.Infrastructure;
 /// <summary>Settings window views and ViewModels. Owned by the Settings feature.</summary>
 public static partial class MacViewModelRegistration
 {
+    static partial void RegisterThemeSettingsViews(IServiceCollection services);
+
     static partial void RegisterSettingsViews(IServiceCollection services)
     {
+        RegisterThemeSettingsViews(services);
         services.AddSingleton<SettingsWindowPresenter>();
         services.AddSingleton<ISettingsWindowPresenter>(provider => provider.GetRequiredService<SettingsWindowPresenter>());
 

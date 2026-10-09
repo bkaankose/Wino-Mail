@@ -14,8 +14,8 @@ using Wino.Messaging.Client.Shell;
 namespace Wino.Mail.MacOS.Infrastructure;
 
 /// <summary>
-/// Routes OS activations (mailto, wino://, webcal(s), opened .ics/.vcf files) the way the Windows
-/// App activation paths do. AppDelegate queues URLs until services are ready; handling is serialized.
+/// Routes OS activations (mailto, wino://, webcal(s), opened .ics/.vcf/.eml files) the way the Windows
+/// App activation paths do; an .eml opens read-only in its own reader window (<see cref="Views.Mail.EmlReaderWindow"/>). AppDelegate queues URLs until services are ready; handling is serialized.
 /// </summary>
 public sealed class MacActivationCoordinator(IServiceProvider services)
 {
@@ -32,6 +32,7 @@ public sealed class MacActivationCoordinator(IServiceProvider services)
         {
             var calendarFiles = new List<NSUrl>();
             var contactFiles = new List<NSUrl>();
+            var mailFiles = new List<NSUrl>();
             foreach (var url in urls)
             {
                 var kind = Classify(url);
@@ -39,6 +40,7 @@ public sealed class MacActivationCoordinator(IServiceProvider services)
                 {
                     case ActivationUriKind.CalendarFile: calendarFiles.Add(url); break;
                     case ActivationUriKind.ContactFile: contactFiles.Add(url); break;
+                    case ActivationUriKind.MailFile: mailFiles.Add(url); break;
                     case ActivationUriKind.Unsupported:
                         Serilog.Log.Information("Ignoring unsupported activation {Scheme}.", url.Scheme);
                         break;
@@ -49,6 +51,7 @@ public sealed class MacActivationCoordinator(IServiceProvider services)
             }
             if (calendarFiles.Count > 0) await HandleFilesAsync(WinoApplicationMode.Calendar, calendarFiles);
             if (contactFiles.Count > 0) await HandleFilesAsync(WinoApplicationMode.Contacts, contactFiles);
+            if (mailFiles.Count > 0) await HandleMailFilesAsync(mailFiles);
         }
         catch (Exception error)
         {
@@ -134,6 +137,42 @@ public sealed class MacActivationCoordinator(IServiceProvider services)
         finally
         {
             foreach (var file in scoped) file.StopAccessingSecurityScopedResource();
+        }
+    }
+
+    /// <summary>Most message windows one activation opens; the rest are logged and skipped.</summary>
+    private const int MaxMailFileWindows = 10;
+
+    /// <summary>
+    /// Opened .eml files: each one in its own read-only reader window. No account is needed. The file is
+    /// read inside its security scope, which ends before the reader renders from memory.
+    /// </summary>
+    private async Task HandleMailFilesAsync(IReadOnlyList<NSUrl> files)
+    {
+        var distinct = files.Where(file => !string.IsNullOrEmpty(file.Path))
+            .DistinctBy(file => file.Path!, StringComparer.OrdinalIgnoreCase).ToList();
+        if (distinct.Count > MaxMailFileWindows)
+            Serilog.Log.Information("Opening the first {Count} of {Total} message files.", MaxMailFileWindows, distinct.Count);
+
+        foreach (var file in distinct.Take(MaxMailFileWindows))
+        {
+            var path = file.Path!;
+            byte[]? bytes = null;
+            var scoped = file.StartAccessingSecurityScopedResource();
+            try { bytes = await File.ReadAllBytesAsync(path); }
+            catch (Exception error) { Serilog.Log.Warning(error, "Could not read an opened message file."); }
+            finally { if (scoped) file.StopAccessingSecurityScopedResource(); }
+
+            var opened = false;
+            if (bytes is { Length: > 0 })
+            {
+                try { opened = await Views.Mail.EmlReaderWindow.OpenAsync(services, path, bytes); }
+                catch (Exception error) { Serilog.Log.Error(error, "Could not open a message window."); }
+            }
+
+            if (!opened)
+                await Dialogs.ShowMessageAsync(string.Format(Translator.MacPlatform_EmlOpenFailedMessage, Path.GetFileName(path)),
+                    Translator.MacPlatform_EmlOpenFailedTitle, WinoCustomMessageDialogIcon.Warning);
         }
     }
 

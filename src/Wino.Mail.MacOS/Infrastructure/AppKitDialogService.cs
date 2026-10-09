@@ -164,7 +164,7 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
 
     private static string NotYetOnMac => Translator.MacOS_FeatureNotAvailable;
 
-    public void ShowNotSupportedMessage() => ShowNotice("Wino Mail", NotYetOnMac, InfoBarMessageType.Information);
+    public void ShowNotSupportedMessage() => ShowNotice(Translator.Info_UnsupportedFunctionalityTitle, NotYetOnMac, InfoBarMessageType.Information);
     public void ShowReadOnlyCalendarMessage() => ShowNotice(Translator.CalendarReadOnly_Title, Translator.CalendarReadOnly_Message, InfoBarMessageType.Warning);
 
     public Task<bool> ShowHardDeleteConfirmationAsync()
@@ -476,7 +476,7 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
         };
 
         var grid = new NSGridView { TranslatesAutoresizingMaskIntoConstraints = false, RowSpacing = 10, ColumnSpacing = 12 };
-        grid.AddRow([RightLabel("Mode"), modePicker]);
+        grid.AddRow([RightLabel(Translator.KeyboardShortcuts_Mode), modePicker]);
         grid.AddRow([RightLabel(Translator.KeyboardShortcuts_Action), actionPicker]);
         grid.AddRow([RightLabel(Translator.KeyboardShortcuts_KeyCombination), recorder]);
         var title = WinoStyle.Label(existingShortcut is null ? Translator.KeyboardShortcuts_Add : Translator.KeyboardShortcuts_EditTitle, WinoStyle.Heading);
@@ -707,16 +707,16 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
 
     public IAccountCreationDialog GetAccountCreationDialog(AccountCreationDialogResult result) => new AccountProgress(dispatcher, ResolveOwner, error);
 
-    /// <summary>Specialized dialogs not ported yet: tell the user plainly, then return the cancel result.</summary>
-    private async Task<T> NotYetAsync<T>()
+    /// <summary>
+    /// Required by <see cref="IDialogServiceBase"/>, but no shared code calls it: Mac account creation
+    /// goes through the onboarding provider page. Returns the cancel result, which is what Windows
+    /// returns when its NewAccountDialog is dismissed.
+    /// </summary>
+    public Task<AccountCreationDialogResult> ShowAccountProviderSelectionDialogAsync(List<IProviderDetail> availableProviders)
     {
-        await AlertAsync("Wino Mail", NotYetOnMac, [Translator.Buttons_OK]);
-        return default!;
+        Serilog.Log.Warning("ShowAccountProviderSelectionDialogAsync was called; the Mac uses the onboarding provider page instead.");
+        return Task.FromResult<AccountCreationDialogResult>(null!);
     }
-
-    private Task NotYetAsync() => NotYetAsync<bool>();
-
-    public Task<AccountCreationDialogResult> ShowAccountProviderSelectionDialogAsync(List<IProviderDetail> availableProviders) => NotYetAsync<AccountCreationDialogResult>();
     /// <summary>
     /// Windows ImapValidationFailedDialog as a warning alert sheet: the error, the protocol log in a
     /// scrolling monospaced view, Close as the default button and Copy diagnostics.
