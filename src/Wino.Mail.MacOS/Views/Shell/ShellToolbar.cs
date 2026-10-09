@@ -94,8 +94,8 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         switch (itemIdentifier)
         {
             case ToggleSidebarId:
-                var toggle = Button(ToggleSidebarId, WinoIconGlyph.PanelLeft, "Toggle Sidebar", () => _toggleSidebar());
-                toggle.ToolTip = "Toggle Sidebar (⌃⌘S)";
+                var toggle = Button(ToggleSidebarId, WinoIconGlyph.PanelLeft, Translator.MacOSMenu_ToggleSidebar, () => _toggleSidebar());
+                toggle.ToolTip = $"{Translator.MacOSMenu_ToggleSidebar} (⌃⌘S)";
                 toggle.Navigational = true;
                 return toggle;
             case SidebarSeparatorId:

@@ -63,6 +63,15 @@ internal static class OnboardingDebug
             if (account is null) return "no IMAP account";
             return Navigate(WinoPage.ImapCalDavSettingsPage, ImapCalDavSettingsNavigationContext.CreateForEditMode(account.Id));
         });
+        // "imap-edit N" opens the server page of the Nth IMAP / POP3 account in edit mode (capability cards).
+        MacDebugBridge.Register("imap-edit", async args =>
+        {
+            int index = args.Length > 0 && int.TryParse(args[0], out var parsed) ? parsed : 0;
+            var accounts = (await Services.GetRequiredService<IAccountService>().GetAccountsAsync())
+                .Where(item => item.ProviderType is MailProviderType.IMAP4 or MailProviderType.POP3).ToList();
+            if (index < 0 || index >= accounts.Count) return $"only {accounts.Count} IMAP accounts";
+            return Navigate(WinoPage.ImapCalDavSettingsPage, ImapCalDavSettingsNavigationContext.CreateForEditMode(accounts[index].Id)) + $" account='{accounts[index].Name}'";
+        });
         MacDebugBridge.Register("setup-preview", async args =>
         {
             var state = args.Length > 0 ? args[0].ToLowerInvariant() : "progress";

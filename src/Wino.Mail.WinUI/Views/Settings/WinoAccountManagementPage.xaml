@@ -240,7 +240,7 @@
                                 <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.WinoAccount_Management_SignedOutTitle, Mode=OneTime}" />
                                 <TextBlock
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Text="{x:Bind domain:Translator.WinoAccount_Management_SignedOutDescription, Mode=OneTime}"
+                                    Text="{x:Bind domain:Translator.WinoAccount_Management_SignedOutDescription_Device, Mode=OneTime}"
                                     TextWrapping="WrapWholeWords" />
                                 <TextBlock
                                     Margin="0,4,0,0"
@@ -1327,7 +1327,7 @@
                     <accessibilityControls:WinoSettingsCard
                         AutomationProperties.AutomationId="WinoAccountBackupRestoreCard"
                         Command="{x:Bind ViewModel.OpenBackupRestoreCommand}"
-                        Description="{x:Bind domain:Translator.WinoAccount_Management_BackupRestoreDescription, Mode=OneTime}"
+                        Description="{x:Bind domain:Translator.WinoAccount_Management_BackupRestoreDescription_Device, Mode=OneTime}"
                         Header="{x:Bind domain:Translator.SettingsBackupRestore_Title, Mode=OneTime}"
                         IsClickEnabled="True">
                         <controls:SettingsCard.HeaderIcon>

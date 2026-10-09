@@ -30,13 +30,13 @@ public sealed class WelcomePageV2 : NSView
         // A fixed width keeps the wrapped lines centred under the title instead of hugging the longest line.
         description.WidthAnchor.ConstraintEqualTo((nfloat)HeroTextWidth).Active = true;
 
-        // Feature tiles. No shared strings exist for these, so they are English literals.
+        // Feature tiles.
         var tiles = NSGridView.Create(
         [
-            [Tile("envelope.fill", WinoStyle.Hex(0x0F6CBD), "All your accounts", "Outlook, Gmail, iCloud, Yahoo and IMAP"),
-             Tile("lock.fill", WinoStyle.Hex(0x2F9E63), "Private by design", "Credentials live in your Keychain")],
-            [Tile("sparkles", WinoStyle.Hex(0x6C5CE7), "On-device intelligence", "Summaries and a daily briefing"),
-             Tile("paintbrush.fill", WinoStyle.Hex(0xE58E26), "Make it yours", "Wino themes, native light and dark")]
+            [Tile("envelope.fill", WinoStyle.Hex(0x0F6CBD), Translator.MacOS_Welcome_AccountsTitle, Translator.MacOS_Welcome_AccountsDescription),
+             Tile("lock.fill", WinoStyle.Hex(0x2F9E63), Translator.MacOS_Welcome_PrivacyTitle, Translator.MacOS_Welcome_PrivacyDescription)],
+            [Tile("sparkles", WinoStyle.Hex(0x6C5CE7), Translator.MacOS_Welcome_IntelligenceTitle, Translator.MacOS_Welcome_IntelligenceDescription),
+             Tile("paintbrush.fill", WinoStyle.Hex(0xE58E26), Translator.MacOS_Welcome_ThemesTitle, Translator.MacOS_Welcome_ThemesDescription)]
         ]);
         tiles.TranslatesAutoresizingMaskIntoConstraints = false;
         tiles.RowSpacing = 10;

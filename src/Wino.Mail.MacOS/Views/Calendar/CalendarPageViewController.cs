@@ -29,6 +29,7 @@ public sealed class CalendarPageViewController : WinoViewController<CalendarPage
     private readonly CalendarAppShellViewModel _shell;
     private readonly IContextMenuItemService _contextMenus;
     private readonly IDateContextProvider _dateContext;
+    private readonly IMailDialogService _dialogs;
     private readonly SemaphoreSlim _paneGate = new(1, 1);
     private CalendarToolbarView _toolbar = null!;
     private WinoZoneView _zone = null!;
@@ -45,9 +46,11 @@ public sealed class CalendarPageViewController : WinoViewController<CalendarPage
     private bool _released;
 
     public CalendarPageViewController(CalendarPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger,
-        AppKitNavigationService navigation, CalendarAppShellViewModel shell, IContextMenuItemService contextMenus, IDateContextProvider dateContext)
+        AppKitNavigationService navigation, CalendarAppShellViewModel shell, IContextMenuItemService contextMenus, IDateContextProvider dateContext,
+        IMailDialogService dialogs)
         : base(viewModel, dispatcher, logger)
     {
+        _dialogs = dialogs;
         _navigation = navigation;
         _shell = shell;
         _contextMenus = contextMenus;
@@ -69,8 +72,12 @@ public sealed class CalendarPageViewController : WinoViewController<CalendarPage
         _surface = new WinoCalendarSurfaceView
         {
             TileFactory = (item, date) => CalendarTileMapper.Map(item, date, ViewModel.CurrentSettings),
-            Today = () => _dateContext.GetToday()
+            Today = () => _dateContext.GetToday(),
+            CanDragItem = CalendarTileMapper.CanDrag
         };
+        _surface.ItemDragRefused += SurfaceItemDragRefused;
+        _surface.ItemMoveRequested += SurfaceItemMoveRequested;
+        _surface.ItemResizeRequested += SurfaceItemResizeRequested;
         _surface.ItemClicked += SurfaceItemClicked;
         _surface.ItemDoubleClicked += SurfaceItemDoubleClicked;
         _surface.ItemRightClicked += SurfaceItemRightClicked;
@@ -205,6 +212,7 @@ public sealed class CalendarPageViewController : WinoViewController<CalendarPage
         WeakReferenceMessenger.Default.Send(new CalendarItemRightTappedMessage(item));
         var menu = new NSMenu { AutoEnablesItems = false };
         foreach (var entry in _contextMenus.GetCalendarItemContextMenuItems(item.CalendarItem)) menu.AddItem(MenuItem(entry, item));
+        EventDetailsWindow.AppendMenuItem(menu, item);
         if (args.NativeEvent is { } native) NSMenu.PopUpContextMenu(menu, native, args.View);
     }
 
@@ -225,6 +233,51 @@ public sealed class CalendarPageViewController : WinoViewController<CalendarPage
             menuItem.Activated += (_, _) => WeakReferenceMessenger.Default.Send(new CalendarItemContextActionRequestedMessage(item, action));
         }
         return menuItem;
+    }
+
+    // ------------------------------------------------------------ drag to move / resize
+
+    /// <summary>Windows refuses the drag of a locked or read-only event; the Mac also says why.</summary>
+    private void SurfaceItemDragRefused(object? sender, CalendarItemClickedEventArgs args)
+    {
+        CloseQuickEvent();
+        switch (CalendarTileMapper.DragRefusal(args.Item))
+        {
+            case CalendarDragRefusal.ReadOnlyCalendar:
+                _dialogs.ShowReadOnlyCalendarMessage();
+                break;
+            case CalendarDragRefusal.NotAllowed:
+                _dialogs.InfoBarMessage(Wino.Core.Domain.Translator.CalendarDragDropMoveNotAllowedTitle,
+                    Wino.Core.Domain.Translator.CalendarDragDropMoveNotAllowedMessage, InfoBarMessageType.Warning);
+                break;
+        }
+    }
+
+    private void SurfaceItemMoveRequested(object? sender, CalendarItemMoveRequestedEventArgs args)
+    {
+        CloseQuickEvent();
+        if (args.Item is CalendarItemViewModel item) Observe(ChangeTimesAsync(ViewModel.MoveCalendarItemAsync(item, args.Start)));
+    }
+
+    private void SurfaceItemResizeRequested(object? sender, CalendarItemResizeRequestedEventArgs args)
+    {
+        CloseQuickEvent();
+        if (args.Item is CalendarItemViewModel item) Observe(ChangeTimesAsync(ViewModel.ResizeCalendarItemAsync(item, args.End)));
+    }
+
+    /// <summary>The ViewModel changes the item in place; lay the tiles out again once it has.</summary>
+    private async Task ChangeTimesAsync(Task change)
+    {
+        try { await change; }
+        finally
+        {
+            await Dispatcher.ExecuteOnUIThread(() =>
+            {
+                if (_released) return;
+                _surface.ReloadLayout();
+                _surface.RefreshTiles();
+            });
+        }
     }
 
     private void SurfaceSlotClicked(object? sender, CalendarSlotClickedEventArgs args)
@@ -340,6 +393,24 @@ public sealed class CalendarPageViewController : WinoViewController<CalendarPage
     }
 
 #if DEBUG
+    private string DebugDrag(string[] args, bool resize)
+    {
+        if (args.Length < 2) return resize ? "usage: cal-resize N MINUTES [commit]" : "usage: cal-move N MINUTES [DAYS] [commit]";
+        var visible = VisibleItems();
+        int index = int.Parse(args[0]);
+        if (index < 0 || index >= visible.Count) return $"only {visible.Count} visible items";
+        var item = visible[index];
+        double minutes = double.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture);
+        int days = !resize && args.Length > 2 && int.TryParse(args[2], out var parsed) ? parsed : 0;
+        bool commit = args.Any(arg => arg.Equals("commit", StringComparison.OrdinalIgnoreCase));
+        string before = $"{item.StartDate:g}–{item.EndDate:t}";
+        if (!_surface.PreviewDrag(item, days, minutes, resize)) return "no tile on screen for " + item.Title;
+        if (!_surface.IsDraggingItem) return $"refused '{item.Title}' ({CalendarTileMapper.DragRefusal(item)})";
+        var target = _surface.CurrentDragTarget;
+        if (commit) _surface.FinishPreviewDrag(true);
+        return $"'{item.Title}' {before} -> {target?.Start:g}–{target?.End:t}{(commit ? " committed" : " (preview)")}";
+    }
+
     private List<CalendarItemViewModel> VisibleItems()
         => ViewModel.CalendarItems.Where(item => ViewModel.CurrentVisibleRange?.Contains(item.StartDate) == true).OrderBy(item => item.StartDate).ToList();
 
@@ -402,6 +473,11 @@ public sealed class CalendarPageViewController : WinoViewController<CalendarPage
             }
             return "details did not open";
         });
+        // "cal-move N MINUTES [DAYS] [commit]" drags the Nth visible item (ghost only, unless commit);
+        // "cal-resize N MINUTES [commit]" drags its bottom edge; "cal-drag-off" removes a preview ghost.
+        MacDebugBridge.Register("cal-move", args => Task.FromResult(DebugDrag(args, resize: false)));
+        MacDebugBridge.Register("cal-resize", args => Task.FromResult(DebugDrag(args, resize: true)));
+        MacDebugBridge.Register("cal-drag-off", _ => { _surface.FinishPreviewDrag(false); return Task.FromResult("ok"); });
         MacDebugBridge.Register("calslot", _ =>
         {
             var date = ViewModel.CurrentVisibleRange?.Dates.FirstOrDefault() ?? _dateContext.GetToday();

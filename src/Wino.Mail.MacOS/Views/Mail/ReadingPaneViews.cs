@@ -23,7 +23,7 @@ internal sealed class MailIdleView : NSView
         _title = WinoStyle.Label(Translator.NoMailSelected, NSFont.SystemFontOfSize(15, NSFontWeight.Semibold), WinoStyle.PrimaryText);
         _title.Alignment = NSTextAlignment.Center;
         // No translation key exists for the Mac keyboard hints yet.
-        _message = WinoStyle.Label("Use ↑ ↓ to move, ⌘R to reply, ⌫ to delete.", NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText, 0);
+        _message = WinoStyle.Label(Translator.MacOS_Reader_KeyboardHint, NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText, 0);
         _message.Alignment = NSTextAlignment.Center;
         _action = new NSButton { BezelStyle = NSBezelStyle.Rounded, Hidden = true, TranslatesAutoresizingMaskIntoConstraints = false };
         _action.Activated += (_, _) => ActionInvoked?.Invoke(this, EventArgs.Empty);
@@ -152,7 +152,7 @@ internal sealed class MailLoadingView : NSView
         _skeleton = new MailSkeletonView();
         _spinner = new NSProgressIndicator { Style = NSProgressIndicatorStyle.Spinning, ControlSize = NSControlSize.Small, TranslatesAutoresizingMaskIntoConstraints = false };
         // No translation key exists for this loading line yet.
-        var text = WinoStyle.Label("Downloading message from the server…", NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText);
+        var text = WinoStyle.Label(Translator.MacOS_Reader_DownloadingMessage, NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText);
         text.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
         text.SetContentHuggingPriorityForOrientation(750, NSLayoutConstraintOrientation.Horizontal);
         var status = WinoLayout.HStack(8, _spinner, text);
@@ -182,7 +182,7 @@ internal sealed class MailLoadingView : NSView
         ]);
         AccessibilityElement = true;
         AccessibilityRole = NSAccessibilityRoles.ProgressIndicatorRole;
-        AccessibilityLabel = "Downloading message from the server…";
+        AccessibilityLabel = Translator.MacOS_Reader_DownloadingMessage;
     }
 
     public bool IsAnimating

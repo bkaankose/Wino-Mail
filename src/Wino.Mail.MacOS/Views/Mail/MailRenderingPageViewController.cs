@@ -29,6 +29,7 @@ namespace Wino.Mail.MacOS.Views.Mail;
 /// strip with Save all, and the loading skeleton. Print and Save as PDF go through
 /// <see cref="MacMailPrintPresenter"/> while the reader is active.
 /// The controller is reused across selections; <see cref="RenavigateAsync"/> loads the next message.
+/// Pop out moves it into its own window (MailRenderingPageViewController.PopOut.cs).
 /// The Wino Intelligence header lives in MailRenderingPageViewController.Intelligence.cs.
 /// </summary>
 public sealed partial class MailRenderingPageViewController(MailRenderingPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger, IServiceProvider services)
@@ -188,6 +189,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
 #if DEBUG
         MacDebugBridge.Register("readerbar", _ => Task.FromResult(_commandBar.Dump() + " menu=" + ViewModel.MenuItems.Count));
         RegisterReaderDebugCommands();
+        RegisterPopOutDebugCommands();
 #endif
     }
 
@@ -204,9 +206,13 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         ViewModel.ClearRenderedHtmlAsyncFunc = ClearAsync;
         ViewModel.PrintPresenter = new MacMailPrintPresenter(() => _disposedReader ? null : _webView, Dispatcher);
         ViewModel.CloseRequested += CloseRequested;
+        ViewModel.ComposeRequested += ComposeRequested;
 
         Bind(nameof(ViewModel.Subject), vm => vm.Subject, subject =>
-            _subject.StringValue = string.IsNullOrWhiteSpace(subject) ? Translator.MailItemNoSubject : subject);
+        {
+            _subject.StringValue = string.IsNullOrWhiteSpace(subject) ? Translator.MailItemNoSubject : subject;
+            UpdatePopOutTitle(subject);
+        });
         Bind(nameof(ViewModel.FromName), vm => vm.FromName, _ => UpdateSender());
         Bind(nameof(ViewModel.FromAddress), vm => vm.FromAddress, _ => UpdateSender());
         Bind(nameof(ViewModel.CreationDate), vm => vm.CreationDate, _ => UpdateRecipients());
@@ -342,6 +348,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
                 () => Observe(ViewModel.OperationClickedCommand.ExecuteAsync(captured)), item.IsEnabled));
         }
         if (commands.Count > 0 && commands[^1] is null) commands.RemoveAt(commands.Count - 1);
+        AppendPopOutCommand(commands);
         var overflow = ViewModel.MenuItems.OfType<MailOperationMenuItem>().Where(item => !primary.Contains(item.Operation)).ToArray();
         _commandBar.SetCommands(commands, () => BuildMoreMenu(overflow));
     }
@@ -553,7 +560,12 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     }
 #endif
 
-    private void CloseRequested(object? sender, EventArgs args) => WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
+    private void CloseRequested(object? sender, EventArgs args)
+    {
+        // A popped-out reader closes its own window (Windows CloseHostedInstance); the pane goes idle otherwise.
+        if (ClosePopOutWindow()) return;
+        WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
+    }
 
     private async void Observe(Task task)
     {
@@ -564,6 +576,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     protected override async Task DeactivateAsync()
     {
         ViewModel.CloseRequested -= CloseRequested;
+        ViewModel.ComposeRequested -= ComposeRequested;
         ViewModel.RenderHtmlAsyncFunc = null;
         ViewModel.ClearRenderedHtmlAsyncFunc = null;
         ViewModel.PrintPresenter = null!;
@@ -586,6 +599,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         if (disposing)
         {
             ViewModel.CloseRequested -= CloseRequested;
+            ViewModel.ComposeRequested -= ComposeRequested;
             IntelligenceDispose();
             if (!_disposedReader && _reader is not null) _ = DisposeReaderAsync();
         }

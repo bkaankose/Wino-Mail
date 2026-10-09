@@ -118,9 +118,22 @@ public partial class MergedAccountDetailsPageViewModel : MailBaseViewModel,
                                                                    Translator.DialogMessage_RenameLinkedAccountsMessage,
                                                                    Translator.FolderOperation_Rename);
 
-        if (string.IsNullOrWhiteSpace(newName)) return;
+        await ApplyMergedAccountNameAsync(newName);
+    }
+
+    /// <summary>
+    /// Renames the link without a dialog, for platforms that edit the name inline.
+    /// </summary>
+    public async Task ApplyMergedAccountNameAsync(string newName)
+    {
+        if (EditingMergedAccount == null || string.IsNullOrWhiteSpace(newName)) return;
+
+        newName = newName.Trim();
+
+        if (newName == EditingMergedAccount.MergedInbox.Name) return;
 
         EditingMergedAccount.MergedInbox.Name = newName;
+        MergedAccountName = newName;
 
         // Update database record as well.
         if (IsMergedInboxSaved)

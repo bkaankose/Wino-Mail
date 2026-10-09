@@ -6,6 +6,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.Controls.AppKit.Settings;
+using Wino.Mail.MacOS.Infrastructure;
 using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.MacOS.Views.Settings;
@@ -21,7 +22,7 @@ namespace Wino.Mail.MacOS.Views.Settings;
 /// </summary>
 public sealed partial class WinoAccountManagementPageViewController(WinoAccountManagementPageViewModel viewModel, IPlatformCapabilities capabilities,
     IDispatcher dispatcher, IWinoLogger logger)
-    : SettingsPageViewController<WinoAccountManagementPageViewModel>(viewModel, dispatcher, logger)
+    : SettingsPageViewController<WinoAccountManagementPageViewModel>(viewModel, dispatcher, logger), ISettingsPageParameterReceiver
 {
     private readonly IPlatformCapabilities _capabilities = capabilities;
     private readonly NSStackView _content = WinoLayout.VStack(WinoSettingsStyle.CardSpacing);
@@ -73,6 +74,18 @@ public sealed partial class WinoAccountManagementPageViewController(WinoAccountM
         // The parameter carries CheckoutCompleted when the billing return (wino://billing/success) opens the page.
         try { await ViewModel.InitializeAsync(mode, parameter!); }
         finally { await Dispatcher.ExecuteOnUIThread(Reveal); }
+    }
+
+    /// <summary>
+    /// The billing return while this page is already open: the presenter does not recreate the page, so the
+    /// ViewModel reruns its checkout handling (forced profile refresh and purchase status) here.
+    /// </summary>
+    public async Task<bool> ReceiveParameterAsync(object? parameter)
+    {
+        if (parameter is not WinoAccountManagementActivationReason.CheckoutCompleted || Bindings.IsDisposed) return false;
+
+        await ViewModel.InitializeAsync(NavigationMode.Refresh, parameter);
+        return true;
     }
 
     /// <summary>Replaces the first-load spinner with the page content, once.</summary>

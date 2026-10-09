@@ -12,8 +12,8 @@ namespace Wino.Mail.MacOS.Infrastructure;
 /// <summary>
 /// Reader-owned print and PDF presentation (Windows WindowsMailPrintPresenter). Printing runs the
 /// web view's NSPrintOperation as a sheet on the reader's window, so the system print panel offers
-/// printers, preview and "Save as PDF". PDF export writes WKWebView.CreatePdf output to the chosen
-/// path. Like Windows, both use the message exactly as the reader renders it (current theme).
+/// printers, preview and "Save as PDF". PDF export runs the same operation without panels and saves
+/// the job to the chosen path, so it is paginated like the print dialog's PDF. Like Windows, both use the message exactly as the reader renders it (current theme).
 /// </summary>
 public sealed class MacMailPrintPresenter(Func<WKWebView?> webView, IDispatcher dispatcher) : IMailPrintPresenter
 {
@@ -50,24 +50,11 @@ public sealed class MacMailPrintPresenter(Func<WKWebView?> webView, IDispatcher 
 
         try
         {
-            var info = (NSPrintInfo)NSPrintInfo.SharedPrintInfo.Copy();
-            // Fit the page width like a browser print; long messages continue onto further pages.
-            info.HorizontalPagination = NSPrintingPaginationMode.Fit;
-            info.VerticalPagination = NSPrintingPaginationMode.Auto;
-            info.HorizontallyCentered = false;
-            info.VerticallyCentered = false;
-
-            var operation = view.GetPrintOperation(info);
-            operation.JobTitle = string.IsNullOrWhiteSpace(request.Title) ? "Wino Mail" : request.Title;
-            operation.ShowsPrintPanel = true;
-            operation.ShowsProgressPanel = true;
-            // WebKit's print view starts with an empty frame; without one the operation prints nothing.
-            if (operation.View is { } printView) printView.Frame = view.Bounds;
-
-            var completion = new PrintCompletion(this);
-            _pending.Add(completion);
-            operation.RunOperationModal(window, completion, new Selector(PrintCompletion.SelectorName), IntPtr.Zero);
-            return completion.Completion;
+            var info = CreatePrintInfo();
+            var completion = new TaskCompletionSource<PrintingResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+            RunPrintOperation(view, window, info, request.Title, showPanels: true,
+                success => completion.TrySetResult(success ? PrintingResult.Submitted : PrintingResult.Canceled));
+            return completion.Task;
         }
         catch (Exception)
         {
@@ -75,56 +62,99 @@ public sealed class MacMailPrintPresenter(Func<WKWebView?> webView, IDispatcher 
         }
     }
 
+    /// <summary>
+    /// Runs the same print operation as <see cref="PrintAsync"/> without panels, with the job saved
+    /// to <paramref name="path"/>, so the PDF is paginated exactly like the print dialog's "Save as PDF".
+    /// </summary>
     private Task<PlatformOperationResult> BeginPdfExport(string path)
     {
         var view = webView();
-        if (view is null) return Task.FromResult(new PlatformOperationResult(PlatformOperationStatus.Unavailable));
+        if (view?.Window is not { } window) return Task.FromResult(new PlatformOperationResult(PlatformOperationStatus.Unavailable));
+        if (window.AttachedSheet is not null)
+            return Task.FromResult(new PlatformOperationResult(PlatformOperationStatus.Failed, "Another sheet is open on the reader window."));
 
-        var completion = new TaskCompletionSource<PlatformOperationResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-        // A null rect captures the whole document, not only the visible part of the reader.
-        var configuration = new WKPdfConfiguration();
-        view.CreatePdf(configuration, (data, error) =>
+        try
         {
-            try
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+
+            var info = CreatePrintInfo();
+            // Margins like a browser's PDF export; the shared defaults (1in+) waste a lot of the page.
+            info.LeftMargin = info.RightMargin = PdfMargin;
+            info.TopMargin = info.BottomMargin = PdfMargin;
+            info.JobDisposition = SaveJobDisposition;
+            // The path comes from a save or folder panel (sandbox scope); keep it exactly as given.
+            using var url = NSUrl.FromFilename(path);
+            info.Dictionary[JobSavingUrlKey] = url;
+
+            var completion = new TaskCompletionSource<PlatformOperationResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+            RunPrintOperation(view, window, info, Path.GetFileNameWithoutExtension(path), showPanels: false, success =>
             {
-                if (error is not null || data is null)
-                {
-                    completion.TrySetResult(new PlatformOperationResult(PlatformOperationStatus.Failed, error?.LocalizedDescription));
-                    return;
-                }
-                var directory = Path.GetDirectoryName(path);
-                if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-                var saved = data.Save(path, true, out var saveError);
-                completion.TrySetResult(saved
-                    ? new PlatformOperationResult(PlatformOperationStatus.Succeeded)
-                    : new PlatformOperationResult(PlatformOperationStatus.Failed, saveError?.LocalizedDescription));
-            }
-            catch (Exception exception)
-            {
-                completion.TrySetResult(new PlatformOperationResult(PlatformOperationStatus.Failed, exception.Message));
-            }
-            finally
-            {
-                configuration.Dispose();
-            }
-        });
-        return completion.Task;
+                if (!success)
+                    completion.TrySetResult(new PlatformOperationResult(PlatformOperationStatus.Failed, "The PDF could not be created."));
+                else if (!File.Exists(path))
+                    completion.TrySetResult(new PlatformOperationResult(PlatformOperationStatus.Failed, "The PDF was not written."));
+                else
+                    completion.TrySetResult(new PlatformOperationResult(PlatformOperationStatus.Succeeded));
+            });
+            return completion.Task;
+        }
+        catch (Exception exception)
+        {
+            return Task.FromResult(new PlatformOperationResult(PlatformOperationStatus.Failed, exception.Message));
+        }
     }
 
-    /// <summary>Receives printOperationDidRun:success:contextInfo: from the sheet.</summary>
-    private sealed class PrintCompletion(MacMailPrintPresenter owner) : NSObject
+    private const float PdfMargin = 36;
+
+    // AppKit's NSPrintSaveJob and NSPrintJobSavingURL; the binding has no named constants for them.
+    private static NSString SaveJobDisposition => AppKitString(ref _saveJobDisposition, "NSPrintSaveJob");
+    private static NSString JobSavingUrlKey => AppKitString(ref _jobSavingUrlKey, "NSPrintJobSavingURL");
+    private static NSString? _saveJobDisposition;
+    private static NSString? _jobSavingUrlKey;
+
+    private static NSString AppKitString(ref NSString? cache, string symbol)
+    {
+        if (cache is not null) return cache;
+        var appKit = Dlfcn.dlopen("/System/Library/Frameworks/AppKit.framework/AppKit", 0);
+        return cache = Dlfcn.GetStringConstant(appKit, symbol) ?? throw new InvalidOperationException($"AppKit does not export {symbol}.");
+    }
+
+    private static NSPrintInfo CreatePrintInfo()
+    {
+        var info = (NSPrintInfo)NSPrintInfo.SharedPrintInfo.Copy();
+        // Fit the page width like a browser print; long messages continue onto further pages.
+        info.HorizontalPagination = NSPrintingPaginationMode.Fit;
+        info.VerticalPagination = NSPrintingPaginationMode.Auto;
+        info.HorizontallyCentered = false;
+        info.VerticallyCentered = false;
+        return info;
+    }
+
+    private void RunPrintOperation(WKWebView view, NSWindow window, NSPrintInfo info, string? title, bool showPanels, Action<bool> completed)
+    {
+        var operation = view.GetPrintOperation(info);
+        operation.JobTitle = string.IsNullOrWhiteSpace(title) ? "Wino Mail" : title;
+        operation.ShowsPrintPanel = showPanels;
+        operation.ShowsProgressPanel = showPanels;
+        // WebKit's print view starts with an empty frame; without one the operation prints nothing.
+        if (operation.View is { } printView) printView.Frame = view.Bounds;
+
+        var completion = new PrintCompletion(this, completed);
+        _pending.Add(completion);
+        operation.RunOperationModal(window, completion, new Selector(PrintCompletion.SelectorName), IntPtr.Zero);
+    }
+
+    /// <summary>Receives printOperationDidRun:success:contextInfo: when the operation finishes.</summary>
+    private sealed class PrintCompletion(MacMailPrintPresenter owner, Action<bool> completed) : NSObject
     {
         public const string SelectorName = "printOperationDidRun:success:contextInfo:";
-
-        private readonly TaskCompletionSource<PrintingResult> _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public Task<PrintingResult> Completion => _completion.Task;
 
         [Export(SelectorName)]
         public void DidRun(NSPrintOperation operation, bool success, IntPtr contextInfo)
         {
             owner._pending.Remove(this);
-            _completion.TrySetResult(success ? PrintingResult.Submitted : PrintingResult.Canceled);
+            completed(success);
         }
     }
 }

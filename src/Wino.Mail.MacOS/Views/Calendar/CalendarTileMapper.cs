@@ -36,6 +36,18 @@ internal static class CalendarTileMapper
     /// <summary>True when the item belongs to a read-only calendar (subscribed, birthdays, shared without write access).</summary>
     public static bool IsReadOnly(ICalendarItem? item) => item?.AssignedCalendar?.IsReadOnly == true;
 
+    /// <summary>Whether a tile may be dragged to move or resize it (Windows CalendarItemViewModel.CanDragDrop, plus the read-only calendar rule).</summary>
+    public static bool CanDrag(ICalendarItem item) => DragRefusal(item) == CalendarDragRefusal.None;
+
+    /// <summary>Why a tile cannot be dragged, mirroring the checks of CalendarPageViewModel.MoveCalendarItemAsync.</summary>
+    public static CalendarDragRefusal DragRefusal(ICalendarItem item)
+    {
+        if (item is not CalendarItemViewModel viewModel) return CalendarDragRefusal.Busy;
+        if (!viewModel.CalendarItem.CanChangeStartAndEndDate) return CalendarDragRefusal.NotAllowed;
+        if (IsReadOnly(item)) return CalendarDragRefusal.ReadOnlyCalendar;
+        return viewModel.IsBusy ? CalendarDragRefusal.Busy : CalendarDragRefusal.None;
+    }
+
     /// <summary>The calendar colour (Windows binds the assigned calendar's background), falling back to the accent.</summary>
     public static NSColor Fill(ICalendarItem item)
     {
@@ -106,4 +118,16 @@ internal static class CalendarTileMapper
         CalendarItemStatus.Tentative => (WinoIconGlyph.EventTentative, WinoStyle.Caution),
         _ => (WinoIconGlyph.EventRespond, WinoStyle.Accent)
     };
+}
+
+/// <summary>Why an event tile refuses a drag.</summary>
+internal enum CalendarDragRefusal
+{
+    None,
+    /// <summary>Locked, or organized by someone else (CalendarDragDropMoveNotAllowed* info bar).</summary>
+    NotAllowed,
+    /// <summary>The calendar is read-only (CalendarReadOnly_* info bar).</summary>
+    ReadOnlyCalendar,
+    /// <summary>A pending operation holds the item; the drag is ignored silently.</summary>
+    Busy
 }

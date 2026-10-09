@@ -1,3 +1,4 @@
+using Wino.Core.Domain;
 using AppKit;
 using CoreGraphics;
 using Foundation;
@@ -35,8 +36,8 @@ public sealed class WelcomeWindow : NSWindow
         {
             if (sender is NSWindow { ContentViewController: AccountSetupProgressPageViewController { HasPendingWork: true } } window)
             {
-                var alert = new NSAlert { MessageText = "Wino Mail", InformativeText = "Finish or cancel account setup before closing this window." };
-                alert.AddButton("OK");
+                var alert = new NSAlert { MessageText = "Wino Mail", InformativeText = Translator.MacOS_Welcome_CloseBlocked };
+                alert.AddButton(Translator.Buttons_OK);
                 alert.BeginSheet(window, _ => alert.Dispose());
                 return false;
             }

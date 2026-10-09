@@ -489,12 +489,11 @@ internal sealed class ShellFixAccountCell : NSTableCellView
         ]);
     }
 
-    // Windows shows these rows with literal English text as well (ShellMenuTemplates.xaml).
     public void Configure(FixAccountIssuesMenuItem item)
     {
         _label.StringValue = item.Account?.AttentionReason == AccountAttentionReason.MissingSystemFolderConfiguration
-            ? "Account is missing system folder configuration.\nClick here to fix it."
-            : "Account credentials can not be verified.\nClick here to fix it.";
+            ? Translator.MacOS_Shell_FixMissingSystemFolders
+            : Translator.MacOS_Shell_FixInvalidCredentials;
         AccessibilityLabel = _label.StringValue;
     }
 }

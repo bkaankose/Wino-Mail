@@ -49,15 +49,15 @@ internal sealed class AccountCapabilityPicker : NSView
         _calendar = new CapabilityCard(Translator.ProviderSelection_UseForCalendar, Translator.ProviderSelection_CalendarStepDescription, WinoIconGlyph.Calendar,
             on => selection.IsCalendarEnabled = on,
             provider: new OptionRow(() => selection.IsCalendarProviderSelected = true),
-            local: new OptionRow(() => selection.IsCalendarLocalSelected = true, Translator.CapabilityPicker_LocalOption, Translator.ProviderSelection_Why_CalendarLocal));
+            local: new OptionRow(() => selection.IsCalendarLocalSelected = true, Translator.CapabilityPicker_LocalOption_Device, Translator.ProviderSelection_Why_CalendarLocal_Device));
         _contacts = new CapabilityCard(Translator.ProviderSelection_UseForContacts, Translator.ProviderSelection_ContactsStepDescription, WinoIconGlyph.People,
             on => selection.IsContactEnabled = on,
             provider: new OptionRow(() => selection.IsContactProviderSelected = true),
-            local: new OptionRow(() => selection.IsContactLocalSelected = true, Translator.CapabilityPicker_LocalOption, Translator.ProviderSelection_Why_ContactsLocal));
+            local: new OptionRow(() => selection.IsContactLocalSelected = true, Translator.CapabilityPicker_LocalOption_Device, Translator.ProviderSelection_Why_ContactsLocal_Device));
         _tasks = new CapabilityCard(Translator.ProviderSelection_UseForTasks, Translator.ProviderSelection_TasksStepDescription, WinoIconGlyph.TaskList,
             on => selection.IsTaskEnabled = on,
             provider: new OptionRow(() => selection.IsTaskProviderSelected = true),
-            local: new OptionRow(() => selection.IsTaskLocalSelected = true, Translator.CapabilityPicker_LocalOption, Translator.ProviderSelection_Why_TasksLocal));
+            local: new OptionRow(() => selection.IsTaskLocalSelected = true, Translator.CapabilityPicker_LocalOption_Device, Translator.ProviderSelection_Why_TasksLocal_Device));
 
         var stack = WinoLayout.VStack(WinoSettingsStyle.CardSpacing, _mail.Expander, _calendar.Expander, _contacts.Expander, _tasks.Expander);
         foreach (var view in stack.ArrangedSubviews) view.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
@@ -112,7 +112,7 @@ internal sealed class AccountCapabilityPicker : NSView
     private static string Summary(AccountCapabilityMode mode, string providerText) => mode switch
     {
         AccountCapabilityMode.Provider => providerText,
-        AccountCapabilityMode.Local => Translator.CapabilityPicker_LocalOption,
+        AccountCapabilityMode.Local => Translator.CapabilityPicker_LocalOption_Device,
         _ => Translator.ProviderSelection_ModeOff
     };
 

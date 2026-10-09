@@ -27,7 +27,7 @@ public sealed partial class WinoAccountSyncSecretDialog : ContentDialog
 
         if (_isNewBackup)
         {
-            DescriptionTextBlock.Text = Translator.WinoAccount_Sync_SecretDialog_NewDescription;
+            DescriptionTextBlock.Text = Translator.WinoAccount_Sync_SecretDialog_NewDescription_Device;
             SecretBox.Header = Translator.WinoAccount_Sync_SecretDialog_PassphraseLabel;
             ConfirmBox.Header = Translator.WinoAccount_Sync_SecretDialog_ConfirmLabel;
             ConfirmBox.Visibility = Visibility.Visible;

@@ -260,7 +260,8 @@ public sealed class MacStatusItemController : IDisposable
         catch (Exception exception) { _logger.CaptureException(exception, "Companion popover cleanup"); }
         _viewModel?.Close();
         _content?.Release();
-        if (_popover is not null) { _popover.Delegate = null; _popover.ContentViewController = null!; _popover.Dispose(); }
+        // NSPopover.ContentViewController rejects null in the bindings; disposing the popover releases it.
+        if (_popover is not null) { _popover.Delegate = null; _popover.Dispose(); }
         _popoverDelegate?.Dispose();
         _content?.Dispose();
         _viewModel?.Dispose();

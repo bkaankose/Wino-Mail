@@ -41,7 +41,7 @@ public sealed class IdlePageViewController(IdlePageViewModel viewModel, IDispatc
             _idle.SetContent(ViewModel.AccountStateTitle, ViewModel.AccountStateMessage, ViewModel.IsSignInVisible ? ViewModel.SignInText : null);
         else
             // No translation key exists for the Mac keyboard hints yet.
-            _idle.SetContent(Translator.NoMailSelected, "Use ↑ ↓ to move, ⌘R to reply, ⌫ to delete.", null);
+            _idle.SetContent(Translator.NoMailSelected, Translator.MacOS_Reader_KeyboardHint, null);
     }
 
     private async void InvokeAction()

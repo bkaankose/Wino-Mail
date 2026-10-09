@@ -148,16 +148,21 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         grid.Row((NSTextField?)null, helpStack);
     }
 
-    /// <summary>Editing an account: what it is used for.</summary>
+    /// <summary>
+    /// Editing an account: what it is used for, as the provider step's capability cards (Windows
+    /// AccountCapabilityPicker on ImapCalDavSettingsPage). Turning Calendar or Contacts off hides the
+    /// CalDAV / CardDAV sections; To Do stays on this device because IMAP has no task service.
+    /// </summary>
     private NSView BuildEditFeatures()
     {
         var vm = ViewModel;
+        var picker = new AccountCapabilityPicker(vm.Capabilities, () => Translator.ProviderSelection_ModeImap, null, Bindings, Dispatcher, ReportError);
+        var missing = WinoStyle.Label(Translator.ProviderSelection_CapabilityValidationMessage, WinoStyle.Caption, WinoStyle.Critical, 0);
         var capabilities = new FormBinder<AccountCapabilitySelection>(vm.Capabilities, Bindings, Dispatcher, ReportError);
-        var grid = new FormGrid();
-        foreach (var (label, control) in FormBinder<AccountCapabilitySelection>.CapabilityRows(capabilities, () => Translator.ProviderSelection_ModeImap))
-            grid.Row(label, control);
-        _form.KeyViews.AddRange(capabilities.KeyViews);
-        var group = OnboardingPageView.Group(Translator.ImapSetup_FeaturesGroup, grid);
+        capabilities.Visible(missing, nameof(AccountCapabilitySelection.IsSelectionMissing), s => s.IsSelectionMissing);
+        var column = WinoLayout.VStack(WinoStyle.Space3, picker, missing);
+        foreach (var view in column.ArrangedSubviews) view.WidthAnchor.ConstraintEqualTo(column.WidthAnchor).Active = true;
+        var group = OnboardingPageView.Group(Translator.ImapSetup_FeaturesGroup, column);
         _form.Visible(group, nameof(vm.IsEditMode), s => s.IsEditMode);
         return group;
     }

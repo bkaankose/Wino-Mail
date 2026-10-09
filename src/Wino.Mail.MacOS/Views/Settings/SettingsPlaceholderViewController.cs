@@ -1,3 +1,4 @@
+using Wino.Core.Domain;
 using AppKit;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Navigation;
@@ -13,9 +14,8 @@ namespace Wino.Mail.MacOS.Views.Settings;
 /// </summary>
 public sealed class SettingsPlaceholderViewController : NSViewController, IWinoViewController
 {
-    // English literal: no translation key exists for a deferred Mac page.
-    public const string LaterMessage = "Available in a later Mac update.";
-    public const string FailedMessage = "This page could not be opened. Details were written to the log.";
+    public static string LaterMessage => Translator.MacOS_Placeholder_LaterUpdate;
+    public static string FailedMessage => Translator.MacOS_Placeholder_PageFailed;
 
     private readonly WinoPage _page;
     private readonly string _message;

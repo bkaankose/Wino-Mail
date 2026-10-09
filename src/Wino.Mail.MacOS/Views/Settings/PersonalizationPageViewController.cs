@@ -102,10 +102,9 @@ public sealed class PersonalizationPageViewController(PersonalizationPageViewMod
         ["Indigo"] = [0xF1F3FB, 0xE1E5F5, 0x12141F, 0x0A0C14],
     };
 
-    // English literals: no translation keys describe the deferred Mac theme editor or the Mac theme backdrop.
-    private const string ComingLaterOnMac = "Coming later on Mac.";
-    private const string BackdropTitle = "Show theme backdrop behind the content";
-    private const string BackdropDescription = "Off keeps plain window surfaces with the theme accent only.";
+    private static string ComingLaterOnMac => Translator.MacOS_Personalization_CustomThemesLater;
+    private static string BackdropTitle => Translator.MacOS_Personalization_BackdropTitle;
+    private static string BackdropDescription => Translator.MacOS_Personalization_BackdropDescription;
 
     protected override async Task InitializeAsync(NavigationMode mode, object? parameter)
     {

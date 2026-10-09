@@ -228,8 +228,10 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                 IRecipientHistoryService recipientHistoryService,
                                 IAttachmentFileService attachmentFileService = null,
                                 IWinoIntelligenceCoordinator intelligenceCoordinator = null,
-                                ISynchronizationManager synchronizationManager = null)
+                                ISynchronizationManager synchronizationManager = null,
+                                ISignatureService signatureService = null)
     {
+        _signatureService = signatureService;
         ContactService = contactService;
         RecipientSuggestionService = recipientSuggestionService;
         _recipientHistoryService = recipientHistoryService;
@@ -258,7 +260,11 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             async () => GetHTMLBodyFunction == null ? null : await GetHTMLBodyFunction(),
             html => RenderHtmlBodyAsyncFunc?.Invoke(html) ?? Task.CompletedTask,
             () => ComposingAccount?.Id,
-            error => _dialogService.InfoBarMessage(Translator.Composer_AiErrorTitle, error, InfoBarMessageType.Error));
+            error =>
+            {
+                if (RewriteErrorHandler != null) RewriteErrorHandler(error);
+                else _dialogService.InfoBarMessage(Translator.Composer_AiErrorTitle, error, InfoBarMessageType.Error);
+            });
 
         IncludedAttachments.CollectionChanged += (_, _) => OnPropertyChanged(nameof(AttachmentsSummary));
 

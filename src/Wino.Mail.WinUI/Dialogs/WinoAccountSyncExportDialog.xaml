@@ -45,7 +45,7 @@
                     <TextBlock
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         Style="{StaticResource CaptionTextBlockStyle}"
-                        Text="{x:Bind domain:Translator.WinoAccount_Management_ExportDialog_AccountsRelogin, Mode=OneTime}"
+                        Text="{x:Bind domain:Translator.WinoAccount_Management_ExportDialog_AccountsRelogin_Device, Mode=OneTime}"
                         TextWrapping="WrapWholeWords" />
                 </StackPanel>
             </Border>

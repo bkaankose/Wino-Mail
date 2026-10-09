@@ -24,7 +24,7 @@ internal sealed class SyncSecretSheet : WinoAccountSheet<string>
 
         var title = _isNewBackup ? Translator.WinoAccount_Sync_SecretDialog_NewTitle : Translator.WinoAccount_Sync_SecretDialog_Title;
         var description = _isNewBackup
-            ? Translator.WinoAccount_Sync_SecretDialog_NewDescription
+            ? Translator.WinoAccount_Sync_SecretDialog_NewDescription_Device
             : request.IsPassphrase ? Translator.WinoAccount_Sync_SecretDialog_PassphraseDescription : Translator.WinoAccount_Sync_SecretDialog_PasswordDescription;
         var secretLabel = _isNewBackup || request.IsPassphrase
             ? Translator.WinoAccount_Sync_SecretDialog_PassphraseLabel

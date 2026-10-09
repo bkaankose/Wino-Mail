@@ -258,6 +258,7 @@
     });
 
     document.addEventListener("keydown", event => {
+        if (event.isComposing || event.keyCode === 229) return;
         if (!selectedImage || (event.key !== "Delete" && event.key !== "Backspace")) return;
         event.preventDefault();
         selectedImage.remove();

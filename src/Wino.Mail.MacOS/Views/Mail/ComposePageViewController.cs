@@ -28,14 +28,18 @@ namespace Wino.Mail.MacOS.Views.Mail;
 /// completion, Subject, the in-content editor toolbar (Format / Insert / Options) driving the
 /// shared HTML editor in a WKWebView, and the attachment tray. "Open in new window" moves this
 /// same controller and draft into a 960x720 window and back; closing that window keeps the draft.
+/// Partials: Rewrite (Wino Intelligence), Extras (templates and signature), Options (S/MIME and
+/// read receipt), Find (find and replace bar, composer shortcuts, IME guards) and Debug.
 /// </summary>
-public sealed class ComposePageViewController : WinoViewController<ComposePageViewModel>, IReadingPaneChild
+public sealed partial class ComposePageViewController : WinoViewController<ComposePageViewModel>, IReadingPaneChild
 {
     private static readonly HashSet<ComposePageViewController> Detached = new();
-    private static readonly string[] Fonts = ["Helvetica Neue", "Helvetica", "Arial", "Times New Roman", "Georgia", "Verdana", "Courier New"];
-    private static readonly int[] FontSizes = [8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 48];
+    /// <summary>Composer font vocabulary, shared with the signature editor sheet.</summary>
+    internal static readonly string[] Fonts = ["Helvetica Neue", "Helvetica", "Arial", "Times New Roman", "Georgia", "Verdana", "Courier New"];
+    internal static readonly int[] FontSizes = [8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 48];
 
     private readonly IExternalLauncher _launcher;
+    private readonly AppKitNavigationService _navigation;
     private readonly Dictionary<string, string> _recipientNames = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<RecipientSuggestion> _suggestions = new();
     private AppKitHtmlMailEditorSession? _editor;
@@ -74,10 +78,11 @@ public sealed class ComposePageViewController : WinoViewController<ComposePageVi
     private bool _darkEditor;
     private string _suggestionQuery = string.Empty;
 
-    public ComposePageViewController(ComposePageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger, IExternalLauncher launcher)
+    public ComposePageViewController(ComposePageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger, IExternalLauncher launcher, AppKitNavigationService navigation)
         : base(viewModel, dispatcher, logger)
     {
         _launcher = launcher;
+        _navigation = navigation;
     }
 
     public IReadingPaneHost? PaneHost
@@ -101,6 +106,10 @@ public sealed class ComposePageViewController : WinoViewController<ComposePageVi
         _sendToServerButton = CommandButton(Translator.Buttons_SendToServer, ViewModel.SendToServerCommand);
         _sendToServerButton.Hidden = true;
         var attach = ToolbarButton(WinoIconGlyph.Attachment, Translator.ComposerAttachmentsDragDropAttach_Message, () => Observe(ViewModel.AttachFilesCommand.ExecuteAsync(null)), showTitle: true);
+        WinoAccessibility.Help(attach, Translator.Composer_AttachFilesDescription);
+        var signature = BuildSignaturePicker();
+        var template = BuildTemplateButton();
+        var rewrite = BuildRewriteButton();
 
         _importance = new NSPopUpButton { PullsDown = false, ControlSize = NSControlSize.Small, TranslatesAutoresizingMaskIntoConstraints = false };
         _importance.AddItems([Translator.Composer_HighImportance, Translator.Composer_NormalImportance, Translator.Composer_LowImportance]);
@@ -117,7 +126,10 @@ public sealed class ComposePageViewController : WinoViewController<ComposePageVi
         _draftStatus = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
         _popOutButton = ToolbarButton(WinoIconGlyph.OpenInNewWindow, Translator.Buttons_PopOut, TogglePopOut);
         var discard = ToolbarButton(WinoIconGlyph.Delete, Translator.Buttons_Discard, () => Observe(ViewModel.DiscardCommand.ExecuteAsync(null)));
-        var commandRow = WinoLayout.HStack(8, _sendButton, _sendToServerButton, attach, _importance, WinoLayout.Spacer(), _draftStatus, _popOutButton, discard);
+        var commandRow = WinoLayout.HStack(8, _sendButton, _sendToServerButton, attach, signature, template, rewrite, WinoLayout.Spacer(), _draftStatus, _popOutButton, discard);
+        commandRow.AccessibilityElement = true;
+        commandRow.AccessibilityRole = NSAccessibilityRoles.ToolbarRole;
+        WinoAccessibility.Label(commandRow, Translator.Composer_CommandBarLabel);
         commandRow.EdgeInsets = new NSEdgeInsets(10, 16, 10, 12);
 
         // ---- Header fields ----
@@ -128,15 +140,25 @@ public sealed class ComposePageViewController : WinoViewController<ComposePageVi
             if (ViewModel.AvailableAliases is { } aliases && index >= 0 && index < aliases.Count) ViewModel.SelectedAlias = aliases[index];
         };
         _recipientDelegate = new RecipientDelegate(this);
+        WinoAccessibility.Label(_fromPopup, Translator.ComposerFrom.Trim().TrimEnd(':'));
         _toField = TokenField(Translator.ComposerTo.Trim().TrimEnd(':'));
         _ccField = TokenField("Cc");
         _bccField = TokenField("Bcc");
         var ccButton = TextButton("Cc", () => { ViewModel.IsCCBCCVisible = true; Window()?.MakeFirstResponder(_ccField); });
         var bccButton = TextButton("Bcc", () => { ViewModel.IsCCBCCVisible = true; Window()?.MakeFirstResponder(_bccField); });
+        WinoAccessibility.Label(ccButton, Translator.Composer_CcBcc);
+        WinoAccessibility.Label(bccButton, Translator.Composer_CcBcc);
         _ccBccButtons = WinoLayout.HStack(2, ccButton, bccButton);
         _subjectField = new NSTextField { Bordered = false, DrawsBackground = false, Font = WinoStyle.Body, FocusRingType = NSFocusRingType.None, TranslatesAutoresizingMaskIntoConstraints = false };
         _subjectField.PlaceholderString = Translator.ComposerSubject.Trim().TrimEnd(':');
-        _subjectField.Changed += (_, _) => { ViewModel.Subject = _subjectField.StringValue; ScheduleAutosave(); };
+        _subjectField.Changed += (_, _) =>
+        {
+            // The subject follows committed text only: an input method's marked text is still being composed.
+            if (HasMarkedText(_subjectField.CurrentEditor)) return;
+            ViewModel.Subject = _subjectField.StringValue;
+            ScheduleAutosave();
+        };
+        _subjectField.DoCommandBySelector = SubjectCommand;
         WinoAccessibility.Label(_subjectField, Translator.ComposerSubject.Trim().TrimEnd(':'));
 
         var fromRow = FieldRow(Translator.ComposerFrom.Trim().TrimEnd(':'), _fromPopup);
@@ -153,6 +175,7 @@ public sealed class ComposePageViewController : WinoViewController<ComposePageVi
         _toolbarTabs.ControlSize = NSControlSize.Small;
         _toolbarTabs.SelectedSegment = 0;
         _toolbarTabs.TranslatesAutoresizingMaskIntoConstraints = false;
+        WinoAccessibility.Label(_toolbarTabs, Translator.Composer_EditorToolbarLabel);
 
         _fontPopup = new NSPopUpButton { PullsDown = false, ControlSize = NSControlSize.Small, TranslatesAutoresizingMaskIntoConstraints = false };
         _fontPopup.AddItems(Fonts);
@@ -160,6 +183,7 @@ public sealed class ComposePageViewController : WinoViewController<ComposePageVi
         WinoAccessibility.Label(_fontPopup, Translator.SettingsFontFamily_Title);
         _sizePopup = new NSPopUpButton { PullsDown = false, ControlSize = NSControlSize.Small, TranslatesAutoresizingMaskIntoConstraints = false };
         _sizePopup.AddItems(FontSizes.Select(static size => size.ToString()).ToArray());
+        _sizePopup.SelectItem(Array.FindIndex(FontSizes, size => size >= ViewModel.PreferencesService.ComposerFontSize) is var preferredSize and >= 0 ? preferredSize : FontSizes.Length - 1);
         _sizePopup.Activated += (_, _) => Run(EditorCommand.SetFontSize(FontSizes[Math.Max(0, (int)_sizePopup.IndexOfSelectedItem)]));
         WinoAccessibility.Label(_sizePopup, Translator.SettingsFontSize_Title);
         _boldButton = FormatButton(WinoIconGlyph.TextBold, Translator.Composer_Bold, EditorCommand.ToggleBold);
@@ -174,8 +198,8 @@ public sealed class ComposePageViewController : WinoViewController<ComposePageVi
         var image = FormatButton(WinoIconGlyph.Image, Translator.ComposerImagesDropZone_Message, EditorCommand.InsertImage);
         _formatGroup = WinoLayout.HStack(4, _fontPopup, _sizePopup, Divider(), _boldButton, _italicButton, _underlineButton, Divider(), bullets, numbers, outdent, indent, clear, Divider(), link, image);
 
-        var table = ToolbarButton(WinoIconGlyph.Table, "Table", () => Run(EditorCommand.InsertTable(new EditorTableCommandArgs(3, 3))));
-        var emoji = FormatButton(WinoIconGlyph.Emoji, "Emoji", EditorCommand.InsertEmoji);
+        var table = ToolbarButton(WinoIconGlyph.Table, Translator.Composer_InsertTable, () => Run(EditorCommand.InsertTable(new EditorTableCommandArgs(3, 3))));
+        var emoji = FormatButton(WinoIconGlyph.Emoji, Translator.Composer_InsertEmojiDescription, EditorCommand.InsertEmoji);
         var insertLink = ToolbarButton(WinoIconGlyph.Link, Translator.Composer_InsertLink, () => Observe(InsertLinkAsync()), showTitle: true);
         var insertImage = ToolbarButton(WinoIconGlyph.Image, Translator.ComposerImagesDropZone_Message, () => Run(EditorCommand.InsertImage()), showTitle: false);
         _insertGroup = WinoLayout.HStack(4, insertLink, insertImage, table, emoji);
@@ -186,15 +210,20 @@ public sealed class ComposePageViewController : WinoViewController<ComposePageVi
             _darkEditor = !_darkEditor;
             Run(EditorCommand.ToggleTheme(_darkEditor));
         }, showTitle: false);
-        var spell = ToolbarButton(WinoIconGlyph.TextProofingTools, Translator.SettingsComposer_Title, () =>
+        var spell = ToolbarButton(WinoIconGlyph.TextProofingTools, Translator.Composer_SpellCheck, () =>
             Run(EditorCommand.ToggleSpellCheck(!(_editor?.CurrentState.IsSpellCheckEnabled ?? true))));
-        var undo = FormatButton(WinoIconGlyph.ArrowUndo, "Undo", EditorCommand.Undo);
-        var redo = FormatButton(WinoIconGlyph.ArrowRedo, "Redo", EditorCommand.Redo);
-        _optionsGroup = WinoLayout.HStack(4, theme, spell, Divider(), undo, redo);
+        var undo = FormatButton(WinoIconGlyph.ArrowUndo, Translator.MacOSMenu_Undo, EditorCommand.Undo);
+        var redo = FormatButton(WinoIconGlyph.ArrowRedo, Translator.MacOSMenu_Redo, EditorCommand.Redo);
+        var optionViews = new List<NSView> { theme, spell, Divider(), undo, redo, Divider(), _importance };
+        optionViews.AddRange(BuildSecurityOptions());
+        _optionsGroup = WinoLayout.HStack(4, optionViews.ToArray());
         _optionsGroup.Hidden = true;
 
         var editorToolbar = WinoLayout.HStack(10, _toolbarTabs, _formatGroup, _insertGroup, _optionsGroup);
         editorToolbar.EdgeInsets = new NSEdgeInsets(8, 16, 8, 16);
+        editorToolbar.AccessibilityElement = true;
+        editorToolbar.AccessibilityRole = NSAccessibilityRoles.ToolbarRole;
+        WinoAccessibility.Label(editorToolbar, Translator.Composer_EditorToolbarLabel);
         editorToolbar.SetClippingResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
 
         // ---- Editor ----
@@ -207,6 +236,9 @@ public sealed class ComposePageViewController : WinoViewController<ComposePageVi
 
         // ---- Attachment tray ----
         _attachmentTray = WinoLayout.HStack(10);
+        _attachmentTray.AccessibilityElement = true;
+        _attachmentTray.AccessibilityRole = NSAccessibilityRoles.ListRole;
+        WinoAccessibility.Label(_attachmentTray, Translator.Composer_AttachmentsListLabel);
         var trayScroll = new NSScrollView { DocumentView = _attachmentTray, HasHorizontalScroller = true, AutohidesScrollers = true, DrawsBackground = false, TranslatesAutoresizingMaskIntoConstraints = false };
         trayScroll.HeightAnchor.ConstraintEqualTo(54).Active = true;
         _attachmentTray.TopAnchor.ConstraintEqualTo(trayScroll.ContentView.TopAnchor).Active = true;
@@ -228,13 +260,17 @@ public sealed class ComposePageViewController : WinoViewController<ComposePageVi
             Distribution = NSStackViewDistribution.Fill,
             TranslatesAutoresizingMaskIntoConstraints = false
         };
-        foreach (var view in new NSView[] { commandRow, new WinoSeparator(), fields, new WinoSeparator(), editorToolbar, new WinoSeparator(), editorHost, _attachmentHost })
+        var rewriteStrip = BuildRewriteStrip();
+        var findBar = BuildFindBar();
+        foreach (var view in new NSView[] { commandRow, new WinoSeparator(), fields, rewriteStrip, new WinoSeparator(), editorToolbar, new WinoSeparator(), findBar, editorHost, _attachmentHost })
         {
             stack.AddArrangedSubview(view);
             view.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
         }
         WinoLayout.Fill(stack, root);
         View = root;
+        SetUpFileDrop();
+        ConfigureKeyViewLoop();
     }
 
     // ---- View helpers ----
@@ -335,7 +371,12 @@ public sealed class ComposePageViewController : WinoViewController<ComposePageVi
         ViewModel.GetHTMLBodyFunction = GetHtmlBodyAsync;
         ViewModel.RenderHtmlBodyAsyncFunc = RenderBodyAsync;
         ViewModel.CloseRequested += CloseRequested;
+        ViewModel.ApplySignatureHtmlFunc = ApplySignatureHtmlAsync;
+        ViewModel.RewriteErrorHandler = ShowRewriteError;
+        _editor.ContentChanged += (_, _) => _ = Dispatcher.ExecuteOnUIThread(RefreshFindAfterEdit);
+        InstallKeyMonitor();
 #if DEBUG
+        RegisterComposeDebugCommands();
         // "compose-test ADDRESS SUBJECT…" sets the only To recipient and the subject; "compose-send" sends.
         Infrastructure.MacDebugBridge.Register("compose-test", async args =>
         {
@@ -381,10 +422,14 @@ public sealed class ComposePageViewController : WinoViewController<ComposePageVi
         WinoStyle.AccentChanged += accentChanged;
         Bindings.Own(new ActionDisposable(() => WinoStyle.AccentChanged -= accentChanged));
         UpdatePopOutButton();
+        BindRewrite();
+        BindExtras();
+        BindSecurityOptions();
 
         await _editor.InitializeAsync();
         await _editor.SetThemeAsync(_darkEditor);
         await ViewModel.InitializeNavigationAsync(mode, parameter!);
+        _ = ViewModel.RefreshRewriteAvailabilityAsync();
         await Dispatcher.ExecuteOnUIThread(() =>
         {
             if (ViewModel.ToItems.Count == 0) Window()?.MakeFirstResponder(_toField);
@@ -397,6 +442,9 @@ public sealed class ComposePageViewController : WinoViewController<ComposePageVi
         ViewModel.CloseRequested -= CloseRequested;
         ViewModel.RewriteSession.Reset();
         ViewModel.RenderHtmlBodyAsyncFunc = null;
+        ViewModel.ApplySignatureHtmlFunc = null;
+        ViewModel.RewriteErrorHandler = null;
+        RemoveKeyMonitor();
         try
         {
             await SyncAllRecipientsAsync();
@@ -525,6 +573,10 @@ public sealed class ComposePageViewController : WinoViewController<ComposePageVi
             WinoLayout.Fill(row, tile);
             tile.ToolTip = attachment.FileName;
             tile.Menu = CreateAttachmentMenu(attachment);
+            tile.AccessibilityElement = true;
+            tile.AccessibilityRole = NSAccessibilityRoles.GroupRole;
+            WinoAccessibility.Label(tile, $"{attachment.FileName}, {attachment.ReadableSize}");
+            WinoAccessibility.Label(remove, $"{Translator.Buttons_Remove} {attachment.FileName}");
             _attachmentTray.AddArrangedSubview(tile);
         }
         _attachmentHost.Hidden = ViewModel.IncludedAttachments.Count == 0;
@@ -557,7 +609,7 @@ public sealed class ComposePageViewController : WinoViewController<ComposePageVi
         if (await ViewModel.UpdateMimeChangesAsync())
         {
             // No translation key exists for the composer's save status.
-            await Dispatcher.ExecuteOnUIThread(() => _draftStatus.StringValue = $"Draft saved {DateTime.Now.ToString("t", System.Globalization.CultureInfo.CurrentCulture)}");
+            await Dispatcher.ExecuteOnUIThread(() => _draftStatus.StringValue = string.Format(Translator.MacOS_Composer_DraftSaved, DateTime.Now.ToString("t", System.Globalization.CultureInfo.CurrentCulture)));
         }
     }
 
@@ -629,6 +681,7 @@ public sealed class ComposePageViewController : WinoViewController<ComposePageVi
         else Observe(DockAsync());
     }
 
+    internal Task PopOutFromHostAsync() => PopOutAsync(); // Reply from a popped-out reader (MailListPageViewController.ReadingPane.cs).
     private async Task PopOutAsync()
     {
         var host = _lastHost;
@@ -877,6 +930,8 @@ public sealed class ComposePageViewController : WinoViewController<ComposePageVi
         {
             _autosave?.Cancel();
             ViewModel.CloseRequested -= CloseRequested;
+            RemoveKeyMonitor();
+            DisposeExtras();
             if (!_editorDisposed && _editor is not null) _ = DisposeEditorAsync();
             foreach (var field in new[] { _toField, _ccField, _bccField })
                 if (field is not null) field.Delegate = null!;

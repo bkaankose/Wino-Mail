@@ -214,7 +214,7 @@ public sealed partial class MailListPageViewController
         if (row.IsThreadHead && row.Thread is { Count: > 1 })
         {
             menu.AddItem(NSMenuItem.SeparatorItem);
-            var toggle = new NSMenuItem(row.IsExpanded ? "Collapse thread" : "Expand thread", (_, _) => ToggleThread(row));
+            var toggle = new NSMenuItem(row.IsExpanded ? Translator.MacOS_MailList_CollapseThread : Translator.MacOS_MailList_ExpandThread, (_, _) => ToggleThread(row));
             menu.AddItem(toggle);
         }
     }

@@ -78,7 +78,7 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
         await AlertAsync(title, question, [confirmationButtonTitle, Translator.Buttons_Cancel]) == 0;
 
     public async Task ShowMessageAsync(string message, string title, WinoCustomMessageDialogIcon icon) =>
-        await AlertAsync(title, message, ["OK"], style: StyleFor(icon));
+        await AlertAsync(title, message, [Translator.Buttons_OK], style: StyleFor(icon));
 
     public async Task<ThreeButtonDialogResult> ShowThreeButtonDialogAsync(string title, string description, string primaryButtonText, string secondaryButtonText, string cancelButtonText, WinoCustomMessageDialogIcon? icon = null) =>
         await AlertAsync(title, description, [primaryButtonText, secondaryButtonText, cancelButtonText], style: StyleFor(icon)) switch
@@ -137,7 +137,7 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
         {
             bool shown = false;
             await dispatcher.ExecuteOnUIThread(() => shown = InlineInfoBarPresenter.TryShow(InfoBarWindow(), title, message, type));
-            if (!shown) await AlertAsync(title, message, ["OK"], style: type is InfoBarMessageType.Error or InfoBarMessageType.Warning ? NSAlertStyle.Warning : NSAlertStyle.Informational);
+            if (!shown) await AlertAsync(title, message, [Translator.Buttons_OK], style: type is InfoBarMessageType.Error or InfoBarMessageType.Warning ? NSAlertStyle.Warning : NSAlertStyle.Informational);
         }
         catch (Exception exception) { error(exception); }
     }
@@ -162,7 +162,7 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
         return owner() ?? NSApplication.SharedApplication.MainWindow;
     }
 
-    private const string NotYetOnMac = "This feature is not available in Wino Mail for Mac yet.";
+    private static string NotYetOnMac => Translator.MacOS_FeatureNotAvailable;
 
     public void ShowNotSupportedMessage() => ShowNotice("Wino Mail", NotYetOnMac, InfoBarMessageType.Information);
     public void ShowReadOnlyCalendarMessage() => ShowNotice(Translator.CalendarReadOnly_Title, Translator.CalendarReadOnly_Message, InfoBarMessageType.Warning);
@@ -614,8 +614,8 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
         table.DraggingDestinationFeedbackStyle = NSTableViewDraggingDestinationFeedbackStyle.FeedbackStyleGap;
         var scroll = new NSScrollView { DocumentView = table, HasVerticalScroller = true, BorderType = NSBorderType.BezelBorder, TranslatesAutoresizingMaskIntoConstraints = false };
 
-        var up = new NSButton { Image = WinoIcons.Image(WinoIconGlyph.ChevronUp, 12, null, "Move up"), BezelStyle = NSBezelStyle.Rounded };
-        var down = new NSButton { Image = WinoIcons.Image(WinoIconGlyph.ChevronDown, 12, null, "Move down"), BezelStyle = NSBezelStyle.Rounded };
+        var up = new NSButton { Image = WinoIcons.Image(WinoIconGlyph.ChevronUp, 12, null, Translator.MailFilters_MoveUp), BezelStyle = NSBezelStyle.Rounded };
+        var down = new NSButton { Image = WinoIcons.Image(WinoIconGlyph.ChevronDown, 12, null, Translator.MailFilters_MoveDown), BezelStyle = NSBezelStyle.Rounded };
         void Move(int delta)
         {
             var row = (int)table.SelectedRow;
@@ -650,8 +650,8 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
             catch (Exception exception) { error(exception); }
         };
 
-        var title = WinoStyle.Label("Reorder accounts", WinoStyle.Heading);
-        var hint = WinoStyle.Label("Drag accounts, or use the arrows, to set their order in the sidebar.", WinoStyle.Description, WinoStyle.SecondaryText, 0);
+        var title = WinoStyle.Label(Translator.SettingsReorderAccounts_Title, WinoStyle.Heading);
+        var hint = WinoStyle.Label(Translator.MacOS_ReorderAccounts_Hint, WinoStyle.Description, WinoStyle.SecondaryText, 0);
         var buttons = WinoLayout.HStack(WinoStyle.Space2, up, down, WinoLayout.Spacer(), cancel, save);
         var stack = WinoLayout.VStack(WinoStyle.Space3, title, hint, scroll, buttons);
         stack.EdgeInsets = new NSEdgeInsets(18, 20, 16, 20);
@@ -731,14 +731,13 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
     /// <summary>Specialized dialogs not ported yet: tell the user plainly, then return the cancel result.</summary>
     private async Task<T> NotYetAsync<T>()
     {
-        await AlertAsync("Wino Mail", NotYetOnMac, ["OK"]);
+        await AlertAsync("Wino Mail", NotYetOnMac, [Translator.Buttons_OK]);
         return default!;
     }
 
     private Task NotYetAsync() => NotYetAsync<bool>();
 
     public Task<AccountCreationDialogResult> ShowAccountProviderSelectionDialogAsync(List<IProviderDetail> availableProviders) => NotYetAsync<AccountCreationDialogResult>();
-    public Task<AccountSignature> ShowSignatureEditorDialog(AccountSignature? signatureModel = null) => NotYetAsync<AccountSignature>();
     /// <summary>
     /// Windows ImapValidationFailedDialog as a warning alert sheet: the error, the protocol log in a
     /// scrolling monospaced view, Close as the default button and Copy diagnostics.
@@ -784,7 +783,9 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
         }
         return outcome?.Account;
     }
-    public Task<bool> ShowWinoAccountExportDialogAsync() => ShowConfirmationDialogAsync("Export your backup to Wino Account?", "Backup", "Export");
+    public Task<bool> ShowWinoAccountExportDialogAsync() => ShowConfirmationDialogAsync(
+        $"{Translator.WinoAccount_Management_ExportDialog_Confirmation}\n\n{Translator.WinoAccount_Management_ExportDialog_EncryptionNotice}\n\n{Translator.WinoAccount_Management_ExportDialog_AccountsDisclaimer} {Translator.WinoAccount_Management_ExportDialog_AccountsRelogin_Device}",
+        Translator.WinoAccount_Management_ExportDialog_Title, Translator.WinoAccount_Management_LocalDataExportAction);
 
     // Account work never owns the modal gate: browser authentication must remain presentable.
     private sealed class AccountProgress(IDispatcher dispatcher, Func<NSWindow?> owner, Action<Exception> error) : IAccountCreationDialog
@@ -801,8 +802,8 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
             _sheet.ReleaseWhenClosed(false);
             var spinner = new NSProgressIndicator { Style = NSProgressIndicatorStyle.Spinning, ControlSize = NSControlSize.Small, Indeterminate = true };
             spinner.StartAnimation(null);
-            var title = WinoStyle.Label("Adding account", WinoStyle.Heading);
-            var label = WinoStyle.Label("Complete sign-in in your browser. Wino Mail will finish preparing the account.", WinoStyle.Body, WinoStyle.SecondaryText, 0);
+            var title = WinoStyle.Label(Translator.MacOS_AccountCreation_Title, WinoStyle.Heading);
+            var label = WinoStyle.Label(Translator.MacOS_AccountCreation_BrowserMessage, WinoStyle.Body, WinoStyle.SecondaryText, 0);
             label.PreferredMaxLayoutWidth = 340;
             var cancel = new NSButton { Title = Translator.Buttons_Cancel, BezelStyle = NSBezelStyle.Rounded, KeyEquivalent = "\u001b" };
             cancel.Activated += (_, _) => cancellationTokenSource.Cancel();

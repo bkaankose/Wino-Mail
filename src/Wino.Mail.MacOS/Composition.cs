@@ -73,11 +73,15 @@ internal static class Composition
         services.AddSingleton<MacWinoThemeService>();
         services.AddSingleton<INewThemeService>(provider => provider.GetRequiredService<MacWinoThemeService>());
         services.AddSingleton<IMicrosoftStoreService, MacMicrosoftStoreService>();
+        // The companion's global shortcut is a Carbon hotkey (MacCompanionHotKeyController).
+        services.AddSingleton<MacGlobalHotKeyService>();
+        services.AddSingleton<MacCompanionHotKeyController>();
         // The tray is the menu bar icon (MacStatusItemController), so every close behaviour is offered.
-        // Global hotkeys, additional windows and the Microsoft Store stay unsupported on macOS.
+        // Additional windows are the pop-out reader, composer and event details windows; the global
+        // hotkey is the companion shortcut. The Microsoft Store stays unsupported on macOS.
         services.AddSingleton<IPlatformCapabilities>(new PlatformCapabilities(
-            Printing: true, PdfExport: true, Smime: true, Notifications: true, NotificationActions: true,
-            StartupIntegration: true, Tray: true, GeneralActivation: true,
+            Printing: true, PdfExport: true, Smime: true, AdditionalWindows: true, Notifications: true, NotificationActions: true,
+            StartupIntegration: true, Tray: true, GlobalHotkeys: true, GeneralActivation: true,
 #if WINO_APPSTORE
             AppleAppStore: true
 #else

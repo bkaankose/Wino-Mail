@@ -15,7 +15,7 @@ public sealed partial class WinoAccountManagementPageViewController
     private IEnumerable<NSView> SyncCards()
     {
         var vm = ViewModel;
-        var card = CommandCard(Translator.SettingsBackupRestore_Title, Translator.WinoAccount_Management_BackupRestoreDescription, WinoIconGlyph.None, vm.OpenBackupRestoreCommand);
+        var card = CommandCard(Translator.SettingsBackupRestore_Title, Translator.WinoAccount_Management_BackupRestoreDescription_Device, WinoIconGlyph.None, vm.OpenBackupRestoreCommand);
         card.LeadingView = new WinoIconView(WinoIconGlyph.Sync, 20, WinoStyle.Informational);
         card.AccessibilityIdentifier = "WinoAccountBackupRestoreCard";
         yield return card;

@@ -665,12 +665,58 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     public async Task MoveCalendarItemAsync(CalendarItemViewModel calendarItemViewModel, DateTime targetStart)
     {
-        if (calendarItemViewModel?.CalendarItem == null)
+        if (!CanChangeCalendarItemTimes(calendarItemViewModel))
         {
             return;
         }
 
         var calendarItem = calendarItemViewModel.CalendarItem;
+        var normalizedTargetStart = calendarItem.IsAllDayEvent
+            ? targetStart.Date
+            : targetStart;
+
+        await ChangeCalendarItemTimesAsync(calendarItemViewModel, normalizedTargetStart, calendarItem.DurationInSeconds).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Changes a timed event's end while keeping its start (bottom-edge resize on macOS).
+    /// Uses the same validation and ChangeStartAndEndDate persistence path as <see cref="MoveCalendarItemAsync"/>.
+    /// </summary>
+    /// <param name="calendarItemViewModel">Event to resize.</param>
+    /// <param name="targetEnd">New end in local time. Must be after the event start.</param>
+    public async Task ResizeCalendarItemAsync(CalendarItemViewModel calendarItemViewModel, DateTime targetEnd)
+    {
+        if (!CanChangeCalendarItemTimes(calendarItemViewModel))
+        {
+            return;
+        }
+
+        var calendarItem = calendarItemViewModel.CalendarItem;
+
+        if (calendarItem.IsAllDayEvent)
+        {
+            return;
+        }
+
+        var localStart = calendarItem.LocalStartDate;
+
+        if (targetEnd <= localStart)
+        {
+            return;
+        }
+
+        await ChangeCalendarItemTimesAsync(calendarItemViewModel, localStart, (targetEnd - localStart).TotalSeconds).ConfigureAwait(false);
+    }
+
+    /// <summary>Shows the Windows refusal info bars for events whose times cannot change.</summary>
+    private bool CanChangeCalendarItemTimes(CalendarItemViewModel calendarItemViewModel)
+    {
+        var calendarItem = calendarItemViewModel?.CalendarItem;
+
+        if (calendarItem == null)
+        {
+            return false;
+        }
 
         if (!calendarItem.CanChangeStartAndEndDate)
         {
@@ -678,23 +724,26 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                 Translator.CalendarDragDropMoveNotAllowedTitle,
                 Translator.CalendarDragDropMoveNotAllowedMessage,
                 InfoBarMessageType.Warning);
-            return;
+            return false;
         }
 
         if (calendarItem.AssignedCalendar?.IsReadOnly == true)
         {
             _dialogService.ShowReadOnlyCalendarMessage();
-            return;
+            return false;
         }
 
-        var normalizedTargetStart = calendarItem.IsAllDayEvent
-            ? targetStart.Date
-            : targetStart;
-        var targetEnd = normalizedTargetStart.AddSeconds(calendarItem.DurationInSeconds);
+        return true;
+    }
+
+    private async Task ChangeCalendarItemTimesAsync(CalendarItemViewModel calendarItemViewModel, DateTime localStart, double durationInSeconds)
+    {
+        var calendarItem = calendarItemViewModel.CalendarItem;
+        var targetEnd = localStart.AddSeconds(durationInSeconds);
         var currentLocalStart = calendarItem.LocalStartDate;
         var currentLocalEnd = calendarItem.LocalEndDate;
 
-        if (currentLocalStart == normalizedTargetStart && currentLocalEnd == targetEnd)
+        if (currentLocalStart == localStart && currentLocalEnd == targetEnd)
         {
             return;
         }
@@ -705,8 +754,8 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         await ExecuteUIThread(() =>
         {
-            calendarItemViewModel.StartDate = normalizedTargetStart;
-            calendarItemViewModel.DurationInSeconds = calendarItem.DurationInSeconds;
+            calendarItemViewModel.StartDate = localStart;
+            calendarItemViewModel.DurationInSeconds = durationInSeconds;
         }).ConfigureAwait(false);
 
         await _calendarService.UpdateCalendarItemAsync(calendarItem, attendees).ConfigureAwait(false);

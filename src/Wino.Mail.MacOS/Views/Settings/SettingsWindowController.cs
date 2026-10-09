@@ -160,7 +160,7 @@ public sealed class SettingsWindowController : NSWindowController
     }
 
     /// <summary>Places a page controller in the zone, replacing the previous one, under the breadcrumb title.</summary>
-    public void SetPage(NSViewController controller, string title, WinoPage page, WinoPage rootPage)
+    public void SetPage(NSViewController controller, string title, WinoPage page, WinoPage rootPage, string? description = null)
     {
         if (_page is not null)
         {
@@ -173,7 +173,7 @@ public sealed class SettingsWindowController : NSWindowController
         view.TranslatesAutoresizingMaskIntoConstraints = false;
         _pageHost.AddSubview(view);
         WinoLayout.Fill(view, _pageHost);
-        SetTitle(title, page, rootPage);
+        SetTitle(title, page, rootPage, description);
         _sidebar.Select(rootPage);
     }
 
@@ -186,7 +186,7 @@ public sealed class SettingsWindowController : NSWindowController
     }
 
     /// <summary>Window title, plus the in-zone breadcrumb: "Root ›" in secondary colour before a sub-page title.</summary>
-    public void SetTitle(string title, WinoPage page, WinoPage rootPage)
+    public void SetTitle(string title, WinoPage page, WinoPage rootPage, string? description = null)
     {
         var text = string.IsNullOrWhiteSpace(title) ? Translator.MenuSettings : title;
         Window!.Title = text;
@@ -194,7 +194,7 @@ public sealed class SettingsWindowController : NSWindowController
         var nested = page != rootPage;
         _crumb.Hidden = !nested;
         _crumb.StringValue = nested ? SettingsPageCatalog.Title(rootPage) + "  ›" : string.Empty;
-        var description = SettingsPageCatalog.Description(page);
+        description ??= SettingsPageCatalog.Description(page);
         _description.StringValue = description;
         _description.Hidden = string.IsNullOrWhiteSpace(description);
     }

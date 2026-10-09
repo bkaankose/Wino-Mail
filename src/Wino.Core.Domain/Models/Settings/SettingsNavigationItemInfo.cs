@@ -109,7 +109,7 @@ public static class SettingsNavigationInfoProvider
                 searchKeywords: Translator.SettingsSearch_KeyboardShortcuts_Keywords),
             new(WinoPage.BackupRestorePage,
                 Translator.SettingsBackupRestore_Title,
-                Translator.SettingsBackupRestore_Description,
+                Translator.SettingsBackupRestore_Description_Device,
                 WinoIconGlyph.ArrowSyncCircle,
                 searchKeywords: Translator.SettingsSearch_BackupRestore_Keywords),
             new(WinoPage.AboutPage,

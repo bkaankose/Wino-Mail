@@ -405,13 +405,13 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         if (Account.IsMailAccessGranted && !IsMailCapabilitySelected)
         {
             titles.Add(Translator.AccountDetailsPage_MailTransitionTitle);
-            messages.Add(Translator.AccountDetailsPage_DisableMailConfirmation);
+            messages.Add(Translator.AccountDetailsPage_DisableMailConfirmation_Device);
         }
 
         if (Account.IsCalendarAccessGranted && !IsCalendarCapabilitySelected)
         {
             titles.Add(Translator.AccountDetailsPage_CalendarTransitionTitle);
-            messages.Add(Translator.AccountDetailsPage_DisableCalendarConfirmation);
+            messages.Add(Translator.AccountDetailsPage_DisableCalendarConfirmation_Device);
         }
 
         if (Account.IsContactAccessGranted != IsContactsCapabilitySelected)

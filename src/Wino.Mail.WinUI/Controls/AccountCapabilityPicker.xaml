@@ -101,20 +101,20 @@
                         </RadioButton>
                         <RadioButton
                             AutomationProperties.AutomationId="AccountCapabilityCalendarLocalOption"
-                            AutomationProperties.Name="{x:Bind domain:Translator.CapabilityPicker_LocalOption, Mode=OneTime}"
+                            AutomationProperties.Name="{x:Bind domain:Translator.CapabilityPicker_LocalOption_Device, Mode=OneTime}"
                             GroupName="AccountCapabilityCalendarMode"
                             IsChecked="{x:Bind Selection.IsCalendarLocalSelected, Mode=TwoWay}">
                             <StackPanel Spacing="2">
-                                <TextBlock Text="{x:Bind domain:Translator.CapabilityPicker_LocalOption, Mode=OneTime}" />
-                                <TextBlock Style="{StaticResource CapabilityOptionDescriptionStyle}" Text="{x:Bind domain:Translator.ProviderSelection_Why_CalendarLocal, Mode=OneTime}" />
+                                <TextBlock Text="{x:Bind domain:Translator.CapabilityPicker_LocalOption_Device, Mode=OneTime}" />
+                                <TextBlock Style="{StaticResource CapabilityOptionDescriptionStyle}" Text="{x:Bind domain:Translator.ProviderSelection_Why_CalendarLocal_Device, Mode=OneTime}" />
                             </StackPanel>
                         </RadioButton>
                     </StackPanel>
                 </controls:SettingsCard>
                 <controls:SettingsCard
                     AutomationProperties.AutomationId="AccountCapabilityCalendarLocalNoteCard"
-                    Description="{x:Bind domain:Translator.ProviderSelection_Why_CalendarLocal, Mode=OneTime}"
-                    Header="{x:Bind domain:Translator.CapabilityPicker_LocalOption, Mode=OneTime}"
+                    Description="{x:Bind domain:Translator.ProviderSelection_Why_CalendarLocal_Device, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.CapabilityPicker_LocalOption_Device, Mode=OneTime}"
                     Visibility="{x:Bind Selection.IsCalendarLocalOnlyNoteVisible, Mode=OneWay}" />
             </controls:SettingsExpander.Items>
         </controls:SettingsExpander>
@@ -152,20 +152,20 @@
                         </RadioButton>
                         <RadioButton
                             AutomationProperties.AutomationId="AccountCapabilityContactsLocalOption"
-                            AutomationProperties.Name="{x:Bind domain:Translator.CapabilityPicker_LocalOption, Mode=OneTime}"
+                            AutomationProperties.Name="{x:Bind domain:Translator.CapabilityPicker_LocalOption_Device, Mode=OneTime}"
                             GroupName="AccountCapabilityContactsMode"
                             IsChecked="{x:Bind Selection.IsContactLocalSelected, Mode=TwoWay}">
                             <StackPanel Spacing="2">
-                                <TextBlock Text="{x:Bind domain:Translator.CapabilityPicker_LocalOption, Mode=OneTime}" />
-                                <TextBlock Style="{StaticResource CapabilityOptionDescriptionStyle}" Text="{x:Bind domain:Translator.ProviderSelection_Why_ContactsLocal, Mode=OneTime}" />
+                                <TextBlock Text="{x:Bind domain:Translator.CapabilityPicker_LocalOption_Device, Mode=OneTime}" />
+                                <TextBlock Style="{StaticResource CapabilityOptionDescriptionStyle}" Text="{x:Bind domain:Translator.ProviderSelection_Why_ContactsLocal_Device, Mode=OneTime}" />
                             </StackPanel>
                         </RadioButton>
                     </StackPanel>
                 </controls:SettingsCard>
                 <controls:SettingsCard
                     AutomationProperties.AutomationId="AccountCapabilityContactsLocalNoteCard"
-                    Description="{x:Bind domain:Translator.ProviderSelection_Why_ContactsLocal, Mode=OneTime}"
-                    Header="{x:Bind domain:Translator.CapabilityPicker_LocalOption, Mode=OneTime}"
+                    Description="{x:Bind domain:Translator.ProviderSelection_Why_ContactsLocal_Device, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.CapabilityPicker_LocalOption_Device, Mode=OneTime}"
                     Visibility="{x:Bind Selection.IsContactLocalOnlyNoteVisible, Mode=OneWay}" />
             </controls:SettingsExpander.Items>
         </controls:SettingsExpander>
@@ -203,12 +203,12 @@
                         </RadioButton>
                         <RadioButton
                             AutomationProperties.AutomationId="AccountCapabilityTasksLocalOption"
-                            AutomationProperties.Name="{x:Bind domain:Translator.CapabilityPicker_LocalOption, Mode=OneTime}"
+                            AutomationProperties.Name="{x:Bind domain:Translator.CapabilityPicker_LocalOption_Device, Mode=OneTime}"
                             GroupName="AccountCapabilityTasksMode"
                             IsChecked="{x:Bind Selection.IsTaskLocalSelected, Mode=TwoWay}">
                             <StackPanel Spacing="2">
-                                <TextBlock Text="{x:Bind domain:Translator.CapabilityPicker_LocalOption, Mode=OneTime}" />
-                                <TextBlock Style="{StaticResource CapabilityOptionDescriptionStyle}" Text="{x:Bind domain:Translator.ProviderSelection_Why_TasksLocal, Mode=OneTime}" />
+                                <TextBlock Text="{x:Bind domain:Translator.CapabilityPicker_LocalOption_Device, Mode=OneTime}" />
+                                <TextBlock Style="{StaticResource CapabilityOptionDescriptionStyle}" Text="{x:Bind domain:Translator.ProviderSelection_Why_TasksLocal_Device, Mode=OneTime}" />
                             </StackPanel>
                         </RadioButton>
                     </StackPanel>
@@ -216,7 +216,7 @@
                 <controls:SettingsCard
                     AutomationProperties.AutomationId="AccountCapabilityTasksLocalNoteCard"
                     Description="{x:Bind Selection.TaskLocalOnlyNote, Mode=OneWay}"
-                    Header="{x:Bind domain:Translator.CapabilityPicker_LocalOption, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.CapabilityPicker_LocalOption_Device, Mode=OneTime}"
                     Visibility="{x:Bind Selection.IsTaskLocalOnlyNoteVisible, Mode=OneWay}" />
             </controls:SettingsExpander.Items>
         </controls:SettingsExpander>

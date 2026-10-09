@@ -68,6 +68,10 @@ public static partial class MacViewModelRegistration
         RegisterBackupSettingsViews(services);
         RegisterWinoAccountSettingsViews(services);
         RegisterCompanionSettingsViews(services);
+        RegisterAccountExtrasSettingsViews(services);
+        RegisterSignatureSettingsViews(services);
+        RegisterFilterSettingsViews(services);
+        RegisterTemplateSettingsViews(services);
         RegisterActivationServices(services);
         RegisterNotificationServices(services);
         return services;
@@ -88,6 +92,10 @@ public static partial class MacViewModelRegistration
     static partial void RegisterBackupSettingsViews(IServiceCollection services);
     static partial void RegisterWinoAccountSettingsViews(IServiceCollection services);
     static partial void RegisterCompanionSettingsViews(IServiceCollection services);
+    static partial void RegisterAccountExtrasSettingsViews(IServiceCollection services);
+    static partial void RegisterSignatureSettingsViews(IServiceCollection services);
+    static partial void RegisterFilterSettingsViews(IServiceCollection services);
+    static partial void RegisterTemplateSettingsViews(IServiceCollection services);
     static partial void RegisterActivationServices(IServiceCollection services);
     static partial void RegisterNotificationServices(IServiceCollection services);
 }
