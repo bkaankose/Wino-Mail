@@ -1,8 +1,11 @@
 using AppKit;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Personalization;
 using Wino.Presentation.AppKit;
+using Wino.Services.Themes;
 
 namespace Wino.Mail.MacOS.Infrastructure;
 
@@ -11,9 +14,17 @@ namespace Wino.Mail.MacOS.Infrastructure;
 /// accent, forces light or dark where the Windows theme does, and supplies a backdrop tint
 /// that the shell paints behind the mail list and reader (docs/macos-design-decisions.md).
 /// Theme ids, accents and configuration keys match the Windows NewThemeService so a theme
-/// chosen on one platform resolves to the same theme on the other. Custom themes are deferred.
+/// chosen on one platform resolves to the same theme on the other.
+/// Custom themes use the Windows file layout (<see cref="CustomThemeFileStore"/>): their wallpaper is
+/// painted by ThemeBackdropView with the theme's fit and focal point, and their palette recolours the
+/// zones, reader, list header, sidebar and calendar slots through <see cref="WinoThemeSurfaces"/>.
 /// </summary>
-public sealed class MacWinoThemeService(IDispatcher dispatcher, IConfigurationService configuration, IPreferencesService preferences) : INewThemeService
+/// <remarks>
+/// Threading: file and image work runs in the background; every static, the surfaces and the window
+/// redraw are touched on the UI thread inside <see cref="ApplyThemeToActiveWindowAsync"/>, the single
+/// apply point. The custom theme list and the wallpaper cache are guarded by one lock.
+/// </remarks>
+public sealed class MacWinoThemeService(IDispatcher dispatcher, IConfigurationService configuration, IPreferencesService preferences, CustomThemeFileStore store) : INewThemeService
 {
     /// <summary>
     /// The background of the gradient themes, copied from their Windows AppThemes/*.xaml
@@ -60,9 +71,18 @@ public sealed class MacWinoThemeService(IDispatcher dispatcher, IConfigurationSe
         new("Indigo", Guid.Parse("14c784d9-d8d3-462d-9b2c-965967d86d38"), "#4c5fd7", ApplicationElementTheme.Default)
     ];
 
+    /// <summary>The editor's unsaved theme while it previews it; never persisted.</summary>
+    private sealed record PreviewState(CustomThemeMetadata Metadata, NSImage? Wallpaper, ApplicationElementTheme ElementTheme);
+
+    private readonly object _sync = new();
+    private readonly Dictionary<Guid, NSImage?> _wallpapers = new();
+    private List<CustomThemeMetadata> _customThemes = [];
     private ApplicationElementTheme _rootTheme;
     private string _accent = string.Empty;
     private Guid? _themeId;
+    private PreviewState? _preview;
+    private NSImage? _previewWallpaper;
+    private static bool _redrawPending;
 
     public event EventHandler<ApplicationElementTheme>? ElementThemeChanged;
     public event EventHandler<string>? AccentColorChanged;
@@ -74,30 +94,43 @@ public sealed class MacWinoThemeService(IDispatcher dispatcher, IConfigurationSe
     /// <summary>The current theme's accent, or null when no theme backdrop should be shown.</summary>
     public static NSColor? BackdropTint { get; private set; }
 
-    /// <summary>The current theme's wallpaper (Resources/Themes/{name}.jpg), or null.</summary>
+    /// <summary>The current theme's wallpaper (Resources/Themes/{name}.jpg or a custom wallpaper), or null.</summary>
     public static NSImage? BackdropImage { get; private set; }
 
     /// <summary>The current gradient theme's stops as light start/end, dark start/end, or null.</summary>
     public static uint[]? BackdropGradient { get; private set; }
 
+    /// <summary>How a custom wallpaper fills the window. Predefined wallpapers always fill.</summary>
+    public static ThemeWallpaperFit BackdropFit { get; private set; } = ThemeWallpaperFit.Fill;
+
+    /// <summary>A custom wallpaper's focal point, or null for predefined wallpapers (anchored to the top).</summary>
+    public static ThemeWallpaperAlignment? BackdropAlignment { get; private set; }
+
     /// <summary>True when a theme paints the window (wallpaper or gradient): panes then float as Wino zones.</summary>
     public static bool HasBackdrop => BackdropImage is not null || BackdropGradient is not null;
 
-    /// <summary>Wallpaper used for a theme's preview tile, or null when it has none.</summary>
+    /// <summary>Wallpaper used for a predefined theme's preview tile, or null when it has none.</summary>
     public static NSImage? PreviewImage(string themeName) => LoadThemeImage(themeName);
+
+    /// <summary>A gradient theme's stops (light start/end, dark start/end), or null.</summary>
+    public static uint[]? GradientFor(string? themeName)
+        => themeName is not null && GradientThemes.TryGetValue(themeName, out var stops) ? stops : null;
 
     private static readonly Dictionary<string, NSImage?> ImageCache = new();
 
     private static NSImage? LoadThemeImage(string themeName)
     {
-        if (ImageCache.TryGetValue(themeName, out var cached)) return cached;
-        var path = Path.Combine(Foundation.NSBundle.MainBundle.ResourcePath ?? string.Empty, "Themes", themeName + ".jpg");
-        var image = File.Exists(path) ? new NSImage(path) : null;
-        ImageCache[themeName] = image;
-        return image;
+        lock (ImageCache)
+        {
+            if (ImageCache.TryGetValue(themeName, out var cached)) return cached;
+            var path = Path.Combine(Foundation.NSBundle.MainBundle.ResourcePath ?? string.Empty, "Themes", themeName + ".jpg");
+            var image = File.Exists(path) ? new NSImage(path) : null;
+            ImageCache[themeName] = image;
+            return image;
+        }
     }
 
-    public bool IsCustomTheme => false;
+    public bool IsCustomTheme => _themeId is { } id && FindPredefined(id) is null;
     public WindowBackdropType CurrentBackdropType { get; set; } = WindowBackdropType.None;
 
     public bool IsBackdropEnabled
@@ -118,13 +151,19 @@ public sealed class MacWinoThemeService(IDispatcher dispatcher, IConfigurationSe
         }
     }
 
+    /// <summary>
+    /// Setting a different id (Wino Account restore) selects that theme right away, like the Windows
+    /// setter. An id that exists on neither list stays stored and renders as Default.
+    /// </summary>
     public Guid? CurrentApplicationThemeId
     {
         get => _themeId;
         set
         {
+            if (value == _themeId) return;
             _themeId = value;
             configuration.Set(CurrentApplicationThemeKey, value ?? DefaultThemeId);
+            _ = ObserveAsync(ActivateStoredThemeAsync());
         }
     }
 
@@ -151,26 +190,73 @@ public sealed class MacWinoThemeService(IDispatcher dispatcher, IConfigurationSe
                 _ = dispatcher.ExecuteOnUIThread(() => WinoIcons.Style = preferences.IconStyle);
         };
         var stored = configuration.Get<Guid?>(CurrentApplicationThemeKey, null);
-        _themeId = stored is { } id && Themes.Any(theme => theme.Id == id) ? id : DefaultThemeId;
+        _themeId = DefaultThemeId;
+        if (stored is { } id)
+        {
+            // Like Windows, custom themes are only read at launch when one is in use.
+            if (FindPredefined(id) is not null) _themeId = id;
+            else if ((await RefreshCustomThemesAsync()).Any(theme => theme.Id == id)) _themeId = id;
+        }
         await ApplyThemeToActiveWindowAsync();
     }
 
-    public Task<List<AppThemeBase>> GetAvailableThemesAsync() => Task.FromResult(Themes.Cast<AppThemeBase>().ToList());
+    public async Task<List<AppThemeBase>> GetAvailableThemesAsync()
+    {
+        var themes = new List<AppThemeBase>(Themes);
+        themes.AddRange((await RefreshCustomThemesAsync()).Select(metadata => new MacCustomTheme(metadata, store.PreviewPath(metadata.Id))));
+        foreach (var theme in themes) await theme.LoadPreviewImageAsync();
+        return themes;
+    }
 
     public async Task SelectThemeAsync(Guid themeId, bool forceReapply = false)
     {
-        var theme = Themes.FirstOrDefault(item => item.Id == themeId) ?? Themes[0];
-        if (!forceReapply && theme.Id == _themeId) return;
-        CurrentApplicationThemeId = theme.Id;
-        _accent = theme.AccentColor ?? string.Empty;
+        var predefined = FindPredefined(themeId);
+        var custom = predefined is null ? await FindCustomAsync(themeId) : null;
+        if (predefined is null && custom is null)
+            throw new InvalidOperationException($"Theme '{themeId}' is not available.");
+        if (!forceReapply && themeId == _themeId && _preview is null) return;
+
+        var previous = CaptureRuntimeState();
+        try
+        {
+            _preview = null;
+            _themeId = themeId;
+            configuration.Set(CurrentApplicationThemeKey, themeId);
+            ApplyThemeChoice(predefined, custom);
+            await ApplyThemeToActiveWindowAsync();
+        }
+        catch
+        {
+            await RestoreRuntimeStateAsync(previous);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// What selecting a theme does to accent and appearance (Windows ApplyCustomThemeCoreAsync): the
+    /// theme's accent (empty means the system accent); a predefined theme may force light or dark,
+    /// a custom theme keeps the saved appearance.
+    /// </summary>
+    private void ApplyThemeChoice(MacPredefinedTheme? predefined, CustomThemeMetadata? custom)
+    {
+        _accent = predefined?.AccentColor ?? custom?.AccentColorHex ?? string.Empty;
         configuration.Set(AccentColorKey, _accent);
         AccentColorChanged?.Invoke(this, _accent);
-        if (theme.ForceElementTheme != ApplicationElementTheme.Default)
+        if (predefined is { ForceElementTheme: not ApplicationElementTheme.Default } forced)
         {
-            _rootTheme = theme.ForceElementTheme;
+            _rootTheme = forced.ForceElementTheme;
             configuration.Set(SelectedAppThemeKey, _rootTheme);
             ElementThemeChanged?.Invoke(this, _rootTheme);
         }
+    }
+
+    /// <summary>The id was set from outside (restore): resolve it and apply it like a selection.</summary>
+    private async Task ActivateStoredThemeAsync()
+    {
+        var id = _themeId ?? DefaultThemeId;
+        var predefined = FindPredefined(id);
+        var custom = predefined is null ? await FindCustomAsync(id) : null;
+        if (predefined is not null || custom is not null) ApplyThemeChoice(predefined, custom);
         await ApplyThemeToActiveWindowAsync();
     }
 
@@ -187,33 +273,116 @@ public sealed class MacWinoThemeService(IDispatcher dispatcher, IConfigurationSe
         return $"#{(int)(color.RedComponent * 255):x2}{(int)(color.GreenComponent * 255):x2}{(int)(color.BlueComponent * 255):x2}";
     }
 
-    public Task ApplyThemeToActiveWindowAsync() => dispatcher.ExecuteOnUIThread(() =>
+    /// <summary>The single apply point: resolves the theme (or the editor preview) and paints it on the UI thread.</summary>
+    public async Task ApplyThemeToActiveWindowAsync()
     {
-        NSApplication.SharedApplication.Appearance = _rootTheme switch
+        var preview = _preview;
+        CustomThemeMetadata? custom = preview?.Metadata;
+        NSImage? wallpaper = preview?.Wallpaper;
+        if (preview is null && _themeId is { } id && FindPredefined(id) is null)
+        {
+            custom = FindCachedCustom(id);
+            if (custom is not null) wallpaper = await LoadWallpaperAsync(id);
+        }
+
+        await dispatcher.ExecuteOnUIThread(() => ApplyOnUIThread(preview, custom, wallpaper));
+    }
+
+    private void ApplyOnUIThread(PreviewState? preview, CustomThemeMetadata? custom, NSImage? wallpaper)
+    {
+        var root = preview?.ElementTheme ?? _rootTheme;
+        NSApplication.SharedApplication.Appearance = root switch
         {
             ApplicationElementTheme.Dark => NSAppearance.GetAppearance(NSAppearance.NameDarkAqua),
             ApplicationElementTheme.Light => NSAppearance.GetAppearance(NSAppearance.NameAqua),
             _ => null
         };
-        var accent = WinoStyle.FromHexString(_accent);
+        var accent = WinoStyle.FromHexString(preview is null ? _accent : preview.Metadata.AccentColorHex);
         WinoStyle.AccentOverride = accent;
-        var theme = Themes.FirstOrDefault(item => item.Id == _themeId);
-        var hasTheme = theme is not null && theme.Id != DefaultThemeId && IsBackdropEnabled;
-        BackdropTint = hasTheme ? accent : null;
-        BackdropGradient = hasTheme && GradientThemes.TryGetValue(theme!.ThemeName, out var stops) ? stops : null;
-        BackdropImage = hasTheme && BackdropGradient is null ? LoadThemeImage(theme!.ThemeName) : null;
+        bool enabled = IsBackdropEnabled;
+
+        if (custom is not null)
+        {
+            BackdropTint = enabled ? accent : null;
+            BackdropGradient = null;
+            // A wallpaper that does not decode leaves the window without a backdrop rather than failing.
+            BackdropImage = enabled ? wallpaper : null;
+            BackdropFit = custom.WallpaperFit;
+            BackdropAlignment = custom.WallpaperFit == ThemeWallpaperFit.Fit ? ThemeWallpaperAlignment.Center : custom.WallpaperAlignment;
+            if (enabled) WinoThemeSurfaces.Apply(BuildSurfaces(custom));
+            else WinoThemeSurfaces.Clear();
+        }
+        else
+        {
+            var theme = _themeId is { } id ? FindPredefined(id) : null;
+            var hasTheme = theme is not null && theme.Id != DefaultThemeId && enabled;
+            BackdropTint = hasTheme ? accent : null;
+            BackdropGradient = hasTheme ? GradientFor(theme!.ThemeName) : null;
+            BackdropImage = hasTheme && BackdropGradient is null ? LoadThemeImage(theme!.ThemeName) : null;
+            BackdropFit = ThemeWallpaperFit.Fill;
+            BackdropAlignment = null;
+            WinoThemeSurfaces.Clear();
+        }
+
         WinoStyle.HasBackdrop = HasBackdrop;
         AppearanceChanged?.Invoke(this, EventArgs.Empty);
-    });
+        ScheduleRedraw();
+    }
+
+    /// <summary>The custom palette per appearance, resolved like the Windows Custom.xaml dictionaries.</summary>
+    private static Dictionary<WinoThemeSurface, (NSColor Light, NSColor Dark)> BuildSurfaces(CustomThemeMetadata metadata)
+    {
+        var light = metadata.LightPalette?.Resolve(false) ?? CustomThemePalette.CreateDefaults(false);
+        var dark = metadata.DarkPalette?.Resolve(true) ?? CustomThemePalette.CreateDefaults(true);
+        var result = new Dictionary<WinoThemeSurface, (NSColor Light, NSColor Dark)>();
+        void Add(WinoThemeSurface surface, Func<CustomThemePalette, string?> read)
+        {
+            if (WinoStyle.FromHexString(read(light)) is { } lightColor && WinoStyle.FromHexString(read(dark)) is { } darkColor)
+                result[surface] = (lightColor, darkColor);
+        }
+        Add(WinoThemeSurface.Workspace, palette => palette.WinoContentZoneBackgroud);
+        Add(WinoThemeSurface.ReadingPane, palette => palette.ReadingPaneBackgroundColorBrush);
+        Add(WinoThemeSurface.MailListHeader, palette => palette.MailListHeaderBackgroundColor);
+        Add(WinoThemeSurface.Navigation, palette => palette.NavigationViewContentBackground);
+        Add(WinoThemeSurface.CalendarDefaultHour, palette => palette.CalendarDefaultHourBackgroundBrush);
+        Add(WinoThemeSurface.CalendarWorkHour, palette => palette.CalendarWorkHourBackgroundBrush);
+        return result;
+    }
+
+    /// <summary>One redraw of every window per run-loop turn, however many applies arrive (colour-well drags).</summary>
+    private static void ScheduleRedraw()
+    {
+        if (_redrawPending) return;
+        _redrawPending = true;
+        NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
+        {
+            _redrawPending = false;
+            foreach (var window in NSApplication.SharedApplication.DangerousWindows)
+                if (window.ContentView is { } content) MarkForRedraw(content);
+        });
+    }
+
+    private static void MarkForRedraw(NSView view)
+    {
+        view.NeedsDisplay = true;
+        foreach (var subview in view.Subviews) MarkForRedraw(subview);
+    }
 
     public ThemeRuntimeState CaptureRuntimeState() => new(_themeId, _themeId ?? DefaultThemeId, _accent, _rootTheme);
 
-    public Task RestoreRuntimeStateAsync(ThemeRuntimeState state)
+    public async Task RestoreRuntimeStateAsync(ThemeRuntimeState state)
     {
+        _preview = null;
+        _previewWallpaper = null;
         _themeId = state.ThemeId;
+        configuration.Set(CurrentApplicationThemeKey, state.ThemeId ?? DefaultThemeId);
         _accent = state.AccentColor ?? string.Empty;
         _rootTheme = state.ElementTheme;
-        return ApplyThemeToActiveWindowAsync();
+        if (state.ThemeId is { } id && FindPredefined(id) is null && FindCachedCustom(id) is null)
+            await RefreshCustomThemesAsync();
+        AccentColorChanged?.Invoke(this, _accent);
+        ElementThemeChanged?.Invoke(this, _rootTheme);
+        await ApplyThemeToActiveWindowAsync();
     }
 
     public List<string> GetAvailableAccountColors() =>
@@ -231,14 +400,142 @@ public sealed class MacWinoThemeService(IDispatcher dispatcher, IConfigurationSe
     public void ApplyIconStyle() { }
     public void UpdateSystemCaptionButtonColors() { }
 
-    // Custom themes are deferred on macOS (decision record).
-    public Task ApplyCustomThemeAsync(bool isInitializing) => Task.CompletedTask;
-    public Task<CustomThemeMetadata?> GetCustomThemeAsync(Guid themeId) => Task.FromResult<CustomThemeMetadata?>(null);
-    public Task<List<CustomThemeMetadata>> GetCurrentCustomThemesAsync() => Task.FromResult(new List<CustomThemeMetadata>());
-    public Task<bool> DeleteCustomThemeAsync(Guid themeId) => Task.FromResult(false);
-    public Task<CustomThemeMetadata> SaveCustomThemeAsync(CustomThemeSaveRequest request)
-        => Task.FromException<CustomThemeMetadata>(new PlatformNotSupportedException("Custom themes are not available on macOS yet."));
-    public Task PreviewCustomThemeAsync(CustomThemeMetadata metadata, byte[]? wallpaperData, ApplicationElementTheme elementTheme) => Task.CompletedTask;
+    // ---- Custom themes ----
+
+    public Task ApplyCustomThemeAsync(bool isInitializing) => ApplyThemeToActiveWindowAsync();
+
+    public async Task<CustomThemeMetadata?> GetCustomThemeAsync(Guid themeId)
+        => (await RefreshCustomThemesAsync()).FirstOrDefault(theme => theme.Id == themeId);
+
+    public Task<List<CustomThemeMetadata>> GetCurrentCustomThemesAsync() => RefreshCustomThemesAsync();
+
+    public async Task<CustomThemeMetadata> SaveCustomThemeAsync(CustomThemeSaveRequest request)
+    {
+        var themes = await RefreshCustomThemesAsync();
+        var validationError = CustomThemeSaveValidator.Validate(request, themes);
+        if (validationError != CustomThemeValidationError.None)
+        {
+            throw new CustomThemeCreationFailedException(validationError switch
+            {
+                CustomThemeValidationError.MissingName => Translator.Exception_CustomThemeMissingName,
+                CustomThemeValidationError.MissingWallpaper => Translator.Exception_CustomThemeMissingWallpaper,
+                CustomThemeValidationError.DuplicateName => Translator.Exception_CustomThemeExists,
+                CustomThemeValidationError.MissingTheme => Translator.SettingsCustomTheme_DeleteMissing,
+                CustomThemeValidationError.InvalidAccent => Translator.ApplicationThemeEditor_InvalidAccent,
+                _ => Translator.ApplicationThemeEditor_InvalidSurface
+            });
+        }
+
+        var accentColor = string.Empty;
+        if (!string.IsNullOrWhiteSpace(request.AccentColorHex))
+            ThemeColorValidator.TryNormalizeOpaque(request.AccentColorHex, out accentColor);
+
+        var savedTheme = new CustomThemeMetadata
+        {
+            Id = request.ThemeId ?? Guid.NewGuid(),
+            Name = request.Name.Trim(),
+            AccentColorHex = accentColor,
+            LightPalette = request.LightPalette,
+            DarkPalette = request.DarkPalette,
+            WallpaperFit = request.WallpaperFit,
+            WallpaperAlignment = request.WallpaperFit == ThemeWallpaperFit.Fit ? ThemeWallpaperAlignment.Center : request.WallpaperAlignment
+        };
+
+        var wallpaper = request.WallpaperData is { Length: > 0 } data ? data : null;
+        await Task.Run(async () =>
+        {
+            byte[]? preview = null;
+            if (wallpaper is not null)
+            {
+                if (!MacThemeImaging.IsImage(wallpaper))
+                    throw new CustomThemeCreationFailedException(Translator.MacPlatform_ThemeWallpaperInvalid);
+                preview = MacThemeImaging.CreatePreviewJpeg(wallpaper);
+            }
+            await store.SaveAsync(savedTheme, wallpaper, preview).ConfigureAwait(false);
+        });
+
+        lock (_sync) _wallpapers.Remove(savedTheme.Id);
+        await RefreshCustomThemesAsync();
+        return savedTheme;
+    }
+
+    public async Task<bool> DeleteCustomThemeAsync(Guid themeId)
+    {
+        if (await store.GetAsync(themeId) is null) return false;
+
+        // Default first, persisted, so the id never points at a theme whose files are gone.
+        if (_themeId == themeId) await SelectThemeAsync(DefaultThemeId, forceReapply: true);
+
+        try
+        {
+            return await Task.Run(() => store.DeleteAsync(themeId));
+        }
+        finally
+        {
+            lock (_sync) _wallpapers.Remove(themeId);
+            await RefreshCustomThemesAsync();
+        }
+    }
+
+    public async Task PreviewCustomThemeAsync(CustomThemeMetadata metadata, byte[]? wallpaperData, ApplicationElementTheme elementTheme)
+    {
+        NSImage? wallpaper;
+        if (wallpaperData is { Length: > 0 })
+        {
+            wallpaper = await Task.Run(() => MacThemeImaging.Decode(wallpaperData));
+            _previewWallpaper = wallpaper;
+        }
+        else if (metadata.Id != Guid.Empty)
+        {
+            wallpaper = await LoadWallpaperAsync(metadata.Id);
+        }
+        else
+        {
+            // The editor sends the picked bytes once; later previews reuse them.
+            wallpaper = _previewWallpaper;
+        }
+
+        _preview = new PreviewState(metadata, wallpaper, elementTheme);
+        await ApplyThemeToActiveWindowAsync();
+    }
+
+    private async Task<List<CustomThemeMetadata>> RefreshCustomThemesAsync()
+    {
+        var themes = await Task.Run(() => store.ListAsync());
+        themes = themes.OrderBy(theme => theme.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+        lock (_sync) _customThemes = themes;
+        return new List<CustomThemeMetadata>(themes);
+    }
+
+    private async Task<CustomThemeMetadata?> FindCustomAsync(Guid themeId)
+        => FindCachedCustom(themeId) ?? (await RefreshCustomThemesAsync()).FirstOrDefault(theme => theme.Id == themeId);
+
+    private CustomThemeMetadata? FindCachedCustom(Guid themeId)
+    {
+        lock (_sync) return _customThemes.FirstOrDefault(theme => theme.Id == themeId);
+    }
+
+    private static MacPredefinedTheme? FindPredefined(Guid themeId) => Themes.FirstOrDefault(theme => theme.Id == themeId);
+
+    /// <summary>A custom wallpaper, decoded once in the background and cached per theme until it is saved or deleted.</summary>
+    private async Task<NSImage?> LoadWallpaperAsync(Guid themeId)
+    {
+        lock (_sync)
+        {
+            if (_wallpapers.TryGetValue(themeId, out var cached)) return cached;
+        }
+        var path = store.WallpaperPath(themeId);
+        var image = await Task.Run(() => MacThemeImaging.DecodeFile(path));
+        if (image is null) Serilog.Log.Warning("The wallpaper of custom theme {ThemeId} could not be decoded; showing no backdrop.", themeId);
+        lock (_sync) _wallpapers[themeId] = image;
+        return image;
+    }
+
+    private static async Task ObserveAsync(Task task)
+    {
+        try { await task; }
+        catch (Exception exception) { Serilog.Log.Warning(exception, "Applying the theme failed."); }
+    }
 
     /// <summary>A predefined Wino theme; the preview is drawn natively from the accent.</summary>
     private sealed class MacPredefinedTheme : AppThemeBase
@@ -262,5 +559,23 @@ public sealed class MacWinoThemeService(IDispatcher dispatcher, IConfigurationSe
             var path = Path.Combine(Foundation.NSBundle.MainBundle.ResourcePath ?? string.Empty, "Themes", ThemeName + ".jpg");
             return Task.FromResult(File.Exists(path) ? path : string.Empty);
         }
+    }
+
+    /// <summary>A custom theme from <see cref="CustomThemeFileStore"/>; its preview is the stored thumbnail.</summary>
+    private sealed class MacCustomTheme : AppThemeBase
+    {
+        private readonly string _previewPath;
+
+        public MacCustomTheme(CustomThemeMetadata metadata, string previewPath) : base(metadata.Name, metadata.Id)
+        {
+            _previewPath = previewPath;
+            AccentColor = metadata.AccentColorHex;
+            ForceElementTheme = ApplicationElementTheme.Default;
+            Compatibility = ThemeCompatibility.Both;
+        }
+
+        public override AppThemeType AppThemeType => AppThemeType.Custom;
+        public override Task<string> GetThemeResourceDictionaryContentAsync() => Task.FromResult(string.Empty);
+        protected override Task<string> GetPreviewImagePathAsync() => Task.FromResult(File.Exists(_previewPath) ? _previewPath : string.Empty);
     }
 }

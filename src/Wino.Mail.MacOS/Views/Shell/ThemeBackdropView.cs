@@ -1,5 +1,6 @@
 using AppKit;
 using CoreGraphics;
+using Wino.Core.Domain.Enums;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Presentation.AppKit;
 
@@ -7,8 +8,8 @@ namespace Wino.Mail.MacOS.Views.Shell;
 
 /// <summary>
 /// Paints the selected Wino theme behind the whole window, like the Windows ShellWindow
-/// WinoApplicationBackgroundColor: the theme wallpaper (aspect fill) or its light/dark
-/// gradient. With the default theme it paints the plain window background, so content
+/// WinoApplicationBackgroundColor: the theme wallpaper (aspect fill, or a custom theme's fit and
+/// focal point) or its light/dark gradient. With the default theme it paints the plain window background, so content
 /// always sits on a native surface.
 /// </summary>
 internal sealed class ThemeBackdropView : NSView
@@ -35,10 +36,10 @@ internal sealed class ThemeBackdropView : NSView
 
         if (MacWinoThemeService.BackdropImage is { } image && image.Size.Width > 0 && image.Size.Height > 0)
         {
-            // Aspect fill, anchored to the top like the Windows ImageBrush (UniformToFill).
-            var scale = Math.Max(Bounds.Width / image.Size.Width, Bounds.Height / image.Size.Height);
-            var size = new CGSize(image.Size.Width * scale, image.Size.Height * scale);
-            var target = new CGRect((Bounds.Width - size.Width) / 2, Bounds.Height - size.Height, size.Width, size.Height);
+            // Predefined wallpapers: aspect fill anchored to the top like the Windows ImageBrush (UniformToFill).
+            // Custom wallpapers: the theme's Fill (anchored at its focal point) or Fit (whole image, centred).
+            var target = MacThemeImaging.Place(image.Size, Bounds, MacWinoThemeService.BackdropFit,
+                MacWinoThemeService.BackdropAlignment ?? ThemeWallpaperAlignment.Top, IsFlipped);
             image.Draw(target, CGRect.Empty, NSCompositingOperation.SourceOver, 1);
             return;
         }

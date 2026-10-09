@@ -15,11 +15,12 @@ namespace Wino.Mail.MacOS.Views.Settings;
 /// <summary>
 /// Personalization. On macOS appearance follows the system or a Light/Dark override, the accent can
 /// be overridden, and a Wino theme sets the accent and a backdrop behind list and reader while the
-/// sidebar keeps its native material. The custom theme editor is deferred on Mac.
+/// sidebar keeps its native material. Themes are picked and created in the theme gallery, which the
+/// "Application themes" card opens, as on Windows.
 /// </summary>
 /// <remarks>
-/// The shared ViewModel's initialization asks the theme service for the theme gallery, which the Mac
-/// foundation does not provide yet, so this page reads and writes <see cref="INewThemeService"/> through
+/// The shared ViewModel's initialization drives the Windows accent and backdrop pickers, which the Mac
+/// lays out natively, so this page reads and writes <see cref="INewThemeService"/> through
 /// <see cref="MacAppearanceModel"/> and keeps the ViewModel for preferences and commands.
 /// </remarks>
 public sealed class PersonalizationPageViewController(PersonalizationPageViewModel viewModel, MacWinoThemeService themeService, IDispatcher dispatcher, IWinoLogger logger)
@@ -33,8 +34,8 @@ public sealed class PersonalizationPageViewController(PersonalizationPageViewMod
     ];
 
     private readonly MacAppearanceModel _appearance = new(themeService);
-    private readonly NSStackView _themes = WinoLayout.VStack(10);
-    private readonly List<(Guid Id, WinoThemeTile Tile)> _themeTiles = new();
+    private readonly NSTextField _currentThemeName = WinoStyle.Label(string.Empty, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText);
+    private readonly ThemeThumbnailView _currentThemePreview = new(64, 40);
 
     protected override void BuildPage()
     {
@@ -69,17 +70,14 @@ public sealed class PersonalizationPageViewController(PersonalizationPageViewMod
 
         AddGroup(null, accent, appearance, iconStyle);
 
-        // Wino themes: filled once the theme service answers; otherwise a deferred notice.
-        var themeGroup = new WinoSettingsGroup(Translator.ApplicationThemeGallery_Title, Translator.ApplicationThemeGallery_Description);
-        _themes.Alignment = NSLayoutAttribute.Leading;
-        _themes.Spacing = 14;
-        var themeHost = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
-        WinoLayout.Fill(_themes, themeHost, 4, 1, 8, 0);
-        themeGroup.Add(themeHost);
-        var customTheme = Card(Translator.ApplicationThemeEditor_CreateTitle, ComingLaterOnMac, WinoIconGlyph.PaintBrush);
-        customTheme.IsEnabled = false;
-        themeGroup.Add(customTheme);
-        Add(themeGroup);
+        // Wino themes: one entry point into the theme gallery, like the Windows Personalization page.
+        var themeContent = WinoLayout.HStack(WinoStyle.Space2, _currentThemeName, _currentThemePreview);
+        themeContent.Alignment = NSLayoutAttribute.CenterY;
+        AddGroup(null, NavigationCard(Translator.ApplicationThemeGallery_Title, Translator.ApplicationThemeGallery_Description, WinoIconGlyph.PaintBrush,
+            () => vm.NavigateApplicationThemesCommand.Execute(null), themeContent));
+        EventHandler appearanceChanged = (_, _) => _ = RefreshCurrentThemeAsync();
+        MacWinoThemeService.AppearanceChanged += appearanceChanged;
+        Bindings.Own(new ActionDisposable(() => MacWinoThemeService.AppearanceChanged -= appearanceChanged));
 
         var backdrop = Card(BackdropTitle, BackdropDescription, WinoIconGlyph.Color,
             Bind.Switch(_appearance, nameof(MacAppearanceModel.IsBackdropEnabled), s => s.IsBackdropEnabled, (s, v) => s.IsBackdropEnabled = v, BackdropTitle));
@@ -92,78 +90,29 @@ public sealed class PersonalizationPageViewController(PersonalizationPageViewMod
                 Bind.Switch(p, nameof(p.IsWinoAccountButtonHidden), s => s.IsWinoAccountButtonHidden, (s, v) => s.IsWinoAccountButtonHidden = v, Translator.SettingsAppPreferences_HideWinoAccountButton_Title)));
     }
 
-    /// <summary>Gradient theme stops (light start/end, dark start/end), mirrored from MacWinoThemeService.</summary>
-    private static readonly Dictionary<string, uint[]> GradientThemes = new()
-    {
-        ["Mist"] = [0xF4F7FA, 0xE1E7EF, 0x191D23, 0x0C0E12],
-        ["Cocoa"] = [0xFBF7F2, 0xEDE3D8, 0x1D1815, 0x100D0B],
-        ["Moss"] = [0xF1F6F1, 0xE0EBE1, 0x141A16, 0x0B0F0C],
-        ["Rose"] = [0xFBF2F5, 0xF2E2E8, 0x1B1418, 0x100B0E],
-        ["Indigo"] = [0xF1F3FB, 0xE1E5F5, 0x12141F, 0x0A0C14],
-    };
-
-    private static string ComingLaterOnMac => Translator.MacOS_Personalization_CustomThemesLater;
     private static string BackdropTitle => Translator.MacOS_Personalization_BackdropTitle;
     private static string BackdropDescription => Translator.MacOS_Personalization_BackdropDescription;
 
-    protected override async Task InitializeAsync(NavigationMode mode, object? parameter)
-    {
+    protected override Task InitializeAsync(NavigationMode mode, object? parameter)
         // Deliberately not ViewModel.OnNavigatedTo: see the class remarks.
-        List<AppThemeBase>? themes = null;
-        try { themes = await themeService.GetAvailableThemesAsync(); }
-        catch (Exception exception) when (exception is NotSupportedException or NotImplementedException or PlatformNotSupportedException or InvalidOperationException) { }
-        catch (Exception exception) { ReportError(exception); }
-        await Dispatcher.ExecuteOnUIThread(() => BuildThemeGrid(themes));
-    }
+        => RefreshCurrentThemeAsync();
 
     protected override Task DeactivateAsync() => Task.CompletedTask;
 
-    private void BuildThemeGrid(List<AppThemeBase>? themes)
+    /// <summary>Shows the current theme's name and preview on the gallery card.</summary>
+    private async Task RefreshCurrentThemeAsync()
     {
-        foreach (var view in _themes.ArrangedSubviews) { _themes.RemoveArrangedSubview(view); view.RemoveFromSuperview(); }
-        _themeTiles.Clear();
-        if (themes is not { Count: > 0 })
+        try
         {
-            var notice = WinoStyle.Label(SettingsPlaceholderViewController.LaterMessage, WinoStyle.Description, WinoStyle.SecondaryText, 0);
-            _themes.AddArrangedSubview(notice);
-            return;
-        }
-
-        const int columns = 4;
-        for (int start = 0; start < themes.Count; start += columns)
-        {
-            var row = WinoLayout.HStack(18);
-            row.Alignment = NSLayoutAttribute.Top;
-            for (int index = start; index < Math.Min(start + columns, themes.Count); index++)
+            var themes = await themeService.GetAvailableThemesAsync();
+            var current = themes.FirstOrDefault(theme => theme.Id == (themeService.CurrentApplicationThemeId ?? MacWinoThemeService.DefaultThemeId)) ?? themes.FirstOrDefault();
+            await Dispatcher.ExecuteOnUIThread(() =>
             {
-                var theme = themes[index];
-                var name = theme.ThemeName ?? string.Empty;
-                GradientThemes.TryGetValue(name, out var gradient);
-                var tile = new WinoThemeTile(name, gradient is null ? MacWinoThemeService.PreviewImage(name) : null, gradient,
-                    theme.ForceElementTheme == ApplicationElementTheme.Dark);
-                var id = theme.Id;
-                tile.Pressed += async (_, _) =>
-                {
-                    try
-                    {
-                        await themeService.SelectThemeAsync(id);
-                        await Dispatcher.ExecuteOnUIThread(UpdateThemeSelection);
-                    }
-                    catch (Exception exception) { ReportError(exception); }
-                };
-                _themeTiles.Add((id, tile));
-                row.AddArrangedSubview(tile);
-            }
-            _themes.AddArrangedSubview(row);
+                _currentThemeName.StringValue = current?.ThemeName ?? string.Empty;
+                _currentThemePreview.Show(current);
+            });
         }
-        UpdateThemeSelection();
-    }
-
-    private void UpdateThemeSelection()
-    {
-        var current = themeService.CurrentApplicationThemeId;
-        for (int index = 0; index < _themeTiles.Count; index++)
-            _themeTiles[index].Tile.IsSelected = current is { } id ? _themeTiles[index].Id == id : index == 0;
+        catch (Exception exception) { ReportError(exception); }
     }
 }
 

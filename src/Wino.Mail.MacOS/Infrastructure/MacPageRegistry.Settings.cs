@@ -6,10 +6,7 @@ namespace Wino.Mail.MacOS.Infrastructure;
 /// <summary>Settings window routes. Owned by the Settings feature.</summary>
 public sealed partial class MacPageRegistry
 {
-    private static readonly WinoPage[] DeferredSettingsPages =
-    [
-        WinoPage.ApplicationThemeGalleryPage, WinoPage.ApplicationThemeEditorPage
-    ];
+    private static readonly WinoPage[] DeferredSettingsPages = [];
 
     // Pages being ported in their own partial files (MacPageRegistry.Settings.<Feature>.cs).
     partial void RegisterCalendarSettingsPages();
@@ -22,6 +19,7 @@ public sealed partial class MacPageRegistry
     partial void RegisterSignatureSettingsPages();
     partial void RegisterFilterSettingsPages();
     partial void RegisterTemplateSettingsPages();
+    partial void RegisterThemeSettingsPages();
 
     partial void RegisterSettingsPages()
     {
@@ -62,6 +60,7 @@ public sealed partial class MacPageRegistry
         RegisterSignatureSettingsPages();
         RegisterFilterSettingsPages();
         RegisterTemplateSettingsPages();
+        RegisterThemeSettingsPages();
 
         // Pages without a native implementation yet show a clear placeholder inside the window.
         foreach (var page in DeferredSettingsPages)
