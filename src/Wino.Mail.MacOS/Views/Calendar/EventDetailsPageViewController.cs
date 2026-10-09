@@ -93,6 +93,8 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         var showAsRow = WinoLayout.HStack(6, new WinoIconView(WinoIconGlyph.CalendarShowAs, 16, WinoStyle.SecondaryText), _showAs);
         _reminder = new NSPopUpButton { PullsDown = true, ControlSize = NSControlSize.Small, TranslatesAutoresizingMaskIntoConstraints = false, ToolTip = Translator.CalendarEventDetails_Reminder };
         _reminder.Font = NSFont.SystemFontOfSize(12);
+        // RebuildReminderMenu also fills the reminder detail row, so that row must exist first.
+        _reminderRow = new DetailRow(WinoIconGlyph.Reminder);
         RebuildReminderMenu();
         ViewModel.ReminderOptions.CollectionChanged += ReminderOptionsChanged;
         var reminderRow = WinoLayout.HStack(6, new WinoIconView(WinoIconGlyph.Reminder, 16, WinoStyle.SecondaryText), _reminder);
@@ -139,7 +141,6 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         _location = new DetailRow(WinoIconGlyph.Location);
         _online = new DetailRow(WinoIconGlyph.EventJoinOnline);
         _repeat = new DetailRow(WinoIconGlyph.CalendarEventRepeat);
-        _reminderRow = new DetailRow(WinoIconGlyph.Reminder);
         _calendar = new DetailRow(WinoIconGlyph.Calendar);
         var details = WinoLayout.VStack(8, _when, _location, _online, _repeat, _reminderRow, _calendar);
         details.DetachesHiddenViews = true;
