@@ -13,13 +13,14 @@ public enum ActivationUriKind
     BillingSuccess,
     Webcal,
     CalendarFile,
-    ContactFile
+    ContactFile,
+    MailFile
 }
 
 /// <summary>
 /// Classifies the URLs a platform head receives from the OS (URL schemes and opened documents)
-/// without touching services, so every head routes them the same way. <c>.eml</c> files are not
-/// handled yet and classify as <see cref="ActivationUriKind.Unsupported"/>.
+/// without touching services, so every head routes them the same way. <c>.eml</c> files classify as
+/// <see cref="ActivationUriKind.MailFile"/> and open read-only in the mail reader.
 /// </summary>
 public static class ActivationUriClassifier
 {
@@ -63,6 +64,9 @@ public static class ActivationUriClassifier
 
     public static ActivationUriKind ClassifyFilePath(string? path)
     {
+        if (string.Equals(System.IO.Path.GetExtension(path), ".eml", StringComparison.OrdinalIgnoreCase))
+            return ActivationUriKind.MailFile;
+
         if (!SecondaryEntryActivationContract.TryResolveFileMode(path, out var mode))
             return ActivationUriKind.Unsupported;
 
@@ -72,7 +76,7 @@ public static class ActivationUriClassifier
     /// <summary>The application mode an activation opens, or null when it opens Settings or nothing.</summary>
     public static WinoApplicationMode? GetMode(ActivationUriKind kind) => kind switch
     {
-        ActivationUriKind.MailTo => WinoApplicationMode.Mail,
+        ActivationUriKind.MailTo or ActivationUriKind.MailFile => WinoApplicationMode.Mail,
         ActivationUriKind.Webcal or ActivationUriKind.CalendarFile => WinoApplicationMode.Calendar,
         ActivationUriKind.ContactFile => WinoApplicationMode.Contacts,
         ActivationUriKind.BillingSuccess => WinoApplicationMode.Settings,

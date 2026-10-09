@@ -235,6 +235,24 @@ public sealed partial class ToDoPageViewController : WinoViewController<ToDoPage
             await ViewModel.SelectPresentationSurfaceAsync(TaskViewKind.All, ViewModel.TaskLists[index]);
             return "ok";
         });
+        // "todo-pickdate yyyy-MM-dd" sets the selected task's due date through the picker's commit path;
+        // "todo-pickdate-show" opens the picker for the selected task.
+        MacDebugBridge.Register("todo-pickdate", args =>
+        {
+            if (ViewModel.SelectedTask is not { } task) return Task.FromResult("no selection");
+            if (args.Length == 0 || !DateTime.TryParseExact(args[0], "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var date))
+                return Task.FromResult("usage: todo-pickdate yyyy-MM-dd");
+            CommitPickedDueDate(task, date);
+            return Task.FromResult("ok " + task.Title);
+        });
+        MacDebugBridge.Register("todo-pickdate-show", _ =>
+        {
+            if (ViewModel.SelectedTask is not { } task) return Task.FromResult("no selection");
+            var row = _entries.FindIndex(entry => entry.Item?.Task.Id == task.Task.Id);
+            ShowDueDatePicker(task, row);
+            return Task.FromResult("ok");
+        });
+        RegisterSearchDebugCommands();
         MacDebugBridge.Register("todo-preview", _ => { ShowPreview(); return Task.FromResult("ok " + _entries.Count); });
         MacDebugBridge.Register("todo-clear", _ => { ViewModel.CloseDetailCommand.Execute(null); return Task.FromResult("ok"); });
         MacDebugBridge.Register("todo-state", _ => Task.FromResult(

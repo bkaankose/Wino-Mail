@@ -43,6 +43,17 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     public IExternalLauncher ExternalLauncher => _externalLauncher;
     public bool LastMutationSucceeded { get; private set; }
 
+    /// <summary>
+    /// False keeps the page open after Save instead of navigating back to the calendar
+    /// (the Mac details pane and pop-out window). Windows keeps the default.
+    /// </summary>
+    public bool NavigatesBackAfterSave { get; set; } = true;
+
+    /// <summary>
+    /// False stops this page from navigating the shell at all (the Mac pop-out window, which is not the shell).
+    /// </summary>
+    public bool CanNavigateShell { get; set; } = true;
+
     [ObservableProperty]
     public partial bool IsDarkWebviewRenderer { get; set; }
 
@@ -517,7 +528,8 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
             await _winoRequestDelegator.ExecuteAsync(preparationRequest);
 
             LastMutationSucceeded = true;
-            NavigateBackToCalendar(forceReload: true);
+            if (NavigatesBackAfterSave)
+                NavigateBackToCalendar(forceReload: true);
         }
         catch (Exception ex)
         {
@@ -571,6 +583,9 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 
     private void NavigateBackToCalendar(bool forceReload)
     {
+        if (!CanNavigateShell)
+            return;
+
         var navigationDate = CurrentEvent?.CalendarItem.LocalStartDate ?? DateTime.Now;
 
         _navigationService.Navigate(

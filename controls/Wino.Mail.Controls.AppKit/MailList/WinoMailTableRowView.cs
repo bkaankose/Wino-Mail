@@ -155,6 +155,7 @@ public static class WinoMailListTheme
         => NSColor.GetColor(string.Empty, appearance =>
         {
             bool dark = appearance.FindBestMatch([NSAppearance.NameAqua, NSAppearance.NameDarkAqua]) == NSAppearance.NameDarkAqua;
+            if (WinoThemeSurfaces.Resolve(WinoThemeSurface.MailListHeader, dark) is { } custom) return custom;
             if (!WinoStyle.HasBackdrop) return dark ? WinoStyle.Hex(0x2C2C2C) : WinoStyle.Hex(0xECF0F1);
             if (dark) return NSColor.White.ColorWithAlphaComponent((nfloat)0.07);
             var accent = WinoStyle.Accent.UsingColorSpace(NSColorSpace.SRGBColorSpace) ?? WinoStyle.Accent;

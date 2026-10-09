@@ -170,6 +170,8 @@ public sealed partial class ComposePageViewController
         if (HasMarkedText(responder)) return theEvent;
 
         var flags = theEvent.ModifierFlags & (NSEventModifierMask.CommandKeyMask | NSEventModifierMask.AlternateKeyMask | NSEventModifierMask.ShiftKeyMask | NSEventModifierMask.ControlKeyMask);
+        // The recipient suggestion popup owns the arrow keys, Return and Escape while it is open.
+        if (HandleSuggestionKey(theEvent, flags, responder)) return null;
         if (theEvent.KeyCode == EscapeKeyCode && flags == 0)
         {
             if (ViewModel.RewriteSession.IsBusy)
@@ -186,6 +188,12 @@ public sealed partial class ComposePageViewController
         }
 
         var key = theEvent.CharactersIgnoringModifiers?.ToLowerInvariant();
+        if (TryHandleFormattingKey(key, flags, responder)) return null;
+        if (MatchesSendFallback(theEvent, flags))
+        {
+            Observe(SendAsync());
+            return null;
+        }
         switch (key)
         {
             case "f" when flags == NSEventModifierMask.CommandKeyMask:

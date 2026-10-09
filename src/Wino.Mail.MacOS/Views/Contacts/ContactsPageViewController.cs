@@ -21,6 +21,9 @@ public sealed partial class ContactsPageViewController : WinoViewController<Cont
 
     private readonly AppKitNavigationService _navigation;
     private readonly IPictureStorageService _pictures;
+#if DEBUG
+    private readonly INotificationBuilder _notifications;
+#endif
     private readonly Dictionary<Guid, NSImage?> _pictureCache = new();
     private WinoZoneView _zone = null!;
     private NSView _detailPane = null!;
@@ -35,11 +38,14 @@ public sealed partial class ContactsPageViewController : WinoViewController<Cont
     internal static Guid? PendingSelection { get; set; }
 
     public ContactsPageViewController(ContactsPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger,
-        AppKitNavigationService navigation, IPictureStorageService pictures)
+        AppKitNavigationService navigation, IPictureStorageService pictures, INotificationBuilder notifications)
         : base(viewModel, dispatcher, logger)
     {
         _navigation = navigation;
         _pictures = pictures;
+#if DEBUG
+        _notifications = notifications;
+#endif
     }
 
     public override void LoadView()

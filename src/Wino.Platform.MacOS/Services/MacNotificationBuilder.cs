@@ -35,6 +35,7 @@ public sealed class MacNotificationBuilder : INotificationBuilder
     private readonly IThumbnailService _thumbnailService;
     private readonly IPictureStorageService _pictureStorageService;
     private readonly INotificationPolicyService _policy;
+    private readonly MacNotificationSounds _sounds;
     private readonly SemaphoreSlim _badgeLock = new(1, 1);
     private readonly object _categoryLock = new();
     private Task<bool>? _authorization;
@@ -48,7 +49,8 @@ public sealed class MacNotificationBuilder : INotificationBuilder
                                   IMailService mailService,
                                   IThumbnailService thumbnailService,
                                   IPictureStorageService pictureStorageService,
-                                  INotificationPolicyService policy)
+                                  INotificationPolicyService policy,
+                                  MacNotificationSounds sounds)
     {
         _dispatcher = dispatcher;
         _preferences = preferences;
@@ -59,6 +61,8 @@ public sealed class MacNotificationBuilder : INotificationBuilder
         _thumbnailService = thumbnailService;
         _pictureStorageService = pictureStorageService;
         _policy = policy;
+        _sounds = sounds;
+        _sounds.PrepareConfiguredSounds();
 
         WeakReferenceMessenger.Default.Register<MacNotificationBuilder, MailReadStatusChanged>(this, (r, msg) => r.RemoveNotifications([msg.UniqueId]));
         WeakReferenceMessenger.Default.Register<MacNotificationBuilder, BulkMailReadStatusChanged>(this, (r, msg) => r.RemoveNotifications(msg.UniqueIds));
@@ -146,7 +150,8 @@ public sealed class MacNotificationBuilder : INotificationBuilder
         string Category,
         string? ThreadIdentifier,
         IReadOnlyDictionary<string, string> UserInfo,
-        string? ImagePath = null);
+        string? ImagePath = null,
+        string Sound = MacNotificationSounds.DefaultSound);
 
     /// <summary>
     /// The single gate every notification passes through, like Windows ShowNotificationAsync:
@@ -162,6 +167,7 @@ public sealed class MacNotificationBuilder : INotificationBuilder
         }
 
         var attachmentPath = request.ImagePath is { } image ? CreateAttachmentCopy(image) : null;
+        var sound = _sounds.CreateNotificationSound(request.Sound);
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         await _dispatcher.ExecuteOnUIThread(() =>
         {
@@ -170,9 +176,9 @@ public sealed class MacNotificationBuilder : INotificationBuilder
                 Title = request.Title,
                 Body = request.Body ?? string.Empty,
                 CategoryIdentifier = request.Category,
-                UserInfo = MacNotificationCategories.ToUserInfo(request.UserInfo),
-                Sound = UNNotificationSound.Default
+                UserInfo = MacNotificationCategories.ToUserInfo(request.UserInfo)
             };
+            if (sound is not null) content.Sound = sound;
             if (!string.IsNullOrWhiteSpace(request.Subtitle)) content.Subtitle = request.Subtitle;
             if (!string.IsNullOrWhiteSpace(request.ThreadIdentifier)) content.ThreadIdentifier = request.ThreadIdentifier;
             if (attachmentPath is not null)
@@ -253,7 +259,8 @@ public sealed class MacNotificationBuilder : INotificationBuilder
                     Body: string.Format(Translator.Notifications_MultipleNotificationsMessage, notifiable.Count),
                     Category: MacNotificationCategories.MailSummary,
                     ThreadIdentifier: null,
-                    UserInfo: new Dictionary<string, string> { [Constants.ToastModeKey] = Constants.ToastModeMail }),
+                    UserInfo: new Dictionary<string, string> { [Constants.ToastModeKey] = Constants.ToastModeMail },
+                    Sound: _sounds.Resolve(MacNotificationSoundKind.Mail)),
                     NotificationKind.Mail).ConfigureAwait(false);
             }
             else
@@ -326,7 +333,8 @@ public sealed class MacNotificationBuilder : INotificationBuilder
                 [Constants.ToastActionKey] = MailOperation.Navigate.ToString(),
                 [Constants.ToastModeKey] = Constants.ToastModeMail
             },
-            ImagePath: imagePath),
+            ImagePath: imagePath,
+            Sound: _sounds.ResolveMail(accountPreferences)),
             NotificationKind.Mail, accountPreferences).ConfigureAwait(false);
     }
 
@@ -406,24 +414,27 @@ public sealed class MacNotificationBuilder : INotificationBuilder
         var body = $"{GetCalendarReminderContext(localStart, DateTime.Now)} - {localStart:g}";
         if (!string.IsNullOrWhiteSpace(calendarItem.Location)) body += "\n" + calendarItem.Location;
 
-        var canSnooze = CalendarReminderSnoozeOptions
-            .GetAllowedSnoozeMinutes(reminderDurationInSeconds, _preferences.DefaultReminderDurationInSeconds)
-            .Contains(MacNotificationCategories.CalendarSnoozeMinutes);
+        // One Snooze action whose length follows the "Default snooze duration" setting (Windows' default pick).
+        var snoozeMinutes = MacNotificationCategories.NormalizeSnoozeMinutes(CalendarReminderSnoozeOptions.GetDefaultSnoozeMinutes(
+            reminderDurationInSeconds, _preferences.DefaultReminderDurationInSeconds, _preferences.DefaultSnoozeDurationInMinutes));
         var canJoin = CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out _);
+        var userInfo = new Dictionary<string, string>
+        {
+            [Constants.ToastCalendarActionKey] = Constants.ToastCalendarNavigateAction,
+            [Constants.ToastCalendarItemIdKey] = calendarItem.Id.ToString(),
+            [Constants.ToastModeKey] = Constants.ToastModeCalendar
+        };
+        if (snoozeMinutes is { } minutes) userInfo[Constants.ToastCalendarSnoozeDurationInputId] = minutes.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
         await ShowAsync(new NotificationRequest(
             Identifier: $"calendar-reminder-{calendarItem.Id:N}-{reminderDurationInSeconds}",
             Title: calendarItem.Title ?? string.Empty,
             Subtitle: null,
             Body: body,
-            Category: MacNotificationCategories.CalendarCategory(canJoin, canSnooze),
+            Category: MacNotificationCategories.CalendarCategory(canJoin, snoozeMinutes),
             ThreadIdentifier: "calendar",
-            UserInfo: new Dictionary<string, string>
-            {
-                [Constants.ToastCalendarActionKey] = Constants.ToastCalendarNavigateAction,
-                [Constants.ToastCalendarItemIdKey] = calendarItem.Id.ToString(),
-                [Constants.ToastModeKey] = Constants.ToastModeCalendar
-            }),
+            UserInfo: userInfo,
+            Sound: _sounds.Resolve(MacNotificationSoundKind.Calendar)),
             NotificationKind.CalendarReminder, accountPreferences).ConfigureAwait(false);
     }
 
@@ -457,7 +468,8 @@ public sealed class MacNotificationBuilder : INotificationBuilder
             Body: task.DueDate is { } dueDate ? dueDate.ToString("D") : Translator.Buttons_TestNotification,
             Category: MacNotificationCategories.Generic,
             ThreadIdentifier: "tasks",
-            UserInfo: new Dictionary<string, string> { [Constants.ToastModeKey] = Constants.ToastModeTasks }),
+            UserInfo: new Dictionary<string, string> { [Constants.ToastModeKey] = Constants.ToastModeTasks },
+            Sound: _sounds.Resolve(MacNotificationSoundKind.Task)),
             NotificationKind.TaskReminder);
     }
 
