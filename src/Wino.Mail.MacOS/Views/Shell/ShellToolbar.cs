@@ -217,7 +217,23 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         field.RecentsAutosaveName = "WinoMailSearchRecents";
         field.Changed += async (_, _) =>
         {
-            try { if (_searchTarget() is { } target) await target.SearchTextChangedAsync(field.StringValue ?? string.Empty); }
+            try
+            {
+                if (_searchTarget() is not { } target) return;
+                (target as IShellSearchSuggestionTarget)?.SearchFieldEditing(field);
+                await target.SearchTextChangedAsync(field.StringValue ?? string.Empty);
+            }
+            catch (Exception exception) { _error(exception); }
+        };
+        // Pages with a suggestion list take the arrow keys, Return and Esc while it is open.
+        field.DoCommandBySelector = (_, _, selector) =>
+        {
+            try { return _searchTarget() is IShellSearchSuggestionTarget suggestions && suggestions.SearchFieldCommand(field, selector.Name); }
+            catch (Exception exception) { _error(exception); return false; }
+        };
+        field.EditingEnded += (_, _) =>
+        {
+            try { (_searchTarget() as IShellSearchSuggestionTarget)?.SearchFieldEndedEditing(field); }
             catch (Exception exception) { _error(exception); }
         };
         field.Activated += async (_, _) =>
@@ -237,15 +253,21 @@ internal sealed class ShellToolbar : NSToolbarDelegate
     public void FocusSearch() => _searchItem?.BeginSearchInteraction();
 
     /// <summary>Clears the field without notifying, for example after a folder change.</summary>
-    public void ResetSearch()
+    public void ResetSearch() => SetSearchText(string.Empty);
+
+    /// <summary>Sets the field text without notifying, for example the keywords applied from the search filters.</summary>
+    public void SetSearchText(string text)
     {
-        if (_searchItem?.SearchField is { } field) field.StringValue = string.Empty;
+        if (_searchItem?.SearchField is { } field) field.StringValue = text ?? string.Empty;
     }
 
     /// <summary>Re-reads search support from the current content page.</summary>
     public void Revalidate()
     {
-        if (_searchItem?.SearchField is { } field) field.Enabled = _searchTarget() is not null;
+        if (_searchItem?.SearchField is not { } field) return;
+        var target = _searchTarget();
+        field.Enabled = target is not null;
+        field.PlaceholderString = target?.SearchPlaceholder ?? Translator.SearchBarPlaceholder;
     }
 
     /// <summary>Applies the active provider's synchronization state to the toolbar button.</summary>

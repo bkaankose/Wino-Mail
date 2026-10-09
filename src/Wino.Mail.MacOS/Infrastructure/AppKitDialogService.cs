@@ -575,28 +575,7 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
             AccessibilityValue = new NSString(_label.StringValue);
         }
 
-        private static string? KeyName(NSEvent theEvent)
-        {
-            switch (theEvent.KeyCode)
-            {
-                case 36: return "Enter";
-                case 48: return "Tab";
-                case 49: return "Space";
-                case 51: return "Back";
-                case 117: return "Delete";
-                case 53: return "Escape";
-                case 123: return "Left";
-                case 124: return "Right";
-                case 125: return "Down";
-                case 126: return "Up";
-            }
-            var characters = theEvent.CharactersIgnoringModifiers;
-            if (string.IsNullOrEmpty(characters)) return null;
-            var character = char.ToUpperInvariant(characters[0]);
-            if (char.IsLetter(character)) return character.ToString();
-            if (char.IsDigit(character)) return "Number" + character;
-            return null;
-        }
+        private static string? KeyName(NSEvent theEvent) => ShortcutKeys.KeyName(theEvent);
     }
 
     public Task ShowAccountReorderDialogAsync(ObservableCollection<IAccountProviderDetailViewModel> availableAccounts) => PresentAsync<bool>(window =>

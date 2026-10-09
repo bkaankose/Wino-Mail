@@ -322,6 +322,19 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
 
     public bool CanExecuteCommand(ShellCommand command) => _commandTarget?.CanExecute(command) == true;
 
+    /// <summary>The content page's ViewModel, for keyboard shortcut eligibility (Windows rootPage.AssociatedViewModel).</summary>
+    public object? ContentViewModel => (_child as IViewModelHost)?.AssociatedViewModel;
+
+    /// <summary>
+    /// Windows KeyboardShortcutController.DispatchAsync for the root page: the content page's ViewModel
+    /// handles the shortcut first, then the mode's provider (WinoAppShellViewModel.KeyboardShortcutHookForMode).
+    /// </summary>
+    public async Task RouteKeyboardShortcutAsync(Wino.Core.Domain.Models.KeyboardShortcutTriggerDetails details)
+    {
+        if (ContentViewModel is Wino.Core.ViewModels.CoreBaseViewModel page) await page.KeyboardShortcutHook(details);
+        if (!details.Handled) await ViewModel.KeyboardShortcutHookForMode(details);
+    }
+
     public void ToggleSidebar()
     {
         if (_sidebarItem is null) return;
@@ -329,6 +342,9 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
     }
 
     public void FocusSearch() => _toolbar?.FocusSearch();
+
+    /// <summary>Sets the toolbar search text without notifying the search target.</summary>
+    public void SetSearchText(string text) => _toolbar?.SetSearchText(text);
 
     /// <summary>Raised when the current page's command availability changes, for menu validation.</summary>
     public event EventHandler? CommandStateChanged;

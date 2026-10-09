@@ -5,6 +5,7 @@ using Foundation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.MacOS.Infrastructure;
+using Wino.Mail.MacOS.Views.Mail.Compose;
 using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.MacOS.Views.Mail;
@@ -23,7 +24,7 @@ public sealed partial class ComposePageViewController
     private NSButton _readReceiptButton = null!;
     private readonly List<X509Certificate2> _certificateItems = new();
 
-    private NSView[] BuildSecurityOptions()
+    private EditorToolbarItem[] BuildSecurityOptions()
     {
         _smimeSignButton = ToggleButton(WinoIconGlyph.Certificate, Translator.Composer_SmimeSignature, Translator.Composer_EnableSmimeSignature,
             on => ViewModel.IsSmimeSignatureEnabled = on);
@@ -38,12 +39,43 @@ public sealed partial class ComposePageViewController
         _smimeEncryptButton = ToggleButton(WinoIconGlyph.LockClosed, Translator.Composer_SmimeEncryption, Translator.Composer_EnableSmimeEncryption,
             on => ViewModel.IsSmimeEncryptionEnabled = on);
         _smimeGroup = WinoLayout.HStack(4, _smimeSignButton, _certificatePopup, _smimeEncryptButton);
-        _smimeGroup.Hidden = !ViewModel.IsSmimeAvailable;
 
         _readReceiptButton = ToggleButton(WinoIconGlyph.MailCheckmark, Translator.Composer_ReadReceipt, Translator.Composer_RequestReadReceipt,
             on => ViewModel.IsReadReceiptRequested = on);
-        return [Divider(), _smimeGroup, _readReceiptButton];
+        return
+        [
+            EditorToolbarItem.Divider(),
+            new EditorToolbarItem(_smimeGroup, SmimeMenuItem, () => ViewModel.IsSmimeAvailable),
+            new EditorToolbarItem(_readReceiptButton, () => CheckItem(Translator.Composer_RequestReadReceipt, ViewModel.IsReadReceiptRequested, true,
+                () => ViewModel.IsReadReceiptRequested = !ViewModel.IsReadReceiptRequested))
+        ];
     }
+
+    /// <summary>The S/MIME group as an overflow submenu: sign, the signing certificate and encrypt.</summary>
+    private NSMenuItem SmimeMenuItem()
+    {
+        var available = ViewModel.AreCertificatesAvailable && _certificateItems.Count > 0;
+        var menu = new NSMenu(Translator.Composer_SmimeSignature) { AutoEnablesItems = false };
+        menu.AddItem(CheckItem(Translator.Composer_EnableSmimeSignature, ViewModel.IsSmimeSignatureEnabled, available,
+            () => ViewModel.IsSmimeSignatureEnabled = !ViewModel.IsSmimeSignatureEnabled));
+        if (_certificateItems.Count > 0)
+        {
+            var certificates = new NSMenu(Translator.Composer_SigningCertificate) { AutoEnablesItems = false };
+            for (int index = 0; index < _certificateItems.Count; index++)
+            {
+                var certificate = _certificateItems[index];
+                certificates.AddItem(CheckItem(_certificatePopup.ItemTitle(index), ViewModel.SelectedSigningCertificate?.Thumbprint == certificate.Thumbprint, available,
+                    () => ViewModel.SelectedSigningCertificate = certificate));
+            }
+            menu.AddItem(new NSMenuItem(Translator.Composer_SigningCertificate) { Submenu = certificates, Enabled = available });
+        }
+        menu.AddItem(CheckItem(Translator.Composer_EnableSmimeEncryption, ViewModel.IsSmimeEncryptionEnabled, available,
+            () => ViewModel.IsSmimeEncryptionEnabled = !ViewModel.IsSmimeEncryptionEnabled));
+        return new NSMenuItem(Translator.Composer_SmimeSignature) { Submenu = menu };
+    }
+
+    private static NSMenuItem CheckItem(string title, bool on, bool enabled, Action action)
+        => new(title, (_, _) => action()) { State = on ? NSCellStateValue.On : NSCellStateValue.Off, Enabled = enabled };
 
     private static NSButton ToggleButton(WinoIconGlyph glyph, string title, string tooltip, Action<bool> changed)
     {
@@ -80,7 +112,6 @@ public sealed partial class ComposePageViewController
     private void UpdateCertificates()
     {
         if (_certificatePopup is null) return;
-        _smimeGroup.Hidden = !ViewModel.IsSmimeAvailable;
         _certificateItems.Clear();
         _certificatePopup.RemoveAllItems();
         foreach (var certificate in ViewModel.AvailableCertificates.ToArray())
@@ -112,5 +143,7 @@ public sealed partial class ComposePageViewController
         // A disabled control is still read by VoiceOver; say why it cannot be used.
         WinoAccessibility.Help(_smimeSignButton, _smimeSignButton.ToolTip);
         WinoAccessibility.Help(_smimeEncryptButton, _smimeEncryptButton.ToolTip);
+        // The group's width and availability changed.
+        _formatToolbar?.InvalidateOverflow();
     }
 }

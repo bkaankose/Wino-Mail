@@ -272,7 +272,9 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
         menu.AddItem(new NSMenuItem { Submenu = application });
 
         var file = new NSMenu(Translator.MacOSMenu_File);
-        file.AddItem(TrackShortcut(Item(Translator.MenuNewMail, "n", NSEventModifierMask.CommandKeyMask, () => Shell()?.NewItem()), KeyboardShortcutAction.NewMail, install));
+        var newItem = TrackShortcut(Item(Translator.MenuNewMail, "n", NSEventModifierMask.CommandKeyMask, NewItemForActiveMode), KeyboardShortcutAction.NewMail, install);
+        file.AddItem(newItem);
+        if (install) AttachFileMenu(file, newItem);
         file.AddItem(NSMenuItem.SeparatorItem);
         file.AddItem(new NSMenuItem(Translator.MacOSMenu_CloseWindow, new ObjCRuntime.Selector("performClose:"), "w"));
         menu.AddItem(new NSMenuItem { Submenu = file });

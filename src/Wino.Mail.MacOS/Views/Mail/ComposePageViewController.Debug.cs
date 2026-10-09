@@ -8,7 +8,7 @@ namespace Wino.Mail.MacOS.Views.Mail;
 /// screenshots: <c>compose-rewrite-menu</c> (tone menu; blocks until it closes),
 /// <c>compose-rewrite-state busy|result|error|off</c> (strip preview without calling the service),
 /// <c>compose-templates</c>, <c>compose-signature</c> (pull-down; blocks until it closes),
-/// <c>compose-options</c> (Options segment), <c>compose-find [text]</c>, <c>compose-replace [text]</c>
+/// <c>compose-options</c> (Options tab), <c>compose-find [text]</c>, <c>compose-replace [text]</c>
 /// and <c>compose-find-close</c>. Nothing is sent or saved.
 /// </summary>
 public sealed partial class ComposePageViewController
@@ -41,8 +41,7 @@ public sealed partial class ComposePageViewController
         }));
         MacDebugBridge.Register("compose-options", _ => OnUIAsync(() =>
         {
-            _toolbarTabs.SelectedSegment = 2;
-            ShowToolbarGroup();
+            _formatToolbar.SelectTab(2);
             return $"smimeAvailable={ViewModel.IsSmimeAvailable} certificates={ViewModel.AvailableCertificates.Count} sign={ViewModel.IsSmimeSignatureEnabled} encrypt={ViewModel.IsSmimeEncryptionEnabled} readReceipt={ViewModel.IsReadReceiptRequested}";
         }));
         MacDebugBridge.Register("compose-find", async args =>
@@ -58,6 +57,64 @@ public sealed partial class ComposePageViewController
             return await OnUIAsync(() => $"counter='{_findBar.CounterText}'");
         });
         MacDebugBridge.Register("compose-find-close", _ => OnUIAsync(() => { CloseFind(); return "ok"; }));
+        RegisterParityDebugCommands();
+    }
+
+    /// <summary>
+    /// <c>compose-toolbar [format|insert|options]</c> (selects the tab; returns visible and overflowed items),
+    /// <c>compose-toolbar-more</c> (overflow menu; blocks until it closes), <c>compose-suggest to|cc|bcc QUERY</c>
+    /// (suggestion rows), <c>compose-syncfail [message|off]</c> (local preview of the upload failure bar;
+    /// nothing is saved), <c>compose-attach-sample</c>, <c>compose-table</c>, <c>compose-link</c>, <c>compose-image-props</c>.
+    /// </summary>
+    private void RegisterParityDebugCommands()
+    {
+        MacDebugBridge.Register("compose-toolbar", args => OnUIAsync(() =>
+        {
+            if (args.Length > 0) _formatToolbar.SelectTab(args[0].ToLowerInvariant() switch { "insert" => 1, "options" => 2, _ => 0 });
+            _formatToolbar.LayoutSubtreeIfNeeded();
+            return _formatToolbar.Describe();
+        }));
+        MacDebugBridge.Register("compose-toolbar-more", _ => OnUIAsync(() =>
+        {
+            AppKit.NSApplication.SharedApplication.BeginInvokeOnMainThread(_formatToolbar.ShowOverflowMenu);
+            return _formatToolbar.Describe();
+        }));
+        MacDebugBridge.Register("compose-suggest", async args =>
+        {
+            if (args.Length < 2) return "usage: compose-suggest to|cc|bcc QUERY";
+            var field = args[0].ToLowerInvariant() switch { "cc" => _ccField, "bcc" => _bccField, _ => _toField };
+            var query = string.Join(' ', args.Skip(1));
+            var rows = await SuggestAsync(field, query);
+            await OnUIAsync(() =>
+            {
+                if (field == _ccField || field == _bccField) ViewModel.IsCCBCCVisible = true;
+                _suggestionPopup?.Show(field, rows, query);
+                return string.Empty;
+            });
+            return string.Join("\n", rows.Select(row => $"{row.Source} '{row.DisplayName}' {row.SecondaryText} canSuppress={row.CanSuppress} members={row.ListMembers.Count}"));
+        });
+        MacDebugBridge.Register("compose-syncfail", args => OnUIAsync(() =>
+        {
+            // Preview only: IsDraftSyncFailed is flipped locally; the draft and its error are not touched.
+            var off = args.Length > 0 && args[0].Equals("off", StringComparison.OrdinalIgnoreCase);
+            ViewModel.IsDraftSyncFailed = !off;
+            if (!off && args.Length > 0) _syncFailedBar.Message = $"{ViewModel.DraftSyncErrorMessage}\n{string.Join(' ', args)}";
+            return $"failed={ViewModel.IsDraftSyncFailed} visible={!(_syncFailedBar.Superview?.Hidden ?? true)}";
+        }));
+        MacDebugBridge.Register("compose-attach-sample", _ => OnUIAsync(() =>
+        {
+            var bytes = System.Text.Encoding.UTF8.GetBytes("Wino debug attachment");
+            ViewModel.AddAttachment(new Wino.Core.Domain.Models.Common.SharedFile(Path.Combine(Path.GetTempPath(), "wino-sample.txt"), bytes));
+            return $"attachments={ViewModel.IncludedAttachments.Count} summary='{ViewModel.AttachmentsSummary}'";
+        }));
+        MacDebugBridge.Register("compose-table", _ => OnUIAsync(() => { Observe(_formatToolbar.InsertTableAsync()); return "ok"; }));
+        MacDebugBridge.Register("compose-link", _ => OnUIAsync(() => { Observe(_formatToolbar.EditLinkAsync()); return "ok"; }));
+        MacDebugBridge.Register("compose-image-props", _ => OnUIAsync(() =>
+        {
+            if (!_formatToolbar.CurrentState.IsImageSelected) return "no image selected";
+            Observe(_formatToolbar.EditImagePropertiesAsync());
+            return "ok";
+        }));
     }
 
     private void ShowRewriteMenuForDebug()
