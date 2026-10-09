@@ -24,8 +24,15 @@ public static class MacNotificationCategories
     public const string CalendarJoinAction = "wino.calendar.joinonline";
     public const string CalendarSnoozeAction = "wino.calendar.snooze";
 
-    /// <summary>The single snooze length offered on macOS (Windows has a drop-down).</summary>
-    public const int CalendarSnoozeMinutes = 5;
+    /// <summary>
+    /// The snooze lengths a reminder can offer. macOS shows one Snooze action whose length is the
+    /// "Default snooze duration" when the reminder allows it (Windows has a drop-down instead); each length
+    /// has its own static category so the action title needs no re-registration when the setting changes.
+    /// </summary>
+    public static IReadOnlyList<int> CalendarSnoozeMinutes => CalendarReminderSnoozeOptions.GetSupportedSnoozeMinutes();
+
+    /// <summary>Falls back to the fixed length notifications used before the setting was honoured.</summary>
+    public const int FallbackSnoozeMinutes = 5;
 
     /// <summary>The operations Windows allows on a mail notification.</summary>
     public static readonly MailOperation[] SupportedMailActions =
@@ -71,43 +78,48 @@ public static class MacNotificationCategories
         _ => operation.ToString()
     };
 
-    public static string SnoozeTitle => $"{Translator.CalendarReminder_SnoozeAction} ({string.Format(Translator.CalendarReminder_SnoozeMinutesOption, CalendarSnoozeMinutes)})";
+    public static string SnoozeTitle(int minutes) => $"{Translator.CalendarReminder_SnoozeAction} ({string.Format(Translator.CalendarReminder_SnoozeMinutesOption, minutes)})";
+
+    /// <summary>A snooze length a category exists for; null when the reminder offers no snooze.</summary>
+    public static int? NormalizeSnoozeMinutes(int? minutes)
+        => minutes is { } value && CalendarSnoozeMinutes.Contains(value) ? value : null;
 
     /// <summary>Builds every category for the current mail action preferences.</summary>
     public static NSSet<UNNotificationCategory> Create(MailOperation firstMailAction, MailOperation secondMailAction)
     {
-        var categories = new[]
+        var categories = new List<UNNotificationCategory>
         {
             Category(Mail, MailAction(firstMailAction), MailAction(secondMailAction), Dismiss()),
-            Category(MailSummary, Dismiss()),
-            CalendarCategoryFor(join: false, snooze: false),
-            CalendarCategoryFor(join: false, snooze: true),
-            CalendarCategoryFor(join: true, snooze: false),
-            CalendarCategoryFor(join: true, snooze: true),
-            Category(Generic,
-                UNNotificationAction.FromIdentifier(OpenAction, Translator.Buttons_Open, UNNotificationActionOptions.Foreground),
-                Dismiss())
+            Category(MailSummary, Dismiss())
         };
-        return new NSSet<UNNotificationCategory>(categories);
+        foreach (var join in new[] { false, true })
+        {
+            categories.Add(CalendarCategoryFor(join, null));
+            foreach (var minutes in CalendarSnoozeMinutes) categories.Add(CalendarCategoryFor(join, minutes));
+        }
+        categories.Add(Category(Generic,
+            UNNotificationAction.FromIdentifier(OpenAction, Translator.Buttons_Open, UNNotificationActionOptions.Foreground),
+            Dismiss()));
+        return new NSSet<UNNotificationCategory>(categories.ToArray());
     }
 
     /// <summary>
-    /// Reminder category: Join only when the event has an online meeting link, Snooze only when
-    /// the reminder leaves room for <see cref="CalendarSnoozeMinutes"/> (Windows' allowed-snooze rule).
+    /// Reminder category: Join only when the event has an online meeting link, Snooze only when the
+    /// reminder allows a snooze (Windows' allowed-snooze rule), titled with <paramref name="snoozeMinutes"/>.
     /// </summary>
-    public static string CalendarCategory(bool join, bool snooze)
-        => Calendar + (join ? ".join" : string.Empty) + (snooze ? ".snooze" : string.Empty);
+    public static string CalendarCategory(bool join, int? snoozeMinutes)
+        => Calendar + (join ? ".join" : string.Empty) + (snoozeMinutes is { } minutes ? ".snooze." + minutes : string.Empty);
 
-    private static UNNotificationCategory CalendarCategoryFor(bool join, bool snooze)
+    private static UNNotificationCategory CalendarCategoryFor(bool join, int? snoozeMinutes)
     {
         var actions = new List<UNNotificationAction>
         {
             UNNotificationAction.FromIdentifier(OpenAction, Translator.Buttons_Open, UNNotificationActionOptions.Foreground)
         };
         if (join) actions.Add(UNNotificationAction.FromIdentifier(CalendarJoinAction, Translator.CalendarEventDetails_JoinOnline, UNNotificationActionOptions.None));
-        if (snooze) actions.Add(UNNotificationAction.FromIdentifier(CalendarSnoozeAction, SnoozeTitle, UNNotificationActionOptions.None));
+        if (snoozeMinutes is { } minutes) actions.Add(UNNotificationAction.FromIdentifier(CalendarSnoozeAction, SnoozeTitle(minutes), UNNotificationActionOptions.None));
         actions.Add(Dismiss());
-        return Category(CalendarCategory(join, snooze), [.. actions]);
+        return Category(CalendarCategory(join, snoozeMinutes), [.. actions]);
     }
 
     private static UNNotificationCategory Category(string identifier, params UNNotificationAction[] actions)

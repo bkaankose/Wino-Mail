@@ -107,6 +107,22 @@ public sealed partial class AppDelegate
             var label = NSApplication.SharedApplication.DockTile.BadgeLabel;
             return $"badge='{label}' unread={MacNotificationBuilder.LastSnapshot.TaskbarUnreadCount}";
         });
+        MacDebugBridge.Register("notify-sounds", async _ =>
+        {
+            var accounts = await services.GetRequiredService<IAccountService>().GetAccountsAsync();
+            return services.GetRequiredService<MacNotificationSounds>().Describe(accounts.Where(account => account.Preferences is not null).Select(account => account.Preferences!));
+        });
+        MacDebugBridge.Register("notify-sound-play", args =>
+        {
+            var name = args.Length > 0 ? args[0] : MacNotificationSounds.DefaultSound;
+            MacNotificationSounds.Play(name);
+            return Task.FromResult($"played '{name}' known={MacNotificationSounds.IsSystemSound(name)}");
+        });
+        MacDebugBridge.Register("app-version", _ =>
+        {
+            var metadata = services.GetRequiredService<IAppMetadataService>();
+            return Task.FromResult($"version={metadata.AppVersion} release={metadata.SentryRelease} dist={metadata.SentryDist}");
+        });
     }
 #endif
 }

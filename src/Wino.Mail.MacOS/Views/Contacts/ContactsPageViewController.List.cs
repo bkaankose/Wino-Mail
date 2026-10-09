@@ -20,6 +20,9 @@ public sealed partial class ContactsPageViewController
     private readonly List<ListEntry> _entries = new();
     private readonly List<ContactGroup> _observedGroups = new();
     private NSSearchField _search = null!;
+    private NSButton _newAddressBook = null!;
+    private NSLayoutConstraint _searchToButton = null!;
+    private NSLayoutConstraint _searchToEdge = null!;
     private NSTableView _table = null!;
     private NSScrollView _scroll = null!;
     private NSView _emptyPanel = null!;
@@ -42,6 +45,16 @@ public sealed partial class ContactsPageViewController
         WinoAccessibility.Label(_search, Translator.ContactsPage_SearchPlaceholder);
         WinoLayout.Size(_search, -1, 30);
 
+        // Windows ContactsPage "New address book" (CardDAV accounts only): icon-only, beside the search field.
+        _newAddressBook = CommandButton(string.Empty, ViewModel.CreateCardDavAddressBookCommand);
+        _newAddressBook.BezelStyle = NSBezelStyle.Rounded;
+        _newAddressBook.Image = WinoIcons.Image(WinoIconGlyph.Library, 15, null, Translator.ContactsPage_NewAddressBook);
+        _newAddressBook.ImagePosition = NSCellImagePosition.ImageOnly;
+        _newAddressBook.ToolTip = Translator.ContactsPage_NewAddressBook;
+        _newAddressBook.TranslatesAutoresizingMaskIntoConstraints = false;
+        _newAddressBook.Hidden = true;
+        WinoAccessibility.Label(_newAddressBook, Translator.ContactsPage_NewAddressBook);
+
         _table = new NSTableView
         {
             HeaderView = null,
@@ -61,6 +74,9 @@ public sealed partial class ContactsPageViewController
         _table.Delegate = new ContactsTableDelegate(this);
         _contextMenu = new NSMenu { AutoEnablesItems = false, Delegate = new ContactsMenuDelegate(this) };
         _table.Menu = _contextMenu;
+        // Contacts drag onto the shell pane's contact lists only (Windows: Copy within the app).
+        _table.SetDraggingSourceOperationMask(NSDragOperation.Copy, true);
+        _table.SetDraggingSourceOperationMask(NSDragOperation.None, false);
         WinoAccessibility.Label(_table, Translator.ContactsPage_Title);
 
         _scroll = new NSScrollView { DocumentView = _table, HasVerticalScroller = true, AutohidesScrollers = true, DrawsBackground = false, TranslatesAutoresizingMaskIntoConstraints = false };
@@ -81,6 +97,9 @@ public sealed partial class ContactsPageViewController
         _emptyPanel.AddSubview(emptyStack);
 
         pane.AddSubview(_search);
+        pane.AddSubview(_newAddressBook);
+        _searchToButton = _search.TrailingAnchor.ConstraintEqualTo(_newAddressBook.LeadingAnchor, -8);
+        _searchToEdge = _search.TrailingAnchor.ConstraintEqualTo(pane.TrailingAnchor, -16);
         pane.AddSubview(_scroll);
         pane.AddSubview(_loadingMore);
         pane.AddSubview(_emptyPanel);
@@ -89,7 +108,9 @@ public sealed partial class ContactsPageViewController
         [
             _search.TopAnchor.ConstraintEqualTo(pane.TopAnchor, 16),
             _search.LeadingAnchor.ConstraintEqualTo(pane.LeadingAnchor, 16),
-            _search.TrailingAnchor.ConstraintEqualTo(pane.TrailingAnchor, -16),
+            _searchToEdge,
+            _newAddressBook.TrailingAnchor.ConstraintEqualTo(pane.TrailingAnchor, -16),
+            _newAddressBook.CenterYAnchor.ConstraintEqualTo(_search.CenterYAnchor),
             _scroll.TopAnchor.ConstraintEqualTo(_search.BottomAnchor, 8),
             _scroll.LeadingAnchor.ConstraintEqualTo(pane.LeadingAnchor, 12),
             _scroll.TrailingAnchor.ConstraintEqualTo(pane.TrailingAnchor, -12),
@@ -129,6 +150,13 @@ public sealed partial class ContactsPageViewController
             if (more) _loadingMore.StartAnimation(null); else _loadingMore.StopAnimation(null);
         });
         Bind(nameof(ViewModel.SelectedContact), vm => vm.SelectedContact, contact => SelectRow(contact));
+        Bind(nameof(ViewModel.CanCreateCardDavAddressBook), vm => vm.CanCreateCardDavAddressBook, canCreate =>
+        {
+            _newAddressBook.Hidden = !canCreate;
+            // Deactivate before activating so the two trailing constraints never coexist.
+            (canCreate ? _searchToEdge : _searchToButton).Active = false;
+            (canCreate ? _searchToButton : _searchToEdge).Active = true;
+        });
         Bind(nameof(ViewModel.IsSelectionMode), vm => vm.IsSelectionMode, selectionMode =>
         {
             if (!selectionMode && _table.SelectedRowCount > 1) _table.DeselectAll(null);
@@ -327,21 +355,114 @@ public sealed partial class ContactsPageViewController
         return RunSearchAsync(string.Empty, select: false);
     }
 
-    // ---- Context menu (Windows ContactCardMenuFlyout essentials) ----
+    // ---- Context menu (Windows ContactCardMenuFlyout) ----
 
+    private int _menuVersion;
+
+    /// <summary>
+    /// Windows ContactCardMenuFlyout over the contacts the menu targets: the selection when the clicked row
+    /// is part of a multi-selection, otherwise the clicked contact (Finder: right-clicking an unselected row
+    /// selects it). Send Mail and Delete stay visible and disable when no target qualifies; Add to List and
+    /// Category are left out when they would be empty.
+    /// </summary>
     private void PopulateContextMenu(NSMenu menu)
     {
+        var version = ++_menuVersion;
         menu.RemoveAllItems();
         nint clicked = _table.ClickedRow;
         if (clicked < 0 || clicked >= _entries.Count || _entries[(int)clicked].Contact is not { } contact) return;
-        if (!_table.IsRowSelected(clicked)) SelectRow(contact, scroll: false);
-        menu.AddItem(MenuItem(Translator.ContactAction_SendMail, WinoIconGlyph.Mail, () => ViewModel.ComposeToContactCommand.Execute(contact), contact.CanSendMail));
-        menu.AddItem(MenuItem(Translator.ContactAction_Edit, WinoIconGlyph.Edit, () => ViewModel.EditContactCommand.Execute(contact), contact.IsEditable));
-        menu.AddItem(MenuItem(contact.FavoriteActionText, contact.IsFavorite ? WinoIconGlyph.StarFilled : WinoIconGlyph.Star, () => ToggleFavorite(contact), true));
+        if (!_table.IsRowSelected(clicked))
+        {
+            // Not through SelectRow: its restoring guard would keep the ViewModel selection stale.
+            _table.SelectRow(clicked, false);
+            SelectionChanged();
+        }
+
+        var targets = ViewModel.ResolveContactContextTargets(contact);
+        menu.AddItem(MenuItem(Translator.ContactAction_SendMail, WinoIconGlyph.Mail, () => ViewModel.ComposeToContacts(targets), targets.Any(item => item.CanSendMail)));
+        if (targets.Count == 1)
+            menu.AddItem(MenuItem(Translator.ContactAction_Edit + "…", WinoIconGlyph.Edit, () => ViewModel.EditContactCommand.Execute(contact), contact.CanEdit));
+        var anyNotFavorite = targets.Any(item => !item.IsFavorite);
+        menu.AddItem(MenuItem(anyNotFavorite ? Translator.ContactAction_Favorite : Translator.ContactAction_Unfavorite,
+            anyNotFavorite ? WinoIconGlyph.Star : WinoIconGlyph.StarFilled, () => Observe(ViewModel.FavoriteContactsAsync(targets)), true));
+
+        if (CreateAssignListItem(targets, version) is { } assign) menu.AddItem(assign);
+        if (CreateCategoryItem(targets) is { } categories) menu.AddItem(categories);
+
+        // A list filter (and a search within it) only shows the list's members.
         if (ViewModel.SelectedFilter?.IsList == true)
-            menu.AddItem(MenuItem(Translator.ContactAction_RemoveFromList, WinoIconGlyph.List, () => Observe(ViewModel.RemoveFromCurrentListCommand.ExecuteAsync(contact)), true));
+            menu.AddItem(MenuItem(Translator.ContactAction_RemoveFromList, WinoIconGlyph.List, () => Observe(RemoveFromCurrentListAsync(targets)), true));
+
         menu.AddItem(NSMenuItem.SeparatorItem);
-        menu.AddItem(MenuItem(Translator.ContactAction_Delete, WinoIconGlyph.Delete, () => Observe(ViewModel.DeleteContactCommand.ExecuteAsync(contact)), contact.IsEditable));
+        menu.AddItem(MenuItem(Translator.ContactAction_Delete, WinoIconGlyph.Delete, () => Observe(ViewModel.DeleteContactsAsync(targets)), targets.Any(item => item.CanDelete)));
+
+#if DEBUG
+        menu.AddItem(NSMenuItem.SeparatorItem);
+        menu.AddItem(MenuItem(Translator.Buttons_TestNotification, WinoIconGlyph.Reminder,
+            () => Observe(_notifications.CreateTestPeopleNotificationAsync(contact.SourceContact)), true));
+#endif
+    }
+
+    /// <summary>
+    /// "Add to List" with the lists of the targets' address book. Which of them already hold every target is
+    /// a database query, so the submenu opens with a "Loading…" placeholder that the result replaces in place.
+    /// </summary>
+    private NSMenuItem? CreateAssignListItem(IReadOnlyList<AccountContactViewModel> targets, int version)
+    {
+        if (targets.Count == 0 || !ViewModel.ContactLists.Any(list => targets.All(item => item.SourceContact.AddressBookId == list.AddressBookId)))
+            return null;
+
+        var submenu = new NSMenu { AutoEnablesItems = false };
+        submenu.AddItem(new NSMenuItem(Translator.ContactsShellMac_Loading) { Enabled = false });
+        var item = new NSMenuItem(Translator.ContactAction_AddToList) { Submenu = submenu, Image = WinoIcons.Image(WinoIconGlyph.People, 14) };
+        Observe(FillAssignListMenuAsync(submenu, targets, version));
+        return item;
+    }
+
+    private async Task FillAssignListMenuAsync(NSMenu submenu, IReadOnlyList<AccountContactViewModel> targets, int version)
+    {
+        var lists = await ViewModel.GetAssignableListsAsync(targets);
+        await Dispatcher.ExecuteOnUIThread(() =>
+        {
+            if (_released || version != _menuVersion) return;
+            submenu.RemoveAllItems();
+            if (lists.Count == 0)
+            {
+                submenu.AddItem(new NSMenuItem(Translator.ContactsShellMac_NoAssignableLists) { Enabled = false });
+                return;
+            }
+            var ids = targets.Select(contact => contact.Id).ToList();
+            foreach (var list in lists)
+                submenu.AddItem(MenuItem(list.Name, WinoIconGlyph.List, () => Observe(ViewModel.AssignContactsToListAsync(list, ids)), true));
+        });
+    }
+
+    /// <summary>Category toggles: On when every target has the category, Mixed when some do (Windows toggles the same way).</summary>
+    private NSMenuItem? CreateCategoryItem(IReadOnlyList<AccountContactViewModel> targets)
+    {
+        var categories = ViewModel.GetAvailableCategories(targets);
+        if (categories.Count == 0) return null;
+
+        var submenu = new NSMenu { AutoEnablesItems = false };
+        foreach (var category in categories)
+        {
+            var assigned = targets.Count(contact => contact.Categories.Any(item => item.Id == category.Id));
+            var tint = WinoStyle.FromHexString(category.TextColorHex) ?? WinoStyle.FromHexString(category.BackgroundColorHex);
+            var item = new NSMenuItem(category.Name ?? string.Empty, (_, _) => Observe(ViewModel.ToggleContactCategoryAsync(category, targets)))
+            {
+                Image = WinoIcons.Image(WinoIconGlyph.Tag, 14, tint),
+                State = assigned == 0 ? NSCellStateValue.Off : assigned == targets.Count ? NSCellStateValue.On : NSCellStateValue.Mixed
+            };
+            submenu.AddItem(item);
+        }
+        return new NSMenuItem(Translator.MailCategoryMenuItem) { Submenu = submenu, Image = WinoIcons.Image(WinoIconGlyph.Tag, 14) };
+    }
+
+    /// <summary>Removes every target from the list the page is filtered to (the ViewModel removes one contact per request).</summary>
+    private async Task RemoveFromCurrentListAsync(IReadOnlyList<AccountContactViewModel> targets)
+    {
+        foreach (var contact in targets.ToList())
+            await ViewModel.RemoveFromCurrentListCommand.ExecuteAsync(contact);
     }
 
     private static NSMenuItem MenuItem(string title, WinoIconGlyph glyph, Action action, bool enabled)
@@ -352,9 +473,50 @@ public sealed partial class ContactsPageViewController
 
     // ---- Table plumbing ----
 
+    // ---- Drag source (Windows ContactsListView_DragItemsStarting) ----
+
+    private INSPasteboardWriting? PasteboardWriterForRow(nint row)
+        => row >= 0 && row < _entries.Count && _entries[(int)row].Contact is { } contact ? ContactDragPayload.CreatePasteboardItem(contact.Id) : null;
+
+    private void DragWillBegin(NSDraggingSession session, CGPoint screenPoint, NSIndexSet rows)
+    {
+        var dragged = rows.ToArray()
+            .Where(index => index < (nuint)_entries.Count)
+            .Select(index => _entries[(int)index].Contact)
+            .OfType<AccountContactViewModel>()
+            .ToList();
+        var ids = ViewModel.ResolveContactDragIds(dragged);
+        if (ids.Count == 0) return;
+
+        ContactDragPayload.Begin(ids, ContactDragPayload.SnapshotRow(_table, (nint)rows.FirstIndex));
+        var image = ContactDragPayload.CreateImage(ids.Count);
+        var window = _table.Window;
+        var pointer = window is null ? CGPoint.Empty : _table.ConvertPointFromView(window.ConvertPointFromScreen(screenPoint), null);
+        var frame = new CGRect(pointer.X - 28, pointer.Y - 24, image.Size.Width, image.Size.Height);
+        var empty = new NSImage(new CGSize(1, 1));
+
+        // One card stands for every dragged contact; the per-row items stay invisible.
+        session.DraggingFormation = NSDraggingFormation.None;
+        session.AnimatesToStartingPositionsOnCancelOrFail = true;
+        session.EnumerateDraggingItems(NSDraggingItemEnumerationOptions.Concurrent, _table, ContactDragPayload.ItemClasses(), new NSDictionary(),
+            (NSDraggingItem item, nint index, ref bool stop) =>
+            {
+                if (index == 0) item.SetDraggingFrame(frame, image);
+                else item.SetDraggingFrame(new CGRect(frame.Location, new CGSize(1, 1)), empty);
+            });
+    }
+
     private sealed class ContactsTableDataSource(ContactsPageViewController owner) : NSTableViewDataSource
     {
         public override nint GetRowCount(NSTableView tableView) => owner._entries.Count;
+
+        public override INSPasteboardWriting? GetPasteboardWriterForRow(NSTableView tableView, nint row) => owner.PasteboardWriterForRow(row);
+
+        public override void DraggingSessionWillBegin(NSTableView tableView, NSDraggingSession draggingSession, CGPoint willBeginAtScreenPoint, NSIndexSet rowIndexes)
+            => owner.DragWillBegin(draggingSession, willBeginAtScreenPoint, rowIndexes);
+
+        public override void DraggingSessionEnded(NSTableView tableView, NSDraggingSession draggingSession, CGPoint endedAtScreenPoint, NSDragOperation operation)
+            => ContactDragPayload.End();
     }
 
     private sealed class ContactsTableDelegate(ContactsPageViewController owner) : NSTableViewDelegate
@@ -419,6 +581,31 @@ public sealed partial class ContactsPageViewController
         });
         MacDebugBridge.Register("contacts-new", _ => { ViewModel.AddContactCommand.Execute(null); return Task.FromResult("ok"); });
         MacDebugBridge.Register("contacts-search", async args => { await SearchTextChangedAsync(string.Join(' ', args)); return "ok " + (_searchResults?.Count ?? 0); });
+        ContactDragPayload.DebugSelection = () => _released ? [] : ViewModel.ResolveContactDragIds(ViewModel.SelectedContacts.ToList());
+        // "contacts-menu": the context menu the selection would get (lists awaited, category states).
+        MacDebugBridge.Register("contacts-menu", async _ =>
+        {
+            if (ViewModel.SelectedContact is not { } contact) return "no selection";
+            var targets = ViewModel.ResolveContactContextTargets(contact);
+            var lists = await ViewModel.GetAssignableListsAsync(targets);
+            var categories = CreateCategoryItem(targets)?.Submenu?.Items
+                .Select(item => $"{item.Title}[{(item.State == NSCellStateValue.On ? "on" : item.State == NSCellStateValue.Mixed ? "mixed" : "off")}]") ?? [];
+            return $"targets={targets.Count} sendMail={targets.Any(item => item.CanSendMail)} edit={(targets.Count == 1 ? contact.CanEdit.ToString() : "hidden")} " +
+                   $"favorite='{(targets.Any(item => !item.IsFavorite) ? Translator.ContactAction_Favorite : Translator.ContactAction_Unfavorite)}' " +
+                   $"lists=[{string.Join(", ", lists.Select(list => list.Name))}] categories=[{string.Join(", ", categories)}] " +
+                   $"removeFromList={ViewModel.SelectedFilter?.IsList == true} delete={targets.Any(item => item.CanDelete)}";
+        });
+        // "contacts-select-many 0 2 5": multi-selects contact rows by contact index.
+        MacDebugBridge.Register("contacts-select-many", args =>
+        {
+            var contacts = _entries.Where(entry => entry.Contact is not null).Select(entry => entry.Contact!).ToList();
+            var rows = new NSMutableIndexSet();
+            foreach (var arg in args)
+                if (int.TryParse(arg, out var index) && index >= 0 && index < contacts.Count) rows.Add((nuint)RowOf(contacts[index]));
+            _table.SelectRows(rows, false);
+            SelectionChanged();
+            return Task.FromResult($"selected {ViewModel.SelectedContacts.Count}");
+        });
         MacDebugBridge.Register("contacts-count", _ => Task.FromResult($"{ViewModel.Contacts.Count} contacts, {_entries.Count} rows, loading={ViewModel.IsLoading}, blocked={ViewModel.Readiness.IsBlocked}"));
 #endif
     }

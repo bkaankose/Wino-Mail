@@ -46,6 +46,7 @@ public sealed partial class ToDoPageViewController
     private NSTextField _emptyBody = null!;
     private WinoQuickAddView _quickAdd = null!;
     private NSPopover? _suggestionsPopover;
+    private NSPopover? _dueDatePopover;
     private bool _reloadScheduled;
     private bool _restoringSelection;
     private bool _listBound;
@@ -256,6 +257,8 @@ public sealed partial class ToDoPageViewController
         _observedGroups.Clear();
         _suggestionsPopover?.Close();
         _suggestionsPopover = null;
+        _dueDatePopover?.Close();
+        _dueDatePopover = null;
     }
 
     private void AccentChanged(object? sender, EventArgs e) => OnUI(() => _title.TextColor = WinoStyle.Accent);
@@ -505,6 +508,7 @@ public sealed partial class ToDoPageViewController
         menu.AddItem(NSMenuItem.SeparatorItem);
         menu.AddItem(MenuItem(Translator.ToDoPage_DueToday, () => Observe(ViewModel.SetTaskDueDateAsync(task, DateTime.Now.Date)), WinoIconGlyph.CalendarToday, enabled: editable));
         menu.AddItem(MenuItem(Translator.ToDoPage_DueTomorrow, () => Observe(ViewModel.SetTaskDueDateAsync(task, DateTime.Now.Date.AddDays(1))), WinoIconGlyph.Calendar, enabled: editable));
+        menu.AddItem(MenuItem(Translator.ToDoPage_DuePresetPickDate + "…", () => ShowDueDatePicker(task, row), WinoIconGlyph.Calendar, enabled: editable));
         menu.AddItem(MenuItem(Translator.ToDoPage_RemoveDueDate, () => Observe(ViewModel.SetTaskDueDateAsync(task, null)), WinoIconGlyph.Calendar, enabled: editable && task.HasDueDate));
         var destinations = ViewModel.TaskLists.Where(list => !list.IsReadOnly && list.Id != task.Task.TaskListId &&
             list.MailAccountId == task.Task.MailAccountId && list.SourceKind == task.Task.SourceKind).ToList();
@@ -519,6 +523,59 @@ public sealed partial class ToDoPageViewController
         menu.AddItem(NSMenuItem.SeparatorItem);
         menu.AddItem(MenuItem(Translator.ToDoPage_DeleteTask, () => Observe(ViewModel.DeleteTaskCommand.ExecuteAsync(task)), WinoIconGlyph.Delete, WinoToDoStyle.Critical, editable));
         return menu;
+    }
+
+    /// <summary>
+    /// "Pick a date" (Windows TaskDueDatePickerHost DatePickerFlyout): a graphical date picker in a transient
+    /// popover beside the row. OK (Return) sets the due date; Cancel, Escape or clicking outside leaves it.
+    /// </summary>
+    private void ShowDueDatePicker(TaskItemViewModel task, nint row)
+    {
+        _dueDatePopover?.Close();
+        var initial = (task.DueDate ?? DateTime.Now).Date;
+        var picker = new NSDatePicker
+        {
+            DatePickerStyle = NSDatePickerStyle.ClockAndCalendar,
+            DatePickerElements = NSDatePickerElementFlags.YearMonthDate,
+            Calendar = NSCalendar.CurrentCalendar,
+            TimeZone = NSTimeZone.LocalTimeZone,
+            DateValue = (NSDate)DateTime.SpecifyKind(initial, DateTimeKind.Local),
+            Bezeled = false,
+            DrawsBackground = false,
+            TranslatesAutoresizingMaskIntoConstraints = false
+        };
+        WinoAccessibility.Label(picker, Translator.ToDoPage_DuePresetPickDate);
+
+        NSPopover? popover = null;
+        var cancel = new NSButton { Title = Translator.Buttons_Cancel, BezelStyle = NSBezelStyle.Rounded, KeyEquivalent = "\u001b" };
+        cancel.Activated += (_, _) => popover?.Close();
+        var ok = new NSButton { Title = Translator.Buttons_OK, BezelStyle = NSBezelStyle.Rounded, KeyEquivalent = "\r" };
+        ok.Activated += (_, _) =>
+        {
+            var picked = ((DateTime)picker.DateValue).ToLocalTime().Date;
+            popover?.Close();
+            CommitPickedDueDate(task, picked);
+        };
+        var buttons = WinoLayout.HStack(8, WinoLayout.Spacer(), cancel, ok);
+        var stack = WinoLayout.VStack(12, picker, buttons);
+        stack.Alignment = NSLayoutAttribute.CenterX;
+        var content = new NSView();
+        WinoLayout.Fill(stack, content, 12, 12, 12, 12);
+        buttons.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
+        var controller = new NSViewController { View = content };
+
+        popover = _dueDatePopover = new NSPopover { ContentViewController = controller, Behavior = NSPopoverBehavior.Transient, Animates = true };
+        var anchor = row >= 0 && row < _table.RowCount ? _table.RectForRow(row) : _table.VisibleRect();
+        popover.Show(anchor, _table, NSRectEdge.MaxXEdge);
+        content.Window?.MakeFirstResponder(picker);
+    }
+
+    private void CommitPickedDueDate(TaskItemViewModel task, DateTime date)
+    {
+        // The list may have reloaded while the popover was open; use the current item for the task.
+        var taskId = task.Task.Id;
+        var current = _entries.Select(entry => entry.Item).FirstOrDefault(item => item?.Task.Id == taskId) ?? task;
+        Observe(ViewModel.SetTaskDueDateAsync(current, date.Date));
     }
 
     private sealed class TaskTableDataSource(ToDoPageViewController owner) : NSTableViewDataSource
@@ -537,20 +594,12 @@ public sealed partial class ToDoPageViewController
         public override void SelectionDidChange(NSNotification notification) => owner.TableSelectionChanged();
     }
 
-    /// <summary>Delete removes the selected task; right-click opens the task menu.</summary>
+    /// <summary>
+    /// Right-click opens the task menu. The Delete key is a configurable shortcut, routed by the app's
+    /// mode shortcut router (AppDelegate.Shortcuts) to ToDoPageViewModel.KeyboardShortcutHook.
+    /// </summary>
     private sealed class TaskTableView(ToDoPageViewController owner) : NSTableView
     {
-        public override void KeyDown(NSEvent theEvent)
-        {
-            var key = theEvent.CharactersIgnoringModifiers;
-            if (!string.IsNullOrEmpty(key) && key[0] is (char)127 or (char)NSFunctionKey.Delete && owner.ViewModel.SelectedTask is { IsReadOnly: false } task)
-            {
-                owner.Observe(owner.ViewModel.DeleteTaskCommand.ExecuteAsync(task));
-                return;
-            }
-            base.KeyDown(theEvent);
-        }
-
         public override NSMenu? MenuForEvent(NSEvent theEvent)
         {
             var point = ConvertPointFromView(theEvent.LocationInWindow, null);

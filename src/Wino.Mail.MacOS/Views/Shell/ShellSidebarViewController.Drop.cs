@@ -4,7 +4,9 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Controls.AppKit.Shell;
+using Wino.Mail.MacOS.Views.Contacts;
 using Wino.Mail.MacOS.Views.Mail;
+using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.MacOS.Views.Shell;
 
@@ -13,6 +15,8 @@ namespace Wino.Mail.MacOS.Views.Shell;
 /// ItemDroppedOnFolder): folder rows that pass CanContinueDragDrop take the drop with the accent
 /// highlight and a "Move to {folder}" caption on the drag image; the drop moves the mails through
 /// <see cref="IMailShellClient.PerformMoveOperationAsync"/>. Other rows show no highlight.
+/// Contacts dragged from the contacts list drop on contact-list rows (Windows ContactFilterViewModel
+/// CanAccept / HandleDropAsync) with an "Add to {list}" caption; the ViewModel reports the result.
 /// </summary>
 internal sealed partial class ShellSidebarViewController
 {
@@ -22,7 +26,7 @@ internal sealed partial class ShellSidebarViewController
 
     private void SetUpMailDrop()
     {
-        _outline.RegisterForDraggedTypes([MailDragPayload.PasteboardType]);
+        _outline.RegisterForDraggedTypes([MailDragPayload.PasteboardType, ContactDragPayload.PasteboardType]);
         _outline.DraggingDestinationFeedbackStyle = NSTableViewDraggingDestinationFeedbackStyle.None;
         _outline.DragFinished = () => SetDropRow(-1);
 #if DEBUG
@@ -48,6 +52,7 @@ internal sealed partial class ShellSidebarViewController
 
     internal NSDragOperation ValidateMailDrop(INSDraggingInfo info)
     {
+        if (ContactDragPayload.IsContactDrag(info)) return ValidateContactDrop(info);
         var mails = MailDragPayload.From(info);
         var (row, folder) = FolderAt(info);
         if (mails.Count == 0 || folder is null)
@@ -72,6 +77,7 @@ internal sealed partial class ShellSidebarViewController
 
     internal bool AcceptMailDrop(INSDraggingInfo info)
     {
+        if (ContactDragPayload.IsContactDrag(info)) return AcceptContactDrop(info);
         var mails = MailDragPayload.From(info);
         var (row, folder) = FolderAt(info);
         SetDropRow(-1);
@@ -94,6 +100,66 @@ internal sealed partial class ShellSidebarViewController
         try { await mail.PerformMoveOperationAsync(mails, folder); }
         catch (Exception exception) { _error(exception); }
     }
+
+    #region Contacts
+
+    /// <summary>The contact filter row under <paramref name="row"/> when it accepts <paramref name="properties"/>.</summary>
+    private ContactFilterViewModel? ContactListAtRow(nint row, IReadOnlyDictionary<string, object> properties)
+    {
+        if (row < 0 || row >= _outline.RowCount || _outline.ItemAtRow(row) is not Node node) return null;
+        return node.Item is ContactFilterViewModel filter && ShellPaneRows.IsEnabled(filter) && filter.CanAccept(properties) ? filter : null;
+    }
+
+    private NSDragOperation ValidateContactDrop(INSDraggingInfo info)
+    {
+        var ids = ContactDragPayload.From(info);
+        var properties = ContactDragPayload.DataProperties(ids);
+        var row = _outline.GetRow(_outline.ConvertPointFromView(info.DraggingLocation, null));
+        if (ids.Count == 0 || ContactListAtRow(row, properties) is not { } list)
+        {
+            SetDropRow(-1);
+            UpdateContactDragCaption(info, ids.Count, null);
+            return NSDragOperation.None;
+        }
+
+        if (_outline.ItemAtRow(row) is { } node) _outline.SetDropItem(node, DropOnItem);
+        SetDropRow(row);
+        UpdateContactDragCaption(info, ids.Count, list.GetDropCaption(properties));
+        return NSDragOperation.Copy;
+    }
+
+    private bool AcceptContactDrop(INSDraggingInfo info)
+    {
+        var ids = ContactDragPayload.From(info);
+        var properties = ContactDragPayload.DataProperties(ids);
+        var row = _outline.GetRow(_outline.ConvertPointFromView(info.DraggingLocation, null));
+        SetDropRow(-1);
+        if (ids.Count == 0 || ContactListAtRow(row, properties) is not { } list) return false;
+        _ = DropContactsAsync(list, properties);
+        return true;
+    }
+
+    private async Task DropContactsAsync(ContactFilterViewModel list, IReadOnlyDictionary<string, object> properties)
+    {
+        try { await list.HandleDropAsync(properties); }
+        catch (Exception exception) { _error(exception); }
+    }
+
+    private void UpdateContactDragCaption(INSDraggingInfo info, int count, string? caption)
+    {
+        if (count == 0 || caption == _dropCaption) return;
+        _dropCaption = caption;
+        var image = ContactDragPayload.CreateImage(count, caption);
+        info.EnumerateDraggingItems(NSDraggingItemEnumerationOptions.Concurrent, _outline, ContactDragPayload.ItemClasses().Handle, new NSDictionary(),
+            (NSDraggingItem item, nint index, ref bool stop) =>
+            {
+                if (index != 0) return;
+                var frame = item.DraggingFrame;
+                item.SetDraggingFrame(new CoreGraphics.CGRect(frame.Location, image.Size), image);
+            });
+    }
+
+    #endregion
 
     private void SetDropRow(nint row)
     {
@@ -141,6 +207,26 @@ internal sealed partial class ShellSidebarViewController
             if (error is not null) return Task.FromResult(error);
             if (!MailDragPayload.CanDropOn(folder!, IsSelectedFolder(row, folder!), mails)) return Task.FromResult("refused: not a valid drop target");
             return Task.FromResult(PerformMailDrop(folder!, mails) ? $"moving {MailDragPayload.MailsFor(folder!, mails).Count} to '{folder!.FolderName}'" : "no mail client");
+        });
+        Infrastructure.MacDebugBridge.Register("contacts-drag-validate", args =>
+        {
+            if (args.Length == 0 || !int.TryParse(args[0], out var index)) return Task.FromResult("usage: ROW");
+            var ids = ContactDragPayload.DebugSelection?.Invoke() ?? [];
+            if (ids.Count == 0) return Task.FromResult("no contacts selected");
+            var properties = ContactDragPayload.DataProperties(ids);
+            var list = ContactListAtRow(index, properties);
+            var item = index >= 0 && index < _outline.RowCount && _outline.ItemAtRow(index) is Node node ? node.Item : null;
+            return Task.FromResult($"row={index} item={item?.GetType().Name} contacts={ids.Count} valid={list is not null} caption='{list?.GetDropCaption(properties)}'");
+        });
+        Infrastructure.MacDebugBridge.Register("contacts-drag-drop", args =>
+        {
+            if (args.Length == 0 || !int.TryParse(args[0], out var index)) return Task.FromResult("usage: ROW");
+            var ids = ContactDragPayload.DebugSelection?.Invoke() ?? [];
+            if (ids.Count == 0) return Task.FromResult("no contacts selected");
+            var properties = ContactDragPayload.DataProperties(ids);
+            if (ContactListAtRow(index, properties) is not { } list) return Task.FromResult("refused: not a contact list row");
+            _ = DropContactsAsync(list, properties);
+            return Task.FromResult($"adding {ids.Count} to '{list.Name}'");
         });
         Infrastructure.MacDebugBridge.Register("drag-highlight", args =>
         {

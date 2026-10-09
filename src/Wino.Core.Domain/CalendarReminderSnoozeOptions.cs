@@ -26,4 +26,17 @@ public static class CalendarReminderSnoozeOptions
 
         return SupportedSnoozeMinutes.Where(minutes => minutes <= maxSnoozeMinutes).ToArray();
     }
+
+    /// <summary>
+    /// The snooze length a reminder offers by default: the preferred length when the reminder allows it,
+    /// otherwise the shortest allowed one (Windows NotificationBuilder rule). Null when no snooze is allowed.
+    /// </summary>
+    public static int? GetDefaultSnoozeMinutes(long reminderDurationInSeconds, long defaultReminderDurationInSeconds, int preferredMinutes)
+    {
+        var allowed = GetAllowedSnoozeMinutes(reminderDurationInSeconds, defaultReminderDurationInSeconds);
+        if (allowed.Count == 0)
+            return null;
+
+        return allowed.Contains(preferredMinutes) ? preferredMinutes : allowed[0];
+    }
 }
