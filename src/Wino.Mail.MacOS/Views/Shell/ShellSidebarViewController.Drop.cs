@@ -23,6 +23,7 @@ internal sealed partial class ShellSidebarViewController
     private const nint DropOnItem = -1;
     private nint _dropRow = -1;
     private string? _dropCaption;
+    private nint _dropSequence = -1;
 
     private void SetUpMailDrop()
     {
@@ -147,8 +148,7 @@ internal sealed partial class ShellSidebarViewController
 
     private void UpdateContactDragCaption(INSDraggingInfo info, int count, string? caption)
     {
-        if (count == 0 || caption == _dropCaption) return;
-        _dropCaption = caption;
+        if (!CaptionChanged(info, count, caption)) return;
         var image = ContactDragPayload.CreateImage(count, caption);
         info.EnumerateDraggingItems(NSDraggingItemEnumerationOptions.Concurrent, _outline, ContactDragPayload.ItemClasses().Handle, new NSDictionary(),
             (NSDraggingItem item, nint index, ref bool stop) =>
@@ -161,20 +161,37 @@ internal sealed partial class ShellSidebarViewController
 
     #endregion
 
+    /// <summary>
+    /// Records the caption the drag image shows; false when it already shows it. The caption state is owned
+    /// here (not reset with the drop highlight), so leaving a valid row for an invalid one redraws the plain
+    /// card. A new drag session starts from the source's plain card, so its first caption always draws.
+    /// </summary>
+    private bool CaptionChanged(INSDraggingInfo info, int count, string? caption)
+    {
+        if (count == 0) return false;
+        var sequence = info.DraggingSequenceNumber;
+        if (sequence != _dropSequence)
+        {
+            _dropSequence = sequence;
+            _dropCaption = null;
+        }
+        if (caption == _dropCaption) return false;
+        _dropCaption = caption;
+        return true;
+    }
+
     private void SetDropRow(nint row)
     {
         if (row == _dropRow) return;
         if (_dropRow >= 0 && _dropRow < _outline.RowCount && _outline.GetRowView(_dropRow, false) is WinoShellRowView previous) previous.IsDropTarget = false;
         _dropRow = row;
         if (row >= 0 && _outline.GetRowView(row, false) is WinoShellRowView current) current.IsDropTarget = true;
-        if (row < 0) _dropCaption = null;
     }
 
     /// <summary>Redraws the dragged card with the caption chip while it is over the pane (Windows DragUIOverride.Caption).</summary>
     private void UpdateDragCaption(INSDraggingInfo info, int count, string? caption, bool refused)
     {
-        if (count == 0 || caption == _dropCaption) return;
-        _dropCaption = caption;
+        if (!CaptionChanged(info, count, caption)) return;
         var image = MailDragPayload.CreateImage(count, caption, refused);
         info.EnumerateDraggingItems(NSDraggingItemEnumerationOptions.Concurrent, _outline, MailDragPayload.ItemClasses().Handle, new NSDictionary(),
             (NSDraggingItem item, nint index, ref bool stop) =>

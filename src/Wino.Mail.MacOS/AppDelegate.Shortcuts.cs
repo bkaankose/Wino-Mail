@@ -127,7 +127,7 @@ public sealed partial class AppDelegate
         if (application.ModalWindow is not null) return false;
         // Menu tracking (and other event tracking) runs its own loop; keys there belong to it.
         if (NSRunLoop.Current.CurrentMode == NSRunLoopMode.EventTracking.GetConstant()) return false;
-        if (Shell() is not { } current || theEvent.Window is not { } window || !ReferenceEquals(window, current.View.Window)) return false;
+        if (Shell() is not { } current || theEvent.Window is not { } window || window.Handle != current.View.Window?.Handle) return false;
         if (window.AttachedSheet is not null) return false;
         if (current.ActiveMode is not { } mode || ShortcutContextFor(mode) is not { } context) return false;
         if (!IsEligibleRoot(mode, current.ContentViewModel)) return false;
@@ -266,8 +266,22 @@ public sealed partial class AppDelegate
         if (Shell() is not { } shell) return;
         var mode = shell.ActiveMode ?? WinoApplicationMode.Mail;
         if (NewActionFor(mode) is not { } action) { shell.NewItem(); return; }
-        if (NSApplication.SharedApplication.CurrentEvent?.Type == NSEventType.KeyDown) return;
+        if (IsNewItemKeyEquivalent(NSApplication.SharedApplication.CurrentEvent)) return;
         DispatchModeAction(shell, mode, action);
+    }
+
+    /// <summary>
+    /// True when <paramref name="current"/> is the File › New key equivalent itself (the Mail mapping, since the
+    /// menu is closed). Any other key event reaching the action is a menu choice from a keyboard-opened menu
+    /// (Full Keyboard Access, VoiceOver) and must run.
+    /// </summary>
+    private bool IsNewItemKeyEquivalent(NSEvent? current)
+    {
+        if (current?.Type != NSEventType.KeyDown || _newItemMenuItem is not { } item || string.IsNullOrEmpty(item.KeyEquivalent)) return false;
+        const NSEventModifierMask relevant = NSEventModifierMask.CommandKeyMask | NSEventModifierMask.ControlKeyMask |
+                                             NSEventModifierMask.AlternateKeyMask | NSEventModifierMask.ShiftKeyMask;
+        return string.Equals(current.CharactersIgnoringModifiers, item.KeyEquivalent, StringComparison.OrdinalIgnoreCase) &&
+               (current.ModifierFlags & relevant) == (item.KeyEquivalentModifierMask & relevant);
     }
 
     private static KeyboardShortcutAction? NewActionFor(WinoApplicationMode mode) => mode switch
