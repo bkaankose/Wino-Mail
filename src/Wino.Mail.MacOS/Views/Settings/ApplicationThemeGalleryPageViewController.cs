@@ -37,6 +37,10 @@ public sealed class ApplicationThemeGalleryPageViewController(ApplicationThemeGa
     private NSTextField _currentName = null!;
     private NSTextField _currentCompatibility = null!;
     private bool _syncingSelection;
+    private bool _reloadPending;
+    private bool _deactivated;
+    private const double ItemSpacing = 12;
+    private const double LineSpacing = 16;
 
     protected override void BuildPage()
     {
@@ -114,8 +118,8 @@ public sealed class ApplicationThemeGalleryPageViewController(ApplicationThemeGa
         var layout = new NSCollectionViewFlowLayout
         {
             ItemSize = ItemSize,
-            MinimumInteritemSpacing = 12,
-            MinimumLineSpacing = 16,
+            MinimumInteritemSpacing = (nfloat)ItemSpacing,
+            MinimumLineSpacing = (nfloat)LineSpacing,
             SectionInset = new NSEdgeInsets(4, 0, 4, 0)
         };
         _grid = new ThemeCollectionView
@@ -159,6 +163,7 @@ public sealed class ApplicationThemeGalleryPageViewController(ApplicationThemeGa
 
     protected override Task DeactivateAsync()
     {
+        _deactivated = true;
         _grid.DeleteRequested = null;
         return base.DeactivateAsync();
     }
@@ -169,21 +174,41 @@ public sealed class ApplicationThemeGalleryPageViewController(ApplicationThemeGa
         UpdateGridHeight();
     }
 
+    /// <summary>
+    /// The filter clears and re-adds every theme, one collection change each: reload once per burst,
+    /// on the next run-loop turn.
+    /// </summary>
     private void Reload()
     {
-        _grid.ReloadData();
-        UpdateGridHeight();
-        SyncSelection();
+        if (_reloadPending) return;
+        _reloadPending = true;
+        NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
+        {
+            _reloadPending = false;
+            if (_deactivated || _grid is null) return;
+            _grid.ReloadData();
+            UpdateGridHeight();
+            SyncSelection();
+        });
     }
 
-    /// <summary>The grid is as tall as its content; the settings page scrolls, not the grid.</summary>
+    /// <summary>
+    /// The grid is as tall as its content (the settings page scrolls, not the grid), computed from the
+    /// flow layout's fixed item size and spacing rather than from a nested layout pass.
+    /// </summary>
     private void UpdateGridHeight()
     {
-        if (_gridScroll.Frame.Width <= 0) return;
-        _grid.SetFrameSize(new CGSize(_gridScroll.ContentSize.Width, _grid.Frame.Height));
-        _grid.CollectionViewLayout?.InvalidateLayout();
-        _grid.LayoutSubtreeIfNeeded();
-        var height = Math.Max(ItemSize.Height + 8, _grid.CollectionViewLayout?.CollectionViewContentSize.Height ?? 0);
+        var width = _gridScroll.ContentSize.Width;
+        if (width <= 0) return;
+        if (Math.Abs(_grid.Frame.Width - width) > 0.5)
+        {
+            _grid.SetFrameSize(new CGSize(width, _grid.Frame.Height));
+            _grid.CollectionViewLayout?.InvalidateLayout();
+        }
+        var count = ViewModel.FilteredThemes.Count;
+        var columns = Math.Max(1, (int)Math.Floor((width + ItemSpacing) / (ItemSize.Width + ItemSpacing)));
+        var rows = Math.Max(1, (int)Math.Ceiling(count / (double)columns));
+        var height = rows * ItemSize.Height + (rows - 1) * LineSpacing + 8;
         if (Math.Abs(_gridHeight.Constant - height) > 0.5) _gridHeight.Constant = (nfloat)height;
     }
 
@@ -329,11 +354,13 @@ internal sealed class ThemeGalleryItem : NSCollectionViewItem
 
     public override void LoadView()
     {
-        var root = new NSView();
+        var root = new ItemRootView(_edit);
         _stack.Alignment = NSLayoutAttribute.Leading;
         _edit.ControlSize = NSControlSize.Small;
         _edit.Activated += (_, _) => _editAction?.Invoke();
         WinoLayout.Fill(_stack, root, 0, 4, 0, 4);
+        root.AccessibilityElement = true;
+        root.AccessibilityRole = NSAccessibilityRoles.ButtonRole;
         View = root;
     }
 
@@ -348,6 +375,8 @@ internal sealed class ThemeGalleryItem : NSCollectionViewItem
         var gradient = theme.IsCustomTheme ? null : MacWinoThemeService.GradientFor(theme.ThemeName);
         _tile = new WinoThemeTile(theme.ThemeName ?? string.Empty, gradient is null ? ThemeThumbnailView.ImageFor(theme) : null, gradient,
             theme.ForceElementTheme == ApplicationElementTheme.Dark) { IsSelected = Selected };
+        // The item is the accessible element; the tile's own radio button would be a dead control here.
+        _tile.AccessibilityElement = false;
         _stack.AddArrangedSubview(_tile);
         if (theme.IsCustomTheme) _stack.AddArrangedSubview(_edit);
         else
@@ -357,10 +386,25 @@ internal sealed class ThemeGalleryItem : NSCollectionViewItem
         }
 
         View.Menu = menu;
+        View.AccessibilityLabel = theme.ThemeName;
         View.AccessibilityCustomActions = theme.IsCustomTheme
             ? [new NSAccessibilityCustomAction(Translator.Buttons_Edit, () => { edit(); return true; }),
                new NSAccessibilityCustomAction(Translator.Buttons_Delete, () => { delete(); return true; })]
             : [];
+    }
+
+    /// <summary>
+    /// The item's root: every click except one on the Edit button lands here, so the collection view
+    /// tracks it and commits the selection (the tile would otherwise keep the mouse-up to itself).
+    /// </summary>
+    private sealed class ItemRootView(NSButton edit) : NSView
+    {
+        public override NSView? HitTest(CGPoint point)
+        {
+            var hit = base.HitTest(point);
+            if (hit is null) return null;
+            return edit.Superview is not null && !edit.Hidden && hit.IsDescendantOf(edit) ? hit : this;
+        }
     }
 
     public override bool Selected

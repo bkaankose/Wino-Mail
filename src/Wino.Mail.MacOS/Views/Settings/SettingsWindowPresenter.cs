@@ -86,7 +86,9 @@ public sealed class SettingsWindowPresenter : ISettingsWindowPresenter, IRecipie
     public bool TryGoBack()
     {
         if (_stopping || !_isVisible || !_isActive || _backCount == 0) return false;
-        _ = ObserveAsync(GoBackAsync());
+        // Page-initiated back (BackBreadcrumNavigationRequested after Save, Delete or Cancel): the page
+        // already decided, so it is not asked again (Windows passes confirmationAlreadyHandled).
+        _ = ObserveAsync(NavigateAsync(null, NavigationMode.Back));
         return true;
     }
 

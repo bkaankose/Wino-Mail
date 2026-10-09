@@ -118,7 +118,14 @@ public sealed partial class ApplicationThemeEditorPageViewController(Application
         var delete = Bind.Button(Translator.Buttons_Delete, vm.DeleteCommand);
         delete.HasDestructiveAction = true;
         Bind.Visible(delete, vm, nameof(vm.IsEditMode), s => s.IsEditMode);
-        var save = Bind.Button(Translator.Buttons_Save, vm.SaveCommand, primary: true);
+        // A colour picked just before Save may still be in a well's debounce: write it first.
+        var save = Bind.Button(Translator.Buttons_Save, () =>
+        {
+            foreach (var well in AllWells()) well.Flush();
+            if (vm.SaveCommand.CanExecute(null)) vm.SaveCommand.Execute(null);
+        }, primary: true);
+        Bind.Bind(vm, nameof(vm.IsSaving), s => s.IsSaving, _ => save.Enabled = !vm.IsSaving && !vm.IsDeleting);
+        Bind.Bind(vm, nameof(vm.IsDeleting), s => s.IsDeleting, _ => save.Enabled = !vm.IsSaving && !vm.IsDeleting);
         save.KeyEquivalent = "\r";
         var footer = WinoLayout.HStack(WinoStyle.Space2, WinoLayout.Spacer(), cancel, delete, save);
         footer.EdgeInsets = new NSEdgeInsets((nfloat)WinoStyle.Space3, 0, (nfloat)WinoStyle.Space4, 0);
@@ -159,8 +166,9 @@ public sealed partial class ApplicationThemeEditorPageViewController(Application
 
     protected override async Task DeactivateAsync()
     {
-        _released = true;
+        // Write pending colours while the page is still live; ReleasePreviewAsync then drains that preview and restores.
         foreach (var well in AllWells()) well.Deactivate();
+        _released = true;
         ClearRows();
         // Restores the theme in use unless the theme was saved or deleted.
         try { await ViewModel.ReleasePreviewAsync(); }

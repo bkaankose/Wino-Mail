@@ -130,7 +130,7 @@ public sealed class MacWinoThemeService(IDispatcher dispatcher, IConfigurationSe
         }
     }
 
-    public bool IsCustomTheme => _themeId is { } id && FindPredefined(id) is null;
+    public bool IsCustomTheme => _themeId is { } id && FindCachedCustom(id) is not null;
     public WindowBackdropType CurrentBackdropType { get; set; } = WindowBackdropType.None;
 
     public bool IsBackdropEnabled

@@ -330,6 +330,13 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         var primary = new HashSet<MailOperation>();
         if (!items.Any(item => PrimaryOrder.Contains(item.Operation)))
         {
+            if (_currentItem is null && items.Length > 0)
+            {
+                // A saved .eml has only Save As and Print; show just those, like Windows.
+                foreach (var item in items) { var captured = item; commands.Add(new MailReaderCommand(MailOperationPresentation.Glyph(item.Operation), BarTitle(item.Operation), () => Observe(ViewModel.OperationClickedCommand.ExecuteAsync(captured)), item.IsEnabled)); }
+                _commandBar.SetCommands(commands, null);
+                return;
+            }
             // Nothing loaded yet (or the message failed to load): the default set, disabled, like the Windows bar.
             foreach (var operation in new[] { MailOperation.Reply, MailOperation.ReplyAll, MailOperation.Forward, MailOperation.None, MailOperation.Archive, MailOperation.SoftDelete, MailOperation.Move, MailOperation.SetFlag, MailOperation.MarkAsRead })
                 commands.Add(operation == MailOperation.None ? null : new MailReaderCommand(MailOperationPresentation.Glyph(operation), BarTitle(operation), () => { }, false));

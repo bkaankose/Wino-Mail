@@ -38,8 +38,9 @@ internal sealed class ThemeColorWell : NSColorWell
 
     public override void Activate(bool exclusive)
     {
-        NSColorPanel.SharedColorPanel.ShowsAlpha = AllowsAlpha;
+        // After the base call: exclusive activation deactivates the previous well, which turns the slider off.
         base.Activate(exclusive);
+        NSColorPanel.SharedColorPanel.ShowsAlpha = AllowsAlpha;
     }
 
     public override void Deactivate()
@@ -63,7 +64,9 @@ internal sealed class ThemeColorWell : NSColorWell
     {
         _pendingHex = ToHex(Color, AllowsAlpha);
         _pending?.Invalidate();
-        _pending = NSTimer.CreateScheduledTimer(0.1, false, _ => Flush());
+        // Common modes, so the timer also fires while the colour panel tracks the mouse.
+        _pending = NSTimer.CreateTimer(0.1, false, _ => Flush());
+        NSRunLoop.Current.AddTimer(_pending, NSRunLoopMode.Common);
     }
 
     public static string ToHex(NSColor color, bool withAlpha)

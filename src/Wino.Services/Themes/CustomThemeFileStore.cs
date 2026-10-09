@@ -111,7 +111,7 @@ public sealed class CustomThemeFileStore
             await using var stream = File.OpenRead(path);
             return await JsonSerializer.DeserializeAsync(stream, DomainModelsJsonContext.Default.CustomThemeMetadata, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is JsonException or NotSupportedException or IOException or UnauthorizedAccessException)
         {
             Log.Warning(ex, "Skipping unreadable custom theme metadata {File}.", Path.GetFileName(path));
             return null;
