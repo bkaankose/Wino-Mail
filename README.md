@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://apps.microsoft.com/detail/Wino%20Mail/9NCRCVJC50WL?launch=true&mode=full">
-    <img src="https://www.winomail.app/images/v2/Logo.png" width="90" height="90" alt="Wino Mail logo">
+    <img src="https://www.winomail.app/logo.png" width="90" height="90" alt="Wino Mail logo">
   </a>
 </p>
 
