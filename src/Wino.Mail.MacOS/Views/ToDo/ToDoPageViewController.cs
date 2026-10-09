@@ -252,6 +252,7 @@ public sealed partial class ToDoPageViewController : WinoViewController<ToDoPage
             ShowDueDatePicker(task, row);
             return Task.FromResult("ok");
         });
+        RegisterSearchDebugCommands();
         MacDebugBridge.Register("todo-preview", _ => { ShowPreview(); return Task.FromResult("ok " + _entries.Count); });
         MacDebugBridge.Register("todo-clear", _ => { ViewModel.CloseDetailCommand.Execute(null); return Task.FromResult("ok"); });
         MacDebugBridge.Register("todo-state", _ => Task.FromResult(

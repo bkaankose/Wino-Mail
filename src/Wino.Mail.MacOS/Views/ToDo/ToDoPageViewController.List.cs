@@ -259,6 +259,7 @@ public sealed partial class ToDoPageViewController
         _suggestionsPopover = null;
         _dueDatePopover?.Close();
         _dueDatePopover = null;
+        ReleaseSearch();
     }
 
     private void AccentChanged(object? sender, EventArgs e) => OnUI(() => _title.TextColor = WinoStyle.Accent);
