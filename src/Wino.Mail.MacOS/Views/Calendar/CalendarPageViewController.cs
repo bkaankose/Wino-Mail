@@ -160,12 +160,28 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         Bind(nameof(ViewModel.CalendarItems), vm => vm.CalendarItems, items => _surface.Items = items);
         Bind(nameof(ViewModel.IsCalendarEnabled), vm => vm.IsCalendarEnabled, enabled => _surface.AlphaValue = enabled ? 1 : (nfloat)0.6);
         Bind(nameof(ViewModel.DisplayDetailsCalendarItemViewModel), vm => vm.DisplayDetailsCalendarItemViewModel, DetailsItemChanged);
+        // The quick event's range stays highlighted while its popover is open (Windows SelectedDateTime/SelectedEndDateTime).
+        Bind(nameof(ViewModel.QuickEventSelectionEnd), vm => vm.QuickEventSelectionEnd, _ => ApplySelectionRange());
+        Bind(nameof(ViewModel.SelectedStartTimeString), vm => vm.SelectedStartTimeString, _ => ApplySelectionRange());
         Bindings.Own(new PropertyBinding<IStatePersistanceService, CalendarDisplayType>(ViewModel.StatePersistanceService,
             nameof(IStatePersistanceService.CalendarDisplayType), state => state.CalendarDisplayType, type => _toolbar.SelectedType = type, Dispatcher, ReportError));
         Bindings.Own(new PropertyBinding<ModeReadinessViewModel, bool>(ViewModel.Readiness, nameof(ModeReadinessViewModel.IsBlocked),
             readiness => readiness.IsBlocked, _ => ApplyReadiness(), Dispatcher, ReportError));
         Bindings.Own(new PropertyBinding<ModeReadinessViewModel, string>(ViewModel.Readiness, nameof(ModeReadinessViewModel.Message),
             readiness => readiness.Message, _ => ApplyReadiness(), Dispatcher, ReportError));
+    }
+
+    private void ApplySelectionRange()
+    {
+        CalendarSelectionRange? range = null;
+        bool month = ViewModel.CurrentVisibleRange?.DisplayType == CalendarDisplayType.Month;
+        if (ViewModel.SelectedQuickEventDate is { } date && ViewModel.QuickEventSelectionEnd is { } end && (month || !ViewModel.IsAllDay))
+        {
+            var start = ViewModel.IsAllDay ? date.Date
+                : ViewModel.CurrentSettings?.GetTimeSpan(ViewModel.SelectedStartTimeString) is TimeSpan time ? date.Date.Add(time) : date;
+            if (end > start) range = new CalendarSelectionRange(start, end);
+        }
+        _surface.SelectionRange = range;
     }
 
     private void Bind<TValue>(string property, Func<CalendarPageViewModel, TValue> read, Action<TValue> apply)
@@ -290,7 +306,9 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         }
         if (!ViewModel.Readiness.IsReady) return;
         bool isAllDay = ViewModel.CurrentVisibleRange?.DisplayType == CalendarDisplayType.Month;
-        ViewModel.SelectQuickEventRange(args.Start, isAllDay ? args.Start.Date.AddDays(1) : args.Start.AddMinutes(30), isAllDay);
+        // A drag across slots carries its own end (Windows EmptySlotTapped EndDate).
+        var end = args.End is { } dragged && dragged > args.Start ? dragged : isAllDay ? args.Start.Date.AddDays(1) : args.Start.AddMinutes(30);
+        ViewModel.SelectQuickEventRange(args.Start, end, isAllDay);
         CloseQuickEvent();
         _quickEvent = new QuickEventPopover(ViewModel, Dispatcher, ReportError);
         _quickEvent.Closed += (_, _) => { _quickEvent = null; };
@@ -497,6 +515,20 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
                 NotesHtml = args.Length > 0 ? string.Join(' ', args) : "<div dir=\"ltr\"><b>Agenda</b>&nbsp;<a href=\"https://example.com\">link</a></div>\r\n"
             });
             return Task.FromResult("ok");
+        });
+        // "cal-range DAYINDEX HH:MM HH:MM [DAYINDEX2]" simulates a drag selection on the hour grid.
+        MacDebugBridge.Register("cal-range", args =>
+        {
+            if (args.Length < 3) return Task.FromResult("usage: cal-range DAYINDEX HH:MM HH:MM [DAYINDEX2]");
+            var dates = ViewModel.CurrentVisibleRange?.Dates ?? [];
+            int first = int.Parse(args[0]);
+            int last = args.Length > 3 ? int.Parse(args[3]) : first;
+            if (first < 0 || last < 0 || first >= dates.Count || last >= dates.Count) return Task.FromResult($"only {dates.Count} visible days");
+            var start = dates[first].ToDateTime(TimeOnly.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture));
+            var end = dates[last].ToDateTime(TimeOnly.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture));
+            bool month = ViewModel.CurrentVisibleRange?.DisplayType == CalendarDisplayType.Month;
+            SurfaceSlotClicked(this, new CalendarSlotClickedEventArgs(start, new CGRect(WinoCalendarSurfaceView.HourColumnWidth, 200, 120, 26), month, end));
+            return Task.FromResult($"quick={ViewModel.SelectedQuickEventDate:g} {ViewModel.SelectedStartTimeString}–{ViewModel.SelectedEndTimeString} end={ViewModel.QuickEventSelectionEnd:g} allDay={ViewModel.IsAllDay} highlight={_surface.SelectionRange?.Start:g}..{_surface.SelectionRange?.End:g}");
         });
         MacDebugBridge.Register("calslot", _ =>
         {
