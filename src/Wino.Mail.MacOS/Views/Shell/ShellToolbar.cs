@@ -217,7 +217,23 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         field.RecentsAutosaveName = "WinoMailSearchRecents";
         field.Changed += async (_, _) =>
         {
-            try { if (_searchTarget() is { } target) await target.SearchTextChangedAsync(field.StringValue ?? string.Empty); }
+            try
+            {
+                if (_searchTarget() is not { } target) return;
+                (target as IShellSearchSuggestionTarget)?.SearchFieldEditing(field);
+                await target.SearchTextChangedAsync(field.StringValue ?? string.Empty);
+            }
+            catch (Exception exception) { _error(exception); }
+        };
+        // Pages with a suggestion list take the arrow keys, Return and Esc while it is open.
+        field.DoCommandBySelector = (_, _, selector) =>
+        {
+            try { return _searchTarget() is IShellSearchSuggestionTarget suggestions && suggestions.SearchFieldCommand(field, selector.Name); }
+            catch (Exception exception) { _error(exception); return false; }
+        };
+        field.EditingEnded += (_, _) =>
+        {
+            try { (_searchTarget() as IShellSearchSuggestionTarget)?.SearchFieldEndedEditing(field); }
             catch (Exception exception) { _error(exception); }
         };
         field.Activated += async (_, _) =>
