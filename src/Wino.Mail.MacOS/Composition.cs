@@ -67,6 +67,7 @@ internal static class Composition
         services.AddSingleton<ISmimeCertificateService, MacSmimeCertificateService>();
         services.AddSingleton<ITaskCompletionSound, MacTaskCompletionSound>();
         services.AddSingleton<IUserPresenceStateProvider, MacUserPresenceStateProvider>();
+        services.AddSingleton<MacNotificationSounds>();
         services.AddSingleton<INotificationBuilder, MacNotificationBuilder>();
         services.AddSingleton<IStatePersistanceService, MacStatePersistenceService>();
         // The app-level theme service adds the predefined Wino themes (accent + backdrop) on top of native appearance.
@@ -88,13 +89,14 @@ internal static class Composition
             AppleAppStore: false
 #endif
         ));
-        services.AddSingleton<IAppMetadataService>(new MacAppMetadataService("0.1.0", MacOSApplicationIdentity.Value,
+        // The bundle's CFBundleShortVersionString is the app version; CFBundleVersion is the build (Sentry dist).
+        services.AddSingleton<IAppMetadataService>(new MacAppMetadataService(BundleString("CFBundleShortVersionString"), MacOSApplicationIdentity.Value,
 #if DEBUG
             true
 #else
             false
 #endif
-        ));
+            , BundleString("CFBundleVersion")));
         services.AddSingleton<IMailDialogService>(provider => new AppKitDialogService(dispatcher, owner, error, provider));
         services.AddSingleton<IDialogServiceBase>(provider => provider.GetRequiredService<IMailDialogService>());
         services.AddSingleton<IExternalBrowserAuthenticationPresenter>(_ => new AppKitExternalBrowserAuthenticationPresenter(dispatcher, owner, error));
@@ -103,4 +105,8 @@ internal static class Composition
         services.RegisterMacViewModels();
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
+
+    /// <summary>A string value from the main bundle's Info.plist; empty when missing.</summary>
+    private static string BundleString(string key)
+        => NSBundle.MainBundle.InfoDictionary?.ObjectForKey(new NSString(key)) is NSString value ? value.ToString() : string.Empty;
 }

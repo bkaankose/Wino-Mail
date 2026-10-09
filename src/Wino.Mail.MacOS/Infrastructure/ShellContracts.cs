@@ -80,6 +80,9 @@ public interface IShellSearchTarget
     Task SearchTextChangedAsync(string text);
     Task SearchSubmittedAsync(string text);
     Task SearchClearedAsync();
+
+    /// <summary>The toolbar field's placeholder while this page is current; null keeps the generic "Search".</summary>
+    string? SearchPlaceholder => null;
 }
 
 /// <summary>

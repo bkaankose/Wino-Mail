@@ -264,7 +264,10 @@ internal sealed class ShellToolbar : NSToolbarDelegate
     /// <summary>Re-reads search support from the current content page.</summary>
     public void Revalidate()
     {
-        if (_searchItem?.SearchField is { } field) field.Enabled = _searchTarget() is not null;
+        if (_searchItem?.SearchField is not { } field) return;
+        var target = _searchTarget();
+        field.Enabled = target is not null;
+        field.PlaceholderString = target?.SearchPlaceholder ?? Translator.SearchBarPlaceholder;
     }
 
     /// <summary>Applies the active provider's synchronization state to the toolbar button.</summary>

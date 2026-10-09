@@ -108,7 +108,7 @@ public sealed class MacNotificationResponseHandler : UNUserNotificationCenterDel
         if (values.TryGetValue(Constants.ToastCalendarItemIdKey, out var calendarItemValue) && Guid.TryParse(calendarItemValue, out var calendarItemId))
         {
             if (response.ActionIdentifier == MacNotificationCategories.CalendarJoinAction) await JoinOnlineAsync(calendarItemId);
-            else if (response.ActionIdentifier == MacNotificationCategories.CalendarSnoozeAction) await SnoozeAsync(calendarItemId);
+            else if (response.ActionIdentifier == MacNotificationCategories.CalendarSnoozeAction) await SnoozeAsync(calendarItemId, values);
             else if (isOpen) await NavigateCalendarItemAsync(calendarItemId);
             return;
         }
@@ -164,10 +164,26 @@ public sealed class MacNotificationResponseHandler : UNUserNotificationCenterDel
         });
     }
 
-    /// <summary>App.HandleCalendarToastSnoozeAsync with the fixed macOS snooze length.</summary>
-    private Task SnoozeAsync(Guid calendarItemId)
-        => Services.GetRequiredService<ICalendarService>()
-            .SnoozeCalendarItemAsync(calendarItemId, DateTime.Now.AddMinutes(MacNotificationCategories.CalendarSnoozeMinutes));
+    /// <summary>
+    /// App.HandleCalendarToastSnoozeAsync. The length is the one the notification offered (its user info);
+    /// older notifications without it use the "Default snooze duration" setting, then 5 minutes.
+    /// </summary>
+    private Task SnoozeAsync(Guid calendarItemId, IReadOnlyDictionary<string, string> values)
+    {
+        int minutes;
+        if (values.TryGetValue(Constants.ToastCalendarSnoozeDurationInputId, out var offered) &&
+            int.TryParse(offered, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var offeredMinutes) &&
+            offeredMinutes > 0)
+        {
+            minutes = offeredMinutes;
+        }
+        else
+        {
+            var preferred = Services.GetService<IPreferencesService>()?.DefaultSnoozeDurationInMinutes ?? 0;
+            minutes = preferred > 0 ? preferred : MacNotificationCategories.FallbackSnoozeMinutes;
+        }
+        return Services.GetRequiredService<ICalendarService>().SnoozeCalendarItemAsync(calendarItemId, DateTime.Now.AddMinutes(minutes));
+    }
 
     /// <summary>App.HandleCalendarToastJoinOnlineAsync.</summary>
     internal async Task JoinOnlineAsync(Guid calendarItemId)
