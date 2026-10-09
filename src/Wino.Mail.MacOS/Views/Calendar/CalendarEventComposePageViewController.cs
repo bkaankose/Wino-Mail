@@ -99,7 +99,17 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
         _private.ToolTip = Translator.CalendarEventCompose_PrivateTooltip;
         _onlineMeeting = Checkbox(string.Empty, () => ViewModel.IsOnlineMeeting = _onlineMeeting.State == NSCellStateValue.On);
         var cancel = new NSButton { Title = Translator.Buttons_Cancel, BezelStyle = NSBezelStyle.Rounded, KeyEquivalent = "\u001b", TranslatesAutoresizingMaskIntoConstraints = false };
-        cancel.Activated += (_, _) => { _closing = true; CloseRequested?.Invoke(this, EventArgs.Empty); };
+        cancel.Activated += (_, _) =>
+        {
+            // Esc reaches the Cancel key equivalent before the invite field; with the suggestion list open it only closes the list.
+            if (NSApplication.SharedApplication.CurrentEvent?.Type == NSEventType.KeyDown && _inviteSuggestions?.IsVisible == true)
+            {
+                _inviteSuggestions.Close();
+                return;
+            }
+            _closing = true;
+            CloseRequested?.Invoke(this, EventArgs.Empty);
+        };
         // ⌘↩ like the mail composer and the signature editor: a plain Return belongs to the notes editor.
         _save = new NSButton { Title = Translator.Buttons_Save, BezelStyle = NSBezelStyle.Rounded, KeyEquivalent = "\r", KeyEquivalentModifierMask = NSEventModifierMask.CommandKeyMask, TranslatesAutoresizingMaskIntoConstraints = false };
         var createBinding = Bindings.Own(new CommandBinding(ViewModel.CreateCommand, () => null, enabled => _save.Enabled = enabled, Dispatcher, ReportError));

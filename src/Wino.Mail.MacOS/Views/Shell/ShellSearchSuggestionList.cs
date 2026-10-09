@@ -91,6 +91,7 @@ internal sealed class ShellSearchSuggestionList : IDisposable
         ClearRows();
         _stack = null;
         panel.Close();
+        panel.Dispose();
         Closed?.Invoke(this, EventArgs.Empty);
     }
 
