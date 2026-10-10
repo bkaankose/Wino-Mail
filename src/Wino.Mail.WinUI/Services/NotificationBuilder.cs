@@ -544,14 +544,11 @@ public class NotificationBuilder : INotificationBuilder
             return;
         }
 
-        XmlDocument badgeXml = BadgeUpdateManager.GetTemplateContent(BadgeTemplateType.BadgeNumber);
-        if (badgeXml.SelectSingleNode("/badge") is not XmlElement badgeElement)
-        {
-            badgeUpdater.Clear();
-            return;
-        }
+        // Built from markup on purpose. Under Native AOT the node returned by SelectSingleNode is not
+        // projected as XmlElement, so casting it failed and silently cleared the badge in Release builds.
+        var badgeXml = new XmlDocument();
+        badgeXml.LoadXml($"<badge value=\"{badgeCount.Value}\"/>");
 
-        badgeElement.SetAttribute("value", badgeCount.Value.ToString());
         badgeUpdater.Update(new BadgeNotification(badgeXml));
     }
 
