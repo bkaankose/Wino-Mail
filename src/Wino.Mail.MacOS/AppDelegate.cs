@@ -68,6 +68,15 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
     /// <summary>At the start of quitting, while services are still alive.</summary>
     partial void CompanionStopping();
 
+    /// <summary>After the runtime started: App Store transaction handling (App Store builds only, AppDelegate.AppStore.cs).</summary>
+    partial void AppStoreServicesReady();
+
+    /// <summary>After the menus exist: start the updater (DMG builds only, AppDelegate.Updates.cs).</summary>
+    partial void UpdatesLaunching();
+
+    /// <summary>Adds Check for Updates… under About (DMG builds only).</summary>
+    partial void AddUpdateMenuItems(NSMenu application);
+
     public override void DidFinishLaunching(NSNotification notification)
     {
         ActivationLaunching();
@@ -84,6 +93,7 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
         // The View menu has its own Enter Full Screen item; AppKit would add a second one.
         NSUserDefaults.StandardUserDefaults.SetBool(false, "NSFullScreenMenuItemEverywhere");
         InstallMenus();
+        UpdatesLaunching();
         // No window until startup knows which one to show (HostController creates it): the shell
         // with accounts, Welcome without. A placeholder window here flashed before the shell.
         if (!StartsInBackground) NSApplication.SharedApplication.ActivateIgnoringOtherApps(true);
@@ -107,6 +117,7 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
             DockServicesReady();
             CompanionServicesReady();
             ShortcutMenusServicesReady();
+            AppStoreServicesReady();
 #if DEBUG
             await _dispatcher.ExecuteOnUIThread(() => MacDebugBridge.Start(_services));
 #endif
@@ -257,6 +268,7 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
 
         var application = new NSMenu(ApplicationName);
         application.AddItem(new NSMenuItem(string.Format(Translator.MacOSMenu_About, ApplicationName), (_, _) => Navigate(navigation => navigation.Navigate(WinoPage.AboutPage))));
+        AddUpdateMenuItems(application);
         application.AddItem(NSMenuItem.SeparatorItem);
         application.AddItem(Item(Translator.MenuSettings + "…", ",", NSEventModifierMask.CommandKeyMask,
             () => Navigate(navigation => navigation.ChangeApplicationMode(WinoApplicationMode.Settings))));

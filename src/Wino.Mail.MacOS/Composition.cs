@@ -74,7 +74,14 @@ internal static class Composition
         services.AddSingleton(provider => new Wino.Services.Themes.CustomThemeFileStore(provider.GetRequiredService<IApplicationConfiguration>()));
         services.AddSingleton<MacWinoThemeService>();
         services.AddSingleton<INewThemeService>(provider => provider.GetRequiredService<MacWinoThemeService>());
-        services.AddSingleton<IMicrosoftStoreService, MacMicrosoftStoreService>();
+        services.AddSingleton<IMicrosoftStoreService>(provider => new MacMicrosoftStoreService(provider.GetRequiredService<IConfigurationService>(),
+#if WINO_APPSTORE
+            isAppStoreBuild: true));
+        // StoreKit purchases; WinoAppStorePurchaseService links them to the Wino Account.
+        services.AddSingleton<IAppStoreClient, MacAppStoreClient>();
+#else
+            isAppStoreBuild: false));
+#endif
         // The companion's global shortcut is a Carbon hotkey (MacCompanionHotKeyController).
         services.AddSingleton<MacGlobalHotKeyService>();
         services.AddSingleton<MacCompanionHotKeyController>();

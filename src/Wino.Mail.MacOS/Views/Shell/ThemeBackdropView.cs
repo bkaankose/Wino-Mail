@@ -10,17 +10,36 @@ namespace Wino.Mail.MacOS.Views.Shell;
 /// Paints the selected Wino theme behind the whole window, like the Windows ShellWindow
 /// WinoApplicationBackgroundColor: the theme wallpaper (aspect fill, or a custom theme's fit and
 /// focal point) or its light/dark gradient. With the default theme it paints the plain window background, so content
-/// always sits on a native surface.
+/// always sits on a native surface. With the translucent window material and no wallpaper or gradient, a
+/// behind-window vibrancy view shows the blurred desktop instead.
 /// </summary>
 internal sealed class ThemeBackdropView : NSView
 {
+    private readonly NSVisualEffectView _material = new()
+    {
+        Material = NSVisualEffectMaterial.UnderWindowBackground,
+        BlendingMode = NSVisualEffectBlendingMode.BehindWindow,
+        State = NSVisualEffectState.FollowsWindowActiveState,
+        Hidden = true
+    };
+
     public ThemeBackdropView()
     {
         TranslatesAutoresizingMaskIntoConstraints = false;
+        WinoLayout.Fill(_material, this);
         MacWinoThemeService.AppearanceChanged += AppearanceChanged;
+        UpdateMaterial();
     }
 
-    private void AppearanceChanged(object? sender, EventArgs args) => NeedsDisplay = true;
+    private void AppearanceChanged(object? sender, EventArgs args)
+    {
+        UpdateMaterial();
+        NeedsDisplay = true;
+    }
+
+    private static bool PaintsTheme => MacWinoThemeService.BackdropImage is not null || MacWinoThemeService.BackdropGradient is not null;
+
+    private void UpdateMaterial() => _material.Hidden = !MacWinoThemeService.IsTranslucentWindow || PaintsTheme;
 
     public override void ViewDidChangeEffectiveAppearance()
     {
@@ -30,6 +49,7 @@ internal sealed class ThemeBackdropView : NSView
 
     public override void DrawRect(CGRect dirtyRect)
     {
+        if (!_material.Hidden) return;
         NSColor.WindowBackground.SetFill();
         NSGraphics.RectFill(Bounds);
         bool dark = EffectiveAppearance.FindBestMatch([NSAppearance.NameAqua, NSAppearance.NameDarkAqua]) == NSAppearance.NameDarkAqua;

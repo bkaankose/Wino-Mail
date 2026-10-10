@@ -17,7 +17,8 @@ public sealed class WinoBillingService(
     IExternalLauncher externalLauncher,
     IPlatformCapabilities capabilities,
     IWinoPendingCheckoutStore? pendingCheckouts = null,
-    IWinoAccountSessionService? sessions = null) : IWinoBillingService
+    IWinoAccountSessionService? sessions = null,
+    IWinoAppStorePurchaseService? appStorePurchases = null) : IWinoBillingService
 {
     public Task<ApiEnvelope<CheckoutSessionResultDto>> CreateCheckoutSessionAsync(
         WinoAddOnProductType productType,
@@ -65,8 +66,15 @@ public sealed class WinoBillingService(
             return true;
         }
 
-        return capabilities.MicrosoftStore &&
-            await storeService.HasProductAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS).ConfigureAwait(false);
+        if (capabilities.MicrosoftStore &&
+            await storeService.HasProductAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS).ConfigureAwait(false))
+        {
+            return true;
+        }
+
+        // An App Store purchase unlocks Unlimited Accounts on this Mac with or without a Wino Account.
+        return appStorePurchases?.IsAvailable == true &&
+            await appStorePurchases.HasUnlimitedAccountsAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private static string GetProductCode(WinoAddOnProductType productType)

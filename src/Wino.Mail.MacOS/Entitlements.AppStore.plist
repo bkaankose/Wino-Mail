@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Mac App Store builds: Entitlements.plist without Sparkle's mach-lookup exception. Keep the two in step. -->
+<plist version="1.0"><dict>
+  <key>com.apple.security.app-sandbox</key><true/>
+  <key>com.apple.security.network.client</key><true/>
+  <!-- Loopback listeners are required for the system-browser OAuth callbacks. -->
+  <key>com.apple.security.network.server</key><true/>
+  <key>com.apple.security.files.user-selected.read-write</key><true/>
+  <key>com.apple.security.cs.allow-jit</key><true/>
+</dict></plist>

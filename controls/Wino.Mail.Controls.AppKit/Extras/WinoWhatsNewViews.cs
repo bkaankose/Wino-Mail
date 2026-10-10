@@ -26,6 +26,9 @@ public sealed class WinoVersionTab : WinoPressableView
         WinoLayout.Fill(row, this);
         SetContentHuggingPriorityForOrientation(750, NSLayoutConstraintOrientation.Horizontal);
         AccessibilityLabel = version;
+        // One of a growing list of releases, so a pill row rather than a fixed NSSegmentedControl;
+        // VoiceOver reads the tabs as a radio group.
+        AccessibilityRole = NSAccessibilityRoles.RadioButtonRole;
         Apply();
     }
 

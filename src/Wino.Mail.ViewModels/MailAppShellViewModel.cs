@@ -1013,7 +1013,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }
         else if (clickedMenuItem is RateMenuItem)
         {
-            if (PlatformCapabilities.MicrosoftStore)
+            if (PlatformCapabilities.MicrosoftStore || PlatformCapabilities.AppleAppStore)
                 await _storeService.LaunchStorePageForReviewAsync();
         }
         else if (clickedMenuItem is NewMailMenuItem)
@@ -1027,7 +1027,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             // Theory: This is a special folder like Categories or More. Don't navigate to it.
 
             // Prompt user rating dialog if eligible.
-            if (PlatformCapabilities.MicrosoftStore)
+            if (PlatformCapabilities.MicrosoftStore || PlatformCapabilities.AppleAppStore)
                 _ = _storeService.PromptRatingDialogAsync();
 
             await NavigateFolderAsync(baseFolderMenuItem);
@@ -1254,7 +1254,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     public async Task HandleCreateNewMailAsync()
     {
-        if (PlatformCapabilities.MicrosoftStore)
+        if (PlatformCapabilities.MicrosoftStore || PlatformCapabilities.AppleAppStore)
             _ = _storeService.PromptRatingDialogAsync();
 
         MailAccount operationAccount = null;

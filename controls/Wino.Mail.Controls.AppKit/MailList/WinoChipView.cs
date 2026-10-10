@@ -148,11 +148,13 @@ public class WinoChipView : WinoSurfaceView
 
 /// <summary>
 /// Lays out its subviews left to right and wraps them onto new lines, like a CSS flex-wrap row.
-/// Children keep their fitting size. Used for chip rows that must not clip.
+/// Children keep their fitting size. Used for chip rows that must not clip. Fitting sizes are measured once
+/// per item change (<see cref="ItemsChanged"/>) and reused by layout and intrinsic-size passes.
 /// </summary>
 public sealed class WinoFlowView : NSView
 {
     private nfloat _lastHeight;
+    private CGSize[]? _sizes;
 
     public WinoFlowView() => TranslatesAutoresizingMaskIntoConstraints = false;
 
@@ -177,21 +179,26 @@ public sealed class WinoFlowView : NSView
     {
         view.TranslatesAutoresizingMaskIntoConstraints = true;
         AddSubview(view);
+        _sizes = null;
     }
 
     /// <summary>Re-flows the items after they were added, removed or resized in place.</summary>
     public void ItemsChanged()
     {
+        _sizes = null;
         NeedsLayout = true;
         InvalidateIntrinsicContentSize();
     }
 
     private nfloat Arrange(nfloat width, bool apply)
     {
+        var subviews = Subviews;
+        if (_sizes is null || _sizes.Length != subviews.Length) _sizes = subviews.Select(static view => view.FittingSize).ToArray();
         nfloat x = 0, y = 0, line = 0;
-        foreach (var view in Subviews)
+        for (int index = 0; index < subviews.Length; index++)
         {
-            var size = view.FittingSize;
+            var view = subviews[index];
+            var size = _sizes[index];
             if (x > 0 && x + size.Width > width)
             {
                 x = 0;
@@ -202,7 +209,7 @@ public sealed class WinoFlowView : NSView
             x += size.Width + (nfloat)Spacing;
             line = (nfloat)Math.Max((double)line, (double)size.Height);
         }
-        return Subviews.Length == 0 ? 0 : y + line;
+        return subviews.Length == 0 ? 0 : y + line;
     }
 
     public override void Layout()

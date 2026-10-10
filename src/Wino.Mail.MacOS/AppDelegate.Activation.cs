@@ -11,8 +11,10 @@ namespace Wino.Mail.MacOS;
 
 /// <summary>
 /// OS activation: URL schemes (mailto, wino, webcal, webcals) and documents opened from Finder
-/// (.ics, .vcf, and .eml, which opens read-only in its own reader window). AppKit can deliver them before DidFinishLaunching, so they wait in a queue until
-/// the services exist and are then routed by <see cref="MacActivationCoordinator"/>.
+/// (.ics, .vcf, and .eml, which opens read-only in its own reader window). Other files dropped on the Dock
+/// icon, and files sent from the Services menu, become attachments of a new mail. AppKit can deliver them
+/// before DidFinishLaunching, so they wait in a queue until the services exist and are then routed by
+/// <see cref="MacActivationCoordinator"/>.
 /// </summary>
 public sealed partial class AppDelegate
 {
@@ -24,6 +26,7 @@ public sealed partial class AppDelegate
         // The notification delegate must be in place before launching finishes so a tap that
         // launched the app is delivered (AppDelegate.Notifications.cs).
         InstallNotificationResponseHandler();
+        NSApplication.SharedApplication.ServicesProvider = this;
     }
 
     partial void ActivationServicesReady()
@@ -46,6 +49,21 @@ public sealed partial class AppDelegate
     {
         QueueActivation(filenames.Select(path => NSUrl.FromFilename(path)).ToArray());
         sender.ReplyToOpenOrPrint(NSApplicationDelegateReply.Success);
+    }
+
+    /// <summary>The Services menu entry declared in Info.plist (NSServices, NSMessage newMailWithFiles).</summary>
+    [Export("newMailWithFiles:userData:error:")]
+    public void NewMailWithFiles(NSPasteboard pasteboard, NSString? userData, IntPtr error)
+    {
+        var options = new NSDictionary(new NSString("NSPasteboardURLReadingFileURLsOnlyKey"), NSNumber.FromBoolean(true));
+        var urls = pasteboard.ReadObjectsForClasses([new ObjCRuntime.Class(typeof(NSUrl))], options)?.OfType<NSUrl>().ToArray() ?? [];
+        if (urls.Length == 0 || _terminating) return;
+        if (_activationCoordinator is null || !_runtimeStarted)
+        {
+            _pendingActivations.AddRange(urls);
+            return;
+        }
+        Observe(_activationCoordinator.AttachFilesAsync(urls));
     }
 
     /// <summary>Wino has no untitled document; a Dock click must not ask for one.</summary>

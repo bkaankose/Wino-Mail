@@ -43,6 +43,7 @@ public sealed class MacWinoThemeService(IDispatcher dispatcher, IConfigurationSe
     private const string AccentColorKey = "AccentColorKey";
     private const string CurrentApplicationThemeKey = "CurrentApplicationThemeKey";
     private const string BackdropEnabledKey = "MacThemeBackdropEnabled";
+    private const string TranslucentWindowKey = "MacTranslucentWindow";
 
     public static readonly Guid DefaultThemeId = Guid.Empty;
 
@@ -106,8 +107,14 @@ public sealed class MacWinoThemeService(IDispatcher dispatcher, IConfigurationSe
     /// <summary>A custom wallpaper's focal point, or null for predefined wallpapers (anchored to the top).</summary>
     public static ThemeWallpaperAlignment? BackdropAlignment { get; private set; }
 
-    /// <summary>True when a theme paints the window (wallpaper or gradient): panes then float as Wino zones.</summary>
-    public static bool HasBackdrop => BackdropImage is not null || BackdropGradient is not null;
+    /// <summary>
+    /// True when the window shows the desktop through a vibrancy material (the Mac counterpart of the
+    /// Windows Mica/Acrylic backdrop). A theme wallpaper or gradient still paints over it.
+    /// </summary>
+    public static bool IsTranslucentWindow { get; private set; }
+
+    /// <summary>True when a theme or the translucent material paints the window: panes then float as Wino zones.</summary>
+    public static bool HasBackdrop => BackdropImage is not null || BackdropGradient is not null || IsTranslucentWindow;
 
     /// <summary>Wallpaper used for a predefined theme's preview tile, or null when it has none.</summary>
     public static NSImage? PreviewImage(string themeName) => LoadThemeImage(themeName);
@@ -131,7 +138,24 @@ public sealed class MacWinoThemeService(IDispatcher dispatcher, IConfigurationSe
     }
 
     public bool IsCustomTheme => _themeId is { } id && FindCachedCustom(id) is not null;
-    public WindowBackdropType CurrentBackdropType { get; set; } = WindowBackdropType.None;
+    public WindowBackdropType CurrentBackdropType
+    {
+        get => IsTranslucentWindowEnabled ? WindowBackdropType.DesktopAcrylic : WindowBackdropType.None;
+        set => IsTranslucentWindowEnabled = value != WindowBackdropType.None;
+    }
+
+    /// <summary>The persisted translucent window choice; applying it redraws every Wino window.</summary>
+    public bool IsTranslucentWindowEnabled
+    {
+        get => configuration.Get(TranslucentWindowKey, false);
+        set
+        {
+            if (value == IsTranslucentWindowEnabled) return;
+            configuration.Set(TranslucentWindowKey, value);
+            BackdropChanged?.Invoke(this, CurrentBackdropType);
+            _ = ApplyThemeToActiveWindowAsync();
+        }
+    }
 
     public bool IsBackdropEnabled
     {
@@ -300,6 +324,7 @@ public sealed class MacWinoThemeService(IDispatcher dispatcher, IConfigurationSe
         var accent = WinoStyle.FromHexString(preview is null ? _accent : preview.Metadata.AccentColorHex);
         WinoStyle.AccentOverride = accent;
         bool enabled = IsBackdropEnabled;
+        IsTranslucentWindow = IsTranslucentWindowEnabled;
 
         if (custom is not null)
         {
@@ -324,6 +349,7 @@ public sealed class MacWinoThemeService(IDispatcher dispatcher, IConfigurationSe
             WinoThemeSurfaces.Clear();
         }
 
+        WinoStyle.IsWindowMaterialOnly = IsTranslucentWindow && BackdropImage is null && BackdropGradient is null;
         WinoStyle.HasBackdrop = HasBackdrop;
         AppearanceChanged?.Invoke(this, EventArgs.Empty);
         ScheduleRedraw();
@@ -388,13 +414,11 @@ public sealed class MacWinoThemeService(IDispatcher dispatcher, IConfigurationSe
     public List<string> GetAvailableAccountColors() =>
         ["#e74c3c", "#c0392b", "#e53935", "#d81b60", "#e91e63", "#ec407a", "#ff4081", "#9b59b6", "#8e44ad", "#673ab7", "#3f51b5", "#3498db", "#2980b9", "#03a9f4", "#00bcd4", "#009688", "#1abc9c", "#16a085", "#2ecc71", "#27ae60", "#4caf50", "#8bc34a", "#cddc39", "#f1c40f", "#f39c12", "#ff9800", "#e67e22", "#d35400", "#795548", "#607d8b"];
 
-    public List<BackdropTypeWrapper> GetAvailableBackdropTypes() => [new(WindowBackdropType.None, "Default")];
+    public List<BackdropTypeWrapper> GetAvailableBackdropTypes() =>
+        [new(WindowBackdropType.None, Translator.MacOS_Personalization_WindowMaterialDefault),
+         new(WindowBackdropType.DesktopAcrylic, Translator.MacOS_Personalization_WindowMaterialTranslucent)];
 
-    public void ApplyBackdrop(WindowBackdropType backdropType)
-    {
-        CurrentBackdropType = WindowBackdropType.None;
-        BackdropChanged?.Invoke(this, CurrentBackdropType);
-    }
+    public void ApplyBackdrop(WindowBackdropType backdropType) => CurrentBackdropType = backdropType;
 
     // Windows-only presentation hooks: no native equivalent is needed on macOS.
     public void ApplyIconStyle() { }

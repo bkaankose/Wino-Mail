@@ -69,6 +69,7 @@ Set these variables in the shell profile, such as `~/.zprofile`, with `export KE
 | `WINO_NOTARY_ISSUER_ID` | Issuer GUID | The same page → Issuer ID. Not a secret. |
 
 The key needs the **Developer** role or higher. The script passes the key to `notarytool` and never prints or copies it.
+`build-macos-appstore.sh` uses the same variables to validate and upload the Mac App Store package with `xcrun altool`.
 `WINO_RELEASES_ROOT` also applies on the Mac. Its default there is `~/Wino Releases`.
 
 ## Publishing Beta and stable sideload releases

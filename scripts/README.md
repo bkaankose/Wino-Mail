@@ -10,6 +10,8 @@ See [development commands](../docs/harness/development.md) for VS Code F5.
 | Release | `release/build-releases.ps1` | Build and package Store, Beta, and sideload releases |
 | Release | `release/publish-releases.ps1` | Publish Beta and sideload releases to download.winomail.app |
 | Release | `release/upload-sentry-symbols.ps1` | Upload symbols for a selected release |
+| Release | `release/build-macos-release.sh` | Build the signed, notarized macOS DMG |
+| Release | `release/build-macos-appstore.sh` | Build, validate, and optionally upload the Mac App Store package |
 | Release | `release/whats-new/validate.ps1` | Validate release notes and illustration references |
 | Lab | `lab/local-lab.ps1` | Provision Docker mail/DAV servers and generate test account data |
 | Maintenance | `maintenance/format-xaml.ps1` | Format XAML or check formatting with the pinned XAML Styler |

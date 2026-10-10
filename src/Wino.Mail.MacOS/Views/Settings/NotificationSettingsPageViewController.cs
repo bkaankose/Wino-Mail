@@ -17,7 +17,7 @@ namespace Wino.Mail.MacOS.Views.Settings;
 /// Notifications: snooze, quiet hours, mail, calendar and task sections, per-account overrides and
 /// reset (Windows NotificationSettingsPage). Sounds are macOS alert sounds stored in Mac-only keys
 /// (<see cref="MacNotificationSounds"/>), each with a Play preview; Windows' sound values are never written.
-/// "Snooze while presenting" is Windows-only (Mac has no presentation-mode detection).
+/// "Snooze while presenting" uses <see cref="MacUserPresenceStateProvider"/>'s full-display window check.
 /// </summary>
 public sealed class NotificationSettingsPageViewController(NotificationSettingsPageViewModel viewModel, IMailDialogService dialogs, MacNotificationSounds sounds,
     IDispatcher dispatcher, IWinoLogger logger)
@@ -74,7 +74,10 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
         var quiet = Expander(Translator.NotificationSettings_QuietHours_Title, null, WinoIconGlyph.Clock,
             Bind.Switch(p, nameof(p.AreQuietHoursEnabled), QuietOn, (s, v) => { s.AreQuietHoursEnabled = v; vm.UpdateQuietHoursSummary(); }, Translator.NotificationSettings_QuietHours_Title),
             Bind.Enabled(Card(Translator.NotificationSettings_QuietHours_From_Title, Translator.NotificationSettings_QuietHours_From_Description, WinoIconGlyph.None, hours), p, nameof(p.AreQuietHoursEnabled), QuietOn),
-            Bind.Enabled(Card(Translator.NotificationSettings_QuietHours_Days_Title, Translator.NotificationSettings_QuietHours_Days_Description, WinoIconGlyph.None, days), p, nameof(p.AreQuietHoursEnabled), QuietOn));
+            Bind.Enabled(Card(Translator.NotificationSettings_QuietHours_Days_Title, Translator.NotificationSettings_QuietHours_Days_Description, WinoIconGlyph.None, days), p, nameof(p.AreQuietHoursEnabled), QuietOn),
+            // Presenting is detected by MacUserPresenceStateProvider (a full-display window in front).
+            Card(Translator.NotificationSettings_QuietHours_Presenting_Title, Translator.NotificationSettings_QuietHours_Presenting_Description, WinoIconGlyph.None,
+                Bind.Switch(p, nameof(p.SnoozeWhilePresenting), s => s.SnoozeWhilePresenting, (s, v) => s.SnoozeWhilePresenting = v, Translator.NotificationSettings_QuietHours_Presenting_Title)));
         Bind.Bind(vm, nameof(vm.QuietHoursSummary), s => s.QuietHoursSummary, text => quiet.HeaderCard.Description = text);
 
         // Mail.

@@ -99,6 +99,11 @@ public sealed partial class AppDelegate
                     return "usage: notify-test mail|calendar [search]|people|task";
             }
         });
+        MacDebugBridge.Register("presence", _ =>
+        {
+            var presence = services.GetRequiredService<IUserPresenceStateProvider>();
+            return Task.FromResult($"presenting={presence.IsPresenting()} quietTime={presence.IsSystemQuietTimeActive()} front={NSWorkspace.SharedWorkspace.FrontmostApplication?.LocalizedName}");
+        });
         MacDebugBridge.Register("notify-cats", async _ =>
             builder is MacNotificationBuilder mac ? await mac.DescribeAsync() : "not the macOS builder");
         MacDebugBridge.Register("badge", async _ =>

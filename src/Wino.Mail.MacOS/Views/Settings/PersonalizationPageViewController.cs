@@ -82,8 +82,13 @@ public sealed class PersonalizationPageViewController(PersonalizationPageViewMod
         var backdrop = Card(BackdropTitle, BackdropDescription, WinoIconGlyph.Color,
             Bind.Switch(_appearance, nameof(MacAppearanceModel.IsBackdropEnabled), s => s.IsBackdropEnabled, (s, v) => s.IsBackdropEnabled = v, BackdropTitle));
 
+        var material = Card(Translator.MacOS_Personalization_WindowMaterialTitle, Translator.MacOS_Personalization_WindowMaterialDescription, WinoIconGlyph.Desktop,
+            Bind.Segmented(_appearance, [Translator.MacOS_Personalization_WindowMaterialDefault, Translator.MacOS_Personalization_WindowMaterialTranslucent],
+                nameof(MacAppearanceModel.MaterialIndex), s => s.MaterialIndex, (s, v) => s.MaterialIndex = v));
+
         AddGroup(null,
             backdrop,
+            material,
             Card(Translator.SettingsCompactAccountMenuItem_Title, Translator.SettingsCompactAccountMenuItem_Description, WinoIconGlyph.List,
                 Bind.Switch(p, nameof(p.IsCompactAccountMenuItemEnabled), s => s.IsCompactAccountMenuItemEnabled, (s, v) => s.IsCompactAccountMenuItemEnabled = v, Translator.SettingsCompactAccountMenuItem_Title)),
             Card(Translator.SettingsAppPreferences_HideWinoAccountButton_Title, Translator.SettingsAppPreferences_HideWinoAccountButton_Description, WinoIconGlyph.Person,
@@ -177,9 +182,22 @@ public sealed class MacAppearanceModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>0 for the default window background, 1 for the translucent material.</summary>
+    public int MaterialIndex
+    {
+        get => _themes.IsTranslucentWindowEnabled ? 1 : 0;
+        set
+        {
+            if (value == MaterialIndex) return;
+            _themes.IsTranslucentWindowEnabled = value == 1;
+            OnPropertyChanged();
+        }
+    }
+
     private void AppearanceChanged(object? sender, EventArgs args)
     {
         OnPropertyChanged(nameof(IsBackdropEnabled));
+        OnPropertyChanged(nameof(MaterialIndex));
         OnPropertyChanged(nameof(ThemeIndex));
         OnPropertyChanged(nameof(AccentHex));
         OnPropertyChanged(nameof(UseSystemAccent));

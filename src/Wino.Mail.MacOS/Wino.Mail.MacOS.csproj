@@ -16,14 +16,27 @@
     <CodesignProvision Condition="'$(CodesignProvision)' == ''">Wino Mail macOS Development</CodesignProvision>
     <PublishAot>false</PublishAot>
   </PropertyGroup>
+  <!-- Every Mac build carries the Windows manifest version (2.2.0.0 becomes 2.2.0). The release
+       scripts pass their own ApplicationVersion (build number) and a version plist on top. -->
+  <PropertyGroup>
+    <WinoManifestVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../Wino.Mail.WinUI/Package.appxmanifest')), '(?&lt;=&lt;Identity[^&gt;]*\sVersion=")\d+\.\d+\.\d+'))</WinoManifestVersion>
+    <ApplicationDisplayVersion Condition="'$(ApplicationDisplayVersion)' == ''">$(WinoManifestVersion)</ApplicationDisplayVersion>
+    <ApplicationVersion Condition="'$(ApplicationVersion)' == ''">$(WinoManifestVersion)</ApplicationVersion>
+  </PropertyGroup>
   <!-- Mac App Store builds pass -p:WinoMacDistribution=AppStore; DMG builds leave it unset. -->
   <PropertyGroup Condition="'$(WinoMacDistribution)' == 'AppStore'">
     <DefineConstants>$(DefineConstants);WINO_APPSTORE</DefineConstants>
+    <CodesignEntitlements>Entitlements.AppStore.plist</CodesignEntitlements>
   </PropertyGroup>
+  <!-- Other builds update through Sparkle (Wino.Core.MacOS.Bindings/Sparkle): its feed, key and installer settings. -->
+  <ItemGroup Condition="'$(WinoMacDistribution)' != 'AppStore'">
+    <PartialAppManifest Include="Sparkle.plist" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj" />
     <ProjectReference Include="../Wino.Core/Wino.Core.csproj" />
     <ProjectReference Include="../Wino.Platform.MacOS/Wino.Platform.MacOS.csproj" />
+    <ProjectReference Include="../Wino.Core.MacOS.Bindings/Wino.Core.MacOS.Bindings.csproj" />
     <ProjectReference Include="../../controls/Wino.Presentation.AppKit/Wino.Presentation.AppKit.csproj" />
     <ProjectReference Include="../../controls/Wino.Mail.Controls.AppKit/Wino.Mail.Controls.AppKit.csproj" />
     <ProjectReference Include="../../controls/Wino.Editor.AppKit/Wino.Editor.AppKit.csproj" />
@@ -50,6 +63,21 @@
   <ItemGroup Condition="'$(WinoVersionPlist)' != ''">
     <PartialAppManifest Include="$(WinoVersionPlist)" />
   </ItemGroup>
+  <!-- The SDK signs Sparkle.framework and its Installer.xpc, but not Sparkle's Autoupdate tool and
+       Updater.app, which ship ad-hoc signed. Notarization needs every executable signed with the app's
+       identity, so they are signed here, before the SDK signs (and seals) the framework. They run outside
+       the sandbox and get no entitlements. Already-signed copies are left alone so the seal stays valid. -->
+  <Target Name="WinoSignSparkleHelpers" BeforeTargets="_CodesignAppBundle"
+          Condition="'$(WinoMacDistribution)' != 'AppStore' And '$(EnableCodeSigning)' != 'false' And '$(_CodeSigningKey)' != '' And '$(_CodeSigningKey)' != '-' And Exists('$(AppBundleDir)/Contents/Frameworks/Sparkle.framework')">
+    <PropertyGroup>
+      <_WinoSparkleSignOptions>--force --sign &quot;$(_CodeSigningKey)&quot; --entitlements &quot;$(MSBuildProjectDirectory)/Sparkle.Helpers.entitlements&quot;</_WinoSparkleSignOptions>
+      <_WinoSparkleSignOptions Condition="'$(UseHardenedRuntime)' == 'true'">$(_WinoSparkleSignOptions) --options runtime --timestamp</_WinoSparkleSignOptions>
+    </PropertyGroup>
+    <ItemGroup>
+      <_WinoSparkleHelper Include="$(AppBundleDir)/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate;$(AppBundleDir)/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app" />
+    </ItemGroup>
+    <Exec Command="if /usr/bin/codesign -dv &quot;%(_WinoSparkleHelper.FullPath)&quot; 2&gt;&amp;1 | /usr/bin/grep -q 'Signature=adhoc'; then /usr/bin/codesign $(_WinoSparkleSignOptions) &quot;%(_WinoSparkleHelper.FullPath)&quot;; fi" />
+  </Target>
   <!-- The shared model loader resolves assets beside its assembly in MonoBundle. -->
   <Target Name="WinoBundleModelAssets" BeforeTargets="_ComputePublishLocation">
     <ItemGroup>

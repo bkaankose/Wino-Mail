@@ -6,16 +6,20 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models.Common;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Mail.ViewModels;
 using Wino.Messaging.Client.Shell;
 
 namespace Wino.Mail.MacOS.Infrastructure;
 
 /// <summary>
 /// Routes OS activations (mailto, wino://, webcal(s), opened .ics/.vcf/.eml files) the way the Windows
-/// App activation paths do; an .eml opens read-only in its own reader window (<see cref="Views.Mail.EmlReaderWindow"/>). AppDelegate queues URLs until services are ready; handling is serialized.
+/// App activation paths do; an .eml opens read-only in its own reader window (<see cref="Views.Mail.EmlReaderWindow"/>).
+/// Any other file (dropped on the Dock icon or sent from the Services menu) becomes an attachment of a new
+/// mail, like the Windows share target. AppDelegate queues URLs until services are ready; handling is serialized.
 /// </summary>
 public sealed class MacActivationCoordinator(IServiceProvider services)
 {
@@ -33,6 +37,7 @@ public sealed class MacActivationCoordinator(IServiceProvider services)
             var calendarFiles = new List<NSUrl>();
             var contactFiles = new List<NSUrl>();
             var mailFiles = new List<NSUrl>();
+            var attachmentFiles = new List<NSUrl>();
             foreach (var url in urls)
             {
                 var kind = Classify(url);
@@ -41,6 +46,9 @@ public sealed class MacActivationCoordinator(IServiceProvider services)
                     case ActivationUriKind.CalendarFile: calendarFiles.Add(url); break;
                     case ActivationUriKind.ContactFile: contactFiles.Add(url); break;
                     case ActivationUriKind.MailFile: mailFiles.Add(url); break;
+                    case ActivationUriKind.Unsupported when url.IsFileUrl:
+                        attachmentFiles.Add(url);
+                        break;
                     case ActivationUriKind.Unsupported:
                         Serilog.Log.Information("Ignoring unsupported activation {Scheme}.", url.Scheme);
                         break;
@@ -52,11 +60,21 @@ public sealed class MacActivationCoordinator(IServiceProvider services)
             if (calendarFiles.Count > 0) await HandleFilesAsync(WinoApplicationMode.Calendar, calendarFiles);
             if (contactFiles.Count > 0) await HandleFilesAsync(WinoApplicationMode.Contacts, contactFiles);
             if (mailFiles.Count > 0) await HandleMailFilesAsync(mailFiles);
+            if (attachmentFiles.Count > 0) await HandleAttachmentFilesAsync(attachmentFiles);
         }
         catch (Exception error)
         {
             Serilog.Log.Error(error, "OS activation failed.");
         }
+        finally { _gate.Release(); }
+    }
+
+    /// <summary>Files from the Services menu: every file is an attachment, whatever its type.</summary>
+    public async Task AttachFilesAsync(IReadOnlyList<NSUrl> files)
+    {
+        await _gate.WaitAsync();
+        try { await HandleAttachmentFilesAsync(files); }
+        catch (Exception error) { Serilog.Log.Error(error, "Attaching files from the Services menu failed."); }
         finally { _gate.Release(); }
     }
 
@@ -138,6 +156,43 @@ public sealed class MacActivationCoordinator(IServiceProvider services)
         {
             foreach (var file in scoped) file.StopAccessingSecurityScopedResource();
         }
+    }
+
+    /// <summary>
+    /// Windows App.HandleShareTargetActivationAsync: the files become the pending share request, which the
+    /// mail shell turns into a new mail (asking for the account when there are several). A cold or
+    /// mode-switching shell consumes it while it activates; a running mail shell is asked directly.
+    /// </summary>
+    private async Task HandleAttachmentFilesAsync(IReadOnlyList<NSUrl> files)
+    {
+        if (!await HasAccountsAsync(Translator.DialogMessage_NoAccountsForCreateMailMessage, Translator.DialogMessage_NoAccountsForCreateMailTitle)) return;
+
+        var shared = new List<SharedFile>();
+        foreach (var file in files)
+        {
+            if (file.Path is not { } path || Directory.Exists(path)) continue;
+            var scoped = file.StartAccessingSecurityScopedResource();
+            try { shared.Add(new SharedFile(path, await File.ReadAllBytesAsync(path))); }
+            catch (Exception error) { Serilog.Log.Warning(error, "Could not read a file to attach."); }
+            finally { if (scoped) file.StopAccessingSecurityScopedResource(); }
+        }
+        if (shared.Count == 0) return;
+
+        var navigation = Navigation;
+        var mailReady = navigation.IsShellReady && navigation.Shell?.ActiveMode == WinoApplicationMode.Mail;
+        services.GetRequiredService<IActivationStateService>().PendingShareRequest = new MailShareRequest(shared);
+        if (!await navigation.EnsureShellAsync(WinoApplicationMode.Mail)) return;
+        if (mailReady)
+        {
+            var shell = services.GetRequiredService<MailAppShellViewModel>();
+            await services.GetRequiredService<IDispatcher>().ExecuteOnUIThread(() => _ = HandlePendingShareAsync(shell));
+        }
+    }
+
+    private static async Task HandlePendingShareAsync(MailAppShellViewModel shell)
+    {
+        try { await shell.HandlePendingShareRequestAsync(); }
+        catch (Exception error) { Serilog.Log.Error(error, "Could not create a mail with the shared files."); }
     }
 
     /// <summary>Most message windows one activation opens; the rest are logged and skipped.</summary>

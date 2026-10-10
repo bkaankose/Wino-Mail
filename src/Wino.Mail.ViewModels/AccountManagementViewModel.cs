@@ -37,6 +37,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
     private readonly ICalDavClient _calDavClient;
     private readonly IMicrosoftStoreService _storeService;
+    private readonly IWinoAppStorePurchaseService? _appStorePurchases;
 
     public IMailDialogService MailDialogService { get; }
 
@@ -53,7 +54,8 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                                       IMicrosoftStoreService storeService,
                                       IAuthenticationProvider authenticationProvider,
                                       IPreferencesService preferencesService,
-                                      IPlatformCapabilities platformCapabilities) : base(dialogService, navigationService, accountService, providerCatalog, billingService, winoAccountProfileService, authenticationProvider, preferencesService, platformCapabilities)
+                                      IPlatformCapabilities platformCapabilities,
+                                      IWinoAppStorePurchaseService? appStorePurchases = null) : base(dialogService, navigationService, accountService, providerCatalog, billingService, winoAccountProfileService, authenticationProvider, preferencesService, platformCapabilities)
     {
         MailDialogService = dialogService;
         _syncService = syncService;
@@ -61,6 +63,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
         _calDavClient = calDavClient;
         _storeService = storeService;
+        _appStorePurchases = appStorePurchases;
     }
 
     [ObservableProperty]
@@ -122,14 +125,16 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
             return;
         }
 
-        var channel = await MailDialogService.ShowUnlimitedAccountsPurchaseChannelDialogAsync();
+        var channel = await SelectPurchaseChannelAsync();
 
-        // In-app purchases through the Apple App Store are not offered yet.
         if (channel == UnlimitedAccountsPurchaseChannel.AppleAppStore)
         {
-            DialogService.InfoBarMessage(Translator.GeneralTitle_Info,
-                                         Translator.UnlimitedAccountsPurchaseDialog_AppleAppStoreComingSoon,
-                                         InfoBarMessageType.Information);
+            if (_appStorePurchases is not null &&
+                await AppStoreAddOnPurchase.PurchaseAsync(_appStorePurchases, WinoAddOnProductType.UNLIMITED_ACCOUNTS, DialogService, _winoLogger).ConfigureAwait(false))
+            {
+                await ManageStorePurchasesAsync().ConfigureAwait(false);
+            }
+
             return;
         }
 
@@ -146,6 +151,19 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         {
             await ManageStorePurchasesAsync().ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// App Store builds offer other channels only where Apple allows it (the United States storefront);
+    /// elsewhere the App Store is the only channel and no choice is shown.
+    /// </summary>
+    private async Task<UnlimitedAccountsPurchaseChannel?> SelectPurchaseChannelAsync()
+    {
+        if (PlatformCapabilities.AppleAppStore && _appStorePurchases?.IsAvailable == true &&
+            !await _appStorePurchases.IsExternalPurchaseAllowedAsync().ConfigureAwait(false))
+            return UnlimitedAccountsPurchaseChannel.AppleAppStore;
+
+        return await MailDialogService.ShowUnlimitedAccountsPurchaseChannelDialogAsync();
     }
 
     private async Task ValidateSpecialImapConnectivityAsync(CustomServerInformation serverInformation)

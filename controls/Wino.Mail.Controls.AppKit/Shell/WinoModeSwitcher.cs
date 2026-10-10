@@ -1,5 +1,4 @@
 using AppKit;
-using CoreGraphics;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Presentation.AppKit;
@@ -7,9 +6,10 @@ using Wino.Presentation.AppKit;
 namespace Wino.Mail.Controls.AppKit.Shell;
 
 /// <summary>
-/// The Windows AppModeFooterSwitcherControl as a card at the bottom of the shell pane: five
-/// icon-only segments (Mail, Calendar, Contacts, To Do, Settings). The selected segment shows the
-/// Filled glyph in the accent colour on a raised chip; the others rest in secondary ink.
+/// The Windows AppModeFooterSwitcherControl at the bottom of the shell pane: a native select-one
+/// segmented control with five icon segments (Mail, Calendar, Contacts, To Do, Settings). AppKit draws
+/// the selection, handles keyboard navigation and exposes the segments as a radio group; the selected
+/// segment shows the Filled glyph in the accent colour.
 /// </summary>
 public sealed class WinoModeSwitcher : NSView
 {
@@ -24,7 +24,16 @@ public sealed class WinoModeSwitcher : NSView
         new(WinoApplicationMode.Settings, WinoIconGlyph.Settings, WinoIconGlyph.SettingsFilled, Translator.MenuSettings, "⌘,")
     ];
 
-    private readonly List<(Segment Segment, WinoSurfaceView Chip, NSButton Button)> _items = new();
+    private readonly NSSegmentedControl _control = new()
+    {
+        TranslatesAutoresizingMaskIntoConstraints = false,
+        TrackingMode = NSSegmentSwitchTracking.SelectOne,
+        SegmentStyle = NSSegmentStyle.Automatic,
+        SegmentDistribution = NSSegmentDistribution.FillEqually,
+        ControlSize = NSControlSize.Large,
+        SegmentCount = Segments.Length
+    };
+
     private WinoApplicationMode _selected = WinoApplicationMode.Mail;
 
     /// <summary>Raised when the user picks a segment. The host decides whether it becomes <see cref="Selected"/>.</summary>
@@ -33,47 +42,11 @@ public sealed class WinoModeSwitcher : NSView
     public WinoModeSwitcher()
     {
         TranslatesAutoresizingMaskIntoConstraints = false;
-        var card = new WinoSurfaceView
-        {
-            CornerRadius = WinoStyle.GroupRadius,
-            Fill = WinoStyle.Dynamic(WinoStyle.Hex(0xFFFFFF, 0.55), WinoStyle.Hex(0xFFFFFF, 0.07)),
-            Stroke = WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.06), WinoStyle.Hex(0xFFFFFF, 0.07))
-        };
-        var row = new NSStackView
-        {
-            Orientation = NSUserInterfaceLayoutOrientation.Horizontal,
-            Distribution = NSStackViewDistribution.FillEqually,
-            Spacing = 4,
-            EdgeInsets = new NSEdgeInsets(6, 6, 6, 6),
-            TranslatesAutoresizingMaskIntoConstraints = false
-        };
-        foreach (var segment in Segments)
-        {
-            var chip = new WinoSurfaceView
-            {
-                CornerRadius = WinoStyle.ControlRadius,
-                Fill = WinoStyle.Dynamic(NSColor.White, WinoStyle.Hex(0xFFFFFF, 0.12)),
-                Stroke = WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.06), WinoStyle.Hex(0xFFFFFF, 0.10))
-            };
-            var button = new NSButton
-            {
-                Bordered = false,
-                ImagePosition = NSCellImagePosition.ImageOnly,
-                ToolTip = $"{segment.Title} ({segment.Shortcut})",
-                TranslatesAutoresizingMaskIntoConstraints = false
-            };
-            button.SetButtonType(NSButtonType.MomentaryChange);
-            WinoAccessibility.Label(button, segment.Title);
-            var captured = segment.Mode;
-            button.Activated += (_, _) => ModeSelected?.Invoke(this, captured);
-            WinoLayout.Fill(button, chip);
-            chip.HeightAnchor.ConstraintEqualTo(34).Active = true;
-            row.AddArrangedSubview(chip);
-            _items.Add((segment, chip, button));
-        }
-        WinoLayout.Fill(row, card);
-        WinoLayout.Fill(card, this, 8, 8, 12, 8);
-        WinoAccessibility.Label(this, "Mode");
+        for (int index = 0; index < Segments.Length; index++)
+            _control.SetToolTip($"{Segments[index].Title} ({Segments[index].Shortcut})", index);
+        _control.Activated += SegmentActivated;
+        WinoLayout.Fill(_control, this, 8, 8, 12, 8);
+        WinoAccessibility.Label(_control, "Mode");
         Refresh();
         WinoStyle.AccentChanged += StyleChanged;
         WinoIcons.StyleChanged += StyleChanged;
@@ -86,19 +59,25 @@ public sealed class WinoModeSwitcher : NSView
         set { if (_selected == value) return; _selected = value; Refresh(); }
     }
 
+    private void SegmentActivated(object? sender, EventArgs args)
+    {
+        var index = (int)_control.SelectedSegment;
+        // The host confirms the switch through Selected; until then the old segment stays selected.
+        Refresh();
+        if (index >= 0 && index < Segments.Length) ModeSelected?.Invoke(this, Segments[index].Mode);
+    }
+
     private void StyleChanged(object? sender, EventArgs args) => Refresh();
 
     private void Refresh()
     {
-        foreach (var (segment, chip, button) in _items)
+        for (int index = 0; index < Segments.Length; index++)
         {
+            var segment = Segments[index];
             bool selected = segment.Mode == _selected;
-            // The selected glyph is drawn in the accent itself: a template tint is lost in the colorful
-            // icon style (the image is not a template there) and in borderless MomentaryChange buttons.
-            button.Image = WinoIcons.Image(selected ? segment.Filled : segment.Regular, 18, selected ? WinoStyle.Accent : null, segment.Title);
-            button.ContentTintColor = selected ? WinoStyle.Accent : WinoStyle.SecondaryText;
-            chip.Fill = selected ? WinoStyle.Dynamic(NSColor.White, WinoStyle.Hex(0xFFFFFF, 0.12)) : null;
-            chip.Stroke = selected ? WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.06), WinoStyle.Hex(0xFFFFFF, 0.10)) : null;
+            // The selected glyph is drawn in the accent itself: a template tint is lost in the colorful icon style.
+            _control.SetImage(WinoIcons.Image(selected ? segment.Filled : segment.Regular, 18, selected ? WinoStyle.Accent : null, segment.Title), index);
+            if (selected) _control.SelectedSegment = index;
         }
     }
 
@@ -108,12 +87,11 @@ public sealed class WinoModeSwitcher : NSView
         Refresh();
     }
 
-    public override CGSize IntrinsicContentSize => new(NoIntrinsicMetric, 34 + 12 + 8 + 12);
-
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
+            _control.Activated -= SegmentActivated;
             WinoStyle.AccentChanged -= StyleChanged;
             WinoIcons.StyleChanged -= StyleChanged;
         }
@@ -152,7 +130,8 @@ public sealed class WinoPaneBackdropView : NSView
 
     private void Apply()
     {
-        bool themed = WinoStyle.HasBackdrop;
+        // The translucent window material alone keeps the native sidebar material; a theme wallpaper blurs within the window.
+        bool themed = WinoStyle.HasBackdrop && !WinoStyle.IsWindowMaterialOnly;
         _effect.BlendingMode = themed ? NSVisualEffectBlendingMode.WithinWindow : NSVisualEffectBlendingMode.BehindWindow;
         _effect.Material = themed ? NSVisualEffectMaterial.HudWindow : NSVisualEffectMaterial.Sidebar;
         _effect.Hidden = false;

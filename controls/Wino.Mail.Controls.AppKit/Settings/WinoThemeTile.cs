@@ -1,6 +1,7 @@
 using AppKit;
 using CoreGraphics;
 using Wino.Core.Domain.Enums;
+using Wino.Mail.Controls.AppKit.Extras;
 using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.Controls.AppKit.Settings;
@@ -10,7 +11,7 @@ namespace Wino.Mail.Controls.AppKit.Settings;
 /// wallpaper or gradient at 150x92 with a miniature sidebar strip and content pane over it, an
 /// accent stroke and check badge while selected, and the theme name underneath.
 /// </summary>
-public sealed class WinoThemeTile : NSView
+public sealed class WinoThemeTile : WinoPressableView
 {
     public const double TileWidth = 150;
     public const double PreviewHeight = 92;
@@ -45,7 +46,6 @@ public sealed class WinoThemeTile : NSView
         WinoLayout.Fill(stack, this);
         WidthAnchor.ConstraintEqualTo((nfloat)TileWidth).Active = true;
 
-        AccessibilityElement = true;
         AccessibilityRole = NSAccessibilityRoles.RadioButtonRole;
         AccessibilityLabel = name;
         ApplySelection();
@@ -64,17 +64,14 @@ public sealed class WinoThemeTile : NSView
         }
     }
 
-    public override bool AcceptsFirstMouse(NSEvent? theEvent) => true;
+    // Press tracking, Space/Return, the focus ring and VoiceOver's press come from WinoPressableView.
+    protected override void OnActivated() => Pressed?.Invoke(this, EventArgs.Empty);
 
-    public override void MouseUp(NSEvent theEvent)
+    /// <summary>The focus ring traces the preview card rather than the whole tile.</summary>
+    public override void DrawFocusRingMask()
     {
-        if (Bounds.Contains(ConvertPointFromView(theEvent.LocationInWindow, null))) Pressed?.Invoke(this, EventArgs.Empty);
-    }
-
-    public override bool AccessibilityPerformPress()
-    {
-        Pressed?.Invoke(this, EventArgs.Empty);
-        return true;
+        var preview = ConvertRectFromView(_preview.Bounds, _preview);
+        NSBezierPath.FromRoundedRect(preview, 8, 8).Fill();
     }
 
     private void ApplySelection()

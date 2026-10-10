@@ -22,7 +22,7 @@ public sealed partial class WinoAccountManagementPageViewController
         AddTo(panel, SectionHeader(Translator.WinoAccount_Management_AddOnsSectionHeader,
             LinkButton(Translator.WinoAccount_Management_RefreshPurchases, ViewModel.RefreshPurchasesCommand)));
         foreach (var view in AddOnCards()) AddTo(panel, view);
-        AddTo(panel, SectionHeader(Translator.WinoAccount_Management_SyncSectionHeader));
+        AddTo(panel, SectionHeader(Translator.WinoAccount_Management_ManagementSectionHeader));
         foreach (var view in SyncCards()) AddTo(panel, view);
         return panel;
     }

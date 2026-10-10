@@ -6,10 +6,10 @@ using Wino.Presentation.AppKit;
 namespace Wino.Mail.MacOS.Views.Account;
 
 /// <summary>
-/// Where to buy Unlimited Accounts (port of UnlimitedAccountsPurchaseChannelDialog). Wino Account
-/// (Stripe) is always listed and needs a signed-in Wino Account; the Microsoft Store appears when
-/// the platform sells through it; App Store builds list the Apple App Store as coming soon. Continue
-/// returns the selected channel, Cancel returns null.
+/// Where to buy Unlimited Accounts (port of UnlimitedAccountsPurchaseChannelDialog). App Store builds
+/// list the Apple App Store first; they show this sheet only in the United States storefront, where
+/// Apple allows other channels. Wino Account (Stripe) needs a signed-in Wino Account; the Microsoft
+/// Store appears when the platform sells through it. Continue returns the selected channel, Cancel null.
 /// </summary>
 internal sealed class PurchaseChannelSheet : WinoAccountSheet<UnlimitedAccountsPurchaseChannel?>
 {
@@ -34,6 +34,9 @@ internal sealed class PurchaseChannelSheet : WinoAccountSheet<UnlimitedAccountsP
             option.WidthAnchor.ConstraintEqualTo(options.WidthAnchor).Active = true;
         }
 
+        if (appleAppStore)
+            AddOption(Option(UnlimitedAccountsPurchaseChannel.AppleAppStore, WinoIconGlyph.Apple,
+                Translator.UnlimitedAccountsPurchaseDialog_AppleAppStoreTitle, Translator.UnlimitedAccountsPurchaseDialog_AppleAppStoreDescription, true));
         if (microsoftStore)
             AddOption(Option(UnlimitedAccountsPurchaseChannel.MicrosoftStore, WinoIconGlyph.MicrosoftStore,
                 Translator.UnlimitedAccountsPurchaseDialog_MicrosoftStoreTitle, Translator.UnlimitedAccountsPurchaseDialog_MicrosoftStoreDescription, true));
@@ -41,11 +44,6 @@ internal sealed class PurchaseChannelSheet : WinoAccountSheet<UnlimitedAccountsP
             Translator.UnlimitedAccountsPurchaseDialog_WinoAccountTitle,
             isWinoAccountAvailable ? Translator.UnlimitedAccountsPurchaseDialog_WinoAccountDescription : Translator.UnlimitedAccountsPurchaseDialog_WinoAccountSignInRequired,
             isWinoAccountAvailable));
-        if (appleAppStore)
-            AddOption(Option(UnlimitedAccountsPurchaseChannel.AppleAppStore, WinoIconGlyph.Apple,
-                Translator.UnlimitedAccountsPurchaseDialog_AppleAppStoreTitle,
-                $"{Translator.UnlimitedAccountsPurchaseDialog_AppleAppStoreDescription} {Translator.UnlimitedAccountsPurchaseDialog_AppleAppStoreComingSoon}",
-                false));
         AddRow(options);
 
         Secondary.Title = Translator.Buttons_Cancel;

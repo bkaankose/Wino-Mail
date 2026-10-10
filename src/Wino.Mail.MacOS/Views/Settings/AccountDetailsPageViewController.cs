@@ -6,7 +6,9 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.Controls.AppKit.Settings;
+using Wino.Core.Domain.Models.Folders;
 using Wino.Mail.MacOS.Infrastructure;
+using Wino.Mail.MacOS.Views.Shell;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.AppKit;
@@ -23,6 +25,9 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
     private readonly NSStackView[] _tabs = [WinoLayout.VStack(20), WinoLayout.VStack(20), WinoLayout.VStack(20), WinoLayout.VStack(20), WinoLayout.VStack(20)];
     private readonly WinoSettingsGroup _calendars = new();
     private BindingScope? _calendarScope;
+    private const double FolderCheckColumnWidth = 90;
+    private readonly NSStackView _folderRows = WinoLayout.VStack(0);
+    private readonly List<NSButton> _dockMenuCheckboxes = [];
 
     public string? PageTitle => ViewModel.Account?.Name;
     public event EventHandler? PageTitleChanged;
@@ -180,12 +185,28 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
             CommandCard(Translator.SettingsManageAliases_Title, Translator.SettingsManageAliases_Description, WinoIconGlyph.PersonSwap, vm.EditAliasesCommand),
             CommandCard(Translator.SettingsMailCategories_Title, Translator.SettingsMailCategories_Description, WinoIconGlyph.Tag, vm.EditCategoriesCommand)));
 
+        _folderRows.Alignment = NSLayoutAttribute.Leading;
+        var folderTable = WinoLayout.VStack(0, FolderColumnHeader(), _folderRows);
+        folderTable.Alignment = NSLayoutAttribute.Leading;
+        _folderRows.WidthAnchor.ConstraintEqualTo(folderTable.WidthAnchor).Active = true;
+        Bind.Collection(vm.CurrentFolders, RebuildFolderRows);
+
+        // The Windows Jump List is the Dock menu here (AppDelegate.Dock.cs).
+        var dockMenu = Card(Translator.SettingsDockMenu_Title, Translator.SettingsDockMenu_Description, WinoIconGlyph.TaskList,
+            Bind.Switch(vm, nameof(vm.IsJumpListEnabled), s => s.IsJumpListEnabled, (s, v) => s.IsJumpListEnabled = v, Translator.SettingsDockMenu_Title));
+        Bind.Bind(vm, nameof(vm.IsJumpListEnabled), s => s.IsJumpListEnabled, enabled =>
+        {
+            foreach (var checkbox in _dockMenuCheckboxes) checkbox.Enabled = enabled;
+        });
+
         AddTo(1, Group(null,
             Expander(Translator.SettingsFolderOptions_Title, Translator.SettingsFolderOptions_Description, WinoIconGlyph.FolderSync, null,
                 CommandCard(Translator.FolderCustomization_EntryCardTitle, Translator.FolderCustomization_EntryCardDescription, WinoIconGlyph.List, vm.CustomizeFolderListCommand),
-                CommandCard(Translator.SettingsConfigureSpecialFolders_Title, Translator.SettingsConfigureSpecialFolders_Description, WinoIconGlyph.Settings, vm.SetupSpecialFoldersCommand)),
-            Expander(Translator.SettingsNotificationsAndTaskbar_Title, Translator.SettingsNotificationsAndTaskbar_Description, WinoIconGlyph.Alert, null,
-                CommandCard(Translator.SettingsUnreadBadges_Card_Title, Translator.SettingsUnreadBadges_Card_Description, WinoIconGlyph.AlertBadge, vm.ConfigureUnreadBadgesCommand))));
+                CommandCard(Translator.SettingsConfigureSpecialFolders_Title, Translator.SettingsConfigureSpecialFolders_Description, WinoIconGlyph.Settings, vm.SetupSpecialFoldersCommand),
+                folderTable),
+            Expander(Translator.SettingsNotificationsAndDock_Title, Translator.SettingsNotificationsAndDock_Description, WinoIconGlyph.Alert, null,
+                CommandCard(Translator.SettingsUnreadBadges_Card_Title, Translator.SettingsUnreadBadges_Card_Description, WinoIconGlyph.AlertBadge, vm.ConfigureUnreadBadgesCommand),
+                dockMenu)));
 
         var focused = Card(Translator.SettingsFocusedInbox_Title, Translator.SettingsFocusedInbox_Description, WinoIconGlyph.MailInboxCheckmark,
             Bind.Switch(vm, nameof(vm.IsFocusedInboxEnabled), s => s.IsFocusedInboxEnabled, (s, v) => s.IsFocusedInboxEnabled = v, Translator.SettingsFocusedInbox_Title));
@@ -203,6 +224,89 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
             signature,
             focused,
             append));
+    }
+
+    private static NSView FolderColumnHeader()
+    {
+        var row = WinoLayout.HStack(WinoStyle.Space4, WinoLayout.Spacer(),
+            FolderColumnLabel(Translator.SettingsFolderSynchronize_Title), FolderColumnLabel(Translator.SettingsFolderDockMenu_Title));
+        var host = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
+        WinoLayout.Fill(row, host, 10, WinoSettingsStyle.NestedIndent, 4, WinoSettingsStyle.CardPadding);
+        return host;
+    }
+
+    private static NSTextField FolderColumnLabel(string text)
+    {
+        var label = WinoStyle.Label(text, WinoStyle.Caption, WinoStyle.TertiaryText);
+        label.Alignment = NSTextAlignment.Center;
+        label.WidthAnchor.ConstraintEqualTo((nfloat)FolderCheckColumnWidth).Active = true;
+        return label;
+    }
+
+    /// <summary>The Windows folder tree: every folder with its Synchronize and Dock menu (Jump List) checkboxes.</summary>
+    private void RebuildFolderRows()
+    {
+        _dockMenuCheckboxes.Clear();
+        foreach (var view in _folderRows.ArrangedSubviews) { _folderRows.RemoveArrangedSubview(view); view.RemoveFromSuperview(); }
+        foreach (var folder in ViewModel.CurrentFolders.ToList()) AddFolderRows(folder, 0);
+    }
+
+    private void AddFolderRows(IMailItemFolder folder, int depth)
+    {
+        var row = FolderRow(folder, depth);
+        _folderRows.AddArrangedSubview(row);
+        row.WidthAnchor.ConstraintEqualTo(_folderRows.WidthAnchor).Active = true;
+        foreach (var child in folder.ChildFolders ?? []) AddFolderRows(child, depth + 1);
+    }
+
+    private NSView FolderRow(IMailItemFolder folder, int depth)
+    {
+        var glyph = ShellPaneRows.FolderGlyph(folder.SpecialFolderType);
+        var icon = new WinoIconView(glyph == WinoIconGlyph.None ? WinoIconGlyph.Folder : glyph, 16);
+        WinoLayout.Size(icon, 16, 16);
+        var name = WinoStyle.Label(folder.FolderName, WinoStyle.Body, WinoStyle.PrimaryText);
+        name.LineBreakMode = NSLineBreakMode.TruncatingTail;
+        name.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
+        name.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+
+        // Folders that cannot hold mail (IsMoveTarget false) have no checkboxes on Windows either.
+        var (_, sync) = FolderCheckbox(folder, Translator.SettingsFolderSynchronize_Title, folder.IsSynchronizationEnabled,
+            isOn => ViewModel.FolderSyncToggledAsync(folder, isOn));
+        var (dockCheckbox, dock) = FolderCheckbox(folder, Translator.SettingsFolderDockMenu_Title, folder.IsJumpListEnabled,
+            isOn => ViewModel.FolderJumpListToggledAsync(folder, isOn));
+        dockCheckbox.Enabled = ViewModel.IsJumpListEnabled;
+        _dockMenuCheckboxes.Add(dockCheckbox);
+
+        var row = WinoLayout.HStack(WinoStyle.Space2, icon, name, sync, dock);
+        row.Alignment = NSLayoutAttribute.CenterY;
+        var host = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
+        WinoLayout.Fill(row, host, 6, WinoSettingsStyle.NestedIndent + depth * 16, 6, WinoSettingsStyle.CardPadding);
+        return host;
+    }
+
+    /// <summary>A centered checkbox in a fixed-width column host.</summary>
+    private (NSButton Checkbox, NSView Host) FolderCheckbox(IMailItemFolder folder, string column, bool isOn, Func<bool, Task> toggled)
+    {
+        var checkbox = NSButton.CreateCheckbox(string.Empty, () => { });
+        checkbox.State = isOn ? NSCellStateValue.On : NSCellStateValue.Off;
+        checkbox.Activated += async (_, _) =>
+        {
+            try { await toggled(checkbox.State == NSCellStateValue.On); }
+            catch (Exception ex) { ReportError(ex); }
+        };
+        checkbox.Hidden = !folder.IsMoveTarget;
+        WinoAccessibility.Label(checkbox, $"{folder.FolderName}, {column}");
+        var host = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
+        host.AddSubview(checkbox);
+        checkbox.TranslatesAutoresizingMaskIntoConstraints = false;
+        NSLayoutConstraint.ActivateConstraints(
+        [
+            host.WidthAnchor.ConstraintEqualTo((nfloat)FolderCheckColumnWidth),
+            checkbox.CenterXAnchor.ConstraintEqualTo(host.CenterXAnchor),
+            checkbox.TopAnchor.ConstraintEqualTo(host.TopAnchor),
+            checkbox.BottomAnchor.ConstraintEqualTo(host.BottomAnchor)
+        ]);
+        return (checkbox, host);
     }
 
     private void BuildCalendar()
