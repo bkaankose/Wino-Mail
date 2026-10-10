@@ -34,8 +34,9 @@ public sealed partial class WinoAccountManagementPageViewController
     }
 
     /// <summary>
-    /// The Windows account row: the product mark, the title with one line of context and the privacy
-    /// note, then Sign in (default) and Create account.
+    /// The Windows account row: the product mark, then the title with one line of context, the privacy
+    /// note and Sign in (default) / Create account below them. The text takes the full width so it wraps
+    /// at the card edge instead of collapsing next to the buttons.
     /// </summary>
     private NSView SignedOutHeader()
     {
@@ -52,9 +53,14 @@ public sealed partial class WinoAccountManagementPageViewController
         var title = WinoStyle.Label(Translator.WinoAccount_Management_SignedOutTitle, WinoStyle.BodyStrong, WinoStyle.PrimaryText, 0);
         var description = WinoStyle.Label(Translator.WinoAccount_Management_SignedOutDescription_Device, WinoStyle.Body, WinoStyle.SecondaryText, 0);
         var privacy = WinoStyle.Label(Translator.WinoAccount_Management_SignedOutPrivacyNote, WinoStyle.Caption, WinoStyle.TertiaryText, 0);
-        var text = WinoLayout.VStack(2, title, description, privacy);
+        var signIn = Bind.Button(Translator.Buttons_SignIn, vm.SignInCommand, primary: true);
+        var register = Bind.Button(Translator.Buttons_CreateAccount, vm.RegisterCommand);
+        var buttons = WinoLayout.HStack(8, signIn, register);
+
+        var text = WinoLayout.VStack(2, title, description, privacy, buttons);
         text.Alignment = NSLayoutAttribute.Leading;
         text.SetCustomSpacing(6, description);
+        text.SetCustomSpacing(12, privacy);
         foreach (var label in new[] { title, description, privacy })
         {
             label.WidthAnchor.ConstraintEqualTo(text.WidthAnchor).Active = true;
@@ -62,13 +68,10 @@ public sealed partial class WinoAccountManagementPageViewController
         }
         text.SetHuggingPriority(1, NSLayoutConstraintOrientation.Horizontal);
 
-        var signIn = Bind.Button(Translator.Buttons_SignIn, vm.SignInCommand, primary: true);
-        var register = Bind.Button(Translator.Buttons_CreateAccount, vm.RegisterCommand);
-        var buttons = WinoLayout.HStack(8, signIn, register);
-        buttons.SetHuggingPriority(751, NSLayoutConstraintOrientation.Horizontal);
-
-        var row = WinoLayout.HStack(16, mark, text, buttons);
-        row.Alignment = NSLayoutAttribute.CenterY;
+        var row = WinoLayout.HStack(16, mark, text);
+        row.Alignment = NSLayoutAttribute.Top;
+        // The stack keeps wrapping labels at their narrowest width unless the column is tied to its edge.
+        text.TrailingAnchor.ConstraintEqualTo(row.TrailingAnchor).Active = true;
         return Surface(row, 16, 4);
     }
 
