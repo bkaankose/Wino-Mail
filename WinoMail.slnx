@@ -25,7 +25,11 @@
     <File Path="Settings.XamlStyler" />
   </Folder>
   <Folder Name="/libs/">
-    <Project Path="src/Wino.Platform.Windows/Wino.Platform.Windows.csproj" />
+    <Project Path="src/Wino.Platform.Windows/Wino.Platform.Windows.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
     <Project Path="src/Wino.Authentication/Wino.Authentication.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
@@ -65,7 +69,11 @@
     <Project Path="src/Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
   </Folder>
   <Folder Name="/controls/">
-    <Project Path="controls/Wino.Editor.Core/Wino.Editor.Core.csproj" />
+    <Project Path="controls/Wino.Editor.Core/Wino.Editor.Core.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
     <Project Path="controls/Wino.Editor.WinUI/Wino.Editor.WinUI.csproj">
       <Platform Solution="*|arm64" Project="ARM64" />
       <Platform Solution="*|x64" Project="x64" />
