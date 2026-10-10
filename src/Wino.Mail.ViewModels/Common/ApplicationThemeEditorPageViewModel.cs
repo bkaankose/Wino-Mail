@@ -85,7 +85,7 @@ public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
 
     public ObservableCollection<ThemePaletteColorOptionViewModel> SurfaceOptions { get; } = [];
     public ObservableCollection<ThemePaletteColorOptionViewModel> CalendarOptions { get; } = [];
-    public IReadOnlyList<ThemeBasePreset> BasePresets { get; } = ThemeBasePresets.Create();
+    public List<ThemeBasePreset> BasePresets { get; } = [.. ThemeBasePresets.Create()];
 
     [ObservableProperty] public partial string ThemeName { get; set; } = string.Empty;
     [ObservableProperty] public partial string WallpaperPreviewPath { get; set; } = string.Empty;
