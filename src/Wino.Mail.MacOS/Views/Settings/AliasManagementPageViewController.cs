@@ -18,7 +18,7 @@ namespace Wino.Mail.MacOS.Views.Settings;
 /// (Windows AliasManagementPage). With S/MIME available each alias is an expander whose nested rows
 /// hold the encryption switch and the signing certificate pop-up (enabled while encryption is on).
 /// </summary>
-public sealed class AliasManagementPageViewController(AliasManagementPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
+public sealed class AliasManagementPageViewController(AliasManagementPageViewModel viewModel, IClipboardService clipboard, IDispatcher dispatcher, IWinoLogger logger)
     : SettingsPageViewController<AliasManagementPageViewModel>(viewModel, dispatcher, logger), ISettingsPageTitleSource
 {
     private readonly WinoSettingsGroup _aliases = new();
@@ -79,6 +79,10 @@ public sealed class AliasManagementPageViewController(AliasManagementPageViewMod
             var status = Caption(item.StatusText);
             status.TextColor = item.IsCapabilityDenied ? WinoStyle.Critical : item.IsCapabilityUnknown ? WinoStyle.Caution : WinoStyle.SecondaryText;
             var controls = Row(status);
+            var copy = rows.Button(string.Empty, () => Run(CopyAddressAsync(item.AliasAddress)), icon: WinoIconGlyph.Copy);
+            copy.ToolTip = Translator.AccountAlias_CopyAddressAction;
+            WinoAccessibility.Label(copy, $"{Translator.AccountAlias_CopyAddressAction}, {item.AliasAddress}");
+            controls.AddArrangedSubview(copy);
             if (item.CanSetPrimary) controls.AddArrangedSubview(rows.Button(Translator.AccountAlias_SetPrimaryAction, ViewModel.SetAliasPrimaryCommand, () => item.Alias, icon: WinoIconGlyph.Star));
             if (item.CanDelete)
             {
@@ -87,15 +91,13 @@ public sealed class AliasManagementPageViewController(AliasManagementPageViewMod
                 controls.AddArrangedSubview(delete);
             }
             var icon = item.IsPrimary ? WinoIconGlyph.Star : WinoIconGlyph.Mail;
-            if (!item.IsSmimeAvailable)
-            {
-                _aliases.Add(new WinoSettingsCard(header, description, icon, controls));
-                continue;
-            }
-
             var expander = new WinoSettingsExpander(header, description, icon, controls);
             expander.HeaderCard.AccessibilityLabel = item.RowAutomationName;
-            AddSmimeRows(expander, rows, item);
+            if (item.IsSmimeAvailable) AddSmimeRows(expander, rows, item);
+
+            // Read-only, as on Windows: the reply-to address is set where the alias itself is created.
+            var replyTo = WinoStyle.Label(item.ReplyToText, WinoStyle.Body, WinoStyle.SecondaryText);
+            expander.Add(new WinoSettingsCard(Translator.AccountAlias_ReplyTo_Title, Translator.AccountAlias_ReplyTo_Description, WinoIconGlyph.Reply, replyTo));
             _aliases.Add(expander);
         }
         _aliases.Hidden = _aliases.RowCount == 0;
@@ -142,6 +144,9 @@ public sealed class AliasManagementPageViewController(AliasManagementPageViewMod
         if (string.IsNullOrWhiteSpace(name)) name = certificate.Subject;
         return $"{name} ({certificate.NotAfter:d})";
     }
+
+    private async Task CopyAddressAsync(string address)
+        => (await clipboard.CopyTextAsync(address)).ThrowIfNotSucceeded();
 
     private async void Run(Task operation)
     {

@@ -11,7 +11,7 @@ namespace Wino.Mail.ViewModels.Tests;
 
 /// <summary>
 /// Unlimited Accounts can be bought through a store or through a Wino Account. The channel dialog
-/// appears only when a store channel exists; the Apple App Store channel is not sold yet.
+/// appears only when a store channel exists; App Store builds skip it outside the United States storefront.
 /// </summary>
 public sealed class PurchaseChannelSelectionTests
 {
@@ -51,20 +51,38 @@ public sealed class PurchaseChannelSelectionTests
     }
 
     [Fact]
-    public async Task AccountManagement_AppleAppStoreChoice_ShowsComingSoonOnly()
+    public async Task AccountManagement_AppleAppStore_UnitedStates_ShowsChoiceAndBuysFromAppStore()
     {
         var dialogs = new Mock<IMailDialogService>();
         dialogs.Setup(d => d.ShowUnlimitedAccountsPurchaseChannelDialogAsync())
             .ReturnsAsync(UnlimitedAccountsPurchaseChannel.AppleAppStore);
         var store = new Mock<IMicrosoftStoreService>(MockBehavior.Strict);
         var profiles = new Mock<IWinoAccountProfileService>(MockBehavior.Strict);
-        var vm = CreateAccountManagement(dialogs, store, profiles, new PlatformCapabilities(AppleAppStore: true));
+        var appStore = CreateAppStore(externalPurchaseAllowed: true, WinoAppStorePurchaseOutcome.Cancelled);
+        var vm = CreateAccountManagement(dialogs, store, profiles, new PlatformCapabilities(AppleAppStore: true), appStore.Object);
 
         await vm.PurchaseUnlimitedAccountCommand.ExecuteAsync(null);
 
         dialogs.Verify(d => d.ShowUnlimitedAccountsPurchaseChannelDialogAsync(), Times.Once);
-        dialogs.Verify(d => d.InfoBarMessage(It.IsAny<string>(),
-            Translator.UnlimitedAccountsPurchaseDialog_AppleAppStoreComingSoon, InfoBarMessageType.Information), Times.Once);
+        appStore.Verify(a => a.PurchaseAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS, It.IsAny<CancellationToken>()), Times.Once);
+        store.VerifyNoOtherCalls();
+        profiles.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task AccountManagement_AppleAppStore_OutsideUnitedStates_BuysFromAppStoreWithoutChoice()
+    {
+        var dialogs = new Mock<IMailDialogService>();
+        var store = new Mock<IMicrosoftStoreService>(MockBehavior.Strict);
+        var profiles = new Mock<IWinoAccountProfileService>(MockBehavior.Strict);
+        var appStore = CreateAppStore(externalPurchaseAllowed: false, WinoAppStorePurchaseOutcome.Failed);
+        var vm = CreateAccountManagement(dialogs, store, profiles, new PlatformCapabilities(AppleAppStore: true), appStore.Object);
+
+        await vm.PurchaseUnlimitedAccountCommand.ExecuteAsync(null);
+
+        dialogs.Verify(d => d.ShowUnlimitedAccountsPurchaseChannelDialogAsync(), Times.Never);
+        appStore.Verify(a => a.PurchaseAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS, It.IsAny<CancellationToken>()), Times.Once);
+        dialogs.Verify(d => d.InfoBarMessage(It.IsAny<string>(), Translator.AppStorePurchase_Failed, InfoBarMessageType.Error), Times.Once);
         store.VerifyNoOtherCalls();
         profiles.VerifyNoOtherCalls();
     }
@@ -120,36 +138,64 @@ public sealed class PurchaseChannelSelectionTests
     }
 
     [Fact]
-    public async Task WinoAccountPage_AppleAppStoreChoice_ShowsComingSoonOnly()
+    public async Task WinoAccountPage_AppleAppStoreChoice_BuysFromAppStore()
     {
         var dialogs = new Mock<IMailDialogService>();
         dialogs.Setup(d => d.ShowUnlimitedAccountsPurchaseChannelDialogAsync())
             .ReturnsAsync(UnlimitedAccountsPurchaseChannel.AppleAppStore);
         var profiles = new Mock<IWinoAccountProfileService>(MockBehavior.Strict);
         var billing = new Mock<IWinoBillingService>(MockBehavior.Strict);
-        var vm = CreateWinoAccountPage(dialogs, profiles, billing, new PlatformCapabilities(AppleAppStore: true), storeService: null);
+        var appStore = CreateAppStore(externalPurchaseAllowed: true, WinoAppStorePurchaseOutcome.Cancelled);
+        var vm = CreateWinoAccountPage(dialogs, profiles, billing, new PlatformCapabilities(AppleAppStore: true), storeService: null, appStore.Object);
 
         await vm.PurchaseAddOnCommand.ExecuteAsync(vm.UnlimitedAccountsAddOn);
 
         dialogs.Verify(d => d.ShowUnlimitedAccountsPurchaseChannelDialogAsync(), Times.Once);
-        dialogs.Verify(d => d.InfoBarMessage(It.IsAny<string>(),
-            Translator.UnlimitedAccountsPurchaseDialog_AppleAppStoreComingSoon, InfoBarMessageType.Information), Times.Once);
+        appStore.Verify(a => a.PurchaseAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS, It.IsAny<CancellationToken>()), Times.Once);
         profiles.VerifyNoOtherCalls();
         billing.VerifyNoOtherCalls();
     }
 
+    [Fact]
+    public async Task WinoAccountPage_AiPackOnAppStore_BuysFromAppStoreNotStripe()
+    {
+        var dialogs = new Mock<IMailDialogService>();
+        var profiles = new Mock<IWinoAccountProfileService>();
+        profiles.Setup(p => p.GetAuthenticatedAccountAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WinoAccount { Id = Guid.NewGuid(), Email = "user@example.com" });
+        var billing = new Mock<IWinoBillingService>(MockBehavior.Strict);
+        var appStore = CreateAppStore(externalPurchaseAllowed: true, WinoAppStorePurchaseOutcome.Cancelled);
+        var vm = CreateWinoAccountPage(dialogs, profiles, billing, new PlatformCapabilities(AppleAppStore: true), storeService: null, appStore.Object);
+
+        await vm.PurchaseAddOnCommand.ExecuteAsync(vm.AiPackAddOn);
+
+        dialogs.Verify(d => d.ShowUnlimitedAccountsPurchaseChannelDialogAsync(), Times.Never);
+        appStore.Verify(a => a.PurchaseAsync(WinoAddOnProductType.AI_PACK, It.IsAny<CancellationToken>()), Times.Once);
+        billing.VerifyNoOtherCalls();
+    }
+
+    private static Mock<IWinoAppStorePurchaseService> CreateAppStore(bool externalPurchaseAllowed, WinoAppStorePurchaseOutcome outcome)
+    {
+        var appStore = new Mock<IWinoAppStorePurchaseService>();
+        appStore.SetupGet(a => a.IsAvailable).Returns(true);
+        appStore.Setup(a => a.IsExternalPurchaseAllowedAsync(It.IsAny<CancellationToken>())).ReturnsAsync(externalPurchaseAllowed);
+        appStore.Setup(a => a.PurchaseAsync(It.IsAny<WinoAddOnProductType>(), It.IsAny<CancellationToken>())).ReturnsAsync(outcome);
+        return appStore;
+    }
+
     private static AccountManagementViewModel CreateAccountManagement(Mock<IMailDialogService> dialogs,
-        Mock<IMicrosoftStoreService> store, Mock<IWinoAccountProfileService> profiles, IPlatformCapabilities capabilities)
+        Mock<IMicrosoftStoreService> store, Mock<IWinoAccountProfileService> profiles, IPlatformCapabilities capabilities,
+        IWinoAppStorePurchaseService? appStore = null)
         => new(dialogs.Object, Mock.Of<INavigationService>(), Mock.Of<IAccountService>(),
             Mock.Of<IKnownImapProviderCatalog>(), Mock.Of<IWinoBillingService>(), profiles.Object,
             Mock.Of<IWinoAccountDataSyncService>(), Mock.Of<IWinoLogger>(), Mock.Of<ISpecialImapProviderConfigResolver>(),
             Mock.Of<ICalDavClient>(), store.Object, Mock.Of<IAuthenticationProvider>(), Mock.Of<IPreferencesService>(),
-            capabilities);
+            capabilities, appStore);
 
     private static WinoAccountManagementPageViewModel CreateWinoAccountPage(Mock<IMailDialogService> dialogs,
         Mock<IWinoAccountProfileService> profiles, Mock<IWinoBillingService> billing, IPlatformCapabilities capabilities,
-        IMicrosoftStoreService? storeService)
+        IMicrosoftStoreService? storeService, IWinoAppStorePurchaseService? appStore = null)
         => new(profiles.Object, dialogs.Object, billing.Object, Mock.Of<IWinoAccountApiClient>(),
             Mock.Of<IAccountService>(), Mock.Of<IMailIntelligenceCoordinator>(), Mock.Of<IPreferencesService>(),
-            capabilities, storeService: storeService);
+            capabilities, Mock.Of<IExternalLauncher>(), storeService: storeService, appStorePurchases: appStore);
 }

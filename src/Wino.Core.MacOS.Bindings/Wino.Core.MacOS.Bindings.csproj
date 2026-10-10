@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Managed bindings for Apple APIs and frameworks that .NET for macOS does not cover. Each module
+       folder holds its native source or release, the committed prebuilt framework and the C# interop.
+       See README.md before changing a module. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-macos</TargetFramework>
+    <SupportedOSPlatformVersion>14.0</SupportedOSPlatformVersion>
+    <WinoTargetPlatform>MacOS</WinoTargetPlatform>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- A binding project packages the NativeReference frameworks beside the assembly, so the app
+         that references this project embeds them in Contents/Frameworks. -->
+    <IsBindingProject>true</IsBindingProject>
+  </PropertyGroup>
+  <!-- Mac App Store builds (-p:WinoMacDistribution=AppStore) leave Sparkle out entirely: App Store apps
+       update only through the App Store. They build into their own folders so the two variants never
+       reuse each other's outputs. -->
+  <PropertyGroup Condition="'$(WinoMacDistribution)' == 'AppStore'">
+    <OutputPath>bin/$(Configuration)-AppStore/</OutputPath>
+    <IntermediateOutputPath>obj/$(Configuration)-AppStore/</IntermediateOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <ObjcBindingApiDefinition Include="ApiDefinition.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <NativeReference Include="StoreKit2/Native/WinoStoreKit2.xcframework">
+      <Kind>Framework</Kind>
+      <SmartLink>false</SmartLink>
+      <Frameworks>StoreKit</Frameworks>
+    </NativeReference>
+  </ItemGroup>
+  <ItemGroup Condition="'$(WinoMacDistribution)' != 'AppStore'">
+    <ObjcBindingApiDefinition Include="Sparkle/SparkleApiDefinition.cs" />
+    <NativeReference Include="Sparkle/Native/Sparkle.xcframework">
+      <Kind>Framework</Kind>
+      <SmartLink>false</SmartLink>
+    </NativeReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="Sparkle/SparkleApiDefinition.cs" />
+    <Compile Remove="Sparkle/**" Condition="'$(WinoMacDistribution)' == 'AppStore'" />
+  </ItemGroup>
+</Project>

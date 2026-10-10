@@ -7,6 +7,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.MacOS.Bindings.StoreKit2;
 using Wino.Core.ViewModels;
 using Wino.Mail.MacOS.Infrastructure;
 
@@ -22,6 +23,7 @@ namespace Wino.Mail.MacOS.Views.Settings;
 /// <item><c>winoacct-state</c>: the open Wino Account page's ViewModel flags.</item>
 /// <item><c>winoacct-checkout</c>: opens the page as the billing return does (CheckoutCompleted).</item>
 /// <item><c>winoacct-benefit &lt;index&gt;</c>: selects a signed-out offer.</item>
+/// <item><c>sk2-storefront</c>, <c>sk2-products &lt;id&gt;...</c>, <c>sk2-entitlements</c>: StoreKit 2 bindings round trips.</item>
 /// </list>
 /// </summary>
 internal static class WinoAccountDebug
@@ -73,6 +75,12 @@ internal static class WinoAccountDebug
             vm.SelectedBenefit = vm.Benefits[index];
             return Task.FromResult("ok");
         });
+        MacDebugBridge.Register("sk2-storefront", async _ =>
+            await StoreKit2Client.GetStorefrontAsync() is { } storefront ? $"{storefront.CountryCode} ({storefront.Id})" : "no storefront");
+        MacDebugBridge.Register("sk2-products", async args =>
+            string.Join(Environment.NewLine, (await StoreKit2Client.GetProductsAsync(args)).Select(product => product.ToString())) is { Length: > 0 } products ? products : "no products");
+        MacDebugBridge.Register("sk2-entitlements", async _ =>
+            string.Join(Environment.NewLine, (await StoreKit2Client.GetCurrentEntitlementsAsync()).Select(t => $"{t.ProductId} {t.Id} verified={t.IsVerified}")) is { Length: > 0 } entitlements ? entitlements : "no entitlements");
     }
 
     private static Task<string> Run(string name, Func<Task<string>> show)

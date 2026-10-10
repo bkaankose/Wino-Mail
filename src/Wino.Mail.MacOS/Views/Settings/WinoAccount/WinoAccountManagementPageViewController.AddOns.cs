@@ -24,7 +24,7 @@ public sealed partial class WinoAccountManagementPageViewController
         yield return IntelligencePurchaseCard();
         yield return IntelligenceExpander();
         yield return UnlimitedAccountsCard();
-        if (_capabilities.MicrosoftStore) yield return StoreRedeemCard();
+        if (_capabilities.MicrosoftStore || _capabilities.AppleAppStore) yield return StoreRedeemCard();
     }
 
     /// <summary>Wino Intelligence, not yet purchased: one card that says what the subscription does.</summary>
@@ -219,7 +219,10 @@ public sealed partial class WinoAccountManagementPageViewController
         var vm = ViewModel;
         var redeem = Bind.Button(Translator.WinoAccount_StoreRedeem_Button, vm.RedeemStorePurchaseCommand, primary: true);
         var content = WinoLayout.HStack(16, BusySpinner(vm, nameof(vm.IsStoreRedeemInProgress), s => s.IsStoreRedeemInProgress), redeem);
-        var card = Card(Translator.WinoAccount_StoreRedeem_Title, Translator.WinoAccount_StoreRedeem_Description, WinoIconGlyph.MicrosoftStore, content);
+        // App Store builds redeem an App Store purchase made without a Wino Account; Windows a Microsoft Store one.
+        var card = _capabilities.AppleAppStore
+            ? Card(Translator.WinoAccount_AppStoreRedeem_Title, Translator.WinoAccount_AppStoreRedeem_Description, WinoIconGlyph.Apple, content)
+            : Card(Translator.WinoAccount_StoreRedeem_Title, Translator.WinoAccount_StoreRedeem_Description, WinoIconGlyph.MicrosoftStore, content);
         card.AccessibilityIdentifier = "WinoAccountRedeemStorePurchaseCard";
         return Bind.Visible(card, vm, nameof(vm.ShowStoreRedeemCard), s => s.ShowStoreRedeemCard);
     }

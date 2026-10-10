@@ -1,19 +1,37 @@
+using System.Collections.Specialized;
+using AppKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Mail.Controls.AppKit.MailList;
+using Wino.Mail.Controls.AppKit.Settings;
+using Wino.Mail.Controls.Core;
+using Wino.Mail.MacOS.Infrastructure;
+using Wino.Mail.MacOS.Views.Mail;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Data;
+using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.MacOS.Views.Settings;
 
-/// <summary>Message list: sender pictures, density, hover and swipe actions, threads (Windows MessageListPage, same card order).</summary>
+/// <summary>
+/// Message list: a live preview row, sender pictures, density, hover and swipe actions, threads (Windows
+/// MessageListPage, same card order). The preview is the real mail row view fed from the ViewModel's demo
+/// mail; it shows the row settings but not hover or swipe actions.
+/// </summary>
 public sealed class MessageListPageViewController(MessageListPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
     : SettingsPageViewController<MessageListPageViewModel>(viewModel, dispatcher, logger)
 {
+    private readonly WinoMailRowView _previewRow = new() { TranslatesAutoresizingMaskIntoConstraints = false };
+    private NSLayoutConstraint? _previewHeight;
+
     protected override void BuildPage()
     {
         var vm = ViewModel;
         var p = vm.PreferencesService;
+
+        AddGroup(null, BuildPreview());
 
         // Sender pictures
         var senderPictures = Expander(Translator.SettingsShowSenderPictures_Title, Translator.SettingsShowSenderPictures_Description, WinoIconGlyph.Person,
@@ -90,6 +108,38 @@ public sealed class MessageListPageViewController(MessageListPageViewModel viewM
         AddGroup(null,
             Card(Translator.SettingsShowPreviewText_Title, Translator.SettingsShowPreviewText_Description, WinoIconGlyph.TextDescription,
                 Bind.Switch(p, nameof(p.IsShowPreviewEnabled), s => s.IsShowPreviewEnabled, (s, v) => s.IsShowPreviewEnabled = v, Translator.SettingsShowPreviewText_Title)));
+    }
+
+    private NSView BuildPreview()
+    {
+        var title = WinoStyle.Label(Translator.SettingsMailListPreview_Title, WinoStyle.BodyStrong, WinoStyle.PrimaryText);
+        var description = WinoStyle.Label(Translator.MacOS_SettingsMailListPreview_Description, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
+        var previewHeight = _previewRow.HeightAnchor.ConstraintEqualTo(0);
+        previewHeight.Active = true;
+        _previewHeight = previewHeight;
+        _previewRow.AccessibilityLabel = Translator.SettingsMailListPreview_Title;
+
+        var stack = WinoLayout.VStack(4, title, description, _previewRow);
+        stack.Alignment = NSLayoutAttribute.Leading;
+        _previewRow.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
+        var card = new WinoSurfaceView { Fill = WinoSettingsStyle.CardFill, Stroke = WinoSettingsStyle.CardStroke, CornerRadius = 8 };
+        WinoLayout.Fill(stack, card, 12, 12, 8, 12);
+
+        NotifyCollectionChangedEventHandler changed = (_, _) => InvokeOnMainThread(RefreshPreview);
+        ViewModel.PreviewMailCollection.Items.CollectionChanged += changed;
+        Bindings.Own(new ActionDisposable(() => ViewModel.PreviewMailCollection.Items.CollectionChanged -= changed));
+        RefreshPreview();
+        return card;
+    }
+
+    private void RefreshPreview()
+    {
+        var item = ViewModel.PreviewMailCollection.GetFirst();
+        _previewRow.Hidden = item is null;
+        if (item is null) return;
+        var model = MailRowMapper.Map(MailListRow.Single(item), ViewModel.PreferencesService, showAccountColor: false);
+        _previewRow.Apply(model);
+        if (_previewHeight is { } height) height.Constant = (nfloat)WinoMailRowModel.HeightFor(model.Density, model.Tiles, 0);
     }
 
     protected override Task InitializeAsync(NavigationMode mode, object? parameter)

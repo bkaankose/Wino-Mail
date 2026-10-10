@@ -35,6 +35,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     private readonly IMailDialogService _dialogService;
     private readonly IWinoBillingService _billingService;
     private readonly IPlatformCapabilities _platformCapabilities;
+    private readonly IExternalLauncher _externalLauncher;
     private readonly IWinoAccountApiClient _apiClient;
     private readonly IAccountService _accountService;
     private readonly IMailIntelligenceCoordinator _semanticIndexCoordinator;
@@ -49,6 +50,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     private readonly IWinoLogger? _logger;
     private readonly IMicrosoftStoreService? _storeService;
     private readonly IWinoStorePurchaseRedeemService? _storeRedeemService;
+    private readonly IWinoAppStorePurchaseService? _appStorePurchases;
     private WinoStoreRedeemCandidate? _storeRedeemCandidate;
     private string _intelligencePolicyVersion = string.Empty;
     public string IntelligencePolicyVersion => _intelligencePolicyVersion;
@@ -258,12 +260,14 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                                                IMailIntelligenceCoordinator semanticIndexCoordinator,
                                                IPreferencesService preferencesService,
                                                IPlatformCapabilities platformCapabilities,
+                                               IExternalLauncher externalLauncher,
                                                IWinoAccountIntelligenceSnapshotService? snapshotService = null,
                                                IWinoPurchaseReconciliationService? purchaseReconciliation = null,
                                                IWinoAccountSessionService? sessions = null,
                                                IWinoLogger? logger = null,
                                                IMicrosoftStoreService? storeService = null,
-                                               IWinoStorePurchaseRedeemService? storeRedeemService = null)
+                                               IWinoStorePurchaseRedeemService? storeRedeemService = null,
+                                               IWinoAppStorePurchaseService? appStorePurchases = null)
     {
         _profileService = profileService;
         _dialogService = dialogService;
@@ -273,12 +277,14 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         _semanticIndexCoordinator = semanticIndexCoordinator;
         _preferencesService = preferencesService;
         _platformCapabilities = platformCapabilities;
+        _externalLauncher = externalLauncher;
         _snapshotService = snapshotService;
         _purchaseReconciliation = purchaseReconciliation;
         _sessions = sessions;
         _logger = logger;
         _storeService = storeService;
         _storeRedeemService = storeRedeemService;
+        _appStorePurchases = appStorePurchases;
 
         _aiPackAddOn = CreateAddOnItem(WinoAddOnProductType.AI_PACK);
         _unlimitedAccountsAddOn = CreateAddOnItem(WinoAddOnProductType.UNLIMITED_ACCOUNTS);
@@ -542,18 +548,15 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             return;
         }
 
-        // Unlimited Accounts is still sold in the Microsoft Store, so the user picks the channel first.
-        // App Store builds show the same choice with the Apple channel marked as coming soon.
+        // Unlimited Accounts is also sold in the Microsoft Store and the App Store, so the user picks the channel first.
         if (addOn.ProductType == WinoAddOnProductType.UNLIMITED_ACCOUNTS &&
-            ((_platformCapabilities.MicrosoftStore && _storeService != null) || _platformCapabilities.AppleAppStore))
+            ((_platformCapabilities.MicrosoftStore && _storeService != null) || IsAppStoreAvailable))
         {
-            var channel = await _dialogService.ShowUnlimitedAccountsPurchaseChannelDialogAsync();
+            var channel = await SelectUnlimitedAccountsChannelAsync().ConfigureAwait(false);
 
-            if (channel == UnlimitedAccountsPurchaseChannel.AppleAppStore)
+            if (channel == UnlimitedAccountsPurchaseChannel.AppleAppStore && _appStorePurchases is not null)
             {
-                _dialogService.InfoBarMessage(Translator.GeneralTitle_Info,
-                                              Translator.UnlimitedAccountsPurchaseDialog_AppleAppStoreComingSoon,
-                                              InfoBarMessageType.Information);
+                await PurchaseFromAppStoreAsync(addOn).ConfigureAwait(false);
                 return;
             }
 
@@ -591,6 +594,13 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                 Translator.GeneralTitle_Warning,
                 Translator.WinoAccount_Management_CheckoutSignInRequired,
                 InfoBarMessageType.Warning);
+            return;
+        }
+
+        // App Store builds sell Wino Intelligence through the App Store, linked to the signed-in account.
+        if (addOn.ProductType == WinoAddOnProductType.AI_PACK && IsAppStoreAvailable)
+        {
+            await PurchaseFromAppStoreAsync(addOn).ConfigureAwait(false);
             return;
         }
 
@@ -637,8 +647,55 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     private bool CanPurchaseAddOn(WinoAddOnItemViewModel? addOn)
         => addOn != null && !addOn.IsPurchased && !addOn.IsLoading && !IsCheckoutInProgress;
 
+    private bool IsAppStoreAvailable => _platformCapabilities.AppleAppStore && _appStorePurchases?.IsAvailable == true;
+
+    /// <summary>
+    /// App Store builds offer other channels only where Apple allows it (the United States storefront);
+    /// elsewhere the App Store is the only channel and no choice is shown.
+    /// </summary>
+    private async Task<UnlimitedAccountsPurchaseChannel?> SelectUnlimitedAccountsChannelAsync()
+    {
+        if (IsAppStoreAvailable && _appStorePurchases is not null &&
+            !await _appStorePurchases.IsExternalPurchaseAllowedAsync().ConfigureAwait(false))
+            return UnlimitedAccountsPurchaseChannel.AppleAppStore;
+
+        return await _dialogService.ShowUnlimitedAccountsPurchaseChannelDialogAsync();
+    }
+
+    private async Task PurchaseFromAppStoreAsync(WinoAddOnItemViewModel addOn)
+    {
+        if (_appStorePurchases is null) return;
+
+        await ExecuteUIThread(() =>
+        {
+            IsCheckoutInProgress = true;
+            addOn.IsPurchaseInProgress = true;
+        });
+
+        try
+        {
+            if (await AppStoreAddOnPurchase.PurchaseAsync(_appStorePurchases, addOn.ProductType, _dialogService, _logger).ConfigureAwait(false))
+                await LoadAsync(forceProfileRefresh: true).ConfigureAwait(false);
+        }
+        finally
+        {
+            await ExecuteUIThread(() =>
+            {
+                IsCheckoutInProgress = false;
+                addOn.IsPurchaseInProgress = false;
+            });
+        }
+    }
+
+    /// <summary>Refresh purchases. App Store builds restore App Store purchases first (Restore Purchases).</summary>
     [RelayCommand(CanExecute = nameof(CanRefreshPurchases))]
-    private Task RefreshPurchasesAsync() => LoadAsync(forceProfileRefresh: true);
+    private async Task RefreshPurchasesAsync()
+    {
+        if (IsAppStoreAvailable && _appStorePurchases is not null)
+            await _appStorePurchases.RestoreAsync().ConfigureAwait(false);
+
+        await LoadAsync(forceProfileRefresh: true).ConfigureAwait(false);
+    }
 
     private bool CanRefreshPurchases() => !IsBusy;
 
@@ -679,6 +736,13 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     [RelayCommand]
     private void OpenBackupRestore()
         => Messenger.Send(new SettingsRootNavigationRequested(WinoPage.BackupRestorePage));
+
+    /// <summary>
+    /// Account deletion happens on the website's deletion page, which asks the user to sign in first when needed.
+    /// </summary>
+    [RelayCommand]
+    private async Task OpenAccountDeletionAsync()
+        => (await _externalLauncher.LaunchUriAsync(new Uri(AppUrls.WinoAccountDeletion))).ThrowIfNotSucceeded();
 
     public async Task<bool> SetIntelligenceConsentAsync(bool granted, string? expectedPolicyVersion = null)
     {
@@ -1075,6 +1139,12 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     /// </summary>
     private async Task RefreshStoreRedeemCandidateAsync(WinoAccountSession? session)
     {
+        if (IsAppStoreAvailable && _appStorePurchases is not null)
+        {
+            await RefreshAppStoreRedeemCandidateAsync(_appStorePurchases, session).ConfigureAwait(false);
+            return;
+        }
+
         if (!_platformCapabilities.MicrosoftStore || _storeRedeemService is null)
             return;
 
@@ -1096,12 +1166,41 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         });
     }
 
+    /// <summary>
+    /// Links the purchases made for this account, then looks for an App Store purchase bought signed out.
+    /// The service returns no candidate when signed out, when the account already has the add-on, or when
+    /// the user already tried that purchase.
+    /// </summary>
+    private async Task RefreshAppStoreRedeemCandidateAsync(IWinoAppStorePurchaseService appStorePurchases, WinoAccountSession? session)
+    {
+        var hasCandidate = false;
+        try
+        {
+            var cancellationToken = session?.CancellationToken ?? default;
+            await appStorePurchases.SyncOwnedPurchasesAsync(cancellationToken).ConfigureAwait(false);
+            hasCandidate = await appStorePurchases.HasRedeemCandidateAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { return; }
+        catch (Exception exception)
+        {
+            _logger?.CaptureException(exception, nameof(RefreshAppStoreRedeemCandidateAsync));
+        }
+
+        await ApplySessionUIAsync(session, () => ShowStoreRedeemCard = IsSignedIn && hasCandidate);
+    }
+
     private bool CanRedeemStorePurchase()
-        => _platformCapabilities.MicrosoftStore && ShowStoreRedeemCard && !IsStoreRedeemInProgress;
+        => (_platformCapabilities.MicrosoftStore || IsAppStoreAvailable) && ShowStoreRedeemCard && !IsStoreRedeemInProgress;
 
     [RelayCommand(CanExecute = nameof(CanRedeemStorePurchase))]
     private async Task RedeemStorePurchaseAsync()
     {
+        if (IsAppStoreAvailable && _appStorePurchases is not null)
+        {
+            await RedeemAppStorePurchaseAsync(_appStorePurchases).ConfigureAwait(false);
+            return;
+        }
+
         var candidate = _storeRedeemCandidate;
         if (!_platformCapabilities.MicrosoftStore || _storeRedeemService is null || candidate is null)
             return;
@@ -1136,6 +1235,43 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
         if (outcome == WinoStorePurchaseRedeemOutcome.Redeemed)
             await LoadAsync(forceProfileRefresh: true).ConfigureAwait(false);
+    }
+
+    private async Task RedeemAppStorePurchaseAsync(IWinoAppStorePurchaseService appStorePurchases)
+    {
+        await ExecuteUIThread(() => IsStoreRedeemInProgress = true);
+
+        var outcome = WinoStorePurchaseRedeemOutcome.Failed;
+        try
+        {
+            outcome = await appStorePurchases.RedeemAsync().ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            _logger?.CaptureException(exception, nameof(RedeemAppStorePurchaseAsync));
+        }
+        finally
+        {
+            await ExecuteUIThread(() => IsStoreRedeemInProgress = false);
+        }
+
+        // Only a failure keeps the card, so the user can try again.
+        if (outcome != WinoStorePurchaseRedeemOutcome.Failed)
+            await ExecuteUIThread(() => ShowStoreRedeemCard = false);
+
+        if (outcome == WinoStorePurchaseRedeemOutcome.Redeemed)
+        {
+            _dialogService.InfoBarMessage(Translator.Info_PurchaseThankYouTitle, Translator.WinoAccount_AppStorePurchaseLinked, InfoBarMessageType.Success);
+            await LoadAsync(forceProfileRefresh: true).ConfigureAwait(false);
+        }
+        else if (outcome == WinoStorePurchaseRedeemOutcome.AlreadyLinked)
+        {
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Warning, Translator.WinoAccount_AppStorePurchaseAlreadyLinked, InfoBarMessageType.Warning);
+        }
+        else if (outcome == WinoStorePurchaseRedeemOutcome.Failed)
+        {
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, Translator.WinoAccount_AppStorePurchaseRedeemFailed, InfoBarMessageType.Error);
+        }
     }
 
     private void ReportStorePurchaseRedeem(WinoStorePurchaseRedeemOutcome outcome)

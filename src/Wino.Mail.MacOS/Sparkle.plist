@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Sparkle settings for builds outside the Mac App Store (DMG and Debug); Wino.Mail.MacOS.csproj
+     merges this into Info.plist. Release steps: docs/releases.md ("macOS DMG"). -->
+<plist version="1.0"><dict>
+  <key>SUFeedURL</key><string>https://download.winomail.app/macos/appcast.xml</string>
+  <!-- EdDSA public key. The private key is in the release Mac's login keychain (Sparkle account com.winomail.macos). -->
+  <key>SUPublicEDKey</key><string>XZkzNkG41SWso8TivrhUMyl53g8BRypLfi6FEGOV8ds=</string>
+  <!-- Check daily without asking first; the user can turn this off in Settings › General. -->
+  <key>SUEnableAutomaticChecks</key><true/>
+  <key>SUScheduledCheckInterval</key><integer>86400</integer>
+  <!-- The app is sandboxed, so Sparkle installs through its Installer.xpc service. -->
+  <key>SUEnableInstallerLauncherService</key><true/>
+</dict></plist>

@@ -73,6 +73,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<IWinoPendingCheckoutStore, WinoPendingCheckoutStore>();
         services.AddSingleton<IWinoPurchaseReconciliationService, WinoPurchaseReconciliationService>();
         services.AddSingleton<IWinoStorePurchaseRedeemService, WinoStorePurchaseRedeemService>();
+        services.AddSingleton<IWinoAppStorePurchaseService, WinoAppStorePurchaseService>();
         services.AddSingleton<IWinoAccountIntelligenceSnapshotService, WinoAccountIntelligenceSnapshotService>();
         services.AddSingleton<ISemanticIndexJobRegistry, SemanticIndexJobRegistry>();
         services.AddSingleton<IIntelligenceMessageContextResolver, IntelligenceMessageContextResolver>();

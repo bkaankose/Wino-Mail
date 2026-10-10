@@ -46,6 +46,11 @@ public interface IWinoAccountApiClient
     Task<ApiEnvelope<StoreCollectionsIdTicketResultDto>> CreateStoreCollectionsIdTicketAsync(CancellationToken cancellationToken = default);
     /// <summary>Moves a Microsoft Store Unlimited Accounts purchase onto the signed-in Wino Account.</summary>
     Task<ApiEnvelope<StorePurchaseRedeemResultDto>> RedeemStoreUnlimitedAccountsAsync(string storeIdKey, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Links App Store purchases to the signed-in Wino Account. Each item is a StoreKit 2 signed transaction
+    /// (1 to 20). The server verifies them with Apple; a purchase already linked elsewhere stays there.
+    /// </summary>
+    Task<ApiEnvelope<AppStoreRedeemResultDto>> RedeemAppStoreTransactionsAsync(IReadOnlyList<string> signedTransactions, CancellationToken cancellationToken = default);
     Task<ApiEnvelope<AiUsageStatusDto>> GetAiUsageAsync(CancellationToken cancellationToken = default);
     /// <summary>The stored sync snapshot bytes and revision, or null when the account has none.</summary>
     Task<WinoSyncSnapshotDownload?> GetSyncSnapshotAsync(CancellationToken cancellationToken = default);

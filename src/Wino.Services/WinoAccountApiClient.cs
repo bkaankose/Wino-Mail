@@ -254,6 +254,15 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             WinoAccountApiJsonContext.Default.ApiEnvelopeStorePurchaseRedeemResultDto,
             cancellationToken);
 
+    public Task<ApiEnvelope<AppStoreRedeemResultDto>> RedeemAppStoreTransactionsAsync(IReadOnlyList<string> signedTransactions, CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(
+            HttpMethod.Post,
+            "api/v1/store/apple/transactions",
+            new RedeemAppStoreTransactionsRequest(signedTransactions),
+            WinoAccountApiJsonContext.Default.RedeemAppStoreTransactionsRequest,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeAppStoreRedeemResultDto,
+            cancellationToken);
+
     public Task<ApiEnvelope<AiUsageStatusDto>> GetAiUsageAsync(CancellationToken cancellationToken = default)
         => SendAuthorizedRequestAsync(
             "api/v1/ai/usage",
@@ -1080,6 +1089,8 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(RedeemStorePurchaseRequest))]
 [JsonSerializable(typeof(ApiEnvelope<StoreCollectionsIdTicketResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<StorePurchaseRedeemResultDto>))]
+[JsonSerializable(typeof(RedeemAppStoreTransactionsRequest))]
+[JsonSerializable(typeof(ApiEnvelope<AppStoreRedeemResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<AiUsageStatusDto>))]
 [JsonSerializable(typeof(ApiEnvelope<UserMailboxSyncListDto>))]
 [JsonSerializable(typeof(ApiEnvelope<UserSyncSnapshotStatusDto>))]

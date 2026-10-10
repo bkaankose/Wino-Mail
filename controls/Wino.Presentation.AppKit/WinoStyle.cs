@@ -64,6 +64,12 @@ public static class WinoStyle
 
     private static bool _hasBackdrop;
 
+    /// <summary>
+    /// True when the backdrop is only the translucent window material (no theme wallpaper or gradient).
+    /// Set before <see cref="HasBackdrop"/> so <see cref="BackdropChanged"/> handlers read both.
+    /// </summary>
+    public static bool IsWindowMaterialOnly { get; set; }
+
     /// <summary>Raised on the UI thread after the theme backdrop changes.</summary>
     public static event EventHandler? BackdropChanged;
 

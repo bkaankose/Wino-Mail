@@ -231,6 +231,7 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
         sideDocument.WidthAnchor.ConstraintEqualTo(sideScroll.ContentView.WidthAnchor).Active = true;
         var sidePane = new WinoSurfaceView { Fill = PaneFill };
         WinoLayout.Fill(sideScroll, sidePane);
+        SetUpAttachmentDrop(sidePane);
         var sideRule = new WinoSeparator(vertical: true);
 
         root.AddSubview(barCard);

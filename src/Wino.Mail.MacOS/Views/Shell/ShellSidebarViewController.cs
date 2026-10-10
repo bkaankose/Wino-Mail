@@ -518,6 +518,11 @@ internal sealed partial class ShellSidebarViewController : NSViewController
         public override bool AcceptDrop(NSOutlineView outlineView, INSDraggingInfo info, NSObject? item, nint index)
             => owner.AcceptMailDrop(info);
 
+        /// <summary>Exported directly (not the binding's non-nullable override) because nil means "not draggable".</summary>
+        [Export("outlineView:pasteboardWriterForItem:")]
+        public INSPasteboardWriting? WriterForItem(NSOutlineView outlineView, NSObject item)
+            => item is Node node ? owner.TaskListPasteboardWriter(node.Item) : null;
+
         protected override void Dispose(bool disposing)
         {
             if (disposing)

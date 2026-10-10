@@ -27,7 +27,8 @@ internal sealed partial class ShellSidebarViewController
 
     private void SetUpMailDrop()
     {
-        _outline.RegisterForDraggedTypes([MailDragPayload.PasteboardType, ContactDragPayload.PasteboardType]);
+        _outline.RegisterForDraggedTypes([MailDragPayload.PasteboardType, ContactDragPayload.PasteboardType, TaskListPasteboardType]);
+        _outline.SetDraggingSourceOperationMask(NSDragOperation.Move, true);
         _outline.DraggingDestinationFeedbackStyle = NSTableViewDraggingDestinationFeedbackStyle.None;
         _outline.DragFinished = () => SetDropRow(-1);
 #if DEBUG
@@ -54,6 +55,7 @@ internal sealed partial class ShellSidebarViewController
     internal NSDragOperation ValidateMailDrop(INSDraggingInfo info)
     {
         if (ContactDragPayload.IsContactDrag(info)) return ValidateContactDrop(info);
+        if (IsTaskListDrag(info)) return ValidateTaskListDrop(info);
         var mails = MailDragPayload.From(info);
         var (row, folder) = FolderAt(info);
         if (mails.Count == 0 || folder is null)
@@ -79,6 +81,7 @@ internal sealed partial class ShellSidebarViewController
     internal bool AcceptMailDrop(INSDraggingInfo info)
     {
         if (ContactDragPayload.IsContactDrag(info)) return AcceptContactDrop(info);
+        if (IsTaskListDrag(info)) return AcceptTaskListDrop(info);
         var mails = MailDragPayload.From(info);
         var (row, folder) = FolderAt(info);
         SetDropRow(-1);

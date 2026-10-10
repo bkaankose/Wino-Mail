@@ -1,5 +1,6 @@
 using AppKit;
 using CoreGraphics;
+using Wino.Mail.Controls.AppKit.Extras;
 using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.Controls.AppKit.Settings;
@@ -93,7 +94,8 @@ public sealed class WinoColorSwatchPicker : NSView
         }
     }
 
-    private sealed class SwatchView : NSView
+    /// <summary>A swatch with button behaviour (press tracking, Space/Return, focus ring) from <see cref="WinoPressableView"/>.</summary>
+    private sealed class SwatchView : WinoPressableView
     {
         private readonly NSColor _color;
         private bool _isSelected;
@@ -102,8 +104,6 @@ public sealed class WinoColorSwatchPicker : NSView
         {
             Hex = hex;
             _color = color;
-            AccessibilityElement = true;
-            AccessibilityRole = NSAccessibilityRoles.ButtonRole;
             AccessibilityLabel = hex;
             ToolTip = hex;
         }
@@ -111,15 +111,18 @@ public sealed class WinoColorSwatchPicker : NSView
         public string Hex { get; }
         public event EventHandler? Pressed;
 
+        // Drawn in DrawRect like WinoRoundCheckbox, not through the surface layer.
+        public override bool WantsUpdateLayer => false;
+
+        protected override void OnActivated() => Pressed?.Invoke(this, EventArgs.Empty);
+
+        public override void DrawFocusRingMask() => NSBezierPath.FromOvalInRect(Bounds.Inset(1, 1)).Fill();
+
         public bool IsSelected
         {
             get => _isSelected;
             set { _isSelected = value; AccessibilitySelected = value; NeedsDisplay = true; }
         }
-
-        public override bool AcceptsFirstMouse(NSEvent? theEvent) => true;
-        public override void MouseUp(NSEvent theEvent) => Pressed?.Invoke(this, EventArgs.Empty);
-        public override bool AccessibilityPerformPress() { Pressed?.Invoke(this, EventArgs.Empty); return true; }
 
         public override void DrawRect(CGRect dirtyRect)
         {

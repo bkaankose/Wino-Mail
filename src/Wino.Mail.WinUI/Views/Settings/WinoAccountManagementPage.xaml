@@ -1318,11 +1318,11 @@
                         </StackPanel>
                     </controls:SettingsCard>
 
-                    <!--  ─── Sync and backup ───  -->
+                    <!--  ─── Management: backups and account deletion ───  -->
                     <TextBlock
                         Margin="0,22,0,4"
                         Style="{StaticResource SettingsSectionHeaderTextBlockStyle}"
-                        Text="{x:Bind domain:Translator.WinoAccount_Management_SyncSectionHeader, Mode=OneTime}" />
+                        Text="{x:Bind domain:Translator.WinoAccount_Management_ManagementSectionHeader, Mode=OneTime}" />
 
                     <accessibilityControls:WinoSettingsCard
                         AutomationProperties.AutomationId="WinoAccountBackupRestoreCard"
@@ -1333,6 +1333,24 @@
                         <controls:SettingsCard.HeaderIcon>
                             <coreControls:WinoFontIcon Foreground="{ThemeResource SystemFillColorAttentionBrush}" Icon="Sync" />
                         </controls:SettingsCard.HeaderIcon>
+                    </accessibilityControls:WinoSettingsCard>
+
+                    <!--  Deletion happens on the website (App Store guideline 5.1.1(v) allows a direct link).  -->
+                    <accessibilityControls:WinoSettingsCard
+                        AutomationProperties.AutomationId="WinoAccountDeleteAccountCard"
+                        Command="{x:Bind ViewModel.OpenAccountDeletionCommand}"
+                        Description="{x:Bind domain:Translator.WinoAccount_Management_DeleteAccount_Description, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.WinoAccount_Management_DeleteAccount_Title, Mode=OneTime}"
+                        IsClickEnabled="True">
+                        <controls:SettingsCard.HeaderIcon>
+                            <coreControls:WinoFontIcon Foreground="{ThemeResource SystemFillColorCriticalBrush}" Icon="Delete" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <controls:SettingsCard.ActionIcon>
+                            <coreControls:WinoFontIcon
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Icon="Open" />
+                        </controls:SettingsCard.ActionIcon>
                     </accessibilityControls:WinoSettingsCard>
 
                 </StackPanel>

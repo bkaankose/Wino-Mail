@@ -5,11 +5,13 @@
     <WinoTargetPlatform>MacOS</WinoTargetPlatform>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Wino.Core.Domain/Wino.Core.Domain.csproj" />
     <ProjectReference Include="../Wino.Authentication/Wino.Authentication.csproj" />
     <ProjectReference Include="../Wino.Services/Wino.Services.csproj" />
+    <ProjectReference Include="../Wino.Core.MacOS.Bindings/Wino.Core.MacOS.Bindings.csproj" />
     <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" />
   </ItemGroup>
 </Project>
