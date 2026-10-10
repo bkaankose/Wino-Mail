@@ -16,7 +16,10 @@
     xmlns:syncButton="using:Wino.Mail.Controls.SynchronizationButton"
     xmlns:winuiex="using:WinUIEx"
     Title="ShellWindow"
+    PersistenceId="WinoShellWindow"
     mc:Ignorable="d">
+
+    <!--  WinUIEx saves the placement when the window is destroyed and restores it on first activation.  -->
 
     <!--  SystemBackdrop will be set by NewThemeService  -->
 
