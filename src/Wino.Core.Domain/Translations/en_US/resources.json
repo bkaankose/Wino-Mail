@@ -3631,6 +3631,7 @@
   "AppStorePurchase_Pending": "Your purchase is waiting for approval. Wino unlocks it as soon as the App Store confirms it.",
   "AppStorePurchase_LinkPending": "Thanks for your purchase. Wino adds it to your Wino Account as soon as it can reach the server.",
   "AppStorePurchase_Failed": "The App Store purchase could not be completed. Please try again.",
+  "UnlimitedAccountsPurchaseChannels_AppStore": "Buy it with your Apple Account, no Wino Account needed. Redeem it to a Wino Account later to use it on every device where you sign in.",
   "NotificationSettings_Title": "Notifications",
   "NotificationSettings_Description": "Mail, calendar and to-do alerts, snooze and per-account settings.",
   "NotificationSettings_SearchKeywords": "notification;notifications;toast;alert;alerts;snooze;quiet hours;do not disturb;sound;reminder;reminders;mute",

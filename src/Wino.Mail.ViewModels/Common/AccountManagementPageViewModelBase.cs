@@ -43,13 +43,15 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     public partial IAccountProviderDetailViewModel StartupAccount { get; set; }
 
     /// <summary>
-    /// Stripe checkout needs a signed-in Wino Account. The Microsoft Store channel works either way.
+    /// Stripe checkout needs a signed-in Wino Account. The Microsoft Store and App Store channels work either way.
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PurchaseChannelsDescription))]
     public partial bool IsWinoAccountSignedIn { get; set; }
 
-    public string PurchaseChannelsDescription => PlatformCapabilities.MicrosoftStore
+    public string PurchaseChannelsDescription => PlatformCapabilities.AppleAppStore
+        ? Translator.UnlimitedAccountsPurchaseChannels_AppStore
+        : PlatformCapabilities.MicrosoftStore
         ? IsWinoAccountSignedIn
             ? Translator.UnlimitedAccountsPurchaseChannels_SignedIn
             : Translator.UnlimitedAccountsPurchaseChannels_SignedOut
