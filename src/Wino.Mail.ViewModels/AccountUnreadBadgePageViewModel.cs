@@ -140,7 +140,7 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
 
     private async Task LoadFoldersAsync()
     {
-        var folders = await _folderService.GetFoldersAsync(_account.Id);
+        var folders = await _folderService.GetVisibleFoldersAsync(_account.Id);
 
         await ExecuteUIThread(() =>
         {

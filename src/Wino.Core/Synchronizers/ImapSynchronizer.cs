@@ -1219,6 +1219,14 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
     protected override Task MarkDraftSyncFailedAsync(Guid mailUniqueId, string error)
         => _imapChangeProcessor.MarkDraftSyncFailedAsync(mailUniqueId, error);
 
+    /// <summary>
+    /// Compares by name because the parent instance is not guaranteed to be the client's Inbox instance.
+    /// </summary>
+    private static bool IsInboxChild(IMailFolder remoteFolder, IMailFolder inbox)
+        => inbox != null &&
+           remoteFolder.ParentFolder != null &&
+           string.Equals(remoteFolder.ParentFolder.FullName, inbox.FullName, StringComparison.Ordinal);
+
     private async Task SynchronizeFoldersAsync(CancellationToken cancellationToken = default)
     {
         // https://www.rfc-editor.org/rfc/rfc4549#section-1.1
@@ -1304,7 +1312,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                     // This is better. Model allows personalized folder structure anyways
                     // even though we don't have the page/control to adjust it.
 
-                    if (remoteFolder.ParentFolder == executorClient.Inbox)
+                    if (IsInboxChild(remoteFolder, inbox))
                         localFolder.ParentRemoteFolderId = string.Empty;
 
                     // A new folder starts without a UID checkpoint. SELECT during sync establishes it.
@@ -1316,7 +1324,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                 {
                     // Update existing folder. Right now we only update the name.
 
-                    var parentId = remoteFolder.ParentFolder == executorClient.Inbox ? string.Empty : remoteFolder.ParentFolder?.FullName;
+                    var parentId = IsInboxChild(remoteFolder, inbox) ? string.Empty : remoteFolder.ParentFolder?.FullName ?? string.Empty;
                     var needsUpdate = existingLocalFolder.ParentRemoteFolderId != parentId;
                     existingLocalFolder.ParentRemoteFolderId = parentId;
                     if (ShouldUpdateFolder(remoteFolder, existingLocalFolder))

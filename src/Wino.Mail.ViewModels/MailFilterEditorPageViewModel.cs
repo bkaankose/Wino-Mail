@@ -196,6 +196,9 @@ public partial class MailFilterEditorPageViewModel(
     public ObservableCollection<MailFilterConditionEditorItem> Conditions { get; } = [];
     public ObservableCollection<MailFilterActionEditorItem> Actions { get; } = [];
     public ObservableCollection<MailFilterFolderOption> Folders { get; } = [];
+
+    // Archive, Junk, Inbox and Trash actions resolve their target even when the user hid that folder.
+    private List<MailFilterFolderOption> _specialFolderTargets = [];
     public bool CanChangeManagementType => _editingFilter == null;
     public bool IsWinoManaged => SelectedManagementType?.Value == MailFilterManagementType.WinoLocal;
     public bool IsProviderSelected => SelectedManagementType?.Value == MailFilterManagementType.Provider;
@@ -270,14 +273,8 @@ public partial class MailFilterEditorPageViewModel(
             return;
         await ExecuteUIThread(() => Account = account);
 
-        var folders = (await _folderService.GetFoldersAsync(Account.Id).ConfigureAwait(false))
-            .Where(folder => folder.IsMoveTarget && !string.IsNullOrWhiteSpace(folder.RemoteFolderId))
-            .OrderBy(folder => folder.FolderName)
-            .Select(folder => new MailFilterFolderOption(
-                folder.RemoteFolderId,
-                folder.FolderName,
-                folder.SpecialFolderType))
-            .ToList();
+        var allFolders = ToFolderOptions(await _folderService.GetFoldersAsync(Account.Id).ConfigureAwait(false));
+        var folders = ToFolderOptions(await _folderService.GetVisibleFoldersAsync(Account.Id).ConfigureAwait(false));
         var supportsProvider = _providerService.SupportsProviderFilters(account)
             && await _providerService.IsProviderFiltersEnabledAsync(account.Id).ConfigureAwait(false);
         var managementTypes = new List<MailFilterManagementOption>
@@ -299,12 +296,22 @@ public partial class MailFilterEditorPageViewModel(
             source = await _mailFilterService.GetFilterAsync(context.DuplicateFilterId.Value).ConfigureAwait(false);
         }
 
+        // A filter that already uses a folder the user hid keeps it, so saving cannot silently retarget it.
+        var offeredFolderIds = (source?.Actions ?? [])
+            .Select(action => action.TargetRemoteFolderId)
+            .Append(source?.SourceRemoteFolderId)
+            .Concat(folders.Select(folder => folder.RemoteFolderId))
+            .Where(static id => !string.IsNullOrWhiteSpace(id))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        folders = allFolders.Where(folder => offeredFolderIds.Contains(folder.RemoteFolderId)).ToList();
+
         await ExecuteUIThread(() =>
         {
             OnPropertyChanged(nameof(CanChangeManagementType));
             ManagementTypes = managementTypes;
             OnPropertyChanged(nameof(ManagementTypes));
             OnPropertyChanged(nameof(IsProviderAvailable));
+            _specialFolderTargets = allFolders;
             Folders.Clear();
             foreach (var folder in folders)
                 Folders.Add(folder);
@@ -682,8 +689,18 @@ public partial class MailFilterEditorPageViewModel(
         };
         return specialFolderType == SpecialFolderType.Other
             ? null
-            : Folders.FirstOrDefault(folder => folder.SpecialFolderType == specialFolderType)?.RemoteFolderId;
+            : _specialFolderTargets.FirstOrDefault(folder => folder.SpecialFolderType == specialFolderType)?.RemoteFolderId;
     }
+
+    private static List<MailFilterFolderOption> ToFolderOptions(IEnumerable<MailItemFolder> folders)
+        => folders
+            .Where(folder => folder.IsMoveTarget && !string.IsNullOrWhiteSpace(folder.RemoteFolderId))
+            .OrderBy(folder => folder.FolderName)
+            .Select(folder => new MailFilterFolderOption(
+                folder.RemoteFolderId,
+                folder.FolderName,
+                folder.SpecialFolderType))
+            .ToList();
 
     private static bool RequiresTargetFolder(MailFilterActionType action)
         => action is MailFilterActionType.Move

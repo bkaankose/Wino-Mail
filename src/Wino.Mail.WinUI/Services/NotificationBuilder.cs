@@ -205,7 +205,7 @@ public class NotificationBuilder : INotificationBuilder
             var accounts = await _accountService.GetAccountsAsync();
             foreach (var account in accounts.Where(account => account.IsMailAccessGranted && account.Preferences.IsJumpListEnabled))
             {
-                var folders = await _folderService.GetFoldersAsync(account.Id);
+                var folders = await _folderService.GetVisibleFoldersAsync(account.Id);
                 foreach (var folder in folders.Where(folder => folder.IsMoveTarget && folder.IsJumpListEnabled))
                 {
                     jumpList.Items.Add(CreateMailFolderJumpListItem(account, folder));

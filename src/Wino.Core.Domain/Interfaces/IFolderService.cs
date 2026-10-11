@@ -26,6 +26,12 @@ public interface IFolderService
     Task<MailItemFolder> GetFolderAsync(Guid folderId);
     Task<MailItemFolder> GetFolderAsync(Guid accountId, string remoteFolderId);
     Task<List<MailItemFolder>> GetFoldersAsync(Guid accountId);
+
+    /// <summary>
+    /// Folders the user can see, in menu order. A hidden folder hides its subfolders too,
+    /// except pinned ones. Use this for every list or picker outside folder customization.
+    /// </summary>
+    Task<List<MailItemFolder>> GetVisibleFoldersAsync(Guid accountId);
     Task<List<MailItemFolder>> GetFoldersByIdsAsync(IReadOnlyCollection<Guid> folderIds, CancellationToken cancellationToken = default);
     Task<MailItemFolder> GetSpecialFolderByAccountIdAsync(Guid accountId, SpecialFolderType type);
     Task<int> GetCurrentItemCountForFolder(Guid folderId);

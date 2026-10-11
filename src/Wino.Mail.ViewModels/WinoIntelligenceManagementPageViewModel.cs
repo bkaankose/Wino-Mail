@@ -1316,16 +1316,30 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     /// <returns>How many selectable folders the mailbox reported.</returns>
     private async Task<int> LoadIntelligenceFolderSelectionsAsync(MailAccount account)
     {
-        var folders = await _folderService.GetFoldersAsync(account.Id).ConfigureAwait(false);
-        _folders = folders;
+        var allFolders = await _folderService.GetFoldersAsync(account.Id).ConfigureAwait(false);
+        var visibleFolderIds = (await _folderService.GetVisibleFoldersAsync(account.Id).ConfigureAwait(false))
+            .Select(folder => folder.RemoteFolderId)
+            .ToHashSet(StringComparer.Ordinal);
         var selected = account.Preferences.IsIntelligenceFolderSelectionInitialized
             ? account.Preferences.SelectedIntelligenceFolderIds
-            : folders.Where(folder => folder.SpecialFolderType == SpecialFolderType.Inbox)
+            : allFolders.Where(folder => folder.SpecialFolderType == SpecialFolderType.Inbox)
                 .Select(folder => folder.RemoteFolderId)
                 .Where(static id => !string.IsNullOrWhiteSpace(id))
                 .ToHashSet(StringComparer.Ordinal);
-        var displayNames = GetIntelligenceFolderDisplayNames(folders);
         var inventory = _inventory ?? IntelligenceCoverageInventory.Empty(account.Id);
+        var restoredFolders = inventory.KnownRemoteFolderIds
+            .Where(folderId => inventory.GetFolderIndices(folderId).Any(index =>
+                _coveredRemoteMessageIds.Contains(inventory.RemoteMessageIds[index])))
+            .ToHashSet(StringComparer.Ordinal);
+
+        // Hidden folders are not offered, but one the user already covers stays so its rule survives.
+        var folders = allFolders
+            .Where(folder => visibleFolderIds.Contains(folder.RemoteFolderId) ||
+                             selected.Contains(folder.RemoteFolderId) ||
+                             restoredFolders.Contains(folder.RemoteFolderId))
+            .ToList();
+        _folders = folders;
+        var displayNames = GetIntelligenceFolderDisplayNames(folders);
         var items = folders.Where(IntelligenceFolderFilter.IsSelectable)
             .OrderBy(folder => displayNames[folder.RemoteFolderId], StringComparer.CurrentCultureIgnoreCase)
             .Select(folder => folder.RemoteFolderId)
@@ -1342,10 +1356,6 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             .Where(static rule => !string.IsNullOrWhiteSpace(rule.RemoteFolderId))
             .GroupBy(static rule => rule.RemoteFolderId, StringComparer.Ordinal)
             .ToDictionary(static group => group.Key, static group => group.Last(), StringComparer.Ordinal);
-        var restoredFolders = inventory.KnownRemoteFolderIds
-            .Where(folderId => inventory.GetFolderIndices(folderId).Any(index =>
-                _coveredRemoteMessageIds.Contains(inventory.RemoteMessageIds[index])))
-            .ToHashSet(StringComparer.Ordinal);
         var coverageItems = items
             .Where(remoteFolderId => selected.Contains(remoteFolderId) || restoredFolders.Contains(remoteFolderId))
             .Select(remoteFolderId => new IntelligenceFolderCoverageItem(

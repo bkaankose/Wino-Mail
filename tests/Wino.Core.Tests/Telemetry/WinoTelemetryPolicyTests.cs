@@ -183,6 +183,43 @@ public sealed class WinoTelemetryPolicyTests
             .Should().BeTrue();
     }
 
+    [Fact]
+    public void SentryPolicy_DropsAccountSetupCanceledException()
+    {
+        var sentryEvent = new SentryEvent(new Wino.Core.Domain.Exceptions.AccountSetupCanceledException())
+        {
+            Level = SentryLevel.Fatal
+        };
+
+        WinoLogger.ShouldDropHandledSynchronizationEvent(sentryEvent, isAccountSetupError: true)
+            .Should().BeTrue();
+    }
+
+    [Fact]
+    public void SentryPolicy_DropsWrappedAuthenticationException()
+    {
+        var authenticationException = new Wino.Core.Domain.Exceptions.AuthenticationException("Token expired.");
+        var sentryEvent = new SentryEvent(new System.AggregateException(new System.InvalidOperationException("Wrapper", authenticationException)))
+        {
+            Level = SentryLevel.Fatal
+        };
+
+        WinoLogger.ShouldDropHandledSynchronizationEvent(sentryEvent, isAccountSetupError: true)
+            .Should().BeTrue();
+    }
+
+    [Fact]
+    public void SentryPolicy_KeepsUnrelatedFatalException()
+    {
+        var sentryEvent = new SentryEvent(new System.InvalidOperationException("Unexpected."))
+        {
+            Level = SentryLevel.Fatal
+        };
+
+        WinoLogger.ShouldDropHandledSynchronizationEvent(sentryEvent, isAccountSetupError: false)
+            .Should().BeFalse();
+    }
+
     private static WinoTelemetryService CreateTelemetryService(
         RecordingTelemetrySink sink,
         bool isEnabled)

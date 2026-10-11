@@ -134,9 +134,9 @@ public class DialogService : DialogServiceBase, IMailDialogService, IRecipient<S
 
     public async Task<IMailItemFolder> PickFolderAsync(Guid accountId, PickFolderReason reason, IFolderService folderService)
     {
-        var allFolders = await folderService.GetFolderStructureForAccountAsync(accountId, true);
+        var visibleFolders = await folderService.GetFolderStructureForAccountAsync(accountId, false);
 
-        return await ShowMoveMailFolderDialogAsync(allFolders.Folders);
+        return await ShowMoveMailFolderDialogAsync(visibleFolders.Folders);
     }
 
 

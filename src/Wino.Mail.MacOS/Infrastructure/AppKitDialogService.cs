@@ -254,7 +254,7 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
 
     public async Task<IMailItemFolder> PickFolderAsync(Guid accountId, PickFolderReason reason, IFolderService folderService)
     {
-        var structure = await folderService.GetFolderStructureForAccountAsync(accountId, true);
+        var structure = await folderService.GetFolderStructureForAccountAsync(accountId, false);
         return await ShowMoveMailFolderDialogAsync(structure.Folders);
     }
 

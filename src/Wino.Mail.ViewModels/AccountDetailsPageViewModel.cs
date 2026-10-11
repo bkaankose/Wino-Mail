@@ -950,7 +950,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
                 await ExecuteUIThread(EditImapCalDavSettings);
             }
 
-            var folderStructures = (await _folderService.GetFolderStructureForAccountAsync(Account.Id, true)).Folders;
+            var folderStructures = (await _folderService.GetFolderStructureForAccountAsync(Account.Id, false)).Folders;
 
             await ExecuteUIThread(() =>
             {

@@ -283,6 +283,9 @@ public class WinoLogger : IWinoLogger
         if (sentryEvent.Exception is Wino.Core.Domain.Models.Attachments.AttachmentPolicyCancellationException)
             return true;
 
+        if (ContainsExpectedUserFlowException(sentryEvent.Exception))
+            return true;
+
         if (isAccountSetupError || sentryEvent.Level == SentryLevel.Fatal)
             return false;
 
@@ -301,6 +304,29 @@ public class WinoLogger : IWinoLogger
         return exceptionType.Contains("MailKit", StringComparison.Ordinal) ||
                exceptionType.Contains("Google.GoogleApiException", StringComparison.Ordinal) ||
                exceptionType.Contains("Microsoft.Graph", StringComparison.Ordinal);
+    }
+
+    // Canceled account setups and authentication failures are expected user flows, even when wrapped.
+    private static bool ContainsExpectedUserFlowException(Exception exception)
+    {
+        if (exception == null)
+            return false;
+
+        if (exception is AccountSetupCanceledException or AuthenticationException)
+            return true;
+
+        if (exception is AggregateException aggregateException)
+        {
+            foreach (var innerException in aggregateException.InnerExceptions)
+            {
+                if (ContainsExpectedUserFlowException(innerException))
+                    return true;
+            }
+
+            return false;
+        }
+
+        return ContainsExpectedUserFlowException(exception.InnerException);
     }
 
     private sealed class DiagnosticIdEnricher(IPreferencesService preferencesService) : ILogEventEnricher

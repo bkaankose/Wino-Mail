@@ -191,7 +191,8 @@ public class FolderService : BaseDatabaseService, IFolderService
 
         if (account == null) return [];
 
-        var folders = await GetFoldersAsync(accountId).ConfigureAwait(false);
+        // A hidden folder is not offered on the badge page, so it cannot feed the total either.
+        var folders = await GetVisibleFoldersAsync(accountId).ConfigureAwait(false);
         var countedFolders = GetCountedFolders(folders, account.Preferences.UnreadBadgeCountSource);
 
         var contributions = new List<UnreadBadgeFolderContribution>();
@@ -268,137 +269,187 @@ public class FolderService : BaseDatabaseService, IFolderService
             .ToListAsync()
             .ConfigureAwait(false);
 
-        var folders = includeHiddenFolders
-            ? allFolders
-            : allFolders.Where(folder => !folder.IsHidden).ToList();
+        var folders = includeHiddenFolders ? allFolders : FilterVisibleFolders(allFolders);
+        var hierarchy = FolderHierarchy.Build(folders, pinnedFoldersAreRoots: false, accountId, _logger);
 
         foreach (var folder in folders)
         {
-            folder.ChildFolders.Clear();
+            folder.ChildFolders = hierarchy.GetChildren(folder).Cast<IMailItemFolder>().ToList();
         }
 
-        var duplicateRemoteIds = folders
-            .Where(folder => !string.IsNullOrWhiteSpace(folder.RemoteFolderId))
-            .GroupBy(folder => folder.RemoteFolderId, StringComparer.Ordinal)
-            .Where(group => group.Count() > 1)
-            .Select(group => group.Key)
-            .ToList();
-
-        foreach (var remoteId in duplicateRemoteIds)
+        foreach (var rootFolder in hierarchy.Roots)
         {
-            _logger.Warning(
-                "Duplicate folder remote id {RemoteFolderId} found while building folder hierarchy for account {AccountId}.",
-                remoteId,
-                accountId);
-        }
-
-        var foldersByRemoteId = folders
-            .Where(folder => !string.IsNullOrWhiteSpace(folder.RemoteFolderId))
-            .GroupBy(folder => folder.RemoteFolderId, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
-
-        var allRemoteIds = allFolders
-            .Where(folder => !string.IsNullOrWhiteSpace(folder.RemoteFolderId))
-            .Select(folder => folder.RemoteFolderId)
-            .ToHashSet(StringComparer.Ordinal);
-
-        var parentByFolder = new Dictionary<MailItemFolder, MailItemFolder>();
-
-        foreach (var folder in folders)
-        {
-            if (string.IsNullOrWhiteSpace(folder.ParentRemoteFolderId))
-                continue;
-
-            if (!foldersByRemoteId.TryGetValue(folder.ParentRemoteFolderId, out var parentFolder))
-            {
-                if (!allRemoteIds.Contains(folder.ParentRemoteFolderId))
-                {
-                    _logger.Warning(
-                        "Parent folder {ParentRemoteFolderId} was not found for folder {RemoteFolderId} in account {AccountId}. Promoting it to a root folder.",
-                        folder.ParentRemoteFolderId,
-                        folder.RemoteFolderId,
-                        accountId);
-                }
-
-                continue;
-            }
-
-            if (ReferenceEquals(parentFolder, folder))
-            {
-                _logger.Warning(
-                    "Folder {RemoteFolderId} references itself as parent in account {AccountId}. Promoting it to a root folder.",
-                    folder.RemoteFolderId,
-                    accountId);
-                continue;
-            }
-
-            parentByFolder[folder] = parentFolder;
-        }
-
-        foreach (var folder in folders)
-        {
-            if (!CreatesFolderCycle(folder, parentByFolder))
-                continue;
-
-            parentByFolder.Remove(folder);
-            _logger.Warning(
-                "Folder hierarchy cycle detected at {RemoteFolderId} in account {AccountId}. Promoting it to a root folder.",
-                folder.RemoteFolderId,
-                accountId);
-        }
-
-        foreach (var (folder, parentFolder) in parentByFolder)
-        {
-            parentFolder.ChildFolders.Add(folder);
-        }
-
-        var rootFolders = folders.Where(folder => !parentByFolder.ContainsKey(folder));
-
-        foreach (var rootFolder in ApplyFolderSort(rootFolders))
-        {
-            SortFolderChildren(rootFolder);
             accountTree.Folders.Add(rootFolder);
         }
 
         return accountTree;
     }
 
-    private static bool CreatesFolderCycle(
-        MailItemFolder folder,
-        IReadOnlyDictionary<MailItemFolder, MailItemFolder> parentByFolder)
+    /// <summary>
+    /// A folder is visible when it is not hidden and its parent is visible, so hiding a folder hides
+    /// its whole subtree. Pinned folders are the exception: they stay visible under a hidden parent.
+    /// A parent that is missing, the folder itself, or part of a cycle does not hide anything.
+    /// </summary>
+    internal static List<MailItemFolder> FilterVisibleFolders(IReadOnlyCollection<MailItemFolder> folders)
     {
-        var visited = new HashSet<MailItemFolder> { folder };
-        var currentFolder = folder;
+        var foldersByRemoteId = GetFoldersByRemoteId(folders);
+        var visibility = new Dictionary<MailItemFolder, bool>(ReferenceEqualityComparer.Instance);
+        var resolving = new HashSet<MailItemFolder>(ReferenceEqualityComparer.Instance);
 
-        while (parentByFolder.TryGetValue(currentFolder, out var parentFolder))
+        bool IsVisible(MailItemFolder folder)
         {
-            if (!visited.Add(parentFolder))
+            if (visibility.TryGetValue(folder, out var isKnownVisible))
+                return isKnownVisible;
+
+            if (folder.IsHidden || folder.IsSticky)
+                return visibility[folder] = !folder.IsHidden;
+
+            // Revisiting a folder means the parent links form a cycle. The hierarchy promotes it to a root.
+            if (!resolving.Add(folder))
                 return true;
 
-            currentFolder = parentFolder;
+            var isVisible = !TryGetParentFolder(folder, foldersByRemoteId, out var parentFolder) || IsVisible(parentFolder);
+
+            resolving.Remove(folder);
+
+            return visibility[folder] = isVisible;
         }
 
-        return false;
+        return folders.Where(IsVisible).ToList();
     }
 
-    private static void SortFolderChildren(MailItemFolder folder)
+    private static Dictionary<string, MailItemFolder> GetFoldersByRemoteId(IEnumerable<MailItemFolder> folders)
+        => folders
+            .Where(folder => !string.IsNullOrWhiteSpace(folder.RemoteFolderId))
+            .GroupBy(folder => folder.RemoteFolderId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+
+    private static bool TryGetParentFolder(MailItemFolder folder,
+                                           IReadOnlyDictionary<string, MailItemFolder> foldersByRemoteId,
+                                           out MailItemFolder parentFolder)
     {
-        var sortedChildren = ApplyFolderSort(folder.ChildFolders.Cast<MailItemFolder>())
-            .Cast<IMailItemFolder>()
-            .ToList();
+        parentFolder = null;
 
-        folder.ChildFolders = sortedChildren;
-
-        foreach (var childFolder in sortedChildren.Cast<MailItemFolder>())
+        if (string.IsNullOrWhiteSpace(folder.ParentRemoteFolderId) ||
+            !foldersByRemoteId.TryGetValue(folder.ParentRemoteFolderId, out var candidate) ||
+            ReferenceEquals(candidate, folder))
         {
-            SortFolderChildren(childFolder);
+            return false;
         }
-    }
 
+        parentFolder = candidate;
+        return true;
+    }
 
     /// <summary>
-    /// Where a folder sits in the navigation menu. The move menu mirrors the same shape, so this
-    /// rule has to stay in one place.
+    /// Gives every folder at most one parent so each folder is listed exactly once. Providers report
+    /// parents by remote id; a parent that is not in the set, the folder itself, or a cycle makes the
+    /// folder a root instead of losing or repeating it. Roots and every child list are in menu order.
+    /// </summary>
+    private sealed class FolderHierarchy
+    {
+        private readonly Dictionary<MailItemFolder, List<MailItemFolder>> _childrenByFolder;
+
+        private FolderHierarchy(List<MailItemFolder> folders, List<MailItemFolder> roots, Dictionary<MailItemFolder, List<MailItemFolder>> childrenByFolder)
+        {
+            Folders = folders;
+            Roots = roots;
+            _childrenByFolder = childrenByFolder;
+        }
+
+        /// <summary>Every folder in the hierarchy, in menu order.</summary>
+        public IReadOnlyList<MailItemFolder> Folders { get; }
+
+        public IReadOnlyList<MailItemFolder> Roots { get; }
+
+        public IReadOnlyList<MailItemFolder> GetChildren(MailItemFolder folder)
+            => _childrenByFolder.TryGetValue(folder, out var children) ? children : Array.Empty<MailItemFolder>();
+
+        /// <param name="pinnedFoldersAreRoots">
+        /// The navigation menu lists pinned folders directly under the account, so they are not
+        /// repeated under their parent there.
+        /// </param>
+        public static FolderHierarchy Build(IReadOnlyCollection<MailItemFolder> folders, bool pinnedFoldersAreRoots, Guid accountId, ILogger logger)
+        {
+            var duplicateRemoteIds = folders
+                .Where(folder => !string.IsNullOrWhiteSpace(folder.RemoteFolderId))
+                .GroupBy(folder => folder.RemoteFolderId, StringComparer.Ordinal)
+                .Where(group => group.Count() > 1)
+                .Select(group => group.Key);
+
+            foreach (var remoteId in duplicateRemoteIds)
+            {
+                logger.Warning(
+                    "Duplicate folder remote id {RemoteFolderId} found while building folder hierarchy for account {AccountId}.",
+                    remoteId,
+                    accountId);
+            }
+
+            var foldersByRemoteId = GetFoldersByRemoteId(folders);
+            var parentByFolder = new Dictionary<MailItemFolder, MailItemFolder>(ReferenceEqualityComparer.Instance);
+
+            foreach (var folder in folders)
+            {
+                if (pinnedFoldersAreRoots && folder.IsSticky)
+                    continue;
+
+                if (TryGetParentFolder(folder, foldersByRemoteId, out var parentFolder))
+                    parentByFolder[folder] = parentFolder;
+            }
+
+            foreach (var folder in folders)
+            {
+                if (!CreatesFolderCycle(folder, parentByFolder))
+                    continue;
+
+                parentByFolder.Remove(folder);
+                logger.Warning(
+                    "Folder hierarchy cycle detected at {RemoteFolderId} in account {AccountId}. Promoting it to a root folder.",
+                    folder.RemoteFolderId,
+                    accountId);
+            }
+
+            var childrenByFolder = new Dictionary<MailItemFolder, List<MailItemFolder>>(ReferenceEqualityComparer.Instance);
+
+            foreach (var (folder, parentFolder) in parentByFolder)
+            {
+                if (!childrenByFolder.TryGetValue(parentFolder, out var children))
+                    childrenByFolder[parentFolder] = children = [];
+
+                children.Add(folder);
+            }
+
+            foreach (var parentFolder in childrenByFolder.Keys.ToList())
+            {
+                childrenByFolder[parentFolder] = ApplyFolderSort(childrenByFolder[parentFolder]).ToList();
+            }
+
+            var roots = ApplyFolderSort(folders.Where(folder => !parentByFolder.ContainsKey(folder))).ToList();
+
+            return new FolderHierarchy(ApplyFolderSort(folders).ToList(), roots, childrenByFolder);
+        }
+
+        private static bool CreatesFolderCycle(MailItemFolder folder, IReadOnlyDictionary<MailItemFolder, MailItemFolder> parentByFolder)
+        {
+            var visited = new HashSet<MailItemFolder>(ReferenceEqualityComparer.Instance) { folder };
+            var currentFolder = folder;
+
+            while (parentByFolder.TryGetValue(currentFolder, out var parentFolder))
+            {
+                if (!visited.Add(parentFolder))
+                    return true;
+
+                currentFolder = parentFolder;
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Where a root of the display hierarchy sits in the navigation menu. The move menu mirrors the
+    /// same shape, so this rule has to stay in one place. Folders with a visible parent are reached
+    /// through that parent and never get a placement of their own.
     /// </summary>
     private enum FolderDisplayPlacement
     {
@@ -411,18 +462,14 @@ public class FolderService : BaseDatabaseService, IFolderService
         /// <summary>Listed under the virtual More folder.</summary>
         More,
 
-        /// <summary>Not listed at this level. It is reached through its parent folder.</summary>
+        /// <summary>Not listed at this level.</summary>
         Nested
     }
 
-    private static FolderDisplayPlacement GetFolderDisplayPlacement(MailItemFolder folder, MailAccount account)
+    private static FolderDisplayPlacement GetFolderDisplayPlacement(MailItemFolder folder)
     {
         // Category type folders should be skipped. They will be categorized under virtual category folder.
         if (ServiceConstants.SubCategoryFolderLabelIds.Contains(folder.RemoteFolderId))
-            return FolderDisplayPlacement.Nested;
-
-        // Gmail nests labels by remote id, so a child label is only reached through its parent.
-        if (account.ProviderType == MailProviderType.Gmail && !string.IsNullOrEmpty(folder.ParentRemoteFolderId))
             return FolderDisplayPlacement.Nested;
 
         if (folder.IsSticky)
@@ -433,6 +480,18 @@ public class FolderService : BaseDatabaseService, IFolderService
             : FolderDisplayPlacement.More;
     }
 
+    private async Task<FolderHierarchy> GetDisplayHierarchyAsync(Guid accountId)
+    {
+        var folders = await GetVisibleFoldersAsync(accountId).ConfigureAwait(false);
+
+        return FolderHierarchy.Build(folders, pinnedFoldersAreRoots: true, accountId, _logger);
+    }
+
+    private static void LocalizeCategoryFolderName(MailItemFolder folder)
+    {
+        if (folder.SpecialFolderType == SpecialFolderType.Category) folder.FolderName = Translator.CategoriesFolderNameOverride;
+    }
+
     public async Task<List<IMailItemFolder>> GetFolderStructureForDisplayAsync(Guid accountId)
     {
         var account = await _accountService.GetAccountAsync(accountId);
@@ -440,21 +499,21 @@ public class FolderService : BaseDatabaseService, IFolderService
         if (account == null)
             throw new ArgumentException(nameof(account));
 
-        var folders = await GetVisibleFoldersAsync(accountId).ConfigureAwait(false);
+        var hierarchy = await GetDisplayHierarchyAsync(accountId).ConfigureAwait(false);
 
-        if (folders.Count == 0) return [];
+        if (hierarchy.Roots.Count == 0) return [];
 
         var rootFolders = new List<IMailItemFolder>();
         var moreFolder = MailItemFolder.CreateMoreFolder();
         var categoryFolder = MailItemFolder.CreateCategoriesFolder();
 
-        foreach (var folder in folders)
+        foreach (var folder in hierarchy.Roots)
         {
-            var placement = GetFolderDisplayPlacement(folder, account);
+            var placement = GetFolderDisplayPlacement(folder);
 
             if (placement == FolderDisplayPlacement.Nested) continue;
 
-            await LoadChildFoldersRecursiveAsync(folder, [folder.Id]).ConfigureAwait(false);
+            AttachChildFolders(hierarchy, folder);
 
             switch (placement)
             {
@@ -479,27 +538,18 @@ public class FolderService : BaseDatabaseService, IFolderService
         return rootFolders;
     }
 
-    private async Task LoadChildFoldersRecursiveAsync(MailItemFolder folder, HashSet<Guid> visitedFolderIds)
+    private static void AttachChildFolders(FolderHierarchy hierarchy, MailItemFolder folder)
     {
         // Localize category folder name, the way the navigation menu does.
-        if (folder.SpecialFolderType == SpecialFolderType.Category) folder.FolderName = Translator.CategoriesFolderNameOverride;
+        LocalizeCategoryFolderName(folder);
 
-        folder.ChildFolders.Clear();
+        var childFolders = hierarchy.GetChildren(folder);
 
-        if (string.IsNullOrEmpty(folder.RemoteFolderId)) return;
+        folder.ChildFolders = childFolders.Cast<IMailItemFolder>().ToList();
 
-        const string query = "SELECT * FROM MailItemFolder WHERE ParentRemoteFolderId = ? AND MailAccountId = ? AND IsHidden = ?";
-        var childFolders = await Connection
-            .QueryAsync<MailItemFolder>(query, folder.RemoteFolderId, folder.MailAccountId, 0)
-            .ConfigureAwait(false);
-
-        foreach (var childFolder in ApplyFolderSort(childFolders))
+        foreach (var childFolder in childFolders)
         {
-            if (!visitedFolderIds.Add(childFolder.Id)) continue;
-
-            folder.ChildFolders.Add(childFolder);
-
-            await LoadChildFoldersRecursiveAsync(childFolder, visitedFolderIds).ConfigureAwait(false);
+            AttachChildFolders(hierarchy, childFolder);
         }
     }
 
@@ -515,29 +565,19 @@ public class FolderService : BaseDatabaseService, IFolderService
         }
     }
 
-    private async Task<FolderMenuItem> GetPreparedFolderMenuItemRecursiveAsync(MailAccount account, MailItemFolder parentFolder, IMenuItem parentMenuItem)
+    private static FolderMenuItem CreateFolderMenuItem(FolderHierarchy hierarchy, MailAccount account, MailItemFolder folder, IMenuItem parentMenuItem)
     {
         // Localize category folder name.
-        if (parentFolder.SpecialFolderType == SpecialFolderType.Category) parentFolder.FolderName = Translator.CategoriesFolderNameOverride;
+        LocalizeCategoryFolderName(folder);
 
-        const string query = "SELECT * FROM MailItemFolder WHERE ParentRemoteFolderId = ? AND MailAccountId = ?";
-        var preparedFolder = new FolderMenuItem(parentFolder, account, parentMenuItem);
+        var folderMenuItem = new FolderMenuItem(folder, account, parentMenuItem);
 
-        var childFolders = await Connection.QueryAsync<MailItemFolder>(query, parentFolder.RemoteFolderId, parentFolder.MailAccountId).ConfigureAwait(false);
-
-        if (childFolders.Any())
+        foreach (var childFolder in hierarchy.GetChildren(folder))
         {
-            foreach (var subChildFolder in childFolders)
-            {
-                var preparedChild = await GetPreparedFolderMenuItemRecursiveAsync(account, subChildFolder, preparedFolder);
-
-                if (preparedChild == null) continue;
-
-                preparedFolder.SubMenuItems.Add(preparedChild);
-            }
+            folderMenuItem.SubMenuItems.Add(CreateFolderMenuItem(hierarchy, account, childFolder, folderMenuItem));
         }
 
-        return preparedFolder;
+        return folderMenuItem;
     }
 
     private async Task<IEnumerable<IMenuItem>> GetSingleAccountFolderMenuItemsAsync(IAccountMenuItem accountMenuItem)
@@ -545,14 +585,12 @@ public class FolderService : BaseDatabaseService, IFolderService
         var accountId = accountMenuItem.EntityId.Value;
         var preparedFolderMenuItems = new List<IMenuItem>();
 
-        // Get all folders for the account. Excluding hidden folders.
-        var folders = await GetVisibleFoldersAsync(accountId).ConfigureAwait(false);
+        // Visible folders only. Each one is listed once: at its placement, or under its parent.
+        var hierarchy = await GetDisplayHierarchyAsync(accountId).ConfigureAwait(false);
 
-        if (!folders.Any()) return new List<IMenuItem>();
+        if (hierarchy.Roots.Count == 0) return new List<IMenuItem>();
 
         var mailAccount = accountMenuItem.HoldingAccounts.First();
-
-        var listingFolders = ApplyFolderSort(folders);
 
         var moreFolder = MailItemFolder.CreateMoreFolder();
         var categoryFolder = MailItemFolder.CreateCategoriesFolder();
@@ -560,9 +598,9 @@ public class FolderService : BaseDatabaseService, IFolderService
         var moreFolderMenuItem = new FolderMenuItem(moreFolder, mailAccount, accountMenuItem);
         var categoryFolderMenuItem = new FolderMenuItem(categoryFolder, mailAccount, accountMenuItem);
 
-        foreach (var item in listingFolders)
+        foreach (var item in hierarchy.Roots)
         {
-            var placement = GetFolderDisplayPlacement(item, mailAccount);
+            var placement = GetFolderDisplayPlacement(item);
 
             if (placement == FolderDisplayPlacement.Nested) continue;
 
@@ -574,12 +612,10 @@ public class FolderService : BaseDatabaseService, IFolderService
                 _ => moreFolderMenuItem
             };
 
-            var preparedItem = await GetPreparedFolderMenuItemRecursiveAsync(mailAccount, item, parentFolderMenuItem).ConfigureAwait(false);
+            var preparedItem = CreateFolderMenuItem(hierarchy, mailAccount, item, parentFolderMenuItem);
 
             // Don't add menu items that are prepared for More folder. They've been included in More virtual folder already.
             // We'll add More folder later on at the end of the list.
-
-            if (preparedItem == null) continue;
 
             if (placement == FolderDisplayPlacement.Root)
             {
@@ -591,7 +627,7 @@ public class FolderService : BaseDatabaseService, IFolderService
             }
         }
 
-        var favoriteCategories = await GetFavoriteCategoryMenuItemsAsync(mailAccount, folders, accountMenuItem).ConfigureAwait(false);
+        var favoriteCategories = await GetFavoriteCategoryMenuItemsAsync(mailAccount, hierarchy.Folders, accountMenuItem).ConfigureAwait(false);
         preparedFolderMenuItems.AddRange(favoriteCategories);
 
         // An empty Categories item is a dead end after the user hides every Gmail category.
@@ -758,9 +794,10 @@ public class FolderService : BaseDatabaseService, IFolderService
 
     public async Task<List<MailItemFolder>> GetVisibleFoldersAsync(Guid accountId)
     {
-        const string query = "SELECT * FROM MailItemFolder WHERE MailAccountId = ? AND IsHidden = ?";
-        var rows = await Connection.QueryAsync<MailItemFolder>(query, accountId, 0).ConfigureAwait(false);
-        return ApplyFolderSort(rows).ToList();
+        // Visibility depends on the parent chain, so hidden rows are loaded too.
+        const string query = "SELECT * FROM MailItemFolder WHERE MailAccountId = ?";
+        var rows = await Connection.QueryAsync<MailItemFolder>(query, accountId).ConfigureAwait(false);
+        return ApplyFolderSort(FilterVisibleFolders(rows)).ToList();
     }
 
     public async Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId)
