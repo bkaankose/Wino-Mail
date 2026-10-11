@@ -2945,8 +2945,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 return false;
 
             // Selection belongs to the outgoing page, so it is cleared together with the swap
-            // rather than ahead of the query.
-            Messenger.Send(new ClearMailSelectionsRequested());
+            // rather than ahead of the query. The awaits above leave the UI thread, and the
+            // recipient drives the native list, so the request is sent from the UI thread.
+            await ExecuteUIThread(() => Messenger.Send(new ClearMailSelectionsRequested()));
 
             context.Trace?.Mark(MailListLoadStage.StorePublishStarted);
             await MailCollection.ResetAsync(

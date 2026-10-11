@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Windows.Input;
 using CommunityToolkit.WinUI;
 using Microsoft.UI.Input;
@@ -20,6 +21,8 @@ namespace Wino.Mail.Controls.MailListView;
 /// <summary>
 /// A virtualized, grouped mail list that projects a flat source into thread rows
 /// while keeping selection expressed as stable leaf-mail identities.
+/// Public selection and expansion members may be called from any thread; they are marshalled
+/// to the UI thread that created the list before touching native selection.
 /// </summary>
 public partial class WinoMailListView : ListView, IDisposable
 {
@@ -54,8 +57,11 @@ public partial class WinoMailListView : ListView, IDisposable
     private ScrollViewer? _scrollViewer;
     private bool _focusWasInsideList;
     private bool _disposed;
+    private readonly DispatcherQueue _uiDispatcherQueue;
+
     public WinoMailListView()
     {
+        _uiDispatcherQueue = DispatcherQueue.GetForCurrentThread();
         SelectedMailItems = new ReadOnlyObservableCollection<IMailListSourceItem>(_selectedItems);
         SelectedThreadKeys = new ReadOnlyObservableCollection<string>(_selectedThreadKeys);
         ExpandedThreadKeys = new ReadOnlyObservableCollection<string>(_expandedThreadKeys);
@@ -318,6 +324,11 @@ public partial class WinoMailListView : ListView, IDisposable
 
     public void ExpandThread(string threadKey)
     {
+        if (RedirectToUIThread(() => ExpandThread(threadKey)))
+        {
+            return;
+        }
+
         if (_projection?.FindThread(threadKey) is not { Count: > 1 } ||
             _projection.IsThreadExpanded(threadKey))
         {
@@ -329,6 +340,11 @@ public partial class WinoMailListView : ListView, IDisposable
 
     public void CollapseThread(string threadKey)
     {
+        if (RedirectToUIThread(() => CollapseThread(threadKey)))
+        {
+            return;
+        }
+
         if (_projection?.IsThreadExpanded(threadKey) == true)
         {
             _projection.CollapseThread(threadKey);
@@ -337,6 +353,11 @@ public partial class WinoMailListView : ListView, IDisposable
 
     public async Task<bool> SelectItemAsync(Guid stableId, bool scrollIntoView = true)
     {
+        if (!_uiDispatcherQueue.HasThreadAccess)
+        {
+            return await RunOnUIThreadAsync(() => SelectItemAsync(stableId, scrollIntoView));
+        }
+
         if (_projection?.FindItem(stableId) is not { } item)
         {
             return false;
@@ -372,12 +393,22 @@ public partial class WinoMailListView : ListView, IDisposable
 
     public void ClearSelection()
     {
+        if (RedirectToUIThread(ClearSelection))
+        {
+            return;
+        }
+
         _tokens.Clear();
         QueueSelectionRestore();
     }
 
     public void KeepNewestSelection()
     {
+        if (RedirectToUIThread(KeepNewestSelection))
+        {
+            return;
+        }
+
         var newest = _selectedItems.MaxBy(static item => item.DateSortKey);
         if (newest is null)
         {
@@ -410,8 +441,12 @@ public partial class WinoMailListView : ListView, IDisposable
     /// <summary>
     /// Waits for a queued selection change to reach the native list. Returns false when the
     /// control was disposed first, so callers can stop instead of handling a cancellation.
+    /// Off the UI thread the wait is queued behind any selection change redirected earlier.
     /// </summary>
-    public Task<bool> WaitForSelectionSyncAsync() => WaitForSelectionRestoreAsync();
+    public Task<bool> WaitForSelectionSyncAsync() =>
+        _uiDispatcherQueue.HasThreadAccess
+            ? WaitForSelectionRestoreAsync()
+            : RunOnUIThreadAsync(WaitForSelectionRestoreAsync);
 
     public void ExpandThreadFromExpander(string threadKey) => ExpandThread(threadKey);
 
@@ -459,6 +494,14 @@ public partial class WinoMailListView : ListView, IDisposable
     public void SetSelectedItems(IEnumerable<Guid> stableIds)
     {
         ArgumentNullException.ThrowIfNull(stableIds);
+        if (!_uiDispatcherQueue.HasThreadAccess)
+        {
+            // Materialize now: the caller may reuse or mutate its sequence before the UI thread runs.
+            var ids = stableIds.ToArray();
+            RedirectToUIThread(() => SetSelectedItems(ids));
+            return;
+        }
+
         _tokens.Clear();
         if (_projection is not null)
         {
@@ -476,6 +519,11 @@ public partial class WinoMailListView : ListView, IDisposable
 
     public new void SelectAll()
     {
+        if (RedirectToUIThread(SelectAll))
+        {
+            return;
+        }
+
         _tokens.Clear();
         if (_projection is not null)
         {
@@ -1386,6 +1434,8 @@ public partial class WinoMailListView : ListView, IDisposable
 
     private void PublishSelectionSnapshot()
     {
+        Debug.Assert(_uiDispatcherQueue.HasThreadAccess, "Selection snapshots read native ListView state and must be published on the UI thread.");
+
         var selected = new List<IMailListSourceItem>();
         var selectedIds = new HashSet<Guid>();
         var fullySelectedThreads = new HashSet<string>(StringComparer.Ordinal);
@@ -1512,6 +1562,47 @@ public partial class WinoMailListView : ListView, IDisposable
 
         GroupStyle.Clear();
         GroupStyle.Add(new GroupStyle { HeaderTemplate = GroupHeaderTemplate });
+    }
+
+    /// <summary>
+    /// Queues <paramref name="action"/> on the list's UI thread when called from another thread.
+    /// Returns <see langword="true"/> when the caller must stop because the work was redirected.
+    /// Items queued at the same priority run in order, so a later redirected wait observes the change.
+    /// </summary>
+    private bool RedirectToUIThread(Action action)
+    {
+        if (_uiDispatcherQueue.HasThreadAccess)
+        {
+            return false;
+        }
+
+        _uiDispatcherQueue.TryEnqueue(() => action());
+        return true;
+    }
+
+    /// <summary>
+    /// Runs an asynchronous UI operation on the list's UI thread and reports its result. Resolves
+    /// to <see langword="false"/> when the queue is shutting down, matching a disposed list.
+    /// </summary>
+    private Task<bool> RunOnUIThreadAsync(Func<Task<bool>> operation)
+    {
+        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!_uiDispatcherQueue.TryEnqueue(async () =>
+            {
+                try
+                {
+                    completion.TrySetResult(await operation());
+                }
+                catch (Exception ex)
+                {
+                    completion.TrySetException(ex);
+                }
+            }))
+        {
+            completion.TrySetResult(false);
+        }
+
+        return completion.Task;
     }
 
     private Task<bool> WaitForSelectionRestoreAsync() =>
