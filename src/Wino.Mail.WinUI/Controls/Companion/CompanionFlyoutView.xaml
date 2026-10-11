@@ -736,6 +736,11 @@
                 Background="{ThemeResource CompanionSubtleBackgroundBrush}"
                 BorderBrush="{ThemeResource CompanionDividerBrush}"
                 BorderThickness="0,1,0,0">
+                <!--
+                    The island is laid out in a hidden 1x1 window before its scale is known, so an SVG
+                    sized from layout rasterizes to a single pixel and shows as a flat square (#1108).
+                    A fixed 3x raster size keeps the icons sharp up to 300% scaling.
+                -->
                 <Grid
                     HorizontalAlignment="Stretch"
                     AutomationProperties.AutomationId="CompanionAppModeSwitcher"
@@ -753,10 +758,14 @@
                         Command="{x:Bind ViewModel.OpenInboxCommand}"
                         Style="{ThemeResource SubtleButtonStyle}"
                         ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_Mail, Mode=OneTime}">
-                        <Image
-                            Width="28"
-                            Height="28"
-                            Source="ms-appx:///Assets/AppEntries/Mail.svg" />
+                        <Image Width="28" Height="28">
+                            <Image.Source>
+                                <SvgImageSource
+                                    RasterizePixelHeight="84"
+                                    RasterizePixelWidth="84"
+                                    UriSource="ms-appx:///Assets/AppEntries/Mail.svg" />
+                            </Image.Source>
+                        </Image>
                     </Button>
                     <Button
                         Grid.Column="1"
@@ -766,10 +775,14 @@
                         Command="{x:Bind ViewModel.OpenCalendarCommand}"
                         Style="{ThemeResource SubtleButtonStyle}"
                         ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_Calendar, Mode=OneTime}">
-                        <Image
-                            Width="28"
-                            Height="28"
-                            Source="ms-appx:///Assets/AppEntries/Calendar.svg" />
+                        <Image Width="28" Height="28">
+                            <Image.Source>
+                                <SvgImageSource
+                                    RasterizePixelHeight="84"
+                                    RasterizePixelWidth="84"
+                                    UriSource="ms-appx:///Assets/AppEntries/Calendar.svg" />
+                            </Image.Source>
+                        </Image>
                     </Button>
                     <Button
                         Grid.Column="2"
@@ -779,10 +792,14 @@
                         Command="{x:Bind ViewModel.FindAnyContactCommand}"
                         Style="{ThemeResource SubtleButtonStyle}"
                         ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_Contacts, Mode=OneTime}">
-                        <Image
-                            Width="28"
-                            Height="28"
-                            Source="ms-appx:///Assets/AppEntries/People.svg" />
+                        <Image Width="28" Height="28">
+                            <Image.Source>
+                                <SvgImageSource
+                                    RasterizePixelHeight="84"
+                                    RasterizePixelWidth="84"
+                                    UriSource="ms-appx:///Assets/AppEntries/People.svg" />
+                            </Image.Source>
+                        </Image>
                     </Button>
                     <Button
                         Grid.Column="3"
@@ -792,10 +809,14 @@
                         Command="{x:Bind ViewModel.OpenTasksCommand}"
                         Style="{ThemeResource SubtleButtonStyle}"
                         ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_Tasks, Mode=OneTime}">
-                        <Image
-                            Width="28"
-                            Height="28"
-                            Source="ms-appx:///Assets/AppEntries/ToDo.svg" />
+                        <Image Width="28" Height="28">
+                            <Image.Source>
+                                <SvgImageSource
+                                    RasterizePixelHeight="84"
+                                    RasterizePixelWidth="84"
+                                    UriSource="ms-appx:///Assets/AppEntries/ToDo.svg" />
+                            </Image.Source>
+                        </Image>
                     </Button>
                 </Grid>
             </Border>
