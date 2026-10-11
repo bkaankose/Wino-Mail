@@ -10,6 +10,7 @@ Do not change the deprecated UWP project.
 - If the user requests review only or prohibits launch, obey that boundary and report the remaining verification.
 - After a passing check, repeat it only for changed inputs, new failures, or unresolved concerns.
 - Report the result, verification evidence, and remaining limits. A build alone does not prove runtime behavior.
+- Never commit or push unless the user explicitly asks in the current request. Creating a local branch is fine; changes stay uncommitted on the local machine until the user asks for a commit or push.
 
 ## Native AOT and build safety — critical
 
@@ -20,6 +21,7 @@ Native AOT compatibility is a release-blocking correctness requirement. A bindin
 - Include bindings inside templates and bindings created with `SetBinding` in the audit. For new or changed generated binding support, inspect the generated accessors as well as the build result. Annotating only the first object in a multi-part path is insufficient.
 - Give WinRT-facing collections explicit concrete backing types. Use an array or `List<T>`, or an explicit array cast such as `(Option[])[...]`; never leave collection expressions targeting read-only interfaces with an implicit compiler-generated backing type. See the [implementation rules](docs/harness/implementation-rules.md#core-implementation-rules).
 - Treat nullable diagnostics as real defects. Guard missing items and owners explicitly; two null account IDs comparing equal does not make either account safe to dereference. Do not hide errors with null-forgiving operators, warning suppressions, disabled analyzers, or weakened Release settings.
+- Register event handlers in XAML wherever XAML can express them, including `Loaded`, `Unloaded`, and input events. Do not subscribe with `+=`/`-=` in code-behind when a XAML attribute works; reserve code subscriptions for events XAML cannot reach, such as `XamlRoot.Changed`, and prefer a XAML-only design over adding them.
 - Verify which source file the active project compiles before editing. Legacy and active files can share a namespace and type name.
 - Changes to production C#, XAML, bindings, WinRT-facing models, dependencies, or build configuration require both the Debug x64 build and the Release x64 gate below, in addition to applicable tests. Documentation-only changes do not require builds. Fix introduced errors and related build blockers before handoff; if an unrelated blocker prevents verification, report the failed check and do not claim Release/AOT validation passed.
 
