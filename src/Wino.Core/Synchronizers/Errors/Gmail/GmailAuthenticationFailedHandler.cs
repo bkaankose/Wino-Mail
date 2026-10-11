@@ -21,8 +21,15 @@ public class GmailAuthenticationFailedHandler : ISynchronizerErrorHandler
     }
 
     public bool CanHandle(SynchronizerErrorContext error)
+        => IsAuthenticationFailure(error.Exception);
+
+    /// <summary>
+    /// True when Google rejected the credentials or the token lacks a scope the call needs.
+    /// Both are fixed only by signing in again, so retrying the sync never helps.
+    /// </summary>
+    public static bool IsAuthenticationFailure(System.Exception exception)
     {
-        if (error.Exception is not GoogleApiException googleEx)
+        if (exception is not GoogleApiException googleEx)
             return false;
 
         var reason = googleEx.Error?.Errors?.FirstOrDefault()?.Reason?.ToLowerInvariant() ?? string.Empty;

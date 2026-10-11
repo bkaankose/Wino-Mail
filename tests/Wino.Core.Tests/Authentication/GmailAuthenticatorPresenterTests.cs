@@ -31,6 +31,88 @@ public sealed class GmailAuthenticatorPresenterTests
     }
 
     [Fact]
+    public async Task GenerateTokenInformationAsync_AuthorizationAddress_IsFullyEscapedAndRoundTrips()
+    {
+        Uri? launchedUri = null;
+        var launcher = new Mock<IExternalLauncher>();
+        launcher.Setup(service => service.LaunchUriAsync(It.IsAny<Uri>(), It.IsAny<CancellationToken>()))
+            .Callback<Uri, CancellationToken>((uri, _) => launchedUri = uri)
+            .ReturnsAsync(new PlatformOperationResult(PlatformOperationStatus.Succeeded));
+        var presenter = new FakePresenter(onShown: session => session.CancelRequested());
+        var authenticator = CreateAuthenticator(launcher.Object, presenter);
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            IsMailAccessGranted = true,
+            IsCalendarAccessGranted = true
+        };
+
+        await Assert.ThrowsAsync<AccountSetupCanceledException>(() => authenticator.GenerateTokenInformationAsync(account));
+
+        var uri = presenter.Session!.Request.AuthorizationUri;
+        Assert.Same(uri, launchedUri);
+
+        // The launcher and the copy button both rely on the escaped form; it must already be canonical.
+        Assert.Equal(uri.AbsoluteUri, uri.OriginalString);
+        Assert.DoesNotContain(" ", uri.AbsoluteUri);
+        Assert.Equal("https://accounts.google.com/o/oauth2/v2/auth", uri.GetLeftPart(UriPartial.Path));
+
+        var query = HttpUtility.ParseQueryString(uri.Query);
+        foreach (var key in new[] { "client_id", "redirect_uri", "response_type", "scope", "access_type", "prompt", "state", "code_challenge", "code_challenge_method" })
+            Assert.Single(query.GetValues(key) ?? []);
+
+        Assert.Equal("code", query["response_type"]);
+        Assert.Equal("S256", query["code_challenge_method"]);
+        Assert.Matches("^http://127\\.0\\.0\\.1:\\d+/authorize/$", query["redirect_uri"]);
+
+        var scopes = query["scope"]!.Split(' ');
+        Assert.Contains("https://mail.google.com/", scopes);
+        Assert.Contains("https://www.googleapis.com/auth/calendar", scopes);
+        Assert.All(scopes, scope => Assert.True(Uri.IsWellFormedUriString(scope, UriKind.Absolute), scope));
+    }
+
+    [Fact]
+    public async Task GenerateTokenInformationAsync_Cancelled_DoesNotLeaveAnUnobservedListenerFailure()
+    {
+        var unobserved = new List<Exception>();
+        EventHandler<UnobservedTaskExceptionEventArgs> handler = (_, args) =>
+        {
+            if (args.Exception.Flatten().InnerExceptions.Any(ex => ex is System.Net.HttpListenerException or ObjectDisposedException))
+                lock (unobserved) unobserved.Add(args.Exception);
+        };
+
+        TaskScheduler.UnobservedTaskException += handler;
+        try
+        {
+            await RunCancelledSignInAsync();
+
+            for (var attempt = 0; attempt < 3; attempt++)
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                await Task.Delay(50);
+            }
+        }
+        finally
+        {
+            TaskScheduler.UnobservedTaskException -= handler;
+        }
+
+        Assert.Empty(unobserved);
+    }
+
+    private static async Task RunCancelledSignInAsync()
+    {
+        var launcher = new Mock<IExternalLauncher>();
+        launcher.Setup(service => service.LaunchUriAsync(It.IsAny<Uri>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PlatformOperationResult(PlatformOperationStatus.Succeeded));
+        var presenter = new FakePresenter(onShown: session => session.CancelRequested());
+
+        await Assert.ThrowsAsync<AccountSetupCanceledException>(
+            () => CreateAuthenticator(launcher.Object, presenter).GenerateTokenInformationAsync(new MailAccount { Id = Guid.NewGuid() }));
+    }
+
+    [Fact]
     public async Task GenerateTokenInformationAsync_CallerCancellation_PropagatesAndClosesSession()
     {
         using var cancellation = new CancellationTokenSource();

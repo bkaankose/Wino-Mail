@@ -1,5 +1,6 @@
 using System;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Domain.Models.Synchronization;
@@ -61,6 +62,10 @@ public class SynchronizationIssue
     {
         if (exception == null)
             return null;
+
+        // A sign-in prompt is an expected account state, not an unknown failure.
+        if (category == SynchronizerErrorCategory.Unknown && exception is AuthenticationAttentionException)
+            category = SynchronizerErrorCategory.Authentication;
 
         return new SynchronizationIssue
         {

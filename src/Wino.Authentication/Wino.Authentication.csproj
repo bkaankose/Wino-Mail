@@ -16,6 +16,9 @@
 		<PackageReference Include="Sentry.Serilog" />
 	</ItemGroup>
 	<ItemGroup>
+		<InternalsVisibleTo Include="Wino.Core.Tests" />
+	</ItemGroup>
+	<ItemGroup>
 		<EmbeddedResource Include="Assets\AuthorizationResult.html" LogicalName="Wino.Authentication.Assets.AuthorizationResult.html" />
 		<EmbeddedResource Include="..\Wino.Mail.WinUI\Assets\AppEntries\Wino.svg" Link="Assets\WinoLogo.svg" LogicalName="Wino.Authentication.Assets.WinoLogo.svg" />
 	</ItemGroup>

@@ -1,8 +1,6 @@
 using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.Interfaces;
 using System;
-using System.Diagnostics;
-using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,7 +8,6 @@ using DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
 using Wino.Core.Domain.Models.Platform;
 using Microsoft.UI.Input;
 using Microsoft.Web.WebView2.Core;
-using Microsoft.Win32;
 using Serilog;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.DataTransfer;
@@ -140,113 +137,21 @@ public partial class NativeAppService : INativeAppService, IAppMetadataService, 
 
     public async Task<bool> LaunchUriAsync(Uri uri)
     {
-        // The http/https default handler (e.g. Edge) is a Win32 desktop app. Inside this packaged,
-        // self-contained WinUI 3 host the shell-activation path that Launcher.LaunchUriAsync and
-        // ShellExecute funnel through silently no-ops (the API reports success but no browser opens),
-        // which breaks Gmail OAuth and any other "open in browser" action. For web URLs, launch the
-        // resolved default-browser executable directly via CreateProcess, which bypasses shell
-        // activation entirely. Other schemes (mailto:, ms-windows-store:, custom protocols) keep
-        // using the OS launcher.
-        if (uri.IsAbsoluteUri
-            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
-            && TryLaunchDefaultBrowser(uri))
-        {
-            return true;
-        }
+        // Launcher (ShellExecute) lets Windows hand the address to the default browser or browser picker
+        // through its registered command. Pass the escaped form: Uri.ToString() decodes %20 into spaces,
+        // which the receiving command line splits. Launcher must be called from the UI (ASTA) thread, and
+        // the Gmail sign-in reaches this method from a background thread.
+        var target = uri.IsAbsoluteUri ? new Uri(uri.AbsoluteUri) : uri;
 
         try
         {
-            return await Launcher.LaunchUriAsync(uri);
+            return await ExecuteOnPlatformThreadAsync(async () => await Launcher.LaunchUriAsync(target), CancellationToken.None);
         }
-        catch
+        catch (Exception ex)
         {
+            Log.Warning(ex, "Windows could not launch a {Scheme} address.", target.IsAbsoluteUri ? target.Scheme : "relative");
             return false;
         }
-    }
-
-    private static bool TryLaunchDefaultBrowser(Uri uri)
-    {
-        try
-        {
-            var command = GetDefaultBrowserCommand();
-            if (string.IsNullOrEmpty(command))
-                return false;
-
-            // Split the registered "shell\open\command" into executable + argument template.
-            string executable;
-            string argumentTemplate;
-
-            if (command.StartsWith("\"", StringComparison.Ordinal))
-            {
-                var end = command.IndexOf('"', 1);
-                if (end < 0)
-                    return false;
-
-                executable = command.Substring(1, end - 1);
-                argumentTemplate = command.Substring(end + 1).Trim();
-            }
-            else
-            {
-                var space = command.IndexOf(' ');
-                executable = space < 0 ? command : command.Substring(0, space);
-                argumentTemplate = space < 0 ? string.Empty : command.Substring(space + 1).Trim();
-            }
-
-            // MSIX/Store browsers register an AppsFolder activation token rather than a real path;
-            // bail so the OS launcher fallback can handle those.
-            if (string.IsNullOrEmpty(executable) || !File.Exists(executable))
-                return false;
-
-            var url = uri.ToString();
-            var arguments = argumentTemplate.Contains("%1")
-                ? argumentTemplate.Replace("%1", url)
-                : argumentTemplate.Length > 0 ? $"{argumentTemplate} \"{url}\"" : $"\"{url}\"";
-
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = executable,
-                Arguments = arguments,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            };
-
-            return Process.Start(startInfo) != null;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static string GetDefaultBrowserCommand()
-    {
-        var progId = ReadUserChoiceProgId("https") ?? ReadUserChoiceProgId("http");
-        if (string.IsNullOrEmpty(progId))
-            return null;
-
-        var commandSubKey = $"{progId}\\shell\\open\\command";
-
-        using (var key = Registry.CurrentUser.OpenSubKey($"Software\\Classes\\{commandSubKey}"))
-        {
-            if (key?.GetValue(null) is string perUserCommand && perUserCommand.Length > 0)
-                return perUserCommand;
-        }
-
-        using (var key = Registry.ClassesRoot.OpenSubKey(commandSubKey))
-        {
-            if (key?.GetValue(null) is string machineCommand && machineCommand.Length > 0)
-                return machineCommand;
-        }
-
-        return null;
-    }
-
-    private static string ReadUserChoiceProgId(string scheme)
-    {
-        using var key = Registry.CurrentUser.OpenSubKey(
-            $"Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\{scheme}\\UserChoice");
-
-        return key?.GetValue("ProgId") as string;
     }
 
     public string AppVersion

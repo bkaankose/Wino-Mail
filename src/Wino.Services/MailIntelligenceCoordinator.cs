@@ -20,6 +20,7 @@ using Wino.Mail.Contracts.Intelligence;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
+using Wino.Services.Extensions;
 
 namespace Wino.Services;
 
@@ -572,9 +573,13 @@ public sealed class MailIntelligenceCoordinator(
             ? content.From
             : [new MailAddress(candidate.Sender, candidate.SenderName)];
 
-        // Bound the upload content before deriving its identity.
+        // Bound the upload content before deriving its identity. Inline image data carries no
+        // text and would only push large bodies past the sanitizer's input limit.
+        var body = content.Body.Format == MailBodyFormat.Html
+            ? content.Body with { Content = MailContentProjectorExtensions.RemoveEmbeddedImageData(content.Body.Content) }
+            : content.Body;
         var processed = new MailContentProcessor(new HtmlContentSanitizer())
-            .Prepare(from, candidate.Subject, content.Body, ContentProfile);
+            .Prepare(from, candidate.Subject, body, ContentProfile);
 
         _preparedHashes[(account.Id, candidate.RemoteMessageId)] = (processed.ContentHash, DateTime.UtcNow);
 

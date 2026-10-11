@@ -25,6 +25,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
+using Wino.Core.Synchronizers.Errors.Gmail;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
@@ -259,22 +260,7 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
         => !requests.All(IsLocalTaskRequest);
 
     private static bool IsTaskAuthenticationFailure(GoogleApiException exception)
-    {
-        if (exception.HttpStatusCode == System.Net.HttpStatusCode.Unauthorized)
-            return true;
-
-        if (exception.HttpStatusCode != System.Net.HttpStatusCode.Forbidden)
-            return false;
-
-        var reason = exception.Error?.Errors?.FirstOrDefault()?.Reason ?? string.Empty;
-        var message = exception.Message ?? string.Empty;
-
-        return reason.Contains("auth", StringComparison.OrdinalIgnoreCase) ||
-               reason.Contains("credential", StringComparison.OrdinalIgnoreCase) ||
-               message.Contains("invalid credentials", StringComparison.OrdinalIgnoreCase) ||
-               message.Contains("insufficient authentication", StringComparison.OrdinalIgnoreCase) ||
-               message.Contains("login required", StringComparison.OrdinalIgnoreCase);
-    }
+        => GmailAuthenticationFailedHandler.IsAuthenticationFailure(exception);
 
     private async Task MarkTaskAuthorizationRequiredAsync()
     {
@@ -1403,6 +1389,16 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
             _logger.Information("Synchronization was canceled for {Name}", Account.Name);
             return MailSynchronizationResult.Canceled;
         }
+        catch (AuthenticationAttentionException)
+        {
+            // The synchronization manager marks the account and asks the user to sign in again.
+            throw;
+        }
+        catch (GoogleApiException ex) when (GmailAuthenticationFailedHandler.IsAuthenticationFailure(ex))
+        {
+            _logger.Warning("Google rejected the credentials or scopes of {Name}; a new sign-in is required.", Account.Name);
+            throw new AuthenticationAttentionException(Account);
+        }
         catch (Exception ex)
         {
             _logger.Error(ex, "Synchronization failed for {Name}", Account.Name);
@@ -1725,7 +1721,16 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        await SynchronizeCalendarsAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await SynchronizeCalendarsAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (GoogleApiException ex) when (GmailAuthenticationFailedHandler.IsAuthenticationFailure(ex))
+        {
+            // A token without the calendar scopes fails here on every sync until the user signs in again.
+            _logger.Warning("Google rejected the calendar credentials or scopes of {Name}; a new sign-in is required.", Account.Name);
+            throw new AuthenticationAttentionException(Account);
+        }
 
         if (options?.Type == CalendarSynchronizationType.CalendarMetadata)
             return CalendarSynchronizationResult.Empty;

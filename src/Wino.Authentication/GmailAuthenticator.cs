@@ -8,6 +8,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using Serilog;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
@@ -19,6 +21,7 @@ namespace Wino.Authentication;
 public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
 {
     private static readonly HttpClient HttpClient = new();
+    private static readonly ILogger Logger = Log.ForContext<GmailAuthenticator>();
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> TokenLocks = new(StringComparer.Ordinal);
     private readonly WinoGmailCodeReceiver _codeReceiver;
     private readonly IGoogleTokenStore _tokenStore;
@@ -163,6 +166,16 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
 
         using var response = await HttpClient.PostAsync("https://oauth2.googleapis.com/token", requestContent, cancellationToken).ConfigureAwait(false);
         var tokenResponse = await ReadTokenResponseAsync(response, cancellationToken).ConfigureAwait(false);
+
+        // Google's consent screen lets users untick individual permissions. Refuse a partial grant here
+        // instead of storing a token that fails every later sync with "insufficient authentication scopes".
+        var missingScopes = GetMissingScopes(scopes, tokenResponse.Scope);
+        if (missingScopes.Count > 0)
+        {
+            Logger.Warning("Google sign-in for account {AccountId} did not grant {MissingScopes}.", account?.Id, missingScopes);
+            throw new GoogleAuthenticationException(Translator.Exception_GoogleAuthMissingPermissions);
+        }
+
         var previousToken = await ReadTokenAsync(credentialKey, cancellationToken).ConfigureAwait(false);
         var storedToken = CreateStoredToken(
             tokenResponse,
@@ -195,6 +208,12 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
             System.Net.HttpStatusCode.Unauthorized or
             System.Net.HttpStatusCode.Forbidden)
         {
+            // invalid_grant means the user revoked or Google expired the grant; anything else points at
+            // the client registration. Only the OAuth error code is logged, never the response body.
+            var errorCode = await ReadOAuthErrorCodeAsync(response, cancellationToken).ConfigureAwait(false);
+            Logger.Warning("Google rejected the refresh token for account {AccountId} with {StatusCode} {OAuthError}.",
+                account?.Id, (int)response.StatusCode, errorCode);
+
             throw new AuthenticationAttentionException(account);
         }
 
@@ -224,6 +243,58 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
     private static string BuildQueryString(IEnumerable<KeyValuePair<string, string>> values)
         => string.Join("&", System.Linq.Enumerable.Select(values,
             static pair => $"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value)}"));
+
+    /// <summary>
+    /// Requested scopes Google left out of the grant. Identity scopes cannot be declined and Google may
+    /// report them as aliases, so they are not checked. A broader grant covers its narrower scopes.
+    /// An empty grant list means Google did not report scopes, which cannot be verified.
+    /// </summary>
+    internal static IReadOnlyList<string> GetMissingScopes(IEnumerable<string> requestedScopes, string? grantedScopes)
+    {
+        if (string.IsNullOrWhiteSpace(grantedScopes))
+            return [];
+
+        var granted = new HashSet<string>(
+            grantedScopes.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+            StringComparer.Ordinal);
+
+        return requestedScopes
+            .Where(scope => !IsIdentityScope(scope) && !IsCoveredBy(scope, granted))
+            .ToList();
+    }
+
+    private static bool IsIdentityScope(string scope)
+        => scope is "openid" or "email" or "profile"
+           || scope.StartsWith("https://www.googleapis.com/auth/userinfo.", StringComparison.Ordinal);
+
+    private static bool IsCoveredBy(string scope, HashSet<string> granted)
+    {
+        if (granted.Contains(scope))
+            return true;
+
+        // Full mailbox access includes every narrower Gmail scope; full calendar access every calendar scope.
+        if (scope.StartsWith("https://www.googleapis.com/auth/gmail.", StringComparison.Ordinal))
+            return granted.Contains("https://mail.google.com/");
+
+        if (scope.StartsWith("https://www.googleapis.com/auth/calendar.", StringComparison.Ordinal))
+            return granted.Contains("https://www.googleapis.com/auth/calendar");
+
+        return false;
+    }
+
+    private static async Task<string> ReadOAuthErrorCodeAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            var error = JsonSerializer.Deserialize(content, GoogleOAuthJsonContext.Default.GoogleOAuthErrorResponse);
+            return string.IsNullOrWhiteSpace(error?.Error) ? "unknown" : error.Error;
+        }
+        catch (JsonException)
+        {
+            return "unreadable";
+        }
+    }
 
     private static async Task<GoogleOAuthTokenResponse> ReadTokenResponseAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
@@ -309,6 +380,13 @@ internal sealed class GoogleOAuthTokenResponse
     public string Scope { get; set; } = string.Empty;
 }
 
+internal sealed class GoogleOAuthErrorResponse
+{
+    [JsonPropertyName("error")]
+    public string Error { get; set; } = string.Empty;
+}
+
 [JsonSerializable(typeof(StoredGoogleToken))]
 [JsonSerializable(typeof(GoogleOAuthTokenResponse))]
+[JsonSerializable(typeof(GoogleOAuthErrorResponse))]
 internal partial class GoogleOAuthJsonContext : JsonSerializerContext;

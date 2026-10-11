@@ -21,6 +21,7 @@ using Wino.Mail.Api.Contracts.Ai;
 using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Contracts.Intelligence;
 using Wino.Messaging.UI;
+using Wino.Services.Extensions;
 
 namespace Wino.Services;
 
@@ -126,7 +127,7 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
 
             var language = ResolveSummaryLanguage();
             var inference = context.InferenceProjection ??
-                            _contentProjector.Project(context.Html, MailContentProjectionProfile.Inference).Projection;
+                            _contentProjector.ProjectRenderedHtml(context.Html, MailContentProjectionProfile.Inference).Projection;
             var cachedSummary = access.HasIntelligenceConsent
                 ? await _mimeFileService.GetSummaryTextAsync(
                     context.LocalAccountId,
@@ -192,7 +193,7 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
                 throw new InvalidOperationException(WinoAccountApiErrorTranslator.IntelligenceConsentRequiredCode);
             var language = ResolveSummaryLanguage();
             var projection = context.InferenceProjection ??
-                             _contentProjector.Project(context.Html, MailContentProjectionProfile.Inference).Projection;
+                             _contentProjector.ProjectRenderedHtml(context.Html, MailContentProjectionProfile.Inference).Projection;
             var cacheKey = CreateSummaryCacheKey(projection, language);
             var cached = await _mimeFileService.GetSummaryTextAsync(context.LocalAccountId, context.FileId, cacheKey, token).ConfigureAwait(false);
             if (!string.IsNullOrWhiteSpace(cached))
@@ -218,7 +219,7 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
             if (!snapshot.IsTranslateAvailable)
                 throw new InvalidOperationException(WinoAccountApiErrorTranslator.IntelligenceConsentRequiredCode);
             var projection = context.TranslationProjection ??
-                             _contentProjector.Project(context.Html, MailContentProjectionProfile.Translation).Projection;
+                             _contentProjector.ProjectRenderedHtml(context.Html, MailContentProjectionProfile.Translation).Projection;
             var cacheKey = CreateTranslationCacheKey(projection, sourceLanguage, targetLanguage);
             var cached = await _mimeFileService.GetTranslationMapJsonAsync(context.LocalAccountId, context.FileId, cacheKey, token).ConfigureAwait(false);
             if (!string.IsNullOrWhiteSpace(cached))
@@ -269,6 +270,10 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
                 throw new InvalidOperationException(ApiErrorCodes.ValidationFailed);
             if (string.IsNullOrWhiteSpace(html))
                 throw new InvalidOperationException(ApiErrorCodes.AiHtmlEmpty);
+
+            // The API rewrites text and drops images, so inline image data would only count
+            // against the size limit.
+            html = MailContentProjectorExtensions.RemoveEmbeddedImageData(html);
 
             // A draft is sent whole, quoted history included, so the model can leave that history
             // alone. Cutting it to fit would silently drop part of the user's message.

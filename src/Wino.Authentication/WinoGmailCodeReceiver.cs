@@ -56,7 +56,21 @@ internal sealed class WinoGmailCodeReceiver(
                 await session.NotifyBrowserLaunchFailedAsync().ConfigureAwait(false);
             }
 
-            var context = await listener.GetContextAsync().WaitAsync(CallbackTimeout, cancellation.Token).ConfigureAwait(false);
+            var contextTask = listener.GetContextAsync();
+            HttpListenerContext context;
+
+            try
+            {
+                context = await contextTask.WaitAsync(CallbackTimeout, cancellation.Token).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Disposing the listener aborts the pending wait; observe it so the abort never
+                // surfaces later as an unobserved task exception.
+                ObserveAbandonedCallback(contextTask);
+                throw;
+            }
+
             var query = context.Request.QueryString;
 
             // The browser owns the foreground now; ask the app to come back before the result is read.
@@ -103,6 +117,13 @@ internal sealed class WinoGmailCodeReceiver(
             // The redirect already completed the flow; nothing left to cancel.
         }
     }
+
+    private static void ObserveAbandonedCallback(Task<HttpListenerContext> contextTask)
+        => contextTask.ContinueWith(
+            static task => _ = task.Exception,
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
 
     private static Uri AppendPkceParameters(Uri authorizationUri, string codeVerifier)
     {

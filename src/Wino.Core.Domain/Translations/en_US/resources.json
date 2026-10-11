@@ -665,6 +665,7 @@
   "Exception_GoogleAuthError": "OAuth authorization error: {0}",
   "Exception_GoogleAuthInvalidResponse": "Received request with invalid state ({0})",
   "Exception_GoogleAuthorizationCodeExchangeFailed": "Authorization code exchange failed.",
+  "Exception_GoogleAuthMissingPermissions": "Google didn't grant every permission this account needs. Sign in again and keep all requested permissions selected.",
   "Exception_ImapAutoDiscoveryFailed": "Couldn't find mailbox settings.",
   "Exception_ImapClientPoolFailed": "IMAP Client Pool failed.",
   "Exception_InboxNotAvailable": "Couldn't setup account folders.",

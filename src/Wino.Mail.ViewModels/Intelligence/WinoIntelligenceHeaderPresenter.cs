@@ -19,6 +19,7 @@ using Wino.Mail.Controls.Core.IntelligenceHeader;
 using Wino.Mail.Controls.Core.IntelligenceTileBar;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.UI;
+using Wino.Services.Extensions;
 
 namespace Wino.Mail.ViewModels.Intelligence;
 
@@ -246,13 +247,19 @@ public sealed partial class WinoIntelligenceHeaderPresenter : ObservableObject, 
 
     /// <summary>
     /// Records the HTML that is about to be rendered and prepares its projections. Any previous
-    /// translation belongs to other content and is dropped.
+    /// translation belongs to other content and is dropped. HTML too large to project still
+    /// renders; it only goes without projections.
     /// </summary>
     public void SetRenderedContent(string? html)
     {
         _currentRenderedHtml = html ?? string.Empty;
-        _translationProjection = _contentProjector.Project(_currentRenderedHtml, MailContentProjectionProfile.Translation);
-        _inferenceProjection = _contentProjector.Project(_currentRenderedHtml, MailContentProjectionProfile.Inference)?.Projection;
+        var canProject = MailContentProjectorExtensions.CanProjectRenderedHtml(_currentRenderedHtml);
+        _translationProjection = canProject
+            ? _contentProjector.ProjectRenderedHtml(_currentRenderedHtml, MailContentProjectionProfile.Translation)
+            : null;
+        _inferenceProjection = canProject
+            ? _contentProjector.ProjectRenderedHtml(_currentRenderedHtml, MailContentProjectionProfile.Inference).Projection
+            : null;
         _translationMap = null;
         IsShowingTranslation = false;
     }

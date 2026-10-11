@@ -65,6 +65,26 @@ public class DraftRewriteCoordinatorTests
     }
 
     [Fact]
+    public async Task RewriteDraftAsync_SendsDraftWithoutEmbeddedImageData()
+    {
+        var localAccountId = Guid.NewGuid();
+        var (coordinator, profileService, _) = CreateEligibleCoordinator(localAccountId);
+        var imageData = new string('A', DraftRewriteLimits.MaximumHtmlLength);
+        var html = $"<p>draft</p><img src=\"data:image/png;base64,{imageData}\">";
+        profileService
+            .Setup(x => x.RewriteAsync("<p>draft</p><img src=\"\">", "happy", RewriteContexts.Composing, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiEnvelope<AiTextResultDto>.Success(new AiTextResultDto("<p>Draft!</p>")));
+
+        using (coordinator)
+        {
+            var result = await coordinator.RewriteDraftAsync(localAccountId, Guid.NewGuid(), html, "happy");
+
+            result.IsSuccess.Should().BeTrue("image data must not count toward the size limit or be uploaded");
+            result.Value.Should().Be("<p>Draft!</p>");
+        }
+    }
+
+    [Fact]
     public async Task RewriteDraftAsync_RejectsAnOversizedDraft_WithoutCallingTheApi()
     {
         var localAccountId = Guid.NewGuid();

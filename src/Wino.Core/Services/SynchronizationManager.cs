@@ -1508,7 +1508,10 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         Exception exception)
     {
         var firstIssue = issues?.FirstOrDefault();
-        var issueCategory = firstIssue?.Category ?? SynchronizerErrorCategory.Unknown;
+        var issueCategory = firstIssue?.Category
+                            ?? (exception is AuthenticationAttentionException
+                                ? SynchronizerErrorCategory.Authentication
+                                : SynchronizerErrorCategory.Unknown);
         var exceptionType = firstIssue?.ExceptionType
                             ?? exception?.GetType().Name
                             ?? "Unknown";
