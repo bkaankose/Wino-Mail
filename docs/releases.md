@@ -163,11 +163,13 @@ Packages appear under `D:\Wino Releases`, one folder per manifest version. Set `
     WinoMail_Store_2.0.55.0.msixupload
     WinoMail_Store_2.0.55.0.msixbundle
     WinoMail_Store_TestCertificate.cer
-  Symbols/                              (PDB files only)
+  Symbols/<architecture>/               (Wino.Mail.WinUI.pdb, Wino.NotificationHost.pdb, native dependency PDBs)
 ```
 
 Every channel in a run is packaged from one compilation, so the build stores its PDB files once in the version's
-`Symbols/` directory. A later run for the same version, for example Beta after Store, keeps the existing `Symbols/`
+`Symbols/` directory. These are the same files the `.appxsym` packages contain. `Wino.Mail.WinUI.pdb` is the
+Native AOT image PDB: Release crashes reference only that image, so the build fails if it is missing. Managed
+library PDBs are not kept because Native AOT compiles that code into the image. A later run for the same version, for example Beta after Store, keeps the existing `Symbols/`
 when its PDB files are identical. If they differ, that run's channels get their own `Symbols/` directory instead.
 Symbol upload is intentionally opt-in: an interactive build asks whether to upload them after packaging.
 Declining does not delete the symbols. Upload them later with:

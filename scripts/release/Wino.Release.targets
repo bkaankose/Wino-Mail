@@ -18,6 +18,17 @@
                       Lines="@(AppxPackagePayload->'%(TargetPath)')" Overwrite="true" Encoding="UTF-8" />
   </Target>
 
+  <!-- Export the PDB files the MSIX tooling selects for the .appxsym, including the Native AOT image PDB
+       that never appears in the package payload. Sentry needs exactly these files to symbolicate. -->
+  <Target Name="WinoExportReleaseSymbols" AfterTargets="_CalculateInputsForGenerateAppxPackageRecipe"
+          Condition="'$(Configuration)' == 'Release' and '$(DesignTimeBuild)' != 'true'">
+    <Error Condition="'@(PDBPayload)' == ''" Text="The release build produced no symbol files." />
+    <MakeDir Directories="$(_WinoReleaseExportDir)symbols" />
+    <Copy SourceFiles="@(PDBPayload)" DestinationFiles="@(PDBPayload->'$(_WinoReleaseExportDir)symbols\%(Filename)%(Extension)')" />
+    <Error Condition="'$(PublishAot)' == 'true' and !Exists('$(_WinoReleaseExportDir)symbols\$(TargetName).pdb')"
+           Text="The Native AOT symbol file $(TargetName).pdb was not exported." />
+  </Target>
+
   <Target Name="WinoExportReleaseManifest" AfterTargets="_GenerateAppxManifest"
           Condition="'$(Configuration)' == 'Release' and '$(DesignTimeBuild)' != 'true'">
     <Error Condition="'@(FinalAppxManifest)' == ''" Text="The generated release manifest is missing." />

@@ -30,6 +30,10 @@ $symbolFiles = @(Get-ChildItem -LiteralPath $symbolsRoot -Recurse -File -Include
 if ($symbolFiles.Count -eq 0) {
     throw "No PDB or appxsym files were found under: $symbolsRoot"
 }
+# Crashes in Release builds reference the Native AOT image, so its PDB is the one that matters.
+if (-not ($symbolFiles | Where-Object Name -ieq 'Wino.Mail.WinUI.pdb') -and -not ($symbolFiles | Where-Object Extension -ieq '.appxsym')) {
+    throw "Wino.Mail.WinUI.pdb was not found under $symbolsRoot. Release crashes cannot be symbolicated without it."
+}
 
 $null = Get-Command sentry -ErrorAction Stop
 if ([string]::IsNullOrWhiteSpace($env:SENTRY_AUTH_TOKEN)) {

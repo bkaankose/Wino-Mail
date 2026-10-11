@@ -822,17 +822,18 @@ function Copy-ReleaseSymbols {
         throw "The release symbol export directory is missing: $source"
     }
 
-    $symbolFiles = @(Get-ChildItem -LiteralPath $source -Recurse -File -Filter '*.pdb')
-    if ($symbolFiles.Count -eq 0) {
-        throw "The release export contains no PDB files: $source"
-    }
-
+    # Wino.Release.targets exports the .appxsym symbol set per architecture. Managed library PDBs from the
+    # payload are not kept: Native AOT compiles them into the image, so crashes never reference them.
     $staged = Resolve-ReleaseChildPath $Staging 'symbols'
     if (Test-Path -LiteralPath $staged) { throw "The staged symbol directory already exists: $staged" }
-    foreach ($symbol in $symbolFiles) {
-        $target = Resolve-ReleaseChildPath $staged ([IO.Path]::GetRelativePath($source, $symbol.FullName))
-        $null = New-Item -ItemType Directory -Path (Split-Path $target) -Force
-        Copy-Item -LiteralPath $symbol.FullName -Destination $target
+    foreach ($architecture in $Plan.Selection.Architectures) {
+        $exported = Resolve-ReleaseChildPath $source "$architecture/symbols"
+        if (-not (Test-Path -LiteralPath (Join-Path $exported 'Wino.Mail.WinUI.pdb') -PathType Leaf)) {
+            throw "The $architecture build did not export the Native AOT symbol file Wino.Mail.WinUI.pdb: $exported"
+        }
+        $target = Resolve-ReleaseChildPath $staged $architecture
+        $null = New-Item -ItemType Directory -Path $target -Force
+        Get-ChildItem -LiteralPath $exported -File -Filter '*.pdb' | Copy-Item -Destination $target
     }
 
     if (-not (Test-Path -LiteralPath $Plan.SymbolsPath)) {
