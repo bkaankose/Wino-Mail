@@ -48,7 +48,6 @@ public sealed partial class AppDelegate
     partial void CompanionLaunching()
     {
         _launchedAtLogin = DetectLoginLaunch();
-        if (_launchedAtLogin) Serilog.Log.Information("Wino was launched at login; starting in the background until the close behaviour is known.");
     }
 
     /// <summary>Whether launching should keep the Dock icon away and the first window hidden.</summary>
@@ -57,6 +56,8 @@ public sealed partial class AppDelegate
     partial void CompanionServicesReady()
     {
         if (_services is null) return;
+        // The logger starts with the runtime, after CompanionLaunching ran.
+        Serilog.Log.Information("Launched {Kind}.", _launchedAtLogin ? "at login" : "by the user");
         var preferences = _services.GetRequiredService<IPreferencesService>();
         var navigation = new CompanionNavigationCallbacks(
             _ => ShowWinoAsync(WinoApplicationMode.Mail),
