@@ -2,6 +2,7 @@ using System.Collections.Specialized;
 using AppKit;
 using CommunityToolkit.Mvvm.Messaging;
 using CoreGraphics;
+using Microsoft.Extensions.DependencyInjection;
 using WebKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
@@ -36,6 +37,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     : WinoViewController<MailRenderingPageViewModel>(viewModel, dispatcher, logger)
 {
     private readonly IServiceProvider _services = services;
+    private readonly MacSenderPictureProvider _pictures = services.GetRequiredService<MacSenderPictureProvider>();
     private MailReaderCommandBar _commandBar = null!;
     private NSTextField _subject = null!;
     private WinoContactPicture _avatar = null!;
@@ -218,6 +220,12 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         });
         Bind(nameof(ViewModel.FromName), vm => vm.FromName, _ => UpdateSender());
         Bind(nameof(ViewModel.FromAddress), vm => vm.FromAddress, _ => UpdateSender());
+        EventHandler<string?> pictureChanged = (_, address) =>
+        {
+            if (address is null || string.Equals(ViewModel.FromAddress?.Trim(), address, StringComparison.OrdinalIgnoreCase)) UpdateSender();
+        };
+        _pictures.PictureChanged += pictureChanged;
+        Bindings.Own(new ActionDisposable(() => _pictures.PictureChanged -= pictureChanged));
         Bind(nameof(ViewModel.CreationDate), vm => vm.CreationDate, _ => UpdateRecipients());
         Bind(nameof(ViewModel.MenuItems), vm => vm.MenuItems, _ => UpdateCommandBar());
         Bind(nameof(ViewModel.IsMailContentReady), vm => vm.IsMailContentReady, ready =>
@@ -280,6 +288,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _senderName.StringValue = name ?? string.Empty;
         _senderAddress.StringValue = string.Equals(name, ViewModel.FromAddress, StringComparison.OrdinalIgnoreCase) ? string.Empty : ViewModel.FromAddress ?? string.Empty;
         _avatar.SetIdentity(name, ViewModel.FromAddress);
+        _avatar.Image = _pictures.Get(ViewModel.FromAddress);
     }
 
     private void UpdateRecipients()

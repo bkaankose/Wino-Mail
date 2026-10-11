@@ -35,6 +35,7 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
     private readonly IPreferencesService _preferences;
     private readonly IWinoAccountIntelligenceSnapshotService _entitlementService;
     private readonly IKeyboardShortcutService _shortcuts;
+    private readonly MacSenderPictureProvider _pictures;
     private NSSplitViewController _split = null!;
     private WinoZoneView _listZone = null!;
     private WinoZoneView _readerZone = null!;
@@ -43,13 +44,15 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
 
     public MailListPageViewController(MailListPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger,
         AppKitNavigationService navigation, IFolderService folderService,
-        IWinoAccountIntelligenceSnapshotService entitlementService, IKeyboardShortcutService shortcuts)
+        IWinoAccountIntelligenceSnapshotService entitlementService, IKeyboardShortcutService shortcuts,
+        MacSenderPictureProvider pictures)
         : base(viewModel, dispatcher, logger)
     {
         _navigation = navigation;
         _folderService = folderService;
         _entitlementService = entitlementService;
         _shortcuts = shortcuts;
+        _pictures = pictures;
         _preferences = viewModel.PreferencesService;
     }
 

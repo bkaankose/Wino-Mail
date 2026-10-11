@@ -136,7 +136,7 @@ internal sealed class MailMultiSelectionView : NSView
             Font = NSFont.SystemFontOfSize(13)
         });
 
-    public void Update(IReadOnlyList<(string Name, string Address)> senders, int count, int unread, int flagged, int attachments)
+    public void Update(IReadOnlyList<(string Name, string Address)> senders, int count, int unread, int flagged, int attachments, Func<string?, NSImage?>? senderPicture = null)
     {
         foreach (var view in _avatars.ArrangedSubviews)
         {
@@ -148,6 +148,7 @@ internal sealed class MailMultiSelectionView : NSView
         {
             var picture = new WinoContactPicture(44) { Stroke = NSColor.WindowBackground, StrokeWidth = 2 };
             picture.SetIdentity(string.IsNullOrWhiteSpace(name) ? address : name, string.IsNullOrWhiteSpace(address) ? name : address);
+            picture.Image = senderPicture?.Invoke(address);
             _avatars.AddArrangedSubview(picture);
         }
         _title.StringValue = string.Format(Translator.MailsSelected, count);

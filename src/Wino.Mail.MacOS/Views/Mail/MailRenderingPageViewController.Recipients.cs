@@ -93,6 +93,7 @@ public sealed partial class MailRenderingPageViewController
         var picture = new WinoContactPicture(36);
         var display = string.IsNullOrWhiteSpace(name) ? address : name;
         picture.SetIdentity(display, address);
+        picture.Image = _pictures.Get(address);
         var nameLabel = WinoStyle.Label(display, WinoStyle.BodyStrong);
         nameLabel.Selectable = true;
         var addressLink = new MailLinkButton(address, NSFont.SystemFontOfSize(12))
