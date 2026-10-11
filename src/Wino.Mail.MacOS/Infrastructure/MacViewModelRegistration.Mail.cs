@@ -14,6 +14,7 @@ public static partial class MacViewModelRegistration
     {
         // The reader ViewModel needs the appearance; Windows registers this in its platform container.
         services.TryAddSingleton<IUnderlyingThemeService, MacUnderlyingThemeService>();
+        services.TryAddSingleton<MacSenderPictureProvider>();
 
         services.AddTransient<MailListPageViewModel>();
         services.AddTransient<MailRenderingPageViewModel>();

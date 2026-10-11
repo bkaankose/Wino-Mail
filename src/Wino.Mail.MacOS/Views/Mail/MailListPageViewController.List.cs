@@ -279,6 +279,7 @@ public sealed partial class MailListPageViewController
         BindBars();
 
         _preferences.PreferenceChanged += PreferenceChanged;
+        _pictures.PictureChanged += SenderPictureChanged;
         WinoStyle.AccentChanged += AccentChanged;
         WinoStyle.BackdropChanged += AccentChanged;
         RegisterDebugCommands();
@@ -292,6 +293,7 @@ public sealed partial class MailListPageViewController
         if (!_listBound) return;
         _listBound = false;
         _preferences.PreferenceChanged -= PreferenceChanged;
+        _pictures.PictureChanged -= SenderPictureChanged;
         WinoStyle.AccentChanged -= AccentChanged;
         WinoStyle.BackdropChanged -= AccentChanged;
         ViewModel.PivotFolders.CollectionChanged -= PivotFoldersChanged;
@@ -739,12 +741,33 @@ public sealed partial class MailListPageViewController
         return cell;
     }
 
+    /// <summary>The row snapshot with the sender's Gravatar or favicon when one is cached.</summary>
+    private WinoMailRowModel MapRow(MailListRow row)
+    {
+        var model = MailRowMapper.Map(row, _preferences, ViewModel.IsMergedAccountView, _densityOverride);
+        return model.ShowPicture ? model with { Picture = _pictures.Get(model.SenderAddress) } : model;
+    }
+
+    /// <summary>A sender picture arrived or changed: re-apply the visible rows from that sender (all rows when null).</summary>
+    private void SenderPictureChanged(object? sender, string? address) => OnUI(() =>
+    {
+        if (!_listBound) return;
+        var visible = _table.RowsInRect(_table.VisibleRect());
+        for (nint index = visible.Location; index < visible.Location + visible.Length; index++)
+        {
+            if (RowAt(index) is not { } row || _table.GetView(0, index, false) is not WinoMailRowView cell) continue;
+            if (address is not null && !string.Equals(cell.Model.SenderAddress?.Trim(), address, StringComparison.OrdinalIgnoreCase)) continue;
+            cell.Apply(MapRow(row));
+        }
+        UpdateMultiSelectionOverlay();
+    });
+
     private void BindCell(WinoMailRowView cell, MailListRow row)
     {
         cell.Item = row;
         cell.IsSelectionMode = _selectionMode;
         cell.HoverActionsEnabled = _preferences.IsHoverActionsEnabled;
-        cell.Apply(MailRowMapper.Map(row, _preferences, ViewModel.IsMergedAccountView, _densityOverride));
+        cell.Apply(MapRow(row));
 
         var leaves = (row.IsThreadHead ? row.LeafItems : [row.SourceItem]).OfType<INotifyPropertyChanged>().ToArray();
         var shown = cell.Model;
@@ -763,7 +786,7 @@ public sealed partial class MailListPageViewController
                 if (!active || _released || !ReferenceEquals(cell.Item, row)) return;
                 // The thread gained or lost leaves: subscribe to the new set.
                 if (rebind) BindCell(cell, row);
-                else cell.Apply(MailRowMapper.Map(row, _preferences, ViewModel.IsMergedAccountView, _densityOverride));
+                else cell.Apply(MapRow(row));
                 if (TileLayoutChanged(shown, cell.Model))
                 {
                     nint index = _table.RowForView(cell);

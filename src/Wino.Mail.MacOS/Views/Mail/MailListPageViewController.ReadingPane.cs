@@ -242,7 +242,7 @@ public sealed partial class MailListPageViewController : IRenderingFrameHost, IR
         var senders = items.Select(static item => (item.FromName ?? string.Empty, item.FromAddress ?? string.Empty))
             .DistinctBy(static sender => sender.Item2, StringComparer.OrdinalIgnoreCase).Take(3).ToArray();
         _multiSelectionView.Update(senders, items.Count, items.Count(static item => !item.IsRead),
-            items.Count(static item => item.IsFlagged), items.Count(static item => item.HasAttachments));
+            items.Count(static item => item.IsFlagged), items.Count(static item => item.HasAttachments), _pictures.Get);
     }
 
     public void Receive(ActiveMailItemChangedEvent message)
