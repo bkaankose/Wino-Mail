@@ -93,6 +93,7 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
         // The View menu has its own Enter Full Screen item; AppKit would add a second one.
         NSUserDefaults.StandardUserDefaults.SetBool(false, "NSFullScreenMenuItemEverywhere");
         InstallMenus();
+        SheetKeyViewLoop.Install();
         UpdatesLaunching();
         // No window until startup knows which one to show (HostController creates it): the shell
         // with accounts, Welcome without. A placeholder window here flashed before the shell.
