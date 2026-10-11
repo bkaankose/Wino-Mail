@@ -144,8 +144,8 @@ public sealed partial class ApplicationThemeEditorPageViewController
 
         _baseRows = WinoLayout.VStack(0);
 
-        var useSystem = Bind.Switch(vm, nameof(vm.UseSystemAccent), s => s.UseSystemAccent, (s, value) => s.UseSystemAccent = value, Translator.ApplicationThemeEditor_UseSystemAccent);
-        var systemCard = Card(Translator.ApplicationThemeEditor_UseSystemAccent, null, WinoIconGlyph.None, useSystem);
+        var useSystem = Bind.Switch(vm, nameof(vm.UseSystemAccent), s => s.UseSystemAccent, (s, value) => s.UseSystemAccent = value, Translator.ApplicationThemeEditor_UseSystemAccentColor);
+        var systemCard = Card(Translator.ApplicationThemeEditor_UseSystemAccentColor, null, WinoIconGlyph.None, useSystem);
 
         var accentWell = new ThemeColorWell(allowsAlpha: false, Translator.ApplicationThemeEditor_Accent);
         _staticWells.Add(accentWell);

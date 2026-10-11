@@ -321,7 +321,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             (string[])
             [
                 Translator.WinoAccount_Management_Benefit_Entitlements_Point1_Device,
-                Translator.WinoAccount_Management_Benefit_Entitlements_Point2,
+                Translator.WinoAccount_Management_Benefit_Entitlements_ReinstallPoint,
                 Translator.WinoAccount_Management_Benefit_Entitlements_Point3,
                 Translator.WinoAccount_Management_Benefit_Entitlements_Point4
             ],

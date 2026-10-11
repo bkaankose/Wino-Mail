@@ -32,8 +32,8 @@
 
         <controls:SettingsCard
             AutomationProperties.AutomationId="AppPreferencesPageSettingsCard2"
-            Description="{x:Bind domain:Translator.SettingsAppPreferences_StartupBehavior_Description}"
-            Header="{x:Bind domain:Translator.SettingsAppPreferences_StartupBehavior_Title}">
+            Description="{x:Bind domain:Translator.SettingsAppPreferences_LaunchAtSignIn_Description}"
+            Header="{x:Bind domain:Translator.SettingsAppPreferences_LaunchAtSignIn_Title}">
             <ToggleButton
                 x:Name="StartupEnabledToggleButton"
                 AutomationProperties.AutomationId="StartupEnabledToggleButton"

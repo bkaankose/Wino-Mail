@@ -26,7 +26,7 @@ public sealed class AppPreferencesPageViewController(AppPreferencesPageViewModel
             itemsProperty: nameof(vm.AvailableLanguages), width: 180);
 
         var startup = Bind.CommandSwitch(vm, nameof(vm.IsStartupBehaviorEnabled), source => source.IsStartupBehaviorEnabled,
-            vm.ToggleStartupBehaviorCommand, Translator.SettingsAppPreferences_StartupBehavior_Title);
+            vm.ToggleStartupBehaviorCommand, Translator.SettingsAppPreferences_LaunchAtSignIn_Title);
 
         var closeBehavior = Bind.PopUp<AppPreferencesPageViewModel, string>(vm,
             source => source.CloseBehaviorModes, item => item,
@@ -35,7 +35,7 @@ public sealed class AppPreferencesPageViewController(AppPreferencesPageViewModel
 
         AddGroup(null,
             Card(Translator.SettingsLanguage_Title, Translator.SettingsLanguage_Description, WinoIconGlyph.Translate, language),
-            Card(Translator.SettingsAppPreferences_StartupBehavior_Title, Translator.SettingsAppPreferences_StartupBehavior_Description, WinoIconGlyph.Power, startup),
+            Card(Translator.SettingsAppPreferences_LaunchAtSignIn_Title, Translator.SettingsAppPreferences_LaunchAtSignIn_Description, WinoIconGlyph.Power, startup),
             Card(Translator.SettingsAppPreferences_CloseBehavior_Title, Translator.SettingsAppPreferences_CloseBehavior_Description, WinoIconGlyph.Desktop, closeBehavior));
 #if !WINO_APPSTORE
         AddUpdateCards();

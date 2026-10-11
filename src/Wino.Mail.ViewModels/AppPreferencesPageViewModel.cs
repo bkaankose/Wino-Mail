@@ -166,19 +166,19 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
     {
         if (StartupBehaviorResult == StartupBehaviorResult.Enabled)
         {
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_StartupBehavior_Enabled, InfoBarMessageType.Success);
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_LaunchAtSignIn_Enabled, InfoBarMessageType.Success);
         }
         else if (StartupBehaviorResult == StartupBehaviorResult.Disabled)
         {
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_StartupBehavior_Disabled, InfoBarMessageType.Warning);
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_LaunchAtSignIn_Disabled, InfoBarMessageType.Warning);
         }
         else if (StartupBehaviorResult == StartupBehaviorResult.DisabledByPolicy)
         {
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_StartupBehavior_DisabledByPolicy, InfoBarMessageType.Warning);
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_LaunchAtSignIn_DisabledByPolicy, InfoBarMessageType.Warning);
         }
         else if (StartupBehaviorResult == StartupBehaviorResult.DisabledByUser)
         {
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_StartupBehavior_DisabledByUser, InfoBarMessageType.Warning);
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_LaunchAtSignIn_DisabledByUser, InfoBarMessageType.Warning);
         }
         else
         {

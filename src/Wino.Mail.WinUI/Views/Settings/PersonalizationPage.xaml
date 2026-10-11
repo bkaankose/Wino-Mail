@@ -43,7 +43,7 @@
                         </GridView>
                         <CheckBox
                             AutomationProperties.AutomationId="PersonalizationUseSystemAccentCheckBox"
-                            Content="{x:Bind domain:Translator.SettingsAccentColor_UseWindowsAccentColor, Mode=OneTime}"
+                            Content="{x:Bind domain:Translator.SettingsAccentColor_UseSystemAccentColor, Mode=OneTime}"
                             IsChecked="{x:Bind ViewModel.UseAccentColor, Mode=TwoWay}" />
                     </StackPanel>
                 </controls:SettingsCard>
@@ -52,7 +52,7 @@
 
         <controls:SettingsCard
             AutomationProperties.AutomationId="PersonalizationElementThemeCard"
-            Description="{x:Bind domain:Translator.SettingsElementTheme_Description, Mode=OneTime}"
+            Description="{x:Bind domain:Translator.SettingsElementTheme_SelectThemeDescription, Mode=OneTime}"
             Header="{x:Bind domain:Translator.SettingsElementTheme_Title, Mode=OneTime}">
             <controls:SettingsCard.HeaderIcon>
                 <coreControls:WinoFontIcon Icon="DarkTheme" />

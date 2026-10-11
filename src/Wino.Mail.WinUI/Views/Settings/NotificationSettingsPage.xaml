@@ -115,7 +115,7 @@
                     AutomationProperties.AutomationId="NotificationSettingsSystemQuietTimeInfoBar"
                     IsClosable="False"
                     IsOpen="{x:Bind ViewModel.IsSystemQuietTimeActive, Mode=OneWay}"
-                    Message="{x:Bind domain:Translator.NotificationSettings_SystemQuietTime, Mode=OneTime}"
+                    Message="{x:Bind domain:Translator.NotificationSettings_DoNotDisturbOn, Mode=OneTime}"
                     Severity="Informational" />
             </StackPanel>
         </Border>

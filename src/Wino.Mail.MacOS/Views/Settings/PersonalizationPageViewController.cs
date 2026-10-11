@@ -56,10 +56,10 @@ public sealed class PersonalizationPageViewController(PersonalizationPageViewMod
         var accent = Expander(Translator.SettingsAccentColor_Title, Translator.SettingsAccentColor_Description, WinoIconGlyph.Color, null,
             swatchCard,
             Card(string.Empty, null, WinoIconGlyph.None,
-                Bind.Checkbox(_appearance, Translator.SettingsAccentColor_UseWindowsAccentColor, nameof(MacAppearanceModel.UseSystemAccent),
+                Bind.Checkbox(_appearance, Translator.SettingsAccentColor_UseSystemAccentColor, nameof(MacAppearanceModel.UseSystemAccent),
                     s => s.UseSystemAccent, (s, v) => s.UseSystemAccent = v)));
 
-        var appearance = Card(Translator.SettingsElementTheme_Title, Translator.SettingsElementTheme_Description, WinoIconGlyph.DarkTheme,
+        var appearance = Card(Translator.SettingsElementTheme_Title, Translator.SettingsElementTheme_SelectThemeDescription, WinoIconGlyph.DarkTheme,
             Bind.Segmented(_appearance, vm.ElementThemes.Select(theme => theme.Title).ToList(),
                 nameof(MacAppearanceModel.ThemeIndex), s => s.ThemeIndex, (s, v) => s.ThemeIndex = v));
 

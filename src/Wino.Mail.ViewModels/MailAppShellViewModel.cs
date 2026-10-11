@@ -406,7 +406,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             }
 
             bool isAccepted = await _dialogService.ShowWinoCustomMessageDialogAsync(Translator.DialogMessage_EnableStartupLaunchTitle,
-                                                                                   Translator.DialogMessage_EnableStartupLaunchMessage,
+                                                                                   Translator.DialogMessage_EnableLaunchAtSignInMessage,
                                                                                    Translator.Buttons_Yes,
                                                                                    WinoCustomMessageDialogIcon.Information,
                                                                                    Translator.Buttons_No);

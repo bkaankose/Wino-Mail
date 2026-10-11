@@ -24,7 +24,7 @@ public sealed class AboutPageViewController(AboutPageViewModel viewModel, IDispa
         };
         WinoLayout.Size(appIcon, 56, 56);
         var name = WinoStyle.Label("Wino Mail", WinoStyle.Heading, WinoStyle.PrimaryText);
-        var description = WinoStyle.Label(Translator.SettingsAboutWinoDescription, WinoStyle.Description, WinoStyle.SecondaryText, 0);
+        var description = WinoStyle.Label(Translator.SettingsAboutWino_AppDescription, WinoStyle.Description, WinoStyle.SecondaryText, 0);
         var version = WinoStyle.Label(Translator.SettingsAboutVersion + vm.VersionName, WinoStyle.Description, WinoStyle.SecondaryText);
         version.Selectable = true;
         var hero = WinoLayout.HStack(WinoStyle.Space4, appIcon, WinoLayout.VStack(2, name, description, version));

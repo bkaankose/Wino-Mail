@@ -35,7 +35,7 @@
             Margin="0,0,0,12"
             HorizontalAlignment="Center"
             Style="{StaticResource BodyTextBlockStyle}"
-            Text="{x:Bind domain:Translator.SettingsAboutWinoDescription}" />
+            Text="{x:Bind domain:Translator.SettingsAboutWino_AppDescription}" />
 
         <accessibilityControls:WinoSettingsCard
             AutomationProperties.AutomationId="AboutPageWhatsNewSettingsCard"

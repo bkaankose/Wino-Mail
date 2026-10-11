@@ -52,7 +52,7 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
         Bind.Bind(vm, nameof(vm.SnoozeStateText), s => s.SnoozeStateText, text => { state.Header = text ?? string.Empty; state.Hidden = string.IsNullOrEmpty(text); });
         AddGroup(null, hero, state);
 
-        var quietTime = InfoBar(WinoInfoBarSeverity.Informational, null, Translator.NotificationSettings_SystemQuietTime);
+        var quietTime = InfoBar(WinoInfoBarSeverity.Informational, null, Translator.NotificationSettings_DoNotDisturbOn);
         Bind.Visible(quietTime, vm, nameof(vm.IsSystemQuietTimeActive), s => s.IsSystemQuietTimeActive);
         Add(quietTime);
 

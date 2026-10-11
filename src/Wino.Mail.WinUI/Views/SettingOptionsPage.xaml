@@ -229,7 +229,7 @@
                 <controls:SettingsCard
                     Margin="16,0,0,0"
                     AutomationProperties.AutomationId="SettingOptionsPageSettingsCard5"
-                    Description="{x:Bind domain:Translator.SettingsElementTheme_Description}"
+                    Description="{x:Bind domain:Translator.SettingsElementTheme_SelectThemeDescription}"
                     Header="{x:Bind domain:Translator.SettingsElementTheme_Title}">
                     <controls:SettingsCard.HeaderIcon>
                         <coreControls:WinoFontIcon Icon="PaintBrush" />

@@ -610,7 +610,7 @@
                         ItemsSource="{x:Bind ViewModel.BaseSurfaceOptions}" />
                 </controls:SettingsCard>
 
-                <controls:SettingsCard AutomationProperties.AutomationId="ApplicationThemeEditorSystemAccentCard" Header="{x:Bind domain:Translator.ApplicationThemeEditor_UseSystemAccent, Mode=OneTime}">
+                <controls:SettingsCard AutomationProperties.AutomationId="ApplicationThemeEditorSystemAccentCard" Header="{x:Bind domain:Translator.ApplicationThemeEditor_UseSystemAccentColor, Mode=OneTime}">
                     <ToggleSwitch AutomationProperties.AutomationId="ApplicationThemeEditorSystemAccentToggle" IsOn="{x:Bind ViewModel.UseSystemAccent, Mode=TwoWay}" />
                 </controls:SettingsCard>
 
