@@ -28,11 +28,11 @@ public sealed partial class UnreadBadgeLocationIllustration : UserControl
     public partial int Count { get; set; }
 
     /// <summary>
-    /// The folders drawn by <see cref="UnreadBadgeIllustrationKind.FolderBadges"/>, as a concrete
-    /// list of <see cref="UnreadBadgeFolderViewModel"/> so WinRT can project it.
+    /// The folders drawn by <see cref="UnreadBadgeIllustrationKind.FolderBadges"/>, typed as a concrete
+    /// list so Native AOT can project it.
     /// </summary>
     [GeneratedDependencyProperty]
-    public partial object? Folders { get; set; }
+    public partial System.Collections.Generic.List<UnreadBadgeFolderViewModel>? Folders { get; set; }
 
     public UnreadBadgeLocationIllustration()
     {

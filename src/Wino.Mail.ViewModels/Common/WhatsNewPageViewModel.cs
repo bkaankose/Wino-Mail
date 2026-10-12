@@ -20,7 +20,7 @@ public partial class WhatsNewPageViewModel : CoreBaseViewModel
     public partial WhatsNewRelease? SelectedRelease { get; set; }
 
     [ObservableProperty]
-    public partial IReadOnlyList<WhatsNewFeature> Features { get; set; } = [];
+    public partial List<WhatsNewFeature> Features { get; set; } = [];
 
     [ObservableProperty]
     public partial WhatsNewFeature? SelectedFeature { get; set; }

@@ -138,8 +138,8 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     private ObservableCollection<MonthCellLabelLayout> MonthCellLabelsCollection { get; } = [];
     private ObservableCollection<MonthItemLayout> MonthItemsCollection { get; } = [];
 
-    public IEnumerable<HeaderTextLayout> TimedHeaderTexts => TimedHeaderTextsCollection;
-    public IEnumerable<HeaderTextLayout> MonthHeaderTexts => MonthHeaderTextsCollection;
+    public ObservableCollection<HeaderTextLayout> TimedHeaderTexts => TimedHeaderTextsCollection;
+    public ObservableCollection<HeaderTextLayout> MonthHeaderTexts => MonthHeaderTextsCollection;
     public IEnumerable<TimedItemLayout> TimedItems => TimedItemsCollection;
     public IEnumerable<TimedItemLayout> TimedAllDayItems => TimedAllDayItemsCollection;
     public IEnumerable<MonthCellLabelLayout> MonthCellLabels => MonthCellLabelsCollection;

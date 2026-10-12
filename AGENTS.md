@@ -29,7 +29,7 @@ Platform services live in `Wino.Platform.Windows` and `Wino.Platform.MacOS`. Do 
 ## Shared coding rules
 
 - Treat nullable diagnostics as real defects. Guard missing items and owners explicitly; two null account IDs comparing equal does not make either account safe to dereference. Do not hide errors with null-forgiving operators, warning suppressions, disabled analyzers, or weakened Release settings.
-- Give collection expressions that target read-only interfaces an explicit concrete backing type. See the [implementation rules](docs/harness/implementation-rules.md#core-implementation-rules).
+- Give collection expressions that target read-only interfaces an explicit concrete backing type. Collections that reach an items source need a concrete static type, not an interface; `WINOAOT001` enforces it. See the [implementation rules](docs/harness/implementation-rules.md#core-implementation-rules).
 - Verify which source file the active project compiles before editing. Legacy and active files can share a namespace and type name.
 - Keep business rules in shared services and ViewModels. Platform heads adapt them; they do not re-implement them.
 - Add English strings only to `src/Wino.Core.Domain/Translations/en_US/resources.json`.

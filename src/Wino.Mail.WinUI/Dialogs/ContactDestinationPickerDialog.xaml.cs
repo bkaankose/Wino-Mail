@@ -6,12 +6,12 @@ namespace Wino.Dialogs;
 
 public sealed partial class ContactDestinationPickerDialog : ContentDialog
 {
-    public IReadOnlyList<ContactCreateDestination> Destinations { get; }
+    internal ContactCreateDestination[] Destinations { get; }
     public ContactCreateDestination? PickedDestination { get; private set; }
 
     public ContactDestinationPickerDialog(IReadOnlyList<ContactCreateDestination> destinations)
     {
-        Destinations = destinations;
+        Destinations = [.. destinations];
         InitializeComponent();
     }
 

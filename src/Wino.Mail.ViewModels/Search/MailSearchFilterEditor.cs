@@ -84,14 +84,14 @@ public sealed class MailSearchFilterChip(MailSearchFilterKind kind, string text)
 /// </summary>
 public sealed partial class MailSearchFilterEditor : ObservableObject
 {
-    public IReadOnlyList<MailSearchFilterOption> ScopeOptions { get; } = (MailSearchFilterOption[])
+    public MailSearchFilterOption[] ScopeOptions { get; } =
     [
         new((int)MailSearchScope.CurrentFolder, Translator.SearchBar_CurrentFolder),
         new((int)MailSearchScope.Subfolders, Translator.SearchBar_ScopeSubfolders),
         new((int)MailSearchScope.AllFolders, Translator.SearchBar_AllFolders),
     ];
 
-    public IReadOnlyList<MailSearchFilterOption> DateRangeOptions { get; } = (MailSearchFilterOption[])
+    public MailSearchFilterOption[] DateRangeOptions { get; } =
     [
         new((int)MailSearchDateRange.AnyTime, Translator.SearchBar_DateAnyTime),
         new((int)MailSearchDateRange.Today, Translator.SearchBar_DateToday),
@@ -100,7 +100,7 @@ public sealed partial class MailSearchFilterEditor : ObservableObject
         new((int)MailSearchDateRange.Custom, Translator.SearchBar_DateCustom),
     ];
 
-    public IReadOnlyList<MailSearchFilterOption> ReadStatusOptions { get; } = (MailSearchFilterOption[])
+    public MailSearchFilterOption[] ReadStatusOptions { get; } =
     [
         new((int)MailReadStatusFilter.All, Translator.SearchBar_ReadStatusAll),
         new((int)MailReadStatusFilter.Unread, Translator.SearchBar_Unread),

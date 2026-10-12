@@ -135,12 +135,12 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel
     public IPreferencesService PreferencesService { get; }
 
     public IReadOnlyList<SnoozePresetOption> SnoozePresets { get; }
-    public IReadOnlyList<MailNotificationScopeOption> ScopeOptions { get; }
-    public IReadOnlyList<MailNotificationContentOption> ContentOptions { get; }
-    public IReadOnlyList<NotificationSoundOption> SoundOptions { get; }
-    public IReadOnlyList<AccountQuietHoursStanceOption> QuietHoursStanceOptions { get; }
-    public IReadOnlyList<TaskReminderTimingOption> TaskReminderTimingOptions { get; }
-    public IReadOnlyList<MailNotificationActionOption> MailActionOptions { get; }
+    public MailNotificationScopeOption[] ScopeOptions { get; }
+    public MailNotificationContentOption[] ContentOptions { get; }
+    public NotificationSoundOption[] SoundOptions { get; }
+    public AccountQuietHoursStanceOption[] QuietHoursStanceOptions { get; }
+    public TaskReminderTimingOption[] TaskReminderTimingOptions { get; }
+    public MailNotificationActionOption[] MailActionOptions { get; }
 
     public ObservableCollection<string> ReminderOptions { get; } = [];
     public ObservableCollection<string> CalendarSnoozeOptions { get; } = [];

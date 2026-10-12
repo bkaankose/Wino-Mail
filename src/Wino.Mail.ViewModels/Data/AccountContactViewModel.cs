@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
@@ -217,7 +218,7 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
     public string AccountNickname => string.Empty;
     public string AccountColorHex => string.Empty;
     public AccountNicknamePosition AccountNicknamePosition => Wino.Core.Domain.Enums.AccountNicknamePosition.None;
-    public IReadOnlyList<MailCategory> Categories => SourceContact.Categories ?? [];
+    public ObservableCollection<MailCategory> Categories => new(SourceContact.Categories ?? []);
     public bool HasCategories => Categories.Count > 0;
     public AccountContact SenderContact => SourceContact;
 }

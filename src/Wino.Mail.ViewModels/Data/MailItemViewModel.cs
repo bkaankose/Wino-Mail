@@ -230,8 +230,6 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
 
     public ObservableCollection<MailCategory> Categories { get; }
 
-    IReadOnlyList<MailCategory> IMailItemDisplayInformation.Categories => Categories;
-
     public bool HasCategories => Categories.Count > 0;
 
     public IReadOnlyList<WinoIntelligenceTile> IntelligenceTiles => MailIntelligenceTileFactory.Create(
@@ -255,13 +253,11 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
     /// line runs out. <see cref="Categories"/> stays category-only because it is written back to
     /// <see cref="MailCopy"/>.
     /// </summary>
-    public IReadOnlyList<object> RowTiles
+    public List<object> RowTiles
     {
         get
         {
             var tiles = RowIntelligenceTiles;
-            if (tiles.Count == 0 && Categories.Count == 0) return [];
-
             var items = new List<object>(tiles.Count + Categories.Count);
             items.AddRange(Categories);
             items.AddRange(tiles);

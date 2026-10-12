@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -37,6 +38,10 @@ public interface IMailItemDisplayInformation : INotifyPropertyChanged
     string AccountNickname { get; }
     string AccountColorHex { get; }
     AccountNicknamePosition AccountNicknamePosition { get; }
-    IReadOnlyList<MailCategory> Categories { get; }
+    /// <summary>
+    /// A concrete collection on purpose: list controls bind it, and Native AOT only projects concrete
+    /// collection types to WinRT.
+    /// </summary>
+    ObservableCollection<MailCategory> Categories { get; }
     bool HasCategories { get; }
 }

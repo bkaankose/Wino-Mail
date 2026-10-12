@@ -66,10 +66,10 @@ public static class DailyBriefingPanelPresentation
     /// The chips that fit on the card's last line beside its command. A priority chip takes one of
     /// the two places, so the labels give way to it rather than running under the button.
     /// </summary>
-    public static IReadOnlyList<BriefingLabelChip> TopLabelChips(IReadOnlyList<BriefingLabelChip> chips, DailyBriefingFact fact)
+    public static List<BriefingLabelChip> TopLabelChips(IReadOnlyList<BriefingLabelChip> chips, DailyBriefingFact fact)
     {
         var room = HasUrgency(fact) ? MaxChipsPerRow - 1 : MaxChipsPerRow;
-        return chips.Count <= room ? chips : chips.Take(room).ToList();
+        return chips.Take(room).ToList();
     }
 
     /// <summary>How many chips fit beside the longest action wording at the panel's width.</summary>

@@ -52,7 +52,7 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
 
     public bool CanSynchronizeAliases => Account?.IsAliasSyncSupported ?? false;
 
-    public IReadOnlyList<AliasManagementItem> AliasItems => AliasManagementItem.Create(AccountAliases, IsSmimeAvailable);
+    public AliasManagementItemList AliasItems => AliasManagementItem.Create(AccountAliases, IsSmimeAvailable);
 
     public bool HasAliases => AccountAliases.Count > 0;
 

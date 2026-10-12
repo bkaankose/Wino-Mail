@@ -73,8 +73,7 @@ public partial class IntelligenceCoveragePageViewModel : MailBaseViewModel
 
     public ObservableCollection<SemanticIndexRangeBucketViewModel> Buckets { get; } = [];
 
-    public IReadOnlyList<CoverageCountPresetOption> CountPresets { get; } =
-    (CoverageCountPresetOption[])
+    public CoverageCountPresetOption[] CountPresets { get; } =
     [
         new(100, string.Format(Translator.SemanticIndex_CoverageCountNewest, 100)),
         new(500, string.Format(Translator.SemanticIndex_CoverageCountNewest, 500)),
@@ -83,8 +82,7 @@ public partial class IntelligenceCoveragePageViewModel : MailBaseViewModel
         new(int.MaxValue, Translator.SemanticIndex_RangeEverything),
     ];
 
-    public IReadOnlyList<CoverageDatePresetOption> DatePresets { get; } =
-    (CoverageDatePresetOption[])
+    public CoverageDatePresetOption[] DatePresets { get; } =
     [
         new(SemanticIndexRangePreset.OneWeek, Translator.SemanticIndex_CoveragePeriodOneWeek),
         new(SemanticIndexRangePreset.OneMonth, Translator.SemanticIndex_CoveragePeriodOneMonth),

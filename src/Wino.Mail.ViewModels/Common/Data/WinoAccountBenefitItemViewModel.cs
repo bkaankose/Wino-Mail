@@ -32,7 +32,7 @@ public partial class WinoAccountBenefitItemViewModel : ObservableObject
 
     public string Lede { get; }
 
-    public IReadOnlyList<string> Points { get; }
+    public string[] Points { get; }
 
     public string CtaText { get; }
 
@@ -55,7 +55,7 @@ public partial class WinoAccountBenefitItemViewModel : ObservableObject
                                           string badgeText,
                                           bool isFreeBadge,
                                           string lede,
-                                          IReadOnlyList<string> points,
+                                          string[] points,
                                           string ctaText,
                                           WinoIconGlyph icon)
     {

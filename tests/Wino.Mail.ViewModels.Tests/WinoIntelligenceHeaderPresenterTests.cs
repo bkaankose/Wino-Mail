@@ -265,7 +265,7 @@ public sealed class WinoIntelligenceHeaderPresenterTests
 
     private WinoIntelligenceHeaderPresenter CreatePresenter()
         => new(_coordinator.Object, Mock.Of<IMailService>(), _clipboard.Object, _preferences.Object, _dialogs.Object,
-            Mock.Of<IMailContentProjector>(), new InlineDispatcher());
+            new MailContentProjector(), new InlineDispatcher());
 
     private async Task<WinoIntelligenceHeaderPresenter> CreateLoadedPresenterAsync()
     {

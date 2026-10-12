@@ -32,7 +32,7 @@ Approval: 2026-10-12, user message "Start implementing the plan" after revising 
 | T5 | Build-policy isolation (`build/` imports, host platform resolution, test RIDs, F5 cache inputs); needs: T2 | Finished | Evaluated properties match expectations | Root props: host platform resolution + `build/Wino.Windows.props` (Release RIDs); root targets: shared gates + `build/Wino.Windows.targets` (CsWinRT, WinUI warnings, MSIX payload) + `build/Wino.MacOS.targets` (AppKit AOT exemption) + invalid-value error. Shared TFMs and ML.Tests RIDs gated on `== 'Windows'`. Evidence: 18-case `-getProperty` diff vs baseline shows only `WinoTargetPlatform ''->Windows` and MLTests MacOS RIDs removed; empty platform keeps gates without win RIDs; `Linux` errors; Mac head/AppKit/ML universal evaluation keeps osx RIDs and AOT exemption. F5 cache hashes `build/`. |
 | T6 | `docs/macos-shared-logic-roadmap.md` from rechecked inventory; needs: none | Finished | Roadmap with phases and status | `docs/macos-shared-logic-roadmap.md`: rechecked statuses (2 resolved, 7 partial, 24 open confirmed, rest marked not rechecked) and four phases with ownership, adapters, prerequisites, tests, native checks. |
 | T7 | Windows verification (builds, Release gate, tests, script checks); needs: T1-T6 | Finished | All pass or failures reported | Debug x64: 0 warnings/0 errors (`artifacts/platform-workflows/debug-x64.log`). Release x64 gate without packaging: 0/0 (`release-x64.log`). Tests Debug x64: Controls 34/34, ML 10/10, Core 1042/1043, ViewModels 144/155; the 12 failures (MailRecipientHistoryTests.TheSameMessageInASecondFolder_IsCountedOnce, 11 WinoIntelligenceHeaderPresenterTests) reproduce on an unchanged HEAD worktree, so they predate this work. No XAML changed. Windows manual F5 (local + Sandbox) not run: it deploys the package. |
-| T8 | macOS verification handoff; needs: T7 | Blocked | Exact pending Mac checks recorded (or run) | Needs an Apple Silicon Mac: checks listed in the macOS handoff section. Also pending: manual Windows F5 (local and Sandbox) through the new helper path. |
+| T8 | macOS verification handoff; needs: T7 | Blocked | Exact pending Mac checks recorded (or run) | Mac checks run on burak-mac (192.168.1.50, macOS 26.7.1, SDK 10.0.401, workload 27.0.10722, Xcode 27) from a clean clone of 145574e in `~/wino-validate`, ad hoc signing: host resolves MacOS with no win RIDs and Release gates on; universal head keeps osx RIDs and AOT exemption; ML osx-x64 unsupported. Debug arm64/x64, host-resolved arm64, Release arm64/x64 and Mac solution: 0 errors; codesign verify, `com.winomail.macos`, arch, CoreCLR and entitlements ok for all four bundles. Tests: Controls 34/34, ML 10/10, Core 1040/1043, ViewModels 144/155 — identical failures and warning count (54) at baseline 61b7ea3. Script syntax, --help flags, conflicting-flag error, workspace JSON ok. Remaining: manual F5 on Mac (Apple Silicon) and Windows (local + Sandbox). |
 
 ## macOS handoff (T8)
 Run on an Apple Silicon Mac from this checkout (not run here; requires the Mac):
@@ -45,8 +45,8 @@ Run on an Apple Silicon Mac from this checkout (not run here; requires the Mac):
 
 ## Resume
 - Current: T8 (blocked)
-- Next: run the macOS handoff checks on the Mac; run Windows F5 manually; then delete this record
-- Blockers: T8 needs a Mac and manual F5 runs on both hosts
+- Next: manual F5 on both hosts; then delete this record
+- Blockers: T8 needs manual F5 runs on both hosts
 - Unfinished operations: none
 
 ## History
@@ -57,3 +57,4 @@ Run on an Apple Silicon Mac from this checkout (not run here; requires the Mac):
 - 2026-10-12T11:30+02:00 | T1,T6 | Finished | Docs link check clean for new links; roadmap written. T7 started.
 - 2026-10-12T12:20+02:00 | T7 | Finished | Windows builds pass; pre-existing test failures confirmed on HEAD. T8 blocked on Mac/manual checks.
 - 2026-10-12T12:40+02:00 | T2 | Finished | Forwarders and `scripts/Invoke-RelocatedScript.ps1` removed per user; docs reference new paths only.
+- 2026-10-12T13:30+02:00 | T8 | Blocked | Automated Mac validation passed over SSH; results match baseline; only manual F5 remains.

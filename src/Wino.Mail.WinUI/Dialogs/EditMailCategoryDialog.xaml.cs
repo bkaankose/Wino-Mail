@@ -12,7 +12,7 @@ public sealed partial class EditMailCategoryDialog : ContentDialog
     public string CategoryName { get; set; }
     public MailCategoryColorOption? SelectedColor { get; set; }
 
-    public System.Collections.Generic.IReadOnlyList<MailCategoryColorOption> AvailableColors => MailCategoryPalette.DefaultOptions;
+    internal MailCategoryColorOption[] AvailableColors { get; } = [.. MailCategoryPalette.DefaultOptions];
 
     public EditMailCategoryDialog(MailCategory? category = null)
     {

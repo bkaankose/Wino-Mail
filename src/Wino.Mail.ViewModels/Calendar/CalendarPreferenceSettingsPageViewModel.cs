@@ -17,7 +17,7 @@ namespace Wino.Calendar.ViewModels;
 
 public partial class CalendarPreferenceSettingsPageViewModel : CalendarSettingsSectionViewModelBase
 {
-    public IReadOnlyList<CalendarEventDisplayModeOption> EventDisplayModeOptions { get; } = (CalendarEventDisplayModeOption[])
+    public CalendarEventDisplayModeOption[] EventDisplayModeOptions { get; } =
     [
         new(CalendarEventDisplayMode.Stacked, Translator.CalendarSettings_OverlappingEvents_Stacked, Translator.CalendarSettings_Overlap_StackedDescription),
         new(CalendarEventDisplayMode.Overlapped, Translator.CalendarSettings_Overlap_Cascade, Translator.CalendarSettings_Overlap_CascadeDescription),
@@ -29,7 +29,7 @@ public partial class CalendarPreferenceSettingsPageViewModel : CalendarSettingsS
     [NotifyPropertyChangedFor(nameof(OverlapPreviewItems))]
     public partial CalendarEventDisplayModeOption SelectedEventDisplayModeOption { get; set; }
 
-    public IReadOnlyList<CalendarOverlapPreviewItem> OverlapPreviewItems
+    public CalendarOverlapPreviewItem[] OverlapPreviewItems
     {
         get
         {

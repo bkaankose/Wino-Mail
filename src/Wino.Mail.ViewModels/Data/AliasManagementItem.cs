@@ -1,11 +1,13 @@
 #nullable enable
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
+#if WINRT_EXPOSED
+using WinRT;
+#endif
 
 namespace Wino.Mail.ViewModels.Data;
 
@@ -13,7 +15,10 @@ namespace Wino.Mail.ViewModels.Data;
 /// One alias row on the alias management page. The page reloads the whole list after every write,
 /// so this item is a snapshot over its alias: it shapes the row's text and never mutates it in place.
 /// </summary>
-public sealed class AliasManagementItem(MailAccountAlias alias, bool smimeAvailable = true)
+#if WINRT_EXPOSED
+[GeneratedWinRTExposedType]
+#endif
+public sealed partial class AliasManagementItem(MailAccountAlias alias, bool smimeAvailable = true)
 {
     private const string Separator = " • ";
 
@@ -67,7 +72,8 @@ public sealed class AliasManagementItem(MailAccountAlias alias, bool smimeAvaila
     public bool IsSmimeAvailable => smimeAvailable;
     public bool IsSmimeEncryptionEnabled => IsSmimeAvailable && Alias.IsSmimeEncryptionEnabled;
 
-    public ObservableCollection<X509Certificate2> Certificates => Alias.Certificates;
+    /// <summary>A snapshot of the alias certificates, in a concrete type Native AOT can project as a vector.</summary>
+    public AliasCertificateList Certificates { get; } = new(alias.Certificates);
 
     public X509Certificate2 SelectedSigningCertificate
     {
@@ -95,6 +101,21 @@ public sealed class AliasManagementItem(MailAccountAlias alias, bool smimeAvaila
 
     public string EncryptionAutomationId => $"AliasManagementEncryption_{AliasAddress}";
 
-    public static IReadOnlyList<AliasManagementItem> Create(IEnumerable<MailAccountAlias> aliases, bool smimeAvailable = true)
-        => aliases.Select(alias => new AliasManagementItem(alias, smimeAvailable)).ToArray();
+    public static AliasManagementItemList Create(IEnumerable<MailAccountAlias> aliases, bool smimeAvailable = true)
+        => new(aliases.Select(alias => new AliasManagementItem(alias, smimeAvailable)));
 }
+
+/// <summary>
+/// The alias rows bound to the page's list. Native AOT requires a concrete, WinRT-exposed collection type:
+/// an array or generic list of a non-WinRT type has no generated vector vtable, so the list control rejects it.
+/// </summary>
+#if WINRT_EXPOSED
+[GeneratedWinRTExposedType]
+#endif
+public sealed partial class AliasManagementItemList(IEnumerable<AliasManagementItem> items) : List<AliasManagementItem>(items);
+
+/// <summary>The signing certificate choices of one alias row, with the leading blank entry. See <see cref="AliasManagementItemList"/>.</summary>
+#if WINRT_EXPOSED
+[GeneratedWinRTExposedType]
+#endif
+public sealed partial class AliasCertificateList(IEnumerable<X509Certificate2> certificates) : List<X509Certificate2>(certificates);

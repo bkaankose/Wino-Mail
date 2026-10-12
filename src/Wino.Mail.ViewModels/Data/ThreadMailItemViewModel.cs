@@ -121,12 +121,11 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     [ObservableProperty]
     public partial AccountNicknamePosition AccountNicknamePosition { get; set; }
 
-    public IReadOnlyList<MailCategory> Categories => ThreadEmails
+    public ObservableCollection<MailCategory> Categories => new(ThreadEmails
         .SelectMany(a => a.Categories)
         .GroupBy(a => a.Id)
         .Select(a => a.First())
-        .OrderBy(a => a.Name)
-        .ToList();
+        .OrderBy(a => a.Name));
     public bool HasCategories => ThreadEmails.Any(a => a.HasCategories);
 
     public IReadOnlyList<WinoIntelligenceTile> IntelligenceTiles => newestMailViewModel?.IntelligenceTiles ?? [];

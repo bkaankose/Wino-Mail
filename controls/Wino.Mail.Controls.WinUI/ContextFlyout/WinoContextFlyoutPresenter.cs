@@ -30,7 +30,7 @@ public sealed partial class WinoContextFlyoutPresenter : Control
     private IReadOnlyList<ContextFlyoutMenuEntry> _currentItems = [];
     private IReadOnlyList<ContextFlyoutRow> _currentRows = [];
     private IReadOnlyList<ContextFlyoutSearchCandidate> _searchCandidates = [];
-    private IReadOnlyList<ContextFlyoutHeaderRow> _headerRows = [];
+    private List<ContextFlyoutHeaderRow> _headerRows = [];
     private Grid? _searchRow;
     private TextBox? _searchBox;
     private Button? _backButton;

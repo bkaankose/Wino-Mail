@@ -35,15 +35,13 @@ public sealed record MailFilterValueChoiceOption(string Value, string DisplayNam
 
 public partial class MailFilterConditionEditorItem : ObservableObject
 {
-    private static readonly IReadOnlyList<MailFilterValueChoiceOption> BooleanChoices =
-    (MailFilterValueChoiceOption[])
+    private static readonly MailFilterValueChoiceOption[] BooleanChoices =
     [
         new(bool.TrueString, Translator.Buttons_Yes),
         new(bool.FalseString, Translator.Buttons_No)
     ];
 
-    private static readonly IReadOnlyList<MailFilterValueChoiceOption> ImportanceChoices =
-    (MailFilterValueChoiceOption[])
+    private static readonly MailFilterValueChoiceOption[] ImportanceChoices =
     [
         new(nameof(MailImportance.Low), Translator.MailFilterImportance_Low),
         new(nameof(MailImportance.Normal), Translator.MailFilterImportance_Normal),
@@ -72,23 +70,23 @@ public partial class MailFilterConditionEditorItem : ObservableObject
     [ObservableProperty]
     public partial bool ShowConjunction { get; set; }
 
-    public IReadOnlyList<MailFilterConditionFieldOption> FieldOptions { get; init; }
-    public IReadOnlyList<MailFilterConditionOperatorOption> OperatorOptions { get; init; }
+    public MailFilterConditionFieldOption[] FieldOptions { get; init; }
+    public MailFilterConditionOperatorOption[] OperatorOptions { get; init; }
 
     public bool IsChoiceField => IsChoice(SelectedField?.Value);
     public bool IsTextField => !IsChoiceField;
 
-    public IReadOnlyList<MailFilterValueChoiceOption> ChoiceOptions => SelectedField?.Value switch
+    public MailFilterValueChoiceOption[] ChoiceOptions => SelectedField?.Value switch
     {
         MailFilterConditionField.HasAttachments => BooleanChoices,
         MailFilterConditionField.Importance => ImportanceChoices,
         _ => []
     };
 
-    public IReadOnlyList<MailFilterConditionOperatorOption> AvailableOperators
+    public MailFilterConditionOperatorOption[] AvailableOperators
         => IsChoiceField
             ? OperatorOptions?.Where(option => option.Value is MailFilterConditionOperator.Equals
-                or MailFilterConditionOperator.NotEquals).ToList() ?? []
+                or MailFilterConditionOperator.NotEquals).ToArray() ?? []
             : OperatorOptions ?? [];
 
     private static bool IsChoice(MailFilterConditionField? field)
@@ -142,8 +140,8 @@ public partial class MailFilterActionEditorItem : ObservableObject
     public bool NeedsTargetFolder => SelectedAction?.Value == MailFilterActionType.Move;
     public bool IsDestructive => SelectedAction?.Value == MailFilterActionType.HardDelete;
 
-    public IReadOnlyList<MailFilterActionOption> ActionOptions { get; init; }
-    public IReadOnlyList<MailFilterFolderOption> FolderOptions { get; init; }
+    public MailFilterActionOption[] ActionOptions { get; init; }
+    public ObservableCollection<MailFilterFolderOption> FolderOptions { get; init; }
 }
 
 public partial class MailFilterEditorPageViewModel(
@@ -223,8 +221,7 @@ public partial class MailFilterEditorPageViewModel(
         new(MailFilterMatchMode.All, Translator.MailFilterEditor_MatchAll),
         new(MailFilterMatchMode.Any, Translator.MailFilterEditor_MatchAny)
     ];
-    public IReadOnlyList<MailFilterConditionFieldOption> ConditionFields { get; } =
-    (MailFilterConditionFieldOption[])
+    public MailFilterConditionFieldOption[] ConditionFields { get; } =
     [
         new(MailFilterConditionField.FromAddress, Translator.MailFilterField_FromAddress),
         new(MailFilterConditionField.FromName, Translator.MailFilterField_FromName),
@@ -233,8 +230,7 @@ public partial class MailFilterEditorPageViewModel(
         new(MailFilterConditionField.HasAttachments, Translator.MailFilterField_HasAttachments),
         new(MailFilterConditionField.Importance, Translator.MailFilterField_Importance)
     ];
-    public IReadOnlyList<MailFilterConditionOperatorOption> ConditionOperators { get; } =
-    (MailFilterConditionOperatorOption[])
+    public MailFilterConditionOperatorOption[] ConditionOperators { get; } =
     [
         new(MailFilterConditionOperator.Equals, Translator.MailFilterOperator_Equals),
         new(MailFilterConditionOperator.NotEquals, Translator.MailFilterOperator_NotEquals),
@@ -243,8 +239,7 @@ public partial class MailFilterEditorPageViewModel(
         new(MailFilterConditionOperator.StartsWith, Translator.MailFilterOperator_StartsWith),
         new(MailFilterConditionOperator.EndsWith, Translator.MailFilterOperator_EndsWith)
     ];
-    public IReadOnlyList<MailFilterActionOption> ActionTypes { get; } =
-    (MailFilterActionOption[])
+    public MailFilterActionOption[] ActionTypes { get; } =
     [
         new(MailFilterActionType.MarkRead, Translator.MailFilterAction_MarkRead),
         new(MailFilterActionType.MarkUnread, Translator.MailFilterAction_MarkUnread),

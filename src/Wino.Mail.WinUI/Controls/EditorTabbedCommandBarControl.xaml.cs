@@ -44,8 +44,8 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
     private bool _isApplyingState;
     private IEditorCommandTarget? _subscribedTarget;
     private static readonly SolidColorBrush TransparentBrush = new(EditorColorOption.ParseColorValue(null));
-    private IReadOnlyList<EditorColorOption> _textColorOptions = Array.Empty<EditorColorOption>();
-    private IReadOnlyList<EditorColorOption> _highlightColorOptions = Array.Empty<EditorColorOption>();
+    private EditorColorOption[] _textColorOptions = [];
+    private EditorColorOption[] _highlightColorOptions = [];
     private readonly List<ICommandBarElement> _injectedInsertCommands = [];
     private readonly List<ICommandBarElement> _injectedOptionsCommands = [];
     private string _selectedSpellCheckLanguageCode = string.Empty;
@@ -221,13 +221,14 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
             var fontSizes = capabilities.FontSizes.ToArray();
             var paragraphStyles = capabilities.ParagraphStyles.ToArray();
 
-            SetItemsSourceIfChanged(FontFamilyComboBox, fonts);
-            SetItemsSourceIfChanged(FontSizeComboBox, fontSizes);
-            SetItemsSourceIfChanged(ParagraphStyleComboBox, paragraphStyles);
+            // Each list is new, so every assignment is a change. The concrete array types let Native AOT project them.
+            FontFamilyComboBox.ItemsSource = fonts;
+            FontSizeComboBox.ItemsSource = fontSizes;
+            ParagraphStyleComboBox.ItemsSource = paragraphStyles;
             _textColorOptions = capabilities.TextColors.Select(color => new EditorColorOption(color.Name, color.Value)).ToArray();
             _highlightColorOptions = capabilities.HighlightColors.Select(color => new EditorColorOption(color.Name, color.Value)).ToArray();
-            SetItemsSourceIfChanged(TextColorGridView, _textColorOptions);
-            SetItemsSourceIfChanged(HighlightColorGridView, _highlightColorOptions);
+            TextColorGridView.ItemsSource = _textColorOptions;
+            HighlightColorGridView.ItemsSource = _highlightColorOptions;
 
             BuildLineSpacingMenu(capabilities.LineHeights);
         }
@@ -238,14 +239,6 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         finally
         {
             _isApplyingState = wasApplyingState;
-        }
-    }
-
-    private static void SetItemsSourceIfChanged(ItemsControl control, object itemsSource)
-    {
-        if (!ReferenceEquals(control.ItemsSource, itemsSource))
-        {
-            control.ItemsSource = itemsSource;
         }
     }
 

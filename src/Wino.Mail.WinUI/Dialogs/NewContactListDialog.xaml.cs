@@ -9,12 +9,12 @@ namespace Wino.Dialogs;
 /// <summary>Asks for the name of a new contact list and the account that will own it.</summary>
 public sealed partial class NewContactListDialog : ContentDialog
 {
-    public IReadOnlyList<MailAccount> AvailableAccounts { get; }
+    public List<MailAccount> AvailableAccounts { get; }
     public ContactListCreationResult? Result { get; private set; }
 
     public NewContactListDialog(IReadOnlyList<MailAccount> availableAccounts, MailAccount? selectedAccount)
     {
-        AvailableAccounts = availableAccounts;
+        AvailableAccounts = [.. availableAccounts];
         InitializeComponent();
 
         AccountComboBox.SelectedItem = selectedAccount ?? (availableAccounts.Count > 0 ? availableAccounts[0] : null);

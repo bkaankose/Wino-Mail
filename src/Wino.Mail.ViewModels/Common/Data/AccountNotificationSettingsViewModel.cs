@@ -20,10 +20,10 @@ public sealed partial class AccountNotificationSettingsViewModel : ObservableObj
 
     public AccountNotificationSettingsViewModel(
         MailAccount account,
-        IReadOnlyList<MailNotificationScopeOption> scopeOptions,
-        IReadOnlyList<MailNotificationContentOption> contentOptions,
-        IReadOnlyList<NotificationSoundOption> soundOptions,
-        IReadOnlyList<AccountQuietHoursStanceOption> quietHoursOptions,
+        MailNotificationScopeOption[] scopeOptions,
+        MailNotificationContentOption[] contentOptions,
+        NotificationSoundOption[] soundOptions,
+        AccountQuietHoursStanceOption[] quietHoursOptions,
         Func<AccountNotificationSettingsViewModel, Task> onChanged)
     {
         Account = account;
@@ -55,10 +55,10 @@ public sealed partial class AccountNotificationSettingsViewModel : ObservableObj
 
     public string AccountAddress => Account.Address ?? string.Empty;
 
-    public IReadOnlyList<MailNotificationScopeOption> ScopeOptions { get; }
-    public IReadOnlyList<MailNotificationContentOption> ContentOptions { get; }
-    public IReadOnlyList<NotificationSoundOption> SoundOptions { get; }
-    public IReadOnlyList<AccountQuietHoursStanceOption> QuietHoursOptions { get; }
+    public MailNotificationScopeOption[] ScopeOptions { get; }
+    public MailNotificationContentOption[] ContentOptions { get; }
+    public NotificationSoundOption[] SoundOptions { get; }
+    public AccountQuietHoursStanceOption[] QuietHoursOptions { get; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StatusText))]

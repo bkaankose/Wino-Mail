@@ -30,7 +30,7 @@ public sealed record TaskListPickerItem(AccountTaskList List, MailAccount? Accou
 
 public sealed partial class TaskListPickerDialog : ContentDialog
 {
-    public IReadOnlyList<TaskListPickerItem> Items { get; }
+    internal TaskListPickerItem[] Items { get; }
     public AccountTaskList? PickedList { get; private set; }
 
     public TaskListPickerDialog(IReadOnlyList<AccountTaskList> taskLists, IReadOnlyList<MailAccount> accounts)
@@ -39,7 +39,7 @@ public sealed partial class TaskListPickerDialog : ContentDialog
             .Select(list => new TaskListPickerItem(
                 list,
                 accounts.FirstOrDefault(account => account.Id == list.MailAccountId)))
-            .ToList();
+            .ToArray();
         InitializeComponent();
     }
 
