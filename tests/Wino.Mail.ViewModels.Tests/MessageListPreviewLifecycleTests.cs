@@ -6,6 +6,8 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels;
 using Xunit;
+using CommunityToolkit.Mvvm.Messaging;
+using Wino.Messaging.Client.Shell;
 
 namespace Wino.Mail.ViewModels.Tests;
 
@@ -20,7 +22,7 @@ public sealed class MessageListPreviewLifecycleTests
         viewModel.Dispatcher = dispatcher;
 
         var initialization = viewModel.InitializeNavigationAsync(NavigationMode.New, null!);
-        preferences.Raise(service => service.PreferenceChanged += null!, preferences.Object, nameof(IPreferencesService.IsThreadingEnabled));
+        WeakReferenceMessenger.Default.Send(new PreferenceChangedMessage(nameof(IPreferencesService.IsThreadingEnabled)));
         viewModel.PreviewRefreshTask.IsCompleted.Should().BeFalse();
         dispatcher.PendingCount.Should().Be(1); // second refresh waits for the first.
 
@@ -44,7 +46,7 @@ public sealed class MessageListPreviewLifecycleTests
         await Assert.ThrowsAsync<IOException>(() => viewModel.InitializeNavigationAsync(NavigationMode.New, null!));
         viewModel.PreviewRefreshTask.IsFaulted.Should().BeTrue();
 
-        preferences.Raise(service => service.PreferenceChanged += null!, preferences.Object, nameof(IPreferencesService.IsShowPreviewEnabled));
+        WeakReferenceMessenger.Default.Send(new PreferenceChangedMessage(nameof(IPreferencesService.IsShowPreviewEnabled)));
         await viewModel.PreviewRefreshTask.WaitAsync(TimeSpan.FromSeconds(10));
 
         viewModel.PreviewMailCollection.Count.Should().Be(1);

@@ -7,7 +7,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Models.Calendar;
-using Wino.Messaging.Client.Calendar;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -55,7 +54,6 @@ public partial class CalendarPreferenceSettingsPageViewModel : CalendarSettingsS
             return;
 
         PreferencesService.CalendarEventDisplayMode = value.Mode;
-        Messenger.Send(new CalendarSettingsUpdatedMessage());
     }
 
     [ObservableProperty]

@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using EmailValidation;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
@@ -22,10 +23,12 @@ using Wino.Core.Domain.Models.Attachments;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Validation;
 using Wino.Core.ViewModels;
+using Wino.Messaging.Client.Shell;
 
 namespace Wino.Calendar.ViewModels;
 
-public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
+public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
+    IRecipient<PreferenceChangedMessage>
 {
     private static readonly TimeSpan DefaultEventDuration = TimeSpan.FromMinutes(30);
 
@@ -44,6 +47,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
     private readonly IMailDialogService _dialogService;
     private readonly IContactService _contactService;
     private readonly IRecipientSuggestionService _recipientSuggestionService;
+    private readonly CoalescedRefresh _calendarSettingsRefresh;
     private readonly IPreferencesService _preferencesService;
     private readonly IUnderlyingThemeService _underlyingThemeService;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
@@ -133,7 +137,20 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
     [ObservableProperty]
     public partial CalendarEventComposeResult LastCreatedResult { get; set; }
 
-    public CalendarSettings CurrentSettings { get; }
+    private CalendarSettings _currentSettings;
+
+    public CalendarSettings CurrentSettings
+    {
+        get => _currentSettings;
+        private set
+        {
+            if (SetProperty(ref _currentSettings, value))
+            {
+                OnPropertyChanged(nameof(TimePickerClockIdentifier));
+            }
+        }
+    }
+
     public string TimePickerClockIdentifier => CurrentSettings.DayHeaderDisplayType == DayHeaderDisplayType.TwentyFourHour ? "24HourClock" : "12HourClock";
 
     // CalendarDatePicker works with nullable dates. A cleared picker keeps the previous date.
@@ -225,6 +242,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
         _winoRequestDelegator = winoRequestDelegator;
         _attachmentFileService = attachmentFileService;
         _recipientSuggestionService = recipientSuggestionService;
+        _calendarSettingsRefresh = new CoalescedRefresh(() => ExecuteUIThread(() => CurrentSettings = _preferencesService.GetCurrentCalendarSettings()));
 
         CurrentSettings = _preferencesService.GetCurrentCalendarSettings();
         IsDarkWebviewRenderer = _underlyingThemeService.IsUnderlyingThemeDark();
@@ -274,6 +292,37 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
 
         var (defaultStart, defaultEnd) = GetDefaultComposeDateRange();
         ApplyDateRange(defaultStart, defaultEnd, false);
+    }
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+
+        Messenger.Register<PreferenceChangedMessage>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+
+        Messenger.Unregister<PreferenceChangedMessage>(this);
+    }
+
+    public void Receive(PreferenceChangedMessage message)
+    {
+        var propertyName = message.PropertyName;
+
+        if (CalendarSettings.PreferenceKeys.Contains(propertyName))
+        {
+            _calendarSettingsRefresh.Request();
+        }
+        else if (propertyName is nameof(IPreferencesService.IsComposerSpellCheckEnabled)
+                 or nameof(IPreferencesService.IsComposerAutoCorrectEnabled)
+                 or nameof(IPreferencesService.ComposerSpellCheckLanguageCode))
+        {
+            // The pass-through getters share the preference names.
+            _ = ExecuteUIThread(() => OnPropertyChanged(propertyName));
+        }
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)

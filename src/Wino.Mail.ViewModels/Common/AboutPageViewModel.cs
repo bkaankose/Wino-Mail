@@ -10,10 +10,12 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Messaging.UI;
+using Wino.Messaging.Client.Shell;
 
 namespace Wino.Core.ViewModels;
 
-public partial class AboutPageViewModel : CoreBaseViewModel
+public partial class AboutPageViewModel : CoreBaseViewModel,
+    IRecipient<PreferenceChangedMessage>
 {
     private readonly IMicrosoftStoreService _storeService;
     private readonly IMailDialogService _dialogService;
@@ -59,24 +61,23 @@ public partial class AboutPageViewModel : CoreBaseViewModel
         PreferencesService = preferencesService;
     }
 
-    public override void OnNavigatedTo(NavigationMode mode, object parameters)
+    protected override void RegisterRecipients()
     {
-        base.OnNavigatedTo(mode, parameters);
+        base.RegisterRecipients();
 
-        PreferencesService.PreferenceChanged -= PreferencesChanged;
-        PreferencesService.PreferenceChanged += PreferencesChanged;
+        Messenger.Register<PreferenceChangedMessage>(this);
     }
 
-    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    protected override void UnregisterRecipients()
     {
-        base.OnNavigatedFrom(mode, parameters);
+        base.UnregisterRecipients();
 
-        PreferencesService.PreferenceChanged -= PreferencesChanged;
+        Messenger.Unregister<PreferenceChangedMessage>(this);
     }
 
-    private void PreferencesChanged(object sender, string e)
+    public void Receive(PreferenceChangedMessage message)
     {
-        if (e == nameof(PreferencesService.IsLoggingEnabled))
+        if (message.PropertyName == nameof(IPreferencesService.IsLoggingEnabled))
         {
             _logInitializer.RefreshLoggingLevel();
         }

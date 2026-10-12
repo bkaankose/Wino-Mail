@@ -22,6 +22,7 @@ using Wino.Core.Requests;
 using Wino.Core.Requests.Tasks;
 using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels;
@@ -34,7 +35,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     IRecipient<TaskSynchronizationCompleted>,
     IRecipient<TaskStateChanged>,
     IRecipient<AccountUpdatedMessage>,
-    IRecipient<AccountRemovedMessage>
+    IRecipient<AccountRemovedMessage>,
+    IRecipient<PreferenceChangedMessage>
 {
     public event EventHandler<TaskComposerFocusRequestedEventArgs> TaskComposerFocusRequested;
 
@@ -545,6 +547,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         Messenger.Register<TaskStateChanged>(this);
         Messenger.Register<AccountUpdatedMessage>(this);
         Messenger.Register<AccountRemovedMessage>(this);
+        Messenger.Register<PreferenceChangedMessage>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -553,7 +556,17 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         Messenger.Unregister<TaskStateChanged>(this);
         Messenger.Unregister<AccountUpdatedMessage>(this);
         Messenger.Unregister<AccountRemovedMessage>(this);
+        Messenger.Unregister<PreferenceChangedMessage>(this);
         base.UnregisterRecipients();
+    }
+
+    public void Receive(PreferenceChangedMessage message)
+    {
+        // Visibility and ordering read these preferences live; re-run them for the open list.
+        if (message.PropertyName is nameof(IPreferencesService.CompletedTaskTreatment) or nameof(IPreferencesService.CompletedTaskHideDelay))
+        {
+            _ = ExecuteUIThread(ApplyFilterChange);
+        }
     }
 
     public void Receive(TaskSynchronizationCompleted message)

@@ -12,6 +12,8 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Translations;
 using Wino.Core.ViewModels.Data;
+using CommunityToolkit.Mvvm.Messaging;
+using Wino.Messaging.Client.Shell;
 
 namespace Wino.Core.ViewModels;
 
@@ -19,7 +21,8 @@ namespace Wino.Core.ViewModels;
 /// Backs Settings -> General -> Notifications, which owns every alert Wino raises: the snooze state,
 /// the quiet hours schedule, the per-type defaults and the per-account overrides.
 /// </summary>
-public partial class NotificationSettingsPageViewModel : CoreBaseViewModel
+public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
+    IRecipient<PreferenceChangedMessage>
 {
     /// <summary>
     /// Actions offered as mail notification buttons. Kept narrow on purpose: a toast fits two.
@@ -278,9 +281,6 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel
     {
         base.OnNavigatedTo(mode, parameters);
 
-        PreferencesService.PreferenceChanged -= OnPreferenceChanged;
-        PreferencesService.PreferenceChanged += OnPreferenceChanged;
-
         LoadSelections();
         RefreshSnoozeState();
         UpdateSectionSummaries();
@@ -288,11 +288,18 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel
         await LoadAccountsAsync();
     }
 
-    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    protected override void RegisterRecipients()
     {
-        PreferencesService.PreferenceChanged -= OnPreferenceChanged;
+        base.RegisterRecipients();
 
-        base.OnNavigatedFrom(mode, parameters);
+        Messenger.Register<PreferenceChangedMessage>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+
+        Messenger.Unregister<PreferenceChangedMessage>(this);
     }
 
     /// <summary>
@@ -648,9 +655,9 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel
         return string.Join(", ", QuietHoursDayToggles.Where(toggle => toggle.IsSelected).Select(toggle => toggle.DisplayText));
     }
 
-    private void OnPreferenceChanged(object sender, string propertyName)
+    public void Receive(PreferenceChangedMessage message)
     {
-        if (propertyName is not (nameof(IPreferencesService.NotificationSnoozePreset)
+        if (message.PropertyName is not (nameof(IPreferencesService.NotificationSnoozePreset)
             or nameof(IPreferencesService.NotificationSnoozeUntilUtcTicks)))
         {
             return;

@@ -6,6 +6,7 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -13,6 +14,7 @@ using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Domain.Translations;
+using Wino.Messaging.Client.Shell;
 
 namespace Wino.Services;
 
@@ -26,7 +28,10 @@ public partial class PreferencesService(IConfigurationService configurationServi
     {
         base.OnPropertyChanged(e);
 
-        PreferenceChanged?.Invoke(this, e.PropertyName ?? string.Empty);
+        var propertyName = e.PropertyName ?? string.Empty;
+
+        PreferenceChanged?.Invoke(this, propertyName);
+        WeakReferenceMessenger.Default.Send(new PreferenceChangedMessage(propertyName));
     }
 
     private void SaveProperty(string propertyName, object? value) => _configurationService.Set(propertyName, value ?? string.Empty);
@@ -323,7 +328,7 @@ public partial class PreferencesService(IConfigurationService configurationServi
     public Guid? StartupEntityId
     {
         get => _configurationService.Get<Guid?>(nameof(StartupEntityId), null);
-        set => SaveProperty(propertyName: nameof(StartupEntityId), value);
+        set => SetPropertyAndSave(nameof(StartupEntityId), value);
     }
 
     public bool IsTaskbarBadgeLaunchNavigationEnabled
@@ -420,7 +425,7 @@ public partial class PreferencesService(IConfigurationService configurationServi
     public bool AutoSelectNextItem
     {
         get => _configurationService.Get(nameof(AutoSelectNextItem), true);
-        set => SaveProperty(propertyName: nameof(AutoSelectNextItem), value);
+        set => SetPropertyAndSave(nameof(AutoSelectNextItem), value);
     }
 
     public string DiagnosticId
@@ -436,13 +441,13 @@ public partial class PreferencesService(IConfigurationService configurationServi
             var stored = _configurationService.Get(nameof(DefaultSearchMode), nameof(SearchMode.Local));
             return SearchModePreference.Parse(stored);
         }
-        set => SaveProperty(propertyName: nameof(DefaultSearchMode), value);
+        set => SetPropertyAndSave(nameof(DefaultSearchMode), value);
     }
 
     public DayOfWeek FirstDayOfWeek
     {
         get => _configurationService.Get(nameof(FirstDayOfWeek), DayOfWeek.Monday);
-        set => SaveProperty(propertyName: nameof(FirstDayOfWeek), value);
+        set => SetPropertyAndSave(nameof(FirstDayOfWeek), value);
     }
 
     public CalendarEventDisplayMode CalendarEventDisplayMode
@@ -458,19 +463,19 @@ public partial class PreferencesService(IConfigurationService configurationServi
     public double HourHeight
     {
         get => _configurationService.Get(nameof(HourHeight), 60.0);
-        set => SaveProperty(propertyName: nameof(HourHeight), value);
+        set => SetPropertyAndSave(nameof(HourHeight), value);
     }
 
     public bool IsWorkingHoursEnabled
     {
         get => _configurationService.Get(nameof(IsWorkingHoursEnabled), true);
-        set => SaveProperty(propertyName: nameof(IsWorkingHoursEnabled), value);
+        set => SetPropertyAndSave(nameof(IsWorkingHoursEnabled), value);
     }
 
     public string CalendarTimedDayHeaderDateFormat
     {
         get => _configurationService.Get(nameof(CalendarTimedDayHeaderDateFormat), "ddd dd");
-        set => SaveProperty(propertyName: nameof(CalendarTimedDayHeaderDateFormat), string.IsNullOrWhiteSpace(value) ? "ddd dd" : value.Trim());
+        set => SetPropertyAndSave(nameof(CalendarTimedDayHeaderDateFormat), string.IsNullOrWhiteSpace(value) ? "ddd dd" : value.Trim());
     }
 
     public TimeFormatPreference CalendarTimeFormatPreference
@@ -482,37 +487,37 @@ public partial class PreferencesService(IConfigurationService configurationServi
     public TimeSpan WorkingHourStart
     {
         get => _configurationService.Get(nameof(WorkingHourStart), new TimeSpan(9, 0, 0));
-        set => SaveProperty(propertyName: nameof(WorkingHourStart), value);
+        set => SetPropertyAndSave(nameof(WorkingHourStart), value);
     }
 
     public TimeSpan WorkingHourEnd
     {
         get => _configurationService.Get(nameof(WorkingHourEnd), new TimeSpan(18, 0, 0));
-        set => SaveProperty(propertyName: nameof(WorkingHourEnd), value);
+        set => SetPropertyAndSave(nameof(WorkingHourEnd), value);
     }
 
     public DayOfWeek WorkingDayStart
     {
         get => _configurationService.Get(nameof(WorkingDayStart), DayOfWeek.Monday);
-        set => SaveProperty(propertyName: nameof(WorkingDayStart), value);
+        set => SetPropertyAndSave(nameof(WorkingDayStart), value);
     }
 
     public DayOfWeek WorkingDayEnd
     {
         get => _configurationService.Get(nameof(WorkingDayEnd), DayOfWeek.Friday);
-        set => SaveProperty(propertyName: nameof(WorkingDayEnd), value);
+        set => SetPropertyAndSave(nameof(WorkingDayEnd), value);
     }
 
     public long DefaultReminderDurationInSeconds
     {
         get => _configurationService.Get(nameof(DefaultReminderDurationInSeconds), 900L); // Default: 15 minutes (900 seconds)
-        set => SaveProperty(propertyName: nameof(DefaultReminderDurationInSeconds), value);
+        set => SetPropertyAndSave(nameof(DefaultReminderDurationInSeconds), value);
     }
 
     public int DefaultSnoozeDurationInMinutes
     {
         get => _configurationService.Get(nameof(DefaultSnoozeDurationInMinutes), 5);
-        set => SaveProperty(propertyName: nameof(DefaultSnoozeDurationInMinutes), value);
+        set => SetPropertyAndSave(nameof(DefaultSnoozeDurationInMinutes), value);
     }
 
     public NotificationSoundEvent CalendarNotificationSoundEvent
@@ -698,7 +703,6 @@ public partial class PreferencesService(IConfigurationService configurationServi
             }
 
             OnPropertyChanged();
-            PreferenceChanged?.Invoke(this, nameof(IsStoreUpdateNotificationsEnabled));
         }
     }
 
