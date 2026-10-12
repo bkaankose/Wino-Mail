@@ -63,7 +63,8 @@
             "fieldset", "legend", "output", "datalist", "iframe", "frame", "frameset",
             "object", "embed", "applet", "base", "meta", "link", "template"
         ],
-        FORBID_CONTENTS: [
+        // Extends DOMPurify's defaults, which drop <title>, <noscript> and similar text from removed elements.
+        ADD_FORBID_CONTENTS: [
             "script", "form", "iframe", "frame", "frameset", "object", "embed",
             "applet", "template"
         ]
