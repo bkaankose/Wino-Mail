@@ -44,6 +44,7 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
     private readonly IPictureStorageService _profilePictureFileService;
     private readonly IAuthenticationTokenMigrationService _authenticationTokenMigrationService;
     private readonly IMigrationClock _clock;
+    private readonly IWinoLogger _logger;
     private readonly SemaphoreSlim _migrationLock = new(1, 1);
     private readonly MainDatabaseRelocationService _relocation;
 
@@ -54,8 +55,10 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
         IDatabaseSchemaService schemaService,
         IPictureStorageService profilePictureFileService,
         IAuthenticationTokenMigrationService authenticationTokenMigrationService = null,
-        IMigrationClock clock = null)
+        IMigrationClock clock = null,
+        IWinoLogger logger = null)
     {
+        _logger = logger;
         _configuration = configuration;
         _schemaService = schemaService;
         _relocation = new MainDatabaseRelocationService(configuration, schemaService);
@@ -77,6 +80,7 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            CaptureFailure(ex, "MigrationRelocation", MigrationStepKind.CheckExistingData);
             return new MigrationPlan(MigrationStatus.Failed, sourcePath, stagingPath, destinationPath,
                 false, [], SanitizeError(ex));
         }
@@ -140,6 +144,7 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
+                CaptureFailure(ex, "MigrationInspectLegacyAccounts", MigrationStepKind.CheckExistingData);
                 inspectionMessage = SanitizeError(ex);
             }
         }
@@ -380,6 +385,8 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
             }
             catch (Exception ex)
             {
+                CaptureFailure(ex, "MigrationRun", activeStep);
+
                 if (activeStep.HasValue)
                 {
                     Report(activeStep.Value, MigrationStepStatus.Failed,
@@ -443,6 +450,7 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
         }
         catch (Exception ex)
         {
+            CaptureFailure(ex, "MigrationStartFresh", step: null);
             return new MigrationResult(MigrationStatus.Failed, ErrorMessage: SanitizeError(ex));
         }
         finally
@@ -933,6 +941,31 @@ WHERE Id = ?;",
         double progress,
         string detail = null)
         => ProgressChanged?.Invoke(this, new MigrationProgress(step, status, title, description, progress, detail));
+
+    private void CaptureFailure(Exception exception, string operationName, MigrationStepKind? step)
+    {
+        var sqliteException = FindSQLiteException(exception);
+        var properties = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["failure_stage"] = step?.ToString() ?? "None",
+            ["exception_type"] = exception.GetType().Name,
+            ["result"] = sqliteException?.Result.ToString() ?? "None",
+            ["sanitized_error"] = SanitizeError(exception)
+        };
+
+        _logger?.CaptureException(exception, operationName, properties);
+    }
+
+    private static SQLiteException FindSQLiteException(Exception exception)
+    {
+        for (var current = exception; current != null; current = current.InnerException)
+        {
+            if (current is SQLiteException sqliteException)
+                return sqliteException;
+        }
+
+        return null;
+    }
 
     private string GetPath(string fileName) => MainDatabasePaths.GetPath(_configuration, fileName);
 

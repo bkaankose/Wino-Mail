@@ -119,6 +119,31 @@ public sealed class MainDatabaseRelocationTests : IDisposable
     }
 
     [Fact]
+    public async Task MigrationFailuresAreCapturedWithFailureStage()
+    {
+        var configuration = Configuration();
+        var source = Path.Combine(configuration.PublisherSharedFolderPath, DatabaseService.LegacyDatabaseName);
+        await File.WriteAllTextAsync(source, "corrupt");
+        var logger = new Mock<IWinoLogger>();
+        var coordinator = new DatabaseMigrationCoordinator(
+            configuration,
+            new DatabaseSchemaService(configuration),
+            Mock.Of<IPictureStorageService>(),
+            logger: logger.Object);
+
+        (await coordinator.InspectAsync()).Status.Should().Be(MigrationStatus.Failed);
+        (await coordinator.StartFreshAsync()).Status.Should().Be(MigrationStatus.Skipped);
+
+        logger.Verify(l => l.CaptureException(
+            It.IsAny<Exception>(),
+            "MigrationRelocation",
+            It.Is<Dictionary<string, string>>(properties =>
+                properties["failure_stage"] == nameof(MigrationStepKind.CheckExistingData) &&
+                !string.IsNullOrWhiteSpace(properties["sanitized_error"]))), Times.Once);
+        logger.Verify(l => l.CaptureException(It.IsAny<Exception>(), "MigrationStartFresh", It.IsAny<Dictionary<string, string>>()), Times.Never);
+    }
+
+    [Fact]
     public async Task CompletedDatabaseIsCopiedIndependentlyToBothStableIdentities()
     {
         var first = Configuration(identity: "store");
