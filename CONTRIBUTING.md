@@ -18,15 +18,18 @@ AI-assisted changes must obey the same architecture, coding rules, and maintaine
 
 ## Development requirements
 
-Wino is a packaged WinUI 3 app. Development requires Windows and the .NET SDK from [`global.json`](global.json).
-Install WinApp CLI 0.7 or later and enable Windows Developer Mode.
+Wino has a packaged WinUI 3 app for Windows and a native AppKit app for macOS. Both share the .NET backend and use the .NET SDK from [`global.json`](global.json).
+
+For Windows, install WinApp CLI 0.7 or later and enable Windows Developer Mode.
 For VS Code debugging, install Microsoft's C# extension.
 Visual Studio with the .NET desktop workload is also supported.
-Release Native AOT builds need the C++ build tools described in the [release guide](docs/releases.md).
+Release Native AOT builds need the C++ build tools described in the [Windows release guide](docs/releases-windows.md).
+
+For macOS, install the `macos` workload and its matching Xcode. See the [macOS development guide](docs/harness/development-macos.md).
 
 ## Build and run
 
-Open the repository folder in VS Code. Select **Debug Wino Mail (packaged, x64)** and press **F5**.
+On Windows, open the repository folder in VS Code. Select **Debug Wino Mail (packaged, x64)** and press **F5**.
 The task runs `winapp run` against the app project. WinApp builds and deploys the package, then VS Code attaches the C# debugger.
 
 For terminal use:
@@ -39,11 +42,12 @@ dotnet test tests/Wino.Core.Tests/Wino.Core.Tests.csproj -c Debug -p:Platform=x6
 
 The SDK handles restore and compilation. F5 uses one PowerShell helper to skip compilation when inputs and output are unchanged.
 The active app is [`src/Wino.Mail.WinUI`](src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj). Leave the deprecated UWP app unchanged.
-See [development commands](docs/harness/development.md) for debugger behavior and package troubleshooting.
+See the [Windows development guide](docs/harness/development-windows.md) for debugger behavior and package troubleshooting.
+On a Mac, open [`WinoMail.MacOS.code-workspace`](WinoMail.MacOS.code-workspace) and follow the [macOS development guide](docs/harness/development-macos.md).
 
 ## Testing and maintenance
 
-Use the [local Docker lab](tools/local-lab/README.md) for manual application testing.
+Use the [local Docker lab](tools/local-lab/README.md) for manual application testing on Windows. The lab does not run on macOS yet.
 Keep unit tests for logic and release-script tests for packaging.
 Agent-driven UI suites and automation scripts are retired.
 

@@ -372,6 +372,8 @@ FodyWeavers.xsd
 !.vscode/launch.json
 !.vscode/extensions.json
 *.code-workspace
+!/WinoMail.Windows.code-workspace
+!/WinoMail.MacOS.code-workspace
 
 # Local History for Visual Studio Code
 .history/
@@ -409,7 +411,16 @@ Wino/obj/x86/Debug/XamlSaveStateFile.xml
 docs/design-prototypes/*
 !/docs/design-prototypes/wino-design-guideline.html
 /docs/blog
-/docs
+/docs/*
+# Track only the platform guides below; other local documents under docs stay ignored.
+!/docs/harness/
+/docs/harness/*
+!/docs/harness/development-windows.md
+!/docs/harness/development-macos.md
+!/docs/releases-windows.md
+!/docs/releases-macos.md
+!/docs/macos-design-decisions.md
+!/docs/macos-shared-logic-roadmap.md
 
 # Release tooling is source, not a build output directory.
 !/scripts/release/

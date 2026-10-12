@@ -6,7 +6,7 @@
 # Downloads Sparkle-<version>.tar.xz from github.com/sparkle-project/Sparkle, keeps only what Wino
 # uses, and writes Sparkle/Native/Sparkle.xcframework and Sparkle/Native/Sparkle.version, which are
 # committed. The release's sign_update and generate_keys tools are not committed;
-# scripts/release/build-macos-release.sh downloads the same release for them.
+# scripts/release/macos/build-macos-release.sh downloads the same release for them.
 #
 # Removed from the framework:
 # - Downloader.xpc: the app already has the network.client entitlement, so Sparkle downloads in process.

@@ -19,11 +19,11 @@ the contrast and neutral variants are copied from them.
 With -AttributionLogos the script also writes the Square44x44Logo target sizes that
 Windows asks for and the app entries do not ship yet, downscaled from targetsize-256.
 It writes them for both the stable app entries and the beta artwork under
-release-assets/Beta, because beta packaging requires a beta copy of every branding file.
+scripts/release/Assets/Beta, because beta packaging requires a beta copy of every branding file.
 
 .EXAMPLE
-pwsh -File scripts/maintenance/build-notification-icons.ps1
-pwsh -File scripts/maintenance/build-notification-icons.ps1 -AttributionLogos
+pwsh -File scripts/maintenance/windows/build-notification-icons.ps1
+pwsh -File scripts/maintenance/windows/build-notification-icons.ps1 -AttributionLogos
 #>
 [CmdletBinding()]
 param(
@@ -31,14 +31,15 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+if ($PSVersionTable.PSVersion.Major -ge 6 -and -not $IsWindows) { throw 'Rendering notification icons requires Windows (WPF imaging).' }
 Add-Type -AssemblyName PresentationCore, WindowsBase
 
-$repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..')
+$repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
 $iconRoot = Join-Path $repoRoot 'src\Wino.Mail.WinUI\Assets\NotificationIcons'
 $svgRoot = Join-Path $repoRoot 'icons\svg'
 $appEntryRoots = @(
     Join-Path $repoRoot 'src\Wino.Mail.WinUI\Assets\AppEntries'
-    Join-Path $repoRoot 'release-assets\Beta\Assets\AppEntries'
+    Join-Path $repoRoot 'scripts\release\Assets\Beta\Assets\AppEntries'
 )
 
 # Notification icon name -> icons/svg source.

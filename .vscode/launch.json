@@ -5,7 +5,7 @@
       "name": "Run Wino Mail (Sandbox, Debug x64)",
       "type": "node-terminal",
       "request": "launch",
-      "command": "pwsh -NoProfile -File \"${workspaceFolder}/scripts/development/start-wino.ps1\" -Target sandbox",
+      "command": "pwsh -NoProfile -File \"${workspaceFolder}/scripts/development/windows/start-wino.ps1\" -Target sandbox",
       "cwd": "${workspaceFolder}"
     },
     {
@@ -22,35 +22,6 @@
         ],
         "searchMicrosoftSymbolServer": false
       }
-    },
-    {
-      "name": "Debug Wino Mail (macOS, arm64)",
-      "type": "coreclr",
-      "request": "launch",
-      "justMyCode": true,
-      "pipeTransport": {
-        "pipeProgram": "/bin/zsh",
-        "pipeArgs": [
-          "-c",
-          "${debuggerCommand}"
-        ],
-        "debuggerPath": "${env:HOME}/.local/share/wino-vsdbg/vsdbg",
-        "pipeEnv": {
-          "TMPDIR": "${env:HOME}/Library/Containers/com.winomail.macos/Data/tmp"
-        },
-        "quoteArgs": false
-      },
-      "preLaunchTask": "Build Wino Mail (macOS, arm64)",
-      "program": "${workspaceFolder}/src/Wino.Mail.MacOS/bin/Debug/net10.0-macos/osx-arm64/Wino Mail.app/Contents/MacOS/Wino.Mail.MacOS",
-      "cwd": "${workspaceFolder}",
-      "args": [],
-      "stopAtEntry": false,
-      "console": "internalConsole",
-      "env": {
-        "DOTNET_EnableDiagnostics": "1",
-        "TMPDIR": "${env:HOME}/Library/Containers/com.winomail.macos/Data/tmp"
-      },
-      "requireExactSource": true
     }
   ]
 }

@@ -3,13 +3,20 @@
 .SYNOPSIS
 Builds Store, Beta, and stable sideload packages from one Release compilation.
 .DESCRIPTION
-Asks for channels and architectures. Reads the source manifest version. Outputs
-verified packages under <OutputRoot>\<version>\<Store|Beta|Sideload>, with the
-shared PDB files in <OutputRoot>\<version>\Symbols. See docs/releases.md.
+Asks whether to translate missing resources, then for channels and architectures.
+Reads the source manifest version. Outputs verified packages under
+<OutputRoot>\<version>\<Store|Beta|Sideload>, with the shared PDB files in
+<OutputRoot>\<version>\Symbols. See docs/releases-windows.md.
+.PARAMETER Translate
+Run scripts/localization/translate_resources.py --apply before building, without asking.
+.PARAMETER SkipTranslation
+Build without translating and without asking. -NonInteractive alone also skips translation.
 #>
 [CmdletBinding()]
 param(
     [switch]$NonInteractive,
+    [switch]$Translate,
+    [switch]$SkipTranslation,
     [switch]$Store,
     [switch]$Beta,
     [switch]$Sideload,
@@ -21,7 +28,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$script:ReleaseRepositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+$script:ReleaseRepositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 $script:SideloadIdentityName = 'WinoMail.Sideload'
 $script:BetaAssetsPath = $BetaAssetsPath
 $script:ReleaseOutputRoot = [IO.Path]::GetFullPath($OutputRoot)
@@ -118,7 +125,7 @@ function New-ReleasePlan {
         StorePublisher = [string]$manifest.Package.Identity.Publisher
         OutputRoot = $outputRoot; VersionRoot = $versionRoot; SymbolsPath = Join-Path $versionRoot 'Symbols'
         Destinations = $destinations; SideloadChannels = $sideloadChannels
-        BetaAssetsPath = if ($script:BetaAssetsPath) { [IO.Path]::GetFullPath($script:BetaAssetsPath) } else { Join-Path $RepositoryRoot 'release-assets/Beta' }
+        BetaAssetsPath = if ($script:BetaAssetsPath) { [IO.Path]::GetFullPath($script:BetaAssetsPath) } else { Join-Path $RepositoryRoot 'scripts/release/Assets/Beta' }
     }
 }
 
@@ -947,7 +954,7 @@ function Invoke-ReleaseBuild {
 function Get-ReleaseWhatsNewErrors {
     param([object]$Plan)
 
-    . (Join-Path $PSScriptRoot 'whats-new/validate.ps1') -RepositoryRoot $Plan.RepositoryRoot
+    . (Join-Path $PSScriptRoot '../whats-new/validate.ps1') -RepositoryRoot $Plan.RepositoryRoot
     $notesVersion = ([version]$Plan.Version).ToString(3)
     return Get-WhatsNewValidationErrors $Plan.RepositoryRoot $notesVersion
 }
@@ -964,16 +971,33 @@ function Confirm-ReleaseWhatsNew {
     return Read-ReleaseChoice 'Continue without valid What''s New notes? (yes/no)' @{ yes = $true; y = $true; no = $false; n = $false }
 }
 
+function Invoke-ReleaseTranslation {
+    param([string]$RepositoryRoot = $script:ReleaseRepositoryRoot)
+
+    if ($Translate -and $SkipTranslation) { throw 'Use either -Translate or -SkipTranslation, not both.' }
+    $run = if ($Translate) { $true }
+        elseif ($SkipTranslation -or $NonInteractive) { $false }
+        else { Read-ReleaseChoice 'Translate missing resources with translate_resources.py before building? (yes/no)' @{ yes = $true; y = $true; no = $false; n = $false } }
+    if (-not $run) { return }
+
+    if ([string]::IsNullOrWhiteSpace($env:WINO_OPENAI_API_KEY)) {
+        throw 'WINO_OPENAI_API_KEY is not set. Set it as described in docs/local-script-environment.md, or skip translation.'
+    }
+    & python (Join-Path $RepositoryRoot 'scripts/localization/translate_resources.py') --apply
+    if ($LASTEXITCODE -ne 0) { throw "Translation failed with exit code $LASTEXITCODE. Nothing was built." }
+}
+
 function Invoke-InteractiveRelease {
+    if ($NonInteractive -and -not $Store -and -not $Beta -and -not $Sideload) { throw 'Select at least one distribution.' }
+    Invoke-ReleaseTranslation
     $selection = if ($NonInteractive) {
-        if (-not $Store -and -not $Beta -and -not $Sideload) { throw 'Select at least one distribution.' }
         [pscustomobject]@{ Store = [bool]$Store; Beta = [bool]$Beta; Sideload = [bool]$Sideload; Architectures = $Architectures }
     } else { Read-ReleaseSelection }
     if ($null -eq $selection) { Write-Host 'No channels selected. Nothing to build.'; return }
     $plan = New-ReleasePlan $selection
     if (-not (Confirm-ReleaseWhatsNew $plan)) { Write-Host 'Release stopped. Add the What''s New notes first.'; return }
     if ($selection.Beta -and -not (Test-Path -LiteralPath (Join-Path $plan.BetaAssetsPath 'Assets/Wino_Icon.ico') -PathType Leaf)) {
-        throw "Supply beta artwork under $($plan.BetaAssetsPath) before building. See release-assets/Beta/README.md."
+        throw "Supply beta artwork under $($plan.BetaAssetsPath) before building. See scripts/release/Assets/Beta/README.md."
     }
     Write-Host "Version: $($plan.Version) | Store: $($selection.Store) | Beta: $($selection.Beta) | Stable sideload: $($selection.Sideload) | Architectures: $($selection.Architectures -join ', ')"
     $plan.Destinations | ForEach-Object { Write-Host "Output: $_" }

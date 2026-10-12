@@ -6,12 +6,13 @@
 		<WinoIsReleaseBuild Condition="'$(Configuration)' == 'Release'">true</WinoIsReleaseBuild>
 	</PropertyGroup>
 
-	<PropertyGroup Condition="'$(WinoIsReleaseBuild)' == 'true'">
-		<!-- Bundle inner builds and their references need matching restore/runtime inputs. -->
-		<RuntimeIdentifiers Condition="'$(RuntimeIdentifier)' == '' and '$(WinoTargetPlatform)' != 'MacOS'">win-x86;win-x64;win-arm64</RuntimeIdentifiers>
-		<!-- Bundle inner builds select Platform but do not propagate the app publish profile to project references. -->
-		<RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(WinoTargetPlatform)' != 'MacOS' and '$(Platform)' == 'x86'">win-x86</RuntimeIdentifier>
-		<RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(WinoTargetPlatform)' != 'MacOS' and '$(Platform)' == 'x64'">win-x64</RuntimeIdentifier>
-		<RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(WinoTargetPlatform)' != 'MacOS' and '$(Platform)' == 'ARM64'">win-arm64</RuntimeIdentifier>
+	<!-- WinoTargetPlatform selects the platform build policy and the shared projects' target frameworks.
+	     An explicit value (Windows or MacOS) wins; otherwise the native host decides. Other hosts receive
+	     no platform defaults and must pass the platform explicitly. -->
+	<PropertyGroup Condition="'$(WinoTargetPlatform)' == ''">
+		<WinoTargetPlatform Condition="$([MSBuild]::IsOSPlatform('Windows'))">Windows</WinoTargetPlatform>
+		<WinoTargetPlatform Condition="$([MSBuild]::IsOSPlatform('OSX'))">MacOS</WinoTargetPlatform>
 	</PropertyGroup>
+
+	<Import Project="build/Wino.Windows.props" Condition="'$(WinoTargetPlatform)' == 'Windows'" />
 </Project>

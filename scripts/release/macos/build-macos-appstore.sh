@@ -2,7 +2,7 @@
 # Builds the Mac App Store package of Wino Mail: an app signed with Apple Distribution and the
 # Mac App Store profile, wrapped in a .pkg signed with the installer certificate. Optionally
 # validates and uploads it to App Store Connect.
-# Run from Terminal on a Mac: bash scripts/release/build-macos-appstore.sh [--upload] [--build-number N]
+# Run from Terminal on a Mac: bash scripts/release/macos/build-macos-appstore.sh [--upload] [--build-number N]
 # See docs/releases.md ("Mac App Store package") and docs/local-script-environment.md.
 set -euo pipefail
 
@@ -10,7 +10,7 @@ TEAM_ID="4VB7YWRAQ9"
 BUNDLE_ID="com.winomail.macos"
 APP_NAME="Wino Mail.app"
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 PROJECT="$REPO_ROOT/src/Wino.Mail.MacOS/Wino.Mail.MacOS.csproj"
 MANIFEST="$REPO_ROOT/src/Wino.Mail.WinUI/Package.appxmanifest"
 # Entitlements.plist without the Sparkle exception that DMG builds need.
@@ -21,6 +21,7 @@ BUILD_NUMBER=""
 UPLOAD=0
 VALIDATE=1
 NON_INTERACTIVE=0
+TRANSLATE=""
 OUTPUT_ROOT="${WINO_RELEASES_ROOT:-$HOME/Wino Releases}"
 
 usage() {
@@ -33,7 +34,9 @@ Usage: build-macos-appstore.sh [options]
   --upload                 Upload the package to App Store Connect after validation.
   --skip-validation        Do not run App Store Connect validation (no API key needed).
   --output-root <path>     Release root. Default: $WINO_RELEASES_ROOT or ~/Wino Releases.
-  --non-interactive        Do not prompt. Missing choices use their defaults.
+  --translate              Run translate_resources.py --apply before building, without asking.
+  --skip-translation       Build without translating and without asking.
+  --non-interactive        Do not prompt. Missing choices use their defaults (no translation).
   -h, --help               Show this help.
 
 Signing needs the Apple Distribution and Mac Installer Distribution certificates of team
@@ -45,6 +48,8 @@ EOF
 step() { printf '\n==> %s\n' "$*"; }
 info() { printf '    %s\n' "$*"; }
 fail() { printf '\nERROR: %s\n' "$*" >&2; exit 1; }
+# shellcheck source=release-translation.sh
+source "$(dirname "${BASH_SOURCE[0]}")/release-translation.sh"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -56,6 +61,8 @@ while [ $# -gt 0 ]; do
     --skip-validation) VALIDATE=0; shift ;;
     --output-root) [ $# -ge 2 ] || fail "--output-root needs a path."; OUTPUT_ROOT="$2"; shift 2 ;;
     --output-root=*) OUTPUT_ROOT="${1#*=}"; shift ;;
+    --translate) set_release_translation yes; shift ;;
+    --skip-translation) set_release_translation no; shift ;;
     --non-interactive) NON_INTERACTIVE=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) usage >&2; fail "Unknown argument: $1" ;;
@@ -158,6 +165,9 @@ VERSION="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
 [ -n "$BUILD_NUMBER" ] || BUILD_NUMBER="$(date -u +%y%j%H%M | sed 's/^0*//')"
 [[ "$BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]] || fail "--build-number must be a positive integer ($BUILD_NUMBER)."
 info "Version: $VERSION (manifest $FULL_VERSION), build $BUILD_NUMBER"
+
+# ---------------------------------------------------------------- translations
+run_release_translation
 
 # ---------------------------------------------------------------- choices
 if [ -z "$ARCH" ]; then

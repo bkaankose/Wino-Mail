@@ -8,6 +8,7 @@ Wino downloads the content from the servers through normal synchronization.
 The generated database contains account configuration, preferences, signatures, aliases, and DAV discovery state.
 It contains no cached mail, events, contacts, or synchronization tokens.
 The scripts never copy files into an installed Wino application.
+The lab currently runs on Windows only. Its generated databases and credentials target the Windows app; do not reuse them for the Mac app.
 
 ## Start the lab
 
@@ -17,7 +18,7 @@ The scripts never copy files into an installed Wino application.
 4. From the repository root, run this command:
 
 ```powershell
-.\scripts\lab\local-lab.ps1 up
+.\scripts\lab\windows\local-lab.ps1 up
 ```
 
 The first run downloads the pinned container images and restores the generator dependencies.
@@ -75,16 +76,16 @@ Run these commands from the repository root. The script resolves its own paths, 
 
 | Command | Result |
 |---|---|
-| `.\scripts\lab\local-lab.ps1 up` | Start servers, create missing users and fixtures, generate fresh client artifacts |
-| `.\scripts\lab\local-lab.ps1 status` | Show container state, port reachability, and artifact location |
-| `.\scripts\lab\local-lab.ps1 seed` | Add missing fixtures to running servers |
-| `.\scripts\lab\local-lab.ps1 generate-db` | Generate fresh client artifacts from the saved fixture manifest |
-| `.\scripts\lab\local-lab.ps1 stop` | Stop both servers and preserve their volumes |
-| `.\scripts\lab\local-lab.ps1 reset -Force` | Delete this lab's server volumes and seed state, then rebuild the baseline |
-| `.\scripts\lab\local-lab.ps1 logs` | Show the last 100 log lines from both servers |
-| `.\scripts\lab\local-lab.ps1 logs -Service mail` | Show mail logs only |
-| `.\scripts\lab\local-lab.ps1 logs -Service dav` | Show DAV logs only |
-| `.\scripts\lab\local-lab.ps1 help` | Show command help without requiring Docker |
+| `.\scripts\lab\windows\local-lab.ps1 up` | Start servers, create missing users and fixtures, generate fresh client artifacts |
+| `.\scripts\lab\windows\local-lab.ps1 status` | Show container state, port reachability, and artifact location |
+| `.\scripts\lab\windows\local-lab.ps1 seed` | Add missing fixtures to running servers |
+| `.\scripts\lab\windows\local-lab.ps1 generate-db` | Generate fresh client artifacts from the saved fixture manifest |
+| `.\scripts\lab\windows\local-lab.ps1 stop` | Stop both servers and preserve their volumes |
+| `.\scripts\lab\windows\local-lab.ps1 reset -Force` | Delete this lab's server volumes and seed state, then rebuild the baseline |
+| `.\scripts\lab\windows\local-lab.ps1 logs` | Show the last 100 log lines from both servers |
+| `.\scripts\lab\windows\local-lab.ps1 logs -Service mail` | Show mail logs only |
+| `.\scripts\lab\windows\local-lab.ps1 logs -Service dav` | Show DAV logs only |
+| `.\scripts\lab\windows\local-lab.ps1 help` | Show command help without requiring Docker |
 
 `generate-db` requires a successful previous seed. It does not require running containers.
 It builds the generator in Debug/x64. The resulting database also works with compatible Release and Store builds.
@@ -233,7 +234,7 @@ No automated Wino tests or reconnect scenarios are included.
 - [Compose configuration](compose.yaml)
 - [Server fixture generator](seed/seed.py)
 - [Database generator](DatabaseGenerator/Program.cs)
-- [PowerShell entry point](../../scripts/lab/local-lab.ps1)
+- [PowerShell entry point](../../scripts/lab/windows/local-lab.ps1)
 - [Docker Mailserver documentation](https://docker-mailserver.github.io/docker-mailserver/latest/)
 - [Baïkal Docker image source](https://github.com/ckulka/baikal-docker)
 

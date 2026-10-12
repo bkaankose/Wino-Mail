@@ -1,5 +1,5 @@
 param(
-    [string[]]$Root = @("src", "controls")
+    [string[]]$Root = @((Join-Path $PSScriptRoot '../../../src'), (Join-Path $PSScriptRoot '../../../controls'))
 )
 
 # Fails when icons bypass the WinoIcons fonts generated from icons/manifest.json.

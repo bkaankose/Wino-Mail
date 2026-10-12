@@ -2,9 +2,9 @@
 .SYNOPSIS
 Starts/seeds the local Docker servers and generates fresh Wino account artifacts.
 .EXAMPLE
-.\scripts\lab\local-lab.ps1 up
+.\scripts\lab\windows\local-lab.ps1 up
 .EXAMPLE
-.\scripts\lab\local-lab.ps1 reset -Force
+.\scripts\lab\windows\local-lab.ps1 reset -Force
 #>
 [CmdletBinding()]
 param(
@@ -15,8 +15,8 @@ param(
     [switch]$Force
 )
 $ErrorActionPreference = 'Stop'
-$labRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../tools/local-lab'))
-$repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+$labRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../tools/local-lab'))
+$repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 $composeFile = Join-Path $labRoot 'compose.yaml'
 $stateRoot = Join-Path $labRoot '.state'
 $generatedRoot = Join-Path $labRoot 'generated'
@@ -99,7 +99,7 @@ try {
         @'
 Wino local lab (Windows PowerShell 5.1+ / PowerShell 7)
 Prerequisites: Docker Desktop (Linux containers, Compose v2), repository .NET SDK.
-Run from any directory: scripts/lab/local-lab.ps1 <command>
+Run from any directory: scripts/lab/windows/local-lab.ps1 <command>
 
 up             Start services, provision/seed missing fixtures, generate client artifacts.
 status         Container state, endpoint reachability, artifact paths.
@@ -119,6 +119,8 @@ No installed app data is changed. See tools/local-lab/README.md for the fixture 
 '@ | Write-Output
         return
     }
+    # $IsWindows is undefined in Windows PowerShell 5.1, which only runs on Windows.
+    if ($PSVersionTable.PSVersion.Major -ge 6 -and -not $IsWindows) { throw 'The local lab currently runs on Windows only.' }
     if ($Command -notin @('status', 'logs')) {
         try {
             $operationLock = [IO.File]::Open((Join-Path $labRoot '.operation.lock'),

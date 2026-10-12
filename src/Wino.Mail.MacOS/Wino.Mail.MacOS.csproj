@@ -58,7 +58,7 @@
   <ItemGroup>
     <None Include="../Wino.Mail.WinUI/Assets/WhatsNew/*.json;../Wino.Mail.WinUI/Assets/WhatsNew/*.png" Link="Assets/WhatsNew/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
-  <!-- scripts/release/build-macos-release.sh passes a generated plist with the release version, which
+  <!-- scripts/release/macos/build-macos-release.sh passes a generated plist with the release version, which
        overrides the development values in Info.plist. Other builds do not set WinoVersionPlist. -->
   <ItemGroup Condition="'$(WinoVersionPlist)' != ''">
     <PartialAppManifest Include="$(WinoVersionPlist)" />

@@ -10,7 +10,7 @@ The packager requires all branding assets present in its compiled payload. It ne
 To list candidate source paths, run this command from the repository root:
 
 ```powershell
-. ./scripts/release/build-releases.ps1
+. ./scripts/release/windows/build-releases.ps1
 Get-ReleaseBrandingPaths ./src/Wino.Mail.WinUI
 ```
 

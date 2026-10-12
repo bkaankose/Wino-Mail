@@ -8,7 +8,7 @@
       "args": [
         "-NoProfile",
         "-File",
-        "${workspaceFolder}/scripts/development/start-wino.ps1",
+        "${workspaceFolder}/scripts/development/windows/start-wino.ps1",
         "-Target",
         "sandbox"
       ],
@@ -39,39 +39,9 @@
       "args": [
         "-NoProfile",
         "-File",
-        "${workspaceFolder}/scripts/development/start-wino.ps1"
+        "${workspaceFolder}/scripts/development/windows/start-wino.ps1"
       ],
       "problemMatcher": "$msCompile"
-    },
-    {
-      "label": "Build Wino Mail (macOS, arm64)",
-      "type": "process",
-      "command": "dotnet",
-      "args": [
-        "build",
-        "${workspaceFolder}/src/Wino.Mail.MacOS/Wino.Mail.MacOS.csproj",
-        "-c",
-        "Debug",
-        "-r",
-        "osx-arm64",
-        "-p:WinoTargetRuntimeIdentifier=osx-arm64",
-        "-p:WinoTargetPlatform=MacOS",
-        "-p:EnableWindowsTargeting=true"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "problemMatcher": "$msCompile",
-      "dependsOn": "Prepare Wino Mail macOS debugger"
-    },
-    {
-      "label": "Prepare Wino Mail macOS debugger",
-      "type": "process",
-      "command": "/bin/bash",
-      "args": [
-        "${workspaceFolder}/scripts/maintenance/setup-macos-debugger.sh"
-      ],
-      "problemMatcher": []
     }
   ]
 }

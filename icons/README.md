@@ -106,7 +106,7 @@ Inside a `ControlTemplate` in a style dictionary, the implicit `WinoFontIcon` st
 
 ```powershell
 python icons/tools/build_fonts.py --check   # committed fonts match the sources
-.\scripts\maintenance\audit-xaml-icons.ps1              # no SymbolIcon, PathIcon, Segoe glyphs or Symbol shorthand
+.\scripts\maintenance\windows\audit-xaml-icons.ps1             # no SymbolIcon, PathIcon, Segoe glyphs or Symbol shorthand
 ```
 
 ## How it works

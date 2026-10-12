@@ -1,6 +1,6 @@
 # Windows abstraction import and native AppKit migration
 
-Status: **platform foundation built and verified; UI implementation and planning stopped by the user on 7 October 2026**. Full presentation parity will be planned in a separate task. See [the verification and handoff boundary](harness/appkit-foundation-validation.md).
+Status: **historical. Superseded for current work** by the [macOS development guide](harness/development-macos.md), [macOS design decisions](macos-design-decisions.md), and the [macOS shared-logic roadmap](macos-shared-logic-roadmap.md). At the time: platform foundation built and verified; UI implementation and planning stopped by the user on 7 October 2026. Full presentation parity will be planned in a separate task. See [the verification and handoff boundary](harness/appkit-foundation-validation.md).
 
 Inspected on 6 October 2026. Destination: `D:\Wino-Mail`, HEAD `40bae46a`; donor: `D:\Wino Mail Uno\Wino Mail Uno Platform`, HEAD `62858db`. Both worktrees were clean before planning. These identifiers are provenance, not instructions to reset either checkout. Recheck both before implementation.
 
@@ -263,8 +263,8 @@ dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug -p:Platform=x64
 Format changed XAML before building, then check before handoff:
 
 ```powershell
-pwsh -NoProfile -File scripts/maintenance/format-xaml.ps1 -Changed
-pwsh -NoProfile -File scripts/maintenance/format-xaml.ps1 -Changed -Check
+pwsh -NoProfile -File scripts/maintenance/windows/format-xaml.ps1 -Changed
+pwsh -NoProfile -File scripts/maintenance/windows/format-xaml.ps1 -Changed -Check
 ```
 
 Select tests from actual imported behavior. Known donor suites include `EditorSessionBoundaryTests`, `DavCredentialStoreTests`, `IntelligenceResultKeyStoreTests`, `GmailTokenStoreTests`, `OutlookAuthenticationHostTests`, `AccountCredentialPersistenceTests`, `AccountRecoveryMetadataTests`, `PreferencesPortabilityTests`, `ApplicationRuntimeTests`, `WinoAppShellLifecycleTests`, `OptionalPlatformCapabilityTests`, `SmimeCapabilityTests`, `KeyboardShortcutPlatformDefaultsTests`, `CalendarAccountSettingsPersistenceTests`, `MessageListPreviewLifecycleTests` and `WinoIntelligenceSessionSafetyTests`. Controls projection/collection, draft synchronization and attachment/ML tests cover adjacent imports. Reconcile constructors/fixtures without weakening behavior assertions.
@@ -292,7 +292,7 @@ VS Code production tasks should build before debug launch, reference the verifie
 
 Manual Windows lab checks: existing credential reads/login/refresh, preferences/database/MIME retention, startup/sync/account removal, mail/calendar/contacts/tasks navigation, reader remote policy, typing/drafts/attachments, printing/PDF/S/MIME, notifications/activation, tray/reopen/quit and Store behavior. Mac manual checks add Keychain denial/loss/restart, file quarantine/pickers, native menus/shortcuts, editor WebKit policies/IME, safe quit/reopen, native integration and minimum-OS/architecture acceptance. M1 execution under Rosetta is not evidence of physical Intel performance or all Intel-specific behavior.
 
-Use current [development commands](harness/development.md) and [local lab guidance](../tools/local-lab/README.md). No agent-driven UI scripts. Deployment, when requested in implementation, must preserve package data and verify Windows identity/publisher/development status first. A build is compile evidence only; manual checks remain pending until performed.
+Use current [Windows](harness/development-windows.md) and [macOS](harness/development-macos.md) development guides and [local lab guidance](../tools/local-lab/README.md). No agent-driven UI scripts. Deployment, when requested in implementation, must preserve package data and verify Windows identity/publisher/development status first. A build is compile evidence only; manual checks remain pending until performed.
 
 ## 11. Handoff and completion rules
 

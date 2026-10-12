@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds a signed, notarized and stapled DMG of Wino Mail for macOS.
-# Run from Terminal on a Mac: bash scripts/release/build-macos-release.sh [--arch arm64|universal] [--non-interactive]
+# Run from Terminal on a Mac: bash scripts/release/macos/build-macos-release.sh [--arch arm64|universal] [--non-interactive]
 # See docs/releases.md ("macOS DMG") and docs/local-script-environment.md.
 set -euo pipefail
 
@@ -10,7 +10,7 @@ BUNDLE_ID="com.winomail.macos"
 APP_NAME="Wino Mail.app"
 VOLUME_NAME="Wino Mail"
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 PROJECT="$REPO_ROOT/src/Wino.Mail.MacOS/Wino.Mail.MacOS.csproj"
 MANIFEST="$REPO_ROOT/src/Wino.Mail.WinUI/Package.appxmanifest"
 ENTITLEMENTS="$REPO_ROOT/src/Wino.Mail.MacOS/Entitlements.plist"
@@ -23,6 +23,7 @@ DOWNLOAD_BASE_URL="https://download.winomail.app/macos"
 
 ARCH=""
 NON_INTERACTIVE=0
+TRANSLATE=""
 OUTPUT_ROOT="${WINO_RELEASES_ROOT:-$HOME/Wino Releases}"
 
 usage() {
@@ -31,7 +32,9 @@ Usage: build-macos-release.sh [options]
 
   --arch arm64|universal   Apple silicon only, or Apple silicon + Intel (default: universal).
   --output-root <path>     Release root. Default: $WINO_RELEASES_ROOT or ~/Wino Releases.
-  --non-interactive        Do not prompt. Missing choices use their defaults.
+  --translate              Run translate_resources.py --apply before building, without asking.
+  --skip-translation       Build without translating and without asking.
+  --non-interactive        Do not prompt. Missing choices use their defaults (no translation).
   -h, --help               Show this help.
 
 Requires WINO_NOTARY_KEY_PATH, WINO_NOTARY_KEY_ID and WINO_NOTARY_ISSUER_ID.
@@ -41,6 +44,8 @@ EOF
 step() { printf '\n==> %s\n' "$*"; }
 info() { printf '    %s\n' "$*"; }
 fail() { printf '\nERROR: %s\n' "$*" >&2; exit 1; }
+# shellcheck source=release-translation.sh
+source "$(dirname "${BASH_SOURCE[0]}")/release-translation.sh"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -48,6 +53,8 @@ while [ $# -gt 0 ]; do
     --arch=*) ARCH="${1#*=}"; shift ;;
     --output-root) [ $# -ge 2 ] || fail "--output-root needs a path."; OUTPUT_ROOT="$2"; shift 2 ;;
     --output-root=*) OUTPUT_ROOT="${1#*=}"; shift ;;
+    --translate) set_release_translation yes; shift ;;
+    --skip-translation) set_release_translation no; shift ;;
     --non-interactive) NON_INTERACTIVE=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) usage >&2; fail "Unknown argument: $1" ;;
@@ -129,6 +136,9 @@ FULL_VERSION="$(awk '/<Identity/{f=1} f && match($0, /Version="[^"]*"/){print su
 [ "${BASH_REMATCH[4]}" -eq 0 ] || fail "The revision must be zero ($FULL_VERSION)."
 VERSION="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
 info "Version: $VERSION (manifest $FULL_VERSION)"
+
+# ---------------------------------------------------------------- translations
+run_release_translation
 
 # ---------------------------------------------------------------- choices
 if [ -z "$ARCH" ]; then

@@ -22,7 +22,7 @@ $ErrorActionPreference = 'Stop'
 function Get-WinoInputFiles([string]$Root) {
     $excluded = @('bin', 'obj', 'artifacts', 'AppPackages', 'BundleArtifacts', '.git', '.vs', 'node_modules')
     $pending = [Collections.Generic.Stack[string]]::new()
-    foreach ($folder in @('src', 'controls', 'icons', '.config')) {
+    foreach ($folder in @('src', 'controls', 'icons', 'build', '.config')) {
         $path = Join-Path $Root $folder
         if (Test-Path -LiteralPath $path) { $pending.Push($path) }
     }
@@ -36,7 +36,7 @@ function Get-WinoInputFiles([string]$Root) {
     Get-ChildItem -LiteralPath $Root -File -Force | Where-Object {
         $_.Extension -in @('.props', '.targets', '.json', '.config', '.sln', '.slnx', '.rsp') -or $_.Name -eq '.editorconfig'
     } | ForEach-Object FullName
-    Join-Path $Root 'scripts/development/start-wino.ps1'
+    Join-Path $Root 'scripts/development/windows/start-wino.ps1'
     $nugetConfig = Join-Path $env:APPDATA 'NuGet/NuGet.Config'
     if (Test-Path -LiteralPath $nugetConfig) { $nugetConfig }
 }
@@ -151,5 +151,6 @@ function Start-Wino([string]$Root, [switch]$ForceBuild, [ValidateSet('local', 's
 }
 
 if ($MyInvocation.InvocationName -ne '.') {
-    Start-Wino -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))) -ForceBuild:$ForceBuild -Target $Target
+    if (-not $IsWindows) { throw 'The Wino F5 helper deploys the Windows MSIX package and requires Windows.' }
+    Start-Wino -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -ForceBuild:$ForceBuild -Target $Target
 }

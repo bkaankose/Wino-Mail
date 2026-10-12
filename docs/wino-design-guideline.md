@@ -1,7 +1,8 @@
 # Wino design guideline
 
 > **Status:** Draft baseline, 2026-08-15  
-> **Use this for:** Every user-facing Wino feature, page, control, dialog, command, state, or visual change in `src/Wino.Mail.WinUI` and reusable Wino controls.
+> **Use this for:** Every user-facing Wino feature, page, control, dialog, command, state, or visual change in `src/Wino.Mail.WinUI` and reusable WinUI controls.  
+> **macOS:** The AppKit app follows [macOS design decisions](macos-design-decisions.md), which take precedence for Mac presentation. This guide still defines the shared naming, command order, settings order, and states that both apps keep in parity.
 
 This guide is for contributors designing or reviewing Wino interfaces. It explains product conventions that apply across features and developer environments.
 

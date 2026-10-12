@@ -1,13 +1,18 @@
 # Local script environment
 
 This reference lists environment variables for release packaging and translation maintenance.
-Configure only the variables required for the task. Store packaging and translation dry runs do not require signing credentials.
+Configure only the variables required for the task and platform. Store packaging and translation dry runs do not require signing credentials.
 
-Set variables through Windows **Environment Variables**, under the developer's user account or system settings.
+| Platform | Sections | Where to set variables |
+| --- | --- | --- |
+| Windows | Windows Store local-update signing, Windows sideload signing, Windows release output, Windows publication | Windows **Environment Variables**, under the developer's user account or system settings |
+| macOS | macOS notarization and App Store Connect | The shell profile, such as `~/.zprofile`, with `export KEY=value` |
+| Both | Translations | Either of the above, on the host that runs the script |
+
 Restart the terminal and its parent application after changes. Existing processes keep their previous environment.
 Secret values belong in the environment, never in this document or a script.
 
-## Store local-update signing
+## Windows Store local-update signing
 
 Store builds use a local test certificate to sign the installable `.msixbundle`.
 The Partner Center `.msixupload` does not use this certificate.
@@ -19,7 +24,7 @@ The Partner Center `.msixupload` does not use this certificate.
 The command-line `-StoreTestCertificateThumbprint` value overrides this environment variable.
 The thumbprint is not a secret.
 
-## Beta and stable sideload releases
+## Windows sideload signing (Beta and stable sideload)
 
 These seven variables are required when Beta or stable sideload is selected. Store-only releases need none of them.
 Both sideload channels use the same signing account and the `WINO_BETA_RELEASE_` variables, despite the prefix's name.
@@ -51,13 +56,13 @@ The script passes the three login values to SignTool through its environment. Az
 
 Only selected channels require valid feed settings. Beta and stable sideload must use different feed URLs when selected together.
 
-## Release output folder
+## Windows release output
 
 | Optional key | Default | Purpose |
 | --- | --- | --- |
-| `WINO_RELEASES_ROOT` | `D:\Wino Releases` | Where `build-releases.ps1` writes packages and `publish-releases.ps1` looks for them. The `-OutputRoot` and `-ReleasesRoot` parameters override it for one run. |
+| `WINO_RELEASES_ROOT` | `D:\Wino Releases` | Where `build-releases.ps1` writes packages and `publish-releases.ps1` looks for them. The `-OutputRoot` and `-ReleasesRoot` parameters override it for one run. On a Mac the default is `~/Wino Releases`. |
 
-## macOS DMG notarization
+## macOS notarization and App Store Connect
 
 `build-macos-release.sh` runs on a Mac and submits the DMG with `xcrun notarytool`.
 Set these variables in the shell profile, such as `~/.zprofile`, with `export KEY=value`. Open a new Terminal window after changes.
@@ -72,7 +77,7 @@ The key needs the **Developer** role or higher. The script passes the key to `no
 `build-macos-appstore.sh` uses the same variables to validate and upload the Mac App Store package with `xcrun altool`.
 `WINO_RELEASES_ROOT` also applies on the Mac. Its default there is `~/Wino Releases`.
 
-## Publishing Beta and stable sideload releases
+## Windows publication (Beta and stable sideload)
 
 `publish-releases.ps1` uploads to the `wino-downloads` Cloudflare R2 bucket that serves `https://download.winomail.app`.
 It uses R2's S3-compatible API, because bundles exceed the 300 MB single-request limit of the Cloudflare API.
@@ -98,7 +103,8 @@ Both scripts use the same API key. Dry runs need no key and make no API calls.
 `--model` overrides the corresponding environment variable for one run.
 Both scripts read credentials only from `WINO_OPENAI_API_KEY`.
 
-Run these commands from the repository root with Python 3.10 or later:
+The release scripts on both platforms can run `translate_resources.py --apply` before building; that run requires `WINO_OPENAI_API_KEY`.
+Run these commands from the repository root with Python 3.10 or later (`python3` on macOS):
 
 ```powershell
 python .\scripts\localization\translate_resources.py --dry-run
@@ -109,4 +115,4 @@ Use `--apply` instead of `--dry-run` to write changes. Translation requests use 
 Use `--locales`, such as `--locales de_DE pl_PL`, to limit the affected languages.
 The shared rules in `.config/translation_allowlist.json` exclude legitimate English terms from the validation report.
 
-See [Local release packages](releases.md) for build prerequisites, package outputs, and publication steps.
+See the [release index](releases.md) for the Windows and macOS build prerequisites, package outputs, and publication steps.

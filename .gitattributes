@@ -1,9 +1,8 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 
-# The macOS debugger setup must remain executable by Bash after Windows checkouts.
-scripts/maintenance/setup-macos-debugger.sh text eol=lf
-scripts/release/build-macos-release.sh text eol=lf
+# Shell scripts must remain executable by Bash after Windows checkouts.
+scripts/**/*.sh text eol=lf
 
 # Magika assets are checked against pinned SHA-256 hashes at load time. Keep their bytes
 # exactly as committed so a Windows checkout with core.autocrlf does not turn LF into CRLF.

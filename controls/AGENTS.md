@@ -1,10 +1,18 @@
 # AGENTS.md
 
-This file provides guidance for agents working in `controls/`, Wino Mail's reusable controls workspace and WinUI 3 playground.
+This file provides guidance for agents working in `controls/`, Wino Mail's reusable controls workspace.
 
 ## Scope
 
-The directory contains shared contracts, native presentation libraries, and the Windows playground:
+The directory has three groups. Read the rules for each group you change:
+
+| Group | Projects | Platform guide |
+| --- | --- | --- |
+| Shared contracts and editor engine | `Wino.Mail.Controls.Core`, `Wino.Editor.Core` | Both: [Windows](../docs/harness/development-windows.md) and [macOS](../docs/harness/development-macos.md) |
+| WinUI 3 and WebView2 | `Wino.Mail.Controls.WinUI`, `Wino.Editor.WinUI`, `Wino.Mail.Controls.Playground.WinUI` | [Windows](../docs/harness/development-windows.md) |
+| AppKit and WKWebView | `Wino.Presentation.AppKit`, `Wino.Mail.Controls.AppKit`, `Wino.Editor.AppKit` | [macOS](../docs/harness/development-macos.md) |
+
+The projects:
 
 - `Wino.Mail.Controls.Core` contains platform-neutral models, interfaces, projections, and collection logic. Keep this project free of WinUI dependencies so its `net10.0` target remains usable outside Windows UI code.
 - `Wino.Mail.Controls.WinUI` contains reusable WinUI 3 controls. Public controls belong in a matching feature folder and namespace, such as `MailListView/WinoMailListView.cs` in `Wino.Mail.Controls.MailListView`.
@@ -27,7 +35,7 @@ Start with the named control, feature folder, or playground page. Avoid mapping 
 
 ## Build Commands
 
-Run commands from the repository root. Use x64 for routine verification.
+Run commands from the repository root. On Windows, use x64 for routine verification.
 
 ```powershell
 # Platform-neutral logic (build both target frameworks)
@@ -43,11 +51,17 @@ dotnet build controls\Wino.Editor.WinUI\Wino.Editor.WinUI.csproj -c Debug -p:Pla
 dotnet build controls\Wino.Mail.Controls.Playground.WinUI\Wino.Mail.Controls.Playground.WinUI.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -p:GenerateAppxPackageOnBuild=false -p:AppxPackageSigningEnabled=false
 ```
 
+AppKit libraries build on a Mac through the production head (see the [macOS guide](../docs/harness/development-macos.md)):
+
+```sh
+dotnet build src/Wino.Mail.MacOS/Wino.Mail.MacOS.csproj -c Debug -r osx-arm64 -p:WinoTargetRuntimeIdentifier=osx-arm64 -p:WinoTargetPlatform=MacOS -p:EnableWindowsTargeting=true
+```
+
 After the first successful restore, add `--no-restore` unless package or project references changed. Prefer the narrow affected-project build; build the playground when UI, resources, templates, or public control integration changes.
 
 If the WinUI compiler reports only `XamlCompiler.exe exited with code 1`, rerun the failing build with diagnostic file logging and inspect the first `WMC` or binding error instead of guessing.
 
-## Adding or Changing Controls
+## Adding or Changing WinUI Controls
 
 - Name reusable controls `Wino{ControlName}`.
 - In `Wino.Mail.Controls.WinUI`, place each control and its support types in a matching `{ControlName}/` folder and `Wino.Mail.Controls.{ControlName}` namespace.
@@ -85,7 +99,7 @@ When a public control is added or its important states change, update `Wino.Mail
 - Preserve the document-ready bridge handshake before invoking rendering or editing commands.
 - Use the source-generated `EditorJsonContext` for every .NET/JavaScript payload. Reflection-based JSON serialization is disabled for trimming and Native AOT compatibility.
 - Keep public bridge models explicitly named and serialization-safe. When changing a command or payload, update its C# contract, JavaScript handler, and playground scenario together.
-- Dispose WebView2 and bridge resources, detach handlers, and avoid retaining pages or editor controls after navigation.
+- Dispose WebView2 or WKWebView and bridge resources, detach handlers, and avoid retaining pages or editor controls after navigation.
 - Treat HTML as untrusted input. Preserve navigation interception and do not weaken sanitization or script boundaries.
 
 ## Playground Rules
@@ -105,15 +119,17 @@ Match verification to the change:
 - Core-only logic: build `Wino.Mail.Controls.Core` and run any directly affected repository tests.
 - WinUI control or template: build `Wino.Mail.Controls.WinUI` and the playground, then request manual verification of the affected control in the app with the local lab.
 - Editor C#, XAML, or web assets: build `Wino.Editor.WinUI` and the playground, then request manual lab checks for initialization, editing/rendering, theme changes, navigation, and disposal.
+- AppKit control or WKWebView session: build the Mac head for arm64 and x64, then request manual verification in the Mac app. There is no AppKit playground.
+- Shared Core or editor engine change: verify the WinUI consumers above and hand off, or run, the Mac builds.
 - Public API change: search CodeGraph for consumers and build each affected project.
 
 Do not report a UI change as verified from compilation alone. If interactive verification is unavailable, state that clearly in the handoff.
 
-Format changed XAML before compilation. Run passive verification before handoff:
+Format changed WinUI XAML before compilation. Run passive verification before handoff:
 
 ```powershell
-.\scripts\maintenance\format-xaml.ps1 -Changed
-.\scripts\maintenance\format-xaml.ps1 -Changed -Check
+.\scripts\maintenance\windows\format-xaml.ps1 -Changed
+.\scripts\maintenance\windows\format-xaml.ps1 -Changed -Check
 ```
 
 The editor extension is a convenience. The pinned command-line result is the formatting source of truth.

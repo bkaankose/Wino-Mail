@@ -502,7 +502,7 @@
     <AppxSymbolPackageEnabled>True</AppxSymbolPackageEnabled>
   </PropertyGroup>
 
-  <Import Project="..\..\scripts\release\Wino.Release.targets" Condition="'$(WinoReleaseStagingRoot)' != ''" />
+  <Import Project="..\..\scripts\release\windows\Wino.Release.targets" Condition="'$(WinoReleaseStagingRoot)' != ''" />
 
   <Target Name="PublishNotificationHost" BeforeTargets="PrepareForBuild" Condition="'$(WinoIsReleaseBuild)' == 'true'">
     <MakeDir Directories="$(NotificationHostOutput)" />
