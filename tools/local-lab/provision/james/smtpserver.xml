@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<!--
+  Apache James SMTP configuration for the Wino local lab.
+  Derived from the memory-app sample configuration (Apache License 2.0).
+  Port 25 receives lab mail from the hub; port 587 is authenticated plain-text submission.
+-->
+<smtpservers>
+    <smtpserver enabled="true">
+        <jmxName>smtpserver-global</jmxName>
+        <bind>0.0.0.0:25</bind>
+        <connectionBacklog>200</connectionBacklog>
+        <tls socketTLS="false" startTLS="false">
+            <keystore>file://conf/keystore</keystore>
+            <keystoreType>PKCS12</keystoreType>
+            <secret>james72laBalle</secret>
+            <provider>org.bouncycastle.jce.provider.BouncyCastleProvider</provider>
+            <algorithm>SunX509</algorithm>
+        </tls>
+        <connectiontimeout>360</connectiontimeout>
+        <connectionLimit>0</connectionLimit>
+        <connectionLimitPerIP>0</connectionLimitPerIP>
+        <auth>
+            <required>false</required>
+            <announce>never</announce>
+            <requireSSL>false</requireSSL>
+            <plainAuthEnabled>true</plainAuthEnabled>
+        </auth>
+        <authorizedAddresses>127.0.0.0/8</authorizedAddresses>
+        <verifyIdentity>true</verifyIdentity>
+        <maxmessagesize>0</maxmessagesize>
+        <addressBracketsEnforcement>true</addressBracketsEnforcement>
+        <smtpGreeting>Apache JAMES Wino lab SMTP Server</smtpGreeting>
+        <handlerchain coreHandlersPackage="org.apache.james.smtpserver.NoAuthCmdHandlerLoader">
+            <handler class="org.apache.james.smtpserver.fastfail.ValidRcptHandler"/>
+        </handlerchain>
+    </smtpserver>
+    <smtpserver enabled="true">
+        <jmxName>smtpserver-authenticated</jmxName>
+        <bind>0.0.0.0:587</bind>
+        <connectionBacklog>200</connectionBacklog>
+        <tls socketTLS="false" startTLS="false">
+            <keystore>file://conf/keystore</keystore>
+            <keystoreType>PKCS12</keystoreType>
+            <secret>james72laBalle</secret>
+            <provider>org.bouncycastle.jce.provider.BouncyCastleProvider</provider>
+            <algorithm>SunX509</algorithm>
+        </tls>
+        <connectiontimeout>360</connectiontimeout>
+        <connectionLimit>0</connectionLimit>
+        <connectionLimitPerIP>0</connectionLimitPerIP>
+        <auth>
+            <announce>always</announce>
+            <requireSSL>false</requireSSL>
+            <plainAuthEnabled>true</plainAuthEnabled>
+            <required>true</required>
+        </auth>
+        <authorizedAddresses>127.0.0.0/8</authorizedAddresses>
+        <verifyIdentity>true</verifyIdentity>
+        <maxmessagesize>0</maxmessagesize>
+        <addressBracketsEnforcement>true</addressBracketsEnforcement>
+        <smtpGreeting>Apache JAMES Wino lab submission</smtpGreeting>
+        <handlerchain>
+            <handler class="org.apache.james.smtpserver.fastfail.ValidRcptHandler"/>
+            <handler class="org.apache.james.smtpserver.CoreCmdHandlerLoader"/>
+        </handlerchain>
+    </smtpserver>
+</smtpservers>

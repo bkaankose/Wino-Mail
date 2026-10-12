@@ -1,0 +1,153 @@
+<?xml version="1.0"?>
+<!--
+  Apache James mailet container for the Wino local lab.
+  Derived from the memory-app sample configuration (Apache License 2.0).
+  The only change: RemoteDelivery sends every non-local message to the lab hub (dovecot:25).
+-->
+<mailetcontainer enableJmx="true">
+
+    <context>
+        <postmaster>postmaster@james.test</postmaster>
+    </context>
+
+    <spooler>
+        <threads>20</threads>
+        <errorRepository>memory://var/mail/error/</errorRepository>
+    </spooler>
+
+    <processors>
+        <processor state="root" enableJmx="true">
+            <mailet match="All" class="PostmasterAlias"/>
+            <mailet match="RelayLimit=30" class="ToRepository">
+                <repositoryPath>memory://var/mail/relay-limit-exceeded/</repositoryPath>
+            </mailet>
+            <mailet match="All" class="ToProcessor">
+                <processor>transport</processor>
+            </mailet>
+        </processor>
+
+        <processor state="error" enableJmx="true">
+            <matcher name="not-reprocessed" match="org.apache.james.mailetcontainer.impl.matchers.Not">
+                <matcher match="HasMailAttribute=mailRepository-reprocessing"/>
+            </matcher>
+            <mailet match="All" class="MetricsMailet">
+                <metricName>mailetContainerErrors</metricName>
+            </mailet>
+            <mailet match="not-reprocessed" class="Bounce">
+                <onMailetException>ignore</onMailetException>
+            </mailet>
+            <mailet match="All" class="ToRepository">
+                <repositoryPath>memory://var/mail/error/</repositoryPath>
+                <onMailetException>propagate</onMailetException>
+            </mailet>
+        </processor>
+
+        <processor state="transport" enableJmx="true">
+            <matcher name="relay-allowed" match="org.apache.james.mailetcontainer.impl.matchers.Or">
+                <matcher match="SMTPAuthSuccessful"/>
+                <matcher match="SMTPIsAuthNetwork"/>
+                <matcher match="SentByMailet"/>
+                <matcher match="org.apache.james.jmap.mailet.SentByJmap"/>
+            </matcher>
+
+            <mailet match="All" class="RemoveMimeHeader">
+                <name>bcc</name>
+                <onMailetException>ignore</onMailetException>
+            </mailet>
+            <mailet match="All" class="RemoveMimeHeader">
+                <name>X-SMIME-Status</name>
+                <onMailetException>ignore</onMailetException>
+            </mailet>
+            <mailet match="All" class="RecipientRewriteTable">
+                <errorProcessor>rrt-error</errorProcessor>
+            </mailet>
+            <mailet match="RecipientIsLocal" class="ToProcessor">
+                <processor>local-delivery</processor>
+            </mailet>
+            <mailet match="HostIsLocal" class="ToProcessor">
+                <processor>local-address-error</processor>
+                <notice>550 - Requested action not taken: no such user here</notice>
+            </mailet>
+            <mailet match="relay-allowed" class="ToProcessor">
+                <processor>relay</processor>
+            </mailet>
+            <mailet match="All" class="ToProcessor">
+                <processor>relay-denied</processor>
+            </mailet>
+        </processor>
+
+        <processor state="local-delivery" enableJmx="true">
+            <mailet match="All" class="VacationMailet">
+                <onMailetException>ignore</onMailetException>
+            </mailet>
+            <mailet match="All" class="Sieve">
+                <onMailetException>ignore</onMailetException>
+            </mailet>
+            <mailet match="All" class="AddDeliveredToHeader"/>
+            <mailet match="All" class="org.apache.james.jmap.mailet.filter.JMAPFiltering">
+                <onMailetException>ignore</onMailetException>
+            </mailet>
+            <mailet match="All" class="LocalDelivery"/>
+        </processor>
+
+        <processor state="relay" enableJmx="true">
+            <mailet match="All" class="RemoteDelivery">
+                <outgoingQueue>outgoing</outgoingQueue>
+                <delayTime>5000, 100000, 500000</delayTime>
+                <maxRetries>3</maxRetries>
+                <maxDnsProblemRetries>0</maxDnsProblemRetries>
+                <deliveryThreads>10</deliveryThreads>
+                <sendpartial>true</sendpartial>
+                <bounceProcessor>bounces</bounceProcessor>
+                <gateway>dovecot</gateway>
+                <gatewayPort>25</gatewayPort>
+                <startTLS>false</startTLS>
+            </mailet>
+        </processor>
+
+        <processor state="local-address-error" enableJmx="true">
+            <mailet match="All" class="MetricsMailet">
+                <metricName>mailetContainerLocalAddressError</metricName>
+            </mailet>
+            <mailet match="All" class="Bounce">
+                <attachment>none</attachment>
+            </mailet>
+            <mailet match="All" class="ToRepository">
+                <repositoryPath>memory://var/mail/address-error/</repositoryPath>
+            </mailet>
+        </processor>
+
+        <processor state="relay-denied" enableJmx="true">
+            <mailet match="All" class="MetricsMailet">
+                <metricName>mailetContainerRelayDenied</metricName>
+            </mailet>
+            <mailet match="All" class="Bounce">
+                <attachment>none</attachment>
+            </mailet>
+            <mailet match="All" class="ToRepository">
+                <repositoryPath>memory://var/mail/relay-denied/</repositoryPath>
+                <notice>Warning: You are sending an e-mail to a remote server. You must be authenticated to perform such an operation</notice>
+            </mailet>
+        </processor>
+
+        <processor state="bounces" enableJmx="true">
+            <mailet match="All" class="MetricsMailet">
+                <metricName>bounces</metricName>
+            </mailet>
+            <mailet match="All" class="DSNBounce">
+                <passThrough>false</passThrough>
+            </mailet>
+        </processor>
+
+        <processor state="rrt-error" enableJmx="false">
+            <mailet match="All" class="ToRepository">
+                <repositoryPath>memory://var/mail/rrt-error/</repositoryPath>
+                <passThrough>true</passThrough>
+            </mailet>
+            <mailet match="IsSenderInRRTLoop" class="Null"/>
+            <mailet match="All" class="Bounce"/>
+        </processor>
+
+    </processors>
+
+</mailetcontainer>

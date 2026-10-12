@@ -222,7 +222,7 @@ dotnet test tests/Wino.Mail.Controls.Tests/Wino.Mail.Controls.Tests.csproj -c De
 ```
 
 The [local Docker lab](../../tools/local-lab/README.md) is the application testing environment. It currently runs on Windows only.
-Its entry point is `scripts/lab/windows/local-lab.ps1`. The lab provisions servers and generates account data. It does not launch or automate Wino.
+Its entry point is `scripts/lab/windows/local-lab.ps1`. `up` provisions five IMAP/SMTP/DAV servers (QRESYNC, CONDSTORE-only, and UID-only variants) with generated mail and generates account data; `install-app` installs that data into the Debug package and launches Wino. Nothing automates the UI.
 Agent-driven UI suites, recording scripts, automation-ID audits, and Sandbox test orchestration are retired.
 Report manual checks separately from compilation and unit-test results.
 

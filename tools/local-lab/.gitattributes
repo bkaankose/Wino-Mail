@@ -1,1 +1,4 @@
-provision/*.sh text eol=lf
+provision/**/*.sh text eol=lf
+provision/**/*.php text eol=lf
+provision/radicale/* text eol=lf
+seed/*.py text eol=lf

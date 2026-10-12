@@ -5,6 +5,7 @@ use Symfony\Component\Yaml\Yaml;
 
 $root = '/var/www/baikal';
 $database = "$root/Specific/db/db.sqlite";
+$password = '1';
 if (!file_exists($database)) {
     if (!is_dir(dirname($database))) mkdir(dirname($database), 0775, true);
     $pdo = new PDO('sqlite:' . $database);
@@ -18,7 +19,7 @@ if (!file_exists("$root/config/baikal.yaml")) {
     $config = [
         'system' => ['configured_version' => '0.10.1', 'timezone' => 'Europe/Warsaw',
             'card_enabled' => true, 'cal_enabled' => true, 'dav_auth_type' => 'Basic',
-            'auth_realm' => 'Wino local lab', 'admin_passwordhash' => hash('sha256', 'admin:Wino local lab:WinoLab123!'),
+            'auth_realm' => 'Wino local lab', 'admin_passwordhash' => hash('sha256', "admin:Wino local lab:$password"),
             'base_uri' => '',
             'invite_from' => '', 'invite_from_name' => 'Wino lab'],
         'database' => ['backend' => 'sqlite', 'sqlite_file' => $database, 'encryption_key' => ''],
@@ -26,11 +27,11 @@ if (!file_exists("$root/config/baikal.yaml")) {
     file_put_contents("$root/config/baikal.yaml", Yaml::dump($config, 4));
 }
 $pdo->beginTransaction();
-foreach (['alice', 'bob', 'empty'] as $user) {
+foreach (['alice' => 'alice@dovecot.test'] as $user => $email) {
     $stmt = $pdo->prepare('INSERT OR IGNORE INTO users (username,digesta1) VALUES (?,?)');
-    $stmt->execute([$user, md5("$user:Wino local lab:WinoLab123!")]);
+    $stmt->execute([$user, md5("$user:Wino local lab:$password")]);
     $stmt = $pdo->prepare('INSERT OR IGNORE INTO principals (uri,email,displayname) VALUES (?,?,?)');
-    $stmt->execute(["principals/$user", "$user@wino.test", ucfirst($user) . ' Lab']);
+    $stmt->execute(["principals/$user", $email, ucfirst($user) . ' Dovecot']);
 }
 $pdo->commit();
 echo "Baikal configuration and users ready\n";

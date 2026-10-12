@@ -1,60 +1,214 @@
 name: wino-local-lab
+# Five IMAP servers with different capability sets, each with CalDAV/CardDAV, all on one network.
+# Host ports bind to 127.0.0.1 only. Plaintext connections are intentional for this local lab.
+# Account password for every mailbox, DAV login, and admin console: 1
+
+x-mailserver: &mailserver
+  image: ghcr.io/docker-mailserver/docker-mailserver:16.0.1
+  environment: &mailserver-env
+    SSL_TYPE: ''
+    ENABLE_AMAVIS: '0'
+    ENABLE_CLAMAV: '0'
+    ENABLE_RSPAMD: '0'
+    ENABLE_OPENDKIM: '0'
+    ENABLE_OPENDMARC: '0'
+    ENABLE_POLICYD_SPF: '0'
+    ENABLE_DNSBL: '0'
+    ENABLE_UPDATE_CHECK: '0'
+    ENABLE_QUOTAS: '0'
+    PERMIT_DOCKER: connected-networks
+    POSTFIX_INET_PROTOCOLS: ipv4
+    DOVECOT_INET_PROTOCOLS: ipv4
+    POSTFIX_MESSAGE_SIZE_LIMIT: '52428800'
+  healthcheck:
+    test: ['CMD-SHELL', 'supervisorctl status dovecot postfix | grep -c RUNNING | grep -q 2']
+    interval: 5s
+    timeout: 5s
+    retries: 40
+
 services:
-  mail:
-    image: ghcr.io/docker-mailserver/docker-mailserver:16.0.1
-    hostname: mail.wino.test
+  # 1. Dovecot with stock capabilities (QRESYNC + CONDSTORE). Its Postfix is also the routing hub
+  #    that delivers mail between all lab domains.
+  dovecot:
+    <<: *mailserver
+    hostname: mail.dovecot.test
     environment:
-      SSL_TYPE: ''
-      ENABLE_AMAVIS: '0'
-      ENABLE_CLAMAV: '0'
-      ENABLE_RSPAMD: '0'
-      ENABLE_OPENDKIM: '0'
-      ENABLE_OPENDMARC: '0'
-      ENABLE_POLICYD_SPF: '0'
-      ENABLE_DNSBL: '0'
-      ENABLE_UPDATE_CHECK: '0'
-      ENABLE_QUOTAS: '0'
-      POSTFIX_INET_PROTOCOLS: ipv4
-      DOVECOT_INET_PROTOCOLS: ipv4
-      POSTFIX_MESSAGE_SIZE_LIMIT: '26214400'
+      <<: *mailserver-env
+      LAB_ROLE: hub
+      LAB_DOMAIN: dovecot.test
+      LAB_USER: alice
     ports:
       - '127.0.0.1:1143:143'
       - '127.0.0.1:1587:587'
+      - '127.0.0.1:4025:25'
     volumes:
-      - mail-data:/var/mail
-      - mail-state:/var/mail-state
-      - mail-config:/tmp/docker-mailserver
-      - ./provision:/lab:ro
+      - dovecot-data:/var/mail
+      - dovecot-state:/var/mail-state
+      - dovecot-config:/tmp/docker-mailserver
+      - ./provision/mailserver:/lab:ro
+    networks: [lab]
+
+  # 2. Dovecot with the QRESYNC capability removed from CAPABILITY (CONDSTORE-only path).
+  condstore:
+    <<: *mailserver
+    hostname: mail.condstore.test
+    environment:
+      <<: *mailserver-env
+      LAB_ROLE: condstore
+      LAB_DOMAIN: condstore.test
+      LAB_USER: bob
+    ports:
+      - '127.0.0.1:2143:143'
+      - '127.0.0.1:2587:587'
+    volumes:
+      - condstore-data:/var/mail
+      - condstore-state:/var/mail-state
+      - condstore-config:/tmp/docker-mailserver
+      - ./provision/mailserver:/lab:ro
+    depends_on:
+      dovecot:
+        condition: service_healthy
+    networks: [lab]
+
+  # 3. Stalwart: IMAP4rev2 with QRESYNC, JMAP, and built-in CalDAV/CardDAV.
+  stalwart:
+    image: stalwartlabs/stalwart:v0.13
+    hostname: stalwart.test
+    ports:
+      - '127.0.0.1:3143:143'
+      - '127.0.0.1:3587:587'
+      - '127.0.0.1:8803:8080'
+    volumes:
+      - stalwart-data:/opt/stalwart/data
+      - stalwart-logs:/opt/stalwart/logs
+      - ./provision/stalwart/config.toml:/opt/stalwart/etc/config.toml:ro
     healthcheck:
-      test: ['CMD-SHELL', 'supervisorctl status dovecot postfix | grep -c RUNNING | grep -q 2']
+      test: ['CMD-SHELL', 'bash -c "exec 3<>/dev/tcp/127.0.0.1/143 && exec 3>&-"']
       interval: 5s
       timeout: 5s
-      retries: 30
-  dav:
+      retries: 40
+    networks: [lab]
+
+  # 4. GreenMail: UID-only IMAP (LITERAL+ UIDPLUS SORT IDLE MOVE QUOTA). It never relays outbound
+  #    mail, so the Wino account for it sends through the hub's unauthenticated port 4025.
+  greenmail:
+    image: greenmail/standalone:2.1.8
+    hostname: greenmail.test
+    environment:
+      GREENMAIL_OPTS: >-
+        -Dgreenmail.setup.test.all
+        -Dgreenmail.hostname=0.0.0.0
+        -Dgreenmail.users=dave:1@greenmail.test
+        -Dgreenmail.users.login=email
+        -Dgreenmail.verbose
+    ports:
+      - '127.0.0.1:4143:3143'
+      - '127.0.0.1:4080:8080'
+    healthcheck:
+      test: ['CMD-SHELL', 'bash -c "exec 3<>/dev/tcp/127.0.0.1/3143 && exec 3>&-"']
+      interval: 5s
+      timeout: 5s
+      retries: 40
+    networks: [lab]
+
+  # 5. Apache James (memory backend). Capabilities are probed by the seed tool.
+  james:
+    image: apache/james:memory-3.9.1
+    hostname: james.test
+    environment:
+      JAVA_TOOL_OPTIONS: -Xmx1g -Xms256m
+    ports:
+      - '127.0.0.1:5143:143'
+      - '127.0.0.1:5587:587'
+      - '127.0.0.1:5800:8000'
+    volumes:
+      - ./provision/james/imapserver.xml:/root/conf/imapserver.xml:ro
+      - ./provision/james/smtpserver.xml:/root/conf/smtpserver.xml:ro
+      - ./provision/james/mailetcontainer.xml:/root/conf/mailetcontainer.xml:ro
+      - ./provision/james/webadmin.properties:/root/conf/webadmin.properties:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://127.0.0.1:8000/healthcheck || exit 1']
+      interval: 10s
+      timeout: 10s
+      retries: 60
+    networks: [lab]
+
+  # DAV servers for the mail servers that do not ship one.
+  baikal:
     # Baikal 0.10.1, pinned to the inspected nginx image rather than a moving tag.
     image: ckulka/baikal:nginx@sha256:1a901125d121a3e414cda87c617bd322c57ae86b9d2aedbff7b3a7ac84bb23aa
     ports:
       - '127.0.0.1:8800:80'
     volumes:
-      - dav-config:/var/www/baikal/config
-      - dav-data:/var/www/baikal/Specific
-      - ./provision:/lab:ro
+      - baikal-config:/var/www/baikal/config
+      - baikal-data:/var/www/baikal/Specific
+      - ./provision/baikal:/lab:ro
     healthcheck:
       test: ['CMD-SHELL', "curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1/dav.php/ | grep -q '^401$'"]
       interval: 5s
       timeout: 5s
       retries: 30
+    networks: [lab]
+
+  radicale-condstore:
+    image: tomsquest/docker-radicale:3.5.4.0
+    ports:
+      - '127.0.0.1:8802:5232'
+    volumes:
+      - radicale-condstore-data:/data
+      - ./provision/radicale:/config:ro
+    healthcheck: &radicale-health
+      test: ['CMD-SHELL', "curl --silent --output /dev/null --write-out '%{http_code}' -X PROPFIND http://127.0.0.1:5232/ | grep -q '^401$'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks: [lab]
+
+  radicale-greenmail:
+    image: tomsquest/docker-radicale:3.5.4.0
+    ports:
+      - '127.0.0.1:8804:5232'
+    volumes:
+      - radicale-greenmail-data:/data
+      - ./provision/radicale:/config:ro
+    healthcheck: *radicale-health
+    networks: [lab]
+
+  radicale-james:
+    image: tomsquest/docker-radicale:3.5.4.0
+    ports:
+      - '127.0.0.1:8805:5232'
+    volumes:
+      - radicale-james-data:/data
+      - ./provision/radicale:/config:ro
+    healthcheck: *radicale-health
+    networks: [lab]
+
+  # Provisioning, seeding, and verification tool. Standard library Python only.
   seed:
-    image: python:3.13.7-slim
+    image: python:3.13-slim
     profiles: [tools]
     volumes:
       - ./seed:/lab:ro
       - ./.state:/state
     working_dir: /lab
     entrypoint: ['python', '/lab/seed.py']
+    networks: [lab]
+
+networks:
+  lab:
+
 volumes:
-  mail-data:
-  mail-state:
-  mail-config:
-  dav-config:
-  dav-data:
+  dovecot-data:
+  dovecot-state:
+  dovecot-config:
+  condstore-data:
+  condstore-state:
+  condstore-config:
+  stalwart-data:
+  stalwart-logs:
+  baikal-config:
+  baikal-data:
+  radicale-condstore-data:
+  radicale-greenmail-data:
+  radicale-james-data:

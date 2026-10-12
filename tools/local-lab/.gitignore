@@ -2,3 +2,4 @@ generated/
 generated-*/
 .state/
 .operation.lock
+app-backups/

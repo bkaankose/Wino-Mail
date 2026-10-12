@@ -1,0 +1,82 @@
+# Stalwart v0.13 configuration for the Wino local lab.
+# Plaintext listeners and plain-text authentication are intentional: the lab only listens on 127.0.0.1.
+# Accounts and the domain are created by seed/seed.py through the management API (admin / 1).
+
+[server]
+hostname = "stalwart.test"
+
+[server.listener.smtp]
+bind = "[::]:25"
+protocol = "smtp"
+
+[server.listener.submission]
+bind = "[::]:587"
+protocol = "smtp"
+
+[server.listener.imap]
+bind = "[::]:143"
+protocol = "imap"
+
+[server.listener.http]
+protocol = "http"
+bind = "[::]:8080"
+
+[storage]
+data = "rocksdb"
+fts = "rocksdb"
+blob = "rocksdb"
+lookup = "rocksdb"
+directory = "internal"
+
+[store.rocksdb]
+type = "rocksdb"
+path = "/opt/stalwart/data"
+compression = "lz4"
+
+[directory.internal]
+type = "internal"
+store = "rocksdb"
+
+[tracer.log]
+type = "log"
+level = "info"
+path = "/opt/stalwart/logs"
+prefix = "stalwart.log"
+rotate = "daily"
+ansi = false
+enable = true
+
+[tracer.stdout]
+type = "stdout"
+level = "info"
+ansi = false
+enable = true
+
+[authentication.fallback-admin]
+user = "admin"
+secret = "1"
+
+# Allow LOGIN / AUTH PLAIN on the clear-text IMAP and SMTP ports.
+[imap.auth]
+allow-plain-text = true
+
+[session.auth]
+allow-plain-text = true
+mechanisms = "[plain, login]"
+
+# Outbound: local domains are delivered locally; every other lab domain goes through the hub.
+[queue.route.hub]
+type = "relay"
+address = "dovecot"
+port = 25
+protocol = "smtp"
+tls.implicit = false
+tls.allow-invalid-certs = true
+
+[queue.strategy]
+route = [ { if = "is_local_domain('', rcpt_domain)", then = "'local'" }, { else = "'hub'" } ]
+tls = "'invalid-tls'"
+
+# Lab mail is synthetic; keep the spam filter from filing probes and seeded mail into Junk.
+[spam-filter]
+enable = false
