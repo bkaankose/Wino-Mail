@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using SQLite;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Models.Intelligence;
 
 namespace Wino.Core.Domain.Entities.Mail;
@@ -89,9 +90,15 @@ public class MailCopy
 
     /// <summary>
     /// Date that represents this mail has been created in provider servers.
-    /// Stored always in UTC.
+    /// Stored always in UTC, and always read back with a UTC kind.
     /// </summary>
-    public DateTime CreationDate { get; set; }
+    public DateTime CreationDate
+    {
+        get => _creationDate;
+        set => _creationDate = value.AsStoredUtc();
+    }
+
+    private DateTime _creationDate;
 
     /// <summary>
     /// Importance of the mail.

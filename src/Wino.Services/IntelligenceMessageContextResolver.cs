@@ -330,7 +330,7 @@ public sealed class IntelligenceMessageContextResolver(
         var isOutgoing = row.SpecialFolderType == SpecialFolderType.Sent ||
                          string.Equals(row.FromAddress, accountAddress, StringComparison.OrdinalIgnoreCase);
         return new(row.UniqueId, canonical, row.ProviderMessageId, [row.FileId], row.Subject ?? string.Empty,
-            row.FromAddress ?? string.Empty, row.FromName ?? string.Empty, row.CreationDate, row.ThreadId, isOutgoing,
+            row.FromAddress ?? string.Empty, row.FromName ?? string.Empty, ToUtc(row.CreationDate).UtcDateTime, row.ThreadId, isOutgoing,
             row.IsRead, row.IsFlagged, row.HasAttachments, false,
             row.Importance.ToString().ToLowerInvariant(), [row.RemoteFolderId],
             new MailBodyLocator(canonical, row.RemoteFolderId, row.ImapUid, uidValidity, row.ProviderMessageId));

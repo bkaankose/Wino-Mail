@@ -693,7 +693,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             FromName = message.From.Mailboxes.FirstOrDefault()?.Name ?? Translator.UnknownSender;
 
             // Use the received date from MailCopy if available, otherwise fall back to the sent date from MIME message
-            CreationDate = initializedMailItemViewModel?.MailCopy.CreationDate ?? message.Date.DateTime;
+            CreationDate = initializedMailItemViewModel?.MailCopy.CreationDate ?? message.Date.UtcDateTime;
 
             // Automatically block remote image loading for Junk folder to reduce pixel tracking.
             // This can only work for selected mail item rendering, not for EML file rendering.

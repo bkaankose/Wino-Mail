@@ -110,7 +110,7 @@ internal static class MailRowMapper
     public static string FormatListDate(DateTime value)
     {
         if (value == default) return string.Empty;
-        var local = value.Kind == DateTimeKind.Utc ? value.ToLocalTime() : value;
+        var local = value.ToLocalTime();
         var today = DateTime.Today;
         if (local.Date == today) return local.ToString("t", Culture);
         if (local.Date > today.AddDays(-7)) return local.ToString("ddd", Culture);
@@ -121,7 +121,7 @@ internal static class MailRowMapper
     public static string FormatAccessibleDate(DateTime value)
     {
         if (value == default) return string.Empty;
-        var local = value.Kind == DateTimeKind.Utc ? value.ToLocalTime() : value;
+        var local = value.ToLocalTime();
         return local.ToString("f", Culture);
     }
 

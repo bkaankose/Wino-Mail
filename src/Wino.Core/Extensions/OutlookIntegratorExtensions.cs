@@ -61,7 +61,7 @@ public static class OutlookIntegratorExtensions
             IsRead = GetIsRead(outlookMessage),
             IsReadReceiptRequested = GetIsReadReceiptRequested(outlookMessage),
             IsDraft = isDraft,
-            CreationDate = outlookMessage.ReceivedDateTime.GetValueOrDefault().DateTime,
+            CreationDate = outlookMessage.ReceivedDateTime.GetValueOrDefault().UtcDateTime,
             HasAttachments = outlookMessage.HasAttachments.GetValueOrDefault(),
             PreviewText = outlookMessage.BodyPreview,
             Id = outlookMessage.Id,

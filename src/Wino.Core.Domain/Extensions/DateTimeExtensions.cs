@@ -32,6 +32,18 @@ public static class DateTimeExtensions
     }
 
     /// <summary>
+    /// Marks a stored UTC value as UTC. SQLite returns stored ticks without a kind, and an
+    /// unspecified kind is read as local time by DateTimeOffset and ToUniversalTime.
+    /// Local values are converted.
+    /// </summary>
+    public static DateTime AsStoredUtc(this DateTime dateTime) => dateTime.Kind switch
+    {
+        DateTimeKind.Utc => dateTime,
+        DateTimeKind.Local => dateTime.ToUniversalTime(),
+        _ => DateTime.SpecifyKind(dateTime, DateTimeKind.Utc),
+    };
+
+    /// <summary>
     /// Converts a datetime from source timezone into local timezone.
     /// If source timezone is missing, UTC is assumed.
     /// If timezone lookup fails, returns original value.
