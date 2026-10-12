@@ -4,6 +4,8 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
+using CommunityToolkit.Mvvm.Messaging;
+using Wino.Messaging.Client.Shell;
 
 namespace Wino.Core.ViewModels;
 
@@ -15,9 +17,9 @@ public sealed record CompanionUnreadBehaviorOption(CompanionUnreadMessageBehavio
 /// toggles read and write the preferences directly. The global shortcut stays in the Windows page
 /// because it registers a system hotkey there.
 /// </summary>
-public partial class CompanionSettingsPageViewModel(IPreferencesService preferencesService) : CoreBaseViewModel
+public partial class CompanionSettingsPageViewModel(IPreferencesService preferencesService) : CoreBaseViewModel,
+    IRecipient<PreferenceChangedMessage>
 {
-    private bool _isFollowingPreferences;
 
     public IPreferencesService PreferencesService { get; } = preferencesService;
 
@@ -101,26 +103,24 @@ public partial class CompanionSettingsPageViewModel(IPreferencesService preferen
     /// <summary>The unread behavior only matters while unread messages are shown.</summary>
     public bool IsUnreadBehaviorEnabled => IsCompanionEnabled && ShowUnreadMail;
 
-    public override void OnNavigatedTo(NavigationMode mode, object parameters)
+    protected override void RegisterRecipients()
     {
-        base.OnNavigatedTo(mode, parameters);
-        if (_isFollowingPreferences) return;
-        _isFollowingPreferences = true;
-        PreferencesService.PreferenceChanged += PreferencesChanged;
+        base.RegisterRecipients();
+
+        Messenger.Register<PreferenceChangedMessage>(this);
     }
 
-    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    protected override void UnregisterRecipients()
     {
-        base.OnNavigatedFrom(mode, parameters);
-        if (!_isFollowingPreferences) return;
-        _isFollowingPreferences = false;
-        PreferencesService.PreferenceChanged -= PreferencesChanged;
+        base.UnregisterRecipients();
+
+        Messenger.Unregister<PreferenceChangedMessage>(this);
     }
 
     /// <summary>Follows changes made elsewhere (another window, the Windows page's own bindings).</summary>
-    private void PreferencesChanged(object sender, string propertyName)
+    public void Receive(PreferenceChangedMessage message)
     {
-        switch (propertyName)
+        switch (message.PropertyName)
         {
             case nameof(IPreferencesService.IsCompanionEnabled):
                 _ = ExecuteUIThread(RaiseCompanionProperties);

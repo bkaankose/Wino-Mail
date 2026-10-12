@@ -34,6 +34,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     IRecipient<ContactListMembershipStateChanged>,
     IRecipient<ContactAddressBookStateChanged>,
     IRecipient<AccountUpdatedMessage>,
+    IRecipient<PreferenceChangedMessage>,
     IBackNavigationAware,
     IShellMenuOwner,
     IShellMenuProvider
@@ -774,6 +775,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         Messenger.Register<ContactListMembershipStateChanged>(this);
         Messenger.Register<ContactAddressBookStateChanged>(this);
         Messenger.Register<AccountUpdatedMessage>(this);
+        Messenger.Register<PreferenceChangedMessage>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -786,6 +788,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         Messenger.Unregister<ContactListMembershipStateChanged>(this);
         Messenger.Unregister<ContactAddressBookStateChanged>(this);
         Messenger.Unregister<AccountUpdatedMessage>(this);
+        Messenger.Unregister<PreferenceChangedMessage>(this);
     }
 
     void IRecipient<ContactSynchronizationCompleted>.Receive(ContactSynchronizationCompleted message)
@@ -821,6 +824,16 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
     void IRecipient<AccountUpdatedMessage>.Receive(AccountUpdatedMessage message)
         => _ = ExecuteUIThread(() => ApplyAccountUpdate(message.Account));
+
+    void IRecipient<PreferenceChangedMessage>.Receive(PreferenceChangedMessage message)
+    {
+        // Reconciliation re-queries in the new order and replaces rows built with the old format.
+        if (_isPageActive &&
+            message.PropertyName is nameof(IPreferencesService.ContactSortOrder) or nameof(IPreferencesService.ContactNameDisplayFormat))
+        {
+            DebounceReconcile();
+        }
+    }
 
     /// <summary>
     /// Keeps the account rows on the latest account copy, so a finished Fix account
@@ -1831,7 +1844,9 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         var currentContact = current.SourceContact;
         var updatedContact = updated.SourceContact;
 
-        return currentContact.ModifiedAtUtc != updatedContact.ModifiedAtUtc ||
+        return current.DisplayFormat != updated.DisplayFormat ||
+               current.SortOrder != updated.SortOrder ||
+               currentContact.ModifiedAtUtc != updatedContact.ModifiedAtUtc ||
                currentContact.IsFavorite != updatedContact.IsFavorite ||
                currentContact.ContactPictureFileId != updatedContact.ContactPictureFileId ||
                currentContact.PendingMutation != updatedContact.PendingMutation ||

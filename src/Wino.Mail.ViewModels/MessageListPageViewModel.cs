@@ -14,10 +14,13 @@ using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.HoverActions;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
+using CommunityToolkit.Mvvm.Messaging;
+using Wino.Messaging.Client.Shell;
 
 namespace Wino.Mail.ViewModels;
 
-public partial class MessageListPageViewModel : MailBaseViewModel
+public partial class MessageListPageViewModel : MailBaseViewModel,
+    IRecipient<PreferenceChangedMessage>
 {
     public IPreferencesService PreferencesService { get; }
     private readonly IThumbnailService _thumbnailService;
@@ -436,9 +439,6 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         base.OnNavigatedTo(mode, parameters);
         _previewActive = true;
 
-        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
-        PreferencesService.PreferenceChanged += PreferencesServiceChanged;
-
         await RefreshPreviewAsync();
     }
 
@@ -446,13 +446,25 @@ public partial class MessageListPageViewModel : MailBaseViewModel
     {
         base.OnNavigatedFrom(mode, parameters);
         _previewActive = false;
-
-        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
     }
 
-    private void PreferencesServiceChanged(object sender, string propertyName)
+    protected override void RegisterRecipients()
     {
-        if (!IsPreviewAffectingPreference(propertyName)) return;
+        base.RegisterRecipients();
+
+        Messenger.Register<PreferenceChangedMessage>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+
+        Messenger.Unregister<PreferenceChangedMessage>(this);
+    }
+
+    public void Receive(PreferenceChangedMessage message)
+    {
+        if (!IsPreviewAffectingPreference(message.PropertyName)) return;
 
         _ = ObservePreviewRefreshAsync(RefreshPreviewAsync());
     }

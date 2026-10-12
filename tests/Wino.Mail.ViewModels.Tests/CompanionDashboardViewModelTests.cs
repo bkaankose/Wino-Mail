@@ -10,6 +10,7 @@ using Wino.Core.Domain.Models.Notifications;
 using Wino.Mail.ViewModels.Companion;
 using Wino.Messaging.UI;
 using Xunit;
+using Wino.Messaging.Client.Shell;
 
 namespace Wino.Mail.ViewModels.Tests;
 
@@ -179,7 +180,7 @@ public sealed class CompanionDashboardViewModelTests
 
         context.Preferences.SetupGet(service => service.ShowTasksInCompanion).Returns(true);
         context.StoredTasks.Add(new AccountTask { Title = "New task", TaskListId = context.TaskListId });
-        context.Preferences.Raise(service => service.PreferenceChanged += null, context.Preferences.Object, nameof(IPreferencesService.ShowTasksInCompanion));
+        context.Messenger.Send(new PreferenceChangedMessage(nameof(IPreferencesService.ShowTasksInCompanion)));
 
         await WaitUntilAsync(() => viewModel.HasTasks);
         viewModel.Tasks.Should().ContainSingle(task => task.Title == "New task");

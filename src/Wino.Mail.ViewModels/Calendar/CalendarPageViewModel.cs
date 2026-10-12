@@ -24,6 +24,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Services;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
+using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
 
 namespace Wino.Calendar.ViewModels;
@@ -31,7 +32,7 @@ namespace Wino.Calendar.ViewModels;
 public partial class CalendarPageViewModel : CalendarBaseViewModel,
     IRecipient<LoadCalendarMessage>,
     IRecipient<CalendarItemDeleted>,
-    IRecipient<CalendarSettingsUpdatedMessage>,
+    IRecipient<PreferenceChangedMessage>,
     IRecipient<CalendarItemTappedMessage>,
     IRecipient<CalendarItemDoubleTappedMessage>,
     IRecipient<CalendarItemRightTappedMessage>,
@@ -219,6 +220,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     private readonly IMailDialogService _dialogService;
     private readonly IDateContextProvider _dateContextProvider;
     private readonly ICalendarRangeTextFormatter _calendarRangeTextFormatter;
+    private readonly CoalescedRefresh _calendarSettingsRefresh;
 
     private readonly SemaphoreSlim _calendarLoadingSemaphore = new(1);
     private bool _subscriptionsAttached;
@@ -301,6 +303,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         _dialogService = dialogService;
         _dateContextProvider = dateContextProvider;
         _calendarRangeTextFormatter = calendarRangeTextFormatter;
+        _calendarSettingsRefresh = new CoalescedRefresh(ApplyCalendarSettingsChangeAsync);
 
         RefreshSettings();
     }
@@ -345,7 +348,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         base.RegisterRecipients();
 
         Messenger.Unregister<LoadCalendarMessage>(this);
-        Messenger.Unregister<CalendarSettingsUpdatedMessage>(this);
+        Messenger.Unregister<PreferenceChangedMessage>(this);
         Messenger.Unregister<CalendarItemTappedMessage>(this);
         Messenger.Unregister<CalendarItemDoubleTappedMessage>(this);
         Messenger.Unregister<CalendarItemRightTappedMessage>(this);
@@ -353,7 +356,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         Messenger.Unregister<AccountRemovedMessage>(this);
 
         Messenger.Register<LoadCalendarMessage>(this);
-        Messenger.Register<CalendarSettingsUpdatedMessage>(this);
+        Messenger.Register<PreferenceChangedMessage>(this);
         Messenger.Register<CalendarItemTappedMessage>(this);
         Messenger.Register<CalendarItemDoubleTappedMessage>(this);
         Messenger.Register<CalendarItemRightTappedMessage>(this);
@@ -366,7 +369,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         base.UnregisterRecipients();
 
         Messenger.Unregister<LoadCalendarMessage>(this);
-        Messenger.Unregister<CalendarSettingsUpdatedMessage>(this);
+        Messenger.Unregister<PreferenceChangedMessage>(this);
         Messenger.Unregister<CalendarItemTappedMessage>(this);
         Messenger.Unregister<CalendarItemDoubleTappedMessage>(this);
         Messenger.Unregister<CalendarItemRightTappedMessage>(this);
@@ -1063,7 +1066,15 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     public async void Receive(LoadCalendarMessage message)
         => await ApplyDisplayRequestAsync(message.DisplayRequest, message.ForceReload, message.PendingTarget);
 
-    public async void Receive(CalendarSettingsUpdatedMessage message)
+    public void Receive(PreferenceChangedMessage message)
+    {
+        if (CalendarSettings.PreferenceKeys.Contains(message.PropertyName))
+        {
+            _calendarSettingsRefresh.Request();
+        }
+    }
+
+    private async Task ApplyCalendarSettingsChangeAsync()
     {
         await ExecuteUIThread(RefreshSettings);
         await ReloadCurrentVisibleRangeAsync().ConfigureAwait(false);

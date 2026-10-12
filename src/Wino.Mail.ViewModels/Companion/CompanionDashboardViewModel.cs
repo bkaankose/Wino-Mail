@@ -21,6 +21,7 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Calendar;
+using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels.Companion;
@@ -578,7 +579,7 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
 
         // The snooze can also be changed from the settings page, or cleared by expiry, so follow
         // the preference rather than only re-reading it on the next content refresh.
-        _services.GetRequiredService<IPreferencesService>().PreferenceChanged += OnPreferenceChanged;
+        _messenger.Register<CompanionDashboardViewModel, PreferenceChangedMessage>(this, static (recipient, message) => recipient.OnPreferenceChanged(message.PropertyName));
     }
 
     private void UnregisterRecipients()
@@ -588,10 +589,9 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
 
         _recipientsRegistered = false;
         _messenger.UnregisterAll(this);
-        _services.GetRequiredService<IPreferencesService>().PreferenceChanged -= OnPreferenceChanged;
     }
 
-    private void OnPreferenceChanged(object? sender, string propertyName)
+    private void OnPreferenceChanged(string propertyName)
     {
         if (propertyName is nameof(IPreferencesService.NotificationSnoozePreset)
             or nameof(IPreferencesService.NotificationSnoozeUntilUtcTicks))
@@ -601,12 +601,16 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
             return;
         }
 
-        // Section toggles in Settings apply while the companion is open.
+        // Section toggles and display settings apply while the companion is open.
         if (propertyName is nameof(IPreferencesService.ShowCalendarInCompanion)
             or nameof(IPreferencesService.ShowUnreadMailInCompanion)
             or nameof(IPreferencesService.ShowTasksInCompanion)
             or nameof(IPreferencesService.ShowFavoriteContactsInCompanion)
-            or nameof(IPreferencesService.CompanionUnreadMessageBehavior))
+            or nameof(IPreferencesService.CompanionUnreadMessageBehavior)
+            // Values baked into the rows on each refresh.
+            or nameof(IPreferencesService.AccountNicknamePosition)
+            or nameof(IPreferencesService.ContactSortOrder)
+            or nameof(IPreferencesService.ContactNameDisplayFormat))
         {
             ScheduleRefresh();
         }

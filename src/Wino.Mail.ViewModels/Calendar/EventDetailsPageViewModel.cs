@@ -22,10 +22,12 @@ using Wino.Core.Domain.Models.Attachments;
 using Wino.Core.Services;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
+using Wino.Messaging.Client.Shell;
 
 namespace Wino.Calendar.ViewModels;
 
-public partial class EventDetailsPageViewModel : CalendarBaseViewModel
+public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
+    IRecipient<PreferenceChangedMessage>
 {
     private readonly ICalendarService _calendarService;
     private readonly IExternalLauncher _externalLauncher;
@@ -38,8 +40,16 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     private readonly INotificationBuilder _notificationBuilder;
     private readonly IContactService _contactService;
     private readonly IAttachmentFileService _attachmentFileService;
+    private readonly CoalescedRefresh _calendarSettingsRefresh;
 
-    public CalendarSettings CurrentSettings { get; }
+    private CalendarSettings _currentSettings;
+
+    public CalendarSettings CurrentSettings
+    {
+        get => _currentSettings;
+        private set => SetProperty(ref _currentSettings, value);
+    }
+
     public IExternalLauncher ExternalLauncher => _externalLauncher;
     public bool LastMutationSucceeded { get; private set; }
 
@@ -179,6 +189,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         _notificationBuilder = notificationBuilder;
         _contactService = contactService;
         _attachmentFileService = attachmentFileService;
+        _calendarSettingsRefresh = new CoalescedRefresh(() => ExecuteUIThread(() => CurrentSettings = _preferencesService.GetCurrentCalendarSettings()));
 
         CurrentSettings = _preferencesService.GetCurrentCalendarSettings();
         IsDarkWebviewRenderer = _underlyingThemeService.IsUnderlyingThemeDark();
@@ -207,6 +218,28 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
             return;
 
         await LoadCalendarItemTargetAsync(args);
+    }
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+
+        Messenger.Register<PreferenceChangedMessage>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+
+        Messenger.Unregister<PreferenceChangedMessage>(this);
+    }
+
+    public void Receive(PreferenceChangedMessage message)
+    {
+        if (CalendarSettings.PreferenceKeys.Contains(message.PropertyName))
+        {
+            _calendarSettingsRefresh.Request();
+        }
     }
 
     protected override async void OnCalendarItemUpdated(CalendarItem calendarItem, EntityUpdateSource source)

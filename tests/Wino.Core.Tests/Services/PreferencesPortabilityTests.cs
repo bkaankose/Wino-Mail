@@ -51,7 +51,7 @@ public sealed class PreferencesPortabilityTests
         changes.Should().Contain(nameof(IPreferencesService.MarkAsDelay));
     }
 
-    private sealed class MemoryConfiguration : IConfigurationService
+    internal sealed class MemoryConfiguration : IConfigurationService
     {
         private readonly Dictionary<string, object> _values = new(StringComparer.Ordinal);
 

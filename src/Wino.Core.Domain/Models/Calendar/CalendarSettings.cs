@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Domain.Models.Calendar;
 
@@ -18,6 +19,24 @@ public record CalendarSettings(DayOfWeek FirstDayOfWeek,
                                string TimedDayHeaderDateFormat = "ddd dd",
                                CalendarEventDisplayMode EventDisplayMode = CalendarEventDisplayMode.Stacked)
 {
+    /// <summary>
+    /// Preference names that feed <see cref="IPreferencesService.GetCurrentCalendarSettings"/>.
+    /// A change to any of them invalidates a cached <see cref="CalendarSettings"/> snapshot.
+    /// </summary>
+    public static IReadOnlySet<string> PreferenceKeys { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        nameof(IPreferencesService.FirstDayOfWeek),
+        nameof(IPreferencesService.WorkingDayStart),
+        nameof(IPreferencesService.WorkingDayEnd),
+        nameof(IPreferencesService.IsWorkingHoursEnabled),
+        nameof(IPreferencesService.WorkingHourStart),
+        nameof(IPreferencesService.WorkingHourEnd),
+        nameof(IPreferencesService.HourHeight),
+        nameof(IPreferencesService.CalendarTimedDayHeaderDateFormat),
+        nameof(IPreferencesService.CalendarTimeFormatPreference),
+        nameof(IPreferencesService.CalendarEventDisplayMode),
+    };
+
     public int WorkWeekDayCount
     {
         get

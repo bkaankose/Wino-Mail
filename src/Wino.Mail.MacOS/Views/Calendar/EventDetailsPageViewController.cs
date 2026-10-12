@@ -238,6 +238,7 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         ViewModel.CanNavigateShell = !IsInOwnWindow;
         ViewModel.OnNavigatedTo(mode, parameter!);
         Bind(nameof(ViewModel.CurrentEvent), vm => vm.CurrentEvent, _ => ApplyEvent());
+        Bind(nameof(ViewModel.CurrentSettings), vm => vm.CurrentSettings, _ => { if (ViewModel.CurrentEvent is { } item) ApplyEventFields(item); });
         Bind(nameof(ViewModel.IsRsvpPanelVisible), vm => vm.IsRsvpPanelVisible, visible => _rsvpPanel.Hidden = !visible || _isReadOnly);
         Bind(nameof(ViewModel.RsvpMessage), vm => vm.RsvpMessage, value => { if (_rsvpMessage.StringValue != value) _rsvpMessage.StringValue = value ?? string.Empty; });
         Bind(nameof(ViewModel.SelectedShowAsOption), vm => vm.SelectedShowAsOption, option => { if (option is not null) _showAs.SelectItem(option.DisplayText); });

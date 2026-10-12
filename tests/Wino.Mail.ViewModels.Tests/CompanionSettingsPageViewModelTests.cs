@@ -5,6 +5,8 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels;
 using Xunit;
+using CommunityToolkit.Mvvm.Messaging;
+using Wino.Messaging.Client.Shell;
 
 namespace Wino.Mail.ViewModels.Tests;
 
@@ -51,9 +53,9 @@ public sealed class CompanionSettingsPageViewModelTests
         var raised = new List<string>();
         viewModel.PropertyChanged += (_, args) => raised.Add(args.PropertyName!);
 
-        preferences.Raise(service => service.PreferenceChanged += null, preferences.Object, nameof(IPreferencesService.ShowTasksInCompanion));
+        WeakReferenceMessenger.Default.Send(new PreferenceChangedMessage(nameof(IPreferencesService.ShowTasksInCompanion)));
         viewModel.OnNavigatedFrom(NavigationMode.New, null!);
-        preferences.Raise(service => service.PreferenceChanged += null, preferences.Object, nameof(IPreferencesService.ShowCalendarInCompanion));
+        WeakReferenceMessenger.Default.Send(new PreferenceChangedMessage(nameof(IPreferencesService.ShowCalendarInCompanion)));
 
         raised.Should().Equal(nameof(viewModel.ShowTasks));
     }

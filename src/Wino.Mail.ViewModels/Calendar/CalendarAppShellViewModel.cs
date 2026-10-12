@@ -23,6 +23,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
+using Wino.Messaging.Client.Shell;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 
@@ -31,7 +32,8 @@ namespace Wino.Calendar.ViewModels;
 public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     ICalendarShellClient,
     IRecipient<CalendarDisplayTypeChangedMessage>,
-    IRecipient<AccountRemovedMessage>
+    IRecipient<AccountRemovedMessage>,
+    IRecipient<PreferenceChangedMessage>
 {
     public IPreferencesService PreferencesService { get; }
     public IStatePersistanceService StatePersistenceService { get; }
@@ -196,14 +198,14 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         }
     }
 
-    private async void PreferencesServiceChanged(object sender, string e)
+    public async void Receive(PreferenceChangedMessage message)
     {
-        if (e == nameof(IPreferencesService.IsStoreUpdateNotificationsEnabled))
+        if (message.PropertyName == nameof(IPreferencesService.IsStoreUpdateNotificationsEnabled))
         {
             await RefreshFooterItemsAsync(false);
         }
 
-        if (e == nameof(IPreferencesService.IsCalendarAccountsGrouped))
+        if (message.PropertyName == nameof(IPreferencesService.IsCalendarAccountsGrouped))
         {
             await ApplyCalendarGroupingPreferenceChangeAsync();
         }
@@ -230,8 +232,10 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         var navigationArgs = activationContext?.Parameter as CalendarPageNavigationArgs;
         var composeArgs = activationContext?.Parameter as CalendarEventComposeNavigationArgs;
 
-        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
-        PreferencesService.PreferenceChanged += PreferencesServiceChanged;
+        // Preference changes are only relevant while the calendar shell is active, so they stay
+        // outside the persistent recipients registered above.
+        Messenger.Unregister<PreferenceChangedMessage>(this);
+        Messenger.Register<PreferenceChangedMessage>(this);
 
         await RefreshFooterItemsAsync(mode == NavigationMode.New);
         UpdateDateNavigationHeaderItems();
@@ -273,7 +277,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     public override void OnNavigatedFrom(NavigationMode mode, object parameters)
     {
         DetachRuntimeSubscriptions();
-        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
+        Messenger.Unregister<PreferenceChangedMessage>(this);
         _ = ExecuteUIThread(() =>
         {
             DateNavigationHeaderItems.Clear();
@@ -290,7 +294,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
         _isPreparedForShellShutdown = true;
         DetachRuntimeSubscriptions();
-        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
+        Messenger.Unregister<PreferenceChangedMessage>(this);
 
         if (_hasRegisteredPersistentRecipients)
         {

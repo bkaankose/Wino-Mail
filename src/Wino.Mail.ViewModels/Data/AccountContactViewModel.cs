@@ -14,6 +14,8 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
 {
     private readonly ContactNameDisplayFormat _displayFormat;
     private readonly ContactSortOrder _sortOrder;
+    public ContactNameDisplayFormat DisplayFormat => _displayFormat;
+    public ContactSortOrder SortOrder => _sortOrder;
     public AccountContact SourceContact { get; private set; }
     public string Address { get; set; }
     public string Name { get; set; }
