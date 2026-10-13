@@ -176,6 +176,7 @@ public partial class NativeAppService : INativeAppService, IAppMetadataService, 
     public string SentryRelease => AppTelemetryMetadata.GetRelease(AppVersion);
 
     public string SentryDist => AppTelemetryMetadata.NormalizeAppVersion(AppVersion);
+    public string PlatformDisplayName => "Windows";
 
     public Task CopyClipboardAsync(string text)
     {

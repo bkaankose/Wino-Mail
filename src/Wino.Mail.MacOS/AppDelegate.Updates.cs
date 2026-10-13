@@ -1,7 +1,7 @@
 #if !WINO_APPSTORE
 using AppKit;
 using Wino.Core.Domain;
-using Wino.Core.MacOS.Bindings.Sparkle;
+using Wino.Core.Apple.Bindings.Sparkle;
 
 namespace Wino.Mail.MacOS;
 

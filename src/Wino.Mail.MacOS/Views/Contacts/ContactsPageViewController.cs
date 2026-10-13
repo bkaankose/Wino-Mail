@@ -5,6 +5,7 @@ using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Bindings;
 
 namespace Wino.Mail.MacOS.Views.Contacts;
 
@@ -118,7 +119,7 @@ public sealed partial class ContactsPageViewController : WinoViewController<Cont
     protected override Task DeactivateAsync()
     {
         ReleaseList();
-        ViewModel.OnNavigatedFrom(NavigationMode.New, null!);
+        ViewModel.OnNavigatedFrom(NavigationMode.New, null);
         return Task.CompletedTask;
     }
 

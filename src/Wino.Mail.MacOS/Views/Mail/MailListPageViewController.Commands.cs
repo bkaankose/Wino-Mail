@@ -8,6 +8,7 @@ using Wino.Mail.Controls.Core;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.AppKit;
+using Wino.Core.Domain.Presentation;
 
 namespace Wino.Mail.MacOS.Views.Mail;
 
@@ -174,7 +175,7 @@ public sealed partial class MailListPageViewController
         };
         bool destructive = operation is MailOperation.SoftDelete or MailOperation.HardDelete;
         var action = NSTableViewRowAction.FromStyle(destructive ? NSTableViewRowActionStyle.Destructive : NSTableViewRowActionStyle.Regular,
-            MailOperationPresentation.Title(operation), (_, _) =>
+            MailOperationDisplay.GetTitle(operation), (_, _) =>
             {
                 _table.RowActionsVisible = false;
                 RunOperation(operation, items, items.FirstOrDefault(), null);
@@ -214,7 +215,7 @@ public sealed partial class MailListPageViewController
                 previousWasSeparator = true;
                 continue;
             }
-            var title = MailOperationPresentation.Title(action.Operation);
+            var title = MailOperationDisplay.GetTitle(action.Operation);
             if (string.IsNullOrEmpty(title)) continue;
             var operation = action.Operation;
             var menuItem = new NSMenuItem(operation == MailOperation.Move ? $"{title}…" : title, (_, _) => RunOperation(operation, targets, item, anchor))

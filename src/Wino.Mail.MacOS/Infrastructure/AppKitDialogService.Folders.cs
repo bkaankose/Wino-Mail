@@ -10,6 +10,7 @@ using Wino.Mail.MacOS.Views.Dialogs;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Wino.Presentation.AppKit;
+using Wino.Core.Domain.Presentation;
 
 namespace Wino.Mail.MacOS.Infrastructure;
 
@@ -53,7 +54,7 @@ public sealed partial class AppKitDialogService
         var names = new List<string> { "—" };
         names.AddRange(folders.Select(folder => folder.FolderName ?? string.Empty));
         var images = new List<NSImage?> { null };
-        images.AddRange(folders.Select(folder => WinoIcons.Image(Views.Shell.ShellPaneRows.FolderGlyph(folder.SpecialFolderType), 14)));
+        images.AddRange(folders.Select(folder => WinoIcons.Image(SpecialFolderGlyphs.GetGlyph(folder.SpecialFolderType), 14)));
 
         NSPopUpButton Picker(string header, string hint, SpecialFolderType type)
         {

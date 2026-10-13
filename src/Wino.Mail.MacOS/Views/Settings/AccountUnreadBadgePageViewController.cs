@@ -11,6 +11,8 @@ using Wino.Mail.MacOS.Views.Shell;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Bindings;
+using Wino.Core.Domain.Presentation;
 
 namespace Wino.Mail.MacOS.Views.Settings;
 
@@ -344,8 +346,7 @@ public sealed class AccountUnreadBadgePageViewController(AccountUnreadBadgePageV
     /// <summary>Glyph, name and count description, then the Count and Badge checkboxes.</summary>
     private NSView FolderRow(UnreadBadgeFolderViewModel folder, SettingsBinder rows)
     {
-        var glyph = ShellPaneRows.FolderGlyph(folder.SpecialFolderType);
-        var icon = new WinoIconView(glyph == WinoIconGlyph.None ? WinoIconGlyph.Folder : glyph, 16);
+        var icon = new WinoIconView(SpecialFolderGlyphs.GetGlyphOrFolder(folder.SpecialFolderType), 16);
         WinoLayout.Size(icon, 16, 16);
         var name = WinoStyle.Label(folder.FolderName, WinoStyle.Body, WinoStyle.PrimaryText);
         name.LineBreakMode = NSLineBreakMode.TruncatingTail;

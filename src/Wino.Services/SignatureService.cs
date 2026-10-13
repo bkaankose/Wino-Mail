@@ -6,7 +6,7 @@ using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Services;
 
-public class SignatureService(IDatabaseService databaseService) : BaseDatabaseService(databaseService), ISignatureService
+public class SignatureService(IDatabaseService databaseService, IAppMetadataService appMetadataService) : BaseDatabaseService(databaseService), ISignatureService
 {
     public async Task<AccountSignature> GetSignatureAsync(Guid signatureId)
     {
@@ -33,7 +33,7 @@ public class SignatureService(IDatabaseService databaseService) : BaseDatabaseSe
             MailAccountId = accountId,
             // TODO: Should be translated?
             Name = "Wino Default Signature",
-            HtmlBody = $@"<p>Sent from <a href=""https://github.com/bkaankose/Wino-Mail/"">Wino Mail</a> for {(OperatingSystem.IsMacOS() ? "Mac" : "Windows")}</p>"
+            HtmlBody = $@"<p>Sent from <a href=""https://github.com/bkaankose/Wino-Mail/"">Wino Mail</a> for {appMetadataService.PlatformDisplayName}</p>"
         };
 
         await Connection.InsertAsync(defaultSignature, typeof(AccountSignature));

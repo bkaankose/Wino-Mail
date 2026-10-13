@@ -9,12 +9,14 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Editor;
-using Wino.Editor.AppKit;
+using Wino.Editor.WebKit;
+using AppKitHtmlMailEditorSession = Wino.Editor.WebKit.WebKitHtmlMailEditorSession;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.MacOS.Views.Mail.Compose;
 using Wino.Mail.ViewModels;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Bindings;
 
 namespace Wino.Mail.MacOS.Views.Mail;
 
@@ -366,7 +368,7 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
         {
             ViewModel.GetHTMLBodyFunction = null;
             await DisposeEditorAsync();
-            ViewModel.OnNavigatedFrom(NavigationMode.New, null!);
+            ViewModel.OnNavigatedFrom(NavigationMode.New, null);
         }
     }
 

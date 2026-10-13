@@ -619,6 +619,53 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         }
     }
 
+    public async Task SynchronizeOnceAsync(CancellationToken cancellationToken = default)
+    {
+        await InitializeAsync(cancellationToken).ConfigureAwait(false);
+        Task work;
+        lock (_gate)
+        {
+            _lifetime.Token.ThrowIfCancellationRequested();
+            // The pass reuses the loop bodies without their timers. It is tracked so shutdown
+            // waits for it, and it stops on either the caller's token or the runtime lifetime.
+            // Run on the pool so provider work never starts while the lifecycle lock is held.
+            work = Task.Run(() => RunSynchronizationPassAsync(cancellationToken), CancellationToken.None);
+            Track(() => work);
+        }
+        await work.ConfigureAwait(false);
+    }
+
+    private async Task RunSynchronizationPassAsync(CancellationToken cancellationToken)
+    {
+        using var source = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token, cancellationToken);
+        var token = source.Token;
+
+        // Each mode runs even when an earlier one fails, as the separate loops would.
+        await RunPassStepAsync(ExecuteAutoSynchronizationAsync, "mail", token).ConfigureAwait(false);
+        await RunPassStepAsync(ExecuteCalendarAutoSynchronizationAsync, "calendar", token).ConfigureAwait(false);
+        await RunPassStepAsync(ct => RunRareModeIfDueAsync(
+            () => _preferencesService.TaskLastAutoSynchronizationUtcTicks,
+            ticks => _preferencesService.TaskLastAutoSynchronizationUtcTicks = ticks,
+            ExecuteTaskAutoSynchronizationAsync, ct), "task", token).ConfigureAwait(false);
+        await RunPassStepAsync(ct => RunRareModeIfDueAsync(
+            () => _preferencesService.ContactLastAutoSynchronizationUtcTicks,
+            ticks => _preferencesService.ContactLastAutoSynchronizationUtcTicks = ticks,
+            ExecuteContactAutoSynchronizationAsync, ct), "contact", token).ConfigureAwait(false);
+    }
+
+    private static async Task RunPassStepAsync(Func<CancellationToken, Task> step, string name, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        try
+        {
+            await step(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Log.Information($"Bounded {name} synchronization failed: {ex.Message}");
+        }
+    }
+
     private static string GetSynchronizationFailureMessage(
         MailSynchronizationType synchronizationType,
         IEnumerable<SynchronizationIssue> issues,
@@ -759,23 +806,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
 
             while (await timer.WaitForNextTickAsync(cancellationToken))
             {
-                var now = _timeProvider.GetUtcNow().UtcTicks;
-                var last = getLastSynchronizedTicks();
-
-                // No timestamp yet, or one from the future after a clock change: start the window now.
-                if (last <= 0 || last > now)
-                {
-                    setLastSynchronizedTicks(now);
-                    continue;
-                }
-
-                if (now - last < RareModeSynchronizationInterval.Ticks)
-                    continue;
-
-                // Stamp before running so a failing provider, such as an exhausted quota, waits
-                // for the next window instead of retrying on every check.
-                setLastSynchronizedTicks(now);
-                await operation(cancellationToken);
+                await RunRareModeIfDueAsync(getLastSynchronizedTicks, setLastSynchronizedTicks, operation, cancellationToken);
             }
         }
         catch (OperationCanceledException)
@@ -786,6 +817,28 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         {
             Log.Information($"Automatic {name} sync loop failed: {ex.Message}");
         }
+    }
+
+    private async Task RunRareModeIfDueAsync(Func<long> getLastSynchronizedTicks, Action<long> setLastSynchronizedTicks,
+        Func<CancellationToken, Task> operation, CancellationToken cancellationToken)
+    {
+        var now = _timeProvider.GetUtcNow().UtcTicks;
+        var last = getLastSynchronizedTicks();
+
+        // No timestamp yet, or one from the future after a clock change: start the window now.
+        if (last <= 0 || last > now)
+        {
+            setLastSynchronizedTicks(now);
+            return;
+        }
+
+        if (now - last < RareModeSynchronizationInterval.Ticks)
+            return;
+
+        // Stamp before running so a failing provider, such as an exhausted quota, waits
+        // for the next window instead of retrying on every check.
+        setLastSynchronizedTicks(now);
+        await operation(cancellationToken);
     }
 
     private async Task ExecuteTaskAutoSynchronizationAsync(CancellationToken cancellationToken)

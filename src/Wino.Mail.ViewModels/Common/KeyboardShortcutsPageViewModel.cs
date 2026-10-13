@@ -42,10 +42,10 @@ public partial class KeyboardShortcutsPageViewModel : CoreBaseViewModel
         _dialogService = dialogService;
     }
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
         => await InitializeNavigationAsync(mode, parameters);
 
-    public async Task InitializeNavigationAsync(NavigationMode mode, object parameters)
+    public async Task InitializeNavigationAsync(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
         await LoadShortcutsAsync();

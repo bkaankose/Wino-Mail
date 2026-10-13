@@ -1,6 +1,7 @@
 using AppKit;
 using CoreGraphics;
 using Wino.Core.Domain.Enums;
+using Wino.Mail.Controls.Core.Layout;
 using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.Controls.AppKit.MailList;
@@ -190,26 +191,23 @@ public sealed class WinoFlowView : NSView
         InvalidateIntrinsicContentSize();
     }
 
+    /// <summary>Flows the items with the shared <see cref="WinoFlowLayout"/>; applies the frames when <paramref name="apply"/> is set.</summary>
     private nfloat Arrange(nfloat width, bool apply)
     {
         var subviews = Subviews;
         if (_sizes is null || _sizes.Length != subviews.Length) _sizes = subviews.Select(static view => view.FittingSize).ToArray();
-        nfloat x = 0, y = 0, line = 0;
-        for (int index = 0; index < subviews.Length; index++)
+        var sizes = new (double Width, double Height)[_sizes.Length];
+        for (int index = 0; index < sizes.Length; index++) sizes[index] = ((double)_sizes[index].Width, (double)_sizes[index].Height);
+        var result = WinoFlowLayout.Arrange(sizes, width, Spacing, LineSpacing);
+        if (apply)
         {
-            var view = subviews[index];
-            var size = _sizes[index];
-            if (x > 0 && x + size.Width > width)
+            for (int index = 0; index < subviews.Length; index++)
             {
-                x = 0;
-                y += line + (nfloat)LineSpacing;
-                line = 0;
+                var frame = result.Frames[index];
+                subviews[index].Frame = new CGRect(frame.X, frame.Y, frame.Width, frame.Height);
             }
-            if (apply) view.Frame = new CGRect(x, y, (nfloat)Math.Min((double)size.Width, (double)width), size.Height);
-            x += size.Width + (nfloat)Spacing;
-            line = (nfloat)Math.Max((double)line, (double)size.Height);
         }
-        return subviews.Length == 0 ? 0 : y + line;
+        return (nfloat)result.Height;
     }
 
     public override void Layout()

@@ -12,6 +12,7 @@ using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.MacOS.Views.Dialogs;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Bindings;
 
 namespace Wino.Mail.MacOS.Views.Calendar;
 

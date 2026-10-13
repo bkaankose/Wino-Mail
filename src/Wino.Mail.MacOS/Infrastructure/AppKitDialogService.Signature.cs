@@ -13,7 +13,7 @@ public sealed partial class AppKitDialogService
     /// a new signature (new Id, trimmed name, editor HTML, no account id) or, when editing, a copy of
     /// <paramref name="signatureModel"/> (same Id and MailAccountId) with the trimmed name and new HTML.
     /// </summary>
-    public async Task<AccountSignature> ShowSignatureEditorDialog(AccountSignature? signatureModel = null)
+    public async Task<AccountSignature?> ShowSignatureEditorDialog(AccountSignature? signatureModel = null)
     {
         var accountLine = await AccountLineAsync(signatureModel?.MailAccountId);
         var launcher = services?.GetService<IExternalLauncher>();
@@ -21,7 +21,7 @@ public sealed partial class AppKitDialogService
 
         var result = await PresentAsync(window =>
             new SignatureEditorSheet(accountLine, signatureModel?.Name, signatureModel?.HtmlBody, launcher, preferences, error).PresentAsync(window));
-        if (result is not { } saved) return null!;
+        if (result is not { } saved) return null;
 
         if (signatureModel is null)
             return new AccountSignature { Id = Guid.NewGuid(), Name = saved.Name, HtmlBody = saved.HtmlBody };

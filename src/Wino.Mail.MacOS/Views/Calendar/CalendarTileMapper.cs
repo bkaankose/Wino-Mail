@@ -7,6 +7,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Mail.Controls.AppKit.Calendar;
 using Wino.Presentation.AppKit;
+using Wino.Core.Domain.Presentation;
 
 namespace Wino.Mail.MacOS.Views.Calendar;
 
@@ -33,20 +34,17 @@ internal static class CalendarTileMapper
             viewModel?.IsBusy ?? false);
     }
 
-    /// <summary>True when the item belongs to a read-only calendar (subscribed, birthdays, shared without write access).</summary>
-    public static bool IsReadOnly(ICalendarItem? item) => item?.AssignedCalendar?.IsReadOnly == true;
+    /// <summary>True when the item belongs to a read-only calendar (shared <see cref="CalendarEventDisplay.IsReadOnly"/>).</summary>
+    public static bool IsReadOnly(ICalendarItem? item) => CalendarEventDisplay.IsReadOnly(item);
 
     /// <summary>Whether a tile may be dragged to move or resize it (Windows CalendarItemViewModel.CanDragDrop, plus the read-only calendar rule).</summary>
     public static bool CanDrag(ICalendarItem item) => DragRefusal(item) == CalendarDragRefusal.None;
 
-    /// <summary>Why a tile cannot be dragged, mirroring the checks of CalendarPageViewModel.MoveCalendarItemAsync.</summary>
+    /// <summary>Why a tile cannot be dragged (shared <see cref="CalendarEventDisplay.GetDragRefusal"/>).</summary>
     public static CalendarDragRefusal DragRefusal(ICalendarItem item)
-    {
-        if (item is not CalendarItemViewModel viewModel) return CalendarDragRefusal.Busy;
-        if (!viewModel.CalendarItem.CanChangeStartAndEndDate) return CalendarDragRefusal.NotAllowed;
-        if (IsReadOnly(item)) return CalendarDragRefusal.ReadOnlyCalendar;
-        return viewModel.IsBusy ? CalendarDragRefusal.Busy : CalendarDragRefusal.None;
-    }
+        => item is CalendarItemViewModel viewModel
+            ? CalendarEventDisplay.GetDragRefusal(viewModel.CalendarItem, viewModel.IsBusy)
+            : CalendarDragRefusal.Busy;
 
     /// <summary>The calendar colour (Windows binds the assigned calendar's background), falling back to the accent.</summary>
     public static NSColor Fill(ICalendarItem item)
@@ -55,53 +53,15 @@ internal static class CalendarTileMapper
         return WinoStyle.FromHexString(custom) ?? WinoStyle.FromHexString(item.AssignedCalendar?.BackgroundColorHex) ?? WinoStyle.Accent;
     }
 
-    /// <summary>Windows CalendarXamlHelpers.GetEventDetailsDateString.</summary>
+    /// <summary>The event details date line (shared <see cref="CalendarEventDisplay.FormatDateRange"/>).</summary>
     public static string DateString(CalendarItemViewModel? item, CalendarSettings? settings)
-    {
-        if (item is null || settings is null) return string.Empty;
-        var start = item.Period.Start;
-        var end = item.Period.End;
-        var timeFormat = DateTimeDisplayFormatter.GetTimeFormat(settings.DayHeaderDisplayType);
-        if (item.IsAllDayEvent)
-        {
-            var lastDay = end.AddDays(-1);
-            return lastDay.Date <= start.Date
-                ? $"{start.ToString("dddd, dd MMMM", settings.CultureInfo)} · {Translator.CalendarItemAllDay}"
-                : $"{start.ToString("dd MMMM", settings.CultureInfo)} – {lastDay.ToString("dd MMMM", settings.CultureInfo)} · {Translator.CalendarItemAllDay}";
-        }
-        if (item.IsMultiDayEvent)
-            return $"{start.ToString($"dd MMMM ddd {timeFormat}", settings.CultureInfo)} - {end.ToString($"dd MMMM ddd {timeFormat}", settings.CultureInfo)}";
-        return $"{start.ToString($"dddd, dd MMMM {timeFormat}", settings.CultureInfo)} - {end.ToString(timeFormat, settings.CultureInfo)}";
-    }
+        => item is null ? string.Empty : CalendarEventDisplay.FormatDateRange(item.Period.Start, item.Period.End, item.IsAllDayEvent, item.IsMultiDayEvent, settings);
 
-    /// <summary>A short recurrence sentence from the RRULE FREQ (the Windows helper uses Ical.Net for the same wording).</summary>
+    /// <summary>The recurrence sentence (shared <see cref="CalendarEventDisplay.FormatRecurrence"/>).</summary>
     public static string RecurrenceString(CalendarItemViewModel? item, CalendarSettings? settings)
-    {
-        var rule = item?.CalendarItem.Recurrence;
-        if (item is null || string.IsNullOrWhiteSpace(rule)) return string.Empty;
-        var culture = settings?.CultureInfo ?? System.Globalization.CultureInfo.CurrentCulture;
-        string? frequency = rule.Split([';', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries)
-            .Select(part => part.Trim())
-            .FirstOrDefault(part => part.StartsWith("FREQ=", StringComparison.OrdinalIgnoreCase) || part.Contains(":FREQ=", StringComparison.OrdinalIgnoreCase));
-        if (frequency is null) return Translator.CalendarEventCompose_Recurring;
-        frequency = frequency[(frequency.IndexOf("FREQ=", StringComparison.OrdinalIgnoreCase) + 5)..].ToUpperInvariant();
-        return frequency switch
-        {
-            "DAILY" => Translator.CalendarEventCompose_RepeatDaily,
-            "WEEKLY" => string.Format(Translator.CalendarEventCompose_RepeatWeekly, culture.DateTimeFormat.GetDayName(item.StartDate.DayOfWeek)),
-            "MONTHLY" => string.Format(Translator.CalendarEventCompose_RepeatMonthly, item.StartDate.Day),
-            "YEARLY" => string.Format(Translator.CalendarEventCompose_RepeatYearly, item.StartDate.ToString("M", culture)),
-            _ => Translator.CalendarEventCompose_Recurring
-        };
-    }
+        => item is null ? string.Empty : CalendarEventDisplay.FormatRecurrence(item.CalendarItem.Recurrence, item.Period.Start, item.Period.End, item.IsAllDayEvent, settings);
 
-    public static string AttendeeStatusText(AttendeeStatus status) => status switch
-    {
-        AttendeeStatus.Accepted => Translator.CalendarAttendeeStatus_Accepted,
-        AttendeeStatus.Declined => Translator.CalendarAttendeeStatus_Declined,
-        AttendeeStatus.Tentative => Translator.CalendarAttendeeStatus_Tentative,
-        _ => Translator.CalendarAttendeeStatus_NeedsAction
-    };
+    public static string AttendeeStatusText(AttendeeStatus status) => CalendarEventDisplay.GetAttendeeStatusText(status);
 
     public static (WinoIconGlyph Glyph, NSColor Tint) AttendeeStatusGlyph(AttendeeStatus status) => status switch
     {
@@ -118,16 +78,4 @@ internal static class CalendarTileMapper
         CalendarItemStatus.Tentative => (WinoIconGlyph.EventTentative, WinoStyle.Caution),
         _ => (WinoIconGlyph.EventRespond, WinoStyle.Accent)
     };
-}
-
-/// <summary>Why an event tile refuses a drag.</summary>
-internal enum CalendarDragRefusal
-{
-    None,
-    /// <summary>Locked, or organized by someone else (CalendarDragDropMoveNotAllowed* info bar).</summary>
-    NotAllowed,
-    /// <summary>The calendar is read-only (CalendarReadOnly_* info bar).</summary>
-    ReadOnlyCalendar,
-    /// <summary>A pending operation holds the item; the drag is ignored silently.</summary>
-    Busy
 }

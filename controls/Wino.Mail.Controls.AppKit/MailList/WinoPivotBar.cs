@@ -1,4 +1,5 @@
 using AppKit;
+using Wino.Mail.Controls.Core;
 using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.Controls.AppKit.MailList;
@@ -54,7 +55,7 @@ public sealed class WinoPivotBar : NSView
         for (int index = 0; index < items.Count; index++)
         {
             var item = items[index];
-            _segments.SetLabel(item.Count > 0 ? $"{item.Title} ({item.Count})" : item.Title, index);
+            _segments.SetLabel(WinoControlText.WithCount(item.Title, item.Count), index);
             _segments.SetWidth(0, index);
         }
         SelectedIndex = selectedIndex;

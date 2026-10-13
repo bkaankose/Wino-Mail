@@ -1,7 +1,7 @@
 using AppKit;
-using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Controls;
 
 namespace Wino.Mail.Controls.AppKit.Shell;
 
@@ -13,16 +13,8 @@ namespace Wino.Mail.Controls.AppKit.Shell;
 /// </summary>
 public sealed class WinoModeSwitcher : NSView
 {
-    private sealed record Segment(WinoApplicationMode Mode, WinoIconGlyph Regular, WinoIconGlyph Filled, string Title, string Shortcut);
-
-    private static readonly Segment[] Segments =
-    [
-        new(WinoApplicationMode.Mail, WinoIconGlyph.Mail, WinoIconGlyph.MailFilled, Translator.KeyboardShortcuts_ModeMail, "⌘1"),
-        new(WinoApplicationMode.Calendar, WinoIconGlyph.Calendar, WinoIconGlyph.CalendarFilled, Translator.KeyboardShortcuts_ModeCalendar, "⌘2"),
-        new(WinoApplicationMode.Contacts, WinoIconGlyph.People, WinoIconGlyph.PeopleFilled, Translator.ContactsPage_Title, "⌘3"),
-        new(WinoApplicationMode.Tasks, WinoIconGlyph.CheckmarkCircle, WinoIconGlyph.CheckmarkCircleFilled, Translator.ToDoPage_Title, "⌘4"),
-        new(WinoApplicationMode.Settings, WinoIconGlyph.Settings, WinoIconGlyph.SettingsFilled, Translator.MenuSettings, "⌘,")
-    ];
+    /// <summary>The shared Windows segment order and glyphs (<see cref="WinoModeSegments.All"/>).</summary>
+    private static readonly IReadOnlyList<WinoModeSegment> Segments = WinoModeSegments.All;
 
     private readonly NSSegmentedControl _control = new()
     {
@@ -31,7 +23,7 @@ public sealed class WinoModeSwitcher : NSView
         SegmentStyle = NSSegmentStyle.Automatic,
         SegmentDistribution = NSSegmentDistribution.FillEqually,
         ControlSize = NSControlSize.Large,
-        SegmentCount = Segments.Length
+        SegmentCount = Segments.Count
     };
 
     private WinoApplicationMode _selected = WinoApplicationMode.Mail;
@@ -42,7 +34,7 @@ public sealed class WinoModeSwitcher : NSView
     public WinoModeSwitcher()
     {
         TranslatesAutoresizingMaskIntoConstraints = false;
-        for (int index = 0; index < Segments.Length; index++)
+        for (int index = 0; index < Segments.Count; index++)
             _control.SetToolTip($"{Segments[index].Title} ({Segments[index].Shortcut})", index);
         _control.Activated += SegmentActivated;
         WinoLayout.Fill(_control, this, 8, 8, 12, 8);
@@ -64,14 +56,14 @@ public sealed class WinoModeSwitcher : NSView
         var index = (int)_control.SelectedSegment;
         // The host confirms the switch through Selected; until then the old segment stays selected.
         Refresh();
-        if (index >= 0 && index < Segments.Length) ModeSelected?.Invoke(this, Segments[index].Mode);
+        if (index >= 0 && index < Segments.Count) ModeSelected?.Invoke(this, Segments[index].Mode);
     }
 
     private void StyleChanged(object? sender, EventArgs args) => Refresh();
 
     private void Refresh()
     {
-        for (int index = 0; index < Segments.Length; index++)
+        for (int index = 0; index < Segments.Count; index++)
         {
             var segment = Segments[index];
             bool selected = segment.Mode == _selected;

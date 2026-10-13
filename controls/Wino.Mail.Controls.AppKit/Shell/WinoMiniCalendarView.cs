@@ -4,6 +4,7 @@ using CoreGraphics;
 using Foundation;
 using Wino.Core.Domain.Enums;
 using Wino.Presentation.AppKit;
+using Wino.Mail.Controls.Core.Calendar;
 
 namespace Wino.Mail.Controls.AppKit.Shell;
 
@@ -16,11 +17,11 @@ namespace Wino.Mail.Controls.AppKit.Shell;
 /// </summary>
 public sealed class WinoMiniCalendarView : NSView
 {
-    private const double Pad = 10;
-    private const double HeaderHeight = 22;
-    private const double NamesHeight = 16;
-    private const double CellHeight = 24;
-    private const int Rows = 6;
+    private const double Pad = WinoMiniCalendarGrid.Padding;
+    private const double HeaderHeight = WinoMiniCalendarGrid.HeaderHeight;
+    private const double NamesHeight = WinoMiniCalendarGrid.NamesHeight;
+    private const double CellHeight = WinoMiniCalendarGrid.CellHeight;
+    private const int Rows = WinoMiniCalendarGrid.Rows;
     private const ushort KeyLeft = 123, KeyRight = 124, KeyArrowDown = 125, KeyArrowUp = 126;
     private const ushort KeyPageUp = 116, KeyPageDown = 121, KeyHome = 115;
     private const ushort KeyReturn = 36, KeyEnter = 76, KeySpace = 49;
@@ -64,12 +65,11 @@ public sealed class WinoMiniCalendarView : NSView
         get => _displayMonth;
         set
         {
-            var first = new DateOnly(value.Year, value.Month, 1);
+            var first = WinoMiniCalendarGrid.MonthStart(value);
             if (_displayMonth == first) return;
             _displayMonth = first;
             // Keep the focused day inside the shown month, on the same day number where possible.
-            if (_focused.Year != first.Year || _focused.Month != first.Month)
-                _focused = first.AddDays(Math.Min(_focused.Day, DateTime.DaysInMonth(first.Year, first.Month)) - 1);
+            _focused = WinoMiniCalendarGrid.KeepFocusInMonth(_focused, first);
             NeedsDisplay = true;
             NoteFocusRingMaskChanged();
             RebuildAccessibility();
@@ -124,29 +124,30 @@ public sealed class WinoMiniCalendarView : NSView
         NeedsDisplay = true;
     }
 
-    public static double HeightFor(bool collapsed) => collapsed ? Pad + HeaderHeight + Pad : Pad + HeaderHeight + 6 + NamesHeight + Rows * CellHeight + Pad;
+    public static double HeightFor(bool collapsed) => WinoMiniCalendarGrid.HeightFor(collapsed);
 
     public override CGSize IntrinsicContentSize => new(NoIntrinsicMetric, (nfloat)HeightFor(_collapsed));
 
-    private CGRect ToggleRect => new(Bounds.Width - Pad - 16, Pad + (HeaderHeight - 16) / 2, 16, 16);
-    private CGRect PreviousRect => new(Bounds.Width - Pad - 16 - 8 - 16 - 8 - 16, Pad + (HeaderHeight - 16) / 2, 16, 16);
-    private CGRect NextRect => new(Bounds.Width - Pad - 16 - 8 - 16, Pad + (HeaderHeight - 16) / 2, 16, 16);
-    private double GridTop => Pad + HeaderHeight + 6 + NamesHeight;
-    private double GridLeft => Pad;
-    private double GridWidth => Bounds.Width - Pad * 2;
-    private double ColumnWidth => GridWidth / 7;
+    private CGRect ToggleRect => HeaderRect(WinoMiniCalendarHeaderButton.Toggle);
+    private CGRect PreviousRect => HeaderRect(WinoMiniCalendarHeaderButton.Previous);
+    private CGRect NextRect => HeaderRect(WinoMiniCalendarHeaderButton.Next);
 
-    private DateOnly GridStart
+    private CGRect HeaderRect(WinoMiniCalendarHeaderButton button)
     {
-        get
-        {
-            int offset = ((int)_displayMonth.DayOfWeek - (int)_firstDayOfWeek + 7) % 7;
-            return _displayMonth.AddDays(-offset);
-        }
+        var (x, y, width, height) = WinoMiniCalendarGrid.HeaderButtonBounds(button, Bounds.Width);
+        return new CGRect(x, y, width, height);
     }
+    private static double GridTop => WinoMiniCalendarGrid.GridTop;
+    private static double GridLeft => Pad;
+    private double ColumnWidth => WinoMiniCalendarGrid.ColumnWidth(Bounds.Width);
+
+    private DateOnly GridStart => WinoMiniCalendarGrid.GridStart(_displayMonth, _firstDayOfWeek);
 
     private CGRect CellRect(int index)
-        => new(GridLeft + index % 7 * ColumnWidth, GridTop + index / 7 * CellHeight, ColumnWidth, CellHeight);
+    {
+        var (x, y, width, height) = WinoMiniCalendarGrid.CellBounds(index, Bounds.Width);
+        return new CGRect(x, y, width, height);
+    }
 
     public override void DrawRect(CGRect dirtyRect)
     {
@@ -165,7 +166,7 @@ public sealed class WinoMiniCalendarView : NSView
 
         var culture = CultureInfo.CurrentCulture;
         var title = _displayMonth.ToString("MMMM yyyy", culture);
-        DrawText(title, new CGRect(Pad, Pad, Bounds.Width - Pad * 2 - 80, HeaderHeight), NSFont.SystemFontOfSize(12, NSFontWeight.Semibold), text, NSTextAlignment.Left);
+        DrawText(title, new CGRect(Pad, Pad, WinoMiniCalendarGrid.TitleWidth(Bounds.Width), HeaderHeight), NSFont.SystemFontOfSize(12, NSFontWeight.Semibold), text, NSTextAlignment.Left);
         WinoIcons.Draw(WinoIcons.Glyph(WinoIconGlyph.ChevronUp), PreviousRect.Inset(2, 2), secondary, EffectiveAppearance, false);
         WinoIcons.Draw(WinoIcons.Glyph(WinoIconGlyph.ChevronDown), NextRect.Inset(2, 2), secondary, EffectiveAppearance, false);
         WinoIcons.Draw(WinoIcons.Glyph(_toggleGlyph), ToggleRect.Inset(1, 1), secondary, EffectiveAppearance, false);
@@ -174,8 +175,8 @@ public sealed class WinoMiniCalendarView : NSView
         var names = culture.DateTimeFormat.ShortestDayNames;
         for (int column = 0; column < 7; column++)
         {
-            var day = (int)(_firstDayOfWeek + column) % 7;
-            DrawText(names[day], new CGRect(GridLeft + column * ColumnWidth, Pad + HeaderHeight + 6, ColumnWidth, NamesHeight),
+            var day = WinoMiniCalendarGrid.DayNameIndex(column, _firstDayOfWeek);
+            DrawText(names[day], new CGRect(GridLeft + column * ColumnWidth, WinoMiniCalendarGrid.NamesTop, ColumnWidth, NamesHeight),
                 NSFont.SystemFontOfSize(10), tertiary, NSTextAlignment.Center);
         }
 
@@ -191,8 +192,7 @@ public sealed class WinoMiniCalendarView : NSView
                 bool isToday = date == today;
                 if (selected)
                 {
-                    bool left = !_selected.Contains(date.AddDays(-1)) || column == 0;
-                    bool right = !_selected.Contains(date.AddDays(1)) || column == 6;
+                    var (left, right) = WinoMiniCalendarGrid.SelectionEnds(_selected, date, column);
                     var band = new CGRect(cell.X, cell.Y + 1, cell.Width, cell.Height - 2);
                     // Round only the ends of a contiguous run: extend the shape past a square side and clip to the cell.
                     nfloat radius = 6;
@@ -229,14 +229,16 @@ public sealed class WinoMiniCalendarView : NSView
     public override void MouseDown(NSEvent theEvent)
     {
         var point = ConvertPointFromView(theEvent.LocationInWindow, null);
-        if (ToggleRect.Inset(-4, -4).Contains(point)) { ToggleClicked?.Invoke(this, EventArgs.Empty); return; }
-        if (PreviousRect.Inset(-4, -4).Contains(point)) { DisplayMonth = _displayMonth.AddMonths(-1); return; }
-        if (NextRect.Inset(-4, -4).Contains(point)) { DisplayMonth = _displayMonth.AddMonths(1); return; }
-        if (_collapsed || point.Y < GridTop) return;
-        int row = (int)((point.Y - GridTop) / CellHeight);
-        int column = (int)((point.X - GridLeft) / ColumnWidth);
-        if (row < 0 || row >= Rows || column < 0 || column > 6) return;
-        ClickDay(GridStart.AddDays(row * 7 + column));
+        switch (WinoMiniCalendarGrid.HitTestHeader(point.X, point.Y, Bounds.Width))
+        {
+            case WinoMiniCalendarHeaderButton.Toggle: ToggleClicked?.Invoke(this, EventArgs.Empty); return;
+            case WinoMiniCalendarHeaderButton.Previous: DisplayMonth = _displayMonth.AddMonths(-1); return;
+            case WinoMiniCalendarHeaderButton.Next: DisplayMonth = _displayMonth.AddMonths(1); return;
+        }
+        if (_collapsed) return;
+        int index = WinoMiniCalendarGrid.HitTest(point.X, point.Y, Bounds.Width);
+        if (index < 0) return;
+        ClickDay(GridStart.AddDays(index));
     }
 
     /// <summary>A pointer or VoiceOver press on a day: focus follows without paging, then the date is selected.</summary>
@@ -292,8 +294,8 @@ public sealed class WinoMiniCalendarView : NSView
     /// <summary>The system focus ring traces the focused day, or the card while the grid is hidden.</summary>
     public override void DrawFocusRingMask()
     {
-        int index = _focused.DayNumber - GridStart.DayNumber;
-        if (_collapsed || index < 0 || index >= Rows * 7)
+        int index = WinoMiniCalendarGrid.CellIndex(_focused, _displayMonth, _firstDayOfWeek);
+        if (_collapsed || index < 0)
         {
             NSBezierPath.FromRoundedRect(Bounds, (nfloat)WinoStyle.GroupRadius, (nfloat)WinoStyle.GroupRadius).Fill();
             return;

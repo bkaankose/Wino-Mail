@@ -2,6 +2,7 @@ using AppKit;
 using CoreGraphics;
 using Foundation;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Mail.Controls.Core.Calendar;
 using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.Controls.AppKit.Calendar;
@@ -17,7 +18,7 @@ namespace Wino.Mail.Controls.AppKit.Calendar;
 /// </summary>
 public sealed partial class WinoCalendarSurfaceView
 {
-    private const double SelectionDragThreshold = 3;
+    private const double SelectionDragThreshold = WinoCalendarSurfaceGeometry.SelectionDragThreshold;
     private const ushort EscapeKeyCode = 53;
 
     private CalendarSelectionRange? _selectionRange;
@@ -130,29 +131,14 @@ public sealed partial class WinoCalendarSurfaceView
 
     /// <summary>The snap cell under <paramref name="point"/> in the hour grid, clamped to the visible days and the day's last cell.</summary>
     private DateTime? TimedCellAt(CGPoint point)
-    {
-        var dates = Dates;
-        double dayWidth = DayWidth;
-        double hourHeight = HourHeight;
-        if (dates.Count == 0 || dayWidth <= 0 || hourHeight <= 0) return null;
-        int dayIndex = Math.Clamp((int)Math.Floor((point.X - HourColumnWidth) / dayWidth), 0, dates.Count - 1);
-        int snap = Math.Max(1, DragSnapMinutes);
-        double minutes = (point.Y - TimelinePadding) / hourHeight * 60;
-        int cell = Math.Clamp((int)Math.Floor(minutes / snap), 0, 24 * 60 / snap - 1);
-        return dates[dayIndex].ToDateTime(TimeOnly.MinValue).AddMinutes(cell * snap);
-    }
+        => WinoCalendarSurfaceGeometry.TimedCellAt(point.X, point.Y, Dates, DayWidth, HourHeight, DragSnapMinutes);
 
     /// <summary>The part of <paramref name="range"/> on <paramref name="date"/> in hour-grid coordinates.</summary>
     private CGRect? TimedSegmentBounds(CalendarSelectionRange range, DateOnly date)
     {
-        var dates = Dates;
-        int index = -1;
-        for (int candidate = 0; candidate < dates.Count; candidate++) if (dates[candidate] == date) index = candidate;
+        int index = WinoCalendarSurfaceGeometry.IndexOf(Dates, date);
         if (index < 0 || range.IntersectDay(date) is not { } segment) return null;
-        double dayWidth = DayWidth, hourHeight = HourHeight;
-        double top = TimelinePadding + segment.Start.TimeOfDay.TotalHours * hourHeight;
-        double height = (segment.End - segment.Start).TotalHours * hourHeight;
-        return new CGRect(HourColumnWidth + index * dayWidth + 1, top, Math.Max(0, dayWidth - 3), Math.Max(2, height));
+        return ToRect(WinoCalendarSurfaceGeometry.SelectionSegmentBounds(index, segment.Start, segment.End, DayWidth, HourHeight));
     }
 
     /// <summary>Hour grid: the selection in each day column, and a time chip while dragging.</summary>

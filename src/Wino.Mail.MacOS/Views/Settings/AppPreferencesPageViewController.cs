@@ -7,7 +7,7 @@ using Wino.Core.Domain.Models.Translations;
 using Wino.Mail.ViewModels;
 using Wino.Presentation.AppKit;
 #if !WINO_APPSTORE
-using Wino.Core.MacOS.Bindings.Sparkle;
+using Wino.Core.Apple.Bindings.Sparkle;
 #endif
 
 namespace Wino.Mail.MacOS.Views.Settings;

@@ -171,7 +171,7 @@ public partial class MergedAccountDetailsPageViewModel : MailBaseViewModel,
                EditingMergedAccount.HoldingAccounts.Any(a => !LinkedAccounts.Any(la => la.Account.Id == a.Account.Id));
     }
 
-    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    public override void OnNavigatedFrom(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedFrom(mode, parameters);
 
@@ -187,10 +187,10 @@ public partial class MergedAccountDetailsPageViewModel : MailBaseViewModel,
         // Basically showing a preview of how menu items will look.
     }
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
         => await InitializeAsync(mode, parameters);
 
-    public async Task InitializeAsync(NavigationMode mode, object parameters)
+    public async Task InitializeAsync(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 

@@ -9,8 +9,10 @@ using Wino.Core;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Platform;
 using Wino.Mail.MacOS.Infrastructure;
+using Wino.Platform.Apple;
+using Wino.Platform.Apple.Security;
+using Wino.Platform.Apple.Services;
 using Wino.Platform.MacOS;
-using Wino.Platform.MacOS.Security;
 using Wino.Platform.MacOS.Services;
 using Wino.Services;
 
@@ -18,13 +20,17 @@ namespace Wino.Mail.MacOS;
 
 internal static class Composition
 {
+    /// <summary>The bundle identifier. It names the Keychain services and the container folders, so it never changes.</summary>
+    private const string BundleIdentifier = "com.winomail.macos";
+
     public static ServiceProvider Create(IDispatcher dispatcher, Func<NSWindow?> owner, Func<NSViewController, Action?> host, Action<Exception> error)
     {
         // Paths/protection precede database or credential service construction.
-        var paths = new MacOSPaths(NSBundle.MainBundle.ResourcePath ?? AppContext.BaseDirectory);
+        var identity = new AppleApplicationIdentity(BundleIdentifier);
+        var paths = new ApplePaths(identity, NSBundle.MainBundle.ResourcePath ?? AppContext.BaseDirectory);
         var newInstallation = paths.IsVerifiedNewInstallation;
-        var keychain = new MacOSKeychainStore();
-        var protector = new MacOSSecretProtector(keychain);
+        var keychain = new AppleKeychainStore(identity);
+        var protector = new AppleSecretProtector(keychain);
         if (newInstallation) protector.ProvisionNewInstallationKey(true);
         paths.CreateDirectories();
 
@@ -37,6 +43,7 @@ internal static class Composition
         services.RegisterSharedServices();
         services.RegisterCoreServices();
         services.AddSingleton(dispatcher);
+        services.AddSingleton(identity);
         services.AddSingleton(paths);
         services.AddSingleton(keychain);
         services.AddSingleton<ISecretProtector>(protector);
@@ -48,28 +55,32 @@ internal static class Composition
             ApplicationDisplayName = "Wino Mail",
             AllowLegacyDataMigration = false,
         }));
-        services.AddSingleton<IConfigurationService, MacOSConfigurationService>();
+        services.AddSingleton<IConfigurationService, AppleConfigurationService>();
         services.AddSingleton<IPreferencesService, PreferencesService>();
-        services.AddSingleton<IApplicationResourceResolver, MacOSApplicationResourceResolver>();
-        services.AddSingleton<IFileService, MacOSFileService>();
-        services.AddSingleton<IAccountCredentialPersistence, MacOSAccountCredentialPersistence>();
-        services.AddSingleton<IDavCredentialStore, MacOSDavCredentialStore>();
-        services.AddSingleton<IGoogleTokenStore, MacOSGoogleTokenStore>();
+        services.AddSingleton<IApplicationResourceResolver, AppleApplicationResourceResolver>();
+        services.AddSingleton<IFileService, AppleFileService>();
+        services.AddSingleton<IAccountCredentialPersistence, AppleAccountCredentialPersistence>();
+        services.AddSingleton<IDavCredentialStore, AppleDavCredentialStore>();
+        services.AddSingleton<IGoogleTokenStore, AppleGoogleTokenStore>();
         services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
         services.AddSingleton<IOutlookAuthenticationHost>(provider => new MacOSOutlookAuthenticationHost(
-            provider.GetRequiredService<IApplicationConfiguration>(), provider.GetRequiredService<IAuthenticatorConfig>(), () => owner() != null));
+            provider.GetRequiredService<IApplicationConfiguration>(), provider.GetRequiredService<IAuthenticatorConfig>(),
+            identity, () => owner() != null));
         services.AddSingleton<IExternalLauncher, MacExternalLauncher>();
         services.AddSingleton<IClipboardService, MacClipboardService>();
         services.AddSingleton<IShortcutPlatformService, MacShortcutPlatformService>();
         services.AddSingleton<IAttachmentPlatformService, MacAttachmentPlatformService>();
-        services.AddSingleton<IReaderRuntimeService, MacReaderRuntimeService>();
+        services.AddSingleton<IReaderRuntimeService, AppleReaderRuntimeService>();
         services.AddSingleton<IStartupIntegrationService, MacStartupIntegrationService>();
         services.AddSingleton<ISmimeCertificateService, MacSmimeCertificateService>();
         services.AddSingleton<ITaskCompletionSound, MacTaskCompletionSound>();
         services.AddSingleton<IUserPresenceStateProvider, MacUserPresenceStateProvider>();
-        services.AddSingleton<MacNotificationSounds>();
-        services.AddSingleton<INotificationBuilder, MacNotificationBuilder>();
-        services.AddSingleton<IStatePersistanceService, MacStatePersistenceService>();
+        services.AddSingleton<INotificationSoundCatalog, MacNotificationSoundCatalog>();
+        services.AddSingleton<INotificationImageConverter, MacNotificationImageConverter>();
+        services.AddSingleton<IApplicationBadgePresenter, MacDockBadgePresenter>();
+        services.AddSingleton<AppleNotificationSounds>();
+        services.AddSingleton<INotificationBuilder, AppleNotificationBuilder>();
+        services.AddSingleton<IStatePersistanceService, AppleStatePersistenceService>();
         // The app-level theme service adds the Wino themes (accent + backdrop, custom themes in the Windows file layout) on top of native appearance.
         services.AddSingleton(provider => new Wino.Services.Themes.CustomThemeFileStore(provider.GetRequiredService<IApplicationConfiguration>()));
         services.AddSingleton<MacWinoThemeService>();
@@ -78,7 +89,7 @@ internal static class Composition
 #if WINO_APPSTORE
             isAppStoreBuild: true));
         // StoreKit purchases; WinoAppStorePurchaseService links them to the Wino Account.
-        services.AddSingleton<IAppStoreClient, MacAppStoreClient>();
+        services.AddSingleton<IAppStoreClient, AppleAppStoreClient>();
 #else
             isAppStoreBuild: false));
 #endif
@@ -98,16 +109,17 @@ internal static class Composition
 #endif
         ));
         // The bundle's CFBundleShortVersionString is the app version; CFBundleVersion is the build (Sentry dist).
-        services.AddSingleton<IAppMetadataService>(new MacAppMetadataService(BundleString("CFBundleShortVersionString"), MacOSApplicationIdentity.Value,
+        services.AddSingleton<IAppMetadataService>(new AppleAppMetadataService(BundleString("CFBundleShortVersionString"), identity.Value,
 #if DEBUG
             true
 #else
             false
 #endif
-            , BundleString("CFBundleVersion")));
+            , BundleString("CFBundleVersion"), "Mac"));
         services.AddSingleton<IMailDialogService>(provider => new AppKitDialogService(dispatcher, owner, error, provider));
         services.AddSingleton<IDialogServiceBase>(provider => provider.GetRequiredService<IMailDialogService>());
         services.AddSingleton<IExternalBrowserAuthenticationPresenter>(_ => new AppKitExternalBrowserAuthenticationPresenter(dispatcher, owner, error));
+        services.AddLoopbackGoogleAuthorizationCodeReceiver();
         services.AddSingleton<AppKitNavigationService>(provider => new(provider, dispatcher, host));
         services.AddSingleton<INavigationService>(provider => provider.GetRequiredService<AppKitNavigationService>());
         services.RegisterMacViewModels();

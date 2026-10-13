@@ -379,10 +379,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private void UpdateAccountNicknamePositionForItems()
         => MailCollection.UpdateAccountNicknamePosition(CurrentAccountNicknamePosition);
 
-    public override async void OnNavigatedFrom(NavigationMode mode, object parameters)
+    public override async void OnNavigatedFrom(NavigationMode mode, object? parameters)
         => await DeactivateAsync(mode, parameters);
 
-    public async Task DeactivateAsync(NavigationMode mode, object parameters)
+    public async Task DeactivateAsync(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedFrom(mode, parameters);
 

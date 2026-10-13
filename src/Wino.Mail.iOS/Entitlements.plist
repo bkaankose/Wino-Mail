@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <!-- AppleKeychainStore uses the app's default group (the first entry); MSAL keeps its token cache in
+       com.microsoft.adalcache (IOSOutlookAuthenticationHost.WithIosKeychainSecurityGroup). -->
+  <key>keychain-access-groups</key>
+  <array>
+    <string>$(AppIdentifierPrefix)com.winomail.ios</string>
+    <string>$(AppIdentifierPrefix)com.microsoft.adalcache</string>
+  </array>
+  <!-- Remote notification registration only; the push relay is a separate workstream. -->
+  <key>aps-environment</key><string>development</string>
+</dict></plist>

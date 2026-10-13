@@ -15,7 +15,7 @@ PROJECT="$REPO_ROOT/src/Wino.Mail.MacOS/Wino.Mail.MacOS.csproj"
 MANIFEST="$REPO_ROOT/src/Wino.Mail.WinUI/Package.appxmanifest"
 ENTITLEMENTS="$REPO_ROOT/src/Wino.Mail.MacOS/Entitlements.plist"
 SPARKLE_PLIST="$REPO_ROOT/src/Wino.Mail.MacOS/Sparkle.plist"
-SPARKLE_VERSION_FILE="$REPO_ROOT/src/Wino.Core.MacOS.Bindings/Sparkle/Native/Sparkle.version"
+SPARKLE_VERSION_FILE="$REPO_ROOT/src/Wino.Core.Apple.Bindings/Sparkle/Native/Sparkle.version"
 # Sparkle signing key in the login keychain (generate_keys --account).
 SPARKLE_ACCOUNT="com.winomail.macos"
 # The DMG and appcast.xml are uploaded here; Sparkle.plist's SUFeedURL points at the appcast.

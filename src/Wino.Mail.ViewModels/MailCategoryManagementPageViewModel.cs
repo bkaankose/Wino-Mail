@@ -44,10 +44,10 @@ public partial class MailCategoryManagementPageViewModel : MailBaseViewModel
         _categoryEditor = new CategoryEditor(mailCategoryService, contactService, dialogService, winoRequestDelegator);
     }
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
         => await InitializeAsync(mode, parameters);
 
-    public async Task InitializeAsync(NavigationMode mode, object parameters)
+    public async Task InitializeAsync(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 

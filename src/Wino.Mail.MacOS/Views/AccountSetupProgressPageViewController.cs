@@ -5,6 +5,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.ViewModels;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Bindings;
 
 namespace Wino.Mail.MacOS.Views;
 

@@ -2,7 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using UserNotifications;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.MacOS.Infrastructure;
-using Wino.Platform.MacOS.Services;
+using Wino.Platform.Apple.Services;
 #if DEBUG
 using AppKit;
 using Wino.Core.Domain.Entities.Calendar;
@@ -18,7 +18,7 @@ namespace Wino.Mail.MacOS;
 /// </summary>
 public sealed partial class AppDelegate
 {
-    private readonly MacNotificationResponseHandler _notificationResponses = new();
+    private readonly AppleNotificationResponseHandler _notificationResponses = new();
 
     /// <summary>Called from <see cref="ActivationLaunching"/>, before launching finishes.</summary>
     private void InstallNotificationResponseHandler()
@@ -32,7 +32,7 @@ public sealed partial class AppDelegate
         if (_services is null) return;
         var builder = _services.GetRequiredService<INotificationBuilder>();
         // Categories exist before any request so actions show on the first notification.
-        (builder as MacNotificationBuilder)?.RegisterCategories();
+        (builder as AppleNotificationBuilder)?.RegisterCategories();
         _notificationResponses.Attach(_services);
         Observe(_services.GetRequiredService<ICalendarReminderServer>().StartAsync());
         Observe(builder.UpdateTaskbarIconBadgeAsync());
@@ -105,23 +105,24 @@ public sealed partial class AppDelegate
             return Task.FromResult($"presenting={presence.IsPresenting()} quietTime={presence.IsSystemQuietTimeActive()} front={NSWorkspace.SharedWorkspace.FrontmostApplication?.LocalizedName}");
         });
         MacDebugBridge.Register("notify-cats", async _ =>
-            builder is MacNotificationBuilder mac ? await mac.DescribeAsync() : "not the macOS builder");
+            builder is AppleNotificationBuilder mac ? await mac.DescribeAsync() : "not the Apple builder");
         MacDebugBridge.Register("badge", async _ =>
         {
             await builder.UpdateTaskbarIconBadgeAsync();
             var label = NSApplication.SharedApplication.DockTile.BadgeLabel;
-            return $"badge='{label}' unread={MacNotificationBuilder.LastSnapshot.TaskbarUnreadCount}";
+            return $"badge='{label}' unread={AppleNotificationBuilder.LastSnapshot.TaskbarUnreadCount}";
         });
         MacDebugBridge.Register("notify-sounds", async _ =>
         {
             var accounts = await services.GetRequiredService<IAccountService>().GetAccountsAsync();
-            return services.GetRequiredService<MacNotificationSounds>().Describe(accounts.Where(account => account.Preferences is not null).Select(account => account.Preferences!));
+            return services.GetRequiredService<AppleNotificationSounds>().Describe(accounts.Where(account => account.Preferences is not null).Select(account => account.Preferences!));
         });
         MacDebugBridge.Register("notify-sound-play", args =>
         {
-            var name = args.Length > 0 ? args[0] : MacNotificationSounds.DefaultSound;
-            MacNotificationSounds.Play(name);
-            return Task.FromResult($"played '{name}' known={MacNotificationSounds.IsSystemSound(name)}");
+            var name = args.Length > 0 ? args[0] : AppleNotificationSounds.DefaultSound;
+            var sounds = services.GetRequiredService<AppleNotificationSounds>();
+            sounds.Play(name);
+            return Task.FromResult($"played '{name}' known={sounds.IsSystemSound(name)}");
         });
         MacDebugBridge.Register("app-version", _ =>
         {

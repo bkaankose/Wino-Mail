@@ -1,6 +1,7 @@
 using AppKit;
 using CoreGraphics;
 using Wino.Mail.Controls.AppKit.Extras;
+using Wino.Mail.Controls.Core.Layout;
 using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.Controls.AppKit.Settings;
@@ -11,8 +12,6 @@ namespace Wino.Mail.Controls.AppKit.Settings;
 /// </summary>
 public sealed class WinoColorSwatchPicker : NSView
 {
-    private const double SwatchSize = 22;
-    private const double Spacing = 8;
     private readonly List<SwatchView> _swatches = new();
     private string? _selectedHex;
     private int _laidOutRows = -1;
@@ -66,27 +65,18 @@ public sealed class WinoColorSwatchPicker : NSView
     }
 
     public override CGSize IntrinsicContentSize
-    {
-        get
-        {
-            var width = Frame.Width > 0 ? Frame.Width : 9 * (SwatchSize + Spacing);
-            var perRow = Math.Max(1, (int)((width + Spacing) / (SwatchSize + Spacing)));
-            var rows = Math.Max(1, (int)Math.Ceiling(_swatches.Count / (double)perRow));
-            return new CGSize(NSView.NoIntrinsicMetric, (nfloat)(rows * SwatchSize + (rows - 1) * Spacing + 4));
-        }
-    }
+        => new(NSView.NoIntrinsicMetric, (nfloat)WinoSwatchGridLayout.Height(_swatches.Count, Frame.Width > 0 ? Frame.Width : WinoSwatchGridLayout.DefaultWidth));
 
     public override void Layout()
     {
         base.Layout();
-        var width = Math.Max(SwatchSize, Frame.Width);
-        var perRow = Math.Max(1, (int)((width + Spacing) / (SwatchSize + Spacing)));
+        var perRow = WinoSwatchGridLayout.Columns(Frame.Width);
         for (int index = 0; index < _swatches.Count; index++)
         {
-            int row = index / perRow, column = index % perRow;
-            _swatches[index].Frame = new CGRect(column * (SwatchSize + Spacing) + 2, row * (SwatchSize + Spacing) + 2, SwatchSize, SwatchSize);
+            var frame = WinoSwatchGridLayout.Frame(index, perRow);
+            _swatches[index].Frame = new CGRect(frame.X, frame.Y, frame.Width, frame.Height);
         }
-        var rows = Math.Max(1, (int)Math.Ceiling(_swatches.Count / (double)perRow));
+        var rows = WinoSwatchGridLayout.Rows(_swatches.Count, perRow);
         if (rows != _laidOutRows)
         {
             _laidOutRows = rows;

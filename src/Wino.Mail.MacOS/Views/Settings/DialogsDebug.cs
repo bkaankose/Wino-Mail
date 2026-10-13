@@ -102,7 +102,7 @@ internal static class DialogsDebug
                 : null;
             Show(async () =>
             {
-                var result = await Dialogs.ShowEditMailCategoryDialogAsync(existing!);
+                var result = await Dialogs.ShowEditMailCategoryDialogAsync(existing);
                 return result is null ? "cancelled" : $"name={result.Name} background={result.BackgroundColorHex} text={result.TextColorHex}";
             });
             return Task.FromResult("ok");

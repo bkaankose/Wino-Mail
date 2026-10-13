@@ -4,6 +4,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Personalization;
+using Wino.Presentation;
 using Wino.Presentation.AppKit;
 using Wino.Services.Themes;
 
@@ -26,51 +27,16 @@ namespace Wino.Mail.MacOS.Infrastructure;
 /// </remarks>
 public sealed class MacWinoThemeService(IDispatcher dispatcher, IConfigurationService configuration, IPreferencesService preferences, CustomThemeFileStore store) : INewThemeService
 {
-    /// <summary>
-    /// The background of the gradient themes, copied from their Windows AppThemes/*.xaml
-    /// (light start, light end, dark start, dark end; StartPoint 0,0 to EndPoint 0.32,1).
-    /// </summary>
-    private static readonly Dictionary<string, uint[]> GradientThemes = new()
-    {
-        ["Mist"] = [0xF4F7FA, 0xE1E7EF, 0x191D23, 0x0C0E12],
-        ["Cocoa"] = [0xFBF7F2, 0xEDE3D8, 0x1D1815, 0x100D0B],
-        ["Moss"] = [0xF1F6F1, 0xE0EBE1, 0x141A16, 0x0B0F0C],
-        ["Rose"] = [0xFBF2F5, 0xF2E2E8, 0x1B1418, 0x100B0E],
-        ["Indigo"] = [0xF1F3FB, 0xE1E5F5, 0x12141F, 0x0A0C14],
-    };
-
-    private const string SelectedAppThemeKey = "SelectedAppThemeKey";
-    private const string AccentColorKey = "AccentColorKey";
-    private const string CurrentApplicationThemeKey = "CurrentApplicationThemeKey";
+    private const string SelectedAppThemeKey = WinoThemeCatalog.SelectedAppThemeKey;
+    private const string AccentColorKey = WinoThemeCatalog.AccentColorKey;
+    private const string CurrentApplicationThemeKey = WinoThemeCatalog.CurrentApplicationThemeKey;
     private const string BackdropEnabledKey = "MacThemeBackdropEnabled";
     private const string TranslucentWindowKey = "MacTranslucentWindow";
 
-    public static readonly Guid DefaultThemeId = Guid.Empty;
+    public static readonly Guid DefaultThemeId = WinoThemeCatalog.DefaultThemeId;
 
-    private static readonly MacPredefinedTheme[] Themes =
-    [
-        new("Default", DefaultThemeId, string.Empty, ApplicationElementTheme.Default),
-        new("Nighty", Guid.Parse("5b65e04e-fd7e-4c2d-8221-068d3e02d23a"), "#e1b12c", ApplicationElementTheme.Dark),
-        new("Forest", Guid.Parse("8bc89b37-a7c5-4049-86e2-de1ae8858dbd"), "#16a085", ApplicationElementTheme.Dark),
-        new("Clouds", Guid.Parse("3b621cc2-e270-4a76-8477-737917cccda0"), "#0984e3", ApplicationElementTheme.Light),
-        new("Snowflake", Guid.Parse("e143ddde-2e28-4846-9d98-dad63d6505f1"), "#4a69bd", ApplicationElementTheme.Light),
-        new("Garden", Guid.Parse("698e4466-f88c-4799-9c61-f0ea1308ed49"), "#05c46b", ApplicationElementTheme.Light),
-        new("Dunes", Guid.Parse("fff1d070-e7f2-4a91-8e50-30f20a19bf7d"), "#e17055", ApplicationElementTheme.Light),
-        new("Lavender", Guid.Parse("41567cf1-31ca-4f8c-bd18-2f9a2d990cb5"), "#6c5ce7", ApplicationElementTheme.Light),
-        new("Coastline", Guid.Parse("17434033-2152-41dc-bda6-933c52d250b4"), "#00a8b5", ApplicationElementTheme.Light),
-        new("Blossom", Guid.Parse("02eb4827-50c7-4052-8dde-3a4af843317b"), "#e84393", ApplicationElementTheme.Light),
-        new("Poppy", Guid.Parse("004c87bc-e540-406c-8c50-8eb8eb03d247"), "#d63031", ApplicationElementTheme.Light),
-        new("Aurora", Guid.Parse("ba2974ca-7e03-4fe1-b102-efc6a6fa9cc9"), "#00cec9", ApplicationElementTheme.Dark),
-        new("Ember", Guid.Parse("437d53b5-9228-408d-9374-c5ca457bf02f"), "#e58e26", ApplicationElementTheme.Dark),
-        new("Nebula", Guid.Parse("b509ae0e-ca7a-4d53-b052-c3f30bbd4bd5"), "#8c7ae6", ApplicationElementTheme.Dark),
-        new("Skyline", Guid.Parse("1ae2d96e-1aa8-4058-ad08-84f11069c69a"), "#0097e6", ApplicationElementTheme.Dark),
-        new("Graphite", Guid.Parse("7e633982-ad91-4634-a926-25b154e7bfaf"), "#6b7b8c", ApplicationElementTheme.Dark),
-        new("Mist", Guid.Parse("a0347ab8-d51e-411f-ab80-996d3b21a81b"), "#5e81ac", ApplicationElementTheme.Default),
-        new("Cocoa", Guid.Parse("24b4f855-c9ea-485c-b9a9-0672d1b327dc"), "#c07a4c", ApplicationElementTheme.Default),
-        new("Moss", Guid.Parse("e75ea27f-3757-4b46-8ad7-f5a4d4c58cdf"), "#2f9e63", ApplicationElementTheme.Default),
-        new("Rose", Guid.Parse("ef2a1205-f6a4-4551-bac6-8747879669f7"), "#c4577e", ApplicationElementTheme.Default),
-        new("Indigo", Guid.Parse("14c784d9-d8d3-462d-9b2c-965967d86d38"), "#4c5fd7", ApplicationElementTheme.Default)
-    ];
+    /// <summary>The shared predefined themes (<see cref="WinoThemeCatalog"/>) as gallery entries.</summary>
+    private static readonly MacPredefinedTheme[] Themes = WinoThemeCatalog.PredefinedThemes.Select(static theme => new MacPredefinedTheme(theme)).ToArray();
 
     /// <summary>The editor's unsaved theme while it previews it; never persisted.</summary>
     private sealed record PreviewState(CustomThemeMetadata Metadata, NSImage? Wallpaper, ApplicationElementTheme ElementTheme);
@@ -121,7 +87,7 @@ public sealed class MacWinoThemeService(IDispatcher dispatcher, IConfigurationSe
 
     /// <summary>A gradient theme's stops (light start/end, dark start/end), or null.</summary>
     public static uint[]? GradientFor(string? themeName)
-        => themeName is not null && GradientThemes.TryGetValue(themeName, out var stops) ? stops : null;
+        => WinoThemeCatalog.GradientFor(themeName) is { } gradient ? [gradient.LightStart, gradient.LightEnd, gradient.DarkStart, gradient.DarkEnd] : null;
 
     private static readonly Dictionary<string, NSImage?> ImageCache = new();
 
@@ -564,16 +530,11 @@ public sealed class MacWinoThemeService(IDispatcher dispatcher, IConfigurationSe
     /// <summary>A predefined Wino theme; the preview is drawn natively from the accent.</summary>
     private sealed class MacPredefinedTheme : AppThemeBase
     {
-        public MacPredefinedTheme(string name, Guid id, string accent, ApplicationElementTheme forced) : base(name, id)
+        public MacPredefinedTheme(WinoThemeDefinition definition) : base(definition.Name, definition.Id)
         {
-            AccentColor = accent;
-            ForceElementTheme = forced;
-            Compatibility = forced switch
-            {
-                ApplicationElementTheme.Dark => ThemeCompatibility.Dark,
-                ApplicationElementTheme.Light => ThemeCompatibility.Light,
-                _ => ThemeCompatibility.Both
-            };
+            AccentColor = definition.AccentColor;
+            ForceElementTheme = definition.ForcedElementTheme;
+            Compatibility = definition.Compatibility;
         }
 
         public override AppThemeType AppThemeType => Id == DefaultThemeId ? AppThemeType.System : AppThemeType.PreDefined;

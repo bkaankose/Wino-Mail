@@ -18,6 +18,7 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.ViewModels.Data;
 using Wino.Presentation.AppKit;
+using Wino.Core.Domain.Presentation;
 
 namespace Wino.Mail.MacOS.Infrastructure;
 
@@ -239,26 +240,26 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
 
     #region Pickers
 
-    public async Task<IMailItemFolder> ShowMoveMailFolderDialogAsync(List<IMailItemFolder> availableFolders)
+    public async Task<IMailItemFolder?> ShowMoveMailFolderDialogAsync(List<IMailItemFolder> availableFolders)
     {
         var picked = await PickAsync(Translator.MoveMailDialog_Title, null, availableFolders,
             folder => folder.ChildFolders ?? (IEnumerable<IMailItemFolder>)Array.Empty<IMailItemFolder>(),
             folder => folder.FolderName ?? string.Empty,
-            folder => WinoIcons.Image(Views.Shell.ShellPaneRows.FolderGlyph(folder.SpecialFolderType), 14),
+            folder => WinoIcons.Image(SpecialFolderGlyphs.GetGlyph(folder.SpecialFolderType), 14),
             folder => WinoStyle.FromHexString(folder.TextColorHex),
             folder => folder.IsMoveTarget,
             Translator.MailOperation_Move,
             folder => folder.IsMoveTarget ? null : string.Format(Translator.MoveMailDialog_InvalidFolderMessage, folder.FolderName));
-        return picked!;
+        return picked;
     }
 
-    public async Task<IMailItemFolder> PickFolderAsync(Guid accountId, PickFolderReason reason, IFolderService folderService)
+    public async Task<IMailItemFolder?> PickFolderAsync(Guid accountId, PickFolderReason reason, IFolderService folderService)
     {
         var structure = await folderService.GetFolderStructureForAccountAsync(accountId, false);
         return await ShowMoveMailFolderDialogAsync(structure.Folders);
     }
 
-    public async Task<MailAccount> ShowAccountPickerDialogAsync(List<MailAccount> availableAccounts)
+    public async Task<MailAccount?> ShowAccountPickerDialogAsync(List<MailAccount> availableAccounts)
     {
         var picked = await PickAsync(Translator.AccountPickerDialog_Title, null, availableAccounts,
             _ => Array.Empty<MailAccount>(),
@@ -267,7 +268,7 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
             account => WinoStyle.FromHexString(account.AccountColorHex) ?? WinoStyle.AvatarColor(account.Address),
             _ => true,
             Translator.Buttons_Continue);
-        return picked!;
+        return picked;
     }
 
     /// <summary>
@@ -410,7 +411,7 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
 
     #region Keyboard shortcut and account order
 
-    public Task<KeyboardShortcutDialogResult> ShowKeyboardShortcutDialogAsync(KeyboardShortcut existingShortcut = null!) => PresentAsync(window =>
+    public Task<KeyboardShortcutDialogResult> ShowKeyboardShortcutDialogAsync(KeyboardShortcut? existingShortcut = null) => PresentAsync(window =>
     {
         var completion = new TaskCompletionSource<KeyboardShortcutDialogResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         var shortcuts = services?.GetService<IKeyboardShortcutService>();

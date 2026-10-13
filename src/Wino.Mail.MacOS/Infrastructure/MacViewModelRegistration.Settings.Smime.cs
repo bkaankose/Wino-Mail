@@ -1,6 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Mail.MacOS.Views.Settings;
-using Wino.Mail.ViewModels;
 
 namespace Wino.Mail.MacOS.Infrastructure;
 
@@ -11,7 +10,6 @@ public static partial class MacViewModelRegistration
     {
         // Same type and transient lifetime as the WinUI registration. The certificate store itself
         // (ISmimeCertificateService → MacSmimeCertificateService) is a singleton in Composition.
-        services.AddTransient<SignatureAndEncryptionPageViewModel>();
         services.AddTransient<SignatureAndEncryptionPageViewController>();
 #if DEBUG
         SignatureAndEncryptionPageViewController.SmimeDebug.Register();

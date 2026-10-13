@@ -104,10 +104,10 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
         _logger = logger;
     }
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
         => await InitializeAsync(mode, parameters);
 
-    public async Task InitializeAsync(NavigationMode mode, object parameters)
+    public async Task InitializeAsync(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 
@@ -262,7 +262,7 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
             ? WriteAliasSettingAsync(() => _accountService.SetAliasEncryptionAsync(Account.Id, alias.Id, value))
             : Task.CompletedTask;
 
-    public Task SetSelectedSigningCertificate(MailAccountAlias alias, X509Certificate2 cert)
+    public Task SetSelectedSigningCertificate(MailAccountAlias alias, X509Certificate2? cert)
         => IsSmimeAvailable
             ? WriteAliasSettingAsync(() => _accountService.SetAliasSigningCertificateAsync(Account.Id, alias.Id, cert?.Thumbprint))
             : Task.CompletedTask;
@@ -278,7 +278,7 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
         _ownedCertificates.Clear();
     }
 
-    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    public override void OnNavigatedFrom(NavigationMode mode, object? parameters)
     {
         ReleaseCertificates();
         base.OnNavigatedFrom(mode, parameters);

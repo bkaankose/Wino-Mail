@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- UIKit twins of Wino.Presentation.AppKit for the iOS and iPadOS heads: layout helpers, the WinoIcons fonts,
+       colours, fonts and the Wino zone surfaces. Same member names as the AppKit library, so page code ports
+       mechanically. References no platform service project. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-ios</TargetFramework>
+    <SupportedOSPlatformVersion>17.0</SupportedOSPlatformVersion>
+    <RootNamespace>Wino.Presentation.UIKit</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <!-- The repository Release gate skips Apple TFMs; the iOS libraries keep warnings as errors themselves. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Wino.Core.Domain/Wino.Core.Domain.csproj" />
+    <ProjectReference Include="../Wino.Presentation.Core/Wino.Presentation.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+</Project>

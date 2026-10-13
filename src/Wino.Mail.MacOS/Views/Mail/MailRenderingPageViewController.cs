@@ -10,7 +10,8 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Editor;
-using Wino.Editor.AppKit;
+using Wino.Editor.WebKit;
+using AppKitHtmlMailReaderSession = Wino.Editor.WebKit.WebKitHtmlMailReaderSession;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.Controls.AppKit.MailList;
 using Wino.Mail.MacOS.Infrastructure;
@@ -18,6 +19,8 @@ using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Mails;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Bindings;
+using Wino.Core.Domain.Presentation;
 
 namespace Wino.Mail.MacOS.Views.Mail;
 
@@ -294,7 +297,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private void UpdateRecipients()
     {
         UpdateRecipientRows();
-        _date.StringValue = MailRowMapper.FormatReaderDate(ViewModel.CreationDate);
+        _date.StringValue = MailRowMapper.FormatReaderDate(ViewModel.CreationDate, ViewModel.PreferencesService.MailTimeFormatPreference);
     }
 
     /// <summary>Category chips under the sender row. The intelligence tiles live in the Wino Intelligence header.</summary>
@@ -330,7 +333,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
 
     /// <summary>The short label the Windows command bar shows ("Flag" rather than "Set flag").</summary>
     private static string BarTitle(MailOperation operation)
-        => operation == MailOperation.SetFlag ? Translator.MailOperation_Flag : MailOperationPresentation.Title(operation);
+        => operation == MailOperation.SetFlag ? Translator.MailOperation_Flag : MailOperationDisplay.GetTitle(operation);
 
     private void UpdateCommandBar()
     {
@@ -342,13 +345,13 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
             if (_currentItem is null && items.Length > 0)
             {
                 // A saved .eml has only Save As and Print; show just those, like Windows.
-                foreach (var item in items) { var captured = item; commands.Add(new MailReaderCommand(MailOperationPresentation.Glyph(item.Operation), BarTitle(item.Operation), () => Observe(ViewModel.OperationClickedCommand.ExecuteAsync(captured)), item.IsEnabled)); }
+                foreach (var item in items) { var captured = item; commands.Add(new MailReaderCommand(MailOperationDisplay.GetGlyph(item.Operation), BarTitle(item.Operation), () => Observe(ViewModel.OperationClickedCommand.ExecuteAsync(captured)), item.IsEnabled)); }
                 _commandBar.SetCommands(commands, null);
                 return;
             }
             // Nothing loaded yet (or the message failed to load): the default set, disabled, like the Windows bar.
             foreach (var operation in new[] { MailOperation.Reply, MailOperation.ReplyAll, MailOperation.Forward, MailOperation.None, MailOperation.Archive, MailOperation.SoftDelete, MailOperation.Move, MailOperation.SetFlag, MailOperation.MarkAsRead })
-                commands.Add(operation == MailOperation.None ? null : new MailReaderCommand(MailOperationPresentation.Glyph(operation), BarTitle(operation), () => { }, false));
+                commands.Add(operation == MailOperation.None ? null : new MailReaderCommand(MailOperationDisplay.GetGlyph(operation), BarTitle(operation), () => { }, false));
             _commandBar.SetCommands(commands, items.Length == 0 ? null : () => BuildMoreMenu(ViewModel.MenuItems.OfType<MailOperationMenuItem>().ToArray()));
             return;
         }
@@ -360,7 +363,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
             if (item is null) continue;
             primary.Add(operation);
             var captured = item;
-            commands.Add(new MailReaderCommand(MailOperationPresentation.Glyph(operation), BarTitle(operation),
+            commands.Add(new MailReaderCommand(MailOperationDisplay.GetGlyph(operation), BarTitle(operation),
                 () => Observe(ViewModel.OperationClickedCommand.ExecuteAsync(captured)), item.IsEnabled));
         }
         if (commands.Count > 0 && commands[^1] is null) commands.RemoveAt(commands.Count - 1);
@@ -381,7 +384,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
                 previousSeparator = true;
                 continue;
             }
-            var title = MailOperationPresentation.Title(item.Operation);
+            var title = MailOperationDisplay.GetTitle(item.Operation);
             if (string.IsNullOrEmpty(title)) continue;
             var captured = item;
             var menuItem = new NSMenuItem(title, (_, _) => Observe(ViewModel.OperationClickedCommand.ExecuteAsync(captured))) { Enabled = item.IsEnabled };
@@ -487,7 +490,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         await _reader.SetAccessibilityContextAsync(new ReaderAccessibilityContext(
             string.IsNullOrWhiteSpace(ViewModel.Subject) ? Translator.MailItemNoSubject : ViewModel.Subject,
             string.IsNullOrWhiteSpace(ViewModel.FromName) ? ViewModel.FromAddress : $"{ViewModel.FromName} <{ViewModel.FromAddress}>",
-            MailRowMapper.FormatReaderDate(ViewModel.CreationDate),
+            MailRowMapper.FormatReaderDate(ViewModel.CreationDate, ViewModel.PreferencesService.MailTimeFormatPreference),
             Translator.Reader_MessageBodyAutomationName,
             Translator.Reader_PlainTextFallbackAutomationName,
             ViewModel.CurrentRenderModel?.AccessibleText ?? string.Empty));
@@ -623,7 +626,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         ViewModel.RenderHtmlAsyncFunc = null;
         ViewModel.ClearRenderedHtmlAsyncFunc = null;
         ViewModel.PrintPresenter = null!;
-        ViewModel.OnNavigatedFrom(NavigationMode.New, null!);
+        ViewModel.OnNavigatedFrom(NavigationMode.New, null);
         IntelligenceDispose();
         await DisposeReaderAsync();
     }

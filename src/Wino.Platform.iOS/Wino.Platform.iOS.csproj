@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- UIKit-only platform services for the iOS app (Wino.Mail.iOS). Services shared with the Mac app live in
+       Wino.Platform.Apple; this project adds the iOS implementations and AddIOSPlatformServices. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-ios</TargetFramework>
+    <SupportedOSPlatformVersion>17.0</SupportedOSPlatformVersion>
+    <WinoTargetPlatform>iOS</WinoTargetPlatform>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Wino.Platform.iOS</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Wino.Core.Domain/Wino.Core.Domain.csproj" />
+    <ProjectReference Include="../Wino.Authentication/Wino.Authentication.csproj" />
+    <ProjectReference Include="../Wino.Services/Wino.Services.csproj" />
+    <ProjectReference Include="../Wino.Platform.Apple/Wino.Platform.Apple.csproj" />
+    <!-- IOSMicrosoftStoreService asks for ratings through StoreKit2Client.RequestReview. -->
+    <ProjectReference Include="../Wino.Core.Apple.Bindings/Wino.Core.Apple.Bindings.csproj" />
+    <PackageReference Include="Microsoft.Identity.Client" />
+  </ItemGroup>
+</Project>

@@ -11,6 +11,8 @@ using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Bindings;
+using Wino.Mail.Controls.Core.ToDo;
 
 namespace Wino.Mail.MacOS.Views.ToDo;
 
@@ -388,7 +390,7 @@ public sealed partial class ToDoPageViewController
         IsImportant = item.IsImportant,
         IsEditable = item.IsEditable,
         ListName = item.ShowListName && !string.IsNullOrEmpty(item.ListName) ? item.ListName : null,
-        ListColor = ListColor(item),
+        ListColorHex = ListColorHex(item),
         DueText = item.HasDueDate ? item.DueDisplayText : string.Empty,
         IsOverdue = item.IsOverdue,
         StepSummary = item.HasSteps ? item.StepSummaryText : string.Empty,
@@ -399,26 +401,26 @@ public sealed partial class ToDoPageViewController
         CompletionActionText = item.CompletionActionText
     };
 
-    private NSColor? ListColor(TaskItemViewModel item)
+    private string? ListColorHex(TaskItemViewModel item)
     {
         if (_previewColors.TryGetValue(item.Task.TaskListId, out var preview)) return preview;
         var list = ViewModel.TaskLists.FirstOrDefault(candidate => candidate.Id == item.Task.TaskListId);
-        return WinoStyle.FromHexString(list?.ColorHex);
+        return list?.ColorHex;
     }
 
     // ---- Debug preview: synthetic rows that are never persisted, for layout checks on an empty account ----
 
     private List<TaskGroup>? _previewGroups;
-    private readonly Dictionary<Guid, NSColor> _previewColors = new();
+    private readonly Dictionary<Guid, string> _previewColors = new();
 
 #if DEBUG
     private void ShowPreview()
     {
         var today = DateTime.Now.Date;
         var releases = Guid.NewGuid(); var tasks = Guid.NewGuid(); var sprint = Guid.NewGuid();
-        _previewColors[releases] = WinoStyle.Hex(0xE17055);
-        _previewColors[tasks] = WinoStyle.Hex(0x4C5FD7);
-        _previewColors[sprint] = WinoStyle.Hex(0x8764B8);
+        _previewColors[releases] = "#E17055";
+        _previewColors[tasks] = "#4C5FD7";
+        _previewColors[sprint] = "#8764B8";
         TaskItemViewModel Item(string title, Guid list, string listName, DateTime? due = null, bool important = false, bool myDay = false, string? notes = null, bool done = false, params (string Title, bool Done)[] steps)
         {
             var task = new AccountTask { Title = title, TaskListId = list, DueDate = due, IsImportant = important, Notes = notes ?? string.Empty, IsCompleted = done,

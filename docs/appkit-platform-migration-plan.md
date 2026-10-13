@@ -91,7 +91,7 @@ Use the singular `Wino.Platform.*` to match the existing donor names and Wino na
 | `controls/Wino.Presentation.AppKit` | Create small general binding, lifetime, dispatch-to-view and Auto Layout helpers used by controls and screens. | AppKit-specific; no references to Wino Mail ViewModels or head. Reuse the existing dispatcher contract through adapter/delegate injection rather than inventing a competing dispatcher. |
 | `controls/Wino.Editor.Core` | Import portable sessions, DTOs, JSON context, operation queue and document policies. Become sole asset embedding owner. | `net10.0`; no native browser objects or application business services. |
 | `controls/Wino.Editor.WinUI` | Rename existing native editor project; consume Core while retaining WebView2 controls/interception/printing. | Windows-only. Keep intentional Windows-only public APIs outside Core. |
-| `controls/Wino.Editor.AppKit` | Create WKWebView session/control implementations with shared assets/contracts. | `net10.0-macos`; native delegates and message handlers owned/disposed here. |
+| `controls/Wino.Editor.AppKit` (renamed `controls/Wino.Editor.WebKit` on 13 October 2026) | Create WKWebView session/control implementations with shared assets/contracts. | `net10.0-macos`; native delegates and message handlers owned/disposed here. |
 | `controls/Wino.Mail.Controls.Playground.WinUI` | Rename existing playground and update references/tasks. | Windows sample host; preserve existing scenarios. |
 | `tests/...` | Retain current suites; add focused pure binding/lifetime and Mac adapter checks where supported. | Pure logic tests run without native UI; native checks run on Mac; UI acceptance stays manual. |
 

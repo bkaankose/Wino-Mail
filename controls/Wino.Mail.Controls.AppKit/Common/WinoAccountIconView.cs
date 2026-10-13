@@ -3,6 +3,7 @@ using CoreGraphics;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.Controls.Core.AccountIcon;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Controls;
 
 namespace Wino.Mail.Controls.AppKit.Common;
 
@@ -93,15 +94,8 @@ public sealed class WinoAccountIconView : NSView
         _glyph.Hidden = !_picture.Hidden;
     }
 
-    /// <summary>Same mapping as Windows AccountIconGlyphs: a tinted icon uses the mono twins of the brand logos.</summary>
-    public static WinoIconGlyph ProviderGlyph(AccountIconProvider provider, bool isTinted) => provider switch
-    {
-        AccountIconProvider.Microsoft => isTinted ? WinoIconGlyph.MicrosoftMono : WinoIconGlyph.Microsoft,
-        AccountIconProvider.Google => isTinted ? WinoIconGlyph.GoogleMono : WinoIconGlyph.Google,
-        AccountIconProvider.ICloud => WinoIconGlyph.Apple,
-        AccountIconProvider.Yahoo => WinoIconGlyph.Yahoo,
-        _ => WinoIconGlyph.IMAP,
-    };
+    /// <summary>Same mapping as Windows AccountIconGlyphs (shared <see cref="WinoAccountIconGlyphs"/>).</summary>
+    public static WinoIconGlyph ProviderGlyph(AccountIconProvider provider, bool isTinted) => WinoAccountIconGlyphs.ProviderGlyph(provider, isTinted);
 
     public override CGSize IntrinsicContentSize => new((nfloat)_size, (nfloat)_size);
 }

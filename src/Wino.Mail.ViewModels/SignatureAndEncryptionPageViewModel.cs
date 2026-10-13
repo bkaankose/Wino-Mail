@@ -228,13 +228,13 @@ public partial class SignatureAndEncryptionPageViewModel : MailBaseViewModel
         RecipientCertificates.Clear();
     }
 
-    public override void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override void OnNavigatedTo(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
         if (IsSmimeAvailable && PersonalCertificates.Count == 0 && RecipientCertificates.Count == 0) LoadAllCertificates();
     }
 
-    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    public override void OnNavigatedFrom(NavigationMode mode, object? parameters)
     {
         DisposeCertificates();
         base.OnNavigatedFrom(mode, parameters);

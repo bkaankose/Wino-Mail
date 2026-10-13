@@ -8,6 +8,7 @@ using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.Controls.AppKit.Settings;
 using Wino.Mail.ViewModels;
 using Wino.Presentation.AppKit;
+using Wino.Core.Domain.Presentation;
 
 namespace Wino.Mail.MacOS.Views.Settings;
 
@@ -229,7 +230,7 @@ public sealed partial class MailFilterEditorPageViewController(MailFilterEditorP
         void UpdateAddAction()
         {
             add.Enabled = vm.CanAddAction;
-            var exclusiveAction = vm.Actions.FirstOrDefault(action => IsExclusive(action.SelectedAction?.Value))?.SelectedAction;
+            var exclusiveAction = vm.Actions.FirstOrDefault(action => MailFilterDisplay.IsExclusiveAction(action.SelectedAction?.Value))?.SelectedAction;
             hint.StringValue = exclusiveAction is null ? string.Empty : string.Format(Translator.MailFilterEditor_ExclusiveActionHint, exclusiveAction.DisplayName);
             hint.Hidden = vm.CanAddAction || exclusiveAction is null;
         }

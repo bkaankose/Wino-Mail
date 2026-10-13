@@ -8,18 +8,20 @@ using Wino.Core.ViewModels.Data;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.Controls.AppKit.Settings;
 using Wino.Mail.MacOS.Infrastructure;
+using Wino.Platform.Apple.Services;
 using Wino.Platform.MacOS.Services;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Bindings;
 
 namespace Wino.Mail.MacOS.Views.Settings;
 
 /// <summary>
 /// Notifications: snooze, quiet hours, mail, calendar and task sections, per-account overrides and
 /// reset (Windows NotificationSettingsPage). Sounds are macOS alert sounds stored in Mac-only keys
-/// (<see cref="MacNotificationSounds"/>), each with a Play preview; Windows' sound values are never written.
+/// (<see cref="AppleNotificationSounds"/>), each with a Play preview; Windows' sound values are never written.
 /// "Snooze while presenting" uses <see cref="MacUserPresenceStateProvider"/>'s full-display window check.
 /// </summary>
-public sealed class NotificationSettingsPageViewController(NotificationSettingsPageViewModel viewModel, IMailDialogService dialogs, MacNotificationSounds sounds,
+public sealed class NotificationSettingsPageViewController(NotificationSettingsPageViewModel viewModel, IMailDialogService dialogs, AppleNotificationSounds sounds,
     IDispatcher dispatcher, IWinoLogger logger)
     : SettingsPageViewController<NotificationSettingsPageViewModel>(viewModel, dispatcher, logger)
 {
@@ -92,7 +94,7 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
             Card(Translator.NotificationSettings_Mail_SecondAction_Title, Translator.NotificationSettings_Mail_SecondAction_Description, WinoIconGlyph.None,
                 OptionPopUp(vm, s => s.MailActionOptions, nameof(vm.SelectedSecondAction), s => s.SelectedSecondAction, (s, v) => s.SelectedSecondAction = v)),
             Card(Translator.NotificationSound_Title, Translator.NotificationSound_Description, WinoIconGlyph.None,
-                TypeSoundPicker(MacNotificationSoundKind.Mail)));
+                TypeSoundPicker(AppleNotificationSoundKind.Mail)));
         Bind.Bind(vm, nameof(vm.MailSummary), s => s.MailSummary, text => mail.HeaderCard.Description = text);
 
         // Calendar.
@@ -103,7 +105,7 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
             Card(Translator.CalendarSettings_DefaultSnoozeDuration_Header, Translator.CalendarSettings_DefaultSnoozeDuration_Description, WinoIconGlyph.None,
                 Bind.PopUp(vm, vm.CalendarSnoozeOptions, nameof(vm.SelectedCalendarSnoozeIndex), s => s.SelectedCalendarSnoozeIndex, (s, v) => s.SelectedCalendarSnoozeIndex = v, 170)),
             Card(Translator.NotificationSound_Title, Translator.NotificationSound_Description, WinoIconGlyph.None,
-                TypeSoundPicker(MacNotificationSoundKind.Calendar)));
+                TypeSoundPicker(AppleNotificationSoundKind.Calendar)));
         Bind.Bind(vm, nameof(vm.CalendarSummary), s => s.CalendarSummary, text => calendar.HeaderCard.Description = text);
 
         // Tasks.
@@ -114,7 +116,7 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
             Card(Translator.NotificationSettings_Tasks_Snooze_Title, Translator.NotificationSettings_Tasks_Snooze_Description, WinoIconGlyph.None,
                 Bind.PopUp(vm, vm.TaskSnoozeOptions, nameof(vm.SelectedTaskSnoozeIndex), s => s.SelectedTaskSnoozeIndex, (s, v) => s.SelectedTaskSnoozeIndex = v, 170)),
             Card(Translator.NotificationSound_Title, Translator.NotificationSound_Description, WinoIconGlyph.None,
-                TypeSoundPicker(MacNotificationSoundKind.Task)));
+                TypeSoundPicker(AppleNotificationSoundKind.Task)));
         Bind.Bind(vm, nameof(vm.TaskSummary), s => s.TaskSummary, text => tasks.HeaderCard.Description = text);
 
         AddGroup(null, quiet, mail, calendar, tasks);
@@ -193,11 +195,11 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
 
     #region Sounds
 
-    private NSView TypeSoundPicker(MacNotificationSoundKind kind)
+    private NSView TypeSoundPicker(AppleNotificationSoundKind kind)
         => SoundPicker(() => sounds.Resolve(kind), value => sounds.SetStored(kind, value), _soundRefreshers);
 
     private NSView AccountSoundPicker(AccountNotificationSettingsViewModel account)
-        => SoundPicker(() => account.Account.Preferences is { } preferences ? sounds.ResolveAccount(preferences) : MacNotificationSounds.DefaultSound,
+        => SoundPicker(() => account.Account.Preferences is { } preferences ? sounds.ResolveAccount(preferences) : AppleNotificationSounds.DefaultSound,
             value => sounds.SetStoredForAccount(account.AccountId, value), _accountSoundRefreshers);
 
     /// <summary>
@@ -206,8 +208,8 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
     /// </summary>
     private NSView SoundPicker(Func<string> read, Action<string> write, List<Action> refreshers)
     {
-        var values = new List<string?> { MacNotificationSounds.DefaultSound, MacNotificationSounds.NoSound, null };
-        values.AddRange(MacNotificationSounds.SystemSounds);
+        var values = new List<string?> { AppleNotificationSounds.DefaultSound, AppleNotificationSounds.NoSound, null };
+        values.AddRange(sounds.SystemSounds);
         var popUp = new NSPopUpButton { PullsDown = false, TranslatesAutoresizingMaskIntoConstraints = false };
         popUp.Menu!.AutoEnablesItems = false;
         foreach (var value in values)
@@ -234,7 +236,7 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
             try
             {
                 write(value);
-                MacNotificationSounds.Play(value);
+                sounds.Play(value);
             }
             catch (Exception exception) { ReportError(exception); }
         };
@@ -248,14 +250,14 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
             TranslatesAutoresizingMaskIntoConstraints = false
         };
         WinoAccessibility.Label(play, Translator.NotificationSound_Play);
-        play.Activated += (_, _) => MacNotificationSounds.Play(read());
+        play.Activated += (_, _) => sounds.Play(read());
         return Row(popUp, play);
     }
 
     private static string SoundTitle(string value) => value switch
     {
-        MacNotificationSounds.DefaultSound => Translator.NotificationSound_Default,
-        MacNotificationSounds.NoSound => Translator.ContactsShellMac_NotificationSoundNone,
+        AppleNotificationSounds.DefaultSound => Translator.NotificationSound_Default,
+        AppleNotificationSounds.NoSound => Translator.ContactsShellMac_NotificationSoundNone,
         _ => value
     };
 

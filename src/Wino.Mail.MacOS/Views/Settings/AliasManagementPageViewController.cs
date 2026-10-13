@@ -9,6 +9,7 @@ using Wino.Mail.Controls.AppKit.Settings;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Bindings;
 
 namespace Wino.Mail.MacOS.Views.Settings;
 
@@ -130,7 +131,7 @@ public sealed class AliasManagementPageViewController(AliasManagementPageViewMod
             if (index < 0 || index >= certificates.Count) return;
             var certificate = certificates[index];
             if (certificate?.Thumbprint == item.SelectedSigningCertificate?.Thumbprint) return;
-            Run(ViewModel.SetSelectedSigningCertificate(item.Alias, certificate!));
+            Run(ViewModel.SetSelectedSigningCertificate(item.Alias, certificate));
         });
 
         var signingCard = new WinoSettingsCard(Translator.SettingsSignatureAndEncryption_SigningCertificate, item.CertificateDescriptionText, WinoIconGlyph.Certificate, signing);

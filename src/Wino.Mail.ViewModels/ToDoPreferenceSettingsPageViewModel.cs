@@ -86,10 +86,10 @@ public partial class ToDoPreferenceSettingsPageViewModel(
     public bool ShouldShowHideDelay
         => SelectedCompletedTaskTreatment?.Treatment == CompletedTaskTreatment.HideAfterPeriod;
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
         => await InitializeNavigationAsync(mode, parameters);
 
-    public async Task InitializeNavigationAsync(NavigationMode mode, object parameters)
+    public async Task InitializeNavigationAsync(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
         _isLoaded = false;

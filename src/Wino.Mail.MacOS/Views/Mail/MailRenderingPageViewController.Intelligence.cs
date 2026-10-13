@@ -7,6 +7,7 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Intelligence;
 using Wino.Messaging.Client.Shell;
 using Wino.Presentation.AppKit;
+using Wino.Mail.Controls.Core.IntelligenceHeader;
 
 namespace Wino.Mail.MacOS.Views.Mail;
 

@@ -174,7 +174,7 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
     public Task KeyboardShortcutHookForMode(KeyboardShortcutTriggerDetails details)
         => _currentProvider?.KeyboardShortcutHook(details) ?? Task.CompletedTask;
 
-    public override void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override void OnNavigatedTo(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
         CurrentMode = StatePersistenceService.ApplicationMode;

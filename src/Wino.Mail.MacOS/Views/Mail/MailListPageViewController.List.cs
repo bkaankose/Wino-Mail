@@ -582,7 +582,7 @@ public sealed partial class MailListPageViewController
     /// <summary>True when the row's tile line appeared, disappeared or got other tiles (which can wrap differently).</summary>
     private static bool TileLayoutChanged(WinoMailRowModel before, WinoMailRowModel after)
         => before.HasTileLine != after.HasTileLine
-            || (after.HasTileLine && !WinoMailRowMetrics.SameTileLayout(before.Tiles, after.Tiles));
+            || (after.HasTileLine && !WinoMailRowMeasure.SameTileLayout(before.Tiles, after.Tiles));
 
     /// <summary>Re-measures rows without the default height animation.</summary>
     private void NoteHeightsChanged(NSIndexSet indexes)
@@ -692,7 +692,7 @@ public sealed partial class MailListPageViewController
 
     private nfloat RowHeight(nint index)
     {
-        if (RowAt(index) is not { } row) return (nfloat)WinoMailRowMetrics.GroupRowHeight;
+        if (RowAt(index) is not { } row) return (nfloat)WinoMailRowMeasure.GroupRowHeight;
         var density = Density;
         if (density == WinoMailRowDensity.Compact || !MailRowMapper.HasTiles(row))
             return (nfloat)WinoMailRowModel.HeightFor(density, [], 0);

@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleIdentifier</key><string>com.winomail.ios</string>
+  <key>CFBundleName</key><string>Wino Mail</string>
+  <key>CFBundleDisplayName</key><string>Wino Mail</string>
+  <key>MinimumOSVersion</key><string>17.0</string>
+  <!-- One universal app: iPhone (1) and iPad (2). SceneDelegate composition picks the shell by idiom. -->
+  <key>UIDeviceFamily</key><array><integer>1</integer><integer>2</integer></array>
+  <key>LSRequiresIPhoneOS</key><true/>
+  <key>UILaunchScreen</key><dict/>
+  <key>UIApplicationSceneManifest</key>
+  <dict>
+    <!-- iPad: "Open in new window" opens the composer in its own window scene (PadShellHost pop-outs). iPhone never
+         shows a second scene; SceneDelegate also closes any extra main-window scene, so the app keeps one main window. -->
+    <key>UIApplicationSupportsMultipleScenes</key><true/>
+    <key>UISceneConfigurations</key>
+    <dict>
+      <key>UIWindowSceneSessionRoleApplication</key>
+      <array>
+        <dict>
+          <key>UISceneConfigurationName</key><string>Default Configuration</string>
+          <key>UISceneDelegateClassName</key><string>SceneDelegate</string>
+        </dict>
+      </array>
+    </dict>
+  </dict>
+  <key>UISupportedInterfaceOrientations</key>
+  <array>
+    <string>UIInterfaceOrientationPortrait</string>
+    <string>UIInterfaceOrientationLandscapeLeft</string>
+    <string>UIInterfaceOrientationLandscapeRight</string>
+  </array>
+  <key>UISupportedInterfaceOrientations~ipad</key>
+  <array>
+    <string>UIInterfaceOrientationPortrait</string>
+    <string>UIInterfaceOrientationPortraitUpsideDown</string>
+    <string>UIInterfaceOrientationLandscapeLeft</string>
+    <string>UIInterfaceOrientationLandscapeRight</string>
+  </array>
+  <!-- App icon from the Mac icon set (Assets.xcassets/AppIcon.appiconset, single 1024 image). -->
+  <key>XSAppIconAssets</key><string>Assets.xcassets/AppIcon.appiconset</string>
+  <!-- The languages of the Wino translation dictionary (AppLanguage), as in the Mac Info.plist. -->
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>CFBundleLocalizations</key>
+  <array><string>en</string><string>bg</string><string>ca</string><string>cs</string><string>da</string><string>de</string><string>el</string><string>es</string><string>fi</string><string>fr</string><string>gl</string><string>he</string><string>id</string><string>it</string><string>ja</string><string>ko</string><string>lt</string><string>nl</string><string>pl</string><string>pt-BR</string><string>ro</string><string>ru</string><string>sk</string><string>tr</string><string>uk</string><string>vi</string><string>zh-Hans</string></array>
+  <key>ITSAppUsesNonExemptEncryption</key><false/>
+  <!-- Activation: mail links, Wino deep links (checkout return), calendar subscriptions, and the sign-in callbacks.
+       The Google scheme is the reversed iOS OAuth client ID; replace the placeholder once the iOS client exists
+       (Google Cloud console, bundle com.winomail.ios). -->
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key><string>com.winomail.ios.mailto</string>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>CFBundleURLSchemes</key><array><string>mailto</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleURLName</key><string>com.winomail.ios.wino</string>
+      <key>CFBundleTypeRole</key><string>Viewer</string>
+      <key>CFBundleURLSchemes</key><array><string>wino</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleURLName</key><string>com.winomail.ios.webcal</string>
+      <key>CFBundleTypeRole</key><string>Viewer</string>
+      <key>CFBundleURLSchemes</key><array><string>webcal</string><string>webcals</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleURLName</key><string>com.winomail.ios.msal</string>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>CFBundleURLSchemes</key><array><string>msauth.com.winomail.ios</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleURLName</key><string>com.winomail.ios.google</string>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>CFBundleURLSchemes</key><array><string>com.googleusercontent.apps.REPLACE-WITH-IOS-CLIENT-ID</string></array>
+    </dict>
+  </array>
+  <key>LSApplicationQueriesSchemes</key>
+  <array><string>msauthv2</string><string>msauthv3</string></array>
+  <!-- Calendar invitations, contact cards and saved messages open in Wino as an alternative handler. -->
+  <key>CFBundleDocumentTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key><string>iCalendar Event</string>
+      <key>CFBundleTypeRole</key><string>Viewer</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>LSItemContentTypes</key><array><string>com.apple.ical.ics</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key><string>vCard</string>
+      <key>CFBundleTypeRole</key><string>Viewer</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>LSItemContentTypes</key><array><string>public.vcard</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key><string>Email Message</string>
+      <key>CFBundleTypeRole</key><string>Viewer</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>LSItemContentTypes</key><array><string>com.apple.mail.email</string><string>public.email-message</string></array>
+    </dict>
+  </array>
+  <!-- Files saved by Wino (exports, backups, PDFs) land in Documents, shown in Files › On My iPhone › Wino Mail. -->
+  <key>UIFileSharingEnabled</key><true/>
+  <key>LSSupportsOpeningDocumentsInPlace</key><false/>
+  <!-- Background refresh (BGAppRefreshTask → IApplicationRuntime.SynchronizeOnceAsync) and remote notifications. -->
+  <key>UIBackgroundModes</key>
+  <array><string>fetch</string><string>processing</string><string>remote-notification</string></array>
+  <key>BGTaskSchedulerPermittedIdentifiers</key>
+  <array><string>com.winomail.ios.refresh</string><string>com.winomail.ios.processing</string></array>
+</dict></plist>

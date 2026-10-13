@@ -4,7 +4,9 @@ using System.Windows.Input;
 using AppKit;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Mail.Controls.Core.Settings;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Bindings;
 
 namespace Wino.Mail.Controls.AppKit.Settings;
 
@@ -74,11 +76,8 @@ public sealed class SettingsBinder
     {
         var popup = CreatePopUp(width);
         foreach (var item in items) popup.Menu!.AddItem(new NSMenuItem(item ?? string.Empty));
-        var binding = Own(new PropertyBinding<T, int>(source, property, read, value =>
-        {
-            if (value >= 0 && value < popup.ItemCount) popup.SelectItem((nint)value);
-            else popup.SelectItem((nint)(-1));
-        }, _dispatcher, _error, write));
+        var binding = Own(new PropertyBinding<T, int>(source, property, read,
+            value => popup.SelectItem((nint)SettingsValueRules.SelectableIndex(value, (int)popup.ItemCount)), _dispatcher, _error, write));
         OnActivated(popup, () => { binding.UpdateSource((int)popup.IndexOfSelectedItem); binding.Refresh(); });
         return popup;
     }
@@ -171,12 +170,12 @@ public sealed class SettingsBinder
 
         void Commit(int value)
         {
-            binding.UpdateSource(Math.Clamp(value, minimum, maximum));
+            binding.UpdateSource(SettingsValueRules.ClampStepper(value, minimum, maximum));
             binding.Refresh();
         }
 
         OnActivated(stepper, () => Commit(stepper.IntValue));
-        OnActivated(field, () => Commit(int.TryParse(field.StringValue, out var parsed) ? parsed : read(source)));
+        OnActivated(field, () => Commit(SettingsValueRules.ParseStepper(field.StringValue, read(source), minimum, maximum)));
 
         var stack = WinoLayout.HStack(4, field, stepper);
         if (!string.IsNullOrEmpty(suffix)) stack.AddArrangedSubview(WinoStyle.Label(suffix, WinoStyle.Body, WinoStyle.SecondaryText));
@@ -197,7 +196,8 @@ public sealed class SettingsBinder
         for (int index = 0; index < labels.Count; index++) control.SetLabel(labels[index] ?? string.Empty, index);
         var binding = Own(new PropertyBinding<T, int>(source, property, read, value =>
         {
-            if (value >= 0 && value < labels.Count) control.SelectedSegment = value;
+            var index = SettingsValueRules.SelectableIndex(value, labels.Count);
+            if (index >= 0) control.SelectedSegment = index;
             else control.UnselectAllSegments();
         }, _dispatcher, _error, write));
         OnActivated(control, () => { binding.UpdateSource((int)control.SelectedSegment); binding.Refresh(); });
@@ -279,8 +279,7 @@ public sealed class SettingsBinder
             _dispatcher, _error, write));
         OnActivated(picker, () =>
         {
-            var time = ((DateTime)picker.DateValue).ToLocalTime().TimeOfDay;
-            binding.UpdateSource(new TimeSpan(time.Hours, time.Minutes, 0));
+            binding.UpdateSource(SettingsValueRules.TimeOfDay(((DateTime)picker.DateValue).ToLocalTime().TimeOfDay));
             binding.Refresh();
         });
         return picker;

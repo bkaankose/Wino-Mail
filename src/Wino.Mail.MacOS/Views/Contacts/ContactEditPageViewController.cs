@@ -13,6 +13,7 @@ using Wino.Mail.Controls.AppKit.Contacts;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.ViewModels;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Bindings;
 
 namespace Wino.Mail.MacOS.Views.Contacts;
 

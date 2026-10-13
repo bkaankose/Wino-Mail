@@ -3,6 +3,7 @@ using CoreGraphics;
 using Foundation;
 using Wino.Core.Domain.Enums;
 using Wino.Presentation.AppKit;
+using Wino.Mail.Controls.Core.ToDo;
 
 namespace Wino.Mail.Controls.AppKit.ToDo;
 
@@ -103,7 +104,7 @@ public sealed class WinoTaskCardView : NSTableCellView
         bool showList = !string.IsNullOrEmpty(model.ListName);
         _listSegment.Hidden = !showList;
         _listName.StringValue = model.ListName ?? string.Empty;
-        _listDot.Tint = model.ListColor ?? WinoStyle.SecondaryText;
+        _listDot.Tint = WinoStyle.FromHexString(model.ListColorHex) ?? WinoStyle.SecondaryText;
 
         _due.Stack.Hidden = string.IsNullOrEmpty(model.DueText);
         _due.Label.StringValue = model.DueText;

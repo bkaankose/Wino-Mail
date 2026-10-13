@@ -8,6 +8,7 @@ using Wino.Core.ViewModels;
 using Wino.Mail.Controls.AppKit.Extras;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Bindings;
 
 namespace Wino.Mail.MacOS.Views.Extras;
 

@@ -214,10 +214,10 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     internal Task ApplyCalendarGroupingPreferenceChangeAsync()
         => ExecuteUIThread(SyncShellMenuItems);
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
         => await InitializeNavigationAsync(mode, parameters);
 
-    public async Task InitializeNavigationAsync(NavigationMode mode, object parameters, bool requestInitialNavigation = true)
+    public async Task InitializeNavigationAsync(NavigationMode mode, object? parameters, bool requestInitialNavigation = true)
     {
         if (!_hasRegisteredPersistentRecipients)
         {
@@ -274,7 +274,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         }
     }
 
-    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    public override void OnNavigatedFrom(NavigationMode mode, object? parameters)
     {
         DetachRuntimeSubscriptions();
         Messenger.Unregister<PreferenceChangedMessage>(this);

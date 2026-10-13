@@ -57,7 +57,7 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
     [NotifyCanExecuteChangedFor(nameof(ImportFromWinoAccountCommand))]
     public partial bool IsWinoAccountSignedIn { get; set; }
 
-    public override void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override void OnNavigatedTo(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 

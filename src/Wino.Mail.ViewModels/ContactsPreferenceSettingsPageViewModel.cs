@@ -61,10 +61,10 @@ public partial class ContactsPreferenceSettingsPageViewModel(
     public bool ShouldShowSpecificDestination
         => SelectedDestinationBehavior?.Behavior == NewItemDestinationBehavior.Specific;
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
         => await InitializeNavigationAsync(mode, parameters);
 
-    public async Task InitializeNavigationAsync(NavigationMode mode, object parameters)
+    public async Task InitializeNavigationAsync(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
         _isLoaded = false;

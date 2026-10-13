@@ -176,7 +176,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
 
     public abstract Task InitializeAccountsAsync();
 
-    public override void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override void OnNavigatedTo(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 
@@ -184,7 +184,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
         Accounts.CollectionChanged += AccountsChanged;
     }
 
-    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    public override void OnNavigatedFrom(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedFrom(mode, parameters);
 

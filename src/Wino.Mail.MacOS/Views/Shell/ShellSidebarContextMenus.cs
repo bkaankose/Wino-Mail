@@ -89,7 +89,7 @@ internal static class ShellSidebarContextMenus
         FolderMenuItem or MergedAccountFolderMenuItem when target.Item is IBaseFolderMenuItem { IsMoveTarget: true } folder => FolderItems(folder, context),
         ContactFilterViewModel { HasAccountIcon: false } list => ContactListItems(list, context),
         MergedAccountMenuItem merged => MergedAccountItems(merged, context),
-        IAccountNavigationMenuItem account when ShellPaneRows.IsAccountRow(account) => AccountItems(account, context),
+        IAccountNavigationMenuItem account when ShellMenuItemRules.IsAccountRow(account) => AccountItems(account, context),
         AccountTaskListGroupMenuItem group => TaskGroupItems(group, context),
         AccountTaskListMenuItem list => TaskListItems(list, context),
         _ => []

@@ -172,7 +172,7 @@ public partial class IntelligenceCoveragePageViewModel : MailBaseViewModel
         FolderSelectedNotIndexedCount,
         FolderOutsideCount);
 
-    public override void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override void OnNavigatedTo(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 

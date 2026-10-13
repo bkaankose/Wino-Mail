@@ -206,16 +206,11 @@ public partial class SettingsMenuProvider(
 
         foreach (var node in SettingsNavigationInfoProvider.GetPaneNodes())
         {
-            if (!entitlementService.CurrentEntitlement.CanAccessSurfaces &&
-                node.Item?.PageType == WinoPage.WinoIntelligencePage)
-            {
+            if (node.Item?.PageType is WinoPage page && !IsPageAvailable(page))
                 continue;
-            }
 
             if (!node.IsGroup)
             {
-                if (node.Item?.PageType == WinoPage.SignatureAndEncryptionPage && !platformCapabilities.Smime)
-                    continue;
 
                 _shellMenu.Items.Add(CreatePageMenuItem(node.Item));
                 continue;
@@ -228,7 +223,7 @@ public partial class SettingsMenuProvider(
 
             foreach (var child in node.Children)
             {
-                if (child.PageType == WinoPage.SignatureAndEncryptionPage && !platformCapabilities.Smime)
+                if (child.PageType is WinoPage childPage && !IsPageAvailable(childPage))
                     continue;
 
                 group.SubMenuItems.Add(CreatePageMenuItem(child));
@@ -240,6 +235,9 @@ public partial class SettingsMenuProvider(
 
         SetSelectedRootPage(selectedPage);
     }
+
+    private bool IsPageAvailable(WinoPage page)
+        => SettingsPageAvailability.IsAvailable(page, platformCapabilities.Smime, entitlementService.CurrentEntitlement.CanAccessSurfaces);
 
     private static SettingsShellPageMenuItem CreatePageMenuItem(SettingsNavigationItemInfo item)
         => new(item.PageType.Value, item.Title, item.Description, item.Icon);

@@ -6,7 +6,7 @@ namespace Wino.Mail.WinUI.Services;
 
 public class UnderlyingThemeService : IUnderlyingThemeService
 {
-    public const string SelectedAppThemeKey = nameof(SelectedAppThemeKey);
+    public const string SelectedAppThemeKey = Wino.Core.Domain.Models.Personalization.WinoThemeCatalog.SelectedAppThemeKey;
 
     private readonly UISettings uiSettings = new UISettings();
     private readonly IConfigurationService _configurationService;

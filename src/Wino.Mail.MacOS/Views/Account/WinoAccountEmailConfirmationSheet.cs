@@ -79,7 +79,7 @@ internal sealed class WinoAccountEmailConfirmationSheet : WinoAccountSheet<bool>
         {
             var response = await _profile.ResendEmailConfirmationAsync(_endpoint, _ticket);
             if (response.IsSuccess) { Finish(true); return; }
-            error = WinoAccountErrorText.Translate(response.ErrorCode);
+            error = WinoAccountAuthErrorTranslator.Translate(response.ErrorCode);
         }
         finally { SetBusy(false); }
         await ShowErrorAsync(error);

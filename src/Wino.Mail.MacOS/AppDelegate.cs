@@ -9,13 +9,14 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Translations;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.MacOS.Views;
+using Wino.Mail.ViewModels.Lifecycle;
 using Wino.Messaging.Client.Shell;
 using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.MacOS;
 
 [Register("WinoMailAppDelegate")]
-public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<LanguageChanged>
+public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<LanguageChanged>, IApplicationLifecycleHost
 {
     private const string ApplicationName = "Wino Mail";
     private readonly AppKitDispatcher _dispatcher = new();
@@ -101,36 +102,60 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
         _startup = StartAsync();
     }
 
+    /// <summary>
+    /// Composes the services, then follows the shared startup order (<see cref="ApplicationLifecycleCoordinator"/>):
+    /// logger, runtime, theme, the *ServicesReady hooks, then the shell with accounts or Welcome without.
+    /// </summary>
     private async Task StartAsync()
     {
         try
         {
             WinoIcons.Register();
             _services = Composition.Create(_dispatcher, () => _window, HostController, ReportError);
-            var configuration = _services.GetRequiredService<IApplicationConfiguration>();
-            _services.GetRequiredService<IWinoLogger>().SetupLogger(Path.Combine(configuration.ApplicationDataFolderPath, "Logs", "wino.log"));
-            var runtime = _services.GetRequiredService<IApplicationRuntime>();
-            await runtime.StartAsync();
-            await _services.GetRequiredService<INewThemeService>().InitializeAsync();
-            _runtimeStarted = true;
-            ActivationServicesReady();
-            NotificationsServicesReady();
-            DockServicesReady();
-            CompanionServicesReady();
-            ShortcutMenusServicesReady();
-            AppStoreServicesReady();
-#if DEBUG
-            await _dispatcher.ExecuteOnUIThread(() => MacDebugBridge.Start(_services));
-#endif
-            var accounts = await _services.GetRequiredService<IAccountService>().GetAccountsAsync();
-            await _dispatcher.ExecuteOnUIThread(() =>
-            {
-                var navigation = _services.GetRequiredService<AppKitNavigationService>();
-                Observe(accounts.Count > 0 ? navigation.ShowShellAsync() : navigation.NavigateAsync(WinoPage.WelcomePageV2));
-            });
+            await _services.GetRequiredService<ApplicationLifecycleCoordinator>().StartAsync(this);
         }
         catch (Exception error) { ReportError(error); }
     }
+
+    Task IApplicationLifecycleHook.ServicesReadyAsync()
+    {
+        _runtimeStarted = true;
+        ActivationServicesReady();
+        NotificationsServicesReady();
+        DockServicesReady();
+        CompanionServicesReady();
+        ShortcutMenusServicesReady();
+        AppStoreServicesReady();
+#if DEBUG
+        if (_services is { } services) return _dispatcher.ExecuteOnUIThread(() => MacDebugBridge.Start(services));
+#endif
+        return Task.CompletedTask;
+    }
+
+    Task IApplicationLifecycleHost.ShowStartupAsync(ApplicationStartupTarget target)
+    {
+        if (_services is not { } services) return Task.CompletedTask;
+        return _dispatcher.ExecuteOnUIThread(() =>
+        {
+            var navigation = services.GetRequiredService<AppKitNavigationService>();
+            Observe(target == ApplicationStartupTarget.Shell ? navigation.ShowShellAsync() : navigation.NavigateAsync(WinoPage.WelcomePageV2));
+        });
+    }
+
+    async Task IApplicationLifecycleHook.StoppingAsync(bool runtimeStarted)
+    {
+        CompanionStopping();
+        ShortcutMenusStopping();
+        if (runtimeStarted)
+        {
+            Task? notificationsStopping = null;
+            NotificationsStopping(ref notificationsStopping);
+            if (notificationsStopping != null) await notificationsStopping;
+        }
+    }
+
+    Task IApplicationLifecycleHost.StopNavigationAsync()
+        => _services?.GetRequiredService<AppKitNavigationService>().StopAsync() ?? Task.CompletedTask;
 
     private Action? HostController(NSViewController controller)
     {
@@ -189,16 +214,8 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
             if (_startup != null) await _startup;
             if (_services != null)
             {
-                CompanionStopping();
-                ShortcutMenusStopping();
-                if (_runtimeStarted)
-                {
-                    Task? notificationsStopping = null;
-                    NotificationsStopping(ref notificationsStopping);
-                    if (notificationsStopping != null) await notificationsStopping;
-                }
-                await _services.GetRequiredService<AppKitNavigationService>().StopAsync();
-                if (_runtimeStarted) await _services.GetRequiredService<IApplicationRuntime>().StopAsync();
+                // Stopping hooks, navigation, then the runtime when it started (ApplicationLifecycleCoordinator).
+                await _services.GetRequiredService<ApplicationLifecycleCoordinator>().StopAsync(this);
                 await _services.DisposeAsync();
             }
             _terminating = true;

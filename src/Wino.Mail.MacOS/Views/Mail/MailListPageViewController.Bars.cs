@@ -8,6 +8,7 @@ using Wino.Core.Domain.Models.Menus;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Messaging.UI;
 using Wino.Presentation.AppKit;
+using Wino.Core.Domain.Presentation;
 
 namespace Wino.Mail.MacOS.Views.Mail;
 
@@ -64,14 +65,14 @@ public sealed partial class MailListPageViewController
                 if (commands.Count > 0 && commands[^1] is not null) commands.Add(null);
                 continue;
             }
-            var title = item.Operation == MailOperation.SetFlag ? Translator.MailOperation_Flag : MailOperationPresentation.Title(item.Operation);
+            var title = item.Operation == MailOperation.SetFlag ? Translator.MailOperation_Flag : MailOperationDisplay.GetTitle(item.Operation);
             if (string.IsNullOrEmpty(title)) continue;
             var captured = item;
             // Move opens the folder popover at the clicked button instead of the shared picker.
             Action<NSView>? runFrom = item.Operation == MailOperation.Move
                 ? anchor => ShowMovePopover(ViewModel.SelectedItems.ToArray(), anchor)
                 : null;
-            commands.Add(new MailReaderCommand(MailOperationPresentation.Glyph(item.Operation), title,
+            commands.Add(new MailReaderCommand(MailOperationDisplay.GetGlyph(item.Operation), title,
                 () => Observe(ViewModel.ExecuteTopBarActionCommand.ExecuteAsync(captured)), item.IsEnabled && hasSelection, runFrom));
         }
         if (commands.Count > 0 && commands[^1] is null) commands.RemoveAt(commands.Count - 1);

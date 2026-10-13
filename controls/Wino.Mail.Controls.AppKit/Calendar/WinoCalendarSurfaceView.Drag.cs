@@ -2,7 +2,9 @@ using AppKit;
 using CoreGraphics;
 using Foundation;
 using Wino.Core.Domain.Interfaces;
+using Wino.Mail.Controls.Core.Calendar;
 using Wino.Presentation.AppKit;
+using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Mail.Controls.AppKit.Calendar;
 
@@ -72,11 +74,7 @@ public sealed partial class WinoCalendarSurfaceView
     internal bool AllowsResize(ICalendarItem item, CalendarPlacementKind kind)
         => kind == CalendarPlacementKind.Timed && !item.IsMultiDayEvent && !item.IsAllDayEvent && CanDragItem?.Invoke(item) != false;
 
-    internal DateTime Snap(DateTime value)
-    {
-        long interval = TimeSpan.FromMinutes(Math.Max(1, DragSnapMinutes)).Ticks;
-        return new DateTime((value.Ticks + interval / 2) / interval * interval, value.Kind);
-    }
+    internal DateTime Snap(DateTime value) => WinoCalendarSurfaceGeometry.Snap(value, DragSnapMinutes);
 
     internal void TileRecycled(WinoCalendarItemView tile)
     {

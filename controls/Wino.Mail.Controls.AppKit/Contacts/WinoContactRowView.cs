@@ -5,7 +5,9 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Mail.Controls.Core;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Controls;
 
 namespace Wino.Mail.Controls.AppKit.Contacts;
 
@@ -104,8 +106,7 @@ public sealed class WinoContactRowView : NSTableCellView
 
     private void ModelChanged(object? sender, PropertyChangedEventArgs args)
     {
-        if (args.PropertyName is null or "" or "IsFavorite" or "Name" or "SecondaryValue" or "Categories" or "ContactPictureFileId" or "SourceContact")
-            Apply();
+        if (WinoContactRowRules.RefreshesRow(args.PropertyName)) Apply();
     }
 
     private void Apply()
@@ -127,10 +128,7 @@ public sealed class WinoContactRowView : NSTableCellView
     /// <summary>Keeps the chips whose category still matches and replaces only the rest.</summary>
     private void ApplyCategories(IReadOnlyList<MailCategory> categories)
     {
-        int keep = 0;
-        while (keep < categories.Count && keep < _chipKeys.Count
-            && _chipKeys[keep] == (categories[keep].Name, categories[keep].BackgroundColorHex))
-            keep++;
+        int keep = WinoListDiff.ReusablePrefix(_chipKeys, categories, static (shown, next) => shown == (next.Name, next.BackgroundColorHex));
         if (keep == categories.Count && keep == _chipKeys.Count) return;
 
         if (categories.Count == 0)

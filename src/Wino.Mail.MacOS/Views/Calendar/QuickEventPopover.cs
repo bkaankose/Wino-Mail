@@ -6,6 +6,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Controls.AppKit.Calendar;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Bindings;
 
 namespace Wino.Mail.MacOS.Views.Calendar;
 

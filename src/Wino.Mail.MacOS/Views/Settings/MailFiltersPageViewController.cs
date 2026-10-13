@@ -8,6 +8,8 @@ using Wino.Mail.Controls.AppKit.Settings;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.ViewModels;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Bindings;
+using Wino.Core.Domain.Presentation;
 
 namespace Wino.Mail.MacOS.Views.Settings;
 
@@ -187,7 +189,7 @@ public sealed class MailFiltersPageViewController(MailFiltersPageViewModel viewM
 
         var title = WinoStyle.Label(name, WinoSettingsStyle.CardTitle, WinoStyle.PrimaryText);
         var fallback = item.Summary;
-        var summary = WinoStyle.Label(MailFilterPresentation.Summary(filter, _folderNames, fallback), WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0);
+        var summary = WinoStyle.Label(MailFilterDisplay.GetSummary(filter, _folderNames, fallback), WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0);
         var metaText = WinoStyle.Label(MetaText(item), WinoStyle.Caption, item.HasWarning ? WinoStyle.Critical : WinoStyle.SecondaryText);
         var meta = WinoLayout.HStack(5, metaText);
         meta.Alignment = NSLayoutAttribute.CenterY;

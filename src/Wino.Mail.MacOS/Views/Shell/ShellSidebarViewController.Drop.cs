@@ -46,7 +46,7 @@ internal sealed partial class ShellSidebarViewController
     private (nint Row, IBaseFolderMenuItem? Folder) FolderAtRow(nint row)
     {
         if (row < 0 || row >= _outline.RowCount || _outline.ItemAtRow(row) is not Node node) return (-1, null);
-        return (row, node.Item is IBaseFolderMenuItem folder && ShellPaneRows.IsEnabled(folder) ? folder : null);
+        return (row, node.Item is IBaseFolderMenuItem folder && ShellMenuItemRules.IsEnabled(folder) ? folder : null);
     }
 
     private bool IsSelectedFolder(nint row, IBaseFolderMenuItem folder)
@@ -111,7 +111,7 @@ internal sealed partial class ShellSidebarViewController
     private ContactFilterViewModel? ContactListAtRow(nint row, IReadOnlyDictionary<string, object> properties)
     {
         if (row < 0 || row >= _outline.RowCount || _outline.ItemAtRow(row) is not Node node) return null;
-        return node.Item is ContactFilterViewModel filter && ShellPaneRows.IsEnabled(filter) && filter.CanAccept(properties) ? filter : null;
+        return node.Item is ContactFilterViewModel filter && ShellMenuItemRules.IsEnabled(filter) && filter.CanAccept(properties) ? filter : null;
     }
 
     private NSDragOperation ValidateContactDrop(INSDraggingInfo info)

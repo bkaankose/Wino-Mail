@@ -4,21 +4,25 @@ This file provides guidance for agents working in `controls/`, Wino Mail's reusa
 
 ## Scope
 
-The directory has three groups. Read the rules for each group you change:
+The directory has four groups. Read the rules for each group you change:
 
 | Group | Projects | Platform guide |
 | --- | --- | --- |
-| Shared contracts and editor engine | `Wino.Mail.Controls.Core`, `Wino.Editor.Core` | Both: [Windows](../docs/harness/development-windows.md) and [macOS](../docs/harness/development-macos.md) |
+| Shared contracts and editor engine | `Wino.Mail.Controls.Core`, `Wino.Editor.Core`, `Wino.Presentation.Core` | All: [Windows](../docs/harness/development-windows.md), [macOS](../docs/harness/development-macos.md), and [iOS](../docs/harness/development-ios.md) |
 | WinUI 3 and WebView2 | `Wino.Mail.Controls.WinUI`, `Wino.Editor.WinUI`, `Wino.Mail.Controls.Playground.WinUI` | [Windows](../docs/harness/development-windows.md) |
-| AppKit and WKWebView | `Wino.Presentation.AppKit`, `Wino.Mail.Controls.AppKit`, `Wino.Editor.AppKit` | [macOS](../docs/harness/development-macos.md) |
+| AppKit and WKWebView | `Wino.Presentation.AppKit`, `Wino.Mail.Controls.AppKit`, `Wino.Editor.WebKit` (macOS and iOS) | [macOS](../docs/harness/development-macos.md); `Wino.Editor.WebKit` also [iOS](../docs/harness/development-ios.md) |
+| UIKit (iOS and iPadOS) | `Wino.Presentation.UIKit`, `Wino.Mail.Controls.UIKit` | [iOS](../docs/harness/development-ios.md) |
 
 The projects:
 
 - `Wino.Mail.Controls.Core` contains platform-neutral models, interfaces, projections, and collection logic. Keep this project free of WinUI dependencies so its `net10.0` target remains usable outside Windows UI code.
 - `Wino.Mail.Controls.WinUI` contains reusable WinUI 3 controls. Public controls belong in a matching feature folder and namespace, such as `MailListView/WinoMailListView.cs` in `Wino.Mail.Controls.MailListView`.
 - `Wino.Editor.Core` owns portable sessions, serialization, operation queues, document policies, and the sole embedded HTML, CSS, and JavaScript bundle.
+- `Wino.Presentation.Core` (`net10.0`) holds platform-neutral presentation helpers for the native Apple heads: typed bindings (`Wino.Presentation.Bindings`, including `AnyPropertyBinding`), design tokens (`WinoTokens`, `WinoRgba`), `WinoThemeSurface`, and control rules that need Domain types (`Controls/WinoControlRules.cs`: mode segments, provider glyphs, calendar tile appearance, intelligence header text, contact row rules). It references `Wino.Core.Domain` and `Wino.Mail.Controls.Core` but no UI framework. WinUI does not reference it.
 - `Wino.Editor.WinUI` adapts these contracts to WebView2.
-- `Wino.Presentation.AppKit`, `Wino.Mail.Controls.AppKit`, and `Wino.Editor.AppKit` contain native macOS binding/layout helpers, reusable collection presentation, and WKWebView sessions. Verify them in the production Mac head; do not create an AppKit playground.
+- `Wino.Presentation.AppKit` and `Wino.Mail.Controls.AppKit` contain native macOS layout helpers and reusable controls. Verify them in the production Mac head; do not create an AppKit playground.
+- `Wino.Editor.WebKit` (`net10.0-macos;net10.0-ios`, formerly `Wino.Editor.AppKit`) contains the WKWebView reader and editor sessions (`WebKitHtmlMailReaderSession`, `WebKitHtmlMailEditorSession`) and `AppleMailDocumentBuilder` for both Apple heads. It uses no AppKit or UIKit types apart from one guarded focus call; each head creates, configures, and hosts the WKWebView, and owns the keyboard accessory and printing. It narrows to one target framework when an `osx-*` or `ios-*` RID is passed.
+- `Wino.Presentation.UIKit` and `Wino.Mail.Controls.UIKit` (`net10.0-ios`, iOS 17.0) are the UIKit twins of the AppKit libraries, with the same member names and feature folders (`MailList`, `Shell`, `Common`, `Settings`, `Calendar`, `Extras`, `ToDo`, `Contacts`, `Intelligence`). `Wino.Presentation.UIKit` provides `WinoLayout`, `WinoIcons`/`WinoIconView` (registers the bundled WinoIcons fonts; use `WinoIcons.TemplateImage` for bars, tabs, and menus), `WinoStyle` with Dynamic Type fonts, `WinoZoneView`, `ThemeBackdropView`, and `WinoBarBackdropView`. Pages own swipe actions and context menus; cells only render. Logic both twins need belongs in `Wino.Mail.Controls.Core` (pure math) or `Wino.Presentation.Core/Controls` (rules that use Domain types). Verify them in the production iOS head; there is no UIKit playground.
 - `Wino.Mail.Controls.Playground.WinUI` is the development and verification app. It must demonstrate every public UI control.
 
 Do not move application-specific mail behavior into these projects. Keep reusable contracts and collection behavior in Core, reusable presentation behavior in the control libraries, and sample-only data or wiring in the playground.
@@ -55,6 +59,12 @@ AppKit libraries build on a Mac through the production head (see the [macOS guid
 
 ```sh
 dotnet build src/Wino.Mail.MacOS/Wino.Mail.MacOS.csproj -c Debug -r osx-arm64 -p:WinoTargetRuntimeIdentifier=osx-arm64 -p:WinoTargetPlatform=MacOS -p:EnableWindowsTargeting=true
+```
+
+UIKit libraries build on a Mac through the iOS head (see the [iOS guide](../docs/harness/development-ios.md)):
+
+```sh
+dotnet build src/Wino.Mail.iOS/Wino.Mail.iOS.csproj -c Debug -r iossimulator-arm64 -p:WinoTargetPlatform=iOS -p:EnableWindowsTargeting=true
 ```
 
 After the first successful restore, add `--no-restore` unless package or project references changed. Prefer the narrow affected-project build; build the playground when UI, resources, templates, or public control integration changes.
@@ -119,8 +129,10 @@ Match verification to the change:
 - Core-only logic: build `Wino.Mail.Controls.Core` and run any directly affected repository tests.
 - WinUI control or template: build `Wino.Mail.Controls.WinUI` and the playground, then request manual verification of the affected control in the app with the local lab.
 - Editor C#, XAML, or web assets: build `Wino.Editor.WinUI` and the playground, then request manual lab checks for initialization, editing/rendering, theme changes, navigation, and disposal.
-- AppKit control or WKWebView session: build the Mac head for arm64 and x64, then request manual verification in the Mac app. There is no AppKit playground.
-- Shared Core or editor engine change: verify the WinUI consumers above and hand off, or run, the Mac builds.
+- AppKit control: build the Mac head for arm64 and x64, then request manual verification in the Mac app. There is no AppKit playground.
+- UIKit control: build the iOS head for the Simulator, then request manual verification on iPhone and iPad simulators. There is no UIKit playground.
+- WKWebView session (`Wino.Editor.WebKit`): build both Apple heads and request manual checks in both apps.
+- Shared Core or editor engine change: verify the WinUI consumers above and hand off, or run, the Mac and iOS builds.
 - Public API change: search CodeGraph for consumers and build each affected project.
 
 Do not report a UI change as verified from compilation alone. If interactive verification is unavailable, state that clearly in the handoff.

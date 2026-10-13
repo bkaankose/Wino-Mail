@@ -1,0 +1,83 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The universal iOS and iPadOS app. One bundle; SceneDelegate composition picks the phone shell
+       (Wino.Mail.UIKit.Phone) or the pad shell (Wino.Mail.UIKit.Pad) by the device idiom. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-ios</TargetFramework>
+    <SupportedOSPlatformVersion>17.0</SupportedOSPlatformVersion>
+    <WinoTargetPlatform>iOS</WinoTargetPlatform>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <ApplicationTitle>Wino Mail</ApplicationTitle>
+    <ApplicationId>com.winomail.ios</ApplicationId>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Wino.Mail.iOS</RootNamespace>
+    <!-- Mono runtime: AOT on device, the simulator's JIT in Debug. Native AOT stays off (build/Wino.iOS.targets). -->
+    <PublishAot>false</PublishAot>
+  </PropertyGroup>
+  <!-- The iOS SDK resolves the RID before Directory.Build.targets (G report): builds default to the simulator, so a
+       Release build targets the device unless the caller passes -r. -->
+  <PropertyGroup>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Configuration)' == 'Release'">ios-arm64</RuntimeIdentifier>
+  </PropertyGroup>
+  <!-- Device builds sign with the team 4VB7YWRAQ9 development identity and profile for com.winomail.ios and carry
+       Entitlements.plist; pass -p:CodesignKey=... -p:CodesignProvision=... to override. Simulator builds are signed ad
+       hoc by the SDK without custom entitlements: the keychain groups and aps-environment would make the SDK look for
+       a provisioning profile, which a simulator build does not have. -->
+  <PropertyGroup>
+    <!-- The SDK would pick up Entitlements.plist by convention for every build, the simulator included. -->
+    <EnableDefaultCodesignEntitlements>false</EnableDefaultCodesignEntitlements>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('ios-'))">
+    <CodesignEntitlements>Entitlements.plist</CodesignEntitlements>
+    <CodesignKey Condition="'$(CodesignKey)' == ''">Apple Development</CodesignKey>
+    <CodesignProvision Condition="'$(CodesignProvision)' == ''">Wino Mail iOS Development</CodesignProvision>
+  </PropertyGroup>
+  <!-- Every Apple build carries the Windows manifest version (2.2.0.0 becomes 2.2.0), like the Mac head. -->
+  <PropertyGroup>
+    <WinoManifestVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../Wino.Mail.WinUI/Package.appxmanifest')), '(?&lt;=&lt;Identity[^&gt;]*\sVersion=")\d+\.\d+\.\d+'))</WinoManifestVersion>
+    <ApplicationDisplayVersion Condition="'$(ApplicationDisplayVersion)' == ''">$(WinoManifestVersion)</ApplicationDisplayVersion>
+    <ApplicationVersion Condition="'$(ApplicationVersion)' == ''">$(WinoManifestVersion)</ApplicationVersion>
+    <!-- iOS has only the App Store distribution: StoreKit purchases and the App Store client are always on. -->
+    <DefineConstants>$(DefineConstants);WINO_APPSTORE</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Wino.Mail.UIKit/Wino.Mail.UIKit.csproj" />
+    <ProjectReference Include="../Wino.Mail.UIKit.Phone/Wino.Mail.UIKit.Phone.csproj" />
+    <ProjectReference Include="../Wino.Mail.UIKit.Pad/Wino.Mail.UIKit.Pad.csproj" />
+    <ProjectReference Include="../Wino.Platform.iOS/Wino.Platform.iOS.csproj" />
+    <ProjectReference Include="../Wino.Core.Apple.Bindings/Wino.Core.Apple.Bindings.csproj" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Serilog.Extensions.Logging" />
+    <!-- Wino.Core.ML uses ONNX Runtime; its iOS xcframework comes from the package's build targets, which do not flow
+         through project references, so the app references the package itself. -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" />
+  </ItemGroup>
+  <!-- The WinoIcons fonts (icons/README.md) as Fonts/*.ttf; WinoIcons.Register loads them at launch. -->
+  <ItemGroup>
+    <BundleResource Include="../Wino.Mail.WinUI/Assets/WinoIcons.ttf" LogicalName="Fonts/WinoIcons.ttf" />
+    <BundleResource Include="../Wino.Mail.WinUI/Assets/WinoIconsColor-Light.ttf" LogicalName="Fonts/WinoIconsColor-Light.ttf" />
+    <BundleResource Include="../Wino.Mail.WinUI/Assets/WinoIconsColor-Dark.ttf" LogicalName="Fonts/WinoIconsColor-Dark.ttf" />
+    <!-- The Wino Mail logo on the Welcome page. -->
+    <BundleResource Include="../Wino.Mail.WinUI/Assets/WinoLogo.png" LogicalName="WinoLogo.png" />
+  </ItemGroup>
+  <!-- Predefined theme wallpapers, shared with Windows and the Mac (BackgroundImages). -->
+  <ItemGroup>
+    <BundleResource Include="../Wino.Mail.WinUI/BackgroundImages/*.jpg" Exclude="../Wino.Mail.WinUI/BackgroundImages/Acrylic.jpg;../Wino.Mail.WinUI/BackgroundImages/Mica.jpg" LogicalName="Themes/%(Filename)%(Extension)" />
+  </ItemGroup>
+  <!-- What's New release notes and illustrations. WhatsNewService reads them beside the assembly (AppContext.BaseDirectory). -->
+  <ItemGroup>
+    <None Include="../Wino.Mail.WinUI/Assets/WhatsNew/*.json;../Wino.Mail.WinUI/Assets/WhatsNew/*.png" Link="Assets/WhatsNew/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <!-- The shared model loader (Wino.Core.ML) and WhatsNewService resolve their files beside the assemblies. In the
+       flat iOS bundle the assemblies sit at the .app root, which is AppContext.BaseDirectory; keep Models/ and Assets/
+       there (the Mac WinoBundleModelAssets twin, where the assemblies live in MonoBundle). -->
+  <Target Name="WinoBundleModelAssets" BeforeTargets="_ComputePublishLocation">
+    <ItemGroup>
+      <ResolvedFileToPublish Update="@(ResolvedFileToPublish)"
+                             Condition="$([System.String]::Copy('%(ResolvedFileToPublish.RelativePath)').StartsWith('Models')) Or $([System.String]::Copy('%(ResolvedFileToPublish.RelativePath)').StartsWith('Assets'))">
+        <PublishFolderType>Assembly</PublishFolderType>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+</Project>

@@ -1,6 +1,7 @@
 using AppKit;
 using CoreGraphics;
 using Wino.Presentation.AppKit;
+using Wino.Mail.Controls.Core;
 
 namespace Wino.Mail.Controls.AppKit.Common;
 
@@ -64,7 +65,7 @@ public sealed class WinoContactPicture : WinoSurfaceView
     public void SetIdentity(string? displayName, string? colorKey, NSColor? colorOverride = null)
     {
         _initials.StringValue = Initials(displayName ?? colorKey);
-        Fill = colorOverride ?? WinoStyle.AvatarColor(colorKey ?? displayName);
+        Fill = colorOverride ?? WinoStyle.Hex(ContactPictureAppearance.PaletteColor(colorKey ?? displayName));
         AccessibilityLabel = displayName ?? colorKey;
         if (_image.Image is null) _initials.Hidden = false;
     }
@@ -80,17 +81,8 @@ public sealed class WinoContactPicture : WinoSurfaceView
         }
     }
 
-    public static string Initials(string? name)
-    {
-        if (string.IsNullOrWhiteSpace(name)) return "?";
-        var cleaned = name.Trim();
-        int at = cleaned.IndexOf('@');
-        if (at > 0) cleaned = cleaned[..at];
-        var parts = cleaned.Split([' ', '.', '_', '-'], StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length == 0) return "?";
-        if (parts.Length == 1) return parts[0][..Math.Min(2, parts[0].Length)].ToUpperInvariant();
-        return (char.ToUpperInvariant(parts[0][0]).ToString() + char.ToUpperInvariant(parts[^1][0])).ToString();
-    }
+    /// <summary>The shared initials rule (<see cref="ContactPictureAppearance.Initials"/>).</summary>
+    public static string Initials(string? name) => ContactPictureAppearance.Initials(name);
 
     private void UpdateShape() => CornerRadius = _isSquare ? Math.Round(_size * 0.24) : _size / 2;
 

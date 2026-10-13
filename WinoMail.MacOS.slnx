@@ -2,10 +2,12 @@
   <Folder Name="/MacOS/">
     <Project Path="src/Wino.Mail.MacOS/Wino.Mail.MacOS.csproj" />
     <Project Path="src/Wino.Platform.MacOS/Wino.Platform.MacOS.csproj" />
-    <Project Path="src/Wino.Core.MacOS.Bindings/Wino.Core.MacOS.Bindings.csproj" />
+    <Project Path="src/Wino.Platform.Apple/Wino.Platform.Apple.csproj" />
+    <Project Path="src/Wino.Core.Apple.Bindings/Wino.Core.Apple.Bindings.csproj" />
+    <Project Path="controls/Wino.Presentation.Core/Wino.Presentation.Core.csproj" />
     <Project Path="controls/Wino.Presentation.AppKit/Wino.Presentation.AppKit.csproj" />
     <Project Path="controls/Wino.Mail.Controls.AppKit/Wino.Mail.Controls.AppKit.csproj" />
-    <Project Path="controls/Wino.Editor.AppKit/Wino.Editor.AppKit.csproj" />
+    <Project Path="controls/Wino.Editor.WebKit/Wino.Editor.WebKit.csproj" />
     <Project Path="controls/Wino.Editor.Core/Wino.Editor.Core.csproj" />
     <Project Path="src/Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj" />
     <Project Path="src/Wino.Core.Domain/Wino.Core.Domain.csproj" />

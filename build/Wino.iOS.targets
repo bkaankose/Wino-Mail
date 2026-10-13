@@ -1,0 +1,31 @@
+<Project>
+  <!-- iOS build policy, imported by Directory.Build.targets when WinoTargetPlatform is iOS
+       or the project targets an -ios framework. iOS builds pass -p:WinoTargetPlatform=iOS explicitly;
+       a Mac host still resolves MacOS by default. -->
+
+  <!-- The iOS head and its UIKit libraries use the iOS workload's Mono runtime
+       (AOT on device, interpreter in the simulator), not Native AOT.
+       The portable libraries and Windows release retain their AOT analyzer gates. -->
+  <PropertyGroup Condition="$(TargetFramework.Contains('-ios'))">
+    <IsAotCompatible>false</IsAotCompatible>
+    <PublishAot>false</PublishAot>
+  </PropertyGroup>
+
+  <!-- Minimum OS is iOS/iPadOS 17.0. The .NET SDK fills an unset SupportedOSPlatformVersion with
+       TargetPlatformVersion before this file is evaluated, so a value equal to TargetPlatformVersion
+       is treated as unset. A project that sets its own minimum keeps it. -->
+  <PropertyGroup Condition="$(TargetFramework.Contains('-ios')) and ('$(SupportedOSPlatformVersion)' == '' or '$(SupportedOSPlatformVersion)' == '$(TargetPlatformVersion)')">
+    <SupportedOSPlatformVersion>17.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <!-- RuntimeIdentifier is not defaulted here. The iOS SDK resolves it, and the values derived from it
+       (SdkIsSimulator, SdkIsDevice, the runtime pack), before Directory.Build.targets is evaluated,
+       so changing it in this file would leave those values stale.
+       SDK defaults: libraries stay portable (no RuntimeIdentifier); app projects get iossimulator-arm64
+       for build on an Apple Silicon Mac and ios-arm64 for publish. The head project sets
+       ios-arm64 for Release builds in its own project file, or callers pass -r.
+
+       Trimming (MtouchLink/TrimMode) is left at the SDK defaults: Xamarin.Shared.Sdk.Trimming.props is
+       evaluated after this file (CustomAfterDirectoryBuildTargets) and already picks SdkOnly for simulator
+       and device builds. -->
+</Project>

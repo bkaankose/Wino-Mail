@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Managed bindings for Apple APIs and frameworks that .NET for macOS and iOS does not cover. Each module
+       folder holds its native source or release, the committed prebuilt framework and the C# interop.
+       See README.md before changing a module. WinoTargetPlatform is not set here: the app head passes
+       MacOS or iOS, and Directory.Build.targets imports the matching policy per target framework. -->
+  <PropertyGroup>
+    <TargetFrameworks>net10.0-macos;net10.0-ios</TargetFrameworks>
+    <!-- An app build that passes a RuntimeIdentifier (-r osx-arm64, -r iossimulator-arm64) passes it to every
+         project it restores. The other platform's target framework cannot restore with that RID (NU1102), so
+         such a build only contains the target framework of the RID's platform. -->
+    <TargetFrameworks Condition="$(RuntimeIdentifier.StartsWith('osx-'))">net10.0-macos</TargetFrameworks>
+    <TargetFrameworks Condition="$(RuntimeIdentifier.StartsWith('ios-')) or $(RuntimeIdentifier.StartsWith('iossimulator-'))">net10.0-ios</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- A binding project packages the NativeReference frameworks beside the assembly, so the app
+         that references this project embeds them (Contents/Frameworks on macOS, Frameworks on iOS). -->
+    <IsBindingProject>true</IsBindingProject>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(TargetFramework.Contains('-macos'))">
+    <SupportedOSPlatformVersion>14.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(TargetFramework.Contains('-ios'))">
+    <SupportedOSPlatformVersion>17.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+  <!-- Mac App Store builds (-p:WinoMacDistribution=AppStore) leave Sparkle out entirely: App Store apps
+       update only through the App Store. They build into their own folders so the two variants never
+       reuse each other's outputs. -->
+  <PropertyGroup Condition="'$(WinoMacDistribution)' == 'AppStore'">
+    <OutputPath>bin/$(Configuration)-AppStore/</OutputPath>
+    <IntermediateOutputPath>obj/$(Configuration)-AppStore/</IntermediateOutputPath>
+  </PropertyGroup>
+  <!-- Sparkle updates the Mac DMG build only: never on iOS, never in the Mac App Store. -->
+  <PropertyGroup>
+    <WinoIncludeSparkle Condition="$(TargetFramework.Contains('-macos')) and '$(WinoMacDistribution)' != 'AppStore'">true</WinoIncludeSparkle>
+  </PropertyGroup>
+  <ItemGroup>
+    <ObjcBindingApiDefinition Include="ApiDefinition.cs" />
+  </ItemGroup>
+  <!-- StoreKit2 ships macOS, iOS and iOS Simulator slices in one xcframework. -->
+  <ItemGroup>
+    <NativeReference Include="StoreKit2/Native/WinoStoreKit2.xcframework">
+      <Kind>Framework</Kind>
+      <SmartLink>false</SmartLink>
+      <Frameworks>StoreKit</Frameworks>
+    </NativeReference>
+  </ItemGroup>
+  <ItemGroup Condition="'$(WinoIncludeSparkle)' == 'true'">
+    <ObjcBindingApiDefinition Include="Sparkle/SparkleApiDefinition.cs" />
+    <NativeReference Include="Sparkle/Native/Sparkle.xcframework">
+      <Kind>Framework</Kind>
+      <SmartLink>false</SmartLink>
+    </NativeReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="Sparkle/SparkleApiDefinition.cs" />
+    <Compile Remove="Sparkle/**" Condition="'$(WinoIncludeSparkle)' != 'true'" />
+  </ItemGroup>
+</Project>

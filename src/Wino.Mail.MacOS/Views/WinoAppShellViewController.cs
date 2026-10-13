@@ -13,6 +13,7 @@ using Wino.Mail.MacOS.Views.Shell;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Bindings;
 using Wino.Shell.ViewModels;
 
 namespace Wino.Mail.MacOS.Views;
@@ -397,12 +398,12 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
     {
         try
         {
-            if (!ShellPaneRows.IsEnabled(item)) return;
+            if (!ShellMenuItemRules.IsEnabled(item)) return;
             // Folders select themselves when their navigation starts (MailAppShellViewModel.NavigateFolderAsync).
             // Pre-selecting them here would make that navigation look like a repeat of the current
             // folder and skip it, leaving the previous folder's list on screen. Windows also raises
             // ItemInvoked before the navigation view changes its selection.
-            if (ViewModel.HandlesSelection && ShellPaneRows.SelectsOnInvoked(item) && item is not IBaseFolderMenuItem)
+            if (ViewModel.HandlesSelection && ShellMenuItemRules.SelectsOnInvoked(item) && item is not IBaseFolderMenuItem)
                 ViewModel.SelectedMenuItem = item;
             await ViewModel.InvokeMenuItemAsync(item);
         }

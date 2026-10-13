@@ -78,11 +78,11 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
         WizardContext = wizardContext;
     }
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
         => await InitializeAsync(mode, parameters);
 
     /// <summary>Awaitable entry for hosts that own account-setup navigation and shutdown.</summary>
-    public Task InitializeAsync(NavigationMode mode, object parameters)
+    public Task InitializeAsync(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 

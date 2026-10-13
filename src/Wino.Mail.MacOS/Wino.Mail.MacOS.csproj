@@ -28,18 +28,19 @@
     <DefineConstants>$(DefineConstants);WINO_APPSTORE</DefineConstants>
     <CodesignEntitlements>Entitlements.AppStore.plist</CodesignEntitlements>
   </PropertyGroup>
-  <!-- Other builds update through Sparkle (Wino.Core.MacOS.Bindings/Sparkle): its feed, key and installer settings. -->
+  <!-- Other builds update through Sparkle (Wino.Core.Apple.Bindings/Sparkle): its feed, key and installer settings. -->
   <ItemGroup Condition="'$(WinoMacDistribution)' != 'AppStore'">
     <PartialAppManifest Include="Sparkle.plist" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj" />
     <ProjectReference Include="../Wino.Core/Wino.Core.csproj" />
+    <ProjectReference Include="../Wino.Platform.Apple/Wino.Platform.Apple.csproj" />
     <ProjectReference Include="../Wino.Platform.MacOS/Wino.Platform.MacOS.csproj" />
-    <ProjectReference Include="../Wino.Core.MacOS.Bindings/Wino.Core.MacOS.Bindings.csproj" />
+    <ProjectReference Include="../Wino.Core.Apple.Bindings/Wino.Core.Apple.Bindings.csproj" />
     <ProjectReference Include="../../controls/Wino.Presentation.AppKit/Wino.Presentation.AppKit.csproj" />
     <ProjectReference Include="../../controls/Wino.Mail.Controls.AppKit/Wino.Mail.Controls.AppKit.csproj" />
-    <ProjectReference Include="../../controls/Wino.Editor.AppKit/Wino.Editor.AppKit.csproj" />
+    <ProjectReference Include="../../controls/Wino.Editor.WebKit/Wino.Editor.WebKit.csproj" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Serilog.Extensions.Logging" />
   </ItemGroup>

@@ -63,7 +63,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
 
         _accountService = CreateAccountService(_databaseService, _preferencesService.Object);
         _folderService = new FolderService(_databaseService, _accountService, new MailCategoryService(_databaseService));
-        _signatureService = new SignatureService(_databaseService);
+        _signatureService = new SignatureService(_databaseService, Mock.Of<IAppMetadataService>(x => x.PlatformDisplayName == "Windows"));
         _service = new WinoAccountDataSyncService(
             _profileService.Object,
             _preferencesService.Object,

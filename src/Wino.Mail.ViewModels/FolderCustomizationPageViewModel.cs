@@ -57,10 +57,10 @@ public partial class FolderCustomizationPageViewModel : MailBaseViewModel
         _accountService = accountService;
     }
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
         => await InitializeAsync(mode, parameters);
 
-    public async Task InitializeAsync(NavigationMode mode, object parameters)
+    public async Task InitializeAsync(NavigationMode mode, object? parameters)
     {
         _isLoaded = false;
         base.OnNavigatedTo(mode, parameters);

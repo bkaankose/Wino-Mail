@@ -302,6 +302,73 @@ public sealed class ApplicationRuntimeTests
         await runtime.StopAsync();
     }
 
+    [Fact]
+    public async Task SynchronizeOnce_RunsOneBoundedPassWithoutStartingLoops()
+    {
+        var clock = new ManualTimeProvider();
+        var start = DateTimeOffset.UnixEpoch.AddHours(10);
+        clock.Advance(start - clock.GetUtcNow());
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            IsMailAccessGranted = true,
+            IsCalendarAccessGranted = true,
+            IsTaskAccessGranted = true,
+            IsContactAccessGranted = true
+        };
+        var accounts = new Mock<IAccountService>();
+        accounts.Setup(x => x.GetAccountsAsync()).ReturnsAsync(new List<MailAccount> { account });
+        accounts.Setup(x => x.GetAccountAsync(account.Id)).ReturnsAsync(account);
+        var preferences = new Mock<IPreferencesService>();
+        preferences.SetupGet(x => x.EmailSyncIntervalMinutes).Returns(60);
+        preferences.SetupGet(x => x.CalendarSyncIntervalMinutes).Returns(60);
+        // Tasks have no window yet, so the pass only starts it; contacts are seven hours old and due.
+        preferences.SetupProperty(x => x.TaskLastAutoSynchronizationUtcTicks, 0L);
+        preferences.SetupProperty(x => x.ContactLastAutoSynchronizationUtcTicks, start.AddHours(-7).UtcTicks);
+        var manager = new Mock<ISynchronizationManager>();
+        manager.Setup(x => x.GetAllSynchronizers()).Returns(Array.Empty<IWinoSynchronizerBase>());
+        manager.Setup(x => x.SynchronizeMailAsync(It.IsAny<MailSynchronizationOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(MailSynchronizationResult.Empty);
+        manager.Setup(x => x.SynchronizeCalendarAsync(It.IsAny<CalendarSynchronizationOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CalendarSynchronizationResult.Empty);
+        manager.Setup(x => x.SynchronizeTasksAsync(It.IsAny<TaskSynchronizationOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TaskSynchronizationResult.Empty);
+        manager.Setup(x => x.SynchronizeContactsAsync(It.IsAny<ContactSynchronizationOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ContactSynchronizationResult.Empty);
+        var runtime = CreateRuntime(_ => Task.CompletedTask, clock, accounts, preferences, manager: manager);
+
+        await runtime.SynchronizeOnceAsync();
+
+        manager.Verify(x => x.SynchronizeMailAsync(It.Is<MailSynchronizationOptions>(o => o.AccountId == account.Id && o.Type == MailSynchronizationType.InboxOnly), It.IsAny<CancellationToken>()), Times.Once);
+        manager.Verify(x => x.SynchronizeCalendarAsync(It.Is<CalendarSynchronizationOptions>(o => o.AccountId == account.Id && o.Type == CalendarSynchronizationType.CalendarMetadata), It.IsAny<CancellationToken>()), Times.Once);
+        manager.Verify(x => x.SynchronizeContactsAsync(It.Is<ContactSynchronizationOptions>(o => o.AccountId == account.Id), It.IsAny<CancellationToken>()), Times.Once);
+        manager.Verify(x => x.SynchronizeTasksAsync(It.IsAny<TaskSynchronizationOptions>(), It.IsAny<CancellationToken>()), Times.Never);
+        preferences.Object.TaskLastAutoSynchronizationUtcTicks.Should().Be(start.UtcTicks);
+        preferences.Object.ContactLastAutoSynchronizationUtcTicks.Should().Be(start.UtcTicks);
+        runtime.State.Should().Be(ApplicationRuntimeState.Initialized);
+        clock.PeriodicTimersCreated.Should().Be(0);
+        await runtime.StopAsync();
+    }
+
+    [Fact]
+    public async Task SynchronizeOnce_CanceledToken_StopsThePass()
+    {
+        var account = new MailAccount { Id = Guid.NewGuid(), IsMailAccessGranted = true };
+        var accounts = new Mock<IAccountService>();
+        accounts.Setup(x => x.GetAccountsAsync()).ReturnsAsync(new List<MailAccount> { account });
+        var manager = new Mock<ISynchronizationManager>();
+        manager.Setup(x => x.GetAllSynchronizers()).Returns(Array.Empty<IWinoSynchronizerBase>());
+        var runtime = CreateRuntime(_ => Task.CompletedTask, new ManualTimeProvider(), accounts, manager: manager);
+        await runtime.InitializeAsync();
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await runtime.Invoking(x => x.SynchronizeOnceAsync(cancellation.Token)).Should().ThrowAsync<OperationCanceledException>();
+
+        manager.Verify(x => x.SynchronizeMailAsync(It.IsAny<MailSynchronizationOptions>(), It.IsAny<CancellationToken>()), Times.Never);
+        await runtime.StopAsync();
+    }
+
     private static async Task AdvanceAndSettleAsync(ManualTimeProvider clock, TimeSpan elapsed)
     {
         clock.Advance(elapsed);

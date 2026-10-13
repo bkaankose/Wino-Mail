@@ -11,7 +11,9 @@
     <ProjectReference Include="../Wino.Core.Domain/Wino.Core.Domain.csproj" />
     <ProjectReference Include="../Wino.Authentication/Wino.Authentication.csproj" />
     <ProjectReference Include="../Wino.Services/Wino.Services.csproj" />
-    <ProjectReference Include="../Wino.Core.MacOS.Bindings/Wino.Core.MacOS.Bindings.csproj" />
+    <ProjectReference Include="../Wino.Platform.Apple/Wino.Platform.Apple.csproj" />
+    <!-- MacMicrosoftStoreService asks for ratings through StoreKit2Client.RequestReview. -->
+    <ProjectReference Include="../Wino.Core.Apple.Bindings/Wino.Core.Apple.Bindings.csproj" />
     <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" />
   </ItemGroup>
 </Project>

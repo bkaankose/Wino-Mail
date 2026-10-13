@@ -1,0 +1,56 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "dotnet.defaultSolution": "WinoMail.iOS.slnx"
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Build Wino Mail (iOS Simulator, arm64)",
+        "type": "process",
+        "command": "dotnet",
+        "args": [
+          "build",
+          "${workspaceFolder}/src/Wino.Mail.iOS/Wino.Mail.iOS.csproj",
+          "-c",
+          "Debug",
+          "-r",
+          "iossimulator-arm64",
+          "-p:WinoTargetPlatform=iOS",
+          "-p:EnableWindowsTargeting=true"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}"
+        },
+        "group": {
+          "kind": "build",
+          "isDefault": true
+        },
+        "problemMatcher": "$msCompile"
+      },
+      {
+        "label": "Build Wino Mail iOS solution",
+        "type": "process",
+        "command": "dotnet",
+        "args": [
+          "build",
+          "${workspaceFolder}/WinoMail.iOS.slnx",
+          "-c",
+          "Debug",
+          "-p:WinoTargetPlatform=iOS",
+          "-p:EnableWindowsTargeting=true"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}"
+        },
+        "group": "build",
+        "problemMatcher": "$msCompile"
+      }
+    ]
+  }
+}

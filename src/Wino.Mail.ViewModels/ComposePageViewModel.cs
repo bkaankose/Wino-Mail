@@ -761,13 +761,13 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         }
     }
 
-    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    public override void OnNavigatedFrom(NavigationMode mode, object? parameters)
     {
         ReleaseSigningCertificates();
         base.OnNavigatedFrom(mode, parameters);
     }
 
-    //public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    //public override void OnNavigatedFrom(NavigationMode mode, object? parameters)
     //{
     //    base.OnNavigatedFrom(mode, parameters);
 
@@ -775,10 +775,10 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     //    /// Make sure to use Page's OnNavigatedTo instead.
     //}
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
         => await InitializeNavigationAsync(mode, parameters);
 
-    public async Task InitializeNavigationAsync(NavigationMode mode, object parameters)
+    public async Task InitializeNavigationAsync(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 

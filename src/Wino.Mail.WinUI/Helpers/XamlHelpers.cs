@@ -20,6 +20,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Presentation;
 using Wino.Mail.Controls.AccountIcon;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.AccountIcon;
@@ -41,31 +42,9 @@ public static class XamlHelpers
 
     #region Mail Filter Editor
 
-    public static WinoIconGlyph GetFilterFieldGlyph(MailFilterConditionField field) => field switch
-    {
-        MailFilterConditionField.FromAddress => WinoIconGlyph.Mail,
-        MailFilterConditionField.FromName => WinoIconGlyph.Person,
-        MailFilterConditionField.Subject => WinoIconGlyph.Message,
-        MailFilterConditionField.PreviewText => WinoIconGlyph.TextDescription,
-        MailFilterConditionField.HasAttachments => WinoIconGlyph.Attachment,
-        MailFilterConditionField.Importance => WinoIconGlyph.Important,
-        _ => WinoIconGlyph.Filter,
-    };
+    public static WinoIconGlyph GetFilterFieldGlyph(MailFilterConditionField field) => MailFilterDisplay.GetFieldGlyph(field);
 
-    public static WinoIconGlyph GetFilterActionGlyph(MailFilterActionType action) => action switch
-    {
-        MailFilterActionType.Move => WinoIconGlyph.Move,
-        MailFilterActionType.Archive => WinoIconGlyph.Archive,
-        MailFilterActionType.SoftDelete => WinoIconGlyph.Delete,
-        MailFilterActionType.HardDelete => WinoIconGlyph.Delete,
-        MailFilterActionType.MarkRead => WinoIconGlyph.MarkRead,
-        MailFilterActionType.MarkUnread => WinoIconGlyph.MarkUnread,
-        MailFilterActionType.SetFlag => WinoIconGlyph.Flag,
-        MailFilterActionType.ClearFlag => WinoIconGlyph.ClearFlag,
-        MailFilterActionType.MoveToJunk => WinoIconGlyph.Blocked,
-        MailFilterActionType.MarkAsNotJunk => WinoIconGlyph.Checkmark,
-        _ => WinoIconGlyph.Sparkle,
-    };
+    public static WinoIconGlyph GetFilterActionGlyph(MailFilterActionType action) => MailFilterDisplay.GetActionGlyph(action);
 
     private static Brush GetThemeBrush(string key, string fallbackKey = "AccentFillColorDefaultBrush")
     {
@@ -235,12 +214,7 @@ public static class XamlHelpers
     public static Visibility BirthdayVisibility(int? year, int? month, int? day)
         => string.IsNullOrWhiteSpace(FormatBirthday(year, month, day)) ? Visibility.Collapsed : Visibility.Visible;
 
-    public static string FormatBirthday(int? year, int? month, int? day)
-    {
-        if (month is not (>= 1 and <= 12) || day is not (>= 1 and <= 31)) return string.Empty;
-        var date = new DateTime(year ?? 2000, month.Value, Math.Min(day.Value, DateTime.DaysInMonth(year ?? 2000, month.Value)));
-        return year.HasValue ? date.ToString("d MMMM yyyy") : date.ToString("d MMMM");
-    }
+    public static string FormatBirthday(int? year, int? month, int? day) => ContactDisplayFormatter.FormatBirthday(year, month, day);
     public static bool GetGravatarEnabled() => PreferencesService?.IsGravatarEnabled ?? true;
     public static bool GetFaviconEnabled() => PreferencesService?.IsFaviconEnabled ?? true;
 
@@ -449,12 +423,7 @@ public static class XamlHelpers
             var g = int.Parse(backgroundColor.Substring(2, 2), NumberStyles.HexNumber);
             var b = int.Parse(backgroundColor.Substring(4, 2), NumberStyles.HexNumber);
 
-            // Calculate relative luminance
-            double luminance = (0.2126 * GetLinearValue(r)) +
-                               (0.7152 * GetLinearValue(g)) +
-                               (0.0722 * GetLinearValue(b));
-
-            return luminance > 0.5 ? new SolidColorBrush(Colors.Black) : new SolidColorBrush(Colors.White);
+            return ReadableTextColor.PrefersDarkTextByLuminance(r, g, b) ? new SolidColorBrush(Colors.Black) : new SolidColorBrush(Colors.White);
         }
         else
         {
@@ -462,11 +431,6 @@ public static class XamlHelpers
         }
     }
 
-    private static double GetLinearValue(int colorComponent)
-    {
-        double sRGB = colorComponent / 255.0;
-        return sRGB <= 0.03928 ? sRGB / 12.92 : Math.Pow((sRGB + 0.055) / 1.055, 2.4);
-    }
 
     public static Microsoft.UI.Xaml.Controls.NavigationViewDisplayMode NavigationViewDisplayModeConverter(SplitViewDisplayMode splitViewDisplayMode)
     {
@@ -784,77 +748,14 @@ public static class XamlHelpers
         };
     }
 
-    public static WinoIconGlyph GetPathGeometry(FolderOperation operation)
-    {
-        return operation switch
-        {
-            FolderOperation.None => WinoIconGlyph.None,
-            FolderOperation.Pin => WinoIconGlyph.Pin,
-            FolderOperation.Unpin => WinoIconGlyph.UnPin,
-            FolderOperation.MarkAllAsRead => WinoIconGlyph.MarkRead,
-            FolderOperation.DontSync => WinoIconGlyph.DontSync,
-            FolderOperation.Empty => WinoIconGlyph.EmptyFolder,
-            FolderOperation.Rename => WinoIconGlyph.Rename,
-            FolderOperation.Delete => WinoIconGlyph.Delete,
-            FolderOperation.Move => WinoIconGlyph.Forward,
-            FolderOperation.TurnOffNotifications => WinoIconGlyph.TurnOfNotifications,
-            FolderOperation.CreateSubFolder => WinoIconGlyph.CreateFolder,
-            _ => WinoIconGlyph.None,
-        };
-    }
+    public static WinoIconGlyph GetPathGeometry(FolderOperation operation) => FolderOperationDisplay.GetGlyph(operation);
 
-    public static WinoIconGlyph GetSpecialFolderPathIconGeometry(SpecialFolderType specialFolderType)
-    {
-        return specialFolderType switch
-        {
-            SpecialFolderType.Inbox => WinoIconGlyph.SpecialFolderInbox,
-            SpecialFolderType.Starred => WinoIconGlyph.SpecialFolderStarred,
-            SpecialFolderType.Important => WinoIconGlyph.SpecialFolderImportant,
-            SpecialFolderType.Sent => WinoIconGlyph.SpecialFolderSent,
-            SpecialFolderType.Draft => WinoIconGlyph.SpecialFolderDraft,
-            SpecialFolderType.Archive => WinoIconGlyph.SpecialFolderArchive,
-            SpecialFolderType.Deleted => WinoIconGlyph.SpecialFolderDeleted,
-            SpecialFolderType.Junk => WinoIconGlyph.SpecialFolderJunk,
-            SpecialFolderType.Chat => WinoIconGlyph.SpecialFolderChat,
-            SpecialFolderType.Category => WinoIconGlyph.SpecialFolderCategory,
-            SpecialFolderType.Unread => WinoIconGlyph.SpecialFolderUnread,
-            SpecialFolderType.Forums => WinoIconGlyph.SpecialFolderForums,
-            SpecialFolderType.Updates => WinoIconGlyph.SpecialFolderUpdated,
-            SpecialFolderType.Personal => WinoIconGlyph.SpecialFolderPersonal,
-            SpecialFolderType.Promotions => WinoIconGlyph.SpecialFolderPromotions,
-            SpecialFolderType.Social => WinoIconGlyph.SpecialFolderSocial,
-            SpecialFolderType.Other => WinoIconGlyph.SpecialFolderOther,
-            SpecialFolderType.More => WinoIconGlyph.SpecialFolderMore,
-            _ => WinoIconGlyph.None,
-        };
-    }
+    public static WinoIconGlyph GetSpecialFolderPathIconGeometry(SpecialFolderType specialFolderType) => SpecialFolderGlyphs.GetGlyph(specialFolderType);
 
 
     public static WinoIconGlyph GetProviderIcon(MailProviderType providerType, SpecialImapProvider specialImapProvider)
-    {
-        if (specialImapProvider == SpecialImapProvider.None)
-        {
-            return providerType switch
-            {
-                MailProviderType.Outlook => WinoIconGlyph.Microsoft,
-                MailProviderType.Gmail => WinoIconGlyph.Google,
-                MailProviderType.IMAP4 => WinoIconGlyph.IMAP,
-                _ => WinoIconGlyph.None,
-            };
-        }
-        else
-        {
-            // Catalog providers have a brand glyph named after their enum member (Gmx, Proton, ...).
-            return specialImapProvider switch
-            {
-                SpecialImapProvider.iCloud => WinoIconGlyph.Apple,
-                SpecialImapProvider.Yahoo => WinoIconGlyph.Yahoo,
-                _ => Enum.TryParse<WinoIconGlyph>(specialImapProvider.ToString(), out var brandGlyph)
-                    ? brandGlyph
-                    : WinoIconGlyph.IMAP,
-            };
-        }
-    }
+        => MailProviderGlyphs.GetGlyph(providerType, specialImapProvider);
+
     public static WinoIconGlyph GetProviderIcon(MailAccount account)
         => GetProviderIcon(account.ProviderType, account.SpecialImapProvider);
 
@@ -924,23 +825,7 @@ public static class XamlHelpers
         };
     }
 
-    public static string GetOperationString(FolderOperation operation)
-    {
-        return operation switch
-        {
-            FolderOperation.None => string.Empty,
-            FolderOperation.Pin => Translator.FolderOperation_Pin,
-            FolderOperation.Unpin => Translator.FolderOperation_Unpin,
-            FolderOperation.MarkAllAsRead => Translator.FolderOperation_MarkAllAsRead,
-            FolderOperation.DontSync => Translator.FolderOperation_DontSync,
-            FolderOperation.Empty => Translator.FolderOperation_Empty,
-            FolderOperation.Rename => Translator.FolderOperation_Rename,
-            FolderOperation.Delete => Translator.FolderOperation_Delete,
-            FolderOperation.Move => Translator.FolderOperation_Move,
-            FolderOperation.CreateSubFolder => Translator.FolderOperation_CreateSubFolder,
-            _ => string.Empty,
-        };
-    }
+    public static string GetOperationString(FolderOperation operation) => FolderOperationDisplay.GetTitle(operation);
 
     #endregion
 }

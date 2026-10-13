@@ -107,7 +107,7 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
         PlatformCapabilities = platformCapabilities;
     }
 
-    public override void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override void OnNavigatedTo(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 

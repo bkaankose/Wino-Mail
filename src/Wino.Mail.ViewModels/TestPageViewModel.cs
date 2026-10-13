@@ -13,7 +13,7 @@ public partial class TestPageViewModel : MailBaseViewModel
     [ObservableProperty]
     public partial string Preview { get; set; }
 
-    public override void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override void OnNavigatedTo(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 

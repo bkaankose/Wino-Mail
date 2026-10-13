@@ -8,6 +8,8 @@ using Wino.Mail.Controls.AppKit.Settings;
 using Wino.Mail.MacOS.Views.Shell;
 using Wino.Mail.ViewModels;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Bindings;
+using Wino.Core.Domain.Presentation;
 
 namespace Wino.Mail.MacOS.Views.Settings;
 
@@ -100,10 +102,10 @@ public sealed partial class MailFilterEditorPageViewController
     /// </summary>
     private NSView ConditionRow(SettingsBinder rows, MailFilterConditionEditorItem item, bool canRemove)
     {
-        var (tile, icon) = MailFilterPresentation.Tile(MailFilterPresentation.FieldGlyph(item.SelectedField?.Value), WinoStyle.Accent);
-        rows.Bind(item, nameof(item.SelectedField), s => s.SelectedField, field => icon.Icon = MailFilterPresentation.FieldGlyph(field?.Value));
+        var (tile, icon) = MailFilterPresentation.Tile(MailFilterDisplay.GetFieldGlyph(item.SelectedField?.Value), WinoStyle.Accent);
+        rows.Bind(item, nameof(item.SelectedField), s => s.SelectedField, field => icon.Icon = MailFilterDisplay.GetFieldGlyph(field?.Value));
 
-        var field = GlyphPopUp(rows, item, s => s.FieldOptions, null, option => option.DisplayName, option => MailFilterPresentation.FieldGlyph(option.Value),
+        var field = GlyphPopUp(rows, item, s => s.FieldOptions, null, option => option.DisplayName, option => MailFilterDisplay.GetFieldGlyph(option.Value),
             nameof(item.SelectedField), s => s.SelectedField, (s, v) => s.SelectedField = v, FieldWidth);
         WinoAccessibility.Label(field, Translator.MailFilterEditor_Conditions);
 
@@ -148,16 +150,16 @@ public sealed partial class MailFilterEditorPageViewController
     /// </summary>
     private NSView ActionRow(SettingsBinder rows, MailFilterActionEditorItem item, bool canRemove)
     {
-        var (tile, icon) = MailFilterPresentation.Tile(MailFilterPresentation.ActionGlyph(item.SelectedAction?.Value), MailFilterPresentation.ActionTone(item.SelectedAction?.Value));
+        var (tile, icon) = MailFilterPresentation.Tile(MailFilterDisplay.GetActionGlyph(item.SelectedAction?.Value), MailFilterPresentation.ActionTone(item.SelectedAction?.Value));
         rows.Bind(item, nameof(item.SelectedAction), s => s.SelectedAction, action =>
         {
             var tone = MailFilterPresentation.ActionTone(action?.Value);
             tile.Fill = tone.ColorWithAlphaComponent(0.12f);
             icon.Tint = tone;
-            icon.Icon = MailFilterPresentation.ActionGlyph(action?.Value);
+            icon.Icon = MailFilterDisplay.GetActionGlyph(action?.Value);
         });
 
-        var action = GlyphPopUp(rows, item, s => s.ActionOptions, null, option => option.DisplayName, option => MailFilterPresentation.ActionGlyph(option.Value),
+        var action = GlyphPopUp(rows, item, s => s.ActionOptions, null, option => option.DisplayName, option => MailFilterDisplay.GetActionGlyph(option.Value),
             nameof(item.SelectedAction), s => s.SelectedAction, (s, v) => s.SelectedAction = v, ActionWidth);
         WinoAccessibility.Label(action, Translator.MailFilterEditor_Actions);
 
@@ -191,20 +193,7 @@ public sealed partial class MailFilterEditorPageViewController
         return stack;
     }
 
-    /// <summary>Same rule as the ViewModel: on Wino filters these actions cannot be combined with others.</summary>
-    private static bool IsExclusive(MailFilterActionType? action)
-        => action is MailFilterActionType.Move
-            or MailFilterActionType.Archive
-            or MailFilterActionType.MoveToJunk
-            or MailFilterActionType.MarkAsNotJunk
-            or MailFilterActionType.SoftDelete
-            or MailFilterActionType.HardDelete;
-
-    private static WinoIconGlyph FolderGlyph(SpecialFolderType type)
-    {
-        var glyph = ShellPaneRows.FolderGlyph(type);
-        return glyph == WinoIconGlyph.None ? WinoIconGlyph.Folder : glyph;
-    }
+    private static WinoIconGlyph FolderGlyph(SpecialFolderType type) => SpecialFolderGlyphs.GetGlyphOrFolder(type);
 
     private static NSPopUpButton FolderPopUp<T>(SettingsBinder binder, T source, Func<T, IReadOnlyList<MailFilterFolderOption>?> items, INotifyCollectionChanged? collection,
         string property, Func<T, MailFilterFolderOption?> read, Action<T, MailFilterFolderOption> write, double width)

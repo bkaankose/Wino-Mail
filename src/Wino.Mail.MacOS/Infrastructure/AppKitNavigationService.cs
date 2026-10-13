@@ -1,60 +1,44 @@
 using AppKit;
-using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.MacOS.Views;
-using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Navigation;
-using Wino.Messaging.UI;
+using Wino.Mail.ViewModels.Navigation;
 
 namespace Wino.Mail.MacOS.Infrastructure;
 
 /// <summary>
-/// The process router owns logical activation; native appearance events do not register recipients.
-/// Routes come from <see cref="MacPageRegistry"/>; each route names the host that shows it.
+/// AppKit host for the shared <see cref="NavigationCoordinator"/>, which owns routes, history, back
+/// confirmation and the account lifecycle reactions. This class only creates, hosts, activates and
+/// releases native controllers. Routes come from <see cref="MacPageRegistry"/>; each route names the
+/// host that shows it.
 /// </summary>
-public sealed class AppKitNavigationService : INavigationService, IDisposable,
-    IRecipient<BreadcrumbNavigationRequested>, IRecipient<BackBreadcrumNavigationRequested>, IRecipient<AccountCreatedMessage>,
-    IRecipient<WelcomeImportCompletedMessage>, IRecipient<AccountRemovedMessage>
+public sealed class AppKitNavigationService : INavigationService, INavigationHost, IDisposable
 {
     private readonly IServiceProvider _services;
     private readonly IDispatcher _dispatcher;
     private readonly Func<NSViewController, Action?> _host;
     private readonly MacPageRegistry _registry;
-    private readonly SemaphoreSlim _gate = new(1, 1);
-    private readonly Stack<(WinoPage Page, object? Parameter)> _history = new();
+    private readonly NavigationCoordinator _coordinator;
     private NSViewController? _current;
     private NSViewController? _shellContent;
     private WinoAppShellViewController? _shell;
     private IRenderingFrameHost? _renderingHost;
-    // Onboarding pages opened while the shell is up (Settings › Add account) use their own window
+    // Onboarding pages opened while the shell is up (Settings > Add account) use their own window
     // so the main window and its mail state stay in place.
     private NSWindow? _secondaryWindow;
     private NSViewController? _secondaryController;
     private NSObject? _secondaryClosing;
-    private readonly Stack<(WinoPage Page, object? Parameter)> _secondaryHistory = new();
-    private (WinoPage Page, object? Parameter) _secondaryRoute;
-    private WinoPage _page;
-    private object? _parameter;
-    private NavigationResult? _result;
-    private bool _stopping;
-    private Task _pending = Task.CompletedTask;
-    // Completes once the current shell finished its first mode activation (its menus and first route).
-    private Task _shellActivated = Task.CompletedTask;
-    public bool CanQuit => _page != WinoPage.AccountSetupProgressPage || _current is not IWinoViewController { HasPendingWork: true };
 
     public AppKitNavigationService(IServiceProvider services, IDispatcher dispatcher, Func<NSViewController, Action?> host)
     {
         _services = services; _dispatcher = dispatcher; _host = host;
         _registry = services.GetRequiredService<MacPageRegistry>();
-        WeakReferenceMessenger.Default.Register<BreadcrumbNavigationRequested>(this);
-        WeakReferenceMessenger.Default.Register<BackBreadcrumNavigationRequested>(this);
-        WeakReferenceMessenger.Default.Register<AccountCreatedMessage>(this);
-        WeakReferenceMessenger.Default.Register<WelcomeImportCompletedMessage>(this);
-        WeakReferenceMessenger.Default.Register<AccountRemovedMessage>(this);
+        _coordinator = new NavigationCoordinator(this, services, dispatcher);
     }
+
+    public bool CanQuit => _coordinator.CanQuit;
 
     /// <summary>The shell window while it is shown; used to attach sheets and the toolbar.</summary>
     public WinoAppShellViewController? Shell => _shell;
@@ -72,209 +56,17 @@ public sealed class AppKitNavigationService : INavigationService, IDisposable,
     public Type? GetPageType(WinoPage page) => _registry.TryGet(page, out var controller, out _) ? controller : null;
 
     public bool Navigate(WinoPage page, object? parameter = null, NavigationReferenceFrame? frame = null, NavigationTransitionType transition = NavigationTransitionType.None)
-    {
-        if (_stopping || !_registry.TryGet(page, parameter, out _, out var host)) return false;
-        _pending = host switch
-        {
-            MacPageHost.RenderingFrame => ObserveAsync(ShowInRenderingFrameAsync(page, parameter)),
-            MacPageHost.SettingsWindow => ObserveAsync(ShowInSettingsAsync(page, parameter)),
-            _ => ObserveAsync(NavigateAsync(page, parameter))
-        };
-        return true;
-    }
+        => _coordinator.Navigate(page, parameter, frame, transition);
 
-    private async Task ObserveAsync(Task task)
-    {
-        try { await task; }
-        catch (Exception exception) { _services.GetRequiredService<IWinoLogger>().CaptureException(exception, nameof(AppKitNavigationService)); }
-    }
+    public Task NavigateAsync(WinoPage page, object? parameter = null) => _coordinator.NavigateAsync(page, parameter);
 
-    private async Task ShowInRenderingFrameAsync(WinoPage page, object? parameter)
-    {
-        var host = _renderingHost;
-        if (host is null || _stopping) return;
-        NSViewController controller = null!;
-        await _dispatcher.ExecuteOnUIThread(() => controller = CreateController(page));
-        await host.ShowAsync(controller, parameter);
-    }
-
-    private Task ShowInSettingsAsync(WinoPage page, object? parameter)
-        => SettingsPresenter?.ShowAsync(page, parameter) ?? Task.CompletedTask;
-
-    public Task NavigateAsync(WinoPage page, object? parameter = null)
-    {
-        if (_registry.TryGet(page, parameter, out _, out var host))
-        {
-            if (host == MacPageHost.RenderingFrame) return ShowInRenderingFrameAsync(page, parameter);
-            if (host == MacPageHost.SettingsWindow) return ShowInSettingsAsync(page, parameter);
-        }
-        return NavigateOwnedAsync(page, parameter, NavigationMode.New, addHistory: true);
-    }
-
-    private async Task NavigateOwnedAsync(WinoPage page, object? parameter, NavigationMode mode, bool addHistory)
-    {
-        await _gate.WaitAsync();
-        try
-        {
-            if (_stopping || !_registry.TryGet(page, parameter, out _, out var host))
-            {
-                if (parameter is NavigateMailFolderEventArgs folder) folder.FolderInitLoadAwaitTask?.TrySetResult(false);
-                return;
-            }
-            NSViewController controller = null!;
-            await _dispatcher.ExecuteOnUIThread(() => controller = CreateController(page));
-            if (_shell is not null && host == MacPageHost.ShellContent)
-            {
-                await _shell.SetContentAsync(controller, parameter);
-                _shellContent = controller;
-                if (addHistory) _history.Push((_page, _parameter));
-                _page = page; _parameter = parameter;
-                return;
-            }
-            if (_shell is not null && host == MacPageHost.Window)
-            {
-                await ShowInSecondaryWindowAsync(controller, page, parameter, mode, addHistory);
-                return;
-            }
-            await ReplaceWindowContentAsync(controller, page, parameter, mode, addHistory);
-        }
-        finally { _gate.Release(); }
-    }
-
-    /// <summary>Hosts <paramref name="controller"/> as the main window content (switching windows when the host decides to). Call under the gate.</summary>
-    private async Task ReplaceWindowContentAsync(NSViewController controller, WinoPage page, object? parameter, NavigationMode mode, bool addHistory)
-    {
-        var previous = _current;
-        Action? releaseWindow = null;
-        try { await _dispatcher.ExecuteOnUIThread(() => releaseWindow = _host(controller)); }
-        catch
-        {
-            await _dispatcher.ExecuteOnUIThread(controller.Dispose);
-            throw;
-        }
-        if (addHistory && previous != null) _history.Push((_page, _parameter));
-        _page = page; _parameter = parameter;
-        _current = controller;
-        if (ReferenceEquals(previous, _shell))
-        {
-            _shell = null;
-            _shellContent = null;
-        }
-        if (previous is IWinoViewController old) await old.ReleaseAsync();
-        await _dispatcher.ExecuteOnUIThread(() => { previous?.Dispose(); releaseWindow?.Invoke(); });
-        await ((IWinoViewController)controller).ActivateAsync(mode, parameter);
-    }
-
-    private async Task ShowInSecondaryWindowAsync(NSViewController controller, WinoPage page, object? parameter, NavigationMode mode, bool addHistory)
-    {
-        var previous = _secondaryController;
-        await _dispatcher.ExecuteOnUIThread(() =>
-        {
-            if (_secondaryWindow is null)
-            {
-                _secondaryWindow = new WelcomeWindow(controller) { Title = Wino.Core.Domain.Translator.WelcomeWindow_AddAccountButton };
-                _secondaryClosing = NSNotificationCenter.DefaultCenter.AddObserver(NSWindow.WillCloseNotification,
-                    _ => _pending = ObserveAsync(CloseSecondaryWindowAsync(fromWindow: true)), _secondaryWindow);
-                _secondaryWindow.MakeKeyAndOrderFront(null);
-            }
-            else
-            {
-                _secondaryWindow.ContentViewController = controller;
-                _secondaryWindow.MakeKeyAndOrderFront(null);
-            }
-        });
-        if (addHistory && previous is not null) _secondaryHistory.Push(_secondaryRoute);
-        _secondaryRoute = (page, parameter);
-        _secondaryController = controller;
-        if (previous is IWinoViewController old) await old.ReleaseAsync();
-        if (previous is not null) await _dispatcher.ExecuteOnUIThread(previous.Dispose);
-        await ((IWinoViewController)controller).ActivateAsync(mode, parameter);
-    }
-
-    private async Task CloseSecondaryWindowAsync(bool fromWindow = false)
-    {
-        var controller = _secondaryController;
-        var window = _secondaryWindow;
-        if (window is null) return;
-        _secondaryController = null;
-        _secondaryWindow = null;
-        _secondaryHistory.Clear();
-        if (controller is IWinoViewController page) await page.ReleaseAsync();
-        await _dispatcher.ExecuteOnUIThread(() =>
-        {
-            if (_secondaryClosing is not null) { NSNotificationCenter.DefaultCenter.RemoveObserver(_secondaryClosing); _secondaryClosing.Dispose(); _secondaryClosing = null; }
-            if (!fromWindow) window.Close();
-            controller?.Dispose();
-            // Dispose after the close notification has finished unwinding.
-            window.BeginInvokeOnMainThread(window.Dispose);
-        });
-    }
-
-    public async Task ShowShellAsync()
-    {
-        WinoAppShellViewController? activatedShell = null;
-        TaskCompletionSource? activation = null;
-        await _gate.WaitAsync();
-        try
-        {
-            if (_stopping) return;
-            if (_shell is not null) return;
-            WinoAppShellViewController shell = null!;
-            await _dispatcher.ExecuteOnUIThread(() => shell = _services.GetRequiredService<WinoAppShellViewController>());
-            var previous = _current;
-            Action? releaseWindow = null;
-            try { await _dispatcher.ExecuteOnUIThread(() => releaseWindow = _host(shell)); }
-            catch
-            {
-                await shell.ReleaseAsync();
-                await _dispatcher.ExecuteOnUIThread(shell.Dispose);
-                throw;
-            }
-            _shell = shell; _current = shell; _page = WinoPage.None; _parameter = null;
-            _history.Clear();
-            activation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            _shellActivated = activation.Task;
-            if (previous is IWinoViewController old) await old.ReleaseAsync();
-            await _dispatcher.ExecuteOnUIThread(() => { previous?.Dispose(); releaseWindow?.Invoke(); });
-            activatedShell = shell;
-        }
-        catch
-        {
-            activation?.TrySetResult();
-            throw;
-        }
-        finally { _gate.Release(); }
-        // Mail shell initialization awaits its first folder route. That route uses this
-        // same router, so it must be allowed to enter before initialization can finish.
-        if (activatedShell is not null)
-        {
-            try { await activatedShell.ActivateAsync(NavigationMode.New, null); }
-            finally { activation?.TrySetResult(); }
-        }
-    }
+    public Task ShowShellAsync() => _coordinator.ShowShellAsync();
 
     /// <summary>True when the shell is shown and has finished its first mode activation.</summary>
-    public bool IsShellReady => _shell is not null && _shellActivated.IsCompleted;
+    public bool IsShellReady => _coordinator.IsShellReady;
 
-    /// <summary>
-    /// Windows App.EnsureShellWindowAsync for OS activation (URL schemes, files, notifications, Dock menu):
-    /// shows the shell if needed, waits until its first activation finished, brings the window to the
-    /// front and switches to <paramref name="mode"/>. A non-null <paramref name="parameter"/> is handed
-    /// to the mode's provider as <see cref="ShellModeActivationContext.Parameter"/>, also when the mode is
-    /// already active. Returns false while stopping or while onboarding owns the main window.
-    /// </summary>
-    public async Task<bool> EnsureShellAsync(WinoApplicationMode mode, object? parameter = null)
-    {
-        if (_stopping || mode == WinoApplicationMode.Settings) return false;
-        // Account setup in progress owns the main window; do not replace it.
-        if (_shell is null && _current is IWinoViewController { HasPendingWork: true }) return false;
-        await ShowShellAsync();
-        await _shellActivated;
-        if (_stopping || _shell is not { } shell) return false;
-        await _dispatcher.ExecuteOnUIThread(() => BringToFront(shell.View.Window));
-        await shell.ActivateModeAsync(mode, parameter is null ? null : new ShellModeActivationContext { Parameter = parameter });
-        return true;
-    }
+    /// <inheritdoc cref="NavigationCoordinator.EnsureShellAsync"/>
+    public Task<bool> EnsureShellAsync(WinoApplicationMode mode, object? parameter = null) => _coordinator.EnsureShellAsync(mode, parameter);
 
     /// <summary>
     /// Activates the app and orders <paramref name="window"/> front, restoring it from the Dock if minimized.
@@ -291,150 +83,199 @@ public sealed class AppKitNavigationService : INavigationService, IDisposable,
         window.MakeKeyAndOrderFront(null);
     }
 
-    private NSViewController CreateController(WinoPage page)
+    public bool ChangeApplicationMode(WinoApplicationMode mode) => _coordinator.ChangeApplicationMode(mode);
+
+    public bool ChangeApplicationMode(WinoApplicationMode mode, ShellModeActivationContext activationContext)
+        => _coordinator.ChangeApplicationMode(mode, activationContext);
+
+    /// <summary>True when the mode's root page has a native route (feature registries add them as they are built).</summary>
+    public bool IsModeAvailable(WinoApplicationMode mode) => _coordinator.IsModeAvailable(mode);
+
+    public bool ParkShell() => _coordinator.ParkShell();
+    public bool RestoreShell(WinoApplicationMode mode) => _coordinator.RestoreShell(mode);
+    public bool RestoreShell(WinoApplicationMode mode, ShellModeActivationContext activationContext) => _coordinator.RestoreShell(mode, activationContext);
+    public bool CanGoBack() => _coordinator.CanGoBack();
+    public void GoBack(NavigationTransitionEffect slideEffect = NavigationTransitionEffect.FromRight) => _coordinator.GoBack(slideEffect);
+    public Task<bool> GoBackAsync(NavigationTransitionEffect slideEffect = NavigationTransitionEffect.FromRight) => _coordinator.GoBackAsync(slideEffect);
+    public void SetNavigationResult(NavigationResult result) => _coordinator.SetNavigationResult(result);
+
+    public Task StopAsync() => _coordinator.StopAsync();
+
+    public void Dispose() => _coordinator.Dispose();
+
+    #region INavigationHost
+
+    bool INavigationHost.TryGetRoute(WinoPage page, object? parameter, out NavigationHostKind hostKind)
+    {
+        if (!_registry.TryGet(page, parameter, out _, out var host))
+        {
+            hostKind = default;
+            return false;
+        }
+        hostKind = host switch
+        {
+            MacPageHost.ShellContent => NavigationHostKind.ShellContent,
+            MacPageHost.RenderingFrame => NavigationHostKind.RenderingFrame,
+            MacPageHost.SettingsWindow => NavigationHostKind.Settings,
+            _ => NavigationHostKind.Window
+        };
+        return true;
+    }
+
+    bool INavigationHost.IsShellShown => _shell is not null;
+    bool INavigationHost.HasMainContent => _current is not null;
+    bool INavigationHost.MainContentHasPendingWork => _current is IWinoViewController { HasPendingWork: true };
+    object? INavigationHost.ShellContentViewModel => (_shellContent as IViewModelHost)?.AssociatedViewModel;
+    bool INavigationHost.IsSecondaryWindowShown => _secondaryWindow is not null;
+    bool INavigationHost.IsSettingsAvailable => SettingsPresenter is not null;
+
+    async Task INavigationHost.ShowInRenderingFrameAsync(WinoPage page, object? parameter)
+    {
+        var host = _renderingHost;
+        if (host is null) return;
+        var controller = await CreateControllerAsync(page);
+        await host.ShowAsync(controller, parameter);
+    }
+
+    async Task INavigationHost.SetShellContentAsync(WinoPage page, object? parameter)
+    {
+        if (_shell is not { } shell) return;
+        var controller = await CreateControllerAsync(page);
+        await shell.SetContentAsync(controller, parameter);
+        _shellContent = controller;
+    }
+
+    Task INavigationHost.ClearShellContentAsync() => _shell?.ClearContentAsync() ?? Task.CompletedTask;
+
+    async Task INavigationHost.ReplaceMainContentAsync(WinoPage page, object? parameter, NavigationMode mode, Action committed)
+    {
+        var controller = await CreateControllerAsync(page);
+        var previous = _current;
+        Action? releaseWindow = null;
+        try { await _dispatcher.ExecuteOnUIThread(() => releaseWindow = _host(controller)); }
+        catch
+        {
+            await _dispatcher.ExecuteOnUIThread(controller.Dispose);
+            throw;
+        }
+        committed();
+        _current = controller;
+        if (ReferenceEquals(previous, _shell))
+        {
+            _shell = null;
+            _shellContent = null;
+        }
+        if (previous is IWinoViewController old) await old.ReleaseAsync();
+        await _dispatcher.ExecuteOnUIThread(() => { previous?.Dispose(); releaseWindow?.Invoke(); });
+        await ((IWinoViewController)controller).ActivateAsync(mode, parameter);
+    }
+
+    async Task INavigationHost.ShowInSecondaryWindowAsync(WinoPage page, object? parameter, NavigationMode mode, Action committed)
+    {
+        var controller = await CreateControllerAsync(page);
+        var previous = _secondaryController;
+        await _dispatcher.ExecuteOnUIThread(() =>
+        {
+            if (_secondaryWindow is null)
+            {
+                _secondaryWindow = new WelcomeWindow(controller) { Title = Wino.Core.Domain.Translator.WelcomeWindow_AddAccountButton };
+                _secondaryClosing = NSNotificationCenter.DefaultCenter.AddObserver(NSWindow.WillCloseNotification,
+                    _ => _coordinator.OnSecondaryWindowClosedByUser(), _secondaryWindow);
+                _secondaryWindow.MakeKeyAndOrderFront(null);
+            }
+            else
+            {
+                _secondaryWindow.ContentViewController = controller;
+                _secondaryWindow.MakeKeyAndOrderFront(null);
+            }
+        });
+        committed();
+        _secondaryController = controller;
+        if (previous is IWinoViewController old) await old.ReleaseAsync();
+        if (previous is not null) await _dispatcher.ExecuteOnUIThread(previous.Dispose);
+        await ((IWinoViewController)controller).ActivateAsync(mode, parameter);
+    }
+
+    async Task INavigationHost.CloseSecondaryWindowAsync(bool closedByUser)
+    {
+        var controller = _secondaryController;
+        var window = _secondaryWindow;
+        if (window is null) return;
+        _secondaryController = null;
+        _secondaryWindow = null;
+        if (controller is IWinoViewController page) await page.ReleaseAsync();
+        await _dispatcher.ExecuteOnUIThread(() =>
+        {
+            if (_secondaryClosing is not null) { NSNotificationCenter.DefaultCenter.RemoveObserver(_secondaryClosing); _secondaryClosing.Dispose(); _secondaryClosing = null; }
+            if (!closedByUser) window.Close();
+            controller?.Dispose();
+            // Dispose after the close notification has finished unwinding.
+            window.BeginInvokeOnMainThread(window.Dispose);
+        });
+    }
+
+    async Task<Func<Task>> INavigationHost.PresentShellAsync(Action committed)
+    {
+        WinoAppShellViewController? created = null;
+        await _dispatcher.ExecuteOnUIThread(() => created = _services.GetRequiredService<WinoAppShellViewController>());
+        if (created is not { } shell) throw new InvalidOperationException("The app shell could not be created.");
+        var previous = _current;
+        Action? releaseWindow = null;
+        try { await _dispatcher.ExecuteOnUIThread(() => releaseWindow = _host(shell)); }
+        catch
+        {
+            await shell.ReleaseAsync();
+            await _dispatcher.ExecuteOnUIThread(shell.Dispose);
+            throw;
+        }
+        _shell = shell; _current = shell;
+        committed();
+        if (previous is IWinoViewController old) await old.ReleaseAsync();
+        await _dispatcher.ExecuteOnUIThread(() => { previous?.Dispose(); releaseWindow?.Invoke(); });
+        return () => shell.ActivateAsync(NavigationMode.New, null);
+    }
+
+    Task INavigationHost.BringShellToFrontAsync()
+    {
+        if (_shell is not { } shell) return Task.CompletedTask;
+        return _dispatcher.ExecuteOnUIThread(() => BringToFront(shell.View.Window));
+    }
+
+    Task INavigationHost.ActivateShellModeAsync(WinoApplicationMode mode, ShellModeActivationContext? activationContext)
+        => _shell?.ActivateModeAsync(mode, activationContext) ?? Task.CompletedTask;
+
+    async Task INavigationHost.DismissShellSurfacesAsync()
+    {
+        _renderingHost = null;
+        var keep = _current;
+        await _dispatcher.ExecuteOnUIThread(() => CloseAuxiliaryWindows(keep?.View.Window));
+    }
+
+    async Task INavigationHost.ReleaseMainContentAsync()
+    {
+        if (_current is IWinoViewController controller) await controller.ReleaseAsync();
+        await _dispatcher.ExecuteOnUIThread(() => _current?.Dispose());
+        _current = null; _shell = null; _renderingHost = null;
+    }
+
+    Task INavigationHost.ShowSettingsAsync(WinoPage? page, object? parameter)
+        => SettingsPresenter?.ShowAsync(page, parameter) ?? Task.CompletedTask;
+
+    bool INavigationHost.TrySettingsGoBack() => SettingsPresenter?.TryGoBack() == true;
+
+    Task INavigationHost.CloseSettingsAsync() => SettingsPresenter?.CloseAsync() ?? Task.CompletedTask;
+
+    Task INavigationHost.StopSettingsAsync() => SettingsPresenter?.StopAsync() ?? Task.CompletedTask;
+
+    #endregion
+
+    private async Task<NSViewController> CreateControllerAsync(WinoPage page)
     {
         if (!_registry.TryGet(page, out var type, out _))
             throw new NotSupportedException($"The native route {page} has not been implemented.");
-        return (NSViewController)_services.GetRequiredService(type);
-    }
-
-    public bool ChangeApplicationMode(WinoApplicationMode mode) => ChangeApplicationMode(mode, null!);
-
-    public bool ChangeApplicationMode(WinoApplicationMode mode, ShellModeActivationContext activationContext)
-    {
-        if (_stopping) return false;
-        if (mode == WinoApplicationMode.Settings)
-        {
-            if (SettingsPresenter is not { } settings) return false;
-            _pending = ObserveAsync(settings.ShowAsync());
-            return true;
-        }
-        _pending = ObserveAsync(ActivateModeAsync(mode, activationContext));
-        return true;
-    }
-
-    /// <summary>Shows the shell if needed, then lets it activate the mode like the Windows WinoAppShell.</summary>
-    private async Task ActivateModeAsync(WinoApplicationMode mode, ShellModeActivationContext? activationContext)
-    {
-        await ShowShellAsync();
-        if (_shell is { } shell && !_stopping) await shell.ActivateModeAsync(mode, activationContext);
-    }
-
-    /// <summary>True when the mode's root page has a native route (feature registries add them as they are built).</summary>
-    public bool IsModeAvailable(WinoApplicationMode mode) => mode switch
-    {
-        WinoApplicationMode.Mail => _registry.TryGet(WinoPage.MailListPage, out _, out _),
-        WinoApplicationMode.Calendar => _registry.TryGet(WinoPage.CalendarPage, out _, out _),
-        WinoApplicationMode.Contacts => _registry.TryGet(WinoPage.ContactsPage, out _, out _),
-        WinoApplicationMode.Tasks => _registry.TryGet(WinoPage.ToDoPage, out _, out _),
-        WinoApplicationMode.Settings => SettingsPresenter is not null,
-        _ => false
-    };
-
-    public bool ParkShell() => _shell is not null;
-    public bool RestoreShell(WinoApplicationMode mode) => ChangeApplicationMode(mode);
-    public bool RestoreShell(WinoApplicationMode mode, ShellModeActivationContext activationContext) => ChangeApplicationMode(mode, activationContext);
-    public bool CanGoBack() => !_stopping && (_secondaryWindow is not null || _history.Count > 0);
-
-    public void GoBack(NavigationTransitionEffect slideEffect = NavigationTransitionEffect.FromRight)
-    {
-        if (_secondaryWindow is null && SettingsPresenter?.TryGoBack() == true) return;
-        _pending = ObserveAsync(GoBackAsync(slideEffect));
-    }
-
-    public async Task<bool> GoBackAsync(NavigationTransitionEffect slideEffect = NavigationTransitionEffect.FromRight)
-    {
-        if (_secondaryWindow is null && SettingsPresenter?.TryGoBack() == true) return true;
-        if (_secondaryWindow is not null)
-        {
-            if (_secondaryHistory.Count == 0) { await CloseSecondaryWindowAsync(); return true; }
-            var back = _secondaryHistory.Pop();
-            await _gate.WaitAsync();
-            try
-            {
-                NSViewController controller = null!;
-                await _dispatcher.ExecuteOnUIThread(() => controller = CreateController(back.Page));
-                await ShowInSecondaryWindowAsync(controller, back.Page, back.Parameter, NavigationMode.Back, addHistory: false);
-            }
-            finally { _gate.Release(); }
-            return true;
-        }
-        if (!CanGoBack()) return false;
-        // Same contract as the Windows NavigationService: the page on screen may refuse to leave.
-        if (_shellContent is IViewModelHost { AssociatedViewModel: IConfirmBackNavigation confirm } && !await confirm.CanNavigateBackAsync())
-        {
-            _result = null;
-            return false;
-        }
-        var route = _history.Pop();
-        if (route.Page == WinoPage.None && _shell is not null)
-        {
-            await _shell.ClearContentAsync();
-            _page = WinoPage.None; _parameter = null;
-            return true;
-        }
-        await NavigateOwnedAsync(route.Page, route.Parameter, NavigationMode.Back, addHistory: false);
-        var result = _result;
-        _result = null;
-        if (_shellContent is IViewModelHost { AssociatedViewModel: IBackNavigationAware aware })
-            await _dispatcher.ExecuteOnUIThread(() => aware.OnNavigatedBack(route.Parameter!, result!));
-        return true;
-    }
-
-    public void SetNavigationResult(NavigationResult result) => _result = result;
-    public void Receive(BreadcrumbNavigationRequested message) => Navigate(message.PageType, message.Parameter);
-    public void Receive(BackBreadcrumNavigationRequested message)
-    {
-        if (message.Result is not null) _result = message.Result;
-        GoBack();
-    }
-    public void Receive(AccountCreatedMessage message) => _pending = ObserveAsync(AccountCreatedAsync(message.Account));
-
-    private async Task AccountCreatedAsync(Wino.Core.Domain.Entities.Shared.MailAccount account)
-    {
-        // From Settings › Add account the shell already exists: just close the add-account window.
-        if (_secondaryWindow is not null) await CloseSecondaryWindowAsync();
-        await ShowShellAsync();
-        // Windows App.Receive(AccountCreatedMessage): the runtime holds a new account's first full
-        // mail, calendar, contacts and To Do synchronization until the host hands it over after the
-        // shell is up. Without it only the shell's Inbox sync ran and calendar events never arrived.
-        await _services.GetRequiredService<IApplicationRuntime>().SynchronizeCreatedAccountAsync(account);
-    }
-    public void Receive(WelcomeImportCompletedMessage message) => _pending = ObserveAsync(ShowShellAsync());
-
-    public void Receive(AccountRemovedMessage message) => _pending = ObserveAsync(AccountRemovedAsync());
-
-    /// <summary>
-    /// Windows App.HandleAccountRemovedAsync: once the last account is gone while the shell is up
-    /// (not during an onboarding rollback), every app window closes and the Welcome window returns.
-    /// </summary>
-    private async Task AccountRemovedAsync()
-    {
-        if (_stopping || _shell is null) return;
-        var accounts = await _services.GetRequiredService<IAccountService>().GetAccountsAsync();
-        if (accounts.Count > 0 || _stopping || _shell is null) return;
-        _services.GetService<WelcomeWizardContext>()?.Reset();
-        await ReturnToWelcomeAsync();
-    }
-
-    private async Task ReturnToWelcomeAsync()
-    {
-        if (SettingsPresenter is { } settings) await settings.CloseAsync();
-        await CloseSecondaryWindowAsync();
-        await _gate.WaitAsync();
-        try
-        {
-            if (_stopping || _shell is null) return;
-            NSViewController controller = null!;
-            await _dispatcher.ExecuteOnUIThread(() => controller = CreateController(WinoPage.WelcomePageV2));
-            // The shell and its window are released by the window switch; a new account creates a fresh shell.
-            _history.Clear();
-            await ReplaceWindowContentAsync(controller, WinoPage.WelcomePageV2, null, NavigationMode.New, addHistory: false);
-            _history.Clear();
-            _renderingHost = null;
-            await _dispatcher.ExecuteOnUIThread(() => CloseAuxiliaryWindows(controller.View.Window));
-        }
-        finally { _gate.Release(); }
+        NSViewController? created = null;
+        await _dispatcher.ExecuteOnUIThread(() => created = (NSViewController)_services.GetRequiredService(type));
+        return created ?? throw new InvalidOperationException($"The native route {page} produced no controller.");
     }
 
     /// <summary>Closes the remaining titled app windows (compose pop-outs, What's New, sign-in) except <paramref name="keep"/>.</summary>
@@ -449,24 +290,4 @@ public sealed class AppKitNavigationService : INavigationService, IDisposable,
             window.Close();
         }
     }
-
-    public async Task StopAsync()
-    {
-        if (_stopping) return;
-        _stopping = true;
-        WeakReferenceMessenger.Default.UnregisterAll(this);
-        await _pending;
-        if (SettingsPresenter is { } settings) await settings.StopAsync();
-        await CloseSecondaryWindowAsync();
-        await _gate.WaitAsync();
-        try
-        {
-            if (_current is IWinoViewController controller) await controller.ReleaseAsync();
-            await _dispatcher.ExecuteOnUIThread(() => _current?.Dispose());
-            _current = null; _shell = null; _renderingHost = null;
-        }
-        finally { _gate.Release(); }
-    }
-
-    public void Dispose() => WeakReferenceMessenger.Default.UnregisterAll(this);
 }

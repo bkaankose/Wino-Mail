@@ -2,7 +2,7 @@ using AppKit;
 using Foundation;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.MacOS.Bindings.StoreKit2;
+using Wino.Core.Apple.Bindings.StoreKit2;
 
 namespace Wino.Platform.MacOS.Services;
 

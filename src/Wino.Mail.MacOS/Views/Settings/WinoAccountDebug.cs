@@ -7,7 +7,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.MacOS.Bindings.StoreKit2;
+using Wino.Core.Apple.Bindings.StoreKit2;
 using Wino.Core.ViewModels;
 using Wino.Mail.MacOS.Infrastructure;
 

@@ -16,6 +16,7 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.Mvvm" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
 		<PackageReference Include="EmailValidation" />
 		<PackageReference Include="TimePeriodLibrary.NET" />
 		<PackageReference Include="Microsoft.Identity.Client" />

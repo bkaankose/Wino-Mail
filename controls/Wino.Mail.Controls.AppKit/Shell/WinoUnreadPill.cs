@@ -1,4 +1,5 @@
 using AppKit;
+using Wino.Mail.Controls.Core;
 using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.Controls.AppKit.Shell;
@@ -52,7 +53,7 @@ public sealed class WinoUnreadPill : WinoSurfaceView
     {
         set
         {
-            var text = value > 999 ? "999+" : value.ToString();
+            var text = WinoControlText.UnreadPill(value);
             if (_label.StringValue != text)
             {
                 _label.StringValue = text;

@@ -3,6 +3,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.Controls.Core.IntelligenceHeader;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Controls;
 
 namespace Wino.Mail.Controls.AppKit.Intelligence;
 
@@ -30,8 +31,6 @@ public sealed partial class WinoIntelligenceHeaderView
     private NSTextField _translationBusyText = null!;
     private NSStackView _translationAppliedRow = null!;
     private NSTextField _translationStatusText = null!;
-    private WinoIntelligenceLanguageOption[] _sourceOptions = [];
-    private WinoIntelligenceLanguageOption[] _targetOptions = [];
 
     private void BuildPanels()
     {
@@ -40,9 +39,9 @@ public sealed partial class WinoIntelligenceHeaderView
         _summaryCopyButton = IconButton(WinoIconGlyph.Copy, Translator.WinoIntelligence_Copy);
         _summaryCopyButton.Activated += (_, _) => CopySummary();
         _summaryRegenerateButton = IconButton(WinoIconGlyph.ArrowClockwise, Translator.WinoIntelligence_Regenerate);
-        _summaryRegenerateButton.Activated += (_, _) => { if (_state.IsSummaryAvailable) SummaryRequested?.Invoke(this, EventArgs.Empty); };
+        _summaryRegenerateButton.Activated += (_, _) => { if (_view.CanRequestSummary) SummaryRequested?.Invoke(this, EventArgs.Empty); };
         var summaryClose = IconButton(WinoIconGlyph.Dismiss, Translator.WinoIntelligence_ClosePanel);
-        summaryClose.Activated += (_, _) => ClosePanel(Panel.Summary);
+        summaryClose.Activated += (_, _) => ClosePanel(WinoIntelligenceHeaderPanel.Summary);
         var summaryHeader = WinoLayout.HStack(4, summaryHeading, WinoLayout.Spacer(), _summaryCopyButton, _summaryRegenerateButton, summaryClose);
 
         _summarySpinner = Spinner();
@@ -61,18 +60,18 @@ public sealed partial class WinoIntelligenceHeaderView
         // ---- Translation ----
         var translateHeading = WinoStyle.Label(Translator.WinoIntelligence_TranslateMessage, WinoStyle.BodyStrong);
         var translateClose = IconButton(WinoIconGlyph.Dismiss, Translator.WinoIntelligence_ClosePanel);
-        translateClose.Activated += (_, _) => ClosePanel(Panel.Translate);
+        translateClose.Activated += (_, _) => ClosePanel(WinoIntelligenceHeaderPanel.Translate);
         var translateHeader = WinoLayout.HStack(4, translateHeading, WinoLayout.Spacer(), translateClose);
 
         _sourcePicker = LanguagePicker(Translator.WinoIntelligence_SourceLanguage);
-        _sourcePicker.Activated += (_, _) => PickerChanged(_sourcePicker, _sourceOptions, SourceLanguageChanged);
+        _sourcePicker.Activated += (_, _) => PickerChanged(_sourcePicker, _view.SourceOptions, SourceLanguageChanged);
         _targetPicker = LanguagePicker(Translator.WinoIntelligence_TargetLanguage);
-        _targetPicker.Activated += (_, _) => PickerChanged(_targetPicker, _targetOptions, TargetLanguageChanged);
+        _targetPicker.Activated += (_, _) => PickerChanged(_targetPicker, _view.TargetOptions, TargetLanguageChanged);
         var sourceLabel = WinoStyle.Label(Translator.WinoIntelligence_SourceLanguage, WinoStyle.Caption, WinoStyle.SecondaryText);
         var targetLabel = WinoStyle.Label(Translator.WinoIntelligence_TargetLanguage, WinoStyle.Caption, WinoStyle.SecondaryText);
         var arrow = new WinoIconView(WinoIconGlyph.ArrowRight, 12, WinoStyle.SecondaryText);
         _translationRunButton = PanelButton(Translator.WinoIntelligence_Translate);
-        _translationRunButton.Activated += (_, _) => { if (_state.IsTranslateAvailable && !_state.IsTranslationBusy) TranslateRequested?.Invoke(this, EventArgs.Empty); };
+        _translationRunButton.Activated += (_, _) => { if (_view.CanRequestTranslation) TranslateRequested?.Invoke(this, EventArgs.Empty); };
         var pickers = WinoLayout.HStack(8,
             WinoLayout.VStack(2, sourceLabel, _sourcePicker),
             arrow,
@@ -99,57 +98,47 @@ public sealed partial class WinoIntelligenceHeaderView
 
     private void SyncPanels()
     {
-        var state = _state;
-        var expanded = _expanded && state.CanExpand;
-        var summaryOpen = expanded && _openPanel == Panel.Summary;
-        var translateOpen = expanded && _openPanel == Panel.Translate;
+        var state = CurrentState;
 
-        _summaryPanel.Hidden = !summaryOpen;
-        var summaryBusy = summaryOpen && state.SummaryState == WinoIntelligenceFeatureState.Busy;
-        var summaryDone = summaryOpen && state.SummaryState == WinoIntelligenceFeatureState.Done;
+        _summaryPanel.Hidden = !_view.IsSummaryPanelOpen;
+        var summaryBusy = _view.IsSummaryWaitingShown;
         _summaryWaitingRow.Hidden = !summaryBusy;
         if (summaryBusy) _summarySpinner.StartAnimation(this);
         else _summarySpinner.StopAnimation(this);
         _summaryText.StringValue = state.SummaryText ?? string.Empty;
-        _summaryText.Hidden = !summaryDone;
-        _summaryCopyButton.Enabled = summaryDone && !string.IsNullOrWhiteSpace(state.SummaryText);
-        _summaryRegenerateButton.Enabled = state.IsSummaryAvailable && !summaryBusy;
+        _summaryText.Hidden = !_view.IsSummaryTextShown;
+        _summaryCopyButton.Enabled = _view.CanCopySummary;
+        _summaryRegenerateButton.Enabled = _view.CanRegenerateSummary;
 
-        _translatePanel.Hidden = !translateOpen;
-        var translationBusy = translateOpen && state.IsTranslationBusy;
+        _translatePanel.Hidden = !_view.IsTranslatePanelOpen;
+        var translationBusy = _view.IsTranslationWaitingShown;
         _translationWaitingRow.Hidden = !translationBusy;
         if (translationBusy) _translationSpinner.StartAnimation(this);
         else _translationSpinner.StopAnimation(this);
         _translationBusyText.StringValue = state.TranslationStatusText ?? string.Empty;
-        _translationAppliedRow.Hidden = !(translateOpen && state.HasTranslationResult && !state.IsTranslationBusy);
+        _translationAppliedRow.Hidden = !_view.IsTranslationAppliedShown;
         _translationStatusText.StringValue = state.TranslationStatusText ?? string.Empty;
 
-        _translationRunButton.Title = state.IsTranslationApplied
-            ? Translator.WinoIntelligence_ShowOriginal
-            : state.HasTranslationResult ? Translator.WinoIntelligence_TranslateAgain : Translator.WinoIntelligence_Translate;
-        _translationRunButton.Enabled = !state.IsTranslationBusy
-            && (string.IsNullOrWhiteSpace(state.SelectedSourceLanguage)
-                || !string.Equals(state.SelectedSourceLanguage, state.SelectedTargetLanguage, StringComparison.OrdinalIgnoreCase));
+        _translationRunButton.Title = WinoIntelligenceHeaderText.RunTitle(_view.TranslateRunKind);
+        _translationRunButton.Enabled = _view.IsTranslateRunEnabled;
         _sourcePicker.Enabled = !state.IsTranslationBusy;
         _targetPicker.Enabled = !state.IsTranslationBusy;
-        Select(_sourcePicker, _sourceOptions, state.SelectedSourceLanguage);
-        Select(_targetPicker, _targetOptions, state.SelectedTargetLanguage);
+        Select(_sourcePicker, _view.SourceOptions, state.SelectedSourceLanguage);
+        Select(_targetPicker, _view.TargetOptions, state.SelectedTargetLanguage);
     }
 
     /// <summary>The source picker lists "Detect" and every language; the target picker omits "Detect".</summary>
     private void RebuildLanguagePickers()
     {
-        _sourceOptions = _state.Languages.ToArray();
-        _targetOptions = _state.Languages.Where(language => !string.IsNullOrWhiteSpace(language.Code)).ToArray();
         _sourcePicker.RemoveAllItems();
-        _sourcePicker.AddItems(_sourceOptions.Select(language => language.Label).ToArray());
+        _sourcePicker.AddItems(_view.SourceOptions.Select(language => language.Label).ToArray());
         _targetPicker.RemoveAllItems();
-        _targetPicker.AddItems(_targetOptions.Select(language => language.Label).ToArray());
+        _targetPicker.AddItems(_view.TargetOptions.Select(language => language.Label).ToArray());
     }
 
     private static void Select(NSPopUpButton picker, WinoIntelligenceLanguageOption[] options, string code)
     {
-        var index = Array.FindIndex(options, language => string.Equals(language.Code, code ?? string.Empty, StringComparison.OrdinalIgnoreCase));
+        var index = WinoIntelligenceHeaderViewState.LanguageIndex(options, code);
         if (index >= 0 && picker.IndexOfSelectedItem != index) picker.SelectItem(index);
     }
 
@@ -163,25 +152,24 @@ public sealed partial class WinoIntelligenceHeaderView
 
     private void CancelSummary()
     {
-        if (_state.SummaryState != WinoIntelligenceFeatureState.Busy) return;
-        _openPanel = Panel.None;
+        if (!_view.CancelSummary()) return;
         SummaryCancelRequested?.Invoke(this, EventArgs.Empty);
         Sync();
     }
 
     private void CancelTranslation()
     {
-        if (!_state.IsTranslationBusy) return;
+        if (!_view.CancelTranslation()) return;
         TranslationCancelRequested?.Invoke(this, EventArgs.Empty);
-        ClosePanel(Panel.Translate);
+        Sync();
     }
 
     private void CopySummary()
     {
-        if (string.IsNullOrWhiteSpace(_state.SummaryText)) return;
+        if (string.IsNullOrWhiteSpace(CurrentState.SummaryText)) return;
         var pasteboard = NSPasteboard.GeneralPasteboard;
         pasteboard.ClearContents();
-        pasteboard.SetStringForType(_state.SummaryText, NSPasteboard.NSPasteboardTypeString);
+        pasteboard.SetStringForType(CurrentState.SummaryText, NSPasteboard.NSPasteboardTypeString);
     }
 
     private static NSProgressIndicator Spinner() => new()

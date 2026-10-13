@@ -6,6 +6,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Controls.AppKit.Settings;
 using Wino.Mail.MacOS.Views.Onboarding;
 using Wino.Presentation.AppKit;
+using Wino.Core.Domain.Presentation;
 
 namespace Wino.Mail.MacOS.Views;
 
@@ -280,25 +281,9 @@ public sealed class ProviderCard : WinoSurfaceView
         AccessibilityHelp = description;
     }
 
-    /// <summary>Same mapping as the Windows XamlHelpers.GetProviderIcon.</summary>
+    /// <summary>The shared provider brand glyph (<see cref="MailProviderGlyphs"/>); other provider types show the IMAP glyph.</summary>
     public static WinoIconGlyph Glyph(MailProviderType type, SpecialImapProvider special)
-    {
-        if (special == SpecialImapProvider.None)
-        {
-            return type switch
-            {
-                MailProviderType.Outlook => WinoIconGlyph.Microsoft,
-                MailProviderType.Gmail => WinoIconGlyph.Google,
-                _ => WinoIconGlyph.IMAP
-            };
-        }
-        return special switch
-        {
-            SpecialImapProvider.iCloud => WinoIconGlyph.Apple,
-            SpecialImapProvider.Yahoo => WinoIconGlyph.Yahoo,
-            _ => Enum.TryParse<WinoIconGlyph>(special.ToString(), out var brand) ? brand : WinoIconGlyph.IMAP
-        };
-    }
+        => MailProviderGlyphs.GetGlyph(type, special) is var glyph && glyph != WinoIconGlyph.None ? glyph : WinoIconGlyph.IMAP;
 
     public IProviderDetail? Provider { get; }
     public event EventHandler? Activated;

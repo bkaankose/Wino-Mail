@@ -47,7 +47,7 @@ public partial class UnreadBadgeSettingsPageViewModel : MailBaseViewModel
         IsLaunchNavigationEnabled = _preferencesService.IsTaskbarBadgeLaunchNavigationEnabled;
     }
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 

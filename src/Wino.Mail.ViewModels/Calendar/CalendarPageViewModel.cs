@@ -398,7 +398,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         (await _externalLauncher.LaunchUriAsync(joinUri)).ThrowIfNotSucceeded();
     }
 
-    public override void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override void OnNavigatedTo(NavigationMode mode, object? parameters)
     {
         ResetPageLifetime();
         base.OnNavigatedTo(mode, parameters);
@@ -409,7 +409,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         _ = Readiness.ActivateAsync();
     }
 
-    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    public override void OnNavigatedFrom(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedFrom(mode, parameters);
         Readiness.Deactivate();

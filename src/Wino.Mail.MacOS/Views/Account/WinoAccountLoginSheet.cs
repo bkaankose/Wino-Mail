@@ -105,19 +105,19 @@ internal sealed class WinoAccountLoginSheet : WinoAccountSheet<WinoAccountLoginO
             {
                 var response = await _profile.ForgotPasswordAsync(email);
                 if (response.IsSuccess) { Finish(new WinoAccountLoginOutcome(null, PasswordResetEmail: email)); return; }
-                error = WinoAccountErrorText.Translate(response.ErrorCode);
+                error = WinoAccountAuthErrorTranslator.Translate(response.ErrorCode);
             }
             else
             {
                 var result = await _profile.LoginAsync(email, _password.StringValue);
                 if (result.IsSuccess && result.Account is not null) { Finish(new WinoAccountLoginOutcome(result.Account)); return; }
-                var details = WinoAccountErrorText.ParseConfirmation(result.ErrorDetails);
-                if (WinoAccountErrorText.IsEmailConfirmationRequired(result.ErrorCode) && details is not null)
+                var details = WinoAccountEmailConfirmationHelper.Parse(result.ErrorDetails);
+                if (WinoAccountEmailConfirmationHelper.IsEmailConfirmationRequiredError(result.ErrorCode) && details is not null)
                 {
                     Finish(new WinoAccountLoginOutcome(null, email, details));
                     return;
                 }
-                error = WinoAccountErrorText.Format(result.ErrorCode, result.ErrorMessage);
+                error = WinoAccountAuthErrorTranslator.Format(result.ErrorCode, result.ErrorMessage);
             }
         }
         finally { SetBusy(false); }

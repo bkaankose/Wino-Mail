@@ -44,13 +44,10 @@ public static class SettingsPageCatalog
         return entries;
     }
 
-    private static bool IsVisible(WinoPage page) => page switch
-    {
-        WinoPage.SettingOptionsPage => false,
-        WinoPage.SignatureAndEncryptionPage => IsSmimeAvailable,
-        WinoPage.WinoIntelligencePage => CanAccessIntelligence?.Invoke() ?? false,
-        _ => true
-    };
+    /// <summary>The Windows home grid is replaced by the sidebar; every other page follows the shared availability rule.</summary>
+    private static bool IsVisible(WinoPage page)
+        => page != WinoPage.SettingOptionsPage
+            && SettingsPageAvailability.IsAvailable(page, IsSmimeAvailable, page == WinoPage.WinoIntelligencePage && (CanAccessIntelligence?.Invoke() ?? false));
 
     /// <summary>Search results in the shared ranking (title, keywords, description), without group headers.</summary>
     public static IReadOnlyList<SettingsSidebarEntry> Search(string query)

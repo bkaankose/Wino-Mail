@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Serilog.Core;
 using Wino.Authentication;
 using Wino.Core.Domain.Interfaces;
@@ -75,7 +76,12 @@ public static class CoreContainerSetup
         services.AddTransient<IAutoDiscoveryService, AutoDiscoveryService>();
         services.AddTransient<IUnsubscriptionService, UnsubscriptionService>();
         services.AddTransient<IOutlookAuthenticator, OutlookAuthenticator>();
-        services.AddTransient<IGmailAuthenticator, GmailAuthenticator>();
+        // Desktop default; a head that cannot listen on loopback registers its own receiver.
+        services.TryAddTransient<IGoogleAuthorizationCodeReceiver>(CreateLoopbackGoogleAuthorizationCodeReceiver);
+        services.AddTransient<IGmailAuthenticator>(provider => new GmailAuthenticator(
+            provider.GetRequiredService<IAuthenticatorConfig>(),
+            provider.GetRequiredService<IGoogleAuthorizationCodeReceiver>(),
+            provider.GetRequiredService<IGoogleTokenStore>()));
 
         services.AddTransient<UnifiedImapSynchronizer>();
         services.AddTransient<ICardDavSynchronizationEngine, CardDavSynchronizationEngine>();
@@ -112,4 +118,17 @@ public static class CoreContainerSetup
         // Register retry executor
         services.AddTransient<IRetryExecutor, RetryExecutor>();
     }
+
+    /// <summary>
+    /// Selects the loopback (desktop browser) Google authorization receiver. It replaces any earlier
+    /// receiver registration, so a head can state its choice after <see cref="RegisterCoreServices"/>.
+    /// </summary>
+    public static IServiceCollection AddLoopbackGoogleAuthorizationCodeReceiver(this IServiceCollection services)
+        => services.Replace(ServiceDescriptor.Transient<IGoogleAuthorizationCodeReceiver>(CreateLoopbackGoogleAuthorizationCodeReceiver));
+
+    private static IGoogleAuthorizationCodeReceiver CreateLoopbackGoogleAuthorizationCodeReceiver(System.IServiceProvider provider)
+        => new WinoGmailCodeReceiver(
+            provider.GetRequiredService<IExternalLauncher>(),
+            provider.GetService<IExternalBrowserAuthenticationPresenter>(),
+            provider.GetRequiredService<IAuthenticatorConfig>().ApplicationDisplayName);
 }

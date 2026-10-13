@@ -11,8 +11,6 @@ public static partial class MacViewModelRegistration
     static partial void RegisterShellExtrasViews(IServiceCollection services)
     {
         // Same transient lifetimes as the WinUI registration; the presenters keep the instance they need.
-        services.AddTransient<DailyBriefingPanelViewModel>();
-        services.AddTransient<WhatsNewPageViewModel>();
         services.AddTransient<WhatsNewPageViewController>();
 
         services.AddSingleton<DailyBriefingPresenter>();

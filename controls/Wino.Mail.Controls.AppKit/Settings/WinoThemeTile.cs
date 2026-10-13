@@ -2,6 +2,7 @@ using AppKit;
 using CoreGraphics;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.Controls.AppKit.Extras;
+using Wino.Mail.Controls.Core.Layout;
 using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.Controls.AppKit.Settings;
@@ -96,12 +97,9 @@ public sealed class WinoThemeTile : WinoPressableView
             clip.AddClip();
 
             bool dark = isDark || (gradient is null && wallpaper is null && WinoIcons.IsDark(EffectiveAppearance));
-            if (wallpaper is { } image && image.Size.Width > 0 && image.Size.Height > 0)
+            if (wallpaper is { } image && WinoAspectFill.Frame(image.Size.Width, image.Size.Height, bounds.Width, bounds.Height) is { } placed)
             {
-                var scale = Math.Max(bounds.Width / image.Size.Width, bounds.Height / image.Size.Height);
-                var size = new CGSize(image.Size.Width * scale, image.Size.Height * scale);
-                var target = new CGRect((bounds.Width - size.Width) / 2, (bounds.Height - size.Height) / 2, size.Width, size.Height);
-                image.Draw(target, CGRect.Empty, NSCompositingOperation.SourceOver, 1, true, null);
+                image.Draw(new CGRect(placed.X, placed.Y, placed.Width, placed.Height), CGRect.Empty, NSCompositingOperation.SourceOver, 1, true, null);
             }
             else if (gradient is { Length: 4 } stops)
             {

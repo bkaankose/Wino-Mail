@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Personalization;
 using Wino.Mail.MacOS.Infrastructure;
+using Wino.Presentation;
 using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.MacOS.Views.Settings;

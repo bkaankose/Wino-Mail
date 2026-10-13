@@ -29,8 +29,8 @@ public interface IMailDialogService : IDialogServiceBase
     Task HandleSystemFolderConfigurationDialogAsync(Guid accountId, IFolderService folderService);
 
     // Custom dialogs
-    Task<IMailItemFolder> ShowMoveMailFolderDialogAsync(List<IMailItemFolder> availableFolders);
-    Task<MailAccount> ShowAccountPickerDialogAsync(List<MailAccount> availableAccounts);
+    Task<IMailItemFolder?> ShowMoveMailFolderDialogAsync(List<IMailItemFolder> availableFolders);
+    Task<MailAccount?> ShowAccountPickerDialogAsync(List<MailAccount> availableAccounts);
     Task<AccountCalendarPickingResult> ShowSingleCalendarPickerDialogAsync(List<CalendarPickerAccountGroup> availableCalendarGroups);
     Task<ContactCreateDestination?> ShowContactDestinationPickerDialogAsync(IReadOnlyList<ContactCreateDestination> destinations);
     Task<ContactListCreationResult?> ShowNewContactListDialogAsync(IReadOnlyList<MailAccount> accounts, MailAccount? selectedAccount);
@@ -51,13 +51,13 @@ public interface IMailDialogService : IDialogServiceBase
     /// <param name="accountId">Account to get folders for.</param>
     /// <param name="reason">The reason behind the picking operation
     /// <returns>Selected folder structure. Null if none.</returns>
-    Task<IMailItemFolder> PickFolderAsync(Guid accountId, PickFolderReason reason, IFolderService folderService);
+    Task<IMailItemFolder?> PickFolderAsync(Guid accountId, PickFolderReason reason, IFolderService folderService);
 
     /// <summary>
     /// Presents a dialog to the user for signature creation/modification.
     /// </summary>
     /// <returns>Signature information. Null if canceled.</returns>
-    Task<AccountSignature> ShowSignatureEditorDialog(AccountSignature? signatureModel = null);
+    Task<AccountSignature?> ShowSignatureEditorDialog(AccountSignature? signatureModel = null);
 
     /// <summary>
     /// Presents a dialog to the user for account alias creation/modification.
@@ -68,9 +68,8 @@ public interface IMailDialogService : IDialogServiceBase
     /// <summary>
     /// Presents a dialog to the user for mail category creation/modification.
     /// </summary>
-#pragma warning disable CS8625
-    Task<MailCategoryDialogResult> ShowEditMailCategoryDialogAsync(MailCategory category = null);
-#pragma warning restore CS8625
+    /// <returns>The edited category, or null when the user cancels.</returns>
+    Task<MailCategoryDialogResult?> ShowEditMailCategoryDialogAsync(MailCategory? category = null);
 
     /// <summary>
     /// Presents a dialog to the user to show email source.
@@ -93,9 +92,7 @@ public interface IMailDialogService : IDialogServiceBase
     /// </summary>
     /// <param name="existingShortcut">Existing shortcut to edit, or null for new shortcut.</param>
     /// <returns>Dialog result with shortcut information.</returns>
-#pragma warning disable CS8625
-    Task<KeyboardShortcutDialogResult> ShowKeyboardShortcutDialogAsync(KeyboardShortcut existingShortcut = null);
-#pragma warning restore CS8625
+    Task<KeyboardShortcutDialogResult> ShowKeyboardShortcutDialogAsync(KeyboardShortcut? existingShortcut = null);
 
     Task<WinoAccount?> ShowWinoAccountRegistrationDialogAsync();
 

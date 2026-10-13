@@ -72,7 +72,7 @@ internal sealed class WinoAccountRegistrationSheet : WinoAccountSheet<string>
         {
             var result = await _profile.RegisterWithProfileAsync(_email.StringValue.Trim(), _password.StringValue, _name.StringValue.Trim());
             if (result.IsSuccess && result.Account is not null) { Finish(result.Account.Email); return; }
-            error = WinoAccountErrorText.Format(result.ErrorCode, result.ErrorMessage);
+            error = WinoAccountAuthErrorTranslator.Format(result.ErrorCode, result.ErrorMessage);
         }
         finally { SetBusy(false); }
         await ShowErrorAsync(error);

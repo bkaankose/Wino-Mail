@@ -14,6 +14,7 @@ using Wino.Mail.Controls.AppKit.Shell;
 using Wino.Mail.Controls.Core.AccountIcon;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.AppKit;
+using Wino.Core.Domain.Presentation;
 
 namespace Wino.Mail.MacOS.Views.Shell;
 
@@ -168,7 +169,7 @@ internal sealed class ShellPaneCell : NSTableCellView
         _item = item;
         ObserveParameter(null);
         Reset();
-        bool enabled = ShellPaneRows.IsEnabled(item);
+        bool enabled = ShellMenuItemRules.IsEnabled(item);
         AlphaValue = enabled ? 1 : 0.45f;
         _chevron.Hidden = !hasChildren;
         _chevron.Icon = item.IsExpanded ? WinoIconGlyph.ChevronDown : WinoIconGlyph.ChevronRight;
@@ -205,7 +206,7 @@ internal sealed class ShellPaneCell : NSTableCellView
                 SetSync(merged.IsSynchronizationProgressVisible, merged.IsProgressIndeterminate, merged.SynchronizationProgressValue);
                 _pill.Count = merged.UnreadItemCount;
                 break;
-            case IAccountNavigationMenuItem account when ShellPaneRows.IsAccountRow(account):
+            case IAccountNavigationMenuItem account when ShellMenuItemRules.IsAccountRow(account):
                 Leading(AccountIconSize);
                 _accountIcon.Hidden = false;
                 _accountIcon.Account = account.Account is { } mailAccount ? _context.AccountIcon(mailAccount) : null;
@@ -230,13 +231,13 @@ internal sealed class ShellPaneCell : NSTableCellView
                 SetTitle(Translator.More, bold ? WinoStyle.BodyStrong : WinoStyle.Body);
                 break;
             case FolderMenuItem { HasTextColor: true } coloured:
-                GlyphRow(ShellPaneRows.FolderGlyph(coloured.SpecialFolderType), 16, null);
+                GlyphRow(SpecialFolderGlyphs.GetGlyph(coloured.SpecialFolderType), 16, null);
                 SetTitle(coloured.FolderName, bold ? WinoStyle.BodyStrong : WinoStyle.Body, WinoStyle.FromHexString(coloured.Parameter?.TextColorHex),
                     WinoStyle.FromHexString(coloured.Parameter?.BackgroundColorHex));
                 _pill.Count = coloured.ShowUnreadCount ? coloured.UnreadItemCount : 0;
                 break;
             case IBaseFolderMenuItem folder:
-                GlyphRow(ShellPaneRows.FolderGlyph(folder.SpecialFolderType), 16, null);
+                GlyphRow(SpecialFolderGlyphs.GetGlyph(folder.SpecialFolderType), 16, null);
                 SetTitle(folder.FolderName, bold ? WinoStyle.BodyStrong : WinoStyle.Body);
                 _pill.Count = folder.ShowUnreadCount ? folder.UnreadItemCount : 0;
                 break;

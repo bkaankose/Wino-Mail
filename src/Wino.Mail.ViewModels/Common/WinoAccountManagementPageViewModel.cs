@@ -437,10 +437,10 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         _preferencesService.AiSummarizeLanguageCode = value.Code;
     }
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
         => await InitializeAsync(mode, parameters);
 
-    public async Task InitializeAsync(NavigationMode mode, object parameters)
+    public async Task InitializeAsync(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
         var forceProfileRefresh = parameters is WinoAccountManagementActivationReason.CheckoutCompleted;

@@ -11,6 +11,7 @@ using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Controls.AppKit.Shell;
 using Wino.Presentation.AppKit;
+using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.MacOS.Views.Shell;
 
@@ -152,7 +153,7 @@ internal sealed partial class ShellSidebarViewController : NSViewController
     }
 
     private bool IsSelectable(IMenuItem item)
-        => _handlesSelection && ShellPaneRows.IsInteractive(item) && ShellPaneRows.SelectsOnInvoked(item) && ShellPaneRows.IsEnabled(item);
+        => _handlesSelection && ShellMenuItemRules.IsInteractive(item) && ShellMenuItemRules.SelectsOnInvoked(item) && ShellMenuItemRules.IsEnabled(item);
 
     /// <summary>Mouse clicks: rows that do not select still invoke, and parents toggle their children.</summary>
     private void Clicked(object? sender, EventArgs args)
@@ -160,7 +161,7 @@ internal sealed partial class ShellSidebarViewController : NSViewController
         var row = _outline.ClickedRow;
         if (row < 0 || _outline.ItemAtRow(row) is not Node node) return;
         var item = node.Item;
-        if (!ShellPaneRows.IsInteractive(item) || !ShellPaneRows.IsEnabled(item)) return;
+        if (!ShellMenuItemRules.IsInteractive(item) || !ShellMenuItemRules.IsEnabled(item)) return;
         if (IsSelectable(item))
         {
             // A selection change for this click was already handled; a click on the selected row re-invokes.
@@ -209,7 +210,7 @@ internal sealed partial class ShellSidebarViewController : NSViewController
     {
         if (row < 0 || _outline.ItemAtRow(row) is not Node node) return null;
         var item = node.Item;
-        if (!ShellPaneRows.IsEnabled(item)) return null;
+        if (!ShellMenuItemRules.IsEnabled(item)) return null;
         object? part = null;
         if (item is AccountCalendarGroupMenuItem { Parameter: { IsExpanded: true } group })
         {
@@ -386,7 +387,7 @@ internal sealed partial class ShellSidebarViewController : NSViewController
 
         public bool TryGetNode(IMenuItem item, out Node node) => _nodes.TryGetValue(item, out node!);
 
-        public bool HasChildren(IMenuItem item) => ShellPaneRows.Children(item).Any(ShellPaneRows.IsShown);
+        public bool HasChildren(IMenuItem item) => ShellMenuItemRules.Children(item).Any(ShellMenuItemRules.IsShown);
 
         public void Bind(IList<IMenuItem>? items)
         {
@@ -408,11 +409,11 @@ internal sealed partial class ShellSidebarViewController : NSViewController
         {
             foreach (var item in items ?? Array.Empty<IMenuItem>())
             {
-                if (!ShellPaneRows.IsShown(item) || !_nodes.TryGetValue(item, out var node)) continue;
+                if (!ShellMenuItemRules.IsShown(item) || !_nodes.TryGetValue(item, out var node)) continue;
                 // Accounts start expanded like the Windows pane; folders follow their model state.
                 if (item.IsExpanded || item is IAccountMenuItem) owner._outline.ExpandItem(node);
                 else owner._outline.CollapseItem(node);
-                ExpandFromModel(ShellPaneRows.Children(item));
+                ExpandFromModel(ShellMenuItemRules.Children(item));
             }
         }
 
@@ -423,7 +424,7 @@ internal sealed partial class ShellSidebarViewController : NSViewController
             {
                 if (!_nodes.ContainsKey(item)) _nodes.Add(item, new Node(item));
                 if (item is INotifyPropertyChanged property) { _properties.Add(property); property.PropertyChanged += PropertyChanged; }
-                Observe(ShellPaneRows.Children(item));
+                Observe(ShellMenuItemRules.Children(item));
             }
         }
 
@@ -485,7 +486,7 @@ internal sealed partial class ShellSidebarViewController : NSViewController
             var row = owner._outline.RowForItem(node);
             if (row < 0) return;
             if (remeasure) owner._outline.NoteHeightOfRowsWithIndexesChanged(NSIndexSet.FromIndex(row));
-            if (owner._outline.GetRowView(row, false) is WinoShellRowView rowView) rowView.ShowsIndicator = ShellPaneRows.ShowsIndicator(item);
+            if (owner._outline.GetRowView(row, false) is WinoShellRowView rowView) rowView.ShowsIndicator = ShellMenuItemRules.ShowsIndicator(item);
             owner._selection.Configure(owner._outline.GetView(0, row, false), item, row);
         }
 
@@ -497,8 +498,8 @@ internal sealed partial class ShellSidebarViewController : NSViewController
 
         private IList<IMenuItem> Items(NSObject? item)
         {
-            var items = item is Node node ? ShellPaneRows.Children(node.Item) : _items ?? (IEnumerable<IMenuItem>)Array.Empty<IMenuItem>();
-            return items.Where(ShellPaneRows.IsShown).ToList();
+            var items = item is Node node ? ShellMenuItemRules.Children(node.Item) : _items ?? (IEnumerable<IMenuItem>)Array.Empty<IMenuItem>();
+            return items.Where(ShellMenuItemRules.IsShown).ToList();
         }
 
         public override nint GetChildrenCount(NSOutlineView outlineView, NSObject? item) => Items(item).Count;
@@ -605,9 +606,9 @@ internal sealed partial class ShellSidebarViewController : NSViewController
         {
             var menuItem = ((Node)item).Item;
             var row = outlineView.MakeView("WinoShellRow", this) as WinoShellRowView ?? new WinoShellRowView { Identifier = "WinoShellRow" };
-            row.Highlightable = ShellPaneRows.IsHighlightable(menuItem);
+            row.Highlightable = ShellMenuItemRules.IsHighlightable(menuItem);
             row.IsDropTarget = false;
-            row.ShowsIndicator = ShellPaneRows.ShowsIndicator(menuItem);
+            row.ShowsIndicator = ShellMenuItemRules.ShowsIndicator(menuItem);
             return row;
         }
 

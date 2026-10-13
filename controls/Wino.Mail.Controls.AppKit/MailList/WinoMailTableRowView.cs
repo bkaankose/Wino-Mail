@@ -1,7 +1,9 @@
 using AppKit;
 using CoreGraphics;
 using Foundation;
+using Wino.Presentation;
 using Wino.Presentation.AppKit;
+using Wino.Mail.Controls.Core;
 
 namespace Wino.Mail.Controls.AppKit.MailList;
 

@@ -431,10 +431,10 @@ public partial class MessageListPageViewModel : MailBaseViewModel,
         PreviewMailCollection.CoreDispatcher = Dispatcher;
     }
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
         => await InitializeNavigationAsync(mode, parameters);
 
-    public async Task InitializeNavigationAsync(NavigationMode mode, object parameters)
+    public async Task InitializeNavigationAsync(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
         _previewActive = true;
@@ -442,7 +442,7 @@ public partial class MessageListPageViewModel : MailBaseViewModel,
         await RefreshPreviewAsync();
     }
 
-    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    public override void OnNavigatedFrom(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedFrom(mode, parameters);
         _previewActive = false;

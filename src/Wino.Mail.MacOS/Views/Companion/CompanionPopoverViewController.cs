@@ -11,6 +11,7 @@ using Wino.Mail.Controls.AppKit.Extras;
 using Wino.Mail.ViewModels.Companion;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Bindings;
 
 namespace Wino.Mail.MacOS.Views.Companion;
 

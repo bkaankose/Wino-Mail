@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Idiom-neutral UIKit infrastructure and view controllers shared by the iPhone (Wino.Mail.UIKit.Phone) and
+       iPad (Wino.Mail.UIKit.Pad) shells: dispatcher, controller lifecycle, navigation host over the shared
+       NavigationCoordinator, dialogs, theme, print and file presenters, and the onboarding pages. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-ios</TargetFramework>
+    <SupportedOSPlatformVersion>17.0</SupportedOSPlatformVersion>
+    <WinoTargetPlatform>iOS</WinoTargetPlatform>
+    <RootNamespace>Wino.Mail.UIKit</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <!-- The repository Release gate skips Apple TFMs; the iOS libraries keep warnings as errors themselves. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj" />
+    <ProjectReference Include="../Wino.Core/Wino.Core.csproj" />
+    <ProjectReference Include="../Wino.Services/Wino.Services.csproj" />
+    <ProjectReference Include="../Wino.Platform.Apple/Wino.Platform.Apple.csproj" />
+    <ProjectReference Include="../Wino.Platform.iOS/Wino.Platform.iOS.csproj" />
+    <ProjectReference Include="../../controls/Wino.Presentation.Core/Wino.Presentation.Core.csproj" />
+    <ProjectReference Include="../../controls/Wino.Presentation.UIKit/Wino.Presentation.UIKit.csproj" />
+    <ProjectReference Include="../../controls/Wino.Mail.Controls.UIKit/Wino.Mail.Controls.UIKit.csproj" />
+    <ProjectReference Include="../../controls/Wino.Editor.WebKit/Wino.Editor.WebKit.csproj" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+</Project>

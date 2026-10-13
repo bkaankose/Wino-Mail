@@ -474,10 +474,10 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     partial void OnHasErrorChanged(bool value) => RefreshHeroState();
     partial void OnEstimatedMissingMessageCountChanged(int value) => RefreshHeroState();
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
         => await InitializeAsync(mode, parameters);
 
-    public async Task InitializeAsync(NavigationMode mode, object parameters)
+    public async Task InitializeAsync(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
         if (parameters is not Guid accountId)

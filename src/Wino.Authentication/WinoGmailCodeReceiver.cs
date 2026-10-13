@@ -1,7 +1,6 @@
 using System;
 using System.Net;
 using System.Net.Sockets;
-using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,10 +9,14 @@ using Wino.Core.Domain.Enums;
 
 namespace Wino.Authentication;
 
-internal sealed class WinoGmailCodeReceiver(
+/// <summary>
+/// Desktop receiver: listens on a loopback HTTP address, opens the default browser and serves the
+/// result page when Google redirects back. Windows and macOS register it.
+/// </summary>
+public sealed class WinoGmailCodeReceiver(
     IExternalLauncher externalLauncher,
     IExternalBrowserAuthenticationPresenter? authenticationPresenter,
-    string applicationDisplayName)
+    string applicationDisplayName) : IGoogleAuthorizationCodeReceiver
 {
     private const string ProviderDisplayName = "Google";
     private static readonly TimeSpan CallbackTimeout = TimeSpan.FromMinutes(5);
@@ -25,9 +28,9 @@ internal sealed class WinoGmailCodeReceiver(
         cancellationToken.ThrowIfCancellationRequested();
 
         using var listener = StartListener(out var redirectUri);
-        var state = Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
-        var codeVerifier = Base64UrlEncode(RandomNumberGenerator.GetBytes(48));
-        var authorizationUri = AppendPkceParameters(authorizationUriFactory(redirectUri, state), codeVerifier);
+        var state = GoogleAuthorizationPkce.CreateState();
+        var codeVerifier = GoogleAuthorizationPkce.CreateCodeVerifier();
+        var authorizationUri = GoogleAuthorizationPkce.AppendChallenge(authorizationUriFactory(redirectUri, state), codeVerifier);
 
         // The in-app session lets the user cancel the wait or copy the address when the
         // browser never shows up. It is closed as soon as the redirect arrives or the flow fails.
@@ -125,13 +128,6 @@ internal sealed class WinoGmailCodeReceiver(
             TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
             TaskScheduler.Default);
 
-    private static Uri AppendPkceParameters(Uri authorizationUri, string codeVerifier)
-    {
-        var challenge = Base64UrlEncode(SHA256.HashData(Encoding.ASCII.GetBytes(codeVerifier)));
-        var separator = string.IsNullOrEmpty(authorizationUri.Query) ? "?" : "&";
-        return new Uri($"{authorizationUri.AbsoluteUri}{separator}code_challenge={Uri.EscapeDataString(challenge)}&code_challenge_method=S256");
-    }
-
     private Task WriteBrowserResponseAsync(HttpListenerResponse response, string? error)
     {
         var bytes = Encoding.UTF8.GetBytes(AuthorizationResultPage.Render(applicationDisplayName, error));
@@ -177,9 +173,4 @@ internal sealed class WinoGmailCodeReceiver(
         listener.Stop();
         return port;
     }
-
-    private static string Base64UrlEncode(byte[] value)
-        => Convert.ToBase64String(value).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 }
-
-internal sealed record GoogleAuthorizationCode(string Code, Uri RedirectUri, string CodeVerifier);

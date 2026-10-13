@@ -10,6 +10,7 @@ using Microsoft.Identity.Client;
 using Microsoft.Identity.Client.Extensions.Msal;
 using Wino.Authentication;
 using Wino.Core.Domain.Interfaces;
+using Wino.Platform.Apple;
 
 namespace Wino.Platform.MacOS;
 
@@ -18,6 +19,7 @@ namespace Wino.Platform.MacOS;
 public sealed class MacOSOutlookAuthenticationHost : IOutlookAuthenticationHost, IDisposable, IAsyncDisposable
 {
     private readonly IApplicationConfiguration _configuration;
+    private readonly AppleApplicationIdentity _identity;
     private readonly Func<bool> _canPresent;
     private readonly SemaphoreSlim _cacheLock = new(1, 1);
     private readonly object _lifetimeGate = new();
@@ -26,9 +28,10 @@ public sealed class MacOSOutlookAuthenticationHost : IOutlookAuthenticationHost,
     private MsalCacheHelper? _cache;
 
     public MacOSOutlookAuthenticationHost(IApplicationConfiguration configuration,
-        IAuthenticatorConfig authenticatorConfig, Func<bool> canPresent)
+        IAuthenticatorConfig authenticatorConfig, AppleApplicationIdentity identity, Func<bool> canPresent)
     {
         _configuration = configuration;
+        _identity = identity ?? throw new ArgumentNullException(nameof(identity));
         _canPresent = canPresent ?? throw new ArgumentNullException(nameof(canPresent));
         Client = PublicClientApplicationBuilder.Create(authenticatorConfig.OutlookAuthenticatorClientId)
             .WithDefaultRedirectUri()
@@ -81,7 +84,7 @@ public sealed class MacOSOutlookAuthenticationHost : IOutlookAuthenticationHost,
             // MSAL Extensions stores cache contents in Keychain on macOS. The filename/directory
             // parameters remain required by its API; no WithUnprotectedFile fallback is enabled.
             var properties = new StorageCreationPropertiesBuilder("msal.cache", _configuration.ApplicationDataFolderPath)
-                .WithMacKeyChain($"{MacOSApplicationIdentity.Value}.v1.msal", "outlook-user-cache")
+                .WithMacKeyChain($"{_identity.Value}.v1.msal", "outlook-user-cache")
                 .Build();
             Directory.CreateDirectory(_configuration.ApplicationDataFolderPath);
             // Creation has no cancellation API. Own its completion rather than abandoning a

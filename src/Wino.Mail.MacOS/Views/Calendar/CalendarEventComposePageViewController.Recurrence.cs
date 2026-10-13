@@ -4,6 +4,7 @@ using Wino.Calendar.ViewModels;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Bindings;
 
 namespace Wino.Mail.MacOS.Views.Calendar;
 

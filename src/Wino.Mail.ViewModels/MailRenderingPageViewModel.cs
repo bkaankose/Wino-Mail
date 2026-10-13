@@ -427,10 +427,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     private int _loadVersion;
     private int _downloadLoadVersion;
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
         => await InitializeNavigationAsync(mode, parameters);
 
-    public async Task InitializeNavigationAsync(NavigationMode mode, object parameters)
+    public async Task InitializeNavigationAsync(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 
@@ -499,7 +499,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     /// as a <see cref="MimeMessageInformation"/>. EML rendering is read-only, so it gets no
     /// message-specific command bar items.
     /// </remarks>
-    public async Task LoadContentAsync(object parameters)
+    public async Task LoadContentAsync(object? parameters)
     {
         var loadVersion = _loadVersion;
 
@@ -767,7 +767,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         return accounts;
     }
 
-    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    public override void OnNavigatedFrom(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedFrom(mode, parameters);
 

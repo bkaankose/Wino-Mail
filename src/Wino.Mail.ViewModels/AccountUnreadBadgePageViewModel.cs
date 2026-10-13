@@ -98,10 +98,10 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
         _notificationBuilder = notificationBuilder;
     }
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
         => await InitializeAsync(mode, parameters);
 
-    public async Task InitializeAsync(NavigationMode mode, object parameters)
+    public async Task InitializeAsync(NavigationMode mode, object? parameters)
     {
         await DrainPreferenceWritesAsync();
         base.OnNavigatedTo(mode, parameters);

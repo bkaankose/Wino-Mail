@@ -3,6 +3,9 @@ using CoreGraphics;
 using Foundation;
 using Wino.Core.Domain.Enums;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Controls;
+using Wino.Core.Domain.Models.Calendar;
+using Wino.Mail.Controls.Core.Calendar;
 
 namespace Wino.Mail.Controls.AppKit.Calendar;
 
@@ -25,11 +28,11 @@ public sealed record CalendarTileModel(
 /// </summary>
 public sealed class WinoCalendarItemView : NSView
 {
-    private const double StripeWidth = 3;
-    private const double CornerRadius = 2;
+    private const double StripeWidth = WinoCalendarTileAppearance.StripeWidth;
+    private const double CornerRadius = WinoCalendarTileAppearance.CornerRadius;
     /// <summary>Height of the bottom-edge strip that resizes a timed tile instead of moving it.</summary>
-    public const double ResizeHandleHeight = 6;
-    private const double DragThreshold = 4;
+    public const double ResizeHandleHeight = WinoCalendarSurfaceGeometry.ResizeHandleHeight;
+    private const double DragThreshold = WinoCalendarSurfaceGeometry.TileDragThreshold;
     private CalendarTileModel? _model;
     private CalendarPlacementKind _kind;
     private bool _hover;
@@ -147,21 +150,15 @@ public sealed class WinoCalendarItemView : NSView
     private void StyleChanged(object? sender, EventArgs args) => NeedsDisplay = true;
 
     /// <summary>Stripe colours from the Windows ShowAs stripe templates.</summary>
-    public static NSColor StripeColor(CalendarItemShowAs showAs) => showAs switch
-    {
-        CalendarItemShowAs.Free => WinoStyle.Hex(0x4CAF50),
-        CalendarItemShowAs.Tentative => WinoStyle.Hex(0xFFC107),
-        CalendarItemShowAs.OutOfOffice => WinoStyle.Hex(0x9C27B0),
-        CalendarItemShowAs.WorkingElsewhere => WinoStyle.Hex(0x2196F3),
-        _ => WinoStyle.Hex(0xF44336)
-    };
+    public static NSColor StripeColor(CalendarItemShowAs showAs) => WinoStyle.Hex(WinoCalendarTileAppearance.StripeColor(showAs));
 
-    /// <summary>Black or white, whichever reads on the fill (Windows XamlHelpers.GetReadableTextColor).</summary>
+    /// <summary>Black or white, whichever reads on the fill (the shared perceived-brightness rule).</summary>
     public static NSColor ReadableTextColor(NSColor fill)
     {
         var rgb = fill.UsingColorSpace(NSColorSpace.SRGBColorSpace) ?? fill;
-        double luminance = 0.299 * rgb.RedComponent + 0.587 * rgb.GreenComponent + 0.114 * rgb.BlueComponent;
-        return luminance > 0.6 ? NSColor.Black : NSColor.White;
+        return Wino.Core.Domain.Presentation.ReadableTextColor.PrefersDarkText(rgb.RedComponent, rgb.GreenComponent, rgb.BlueComponent)
+            ? NSColor.Black
+            : NSColor.White;
     }
 
     public override void DrawRect(CGRect dirtyRect)
@@ -169,9 +166,8 @@ public sealed class WinoCalendarItemView : NSView
         if (_model is null) return;
         var bounds = Bounds;
         bool ghost = _kind == CalendarPlacementKind.MultiDayGhost;
-        bool compact = _kind is CalendarPlacementKind.AllDay or CalendarPlacementKind.MonthCell;
-        double opacity = ghost ? 0.2 : _model.IsBusy ? 0.55 : _kind == CalendarPlacementKind.MonthCell && _model.IsMultiDay ? 1 : 0.9;
-        if (_hover && !ghost) opacity = Math.Min(1, opacity + 0.08);
+        bool compact = WinoCalendarTileAppearance.IsSingleLine(_kind);
+        double opacity = WinoCalendarTileAppearance.FillOpacity(_kind, _model.IsBusy, _model.IsMultiDay, _hover);
 
         var path = NSBezierPath.FromRoundedRect(bounds, (nfloat)(ghost ? 0 : CornerRadius), (nfloat)(ghost ? 0 : CornerRadius));
         _model.Fill.ColorWithAlphaComponent((nfloat)opacity).SetFill();
@@ -196,15 +192,14 @@ public sealed class WinoCalendarItemView : NSView
 
         var textColor = ReadableTextColor(_model.Fill);
         var paragraph = new NSMutableParagraphStyle { LineBreakMode = NSLineBreakMode.TruncatingTail, Alignment = NSTextAlignment.Left };
-        double glyphSize = 12;
+        double glyphSize = WinoCalendarTileAppearance.GlyphSize;
         int glyphCount = (_model.IsRecurring ? 1 : 0) + (_model.IsMultiDay ? 1 : 0);
-        double glyphsWidth = glyphCount == 0 ? 0 : glyphCount * glyphSize + (glyphCount - 1) * 6 + 4;
+        double glyphsWidth = WinoCalendarTileAppearance.GlyphColumnWidth(_model.IsRecurring, _model.IsMultiDay);
         double textLeft = StripeWidth + 6;
         double textRight = bounds.Width - 4 - glyphsWidth;
         double textWidth = Math.Max(0, textRight - textLeft);
 
-        var titleFont = NSFont.SystemFontOfSize(_kind == CalendarPlacementKind.MonthCell && !_model.IsMultiDay && !compact ? 12 : 13, NSFontWeight.Semibold);
-        if (_kind == CalendarPlacementKind.MonthCell && bounds.Height < 24) titleFont = NSFont.SystemFontOfSize(11, NSFontWeight.Semibold);
+        var titleFont = NSFont.SystemFontOfSize((nfloat)WinoCalendarTileAppearance.TitleFontSize(_kind, _model.IsMultiDay, bounds.Height), NSFontWeight.Semibold);
         var titleAttributes = new NSStringAttributes { Font = titleFont, ForegroundColor = textColor, ParagraphStyle = paragraph };
         double titleHeight = titleFont.Ascender - titleFont.Descender + 2;
         double y = compact ? (bounds.Height - titleHeight) / 2 : 3;
@@ -212,7 +207,7 @@ public sealed class WinoCalendarItemView : NSView
             new NSAttributedString(_model.Title, titleAttributes).DrawInRect(new CGRect(textLeft, y, textWidth, titleHeight));
         y += titleHeight + 2;
 
-        if (!compact && bounds.Height >= 52)
+        if (!compact && bounds.Height >= WinoCalendarTileAppearance.DetailLinesMinHeight)
         {
             var detailFont = NSFont.SystemFontOfSize(11);
             var detailAttributes = new NSStringAttributes { Font = detailFont, ForegroundColor = textColor.ColorWithAlphaComponent((nfloat)0.92), ParagraphStyle = paragraph };

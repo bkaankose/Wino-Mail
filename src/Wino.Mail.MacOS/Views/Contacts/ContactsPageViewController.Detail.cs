@@ -8,6 +8,7 @@ using Wino.Mail.Controls.AppKit.Contacts;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.AppKit;
+using Wino.Core.Domain.Presentation;
 
 namespace Wino.Mail.MacOS.Views.Contacts;
 
@@ -197,7 +198,7 @@ public sealed partial class ContactsPageViewController
 
         // Windows always shows the Personal card; on Mac an empty card is dropped like the others.
         var personal = new WinoContactFieldCard(Translator.ContactDetail_Personal);
-        personal.Add(FormatBirthday(source.BirthdayYear, source.BirthdayMonth, source.BirthdayDay), Translator.ContactDetail_Birthday);
+        personal.Add(ContactDisplayFormatter.FormatBirthday(source.BirthdayYear, source.BirthdayMonth, source.BirthdayDay), Translator.ContactDetail_Birthday);
         personal.Add(source.Website, Translator.ContactDetail_Website, WinoIconGlyph.Globe);
         personal.Add(source.Notes, Translator.ContactDetail_Notes, WinoIconGlyph.Note, wrap: true);
         AddCard(personal);
@@ -214,14 +215,6 @@ public sealed partial class ContactsPageViewController
     {
         var line2 = string.Join(" ", new[] { address.PostalCode, address.City }.Where(part => !string.IsNullOrWhiteSpace(part)));
         return string.Join("\n", new[] { address.PostOfficeBox, address.Street, line2, address.Region, address.Country }.Where(part => !string.IsNullOrWhiteSpace(part)));
-    }
-
-    /// <summary>Same rule as the Windows XamlHelpers.FormatBirthday: "14 March" or "14 March 1990".</summary>
-    internal static string FormatBirthday(int? year, int? month, int? day)
-    {
-        if (month is not (>= 1 and <= 12) || day is not (>= 1 and <= 31)) return string.Empty;
-        var date = new DateTime(year ?? 2000, month.Value, Math.Min(day.Value, DateTime.DaysInMonth(year ?? 2000, month.Value)));
-        return year.HasValue ? date.ToString("d MMMM yyyy") : date.ToString("d MMMM");
     }
 
     /// <summary>Top-anchored document view for scroll content.</summary>

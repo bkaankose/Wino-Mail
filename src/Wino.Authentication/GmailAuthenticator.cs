@@ -23,20 +23,39 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
     private static readonly HttpClient HttpClient = new();
     private static readonly ILogger Logger = Log.ForContext<GmailAuthenticator>();
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> TokenLocks = new(StringComparer.Ordinal);
-    private readonly WinoGmailCodeReceiver _codeReceiver;
+    private readonly IGoogleAuthorizationCodeReceiver _codeReceiver;
     private readonly IGoogleTokenStore _tokenStore;
 
     public GmailAuthenticator(
         IAuthenticatorConfig authConfig,
-        IExternalLauncher externalLauncher,
-        IExternalBrowserAuthenticationPresenter? authenticationPresenter,
+        IGoogleAuthorizationCodeReceiver codeReceiver,
         IGoogleTokenStore tokenStore) : base(authConfig)
     {
-        ArgumentNullException.ThrowIfNull(externalLauncher);
+        ArgumentNullException.ThrowIfNull(codeReceiver);
         ArgumentNullException.ThrowIfNull(tokenStore);
 
-        _codeReceiver = new WinoGmailCodeReceiver(externalLauncher, authenticationPresenter, authConfig.ApplicationDisplayName);
+        _codeReceiver = codeReceiver;
         _tokenStore = tokenStore;
+    }
+
+    /// <summary>Uses the desktop loopback receiver.</summary>
+    public GmailAuthenticator(
+        IAuthenticatorConfig authConfig,
+        IExternalLauncher externalLauncher,
+        IExternalBrowserAuthenticationPresenter? authenticationPresenter,
+        IGoogleTokenStore tokenStore)
+        : this(authConfig, CreateLoopbackReceiver(authConfig, externalLauncher, authenticationPresenter), tokenStore)
+    {
+    }
+
+    private static WinoGmailCodeReceiver CreateLoopbackReceiver(
+        IAuthenticatorConfig authConfig,
+        IExternalLauncher externalLauncher,
+        IExternalBrowserAuthenticationPresenter? authenticationPresenter)
+    {
+        ArgumentNullException.ThrowIfNull(authConfig);
+        ArgumentNullException.ThrowIfNull(externalLauncher);
+        return new WinoGmailCodeReceiver(externalLauncher, authenticationPresenter, authConfig.ApplicationDisplayName);
     }
 
     public string ClientId => AuthenticatorConfig.GmailAuthenticatorClientId;

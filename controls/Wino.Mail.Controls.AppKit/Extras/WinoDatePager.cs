@@ -1,5 +1,6 @@
 using AppKit;
 using Wino.Core.Domain.Enums;
+using Wino.Mail.Controls.Core;
 using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.Controls.AppKit.Extras;
@@ -56,7 +57,7 @@ public sealed class WinoDatePager : NSView
         get => _selectedIndex;
         set
         {
-            var clamped = _items.Count == 0 ? -1 : Math.Clamp(value, 0, _items.Count - 1);
+            var clamped = WinoPagerState.Clamp(value, _items.Count);
             if (clamped == _selectedIndex) return;
             _selectedIndex = clamped;
             Refresh();
@@ -67,7 +68,7 @@ public sealed class WinoDatePager : NSView
     /// <summary>Sets the index from the ViewModel without raising <see cref="SelectedIndexChanged"/>.</summary>
     public void Select(int index)
     {
-        _selectedIndex = _items.Count == 0 ? -1 : Math.Clamp(index, 0, _items.Count - 1);
+        _selectedIndex = WinoPagerState.Clamp(index, _items.Count);
         Refresh();
     }
 
@@ -79,8 +80,8 @@ public sealed class WinoDatePager : NSView
 
     private void UpdateArrows()
     {
-        _newer.Enabled = _selectedIndex > 0;
-        _older.Enabled = _selectedIndex >= 0 && _selectedIndex < _items.Count - 1;
+        _newer.Enabled = WinoPagerState.CanGoNewer(_selectedIndex);
+        _older.Enabled = WinoPagerState.CanGoOlder(_selectedIndex, _items.Count);
     }
 
     private static NSButton Arrow(WinoIconGlyph glyph, string tooltip, Action action)

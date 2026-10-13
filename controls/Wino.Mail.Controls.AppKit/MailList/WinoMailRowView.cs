@@ -5,6 +5,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.Controls.Core.HoverActions;
 using Wino.Presentation.AppKit;
+using Wino.Mail.Controls.Core;
 
 namespace Wino.Mail.Controls.AppKit.MailList;
 
@@ -393,13 +394,9 @@ public class WinoMailRowView : NSTableCellView
     /// </summary>
     private void SyncTiles(List<WinoMailRowTile> tiles, bool compact)
     {
-        int keep = 0;
-        if (compact == _shownCompactTiles)
-        {
-            while (keep < tiles.Count && keep < _tileViews.Count
-                && (!compact || tiles[keep].IsIntelligence == _shownTiles[keep].IsIntelligence))
-                keep++;
-        }
+        int keep = compact == _shownCompactTiles
+            ? Math.Min(_tileViews.Count, WinoListDiff.ReusablePrefix(_shownTiles, tiles, (shown, next) => !compact || shown.IsIntelligence == next.IsIntelligence))
+            : 0;
 
         for (int i = _tileViews.Count - 1; i >= keep; i--)
         {
@@ -489,8 +486,9 @@ public class WinoMailRowView : NSTableCellView
     public static NSColor ReadableText(NSColor background)
     {
         var rgb = background.UsingColorSpace(NSColorSpace.SRGBColorSpace) ?? background;
-        double luminance = 0.299 * rgb.RedComponent + 0.587 * rgb.GreenComponent + 0.114 * rgb.BlueComponent;
-        return luminance > 0.6 ? NSColor.Black : NSColor.White;
+        return Wino.Core.Domain.Presentation.ReadableTextColor.PrefersDarkText(rgb.RedComponent, rgb.GreenComponent, rgb.BlueComponent)
+            ? NSColor.Black
+            : NSColor.White;
     }
 
     private void ApplyColors()

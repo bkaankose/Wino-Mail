@@ -1,20 +1,23 @@
 # Wino Mail agent guidance
 
-Wino Mail is a native mail, calendar, contacts, and To Do client with two applications in one repository:
+Wino Mail is a native mail, calendar, contacts, and To Do client with three applications in one repository:
 
 | Platform | Application | Solution | Guide |
 | --- | --- | --- | --- |
 | Windows | `src/Wino.Mail.WinUI` (WinUI 3, MSIX, Native AOT) | `WinoMail.slnx` | [Windows development](docs/harness/development-windows.md) |
 | macOS | `src/Wino.Mail.MacOS` (AppKit, CoreCLR) | `WinoMail.MacOS.slnx` | [macOS development](docs/harness/development-macos.md) |
+| iOS and iPadOS | `src/Wino.Mail.iOS` (UIKit, Mono), UI projects `Wino.Mail.UIKit`, `.Phone`, `.Pad` | `WinoMail.iOS.slnx` | [iOS development](docs/harness/development-ios.md) |
 
-Both applications use the shared backend: `Wino.Core.Domain`, `Wino.Core`, `Wino.Services`, `Wino.Authentication`, `Wino.Messaging`, `Wino.Core.ML`, `Wino.Mail.ViewModels`, `controls/Wino.Mail.Controls.Core`, and `controls/Wino.Editor.Core`.
-Platform services live in `Wino.Platform.Windows` and `Wino.Platform.MacOS`. Do not change the deprecated UWP project.
+All applications use the shared backend: `Wino.Core.Domain`, `Wino.Core`, `Wino.Services`, `Wino.Authentication`, `Wino.Messaging`, `Wino.Core.ML`, `Wino.Mail.ViewModels`, `controls/Wino.Mail.Controls.Core`, and `controls/Wino.Editor.Core`.
+Platform services live in `Wino.Platform.Windows`, `Wino.Platform.MacOS`, and `Wino.Platform.iOS`. The Apple apps share `Wino.Platform.Apple` (Foundation-level services: paths, configuration, Keychain, StoreKit, notifications), `Wino.Core.Apple.Bindings`, and `controls/Wino.Editor.WebKit`; `Wino.Platform.MacOS` and `Wino.Platform.iOS` hold only AppKit-only and UIKit-only services. Do not change the deprecated UWP project.
 
 ## Platform routing
 
 - **Windows change** (WinUI head, Windows platform services, WinUI controls, XAML, MSIX, `build/Wino.Windows.*`, Windows scripts): read the [Windows guide](docs/harness/development-windows.md) before editing. Its Native AOT and build safety section is release-blocking.
 - **macOS change** (AppKit head, Mac platform services, AppKit controls, entitlements, `build/Wino.MacOS.*`, Mac scripts): read the [macOS guide](docs/harness/development-macos.md).
-- **Shared change** (shared projects above, translations, `Directory.Build.*`, `Directory.Packages.props`, `global.json`): it affects both applications. Read both guides' verification sections, and keep shared code free of platform UI references.
+- **iOS change** (iOS head, `Wino.Mail.UIKit*`, iOS platform services, UIKit controls, `Info.plist`, entitlements, `build/Wino.iOS.*`): read the [iOS guide](docs/harness/development-ios.md).
+- **Apple shared change** (`Wino.Platform.Apple`, `Wino.Core.Apple.Bindings`, `Wino.Editor.WebKit`): it affects the macOS and iOS applications. Read both Apple guides.
+- **Shared change** (shared projects above, translations, `Directory.Build.*`, `Directory.Packages.props`, `global.json`): it affects all three applications. Read every guide's verification section, and keep shared code free of platform UI references.
 
 ## Scope and completion
 
@@ -33,8 +36,8 @@ Platform services live in `Wino.Platform.Windows` and `Wino.Platform.MacOS`. Do 
 - Verify which source file the active project compiles before editing. Legacy and active files can share a namespace and type name.
 - Keep business rules in shared services and ViewModels. Platform heads adapt them; they do not re-implement them.
 - Add English strings only to `src/Wino.Core.Domain/Translations/en_US/resources.json`.
-- Shared Release builds keep their Native AOT, trimming, and warnings-as-errors gates. Only the AppKit projects are exempt from the AOT gate.
-- `WinoTargetPlatform` (`Windows` or `MacOS`) and `WinoTargetRuntimeIdentifier` are the build interface. An explicit value wins; otherwise the host decides. Platform build policy lives in `build/`; root `Directory.Build.*` holds only shared policy.
+- Shared Release builds keep their Native AOT, trimming, and warnings-as-errors gates. Only projects that target `-macos` or `-ios` (the AppKit and UIKit projects and the Apple shared layer) are exempt from the AOT gate.
+- `WinoTargetPlatform` (`Windows`, `MacOS`, or `iOS`) and `WinoTargetRuntimeIdentifier` are the build interface. An explicit value wins; otherwise the host decides. The host never selects `iOS`; iOS builds pass it explicitly. Platform build policy lives in `build/`; root `Directory.Build.*` holds only shared policy.
 
 ## Discovery and references
 
@@ -53,9 +56,11 @@ Read only references that apply to the task:
 | C#, XAML, translations, storage, or editor changes | Relevant sections of [implementation rules](docs/harness/implementation-rules.md) |
 | Windows build, deployment, F5, or runtime verification | [Windows development](docs/harness/development-windows.md) |
 | macOS build, signing, F5, or runtime verification | [macOS development](docs/harness/development-macos.md) |
+| iOS build, signing, Simulator, or runtime verification | [iOS development](docs/harness/development-ios.md) |
 | New Windows UI feature or visual pattern | [Wino design guideline](docs/wino-design-guideline.md) |
 | New macOS UI feature or visual pattern | [macOS design decisions](docs/macos-design-decisions.md), then the [Wino design guideline](docs/wino-design-guideline.md) for shared naming and order |
-| Moving duplicated Mac logic into shared code | [macOS shared-logic roadmap](docs/macos-shared-logic-roadmap.md) |
+| New iOS or iPadOS UI feature or visual pattern | [iOS design decisions](docs/ios-design-decisions.md), then the [macOS design decisions](docs/macos-design-decisions.md) and the [Wino design guideline](docs/wino-design-guideline.md) |
+| Moving duplicated Mac or iOS logic into shared code | [macOS shared-logic roadmap](docs/macos-shared-logic-roadmap.md) |
 | Reusable controls or playground | [controls/AGENTS.md](controls/AGENTS.md) |
 | Icons, icon fonts, or the colorful icon style | [icons/README.md](icons/README.md) and the Icons section of the [implementation rules](docs/harness/implementation-rules.md) |
 | Intelligence jobs, artifacts, or the daily briefing | [mail intelligence](docs/mail-intelligence.md) |
@@ -70,7 +75,7 @@ Use focused skills for the affected subsystem. Avoid loading overlapping general
 
 Use plain `dotnet`, `winapp`, and platform tools. Build and run commands restore dependencies by default; use the SDK's normal incremental behavior.
 VS Code F5 on Windows uses the approved `scripts/development/windows/start-wino.ps1` helper to reuse unchanged Debug x64 output. This is the only development wrapper and input-hash cache. Keep custom debug build targets out of the project.
-Mac F5 prepares the debugger, then runs a plain `dotnet build`.
+Mac F5 prepares the debugger, then runs a plain `dotnet build`. The iOS workspace has build tasks only; install and launch in the Simulator with `xcrun simctl`.
 
 ## Verification scope
 
@@ -81,10 +86,13 @@ Mac F5 prepares the debugger, then runs a plain `dotnet build`.
 | ViewModel behavior | Affected unit tests and manual checks for UI behavior on each affected platform |
 | Windows XAML, navigation, activation, windows, or controls | Windows Debug build and manual checks in the lab |
 | AppKit views, navigation, activation, or controls | Native Debug arm64 and x64 builds and manual checks on the Mac |
+| UIKit views, navigation, activation, or controls | iOS Debug Simulator build and manual checks on iPhone and iPad simulators |
+| Apple shared layer (`Wino.Platform.Apple`, `Wino.Core.Apple.Bindings`, `Wino.Editor.WebKit`) | Mac native Debug arm64 and x64 builds and the iOS Debug Simulator build |
 | Localization | English source only, generated output build, other locales untouched |
 | Windows package, trimming, or Native AOT | Windows Release build without launch, plus release-script tests when applicable |
 | macOS signing, entitlements, or release inputs | Native Release arm64 and x64 builds and bundle identity, signature, and entitlement checks |
-| Shared production code, dependencies, or build configuration | Windows Debug x64 build and Release x64 gate, affected tests, and the macOS builds as a handoff when no Mac is available |
+| iOS signing, entitlements, or `Info.plist` | Signed device build and bundle identity, signature, and entitlement checks |
+| Shared production code, dependencies, or build configuration | Windows Debug x64 build and Release x64 gate, affected tests, and the macOS and iOS builds as a handoff when no Mac is available |
 
 Windows production changes always need the Release gate, run without launching or deploying:
 
@@ -98,7 +106,7 @@ A passing build does not prove UI behavior. Report manual verification as pendin
 
 ## Dependencies
 
-Both applications share `Directory.Packages.props`, `global.json`, and `nuget.config`.
+All applications share `Directory.Packages.props`, `global.json`, and `nuget.config`.
 Published cross-repository dependencies must use unconditional `PackageReference` items.
 If a dependency change requires publication, audit and publish the version, then update every consumer.
 Publish without asking for approval. When `NUGET_API_KEY` is set in the local environment, pack and push the package to nuget.org yourself. This does not need a git commit or push.

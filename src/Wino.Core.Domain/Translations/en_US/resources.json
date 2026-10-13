@@ -3921,5 +3921,22 @@
   "ComposerParity_ColorPink": "Pink",
   "ComposerParity_MoreColors": "More Colors…",
   "ComposerParity_SpellCheckAutomatic": "Automatic",
-  "ComposerParity_EditLink": "Edit link"
+  "ComposerParity_EditLink": "Edit link",
+  "IOS_MailboxesTitle": "Mailboxes",
+  "Composer_HideKeyboard": "Hide keyboard",
+  "Composer_CloseDraftMessage": "Save this draft before closing it?",
+  "IOS_ContactAction_Call": "Call",
+  "IOS_ContactAction_FaceTime": "FaceTime",
+  "IOS_ToDoListsTitle": "Lists",
+  "IOS_ContactEditor_Protocol": "Protocol",
+  "IOS_UnlimitedAccountsPurchaseDialog_AppleAppStoreDescription": "The purchase is connected to the Apple Account signed in on this device.",
+  "IOS_UnreadBadges_AppIconBadge_Title": "App icon badge",
+  "IOS_UnreadBadges_AppIconBadgeCaption": "app icon badge",
+  "IOS_UnreadBadges_AppIconBadge_Description": "Add this account's unread total to Wino's combined app icon badge.",
+  "IOS_UnreadBadges_CountSource_Description": "Folder badges are about visibility. This is about importance. Only these folders feed the account and app icon totals.",
+  "IOS_UnreadBadges_Folders_Description": "Count feeds the account and app icon totals. Badge only shows a number in the folder list.",
+  "IOS_Personalization_BackdropDescription": "Off keeps plain surfaces with the theme accent only.",
+  "IOS_Calendar_Calendars": "Calendars",
+  "IOS_Calendar_Agenda": "Agenda",
+  "IOS_Calendar_NoEvents": "No events"
 }

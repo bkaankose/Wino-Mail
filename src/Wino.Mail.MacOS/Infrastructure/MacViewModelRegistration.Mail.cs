@@ -2,8 +2,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.MacOS.Views.Mail;
-using Wino.Mail.ViewModels;
-using Wino.Mail.ViewModels.Intelligence;
 
 namespace Wino.Mail.MacOS.Infrastructure;
 
@@ -15,12 +13,6 @@ public static partial class MacViewModelRegistration
         // The reader ViewModel needs the appearance; Windows registers this in its platform container.
         services.TryAddSingleton<IUnderlyingThemeService, MacUnderlyingThemeService>();
         services.TryAddSingleton<MacSenderPictureProvider>();
-
-        services.AddTransient<MailListPageViewModel>();
-        services.AddTransient<MailRenderingPageViewModel>();
-        services.AddTransient<ComposePageViewModel>();
-        services.AddTransient<IdlePageViewModel>();
-        services.AddTransient<WinoIntelligenceHeaderPresenter>();
 
         services.AddTransient<MailListPageViewController>();
         services.AddTransient<MailRenderingPageViewController>();

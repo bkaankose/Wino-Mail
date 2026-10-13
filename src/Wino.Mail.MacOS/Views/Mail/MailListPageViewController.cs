@@ -8,6 +8,7 @@ using Wino.Mail.ViewModels.Messages;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.UI;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Bindings;
 
 namespace Wino.Mail.MacOS.Views.Mail;
 
@@ -144,7 +145,7 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
         CloseSearchFilters();
         await ReleaseReadingPaneAsync();
         ReleaseList();
-        await ViewModel.DeactivateAsync(NavigationMode.New, null!);
+        await ViewModel.DeactivateAsync(NavigationMode.New, null);
     }
 
     public override async Task ReleaseAsync()

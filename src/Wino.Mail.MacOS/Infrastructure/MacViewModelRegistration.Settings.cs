@@ -17,28 +17,7 @@ public static partial class MacViewModelRegistration
         services.AddSingleton<SettingsWindowPresenter>();
         services.AddSingleton<ISettingsWindowPresenter>(provider => provider.GetRequiredService<SettingsWindowPresenter>());
 
-        // ViewModels: same types and transient lifetimes as the WinUI registration.
-        services.AddTransient<AboutPageViewModel>();
-        services.AddTransient<AppPreferencesPageViewModel>();
-        services.AddTransient<MessageListPageViewModel>();
-        services.AddTransient<PersonalizationPageViewModel>();
-        services.AddTransient<AccountManagementViewModel>();
-        services.AddTransient<AccountDetailsPageViewModel>();
-        services.AddTransient<MailPreferencesPageViewModel>();
-        services.AddTransient<ReadComposePanePageViewModel>();
-        services.AddTransient<NotificationSettingsPageViewModel>();
-        services.AddTransient<UnreadBadgeSettingsPageViewModel>();
-        services.AddTransient<ContactsPreferenceSettingsPageViewModel>();
-        services.AddTransient<ToDoPreferenceSettingsPageViewModel>();
-        services.AddTransient<StoragePageViewModel>();
-        services.AddTransient<KeyboardShortcutsPageViewModel>();
-        services.AddTransient<CalendarPreferenceSettingsPageViewModel>();
-        services.AddTransient<CalendarRenderingSettingsPageViewModel>();
-        services.AddTransient<AliasManagementPageViewModel>();
-        services.AddTransient<WinoAccountManagementPageViewModel>();
-        services.AddTransient<WinoIntelligenceManagementPageViewModel>();
-        services.AddTransient<IntelligenceCoveragePageViewModel>();
-
+        // ViewModels come from the shared RegisterWinoViewModels list.
         services.AddTransient<AboutPageViewController>();
         services.AddTransient<AppPreferencesPageViewController>();
         services.AddTransient<MessageListPageViewController>();

@@ -42,7 +42,7 @@ public sealed partial class AppKitDialogService
     });
 
     /// <summary>Windows EditMailCategoryDialog: name and one of the shared palette colours; null when cancelled.</summary>
-    public Task<MailCategoryDialogResult> ShowEditMailCategoryDialogAsync(MailCategory category = null!) => PresentAsync<MailCategoryDialogResult>(async window =>
+    public Task<MailCategoryDialogResult?> ShowEditMailCategoryDialogAsync(MailCategory? category = null) => PresentAsync<MailCategoryDialogResult?>(async window =>
     {
         var palette = MailCategoryPalette.DefaultOptions;
         var selected = palette.FirstOrDefault(option =>
@@ -81,7 +81,7 @@ public sealed partial class AppKitDialogService
         form.CanConfirm = () => !string.IsNullOrWhiteSpace(name.StringValue);
         UpdatePreview();
 
-        if (!await form.PresentAsync(window)) return null!;
+        if (!await form.PresentAsync(window)) return null;
         return new MailCategoryDialogResult(name.StringValue.Trim(), selected.BackgroundColorHex, selected.TextColorHex);
     });
 

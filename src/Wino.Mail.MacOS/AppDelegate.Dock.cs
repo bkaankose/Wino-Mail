@@ -8,17 +8,17 @@ using Wino.Core.Domain.Models.Launch;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Calendar.ViewModels;
 using Wino.Messaging.UI;
-using Wino.Platform.MacOS.Services;
+using Wino.Platform.Apple.Services;
 
 namespace Wino.Mail.MacOS;
 
 /// <summary>
 /// The Dock menu (the Windows Jump List): New Mail, New Event and the folders the user added to
-/// quick folders. The badge itself is set by <see cref="MacNotificationBuilder"/> (mail unread only).
+/// quick folders. The badge itself is set by <see cref="AppleNotificationBuilder"/> (mail unread only).
 /// </summary>
 public sealed partial class AppDelegate
 {
-    private MacNotificationBuilder? DockBuilder => _services?.GetService<INotificationBuilder>() as MacNotificationBuilder;
+    private AppleNotificationBuilder? DockBuilder => _services?.GetService<INotificationBuilder>() as AppleNotificationBuilder;
 
     partial void DockServicesReady()
     {
@@ -56,7 +56,7 @@ public sealed partial class AppDelegate
         menu.AddItem(new NSMenuItem(Translator.MenuNewMail, (_, _) => Observe(NewMailFromDockAsync())));
         menu.AddItem(new NSMenuItem(Translator.CalendarEventCompose_NewEventButton, (_, _) => Observe(NewEventFromDockAsync())));
 
-        var folders = DockBuilder?.DockFolders ?? Array.Empty<MacDockFolderEntry>();
+        var folders = DockBuilder?.QuickFolders ?? Array.Empty<AppleQuickFolderEntry>();
         if (folders.Count > 0)
         {
             menu.AddItem(NSMenuItem.SeparatorItem);
@@ -91,7 +91,7 @@ public sealed partial class AppDelegate
     }
 
     /// <summary>Opens a quick folder through the mail shell's folder launch request.</summary>
-    private Task OpenFolderFromDockAsync(MacDockFolderEntry entry)
+    private Task OpenFolderFromDockAsync(AppleQuickFolderEntry entry)
         => _services!.GetRequiredService<AppKitNavigationService>()
             .EnsureShellAsync(WinoApplicationMode.Mail, new MailFolderLaunchRequest(entry.AccountId, entry.FolderId));
 }

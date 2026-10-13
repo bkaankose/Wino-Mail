@@ -14,4 +14,13 @@ public interface IApplicationRuntime
     Task StartAsync(CancellationToken cancellationToken = default);
     Task StopAsync(CancellationToken cancellationToken = default);
     Task SynchronizeCreatedAccountAsync(MailAccount account, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Runs one bounded synchronization pass across all accounts and returns when it finishes:
+    /// inbox mail, calendar metadata, and the task and contact modes when their six-hour window is due.
+    /// It initializes the runtime when needed but never starts the periodic loops, so hosts that only
+    /// get short background windows (for example a mobile background refresh task) can call it.
+    /// Cancelling the token stops the pass.
+    /// </summary>
+    Task SynchronizeOnceAsync(CancellationToken cancellationToken = default);
 }

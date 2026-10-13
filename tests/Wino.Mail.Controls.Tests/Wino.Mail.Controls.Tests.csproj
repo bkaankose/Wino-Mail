@@ -23,9 +23,8 @@
     <ProjectReference Include="..\..\controls\Wino.Mail.Controls.Core\Wino.Mail.Controls.Core.csproj" />
   </ItemGroup>
   <ItemGroup><ProjectReference Include="..\..\controls\Wino.Editor.Core\Wino.Editor.Core.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="..\..\controls\Wino.Presentation.Core\Wino.Presentation.Core.csproj" /></ItemGroup>
   <ItemGroup>
-    <Compile Include="../../controls/Wino.Presentation.AppKit/Bindings.cs" Link="Presentation/Bindings.cs" />
-    <Compile Include="../../src/Wino.Core.Domain/Interfaces/IDispatcher.cs" Link="Presentation/IDispatcher.cs" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
   </ItemGroup>
 </Project>

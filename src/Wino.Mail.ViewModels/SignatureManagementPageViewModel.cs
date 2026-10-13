@@ -40,10 +40,10 @@ public partial class SignatureManagementPageViewModel(IMailDialogService dialogS
     private readonly ISignatureService _signatureService = signatureService;
     private readonly IAccountService _accountService = accountService;
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
         => await InitializeAsync(mode, parameters);
 
-    public async Task InitializeAsync(NavigationMode mode, object parameters)
+    public async Task InitializeAsync(NavigationMode mode, object? parameters)
     {
         await DrainPreferenceWritesAsync();
         base.OnNavigatedTo(mode, parameters);

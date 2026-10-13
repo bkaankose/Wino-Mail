@@ -277,7 +277,7 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
 
     #endregion
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 

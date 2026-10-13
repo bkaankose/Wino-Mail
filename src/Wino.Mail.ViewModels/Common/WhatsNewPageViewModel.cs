@@ -36,7 +36,7 @@ public partial class WhatsNewPageViewModel : CoreBaseViewModel
         _whatsNewService = whatsNewService;
     }
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 

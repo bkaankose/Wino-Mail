@@ -374,6 +374,7 @@ FodyWeavers.xsd
 *.code-workspace
 !/WinoMail.Windows.code-workspace
 !/WinoMail.MacOS.code-workspace
+!/WinoMail.iOS.code-workspace
 
 # Local History for Visual Studio Code
 .history/
@@ -417,9 +418,11 @@ docs/design-prototypes/*
 /docs/harness/*
 !/docs/harness/development-windows.md
 !/docs/harness/development-macos.md
+!/docs/harness/development-ios.md
 !/docs/releases-windows.md
 !/docs/releases-macos.md
 !/docs/macos-design-decisions.md
+!/docs/ios-design-decisions.md
 !/docs/macos-shared-logic-roadmap.md
 
 # Release tooling is source, not a build output directory.

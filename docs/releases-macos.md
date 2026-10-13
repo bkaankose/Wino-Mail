@@ -74,7 +74,7 @@ To publish an update:
 
 Publish the universal build's appcast. An arm64 build's appcast carries `arm64` hardware requirements, so Intel Macs ignore it.
 Do not modify the DMG after the script signs it; Sparkle rejects a changed file.
-See `src/Wino.Core.MacOS.Bindings/README.md` for the integration and for testing an update locally.
+See `src/Wino.Core.Apple.Bindings/README.md` for the integration and for testing an update locally.
 
 The script stops if the DMG already exists. Failed runs keep their logs under `.staging/macos-<run>` in the output root.
 The DMG opens a standard window with the app and an Applications link.

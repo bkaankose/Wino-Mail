@@ -19,7 +19,8 @@
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
 		<PackageReference Include="Microsoft.Graph.Core" />
 		<PackageReference Include="Microsoft.Identity.Client" />
-		<PackageReference Include="Microsoft.Identity.Client.Broker" />
+		<!-- WAM broker: Windows only. Wino.Platform.Windows owns the only usage (WindowsOutlookAuthenticationHost). -->
+		<PackageReference Include="Microsoft.Identity.Client.Broker" Condition="'$(WinoTargetPlatform)' == 'Windows'" />
 		<PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" />
 		<PackageReference Include="MimeKit" />
 		<PackageReference Include="morelinq" />

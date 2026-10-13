@@ -63,7 +63,7 @@ public partial class IdlePageViewModel : CoreBaseViewModel, IShellMenuOwner, IRe
         _mailShell = mailShell;
     }
 
-    public override void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override void OnNavigatedTo(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 

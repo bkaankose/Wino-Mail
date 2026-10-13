@@ -189,8 +189,8 @@ public sealed class SignatureAndEncryptionPageViewController(SignatureAndEncrypt
     /// <summary>The ViewModel reloads both lists when it navigates to an empty state; drive that after an import.</summary>
     private void ReloadViewModel()
     {
-        ViewModel.OnNavigatedFrom(NavigationMode.Refresh, null!);
-        ViewModel.OnNavigatedTo(NavigationMode.Refresh, null!);
+        ViewModel.OnNavigatedFrom(NavigationMode.Refresh, null);
+        ViewModel.OnNavigatedTo(NavigationMode.Refresh, null);
     }
 
     private async void Run(Task operation)

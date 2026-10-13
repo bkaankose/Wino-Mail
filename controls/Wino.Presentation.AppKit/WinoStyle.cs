@@ -9,19 +9,20 @@ namespace Wino.Presentation.AppKit;
 /// </summary>
 public static class WinoStyle
 {
-    public const double Space1 = 4;
-    public const double Space2 = 8;
-    public const double Space3 = 12;
-    public const double Space4 = 16;
-    public const double Space6 = 24;
-    public const double Space8 = 32;
+    // Platform-neutral values live in Wino.Presentation.WinoTokens; these names forward to them.
+    public const double Space1 = WinoTokens.Space1;
+    public const double Space2 = WinoTokens.Space2;
+    public const double Space3 = WinoTokens.Space3;
+    public const double Space4 = WinoTokens.Space4;
+    public const double Space6 = WinoTokens.Space6;
+    public const double Space8 = WinoTokens.Space8;
 
-    public const double ControlRadius = 6;
-    public const double GroupRadius = 8;
-    public const double PopoverRadius = 10;
+    public const double ControlRadius = WinoTokens.ControlRadius;
+    public const double GroupRadius = WinoTokens.GroupRadius;
+    public const double PopoverRadius = WinoTokens.PopoverRadius;
 
-    public const double SettingsRowMinHeight = 44;
-    public const double SidebarRowHeight = 28;
+    public const double SettingsRowMinHeight = WinoTokens.SettingsRowMinHeight;
+    public const double SidebarRowHeight = WinoTokens.SidebarRowHeight;
 
     public static NSFont Body => NSFont.SystemFontOfSize(13);
     public static NSFont BodyMedium => NSFont.SystemFontOfSize(13, NSFontWeight.Medium);
@@ -74,8 +75,8 @@ public static class WinoStyle
     public static event EventHandler? BackdropChanged;
 
     /// <summary>Gap between the window edge, the sidebar and the zones (Windows uses 6).</summary>
-    public const double ZoneGutter = 6;
-    public const double ZoneRadius = 8;
+    public const double ZoneGutter = WinoTokens.ZoneGutter;
+    public const double ZoneRadius = WinoTokens.ZoneRadius;
 
     /// <summary>
     /// The Windows WinoContentZoneBackgroud: opaque white in light, a translucent layer in dark
@@ -101,40 +102,19 @@ public static class WinoStyle
     public static NSColor Critical => NSColor.SystemRed;
     public static NSColor Informational => NSColor.SystemBlue;
 
-    /// <summary>The 16-step avatar palette from the Wino design system.</summary>
-    public static readonly NSColor[] AvatarPalette =
-    [
-        Hex(0xE74C3C), Hex(0xC0392B), Hex(0x9B59B6), Hex(0x8E44AD),
-        Hex(0x3498DB), Hex(0x2980B9), Hex(0x16A085), Hex(0x27AE60),
-        Hex(0x00796B), Hex(0xE67E22), Hex(0xD35400), Hex(0x663399),
-        Hex(0x3F51B5), Hex(0xE91E63), Hex(0x7F8C8D), Hex(0x795548)
-    ];
+    /// <summary>The 16-step avatar palette from the Wino design system (<see cref="WinoTokens.AvatarPalette"/>).</summary>
+    public static readonly NSColor[] AvatarPalette = WinoTokens.AvatarPalette.Select(value => ToColor(WinoRgba.Parse(value))).ToArray();
 
-    public static NSColor Hex(uint rgb, double alpha = 1)
-        => NSColor.FromSrgb((nfloat)(((rgb >> 16) & 0xFF) / 255.0), (nfloat)(((rgb >> 8) & 0xFF) / 255.0),
-            (nfloat)((rgb & 0xFF) / 255.0), (nfloat)alpha);
+    public static NSColor Hex(uint rgb, double alpha = 1) => ToColor(WinoRgba.FromRgb(rgb, alpha));
 
     /// <summary>Parses #RRGGBB or #AARRGGBB; returns null for anything else.</summary>
     public static NSColor? FromHexString(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value)) return null;
-        var text = value.Trim().TrimStart('#');
-        if (!uint.TryParse(text, System.Globalization.NumberStyles.HexNumber, null, out var parsed)) return null;
-        return text.Length switch
-        {
-            6 => Hex(parsed),
-            8 => Hex(parsed & 0xFFFFFF, ((parsed >> 24) & 0xFF) / 255.0),
-            _ => null
-        };
-    }
+        => WinoRgba.FromHexString(value) is { } color ? ToColor(color) : null;
 
-    public static NSColor AvatarColor(string? key)
-    {
-        if (string.IsNullOrEmpty(key)) return AvatarPalette[14];
-        int hash = 17;
-        foreach (char character in key.ToLowerInvariant()) hash = unchecked(hash * 31 + character);
-        return AvatarPalette[(int)((uint)hash % (uint)AvatarPalette.Length)];
-    }
+    public static NSColor ToColor(WinoRgba color)
+        => NSColor.FromSrgb((nfloat)(color.R / 255.0), (nfloat)(color.G / 255.0), (nfloat)(color.B / 255.0), (nfloat)color.Alpha);
+
+    public static NSColor AvatarColor(string? key) => AvatarPalette[WinoTokens.AvatarPaletteIndex(key)];
 
     public static NSTextField Label(string? text, NSFont? font = null, NSColor? color = null, int maximumLines = 1)
     {

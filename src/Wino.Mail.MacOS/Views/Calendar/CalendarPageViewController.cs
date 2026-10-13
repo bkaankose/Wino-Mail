@@ -13,6 +13,8 @@ using Wino.Mail.Controls.AppKit.Calendar;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Messaging.Client.Calendar;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Bindings;
+using Wino.Core.Domain.Presentation;
 
 namespace Wino.Mail.MacOS.Views.Calendar;
 
@@ -555,7 +557,7 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         }
         finally { _paneGate.Release(); }
         if (_selected is not null) { _selected.IsSelected = false; _selected = null; }
-        ViewModel.OnNavigatedFrom(NavigationMode.New, null!);
+        ViewModel.OnNavigatedFrom(NavigationMode.New, null);
     }
 
     private async void Observe(Task task)

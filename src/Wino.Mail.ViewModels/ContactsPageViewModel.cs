@@ -187,10 +187,10 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         Contacts.CollectionChanged += ContactsCollectionChanged;
     }
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
         => await InitializeNavigationAsync(mode, parameters, false);
 
-    public async Task InitializeNavigationAsync(NavigationMode mode, object parameters, bool awaitReadiness = true)
+    public async Task InitializeNavigationAsync(NavigationMode mode, object? parameters, bool awaitReadiness = true)
     {
         base.OnNavigatedTo(mode, parameters);
         _isPageActive = true;
@@ -755,7 +755,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             LastSuccessfulSyncUtc = source.LastSuccessfulSyncUtc
         };
 
-    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    public override void OnNavigatedFrom(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedFrom(mode, parameters);
         _isPageActive = false;

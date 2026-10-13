@@ -419,7 +419,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         }
     }
 
-    public override void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override void OnNavigatedTo(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 

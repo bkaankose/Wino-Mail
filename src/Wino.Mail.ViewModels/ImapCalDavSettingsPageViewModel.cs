@@ -268,11 +268,11 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         _mailServerTestService = mailServerTestService;
     }
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
         => await InitializeAsync(mode, parameters);
 
     /// <summary>Awaitable navigation entry for hosts that own credential hydration.</summary>
-    public async Task InitializeAsync(NavigationMode mode, object parameters)
+    public async Task InitializeAsync(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 
@@ -321,7 +321,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         TrackImapSetupEvent("imap_setup_opened", result: "opened");
     }
 
-    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    public override void OnNavigatedFrom(NavigationMode mode, object? parameters)
     {
         if (_pageMode == ImapCalDavSettingsPageMode.Create && !_isCompletionFinalized)
         {

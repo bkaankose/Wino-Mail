@@ -2,8 +2,6 @@ using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.ViewModels;
-using Wino.Mail.ViewModels.Intelligence;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Services;
 using Wino.Services;
@@ -58,6 +56,7 @@ public static class CoreUWPContainerSetup
         // One dialog stack, one presentation semaphore: the base interface forwards to the mail dialog service.
         services.AddSingleton<IDialogServiceBase>(provider => provider.GetRequiredService<IMailDialogService>());
         services.AddSingleton<IExternalBrowserAuthenticationPresenter, ExternalBrowserAuthenticationPresenter>();
+        global::Wino.Core.CoreContainerSetup.AddLoopbackGoogleAuthorizationCodeReceiver(services);
         services.AddTransient<IConfigurationService, ConfigurationService>();
         services.AddTransient<IFileService, FileService>();
         services.AddSingleton<IMicrosoftStoreService, MicrosoftStoreService>();
@@ -70,21 +69,6 @@ public static class CoreUWPContainerSetup
         services.AddTransient<INotificationBuilder, NotificationBuilder>();
         services.AddSingleton<IWindowsPrintService, PrintService>();
 
-    }
-
-    public static void RegisterCoreViewModels(this IServiceCollection services)
-    {
-        services.AddTransient(typeof(SettingsDialogViewModel));
-        services.AddTransient(typeof(PersonalizationPageViewModel));
-        services.AddTransient(typeof(ApplicationThemeGalleryPageViewModel));
-        services.AddTransient(typeof(ApplicationThemeEditorPageViewModel));
-        services.AddTransient(typeof(SettingOptionsPageViewModel));
-        services.AddTransient(typeof(AboutPageViewModel));
-        services.AddTransient(typeof(SettingsPageViewModel));
-        services.AddTransient(typeof(WelcomeHostPageViewModel));
-        services.AddTransient(typeof(KeyboardShortcutsPageViewModel));
-        services.AddTransient(typeof(WhatsNewPageViewModel));
-        services.AddTransient<WinoIntelligenceHeaderPresenter>();
     }
 }
 

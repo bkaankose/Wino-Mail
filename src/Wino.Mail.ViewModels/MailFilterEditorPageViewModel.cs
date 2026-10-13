@@ -9,6 +9,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Presentation;
 
 namespace Wino.Mail.ViewModels;
 
@@ -527,12 +528,7 @@ public partial class MailFilterEditorPageViewModel(
     }
 
     private static bool IsExclusiveLocalAction(MailFilterActionType? action)
-        => action is MailFilterActionType.Move
-            or MailFilterActionType.Archive
-            or MailFilterActionType.MoveToJunk
-            or MailFilterActionType.MarkAsNotJunk
-            or MailFilterActionType.SoftDelete
-            or MailFilterActionType.HardDelete;
+        => MailFilterDisplay.IsExclusiveAction(action);
 
     public bool LastSaveSucceeded { get; private set; }
 

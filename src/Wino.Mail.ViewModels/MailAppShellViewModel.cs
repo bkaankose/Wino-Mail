@@ -277,10 +277,10 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }).ConfigureAwait(false);
     }
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
         => await InitializeNavigationAsync(mode, parameters);
 
-    public async Task InitializeNavigationAsync(NavigationMode mode, object parameters)
+    public async Task InitializeNavigationAsync(NavigationMode mode, object? parameters)
     {
         if (!_hasRegisteredPersistentRecipients)
         {
@@ -344,7 +344,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         });
     }
 
-    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    public override void OnNavigatedFrom(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedFrom(mode, parameters);
 
@@ -1410,6 +1410,13 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             }
             catch (MimePersistenceException ex)
             {
+                _dialogService.InfoBarMessage(Translator.Info_DraftCreationFailed, ex.Message, InfoBarMessageType.Error);
+            }
+            catch (Exception ex)
+            {
+                // Any other failure (no primary alias, a storage or synchronizer error) used to reach only the caller's
+                // logger, so New Message did nothing visible. Every head shows it through its info bar.
+                Log.Error(ex, "Creating a new draft for account {AccountId} failed.", account.Id);
                 _dialogService.InfoBarMessage(Translator.Info_DraftCreationFailed, ex.Message, InfoBarMessageType.Error);
             }
         }

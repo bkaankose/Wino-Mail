@@ -1,6 +1,6 @@
 using System.ComponentModel;
 using Wino.Core.Domain.Interfaces;
-using Wino.Presentation.AppKit;
+using Wino.Presentation.Bindings;
 using CommunityToolkit.Mvvm.Input;
 using Xunit;
 

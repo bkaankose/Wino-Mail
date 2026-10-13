@@ -6,6 +6,9 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Mail.Controls.Core.Calendar;
+using Wino.Mail.Controls.Core.Layout;
+using Wino.Presentation;
 using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.Controls.AppKit.Calendar;
@@ -41,11 +44,11 @@ public sealed class CalendarItemClickedEventArgs(ICalendarItem item, WinoCalenda
 /// </summary>
 public sealed partial class WinoCalendarSurfaceView : NSView
 {
-    public const double HourColumnWidth = 64;
-    public const double TimedHeaderHeight = 44;
-    public const double MonthHeaderHeight = 36;
-    internal const double TimelinePadding = 8;
-    private const double GridIntervalMinutes = 30;
+    public const double HourColumnWidth = WinoCalendarSurfaceGeometry.HourColumnWidth;
+    public const double TimedHeaderHeight = WinoCalendarSurfaceGeometry.TimedHeaderHeight;
+    public const double MonthHeaderHeight = WinoCalendarSurfaceGeometry.MonthHeaderHeight;
+    internal const double TimelinePadding = WinoCalendarSurfaceGeometry.TimelinePadding;
+    private const double GridIntervalMinutes = WinoCalendarSurfaceGeometry.GridIntervalMinutes;
 
     private readonly HeaderView _header;
     private readonly AllDayView _allDay;
@@ -161,7 +164,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
         Invalidate();
     }
 
-    internal double HourHeight => _settings is { HourHeight: > 0 } ? _settings.HourHeight : 52;
+    internal double HourHeight => WinoCalendarSurfaceGeometry.HourHeight(_settings?.HourHeight ?? 0);
     internal double TimelineHeight => HourHeight * 24;
     internal VisibleDateRange? Range => _range;
     internal CalendarSettings? CurrentSettings => _settings;
@@ -227,7 +230,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
         {
             _scrolledToStart = true;
             double startHour = _settings?.IsWorkingHoursEnabled == true ? _settings.WorkingHourStart.TotalHours : 8;
-            double y = Math.Max(0, Math.Min((startHour - 0.5) * HourHeight, _timed.Frame.Height - _scroll.ContentSize.Height));
+            double y = WinoCalendarSurfaceGeometry.InitialScrollOffset(startHour, HourHeight, _timed.Frame.Height, _scroll.ContentSize.Height);
             _scroll.ContentView.ScrollToPoint(new CGPoint(0, y));
             _scroll.ReflectScrolledClipView(_scroll.ContentView);
         }
@@ -435,14 +438,9 @@ public sealed partial class WinoCalendarSurfaceView : NSView
         /// <summary>All-day tiles move by whole days along the strip.</summary>
         internal override DragTarget? ResolveDrag(DragSession session, CGPoint point)
         {
-            var dates = Owner.Dates;
-            double dayWidth = DayWidth;
-            if (dayWidth <= 0 || dates.Count == 0) return null;
-            int DayAt(double x) => Math.Clamp((int)Math.Floor((x - HourColumnWidth) / dayWidth), 0, dates.Count - 1);
-            int delta = DayAt(point.X) - DayAt(session.DownPoint.X);
-            var frame = session.OriginFrame;
-            return new DragTarget(session.OriginalStart.AddDays(delta), session.OriginalEnd.AddDays(delta),
-                new CGRect(frame.X + delta * dayWidth, frame.Y, frame.Width, frame.Height));
+            var target = WinoCalendarSurfaceGeometry.ResolveAllDayDrag(Owner.Dates.Count, DayWidth, session.DownPoint.X, point.X,
+                session.OriginalStart, session.OriginalEnd, ToFrame(session.OriginFrame));
+            return ToDragTarget(target);
         }
 
         internal override CGSize PreviewOffset(int days, double minutes) => new(days * DayWidth, 0);
@@ -459,7 +457,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
             for (int index = 0; index < dates.Count; index++)
             {
                 double x = HourColumnWidth + index * dayWidth;
-                if (dates[index].DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday && dates.Count > 1)
+                if (WinoCalendarSurfaceGeometry.IsShadedWeekend(dates[index], dates.Count))
                 {
                     WeekendFill.SetFill();
                     FillRect(new CGRect(x, 0, dayWidth, bounds.Height));
@@ -480,7 +478,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
             var dates = Owner.Dates;
             double dayWidth = dates.Count == 0 ? 0 : Math.Max(0, _contentWidth - HourColumnWidth) / dates.Count;
             if (dayWidth <= 0 || point.X < HourColumnWidth) return;
-            int dayIndex = Math.Clamp((int)((point.X - HourColumnWidth) / dayWidth), 0, dates.Count - 1);
+            int dayIndex = WinoCalendarSurfaceGeometry.DayIndexAt(point.X, dates.Count, dayWidth);
             Owner.RaiseSlotClicked(dates[dayIndex].ToDateTime(TimeOnly.MinValue), new CGRect(HourColumnWidth + dayIndex * dayWidth, 0, dayWidth, Bounds.Height), this, true);
         }
     }
@@ -514,7 +512,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
             // Weekend columns.
             for (int index = 0; index < dates.Count; index++)
             {
-                if (dates.Count > 1 && dates[index].DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+                if (WinoCalendarSurfaceGeometry.IsShadedWeekend(dates[index], dates.Count))
                 {
                     WeekendFill.SetFill();
                     FillRect(new CGRect(HourColumnWidth + index * dayWidth, 0, dayWidth, bounds.Height));
@@ -584,49 +582,13 @@ public sealed partial class WinoCalendarSurfaceView : NSView
         /// </summary>
         internal override DragTarget? ResolveDrag(DragSession session, CGPoint point)
         {
-            var dates = Owner.Dates;
-            double dayWidth = Owner.DayWidth;
-            double hourHeight = Owner.HourHeight;
-            if (dayWidth <= 0 || dates.Count == 0 || hourHeight <= 0) return null;
-            int DayAt(double x) => Math.Clamp((int)Math.Floor((x - HourColumnWidth) / dayWidth), 0, dates.Count - 1);
-            double deltaMinutes = (point.Y - session.DownPoint.Y) / hourHeight * 60;
-            var frame = session.OriginFrame;
-
-            if (session.Resize)
-            {
-                var minimum = session.OriginalStart.AddMinutes(Owner.DragSnapMinutes);
-                var maximum = session.OriginalStart.Date.AddDays(1);
-                var end = Owner.Snap(session.OriginalEnd.AddMinutes(deltaMinutes));
-                end = end < minimum ? minimum : end > maximum ? maximum : end;
-                double height = frame.Height + (end - session.OriginalEnd).TotalHours * hourHeight;
-                return new DragTarget(session.OriginalStart, end, new CGRect(frame.X, frame.Y, frame.Width, Math.Max(4, height)));
-            }
-
-            int deltaDays = DayAt(point.X) - DayAt(session.DownPoint.X);
-            var duration = session.OriginalEnd - session.OriginalStart;
-            var start = Owner.Snap(session.OriginalStart.AddDays(deltaDays).AddMinutes(deltaMinutes));
-            var firstDay = dates[0].ToDateTime(TimeOnly.MinValue);
-            var lastStart = dates[^1].ToDateTime(TimeOnly.MinValue).AddDays(1).AddMinutes(-Owner.DragSnapMinutes);
-            start = start < firstDay ? firstDay : start > lastStart ? lastStart : start;
-
-            int originIndex = IndexOf(dates, session.Tile.Date);
-            int targetIndex = IndexOf(dates, DateOnly.FromDateTime(start));
-            double columnOffset = frame.X - (HourColumnWidth + Math.Max(0, originIndex) * dayWidth);
-            double rowOffset = frame.Y - (TimelinePadding + session.OriginalStart.TimeOfDay.TotalHours * hourHeight);
-            double y = TimelinePadding + start.TimeOfDay.TotalHours * hourHeight + rowOffset;
-            double bottom = TimelinePadding + 24 * hourHeight;
-            double ghostHeight = Math.Max(4, Math.Min(frame.Height, bottom - y));
-            return new DragTarget(start, start + duration,
-                new CGRect(HourColumnWidth + Math.Max(0, targetIndex) * dayWidth + columnOffset, y, frame.Width, ghostHeight));
+            var target = WinoCalendarSurfaceGeometry.ResolveTimedDrag(Owner.Dates, Owner.DayWidth, Owner.HourHeight, Owner.DragSnapMinutes,
+                session.Resize, (session.DownPoint.X, session.DownPoint.Y), (point.X, point.Y),
+                session.OriginalStart, session.OriginalEnd, ToFrame(session.OriginFrame), session.Tile.Date);
+            return ToDragTarget(target);
         }
 
         internal override CGSize PreviewOffset(int days, double minutes) => new(days * Owner.DayWidth, minutes / 60 * Owner.HourHeight);
-
-        private static int IndexOf(IReadOnlyList<DateOnly> dates, DateOnly date)
-        {
-            for (int index = 0; index < dates.Count; index++) if (dates[index] == date) return index;
-            return -1;
-        }
 
         private static string HourLabel(CalendarSettings? settings, int hour)
             => settings is null ? $"{hour:00}:00" : settings.GetTimeString(TimeSpan.FromHours(hour));
@@ -637,12 +599,9 @@ public sealed partial class WinoCalendarSurfaceView : NSView
             var point = ConvertPointFromView(theEvent.LocationInWindow, null);
             var dates = Owner.Dates;
             double dayWidth = Owner.DayWidth;
-            if (dayWidth <= 0 || dates.Count == 0 || point.X < HourColumnWidth) return;
-            int dayIndex = Math.Clamp((int)((point.X - HourColumnWidth) / dayWidth), 0, dates.Count - 1);
-            double intervalHeight = Owner.HourHeight * GridIntervalMinutes / 60;
-            int slot = Math.Clamp((int)((point.Y - TimelinePadding) / intervalHeight), 0, (int)(24 * 60 / GridIntervalMinutes) - 1);
-            var start = dates[dayIndex].ToDateTime(TimeOnly.MinValue).AddMinutes(slot * GridIntervalMinutes);
-            var anchor = new CGRect(HourColumnWidth + dayIndex * dayWidth, TimelinePadding + slot * intervalHeight, dayWidth, intervalHeight);
+            if (WinoCalendarSurfaceGeometry.SlotStartAt(point.X, point.Y, dates, dayWidth, Owner.HourHeight) is not { } start) return;
+            int dayIndex = WinoCalendarSurfaceGeometry.DayIndexAt(point.X, dates.Count, dayWidth);
+            var anchor = ToRect(WinoCalendarSurfaceGeometry.SlotBounds(dayIndex, WinoCalendarSurfaceGeometry.SlotAt(point.Y, Owner.HourHeight), dayWidth, Owner.HourHeight));
             Owner.BeginSlotPress(this, month: false, point, () => Owner.RaiseSlotClicked(start, anchor, this, false));
         }
 
@@ -719,18 +678,15 @@ public sealed partial class WinoCalendarSurfaceView : NSView
             var origin = _cells.FirstOrDefault(c => c.Date == session.Tile.Date);
             var target = _cells.FirstOrDefault(c => c.Bounds.Contains(clamped));
             if (origin is null || target is null) return null;
-            int delta = target.Date.DayNumber - origin.Date.DayNumber;
-            var frame = session.OriginFrame;
-            return new DragTarget(session.OriginalStart.AddDays(delta), session.OriginalEnd.AddDays(delta),
-                new CGRect(frame.X + target.Bounds.X - origin.Bounds.X, frame.Y + target.Bounds.Y - origin.Bounds.Y, frame.Width, frame.Height));
+            return ToDragTarget(WinoCalendarSurfaceGeometry.ResolveMonthDrag(origin.Date, ToFrame(origin.Bounds), target.Date, ToFrame(target.Bounds),
+                session.OriginalStart, session.OriginalEnd, ToFrame(session.OriginFrame)));
         }
 
         internal override CGSize PreviewOffset(int days, double minutes)
         {
-            double cellWidth = Bounds.Width / CalendarLayoutCalculator.MonthColumns;
-            double cellHeight = Bounds.Height / CalendarLayoutCalculator.MonthRows;
-            int rows = (int)Math.Floor(days / 7.0);
-            return new CGSize((days - rows * 7) * cellWidth, rows * cellHeight);
+            var (width, height) = WinoCalendarSurfaceGeometry.MonthPreviewOffset(days,
+                Bounds.Width / CalendarLayoutCalculator.MonthColumns, Bounds.Height / CalendarLayoutCalculator.MonthRows);
+            return new CGSize(width, height);
         }
 
         /// <summary>A click picks the day; a drag selects a range of days (WinoCalendarSurfaceView.Selection).</summary>
@@ -758,6 +714,13 @@ public sealed partial class WinoCalendarSurfaceView : NSView
     }
 
     // ---------------------------------------------------------------- drawing helpers
+
+    internal static WinoLayoutFrame ToFrame(CGRect rect) => new(rect.X, rect.Y, rect.Width, rect.Height);
+
+    internal static CGRect ToRect(WinoLayoutFrame frame) => new(frame.X, frame.Y, frame.Width, frame.Height);
+
+    private static DragTarget? ToDragTarget(WinoCalendarDragTarget? target)
+        => target is { } resolved ? new DragTarget(resolved.Start, resolved.End, ToRect(resolved.Frame)) : null;
 
     /// <summary>Source-over fill (NSRectFill composites with Copy, which would punch holes into the zone).</summary>
     internal static void FillRect(CGRect rect) => NSBezierPath.FromRect(rect).Fill();

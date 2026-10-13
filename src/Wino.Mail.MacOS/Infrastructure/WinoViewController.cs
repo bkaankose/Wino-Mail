@@ -3,6 +3,7 @@ using Wino.Core.ViewModels;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Presentation.AppKit;
+using Wino.Presentation.Bindings;
 
 namespace Wino.Mail.MacOS.Infrastructure;
 
@@ -61,7 +62,7 @@ public abstract class WinoViewController<TViewModel> : NSViewController, IWinoVi
 
     protected virtual Task DeactivateAsync()
     {
-        ViewModel.OnNavigatedFrom(NavigationMode.New, null!);
+        ViewModel.OnNavigatedFrom(NavigationMode.New, null);
         return Task.CompletedTask;
     }
 
@@ -103,7 +104,7 @@ public abstract class WinoViewController<TViewModel> : NSViewController, IWinoVi
         {
             // Router-owned asynchronous release precedes native disposal.
             Bindings.Dispose();
-            if (_active) ViewModel.OnNavigatedFrom(NavigationMode.New, null!);
+            if (_active) ViewModel.OnNavigatedFrom(NavigationMode.New, null);
             _active = false;
             _released = true;
             ViewModel.Dispatcher = null!;

@@ -1,4 +1,5 @@
 using AppKit;
+using Wino.Mail.Controls.Core;
 using Wino.Presentation.AppKit;
 
 namespace Wino.Mail.Controls.AppKit.MailList;
@@ -123,7 +124,7 @@ public sealed class WinoSearchScopeBar : WinoSurfaceView
         }
         if (!string.IsNullOrEmpty(FiltersTitle))
         {
-            var title = ActiveFilterCount > 0 ? $"{FiltersTitle} ({ActiveFilterCount})" : FiltersTitle;
+            var title = WinoControlText.WithCount(FiltersTitle, ActiveFilterCount);
             var filters = new WinoChipView(22)
             {
                 Text = title,
