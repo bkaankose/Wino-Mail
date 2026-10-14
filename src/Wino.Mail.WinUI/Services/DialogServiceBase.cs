@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Serilog;
@@ -18,6 +19,7 @@ using Wino.Core.Domain.Models.Common;
 using Wino.Dialogs;
 using Wino.Mail.WinUI.Dialogs;
 using Wino.Mail.WinUI.Extensions;
+using Wino.Mail.WinUI.Interfaces;
 using Wino.Messaging.Client.Shell;
 using WinRT.Interop;
 
@@ -38,8 +40,18 @@ public class DialogServiceBase : IDialogServiceBase
         ApplicationResourceManager = applicationResourceManager;
     }
 
+    /// <summary>
+    /// The XamlRoot a new dialog should open in: the window the user is working in, so a dialog
+    /// raised from a secondary window opens there instead of behind it on the main window. A
+    /// hidden window cannot present a dialog, so that case falls back to the main window.
+    /// </summary>
     protected XamlRoot? GetXamlRoot()
     {
+        var activeWindow = WinoApplication.Current.Services.GetService<IWinoWindowManager>()?.ActiveWindow;
+
+        if (activeWindow is { Visible: true, Content.XamlRoot: { } activeXamlRoot })
+            return activeXamlRoot;
+
         return WinoApplication.MainWindow?.Content?.XamlRoot;
     }
 
@@ -254,7 +266,10 @@ public class DialogServiceBase : IDialogServiceBase
 
         try
         {
-            dialog.XamlRoot = GetXamlRoot();
+            // A dialog keeps the XamlRoot it was first given. Assigning a different one throws
+            // "This element is already associated with a XamlRoot", so only an unrooted dialog
+            // is rooted here.
+            dialog.XamlRoot ??= GetXamlRoot();
 
             return await dialog.ShowAsync();
         }

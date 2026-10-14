@@ -156,7 +156,19 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
 
         try
         {
-            var cancellation = _synchronizationManager.GetAllSynchronizers()
+            // A runtime stopped before initialization step 2 completed has no synchronizers to drain,
+            // and the manager throws rather than returning an empty set in that state.
+            IEnumerable<IWinoSynchronizerBase> synchronizers;
+            try
+            {
+                synchronizers = _synchronizationManager.GetAllSynchronizers();
+            }
+            catch (InvalidOperationException)
+            {
+                synchronizers = Array.Empty<IWinoSynchronizerBase>();
+            }
+
+            var cancellation = synchronizers
                 .Select(x => _synchronizationManager.CancelSynchronizationsAsync(x.Account.Id));
             // Stopped means the runtime has actually drained. A timeout must never
             // authorize native process termination while provider work is still running.

@@ -60,6 +60,8 @@ internal sealed partial class NativeTrayIcon : IDisposable
     private const uint NimDelete = 0x00000002;
     private const uint NimSetVersion = 0x00000004;
     private static readonly Guid TrayIconGuid = new("6E1330D0-22D5-4F0B-A3BF-C9B2AE536F77");
+    private const int MaximumCreateRetryCount = 5;
+    private static readonly TimeSpan CreateRetryDelay = TimeSpan.FromSeconds(5);
 
     private readonly DispatcherQueue _dispatcherQueue;
     private readonly string _iconPath;
@@ -77,6 +79,8 @@ internal sealed partial class NativeTrayIcon : IDisposable
     private bool _isDisposed;
     private bool _isVisible;
     private bool _notifyIconCreated;
+    private bool _isCreateRetryPending;
+    private int _createRetryCount;
     private int _activeHotKeyId;
     private HotKeyGesture? _activeHotKey;
 
@@ -254,20 +258,43 @@ internal sealed partial class NativeTrayIcon : IDisposable
         }
     }
 
+    /// <summary>
+    /// Adds or updates the notification area icon. This runs during startup and from the
+    /// TaskbarCreated window message, so it never throws: Shell_NotifyIcon fails with
+    /// ERROR_TIMEOUT (1460) while Explorer is busy or restarting. A failed add is retried
+    /// after a delay, and Explorer's TaskbarCreated broadcast re-adds the icon as well.
+    /// </summary>
     private void CreateOrModifyNotifyIcon()
     {
         if (!IsVisible || _isDisposed)
             return;
 
-        var notifyIconData = CreateNotifyIconData();
+        NOTIFYICONDATAW notifyIconData;
+        try
+        {
+            notifyIconData = CreateNotifyIconData();
+        }
+        catch (InvalidOperationException ex)
+        {
+            // The icon file could not be loaded. Retrying cannot fix a broken package.
+            Log.Error(ex, "Native tray icon could not be created.");
+            return;
+        }
 
         if (!_notifyIconCreated)
         {
             Shell_NotifyIconW(NimDelete, ref notifyIconData);
 
             if (!Shell_NotifyIconW(NimAdd, ref notifyIconData))
-                throw CreateWin32Exception("Failed to add native tray icon.");
+            {
+                Log.Warning("Failed to add native tray icon. LastError: {LastError}, Attempt: {Attempt}",
+                    Marshal.GetLastWin32Error(),
+                    _createRetryCount + 1);
+                ScheduleCreateRetry();
+                return;
+            }
 
+            _createRetryCount = 0;
             _notifyIconCreated = true;
             notifyIconData.uTimeoutOrVersion = NotifyIconVersion4;
 
@@ -286,7 +313,36 @@ internal sealed partial class NativeTrayIcon : IDisposable
         }
 
         if (!Shell_NotifyIconW(NimModify, ref notifyIconData))
-            throw CreateWin32Exception("Failed to modify native tray icon.");
+        {
+            // The icon is gone, typically because Explorer restarted. Add it again later.
+            Log.Warning("Failed to modify native tray icon. LastError: {LastError}", Marshal.GetLastWin32Error());
+            _notifyIconCreated = false;
+            ScheduleCreateRetry();
+        }
+    }
+
+    private void ScheduleCreateRetry()
+    {
+        if (_isDisposed || _isCreateRetryPending || _createRetryCount >= MaximumCreateRetryCount)
+            return;
+
+        _isCreateRetryPending = true;
+        _createRetryCount++;
+        _ = RetryCreateAfterDelayAsync();
+    }
+
+    private async Task RetryCreateAfterDelayAsync()
+    {
+        await Task.Delay(CreateRetryDelay).ConfigureAwait(false);
+
+        var enqueued = _dispatcherQueue.TryEnqueue(() =>
+        {
+            _isCreateRetryPending = false;
+            CreateOrModifyNotifyIcon();
+        });
+
+        if (!enqueued)
+            Log.Warning("Native tray icon retry was skipped because the UI dispatcher is shutting down.");
     }
 
     private void DeleteNotifyIcon()
@@ -485,6 +541,8 @@ internal sealed partial class NativeTrayIcon : IDisposable
             default:
                 if (message == _taskbarRestartMessageId)
                 {
+                    // A new Explorer instance gets a fresh set of add attempts.
+                    _createRetryCount = 0;
                     DeleteNotifyIcon();
                     CreateOrModifyNotifyIcon();
                     TaskbarRecreated?.Invoke(this, EventArgs.Empty);

@@ -1171,17 +1171,38 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         await _reloadSemaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            while (Volatile.Read(ref _completedFullReloadVersion) < Volatile.Read(ref _requestedFullReloadVersion))
+            while (!_isPreparedForShellShutdown &&
+                   Volatile.Read(ref _completedFullReloadVersion) < Volatile.Read(ref _requestedFullReloadVersion))
             {
                 var requestedVersion = Volatile.Read(ref _requestedFullReloadVersion);
                 await ReloadCoreAsync().ConfigureAwait(false);
                 Volatile.Write(ref _completedFullReloadVersion, requestedVersion);
             }
         }
+        catch (Exception ex) when (IsDatabaseClosedFailure(ex))
+        {
+            // Shutdown closes the database while a reload can still be in flight. Stop quietly; the next
+            // navigation requests a fresh reload because the completed version was not advanced.
+            Serilog.Log.Debug(ex, "Task reload stopped because the database is closed.");
+        }
         finally
         {
             _reloadSemaphore.Release();
         }
+    }
+
+    private bool IsDatabaseClosedFailure(Exception exception)
+    {
+        if (exception is SQLite.SQLiteException sqliteException &&
+            sqliteException.Message.Contains("unopened database", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (exception is not (NullReferenceException or ObjectDisposedException or SQLite.SQLiteException))
+            return false;
+
+        // A closed native handle surfaces as a NullReferenceException inside the sqlite3 interop.
+        return _isPreparedForShellShutdown ||
+               (exception.StackTrace?.Contains("sqlite3_", StringComparison.Ordinal) ?? false);
     }
 
     private async Task ReloadCoreAsync()

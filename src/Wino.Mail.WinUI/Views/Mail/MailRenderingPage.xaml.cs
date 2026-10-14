@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -247,7 +248,17 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         if (Volatile.Read(ref _activeRenderCount) == 0)
         {
             ResetReaderContentState();
-            await _readerSession.ClearAsync();
+
+            try
+            {
+                await _readerSession.ClearAsync();
+            }
+            catch (Exception ex) when (ex is ObjectDisposedException or COMException)
+            {
+                // A competing navigation already disposed this page's renderer (or its WebView2
+                // closed). Clearing content that no longer exists needs no further work.
+                Log.Debug(ex, "Skipped clearing the mail renderer because it was already disposed.");
+            }
         }
     }
 
@@ -265,7 +276,16 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         _intelligence.ForgetMailItem();
 
         await ClearRenderedContentAsync();
-        await _readerSession.EnterIdleAsync();
+
+        try
+        {
+            await _readerSession.EnterIdleAsync();
+        }
+        catch (Exception ex) when (ex is ObjectDisposedException or COMException)
+        {
+            // The renderer was torn down while the idle grace period elapsed.
+            Log.Debug(ex, "Skipped idling the mail renderer because it was already disposed.");
+        }
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)

@@ -1296,7 +1296,7 @@ public class MailService : BaseDatabaseService, IMailService
         return hydratedMailCopy;
     }
 
-    public async Task SaveDraftMetadataAsync(Guid accountId, MailCopy snapshot)
+    public async Task<bool> SaveDraftMetadataAsync(Guid accountId, MailCopy snapshot)
     {
         var gate = _draftUpdates?.Get(accountId, snapshot.UniqueId).PersistenceLock
                    ?? _draftLifecycleLocks.GetOrAdd(snapshot.UniqueId, _ => new SemaphoreSlim(1, 1));
@@ -1304,8 +1304,13 @@ public class MailService : BaseDatabaseService, IMailService
         try
         {
             var current = await GetSingleMailItemAsync(snapshot.UniqueId).ConfigureAwait(false);
-            if (current?.AssignedAccount?.Id != accountId || !current.IsDraft)
-                throw new InvalidOperationException("Draft no longer exists.");
+            if (current == null || current.AssignedAccount?.Id != accountId || !current.IsDraft)
+            {
+                // The draft was deleted, sent or moved (often remotely) while compose was still open.
+                _logger.Warning("Draft {UniqueId} no longer exists for account {AccountId}; metadata save skipped.",
+                    snapshot.UniqueId, accountId);
+                return false;
+            }
 
             current.Subject = snapshot.Subject;
             current.PreviewText = NormalizePreviewText(snapshot.PreviewText);
@@ -1315,6 +1320,7 @@ public class MailService : BaseDatabaseService, IMailService
             current.Importance = snapshot.Importance;
             await Connection.UpdateAsync(current, typeof(MailCopy)).ConfigureAwait(false);
             ReportUpdatedMails([current]);
+            return true;
         }
         finally { gate.Release(); }
     }
@@ -1788,7 +1794,8 @@ public class MailService : BaseDatabaseService, IMailService
         MailCopy removedMail = null;
         var mailCopyToInsert = mailCopy;
 
-        if (mailCopy.AssignedFolder.SpecialFolderType == SpecialFolderType.Sent &&
+        // A copy whose folder row was removed mid-sync has no AssignedFolder; treat it as a plain assignment.
+        if (mailCopy.AssignedFolder?.SpecialFolderType == SpecialFolderType.Sent &&
             localFolder.SpecialFolderType == SpecialFolderType.Deleted)
         {
             // Sent item is deleted.
@@ -2285,7 +2292,8 @@ public class MailService : BaseDatabaseService, IMailService
             Headers = { { Constants.WinoLocalDraftHeader, Guid.NewGuid().ToString() } },
         };
 
-        selectedAlias ??= await _accountService.GetPrimaryAccountAliasAsync(account.Id) ?? throw new MissingAliasException();
+        selectedAlias ??= await _accountService.EnsurePrimaryAccountAliasAsync(account.Id).ConfigureAwait(false)
+            ?? throw new MissingAliasException();
 
         // Set FromName and FromAddress by alias.
         message.From.Add(new MailboxAddress(selectedAlias.AliasSenderName ?? account.SenderName, selectedAlias.AliasAddress));
@@ -2318,6 +2326,17 @@ public class MailService : BaseDatabaseService, IMailService
     private async Task<MailAccountAlias> ResolveDraftAliasAsync(MailAccount account, DraftCreationOptions draftCreationOptions)
     {
         var aliases = await _accountService.GetAccountAliasesAsync(account.Id).ConfigureAwait(false);
+
+        if (aliases.Count == 0)
+        {
+            // Accounts restored or migrated without alias rows cannot compose. Repair them with the root alias.
+            var repairedAlias = await _accountService.EnsurePrimaryAccountAliasAsync(account.Id).ConfigureAwait(false);
+            if (repairedAlias == null)
+                throw new MissingAliasException();
+
+            aliases = [repairedAlias];
+        }
+
         var primaryAlias = aliases.FirstOrDefault(a => a.IsPrimary) ?? aliases.FirstOrDefault();
 
         if (draftCreationOptions?.ReferencedMessage?.MimeMessage == null)

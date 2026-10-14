@@ -136,7 +136,11 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     private async void ToggleEditorThemeClicked(object sender, RoutedEventArgs e)
     {
-        await EditorSession.SetThemeAsync(!WebViewEditor.IsEditorDarkMode);
+        try { await EditorSession.SetThemeAsync(!WebViewEditor.IsEditorDarkMode); }
+        catch (ObjectDisposedException) when (_isNavigatingFrom)
+        {
+            // The click raced the composer closing; the editor is already gone.
+        }
     }
 
     private async void EmailTemplateSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -875,6 +879,14 @@ public sealed partial class ComposePage : ComposePageAbstract,
             // navigation is still saving the draft. The editor content was already
             // captured by the winning teardown, so disposal is expected here.
         }
+        catch (InvalidOperationException exception)
+        {
+            // The draft can disappear while it is open, for example when the server deleted
+            // or moved it and synchronization removed the local copy. The save then reports
+            // "Draft no longer exists." There is nothing left to save, and this async void
+            // override must not take the process down while the page is leaving.
+            Serilog.Log.Warning(exception, "Draft changes were not saved while leaving the composer.");
+        }
         finally
         {
             EditorSession.ApplicationShortcutRequested -= WebViewEditor_ApplicationShortcutRequested;
@@ -1104,6 +1116,20 @@ public sealed partial class ComposePage : ComposePageAbstract,
         {
             // Draft deletion can navigate away while initialization/rendering is
             // still in flight. Disposal is the expected completion of that work.
+        }
+        catch (ObjectDisposedException exception)
+        {
+            // The editor or its WebView2 closed without this page observing a navigation
+            // (for example the WebView2 process went away). A disposed editor cannot render,
+            // and this call runs under the ViewModel's async void OnNavigatedTo.
+            Serilog.Log.Warning(exception, "Compose editor was disposed before the draft body rendered.");
+        }
+        catch (Exception exception) when (exception is System.IO.FileNotFoundException or System.Runtime.InteropServices.COMException or InvalidOperationException or TimeoutException)
+        {
+            // WebView2 failed to start (runtime files missing, bootstrap timeout or script
+            // error). Keep the composer open with the editor's failure status instead of crashing.
+            Serilog.Log.Error(exception, "Compose editor failed to initialize.");
+            WebViewEditor.ReportInitializationFailure(exception);
         }
     }
 

@@ -84,7 +84,11 @@ public interface IMailService
     Task MapLocalDraftAsync(string newMailCopyId, string newDraftId, string newThreadId);
 
     Task UpdateDraftIdentityAsync(Guid accountId, Guid uniqueId, DraftUpdateIdentity identity);
-    Task SaveDraftMetadataAsync(Guid accountId, MailCopy snapshot);
+    /// <summary>
+    /// Copies the compose metadata onto the stored draft.
+    /// </summary>
+    /// <returns>False when the draft no longer exists for the account (deleted or sent meanwhile); nothing is written.</returns>
+    Task<bool> SaveDraftMetadataAsync(Guid accountId, MailCopy snapshot);
 
     Task UpdateMailAsync(MailCopy mailCopy);
 

@@ -146,11 +146,7 @@ public sealed partial class ThreadedMailListView : WinoMailListView
 
     private void OnDragItemsStarting(object sender, DragItemsStartingEventArgs args)
     {
-        var selectedMails = SelectedMailItems
-            .OfType<MailItemViewModel>()
-            .GroupBy(static item => item.UniqueId)
-            .Select(static group => group.First())
-            .ToList();
+        var selectedMails = ResolveDraggedMails(args);
         if (selectedMails.Count == 0)
         {
             return;
@@ -162,6 +158,31 @@ public sealed partial class ThreadedMailListView : WinoMailListView
         args.Data.SetText(text);
         args.Data.Properties.Title = text;
         MailDragStateChanged?.Invoke(this, new(true, selectedMails.Count));
+    }
+
+    /// <summary>
+    /// Dragging a row does not select it, so the selection only describes the drag when the
+    /// dragged rows are part of it. Otherwise the dragged rows are the payload; without this a
+    /// drag that starts on an unselected mail carries nothing and every folder refuses the drop.
+    /// </summary>
+    private List<MailItemViewModel> ResolveDraggedMails(DragItemsStartingEventArgs args)
+    {
+        var draggedMails = Distinct(args.Items
+            .OfType<MailListRow>()
+            .SelectMany(static row => row.LeafItems)
+            .OfType<MailItemViewModel>());
+        var selectedMails = Distinct(SelectedMailItems.OfType<MailItemViewModel>());
+
+        if (draggedMails.Count == 0)
+        {
+            return selectedMails;
+        }
+
+        var selectedIds = selectedMails.Select(static item => item.UniqueId).ToHashSet();
+        return draggedMails.Any(item => selectedIds.Contains(item.UniqueId)) ? selectedMails : draggedMails;
+
+        static List<MailItemViewModel> Distinct(IEnumerable<MailItemViewModel> mails) =>
+            mails.GroupBy(static item => item.UniqueId).Select(static group => group.First()).ToList();
     }
 
     private void OnDragItemsCompleted(ListViewBase sender, DragItemsCompletedEventArgs args) =>

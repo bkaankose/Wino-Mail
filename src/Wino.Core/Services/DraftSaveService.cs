@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using Serilog;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
@@ -19,7 +20,14 @@ public sealed class DraftSaveService(IMimeFileService mimeFiles, IMailService ma
             return false;
         }
 
-        await mails.SaveDraftMetadataAsync(snapshot.AccountId, metadata).ConfigureAwait(false);
+        if (!await mails.SaveDraftMetadataAsync(snapshot.AccountId, metadata).ConfigureAwait(false))
+        {
+            // The draft is gone (deleted, sent or moved). There is nothing to push to the server.
+            if (!wasProtected) registry.Complete(snapshot.AccountId, metadata.UniqueId, snapshot.Revision);
+            Log.Warning("Draft {UniqueId} was not saved because it no longer exists.", metadata.UniqueId);
+            return false;
+        }
+
         updates.Schedule(snapshot);
         return true;
     }

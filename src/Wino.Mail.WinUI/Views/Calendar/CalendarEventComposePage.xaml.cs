@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using EmailValidation;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
+using Serilog;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Storage;
@@ -51,13 +53,29 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
         ViewModel.GetHtmlNotesAsync = async () => await NotesEditor.GetHtmlBodyAsync() ?? string.Empty;
         var args = e.Parameter as CalendarEventComposeNavigationArgs;
 
-        // Notes use the same spell-check choice as the mail composer.
-        await NotesEditor.ConfigureSpellCheckAsync(
-            ViewModel.IsComposerSpellCheckEnabled,
-            ViewModel.ComposerSpellCheckLanguageCode);
-        await NotesEditor.ConfigureAutoCorrectAsync(ViewModel.IsComposerAutoCorrectEnabled);
+        try
+        {
+            // Notes use the same spell-check choice as the mail composer.
+            await NotesEditor.ConfigureSpellCheckAsync(
+                ViewModel.IsComposerSpellCheckEnabled,
+                ViewModel.ComposerSpellCheckLanguageCode);
+            await NotesEditor.ConfigureAutoCorrectAsync(ViewModel.IsComposerAutoCorrectEnabled);
 
-        await NotesEditor.RenderHtmlAsync(string.IsNullOrWhiteSpace(args?.NotesHtml) ? " " : args.NotesHtml);
+            await NotesEditor.RenderHtmlAsync(string.IsNullOrWhiteSpace(args?.NotesHtml) ? " " : args.NotesHtml);
+        }
+        catch (ObjectDisposedException exception)
+        {
+            // The page was closed before the notes editor finished starting; OnNavigatingFrom
+            // disposed it. Nothing is left to render.
+            Log.Debug(exception, "Calendar notes editor was disposed during initialization.");
+        }
+        catch (Exception exception) when (exception is System.IO.FileNotFoundException or COMException or InvalidOperationException or TimeoutException)
+        {
+            // WebView2 could not start (for example missing runtime files on Windows 10).
+            // The rest of the event form stays usable; the editor shows its failure status.
+            Log.Error(exception, "Calendar notes editor failed to initialize.");
+            NotesEditor.ReportInitializationFailure(exception);
+        }
     }
 
     protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)

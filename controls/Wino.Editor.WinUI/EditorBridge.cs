@@ -37,11 +37,14 @@ internal sealed partial class EditorBridge : IDisposable
 
         _initialized = true;
         string editorDocument = EditorAssetProvider.BindSession(await EditorAssetProvider.GetEditorDocumentAsync(), _sessionId);
-        if (_webView.CoreWebView2 is null)
-            throw new InvalidOperationException("WebView2 must be initialized before creating the editor bridge.");
-
         ObjectDisposedException.ThrowIf(_disposed, this);
-        _webView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
+
+        // WinoMailEditor creates the bridge only after CoreWebView2 exists, so a missing core
+        // here means the WebView2 closed while the editor document was loading.
+        var coreWebView = _webView.CoreWebView2
+            ?? throw new ObjectDisposedException(nameof(EditorBridge), "The editor WebView2 closed before the editor document loaded.");
+
+        coreWebView.WebMessageReceived += OnWebMessageReceived;
         _webView.NavigationStarting += OnNavigationStarting;
         _webView.NavigationCompleted += OnNavigationCompleted;
         _webView.NavigateToString(editorDocument);
@@ -166,7 +169,22 @@ internal sealed partial class EditorBridge : IDisposable
     private async Task<string> ExecuteScriptForResultAsync(string script)
     {
         await EnsureReadyAsync();
-        return await _webView.ExecuteScriptAsync(script);
+
+        // A closed WebView2 has no CoreWebView2. Report it as disposal so hosts that are
+        // navigating away (for example ComposePage saving the draft) handle it as teardown.
+        if (_disposed || _webView.CoreWebView2 is null)
+            throw new ObjectDisposedException(nameof(EditorBridge), "The editor WebView2 is no longer available.");
+
+        try
+        {
+            return await _webView.ExecuteScriptAsync(script);
+        }
+        catch (InvalidOperationException exception) when (exception is not ObjectDisposedException)
+        {
+            // WebView2 throws InvalidOperationException when its CoreWebView2 went away
+            // between the check above and the script call.
+            throw new ObjectDisposedException("The editor WebView2 closed while running a script.", exception);
+        }
     }
 
     private async Task EnsureReadyAsync()

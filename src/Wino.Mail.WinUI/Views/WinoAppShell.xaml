@@ -69,7 +69,6 @@
             DisplayModeChanged="NavigationViewDisplayModeChanged"
             FooterMenuItemsSource="{x:Bind ViewModel.CurrentMenu.FooterItems, Mode=OneWay}"
             IsBackButtonVisible="Collapsed"
-            IsPaneOpen="{x:Bind ViewModel.PreferencesService.IsNavigationPaneOpened, Mode=OneWay}"
             IsPaneToggleButtonVisible="False"
             IsSettingsVisible="False"
             IsTabStop="True"
@@ -82,7 +81,6 @@
             PaneDisplayMode="Auto"
             PaneOpening="NavigationPaneOpening"
             ScrollViewer.VerticalScrollBarVisibility="Hidden"
-            SelectedItem="{x:Bind ViewModel.SelectedMenuItem, Mode=TwoWay}"
             SelectionChanged="MenuSelectionChanged"
             Style="{StaticResource WinoAppShellNavigationViewStyle}">
             <coreControls:WinoNavigationView.ContentTransitions>

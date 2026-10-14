@@ -219,21 +219,23 @@ public class ContactService : BaseDatabaseService, IContactService
             DateTime.UtcNow,
             contactId).ConfigureAwait(false);
 
-        if (!pictureFileId.HasValue || _pictureFileService is null)
+        if (pictureFileId is not { } suppressedPictureFileId || _pictureFileService is null)
             return;
 
+        // sqlite-net evaluates captured member chains by reflection; Native AOT has no code for
+        // Nullable<Guid>.Value, so the predicate captures a plain Guid local.
         var referenceCount = await Connection.Table<AccountContact>()
-            .CountAsync(item => item.ContactPictureFileId == pictureFileId.Value)
+            .CountAsync(item => item.ContactPictureFileId == suppressedPictureFileId)
             .ConfigureAwait(false);
         if (referenceCount == 0)
         {
             try
             {
-                await _pictureFileService.DeletePictureAsync(PictureKind.Contact, pictureFileId.Value).ConfigureAwait(false);
+                await _pictureFileService.DeletePictureAsync(PictureKind.Contact, suppressedPictureFileId).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                Log.Warning(ex, "Failed to delete suppressed contact picture {PictureId}.", pictureFileId.Value);
+                Log.Warning(ex, "Failed to delete suppressed contact picture {PictureId}.", suppressedPictureFileId);
             }
         }
     }

@@ -113,10 +113,9 @@ public sealed partial class ShellMenuTemplates
         if (interactingContainer.DataContext is not IBaseFolderMenuItem folderMenuItem || !folderMenuItem.IsMoveTarget)
             return false;
 
-        var draggedAccountIds = folderMenuItem.HandlingFolders.Select(folder => folder.MailAccountId);
-        var draggedMails = ExtractMailCopies(dragPackage).ToList();
+        var draggedAccountIds = folderMenuItem.HandlingFolders.Select(folder => folder.MailAccountId).ToHashSet();
 
-        return draggedMails.Count > 0 && draggedMails.Any(mail => draggedAccountIds.Contains(mail.AssignedAccount.Id));
+        return ExtractMailCopies(dragPackage).Any(mail => mail.AssignedAccount is { } account && draggedAccountIds.Contains(account.Id));
     }
 
     private static IEnumerable<MailCopy> ExtractMailCopies(MailDragPackage dragPackage)

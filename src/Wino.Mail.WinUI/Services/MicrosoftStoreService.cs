@@ -233,6 +233,13 @@ public sealed class MicrosoftStoreService : IMicrosoftStoreService
 
             return HasAvailableUpdate;
         }
+        catch (Exception ex) when (IsExpectedStoreUnavailableError(ex))
+        {
+            // The Store is unreachable, its service is disabled, or the package is not Store-installed.
+            // These are environment states, not defects; keep them out of crash reporting.
+            Serilog.Log.Warning("Store update check is unavailable (HRESULT 0x{HResult:X8}).", ex.HResult);
+            return false;
+        }
         catch (Exception ex)
         {
             _logger.CaptureException(ex, nameof(RefreshAvailabilityAsync));
@@ -244,6 +251,11 @@ public sealed class MicrosoftStoreService : IMicrosoftStoreService
             _operationSemaphore.Release();
         }
     }
+
+    // 0x803FB112: Store is not available on this machine/network. 0x80070422: the Store service is disabled.
+    // 0x80070002: the Store components or package registration are missing.
+    private static bool IsExpectedStoreUnavailableError(Exception exception)
+        => unchecked((uint)exception.HResult) is 0x803FB112u or 0x80070422u or 0x80070002u;
 
     public async Task<bool> StartUpdateAsync()
     {

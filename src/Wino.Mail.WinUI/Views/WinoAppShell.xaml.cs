@@ -2,13 +2,18 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+using System.Threading;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Navigation;
+using Serilog;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
@@ -19,6 +24,7 @@ using Wino.Mail.WinUI.Services;
 using Wino.MenuFlyouts;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
+using Wino.Shell.ViewModels;
 using Wino.Views.Mail;
 
 namespace Wino.Mail.WinUI.Views;
@@ -40,6 +46,14 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     private bool _isPreparedForWindowClose;
     private readonly KeyboardShortcutController _shortcutController;
 
+    // Selection is pushed into the navigation view from code rather than a TwoWay x:Bind.
+    // A nested entry can only be selected once its group container is expanded and its own
+    // container realized; setting it earlier makes NavigationView index past its realized
+    // vector ("invalid vector subscript"). These bound the deferred attempts.
+    private const int MaxMenuSelectionAttempts = 4;
+    private int _menuSelectionRequestId;
+    private bool _isApplyingMenuSelection;
+
     public WinoAppShell()
     {
         InitializeComponent();
@@ -55,6 +69,12 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
             ViewModel.KeyboardShortcutHookForMode);
         ViewModel.PreferencesService.PreferenceChanged += PreferencesServiceChanged;
         ViewModel.StatePersistenceService.StatePropertyChanged += StatePersistenceServiceChanged;
+        ViewModel.PropertyChanged += ShellViewModelPropertyChanged;
+
+        // The preference service is an application singleton. Tracking it through x:Bind kept
+        // closing windows subscribed, so the pane state is applied here instead and the
+        // handler is detached with the rest of the window state.
+        navigationView.IsPaneOpen = ViewModel.PreferencesService.IsNavigationPaneOpened;
     }
 
     public bool HasShellContent => InnerShellFrame.Content != null;
@@ -154,6 +174,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         ViewModel.ShutdownProviders();
         ViewModel.PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
         ViewModel.StatePersistenceService.StatePropertyChanged -= StatePersistenceServiceChanged;
+        ViewModel.PropertyChanged -= ShellViewModelPropertyChanged;
         _shortcutController.Dispose();
 
         UnregisterRecipients();
@@ -162,11 +183,14 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private void DetachShellMenuBindings()
     {
+        // Drop any deferred selection attempt; it must not touch a closing navigation view.
+        Interlocked.Increment(ref _menuSelectionRequestId);
+
         ViewModel.SetShellMenu(null);
 
         // x:Bind notifications are synchronous today, but assign the WinRT properties as
         // well so teardown does not depend on binding-engine timing.
-        navigationView.SelectedItem = null;
+        SetNavigationSelection(null);
         navigationView.MenuItemsSource = null;
         navigationView.FooterMenuItemsSource = null;
     }
@@ -218,10 +242,163 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private async void MenuSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
-        if (!ViewModel.HandlesSelection || args.SelectedItem is not IMenuItem selectedMenuItem)
+        var isApplyingFromViewModel = _isApplyingMenuSelection;
+        var selectionTask = ViewModel.HandlesSelection && args.SelectedItem is IMenuItem selectedMenuItem
+            ? ViewModel.ChangeMenuSelectionAsync(selectedMenuItem)
+            : null;
+
+        // Mirror a selection the user made back into the mode, which the TwoWay binding used
+        // to do after this handler ran. A selection the shell applied already came from there.
+        if (!isApplyingFromViewModel && !_isPreparedForWindowClose)
+        {
+            ViewModel.SelectedMenuItem = args.SelectedItem;
+        }
+
+        if (selectionTask != null)
+        {
+            await selectionTask;
+        }
+    }
+
+    private void ShellViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(WinoAppShellViewModel.SelectedMenuItem))
+        {
+            RequestMenuSelectionSync(defer: false);
+        }
+        else if (e.PropertyName == nameof(WinoAppShellViewModel.CurrentMenu))
+        {
+            // x:Bind rebinds the menu source from the same notification; let it land first.
+            RequestMenuSelectionSync(defer: true);
+        }
+    }
+
+    private void RequestMenuSelectionSync(bool defer)
+    {
+        if (_isPreparedForWindowClose)
             return;
 
-        await ViewModel.ChangeMenuSelectionAsync(selectedMenuItem);
+        var requestId = Interlocked.Increment(ref _menuSelectionRequestId);
+
+        if (defer || !DispatcherQueue.HasThreadAccess)
+        {
+            QueueMenuSelectionAttempt(requestId, attempt: 1);
+            return;
+        }
+
+        ApplyMenuSelection(requestId, attempt: 0);
+    }
+
+    private void QueueMenuSelectionAttempt(int requestId, int attempt)
+    {
+        // Low priority runs after the pending layout pass, which is what realizes the
+        // containers of a group that was just expanded.
+        if (!DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => ApplyMenuSelection(requestId, attempt)))
+        {
+            Log.Debug("Navigation pane selection could not be queued; the window is shutting down.");
+        }
+    }
+
+    private void ApplyMenuSelection(int requestId, int attempt)
+    {
+        if (_isPreparedForWindowClose || requestId != Volatile.Read(ref _menuSelectionRequestId))
+            return;
+
+        var target = ViewModel.SelectedMenuItem;
+
+        if (ReferenceEquals(navigationView.SelectedItem, target))
+            return;
+
+        if (target != null && !IsMenuItemReadyForSelection(target))
+        {
+            if (attempt < MaxMenuSelectionAttempts)
+            {
+                QueueMenuSelectionAttempt(requestId, attempt + 1);
+                return;
+            }
+
+            Log.Debug("Navigation pane did not realize the container of {MenuItemType}; selecting it without one.", target.GetType().Name);
+        }
+
+        // One deferred retry when the navigation view rejects the selection outright.
+        if (!SetNavigationSelection(target) && attempt < MaxMenuSelectionAttempts)
+        {
+            QueueMenuSelectionAttempt(requestId, MaxMenuSelectionAttempts);
+        }
+    }
+
+    /// <summary>
+    /// Whether the navigation view can select <paramref name="target"/> right now: a menu is
+    /// published and, for a nested entry in an open pane whose ancestors the mode expanded,
+    /// every ancestor container is expanded and the entry's own container exists. Expands a
+    /// container that lags behind its item so a later attempt finds the entry realized.
+    /// </summary>
+    private bool IsMenuItemReadyForSelection(object target)
+    {
+        if (ViewModel.CurrentMenu == null)
+            return false;
+
+        // Top-level entries, and nested ones whose mode does not publish a parent, are left to
+        // the navigation view as before. A closed pane shows children in flyouts; expanding a
+        // container there would open one, so nothing is realized ahead of the selection.
+        if (target is not IMenuItem { ParentMenuItem: { } parent } menuItem || !navigationView.IsPaneOpen)
+            return true;
+
+        try
+        {
+            var ancestors = new List<IMenuItem>();
+
+            for (var ancestor = parent; ancestor != null; ancestor = ancestor.ParentMenuItem)
+            {
+                ancestors.Add(ancestor);
+            }
+
+            for (var index = ancestors.Count - 1; index >= 0; index--)
+            {
+                // The mode decides what is expanded. An ancestor it left collapsed is not forced
+                // open here; that selection goes to the navigation view as before.
+                if (!ancestors[index].IsExpanded)
+                    return true;
+
+                if (navigationView.ContainerFromMenuItem(ancestors[index]) is not NavigationViewItem container)
+                    return false;
+
+                if (!container.IsExpanded)
+                {
+                    container.IsExpanded = true;
+                    return false;
+                }
+            }
+
+            return navigationView.ContainerFromMenuItem(menuItem) != null;
+        }
+        catch (Exception ex) when (ex is ArgumentException or COMException)
+        {
+            Log.Debug(ex, "Navigation pane container lookup failed for {MenuItemType}.", target.GetType().Name);
+            return false;
+        }
+    }
+
+    private bool SetNavigationSelection(object? target)
+    {
+        _isApplyingMenuSelection = true;
+
+        try
+        {
+            navigationView.SelectedItem = target;
+            return true;
+        }
+        catch (Exception ex) when (ex is ArgumentException or COMException)
+        {
+            // ArgumentOutOfRangeException ("invalid vector subscript") when the item's index
+            // path is not realized yet, COMException when the pane is being torn down.
+            Log.Warning(ex, "Navigation pane rejected the selection of {MenuItemType}.", target?.GetType().Name);
+            return false;
+        }
+        finally
+        {
+            _isApplyingMenuSelection = false;
+        }
     }
 
     private void ShellFrameContentNavigated(object sender, NavigationEventArgs e)
@@ -243,6 +420,12 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private void PreferencesServiceChanged(object? sender, string propertyName)
     {
+        if (propertyName == nameof(IPreferencesService.IsNavigationPaneOpened))
+        {
+            ApplyNavigationPaneOpenPreference();
+            return;
+        }
+
         // Account items switch between the full and compact template, which the template
         // selector only re-evaluates when the item source is rebound.
         if (propertyName != nameof(IPreferencesService.IsCompactAccountMenuItemEnabled))
@@ -250,11 +433,50 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
         DispatcherQueue.TryEnqueue(() =>
         {
+            if (_isPreparedForWindowClose)
+                return;
+
             var menu = ViewModel.CurrentMenu;
 
-            navigationView.MenuItemsSource = null;
-            navigationView.MenuItemsSource = menu?.Items;
+            // Dropping the source clears the navigation view's selection. That is not a user
+            // choice, so it must not reach the mode; the mode's selection is applied again once
+            // the containers are rebuilt.
+            _isApplyingMenuSelection = true;
+
+            try
+            {
+                navigationView.MenuItemsSource = null;
+                navigationView.MenuItemsSource = menu?.Items;
+            }
+            finally
+            {
+                _isApplyingMenuSelection = false;
+            }
+
+            RequestMenuSelectionSync(defer: true);
         });
+    }
+
+    private void ApplyNavigationPaneOpenPreference()
+    {
+        if (!DispatcherQueue.HasThreadAccess)
+        {
+            DispatcherQueue.TryEnqueue(ApplyNavigationPaneOpenPreference);
+            return;
+        }
+
+        if (_isPreparedForWindowClose)
+            return;
+
+        try
+        {
+            navigationView.IsPaneOpen = ViewModel.PreferencesService.IsNavigationPaneOpened;
+        }
+        catch (COMException ex)
+        {
+            // The title bar can toggle the preference while this window's content is torn down.
+            Log.Debug(ex, "Navigation pane state could not be applied to a closing shell.");
+        }
     }
 
     #endregion

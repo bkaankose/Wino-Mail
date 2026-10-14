@@ -1,13 +1,20 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Domain.MenuItems;
 
+/// <summary>
+/// A settings section in the pane. Entries inside a collapsible group carry that group as
+/// their <see cref="IMenuItem.ParentMenuItem"/> so a shell can expand and realize the group
+/// before it selects the entry.
+/// </summary>
 public partial class SettingsShellPageMenuItem(
     WinoPage pageType,
     string title,
     string description,
-    WinoIconGlyph icon) : MenuItemBase
+    WinoIconGlyph icon,
+    IMenuItem parentMenuItem = null) : MenuItemBase(entityId: null, parentMenuItem)
 {
     public WinoPage PageType { get; } = pageType;
 

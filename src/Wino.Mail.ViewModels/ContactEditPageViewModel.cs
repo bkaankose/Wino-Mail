@@ -75,9 +75,9 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
     [ObservableProperty] public partial string JobTitle { get; set; }
     [ObservableProperty] public partial string OfficeLocation { get; set; }
     [ObservableProperty] public partial string Profession { get; set; }
-    [ObservableProperty] public partial int? BirthdayYear { get; set; }
-    [ObservableProperty] public partial int? BirthdayMonth { get; set; }
-    [ObservableProperty] public partial int? BirthdayDay { get; set; }
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(BirthdayYearValue))] public partial int? BirthdayYear { get; set; }
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(BirthdayMonthValue))] public partial int? BirthdayMonth { get; set; }
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(BirthdayDayValue))] public partial int? BirthdayDay { get; set; }
     [ObservableProperty] public partial string Website { get; set; }
     [ObservableProperty] public partial string Notes { get; set; }
     [ObservableProperty] public partial string ManagerName { get; set; }

@@ -522,15 +522,15 @@
                                 Style="{StaticResource CaptionTextBlockStyle}"
                                 Text="{x:Bind domain:Translator.ContactDetail_Personal, Mode=OneTime}" />
 
-                            <StackPanel Visibility="{x:Bind helpers:XamlHelpers.BirthdayVisibility(ViewModel.SelectedContact.SourceContact.BirthdayYear, ViewModel.SelectedContact.SourceContact.BirthdayMonth, ViewModel.SelectedContact.SourceContact.BirthdayDay), Mode=OneWay}">
-                                <TextBlock Text="{x:Bind helpers:XamlHelpers.FormatBirthday(ViewModel.SelectedContact.SourceContact.BirthdayYear, ViewModel.SelectedContact.SourceContact.BirthdayMonth, ViewModel.SelectedContact.SourceContact.BirthdayDay), Mode=OneWay}" />
+                            <StackPanel Visibility="{x:Bind helpers:XamlHelpers.ContactBirthdayVisibility(ViewModel.SelectedContact.SourceContact), Mode=OneWay}">
+                                <TextBlock Text="{x:Bind helpers:XamlHelpers.FormatContactBirthday(ViewModel.SelectedContact.SourceContact), Mode=OneWay}" />
                                 <TextBlock
                                     Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                     Style="{StaticResource CaptionTextBlockStyle}"
                                     Text="{x:Bind domain:Translator.ContactDetail_Birthday, Mode=OneTime}" />
                             </StackPanel>
 
-                            <StackPanel Visibility="{x:Bind helpers:XamlHelpers.TextToVisibility(ViewModel.SelectedContact.SourceContact.Website), Mode=OneWay}">
+                            <StackPanel Visibility="{x:Bind helpers:XamlHelpers.ContactWebsiteVisibility(ViewModel.SelectedContact.SourceContact), Mode=OneWay}">
                                 <TextBlock Text="{x:Bind ViewModel.SelectedContact.SourceContact.Website, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                                 <TextBlock
                                     Foreground="{ThemeResource TextFillColorTertiaryBrush}"
@@ -538,7 +538,7 @@
                                     Text="{x:Bind domain:Translator.ContactDetail_Website, Mode=OneTime}" />
                             </StackPanel>
 
-                            <StackPanel Visibility="{x:Bind helpers:XamlHelpers.TextToVisibility(ViewModel.SelectedContact.SourceContact.Notes), Mode=OneWay}">
+                            <StackPanel Visibility="{x:Bind helpers:XamlHelpers.ContactNotesVisibility(ViewModel.SelectedContact.SourceContact), Mode=OneWay}">
                                 <TextBlock
                                     IsTextSelectionEnabled="True"
                                     Text="{x:Bind ViewModel.SelectedContact.SourceContact.Notes, Mode=OneWay}"

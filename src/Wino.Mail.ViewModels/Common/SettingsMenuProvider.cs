@@ -202,6 +202,11 @@ public partial class SettingsMenuProvider(
             .Select(group => group.Title)
             .ToHashSet(StringComparer.Ordinal);
 
+        // Release the selection before the items go away. The navigation view still points
+        // at the selected entry, and clearing its source underneath a live selection is what
+        // surfaces as "invalid vector subscript" when the pane re-indexes. The previous page
+        // is selected again once the new items exist.
+        SelectedMenuItem = null;
         _shellMenu.Items.Clear();
 
         foreach (var node in SettingsNavigationInfoProvider.GetPaneNodes())
@@ -231,7 +236,7 @@ public partial class SettingsMenuProvider(
                 if (child.PageType == WinoPage.SignatureAndEncryptionPage && !platformCapabilities.Smime)
                     continue;
 
-                group.SubMenuItems.Add(CreatePageMenuItem(child));
+                group.SubMenuItems.Add(CreatePageMenuItem(child, group));
             }
 
             if (group.SubMenuItems.Count > 0)
@@ -241,8 +246,8 @@ public partial class SettingsMenuProvider(
         SetSelectedRootPage(selectedPage);
     }
 
-    private static SettingsShellPageMenuItem CreatePageMenuItem(SettingsNavigationItemInfo item)
-        => new(item.PageType.Value, item.Title, item.Description, item.Icon);
+    private static SettingsShellPageMenuItem CreatePageMenuItem(SettingsNavigationItemInfo item, IMenuItem parentMenuItem = null)
+        => new(item.PageType.Value, item.Title, item.Description, item.Icon, parentMenuItem);
 
     private void SetSelectedRootPage(WinoPage pageType)
     {

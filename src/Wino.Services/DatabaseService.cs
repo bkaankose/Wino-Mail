@@ -32,6 +32,8 @@ public class DatabaseService : IDatabaseService
     public const string RecipientHistoryUniqueIndexSql =
         "CREATE UNIQUE INDEX IF NOT EXISTS IX_RecipientHistory_Account_Address ON RecipientHistory(AccountId, NormalizedAddress)";
 
+    private readonly object _initializationLock = new();
+    private Task _initializationTask;
     private bool _isInitialized = false;
     private bool _cardDavCreationCapabilityMigrationRequired;
     private bool _cardDavResourceModelMigrationRequired;
@@ -56,20 +58,39 @@ public class DatabaseService : IDatabaseService
             : databaseName;
     }
 
-    public async Task InitializeAsync()
+    /// <summary>
+    /// Initializes the database once. Concurrent callers share the same initialization task, so a second caller
+    /// never replaces or closes the connection while the first one is still creating tables. A failed attempt
+    /// is retried by the next caller.
+    /// </summary>
+    public Task InitializeAsync()
     {
-        if (_isInitialized)
-            return;
+        lock (_initializationLock)
+        {
+            if (_isInitialized)
+                return Task.CompletedTask;
 
+            if (_initializationTask == null || _initializationTask.IsFaulted || _initializationTask.IsCanceled)
+                _initializationTask = InitializeCoreAsync();
+
+            return _initializationTask;
+        }
+    }
+
+    private async Task InitializeCoreAsync()
+    {
         var databaseFileName = MainDatabasePaths.GetPath(_folderConfiguration, _databaseName);
         Directory.CreateDirectory(MainDatabasePaths.GetRoot(_folderConfiguration));
         var databaseAlreadyExists = File.Exists(databaseFileName);
 
-        Connection = new SQLiteAsyncConnection(databaseFileName);
-        await Connection.ExecuteAsync("PRAGMA foreign_keys = ON;").ConfigureAwait(false);
-
+        // Validate an existing 210 database on a private handle first. sqlite-net pools connections by path and
+        // open flags, so closing a handle with the main connection's flags would close the live shared connection.
         if (databaseAlreadyExists && string.Equals(_databaseName, CurrentDatabaseName, StringComparison.OrdinalIgnoreCase))
-            await EnsureCompleted210DatabaseAsync().ConfigureAwait(false);
+            await EnsureCompleted210DatabaseAsync(databaseFileName).ConfigureAwait(false);
+
+        // The main connection is created once and never replaced, so callers that already hold it keep working.
+        Connection ??= new SQLiteAsyncConnection(databaseFileName);
+        await Connection.ExecuteAsync("PRAGMA foreign_keys = ON;").ConfigureAwait(false);
 
         var preCreateCardDavAccountColumns = await Connection.GetTableInfoAsync(nameof(CardDavAccountState)).ConfigureAwait(false);
         _cardDavCreationCapabilityMigrationRequired = preCreateCardDavAccountColumns.Count > 0 &&
@@ -99,23 +120,40 @@ public class DatabaseService : IDatabaseService
         await Connection.ExecuteAsync($"PRAGMA user_version = {CurrentSchemaVersion};").ConfigureAwait(false);
         await EnsureLifecycleMetadataAsync(databaseAlreadyExists).ConfigureAwait(false);
 
-        _isInitialized = true;
+        lock (_initializationLock)
+        {
+            _isInitialized = true;
+        }
     }
 
-    private async Task EnsureCompleted210DatabaseAsync()
+    private static async Task EnsureCompleted210DatabaseAsync(string databaseFileName)
     {
-        var version = await Connection.ExecuteScalarAsync<int>("PRAGMA user_version;").ConfigureAwait(false);
-        var metadataExists = await Connection.ExecuteScalarAsync<int>(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='__MigrationMetadata';")
-            .ConfigureAwait(false);
-        var isCompleted = metadataExists == 1 && await Connection.ExecuteScalarAsync<int>(
-            "SELECT COUNT(*) FROM __MigrationMetadata WHERE Id = 1 AND Status IN (?, ?);",
-            (int)MigrationStatus.Completed,
-            (int)MigrationStatus.Skipped).ConfigureAwait(false) == 1;
+        // Distinct flags give this handle its own pool entry; closing it leaves the main connection open.
+        var validationConnection = new SQLiteAsyncConnection(
+            databaseFileName,
+            SQLiteOpenFlags.ReadOnly | SQLiteOpenFlags.FullMutex | SQLiteOpenFlags.PrivateCache);
 
-        if (version != CurrentSchemaVersion || !isCompleted)
+        bool isValid;
+        try
         {
-            await Connection.CloseAsync().ConfigureAwait(false);
+            var version = await validationConnection.ExecuteScalarAsync<int>("PRAGMA user_version;").ConfigureAwait(false);
+            var metadataExists = await validationConnection.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='__MigrationMetadata';")
+                .ConfigureAwait(false);
+            var isCompleted = metadataExists == 1 && await validationConnection.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM __MigrationMetadata WHERE Id = 1 AND Status IN (?, ?);",
+                (int)MigrationStatus.Completed,
+                (int)MigrationStatus.Skipped).ConfigureAwait(false) == 1;
+
+            isValid = version == CurrentSchemaVersion && isCompleted;
+        }
+        finally
+        {
+            await validationConnection.CloseAsync().ConfigureAwait(false);
+        }
+
+        if (!isValid)
+        {
             throw new InvalidOperationException(
                 "Wino210.db is not a completed version-210 database. Run the migration coordinator before normal startup.");
         }

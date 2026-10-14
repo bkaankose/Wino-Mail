@@ -110,9 +110,27 @@ public sealed unsafe partial class WindowsAttachmentPolicyService : IWindowsAtta
 }
 
 public sealed class WindowsAttachmentPolicyException(int hresult)
-    : Exception(Marshal.GetExceptionForHR(hresult)?.Message ?? $"Attachment policy failed with HRESULT 0x{hresult:X8}.")
+    : Exception($"Attachment policy failed with HRESULT 0x{hresult:X8}. {Marshal.GetExceptionForHR(hresult)?.Message}".TrimEnd())
 {
+    private const int AccessDenied = unchecked((int)0x80070005);
+    private const int VirusInfected = unchecked((int)0x800700E1);
+    private const int VirusDeleted = unchecked((int)0x800700E2);
+    private const int AccessDisabledByPolicy = unchecked((int)0x800704EC);
+    private const int InvalidArgument = unchecked((int)0x80070057);
+
     public int HResultCode { get; } = hresult;
 
     public bool IsCancellation => HResultCode == unchecked((int)0x800704C7);
+
+    /// <summary>
+    /// The attachment was blocked by zone policy, group policy or the antivirus scan. These results must be honored:
+    /// the file is never opened another way.
+    /// </summary>
+    public bool IsPolicyBlock => HResultCode is AccessDenied or VirusInfected or VirusDeleted or AccessDisabledByPolicy;
+
+    /// <summary>
+    /// Expected outcomes that are not product defects: policy blocks, and E_INVALIDARG that Attachment Services
+    /// returns for some local paths.
+    /// </summary>
+    public bool IsExpectedFailure => IsCancellation || IsPolicyBlock || HResultCode == InvalidArgument;
 }

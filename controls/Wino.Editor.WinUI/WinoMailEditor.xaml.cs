@@ -249,7 +249,24 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
             await InitializeAsync();
             SetMemoryUsageTargetLevel(CoreWebView2MemoryUsageTargetLevel.Normal);
         }
-        catch (Exception exception) { SetStatus($"Editor failed to start: {exception.Message}", true); }
+        catch (ObjectDisposedException)
+        {
+            // The host disposed the editor before it finished loading. Nothing is visible.
+        }
+        catch (Exception exception) { ReportInitializationFailure(exception); }
+    }
+
+    /// <summary>
+    /// Shows the editor's start-up failure, such as a missing or broken WebView2 runtime, in
+    /// the status bar even when the host hides it. Hosts call this after catching a failed
+    /// initialization so the page stays usable instead of crashing.
+    /// </summary>
+    public void ReportInitializationFailure(Exception exception)
+    {
+        if (_disposed || StatusBar is null) return;
+
+        SetStatus($"Editor failed to start: {exception.Message}", true);
+        StatusBar.Visibility = Visibility.Visible;
     }
 
     private void WinoMailEditor_Unloaded(object sender, RoutedEventArgs e) =>
@@ -258,11 +275,16 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
     private async Task InitializeCoreAsync()
     {
         var environment = WebViewEnvironment ?? await WinoWebViewEnvironment.GetSharedEnvironmentAsync();
-        await EditorWebView2.EnsureCoreWebView2Async(environment);
+        var webView = EditorWebView2 ?? throw new ObjectDisposedException(nameof(WinoMailEditor));
+        await webView.EnsureCoreWebView2Async(environment);
         ObjectDisposedException.ThrowIf(_disposed, this);
-        WinoWebViewSecurity.Apply(EditorWebView2.CoreWebView2);
 
-        _bridge = new EditorBridge(EditorWebView2);
+        // The WebView2 can be closed while EnsureCoreWebView2Async is pending, which
+        // leaves CoreWebView2 null even though the call completed.
+        var coreWebView = webView.CoreWebView2 ?? throw new ObjectDisposedException(nameof(WinoMailEditor));
+        WinoWebViewSecurity.Apply(coreWebView);
+
+        _bridge = new EditorBridge(webView);
         _bridge.SelectionStateChanged += Bridge_SelectionStateChanged;
         _bridge.ContentChanged += Bridge_ContentChanged;
         _bridge.AutoCorrectRequested += Bridge_AutoCorrectRequested;
@@ -735,18 +757,41 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
     {
         var editor = (WinoMailEditor)sender;
         editor.ApplyConfiguration();
-        if (editor._bridge is not null) await editor._bridge.SetReadOnlyAsync((bool)args.NewValue);
+        await editor.RunBridgeUpdateAsync(bridge => bridge.SetReadOnlyAsync((bool)args.NewValue));
     }
     private static void OnSecurityStateChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args) => ((WinoMailEditor)sender).ApplySecurityState();
     private static async void OnEditorThemeChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
     {
         var editor = (WinoMailEditor)sender;
-        if (editor._bridge is not null) await editor._bridge.SetThemeAsync((bool)args.NewValue);
+        await editor.RunBridgeUpdateAsync(bridge => bridge.SetThemeAsync((bool)args.NewValue));
     }
     private static async void OnPasteModeChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
     {
         var editor = (WinoMailEditor)sender;
-        if (editor._bridge is not null) await editor._bridge.SetPasteAsHtmlAsync((bool)args.NewValue);
+        await editor.RunBridgeUpdateAsync(bridge => bridge.SetPasteAsHtmlAsync((bool)args.NewValue));
+    }
+
+    /// <summary>
+    /// Pushes a property change into a running editor document. These calls come from
+    /// async void property callbacks, so a WebView2 that closed meanwhile (for example a
+    /// theme change while the host page is closing) must not escape.
+    /// </summary>
+    private async Task RunBridgeUpdateAsync(Func<EditorBridge, Task> update)
+    {
+        if (_disposed || _bridge is not { } bridge) return;
+
+        try
+        {
+            await update(bridge);
+        }
+        catch (ObjectDisposedException)
+        {
+            // The editor or its WebView2 was torn down, so no document remains to update.
+        }
+        catch (COMException exception)
+        {
+            SetStatus(exception.Message, true);
+        }
     }
     private void ApplySecurityState()
     {

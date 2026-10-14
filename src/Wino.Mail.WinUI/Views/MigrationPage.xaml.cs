@@ -1,8 +1,10 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Serilog;
 using Wino.Mail.WinUI.ViewModels;
 
 namespace Wino.Mail.WinUI.Views;
@@ -44,12 +46,31 @@ public sealed partial class MigrationPage : Page
             DefaultButton = ContentDialogButton.Close
         };
 
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        if (await TryShowDialogAsync(dialog) == ContentDialogResult.Primary)
             await ViewModel.StartFreshCommand.ExecuteAsync(null);
     }
 
     private async void OnLaunchClick(object sender, RoutedEventArgs e)
-        => await (Application.Current as App)!.CompleteMigrationLaunchAsync();
+    {
+        if (Application.Current is not App app)
+            return;
+
+        try
+        {
+            await app.CompleteMigrationLaunchAsync();
+        }
+        catch (OperationCanceledException ex) when (app.IsExiting)
+        {
+            // Closing the application cancels the runtime start that Launch began.
+            Log.Information(ex, "Migration launch was cancelled because the application is exiting.");
+        }
+        catch (Exception ex)
+        {
+            // This handler is async void: an escaping exception ends the process. The migration
+            // window stays open, so the user can retry Launch or close the application.
+            Log.Error(ex, "Launching Wino Mail after migration failed.");
+        }
+    }
 
     public async Task<bool> ConfirmExitAsync()
     {
@@ -63,6 +84,24 @@ public sealed partial class MigrationPage : Page
             DefaultButton = ContentDialogButton.Close
         };
 
-        return await dialog.ShowAsync() == ContentDialogResult.Primary;
+        return await TryShowDialogAsync(dialog) == ContentDialogResult.Primary;
+    }
+
+    /// <summary>
+    /// Shows a dialog on this page's XamlRoot. WinUI allows one open ContentDialog per XamlRoot; while
+    /// another one is open (for example an account authentication prompt) ShowAsync throws a
+    /// COMException. That is treated as a cancelled prompt.
+    /// </summary>
+    private static async Task<ContentDialogResult> TryShowDialogAsync(ContentDialog dialog)
+    {
+        try
+        {
+            return await dialog.ShowAsync();
+        }
+        catch (COMException ex)
+        {
+            Log.Warning(ex, "Migration prompt was not shown because another dialog is open.");
+            return ContentDialogResult.None;
+        }
     }
 }

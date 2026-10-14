@@ -908,6 +908,7 @@
   "Info_DraftFolderMissingMessage": "Draft folder is missing for this account. Please check your account settings.",
   "Info_DraftFolderMissingTitle": "Missing Draft Folder",
   "Info_DraftCreationFailed": "Draft creation failed",
+  "Info_DraftMissingAliasMessage": "This account has no sender address. Add an alias in the account's alias settings, then try again.",
   "Info_FailedToOpenFileMessage": "File might be removed from the disk.",
   "Info_FailedToOpenFileTitle": "Failed to launch file.",
   "Info_FileLaunchFailedTitle": "Failed to launch file",
