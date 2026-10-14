@@ -2,8 +2,11 @@ using Foundation;
 using Microsoft.Extensions.DependencyInjection;
 using UIKit;
 using UserNotifications;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Mail.ViewModels.Lifecycle;
+using Wino.Platform.Apple.PushRelay;
 using Wino.Platform.Apple.Services;
 using Wino.Presentation.UIKit;
 
@@ -36,7 +39,8 @@ public sealed class AppDelegate : UIApplicationDelegate
 
         Services = Composition.Create(_dispatcher, _notificationResponses);
         _startup = StartAsync(Services);
-        // Remote notifications: registration only; the push relay is a separate workstream.
+        // The APNs token goes to ApplePushTokenProvider; the shared relay service registers this device with WinoRelay
+        // for the signed-in Wino Account and keeps the token current.
         application.RegisterForRemoteNotifications();
         return true;
     }
@@ -60,10 +64,72 @@ public sealed class AppDelegate : UIApplicationDelegate
         => new("Default Configuration", connectingSceneSession.Role) { DelegateType = typeof(SceneDelegate) };
 
     public override void RegisteredForRemoteNotifications(UIApplication application, NSData deviceToken)
-        => Serilog.Log.Information("Registered for remote notifications ({Length} byte token).", deviceToken.Length);
+    {
+        Serilog.Log.Information("Registered for remote notifications ({Length} byte token).", deviceToken.Length);
+        Services?.GetService<ApplePushTokenProvider>()?.SetToken(deviceToken);
+    }
 
     public override void FailedToRegisterForRemoteNotifications(UIApplication application, NSError error)
-        => Serilog.Log.Information("Remote notification registration failed: {Error}", error.LocalizedDescription);
+    {
+        // Expected in the Simulator and in builds without the aps-environment entitlement; the device registers without a token.
+        Serilog.Log.Information("Remote notification registration failed: {Error}", error.LocalizedDescription);
+        Services?.GetService<ApplePushTokenProvider>()?.SetFailure(error.LocalizedDescription);
+    }
+
+    /// <summary>
+    /// A data-only relay push (content-available). iOS allows about 30 seconds; the handler gets 25, and the completion
+    /// handler is called exactly once with the outcome, also when startup or the handler does not finish in time.
+    /// </summary>
+    public override void DidReceiveRemoteNotification(UIApplication application, NSDictionary userInfo, Action<UIBackgroundFetchResult> completionHandler)
+    {
+        var payload = ApplePushPayload.ToPayload(userInfo);
+        var completed = 0;
+        void Complete(UIBackgroundFetchResult result)
+        {
+            if (Interlocked.Exchange(ref completed, 1) == 0) completionHandler(result);
+        }
+        _ = CompleteRemoteNotificationAsync(payload, Complete);
+    }
+
+    private static readonly TimeSpan RemoteNotificationBudget = TimeSpan.FromSeconds(25);
+
+    private async Task CompleteRemoteNotificationAsync(Dictionary<string, string> payload, Action<UIBackgroundFetchResult> complete)
+    {
+        var result = UIBackgroundFetchResult.Failed;
+        try
+        {
+            using var budget = new CancellationTokenSource(RemoteNotificationBudget);
+            var work = HandleRemoteNotificationAsync(payload, budget.Token);
+            if (await Task.WhenAny(work, Task.Delay(RemoteNotificationBudget)) == work)
+            {
+                result = await work;
+            }
+            else
+            {
+                budget.Cancel();
+                Serilog.Log.Warning("Relay push handling did not finish within {Seconds} s.", RemoteNotificationBudget.TotalSeconds);
+            }
+        }
+        catch (Exception error) { Serilog.Log.Warning(error, "Relay push handling failed."); }
+        finally { complete(result); }
+    }
+
+    private async Task<UIBackgroundFetchResult> HandleRemoteNotificationAsync(Dictionary<string, string> payload, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (_startup is { } startup) await startup.WaitAsync(cancellationToken);
+            if (Services?.GetService<IPushRelayNotificationHandler>() is not { } handler) return UIBackgroundFetchResult.NoData;
+            var outcome = await handler.HandleAsync(payload, cancellationToken);
+            return outcome switch
+            {
+                PushRelayNotificationOutcome.NewData => UIBackgroundFetchResult.NewData,
+                PushRelayNotificationOutcome.Failed => UIBackgroundFetchResult.Failed,
+                _ => UIBackgroundFetchResult.NoData,
+            };
+        }
+        catch (OperationCanceledException) { return UIBackgroundFetchResult.Failed; }
+    }
 
     public override void WillTerminate(UIApplication application)
     {

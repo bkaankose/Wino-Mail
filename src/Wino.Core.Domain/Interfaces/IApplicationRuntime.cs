@@ -23,4 +23,11 @@ public interface IApplicationRuntime
     /// Cancelling the token stops the pass.
     /// </summary>
     Task SynchronizeOnceAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Runs one bounded inbox-only mail synchronization for one account and returns when it finishes.
+    /// Returns false when the account is unknown, has no mail access, or the synchronization did not succeed.
+    /// It initializes the runtime when needed but never starts the periodic loops (used for relay pushes).
+    /// </summary>
+    Task<bool> SynchronizeAccountInboxAsync(Guid accountId, CancellationToken cancellationToken = default);
 }

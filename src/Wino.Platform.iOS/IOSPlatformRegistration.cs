@@ -6,6 +6,7 @@ using Wino.Authentication;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Platform;
 using Wino.Platform.Apple;
+using Wino.Platform.Apple.PushRelay;
 using Wino.Platform.Apple.Security;
 using Wino.Platform.Apple.Services;
 using Wino.Platform.iOS.Services;
@@ -108,10 +109,18 @@ public static class IOSPlatformRegistration
         services.AddSingleton<IUserPresenceStateProvider, IOSUserPresenceStateProvider>();
         services.AddSingleton<IMicrosoftStoreService, IOSMicrosoftStoreService>();
 
+        // WinoRelay: the AppDelegate forwards the APNs token and pushes; the device id stays on this device only.
+        services.AddSingleton<ApplePushTokenProvider>();
+        services.AddSingleton<IPushTokenProvider>(provider => provider.GetRequiredService<ApplePushTokenProvider>());
+        services.AddSingleton<IPushRelayDeviceIdentityStore, AppleKeychainPushRelayDeviceIdentityStore>();
+        services.AddSingleton<IPushRelayDeviceInfo>(new IOSPushRelayDeviceInfo(UIDevice.CurrentDevice.Name, UIDevice.CurrentDevice.SystemVersion));
+
         // Additional windows are iPad scenes (pop-out reader and composer); iPhone has a single scene.
+        // Live notifications are always on while a Wino Account is signed in (no opt-in switch on iOS).
         services.AddSingleton<IPlatformCapabilities>(new PlatformCapabilities(
             Printing: true, PdfExport: true, Smime: false, AdditionalWindows: isPad, Notifications: true, NotificationActions: true,
-            StartupIntegration: false, Tray: false, GlobalHotkeys: false, GeneralActivation: true, AppleAppStore: true));
+            StartupIntegration: false, Tray: false, GlobalHotkeys: false, GeneralActivation: true, AppleAppStore: true,
+            RemoteNotifications: true, PushRelayOptIn: false));
         return services;
     }
 

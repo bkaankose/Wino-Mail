@@ -35,16 +35,27 @@ public sealed class AppleKeychainStore
         return data?.ToArray() ?? throw new InvalidOperationException("Keychain returned no credential data.");
     }
 
-    public void Write(string scope, string account, byte[] bytes)
+    public void Write(string scope, string account, byte[] bytes) => WriteCore(scope, account, bytes, null);
+
+    /// <summary>
+    /// Writes the item with an explicit accessibility class, for example
+    /// <see cref="SecAccessible.AfterFirstUnlockThisDeviceOnly"/> for data that must not move to another device through a
+    /// backup and must stay readable in background work. An existing item gets the new class too.
+    /// </summary>
+    public void Write(string scope, string account, byte[] bytes, SecAccessible accessible) => WriteCore(scope, account, bytes, accessible);
+
+    private void WriteCore(string scope, string account, byte[] bytes, SecAccessible? accessible)
     {
         ArgumentNullException.ThrowIfNull(bytes);
         using var query = Query(scope, account);
         using var data = NSData.FromArray(bytes);
         using var attributes = new SecRecord { ValueData = data };
+        if (accessible is { } updatedAccessible) attributes.Accessible = updatedAccessible;
         var status = SecKeyChain.Update(query, attributes);
         if (status == SecStatusCode.ItemNotFound)
         {
             query.ValueData = data;
+            if (accessible is { } addedAccessible) query.Accessible = addedAccessible;
             status = SecKeyChain.Add(query);
             if (status == SecStatusCode.DuplicateItem)
             {
@@ -55,11 +66,18 @@ public sealed class AppleKeychainStore
         Check(status);
     }
 
-    public bool TryAdd(string scope, string account, byte[] bytes)
+    public bool TryAdd(string scope, string account, byte[] bytes) => TryAddCore(scope, account, bytes, null);
+
+    /// <inheritdoc cref="TryAdd(string, string, byte[])"/>
+    public bool TryAdd(string scope, string account, byte[] bytes, SecAccessible accessible) => TryAddCore(scope, account, bytes, accessible);
+
+    private bool TryAddCore(string scope, string account, byte[] bytes, SecAccessible? accessible)
     {
+        ArgumentNullException.ThrowIfNull(bytes);
         using var record = Query(scope, account);
         using var data = NSData.FromArray(bytes);
         record.ValueData = data;
+        if (accessible is { } value) record.Accessible = value;
         var status = SecKeyChain.Add(record);
         if (status == SecStatusCode.DuplicateItem) return false;
         Check(status);

@@ -525,6 +525,11 @@ public sealed partial class ToDoPageViewController
         }
         menu.AddItem(NSMenuItem.SeparatorItem);
         menu.AddItem(MenuItem(Translator.ToDoPage_DeleteTask, () => Observe(ViewModel.DeleteTaskCommand.ExecuteAsync(task)), WinoIconGlyph.Delete, WinoToDoStyle.Critical, editable));
+#if DEBUG
+        // Windows ToDoPage: shows the real reminder notification for this task.
+        menu.AddItem(NSMenuItem.SeparatorItem);
+        menu.AddItem(MenuItem(Translator.Buttons_TestNotification, () => Observe(_notifications.CreateTestTaskReminderNotificationAsync(task.Task)), WinoIconGlyph.Reminder));
+#endif
         return menu;
     }
 

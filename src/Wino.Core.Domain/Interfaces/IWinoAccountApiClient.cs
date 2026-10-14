@@ -52,6 +52,11 @@ public interface IWinoAccountApiClient
     /// </summary>
     Task<ApiEnvelope<AppStoreRedeemResultDto>> RedeemAppStoreTransactionsAsync(IReadOnlyList<string> signedTransactions, CancellationToken cancellationToken = default);
     Task<ApiEnvelope<AiUsageStatusDto>> GetAiUsageAsync(CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Exchanges the Wino access token for a short-lived WinoRelay token (<c>POST /api/v1/relay/token</c>).
+    /// A 503 answers with <see cref="Models.PushRelay.RelayApiErrorCodes.RelayUnavailable"/>.
+    /// </summary>
+    Task<ApiEnvelope<Models.PushRelay.RelayTokenDto>> CreateRelayTokenAsync(CancellationToken cancellationToken = default);
     /// <summary>The stored sync snapshot bytes and revision, or null when the account has none.</summary>
     Task<WinoSyncSnapshotDownload?> GetSyncSnapshotAsync(CancellationToken cancellationToken = default);
     /// <summary>Metadata for the stored sync snapshot without downloading its encrypted payload.</summary>

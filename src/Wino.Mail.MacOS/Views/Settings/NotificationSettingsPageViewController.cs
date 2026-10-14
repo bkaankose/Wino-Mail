@@ -119,7 +119,7 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
                 TypeSoundPicker(AppleNotificationSoundKind.Task)));
         Bind.Bind(vm, nameof(vm.TaskSummary), s => s.TaskSummary, text => tasks.HeaderCard.Description = text);
 
-        AddGroup(null, quiet, mail, calendar, tasks);
+        AddGroup(null, quiet, mail, calendar, tasks, LiveNotifications());
 
         // Per-account overrides.
         var accountsHeader = new WinoSettingsGroup(Translator.NotificationSettings_Accounts_Title, Translator.NotificationSettings_Accounts_Description);
@@ -131,6 +131,46 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
 
         AddGroup(null, Card(Translator.NotificationSettings_Reset_Title, Translator.NotificationSettings_Reset_Description, WinoIconGlyph.ArrowReset,
             Bind.Button(Translator.NotificationSettings_Reset_Title, ResetAsync)));
+    }
+
+    /// <summary>
+    /// Live notifications (WinoRelay), off by default on the Mac because mailbox credentials go through Wino servers. The
+    /// header switch turns it on; the rows show the status, a sign-in hint, mailboxes the relay could not sign in to,
+    /// and a test push.
+    /// </summary>
+    private WinoSettingsExpander LiveNotifications()
+    {
+        var vm = ViewModel;
+        var toggle = Bind.Enabled(
+            Bind.Switch(vm, nameof(vm.IsPushRelayEnabled), s => s.IsPushRelayEnabled, (s, v) => s.IsPushRelayEnabled = v, Translator.NotificationSettings_PushRelay_Title),
+            vm, nameof(vm.IsPushRelayToggleEnabled), s => s.IsPushRelayToggleEnabled);
+        Bind.Visible(toggle, vm, nameof(vm.IsPushRelayToggleVisible), s => s.IsPushRelayToggleVisible);
+
+        var signIn = InfoBar(WinoInfoBarSeverity.Informational, null, Translator.NotificationSettings_PushRelay_SignInRequired);
+        Bind.Visible(signIn, vm, nameof(vm.IsPushRelaySignInRequired), s => s.IsPushRelaySignInRequired);
+
+        var status = Card(string.Empty, null, WinoIconGlyph.Info);
+        Bind.Bind(vm, nameof(vm.PushRelayStatusText), s => s.PushRelayStatusText, text => status.Header = text ?? string.Empty);
+        // The sign-in hint already says it; the status card would repeat the same sentence.
+        Bind.Visible(status, vm, nameof(vm.IsPushRelaySignInRequired), s => !s.IsPushRelaySignInRequired);
+
+        var warning = Card(string.Empty, null, WinoIconGlyph.Warning);
+        Bind.Bind(vm, nameof(vm.PushRelayMailboxWarningText), s => s.PushRelayMailboxWarningText, text =>
+        {
+            warning.Header = text ?? string.Empty;
+            warning.Hidden = string.IsNullOrEmpty(text);
+        });
+
+        var test = Card(Translator.NotificationSettings_PushRelay_SendTest, null, WinoIconGlyph.Send,
+            Bind.Button(Translator.NotificationSettings_PushRelay_SendTest, vm.SendPushTestCommand));
+        Bind.Bind(vm, nameof(vm.PushRelayTestResultText), s => s.PushRelayTestResultText,
+            text => test.Description = string.IsNullOrEmpty(text) ? null : text);
+        Bind.Visible(test, vm, nameof(vm.IsPushTestVisible), s => s.IsPushTestVisible);
+
+        var expander = Expander(Translator.NotificationSettings_PushRelay_Title, Translator.NotificationSettings_PushRelay_Description,
+            WinoIconGlyph.Cloud, toggle, signIn, status, warning, test);
+        Bind.Visible(expander, vm, nameof(vm.IsPushRelaySectionVisible), s => s.IsPushRelaySectionVisible);
+        return expander;
     }
 
     protected override Task InitializeAsync(Core.Domain.Models.Navigation.NavigationMode mode, object? parameter)

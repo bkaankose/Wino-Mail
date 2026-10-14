@@ -63,6 +63,8 @@ The test projects are also in `WinoMail.MacOS.slnx`.
 
 `Entitlements.plist` enables App Sandbox, network client, network server (loopback listeners for system-browser OAuth callbacks), user-selected file read/write, and JIT. It also grants Sparkle's installer mach-lookup exception for DMG builds. `Entitlements.AppStore.plist` is the same set without Sparkle's exception; keep the two in step.
 
+Live notifications (WinoRelay) need APNs. `com.apple.developer.aps-environment` is a restricted entitlement, so every provisioning profile must include the Push Notifications capability, or the signed app does not launch. Three profiles carry it: **Wino Mail macOS Development** (`development`, from the project's `CustomEntitlements`), **Wino Mail macOS App Store** (`production`, in `Entitlements.AppStore.plist`) and **Wino Mail macOS Developer ID** (`R3M399RA2V`, created 14 Oct 2026, `production`; the DMG script passes it with `-p:WinoApsEnvironment=production`). Regenerate a profile that lacks Push. Ad hoc builds (`-p:CodesignKey=- -p:CodesignProvision=`) have no profile and no APNs entitlement: they register with the relay without a push token, so no pushes arrive. The relay has one APNs sandbox flag; production pushes need `UseSandbox=false`, development (Debug) pushes need `true`.
+
 Codesign needs the login keychain. SSH sessions cannot reach it (`errSecInternalComponent`); build signed bundles from Terminal or a `screen` session started in Terminal, or sign ad hoc.
 
 ## Storage, Keychain, and activation

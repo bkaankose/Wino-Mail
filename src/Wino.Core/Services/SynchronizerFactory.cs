@@ -187,15 +187,28 @@ public class SynchronizerFactory : ISynchronizerFactory
         finally { gate.Release(); }
     }
 
+    /// <summary>
+    /// TEMPORARY (14 Oct 2026, WinoRelay testing): in-app IMAP IDLE is off for every account, so new IMAP mail arrives
+    /// only through relay pushes, manual sync and the periodic timer. Set back to false (or delete) before shipping.
+    /// </summary>
+    internal static readonly bool IsImapIdleTemporarilyDisabled = true;
+
     private IWinoSynchronizerBase CreateAndCache(MailAccount account)
     {
         var synchronizer = CreateIntegratorWithDefaultProcessor(account);
         _synchronizers[account.Id] = synchronizer;
         if (synchronizer is IImapSynchronizer imapSynchronizer && !account.IsNetworkAccessBlocked())
         {
-            // The pool is warmed after the first synchronization so startup opens
-            // only the IDLE socket and one worker instead of competing handshakes.
-            _ = imapSynchronizer.StartIdleClientAsync();
+            if (IsImapIdleTemporarilyDisabled)
+            {
+                Log.Information("IMAP IDLE is temporarily disabled; account {AccountId} relies on relay pushes and timers.", account.Id);
+            }
+            else
+            {
+                // The pool is warmed after the first synchronization so startup opens
+                // only the IDLE socket and one worker instead of competing handshakes.
+                _ = imapSynchronizer.StartIdleClientAsync();
+            }
         }
         return synchronizer;
     }
@@ -234,7 +247,7 @@ public class SynchronizerFactory : ISynchronizerFactory
             Log.Information("Account {AccountId} needs attention ({AttentionReason}). Suspending its IMAP connections.", cached.Id, cached.AttentionReason);
             await imapSynchronizer.SuspendNetworkAccessAsync().ConfigureAwait(false);
         }
-        else
+        else if (!IsImapIdleTemporarilyDisabled)
         {
             Log.Information("Account {AccountId} no longer needs attention. Resuming IMAP IDLE.", cached.Id);
             await imapSynchronizer.StartIdleClientAsync().ConfigureAwait(false);

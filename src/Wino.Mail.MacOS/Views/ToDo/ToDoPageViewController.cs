@@ -32,9 +32,12 @@ public sealed partial class ToDoPageViewController : WinoViewController<ToDoPage
     private bool _released;
     private bool _compact;
 
-    public ToDoPageViewController(ToDoPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
+    private readonly INotificationBuilder _notifications;
+
+    public ToDoPageViewController(ToDoPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger, INotificationBuilder notifications)
         : base(viewModel, dispatcher, logger)
     {
+        _notifications = notifications;
     }
 
     public override void LoadView()

@@ -10,6 +10,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Platform;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Platform.Apple;
+using Wino.Platform.Apple.PushRelay;
 using Wino.Platform.Apple.Security;
 using Wino.Platform.Apple.Services;
 using Wino.Platform.MacOS;
@@ -81,6 +82,11 @@ internal static class Composition
         services.AddSingleton<AppleNotificationSounds>();
         services.AddSingleton<INotificationBuilder, AppleNotificationBuilder>();
         services.AddSingleton<IStatePersistanceService, AppleStatePersistenceService>();
+        // WinoRelay (opt-in on the Mac): AppDelegate.PushRelay forwards the APNs token and pushes.
+        services.AddSingleton<ApplePushTokenProvider>();
+        services.AddSingleton<IPushTokenProvider>(provider => provider.GetRequiredService<ApplePushTokenProvider>());
+        services.AddSingleton<IPushRelayDeviceIdentityStore, AppleKeychainPushRelayDeviceIdentityStore>();
+        services.AddSingleton<IPushRelayDeviceInfo, MacPushRelayDeviceInfo>();
         // The app-level theme service adds the Wino themes (accent + backdrop, custom themes in the Windows file layout) on top of native appearance.
         services.AddSingleton(provider => new Wino.Services.Themes.CustomThemeFileStore(provider.GetRequiredService<IApplicationConfiguration>()));
         services.AddSingleton<MacWinoThemeService>();
@@ -102,6 +108,8 @@ internal static class Composition
         services.AddSingleton<IPlatformCapabilities>(new PlatformCapabilities(
             Printing: true, PdfExport: true, Smime: true, AdditionalWindows: true, Notifications: true, NotificationActions: true,
             StartupIntegration: true, Tray: true, GlobalHotkeys: true, GeneralActivation: true,
+            // Live notifications need APNs and the user's opt-in (mailbox credentials go through Wino servers).
+            RemoteNotifications: true, PushRelayOptIn: true,
 #if WINO_APPSTORE
             AppleAppStore: true
 #else

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -10,6 +11,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.PushRelay;
 using Wino.Core.Domain.Translations;
 using Wino.Core.ViewModels.Data;
 using CommunityToolkit.Mvvm.Messaging;
@@ -58,6 +60,11 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
     private readonly ICalendarService _calendarService;
     private readonly INotificationPolicyService _notificationPolicyService;
     private readonly IUserPresenceStateProvider _userPresenceStateProvider;
+    private readonly IPushRelayRegistrationService _pushRelay;
+    private readonly IPlatformCapabilities _capabilities;
+    private Dictionary<Guid, string> _accountNames = [];
+    private bool _isApplyingPushRelaySnapshot;
+    private bool _isSubscribedToPushRelay;
 
     private bool _isLoaded;
     private bool _isUpdatingSelection;
@@ -67,9 +74,13 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
         IAccountService accountService,
         ICalendarService calendarService,
         INotificationPolicyService notificationPolicyService,
-        IUserPresenceStateProvider userPresenceStateProvider)
+        IUserPresenceStateProvider userPresenceStateProvider,
+        IPushRelayRegistrationService pushRelay,
+        IPlatformCapabilities capabilities)
     {
         PreferencesService = preferencesService;
+        _pushRelay = pushRelay;
+        _capabilities = capabilities;
         _accountService = accountService;
         _calendarService = calendarService;
         _notificationPolicyService = notificationPolicyService;
@@ -133,6 +144,7 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
         }
 
         BuildQuietHoursDays();
+        ApplyPushRelaySnapshot(_pushRelay.Snapshot);
     }
 
     public IPreferencesService PreferencesService { get; }
@@ -277,6 +289,182 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
 
     #endregion
 
+    #region Live notifications
+
+    /// <summary>The live notifications card exists on platforms that can use the relay.</summary>
+    public bool IsPushRelaySectionVisible => _capabilities.RemoteNotifications || _capabilities.PushRelayOptIn;
+
+    /// <summary>Opt-in platforms (macOS, Windows) show a switch; iOS is always on while signed in.</summary>
+    public bool IsPushRelayToggleVisible => _capabilities.PushRelayOptIn;
+
+    /// <summary>The switch state on opt-in platforms; on iOS it mirrors whether the relay is active.</summary>
+    [ObservableProperty]
+    public partial bool IsPushRelayEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsPushRelayToggleEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsPushRelaySignInRequired { get; set; }
+
+    [ObservableProperty]
+    public partial string PushRelayStatusText { get; set; } = string.Empty;
+
+    /// <summary>Accounts the relay can no longer sign in to; empty when there are none.</summary>
+    [ObservableProperty]
+    public partial string PushRelayMailboxWarningText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool IsPushTestVisible { get; set; }
+
+    /// <summary>The outcome of the last test notification request; empty until one is sent.</summary>
+    [ObservableProperty]
+    public partial string PushRelayTestResultText { get; set; } = string.Empty;
+
+    public PushRelayAvailability PushRelayAvailability => _pushRelay.Snapshot.Availability;
+
+    partial void OnIsPushRelayEnabledChanged(bool value)
+    {
+        if (_isApplyingPushRelaySnapshot || !IsPushRelayToggleVisible || value == _pushRelay.IsUserOptedIn)
+            return;
+
+        _ = SetPushRelayOptInAsync(value);
+    }
+
+    private async Task SetPushRelayOptInAsync(bool enabled)
+    {
+        try
+        {
+            await _pushRelay.SetUserOptInAsync(enabled);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Serilog.Log.Warning(ex, "Changing the live notification setting failed.");
+        }
+
+        await ExecuteUIThread(() => ApplyPushRelaySnapshot(_pushRelay.Snapshot));
+    }
+
+    /// <summary>The relay accepts one test per minute; the button rests for that long after a send.</summary>
+    internal static readonly TimeSpan PushTestCooldown = TimeSpan.FromMinutes(1);
+
+    private bool _isPushTestCoolingDown;
+
+    private bool CanSendPushTest() => !_isPushTestCoolingDown;
+
+    [RelayCommand(CanExecute = nameof(CanSendPushTest))]
+    private async Task SendPushTestAsync()
+    {
+        PushRelayTestResultText = string.Empty;
+        var result = await _pushRelay.SendPushTestAsync(CancellationToken.None);
+        var text = result switch
+        {
+            PushRelayPushTestResult.Queued => Translator.NotificationSettings_PushRelay_TestQueued,
+            PushRelayPushTestResult.NoPushToken => Translator.NotificationSettings_PushRelay_TestNoToken,
+            PushRelayPushTestResult.RateLimited => Translator.NotificationSettings_PushRelay_TestRateLimited,
+            PushRelayPushTestResult.NotRegistered => Translator.NotificationSettings_PushRelay_TestNotRegistered,
+            _ => Translator.NotificationSettings_PushRelay_TestFailed
+        };
+
+        await ExecuteUIThread(() => PushRelayTestResultText = text);
+
+        if (result is PushRelayPushTestResult.Queued or PushRelayPushTestResult.RateLimited)
+            _ = CoolDownPushTestAsync();
+    }
+
+    private async Task CoolDownPushTestAsync()
+    {
+        await ExecuteUIThread(() =>
+        {
+            _isPushTestCoolingDown = true;
+            SendPushTestCommand.NotifyCanExecuteChanged();
+        });
+
+        await Task.Delay(PushTestCooldown);
+
+        await ExecuteUIThread(() =>
+        {
+            _isPushTestCoolingDown = false;
+            SendPushTestCommand.NotifyCanExecuteChanged();
+        });
+    }
+
+    private void PushRelaySnapshotChanged(object? sender, PushRelayRegistrationSnapshot snapshot)
+        => _ = ExecuteUIThread(() => ApplyPushRelaySnapshot(snapshot));
+
+    /// <summary>Maps the relay registration state onto the bound members. Runs on the UI thread.</summary>
+    public void ApplyPushRelaySnapshot(PushRelayRegistrationSnapshot snapshot)
+    {
+        _isApplyingPushRelaySnapshot = true;
+        try
+        {
+            var availability = snapshot.Availability;
+            IsPushRelayEnabled = IsPushRelayToggleVisible ? snapshot.IsUserOptedIn : availability == PushRelayAvailability.Enabled;
+            // Signed out, the switch can still be turned off, but not on.
+            IsPushRelayToggleEnabled = availability is not (PushRelayAvailability.UnsupportedPlatform or PushRelayAvailability.SignInRequired)
+                || (availability == PushRelayAvailability.SignInRequired && snapshot.IsUserOptedIn);
+            IsPushRelaySignInRequired = availability == PushRelayAvailability.SignInRequired;
+            IsPushTestVisible = _capabilities.RemoteNotifications && availability == PushRelayAvailability.Enabled && snapshot.DeviceId is not null;
+            PushRelayStatusText = GetPushRelayStatusText(snapshot);
+            PushRelayMailboxWarningText = GetPushRelayMailboxWarningText(snapshot);
+            OnPropertyChanged(nameof(PushRelayAvailability));
+        }
+        finally
+        {
+            _isApplyingPushRelaySnapshot = false;
+        }
+    }
+
+    private static string GetPushRelayStatusText(PushRelayRegistrationSnapshot snapshot) => snapshot.Availability switch
+    {
+        PushRelayAvailability.UnsupportedPlatform or PushRelayAvailability.RejectedByRelay => Translator.NotificationSettings_PushRelay_PlatformUnsupported,
+        PushRelayAvailability.SignInRequired => Translator.NotificationSettings_PushRelay_SignInRequired,
+        PushRelayAvailability.DisabledByUser => Translator.NotificationSettings_PushRelay_Off,
+        PushRelayAvailability.ServiceUnavailable => Translator.NotificationSettings_PushRelay_ServiceUnavailable,
+        _ when snapshot.Mailboxes.Any(x => !x.IsWatched && x.LastErrorCode == PushRelayErrorCodes.MailboxLimitReached)
+            => Translator.NotificationSettings_PushRelay_LimitReached,
+        _ when snapshot.DeviceId is null && snapshot.LastErrorCode is { } error
+            => string.Format(Translator.NotificationSettings_PushRelay_ErrorFormat, error),
+        _ => string.Format(Translator.NotificationSettings_PushRelay_RegisteredFormat,
+            snapshot.Mailboxes.Count(x => x.IsWatched), snapshot.MailboxLimit)
+    };
+
+    private string GetPushRelayMailboxWarningText(PushRelayRegistrationSnapshot snapshot)
+    {
+        if (snapshot.Availability != PushRelayAvailability.Enabled)
+            return string.Empty;
+
+        var names = snapshot.Mailboxes
+            .Where(x => x.NeedsReauthentication)
+            .Select(x => _accountNames.TryGetValue(x.AccountId, out var name) ? name : null)
+            .OfType<string>()
+            .ToList();
+
+        return names.Count == 0
+            ? string.Empty
+            : string.Format(Translator.NotificationSettings_PushRelay_Mailbox_NeedsReauth, string.Join(", ", names));
+    }
+
+    private void SubscribeToPushRelay()
+    {
+        if (_isSubscribedToPushRelay)
+            return;
+
+        _pushRelay.SnapshotChanged += PushRelaySnapshotChanged;
+        _isSubscribedToPushRelay = true;
+    }
+
+    private void UnsubscribeFromPushRelay()
+    {
+        if (!_isSubscribedToPushRelay)
+            return;
+
+        _pushRelay.SnapshotChanged -= PushRelaySnapshotChanged;
+        _isSubscribedToPushRelay = false;
+    }
+
+    #endregion
+
     public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
@@ -284,8 +472,19 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
         LoadSelections();
         RefreshSnoozeState();
         UpdateSectionSummaries();
+        SubscribeToPushRelay();
+        PushRelayTestResultText = string.Empty;
+        ApplyPushRelaySnapshot(_pushRelay.Snapshot);
 
         await LoadAccountsAsync();
+        await ExecuteUIThread(() => ApplyPushRelaySnapshot(_pushRelay.Snapshot));
+    }
+
+    public override void OnNavigatedFrom(NavigationMode mode, object? parameters)
+    {
+        base.OnNavigatedFrom(mode, parameters);
+
+        UnsubscribeFromPushRelay();
     }
 
     protected override void RegisterRecipients()
@@ -364,7 +563,8 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
     }
 
     /// <summary>
-    /// Returns every notification preference and account override to its factory value.
+    /// Returns every notification preference and account override to its factory value. The live notification
+    /// opt-in is a privacy choice, not a notification default, so it is left alone.
     /// </summary>
     public async Task ResetAsync()
     {
@@ -416,9 +616,13 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
     private async Task LoadAccountsAsync()
     {
         var accounts = await _accountService.GetAccountsAsync();
+        var names = accounts.ToDictionary(
+            account => account.Id,
+            account => string.IsNullOrWhiteSpace(account.Name) ? account.Address ?? string.Empty : account.Name);
 
         await ExecuteUIThread(() =>
         {
+            _accountNames = names;
             Accounts.Clear();
 
             foreach (var account in accounts)

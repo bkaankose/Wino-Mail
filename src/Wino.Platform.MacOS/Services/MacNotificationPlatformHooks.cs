@@ -1,20 +1,27 @@
 using AppKit;
 using Foundation;
+using ImageIO;
 using Wino.Platform.Apple.Services;
 
 namespace Wino.Platform.MacOS.Services;
 
-/// <summary>Notification pictures through NSImage: TIFF representation, then a PNG bitmap.</summary>
+/// <summary>
+/// Notification pictures through ImageIO. Notifications are built on background threads, where AppKit types such as
+/// NSImage throw AppKitThreadAccessException, so this stays on thread-safe CoreGraphics and ImageIO.
+/// </summary>
 public sealed class MacNotificationImageConverter : INotificationImageConverter
 {
+    private const string PngTypeIdentifier = "public.png";
+
     public bool TryWritePng(string sourcePath, string destinationPath)
     {
-        using var image = new NSImage(sourcePath);
-        using var tiff = image.AsTiff();
-        if (tiff is null) return false;
-        using var bitmap = new NSBitmapImageRep(tiff);
-        using var png = bitmap.RepresentationUsingTypeProperties(NSBitmapImageFileType.Png, new NSDictionary());
-        return png is not null && png.Save(destinationPath, true);
+        using var source = CGImageSource.FromUrl(NSUrl.FromFilename(sourcePath));
+        using var image = source?.CreateImage(0, (CGImageOptions?)null);
+        if (image is null) return false;
+        using var destination = CGImageDestination.Create(NSUrl.FromFilename(destinationPath), PngTypeIdentifier, 1);
+        if (destination is null) return false;
+        destination.AddImage(image, (CGImageDestinationOptions?)null);
+        return destination.Close();
     }
 }
 

@@ -15,7 +15,7 @@ namespace Wino.Mail.UIKit.Pad;
 public sealed class PadShellHost(IServiceProvider services) : UIKitShellHostBase
 {
     /// <summary>The user activity type of a pop-out window scene (reader or composer).</summary>
-    public const string PopOutActivityType = "com.winomail.ios.popout";
+    public const string PopOutActivityType = "com.winomail.macos.popout";
     private const string PopOutKey = "popout";
 
     private readonly Dictionary<string, UIViewController> _pendingPopOuts = new(StringComparer.Ordinal);

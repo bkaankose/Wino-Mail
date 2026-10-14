@@ -1,6 +1,7 @@
 using BackgroundTasks;
 using Foundation;
 using Microsoft.Extensions.DependencyInjection;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Mail.ViewModels.Lifecycle;
@@ -46,14 +47,16 @@ internal sealed class ActivationLifecycleHook(IServiceProvider services) : IAppl
 /// </summary>
 internal sealed class BackgroundRefreshLifecycleHook(IServiceProvider services) : IApplicationLifecycleHook
 {
-    public const string RefreshTaskId = "com.winomail.ios.refresh";
-    public const string ProcessingTaskId = "com.winomail.ios.processing";
+    public const string RefreshTaskId = "com.winomail.macos.refresh";
+    public const string ProcessingTaskId = "com.winomail.macos.processing";
     private static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(15);
     private static Func<IApplicationRuntime?>? _runtime;
+    private static Func<IPushRelayRegistrationService?>? _pushRelay;
 
     public Task ServicesReadyAsync()
     {
         _runtime = () => services.GetService<IApplicationRuntime>();
+        _pushRelay = () => services.GetService<IPushRelayRegistrationService>();
         Schedule();
         return Task.CompletedTask;
     }
@@ -61,6 +64,7 @@ internal sealed class BackgroundRefreshLifecycleHook(IServiceProvider services) 
     public Task StoppingAsync(bool runtimeStarted)
     {
         _runtime = null;
+        _pushRelay = null;
         return Task.CompletedTask;
     }
 
@@ -99,10 +103,27 @@ internal sealed class BackgroundRefreshLifecycleHook(IServiceProvider services) 
                 await runtime.SynchronizeOnceAsync(cancellation.Token);
                 success = !cancellation.IsCancellationRequested;
             }
+            // The daily relay check-in keeps the device alive on WinoRelay when no push woke the app for a while.
+            if (!cancellation.IsCancellationRequested) await CheckInAsync(cancellation.Token);
         }
         catch (OperationCanceledException) { }
         catch (Exception exception) { Serilog.Log.Warning(exception, "Background synchronization failed."); }
         finally { task.SetTaskCompleted(success); }
+    }
+
+    /// <summary>
+    /// Refreshes the relay registration when a scene returns to the foreground. Ignored until services are ready:
+    /// sceneWillEnterForeground also fires during launch, before the database is open.
+    /// </summary>
+    public static void RequestForegroundRelaySync()
+        => _pushRelay?.Invoke()?.RequestSync(PushRelaySyncReason.Foreground);
+
+    private static async Task CheckInAsync(CancellationToken cancellationToken)
+    {
+        if (_pushRelay?.Invoke() is not { } pushRelay) return;
+        try { await pushRelay.CheckInAsync(cancellationToken); }
+        catch (OperationCanceledException) { }
+        catch (Exception exception) { Serilog.Log.Warning(exception, "Relay check-in during background refresh failed."); }
     }
 }
 

@@ -635,6 +635,49 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         await work.ConfigureAwait(false);
     }
 
+    public async Task<bool> SynchronizeAccountInboxAsync(Guid accountId, CancellationToken cancellationToken = default)
+    {
+        await InitializeAsync(cancellationToken).ConfigureAwait(false);
+
+        var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+        if (account is null || !account.IsMailAccessGranted)
+            return false;
+
+        Task<bool> work;
+        lock (_gate)
+        {
+            _lifetime.Token.ThrowIfCancellationRequested();
+            // Tracked like the bounded pass, and run on the pool so provider work never starts under the lifecycle lock.
+            work = Task.Run(() => RunAccountInboxPassAsync(account.Id, cancellationToken), CancellationToken.None);
+            Track(() => work);
+        }
+
+        return await work.ConfigureAwait(false);
+    }
+
+    private async Task<bool> RunAccountInboxPassAsync(Guid accountId, CancellationToken cancellationToken)
+    {
+        using var source = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token, cancellationToken);
+        var token = source.Token;
+        token.ThrowIfCancellationRequested();
+
+        // A running synchronization of this account already covers the inbox.
+        if (_synchronizationManager.IsAccountSynchronizing(accountId))
+            return true;
+
+        var result = await _synchronizationManager.SynchronizeMailAsync(new MailSynchronizationOptions
+        {
+            AccountId = accountId,
+            Type = MailSynchronizationType.InboxOnly
+        }, token).ConfigureAwait(false);
+
+        if (result.CompletedState is not (SynchronizationCompletedState.Success or SynchronizationCompletedState.PartiallyCompleted))
+            return false;
+
+        await ClearInvalidCredentialAttentionIfNeededAsync(accountId).ConfigureAwait(false);
+        return true;
+    }
+
     private async Task RunSynchronizationPassAsync(CancellationToken cancellationToken)
     {
         using var source = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token, cancellationToken);

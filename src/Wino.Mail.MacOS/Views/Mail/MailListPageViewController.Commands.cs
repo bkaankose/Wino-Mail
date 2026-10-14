@@ -243,6 +243,15 @@ public sealed partial class MailListPageViewController
             var toggle = new NSMenuItem(row.IsExpanded ? Translator.MacOS_MailList_CollapseThread : Translator.MacOS_MailList_ExpandThread, (_, _) => ToggleThread(row));
             menu.AddItem(toggle);
         }
+
+#if DEBUG
+        // Windows MailContextFlyoutBuilder: shows the real notification for the clicked mails.
+        menu.AddItem(NSMenuItem.SeparatorItem);
+        menu.AddItem(new NSMenuItem(Translator.Buttons_TestNotification, (_, _) => Observe(ViewModel.CreateTestNotificationsAsync(targets)))
+        {
+            Image = WinoIcons.Image(WinoIconGlyph.Reminder, 16)
+        });
+#endif
     }
 
     // ---- Categories (Windows MailContextFlyoutBuilder.CreateCategoriesItem) ----

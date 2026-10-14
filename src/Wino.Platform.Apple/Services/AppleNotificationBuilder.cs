@@ -474,6 +474,18 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
             NotificationKind.TaskReminder);
     }
 
+    public Task CreateLiveNotificationsTestNotificationAsync()
+        => ShowAsync(new NotificationRequest(
+            Identifier: "live-notifications-test",
+            Title: Translator.NotificationSettings_PushRelay_Title,
+            Subtitle: null,
+            Body: Translator.NotificationSettings_PushRelay_TestReceived,
+            Category: AppleNotificationCategories.Generic,
+            ThreadIdentifier: "live-notifications",
+            UserInfo: new Dictionary<string, string> { [Constants.ToastModeKey] = Constants.ToastModeMail },
+            Sound: _sounds.Resolve(AppleNotificationSoundKind.Mail)),
+            NotificationKind.Other);
+
     /// <summary>Windows GetCalendarReminderContext.</summary>
     private static string GetCalendarReminderContext(DateTime localStart, DateTime nowLocal)
     {

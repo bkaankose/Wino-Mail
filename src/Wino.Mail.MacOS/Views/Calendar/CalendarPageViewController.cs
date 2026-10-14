@@ -30,6 +30,7 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
     private readonly AppKitNavigationService _navigation;
     private readonly CalendarAppShellViewModel _shell;
     private readonly IContextMenuItemService _contextMenus;
+    private readonly INotificationBuilder _notifications;
     private readonly IDateContextProvider _dateContext;
     private readonly IMailDialogService _dialogs;
     private readonly SemaphoreSlim _paneGate = new(1, 1);
@@ -49,9 +50,10 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
 
     public CalendarPageViewController(CalendarPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger,
         AppKitNavigationService navigation, CalendarAppShellViewModel shell, IContextMenuItemService contextMenus, IDateContextProvider dateContext,
-        IMailDialogService dialogs)
+        IMailDialogService dialogs, INotificationBuilder notifications)
         : base(viewModel, dispatcher, logger)
     {
+        _notifications = notifications;
         _dialogs = dialogs;
         _navigation = navigation;
         _shell = shell;
@@ -232,6 +234,15 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         var menu = new NSMenu { AutoEnablesItems = false };
         foreach (var entry in _contextMenus.GetCalendarItemContextMenuItems(item.CalendarItem)) menu.AddItem(MenuItem(entry, item));
         EventDetailsWindow.AppendMenuItem(menu, item);
+#if DEBUG
+        // Windows CalendarItemControl: shows the real reminder notification for this event.
+        menu.AddItem(NSMenuItem.SeparatorItem);
+        var calendarItem = item.CalendarItem;
+        menu.AddItem(new NSMenuItem(Wino.Core.Domain.Translator.Buttons_TestNotification, (_, _) => Observe(_notifications.CreateTestCalendarReminderNotificationAsync(calendarItem)))
+        {
+            Image = WinoIcons.Image(WinoIconGlyph.Reminder, 14)
+        });
+#endif
         if (args.NativeEvent is { } native) NSMenu.PopUpContextMenu(menu, native, args.View);
     }
 

@@ -95,7 +95,7 @@ The editor extension is a convenience. The pinned command-line result is the for
 - Add English source strings only to `src/Wino.Core.Domain/Translations/en_US/resources.json`.
 - Use generated `Translator` properties. XAML translation bindings use `Mode=OneTime` because `Translator` does not implement `INotifyPropertyChanged`.
 - Treat non-English resource files as externally managed and do not edit them.
-- The main SQLite database and EML files live under `IApplicationConfiguration.ApplicationDataFolderPath`: the package LocalState folder on Windows, the sandbox container's Application Support folder on macOS, and the app container's `Library/Application Support/com.winomail.ios` on iOS. Resolve them through `MainDatabasePaths` and `MimeFileService.GetMimeMessagePath()`; never build platform paths in shared code. The Windows publisher cache is read only as a legacy migration source.
+- The main SQLite database and EML files live under `IApplicationConfiguration.ApplicationDataFolderPath`: the package LocalState folder on Windows, the sandbox container's Application Support folder on macOS, and the app container's `Library/Application Support/com.winomail.macos` on iOS. Resolve them through `MainDatabasePaths` and `MimeFileService.GetMimeMessagePath()`; never build platform paths in shared code. The Windows publisher cache is read only as a legacy migration source.
 - `controls/Wino.Editor.Core` is the only reader/editor HTML, CSS, and JavaScript asset source for WebView2 and WKWebView. Preserve its document-ready bridge and on-demand MIME loading.
 
 

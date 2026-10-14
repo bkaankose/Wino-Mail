@@ -21,8 +21,9 @@ One-time setup on the Mac:
 
 1. Install Xcode and the .NET SDK selected by `global.json`, then run `dotnet workload install macos` (see the [development guide](harness/development-macos.md#requirements)).
 2. Import the **Developer ID Application: Burak Kaan Kose (4VB7YWRAQ9)** certificate with its private key into the login keychain.
-3. Set the notarization variables in [Local script environment](local-script-environment.md).
-4. Have the Sparkle update signing key in the login keychain (account `com.winomail.macos`).
+3. Install the **Wino Mail macOS Developer ID** provisioning profile (type Developer ID, App ID `com.winomail.macos`, Push Notifications). The script picks the newest unexpired one; without it the build stops.
+4. Set the notarization variables in [Local script environment](local-script-environment.md).
+5. Have the Sparkle update signing key in the login keychain (account `com.winomail.macos`).
    It was created on the release Mac on 2026-10-10. Keep an offline backup:
    `generate_keys --account com.winomail.macos -x <file>`, then store the file securely.
    On another Mac, import it with `generate_keys --account com.winomail.macos -f <file>`.
@@ -39,9 +40,9 @@ After the translation question, select **Apple silicon only** or **Universal**. 
 For unattended runs, use `--non-interactive --arch universal` or `--arch arm64`, plus `--translate` or `--skip-translation`.
 
 The script checks the tools, signing identity, and credentials before it compiles.
-It publishes Release with the Developer ID identity, the hardened runtime, and the app's sandbox entitlements, without a provisioning profile.
+It publishes Release with the Developer ID identity and profile, the hardened runtime, and the app's sandbox entitlements plus `com.apple.developer.aps-environment = production` for live notifications.
 Debug builds keep the Apple Development identity and profile.
-It verifies the signature, entitlements, bundle ID, version, and architectures, then creates and signs the DMG.
+It verifies the signature, entitlements (including the APNs entitlement and the embedded profile), bundle ID, version, and architectures, then creates and signs the DMG.
 It also verifies Sparkle: the framework and its helpers carry the Developer ID signature, and the feed URL and public key match `Sparkle.plist`.
 Notarization usually takes a few minutes. When Apple rejects the DMG, the script prints the issues from the notarization log.
 After acceptance, it staples the ticket and requires Gatekeeper to report `source=Notarized Developer ID` for the DMG and the app.

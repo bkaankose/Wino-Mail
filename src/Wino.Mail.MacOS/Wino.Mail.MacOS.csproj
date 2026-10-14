@@ -28,6 +28,18 @@
     <DefineConstants>$(DefineConstants);WINO_APPSTORE</DefineConstants>
     <CodesignEntitlements>Entitlements.AppStore.plist</CodesignEntitlements>
   </PropertyGroup>
+  <!-- APNs for live notifications (WinoRelay). The entitlement is restricted: macOS refuses to launch a bundle that
+       carries it without a provisioning profile that includes Push Notifications. Debug builds signed with the
+       development profile get the development environment. The DMG script signs with the "Wino Mail macOS Developer ID"
+       profile and passes -p:WinoApsEnvironment=production. Ad hoc builds (-p:CodesignProvision=) leave it out, so APNs
+       registration fails and the device registers without a push token. App Store builds carry the production value in
+       Entitlements.AppStore.plist. -->
+  <PropertyGroup>
+    <WinoApsEnvironment Condition="'$(WinoApsEnvironment)' == ''">development</WinoApsEnvironment>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(WinoMacDistribution)' != 'AppStore' and '$(CodesignProvision)' != ''">
+    <CustomEntitlements Include="com.apple.developer.aps-environment" Type="String" Value="$(WinoApsEnvironment)" />
+  </ItemGroup>
   <!-- Other builds update through Sparkle (Wino.Core.Apple.Bindings/Sparkle): its feed, key and installer settings. -->
   <ItemGroup Condition="'$(WinoMacDistribution)' != 'AppStore'">
     <PartialAppManifest Include="Sparkle.plist" />

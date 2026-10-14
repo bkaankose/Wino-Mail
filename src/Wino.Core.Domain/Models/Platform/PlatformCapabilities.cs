@@ -15,4 +15,6 @@ public sealed record PlatformCapabilities(
     bool GlobalHotkeys = false,
     bool GeneralActivation = false,
     bool MicrosoftStore = false,
-    bool AppleAppStore = false) : IPlatformCapabilities;
+    bool AppleAppStore = false,
+    bool RemoteNotifications = false,
+    bool PushRelayOptIn = false) : IPlatformCapabilities;

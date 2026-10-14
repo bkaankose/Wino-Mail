@@ -7,6 +7,7 @@ using Wino.Mail.WinUI.Services;
 using Wino.Services;
 using Wino.Platform.Windows;
 using Wino.Platform.Windows.Services;
+using Wino.Platform.Windows.PushRelay;
 using Wino.Authentication;
 using Wino.Core.Domain.Models.Platform;
 
@@ -43,7 +44,10 @@ public static class CoreUWPContainerSetup
             Printing: Windows.Graphics.Printing.PrintManager.IsSupported(), PdfExport: true,
             Smime: true, AdditionalWindows: true, Notifications: true, NotificationActions: true,
             StartupIntegration: true, Tray: true, GlobalHotkeys: true, GeneralActivation: true,
-            MicrosoftStore: true));
+            MicrosoftStore: true, RemoteNotifications: false, PushRelayOptIn: true));
+        services.AddSingleton<IPushRelayDeviceIdentityStore, WindowsPushRelayDeviceIdentityStore>();
+        services.AddSingleton<IPushRelayDeviceInfo, WindowsPushRelayDeviceInfo>();
+        services.AddSingleton<IPushTokenProvider, NullPushTokenProvider>();
         services.AddSingleton<IOutlookAuthenticationHost>(provider => new WindowsOutlookAuthenticationHost(
             provider.GetRequiredService<IApplicationConfiguration>(),
             provider.GetRequiredService<IAuthenticatorConfig>(),

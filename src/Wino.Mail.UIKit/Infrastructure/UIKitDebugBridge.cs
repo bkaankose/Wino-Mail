@@ -12,7 +12,7 @@ namespace Wino.Mail.UIKit.Infrastructure;
 /// Debug-only bridge for remote development without screen access (the Mac MacDebugBridge). It polls
 /// {app tmp}/wino-debug/cmd; each line is one command, results go to out.log and snapshots to NAME.png in the same
 /// folder. In the Simulator the folder is reachable from the Mac through
-/// <c>xcrun simctl get_app_container booted com.winomail.ios data</c> + <c>/tmp/wino-debug</c>.
+/// <c>xcrun simctl get_app_container booted com.winomail.macos data</c> + <c>/tmp/wino-debug</c>.
 ///
 /// Commands: snap NAME · mode Mail|Calendar|Contacts|Tasks · page WinoPage · settings · back ·
 /// theme NAME|Default · appearance light|dark|system · iconstyle mono|color · sleep MS

@@ -19,6 +19,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.PushRelay;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.AI.Cryptography;
 using Wino.Mail.Api.Contracts.Ai;
@@ -267,6 +268,13 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         => SendAuthorizedRequestAsync(
             "api/v1/ai/usage",
             WinoAccountApiJsonContext.Default.ApiEnvelopeAiUsageStatusDto,
+            cancellationToken);
+
+    public Task<ApiEnvelope<RelayTokenDto>> CreateRelayTokenAsync(CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(
+            HttpMethod.Post,
+            "api/v1/relay/token",
+            WinoAccountApiJsonContext.Default.ApiEnvelopeRelayTokenDto,
             cancellationToken);
 
     public async Task<WinoSyncSnapshotDownload?> GetSyncSnapshotAsync(CancellationToken cancellationToken = default)
@@ -1092,6 +1100,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(RedeemAppStoreTransactionsRequest))]
 [JsonSerializable(typeof(ApiEnvelope<AppStoreRedeemResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<AiUsageStatusDto>))]
+[JsonSerializable(typeof(ApiEnvelope<RelayTokenDto>))]
 [JsonSerializable(typeof(ApiEnvelope<UserMailboxSyncListDto>))]
 [JsonSerializable(typeof(ApiEnvelope<UserSyncSnapshotStatusDto>))]
 [JsonSerializable(typeof(ApiEnvelope<JsonElement>))]

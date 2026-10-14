@@ -72,6 +72,9 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
     /// <summary>After the runtime started: App Store transaction handling (App Store builds only, AppDelegate.AppStore.cs).</summary>
     partial void AppStoreServicesReady();
 
+    /// <summary>After the runtime started: APNs registration for live notifications (AppDelegate.PushRelay.cs).</summary>
+    partial void PushRelayServicesReady();
+
     /// <summary>After the menus exist: start the updater (DMG builds only, AppDelegate.Updates.cs).</summary>
     partial void UpdatesLaunching();
 
@@ -126,6 +129,7 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
         CompanionServicesReady();
         ShortcutMenusServicesReady();
         AppStoreServicesReady();
+        PushRelayServicesReady();
 #if DEBUG
         if (_services is { } services) return _dispatcher.ExecuteOnUIThread(() => MacDebugBridge.Start(services));
 #endif

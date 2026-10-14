@@ -451,6 +451,49 @@
             </controls:SettingsExpander.Items>
         </controls:SettingsExpander>
 
+        <!--  Live notifications through the Wino push relay. Windows has no push channel, so there is no test push.  -->
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="NotificationSettingsPushRelayExpander"
+            Description="{x:Bind domain:Translator.NotificationSettings_PushRelay_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.NotificationSettings_PushRelay_Title, Mode=OneTime}"
+            Visibility="{x:Bind ViewModel.IsPushRelaySectionVisible, Mode=OneTime}">
+            <controls:SettingsExpander.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="Cloud" />
+            </controls:SettingsExpander.HeaderIcon>
+
+            <ToggleSwitch
+                AutomationProperties.AutomationId="NotificationSettingsPushRelayToggle"
+                AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_PushRelay_Title, Mode=OneTime}"
+                IsEnabled="{x:Bind ViewModel.IsPushRelayToggleEnabled, Mode=OneWay}"
+                IsOn="{x:Bind ViewModel.IsPushRelayEnabled, Mode=TwoWay}"
+                Visibility="{x:Bind ViewModel.IsPushRelayToggleVisible, Mode=OneTime}" />
+
+            <controls:SettingsExpander.ItemsHeader>
+                <StackPanel>
+                    <InfoBar
+                        AutomationProperties.AutomationId="NotificationSettingsPushRelaySignInInfoBar"
+                        BorderThickness="0"
+                        CornerRadius="0"
+                        IsClosable="False"
+                        IsOpen="{x:Bind ViewModel.IsPushRelaySignInRequired, Mode=OneWay}"
+                        Message="{x:Bind domain:Translator.NotificationSettings_PushRelay_SignInRequired, Mode=OneTime}"
+                        Severity="Informational" />
+                    <InfoBar
+                        AutomationProperties.AutomationId="NotificationSettingsPushRelayMailboxWarningInfoBar"
+                        BorderThickness="0"
+                        CornerRadius="0"
+                        IsClosable="False"
+                        IsOpen="{x:Bind helpers:XamlHelpers.HasText(ViewModel.PushRelayMailboxWarningText), Mode=OneWay}"
+                        Message="{x:Bind ViewModel.PushRelayMailboxWarningText, Mode=OneWay}"
+                        Severity="Warning" />
+                </StackPanel>
+            </controls:SettingsExpander.ItemsHeader>
+
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard AutomationProperties.AutomationId="NotificationSettingsPushRelayStatusCard" Header="{x:Bind ViewModel.PushRelayStatusText, Mode=OneWay}" />
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+
         <!--  Per-account overrides  -->
         <TextBlock
             Margin="2,16,0,0"

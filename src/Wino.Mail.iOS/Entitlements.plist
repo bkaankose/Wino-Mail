@@ -5,9 +5,10 @@
        com.microsoft.adalcache (IOSOutlookAuthenticationHost.WithIosKeychainSecurityGroup). -->
   <key>keychain-access-groups</key>
   <array>
-    <string>$(AppIdentifierPrefix)com.winomail.ios</string>
+    <string>$(AppIdentifierPrefix)com.winomail.macos</string>
     <string>$(AppIdentifierPrefix)com.microsoft.adalcache</string>
   </array>
-  <!-- Remote notification registration only; the push relay is a separate workstream. -->
+  <!-- APNs: the device token registers this device with WinoRelay, whose data-only pushes trigger an inbox sync.
+       The relay's APNs sandbox setting must match this environment. -->
   <key>aps-environment</key><string>development</string>
 </dict></plist>

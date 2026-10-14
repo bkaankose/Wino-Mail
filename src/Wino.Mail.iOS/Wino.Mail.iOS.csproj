@@ -8,7 +8,7 @@
     <WinoTargetPlatform>iOS</WinoTargetPlatform>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <ApplicationTitle>Wino Mail</ApplicationTitle>
-    <ApplicationId>com.winomail.ios</ApplicationId>
+    <ApplicationId>com.winomail.macos</ApplicationId>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Wino.Mail.iOS</RootNamespace>
@@ -20,7 +20,7 @@
   <PropertyGroup>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Configuration)' == 'Release'">ios-arm64</RuntimeIdentifier>
   </PropertyGroup>
-  <!-- Device builds sign with the team 4VB7YWRAQ9 development identity and profile for com.winomail.ios and carry
+  <!-- Device builds sign with the team 4VB7YWRAQ9 development identity and profile for com.winomail.macos and carry
        Entitlements.plist; pass -p:CodesignKey=... -p:CodesignProvision=... to override. Simulator builds are signed ad
        hoc by the SDK without custom entitlements: the keychain groups and aps-environment would make the SDK look for
        a provisioning profile, which a simulator build does not have. -->
@@ -28,10 +28,17 @@
     <!-- The SDK would pick up Entitlements.plist by convention for every build, the simulator included. -->
     <EnableDefaultCodesignEntitlements>false</EnableDefaultCodesignEntitlements>
   </PropertyGroup>
-  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('ios-'))">
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('ios-')) and '$(WinoIOSDistribution)' != 'AppStore'">
     <CodesignEntitlements>Entitlements.plist</CodesignEntitlements>
     <CodesignKey Condition="'$(CodesignKey)' == ''">Apple Development</CodesignKey>
     <CodesignProvision Condition="'$(CodesignProvision)' == ''">Wino Mail iOS Development</CodesignProvision>
+  </PropertyGroup>
+  <!-- App Store builds pass -p:WinoIOSDistribution=AppStore (like WinoMacDistribution on the Mac): the Apple Distribution
+       identity, the "Wino Mail iOS App Store" profile and Entitlements.AppStore.plist (production push). -->
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('ios-')) and '$(WinoIOSDistribution)' == 'AppStore'">
+    <CodesignEntitlements>Entitlements.AppStore.plist</CodesignEntitlements>
+    <CodesignKey Condition="'$(CodesignKey)' == ''">Apple Distribution</CodesignKey>
+    <CodesignProvision Condition="'$(CodesignProvision)' == ''">Wino Mail iOS App Store</CodesignProvision>
   </PropertyGroup>
   <!-- Every Apple build carries the Windows manifest version (2.2.0.0 becomes 2.2.0), like the Mac head. -->
   <PropertyGroup>

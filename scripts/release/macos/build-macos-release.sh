@@ -91,6 +91,36 @@ security find-identity -v -p codesigning | grep -qF "\"$IDENTITY\"" ||
   fail "Signing identity \"$IDENTITY\" is not in the keychain. Import the Developer ID Application certificate and its private key."
 info "Signing identity: $IDENTITY"
 
+# The newest unexpired Developer ID profile for the bundle ID ("Wino Mail macOS Developer ID"). It carries Push
+# Notifications (aps-environment production) for live notifications; macOS refuses to launch the app with that
+# entitlement and no profile. Developer ID profiles are the ones with ProvisionsAllDevices.
+PROFILE_UUID=""
+PROFILE_NAME=""
+PROFILE_EXPIRY=""
+NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+PROFILE_PLIST="$(mktemp)"
+for dir in "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" "$HOME/Library/MobileDevice/Provisioning Profiles"; do
+  [ -d "$dir" ] || continue
+  for file in "$dir"/*.provisionprofile; do
+    [ -f "$file" ] || continue
+    security cms -D -i "$file" >"$PROFILE_PLIST" 2>/dev/null || continue
+    [ "$(plutil -extract Entitlements.com\\.apple\\.application-identifier raw "$PROFILE_PLIST" 2>/dev/null)" = "$TEAM_ID.$BUNDLE_ID" ] || continue
+    [ "$(plutil -extract ProvisionsAllDevices raw "$PROFILE_PLIST" 2>/dev/null)" = "true" ] || continue
+    [ "$(plutil -extract Entitlements.com\\.apple\\.developer\\.aps-environment raw "$PROFILE_PLIST" 2>/dev/null)" = "production" ] || continue
+    expiry="$(plutil -extract ExpirationDate raw "$PROFILE_PLIST")"
+    [[ "$expiry" > "$NOW" ]] || continue
+    if [ -z "$PROFILE_EXPIRY" ] || [[ "$expiry" > "$PROFILE_EXPIRY" ]]; then
+      PROFILE_UUID="$(plutil -extract UUID raw "$PROFILE_PLIST")"
+      PROFILE_NAME="$(plutil -extract Name raw "$PROFILE_PLIST")"
+      PROFILE_EXPIRY="$expiry"
+    fi
+  done
+done
+rm -f "$PROFILE_PLIST"
+[ -n "$PROFILE_UUID" ] ||
+  fail "No unexpired Developer ID provisioning profile with Push Notifications for $BUNDLE_ID is installed. Download \"Wino Mail macOS Developer ID\" from the developer portal and double-click it."
+info "Profile: $PROFILE_NAME ($PROFILE_UUID), expires $PROFILE_EXPIRY"
+
 [ -n "${WINO_NOTARY_KEY_PATH:-}" ] || fail "WINO_NOTARY_KEY_PATH is not set (App Store Connect API key .p8 file)."
 [ -r "$WINO_NOTARY_KEY_PATH" ] || fail "WINO_NOTARY_KEY_PATH does not point to a readable file."
 [ -n "${WINO_NOTARY_KEY_ID:-}" ] || fail "WINO_NOTARY_KEY_ID is not set."
@@ -208,7 +238,8 @@ if ! "$DOTNET" publish "$PROJECT" -c Release -nologo \
     "${RID_ARGS[@]}" \
     -p:WinoVersionPlist="$VERSION_PLIST" \
     -p:ApplicationDisplayVersion="$VERSION" -p:ApplicationVersion="$VERSION" \
-    -p:EnableCodeSigning=true -p:CodesignKey="$IDENTITY" -p:CodesignProvision= \
+    -p:EnableCodeSigning=true -p:CodesignKey="$IDENTITY" -p:CodesignProvision="$PROFILE_UUID" \
+    -p:WinoApsEnvironment=production \
     -p:CodesignEntitlements="$ENTITLEMENTS" -p:UseHardenedRuntime=true \
     -p:CreatePackage=false >"$BUILD_LOG" 2>&1; then
   grep -E ' error |error [A-Z]+[0-9]+' "$BUILD_LOG" | sort -u | head -40 >&2 || tail -40 "$BUILD_LOG" >&2
@@ -238,6 +269,12 @@ ENTS="$(codesign -d --entitlements :- "$APP_DIR" 2>/dev/null)"
 ! grep -q 'get-task-allow' <<<"$ENTS" || fail "The app entitlements contain get-task-allow."
 grep -q 'com.apple.security.app-sandbox' <<<"$ENTS" || fail "The app entitlements lack the app sandbox."
 grep -q 'com.winomail.macos-spki' <<<"$ENTS" || fail "The app entitlements lack Sparkle's installer exception."
+[ "$(plutil -extract com\\.apple\\.developer\\.aps-environment raw - <<<"$ENTS" 2>/dev/null)" = "production" ] ||
+  fail "The app entitlements lack com.apple.developer.aps-environment = production (live notifications)."
+EMBEDDED="$APP_DIR/Contents/embedded.provisionprofile"
+[ -f "$EMBEDDED" ] || fail "The app has no embedded.provisionprofile."
+[ "$(security cms -D -i "$EMBEDDED" 2>/dev/null | plutil -extract UUID raw -)" = "$PROFILE_UUID" ] ||
+  fail "The embedded provisioning profile is not $PROFILE_UUID."
 PLIST="$APP_DIR/Contents/Info.plist"
 [ "$(plutil -extract CFBundleIdentifier raw "$PLIST")" = "$BUNDLE_ID" ] || fail "CFBundleIdentifier is not $BUNDLE_ID."
 [ "$(plutil -extract CFBundleShortVersionString raw "$PLIST")" = "$VERSION" ] || fail "CFBundleShortVersionString is not $VERSION."

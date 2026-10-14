@@ -1,5 +1,7 @@
+using System;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
+using Wino.Services.PushRelay;
 using Wino.Core.Domain.Intelligence.Keys;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Mail.AI.Abstractions;
@@ -71,6 +73,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<IWinoAccountApiClient, WinoAccountApiClient>();
         services.AddSingleton<IIntelligenceBackend, CloudIntelligenceBackend>();
         services.AddSingleton<IWinoAccountProfileService, WinoAccountProfileService>();
+        RegisterPushRelayServices(services);
         services.AddSingleton<IWinoBillingService, WinoBillingService>();
         services.AddSingleton<IWinoPendingCheckoutStore, WinoPendingCheckoutStore>();
         services.AddSingleton<IWinoPurchaseReconciliationService, WinoPurchaseReconciliationService>();
@@ -112,5 +115,39 @@ public static class ServicesContainerSetup
             provider.GetRequiredService<IDavTransport>(),
             provider.GetRequiredService<IDavResponseHandler>()));
         services.AddSingleton<IWhatsNewService, WhatsNewService>();
+    }
+
+    /// <summary>
+    /// Live notifications through WinoRelay. The platform adapters (<see cref="IPushRelayDeviceIdentityStore"/>,
+    /// <see cref="IPushRelayDeviceInfo"/>, <see cref="IPushTokenProvider"/>) come from the heads and are optional:
+    /// without them the registration service reports <c>UnsupportedPlatform</c> and sends nothing.
+    /// </summary>
+    private static void RegisterPushRelayServices(IServiceCollection services)
+    {
+        services.AddSingleton<IPushRelayTokenProvider>(provider => new PushRelayTokenProvider(provider.GetRequiredService<IWinoAccountApiClient>()));
+        services.AddSingleton<IPushRelayClient>(provider => new PushRelayClient(provider.GetRequiredService<IPushRelayTokenProvider>()));
+        services.AddSingleton<IPushRelayStateStore>(provider => new ConfigurationPushRelayStateStore(provider.GetRequiredService<IConfigurationService>()));
+        services.AddSingleton<IPushRelayMailboxRegistrationBuilder>(provider => new ImapPushRelayMailboxRegistrationBuilder(provider.GetRequiredService<IAccountService>()));
+        services.AddSingleton<IPushRelayRegistrationService>(provider => new PushRelayRegistrationService(
+            provider.GetRequiredService<IPushRelayClient>(),
+            provider.GetRequiredService<IPushRelayTokenProvider>(),
+            provider.GetRequiredService<IPushRelayStateStore>(),
+            provider.GetRequiredService<IWinoAccountSessionService>(),
+            provider.GetRequiredService<IAccountService>(),
+            provider.GetServices<IPushRelayMailboxRegistrationBuilder>(),
+            provider.GetRequiredService<IPlatformCapabilities>(),
+            provider.GetRequiredService<IAppMetadataService>(),
+            provider.GetService<ITranslationService>(),
+            provider.GetService<IMessenger>(),
+            provider.GetService<IPushRelayDeviceIdentityStore>(),
+            provider.GetService<IPushRelayDeviceInfo>(),
+            provider.GetService<IPushTokenProvider>()));
+        // Lazy, so the profile service (which signs the relay device out) is never built around the relay graph.
+        services.AddSingleton<Func<IPushRelayRegistrationService>>(provider => () => provider.GetRequiredService<IPushRelayRegistrationService>());
+        services.AddSingleton<IPushRelayNotificationHandler>(provider => new PushRelayNotificationHandler(
+            provider.GetRequiredService<IPushRelayRegistrationService>(),
+            provider.GetRequiredService<IAccountService>(),
+            () => provider.GetRequiredService<IApplicationRuntime>(),
+            () => provider.GetService<INotificationBuilder>()));
     }
 }

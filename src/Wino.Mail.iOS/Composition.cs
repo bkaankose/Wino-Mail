@@ -21,7 +21,7 @@ namespace Wino.Mail.iOS;
 internal static class Composition
 {
     /// <summary>The bundle identifier. It names the Keychain services and the container folders, so it never changes.</summary>
-    public const string BundleIdentifier = "com.winomail.ios";
+    public const string BundleIdentifier = "com.winomail.macos";
 
     /// <summary>Builds the container on the main thread (the platform registration reads the device idiom).</summary>
     public static ServiceProvider Create(IDispatcher dispatcher, AppleNotificationResponseHandler notificationResponses)

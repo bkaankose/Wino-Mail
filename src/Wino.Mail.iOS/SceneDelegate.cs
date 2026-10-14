@@ -65,6 +65,10 @@ public sealed class SceneDelegate : UIResponder, IUIWindowSceneDelegate
     [Export("sceneDidEnterBackground:")]
     public void DidEnterBackground(UIScene scene) => BackgroundRefreshLifecycleHook.Schedule();
 
+    /// <summary>Returning to the foreground refreshes the relay registration (coalesced with any pass already queued).</summary>
+    [Export("sceneWillEnterForeground:")]
+    public void WillEnterForeground(UIScene scene) => BackgroundRefreshLifecycleHook.RequestForegroundRelaySync();
+
     private static void Route(IServiceProvider services, NSSet<UIOpenUrlContext>? contexts)
     {
         var urls = contexts?.ToArray().Select(context => context.Url).ToArray() ?? [];

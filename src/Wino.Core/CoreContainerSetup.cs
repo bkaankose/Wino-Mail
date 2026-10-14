@@ -42,7 +42,8 @@ public static class CoreContainerSetup
             () => provider.GetRequiredService<Wino.Services.AccountSenderPictureDirectory>(),
             () => provider.GetRequiredService<IWinoAccountIntelligenceSnapshotService>(),
             () => provider.GetRequiredService<IMailIntelligenceCoordinator>(),
-            () => provider.GetRequiredService<Wino.Services.IntelligenceResultKeyLifecycle>()));
+            () => provider.GetRequiredService<Wino.Services.IntelligenceResultKeyLifecycle>(),
+            () => provider.GetRequiredService<IPushRelayRegistrationService>()));
         services.AddSingleton<IApplicationRuntime>(provider => new ApplicationRuntime(
             provider.GetRequiredService<ISynchronizationManager>(),
             provider.GetRequiredService<IAccountService>(),

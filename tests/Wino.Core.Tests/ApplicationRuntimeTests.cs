@@ -369,6 +369,50 @@ public sealed class ApplicationRuntimeTests
         await runtime.StopAsync();
     }
 
+    [Fact]
+    public async Task SynchronizeAccountInbox_RunsOneInboxPassForThatAccountOnly()
+    {
+        var target = new MailAccount { Id = Guid.NewGuid(), IsMailAccessGranted = true };
+        var other = new MailAccount { Id = Guid.NewGuid(), IsMailAccessGranted = true };
+        var accounts = new Mock<IAccountService>();
+        accounts.Setup(x => x.GetAccountsAsync()).ReturnsAsync(new List<MailAccount> { target, other });
+        accounts.Setup(x => x.GetAccountAsync(target.Id)).ReturnsAsync(target);
+        var manager = new Mock<ISynchronizationManager>();
+        manager.Setup(x => x.GetAllSynchronizers()).Returns(Array.Empty<IWinoSynchronizerBase>());
+        manager.Setup(x => x.SynchronizeMailAsync(It.IsAny<MailSynchronizationOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(MailSynchronizationResult.Empty);
+        var clock = new ManualTimeProvider();
+        var runtime = CreateRuntime(_ => Task.CompletedTask, clock, accounts, manager: manager);
+
+        var succeeded = await runtime.SynchronizeAccountInboxAsync(target.Id);
+
+        succeeded.Should().BeTrue();
+        manager.Verify(x => x.SynchronizeMailAsync(It.Is<MailSynchronizationOptions>(o => o.AccountId == target.Id && o.Type == MailSynchronizationType.InboxOnly), It.IsAny<CancellationToken>()), Times.Once);
+        manager.Verify(x => x.SynchronizeMailAsync(It.Is<MailSynchronizationOptions>(o => o.AccountId != target.Id), It.IsAny<CancellationToken>()), Times.Never);
+        manager.Verify(x => x.SynchronizeCalendarAsync(It.IsAny<CalendarSynchronizationOptions>(), It.IsAny<CancellationToken>()), Times.Never);
+        runtime.State.Should().Be(ApplicationRuntimeState.Initialized);
+        clock.PeriodicTimersCreated.Should().Be(0);
+        await runtime.StopAsync();
+    }
+
+    [Fact]
+    public async Task SynchronizeAccountInbox_SkipsUnknownAccountsAndAccountsWithoutMailAccess()
+    {
+        var noMail = new MailAccount { Id = Guid.NewGuid(), IsMailAccessGranted = false };
+        var accounts = new Mock<IAccountService>();
+        accounts.Setup(x => x.GetAccountsAsync()).ReturnsAsync(new List<MailAccount> { noMail });
+        accounts.Setup(x => x.GetAccountAsync(noMail.Id)).ReturnsAsync(noMail);
+        var manager = new Mock<ISynchronizationManager>();
+        manager.Setup(x => x.GetAllSynchronizers()).Returns(Array.Empty<IWinoSynchronizerBase>());
+        var runtime = CreateRuntime(_ => Task.CompletedTask, new ManualTimeProvider(), accounts, manager: manager);
+
+        (await runtime.SynchronizeAccountInboxAsync(noMail.Id)).Should().BeFalse();
+        (await runtime.SynchronizeAccountInboxAsync(Guid.NewGuid())).Should().BeFalse();
+
+        manager.Verify(x => x.SynchronizeMailAsync(It.IsAny<MailSynchronizationOptions>(), It.IsAny<CancellationToken>()), Times.Never);
+        await runtime.StopAsync();
+    }
+
     private static async Task AdvanceAndSettleAsync(ManualTimeProvider clock, TimeSpan elapsed)
     {
         clock.Advance(elapsed);

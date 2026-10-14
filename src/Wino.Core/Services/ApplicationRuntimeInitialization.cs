@@ -17,7 +17,8 @@ public sealed class ApplicationRuntimeInitialization(
     Func<AccountSenderPictureDirectory> senderPictures,
     Func<IWinoAccountIntelligenceSnapshotService> entitlement,
     Func<IMailIntelligenceCoordinator> intelligence,
-    Func<IntelligenceResultKeyLifecycle> keys)
+    Func<IntelligenceResultKeyLifecycle> keys,
+    Func<IPushRelayRegistrationService>? pushRelay = null)
 {
     private int _completedStep;
     private Task _entitlementRefresh = Task.CompletedTask;
@@ -64,7 +65,27 @@ public sealed class ApplicationRuntimeInitialization(
     public Task RunBackgroundStartupAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.WhenAll(_entitlementRefresh, pictures().BackfillAsync());
+        return Task.WhenAll(_entitlementRefresh, pictures().BackfillAsync(), StartPushRelayAsync(cancellationToken));
+    }
+
+    /// <summary>Live notifications must never fail startup; the relay service logs its own problems.</summary>
+    private async Task StartPushRelayAsync(CancellationToken cancellationToken)
+    {
+        if (pushRelay is null)
+            return;
+
+        try
+        {
+            await pushRelay().StartAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Warning(ex, "Live notifications could not start.");
+        }
     }
 
     private async Task StepAsync(int step, Func<Task> operation, CancellationToken cancellationToken)

@@ -33,6 +33,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
     private readonly IMailIntelligenceStore? _localIntelligenceStore;
     private readonly IWinoAccountSessionService _sessions;
     private readonly IWinoPendingCheckoutStore? _pendingCheckouts;
+    private readonly Func<IPushRelayRegistrationService>? _pushRelay;
     private readonly ILogger _logger = Log.ForContext<WinoAccountProfileService>();
 
     public WinoAccountProfileService(IDatabaseService databaseService,
@@ -43,8 +44,10 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
                                      IMailIntelligenceStore? localIntelligenceStore = null,
                                      IWinoAccountSessionService? sessionService = null,
                                      IWinoPendingCheckoutStore? pendingCheckouts = null,
-                                     ISyncSnapshotKeyService? snapshotKeys = null) : base(databaseService)
+                                     ISyncSnapshotKeyService? snapshotKeys = null,
+                                     Func<IPushRelayRegistrationService>? pushRelay = null) : base(databaseService)
     {
+        _pushRelay = pushRelay;
         _snapshotKeys = snapshotKeys;
         _apiClient = apiClient;
         _credentialPersistence = credentialPersistence;
@@ -317,6 +320,9 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
             canRevokeRemoteToken = false;
         }
 
+        // The relay device is deleted with a relay token, which needs the Wino tokens, so it runs before they go.
+        await SignOutOfPushRelayAsync(cancellationToken).ConfigureAwait(false);
+
         // Account-owned local intelligence must be gone before local sign-out can succeed.
         await _sessions.ReplaceAsync(null, async () =>
         {
@@ -351,6 +357,22 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
             }
         }
 
+    }
+
+    private async Task SignOutOfPushRelayAsync(CancellationToken cancellationToken)
+    {
+        if (_pushRelay is null)
+            return;
+
+        try
+        {
+            await _pushRelay().SignOutAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            // Live notifications must never block signing out.
+            _logger.Warning(ex, "Live notification sign-out failed.");
+        }
     }
 
     private async Task<WinoAccountOperationResult> PersistResponseAsync(WinoAccountApiResult<AuthResultDto> response)

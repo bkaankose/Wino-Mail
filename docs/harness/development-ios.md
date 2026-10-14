@@ -57,34 +57,35 @@ The head bundles the WinoIcons fonts (`Fonts/`), `WinoLogo.png`, the theme wallp
 
 | Item | Value |
 | --- | --- |
-| Bundle identifier | `com.winomail.ios` (`ApplicationId` in the project, `CFBundleIdentifier` in `Info.plist`). Its own App Store record, separate from the Mac app. |
+| Bundle identifier | `com.winomail.macos` (`ApplicationId` in the project, `CFBundleIdentifier` in `Info.plist`), the same as the Mac app. Both platforms ship in one App Store record (Apple ID 6820215639, universal purchase). |
 | Team | `4VB7YWRAQ9` |
 | Minimum OS | iOS and iPadOS 17.0 (`SupportedOSPlatformVersion`, `MinimumOSVersion`) |
 | Device families | iPhone and iPad (`UIDeviceFamily` 1, 2) |
 | Version | Read from `src/Wino.Mail.WinUI/Package.appxmanifest`, as on the Mac |
 | Simulator signing | Ad hoc by the SDK, without `Entitlements.plist` |
-| Device signing | `Apple Development` with the **Wino Mail iOS Development** profile, and `Entitlements.plist`. Applied only for `ios-*` RIDs. |
+| Device signing | `Apple Development` with the **Wino Mail iOS Development** profile, and `Entitlements.plist` (`aps-environment` development). Applied only for `ios-*` RIDs. |
+| App Store signing | Pass `-p:WinoIOSDistribution=AppStore` with `-c Release -r ios-arm64`: `Apple Distribution` with the **Wino Mail iOS App Store** profile and `Entitlements.AppStore.plist` (`aps-environment` production). Signed builds over SSH run through the user-level `winosign` screen session (`~/bin/wino-gui-run.sh`). |
 | Distribution | App Store only. `WINO_APPSTORE` is always defined, so StoreKit purchases and the App Store client are always on. |
 
 `Entitlements.plist` holds:
 
-- `keychain-access-groups`: `$(AppIdentifierPrefix)com.winomail.ios` (the default group `AppleKeychainStore` uses) and `$(AppIdentifierPrefix)com.microsoft.adalcache` (the MSAL token cache).
-- `aps-environment`: `development`. The app registers for remote notifications only; the push relay is separate work.
+- `keychain-access-groups`: `$(AppIdentifierPrefix)com.winomail.macos` (the default group `AppleKeychainStore` uses) and `$(AppIdentifierPrefix)com.microsoft.adalcache` (the MSAL token cache).
+- `aps-environment`: `development`. The APNs token goes to `ApplePushTokenProvider` (`Wino.Platform.Apple`), and the shared relay service registers the device with WinoRelay for the signed-in Wino Account. Data-only pushes arrive in `AppDelegate.DidReceiveRemoteNotification` and run an inbox sync for the account in the payload. The device id is a Keychain item (scope `push-relay`, this device only). The relay's APNs sandbox flag must match the build's `aps-environment`.
 
 `EnableDefaultCodesignEntitlements` is false: with the entitlements applied, the SDK looked for a provisioning profile even for the Simulator. Simulator consequences: the log reports no `aps-environment` entitlement, BGTaskScheduler is not available, and the MSAL Keychain group is missing, so Outlook sign-in can fail with -34018 until it runs signed on a device.
 
 ## Info.plist, storage, Keychain, and activation
 
-- URL schemes (`CFBundleURLTypes`): `mailto`, `wino`, `webcal`/`webcals`, `msauth.com.winomail.ios` (MSAL redirect `msauth.com.winomail.ios://auth`), and the reversed Google iOS client ID `com.googleusercontent.apps.REPLACE-WITH-IOS-CLIENT-ID` (a placeholder until the client exists). `SceneDelegate` skips the sign-in schemes, which the web-authentication session receives.
+- URL schemes (`CFBundleURLTypes`): `mailto`, `wino`, `webcal`/`webcals`, `msauth.com.winomail.macos` (MSAL redirect `msauth.com.winomail.macos://auth`), and the reversed Google iOS client ID `com.googleusercontent.apps.REPLACE-WITH-IOS-CLIENT-ID` (a placeholder until the client exists). `SceneDelegate` skips the sign-in schemes, which the web-authentication session receives.
 - `LSApplicationQueriesSchemes`: `msauthv2`, `msauthv3`.
 - Document types: `.ics`, vCard, and `.eml` as an alternate handler.
 - `UIFileSharingEnabled`: files Wino saves land in Documents, visible in the Files app. iOS has no save panel that returns a path.
-- `UIBackgroundModes`: `fetch`, `processing`, `remote-notification`. `BGTaskSchedulerPermittedIdentifiers`: `com.winomail.ios.refresh` and `com.winomail.ios.processing`; both run `IApplicationRuntime.SynchronizeOnceAsync`.
+- `UIBackgroundModes`: `fetch`, `processing`, `remote-notification`. `BGTaskSchedulerPermittedIdentifiers`: `com.winomail.macos.refresh` and `com.winomail.macos.processing`; both run `IApplicationRuntime.SynchronizeOnceAsync`.
 - Scenes: `UIApplicationSupportsMultipleScenes` is true for the iPad pop-out composer. iPhone never opens a second scene, and `SceneDelegate` closes any extra main-window scene.
 - `ITSAppUsesNonExemptEncryption` is false.
-- Application data: `Library/Application Support/com.winomail.ios` in the app container (database, preferences, logs in `Logs/`, MIME files). `ApplePaths` (Wino.Platform.Apple) resolves it.
-- Temporary files: `tmp/com.winomail.ios` in the app container.
-- Credentials: generic Keychain passwords with the service name `com.winomail.ios.v1.<scope>` (`AppleKeychainStore`; the identity comes from `Composition.cs`). MSAL keeps its own Keychain cache.
+- Application data: `Library/Application Support/com.winomail.macos` in the app container (database, preferences, logs in `Logs/`, MIME files). `ApplePaths` (Wino.Platform.Apple) resolves it.
+- Temporary files: `tmp/com.winomail.macos` in the app container.
+- Credentials: generic Keychain passwords with the service name `com.winomail.macos.v1.<scope>` (`AppleKeychainStore`; the identity comes from `Composition.cs`). MSAL keeps its own Keychain cache.
 
 Preserve application data, Keychain items, and the bundle identifier.
 
@@ -94,7 +95,7 @@ Preserve application data, Keychain items, and the bundle identifier.
 xcrun simctl list devices available
 xcrun simctl boot "iPhone 18 Pro"
 xcrun simctl install booted src/Wino.Mail.iOS/bin/Debug/net10.0-ios/iossimulator-arm64/Wino.Mail.iOS.app
-xcrun simctl launch --console-pty booted com.winomail.ios
+xcrun simctl launch --console-pty booted com.winomail.macos
 xcrun simctl io booted screenshot iphone.png
 ```
 
@@ -106,7 +107,7 @@ The headless Simulator ignores rotation requests; check rotation and landscape i
 Debug builds start `UIKitDebugBridge` (`src/Wino.Mail.UIKit/Infrastructure`), the twin of the Mac `MacDebugBridge`. It polls `tmp/wino-debug/cmd` in the app container, runs one command per line, deletes the file, appends results to `out.log` followed by `DONE`, and writes snapshots to `NAME.png` in the same folder:
 
 ```sh
-dir="$(xcrun simctl get_app_container booted com.winomail.ios data)/tmp/wino-debug"
+dir="$(xcrun simctl get_app_container booted com.winomail.macos data)/tmp/wino-debug"
 printf 'seedmail\nsnap inbox\n' > "$dir/cmd"
 cat "$dir/out.log"
 ```
@@ -153,10 +154,9 @@ Manual checks on both idioms cover light and dark appearance, Dynamic Type, rota
 
 These need the account holder and block device and sign-in checks:
 
-- Register the `com.winomail.ios` App ID with the Keychain sharing and push capabilities, and create the **Wino Mail iOS Development** profile (team `4VB7YWRAQ9`).
-- Create the App Store record. Then replace the placeholder App ID in `IOSMicrosoftStoreService` (the write-review link uses the Mac App ID today).
-- Azure app registration: add the iOS redirect `msauth.com.winomail.ios://auth` for bundle `com.winomail.ios`.
-- Google Cloud console: create an iOS OAuth client for `com.winomail.ios`. Then register an `IAuthenticatorConfig` that returns it as `GmailAuthenticatorClientId`, and replace the placeholder URL scheme in `Info.plist`. The desktop client ID does not accept a custom-scheme redirect.
+- Done on 13 Oct 2026: the shared App ID `com.winomail.macos` (UNIVERSAL) has push and In-App Purchase; the iOS profiles **Wino Mail iOS Development** and **Wino Mail iOS App Store** (team `4VB7YWRAQ9`) are installed on the Mac. Add the iOS platform to the existing App Store record.
+- Azure app registration: add the iOS redirect `msauth.com.winomail.macos://auth` for bundle `com.winomail.macos`.
+- Google Cloud console: create an iOS OAuth client for `com.winomail.macos`. Then register an `IAuthenticatorConfig` that returns it as `GmailAuthenticatorClientId`, and replace the placeholder URL scheme in `Info.plist`. The desktop client ID does not accept a custom-scheme redirect.
 
 ## Release
 

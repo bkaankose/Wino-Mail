@@ -16,7 +16,7 @@ Build, identity and verification commands are in [iOS development](harness/devel
 
 | Topic | Decision |
 | --- | --- |
-| Packaging | One universal app bundle, `com.winomail.ios`, iOS and iPadOS 17.0 minimum. `Composition.cs` picks the phone or pad UI project by `UIDevice.UserInterfaceIdiom`. Both UI projects reference `Wino.Mail.UIKit` and never each other. |
+| Packaging | One universal app bundle with the Mac app's bundle ID `com.winomail.macos` (one App Store record for macOS, iOS and iPadOS; decided 13 Oct 2026), iOS and iPadOS 17.0 minimum. `Composition.cs` picks the phone or pad UI project by `UIDevice.UserInterfaceIdiom`. Both UI projects reference `Wino.Mail.UIKit` and never each other. |
 | Modes | Mail, Calendar, Contacts and To Do, in the desktop order. Settings is never a mode on iPhone or iPad. |
 | Settings | The account avatar opens Settings as a full-screen sheet: the Mailboxes bar (top-left) on iPhone, the toolbar (top-right) on iPad. Later Settings pages push inside the sheet. |
 | iPhone shell | Tab bar with the four modes. Each tab is a navigation stack with the avatar button. |

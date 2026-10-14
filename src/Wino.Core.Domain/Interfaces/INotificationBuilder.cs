@@ -76,5 +76,10 @@ public interface INotificationBuilder
     /// Creates a To Do reminder for the specified task. Intended for manual UI testing.
     /// </summary>
     Task CreateTestTaskReminderNotificationAsync(AccountTask task);
+
+    /// <summary>
+    /// Shows that a WinoRelay test push reached this device. Platforms without a push channel keep the default no-op.
+    /// </summary>
+    Task CreateLiveNotificationsTestNotificationAsync() => Task.CompletedTask;
 }
 

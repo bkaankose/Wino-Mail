@@ -14,8 +14,8 @@ namespace Wino.Platform.iOS.Services;
 public sealed class IOSMicrosoftStoreService(IConfigurationService configurationService, IDispatcher dispatcher) : IMicrosoftStoreService
 {
     /// <summary>
-    /// The App Store record's Apple ID. This is the Mac app's (6820215639); the iOS app (com.winomail.ios) gets its own
-    /// App Store record and therefore its own ID, which replaces this value once the record exists.
+    /// The App Store record's Apple ID. The Mac and iOS apps share one record and bundle ID (com.winomail.macos), so the
+    /// write-review link is the same on both platforms.
     /// </summary>
     private const string AppStoreAppId = "6820215639";
     private const string FirstTriggerKey = "IOSRatingFirstTriggerUtc";
