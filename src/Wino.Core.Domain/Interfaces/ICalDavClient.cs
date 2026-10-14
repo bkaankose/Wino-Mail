@@ -6,7 +6,11 @@ using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Core.Domain.Interfaces;
 
-public interface ICalDavClient
+/// <summary>
+/// CalDAV protocol requests. The interface is split by feature into partial files
+/// (ICalDavClient.Sync.cs, ...) so features can be added without touching each other.
+/// </summary>
+public partial interface ICalDavClient
 {
     Task<IReadOnlyList<CalDavCalendar>> DiscoverCalendarsAsync(
         CalDavConnectionSettings connectionSettings,

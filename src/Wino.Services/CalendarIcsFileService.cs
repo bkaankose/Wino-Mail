@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Serilog;
@@ -86,6 +87,50 @@ public class CalendarIcsFileService : ICalendarIcsFileService
         }
 
         return null;
+    }
+
+    public async Task<IReadOnlyList<CalendarIcsShadow>> GetCalendarIcsShadowsAsync(Guid accountId, Guid calendarId)
+    {
+        var shadows = new List<CalendarIcsShadow>();
+        if (accountId == Guid.Empty || calendarId == Guid.Empty)
+            return shadows;
+
+        try
+        {
+            var root = await GetIcsRootPathAsync().ConfigureAwait(false);
+            var calendarPath = Path.Combine(root, accountId.ToString("N"), "calendars", calendarId.ToString("N"));
+            if (!Directory.Exists(calendarPath))
+                return shadows;
+
+            foreach (var itemDirectory in Directory.EnumerateDirectories(calendarPath))
+            {
+                if (!Guid.TryParseExact(Path.GetFileName(itemDirectory), "N", out var calendarItemId))
+                    continue;
+
+                var metaPath = Path.Combine(itemDirectory, "event.meta.json");
+                if (!File.Exists(metaPath))
+                    continue;
+
+                var lines = await File.ReadAllLinesAsync(metaPath).ConfigureAwait(false);
+                var exactHref = GetMetadataValue(lines, "RemoteResourceHref");
+                if (string.IsNullOrWhiteSpace(exactHref))
+                    continue;
+
+                shadows.Add(new CalendarIcsShadow
+                {
+                    CalendarItemId = calendarItemId,
+                    RemoteEventId = GetMetadataValue(lines, "RemoteEventId"),
+                    ExactHref = exactHref,
+                    ETag = GetMetadataValue(lines, "ETag")
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to list ICS metadata for account {AccountId} and calendar {CalendarId}", accountId, calendarId);
+        }
+
+        return shadows;
     }
 
     private static string GetMetadataValue(string[] lines, string name)

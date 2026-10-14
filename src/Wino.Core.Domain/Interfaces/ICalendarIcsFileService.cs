@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Models.Calendar;
 
@@ -14,4 +15,10 @@ public interface ICalendarIcsFileService
     Task<string> GetCalendarItemIcsETagAsync(Guid accountId, Guid calendarId, Guid calendarItemId);
     Task DeleteCalendarItemIcsAsync(Guid accountId, Guid calendarItemId);
     Task DeleteCalendarIcsForCalendarAsync(Guid accountId, Guid calendarId);
+
+    /// <summary>
+    /// Lists the stored resource metadata (item, href, ETag, remote event ID) of every item of a
+    /// calendar. Reads only the small metadata files, not the ICS payloads.
+    /// </summary>
+    Task<IReadOnlyList<CalendarIcsShadow>> GetCalendarIcsShadowsAsync(Guid accountId, Guid calendarId);
 }

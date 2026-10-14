@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.Client.Calendar;
 
@@ -30,6 +31,13 @@ public record UpdateCalendarEventRequest(
     /// Original reminders before the update, retained with the request for revert handling.
     /// </summary>
     public List<Reminder> OriginalReminders { get; init; }
+
+    /// <summary>
+    /// The complete wanted attachment list, or null to leave attachments unchanged. A draft whose
+    /// Id equals a stored CalendarAttachment.Id keeps that attachment; a draft with a FilePath is
+    /// added; stored attachments missing from the list are removed (CalDAV managed attachments).
+    /// </summary>
+    public List<CalendarEventComposeAttachmentDraft> Attachments { get; init; }
 
     public override CalendarSynchronizerOperation Operation => CalendarSynchronizerOperation.UpdateEvent;
 

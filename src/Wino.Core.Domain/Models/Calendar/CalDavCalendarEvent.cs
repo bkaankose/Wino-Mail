@@ -31,13 +31,17 @@ public sealed class CalDavCalendarEvent
     public string OrganizerDisplayName { get; init; } = string.Empty;
     public string OrganizerEmail { get; init; } = string.Empty;
 
-    public CalendarItemStatus Status { get; init; } = CalendarItemStatus.Accepted;
+    /// <summary>Set by the parser from STATUS; the engine replaces it with the user's own PARTSTAT for invitations.</summary>
+    public CalendarItemStatus Status { get; set; } = CalendarItemStatus.Accepted;
     public CalendarItemVisibility Visibility { get; init; } = CalendarItemVisibility.Default;
     public CalendarItemShowAs ShowAs { get; init; } = CalendarItemShowAs.Busy;
-    public bool IsHidden { get; init; }
+    public bool IsHidden { get; set; }
 
     public IReadOnlyList<CalDavEventAttendee> Attendees { get; init; } = [];
     public IReadOnlyList<CalDavEventReminder> Reminders { get; init; } = [];
+
+    /// <summary>ATTACH properties of the source VEVENT (URI and inline attachments).</summary>
+    public IReadOnlyList<CalDavEventAttachment> Attachments { get; init; } = Array.Empty<CalDavEventAttachment>();
 }
 
 public sealed class CalDavEventAttendee

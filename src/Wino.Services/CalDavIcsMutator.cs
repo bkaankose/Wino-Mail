@@ -29,6 +29,19 @@ public static class CalDavIcsMutator
         string existingIcs,
         CalendarItem item,
         IReadOnlyCollection<CalendarEventAttendee> attendees)
+        => UpdateEvent(existingIcs, item, attendees, identity: null);
+
+    /// <summary>
+    /// Applies the user's edits to the stored resource. With <paramref name="identity"/>, an event the
+    /// user organizes gets an ORGANIZER from the server's calendar-user-address-set. Attendees that are
+    /// already on the event keep their PARTSTAT and scheduling parameters from the stored copy: only
+    /// they (through the server) change their answer, never the organizer's edit.
+    /// </summary>
+    public static string UpdateEvent(
+        string existingIcs,
+        CalendarItem item,
+        IReadOnlyCollection<CalendarEventAttendee> attendees,
+        CalDavUserIdentity identity)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(existingIcs);
         ArgumentNullException.ThrowIfNull(item);
@@ -58,9 +71,149 @@ public static class CalDavIcsMutator
         if (target == null)
             throw new InvalidOperationException("The CalDAV event is missing from the stored resource.");
 
-        ApplyEditableProperties(target, item, attendees);
+        ApplyEditableProperties(target, item, attendees, identity);
         return new CalendarSerializer(calendar).SerializeToString();
     }
+
+    /// <summary>
+    /// True when the event (or, for an occurrence without its own exception, the series master) has
+    /// an ORGANIZER that is not the user, which makes the user an attendee.
+    /// </summary>
+    public static bool IsOrganizedByOther(string existingIcs, string remoteEventId, CalDavUserIdentity identity)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(existingIcs);
+        ArgumentNullException.ThrowIfNull(identity);
+
+        var calendar = IcalCalendar.Load(existingIcs)
+            ?? throw new InvalidOperationException("The stored CalDAV resource is not a valid iCalendar object.");
+        var (uid, occurrenceKey) = SplitRemoteEventId(remoteEventId);
+        var target = FindEvent(calendar, uid, occurrenceKey) ?? FindMaster(calendar, uid);
+        var organizer = target?.Organizer?.Value;
+
+        return organizer != null && !identity.IsUser(organizer);
+    }
+
+    /// <summary>
+    /// Writes the user's answer to an invitation the way RFC 6638 expects from an attendee: only the
+    /// PARTSTAT of the user's own ATTENDEE line changes (and DTSTAMP is refreshed). STATUS, SEQUENCE
+    /// and every other property stay as the server has them; the server then sends the reply.
+    /// Answering the series also answers every exception that lists the user. Answering one
+    /// occurrence adds an exception for it when there is none yet.
+    /// </summary>
+    public static string SetOwnParticipation(
+        string existingIcs,
+        string remoteEventId,
+        CalDavUserIdentity identity,
+        AttendeeStatus status)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(existingIcs);
+        ArgumentNullException.ThrowIfNull(identity);
+
+        var calendar = IcalCalendar.Load(existingIcs)
+            ?? throw new InvalidOperationException("The stored CalDAV resource is not a valid iCalendar object.");
+        var (uid, occurrenceKey) = SplitRemoteEventId(remoteEventId);
+        var target = FindEvent(calendar, uid, occurrenceKey);
+
+        if (target == null && !string.IsNullOrWhiteSpace(occurrenceKey))
+        {
+            var master = FindMaster(calendar, uid)
+                ?? throw new InvalidOperationException("The recurring CalDAV master event is missing from the stored resource.");
+
+            target = CreateOccurrenceException(master, occurrenceKey);
+            calendar.Events.Add(target);
+        }
+
+        if (target == null)
+            throw new InvalidOperationException("The CalDAV event is missing from the stored resource.");
+
+        var partStat = MapParticipationStatus(status);
+        SetOwnPartStat(target, identity, partStat, addWhenMissing: true);
+
+        if (target.RecurrenceIdentifier == null)
+        {
+            foreach (var exception in calendar.Events.Where(value =>
+                         string.Equals(value.Uid, uid, StringComparison.Ordinal) &&
+                         value.RecurrenceIdentifier != null))
+            {
+                // An exception without the user means the organizer removed them from that instance.
+                SetOwnPartStat(exception, identity, partStat, addWhenMissing: false);
+            }
+        }
+
+        return new CalendarSerializer(calendar).SerializeToString();
+    }
+
+    private static void SetOwnPartStat(CalendarEvent target, CalDavUserIdentity identity, string partStat, bool addWhenMissing)
+    {
+        var own = target.Attendees.Where(attendee => identity.IsUser(attendee.Value)).ToList();
+
+        if (own.Count == 0)
+        {
+            if (!addWhenMissing || string.IsNullOrWhiteSpace(identity.OrganizerAddress))
+                return;
+
+            target.Attendees.Add(new Attendee(new Uri($"mailto:{identity.OrganizerAddress}"))
+            {
+                Role = "REQ-PARTICIPANT",
+                ParticipationStatus = partStat
+            });
+        }
+
+        foreach (var attendee in own)
+        {
+            attendee.ParticipationStatus = partStat;
+        }
+
+        target.DtStamp = CalDateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// A copy of the master for one instance: no recurrence rules, RECURRENCE-ID and DTSTART at the
+    /// instance (a DATE for all-day series) and the master's length.
+    /// </summary>
+    private static CalendarEvent CreateOccurrenceException(CalendarEvent master, string occurrenceKey)
+    {
+        var recurrenceId = ParseOccurrenceKey(occurrenceKey, master.Start);
+        if (master.Start != null && !master.Start.HasTime)
+            recurrenceId = new CalDateTime(DateOnly.FromDateTime(recurrenceId.Value));
+
+        var length = master.End != null && master.Start != null
+            ? master.End.Value - master.Start.Value
+            : master.Duration?.ToTimeSpanUnspecified() ?? (master.Start?.HasTime == false ? TimeSpan.FromDays(1) : TimeSpan.Zero);
+
+        var exception = master.Copy<CalendarEvent>();
+        exception.Properties.Clear("RRULE");
+        exception.Properties.Clear("EXRULE");
+        exception.Properties.Clear("RDATE");
+        exception.Properties.Clear("EXDATE");
+        exception.RecurrenceIdentifier = new RecurrenceIdentifier(recurrenceId, RecurrenceRange.ThisInstance);
+
+        // The copy shares attendee objects with the master; the instance gets its own lines.
+        ReplaceAttendees(exception, master.Attendees.Select(CloneAttendee));
+        if (exception.Duration.HasValue)
+            exception.Duration = null;
+
+        exception.Start = recurrenceId;
+        exception.End = Shift(recurrenceId, length);
+
+        return exception;
+    }
+
+    private static CalDateTime Shift(CalDateTime start, TimeSpan length)
+    {
+        var value = start.Value.Add(length);
+
+        if (!start.HasTime)
+            return new CalDateTime(DateOnly.FromDateTime(value));
+
+        return string.IsNullOrWhiteSpace(start.TzId)
+            ? new CalDateTime(DateTime.SpecifyKind(value, DateTimeKind.Unspecified), true)
+            : new CalDateTime(DateTime.SpecifyKind(value, start.TzId == "UTC" ? DateTimeKind.Utc : DateTimeKind.Unspecified), start.TzId, true);
+    }
+
+    private static CalendarEvent FindMaster(IcalCalendar calendar, string uid)
+        => calendar.Events.FirstOrDefault(value =>
+            string.Equals(value.Uid, uid, StringComparison.Ordinal) && value.RecurrenceIdentifier == null);
 
     public static string RemoveOccurrence(string existingIcs, string remoteEventId)
     {
@@ -117,7 +270,8 @@ public static class CalDavIcsMutator
     private static void ApplyEditableProperties(
         CalendarEvent target,
         CalendarItem item,
-        IReadOnlyCollection<CalendarEventAttendee> attendees)
+        IReadOnlyCollection<CalendarEventAttendee> attendees,
+        CalDavUserIdentity identity)
     {
         target.Summary = item.Title ?? string.Empty;
         target.Description = item.Description ?? string.Empty;
@@ -149,24 +303,100 @@ public static class CalDavIcsMutator
             }
         }
 
-        target.Organizer = string.IsNullOrWhiteSpace(item.OrganizerEmail)
-            ? null
-            : new Organizer($"mailto:{item.OrganizerEmail}")
-            {
-                CommonName = item.OrganizerDisplayName ?? item.OrganizerEmail
-            };
-        target.Attendees = attendees?
+        var hasAttendees = attendees?.Any(value => !string.IsNullOrWhiteSpace(value.Email)) == true;
+        ApplyOrganizer(target, item, identity, hasAttendees);
+
+        // Only the attendee changes their PARTSTAT. Lines already on the event keep it, with their
+        // scheduling parameters; only new attendees get the status of their row.
+        var storedAttendees = target.Attendees.ToList();
+        var mergedAttendees = attendees?
             .Where(value => !string.IsNullOrWhiteSpace(value.Email))
-            .Select(value => new Attendee(new Uri($"mailto:{value.Email}"))
+            .Select(value => MergeAttendee(value, storedAttendees))
+            .ToList() ?? [];
+
+        // Assigning Attendees replaces only the first ATTENDEE property, so every line is
+        // removed first and the list added line by line.
+        ReplaceAttendees(target, mergedAttendees);
+
+        if (target.RecurrenceIdentifier == null)
+            ApplyRecurrenceProperties(target, item.Recurrence);
+    }
+
+    private static void ApplyOrganizer(CalendarEvent target, CalendarItem item, CalDavUserIdentity identity, bool hasAttendees)
+    {
+        var desired = item.OrganizerEmail?.Trim() ?? string.Empty;
+        var existing = target.Organizer;
+        var existingEmail = CalDavUserIdentity.ExtractEmail(existing?.Value?.OriginalString);
+
+        // Same organizer: keep the stored property and its parameters (SCHEDULE-STATUS, SENT-BY).
+        if (existing != null && desired.Length > 0 && string.Equals(existingEmail, desired, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (identity != null)
+        {
+            // The stored organizer is the user under another address of the set: keep it.
+            if (existing != null && identity.IsUser(existing.Value) && (desired.Length == 0 || identity.IsUser(desired)))
+                return;
+
+            // The user organizes: write the address the server knows the user by.
+            if ((desired.Length > 0 && identity.IsUser(desired)) || (desired.Length == 0 && hasAttendees))
+                desired = identity.ResolveOrganizerAddress(desired);
+        }
+
+        target.Organizer = string.IsNullOrWhiteSpace(desired)
+            ? null
+            : new Organizer($"mailto:{desired}")
+            {
+                CommonName = string.IsNullOrWhiteSpace(item.OrganizerDisplayName) ? desired : item.OrganizerDisplayName
+            };
+    }
+
+    /// <summary>A new ATTENDEE line with the value and parameters of <paramref name="source"/>.</summary>
+    private static Attendee CloneAttendee(Attendee source)
+    {
+        var clone = new Attendee(source.Value);
+        foreach (var parameter in source.Parameters.ToList())
+            clone.Parameters.Set(parameter.Name, parameter.Values.ToList());
+
+        return clone;
+    }
+
+    private static void ReplaceAttendees(CalendarEvent target, IEnumerable<Attendee> attendees)
+    {
+        var lines = attendees.ToList();
+
+        target.Properties.Clear("ATTENDEE");
+        foreach (var attendee in lines)
+            target.Attendees.Add(attendee);
+    }
+
+    private static Attendee MergeAttendee(CalendarEventAttendee value, List<Attendee> storedAttendees)
+    {
+        var stored = storedAttendees.FirstOrDefault(attendee => string.Equals(
+            CalDavUserIdentity.ExtractEmail(attendee.Value?.OriginalString),
+            value.Email.Trim(),
+            StringComparison.OrdinalIgnoreCase));
+
+        if (stored == null)
+        {
+            return new Attendee(new Uri($"mailto:{value.Email}"))
             {
                 CommonName = value.Name ?? value.Email,
                 Role = value.IsOptionalAttendee ? "OPT-PARTICIPANT" : "REQ-PARTICIPANT",
                 ParticipationStatus = MapParticipationStatus(value.AttendenceStatus)
-            })
-            .ToList() ?? [];
+            };
+        }
 
-        if (target.RecurrenceIdentifier == null)
-            ApplyRecurrenceProperties(target, item.Recurrence);
+        var merged = CloneAttendee(stored);
+
+        // The organizer's own line (ROLE=CHAIR) keeps its role.
+        if (!string.Equals(merged.Role, "CHAIR", StringComparison.OrdinalIgnoreCase))
+            merged.Role = value.IsOptionalAttendee ? "OPT-PARTICIPANT" : "REQ-PARTICIPANT";
+
+        if (!string.IsNullOrWhiteSpace(value.Name) && !string.Equals(value.Name, value.Email, StringComparison.OrdinalIgnoreCase))
+            merged.CommonName = value.Name;
+
+        return merged;
     }
 
     private static void ApplyRecurrenceProperties(CalendarEvent target, string recurrence)

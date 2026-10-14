@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.AI.Cryptography;
 using Wino.Mail.AI.ContentProcessing;
+using Wino.Services.CalDav;
 using Wino.Services.CardDav;
 using Wino.Services.Dav;
 using Wino.Core.ML;
@@ -109,6 +110,8 @@ public static class ServicesContainerSetup
         services.AddTransient<ICalDavClient>(provider => new CalDavClient(
             provider.GetRequiredService<IDavTransport>(),
             provider.GetRequiredService<IDavResponseHandler>()));
+        services.AddSingleton<ICalDavStateStore, CalDavStateStore>();
+        services.AddTransient<ICalendarCapabilityService, CalendarCapabilityService>();
         services.AddSingleton<IWhatsNewService, WhatsNewService>();
     }
 }

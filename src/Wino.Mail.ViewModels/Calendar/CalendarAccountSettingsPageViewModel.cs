@@ -9,6 +9,7 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
@@ -22,7 +23,55 @@ public partial class CalendarAccountSettingsPageViewModel : CalendarBaseViewMode
 {
     private readonly ICalendarService _calendarService;
     private readonly IAccountService _accountService;
+    private readonly ICalendarCapabilityService _calendarCapabilityService;
+    private int _capabilityRequestVersion;
+    private CalendarCapabilities _accountCapabilities = CalendarCapabilities.None;
     public Task PendingPersistence { get; private set; } = Task.CompletedTask;
+
+    /// <summary>What the account's calendars can do; the strictest limits across its calendars.</summary>
+    public CalendarCapabilities AccountCapabilities
+    {
+        get => _accountCapabilities;
+        private set
+        {
+            if (!SetProperty(ref _accountCapabilities, value ?? CalendarCapabilities.None))
+                return;
+
+            OnPropertyChanged(nameof(HasCapabilities));
+            OnPropertyChanged(nameof(IsCalendarReadOnly));
+            OnPropertyChanged(nameof(SupportsAttachments));
+            OnPropertyChanged(nameof(SupportsAttendees));
+            OnPropertyChanged(nameof(SendsInvitations));
+            OnPropertyChanged(nameof(MaxAttendees));
+            OnPropertyChanged(nameof(AttendeeLimitText));
+            OnPropertyChanged(nameof(QuotaAvailableBytes));
+            OnPropertyChanged(nameof(QuotaAvailableText));
+            OnPropertyChanged(nameof(HasQuotaWarning));
+            OnPropertyChanged(nameof(QuotaWarningText));
+            OnPropertyChanged(nameof(IsServerReported));
+            OnPropertyChanged(nameof(CapabilitySummaryText));
+        }
+    }
+
+    public bool HasCapabilities => AccountCapabilities.Source != CalendarCapabilitySource.None;
+    public bool IsCalendarReadOnly => AccountCapabilities.IsReadOnly;
+    public bool SupportsAttachments => AccountCapabilities.SupportsAttachments;
+    public bool SupportsAttendees => AccountCapabilities.SupportsAttendees;
+    public bool SendsInvitations => AccountCapabilities.SendsInvitations;
+    public int? MaxAttendees => AccountCapabilities.MaxAttendees is int max && max > 0 ? max : null;
+    public string AttendeeLimitText => CalendarCapabilityPresenter.GetAttendeeLimitText(AccountCapabilities);
+    public long? QuotaAvailableBytes => AccountCapabilities.QuotaAvailableBytes;
+    public string QuotaAvailableText => AccountCapabilities.QuotaAvailableBytes is long available
+        ? CalendarCapabilityPresenter.FormatStorageSize(available)
+        : string.Empty;
+    public bool HasQuotaWarning => CalendarCapabilityPresenter.HasLowQuota(AccountCapabilities);
+    public string QuotaWarningText => CalendarCapabilityPresenter.GetQuotaWarningText(AccountCapabilities);
+
+    /// <summary>False until the CalDAV server was discovered; fixed provider sets are never server-reported.</summary>
+    public bool IsServerReported => AccountCapabilities.IsServerReported;
+
+    /// <summary>One translated paragraph: read-only, attachments, invitations, attendee limit and storage.</summary>
+    public string CapabilitySummaryText => CalendarCapabilityPresenter.BuildSummary(AccountCapabilities);
 
     [ObservableProperty]
     public partial MailAccount Account { get; set; }
@@ -41,10 +90,13 @@ public partial class CalendarAccountSettingsPageViewModel : CalendarBaseViewMode
     [ObservableProperty]
     public partial ShowAsOption SelectedDefaultShowAsOption { get; set; }
 
-    public CalendarAccountSettingsPageViewModel(ICalendarService calendarService, IAccountService accountService)
+    public CalendarAccountSettingsPageViewModel(ICalendarService calendarService,
+                                                IAccountService accountService,
+                                                ICalendarCapabilityService calendarCapabilityService = null)
     {
         _calendarService = calendarService;
         _accountService = accountService;
+        _calendarCapabilityService = calendarCapabilityService;
 
         // Initialize ShowAs options
         ShowAsOptions.Add(new ShowAsOption(CalendarItemShowAs.Free));
@@ -84,7 +136,36 @@ public partial class CalendarAccountSettingsPageViewModel : CalendarBaseViewMode
         AccountColorHex = AccountCalendar.BackgroundColorHex ?? "#0078D4";
         IsSyncEnabled = AccountCalendar.IsSynchronizationEnabled;
         SelectedDefaultShowAsOption = ShowAsOptions.FirstOrDefault(o => o.ShowAs == AccountCalendar.DefaultShowAs) ?? ShowAsOptions[2];
+
+        await LoadAccountCapabilitiesAsync(Account);
         await PendingPersistence;
+    }
+
+    private async Task LoadAccountCapabilitiesAsync(MailAccount account)
+    {
+        var requestVersion = ++_capabilityRequestVersion;
+        var capabilities = CalendarCapabilityPresenter.GetFallback(account, null);
+
+        if (_calendarCapabilityService != null)
+        {
+            try
+            {
+                var reported = await _calendarCapabilityService.GetAccountCapabilitiesAsync(account.Id).ConfigureAwait(false);
+                if (reported != null && reported.Source != CalendarCapabilitySource.None)
+                    capabilities = reported;
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Warning(ex, "Could not load the calendar capabilities of account {AccountId}", account.Id);
+            }
+        }
+
+        await ExecuteUIThread(() =>
+        {
+            // Another navigation started a newer load.
+            if (requestVersion == _capabilityRequestVersion)
+                AccountCapabilities = capabilities;
+        }).ConfigureAwait(false);
     }
 
     partial void OnAccountColorHexChanged(string value)

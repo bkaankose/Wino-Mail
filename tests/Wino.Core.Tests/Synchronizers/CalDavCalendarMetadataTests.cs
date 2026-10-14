@@ -10,8 +10,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Misc;
-using Wino.Core.Synchronizers.ImapSync;
-using Wino.Core.Synchronizers.Mail;
+using Wino.Core.Synchronizers.CalDav;
 using Wino.Services;
 using Xunit;
 
@@ -183,13 +182,16 @@ public class CalDavCalendarMetadataTests
             .Setup(x => x.InsertAccountCalendarAsync(It.IsAny<AccountCalendar>()))
             .Returns(Task.CompletedTask);
 
-        var synchronizer = CreateSynchronizer(tempDirectory, account, changeProcessor.Object);
+        var engine = new CalDavSynchronizationEngine(
+            Mock.Of<ICalDavClient>(),
+            changeProcessor.Object,
+            Mock.Of<ICalendarService>(),
+            Mock.Of<IAutoDiscoveryService>());
 
         try
         {
-            await InvokePrivateAsync(
-                synchronizer,
-                "SynchronizeCalendarMetadataAsync",
+            await engine.SynchronizeCalendarMetadataAsync(
+                account,
                 new List<CalDavCalendar>
                 {
                     new()
@@ -218,7 +220,6 @@ public class CalDavCalendarMetadataTests
         }
         finally
         {
-            await synchronizer.KillSynchronizerAsync();
             DeleteDirectory(tempDirectory);
         }
     }
@@ -235,30 +236,6 @@ public class CalDavCalendarMetadataTests
         return result.Should().BeOfType<List<CalDavCalendar>>().Subject;
     }
 
-    private static ImapSynchronizer CreateSynchronizer(string appDataFolder, MailAccount account, IImapChangeProcessor changeProcessor)
-    {
-        var applicationConfiguration = new Mock<IApplicationConfiguration>();
-        applicationConfiguration.SetupProperty(x => x.ApplicationDataFolderPath, appDataFolder);
-        applicationConfiguration.SetupProperty(x => x.PublisherSharedFolderPath, appDataFolder);
-        applicationConfiguration.SetupProperty(x => x.ApplicationTempFolderPath, appDataFolder);
-        applicationConfiguration.SetupGet(x => x.SentryDNS).Returns(string.Empty);
-
-        var unifiedSynchronizer = new UnifiedImapSynchronizer(
-            Mock.Of<IFolderService>(),
-            Mock.Of<IMailService>(),
-            Mock.Of<IImapSynchronizerErrorHandlerFactory>());
-
-        return new ImapSynchronizer(
-            account,
-            changeProcessor,
-            applicationConfiguration.Object,
-            unifiedSynchronizer,
-            Mock.Of<IImapSynchronizerErrorHandlerFactory>(),
-            Mock.Of<ICalDavClient>(),
-            Mock.Of<IAutoDiscoveryService>(),
-            Mock.Of<ICalendarService>());
-    }
-
     private static string CreateTempDirectory()
     {
         var path = Path.Combine(Path.GetTempPath(), "wino-caldav-calendar-tests", Guid.NewGuid().ToString("N"));
@@ -272,14 +249,5 @@ public class CalDavCalendarMetadataTests
         {
             Directory.Delete(path, recursive: true);
         }
-    }
-
-    private static async Task InvokePrivateAsync(object instance, string methodName, params object[] parameters)
-    {
-        var method = instance.GetType().GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance)
-                     ?? throw new InvalidOperationException($"Method '{methodName}' not found.");
-
-        var task = (Task)method.Invoke(instance, parameters)!;
-        await task.ConfigureAwait(false);
     }
 }

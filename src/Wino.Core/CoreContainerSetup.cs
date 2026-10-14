@@ -10,6 +10,7 @@ using Wino.Core.Synchronizers.Errors.Gmail;
 using Wino.Core.Synchronizers.Errors.Imap;
 using Wino.Core.Synchronizers.Errors.Outlook;
 using Wino.Core.Synchronizers.ImapSync;
+using Wino.Core.Synchronizers.CalDav;
 using Wino.Core.Synchronizers.CardDav;
 using Wino.Services;
 
@@ -79,6 +80,7 @@ public static class CoreContainerSetup
 
         services.AddTransient<UnifiedImapSynchronizer>();
         services.AddTransient<ICardDavSynchronizationEngine, CardDavSynchronizationEngine>();
+        services.AddTransient<ICalDavSynchronizationEngine, CalDavSynchronizationEngine>();
         services.AddTransient<ICardDavAddressBookService, CardDavAddressBookService>();
         services.AddTransient<ICardDavContactListService, CardDavContactListService>();
 

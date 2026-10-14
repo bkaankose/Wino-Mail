@@ -10,7 +10,7 @@ using Wino.Services;
 
 namespace Wino.Core.Integration.Processors;
 
-public class ImapChangeProcessor : DefaultChangeProcessor, IImapChangeProcessor
+public partial class ImapChangeProcessor : DefaultChangeProcessor, IImapChangeProcessor
 {
     private readonly ICalendarIcsFileService _calendarIcsFileService;
 
@@ -22,9 +22,11 @@ public class ImapChangeProcessor : DefaultChangeProcessor, IImapChangeProcessor
                                IMimeFileService mimeFileService,
                                ICalendarIcsFileService calendarIcsFileService,
                                IContactService contactService = null,
-                               ITaskService taskService = null) : base(databaseService, folderService, mailService, calendarService, accountService, mimeFileService, contactService, taskService)
+                               ITaskService taskService = null,
+                               IApplicationConfiguration applicationConfiguration = null) : base(databaseService, folderService, mailService, calendarService, accountService, mimeFileService, contactService, taskService)
     {
         _calendarIcsFileService = calendarIcsFileService;
+        _applicationConfiguration = applicationConfiguration;
     }
 
     public Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId) => FolderService.GetKnownUidsForFolderAsync(folderId);
@@ -143,6 +145,8 @@ public class ImapChangeProcessor : DefaultChangeProcessor, IImapChangeProcessor
         {
             await CalendarService.SaveRemindersAsync(savingItemId, reminders).ConfigureAwait(false);
         }
+
+        await SaveCalDavAttachmentsAsync(savingItemId, calendarEvent).ConfigureAwait(false);
     }
 
     public Task SaveCalendarItemIcsAsync(Guid accountId, Guid calendarId, Guid calendarItemId, string remoteEventId, string remoteResourceHref, string eTag, string icsContent)
@@ -159,6 +163,9 @@ public class ImapChangeProcessor : DefaultChangeProcessor, IImapChangeProcessor
 
     public Task DeleteCalendarIcsForCalendarAsync(Guid accountId, Guid calendarId)
         => _calendarIcsFileService.DeleteCalendarIcsForCalendarAsync(accountId, calendarId);
+
+    public Task<IReadOnlyList<CalendarIcsShadow>> GetCalendarIcsShadowsAsync(Guid accountId, Guid calendarId)
+        => _calendarIcsFileService.GetCalendarIcsShadowsAsync(accountId, calendarId);
 
     public override async Task DeleteCalendarItemAsync(Guid calendarItemId)
     {
