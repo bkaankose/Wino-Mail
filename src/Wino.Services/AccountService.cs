@@ -446,7 +446,10 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         if (account.MergedInboxId != null)
         {
-            var mergedInboxAccountCount = await Connection.Table<MailAccount>().Where(a => a.MergedInboxId == account.MergedInboxId.Value).CountAsync();
+            // Keep Nullable<Guid>.Value out of the expression tree. sqlite-net evaluates captured members
+            // through reflection, which Native AOT does not generate for Nullable<T>.Value.
+            var mergedInboxId = account.MergedInboxId.Value;
+            var mergedInboxAccountCount = await Connection.Table<MailAccount>().Where(a => a.MergedInboxId == mergedInboxId).CountAsync();
 
             // There will be only one account in the merged inbox. Remove the link for the other account as well.
             if (mergedInboxAccountCount == 2)
@@ -1300,6 +1303,36 @@ public class AccountService : BaseDatabaseService, IAccountService
         if (aliases == null || aliases.Count == 0) return null;
 
         return aliases.FirstOrDefault(a => a.IsPrimary) ?? aliases.First();
+    }
+
+    public async Task<MailAccountAlias> EnsurePrimaryAccountAliasAsync(Guid accountId)
+    {
+        var existing = await GetPrimaryAccountAliasAsync(accountId).ConfigureAwait(false);
+        if (existing != null)
+            return existing;
+
+        var account = await GetAccountAsync(accountId).ConfigureAwait(false);
+        var address = account?.Address?.Trim();
+        if (string.IsNullOrWhiteSpace(address))
+            return null;
+
+        // Check and insert under the alias lock so concurrent drafts cannot create two root aliases.
+        await _aliasWriteLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            existing = await GetPrimaryAccountAliasAsync(accountId).ConfigureAwait(false);
+            if (existing != null)
+                return existing;
+
+            Log.Warning("Account {AccountId} has no aliases; recreating its root alias from the account address.", accountId);
+            await CreateRootAliasAsync(accountId, address).ConfigureAwait(false);
+        }
+        finally
+        {
+            _aliasWriteLock.Release();
+        }
+
+        return await GetPrimaryAccountAliasAsync(accountId).ConfigureAwait(false);
     }
 
     public async Task<bool> IsAccountFocusedEnabledAsync(Guid accountId)

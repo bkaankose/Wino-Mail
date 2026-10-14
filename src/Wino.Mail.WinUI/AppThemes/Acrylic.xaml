@@ -74,6 +74,17 @@
             <SolidColorBrush x:Key="CompanionDividerBrush">#5F5F5F</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Name="HighContrast">
+            <StaticResource x:Key="CalendarDefaultHourBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="CalendarHoverHourBackgroundBrush" ResourceKey="SystemColorHighlightBrush" />
+            <StaticResource x:Key="CalendarSelectedHourBackgroundBrush" ResourceKey="SystemColorHighlightBrush" />
+            <StaticResource x:Key="CalendarWorkHourBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="MailListHeaderBackgroundColor" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="WinoApplicationBackgroundColor" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="WinoIllustrationLineBrush" ResourceKey="SystemColorWindowTextBrush" />
+            <StaticResource x:Key="WinoIllustrationLineSoftBrush" ResourceKey="SystemColorGrayTextBrush" />
+            <StaticResource x:Key="WinoIllustrationShadowBrush" ResourceKey="SystemColorWindowTextBrush" />
+            <StaticResource x:Key="WinoIllustrationSurfaceBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="WinoIllustrationWarmBrush" ResourceKey="SystemColorHighlightBrush" />
             <StaticResource x:Key="CompanionFlyoutBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
             <StaticResource x:Key="CompanionCardBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
             <StaticResource x:Key="CompanionSubtleBackgroundBrush" ResourceKey="SystemColorWindowBrush" />

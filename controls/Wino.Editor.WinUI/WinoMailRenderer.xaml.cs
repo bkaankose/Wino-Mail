@@ -232,7 +232,9 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
 
             // Disposal takes the same gate, so an in-flight initialization or
             // render always finishes before the native control is closed.
-            RestoreActiveBrowserState();
+            if (!RestoreActiveBrowserState())
+                throw new ObjectDisposedException(nameof(WinoMailRenderer));
+
             await operation();
         }
         finally
@@ -276,14 +278,19 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
         _documentSessionId = Guid.NewGuid().ToString("N");
         string document = EditorAssetProvider.BindSession(await EditorAssetProvider.GetReaderDocumentAsync(IsDarkMode), _documentSessionId);
         var environment = WebViewEnvironment ?? await WinoWebViewEnvironment.GetSharedEnvironmentAsync();
-        await RendererWebView2.EnsureCoreWebView2Async(environment);
+        var webView = RendererWebView2 ?? throw new ObjectDisposedException(nameof(WinoMailRenderer));
+        await webView.EnsureCoreWebView2Async(environment);
         ObjectDisposedException.ThrowIf(_disposed, this);
-        WinoWebViewSecurity.Apply(RendererWebView2.CoreWebView2);
+
+        // The WebView2 can be closed while EnsureCoreWebView2Async is pending, which
+        // leaves CoreWebView2 null even though the call completed.
+        var coreWebView = webView.CoreWebView2 ?? throw new ObjectDisposedException(nameof(WinoMailRenderer));
+        WinoWebViewSecurity.Apply(coreWebView);
         AttachBrowserEvents();
         _allowNextInternalNavigation = true;
         try
         {
-            RendererWebView2.NavigateToString(document);
+            webView.NavigateToString(document);
         }
         catch
         {
@@ -361,7 +368,24 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
     private async Task<string> ExecuteDirectAsync(string script)
     {
         await _ready.Task;
-        return await RendererWebView2.ExecuteScriptAsync(script);
+
+        // A closed WebView2 reports "valid CoreWebView2 is not present" as an
+        // InvalidOperationException or COMException. Callers treat a renderer that is gone
+        // as disposed, so surface it as ObjectDisposedException.
+        var webView = RendererWebView2;
+        if (_disposed || webView?.CoreWebView2 is null)
+            throw new ObjectDisposedException(nameof(WinoMailRenderer));
+
+        try
+        {
+            return await webView.ExecuteScriptAsync(script);
+        }
+        catch (Exception exception) when (
+            exception is InvalidOperationException or COMException &&
+            (_disposed || RendererWebView2?.CoreWebView2 is null))
+        {
+            throw new ObjectDisposedException("The renderer WebView2 closed while running a script.", exception);
+        }
     }
 
     private void ProcessMessage(string json)
@@ -558,20 +582,42 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
 
         // An invisible WebView avoids rendering work while the reading pane is
         // empty. MemoryUsageTargetLevel does not depend on controller visibility.
-        RendererWebView2.Visibility = Visibility.Collapsed;
-        coreWebView.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low;
+        try
+        {
+            RendererWebView2.Visibility = Visibility.Collapsed;
+            coreWebView.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low;
+        }
+        catch (COMException)
+        {
+            // The native WebView2 already closed. It holds no resources to reduce.
+        }
     }
 
-    private void RestoreActiveBrowserState()
+    /// <summary>
+    /// Restores the normal memory target and visibility. Returns false when the native
+    /// WebView2 has already closed ("group or resource is not in the correct state"),
+    /// which callers treat as a disposed renderer.
+    /// </summary>
+    private bool RestoreActiveBrowserState()
     {
-        var coreWebView = RendererWebView2?.CoreWebView2;
+        var webView = RendererWebView2;
         _idleSinceTickCount = 0;
 
-        if (coreWebView is not null)
-            coreWebView.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Normal;
+        if (webView is null) return true;
 
-        if (RendererWebView2 is not null)
-            RendererWebView2.Visibility = Visibility.Visible;
+        try
+        {
+            var coreWebView = webView.CoreWebView2;
+            if (coreWebView is not null)
+                coreWebView.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Normal;
+
+            webView.Visibility = Visibility.Visible;
+            return true;
+        }
+        catch (COMException)
+        {
+            return false;
+        }
     }
 
     private void DisposeBrowser()

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.Windows.AppLifecycle;
 using Microsoft.Windows.AppNotifications;
@@ -24,8 +25,12 @@ internal sealed class AppActivationHandler
         _notificationHandler = notificationHandler;
     }
 
+    /// <param name="activationArgs">
+    /// The process activation, or null when it is unavailable (the COM server went away, or a
+    /// migration replaced it with a plain-data snapshot). Null routes on the launch arguments only.
+    /// </param>
     public async Task HandleLaunchAsync(Microsoft.UI.Xaml.LaunchActivatedEventArgs launchArgs,
-                                        AppActivationArguments activationArgs)
+                                        AppActivationArguments? activationArgs)
     {
         var route = ResolveLaunchActivationRoute(launchArgs, activationArgs);
 
@@ -53,7 +58,24 @@ internal sealed class AppActivationHandler
     }
 
     private LaunchActivationRoute ResolveLaunchActivationRoute(Microsoft.UI.Xaml.LaunchActivatedEventArgs launchArgs,
-                                                               AppActivationArguments activationArgs)
+                                                               AppActivationArguments? activationArgs)
+    {
+        try
+        {
+            return ResolveLaunchActivationRouteCore(launchArgs, activationArgs);
+        }
+        catch (COMException ex) when (activationArgs != null)
+        {
+            // AppActivationArguments is a COM proxy. Its server can be gone (0x800706BA, RPC server
+            // unavailable), which made reading Kind or Data crash the launch. Route on the launch
+            // arguments alone; that is a standard launch unless they carry a toast payload.
+            _host.LogActivation($"Activation arguments are unavailable (0x{ex.HResult:X8}). Routing on launch arguments only.");
+            return ResolveLaunchActivationRouteCore(launchArgs, null);
+        }
+    }
+
+    private LaunchActivationRoute ResolveLaunchActivationRouteCore(Microsoft.UI.Xaml.LaunchActivatedEventArgs launchArgs,
+                                                                   AppActivationArguments? activationArgs)
     {
         if (TryCreateForwardedNotificationActivationRoute(launchArgs, activationArgs, out var forwardedNotificationRoute))
             return forwardedNotificationRoute;
@@ -61,13 +83,13 @@ internal sealed class AppActivationHandler
         if (TryCreateStartupNotificationActivationRoute(launchArgs, activationArgs, out var startupNotificationRoute))
             return startupNotificationRoute;
 
-        if (activationArgs.Kind == ExtendedActivationKind.StartupTask)
+        if (activationArgs?.Kind == ExtendedActivationKind.StartupTask)
             return new LaunchActivationRoute(AppActivationPath.StartupTask, launchArgs, activationArgs);
 
         if (IsBillingSuccessProtocol(activationArgs))
             return new LaunchActivationRoute(AppActivationPath.BillingSuccessProtocol, launchArgs, activationArgs);
 
-        if (activationArgs.Kind == ExtendedActivationKind.ShareTarget &&
+        if (activationArgs?.Kind == ExtendedActivationKind.ShareTarget &&
             _host.TryMarkInitialShareActivationHandled())
         {
             return new LaunchActivationRoute(AppActivationPath.ShareTarget, launchArgs, activationArgs);
@@ -92,7 +114,8 @@ internal sealed class AppActivationHandler
                 PendingBootstrapActivation: pendingBootstrapActivation);
         }
 
-        if (SecondaryEntryBootstrapActivation.TryGetSupportedFileActivation(
+        if (activationArgs != null &&
+            SecondaryEntryBootstrapActivation.TryGetSupportedFileActivation(
                 activationArgs,
                 out var fileMode,
                 out var filePaths))
@@ -123,12 +146,12 @@ internal sealed class AppActivationHandler
 
     private bool TryCreateForwardedNotificationActivationRoute(
         Microsoft.UI.Xaml.LaunchActivatedEventArgs launchArgs,
-        AppActivationArguments activationArgs,
+        AppActivationArguments? activationArgs,
         out LaunchActivationRoute route)
     {
         route = default;
 
-        var forwardedArguments = activationArgs.Kind == ExtendedActivationKind.Launch &&
+        var forwardedArguments = activationArgs?.Kind == ExtendedActivationKind.Launch &&
                                  activationArgs.Data is ILaunchActivatedEventArgs appLaunchArgs
             ? appLaunchArgs.Arguments
             : launchArgs.Arguments;
@@ -151,12 +174,13 @@ internal sealed class AppActivationHandler
     }
 
     private bool TryCreateStartupNotificationActivationRoute(Microsoft.UI.Xaml.LaunchActivatedEventArgs launchArgs,
-                                                             AppActivationArguments activationArgs,
+                                                             AppActivationArguments? activationArgs,
                                                              out LaunchActivationRoute route)
     {
         route = default;
 
-        if (activationArgs.Kind != ExtendedActivationKind.AppNotification ||
+        if (activationArgs == null ||
+            activationArgs.Kind != ExtendedActivationKind.AppNotification ||
             activationArgs.Data is not AppNotificationActivatedEventArgs notificationArgs ||
             !_host.TryMarkInitialNotificationActivationHandled())
         {
@@ -200,7 +224,8 @@ internal sealed class AppActivationHandler
                 break;
             case AppActivationPath.ShareTarget:
                 _host.LogActivation("Processing share target activation from OnLaunched.");
-                if (!await _host.HandleShareTargetActivationAsync(route.ActivationArgs, activateWindow: true))
+                if (route.ActivationArgs is not { } shareActivationArgs ||
+                    !await _host.HandleShareTargetActivationAsync(shareActivationArgs, activateWindow: true))
                 {
                     await _host.CompleteStandardLaunchAsync(route.LaunchArgs, _host.HasConfiguredAccounts);
                 }
@@ -463,11 +488,12 @@ internal sealed class AppActivationHandler
     private static bool CanHandlePendingBootstrapActivation(PendingBootstrapActivation pendingBootstrapActivation)
         => pendingBootstrapActivation.Mode is WinoApplicationMode.Calendar or WinoApplicationMode.Contacts or WinoApplicationMode.Tasks;
 
-    private static bool TryCreateMailToUri(AppActivationArguments activationArgs, out MailToUri? mailToUri)
+    private static bool TryCreateMailToUri(AppActivationArguments? activationArgs, out MailToUri? mailToUri)
     {
         mailToUri = null;
 
-        if (activationArgs.Kind != ExtendedActivationKind.Protocol ||
+        if (activationArgs == null ||
+            activationArgs.Kind != ExtendedActivationKind.Protocol ||
             activationArgs.Data is not IProtocolActivatedEventArgs { Uri: { } protocolUri } ||
             !string.Equals(protocolUri.Scheme, "mailto", System.StringComparison.OrdinalIgnoreCase))
         {
@@ -485,9 +511,9 @@ internal sealed class AppActivationHandler
         }
     }
 
-    private static bool IsBillingSuccessProtocol(AppActivationArguments activationArgs)
+    private static bool IsBillingSuccessProtocol(AppActivationArguments? activationArgs)
     {
-        return activationArgs.Kind == ExtendedActivationKind.Protocol &&
+        return activationArgs?.Kind == ExtendedActivationKind.Protocol &&
                activationArgs.Data is IProtocolActivatedEventArgs protocolArgs &&
                WinoProtocolActivationResolver.IsBillingSuccess(protocolArgs.Uri);
     }

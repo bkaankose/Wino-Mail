@@ -1,6 +1,9 @@
 using System;
+using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Serilog;
 using Wino.Core.Domain;
 using Wino.Views.Abstract;
 
@@ -29,13 +32,11 @@ public sealed partial class WinoIntelligencePage : WinoIntelligencePageAbstract
                 ConsentPolicyDialog.IsPrimaryButtonEnabled = false;
                 ConsentPolicyErrorText.Visibility = Visibility.Collapsed;
                 ConsentPolicyWebView.Source = ViewModel.ConsentPolicyUri;
-                ConsentPolicyDialog.XamlRoot = XamlRoot;
-                await ConsentPolicyDialog.ShowAsync();
+                await ShowConsentDialogAsync(ConsentPolicyDialog);
             }
             else
             {
-                ConsentRevokeDialog.XamlRoot = XamlRoot;
-                if (await ConsentRevokeDialog.ShowAsync() == ContentDialogResult.Primary)
+                if (await ShowConsentDialogAsync(ConsentRevokeDialog) == ContentDialogResult.Primary)
                     await ViewModel.SetIntelligenceConsentAsync(false);
             }
 
@@ -44,6 +45,26 @@ public sealed partial class WinoIntelligencePage : WinoIntelligencePageAbstract
         finally
         {
             _isApplyingConsentState = false;
+        }
+    }
+
+    /// <summary>
+    /// The consent dialogs are declared in this page, so they already share its XamlRoot.
+    /// Assigning a different root throws "already associated with a XamlRoot", so only an
+    /// unrooted dialog is rooted, and a dialog that cannot be shown leaves the toggle on the
+    /// current consent state.
+    /// </summary>
+    private async Task<ContentDialogResult> ShowConsentDialogAsync(ContentDialog dialog)
+    {
+        try
+        {
+            dialog.XamlRoot ??= XamlRoot;
+            return await dialog.ShowAsync();
+        }
+        catch (Exception ex) when (ex is ArgumentException or COMException)
+        {
+            Log.Warning(ex, "Wino Intelligence consent dialog could not be shown.");
+            return ContentDialogResult.None;
         }
     }
 

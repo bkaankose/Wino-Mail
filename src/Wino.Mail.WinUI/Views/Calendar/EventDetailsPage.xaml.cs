@@ -118,12 +118,32 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
     void IRecipient<ApplicationThemeChanged>.Receive(ApplicationThemeChanged message)
     {
         ViewModel.IsDarkWebviewRenderer = message.IsUnderlyingThemeDark;
-        _ = UpdateEditorThemeAsync();
+        _ = ObserveRendererOperationAsync(UpdateEditorThemeAsync(), "Calendar description theme update failed.");
     }
 
     void IRecipient<CalendarDescriptionRenderingRequested>.Receive(CalendarDescriptionRenderingRequested message)
     {
-        _ = RenderDescriptionAsync();
+        _ = ObserveRendererOperationAsync(RenderDescriptionAsync(), "Calendar description rendering failed.");
+    }
+
+    /// <summary>
+    /// Observes fire-and-forget renderer work. A theme change or render request can arrive after
+    /// OnNavigatedFrom disposed the renderer; that is expected teardown, not a failure.
+    /// </summary>
+    private static async Task ObserveRendererOperationAsync(Task operation, string failureMessage)
+    {
+        try
+        {
+            await operation;
+        }
+        catch (ObjectDisposedException ex)
+        {
+            Log.Debug(ex, "Calendar description renderer was already disposed.");
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Calendar description renderer operation failed: {Operation}", failureMessage);
+        }
     }
 
     protected override void RegisterRecipients()

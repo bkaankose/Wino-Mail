@@ -167,4 +167,18 @@ public sealed class DraftUpdateCoordinatorTests
         await Assert.ThrowsAsync<IOException>(() => service.SaveAsync(Snapshot(mail, "draft"), mail));
         coordinator.VerifyNoOtherCalls();
     }
+
+    [Fact]
+    public async Task Missing_draft_returns_false_and_does_not_schedule_remote_work()
+    {
+        var mail = Mail(); var mime = new Mock<IMimeFileService>(); var mails = new Mock<IMailService>();
+        mime.Setup(x => x.SaveDraftMimeMessageAsync(It.IsAny<Guid>(), It.IsAny<MimeKit.MimeMessage>(), It.IsAny<Guid>())).ReturnsAsync(true);
+        mails.Setup(x => x.SaveDraftMetadataAsync(It.IsAny<Guid>(), It.IsAny<MailCopy>())).ReturnsAsync(false);
+        var coordinator = new Mock<IDraftUpdateCoordinator>(MockBehavior.Strict);
+        var registry = new DraftUpdateRegistry();
+        var service = new DraftSaveService(mime.Object, mails.Object, coordinator.Object, registry);
+        (await service.SaveAsync(Snapshot(mail, "draft"), mail)).Should().BeFalse();
+        coordinator.VerifyNoOtherCalls();
+        registry.IsProtected(mail.AssignedAccount.Id, mail.UniqueId).Should().BeFalse();
+    }
 }

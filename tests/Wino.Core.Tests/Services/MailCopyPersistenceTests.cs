@@ -417,6 +417,22 @@ public class MailCopyPersistenceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Draft_metadata_save_returns_false_when_the_draft_no_longer_exists()
+    {
+        var service = BuildMailService(_databaseService, new DraftUpdateRegistry());
+        var missingDraft = new MailCopy
+        {
+            UniqueId = Guid.NewGuid(), Id = "gone", FileId = Guid.NewGuid(), IsDraft = true,
+            FolderId = _inboxFolder.Id, Subject = "unsaved", FromAddress = _account.Address
+        };
+
+        var saved = await service.SaveDraftMetadataAsync(_account.Id, missingDraft);
+
+        saved.Should().BeFalse();
+        (await service.GetSingleMailItemAsync(missingDraft.UniqueId)).Should().BeNull();
+    }
+
+    [Fact]
     public async Task Remote_draft_refresh_updates_list_metadata_only_for_current_unprotected_identity()
     {
         var registry = new DraftUpdateRegistry();

@@ -91,9 +91,10 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
     public async Task DeleteAccountCalendarAsync(AccountCalendar accountCalendar)
     {
+        // CalendarItem has no AccountId column; the calendar id already scopes the rows to one account.
         await Connection.ExecuteAsync(
-            "DELETE FROM CalendarItem WHERE CalendarId = ? AND AccountId = ?",
-            accountCalendar.Id, accountCalendar.AccountId);
+            "DELETE FROM CalendarItem WHERE CalendarId = ?",
+            accountCalendar.Id);
         await Connection.DeleteAsync<AccountCalendar>(accountCalendar.Id);
 
         WeakReferenceMessenger.Default.Send(new CalendarListDeleted(accountCalendar));

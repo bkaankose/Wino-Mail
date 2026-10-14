@@ -75,6 +75,67 @@ public sealed class DatabaseMigrationTests
     }
 
     [Fact]
+    public async Task InitializeAsync_ConcurrentCallersShareOneInitializationAndConnection()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"wino-db-singleflight-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        DatabaseService database = null;
+        try
+        {
+            var existing = new SQLiteAsyncConnection(Path.Combine(directory, DatabaseService.CurrentDatabaseName));
+            await existing.CreateTableAsync<MailAccount>();
+            await MarkCompleted210Async(existing);
+            await existing.CloseAsync();
+
+            var configuration = new Mock<IApplicationConfiguration>();
+            configuration.SetupProperty(x => x.ApplicationDataFolderPath, directory);
+            database = new DatabaseService(configuration.Object);
+
+            await Task.WhenAll(database.InitializeAsync(), database.InitializeAsync(), database.InitializeAsync());
+
+            var connection = database.Connection;
+            await database.InitializeAsync();
+            database.Connection.Should().BeSameAs(connection);
+            (await database.Connection.Table<MailAccount>().CountAsync()).Should().Be(0);
+        }
+        finally
+        {
+            if (database?.Connection != null) await database.Connection.CloseAsync();
+            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task InitializeAsync_IncompleteDatabaseFailsWithoutClosingOtherConnections()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"wino-db-incomplete-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, DatabaseService.CurrentDatabaseName);
+        var live = new SQLiteAsyncConnection(path);
+        try
+        {
+            await live.CreateTableAsync<MailAccount>();
+            var pooledBefore = live.GetConnection();
+
+            var configuration = new Mock<IApplicationConfiguration>();
+            configuration.SetupProperty(x => x.ApplicationDataFolderPath, directory);
+            var database = new DatabaseService(configuration.Object);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => database.InitializeAsync());
+
+            // The validation handle has its own pool entry, so the pooled connection with the default flags
+            // (the one the runtime uses) is neither closed nor replaced.
+            live.GetConnection().Should().BeSameAs(pooledBefore);
+            (await live.Table<MailAccount>().CountAsync()).Should().Be(0);
+        }
+        finally
+        {
+            await live.CloseAsync();
+            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task InitializeAsync_AddsAndBackfillsCalendarDirectJoinLink()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"wino-calendar-join-schema-{Guid.NewGuid():N}");

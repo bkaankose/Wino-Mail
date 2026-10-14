@@ -596,6 +596,15 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
 
         CancelPendingWork();
         _eligibleAccounts = [];
+
+        // A panel that was never opened shows nothing to clear, and opening it later loads
+        // against the new entitlement. Startup also delivers this message before the UI
+        // dispatcher exists, where dispatching would throw into the entitlement refresh.
+        if (!_isInitialized)
+        {
+            return;
+        }
+
         _ = _dispatcher.ExecuteOnUIThread(() =>
         {
             Items.Clear();

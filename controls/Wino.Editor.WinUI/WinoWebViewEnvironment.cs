@@ -49,6 +49,9 @@ internal static class WinoWebViewSecurity
     /// </summary>
     public static void Apply(CoreWebView2 coreWebView)
     {
+        // Callers resolve CoreWebView2 after EnsureCoreWebView2Async and convert a missing
+        // core (control closed meanwhile) into ObjectDisposedException before calling this.
+        ArgumentNullException.ThrowIfNull(coreWebView);
         var settings = coreWebView.Settings;
         settings.AreDefaultScriptDialogsEnabled = false;
         settings.AreHostObjectsAllowed = false;

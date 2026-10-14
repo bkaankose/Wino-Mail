@@ -211,6 +211,14 @@ public interface IAccountService
     /// <param name="accountId">Account id.</param>
     /// <returns>Primary alias for the account.</returns>
     Task<MailAccountAlias> GetPrimaryAccountAliasAsync(Guid accountId);
+
+    /// <summary>
+    /// Returns the primary alias of the account. Repairs an account that has no alias rows
+    /// (restored or migrated databases) by creating the root primary alias from the account address.
+    /// </summary>
+    /// <param name="accountId">Account id.</param>
+    /// <returns>Primary alias, or null when the account does not exist or has no address.</returns>
+    Task<MailAccountAlias> EnsurePrimaryAccountAliasAsync(Guid accountId);
     Task UpdateAliasSendCapabilityAsync(Guid accountId, string aliasAddress, AliasSendCapability capability);
     Task<bool> IsAccountFocusedEnabledAsync(Guid accountId);
 

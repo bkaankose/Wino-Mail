@@ -1194,11 +1194,12 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
             ?? gmailProfileAddress
             ?? Account.Address;
 
-        var senderName = userProfile.Names?
+        // The People request above may have failed, leaving userProfile null.
+        var senderName = userProfile?.Names?
             .FirstOrDefault(name => name?.Metadata?.Primary == true)?.DisplayName;
 
         senderName = string.IsNullOrWhiteSpace(senderName)
-            ? userProfile.Names?.FirstOrDefault(name => !string.IsNullOrWhiteSpace(name?.DisplayName))?.DisplayName
+            ? userProfile?.Names?.FirstOrDefault(name => !string.IsNullOrWhiteSpace(name?.DisplayName))?.DisplayName
             : senderName;
 
         senderName = string.IsNullOrWhiteSpace(senderName)

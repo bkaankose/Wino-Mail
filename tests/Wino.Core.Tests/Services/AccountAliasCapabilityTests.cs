@@ -103,6 +103,37 @@ public partial class AccountAliasCapabilityTests : IAsyncLifetime
         aliases.Should().Contain(a => a.AliasAddress == "sales@example.com" && a.Source == AliasSource.ProviderDiscovered);
     }
 
+    [Fact]
+    public async Task EnsurePrimaryAccountAliasAsync_RepairsAccountWithoutAliases()
+    {
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = "No Alias",
+            Address = "repair@example.com",
+            ProviderType = MailProviderType.Outlook
+        };
+        await _databaseService.Connection.InsertAsync(account, typeof(MailAccount));
+
+        var repaired = await _accountService.EnsurePrimaryAccountAliasAsync(account.Id);
+        var again = await _accountService.EnsurePrimaryAccountAliasAsync(account.Id);
+
+        repaired.Should().NotBeNull();
+        repaired.AliasAddress.Should().Be("repair@example.com");
+        repaired.IsPrimary.Should().BeTrue();
+        repaired.IsRootAlias.Should().BeTrue();
+        again.Id.Should().Be(repaired.Id);
+        (await _accountService.GetAccountAliasesAsync(account.Id)).Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task EnsurePrimaryAccountAliasAsync_ReturnsNullForUnknownAccount()
+    {
+        var alias = await _accountService.EnsurePrimaryAccountAliasAsync(Guid.NewGuid());
+
+        alias.Should().BeNull();
+    }
+
     private static AccountService CreateAccountService(InMemoryDatabaseService databaseService)
     {
         var preferencesService = new Mock<IPreferencesService>();

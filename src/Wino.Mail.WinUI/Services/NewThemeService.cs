@@ -198,8 +198,71 @@ public class NewThemeService : INewThemeService
 
     private bool isInitialized = false;
 
+    private const string ThemeNameKey = "ThemeName";
+    private const string DefaultThemeDictionaryUri = "ms-appx:///AppThemes/Default.xaml";
+    private const string HighContrastThemeKey = "HighContrast";
+
+    // Pages read these with {ThemeResource}; a missing key is a XamlParseException at page load
+    // (MailListPage group header, CalendarPage). Only Custom.xaml defines them for High Contrast,
+    // where it maps them to the system window and highlight colors used here.
+    private static readonly (string Key, UIElementType SystemColor)[] RequiredHighContrastBrushes =
+    [
+        ("MailListHeaderBackgroundColor", UIElementType.Window),
+        ("CalendarDefaultHourBackgroundBrush", UIElementType.Window),
+        ("CalendarHoverHourBackgroundBrush", UIElementType.Highlight),
+        ("CalendarWorkHourBackgroundBrush", UIElementType.Window),
+        ("CalendarSelectedHourBackgroundBrush", UIElementType.Highlight)
+    ];
+
+    /// <summary>
+    /// Guarantees that a theme dictionary is merged and that it resolves every theme brush the
+    /// shell pages need, in every theme including High Contrast. Activation paths call this before
+    /// a window navigates its frame; it is cheap and idempotent. Must run on the UI thread.
+    /// </summary>
+    public void EnsureThemeResources()
+    {
+        var themeDictionary = FindMergedThemeDictionary();
+
+        if (themeDictionary == null)
+        {
+            // A failed theme swap or an unexpected resource change left no theme dictionary.
+            // Fall back to the Default theme rather than letting pages fail to parse.
+            Serilog.Log.Warning("No theme dictionary is merged. Restoring the Default theme resources.");
+
+            themeDictionary = new ResourceDictionary { Source = new Uri(DefaultThemeDictionaryUri) };
+            _applicationResourceManager.AddResource(themeDictionary);
+        }
+
+        EnsureHighContrastFallbacks(themeDictionary);
+    }
+
+    private static ResourceDictionary? FindMergedThemeDictionary()
+        => Application.Current.Resources.MergedDictionaries.LastOrDefault(dictionary => dictionary.ContainsKey(ThemeNameKey));
+
+    private void EnsureHighContrastFallbacks(ResourceDictionary themeDictionary)
+    {
+        if (!themeDictionary.ThemeDictionaries.TryGetValue(HighContrastThemeKey, out var existing) ||
+            existing is not ResourceDictionary highContrastDictionary)
+        {
+            highContrastDictionary = new ResourceDictionary();
+            themeDictionary.ThemeDictionaries[HighContrastThemeKey] = highContrastDictionary;
+        }
+
+        foreach (var (key, systemColor) in RequiredHighContrastBrushes)
+        {
+            if (highContrastDictionary.ContainsKey(key))
+                continue;
+
+            highContrastDictionary[key] = new SolidColorBrush(uiSettings.UIElementColor(systemColor));
+        }
+    }
+
     public async Task InitializeAsync()
     {
+        // Every window-creating activation path (launch, toast, tray, notification) awaits this.
+        // Check the merged theme resources each time, even after initialization.
+        EnsureThemeResources();
+
         // Already initialized. There is no need.
         if (isInitialized) return;
 
@@ -609,8 +672,11 @@ public class NewThemeService : INewThemeService
                             $"ms-appdata:///local/{CustomThemeFolderName}/{applyingTheme.Id}_preview.jpg");
                     }
 
-                    _applicationResourceManager.RemoveResource(existingThemeDictionary);
+                    // Add the new theme before removing the old one, so there is never a moment
+                    // when no theme dictionary is merged while another window parses a page.
+                    EnsureHighContrastFallbacks(resourceDictionary);
                     _applicationResourceManager.AddResource(resourceDictionary);
+                    _applicationResourceManager.RemoveResource(existingThemeDictionary);
 
                     bool isSystemTheme = applyingTheme is SystemAppTheme || applyingTheme is CustomAppTheme;
 
@@ -642,6 +708,10 @@ public class NewThemeService : INewThemeService
         catch (Exception ex)
         {
             Debug.WriteLine($"Apply theme failed -> {ex.Message}");
+
+            // A failure in the middle of the swap must not leave the application without theme
+            // resources. For example a custom palette that fails to apply.
+            EnsureThemeResources();
 
             if (throwOnError)
                 throw;
@@ -782,11 +852,12 @@ public class NewThemeService : INewThemeService
                          ?? throw new InvalidOperationException("Custom theme resources could not be loaded.");
         ConfigureCustomThemeDictionary(dictionary, metadata, wallpaperUri, wallpaperUri);
 
+        // Add first, then remove, so a theme dictionary is always merged.
         var existingDictionary = _applicationResourceManager.GetLastResource();
+        _applicationResourceManager.AddResource(dictionary);
+
         if (existingDictionary != null)
             _applicationResourceManager.RemoveResource(existingDictionary);
-
-        _applicationResourceManager.AddResource(dictionary);
         RootTheme = elementTheme;
         AccentColor = metadata.AccentColorHex;
         RefreshThemeResource();

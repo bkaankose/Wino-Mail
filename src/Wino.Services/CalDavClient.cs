@@ -33,6 +33,7 @@ public sealed class CalDavClient : ICalDavClient
     private static readonly HttpMethod ReportMethod = new("REPORT");
     private static readonly HttpMethod PutMethod = HttpMethod.Put;
     private static readonly HttpMethod DeleteMethod = HttpMethod.Delete;
+    private const string XmlDeclaration = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";
     private static readonly ILogger Logger = Log.ForContext<CalDavClient>();
 
     private readonly IDavTransport _davTransport;
@@ -323,7 +324,8 @@ public sealed class CalDavClient : ICalDavClient
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/xml"));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/xml"));
         request.Headers.Add("Depth", depth);
-        request.Content = new StringContent(body, Encoding.UTF8, "application/xml");
+        // Zimbra rejects CalDAV REPORT bodies without an XML declaration (400 with an empty body).
+        request.Content = new StringContent(XmlDeclaration + body, Encoding.UTF8, "application/xml");
 
         using var response = await _davTransport.SendAsync(
             request,

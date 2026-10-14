@@ -1,8 +1,10 @@
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Models.MailItem;
+using WinRT;
 
 namespace Wino.Dialogs;
 
@@ -12,7 +14,7 @@ public sealed partial class EditMailCategoryDialog : ContentDialog
     public string CategoryName { get; set; }
     public MailCategoryColorOption? SelectedColor { get; set; }
 
-    internal MailCategoryColorOption[] AvailableColors { get; } = [.. MailCategoryPalette.DefaultOptions];
+    internal MailCategoryColorOptionList AvailableColors { get; } = new(MailCategoryPalette.DefaultOptions);
 
     public EditMailCategoryDialog(MailCategory? category = null)
     {
@@ -57,3 +59,11 @@ public sealed partial class EditMailCategoryDialog : ContentDialog
         Hide();
     }
 }
+
+/// <summary>
+/// The colour swatches bound to the dialog's grid. Native AOT requires a concrete, WinRT-exposed collection
+/// type: an array of a non-WinRT record has no generated vector vtable, so the grid rejects it with
+/// E_INVALIDARG in Release.
+/// </summary>
+[GeneratedWinRTExposedType]
+public sealed partial class MailCategoryColorOptionList(IEnumerable<MailCategoryColorOption> options) : List<MailCategoryColorOption>(options);

@@ -210,9 +210,16 @@ public static class XamlHelpers
     public static Visibility GetProfileFailedVisibility(string message) => !string.IsNullOrWhiteSpace(message) && message != Translator.WinoAccount_Profile_Saved ? Visibility.Visible : Visibility.Collapsed;
     public static string GetProfileStatusText(bool isBusy, string message) => isBusy ? Translator.WinoAccount_Profile_Saving : message;
 
-    // x:Bind cannot nest function calls, so birthday formatting and its visibility are separate flat helpers.
-    public static Visibility BirthdayVisibility(int? year, int? month, int? day)
-        => string.IsNullOrWhiteSpace(FormatBirthday(year, month, day)) ? Visibility.Collapsed : Visibility.Visible;
+    // Contact detail helpers take the contact itself: x:Bind skips a function call when a leaf argument is null,
+    // so binding nullable fields directly would keep the previous contact's value on screen.
+    public static Visibility ContactBirthdayVisibility(AccountContact? contact)
+        => string.IsNullOrWhiteSpace(FormatContactBirthday(contact)) ? Visibility.Collapsed : Visibility.Visible;
+
+    public static string FormatContactBirthday(AccountContact? contact)
+        => contact is null ? string.Empty : FormatBirthday(contact.BirthdayYear, contact.BirthdayMonth, contact.BirthdayDay);
+
+    public static Visibility ContactWebsiteVisibility(AccountContact? contact) => TextToVisibility(contact?.Website);
+    public static Visibility ContactNotesVisibility(AccountContact? contact) => TextToVisibility(contact?.Notes);
 
     public static string FormatBirthday(int? year, int? month, int? day) => ContactDisplayFormatter.FormatBirthday(year, month, day);
     public static bool GetGravatarEnabled() => PreferencesService?.IsGravatarEnabled ?? true;

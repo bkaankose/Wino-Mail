@@ -468,7 +468,7 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
         if (!File.Exists(destinationPath))
             throw new FileNotFoundException("The migrated database could not be found.", destinationPath);
 
-        var connection = new SQLiteAsyncConnection(destinationPath);
+        var connection = OpenLiveDatabaseSideConnection(destinationPath);
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1006,11 +1006,19 @@ WHERE Id = ?;",
                 $"{option.AccountId:N}:{Convert.ToInt32(option.EnableContacts)}:{Convert.ToInt32(option.EnableTasks)}:" +
                 $"{Convert.ToInt32(option.EnableMailFilters)}:{Convert.ToInt32(option.DeferSignIn)}"));
 
+    /// <summary>
+    /// Opens a short-lived handle to the live Wino210.db. sqlite-net pools connections by path and open flags,
+    /// and CloseAsync closes the pooled connection for everyone. The default flags would share (and then close)
+    /// the runtime's main connection, so this handle uses flags of its own.
+    /// </summary>
+    private static SQLiteAsyncConnection OpenLiveDatabaseSideConnection(string databasePath)
+        => new(databasePath, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.FullMutex | SQLiteOpenFlags.PrivateCache);
+
     private async Task<IReadOnlyList<MigrationAccountOptions>> ReadPendingAuthorizationAccountsAsync(
         string destinationPath,
         CancellationToken cancellationToken)
     {
-        var connection = new SQLiteAsyncConnection(destinationPath);
+        var connection = OpenLiveDatabaseSideConnection(destinationPath);
         try
         {
             cancellationToken.ThrowIfCancellationRequested();

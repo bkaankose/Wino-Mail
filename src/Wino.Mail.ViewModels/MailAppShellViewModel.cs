@@ -1412,9 +1412,17 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             {
                 _dialogService.InfoBarMessage(Translator.Info_DraftCreationFailed, ex.Message, InfoBarMessageType.Error);
             }
+            catch (MissingAliasException)
+            {
+                // The service repairs accounts without aliases from the account address; this remains only
+                // when the account has no usable address at all.
+                _dialogService.InfoBarMessage(Translator.Info_DraftCreationFailed,
+                                             Translator.Info_DraftMissingAliasMessage,
+                                             InfoBarMessageType.Error);
+            }
             catch (Exception ex)
             {
-                // Any other failure (no primary alias, a storage or synchronizer error) used to reach only the caller's
+                // Any other failure (a storage or synchronizer error) used to reach only the caller's
                 // logger, so New Message did nothing visible. Every head shows it through its info bar.
                 Log.Error(ex, "Creating a new draft for account {AccountId} failed.", account.Id);
                 _dialogService.InfoBarMessage(Translator.Info_DraftCreationFailed, ex.Message, InfoBarMessageType.Error);
@@ -1534,6 +1542,11 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     private async Task RecreateMenuItemsAsync()
     {
+        // The menu only exists once a shell assigned this provider its dispatcher. Until the
+        // mail mode is shown there is nothing to rebuild; activation loads the accounts.
+        if (MenuItems == null)
+            return;
+
         await _menuRefreshSemaphore.WaitAsync().ConfigureAwait(false);
         try
         {
@@ -1908,6 +1921,12 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     public async Task HandleAccountCreatedAsync(MailAccount createdAccount)
     {
         latestSelectedAccountMenuItem = null;
+
+        // An account created while the mail mode was never shown in this window (for example
+        // from Settings) has no menu to refresh yet. The mode switch that follows activates
+        // the mail menu, which lists the new account.
+        if (MenuItems == null)
+            return;
 
         await RecreateMenuItemsAsync();
 

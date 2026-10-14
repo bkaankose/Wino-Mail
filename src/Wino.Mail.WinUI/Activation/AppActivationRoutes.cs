@@ -49,7 +49,7 @@ internal readonly record struct NotificationActivationRoute(
 internal readonly record struct LaunchActivationRoute(
     AppActivationPath Path,
     Microsoft.UI.Xaml.LaunchActivatedEventArgs LaunchArgs,
-    AppActivationArguments ActivationArgs,
+    AppActivationArguments? ActivationArgs,
     AppNotificationActivatedEventArgs? AppNotificationArgs = null,
     NotificationActivationRoute NotificationRoute = default,
     NotificationArguments? ToastArguments = null,
