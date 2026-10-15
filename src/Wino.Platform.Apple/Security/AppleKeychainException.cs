@@ -1,5 +1,4 @@
 using System;
-using Wino.Core.Domain.Exceptions;
 
 namespace Wino.Platform.Apple.Security;
 
@@ -17,6 +16,3 @@ public sealed class AppleKeychainException(AppleKeychainFailure failure, int sta
     public AppleKeychainFailure Failure { get; } = failure;
     public int Status { get; } = status;
 }
-
-public sealed class AppleCredentialMissingException()
-    : AccountCredentialMissingException;

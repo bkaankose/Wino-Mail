@@ -44,7 +44,7 @@ public static class CoreUWPContainerSetup
             Printing: Windows.Graphics.Printing.PrintManager.IsSupported(), PdfExport: true,
             Smime: true, AdditionalWindows: true, Notifications: true, NotificationActions: true,
             StartupIntegration: true, Tray: true, GlobalHotkeys: true, GeneralActivation: true,
-            MicrosoftStore: true, RemoteNotifications: false, PushRelayOptIn: true));
+            MicrosoftStore: true, RemoteNotifications: false, PushRelayOptIn: true, KeyboardShortcuts: true, FileBackup: true, Purchases: true));
         services.AddSingleton<IPushRelayDeviceIdentityStore, WindowsPushRelayDeviceIdentityStore>();
         services.AddSingleton<IPushRelayDeviceInfo, WindowsPushRelayDeviceInfo>();
         services.AddSingleton<IPushTokenProvider, NullPushTokenProvider>();

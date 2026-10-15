@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- An empty or readiness state in a Contacts or To Do zone: glyph, title, message and an optional text button. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/Widget.Wino.People.State"
+    android:visibility="gone">
+
+  <com.winomail.presentation.WinoIconView
+      android:id="@+id/people_state_glyph"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:importantForAccessibility="no"
+      android:textColor="@color/wino_text_tertiary" />
+
+  <TextView
+      android:id="@+id/people_state_title"
+      style="@style/Widget.Wino.People.StateTitle"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:accessibilityHeading="true" />
+
+  <TextView
+      android:id="@+id/people_state_message"
+      style="@style/Widget.Wino.People.StateMessage"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content" />
+
+  <com.google.android.material.button.MaterialButton
+      android:id="@+id/people_state_action"
+      style="@style/Widget.Material3.Button.TextButton"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="@dimen/wino_space_s"
+      android:visibility="gone" />
+</LinearLayout>

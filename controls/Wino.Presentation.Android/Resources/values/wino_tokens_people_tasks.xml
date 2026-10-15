@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Material 3 metrics of the Contacts and To Do modes (canvas Material pass boards Contacts, ContactEditor, ToDo and
+     TaskDetail; tablet boards ContactsTablet and ToDoTablet). Colours come from the shared wino_* colour tokens. -->
+<resources>
+  <!-- Contact list: 64 dp one-avatar items, 40 dp avatars, letter subheaders, the letter fast scroller on the end edge. -->
+  <dimen name="wino_people_row_height">64dp</dimen>
+  <dimen name="wino_people_row_padding">16dp</dimen>
+  <dimen name="wino_people_row_gap">16dp</dimen>
+  <dimen name="wino_people_avatar">40dp</dimen>
+  <dimen name="wino_people_row_star">16dp</dimen>
+  <dimen name="wino_people_index_width">20dp</dimen>
+  <dimen name="wino_people_index_text">10sp</dimen>
+  <dimen name="wino_people_index_bubble">56dp</dimen>
+  <dimen name="wino_people_index_bubble_text">24sp</dimen>
+  <dimen name="wino_people_list_end_clearance">24dp</dimen>
+
+  <!-- Contact card: 96 dp picture, the name as headline-small, action chips, M3 list items with a 56 dp leading column. -->
+  <dimen name="wino_people_card_avatar">96dp</dimen>
+  <dimen name="wino_people_card_padding">16dp</dimen>
+  <dimen name="wino_people_card_gap">8dp</dimen>
+  <dimen name="wino_people_item_min_height">56dp</dimen>
+  <dimen name="wino_people_item_leading">56dp</dimen>
+  <dimen name="wino_people_card_max_width">640dp</dimen>
+
+  <!-- Contact editor (full-screen dialog): outlined fields beside a 24 dp leading icon, text buttons in the field column. -->
+  <dimen name="wino_people_editor_avatar">96dp</dimen>
+  <dimen name="wino_people_editor_field_gap">16dp</dimen>
+  <dimen name="wino_people_editor_line_gap">16dp</dimen>
+  <dimen name="wino_people_editor_label_width">128dp</dimen>
+  <dimen name="wino_people_editor_number_width">88dp</dimen>
+  <dimen name="wino_people_editor_notes_min_height">120dp</dimen>
+  <dimen name="wino_people_editor_max_width">640dp</dimen>
+  <dimen name="wino_people_editor_save_padding">24dp</dimen>
+
+  <!-- Task list: 64 dp rows (8 dp vertical padding), the 24 dp round check with a 2 dp outline, the 40 dp star button. -->
+  <dimen name="wino_tasks_row_min_height">64dp</dimen>
+  <dimen name="wino_tasks_row_padding_vertical">8dp</dimen>
+  <dimen name="wino_tasks_row_padding_horizontal">16dp</dimen>
+  <dimen name="wino_tasks_row_gap">16dp</dimen>
+  <dimen name="wino_tasks_check">24dp</dimen>
+  <dimen name="wino_tasks_check_stroke">2dp</dimen>
+  <dimen name="wino_tasks_check_glyph">14dp</dimen>
+  <dimen name="wino_tasks_step_check">20dp</dimen>
+  <dimen name="wino_tasks_star_button">40dp</dimen>
+  <dimen name="wino_tasks_star_glyph">20dp</dimen>
+  <dimen name="wino_tasks_title_text">16sp</dimen>
+  <dimen name="wino_tasks_meta_text">12sp</dimen>
+  <dimen name="wino_tasks_summary_padding_top">8dp</dimen>
+  <dimen name="wino_tasks_summary_padding_bottom">4dp</dimen>
+
+  <!-- Add-task bar: 56 dp full-radius field in a 72 dp strip pinned above the keyboard. -->
+  <dimen name="wino_tasks_add_bar_strip">72dp</dimen>
+  <dimen name="wino_tasks_add_bar_height">56dp</dimen>
+  <dimen name="wino_tasks_add_bar_radius">28dp</dimen>
+  <dimen name="wino_tasks_add_bar_padding_start">20dp</dimen>
+  <dimen name="wino_tasks_add_bar_padding_end">8dp</dimen>
+  <dimen name="wino_tasks_add_bar_gap">12dp</dimen>
+  <dimen name="wino_tasks_add_bar_button">40dp</dimen>
+
+  <!-- Task detail: headline title, 48 dp step rows indented to the title column, 56 dp setting rows. -->
+  <dimen name="wino_tasks_detail_title_text">22sp</dimen>
+  <dimen name="wino_tasks_detail_step_height">48dp</dimen>
+  <dimen name="wino_tasks_detail_step_indent">56dp</dimen>
+  <dimen name="wino_tasks_detail_row_height">56dp</dimen>
+  <dimen name="wino_tasks_detail_notes_min_height">96dp</dimen>
+  <dimen name="wino_tasks_detail_bar_title_text">16sp</dimen>
+</resources>

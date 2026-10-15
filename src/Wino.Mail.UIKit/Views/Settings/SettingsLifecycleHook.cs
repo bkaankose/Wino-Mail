@@ -5,6 +5,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Mail.ViewModels.Lifecycle;
 using Wino.Mail.ViewModels.Navigation;
+using Wino.Core.Domain.Models.Settings;
 
 namespace Wino.Mail.UIKit.Views.Settings;
 
@@ -17,10 +18,11 @@ public sealed class SettingsLifecycleHook(IServiceProvider services) : IApplicat
 {
     public Task ServicesReadyAsync()
     {
-        SettingsPageCatalog.IsSmimeAvailable = services.GetService<IPlatformCapabilities>()?.Smime ?? false;
-        SettingsPageCatalog.IsPad = UIDevice.CurrentDevice.UserInterfaceIdiom == UIUserInterfaceIdiom.Pad;
+        // The shared list hides what this device lacks (S/MIME, the Companion, Backup and restore, and Keyboard shortcuts on
+        // iPhone) through IPlatformCapabilities.
         var entitlement = services.GetService<IWinoAccountIntelligenceSnapshotService>();
-        SettingsPageCatalog.CanAccessIntelligence = () => entitlement?.CurrentEntitlement?.CanAccessSurfaces ?? false;
+        SettingsCatalog.Configure(services.GetRequiredService<IPlatformCapabilities>(),
+            () => entitlement?.CurrentEntitlement?.CanAccessSurfaces ?? false);
 
         var navigation = services.GetRequiredService<UIKitNavigationService>();
         SettingsSheetChrome.Close = () => ((INavigationHost)navigation).CloseSettingsAsync();

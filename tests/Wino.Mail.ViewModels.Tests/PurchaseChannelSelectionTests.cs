@@ -25,7 +25,7 @@ public sealed class PurchaseChannelSelectionTests
         store.Setup(s => s.PurchaseAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS))
             .ReturnsAsync(StorePurchaseResult.NotPurchased);
         var profiles = new Mock<IWinoAccountProfileService>(MockBehavior.Strict);
-        var vm = CreateAccountManagement(dialogs, store, profiles, new PlatformCapabilities(MicrosoftStore: true));
+        var vm = CreateAccountManagement(dialogs, store, profiles, new PlatformCapabilities(MicrosoftStore: true, Purchases: true));
 
         await vm.PurchaseUnlimitedAccountCommand.ExecuteAsync(null);
 
@@ -41,13 +41,29 @@ public sealed class PurchaseChannelSelectionTests
         var store = new Mock<IMicrosoftStoreService>(MockBehavior.Strict);
         var profiles = new Mock<IWinoAccountProfileService>();
         profiles.Setup(p => p.GetAuthenticatedAccountAsync(It.IsAny<CancellationToken>())).ReturnsAsync((WinoAccount?)null);
-        var vm = CreateAccountManagement(dialogs, store, profiles, new PlatformCapabilities());
+        var vm = CreateAccountManagement(dialogs, store, profiles, new PlatformCapabilities(Purchases: true));
 
         await vm.PurchaseUnlimitedAccountCommand.ExecuteAsync(null);
 
         dialogs.Verify(d => d.ShowUnlimitedAccountsPurchaseChannelDialogAsync(), Times.Never);
         profiles.Verify(p => p.GetAuthenticatedAccountAsync(It.IsAny<CancellationToken>()), Times.Once);
         store.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task AccountManagement_WithoutPurchases_SellsNothing()
+    {
+        var dialogs = new Mock<IMailDialogService>(MockBehavior.Strict);
+        var store = new Mock<IMicrosoftStoreService>(MockBehavior.Strict);
+        var profiles = new Mock<IWinoAccountProfileService>(MockBehavior.Strict);
+        var vm = CreateAccountManagement(dialogs, store, profiles, new PlatformCapabilities());
+
+        await vm.PurchaseUnlimitedAccountCommand.ExecuteAsync(null);
+
+        Assert.False(vm.IsPurchasePanelVisible);
+        dialogs.VerifyNoOtherCalls();
+        store.VerifyNoOtherCalls();
+        profiles.VerifyNoOtherCalls();
     }
 
     [Fact]
@@ -59,7 +75,7 @@ public sealed class PurchaseChannelSelectionTests
         var store = new Mock<IMicrosoftStoreService>(MockBehavior.Strict);
         var profiles = new Mock<IWinoAccountProfileService>(MockBehavior.Strict);
         var appStore = CreateAppStore(externalPurchaseAllowed: true, WinoAppStorePurchaseOutcome.Cancelled);
-        var vm = CreateAccountManagement(dialogs, store, profiles, new PlatformCapabilities(AppleAppStore: true), appStore.Object);
+        var vm = CreateAccountManagement(dialogs, store, profiles, new PlatformCapabilities(AppleAppStore: true, Purchases: true), appStore.Object);
 
         await vm.PurchaseUnlimitedAccountCommand.ExecuteAsync(null);
 
@@ -76,7 +92,7 @@ public sealed class PurchaseChannelSelectionTests
         var store = new Mock<IMicrosoftStoreService>(MockBehavior.Strict);
         var profiles = new Mock<IWinoAccountProfileService>(MockBehavior.Strict);
         var appStore = CreateAppStore(externalPurchaseAllowed: false, WinoAppStorePurchaseOutcome.Failed);
-        var vm = CreateAccountManagement(dialogs, store, profiles, new PlatformCapabilities(AppleAppStore: true), appStore.Object);
+        var vm = CreateAccountManagement(dialogs, store, profiles, new PlatformCapabilities(AppleAppStore: true, Purchases: true), appStore.Object);
 
         await vm.PurchaseUnlimitedAccountCommand.ExecuteAsync(null);
 
@@ -94,7 +110,7 @@ public sealed class PurchaseChannelSelectionTests
         var profiles = new Mock<IWinoAccountProfileService>();
         profiles.Setup(p => p.GetAuthenticatedAccountAsync(It.IsAny<CancellationToken>())).ReturnsAsync((WinoAccount?)null);
         var billing = new Mock<IWinoBillingService>(MockBehavior.Strict);
-        var vm = CreateWinoAccountPage(dialogs, profiles, billing, new PlatformCapabilities(), storeService: null);
+        var vm = CreateWinoAccountPage(dialogs, profiles, billing, new PlatformCapabilities(Purchases: true), storeService: null);
 
         await vm.PurchaseAddOnCommand.ExecuteAsync(vm.UnlimitedAccountsAddOn);
 
@@ -110,7 +126,7 @@ public sealed class PurchaseChannelSelectionTests
         var profiles = new Mock<IWinoAccountProfileService>();
         profiles.Setup(p => p.GetAuthenticatedAccountAsync(It.IsAny<CancellationToken>())).ReturnsAsync((WinoAccount?)null);
         var vm = CreateWinoAccountPage(dialogs, profiles, new Mock<IWinoBillingService>(MockBehavior.Strict),
-            new PlatformCapabilities(MicrosoftStore: true), storeService: null);
+            new PlatformCapabilities(MicrosoftStore: true, Purchases: true), storeService: null);
 
         await vm.PurchaseAddOnCommand.ExecuteAsync(vm.UnlimitedAccountsAddOn);
 
@@ -128,7 +144,7 @@ public sealed class PurchaseChannelSelectionTests
             .ReturnsAsync(StorePurchaseResult.NotPurchased);
         var profiles = new Mock<IWinoAccountProfileService>(MockBehavior.Strict);
         var vm = CreateWinoAccountPage(dialogs, profiles, new Mock<IWinoBillingService>(MockBehavior.Strict),
-            new PlatformCapabilities(MicrosoftStore: true), store.Object);
+            new PlatformCapabilities(MicrosoftStore: true, Purchases: true), store.Object);
 
         await vm.PurchaseAddOnCommand.ExecuteAsync(vm.UnlimitedAccountsAddOn);
 
@@ -146,7 +162,7 @@ public sealed class PurchaseChannelSelectionTests
         var profiles = new Mock<IWinoAccountProfileService>(MockBehavior.Strict);
         var billing = new Mock<IWinoBillingService>(MockBehavior.Strict);
         var appStore = CreateAppStore(externalPurchaseAllowed: true, WinoAppStorePurchaseOutcome.Cancelled);
-        var vm = CreateWinoAccountPage(dialogs, profiles, billing, new PlatformCapabilities(AppleAppStore: true), storeService: null, appStore.Object);
+        var vm = CreateWinoAccountPage(dialogs, profiles, billing, new PlatformCapabilities(AppleAppStore: true, Purchases: true), storeService: null, appStore.Object);
 
         await vm.PurchaseAddOnCommand.ExecuteAsync(vm.UnlimitedAccountsAddOn);
 
@@ -165,7 +181,7 @@ public sealed class PurchaseChannelSelectionTests
             .ReturnsAsync(new WinoAccount { Id = Guid.NewGuid(), Email = "user@example.com" });
         var billing = new Mock<IWinoBillingService>(MockBehavior.Strict);
         var appStore = CreateAppStore(externalPurchaseAllowed: true, WinoAppStorePurchaseOutcome.Cancelled);
-        var vm = CreateWinoAccountPage(dialogs, profiles, billing, new PlatformCapabilities(AppleAppStore: true), storeService: null, appStore.Object);
+        var vm = CreateWinoAccountPage(dialogs, profiles, billing, new PlatformCapabilities(AppleAppStore: true, Purchases: true), storeService: null, appStore.Object);
 
         await vm.PurchaseAddOnCommand.ExecuteAsync(vm.AiPackAddOn);
 

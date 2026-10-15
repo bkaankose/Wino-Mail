@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Contacts (Windows ContactsPage list; canvas Material pass Contacts): the 64 dp top app bar (menu, title, search,
+     overflow), the 48 dp filter chip row (the shared contacts pane filters), then one Wino zone with the letter-indexed
+     list and pull to refresh, the Wino fast scroller on the end edge, the empty, loading and readiness states and the
+     New contact FAB. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+  <com.google.android.material.appbar.MaterialToolbar
+      android:id="@+id/contacts_toolbar"
+      style="@style/Widget.WinoKit.TopAppBar" />
+
+  <HorizontalScrollView
+      android:id="@+id/contacts_chip_scroll"
+      style="@style/Widget.Wino.People.ChipScroll">
+
+    <com.google.android.material.chip.ChipGroup
+        android:id="@+id/contacts_chips"
+        style="@style/Widget.Wino.People.Chips"
+        app:singleLine="true" />
+  </HorizontalScrollView>
+
+  <com.winomail.presentation.WinoZoneLayout
+      android:id="@+id/contacts_zone"
+      style="@style/Widget.Wino.People.Zone"
+      android:layout_width="match_parent"
+      android:layout_height="0dp"
+      android:layout_weight="1">
+
+    <FrameLayout
+        android:id="@+id/contacts_frame"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+      <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+          android:id="@+id/contacts_refresh"
+          android:layout_width="match_parent"
+          android:layout_height="match_parent"
+          android:layout_marginEnd="@dimen/wino_people_list_end_clearance">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/contacts_list"
+            style="@style/Widget.Wino.People.List"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+      </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+      <include
+          android:id="@+id/contacts_empty"
+          layout="@layout/people_state_panel" />
+
+      <com.google.android.material.progressindicator.CircularProgressIndicator
+          android:id="@+id/contacts_loading"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_gravity="center"
+          android:indeterminate="true"
+          android:visibility="gone" />
+
+      <com.google.android.material.floatingactionbutton.FloatingActionButton
+          android:id="@+id/contacts_fab"
+          style="@style/Widget.Wino.People.Fab" />
+
+      <FrameLayout
+          android:id="@+id/contacts_blocked_host"
+          android:layout_width="match_parent"
+          android:layout_height="match_parent"
+          android:background="@color/wino_zone"
+          android:clickable="true"
+          android:visibility="gone">
+
+        <include
+            android:id="@+id/contacts_blocked"
+            layout="@layout/people_state_panel" />
+      </FrameLayout>
+    </FrameLayout>
+  </com.winomail.presentation.WinoZoneLayout>
+</LinearLayout>

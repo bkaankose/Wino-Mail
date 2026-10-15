@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The message reader (canvas Material pass board Reader; Windows MailRenderingPage). Compact: the 64 dp small top app
+     bar with Back, Mark unread/read and the overflow, the message in one Wino zone, and the Material 3 bottom app bar
+     with Archive, Delete, Move and Flag and the tonal Reply FAB. Medium and expanded: the Windows command bar at the top
+     of the zone. The header (subject headline, sender, recipients, date, categories, the remote-image banner), the
+     attachment chips and the body scroll together; the body is the shared reader document in a WebView. -->
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/reader_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+  <LinearLayout
+      android:id="@+id/reader_column"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/reader_toolbar"
+        style="@style/Widget.WinoKit.TopAppBar" />
+
+    <com.winomail.presentation.WinoZoneLayout
+        android:id="@+id/reader_zone"
+        style="@style/Widget.Wino.Mail.Zone"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+      <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="match_parent"
+          android:orientation="vertical">
+
+        <HorizontalScrollView
+            android:id="@+id/reader_command_scroll"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/wino_m3_chip_row_height"
+            android:scrollbars="none"
+            android:visibility="gone">
+
+          <LinearLayout
+              android:id="@+id/reader_commands"
+              android:layout_width="wrap_content"
+              android:layout_height="match_parent"
+              android:gravity="center_vertical"
+              android:orientation="horizontal"
+              android:paddingStart="@dimen/wino_space_s"
+              android:paddingEnd="@dimen/wino_space_s" />
+        </HorizontalScrollView>
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+          <androidx.core.widget.NestedScrollView
+              android:id="@+id/reader_scroll"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:clipToPadding="false"
+              android:fillViewport="true">
+
+            <LinearLayout
+                style="@style/Widget.Wino.Mail.ReaderContent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+              <TextView
+                  android:id="@+id/reader_subject"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:accessibilityHeading="true"
+                  android:layout_marginTop="@dimen/wino_space_2xs"
+                  android:textAppearance="@style/TextAppearance.WinoKit.HeadlineSmall"
+                  android:textIsSelectable="true" />
+
+              <LinearLayout
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:layout_marginTop="@dimen/wino_space_l"
+                  android:gravity="center_vertical"
+                  android:orientation="horizontal">
+
+                <com.winomail.controls.WinoContactPicture
+                    android:id="@+id/reader_avatar"
+                    android:layout_width="@dimen/wino_size_control"
+                    android:layout_height="@dimen/wino_size_control" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/wino_space_l"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                  <TextView
+                      android:id="@+id/reader_sender"
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content"
+                      android:ellipsize="end"
+                      android:maxLines="1"
+                      android:textAppearance="@style/TextAppearance.WinoKit.BodyLargeStrong" />
+
+                  <TextView
+                      android:id="@+id/reader_sender_address"
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content"
+                      android:ellipsize="end"
+                      android:maxLines="1"
+                      android:textAppearance="@style/TextAppearance.WinoKit.BodySecondary" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/reader_date"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/wino_space_s"
+                    android:gravity="end"
+                    android:maxLines="2"
+                    android:maxWidth="@dimen/wino_reader_date_max_width"
+                    android:textAppearance="@style/TextAppearance.WinoKit.Caption" />
+              </LinearLayout>
+
+              <TextView
+                  android:id="@+id/reader_recipients"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:layout_marginStart="@dimen/wino_m3_reader_header_indent"
+                  android:layout_marginTop="@dimen/wino_space_2xs"
+                  android:textAppearance="@style/TextAppearance.WinoKit.BodySecondary" />
+
+              <LinearLayout
+                  android:id="@+id/reader_chips"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:layout_marginTop="@dimen/wino_space_sm"
+                  android:orientation="horizontal"
+                  android:visibility="gone" />
+
+              <com.winomail.controls.WinoInfoBar
+                  android:id="@+id/reader_image_banner"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:layout_marginTop="@dimen/wino_space_m"
+                  android:visibility="gone" />
+
+              <LinearLayout
+                  android:id="@+id/reader_attachment_strip"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:layout_marginTop="@dimen/wino_space_m"
+                  android:orientation="vertical"
+                  android:visibility="gone">
+
+                <HorizontalScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:scrollbars="none">
+
+                  <LinearLayout
+                      android:id="@+id/reader_attachments"
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:orientation="horizontal" />
+                </HorizontalScrollView>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/reader_save_all"
+                    style="@style/Widget.Wino.Button.Text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+              </LinearLayout>
+
+              <FrameLayout
+                  android:id="@+id/reader_body_card"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:layout_marginTop="@dimen/wino_space_l"
+                  android:background="@drawable/reader_body_background"
+                  android:clipToOutline="true">
+
+                <WebView
+                    android:id="@+id/reader_web"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/wino_m3_reader_body_min_height" />
+              </FrameLayout>
+            </LinearLayout>
+          </androidx.core.widget.NestedScrollView>
+
+          <com.google.android.material.progressindicator.CircularProgressIndicator
+              android:id="@+id/reader_loading"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:layout_gravity="center"
+              android:indeterminate="true"
+              android:visibility="gone" />
+        </FrameLayout>
+      </LinearLayout>
+    </com.winomail.presentation.WinoZoneLayout>
+  </LinearLayout>
+
+  <com.google.android.material.bottomappbar.BottomAppBar
+      android:id="@+id/reader_bottom_bar"
+      style="@style/Widget.Wino.Mail.BottomAppBar"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_gravity="bottom" />
+
+  <com.google.android.material.floatingactionbutton.FloatingActionButton
+      android:id="@+id/reader_reply"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      app:layout_anchor="@id/reader_bottom_bar" />
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

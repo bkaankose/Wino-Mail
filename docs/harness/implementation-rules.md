@@ -1,8 +1,8 @@
 # Wino implementation rules
 
 Read the relevant section before changing C#, XAML, translations, storage, or editor assets.
-The architecture, core, localization, and storage rules apply to all three applications. The WinUI and XAML rules apply to the Windows application only.
-Build and runtime commands are in the [Windows](development-windows.md), [macOS](development-macos.md), and [iOS](development-ios.md) development guides.
+The architecture, core, localization, and storage rules apply to all four applications. The WinUI and XAML rules apply to the Windows application only.
+Build and runtime commands are in the [Windows](development-windows.md), [macOS](development-macos.md), [iOS](development-ios.md), and [Android](development-android.md) development guides.
 
 ## Architecture
 
@@ -17,6 +17,7 @@ src/Wino.Platform.Windows  Windows platform services
 src/Wino.Platform.Apple    Apple platform services shared by macOS and iOS (Foundation, Keychain, StoreKit, notifications)
 src/Wino.Platform.MacOS    macOS (AppKit-only) platform services
 src/Wino.Platform.iOS      iOS (UIKit-only) platform services
+src/Wino.Platform.Android  Android platform services
 src/Wino.Core.Apple.Bindings  StoreKit 2 (macOS and iOS) and Sparkle (macOS only) native bindings
 src/Wino.Mail.WinUI        Windows application (WinUI 3)
 src/Wino.Mail.MacOS        macOS application (AppKit)
@@ -24,13 +25,14 @@ src/Wino.Mail.UIKit        Idiom-neutral UIKit infrastructure and pages for iPho
 src/Wino.Mail.UIKit.Phone  iPhone shell and pages
 src/Wino.Mail.UIKit.Pad    iPad shell and pages
 src/Wino.Mail.iOS          Universal iOS and iPadOS application head
-controls                   Shared control contracts and presentation helpers, editor engine, WinUI, AppKit, UIKit and WebKit controls, playground
+src/Wino.Mail.Android      Android application head (Views, XML layouts, AndroidX, Material)
+controls                   Shared control contracts and presentation helpers, editor engine, WinUI, AppKit, UIKit, WebKit and Android controls, playground
 tests                      Portable automated tests
 ```
 
 Mail requests flow through `WinoRequestDelegator`, `WinoRequestProcessor`, provider synchronizers, change processors, the local SQLite database, and messenger events. Initial synchronization queues identifiers and downloads MIME content on demand.
 
-Register core services in `CoreContainerSetup` (`RegisterCoreServices`) and shared services in `ServicesContainerSetup` (`RegisterSharedServices`). Each application registers its platform services and views in its own composition root: `App.xaml.cs` on Windows, `src/Wino.Mail.MacOS/Composition.cs` on macOS, and `src/Wino.Mail.iOS/Composition.cs` on iOS. All three call `RegisterWinoViewModels()` (`Wino.Mail.ViewModels`), the single list of shared ViewModels and their lifetimes. Add a shared ViewModel there, not in a head; a head registers only its platform-only ViewModels and its views.
+Register core services in `CoreContainerSetup` (`RegisterCoreServices`) and shared services in `ServicesContainerSetup` (`RegisterSharedServices`). Each application registers its platform services and views in its own composition root: `App.xaml.cs` on Windows, `src/Wino.Mail.MacOS/Composition.cs` on macOS, `src/Wino.Mail.iOS/Composition.cs` on iOS, and `src/Wino.Mail.Android/AndroidComposition.cs` on Android. All four call `RegisterWinoViewModels()` (`Wino.Mail.ViewModels`), the single list of shared ViewModels and their lifetimes. Add a shared ViewModel there, not in a head; a head registers only its platform-only ViewModels and its views.
 
 Published cross-repository dependencies must use unconditional `PackageReference` items. A sibling checkout must never change the dependency graph.
 
@@ -42,7 +44,7 @@ If a change to a published cross-repository dependency requires a new version, r
 - Use public partial properties with `[ObservableProperty]`.
 - Do not annotate private backing fields.
 - Register messenger handlers in `RegisterRecipients()` and unregister them in `UnregisterRecipients()`.
-- Messenger recipients run on background threads by default. Marshal UI-bound state, collections, navigation, windows, and platform UI APIs (WinRT, AppKit, or UIKit) through `ExecuteUIThread(...)` or the appropriate dispatcher.
+- Messenger recipients run on background threads by default. Marshal UI-bound state, collections, navigation, windows, and platform UI APIs (WinRT, AppKit, UIKit, or Android Views) through `ExecuteUIThread(...)` or the appropriate dispatcher.
 - Treat code after `ConfigureAwait(false)` as background-thread code until explicitly dispatched.
 - Keep ViewModels limited to UI state and interaction. Put authentication, account API, token, preferences, and other business operations in services.
 - Avoid new NuGet packages when existing platform or repository libraries are sufficient.
@@ -95,7 +97,7 @@ The editor extension is a convenience. The pinned command-line result is the for
 - Add English source strings only to `src/Wino.Core.Domain/Translations/en_US/resources.json`.
 - Use generated `Translator` properties. XAML translation bindings use `Mode=OneTime` because `Translator` does not implement `INotifyPropertyChanged`.
 - Treat non-English resource files as externally managed and do not edit them.
-- The main SQLite database and EML files live under `IApplicationConfiguration.ApplicationDataFolderPath`: the package LocalState folder on Windows, the sandbox container's Application Support folder on macOS, and the app container's `Library/Application Support/com.winomail.macos` on iOS. Resolve them through `MainDatabasePaths` and `MimeFileService.GetMimeMessagePath()`; never build platform paths in shared code. The Windows publisher cache is read only as a legacy migration source.
+- The main SQLite database and EML files live under `IApplicationConfiguration.ApplicationDataFolderPath`: the package LocalState folder on Windows, the sandbox container's Application Support folder on macOS, and the app container's `Library/Application Support/com.winomail.macos` on iOS, and `NoBackupFilesDir/data` on Android. Resolve them through `MainDatabasePaths` and `MimeFileService.GetMimeMessagePath()`; never build platform paths in shared code. The Windows publisher cache is read only as a legacy migration source.
 - `controls/Wino.Editor.Core` is the only reader/editor HTML, CSS, and JavaScript asset source for WebView2 and WKWebView. Preserve its document-ready bridge and on-demand MIME loading.
 
 

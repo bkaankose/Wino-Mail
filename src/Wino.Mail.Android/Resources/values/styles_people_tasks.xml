@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Contacts and To Do styles (canvas Material pass boards Contacts, ContactEditor, ToDo and TaskDetail): the layouts
+     reference only these, the Widget.WinoKit Material 3 styles and the Presentation.Android tokens. -->
+<resources>
+  <style name="Widget.Wino.People" parent="" />
+  <style name="Widget.Wino.Tasks" parent="" />
+
+  <style name="Widget.Wino.People.Zone">
+    <item name="android:layout_marginStart">@dimen/wino_zone_gutter</item>
+    <item name="android:layout_marginEnd">@dimen/wino_zone_gutter</item>
+    <item name="android:layout_marginBottom">@dimen/wino_zone_gutter</item>
+  </style>
+
+  <!-- The 48 dp chip row under the top app bar (filters on Contacts, smart views on To Do). -->
+  <style name="Widget.Wino.People.ChipScroll">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">@dimen/wino_m3_chip_row_height</item>
+    <item name="android:scrollbars">none</item>
+  </style>
+
+  <style name="Widget.Wino.People.Chips">
+    <item name="android:layout_width">wrap_content</item>
+    <item name="android:layout_height">match_parent</item>
+    <item name="android:paddingStart">@dimen/wino_m3_chip_row_padding_start</item>
+    <item name="android:paddingEnd">@dimen/wino_m3_chip_row_padding_start</item>
+    <item name="chipSpacingHorizontal">@dimen/wino_m3_chip_spacing</item>
+    <item name="singleLine">true</item>
+  </style>
+
+  <style name="Widget.Wino.People.List">
+    <item name="android:clipToPadding">false</item>
+    <item name="android:paddingBottom">@dimen/wino_m3_list_fab_clearance</item>
+    <item name="android:scrollbars">none</item>
+  </style>
+
+  <style name="Widget.Wino.People.State">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:layout_gravity">center</item>
+    <item name="android:gravity">center_horizontal</item>
+    <item name="android:orientation">vertical</item>
+    <item name="android:padding">@dimen/wino_space_2xl</item>
+  </style>
+
+  <style name="Widget.Wino.People.StateTitle">
+    <item name="android:layout_marginTop">@dimen/wino_space_m</item>
+    <item name="android:gravity">center</item>
+    <item name="android:textAppearance">@style/TextAppearance.WinoKit.Subtitle</item>
+  </style>
+
+  <style name="Widget.Wino.People.StateMessage">
+    <item name="android:layout_marginTop">@dimen/wino_space_xs</item>
+    <item name="android:gravity">center</item>
+    <item name="android:textAppearance">@style/TextAppearance.WinoKit.BodySecondary</item>
+  </style>
+
+  <style name="Widget.Wino.People.Fab" parent="Widget.WinoKit.Fab">
+    <item name="android:layout_width">wrap_content</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:layout_gravity">bottom|end</item>
+    <item name="android:layout_margin">@dimen/wino_m3_fab_margin</item>
+  </style>
+
+  <!-- Contact card and task detail: scrolling content in the zone. -->
+  <style name="Widget.Wino.People.CardContent">
+    <item name="android:paddingTop">@dimen/wino_space_s</item>
+    <item name="android:paddingBottom">@dimen/wino_space_2xl</item>
+  </style>
+
+  <style name="Widget.Wino.People.CardName">
+    <item name="android:layout_marginTop">@dimen/wino_space_m</item>
+    <item name="android:gravity">center</item>
+    <item name="android:textAppearance">@style/TextAppearance.WinoKit.HeadlineSmall</item>
+  </style>
+
+  <!-- Editor full-screen dialog: the filled Save button in the top app bar. -->
+  <style name="Widget.Wino.People.SaveButton" parent="Widget.Material3.Button">
+    <item name="android:layout_width">wrap_content</item>
+    <item name="android:layout_height">@dimen/wino_pill_button_height_small</item>
+    <item name="android:layout_marginEnd">@dimen/wino_space_m</item>
+    <item name="android:paddingStart">@dimen/wino_people_editor_save_padding</item>
+    <item name="android:paddingEnd">@dimen/wino_people_editor_save_padding</item>
+    <item name="android:insetTop">0dp</item>
+    <item name="android:insetBottom">0dp</item>
+    <item name="android:textAppearance">@style/TextAppearance.WinoKit.Label</item>
+  </style>
+
+
+  <!-- To Do: the surface summary line and the add-task bar pinned above the keyboard. -->
+  <style name="Widget.Wino.Tasks.Summary">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:paddingStart">@dimen/wino_space_l</item>
+    <item name="android:paddingTop">@dimen/wino_tasks_summary_padding_top</item>
+    <item name="android:paddingEnd">@dimen/wino_space_l</item>
+    <item name="android:paddingBottom">@dimen/wino_tasks_summary_padding_bottom</item>
+    <item name="android:ellipsize">end</item>
+    <item name="android:maxLines">1</item>
+    <item name="android:textAppearance">@style/TextAppearance.WinoKit.BodySecondary</item>
+  </style>
+
+  <style name="Widget.Wino.Tasks.AddStrip">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">@dimen/wino_tasks_add_bar_strip</item>
+    <item name="android:gravity">center_vertical</item>
+    <item name="android:paddingStart">@dimen/wino_space_l</item>
+    <item name="android:paddingEnd">@dimen/wino_space_l</item>
+  </style>
+
+  <style name="Widget.Wino.Tasks.AddBar">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">@dimen/wino_tasks_add_bar_height</item>
+    <item name="android:background">@drawable/tasks_add_bar_background</item>
+    <item name="android:gravity">center_vertical</item>
+    <item name="android:orientation">horizontal</item>
+    <item name="android:paddingStart">@dimen/wino_tasks_add_bar_padding_start</item>
+    <item name="android:paddingEnd">@dimen/wino_tasks_add_bar_padding_end</item>
+  </style>
+
+  <style name="Widget.Wino.Tasks.AddField">
+    <item name="android:layout_marginStart">@dimen/wino_tasks_add_bar_gap</item>
+    <item name="android:background">@android:color/transparent</item>
+    <item name="android:imeOptions">actionDone</item>
+    <item name="android:inputType">textCapSentences</item>
+    <item name="android:maxLines">1</item>
+    <item name="android:textAppearance">@style/TextAppearance.WinoKit.BodyLarge</item>
+    <item name="android:textColorHint">@color/wino_text_secondary</item>
+  </style>
+
+  <style name="Widget.Wino.Tasks.DetailBarTitle" parent="TextAppearance.WinoKit.TopAppBarTitle">
+    <item name="android:textSize">@dimen/wino_tasks_detail_bar_title_text</item>
+    <item name="android:textColor">@color/wino_text_secondary</item>
+  </style>
+</resources>

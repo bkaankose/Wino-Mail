@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tokens of the Wino Account and Wino Intelligence Settings pages (light colours; values-night has the dark pair).
+     Illustration geometry stays in code; its palette lives here. -->
+<resources>
+  <!-- Brand (WinoIllustrationBrandSolidBrush, WinoIntelligenceBrandIconBrush stops, brand surface wash). -->
+  <color name="wino_winoaccount_brand_solid">#FF3B84E8</color>
+  <color name="wino_winoaccount_brand_gradient_1">#FF075FCC</color>
+  <color name="wino_winoaccount_brand_gradient_2">#FF58BFFF</color>
+  <color name="wino_winoaccount_brand_gradient_3">#FF7C5CFC</color>
+  <color name="wino_winoaccount_brand_gradient_4">#FF1685EA</color>
+  <color name="wino_winoaccount_brand_wash">#123B84E8</color>
+  <!-- Opaque paint colour under a gradient shader (the shader supplies the colour; this keeps it fully opaque). -->
+  <color name="wino_winoaccount_gradient_base">#FF000000</color>
+
+  <!-- Pills, chips and badges. -->
+  <color name="wino_winoaccount_success_pill_fill">#FFDFF6DD</color>
+  <color name="wino_winoaccount_chip_fill">#FFFFFFFF</color>
+  <color name="wino_winoaccount_hero_pill_fill">#FFFFFFFF</color>
+  <color name="wino_winoaccount_hero_pill_stroke">#14000000</color>
+  <color name="wino_winoaccount_state_success">#FF2F9E63</color>
+  <color name="wino_winoaccount_meter_track">#1A000000</color>
+  <color name="wino_winoaccount_photo_veil">#8CFFFFFF</color>
+  <color name="wino_winoaccount_photo_badge_fill">#FFFFFFFF</color>
+  <color name="wino_winoaccount_unlimited_mark">#FFD97706</color>
+
+  <!-- Coverage bands. -->
+  <color name="wino_winoaccount_coverage_indexed">#FF0F7B0F</color>
+  <color name="wino_winoaccount_coverage_outside">#38000000</color>
+
+  <!-- Offer illustrations (the check on the accent disc). -->
+  <color name="wino_winoaccount_benefit_check">#FFFFFFFF</color>
+
+  <!-- Intelligence promotion illustration ("long thread, short summary"). -->
+  <color name="wino_winoaccount_promo_surface">#FFFFFFFF</color>
+  <color name="wino_winoaccount_promo_line">#FFD6D6E0</color>
+  <color name="wino_winoaccount_promo_line_soft">#FFE9E9F1</color>
+  <color name="wino_winoaccount_promo_warm">#FFF2B33D</color>
+  <color name="wino_winoaccount_promo_shadow">#12141428</color>
+
+  <!-- Component sizes. -->
+  <dimen name="wino_winoaccount_stroke">1dp</dimen>
+  <dimen name="wino_winoaccount_stroke_selected">2dp</dimen>
+  <dimen name="wino_winoaccount_tile_radius">10dp</dimen>
+  <dimen name="wino_winoaccount_promo_art_small">64dp</dimen>
+  <dimen name="wino_winoaccount_promo_art">72dp</dimen>
+  <dimen name="wino_winoaccount_loading_spinner">36dp</dimen>
+  <dimen name="wino_winoaccount_loading_margin">48dp</dimen>
+  <dimen name="wino_winoaccount_chip_height">26dp</dimen>
+  <dimen name="wino_winoaccount_benefit_icon_box">36dp</dimen>
+  <dimen name="wino_winoaccount_benefit_art_width">300dp</dimen>
+  <dimen name="wino_winoaccount_benefit_art_min_panel">620dp</dimen>
+  <dimen name="wino_winoaccount_folder_bar_width">3dp</dimen>
+  <dimen name="wino_winoaccount_folder_bar_height">16dp</dimen>
+  <dimen name="wino_winoaccount_folder_count_min">38dp</dimen>
+  <dimen name="wino_winoaccount_preset_min_width">88dp</dimen>
+  <dimen name="wino_winoaccount_band_dot">8dp</dimen>
+  <dimen name="wino_winoaccount_policy_height">360dp</dimen>
+  <dimen name="wino_winoaccount_photo">72dp</dimen>
+  <dimen name="wino_winoaccount_photo_badge">28dp</dimen>
+  <dimen name="wino_winoaccount_logo">56dp</dimen>
+  <dimen name="wino_winoaccount_hero_tile">44dp</dimen>
+  <dimen name="wino_winoaccount_hero_pill_min_height">24dp</dimen>
+  <dimen name="wino_winoaccount_mailbox_icon">28dp</dimen>
+</resources>

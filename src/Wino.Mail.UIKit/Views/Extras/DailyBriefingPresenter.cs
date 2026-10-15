@@ -118,13 +118,8 @@ public sealed class DailyBriefingPresenter : IUIKitDailyBriefingPresenter,
                 try { await _entitlements.RefreshEntitlementAsync().ConfigureAwait(false); }
                 catch (Exception exception) { _logger.CaptureException(exception, nameof(DailyBriefingPresenter)); }
             }
-            var entitlement = await _entitlements.GetEntitlementAsync().ConfigureAwait(false);
-            var hasAccess = entitlement.CanAccessSurfaces;
-            var eligible = hasAccess ? await _localIntelligence.GetEligibleAccountsAsync().ConfigureAwait(false) : [];
-            var unseen = eligible.Count > 0
-                ? await _localIntelligence.GetUnseenStateAsync().ConfigureAwait(false)
-                : new DailyBriefingUnseenState(false, null);
-            await Publish(hasAccess, unseen.HasUnseenContent).ConfigureAwait(false);
+            var state = await DailyBriefingAvailability.ReadAsync(_entitlements, _localIntelligence).ConfigureAwait(false);
+            await Publish(state.IsAvailable, state.HasUnseenItems).ConfigureAwait(false);
         }
         catch (Exception exception)
         {

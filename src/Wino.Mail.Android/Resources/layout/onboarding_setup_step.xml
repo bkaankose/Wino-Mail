@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One account setup step: its status glyph (pending, running, done, failed), title and failure detail. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minHeight="48dp"
+    android:orientation="horizontal"
+    android:paddingStart="@dimen/onboarding_page_padding"
+    android:paddingTop="8dp"
+    android:paddingEnd="@dimen/onboarding_page_padding"
+    android:paddingBottom="8dp">
+
+  <FrameLayout
+      android:layout_width="24dp"
+      android:layout_height="24dp">
+
+    <com.google.android.material.progressindicator.CircularProgressIndicator
+        android:id="@+id/step_spinner"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:indeterminate="true"
+        android:visibility="gone"
+        app:indicatorSize="18dp"
+        app:trackThickness="2dp"
+        xmlns:app="http://schemas.android.com/apk/res-auto" />
+
+    <com.winomail.presentation.WinoIconView
+        android:id="@+id/step_icon"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:importantForAccessibility="no" />
+  </FrameLayout>
+
+  <LinearLayout
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="16dp"
+      android:layout_weight="1"
+      android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/step_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textAppearance="@style/TextAppearance.Wino.ListSupporting"
+        android:textColor="@color/wino_text_primary" />
+
+    <TextView
+        android:id="@+id/step_error"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textAppearance="@style/TextAppearance.Wino.Caption"
+        android:textColor="@color/wino_critical"
+        android:visibility="gone" />
+  </LinearLayout>
+</LinearLayout>

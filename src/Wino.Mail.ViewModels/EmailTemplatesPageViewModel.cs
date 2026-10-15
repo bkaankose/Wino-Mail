@@ -31,6 +31,24 @@ public partial class EmailTemplatesPageViewModel(IEmailTemplateService emailTemp
         });
     }
 
+    /// <summary>
+    /// A list row's Delete: the same confirmation as the Windows editor's Delete, then the list reloads. True when the
+    /// template was deleted.
+    /// </summary>
+    public async Task<bool> DeleteTemplateAsync(EmailTemplate template, IDialogServiceBase dialogService)
+    {
+        ArgumentNullException.ThrowIfNull(dialogService);
+        if (template == null) return false;
+        var confirmed = await dialogService.ShowConfirmationDialogAsync(
+            string.Format(Translator.DialogMessage_DeleteEmailTemplateConfirmationMessage, template.Name),
+            Translator.DialogMessage_DeleteEmailTemplateConfirmationTitle,
+            Translator.Buttons_Delete);
+        if (!confirmed) return false;
+        await _emailTemplateService.DeleteEmailTemplateAsync(template);
+        await LoadAsync();
+        return true;
+    }
+
     public void CreateTemplate()
     {
         Messenger.Send(new BreadcrumbNavigationRequested(

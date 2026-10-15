@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Text appearances for code-built views (WinoTokens.Style and WinoTextStyle): size, weight and colour. -->
+<resources>
+  <style name="TextAppearance.WinoKit.Tiny" parent="TextAppearance.Material3.BodySmall">
+    <item name="android:textSize">@dimen/wino_text_tiny</item>
+    <item name="android:textColor">@color/wino_text_secondary</item>
+  </style>
+  <style name="TextAppearance.WinoKit.Caption" parent="TextAppearance.Material3.BodySmall">
+    <item name="android:textSize">@dimen/wino_text_caption</item>
+    <item name="android:textColor">@color/wino_text_secondary</item>
+  </style>
+  <style name="TextAppearance.WinoKit.CaptionStrong" parent="TextAppearance.WinoKit.Caption">
+    <item name="android:fontFamily">sans-serif-medium</item>
+  </style>
+  <style name="TextAppearance.WinoKit.Description" parent="TextAppearance.Material3.BodySmall">
+    <item name="android:textSize">@dimen/wino_text_description</item>
+    <item name="android:textColor">@color/wino_text_secondary</item>
+  </style>
+  <style name="TextAppearance.WinoKit.Body" parent="TextAppearance.Material3.BodyMedium">
+    <item name="android:textSize">@dimen/wino_text_body</item>
+    <item name="android:textColor">@color/wino_text_primary</item>
+  </style>
+  <style name="TextAppearance.WinoKit.BodySecondary" parent="TextAppearance.WinoKit.Body">
+    <item name="android:textColor">@color/wino_text_secondary</item>
+  </style>
+  <style name="TextAppearance.WinoKit.BodyStrong" parent="TextAppearance.WinoKit.Body">
+    <item name="android:fontFamily">sans-serif-medium</item>
+  </style>
+  <style name="TextAppearance.WinoKit.BodyLarge" parent="TextAppearance.Material3.BodyLarge">
+    <item name="android:textSize">@dimen/wino_text_body_large</item>
+    <item name="android:textColor">@color/wino_text_primary</item>
+  </style>
+  <style name="TextAppearance.WinoKit.BodyLargeStrong" parent="TextAppearance.WinoKit.BodyLarge">
+    <item name="android:fontFamily">sans-serif-medium</item>
+  </style>
+  <style name="TextAppearance.WinoKit.Subtitle" parent="TextAppearance.Material3.TitleMedium">
+    <item name="android:textSize">@dimen/wino_text_subtitle</item>
+    <item name="android:fontFamily">sans-serif-medium</item>
+    <item name="android:textColor">@color/wino_text_primary</item>
+  </style>
+  <style name="TextAppearance.WinoKit.Title" parent="TextAppearance.Material3.TitleLarge">
+    <item name="android:textSize">@dimen/wino_text_title</item>
+    <item name="android:fontFamily">sans-serif-medium</item>
+    <item name="android:textColor">@color/wino_text_primary</item>
+  </style>
+  <style name="TextAppearance.WinoKit.Display" parent="TextAppearance.Material3.HeadlineSmall">
+    <item name="android:textSize">@dimen/wino_text_display</item>
+    <item name="android:fontFamily">sans-serif-medium</item>
+    <item name="android:textColor">@color/wino_text_primary</item>
+  </style>
+  <!-- Material 3 small top app bar title (22 sp regular). -->
+  <style name="TextAppearance.WinoKit.TopAppBarTitle" parent="TextAppearance.Material3.TitleLarge">
+    <item name="android:textSize">@dimen/wino_text_top_app_bar</item>
+    <item name="android:fontFamily">sans-serif</item>
+    <item name="android:textColor">@color/wino_text_primary</item>
+  </style>
+  <!-- Material 3 list subheader (the colour is the theme primary, applied at runtime with the accent). -->
+  <style name="TextAppearance.WinoKit.Subheader" parent="TextAppearance.Material3.TitleSmall">
+    <item name="android:textSize">@dimen/wino_text_subheader</item>
+    <item name="android:fontFamily">sans-serif-medium</item>
+    <item name="android:textColor">@color/wino_accent_text</item>
+  </style>
+  <!-- Material 3 list item: headline and supporting text. -->
+  <style name="TextAppearance.WinoKit.ItemTitle" parent="TextAppearance.Material3.BodyLarge">
+    <item name="android:textSize">@dimen/wino_text_body_large</item>
+    <item name="android:textColor">@color/wino_text_primary</item>
+  </style>
+  <style name="TextAppearance.WinoKit.ItemSupporting" parent="TextAppearance.Material3.BodyMedium">
+    <item name="android:textSize">@dimen/wino_text_body</item>
+    <item name="android:textColor">@color/wino_text_secondary</item>
+  </style>
+</resources>

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Calendar, medium and expanded widths (canvas board CalendarTablet; Windows CalendarPage): the 64 dp top app bar
+     (menu, the visible range, New event) over the wallpaper, then one Wino zone with the period header (previous, next, Today and the Day · Week · Work week · Month segments) and the Windows calendar surface. The event details
+     open in the shell's details pane beside it; the calendars and the date picker are in the shell pane. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+  <com.google.android.material.appbar.MaterialToolbar
+      android:id="@+id/calendar_toolbar"
+      style="@style/Widget.WinoKit.TopAppBar" />
+
+  <com.winomail.presentation.WinoZoneLayout
+      style="@style/Widget.Wino.Mail.Zone"
+      android:layout_width="match_parent"
+      android:layout_height="0dp"
+      android:layout_weight="1">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+      <LinearLayout style="@style/Widget.Wino.Calendar.PeriodHeader">
+
+        <com.winomail.presentation.WinoIconView
+            android:id="@+id/calendar_previous"
+            style="@style/Widget.WinoKit.GlyphButton" />
+
+        <com.winomail.presentation.WinoIconView
+            android:id="@+id/calendar_next"
+            style="@style/Widget.WinoKit.GlyphButton" />
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/calendar_today"
+            style="@style/Widget.Wino.Calendar.HeaderButton"
+            android:layout_width="wrap_content" />
+
+        <HorizontalScrollView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/wino_space_s"
+            android:scrollbars="none">
+
+          <com.google.android.material.button.MaterialButtonToggleGroup
+              android:id="@+id/calendar_types"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              app:selectionRequired="true"
+              app:singleSelection="true" />
+        </HorizontalScrollView>
+      </LinearLayout>
+
+      <View style="@style/Widget.Wino.Calendar.Divider" />
+
+      <FrameLayout
+          android:layout_width="match_parent"
+          android:layout_height="0dp"
+          android:layout_weight="1">
+
+        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+            android:id="@+id/calendar_refresh"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+          <com.winomail.controls.WinoCalendarSurfaceView
+              android:id="@+id/calendar_surface"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent" />
+        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+        <TextView
+            android:id="@+id/calendar_blocked"
+            style="@style/Widget.Wino.Mail.EmptyTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:padding="@dimen/wino_space_2xl"
+            android:visibility="gone" />
+      </FrameLayout>
+    </LinearLayout>
+  </com.winomail.presentation.WinoZoneLayout>
+</LinearLayout>

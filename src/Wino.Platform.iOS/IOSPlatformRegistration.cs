@@ -11,6 +11,10 @@ using Wino.Platform.Apple.Security;
 using Wino.Platform.Apple.Services;
 using Wino.Platform.iOS.Services;
 using Wino.Services;
+using Wino.Services.Dav;
+using Wino.Services.Platform;
+using Wino.Services.PushRelay;
+using Wino.Services.Security;
 
 namespace Wino.Platform.iOS;
 
@@ -18,7 +22,7 @@ namespace Wino.Platform.iOS;
 /// Paths and data protection that must exist before any database or credential service is constructed.
 /// <see cref="Create"/> provisions the installation key on a new installation and creates the folders.
 /// </summary>
-public sealed record IOSPlatformBootstrap(AppleApplicationIdentity Identity, ApplePaths Paths, AppleKeychainStore Keychain, AppleSecretProtector Protector)
+public sealed record IOSPlatformBootstrap(AppleApplicationIdentity Identity, ApplePaths Paths, AppleKeychainStore Keychain, AesGcmEnvelopeSecretProtector Protector)
 {
     public static IOSPlatformBootstrap Create(AppleApplicationIdentity identity)
     {
@@ -27,7 +31,7 @@ public sealed record IOSPlatformBootstrap(AppleApplicationIdentity Identity, App
         var paths = new ApplePaths(identity, NSBundle.MainBundle.ResourcePath ?? AppContext.BaseDirectory);
         var newInstallation = paths.IsVerifiedNewInstallation;
         var keychain = new AppleKeychainStore(identity);
-        var protector = new AppleSecretProtector(keychain);
+        var protector = new AesGcmEnvelopeSecretProtector(new SecureItemSecretProtectionKeyProvider(keychain, identity.Value));
         if (newInstallation) protector.ProvisionNewInstallationKey(true);
         paths.CreateDirectories();
         return new IOSPlatformBootstrap(identity, paths, keychain, protector);
@@ -63,6 +67,7 @@ public static class IOSPlatformRegistration
         services.AddSingleton(identity);
         services.AddSingleton(paths);
         services.AddSingleton(bootstrap.Keychain);
+        services.AddSingleton<ISecureItemStore>(bootstrap.Keychain);
         services.AddSingleton<ISecretProtector>(bootstrap.Protector);
         services.Replace(ServiceDescriptor.Singleton<IApplicationConfiguration>(new ApplicationConfiguration
         {
@@ -74,20 +79,20 @@ public static class IOSPlatformRegistration
         }));
 
         // Apple services shared with the Mac head (same list and lifetimes as its Composition).
-        services.AddSingleton<IConfigurationService, AppleConfigurationService>();
+        services.AddSingleton<IConfigurationService>(_ => new JsonFileConfigurationService(paths.ApplicationDataRoot));
         services.AddSingleton<IPreferencesService, PreferencesService>();
         services.AddSingleton<IApplicationResourceResolver, AppleApplicationResourceResolver>();
-        services.AddSingleton<IFileService, AppleFileService>();
-        services.AddSingleton<IAccountCredentialPersistence, AppleAccountCredentialPersistence>();
-        services.AddSingleton<IDavCredentialStore, AppleDavCredentialStore>();
-        services.AddSingleton<IGoogleTokenStore, AppleGoogleTokenStore>();
+        services.AddSingleton<IFileService, FileSystemFileService>();
+        services.AddSingleton<IAccountCredentialPersistence, SecureItemAccountCredentialPersistence>();
+        services.AddSingleton<IDavCredentialStore, SecureItemDavCredentialStore>();
+        services.AddSingleton<IGoogleTokenStore, SecureItemGoogleTokenStore>();
         services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
         services.AddSingleton<IReaderRuntimeService, AppleReaderRuntimeService>();
-        services.AddSingleton<IStatePersistanceService, AppleStatePersistenceService>();
+        services.AddSingleton<IStatePersistanceService, ConfigurationStatePersistenceService>();
         services.AddSingleton<AppleNotificationSounds>();
         services.AddSingleton<INotificationBuilder, AppleNotificationBuilder>();
         services.AddSingleton<IAppStoreClient, AppleAppStoreClient>();
-        services.AddSingleton<IAppMetadataService>(new AppleAppMetadataService(
+        services.AddSingleton<IAppMetadataService>(new HostAppMetadataService(
             BundleString("CFBundleShortVersionString"), identity.Value, IsDebugBuild, BundleString("CFBundleVersion"),
             isPad ? "iPadOS" : "iOS"));
 
@@ -102,9 +107,9 @@ public static class IOSPlatformRegistration
         services.AddSingleton<IExternalLauncher, IOSExternalLauncher>();
         services.AddSingleton<IClipboardService, IOSClipboardService>();
         services.AddSingleton<IShortcutPlatformService, IOSShortcutPlatformService>();
-        services.AddSingleton<IAttachmentPlatformService, IOSAttachmentPlatformService>();
-        services.AddSingleton<IStartupIntegrationService, IOSStartupIntegrationService>();
-        services.AddSingleton<ISmimeCertificateService, IOSSmimeCertificateService>();
+        services.AddSingleton<IAttachmentPlatformService, LauncherAttachmentPlatformService>();
+        services.AddSingleton<IStartupIntegrationService, UnavailableStartupIntegrationService>();
+        services.AddSingleton<ISmimeCertificateService, UnavailableSmimeCertificateService>();
         services.AddSingleton<ITaskCompletionSound, IOSTaskCompletionSound>();
         services.AddSingleton<IUserPresenceStateProvider, IOSUserPresenceStateProvider>();
         services.AddSingleton<IMicrosoftStoreService, IOSMicrosoftStoreService>();
@@ -112,7 +117,7 @@ public static class IOSPlatformRegistration
         // WinoRelay: the AppDelegate forwards the APNs token and pushes; the device id stays on this device only.
         services.AddSingleton<ApplePushTokenProvider>();
         services.AddSingleton<IPushTokenProvider>(provider => provider.GetRequiredService<ApplePushTokenProvider>());
-        services.AddSingleton<IPushRelayDeviceIdentityStore, AppleKeychainPushRelayDeviceIdentityStore>();
+        services.AddSingleton<IPushRelayDeviceIdentityStore, SecureItemPushRelayDeviceIdentityStore>();
         services.AddSingleton<IPushRelayDeviceInfo>(new IOSPushRelayDeviceInfo(UIDevice.CurrentDevice.Name, UIDevice.CurrentDevice.SystemVersion));
 
         // Additional windows are iPad scenes (pop-out reader and composer); iPhone has a single scene.
@@ -120,7 +125,9 @@ public static class IOSPlatformRegistration
         services.AddSingleton<IPlatformCapabilities>(new PlatformCapabilities(
             Printing: true, PdfExport: true, Smime: false, AdditionalWindows: isPad, Notifications: true, NotificationActions: true,
             StartupIntegration: false, Tray: false, GlobalHotkeys: false, GeneralActivation: true, AppleAppStore: true,
-            RemoteNotifications: true, PushRelayOptIn: false));
+            RemoteNotifications: true, PushRelayOptIn: false,
+            // Hardware keyboard shortcuts are an iPad feature; backups are Windows and Mac files.
+            KeyboardShortcuts: isPad, FileBackup: false, Purchases: true));
         return services;
     }
 

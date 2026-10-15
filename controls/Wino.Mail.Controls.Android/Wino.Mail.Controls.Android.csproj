@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Android twins of Wino.Mail.Controls.UIKit: the Wino mail row and its RecyclerView adapter over the shared
+       MailListProjection, shell rows, settings cards and expanders, info bar, badges, avatars and chips. Rows and cards
+       are XML layouts with native Views and Material Components. Rules come from Wino.Mail.Controls.Core and
+       Wino.Presentation.Core; references no platform service project and no ViewModel. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
+    <WinoTargetPlatform>Android</WinoTargetPlatform>
+    <RootNamespace>Wino.Mail.Controls.Android</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Wino.Core.Domain/Wino.Core.Domain.csproj" />
+    <ProjectReference Include="../Wino.Mail.Controls.Core/Wino.Mail.Controls.Core.csproj" />
+    <ProjectReference Include="../Wino.Presentation.Core/Wino.Presentation.Core.csproj" />
+    <ProjectReference Include="../Wino.Presentation.Android/Wino.Presentation.Android.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Xamarin.Google.Android.Material" />
+  </ItemGroup>
+  <!-- Trimming roots for the views layouts inflate by Java name (Release apps use TrimMode=full). -->
+  <ItemGroup>
+    <EmbeddedResource Include="ILLink.Descriptors.xml" LogicalName="ILLink.Descriptors.xml" />
+  </ItemGroup>
+</Project>

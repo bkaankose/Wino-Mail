@@ -1,0 +1,166 @@
+using Android.Content;
+using Android.Views;
+using Android.Widget;
+using Google.Android.Material.Button;
+using Wino.Calendar.ViewModels;
+using Wino.Calendar.ViewModels.Data;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Calendar;
+using Wino.Mail.Android.Infrastructure;
+using Wino.Mail.Controls.Android.Calendar;
+using Wino.Presentation.Android;
+
+namespace Wino.Mail.Android.Views.Calendar;
+
+/// <summary>
+/// Medium and expanded widths (canvas board CalendarTablet; Windows CalendarPage and its title bar): the top app bar with
+/// New event, the period header (previous, next, the range text, Today, Day · Week · Work week · Month) and the Windows
+/// calendar surface. A tile tap opens the details in the shell's details pane; a tap on empty time opens the event
+/// composer for that slot through the shared quick event range (the Windows quick event's "More details").
+/// </summary>
+public sealed partial class CalendarPageFragment
+{
+    private static readonly CalendarDisplayType[] SurfaceTypes = [CalendarDisplayType.Day, CalendarDisplayType.Week, CalendarDisplayType.WorkWeek, CalendarDisplayType.Month];
+    private const int MenuNewEvent = 20;
+
+    private WinoCalendarSurfaceView? _surface;
+    private MaterialButtonToggleGroup? _types;
+    private bool _applyingTypes;
+
+    private void BuildSurface(View view, Context context, CalendarPageViewModel viewModel)
+    {
+        _surface = view.FindViewById<WinoCalendarSurfaceView>(Resource.Id.calendar_surface);
+        _types = view.FindViewById<MaterialButtonToggleGroup>(Resource.Id.calendar_types);
+        if (_surface is null) return;
+
+        if (_toolbar is not null)
+        {
+            _toolbar.Title = Translator.KeyboardShortcuts_ModeCalendar;
+            _toolbar.Menu.Clear();
+            var add = _toolbar.Menu.Add(0, MenuNewEvent, 0, Translator.CalendarEventCompose_NewEventButton);
+            add?.SetIcon(WinoIcons.Drawable(context, WinoIconGlyph.Add, WinoTokens.Dp(context, Resource.Dimension.wino_m3_glyph), WinoColors.SecondaryText(context)));
+            add?.SetShowAsAction(ShowAsAction.Always | ShowAsAction.WithText);
+            _toolbar.MenuItemClick += (_, args) => { if (args.Item?.ItemId == MenuNewEvent) NewEvent(); };
+        }
+
+        ConfigureHeaderButton(view, context, Resource.Id.calendar_previous, WinoIconGlyph.ArrowLeft, Translator.Accessibility_PreviousCalendarPeriod, GoPrevious);
+        ConfigureHeaderButton(view, context, Resource.Id.calendar_next, WinoIconGlyph.ArrowRight, Translator.Accessibility_NextCalendarPeriod, GoNext);
+        if (view.FindViewById<MaterialButton>(Resource.Id.calendar_today) is { } today)
+        {
+            today.Text = Translator.Today;
+            today.Click += (_, _) => GoToday();
+        }
+
+        if (_types is not null)
+        {
+            var inflater = LayoutInflater.From(context);
+            foreach (var type in SurfaceTypes)
+            {
+                if (inflater?.Inflate(Resource.Layout.mail_pivot_segment, _types, false) is not MaterialButton button) continue;
+                button.Id = View.GenerateViewId();
+                button.Text = type switch
+                {
+                    CalendarDisplayType.Day => Translator.CalendarTypeSelector_Day,
+                    CalendarDisplayType.WorkWeek => Translator.CalendarTypeSelector_WorkWeek,
+                    CalendarDisplayType.Month => Translator.CalendarTypeSelector_Month,
+                    _ => Translator.CalendarTypeSelector_Week
+                };
+                button.Tag = (int)type;
+                WinoMaterialAccent.TintM3Segment(button);
+                _types.AddView(button);
+            }
+            var listener = new TypeListener(this);
+            _types.AddOnButtonCheckedListener(listener);
+            Bindings.Own(new ActionDisposable(() => _types?.RemoveOnButtonCheckedListener(listener)));
+        }
+
+        _surface.TileFactory = (item, date) => CalendarTiles.Map(context, item, date, ViewModel?.CurrentSettings);
+        _surface.Today = () => TodayDate;
+        _surface.ItemClicked += (_, args) => { if (args.Item is CalendarItemViewModel item) SelectItem(item); };
+        _surface.SlotClicked += (_, args) => OpenComposerAt(args.Start, args.IsAllDay);
+        _refresh?.SetOnChildScrollUpCallback(new ScrollUpCallback(() => _surface?.CanScrollUp ?? false));
+    }
+
+    private void ConfigureHeaderButton(View view, Context context, int id, WinoIconGlyph glyph, string description, Action action)
+    {
+        if (view.FindViewById<WinoIconView>(id) is not { } button) return;
+        button.Icon = glyph;
+        button.GlyphSize = WinoTokens.Dp(context, Resource.Dimension.wino_glyph_m);
+        button.ContentDescription = description;
+        button.Clickable = true;
+        button.Click += (_, _) => action();
+    }
+
+    /// <summary>The Windows quick event's "More details": the slot's range goes to the full composer.</summary>
+    private void OpenComposerAt(DateTime start, bool isAllDay)
+    {
+        if (ViewModel is not { } viewModel || !viewModel.Readiness.IsReady) return;
+        var end = isAllDay ? start.Date.AddDays(1) : start.AddMinutes(30);
+        viewModel.SelectQuickEventRange(start, end, isAllDay);
+        if (viewModel.GoToEventComposePageCommand.CanExecute(null)) viewModel.GoToEventComposePageCommand.Execute(null);
+    }
+
+    private void SurfaceRangeChanged(VisibleDateRange? range)
+    {
+        if (_surface is null) return;
+        _surface.VisibleRange = range;
+    }
+
+    private void SurfaceSettingsChanged(CalendarSettings? settings)
+    {
+        if (_surface is not null) _surface.Settings = settings;
+    }
+
+    private void SurfaceRangeTextChanged(string? text)
+    {
+        // The range is the app bar title (the period header has no room for it beside the four display types).
+        if (_surface is not null && _toolbar is not null) _toolbar.Title = string.IsNullOrWhiteSpace(text) ? Translator.KeyboardShortcuts_ModeCalendar : text;
+    }
+
+    private void SurfaceItemsChanged()
+    {
+        if (_surface is null || ViewModel is not { } viewModel) return;
+        _surface.Items = viewModel.CalendarItems;
+    }
+
+    private void SurfaceSelectionChanged() => _surface?.RefreshTiles();
+
+    private void SurfaceReadinessChanged(bool blocked)
+    {
+        if (_types is not null) _types.Enabled = !blocked;
+    }
+
+    private void SurfaceDisplayTypeChanged(CalendarDisplayType type)
+    {
+        if (_types is null) return;
+        _applyingTypes = true;
+        try
+        {
+            for (int index = 0; index < _types.ChildCount; index++)
+            {
+                if (_types.GetChildAt(index) is not MaterialButton button || button.Tag is not Java.Lang.Integer tag) continue;
+                bool selected = tag.IntValue() == (int)type;
+                if (selected) _types.Check(button.Id);
+                button.Icon = selected && _types.Context is { } context ? AndroidX.Core.Content.ContextCompat.GetDrawable(context, Resource.Drawable.wino_ic_check) : null;
+            }
+        }
+        finally { _applyingTypes = false; }
+    }
+
+    private void TypeChecked(MaterialButtonToggleGroup? group, int checkedId, bool isChecked)
+    {
+        if (_applyingTypes || !isChecked || group?.FindViewById<MaterialButton>(checkedId)?.Tag is not Java.Lang.Integer tag) return;
+        RequestDisplayType((CalendarDisplayType)tag.IntValue());
+    }
+
+    private sealed class TypeListener(CalendarPageFragment owner) : Java.Lang.Object, MaterialButtonToggleGroup.IOnButtonCheckedListener
+    {
+        public void OnButtonChecked(MaterialButtonToggleGroup? group, int checkedId, bool isChecked) => owner.TypeChecked(group, checkedId, isChecked);
+    }
+
+    private sealed class ScrollUpCallback(Func<bool> canScrollUp) : Java.Lang.Object, AndroidX.SwipeRefreshLayout.Widget.SwipeRefreshLayout.IOnChildScrollUpCallback
+    {
+        public bool CanChildScrollUp(AndroidX.SwipeRefreshLayout.Widget.SwipeRefreshLayout parent, View? child) => canScrollUp();
+    }
+}

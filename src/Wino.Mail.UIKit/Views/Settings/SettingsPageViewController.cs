@@ -10,6 +10,7 @@ using Wino.Mail.UIKit.Infrastructure;
 using Wino.Messaging.Client.Navigation;
 using Wino.Presentation.Bindings;
 using Wino.Presentation.UIKit;
+using Wino.Core.Domain.Models.Settings;
 
 namespace Wino.Mail.UIKit.Views.Settings;
 
@@ -28,7 +29,7 @@ public interface ISettingsPageTitleSource
 /// Base for Settings sheet pages (the Mac SettingsPageViewController): a Wino zone over the theme backdrop holding a
 /// vertical scroll view, whose content stack follows the readable width (max 836pt), and a <see cref="SettingsBinder"/>
 /// owned by the page's binding scope. Pages describe their cards in <see cref="BuildPage"/>; cards stack with the
-/// Windows 4pt spacing. The navigation title and the Windows page description come from <see cref="SettingsPageCatalog"/>.
+/// Windows 4pt spacing. The navigation title and the Windows page description come from <see cref="SettingsCatalog"/>.
 /// </summary>
 public abstract class SettingsPageViewController<TViewModel>(TViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
     : WinoViewController<TViewModel>(viewModel, dispatcher, logger) where TViewModel : CoreBaseViewModel
@@ -67,8 +68,8 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
         var page = SettingsPage;
         if (page is { } known)
         {
-            Title = this is ISettingsPageTitleSource { PageTitle: { Length: > 0 } custom } ? custom : SettingsPageCatalog.Title(known);
-            var description = (this as ISettingsPageTitleSource)?.PageDescription ?? SettingsPageCatalog.Description(known);
+            Title = this is ISettingsPageTitleSource { PageTitle: { Length: > 0 } custom } ? custom : SettingsCatalog.Title(known);
+            var description = (this as ISettingsPageTitleSource)?.PageDescription ?? SettingsCatalog.Description(known);
             if (ShowsPageDescription && !string.IsNullOrWhiteSpace(description))
             {
                 var intro = AddIntro(description);
@@ -176,7 +177,7 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
     /// <summary>Pushes another Settings page inside the sheet through the shared router (Windows breadcrumb navigation).</summary>
     protected void Navigate(WinoPage page, object? parameter = null)
     {
-        var title = SettingsPageCatalog.Title(page);
+        var title = SettingsCatalog.Title(page);
         WeakReferenceMessenger.Default.Send(parameter is null ? new BreadcrumbNavigationRequested(title, page) : new BreadcrumbNavigationRequested(title, page, parameter));
     }
 }

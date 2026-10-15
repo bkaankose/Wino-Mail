@@ -324,11 +324,7 @@ public sealed class ToDoTaskDetailViewController : UIViewController
 
     private void ApplyStatus(TaskItemViewModel task)
     {
-        var parts = new List<string>();
-        if (task.HasDueDate) parts.Add(task.DueDisplayText);
-        if (task.IsInMyDay) parts.Add(Translator.ToDoPage_MyDay);
-        if (task.ShowSummaryListName && !string.IsNullOrEmpty(task.ListName)) parts.Add(task.ListName);
-        _status.Text = string.Join("  •  ", parts);
+        _status.Text = TaskRowPresentation.DetailSummary(task);
         _status.TextColor = task.IsOverdue ? WinoToDoStyle.Critical : WinoStyle.SecondaryText;
         _status.Hidden = !task.HasDetailSummary;
         SetRowTitle(_myDay, task.MyDayActionText, WinoStyle.Accent);

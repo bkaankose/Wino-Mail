@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One agenda event (canvas Material pass board Calendar): the start time and duration, then a card tinted with the
+     calendar colour holding the title and the location. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/Widget.Wino.Calendar.AgendaRow">
+
+  <TextView
+      android:id="@+id/agenda_time"
+      style="@style/Widget.Wino.Calendar.AgendaTime" />
+
+  <LinearLayout
+      android:id="@+id/agenda_card"
+      style="@style/Widget.Wino.Calendar.AgendaCard">
+
+    <TextView
+        android:id="@+id/agenda_title"
+        style="@style/Widget.Wino.Calendar.AgendaTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <TextView
+        android:id="@+id/agenda_supporting"
+        style="@style/Widget.Wino.Calendar.AgendaSupporting"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+  </LinearLayout>
+</LinearLayout>

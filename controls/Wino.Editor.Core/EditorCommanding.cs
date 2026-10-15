@@ -152,3 +152,49 @@ public sealed record class EditorState
     public string? ImageLinkUrl { get; init; }
     public string? SelectedText { get; init; }
 }
+
+/// <summary>Which link dialog the selection asks for (its title): a selected image's link, a new link or the link under the caret.</summary>
+public enum EditorLinkDialogKind
+{
+    InsertLink,
+    EditLink,
+    EditImageLink
+}
+
+/// <summary>
+/// The insert/edit link and image-link rules every composer shares (Windows ShowLinkDialogAsync, the Mac, iOS and Android
+/// link dialogs): which dialog the selection needs, what it starts with, and the command it produces.
+/// </summary>
+public static class EditorLinkRules
+{
+    public static EditorLinkDialogKind Kind(EditorState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        return state.IsImageSelected ? EditorLinkDialogKind.EditImageLink
+            : string.IsNullOrWhiteSpace(state.LinkUrl) ? EditorLinkDialogKind.InsertLink : EditorLinkDialogKind.EditLink;
+    }
+
+    /// <summary>The URL the dialog starts with: the selected image's link or the link under the caret.</summary>
+    public static string? InitialUrl(EditorState state) => state.IsImageSelected ? state.ImageLinkUrl : state.LinkUrl;
+
+    /// <summary>True when the dialog asks for link text (not for an image link).</summary>
+    public static bool HasTextField(EditorState state) => !state.IsImageSelected;
+
+    /// <summary>A typed address as a link: <c>https://</c> unless it already has a scheme or is a mailto link.</summary>
+    public static string NormalizeUrl(string value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        var address = value.Trim();
+        if (!address.Contains("://", StringComparison.Ordinal) && !address.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase)) address = "https://" + address;
+        return address;
+    }
+
+    /// <summary>The link command for the dialog's values; null when the URL is empty. An image link has no text.</summary>
+    public static EditorLinkCommandArgs? CreateLink(EditorState state, string? url, string? text, bool openInNewWindow = true)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (string.IsNullOrWhiteSpace(url)) return null;
+        var linkText = state.IsImageSelected || string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+        return new EditorLinkCommandArgs(NormalizeUrl(url), linkText, openInNewWindow);
+    }
+}

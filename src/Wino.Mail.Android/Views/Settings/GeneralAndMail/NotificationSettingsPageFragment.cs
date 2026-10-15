@@ -1,0 +1,279 @@
+using System.ComponentModel;
+using Android.OS;
+using Android.Views;
+using Android.Widget;
+using Google.Android.Material.Button;
+using Google.Android.Material.MaterialSwitch;
+using Microsoft.Extensions.DependencyInjection;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.ViewModels;
+using Wino.Core.ViewModels.Data;
+using Wino.Mail.Android.Infrastructure;
+using Wino.Mail.Controls.Android.Common;
+using Wino.Mail.Controls.Android.Settings;
+using Wino.Presentation.Android;
+using Wino.Presentation.Bindings;
+
+namespace Wino.Mail.Android.Views.Settings.GeneralAndMail;
+
+/// <summary>
+/// Notifications: snooze, quiet hours, mail, calendar and task sections, live notifications, per-account overrides and
+/// reset (Windows NotificationSettingsPage, iOS NotificationSettingsPageViewController, same order). Android owns the
+/// notification permission and each channel's sound, so the iOS sound pickers (Apple-only keys) are left out and Windows'
+/// sound values are never written; Android cannot see whether another app is presenting, so "Snooze while presenting" is
+/// left out as on iOS. The snooze state is refreshed every 30 s while the page's view exists (Windows timer).
+/// </summary>
+public sealed class NotificationSettingsPageFragment : SettingsPageFragment<NotificationSettingsPageViewModel>
+{
+    private static readonly TimeSpan SnoozeRefreshInterval = TimeSpan.FromSeconds(30);
+
+    private LinearLayout? _accounts;
+    private LinearLayout? _days;
+    private BindingScope? _accountScope;
+    private BindingScope? _dayScope;
+
+    protected override void BuildPage()
+    {
+        var vm = VM;
+        var p = vm.PreferencesService;
+
+        // Snooze hero: the switch stays trailing, the preset dropdown sits under the text.
+        var snoozeSwitch = WinoMaterialAccent.Tint(new MaterialSwitch(Ctx) { ContentDescription = Translator.NotificationSettings_SnoozeAll });
+        Bind.Bind(vm, nameof(vm.IsSnoozed), s => s.IsSnoozed, value => { if (snoozeSwitch.Checked != value) snoozeSwitch.Checked = value; });
+        Bind.Views.Click(snoozeSwitch, () =>
+        {
+            if (snoozeSwitch.Checked == vm.IsSnoozed) return;
+            if (snoozeSwitch.Checked) vm.StartSnoozeCommand.Execute(vm.SelectedSnoozePreset?.Value ?? NotificationSnoozePreset.UntilTurnedBackOn);
+            else vm.EndSnoozeCommand.Execute(null);
+        });
+        var presets = Bind.PopUp<NotificationSettingsPageViewModel, SnoozePresetOption>(vm, s => s.SnoozePresets, option => option.DisplayText,
+            nameof(vm.SelectedSnoozePreset), s => s.SelectedSnoozePreset, (s, v) => s.StartSnoozeCommand.Execute(v.Value));
+        var hero = Card(Translator.NotificationSettings_Hero_Title, null, WinoIconGlyph.AlertOff, snoozeSwitch);
+        hero.BottomContent = presets;
+        Bind.Bind(vm, nameof(vm.SnoozeSummaryText), s => s.SnoozeSummaryText, text => hero.Description = text);
+        var state = Card(string.Empty, null, WinoIconGlyph.None);
+        Bind.Bind(vm, nameof(vm.SnoozeStateText), s => s.SnoozeStateText, text =>
+        {
+            state.Header = text ?? string.Empty;
+            state.Visibility = string.IsNullOrEmpty(text) ? ViewStates.Gone : ViewStates.Visible;
+        });
+        AddGroup(null, hero, state);
+
+        var quietTime = InfoBar(WinoInfoBarSeverity.Informational, null, Translator.NotificationSettings_DoNotDisturbOn);
+        Bind.Visible(quietTime, vm, nameof(vm.IsSystemQuietTimeActive), s => s.IsSystemQuietTimeActive);
+        Add(quietTime);
+
+        // Quiet hours.
+        static bool QuietOn(IPreferencesService s) => s.AreQuietHoursEnabled;
+        _days = new LinearLayout(Ctx) { Orientation = Orientation.Horizontal };
+        Bindings.Own(new ActionDisposable(() => _dayScope?.Dispose()));
+        Bind.Collection(vm.QuietHoursDayToggles, RebuildDays);
+        var hours = Row(
+            Bind.TimePicker(p, nameof(p.QuietHoursStart), s => s.QuietHoursStart, (s, v) => { s.QuietHoursStart = v; vm.UpdateQuietHoursSummary(); }, Translator.NotificationSettings_QuietHours_From_Title),
+            Caption(Translator.NotificationSettings_QuietHours_To),
+            Bind.TimePicker(p, nameof(p.QuietHoursEnd), s => s.QuietHoursEnd, (s, v) => { s.QuietHoursEnd = v; vm.UpdateQuietHoursSummary(); }, Translator.NotificationSettings_QuietHours_To));
+        var quiet = Expander(Translator.NotificationSettings_QuietHours_Title, null, WinoIconGlyph.Clock,
+            Bind.Switch(p, nameof(p.AreQuietHoursEnabled), QuietOn, (s, v) => { s.AreQuietHoursEnabled = v; vm.UpdateQuietHoursSummary(); }, Translator.NotificationSettings_QuietHours_Title),
+            Bind.Enabled(StackedCard(Translator.NotificationSettings_QuietHours_From_Title, Translator.NotificationSettings_QuietHours_From_Description, WinoIconGlyph.None, hours), p, nameof(p.AreQuietHoursEnabled), QuietOn),
+            Bind.Enabled(StackedCard(Translator.NotificationSettings_QuietHours_Days_Title, Translator.NotificationSettings_QuietHours_Days_Description, WinoIconGlyph.None, _days), p, nameof(p.AreQuietHoursEnabled), QuietOn));
+        Bind.Bind(vm, nameof(vm.QuietHoursSummary), s => s.QuietHoursSummary, text => quiet.HeaderCard.Description = text);
+
+        // Mail.
+        var mail = Expander(Translator.NotificationSettings_Mail_Title, null, WinoIconGlyph.Mail,
+            Bind.Switch(p, nameof(p.AreNewMailNotificationsEnabled), s => s.AreNewMailNotificationsEnabled, (s, v) => { s.AreNewMailNotificationsEnabled = v; vm.UpdateSectionSummaries(); }, Translator.NotificationSettings_Mail_Title),
+            StackedCard(Translator.NotificationSettings_Mail_Scope_Title, Translator.NotificationSettings_Mail_Scope_Description, WinoIconGlyph.None,
+                OptionPopUp(Bind, vm, s => s.ScopeOptions, nameof(vm.SelectedMailScope), s => s.SelectedMailScope, (s, v) => s.SelectedMailScope = v)),
+            StackedCard(Translator.NotificationSettings_Mail_Content_Title, Translator.NotificationSettings_Mail_Content_Description, WinoIconGlyph.None,
+                OptionPopUp(Bind, vm, s => s.ContentOptions, nameof(vm.SelectedMailContent), s => s.SelectedMailContent, (s, v) => s.SelectedMailContent = v)),
+            StackedCard(Translator.NotificationSettings_Mail_FirstAction_Title, Translator.NotificationSettings_Mail_FirstAction_Description, WinoIconGlyph.None,
+                OptionPopUp(Bind, vm, s => s.MailActionOptions, nameof(vm.SelectedFirstAction), s => s.SelectedFirstAction, (s, v) => s.SelectedFirstAction = v)),
+            StackedCard(Translator.NotificationSettings_Mail_SecondAction_Title, Translator.NotificationSettings_Mail_SecondAction_Description, WinoIconGlyph.None,
+                OptionPopUp(Bind, vm, s => s.MailActionOptions, nameof(vm.SelectedSecondAction), s => s.SelectedSecondAction, (s, v) => s.SelectedSecondAction = v)));
+        Bind.Bind(vm, nameof(vm.MailSummary), s => s.MailSummary, text => mail.HeaderCard.Description = text);
+
+        // Calendar.
+        var calendar = Expander(Translator.NotificationSettings_Calendar_Title, null, WinoIconGlyph.Calendar,
+            Bind.Switch(p, nameof(p.AreCalendarRemindersEnabled), s => s.AreCalendarRemindersEnabled, (s, v) => { s.AreCalendarRemindersEnabled = v; vm.UpdateSectionSummaries(); }, Translator.NotificationSettings_Calendar_Title),
+            StackedCard(Translator.CalendarSettings_DefaultReminder_Header, Translator.CalendarSettings_DefaultReminder_Description, WinoIconGlyph.None,
+                Bind.PopUp(vm, vm.ReminderOptions, nameof(vm.SelectedReminderIndex), s => s.SelectedReminderIndex, (s, v) => s.SelectedReminderIndex = v)),
+            StackedCard(Translator.CalendarSettings_DefaultSnoozeDuration_Header, Translator.CalendarSettings_DefaultSnoozeDuration_Description, WinoIconGlyph.None,
+                Bind.PopUp(vm, vm.CalendarSnoozeOptions, nameof(vm.SelectedCalendarSnoozeIndex), s => s.SelectedCalendarSnoozeIndex, (s, v) => s.SelectedCalendarSnoozeIndex = v)));
+        Bind.Bind(vm, nameof(vm.CalendarSummary), s => s.CalendarSummary, text => calendar.HeaderCard.Description = text);
+
+        // Tasks.
+        var tasks = Expander(Translator.NotificationSettings_Tasks_Title, null, WinoIconGlyph.TaskList,
+            Bind.Switch(p, nameof(p.AreTaskRemindersEnabled), s => s.AreTaskRemindersEnabled, (s, v) => { s.AreTaskRemindersEnabled = v; vm.UpdateSectionSummaries(); }, Translator.NotificationSettings_Tasks_Title),
+            StackedCard(Translator.NotificationSettings_Tasks_Timing_Title, Translator.NotificationSettings_Tasks_Timing_Description, WinoIconGlyph.None,
+                OptionPopUp(Bind, vm, s => s.TaskReminderTimingOptions, nameof(vm.SelectedTaskReminderTiming), s => s.SelectedTaskReminderTiming, (s, v) => s.SelectedTaskReminderTiming = v)),
+            StackedCard(Translator.NotificationSettings_Tasks_Snooze_Title, Translator.NotificationSettings_Tasks_Snooze_Description, WinoIconGlyph.None,
+                Bind.PopUp(vm, vm.TaskSnoozeOptions, nameof(vm.SelectedTaskSnoozeIndex), s => s.SelectedTaskSnoozeIndex, (s, v) => s.SelectedTaskSnoozeIndex = v)));
+        Bind.Bind(vm, nameof(vm.TaskSummary), s => s.TaskSummary, text => tasks.HeaderCard.Description = text);
+
+        AddGroup(null, quiet, mail, calendar, tasks, LiveNotifications());
+
+        // Per-account overrides.
+        var accountsHeader = new WinoSettingsGroup(Ctx, Translator.NotificationSettings_Accounts_Title, Translator.NotificationSettings_Accounts_Description);
+        accountsHeader.Surface.Visibility = ViewStates.Gone;
+        Add(accountsHeader);
+        _accounts = Add(new LinearLayout(Ctx) { Orientation = Orientation.Vertical });
+        Bindings.Own(new ActionDisposable(() => _accountScope?.Dispose()));
+        Bind.Collection(vm.Accounts, RebuildAccounts);
+
+        AddGroup(null, StackedCard(Translator.NotificationSettings_Reset_Title, Translator.NotificationSettings_Reset_Description, WinoIconGlyph.ArrowReset,
+            Row(Bind.Button(Translator.NotificationSettings_Reset_Title, ResetAsync))));
+
+        StartSnoozeRefresh();
+    }
+
+    /// <summary>
+    /// Live notifications (WinoRelay): status, a sign-in hint, mailboxes the relay could not sign in to and a test push.
+    /// Platforms that opt in carry a switch on the header (the Mac page); always-on platforms show none (iOS).
+    /// </summary>
+    private WinoSettingsExpander LiveNotifications()
+    {
+        var vm = VM;
+        var signIn = InfoBar(WinoInfoBarSeverity.Informational, null, Translator.NotificationSettings_PushRelay_SignInRequired);
+        Bind.Visible(signIn, vm, nameof(vm.IsPushRelaySignInRequired), s => s.IsPushRelaySignInRequired);
+
+        var status = Card(string.Empty, null, WinoIconGlyph.Info);
+        Bind.Bind(vm, nameof(vm.PushRelayStatusText), s => s.PushRelayStatusText, text => status.Header = text ?? string.Empty);
+        // The sign-in hint already says it; the status card would repeat the same sentence.
+        Bind.Visible(status, vm, nameof(vm.IsPushRelaySignInRequired), s => !s.IsPushRelaySignInRequired);
+
+        var warning = Card(string.Empty, null, WinoIconGlyph.Warning);
+        Bind.Bind(vm, nameof(vm.PushRelayMailboxWarningText), s => s.PushRelayMailboxWarningText, text =>
+        {
+            warning.Header = text ?? string.Empty;
+            warning.Visibility = string.IsNullOrEmpty(text) ? ViewStates.Gone : ViewStates.Visible;
+        });
+
+        var test = StackedCard(Translator.NotificationSettings_PushRelay_SendTest, null, WinoIconGlyph.Send,
+            Row(Bind.Button(Translator.NotificationSettings_PushRelay_SendTest, vm.SendPushTestCommand)));
+        Bind.Bind(vm, nameof(vm.PushRelayTestResultText), s => s.PushRelayTestResultText,
+            text => test.Description = string.IsNullOrEmpty(text) ? null : text);
+        Bind.Visible(test, vm, nameof(vm.IsPushTestVisible), s => s.IsPushTestVisible);
+
+        View? toggle = null;
+        if (vm.IsPushRelayToggleVisible)
+            toggle = Bind.Enabled(Bind.Switch(vm, nameof(vm.IsPushRelayEnabled), s => s.IsPushRelayEnabled, (s, v) => s.IsPushRelayEnabled = v, Translator.NotificationSettings_PushRelay_Title),
+                vm, nameof(vm.IsPushRelayToggleEnabled), s => s.IsPushRelayToggleEnabled);
+
+        var expander = Expander(Translator.NotificationSettings_PushRelay_Title, Translator.NotificationSettings_PushRelay_Description,
+            WinoIconGlyph.Cloud, toggle, signIn, status, warning, test);
+        expander.Visibility = vm.IsPushRelaySectionVisible ? ViewStates.Visible : ViewStates.Gone;
+        return expander;
+    }
+
+    /// <summary>Snooze expiry is evaluated lazily, so the page refreshes it while its view exists (Windows uses a 30 s timer).</summary>
+    private void StartSnoozeRefresh()
+    {
+        if (Looper.MainLooper is not { } looper) return;
+        var handler = new Handler(looper);
+        var vm = VM;
+        Java.Lang.IRunnable? tick = null;
+        tick = new Java.Lang.Runnable(() =>
+        {
+            try { vm.RefreshSnoozeState(); }
+            catch (Exception exception) { ReportError(exception); }
+            if (tick is not null) handler.PostDelayed(tick, (long)SnoozeRefreshInterval.TotalMilliseconds);
+        });
+        handler.PostDelayed(tick, (long)SnoozeRefreshInterval.TotalMilliseconds);
+        Bindings.Own(new ActionDisposable(() =>
+        {
+            handler.RemoveCallbacksAndMessages(null);
+            tick = null;
+        }));
+    }
+
+    private async void ResetAsync()
+    {
+        try
+        {
+            if (MainApplication.Services?.GetService<IMailDialogService>() is not { } dialogs) return;
+            await VM.ConfirmResetAsync(dialogs);
+        }
+        catch (Exception exception) { ReportError(exception); }
+    }
+
+    /// <summary>The seven quiet-hours day toggles in the culture's week order, as equal-width checkable buttons.</summary>
+    private void RebuildDays()
+    {
+        if (_days is not { } days) return;
+        _dayScope?.Dispose();
+        _dayScope = new BindingScope();
+        var rows = Bind.Child(_dayScope);
+        days.RemoveAllViews();
+
+        foreach (var day in VM.QuietHoursDayToggles.ToList())
+        {
+            var toggle = new MaterialButton(Ctx, null, Resource.Attribute.materialButtonOutlinedStyle)
+            {
+                Text = day.DisplayText,
+                Checkable = true,
+                ContentDescription = day.DisplayText
+            };
+            toggle.SetAllCaps(false);
+            toggle.SetMaxLines(1);
+            toggle.InsetTop = 0;
+            toggle.InsetBottom = 0;
+            toggle.SetPadding(0, toggle.PaddingTop, 0, toggle.PaddingBottom);
+            toggle.SetMinWidth(0);
+            toggle.SetMinimumWidth(0);
+            toggle.CornerRadius = WinoTokens.Px(Ctx, Resource.Dimension.wino_radius_small);
+            WinoMaterialAccent.TintSegment(toggle);
+            rows.Bind(day, nameof(day.IsSelected), d => d.IsSelected, value => { if (toggle.Checked != value) toggle.Checked = value; });
+            rows.Views.Click(toggle, () => day.IsSelected = toggle.Checked);
+            var layout = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1);
+            if (days.ChildCount > 0) layout.MarginStart = WinoTokens.Px(Ctx, Resource.Dimension.wino_space_2xs);
+            days.AddView(toggle, layout);
+        }
+    }
+
+    private static MaterialButton OptionPopUp<TSource, TOption>(SettingsBinder binder, TSource source, Func<TSource, IReadOnlyList<TOption>?> options, string property,
+        Func<TSource, TOption?> read, Action<TSource, TOption> write)
+        where TSource : INotifyPropertyChanged where TOption : NotificationOptionBase
+        => binder.PopUp(source, options, option => option.DisplayText, property, read, write);
+
+    private void RebuildAccounts()
+    {
+        if (_accounts is not { } accounts) return;
+        _accountScope?.Dispose();
+        _accountScope = new BindingScope();
+        var rows = Bind.Child(_accountScope);
+        accounts.RemoveAllViews();
+
+        foreach (var account in VM.Accounts.ToList())
+        {
+            static bool Overrides(AccountNotificationSettingsViewModel a) => a.AreOverrideFieldsEnabled;
+            static bool Enabled(AccountNotificationSettingsViewModel a) => a.AreNotificationsEnabled;
+            var sources = new[] { Translator.NotificationSettings_Account_UseDefaults, Translator.NotificationSettings_Account_Customise };
+            var expander = new WinoSettingsExpander(Ctx, account.Account.Name ?? string.Empty, account.AccountAddress, WinoIconGlyph.Person,
+                rows.Switch(account, nameof(account.AreNotificationsEnabled), Enabled, (a, v) => a.AreNotificationsEnabled = v, account.Account.Name));
+            rows.Bind(account, nameof(account.StatusText), a => a.StatusText, text => expander.HeaderCard.Description = string.IsNullOrEmpty(text) ? account.AccountAddress : text);
+            expander.Add(rows.Enabled(StackedCard(Translator.NotificationSettings_Account_Source_Title, Translator.NotificationSettings_Account_Source_Description, WinoIconGlyph.None,
+                rows.PopUp(account, sources, nameof(account.HasCustomNotificationSettings), a => a.HasCustomNotificationSettings ? 1 : 0, (a, v) => a.HasCustomNotificationSettings = v == 1)),
+                account, nameof(account.AreNotificationsEnabled), Enabled));
+            expander.Add(rows.Enabled(Card(Translator.NotificationSettings_Account_NewMail_Title, Translator.NotificationSettings_Account_NewMail_Description, WinoIconGlyph.None,
+                rows.Switch(account, nameof(account.IsNewMailNotificationEnabled), a => a.IsNewMailNotificationEnabled, (a, v) => a.IsNewMailNotificationEnabled = v, Translator.NotificationSettings_Account_NewMail_Title)),
+                account, nameof(account.AreOverrideFieldsEnabled), Overrides));
+            expander.Add(rows.Enabled(StackedCard(Translator.NotificationSettings_Mail_Scope_Title, Translator.NotificationSettings_Mail_Scope_Description, WinoIconGlyph.None,
+                OptionPopUp(rows, account, a => a.ScopeOptions, nameof(account.SelectedScope), a => a.SelectedScope, (a, v) => a.SelectedScope = v)),
+                account, nameof(account.AreOverrideFieldsEnabled), Overrides));
+            expander.Add(rows.Enabled(StackedCard(Translator.NotificationSettings_Mail_Content_Title, Translator.NotificationSettings_Mail_Content_Description, WinoIconGlyph.None,
+                OptionPopUp(rows, account, a => a.ContentOptions, nameof(account.SelectedContent), a => a.SelectedContent, (a, v) => a.SelectedContent = v)),
+                account, nameof(account.AreOverrideFieldsEnabled), Overrides));
+            expander.Add(rows.Enabled(Card(Translator.NotificationSettings_Account_Calendar_Title, Translator.NotificationSettings_Account_Calendar_Description, WinoIconGlyph.None,
+                rows.Switch(account, nameof(account.AreCalendarRemindersEnabled), a => a.AreCalendarRemindersEnabled, (a, v) => a.AreCalendarRemindersEnabled = v, Translator.NotificationSettings_Account_Calendar_Title)),
+                account, nameof(account.AreOverrideFieldsEnabled), Overrides));
+            expander.Add(rows.Enabled(StackedCard(Translator.NotificationSettings_Account_QuietHours_Title, Translator.NotificationSettings_Account_QuietHours_Description, WinoIconGlyph.None,
+                OptionPopUp(rows, account, a => a.QuietHoursOptions, nameof(account.SelectedQuietHoursStance), a => a.SelectedQuietHoursStance, (a, v) => a.SelectedQuietHoursStance = v)),
+                account, nameof(account.AreNotificationsEnabled), Enabled));
+
+            var layout = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent);
+            if (accounts.ChildCount > 0) layout.TopMargin = WinoTokens.Px(Ctx, Resource.Dimension.wino_space_2xs);
+            accounts.AddView(expander, layout);
+        }
+    }
+}

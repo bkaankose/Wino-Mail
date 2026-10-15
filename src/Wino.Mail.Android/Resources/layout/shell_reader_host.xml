@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The reader pane (medium and expanded widths): the mode's rendering-frame page, or the idle glyph in a Wino zone. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/shell_reader_pane"
+    android:layout_width="0dp"
+    android:layout_height="match_parent"
+    android:layout_weight="1">
+
+  <com.winomail.presentation.WinoZoneLayout
+      android:id="@+id/shell_reader_idle"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:layout_marginStart="@dimen/wino_zone_gutter"
+      android:layout_marginEnd="@dimen/wino_zone_gutter"
+      android:layout_marginBottom="@dimen/wino_zone_gutter">
+
+    <com.winomail.presentation.WinoIconView
+        android:id="@+id/shell_reader_idle_glyph"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:importantForAccessibility="no"
+        android:textColor="@color/wino_text_tertiary" />
+  </com.winomail.presentation.WinoZoneLayout>
+
+  <FrameLayout
+      android:id="@+id/shell_reader_host"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent" />
+</FrameLayout>

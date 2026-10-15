@@ -242,7 +242,7 @@ public partial class SettingsMenuProvider(
     }
 
     private bool IsPageAvailable(WinoPage page)
-        => SettingsPageAvailability.IsAvailable(page, platformCapabilities.Smime, entitlementService.CurrentEntitlement.CanAccessSurfaces);
+        => SettingsPageAvailability.IsAvailable(page, platformCapabilities, entitlementService.CurrentEntitlement.CanAccessSurfaces);
 
     private static SettingsShellPageMenuItem CreatePageMenuItem(SettingsNavigationItemInfo item, IMenuItem parentMenuItem = null)
         => new(item.PageType.Value, item.Title, item.Description, item.Icon, parentMenuItem);

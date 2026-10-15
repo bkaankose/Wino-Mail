@@ -259,6 +259,21 @@ public sealed partial class NavigationCoordinator : INavigationService, IDisposa
     public bool RestoreShell(WinoApplicationMode mode, ShellModeActivationContext activationContext) => ChangeApplicationMode(mode, activationContext);
     public bool CanGoBack() => !_stopping && (_host.IsSecondaryWindowShown || _history.Count > 0);
 
+    /// <summary>
+    /// True when back leads to another page. False when the only step left would empty the shell (the first shell page),
+    /// where a phone leaves the app instead of showing an empty mode.
+    /// </summary>
+    public bool CanGoBackToPage()
+        => !_stopping && (_host.IsSecondaryWindowShown || (_history.TryPeek(out var previous) && (previous.Page != WinoPage.None || !_host.IsShellShown)));
+
+    /// <summary>
+    /// The page back would show in the main content (<see cref="WinoPage.None"/> for the empty shell), or null when
+    /// there is no history or back closes a secondary window. Heads whose shell keeps one back stack per mode use it to
+    /// keep back from crossing into another mode's page.
+    /// </summary>
+    public WinoPage? BackPage
+        => _stopping || _host.IsSecondaryWindowShown || !_history.TryPeek(out var previous) ? null : previous.Page;
+
     public void GoBack(NavigationTransitionEffect slideEffect = NavigationTransitionEffect.FromRight)
     {
         if (!_host.IsSecondaryWindowShown && _host.TrySettingsGoBack()) return;

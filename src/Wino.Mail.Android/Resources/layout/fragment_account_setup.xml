@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Account setup progress (Windows AccountSetupProgressPage, iOS AccountSetupProgressPage) in the Material look: in the
+     Wino zone, the title, the shared setup steps, the success bar, and after a failure the error bar with Go back and
+     Try again. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/onboarding_insets"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+  <com.winomail.presentation.WinoMaxWidthLayout
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:layout_gravity="center_horizontal">
+
+    <com.winomail.presentation.WinoZoneLayout
+        style="@style/Widget.Wino.Onboarding.Zone"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="@dimen/wino_zone_gutter">
+
+      <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="match_parent"
+          android:orientation="vertical">
+
+        <androidx.core.widget.NestedScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+          <LinearLayout
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:orientation="vertical"
+              android:paddingBottom="@dimen/onboarding_page_padding">
+
+            <TextView
+                android:id="@+id/setup_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:accessibilityHeading="true"
+                android:paddingStart="@dimen/onboarding_page_padding"
+                android:paddingTop="@dimen/onboarding_setup_title_top"
+                android:paddingEnd="@dimen/onboarding_page_padding"
+                android:paddingBottom="@dimen/onboarding_setup_section_gap"
+                android:textAppearance="@style/TextAppearance.Wino.Headline" />
+
+            <LinearLayout
+                android:id="@+id/setup_steps"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <com.winomail.controls.WinoInfoBar
+                android:id="@+id/setup_success"
+                style="@style/Widget.Wino.Onboarding.InfoBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone" />
+
+            <com.winomail.controls.WinoInfoBar
+                android:id="@+id/setup_failure"
+                style="@style/Widget.Wino.Onboarding.InfoBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:accessibilityLiveRegion="polite"
+                android:visibility="gone" />
+          </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
+
+        <LinearLayout
+            android:id="@+id/onboarding_actions"
+            style="@style/Widget.Wino.Onboarding.ActionBar"
+            android:visibility="gone">
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/onboarding_secondary"
+              style="@style/Widget.Wino.Onboarding.TextButton.Small"
+              android:layout_width="wrap_content"
+              android:layout_marginEnd="8dp" />
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/onboarding_primary"
+              style="@style/Widget.Wino.Onboarding.PrimaryButton.Small"
+              android:layout_width="wrap_content" />
+        </LinearLayout>
+      </LinearLayout>
+    </com.winomail.presentation.WinoZoneLayout>
+  </com.winomail.presentation.WinoMaxWidthLayout>
+</FrameLayout>

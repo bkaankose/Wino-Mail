@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Wino colour tokens in light mode (canvas boards Tokens and Components; system theme Clouds accent). Custom themes
+     re-tint the accent and the zone surfaces at runtime through WinoColors.AccentOverride and WinoThemeSurfaces. -->
+<resources>
+  <color name="wino_accent">#0984E3</color>
+  <color name="wino_on_accent">#FFFFFF</color>
+  <color name="wino_accent_text">#0B5FA8</color>
+  <color name="wino_accent_container">#240984E3</color>
+  <!-- Material 3 tonal containers (the Clouds accent over the zone at the wino_m3_*_container_amount fractions). -->
+  <color name="wino_secondary_container">#D8EBFA</color>
+  <color name="wino_primary_container">#C4E1F8</color>
+  <color name="wino_backdrop">#808080</color>
+  <color name="wino_zone">#FFFFFF</color>
+  <color name="wino_zone_stroke">#14000000</color>
+  <color name="wino_divider">#0F000000</color>
+  <color name="wino_text_primary">#1B1B1B</color>
+  <color name="wino_text_secondary">#5C5C5C</color>
+  <color name="wino_text_tertiary">#767676</color>
+  <color name="wino_outline">#33000000</color>
+  <color name="wino_surface_variant">#F7F7F8</color>
+  <color name="wino_card">#FFFFFF</color>
+  <color name="wino_card_stroke">#14000000</color>
+  <color name="wino_subtle_fill">#0F000000</color>
+  <color name="wino_bar_tint">#4DFFFFFF</color>
+  <color name="wino_critical">#C42B1C</color>
+  <color name="wino_success">#0F7B0F</color>
+  <color name="wino_caution">#E5A400</color>
+  <color name="wino_flagged">#E74C3C</color>
+  <color name="wino_info_background">#F2F7FC</color>
+  <color name="wino_success_background">#DFF6DD</color>
+  <color name="wino_warning_background">#FFF4CE</color>
+  <color name="wino_error_background">#FDE7E9</color>
+</resources>

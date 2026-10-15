@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Material symbol "menu" (24 dp). Tinted by the toolbar or code; Material icons are used only for menu, back, close,
+     overflow and the dropdown arrow (docs/android-design-decisions.md). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="@dimen/wino_m3_icon"
+    android:height="@dimen/wino_m3_icon"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="@color/wino_text_primary">
+  <path
+      android:fillColor="@android:color/white"
+      android:pathData="M3,18h18v-2H3v2zM3,13h18v-2H3v2zM3,6v2h18V6H3z" />
+</vector>

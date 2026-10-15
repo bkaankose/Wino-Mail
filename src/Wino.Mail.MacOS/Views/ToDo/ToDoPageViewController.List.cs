@@ -383,23 +383,7 @@ public sealed partial class ToDoPageViewController
     private NSTableRowView CreateRowView(NSTableView table)
         => table.MakeView(WinoTaskTableRowView.ReuseIdentifier, this) as WinoTaskTableRowView ?? new WinoTaskTableRowView();
 
-    private WinoTaskRowModel MapRow(TaskItemViewModel item) => new()
-    {
-        Title = item.Title ?? string.Empty,
-        IsCompleted = item.IsCompleted,
-        IsImportant = item.IsImportant,
-        IsEditable = item.IsEditable,
-        ListName = item.ShowListName && !string.IsNullOrEmpty(item.ListName) ? item.ListName : null,
-        ListColorHex = ListColorHex(item),
-        DueText = item.HasDueDate ? item.DueDisplayText : string.Empty,
-        IsOverdue = item.IsOverdue,
-        StepSummary = item.HasSteps ? item.StepSummaryText : string.Empty,
-        IsInMyDay = item.IsInMyDay,
-        HasNote = item.HasNote,
-        MyDayText = Translator.ToDoPage_MyDay,
-        ImportanceActionText = item.ImportanceActionText,
-        CompletionActionText = item.CompletionActionText
-    };
+    private WinoTaskRowModel MapRow(TaskItemViewModel item) => TaskRowPresentation.Describe(item, ListColorHex(item));
 
     private string? ListColorHex(TaskItemViewModel item)
     {

@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Settings on medium and expanded widths (list-detail, like the iOS and Mac Settings and the Windows settings pane):
+     a Material 3 small top app bar with Close, "Settings" and search, over the theme wallpaper, then the root list in its
+     Wino zone beside the page's zone. The page starts with its 22 sp title. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/settings_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+  <FrameLayout
+      android:id="@+id/settings_bar"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content">
+
+    <com.winomail.presentation.WinoBarBackdropView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/settings_toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/wino_top_app_bar_height"
+        android:background="@android:color/transparent"
+        app:titleTextAppearance="@style/TextAppearance.WinoKit.TopAppBarTitle" />
+  </FrameLayout>
+
+  <LinearLayout
+      android:layout_width="match_parent"
+      android:layout_height="0dp"
+      android:layout_weight="1"
+      android:orientation="horizontal"
+      android:paddingStart="@dimen/wino_zone_gutter"
+      android:paddingEnd="@dimen/wino_zone_gutter"
+      android:paddingBottom="@dimen/wino_zone_gutter">
+
+    <com.winomail.presentation.WinoZoneLayout
+        android:id="@+id/settings_list_zone"
+        android:layout_width="@dimen/wino_settings_list_width"
+        android:layout_height="match_parent"
+        android:layout_marginEnd="@dimen/wino_zone_gutter">
+
+      <androidx.fragment.app.FragmentContainerView
+          android:id="@+id/settings_list_host"
+          android:layout_width="match_parent"
+          android:layout_height="match_parent" />
+    </com.winomail.presentation.WinoZoneLayout>
+
+    <com.winomail.presentation.WinoZoneLayout
+        android:id="@+id/settings_detail_zone"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1">
+
+      <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="match_parent"
+          android:orientation="vertical">
+
+      <LinearLayout
+          android:id="@+id/settings_detail_header"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:gravity="center_vertical"
+          android:minHeight="@dimen/wino_top_app_bar_height"
+          android:orientation="horizontal"
+          android:paddingStart="@dimen/wino_space_2xs"
+          android:paddingEnd="@dimen/wino_space_l">
+
+        <ImageButton
+            android:id="@+id/settings_detail_back"
+            android:layout_width="@dimen/wino_size_touch_large"
+            android:layout_height="@dimen/wino_size_touch_large"
+            android:background="?attr/selectableItemBackgroundBorderless" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/wino_space_2xs"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+          <TextView
+              android:id="@+id/settings_detail_title"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:accessibilityHeading="true"
+              android:ellipsize="end"
+              android:maxLines="1"
+              android:textAppearance="@style/TextAppearance.WinoKit.TopAppBarTitle" />
+
+        </LinearLayout>
+      </LinearLayout>
+
+      <androidx.fragment.app.FragmentContainerView
+          android:id="@+id/settings_detail_host"
+          android:layout_width="match_parent"
+          android:layout_height="0dp"
+          android:layout_weight="1" />
+      </LinearLayout>
+    </com.winomail.presentation.WinoZoneLayout>
+  </LinearLayout>
+</LinearLayout>

@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
-using MimeKit;
 using UIKit;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Contacts;
@@ -38,7 +37,7 @@ public sealed partial class ComposePageViewController
             {
                 CloseSuggestions();
                 // Leaving the field keeps a complete address as a recipient; anything else stays as typed.
-                if (IsCompleteAddress(current.TypedText)) Observe(CommitTypedTextAsync(current, current.TypedText, false));
+                if (ComposeRecipientRules.IsCompleteAddress(current.TypedText)) Observe(CommitTypedTextAsync(current, current.TypedText, false));
             };
             current.RemoveRequested += (_, contact) =>
             {
@@ -75,7 +74,7 @@ public sealed partial class ComposePageViewController
         await Dispatcher.ExecuteOnUIThread(() =>
         {
             foreach (var field in new[] { _toField, _ccField, _bccField })
-                if (field is not null && !field.HasMarkedText && IsCompleteAddress(field.TypedText)) pending.Add((field, field.TypedText));
+                if (field is not null && !field.HasMarkedText && ComposeRecipientRules.IsCompleteAddress(field.TypedText)) pending.Add((field, field.TypedText));
         });
         foreach (var (field, text) in pending) await CommitTypedTextAsync(field, text, false);
     }
@@ -88,18 +87,18 @@ public sealed partial class ComposePageViewController
     {
         var typed = text.Trim();
         if (typed.Length == 0) return;
-        if (!MailboxAddress.TryParse(typed, out var mailbox) || !mailbox.Address.Contains('@'))
+        if (!ComposeRecipientRules.TryParseTyped(typed, out var address, out var name))
         {
             if (notifyInvalid) ViewModel.NotifyInvalidEmail(typed);
             return;
         }
-        if (!string.IsNullOrWhiteSpace(mailbox.Name)) _recipientNames[mailbox.Address] = mailbox.Name;
+        if (name is not null) _recipientNames[address] = name;
         await Dispatcher.ExecuteOnUIThread(() =>
         {
             if (string.Equals(field.TypedText, typed, StringComparison.Ordinal) || field.TypedText.Contains(typed, StringComparison.Ordinal)) field.ClearTypedText();
             CloseSuggestions();
         });
-        await AddAddressesAsync(field, [mailbox.Address]);
+        await AddAddressesAsync(field, [address]);
     }
 
     /// <summary>Resolves each address (a known contact supplies the name) and adds it unless it is already there.</summary>
@@ -122,9 +121,6 @@ public sealed partial class ComposePageViewController
         if (added) await Dispatcher.ExecuteOnUIThread(ScheduleAutosave);
     }
 
-    private static bool IsCompleteAddress(string text)
-        => MailboxAddress.TryParse(text, out var mailbox) && mailbox.Address.Contains('@') && mailbox.Address.Contains('.');
-
     /// <summary>
     /// Return: the highlighted suggestion unless a complete address is typed; while the search has not answered yet,
     /// search now and take the top suggestion (Windows GetTopSuggestionAsync); otherwise commit the text, or move on.
@@ -138,7 +134,7 @@ public sealed partial class ComposePageViewController
             MoveFocusAfter(field);
             return;
         }
-        if (!IsCompleteAddress(typed))
+        if (!ComposeRecipientRules.IsCompleteAddress(typed))
         {
             if (_suggestionList is { IsVisible: true } list && ReferenceEquals(list.Anchor, field) && list.Highlighted is { } highlighted)
             {
@@ -232,7 +228,7 @@ public sealed partial class ComposePageViewController
         var query = field.TypedText;
         _suggestionDebounce?.Cancel();
         var version = ++_suggestionVersion;
-        if (query.Length < 2)
+        if (!ComposeRecipientRules.ShouldSuggest(query))
         {
             _suggestionPending = false;
             _suggestionList?.Close();
@@ -245,7 +241,7 @@ public sealed partial class ComposePageViewController
 
     private async Task RefreshSuggestionsAsync(ComposeRecipientField field, string query, int version, CancellationToken token)
     {
-        try { await Task.Delay(120, token); }
+        try { await Task.Delay(ComposeRecipientRules.SuggestionDelay, token); }
         catch (OperationCanceledException) { return; }
         var results = await SuggestAsync(field, query);
         await Dispatcher.ExecuteOnUIThread(() =>
@@ -272,8 +268,7 @@ public sealed partial class ComposePageViewController
             Logger.CaptureException(exception, "ComposePage.ResolveRecipientSuggestions");
             return [];
         }
-        var collection = CollectionFor(field);
-        return suggestions.Where(suggestion => suggestion.IsList || !ComposePageViewModel.ContainsAddress(collection, suggestion.Address)).ToList();
+        return ComposeRecipientRules.ExcludeExisting(suggestions, CollectionFor(field));
     }
 
     /// <summary>Takes a suggestion: a list adds every member not already here; the typed text is cleared.</summary>
@@ -285,20 +280,10 @@ public sealed partial class ComposePageViewController
         {
             CloseSuggestions();
             field.ClearTypedText();
-            if (suggestion.IsList)
+            foreach (var (address, name) in ComposeRecipientRules.AddressesFor(suggestion, collection))
             {
-                foreach (var member in suggestion.ListMembers ?? Array.Empty<AccountContact>())
-                {
-                    var address = member.PrimaryEmailAddress;
-                    if (string.IsNullOrWhiteSpace(address) || ComposePageViewModel.ContainsAddress(collection, address) || addresses.Contains(address, StringComparer.OrdinalIgnoreCase)) continue;
-                    if (!string.IsNullOrWhiteSpace(member.DisplayName)) _recipientNames[address] = member.DisplayName;
-                    addresses.Add(address);
-                }
-            }
-            else if (!string.IsNullOrWhiteSpace(suggestion.Address))
-            {
-                if (!string.IsNullOrWhiteSpace(suggestion.DisplayName)) _recipientNames[suggestion.Address] = suggestion.DisplayName;
-                addresses.Add(suggestion.Address);
+                if (name is not null) _recipientNames[address] = name;
+                addresses.Add(address);
             }
         });
         if (addresses.Count == 0)

@@ -16,6 +16,10 @@ using Wino.Platform.Apple.Services;
 using Wino.Platform.MacOS;
 using Wino.Platform.MacOS.Services;
 using Wino.Services;
+using Wino.Services.Dav;
+using Wino.Services.Platform;
+using Wino.Services.PushRelay;
+using Wino.Services.Security;
 
 namespace Wino.Mail.MacOS;
 
@@ -31,7 +35,7 @@ internal static class Composition
         var paths = new ApplePaths(identity, NSBundle.MainBundle.ResourcePath ?? AppContext.BaseDirectory);
         var newInstallation = paths.IsVerifiedNewInstallation;
         var keychain = new AppleKeychainStore(identity);
-        var protector = new AppleSecretProtector(keychain);
+        var protector = new AesGcmEnvelopeSecretProtector(new SecureItemSecretProtectionKeyProvider(keychain, identity.Value));
         if (newInstallation) protector.ProvisionNewInstallationKey(true);
         paths.CreateDirectories();
 
@@ -47,6 +51,7 @@ internal static class Composition
         services.AddSingleton(identity);
         services.AddSingleton(paths);
         services.AddSingleton(keychain);
+        services.AddSingleton<ISecureItemStore>(keychain);
         services.AddSingleton<ISecretProtector>(protector);
         services.Replace(ServiceDescriptor.Singleton<IApplicationConfiguration>(new ApplicationConfiguration
         {
@@ -56,13 +61,13 @@ internal static class Composition
             ApplicationDisplayName = "Wino Mail",
             AllowLegacyDataMigration = false,
         }));
-        services.AddSingleton<IConfigurationService, AppleConfigurationService>();
+        services.AddSingleton<IConfigurationService>(_ => new JsonFileConfigurationService(paths.ApplicationDataRoot));
         services.AddSingleton<IPreferencesService, PreferencesService>();
         services.AddSingleton<IApplicationResourceResolver, AppleApplicationResourceResolver>();
-        services.AddSingleton<IFileService, AppleFileService>();
-        services.AddSingleton<IAccountCredentialPersistence, AppleAccountCredentialPersistence>();
-        services.AddSingleton<IDavCredentialStore, AppleDavCredentialStore>();
-        services.AddSingleton<IGoogleTokenStore, AppleGoogleTokenStore>();
+        services.AddSingleton<IFileService, FileSystemFileService>();
+        services.AddSingleton<IAccountCredentialPersistence, SecureItemAccountCredentialPersistence>();
+        services.AddSingleton<IDavCredentialStore, SecureItemDavCredentialStore>();
+        services.AddSingleton<IGoogleTokenStore, SecureItemGoogleTokenStore>();
         services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
         services.AddSingleton<IOutlookAuthenticationHost>(provider => new MacOSOutlookAuthenticationHost(
             provider.GetRequiredService<IApplicationConfiguration>(), provider.GetRequiredService<IAuthenticatorConfig>(),
@@ -81,11 +86,11 @@ internal static class Composition
         services.AddSingleton<IApplicationBadgePresenter, MacDockBadgePresenter>();
         services.AddSingleton<AppleNotificationSounds>();
         services.AddSingleton<INotificationBuilder, AppleNotificationBuilder>();
-        services.AddSingleton<IStatePersistanceService, AppleStatePersistenceService>();
+        services.AddSingleton<IStatePersistanceService, ConfigurationStatePersistenceService>();
         // WinoRelay (opt-in on the Mac): AppDelegate.PushRelay forwards the APNs token and pushes.
         services.AddSingleton<ApplePushTokenProvider>();
         services.AddSingleton<IPushTokenProvider>(provider => provider.GetRequiredService<ApplePushTokenProvider>());
-        services.AddSingleton<IPushRelayDeviceIdentityStore, AppleKeychainPushRelayDeviceIdentityStore>();
+        services.AddSingleton<IPushRelayDeviceIdentityStore, SecureItemPushRelayDeviceIdentityStore>();
         services.AddSingleton<IPushRelayDeviceInfo, MacPushRelayDeviceInfo>();
         // The app-level theme service adds the Wino themes (accent + backdrop, custom themes in the Windows file layout) on top of native appearance.
         services.AddSingleton(provider => new Wino.Services.Themes.CustomThemeFileStore(provider.GetRequiredService<IApplicationConfiguration>()));
@@ -109,7 +114,7 @@ internal static class Composition
             Printing: true, PdfExport: true, Smime: true, AdditionalWindows: true, Notifications: true, NotificationActions: true,
             StartupIntegration: true, Tray: true, GlobalHotkeys: true, GeneralActivation: true,
             // Live notifications need APNs and the user's opt-in (mailbox credentials go through Wino servers).
-            RemoteNotifications: true, PushRelayOptIn: true,
+            RemoteNotifications: true, PushRelayOptIn: true, KeyboardShortcuts: true, FileBackup: true, Purchases: true,
 #if WINO_APPSTORE
             AppleAppStore: true
 #else
@@ -117,7 +122,7 @@ internal static class Composition
 #endif
         ));
         // The bundle's CFBundleShortVersionString is the app version; CFBundleVersion is the build (Sentry dist).
-        services.AddSingleton<IAppMetadataService>(new AppleAppMetadataService(BundleString("CFBundleShortVersionString"), identity.Value,
+        services.AddSingleton<IAppMetadataService>(new HostAppMetadataService(BundleString("CFBundleShortVersionString"), identity.Value,
 #if DEBUG
             true
 #else

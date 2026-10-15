@@ -192,10 +192,8 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
     {
         try
         {
-            if (await dialogs.ShowConfirmationDialogAsync(Translator.NotificationSettings_Reset_ConfirmMessage,
-                    Translator.NotificationSettings_Reset_ConfirmTitle, Translator.NotificationSettings_Reset_Title))
+            if (await ViewModel.ConfirmResetAsync(dialogs))
             {
-                await ViewModel.ResetAsync();
                 sounds.ResetAll(ViewModel.Accounts.Select(account => account.AccountId));
                 await Dispatcher.ExecuteOnUIThread(() =>
                 {

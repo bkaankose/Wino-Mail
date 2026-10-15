@@ -3956,5 +3956,22 @@
   "IOS_Personalization_BackdropDescription": "Off keeps plain surfaces with the theme accent only.",
   "IOS_Calendar_Calendars": "Calendars",
   "IOS_Calendar_Agenda": "Agenda",
-  "IOS_Calendar_NoEvents": "No events"
+  "IOS_Calendar_NoEvents": "No events",
+  "Android_Shell_OpenNavigation": "Open navigation",
+  "Android_NotificationChannelGroup_Accounts": "Mail accounts",
+  "Android_NotificationChannel_MailDescription": "New mail in {0}",
+  "Android_NotificationChannel_Calendar": "Calendar reminders",
+  "Android_NotificationChannel_CalendarDescription": "Reminders for upcoming events",
+  "Android_NotificationChannel_Account": "Account alerts",
+  "Android_NotificationChannel_AccountDescription": "Accounts that need you to sign in again, and test notifications",
+  "Android_NotificationChannel_Background": "Sending changes",
+  "Android_NotificationChannel_BackgroundDescription": "Shown while Wino sends your changes after you leave the app",
+  "Android_Notification_SendingChanges": "Sending your changes",
+  "Android_Settings_Decrease": "Decrease",
+  "Android_Settings_Increase": "Increase",
+  "Android_Appearance_System": "System",
+  "Android_Appearance_Light": "Light",
+  "Android_Appearance_Dark": "Dark",
+  "Android_Welcome_Tagline": "Mail, calendar, contacts and tasks",
+  "Android_ToDo_Lists": "Lists"
 }

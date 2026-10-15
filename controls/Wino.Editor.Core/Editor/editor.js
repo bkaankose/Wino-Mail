@@ -50,6 +50,9 @@
             window.chrome.webview.postMessage(message);
         } else if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.winoMail) {
             window.webkit.messageHandlers.winoMail.postMessage(JSON.stringify(message));
+        } else if (window.winoMail && typeof window.winoMail.postMessage === "function") {
+            // Android WebView: the WebMessageListener (or JavaScript interface) object the Editor.Android session injects.
+            window.winoMail.postMessage(JSON.stringify(message));
         } else if (window.external && typeof window.external.notify === "function") {
             window.external.notify(JSON.stringify(message));
         }

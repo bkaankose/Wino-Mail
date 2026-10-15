@@ -1,0 +1,31 @@
+<Project>
+  <!-- Android build policy, imported by Directory.Build.targets when WinoTargetPlatform is Android
+       or the project targets an -android framework. Android builds pass -p:WinoTargetPlatform=Android
+       explicitly so the shared projects (for example Wino.Core.ML) see the platform; the host never
+       selects Android. -->
+
+  <!-- The Android head and its libraries use the Mono runtime (JIT in Debug, full AOT with LLVM in
+       Release), not Native AOT, which is still experimental for Android in .NET 10.
+       The portable libraries and the Windows release retain their AOT analyzer gates. -->
+  <PropertyGroup Condition="$(TargetFramework.Contains('-android'))">
+    <IsAotCompatible>false</IsAotCompatible>
+    <PublishAot>false</PublishAot>
+  </PropertyGroup>
+
+  <!-- Minimum OS is Android 6.0 (API 23), the floor of current AndroidX and Material Components.
+       The SDK fills an unset SupportedOSPlatformVersion with its own default before this file is
+       evaluated; a project that sets its own minimum above 23 keeps it. -->
+  <PropertyGroup Condition="$(TargetFramework.Contains('-android')) and ('$(SupportedOSPlatformVersion)' == '' or '$(SupportedOSPlatformVersion)' == '21' or '$(SupportedOSPlatformVersion)' == '21.0' or '$(SupportedOSPlatformVersion)' == '$(TargetPlatformVersion)')">
+    <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <!-- Release apps: Mono full AOT with LLVM and full trimming. Libraries are unaffected. The Android SDK turns an
+       application's OutputType Exe into Library (and sets AndroidApplication) before this file is evaluated, so the
+       condition tests AndroidApplication. -->
+  <PropertyGroup Condition="$(TargetFramework.Contains('-android')) and '$(Configuration)' == 'Release' and '$(AndroidApplication)' == 'true'">
+    <RunAOTCompilation>true</RunAOTCompilation>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+    <EnableLLVM>true</EnableLLVM>
+    <TrimMode>full</TrimMode>
+  </PropertyGroup>
+</Project>

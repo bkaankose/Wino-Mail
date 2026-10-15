@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One recipient field of the composer (canvas board Compose, "To" row): the caption, the recipients as input chips
+     followed by the text field in one flowing ChipGroup, and an optional trailing button (Cc/Bcc on the To row). The
+     page includes it three times (To, Cc, Bcc) and fills it in code. Visual values: styles_compose.xml. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+  <LinearLayout style="@style/Widget.Wino.Compose.FieldRow.Recipients">
+
+    <TextView
+        android:id="@+id/recipient_caption"
+        style="@style/Widget.Wino.Compose.FieldCaption" />
+
+    <com.google.android.material.chip.ChipGroup
+        android:id="@+id/recipient_chips"
+        style="@style/Widget.Wino.Compose.Chips"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1">
+
+      <com.winomail.android.ComposeRecipientInput
+          android:id="@+id/recipient_input"
+          style="@style/Widget.Wino.Compose.RecipientInput"
+          android:layout_width="wrap_content"
+          android:dropDownWidth="match_parent"
+          android:imeOptions="actionNext|flagNoExtractUi"
+          android:inputType="textEmailAddress|textNoSuggestions" />
+    </com.google.android.material.chip.ChipGroup>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/recipient_toggle"
+        style="@style/Widget.Wino.Compose.IconButton"
+        android:visibility="gone" />
+  </LinearLayout>
+
+  <View style="@style/Widget.Wino.Compose.Divider" />
+</LinearLayout>

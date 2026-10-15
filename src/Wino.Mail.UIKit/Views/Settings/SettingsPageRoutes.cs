@@ -31,7 +31,7 @@ public static class SettingsPageRoutes
         Route<SettingsRootViewController>(registry, WinoPage.SettingOptionsPage, host);
 
         // Windows pane order; account sub-pages follow Manage accounts. Companion, Backup and restore and S/MIME have no
-        // iOS page (SettingsPageCatalog.IsSupportedOnDevice, IPlatformCapabilities.Smime).
+        // iOS page (SettingsCatalog.IsVisible, IPlatformCapabilities.Smime).
         Route<AppPreferencesPageViewController>(registry, WinoPage.AppPreferencesPage, host);
         Route<PersonalizationPageViewController>(registry, WinoPage.PersonalizationPage, host);
         Route<ApplicationThemeGalleryPageViewController>(registry, WinoPage.ApplicationThemeGalleryPage, host);

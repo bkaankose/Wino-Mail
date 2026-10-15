@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The To Do add-task bar (canvas Material pass ToDo): a full-radius 56 dp field on the subtle fill. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+  <solid android:color="@color/wino_subtle_fill" />
+  <corners android:radius="@dimen/wino_tasks_add_bar_radius" />
+</shape>

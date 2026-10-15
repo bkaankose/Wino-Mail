@@ -24,23 +24,24 @@ internal static class EditorDialogs
     /// </summary>
     public static async Task<EditorLinkCommandArgs?> LinkAsync(NSWindow window, EditorState state)
     {
-        var isImage = state.IsImageSelected;
-        var url = Field(Translator.Composer_LinkUrlPlaceholder, isImage ? state.ImageLinkUrl : state.LinkUrl);
+        var isImage = !EditorLinkRules.HasTextField(state);
+        var url = Field(Translator.Composer_LinkUrlPlaceholder, EditorLinkRules.InitialUrl(state));
         var text = Field(Translator.Composer_LinkTextPlaceholder, state.SelectedText);
         var openInNewWindow = CheckBox(Translator.Composer_OpenLinkInNewWindow, true);
         var rows = new List<(string?, NSView)> { (Translator.Composer_LinkUrl, url) };
         if (!isImage) rows.Add((Translator.Composer_LinkText, text));
         rows.Add((null, openInNewWindow));
 
-        var title = isImage
-            ? Translator.Composer_EditImageLink
-            : string.IsNullOrWhiteSpace(state.LinkUrl) ? Translator.Composer_InsertLink : Translator.ComposerParity_EditLink;
+        var title = EditorLinkRules.Kind(state) switch
+        {
+            EditorLinkDialogKind.EditImageLink => Translator.Composer_EditImageLink,
+            EditorLinkDialogKind.EditLink => Translator.ComposerParity_EditLink,
+            _ => Translator.Composer_InsertLink
+        };
         var alert = Alert(title, Form(rows), Translator.Buttons_Apply);
         alert.Window.InitialFirstResponder = url;
-        if (!await RunAsync(alert, window) || string.IsNullOrWhiteSpace(url.StringValue)) return null;
-
-        var text1 = isImage || string.IsNullOrWhiteSpace(text.StringValue) ? null : text.StringValue.Trim();
-        return new EditorLinkCommandArgs(NormalizeUrl(url.StringValue), text1, openInNewWindow.State == NSCellStateValue.On);
+        if (!await RunAsync(alert, window)) return null;
+        return EditorLinkRules.CreateLink(state, url.StringValue, text.StringValue, openInNewWindow.State == NSCellStateValue.On);
     }
 
     /// <summary>Alternative text and link of the selected image (Windows ShowImagePropertiesDialogAsync).</summary>
@@ -95,12 +96,7 @@ internal static class EditorDialogs
         return images;
     }
 
-    internal static string NormalizeUrl(string value)
-    {
-        var address = value.Trim();
-        if (!address.Contains("://", StringComparison.Ordinal) && !address.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase)) address = "https://" + address;
-        return address;
-    }
+    internal static string NormalizeUrl(string value) => EditorLinkRules.NormalizeUrl(value);
 
     // ---- Building blocks ----
 

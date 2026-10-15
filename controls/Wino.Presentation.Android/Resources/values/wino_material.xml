@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Material 3 metrics of the mail shell (canvas Material pass, 14 Oct 2026): the 64 dp small top app bar, the 48 dp
+     chip row with the segmented button and the dropdown filter chip, list subheaders, the modal navigation drawer and its
+     pill items, the FAB, the search bar and the modal bottom sheet. Pages and controls read only these. -->
+<resources>
+  <!-- Top app bar and contextual action mode. -->
+  <dimen name="wino_m3_icon_button">48dp</dimen>
+  <dimen name="wino_m3_icon">24dp</dimen>
+  <dimen name="wino_m3_glyph">22dp</dimen>
+  <dimen name="wino_m3_glyph_small">18dp</dimen>
+  <dimen name="wino_m3_glyph_large">24dp</dimen>
+  <dimen name="wino_m3_top_bar_padding">4dp</dimen>
+
+  <!-- Chip row under the top app bar: segmented button (40 dp) and dropdown filter chip (32 dp, 8 dp corners). -->
+  <dimen name="wino_m3_chip_row_height">48dp</dimen>
+  <dimen name="wino_m3_chip_row_padding_start">16dp</dimen>
+  <dimen name="wino_m3_chip_row_padding_end">8dp</dimen>
+  <dimen name="wino_m3_chip_row_gap">8dp</dimen>
+  <dimen name="wino_m3_segment_height">40dp</dimen>
+  <dimen name="wino_m3_segment_radius">20dp</dimen>
+  <dimen name="wino_m3_segment_padding">14dp</dimen>
+  <dimen name="wino_m3_segment_icon_padding">6dp</dimen>
+  <dimen name="wino_m3_segment_icon">18dp</dimen>
+  <dimen name="wino_m3_chip_height">32dp</dimen>
+  <dimen name="wino_m3_chip_radius">8dp</dimen>
+  <dimen name="wino_m3_chip_icon">18dp</dimen>
+  <dimen name="wino_m3_chip_spacing">8dp</dimen>
+  <dimen name="wino_m3_stroke">1dp</dimen>
+
+  <!-- List subheader (label-large in primary, no fill). -->
+  <dimen name="wino_m3_subheader_height">40dp</dimen>
+  <dimen name="wino_m3_subheader_padding">16dp</dimen>
+  <dimen name="wino_m3_sheet_subheader_padding">24dp</dimen>
+
+  <!-- Navigation drawer (modal, 360 dp) and its 56 dp pill items. -->
+  <dimen name="wino_m3_drawer_width">360dp</dimen>
+  <dimen name="wino_m3_drawer_header_min_height">72dp</dimen>
+  <dimen name="wino_m3_drawer_header_padding_start">24dp</dimen>
+  <dimen name="wino_m3_drawer_header_padding_end">12dp</dimen>
+  <dimen name="wino_m3_drawer_header_padding_vertical">12dp</dimen>
+  <dimen name="wino_m3_drawer_avatar">48dp</dimen>
+  <dimen name="wino_m3_drawer_avatar_glyph">22dp</dimen>
+  <dimen name="wino_m3_drawer_header_gap">16dp</dimen>
+  <dimen name="wino_m3_drawer_list_padding_top">12dp</dimen>
+  <dimen name="wino_m3_drawer_item_height">56dp</dimen>
+  <dimen name="wino_m3_drawer_section_height">56dp</dimen>
+  <dimen name="wino_m3_drawer_item_inset">12dp</dimen>
+  <dimen name="wino_m3_drawer_item_radius">28dp</dimen>
+  <dimen name="wino_m3_drawer_item_padding_start">28dp</dimen>
+  <dimen name="wino_m3_drawer_item_padding_end">24dp</dimen>
+  <dimen name="wino_m3_drawer_section_padding_start">28dp</dimen>
+  <dimen name="wino_m3_drawer_item_icon_gap">12dp</dimen>
+  <dimen name="wino_m3_drawer_item_depth_indent">16dp</dimen>
+  <dimen name="wino_m3_drawer_item_glyph">22dp</dimen>
+  <dimen name="wino_m3_drawer_disclosure">32dp</dimen>
+  <dimen name="wino_m3_drawer_disclosure_glyph">12dp</dimen>
+  <dimen name="wino_m3_drawer_account_icon">32dp</dimen>
+  <dimen name="wino_m3_drawer_indicator_width">3dp</dimen>
+  <dimen name="wino_m3_drawer_indicator_inset">16dp</dimen>
+  <dimen name="wino_m3_drawer_indicator_radius">1.5dp</dimen>
+
+  <!-- Navigation bar (compact) and rail (medium). -->
+  <dimen name="wino_m3_nav_icon">24dp</dimen>
+  <dimen name="wino_m3_rail_avatar">40dp</dimen>
+  <dimen name="wino_m3_rail_avatar_glyph">20dp</dimen>
+  <dimen name="wino_m3_rail_gap">8dp</dimen>
+
+  <!-- FAB (tonal primary container, 16 dp corners) and its glyph. -->
+  <dimen name="wino_m3_fab_margin">16dp</dimen>
+  <dimen name="wino_m3_fab_glyph">24dp</dimen>
+  <dimen name="wino_m3_list_fab_clearance">88dp</dimen>
+
+  <!-- Search bar (56 dp, full radius) in a 72 dp header, and its chip row. -->
+  <dimen name="wino_m3_search_header_padding_horizontal">16dp</dimen>
+  <dimen name="wino_m3_search_header_padding_vertical">8dp</dimen>
+  <dimen name="wino_m3_search_bar_height">56dp</dimen>
+  <dimen name="wino_m3_search_bar_radius">28dp</dimen>
+  <dimen name="wino_m3_search_bar_padding">4dp</dimen>
+  <dimen name="wino_m3_search_bar_gap">4dp</dimen>
+  <dimen name="wino_m3_search_text">16sp</dimen>
+
+  <!-- Modal bottom sheet (Move to folder). -->
+  <dimen name="wino_m3_sheet_title_padding_horizontal">24dp</dimen>
+  <dimen name="wino_m3_sheet_title_padding_bottom">12dp</dimen>
+  <dimen name="wino_m3_sheet_search_height">48dp</dimen>
+  <dimen name="wino_m3_sheet_search_radius">24dp</dimen>
+  <dimen name="wino_m3_sheet_search_margin_horizontal">16dp</dimen>
+  <dimen name="wino_m3_sheet_search_margin_bottom">8dp</dimen>
+  <dimen name="wino_m3_sheet_search_padding">16dp</dimen>
+  <dimen name="wino_m3_sheet_search_gap">12dp</dimen>
+  <dimen name="wino_m3_sheet_list_max_height">480dp</dimen>
+  <dimen name="wino_m3_sheet_padding_bottom">24dp</dimen>
+  <dimen name="wino_m3_dialog_width">420dp</dimen>
+  <fraction name="wino_m3_sheet_list_screen_fraction">55%</fraction>
+
+  <!-- Reader (compact): the bottom app bar's reserve and the subject headline. -->
+  <dimen name="wino_m3_bottom_bar_clearance">88dp</dimen>
+  <dimen name="wino_m3_headline_small">24sp</dimen>
+  <dimen name="wino_m3_reader_header_indent">56dp</dimen>
+  <dimen name="wino_m3_reader_body_min_height">120dp</dimen>
+
+  <!-- Tonal containers derived from the accent over the zone (used when a theme accent replaces the resource accent). -->
+  <fraction name="wino_m3_secondary_container_amount">16%</fraction>
+  <fraction name="wino_m3_primary_container_amount">24%</fraction>
+  <fraction name="wino_m3_disabled_alpha">38%</fraction>
+</resources>

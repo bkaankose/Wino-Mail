@@ -99,6 +99,13 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     {
         if (IsAccountCreationBlocked)
         {
+            // Nothing is sold on this platform (Android v1): explain the limit without a purchase button.
+            if (!PlatformCapabilities.Purchases)
+            {
+                await DialogService.ShowMessageAsync(Translator.DialogMessage_AccountLimitMessage, Translator.DialogMessage_AccountLimitTitle, WinoCustomMessageDialogIcon.Warning);
+                return;
+            }
+
             var isPurchaseClicked = await DialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_AccountLimitMessage, Translator.DialogMessage_AccountLimitTitle, Translator.Buttons_Purchase);
 
             if (!isPurchaseClicked) return;
@@ -119,6 +126,8 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     [RelayCommand]
     private async Task PurchaseUnlimitedAccountAsync()
     {
+        if (!PlatformCapabilities.Purchases) return;
+
         if (!PlatformCapabilities.MicrosoftStore && !PlatformCapabilities.AppleAppStore)
         {
             await PurchaseUnlimitedAccountWithWinoAccountAsync();

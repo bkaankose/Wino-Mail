@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Colour tokens of code-built Settings views and dialogs (dark). -->
+<resources>
+  <color name="wino_raised_fill">#0FFFFFFF</color>
+  <color name="wino_strong_stroke">#29FFFFFF</color>
+  <color name="wino_pill_fill">#24FFFFFF</color>
+  <color name="wino_toggle_wash">#1FFFFFFF</color>
+</resources>

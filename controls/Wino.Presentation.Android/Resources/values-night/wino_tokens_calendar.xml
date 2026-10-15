@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tokens of the Calendar, People and To Do Settings pages (dark). -->
+<resources>
+  <color name="wino_calendar_preview_event_text">#FFFFFFFF</color>
+  <color name="wino_calendar_preview_event_outline">#B3FFFFFF</color>
+
+  <fraction name="wino_calendar_agenda_card_tint">34%</fraction>
+  <color name="wino_calendar_now">#FF99A4</color>
+  <color name="wino_calendar_grid_line">#1FFFFFFF</color>
+  <color name="wino_calendar_half_hour_line">#0DFFFFFF</color>
+  <color name="wino_calendar_weekend">#08FFFFFF</color>
+  <color name="wino_calendar_today_column">#140984E3</color>
+  <color name="wino_calendar_range_band">#330984E3</color>
+</resources>

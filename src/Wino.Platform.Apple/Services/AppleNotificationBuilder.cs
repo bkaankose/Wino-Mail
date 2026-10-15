@@ -245,19 +245,20 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
                 if (mailItem?.AssignedFolder is null) continue;
                 var account = accounts.FirstOrDefault(account => account.Id == mailItem.AssignedFolder.MailAccountId);
                 var settings = NotificationSettingsResolver.ResolveMail(_preferences, account?.Preferences);
-                if (settings.IsEnabled && IsWithinNotificationScope(mailItem, settings.Scope))
+                if (settings.IsEnabled && NotificationContentRules.IsWithinNotificationScope(mailItem, settings.Scope))
                     notifiable.Add((mailItem, account?.Preferences));
             }
 
             if (notifiable.Count == 0) return;
 
-            if (notifiable.Count > 3)
+            if (notifiable.Count > NotificationContentRules.MaxIndividualMailNotifications)
             {
+                var summary = NotificationContentRules.ComposeSummaryText(notifiable.Count);
                 await ShowAsync(new NotificationRequest(
                     Identifier: "mail-summary-" + Guid.NewGuid().ToString("N"),
-                    Title: Translator.Notifications_MultipleNotificationsTitle,
-                    Subtitle: null,
-                    Body: string.Format(Translator.Notifications_MultipleNotificationsMessage, notifiable.Count),
+                    Title: summary.Title,
+                    Subtitle: summary.Subtitle,
+                    Body: summary.Body,
                     Category: AppleNotificationCategories.MailSummary,
                     ThreadIdentifier: null,
                     UserInfo: new Dictionary<string, string> { [Constants.ToastModeKey] = Constants.ToastModeMail },
@@ -294,7 +295,7 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
     {
         var settings = NotificationSettingsResolver.ResolveMail(_preferences, accountPreferences);
         string? imagePath = null;
-        if (settings.Content != MailNotificationContent.Nothing)
+        if (NotificationContentRules.ShowsSenderPicture(settings.Content))
         {
             imagePath = mailItem.SenderContact?.ContactPictureFileId is { } fileId
                 ? _pictureStorageService.GetPicturePath(PictureKind.Contact, fileId)
@@ -303,22 +304,7 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
                 imagePath = (await _thumbnailService.GetThumbnailAsync(mailItem.FromAddress, awaitLoad: true).ConfigureAwait(false))?.FilePath;
         }
 
-        // Windows AddMailNotificationText: as much as the account's privacy level allows.
-        string title;
-        string? subtitle = null, body = null;
-        if (settings.Content == MailNotificationContent.Nothing)
-        {
-            title = Translator.Notifications_MultipleNotificationsTitle;
-        }
-        else
-        {
-            title = string.IsNullOrWhiteSpace(mailItem.FromName) ? mailItem.FromAddress ?? string.Empty : mailItem.FromName;
-            if (settings.Content != MailNotificationContent.SenderOnly)
-            {
-                subtitle = mailItem.Subject;
-                if (settings.Content == MailNotificationContent.SenderSubjectPreview) body = mailItem.PreviewText;
-            }
-        }
+        var (title, subtitle, body) = NotificationContentRules.ComposeMailText(mailItem, settings.Content);
 
         var accountId = mailItem.AssignedFolder?.MailAccountId;
         await ShowAsync(new NotificationRequest(
@@ -337,20 +323,6 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
             ImagePath: imagePath,
             Sound: _sounds.ResolveMail(accountPreferences)),
             NotificationKind.Mail, accountPreferences).ConfigureAwait(false);
-    }
-
-    /// <summary>Windows IsWithinNotificationScope.</summary>
-    private static bool IsWithinNotificationScope(MailCopy mailItem, MailNotificationScope scope)
-    {
-        if (scope == MailNotificationScope.AllFolders) return true;
-        var isInbox = mailItem.AssignedFolder?.SpecialFolderType == SpecialFolderType.Inbox;
-        return scope switch
-        {
-            MailNotificationScope.InboxOnly => isInbox,
-            MailNotificationScope.FocusedInboxOnly => isInbox && mailItem.IsFocused,
-            MailNotificationScope.InboxAndCustomFolders => isInbox || mailItem.AssignedFolder?.SpecialFolderType == SpecialFolderType.Other,
-            _ => true
-        };
     }
 
     public void RemoveNotification(Guid mailUniqueId) => RemoveNotifications([mailUniqueId]);
@@ -411,13 +383,11 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
         if (calendarItem.AssignedCalendar?.AccountId is { } accountId)
             accountPreferences = (await _accountService.GetAccountAsync(accountId).ConfigureAwait(false))?.Preferences;
 
-        var localStart = calendarItem.GetLocalStartDate();
-        var body = $"{GetCalendarReminderContext(localStart, DateTime.Now)} - {localStart:g}";
-        if (!string.IsNullOrWhiteSpace(calendarItem.Location)) body += "\n" + calendarItem.Location;
+        var body = NotificationContentRules.ComposeCalendarReminderBody(calendarItem, DateTime.Now);
 
         // One Snooze action whose length follows the "Default snooze duration" setting (Windows' default pick).
-        var snoozeMinutes = AppleNotificationCategories.NormalizeSnoozeMinutes(CalendarReminderSnoozeOptions.GetDefaultSnoozeMinutes(
-            reminderDurationInSeconds, _preferences.DefaultReminderDurationInSeconds, _preferences.DefaultSnoozeDurationInMinutes));
+        var snoozeMinutes = NotificationContentRules.ResolveReminderSnoozeMinutes(
+            reminderDurationInSeconds, _preferences.DefaultReminderDurationInSeconds, _preferences.DefaultSnoozeDurationInMinutes);
         var canJoin = CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out _);
         var userInfo = new Dictionary<string, string>
         {
@@ -485,22 +455,6 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
             UserInfo: new Dictionary<string, string> { [Constants.ToastModeKey] = Constants.ToastModeMail },
             Sound: _sounds.Resolve(AppleNotificationSoundKind.Mail)),
             NotificationKind.Other);
-
-    /// <summary>Windows GetCalendarReminderContext.</summary>
-    private static string GetCalendarReminderContext(DateTime localStart, DateTime nowLocal)
-    {
-        var delta = localStart - nowLocal;
-        var absDelta = delta.Duration();
-        if (absDelta < TimeSpan.FromMinutes(1))
-            return delta.TotalSeconds >= 0 ? Translator.CalendarReminder_StartingNow : Translator.CalendarReminder_StartedNow;
-        if (delta.TotalSeconds > 0)
-        {
-            if (delta.TotalHours >= 1) return string.Format(Translator.CalendarReminder_StartsInHours, Math.Max(1, (int)Math.Floor(delta.TotalHours)));
-            return string.Format(Translator.CalendarReminder_StartsInMinutes, Math.Max(1, (int)Math.Floor(delta.TotalMinutes)));
-        }
-        if (absDelta.TotalHours >= 1) return string.Format(Translator.CalendarReminder_StartedHoursAgo, Math.Max(1, (int)Math.Floor(absDelta.TotalHours)));
-        return string.Format(Translator.CalendarReminder_StartedMinutesAgo, Math.Max(1, (int)Math.Floor(absDelta.TotalMinutes)));
-    }
 
     #endregion
 

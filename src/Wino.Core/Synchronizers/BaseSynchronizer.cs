@@ -171,6 +171,13 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
             return changeRequestQueue.Count > 0;
     }
 
+    public bool HasQueuedRequests(Func<IRequestBase, bool> predicate)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        lock (requestQueueLock)
+            return changeRequestQueue.Any(predicate);
+    }
+
     protected List<IRequestBase> GetQueuedRequests()
     {
         lock (requestQueueLock)

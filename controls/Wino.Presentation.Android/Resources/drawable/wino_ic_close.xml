@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Material symbol "close" (24 dp). Tinted by the toolbar or code; Material icons are used only for menu, back, close,
+     overflow and the dropdown arrow (docs/android-design-decisions.md). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="@dimen/wino_m3_icon"
+    android:height="@dimen/wino_m3_icon"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="@color/wino_text_primary">
+  <path
+      android:fillColor="@android:color/white"
+      android:pathData="M19,6.41L17.59,5 12,10.59 6.41,5 5,6.41 10.59,12 5,17.59 6.41,19 12,13.41 17.59,19 19,17.59 13.41,12z" />
+</vector>

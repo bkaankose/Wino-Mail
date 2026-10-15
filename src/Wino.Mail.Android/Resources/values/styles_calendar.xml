@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Calendar mode styles (canvas Material pass boards Calendar, CalendarMonth and EventEditor; tablet boards
+     CalendarTablet and CalendarMonthTablet). The calendar layouts reference only these, the Widget.WinoKit Material 3
+     styles and the Presentation.Android calendar tokens. -->
+<resources>
+  <style name="Widget.Wino.Calendar" parent="" />
+
+  <!-- The top app bar title that opens the month view (title-large with the dropdown arrow). -->
+  <style name="Widget.Wino.Calendar.TitleButton">
+    <item name="android:layout_width">wrap_content</item>
+    <item name="android:layout_height">@dimen/wino_m3_icon_button</item>
+    <item name="android:background">?attr/selectableItemBackground</item>
+    <item name="android:drawablePadding">@dimen/wino_space_2xs</item>
+    <item name="android:drawableTint">@color/wino_text_secondary</item>
+    <item name="android:ellipsize">end</item>
+    <item name="android:gravity">center_vertical</item>
+    <item name="android:maxLines">1</item>
+    <item name="android:paddingStart">@dimen/wino_space_2xs</item>
+    <item name="android:paddingEnd">@dimen/wino_space_2xs</item>
+    <item name="android:textAppearance">@style/TextAppearance.WinoKit.TopAppBarTitle</item>
+  </style>
+
+  <style name="Widget.Wino.Calendar.WeekStrip">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">@dimen/wino_calendar_week_strip_height</item>
+    <item name="android:paddingStart">@dimen/wino_calendar_strip_padding</item>
+    <item name="android:paddingEnd">@dimen/wino_calendar_strip_padding</item>
+  </style>
+
+  <style name="Widget.Wino.Calendar.MonthGrid">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:paddingStart">@dimen/wino_calendar_strip_padding</item>
+    <item name="android:paddingEnd">@dimen/wino_calendar_strip_padding</item>
+    <item name="android:paddingBottom">@dimen/wino_calendar_month_padding_bottom</item>
+  </style>
+
+  <style name="Widget.Wino.Calendar.Divider">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">@dimen/wino_calendar_grid_stroke</item>
+    <item name="android:background">@color/wino_calendar_grid_line</item>
+  </style>
+
+  <style name="Widget.Wino.Calendar.Agenda">
+    <item name="android:clipToPadding">false</item>
+    <item name="android:paddingBottom">@dimen/wino_m3_list_fab_clearance</item>
+    <item name="android:scrollbars">vertical</item>
+  </style>
+
+  <!-- Agenda subheader: label-large in primary (today) or secondary text, 40 dp, no fill. -->
+  <style name="Widget.Wino.Calendar.Subheader">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">@dimen/wino_m3_subheader_height</item>
+    <item name="android:gravity">center_vertical</item>
+    <item name="android:maxLines">1</item>
+    <item name="android:ellipsize">end</item>
+    <item name="android:paddingStart">@dimen/wino_m3_subheader_padding</item>
+    <item name="android:paddingEnd">@dimen/wino_m3_subheader_padding</item>
+    <item name="android:textAppearance">@style/TextAppearance.WinoKit.Label</item>
+  </style>
+
+  <style name="Widget.Wino.Calendar.AgendaRow">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:background">?attr/selectableItemBackground</item>
+    <item name="android:gravity">center_vertical</item>
+    <item name="android:minHeight">@dimen/wino_calendar_agenda_row_min_height</item>
+    <item name="android:orientation">horizontal</item>
+    <item name="android:paddingStart">@dimen/wino_m3_subheader_padding</item>
+    <item name="android:paddingTop">@dimen/wino_calendar_agenda_row_padding_vertical</item>
+    <item name="android:paddingEnd">@dimen/wino_m3_subheader_padding</item>
+    <item name="android:paddingBottom">@dimen/wino_calendar_agenda_row_padding_vertical</item>
+  </style>
+
+  <style name="Widget.Wino.Calendar.AgendaTime">
+    <item name="android:layout_width">@dimen/wino_calendar_agenda_time_width</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:layout_marginEnd">@dimen/wino_calendar_agenda_gap</item>
+    <item name="android:textAppearance">@style/TextAppearance.WinoKit.Caption</item>
+    <item name="android:textColor">@color/wino_text_secondary</item>
+  </style>
+
+  <style name="Widget.Wino.Calendar.AgendaCard">
+    <item name="android:layout_width">0dp</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:layout_weight">1</item>
+    <item name="android:orientation">vertical</item>
+    <item name="android:paddingStart">@dimen/wino_calendar_agenda_card_padding_horizontal</item>
+    <item name="android:paddingTop">@dimen/wino_calendar_agenda_card_padding_vertical</item>
+    <item name="android:paddingEnd">@dimen/wino_calendar_agenda_card_padding_horizontal</item>
+    <item name="android:paddingBottom">@dimen/wino_calendar_agenda_card_padding_vertical</item>
+  </style>
+
+  <style name="Widget.Wino.Calendar.AgendaTitle">
+    <item name="android:ellipsize">end</item>
+    <item name="android:maxLines">2</item>
+    <item name="android:textAppearance">@style/TextAppearance.WinoKit.BodyStrong</item>
+  </style>
+
+  <style name="Widget.Wino.Calendar.AgendaSupporting">
+    <item name="android:ellipsize">end</item>
+    <item name="android:maxLines">1</item>
+    <item name="android:textAppearance">@style/TextAppearance.WinoKit.Caption</item>
+    <item name="android:textColor">@color/wino_text_secondary</item>
+  </style>
+
+  <style name="Widget.Wino.Calendar.Empty">
+    <item name="android:textAppearance">@style/TextAppearance.WinoKit.Body</item>
+    <item name="android:textColor">@color/wino_text_secondary</item>
+  </style>
+
+  <!-- Medium and expanded: the 48 dp period header inside the zone (previous, next, range, Today, display types). -->
+  <style name="Widget.Wino.Calendar.PeriodHeader">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">@dimen/wino_calendar_surface_header_height</item>
+    <item name="android:gravity">center_vertical</item>
+    <item name="android:orientation">horizontal</item>
+    <item name="android:paddingStart">@dimen/wino_space_xs</item>
+    <item name="android:paddingEnd">@dimen/wino_space_s</item>
+  </style>
+
+
+  <style name="Widget.Wino.Calendar.HeaderButton" parent="Widget.Wino.Button.Outlined">
+    <item name="android:layout_height">@dimen/wino_m3_chip_height</item>
+    <item name="android:minHeight">@dimen/wino_m3_chip_height</item>
+    <item name="android:layout_marginStart">@dimen/wino_space_s</item>
+    <item name="android:paddingStart">@dimen/wino_space_m</item>
+    <item name="android:paddingEnd">@dimen/wino_space_m</item>
+    <item name="cornerRadius">@dimen/wino_m3_segment_radius</item>
+  </style>
+
+  <!-- Event details and editor rows. -->
+  <style name="Widget.Wino.Calendar.FormColumn">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:orientation">vertical</item>
+    <item name="android:paddingBottom">@dimen/wino_space_2xl</item>
+  </style>
+
+
+</resources>

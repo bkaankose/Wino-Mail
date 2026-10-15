@@ -4,19 +4,23 @@ using System.Text.Json.Serialization;
 
 namespace Wino.Editor;
 
-/// <summary>Fresh shells for WKWebView. No untrusted mail is included in the shell.</summary>
+/// <summary>
+/// Fresh shells for WKWebView and the Android WebView (one generation per load, a per-document script nonce and the
+/// remote-content CSP). No untrusted mail is included in the shell. <c>useCommandKey</c> maps editor shortcuts to
+/// Command (Apple) instead of Control (Android).
+/// </summary>
 public static class AppleMailDocumentBuilder
 {
     public static Task<string> BuildReaderAsync(string sessionId, RemoteContentPolicy policy,
-        bool darkMode, CancellationToken cancellationToken = default) =>
-        BuildAsync(false, sessionId, policy, darkMode, cancellationToken);
+        bool darkMode, CancellationToken cancellationToken = default, bool useCommandKey = true) =>
+        BuildAsync(false, sessionId, policy, darkMode, useCommandKey, cancellationToken);
 
     public static Task<string> BuildEditorAsync(string sessionId, bool darkMode,
-        CancellationToken cancellationToken = default) =>
-        BuildAsync(true, sessionId, RemoteContentPolicy.Blocked, darkMode, cancellationToken);
+        CancellationToken cancellationToken = default, bool useCommandKey = true) =>
+        BuildAsync(true, sessionId, RemoteContentPolicy.Blocked, darkMode, useCommandKey, cancellationToken);
 
     private static async Task<string> BuildAsync(bool editor, string sessionId, RemoteContentPolicy policy,
-        bool darkMode, CancellationToken cancellationToken)
+        bool darkMode, bool useCommandKey, CancellationToken cancellationToken)
     {
         if (!Guid.TryParseExact(sessionId, "N", out _)) throw new ArgumentException("Expected a generation GUID.", nameof(sessionId));
         if (!Enum.IsDefined(policy)) throw new ArgumentOutOfRangeException(nameof(policy));
@@ -32,7 +36,7 @@ public static class AppleMailDocumentBuilder
         string document = await EditorDocumentAssets.BuildDocumentAsync(editor ? "editor.html" : "reader.html",
             editor ? "editor.css" : "reader.css", csp, scripts).ConfigureAwait(false);
         document = document.Replace($"nonce=\"{EditorDocumentAssets.ProcessScriptNonce}\"", $"nonce=\"{nonce}\"", StringComparison.Ordinal);
-        string bootstrap = $"<script nonce=\"{nonce}\">window.winoSessionId={JsonSerializer.Serialize(sessionId, EditorJsonContext.Default.String)};window.winoUseCommandKey=true;</script>";
+        string bootstrap = $"<script nonce=\"{nonce}\">window.winoSessionId={JsonSerializer.Serialize(sessionId, EditorJsonContext.Default.String)};window.winoUseCommandKey={(useCommandKey ? "true" : "false")};</script>";
         // Policy and trusted generation bootstrap precede every stylesheet/script and all mail parsing.
         int metaEnd = document.IndexOf(">", document.IndexOf("<meta http-equiv=\"Content-Security-Policy\"", StringComparison.Ordinal), StringComparison.Ordinal);
         document = document.Insert(metaEnd + 1, bootstrap);

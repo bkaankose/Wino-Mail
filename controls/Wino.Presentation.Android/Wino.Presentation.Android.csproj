@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Android twins of Wino.Presentation.UIKit for the Android app: View adapters over the Wino.Presentation.Core
+       bindings, the WinoIcons fonts, Wino colour tokens and theme surfaces, the Wino zone, the wallpaper backdrop and
+       dp/insets helpers. Ships the shared Wino colour, dimension and zone resources. References no platform service
+       project. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
+    <WinoTargetPlatform>Android</WinoTargetPlatform>
+    <RootNamespace>Wino.Presentation.Android</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Wino.Core.Domain/Wino.Core.Domain.csproj" />
+    <ProjectReference Include="../Wino.Presentation.Core/Wino.Presentation.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Xamarin.AndroidX.Core" />
+    <PackageReference Include="Xamarin.AndroidX.Fragment" />
+    <PackageReference Include="Xamarin.Google.Android.Material" />
+  </ItemGroup>
+  <!-- Trimming roots for the views layouts inflate by Java name (Release apps use TrimMode=full). -->
+  <ItemGroup>
+    <EmbeddedResource Include="ILLink.Descriptors.xml" LogicalName="ILLink.Descriptors.xml" />
+  </ItemGroup>
+  <!-- The WinoIcons fonts (icons/README.md), read from the app assets as Fonts/*.ttf by WinoIcons. -->
+  <ItemGroup>
+    <AndroidAsset Include="../../src/Wino.Mail.WinUI/Assets/WinoIcons.ttf" Link="Assets/Fonts/WinoIcons.ttf" />
+    <AndroidAsset Include="../../src/Wino.Mail.WinUI/Assets/WinoIconsColor-Light.ttf" Link="Assets/Fonts/WinoIconsColor-Light.ttf" />
+    <AndroidAsset Include="../../src/Wino.Mail.WinUI/Assets/WinoIconsColor-Dark.ttf" Link="Assets/Fonts/WinoIconsColor-Dark.ttf" />
+  </ItemGroup>
+</Project>

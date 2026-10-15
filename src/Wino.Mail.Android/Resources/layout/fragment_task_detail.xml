@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The task detail (Windows ToDoPage detail drawer; canvas Material pass TaskDetail, tablet board ToDoTablet): the top
+     app bar (Back on compact widths, Close beside the list; the list name; Delete), then in one Wino zone the check, the
+     editable title and the star, the steps with Add step, the My Day and due date rows, the notes field, Create calendar
+     event and the created line. The rows are built in code from the shared ViewModel. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/task_detail_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+  <com.google.android.material.appbar.MaterialToolbar
+      android:id="@+id/task_detail_toolbar"
+      style="@style/Widget.WinoKit.TopAppBar" />
+
+  <com.winomail.presentation.WinoZoneLayout
+      style="@style/Widget.Wino.People.Zone"
+      android:layout_width="match_parent"
+      android:layout_height="0dp"
+      android:layout_weight="1">
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+      <com.winomail.presentation.WinoMaxWidthLayout
+          android:id="@+id/task_detail_column"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content">
+
+        <LinearLayout
+            android:id="@+id/task_detail_content"
+            style="@style/Widget.Wino.People.CardContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:orientation="vertical" />
+      </com.winomail.presentation.WinoMaxWidthLayout>
+    </androidx.core.widget.NestedScrollView>
+  </com.winomail.presentation.WinoZoneLayout>
+</LinearLayout>

@@ -466,24 +466,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         if (sentReminderKeys == null)
             return [];
 
-        var candidates = await Connection.QueryAsync<CalendarReminderCandidate>(
-            @"
-            SELECT
-                c.Id AS CalendarItemId,
-                c.StartDate,
-                c.StartTimeZone,
-                r.DurationInSeconds AS ReminderDurationInSeconds,
-                c.SnoozedUntil
-            FROM CalendarItem c
-            INNER JOIN Reminder r ON r.CalendarItemId = c.Id
-            INNER JOIN AccountCalendar ac ON ac.Id = c.CalendarId
-            INNER JOIN MailAccount ma ON ma.Id = ac.AccountId
-            WHERE
-                c.IsHidden = 0
-                AND (ma.IsCalendarAccessEnabled = 1 OR ma.IsCalendarAccessGranted = 1)
-                AND r.ReminderType = 0
-                AND NOT (IFNULL(c.Recurrence, '') != '' AND c.RecurringCalendarItemId IS NULL)")
-            .ConfigureAwait(false);
+        var candidates = await GetReminderCandidatesAsync().ConfigureAwait(false);
 
         var dueNotifications = new List<CalendarReminderNotificationRequest>();
 
@@ -491,11 +474,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var eventStartLocal = candidate.StartDate.ToLocalTimeFromTimeZone(candidate.StartTimeZone);
-            var triggerTimeLocal = eventStartLocal.AddSeconds(-candidate.ReminderDurationInSeconds);
-            var effectiveTriggerTimeLocal = candidate.SnoozedUntil.HasValue
-                ? MaxDateTime(triggerTimeLocal, candidate.SnoozedUntil.Value)
-                : triggerTimeLocal;
+            var effectiveTriggerTimeLocal = GetEffectiveReminderTriggerLocal(candidate);
 
             if (effectiveTriggerTimeLocal <= lastCheckLocal || effectiveTriggerTimeLocal > nowLocal)
                 continue;
@@ -518,6 +497,52 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
         return dueNotifications;
     }
+
+    public async Task<DateTime?> GetNextReminderTriggerAsync(DateTime afterLocal, CancellationToken cancellationToken = default)
+    {
+        var candidates = await GetReminderCandidatesAsync().ConfigureAwait(false);
+        DateTime? next = null;
+
+        foreach (var candidate in candidates)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // The same trigger CheckAndNotifyAsync reports, so a scheduled wake-up finds the reminder due.
+            var trigger = GetEffectiveReminderTriggerLocal(candidate);
+            if (trigger > afterLocal && (next == null || trigger < next))
+                next = trigger;
+        }
+
+        return next;
+    }
+
+    private static DateTime GetEffectiveReminderTriggerLocal(CalendarReminderCandidate candidate)
+    {
+        var eventStartLocal = candidate.StartDate.ToLocalTimeFromTimeZone(candidate.StartTimeZone);
+        var triggerTimeLocal = eventStartLocal.AddSeconds(-candidate.ReminderDurationInSeconds);
+        return candidate.SnoozedUntil.HasValue
+            ? MaxDateTime(triggerTimeLocal, candidate.SnoozedUntil.Value)
+            : triggerTimeLocal;
+    }
+
+    private Task<List<CalendarReminderCandidate>> GetReminderCandidatesAsync()
+        => Connection.QueryAsync<CalendarReminderCandidate>(
+            @"
+            SELECT
+                c.Id AS CalendarItemId,
+                c.StartDate,
+                c.StartTimeZone,
+                r.DurationInSeconds AS ReminderDurationInSeconds,
+                c.SnoozedUntil
+            FROM CalendarItem c
+            INNER JOIN Reminder r ON r.CalendarItemId = c.Id
+            INNER JOIN AccountCalendar ac ON ac.Id = c.CalendarId
+            INNER JOIN MailAccount ma ON ma.Id = ac.AccountId
+            WHERE
+                c.IsHidden = 0
+                AND (ma.IsCalendarAccessEnabled = 1 OR ma.IsCalendarAccessGranted = 1)
+                AND r.ReminderType = 0
+                AND NOT (IFNULL(c.Recurrence, '') != '' AND c.RecurringCalendarItemId IS NULL)");
 
     #region Attachments
 

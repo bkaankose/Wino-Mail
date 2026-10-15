@@ -47,6 +47,36 @@ public sealed class NavigationCoordinatorTests
     }
 
     [Fact]
+    public async Task OnlyTheFirstShellPageHasNoPageToGoBackTo()
+    {
+        await _coordinator.ShowShellAsync();
+        await _coordinator.NavigateAsync(WinoPage.ContactsPage);
+
+        _coordinator.CanGoBack().Should().BeTrue();
+        _coordinator.CanGoBackToPage().Should().BeFalse();
+
+        await _coordinator.NavigateAsync(WinoPage.ContactEditPage);
+
+        _coordinator.CanGoBackToPage().Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task BackPageNamesThePageBackWouldShow()
+    {
+        _coordinator.BackPage.Should().BeNull();
+
+        await _coordinator.ShowShellAsync();
+        await _coordinator.NavigateAsync(WinoPage.MailListPage);
+        _coordinator.BackPage.Should().Be(WinoPage.None);
+
+        await _coordinator.NavigateAsync(WinoPage.CalendarPage);
+        _coordinator.BackPage.Should().Be(WinoPage.MailListPage);
+
+        (await _coordinator.GoBackAsync()).Should().BeTrue();
+        _coordinator.BackPage.Should().Be(WinoPage.None);
+    }
+
+    [Fact]
     public async Task GoingBackToTheFirstShellPageClearsTheShellContent()
     {
         await _coordinator.ShowShellAsync();

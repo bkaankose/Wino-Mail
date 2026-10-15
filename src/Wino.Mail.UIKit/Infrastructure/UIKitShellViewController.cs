@@ -20,8 +20,8 @@ public abstract class UIKitShellViewController : WinoViewController<WinoAppShell
 {
     private readonly INavigationService _navigation;
     private readonly IStatePersistanceService _state;
+    private readonly ShellModeActivator _modes;
     private UIViewController? _child;
-    private WinoApplicationMode? _activeMode;
 
     protected UIKitShellViewController(WinoAppShellViewModel viewModel, INavigationService navigation, IStatePersistanceService state,
         IServiceProvider services, IDispatcher dispatcher, IWinoLogger logger) : base(viewModel, dispatcher, logger)
@@ -29,12 +29,13 @@ public abstract class UIKitShellViewController : WinoViewController<WinoAppShell
         _navigation = navigation;
         _state = state;
         Services = services;
+        _modes = new ShellModeActivator(viewModel, state, ReportError);
     }
 
     protected IServiceProvider Services { get; }
 
     /// <summary>The mode on screen.</summary>
-    public WinoApplicationMode? ActiveMode => _activeMode;
+    public WinoApplicationMode? ActiveMode => _modes.ActiveMode;
 
     /// <summary>The page in the content host, or null.</summary>
     public UIViewController? Content => _child;
@@ -70,60 +71,17 @@ public abstract class UIKitShellViewController : WinoViewController<WinoAppShell
     protected override async Task InitializeAsync(NavigationMode mode, object? parameter)
     {
         ViewModel.OnNavigatedTo(mode, parameter);
-        var start = _state.ApplicationMode;
-        if (start == WinoApplicationMode.Settings) start = WinoApplicationMode.Mail;
-        await ActivateModeAsync(start, new ShellModeActivationContext { IsInitialActivation = true });
+        await ActivateModeAsync(ShellModeActivator.StartMode(_state), new ShellModeActivationContext { IsInitialActivation = true });
     }
 
     /// <summary>
-    /// Switches the shell to a mode the way the Windows WinoAppShell.ActivateMode does. A mode whose root page is not
-    /// built yet leaves its content empty rather than failing.
+    /// Switches the shell to a mode the way the Windows WinoAppShell.ActivateMode does (shared
+    /// <see cref="ShellModeActivator"/>). A mode whose root page is not built yet leaves its content empty rather than failing.
     /// </summary>
-    public async Task ActivateModeAsync(WinoApplicationMode mode, ShellModeActivationContext? context)
-    {
-        context ??= new ShellModeActivationContext { IsInitialActivation = false };
-        if (mode == WinoApplicationMode.Settings) return;
-        IShellMenuProvider provider;
-        try { provider = ViewModel.GetProvider(mode); }
-        catch (Exception exception) { ReportError(exception); return; }
+    public Task ActivateModeAsync(WinoApplicationMode mode, ShellModeActivationContext? context)
+        => _modes.ActivateAsync(mode, context, ClearContentAsync, Dispatcher);
 
-        if (_activeMode == mode)
-        {
-            if (context.Parameter is not null) provider.ActivateShellMenu(context);
-            return;
-        }
-
-        _state.ApplicationMode = mode;
-        _state.AppModeTitle = ModeTitle(mode);
-        _state.CoreWindowTitle = string.Empty;
-        ViewModel.SetShellMenu(null);
-        if (_activeMode is { } previous && ViewModel.TryGetProvider(previous, out var outgoing) && outgoing is not null)
-        {
-            try { outgoing.ReleaseShellMenu(); }
-            catch (Exception exception) { ReportError(exception); }
-        }
-        _activeMode = mode;
-        ViewModel.SetCurrentMode(mode);
-        await ClearContentAsync();
-        if (!ReferenceEquals(provider.Dispatcher, Dispatcher)) provider.Dispatcher = Dispatcher;
-        try
-        {
-            // Mail awaits its first folder route; the other modes navigate through the router themselves.
-            if (provider is MailAppShellViewModel mail) await mail.InitializeNavigationAsync(NavigationMode.New, context);
-            else provider.ActivateShellMenu(context);
-        }
-        catch (Exception exception) { ReportError(exception); }
-        if (_activeMode != mode) return;
-        ViewModel.SetShellMenu(provider);
-    }
-
-    public static string ModeTitle(WinoApplicationMode mode) => mode switch
-    {
-        WinoApplicationMode.Calendar => Translator.KeyboardShortcuts_ModeCalendar,
-        WinoApplicationMode.Contacts => Translator.ContactsPage_Title,
-        WinoApplicationMode.Tasks => Translator.ToDoPage_Title,
-        _ => Translator.KeyboardShortcuts_ModeMail
-    };
+    public static string ModeTitle(WinoApplicationMode mode) => ShellModeActivator.ModeTitle(mode);
 
     /// <summary>Hosts a shell-content page and activates it; the previous page is released first.</summary>
     public async Task SetContentAsync(UIViewController controller, object? parameter)

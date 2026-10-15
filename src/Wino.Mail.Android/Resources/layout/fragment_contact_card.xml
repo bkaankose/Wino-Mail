@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The contact card (Windows ContactsPage detail pane; tablet board ContactsTablet): the top app bar with Edit,
+     Favourite and Delete (Back on compact widths, where the card covers the shell), then in one Wino zone the 96 dp
+     picture, the name as headline-small, job and source lines, category chips, the Send mail and Edit buttons, and the
+     Email, Phone, Address and Personal sections as Material 3 list items. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/contact_card_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+  <com.google.android.material.appbar.MaterialToolbar
+      android:id="@+id/contact_card_toolbar"
+      style="@style/Widget.WinoKit.TopAppBar" />
+
+  <com.winomail.presentation.WinoZoneLayout
+      style="@style/Widget.Wino.People.Zone"
+      android:layout_width="match_parent"
+      android:layout_height="0dp"
+      android:layout_weight="1">
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+      <com.winomail.presentation.WinoMaxWidthLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content">
+
+        <LinearLayout
+            android:id="@+id/contact_card_content"
+            style="@style/Widget.Wino.People.CardContent"
+            android:layout_gravity="center_horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+
+          <com.winomail.controls.WinoContactPicture
+              android:id="@+id/contact_card_avatar"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:layout_marginTop="@dimen/wino_space_l" />
+
+          <TextView
+              android:id="@+id/contact_card_name"
+              style="@style/Widget.Wino.People.CardName"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:paddingStart="@dimen/wino_people_card_padding"
+              android:paddingEnd="@dimen/wino_people_card_padding" />
+
+          <TextView
+              android:id="@+id/contact_card_job"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:layout_marginTop="@dimen/wino_space_2xs"
+              android:gravity="center"
+              android:textAppearance="@style/TextAppearance.WinoKit.BodySecondary" />
+
+          <TextView
+              android:id="@+id/contact_card_source"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:layout_marginTop="@dimen/wino_space_2xs"
+              android:gravity="center"
+              android:textAppearance="@style/TextAppearance.WinoKit.Caption" />
+
+          <com.google.android.material.chip.ChipGroup
+              android:id="@+id/contact_card_chips"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:layout_marginTop="@dimen/wino_space_s"
+              app:chipSpacingHorizontal="@dimen/wino_m3_chip_spacing" />
+
+          <LinearLayout
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:layout_marginTop="@dimen/wino_space_l"
+              android:layout_marginBottom="@dimen/wino_space_s"
+              android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/contact_card_send"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="@dimen/wino_space_s" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/contact_card_edit"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+          </LinearLayout>
+
+          <LinearLayout
+              android:id="@+id/contact_card_sections"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:orientation="vertical" />
+
+          <com.google.android.material.button.MaterialButton
+              android:id="@+id/contact_card_remove_from_list"
+              style="@style/Widget.Material3.Button.TextButton"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:layout_marginTop="@dimen/wino_space_s"
+              android:visibility="gone" />
+        </LinearLayout>
+      </com.winomail.presentation.WinoMaxWidthLayout>
+    </androidx.core.widget.NestedScrollView>
+  </com.winomail.presentation.WinoZoneLayout>
+</LinearLayout>

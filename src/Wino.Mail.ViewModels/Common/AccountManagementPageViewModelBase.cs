@@ -22,7 +22,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     public ObservableCollection<IAccountProviderDetailViewModel> Accounts { get; set; } = [];
     public ObservableCollection<IAccountProviderDetailViewModel> StartupAccounts { get; } = [];
 
-    public bool IsPurchasePanelVisible => !HasUnlimitedAccountProduct;
+    public bool IsPurchasePanelVisible => !HasUnlimitedAccountProduct && PlatformCapabilities.Purchases;
     public int UsedAccountCount => Accounts?.Sum(account => account.HoldingAccountCount) ?? 0;
     public bool IsAccountCreationAlmostOnLimit => UsedAccountCount == FREE_ACCOUNT_COUNT - 1;
     public bool HasAccountsDefined => Accounts != null && Accounts.Any();

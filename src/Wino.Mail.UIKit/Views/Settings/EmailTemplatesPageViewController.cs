@@ -22,7 +22,6 @@ namespace Wino.Mail.UIKit.Views.Settings;
 /// </summary>
 public sealed partial class EmailTemplatesPageViewController(
     EmailTemplatesPageViewModel viewModel,
-    IEmailTemplateService templateService,
     IMailDialogService dialogService,
     IDispatcher dispatcher,
     IWinoLogger logger)
@@ -153,13 +152,7 @@ public sealed partial class EmailTemplatesPageViewController(
     /// <summary>Same confirmation as the Windows editor's Delete, then the list reloads.</summary>
     private async Task DeleteAsync(EmailTemplate template)
     {
-        var confirmed = await dialogService.ShowConfirmationDialogAsync(
-            string.Format(Translator.DialogMessage_DeleteEmailTemplateConfirmationMessage, template.Name),
-            Translator.DialogMessage_DeleteEmailTemplateConfirmationTitle,
-            Translator.Buttons_Delete);
-        if (!confirmed) return;
-        await templateService.DeleteEmailTemplateAsync(template);
-        await ViewModel.LoadAsync();
+        await ViewModel.DeleteTemplateAsync(template, dialogService);
     }
 
     /// <summary>Centred Note glyph, title, one-line hint and the secondary "Create a template" button.</summary>

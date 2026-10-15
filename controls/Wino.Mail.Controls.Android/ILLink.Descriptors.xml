@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Views that layouts inflate by their Java name (com.winomail.controls.*). Release apps trim with TrimMode=full,
+     and a view that only XML names has no managed reference, so the trimmer would remove it (or the constructor the
+     inflater calls) with its Java callable wrapper. Embedded as ILLink.Descriptors.xml; applies whenever this assembly
+     is kept. Add every new [Register]ed view here. -->
+<linker>
+  <assembly fullname="Wino.Mail.Controls.Android">
+    <type fullname="Wino.Mail.Controls.Android.Calendar.WinoCalendarMonthGridView" preserve="all" />
+    <type fullname="Wino.Mail.Controls.Android.Calendar.WinoCalendarSurfaceView" preserve="all" />
+    <type fullname="Wino.Mail.Controls.Android.Calendar.WinoCalendarWeekStripView" preserve="all" />
+    <type fullname="Wino.Mail.Controls.Android.Common.WinoAccountIconView" preserve="all" />
+    <type fullname="Wino.Mail.Controls.Android.Common.WinoChipView" preserve="all" />
+    <type fullname="Wino.Mail.Controls.Android.Common.WinoContactPicture" preserve="all" />
+    <type fullname="Wino.Mail.Controls.Android.Common.WinoInfoBar" preserve="all" />
+    <type fullname="Wino.Mail.Controls.Android.Common.WinoUnreadPill" preserve="all" />
+    <type fullname="Wino.Mail.Controls.Android.MailList.WinoMailRowView" preserve="all" />
+    <type fullname="Wino.Mail.Controls.Android.Settings.WinoSettingsCard" preserve="all" />
+    <type fullname="Wino.Mail.Controls.Android.Settings.WinoSettingsExpander" preserve="all" />
+    <type fullname="Wino.Mail.Controls.Android.Settings.WinoSettingsGroup" preserve="all" />
+    <type fullname="Wino.Mail.Controls.Android.Shell.WinoShellRowView" preserve="all" />
+  </assembly>
+</linker>

@@ -101,6 +101,46 @@ public sealed class PresentationMapTests
     }
 
     [Fact]
+    public void SettingsPagesFollowPlatformCapabilities()
+    {
+        var phone = new Wino.Core.Domain.Models.Platform.PlatformCapabilities(Notifications: true);
+        var desktop = new Wino.Core.Domain.Models.Platform.PlatformCapabilities(Smime: true, Tray: true, StartupIntegration: true, KeyboardShortcuts: true, FileBackup: true);
+        foreach (var page in new[] { WinoPage.CompanionSettingsPage, WinoPage.KeyboardShortcutsPage, WinoPage.BackupRestorePage, WinoPage.SignatureAndEncryptionPage })
+        {
+            SettingsPageAvailability.IsAvailable(page, phone, canAccessIntelligence: true).Should().BeFalse();
+            SettingsPageAvailability.IsAvailable(page, desktop, canAccessIntelligence: false).Should().BeTrue();
+        }
+        SettingsPageAvailability.IsAvailable(WinoPage.WinoIntelligencePage, desktop, canAccessIntelligence: false).Should().BeFalse();
+    }
+
+    [Fact]
+    public void SettingsCatalogListsTheWindowsGroupsWithoutHiddenPages()
+    {
+        var previous = SettingsCatalog.Capabilities;
+        try
+        {
+            SettingsCatalog.Configure(new Wino.Core.Domain.Models.Platform.PlatformCapabilities(Notifications: true), () => false);
+            var sections = SettingsCatalog.GetSections();
+            sections[0].Title.Should().BeNull();
+            sections[0].Entries.Select(entry => entry.Page).Should().Equal(WinoPage.ManageAccountsPage, WinoPage.WinoAccountManagementPage);
+            var pages = sections.SelectMany(section => section.Entries).Select(entry => entry.Page).ToList();
+            pages.Should().NotContain([WinoPage.SettingOptionsPage, WinoPage.CompanionSettingsPage, WinoPage.KeyboardShortcutsPage,
+                WinoPage.BackupRestorePage, WinoPage.SignatureAndEncryptionPage, WinoPage.WinoIntelligencePage]);
+            pages.Should().ContainInOrder(WinoPage.AppPreferencesPage, WinoPage.MailPreferencesPage, WinoPage.ToDoPreferenceSettingsPage);
+            SettingsCatalog.GetEntries().Count(entry => entry.IsHeader).Should().Be(sections.Count - 1);
+            SettingsCatalog.GroupTitle(WinoPage.AliasManagementPage).Should().BeNull();
+            SettingsCatalog.GroupTitle(WinoPage.CreateEmailTemplatePage).Should().Be(Wino.Core.Domain.Translator.SettingsOptions_MailSection);
+            SettingsCatalog.Description(WinoPage.AliasManagementPage).Should().BeEmpty();
+            SettingsCatalog.RootPage(WinoPage.IntelligenceCoveragePage).Should().Be(WinoPage.WinoIntelligencePage);
+            SettingsCatalog.Search("zzzz-no-match").Should().BeEmpty();
+        }
+        finally
+        {
+            SettingsCatalog.Configure(previous, null);
+        }
+    }
+
+    [Fact]
     public void BirthdayFormatsWithOrWithoutTheYear()
     {
         var previous = CultureInfo.CurrentCulture;

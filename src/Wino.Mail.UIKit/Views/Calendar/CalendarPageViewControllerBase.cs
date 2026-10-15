@@ -112,18 +112,9 @@ public abstract partial class CalendarPageViewControllerBase : WinoViewControlle
         ViewModel.OnNavigatedTo(mode, parameter ?? NoParameter.Instance);
         BindSurface();
 
-        // Windows CalendarPage.OnNavigatedTo: resolve the anchor date from the navigation args and load.
-        var anchorDate = DateContext.GetToday();
-        CalendarItemTarget? pendingTarget = null;
-        bool forceReload = false;
-        if (parameter is CalendarPageNavigationArgs args)
-        {
-            if (!args.RequestDefaultNavigation) anchorDate = DateOnly.FromDateTime(args.NavigationDate.Date);
-            pendingTarget = args.PendingTarget;
-            forceReload = args.ForceReload;
-        }
-        var request = new CalendarDisplayRequest(InitialDisplayType(ViewModel.StatePersistanceService.CalendarDisplayType), anchorDate);
-        WeakReferenceMessenger.Default.Send(new LoadCalendarMessage(request, forceReload, pendingTarget));
+        // Windows CalendarPage.OnNavigatedTo: resolve the anchor date from the navigation args and load (shared rule).
+        WeakReferenceMessenger.Default.Send(CalendarPageActivation.CreateLoadMessage(parameter,
+            InitialDisplayType(ViewModel.StatePersistanceService.CalendarDisplayType), DateContext.GetToday()));
 
 #if DEBUG
         RegisterDebugCommands();

@@ -324,52 +324,23 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
 
     // ---- Command bar ----
 
-    private static readonly MailOperation[] PrimaryOrder =
-    [
-        MailOperation.Reply, MailOperation.ReplyAll, MailOperation.Forward, MailOperation.None,
-        MailOperation.Archive, MailOperation.UnArchive, MailOperation.SoftDelete, MailOperation.HardDelete, MailOperation.Move,
-        MailOperation.SetFlag, MailOperation.ClearFlag, MailOperation.MarkAsRead, MailOperation.MarkAsUnread
-    ];
-
-    /// <summary>The short label the Windows command bar shows ("Flag" rather than "Set flag").</summary>
-    private static string BarTitle(MailOperation operation)
-        => operation == MailOperation.SetFlag ? Translator.MailOperation_Flag : MailOperationDisplay.GetTitle(operation);
-
+    /// <summary>The primary commands and the More menu from the shared <see cref="MailReaderCommandLayout"/>.</summary>
     private void UpdateCommandBar()
     {
-        var items = ViewModel.MenuItems.OfType<MailOperationMenuItem>().Where(static item => item.Operation != MailOperation.Seperator).ToArray();
+        var plan = MailReaderCommandLayout.Build(ViewModel.MenuItems, _currentItem is not null, offerMove: false);
         var commands = new List<MailReaderCommand?>();
-        var primary = new HashSet<MailOperation>();
-        if (!items.Any(item => PrimaryOrder.Contains(item.Operation)))
+        foreach (var slot in plan.Primary)
         {
-            if (_currentItem is null && items.Length > 0)
-            {
-                // A saved .eml has only Save As and Print; show just those, like Windows.
-                foreach (var item in items) { var captured = item; commands.Add(new MailReaderCommand(MailOperationDisplay.GetGlyph(item.Operation), BarTitle(item.Operation), () => Observe(ViewModel.OperationClickedCommand.ExecuteAsync(captured)), item.IsEnabled)); }
-                _commandBar.SetCommands(commands, null);
-                return;
-            }
-            // Nothing loaded yet (or the message failed to load): the default set, disabled, like the Windows bar.
-            foreach (var operation in new[] { MailOperation.Reply, MailOperation.ReplyAll, MailOperation.Forward, MailOperation.None, MailOperation.Archive, MailOperation.SoftDelete, MailOperation.Move, MailOperation.SetFlag, MailOperation.MarkAsRead })
-                commands.Add(operation == MailOperation.None ? null : new MailReaderCommand(MailOperationDisplay.GetGlyph(operation), BarTitle(operation), () => { }, false));
-            _commandBar.SetCommands(commands, items.Length == 0 ? null : () => BuildMoreMenu(ViewModel.MenuItems.OfType<MailOperationMenuItem>().ToArray()));
-            return;
+            if (slot is null) { commands.Add(null); continue; }
+            var captured = slot.Item;
+            commands.Add(new MailReaderCommand(MailOperationDisplay.GetGlyph(slot.Operation), slot.Title,
+                captured is null ? static () => { } : () => Observe(ViewModel.OperationClickedCommand.ExecuteAsync(captured)), slot.IsEnabled));
         }
-
-        foreach (var operation in PrimaryOrder)
-        {
-            if (operation == MailOperation.None) { commands.Add(null); continue; }
-            var item = items.FirstOrDefault(candidate => candidate.Operation == operation);
-            if (item is null) continue;
-            primary.Add(operation);
-            var captured = item;
-            commands.Add(new MailReaderCommand(MailOperationDisplay.GetGlyph(operation), BarTitle(operation),
-                () => Observe(ViewModel.OperationClickedCommand.ExecuteAsync(captured)), item.IsEnabled));
-        }
-        if (commands.Count > 0 && commands[^1] is null) commands.RemoveAt(commands.Count - 1);
-        AppendPopOutCommand(commands);
-        var overflow = ViewModel.MenuItems.OfType<MailOperationMenuItem>().Where(item => !primary.Contains(item.Operation)).ToArray();
-        _commandBar.SetCommands(commands, () => BuildMoreMenu(overflow));
+        // A loaded message gets the pop-out command; a saved message file and the placeholder set do not.
+        if (plan.Kind == MailReaderCommandPlanKind.Message)
+            AppendPopOutCommand(commands);
+        var overflow = plan.Overflow;
+        _commandBar.SetCommands(commands, overflow.Count == 0 ? null : () => BuildMoreMenu(overflow));
     }
 
     private NSMenu BuildMoreMenu(IReadOnlyList<MailOperationMenuItem> items)

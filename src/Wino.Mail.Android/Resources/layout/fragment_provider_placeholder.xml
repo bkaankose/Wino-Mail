@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder for the provider selection step until account setup (T5) builds it. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/placeholder_insets"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+  <LinearLayout
+      android:id="@+id/placeholder_zone"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:layout_marginStart="@dimen/wino_zone_gutter"
+      android:layout_marginEnd="@dimen/wino_zone_gutter"
+      android:layout_marginBottom="@dimen/wino_zone_gutter"
+      android:background="@drawable/wino_zone_background"
+      android:elevation="2dp"
+      android:orientation="vertical"
+      android:padding="@dimen/wino_space6">
+
+    <TextView
+        android:id="@+id/placeholder_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:accessibilityHeading="true"
+        android:textAppearance="@style/TextAppearance.Wino.PageTitle"
+        android:textSize="24sp" />
+
+    <TextView
+        android:id="@+id/placeholder_subtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textAppearance="@style/TextAppearance.Wino.Body" />
+
+    <TextView
+        android:id="@+id/placeholder_message"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="24dp"
+        android:layout_weight="1"
+        android:textAppearance="@style/TextAppearance.Wino.Caption" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/placeholder_back"
+        style="@style/Widget.Wino.Button.Text"
+        android:layout_width="wrap_content"
+        android:layout_height="40dp"
+        android:layout_gravity="end" />
+  </LinearLayout>
+</FrameLayout>

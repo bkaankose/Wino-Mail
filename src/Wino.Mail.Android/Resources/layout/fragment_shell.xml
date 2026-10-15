@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shell, compact width (< 600 dp; canvas Material pass boards Inbox, Mailboxes): the mode's content page over the
+     wallpaper with the tonal New mail FAB, the Material 3 navigation bar for Mail · Calendar · Contacts · To Do on a
+     blurred bar, and the modal navigation drawer with the account and folder items. The reader covers the shell full
+     screen (navigation service). -->
+<androidx.drawerlayout.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/shell_drawer"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+  <LinearLayout
+      android:id="@+id/shell_root"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:orientation="vertical">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+      <include layout="@layout/shell_list_host" />
+
+      <com.google.android.material.floatingactionbutton.FloatingActionButton
+          android:id="@+id/shell_fab"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_gravity="bottom|end"
+          android:layout_margin="@dimen/wino_m3_fab_margin" />
+    </FrameLayout>
+
+    <FrameLayout
+        android:id="@+id/shell_bottom_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+      <com.winomail.presentation.WinoBarBackdropView
+          android:layout_width="match_parent"
+          android:layout_height="match_parent" />
+
+      <com.google.android.material.bottomnavigation.BottomNavigationView
+          android:id="@+id/shell_bottom_nav"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content" />
+    </FrameLayout>
+  </LinearLayout>
+
+  <com.google.android.material.navigation.NavigationView
+      android:id="@+id/shell_navigation"
+      style="@style/Widget.WinoKit.NavigationDrawer">
+
+    <include layout="@layout/shell_menu_panel" />
+  </com.google.android.material.navigation.NavigationView>
+</androidx.drawerlayout.widget.DrawerLayout>

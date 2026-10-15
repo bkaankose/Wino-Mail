@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Onboarding (canvas Material pass boards Welcome, AddAccount, ImapSetup, Permissions). -->
+<resources>
+  <!-- The Welcome hero: the wallpaper area with the logo and title above the zone. Short windows get a short hero. -->
+  <dimen name="onboarding_hero_height">148dp</dimen>
+  <dimen name="onboarding_logo_size">64dp</dimen>
+  <dimen name="onboarding_logo_radius">16dp</dimen>
+  <dimen name="onboarding_welcome_gap">8dp</dimen>
+  <dimen name="onboarding_page_padding">24dp</dimen>
+  <dimen name="onboarding_content_padding">16dp</dimen>
+  <dimen name="onboarding_field_gap">16dp</dimen>
+  <dimen name="onboarding_feature_glyph">28sp</dimen>
+  <dimen name="onboarding_row_glyph">24sp</dimen>
+  <dimen name="onboarding_provider_logo">40dp</dimen>
+  <dimen name="onboarding_provider_logo_radius">8dp</dimen>
+  <dimen name="onboarding_port_width">104dp</dimen>
+  <dimen name="onboarding_setup_title_top">40dp</dimen>
+  <dimen name="onboarding_setup_section_gap">16dp</dimen>
+  <dimen name="onboarding_swatch_size">36dp</dimen>
+  <dimen name="onboarding_card_radius">12dp</dimen>
+</resources>

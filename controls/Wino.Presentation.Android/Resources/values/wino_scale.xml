@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Wino size scale for code-built views (Settings pages, form dialogs): spacing, glyphs, control and component
+     sizes, radii and text sizes. Pages and dialogs never use literal sizes; they read these through WinoTokens, so a
+     restyle changes this file (and the text appearances in wino_text.xml), not page code. -->
+<resources>
+  <!-- Spacing (padding, margins, gaps). -->
+  <dimen name="wino_space_hairline">1dp</dimen>
+  <dimen name="wino_space_3xs">2dp</dimen>
+  <dimen name="wino_space_2xs">4dp</dimen>
+  <dimen name="wino_space_xs">6dp</dimen>
+  <dimen name="wino_space_s">8dp</dimen>
+  <dimen name="wino_space_sm">10dp</dimen>
+  <dimen name="wino_space_m">12dp</dimen>
+  <dimen name="wino_space_ml">14dp</dimen>
+  <dimen name="wino_space_l">16dp</dimen>
+  <dimen name="wino_space_xl">20dp</dimen>
+  <dimen name="wino_space_2xl">24dp</dimen>
+  <dimen name="wino_space_3xl">28dp</dimen>
+  <dimen name="wino_space_4xl">32dp</dimen>
+  <dimen name="wino_space_5xl">36dp</dimen>
+
+  <!-- Glyph sizes (WinoIcons). -->
+  <dimen name="wino_glyph_2xs">10dp</dimen>
+  <dimen name="wino_glyph_xs">12dp</dimen>
+  <dimen name="wino_glyph_s">14dp</dimen>
+  <dimen name="wino_glyph_m">16dp</dimen>
+  <dimen name="wino_glyph_ml">18dp</dimen>
+  <dimen name="wino_glyph_l">20dp</dimen>
+  <dimen name="wino_glyph_xl">22dp</dimen>
+  <dimen name="wino_glyph_2xl">24dp</dimen>
+  <dimen name="wino_glyph_3xl">28dp</dimen>
+  <dimen name="wino_glyph_hero">36dp</dimen>
+  <dimen name="wino_glyph_display">64dp</dimen>
+
+  <!-- Controls and components. -->
+  <dimen name="wino_size_dot">6dp</dimen>
+  <dimen name="wino_size_swatch_small">24dp</dimen>
+  <dimen name="wino_size_swatch">28dp</dimen>
+  <dimen name="wino_size_swatch_large">32dp</dimen>
+  <dimen name="wino_size_avatar">36dp</dimen>
+  <dimen name="wino_size_control">40dp</dimen>
+  <dimen name="wino_size_touch">44dp</dimen>
+  <dimen name="wino_size_touch_large">48dp</dimen>
+  <dimen name="wino_size_row">56dp</dimen>
+  <dimen name="wino_size_card_min">64dp</dimen>
+  <dimen name="wino_size_field_narrow">140dp</dimen>
+  <dimen name="wino_size_field">160dp</dimen>
+  <dimen name="wino_size_dropdown_max">260dp</dimen>
+  <dimen name="wino_size_readable_max">360dp</dimen>
+  <dimen name="wino_settings_column_max">836dp</dimen>
+  <dimen name="wino_settings_list_width">320dp</dimen>
+  <dimen name="wino_theme_tile_width">160dp</dimen>
+  <dimen name="wino_theme_tile_height">100dp</dimen>
+  <dimen name="wino_theme_thumb_width">64dp</dimen>
+  <dimen name="wino_theme_thumb_height">40dp</dimen>
+  <dimen name="wino_theme_thumb_large_width">72dp</dimen>
+  <dimen name="wino_theme_thumb_large_height">48dp</dimen>
+  <dimen name="wino_wallpaper_preview_width">280dp</dimen>
+  <dimen name="wino_wallpaper_preview_height">175dp</dimen>
+  <dimen name="wino_editor_min_height">220dp</dimen>
+  <dimen name="wino_editor_compact_min_height">180dp</dimen>
+
+  <!-- Strokes. -->
+  <dimen name="wino_stroke_hairline">1dp</dimen>
+  <dimen name="wino_stroke_selection">3dp</dimen>
+  <dimen name="wino_checker_cell">5dp</dimen>
+  <dimen name="wino_text_shadow_radius">4dp</dimen>
+  <dimen name="wino_text_shadow_offset">1dp</dimen>
+
+  <!-- Radii. -->
+  <dimen name="wino_radius_small">4dp</dimen>
+  <dimen name="wino_radius_medium">6dp</dimen>
+  <dimen name="wino_radius_large">8dp</dimen>
+  <dimen name="wino_radius_pill">12dp</dimen>
+
+  <!-- Settings (Material 3 preference list): top app bar, list items, subheaders. -->
+  <dimen name="wino_top_app_bar_height">64dp</dimen>
+  <dimen name="wino_settings_item_spacing">0dp</dimen>
+  <dimen name="wino_settings_item_min_height">64dp</dimen>
+  <dimen name="wino_settings_item_padding_horizontal">16dp</dimen>
+  <dimen name="wino_settings_item_padding_vertical">12dp</dimen>
+  <dimen name="wino_settings_item_icon_gap">16dp</dimen>
+  <dimen name="wino_settings_item_radius">0dp</dimen>
+  <dimen name="wino_settings_item_stroke">0dp</dimen>
+  <dimen name="wino_settings_nested_indent">56dp</dimen>
+  <dimen name="wino_settings_item_icon_size">24dp</dimen>
+  <dimen name="wino_settings_item_text_gap">2dp</dimen>
+  <dimen name="wino_settings_item_trailing_gap">12dp</dimen>
+  <dimen name="wino_settings_item_action_gap">8dp</dimen>
+  <dimen name="wino_settings_subheader_top">16dp</dimen>
+  <dimen name="wino_settings_subheader_bottom">4dp</dimen>
+  <dimen name="wino_settings_subheader_horizontal">16dp</dimen>
+  <dimen name="wino_settings_page_padding_horizontal">0dp</dimen>
+  <dimen name="wino_settings_page_padding_top">8dp</dimen>
+  <dimen name="wino_settings_page_padding_bottom">24dp</dimen>
+  <dimen name="wino_settings_intro_horizontal">16dp</dimen>
+  <dimen name="wino_settings_pane_gap">0dp</dimen>
+  <dimen name="wino_sheet_item_min_height">56dp</dimen>
+
+  <!-- Text sizes (the text appearances in wino_text.xml use these). -->
+  <dimen name="wino_text_top_app_bar">22sp</dimen>
+  <dimen name="wino_text_subheader">14sp</dimen>
+  <dimen name="wino_text_tiny">11sp</dimen>
+  <dimen name="wino_text_caption">12sp</dimen>
+  <dimen name="wino_text_description">13sp</dimen>
+  <dimen name="wino_text_body">14sp</dimen>
+  <dimen name="wino_text_body_large">16sp</dimen>
+  <dimen name="wino_text_subtitle">17sp</dimen>
+  <dimen name="wino_text_title">20sp</dimen>
+  <dimen name="wino_text_display">24sp</dimen>
+</resources>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tall windows (phones in portrait, tablets): the Welcome hero as drawn (360 of 915 dp on the board, less the
+     status bar). -->
+<resources>
+  <dimen name="onboarding_hero_height">300dp</dimen>
+</resources>

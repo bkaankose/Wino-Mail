@@ -1,5 +1,7 @@
 using Foundation;
 using Security;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Platform.Apple.Security;
 
@@ -7,7 +9,7 @@ namespace Wino.Platform.Apple.Security;
 /// Generic password items through the supported Security bindings. No file fallback.
 /// Service names are "&lt;bundle identifier&gt;.v1.&lt;scope&gt;", so they must not change for an existing app.
 /// </summary>
-public sealed class AppleKeychainStore
+public sealed class AppleKeychainStore : ISecureItemStore
 {
     public AppleKeychainStore(AppleApplicationIdentity identity)
     {
@@ -35,14 +37,19 @@ public sealed class AppleKeychainStore
         return data?.ToArray() ?? throw new InvalidOperationException("Keychain returned no credential data.");
     }
 
-    public void Write(string scope, string account, byte[] bytes) => WriteCore(scope, account, bytes, null);
-
     /// <summary>
-    /// Writes the item with an explicit accessibility class, for example
-    /// <see cref="SecAccessible.AfterFirstUnlockThisDeviceOnly"/> for data that must not move to another device through a
-    /// backup and must stay readable in background work. An existing item gets the new class too.
+    /// Writes the item. <see cref="SecureItemAccess.ThisDeviceOnlyAfterFirstUnlock"/> sets
+    /// <see cref="SecAccessible.AfterFirstUnlockThisDeviceOnly"/>, for data that must not move to another device through a
+    /// backup and must stay readable in background work; an existing item gets the new class too. The default leaves the
+    /// accessibility class unchanged.
     /// </summary>
-    public void Write(string scope, string account, byte[] bytes, SecAccessible accessible) => WriteCore(scope, account, bytes, accessible);
+    public void Write(string scope, string account, byte[] bytes, SecureItemAccess access = SecureItemAccess.Default)
+        => WriteCore(scope, account, bytes, access switch
+        {
+            SecureItemAccess.Default => null,
+            SecureItemAccess.ThisDeviceOnlyAfterFirstUnlock => SecAccessible.AfterFirstUnlockThisDeviceOnly,
+            _ => throw new ArgumentOutOfRangeException(nameof(access)),
+        });
 
     private void WriteCore(string scope, string account, byte[] bytes, SecAccessible? accessible)
     {
@@ -66,18 +73,12 @@ public sealed class AppleKeychainStore
         Check(status);
     }
 
-    public bool TryAdd(string scope, string account, byte[] bytes) => TryAddCore(scope, account, bytes, null);
-
-    /// <inheritdoc cref="TryAdd(string, string, byte[])"/>
-    public bool TryAdd(string scope, string account, byte[] bytes, SecAccessible accessible) => TryAddCore(scope, account, bytes, accessible);
-
-    private bool TryAddCore(string scope, string account, byte[] bytes, SecAccessible? accessible)
+    public bool TryAdd(string scope, string account, byte[] bytes)
     {
         ArgumentNullException.ThrowIfNull(bytes);
         using var record = Query(scope, account);
         using var data = NSData.FromArray(bytes);
         record.ValueData = data;
-        if (accessible is { } value) record.Accessible = value;
         var status = SecKeyChain.Add(record);
         if (status == SecStatusCode.DuplicateItem) return false;
         Check(status);

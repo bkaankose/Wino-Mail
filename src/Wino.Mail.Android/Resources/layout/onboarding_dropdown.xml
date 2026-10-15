@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- An outlined exposed dropdown menu; the page sets the label and the items. -->
+<com.google.android.material.textfield.TextInputLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/Widget.Wino.Onboarding.Dropdown">
+
+  <com.google.android.material.textfield.MaterialAutoCompleteTextView
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:inputType="none" />
+</com.google.android.material.textfield.TextInputLayout>

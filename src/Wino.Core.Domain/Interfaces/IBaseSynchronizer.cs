@@ -31,6 +31,11 @@ public interface IBaseSynchronizer
     bool HasQueuedRequests();
 
     /// <summary>
+    /// Returns whether a request matching <paramref name="predicate"/> is waiting to execute.
+    /// </summary>
+    bool HasQueuedRequests(Func<IRequestBase, bool> predicate);
+
+    /// <summary>
     /// Returns whether there is an in-progress (queued or currently executing) operation for the given mail unique id.
     /// </summary>
     /// <param name="mailUniqueId">Mail unique id to check.</param>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The contact editor (Windows ContactEditPage; canvas Material pass ContactEditor) as a Material 3 full-screen dialog:
+     the top app bar with Close, the title and the filled Save button, then in one Wino zone the photo and name hero, the
+     Windows section switcher as chips (Contact information, Work, Address, Other, Notes), the error bar and the section's
+     outlined fields. The form is built in code from the shared ViewModel. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/contact_editor_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+  <com.google.android.material.appbar.MaterialToolbar
+      android:id="@+id/contact_editor_toolbar"
+      style="@style/Widget.WinoKit.TopAppBar">
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/contact_editor_save"
+        style="@style/Widget.Wino.People.SaveButton"
+        android:layout_gravity="end|center_vertical" />
+  </com.google.android.material.appbar.MaterialToolbar>
+
+  <com.winomail.presentation.WinoZoneLayout
+      style="@style/Widget.Wino.People.Zone"
+      android:layout_width="match_parent"
+      android:layout_height="0dp"
+      android:layout_weight="1">
+
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/contact_editor_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+      <com.winomail.presentation.WinoMaxWidthLayout
+          android:id="@+id/contact_editor_column"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content">
+
+        <LinearLayout
+            android:id="@+id/contact_editor_form"
+            style="@style/Widget.Wino.People.CardContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:orientation="vertical" />
+      </com.winomail.presentation.WinoMaxWidthLayout>
+    </androidx.core.widget.NestedScrollView>
+  </com.winomail.presentation.WinoZoneLayout>
+</LinearLayout>

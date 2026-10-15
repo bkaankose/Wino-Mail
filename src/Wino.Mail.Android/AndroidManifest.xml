@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MainApplication and MainActivity add their own elements through [Application] and [Activity]. The package name,
+     version and SDK levels come from the project (ApplicationId, ApplicationVersion, SupportedOSPlatformVersion,
+     TargetSdkVersion). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  <!-- Notifications (asked at runtime on Android 13+, AndroidNotificationPermission). -->
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <!-- Calendar reminders: exact alarms when the user allows them (AndroidReminderScheduler), inexact otherwise;
+       the alarm is set again after a reboot. -->
+  <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+  <!-- Below API 31 WorkManager runs the expedited queued-changes flush as a dataSync foreground service. -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+  <!-- Auto Backup is off: data lives under no_backup and is bound to this device's Keystore key (plan O7).
+       enableOnBackInvokedCallback opts in to predictive back on Android 13 and later. -->
+  <application
+      android:allowBackup="false"
+      android:fullBackupContent="false"
+      android:icon="@mipmap/ic_launcher"
+      android:roundIcon="@mipmap/ic_launcher_round"
+      android:label="Wino Mail"
+      android:supportsRtl="true"
+      android:enableOnBackInvokedCallback="true"
+      android:theme="@style/Theme.Wino">
+    <!-- Files opened in other apps (AndroidExternalLauncher.GetFileProviderAuthority: <package>.fileprovider). -->
+    <provider
+        android:name="androidx.core.content.FileProvider"
+        android:authorities="${applicationId}.fileprovider"
+        android:exported="false"
+        android:grantUriPermissions="true">
+      <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/wino_file_paths" />
+    </provider>
+    <!-- WorkManager's foreground service for expedited work below API 31 (PendingChangesWorker.ForegroundInfo). -->
+    <service
+        android:name="androidx.work.impl.foreground.SystemForegroundService"
+        android:foregroundServiceType="dataSync"
+        tools:node="merge" />
+  </application>
+
+  <!-- Package visibility (API 30+): find a browser that offers Custom Tabs for links and sign-in. -->
+  <queries>
+    <intent>
+      <action android:name="android.support.customtabs.action.CustomTabsService" />
+    </intent>
+  </queries>
+</manifest>

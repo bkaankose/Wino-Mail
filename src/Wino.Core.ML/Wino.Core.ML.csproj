@@ -8,8 +8,9 @@
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
 
-  <!-- Explicit Mac selector survives the SDK clearing RuntimeIdentifier on portable references. -->
-  <PropertyGroup Condition="'$(Platform)' == 'x86' Or '$(RuntimeIdentifier)' == 'win-x86' Or '$(RuntimeIdentifier)' == 'osx-x64' Or '$(WinoTargetRuntimeIdentifier)' == 'osx-x64'">
+  <!-- Explicit Mac selector survives the SDK clearing RuntimeIdentifier on portable references.
+       Android ships without Magika (owner decision, 14 Oct 2026). -->
+  <PropertyGroup Condition="'$(Platform)' == 'x86' Or '$(RuntimeIdentifier)' == 'win-x86' Or '$(RuntimeIdentifier)' == 'osx-x64' Or '$(WinoTargetRuntimeIdentifier)' == 'osx-x64' Or '$(WinoTargetPlatform)' == 'Android'">
     <DefineConstants>$(DefineConstants);WINO_ML_UNSUPPORTED</DefineConstants>
   </PropertyGroup>
 
@@ -17,11 +18,11 @@
     <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(Platform)' != 'x86' And '$(RuntimeIdentifier)' != 'win-x86' And '$(RuntimeIdentifier)' != 'osx-x64' And '$(WinoTargetRuntimeIdentifier)' != 'osx-x64'">
+  <ItemGroup Condition="'$(Platform)' != 'x86' And '$(RuntimeIdentifier)' != 'win-x86' And '$(RuntimeIdentifier)' != 'osx-x64' And '$(WinoTargetRuntimeIdentifier)' != 'osx-x64' And '$(WinoTargetPlatform)' != 'Android'">
     <PackageReference Include="Microsoft.ML.OnnxRuntime" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(Platform)' != 'x86' And '$(RuntimeIdentifier)' != 'win-x86' And '$(RuntimeIdentifier)' != 'osx-x64' And '$(WinoTargetRuntimeIdentifier)' != 'osx-x64'">
+  <ItemGroup Condition="'$(Platform)' != 'x86' And '$(RuntimeIdentifier)' != 'win-x86' And '$(RuntimeIdentifier)' != 'osx-x64' And '$(WinoTargetRuntimeIdentifier)' != 'osx-x64' And '$(WinoTargetPlatform)' != 'Android'">
     <Content Include="Models\Magika\standard_v3_3\**\*"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest"
@@ -29,7 +30,7 @@
     <Compile Remove="MagikaContentTypeClassificationModel.Unsupported.cs" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(Platform)' == 'x86' Or '$(RuntimeIdentifier)' == 'win-x86' Or '$(RuntimeIdentifier)' == 'osx-x64' Or '$(WinoTargetRuntimeIdentifier)' == 'osx-x64'">
+  <ItemGroup Condition="'$(Platform)' == 'x86' Or '$(RuntimeIdentifier)' == 'win-x86' Or '$(RuntimeIdentifier)' == 'osx-x64' Or '$(WinoTargetRuntimeIdentifier)' == 'osx-x64' Or '$(WinoTargetPlatform)' == 'Android'">
     <Compile Remove="MagikaContentTypeClassificationModel.Supported.cs" />
     <Compile Remove="OnnxModelSessionManager.cs" />
   </ItemGroup>

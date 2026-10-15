@@ -30,4 +30,13 @@ public interface IApplicationRuntime
     /// It initializes the runtime when needed but never starts the periodic loops (used for relay pushes).
     /// </summary>
     Task<bool> SynchronizeAccountInboxAsync(Guid accountId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sends the change requests waiting in the synchronizer queues (mail, folder and category actions,
+    /// calendar, contact and task changes) to their servers and returns when the pass finishes. Only accounts
+    /// with queued requests are touched; nothing is downloaded beyond what executing the requests needs.
+    /// It initializes the runtime when needed but never starts the periodic loops. Returns true when no
+    /// queued request is left afterwards. The queues live in memory, so a new process has nothing to send.
+    /// </summary>
+    Task<bool> FlushQueuedRequestsAsync(CancellationToken cancellationToken = default);
 }

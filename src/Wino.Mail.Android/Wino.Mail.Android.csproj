@@ -1,0 +1,70 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The Android app: one activity hosting fragments with XML layouts (docs: iq/20261014-android-port-c0e8a8/plan.md).
+       Shared services, the Android platform (Wino.Platform.Android) and the ViewModels are composed once per process
+       in MainApplication (AndroidComposition). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
+    <TargetSdkVersion>36</TargetSdkVersion>
+    <WinoTargetPlatform>Android</WinoTargetPlatform>
+    <ApplicationId>com.winomail.android</ApplicationId>
+    <ApplicationTitle>Wino Mail</ApplicationTitle>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Wino.Mail.Android</RootNamespace>
+    <!-- Sentry's Android integration requires compressed assemblies (a build error otherwise). -->
+    <AndroidEnableAssemblyCompression>true</AndroidEnableAssemblyCompression>
+    <!-- Mono runtime: JIT in Debug, full AOT with LLVM in Release (build/Wino.Android.targets). -->
+    <PublishAot>false</PublishAot>
+  </PropertyGroup>
+  <!-- Debug builds target the emulator ABI of this host: android-arm64 on Apple silicon (pass -r android-x64 on Windows
+       and Intel hosts). Release is android-arm64 only (plan O8). -->
+  <PropertyGroup>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">android-arm64</RuntimeIdentifier>
+  </PropertyGroup>
+  <!-- The Windows manifest version names every build like the Apple heads (2.2.2.0 becomes 2.2.2). The version code is
+       major * 1000000 + minor * 1000 + patch, so it grows with every release. -->
+  <PropertyGroup>
+    <WinoManifestVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../Wino.Mail.WinUI/Package.appxmanifest')), '(?&lt;=&lt;Identity[^&gt;]*\sVersion=")\d+\.\d+\.\d+'))</WinoManifestVersion>
+    <WinoManifestMajor>$(WinoManifestVersion.Split('.')[0])</WinoManifestMajor>
+    <WinoManifestMinor>$(WinoManifestVersion.Split('.')[1])</WinoManifestMinor>
+    <WinoManifestPatch>$(WinoManifestVersion.Split('.')[2])</WinoManifestPatch>
+    <ApplicationDisplayVersion Condition="'$(ApplicationDisplayVersion)' == ''">$(WinoManifestVersion)</ApplicationDisplayVersion>
+    <ApplicationVersion Condition="'$(ApplicationVersion)' == ''">$([MSBuild]::Add($([MSBuild]::Add($([MSBuild]::Multiply($(WinoManifestMajor), 1000000)), $([MSBuild]::Multiply($(WinoManifestMinor), 1000)))), $(WinoManifestPatch)))</ApplicationVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Wino.Platform.Android/Wino.Platform.Android.csproj" />
+    <ProjectReference Include="../Wino.Core/Wino.Core.csproj" />
+    <ProjectReference Include="../Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj" />
+    <ProjectReference Include="../../controls/Wino.Presentation.Core/Wino.Presentation.Core.csproj" />
+    <ProjectReference Include="../../controls/Wino.Presentation.Android/Wino.Presentation.Android.csproj" />
+    <ProjectReference Include="../../controls/Wino.Mail.Controls.Android/Wino.Mail.Controls.Android.csproj" />
+    <ProjectReference Include="../../controls/Wino.Editor.Android/Wino.Editor.Android.csproj" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Serilog.Extensions.Logging" />
+    <PackageReference Include="Xamarin.AndroidX.Activity" />
+    <PackageReference Include="Xamarin.AndroidX.AppCompat" />
+    <PackageReference Include="Xamarin.AndroidX.Fragment" />
+    <PackageReference Include="Xamarin.AndroidX.Lifecycle.Process" />
+    <PackageReference Include="Xamarin.AndroidX.SwipeRefreshLayout" />
+    <PackageReference Include="Xamarin.Google.Android.Material" />
+  </ItemGroup>
+  <!-- Firebase (FCM for WinoRelay) starts only when this file exists: download it from the Firebase console for package
+       com.winomail.android and put it next to this project file. Without it the app has no FCM token and reports
+       RemoteNotifications off (docs/harness/development-android.md, "Background and notifications"). -->
+  <ItemGroup Condition="Exists('google-services.json')">
+    <GoogleServicesJson Include="google-services.json" />
+  </ItemGroup>
+  <!-- The WinoIcons fonts ship with controls/Wino.Presentation.Android (assets Fonts/*.ttf, loaded by WinoIcons). -->
+  <!-- Theme wallpapers shared with Windows and the Apple heads (BackgroundImages): the theme gallery and the backdrop;
+       the system theme uses Clouds in light and Nighty in dark. -->
+  <ItemGroup>
+    <AndroidAsset Include="../Wino.Mail.WinUI/BackgroundImages/*.jpg" Link="Assets/Themes/%(Filename)%(Extension)" />
+  </ItemGroup>
+  <!-- Files the shared services read as packaged resources (ms-appx:/// paths). APK assets are not files, so
+       PackagedResourceInstaller copies everything under PackagedResources/ to AndroidPaths.PackagedResourceRoot. -->
+  <ItemGroup>
+    <AndroidAsset Include="../Wino.Mail.WinUI/Assets/Providers/*.png" Link="Assets/PackagedResources/Assets/Providers/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

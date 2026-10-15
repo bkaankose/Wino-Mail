@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shell, expanded width (≥ 840 dp; canvas board Tablet, the Windows layout): the pinned navigation pane (320 dp) over
+     the wallpaper with the mode switcher card at its foot, the content page in a 420 dp list pane and the reader
+     filling the rest. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/shell_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal">
+
+  <FrameLayout
+      android:id="@+id/shell_pane"
+      android:layout_width="@dimen/wino_shell_pane_width_expanded"
+      android:layout_height="match_parent">
+
+    <com.winomail.presentation.WinoBarBackdropView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <include layout="@layout/shell_menu_panel" />
+  </FrameLayout>
+
+  <FrameLayout
+      android:layout_width="@dimen/wino_shell_list_width_expanded"
+      android:layout_height="match_parent">
+
+    <include layout="@layout/shell_list_host" />
+  </FrameLayout>
+
+  <include layout="@layout/shell_reader_host" />
+</LinearLayout>

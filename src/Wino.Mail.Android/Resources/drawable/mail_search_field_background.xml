@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Material 3 search bar over the wallpaper (canvas Search): a 56 dp full-radius pill in the zone surface. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+  <solid android:color="@color/wino_zone" />
+  <corners android:radius="@dimen/wino_m3_search_bar_radius" />
+</shape>

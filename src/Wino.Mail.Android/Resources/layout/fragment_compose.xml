@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The composer (canvas Material pass board Compose; Windows ComposePage, the iOS and Mac composers). A 64 dp Material 3
+     full-screen dialog bar over the wallpaper with Close, the title (and the saving status while a save runs), Attach,
+     Send and the overflow; then one Wino zone with the
+     draft-upload failure bar, From, To / Cc / Bcc, Subject, the attachment strip, the HTML body (the shared editor
+     document in a WebView) and the horizontally scrolling format bar, which sits right above the keyboard because the
+     root is padded by the IME inset. Full screen on compact widths; in the reader pane on medium and expanded widths.
+     Every visual value comes from styles_compose.xml, dimens_compose.xml and the Wino tokens. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/compose_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+  <LinearLayout
+      android:id="@+id/compose_bar"
+      style="@style/Widget.Wino.Compose.Bar">
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/compose_close"
+        style="@style/Widget.Wino.Compose.IconButton" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:paddingStart="@dimen/wino_compose_title_padding_start">
+
+      <TextView
+          android:id="@+id/compose_title"
+          android:accessibilityHeading="true"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:ellipsize="end"
+          android:maxLines="1"
+          android:textAppearance="@style/TextAppearance.WinoKit.TopAppBarTitle" />
+
+      <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:gravity="center_vertical"
+          android:orientation="horizontal">
+
+        <com.google.android.material.progressindicator.CircularProgressIndicator
+            android:id="@+id/compose_saving"
+            style="@style/Widget.Wino.Compose.SavingIndicator"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:indeterminate="true"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/compose_status"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:accessibilityLiveRegion="polite"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textAppearance="@style/TextAppearance.Wino.Caption" />
+      </LinearLayout>
+    </LinearLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/compose_attach"
+        style="@style/Widget.Wino.Compose.IconButton" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/compose_send"
+        style="@style/Widget.Wino.Compose.SendButton" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/compose_more"
+        style="@style/Widget.Wino.Compose.IconButton" />
+  </LinearLayout>
+
+  <com.winomail.presentation.WinoZoneLayout
+      android:id="@+id/compose_zone"
+      android:layout_width="match_parent"
+      android:layout_height="0dp"
+      android:layout_weight="1"
+      android:layout_marginStart="@dimen/wino_zone_gutter"
+      android:layout_marginEnd="@dimen/wino_zone_gutter"
+      android:layout_marginBottom="@dimen/wino_zone_gutter">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+      <!-- The header scrolls on its own when the keyboard leaves little room (landscape phones). -->
+      <com.winomail.android.ComposeHeaderScrollView
+          android:id="@+id/compose_header_scroll"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+          <com.winomail.controls.WinoInfoBar
+              android:id="@+id/compose_sync_failed"
+              style="@style/Widget.Wino.Compose.InfoBar"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:visibility="gone" />
+
+          <LinearLayout
+              android:id="@+id/compose_from_row"
+              style="@style/Widget.Wino.Compose.FieldRow.WithButton">
+
+            <TextView
+                android:id="@+id/compose_from_caption"
+                style="@style/Widget.Wino.Compose.FieldCaption" />
+
+            <com.winomail.controls.WinoContactPicture
+                android:id="@+id/compose_from_avatar"
+                style="@style/Widget.Wino.Compose.FromAvatar" />
+
+            <TextView
+                android:id="@+id/compose_from"
+                style="@style/Widget.Wino.Compose.FromButton"
+                android:layout_width="0dp"
+                android:layout_weight="1" />
+          </LinearLayout>
+
+          <View style="@style/Widget.Wino.Compose.Divider" />
+
+          <include
+              android:id="@+id/compose_to"
+              layout="@layout/compose_recipient_row" />
+
+          <include
+              android:id="@+id/compose_cc"
+              layout="@layout/compose_recipient_row"
+              android:visibility="gone" />
+
+          <include
+              android:id="@+id/compose_bcc"
+              layout="@layout/compose_recipient_row"
+              android:visibility="gone" />
+
+          <LinearLayout style="@style/Widget.Wino.Compose.FieldRow">
+
+            <TextView
+                android:id="@+id/compose_subject_caption"
+                style="@style/Widget.Wino.Compose.FieldCaption" />
+
+            <EditText
+                android:id="@+id/compose_subject"
+                style="@style/Widget.Wino.Compose.SubjectField"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:imeOptions="actionNext|flagNoExtractUi"
+                android:inputType="textEmailSubject|textCapSentences" />
+          </LinearLayout>
+
+          <View style="@style/Widget.Wino.Compose.Divider" />
+
+          <LinearLayout
+              android:id="@+id/compose_attachments"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:orientation="vertical"
+              android:visibility="gone">
+
+            <LinearLayout
+                style="@style/Widget.Wino.Compose.AttachmentsHeader"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+              <TextView
+                  android:id="@+id/compose_attachments_summary"
+                  style="@style/Widget.Wino.Compose.AttachmentsSummary"
+                  android:layout_width="0dp"
+                  android:layout_height="wrap_content"
+                  android:layout_weight="1" />
+
+              <com.google.android.material.button.MaterialButton
+                  android:id="@+id/compose_remove_attachments"
+                  style="@style/Widget.Wino.Button.Text"
+                  android:layout_width="wrap_content"
+                  android:layout_height="@dimen/wino_compose_control_height" />
+            </LinearLayout>
+
+            <HorizontalScrollView
+                style="@style/Widget.Wino.Compose.AttachmentsStrip"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none">
+
+              <LinearLayout
+                  android:id="@+id/compose_attachment_tiles"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:orientation="horizontal" />
+            </HorizontalScrollView>
+
+            <View style="@style/Widget.Wino.Compose.Divider" />
+          </LinearLayout>
+        </LinearLayout>
+      </com.winomail.android.ComposeHeaderScrollView>
+
+      <WebView
+          android:id="@+id/compose_web"
+          style="@style/Widget.Wino.Compose.Body"
+          android:layout_width="match_parent"
+          android:layout_height="0dp"
+          android:layout_weight="1" />
+
+      <View style="@style/Widget.Wino.Compose.Divider" />
+
+      <HorizontalScrollView
+          android:id="@+id/compose_format_scroll"
+          style="@style/Widget.Wino.Compose.FormatBar"
+          android:layout_width="match_parent"
+          android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/compose_format_bar"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="@dimen/wino_compose_format_bar_padding"
+            android:paddingEnd="@dimen/wino_compose_format_bar_padding" />
+      </HorizontalScrollView>
+    </LinearLayout>
+  </com.winomail.presentation.WinoZoneLayout>
+</LinearLayout>

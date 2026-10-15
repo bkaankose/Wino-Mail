@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Move to folder (canvas Material pass board MoveSheet): the drag handle (sheet only), the title and what moves, the
+     folder filter pill, the account subheader and the folder items. A modal bottom sheet on compact widths, a dialog
+     elsewhere. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingBottom="@dimen/wino_m3_sheet_padding_bottom">
+
+  <com.google.android.material.bottomsheet.BottomSheetDragHandleView
+      android:id="@+id/move_handle"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content" />
+
+  <TextView
+      android:id="@+id/move_title"
+      style="@style/Widget.Wino.Mail.SheetTitle"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content" />
+
+  <TextView
+      android:id="@+id/move_subtitle"
+      style="@style/Widget.Wino.Mail.SheetSubtitle"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content" />
+
+  <LinearLayout
+      style="@style/Widget.Wino.Mail.SheetSearch"
+      android:layout_width="match_parent">
+
+    <com.winomail.presentation.WinoIconView
+        android:id="@+id/move_search_glyph"
+        android:layout_width="@dimen/wino_m3_icon"
+        android:layout_height="@dimen/wino_m3_icon"
+        android:layout_marginEnd="@dimen/wino_m3_sheet_search_gap"
+        android:gravity="center"
+        android:importantForAccessibility="no"
+        android:textColor="@color/wino_text_secondary" />
+
+    <EditText
+        android:id="@+id/move_search"
+        style="@style/Widget.Wino.Mail.SearchField"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="0dp"
+        android:layout_weight="1"
+        android:imeOptions="actionDone" />
+  </LinearLayout>
+
+  <TextView
+      android:id="@+id/move_account"
+      style="@style/Widget.Wino.Mail.SheetSubheader" />
+
+  <androidx.recyclerview.widget.RecyclerView
+      android:id="@+id/move_list"
+      android:layout_width="match_parent"
+      android:layout_height="0dp" />
+</LinearLayout>

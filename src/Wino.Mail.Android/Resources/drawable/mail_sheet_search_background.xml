@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The folder filter field in the Move sheet (canvas MoveSheet): a 48 dp full-radius pill in the surface variant. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+  <solid android:color="@color/wino_surface_variant" />
+  <corners android:radius="@dimen/wino_m3_sheet_search_radius" />
+</shape>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Wino colour tokens (wino_*) and the zone and divider drawables come from controls/Wino.Presentation.Android
+     (values/colors.xml, values-night/colors.xml, values/dimens.xml). Only app-specific colours live here. -->
+<resources>
+  <color name="ic_launcher_background">#0062CB</color>
+</resources>

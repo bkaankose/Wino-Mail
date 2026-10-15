@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The settings card row (canvas Components "Settings card"; Windows SettingsCard): glyph, title and supporting
+     text (Material 3 list item; sizes in the Presentation.Android tokens), the trailing content (switch, dropdown, button) and the chevron or action glyph. -->
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+  <com.winomail.presentation.WinoIconView
+      android:id="@+id/wino_card_icon"
+      android:layout_width="@dimen/wino_settings_item_icon_size"
+      android:layout_height="@dimen/wino_settings_item_icon_size"
+      android:layout_marginEnd="@dimen/wino_settings_item_icon_gap"
+      android:visibility="gone" />
+  <FrameLayout
+      android:id="@+id/wino_card_leading"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginEnd="@dimen/wino_settings_item_icon_gap"
+      android:visibility="gone" />
+  <LinearLayout
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:layout_weight="1"
+      android:orientation="vertical">
+    <TextView
+        android:id="@+id/wino_card_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textAppearance="@style/TextAppearance.WinoKit.ItemTitle" />
+    <TextView
+        android:id="@+id/wino_card_description"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/wino_settings_item_text_gap"
+        android:textAppearance="@style/TextAppearance.WinoKit.ItemSupporting"
+        android:visibility="gone" />
+  </LinearLayout>
+  <FrameLayout
+      android:id="@+id/wino_card_content"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="@dimen/wino_settings_item_trailing_gap"
+      android:visibility="gone" />
+  <com.winomail.presentation.WinoIconView
+      android:id="@+id/wino_card_action"
+      android:layout_width="@dimen/wino_settings_item_icon_size"
+      android:layout_height="@dimen/wino_settings_item_icon_size"
+      android:layout_marginStart="@dimen/wino_settings_item_action_gap"
+      android:visibility="gone" />
+</merge>

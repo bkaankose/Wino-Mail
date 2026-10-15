@@ -2,7 +2,7 @@
 
 Scripts are grouped by purpose, then by platform. Run them from any directory; each resolves the repository root from its own location.
 Terminal builds and launches use plain `dotnet`, `winapp`, and platform tools. VS Code F5 on Windows uses one PowerShell helper to decide whether WinApp needs to build.
-See the [Windows](../docs/harness/development-windows.md) and [macOS](../docs/harness/development-macos.md) development guides.
+See the [Windows](../docs/harness/development-windows.md), [macOS](../docs/harness/development-macos.md), [iOS](../docs/harness/development-ios.md), and [Android](../docs/harness/development-android.md) development guides. iOS and Android have no scripts yet; their guides list the plain `dotnet`, `xcrun`, and `adb` commands.
 
 | Category | Script | Platform | Shell | Purpose |
 | --- | --- | --- | --- | --- |

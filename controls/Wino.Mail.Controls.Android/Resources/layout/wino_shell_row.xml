@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A navigation drawer item (canvas Material pass Mailboxes; Material 3 NavigationDrawer): the 56 dp full-radius active
+     indicator inset 12 dp from the drawer edges, the active-account indicator, then glyph or account avatar, the label
+     and subtitle, the unread count and the expand chevron. Sizes come from the wino_m3_drawer_* tokens. -->
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+  <View
+      android:id="@+id/wino_shell_fill"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:layout_marginStart="@dimen/wino_m3_drawer_item_inset"
+      android:layout_marginEnd="@dimen/wino_m3_drawer_item_inset" />
+  <View
+      android:id="@+id/wino_shell_pipe"
+      android:layout_width="@dimen/wino_m3_drawer_indicator_width"
+      android:layout_height="match_parent"
+      android:layout_marginStart="@dimen/wino_m3_drawer_item_inset"
+      android:layout_marginTop="@dimen/wino_m3_drawer_indicator_inset"
+      android:layout_marginBottom="@dimen/wino_m3_drawer_indicator_inset"
+      android:visibility="gone" />
+  <LinearLayout
+      android:id="@+id/wino_shell_row"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_gravity="center_vertical"
+      android:gravity="center_vertical"
+      android:orientation="horizontal"
+      android:paddingStart="@dimen/wino_m3_drawer_item_padding_start"
+      android:paddingEnd="@dimen/wino_m3_drawer_item_padding_end">
+    <com.winomail.presentation.WinoIconView
+        android:id="@+id/wino_shell_glyph"
+        android:layout_width="@dimen/wino_m3_icon"
+        android:layout_height="@dimen/wino_m3_icon"
+        android:layout_marginEnd="@dimen/wino_m3_drawer_item_icon_gap" />
+    <com.winomail.controls.WinoAccountIconView
+        android:id="@+id/wino_shell_account"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="@dimen/wino_m3_drawer_item_icon_gap"
+        android:visibility="gone" />
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+      <TextView
+          android:id="@+id/wino_shell_title"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:ellipsize="end"
+          android:singleLine="true"
+          android:textAppearance="@style/TextAppearance.WinoKit.DrawerItem" />
+      <TextView
+          android:id="@+id/wino_shell_subtitle"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:ellipsize="end"
+          android:singleLine="true"
+          android:textAppearance="@style/TextAppearance.WinoKit.Caption"
+          android:visibility="gone" />
+      <com.google.android.material.progressindicator.LinearProgressIndicator
+          android:id="@+id/wino_shell_sync"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="@dimen/wino_space_2xs"
+          android:visibility="gone" />
+    </LinearLayout>
+    <com.winomail.controls.WinoUnreadPill
+        android:id="@+id/wino_shell_pill"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/wino_space_s" />
+    <com.winomail.presentation.WinoIconView
+        android:id="@+id/wino_shell_disclosure"
+        android:layout_width="@dimen/wino_m3_drawer_disclosure"
+        android:layout_height="@dimen/wino_m3_drawer_disclosure"
+        android:layout_marginStart="@dimen/wino_space_2xs"
+        android:visibility="gone" />
+  </LinearLayout>
+</merge>

@@ -174,23 +174,8 @@ public abstract partial class ToDoPageViewController
         cell.ImportanceToggled += (sender, _) => { if (sender is UITableViewCell row && _table.IndexPathForCell(row) is { } path && TaskAt(path) is { } task) Observe(ViewModel.ToggleImportanceCommand.ExecuteAsync(task)); };
     }
 
-    private WinoTaskRowModel MapRow(TaskItemViewModel item) => new()
-    {
-        Title = item.Title ?? string.Empty,
-        IsCompleted = item.IsCompleted,
-        IsImportant = item.IsImportant,
-        IsEditable = item.IsEditable,
-        ListName = item.ShowListName && !string.IsNullOrEmpty(item.ListName) ? item.ListName : null,
-        ListColorHex = ViewModel.TaskLists.FirstOrDefault(list => list.Id == item.Task.TaskListId)?.ColorHex,
-        DueText = item.HasDueDate ? item.DueDisplayText : string.Empty,
-        IsOverdue = item.IsOverdue,
-        StepSummary = item.HasSteps ? item.StepSummaryText : string.Empty,
-        IsInMyDay = item.IsInMyDay,
-        HasNote = item.HasNote,
-        MyDayText = Translator.ToDoPage_MyDay,
-        ImportanceActionText = item.ImportanceActionText,
-        CompletionActionText = item.CompletionActionText
-    };
+    private WinoTaskRowModel MapRow(TaskItemViewModel item)
+        => TaskRowPresentation.Describe(item, ViewModel.TaskLists.FirstOrDefault(list => list.Id == item.Task.TaskListId)?.ColorHex);
 
     private sealed class TaskSource(ToDoPageViewController owner) : UITableViewDataSource
     {

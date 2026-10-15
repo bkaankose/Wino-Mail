@@ -1,0 +1,70 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "dotnet.defaultSolution": "WinoMail.Android.slnx"
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Build Wino Mail (Android, Debug)",
+        "type": "process",
+        "command": "dotnet",
+        "args": [
+          "build",
+          "${workspaceFolder}/src/Wino.Mail.Android/Wino.Mail.Android.csproj",
+          "-c",
+          "Debug",
+          "-p:WinoTargetPlatform=Android"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}"
+        },
+        "group": {
+          "kind": "build",
+          "isDefault": true
+        },
+        "problemMatcher": "$msCompile"
+      },
+      {
+        "label": "Install and run Wino Mail (Android emulator)",
+        "type": "process",
+        "command": "dotnet",
+        "args": [
+          "build",
+          "${workspaceFolder}/src/Wino.Mail.Android/Wino.Mail.Android.csproj",
+          "-c",
+          "Debug",
+          "-p:WinoTargetPlatform=Android",
+          "-t:Run"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}"
+        },
+        "group": "build",
+        "problemMatcher": "$msCompile"
+      },
+      {
+        "label": "Build Wino Mail Android solution",
+        "type": "process",
+        "command": "dotnet",
+        "args": [
+          "build",
+          "${workspaceFolder}/WinoMail.Android.slnx",
+          "-c",
+          "Debug",
+          "-p:WinoTargetPlatform=Android"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder}"
+        },
+        "group": "build",
+        "problemMatcher": "$msCompile"
+      }
+    ]
+  }
+}

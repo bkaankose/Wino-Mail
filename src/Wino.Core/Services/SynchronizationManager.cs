@@ -523,9 +523,26 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             LogTracedRequests("synchronizer-queued", (IRequestBase[])[request], accountId);
         }
 
+        RaiseRequestsQueued(accountId);
+
         if (triggerSynchronization)
         {
             PublishSynchronizationRequests(accountId, requestList);
+        }
+    }
+
+    public event EventHandler<Guid> RequestsQueued;
+
+    private void RaiseRequestsQueued(Guid accountId)
+    {
+        try
+        {
+            RequestsQueued?.Invoke(this, accountId);
+        }
+        catch (Exception ex)
+        {
+            // A host's listener must never fail the user's action.
+            _logger.Warning(ex, "A queued request listener failed for account {AccountId}", accountId);
         }
     }
 

@@ -22,7 +22,7 @@ public class CustomServerInformation
     public string Address { get; set; }
     public string IncomingServer { get; set; }
     public string IncomingServerUsername { get; set; }
-    public string IncomingServerPassword { get; set; }
+    public string? IncomingServerPassword { get; set; }
     public string IncomingServerPort { get; set; }
 
     public CustomIncomingServerType IncomingServerType { get; set; }
@@ -30,11 +30,11 @@ public class CustomServerInformation
     public string OutgoingServer { get; set; }
     public string OutgoingServerPort { get; set; }
     public string OutgoingServerUsername { get; set; }
-    public string OutgoingServerPassword { get; set; }
+    public string? OutgoingServerPassword { get; set; }
 
     public string CalDavServiceUrl { get; set; }
     public string CalDavUsername { get; set; }
-    public string CalDavPassword { get; set; }
+    public string? CalDavPassword { get; set; }
     public string CardDavServiceUrl { get; set; }
     public ImapCalendarSupportMode CalendarSupportMode { get; set; }
 

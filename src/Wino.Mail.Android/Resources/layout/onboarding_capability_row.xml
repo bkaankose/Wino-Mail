@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What the account is used for, one capability (board Permissions rows): the mode glyph, title, description and an
+     M3 switch; below it the provider or on-device choice, or the note when only one of them is possible. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+  <LinearLayout style="@style/Widget.Wino.Onboarding.Row">
+
+    <TextView
+        android:id="@+id/capability_glyph"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:importantForAccessibility="no"
+        android:includeFontPadding="false"
+        android:textSize="@dimen/onboarding_row_glyph" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+      <TextView
+          android:id="@+id/capability_title"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:textAppearance="@style/TextAppearance.Wino.ListTitle" />
+
+      <TextView
+          android:id="@+id/capability_description"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:textAppearance="@style/TextAppearance.Wino.ListSupporting" />
+    </LinearLayout>
+
+    <com.google.android.material.materialswitch.MaterialSwitch
+        android:id="@+id/capability_switch"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+  </LinearLayout>
+
+  <!-- Synchronized with the provider or kept on this device: an exposed dropdown, as the iOS and Mac pop-up menus
+       (radio buttons inflate bitmap animation frames per button on Android 6, which the 48 MB heap cannot afford). -->
+  <com.google.android.material.textfield.TextInputLayout
+      android:id="@+id/capability_modes"
+      style="@style/Widget.Wino.Onboarding.Dropdown"
+      android:layout_marginStart="56dp"
+      android:layout_marginTop="0dp"
+      android:layout_marginEnd="@dimen/onboarding_content_padding"
+      android:layout_marginBottom="8dp">
+
+    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:inputType="none" />
+  </com.google.android.material.textfield.TextInputLayout>
+
+  <TextView
+      android:id="@+id/capability_note"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:paddingStart="56dp"
+      android:paddingEnd="@dimen/onboarding_content_padding"
+      android:paddingBottom="8dp"
+      android:textAppearance="@style/TextAppearance.Wino.Caption" />
+</LinearLayout>

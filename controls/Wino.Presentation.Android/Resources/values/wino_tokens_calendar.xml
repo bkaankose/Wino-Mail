@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tokens of the Calendar, People and To Do Settings pages (light; values-night has the dark pair). -->
+<resources>
+  <!-- Overlapping events preview: the Windows 410-wide sample at full size; event text and outline on the accent. -->
+  <dimen name="wino_calendar_overlap_preview_width">410dp</dimen>
+  <color name="wino_calendar_preview_event_text">#FFFFFFFF</color>
+  <color name="wino_calendar_preview_event_outline">#B3FFFFFF</color>
+
+  <!-- Hour height sample cell (its height follows the chosen hour height). -->
+  <dimen name="wino_calendar_hour_sample_width">100dp</dimen>
+  <dimen name="wino_calendar_hour_sample_radius">2dp</dimen>
+
+  <!-- Calendar colour swatches: ring of the selected swatch. -->
+  <dimen name="wino_calendar_swatch_selected_stroke">3dp</dimen>
+
+  <!-- Calendar mode (canvas Material pass boards Calendar and CalendarMonth; tablet boards CalendarTablet and
+       CalendarMonthTablet): week strip, month grid, agenda rows, the timed surface and the event editor. -->
+  <dimen name="wino_calendar_week_strip_height">56dp</dimen>
+  <dimen name="wino_calendar_strip_padding">8dp</dimen>
+  <dimen name="wino_calendar_day_circle">32dp</dimen>
+  <dimen name="wino_calendar_day_name_text">11sp</dimen>
+  <dimen name="wino_calendar_day_number_text">14sp</dimen>
+  <dimen name="wino_calendar_day_name_gap">2dp</dimen>
+  <dimen name="wino_calendar_month_weekday_height">32dp</dimen>
+  <dimen name="wino_calendar_month_cell_height">56dp</dimen>
+  <dimen name="wino_calendar_month_cell_padding_top">4dp</dimen>
+  <dimen name="wino_calendar_month_dot_gap">3dp</dimen>
+  <dimen name="wino_calendar_month_padding_bottom">4dp</dimen>
+  <dimen name="wino_calendar_pane_cell_height">34dp</dimen>
+  <dimen name="wino_calendar_pane_day_circle">28dp</dimen>
+  <dimen name="wino_calendar_pane_padding">12dp</dimen>
+  <dimen name="wino_calendar_pane_header_height">40dp</dimen>
+  <dimen name="wino_calendar_pane_row_height">44dp</dimen>
+  <dimen name="wino_calendar_pane_check">18dp</dimen>
+  <dimen name="wino_calendar_pane_check_radius">4dp</dimen>
+  <dimen name="wino_calendar_agenda_time_width">68dp</dimen>
+  <dimen name="wino_calendar_agenda_row_min_height">56dp</dimen>
+  <dimen name="wino_calendar_agenda_row_padding_vertical">6dp</dimen>
+  <dimen name="wino_calendar_agenda_gap">12dp</dimen>
+  <dimen name="wino_calendar_agenda_card_radius">8dp</dimen>
+  <dimen name="wino_calendar_agenda_card_padding_horizontal">12dp</dimen>
+  <dimen name="wino_calendar_agenda_card_padding_vertical">8dp</dimen>
+  <dimen name="wino_calendar_details_width_expanded">340dp</dimen>
+  <dimen name="wino_calendar_details_width_medium">300dp</dimen>
+  <dimen name="wino_calendar_surface_header_height">48dp</dimen>
+  <dimen name="wino_calendar_surface_day_header_height">44dp</dimen>
+  <dimen name="wino_calendar_tile_title_text">12sp</dimen>
+  <dimen name="wino_calendar_tile_detail_text">11sp</dimen>
+  <dimen name="wino_calendar_tile_padding">4dp</dimen>
+  <dimen name="wino_calendar_tile_radius">4dp</dimen>
+  <dimen name="wino_calendar_tile_selected_stroke">2dp</dimen>
+  <dimen name="wino_calendar_hour_label_text">11sp</dimen>
+  <dimen name="wino_calendar_grid_stroke">1dp</dimen>
+  <dimen name="wino_calendar_now_line">2dp</dimen>
+  <dimen name="wino_calendar_now_dot">8dp</dimen>
+  <dimen name="wino_calendar_swipe_min_distance">48dp</dimen>
+  <dimen name="wino_calendar_editor_max_width">640dp</dimen>
+  <dimen name="wino_calendar_editor_title_indent">64dp</dimen>
+  <dimen name="wino_calendar_editor_row_indent">56dp</dimen>
+  <dimen name="wino_calendar_editor_row_height">56dp</dimen>
+  <dimen name="wino_calendar_editor_sub_row_height">48dp</dimen>
+  <dimen name="wino_calendar_editor_title_text">24sp</dimen>
+  <dimen name="wino_calendar_details_swatch">12dp</dimen>
+  <dimen name="wino_calendar_details_bar_width">4dp</dimen>
+  <fraction name="wino_calendar_agenda_card_tint">20%</fraction>
+  <color name="wino_calendar_now">#C42B1C</color>
+  <color name="wino_calendar_grid_line">#14000000</color>
+  <color name="wino_calendar_half_hour_line">#08000000</color>
+  <color name="wino_calendar_weekend">#05000000</color>
+  <color name="wino_calendar_today_column">#0A0984E3</color>
+  <color name="wino_calendar_range_band">#240984E3</color>
+</resources>

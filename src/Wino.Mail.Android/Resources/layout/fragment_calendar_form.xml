@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Event details and the event editor (canvas Material pass board EventEditor; tablet boards CalendarTablet details
+     zone and EventEditorTablet; Windows EventDetailsPage and CalendarEventComposePage): the 64 dp top app bar, then one
+     Wino zone with a scrolling column the page fills with its rows. The editor's column is centred and capped on wide
+     windows. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/calendar_form_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+  <com.google.android.material.appbar.MaterialToolbar
+      android:id="@+id/calendar_form_toolbar"
+      style="@style/Widget.WinoKit.TopAppBar" />
+
+  <com.winomail.presentation.WinoZoneLayout
+      android:id="@+id/calendar_form_zone"
+      style="@style/Widget.Wino.Mail.Zone"
+      android:layout_width="match_parent"
+      android:layout_height="0dp"
+      android:layout_weight="1">
+
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/calendar_form_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+      <com.winomail.presentation.WinoMaxWidthLayout
+          android:id="@+id/calendar_form_width"
+          android:layout_gravity="center_horizontal"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content">
+
+        <LinearLayout
+            android:id="@+id/calendar_form_column"
+            style="@style/Widget.Wino.Calendar.FormColumn"
+            android:layout_gravity="center_horizontal" />
+      </com.winomail.presentation.WinoMaxWidthLayout>
+    </androidx.core.widget.NestedScrollView>
+  </com.winomail.presentation.WinoZoneLayout>
+</LinearLayout>

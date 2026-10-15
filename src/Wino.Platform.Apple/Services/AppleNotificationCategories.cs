@@ -44,28 +44,13 @@ public static class AppleNotificationCategories
     public static bool TryParseMailAction(string? identifier, out MailOperation operation)
         => NotificationActionIdentifiers.TryParseMailAction(identifier, out operation);
 
-    /// <summary>Windows NotificationBuilder.GetConfiguredMailNotificationActions.</summary>
+    /// <summary>Windows NotificationBuilder.GetConfiguredMailNotificationActions (shared rule).</summary>
     public static (MailOperation First, MailOperation Second) ResolveMailActions(MailOperation configuredFirst, MailOperation configuredSecond)
-    {
-        var first = SupportedMailActions.Contains(configuredFirst) ? configuredFirst : MailOperation.MarkAsRead;
-        var second = SupportedMailActions.Contains(configuredSecond) ? configuredSecond : MailOperation.SoftDelete;
-        if (second == first) second = SupportedMailActions.First(action => action != first);
-        return (first, second);
-    }
+        => NotificationContentRules.ResolveMailActions(configuredFirst, configuredSecond);
 
-    public static string MailActionTitle(MailOperation operation) => operation switch
-    {
-        MailOperation.MarkAsRead => Translator.MailOperation_MarkAsRead,
-        MailOperation.SoftDelete => Translator.MailOperation_Delete,
-        MailOperation.MoveToJunk => Translator.MailOperation_MarkAsJunk,
-        MailOperation.Archive => Translator.MailOperation_Archive,
-        MailOperation.Reply => Translator.MailOperation_Reply,
-        MailOperation.ReplyAll => Translator.MailOperation_ReplyAll,
-        MailOperation.Forward => Translator.MailOperation_Forward,
-        _ => operation.ToString()
-    };
+    public static string MailActionTitle(MailOperation operation) => NotificationContentRules.MailActionTitle(operation);
 
-    public static string SnoozeTitle(int minutes) => $"{Translator.CalendarReminder_SnoozeAction} ({string.Format(Translator.CalendarReminder_SnoozeMinutesOption, minutes)})";
+    public static string SnoozeTitle(int minutes) => NotificationContentRules.SnoozeTitle(minutes);
 
     /// <summary>A snooze length a category exists for; null when the reminder offers no snooze.</summary>
     public static int? NormalizeSnoozeMinutes(int? minutes)

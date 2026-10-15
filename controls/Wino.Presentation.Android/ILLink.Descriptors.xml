@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Views that layouts inflate by their Java name (com.winomail.presentation.*). Release apps trim with TrimMode=full,
+     and a view that only XML names has no managed reference, so the trimmer would remove it with its Java callable
+     wrapper (ClassNotFoundException at inflation). Embedded as ILLink.Descriptors.xml; applies whenever this assembly
+     is kept. Add every new [Register]ed view here. -->
+<linker>
+  <assembly fullname="Wino.Presentation.Android">
+    <type fullname="Wino.Presentation.Android.WinoBackdropView" preserve="all" />
+    <type fullname="Wino.Presentation.Android.WinoBarBackdropView" preserve="all" />
+    <type fullname="Wino.Presentation.Android.WinoIconView" preserve="all" />
+    <type fullname="Wino.Presentation.Android.WinoMaxWidthLayout" preserve="all" />
+    <type fullname="Wino.Presentation.Android.WinoZoneLayout" preserve="all" />
+  </assembly>
+</linker>

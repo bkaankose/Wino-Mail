@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dark colours of the account Settings pages (values/wino_tokens_accounts.xml has the light ones and the sizes). -->
+<resources>
+  <color name="wino_accounts_dashed_stroke">#33FFFFFF</color>
+</resources>

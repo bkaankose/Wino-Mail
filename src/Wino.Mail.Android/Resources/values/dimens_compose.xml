@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Composer (T8) dimensions: every size, padding and radius the compose page uses, so a restyle changes resources only.
+     Glyph sizes are read in code and passed to WinoIcons. -->
+<resources>
+  <!-- Bar -->
+  <dimen name="wino_compose_bar_height">64dp</dimen>
+  <!-- With the keyboard open and less height than this, the bar and header (body focused) or the format bar (header
+       field focused) step aside; landscape phones. -->
+  <dimen name="wino_compose_keyboard_tight_height">280dp</dimen>
+  <dimen name="wino_compose_bar_padding_start">4dp</dimen>
+  <dimen name="wino_compose_bar_padding_end">8dp</dimen>
+  <dimen name="wino_compose_icon_button">48dp</dimen>
+  <dimen name="wino_compose_title_padding_start">4dp</dimen>
+  <dimen name="wino_compose_saving_size">12dp</dimen>
+  <dimen name="wino_compose_saving_track">2dp</dimen>
+  <dimen name="wino_compose_saving_margin">6dp</dimen>
+  <dimen name="wino_compose_glyph_close">18dp</dimen>
+  <dimen name="wino_compose_glyph_bar">22dp</dimen>
+  <dimen name="wino_compose_glyph_send">22dp</dimen>
+  <item name="wino_compose_disabled_alpha" format="float" type="dimen">0.5</item>
+
+  <!-- Header fields -->
+  <dimen name="wino_compose_field_min_height">48dp</dimen>
+  <dimen name="wino_compose_recipient_min_height">56dp</dimen>
+  <dimen name="wino_compose_field_padding_start">16dp</dimen>
+  <dimen name="wino_compose_field_padding_end">16dp</dimen>
+  <dimen name="wino_compose_field_padding_end_with_button">4dp</dimen>
+  <dimen name="wino_compose_caption_width">52dp</dimen>
+  <dimen name="wino_compose_caption_gap">4dp</dimen>
+  <dimen name="wino_compose_control_height">40dp</dimen>
+  <dimen name="wino_compose_divider">1dp</dimen>
+  <dimen name="wino_compose_from_avatar">24dp</dimen>
+  <dimen name="wino_compose_from_avatar_margin">8dp</dimen>
+  <dimen name="wino_compose_from_chevron_padding">6dp</dimen>
+  <dimen name="wino_compose_glyph_chevron">10dp</dimen>
+  <dimen name="wino_compose_glyph_ccbcc">12dp</dimen>
+  <dimen name="wino_compose_chip_padding_vertical">6dp</dimen>
+  <dimen name="wino_compose_chip_spacing_horizontal">6dp</dimen>
+  <dimen name="wino_compose_chip_spacing_vertical">4dp</dimen>
+  <dimen name="wino_compose_input_min_width">64dp</dimen>
+  <dimen name="wino_compose_input_padding">2dp</dimen>
+  <dimen name="wino_compose_input_text_slack">16dp</dimen>
+  <dimen name="wino_compose_infobar_margin_horizontal">12dp</dimen>
+  <dimen name="wino_compose_infobar_margin_top">10dp</dimen>
+  <dimen name="wino_compose_infobar_margin_bottom">4dp</dimen>
+  <!-- The header never takes more than this share of the zone; it scrolls on its own beyond it. -->
+  <item name="wino_compose_header_max_share" format="float" type="dimen">0.55</item>
+
+  <!-- Suggestions -->
+  <dimen name="wino_compose_suggestion_min_height">56dp</dimen>
+  <dimen name="wino_compose_suggestion_padding_horizontal">16dp</dimen>
+  <dimen name="wino_compose_suggestion_padding_vertical">6dp</dimen>
+  <dimen name="wino_compose_suggestion_avatar">32dp</dimen>
+  <dimen name="wino_compose_suggestion_avatar_margin">12dp</dimen>
+
+  <!-- Attachments -->
+  <dimen name="wino_compose_attachments_padding_top">4dp</dimen>
+  <dimen name="wino_compose_attachments_padding_end">8dp</dimen>
+  <dimen name="wino_compose_attachments_summary_glyph_padding">6dp</dimen>
+  <dimen name="wino_compose_attachments_strip_padding_horizontal">12dp</dimen>
+  <dimen name="wino_compose_attachments_strip_padding_bottom">8dp</dimen>
+  <dimen name="wino_compose_glyph_attachment_summary">14dp</dimen>
+  <dimen name="wino_compose_tile_padding_start">10dp</dimen>
+  <dimen name="wino_compose_tile_padding_vertical">6dp</dimen>
+  <dimen name="wino_compose_tile_padding_end">2dp</dimen>
+  <dimen name="wino_compose_tile_radius">6dp</dimen>
+  <dimen name="wino_compose_tile_stroke">1dp</dimen>
+  <dimen name="wino_compose_tile_margin">8dp</dimen>
+  <dimen name="wino_compose_tile_icon_margin">8dp</dimen>
+  <dimen name="wino_compose_tile_name_max_width">180dp</dimen>
+  <dimen name="wino_compose_tile_warning_margin">4dp</dimen>
+  <dimen name="wino_compose_tile_remove">40dp</dimen>
+  <dimen name="wino_compose_glyph_tile">22dp</dimen>
+  <dimen name="wino_compose_glyph_tile_warning">12dp</dimen>
+  <dimen name="wino_compose_glyph_tile_remove">12dp</dimen>
+  <item name="wino_compose_tile_warning_stroke_alpha" format="float" type="dimen">0.6</item>
+
+  <!-- Body and format bar -->
+  <dimen name="wino_compose_body_min_height">96dp</dimen>
+  <dimen name="wino_compose_body_padding_horizontal">6dp</dimen>
+  <dimen name="wino_compose_format_bar_height">48dp</dimen>
+  <dimen name="wino_compose_format_bar_padding">6dp</dimen>
+  <dimen name="wino_compose_format_button">40dp</dimen>
+  <dimen name="wino_compose_format_button_radius">20dp</dimen>
+  <dimen name="wino_compose_format_button_margin">2dp</dimen>
+  <dimen name="wino_compose_glyph_format">20dp</dimen>
+  <dimen name="wino_compose_format_divider_height">24dp</dimen>
+  <dimen name="wino_compose_format_divider_margin_start">4dp</dimen>
+  <dimen name="wino_compose_format_divider_margin_end">6dp</dimen>
+  <item name="wino_compose_format_active_alpha" format="float" type="dimen">0.16</item>
+
+  <!-- Link dialog -->
+  <dimen name="wino_compose_dialog_padding_horizontal">24dp</dimen>
+  <dimen name="wino_compose_dialog_padding_top">8dp</dimen>
+  <dimen name="wino_compose_dialog_field_spacing">8dp</dimen>
+</resources>

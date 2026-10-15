@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Wino mail row (canvas boards Inbox and Components "Mail row"; Windows MailListItemTemplates), inflated into
+     WinoMailRowView. The highlight box holds the selection fill and the 3 dp accent pill; the content is the select
+     check, the avatar and three lines. Line 1: nickname, draft tag, sender, thread count, pin, attachment and flag
+     glyphs, busy spinner, compact tiles, date. Line 2: thread chevron, subject, unread dot. Line 3: preview; detailed
+     rows add a wrapping tile line. WinoMailRowView sets densities, colours and visibility. -->
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+  <FrameLayout
+      android:id="@+id/wino_row_highlight"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:layout_marginStart="4dp"
+      android:layout_marginTop="2dp"
+      android:layout_marginEnd="4dp"
+      android:layout_marginBottom="2dp">
+    <View
+        android:id="@+id/wino_row_pill"
+        android:layout_width="3dp"
+        android:layout_height="match_parent"
+        android:layout_marginTop="14dp"
+        android:layout_marginBottom="14dp"
+        android:visibility="gone" />
+  </FrameLayout>
+
+  <LinearLayout
+      android:id="@+id/wino_row_content"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_gravity="center_vertical"
+      android:gravity="center_vertical"
+      android:orientation="horizontal"
+      android:paddingStart="14dp"
+      android:paddingEnd="16dp">
+
+    <com.winomail.presentation.WinoIconView
+        android:id="@+id/wino_row_check"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:layout_marginEnd="8dp"
+        android:visibility="gone" />
+
+    <com.winomail.controls.WinoContactPicture
+        android:id="@+id/wino_row_avatar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="12dp" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+      <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:gravity="center_vertical"
+          android:orientation="horizontal">
+        <com.winomail.controls.WinoChipView
+            android:id="@+id/wino_row_nickname_left"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="6dp"
+            android:visibility="gone" />
+        <TextView
+            android:id="@+id/wino_row_draft"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="4dp"
+            android:textColor="@color/wino_critical"
+            android:textSize="14sp"
+            android:visibility="gone" />
+        <TextView
+            android:id="@+id/wino_row_sender"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:textColor="@color/wino_text_primary"
+            android:textSize="16sp" />
+        <TextView
+            android:id="@+id/wino_row_thread_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textColor="@color/wino_text_secondary"
+            android:textSize="12sp"
+            android:visibility="gone" />
+        <com.winomail.presentation.WinoIconView
+            android:id="@+id/wino_row_pin"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:visibility="gone" />
+        <com.winomail.presentation.WinoIconView
+            android:id="@+id/wino_row_attachment"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:visibility="gone" />
+        <com.winomail.presentation.WinoIconView
+            android:id="@+id/wino_row_flag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:visibility="gone" />
+        <!-- Pending server change: a static glyph, not an indeterminate spinner. A spinner animates every frame for
+             as long as the change stays queued (offline, failing server), which kept the idle list rendering. -->
+        <com.winomail.presentation.WinoIconView
+            android:id="@+id/wino_row_busy"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:visibility="gone" />
+        <LinearLayout
+            android:id="@+id/wino_row_compact_tiles"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone" />
+        <com.winomail.controls.WinoChipView
+            android:id="@+id/wino_row_nickname_right"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:visibility="gone" />
+        <TextView
+            android:id="@+id/wino_row_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:singleLine="true"
+            android:textColor="@color/wino_text_secondary"
+            android:textSize="12sp" />
+      </LinearLayout>
+
+      <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="2dp"
+          android:gravity="center_vertical"
+          android:orientation="horizontal">
+        <com.winomail.presentation.WinoIconView
+            android:id="@+id/wino_row_chevron"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginEnd="4dp"
+            android:visibility="gone" />
+        <TextView
+            android:id="@+id/wino_row_subject"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:textColor="@color/wino_text_primary"
+            android:textSize="14sp" />
+        <View
+            android:id="@+id/wino_row_unread"
+            android:layout_width="6dp"
+            android:layout_height="6dp"
+            android:layout_marginStart="8dp"
+            android:visibility="gone" />
+      </LinearLayout>
+
+      <TextView
+          android:id="@+id/wino_row_preview"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="2dp"
+          android:ellipsize="end"
+          android:singleLine="true"
+          android:textColor="@color/wino_text_secondary"
+          android:textSize="12sp" />
+
+      <com.google.android.material.chip.ChipGroup
+          android:id="@+id/wino_row_tiles"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="4dp"
+          android:visibility="gone"
+          app:chipSpacingHorizontal="4dp"
+          app:chipSpacingVertical="4dp" />
+    </LinearLayout>
+  </LinearLayout>
+</merge>

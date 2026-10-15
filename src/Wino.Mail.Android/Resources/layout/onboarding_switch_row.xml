@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A label and an M3 switch (board ImapSetup "Use the same credentials for SMTP"). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="8dp"
+    android:gravity="center_vertical"
+    android:minHeight="48dp"
+    android:orientation="horizontal">
+
+  <TextView
+      android:id="@+id/switch_label"
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:layout_marginEnd="16dp"
+      android:layout_weight="1"
+      android:textAppearance="@style/TextAppearance.Wino.ListTitle"
+      android:fontFamily="sans-serif" />
+
+  <com.google.android.material.materialswitch.MaterialSwitch
+      android:id="@+id/switch_toggle"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content" />
+</LinearLayout>

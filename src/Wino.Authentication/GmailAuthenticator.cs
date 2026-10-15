@@ -268,7 +268,7 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
     /// report them as aliases, so they are not checked. A broader grant covers its narrower scopes.
     /// An empty grant list means Google did not report scopes, which cannot be verified.
     /// </summary>
-    internal static IReadOnlyList<string> GetMissingScopes(IEnumerable<string> requestedScopes, string? grantedScopes)
+    public static IReadOnlyList<string> GetMissingScopes(IEnumerable<string> requestedScopes, string? grantedScopes)
     {
         if (string.IsNullOrWhiteSpace(grantedScopes))
             return [];

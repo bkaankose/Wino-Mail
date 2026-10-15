@@ -240,7 +240,7 @@ public sealed class ContactCardViewController : UIViewController
 
         var postal = new WinoContactFieldCard(Translator.ContactDetail_Address);
         foreach (var address in source.PostalAddresses)
-            postal.Add(FormatAddress(address), address.Kind.ToString(), WinoIconGlyph.Location, wrap: true);
+            postal.Add(ContactDisplayFormatter.FormatPostalAddress(address), address.Kind.ToString(), WinoIconGlyph.Location, wrap: true);
         AddCard(postal);
 
         var personal = new WinoContactFieldCard(Translator.ContactDetail_Personal);
@@ -255,11 +255,6 @@ public sealed class ContactCardViewController : UIViewController
         if (card.Count > 0) _cards.AddArrangedSubview(card);
     }
 
-    private static string FormatAddress(ContactPostalAddress address)
-    {
-        var line2 = string.Join(" ", new[] { address.PostalCode, address.City }.Where(part => !string.IsNullOrWhiteSpace(part)));
-        return string.Join("\n", new[] { address.PostOfficeBox, address.Street, line2, address.Region, address.Country }.Where(part => !string.IsNullOrWhiteSpace(part)));
-    }
 
     /// <summary>Remove from this list (list filters only) and Delete, as plain destructive rows.</summary>
     private void ApplyFooter(AccountContactViewModel contact)

@@ -1,5 +1,6 @@
 #nullable enable
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Domain.Models.Settings;
 
@@ -15,5 +16,18 @@ public static class SettingsPageAvailability
         WinoPage.SignatureAndEncryptionPage => isSmimeSupported,
         WinoPage.WinoIntelligencePage => canAccessIntelligence,
         _ => true
+    };
+
+    /// <summary>
+    /// The full platform rule: besides S/MIME and the Wino Intelligence entitlement, the Companion page needs a tray
+    /// or menu bar companion, Keyboard shortcuts needs hardware keyboard shortcut handling, and Backup and restore needs
+    /// backup files the platform can save and open by path.
+    /// </summary>
+    public static bool IsAvailable(WinoPage page, IPlatformCapabilities capabilities, bool canAccessIntelligence) => page switch
+    {
+        WinoPage.CompanionSettingsPage => capabilities.Tray,
+        WinoPage.KeyboardShortcutsPage => capabilities.KeyboardShortcuts,
+        WinoPage.BackupRestorePage => capabilities.FileBackup,
+        _ => IsAvailable(page, capabilities.Smime, canAccessIntelligence)
     };
 }

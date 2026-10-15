@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A provider (board AddAccount): the provider logo, name and description, and a chevron. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    style="@style/Widget.Wino.Onboarding.Row"
+    android:background="?attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true">
+
+  <com.google.android.material.imageview.ShapeableImageView
+      android:id="@+id/provider_logo"
+      android:layout_width="@dimen/onboarding_provider_logo"
+      android:layout_height="@dimen/onboarding_provider_logo"
+      android:importantForAccessibility="no"
+      android:scaleType="fitCenter"
+      app:shapeAppearanceOverlay="@style/ShapeAppearance.Wino.ProviderLogo" />
+
+  <LinearLayout
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="16dp"
+      android:layout_weight="1"
+      android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/provider_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textAppearance="@style/TextAppearance.Wino.ListTitle" />
+
+    <TextView
+        android:id="@+id/provider_description"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="2"
+        android:textAppearance="@style/TextAppearance.Wino.ListSupporting" />
+  </LinearLayout>
+
+  <com.winomail.presentation.WinoIconView
+      android:id="@+id/provider_chevron"
+      android:layout_width="24dp"
+      android:layout_height="24dp"
+      android:layout_marginStart="8dp"
+      android:gravity="center"
+      android:importantForAccessibility="no"
+      android:textColor="@color/wino_text_secondary" />
+</LinearLayout>

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shared frame of the onboarding form pages (boards ImapSetup and AddAccount): the 64 dp top app bar over the
+     wallpaper, then one Wino zone with a scrolling form (onboarding_form, filled by the page) and the actions at its
+     foot. A column of at most 560 dp, centred on wide windows. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/onboarding_insets"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+  <com.winomail.presentation.WinoMaxWidthLayout
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:layout_gravity="center_horizontal">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+      <com.google.android.material.appbar.MaterialToolbar
+          android:id="@+id/onboarding_toolbar"
+          style="@style/Widget.Wino.Onboarding.TopBar" />
+
+      <com.winomail.presentation.WinoZoneLayout
+          style="@style/Widget.Wino.Onboarding.Zone"
+          android:layout_width="match_parent"
+          android:layout_height="0dp"
+          android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+          <com.google.android.material.progressindicator.LinearProgressIndicator
+              android:id="@+id/onboarding_busy"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:indeterminate="true"
+              android:visibility="gone" />
+
+          <androidx.core.widget.NestedScrollView
+              android:id="@+id/onboarding_scroll"
+              android:layout_width="match_parent"
+              android:layout_height="0dp"
+              android:layout_weight="1">
+
+            <LinearLayout
+                android:id="@+id/onboarding_form"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="@dimen/onboarding_content_padding"
+                android:paddingTop="8dp"
+                android:paddingEnd="@dimen/onboarding_content_padding"
+                android:paddingBottom="16dp" />
+          </androidx.core.widget.NestedScrollView>
+
+          <TextView
+              android:id="@+id/onboarding_busy_text"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:accessibilityLiveRegion="polite"
+              android:paddingStart="@dimen/onboarding_page_padding"
+              android:paddingTop="8dp"
+              android:paddingEnd="@dimen/onboarding_page_padding"
+              android:textAppearance="@style/TextAppearance.Wino.Caption"
+              android:visibility="gone" />
+
+          <LinearLayout
+              android:id="@+id/onboarding_actions"
+              style="@style/Widget.Wino.Onboarding.ActionBar">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/onboarding_secondary"
+                style="@style/Widget.Wino.Onboarding.TextButton.Small"
+                android:layout_width="wrap_content"
+                android:layout_marginEnd="8dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/onboarding_primary"
+                style="@style/Widget.Wino.Onboarding.PrimaryButton.Small"
+                android:layout_width="wrap_content" />
+          </LinearLayout>
+        </LinearLayout>
+      </com.winomail.presentation.WinoZoneLayout>
+    </LinearLayout>
+  </com.winomail.presentation.WinoMaxWidthLayout>
+</FrameLayout>

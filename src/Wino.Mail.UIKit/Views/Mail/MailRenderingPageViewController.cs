@@ -338,25 +338,8 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
 
     // ---- Commands ----
 
-    private static readonly MailOperation[] PrimaryOrder =
-    [
-        MailOperation.Reply, MailOperation.ReplyAll, MailOperation.Forward, MailOperation.None,
-        MailOperation.Archive, MailOperation.UnArchive, MailOperation.SoftDelete, MailOperation.HardDelete, MailOperation.Move,
-        MailOperation.SetFlag, MailOperation.ClearFlag, MailOperation.MarkAsRead, MailOperation.MarkAsUnread
-    ];
-
-    private static readonly MailOperation[] DefaultOrder =
-    [
-        MailOperation.Reply, MailOperation.ReplyAll, MailOperation.Forward, MailOperation.None,
-        MailOperation.Archive, MailOperation.SoftDelete, MailOperation.Move, MailOperation.SetFlag, MailOperation.MarkAsRead
-    ];
-
-    /// <summary>The short label the Windows command bar shows ("Flag" rather than "Set flag").</summary>
-    private static string BarTitle(MailOperation operation)
-        => operation == MailOperation.SetFlag ? Translator.MailOperation_Flag : MailOperationDisplay.GetTitle(operation);
-
     private MailReaderCommand Command(MailOperationMenuItem item)
-        => new(item.Operation, MailOperationDisplay.GetGlyph(item.Operation), BarTitle(item.Operation),
+        => new(item.Operation, MailOperationDisplay.GetGlyph(item.Operation), MailReaderCommandLayout.BarTitle(item.Operation),
             () => Observe(ViewModel.OperationClickedCommand.ExecuteAsync(item)), item.IsEnabled,
             item.Operation == MailOperation.Move ? (Action<UIView>)(anchor => ShowMove(item, anchor)) : null);
 
@@ -370,46 +353,17 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         Observe(ViewModel.OperationClickedCommand.ExecuteAsync(item));
     }
 
-    /// <summary>Rebuilds the primary commands and the More content from the ViewModel's menu (Mac UpdateCommandBar).</summary>
+    /// <summary>
+    /// Rebuilds the primary commands and the More content from the ViewModel's menu through the shared
+    /// <see cref="MailReaderCommandLayout"/>; the iOS readers offer Move next to Delete.
+    /// </summary>
     private void UpdateCommandBar()
     {
-        var items = ViewModel.MenuItems.OfType<MailOperationMenuItem>().Where(static item => item.Operation != MailOperation.Seperator).ToArray();
-        var commands = new List<MailReaderCommand?>();
-        if (!items.Any(item => PrimaryOrder.Contains(item.Operation)))
-        {
-            if (_currentItem is null && items.Length > 0)
-            {
-                // A saved .eml has only Save As and Print; show just those, like Windows.
-                foreach (var item in items) commands.Add(Command(item));
-                _overflow = [];
-            }
-            else
-            {
-                // Nothing loaded yet (or the message failed to load): the default set, disabled, like the Windows bar.
-                foreach (var operation in DefaultOrder)
-                    commands.Add(operation == MailOperation.None ? null : new MailReaderCommand(operation, MailOperationDisplay.GetGlyph(operation), BarTitle(operation), static () => { }, false));
-                _overflow = ViewModel.MenuItems.OfType<MailOperationMenuItem>().ToArray();
-            }
-        }
-        else
-        {
-            // The shared reader menu has no Move (Windows moves from the list); the iOS readers offer it next to Delete for
-            // the open message, through the idiom's Move presenter.
-            if (_currentItem is not null && items.Any(static item => item.Operation is MailOperation.SoftDelete or MailOperation.HardDelete)
-                && !items.Any(static item => item.Operation == MailOperation.Move))
-                items = [.. items, MailOperationMenuItem.Create(MailOperation.Move)];
-            var primary = new HashSet<MailOperation>();
-            foreach (var operation in PrimaryOrder)
-            {
-                if (operation == MailOperation.None) { commands.Add(null); continue; }
-                if (items.FirstOrDefault(candidate => candidate.Operation == operation) is not { } item) continue;
-                primary.Add(operation);
-                commands.Add(Command(item));
-            }
-            if (commands.Count > 0 && commands[^1] is null) commands.RemoveAt(commands.Count - 1);
-            _overflow = ViewModel.MenuItems.OfType<MailOperationMenuItem>().Where(item => !primary.Contains(item.Operation)).ToArray();
-        }
-        _primaryCommands = commands.ToArray();
+        var plan = MailReaderCommandLayout.Build(ViewModel.MenuItems, _currentItem is not null, offerMove: true);
+        _primaryCommands = plan.Primary.Select(slot => slot is null ? null
+            : slot.Item is { } item ? Command(item)
+            : new MailReaderCommand(slot.Operation, MailOperationDisplay.GetGlyph(slot.Operation), slot.Title, static () => { }, false)).ToArray();
+        _overflow = plan.Overflow.ToArray();
         _commandBar.SetCommands(_primaryCommands, CreateMoreMenu);
         CommandsChanged?.Invoke(this, EventArgs.Empty);
     }

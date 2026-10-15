@@ -2,6 +2,7 @@ using System.Collections.Specialized;
 using CoreGraphics;
 using Foundation;
 using UIKit;
+using Wino.Calendar.ViewModels;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
@@ -20,7 +21,7 @@ public sealed partial class CalendarPageViewController
 {
     private readonly UITableView _agenda = new(CGRect.Empty, UITableViewStyle.Plain) { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
     private readonly WinoStateView _agendaEmpty = new(WinoIconGlyph.CalendarAgenda, Translator.IOS_Calendar_NoEvents, null, WinoStyle.TertiaryText) { Hidden = true };
-    private readonly List<(DateOnly Date, List<CalendarItemViewModel> Items)> _agendaDays = [];
+    private readonly List<CalendarAgendaDay> _agendaDays = [];
     private AgendaSource? _agendaSource;
     private INotifyCollectionChanged? _observedItems;
     private bool _agendaReloadQueued;
@@ -66,22 +67,9 @@ public sealed partial class CalendarPageViewController
     private void ReloadAgenda()
     {
         _agendaDays.Clear();
+        // Shared agenda rule: Day and Week list every day of the range, Month only the days with events.
         if (ViewModel.CurrentVisibleRange is { } range)
-        {
-            bool month = range.DisplayType == CalendarDisplayType.Month;
-            var items = ViewModel.CalendarItems.ToList();
-            foreach (var date in range.Dates)
-            {
-                var start = date.ToDateTime(TimeOnly.MinValue);
-                var end = start.AddDays(1);
-                var day = items.Where(item => item.StartDate < end && item.EndDate > start || item.StartDate == start)
-                    .OrderBy(item => item.IsAllDayEvent || item.IsMultiDayEvent ? 0 : 1)
-                    .ThenBy(item => item.StartDate)
-                    .ToList();
-                if (day.Count == 0 && month) continue;
-                _agendaDays.Add((date, day));
-            }
-        }
+            _agendaDays.AddRange(CalendarAgenda.BuildDays(range.Dates, ViewModel.CalendarItems.ToList(), skipEmptyDays: range.DisplayType == CalendarDisplayType.Month));
         if (!_agenda.Hidden) _agendaEmpty.Hidden = _agendaDays.Any(day => day.Items.Count > 0);
         _agenda.ReloadData();
     }
@@ -92,19 +80,9 @@ public sealed partial class CalendarPageViewController
         _observedItems = null;
     }
 
-    private string AgendaTime(CalendarItemViewModel item, DateOnly date)
-    {
-        if (item.IsAllDayEvent || item.IsMultiDayEvent && (item.StartDate.Date < date.ToDateTime(TimeOnly.MinValue) || item.EndDate.Date > date.ToDateTime(TimeOnly.MinValue)))
-            return Translator.QuickEventDialog_IsAllDay;
-        return CalendarTileMapper.TimeRangeText(item, ViewModel.CurrentSettings);
-    }
+    private string AgendaTime(CalendarItemViewModel item, DateOnly date) => CalendarAgenda.TimeText(item, date, ViewModel.CurrentSettings);
 
-    private string DayTitle(DateOnly date)
-    {
-        var culture = ViewModel.CurrentSettings?.CultureInfo ?? System.Globalization.CultureInfo.CurrentCulture;
-        var text = date.ToDateTime(TimeOnly.MinValue).ToString("dddd, d MMMM", culture);
-        return date == DateContext.GetToday() ? $"{Translator.Today} · {text}" : text;
-    }
+    private string DayTitle(DateOnly date) => CalendarAgenda.DayTitle(date, DateContext.GetToday(), ViewModel.CurrentSettings?.CultureInfo);
 
     private sealed class AgendaSource(CalendarPageViewController owner) : UITableViewSource
     {

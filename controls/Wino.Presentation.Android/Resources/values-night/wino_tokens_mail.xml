@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dark colour tokens of the General and Mail Settings pages (values/wino_tokens_mail.xml has the light pair and sizes). -->
+<resources>
+  <color name="wino_mail_illustration_fill">#FF2B2B2B</color>
+  <color name="wino_mail_illustration_stroke">#1AFFFFFF</color>
+  <color name="wino_mail_illustration_pill">#24FFFFFF</color>
+</resources>

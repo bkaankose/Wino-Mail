@@ -189,7 +189,7 @@ internal sealed partial class PadSidebarViewController : UIViewController
     private bool IsSelectable(IMenuItem item)
         => _handlesSelection && ShellMenuItemRules.IsInteractive(item) && ShellMenuItemRules.SelectsOnInvoked(item) && ShellMenuItemRules.IsEnabled(item);
 
-    private static bool HasChildren(IMenuItem item) => ShellMenuItemRules.Children(item).Any(ShellMenuItemRules.IsShown);
+    private static bool HasChildren(IMenuItem item) => ShellMenuRowPresentation.HasChildren(item);
 
     #region Rows
 
@@ -286,12 +286,11 @@ internal sealed partial class PadSidebarViewController : UIViewController
         Configure(cell, item, _rows[index].Depth);
     }
 
-    private static WinoShellRowKind KindOf(IMenuItem item) => item switch
+    private static WinoShellRowKind KindOf(IMenuItem item) => ShellMenuRowPresentation.KindOf(item) switch
     {
-        NewMailMenuItem or NewContactMenuItem or NewTaskListMenuItem or NewCalendarEventMenuItem or NewAddressListMenuItem => WinoShellRowKind.NewItem,
-        ShellSectionHeaderMenuItem => WinoShellRowKind.Header,
-        MergedAccountMenuItem => WinoShellRowKind.Account,
-        IAccountNavigationMenuItem account when ShellMenuItemRules.IsAccountRow(account) => WinoShellRowKind.Account,
+        ShellMenuRowKind.NewItem => WinoShellRowKind.NewItem,
+        ShellMenuRowKind.Header => WinoShellRowKind.Header,
+        ShellMenuRowKind.Account => WinoShellRowKind.Account,
         _ => WinoShellRowKind.Folder
     };
 
@@ -302,108 +301,32 @@ internal sealed partial class PadSidebarViewController : UIViewController
         _ => WinoShellRowCell.HeightFor(KindOf(item))
     };
 
+    /// <summary>Configures the row from the shared <see cref="ShellMenuRowPresentation"/> (the Windows pane templates).</summary>
     private void Configure(WinoShellRowCell cell, IMenuItem item, int depth)
     {
         cell.Item = item;
         cell.AccessoryView = null;
-        bool enabled = ShellMenuItemRules.IsEnabled(item);
-        bool? expanded = HasChildren(item) && item is not IAccountMenuItem ? item.IsExpanded : null;
-        int indent = Math.Max(0, depth - 1);
-
-        switch (item)
+        var row = ShellMenuRowPresentation.Describe(item, depth, _pictures);
+        switch (row.Kind)
         {
-            case NewCalendarEventMenuItem:
-                cell.ConfigureNewItem(Translator.CalendarEventCompose_NewEventButton);
+            case ShellMenuRowKind.NewItem:
+                cell.ConfigureNewItem(row.Title, row.Glyph);
                 break;
-            case NewMailMenuItem:
-                cell.ConfigureNewItem(Translator.MenuNewMail);
+            case ShellMenuRowKind.Header:
+                cell.ConfigureHeader(row.Title);
                 break;
-            case NewContactMenuItem:
-                cell.ConfigureNewItem(Translator.ContactsPane_NewContact);
-                break;
-            case NewAddressListMenuItem:
-                cell.ConfigureNewItem(Translator.ContactList_NewTitle, WinoIconGlyph.PersonAdd);
-                break;
-            case NewTaskListMenuItem:
-                cell.ConfigureNewItem(Translator.ToDoPage_NewList, WinoIconGlyph.Add);
-                break;
-            case ShellSectionHeaderMenuItem header:
-                cell.ConfigureHeader(header.Title);
-                break;
-            case FixAccountIssuesMenuItem fix:
-                cell.ConfigureFolder(WinoIconGlyph.Warning, fix.Account?.AttentionReason == AccountAttentionReason.MissingSystemFolderConfiguration
-                    ? Translator.MacOS_Shell_FixMissingSystemFolders
-                    : Translator.MacOS_Shell_FixInvalidCredentials);
-                break;
-            case MergedAccountMenuItem merged:
-                cell.ConfigureAccount(MailAccountIconInfoFactory.CreateProviderFallback(MailProviderType.IMAP4, SpecialImapProvider.None),
-                    merged.MergedAccountName ?? string.Empty,
-                    merged.IsSynchronizationProgressVisible && !string.IsNullOrWhiteSpace(merged.SynchronizationStatus)
-                        ? merged.SynchronizationStatus
-                        : merged.MergedAccountCount + Translator.MenuMergedAccountItemAccountsSuffix,
-                    merged.UnreadItemCount);
-                cell.SetSync(merged.IsSynchronizationProgressVisible, merged.IsProgressIndeterminate, merged.SynchronizationProgressValue);
-                break;
-            case IAccountNavigationMenuItem account when ShellMenuItemRules.IsAccountRow(account):
-                var icon = account.Account is not { } mailAccount
-                    ? MailAccountIconInfoFactory.CreateProviderFallback(MailProviderType.IMAP4, SpecialImapProvider.None)
-                    : _pictures is null
-                        ? MailAccountIconInfoFactory.CreateProviderFallback(mailAccount.ProviderType, mailAccount.SpecialImapProvider)
-                        : MailAccountIconInfoFactory.Create(mailAccount, _pictures);
-                cell.ConfigureAccount(icon, account.AccountName ?? string.Empty, account.AccountAddress, account.UnreadItemCount);
-                cell.SetSync(account.IsSynchronizationProgressVisible, account.IsProgressIndeterminate, account.SynchronizationProgressValue);
-                if (account.IsAttentionRequired) cell.AccessoryView = AttentionButton(item);
-                break;
-            case MailCategoryMenuItem category:
-                cell.ConfigureFolder(WinoIconGlyph.Tag, category.FolderName ?? string.Empty, category.ShowUnreadCount ? category.UnreadItemCount : 0, indent);
-                break;
-            case MergedMailCategoryMenuItem mergedCategory:
-                cell.ConfigureFolder(WinoIconGlyph.Tag, mergedCategory.FolderName ?? string.Empty, mergedCategory.UnreadItemCount, indent);
-                break;
-            case MergedAccountMoreFolderMenuItem:
-                cell.ConfigureFolder(WinoIconGlyph.SpecialFolderMore, Translator.More, 0, indent, expanded);
-                break;
-            case IBaseFolderMenuItem folder:
-                cell.ConfigureFolder(SpecialFolderGlyphs.GetGlyphOrFolder(folder.SpecialFolderType), folder.FolderName ?? string.Empty,
-                    folder.ShowUnreadCount ? folder.UnreadItemCount : 0, indent, expanded);
-                break;
-            case UngroupedCalendarMenuItem calendar:
-                cell.ConfigureFolder(WinoIconGlyph.Calendar, calendar.Parameter.Name ?? string.Empty, 0, indent);
-                break;
-            case AccountCalendarGroupMenuItem group:
-                cell.ConfigureFolder(WinoIconGlyph.Calendar, group.Parameter.Account?.Name ?? string.Empty, 0, indent);
-                break;
-            case ContactFilterViewModel filter:
-                cell.ConfigureFolder(filter.IsCategory ? WinoIconGlyph.Tag : WinoIconGlyph.People, filter.Name ?? string.Empty, filter.Count, indent);
-                break;
-            case MyDayTaskMenuItem myDay:
-                cell.ConfigureFolder(WinoIconGlyph.WeatherSunny, Translator.ToDoPage_MyDay, myDay.Count, indent);
-                break;
-            case PlannedTaskMenuItem planned:
-                cell.ConfigureFolder(WinoIconGlyph.Calendar, Translator.ToDoPage_Planned, planned.Count, indent);
-                break;
-            case ImportantTaskMenuItem important:
-                cell.ConfigureFolder(WinoIconGlyph.Star, Translator.ToDoPage_Important, important.Count, indent);
-                break;
-            case AccountTaskListGroupMenuItem taskGroup:
-                cell.ConfigureFolder(WinoIconGlyph.PanelLeft, taskGroup.Title ?? string.Empty, 0, indent, expanded);
-                break;
-            case AccountTaskListMenuItem list:
-                cell.ConfigureFolder(WinoIconGlyph.Dot, list.Title ?? string.Empty, list.Count, indent);
-                break;
-            case RateMenuItem:
-                cell.ConfigureFolder(WinoIconGlyph.Heart, Translator.MenuRate);
-                break;
-            case SettingsItem:
-                cell.ConfigureFolder(WinoIconGlyph.Settings, Translator.MenuSettings);
+            case ShellMenuRowKind.Account when row.AccountIcon is { } icon:
+                cell.ConfigureAccount(icon, row.Title, row.Subtitle, row.UnreadCount);
+                cell.SetSync(row.ShowsSync, row.IsSyncIndeterminate, row.SyncValue);
+                if (row.IsAttentionRequired) cell.AccessoryView = AttentionButton(item);
                 break;
             default:
-                cell.ConfigureFolder(WinoIconGlyph.Folder, item.ToString() ?? string.Empty, 0, indent, expanded);
+                cell.ConfigureFolder(row.Glyph, row.Title, row.UnreadCount, row.Indent, row.IsExpanded);
                 break;
         }
-        cell.Highlightable = ShellMenuItemRules.IsHighlightable(item);
-        cell.ShowsIndicator = ShellMenuItemRules.ShowsIndicator(item);
-        cell.ContentView.Alpha = enabled ? 1 : 0.45f;
+        cell.Highlightable = row.IsHighlightable;
+        cell.ShowsIndicator = row.ShowsIndicator;
+        cell.ContentView.Alpha = row.IsEnabled ? 1 : 0.45f;
     }
 
     private UIButton AttentionButton(IMenuItem item)

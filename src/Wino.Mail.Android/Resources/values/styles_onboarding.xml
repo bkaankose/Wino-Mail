@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Onboarding styles (canvas Material pass): Material 3 top app bar, outlined text fields, pill buttons and two-line
+     rows over the Wino zone. Layouts reference only these, the Wino text appearances and the Presentation.Android
+     tokens. -->
+<resources>
+  <style name="Widget.Wino.Onboarding" parent="" />
+
+  <!-- 64 dp small top app bar over the wallpaper. -->
+  <style name="Widget.Wino.Onboarding.TopBar" parent="Widget.Material3.Toolbar">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">@dimen/wino_top_bar_height</item>
+    <item name="android:background">@android:color/transparent</item>
+    <item name="titleTextAppearance">@style/TextAppearance.Wino.TopBarTitle</item>
+    <item name="subtitleTextAppearance">@style/TextAppearance.Wino.Caption</item>
+    <item name="android:theme">@style/ThemeOverlay.Wino.TopBar</item>
+  </style>
+
+  <!-- Text actions in the top app bar (board ImapSetup "Advanced"): sentence case in the accent colour. -->
+  <style name="ThemeOverlay.Wino.TopBar" parent="">
+    <item name="actionMenuTextAppearance">@style/TextAppearance.Wino.TopBarAction</item>
+    <item name="actionMenuTextColor">@color/wino_accent_text</item>
+  </style>
+
+  <style name="TextAppearance.Wino.TopBarAction" parent="TextAppearance.Material3.LabelLarge">
+    <item name="android:textAllCaps">false</item>
+    <item name="textAllCaps">false</item>
+    <item name="android:textSize">14sp</item>
+    <item name="android:fontFamily">sans-serif-medium</item>
+  </style>
+
+  <style name="Widget.Wino.Onboarding.Zone">
+    <item name="android:layout_marginStart">@dimen/wino_zone_gutter</item>
+    <item name="android:layout_marginEnd">@dimen/wino_zone_gutter</item>
+    <item name="android:layout_marginBottom">@dimen/wino_zone_gutter</item>
+  </style>
+
+  <style name="Widget.Wino.Onboarding.PrimaryButton" parent="Widget.Wino.Button">
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:minHeight">@dimen/wino_pill_button_height</item>
+    <item name="cornerRadius">24dp</item>
+    <item name="android:textSize">14sp</item>
+  </style>
+
+  <style name="Widget.Wino.Onboarding.PrimaryButton.Small">
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:minHeight">@dimen/wino_pill_button_height_small</item>
+    <item name="cornerRadius">20dp</item>
+    <item name="android:paddingStart">24dp</item>
+    <item name="android:paddingEnd">24dp</item>
+  </style>
+
+  <style name="Widget.Wino.Onboarding.TextButton" parent="Widget.Wino.Button.Text">
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:minHeight">@dimen/wino_pill_button_height</item>
+    <item name="android:textSize">14sp</item>
+  </style>
+
+  <style name="Widget.Wino.Onboarding.TextButton.Small">
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:minHeight">@dimen/wino_pill_button_height_small</item>
+  </style>
+
+  <!-- Outlined text field (board ImapSetup). -->
+  <style name="Widget.Wino.Onboarding.TextField" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:layout_marginTop">@dimen/onboarding_field_gap</item>
+    <item name="boxStrokeColor">@color/wino_accent</item>
+    <item name="hintTextColor">@color/wino_accent_text</item>
+  </style>
+
+  <style name="Widget.Wino.Onboarding.Dropdown" parent="Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:layout_marginTop">@dimen/onboarding_field_gap</item>
+    <item name="boxStrokeColor">@color/wino_accent</item>
+    <item name="hintTextColor">@color/wino_accent_text</item>
+  </style>
+
+  <style name="Widget.Wino.Onboarding.Row">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:minHeight">@dimen/wino_list_row_two_line</item>
+    <item name="android:gravity">center_vertical</item>
+    <item name="android:orientation">horizontal</item>
+    <item name="android:paddingStart">@dimen/onboarding_content_padding</item>
+    <item name="android:paddingEnd">@dimen/onboarding_content_padding</item>
+    <item name="android:paddingTop">8dp</item>
+    <item name="android:paddingBottom">8dp</item>
+  </style>
+
+  <!-- The account setup success and failure bars, aligned with the page text. -->
+  <style name="Widget.Wino.Onboarding.InfoBar">
+    <item name="android:layout_marginStart">@dimen/onboarding_page_padding</item>
+    <item name="android:layout_marginEnd">@dimen/onboarding_page_padding</item>
+    <item name="android:layout_marginTop">@dimen/onboarding_setup_section_gap</item>
+  </style>
+
+  <style name="Widget.Wino.Onboarding.ActionBar">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:gravity">end|center_vertical</item>
+    <item name="android:orientation">horizontal</item>
+    <item name="android:paddingStart">@dimen/onboarding_page_padding</item>
+    <item name="android:paddingEnd">@dimen/onboarding_page_padding</item>
+    <item name="android:paddingTop">12dp</item>
+    <item name="android:paddingBottom">16dp</item>
+  </style>
+
+  <style name="ShapeAppearance.Wino.Logo" parent="">
+    <item name="cornerFamily">rounded</item>
+    <item name="cornerSize">@dimen/onboarding_logo_radius</item>
+  </style>
+
+  <style name="ShapeAppearance.Wino.ProviderLogo" parent="">
+    <item name="cornerFamily">rounded</item>
+    <item name="cornerSize">@dimen/onboarding_provider_logo_radius</item>
+  </style>
+
+  <style name="TextAppearance.Wino.TopBarTitle" parent="TextAppearance.Material3.TitleLarge">
+    <item name="android:textSize">@dimen/wino_top_bar_title_size</item>
+    <item name="android:fontFamily">sans-serif</item>
+    <item name="android:textColor">@color/wino_text_primary</item>
+  </style>
+
+  <style name="TextAppearance.Wino.Headline" parent="TextAppearance.Material3.HeadlineMedium">
+    <item name="android:textSize">28sp</item>
+    <item name="android:fontFamily">sans-serif</item>
+    <item name="android:textColor">@color/wino_text_primary</item>
+  </style>
+
+  <!-- The Welcome hero over the wallpaper: the same text colours as the top app bars over the wallpaper. -->
+  <style name="TextAppearance.Wino.HeroTitle" parent="TextAppearance.Material3.HeadlineMedium">
+    <item name="android:textSize">28sp</item>
+    <item name="android:fontFamily">sans-serif-medium</item>
+    <item name="android:textColor">@color/wino_text_primary</item>
+  </style>
+
+  <style name="TextAppearance.Wino.HeroSubtitle" parent="TextAppearance.Material3.BodyLarge">
+    <item name="android:textSize">16sp</item>
+    <item name="android:textColor">@color/wino_text_primary</item>
+  </style>
+
+  <!-- Two-line list row title and supporting text (16/14 sp). -->
+  <style name="TextAppearance.Wino.ListTitle" parent="TextAppearance.Material3.BodyLarge">
+    <item name="android:textSize">16sp</item>
+    <item name="android:fontFamily">sans-serif-medium</item>
+    <item name="android:textColor">@color/wino_text_primary</item>
+  </style>
+
+  <style name="TextAppearance.Wino.ListSupporting" parent="TextAppearance.Material3.BodyMedium">
+    <item name="android:textSize">14sp</item>
+    <item name="android:textColor">@color/wino_text_secondary</item>
+  </style>
+
+  <!-- Section label in the accent colour (board ImapSetup "Incoming server"). -->
+  <style name="TextAppearance.Wino.SectionLabel" parent="TextAppearance.Material3.TitleSmall">
+    <item name="android:textSize">14sp</item>
+    <item name="android:fontFamily">sans-serif-medium</item>
+    <item name="android:textColor">@color/wino_accent_text</item>
+  </style>
+</resources>

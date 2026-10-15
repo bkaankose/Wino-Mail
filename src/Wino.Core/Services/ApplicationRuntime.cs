@@ -667,6 +667,76 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         return await work.ConfigureAwait(false);
     }
 
+    public async Task<bool> FlushQueuedRequestsAsync(CancellationToken cancellationToken = default)
+    {
+        await InitializeAsync(cancellationToken).ConfigureAwait(false);
+
+        Task<bool> work;
+        lock (_gate)
+        {
+            _lifetime.Token.ThrowIfCancellationRequested();
+            // Tracked like the bounded pass, and run on the pool so provider work never starts under the lifecycle lock.
+            work = Task.Run(() => RunQueuedRequestsPassAsync(cancellationToken), CancellationToken.None);
+            Track(() => work);
+        }
+
+        return await work.ConfigureAwait(false);
+    }
+
+    private async Task<bool> RunQueuedRequestsPassAsync(CancellationToken cancellationToken)
+    {
+        using var source = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token, cancellationToken);
+        var token = source.Token;
+
+        foreach (var synchronizer in _synchronizationManager.GetAllSynchronizers().ToArray())
+        {
+            token.ThrowIfCancellationRequested();
+            if (!synchronizer.HasQueuedRequests())
+                continue;
+
+            var accountId = synchronizer.Account.Id;
+            // Each kind runs only when it has queued requests: an ExecuteRequests run without them
+            // would fall through to an ordinary synchronization of that kind.
+            if (synchronizer.HasQueuedRequests(static request => request is IMailActionRequest or IFolderActionRequest or ICategoryActionRequest))
+            {
+                await RunPassStepAsync(ct => _synchronizationManager.SynchronizeMailAsync(new MailSynchronizationOptions
+                {
+                    AccountId = accountId,
+                    Type = MailSynchronizationType.ExecuteRequests
+                }, ct), "queued mail request", token).ConfigureAwait(false);
+            }
+
+            if (synchronizer.HasQueuedRequests(static request => request is ICalendarActionRequest))
+            {
+                await RunPassStepAsync(ct => _synchronizationManager.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
+                {
+                    AccountId = accountId,
+                    Type = CalendarSynchronizationType.ExecuteRequests
+                }, ct), "queued calendar request", token).ConfigureAwait(false);
+            }
+
+            if (synchronizer.HasQueuedRequests(static request => request is IContactActionRequest))
+            {
+                await RunPassStepAsync(ct => _synchronizationManager.SynchronizeContactsAsync(new ContactSynchronizationOptions
+                {
+                    AccountId = accountId,
+                    Type = ContactSynchronizationType.ExecuteRequests
+                }, ct), "queued contact request", token).ConfigureAwait(false);
+            }
+
+            if (synchronizer.HasQueuedRequests(static request => request is ITaskActionRequest))
+            {
+                await RunPassStepAsync(ct => _synchronizationManager.SynchronizeTasksAsync(new TaskSynchronizationOptions
+                {
+                    AccountId = accountId,
+                    Type = TaskSynchronizationType.ExecuteRequests
+                }, ct), "queued task request", token).ConfigureAwait(false);
+            }
+        }
+
+        return !_synchronizationManager.GetAllSynchronizers().Any(synchronizer => synchronizer.HasQueuedRequests());
+    }
+
     private async Task<bool> RunAccountInboxPassAsync(Guid accountId, CancellationToken cancellationToken)
     {
         using var source = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token, cancellationToken);

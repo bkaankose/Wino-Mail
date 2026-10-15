@@ -43,7 +43,7 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
     private IShellCommandTarget? _commandTarget;
     private IShellMenuProvider? _provider;
     private INotifyPropertyChanged? _titleSource;
-    private WinoApplicationMode? _activeMode;
+    private readonly ShellModeActivator _modes;
     private IDailyBriefingPresenter? _briefing;
     private NSViewController? _briefingPanel;
     private bool _briefingOpen;
@@ -54,13 +54,14 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         _navigation = navigation;
         _state = state;
         _services = services;
+        _modes = new ShellModeActivator(viewModel, state, ReportError);
     }
 
     public IShellCommandTarget? CommandTarget => _commandTarget;
     public IShellSearchTarget? SearchTarget => _child as IShellSearchTarget;
 
     /// <summary>The mode currently on screen.</summary>
-    public WinoApplicationMode? ActiveMode => _activeMode;
+    public WinoApplicationMode? ActiveMode => _modes.ActiveMode;
 
     /// <summary>The mail shell client, available in every mode (sidebar context menus use it).</summary>
     internal IMailShellClient? MailClient => _services.GetService<IMailShellClient>();
@@ -192,53 +193,18 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
     protected override async Task InitializeAsync(NavigationMode mode, object? parameter)
     {
         ViewModel.OnNavigatedTo(mode, parameter!);
-        var start = _state.ApplicationMode;
-        if (start == WinoApplicationMode.Settings || _navigation is AppKitNavigationService router && !router.IsModeAvailable(start))
-            start = WinoApplicationMode.Mail;
+        var start = ShellModeActivator.StartMode(_state, candidate => _navigation is not AppKitNavigationService router || router.IsModeAvailable(candidate));
         await ActivateModeAsync(start, new ShellModeActivationContext { IsInitialActivation = true });
     }
 
     /// <summary>
-    /// Switches the shell to a mode the way the Windows WinoAppShell.ActivateMode does: release the
-    /// outgoing provider's menu, publish the new provider and let it navigate its root page into the
-    /// content host. A mode whose page is not built yet leaves the content empty rather than failing.
+    /// Switches the shell to a mode the way the Windows WinoAppShell.ActivateMode does (shared
+    /// <see cref="ShellModeActivator"/>). A mode whose page is not built yet leaves the content empty rather than failing.
     /// </summary>
     public async Task ActivateModeAsync(WinoApplicationMode mode, ShellModeActivationContext? context)
     {
-        context ??= new ShellModeActivationContext { IsInitialActivation = false };
-        IShellMenuProvider provider;
-        try { provider = ViewModel.GetProvider(mode); }
-        catch (Exception exception) { ReportError(exception); return; }
-
-        if (_activeMode == mode && _child is not null)
-        {
-            if (context.Parameter is not null) provider.ActivateShellMenu(context);
-            return;
-        }
-
-        _state.ApplicationMode = mode;
-        _state.AppModeTitle = ModeTitle(mode);
-        _state.CoreWindowTitle = string.Empty;
-        ViewModel.SetShellMenu(null);
-        if (_activeMode is { } previous && ViewModel.TryGetProvider(previous, out var outgoing) && outgoing is not null)
-        {
-            try { outgoing.ReleaseShellMenu(); }
-            catch (Exception exception) { ReportError(exception); }
-        }
-        _activeMode = mode;
-        ViewModel.SetCurrentMode(mode);
-        await ClearContentAsync();
-        if (!ReferenceEquals(provider.Dispatcher, Dispatcher)) provider.Dispatcher = Dispatcher;
-        try
-        {
-            // Mail awaits its first folder route; the other modes navigate through the router themselves.
-            if (provider is MailAppShellViewModel mail) await mail.InitializeNavigationAsync(NavigationMode.New, context);
-            else provider.ActivateShellMenu(context);
-        }
-        catch (Exception exception) { ReportError(exception); }
-        if (_activeMode != mode) return;
-        ViewModel.SetShellMenu(provider);
-        await Dispatcher.ExecuteOnUIThread(UpdateTitle);
+        if (await _modes.ActivateAsync(mode, context, ClearContentAsync, Dispatcher, () => _child is not null, ModeTitle))
+            await Dispatcher.ExecuteOnUIThread(UpdateTitle);
     }
 
     private static string ModeTitle(WinoApplicationMode mode) => mode switch
@@ -365,7 +331,7 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         if (mode == WinoApplicationMode.Settings)
         {
             OpenSettings();
-            if (_activeMode is { } current) _sidebar?.SetMode(current);
+            if (_modes.ActiveMode is { } current) _sidebar?.SetMode(current);
             return;
         }
         _navigation.ChangeApplicationMode(mode);
@@ -568,7 +534,7 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         if (View.Window is not { } window) return;
         string title;
         string subtitle = string.Empty;
-        if (_activeMode is WinoApplicationMode.Mail or null && ViewModel.SelectedMenuItem is IBaseFolderMenuItem folder)
+        if (_modes.ActiveMode is WinoApplicationMode.Mail or null && ViewModel.SelectedMenuItem is IBaseFolderMenuItem folder)
         {
             title = folder.FolderName ?? string.Empty;
             var owner = folder is IFolderMenuItem { ParentAccount: { } account }

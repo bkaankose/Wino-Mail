@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using AppKit;
 using Foundation;
-using MimeKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Contacts;
@@ -114,10 +113,10 @@ public sealed partial class ComposePageViewController
         var invalid = new List<string>();
         foreach (var token in tokens)
         {
-            if (MailboxAddress.TryParse(token, out var mailbox) && mailbox.Address.Contains('@'))
+            if (ComposeRecipientRules.TryParseTyped(token, out var address, out var name))
             {
-                addresses.Add(mailbox.Address);
-                if (!string.IsNullOrWhiteSpace(mailbox.Name)) _recipientNames[mailbox.Address] = mailbox.Name;
+                addresses.Add(address);
+                if (name is not null) _recipientNames[address] = name;
             }
             else invalid.Add(token);
         }
@@ -252,7 +251,7 @@ public sealed partial class ComposePageViewController
         _suggestionDebounce?.Cancel();
         var version = ++_suggestionVersion;
         _suggestionArrowed = false;
-        if (query.Length < 2)
+        if (!ComposeRecipientRules.ShouldSuggest(query))
         {
             _suggestionPending = false;
             _suggestionPopup?.Close();
@@ -265,7 +264,7 @@ public sealed partial class ComposePageViewController
 
     private async Task RefreshSuggestionsAsync(NSTokenField field, string query, int version, CancellationToken token)
     {
-        try { await Task.Delay(120, token); }
+        try { await Task.Delay(ComposeRecipientRules.SuggestionDelay, token); }
         catch (OperationCanceledException) { return; }
         var results = await SuggestAsync(field, query);
         await Dispatcher.ExecuteOnUIThread(() =>
@@ -292,8 +291,7 @@ public sealed partial class ComposePageViewController
             Logger.CaptureException(exception, "ComposePage.ResolveRecipientSuggestions");
             return [];
         }
-        var collection = CollectionFor(field);
-        return suggestions.Where(suggestion => suggestion.IsList || !ComposePageViewModel.ContainsAddress(collection, suggestion.Address)).ToList();
+        return ComposeRecipientRules.ExcludeExisting(suggestions, CollectionFor(field));
     }
 
     /// <summary>Arrow keys, Return, Tab and Esc for the popup; false lets the key reach the field.</summary>
@@ -308,7 +306,7 @@ public sealed partial class ComposePageViewController
             // Return before the debounced search answered: search now, like Windows GetTopSuggestionAsync.
             if (key is not (ReturnKeyCode or EnterKeyCode) || !_suggestionPending) return false;
             var (query, _) = TypedText(editor);
-            if (query.Length < 2 || IsCompleteAddress(query)) return false;
+            if (!ComposeRecipientRules.ShouldSuggest(query) || ComposeRecipientRules.IsCompleteAddress(query)) return false;
             CloseSuggestions();
             Observe(CommitTopSuggestionAsync(field, query));
             return true;
@@ -331,7 +329,7 @@ public sealed partial class ComposePageViewController
             {
                 // A complete address is taken as typed, even with suggestions showing.
                 var (query, _) = TypedText(editor);
-                if (IsCompleteAddress(query) && !_suggestionArrowed)
+                if (ComposeRecipientRules.IsCompleteAddress(query) && !_suggestionArrowed)
                 {
                     CloseSuggestions();
                     return false;
@@ -351,9 +349,6 @@ public sealed partial class ComposePageViewController
         }
         return false;
     }
-
-    private static bool IsCompleteAddress(string text)
-        => MailboxAddress.TryParse(text, out var mailbox) && mailbox.Address.Contains('@') && mailbox.Address.Contains('.');
 
     private async Task CommitTopSuggestionAsync(NSTokenField field, string query)
     {
@@ -375,25 +370,14 @@ public sealed partial class ComposePageViewController
     {
         CloseSuggestions();
         if (field.CurrentEditor is not NSTextView editor) return Task.CompletedTask;
-        var collection = CollectionFor(field);
+        // Present: the field's recipients and the tokens it has not synced yet.
         var existing = ReadTokens(field);
-        bool Present(string address) => ComposePageViewModel.ContainsAddress(collection, address) || existing.Contains(address, StringComparer.OrdinalIgnoreCase);
-
+        var present = CollectionFor(field).Concat(existing.Select(static token => new AccountContact { Address = token })).ToList();
         var addresses = new List<string>();
-        if (suggestion.IsList)
+        foreach (var (address, name) in ComposeRecipientRules.AddressesFor(suggestion, present))
         {
-            foreach (var member in suggestion.ListMembers)
-            {
-                var address = member.PrimaryEmailAddress;
-                if (string.IsNullOrWhiteSpace(address) || Present(address) || addresses.Contains(address, StringComparer.OrdinalIgnoreCase)) continue;
-                if (!string.IsNullOrWhiteSpace(member.DisplayName)) _recipientNames[address] = member.DisplayName;
-                addresses.Add(address);
-            }
-        }
-        else if (!string.IsNullOrWhiteSpace(suggestion.Address) && !Present(suggestion.Address))
-        {
-            if (!string.IsNullOrWhiteSpace(suggestion.DisplayName)) _recipientNames[suggestion.Address] = suggestion.DisplayName;
-            addresses.Add(suggestion.Address);
+            if (name is not null) _recipientNames[address] = name;
+            addresses.Add(address);
         }
 
         var (query, range) = TypedText(editor);
@@ -467,10 +451,10 @@ public sealed partial class ComposePageViewController
         public override NSObject GetRepresentedObject(NSTokenField tokenField, string editingString)
         {
             var text = editingString?.Trim() ?? string.Empty;
-            if (MailboxAddress.TryParse(text, out var mailbox) && mailbox.Address.Contains('@'))
+            if (ComposeRecipientRules.TryParseTyped(text, out var address, out var name))
             {
-                if (!string.IsNullOrWhiteSpace(mailbox.Name)) owner._recipientNames[mailbox.Address] = mailbox.Name;
-                return new NSString(mailbox.Address);
+                if (name is not null) owner._recipientNames[address] = name;
+                return new NSString(address);
             }
             return new NSString(text);
         }

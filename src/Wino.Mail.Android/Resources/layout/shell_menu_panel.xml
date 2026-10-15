@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The navigation pane content (modal Material 3 drawer on compact and medium widths, pinned pane on expanded; canvas
+     Material pass Mailboxes): the header with the avatar that opens Settings and the running synchronization, the
+     drawer items (New mail, accounts, folders, footer rows) and, on expanded widths, the mode switcher card at the foot. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/shell_panel"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+  <LinearLayout
+      android:id="@+id/shell_panel_header"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:gravity="center_vertical"
+      android:minHeight="@dimen/wino_m3_drawer_header_min_height"
+      android:orientation="horizontal"
+      android:paddingStart="@dimen/wino_m3_drawer_header_padding_start"
+      android:paddingTop="@dimen/wino_m3_drawer_header_padding_vertical"
+      android:paddingEnd="@dimen/wino_m3_drawer_header_padding_end"
+      android:paddingBottom="@dimen/wino_m3_drawer_header_padding_vertical">
+
+    <com.winomail.presentation.WinoIconView
+        android:id="@+id/shell_avatar"
+        android:layout_width="@dimen/wino_m3_drawer_avatar"
+        android:layout_height="@dimen/wino_m3_drawer_avatar"
+        android:background="@drawable/shell_avatar_background"
+        android:gravity="center"
+        android:textColor="@color/wino_on_accent" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/wino_m3_drawer_header_gap"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+      <TextView
+          android:id="@+id/shell_panel_title"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:ellipsize="end"
+          android:maxLines="1"
+          android:textAppearance="@style/TextAppearance.WinoKit.BodyLargeStrong" />
+
+      <TextView
+          android:id="@+id/shell_panel_subtitle"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:ellipsize="end"
+          android:maxLines="1"
+          android:textAppearance="@style/TextAppearance.WinoKit.BodySecondary" />
+    </LinearLayout>
+  </LinearLayout>
+
+  <androidx.recyclerview.widget.RecyclerView
+      android:id="@+id/shell_menu"
+      android:layout_width="match_parent"
+      android:layout_height="0dp"
+      android:layout_weight="1"
+      android:clipToPadding="false"
+      android:paddingTop="@dimen/wino_m3_drawer_list_padding_top"
+      android:paddingBottom="@dimen/wino_space_s" />
+
+  <LinearLayout
+      android:id="@+id/shell_mode_card"
+      android:layout_width="match_parent"
+      android:layout_height="@dimen/wino_size_row"
+      android:layout_margin="@dimen/wino_space_s"
+      android:background="@drawable/wino_zone_background"
+      android:gravity="center_vertical"
+      android:orientation="horizontal"
+      android:paddingStart="@dimen/wino_space_2xs"
+      android:paddingEnd="@dimen/wino_space_2xs"
+      android:visibility="gone" />
+</LinearLayout>

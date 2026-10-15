@@ -1,0 +1,28 @@
+<Solution>
+  <Folder Name="/Android/">
+    <Project Path="src/Wino.Mail.Android/Wino.Mail.Android.csproj" />
+    <Project Path="src/Wino.Platform.Android/Wino.Platform.Android.csproj" />
+    <Project Path="controls/Wino.Presentation.Android/Wino.Presentation.Android.csproj" />
+    <Project Path="controls/Wino.Mail.Controls.Android/Wino.Mail.Controls.Android.csproj" />
+    <Project Path="controls/Wino.Editor.Android/Wino.Editor.Android.csproj" />
+  </Folder>
+  <Folder Name="/Shared/">
+    <Project Path="src/Wino.Core.Domain/Wino.Core.Domain.csproj" />
+    <Project Path="src/Wino.Core/Wino.Core.csproj" />
+    <Project Path="src/Wino.Core.ML/Wino.Core.ML.csproj" />
+    <Project Path="src/Wino.Services/Wino.Services.csproj" />
+    <Project Path="src/Wino.Authentication/Wino.Authentication.csproj" />
+    <Project Path="src/Wino.Messages/Wino.Messaging.csproj" />
+    <Project Path="src/Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj" />
+    <Project Path="src/Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
+    <Project Path="controls/Wino.Presentation.Core/Wino.Presentation.Core.csproj" />
+    <Project Path="controls/Wino.Mail.Controls.Core/Wino.Mail.Controls.Core.csproj" />
+    <Project Path="controls/Wino.Editor.Core/Wino.Editor.Core.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="tests/Wino.Core.Tests/Wino.Core.Tests.csproj" />
+    <Project Path="tests/Wino.Core.ML.Tests/Wino.Core.ML.Tests.csproj" />
+    <Project Path="tests/Wino.Mail.Controls.Tests/Wino.Mail.Controls.Tests.csproj" />
+    <Project Path="tests/Wino.Mail.ViewModels.Tests/Wino.Mail.ViewModels.Tests.csproj" />
+  </Folder>
+</Solution>

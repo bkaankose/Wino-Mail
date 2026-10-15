@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The rich text editor field (signatures, email templates): the card surface with a hairline outline, radius 4. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+  <solid android:color="@color/wino_card" />
+  <stroke android:width="@dimen/wino_stroke_hairline" android:color="@color/wino_outline" />
+  <corners android:radius="@dimen/wino_radius_small" />
+</shape>

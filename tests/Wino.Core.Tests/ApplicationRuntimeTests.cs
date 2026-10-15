@@ -420,6 +420,60 @@ public sealed class ApplicationRuntimeTests
         await Task.Delay(50);
     }
 
+    [Fact]
+    public async Task FlushQueuedRequests_RunsOnlyTheKindsThatHaveQueuedRequests()
+    {
+        var account = new MailAccount { Id = Guid.NewGuid() };
+        var queued = true;
+        var synchronizer = new Mock<IWinoSynchronizerBase>();
+        synchronizer.SetupGet(x => x.Account).Returns(account);
+        synchronizer.Setup(x => x.HasQueuedRequests()).Returns(() => queued);
+        // Only a mail action is waiting.
+        synchronizer.Setup(x => x.HasQueuedRequests(It.IsAny<Func<IRequestBase, bool>>()))
+            .Returns<Func<IRequestBase, bool>>(predicate => queued && predicate(Mock.Of<IMailActionRequest>()));
+        var idle = new Mock<IWinoSynchronizerBase>();
+        idle.SetupGet(x => x.Account).Returns(new MailAccount { Id = Guid.NewGuid() });
+
+        var mailRuns = new List<MailSynchronizationOptions>();
+        var manager = new Mock<ISynchronizationManager>();
+        manager.Setup(x => x.GetAllSynchronizers()).Returns(new[] { synchronizer.Object, idle.Object });
+        manager.Setup(x => x.SynchronizeMailAsync(It.IsAny<MailSynchronizationOptions>(), It.IsAny<CancellationToken>()))
+            .Callback<MailSynchronizationOptions, CancellationToken>((options, _) => { mailRuns.Add(options); queued = false; })
+            .ReturnsAsync(MailSynchronizationResult.Empty);
+        var runtime = CreateRuntime(_ => Task.CompletedTask, manager: manager);
+
+        var flushed = await runtime.FlushQueuedRequestsAsync();
+
+        flushed.Should().BeTrue();
+        mailRuns.Should().ContainSingle();
+        mailRuns[0].AccountId.Should().Be(account.Id);
+        mailRuns[0].Type.Should().Be(MailSynchronizationType.ExecuteRequests);
+        manager.Verify(x => x.SynchronizeCalendarAsync(It.IsAny<CalendarSynchronizationOptions>(), It.IsAny<CancellationToken>()), Times.Never);
+        manager.Verify(x => x.SynchronizeContactsAsync(It.IsAny<ContactSynchronizationOptions>(), It.IsAny<CancellationToken>()), Times.Never);
+        manager.Verify(x => x.SynchronizeTasksAsync(It.IsAny<TaskSynchronizationOptions>(), It.IsAny<CancellationToken>()), Times.Never);
+        // The runtime was only initialized: no periodic loops.
+        runtime.State.Should().Be(ApplicationRuntimeState.Initialized);
+        await runtime.StopAsync();
+    }
+
+    [Fact]
+    public async Task FlushQueuedRequests_ReportsRequestsThatCouldNotBeSent()
+    {
+        var synchronizer = new Mock<IWinoSynchronizerBase>();
+        synchronizer.SetupGet(x => x.Account).Returns(new MailAccount { Id = Guid.NewGuid() });
+        synchronizer.Setup(x => x.HasQueuedRequests()).Returns(true);
+        synchronizer.Setup(x => x.HasQueuedRequests(It.IsAny<Func<IRequestBase, bool>>()))
+            .Returns<Func<IRequestBase, bool>>(predicate => predicate(Mock.Of<IMailActionRequest>()));
+        var manager = new Mock<ISynchronizationManager>();
+        manager.Setup(x => x.GetAllSynchronizers()).Returns(new[] { synchronizer.Object });
+        manager.Setup(x => x.SynchronizeMailAsync(It.IsAny<MailSynchronizationOptions>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("server unreachable"));
+        var runtime = CreateRuntime(_ => Task.CompletedTask, manager: manager);
+
+        (await runtime.FlushQueuedRequestsAsync()).Should().BeFalse();
+        await runtime.StopAsync();
+    }
+
     private static TaskCompletionSource Signal() => new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private static ApplicationRuntime CreateRuntime(Func<CancellationToken, Task> initialize,

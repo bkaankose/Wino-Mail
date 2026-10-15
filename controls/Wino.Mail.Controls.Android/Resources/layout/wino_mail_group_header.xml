@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The mail list date group header (canvas Material pass Inbox "Today"/"Yesterday"): a Material 3 list subheader,
+     label-large in the primary colour, no fill. -->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wino_group_title"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:accessibilityHeading="true"
+    android:ellipsize="end"
+    android:gravity="center_vertical"
+    android:minHeight="@dimen/wino_m3_subheader_height"
+    android:paddingStart="@dimen/wino_m3_subheader_padding"
+    android:paddingEnd="@dimen/wino_m3_subheader_padding"
+    android:singleLine="true"
+    android:textAppearance="@style/TextAppearance.WinoKit.Subheader" />

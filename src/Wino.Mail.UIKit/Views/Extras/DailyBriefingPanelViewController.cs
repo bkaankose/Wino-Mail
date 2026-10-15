@@ -252,17 +252,9 @@ public sealed class DailyBriefingPanelViewController : UIViewController
     /// <summary>Mirrors the Windows DailyBriefingPanelPresentation helpers (Mac Describe).</summary>
     private static WinoBriefingCardData Describe(DailyBriefingItem item)
     {
-        var fact = item.Fact;
-        var headline = string.IsNullOrWhiteSpace(fact.Headline) ? fact.Subject : fact.Headline;
-        var time = TimeZoneInfo.ConvertTime(fact.ReceivedAt, TimeZoneInfo.Local).ToString("t", CultureInfo.CurrentCulture);
-        string? urgency = item.IsPriority
-            ? string.Equals(fact.Priority, "urgent", StringComparison.OrdinalIgnoreCase) ? Translator.DailyBriefing_UrgencyUrgent : Translator.DailyBriefing_UrgencyHigh
-            : null;
-        // Two chips fit beside the longest action wording; a priority chip takes one of the places.
-        var room = urgency is null ? 2 : 1;
-        var labels = item.LabelChips.Take(room).Select(chip => chip.Text).ToList();
-        return new WinoBriefingCardData(headline, time, item.IsNew, item.HasSummary ? item.Summary : null, urgency, labels,
-            item.PrimaryActionGlyph, item.PrimaryActionText, item.IgnoreActionGlyph, item.IgnoreActionText, item.CanToggleIgnore);
+        var card = DailyBriefingCardContent.From(item);
+        return new WinoBriefingCardData(card.Headline, card.Time, card.IsNew, card.Summary, card.Urgency, card.Labels,
+            card.ActionGlyph, card.ActionText, card.IgnoreGlyph, card.IgnoreText, card.CanToggleIgnore);
     }
 
 #if DEBUG

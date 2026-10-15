@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Composer (T8) styles: the compose layouts reference only these, the shared Wino text appearances and the
+     Presentation.Android colour and dimension tokens. -->
+<resources>
+  <!-- Root of the compose styles (dot-named children inherit from it). -->
+  <style name="Widget.Wino.Compose" parent="" />
+
+  <style name="Widget.Wino.Compose.Bar">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">@dimen/wino_compose_bar_height</item>
+    <item name="android:gravity">center_vertical</item>
+    <item name="android:orientation">horizontal</item>
+    <item name="android:paddingStart">@dimen/wino_compose_bar_padding_start</item>
+    <item name="android:paddingEnd">@dimen/wino_compose_bar_padding_end</item>
+  </style>
+
+  <style name="Widget.Wino.Compose.IconButton" parent="Widget.Material3.Button.IconButton">
+    <item name="android:layout_width">@dimen/wino_compose_icon_button</item>
+    <item name="android:layout_height">@dimen/wino_compose_icon_button</item>
+  </style>
+
+  <style name="Widget.Wino.Compose.SavingIndicator" parent="Widget.Material3.CircularProgressIndicator">
+    <item name="indicatorSize">@dimen/wino_compose_saving_size</item>
+    <item name="trackThickness">@dimen/wino_compose_saving_track</item>
+    <item name="android:layout_marginEnd">@dimen/wino_compose_saving_margin</item>
+  </style>
+
+  <!-- Send: a Material 3 icon button in the primary colour (canvas Material pass Compose). -->
+  <style name="Widget.Wino.Compose.SendButton" parent="Widget.Wino.Compose.IconButton" />
+
+  <style name="Widget.Wino.Compose.InfoBar">
+    <item name="android:layout_marginStart">@dimen/wino_compose_infobar_margin_horizontal</item>
+    <item name="android:layout_marginEnd">@dimen/wino_compose_infobar_margin_horizontal</item>
+    <item name="android:layout_marginTop">@dimen/wino_compose_infobar_margin_top</item>
+    <item name="android:layout_marginBottom">@dimen/wino_compose_infobar_margin_bottom</item>
+  </style>
+
+  <style name="Widget.Wino.Compose.FieldRow">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:gravity">center_vertical</item>
+    <item name="android:orientation">horizontal</item>
+    <item name="android:minHeight">@dimen/wino_compose_field_min_height</item>
+    <item name="android:paddingStart">@dimen/wino_compose_field_padding_start</item>
+    <item name="android:paddingEnd">@dimen/wino_compose_field_padding_end</item>
+  </style>
+
+  <style name="Widget.Wino.Compose.FieldRow.WithButton">
+    <item name="android:paddingEnd">@dimen/wino_compose_field_padding_end_with_button</item>
+  </style>
+
+  <style name="Widget.Wino.Compose.FieldRow.Recipients" parent="Widget.Wino.Compose.FieldRow.WithButton">
+    <item name="android:minHeight">@dimen/wino_compose_recipient_min_height</item>
+  </style>
+
+  <!-- At least the caption column; wider when large text needs it, so a caption never breaks inside a word. -->
+  <style name="Widget.Wino.Compose.FieldCaption">
+    <item name="android:layout_width">wrap_content</item>
+    <item name="android:minWidth">@dimen/wino_compose_caption_width</item>
+    <item name="android:maxLines">1</item>
+    <item name="android:paddingEnd">@dimen/wino_compose_caption_gap</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:importantForAccessibility">no</item>
+    <item name="android:textAppearance">@style/TextAppearance.Wino.Body</item>
+    <item name="android:textColor">@color/wino_text_secondary</item>
+  </style>
+
+  <style name="Widget.Wino.Compose.Divider">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">@dimen/wino_compose_divider</item>
+    <item name="android:background">@color/wino_divider</item>
+  </style>
+
+  <style name="Widget.Wino.Compose.FromAvatar">
+    <item name="android:layout_width">@dimen/wino_compose_from_avatar</item>
+    <item name="android:layout_height">@dimen/wino_compose_from_avatar</item>
+    <item name="android:layout_marginEnd">@dimen/wino_compose_from_avatar_margin</item>
+    <item name="android:importantForAccessibility">no</item>
+  </style>
+
+  <style name="Widget.Wino.Compose.FromButton">
+    <item name="android:layout_height">@dimen/wino_compose_control_height</item>
+    <item name="android:background">?attr/selectableItemBackground</item>
+    <item name="android:drawablePadding">@dimen/wino_compose_from_chevron_padding</item>
+    <item name="android:ellipsize">end</item>
+    <item name="android:gravity">center_vertical</item>
+    <item name="android:maxLines">1</item>
+    <item name="android:textAppearance">@style/TextAppearance.Wino.Body</item>
+    <item name="android:textColor">@color/wino_text_primary</item>
+  </style>
+
+  <style name="Widget.Wino.Compose.SubjectField">
+    <item name="android:background">@android:color/transparent</item>
+    <item name="android:minHeight">@dimen/wino_compose_control_height</item>
+    <item name="android:textAppearance">@style/TextAppearance.Wino.RowTitle</item>
+    <item name="android:textColor">@color/wino_text_primary</item>
+  </style>
+
+  <style name="Widget.Wino.Compose.Chips">
+    <item name="android:paddingTop">@dimen/wino_compose_chip_padding_vertical</item>
+    <item name="android:paddingBottom">@dimen/wino_compose_chip_padding_vertical</item>
+    <item name="chipSpacingHorizontal">@dimen/wino_compose_chip_spacing_horizontal</item>
+    <item name="chipSpacingVertical">@dimen/wino_compose_chip_spacing_vertical</item>
+  </style>
+
+  <style name="Widget.Wino.Compose.RecipientInput">
+    <item name="android:layout_height">@dimen/wino_compose_control_height</item>
+    <item name="android:background">@android:color/transparent</item>
+    <item name="android:minWidth">@dimen/wino_compose_input_min_width</item>
+    <item name="android:paddingStart">@dimen/wino_compose_input_padding</item>
+    <item name="android:paddingEnd">@dimen/wino_compose_input_padding</item>
+    <item name="android:popupBackground">@color/wino_card</item>
+    <item name="android:textAppearance">@style/TextAppearance.Wino.Body</item>
+    <item name="android:textColor">@color/wino_text_primary</item>
+  </style>
+
+  <style name="Widget.Wino.Compose.AttachmentsHeader">
+    <item name="android:paddingStart">@dimen/wino_compose_field_padding_start</item>
+    <item name="android:paddingTop">@dimen/wino_compose_attachments_padding_top</item>
+    <item name="android:paddingEnd">@dimen/wino_compose_attachments_padding_end</item>
+  </style>
+
+  <style name="Widget.Wino.Compose.AttachmentsSummary">
+    <item name="android:drawablePadding">@dimen/wino_compose_attachments_summary_glyph_padding</item>
+    <item name="android:gravity">center_vertical</item>
+    <item name="android:textAppearance">@style/TextAppearance.Wino.Caption</item>
+    <item name="android:textColor">@color/wino_text_secondary</item>
+  </style>
+
+  <style name="Widget.Wino.Compose.AttachmentsStrip">
+    <item name="android:clipToPadding">false</item>
+    <item name="android:paddingStart">@dimen/wino_compose_attachments_strip_padding_horizontal</item>
+    <item name="android:paddingEnd">@dimen/wino_compose_attachments_strip_padding_horizontal</item>
+    <item name="android:paddingBottom">@dimen/wino_compose_attachments_strip_padding_bottom</item>
+  </style>
+
+  <style name="Widget.Wino.Compose.AttachmentTile">
+    <item name="android:layout_marginEnd">@dimen/wino_compose_tile_margin</item>
+    <item name="android:paddingStart">@dimen/wino_compose_tile_padding_start</item>
+    <item name="android:paddingTop">@dimen/wino_compose_tile_padding_vertical</item>
+    <item name="android:paddingEnd">@dimen/wino_compose_tile_padding_end</item>
+    <item name="android:paddingBottom">@dimen/wino_compose_tile_padding_vertical</item>
+  </style>
+
+  <style name="TextAppearance.Wino.Compose.AttachmentName" parent="TextAppearance.Wino.RowTitle">
+    <item name="android:textSize">13sp</item>
+    <item name="android:textStyle">bold</item>
+  </style>
+
+  <style name="Widget.Wino.Compose.Body">
+    <item name="android:minHeight">@dimen/wino_compose_body_min_height</item>
+    <item name="android:paddingStart">@dimen/wino_compose_body_padding_horizontal</item>
+    <item name="android:paddingEnd">@dimen/wino_compose_body_padding_horizontal</item>
+  </style>
+
+  <style name="Widget.Wino.Compose.FormatBar">
+    <item name="android:layout_height">@dimen/wino_compose_format_bar_height</item>
+    <item name="android:background">@color/wino_surface_variant</item>
+  </style>
+
+  <style name="Widget.Wino.Compose.FormatButton">
+    <item name="android:layout_width">@dimen/wino_compose_format_button</item>
+    <item name="android:layout_height">@dimen/wino_compose_format_button</item>
+    <item name="android:layout_marginEnd">@dimen/wino_compose_format_button_margin</item>
+    <item name="android:gravity">center</item>
+    <item name="android:focusable">false</item>
+    <item name="android:focusableInTouchMode">false</item>
+    <item name="android:clickable">true</item>
+    <item name="android:textColor">@color/wino_text_primary</item>
+  </style>
+
+  <style name="Widget.Wino.Compose.FormatDivider">
+    <item name="android:layout_width">@dimen/wino_compose_divider</item>
+    <item name="android:layout_height">@dimen/wino_compose_format_divider_height</item>
+    <item name="android:layout_marginStart">@dimen/wino_compose_format_divider_margin_start</item>
+    <item name="android:layout_marginEnd">@dimen/wino_compose_format_divider_margin_end</item>
+    <item name="android:background">@color/wino_outline</item>
+    <item name="android:importantForAccessibility">no</item>
+  </style>
+
+  <style name="Widget.Wino.Compose.SuggestionRow">
+    <item name="android:gravity">center_vertical</item>
+    <item name="android:orientation">horizontal</item>
+    <item name="android:minHeight">@dimen/wino_compose_suggestion_min_height</item>
+    <item name="android:paddingStart">@dimen/wino_compose_suggestion_padding_horizontal</item>
+    <item name="android:paddingEnd">@dimen/wino_compose_suggestion_padding_horizontal</item>
+    <item name="android:paddingTop">@dimen/wino_compose_suggestion_padding_vertical</item>
+    <item name="android:paddingBottom">@dimen/wino_compose_suggestion_padding_vertical</item>
+  </style>
+
+  <style name="Widget.Wino.Compose.DialogBody">
+    <item name="android:orientation">vertical</item>
+    <item name="android:paddingStart">@dimen/wino_compose_dialog_padding_horizontal</item>
+    <item name="android:paddingEnd">@dimen/wino_compose_dialog_padding_horizontal</item>
+    <item name="android:paddingTop">@dimen/wino_compose_dialog_padding_top</item>
+  </style>
+</resources>

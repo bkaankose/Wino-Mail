@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Material 3 component styles of the mail shell (canvas Material pass). Bars over the wallpaper stay transparent; the
+     page's WinoBarBackdropView or the wallpaper shows through. -->
+<resources>
+  <style name="Widget.WinoKit" parent="" />
+
+  <!-- Small top app bar: 64 dp, title-large 22 sp regular, no subtitle. -->
+  <style name="Widget.WinoKit.TopAppBar" parent="Widget.Material3.Toolbar">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">@dimen/wino_top_bar_height</item>
+    <item name="android:minHeight">@dimen/wino_top_bar_height</item>
+    <item name="android:background">@android:color/transparent</item>
+    <item name="android:paddingStart">@dimen/wino_m3_top_bar_padding</item>
+    <item name="android:paddingEnd">@dimen/wino_m3_top_bar_padding</item>
+    <item name="titleTextAppearance">@style/TextAppearance.WinoKit.TopAppBarTitle</item>
+    <item name="subtitleTextAppearance">@style/TextAppearance.WinoKit.Caption</item>
+    <item name="navigationIconTint">@color/wino_text_primary</item>
+    <item name="android:theme">@style/ThemeOverlay.WinoKit.TopAppBar</item>
+  </style>
+
+  <!-- Action icons and the overflow in the top app bar use on-surface-variant, as Material 3 does. -->
+  <style name="ThemeOverlay.WinoKit.TopAppBar" parent="">
+    <item name="colorControlNormal">@color/wino_text_secondary</item>
+    <item name="actionOverflowButtonStyle">@style/Widget.WinoKit.Overflow</item>
+  </style>
+
+  <style name="Widget.WinoKit.Overflow" parent="Widget.AppCompat.ActionButton.Overflow">
+    <item name="android:src">@drawable/wino_ic_more_vert</item>
+    <item name="android:tint">@color/wino_text_secondary</item>
+  </style>
+
+  <!-- Contextual action mode (multi-select): the same 64 dp bar on the surface container, close as an X. -->
+  <style name="Widget.WinoKit.ActionMode" parent="Widget.Material3.ActionMode">
+    <item name="height">@dimen/wino_top_bar_height</item>
+    <item name="background">@color/wino_surface_variant</item>
+    <item name="titleTextStyle">@style/TextAppearance.WinoKit.TopAppBarTitle</item>
+    <item name="subtitleTextStyle">@style/TextAppearance.WinoKit.Caption</item>
+  </style>
+
+  <!-- Tonal FAB: primary container, 16 dp corners (Material 3 default shape). -->
+  <style name="Widget.WinoKit.Fab" parent="Widget.Material3.FloatingActionButton.Primary">
+    <item name="backgroundTint">@color/wino_primary_container</item>
+    <item name="tint">@color/wino_accent_text</item>
+  </style>
+
+  <!-- Navigation bar (compact) and rail (medium): transparent over the blurred bar, pill indicator. -->
+  <style name="Widget.WinoKit.NavigationBar" parent="Widget.Material3.BottomNavigationView">
+    <item name="android:background">@android:color/transparent</item>
+    <item name="backgroundTint">@android:color/transparent</item>
+    <item name="elevation">0dp</item>
+    <item name="labelVisibilityMode">labeled</item>
+    <item name="itemActiveIndicatorStyle">@style/Widget.WinoKit.NavigationIndicator</item>
+  </style>
+
+  <style name="Widget.WinoKit.NavigationRail" parent="Widget.Material3.NavigationRailView">
+    <item name="android:background">@android:color/transparent</item>
+    <item name="backgroundTint">@android:color/transparent</item>
+    <item name="labelVisibilityMode">labeled</item>
+    <item name="menuGravity">top</item>
+    <item name="itemActiveIndicatorStyle">@style/Widget.WinoKit.NavigationIndicator</item>
+  </style>
+
+  <style name="Widget.WinoKit.NavigationIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+    <item name="android:color">@color/wino_secondary_container</item>
+  </style>
+
+  <!-- Modal navigation drawer: the zone surface with the Material 3 16 dp end corners. -->
+  <style name="Widget.WinoKit.NavigationDrawer" parent="Widget.Material3.NavigationView">
+    <item name="android:layout_width">@dimen/wino_m3_drawer_width</item>
+    <item name="android:layout_height">match_parent</item>
+    <item name="android:layout_gravity">start</item>
+    <item name="backgroundTint">@color/wino_zone</item>
+  </style>
+
+  <!-- Icon button (48 dp) holding a WinoIcons glyph. -->
+  <style name="Widget.WinoKit.GlyphButton">
+    <item name="android:layout_width">@dimen/wino_m3_icon_button</item>
+    <item name="android:layout_height">@dimen/wino_m3_icon_button</item>
+    <item name="android:background">?attr/selectableItemBackgroundBorderless</item>
+    <item name="android:gravity">center</item>
+    <item name="android:textColor">@color/wino_text_secondary</item>
+  </style>
+
+  <!-- Segmented button (Focused / Other): 40 dp outlined segments with full corners. -->
+  <style name="Widget.WinoKit.Segment" parent="Widget.Material3.Button.OutlinedButton">
+    <item name="android:layout_height">@dimen/wino_m3_segment_height</item>
+    <item name="android:minHeight">@dimen/wino_m3_segment_height</item>
+    <item name="android:insetTop">0dp</item>
+    <item name="android:insetBottom">0dp</item>
+    <item name="android:paddingStart">@dimen/wino_m3_segment_padding</item>
+    <item name="android:paddingEnd">@dimen/wino_m3_segment_padding</item>
+    <item name="android:textAllCaps">false</item>
+    <item name="android:textAppearance">@style/TextAppearance.WinoKit.Label</item>
+    <item name="cornerRadius">@dimen/wino_m3_segment_radius</item>
+    <item name="iconSize">@dimen/wino_m3_segment_icon</item>
+    <item name="iconPadding">@dimen/wino_m3_segment_icon_padding</item>
+    <item name="iconGravity">textStart</item>
+    <item name="strokeColor">@color/wino_outline</item>
+    <item name="strokeWidth">@dimen/wino_m3_stroke</item>
+  </style>
+
+  <!-- Dropdown filter chip (32 dp, 8 dp corners, trailing arrow). -->
+  <style name="Widget.WinoKit.DropdownChip" parent="Widget.Material3.Chip.Filter">
+    <item name="android:checkable">false</item>
+    <item name="chipMinHeight">@dimen/wino_m3_chip_height</item>
+    <item name="chipCornerRadius">@dimen/wino_m3_chip_radius</item>
+    <item name="chipStrokeColor">@color/wino_outline</item>
+    <item name="chipStrokeWidth">@dimen/wino_m3_stroke</item>
+    <item name="chipBackgroundColor">@android:color/transparent</item>
+    <item name="chipSurfaceColor">@android:color/transparent</item>
+    <item name="chipIconVisible">false</item>
+    <item name="closeIcon">@drawable/wino_ic_arrow_drop_down</item>
+    <item name="closeIconTint">@color/wino_text_secondary</item>
+    <item name="closeIconSize">@dimen/wino_m3_chip_icon</item>
+    <item name="closeIconVisible">true</item>
+    <item name="android:textAppearance">@style/TextAppearance.WinoKit.Label</item>
+    <item name="android:textColor">@color/wino_text_secondary</item>
+  </style>
+
+  <!-- Material 3 label-large (chips, segments). -->
+  <style name="TextAppearance.WinoKit.Label" parent="TextAppearance.Material3.LabelLarge">
+    <item name="android:textSize">@dimen/wino_text_subheader</item>
+    <item name="android:fontFamily">sans-serif-medium</item>
+    <item name="android:textAllCaps">false</item>
+  </style>
+
+  <!-- Headline-small: the reader's subject (canvas Reader, 24 sp regular). -->
+  <style name="TextAppearance.WinoKit.HeadlineSmall" parent="TextAppearance.Material3.HeadlineSmall">
+    <item name="android:textSize">@dimen/wino_m3_headline_small</item>
+    <item name="android:fontFamily">sans-serif</item>
+    <item name="android:textColor">@color/wino_text_primary</item>
+  </style>
+
+  <!-- Search bar text (body-large). -->
+  <style name="TextAppearance.WinoKit.SearchBar" parent="TextAppearance.Material3.BodyLarge">
+    <item name="android:textSize">@dimen/wino_m3_search_text</item>
+    <item name="android:textColor">@color/wino_text_primary</item>
+  </style>
+
+  <!-- Drawer item label (label-large) and the drawer section heading (title-small in on-surface-variant). -->
+  <style name="TextAppearance.WinoKit.DrawerItem" parent="TextAppearance.WinoKit.Label">
+    <item name="android:textColor">@color/wino_text_secondary</item>
+  </style>
+</resources>

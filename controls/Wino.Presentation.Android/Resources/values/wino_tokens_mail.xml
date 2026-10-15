@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tokens of the General and Mail Settings pages (About, unread badges, storage, email templates). Light colours here;
+     values-night/wino_tokens_mail.xml has the dark pair. -->
+<resources>
+  <!-- Component sizes. -->
+  <dimen name="wino_mail_about_icon">56dp</dimen>
+  <dimen name="wino_mail_account_icon">28dp</dimen>
+  <dimen name="wino_mail_template_editor_min_height">270dp</dimen>
+  <dimen name="wino_mail_badge_check_column">56dp</dimen>
+
+  <!-- Unread badge illustrations (fixed size: they do not follow the font scale). -->
+  <dimen name="wino_mail_badge_illustration_width">84dp</dimen>
+  <dimen name="wino_mail_badge_illustration_height">34dp</dimen>
+  <dimen name="wino_mail_badge_illustration_icon">26dp</dimen>
+  <dimen name="wino_mail_badge_illustration_dot">10dp</dimen>
+  <dimen name="wino_mail_badge_illustration_badge_offset">42dp</dimen>
+  <dimen name="wino_mail_badge_pill_height">14dp</dimen>
+  <dimen name="wino_mail_badge_pill_radius">7dp</dimen>
+  <dimen name="wino_mail_badge_text">9dp</dimen>
+
+  <color name="wino_mail_illustration_fill">#FFFFFFFF</color>
+  <color name="wino_mail_illustration_stroke">#14000000</color>
+  <color name="wino_mail_illustration_pill">#14000000</color>
+
+  <!-- Illustration text: primary, secondary and the medium count pill. -->
+  <style name="TextAppearance.WinoKit.Mail.Illustration" parent="TextAppearance.WinoKit.Body">
+    <item name="android:textSize">@dimen/wino_mail_badge_text</item>
+  </style>
+  <style name="TextAppearance.WinoKit.Mail.IllustrationSecondary" parent="TextAppearance.WinoKit.Mail.Illustration">
+    <item name="android:textColor">@color/wino_text_secondary</item>
+  </style>
+  <style name="TextAppearance.WinoKit.Mail.IllustrationPill" parent="TextAppearance.WinoKit.Mail.Illustration">
+    <item name="android:fontFamily">sans-serif-medium</item>
+  </style>
+</resources>

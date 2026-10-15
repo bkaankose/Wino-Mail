@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The single activity: the theme wallpaper behind everything, and the fragment host. Fragments draw their own Wino
+     zones and apply the system bar insets themselves (edge to edge). The coordinator anchors snackbars. -->
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wino_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/wino_backdrop">
+
+  <ImageView
+      android:id="@+id/wino_backdrop"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:importantForAccessibility="no"
+      android:scaleType="centerCrop" />
+
+  <androidx.fragment.app.FragmentContainerView
+      android:id="@+id/wino_main_content"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent" />
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

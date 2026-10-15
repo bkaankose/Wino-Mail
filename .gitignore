@@ -18,6 +18,8 @@ mono_crash.*
 
 # Build results
 [Dd]ebug/
+# Android Debug-only activities are source, not build output.
+!/src/Wino.Mail.Android/Views/Debug/
 [Dd]ebugPublic/
 [Rr]elease/
 [Rr]eleases/
@@ -375,6 +377,7 @@ FodyWeavers.xsd
 !/WinoMail.Windows.code-workspace
 !/WinoMail.MacOS.code-workspace
 !/WinoMail.iOS.code-workspace
+!/WinoMail.Android.code-workspace
 
 # Local History for Visual Studio Code
 .history/
@@ -419,10 +422,14 @@ docs/design-prototypes/*
 !/docs/harness/development-windows.md
 !/docs/harness/development-macos.md
 !/docs/harness/development-ios.md
+!/docs/harness/development-android.md
 !/docs/releases-windows.md
 !/docs/releases-macos.md
+!/docs/releases-android.md
 !/docs/macos-design-decisions.md
 !/docs/ios-design-decisions.md
+!/docs/android-design-decisions.md
+!/docs/android-port-investigation.md
 !/docs/macos-shared-logic-roadmap.md
 
 # Release tooling is source, not a build output directory.
@@ -436,4 +443,8 @@ docs/design-prototypes/*
 *.provisionprofile
 *.certSigningRequest
 AuthKey_*
+
+# Android signing keys (the upload keystore stays outside the repo)
+*.keystore
+*.jks
 .DS_Store

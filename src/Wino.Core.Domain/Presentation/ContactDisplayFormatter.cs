@@ -1,5 +1,7 @@
 #nullable enable
 using System;
+using System.Linq;
+using Wino.Core.Domain.Entities.Shared;
 
 namespace Wino.Core.Domain.Presentation;
 
@@ -20,5 +22,16 @@ public static class ContactDisplayFormatter
         var date = new DateTime(referenceYear, month.Value, Math.Min(day.Value, DateTime.DaysInMonth(referenceYear, month.Value)));
 
         return knownYear.HasValue ? date.ToString("d MMMM yyyy") : date.ToString("d MMMM");
+    }
+
+    /// <summary>
+    /// A postal address as card lines (Mac and iOS card, Android contact card): post office box, street, "postal code
+    /// city", region and country, one per line; empty parts are left out.
+    /// </summary>
+    public static string FormatPostalAddress(ContactPostalAddress? address)
+    {
+        if (address is null) return string.Empty;
+        var cityLine = string.Join(" ", new[] { address.PostalCode, address.City }.Where(part => !string.IsNullOrWhiteSpace(part)));
+        return string.Join("\n", new[] { address.PostOfficeBox, address.Street, cityLine, address.Region, address.Country }.Where(part => !string.IsNullOrWhiteSpace(part)));
     }
 }

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The message body in the reader: a rounded clip (no stroke) so the reader document's own background (dark reader
+     theme) sits as a soft card in the zone. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+  <solid android:color="@android:color/transparent" />
+  <corners android:radius="@dimen/wino_radius_large" />
+</shape>

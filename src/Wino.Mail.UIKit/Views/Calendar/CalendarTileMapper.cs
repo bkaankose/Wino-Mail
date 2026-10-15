@@ -35,9 +35,7 @@ public static class CalendarTileMapper
 
     /// <summary>"10:00 – 10:30" in the user's time format.</summary>
     public static string TimeRangeText(ICalendarItem item, CalendarSettings? settings)
-        => settings is null
-            ? $"{item.StartDate:t} – {item.EndDate:t}"
-            : $"{settings.GetTimeString(item.StartDate.TimeOfDay)} – {settings.GetTimeString(item.EndDate.TimeOfDay)}";
+        => Wino.Calendar.ViewModels.CalendarAgenda.TimeRangeText(item.StartDate, item.EndDate, settings);
 
     /// <summary>True when the item belongs to a read-only calendar (shared <see cref="CalendarEventDisplay.IsReadOnly"/>).</summary>
     public static bool IsReadOnly(ICalendarItem? item) => CalendarEventDisplay.IsReadOnly(item);

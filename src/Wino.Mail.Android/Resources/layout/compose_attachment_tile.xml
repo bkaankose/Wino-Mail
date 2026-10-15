@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One composer attachment (Windows AttachmentsTray tile): type glyph, name, size with the content-type warning glyph,
+     and Remove. The page sets the glyphs, texts and the outline (stroke) in code from the tokens. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/Widget.Wino.Compose.AttachmentTile"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:clickable="true"
+    android:focusable="true"
+    android:gravity="center_vertical"
+    android:orientation="horizontal">
+
+  <TextView
+      android:id="@+id/tile_icon"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginEnd="@dimen/wino_compose_tile_icon_margin"
+      android:importantForAccessibility="no"
+      android:textColor="@color/wino_text_secondary" />
+
+  <LinearLayout
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/tile_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:ellipsize="middle"
+        android:maxWidth="@dimen/wino_compose_tile_name_max_width"
+        android:singleLine="true"
+        android:textAppearance="@style/TextAppearance.Wino.Compose.AttachmentName" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+      <TextView
+          android:id="@+id/tile_warning"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginEnd="@dimen/wino_compose_tile_warning_margin"
+          android:textColor="@color/wino_caution"
+          android:visibility="gone" />
+
+      <TextView
+          android:id="@+id/tile_size"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:textAppearance="@style/TextAppearance.Wino.Caption" />
+    </LinearLayout>
+  </LinearLayout>
+
+  <ImageButton
+      android:id="@+id/tile_remove"
+      android:layout_width="@dimen/wino_compose_tile_remove"
+      android:layout_height="@dimen/wino_compose_tile_remove"
+      android:background="?attr/selectableItemBackgroundBorderless" />
+</LinearLayout>

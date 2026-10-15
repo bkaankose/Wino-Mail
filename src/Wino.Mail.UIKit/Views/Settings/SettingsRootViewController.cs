@@ -10,6 +10,7 @@ using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
 using Wino.Presentation.UIKit;
+using Wino.Core.Domain.Models.Settings;
 
 namespace Wino.Mail.UIKit.Views.Settings;
 
@@ -46,7 +47,7 @@ public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewM
 
         _table.BackgroundColor = UIColor.Clear;
         _table.RegisterClassForCellReuse(typeof(UITableViewCell), RootSource.CellId);
-        _source.Selected = entry => Navigate(entry.Page);
+        _source.Selected = entry => { if (entry.Page is { } page) Navigate(page); };
         _table.Source = _source;
         WinoLayout.Fill(_table, zone.ContentView);
         View = root;
@@ -88,13 +89,13 @@ public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewM
 
     private void Reload()
     {
-        _source.Sections = SettingsPageCatalog.GetSections();
-        _lastCanAccessIntelligence = SettingsPageCatalog.CanAccessIntelligence?.Invoke() ?? false;
+        _source.Sections = SettingsCatalog.GetSections();
+        _lastCanAccessIntelligence = SettingsCatalog.CanAccessIntelligence;
         _table.ReloadData();
     }
 
     private static void Navigate(WinoPage page)
-        => WeakReferenceMessenger.Default.Send(new BreadcrumbNavigationRequested(SettingsPageCatalog.Title(page), page));
+        => WeakReferenceMessenger.Default.Send(new BreadcrumbNavigationRequested(SettingsCatalog.Title(page), page));
 
     public void Receive(LanguageChanged message) => _ = Dispatcher.ExecuteOnUIThread(() =>
     {
@@ -119,15 +120,15 @@ public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewM
     {
         public const string CellId = "settings-root";
 
-        public List<SettingsRootSection> Sections { get; set; } = [];
+        public List<SettingsCatalogSection> Sections { get; set; } = [];
         public string? Query { get; set; }
         public string? ManageAccountsDetail { get; set; }
-        public Action<SettingsRootEntry>? Selected { get; set; }
+        public Action<SettingsCatalogEntry>? Selected { get; set; }
 
         private bool IsSearching => !string.IsNullOrWhiteSpace(Query);
 
-        private List<SettingsRootSection> Visible
-            => IsSearching ? [new SettingsRootSection(null, SettingsPageCatalog.Search(Query ?? string.Empty))] : Sections;
+        private List<SettingsCatalogSection> Visible
+            => IsSearching ? [new SettingsCatalogSection(null, SettingsCatalog.Search(Query ?? string.Empty))] : Sections;
 
         public override nint NumberOfSections(UITableView tableView) => Visible.Count;
 

@@ -64,6 +64,13 @@ public interface ISynchronizationManager
     Task QueueRequestPackAsync(IReadOnlyDictionary<Guid, List<IRequestBase>> requestsByAccount, bool triggerSynchronization);
 
     /// <summary>
+    /// Raised with the account id after change requests were added to that account's synchronizer queue
+    /// (after any undo delay), on the queuing thread. Mobile heads use it to schedule a flush that survives
+    /// the app leaving the foreground (<see cref="IApplicationRuntime.FlushQueuedRequestsAsync"/>).
+    /// </summary>
+    event EventHandler<Guid> RequestsQueued;
+
+    /// <summary>
     /// Cancels the latest undoable queued action for the given account.
     /// </summary>
     Task UndoLatestQueuedAction(Guid accountId);

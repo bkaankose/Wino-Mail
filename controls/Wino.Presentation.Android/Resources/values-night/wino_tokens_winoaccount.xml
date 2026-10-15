@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tokens of the Wino Account and Wino Intelligence Settings pages (dark colours). -->
+<resources>
+  <color name="wino_winoaccount_brand_solid">#FF7FBAFF</color>
+  <color name="wino_winoaccount_brand_gradient_1">#FF5FA8FF</color>
+  <color name="wino_winoaccount_brand_gradient_2">#FF72D1FF</color>
+  <color name="wino_winoaccount_brand_gradient_3">#FFB59BFF</color>
+  <color name="wino_winoaccount_brand_gradient_4">#FF3298F4</color>
+  <color name="wino_winoaccount_brand_wash">#147FBAFF</color>
+  <color name="wino_winoaccount_gradient_base">#FF000000</color>
+
+  <color name="wino_winoaccount_success_pill_fill">#FF393D1B</color>
+  <color name="wino_winoaccount_chip_fill">#14FFFFFF</color>
+  <color name="wino_winoaccount_hero_pill_fill">#14FFFFFF</color>
+  <color name="wino_winoaccount_hero_pill_stroke">#1AFFFFFF</color>
+  <color name="wino_winoaccount_state_success">#FF6CCB5F</color>
+  <color name="wino_winoaccount_meter_track">#24FFFFFF</color>
+  <color name="wino_winoaccount_photo_veil">#73000000</color>
+  <color name="wino_winoaccount_photo_badge_fill">#FF3A3A3C</color>
+  <color name="wino_winoaccount_unlimited_mark">#FFFBBF24</color>
+
+  <color name="wino_winoaccount_coverage_indexed">#FF6CCB5F</color>
+  <color name="wino_winoaccount_coverage_outside">#3DFFFFFF</color>
+
+  <color name="wino_winoaccount_benefit_check">#FFFFFFFF</color>
+
+  <color name="wino_winoaccount_promo_surface">#FF3C3C43</color>
+  <color name="wino_winoaccount_promo_line">#FF52525D</color>
+  <color name="wino_winoaccount_promo_line_soft">#FF46464F</color>
+  <color name="wino_winoaccount_promo_warm">#FFF5C05C</color>
+  <color name="wino_winoaccount_promo_shadow">#52000000</color>
+</resources>

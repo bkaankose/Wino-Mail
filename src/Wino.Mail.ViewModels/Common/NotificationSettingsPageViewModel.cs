@@ -563,6 +563,20 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
     }
 
     /// <summary>
+    /// The Reset button (Windows NotificationSettingsPage): asks first, then <see cref="ResetAsync"/>. True when the
+    /// preferences were reset, so a head can refresh what it keeps outside the ViewModel (the Mac alert sounds).
+    /// </summary>
+    public async Task<bool> ConfirmResetAsync(IDialogServiceBase dialogService)
+    {
+        ArgumentNullException.ThrowIfNull(dialogService);
+        if (!await dialogService.ShowConfirmationDialogAsync(Translator.NotificationSettings_Reset_ConfirmMessage,
+                Translator.NotificationSettings_Reset_ConfirmTitle, Translator.NotificationSettings_Reset_Title))
+            return false;
+        await ResetAsync();
+        return true;
+    }
+
+    /// <summary>
     /// Returns every notification preference and account override to its factory value. The live notification
     /// opt-in is a privacy choice, not a notification default, so it is left alone.
     /// </summary>

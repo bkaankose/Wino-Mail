@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shell pane widths (docs/android-design-decisions.md): medium list 360 dp; expanded pane 320 dp and list 420 dp. -->
+<resources>
+  <dimen name="wino_shell_list_width_medium">360dp</dimen>
+  <dimen name="wino_shell_pane_width_expanded">320dp</dimen>
+  <dimen name="wino_shell_list_width_expanded">420dp</dimen>
+  <!-- Reader header date: wraps to two lines at large font scales so the sender keeps its room. -->
+  <dimen name="wino_reader_date_max_width">120dp</dimen>
+</resources>

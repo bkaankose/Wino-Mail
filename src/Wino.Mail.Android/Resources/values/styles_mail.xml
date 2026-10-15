@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Mail list, reader, search and Move styles (canvas Material pass): the mail layouts reference only these, the
+     Widget.WinoKit Material 3 styles and the Presentation.Android tokens. -->
+<resources>
+  <style name="Widget.Wino.Mail" parent="" />
+
+  <style name="Widget.Wino.Mail.Zone">
+    <item name="android:layout_marginStart">@dimen/wino_zone_gutter</item>
+    <item name="android:layout_marginEnd">@dimen/wino_zone_gutter</item>
+    <item name="android:layout_marginBottom">@dimen/wino_zone_gutter</item>
+  </style>
+
+  <!-- The 48 dp chip row: segmented button, filter chip, select. -->
+  <style name="Widget.Wino.Mail.ChipRow">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">@dimen/wino_m3_chip_row_height</item>
+    <item name="android:gravity">center_vertical</item>
+    <item name="android:orientation">horizontal</item>
+    <item name="android:paddingStart">@dimen/wino_m3_chip_row_padding_start</item>
+    <item name="android:paddingEnd">@dimen/wino_m3_chip_row_padding_end</item>
+  </style>
+
+  <style name="Widget.Wino.Mail.ChipRowStatus">
+    <item name="android:ellipsize">end</item>
+    <item name="android:maxLines">1</item>
+    <item name="android:textAppearance">@style/TextAppearance.WinoKit.Subheader</item>
+  </style>
+
+  <style name="Widget.Wino.Mail.FilterChip" parent="Widget.WinoKit.DropdownChip">
+    <item name="android:layout_marginStart">@dimen/wino_m3_chip_row_gap</item>
+  </style>
+
+  <style name="Widget.Wino.Mail.InfoBar">
+    <item name="android:layout_marginStart">@dimen/wino_space_s</item>
+    <item name="android:layout_marginEnd">@dimen/wino_space_s</item>
+    <item name="android:layout_marginBottom">@dimen/wino_space_xs</item>
+  </style>
+
+  <style name="Widget.Wino.Mail.OtherInboxLink">
+    <item name="android:background">?attr/selectableItemBackground</item>
+    <item name="android:minHeight">@dimen/wino_m3_subheader_height</item>
+    <item name="android:gravity">center_vertical</item>
+    <item name="android:paddingStart">@dimen/wino_m3_subheader_padding</item>
+    <item name="android:paddingEnd">@dimen/wino_m3_subheader_padding</item>
+    <item name="android:textAppearance">@style/TextAppearance.WinoKit.Body</item>
+    <item name="android:textColor">@color/wino_accent_text</item>
+  </style>
+
+  <style name="Widget.Wino.Mail.List">
+    <item name="android:clipToPadding">false</item>
+    <item name="android:paddingBottom">@dimen/wino_m3_list_fab_clearance</item>
+    <item name="android:scrollbars">vertical</item>
+  </style>
+
+  <style name="Widget.Wino.Mail.Empty">
+    <item name="android:gravity">center_horizontal</item>
+    <item name="android:orientation">vertical</item>
+    <item name="android:padding">@dimen/wino_space_2xl</item>
+  </style>
+
+  <style name="Widget.Wino.Mail.EmptyTitle">
+    <item name="android:layout_marginTop">@dimen/wino_space_sm</item>
+    <item name="android:gravity">center</item>
+    <item name="android:textAppearance">@style/TextAppearance.WinoKit.BodySecondary</item>
+  </style>
+
+  <style name="Widget.Wino.Mail.OnlineSearch" parent="Widget.Wino.Button.Outlined">
+    <item name="android:layout_margin">@dimen/wino_space_s</item>
+  </style>
+
+  <!-- Search: the 72 dp header with the 56 dp search bar, then the 48 dp chip row. -->
+  <style name="Widget.Wino.Mail.SearchHeader">
+    <item name="android:paddingStart">@dimen/wino_m3_search_header_padding_horizontal</item>
+    <item name="android:paddingTop">@dimen/wino_m3_search_header_padding_vertical</item>
+    <item name="android:paddingEnd">@dimen/wino_m3_search_header_padding_horizontal</item>
+    <item name="android:paddingBottom">@dimen/wino_m3_search_header_padding_vertical</item>
+  </style>
+
+  <style name="Widget.Wino.Mail.SearchBar">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">@dimen/wino_m3_search_bar_height</item>
+    <item name="android:background">@drawable/mail_search_field_background</item>
+    <item name="android:gravity">center_vertical</item>
+    <item name="android:orientation">horizontal</item>
+    <item name="android:paddingStart">@dimen/wino_m3_search_bar_padding</item>
+    <item name="android:paddingEnd">@dimen/wino_m3_search_bar_padding</item>
+  </style>
+
+  <style name="Widget.Wino.Mail.SearchBarIcon">
+    <item name="android:layout_width">@dimen/wino_m3_icon_button</item>
+    <item name="android:layout_height">@dimen/wino_m3_icon_button</item>
+    <item name="android:background">?attr/selectableItemBackgroundBorderless</item>
+    <item name="android:scaleType">center</item>
+    <item name="android:tint">@color/wino_text_secondary</item>
+  </style>
+
+  <style name="Widget.Wino.Mail.SearchField">
+    <item name="android:layout_marginStart">@dimen/wino_m3_search_bar_gap</item>
+    <item name="android:layout_marginEnd">@dimen/wino_m3_search_bar_gap</item>
+    <item name="android:background">@android:color/transparent</item>
+    <item name="android:imeOptions">actionSearch</item>
+    <item name="android:inputType">text</item>
+    <item name="android:maxLines">1</item>
+    <item name="android:textAppearance">@style/TextAppearance.WinoKit.SearchBar</item>
+    <item name="android:textColorHint">@color/wino_text_secondary</item>
+  </style>
+
+  <style name="Widget.Wino.Mail.SearchChips">
+    <item name="android:paddingStart">@dimen/wino_m3_search_header_padding_horizontal</item>
+    <item name="android:paddingEnd">@dimen/wino_m3_search_header_padding_horizontal</item>
+    <item name="chipSpacingHorizontal">@dimen/wino_m3_chip_spacing</item>
+  </style>
+
+  <!-- Reader: the subject headline, the sender block and the body card. -->
+  <style name="Widget.Wino.Mail.ReaderContent">
+    <item name="android:paddingStart">@dimen/wino_space_l</item>
+    <item name="android:paddingTop">@dimen/wino_space_2xs</item>
+    <item name="android:paddingEnd">@dimen/wino_space_l</item>
+    <item name="android:paddingBottom">@dimen/wino_space_l</item>
+  </style>
+
+  <style name="Widget.Wino.Mail.AttachmentChip" parent="Widget.Material3.Chip.Assist">
+    <item name="android:layout_marginEnd">@dimen/wino_m3_chip_spacing</item>
+    <item name="android:ellipsize">middle</item>
+    <item name="android:maxWidth">@dimen/wino_size_readable_max</item>
+    <item name="chipMinHeight">@dimen/wino_m3_chip_height</item>
+    <item name="chipCornerRadius">@dimen/wino_m3_chip_radius</item>
+    <item name="chipStrokeColor">@color/wino_outline</item>
+    <item name="chipStrokeWidth">@dimen/wino_m3_stroke</item>
+    <item name="chipBackgroundColor">@android:color/transparent</item>
+    <item name="chipIconSize">@dimen/wino_m3_chip_icon</item>
+    <item name="chipIconVisible">true</item>
+    <item name="ensureMinTouchTargetSize">false</item>
+    <item name="android:textAppearance">@style/TextAppearance.WinoKit.Label</item>
+    <item name="android:textColor">@color/wino_text_secondary</item>
+  </style>
+
+  <style name="Widget.Wino.Mail.ReaderCommandBar">
+    <item name="android:layout_height">@dimen/wino_m3_icon_button</item>
+  </style>
+
+  <style name="Widget.Wino.Mail.BottomAppBar" parent="Widget.Material3.BottomAppBar">
+    <item name="backgroundTint">@color/wino_zone</item>
+    <item name="fabAlignmentMode">end</item>
+    <item name="fabAnchorMode">embed</item>
+    <item name="elevation">0dp</item>
+  </style>
+
+  <!-- Move sheet. -->
+  <style name="Widget.Wino.Mail.SheetTitle">
+    <item name="android:paddingStart">@dimen/wino_m3_sheet_title_padding_horizontal</item>
+    <item name="android:paddingEnd">@dimen/wino_m3_sheet_title_padding_horizontal</item>
+    <item name="android:textAppearance">@style/TextAppearance.WinoKit.TopAppBarTitle</item>
+  </style>
+
+  <style name="Widget.Wino.Mail.SheetSubtitle">
+    <item name="android:paddingStart">@dimen/wino_m3_sheet_title_padding_horizontal</item>
+    <item name="android:paddingEnd">@dimen/wino_m3_sheet_title_padding_horizontal</item>
+    <item name="android:paddingBottom">@dimen/wino_m3_sheet_title_padding_bottom</item>
+    <item name="android:ellipsize">end</item>
+    <item name="android:maxLines">1</item>
+    <item name="android:textAppearance">@style/TextAppearance.WinoKit.BodySecondary</item>
+  </style>
+
+  <style name="Widget.Wino.Mail.SheetSearch">
+    <item name="android:layout_height">@dimen/wino_m3_sheet_search_height</item>
+    <item name="android:layout_marginStart">@dimen/wino_m3_sheet_search_margin_horizontal</item>
+    <item name="android:layout_marginEnd">@dimen/wino_m3_sheet_search_margin_horizontal</item>
+    <item name="android:layout_marginBottom">@dimen/wino_m3_sheet_search_margin_bottom</item>
+    <item name="android:background">@drawable/mail_sheet_search_background</item>
+    <item name="android:gravity">center_vertical</item>
+    <item name="android:orientation">horizontal</item>
+    <item name="android:paddingStart">@dimen/wino_m3_sheet_search_padding</item>
+    <item name="android:paddingEnd">@dimen/wino_m3_sheet_search_padding</item>
+  </style>
+
+  <style name="Widget.Wino.Mail.SheetSubheader">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">@dimen/wino_m3_subheader_height</item>
+    <item name="android:gravity">center_vertical</item>
+    <item name="android:paddingStart">@dimen/wino_m3_sheet_subheader_padding</item>
+    <item name="android:paddingEnd">@dimen/wino_m3_sheet_subheader_padding</item>
+    <item name="android:ellipsize">end</item>
+    <item name="android:maxLines">1</item>
+    <item name="android:textAppearance">@style/TextAppearance.WinoKit.Subheader</item>
+  </style>
+</resources>

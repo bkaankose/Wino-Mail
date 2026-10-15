@@ -7,6 +7,8 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
+using Wino.Core.Domain.Models.Settings;
+using Wino.Core.Domain.Models.Platform;
 
 namespace Wino.Mail.MacOS.Views.Settings;
 
@@ -42,9 +44,9 @@ public sealed class SettingsWindowPresenter : ISettingsWindowPresenter, IRecipie
         _dispatcher = dispatcher;
         _logger = logger;
         _registry = registry;
-        SettingsPageCatalog.IsSmimeAvailable = services.GetService<IPlatformCapabilities>()?.Smime ?? false;
         var entitlement = services.GetService<IWinoAccountIntelligenceSnapshotService>();
-        SettingsPageCatalog.CanAccessIntelligence = () => entitlement?.CurrentEntitlement?.CanAccessSurfaces ?? false;
+        SettingsCatalog.Configure(services.GetService<IPlatformCapabilities>() ?? new PlatformCapabilities(),
+            () => entitlement?.CurrentEntitlement?.CanAccessSurfaces ?? false);
         _lastCanAccessIntelligence = entitlement?.CurrentEntitlement?.CanAccessSurfaces ?? false;
         WeakReferenceMessenger.Default.Register<LanguageChanged>(this);
         WeakReferenceMessenger.Default.Register<WinoIntelligenceEntitlementChanged>(this);

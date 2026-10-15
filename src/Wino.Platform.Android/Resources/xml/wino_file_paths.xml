@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FileProvider roots for AndroidExternalLauncher. Only the cache folder that holds copies made for another app is
+     shared; application data under no_backup is never exposed. Keep in step with AndroidPaths.SharedFilesFolderName. -->
+<paths>
+    <cache-path name="shared" path="shared-files/" />
+</paths>

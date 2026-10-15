@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tokens of the account Settings pages (Manage accounts, account details, aliases, folders, categories, filters,
+     signatures): light colours and component sizes. values-night has the dark colours. -->
+<resources>
+  <!-- The dashed outline of an empty list (iOS DashedDropZoneView). -->
+  <color name="wino_accounts_dashed_stroke">#2E000000</color>
+  <dimen name="wino_accounts_dash_length">4dp</dimen>
+  <dimen name="wino_accounts_dash_gap">3dp</dimen>
+  <!-- The ring of the selected colour swatch. -->
+  <dimen name="wino_accounts_swatch_ring">3dp</dimen>
+  <!-- Account details folder table: the Synchronize column and the indent of each tree level. -->
+  <dimen name="wino_accounts_folder_check_column">96dp</dimen>
+  <dimen name="wino_accounts_folder_indent">16dp</dimen>
+  <!-- The colour dot of a calendar row. -->
+  <dimen name="wino_accounts_calendar_dot">10dp</dimen>
+</resources>

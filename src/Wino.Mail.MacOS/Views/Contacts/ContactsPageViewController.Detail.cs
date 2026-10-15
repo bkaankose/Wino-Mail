@@ -193,7 +193,7 @@ public sealed partial class ContactsPageViewController
 
         var postalCard = new WinoContactFieldCard(Translator.ContactDetail_Address);
         foreach (var postal in source.PostalAddresses)
-            postalCard.Add(FormatAddress(postal), postal.Kind.ToString(), WinoIconGlyph.Location, wrap: true);
+            postalCard.Add(ContactDisplayFormatter.FormatPostalAddress(postal), postal.Kind.ToString(), WinoIconGlyph.Location, wrap: true);
         AddCard(postalCard);
 
         // Windows always shows the Personal card; on Mac an empty card is dropped like the others.
@@ -211,11 +211,6 @@ public sealed partial class ContactsPageViewController
         card.WidthAnchor.ConstraintEqualTo(_detailCards.WidthAnchor).Active = true;
     }
 
-    private static string FormatAddress(ContactPostalAddress address)
-    {
-        var line2 = string.Join(" ", new[] { address.PostalCode, address.City }.Where(part => !string.IsNullOrWhiteSpace(part)));
-        return string.Join("\n", new[] { address.PostOfficeBox, address.Street, line2, address.Region, address.Country }.Where(part => !string.IsNullOrWhiteSpace(part)));
-    }
 
     /// <summary>Top-anchored document view for scroll content.</summary>
     private sealed class FlippedView : NSView

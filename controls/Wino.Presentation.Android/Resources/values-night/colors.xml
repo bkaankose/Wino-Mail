@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Wino colour tokens in dark mode (Nighty accent; canvas Tokens board). -->
+<resources>
+  <color name="wino_accent">#E1B12C</color>
+  <color name="wino_on_accent">#1B1B1B</color>
+  <color name="wino_accent_text">#E1B12C</color>
+  <color name="wino_accent_container">#33E1B12C</color>
+  <color name="wino_secondary_container">#4D4125</color>
+  <color name="wino_primary_container">#5C4D26</color>
+  <color name="wino_backdrop">#202028</color>
+  <color name="wino_zone">#1E1E23</color>
+  <color name="wino_zone_stroke">#14FFFFFF</color>
+  <color name="wino_divider">#12FFFFFF</color>
+  <color name="wino_text_primary">#F3F3F3</color>
+  <color name="wino_text_secondary">#C5C5C5</color>
+  <color name="wino_text_tertiary">#9A9A9A</color>
+  <color name="wino_outline">#40FFFFFF</color>
+  <color name="wino_surface_variant">#26262C</color>
+  <color name="wino_card">#0FFFFFFF</color>
+  <color name="wino_card_stroke">#14FFFFFF</color>
+  <color name="wino_subtle_fill">#14FFFFFF</color>
+  <color name="wino_bar_tint">#6114141A</color>
+  <color name="wino_critical">#FF99A4</color>
+  <color name="wino_success">#6CCB5F</color>
+  <color name="wino_caution">#FCE100</color>
+  <color name="wino_flagged">#FF6B5E</color>
+  <color name="wino_info_background">#2B2F36</color>
+  <color name="wino_success_background">#393D1B</color>
+  <color name="wino_warning_background">#433519</color>
+  <color name="wino_error_background">#442726</color>
+</resources>

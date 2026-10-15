@@ -29,9 +29,7 @@ public sealed class IOSOutlookAuthenticationHost : IOutlookAuthenticationHost
             .WithRedirectUri(RedirectUri)
             .WithAuthority("https://login.microsoftonline.com/common")
             .WithIosKeychainSecurityGroup(KeychainSecurityGroup)
-            // MSAL's own diagnostics land in wino.log. The authenticator swallows MsalUiRequired and
-            // MsalClient exceptions, so without this the log only ever shows the resulting attention state.
-            .WithLogging(ForwardMsalLog, MsalLogLevel, enablePiiLogging: false, enableDefaultPlatformLogging: false)
+            .WithWinoLogging()
             .Build();
     }
 
@@ -39,26 +37,6 @@ public sealed class IOSOutlookAuthenticationHost : IOutlookAuthenticationHost
     public static string GetRedirectUri(AppleApplicationIdentity identity) => $"msauth.{identity.Value}://auth";
 
     public string RedirectUri { get; }
-
-#if DEBUG
-    private const LogLevel MsalLogLevel = LogLevel.Verbose;
-#else
-    private const LogLevel MsalLogLevel = LogLevel.Info;
-#endif
-
-    private static readonly Serilog.ILogger MsalLogger = Serilog.Log.ForContext("SourceContext", "MSAL");
-
-    private static void ForwardMsalLog(LogLevel level, string message, bool containsPii)
-    {
-        if (containsPii) return;
-        switch (level)
-        {
-            case LogLevel.Error: MsalLogger.Error("{Message}", message); break;
-            case LogLevel.Warning: MsalLogger.Warning("{Message}", message); break;
-            case LogLevel.Info: MsalLogger.Debug("{Message}", message); break;
-            default: MsalLogger.Verbose("{Message}", message); break;
-        }
-    }
 
     public IPublicClientApplication Client { get; }
 

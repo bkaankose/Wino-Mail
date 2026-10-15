@@ -64,6 +64,13 @@ public interface ICalendarService
     Task<List<CalendarReminderNotificationRequest>> CheckAndNotifyAsync(DateTime lastCheckLocal, DateTime nowLocal, ISet<string> sentReminderKeys, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// The earliest local time after <paramref name="afterLocal"/> at which <see cref="CheckAndNotifyAsync"/> would report
+    /// a reminder (snoozes included), or null when none is ahead. Mobile heads schedule a system wake-up for it while
+    /// the reminder poller is not running.
+    /// </summary>
+    Task<DateTime?> GetNextReminderTriggerAsync(DateTime afterLocal, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets predefined reminder options in minutes (1 Hour, 30 Min, 15 Min, 5 Min, 1 Min).
     /// </summary>
     int[] GetPredefinedReminderMinutes();

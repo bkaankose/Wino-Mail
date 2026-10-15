@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- To Do (Windows ToDoPage; canvas Material pass ToDo): the 64 dp top app bar (menu, surface title, search, overflow
+     with the Windows filter, sort and list options), the 48 dp smart-view chips (My Day, Important, Planned, Lists),
+     then one Wino zone with the surface summary, the grouped task list with pull to refresh, the empty and readiness
+     states, and the add-task bar pinned above the keyboard. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/todo_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+  <com.google.android.material.appbar.MaterialToolbar
+      android:id="@+id/todo_toolbar"
+      style="@style/Widget.WinoKit.TopAppBar" />
+
+  <HorizontalScrollView style="@style/Widget.Wino.People.ChipScroll">
+
+    <com.google.android.material.chip.ChipGroup
+        android:id="@+id/todo_chips"
+        style="@style/Widget.Wino.People.Chips"
+        app:singleLine="true" />
+  </HorizontalScrollView>
+
+  <com.winomail.presentation.WinoZoneLayout
+      style="@style/Widget.Wino.People.Zone"
+      android:layout_width="match_parent"
+      android:layout_height="0dp"
+      android:layout_weight="1">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+      <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="match_parent"
+          android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/todo_summary"
+            style="@style/Widget.Wino.Tasks.Summary" />
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+          <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+              android:id="@+id/todo_refresh"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/todo_list"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipToPadding="false"
+                android:scrollbars="vertical" />
+          </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+          <include
+              android:id="@+id/todo_empty"
+              layout="@layout/people_state_panel" />
+        </FrameLayout>
+
+        <LinearLayout
+            android:id="@+id/todo_add_strip"
+            style="@style/Widget.Wino.Tasks.AddStrip">
+
+          <LinearLayout style="@style/Widget.Wino.Tasks.AddBar">
+
+            <com.winomail.presentation.WinoIconView
+                android:id="@+id/todo_add_glyph"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:importantForAccessibility="no" />
+
+            <EditText
+                android:id="@+id/todo_add_field"
+                style="@style/Widget.Wino.Tasks.AddField"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1" />
+
+            <com.winomail.presentation.WinoIconView
+                android:id="@+id/todo_add_due"
+                style="@style/Widget.WinoKit.GlyphButton"
+                android:layout_width="@dimen/wino_tasks_add_bar_button"
+                android:layout_height="@dimen/wino_tasks_add_bar_button" />
+          </LinearLayout>
+        </LinearLayout>
+      </LinearLayout>
+
+      <FrameLayout
+          android:id="@+id/todo_blocked_host"
+          android:layout_width="match_parent"
+          android:layout_height="match_parent"
+          android:clickable="true"
+          android:visibility="gone">
+
+        <include
+            android:id="@+id/todo_blocked"
+            layout="@layout/people_state_panel" />
+      </FrameLayout>
+    </FrameLayout>
+  </com.winomail.presentation.WinoZoneLayout>
+</LinearLayout>

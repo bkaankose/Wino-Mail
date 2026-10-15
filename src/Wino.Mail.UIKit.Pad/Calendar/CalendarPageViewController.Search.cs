@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.Messaging;
+using Wino.Calendar.ViewModels;
 using UIKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
@@ -108,8 +109,7 @@ public sealed partial class CalendarPageViewController : IShellSearchTarget, ISh
     private void OpenSearchResult(CalendarItem item)
     {
         if (!ViewModel.Readiness.IsReady) return;
-        var request = new CalendarDisplayRequest(ViewModel.StatePersistanceService.CalendarDisplayType, DateOnly.FromDateTime(item.LocalStartDate));
-        WeakReferenceMessenger.Default.Send(new LoadCalendarMessage(request, false, new CalendarItemTarget(item, CalendarEventTargetType.Single)));
+        WeakReferenceMessenger.Default.Send(CalendarPageActivation.CreateSearchResultMessage(item, ViewModel.StatePersistanceService.CalendarDisplayType));
     }
 
     private ShellSearchSuggestion SearchRow(CalendarItem item)

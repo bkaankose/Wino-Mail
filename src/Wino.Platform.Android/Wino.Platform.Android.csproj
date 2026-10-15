@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Android platform services for the Android app (Wino.Mail.Android): paths, Keystore-backed protection, secure items
+       and the platform adapters, registered by AddAndroidPlatformServices. No presentation references. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
+    <WinoTargetPlatform>Android</WinoTargetPlatform>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Wino.Platform.Android</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Wino.Core.Domain/Wino.Core.Domain.csproj" />
+    <ProjectReference Include="../Wino.Authentication/Wino.Authentication.csproj" />
+    <ProjectReference Include="../Wino.Services/Wino.Services.csproj" />
+    <!-- Custom Tabs for http(s) links. -->
+    <PackageReference Include="Xamarin.AndroidX.Browser" />
+    <!-- FileProvider content URIs for files opened in other apps. -->
+    <PackageReference Include="Xamarin.AndroidX.Core" />
+    <!-- WebViewCompat.GetCurrentWebViewPackage for the reader runtime check. -->
+    <PackageReference Include="Xamarin.AndroidX.WebKit" />
+    <!-- Gmail authorization (AuthorizationClient) and the Play services availability check. -->
+    <PackageReference Include="Xamarin.GooglePlayServices.Auth" />
+    <!-- MSAL's Android build (Custom Tabs sign-in, SharedPreferences token cache) for the Outlook host. -->
+    <PackageReference Include="Microsoft.Identity.Client" />
+    <!-- WorkManager: the queued-changes flush (expedited one-time work with a network constraint). -->
+    <PackageReference Include="Xamarin.AndroidX.Work.Runtime" />
+    <PackageReference Include="Xamarin.AndroidX.Tracing.Tracing.Ktx" />
+    <!-- FCM token and messages for WinoRelay (compile-only until google-services.json exists). -->
+    <PackageReference Include="Xamarin.Firebase.Messaging" />
+    <!-- Aligns the Lifecycle artifacts Sentry's Android SDK pulls with the rest of AndroidX (see Directory.Packages.props). -->
+    <PackageReference Include="Xamarin.AndroidX.Lifecycle.Common.Java8" />
+    <PackageReference Include="Xamarin.AndroidX.Lifecycle.Process" />
+  </ItemGroup>
+</Project>

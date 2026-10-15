@@ -25,16 +25,17 @@ internal static class EditorDialogs
     /// </summary>
     public static async Task<EditorLinkCommandArgs?> LinkAsync(UIViewController presenter, EditorState state)
     {
-        var isImage = state.IsImageSelected;
-        var title = isImage
-            ? Translator.Composer_EditImageLink
-            : string.IsNullOrWhiteSpace(state.LinkUrl) ? Translator.Composer_InsertLink : Translator.ComposerParity_EditLink;
-        var fields = new List<FieldSpec> { new(Translator.Composer_LinkUrlPlaceholder, isImage ? state.ImageLinkUrl : state.LinkUrl, UIKeyboardType.Url) };
-        if (!isImage) fields.Add(new(Translator.Composer_LinkTextPlaceholder, state.SelectedText, UIKeyboardType.Default));
+        var title = EditorLinkRules.Kind(state) switch
+        {
+            EditorLinkDialogKind.EditImageLink => Translator.Composer_EditImageLink,
+            EditorLinkDialogKind.EditLink => Translator.ComposerParity_EditLink,
+            _ => Translator.Composer_InsertLink
+        };
+        var fields = new List<FieldSpec> { new(Translator.Composer_LinkUrlPlaceholder, EditorLinkRules.InitialUrl(state), UIKeyboardType.Url) };
+        if (EditorLinkRules.HasTextField(state)) fields.Add(new(Translator.Composer_LinkTextPlaceholder, state.SelectedText, UIKeyboardType.Default));
         var values = await PromptAsync(presenter, title, null, fields, Translator.Buttons_Apply);
-        if (values is null || string.IsNullOrWhiteSpace(values[0])) return null;
-        var text = isImage || values.Length < 2 || string.IsNullOrWhiteSpace(values[1]) ? null : values[1].Trim();
-        return new EditorLinkCommandArgs(NormalizeUrl(values[0]), text, true);
+        if (values is null) return null;
+        return EditorLinkRules.CreateLink(state, values[0], values.Length < 2 ? null : values[1]);
     }
 
     /// <summary>Alternative text and link of the selected image (Windows ShowImagePropertiesDialogAsync).</summary>
@@ -66,12 +67,7 @@ internal static class EditorDialogs
 
     private static int ParseTable(string value) => ClampTable(int.TryParse(value?.Trim(), out var parsed) ? parsed : 2);
 
-    internal static string NormalizeUrl(string value)
-    {
-        var address = value.Trim();
-        if (!address.Contains("://", StringComparison.Ordinal) && !address.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase)) address = "https://" + address;
-        return address;
-    }
+    internal static string NormalizeUrl(string value) => EditorLinkRules.NormalizeUrl(value);
 
     internal static bool IsImage(string path) => ImageExtensions.Contains(Path.GetExtension(path).ToLowerInvariant());
 

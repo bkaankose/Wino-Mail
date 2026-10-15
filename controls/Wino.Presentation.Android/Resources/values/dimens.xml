@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Wino shape and spacing in dp (WinoTokens and the canvas Tokens board): one rounded zone of 10 dp. -->
+<resources>
+  <dimen name="wino_zone_radius">10dp</dimen>
+  <dimen name="wino_zone_gutter">8dp</dimen>
+  <dimen name="wino_zone_max_width">560dp</dimen>
+  <dimen name="wino_control_radius">4dp</dimen>
+  <dimen name="wino_overlay_radius">8dp</dimen>
+  <dimen name="wino_strip_radius">6dp</dimen>
+  <dimen name="wino_space1">4dp</dimen>
+  <dimen name="wino_space2">8dp</dimen>
+  <dimen name="wino_space3">12dp</dimen>
+  <dimen name="wino_space4">16dp</dimen>
+  <dimen name="wino_space6">24dp</dimen>
+  <dimen name="wino_space8">32dp</dimen>
+  <!-- Material 3 small top app bar (canvas Material pass): 64 dp, title-large 22 sp regular. -->
+  <dimen name="wino_top_bar_height">64dp</dimen>
+  <dimen name="wino_top_bar_title_size">22sp</dimen>
+  <!-- Material 3 list rows and pill buttons. -->
+  <dimen name="wino_list_row_two_line">72dp</dimen>
+  <dimen name="wino_pill_button_height">48dp</dimen>
+  <dimen name="wino_pill_button_height_small">40dp</dimen>
+  <!-- Info bar action: gap beside the paragraph, and above it when the bar stacks it under the paragraph. -->
+  <dimen name="wino_info_bar_action_spacing">10dp</dimen>
+  <dimen name="wino_info_bar_action_stacked_spacing">8dp</dimen>
+</resources>

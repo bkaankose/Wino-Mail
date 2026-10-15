@@ -518,27 +518,10 @@ public sealed partial class MailListPageViewController
         _selectionKeys.Clear();
         foreach (var row in selectedRows) _selectionKeys.Add(SelectionKey(row));
 
-        var items = new List<IMailListSourceItem>();
-        var ids = new HashSet<Guid>();
-        var fullThreads = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var row in selectedRows)
-        {
-            if (row.IsThreadHead && row.Thread is { } thread)
-            {
-                fullThreads.Add(thread.Key);
-                foreach (var leaf in thread.Items)
-                    if (ids.Add(leaf.StableId)) items.Add(leaf);
-            }
-            else if (ids.Add(row.SourceItem.StableId)) items.Add(row.SourceItem);
-        }
-        foreach (var thread in _projection.Threads)
-            if (thread.Items.Count > 0 && thread.Items.All(leaf => ids.Contains(leaf.StableId))) fullThreads.Add(thread.Key);
-
-        var active = selectedRows.LastOrDefault()?.SourceItem;
-        var signature = string.Join(",", ids.OrderBy(static id => id)) + "|" + active?.StableId;
-        if (signature == _lastPublishedSelection) return;
-        _lastPublishedSelection = signature;
-        ViewModel.ApplyMailSelectionSnapshot(new MailListSelectionSnapshot(items, fullThreads, active));
+        var result = MailListSelectionSnapshotBuilder.Build(selectedRows, _projection, null);
+        if (result.Signature == _lastPublishedSelection) return;
+        _lastPublishedSelection = result.Signature;
+        ViewModel.ApplyMailSelectionSnapshot(result.Snapshot);
     }
 
     /// <summary>Drops the table selection and publishes the empty selection.</summary>
