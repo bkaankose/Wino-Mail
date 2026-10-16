@@ -128,6 +128,17 @@ public static class AndroidPlatformRegistration
             return new AndroidGmailAuthenticator(context, config, tokenStore, loopback, provider.GetRequiredService<AndroidActivityResults>());
         }));
 
+        // Wino Account external sign-in. Google is native through Credential Manager. Apple has no Android SDK, so it runs
+        // the API browser flow in a Custom Tab; the head's WinoAccountAuthRedirectActivity delivers the
+        // wino-mail://auth-complete redirect to AndroidExternalAuthCallbacks.
+        services.AddSingleton<AndroidExternalAuthCallbacks>();
+        services.AddSingleton<IWinoAccountBrowserAuthBroker>(provider => new AndroidBrowserAuthBroker(
+            context, provider.GetRequiredService<IDispatcher>(), currentActivity, provider.GetRequiredService<AndroidExternalAuthCallbacks>()));
+        services.AddSingleton<IGoogleNativeSignInProvider>(provider => new AndroidGoogleSignInProvider(provider.GetRequiredService<IDispatcher>(), currentActivity));
+        services.AddSingleton<IWinoAccountExternalSignInService>(provider => new WinoAccountExternalSignInService(
+            provider.GetRequiredService<IWinoAccountApiClient>(), provider.GetRequiredService<IWinoAccountProfileService>(),
+            apple: null, provider.GetRequiredService<IGoogleNativeSignInProvider>(), provider.GetRequiredService<IWinoAccountBrowserAuthBroker>()));
+
         // Relay pushes (compile-only for v1): the FCM token, this device's description; the identity store is above.
         services.AddSingleton(_ => new AndroidFcmTokenProvider(context));
         services.AddSingleton<IPushTokenProvider>(provider => provider.GetRequiredService<AndroidFcmTokenProvider>());

@@ -749,7 +749,8 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
     public async Task<WinoAccount?> ShowWinoAccountLoginDialogAsync()
     {
         var profile = services!.GetRequiredService<IWinoAccountProfileService>();
-        var outcome = await PresentAsync(window => new Views.Account.WinoAccountLoginSheet(profile).PresentAsync(window));
+        var externalSignIn = services.GetService<IWinoAccountExternalSignInService>();
+        var outcome = await PresentAsync(window => new Views.Account.WinoAccountLoginSheet(profile, externalSignIn).PresentAsync(window));
         if (outcome is { ConfirmationDetails: { } details, PendingConfirmationEmail: { Length: > 0 } pending })
         {
             if (await PresentAsync(window => new Views.Account.WinoAccountEmailConfirmationSheet(profile, pending, details).PresentAsync(window)))

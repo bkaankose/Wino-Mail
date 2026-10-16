@@ -5,14 +5,21 @@ using UIKit;
 namespace Wino.Platform.iOS.Services;
 
 /// <summary>
-/// Presentation anchor for <see cref="ASWebAuthenticationSession"/>: the window of the head's current view controller,
-/// otherwise the key window of the foreground-active scene, otherwise any window of a connected scene.
-/// UIKit calls it on the main thread. Sessions start only when <see cref="HasAnchor"/> is true.
+/// Presentation anchor for <see cref="ASWebAuthenticationSession"/> and <see cref="ASAuthorizationController"/> (Sign in
+/// with Apple): the window of the head's current view controller, otherwise the key window of the foreground-active
+/// scene, otherwise any window of a connected scene. UIKit calls it on the main thread. Sessions start only when
+/// <see cref="HasAnchor"/> is true.
 /// </summary>
-public sealed class IOSPresentationAnchorProvider(Func<UIViewController?> presenter) : NSObject, IASWebAuthenticationPresentationContextProviding
+public sealed class IOSPresentationAnchorProvider(Func<UIViewController?> presenter) : NSObject,
+    IASWebAuthenticationPresentationContextProviding, IASAuthorizationControllerPresentationContextProviding
 {
     [Export("presentationAnchorForWebAuthenticationSession:")]
-    public UIWindow GetPresentationAnchor(ASWebAuthenticationSession session)
+    public UIWindow GetPresentationAnchor(ASWebAuthenticationSession session) => RequireAnchor();
+
+    [Export("presentationAnchorForAuthorizationController:")]
+    public UIWindow GetPresentationAnchor(ASAuthorizationController controller) => RequireAnchor();
+
+    private UIWindow RequireAnchor()
         => FindAnchor() ?? new UIWindow(FirstWindowScene() ?? throw new InvalidOperationException("No window scene is connected."));
 
     /// <summary>True when a window exists to anchor the session; read on the main thread.</summary>

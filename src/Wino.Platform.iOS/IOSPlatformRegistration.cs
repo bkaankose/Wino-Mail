@@ -102,8 +102,18 @@ public static class IOSPlatformRegistration
         services.AddSingleton<IApplicationBadgePresenter, IOSApplicationBadgePresenter>();
         services.AddSingleton<IOutlookAuthenticationHost>(provider => new IOSOutlookAuthenticationHost(
             provider.GetRequiredService<IAuthenticatorConfig>(), identity, presenter));
-        services.AddSingleton(new IOSPresentationAnchorProvider(presenter));
+        var anchors = new IOSPresentationAnchorProvider(presenter);
+        services.AddSingleton(anchors);
         services.Replace(ServiceDescriptor.Transient<IGoogleAuthorizationCodeReceiver, IOSGoogleAuthorizationCodeReceiver>());
+        // Wino Account external sign-in, both native: Apple through AuthenticationServices (the entitlement is in both
+        // iOS entitlements files), Google through a web authentication session with the Wino Accounts iOS client. The
+        // browser broker also serves the API browser flow should a provider ever need it.
+        services.AddSingleton<IWinoAccountBrowserAuthBroker>(provider => new AppleWebAuthenticationBroker(provider.GetRequiredService<IDispatcher>(), anchors, () => anchors.HasAnchor));
+        services.AddSingleton<IAppleNativeSignInProvider>(provider => new AppleNativeSignInProvider(provider.GetRequiredService<IDispatcher>(), anchors));
+        services.AddSingleton<IGoogleNativeSignInProvider>(provider => new GoogleWebSessionSignInProvider(provider.GetRequiredService<IWinoAccountBrowserAuthBroker>()));
+        services.AddSingleton<IWinoAccountExternalSignInService>(provider => new WinoAccountExternalSignInService(
+            provider.GetRequiredService<IWinoAccountApiClient>(), provider.GetRequiredService<IWinoAccountProfileService>(),
+            provider.GetRequiredService<IAppleNativeSignInProvider>(), provider.GetRequiredService<IGoogleNativeSignInProvider>(), provider.GetRequiredService<IWinoAccountBrowserAuthBroker>()));
         services.AddSingleton<IExternalLauncher, IOSExternalLauncher>();
         services.AddSingleton<IClipboardService, IOSClipboardService>();
         services.AddSingleton<IShortcutPlatformService, IOSShortcutPlatformService>();

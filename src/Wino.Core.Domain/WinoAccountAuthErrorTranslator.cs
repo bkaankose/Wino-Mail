@@ -30,6 +30,8 @@ public static class WinoAccountAuthErrorTranslator
             ApiErrorCodes.ExternalLoginInvalid => Translator.WinoAccount_Error_ExternalLoginInvalid,
             ApiErrorCodes.ExternalAuthStateInvalid => Translator.WinoAccount_Error_ExternalAuthStateInvalid,
             ApiErrorCodes.ExternalAuthCodeInvalid => Translator.WinoAccount_Error_ExternalAuthCodeInvalid,
+            ApiErrorCodes.ExternalProviderUnavailable => Translator.WinoAccount_Error_ExternalProviderUnavailable,
+            WinoAccountClientErrorCodes.ExternalSignInFailed => Translator.WinoAccount_Error_ExternalSignInFailed,
             ApiErrorCodes.Forbidden => Translator.WinoAccount_Error_Forbidden,
             ApiErrorCodes.ValidationFailed => Translator.WinoAccount_Error_ValidationFailed,
             _ => WinoAccountApiErrorTranslator.Translate(errorCode)

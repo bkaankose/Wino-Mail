@@ -92,12 +92,19 @@ public static class WinoIcons
         => Image(Glyph(icon), size, tint, accessibilityDescription);
 
     public static NSImage Image(string glyph, double size = 16, NSColor? tint = null, string? accessibilityDescription = null)
+        => Image(glyph, size, tint, accessibilityDescription, null);
+
+    /// <summary>A brand glyph in its palette colours whatever the icon style (the Google mark on its sign-in button).</summary>
+    public static NSImage ColorfulImage(WinoIconGlyph icon, double size, string? accessibilityDescription = null)
+        => Image(Glyph(icon), size, null, accessibilityDescription, true);
+
+    private static NSImage Image(string glyph, double size, NSColor? tint, string? accessibilityDescription, bool? colorful)
     {
-        bool template = tint is null && !IsColorful;
+        bool template = tint is null && !(colorful ?? IsColorful);
         var image = NSImage.ImageWithSize(new CGSize(size, size), false, rect =>
         {
             var color = tint ?? (template ? NSColor.Black : NSColor.Label);
-            Draw(glyph, rect, color);
+            Draw(glyph, rect, color, null, colorful);
             return true;
         });
         image.Template = template;

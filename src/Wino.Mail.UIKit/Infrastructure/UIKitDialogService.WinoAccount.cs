@@ -59,7 +59,8 @@ public sealed partial class UIKitDialogService
     public async Task<WinoAccount?> ShowWinoAccountLoginDialogAsync()
     {
         if (Profile() is not { } profile) return null;
-        var outcome = await PresentAsync(presenter => new WinoAccountLoginSheet(profile).PresentAsync(presenter), null);
+        var externalSignIn = services.GetService<IWinoAccountExternalSignInService>();
+        var outcome = await PresentAsync(presenter => new WinoAccountLoginSheet(profile, externalSignIn).PresentAsync(presenter), null);
         if (outcome is { ConfirmationDetails: { } details, PendingConfirmationEmail: { Length: > 0 } pending })
         {
             if (await PresentAsync(presenter => new WinoAccountEmailConfirmationSheet(profile, pending, details).PresentAsync(presenter), false))

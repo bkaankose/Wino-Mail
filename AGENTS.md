@@ -118,16 +118,24 @@ Binding for every agent. Backend counterpart: `AGENTS.md` and `docs/social-sign-
   app's Gmail mailbox client. Do not change, rotate, replace or repurpose it, and never use it for Wino Accounts
   sign-in. Ask the user if a task seems to need it.
 - Wino Accounts Google sign-in: Windows uses the API's browser flow (`/api/v1/auth/google/authorize`); iOS and
-  macOS use the iOS client `973025879644-qlc58h7f2gepqgu3ocvlr7mqvd3fff1c` and post the ID token to
-  `/api/v1/auth/google/native`; Android uses Credential Manager with `serverClientId` = the web client
-  `973025879644-92h0mdbvgaiq0p6efdv16hpiop65er6a.apps.googleusercontent.com`. The Android client ids are never
-  named in code; Google matches package `com.winomail.android` and the signing certificate.
+  macOS use the iOS client `973025879644-qlc58h7f2gepqgu3ocvlr7mqvd3fff1c` (`WinoAccountExternalAuth.GoogleAppleClientId`,
+  an `ASWebAuthenticationSession` with PKCE in `GoogleWebSessionSignInProvider`) and post the ID token to
+  `/api/v1/auth/google/native`; Android uses Credential Manager (`AndroidGoogleSignInProvider`) with `serverClientId`
+  = the web client `973025879644-92h0mdbvgaiq0p6efdv16hpiop65er6a.apps.googleusercontent.com`
+  (`WinoAccountExternalAuth.GoogleAndroidServerClientId`). The Android client ids are never named in code; Google
+  matches package `com.winomail.android` and the signing certificate.
 - Apple: iOS and macOS share App ID `com.winomail.macos` (team `4VB7YWRAQ9`) with Sign in with Apple enabled. The
   iOS entitlements files and `Wino.Mail.MacOS/Entitlements.AppStore.plist` carry `com.apple.developer.applesignin`;
   macOS development builds get it through `CustomEntitlements` when a profile signs the build.
 - Developer ID profiles cannot carry Sign in with Apple. `build-macos-release.sh` passes `-p:WinoAppleSignIn=false`;
   never remove that or add the entitlement to DMG builds, or macOS refuses to launch the app. DMG users sign in
-  with Apple through the API's browser flow.
+  with Apple through the API's browser flow. The Mac csproj defines `WINO_APPLE_SIGNIN` under exactly the
+  entitlement condition; `Composition` registers the native `AppleNativeSignInProvider` with it, and without it the
+  shared `WinoAccountExternalSignInService` falls back to the `ASWebAuthenticationSession` browser flow. Android
+  always uses the browser flow for Apple.
+- The browser flow's callback address (`wino-mail://auth-complete`, the API's `Secrets:ExternalAuth:AppCallbackUri`)
+  is spelled once on the client, in `WinoAccountExternalAuth` (`Wino.Core.Domain`); the Android intent filter and
+  the Mac web session read it from there. Change it there and in the API together.
 - Provisioning profiles are selected by name ("Wino Mail iOS Development", "Wino Mail iOS App Store", "Wino Mail
   macOS App Store", "Wino Mail macOS Developer ID", "Wino Mail macOS Development"). Recreating a profile must keep
   its exact name. Changing App ID capabilities invalidates all of them.

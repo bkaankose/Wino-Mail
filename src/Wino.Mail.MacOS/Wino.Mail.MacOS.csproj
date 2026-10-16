@@ -43,6 +43,12 @@
   <PropertyGroup>
     <WinoAppleSignIn Condition="'$(WinoAppleSignIn)' == ''">true</WinoAppleSignIn>
   </PropertyGroup>
+  <!-- WINO_APPLE_SIGNIN follows the entitlement exactly: Composition registers the native AuthenticationServices flow
+       only in builds that carry it (App Store, or a profile-signed build with WinoAppleSignIn); every other build
+       (DMG, unsigned local builds) signs in with Apple through the API browser flow in ASWebAuthenticationSession. -->
+  <PropertyGroup Condition="'$(WinoMacDistribution)' == 'AppStore' or ('$(CodesignProvision)' != '' and '$(WinoAppleSignIn)' == 'true')">
+    <DefineConstants>$(DefineConstants);WINO_APPLE_SIGNIN</DefineConstants>
+  </PropertyGroup>
   <ItemGroup Condition="'$(WinoMacDistribution)' != 'AppStore' and '$(CodesignProvision)' != ''">
     <CustomEntitlements Include="com.apple.developer.aps-environment" Type="String" Value="$(WinoApsEnvironment)" />
   </ItemGroup>

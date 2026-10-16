@@ -1,6 +1,9 @@
+using Android.Content.Res;
+using Android.Graphics;
 using Android.OS;
 using Android.Views;
 using Android.Widget;
+using Google.Android.Material.Button;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
@@ -27,6 +30,7 @@ public sealed partial class AndroidDialogService
     public async Task<WinoAccount?> ShowWinoAccountLoginDialogAsync()
     {
         if (Profile() is not { } profile) return null;
+        var externalSignIn = services.GetService<IWinoAccountExternalSignInService>();
         var outcome = await FormAsync<LoginOutcome?>(activity =>
         {
             bool forgot = false;
@@ -36,14 +40,54 @@ public sealed partial class AndroidDialogService
             var password = form.AddTextField(Translator.WinoAccount_PasswordLabel, password: true);
             var passwordLayout = (View?)password.Parent?.Parent ?? password;
             var link = form.Add(Link(activity, Translator.WinoAccount_LoginDialog_ForgotPasswordLink), Resource.Dimension.wino_space_2xs);
+            // Sign in with Apple (the API browser flow) and Sign in with Google (Credential Manager) under an "or" rule,
+            // Apple first as Apple asks; hidden in forgot-password mode.
+            var external = new List<View>();
+            if (externalSignIn is { IsAppleAvailable: true } || externalSignIn is { IsGoogleAvailable: true })
+                external.Add(form.Add(OrRule(activity), Resource.Dimension.wino_space_m));
+            if (externalSignIn is { IsAppleAvailable: true })
+                external.Add(ExternalButton(form.Add(AppleButton(activity), Resource.Dimension.wino_space_s), token => externalSignIn.SignInWithAppleAsync(token)));
+            if (externalSignIn is { IsGoogleAvailable: true })
+                external.Add(ExternalButton(form.Add(GoogleButton(activity), Resource.Dimension.wino_space_s), token => externalSignIn.SignInWithGoogleAsync(token)));
             void UpdateMode()
             {
                 form.Title = forgot ? Translator.WinoAccount_ForgotPasswordDialog_Title : Translator.WinoAccount_LoginDialog_Title;
                 description.Text = forgot ? Translator.WinoAccount_ForgotPasswordDialog_Description : Translator.WinoAccount_LoginDialog_Description;
                 form.PrimaryText = forgot ? Translator.WinoAccount_ForgotPasswordDialog_PrimaryButton : Translator.Buttons_SignIn;
                 passwordLayout.Visibility = forgot ? ViewStates.Gone : ViewStates.Visible;
+                foreach (var view in external) view.Visibility = forgot ? ViewStates.Gone : ViewStates.Visible;
                 link.Text = forgot ? Translator.WinoAccount_ForgotPasswordDialog_BackToSignIn : Translator.WinoAccount_LoginDialog_ForgotPasswordLink;
                 form.Refresh();
+            }
+            MaterialButton ExternalButton(MaterialButton button, Func<CancellationToken, Task<WinoAccountOperationResult>> signIn)
+            {
+                button.Click += async (_, _) =>
+                {
+                    if (form.IsBusy) return;
+                    form.ShowError(null);
+                    form.SetBusy(true);
+                    foreach (var view in external) view.Enabled = false;
+                    string? error = null;
+                    try
+                    {
+                        var result = await signIn(CancellationToken.None);
+                        if (result.IsSuccess && result.Account is not null) { form.Finish(new LoginOutcome(result.Account)); return; }
+                        if (!WinoAccountClientErrorCodes.IsCancelled(result.ErrorCode))
+                            error = WinoAccountAuthErrorTranslator.Format(result.ErrorCode, result.ErrorMessage);
+                    }
+                    catch (Exception exception)
+                    {
+                        Serilog.Log.Warning(exception, "External sign-in failed.");
+                        error = exception.Message;
+                    }
+                    finally
+                    {
+                        form.SetBusy(false);
+                        foreach (var view in external) view.Enabled = true;
+                    }
+                    form.ShowError(error);
+                };
+                return button;
             }
             link.Click += (_, _) =>
             {
@@ -255,6 +299,77 @@ public sealed partial class AndroidDialogService
         var profile = services.GetService<IWinoAccountProfileService>();
         if (profile is null) Serilog.Log.Warning("The Wino Account profile service is not registered; the Wino Account dialog cannot open.");
         return profile;
+    }
+
+    /// <summary>A hairline, "or", a hairline: the rule between the password form and the Apple button.</summary>
+    private static LinearLayout OrRule(global::Android.Content.Context context)
+    {
+        var rule = new LinearLayout(context) { Orientation = global::Android.Widget.Orientation.Horizontal, ImportantForAccessibility = ImportantForAccessibility.No };
+        rule.SetGravity(GravityFlags.CenterVertical);
+        var label = WinoTokens.Style(new TextView(context) { Text = Translator.WinoAccount_LoginDialog_OrDivider }, WinoTextStyle.BodySecondary);
+        var gap = WinoTokens.Px(context, Resource.Dimension.wino_space_sm);
+        rule.AddView(Hairline(), new LinearLayout.LayoutParams(0, WinoTokens.Px(context, Resource.Dimension.wino_space_hairline), 1f));
+        rule.AddView(label, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent) { MarginStart = gap, MarginEnd = gap });
+        rule.AddView(Hairline(), new LinearLayout.LayoutParams(0, WinoTokens.Px(context, Resource.Dimension.wino_space_hairline), 1f));
+        return rule;
+
+        View Hairline() => new(context) { Background = new global::Android.Graphics.Drawables.ColorDrawable(WinoColors.Divider(context)) };
+    }
+
+    /// <summary>
+    /// Sign in with Apple as Apple's web/Android guidelines draw it: black fill, white Apple mark and text (a hairline
+    /// outline in the dark theme so it reads on a dark dialog). The mark is the WinoIcons Apple glyph.
+    /// </summary>
+    private static MaterialButton AppleButton(global::Android.Content.Context context)
+    {
+        var dark = WinoColors.IsDark(context);
+        var button = new MaterialButton(context)
+        {
+            Text = Translator.WinoAccount_SignInWithApple,
+            ContentDescription = Translator.WinoAccount_SignInWithApple,
+            IconGravity = MaterialButton.IconGravityTextStart,
+            IconPadding = WinoTokens.Px(context, Resource.Dimension.wino_space_s)
+        };
+        button.SetAllCaps(false);
+        button.InsetTop = 0;
+        button.InsetBottom = 0;
+        button.SetMinHeight(WinoTokens.Px(context, Resource.Dimension.wino_pill_button_height));
+        button.SetMinimumHeight(WinoTokens.Px(context, Resource.Dimension.wino_pill_button_height));
+        button.CornerRadius = WinoTokens.Px(context, Resource.Dimension.wino_radius_large);
+        button.SetTextColor(Color.White);
+        button.BackgroundTintList = ColorStateList.ValueOf(Color.Black);
+        button.Icon = WinoIcons.Drawable(context, WinoIconGlyph.Apple, WinoTokens.Dp(context, Resource.Dimension.wino_glyph_ml), Color.White);
+        button.IconTint = ColorStateList.ValueOf(Color.White);
+        if (dark)
+        {
+            button.StrokeWidth = WinoTokens.Px(context, Resource.Dimension.wino_space_hairline);
+            button.StrokeColor = ColorStateList.ValueOf(WinoColors.Outline(context));
+        }
+        return button;
+    }
+
+    /// <summary>Sign in with Google as Google's guidelines draw it: the colourful mark and the title on a neutral, outlined pill.</summary>
+    private static MaterialButton GoogleButton(global::Android.Content.Context context)
+    {
+        var button = new MaterialButton(context, null, Resource.Attribute.materialButtonOutlinedStyle)
+        {
+            Text = Translator.WinoAccount_SignInWithGoogle,
+            ContentDescription = Translator.WinoAccount_SignInWithGoogle,
+            IconGravity = MaterialButton.IconGravityTextStart,
+            IconPadding = WinoTokens.Px(context, Resource.Dimension.wino_space_s)
+        };
+        button.SetAllCaps(false);
+        button.InsetTop = 0;
+        button.InsetBottom = 0;
+        button.SetMinHeight(WinoTokens.Px(context, Resource.Dimension.wino_pill_button_height));
+        button.SetMinimumHeight(WinoTokens.Px(context, Resource.Dimension.wino_pill_button_height));
+        button.CornerRadius = WinoTokens.Px(context, Resource.Dimension.wino_radius_large);
+        button.SetTextColor(WinoColors.PrimaryText(context));
+        button.Icon = WinoIcons.Drawable(context, WinoIconGlyph.Google, WinoTokens.Dp(context, Resource.Dimension.wino_glyph_ml), colorful: true);
+        button.IconTint = null;
+        button.StrokeWidth = WinoTokens.Px(context, Resource.Dimension.wino_space_hairline);
+        button.StrokeColor = ColorStateList.ValueOf(WinoColors.Outline(context));
+        return button;
     }
 
     /// <summary>A text button in the accent text colour (the Windows HyperlinkButton).</summary>

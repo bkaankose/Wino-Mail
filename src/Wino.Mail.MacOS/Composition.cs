@@ -133,6 +133,19 @@ internal static class Composition
         services.AddSingleton<IDialogServiceBase>(provider => provider.GetRequiredService<IMailDialogService>());
         services.AddSingleton<IExternalBrowserAuthenticationPresenter>(_ => new AppKitExternalBrowserAuthenticationPresenter(dispatcher, owner, error));
         services.AddLoopbackGoogleAuthorizationCodeReceiver();
+        // Wino Account external sign-in. Google runs natively in a web authentication session with the Wino Accounts iOS
+        // client. Apple is native in builds with the applesignin entitlement (the csproj defines WINO_APPLE_SIGNIN with
+        // it) and goes through the API browser flow, in the same web session, everywhere else.
+        var anchors = new MacPresentationAnchorProvider(owner);
+        services.AddSingleton(anchors);
+        services.AddSingleton<IWinoAccountBrowserAuthBroker>(new AppleWebAuthenticationBroker(dispatcher, anchors, () => anchors.HasAnchor));
+        services.AddSingleton<IGoogleNativeSignInProvider>(provider => new GoogleWebSessionSignInProvider(provider.GetRequiredService<IWinoAccountBrowserAuthBroker>()));
+#if WINO_APPLE_SIGNIN
+        services.AddSingleton<IAppleNativeSignInProvider>(new AppleNativeSignInProvider(dispatcher, anchors));
+#endif
+        services.AddSingleton<IWinoAccountExternalSignInService>(provider => new WinoAccountExternalSignInService(
+            provider.GetRequiredService<IWinoAccountApiClient>(), provider.GetRequiredService<IWinoAccountProfileService>(),
+            provider.GetService<IAppleNativeSignInProvider>(), provider.GetRequiredService<IGoogleNativeSignInProvider>(), provider.GetRequiredService<IWinoAccountBrowserAuthBroker>()));
         services.AddSingleton<AppKitNavigationService>(provider => new(provider, dispatcher, host));
         services.AddSingleton<INavigationService>(provider => provider.GetRequiredService<AppKitNavigationService>());
         services.RegisterMacViewModels();

@@ -67,6 +67,8 @@ Live notifications (WinoRelay) need APNs. `com.apple.developer.aps-environment` 
 
 Codesign needs the login keychain. SSH sessions cannot reach it (`errSecInternalComponent`); build signed bundles from Terminal or a `screen` session started in Terminal, or sign ad hoc.
 
+Wino Account Sign in with Apple follows the `com.apple.developer.applesignin` entitlement. The project defines `WINO_APPLE_SIGNIN` under the same condition that adds the entitlement (App Store distribution, or a profile-signed build with `WinoAppleSignIn` true, the default); `Composition` then registers the native `AppleNativeSignInService` (`ASAuthorizationController`). Ad hoc builds and DMG builds (`-p:WinoAppleSignIn=false`) have no entitlement and register the API browser flow instead (`MacWebAuthenticationBroker`, an `ASWebAuthenticationSession` that catches the `wino-mail://auth-complete` redirect itself). Build the Debug app once with `-p:WinoAppleSignIn=false` after touching either path so both compile. Google sign-in for Wino Accounts is native in every Mac build: the same web authentication session shows Google's consent page for the Wino Accounts iOS client (`GoogleWebSessionSignInProvider`, PKCE, redirect `com.googleusercontent.apps.<client>:/oauthredirect`) and the code is exchanged for the ID token the API verifies.
+
 ## Storage, Keychain, and activation
 
 - Application data: `~/Library/Containers/com.winomail.macos/Data/Library/Application Support/com.winomail.macos` (database, preferences, logs, MIME files). `ApplePaths` (Wino.Platform.Apple) resolves it through the sandbox container.

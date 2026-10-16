@@ -21,6 +21,10 @@
     <PackageReference Include="Xamarin.AndroidX.WebKit" />
     <!-- Gmail authorization (AuthorizationClient) and the Play services availability check. -->
     <PackageReference Include="Xamarin.GooglePlayServices.Auth" />
+    <!-- Credential Manager and the Google ID option for Wino Account Google sign-in. -->
+    <PackageReference Include="Xamarin.AndroidX.Credentials" />
+    <PackageReference Include="Xamarin.AndroidX.Credentials.PlayServicesAuth" />
+    <PackageReference Include="Xamarin.Google.Android.Libraries.Identity.GoogleId" />
     <!-- MSAL's Android build (Custom Tabs sign-in, SharedPreferences token cache) for the Outlook host. -->
     <PackageReference Include="Microsoft.Identity.Client" />
     <!-- WorkManager: the queued-changes flush (expedited one-time work with a network constraint). -->

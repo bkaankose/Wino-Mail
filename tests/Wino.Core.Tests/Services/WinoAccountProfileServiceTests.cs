@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using FluentAssertions;
 using Moq;
 using Wino.Core.Domain.Entities.Shared;
@@ -13,6 +14,7 @@ using Wino.Mail.Api.Contracts.Ai;
 using Wino.Mail.Api.Contracts.Auth;
 using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.AI.Abstractions;
+using Wino.Messaging.UI;
 using Wino.Services;
 using Wino.Core.Tests.Helpers;
 using Xunit;
@@ -94,6 +96,62 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
             .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(auth with { User = auth.User with { DisplayName = null, AvatarRevision = null } }));
         await _service.LoginAsync("profile-login@example.com", "pw");
         (await _service.GetActiveAccountAsync())!.DisplayName.Should().Be("profile-login@example.com");
+    }
+
+    [Fact]
+    public async Task SignInWithAppleAsync_PersistsTheAccountAndAnnouncesIt()
+    {
+        var auth = CreateAuthResult("apple@example.com");
+        auth = auth with { User = auth.User with { HasAppleLogin = true, HasPassword = false } };
+        var credential = new AppleSignInCredential("id-token", "auth-code", "Ada", "Lovelace");
+        _apiClient.Setup(x => x.SignInWithAppleNativeAsync("id-token", "auth-code", "Ada", "Lovelace", It.IsAny<System.Threading.CancellationToken>()))
+            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(auth));
+        WinoAccountSignedInMessage? announced = null;
+        IMessenger messenger = WeakReferenceMessenger.Default;
+        messenger.Register<WinoAccountSignedInMessage>(this, (_, message) => announced = message);
+        try
+        {
+            var result = await _service.SignInWithAppleAsync(credential);
+
+            result.IsSuccess.Should().BeTrue();
+            var stored = (await _service.GetActiveAccountAsync())!;
+            stored.Email.Should().Be("apple@example.com");
+            stored.HasAppleLogin.Should().BeTrue();
+            stored.HasPassword.Should().BeFalse();
+            stored.AccessToken.Should().Be(auth.AccessToken);
+            announced.Should().NotBeNull();
+            announced!.Account.Id.Should().Be(auth.User.UserId);
+        }
+        finally
+        {
+            messenger.Unregister<WinoAccountSignedInMessage>(this);
+        }
+    }
+
+    [Fact]
+    public async Task CompleteExternalSignInAsync_PersistsTheAccount()
+    {
+        var auth = CreateAuthResult("browser@example.com");
+        _apiClient.Setup(x => x.CompleteExternalSignInAsync("completion-code", It.IsAny<System.Threading.CancellationToken>()))
+            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(auth));
+
+        var result = await _service.CompleteExternalSignInAsync("completion-code");
+
+        result.IsSuccess.Should().BeTrue();
+        (await _service.GetActiveAccountAsync())!.Email.Should().Be("browser@example.com");
+    }
+
+    [Fact]
+    public async Task CompleteExternalSignInAsync_WhenTheCodeIsRejected_PersistsNothing()
+    {
+        _apiClient.Setup(x => x.CompleteExternalSignInAsync("stale", It.IsAny<System.Threading.CancellationToken>()))
+            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Failure(ApiErrorCodes.ExternalAuthCodeInvalid));
+
+        var result = await _service.CompleteExternalSignInAsync("stale");
+
+        result.IsSuccess.Should().BeFalse();
+        result.ErrorCode.Should().Be(ApiErrorCodes.ExternalAuthCodeInvalid);
+        (await _service.GetActiveAccountAsync()).Should().BeNull();
     }
 
     [Fact]

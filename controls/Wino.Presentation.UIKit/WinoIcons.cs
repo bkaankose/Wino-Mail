@@ -97,6 +97,10 @@ public static class WinoIcons
     public static UIImage Image(string glyph, double size = 16, UIColor? tint = null, string? accessibilityDescription = null)
         => Image(glyph, size, tint, accessibilityDescription, null);
 
+    /// <summary>A brand glyph in its palette colours whatever the icon style (the Google mark on its sign-in button).</summary>
+    public static UIImage ColorfulImage(WinoIconGlyph icon, double size, string? accessibilityDescription = null)
+        => Image(Glyph(icon), size, null, accessibilityDescription, true);
+
     /// <summary>
     /// A state glyph (star on and off, round check) drawn from the mono font in one colour whatever the icon style, as
     /// Windows draws these with an explicit Foreground.
