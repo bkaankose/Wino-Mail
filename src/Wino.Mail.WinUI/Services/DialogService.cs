@@ -19,9 +19,12 @@ using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Editor;
 using Wino.Dialogs;
 using Wino.Mail.Dialogs;
+using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Extensions;
+using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.ViewModels;
 using Wino.Mail.WinUI.Services;
 using Wino.Messaging.Server;
@@ -29,7 +32,7 @@ using Wino.Messaging.UI;
 
 namespace Wino.Services;
 
-public class DialogService : DialogServiceBase, IMailDialogService, IRecipient<SemanticIndexingCompleted>
+public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogService, IRecipient<SemanticIndexingCompleted>
 {
     private readonly IWinoAccountProfileService _winoAccountProfileService;
 
@@ -161,16 +164,9 @@ public class DialogService : DialogServiceBase, IMailDialogService, IRecipient<S
             icon ?? WinoCustomMessageDialogIcon.Information,
             false);
 
-        var dialog = new ContentDialog
+        var dialog = new WinoMessageDialog(informationContainer, primaryButtonText, secondaryButtonText, cancelButtonText)
         {
-            Style = ApplicationResourceManager.GetResource<Style>("WinoDialogStyle"),
-            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme(),
-            DefaultButton = ContentDialogButton.Primary,
-            PrimaryButtonText = primaryButtonText,
-            SecondaryButtonText = secondaryButtonText,
-            CloseButtonText = cancelButtonText,
-            ContentTemplate = ApplicationResourceManager.GetResource<DataTemplate>("CustomWinoContentDialogContentTemplate"),
-            Content = informationContainer
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
         };
 
         var dialogResult = await HandleDialogPresentationAsync(dialog);
@@ -192,16 +188,13 @@ public class DialogService : DialogServiceBase, IMailDialogService, IRecipient<S
                 summary,
                 WinoCustomMessageDialogIcon.Warning,
                 false);
-            var dialog = new ContentDialog
+            var dialog = new WinoMessageDialog(informationContainer,
+                                               Translator.Buttons_Allow,
+                                               Translator.IMAPSetupDialog_CertificateView,
+                                               Translator.Buttons_Cancel,
+                                               ContentDialogButton.Close)
             {
-                Style = ApplicationResourceManager.GetResource<Style>("WinoDialogStyle"),
-                RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme(),
-                DefaultButton = ContentDialogButton.Close,
-                PrimaryButtonText = Translator.Buttons_Allow,
-                SecondaryButtonText = Translator.IMAPSetupDialog_CertificateView,
-                CloseButtonText = Translator.Buttons_Cancel,
-                ContentTemplate = ApplicationResourceManager.GetResource<DataTemplate>("CustomWinoContentDialogContentTemplate"),
-                Content = informationContainer
+                RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
             };
 
             var result = await HandleDialogPresentationAsync(dialog);
@@ -452,5 +445,83 @@ public class DialogService : DialogServiceBase, IMailDialogService, IRecipient<S
         await HandleDialogPresentationAsync(dialog);
 
         return dialog.Result;
+    }
+
+    public async Task<bool> ShowCautiousConfirmationDialogAsync(string title, string message, string confirmButtonText)
+    {
+        var informationContainer = new CustomMessageDialogInformationContainer(title, message, WinoCustomMessageDialogIcon.Warning, false);
+        var dialog = new WinoMessageDialog(informationContainer,
+                                           confirmButtonText,
+                                           closeButtonText: Translator.Buttons_Cancel,
+                                           defaultButton: ContentDialogButton.Close)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        return await HandleDialogPresentationAsync(dialog) == ContentDialogResult.Primary;
+    }
+
+    public async Task<EditorLinkCommandArgs?> ShowEditorLinkDialogAsync(string url, string text, bool isImageSelected)
+    {
+        var dialog = new EditorLinkDialog(url, text, isImageSelected)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(dialog);
+
+        return dialog.Result;
+    }
+
+    public async Task<EditorImagePropertiesCommandArgs?> ShowEditorImagePropertiesDialogAsync(string altText, string linkUrl)
+    {
+        var dialog = new EditorImagePropertiesDialog(altText, linkUrl)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(dialog);
+
+        return dialog.Result;
+    }
+
+    public async Task<EditorTableCommandArgs?> ShowEditorTableDialogAsync()
+    {
+        var dialog = new EditorTableDialog
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(dialog);
+
+        return dialog.Result;
+    }
+
+    public async Task<bool> ShowIntelligenceConsentPolicyDialogAsync(Uri? policyUri, Func<Task<bool>> acceptAsync)
+    {
+        var dialog = new IntelligenceConsentPolicyDialog(policyUri, acceptAsync)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(dialog);
+
+        return dialog.IsAccepted;
+    }
+
+    public ExternalBrowserAuthenticationDialog? OpenExternalBrowserAuthenticationDialog(ExternalBrowserAuthenticationRequest request, Action cancelRequested)
+    {
+        var dialog = new ExternalBrowserAuthenticationDialog
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme(),
+            AuthorizationUri = request.AuthorizationUri,
+            Message = string.Format(Translator.ExternalBrowserAuthenticationDialog_Message, request.ProviderDisplayName)
+        };
+
+        dialog.CancelRequested += (_, _) => cancelRequested();
+
+        // The sign-in waits for the browser redirect, which the user completes away from Wino,
+        // so the surface opens on the main window rather than whichever window was last active.
+        return StartSessionDialog(dialog, WinoApplication.MainWindow?.Content?.XamlRoot) == null ? null : dialog;
     }
 }

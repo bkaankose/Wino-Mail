@@ -74,6 +74,15 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
         var stagingPath = GetPath(StagingDatabaseName);
         var destinationPath = GetPath(DatabaseService.CurrentDatabaseName);
 
+        // An interrupted first launch or fresh start leaves a 210 file without its completion marker and
+        // without accounts. It holds nothing to keep, and leaving it would block both startup and relocation.
+        var destination = await DatabaseService.ReadLifecycleAsync(destinationPath).ConfigureAwait(false);
+        if (destination.IsDisposable && !IsFileInUse(destinationPath))
+        {
+            ReportDestinationNotReady(destination, "discarded");
+            DeleteGeneratedDatabase(destinationPath);
+        }
+
         try
         {
             await _relocation.PrepareAsync(cancellationToken).ConfigureAwait(false);
@@ -85,45 +94,57 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
                 false, [], SanitizeError(ex));
         }
 
-        var invalidDestinationExists = false;
-        if (File.Exists(destinationPath))
-        {
-            var destinationValidation = await _schemaService.ValidateAsync(
-                    destinationPath,
-                    cancellationToken,
-                    requireCompletedMigration: true)
-                .ConfigureAwait(false);
-            if (destinationValidation.IsValid)
-            {
-                var pendingAuthorizationAccounts = await ReadPendingAuthorizationAccountsAsync(
-                        destinationPath,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                if (pendingAuthorizationAccounts.Count > 0)
-                {
-                    return new MigrationPlan(
-                        MigrationStatus.AwaitingUser,
-                        sourcePath,
-                        stagingPath,
-                        destinationPath,
-                        true,
-                        pendingAuthorizationAccounts,
-                        "Some selected account features still need provider authorization.");
-                }
+        // Relocation only copies a database in when none exists, so a present file needs no second read.
+        if (!File.Exists(destinationPath) || !destination.Exists)
+            destination = await DatabaseService.ReadLifecycleAsync(destinationPath).ConfigureAwait(false);
 
+        if (destination.IsReady)
+        {
+            var pendingAuthorizationAccounts = await ReadPendingAuthorizationAccountsAsync(
+                    destinationPath,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (pendingAuthorizationAccounts.Count > 0)
+            {
                 return new MigrationPlan(
-                    MigrationStatus.NotRequired,
+                    MigrationStatus.AwaitingUser,
                     sourcePath,
                     stagingPath,
                     destinationPath,
-                    false,
-                    []);
+                    true,
+                    pendingAuthorizationAccounts,
+                    "Some selected account features still need provider authorization.");
             }
 
-            invalidDestinationExists = true;
+            return new MigrationPlan(
+                MigrationStatus.NotRequired,
+                sourcePath,
+                stagingPath,
+                destinationPath,
+                false,
+                []);
         }
 
-        if (!File.Exists(sourcePath) && !invalidDestinationExists)
+        if (destination.Exists)
+        {
+            // The current database exists and holds data, or cannot be read. Migrating would overwrite it
+            // with the old database, and starting fresh would delete it, so neither is offered.
+            ReportDestinationNotReady(destination, "blocked");
+            return new MigrationPlan(
+                MigrationStatus.Failed,
+                sourcePath,
+                stagingPath,
+                destinationPath,
+                false,
+                [],
+                destination.IsDamaged
+                    ? "Wino's database is damaged and can't be opened. Start fresh to continue; the damaged file is kept next to it."
+                    : destination.IsReadable
+                        ? "Wino's database was not set up completely. Your data was kept. Contact support before starting fresh."
+                        : "Wino couldn't open its database. Close other apps that might be using Wino's files, then try again.");
+        }
+
+        if (!File.Exists(sourcePath))
         {
             return new MigrationPlan(
                 MigrationStatus.NotRequired,
@@ -427,6 +448,28 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
         {
             var stagingPath = GetPath(StagingDatabaseName);
             var destinationPath = GetPath(DatabaseService.CurrentDatabaseName);
+
+            // Starting fresh replaces only what migration or an interrupted creation generated. A ready
+            // database, one that holds accounts, or one that cannot be read is the user's data.
+            var destination = await DatabaseService.ReadLifecycleAsync(destinationPath).ConfigureAwait(false);
+            if (destination.IsReady)
+                return new MigrationResult(MigrationStatus.Skipped);
+
+            if (destination.IsDamaged && !IsFileInUse(destinationPath))
+            {
+                // Nothing in a damaged file can be read, so the user's explicit fresh start may replace it.
+                // It is moved aside rather than deleted, in case it can still be recovered by hand.
+                ReportDestinationNotReady(destination, "start_fresh_damaged_kept");
+                MoveDatabaseAside(destinationPath, $".damaged-{DateTime.UtcNow:yyyyMMddHHmmss}");
+            }
+            else if (destination.Exists && (!destination.IsDisposable || IsFileInUse(destinationPath)))
+            {
+                ReportDestinationNotReady(destination, "start_fresh_blocked");
+                return new MigrationResult(
+                    MigrationStatus.Failed,
+                    ErrorMessage: "Wino kept its current database instead of replacing it. Close other apps that might be using Wino's files, then try again.");
+            }
+
             DeleteGeneratedDatabase(stagingPath);
             DeleteGeneratedDatabase(destinationPath);
 
@@ -942,6 +985,28 @@ WHERE Id = ?;",
         string detail = null)
         => ProgressChanged?.Invoke(this, new MigrationProgress(step, status, title, description, progress, detail));
 
+    /// <summary>
+    /// Records why the current database was not ready, which inspection otherwise only acts on.
+    /// </summary>
+    private void ReportDestinationNotReady(DatabaseLifecycleSnapshot destination, string outcome)
+    {
+        var properties = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["outcome"] = outcome,
+            ["schema_version"] = destination.SchemaVersion.ToString(),
+            ["has_metadata_table"] = destination.HasMetadataTable.ToString(),
+            ["metadata_status"] = destination.MetadataStatus?.ToString() ?? "None",
+            ["account_count"] = destination.AccountCount.ToString(),
+            ["read_error"] = destination.ReadError?.GetType().Name ?? "None",
+            ["result"] = FindSQLiteException(destination.ReadError)?.Result.ToString() ?? "None"
+        };
+
+        if (destination.ReadError != null)
+            properties["sanitized_error"] = SanitizeError(destination.ReadError);
+
+        _logger?.TrackEvent("migration_destination_not_ready", properties);
+    }
+
     private void CaptureFailure(Exception exception, string operationName, MigrationStepKind? step)
     {
         var sqliteException = FindSQLiteException(exception);
@@ -1104,6 +1169,35 @@ WHERE Id = ?;",
         {
             if (File.Exists(sidecar))
                 File.Delete(sidecar);
+        }
+    }
+
+    /// <summary>
+    /// True when another handle has the file open, for example a Wino process that is still creating it.
+    /// </summary>
+    private static bool IsFileInUse(string path)
+    {
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            return false;
+        }
+        catch (IOException)
+        {
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return true;
+        }
+    }
+
+    private static void MoveDatabaseAside(string databasePath, string suffix)
+    {
+        foreach (var sidecar in new[] { "", "-wal", "-shm" })
+        {
+            if (File.Exists(databasePath + sidecar))
+                File.Move(databasePath + sidecar, databasePath + suffix + sidecar);
         }
     }
 

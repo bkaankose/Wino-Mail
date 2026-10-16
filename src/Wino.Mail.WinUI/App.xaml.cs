@@ -985,6 +985,12 @@ public partial class App : WinoApplication,
         Microsoft.UI.Xaml.LaunchActivatedEventArgs? launchArgs,
         AppActivationArguments? activationArgs)
     {
+        // Once this process has started its runtime, the migration decision is made and the runtime owns
+        // Wino210.db. A redirected activation during a first launch would otherwise inspect a database that
+        // is still being created and send the user to the migration window.
+        if (_applicationRuntime != null)
+            return false;
+
         var plan = await Services.GetRequiredService<IMigrationCoordinator>().InspectAsync();
         if (plan.Status == Wino.Core.Domain.Models.Migration.MigrationStatus.NotRequired)
             return false;

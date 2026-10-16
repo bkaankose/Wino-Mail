@@ -1,12 +1,9 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using Microsoft.UI.Xaml.Controls;
 using Serilog;
-using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Dialogs;
-using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Interfaces;
 using WinRT.Interop;
 using WinUIEx;
@@ -14,20 +11,21 @@ using WinUIEx;
 namespace Wino.Mail.WinUI.Services;
 
 /// <summary>
-/// Hosts <see cref="ExternalBrowserAuthenticationDialog"/> on the active window while an
+/// Keeps <see cref="ExternalBrowserAuthenticationDialog"/> open through the dialog service while an
 /// authenticator waits for the browser redirect. Presentation failures never block the sign-in:
 /// the browser flow keeps running and the session degrades to a no-op.
 /// </summary>
 public sealed partial class ExternalBrowserAuthenticationPresenter : IExternalBrowserAuthenticationPresenter
 {
     private readonly IDispatcher _dispatcher;
-    private readonly Lazy<INewThemeService> _themeService;
+    // Lazy: the dialog service reaches the authenticators that use this presenter.
+    private readonly Lazy<IWinoDialogService> _dialogService;
     private readonly IWinoWindowManager _windowManager;
 
-    public ExternalBrowserAuthenticationPresenter(IDispatcher dispatcher, Lazy<INewThemeService> themeService, IWinoWindowManager windowManager)
+    public ExternalBrowserAuthenticationPresenter(IDispatcher dispatcher, Lazy<IWinoDialogService> dialogService, IWinoWindowManager windowManager)
     {
         _dispatcher = dispatcher;
-        _themeService = themeService;
+        _dialogService = dialogService;
         _windowManager = windowManager;
     }
 
@@ -41,21 +39,7 @@ public sealed partial class ExternalBrowserAuthenticationPresenter : IExternalBr
             await _dispatcher.ExecuteOnUIThread(() =>
             {
                 hostWindow = WinoApplication.MainWindow;
-                var xamlRoot = hostWindow?.Content?.XamlRoot;
-                if (xamlRoot is null) return;
-
-                var presentedDialog = new ExternalBrowserAuthenticationDialog
-                {
-                    XamlRoot = xamlRoot,
-                    RequestedTheme = _themeService.Value.RootTheme.ToWindowsElementTheme(),
-                    AuthorizationUri = request.AuthorizationUri,
-                    Message = string.Format(Translator.ExternalBrowserAuthenticationDialog_Message, request.ProviderDisplayName)
-                };
-
-                presentedDialog.CancelRequested += (_, _) => cancelRequested();
-                _ = PresentAsync(presentedDialog);
-
-                dialog = presentedDialog;
+                dialog = _dialogService.Value.OpenExternalBrowserAuthenticationDialog(request, cancelRequested);
             });
         }
         catch (Exception ex)
@@ -64,20 +48,6 @@ public sealed partial class ExternalBrowserAuthenticationPresenter : IExternalBr
         }
 
         return new Session(dialog, hostWindow, _dispatcher, _windowManager);
-    }
-
-    private static async Task PresentAsync(ExternalBrowserAuthenticationDialog dialog)
-    {
-        try
-        {
-            // Only one ContentDialog can be open per XamlRoot. If another one owns it, the sign-in
-            // still completes in the browser; the user just misses the cancel/copy affordance.
-            await dialog.ShowAsync();
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "External browser authentication dialog failed to show.");
-        }
     }
 
     [LibraryImport("user32.dll")]

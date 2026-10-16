@@ -15,6 +15,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Translations;
 using Wino.Editor;
 using Wino.Mail.WinUI;
+using Wino.Mail.WinUI.Interfaces;
 using WinRT;
 
 namespace Wino.Mail.Controls;
@@ -51,6 +52,7 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
     private readonly List<ICommandBarElement> _injectedOptionsCommands = [];
     private string _selectedSpellCheckLanguageCode = string.Empty;
     private bool _areSpellCheckLanguagesConfigured;
+    private bool _isEditorDialogOpen;
 
     public event EventHandler<SpellCheckEnabledChangedEventArgs>? SpellCheckEnabledChanged;
     public event EventHandler<SpellCheckLanguageChangedEventArgs>? SpellCheckLanguageChanged;
@@ -653,7 +655,32 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
 
     private async void LinkButton_Click(object sender, RoutedEventArgs e) => await ShowLinkDialogAsync();
 
-    private async Task ShowLinkDialogAsync()
+    private static IWinoDialogService? GetDialogService()
+        => WinoApplication.Current?.Services?.GetService<IWinoDialogService>();
+
+    /// <summary>
+    /// A second click or Ctrl+K while an editor dialog is open would only queue a duplicate behind it.
+    /// </summary>
+    private async Task ShowEditorDialogAsync(Func<IWinoDialogService, Task> showAsync)
+    {
+        if (_isEditorDialogOpen || GetDialogService() is not { } dialogService)
+        {
+            return;
+        }
+
+        _isEditorDialogOpen = true;
+
+        try
+        {
+            await showAsync(dialogService);
+        }
+        finally
+        {
+            _isEditorDialogOpen = false;
+        }
+    }
+
+    private Task ShowLinkDialogAsync() => ShowEditorDialogAsync(async dialogService =>
     {
         if (CommandTarget == null)
         {
@@ -661,146 +688,39 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         }
 
         var currentState = CommandTarget.CurrentState;
-        var isImageSelected = currentState.IsImageSelected;
-        var urlTextBox = new TextBox
-        {
-            Header = Translator.Composer_LinkUrl,
-            Text = isImageSelected ? currentState.ImageLinkUrl ?? string.Empty : currentState.LinkUrl ?? string.Empty,
-            PlaceholderText = Translator.Composer_LinkUrlPlaceholder
-        };
-        var textTextBox = new TextBox
-        {
-            Header = Translator.Composer_LinkText,
-            Text = currentState.SelectedText ?? string.Empty,
-            PlaceholderText = Translator.Composer_LinkTextPlaceholder,
-            Visibility = isImageSelected ? Visibility.Collapsed : Visibility.Visible
-        };
-        var openInNewWindow = new CheckBox
-        {
-            Content = Translator.Composer_OpenLinkInNewWindow,
-            IsChecked = true
-        };
+        var url = currentState.IsImageSelected ? currentState.ImageLinkUrl : currentState.LinkUrl;
+        var link = await dialogService.ShowEditorLinkDialogAsync(url ?? string.Empty, currentState.SelectedText ?? string.Empty, currentState.IsImageSelected);
 
-        var dialog = new ContentDialog
+        if (link != null)
         {
-            XamlRoot = XamlRoot,
-            Title = isImageSelected ? Translator.Composer_EditImageLink : Translator.Composer_InsertLink,
-            PrimaryButtonText = Translator.Buttons_Apply,
-            CloseButtonText = Translator.Buttons_Cancel,
-            DefaultButton = ContentDialogButton.Primary,
-            Content = new StackPanel
-            {
-                Spacing = 12,
-                Children =
-                {
-                    urlTextBox,
-                    textTextBox,
-                    openInNewWindow
-                }
-            }
-        };
-
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(urlTextBox.Text))
-        {
-            await ExecuteAsync(EditorCommand.InsertLink(new EditorLinkCommandArgs(urlTextBox.Text.Trim(), textTextBox.Text.Trim(), openInNewWindow.IsChecked == true)));
+            await ExecuteAsync(EditorCommand.InsertLink(link));
         }
-    }
+    });
 
-    private async Task ShowImagePropertiesDialogAsync()
+    private Task ShowImagePropertiesDialogAsync() => ShowEditorDialogAsync(async dialogService =>
     {
         if (CommandTarget?.CurrentState is not { IsImageSelected: true } currentState)
         {
             return;
         }
 
-        var altTextBox = new TextBox
-        {
-            Header = Translator.Composer_ImageAltText,
-            Text = currentState.ImageAltText ?? string.Empty,
-            PlaceholderText = Translator.Composer_ImageAltTextPlaceholder
-        };
-        var urlTextBox = new TextBox
-        {
-            Header = Translator.Composer_LinkUrl,
-            Text = currentState.ImageLinkUrl ?? string.Empty,
-            PlaceholderText = Translator.Composer_LinkUrlPlaceholder
-        };
-        var openInNewWindow = new CheckBox
-        {
-            Content = Translator.Composer_OpenLinkInNewWindow,
-            IsChecked = true
-        };
-        var dialog = new ContentDialog
-        {
-            XamlRoot = XamlRoot,
-            Title = Translator.Composer_ImageProperties,
-            PrimaryButtonText = Translator.Buttons_Apply,
-            CloseButtonText = Translator.Buttons_Cancel,
-            DefaultButton = ContentDialogButton.Primary,
-            Content = new StackPanel
-            {
-                Spacing = 12,
-                Children =
-                {
-                    altTextBox,
-                    urlTextBox,
-                    openInNewWindow
-                }
-            }
-        };
+        var properties = await dialogService.ShowEditorImagePropertiesDialogAsync(currentState.ImageAltText ?? string.Empty, currentState.ImageLinkUrl ?? string.Empty);
 
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        if (properties != null)
         {
-            await ExecuteAsync(EditorCommand.SetImageProperties(new EditorImagePropertiesCommandArgs(
-                altTextBox.Text.Trim(),
-                string.IsNullOrWhiteSpace(urlTextBox.Text) ? null : urlTextBox.Text.Trim(),
-                openInNewWindow.IsChecked == true)));
+            await ExecuteAsync(EditorCommand.SetImageProperties(properties));
         }
-    }
+    });
 
-    private async void TableButton_Click(object sender, RoutedEventArgs e)
+    private async void TableButton_Click(object sender, RoutedEventArgs e) => await ShowEditorDialogAsync(async dialogService =>
     {
-        var rowsBox = new NumberBox
-        {
-            Header = Translator.Composer_TableRows,
-            Minimum = 1,
-            Maximum = 10,
-            SmallChange = 1,
-            Value = 2
-        };
-        var columnsBox = new NumberBox
-        {
-            Header = Translator.Composer_TableColumns,
-            Minimum = 1,
-            Maximum = 10,
-            SmallChange = 1,
-            Value = 2
-        };
+        var table = await dialogService.ShowEditorTableDialogAsync();
 
-        var dialog = new ContentDialog
+        if (table != null)
         {
-            XamlRoot = XamlRoot,
-            Title = Translator.Composer_InsertTable,
-            PrimaryButtonText = Translator.Buttons_Insert,
-            CloseButtonText = Translator.Buttons_Cancel,
-            DefaultButton = ContentDialogButton.Primary,
-            Content = new StackPanel
-            {
-                Spacing = 12,
-                Children =
-                {
-                    rowsBox,
-                    columnsBox
-                }
-            }
-        };
-
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-        {
-            await ExecuteAsync(EditorCommand.InsertTable(new EditorTableCommandArgs((int)Math.Max(1, rowsBox.Value), (int)Math.Max(1, columnsBox.Value))));
+            await ExecuteAsync(EditorCommand.InsertTable(table));
         }
-    }
-
+    });
 }
 
 public sealed class SpellCheckEnabledChangedEventArgs(bool isEnabled) : EventArgs

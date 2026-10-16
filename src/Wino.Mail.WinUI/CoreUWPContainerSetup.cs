@@ -57,6 +57,7 @@ public static class CoreUWPContainerSetup
 
         // One dialog stack, one presentation semaphore: the base interface forwards to the mail dialog service.
         services.AddSingleton<IDialogServiceBase>(provider => provider.GetRequiredService<IMailDialogService>());
+        services.AddSingleton<IWinoDialogService>(provider => (IWinoDialogService)provider.GetRequiredService<IMailDialogService>());
         services.AddSingleton<IExternalBrowserAuthenticationPresenter, ExternalBrowserAuthenticationPresenter>();
         services.AddTransient<IConfigurationService, ConfigurationService>();
         services.AddTransient<IFileService, FileService>();
@@ -66,6 +67,7 @@ public static class CoreUWPContainerSetup
         // manager reaches the theme service (theme -> window manager).
         services.AddSingleton(provider => new Lazy<IMailDialogService>(provider.GetRequiredService<IMailDialogService>));
         services.AddSingleton(provider => new Lazy<INewThemeService>(provider.GetRequiredService<INewThemeService>));
+        services.AddSingleton(provider => new Lazy<IWinoDialogService>(provider.GetRequiredService<IWinoDialogService>));
         services.AddSingleton<INotificationHostClient, NotificationHostClient>();
         services.AddTransient<INotificationBuilder, NotificationBuilder>();
         services.AddSingleton<IWindowsPrintService, PrintService>();

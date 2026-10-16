@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -7,6 +8,8 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.ViewModels.Data;
 using Wino.Helpers;
 using Wino.Mail.Controls.ContextFlyout;
+using Wino.Mail.WinUI;
+using Wino.Mail.WinUI.Interfaces;
 using Wino.Views.Abstract;
 
 namespace Wino.Views.Settings;
@@ -90,17 +93,13 @@ public sealed partial class NotificationSettingsPage : NotificationSettingsPageA
 
     private async void ResetButton_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new ContentDialog
-        {
-            XamlRoot = XamlRoot,
-            Title = Translator.NotificationSettings_Reset_ConfirmTitle,
-            Content = Translator.NotificationSettings_Reset_ConfirmMessage,
-            PrimaryButtonText = Translator.NotificationSettings_Reset_Title,
-            CloseButtonText = Translator.Buttons_Cancel,
-            DefaultButton = ContentDialogButton.Close
-        };
+        var dialogService = WinoApplication.Current.Services.GetRequiredService<IWinoDialogService>();
+        var isConfirmed = await dialogService.ShowCautiousConfirmationDialogAsync(
+            Translator.NotificationSettings_Reset_ConfirmTitle,
+            Translator.NotificationSettings_Reset_ConfirmMessage,
+            Translator.NotificationSettings_Reset_Title);
 
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        if (isConfirmed)
         {
             await ViewModel.ResetAsync();
         }

@@ -271,7 +271,7 @@ public sealed class Database210MigrationCoordinatorTests
     }
 
     [Fact]
-    public async Task InspectAsync_Invalid210WithoutLegacyDatabase_RequiresFreshStart()
+    public async Task InspectAsync_Damaged210WithoutLegacyDatabase_OffersOnlyFreshStart()
     {
         var directory = CreateTemporaryDirectory();
         try
@@ -281,9 +281,11 @@ public sealed class Database210MigrationCoordinatorTests
 
             var plan = await coordinator.InspectAsync();
 
-            plan.Status.Should().Be(MigrationStatus.Required);
+            // Nothing to migrate from: the migration itself is never offered for a damaged current database.
+            plan.Status.Should().Be(MigrationStatus.Failed);
             plan.Accounts.Should().BeEmpty();
             (await coordinator.StartFreshAsync()).Status.Should().Be(MigrationStatus.Skipped);
+            Directory.GetFiles(directory, DatabaseService.CurrentDatabaseName + ".damaged-*").Should().ContainSingle();
         }
         finally
         {
