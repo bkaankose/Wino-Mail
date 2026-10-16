@@ -26,7 +26,8 @@ namespace Wino.Mail.UIKit.Views.ToDo;
 public abstract partial class ToDoPageViewController : WinoViewController<ToDoPageViewModel>, IShellSearchTarget
 {
     private readonly WinoZoneView _zone = new();
-    private readonly UILabel _title = WinoStyle.Label(string.Empty, WinoStyle.Scaled(24, UIFontWeight.Semibold), WinoStyle.Accent);
+    // iPadToDo board (15 Oct 2026): the list title is a compact 17pt semibold header line, not a large accent title.
+    private readonly UILabel _title = WinoStyle.Label(string.Empty, WinoStyle.Scaled(17, UIFontWeight.Semibold));
     private readonly UILabel _subtitle = WinoStyle.Label(string.Empty, WinoStyle.Description, WinoStyle.SecondaryText);
     private readonly WinoQuickAddView _quickAdd = new(Translator.ToDoPage_AddTask);
     private readonly WinoStateView _empty = new(WinoIconGlyph.Checkmark, string.Empty, string.Empty) { Hidden = true };
@@ -99,8 +100,8 @@ public abstract partial class ToDoPageViewController : WinoViewController<ToDoPa
             _header.LeadingAnchor.ConstraintEqualTo(content.LeadingAnchor),
             _header.TrailingAnchor.ConstraintEqualTo(content.TrailingAnchor),
             table.TopAnchor.ConstraintEqualTo(_header.BottomAnchor),
-            table.LeadingAnchor.ConstraintEqualTo(content.LeadingAnchor, 10),
-            table.TrailingAnchor.ConstraintEqualTo(content.TrailingAnchor, -10),
+            table.LeadingAnchor.ConstraintEqualTo(content.LeadingAnchor, 4),
+            table.TrailingAnchor.ConstraintEqualTo(content.TrailingAnchor, -4),
             table.BottomAnchor.ConstraintEqualTo(_quickAdd.TopAnchor, -6),
             _quickAdd.LeadingAnchor.ConstraintEqualTo(content.LeadingAnchor, 12),
             _quickAdd.TrailingAnchor.ConstraintEqualTo(content.TrailingAnchor, -12),
@@ -169,8 +170,6 @@ public abstract partial class ToDoPageViewController : WinoViewController<ToDoPa
         Bindings.Own(new ActionDisposable(() => ViewModel.Readiness.PropertyChanged -= ReadinessChanged));
         ViewModel.TaskComposerFocusRequested += ComposerFocusRequested;
         Bindings.Own(new ActionDisposable(() => ViewModel.TaskComposerFocusRequested -= ComposerFocusRequested));
-        WinoStyle.AccentChanged += AccentChanged;
-        Bindings.Own(new ActionDisposable(() => WinoStyle.AccentChanged -= AccentChanged));
         PrepareLayout();
 #if DEBUG
         RegisterDebugCommands();
@@ -192,8 +191,6 @@ public abstract partial class ToDoPageViewController : WinoViewController<ToDoPa
         _released = true;
         await base.ReleaseAsync();
     }
-
-    private void AccentChanged(object? sender, EventArgs args) => OnUI(() => _title.TextColor = WinoStyle.Accent);
 
     private void ComposerFocusRequested(object? sender, Wino.Core.Domain.Models.TaskComposerFocusRequestedEventArgs args) => OnUI(_quickAdd.Focus);
 

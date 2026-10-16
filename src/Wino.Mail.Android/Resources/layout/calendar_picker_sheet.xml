@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The phone calendar's date picker sheet (option B, 15 Oct 2026; the iPhone CalendarPickerSheetViewController):
+     Day · Week · Month, the agenda toggle and the calendars filter in one row; the shown month with Today and the month
+     arrows; then the Wino month grid with the visible range highlighted. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    style="@style/Widget.Wino.Calendar.PickerSheet">
+
+  <LinearLayout
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:gravity="center_vertical"
+      android:orientation="horizontal">
+
+    <com.google.android.material.button.MaterialButtonToggleGroup
+        android:id="@+id/picker_types"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        app:selectionRequired="true"
+        app:singleSelection="true" />
+
+    <com.winomail.presentation.WinoIconView
+        android:id="@+id/picker_agenda"
+        style="@style/Widget.WinoKit.GlyphButton"
+        android:layout_marginStart="@dimen/wino_space_xs" />
+
+    <com.winomail.presentation.WinoIconView
+        android:id="@+id/picker_calendars"
+        style="@style/Widget.WinoKit.GlyphButton" />
+  </LinearLayout>
+
+  <LinearLayout
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="@dimen/wino_space_s"
+      android:gravity="center_vertical"
+      android:orientation="horizontal">
+
+    <TextView
+        android:id="@+id/picker_month"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:accessibilityHeading="true"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textAppearance="@style/TextAppearance.WinoKit.ItemTitle" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/picker_today"
+        style="@style/Widget.Wino.Button.Text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
+    <com.winomail.presentation.WinoIconView
+        android:id="@+id/picker_previous"
+        style="@style/Widget.WinoKit.GlyphButton" />
+
+    <com.winomail.presentation.WinoIconView
+        android:id="@+id/picker_next"
+        style="@style/Widget.WinoKit.GlyphButton" />
+  </LinearLayout>
+
+  <com.winomail.controls.WinoCalendarMonthGridView
+      android:id="@+id/picker_grid"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content" />
+</LinearLayout>

@@ -39,7 +39,8 @@ public sealed class WinoCalendarSlotEventArgs(DateTime start, bool isAllDay) : E
 /// The Windows calendar surface on Android (CalendarPeriodControl; the UIKit and AppKit WinoCalendarSurfaceView) for
 /// the medium and expanded layouts (canvas board CalendarTablet): Day, Week and Work week show the day header, the
 /// all-day lanes and the scrolling 24-hour grid with the hour gutter, weekend shading, today's column and the current
-/// time line; Month shows the six-week grid with event bars. Placement comes from the shared
+/// time line; Month shows the six-week grid with event bars, or only each day's event count where cells are phone-narrow.
+/// Horizontal flings raise <see cref="SwipedNext"/> and <see cref="SwipedPrevious"/>. Placement comes from the shared
 /// <see cref="CalendarSurfaceLayoutCalculator"/> and <see cref="WinoCalendarSurfaceGeometry"/>, tile colours from
 /// <see cref="WinoCalendarTileAppearance"/>. Taps raise <see cref="ItemClicked"/> or <see cref="SlotClicked"/>, a long press
 /// on a tile <see cref="ItemLongClicked"/>. Dragging tiles to move or resize them is not implemented on Android.
@@ -66,6 +67,46 @@ public sealed class WinoCalendarSurfaceView : LinearLayout
     public event EventHandler<WinoCalendarItemEventArgs>? ItemClicked;
     public event EventHandler<WinoCalendarItemEventArgs>? ItemLongClicked;
     public event EventHandler<WinoCalendarSlotEventArgs>? SlotClicked;
+
+    /// <summary>A horizontal fling towards the start: the next period (pages that page the surface by swiping).</summary>
+    public event EventHandler? SwipedNext;
+
+    /// <summary>A horizontal fling towards the end: the previous period.</summary>
+    public event EventHandler? SwipedPrevious;
+
+    private GestureDetector? _swipes;
+
+    public override bool DispatchTouchEvent(MotionEvent? e)
+    {
+        // Only observes the gesture: taps, long presses and the vertical scroll still reach the children.
+        if (e is not null && (SwipedNext is not null || SwipedPrevious is not null))
+        {
+            _swipes ??= new GestureDetector(Context, new SwipeListener(this));
+            _swipes.OnTouchEvent(e);
+        }
+        return base.DispatchTouchEvent(e);
+    }
+
+    private void Flung(float deltaX)
+    {
+        if (Context is not { } context || Math.Abs(deltaX) < WinoTokens.PxF(context, Resource.Dimension.wino_calendar_swipe_min_distance)) return;
+        bool rtl = LayoutDirection == global::Android.Views.LayoutDirection.Rtl;
+        if (deltaX < 0 ^ rtl) SwipedNext?.Invoke(this, EventArgs.Empty);
+        else SwipedPrevious?.Invoke(this, EventArgs.Empty);
+    }
+
+    private sealed class SwipeListener(WinoCalendarSurfaceView owner) : GestureDetector.SimpleOnGestureListener
+    {
+        public override bool OnDown(MotionEvent e) => true;
+
+        public override bool OnFling(MotionEvent? e1, MotionEvent e2, float velocityX, float velocityY)
+        {
+            // Clearly horizontal flings only, so a vertical scroll of the hours never pages.
+            if (e1 is null || Math.Abs(velocityX) < Math.Abs(velocityY) * 2) return false;
+            owner.Flung(e2.GetX() - e1.GetX());
+            return true;
+        }
+    }
 
     /// <summary>Builds the tile of an item on a day (title, time line, colour, selection).</summary>
     public Func<ICalendarItem, DateOnly, WinoCalendarTileModel>? TileFactory { get; set; }
@@ -539,7 +580,11 @@ public sealed class WinoCalendarSurfaceView : LinearLayout
                 _owner.DrawCenteredLabel(canvas, culture.DateTimeFormat.GetAbbreviatedDayName(dates[col].DayOfWeek), cellWidth * col + cellWidth / 2, header / 2,
                     WinoColors.SecondaryText(context), Resource.Dimension.wino_calendar_day_name_text, false);
 
-            (_cells, _placements) = CalendarSurfaceLayoutCalculator.CalculateMonth(dates, _owner.Snapshot(), Width / density, (Height - header) / density);
+            var items = _owner.Snapshot();
+            (_cells, _placements) = CalendarSurfaceLayoutCalculator.CalculateMonth(dates, items, Width / density, (Height - header) / density);
+            // Phone-width cells show only the day's event count (owner, 15 Oct 2026; the iPhone surface): titles are unreadable there.
+            bool countOnly = cellWidth < WinoTokens.PxF(context, Resource.Dimension.wino_calendar_month_count_only_width);
+            if (countOnly) _placements = [];
             var today = _owner.Today();
             foreach (var cell in _cells)
             {
@@ -558,6 +603,8 @@ public sealed class WinoCalendarSurfaceView : LinearLayout
                 _owner.DrawCenteredLabel(canvas, cell.Date.Day.ToString(culture), left + (float)CalendarSurfaceLayoutCalculator.MonthCellPadding * density + cellWidth / 8,
                     top + (float)CalendarSurfaceLayoutCalculator.MonthDayLabelHeight * density / 2 + (float)CalendarSurfaceLayoutCalculator.MonthCellPadding * density / 2,
                     color, Resource.Dimension.wino_calendar_tile_title_text, cell.Date == today);
+                if (countOnly) DrawCount(canvas, context, CountOn(items, cell.Date), left, top + (float)CalendarSurfaceLayoutCalculator.MonthDayLabelHeight * density,
+                    (float)b.Width * density, top + (float)b.Height * density, inRange);
             }
             foreach (var placement in _placements)
             {
@@ -565,6 +612,36 @@ public sealed class WinoCalendarSurfaceView : LinearLayout
                 var rect = new RectF((float)b.X * density, header + (float)b.Y * density, (float)b.Right * density, header + (float)b.Bottom * density);
                 _owner.DrawTile(canvas, placement.Item, placement.Date, rect, placement.Kind);
             }
+        }
+
+        /// <summary>Events that touch <paramref name="date"/> (an all-day event's exclusive end does not count).</summary>
+        private static int CountOn(List<ICalendarItem> items, DateOnly date)
+        {
+            var start = date.ToDateTime(TimeOnly.MinValue);
+            var end = start.AddDays(1);
+            return items.Count(item => item.StartDate < end && (item.EndDate > start || (item.EndDate <= item.StartDate && item.StartDate >= start)));
+        }
+
+        /// <summary>The count pill, centred in the cell under the day number (the phone month grid's pill tokens).</summary>
+        private static void DrawCount(Canvas canvas, Context context, int count, float left, float top, float width, float bottom, bool inRange)
+        {
+            if (count <= 0) return;
+            string text = count > 99 ? "99+" : count.ToString(System.Globalization.CultureInfo.CurrentCulture);
+            LabelPaint.TextAlign = Paint.Align.Center;
+            LabelPaint.TextSize = WinoTokens.PxF(context, Resource.Dimension.wino_calendar_month_count_text);
+            LabelPaint.SetTypeface(Typeface.Create("sans-serif-medium", TypefaceStyle.Normal));
+            float height = WinoTokens.PxF(context, Resource.Dimension.wino_calendar_month_count_height);
+            float pillWidth = Math.Max(WinoTokens.PxF(context, Resource.Dimension.wino_calendar_month_count_min_width),
+                LabelPaint.MeasureText(text) + 2 * WinoTokens.PxF(context, Resource.Dimension.wino_calendar_month_count_padding));
+            float centerX = left + width / 2;
+            float centerY = top + Math.Max(height / 2, (bottom - top) / 2);
+            var accent = WinoColors.AccentText(context);
+            FillPaint.SetStyle(Paint.Style.Fill);
+            FillPaint.Color = WinoColors.WithAlpha(accent, inRange ? 0.16 : 0.08);
+            canvas.DrawRoundRect(new RectF(centerX - pillWidth / 2, centerY - height / 2, centerX + pillWidth / 2, centerY + height / 2), height / 2, height / 2, FillPaint);
+            LabelPaint.Color = inRange ? accent : WinoColors.WithAlpha(accent, 0.5);
+            var metrics = LabelPaint.GetFontMetrics();
+            canvas.DrawText(text, centerX, centerY - ((metrics?.Ascent ?? 0) + (metrics?.Descent ?? 0)) / 2, LabelPaint);
         }
 
         public override bool OnTouchEvent(MotionEvent? e) => e is not null && _gestures.OnTouchEvent(e) || base.OnTouchEvent(e);

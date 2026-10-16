@@ -3956,7 +3956,11 @@
   "IOS_Personalization_BackdropDescription": "Off keeps plain surfaces with the theme accent only.",
   "IOS_Calendar_Calendars": "Calendars",
   "IOS_Calendar_Agenda": "Agenda",
+  "IOS_Calendar_ChooseDate": "Opens the date picker",
   "IOS_Calendar_NoEvents": "No events",
+  "IOS_MoveSheet_Title": "Move to folder",
+  "IOS_MoveSheet_OneMessage": "1 message",
+  "IOS_MoveSheet_Messages": "{0} messages",
   "Android_Shell_OpenNavigation": "Open navigation",
   "Android_NotificationChannelGroup_Accounts": "Mail accounts",
   "Android_NotificationChannel_MailDescription": "New mail in {0}",
@@ -3969,9 +3973,15 @@
   "Android_Notification_SendingChanges": "Sending your changes",
   "Android_Settings_Decrease": "Decrease",
   "Android_Settings_Increase": "Increase",
+  "Android_Settings_On": "On",
+  "Android_Settings_Off": "Off",
+  "Android_Settings_Selected": "Selected",
   "Android_Appearance_System": "System",
   "Android_Appearance_Light": "Light",
   "Android_Appearance_Dark": "Dark",
   "Android_Welcome_Tagline": "Mail, calendar, contacts and tasks",
-  "Android_ToDo_Lists": "Lists"
+  "Android_ToDo_Lists": "Lists",
+  "Android_MailList_SelectedCount": "{0} selected",
+  "Android_Move_Title": "Move to",
+  "Android_Move_FilterPlaceholder": "Find a folder"
 }

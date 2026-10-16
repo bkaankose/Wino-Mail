@@ -1,66 +1,60 @@
 using UIKit;
-using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
-using Wino.Mail.Controls.UIKit.Shell;
-using Wino.Mail.UIKit.Views.Calendar;
 using Wino.Presentation.UIKit;
 
 namespace Wino.Mail.UIKit.Phone.Calendar;
 
 /// <summary>
-/// The iPhone Calendar tab's root view over the wallpaper: a header zone with the collapsible month picker
-/// (<see cref="WinoMiniCalendarView"/>, the visible range highlighted) and the period row (previous, Day · Week · Month,
-/// next, the agenda toggle), then the content zone that holds the timed surface or the agenda list.
+/// The iPhone Calendar tab's root view over the wallpaper (date picker option B, 15 Oct 2026): in Day view a small zone
+/// with the week strip (<see cref="CalendarWeekStripView"/>), then the content zone that holds the timed surface or the
+/// agenda list. Week and Month views drop the strip zone so the grid starts right under the bar; the period, agenda
+/// toggle and month picker live in the sheet the bar title opens (<see cref="CalendarPickerSheetViewController"/>).
 /// </summary>
 public sealed class CalendarPage : UIView
 {
     public static readonly CalendarDisplayType[] DisplayTypes = [CalendarDisplayType.Day, CalendarDisplayType.Week, CalendarDisplayType.Month];
 
+    private readonly NSLayoutConstraint _contentBelowStrip;
+    private readonly NSLayoutConstraint _contentAtTop;
+
     public CalendarPage()
     {
         BackgroundColor = UIColor.Clear;
-        HeaderZone = new WinoZoneView();
+        StripZone = new WinoZoneView();
         ContentZone = new WinoZoneView();
-        AddSubview(HeaderZone);
+        AddSubview(StripZone);
         AddSubview(ContentZone);
 
-        MiniCalendar = new WinoMiniCalendarView();
-        Period = new UISegmentedControl([Translator.CalendarTypeSelector_Day, Translator.CalendarTypeSelector_Week, Translator.CalendarTypeSelector_Month])
-        {
-            TranslatesAutoresizingMaskIntoConstraints = false
-        };
-        Previous = IconButton(WinoIconGlyph.ArrowLeft, Translator.Accessibility_PreviousCalendarPeriod);
-        Next = IconButton(WinoIconGlyph.ArrowRight, Translator.Accessibility_NextCalendarPeriod);
-        Agenda = IconButton(WinoIconGlyph.CalendarAgenda, Translator.IOS_Calendar_Agenda);
-        Period.SetContentHuggingPriority(1, UILayoutConstraintAxis.Horizontal);
-        var periodRow = WinoLayout.HStack(6, Previous, Period, Next, Agenda);
-        periodRow.Alignment = UIStackViewAlignment.Center;
-
-        var header = WinoLayout.Insets(WinoLayout.VStack(6, MiniCalendar, periodRow), 4, 8, 8, 8);
-        header.Alignment = UIStackViewAlignment.Fill;
-        WinoLayout.Fill(header, HeaderZone.ContentView);
+        WeekStrip = new CalendarWeekStripView();
+        WinoLayout.Fill(WeekStrip, StripZone.ContentView, 0, 4, 0, 4);
 
         var guide = SafeAreaLayoutGuide;
         var gutter = (nfloat)WinoStyle.ZoneGutter;
+        _contentBelowStrip = ContentZone.TopAnchor.ConstraintEqualTo(StripZone.BottomAnchor, gutter);
+        _contentAtTop = ContentZone.TopAnchor.ConstraintEqualTo(guide.TopAnchor, gutter);
         NSLayoutConstraint.ActivateConstraints(
         [
-            HeaderZone.TopAnchor.ConstraintEqualTo(guide.TopAnchor, gutter),
-            HeaderZone.LeadingAnchor.ConstraintEqualTo(guide.LeadingAnchor, gutter),
-            HeaderZone.TrailingAnchor.ConstraintEqualTo(guide.TrailingAnchor, -gutter),
-            ContentZone.TopAnchor.ConstraintEqualTo(HeaderZone.BottomAnchor, gutter),
+            StripZone.TopAnchor.ConstraintEqualTo(guide.TopAnchor, gutter),
+            StripZone.LeadingAnchor.ConstraintEqualTo(guide.LeadingAnchor, gutter),
+            StripZone.TrailingAnchor.ConstraintEqualTo(guide.TrailingAnchor, -gutter),
+            _contentBelowStrip,
             ContentZone.LeadingAnchor.ConstraintEqualTo(guide.LeadingAnchor, gutter),
             ContentZone.TrailingAnchor.ConstraintEqualTo(guide.TrailingAnchor, -gutter),
             ContentZone.BottomAnchor.ConstraintEqualTo(guide.BottomAnchor, -gutter)
         ]);
     }
 
-    public WinoZoneView HeaderZone { get; }
+    public WinoZoneView StripZone { get; }
     public WinoZoneView ContentZone { get; }
-    public WinoMiniCalendarView MiniCalendar { get; }
-    public UISegmentedControl Period { get; }
-    public UIButton Previous { get; }
-    public UIButton Next { get; }
-    public UIButton Agenda { get; }
+    public CalendarWeekStripView WeekStrip { get; }
+
+    /// <summary>Shows the week strip (Day view) or gives its height to the grid (Week and Month).</summary>
+    public void SetStripVisible(bool visible)
+    {
+        StripZone.Hidden = !visible;
+        _contentBelowStrip.Active = visible;
+        _contentAtTop.Active = !visible;
+    }
 
     /// <summary>The segment of a display type; Work week shows as Week on the phone.</summary>
     public static int SegmentFor(CalendarDisplayType type) => type switch
@@ -69,24 +63,4 @@ public sealed class CalendarPage : UIView
         CalendarDisplayType.Month => 2,
         _ => 1
     };
-
-    public void SetAgendaOn(bool on)
-    {
-        var configuration = Agenda.Configuration ?? UIButtonConfiguration.PlainButtonConfiguration;
-        configuration.Image = WinoIcons.Image(WinoIconGlyph.CalendarAgenda, 18, on ? WinoStyle.Accent : WinoStyle.SecondaryText);
-        configuration.Background.BackgroundColor = on ? WinoStyle.Accent.ColorWithAlpha(0.15f) : UIColor.Clear;
-        Agenda.Configuration = configuration;
-        Agenda.Selected = on;
-    }
-
-    private static UIButton IconButton(WinoIconGlyph glyph, string label)
-    {
-        var configuration = UIButtonConfiguration.PlainButtonConfiguration;
-        configuration.Image = WinoIcons.Image(glyph, 18, WinoStyle.SecondaryText);
-        configuration.CornerStyle = UIButtonConfigurationCornerStyle.Capsule;
-        var button = new UIButton { Configuration = configuration, TranslatesAutoresizingMaskIntoConstraints = false };
-        WinoLayout.Size(button, 40, 36);
-        WinoAccessibility.Label(button, label);
-        return button;
-    }
 }

@@ -36,15 +36,10 @@ public sealed partial class EmailTemplatesPageViewController(
 
     protected override void BuildPage()
     {
-        // The intro (the page description) is shown by the base; the primary New template action follows it.
+        // iOS shows no page description: the primary New template action opens the page.
         var create = Bind.Button(Translator.SettingsEmailTemplates_NewTemplateTitle, ViewModel.CreateTemplate, primary: true, icon: WinoIconGlyph.Add);
-        create.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
         WinoAccessibility.Help(create, Translator.SettingsEmailTemplates_NewTemplateDescription);
-        var intro = WinoStyle.Label(Translator.SettingsEmailTemplates_Intro, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0);
-        var top = WinoLayout.VStack(WinoStyle.Space3, intro, SettingsCardLayout.Leading(create));
-        top.Alignment = UIStackViewAlignment.Fill;
-        Add(top);
-        Page.SetCustomSpacing(10, top);
+        AddGroup(null, ActionRow(create));
 
         var title = WinoStyle.Label(Translator.SettingsEmailTemplates_ListTitle, WinoSettingsStyle.SectionTitle, WinoStyle.PrimaryText);
         title.AccessibilityTraits = UIAccessibilityTrait.Header;
@@ -61,9 +56,6 @@ public sealed partial class EmailTemplatesPageViewController(
 
         Bind.Collection(ViewModel.EmailTemplates, QueueRebuild);
     }
-
-    /// <summary>The intro carries the action, so the catalog description is not repeated above it.</summary>
-    protected override bool ShowsPageDescription => false;
 
     protected override async Task InitializeAsync(NavigationMode mode, object? parameter)
     {
@@ -158,7 +150,7 @@ public sealed partial class EmailTemplatesPageViewController(
     /// <summary>Centred Note glyph, title, one-line hint and the secondary "Create a template" button.</summary>
     private UIView EmptyState()
     {
-        var card = new WinoSurfaceView { CornerRadius = WinoSettingsStyle.CardRadius, Fill = WinoSettingsStyle.CardFill, Stroke = WinoSettingsStyle.CardStroke, StrokeWidth = 1, TranslatesAutoresizingMaskIntoConstraints = false };
+        var card = new WinoSurfaceView { CornerRadius = WinoSettingsStyle.CardRadius, Fill = WinoSettingsStyle.GroupFill, Stroke = WinoSettingsStyle.CardStroke, StrokeWidth = 1, TranslatesAutoresizingMaskIntoConstraints = false };
         var glyph = new WinoIconView(WinoIconGlyph.Note, 36, WinoStyle.SecondaryText);
         WinoLayout.Size(glyph, 36, 36);
         var title = WinoStyle.Label(Translator.SettingsEmailTemplates_EmptyTitle, WinoStyle.Scaled(17, UIFontWeight.Semibold), WinoStyle.PrimaryText, 0);

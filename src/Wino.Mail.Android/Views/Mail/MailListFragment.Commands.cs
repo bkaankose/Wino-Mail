@@ -116,9 +116,9 @@ public sealed partial class MailListFragment
         string title = count > 0 ? string.Format(Translator.MailsSelected, count) : Translator.NoMailSelected;
         if (_actionModeTitle is { } compact)
         {
-            // Phones: the count alone (the Material contextual app bar), so Archive, Delete and Move keep their room;
-            // TalkBack still reads the shared sentence.
-            compact.Text = count.ToString(System.Globalization.CultureInfo.CurrentCulture);
+            // Phones: "N selected" (canvas Material pass InboxDark) in the contextual app bar; TalkBack reads the
+            // shared sentence.
+            compact.Text = string.Format(System.Globalization.CultureInfo.CurrentCulture, Translator.Android_MailList_SelectedCount, count);
             compact.ContentDescription = title;
         }
         else mode.Title = title;

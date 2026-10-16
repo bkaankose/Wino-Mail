@@ -32,9 +32,8 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
     {
         var vm = ViewModel;
 
-        var add = Bind.Button(Translator.Buttons_AddAccount, vm.AddNewAccountCommand, primary: true, icon: WinoIconGlyph.Add);
-        add.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
-        Add(Row(add, WinoLayout.Spacer()));
+        // Add account is an accent action row (settings rows, 15 Oct 2026).
+        AddGroup(null, Card(string.Empty, null, WinoIconGlyph.None, Bind.Button(Translator.Buttons_AddAccount, vm.AddNewAccountCommand)));
         Bind.Visible(Add(Group(null, PurchaseCard())), vm, nameof(vm.IsPurchasePanelVisible), s => s.IsPurchasePanelVisible);
 
         // Windows list header: Merge inboxes (with its "Mail only" scope tag) and Reorder, above the accounts.
@@ -102,7 +101,7 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
     private static UIView ScopeTag(string text)
     {
         var label = WinoStyle.Label(text, WinoStyle.Caption, WinoStyle.SecondaryText);
-        var tag = new WinoSurfaceView { Fill = WinoSettingsStyle.CardFill, Stroke = WinoSettingsStyle.CardStroke, CornerRadius = 4, TranslatesAutoresizingMaskIntoConstraints = false };
+        var tag = new WinoSurfaceView { Fill = WinoSettingsStyle.GroupFill, Stroke = WinoSettingsStyle.CardStroke, CornerRadius = 4, TranslatesAutoresizingMaskIntoConstraints = false };
         WinoLayout.Fill(label, tag, 2, 8, 2, 8);
         return tag;
     }

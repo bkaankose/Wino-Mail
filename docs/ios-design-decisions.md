@@ -2,7 +2,7 @@
 
 Decided on 13 October 2026. These decisions fix the shell, workflow and control choices for the universal UIKit app in `src/Wino.Mail.iOS`, its UI projects `src/Wino.Mail.UIKit`, `src/Wino.Mail.UIKit.Phone` and `src/Wino.Mail.UIKit.Pad`, and the UIKit control libraries under `controls/`. Shared ViewModels, services, sync, storage and the HTML reader/editor engine are unchanged by any of them; every row below is a presentation decision.
 
-Design canvas: <https://claude.ai/artifact/9iAW48NVfnnMNZTh39YhQL> (built on the Wino Design System with the WinoIcons fonts and the Windows wallpapers).
+Design canvas: <https://claude.ai/artifact/9iAW48NVfnnMNZTh39YhQL> (built on the Wino Design System with the WinoIcons fonts and the Windows wallpapers). The 15 Oct 2026 revision (compact bars, Mailboxes drawer, Settings row, select icon, denser Settings, reader spacing) could not be published from a Code session (the Design-type canvas refuses it); the edited boards are kept locally in `docs/design-prototypes/ios-canvas-rev-20261015/` for pasting into the Design editor.
 
 Build, identity and verification commands are in [iOS development](harness/development-ios.md). The [macOS design decisions](macos-design-decisions.md), Revision 2, apply unless this document overrides them.
 
@@ -18,14 +18,16 @@ Build, identity and verification commands are in [iOS development](harness/devel
 | --- | --- |
 | Packaging | One universal app bundle with the Mac app's bundle ID `com.winomail.macos` (one App Store record for macOS, iOS and iPadOS; decided 13 Oct 2026), iOS and iPadOS 17.0 minimum. `Composition.cs` picks the phone or pad UI project by `UIDevice.UserInterfaceIdiom`. Both UI projects reference `Wino.Mail.UIKit` and never each other. |
 | Modes | Mail, Calendar, Contacts and To Do, in the desktop order. Settings is never a mode on iPhone or iPad. |
-| Settings | The account avatar opens Settings as a full-screen sheet: the Mailboxes bar (top-left) on iPhone, the toolbar (top-right) on iPad. Later Settings pages push inside the sheet. |
-| iPhone shell | Tab bar with the four modes. Each tab is a navigation stack with the avatar button. |
+| Settings | Settings opens as a full-screen sheet: the Settings row pinned at the foot of the Mailboxes drawer and the gear bar button on the other tabs on iPhone (revised 15 Oct 2026; no avatar opens Settings), the avatar in the toolbar (top-right) on iPad. Later Settings pages push inside the sheet. |
+| iPhone shell | Tab bar with the four modes. Each tab is a navigation stack with compact 44pt bars; no large titles (revised 15 Oct 2026 to give content the height). |
 | iPad shell | Mirrors the Mac shell: a toolbar row (sidebar toggle, sync with title and subtitle, centred search, Daily briefing, What's New, avatar), a sidebar with the Windows rows and the four-mode switcher card at its foot, a 360pt list, and the reader with its command bar on top. Never the floating top tab bar. |
-| iPhone Mail flow | Mailboxes, then the folder list, then the message. The reader has a bottom toolbar: Archive, Delete, Move, Flag, a Reply menu (Reply, Reply all, Forward) and More. Leading swipe archives; trailing swipes are Delete, Flag and More. Long press opens a menu for rare commands. Focused/Other stays a segmented control. |
+| iPhone Mail flow | The folder list is the Mail stack's root, titled with the folder name. Mailboxes is a drawer from the left (min(85%, 340pt), scrim, edge pan, the sidebar bar button); picking a folder closes it. The message is pushed. Select is an icon button; selection mode uses the table's native circles and range drags (one finger over the circles, two-finger pan). Pull to refresh moves only the list. The reader has a bottom toolbar: Archive, Delete, Move, Flag, a Reply menu (Reply, Reply all, Forward) and More. Leading swipe archives; trailing swipes are Delete, Flag and More. Long press opens a menu for rare commands. Focused/Other stays a segmented control. |
 | Sheets | Compose, Move and the Daily briefing are sheets on iPhone. |
 | Not on iPhone | Hover actions, density, reading-pane options, Companion, detached compose and global hotkeys. |
 | Onboarding | Uses the Wino Mail logo (`src/Wino.Mail.WinUI/Assets/WinoLogo.png`), not the Inbox glyph. |
 | Backdrop | The theme wallpaper or gradient paints the whole screen. Bars are blurred over it. Content sits in one rounded Wino zone per page. |
+| Settings pages | (15 Oct 2026, revised: title-only rows) A settings page is a list of titles on inset-grouped surfaces (white, #1E1E23 in dark, radius 10, 1pt 6% stroke) over a #F2F2F6 zone, with 12pt semibold upper-case section headers. Rows are 52pt minimum with a 16pt title and no header icon or description (the root list keeps its colourful icons; account and data rows keep their picture and subtitle). The framework picks the row from the card's content (`WinoSettingsCard.IsListRow`, `WinoSettingsRowContent`): a switch row keeps the native 51 × 31 `UISwitch` (no scaling); a pop-up, segmented control, stepper, slider, field or time picker is a value row (15pt secondary value, at most 45% wide, and a 12pt #C7C7CC chevron); vertical content, multi-control content, clickable cards and every expander are push rows; a lone titled button is an accent action row (red when destructive, dimmed while CanExecute is false). Disabled rows are 45% alpha and not selectable. Every push opens the one `WinoSettingDetailViewController`: title = card header, choices as a 48pt option list with an accent checkmark that selects through the control's own binding, fields, steppers, sliders and pickers in a single-cell group, custom content hosted in a group, the description as the group footer; an expander's items follow the same rules (a switch stays a switch, a stepper sits on its row, a choice becomes an option section titled by the item). Nothing expands in place. Settings scroll views do not delay content touches, so a quick tap on a switch is not lost. |
+| Mail list | Date group headers are plain labels with no background (15 Oct 2026, also Android); a header the table pins hides its label, so headers read as rows. |
 | Icons | Every glyph comes from the WinoIcons fonts. SF Symbols are not used. |
 
 ## Differences from Mac Revision 2
@@ -52,7 +54,7 @@ Build, identity and verification commands are in [iOS development](harness/devel
 | Mode | iPhone | iPad |
 | --- | --- | --- |
 | Mail | Mailboxes, folder list, reader push, bottom toolbar | Sidebar, list column, reader column with command bar; drag mail onto sidebar folders |
-| Calendar | Day, week and month with a collapsible mini-calendar header, agenda list, details pushed, composer as a full-screen sheet, quick event sheet | Week, work week, day and month grids with the calendar sidebar (New event, month picker, calendars), details in the reader column, composer in place, quick event popover |
+| Calendar | Day, week and month; the bar title opens the date picker sheet; a week strip in Day view; agenda list, details pushed, composer as a full-screen sheet, quick event sheet | Week, work week, day and month grids with the calendar sidebar (New event, month picker, calendars), details in the reader column, composer in place, quick event popover |
 | Contacts | Letter-indexed list, card pushed, editor as a full-screen sheet | Sidebar filters, list column, card in the reader column, editor as a form sheet |
 | To Do | Lists (the shell-owned stack root, like Mailboxes), then tasks, then the detail pushed; quick add bar above the keyboard | Lists in the sidebar, task list, detail drawer in the reader column |
 
@@ -60,8 +62,8 @@ Build, identity and verification commands are in [iOS development](harness/devel
 
 | | iPhone | iPad |
 | --- | --- | --- |
-| Surface | Day, Week and Month (Work week shows as Week); a header zone with the collapsible month picker and the period row; an agenda list toggle | Day, Week, Work week and Month in the content column, which the pad shell widens in Calendar mode so the reader column keeps 340pt for the details |
-| Navigation | Range title, Today, New event and the calendars filter in the bar; swipe pages the period | Previous, next and Today in the toolbar row. Wide column: range title, period control and New event in the row. Narrow column (under 640pt, 13-inch portrait): the range and period control move into the zone's header, New event stays in the sidebar |
+| Surface | Day, Week and Month (Work week shows as Week). Date picker option B (15 Oct 2026): Day view shows a week strip above the grid; Week and Month have no header zone. Month cells narrower than 90pt show an event count instead of tiles | Day, Week, Work week and Month in the content column, which the pad shell widens in Calendar mode so the reader column keeps 340pt for the details |
+| Navigation | Today, the range title (a button with a chevron) and New event in the bar. The title opens a medium-detent sheet: Day · Week · Month, the agenda toggle, the calendars filter, Today and the month grid with the visible range; picking a day closes it. Swipe pages the period; the strip swipe moves a week | Previous, next and Today in the toolbar row. Wide column: range title, period control and New event in the row. Narrow column (under 640pt, 13-inch portrait): the range and period control move into the zone's header, New event stays in the sidebar |
 | Sidebar | None (the calendars filter is a sheet) | The sidebar's content slot shows New event, the month picker and the calendars with colour toggles, above the shell's mode switcher |
 | Details | Pushed on the Calendar stack | The reader column; its idle state shows the calendar glyph |
 | Composer | A full-screen sheet | In place over the surface |

@@ -9,53 +9,43 @@ using Wino.Presentation.UIKit;
 
 namespace Wino.Mail.UIKit.Views.Settings;
 
-/// <summary>A Windows ToggleSwitch with custom On/Off content (Allowed / Not allowed): label, then UISwitch.</summary>
+/// <summary>
+/// A Windows ToggleSwitch with custom On/Off content (Allowed / Not allowed): the compact native switch of
+/// <see cref="WinoLabeledSwitch"/>. The state text shows before the switch only when it says more than on or off.
+/// </summary>
 public sealed class WinoTextSwitch : UIView
 {
-    private readonly UILabel _label;
-    private readonly string _on;
-    private readonly string _off;
+    private readonly WinoLabeledSwitch _switch;
 
-    public WinoTextSwitch(string on, string off, string accessibilityLabel)
+    public WinoTextSwitch(string on, string off, string accessibilityLabel, bool showsLabel = false)
     {
-        _on = on;
-        _off = off;
         TranslatesAutoresizingMaskIntoConstraints = false;
-        Switch = new UISwitch { TranslatesAutoresizingMaskIntoConstraints = false };
-        WinoAccessibility.Label(Switch, accessibilityLabel);
-        _label = WinoStyle.Label(off, WinoStyle.Body, WinoStyle.SecondaryText);
-        _label.TextAlignment = UITextAlignment.Right;
-        _label.IsAccessibilityElement = false;
-        static double Measure(string text) => new NSAttributedString(text ?? string.Empty, new UIStringAttributes { Font = WinoStyle.Body }).Size.Width;
-        _label.WidthAnchor.ConstraintGreaterThanOrEqualTo((nfloat)Math.Ceiling(Math.Max(Measure(on), Measure(off)))).Active = true;
-        WinoLayout.Fill(WinoLayout.HStack(8, _label, Switch), this);
+        _switch = new WinoLabeledSwitch(on, off) { ShowsLabel = showsLabel };
+        WinoAccessibility.Label(_switch.Switch, accessibilityLabel);
+        WinoLayout.Fill(_switch, this);
         WinoLayout.Priorities(this, UILayoutConstraintAxis.Horizontal, 750, 750);
-        Switch.ValueChanged += (_, _) => { Update(); Toggled?.Invoke(this, EventArgs.Empty); };
-        Update();
+        _switch.Toggled += (_, _) => Toggled?.Invoke(this, EventArgs.Empty);
     }
 
-    public UISwitch Switch { get; }
+    public UISwitch Switch => _switch.Switch;
 
     /// <summary>Raised after the user flips the switch (not when <see cref="IsOn"/> is set in code).</summary>
     public event EventHandler? Toggled;
 
     public bool IsOn
     {
-        get => Switch.On;
-        set { Switch.On = value; Update(); }
+        get => _switch.IsOn;
+        set => _switch.IsOn = value;
     }
 
     public bool IsEnabled
     {
-        get => Switch.Enabled;
-        set { Switch.Enabled = value; _label.Alpha = value ? 1 : 0.55f; }
+        get => _switch.IsEnabled;
+        set => _switch.IsEnabled = value;
     }
 
-    private void Update()
-    {
-        _label.Text = IsOn ? _on : _off;
-        Switch.AccessibilityValue = _label.Text;
-    }
+    /// <summary>Touches near the compact switch still reach it (the inner switch widens its own target).</summary>
+    public override bool PointInside(CGPoint point, UIEvent? uievent) => _switch.PointInside(ConvertPointToView(point, _switch), uievent);
 }
 
 /// <summary>A thin rounded progress bar (Windows ProgressBar, 4pt) with an error tint.</summary>
@@ -234,7 +224,7 @@ internal static class IntelligenceViews
     {
         var surface = new WinoSurfaceView
         {
-            Fill = WinoSettingsStyle.CardFill,
+            Fill = WinoSettingsStyle.GroupFill,
             Stroke = WinoSettingsStyle.CardStroke,
             CornerRadius = radius,
             TranslatesAutoresizingMaskIntoConstraints = false

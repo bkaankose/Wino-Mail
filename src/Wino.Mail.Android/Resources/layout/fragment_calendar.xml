@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Calendar, compact width (canvas Material pass boards Calendar and CalendarMonth; Windows CalendarPage): the 64 dp
-     top app bar (menu, the month title that switches between the agenda and the month grid, Today, overflow) over the
-     wallpaper, then one Wino zone with the week strip or the month grid, the agenda list with day subheaders and pull to
-     refresh, the readiness message and the tonal New event FAB. -->
+<!-- Calendar, compact width (date picker option B, 15 Oct 2026; the iPhone CalendarPage): the 64 dp top app bar (menu,
+     the visible range as the title that opens the date picker sheet, Today, overflow) over the wallpaper; in Day view a
+     small zone with the week strip; then the content zone with the Windows calendar surface (Day, Week, Month) or the
+     agenda list, pull to refresh, the readiness message and the tonal New event FAB. Week and Month have no header
+     above the grid. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -18,66 +19,69 @@
   </com.google.android.material.appbar.MaterialToolbar>
 
   <com.winomail.presentation.WinoZoneLayout
+      android:id="@+id/calendar_strip_zone"
+      style="@style/Widget.Wino.Calendar.StripZone"
+      android:visibility="gone">
+
+    <com.winomail.controls.WinoCalendarWeekStripView
+        android:id="@+id/calendar_week_strip"
+        style="@style/Widget.Wino.Calendar.WeekStrip" />
+  </com.winomail.presentation.WinoZoneLayout>
+
+  <com.winomail.presentation.WinoZoneLayout
       style="@style/Widget.Wino.Mail.Zone"
       android:layout_width="match_parent"
       android:layout_height="0dp"
       android:layout_weight="1">
 
-    <LinearLayout
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical">
+        android:layout_height="match_parent">
 
-      <com.winomail.controls.WinoCalendarWeekStripView
-          android:id="@+id/calendar_week_strip"
-          style="@style/Widget.Wino.Calendar.WeekStrip" />
-
-      <com.winomail.controls.WinoCalendarMonthGridView
-          android:id="@+id/calendar_month_grid"
-          style="@style/Widget.Wino.Calendar.MonthGrid"
-          android:visibility="gone" />
-
-      <View style="@style/Widget.Wino.Calendar.Divider" />
-
-      <FrameLayout
+      <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+          android:id="@+id/calendar_refresh"
           android:layout_width="match_parent"
-          android:layout_height="0dp"
-          android:layout_weight="1">
+          android:layout_height="match_parent">
 
-        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-            android:id="@+id/calendar_refresh"
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent">
+
+          <com.winomail.controls.WinoCalendarSurfaceView
+              android:id="@+id/calendar_surface"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent" />
 
           <androidx.recyclerview.widget.RecyclerView
               android:id="@+id/calendar_agenda"
               style="@style/Widget.Wino.Calendar.Agenda"
               android:layout_width="match_parent"
-              android:layout_height="match_parent" />
-        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+              android:layout_height="match_parent"
+              android:visibility="gone" />
+        </FrameLayout>
+      </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-        <TextView
-            android:id="@+id/calendar_blocked"
-            style="@style/Widget.Wino.Mail.EmptyTitle"
-            android:layout_width="match_parent"
+      <TextView
+          android:id="@+id/calendar_blocked"
+          style="@style/Widget.Wino.Mail.EmptyTitle"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:layout_gravity="center"
+          android:padding="@dimen/wino_space_2xl"
+          android:visibility="gone" />
+
+      <androidx.coordinatorlayout.widget.CoordinatorLayout
+          android:id="@+id/calendar_snackbar_host"
+          android:layout_width="match_parent"
+          android:layout_height="match_parent">
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/calendar_fab"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:padding="@dimen/wino_space_2xl"
-            android:visibility="gone" />
-
-        <androidx.coordinatorlayout.widget.CoordinatorLayout
-            android:id="@+id/calendar_snackbar_host"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent">
-
-          <com.google.android.material.floatingactionbutton.FloatingActionButton
-              android:id="@+id/calendar_fab"
-              android:layout_width="wrap_content"
-              android:layout_height="wrap_content"
-              android:layout_gravity="bottom|end"
-              android:layout_margin="@dimen/wino_m3_fab_margin" />
-        </androidx.coordinatorlayout.widget.CoordinatorLayout>
-      </FrameLayout>
-    </LinearLayout>
+            android:layout_gravity="bottom|end"
+            android:layout_margin="@dimen/wino_m3_fab_margin" />
+      </androidx.coordinatorlayout.widget.CoordinatorLayout>
+    </FrameLayout>
   </com.winomail.presentation.WinoZoneLayout>
 </LinearLayout>

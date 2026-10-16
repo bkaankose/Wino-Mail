@@ -572,6 +572,24 @@ public sealed class AndroidNavigationService : INavigationService, INavigationHo
         await entry.ActivateAsync(NavigationMode.New);
     }
 
+    /// <summary>
+    /// Pushes the generic setting detail page (<see cref="WinoSettingDetailFragment"/>) for the setting at
+    /// <paramref name="path"/> on <paramref name="owner"/>'s page. It is an ordinary Settings stack entry without a
+    /// ViewModel: back pops it, and its title is the setting's header.
+    /// </summary>
+    public async Task PushSettingsDetailAsync(PageEntry owner, string[] path)
+    {
+        var entry = new PageEntry(WinoPage.None, null, null, static () => new WinoSettingDetailFragment(), _dispatcher) { Host = AndroidPageHost.Settings };
+        WinoSettingDetailFragment.Configure(entry, owner, path);
+        lock (_sync)
+        {
+            if (!_settings.Contains(owner)) return;
+            _settings.Add(entry);
+        }
+        await ShowTopAsync();
+        await RaiseSettingsPagesChangedAsync();
+    }
+
     /// <summary>A page asked for a root list row (Windows SettingsPage receives it): the row's page replaces the stack above the list.</summary>
     public void Receive(SettingsRootNavigationRequested message)
         => _ = ObserveSettingsAsync(SelectSettingsRootPageAsync(message.PageType));

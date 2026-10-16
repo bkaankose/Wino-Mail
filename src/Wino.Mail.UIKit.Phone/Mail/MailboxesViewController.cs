@@ -18,15 +18,17 @@ using Wino.Presentation.UIKit;
 namespace Wino.Mail.UIKit.Phone.Mail;
 
 /// <summary>
-/// The Mail tab's root (Mail on iPhone "Mailboxes"): the accounts, linked accounts and folders the shared
-/// <c>MailAppShellViewModel</c> publishes, as Windows shell rows with unread pills inside one Wino zone. A folder tap
-/// opens its message list on the Mail stack; "More" and parent folders expand in place; a long press offers the shared
-/// folder and account actions. The account avatar (leading) opens Settings, the compose button starts a new message,
-/// pull to refresh synchronizes the loaded account, and a status strip under the rows shows the synchronization.
+/// Mailboxes (Mail on iPhone), the content of the Mail drawer (<see cref="MailboxesDrawer"/>): the accounts, linked
+/// accounts and folders the shared <c>MailAppShellViewModel</c> publishes, as Windows shell rows with unread pills. A
+/// folder tap closes the drawer and lists the folder; "More" and parent folders expand in place; a long press offers the
+/// shared folder and account actions. The compose button starts a new message, pull to refresh synchronizes the loaded
+/// account, a status strip under the rows shows the synchronization, and a pinned Settings row at the foot opens Settings
+/// (the account avatar never does).
 /// </summary>
 public sealed class MailboxesViewController : UIViewController
 {
     private const double DisclosureHitWidth = 56;
+    private const double SettingsRowHeight = 50;
 
     private readonly PhoneShellViewController _shell;
     private readonly IServiceProvider _services;
@@ -37,6 +39,7 @@ public sealed class MailboxesViewController : UIViewController
     private readonly UIView _status = new() { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
     private readonly UILabel _statusLabel = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
     private readonly WinoSyncBar _statusBar = new();
+    private readonly UIButton _settingsRow = new(UIButtonType.System) { TranslatesAutoresizingMaskIntoConstraints = false };
     private IShellMenuProvider? _provider;
 
     public MailboxesViewController(PhoneShellViewController shell, IServiceProvider services)
@@ -45,26 +48,17 @@ public sealed class MailboxesViewController : UIViewController
         _services = services;
         _rows = new MailboxesRows(services.GetService<IPictureStorageService>());
         Title = Translator.IOS_MailboxesTitle;
-        NavigationItem.LargeTitleDisplayMode = UINavigationItemLargeTitleDisplayMode.Always;
+        NavigationItem.LargeTitleDisplayMode = UINavigationItemLargeTitleDisplayMode.Never;
     }
 
     public override void LoadView()
     {
+        // The drawer's blur is the surface: the rows sit on it directly, without a zone.
         var root = new UIView { BackgroundColor = UIColor.Clear };
-        var zone = new WinoZoneView();
-        root.AddSubview(zone);
-        var guide = root.SafeAreaLayoutGuide;
-        NSLayoutConstraint.ActivateConstraints(
-        [
-            zone.TopAnchor.ConstraintEqualTo(guide.TopAnchor, (nfloat)WinoStyle.ZoneGutter),
-            zone.LeadingAnchor.ConstraintEqualTo(guide.LeadingAnchor, (nfloat)WinoStyle.ZoneGutter),
-            zone.TrailingAnchor.ConstraintEqualTo(guide.TrailingAnchor, -(nfloat)WinoStyle.ZoneGutter),
-            zone.BottomAnchor.ConstraintEqualTo(guide.BottomAnchor, -(nfloat)WinoStyle.ZoneGutter)
-        ]);
 
         _table.BackgroundColor = UIColor.Clear;
         _table.SeparatorStyle = UITableViewCellSeparatorStyle.None;
-        _table.ContentInset = new UIEdgeInsets(6, 0, 6, 0);
+        _table.ContentInset = new UIEdgeInsets(4, 0, 6, 0);
         _table.RegisterClassForCellReuse(typeof(WinoShellRowCell), WinoShellRowCell.ReuseIdentifier);
         _table.Source = _rows;
         _table.RefreshControl = _refresh;
@@ -83,27 +77,76 @@ public sealed class MailboxesViewController : UIViewController
         WinoAccessibility.Label(_status, Translator.Accessibility_SynchronizationStatus);
         _status.IsAccessibilityElement = true;
 
-        var column = WinoLayout.VStack(0, _table, _status);
-        column.Alignment = UIStackViewAlignment.Fill;
-        WinoLayout.Fill(column, zone.ContentView);
-        _empty.Place(zone.ContentView);
+        var listHost = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
+        WinoLayout.Fill(_table, listHost, 0, 6, 0, 6);
+        _empty.Place(listHost);
         _empty.Hidden = true;
+
+        var column = WinoLayout.VStack(0, listHost, _status, BuildSettingsRow());
+        column.Alignment = UIStackViewAlignment.Fill;
+        column.TranslatesAutoresizingMaskIntoConstraints = false;
+        root.AddSubview(column);
+        var guide = root.SafeAreaLayoutGuide;
+        NSLayoutConstraint.ActivateConstraints(
+        [
+            column.TopAnchor.ConstraintEqualTo(guide.TopAnchor),
+            column.LeadingAnchor.ConstraintEqualTo(root.LeadingAnchor),
+            column.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor),
+            // Pinned above the home indicator.
+            column.BottomAnchor.ConstraintEqualTo(guide.BottomAnchor)
+        ]);
 
         _rows.Changed += (_, _) => Reload();
         _rows.Invoked += (_, item) => RowInvoked(item);
         _rows.MenuProvider = BuildMenu;
         View = root;
-        SetContentScrollView(_table, NSDirectionalRectEdge.Top);
         BuildBarItems();
+    }
+
+    /// <summary>The pinned Settings row: gear glyph, title and chevron, 50pt, under a hairline.</summary>
+    private UIView BuildSettingsRow()
+    {
+        var configuration = UIButtonConfiguration.PlainButtonConfiguration;
+        configuration.Image = WinoIcons.TemplateImage(WinoIconGlyph.Settings, 20);
+        configuration.ImagePadding = 12;
+        configuration.Title = Translator.MenuSettings;
+        configuration.BaseForegroundColor = UIColor.Label;
+        configuration.ContentInsets = new NSDirectionalEdgeInsets(0, 25, 0, 44);
+        _settingsRow.Configuration = configuration;
+        _settingsRow.HorizontalAlignment = UIControlContentHorizontalAlignment.Leading;
+        _settingsRow.PrimaryActionTriggered += (_, _) => _shell.OpenSettingsFromMailboxes();
+
+        var chevron = new WinoIconView(WinoIconGlyph.ChevronRight, 14, WinoStyle.SecondaryText)
+        {
+            UserInteractionEnabled = false,
+            IsAccessibilityElement = false,
+            TranslatesAutoresizingMaskIntoConstraints = false
+        };
+        var hairline = new UIView { BackgroundColor = WinoStyle.Separator, TranslatesAutoresizingMaskIntoConstraints = false };
+
+        var row = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
+        row.AddSubview(_settingsRow);
+        row.AddSubview(chevron);
+        row.AddSubview(hairline);
+        NSLayoutConstraint.ActivateConstraints(
+        [
+            row.HeightAnchor.ConstraintEqualTo((nfloat)SettingsRowHeight),
+            hairline.TopAnchor.ConstraintEqualTo(row.TopAnchor),
+            hairline.LeadingAnchor.ConstraintEqualTo(row.LeadingAnchor, 16),
+            hairline.TrailingAnchor.ConstraintEqualTo(row.TrailingAnchor, -16),
+            hairline.HeightAnchor.ConstraintEqualTo(1 / UIScreen.MainScreen.Scale),
+            _settingsRow.TopAnchor.ConstraintEqualTo(row.TopAnchor),
+            _settingsRow.BottomAnchor.ConstraintEqualTo(row.BottomAnchor),
+            _settingsRow.LeadingAnchor.ConstraintEqualTo(row.LeadingAnchor),
+            _settingsRow.TrailingAnchor.ConstraintEqualTo(row.TrailingAnchor),
+            chevron.CenterYAnchor.ConstraintEqualTo(row.CenterYAnchor),
+            chevron.TrailingAnchor.ConstraintEqualTo(row.TrailingAnchor, -20)
+        ]);
+        return row;
     }
 
     private void BuildBarItems()
     {
-        var avatar = new UIBarButtonItem(WinoIcons.TemplateImage(WinoIconGlyph.Person, 22),
-            UIBarButtonItemStyle.Plain, (_, _) => _shell.OpenSettings());
-        avatar.AccessibilityLabel = Translator.MenuSettings;
-        NavigationItem.LeftBarButtonItem = avatar;
-
         var items = new List<UIBarButtonItem> { PhoneBarItems.Compose(_shell.Compose) };
         if (_services.GetService<IUIKitDailyBriefingPresenter>() is { } presenter)
         {
@@ -144,8 +187,8 @@ public sealed class MailboxesViewController : UIViewController
     private void RowInvoked(IMenuItem item)
     {
         if (!ShellMenuItemRules.IsInteractive(item) || !ShellMenuItemRules.IsEnabled(item)) return;
-        // The folder already listed (or the loaded account, whose Inbox is listed): show the retained page again instead
-        // of reloading it, like Mail on iPhone. The shared shell would treat the tap as a no-op.
+        // The folder already listed (or the loaded account, whose Inbox is listed): close the drawer over the retained
+        // list instead of reloading it, like Mail on iPhone. The shared shell would treat the tap as a no-op.
         if ((ReferenceEquals(item, _shell.SelectedMenuItem) || IsListedInbox(item)) && _shell.ShowRetainedMailContent()) return;
         if (MailboxesRows.HasChildren(item) && !MailboxesRows.Navigates(item))
         {

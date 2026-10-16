@@ -79,7 +79,7 @@ public sealed class WinoAccountBenefitTileView : WinoSurfaceView
 
     private void Update()
     {
-        Fill = _isSelected ? WinoSettingsStyle.SelectedFill : _isPressed ? WinoSettingsStyle.SubtleFill : WinoSettingsStyle.CardFill;
+        Fill = _isSelected ? WinoSettingsStyle.SelectedFill : _isPressed ? WinoSettingsStyle.SubtleFill : WinoSettingsStyle.GroupFill;
         Stroke = _isSelected ? WinoStyle.Accent : WinoSettingsStyle.CardStroke;
         StrokeWidth = _isSelected ? 2 : 1;
         AccessibilityTraits = _isSelected ? UIAccessibilityTrait.Button | UIAccessibilityTrait.Selected : UIAccessibilityTrait.Button;
@@ -135,7 +135,7 @@ public sealed class WinoAccountBenefitDetailPanel : WinoSurfaceView
     public WinoAccountBenefitDetailPanel()
     {
         TranslatesAutoresizingMaskIntoConstraints = false;
-        Fill = WinoSettingsStyle.CardFill;
+        Fill = WinoSettingsStyle.GroupFill;
         Stroke = WinoSettingsStyle.CardStroke;
         CornerRadius = 8;
         ClipsToBounds = true;

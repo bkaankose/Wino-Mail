@@ -174,8 +174,9 @@ public sealed partial class MailListPageViewController
         _undoBar.Title = ViewModel.UndoMailActionBarTitle;
         _undoBar.Severity = MapSeverity(ViewModel.UndoMailActionBarSeverity);
         _undoBar.AutoDismissInterval = TimeSpan.FromSeconds(ViewModel.UndoMailActionBarDismissInterval);
-        _undoBar.Hidden = !open;
+        // Host first: the bar starts its auto-dismiss countdown only when it is really visible.
         _undoBarHost.Hidden = !open;
+        _undoBar.Hidden = !open;
     }
 
     /// <summary>A new pack or interval while the bar is up gets a full countdown again.</summary>

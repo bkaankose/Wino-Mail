@@ -146,24 +146,25 @@ public sealed partial class MailListFragment
             _searchChips.RemoveAllViews();
             var filters = viewModel.SearchFilters ?? MailSearchFilters.Empty;
 
-            _localChip = Choice(context, Translator.SettingsAppPreferences_SearchMode_Local, !_online, () => SetOnline(false));
-            _onlineChip = Choice(context, Translator.SettingsAppPreferences_SearchMode_Online, _online, () => SetOnline(true));
-
-            Toggle(context, Translator.SearchBar_HasAttachments, WinoIconGlyph.Attachment, filters.HasAttachments, on => filters with { HasAttachments = on });
-            Toggle(context, Translator.SearchBar_Unread, WinoIconGlyph.MarkUnread, filters.ReadStatus == MailReadStatusFilter.Unread,
-                on => filters with { ReadStatus = on ? MailReadStatusFilter.Unread : MailReadStatusFilter.All });
-            Toggle(context, Translator.SearchBar_Flagged, WinoIconGlyph.Flag, filters.IsFlagged, on => filters with { IsFlagged = on });
-            // From and Subject turn the typed text into a sender or subject filter (the iOS suggestions).
-            Toggle(context, string.IsNullOrEmpty(filters.Sender) ? Translator.SearchBar_From : $"{Translator.SearchBar_From}: {filters.Sender}", WinoIconGlyph.Person,
-                !string.IsNullOrEmpty(filters.Sender), on => filters with { Sender = on ? TakeSearchText() ?? string.Empty : string.Empty });
-            Toggle(context, string.IsNullOrEmpty(filters.Subject) ? Translator.SearchBar_Subject : $"{Translator.SearchBar_Subject}: {filters.Subject}", WinoIconGlyph.TextDescription,
-                !string.IsNullOrEmpty(filters.Subject), on => filters with { Subject = on ? TakeSearchText() ?? string.Empty : string.Empty });
-
+            // Canvas Material pass Search: the folder scope dropdown leads the row; the chips carry text only.
             int scopeIndex = Math.Max(0, Array.IndexOf(Scopes, viewModel.SearchScope));
-            var scope = WinoChips.Assist(context, ScopeTitle(Scopes[scopeIndex]), WinoIconGlyph.Folder);
+            var scope = WinoChips.Assist(context, ScopeTitle(Scopes[scopeIndex]));
             scope.ContentDescription = Translator.SearchBar_SearchIn;
             scope.Click += (_, _) => ShowScopeMenu(scope);
             _searchChips.AddView(scope);
+
+            _localChip = Choice(context, Translator.SettingsAppPreferences_SearchMode_Local, !_online, () => SetOnline(false));
+            _onlineChip = Choice(context, Translator.SettingsAppPreferences_SearchMode_Online, _online, () => SetOnline(true));
+
+            Toggle(context, Translator.SearchBar_HasAttachments, filters.HasAttachments, on => filters with { HasAttachments = on });
+            Toggle(context, Translator.SearchBar_Unread, filters.ReadStatus == MailReadStatusFilter.Unread,
+                on => filters with { ReadStatus = on ? MailReadStatusFilter.Unread : MailReadStatusFilter.All });
+            Toggle(context, Translator.SearchBar_Flagged, filters.IsFlagged, on => filters with { IsFlagged = on });
+            // From and Subject turn the typed text into a sender or subject filter (the iOS suggestions).
+            Toggle(context, string.IsNullOrEmpty(filters.Sender) ? Translator.SearchBar_From : $"{Translator.SearchBar_From}: {filters.Sender}",
+                !string.IsNullOrEmpty(filters.Sender), on => filters with { Sender = on ? TakeSearchText() ?? string.Empty : string.Empty });
+            Toggle(context, string.IsNullOrEmpty(filters.Subject) ? Translator.SearchBar_Subject : $"{Translator.SearchBar_Subject}: {filters.Subject}",
+                !string.IsNullOrEmpty(filters.Subject), on => filters with { Subject = on ? TakeSearchText() ?? string.Empty : string.Empty });
         }
         finally { _applyingSearchChips = false; }
     }
@@ -181,11 +182,9 @@ public sealed partial class MailListFragment
         return chip;
     }
 
-    private void Toggle(Context context, string text, WinoIconGlyph glyph, bool isChecked, Func<bool, MailSearchFilters> next)
+    private void Toggle(Context context, string text, bool isChecked, Func<bool, MailSearchFilters> next)
     {
         var chip = WinoChips.Filter(context, text, isChecked);
-        chip.ChipIcon = WinoIcons.Drawable(context, glyph, WinoTokens.Dp(context, Resource.Dimension.wino_m3_glyph_small), WinoColors.SecondaryText(context));
-        chip.ChipIconVisible = !isChecked;
         chip.CheckedChange += (_, args) =>
         {
             if (_applyingSearchChips || ViewModel is not { } viewModel) return;

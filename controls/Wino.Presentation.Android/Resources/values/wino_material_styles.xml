@@ -121,6 +121,7 @@
   <style name="TextAppearance.WinoKit.Label" parent="TextAppearance.Material3.LabelLarge">
     <item name="android:textSize">@dimen/wino_text_subheader</item>
     <item name="android:fontFamily">sans-serif-medium</item>
+    <item name="fontFamily">sans-serif-medium</item>
     <item name="android:textAllCaps">false</item>
   </style>
 
@@ -128,6 +129,7 @@
   <style name="TextAppearance.WinoKit.HeadlineSmall" parent="TextAppearance.Material3.HeadlineSmall">
     <item name="android:textSize">@dimen/wino_m3_headline_small</item>
     <item name="android:fontFamily">sans-serif</item>
+    <item name="fontFamily">sans-serif</item>
     <item name="android:textColor">@color/wino_text_primary</item>
   </style>
 

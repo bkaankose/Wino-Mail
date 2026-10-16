@@ -65,12 +65,14 @@
   <style name="TextAppearance.Wino.PageTitle" parent="TextAppearance.Material3.HeadlineSmall">
     <item name="android:textSize">26sp</item>
     <item name="android:fontFamily">sans-serif-medium</item>
+    <item name="fontFamily">sans-serif-medium</item>
     <item name="android:textColor">@color/wino_text_primary</item>
   </style>
 
   <style name="TextAppearance.Wino.ToolbarTitle" parent="TextAppearance.Material3.TitleLarge">
     <item name="android:textSize">20sp</item>
     <item name="android:fontFamily">sans-serif-medium</item>
+    <item name="fontFamily">sans-serif-medium</item>
     <item name="android:textColor">@color/wino_text_primary</item>
   </style>
 
@@ -82,6 +84,7 @@
   <style name="TextAppearance.Wino.RowTitle" parent="TextAppearance.Material3.BodyMedium">
     <item name="android:textSize">14sp</item>
     <item name="android:fontFamily">sans-serif-medium</item>
+    <item name="fontFamily">sans-serif-medium</item>
     <item name="android:textColor">@color/wino_text_primary</item>
   </style>
 

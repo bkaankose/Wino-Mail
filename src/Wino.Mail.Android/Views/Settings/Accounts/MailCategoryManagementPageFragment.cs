@@ -33,14 +33,9 @@ public sealed class MailCategoryManagementPageFragment : SettingsPageFragment<Ma
         Bindings.Own(new ActionDisposable(() => _rowScope?.Dispose()));
         AddIntro(Translator.MailCategoryManagementPage_Description);
 
-        var add = Bind.Button(Translator.Buttons_Add, vm.AddCategoryCommand, primary: true, icon: WinoIconGlyph.Add);
-        var refresh = Bind.Button(Translator.Buttons_Refresh, vm.RefreshCategoriesCommand, icon: WinoIconGlyph.ArrowClockwise);
-        if (OperatingSystem.IsAndroidVersionAtLeast(26)) refresh.TooltipText = Translator.MailCategoryManagementPage_RefreshConfirmationMessage;
+        var refresh = ActionCard(Translator.Buttons_Refresh, vm.RefreshCategoriesCommand);
         Bind.Visible(refresh, vm, nameof(vm.CanRefresh), s => s.CanRefresh);
-        var buttons = Add(Row(add, refresh));
-        var layout = (global::Android.Widget.LinearLayout.LayoutParams)buttons.LayoutParameters!;
-        layout.TopMargin = WinoTokens.Px(Ctx, Resource.Dimension.wino_space_2xs);
-        layout.BottomMargin = WinoTokens.Px(Ctx, Resource.Dimension.wino_space_s);
+        AddGroup(null, ActionCard(Translator.Buttons_Add, vm.AddCategoryCommand), refresh);
 
         var empty = Card(Translator.MailCategoryManagementPage_Empty, null, WinoIconGlyph.Tag);
         Bind.Visible(Add(empty), vm, nameof(vm.HasCategories), s => !s.HasCategories);

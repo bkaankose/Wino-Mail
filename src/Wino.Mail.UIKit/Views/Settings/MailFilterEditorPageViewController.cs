@@ -26,9 +26,6 @@ public sealed partial class MailFilterEditorPageViewController(MailFilterEditorP
     private string? _title;
 
     public string? PageTitle => _title;
-    public string? PageDescription => ViewModel.Account is { } account
-        ? string.Join(" · ", new[] { account.Name, account.Address }.Where(part => !string.IsNullOrWhiteSpace(part)).Distinct())
-        : null;
     public event EventHandler? PageTitleChanged;
 
     protected override void BuildPage()

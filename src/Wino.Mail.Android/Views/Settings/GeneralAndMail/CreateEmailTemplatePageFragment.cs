@@ -100,19 +100,17 @@ public sealed class CreateEmailTemplatePageFragment : SettingsPageFragment<Creat
         delete.SetTextColor(WinoColors.Critical(Ctx));
         delete.Icon = WinoIcons.Drawable(Ctx, WinoIconGlyph.Delete, WinoTokens.Dp(Ctx, Resource.Dimension.wino_glyph_m), WinoColors.Critical(Ctx));
         Bind.Views.Click(delete, () => Run(DeleteAsync()));
-        Bind.Visible(delete, vm, nameof(vm.IsExistingTemplate), s => s.IsExistingTemplate);
         _delete = delete;
 
         var save = SettingsBinder.CreateButton(Ctx, Translator.Buttons_Save, outlined: false, WinoIconGlyph.Save);
         Bind.Views.Click(save, () => Run(SaveAsync()));
         _save = save;
 
-        var footer = new LinearLayout(Ctx) { Orientation = Orientation.Horizontal };
-        footer.SetGravity(GravityFlags.CenterVertical | GravityFlags.End);
-        WinoTokens.Pad(footer, 0, Resource.Dimension.wino_space_s, 0, 0);
-        footer.AddView(delete);
-        footer.AddView(save, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent) { MarginStart = WinoTokens.Px(Ctx, Resource.Dimension.wino_space_s) });
-        Add(footer);
+        // Save and Delete are action rows (Delete in the error colour, existing templates only).
+        var deleteCard = Card(Translator.Buttons_Delete, null, WinoIconGlyph.None, delete);
+        deleteCard.IsDestructive = true;
+        Bind.Visible(deleteCard, vm, nameof(vm.IsExistingTemplate), s => s.IsExistingTemplate);
+        AddGroup(null, Card(Translator.Buttons_Save, null, WinoIconGlyph.None, save), deleteCard);
 
         // The title follows the name and whether the template already exists.
         Bind.Bind(vm, nameof(vm.TemplateName), s => s.TemplateName, _ => UpdateTitle());

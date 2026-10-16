@@ -57,7 +57,7 @@ public sealed class WinoIntelligenceManagementPageFragment : SettingsPageFragmen
         }));
         Bind.Bind(vm, nameof(vm.AccountAddress), s => s.AccountAddress, _ => UpdateTitle());
 
-        Add(Hero());
+        Add(Hero(), fullWidth: true);
 
         var spinner = IntelligenceViews.Spinner(Ctx);
         var updating = Row(spinner, Text(Translator.WinoIntelligence_Updating));
@@ -184,6 +184,8 @@ public sealed class WinoIntelligenceManagementPageFragment : SettingsPageFragmen
         var ring = IntelligenceViews.Spinner(context, Resource.Dimension.wino_glyph_s);
         var stateText = Text(string.Empty, WinoTextStyle.CaptionStrong);
         var pill = IntelligenceViews.HStack(context, Resource.Dimension.wino_space_xs, null, dot, ring, stateText);
+        // HStack gives every child wrap-content parameters; a plain View then measures to all the space it is offered.
+        dot.LayoutParameters = new LinearLayout.LayoutParams(dotSize, dotSize);
         pill.Background = IntelligenceViews.Shape(context, WinoTokens.Color(context, Resource.Color.wino_winoaccount_hero_pill_fill),
             WinoTokens.Color(context, Resource.Color.wino_winoaccount_hero_pill_stroke), Resource.Dimension.wino_radius_pill);
         WinoTokens.Pad(pill, Resource.Dimension.wino_space_sm, 0, Resource.Dimension.wino_space_sm, 0);
@@ -201,7 +203,11 @@ public sealed class WinoIntelligenceManagementPageFragment : SettingsPageFragmen
         top.SetGravity(GravityFlags.CenterVertical);
         top.AddView(tile);
         top.AddView(titles, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1) { MarginStart = WinoTokens.Px(context, Resource.Dimension.wino_space_ml) });
-        top.AddView(pill, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent) { MarginStart = WinoTokens.Px(context, Resource.Dimension.wino_space_ml) });
+        // The state pill gets its own line under the title row at phone width; beside the title it squeezed the title
+        // to a few letters a line.
+        var pillRow = new FrameLayout(context);
+        pillRow.AddView(pill, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent, GravityFlags.Start | GravityFlags.CenterVertical));
+        Watch(s => s.HeroStateText, text => Show(pillRow, !string.IsNullOrWhiteSpace(text)));
 
         var indexed = Text(string.Empty, WinoTextStyle.Caption);
         Watch(s => (s.IndexedMessageCountDetail, s.IsJobActive), state =>
@@ -229,7 +235,7 @@ public sealed class WinoIntelligenceManagementPageFragment : SettingsPageFragmen
         });
         var quota = Stack(Resource.Dimension.wino_space_2xs, quotaText, quotaBar);
 
-        return IntelligenceViews.Surface(context, Stack(Resource.Dimension.wino_space_m, top, counts, quota), Resource.Dimension.wino_space_l, Resource.Dimension.wino_radius_large);
+        return IntelligenceViews.Surface(context, Stack(Resource.Dimension.wino_space_m, top, pillRow, counts, quota), Resource.Dimension.wino_space_l, Resource.Dimension.wino_radius_large);
     }
 
     /// <summary>Enable intelligence: switch with SemanticIndex On/Off, a ring while busy.</summary>
@@ -271,8 +277,6 @@ public sealed class WinoIntelligenceManagementPageFragment : SettingsPageFragmen
         var folders = new WinoSettingsExpander(Ctx, Translator.SemanticIndex_FoldersTitle, null, WinoIconGlyph.Folder, pick);
         Watch(s => s.SelectedIntelligenceFoldersDescription, text => folders.HeaderCard.Description = text);
         Watch(s => s.HasCoverageFolders, on => folders.IsExpanded = on);
-        var folderRows = Stack(0);
-        folders.Add(folderRows, 0, 0, 0, 0);
         group.Add(folders);
 
         var emptyTitle = Text(Translator.SemanticIndex_CoverageEmptyTitle, WinoTextStyle.BodyStrong);
@@ -321,7 +325,7 @@ public sealed class WinoIntelligenceManagementPageFragment : SettingsPageFragmen
             SettingsBinder.SetEnabled(folders, on);
             SettingsBinder.SetEnabled(segmented, on);
         });
-        Bind.Collection(vm.IntelligenceFolderCoverageItems, () => RebuildFolders(folderRows));
+        Bind.Collection(vm.IntelligenceFolderCoverageItems, () => RebuildFolders(folders));
         return group;
     }
 
@@ -348,22 +352,23 @@ public sealed class WinoIntelligenceManagementPageFragment : SettingsPageFragmen
         group.Add(Card(Translator.SemanticIndex_DailyBriefingTitle, Translator.SemanticIndex_DailyBriefingDescription, WinoIconGlyph.DailyBriefing, briefing));
 
         var indicators = new WinoSettingsExpander(Ctx, Translator.SemanticIndex_IntelligenceIndicatorsTitle, Translator.SemanticIndex_IntelligenceIndicatorsDescription, WinoIconGlyph.NoteEdit);
-        var indicatorRows = Stack(0);
-        indicators.Add(indicatorRows, 0, 0, 0, 0);
-        Watch(s => s.CanChangeIntelligencePreferences, on => SettingsBinder.SetEnabled(indicatorRows, on));
+        Watch(s => s.CanChangeIntelligencePreferences, on =>
+        {
+            foreach (var row in indicators.Items) SettingsBinder.SetEnabled(row, on);
+        });
         group.Add(indicators);
 
         Watch(s => s.IsFeaturesGroupVisible, on => Show(group, on));
-        Bind.Collection(vm.IntelligenceIndicatorSettings, () => RebuildIndicators(indicatorRows));
+        Bind.Collection(vm.IntelligenceIndicatorSettings, () => RebuildIndicators(indicators));
         return group;
     }
 
-    private void RebuildFolders(LinearLayout stack)
+    private void RebuildFolders(WinoSettingsExpander stack)
     {
         _folderScope?.Dispose();
         _folderScope = new BindingScope();
         var rows = Bind.Child(_folderScope);
-        stack.RemoveAllViews();
+        stack.ClearItems();
         var vm = VM;
         foreach (var item in vm.IntelligenceFolderCoverageItems.ToList())
         {
@@ -389,13 +394,13 @@ public sealed class WinoIntelligenceManagementPageFragment : SettingsPageFragmen
         }
     }
 
-    private void RebuildIndicators(LinearLayout stack)
+    private void RebuildIndicators(WinoSettingsExpander stack)
     {
         _indicatorScope?.Dispose();
         _indicatorScope = new BindingScope();
         var scope = _indicatorScope;
         var rows = Bind.Child(scope);
-        stack.RemoveAllViews();
+        stack.ClearItems();
         var vm = VM;
         foreach (var item in vm.IntelligenceIndicatorSettings.ToList())
         {
@@ -423,9 +428,6 @@ public sealed class WinoIntelligenceManagementPageFragment : SettingsPageFragmen
         }
     }
 
-    private void AddRow(LinearLayout stack, View row)
-    {
-        if (stack.ChildCount > 0) AddTo(stack, IntelligenceViews.Separator(Ctx), 0);
-        AddTo(stack, row, 0);
-    }
+    /// <summary>Adds an item to the expander's detail page; the section draws the separators.</summary>
+    private static void AddRow(WinoSettingsExpander stack, View row) => stack.Add(row);
 }

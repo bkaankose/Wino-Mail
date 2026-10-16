@@ -40,7 +40,8 @@ public sealed class IntelligenceCoveragePageViewController(IntelligenceCoverageP
         {
             var text = new NSMutableAttributedString(new NSAttributedString(state.TotalSummary ?? string.Empty,
                 new UIStringAttributes { Font = WinoStyle.BodyStrong, ForegroundColor = WinoStyle.PrimaryText }));
-            text.Append(new NSAttributedString(" · " + state.ScopeSummary, new UIStringAttributes { Font = WinoStyle.Body, ForegroundColor = WinoStyle.SecondaryText }));
+            if (!string.IsNullOrEmpty(state.ScopeSummary))
+                text.Append(new NSAttributedString((string.IsNullOrEmpty(state.TotalSummary) ? string.Empty : " · ") + state.ScopeSummary, new UIStringAttributes { Font = WinoStyle.Body, ForegroundColor = WinoStyle.SecondaryText }));
             totals.AttributedText = text;
         });
         var cancel = Bind.Button(Translator.Buttons_Cancel, vm.CancelCommand);
@@ -93,6 +94,8 @@ public sealed class IntelligenceCoveragePageViewController(IntelligenceCoverageP
         var clear = Bind.Button(Translator.SemanticIndex_CoverageClearFolder, vm.ClearFolderCommand);
         WinoAccessibility.Help(clear, Translator.SemanticIndex_CoverageClearFolderTooltip);
         Watch(s => s.IsEditorVisible, on => { applyAll.Enabled = on; clear.Enabled = on; });
+        // Button titles stay on one line; the spacer gives way first.
+        foreach (var button in new[] { applyAll, clear }) WinoLayout.Priorities(button, UILayoutConstraintAxis.Horizontal, 750, 1000);
         var actions = WinoLayout.HStack(8, applyAll, clear, WinoLayout.Spacer());
         var top = WinoLayout.VStack(10, name, actions);
         top.Alignment = UIStackViewAlignment.Fill;

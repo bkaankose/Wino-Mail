@@ -82,8 +82,11 @@ public static class WinoStyle
     /// <summary>Raised on the UI thread after the theme backdrop changes.</summary>
     public static event EventHandler? BackdropChanged;
 
-    /// <summary>The Windows WinoContentZoneBackgroud: white in light, a translucent layer in dark.</summary>
-    public static UIColor ZoneFill => WinoThemeSurfaces.Dynamic(WinoThemeSurface.Workspace, Dynamic(UIColor.White, Hex(0x2B2B2F, 0.82)));
+    /// <summary>
+    /// The content zone (Windows WinoContentZoneBackgroud) unless the theme sets one: white in light, #1E1E23 in dark
+    /// (InboxDark board and the iOS decision record, 15 Oct 2026).
+    /// </summary>
+    public static UIColor ZoneFill => WinoThemeSurfaces.Dynamic(WinoThemeSurface.Workspace, Dynamic(UIColor.White, Hex(0x1E1E23)));
     public static UIColor ZoneStroke => Dynamic(Hex(0x000000, 0.08), Hex(0xFFFFFF, 0.08));
 
     /// <summary>A colour that resolves per light or dark appearance.</summary>

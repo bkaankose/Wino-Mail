@@ -35,13 +35,11 @@ public sealed class AliasManagementPageViewController(AliasManagementPageViewMod
         var vm = ViewModel;
         var add = Bind.Button(Translator.Buttons_AddNewAlias, vm.AddNewAliasCommand, primary: true, icon: WinoIconGlyph.Add);
         var sync = Bind.Button(Translator.Buttons_SyncAliases, vm.SyncAliasesCommand, icon: WinoIconGlyph.Sync);
-        foreach (var button in new[] { add, sync }) button.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
         Bind.Visible(sync, vm, nameof(vm.CanSynchronizeAliases), s => s.CanSynchronizeAliases);
-        var syncing = Caption(Translator.AccountAlias_Synchronizing);
+        var syncing = Card(Translator.AccountAlias_Synchronizing, null, WinoIconGlyph.None, new UIActivityIndicatorView(UIActivityIndicatorViewStyle.Medium) { TranslatesAutoresizingMaskIntoConstraints = false });
+        if (syncing.Content is UIActivityIndicatorView spinner) spinner.StartAnimating();
         Bind.Visible(syncing, vm, nameof(vm.IsSynchronizing), s => s.IsSynchronizing);
-        var buttons = Row(add, sync, syncing, WinoLayout.Spacer());
-        WinoLayout.Insets(buttons, 0, 0, 8, 0);
-        Add(buttons);
+        AddGroup(null, ActionRow(add), ActionRow(sync), syncing);
 
         // Both Windows InfoBars on this page are IsClosable="True".
         var info = InfoBar(WinoInfoBarSeverity.Informational, Translator.AccountAlias_Info_Title, Translator.AccountAlias_Info_Message);

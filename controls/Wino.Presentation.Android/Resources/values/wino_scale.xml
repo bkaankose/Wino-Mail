@@ -73,16 +73,18 @@
   <dimen name="wino_radius_large">8dp</dimen>
   <dimen name="wino_radius_pill">12dp</dimen>
 
-  <!-- Settings (Material 3 preference list): top app bar, list items, subheaders. -->
+  <!-- Settings: top app bar, the root preference list, and pages where every setting is its own rounded card over the
+       wallpaper, 6 dp apart, with no shared page container or page description (owner, 15 Oct 2026). Expander
+       children run full width under hairline dividers, without the Windows indent. -->
   <dimen name="wino_top_app_bar_height">64dp</dimen>
-  <dimen name="wino_settings_item_spacing">0dp</dimen>
+  <dimen name="wino_settings_item_spacing">6dp</dimen>
   <dimen name="wino_settings_item_min_height">64dp</dimen>
   <dimen name="wino_settings_item_padding_horizontal">16dp</dimen>
   <dimen name="wino_settings_item_padding_vertical">12dp</dimen>
   <dimen name="wino_settings_item_icon_gap">16dp</dimen>
-  <dimen name="wino_settings_item_radius">0dp</dimen>
-  <dimen name="wino_settings_item_stroke">0dp</dimen>
-  <dimen name="wino_settings_nested_indent">56dp</dimen>
+  <dimen name="wino_settings_item_radius">12dp</dimen>
+  <dimen name="wino_settings_item_stroke">1dp</dimen>
+  <dimen name="wino_settings_nested_indent">0dp</dimen>
   <dimen name="wino_settings_item_icon_size">24dp</dimen>
   <dimen name="wino_settings_item_text_gap">2dp</dimen>
   <dimen name="wino_settings_item_trailing_gap">12dp</dimen>
@@ -90,10 +92,11 @@
   <dimen name="wino_settings_subheader_top">16dp</dimen>
   <dimen name="wino_settings_subheader_bottom">4dp</dimen>
   <dimen name="wino_settings_subheader_horizontal">16dp</dimen>
-  <dimen name="wino_settings_page_padding_horizontal">0dp</dimen>
+  <dimen name="wino_settings_group_header_horizontal">4dp</dimen>
+  <dimen name="wino_settings_page_padding_horizontal">8dp</dimen>
   <dimen name="wino_settings_page_padding_top">8dp</dimen>
   <dimen name="wino_settings_page_padding_bottom">24dp</dimen>
-  <dimen name="wino_settings_intro_horizontal">16dp</dimen>
+  <dimen name="wino_settings_intro_horizontal">4dp</dimen>
   <dimen name="wino_settings_pane_gap">0dp</dimen>
   <dimen name="wino_sheet_item_min_height">56dp</dimen>
 

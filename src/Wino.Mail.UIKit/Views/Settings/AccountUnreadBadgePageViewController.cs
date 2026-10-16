@@ -53,9 +53,7 @@ public sealed class AccountUnreadBadgePageViewController(AccountUnreadBadgePageV
         Add(FoldersExpander());
 
         var restore = Bind.Button(Translator.UnreadBadges_RestoreDefaults, vm.RestoreDefaultsCommand, icon: WinoIconGlyph.ArrowReset);
-        restore.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
-        var restoreRow = WinoLayout.HStack(0, restore, WinoLayout.Spacer());
-        Add(WinoLayout.Insets(restoreRow, 10, 0, 0, 0));
+        AddGroup(null, ActionRow(restore));
     }
 
     protected override Task InitializeAsync(NavigationMode mode, object? parameter)

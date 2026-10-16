@@ -9,8 +9,8 @@ namespace Wino.Mail.Controls.Android.Calendar;
 
 /// <summary>
 /// The phone calendar's week strip under the top app bar (canvas Material pass board Calendar): one column per day with
-/// the short day name and the day number in a 32 dp circle. Today is the filled accent circle, the selected day an
-/// accent ring, weekend numbers are secondary. A tap raises <see cref="DateClicked"/>; a horizontal fling raises
+/// the short day name over the day number. The selected day is the filled accent circle, today's number is accent
+/// text, weekend numbers are secondary (date picker option B). A tap raises <see cref="DateClicked"/>; a horizontal fling raises
 /// <see cref="SwipedNext"/> or <see cref="SwipedPrevious"/> (the page moves a week). Drawn on one canvas; every size and
 /// colour is a calendar token. Usable from XML as <c>com.winomail.controls.WinoCalendarWeekStripView</c>.
 /// </summary>
@@ -67,7 +67,7 @@ public sealed class WinoCalendarWeekStripView : View
         set { _today = value; Invalidate(); }
     }
 
-    /// <summary>The day the agenda is on (drawn as a ring unless it is today).</summary>
+    /// <summary>The day shown (drawn in the accent circle).</summary>
     public DateOnly? SelectedDate
     {
         get => _selected;
@@ -112,24 +112,18 @@ public sealed class WinoCalendarWeekStripView : View
             canvas.DrawText(DayName(date), centerX, top - (nameMetrics?.Ascent ?? 0), _namePaint);
 
             float centerY = top + nameHeight + gap + radius;
+            // Date picker option B (15 Oct 2026): the selected day in an accent circle, today in accent text.
             bool today = date == _today;
-            bool selected = _selected == date && !today;
-            if (today)
+            bool selected = _selected == date;
+            if (selected)
             {
                 _circlePaint.SetStyle(Paint.Style.Fill);
                 _circlePaint.Color = accent;
                 canvas.DrawCircle(centerX, centerY, radius, _circlePaint);
             }
-            else if (selected)
-            {
-                _circlePaint.SetStyle(Paint.Style.Stroke);
-                _circlePaint.Color = accent;
-                canvas.DrawCircle(centerX, centerY, radius - _circlePaint.StrokeWidth / 2, _circlePaint);
-            }
 
             bool weekend = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
-            _numberPaint.Color = today ? WinoColors.OnAccent(context) : selected ? WinoColors.AccentText(context) : weekend ? secondary : WinoColors.PrimaryText(context);
-            float baseline = centerY - ((numberMetrics?.Ascent ?? 0) + (numberMetrics?.Descent ?? 0)) / 2;
+            _numberPaint.Color = selected ? WinoColors.OnAccent(context) : today ? WinoColors.AccentText(context) : weekend ? secondary : WinoColors.PrimaryText(context);            float baseline = centerY - ((numberMetrics?.Ascent ?? 0) + (numberMetrics?.Descent ?? 0)) / 2;
             canvas.DrawText(date.Day.ToString(_culture), centerX, baseline, _numberPaint);
         }
     }

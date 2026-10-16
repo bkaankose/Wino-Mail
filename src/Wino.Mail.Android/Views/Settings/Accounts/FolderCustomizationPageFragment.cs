@@ -46,10 +46,8 @@ public sealed class FolderCustomizationPageFragment : SettingsPageFragment<Folde
 
         var account = Bind.Label(vm, nameof(vm.AccountName), s => s.AccountName, WinoTextStyle.BodyLargeStrong);
         var description = Text(Translator.FolderCustomization_Description, WinoTextStyle.Description);
-        var reset = Bind.Button(Translator.FolderCustomization_Reset, vm.ResetCommand, icon: WinoIconGlyph.ArrowReset);
-        var header = Stack(Resource.Dimension.wino_space_s, Stack(Resource.Dimension.wino_space_3xs, account, description), Row(reset));
-        Add(header);
-        ((LinearLayout.LayoutParams)header.LayoutParameters!).BottomMargin = WinoTokens.Px(Ctx, Resource.Dimension.wino_space_s);
+        Add(Stack(Resource.Dimension.wino_space_3xs, account, description));
+        AddGroup(null, ActionCard(Translator.FolderCustomization_Reset, vm.ResetCommand));
 
         Add(Section(PinnedKey, vm.PinnedFolders, Translator.FolderCustomization_SectionPinned, Translator.FolderCustomization_SectionPinnedDescription, WinoIconGlyph.Pin));
         var categories = Add(Section(CategoriesKey, vm.CategoryFolders, Translator.FolderCustomization_SectionCategories, Translator.FolderCustomization_SectionCategoriesDescription, WinoIconGlyph.Tag));
@@ -75,8 +73,8 @@ public sealed class FolderCustomizationPageFragment : SettingsPageFragment<Folde
         var body = Stack(0, rows, empty);
         var emptyGap = WinoTokens.Px(Ctx, Resource.Dimension.wino_space_s);
         ((LinearLayout.LayoutParams)empty.LayoutParameters!).SetMargins(0, emptyGap, 0, emptyGap);
-        // The expander insets its rows under the header text, so rows start at the glyph column.
-        expander.Add(body, 0, 0, 0, 0);
+        // Rows run the expander's width; the folder glyph lines up with the header glyph.
+        AddNested(expander, body, 0, Resource.Dimension.wino_space_l, 0, Resource.Dimension.wino_space_xs);
         _sections[key] = (rows, items, count, empty);
         Bind.Collection(items, () => RebuildSection(key));
         return expander;

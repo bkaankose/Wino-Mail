@@ -30,9 +30,10 @@ public sealed partial class CalendarPageFragment
 
     private void BuildSurface(View view, Context context, CalendarPageViewModel viewModel)
     {
-        _surface = view.FindViewById<WinoCalendarSurfaceView>(Resource.Id.calendar_surface);
+        BuildSurfaceCore(view, context);
         _types = view.FindViewById<MaterialButtonToggleGroup>(Resource.Id.calendar_types);
         if (_surface is null) return;
+        _refresh?.SetOnChildScrollUpCallback(new ScrollUpCallback(() => _surface?.CanScrollUp ?? false));
 
         if (_toolbar is not null)
         {
@@ -75,11 +76,21 @@ public sealed partial class CalendarPageFragment
             Bindings.Own(new ActionDisposable(() => _types?.RemoveOnButtonCheckedListener(listener)));
         }
 
+    }
+
+    /// <summary>The calendar surface every width shares: tiles, today, tile taps (details) and empty-slot taps.</summary>
+    private void BuildSurfaceCore(View view, Context context)
+    {
+        _surface = view.FindViewById<WinoCalendarSurfaceView>(Resource.Id.calendar_surface);
+        if (_surface is null) return;
         _surface.TileFactory = (item, date) => CalendarTiles.Map(context, item, date, ViewModel?.CurrentSettings);
         _surface.Today = () => TodayDate;
         _surface.ItemClicked += (_, args) => { if (args.Item is CalendarItemViewModel item) SelectItem(item); };
-        _surface.SlotClicked += (_, args) => OpenComposerAt(args.Start, args.IsAllDay);
-        _refresh?.SetOnChildScrollUpCallback(new ScrollUpCallback(() => _surface?.CanScrollUp ?? false));
+        _surface.SlotClicked += (_, args) =>
+        {
+            if (IsPhone) PhoneSlotClicked(args);
+            else OpenComposerAt(args.Start, args.IsAllDay);
+        };
     }
 
     private void ConfigureHeaderButton(View view, Context context, int id, WinoIconGlyph glyph, string description, Action action)
@@ -115,7 +126,7 @@ public sealed partial class CalendarPageFragment
     private void SurfaceRangeTextChanged(string? text)
     {
         // The range is the app bar title (the period header has no room for it beside the four display types).
-        if (_surface is not null && _toolbar is not null) _toolbar.Title = string.IsNullOrWhiteSpace(text) ? Translator.KeyboardShortcuts_ModeCalendar : text;
+        if (_toolbar is not null) _toolbar.Title = string.IsNullOrWhiteSpace(text) ? Translator.KeyboardShortcuts_ModeCalendar : text;
     }
 
     private void SurfaceItemsChanged()

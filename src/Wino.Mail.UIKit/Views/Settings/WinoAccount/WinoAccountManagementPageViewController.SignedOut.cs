@@ -49,7 +49,12 @@ public sealed partial class WinoAccountManagementPageViewController
         var privacy = WinoStyle.Label(Translator.WinoAccount_Management_SignedOutPrivacyNote, WinoStyle.Caption, WinoStyle.TertiaryText, 0);
         var signIn = Bind.Button(Translator.Buttons_SignIn, vm.SignInCommand, primary: true);
         var register = Bind.Button(Translator.Buttons_CreateAccount, vm.RegisterCommand);
-        foreach (var button in new[] { signIn, register }) button.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
+        foreach (var button in new[] { signIn, register })
+        {
+            button.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
+            // One line each: the spacer gives way before a button title wraps.
+            WinoLayout.Priorities(button, UILayoutConstraintAxis.Horizontal, 750, 1000);
+        }
         var buttons = WinoLayout.HStack(8, signIn, register, WinoLayout.Spacer());
 
         var text = WinoLayout.VStack(2, title, description, privacy, buttons);

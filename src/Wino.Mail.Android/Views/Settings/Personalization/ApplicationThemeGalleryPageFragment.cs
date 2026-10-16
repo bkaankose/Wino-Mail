@@ -46,21 +46,17 @@ public sealed class ApplicationThemeGalleryPageFragment : SettingsPageFragment<A
         var preview = new ThemeThumbnailView(Ctx, Resource.Dimension.wino_theme_thumb_large_width, Resource.Dimension.wino_theme_thumb_large_height);
         var name = Text(string.Empty, WinoTextStyle.BodyStrong);
         var compatibility = Caption(string.Empty);
-        var currentRow = Row(preview, Stack(Resource.Dimension.wino_space_3xs, name, compatibility));
-        var create = Bind.Button(Translator.ApplicationThemeGallery_Create, vm.CreateThemeCommand, icon: WinoIconGlyph.Add);
+        // The current theme is a list item (its preview, name and compatibility); Create custom theme is an action row.
+        var currentCard = Card(string.Empty, null);
+        currentCard.LeadingView = preview;
+        var create = ActionCard(Translator.ApplicationThemeGallery_Create, vm.CreateThemeCommand);
         Bind.Visible(create, vm, nameof(vm.IsCreateThemeVisible), s => s.IsCreateThemeVisible);
-        var currentContent = Stack(Resource.Dimension.wino_space_m, currentRow, create);
-        ((LinearLayout.LayoutParams)create.LayoutParameters!).Width = ViewGroup.LayoutParams.WrapContent;
-        var currentCard = Card(Translator.ApplicationThemeGallery_CurrentTheme, null, WinoIconGlyph.PaintBrush);
-        currentCard.BottomContent = currentContent;
-        currentContent.LayoutParameters = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent);
-        AddGroup(null, currentCard);
+        AddGroup(Translator.ApplicationThemeGallery_CurrentTheme, currentCard, create);
         Bind.Bind(vm, nameof(vm.CurrentTheme), s => s.CurrentTheme, theme =>
         {
             preview.Show(theme);
-            name.Text = theme?.ThemeName ?? string.Empty;
-            compatibility.Text = theme is { IsCustomTheme: false } ? theme.CompatibilityTitle : string.Empty;
-            compatibility.Visibility = theme is null || theme.IsCustomTheme ? ViewStates.Gone : ViewStates.Visible;
+            currentCard.Header = theme?.ThemeName ?? string.Empty;
+            currentCard.Description = theme is { IsCustomTheme: false } ? theme.CompatibilityTitle : null;
             SyncSelection();
         });
 

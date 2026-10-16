@@ -68,6 +68,18 @@ public sealed partial class MailRenderingPageViewController
             command.Invoke(_commandBar);
             return $"invoked {command.Title} enabled={command.IsEnabled}";
         }));
+        // "reader-theme": the reader's appearance and what the document applied (theme, surface, inset, mail padding).
+        UIKitDebugBridge.Register("reader-theme", async _ =>
+        {
+            var native = string.Empty;
+            await Dispatcher.ExecuteOnUIThread(() => native = $"dark={_dark} appearanceDark={IsDarkAppearance()} webHeight={_webHeight?.Constant}");
+            var result = new TaskCompletionSource<string>();
+            await Dispatcher.ExecuteOnUIThread(() => _webView.EvaluateJavaScript(
+                "(() => { const r = document.getElementById('wino-reader'); const h = r && r.shadowRoot && r.shadowRoot.querySelector('.wino-mail-html'); " +
+                "return [document.documentElement.dataset.theme, document.documentElement.dataset.surface, r && r.hasAttribute('data-inset'), h ? getComputedStyle(h).paddingLeft : 'none'].join(' '); })()",
+                (value, error) => result.TrySetResult(error is null ? value?.ToString() ?? "null" : "js error " + error.LocalizedDescription)));
+            return native + " | " + await result.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        });
         UIKitDebugBridge.Register("reader-bar", args => ReaderDebugAsync(() =>
         {
             if (args.Length > 0) ShowsCommandBar = args[0] == "on";

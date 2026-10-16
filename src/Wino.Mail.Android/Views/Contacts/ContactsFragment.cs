@@ -75,7 +75,7 @@ public sealed class ContactsFragment : WinoFragment<ContactsPageViewModel>
 
         if (view.FindViewById<FloatingActionButton>(Resource.Id.contacts_fab) is { } fab)
         {
-            fab.SetImageDrawable(WinoIcons.Drawable(context, WinoIconGlyph.PersonAdd, WinoTokens.Dp(context, Resource.Dimension.wino_m3_fab_glyph), WinoColors.OnPrimaryContainer(context)));
+            fab.SetImageDrawable(WinoIcons.Drawable(context, WinoIconGlyph.Add, WinoTokens.Dp(context, Resource.Dimension.wino_m3_fab_glyph), WinoColors.OnPrimaryContainer(context)));
             WinoMaterialAccent.Tint(fab);
             fab.ContentDescription = Translator.ContactsPane_NewContact;
             BindCommand(fab, viewModel.AddContactCommand, dispatcher);

@@ -19,6 +19,9 @@ public sealed partial class MailListPageViewController
 {
     private static readonly TimeSpan ProjectionThrottle = TimeSpan.FromMilliseconds(120);
 
+    /// <summary>How far the table's multiple-selection control indents a row's content in edit mode.</summary>
+    private const double EditingIndent = 38;
+
     private readonly UITableView _table = new(default, UITableViewStyle.Plain) { TranslatesAutoresizingMaskIntoConstraints = false };
     private readonly Dictionary<string, MailListRow> _rowsByKey = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _sectionTitles = new(StringComparer.Ordinal);
@@ -26,6 +29,7 @@ public sealed partial class MailListPageViewController
     private readonly WinoPivotBar _pivotBar = new() { FillsWidth = true };
     private readonly UIButton _filterButton = new(UIButtonType.System) { ShowsMenuAsPrimaryAction = true, TranslatesAutoresizingMaskIntoConstraints = false };
     private readonly UIButton _emptyFolderButton = new(UIButtonType.System) { Hidden = true, TranslatesAutoresizingMaskIntoConstraints = false };
+    private readonly UIButton _selectButton = new(UIButtonType.System) { TranslatesAutoresizingMaskIntoConstraints = false };
     private readonly UIView _headerRow = new() { TranslatesAutoresizingMaskIntoConstraints = false };
     private readonly WinoInfoBar _syncBar = new(WinoInfoBarSeverity.Informational, Translator.InfoBarTitle_SynchronizationDisabledFolder, Translator.InfoBarMessage_SynchronizationDisabledFolder)
     {
@@ -77,7 +81,15 @@ public sealed partial class MailListPageViewController
         WinoAccessibility.Label(_emptyFolderButton, Translator.FolderOperation_Empty);
         _emptyFolderButton.PrimaryActionTriggered += (_, _) => Observe(ViewModel.EmptyFolderCommand.ExecuteAsync(null));
         WinoLayout.Priorities(_emptyFolderButton, UILayoutConstraintAxis.Horizontal, 1000, 1000);
-        var header = WinoLayout.Insets(WinoLayout.HStack(8, _pivotBar, WinoLayout.Spacer(), _emptyFolderButton, _filterButton), 8, 10, 4, 10);
+        // The select button enters edit mode (Windows multi-select toggle).
+        var selectConfiguration = UIButtonConfiguration.PlainButtonConfiguration;
+        selectConfiguration.Image = WinoIcons.TemplateImage(WinoIconGlyph.CheckmarkCircle, 20);
+        selectConfiguration.ContentInsets = new NSDirectionalEdgeInsets(6, 6, 6, 6);
+        _selectButton.Configuration = selectConfiguration;
+        WinoAccessibility.Label(_selectButton, Translator.Buttons_Multiselect);
+        _selectButton.PrimaryActionTriggered += (_, _) => ViewModel.IsMultiSelectionModeEnabled = true;
+        WinoLayout.Priorities(_selectButton, UILayoutConstraintAxis.Horizontal, 1000, 1000);
+        var header = WinoLayout.Insets(WinoLayout.HStack(8, _pivotBar, WinoLayout.Spacer(), _emptyFolderButton, _filterButton, _selectButton), 6, 10, 2, 6);
         header.Alignment = UIStackViewAlignment.Center;
         WinoLayout.Fill(header, _headerRow);
 
@@ -107,13 +119,17 @@ public sealed partial class MailListPageViewController
         _onlineSearchButton.PrimaryActionTriggered += (_, _) => Observe(RunOnlineSearchAsync());
         WinoLayout.Fill(_onlineSearchButton, _onlineSearchRow, 6, 10, 10, 10);
 
-        // The table: Wino rows over the shared projection, date group headers pinned while their section scrolls.
+        // The table: Wino rows over the shared projection. The date headers have no background, so a header the table
+        // pins at the top hides its label (WinoMailGroupHeaderView.HidesWhenPinned) and headers read as scrolling rows.
         _table.BackgroundColor = UIColor.Clear;
         _table.SeparatorStyle = UITableViewCellSeparatorStyle.None;
         _table.SectionHeaderTopPadding = 0;
         _table.EstimatedRowHeight = 90;
         _table.EstimatedSectionHeaderHeight = 0;
         _table.AllowsMultipleSelection = false;
+        // Edit mode uses the table's own editing: selection circles, range drags over them and two-finger pans.
+        _table.AllowsMultipleSelectionDuringEditing = true;
+        _table.TintColor = WinoStyle.Accent;
         _table.RegisterClassForCellReuse(typeof(PhoneMailRowCell), WinoMailRowCell.ReuseIdentifier);
         _table.RegisterClassForHeaderFooterViewReuse(typeof(WinoMailGroupHeaderView), WinoMailGroupHeaderView.ReuseIdentifier);
         _table.RefreshControl = _refresh;
@@ -319,8 +335,10 @@ public sealed partial class MailListPageViewController
         _infoBar.Title = ViewModel.BarTitle;
         _infoBar.Message = ViewModel.BarMessage;
         _infoBar.Severity = MapSeverity(ViewModel.BarSeverity);
-        _infoBar.Hidden = !open;
+        // Host first: the bar starts its auto-dismiss countdown only when it is really visible, so un-hiding it inside a
+        // still-hidden host left it on screen for good.
         _infoBarHost.Hidden = !open;
+        _infoBar.Hidden = !open;
     }
 
     private void UpdateUndoBar()
@@ -329,8 +347,8 @@ public sealed partial class MailListPageViewController
         _undoBar.Title = ViewModel.UndoMailActionBarTitle;
         _undoBar.Severity = MapSeverity(ViewModel.UndoMailActionBarSeverity);
         _undoBar.AutoDismissInterval = TimeSpan.FromSeconds(ViewModel.UndoMailActionBarDismissInterval);
-        _undoBar.Hidden = !open;
         _undoBarHost.Hidden = !open;
+        _undoBar.Hidden = !open;
     }
 
     /// <summary>A new pack or interval while the bar is up gets a full countdown again.</summary>
@@ -559,7 +577,9 @@ public sealed partial class MailListPageViewController
     {
         if (!MailRowMapper.HasTiles(row)) return (nfloat)WinoMailRowModel.HeightFor(MailRowMapper.PhoneDensity, Array.Empty<WinoMailRowTile>(), 0);
         var kind = row.Kind == MailListRowKind.ThreadChild ? WinoMailRowKind.ThreadChild : WinoMailRowKind.Single;
-        var textWidth = WinoMailRowMetrics.TextWidth((double)_table.Bounds.Width, MailRowMapper.PhoneDensity, kind, _preferences.IsShowSenderPicturesEnabled, _selectionMode);
+        // Edit mode: the table's selection control indents the row content instead of the row's own check.
+        var width = (double)_table.Bounds.Width - (_selectionMode ? EditingIndent : 0);
+        var textWidth = WinoMailRowMetrics.TextWidth(width, MailRowMapper.PhoneDensity, kind, _preferences.IsShowSenderPicturesEnabled, false);
         return (nfloat)WinoMailRowModel.HeightFor(MailRowMapper.PhoneDensity, MailRowMapper.Tiles(row), textWidth);
     }
 
@@ -572,6 +592,8 @@ public sealed partial class MailListPageViewController
             cell.SetLabels(Translator.MailOperation_Archive, Translator.MailOperation_Delete, Translator.MailOperation_SetFlag,
                 Translator.MailOperation_ClearFlag, Translator.MailOperation_MarkAsRead, Translator.MailOperation_MarkAsUnread);
             cell.HoverActionsEnabled = false;
+            // The table draws the selection circles in edit mode.
+            cell.UsesSystemSelectionControl = true;
             cell.ThreadToggleRequested += (sender, _) =>
             {
                 if ((sender as WinoMailRowCell)?.Item is MailListRow toggled) ToggleThread(toggled);
@@ -719,5 +741,10 @@ public sealed partial class MailListPageViewController
         }
 
         public override void Scrolled(UIScrollView scrollView) => owner.CheckLoadMore();
+
+        // Range selection like Mail and Photos: a two-finger pan anywhere enters edit mode and selects the rows it crosses.
+        public override bool ShouldBeginMultipleSelectionInteraction(UITableView tableView, NSIndexPath indexPath) => true;
+
+        public override void DidBeginMultipleSelectionInteraction(UITableView tableView, NSIndexPath indexPath) => owner.BeginSelectionByInteraction();
     }
 }

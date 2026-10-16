@@ -31,14 +31,11 @@ public sealed class AliasManagementPageFragment : SettingsPageFragment<AliasMana
     {
         var vm = VM;
         Bindings.Own(new ActionDisposable(() => _rowScope?.Dispose()));
-        var add = Bind.Button(Translator.Buttons_AddNewAlias, vm.AddNewAliasCommand, primary: true, icon: WinoIconGlyph.Add);
-        var sync = Bind.Button(Translator.Buttons_SyncAliases, vm.SyncAliasesCommand, icon: WinoIconGlyph.Sync);
+        var sync = ActionCard(Translator.Buttons_SyncAliases, vm.SyncAliasesCommand);
         Bind.Visible(sync, vm, nameof(vm.CanSynchronizeAliases), s => s.CanSynchronizeAliases);
-        var syncing = Caption(Translator.AccountAlias_Synchronizing);
+        var syncing = Card(Translator.AccountAlias_Synchronizing, null);
         Bind.Visible(syncing, vm, nameof(vm.IsSynchronizing), s => s.IsSynchronizing);
-        var buttons = AccountSettingsParts.Wrap(Ctx, add, sync, syncing);
-        Add(buttons);
-        ((global::Android.Widget.LinearLayout.LayoutParams)buttons.LayoutParameters!).BottomMargin = WinoTokens.Px(Ctx, Resource.Dimension.wino_space_s);
+        AddGroup(null, ActionCard(Translator.Buttons_AddNewAlias, vm.AddNewAliasCommand), sync, syncing);
 
         // Both Windows InfoBars on this page are IsClosable="True".
         var info = InfoBar(WinoInfoBarSeverity.Informational, Translator.AccountAlias_Info_Title, Translator.AccountAlias_Info_Message);

@@ -16,6 +16,7 @@
   <color name="wino_text_tertiary">#9A9A9A</color>
   <color name="wino_outline">#40FFFFFF</color>
   <color name="wino_surface_variant">#26262C</color>
+  <color name="wino_surface_container_highest">#36363D</color>
   <color name="wino_card">#0FFFFFFF</color>
   <color name="wino_card_stroke">#14FFFFFF</color>
   <color name="wino_subtle_fill">#14FFFFFF</color>

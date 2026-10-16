@@ -3,7 +3,7 @@ using Wino.Mail.UIKit.Infrastructure;
 
 namespace Wino.Mail.UIKit.Phone.Calendar;
 
-/// <summary>iPhone bridge commands: calagenda on|off, calheader (toggles the month picker), calcalendars (the filter sheet).</summary>
+/// <summary>iPhone bridge commands: calagenda on|off, calheader (opens the date picker sheet), calcalendars (the filter sheet).</summary>
 public sealed partial class CalendarPageViewController
 {
     protected override void RegisterIdiomDebugCommands()
@@ -17,8 +17,8 @@ public sealed partial class CalendarPageViewController
         UIKitDebugBridge.Register("calheader", _ =>
         {
             if (Released) return Task.FromResult("calendar page released");
-            SetHeaderExpanded(!_headerExpanded);
-            return Task.FromResult("expanded=" + _headerExpanded);
+            ShowPicker();
+            return Task.FromResult("picker=" + (_pickerSheet is not null));
         });
         UIKitDebugBridge.Register("calcalendars", _ =>
         {
@@ -29,6 +29,6 @@ public sealed partial class CalendarPageViewController
     }
 
     protected override string DebugLayoutInfo()
-        => $"agenda={_agendaOn} header={_headerExpanded} title='{NavigationItem.Title}' stack={string.Join(">", NavigationController?.ViewControllers?.Select(page => page.GetType().Name) ?? Array.Empty<string>())}";
+        => $"agenda={_agendaOn} picker={_pickerSheet is not null} type={_displayType} title='{NavigationItem.Title}' stack={string.Join(">", NavigationController?.ViewControllers?.Select(page => page.GetType().Name) ?? Array.Empty<string>())}";
 }
 #endif

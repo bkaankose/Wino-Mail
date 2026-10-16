@@ -255,7 +255,7 @@ public sealed partial class MailListFragment : WinoFragment<MailListPageViewMode
         }
         if (_select is not null)
         {
-            _select.Icon = WinoIconGlyph.MultiSelect;
+            _select.Icon = WinoIconGlyph.CheckmarkCircle;
             _select.GlyphSize = glyph;
             _select.ContentDescription = Translator.Buttons_Multiselect;
             _select.Click += (_, _) => StartSelectionMode(null);

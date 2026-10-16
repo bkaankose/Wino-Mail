@@ -257,7 +257,7 @@ internal sealed class MailFilterManagementOptionView : WinoPressableView
     public MailFilterManagementOptionView(WinoIconGlyph glyph, string title, string description)
     {
         TranslatesAutoresizingMaskIntoConstraints = false;
-        Fill = WinoSettingsStyle.CardFill;
+        Fill = WinoSettingsStyle.GroupFill;
         CornerRadius = WinoStyle.GroupRadius;
 
         var (tile, _) = MailFilterPresentation.Tile(glyph, WinoStyle.Accent, 40, 20);

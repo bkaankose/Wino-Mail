@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The generic setting detail page (canvas Android SettingDetail): the setting's sections in a list that scrolls,
+     8 dp from the zone edge, at most 836 dp wide and centred on wide panes. The title is the settings host's app bar. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/setting_detail_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+  <com.winomail.mail.android.SettingsDetailList
+      android:id="@+id/setting_detail_list"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:layout_gravity="center_horizontal"
+      android:clipToPadding="false"
+      android:paddingStart="@dimen/wino_settings_page_padding_horizontal"
+      android:paddingEnd="@dimen/wino_settings_page_padding_horizontal"
+      android:paddingBottom="@dimen/wino_m3_settings_list_bottom" />
+</FrameLayout>

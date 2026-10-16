@@ -150,20 +150,21 @@ public static class WinoChips
         return chip;
     }
 
-    /// <summary>A checkable Material 3 filter chip (secondary container and check while checked, outline otherwise).</summary>
+    /// <summary>
+    /// A checkable Material 3 filter chip: the secondary container while checked, the outline otherwise. The canvas
+    /// Material pass chip rows (Search, Contacts, To Do) draw no check mark, so the checked chip keeps its width.
+    /// </summary>
     public static Chip Filter(Context context, string text, bool isChecked = false)
     {
         var chip = Create(context, text, WinoIconGlyph.None);
         chip.Checkable = true;
-        chip.CheckedIconVisible = true;
+        chip.CheckedIconVisible = false;
         chip.Checked = isChecked;
         // Checked: the Material 3 secondary container without a stroke (canvas Material pass Search chips).
         int[][] states = [[global::Android.Resource.Attribute.StateChecked], []];
         chip.ChipBackgroundColor = new global::Android.Content.Res.ColorStateList(states, [WinoColors.SecondaryContainer(context).ToArgb(), global::Android.Graphics.Color.Transparent.ToArgb()]);
         chip.ChipStrokeColor = new global::Android.Content.Res.ColorStateList(states, [WinoColors.SecondaryContainer(context).ToArgb(), WinoColors.Outline(context).ToArgb()]);
         chip.SetTextColor(new global::Android.Content.Res.ColorStateList(states, [WinoColors.PrimaryText(context).ToArgb(), WinoColors.SecondaryText(context).ToArgb()]));
-        chip.SetCheckedIconResource(Resource.Drawable.wino_ic_check);
-        chip.CheckedIconTint = global::Android.Content.Res.ColorStateList.ValueOf(WinoColors.PrimaryText(context));
         return chip;
     }
 

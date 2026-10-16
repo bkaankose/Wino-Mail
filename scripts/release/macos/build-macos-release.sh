@@ -239,7 +239,7 @@ if ! "$DOTNET" publish "$PROJECT" -c Release -nologo \
     -p:WinoVersionPlist="$VERSION_PLIST" \
     -p:ApplicationDisplayVersion="$VERSION" -p:ApplicationVersion="$VERSION" \
     -p:EnableCodeSigning=true -p:CodesignKey="$IDENTITY" -p:CodesignProvision="$PROFILE_UUID" \
-    -p:WinoApsEnvironment=production \
+    -p:WinoApsEnvironment=production -p:WinoAppleSignIn=false \
     -p:CodesignEntitlements="$ENTITLEMENTS" -p:UseHardenedRuntime=true \
     -p:CreatePackage=false >"$BUILD_LOG" 2>&1; then
   grep -E ' error |error [A-Z]+[0-9]+' "$BUILD_LOG" | sort -u | head -40 >&2 || tail -40 "$BUILD_LOG" >&2

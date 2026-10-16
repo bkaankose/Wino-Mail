@@ -48,7 +48,7 @@ public sealed class MergedAccountDetailsPageFragment : SettingsPageFragment<Merg
         Add(InfoBar(WinoInfoBarSeverity.Informational, null, Translator.MergedAccount_MailOnlyMessage));
 
         var manage = Expander(Translator.SettingsManageLink_Title, Translator.SettingsManageLink_Description, WinoIconGlyph.PeopleLink, null);
-        manage.Add(Columns(), WinoTokens.Dp(Ctx, Resource.Dimension.wino_space_m), 0, WinoTokens.Dp(Ctx, Resource.Dimension.wino_space_ml), 0);
+        AddNested(manage, Columns(), Resource.Dimension.wino_space_m, Resource.Dimension.wino_space_l, Resource.Dimension.wino_space_ml, Resource.Dimension.wino_space_l);
         manage.IsExpanded = true;
         Add(manage);
 

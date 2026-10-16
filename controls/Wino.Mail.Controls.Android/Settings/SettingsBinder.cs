@@ -86,7 +86,7 @@ public sealed class SettingsBinder
         var control = new MaterialCheckBox(_context) { Text = title };
         control.SetTextColor(WinoColors.PrimaryText(_context));
         WinoMaterialAccent.Tint(control);
-        return Views.Checked(control, source, property, read, write);
+        return WinoSettingsControls.Register(Views.Checked(control, source, property, read, write), WinoSettingsControlKind.Toggle);
     }
 
     /// <summary>A dropdown over fixed items; the selected index is two-way. <c>width</c> is a minimum-width dimension token (0: none).</summary>
@@ -94,18 +94,19 @@ public sealed class SettingsBinder
         where T : INotifyPropertyChanged
     {
         var button = CreateDropdown(_context, width);
-        PropertyBinding<T, int>? binding = null;
-        binding = Scope.Own(new PropertyBinding<T, int>(source, property, read, value =>
+        var binding = Scope.Own(new PropertyBinding<T, int>(source, property, read, value =>
         {
             int index = SettingsValueRules.SelectableIndex(value, items.Count);
             button.Text = index >= 0 ? items[index] : string.Empty;
         }, Views.Dispatcher, Views.Error, write));
-        Views.Click(button, () => ShowMenu(button, items, SettingsValueRules.SelectableIndex(read(source), items.Count), selected =>
+        void Choose(int selected)
         {
             binding.UpdateSource(selected);
             binding.Refresh();
-        }));
-        return button;
+        }
+        Views.Click(button, () => ShowMenu(button, items, SettingsValueRules.SelectableIndex(read(source), items.Count), Choose));
+        return WinoSettingsControls.Register(button, WinoSettingsControlKind.Choice, () => button.Text,
+            new WinoSettingsChoice(() => items, () => SettingsValueRules.SelectableIndex(read(source), items.Count), Choose));
     }
 
     /// <summary>
@@ -119,26 +120,33 @@ public sealed class SettingsBinder
         where T : INotifyPropertyChanged
     {
         var button = CreateDropdown(_context, width);
-        PropertyBinding<T, TItem?>? selection = null;
         void Render(TItem? value) => button.Text = value is null ? string.Empty : SafeText(text, value);
-        selection = Scope.Own(new PropertyBinding<T, TItem?>(source, property, read, Render, Views.Dispatcher, Views.Error,
+        var selection = Scope.Own(new PropertyBinding<T, TItem?>(source, property, read, Render, Views.Dispatcher, Views.Error,
             (target, value) => { if (value is not null) write(target, value); }));
         if (itemsProperty is not null) Views.Bind(source, itemsProperty, items, _ => Render(read(source)));
         if (itemsCollection is not null) Views.Collection(itemsCollection, () => Render(read(source)));
+        int SelectedIndex(IReadOnlyList<TItem> list)
+        {
+            var current = read(source);
+            for (int index = 0; index < list.Count; index++)
+                if (current is not null && Equals(list[index], current)) return index;
+            return -1;
+        }
+        void Choose(int index)
+        {
+            if (items(source) is not { } list || index < 0 || index >= list.Count) return;
+            selection.UpdateSource(list[index]);
+            selection.Refresh();
+        }
         Views.Click(button, () =>
         {
             if (items(source) is not { Count: > 0 } list) return;
-            var current = read(source);
-            int selectedIndex = -1;
-            for (int index = 0; index < list.Count; index++)
-                if (current is not null && Equals(list[index], current)) selectedIndex = index;
-            ShowMenu(button, list.Select(item => SafeText(text, item)).ToList(), selectedIndex, index =>
-            {
-                selection.UpdateSource(list[index]);
-                selection.Refresh();
-            });
+            ShowMenu(button, list.Select(item => SafeText(text, item)).ToList(), SelectedIndex(list), Choose);
         });
-        return button;
+        return WinoSettingsControls.Register(button, WinoSettingsControlKind.Choice, () => button.Text, new WinoSettingsChoice(
+            () => items(source) is { } list ? list.Select(item => SafeText(text, item)).ToList() : [],
+            () => items(source) is { } list ? SelectedIndex(list) : -1,
+            Choose));
     }
 
     /// <summary>A numeric field between minus and plus buttons with bounds, bound to an integer property (Windows NumberBox).</summary>
@@ -203,7 +211,8 @@ public sealed class SettingsBinder
             field.FocusChange -= focus;
             field.EditorAction -= done;
         }));
-        return row;
+        return WinoSettingsControls.Register(row, WinoSettingsControlKind.Stepper,
+            () => string.IsNullOrEmpty(suffix) ? field.Text : $"{field.Text} {suffix}");
     }
 
     /// <summary>
@@ -268,7 +277,13 @@ public sealed class SettingsBinder
         foreach (var id in ids)
             if (group.FindViewById<MaterialButton>(id) is { } segment && segment.Checked)
                 segment.Icon = AndroidX.Core.Content.ContextCompat.GetDrawable(_context, Resource.Drawable.wino_ic_check);
-        return group;
+        return WinoSettingsControls.Register(group, WinoSettingsControlKind.Choice, null, new WinoSettingsChoice(
+            () => labels, () => SettingsValueRules.SelectableIndex(read(source), labels.Count), index =>
+            {
+                if (index < 0 || index >= ids.Length) return;
+                binding.UpdateSource(index);
+                binding.Refresh();
+            }));
     }
 
     /// <summary>Two-way outlined text field that writes on every edit.</summary>
@@ -278,7 +293,7 @@ public sealed class SettingsBinder
         var layout = CreateTextField(_context, placeholder, multiline);
         if (width != 0) layout.SetMinimumWidth(WinoTokens.Px(_context, width));
         if (layout.EditText is { } field) Views.TwoWayText(field, source, property, read, write);
-        return layout;
+        return WinoSettingsControls.Register(layout, WinoSettingsControlKind.Text);
     }
 
     /// <summary>An outlined Material text field with an optional hint; read its EditText.</summary>
@@ -332,7 +347,7 @@ public sealed class SettingsBinder
             }));
             picker.Show(manager, "wino_time_picker");
         });
-        return button;
+        return WinoSettingsControls.Register(button, WinoSettingsControlKind.Time, () => button.Text);
     }
 
     /// <summary>A continuous or stepped slider bound to a double property.</summary>
@@ -361,7 +376,8 @@ public sealed class SettingsBinder
         });
         slider.AddOnChangeListener(listener);
         Scope.Own(new ActionDisposable(() => slider.RemoveOnChangeListener(listener)));
-        return slider;
+        return WinoSettingsControls.Register(slider, WinoSettingsControlKind.Slider,
+            () => slider.Value.ToString(step >= 1 ? "0" : "0.##", CultureInfo.CurrentCulture));
     }
 
     /// <summary>A button bound to a command (enabled while CanExecute).</summary>
@@ -379,7 +395,7 @@ public sealed class SettingsBinder
         var label = WinoTokens.Style(new TextView(_context), style);
         if (maximumLines > 0) label.SetMaxLines(maximumLines);
         Views.Bind(source, property, read, value => label.Text = value?.ToString() ?? string.Empty);
-        return label;
+        return WinoSettingsControls.Register(label, WinoSettingsControlKind.Label);
     }
 
     /// <summary>Generic one-way binding.</summary>

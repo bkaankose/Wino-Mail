@@ -11,4 +11,7 @@
   <!-- APNs: the device token registers this device with WinoRelay, whose data-only pushes trigger an inbox sync.
        The relay's APNs sandbox setting must match this environment. -->
   <key>aps-environment</key><string>development</string>
+  <!-- Sign in with Apple (Wino Accounts). Restricted: the provisioning profile must include the capability. -->
+  <key>com.apple.developer.applesignin</key>
+  <array><string>Default</string></array>
 </dict></plist>

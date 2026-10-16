@@ -98,7 +98,7 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
 
         if (view.FindViewById<FloatingActionButton>(Resource.Id.shell_fab) is { } fab)
         {
-            fab.SetImageDrawable(WinoIcons.Drawable(context, WinoIconGlyph.NewMail, WinoTokens.Dp(context, Resource.Dimension.wino_m3_fab_glyph), WinoColors.OnPrimaryContainer(context)));
+            fab.SetImageDrawable(WinoIcons.Drawable(context, WinoIconGlyph.Edit, WinoTokens.Dp(context, Resource.Dimension.wino_m3_fab_glyph), WinoColors.OnPrimaryContainer(context)));
             WinoMaterialAccent.Tint(fab);
             fab.ContentDescription = Translator.MenuNewMail;
             EventHandler compose = (_, _) => _shell.Compose();
@@ -161,6 +161,21 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
             };
             avatar.Click += open;
             Bindings.Own(new ActionDisposable(() => avatar.Click -= open));
+        }
+
+        if (view.FindViewById<WinoIconView>(Resource.Id.shell_panel_settings) is { } settings)
+        {
+            settings.Icon = WinoIconGlyph.Settings;
+            settings.GlyphSize = WinoTokens.Dp(context, Resource.Dimension.wino_m3_glyph);
+            settings.ContentDescription = Translator.MenuSettings;
+            AndroidX.Core.View.ViewCompat.SetTooltipText(settings, Translator.MenuSettings);
+            EventHandler openSettings = (_, _) =>
+            {
+                CloseDrawer(animate: false);
+                _shell?.OpenSettings();
+            };
+            settings.Click += openSettings;
+            Bindings.Own(new ActionDisposable(() => settings.Click -= openSettings));
         }
 
         if (view.FindViewById<RecyclerView>(Resource.Id.shell_menu) is not { } list) return;
@@ -284,7 +299,7 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
             header.SetGravity(GravityFlags.CenterHorizontal);
             // The rail's tonal FAB (Material 3: primary container, 16 dp corners from the theme's FAB style).
             var fab = new FloatingActionButton(context) { ContentDescription = Translator.MenuNewMail };
-            fab.SetImageDrawable(WinoIcons.Drawable(context, WinoIconGlyph.NewMail, WinoTokens.Dp(context, Resource.Dimension.wino_m3_fab_glyph), WinoColors.OnPrimaryContainer(context)));
+            fab.SetImageDrawable(WinoIcons.Drawable(context, WinoIconGlyph.Edit, WinoTokens.Dp(context, Resource.Dimension.wino_m3_fab_glyph), WinoColors.OnPrimaryContainer(context)));
             WinoMaterialAccent.Tint(fab);
             fab.Click += (_, _) => _shell?.Compose();
             var fabParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent) { TopMargin = WinoTokens.Px(context, Resource.Dimension.wino_m3_rail_gap) };

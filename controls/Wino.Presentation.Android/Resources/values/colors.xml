@@ -18,6 +18,8 @@
   <color name="wino_text_tertiary">#767676</color>
   <color name="wino_outline">#33000000</color>
   <color name="wino_surface_variant">#F7F7F8</color>
+  <!-- Material 3 surface-container-highest: filled search fields on sheets (canvas Material pass MoveSheet). -->
+  <color name="wino_surface_container_highest">#E8E9ED</color>
   <color name="wino_card">#FFFFFF</color>
   <color name="wino_card_stroke">#14000000</color>
   <color name="wino_subtle_fill">#0F000000</color>

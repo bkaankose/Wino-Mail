@@ -5,4 +5,11 @@
   <color name="wino_strong_stroke">#29FFFFFF</color>
   <color name="wino_pill_fill">#24FFFFFF</color>
   <color name="wino_toggle_wash">#1FFFFFFF</color>
+  <color name="wino_settings_list_fill">#FF1E1E23</color>
+  <color name="wino_settings_group_fill">#FF2A2A30</color>
+  <color name="wino_settings_group_stroke">#14FFFFFF</color>
+  <color name="wino_settings_row_divider">#12FFFFFF</color>
+  <color name="wino_settings_value">#FFC5C5C5</color>
+  <color name="wino_settings_chevron">#FF8E8E93</color>
+  <color name="wino_settings_destructive">#FFF2B8B5</color>
 </resources>

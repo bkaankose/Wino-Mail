@@ -20,10 +20,12 @@ namespace Wino.Mail.Android.Views.Settings;
 /// <summary>
 /// Base for Settings pages (the iOS SettingsPageViewController and the Mac twin, same members): a scrolling column at
 /// most 836 dp wide inside the settings host's zone and a <see cref="SettingsBinder"/> owned by the view's binding
-/// scope. Pages describe their cards in <see cref="BuildPage"/>; cards stack with the Windows 4 dp spacing. The title and
-/// the "Settings · group" line are the host's; the Windows page description opens the page.
+/// scope. Pages describe their cards in <see cref="BuildPage"/> in the Windows order; groups are sections of title-only
+/// rows (canvas Android settings boards, owner 15 Oct 2026): a switch stays inline, and everything else opens the
+/// generic <see cref="WinoSettingDetailFragment"/> with the real control and its description. Cards and expanders added
+/// on their own get a section of their own. The title is the host's; the Windows page description is not shown.
 /// </summary>
-public abstract class SettingsPageFragment<TViewModel> : WinoFragment<TViewModel> where TViewModel : CoreBaseViewModel
+public abstract class SettingsPageFragment<TViewModel> : WinoFragment<TViewModel>, ISettingsDetailOwner where TViewModel : CoreBaseViewModel
 {
     private SettingsBinder? _binder;
     private LinearLayout? _page;
@@ -51,8 +53,11 @@ public abstract class SettingsPageFragment<TViewModel> : WinoFragment<TViewModel
     /// <summary>The Windows page this fragment shows.</summary>
     protected WinoPage SettingsPage => Entry?.Page ?? WinoPage.None;
 
-    /// <summary>Shows the Windows page description above the cards. Sub-pages with their own intro turn it off.</summary>
-    protected virtual bool ShowsPageDescription => true;
+    /// <summary>
+    /// Shows the Windows page description above the cards. Off on Android: the page title says enough and every setting
+    /// starts the page (owner, 15 Oct 2026).
+    /// </summary>
+    protected virtual bool ShowsPageDescription => false;
 
     protected sealed override void OnBind(View view, TViewModel viewModel, IDispatcher dispatcher)
     {
@@ -60,6 +65,7 @@ public abstract class SettingsPageFragment<TViewModel> : WinoFragment<TViewModel
         _dispatcher = dispatcher;
         _page = view.FindViewById<LinearLayout>(Resource.Id.settings_page_content);
         ScrollView = view as AndroidX.Core.Widget.NestedScrollView;
+        view.SetBackgroundColor(WinoColors.SettingsListFill(view.RequireContext()));
         _binder = new SettingsBinder(view.RequireContext(), Bindings, dispatcher, ReportError);
         Bindings.Own(new ActionDisposable(() =>
         {
@@ -78,25 +84,49 @@ public abstract class SettingsPageFragment<TViewModel> : WinoFragment<TViewModel
 
     protected abstract void BuildPage();
 
+    /// <summary>The cards and expanders in the page's sections, in order (detail pages are addressed from them).</summary>
+    public IReadOnlyList<View> SettingSources() => _page is null ? [] : WinoSettingsNavigation.PageSources(_page);
+
     /// <summary>Asks the host to read the title again (pages whose title follows their content).</summary>
     protected void UpdateTitle() => (ParentFragment as SettingsHostFragment)?.UpdateChrome();
 
     /// <summary>
-    /// Adds a section to the page; it stretches to the content width. List items (cards, expanders, groups) run edge to
-    /// edge like a Material 3 preference list; other content (intro text, buttons, info bars) keeps the list's text inset.
+    /// Adds a section to the page; it stretches to the content width. Cards and expanders get a section of their own;
+    /// other content (intro text, buttons, info bars) keeps the section header's text inset, 16 dp under the section
+    /// above it.
     /// </summary>
-    protected T Add<T>(T view) where T : View
+    protected T Add<T>(T view) where T : View => Add(view, fullWidth: false);
+
+    /// <summary>
+    /// Adds a section; <paramref name="fullWidth"/> runs other content (a stack of sections) to the section edges.
+    /// </summary>
+    protected T Add<T>(T view, bool fullWidth) where T : View
     {
         var layout = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent);
-        if (Page.ChildCount > 0) layout.TopMargin = WinoTokens.Px(Ctx, Resource.Dimension.wino_settings_item_spacing);
-        if (view is not (WinoSettingsCard or WinoSettingsExpander or WinoSettingsGroup))
+        View placed = view;
+        if (view is WinoSettingsCard or WinoSettingsExpander)
         {
-            int inset = WinoTokens.Px(Ctx, Resource.Dimension.wino_settings_intro_horizontal);
-            layout.MarginStart = inset;
-            layout.MarginEnd = inset;
-            if (Page.ChildCount > 0) layout.TopMargin = WinoTokens.Px(Ctx, Resource.Dimension.wino_space_s);
+            // A card on its own is a section of one row; the card keeps layout parameters for pages that adjust them.
+            var section = new WinoSettingsGroup(Ctx);
+            section.Add(view);
+            placed = section;
+            view.LayoutParameters = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent);
         }
-        Page.AddView(view, layout);
+        else if (!fullWidth && view is not WinoSettingsGroup)
+        {
+            // A vertical stack is a list host (sections built later): it runs to the section edges.
+            bool listHost = view.GetType() == typeof(LinearLayout) && ((LinearLayout)(View)view).Orientation == Orientation.Vertical;
+            if (!listHost)
+            {
+                int inset = WinoTokens.Px(Ctx, Resource.Dimension.wino_m3_settings_header_start);
+                layout.MarginStart = inset;
+                layout.MarginEnd = inset;
+                layout.TopMargin = WinoTokens.Px(Ctx, Resource.Dimension.wino_m3_settings_section_gap);
+            }
+            else if (Page.ChildCount == 0)
+                layout.TopMargin = WinoTokens.Px(Ctx, Resource.Dimension.wino_m3_settings_section_gap);
+        }
+        Page.AddView(placed, layout);
         return view;
     }
 
@@ -138,6 +168,22 @@ public abstract class SettingsPageFragment<TViewModel> : WinoFragment<TViewModel
         };
         card.Activated += handler;
         Bindings.Own(new ActionDisposable(() => card.Activated -= handler));
+        return card;
+    }
+
+    /// <summary>An action row (a Windows button): the title in the primary colour, or the error colour when destructive.</summary>
+    protected WinoSettingsCard ActionCard(string title, ICommand command, Func<object?>? parameter = null, bool destructive = false)
+    {
+        var card = Card(title, null, WinoIconGlyph.None, Bind.Button(title, command, parameter));
+        card.IsDestructive = destructive;
+        return card;
+    }
+
+    /// <summary>An action row that runs <paramref name="action"/>.</summary>
+    protected WinoSettingsCard ActionCard(string title, Action action, bool destructive = false)
+    {
+        var card = Card(title, null, WinoIconGlyph.None, Bind.Button(title, action));
+        card.IsDestructive = destructive;
         return card;
     }
 
@@ -195,6 +241,14 @@ public abstract class SettingsPageFragment<TViewModel> : WinoFragment<TViewModel
     /// </summary>
     protected void AddTo(LinearLayout stack, View view, int spacing = -1)
     {
+        if (view is WinoSettingsCard or WinoSettingsExpander)
+        {
+            // A card in a stack is a section of one row (sections bring their own gap).
+            var section = new WinoSettingsGroup(Ctx);
+            section.Add(view);
+            view = section;
+            spacing = 0;
+        }
         var layout = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent);
         if (spacing < 0) spacing = Resource.Dimension.wino_settings_item_spacing;
         if (stack.ChildCount > 0 && spacing != 0) layout.TopMargin = WinoTokens.Px(Ctx, spacing);

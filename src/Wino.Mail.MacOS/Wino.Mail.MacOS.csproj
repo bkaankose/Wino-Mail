@@ -37,8 +37,17 @@
   <PropertyGroup>
     <WinoApsEnvironment Condition="'$(WinoApsEnvironment)' == ''">development</WinoApsEnvironment>
   </PropertyGroup>
+  <!-- Sign in with Apple (Wino Accounts) is restricted the same way, and Apple does not grant it to Developer ID
+       profiles: development builds get it, the DMG script passes -p:WinoAppleSignIn=false (DMG users sign in with
+       Apple through the browser flow). App Store builds carry it in Entitlements.AppStore.plist. -->
+  <PropertyGroup>
+    <WinoAppleSignIn Condition="'$(WinoAppleSignIn)' == ''">true</WinoAppleSignIn>
+  </PropertyGroup>
   <ItemGroup Condition="'$(WinoMacDistribution)' != 'AppStore' and '$(CodesignProvision)' != ''">
     <CustomEntitlements Include="com.apple.developer.aps-environment" Type="String" Value="$(WinoApsEnvironment)" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(WinoMacDistribution)' != 'AppStore' and '$(CodesignProvision)' != '' and '$(WinoAppleSignIn)' == 'true'">
+    <CustomEntitlements Include="com.apple.developer.applesignin" Type="StringArray" Value="Default" />
   </ItemGroup>
   <!-- Other builds update through Sparkle (Wino.Core.Apple.Bindings/Sparkle): its feed, key and installer settings. -->
   <ItemGroup Condition="'$(WinoMacDistribution)' != 'AppStore'">

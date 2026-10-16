@@ -26,6 +26,7 @@
     <item name="textAllCaps">false</item>
     <item name="android:textSize">14sp</item>
     <item name="android:fontFamily">sans-serif-medium</item>
+    <item name="fontFamily">sans-serif-medium</item>
   </style>
 
   <style name="Widget.Wino.Onboarding.Zone">
@@ -120,12 +121,14 @@
   <style name="TextAppearance.Wino.TopBarTitle" parent="TextAppearance.Material3.TitleLarge">
     <item name="android:textSize">@dimen/wino_top_bar_title_size</item>
     <item name="android:fontFamily">sans-serif</item>
+    <item name="fontFamily">sans-serif</item>
     <item name="android:textColor">@color/wino_text_primary</item>
   </style>
 
   <style name="TextAppearance.Wino.Headline" parent="TextAppearance.Material3.HeadlineMedium">
     <item name="android:textSize">28sp</item>
     <item name="android:fontFamily">sans-serif</item>
+    <item name="fontFamily">sans-serif</item>
     <item name="android:textColor">@color/wino_text_primary</item>
   </style>
 
@@ -133,6 +136,7 @@
   <style name="TextAppearance.Wino.HeroTitle" parent="TextAppearance.Material3.HeadlineMedium">
     <item name="android:textSize">28sp</item>
     <item name="android:fontFamily">sans-serif-medium</item>
+    <item name="fontFamily">sans-serif-medium</item>
     <item name="android:textColor">@color/wino_text_primary</item>
   </style>
 
@@ -145,6 +149,7 @@
   <style name="TextAppearance.Wino.ListTitle" parent="TextAppearance.Material3.BodyLarge">
     <item name="android:textSize">16sp</item>
     <item name="android:fontFamily">sans-serif-medium</item>
+    <item name="fontFamily">sans-serif-medium</item>
     <item name="android:textColor">@color/wino_text_primary</item>
   </style>
 
@@ -157,6 +162,7 @@
   <style name="TextAppearance.Wino.SectionLabel" parent="TextAppearance.Material3.TitleSmall">
     <item name="android:textSize">14sp</item>
     <item name="android:fontFamily">sans-serif-medium</item>
+    <item name="fontFamily">sans-serif-medium</item>
     <item name="android:textColor">@color/wino_accent_text</item>
   </style>
 </resources>

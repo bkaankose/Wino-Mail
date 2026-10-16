@@ -34,6 +34,8 @@ public sealed class PhoneShellHost(IServiceProvider services) : UIKitShellHostBa
             controller.HidesBottomBarWhenPushed = true;
             phone.AttachReaderToolbar(controller, reader);
         }
+        // Lay the page out at the stack's size first, so the push never animates its first layout from a zero frame.
+        if ((OpenSheet ?? shell?.CurrentNavigationController) is { } stack) PhoneShellViewController.PrepareForTransition(controller, stack);
         return base.Push(shell, controller);
     }
 

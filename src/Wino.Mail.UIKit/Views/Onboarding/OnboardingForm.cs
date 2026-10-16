@@ -275,7 +275,8 @@ public sealed class OnboardingPageView : UIView
         var guide = SafeAreaLayoutGuide;
         NSLayoutConstraint.ActivateConstraints(
         [
-            _scroll.TopAnchor.ConstraintEqualTo(TopAnchor),
+            // Pinned to the safe area: the header never sits or scrolls under the status bar.
+            _scroll.TopAnchor.ConstraintEqualTo(guide.TopAnchor),
             _scroll.LeadingAnchor.ConstraintEqualTo(LeadingAnchor),
             _scroll.TrailingAnchor.ConstraintEqualTo(TrailingAnchor),
             _scroll.BottomAnchor.ConstraintEqualTo(bar.TopAnchor),

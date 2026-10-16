@@ -42,10 +42,16 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private static readonly bool IsPhone = UIDevice.CurrentDevice.UserInterfaceIdiom == UIUserInterfaceIdiom.Phone;
     private static readonly double Gutter = IsPhone ? 16 : 24;
 
+    /// <summary>The body card's distance from the zone edges (phone); the iPad keeps the header gutter.</summary>
+    private static readonly double CardMargin = IsPhone ? 12 : Gutter;
+
+    /// <summary>CSS pixels between the card edge and the mail text, kept when the mail zeroes its own body padding.</summary>
+    private const double BodyInset = 16;
+
     private readonly IServiceProvider _services = services;
     private readonly UIKitSenderPictureProvider _pictures = services.GetRequiredService<UIKitSenderPictureProvider>();
     private readonly MailReaderCommandBar _commandBar = new();
-    private readonly UILabel _subject = WinoStyle.Label(string.Empty, WinoStyle.ReaderSubject, WinoStyle.PrimaryText, 0);
+    private readonly UILabel _subject = WinoStyle.Label(string.Empty, WinoStyle.Scaled(20, UIFontWeight.Bold), WinoStyle.PrimaryText, 0);
     private readonly WinoContactPicture _avatar = new(40);
     private readonly UILabel _senderName = WinoStyle.Label(string.Empty, WinoStyle.BodyStrong);
     private readonly UILabel _senderAddress = WinoStyle.Label(string.Empty, WinoStyle.Description, WinoStyle.SecondaryText);
@@ -93,6 +99,9 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     public override void LoadView()
     {
         var root = new UIView { BackgroundColor = WinoStyle.ZoneFill };
+        // The subject is the page's title: a compact bar keeps the stack's large-title band (empty for the reader,
+        // which has no navigation title) from opening above the header.
+        NavigationItem.LargeTitleDisplayMode = UINavigationItemLargeTitleDisplayMode.Never;
 
         // ---- Header ----
         _subject.AccessibilityTraits = UIAccessibilityTrait.Header;
@@ -124,7 +133,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         var recipients = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
         WinoLayout.Fill(BuildRecipientRows(), recipients, 0, 52, 0, 0);
 
-        var header = WinoLayout.Insets(WinoLayout.VStack(12, _subject, senderRow, recipients, _statusRow, _chips, _intelligenceHost, _imageBanner), 16, Gutter, 10, Gutter);
+        var header = WinoLayout.Insets(WinoLayout.VStack(12, _subject, senderRow, recipients, _statusRow, _chips, _intelligenceHost, _imageBanner), 12, Gutter, 10, Gutter);
         header.Alignment = UIStackViewAlignment.Fill;
         header.SetCustomSpacing(4, senderRow);
         // The chip row hugs its chips from the leading edge.
@@ -138,13 +147,14 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         {
             CornerRadius = WinoStyle.GroupRadius,
             Fill = WinoStyle.Dynamic(UIColor.White, WinoStyle.Hex(0x1F1F22)),
-            Stroke = WinoStyle.ZoneStroke
+            Stroke = WinoStyle.ZoneStroke,
+            StrokeWidth = 0.5
         };
         WinoLayout.Fill(_webView, card, 1, 1, 1, 1);
         _webHeight = _webView.HeightAnchor.ConstraintEqualTo(320);
         _webHeight.Active = true;
         var body = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
-        WinoLayout.Fill(card, body, 6, IsPhone ? 8 : Gutter, 16, IsPhone ? 8 : Gutter);
+        WinoLayout.Fill(card, body, 6, CardMargin, 16, CardMargin);
         // The body is as tall as its document; the page scroll owns vertical scrolling, the web view keeps horizontal
         // panning for wide messages.
         _contentSizeObserver = _webView.ScrollView.AddObserver("contentSize", NSKeyValueObservingOptions.New, _ => UpdateWebHeight());
@@ -220,7 +230,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     {
         _currentItem = parameter as MailItemViewModel;
         IntelligenceBeginItem(_currentItem);
-        var reader = _reader = new WebKitHtmlMailReaderSession(_webView);
+        var reader = _reader = new WebKitHtmlMailReaderSession(_webView) { ContentInset = BodyInset };
         reader.Configure(ViewModel.ExternalLauncher);
         reader.OperationFailed += (_, exception) => ReportError(exception);
         _dark = IsDarkAppearance();

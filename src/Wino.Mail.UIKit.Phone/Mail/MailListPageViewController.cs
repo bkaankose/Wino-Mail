@@ -50,7 +50,7 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
         _pictures = pictures;
         _host = host;
         _preferences = viewModel.PreferencesService;
-        NavigationItem.LargeTitleDisplayMode = UINavigationItemLargeTitleDisplayMode.Always;
+        NavigationItem.LargeTitleDisplayMode = UINavigationItemLargeTitleDisplayMode.Never;
     }
 
     public override void LoadView()
@@ -60,7 +60,8 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
         BuildSearch();
         BuildBarItems();
         View = _page;
-        SetContentScrollView(_table, NSDirectionalRectEdge.Top);
+        // The table sits in the zone under a compact bar and never drives it: no content scroll view tracking, so pull to
+        // refresh moves only the rows (the bar and the header row stay put).
     }
 
     protected override async Task InitializeAsync(NavigationMode mode, object? parameter)
@@ -151,9 +152,13 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
     private void UpdateTitle()
     {
         if (!IsViewLoaded) return;
-        Title = _selectionMode
+        // NavigationItem.Title, not Title: the list is the Mail stack's root, and its Title would rename the Mail tab.
+        NavigationItem.Title = _selectionMode
             ? (ViewModel.SelectedItemsCount > 0 ? string.Format(Translator.MailsSelected, ViewModel.SelectedItemsCount) : Translator.NoMailSelected)
             : ViewModel.ActiveFolder?.FolderName ?? Translator.IOS_MailboxesTitle;
+        // The account address under the folder name (iOS 26 bar subtitle); linked accounts and edit mode have none.
+        if (OperatingSystem.IsIOSVersionAtLeast(26))
+            NavigationItem.Subtitle = !_selectionMode && ViewModel.ActiveFolder is IFolderMenuItem { ParentAccount: { } account } ? account.Address ?? string.Empty : string.Empty;
     }
 
     protected override void Dispose(bool disposing)

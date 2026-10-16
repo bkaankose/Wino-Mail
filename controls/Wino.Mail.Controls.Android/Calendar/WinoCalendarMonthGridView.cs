@@ -13,7 +13,8 @@ namespace Wino.Mail.Controls.Android.Calendar;
 /// tablet pane): the weekday initials, then the weeks of <see cref="DisplayMonth"/> from the configured first day
 /// (shared <see cref="WinoMiniCalendarGrid"/>; a trailing week of next-month days is left out). Each day is a number in a
 /// circle — today filled with the accent, the selected day on the secondary container, days of other months tertiary —
-/// with up to three event colour dots below (<see cref="DotsProvider"/>) or, in the pane, the visible range as a band
+/// with the day's event count in a small tonal pill below (<see cref="EventCountProvider"/>; event titles are too small to
+/// read in a phone cell), the older colour dots (<see cref="DotsProvider"/>) or, in the pane, the visible range as a band
 /// (<see cref="HighlightedDates"/>). Taps raise <see cref="DateClicked"/>; horizontal flings change the month.
 /// Usable from XML as <c>com.winomail.controls.WinoCalendarMonthGridView</c>.
 /// </summary>
@@ -29,6 +30,7 @@ public sealed class WinoCalendarMonthGridView : View
     private DateOnly? _selected;
     private IReadOnlySet<DateOnly> _highlighted = new HashSet<DateOnly>();
     private Func<DateOnly, IReadOnlyList<Color>>? _dots;
+    private Func<DateOnly, int>? _counts;
     private bool _isCompact;
     private System.Globalization.CultureInfo _culture = System.Globalization.CultureInfo.CurrentCulture;
 
@@ -84,6 +86,13 @@ public sealed class WinoCalendarMonthGridView : View
     {
         get => _dots;
         set { _dots = value; Invalidate(); }
+    }
+
+    /// <summary>The number of events of a day, drawn as a count pill (wins over <see cref="DotsProvider"/>); null draws none.</summary>
+    public Func<DateOnly, int>? EventCountProvider
+    {
+        get => _counts;
+        set { _counts = value; Invalidate(); }
     }
 
     /// <summary>The tablet pane's smaller cells without dots.</summary>
@@ -182,7 +191,13 @@ public sealed class WinoCalendarMonthGridView : View
             _textPaint.Color = today ? WinoColors.OnAccent(context) : inMonth ? WinoColors.PrimaryText(context) : WinoColors.TertiaryText(context);
             DrawCentered(canvas, date.Day.ToString(_culture), centerX, centerY);
 
-            if (_isCompact || _dots?.Invoke(date) is not { Count: > 0 } colors) continue;
+            if (_isCompact) continue;
+            if (_counts is not null)
+            {
+                DrawCount(canvas, context, _counts(date), centerX, centerY + radius);
+                continue;
+            }
+            if (_dots?.Invoke(date) is not { Count: > 0 } colors) continue;
             float width = colors.Count * dot + (colors.Count - 1) * dotGap;
             float x = centerX - width / 2 + dot / 2;
             float y = centerY + radius + dotGap + dot / 2;
@@ -193,6 +208,28 @@ public sealed class WinoCalendarMonthGridView : View
                 x += dot + dotGap;
             }
         }
+    }
+
+    /// <summary>The count pill under a day: the accent text on a faint accent fill, nothing for a day without events.</summary>
+    private void DrawCount(Canvas canvas, Context context, int count, float centerX, float top)
+    {
+        if (count <= 0) return;
+        var text = count.ToString(_culture);
+        float textSize = _textPaint.TextSize;
+        var typeface = _textPaint.Typeface;
+        _textPaint.TextSize = WinoTokens.PxF(context, Resource.Dimension.wino_calendar_month_count_text);
+        _textPaint.SetTypeface(Typeface.Create("sans-serif-medium", TypefaceStyle.Normal));
+        float height = WinoTokens.PxF(context, Resource.Dimension.wino_calendar_month_count_height);
+        float width = Math.Max(WinoTokens.PxF(context, Resource.Dimension.wino_calendar_month_count_min_width),
+            _textPaint.MeasureText(text) + 2 * WinoTokens.PxF(context, Resource.Dimension.wino_calendar_month_count_padding));
+        float pillTop = top + WinoTokens.PxF(context, Resource.Dimension.wino_calendar_month_count_gap);
+        var accent = WinoColors.AccentText(context);
+        _fillPaint.Color = WinoColors.WithAlpha(accent, 0.16);
+        canvas.DrawRoundRect(new RectF(centerX - width / 2, pillTop, centerX + width / 2, pillTop + height), height / 2, height / 2, _fillPaint);
+        _textPaint.Color = accent;
+        DrawCentered(canvas, text, centerX, pillTop + height / 2);
+        _textPaint.TextSize = textSize;
+        _textPaint.SetTypeface(typeface);
     }
 
     private void DrawCentered(Canvas canvas, string text, float x, float centerY)

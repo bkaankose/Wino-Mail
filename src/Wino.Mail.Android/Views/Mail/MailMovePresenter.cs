@@ -68,17 +68,26 @@ internal static class MailMovePresenter
         var column = LayoutInflater.From(context)?.Inflate(Resource.Layout.mail_move_sheet, null, false)
             ?? throw new InvalidOperationException("mail_move_sheet.xml did not inflate.");
         column.Require<View>(Resource.Id.move_handle).Visibility = compact ? ViewStates.Visible : ViewStates.Gone;
-        column.Require<TextView>(Resource.Id.move_title).Text = Translator.MailOperation_Move;
-        column.Require<TextView>(Resource.Id.move_subtitle).Text = mails.Count == 1 ? mails[0].Subject : string.Format(Translator.MailsSelected, mails.Count);
+        // Canvas Material pass MoveSheet: "Move to" alone for one message (its subject is on screen behind the sheet);
+        // several messages keep the count under the title.
+        var title = column.Require<TextView>(Resource.Id.move_title);
+        title.Text = Translator.Android_Move_Title;
+        var subtitle = column.Require<TextView>(Resource.Id.move_subtitle);
+        if (mails.Count == 1)
+        {
+            subtitle.Visibility = ViewStates.Gone;
+            title.SetPadding(title.PaddingLeft, title.PaddingTop, title.PaddingRight, WinoTokens.Px(context, Resource.Dimension.wino_m3_sheet_title_padding_bottom));
+        }
+        else subtitle.Text = string.Format(Translator.MailsSelected, mails.Count);
         var account = column.Require<TextView>(Resource.Id.move_account);
         account.Text = mails[0].AssignedAccount?.Address ?? string.Empty;
         account.SetTextColor(WinoColors.AccentText(context));
         account.Visibility = string.IsNullOrWhiteSpace(account.Text) ? ViewStates.Gone : ViewStates.Visible;
         var glyph = column.Require<WinoIconView>(Resource.Id.move_search_glyph);
         glyph.Icon = WinoIconGlyph.Find;
-        glyph.GlyphSize = WinoTokens.Dp(context, Resource.Dimension.wino_m3_glyph_small);
+        glyph.GlyphSize = WinoTokens.Dp(context, Resource.Dimension.wino_m3_glyph);
         var search = column.Require<EditText>(Resource.Id.move_search);
-        search.Hint = Translator.ContextFlyout_SearchPlaceholder;
+        search.Hint = Translator.Android_Move_FilterPlaceholder;
 
         Dialog? dialog = null;
         var adapter = new FolderAdapter(all, Selectable, folder =>

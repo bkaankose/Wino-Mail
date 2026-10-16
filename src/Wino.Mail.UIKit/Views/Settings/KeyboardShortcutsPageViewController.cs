@@ -27,10 +27,7 @@ public sealed class KeyboardShortcutsPageViewController(KeyboardShortcutsPageVie
         var vm = ViewModel;
         var add = Bind.Button(Translator.KeyboardShortcuts_Add, vm.StartAddingShortcutCommand, icon: WinoIconGlyph.Add);
         var reset = Bind.Button(Translator.KeyboardShortcuts_ResetToDefaults, vm.ResetToDefaultsCommand, primary: true);
-        var buttons = Row(add, reset, WinoLayout.Spacer());
-        buttons.LayoutMarginsRelativeArrangement = true;
-        buttons.DirectionalLayoutMargins = new NSDirectionalEdgeInsets(0, 0, 8, 0);
-        Add(buttons);
+        AddGroup(null, ActionRow(add), ActionRow(reset));
 
         var spinner = new UIActivityIndicatorView(UIActivityIndicatorViewStyle.Medium) { HidesWhenStopped = true, TranslatesAutoresizingMaskIntoConstraints = false };
         Add(spinner);

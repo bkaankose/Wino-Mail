@@ -47,6 +47,12 @@ public static class WinoColors
     public static Color ZoneFill(Context context) => WinoThemeSurfaces.Resolve(WinoThemeSurface.Workspace, IsDark(context)) ?? FromResource(context, Resource.Color.wino_zone);
     public static Color ZoneStroke(Context context) => FromResource(context, Resource.Color.wino_zone_stroke);
     public static Color CardFill(Context context) => FromResource(context, Resource.Color.wino_card);
+
+    /// <summary>The list under settings sections: the theme's Workspace surface when it has one, else the settings list token.</summary>
+    public static Color SettingsListFill(Context context) => WinoThemeSurfaces.Resolve(WinoThemeSurface.Workspace, IsDark(context)) ?? FromResource(context, Resource.Color.wino_settings_list_fill);
+
+    /// <summary>A settings section card (white in light, a raised surface container in dark).</summary>
+    public static Color SettingsGroupFill(Context context) => FromResource(context, Resource.Color.wino_settings_group_fill);
     public static Color CardStroke(Context context) => FromResource(context, Resource.Color.wino_card_stroke);
     public static Color Divider(Context context) => FromResource(context, Resource.Color.wino_divider);
     public static Color Outline(Context context) => FromResource(context, Resource.Color.wino_outline);

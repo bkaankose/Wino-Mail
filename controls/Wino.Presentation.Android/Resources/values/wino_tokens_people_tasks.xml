@@ -2,8 +2,8 @@
 <!-- Material 3 metrics of the Contacts and To Do modes (canvas Material pass boards Contacts, ContactEditor, ToDo and
      TaskDetail; tablet boards ContactsTablet and ToDoTablet). Colours come from the shared wino_* colour tokens. -->
 <resources>
-  <!-- Contact list: 64 dp one-avatar items, 40 dp avatars, letter subheaders, the letter fast scroller on the end edge. -->
-  <dimen name="wino_people_row_height">64dp</dimen>
+  <!-- Contact list: 56 dp one-avatar items, 40 dp avatars, letter subheaders, the letter fast scroller on the end edge. -->
+  <dimen name="wino_people_row_height">56dp</dimen>
   <dimen name="wino_people_row_padding">16dp</dimen>
   <dimen name="wino_people_row_gap">16dp</dimen>
   <dimen name="wino_people_avatar">40dp</dimen>

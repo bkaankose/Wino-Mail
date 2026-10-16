@@ -28,22 +28,14 @@ public sealed class MailCategoryManagementPageViewController(MailCategoryManagem
     /// <summary>The title is fixed.</summary>
     public event EventHandler? PageTitleChanged { add { } remove { } }
 
-    /// <summary>The page shows its own description (Mac AddIntro), so the catalog line is not repeated.</summary>
-    protected override bool ShowsPageDescription => false;
-
     protected override void BuildPage()
     {
         var vm = ViewModel;
-        AddIntro(Translator.MailCategoryManagementPage_Description);
-
         var add = Bind.Button(Translator.Buttons_Add, vm.AddCategoryCommand, primary: true, icon: WinoIconGlyph.Add);
         var refresh = Bind.Button(Translator.Buttons_Refresh, vm.RefreshCategoriesCommand, icon: WinoIconGlyph.ArrowClockwise);
-        foreach (var button in new[] { add, refresh }) button.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
         WinoAccessibility.Help(refresh, Translator.MailCategoryManagementPage_RefreshConfirmationMessage);
         Bind.Visible(refresh, vm, nameof(vm.CanRefresh), s => s.CanRefresh);
-        var buttons = Row(add, refresh, WinoLayout.Spacer());
-        WinoLayout.Insets(buttons, 4, 0, 8, 0);
-        Add(buttons);
+        AddGroup(null, ActionRow(add), ActionRow(refresh));
 
         var empty = Card(Translator.MailCategoryManagementPage_Empty, null, WinoIconGlyph.Tag);
         Bind.Visible(Add(empty), vm, nameof(vm.HasCategories), s => !s.HasCategories);

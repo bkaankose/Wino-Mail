@@ -5,10 +5,9 @@
   <!-- Preference list items: 56 dp with one line, 72 dp with supporting text. -->
   <dimen name="wino_m3_list_item_one_line">56dp</dimen>
   <dimen name="wino_m3_list_item_two_line">72dp</dimen>
-  <!-- Root list: the leading glyph sits in a 40 dp slot, so the text and the subheaders start at 72 dp. -->
+  <!-- Root list: the leading glyph sits in a 40 dp slot; the subheaders start with it at 16 dp (canvas Material pass Settings). -->
   <dimen name="wino_m3_settings_leading_slot">40dp</dimen>
   <dimen name="wino_m3_settings_leading_glyph">24dp</dimen>
-  <dimen name="wino_m3_settings_text_inset">72dp</dimen>
   <dimen name="wino_m3_settings_subheader_height">48dp</dimen>
   <dimen name="wino_m3_settings_subheader_bottom">8dp</dimen>
 
@@ -58,4 +57,33 @@
   <dimen name="wino_m3_briefing_footer_padding_vertical">12dp</dimen>
   <dimen name="wino_m3_briefing_badge_offset">10dp</dimen>
   <fraction name="wino_m3_briefing_sheet_screen_fraction">85%</fraction>
+
+  <!-- Title-only settings rows and the generic setting detail page (canvas Android settings boards SettingsControls and
+       SettingDetail, 15 Oct 2026): 56 dp rows (padding 16 start, 12 end, 8 vertical, 16 dp gaps), the trailing value at most
+       45 % of the row, a 12 dp chevron; sections are 12 dp cards with a 1 dp outline, 8 dp from the zone edge, 16 dp apart;
+       section headers 12 sp at 16 dp, footers 13 sp at 16 dp, 8 dp under the card; radio rows put a 20 dp radio first. -->
+  <dimen name="wino_m3_settings_row_height">56dp</dimen>
+  <dimen name="wino_m3_settings_row_padding_start">16dp</dimen>
+  <dimen name="wino_m3_settings_row_padding_end">12dp</dimen>
+  <dimen name="wino_m3_settings_row_padding_vertical">8dp</dimen>
+  <dimen name="wino_m3_settings_row_gap">16dp</dimen>
+  <fraction name="wino_m3_settings_value_max">45%</fraction>
+  <dimen name="wino_m3_settings_chevron">12dp</dimen>
+  <dimen name="wino_m3_settings_entity_leading">40dp</dimen>
+  <dimen name="wino_m3_settings_group_radius">12dp</dimen>
+  <dimen name="wino_m3_settings_group_stroke">1dp</dimen>
+  <dimen name="wino_m3_settings_group_margin">8dp</dimen>
+  <dimen name="wino_m3_settings_section_gap">16dp</dimen>
+  <dimen name="wino_m3_settings_header_start">8dp</dimen>
+  <dimen name="wino_m3_settings_header_bottom">4dp</dimen>
+  <dimen name="wino_m3_settings_footer_top">8dp</dimen>
+  <dimen name="wino_m3_settings_footer_start">8dp</dimen>
+  <dimen name="wino_m3_settings_divider">1dp</dimen>
+  <dimen name="wino_m3_settings_divider_inset">16dp</dimen>
+  <dimen name="wino_m3_settings_radio">20dp</dimen>
+  <dimen name="wino_m3_settings_content_padding">16dp</dimen>
+  <dimen name="wino_m3_settings_content_padding_vertical">12dp</dimen>
+  <dimen name="wino_m3_settings_list_bottom">24dp</dimen>
+  <dimen name="wino_settings_footer_line">18sp</dimen>
+  <fraction name="wino_m3_settings_disabled_alpha">38%</fraction>
 </resources>

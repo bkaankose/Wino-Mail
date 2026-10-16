@@ -7,13 +7,27 @@ using Wino.Presentation.UIKit;
 
 namespace Wino.Mail.Controls.UIKit.Settings;
 
+/// <summary>How a card places its <see cref="WinoSettingsCard.Content"/>.</summary>
+public enum WinoSettingsContentPlacement
+{
+    /// <summary>Switches, value labels, pickers and icon buttons stay trailing; wider controls get their own row.</summary>
+    Automatic,
+    /// <summary>Always at the trailing edge, beside the text (the desktop card).</summary>
+    Trailing,
+    /// <summary>Always in its own row under the title and description (the phone card).</summary>
+    Below
+}
+
 /// <summary>
 /// The Windows SettingsCard on UIKit (twin of the AppKit <c>WinoSettingsCard</c>): its own rounded surface (card fill
-/// and stroke), a 20pt Wino glyph, a title and description column that fills and wraps, and a trailing control column
-/// pinned to the trailing edge that hugs its content. Nested rows inside a <see cref="WinoSettingsExpander"/> drop the
-/// surface and indent to the header text column.
+/// and stroke), a 22pt Wino glyph, a title and description column that fills and wraps, and the card's control. On iOS
+/// the control sits under the text in its own row (pop-ups, buttons, text fields, sliders, segmented controls, colour
+/// pickers); switches, short values and icon buttons stay at the trailing edge (<see cref="ContentPlacement"/>).
+/// Nested rows inside a <see cref="WinoSettingsExpander"/> drop the surface and use the full width without an indent.
+/// Rows of an inset-grouped <see cref="WinoSettingsGroup"/> drop the surface too and sit on the group's surface,
+/// separated by a hairline that starts at the text column.
 /// </summary>
-public class WinoSettingsCard : UIView
+public partial class WinoSettingsCard : UIView
 {
     private readonly WinoSurfaceView _surface = new();
     private readonly UIStackView _text;
@@ -21,12 +35,17 @@ public class WinoSettingsCard : UIView
     private readonly UILabel _description;
     private readonly WinoIconView _icon;
     private readonly WinoIconView _chevron;
+    private readonly WinoSeparator _separator = new() { Hidden = true };
     private readonly NSLayoutConstraint _iconLeading, _textLeadingToIcon, _textLeadingToEdge, _minHeight;
     private readonly NSLayoutConstraint _textTop, _textBottom;
     private NSLayoutConstraint? _textLeadingToLeadingView;
     private NSLayoutConstraint[] _trailingConstraints = [];
     private UIView? _content;
     private UIView? _bottomContent;
+    private readonly UIStackView _below;
+    private NSLayoutConstraint[] _belowConstraints = [];
+    private bool _contentBelow;
+    private WinoSettingsContentPlacement _placement;
     private UIView? _leadingView;
     private bool _isClickable;
     private bool? _showsChevron;
@@ -34,6 +53,10 @@ public class WinoSettingsCard : UIView
     private bool _isNested;
     private bool _pressed;
     private bool _isExpanderHeader;
+    private bool _isGrouped;
+    private WinoIconGlyph _actionIcon = WinoIconGlyph.None;
+
+    private const double NestedVerticalPadding = 6;
 
     public WinoSettingsCard(string header, string? description = null, WinoIconGlyph icon = WinoIconGlyph.None, UIView? content = null)
     {
@@ -57,9 +80,15 @@ public class WinoSettingsCard : UIView
         WinoLayout.Size(_chevron, 12, 12);
         _chevron.Hidden = true;
 
+        _below = WinoLayout.VStack(WinoStyle.Space2);
+        _below.Alignment = UIStackViewAlignment.Fill;
+        _below.Hidden = true;
+
         _surface.AddSubview(_icon);
         _surface.AddSubview(_text);
+        _surface.AddSubview(_below);
         _surface.AddSubview(_chevron);
+        _surface.AddSubview(_separator);
 
         var pad = (nfloat)WinoSettingsStyle.CardPadding;
         var vpad = (nfloat)WinoSettingsStyle.CardVerticalPadding;
@@ -78,6 +107,9 @@ public class WinoSettingsCard : UIView
             _textTop, _textBottom, textCenter,
             _chevron.TrailingAnchor.ConstraintEqualTo(_surface.TrailingAnchor, -pad),
             _chevron.CenterYAnchor.ConstraintEqualTo(_surface.CenterYAnchor),
+            _separator.TopAnchor.ConstraintEqualTo(_surface.TopAnchor),
+            _separator.LeadingAnchor.ConstraintEqualTo(_text.LeadingAnchor),
+            _separator.TrailingAnchor.ConstraintEqualTo(_surface.TrailingAnchor),
             _minHeight
         ]);
         UpdateLeading();
@@ -91,13 +123,13 @@ public class WinoSettingsCard : UIView
     public string Header
     {
         get => _header.Text ?? string.Empty;
-        set => _header.Text = value ?? string.Empty;
+        set { _header.Text = value ?? string.Empty; UpdateBelow(); if (_listMode) ApplyListContent(); }
     }
 
     public new string? Description
     {
         get => _description.Text;
-        set { _description.Text = value ?? string.Empty; _description.Hidden = string.IsNullOrEmpty(value); }
+        set { _description.Text = value ?? string.Empty; _description.Hidden = string.IsNullOrEmpty(value); UpdateBelow(); if (_listMode) ApplyListContent(); }
     }
 
     /// <summary>The Windows HeaderIcon glyph (20pt). <see cref="WinoIconGlyph.None"/> removes the icon column.</summary>
@@ -106,6 +138,7 @@ public class WinoSettingsCard : UIView
         set
         {
             _icon.Icon = value;
+            if (_listMode) return;
             _icon.Hidden = value == WinoIconGlyph.None || _leadingView is not null;
             UpdateLeading();
         }
@@ -120,6 +153,7 @@ public class WinoSettingsCard : UIView
             _leadingView?.RemoveFromSuperview();
             _leadingView = value;
             _icon.Hidden = true;
+            if (_listMode) { ListLeadingChanged(); return; }
             if (value is null) { UpdateLeading(); return; }
             value.TranslatesAutoresizingMaskIntoConstraints = false;
             value.SetContentHuggingPriority(750, UILayoutConstraintAxis.Horizontal);
@@ -135,45 +169,64 @@ public class WinoSettingsCard : UIView
         }
     }
 
-    /// <summary>The trailing control (switch, menu button, stepper, buttons). Pinned to the trailing edge before the chevron.</summary>
+    /// <summary>
+    /// The card's control (switch, menu button, stepper, buttons). <see cref="ContentPlacement"/> decides whether it sits
+    /// at the trailing edge before the chevron or in its own row under the text.
+    /// </summary>
     public UIView? Content
     {
         get => _content;
         set
         {
-            _content?.RemoveFromSuperview();
+            RemoveContentView();
             _content = value;
+            _contentBelow = false;
+            if (_listMode) { ApplyListContent(); return; }
             if (value is not null)
             {
                 value.TranslatesAutoresizingMaskIntoConstraints = false;
-                WinoLayout.Priorities(value, UILayoutConstraintAxis.Horizontal, 751, 751);
-                _surface.AddSubview(value);
+                _contentBelow = PlacesBelow(value);
+                if (_contentBelow) InsertBelow(value, 0, StretchesBelow(value));
+                else
+                {
+                    WinoLayout.Priorities(value, UILayoutConstraintAxis.Horizontal, 751, 751);
+                    _surface.AddSubview(value);
+                }
             }
+            UpdateBelow();
             RebuildTrailingConstraints();
             ApplyEnabled();
         }
     }
 
-    /// <summary>Content placed under the text column and stretched to the trailing edge (the Windows vertical card).</summary>
+    /// <summary>Where <see cref="Content"/> goes. Setting it re-places content that is already set.</summary>
+    public WinoSettingsContentPlacement ContentPlacement
+    {
+        get => _placement;
+        set
+        {
+            if (_placement == value) return;
+            _placement = value;
+            if (_content is { } content) Content = content;
+        }
+    }
+
+    /// <summary>Content placed in its own row under the text and stretched to the card's width (the Windows vertical card).</summary>
     public UIView? BottomContent
     {
         get => _bottomContent;
         set
         {
-            _bottomContent?.RemoveFromSuperview();
+            if (_bottomContent is not null && !_listMode) RemoveFromBelow(_bottomContent);
             _bottomContent = value;
-            _textBottom.Active = value is null;
-            if (value is null) return;
-            value.TranslatesAutoresizingMaskIntoConstraints = false;
-            _surface.AddSubview(value);
-            NSLayoutConstraint.ActivateConstraints(
-            [
-                value.TopAnchor.ConstraintEqualTo(_text.BottomAnchor, 10),
-                value.LeadingAnchor.ConstraintEqualTo(_text.LeadingAnchor),
-                value.TrailingAnchor.ConstraintEqualTo(_surface.TrailingAnchor, -(nfloat)WinoSettingsStyle.CardPadding),
-                value.BottomAnchor.ConstraintEqualTo(_surface.BottomAnchor, -(nfloat)WinoSettingsStyle.CardVerticalPadding),
-                _text.TopAnchor.ConstraintEqualTo(_surface.TopAnchor, (nfloat)WinoSettingsStyle.CardVerticalPadding)
-            ]);
+            if (_listMode) { ApplyListContent(); return; }
+            if (value is not null)
+            {
+                value.TranslatesAutoresizingMaskIntoConstraints = false;
+                // Rows, grids and fields fill the width; a lone button or pop-up keeps its own width.
+                InsertBelow(value, _contentBelow ? 1 : 0, stretch: value is not UIButton);
+            }
+            UpdateBelow();
         }
     }
 
@@ -181,7 +234,7 @@ public class WinoSettingsCard : UIView
     public bool IsClickable
     {
         get => _isClickable;
-        set { _isClickable = value; UpdateChevron(); UpdateAccessibility(); }
+        set { _isClickable = value; UpdateChevron(); UpdateAccessibility(); if (_listMode) ApplyListContent(); }
     }
 
     /// <summary>Overrides the chevron shown for clickable cards.</summary>
@@ -195,14 +248,14 @@ public class WinoSettingsCard : UIView
     public bool IsExpanderHeader
     {
         get => _isExpanderHeader;
-        set { _isExpanderHeader = value; _showsChevron = true; _chevron.Icon = WinoIconGlyph.ChevronDown; UpdateChevron(); }
+        set { _isExpanderHeader = value; _showsChevron = true; _chevron.Icon = WinoIconGlyph.ChevronDown; UpdateChevron(); if (_listMode) ApplyListContent(); }
     }
 
     public bool IsExpanded
     {
         set
         {
-            if (!_isExpanderHeader) return;
+            if (!_isExpanderHeader || _listMode) return;
             _chevron.Icon = value ? WinoIconGlyph.ChevronUp : WinoIconGlyph.ChevronDown;
             _surface.Corners = value ? CACornerMask.MinXMinYCorner | CACornerMask.MaxXMinYCorner : WinoSurfaceView.AllCorners;
             AccessibilityValue = value ? Translator.WinoIntelligence_Expanded : Translator.WinoIntelligence_Collapsed;
@@ -214,6 +267,8 @@ public class WinoSettingsCard : UIView
     {
         _chevron.Icon = glyph;
         _chevron.PointSize = 14;
+        _actionIcon = glyph;
+        if (_listMode) ApplyListContent();
     }
 
     /// <summary>
@@ -226,14 +281,33 @@ public class WinoSettingsCard : UIView
         set
         {
             _isNested = value;
+            if (_listMode) return;
             _minHeight.Constant = (nfloat)(value ? WinoSettingsStyle.NestedRowMinHeight : WinoSettingsStyle.CardMinHeight);
-            var vpad = (nfloat)(value ? 8 : WinoSettingsStyle.CardVerticalPadding);
+            var vpad = (nfloat)(value ? NestedVerticalPadding : WinoSettingsStyle.CardVerticalPadding);
             _textTop.Constant = vpad;
             _textBottom.Constant = -vpad;
             UpdateLeading();
+            UpdateBelow();
             RebuildTrailingConstraints();
             UpdateSurface();
         }
+    }
+
+    /// <summary>
+    /// A row of a <see cref="WinoSettingsGroup"/>: no surface of its own (the group draws the rounded surface), only the
+    /// pressed fill. The group turns <see cref="ShowsTopSeparator"/> on for every visible row after the first.
+    /// </summary>
+    public bool IsGrouped
+    {
+        get => _isGrouped;
+        set { _isGrouped = value; UpdateSurface(); }
+    }
+
+    /// <summary>The hairline above a grouped row, inset to the text column.</summary>
+    public bool ShowsTopSeparator
+    {
+        get => !_separator.Hidden;
+        set => _separator.Hidden = !value;
     }
 
     public bool IsEnabled
@@ -246,6 +320,7 @@ public class WinoSettingsCard : UIView
     public void SetContentEnabled(bool enabled)
     {
         if (_content is null) return;
+        if (_listMode) { SettingsBinder.SetControlsEnabled(_content, enabled); return; }
         _content.Alpha = enabled ? 1 : 0.55f;
         SettingsBinder.SetControlsEnabled(_content, enabled);
     }
@@ -254,7 +329,7 @@ public class WinoSettingsCard : UIView
 
     public override void TouchesBegan(NSSet touches, UIEvent? evt)
     {
-        if (!_isClickable || !_isEnabled) { base.TouchesBegan(touches, evt); return; }
+        if (!IsTappable) { base.TouchesBegan(touches, evt); return; }
         _pressed = true;
         UpdateSurface();
     }
@@ -271,7 +346,7 @@ public class WinoSettingsCard : UIView
         if (!_pressed) { base.TouchesEnded(touches, evt); return; }
         _pressed = false;
         UpdateSurface();
-        if (touches.AnyObject is UITouch touch && Bounds.Contains(touch.LocationInView(this))) Activated?.Invoke(this, EventArgs.Empty);
+        if (touches.AnyObject is UITouch touch && Bounds.Contains(touch.LocationInView(this))) Activate();
     }
 
     public override void TouchesCancelled(NSSet touches, UIEvent? evt)
@@ -283,15 +358,16 @@ public class WinoSettingsCard : UIView
 
     public override bool AccessibilityActivate()
     {
-        if (!_isClickable || !_isEnabled) return false;
-        Activated?.Invoke(this, EventArgs.Empty);
+        if (!IsTappable) return false;
+        Activate();
         return true;
     }
 
     private void UpdateLeading()
     {
+        if (_listMode) return;
         var hasLeading = _leadingView is not null || !_icon.Hidden;
-        var leading = (nfloat)(_isNested ? WinoSettingsStyle.NestedIndent : WinoSettingsStyle.CardPadding);
+        var leading = (nfloat)WinoSettingsStyle.CardPadding;
         _iconLeading.Constant = leading;
         _textLeadingToEdge.Constant = leading;
         if (_leadingView is not null)
@@ -310,6 +386,7 @@ public class WinoSettingsCard : UIView
 
     private void UpdateChevron()
     {
+        if (_listMode) return;
         _chevron.Hidden = !(_showsChevron ?? _isClickable);
         RebuildTrailingConstraints();
     }
@@ -317,9 +394,10 @@ public class WinoSettingsCard : UIView
     /// <summary>Text column, control and chevron: text fills, control hugs at the trailing edge, chevron after it.</summary>
     private void RebuildTrailingConstraints()
     {
+        if (_listMode) return;
         NSLayoutConstraint.DeactivateConstraints(_trailingConstraints);
         var pad = (nfloat)WinoSettingsStyle.CardPadding;
-        var vpad = (nfloat)(_isNested ? 8 : WinoSettingsStyle.CardVerticalPadding);
+        var vpad = (nfloat)(_isNested ? NestedVerticalPadding : WinoSettingsStyle.CardVerticalPadding);
         var constraints = new List<NSLayoutConstraint>();
         NSLayoutXAxisAnchor trailingEdge = _surface.TrailingAnchor;
         nfloat gap = -pad;
@@ -328,12 +406,13 @@ public class WinoSettingsCard : UIView
             trailingEdge = _chevron.LeadingAnchor;
             gap = -12;
         }
-        if (_content is not null && !_content.Hidden)
+        if (_content is not null && !_content.Hidden && !_contentBelow)
         {
             constraints.Add(_content.TrailingAnchor.ConstraintEqualTo(trailingEdge, _chevron.Hidden ? -pad : -12));
             constraints.Add(_content.TopAnchor.ConstraintGreaterThanOrEqualTo(_surface.TopAnchor, vpad));
             constraints.Add(_content.BottomAnchor.ConstraintLessThanOrEqualTo(_surface.BottomAnchor, -vpad));
-            var center = _content.CenterYAnchor.ConstraintEqualTo(_surface.CenterYAnchor);
+            // With a row under the text, a trailing switch lines up with the title block instead of the whole card.
+            var center = _content.CenterYAnchor.ConstraintEqualTo(_below.Hidden ? _surface.CenterYAnchor : _text.CenterYAnchor);
             center.Priority = 700;
             constraints.Add(center);
             trailingEdge = _content.LeadingAnchor;
@@ -345,11 +424,165 @@ public class WinoSettingsCard : UIView
         NSLayoutConstraint.ActivateConstraints(_trailingConstraints);
     }
 
+    private bool PlacesBelow(UIView content) => _placement switch
+    {
+        WinoSettingsContentPlacement.Trailing => false,
+        WinoSettingsContentPlacement.Below => true,
+        _ => NeedsOwnRow(content)
+    };
+
+    /// <summary>
+    /// Controls that need the card's width get their own row: titled buttons and pop-ups, text fields, sliders,
+    /// segmented controls, steppers and colour pickers. Switches, labels, pickers and icon-only buttons stay trailing.
+    /// </summary>
+    private static bool NeedsOwnRow(UIView view)
+    {
+        switch (view)
+        {
+            case WinoLabeledSwitch or UISwitch or UIDatePicker or UIActivityIndicatorView or UILabel or WinoIconView:
+                return false;
+            case UITextField or UITextView or UISegmentedControl or UISlider or UIStepper or WinoColorSwatchPicker:
+                return true;
+            case UIButton button:
+                return button.Configuration?.Indicator == UIButtonConfigurationIndicator.Popup
+                    || !string.IsNullOrEmpty(button.Configuration?.Title ?? button.CurrentTitle);
+        }
+        foreach (var child in view.Subviews)
+            if (NeedsOwnRow(child)) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// Text fields, sliders, segmented controls, colour pickers, wrapping text, equal-width rows and custom views fill the
+    /// row; buttons, pop-ups, steppers, pickers and stacks of them keep their own width at the leading edge.
+    /// </summary>
+    private static bool StretchesBelow(UIView view)
+    {
+        switch (view)
+        {
+            case UITextField or UITextView or UISegmentedControl or UISlider or WinoColorSwatchPicker:
+                return true;
+            case UILabel label:
+                return label.Lines == 0;
+            case UIButton or UIStepper or UIDatePicker or UISwitch or WinoLabeledSwitch or UIActivityIndicatorView or WinoIconView:
+                return false;
+            case UIStackView stack:
+                if (stack.Distribution == UIStackViewDistribution.FillEqually) return true;
+                foreach (var child in stack.ArrangedSubviews)
+                {
+                    // A bare spacer view does not make the row fill.
+                    var isSpacer = child.GetType() == typeof(UIView) && child.Subviews.Length == 0;
+                    // A caption between controls on one line ("18:30 to 08:00") does not make the line fill either.
+                    var isInlineLabel = child is UILabel && stack.Axis == UILayoutConstraintAxis.Horizontal;
+                    if (!isSpacer && !isInlineLabel && StretchesBelow(child)) return true;
+                }
+                return false;
+        }
+        // Custom views (previews, lists, grids) have no width of their own.
+        return true;
+    }
+
+    private void InsertBelow(UIView view, int index, bool stretch)
+    {
+        var host = new BelowHost(view, stretch) { Hidden = view.Hidden };
+        host.Observe();
+        _below.InsertArrangedSubview(host, (nuint)Math.Min(index, _below.ArrangedSubviews.Length));
+    }
+
+    private void RemoveFromBelow(UIView view)
+    {
+        foreach (var arranged in _below.ArrangedSubviews)
+        {
+            if (arranged is not BelowHost host || host.Child != view) continue;
+            _below.RemoveArrangedSubview(host);
+            host.RemoveFromSuperview();
+        }
+        view.RemoveFromSuperview();
+    }
+
+    private void RemoveContentView()
+    {
+        if (_content is null) return;
+        if (_listMode) { RemoveListContent(_content); return; }
+        if (_contentBelow) RemoveFromBelow(_content);
+        else _content.RemoveFromSuperview();
+    }
+
+    /// <summary>Shows the row under the text when it has content, and pins the text to the bottom otherwise.</summary>
+    private void UpdateBelow()
+    {
+        if (_below is null || _listMode) return;
+        var hasBelow = _below.ArrangedSubviews.Length > 0;
+        NSLayoutConstraint.DeactivateConstraints(_belowConstraints);
+        _below.Hidden = !hasBelow;
+        _textBottom.Active = !hasBelow;
+        if (!hasBelow) { _belowConstraints = []; RebuildTrailingConstraints(); return; }
+        var pad = (nfloat)WinoSettingsStyle.CardPadding;
+        var vpad = (nfloat)((_isNested ? NestedVerticalPadding : WinoSettingsStyle.CardVerticalPadding) + 4);
+        // A card without a title or description is only its control row.
+        var textless = string.IsNullOrEmpty(_header.Text) && _description.Hidden;
+        _belowConstraints =
+        [
+            textless ? _below.TopAnchor.ConstraintEqualTo(_surface.TopAnchor, vpad) : _below.TopAnchor.ConstraintEqualTo(_text.BottomAnchor, (nfloat)WinoStyle.Space2),
+            _below.LeadingAnchor.ConstraintEqualTo(_surface.LeadingAnchor, pad),
+            _below.TrailingAnchor.ConstraintEqualTo(_surface.TrailingAnchor, -pad),
+            _below.BottomAnchor.ConstraintEqualTo(_surface.BottomAnchor, -vpad),
+            _text.TopAnchor.ConstraintEqualTo(_surface.TopAnchor, vpad)
+        ];
+        NSLayoutConstraint.ActivateConstraints(_belowConstraints);
+        RebuildTrailingConstraints();
+    }
+
+    /// <summary>Hosts one view of the row under the text: stretched, or leading-aligned at its own width.</summary>
+    private sealed class BelowHost : UIView
+    {
+        public BelowHost(UIView child, bool stretch)
+        {
+            Child = child;
+            TranslatesAutoresizingMaskIntoConstraints = false;
+            child.TranslatesAutoresizingMaskIntoConstraints = false;
+            AddSubview(child);
+            var fill = child.TrailingAnchor.ConstraintEqualTo(TrailingAnchor);
+            // The fill is never required: a row of fixed-width buttons must not dictate the card's (and the page's) width.
+            // Buttons keep their own width; stretched content fills above its hugging.
+            fill.Priority = stretch ? 760 : 1;
+            NSLayoutConstraint.ActivateConstraints(
+            [
+                child.TopAnchor.ConstraintEqualTo(TopAnchor),
+                child.BottomAnchor.ConstraintEqualTo(BottomAnchor),
+                child.LeadingAnchor.ConstraintEqualTo(LeadingAnchor),
+                child.TrailingAnchor.ConstraintLessThanOrEqualTo(TrailingAnchor),
+                fill
+            ]);
+        }
+
+        public UIView Child { get; }
+
+        /// <summary>A hidden control hides its row too, so the card keeps no empty gap.</summary>
+        public void Observe() => _hidden = Child.AddObserver("hidden", NSKeyValueObservingOptions.New, _ => Hidden = Child.Hidden);
+
+        private IDisposable? _hidden;
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) { _hidden?.Dispose(); _hidden = null; }
+            base.Dispose(disposing);
+        }
+    }
+
     private void UpdateSurface()
     {
+        if (_listMode) { UpdateListSurface(); return; }
         if (_isNested)
         {
             _surface.Fill = _pressed ? WinoSettingsStyle.SelectedFill : null;
+            _surface.Stroke = null;
+            _surface.CornerRadius = 0;
+            return;
+        }
+        if (_isGrouped)
+        {
+            _surface.Fill = _pressed ? WinoSettingsStyle.SubtleFill : null;
             _surface.Stroke = null;
             _surface.CornerRadius = 0;
             return;
@@ -361,6 +594,7 @@ public class WinoSettingsCard : UIView
 
     private void ApplyEnabled()
     {
+        if (_listMode) { ApplyListEnabled(); return; }
         Alpha = _isEnabled ? 1 : 0.55f;
         if (_content is not null) SettingsBinder.SetControlsEnabled(_content, _isEnabled);
         if (_bottomContent is not null) SettingsBinder.SetControlsEnabled(_bottomContent, _isEnabled);
@@ -370,6 +604,7 @@ public class WinoSettingsCard : UIView
     /// <summary>Clickable cards read as one button; others expose their title and control separately.</summary>
     private void UpdateAccessibility()
     {
+        if (_listMode) { UpdateListAccessibility(); return; }
         IsAccessibilityElement = _isClickable;
         if (_isClickable)
         {

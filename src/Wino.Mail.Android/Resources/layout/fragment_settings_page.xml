@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- One Settings page inside the settings host's zone: the Windows cards and groups in a vertical stack that scrolls,
-     at most 836 dp wide (Windows MaxWidth 900 less its padding) and centred on wide panes. -->
+<!-- One Settings page inside the settings host's zone: sections of title-only rows (canvas Android settings boards) in
+     a vertical stack that scrolls, at most 836 dp wide (Windows MaxWidth 900 less its padding) and centred on wide panes.
+     Sections bring their own 16 dp top gap. -->
 <androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/settings_page_scroll"
     android:layout_width="match_parent"
@@ -19,8 +20,8 @@
         android:layout_gravity="center_horizontal"
         android:orientation="vertical"
         android:paddingStart="@dimen/wino_settings_page_padding_horizontal"
-        android:paddingTop="@dimen/wino_settings_page_padding_top"
+        android:paddingTop="0dp"
         android:paddingEnd="@dimen/wino_settings_page_padding_horizontal"
-        android:paddingBottom="@dimen/wino_settings_page_padding_bottom" />
+        android:paddingBottom="@dimen/wino_m3_settings_list_bottom" />
   </FrameLayout>
 </androidx.core.widget.NestedScrollView>

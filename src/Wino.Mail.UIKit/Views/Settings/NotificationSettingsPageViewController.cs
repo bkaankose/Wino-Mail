@@ -68,8 +68,18 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
         Bind.Collection(vm.QuietHoursDayToggles, () => RebuildDays(days));
         var hours = Row(TimePicker(p, nameof(p.QuietHoursStart), s => s.QuietHoursStart, (s, v) => s.QuietHoursStart = v, Translator.NotificationSettings_QuietHours_From_Title),
             Caption(Translator.NotificationSettings_QuietHours_To),
-            TimePicker(p, nameof(p.QuietHoursEnd), s => s.QuietHoursEnd, (s, v) => s.QuietHoursEnd = v, Translator.NotificationSettings_QuietHours_To),
-            WinoLayout.Spacer());
+            TimePicker(p, nameof(p.QuietHoursEnd), s => s.QuietHoursEnd, (s, v) => s.QuietHoursEnd = v, Translator.NotificationSettings_QuietHours_To));
+        // No spacer: the card keeps the row at its own width, so "From … to …" reads from the leading edge.
+        foreach (var view in hours.ArrangedSubviews)
+        {
+            view.SetContentHuggingPriority(1000, UILayoutConstraintAxis.Horizontal);
+            // A compact picker reports no intrinsic width and would take the whole row: pin it to its pill.
+            if (view is not UIDatePicker picker) continue;
+            var pill = picker.SystemLayoutSizeFittingSize(UIView.UILayoutFittingCompressedSize).Width;
+            var fitted = picker.WidthAnchor.ConstraintEqualTo((nfloat)Math.Max(pill, WinoStyle.MinimumHitTarget));
+            fitted.Priority = 999;
+            fitted.Active = true;
+        }
         var quiet = Expander(Translator.NotificationSettings_QuietHours_Title, null, WinoIconGlyph.Clock,
             Bind.Switch(p, nameof(p.AreQuietHoursEnabled), QuietOn, (s, v) => { s.AreQuietHoursEnabled = v; vm.UpdateQuietHoursSummary(); }, Translator.NotificationSettings_QuietHours_Title),
             Bind.Enabled(StackedCard(Translator.NotificationSettings_QuietHours_From_Title, Translator.NotificationSettings_QuietHours_From_Description, WinoIconGlyph.None, hours), p, nameof(p.AreQuietHoursEnabled), QuietOn),

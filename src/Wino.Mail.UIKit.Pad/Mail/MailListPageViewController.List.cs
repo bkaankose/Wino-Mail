@@ -350,8 +350,9 @@ public sealed partial class MailListPageViewController
         _infoBar.Title = ViewModel.BarTitle;
         _infoBar.Message = ViewModel.BarMessage;
         _infoBar.Severity = MapSeverity(ViewModel.BarSeverity);
-        _infoBar.Hidden = !open;
+        // Host first: the bar starts its auto-dismiss countdown only when it is really visible.
         _infoBarHost.Hidden = !open;
+        _infoBar.Hidden = !open;
     }
 
     private void UpdateOverlays()

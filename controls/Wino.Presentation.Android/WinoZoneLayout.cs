@@ -46,6 +46,25 @@ public class WinoZoneLayout : FrameLayout
         set { _radiusDp = value; Refresh(); }
     }
 
+    private bool _isPlain;
+
+    /// <summary>
+    /// A zone without its surface (no fill, stroke or elevation) whose children draw their own surfaces over the
+    /// wallpaper, such as Settings pages where every card is its own surface.
+    /// </summary>
+    public bool IsPlain
+    {
+        get => _isPlain;
+        set
+        {
+            if (_isPlain == value) return;
+            _isPlain = value;
+            Background = value ? null : _shape;
+            ClipToOutline = !value;
+            Elevation = value ? 0 : WinoUnits.DpF(this.RequireContext(), 2);
+        }
+    }
+
     protected override void OnAttachedToWindow()
     {
         base.OnAttachedToWindow();

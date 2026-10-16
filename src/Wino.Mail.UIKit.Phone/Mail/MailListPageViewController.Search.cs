@@ -12,8 +12,9 @@ using Wino.Presentation.UIKit;
 namespace Wino.Mail.UIKit.Phone.Mail;
 
 /// <summary>
-/// Search (Windows MailListPage search, Mac MailListPageViewController.Search): a search controller in the navigation
-/// bar whose scope bar picks Local or Online, active filters as removable tokens in the search field, suggestions that
+/// Search (Windows MailListPage search, Mac MailListPageViewController.Search): a search controller that the bar's Search
+/// button attaches and activates (no persistent search bar under the compact title, so the list starts right under the
+/// bar; it detaches again once the search is cancelled), whose scope bar picks Local or Online, active filters as removable tokens in the search field, suggestions that
 /// turn the typed text into a From or Subject token or add the Unread, attachment and flag filters, and a row above the
 /// results with the folder scope, the result status and the filter editor sheet. Searches run through the shared
 /// criteria factory and folder resolver, as on the Mac.
@@ -48,8 +49,8 @@ public sealed partial class MailListPageViewController
         bar.Delegate = _searchHandler;
         bar.SearchTextField.AllowsDeletingTokens = true;
         bar.SearchTextField.TokenBackgroundColor = WinoStyle.Accent;
-        NavigationItem.SearchController = _search;
-        NavigationItem.HidesSearchBarWhenScrolling = true;
+        _search.Delegate = _searchHandler;
+        NavigationItem.HidesSearchBarWhenScrolling = false;
         DefinesPresentationContext = true;
 
         var scopeConfiguration = UIButtonConfiguration.GrayButtonConfiguration;
@@ -82,6 +83,33 @@ public sealed partial class MailListPageViewController
     }
 
     private bool IsSearchActive => !string.IsNullOrWhiteSpace(_searchText) || ViewModel.IsInSearchMode || ViewModel.ActiveSearchFilterCount > 0;
+
+    /// <summary>Puts the search controller in the bar (it is only there while a search is open).</summary>
+    private void AttachSearch()
+    {
+        if (NavigationItem.SearchController is null) NavigationItem.SearchController = _search;
+    }
+
+    /// <summary>The bar's Search button: attaches the search controller and focuses its field.</summary>
+    private void ShowSearch()
+    {
+        if (_released || _selectionMode) return;
+        AttachSearch();
+        // Activate on the next turn, after the bar has taken the search controller.
+        CoreFoundation.DispatchQueue.MainQueue.DispatchAsync(() =>
+        {
+            if (_released) return;
+            _search.Active = true;
+            _search.SearchBar.BecomeFirstResponder();
+        });
+    }
+
+    /// <summary>Removes the search controller from the bar once no search is open, giving the list its height back.</summary>
+    private void DetachSearchIfIdle()
+    {
+        if (_released || _search.Active || IsSearchActive || NavigationItem.SearchController is null) return;
+        NavigationItem.SearchController = null;
+    }
 
     private void UpdateScopeBar()
     {
@@ -265,6 +293,7 @@ public sealed partial class MailListPageViewController
         {
             _search.SearchBar.SelectedScopeButtonIndex = 0;
             UpdateScopeBar();
+            DetachSearchIfIdle();
         });
     }
 
@@ -339,6 +368,7 @@ public sealed partial class MailListPageViewController
         var keywords = (editor.Keywords ?? string.Empty).Trim();
         ViewModel.SearchScope = editor.Scope;
         ViewModel.SearchFilters = editor.ToFilters();
+        AttachSearch();
         if (!_search.Active) _search.Active = true;
         SetSearchText(keywords);
         UpdateScopeBar();
@@ -346,8 +376,11 @@ public sealed partial class MailListPageViewController
     }
 
     /// <summary>The search bar's delegate and the results updater (tokens and suggestions).</summary>
-    private sealed class SearchHandler(MailListPageViewController owner) : UISearchResultsUpdating, IUISearchBarDelegate
+    private sealed class SearchHandler(MailListPageViewController owner) : UISearchResultsUpdating, IUISearchBarDelegate, IUISearchControllerDelegate
     {
+        [Export("didDismissSearchController:")]
+        public void DidDismissSearchController(UISearchController searchController) => owner.DetachSearchIfIdle();
+
         public override void UpdateSearchResultsForSearchController(UISearchController searchController)
         {
             owner.TokensMaybeRemoved();

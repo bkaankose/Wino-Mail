@@ -8,6 +8,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Mail.Android.Infrastructure;
+using Wino.Mail.Controls.Android.Settings;
 using Wino.Presentation.Android;
 using FragmentManager = AndroidX.Fragment.App.FragmentManager;
 using FragmentTransaction = AndroidX.Fragment.App.FragmentTransaction;
@@ -82,6 +83,7 @@ public sealed class SettingsHostFragment : WinoFragment
             Bindings.Own(new ActionDisposable(() => detailBack.Click -= click));
         }
 
+        WinoSettingsNavigation.Presenter ??= OpenDetail;
         _navigation.SettingsPagesChanged += PagesChanged;
         Bindings.Own(new ActionDisposable(() => _navigation.SettingsPagesChanged -= PagesChanged));
         PlacePages();
@@ -122,11 +124,11 @@ public sealed class SettingsHostFragment : WinoFragment
                 }
                 return;
             }
-            Place(manager, Resource.Id.settings_detail_host, entries[^1]);
+            PlaceChain(manager, Resource.Id.settings_detail_host, entries[^1]);
         }
         else
         {
-            Place(manager, Resource.Id.settings_detail_host, entries[^1]);
+            PlaceChain(manager, Resource.Id.settings_detail_host, entries[^1]);
         }
         UpdateChrome();
     }
@@ -152,6 +154,79 @@ public sealed class SettingsHostFragment : WinoFragment
             .CommitNowAllowingStateLoss();
     }
 
+    /// <summary>
+    /// Shows <paramref name="top"/> in a pane. A setting detail page keeps the page it was opened from under it, hidden
+    /// but bound, because the detail hosts that page's live controls; the page is placed (and bound) before the detail.
+    /// </summary>
+    private static void PlaceChain(FragmentManager manager, int containerId, PageEntry top)
+    {
+        var owner = WinoSettingDetailFragment.OwnerOf(top);
+        var chain = owner is null ? new List<PageEntry> { top } : [owner, top];
+        var shown = manager.Fragments.OfType<WinoFragment>().Where(fragment => fragment.Id == containerId).ToList();
+        if (shown.Count == chain.Count && shown.Zip(chain).All(pair => ReferenceEquals(pair.First.Entry, pair.Second)) && !shown[^1].IsHidden) return;
+
+        // Pass 1: the page (the owner, or the top page itself); anything else leaves the pane.
+        var basePage = chain[0];
+        var transaction = manager.BeginTransaction().SetReorderingAllowed(true);
+        bool hadContent = shown.Count > 0;
+        WinoFragment? baseFragment = null;
+        foreach (var fragment in manager.Fragments.Where(fragment => fragment.Id == containerId).ToList())
+        {
+            if (fragment is WinoFragment wino && ReferenceEquals(wino.Entry, basePage) && baseFragment is null) baseFragment = wino;
+            else transaction.Remove(fragment);
+        }
+        if (baseFragment is null)
+        {
+            baseFragment = basePage.CreateFragment();
+            transaction.SetTransition(hadContent ? FragmentTransaction.TransitFragmentFade : FragmentTransaction.TransitNone);
+            transaction.Add(containerId, baseFragment);
+        }
+        if (chain.Count > 1) transaction.Hide(baseFragment);
+        else transaction.Show(baseFragment);
+        transaction.CommitNowAllowingStateLoss();
+
+        // Pass 2: the detail over its page.
+        if (chain.Count > 1)
+        {
+            manager.BeginTransaction()
+                .SetReorderingAllowed(true)
+                .SetTransition(FragmentTransaction.TransitFragmentOpen)
+                .Add(containerId, top.CreateFragment())
+                .CommitNowAllowingStateLoss();
+        }
+    }
+
+    /// <summary>
+    /// A row asked for the detail page of <paramref name="source"/> (WinoSettingsNavigation): the detail is pushed on the
+    /// Settings stack, addressed by its path from the page that owns the controls.
+    /// </summary>
+    private static void OpenDetail(View origin, View source)
+    {
+        if (MainApplication.Services?.GetService<AndroidNavigationService>() is not { } navigation) return;
+        var entries = navigation.SettingsEntries;
+        if (entries.Count == 0) return;
+        var top = entries[^1];
+        PageEntry owner;
+        List<string> path;
+        IReadOnlyList<View> sources;
+        if (top.Fragment is WinoSettingDetailFragment { Source: { } current } detail && WinoSettingDetailFragment.OwnerOf(top) is { } detailOwner)
+        {
+            owner = detailOwner;
+            path = [.. detail.Path];
+            sources = WinoSettingsNavigation.ChildSources(current);
+        }
+        else if (top.Fragment is ISettingsDetailOwner page)
+        {
+            owner = top;
+            path = [];
+            sources = page.SettingSources();
+        }
+        else return;
+        if (WinoSettingsNavigation.Segment(sources, source) is not { } segment) return;
+        path.Add(segment);
+        _ = navigation.PushSettingsDetailAsync(owner, [.. path]);
+    }
+
     /// <summary>The root list fragment, wherever it is shown.</summary>
     private SettingsRootFragment? RootList()
     {
@@ -167,9 +242,12 @@ public sealed class SettingsHostFragment : WinoFragment
         var entries = _navigation.SettingsEntries;
         if (entries.Count == 0) return;
         var top = entries[^1];
-        var detail = ChildFragmentManager.FindFragmentById(Resource.Id.settings_detail_host);
+        var detail = top.Fragment ?? ChildFragmentManager.FindFragmentById(Resource.Id.settings_detail_host);
         var title = (detail as ISettingsPageTitleSource)?.PageTitle is { Length: > 0 } custom ? custom : SettingsCatalog.Title(top.Page);
         bool rootShown = top.Page == WinoPage.SettingsPage || _twoPane;
+        // Pages are sections of rows inside the zone, like the root list (canvas Android settings boards).
+        if (View.FindViewById<WinoZoneLayout>(Resource.Id.settings_detail_zone) is { } detailZone)
+            detailZone.IsPlain = false;
 
         if (_toolbar is not null)
         {

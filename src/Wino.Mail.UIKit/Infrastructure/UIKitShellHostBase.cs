@@ -36,7 +36,13 @@ public abstract class UIKitShellHostBase : IUIKitShellHost
         // A sheet left on the outgoing root (add account, Settings) goes with it.
         if (previous.PresentedViewController is not null) previous.DismissViewController(false, null);
         _sheets.Clear();
-        UIView.Transition(window, 0.25, UIViewAnimationOptions.TransitionCrossDissolve, () => window.RootViewController = controller, () => { });
+        // The new root's first layout must not run inside the animation block, or every view grows from a zero frame
+        // (the page "draws" from the top-left corner). Lay it out without animation, then only cross-fade.
+        UIView.Transition(window, 0.25, UIViewAnimationOptions.TransitionCrossDissolve, () => UIView.PerformWithoutAnimation(() =>
+        {
+            window.RootViewController = controller;
+            window.LayoutIfNeeded();
+        }), () => { });
     }
 
     public abstract UIKitShellViewController CreateShell();

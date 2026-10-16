@@ -34,25 +34,20 @@ public sealed class FolderCustomizationPageViewController(FolderCustomizationPag
     /// <summary>The title is fixed.</summary>
     public event EventHandler? PageTitleChanged { add { } remove { } }
 
-    /// <summary>The header shows the description next to the account name.</summary>
-    protected override bool ShowsPageDescription => false;
-
     protected override void BuildPage()
     {
         var vm = ViewModel;
 
+        // The account the list belongs to; iOS shows no page description under it.
         var account = Bind.Label(vm, nameof(vm.AccountName), s => s.AccountName, WinoStyle.BodyStrong, WinoStyle.PrimaryText);
-        var description = WinoStyle.Label(Translator.FolderCustomization_Description, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0);
-        var text = WinoLayout.VStack(2, account, description);
+        Bind.Visible(account, vm, nameof(vm.AccountName), s => !string.IsNullOrWhiteSpace(s.AccountName));
+        var text = WinoLayout.VStack(2, account);
         text.Alignment = UIStackViewAlignment.Fill;
         WinoLayout.Priorities(text, UILayoutConstraintAxis.Horizontal, 1, 250);
         var reset = Bind.Button(Translator.FolderCustomization_Reset, vm.ResetCommand, icon: WinoIconGlyph.ArrowReset);
-        reset.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
-        var resetRow = Row(reset, WinoLayout.Spacer());
-        var header = WinoLayout.VStack(WinoStyle.Space2, text, resetRow);
-        header.Alignment = UIStackViewAlignment.Fill;
-        WinoLayout.Insets(header, 0, 1, 8, 0);
-        Add(header);
+        WinoLayout.Insets(text, 0, WinoSettingsStyle.CardPadding, 0, 0);
+        Add(text);
+        AddGroup(null, ActionRow(reset));
 
         _group.CanDrop = (source, target) => ReferenceEquals(source, target)
             || (source.Key is PinnedKey or MoreKey && target.Key is PinnedKey or MoreKey);
@@ -72,18 +67,32 @@ public sealed class FolderCustomizationPageViewController(FolderCustomizationPag
     protected override Task InitializeAsync(NavigationMode mode, object? parameter)
         => ViewModel.InitializeAsync(mode, parameter);
 
-    private WinoSettingsExpander Section(string key, ObservableCollection<FolderCustomizationItemViewModel> items, string title, string description, WinoIconGlyph icon)
+    /// <summary>
+    /// One section as a titled group (settings rows, 15 Oct 2026): the folder list stays on the page, not behind a push,
+    /// so folders still drag between Pinned and More. The count and the description follow the list.
+    /// </summary>
+    private WinoSettingsGroup Section(string key, ObservableCollection<FolderCustomizationItemViewModel> items, string title, string description, WinoIconGlyph icon)
     {
+        _ = icon;
         var count = Caption(string.Empty);
-        var expander = new WinoSettingsExpander(title, description, icon, null, isExpanded: true);
-        // The folder count reads under the description at phone width.
-        expander.HeaderCard.BottomContent = count;
+        var group = new WinoSettingsGroup(title, description);
         var list = new SettingsDragList<FolderCustomizationItemViewModel>(key, items, _group, (item, _) => FolderRow(key, item), RowHeight);
         list.SetEmptyView(EmptyZone(), 48);
-        expander.Add(list, 0, 0, 0, 0);
+        var surface = new WinoSurfaceView
+        {
+            Fill = WinoSettingsStyle.GroupFill,
+            Stroke = WinoSettingsStyle.CardStroke,
+            CornerRadius = WinoSettingsStyle.CardRadius,
+            ClipsToBounds = true
+        };
+        WinoLayout.Fill(list, surface);
+        group.Add(surface);
+        var countHost = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
+        WinoLayout.Fill(count, countHost, 0, WinoSettingsStyle.CardPadding, 0, WinoSettingsStyle.CardPadding);
+        group.Add(countHost);
         _sections[key] = (list, items, count);
         Bindings.Own(list.Observe(items, Dispatcher, () => UpdateCount(key)));
-        return expander;
+        return group;
     }
 
     /// <summary>The empty section: a dashed placeholder inset inside the section body.</summary>

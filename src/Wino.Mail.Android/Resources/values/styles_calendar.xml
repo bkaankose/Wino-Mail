@@ -5,10 +5,11 @@
 <resources>
   <style name="Widget.Wino.Calendar" parent="" />
 
-  <!-- The top app bar title that opens the month view (title-large with the dropdown arrow). -->
+  <!-- The top app bar title: the visible range with the dropdown arrow; a tap opens the date picker sheet (48 dp target). -->
   <style name="Widget.Wino.Calendar.TitleButton">
     <item name="android:layout_width">wrap_content</item>
     <item name="android:layout_height">@dimen/wino_m3_icon_button</item>
+    <item name="android:minWidth">@dimen/wino_m3_icon_button</item>
     <item name="android:background">?attr/selectableItemBackground</item>
     <item name="android:drawablePadding">@dimen/wino_space_2xs</item>
     <item name="android:drawableTint">@color/wino_text_secondary</item>
@@ -27,12 +28,24 @@
     <item name="android:paddingEnd">@dimen/wino_calendar_strip_padding</item>
   </style>
 
-  <style name="Widget.Wino.Calendar.MonthGrid">
+  <!-- Day view: the small zone holding the week strip, a gutter above the content zone. -->
+  <style name="Widget.Wino.Calendar.StripZone">
     <item name="android:layout_width">match_parent</item>
     <item name="android:layout_height">wrap_content</item>
-    <item name="android:paddingStart">@dimen/wino_calendar_strip_padding</item>
-    <item name="android:paddingEnd">@dimen/wino_calendar_strip_padding</item>
-    <item name="android:paddingBottom">@dimen/wino_calendar_month_padding_bottom</item>
+    <item name="android:layout_marginStart">@dimen/wino_zone_gutter</item>
+    <item name="android:layout_marginEnd">@dimen/wino_zone_gutter</item>
+    <item name="android:layout_marginBottom">@dimen/wino_zone_gutter</item>
+  </style>
+
+  <!-- The date picker sheet (option B): 16 dp sides, the period row, the month header and the month grid. -->
+  <style name="Widget.Wino.Calendar.PickerSheet">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:orientation">vertical</item>
+    <item name="android:paddingStart">@dimen/wino_space_l</item>
+    <item name="android:paddingEnd">@dimen/wino_space_l</item>
+    <item name="android:paddingTop">@dimen/wino_space_s</item>
+    <item name="android:paddingBottom">@dimen/wino_space_xl</item>
   </style>
 
   <style name="Widget.Wino.Calendar.Divider">

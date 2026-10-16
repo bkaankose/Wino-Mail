@@ -29,7 +29,7 @@ public sealed class NotificationSettingsPageFragment : SettingsPageFragment<Noti
 {
     private static readonly TimeSpan SnoozeRefreshInterval = TimeSpan.FromSeconds(30);
 
-    private LinearLayout? _accounts;
+    private WinoSettingsGroup? _accounts;
     private LinearLayout? _days;
     private BindingScope? _accountScope;
     private BindingScope? _dayScope;
@@ -70,9 +70,9 @@ public sealed class NotificationSettingsPageFragment : SettingsPageFragment<Noti
         _days = new LinearLayout(Ctx) { Orientation = Orientation.Horizontal };
         Bindings.Own(new ActionDisposable(() => _dayScope?.Dispose()));
         Bind.Collection(vm.QuietHoursDayToggles, RebuildDays);
+        // Two time rows on the detail page ("Quiet from", "to"), each opening the time picker.
         var hours = Row(
             Bind.TimePicker(p, nameof(p.QuietHoursStart), s => s.QuietHoursStart, (s, v) => { s.QuietHoursStart = v; vm.UpdateQuietHoursSummary(); }, Translator.NotificationSettings_QuietHours_From_Title),
-            Caption(Translator.NotificationSettings_QuietHours_To),
             Bind.TimePicker(p, nameof(p.QuietHoursEnd), s => s.QuietHoursEnd, (s, v) => { s.QuietHoursEnd = v; vm.UpdateQuietHoursSummary(); }, Translator.NotificationSettings_QuietHours_To));
         var quiet = Expander(Translator.NotificationSettings_QuietHours_Title, null, WinoIconGlyph.Clock,
             Bind.Switch(p, nameof(p.AreQuietHoursEnabled), QuietOn, (s, v) => { s.AreQuietHoursEnabled = v; vm.UpdateQuietHoursSummary(); }, Translator.NotificationSettings_QuietHours_Title),
@@ -114,10 +114,7 @@ public sealed class NotificationSettingsPageFragment : SettingsPageFragment<Noti
         AddGroup(null, quiet, mail, calendar, tasks, LiveNotifications());
 
         // Per-account overrides.
-        var accountsHeader = new WinoSettingsGroup(Ctx, Translator.NotificationSettings_Accounts_Title, Translator.NotificationSettings_Accounts_Description);
-        accountsHeader.Surface.Visibility = ViewStates.Gone;
-        Add(accountsHeader);
-        _accounts = Add(new LinearLayout(Ctx) { Orientation = Orientation.Vertical });
+        _accounts = Add(new WinoSettingsGroup(Ctx, Translator.NotificationSettings_Accounts_Title, Translator.NotificationSettings_Accounts_Description));
         Bindings.Own(new ActionDisposable(() => _accountScope?.Dispose()));
         Bind.Collection(vm.Accounts, RebuildAccounts);
 
@@ -242,7 +239,7 @@ public sealed class NotificationSettingsPageFragment : SettingsPageFragment<Noti
         _accountScope?.Dispose();
         _accountScope = new BindingScope();
         var rows = Bind.Child(_accountScope);
-        accounts.RemoveAllViews();
+        accounts.Clear();
 
         foreach (var account in VM.Accounts.ToList())
         {
@@ -271,9 +268,7 @@ public sealed class NotificationSettingsPageFragment : SettingsPageFragment<Noti
                 OptionPopUp(rows, account, a => a.QuietHoursOptions, nameof(account.SelectedQuietHoursStance), a => a.SelectedQuietHoursStance, (a, v) => a.SelectedQuietHoursStance = v)),
                 account, nameof(account.AreNotificationsEnabled), Enabled));
 
-            var layout = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent);
-            if (accounts.ChildCount > 0) layout.TopMargin = WinoTokens.Px(Ctx, Resource.Dimension.wino_space_2xs);
-            accounts.AddView(expander, layout);
+            accounts.Add(expander);
         }
     }
 }

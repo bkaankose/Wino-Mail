@@ -59,10 +59,7 @@ public sealed class AccountUnreadBadgePageFragment : SettingsPageFragment<Accoun
         Add(CountSourceExpander());
         Add(FoldersExpander());
 
-        var restore = Bind.Button(Translator.UnreadBadges_RestoreDefaults, vm.RestoreDefaultsCommand, icon: WinoIconGlyph.ArrowReset);
-        var restoreRow = Row(restore);
-        WinoTokens.Pad(restoreRow, 0, Resource.Dimension.wino_space_sm, 0, 0);
-        Add(restoreRow);
+        AddGroup(null, ActionCard(Translator.UnreadBadges_RestoreDefaults, vm.RestoreDefaultsCommand));
     }
 
     /// <summary>Account picture, name and address; the account and app icon totals as two large numbers under them.</summary>

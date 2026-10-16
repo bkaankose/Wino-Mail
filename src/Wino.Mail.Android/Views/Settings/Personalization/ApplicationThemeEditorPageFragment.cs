@@ -83,34 +83,26 @@ public sealed class ApplicationThemeEditorPageFragment : SettingsPageFragment<Ap
         Add(BuildWallpaperExpander());
         Add(BuildBaseAndAccentExpander());
 
-        var surfaceRows = new LinearLayout(Ctx) { Orientation = Orientation.Vertical };
         var surfaces = Expander(Translator.ApplicationThemeEditor_Surfaces, Translator.ApplicationThemeEditor_SurfacesDescription, WinoIconGlyph.Grid, null);
-        surfaces.Add(surfaceRows, 0, 0, 0, 0);
         Bind.Bind(vm, nameof(vm.OverriddenSurfaceCount), s => s.OverriddenSurfaceCount,
             count => surfaces.HeaderCard.Description = DescribeCount(Translator.ApplicationThemeEditor_SurfacesDescription, count));
         Add(surfaces);
 
-        var calendarRows = new LinearLayout(Ctx) { Orientation = Orientation.Vertical };
         var calendar = Expander(Translator.ApplicationThemeEditor_CalendarHours, Translator.ApplicationThemeEditor_CalendarHoursDescription, WinoIconGlyph.Calendar, null);
-        calendar.Add(calendarRows, 0, 0, 0, 0);
         Bind.Bind(vm, nameof(vm.OverriddenCalendarCount), s => s.OverriddenCalendarCount, _ => calendar.HeaderCard.Description =
             DescribeCount(Translator.ApplicationThemeEditor_CalendarHoursDescription, vm.CalendarOptions.Count(option => IsShown(option.Key) && option.IsOverridden)));
         Add(calendar);
 
-        BindRows(vm.SurfaceOptions, surfaceRows);
-        BindRows(vm.CalendarOptions, calendarRows);
+        BindRows(vm.SurfaceOptions, surfaces, [], []);
+        BindRows(vm.CalendarOptions, calendar, [], []);
 
         // Footer: Cancel, Delete (edit mode) and Save.
-        var cancel = Bind.Button(Translator.Buttons_Cancel, vm.CancelCommand);
-        var delete = Bind.Button(Translator.Buttons_Delete, vm.DeleteCommand);
-        delete.SetTextColor(WinoColors.Critical(Ctx));
-        Bind.Visible(delete, vm, nameof(vm.IsEditMode), s => s.IsEditMode);
+        // Footer actions as action rows: Save, Delete (edit mode, error colour) and Cancel.
         var save = Bind.Button(Translator.Buttons_Save, () => { if (vm.SaveCommand.CanExecute(null)) vm.SaveCommand.Execute(null); }, primary: true);
         Bind.Views.BindAny(vm, s => !s.IsSaving && !s.IsDeleting, enabled => save.Enabled = enabled);
-        var footer = Row(cancel, delete, save);
-        footer.SetGravity(GravityFlags.End | GravityFlags.CenterVertical);
-        footer.SetPadding(0, WinoTokens.Px(Ctx, Resource.Dimension.wino_space_m), 0, WinoTokens.Px(Ctx, Resource.Dimension.wino_space_l));
-        Add(footer);
+        var delete = ActionCard(Translator.Buttons_Delete, vm.DeleteCommand, destructive: true);
+        Bind.Visible(delete, vm, nameof(vm.IsEditMode), s => s.IsEditMode);
+        AddGroup(null, Card(Translator.Buttons_Save, null, WinoIconGlyph.None, save), delete, ActionCard(Translator.Buttons_Cancel, vm.CancelCommand));
 
         Bind.Bind(vm, nameof(vm.WallpaperFit), s => s.WallpaperFit, _ => UpdateWallpaperPreview());
         Bind.Bind(vm, nameof(vm.WallpaperAlignment), s => s.WallpaperAlignment, _ => UpdateFocalButtons());
@@ -135,24 +127,21 @@ public sealed class ApplicationThemeEditorPageFragment : SettingsPageFragment<Ap
 
     // ---- Colour rows ----
 
-    private void BindRows(ObservableCollection<ThemePaletteColorOptionViewModel> options, LinearLayout host)
+    /// <summary>
+    /// The colour options as items of <paramref name="expander"/>, between <paramref name="before"/> and
+    /// <paramref name="after"/>: each is a list row (swatch, label) whose detail page holds its colour controls.
+    /// </summary>
+    private void BindRows(ObservableCollection<ThemePaletteColorOptionViewModel> options, WinoSettingsExpander expander, View[] before, View[] after)
     {
         BindingScope? rows = null;
         Bind.Collection(options, () =>
         {
             rows?.Dispose();
             rows = new BindingScope();
-            host.RemoveAllViews();
-            foreach (var option in options.Where(option => IsShown(option.Key)).ToList())
-            {
-                if (host.ChildCount > 0)
-                {
-                    var divider = new View(Ctx);
-                    divider.SetBackgroundColor(WinoColors.Divider(Ctx));
-                    host.AddView(divider, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, WinoTokens.Px(Ctx, Resource.Dimension.wino_space_hairline)));
-                }
-                host.AddView(BuildOptionRow(option, rows), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent));
-            }
+            expander.ClearItems();
+            foreach (var view in before) expander.Add(view);
+            foreach (var option in options.Where(option => IsShown(option.Key)).ToList()) expander.Add(BuildOptionRow(option, rows));
+            foreach (var view in after) expander.Add(view);
         });
         Bindings.Own(new ActionDisposable(() => rows?.Dispose()));
     }
@@ -170,7 +159,8 @@ public sealed class ApplicationThemeEditorPageFragment : SettingsPageFragment<Ap
         dotFill.SetColor(WinoColors.Accent(Ctx));
         dot.Background = dotFill;
         dot.LayoutParameters = new ViewGroup.LayoutParams(WinoTokens.Px(Ctx, Resource.Dimension.wino_space_xs), WinoTokens.Px(Ctx, Resource.Dimension.wino_space_xs));
-        var card = new WinoSettingsCard(Ctx, option.Label ?? string.Empty, option.Description) { IsNested = true, IsClickable = true, LeadingView = swatch, Content = Row(dot, value) };
+        // Nothing expands in place: the row opens the detail page with the colour well, hex field, Reset and contrast note.
+        var card = new WinoSettingsCard(Ctx, option.Label ?? string.Empty, option.Description) { LeadingView = swatch, Content = Row(dot, value), RowKind = WinoSettingsRowKind.Push };
 
         var well = new ThemeColorWell(Ctx, allowsAlpha: true, option.Label ?? string.Empty);
         EventHandler<string> picked = (_, hex) => { if (!string.Equals(option.Value, hex, StringComparison.OrdinalIgnoreCase)) option.Value = hex; };
@@ -193,8 +183,6 @@ public sealed class ApplicationThemeEditorPageFragment : SettingsPageFragment<Ap
         var panel = Stack(Resource.Dimension.wino_space_m, controls, reset, hint, contrast);
         Wrap(reset);
 
-        EventHandler activated = (_, _) => { if (VM.ToggleOptionCommand.CanExecute(option)) VM.ToggleOptionCommand.Execute(option); };
-        card.Activated += activated;
 
         void Refresh()
         {
@@ -206,8 +194,7 @@ public sealed class ApplicationThemeEditorPageFragment : SettingsPageFragment<Ap
             contrast.Visibility = option.HasContrastReport ? ViewStates.Visible : ViewStates.Gone;
             contrast.Text = option.ContrastMessage ?? string.Empty;
             contrast.SetTextColor(option.IsContrastSufficient ? WinoColors.Success(Ctx) : WinoColors.Caution(Ctx));
-            card.SetActionIcon(option.IsExpanded ? WinoIconGlyph.ChevronDown : WinoIconGlyph.ChevronRight);
-            card.BottomContent = option.IsExpanded ? panel : null;
+            card.BottomContent = panel;
         }
 
         PropertyChangedEventHandler changed = (_, _) => _ = Dispatcher.ExecuteOnUIThread(() => { if (!scope.IsDisposed) Refresh(); });
@@ -215,7 +202,6 @@ public sealed class ApplicationThemeEditorPageFragment : SettingsPageFragment<Ap
         scope.Own(new ActionDisposable(() =>
         {
             option.PropertyChanged -= changed;
-            card.Activated -= activated;
             well.ColorPicked -= picked;
         }));
         Refresh();
@@ -290,7 +276,7 @@ public sealed class ApplicationThemeEditorPageFragment : SettingsPageFragment<Ap
 
         var content = Stack(0, empty, image);
         var expander = Expander(Translator.ApplicationThemeEditor_Wallpaper, Translator.ApplicationThemeEditor_WallpaperDescription, WinoIconGlyph.Image, null);
-        AddNested(expander, content, Resource.Dimension.wino_space_m, 0, Resource.Dimension.wino_space_m, Resource.Dimension.wino_space_l);
+        AddNested(expander, content, Resource.Dimension.wino_space_m, Resource.Dimension.wino_space_l, Resource.Dimension.wino_space_m, Resource.Dimension.wino_space_l);
         expander.IsExpanded = true;
         return expander;
     }
@@ -392,8 +378,6 @@ public sealed class ApplicationThemeEditorPageFragment : SettingsPageFragment<Ap
         presetScroll.AddView(presets);
         var presetCard = StackedCard(Translator.ApplicationThemeEditor_Presets, null, WinoIconGlyph.None, presetScroll);
 
-        var baseRows = new LinearLayout(Ctx) { Orientation = Orientation.Vertical };
-        BindRows(vm.BaseSurfaceOptions, baseRows);
 
         var useSystem = Bind.Switch(vm, nameof(vm.UseSystemAccent), s => s.UseSystemAccent, (s, value) => s.UseSystemAccent = value, Translator.ApplicationThemeEditor_UseSystemAccentColor);
         var systemCard = Card(Translator.ApplicationThemeEditor_UseSystemAccentColor, null, WinoIconGlyph.None, useSystem);
@@ -410,10 +394,7 @@ public sealed class ApplicationThemeEditorPageFragment : SettingsPageFragment<Ap
         Bind.Enabled(accentCard, vm, nameof(vm.UseSystemAccent), s => !s.UseSystemAccent);
 
         var expander = Expander(Translator.ApplicationThemeEditor_BaseAndAccent, Translator.ApplicationThemeEditor_BaseAndAccentDescription, WinoIconGlyph.Color, null);
-        expander.Add(presetCard);
-        expander.Add(baseRows, 0, 0, 0, 0);
-        expander.Add(systemCard);
-        expander.Add(accentCard);
+        BindRows(vm.BaseSurfaceOptions, expander, [presetCard], [systemCard, accentCard]);
         return expander;
     }
 

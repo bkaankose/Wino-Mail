@@ -52,9 +52,9 @@ public sealed class PersonalizationPageViewController(PersonalizationPageViewMod
 
         var accent = Expander(Translator.SettingsAccentColor_Title, Translator.SettingsAccentColor_Description, WinoIconGlyph.Color, null);
         accent.Add(swatches, 12, WinoSettingsStyle.CardPadding, 12, WinoSettingsStyle.CardPadding);
-        accent.Add(Card(string.Empty, null, WinoIconGlyph.None,
-            Bind.Checkbox(_appearance, Translator.SettingsAccentColor_UseSystemAccentColor, nameof(UIKitAppearanceModel.UseSystemAccent),
-                s => s.UseSystemAccent, (s, v) => s.UseSystemAccent = v)));
+        // The check button is its own row under the swatches (no empty card title above it).
+        accent.Add(Bind.Checkbox(_appearance, Translator.SettingsAccentColor_UseSystemAccentColor, nameof(UIKitAppearanceModel.UseSystemAccent),
+            s => s.UseSystemAccent, (s, v) => s.UseSystemAccent = v), 4, WinoSettingsStyle.CardPadding, 4, WinoSettingsStyle.CardPadding);
 
         // Three and two segments do not fit beside the text on a phone: the control goes under it.
         var appearance = StackedCard(Translator.SettingsElementTheme_Title, Translator.SettingsElementTheme_SelectThemeDescription, WinoIconGlyph.DarkTheme,

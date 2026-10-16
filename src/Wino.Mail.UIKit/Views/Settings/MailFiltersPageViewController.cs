@@ -31,7 +31,6 @@ public sealed class MailFiltersPageViewController(MailFiltersPageViewModel viewM
     private bool _rebuildQueued;
 
     public string? PageTitle => Translator.MailFilters_Title;
-    public string? PageDescription => Translator.MailFilters_Description;
     /// <summary>The title is fixed.</summary>
     public event EventHandler? PageTitleChanged { add { } remove { } }
 
@@ -47,10 +46,15 @@ public sealed class MailFiltersPageViewController(MailFiltersPageViewModel viewM
         Bind.Enabled(refresh, vm, nameof(vm.IsBusy), s => !s.IsBusy);
         var create = Bind.Button(Translator.MailFilters_NewFilter, vm.CreateFilter, primary: true, icon: WinoIconGlyph.Add);
         WinoAccessibility.Help(create, Translator.MailFilters_NewFilterDescription);
-        foreach (var button in new[] { refresh, create }) button.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
-        var header = WinoLayout.HStack(WinoStyle.Space2, create, refresh, spinner, WinoLayout.Spacer());
-        WinoLayout.Insets(header, 0, 1, 8, 0);
-        Add(header);
+        var refreshRow = ActionRow(refresh);
+        AddGroup(null, ActionRow(create), refreshRow);
+        // The busy spinner sits at the trailing edge of the refresh row.
+        refreshRow.AddSubview(spinner);
+        NSLayoutConstraint.ActivateConstraints(
+        [
+            spinner.TrailingAnchor.ConstraintEqualTo(refreshRow.TrailingAnchor, -(nfloat)WinoSettingsStyle.CardPadding),
+            spinner.CenterYAnchor.ConstraintEqualTo(refreshRow.CenterYAnchor)
+        ]);
 
         var gmail = InfoBar(WinoInfoBarSeverity.Informational, Translator.MailFilters_ProviderFeatureTitle, Translator.MailFilters_GmailProviderUnavailableDescription);
         Bind.Visible(Add(gmail), vm, nameof(vm.IsGmailAccount), s => s.IsGmailAccount);
@@ -122,7 +126,7 @@ public sealed class MailFiltersPageViewController(MailFiltersPageViewModel viewM
 
         var surface = new WinoSurfaceView
         {
-            Fill = WinoSettingsStyle.CardFill,
+            Fill = WinoSettingsStyle.GroupFill,
             Stroke = WinoSettingsStyle.CardStroke,
             StrokeWidth = 1,
             CornerRadius = WinoSettingsStyle.CardRadius,
@@ -204,8 +208,10 @@ public sealed class MailFiltersPageViewController(MailFiltersPageViewModel viewM
         WinoLayout.Priorities(text, UILayoutConstraintAxis.Horizontal, 1, 250);
         foreach (var label in new UIView[] { title, summary, metaText }) WinoLayout.Priorities(label, UILayoutConstraintAxis.Horizontal, 1, 250);
 
-        var toggle = new UISwitch { On = filter.IsEnabled, Enabled = item.CanEdit, TranslatesAutoresizingMaskIntoConstraints = false };
-        WinoLayout.Priorities(toggle, UILayoutConstraintAxis.Horizontal, 751, 751);
+        // The compact native switch every Settings card uses.
+        var compact = new WinoLabeledSwitch { IsOn = filter.IsEnabled, IsEnabled = item.CanEdit };
+        var toggle = compact.Switch;
+        WinoLayout.Priorities(compact, UILayoutConstraintAxis.Horizontal, 751, 751);
         WinoAccessibility.Label(toggle, ActionLabel(Translator.MailFilterEditor_Enabled, name));
         rows.OnActivated(toggle, () => Run(SetEnabledAsync(item, toggle, metaText)), UIControlEvent.ValueChanged);
 
@@ -218,7 +224,7 @@ public sealed class MailFiltersPageViewController(MailFiltersPageViewModel viewM
         var duplicate = IconButton(rows, WinoIconGlyph.Copy, Translator.MailFilters_Duplicate, name, () => ViewModel.DuplicateFilter(item));
         var delete = IconButton(rows, WinoIconGlyph.Delete, Translator.Buttons_Delete, name, () => Run(ViewModel.DeleteFilterAsync(item)));
 
-        var top = WinoLayout.HStack(WinoSettingsStyle.IconGap, glyph, text, toggle);
+        var top = WinoLayout.HStack(WinoSettingsStyle.IconGap, glyph, text, compact);
         top.Alignment = UIStackViewAlignment.Top;
         var buttons = WinoLayout.HStack(2, WinoLayout.Spacer(), up, down, edit, duplicate, delete);
         var content = WinoLayout.VStack(WinoStyle.Space1, top, buttons);
@@ -226,7 +232,7 @@ public sealed class MailFiltersPageViewController(MailFiltersPageViewModel viewM
 
         var card = new WinoSurfaceView
         {
-            Fill = WinoSettingsStyle.CardFill,
+            Fill = WinoSettingsStyle.GroupFill,
             Stroke = WinoSettingsStyle.CardStroke,
             StrokeWidth = 1,
             CornerRadius = WinoSettingsStyle.CardRadius,

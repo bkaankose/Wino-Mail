@@ -15,10 +15,12 @@ namespace Wino.Mail.UIKit.Phone.Mail;
 
 public sealed partial class MailListPageViewController
 {
-    private UIBarButtonItem? _editItem;
-    private UIBarButtonItem? _doneItem;
+    private UIBarButtonItem? _mailboxesItem;
+    private UIBarButtonItem? _searchItem;
+    private UIBarButtonItem? _cancelItem;
     private UIBarButtonItem? _composeItem;
     private UIBarButtonItem? _selectAllItem;
+    private bool _enteringSelectionByInteraction;
     private UINavigationController? _moveSheet;
     private UINavigationController? _filterSheet;
     private UIBarButtonItem[] _editToolbar = [];
@@ -26,11 +28,19 @@ public sealed partial class MailListPageViewController
 
     // ---- Navigation bar and edit mode ----
 
+    /// <summary>True while the list is in edit (multi-select) mode.</summary>
+    internal bool IsInSelectionMode => _selectionMode;
+
+    /// <summary>
+    /// The compact bar: the sidebar button (Mailboxes drawer) leading; Search and New Message trailing. Edit mode swaps
+    /// them for Select All, "N selected" and Cancel. The select button itself sits in the header row of the zone.
+    /// </summary>
     private void BuildBarItems()
     {
+        _mailboxesItem = PhoneBarItems.Button(WinoIconGlyph.PanelLeft, Translator.IOS_MailboxesTitle, () => PhoneShellViewController.Of(this)?.OpenMailboxes());
+        _searchItem = PhoneBarItems.Button(WinoIconGlyph.Find, Translator.SearchBarPlaceholder, ShowSearch);
         _composeItem = PhoneBarItems.Compose(Compose);
-        _editItem = new UIBarButtonItem(Translator.Buttons_Edit, UIBarButtonItemStyle.Plain, (_, _) => ViewModel.IsMultiSelectionModeEnabled = true);
-        _doneItem = new UIBarButtonItem(Translator.Buttons_Done, UIBarButtonItemStyle.Done, (_, _) => ViewModel.IsMultiSelectionModeEnabled = false);
+        _cancelItem = new UIBarButtonItem(Translator.Buttons_Cancel, UIBarButtonItemStyle.Plain, (_, _) => ViewModel.IsMultiSelectionModeEnabled = false);
         _selectAllItem = new UIBarButtonItem(Translator.MacOSMenu_SelectAll, UIBarButtonItemStyle.Plain, (_, _) => ToggleSelectAll());
         var more = PhoneBarItems.RowButton(WinoIconGlyph.More, Translator.More, null);
         more.Menu = UIMenu.Create([UIDeferredMenuElement.CreateUncached(completion => completion(SelectionMenuElements(ViewModel.SelectedItems.ToArray())))]);
@@ -41,6 +51,8 @@ public sealed partial class MailListPageViewController
             PhoneBarItems.RowButton(WinoIconGlyph.Move, Translator.MailOperation_Move, () => ShowMoveSheet(ViewModel.SelectedItems.ToArray())),
             PhoneBarItems.RowButton(WinoIconGlyph.Flag, Translator.MailOperation_Flag, () =>
                 RunOnSelection(ViewModel.SelectedItems.All(static item => item.IsFlagged) ? MailOperation.ClearFlag : MailOperation.SetFlag)),
+            PhoneBarItems.RowButton(WinoIconGlyph.MarkRead, Translator.MailOperation_MarkAsRead, () =>
+                RunOnSelection(ViewModel.SelectedItems.All(static item => item.IsRead) ? MailOperation.MarkAsUnread : MailOperation.MarkAsRead)),
             more
         ];
         _editToolbar = PhoneBarItems.Row(_editButtons);
@@ -49,28 +61,35 @@ public sealed partial class MailListPageViewController
 
     private void ApplyNavigationItems()
     {
-        if (_composeItem is null || _editItem is null || _doneItem is null || _selectAllItem is null) return;
+        if (_composeItem is null || _searchItem is null || _mailboxesItem is null || _cancelItem is null || _selectAllItem is null) return;
         if (_selectionMode)
         {
             NavigationItem.SetHidesBackButton(true, true);
-            NavigationItem.SetRightBarButtonItems([_doneItem], true);
+            NavigationItem.SetRightBarButtonItems([_cancelItem], true);
             NavigationItem.SetLeftBarButtonItems([_selectAllItem], true);
         }
         else
         {
-            NavigationItem.SetLeftBarButtonItems([], true);
             NavigationItem.SetHidesBackButton(false, true);
-            NavigationItem.SetRightBarButtonItems([_composeItem, _editItem], true);
+            NavigationItem.SetLeftBarButtonItems([_mailboxesItem], true);
+            // The first item is the trailing-most: New Message, then Search.
+            NavigationItem.SetRightBarButtonItems([_composeItem, _searchItem], true);
         }
+        _selectButton.Hidden = _selectionMode;
     }
 
-    /// <summary>Edit mode: round checks on the rows, multiple selection, the selection toolbar and no swipe actions.</summary>
+    /// <summary>
+    /// Edit mode: the table's own editing with multiple selection (selection circles, one-finger drags over the circles
+    /// and two-finger pans select ranges, like Mail and Photos), the selection toolbar in place of the tab bar and no
+    /// swipe actions. The selection reaches the shared ViewModel through <see cref="SyncSelectionFromTable"/>.
+    /// </summary>
     private void ApplySelectionMode(bool enabled)
     {
-        if (_selectionMode == enabled && IsViewLoaded && _table.AllowsMultipleSelection == enabled) return;
+        if (_selectionMode == enabled && IsViewLoaded && _table.Editing == enabled) return;
         _selectionMode = enabled;
-        ClearSelection();
-        _table.AllowsMultipleSelection = enabled;
+        // A two-finger pan that starts edit mode selects as it goes; only the button and the ViewModel start from nothing.
+        if (!_enteringSelectionByInteraction) ClearSelection();
+        if (_table.Editing != enabled) _table.SetEditing(enabled, true);
         foreach (var cell in _table.VisibleCells.OfType<WinoMailRowCell>()) cell.IsSelectionMode = enabled;
         // The check narrows the text column, which can wrap the tile line.
         NoteHeightsChanged();
@@ -92,6 +111,17 @@ public sealed partial class MailListPageViewController
         bool any = ViewModel.SelectedItemsCount > 0;
         foreach (var button in _editButtons) button.Enabled = any;
         if (_selectAllItem is not null) _selectAllItem.Title = ViewModel.IsAllItemsSelected && any ? Translator.Buttons_UnselectAll : Translator.MacOSMenu_SelectAll;
+    }
+
+    /// <summary>The table's multiple-selection interaction (two-finger pan) began: enter edit mode keeping its selection.</summary>
+    private void BeginSelectionByInteraction()
+    {
+        if (_selectionMode) return;
+        // Applied here, synchronously, so the pan's rows are not cleared; the ViewModel binding then finds it applied.
+        _enteringSelectionByInteraction = true;
+        try { ApplySelectionMode(true); }
+        finally { _enteringSelectionByInteraction = false; }
+        ViewModel.IsMultiSelectionModeEnabled = true;
     }
 
     private void ToggleSelectAll()
@@ -258,7 +288,7 @@ public sealed partial class MailListPageViewController
                 continue;
             }
             if (!includeQuickActions && available.Operation is MailOperation.Archive or MailOperation.UnArchive or MailOperation.SoftDelete
-                or MailOperation.SetFlag or MailOperation.ClearFlag or MailOperation.Move) continue;
+                or MailOperation.SetFlag or MailOperation.ClearFlag or MailOperation.Move or MailOperation.MarkAsRead or MailOperation.MarkAsUnread) continue;
             var title = MailOperationDisplay.GetTitle(available.Operation);
             if (string.IsNullOrEmpty(title)) continue;
             var operation = available.Operation;
@@ -355,7 +385,9 @@ public sealed partial class MailListPageViewController
         {
             if (_released) return;
             DismissMoveSheet();
-            var picker = new MoveFolderSheetViewController(folders, sourceFolderIds, folder =>
+            var account = mails[0].AssignedAccount;
+            var context = new MoveFolderSheetContext(mails.Count, mails.Count == 1 ? mails[0].Subject : null, account?.Name, account?.Address);
+            var picker = new MoveFolderSheetViewController(folders, sourceFolderIds, context, folder =>
             {
                 DismissMoveSheet();
                 Observe(ViewModel.ExecuteMailOperationAsync(new MailOperationPreperationRequest(MailOperation.Move, mails, moveTargetFolder: folder)));

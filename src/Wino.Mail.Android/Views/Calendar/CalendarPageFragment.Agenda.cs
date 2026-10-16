@@ -16,70 +16,74 @@ using Wino.Presentation.Android;
 namespace Wino.Mail.Android.Views.Calendar;
 
 /// <summary>
-/// Compact widths (canvas Material pass boards Calendar and CalendarMonth): the top app bar title is the month and
-/// switches between the agenda (week strip over the week's days with their events) and the month grid (event dots, the
-/// chosen day's events below). Previous and next follow the strip or grid flings and, in the month view, the app bar
-/// arrows. Rules (which events fall on a day, their order, texts and dots) come from the shared <see cref="CalendarAgenda"/>.
+/// Compact widths (date picker option B, 15 Oct 2026; the iPhone CalendarPageViewController): the app bar title is the
+/// visible range with a dropdown arrow and opens the date picker sheet (<see cref="CalendarPickerSheet"/>: Day · Week ·
+/// Month, the agenda toggle, the calendars filter, Today and the month grid). Day view shows the week strip in its own
+/// small zone, and so does the agenda of a day or week (canvas Material pass Calendar board); Week and Month grids and the
+/// month agenda start right under the bar. The content zone holds the Windows calendar surface or, with the agenda
+/// toggle on, the agenda list of the visible range. A horizontal swipe on the surface pages the period;
+/// on the strip it moves a week. Month cells show only their event count; tapping a day opens it in Day view. Rules
+/// (which events fall on a day, their order and texts) come from the shared <see cref="CalendarAgenda"/>.
 /// </summary>
-public sealed partial class CalendarPageFragment
+public sealed partial class CalendarPageFragment : ICalendarPickerHost
 {
     private const int MenuToday = 1;
-    private const int MenuPrevious = 2;
-    private const int MenuNext = 3;
     private const int MenuSettings = 4;
+    private const string PickerTag = "calendar_picker";
 
     private TextView? _title;
+    private View? _stripZone;
     private WinoCalendarWeekStripView? _weekStrip;
-    private WinoCalendarMonthGridView? _monthGrid;
     private RecyclerView? _agendaList;
     private AgendaAdapter? _agenda;
-    private DateOnly? _selectedDate;
-    private bool _isMonth;
+    private bool _agendaOn;
+    private CalendarDisplayType _displayType = CalendarDisplayType.Week;
 
-    private void BuildAgenda(View view, Context context, CalendarPageViewModel viewModel)
+    private bool IsPhone => _title is not null;
+
+    private void BuildPhone(View view, Context context, CalendarPageViewModel viewModel)
     {
         _title = view.FindViewById<TextView>(Resource.Id.calendar_title);
+        _stripZone = view.FindViewById(Resource.Id.calendar_strip_zone);
         _weekStrip = view.FindViewById<WinoCalendarWeekStripView>(Resource.Id.calendar_week_strip);
-        _monthGrid = view.FindViewById<WinoCalendarMonthGridView>(Resource.Id.calendar_month_grid);
         _agendaList = view.FindViewById<RecyclerView>(Resource.Id.calendar_agenda);
+        _displayType = viewModel.StatePersistanceService.CalendarDisplayType;
+
+        BuildSurfaceCore(view, context);
+        if (_surface is not null)
+        {
+            _surface.SwipedNext += (_, _) => GoNext();
+            _surface.SwipedPrevious += (_, _) => GoPrevious();
+        }
 
         if (_title is not null)
         {
             _title.SetCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, Resource.Drawable.wino_ic_arrow_drop_down, 0);
-            _title.Click += (_, _) => RequestDisplayType(_isMonth ? CalendarDisplayType.Week : CalendarDisplayType.Month);
+            _title.Click += (_, _) => ShowPicker();
+            AndroidX.Core.View.ViewCompat.SetTooltipText(_title, Translator.IOS_Calendar_ChooseDate);
+            AndroidX.Core.View.ViewCompat.SetAccessibilityDelegate(_title, new TitleAccessibility());
         }
         if (_toolbar is not null)
         {
+            var menu = _toolbar.Menu;
+            menu.Clear();
+            float glyph = (float)WinoTokens.Dp(context, Resource.Dimension.wino_m3_glyph);
+            menu.Add(0, MenuToday, 0, Translator.Today)?.SetIcon(WinoIcons.Drawable(context, WinoIconGlyph.CalendarToday, glyph, WinoColors.SecondaryText(context)))?.SetShowAsAction(ShowAsAction.Always);
+            menu.Add(0, MenuSettings, 1, Translator.MenuSettings);
             _toolbar.MenuItemClick += (_, args) =>
             {
                 switch (args.Item?.ItemId)
                 {
                     case MenuToday: GoToday(); break;
-                    case MenuPrevious: GoPrevious(); break;
-                    case MenuNext: GoNext(); break;
                     case MenuSettings: _navigation?.Shell?.OpenSettings(); break;
                 }
             };
         }
         if (_weekStrip is not null)
         {
-            _weekStrip.DateClicked += (_, date) => SelectDate(date, scroll: true);
-            _weekStrip.SwipedNext += (_, _) => GoNext();
-            _weekStrip.SwipedPrevious += (_, _) => GoPrevious();
-        }
-        if (_monthGrid is not null)
-        {
-            _monthGrid.DateClicked += (_, date) =>
-            {
-                // A day of the neighbouring month opens that month (Windows CalendarView).
-                if (ViewModel?.CurrentVisibleRange is { } range && !range.Contains(date)) GoToDateOnShell(date);
-                SelectDate(date, scroll: false);
-            };
-            _monthGrid.SwipedNext += (_, _) => GoNext();
-            _monthGrid.SwipedPrevious += (_, _) => GoPrevious();
-            _monthGrid.DotsProvider = date => ViewModel is { } vm
-                ? CalendarAgenda.DayDots(date, vm.CalendarItems).Select(hex => WinoColors.FromHexString(hex) ?? WinoColors.Accent(context)).ToList()
-                : [];
+            _weekStrip.DateClicked += (_, date) => GoToDateOnShell(date);
+            _weekStrip.SwipedNext += (_, _) => ShiftWeek(7);
+            _weekStrip.SwipedPrevious += (_, _) => ShiftWeek(-7);
         }
         if (_agendaList is not null)
         {
@@ -94,27 +98,12 @@ public sealed partial class CalendarPageFragment
             fab.ContentDescription = Translator.CalendarEventCompose_NewEventButton;
             fab.Click += (_, _) => NewEvent();
         }
-        BuildAgendaMenu(context);
-    }
-
-    private void BuildAgendaMenu(Context context)
-    {
-        if (_toolbar is null || _title is null) return;
-        var menu = _toolbar.Menu;
-        menu.Clear();
-        float glyph = (float)WinoTokens.Dp(context, Resource.Dimension.wino_m3_glyph);
-        var secondary = WinoColors.SecondaryText(context);
-        if (_isMonth)
-        {
-            menu.Add(0, MenuPrevious, 0, Translator.Accessibility_PreviousCalendarPeriod)?.SetIcon(WinoIcons.Drawable(context, WinoIconGlyph.ArrowLeft, glyph, secondary))?.SetShowAsAction(ShowAsAction.Always);
-            menu.Add(0, MenuNext, 1, Translator.Accessibility_NextCalendarPeriod)?.SetIcon(WinoIcons.Drawable(context, WinoIconGlyph.ArrowRight, glyph, secondary))?.SetShowAsAction(ShowAsAction.Always);
-        }
-        else
-        {
-            menu.Add(0, MenuToday, 0, Translator.Today)?.SetIcon(WinoIcons.Drawable(context, WinoIconGlyph.CalendarToday, glyph, secondary))?.SetShowAsAction(ShowAsAction.Always);
-        }
-        if (_isMonth) menu.Add(0, MenuToday, 3, Translator.Today);
-        menu.Add(0, MenuSettings, 4, Translator.MenuSettings);
+        // Pull to refresh waits for the top of whichever list shows.
+        _refresh?.SetOnChildScrollUpCallback(new ScrollUpCallback(() => _agendaOn
+            ? _agendaList?.CanScrollVertically(-1) ?? false
+            : _surface?.CanScrollUp ?? false));
+        ApplyContentVisibility();
+        ApplyStripVisibility();
     }
 
     private void GoToDateOnShell(DateOnly date)
@@ -123,96 +112,147 @@ public sealed partial class CalendarPageFragment
         if (_shell?.DateClickedCommand.CanExecute(args) == true) _shell.DateClickedCommand.Execute(args);
     }
 
-    private void AgendaDisplayTypeChanged(CalendarDisplayType type)
+    /// <summary>The week strip moves a week; the day stays the same weekday.</summary>
+    private void ShiftWeek(int days)
     {
-        if (_title?.Context is not { } context) return;
-        bool month = type == CalendarDisplayType.Month;
-        if (month == _isMonth && _toolbar?.Menu?.Size() > 0) return;
-        _isMonth = month;
-        if (_weekStrip is not null) _weekStrip.Visibility = month ? ViewStates.Gone : ViewStates.Visible;
-        if (_monthGrid is not null) _monthGrid.Visibility = month ? ViewStates.Visible : ViewStates.Gone;
-        BuildAgendaMenu(context);
-        ReloadAgenda();
+        if (ViewModel?.CurrentVisibleRange is { } range) GoToDateOnShell(range.AnchorDate.AddDays(days));
     }
 
-    private void AgendaRangeChanged(VisibleDateRange? range)
+    /// <summary>A month cell opens its day in Day view (the cell shows only the count); other empty slots open the composer.</summary>
+    private void PhoneSlotClicked(WinoCalendarSlotEventArgs args)
     {
-        if (_title is null || range is null) return;
-        var today = TodayDate;
-        // Keep the chosen day while it stays in view; otherwise today when shown, else the first day.
-        if (_selectedDate is not { } selected || !range.Contains(selected))
-            _selectedDate = range.Contains(today) ? today : range.DisplayType == CalendarDisplayType.Month ? new DateOnly(range.AnchorDate.Year, range.AnchorDate.Month, 1) : range.StartDate;
+        if (ViewModel?.CurrentVisibleRange?.DisplayType != CalendarDisplayType.Month || _shell is null)
+        {
+            OpenComposerAt(args.Start, args.IsAllDay);
+            return;
+        }
+        _shell.SetDisplayTypeWithoutNavigation(CalendarDisplayType.Day);
+        GoToDateOnShell(DateOnly.FromDateTime(args.Start));
+    }
+
+    // ---- The date picker sheet ----
+
+    private void ShowPicker()
+    {
+        if (!IsAdded || ChildFragmentManager.IsStateSaved || Picker is not null) return;
+        new CalendarPickerSheet().Show(ChildFragmentManager, PickerTag);
+    }
+
+    private CalendarPickerSheet? Picker => IsAdded ? ChildFragmentManager.FindFragmentByTag(PickerTag) as CalendarPickerSheet : null;
+
+    CalendarDisplayType ICalendarPickerHost.DisplayType => _displayType;
+    bool ICalendarPickerHost.IsAgendaOn => _agendaOn;
+    VisibleDateRange? ICalendarPickerHost.VisibleRange => ViewModel?.CurrentVisibleRange;
+    DayOfWeek ICalendarPickerHost.FirstDayOfWeek => FirstDayOfWeek;
+    DateOnly ICalendarPickerHost.Today => TodayDate;
+    void ICalendarPickerHost.PickDisplayType(CalendarDisplayType type) => RequestDisplayType(type);
+    void ICalendarPickerHost.PickAgenda(bool on) => SetAgenda(on);
+    void ICalendarPickerHost.PickToday() => GoToday();
+    void ICalendarPickerHost.PickDate(DateOnly date) => GoToDateOnShell(date);
+    // The calendars filter is the navigation drawer's calendar list on phones; it replaces the sheet.
+    void ICalendarPickerHost.PickCalendars() => Chrome?.ToggleNavigation();
+
+    private DayOfWeek FirstDayOfWeek => ViewModel?.CurrentSettings?.FirstDayOfWeek ?? System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.FirstDayOfWeek;
+
+    // ---- Page state ----
+
+    private void SetAgenda(bool on)
+    {
+        _agendaOn = on;
+        ApplyContentVisibility();
+        ApplyStripVisibility();
+        if (on) ReloadAgenda(scrollToToday: true);
+    }
+
+    private void ApplyContentVisibility()
+    {
+        if (!IsPhone) return;
+        if (_surface is not null) _surface.Visibility = _agendaOn ? ViewStates.Invisible : ViewStates.Visible;
+        if (_agendaList is not null) _agendaList.Visibility = _agendaOn ? ViewStates.Visible : ViewStates.Gone;
+    }
+
+    private void PhoneDisplayTypeChanged(CalendarDisplayType type)
+    {
+        if (!IsPhone) return;
+        _displayType = type;
+        ApplyStripVisibility();
+        Picker?.Refresh();
+    }
+
+    /// <summary>
+    /// Day view and the day or week agenda keep the week strip under the bar (canvas Calendar board: the strip over the
+    /// agenda); the Week and Month grids and the month agenda give its height to the content.
+    /// </summary>
+    private void ApplyStripVisibility()
+    {
+        if (_stripZone is null) return;
+        bool strip = _displayType == CalendarDisplayType.Day || (_agendaOn && _displayType != CalendarDisplayType.Month);
+        _stripZone.Visibility = strip ? ViewStates.Visible : ViewStates.Gone;
+    }
+
+    private void PhoneRangeChanged(VisibleDateRange? range)
+    {
+        if (!IsPhone || range is null) return;
         if (_weekStrip is not null)
         {
-            _weekStrip.Today = today;
-            _weekStrip.Dates = range.DisplayType == CalendarDisplayType.Month ? [] : range.Dates;
-            _weekStrip.SelectedDate = _selectedDate;
+            var anchor = range.AnchorDate;
+            var start = anchor.AddDays(-(((int)anchor.DayOfWeek - (int)FirstDayOfWeek + 7) % 7));
+            _weekStrip.Today = TodayDate;
+            _weekStrip.Dates = Enumerable.Range(0, 7).Select(start.AddDays).ToList();
+            _weekStrip.SelectedDate = anchor;
         }
-        if (_monthGrid is not null)
-        {
-            _monthGrid.Today = today;
-            _monthGrid.DisplayMonth = range.AnchorDate;
-            _monthGrid.SelectedDate = _selectedDate;
-        }
-        UpdateTitle();
-        ReloadAgenda();
-        ScrollAgendaTo(_selectedDate);
+        ReloadAgenda(scrollToToday: true);
+        Picker?.Refresh();
     }
 
-    private void AgendaSettingsChanged(CalendarSettings? settings)
-    {
-        if (_title is null || settings is null) return;
-        if (_monthGrid is not null)
-        {
-            _monthGrid.FirstDayOfWeek = settings.FirstDayOfWeek;
-            _monthGrid.Culture = settings.CultureInfo;
-        }
-        if (_weekStrip is not null) _weekStrip.Culture = settings.CultureInfo;
-        UpdateTitle();
-        ReloadAgenda();
-    }
-
-    private void AgendaItemsChanged()
+    private void PhoneRangeTextChanged(string? text)
     {
         if (_title is null) return;
-        _monthGrid?.RefreshDots();
-        ReloadAgenda();
-    }
-
-    private void AgendaSelectionChanged() => _agenda?.NotifyDataSetChanged();
-
-    private void SelectDate(DateOnly date, bool scroll)
-    {
-        _selectedDate = date;
-        if (_weekStrip is not null) _weekStrip.SelectedDate = date;
-        if (_monthGrid is not null) _monthGrid.SelectedDate = date;
-        UpdateTitle();
-        if (_isMonth) ReloadAgenda();
-        if (scroll) ScrollAgendaTo(date);
-    }
-
-    private void UpdateTitle()
-    {
-        if (_title is null) return;
-        var date = _selectedDate ?? ViewModel?.CurrentVisibleRange?.AnchorDate ?? TodayDate;
-        if (_isMonth && ViewModel?.CurrentVisibleRange is { } range) date = range.AnchorDate;
-        _title.Text = CalendarAgenda.MonthTitle(date, ViewModel?.CurrentSettings?.CultureInfo);
+        _title.Text = string.IsNullOrWhiteSpace(text) ? Translator.KeyboardShortcuts_ModeCalendar : text;
         _title.ContentDescription = _title.Text;
     }
 
-    private void ReloadAgenda()
+    private void PhoneSettingsChanged(CalendarSettings? settings)
     {
-        if (_agenda is null || ViewModel is not { } viewModel) return;
-        var range = viewModel.CurrentVisibleRange;
-        IEnumerable<DateOnly> dates = range is null ? [] : _isMonth ? (_selectedDate is { } day ? [day] : []) : range.Dates;
-        _agenda.SetDays(CalendarAgenda.BuildDays(dates, viewModel.CalendarItems.ToList(), skipEmptyDays: false));
+        if (!IsPhone || settings is null) return;
+        if (_weekStrip is not null) _weekStrip.Culture = settings.CultureInfo;
+        PhoneRangeChanged(ViewModel?.CurrentVisibleRange);
     }
 
-    private void ScrollAgendaTo(DateOnly? date)
+    private void PhoneItemsChanged()
     {
-        if (date is not { } day || _agenda is null || _agendaList?.GetLayoutManager() is not LinearLayoutManager layout || _isMonth) return;
-        int position = _agenda.PositionOf(day);
-        if (position >= 0) layout.ScrollToPositionWithOffset(position, 0);
+        if (IsPhone && _agendaOn) ReloadAgenda(scrollToToday: false);
+    }
+
+    private void PhoneSelectionChanged() => _agenda?.NotifyDataSetChanged();
+
+    /// <summary>The agenda of the visible range: every day of a week, the days with events of a month.</summary>
+    private void ReloadAgenda(bool scrollToToday)
+    {
+        if (_agenda is null || !_agendaOn || ViewModel is not { } viewModel) return;
+        var range = viewModel.CurrentVisibleRange;
+        bool month = range?.DisplayType == CalendarDisplayType.Month;
+        IEnumerable<DateOnly> dates = range is null ? []
+            : month ? range.Dates.Where(date => date.Month == range.AnchorDate.Month && date.Year == range.AnchorDate.Year)
+            : range.Dates;
+        _agenda.SetDays(CalendarAgenda.BuildDays(dates, viewModel.CalendarItems.ToList(), skipEmptyDays: month));
+        if (!scrollToToday || _agendaList?.GetLayoutManager() is not LinearLayoutManager layout) return;
+        // The day picked on the week strip leads; otherwise today, when the range shows it.
+        int position = range is not null && !month ? _agenda.PositionOf(range.AnchorDate) : -1;
+        if (position < 0) position = _agenda.PositionOf(TodayDate);
+        layout.ScrollToPositionWithOffset(Math.Max(0, position), 0);
+    }
+
+    /// <summary>The title announces itself as a button that chooses a date.</summary>
+    private sealed class TitleAccessibility : AndroidX.Core.View.AccessibilityDelegateCompat
+    {
+        public override void OnInitializeAccessibilityNodeInfo(View host, AndroidX.Core.View.Accessibility.AccessibilityNodeInfoCompat info)
+        {
+            base.OnInitializeAccessibilityNodeInfo(host, info);
+            info.ClassName = "android.widget.Button";
+            info.AddAction(new AndroidX.Core.View.Accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat(
+                (int)global::Android.Views.Accessibility.Action.Click, Translator.IOS_Calendar_ChooseDate));
+        }
     }
 
     // ---- Agenda list ----

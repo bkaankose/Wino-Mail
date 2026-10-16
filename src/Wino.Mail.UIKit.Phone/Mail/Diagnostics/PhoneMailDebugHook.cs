@@ -16,6 +16,7 @@ internal sealed class PhoneMailDebugHook(IServiceProvider services) : IApplicati
     {
         UIKitDebugBridge.Register("mailboxes", _ => Task.FromResult(Describe()));
         UIKitDebugBridge.Register("openfolder", args => Task.FromResult(OpenFolder(string.Join(' ', args))));
+        UIKitDebugBridge.Register("drawer", args => Task.FromResult(Shell?.DebugDrawer(args.Length > 0 ? args[0] : null) ?? "no shell"));
         // A native back (the back button or edge swipe), unlike the bridge's router "back".
         UIKitDebugBridge.Register("toolbarinfo", _ => Task.FromResult(Shell?.CurrentNavigationController?.Toolbar is { } bar ? Dump(bar, 0) : "no toolbar"));
         UIKitDebugBridge.Register("readertoolbar", _ => Task.FromResult(Shell?.DebugReaderToolbar() ?? "no shell"));

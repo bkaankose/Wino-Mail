@@ -10,10 +10,18 @@ namespace Wino.Mail.Controls.UIKit.ToDo;
 /// </summary>
 public static class WinoToDoStyle
 {
-    public const double TaskRowHeight = 64;
-    public const double GroupHeaderHeight = 38;
+    /// <summary>To Do board (15 Oct 2026): flat 56pt rows, 13pt group headers.</summary>
+    public const double TaskRowHeight = 56;
+    public const double GroupHeaderHeight = 34;
+    public const double CompletedOpacity = 0.6;
     public const double CardRadius = 8;
     public const double ChipHeight = 34;
+
+    public static UIFont TaskTitle => WinoStyle.Scaled(16);
+    public static UIFont GroupHeader => WinoStyle.Scaled(13, UIFontWeight.Semibold);
+
+    /// <summary>The hairline between iPhone task rows.</summary>
+    public static UIColor RowSeparator => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.06), WinoStyle.Hex(0xFFFFFF, 0.08));
 
     public static UIColor CardFill => WinoStyle.Dynamic(WinoStyle.Hex(0xF7F7F8), WinoStyle.Hex(0xFFFFFF, 0.06));
     public static UIColor CardStroke => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.06), WinoStyle.Hex(0xFFFFFF, 0.07));

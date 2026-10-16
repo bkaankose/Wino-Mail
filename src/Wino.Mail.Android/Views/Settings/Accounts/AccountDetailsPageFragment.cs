@@ -46,27 +46,14 @@ public sealed class AccountDetailsPageFragment : SettingsPageFragment<AccountDet
         }));
         Bind.Bind(vm, nameof(vm.Account), s => s.Account, _ => UpdateTitle());
 
-        var segments = Bind.Segmented(vm,
-            [Translator.AccountDetailsPage_TabGeneral, Translator.AccountDetailsPage_TabMail, Translator.AccountDetailsPage_TabCalendar,
-             Translator.AccountDetailsPage_TabPeople, Translator.AccountDetailsPage_TabToDo],
-            nameof(vm.SelectedTabIndex), s => s.SelectedTabIndex, (s, v) => s.SelectedTabIndex = v, fillWidth: false);
+        // No segmented tabs on a phone (owner, 15 Oct 2026): the Windows tabs are the page's sections, in the Windows
+        // order, each shown while the account has that feature.
+        for (int index = 0; index < _tabs.Length; index++) _tabs[index] = Add(Stack(0), fullWidth: true);
         Bind.Bind(vm, nameof(vm.Account), s => s.Account, _ =>
         {
-            bool[] enabled = [true, vm.HasMailAccess, vm.HasCalendarAccess, vm.HasContactAccess, vm.HasTaskAccess];
-            for (int index = 0; index < enabled.Length && index < segments.ChildCount; index++)
-                if (segments.GetChildAt(index) is { } segment) segment.Enabled = enabled[index];
-        });
-        // Five segments do not fit every phone: the bar scrolls sideways.
-        var segmentScroll = new HorizontalScrollView(Ctx) { HorizontalScrollBarEnabled = false };
-        segmentScroll.AddView(segments);
-        var segmentHost = Add(segmentScroll);
-        ((LinearLayout.LayoutParams)segmentHost.LayoutParameters!).BottomMargin = WinoTokens.Px(Ctx, Resource.Dimension.wino_space_m);
-
-        for (int index = 0; index < _tabs.Length; index++) _tabs[index] = Add(Stack(Resource.Dimension.wino_space_xl));
-        Bind.Bind(vm, nameof(vm.SelectedTabIndex), s => s.SelectedTabIndex, selected =>
-        {
+            bool[] shown = [true, vm.HasMailAccess, vm.HasCalendarAccess, vm.HasContactAccess, vm.HasTaskAccess];
             for (int index = 0; index < _tabs.Length; index++)
-                if (_tabs[index] is { } tab) tab.Visibility = index == selected ? ViewStates.Visible : ViewStates.Gone;
+                if (_tabs[index] is { } tab) tab.Visibility = shown[index] ? ViewStates.Visible : ViewStates.Gone;
         });
 
         BuildGeneral();
@@ -76,9 +63,41 @@ public sealed class AccountDetailsPageFragment : SettingsPageFragment<AccountDet
         BuildToDo();
     }
 
+    private static readonly string[] TabTitles =
+    [
+        Translator.AccountDetailsPage_TabGeneral, Translator.AccountDetailsPage_TabMail, Translator.AccountDetailsPage_TabCalendar,
+        Translator.AccountDetailsPage_TabPeople, Translator.AccountDetailsPage_TabToDo
+    ];
+
+    /// <summary>Adds to a tab's section; the tab's first section carries the tab name as its header.</summary>
     private void AddToTab(int tab, View view)
     {
-        if (_tabs[tab] is { } stack) AddTo(stack, view, Resource.Dimension.wino_space_xl);
+        if (_tabs[tab] is not { } stack) return;
+        if (stack.ChildCount == 0)
+        {
+            if (view is WinoSettingsGroup { Title: null or { Length: 0 } } first) first.Title = TabTitles[tab];
+            else
+            {
+                // A tab that starts with a notice: its name stands above it.
+                var header = WinoTokens.Style(new TextView(Ctx) { Text = TabTitles[tab] }, WinoTextStyle.SettingsSectionHeader);
+                AndroidX.Core.View.ViewCompat.SetAccessibilityHeading(header, true);
+                WinoTokens.Pad(header, Resource.Dimension.wino_m3_settings_header_start, Resource.Dimension.wino_m3_settings_section_gap, 0, 0);
+                AddTo(stack, header, 0);
+            }
+        }
+        if (view is WinoSettingsGroup) AddTo(stack, view, 0);
+        else
+        {
+            // Notices sit between sections with the header inset.
+            var layout = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent)
+            {
+                TopMargin = WinoTokens.Px(Ctx, Resource.Dimension.wino_m3_settings_section_gap)
+            };
+            int inset = WinoTokens.Px(Ctx, Resource.Dimension.wino_m3_settings_header_start);
+            layout.MarginStart = inset;
+            layout.MarginEnd = inset;
+            stack.AddView(view, layout);
+        }
     }
 
     private void BuildGeneral()
@@ -133,8 +152,8 @@ public sealed class AccountDetailsPageFragment : SettingsPageFragment<AccountDet
 
         var imap = StackedCard(Translator.SettingsEditAccountDetails_ImapCalDavSettings_Title, Translator.SettingsEditAccountDetails_ImapCalDavSettings_Description, WinoIconGlyph.GlobeDesktop,
             Row(Bind.Button(Translator.SettingsEditAccountDetails_ImapCalDavSettings_Action, vm.EditImapCalDavSettingsCommand)));
-        var protocolLog = StackedCard(Translator.ProtocolLog_EnableTitle, Translator.ProtocolLog_EnableDescription, WinoIconGlyph.Pulse,
-            Bind.Checkbox(vm, Translator.ProtocolLog_EnableCheckbox, nameof(vm.IsProtocolLogEnabled), s => s.IsProtocolLogEnabled, (s, v) => s.IsProtocolLogEnabled = v));
+        var protocolLog = Card(Translator.ProtocolLog_EnableTitle, Translator.ProtocolLog_EnableDescription, WinoIconGlyph.Pulse,
+            Bind.Switch(vm, nameof(vm.IsProtocolLogEnabled), s => s.IsProtocolLogEnabled, (s, v) => s.IsProtocolLogEnabled = v, Translator.ProtocolLog_EnableCheckbox));
         var protocolExport = StackedCard(Translator.ProtocolLog_ExportTitle, Translator.ProtocolLog_ExportDescription, WinoIconGlyph.ArrowDownload,
             AccountSettingsParts.Wrap(Ctx, Bind.Button(Translator.ProtocolLog_ExportAction, vm.ExportProtocolLogsCommand), Bind.Button(Translator.ProtocolLog_UploadAction, vm.UploadProtocolLogsCommand)));
         foreach (var card in new View[] { imap, protocolLog, protocolExport })
@@ -148,11 +167,10 @@ public sealed class AccountDetailsPageFragment : SettingsPageFragment<AccountDet
             imap,
             protocolLog,
             protocolExport,
-            StackedCard(Translator.SettingsEditAccountDetails_Title, Translator.Buttons_Save, WinoIconGlyph.Save,
-                Row(Bind.Button(Translator.Buttons_Save, vm.SaveChangesCommand, primary: true)))));
+            ActionCard(Translator.Buttons_Save, vm.SaveChangesCommand)));
 
-        var delete = AccountSettingsParts.Destructive(Ctx, Bind.Button(Translator.Buttons_Delete, vm.DeleteAccountCommand));
-        AddToTab(0, Group(null, StackedCard(Translator.SettingsDeleteAccount_Title, Translator.SettingsDeleteAccount_Description, WinoIconGlyph.Delete, Row(delete))));
+        var delete = ActionCard(Translator.SettingsDeleteAccount_Title, vm.DeleteAccountCommand, destructive: true);
+        AddToTab(0, Group(null, delete));
     }
 
     private void BuildMail()
@@ -351,9 +369,9 @@ public sealed class AccountDetailsPageFragment : SettingsPageFragment<AccountDet
             StackedCard(Translator.AccountDetailsPage_PeopleSourceTitle, Translator.AccountDetailsPage_PeopleSourceDescription, WinoIconGlyph.People,
                 Bind.Label(vm, nameof(vm.Account), s => s.ContactIntegrationSourceText, WinoTextStyle.Description, maximumLines: 0)),
             CommandCard(Translator.SettingsMailCategories_Title, Translator.SettingsMailCategories_Description, WinoIconGlyph.Tag, vm.EditCategoriesCommand)));
-        var buttonRow = Row(Bind.Button(Translator.AccountDetailsPage_ReconnectContacts, vm.ReauthorizeContactsCommand));
+        var buttonRow = ActionCard(Translator.AccountDetailsPage_ReconnectContacts, vm.ReauthorizeContactsCommand);
         Bind.Visible(buttonRow, vm, nameof(vm.Account), s => s.IsContactReauthorizationRequired);
-        AddToTab(3, buttonRow);
+        AddToTab(3, Group(null, buttonRow));
     }
 
     private void BuildToDo()
@@ -365,8 +383,8 @@ public sealed class AccountDetailsPageFragment : SettingsPageFragment<AccountDet
         AddToTab(4, Group(null,
             StackedCard(Translator.AccountDetailsPage_TasksSourceTitle, Translator.AccountDetailsPage_TasksSourceDescription, WinoIconGlyph.Checkmark,
                 Bind.Label(vm, nameof(vm.Account), s => s.TaskIntegrationSourceText, WinoTextStyle.Description, maximumLines: 0))));
-        var buttonRow = Row(Bind.Button(Translator.AccountDetailsPage_ReconnectTasks, vm.ReauthorizeTasksCommand));
+        var buttonRow = ActionCard(Translator.AccountDetailsPage_ReconnectTasks, vm.ReauthorizeTasksCommand);
         Bind.Visible(buttonRow, vm, nameof(vm.Account), s => s.IsTaskReauthorizationRequired);
-        AddToTab(4, buttonRow);
+        AddToTab(4, Group(null, buttonRow));
     }
 }

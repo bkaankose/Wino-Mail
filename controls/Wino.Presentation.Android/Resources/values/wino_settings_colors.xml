@@ -14,7 +14,13 @@
   <color name="wino_badge_fill">#FFE81123</color>
   <color name="wino_on_badge">#FFFFFFFF</color>
   <color name="wino_default_accent">#FF0078D7</color>
-  <color name="wino_settings_item_fill">#00000000</color>
-  <color name="wino_settings_item_stroke">#00000000</color>
-  <color name="wino_settings_nested_fill">#00000000</color>
+  <!-- Settings rows and sections (canvas Android settings boards): the list under the sections, the section card, its
+       outline and row separators, values and chevrons, and the error colour of destructive action rows. -->
+  <color name="wino_settings_list_fill">#FFF7F7F8</color>
+  <color name="wino_settings_group_fill">#FFFFFFFF</color>
+  <color name="wino_settings_group_stroke">#14000000</color>
+  <color name="wino_settings_row_divider">#0F000000</color>
+  <color name="wino_settings_value">#FF5C5C5C</color>
+  <color name="wino_settings_chevron">#FF8A8A8A</color>
+  <color name="wino_settings_destructive">#FFB3261E</color>
 </resources>

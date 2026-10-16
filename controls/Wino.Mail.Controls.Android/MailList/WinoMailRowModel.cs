@@ -64,6 +64,14 @@ public static class WinoMailRowSizes
 
     public static double AvatarSize(WinoMailRowDensity density) => density == WinoMailRowDensity.Compact ? 32 : 40;
 
+    /// <summary>The gap after the avatar (wino_mail_row.xml), also used when the select check takes the avatar's place.</summary>
+    public const double AvatarGap = 12;
+
+    /// <summary>The round select check before the text when the row has no sender picture.</summary>
+    public const double SelectCheckSize = 28;
+    public const double SelectCheckGap = 8;
+    public const double SelectCheckGlyph = 20;
+
     public static double VerticalPadding(WinoMailRowDensity density) => density switch
     {
         WinoMailRowDensity.Compact => 6,

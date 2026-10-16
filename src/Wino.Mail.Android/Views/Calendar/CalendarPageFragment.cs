@@ -26,10 +26,11 @@ namespace Wino.Mail.Android.Views.Calendar;
 /// The Calendar mode's content page (Windows CalendarPage; the iPhone and iPad CalendarPageViewController; canvas Material
 /// pass boards Calendar and CalendarMonth, tablet board CalendarTablet) over the shared <see cref="CalendarPageViewModel"/>
 /// and the calendar shell (<see cref="CalendarAppShellViewModel"/>: previous, next, today, the date picker, new event).
-/// Compact widths show the agenda with the week strip, or the month grid with the chosen day's events; medium and
-/// expanded widths show the Windows surface (Day, Week, Work week, Month) with the event details in the shell's details
-/// pane. A tile or row tap sets the shared details item, which routes the event details page. Partial files: .Agenda
-/// (compact), .Surface (medium and expanded).
+/// Compact widths show the Windows surface (Day, Week, Month) or the agenda under the range title that opens the date
+/// picker sheet (option B), with the week strip in Day view; medium and expanded widths show the surface (Day, Week,
+/// Work week, Month) under the period header with the event details in the shell's details pane. A tile or row tap sets
+/// the shared details item, which routes the event details page. Partial files: .Agenda (compact), .Surface (the surface
+/// for every width and the medium and expanded header), and <see cref="CalendarPickerSheet"/>.
 /// </summary>
 public sealed partial class CalendarPageFragment : WinoFragment<CalendarPageViewModel>, IShellWideContent
 {
@@ -82,9 +83,9 @@ public sealed partial class CalendarPageFragment : WinoFragment<CalendarPageView
             DisplayTypeFor(viewModel.StatePersistanceService.CalendarDisplayType, compact), today));
     }
 
-    /// <summary>Phones show the agenda over a week or the month grid; Day and Work week are the wide surface's.</summary>
+    /// <summary>Phones offer Day, Week and Month (date picker option B); Work week opens as Week there.</summary>
     private static CalendarDisplayType DisplayTypeFor(CalendarDisplayType persisted, bool compact)
-        => compact && persisted != CalendarDisplayType.Month ? CalendarDisplayType.Week : persisted;
+        => compact && persisted == CalendarDisplayType.WorkWeek ? CalendarDisplayType.Week : persisted;
 
     // ---- View ----
 
@@ -128,7 +129,8 @@ public sealed partial class CalendarPageFragment : WinoFragment<CalendarPageView
             Bindings.Own(new ActionDisposable(() => _refresh.Refresh -= refreshed));
         }
 
-        if (view.FindViewById(Resource.Id.calendar_surface) is null) BuildAgenda(view, context, viewModel);
+        // The compact layout has the range title (date picker option B); wider layouts the period header.
+        if (view.FindViewById(Resource.Id.calendar_title) is not null) BuildPhone(view, context, viewModel);
         else BuildSurface(view, context, viewModel);
 
         // A details item left over from a details page that closed while this view was away (compact widths) is stale.
@@ -162,22 +164,26 @@ public sealed partial class CalendarPageFragment : WinoFragment<CalendarPageView
 
     private void RangeChanged(VisibleDateRange? range)
     {
-        AgendaRangeChanged(range);
         SurfaceRangeChanged(range);
+        PhoneRangeChanged(range);
     }
 
     private void SettingsChanged(CalendarSettings? settings)
     {
-        AgendaSettingsChanged(settings);
         SurfaceSettingsChanged(settings);
+        PhoneSettingsChanged(settings);
     }
 
-    private void RangeTextChanged(string? text) => SurfaceRangeTextChanged(text);
+    private void RangeTextChanged(string? text)
+    {
+        if (IsPhone) PhoneRangeTextChanged(text);
+        else SurfaceRangeTextChanged(text);
+    }
 
     private void DisplayTypeChanged(CalendarDisplayType type)
     {
-        AgendaDisplayTypeChanged(type);
         SurfaceDisplayTypeChanged(type);
+        PhoneDisplayTypeChanged(type);
     }
 
     private void ObserveItems(IEnumerable<CalendarItemViewModel>? items)
@@ -201,8 +207,8 @@ public sealed partial class CalendarPageFragment : WinoFragment<CalendarPageView
 
     private void ItemsChanged()
     {
-        AgendaItemsChanged();
         SurfaceItemsChanged();
+        PhoneItemsChanged();
     }
 
     private void ApplyReadiness()
@@ -251,8 +257,8 @@ public sealed partial class CalendarPageFragment : WinoFragment<CalendarPageView
 
     private void SelectionChanged()
     {
-        AgendaSelectionChanged();
         SurfaceSelectionChanged();
+        PhoneSelectionChanged();
     }
 
     private void GoPrevious() => _shell?.PreviousDateRangeCommand.Execute(null);

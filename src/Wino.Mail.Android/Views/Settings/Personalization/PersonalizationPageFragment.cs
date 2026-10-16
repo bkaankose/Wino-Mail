@@ -45,10 +45,12 @@ public sealed class PersonalizationPageFragment : SettingsPageFragment<Personali
         swatches.Picked += (_, hex) => appearance.AccentHex = hex;
         Bind.Enabled(swatches, appearance, nameof(AndroidAppearanceModel.UseSystemAccent), s => !s.UseSystemAccent);
 
-        var accent = Expander(Translator.SettingsAccentColor_Title, Translator.SettingsAccentColor_Description, WinoIconGlyph.Color, null);
-        AddNested(accent, swatches, Resource.Dimension.wino_space_m, 0, Resource.Dimension.wino_space_s, Resource.Dimension.wino_space_l);
-        AddNested(accent, Bind.Checkbox(appearance, Translator.SettingsAccentColor_UseSystemAccentColor, nameof(AndroidAppearanceModel.UseSystemAccent),
-            s => s.UseSystemAccent, (s, v) => s.UseSystemAccent = v), Resource.Dimension.wino_space_2xs, 0, Resource.Dimension.wino_space_2xs, Resource.Dimension.wino_space_l);
+        // Detail page: the palette (disabled while the system accent is used), then the system accent switch.
+        var accent = Expander(Translator.SettingsAccentColor_Title, Translator.SettingsAccentColor_Description, WinoIconGlyph.Color, null,
+            swatches,
+            Card(Translator.SettingsAccentColor_UseSystemAccentColor, null, WinoIconGlyph.None,
+                Bind.Switch(appearance, nameof(AndroidAppearanceModel.UseSystemAccent), s => s.UseSystemAccent, (s, v) => s.UseSystemAccent = v,
+                    Translator.SettingsAccentColor_UseSystemAccentColor)));
 
         var appearanceCard = StackedCard(Translator.SettingsElementTheme_Title, Translator.SettingsElementTheme_SelectThemeDescription, WinoIconGlyph.DarkTheme,
             // Material 3 segmented button with the short Android labels, in the Windows order (system, light, dark).

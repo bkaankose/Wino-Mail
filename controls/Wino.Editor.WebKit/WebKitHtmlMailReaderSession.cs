@@ -17,6 +17,7 @@ public sealed class WebKitHtmlMailReaderSession : NSObject, IHtmlMailReaderSessi
     private ReaderAccessibilityContext? _accessibility;
     private string _originalHtml = string.Empty;
     private double _zoom = 100;
+    private double _contentInset;
     public IHtmlMailReaderSession Session => this;
     public event EventHandler<RendererNavigationRequestedEventArgs>? NavigationRequested;
     public event EventHandler<Exception>? OperationFailed;
@@ -29,6 +30,17 @@ public sealed class WebKitHtmlMailReaderSession : NSObject, IHtmlMailReaderSessi
     }
 
     public void Configure(IExternalLauncher launcher) => _host.Configure(launcher);
+
+    /// <summary>
+    /// Inset in CSS pixels around the whole mail, kept even when the mail zeroes its own body padding (the iOS reader
+    /// card). Zero (the default, used by the Mac reader) keeps the shared document unchanged. Set it before
+    /// <see cref="InitializeAsync"/>; it is applied to every document load.
+    /// </summary>
+    public double ContentInset
+    {
+        get => _contentInset;
+        set => _contentInset = double.IsFinite(value) ? Math.Clamp(value, 0, 48) : 0;
+    }
     public Task InitializeAsync(CancellationToken cancellationToken = default) =>
         _host.Queue.RunAsync(EnsureReadyAsync, cancellationToken);
 
@@ -90,6 +102,8 @@ public sealed class WebKitHtmlMailReaderSession : NSObject, IHtmlMailReaderSessi
     {
         await _host.EvaluateAsync($"document.getElementById('wino-reader').style.zoom={Quote((_zoom / 100).ToString(System.Globalization.CultureInfo.InvariantCulture))}");
         await _host.EvaluateAsync($"window.WinoRenderer.setTypography({Quote(_font)}, {_fontSize})");
+        if (_contentInset > 0)
+            await _host.EvaluateAsync($"window.WinoRenderer.setContentInset({_contentInset.ToString(System.Globalization.CultureInfo.InvariantCulture)})");
         if (_accessibility is { } a)
             await _host.EvaluateAsync($"window.WinoRenderer.setAccessibility({Quote(a.Subject)}, {Quote(a.Sender)}, {Quote(a.Date)}, {Quote(a.BodyAutomationName)}, {Quote(a.PlainTextFallbackAutomationName)}, {Quote(a.AccessibleText)})");
     }

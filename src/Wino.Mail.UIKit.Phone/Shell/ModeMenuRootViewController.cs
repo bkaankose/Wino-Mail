@@ -60,7 +60,7 @@ internal sealed class ModeMenuRootViewController : UIViewController
         Mode = mode;
         // NavigationItem.Title, not Title: the root page's Title would rename its tab.
         NavigationItem.Title = style.Title;
-        NavigationItem.LargeTitleDisplayMode = UINavigationItemLargeTitleDisplayMode.Always;
+        NavigationItem.LargeTitleDisplayMode = UINavigationItemLargeTitleDisplayMode.Never;
     }
 
     /// <summary>The mode whose menu this root lists.</summary>

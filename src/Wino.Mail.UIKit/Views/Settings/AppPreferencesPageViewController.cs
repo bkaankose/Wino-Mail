@@ -14,9 +14,6 @@ namespace Wino.Mail.UIKit.Views.Settings;
 public sealed class AppPreferencesPageViewController(AppPreferencesPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
     : SettingsPageViewController<AppPreferencesPageViewModel>(viewModel, dispatcher, logger)
 {
-    // The catalog's iOS description of General is the language card's own text; the card says it once.
-    protected override bool ShowsPageDescription => false;
-
     protected override void BuildPage()
     {
         var vm = ViewModel;

@@ -7,18 +7,21 @@ using Wino.Presentation.UIKit;
 namespace Wino.Mail.Controls.UIKit.ToDo;
 
 /// <summary>
-/// One task row as a card (Windows ToDoPage TaskRowTemplate; UIKit twin of the AppKit <c>WinoTaskCardView</c>) over the
-/// shared <see cref="WinoTaskRowModel"/>: round checkbox, title with a metadata line (list with colour dot, due date in
-/// red when overdue, step summary, My Day in the accent, Note glyph) and the star. Selection swaps the fill and strokes
-/// the card in the accent. Swipe actions belong to the page.
+/// One task row (Windows ToDoPage TaskRowTemplate; UIKit twin of the AppKit <c>WinoTaskCardView</c>) over the shared
+/// <see cref="WinoTaskRowModel"/>: round checkbox, title (16) with a metadata line (list with colour dot, due date in
+/// red when overdue, step summary, My Day in the accent, Note glyph) and the star. In the iOS canvas look the row is
+/// flat on the zone: no card, a rounded fill only while pressed or selected, an optional hairline above it
+/// (<see cref="ShowsSeparator"/>), and completed rows at 60% opacity. Swipe actions belong to the page.
 /// </summary>
 public sealed class WinoTaskRowCell : UITableViewCell
 {
     public new const string ReuseIdentifier = "WinoTaskRow";
 
-    private readonly WinoSurfaceView _card = WinoToDoStyle.Card();
+    private readonly WinoSurfaceView _card = new() { CornerRadius = WinoToDoStyle.CardRadius };
+    private readonly UIView _separator = new() { TranslatesAutoresizingMaskIntoConstraints = false, BackgroundColor = WinoToDoStyle.RowSeparator, Hidden = true };
+    private readonly UIStackView _content;
     private readonly WinoRoundCheckbox _check = new();
-    private readonly UILabel _title = WinoStyle.Label(string.Empty, WinoStyle.Body);
+    private readonly UILabel _title = WinoStyle.Label(string.Empty, WinoToDoStyle.TaskTitle);
     private readonly UIStackView _meta;
     private readonly WinoIconView _listDot;
     private readonly UILabel _listName;
@@ -39,7 +42,15 @@ public sealed class WinoTaskRowCell : UITableViewCell
     {
         SelectionStyle = UITableViewCellSelectionStyle.None;
         BackgroundColor = UIColor.Clear;
-        WinoLayout.Fill(_card, ContentView, 2, 0, 2, 0);
+        WinoLayout.Fill(_card, ContentView, 1, 0, 1, 0);
+        ContentView.AddSubview(_separator);
+        NSLayoutConstraint.ActivateConstraints(
+        [
+            _separator.TopAnchor.ConstraintEqualTo(ContentView.TopAnchor),
+            _separator.LeadingAnchor.ConstraintEqualTo(ContentView.LeadingAnchor),
+            _separator.TrailingAnchor.ConstraintEqualTo(ContentView.TrailingAnchor),
+            _separator.HeightAnchor.ConstraintEqualTo(1 / UIScreen.MainScreen.Scale)
+        ]);
 
         _check.Toggled += (_, _) => CompletionToggled?.Invoke(this, EventArgs.Empty);
         WinoLayout.Priorities(_title, UILayoutConstraintAxis.Horizontal, 1, 250);
@@ -60,7 +71,8 @@ public sealed class WinoTaskRowCell : UITableViewCell
         _star = WinoToDoStyle.IconButton(WinoIconGlyph.Star, string.Empty, 16, 44, 44, WinoStyle.SecondaryText);
         _star.PrimaryActionTriggered += (_, _) => ImportanceToggled?.Invoke(this, EventArgs.Empty);
 
-        var row = WinoLayout.Insets(WinoLayout.HStack(12, _check, text, WinoLayout.Spacer(), _star), 6, 8, 6, 4);
+        _content = WinoLayout.HStack(12, _check, text, WinoLayout.Spacer(), _star);
+        var row = WinoLayout.Insets(_content, 6, 8, 6, 0);
         WinoLayout.Fill(row, _card);
         AddGestureRecognizer(new UIHoverGestureRecognizer(recognizer =>
         {
@@ -91,6 +103,13 @@ public sealed class WinoTaskRowCell : UITableViewCell
 
     public WinoTaskRowModel Model => _model;
 
+    /// <summary>A hairline above the row (the iPhone list separates its rows; the iPad list does not).</summary>
+    public bool ShowsSeparator
+    {
+        get => !_separator.Hidden;
+        set => _separator.Hidden = !value;
+    }
+
     public void Apply(WinoTaskRowModel model)
     {
         _model = model;
@@ -100,11 +119,12 @@ public sealed class WinoTaskRowCell : UITableViewCell
 
         var attributes = new UIStringAttributes
         {
-            Font = WinoStyle.Body,
-            ForegroundColor = model.IsCompleted ? WinoStyle.TertiaryText : WinoStyle.PrimaryText
+            Font = WinoToDoStyle.TaskTitle,
+            ForegroundColor = WinoStyle.PrimaryText
         };
         if (model.IsCompleted) attributes.StrikethroughStyle = NSUnderlineStyle.Single;
         _title.AttributedText = new NSAttributedString(model.Title, attributes);
+        _content.Alpha = model.IsCompleted ? (nfloat)WinoToDoStyle.CompletedOpacity : 1;
 
         bool showList = !string.IsNullOrEmpty(model.ListName);
         _listSegment.Hidden = !showList;
@@ -155,8 +175,8 @@ public sealed class WinoTaskRowCell : UITableViewCell
     private void UpdateSurface()
     {
         bool selected = Selected;
-        _card.Fill = selected ? WinoToDoStyle.SelectedFill : _hovered || Highlighted ? WinoToDoStyle.HoverFill : WinoToDoStyle.CardFill;
-        _card.Stroke = selected ? WinoStyle.Accent : WinoToDoStyle.CardStroke;
+        _card.Fill = selected ? WinoToDoStyle.SelectedFill : _hovered || Highlighted ? WinoToDoStyle.HoverFill : UIColor.Clear;
+        _card.Stroke = null;
     }
 
     public override void PrepareForReuse()
@@ -180,20 +200,23 @@ public sealed class WinoTaskRowCell : UITableViewCell
     }
 }
 
-/// <summary>Group header for smart views (Windows TaskGroup header): the account name in strong secondary text, the count in tertiary.</summary>
+/// <summary>
+/// Group header for smart views and the completed group (Windows TaskGroup header): the key in 13pt semibold secondary
+/// text and the count beside it, as the iOS canvas draws "Completed · 3".
+/// </summary>
 public sealed class WinoTaskGroupHeaderView : UITableViewHeaderFooterView
 {
     public new const string ReuseIdentifier = "WinoTaskGroupHeader";
 
-    private readonly UILabel _key = WinoStyle.Label(string.Empty, WinoStyle.BodyStrong, WinoStyle.SecondaryText);
-    private readonly UILabel _count = WinoStyle.Label(string.Empty, WinoStyle.Body, WinoStyle.TertiaryText);
+    private readonly UILabel _key = WinoStyle.Label(string.Empty, WinoToDoStyle.GroupHeader, WinoStyle.SecondaryText);
+    private readonly UILabel _count = WinoStyle.Label(string.Empty, WinoToDoStyle.GroupHeader, WinoStyle.TertiaryText);
 
     public WinoTaskGroupHeaderView() : this(new NSString(ReuseIdentifier)) { }
 
     [Export("initWithReuseIdentifier:")]
     public WinoTaskGroupHeaderView(NSString reuseIdentifier) : base(reuseIdentifier)
     {
-        var stack = WinoLayout.Insets(WinoLayout.HStack(8, _key, _count), 12, 8, 4, 8);
+        var stack = WinoLayout.Insets(WinoLayout.HStack(6, _key, _count), 12, 8, 4, 8);
         WinoLayout.Fill(stack, ContentView);
         _key.AccessibilityTraits = UIAccessibilityTrait.Header;
     }

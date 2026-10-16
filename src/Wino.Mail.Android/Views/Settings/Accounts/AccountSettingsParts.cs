@@ -143,7 +143,8 @@ internal static class AccountSettingsParts
         var critical = WinoColors.Critical(context);
         button.SetTextColor(critical);
         button.StrokeColor = ColorStateList.ValueOf(WinoColors.WithAlpha(critical, 0.5));
-        return button;
+        // Its action row on a settings page uses the error colour.
+        return WinoSettingsControls.MarkDestructive(button);
     }
 
     /// <summary>The 48 dp "More" button whose popup menu lists <paramref name="entries"/> (the iOS row actions menu).</summary>

@@ -61,19 +61,10 @@ public sealed partial class SignatureManagementPageFragment : SettingsPageFragme
         Bind.Bind(vm, nameof(vm.IsSignatureEnabled), s => s.IsSignatureEnabled, on => { newCard.IsEnabled = on; followingCard.IsEnabled = on; });
         AddGroup(Translator.SettingsSignature_SignatureDefaults, newCard, followingCard);
 
-        // Section header with the accent Add button on its trailing edge.
-        var title = Text(Translator.SettingsSignature_Signatures, WinoTextStyle.BodyLargeStrong);
-        if (OperatingSystem.IsAndroidVersionAtLeast(28)) title.AccessibilityHeading = true;
-        var add = Bind.Button(Translator.SettingsSignature_AddCustomSignature_Button, vm.OpenSignatureEditorCreateCommand, primary: true, icon: WinoIconGlyph.Add);
-        var header = AccountSettingsParts.HRow(Ctx);
-        header.AddView(title, AccountSettingsParts.RowItem(Ctx, weight: 1));
-        header.AddView(add, AccountSettingsParts.RowItem(Ctx, marginStart: Resource.Dimension.wino_space_s));
-        Add(header);
-        ((LinearLayout.LayoutParams)header.LayoutParameters!).TopMargin = WinoTokens.Px(Ctx, Resource.Dimension.wino_space_l);
-
-        _list = Add(AccountSettingsParts.VColumn(Ctx));
-        _list.Background = AccountSettingsParts.Surface(Ctx, WinoColors.CardFill(Ctx), WinoColors.CardStroke(Ctx));
-        _list.ClipToOutline = true;
+        // The Signatures section: Add signature as an action row, then the signatures in one card.
+        AddGroup(Translator.SettingsSignature_Signatures, ActionCard(Translator.SettingsSignature_AddCustomSignature_Button, vm.OpenSignatureEditorCreateCommand));
+        _list = AccountSettingsParts.VColumn(Ctx);
+        Add(new WinoSettingsGroup(Ctx)).AddFlush(_list);
 
         _empty = Add(EmptyState());
 

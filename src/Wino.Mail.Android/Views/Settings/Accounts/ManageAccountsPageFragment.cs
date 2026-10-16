@@ -39,8 +39,7 @@ public sealed class ManageAccountsPageFragment : SettingsPageFragment<AccountMan
         var services = MainApplication.Services;
         _pictures = services?.GetService<IPictureStorageService>();
 
-        var add = Bind.Button(Translator.Buttons_AddAccount, vm.AddNewAccountCommand, primary: true, icon: WinoIconGlyph.Add);
-        Add(Row(add));
+        AddGroup(null, ActionCard(Translator.Buttons_AddAccount, vm.AddNewAccountCommand));
 
         // Purchase entry points exist only where the platform sells (IPlatformCapabilities.Purchases, in the ViewModel).
         Bind.Visible(Add(Group(null, PurchaseCard())), vm, nameof(vm.IsPurchasePanelVisible), s => s.IsPurchasePanelVisible);

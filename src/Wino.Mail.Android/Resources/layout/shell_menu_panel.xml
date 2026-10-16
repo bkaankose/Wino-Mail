@@ -51,6 +51,11 @@
           android:maxLines="1"
           android:textAppearance="@style/TextAppearance.WinoKit.BodySecondary" />
     </LinearLayout>
+
+    <!-- Settings at the header's end (canvas Material pass Mailboxes), beside the avatar that also opens it. -->
+    <com.winomail.presentation.WinoIconView
+        android:id="@+id/shell_panel_settings"
+        style="@style/Widget.WinoKit.GlyphButton" />
   </LinearLayout>
 
   <androidx.recyclerview.widget.RecyclerView

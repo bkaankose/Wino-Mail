@@ -45,9 +45,31 @@ public sealed partial class MailListPageViewController
             return Task.FromResult("ok");
         });
         UIKitDebugBridge.Register("selectall", _ => { SelectAllRows(); return Task.FromResult("ok " + ViewModel.SelectedItemsCount); });
+        // Selects rows FROM..TO as a range drag over the selection circles does (enters edit mode like a two-finger pan).
+        UIKitDebugBridge.Register("selectrange", args =>
+        {
+            if (_released) return Task.FromResult("released");
+            var rows = DisplayedRows().ToArray();
+            int from = args.Length > 0 && int.TryParse(args[0], out var first) ? first : 0;
+            int to = args.Length > 1 && int.TryParse(args[1], out var last) ? last : from;
+            if (rows.Length == 0) return Task.FromResult("no rows");
+            from = Math.Clamp(from, 0, rows.Length - 1);
+            to = Math.Clamp(to, from, rows.Length - 1);
+            BeginSelectionByInteraction();
+            for (int index = from; index <= to; index++) _table.SelectRow(rows[index].IndexPath, false, UITableViewScrollPosition.None);
+            SyncSelectionFromTable();
+            return Task.FromResult($"ok editing={_table.Editing} selected={ViewModel.SelectedItemsCount}");
+        });
+        UIKitDebugBridge.Register("searchbutton", _ => { ShowSearch(); return Task.FromResult("ok"); });
+        UIKitDebugBridge.Register("barinfo", _ => Task.FromResult(
+            $"title='{NavigationItem.Title}' left=[{string.Join(",", (NavigationItem.LeftBarButtonItems ?? []).Select(static item => item.AccessibilityLabel ?? item.Title))}] " +
+            $"right=[{string.Join(",", (NavigationItem.RightBarButtonItems ?? []).Select(static item => item.AccessibilityLabel ?? item.Title))}] " +
+            $"search={(NavigationItem.SearchController is not null)} bar={NavigationController?.NavigationBar.Frame} zone={_page.ListZone.Frame} " +
+            $"largeTitles={NavigationController?.NavigationBar.PrefersLargeTitles} editing={_table.Editing}"));
         UIKitDebugBridge.Register("search", async args =>
         {
             var text = string.Join(' ', args);
+            AttachSearch();
             _search.Active = true;
             SetSearchText(text);
             await SearchSubmittedAsync(text);

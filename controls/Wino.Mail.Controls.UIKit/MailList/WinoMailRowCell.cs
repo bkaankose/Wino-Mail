@@ -66,6 +66,7 @@ public class WinoMailRowCell : UITableViewCell
     private WinoMailRowModel _model = new();
     private bool _hovered;
     private bool _selectionMode;
+    private bool _systemSelectionControl;
     private bool _checked;
     private bool _hoverActionsEnabled;
     private IDisposable? _subscription;
@@ -297,7 +298,26 @@ public class WinoMailRowCell : UITableViewCell
     public bool IsSelectionMode
     {
         get => _selectionMode;
-        set { _selectionMode = value; _checkbox.Hidden = !value; UpdateHover(); ApplySelection(); }
+        set { _selectionMode = value; _checkbox.Hidden = !value || _systemSelectionControl; UpdateHover(); ApplySelection(); }
+    }
+
+    /// <summary>
+    /// The table draws the selection circles (UITableView editing with multiple selection, which also gives range drags
+    /// over the circles and two-finger pans): the row's own check stays hidden in select mode. The table only draws a
+    /// selected circle for a cell whose selection style is not None, so the cell keeps a selection style and clear
+    /// selected backgrounds; the row draws its own selection.
+    /// </summary>
+    public bool UsesSystemSelectionControl
+    {
+        get => _systemSelectionControl;
+        set
+        {
+            _systemSelectionControl = value;
+            SelectionStyle = value ? UITableViewCellSelectionStyle.Default : UITableViewCellSelectionStyle.None;
+            SelectedBackgroundView = value ? new UIView { BackgroundColor = UIColor.Clear } : null;
+            MultipleSelectionBackgroundView = value ? new UIView { BackgroundColor = UIColor.Clear } : null;
+            _checkbox.Hidden = !_selectionMode || value;
+        }
     }
 
     public bool IsChecked

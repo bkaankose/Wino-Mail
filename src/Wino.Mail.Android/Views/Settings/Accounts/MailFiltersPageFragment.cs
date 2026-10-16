@@ -58,13 +58,12 @@ public sealed class MailFiltersPageFragment : SettingsPageFragment<MailFiltersPa
         // Header row: New filter and Refresh provider rules.
         var spinner = new CircularProgressIndicator(Ctx) { Indeterminate = true, IndicatorSize = WinoTokens.Px(Ctx, Resource.Dimension.wino_glyph_l) };
         Bind.Visible(spinner, vm, nameof(vm.IsBusy), s => s.IsBusy);
-        var refresh = Bind.Button(Translator.MailFilters_Refresh, () => AccountSettingsParts.Run(vm.LoadAsync(vm.Account?.Id ?? Guid.Empty), ReportError), icon: WinoIconGlyph.ArrowClockwise);
+        // New filter and Refresh provider rules are action rows; the busy ring sits after them.
+        var refresh = ActionCard(Translator.MailFilters_Refresh, () => AccountSettingsParts.Run(vm.LoadAsync(vm.Account?.Id ?? Guid.Empty), ReportError));
         Bind.Visible(refresh, vm, nameof(vm.IsProviderFiltersConnectedVisible), s => s.IsProviderFiltersConnectedVisible);
         Bind.Enabled(refresh, vm, nameof(vm.IsBusy), s => !s.IsBusy);
-        var create = Bind.Button(Translator.MailFilters_NewFilter, vm.CreateFilter, primary: true, icon: WinoIconGlyph.Add);
-        if (OperatingSystem.IsAndroidVersionAtLeast(26)) create.TooltipText = Translator.MailFilters_NewFilterDescription;
-        var header = Add(AccountSettingsParts.Wrap(Ctx, create, refresh, spinner));
-        ((LinearLayout.LayoutParams)header.LayoutParameters!).BottomMargin = WinoTokens.Px(Ctx, Resource.Dimension.wino_space_s);
+        AddGroup(null, ActionCard(Translator.MailFilters_NewFilter, vm.CreateFilter), refresh);
+        Add(spinner);
 
         var gmail = InfoBar(WinoInfoBarSeverity.Informational, Translator.MailFilters_ProviderFeatureTitle, Translator.MailFilters_GmailProviderUnavailableDescription);
         Bind.Visible(Add(gmail), vm, nameof(vm.IsGmailAccount), s => s.IsGmailAccount);

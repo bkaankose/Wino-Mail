@@ -22,26 +22,16 @@ public sealed class CalendarAccountSettingsPageViewController(CalendarAccountSet
     : SettingsPageViewController<CalendarAccountSettingsPageViewModel>(viewModel, dispatcher, logger), ISettingsPageTitleSource
 {
     private readonly WinoInfoBar _persistenceBar = new(WinoInfoBarSeverity.Error, Translator.GeneralTitle_Error, null);
-    private UILabel? _intro;
     private Task? _observedPersistence;
 
     public string? PageTitle => ViewModel.AccountCalendar?.Name is { Length: > 0 } name ? name : Translator.CalendarAccountSettings_Title;
     public event EventHandler? PageTitleChanged;
 
-    /// <summary>The intro names the calendar and its account instead of the catalog line.</summary>
-    protected override bool ShowsPageDescription => false;
-
     protected override void BuildPage()
     {
         var vm = ViewModel;
 
-        _intro = AddIntro(string.Empty);
-        Bind.Bind(vm, nameof(vm.Account), s => s.Account, _ => ApplyIntro());
-        Bind.Bind(vm, nameof(vm.AccountCalendar), s => s.AccountCalendar, _ =>
-        {
-            ApplyIntro();
-            PageTitleChanged?.Invoke(this, EventArgs.Empty);
-        });
+        Bind.Bind(vm, nameof(vm.AccountCalendar), s => s.AccountCalendar, _ => PageTitleChanged?.Invoke(this, EventArgs.Empty));
 
         _persistenceBar.ActionTitle = Translator.Buttons_Retry;
         _persistenceBar.IsClosable = true;
@@ -100,17 +90,6 @@ public sealed class CalendarAccountSettingsPageViewController(CalendarAccountSet
         }
     }
 
-    private void ApplyIntro()
-    {
-        if (_intro is null) return;
-        var account = ViewModel.Account;
-        var calendar = ViewModel.AccountCalendar;
-        var accountText = account is null ? null : string.IsNullOrWhiteSpace(account.Address) ? account.Name : $"{account.Name} · {account.Address}";
-        _intro.Text = accountText is null
-            ? string.Empty
-            : string.Format(Translator.CalendarAccountSettings_Description, calendar?.Name is { Length: > 0 } name ? $"{name} ({accountText})" : accountText);
-        _intro.Hidden = string.IsNullOrEmpty(_intro.Text);
-    }
 
     /// <summary>The theme's account colours, with the calendar's own colour first when it is not one of them.</summary>
     private IReadOnlyList<string> Palette(string? current)

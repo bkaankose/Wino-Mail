@@ -19,17 +19,17 @@ public interface ISettingsPageTitleSource
 {
     string? PageTitle { get; }
 
-    /// <summary>The line under the title; null keeps the page catalog description.</summary>
-    string? PageDescription => null;
-
     event EventHandler? PageTitleChanged;
 }
 
 /// <summary>
 /// Base for Settings sheet pages (the Mac SettingsPageViewController): a Wino zone over the theme backdrop holding a
 /// vertical scroll view, whose content stack follows the readable width (max 836pt), and a <see cref="SettingsBinder"/>
-/// owned by the page's binding scope. Pages describe their cards in <see cref="BuildPage"/>; cards stack with the
-/// Windows 4pt spacing. The navigation title and the Windows page description come from <see cref="SettingsCatalog"/>.
+/// owned by the page's binding scope. Pages describe their cards in <see cref="BuildPage"/> in Windows order; every card
+/// and expander renders as a settings row on an inset-grouped surface (<see cref="WinoSettingsCard.IsListRow"/>), and
+/// anything that is not a switch pushes the generic <see cref="WinoSettingDetailViewController"/>. The compact
+/// navigation title comes from <see cref="SettingsCatalog"/>; the Windows page description is not shown on iOS (the
+/// root list and the card texts already say what the page holds).
 /// </summary>
 public abstract class SettingsPageViewController<TViewModel>(TViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
     : WinoViewController<TViewModel>(viewModel, dispatcher, logger) where TViewModel : CoreBaseViewModel
@@ -38,7 +38,7 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
     public const double ContentMaxWidth = 836;
 
     /// <summary>Phone-width padding inside the zone; wider sheets centre the content at <see cref="ContentMaxWidth"/>.</summary>
-    public const double SidePadding = 12;
+    public const double SidePadding = 10;
 
     private SettingsBinder? _binder;
     private UIStackView? _page;
@@ -55,27 +55,18 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
     /// <summary>The Windows page this controller shows; it names the title and the description.</summary>
     protected virtual WinoPage? SettingsPage => SettingsPageRoutes.PageFor(GetType());
 
-    /// <summary>Shows the Windows page description above the cards. Sub-pages with their own intro turn it off.</summary>
-    protected virtual bool ShowsPageDescription => true;
+    /// <summary>Space between two cards that follow each other.</summary>
+    public const double CardGap = 8;
 
     public override void LoadView()
     {
-        _page = WinoLayout.VStack(WinoSettingsStyle.CardSpacing);
+        _page = WinoLayout.VStack(WinoSettingsStyle.GroupSpacing);
         _page.Alignment = UIStackViewAlignment.Fill;
         _page.Distribution = UIStackViewDistribution.Fill;
         (View, _scroll) = SettingsPageScrollView.Create(_page);
 
-        var page = SettingsPage;
-        if (page is { } known)
-        {
+        if (SettingsPage is { } known)
             Title = this is ISettingsPageTitleSource { PageTitle: { Length: > 0 } custom } ? custom : SettingsCatalog.Title(known);
-            var description = (this as ISettingsPageTitleSource)?.PageDescription ?? SettingsCatalog.Description(known);
-            if (ShowsPageDescription && !string.IsNullOrWhiteSpace(description))
-            {
-                var intro = AddIntro(description);
-                _page.SetCustomSpacing((nfloat)WinoStyle.Space3, intro);
-            }
-        }
         if (this is ISettingsPageTitleSource source)
         {
             EventHandler changed = (_, _) => { if (source.PageTitle is { Length: > 0 } title) Title = title; };
@@ -83,7 +74,29 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
             Bindings.Own(new ActionDisposable(() => source.PageTitleChanged -= changed));
         }
         NavigationItem.LargeTitleDisplayMode = UINavigationItemLargeTitleDisplayMode.Never;
+        WinoSettingDetailViewController.Appearing ??= static detail => SettingsSheetChrome.Install(detail.NavigationController);
         BuildPage();
+        ConvertRows(Page);
+    }
+
+    /// <summary>Cards that a page placed inside its own containers render as rows too (with their own surface).</summary>
+    protected static void ConvertRows(UIView root)
+    {
+        foreach (var child in root.Subviews)
+        {
+            switch (child)
+            {
+                case WinoSettingsCard card:
+                    card.IsListRow = true;
+                    break;
+                case WinoSettingsExpander expander:
+                    expander.IsListRow = true;
+                    break;
+                default:
+                    ConvertRows(child);
+                    break;
+            }
+        }
     }
 
     public override void ViewWillAppear(bool animated)
@@ -94,13 +107,29 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
 
     protected abstract void BuildPage();
 
-    /// <summary>Adds a section to the page; it stretches to the content width.</summary>
+    /// <summary>
+    /// Adds a section to the page; it stretches to the content width. Cards and expanders added one after another share
+    /// one inset-grouped surface; everything else gets the group spacing.
+    /// </summary>
     protected T Add<T>(T view) where T : UIView
     {
         view.TranslatesAutoresizingMaskIntoConstraints = false;
+        if (view is WinoSettingsCard or WinoSettingsExpander)
+        {
+            if (Page.ArrangedSubviews.LastOrDefault() is not AutoGroup group)
+            {
+                group = new AutoGroup();
+                Page.AddArrangedSubview(group);
+            }
+            group.Add(view);
+            return view;
+        }
         Page.AddArrangedSubview(view);
         return view;
     }
+
+    /// <summary>The untitled group that collects cards added straight to the page.</summary>
+    private sealed class AutoGroup : WinoSettingsGroup;
 
     protected WinoSettingsGroup Group(string? title, params UIView[] rows)
     {
@@ -121,7 +150,8 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
     protected WinoSettingsCard StackedCard(string header, string? description, WinoIconGlyph icon, UIView content)
     {
         var card = Card(header, description, icon);
-        card.BottomContent = content;
+        card.ContentPlacement = WinoSettingsContentPlacement.Below;
+        card.Content = content;
         return card;
     }
 
@@ -152,6 +182,17 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
         return card;
     }
 
+    /// <summary>
+    /// A list toolbar button as an accent action row (Add, Refresh, Restore defaults); the row hides with the button.
+    /// </summary>
+    protected WinoSettingsCard ActionRow(UIButton button)
+    {
+        var card = Card(string.Empty, null, WinoIconGlyph.None, button);
+        var observer = button.AddObserver("hidden", Foundation.NSKeyValueObservingOptions.Initial | Foundation.NSKeyValueObservingOptions.New, _ => card.Hidden = button.Hidden);
+        Bindings.Own(observer);
+        return card;
+    }
+
     protected WinoSettingsExpander Expander(string header, string? description, WinoIconGlyph icon, UIView? content, params UIView[] items)
     {
         var expander = new WinoSettingsExpander(header, string.IsNullOrWhiteSpace(description) ? null : description, icon, content);
@@ -171,7 +212,7 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
 
     protected static WinoInfoBar InfoBar(WinoInfoBarSeverity severity, string? title, string? message) => new(severity, title, message);
 
-    /// <summary>Body text at the top of a page, such as the Windows page description.</summary>
+    /// <summary>Secondary body text between sections (a note the Windows page shows inline, not the page description).</summary>
     protected UILabel AddIntro(string text) => Add(WinoStyle.Label(text, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0));
 
     /// <summary>Pushes another Settings page inside the sheet through the shared router (Windows breadcrumb navigation).</summary>
@@ -188,7 +229,7 @@ public static class SettingsPageScrollView
     public static (UIView Root, UIScrollView Scroll) Create(UIView content)
     {
         var root = new UIView { BackgroundColor = UIColor.Clear };
-        var zone = new WinoZoneView();
+        var zone = new WinoZoneView { Fill = WinoSettingsStyle.PageFill };
         root.AddSubview(zone);
         var guide = root.SafeAreaLayoutGuide;
         var gutter = (nfloat)WinoStyle.ZoneGutter;
@@ -200,13 +241,7 @@ public static class SettingsPageScrollView
             zone.BottomAnchor.ConstraintEqualTo(root.BottomAnchor)
         ]);
 
-        var scroll = new UIScrollView
-        {
-            TranslatesAutoresizingMaskIntoConstraints = false,
-            AlwaysBounceVertical = true,
-            KeyboardDismissMode = UIScrollViewKeyboardDismissMode.Interactive,
-            BackgroundColor = UIColor.Clear
-        };
+        var scroll = new WinoSettingsScrollView();
         WinoLayout.Fill(scroll, zone.ContentView);
         content.TranslatesAutoresizingMaskIntoConstraints = false;
         scroll.AddSubview(content);
@@ -215,7 +250,8 @@ public static class SettingsPageScrollView
         var contentGuide = scroll.ContentLayoutGuide;
         var pad = (nfloat)SettingsPageViewController<CoreBaseViewModel>.SidePadding;
         var preferredWidth = content.WidthAnchor.ConstraintEqualTo(frame.WidthAnchor, 1, -2 * pad);
-        preferredWidth.Priority = 750;
+        // Above the 751 hugging of trailing controls, so a card never narrows the page; below the required max width.
+        preferredWidth.Priority = 990;
         NSLayoutConstraint.ActivateConstraints(
         [
             content.TopAnchor.ConstraintEqualTo(contentGuide.TopAnchor, pad),

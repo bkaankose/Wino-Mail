@@ -24,7 +24,11 @@ public enum WinoTextStyle
     Subheader,
     ItemTitle,
     ItemSupporting,
-    Label
+    Label,
+    SettingsRowTitle,
+    SettingsRowValue,
+    SettingsSectionHeader,
+    SettingsFooter
 }
 
 /// <summary>
@@ -68,6 +72,10 @@ public static class WinoTokens
         WinoTextStyle.ItemTitle => Resource.Style.TextAppearance_WinoKit_ItemTitle,
         WinoTextStyle.ItemSupporting => Resource.Style.TextAppearance_WinoKit_ItemSupporting,
         WinoTextStyle.Label => Resource.Style.TextAppearance_WinoKit_Label,
+        WinoTextStyle.SettingsRowTitle => Resource.Style.TextAppearance_WinoKit_SettingsRowTitle,
+        WinoTextStyle.SettingsRowValue => Resource.Style.TextAppearance_WinoKit_SettingsRowValue,
+        WinoTextStyle.SettingsSectionHeader => Resource.Style.TextAppearance_WinoKit_SettingsSectionHeader,
+        WinoTextStyle.SettingsFooter => Resource.Style.TextAppearance_WinoKit_SettingsFooter,
         _ => Resource.Style.TextAppearance_WinoKit_Body
     };
 

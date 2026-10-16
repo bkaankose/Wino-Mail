@@ -254,7 +254,7 @@ public sealed class WinoIntelligencePageViewController(WinoAccountManagementPage
     {
         var vm = ViewModel;
         var busy = IntelligenceViews.Spinner();
-        var consent = new WinoTextSwitch(Translator.WinoAccount_Allowed, Translator.WinoAccount_NotAllowed, Translator.WinoIntelligence_MailboxesTitle);
+        var consent = new WinoTextSwitch(Translator.WinoAccount_Allowed, Translator.WinoAccount_NotAllowed, Translator.WinoIntelligence_MailboxesTitle, showsLabel: true);
         _consent = consent;
         var content = Row(busy, consent);
         var expander = new WinoSettingsExpander(Translator.WinoIntelligence_MailboxesTitle, null, WinoIconGlyph.None, content);

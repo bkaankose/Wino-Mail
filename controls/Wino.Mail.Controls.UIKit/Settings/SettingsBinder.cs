@@ -184,6 +184,7 @@ public sealed class SettingsBinder
         {
             field.Text = value.ToString(System.Globalization.CultureInfo.CurrentCulture);
             stepper.Value = value;
+            WinoSettingsCard.NotifyValueChanged(stepper);
         }, _dispatcher, _error, write));
 
         void Commit(int value)
@@ -204,10 +205,15 @@ public sealed class SettingsBinder
     public UISegmentedControl Segmented<T>(T source, IReadOnlyList<string> labels, string property, Func<T, int> read, Action<T, int> write)
         where T : INotifyPropertyChanged
     {
-        var control = new UISegmentedControl { TranslatesAutoresizingMaskIntoConstraints = false };
+        // Segments size to their labels so a long label ("Use system setting") is not cut next to short ones.
+        var control = new UISegmentedControl { TranslatesAutoresizingMaskIntoConstraints = false, ApportionsSegmentWidthsByContent = true };
         for (int index = 0; index < labels.Count; index++) control.InsertSegment(labels[index] ?? string.Empty, index, false);
         var binding = Own(new PropertyBinding<T, int>(source, property, read,
-            value => control.SelectedSegment = SettingsValueRules.SelectableIndex(value, labels.Count), _dispatcher, _error, write));
+            value =>
+            {
+                control.SelectedSegment = SettingsValueRules.SelectableIndex(value, labels.Count);
+                WinoSettingsCard.NotifyValueChanged(control);
+            }, _dispatcher, _error, write));
         OnActivated(control, () => { binding.UpdateSource((int)control.SelectedSegment); binding.Refresh(); }, UIControlEvent.ValueChanged);
         return control;
     }
@@ -223,11 +229,13 @@ public sealed class SettingsBinder
             BorderStyle = UITextBorderStyle.RoundedRect,
             TranslatesAutoresizingMaskIntoConstraints = false
         };
-        if (width > 0) field.WidthAnchor.ConstraintEqualTo((nfloat)width).Active = true;
+        // The preferred width yields when the card puts the field in its own full-width row.
+        if (width > 0) { var preferred = field.WidthAnchor.ConstraintEqualTo((nfloat)width); preferred.Priority = 500; preferred.Active = true; }
         var binding = Own(new PropertyBinding<T, string?>(source, property, read, value =>
         {
             var text = value ?? string.Empty;
             if (field.Text != text) field.Text = text;
+            WinoSettingsCard.NotifyValueChanged(field);
         }, _dispatcher, _error, (target, value) => write(target, value ?? string.Empty)));
         OnActivated(field, () => binding.UpdateSource(field.Text ?? string.Empty), UIControlEvent.EditingChanged);
         return field;
@@ -277,8 +285,11 @@ public sealed class SettingsBinder
         };
         if (accessibilityLabel is not null) WinoAccessibility.Label(picker, accessibilityLabel);
         var binding = Own(new PropertyBinding<T, TimeSpan>(source, property, read,
-            value => picker.Date = (NSDate)DateTime.SpecifyKind(DateTime.Today.Add(value), DateTimeKind.Local).ToUniversalTime(),
-            _dispatcher, _error, write));
+            value =>
+            {
+                picker.Date = (NSDate)DateTime.SpecifyKind(DateTime.Today.Add(value), DateTimeKind.Local).ToUniversalTime();
+                WinoSettingsCard.NotifyValueChanged(picker);
+            }, _dispatcher, _error, write));
         OnActivated(picker, () =>
         {
             binding.UpdateSource(SettingsValueRules.TimeOfDay(((DateTime)picker.Date).ToLocalTime().TimeOfDay));
@@ -381,8 +392,15 @@ public sealed class SettingsBinder
         configuration.ImagePadding = 8;
         configuration.BaseForegroundColor = WinoStyle.PrimaryText;
         configuration.ContentInsets = new NSDirectionalEdgeInsets(6, 0, 6, 0);
-        var button = new UIButton { Configuration = configuration, TranslatesAutoresizingMaskIntoConstraints = false };
+        var button = new UIButton { Configuration = configuration, TranslatesAutoresizingMaskIntoConstraints = false, Tag = WinoSettingsRowContent.CheckButtonTag };
         button.HorizontalAlignment = UIControlContentHorizontalAlignment.Leading;
+        // The glyph shows the checked state; the plain style's tinted "selected" pill would read as a pressed button.
+        button.ConfigurationUpdateHandler = target =>
+        {
+            if (target.Configuration is not { } current) return;
+            current.Background.BackgroundColor = UIColor.Clear;
+            target.Configuration = current;
+        };
         SetChecked(button, false);
         return button;
     }
@@ -401,6 +419,7 @@ public sealed class SettingsBinder
         if (button.Configuration is not { } configuration) return;
         configuration.Title = title;
         button.Configuration = configuration;
+        WinoSettingsCard.NotifyValueChanged(button);
     }
 
     private T Own<T>(T disposable) where T : IDisposable => _scope.Own(disposable);

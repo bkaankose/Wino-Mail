@@ -131,18 +131,28 @@ public sealed class AppDelegate : UIApplicationDelegate
         catch (OperationCanceledException) { return UIBackgroundFetchResult.Failed; }
     }
 
+    /// <summary>The longest termination may wait for the shared stop; anything slower is cut off by the process exit.</summary>
+    private static readonly TimeSpan TerminationBudget = TimeSpan.FromSeconds(1.5);
+
     public override void WillTerminate(UIApplication application)
     {
         if (Services is not { } services) return;
         try
         {
-            // Termination gives a few seconds; stop hooks, navigation and the runtime in the shared order.
+            // Stop hooks, navigation and the runtime in the shared order. Releasing pages dispatches to the main queue, so
+            // the main run loop keeps turning while we wait: a blocking Wait deadlocked until its timeout, and iOS holds a
+            // relaunch (swipe away, open again) on the old snapshot until this process exits.
             var stop = Task.Run(async () =>
             {
                 if (_startup is { } startup) await startup;
                 await services.GetRequiredService<ApplicationLifecycleCoordinator>().StopAsync(services.GetRequiredService<UIKitApplicationLifecycleHost>());
             });
-            stop.Wait(TimeSpan.FromSeconds(3));
+            var budget = System.Diagnostics.Stopwatch.StartNew();
+            while (!stop.IsCompleted && budget.Elapsed < TerminationBudget)
+                NSRunLoop.Current.RunUntil(NSRunLoopMode.Default, NSDate.FromTimeIntervalSinceNow(0.02));
+            if (!stop.IsCompleted) Serilog.Log.Warning("Stopping Wino Mail iOS did not finish within {Seconds} s.", TerminationBudget.TotalSeconds);
+            else Serilog.Log.Information("Wino Mail iOS stopped in {Milliseconds} ms.", budget.ElapsedMilliseconds);
+            Serilog.Log.CloseAndFlush();
         }
         catch (Exception error) { Serilog.Log.Warning(error, "Stopping Wino Mail iOS failed."); }
     }

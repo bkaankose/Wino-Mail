@@ -724,6 +724,17 @@ public sealed class WinoCalendarSurfaceView : UIView
             double dayWidth = _owner.DayWidth;
             var nameFont = WinoStyle.Fixed(12);
             var numberFont = WinoStyle.Fixed(14, UIFontWeight.Semibold);
+            // Narrow phone columns stack the weekday over the number. One decision for the whole row, so a short name
+            // ("Fri") never sits inline next to stacked neighbours.
+            bool stacked = false;
+            for (int index = 0; index < dates.Count && !stacked; index++)
+            {
+                var date = dates[index];
+                string probe = dates.Count == 1
+                    ? date.ToDateTime(TimeOnly.MinValue).ToString("dddd", culture)
+                    : culture.DateTimeFormat.AbbreviatedDayNames[(int)date.DayOfWeek];
+                stacked = dayWidth < Measure(probe, nameFont).Width + 6 + Math.Max(26, Measure(date.Day.ToString(culture), numberFont).Width) + 8;
+            }
             for (int index = 0; index < dates.Count; index++)
             {
                 var date = dates[index];
@@ -742,8 +753,6 @@ public sealed class WinoCalendarSurfaceView : UIView
                 var numberSize = Measure(number, numberFont);
                 double circle = 26;
                 double numberWidth = isToday ? circle : numberSize.Width;
-                // Narrow phone columns stack the weekday over the number.
-                bool stacked = dayWidth < nameSize.Width + 6 + numberWidth + 8;
                 if (stacked)
                 {
                     DrawCentered(name, nameFont, WinoStyle.SecondaryText, new CGRect(x, 2, dayWidth, nameSize.Height));
@@ -953,9 +962,15 @@ public sealed class WinoCalendarSurfaceView : UIView
 
     private sealed class MonthCanvasView(WinoCalendarSurfaceView owner) : TileHostView(owner)
     {
+        /// <summary>Below this cell width (iPhone) a day shows only its event count; event tiles are unreadable there.</summary>
+        private const double CountOnlyCellWidth = 90;
+
         private List<CalendarMonthCell> _cells = new();
+        private readonly Dictionary<DateOnly, int> _counts = new();
 
         protected override bool SelectsRanges => true;
+
+        private bool CountOnly => Bounds.Width / CalendarLayoutCalculator.MonthColumns < CountOnlyCellWidth;
 
         protected override bool IsMonthHost => true;
 
@@ -965,7 +980,13 @@ public sealed class WinoCalendarSurfaceView : UIView
             if (dates.Count == 0) { _cells = new(); SyncTiles(Array.Empty<CalendarItemPlacement>()); return; }
             var (cells, items) = CalendarLayoutCalculator.CalculateMonth(dates, Owner.Items, Bounds.Width, Bounds.Height);
             _cells = cells;
-            SyncTiles(items);
+            _counts.Clear();
+            if (CountOnly)
+            {
+                foreach (var cell in cells) _counts[cell.Date] = CountOn(cell.Date);
+                SyncTiles(Array.Empty<CalendarItemPlacement>());
+            }
+            else SyncTiles(items);
             SetNeedsDisplay();
         }
 
@@ -1003,6 +1024,7 @@ public sealed class WinoCalendarSurfaceView : UIView
                     var color = inMonth ? WinoStyle.PrimaryText : WinoStyle.PrimaryText.ColorWithAlpha(0.45f);
                     DrawText(label, font, color, new CGPoint(cell.Bounds.X + 6, cell.Bounds.Y + 3));
                 }
+                if (_counts.TryGetValue(cell.Date, out var count) && count > 0) DrawCount(cell.Bounds, count, inMonth);
             }
             double cellWidth = bounds.Width / CalendarLayoutCalculator.MonthColumns;
             double cellHeight = bounds.Height / CalendarLayoutCalculator.MonthRows;
@@ -1012,6 +1034,28 @@ public sealed class WinoCalendarSurfaceView : UIView
             for (int column = 1; column < CalendarLayoutCalculator.MonthColumns; column++)
                 FillRect(new CGRect(Math.Round(column * cellWidth), 0, 1, bounds.Height));
             Owner.DrawMonthSelection(_cells);
+        }
+
+        /// <summary>Events that touch <paramref name="date"/> (an all-day event's exclusive end does not count).</summary>
+        private int CountOn(DateOnly date)
+        {
+            var start = date.ToDateTime(TimeOnly.MinValue);
+            var end = start.AddDays(1);
+            return Owner.Items.Count(item => item.StartDate < end && (item.EndDate > start || (item.EndDate <= item.StartDate && item.StartDate >= start)));
+        }
+
+        /// <summary>The count badge: an accent capsule centred in the space under the day number.</summary>
+        private static void DrawCount(CGRect cell, int count, bool inMonth)
+        {
+            string text = count > 99 ? "99+" : count.ToString(System.Globalization.CultureInfo.CurrentCulture);
+            var font = WinoStyle.Fixed(11, UIFontWeight.Semibold);
+            var size = Measure(text, font);
+            double width = Math.Max(20, size.Width + 10), height = 18;
+            double top = cell.Y + 24;
+            var badge = new CGRect(cell.X + (cell.Width - width) / 2, top + Math.Max(0, (cell.Bottom - top - height) / 2 - 2), width, height);
+            (inMonth ? WinoStyle.Accent.ColorWithAlpha(0.18f) : WinoStyle.Accent.ColorWithAlpha(0.08f)).SetFill();
+            UIBezierPath.FromRoundedRect(badge, (nfloat)(height / 2)).Fill();
+            DrawCentered(text, font, inMonth ? WinoStyle.Accent : WinoStyle.Accent.ColorWithAlpha(0.5f), badge);
         }
 
         /// <summary>Month tiles move by whole days to the cell under the finger, keeping their time of day.</summary>

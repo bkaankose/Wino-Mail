@@ -26,6 +26,14 @@
   <dimen name="wino_calendar_month_cell_padding_top">4dp</dimen>
   <dimen name="wino_calendar_month_dot_gap">3dp</dimen>
   <dimen name="wino_calendar_month_padding_bottom">4dp</dimen>
+  <!-- Phone month grid: each day shows its event count in a small tonal pill under the number (owner, 15 Oct 2026). -->
+  <dimen name="wino_calendar_month_count_text">11sp</dimen>
+  <dimen name="wino_calendar_month_count_height">15dp</dimen>
+  <dimen name="wino_calendar_month_count_min_width">20dp</dimen>
+  <dimen name="wino_calendar_month_count_padding">5dp</dimen>
+  <dimen name="wino_calendar_month_count_gap">3dp</dimen>
+  <!-- The surface's month cells narrower than this (phones) show the count pill instead of event tiles. -->
+  <dimen name="wino_calendar_month_count_only_width">90dp</dimen>
   <dimen name="wino_calendar_pane_cell_height">34dp</dimen>
   <dimen name="wino_calendar_pane_day_circle">28dp</dimen>
   <dimen name="wino_calendar_pane_padding">12dp</dimen>

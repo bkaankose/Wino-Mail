@@ -94,14 +94,9 @@ public sealed partial class MailFilterEditorPageFragment : SettingsPageFragment<
         Add(Card(Translator.MailFilterEditor_StopProcessing, Translator.MailFilterEditor_StopProcessingDescription, WinoIconGlyph.Stop,
             Bind.Switch(vm, nameof(vm.StopProcessing), s => s.StopProcessing, (s, v) => s.StopProcessing = v, Translator.MailFilterEditor_StopProcessing)));
 
-        var cancel = Bind.Button(Translator.Buttons_Cancel, () => vm.NavigationService.GoBack());
-        var save = Bind.Button(Translator.MailFilterEditor_Save, () => AccountSettingsParts.Run(vm.SaveAsync(), ReportError), primary: true, icon: WinoIconGlyph.Save);
+        var save = ActionCard(Translator.MailFilterEditor_Save, () => AccountSettingsParts.Run(vm.SaveAsync(), ReportError));
         Bind.Enabled(save, vm, nameof(vm.IsSaving), s => !s.IsSaving);
-        var buttons = AccountSettingsParts.HRow(Ctx);
-        buttons.SetGravity(GravityFlags.End | GravityFlags.CenterVertical);
-        buttons.AddView(cancel);
-        buttons.AddView(save, AccountSettingsParts.RowItem(Ctx, marginStart: Resource.Dimension.wino_space_s));
-        Spaced(Add(buttons), Resource.Dimension.wino_space_m);
+        AddGroup(null, save, ActionCard(Translator.Buttons_Cancel, () => vm.NavigationService.GoBack()));
     }
 
     private void Spaced(View view, int top)

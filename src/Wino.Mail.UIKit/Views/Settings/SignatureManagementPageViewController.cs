@@ -27,7 +27,7 @@ public sealed partial class SignatureManagementPageViewController(SignatureManag
 {
     private readonly UIStackView _list = WinoLayout.VStack(0);
     private readonly UILabel _subtitle = WinoStyle.Label(string.Empty, WinoStyle.BodyStrong, WinoStyle.SecondaryText);
-    private readonly WinoSurfaceView _listCard = new() { CornerRadius = WinoSettingsStyle.CardRadius, Fill = WinoSettingsStyle.CardFill, Stroke = WinoSettingsStyle.CardStroke, StrokeWidth = 1 };
+    private readonly WinoSurfaceView _listCard = new() { CornerRadius = WinoSettingsStyle.CardRadius, Fill = WinoSettingsStyle.GroupFill, Stroke = WinoSettingsStyle.CardStroke, StrokeWidth = 1 };
     private UIView? _empty;
     private UIView? _subtitleHost;
     private BindingScope? _rowScope;
@@ -67,15 +67,9 @@ public sealed partial class SignatureManagementPageViewController(SignatureManag
         Bind.Bind(vm, nameof(vm.IsSignatureEnabled), s => s.IsSignatureEnabled, on => { newCard.IsEnabled = on; followingCard.IsEnabled = on; });
         AddGroup(Translator.SettingsSignature_SignatureDefaults, newCard, followingCard);
 
-        // Section header with the accent Add button on its trailing edge.
-        var title = WinoStyle.Label(Translator.SettingsSignature_Signatures, WinoSettingsStyle.SectionTitle, WinoStyle.PrimaryText);
-        title.AccessibilityTraits = UIAccessibilityTrait.Header;
-        WinoLayout.Priorities(title, UILayoutConstraintAxis.Horizontal, 1, 250);
+        // The Signatures section: the Add action row, then the list.
         var add = Bind.Button(Translator.SettingsSignature_AddCustomSignature_Button, vm.OpenSignatureEditorCreateCommand, primary: true, icon: WinoIconGlyph.Add);
-        add.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
-        var header = WinoLayout.HStack(WinoStyle.Space2, title, add);
-        WinoLayout.Insets(header, 18, 1, 2, 0);
-        Add(header);
+        AddGroup(Translator.SettingsSignature_Signatures, ActionRow(add));
 
         _list.Alignment = UIStackViewAlignment.Fill;
         WinoLayout.Fill(_list, _listCard);
@@ -309,7 +303,7 @@ public sealed partial class SignatureManagementPageViewController(SignatureManag
 
         private void ApplyColors()
         {
-            _border.FillColor = WinoSettingsStyle.CardFill.GetResolvedColor(TraitCollection).CGColor;
+            _border.FillColor = WinoSettingsStyle.GroupFill.GetResolvedColor(TraitCollection).CGColor;
             _border.StrokeColor = DashStroke.GetResolvedColor(TraitCollection).CGColor;
         }
     }

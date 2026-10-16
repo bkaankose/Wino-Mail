@@ -46,9 +46,6 @@ public sealed class CreateEmailTemplatePageViewController(
         ? ViewModel.TemplateName.Trim()
         : ViewModel.IsExistingTemplate ? Translator.SettingsEmailTemplates_EditPageTitle : Translator.SettingsEmailTemplates_CreatePageTitle;
 
-    public string? PageDescription => ViewModel.IsExistingTemplate
-        ? Translator.SettingsEmailTemplates_EditPageTitle
-        : Translator.SettingsEmailTemplates_NewTemplateDescription;
 
     public event EventHandler? PageTitleChanged;
 
@@ -143,7 +140,7 @@ public sealed class CreateEmailTemplatePageViewController(
 
         var frame = new WinoSurfaceView
         {
-            Fill = WinoSettingsStyle.CardFill,
+            Fill = WinoSettingsStyle.GroupFill,
             Stroke = WinoSettingsStyle.CardStroke,
             StrokeWidth = 1,
             CornerRadius = WinoSettingsStyle.CardRadius,

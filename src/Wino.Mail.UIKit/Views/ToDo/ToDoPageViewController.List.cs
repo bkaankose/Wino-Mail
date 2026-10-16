@@ -24,6 +24,9 @@ public abstract partial class ToDoPageViewController
 
     protected UITableView Table => _table;
 
+    /// <summary>Hairlines between task rows (the iPhone list); the iPad list separates rows by space only.</summary>
+    protected virtual bool RowSeparators => false;
+
     private void BuildTable()
     {
         _table.TranslatesAutoresizingMaskIntoConstraints = false;
@@ -190,6 +193,7 @@ public abstract partial class ToDoPageViewController
         {
             var cell = (WinoTaskRowCell)tableView.DequeueReusableCell(WinoTaskRowCell.ReuseIdentifier, indexPath);
             if (_wired.Add(cell.Handle)) owner.WireCell(cell);
+            cell.ShowsSeparator = owner.RowSeparators && indexPath.Row > 0;
             if (owner.TaskAt(indexPath) is { } item) owner.BindCell(cell, item);
             return cell;
         }

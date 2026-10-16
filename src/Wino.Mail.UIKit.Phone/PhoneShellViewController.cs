@@ -19,13 +19,14 @@ using Wino.Shell.ViewModels;
 namespace Wino.Mail.UIKit.Phone;
 
 /// <summary>
-/// The iPhone shell (iOS design decisions): a tab bar with Mail, Calendar, Contacts and To Do, each a navigation stack,
-/// over the theme backdrop. Tabs switch modes through the shared shell ViewModel; Settings is never a tab, the account
-/// avatar opens it as a full-screen sheet. A mode's root page becomes its stack's content. Modes with a menu root keep a
-/// shell-owned list under their content, so the content has a back control to it: Mail over Mailboxes (like Mail on
-/// iPhone), To Do over Lists (<see cref="ModeMenuRootViewController"/>); Calendar and Contacts content is the stack's
-/// root. The shell also owns the Mail stack's toolbar: the reader toolbar while the reader is
-/// on top, the list's edit toolbar in edit mode, hidden otherwise.
+/// The iPhone shell (iOS design decisions, revised 15 Oct): a tab bar with Mail, Calendar, Contacts and To Do, each a
+/// navigation stack with compact bars (never large titles), over the theme backdrop. Tabs switch modes through the shared
+/// shell ViewModel; Settings is never a tab: the Settings row at the foot of the Mailboxes drawer and the gear button of
+/// the other modes open it as a full-screen sheet. The Mail stack's root is the message list itself; Mailboxes is a
+/// drawer over it (<see cref="MailboxesDrawer"/>) opened from the list's sidebar button or a left-edge pan. To Do keeps
+/// its shell-owned Lists root under its content (<see cref="ModeMenuRootViewController"/>); Calendar and Contacts content
+/// is the stack's root. The shell also owns the Mail stack's toolbar: the reader toolbar while the reader is on top, the
+/// list's edit toolbar in edit mode, hidden otherwise.
 /// </summary>
 public sealed class PhoneShellViewController : UIKitShellViewController
 {
@@ -33,6 +34,8 @@ public sealed class PhoneShellViewController : UIKitShellViewController
     private readonly UINavigationController[] _stacks;
     private readonly UIViewController[] _roots;
     private readonly MailboxesViewController _mailboxes;
+    private readonly MailboxesDrawer _drawer;
+    private readonly MailRootViewController _mailRoot;
     private readonly ModeMenuRootViewController[] _modeRoots;
     private readonly IReadOnlyList<WinoModeSegment> _segments = WinoModeSegments.AppModes;
     private readonly StackDelegate _stackDelegate;
@@ -43,20 +46,23 @@ public sealed class PhoneShellViewController : UIKitShellViewController
         IServiceProvider services, IDispatcher dispatcher, IWinoLogger logger) : base(viewModel, navigation, state, services, dispatcher, logger)
     {
         _mailboxes = new MailboxesViewController(this, services);
+        _drawer = new MailboxesDrawer(this, _mailboxes, CanOpenMailboxes);
+        _mailRoot = new MailRootViewController(this);
         _modeRoots = [new ModeMenuRootViewController(this, WinoApplicationMode.Tasks, dispatcher, new ToDoMenuRowStyle())];
         _stackDelegate = new StackDelegate(this);
         _roots = _segments.Select(segment => segment.Mode == WinoApplicationMode.Mail
-            ? _mailboxes
+            ? _mailRoot
             : _modeRoots.FirstOrDefault(root => root.Mode == segment.Mode) ?? (UIViewController)new ModePlaceholderViewController(segment)).ToArray();
         _stacks = _roots.Select((root, index) => CreateStack(root, _segments[index])).ToArray();
     }
 
     private UINavigationController CreateStack(UIViewController root, WinoModeSegment segment)
     {
-        // Mailboxes puts the avatar on its leading side next to its own compose button.
-        if (root is not MailboxesViewController) root.NavigationItem.RightBarButtonItem = AvatarButton();
+        // The Mail root brings its own bar items (the drawer holds Settings in Mail).
+        if (root is not MailRootViewController) root.NavigationItem.RightBarButtonItem = SettingsButton();
         var stack = new UINavigationController(root) { Delegate = _stackDelegate };
-        stack.NavigationBar.PrefersLargeTitles = true;
+        // Compact 44pt bars on every stack: large titles cost a whole row of the screen.
+        stack.NavigationBar.PrefersLargeTitles = false;
         // Bars blur the wallpaper behind them (iOS design decisions: wallpaper backdrop, blurred bars).
         var toolbar = new UIToolbarAppearance();
         toolbar.ConfigureWithDefaultBackground();
@@ -70,12 +76,31 @@ public sealed class PhoneShellViewController : UIKitShellViewController
     private static UIImage TabImage(WinoIconGlyph glyph)
         => WinoIcons.TemplateImage(glyph, 26);
 
-    private UIBarButtonItem AvatarButton()
+    /// <summary>The gear button of the Calendar, Contacts and To Do bars: Settings as a full-screen sheet.</summary>
+    private UIBarButtonItem SettingsButton() => PhoneBarItems.Button(WinoIconGlyph.Settings, Translator.MenuSettings, OpenSettings);
+
+    /// <summary>The phone shell that hosts <paramref name="controller"/>, if any.</summary>
+    internal static PhoneShellViewController? Of(UIViewController controller)
     {
-        var item = new UIBarButtonItem(WinoIcons.TemplateImage(WinoIconGlyph.Person, 22),
-            UIBarButtonItemStyle.Plain, (_, _) => OpenSettings());
-        item.AccessibilityLabel = Translator.MenuSettings;
-        return item;
+        for (var current = controller.ParentViewController; current is not null; current = current.ParentViewController)
+            if (current is PhoneShellViewController shell) return shell;
+        return null;
+    }
+
+    /// <summary>
+    /// Loads and lays out a page at <paramref name="stack"/>'s size before it is placed or pushed, so an animated
+    /// transition never shows its first layout growing from a zero frame (the page "drawing" from the top-left).
+    /// </summary>
+    internal static void PrepareForTransition(UIViewController controller, UINavigationController stack)
+    {
+        controller.LoadViewIfNeeded();
+        if (controller.View is not { } view || stack.View is not { } host) return;
+        UIView.PerformWithoutAnimation(() =>
+        {
+            if (view.Superview is null) view.Frame = host.Bounds;
+            view.SetNeedsLayout();
+            view.LayoutIfNeeded();
+        });
     }
 
     public override void LoadView()
@@ -91,8 +116,15 @@ public sealed class PhoneShellViewController : UIKitShellViewController
             Layout.Fill(tabsView, root);
         }
         _tabs.DidMoveToParentViewController(this);
+        _drawer.Attach(root);
         View = root;
         BindShell();
+    }
+
+    public override void ViewDidLayoutSubviews()
+    {
+        base.ViewDidLayoutSubviews();
+        if (View is { } root) _drawer.Layout(root.Bounds);
     }
 
     public override UINavigationController? CurrentNavigationController => _stacks[Math.Clamp((int)_tabs.SelectedIndex, 0, _stacks.Length - 1)];
@@ -114,10 +146,21 @@ public sealed class PhoneShellViewController : UIKitShellViewController
         bool animated = _animateNextContent && stack.View?.Window is not null;
         _animateNextContent = false;
         if (controller is null) stack.SetViewControllers([root], false);
-        else if (root is MailboxesViewController or ModeMenuRootViewController) stack.SetViewControllers([root, controller], animated);
+        else if (root is MailRootViewController)
+        {
+            // The message list is the Mail stack's root; the drawer closes over it.
+            PrepareForTransition(controller, stack);
+            stack.SetViewControllers([controller], false);
+        }
+        else if (root is ModeMenuRootViewController)
+        {
+            PrepareForTransition(controller, stack);
+            stack.SetViewControllers([root, controller], animated);
+        }
         else
         {
-            controller.NavigationItem.RightBarButtonItem ??= AvatarButton();
+            controller.NavigationItem.RightBarButtonItem ??= SettingsButton();
+            PrepareForTransition(controller, stack);
             stack.SetViewControllers([controller], false);
         }
     }
@@ -125,6 +168,7 @@ public sealed class PhoneShellViewController : UIKitShellViewController
     protected override void ModeChanged(WinoApplicationMode mode)
     {
         if (mode == WinoApplicationMode.Settings) return;
+        if (mode != WinoApplicationMode.Mail) _drawer.Close(false);
         var index = IndexOf(mode);
         if (_tabs.SelectedIndex != index) _tabs.SelectedIndex = index;
     }
@@ -161,6 +205,7 @@ public sealed class PhoneShellViewController : UIKitShellViewController
         var stack = _stacks[IndexOf(mode)];
         if (_roots[IndexOf(mode)] is not ModeMenuRootViewController || Array.IndexOf(stack.ViewControllers ?? [], content) >= 0) return;
         _animateNextContent = false;
+        PrepareForTransition(content, stack);
         stack.PushViewController(content, true);
     }
 
@@ -172,29 +217,54 @@ public sealed class PhoneShellViewController : UIKitShellViewController
     /// <summary>The shell's selected menu item.</summary>
     internal object? SelectedMenuItem => ViewModel.SelectedMenuItem;
 
-    /// <summary>A Mailboxes row tap: the folder list that follows slides in.</summary>
+    /// <summary>A Mailboxes row tap: the drawer closes and the shell lists the folder under it.</summary>
     internal void OpenFromMailboxes(IMenuItem item)
     {
-        _animateNextContent = true;
+        _drawer.Close(true);
         SelectMenuItem(item);
     }
 
     /// <summary>
-    /// Pushes the folder list again when it was popped back to Mailboxes but is still the shell's live content
-    /// (MailListPageViewController stays active while popped). False when there is nothing to show again.
+    /// Closes the drawer over the folder list when it is still the shell's live content (the folder already listed), and
+    /// brings the list back from under a reader. False when there is nothing to show again.
     /// </summary>
     internal bool ShowRetainedMailContent()
     {
         if (ActiveMode != WinoApplicationMode.Mail || Content is not MailListPageViewController { IsRetained: true } list) return false;
         var stack = MailStack;
-        if (Array.IndexOf(stack.ViewControllers ?? [], list) >= 0) return false;
-        stack.PushViewController(list, true);
+        if (Array.IndexOf(stack.ViewControllers ?? [], list) < 0) return false;
+        _drawer.Close(true);
+        if (!ReferenceEquals(stack.TopViewController, list)) stack.PopToViewController(list, false);
         return true;
     }
+
+    /// <summary>Opens the Mailboxes drawer (the list's sidebar button, the left-edge pan).</summary>
+    internal void OpenMailboxes()
+    {
+        if (CanOpenMailboxes()) _drawer.Open(true);
+    }
+
+    /// <summary>Closes the Mailboxes drawer.</summary>
+    internal void CloseMailboxes(bool animated = true) => _drawer.Close(animated);
+
+    /// <summary>
+    /// The drawer opens over the Mail stack's root page only: not over a pushed reader, a sheet, or the list in edit mode.
+    /// </summary>
+    private bool CanOpenMailboxes()
+    {
+        if (ActiveMode != WinoApplicationMode.Mail || _tabs.SelectedIndex != IndexOf(WinoApplicationMode.Mail) || PresentedViewController is not null) return false;
+        var stack = MailStack;
+        if ((stack.ViewControllers?.Length ?? 0) != 1) return false;
+        return stack.TopViewController is not MailListPageViewController { IsInSelectionMode: true };
+    }
+
+    /// <summary>The drawer's Settings row: Settings opens as the avatar used to open it.</summary>
+    internal void OpenSettingsFromMailboxes() => _drawer.Close(true, OpenSettings);
 
     /// <summary>The New Message button: the shared Mail provider creates the draft, which opens in the composer sheet.</summary>
     internal void Compose()
     {
+        _drawer.Close(true);
         if (MailClient is { } mail) SelectMenuItem(mail.CreatePrimaryMenuItem);
     }
 
@@ -275,6 +345,23 @@ public sealed class PhoneShellViewController : UIKitShellViewController
     }
 
     internal string DebugOpenFolder(string name) => _mailboxes.DebugOpen(name);
+
+    /// <summary>Debug: "drawer open|close" or the drawer state.</summary>
+    internal string DebugDrawer(string? action)
+    {
+        switch (action)
+        {
+            case "open":
+                if (!CanOpenMailboxes()) return "cannot open";
+                _drawer.Open(true);
+                return "ok";
+            case "close":
+                _drawer.Close(true);
+                return "ok";
+            default:
+                return $"open={_drawer.IsOpen} canOpen={CanOpenMailboxes()}";
+        }
+    }
 #endif
 
     public override async Task ReleaseAsync()
@@ -285,6 +372,41 @@ public sealed class PhoneShellViewController : UIKitShellViewController
             _readerToolbars.Clear();
         });
         await base.ReleaseAsync();
+    }
+}
+
+/// <summary>
+/// The Mail stack's root while no folder is listed (no account yet, or before the first folder loads): an empty zone with
+/// the sidebar button that opens Mailboxes and the New Message button, like the message list's bar.
+/// </summary>
+internal sealed class MailRootViewController : UIViewController
+{
+    private readonly PhoneShellViewController _shell;
+
+    public MailRootViewController(PhoneShellViewController shell)
+    {
+        _shell = shell;
+        NavigationItem.Title = Translator.IOS_MailboxesTitle;
+        NavigationItem.LargeTitleDisplayMode = UINavigationItemLargeTitleDisplayMode.Never;
+        NavigationItem.LeftBarButtonItem = PhoneBarItems.Button(WinoIconGlyph.PanelLeft, Translator.IOS_MailboxesTitle, shell.OpenMailboxes);
+        NavigationItem.RightBarButtonItem = PhoneBarItems.Compose(shell.Compose);
+    }
+
+    public override void LoadView()
+    {
+        var root = new UIView { BackgroundColor = UIColor.Clear };
+        var zone = new WinoZoneView();
+        root.AddSubview(zone);
+        var guide = root.SafeAreaLayoutGuide;
+        NSLayoutConstraint.ActivateConstraints(
+        [
+            zone.TopAnchor.ConstraintEqualTo(guide.TopAnchor, 8),
+            zone.LeadingAnchor.ConstraintEqualTo(guide.LeadingAnchor, (nfloat)WinoStyle.ZoneGutter),
+            zone.TrailingAnchor.ConstraintEqualTo(guide.TrailingAnchor, -(nfloat)WinoStyle.ZoneGutter),
+            zone.BottomAnchor.ConstraintEqualTo(guide.BottomAnchor, -(nfloat)WinoStyle.ZoneGutter)
+        ]);
+        new WinoStateView(WinoIconGlyph.Mail, Translator.IOS_MailboxesTitle, null).Place(zone.ContentView);
+        View = root;
     }
 }
 

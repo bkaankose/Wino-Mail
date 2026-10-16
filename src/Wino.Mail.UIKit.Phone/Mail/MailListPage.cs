@@ -18,7 +18,8 @@ public sealed class MailListPage : UIView
         var guide = SafeAreaLayoutGuide;
         NSLayoutConstraint.ActivateConstraints(
         [
-            ListZone.TopAnchor.ConstraintEqualTo(guide.TopAnchor, (nfloat)WinoStyle.ZoneGutter),
+            // The zone starts 8pt under the compact bar.
+            ListZone.TopAnchor.ConstraintEqualTo(guide.TopAnchor, 8),
             ListZone.LeadingAnchor.ConstraintEqualTo(guide.LeadingAnchor, (nfloat)WinoStyle.ZoneGutter),
             ListZone.TrailingAnchor.ConstraintEqualTo(guide.TrailingAnchor, -(nfloat)WinoStyle.ZoneGutter),
             ListZone.BottomAnchor.ConstraintEqualTo(guide.BottomAnchor, -(nfloat)WinoStyle.ZoneGutter)

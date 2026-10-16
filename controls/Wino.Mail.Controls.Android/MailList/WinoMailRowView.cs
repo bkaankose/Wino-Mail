@@ -17,7 +17,7 @@ namespace Wino.Mail.Controls.Android.MailList;
 /// <summary>
 /// The Wino mail row (UIKit <c>WinoMailRowCell</c>, AppKit <c>WinoMailRowView</c>) as an Android view inflated from
 /// <c>wino_mail_row.xml</c>. Selection is the Windows ListViewItem look from the canvas: the accent at 10% and a 3 dp
-/// accent pill, never the system highlight. Select mode shows a round check before the avatar. Unread rows use a medium
+/// accent pill, never the system highlight. Select mode shows the check in place of a checked row's avatar. Unread rows use a medium
 /// sender and an accent subject with the unread dot. The row only renders; the adapter and page own clicks, swipes and
 /// selection. Usable from XML as <c>com.winomail.controls.WinoMailRowView</c>.
 /// </summary>
@@ -165,7 +165,6 @@ public class WinoMailRowView : FrameLayout
             p.Highlight.LayoutParameters = highlight;
         }
 
-        p.Avatar.Visibility = model.ShowPicture ? ViewStates.Visible : ViewStates.Gone;
         p.Avatar.Size = WinoMailRowSizes.AvatarSize(density);
         p.Avatar.Image = model.Picture;
         p.Avatar.SetIdentity(string.IsNullOrWhiteSpace(model.Sender) ? model.SenderAddress : model.Sender,
@@ -197,6 +196,7 @@ public class WinoMailRowView : FrameLayout
         ApplyTiles(model);
         ContentDescription = model.AccessibilityText;
         ApplyColors();
+        ApplySelection();
     }
 
     private static ViewStates Visible(bool visible) => visible ? ViewStates.Visible : ViewStates.Gone;
@@ -314,7 +314,25 @@ public class WinoMailRowView : FrameLayout
     {
         var p = Parts;
         var context = this.RequireContext();
-        p.Check.Visibility = Visible(_isSelectionMode);
+        // Select mode (canvas Material pass InboxDark): with sender pictures a checked row shows the check in place of
+        // the avatar and an unchecked row keeps its avatar; without pictures the round check stands before the text.
+        bool picture = _model.ShowPicture;
+        bool checkAsAvatar = _isSelectionMode && picture && _isChecked;
+        p.Avatar.Visibility = Visible(picture && !checkAsAvatar);
+        p.Check.Visibility = Visible(_isSelectionMode && (!picture || _isChecked));
+        if (p.Check.LayoutParameters is MarginLayoutParams check)
+        {
+            int size = WinoUnits.Dp(context, checkAsAvatar ? WinoMailRowSizes.AvatarSize(_model.Density) : WinoMailRowSizes.SelectCheckSize);
+            int gap = WinoUnits.Dp(context, checkAsAvatar ? WinoMailRowSizes.AvatarGap : WinoMailRowSizes.SelectCheckGap);
+            if (check.Width != size || check.MarginEnd != gap)
+            {
+                check.Width = size;
+                check.Height = size;
+                check.MarginEnd = gap;
+                p.Check.LayoutParameters = check;
+            }
+        }
+        p.Check.GlyphSize = checkAsAvatar ? WinoMailRowSizes.AvatarSize(_model.Density) : WinoMailRowSizes.SelectCheckGlyph;
         p.Check.Icon = _isChecked ? WinoIconGlyph.CheckmarkCircleFilled : WinoIconGlyph.Circle;
         p.Check.SetTextColor(_isChecked ? WinoColors.Accent(context) : WinoColors.SecondaryText(context));
         bool selected = _isRowSelected || (_isSelectionMode && _isChecked);

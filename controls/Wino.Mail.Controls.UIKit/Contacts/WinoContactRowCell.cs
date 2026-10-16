@@ -15,9 +15,6 @@ namespace Wino.Mail.Controls.UIKit.Contacts;
 /// <summary>Colours shared by the contact list and card (UIKit twin of the AppKit <c>WinoContactStyle</c>).</summary>
 public static class WinoContactStyle
 {
-    /// <summary>Full-width group header strip tint (Windows LayerFillColorDefault).</summary>
-    public static UIColor HeaderFill => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.045), WinoStyle.Hex(0xFFFFFF, 0.07));
-
     public static UIColor SelectedFill => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.06), WinoStyle.Hex(0xFFFFFF, 0.10));
 
     public static UIColor HoverFill => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.035), WinoStyle.Hex(0xFFFFFF, 0.06));
@@ -31,8 +28,10 @@ public static class WinoContactStyle
     public static UIImage StarImage(bool favorite, double size)
         => WinoIcons.MonoImage(favorite ? WinoIconGlyph.StarFilled : WinoIconGlyph.Star, size, favorite ? WinoStyle.Caution : WinoStyle.TertiaryText);
 
-    public const double RowHeight = 64;
-    public const double HeaderRowHeight = 42;
+    /// <summary>Contacts board (15 Oct 2026): 58pt rows with a 36pt avatar, name over one secondary line.</summary>
+    public const double RowHeight = 58;
+    public const double HeaderRowHeight = 30;
+    public const double AvatarSize = 36;
     public const double RowRadius = 8;
 }
 
@@ -41,19 +40,19 @@ public sealed record WinoContactRowModel(string? Name, string? SecondaryValue, s
     bool IsFavorite, IReadOnlyList<MailCategory> Categories, UIImage? Picture);
 
 /// <summary>
-/// One contact row (Windows ContactTemplate; UIKit twin of the AppKit <c>WinoContactRowView</c>): 40pt avatar, semibold
-/// name, secondary value (email or phone), tertiary source label with category chips, and a star toggle that is always
-/// present. Rounded selection fill, no separators.
+/// One contact row (Windows ContactTemplate; UIKit twin of the AppKit <c>WinoContactRowView</c>) in the iOS canvas look:
+/// 36pt avatar, the name (16) over the secondary value (email or phone, 13) with the category chips, the source label
+/// trailing (12) and the star toggle that is always present. Rounded selection fill, no separators.
 /// </summary>
 public sealed class WinoContactRowCell : UITableViewCell
 {
     public new const string ReuseIdentifier = "WinoContactRow";
 
     private readonly WinoSurfaceView _fill = new() { CornerRadius = WinoContactStyle.RowRadius, Hidden = true };
-    private readonly WinoContactPicture _picture = new(40);
-    private readonly UILabel _name = WinoStyle.Label(string.Empty, WinoStyle.BodyStrong);
+    private readonly WinoContactPicture _picture = new(WinoContactStyle.AvatarSize);
+    private readonly UILabel _name = WinoStyle.Label(string.Empty, WinoStyle.Scaled(16));
     private readonly UILabel _secondary = WinoStyle.Label(string.Empty, WinoStyle.Description, WinoStyle.SecondaryText);
-    private readonly UILabel _source = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.TertiaryText);
+    private readonly UILabel _source = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
     private readonly UIStackView _meta;
     private readonly UIButton _star;
     private UIStackView? _chips;
@@ -73,9 +72,13 @@ public sealed class WinoContactRowCell : UITableViewCell
         WinoLayout.Fill(_fill, ContentView, 1, 4, 1, 4);
         WinoLayout.Priorities(_name, UILayoutConstraintAxis.Horizontal, 1, 250);
         WinoLayout.Priorities(_secondary, UILayoutConstraintAxis.Horizontal, 1, 250);
-        _source.SetContentCompressionResistancePriority(260, UILayoutConstraintAxis.Horizontal);
-        _meta = WinoLayout.HStack(6, _source);
-        var text = WinoLayout.VStack(1, _name, _secondary, _meta);
+        // A long source ("Account · Address book") gives way before the name and the address.
+        _source.SetContentCompressionResistancePriority(240, UILayoutConstraintAxis.Horizontal);
+        _source.WidthAnchor.ConstraintLessThanOrEqualTo(110).Active = true;
+        _source.SetContentHuggingPriority(750, UILayoutConstraintAxis.Horizontal);
+        // The chips join the secondary line, so a row keeps two lines.
+        _meta = WinoLayout.HStack(6, _secondary);
+        var text = WinoLayout.VStack(2, _name, _meta);
         WinoLayout.Priorities(text, UILayoutConstraintAxis.Horizontal, 1, 250);
 
         var configuration = UIButtonConfiguration.PlainButtonConfiguration;
@@ -84,7 +87,7 @@ public sealed class WinoContactRowCell : UITableViewCell
         _star.PrimaryActionTriggered += (_, _) => _toggleFavorite?.Invoke();
         WinoLayout.Size(_star, 44, 44);
 
-        var row = WinoLayout.Insets(WinoLayout.HStack(12, _picture, text, WinoLayout.Spacer(), _star), 6, 12, 6, 4);
+        var row = WinoLayout.Insets(WinoLayout.HStack(12, _picture, text, WinoLayout.Spacer(), _source, _star), 6, 12, 6, 0);
         row.Distribution = UIStackViewDistribution.Fill;
         WinoLayout.Fill(row, ContentView);
         IsAccessibilityElement = false;
@@ -116,6 +119,7 @@ public sealed class WinoContactRowCell : UITableViewCell
         _secondary.Text = model.SecondaryValue ?? string.Empty;
         _secondary.Hidden = string.IsNullOrEmpty(_secondary.Text);
         _source.Text = model.SourceLabel ?? string.Empty;
+        _source.Hidden = string.IsNullOrEmpty(_source.Text);
         _picture.SetIdentity(model.Name, model.Address);
         _picture.Image = model.Picture;
         ApplyCategories(model.Categories);
@@ -210,35 +214,32 @@ public sealed class WinoContactRowCell : UITableViewCell
 }
 
 /// <summary>
-/// Alphabet group header (Windows ContactGroup header): a full-width rounded strip in the header tint with the letter
-/// in the accent colour, semibold.
+/// Alphabet group header (Windows ContactGroup header) in the iOS canvas look: the letter as a plain label, 13pt
+/// semibold in the secondary colour, with no strip behind it (like the mail list's date headers).
 /// </summary>
 public sealed class WinoContactGroupHeaderView : UITableViewHeaderFooterView
 {
     public new const string ReuseIdentifier = "WinoContactGroupHeader";
-    private readonly WinoSurfaceView _strip = new() { CornerRadius = 6 };
-    private readonly UILabel _title = WinoStyle.Label(string.Empty, WinoStyle.BodyStrong);
+    private readonly UILabel _title = WinoStyle.Label(string.Empty, WinoStyle.Scaled(13, UIFontWeight.Semibold), WinoStyle.SecondaryText);
 
     public WinoContactGroupHeaderView() : this(new NSString(ReuseIdentifier)) { }
 
     [Export("initWithReuseIdentifier:")]
     public WinoContactGroupHeaderView(NSString reuseIdentifier) : base(reuseIdentifier)
     {
-        _strip.Fill = WinoContactStyle.HeaderFill;
-        WinoLayout.Fill(_strip, ContentView, 6, 4, 2, 4);
-        _strip.AddSubview(_title);
+        // The zone surface behind the letter: plain in place, and a pinned header still covers the rows under it.
+        BackgroundConfiguration = UIBackgroundConfiguration.ClearConfiguration;
+        ContentView.BackgroundColor = WinoStyle.ZoneFill;
+        ContentView.AddSubview(_title);
         NSLayoutConstraint.ActivateConstraints(
         [
-            _title.LeadingAnchor.ConstraintEqualTo(_strip.LeadingAnchor, 12),
-            _title.TrailingAnchor.ConstraintLessThanOrEqualTo(_strip.TrailingAnchor, -12),
-            _title.CenterYAnchor.ConstraintEqualTo(_strip.CenterYAnchor)
+            _title.LeadingAnchor.ConstraintEqualTo(ContentView.LeadingAnchor, 16),
+            _title.TrailingAnchor.ConstraintLessThanOrEqualTo(ContentView.TrailingAnchor, -16),
+            _title.BottomAnchor.ConstraintEqualTo(ContentView.BottomAnchor, -4)
         ]);
         IsAccessibilityElement = true;
         AccessibilityTraits = UIAccessibilityTrait.Header;
-        WinoStyle.AccentChanged += AccentChanged;
     }
-
-    private void AccentChanged(object? sender, EventArgs args) => _title.TextColor = WinoStyle.Accent;
 
     public string Title
     {
@@ -246,15 +247,8 @@ public sealed class WinoContactGroupHeaderView : UITableViewHeaderFooterView
         set
         {
             _title.Text = value ?? string.Empty;
-            _title.TextColor = WinoStyle.Accent;
             AccessibilityLabel = value;
         }
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing) WinoStyle.AccentChanged -= AccentChanged;
-        base.Dispose(disposing);
     }
 }
 

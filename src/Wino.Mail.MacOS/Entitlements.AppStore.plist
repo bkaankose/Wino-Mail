@@ -11,4 +11,7 @@
   <!-- APNs for live notifications (WinoRelay). The App Store profile must include Push Notifications. Entitlements.plist
        has no APNs key: the project adds the development value only when a provisioning profile signs the build. -->
   <key>com.apple.developer.aps-environment</key><string>production</string>
+  <!-- Sign in with Apple (Wino Accounts). Restricted: the provisioning profile must include the capability. -->
+  <key>com.apple.developer.applesignin</key>
+  <array><string>Default</string></array>
 </dict></plist>

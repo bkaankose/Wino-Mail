@@ -29,8 +29,7 @@ public sealed partial class EmailTemplatesPageFragment : SettingsPageFragment<Em
 {
     private const string LoadedKey = "EmailTemplates.Loaded";
 
-    private LinearLayout? _list;
-    private View? _listHeader;
+    private WinoSettingsGroup? _list;
     private View? _empty;
     private BindingScope? _rowScope;
 
@@ -54,20 +53,10 @@ public sealed partial class EmailTemplatesPageFragment : SettingsPageFragment<Em
     protected override void BuildPage()
     {
         var vm = VM;
-        var create = Bind.Button(Translator.SettingsEmailTemplates_NewTemplateTitle, vm.CreateTemplate, primary: true, icon: WinoIconGlyph.Add);
-        if (OperatingSystem.IsAndroidVersionAtLeast(26)) create.TooltipText = Translator.SettingsEmailTemplates_NewTemplateDescription;
-        var intro = Text(Translator.SettingsEmailTemplates_Intro, WinoTextStyle.Description);
-        var top = Stack(Resource.Dimension.wino_space_m, intro, Row(create));
-        Add(top);
-        if (top.LayoutParameters is LinearLayout.LayoutParams topLayout) topLayout.BottomMargin = WinoTokens.Px(Ctx, Resource.Dimension.wino_space_xs);
+        // New template is an action row; the Windows intro is its section's footer.
+        AddGroup(null, ActionCard(Translator.SettingsEmailTemplates_NewTemplateTitle, vm.CreateTemplate)).Footer = Translator.SettingsEmailTemplates_Intro;
 
-        var title = Text(Translator.SettingsEmailTemplates_ListTitle, WinoTextStyle.BodyLargeStrong);
-        AndroidX.Core.View.ViewCompat.SetAccessibilityHeading(title, true);
-        WinoTokens.Pad(title, Resource.Dimension.wino_space_2xs, Resource.Dimension.wino_space_s, 0, Resource.Dimension.wino_space_3xs);
-        title.Visibility = ViewStates.Gone;
-        _listHeader = Add(title);
-
-        _list = Add(new LinearLayout(Ctx) { Orientation = Orientation.Vertical, Visibility = ViewStates.Gone });
+        _list = Add(new WinoSettingsGroup(Ctx, Translator.SettingsEmailTemplates_ListTitle) { Visibility = ViewStates.Gone });
 
         var empty = EmptyState();
         empty.Visibility = ViewStates.Gone;
@@ -77,7 +66,6 @@ public sealed partial class EmailTemplatesPageFragment : SettingsPageFragment<Em
         {
             _rowScope?.Dispose();
             _list = null;
-            _listHeader = null;
             _empty = null;
         }));
         Bind.Collection(vm.EmailTemplates, Rebuild);
@@ -89,18 +77,12 @@ public sealed partial class EmailTemplatesPageFragment : SettingsPageFragment<Em
         _rowScope?.Dispose();
         _rowScope = new BindingScope();
         var rows = Bind.Child(_rowScope);
-        list.RemoveAllViews();
+        list.Clear();
 
         var templates = VM.EmailTemplates.ToList();
-        foreach (var template in templates)
-        {
-            var layout = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent);
-            if (list.ChildCount > 0) layout.TopMargin = WinoTokens.Px(Ctx, Resource.Dimension.wino_space_2xs);
-            list.AddView(TemplateCard(rows, template), layout);
-        }
+        foreach (var template in templates) list.Add(TemplateCard(rows, template));
 
         var hasItems = templates.Count > 0;
-        if (_listHeader is not null) _listHeader.Visibility = hasItems ? ViewStates.Visible : ViewStates.Gone;
         list.Visibility = hasItems ? ViewStates.Visible : ViewStates.Gone;
         if (_empty is not null) _empty.Visibility = IsLoaded && !hasItems ? ViewStates.Visible : ViewStates.Gone;
     }

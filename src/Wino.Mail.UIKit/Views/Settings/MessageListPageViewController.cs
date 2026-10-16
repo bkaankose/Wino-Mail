@@ -100,7 +100,7 @@ public sealed class MessageListPageViewController(MessageListPageViewModel viewM
         WinoLayout.Fill(title, titleHost, 0, WinoSettingsStyle.CardPadding, 0, WinoSettingsStyle.CardPadding);
         var stack = WinoLayout.VStack(WinoStyle.Space2, titleHost, _previewRow);
         stack.Alignment = UIStackViewAlignment.Fill;
-        var card = new WinoSurfaceView { Fill = WinoSettingsStyle.CardFill, Stroke = WinoSettingsStyle.CardStroke, StrokeWidth = 1, CornerRadius = WinoSettingsStyle.CardRadius, ClipsToBounds = true };
+        var card = new WinoSurfaceView { Fill = WinoSettingsStyle.GroupFill, Stroke = WinoSettingsStyle.CardStroke, StrokeWidth = 1, CornerRadius = WinoSettingsStyle.CardRadius, ClipsToBounds = true };
         WinoLayout.Fill(stack, card, 12, 0, 8, 0);
 
         NotifyCollectionChangedEventHandler changed = (_, _) => InvokeOnMainThread(RefreshPreview);

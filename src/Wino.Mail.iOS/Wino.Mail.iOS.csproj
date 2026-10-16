@@ -24,6 +24,13 @@
        Entitlements.plist; pass -p:CodesignKey=... -p:CodesignProvision=... to override. Simulator builds are signed ad
        hoc by the SDK without custom entitlements: the keychain groups and aps-environment would make the SDK look for
        a provisioning profile, which a simulator build does not have. -->
+  <!-- Device builds run AOT only. Generic virtual methods closed over value types, such as Kiota's
+       ISerializationWriter.WriteEnumValue<T> for Graph enums, cannot be pre-compiled and threw
+       ExecutionEngineException on every Outlook sync. "-all" keeps every assembly AOT-compiled and enables the
+       interpreter only as the fallback for those methods. -->
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('ios-'))">
+    <MtouchInterpreter Condition="'$(MtouchInterpreter)' == ''">-all</MtouchInterpreter>
+  </PropertyGroup>
   <PropertyGroup>
     <!-- The SDK would pick up Entitlements.plist by convention for every build, the simulator included. -->
     <EnableDefaultCodesignEntitlements>false</EnableDefaultCodesignEntitlements>

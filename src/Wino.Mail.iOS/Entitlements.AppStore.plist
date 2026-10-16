@@ -10,4 +10,7 @@
   </array>
   <!-- App Store builds (-p:WinoIOSDistribution=AppStore) register for production push. -->
   <key>aps-environment</key><string>production</string>
+  <!-- Sign in with Apple (Wino Accounts). Restricted: the provisioning profile must include the capability. -->
+  <key>com.apple.developer.applesignin</key>
+  <array><string>Default</string></array>
 </dict></plist>

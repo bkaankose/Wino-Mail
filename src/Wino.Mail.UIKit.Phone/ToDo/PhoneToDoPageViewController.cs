@@ -24,12 +24,17 @@ public sealed class PhoneToDoPageViewController(ToDoPageViewModel viewModel, IDi
 
     protected override bool UsesSearchController => true;
 
+    protected override bool RowSeparators => true;
+
     protected override void PrepareLayout() => PageViewModel.SetCompactLayout(true);
 
     public override void ViewDidLoad()
     {
         base.ViewDidLoad();
-        NavigationItem.LargeTitleDisplayMode = UINavigationItemLargeTitleDisplayMode.Always;
+        NavigationItem.LargeTitleDisplayMode = UINavigationItemLargeTitleDisplayMode.Never;
+        // No persistent search bar under the compact title: iOS 26 puts search behind a bar button.
+        if (OperatingSystem.IsIOSVersionAtLeast(26) && NavigationItem.SearchController is not null)
+            NavigationItem.PreferredSearchBarPlacement = UINavigationItemSearchBarPlacement.IntegratedButton;
     }
 
     public override void ViewWillAppear(bool animated)
@@ -53,6 +58,7 @@ public sealed class PhoneToDoPageViewController(ToDoPageViewModel viewModel, IDi
             if (ReferenceEquals(stack.TopViewController, detail)) stack.PopViewController(true);
         };
         _detail = new WeakReference<ToDoTaskDetailViewController>(detail);
+        PhoneShellViewController.PrepareForTransition(detail, stack);
         stack.PushViewController(detail, true);
     }
 

@@ -120,8 +120,8 @@ public sealed class SettingsRootFragment : SettingsPageFragment<SettingOptionsPa
         // Material 3 list subheader in the primary colour.
         var header = Text(title, WinoTextStyle.Subheader);
         header.SetTextColor(WinoColors.AccentText(Ctx));
-        // Aligned with the row text (72 dp), 48 dp tall with the label at its foot (canvas Settings).
-        WinoTokens.Pad(header, Resource.Dimension.wino_m3_settings_text_inset, 0,
+        // Aligned with the rows' leading glyphs (16 dp, canvas Material pass Settings), the label at its foot.
+        WinoTokens.Pad(header, Resource.Dimension.wino_space_l, 0,
             Resource.Dimension.wino_settings_subheader_horizontal, Resource.Dimension.wino_m3_settings_subheader_bottom);
         header.Gravity = GravityFlags.Bottom | GravityFlags.Start;
         header.SetMinHeight(WinoTokens.Px(Ctx, Resource.Dimension.wino_m3_settings_subheader_height));

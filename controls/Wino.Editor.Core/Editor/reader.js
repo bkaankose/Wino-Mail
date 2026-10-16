@@ -36,11 +36,13 @@
             color-scheme: light;
         }
         :host([data-mail-scheme="dark"]) .wino-mail-html { color-scheme: dark; }
+        /* A host inset (setContentInset) keeps text off the reader edge even when the mail zeroes its own padding. */
+        :host([data-inset]) .wino-mail-html { padding: var(--wino-reader-inset, 0px) !important; }
         .wino-mail-body { flex: 1 0 auto; }
         :where(.wino-mail-body) {
             display: block;
             margin: 0;
-            padding: 16px;
+            padding: var(--wino-body-padding, 16px);
             color: CanvasText;
             font-family: var(--wino-font-family, "Segoe UI"), sans-serif;
             font-size: var(--wino-font-size, 15px);
@@ -448,6 +450,21 @@
         if (mailHtmlElement && isDarkTheme) applyColorPolicy();
     }
 
+    // Optional inset around the whole mail (iOS). The default body padding shrinks so ordinary mails keep 16px in
+    // total, and mails that zero their body padding still keep the inset. Zero restores the default document.
+    function setContentInset(inset) {
+        const value = Math.max(0, Math.min(48, Number(inset) || 0));
+        if (value > 0) {
+            reader.style.setProperty("--wino-reader-inset", `${value}px`);
+            reader.style.setProperty("--wino-body-padding", `${Math.max(0, 16 - value)}px`);
+            reader.setAttribute("data-inset", "");
+        } else {
+            reader.style.removeProperty("--wino-reader-inset");
+            reader.style.removeProperty("--wino-body-padding");
+            reader.removeAttribute("data-inset");
+        }
+    }
+
     function setAccessibility(subject, sender, date, bodyAutomationName, plainTextFallbackAutomationName, accessibleText) {
         const context = [subject, sender, date].filter(Boolean).join(", ");
         const bodyName = bodyAutomationName || "Message body";
@@ -496,6 +513,7 @@
         },
         setTheme,
         setTypography,
+        setContentInset,
         setAccessibility
     };
 

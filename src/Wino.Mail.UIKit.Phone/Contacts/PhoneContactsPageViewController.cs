@@ -24,7 +24,10 @@ public sealed class PhoneContactsPageViewController(ContactsPageViewModel viewMo
     public override void ViewDidLoad()
     {
         base.ViewDidLoad();
-        NavigationItem.LargeTitleDisplayMode = UINavigationItemLargeTitleDisplayMode.Always;
+        NavigationItem.LargeTitleDisplayMode = UINavigationItemLargeTitleDisplayMode.Never;
+        // No persistent search bar under the compact title: iOS 26 puts search behind a bar button.
+        if (OperatingSystem.IsIOSVersionAtLeast(26) && NavigationItem.SearchController is not null)
+            NavigationItem.PreferredSearchBarPlacement = UINavigationItemSearchBarPlacement.IntegratedButton;
     }
 
     protected override void ContactActivated(AccountContactViewModel contact)
@@ -38,6 +41,7 @@ public sealed class PhoneContactsPageViewController(ContactsPageViewModel viewMo
             if (ReferenceEquals(stack.TopViewController, card)) stack.PopViewController(true);
         };
         _card = new WeakReference<ContactCardViewController>(card);
+        PhoneShellViewController.PrepareForTransition(card, stack);
         stack.PushViewController(card, true);
     }
 
