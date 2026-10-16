@@ -1,4 +1,4 @@
-<ContentDialog
+﻿<ContentDialog
     x:Class="Wino.Dialogs.SignatureEditorDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -29,18 +29,21 @@
         <x:Double x:Key="ContentDialogMaxWidth">1200</x:Double>
     </ContentDialog.Resources>
 
-    <Grid Margin="0,8,0,0" RowSpacing="24">
+    <Grid
+        MinWidth="480"
+        Margin="0,8,0,0"
+        RowSpacing="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" MaxHeight="400" />
         </Grid.RowDefinitions>
 
         <TextBox
-            AutomationProperties.AutomationId="SignatureNameTextBox"
             x:Name="SignatureNameTextBox"
             MinWidth="300"
             MaxWidth="500"
             HorizontalAlignment="Left"
+            AutomationProperties.AutomationId="SignatureNameTextBox"
             PlaceholderText="{x:Bind domain:Translator.SignatureEditorDialog_SignatureName_Placeholder}"
             TextChanged="SignatureNameTextBoxTextChanged" />
 
