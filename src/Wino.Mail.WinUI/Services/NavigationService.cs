@@ -16,6 +16,7 @@ using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.Navigation;
 using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.Views;
+using Wino.Views;
 using Wino.Views.Mail;
 
 namespace Wino.Services;
@@ -282,6 +283,14 @@ public class NavigationService : INavigationService
                 {
                     Parameter = settingsTarget
                 });
+            }
+
+            // The settings page on screen would suppress a re-navigation to itself, so it
+            // moves its own breadcrumb frame to the requested root page instead.
+            if (GetCoreFrameInternal(NavigationReferenceFrame.InnerShellFrame)?.Content is SettingsPage activeSettingsPage)
+            {
+                activeSettingsPage.NavigateToActivationTarget(settingsTarget);
+                return true;
             }
 
             page = WinoPage.SettingsPage;
