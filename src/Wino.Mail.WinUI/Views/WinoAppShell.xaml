@@ -133,25 +133,9 @@
             </Grid>
         </coreControls:WinoNavigationView>
 
-        <VisualStateManager.VisualStateGroups>
-            <VisualStateGroup x:Name="LowResolutionStates">
-                <VisualState x:Name="BigScreen">
-                    <VisualState.StateTriggers>
-                        <AdaptiveTrigger MinWindowWidth="1200" />
-                    </VisualState.StateTriggers>
-                    <VisualState.Setters>
-                        <Setter Target="navigationView.IsPaneOpen" Value="True" />
-                    </VisualState.Setters>
-                </VisualState>
-                <VisualState x:Name="SmallScreen">
-                    <VisualState.StateTriggers>
-                        <AdaptiveTrigger MinWindowWidth="0" />
-                    </VisualState.StateTriggers>
-                    <VisualState.Setters>
-                        <Setter Target="navigationView.IsPaneOpen" Value="False" />
-                    </VisualState.Setters>
-                </VisualState>
-            </VisualStateGroup>
-        </VisualStateManager.VisualStateGroups>
+        <!--
+            The pane's open state is the user's saved preference, applied from code whenever the
+            pane is expanded. Width-driven visual states must not set IsPaneOpen; they override it.
+        -->
     </Grid>
 </abstract:WinoAppShellAbstract>

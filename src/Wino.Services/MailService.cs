@@ -2506,19 +2506,41 @@ public class MailService : BaseDatabaseService, IMailService
             }
 
             // Reply target follows Reply-To first, then From, then Sender.
-            if (referenceMessage.ReplyTo.Mailboxes.Any())
+            List<MailboxAddress> replyTargets = referenceMessage.ReplyTo.Mailboxes.Any()
+                ? referenceMessage.ReplyTo.Mailboxes.ToList()
+                : referenceMessage.From.Mailboxes.Any()
+                    ? referenceMessage.From.Mailboxes.ToList()
+                    : referenceMessage.Sender is MailboxAddress senderMailbox
+                        ? [senderMailbox]
+                        : [];
+
+            // Replying to a message the user sent (e.g. from the Sent folder) targets its original recipients instead of the user.
+            var isReplyToOwnMessage = replyTargets.Count > 0
+                && replyTargets.All(m => !string.IsNullOrWhiteSpace(m.Address) && ownAddresses.Contains(m.Address.Trim()));
+
+            if (isReplyToOwnMessage)
             {
-                foreach (var mailbox in referenceMessage.ReplyTo.Mailboxes)
-                    AddToRecipient(mailbox, allowSelf: true);
+                foreach (var mailbox in referenceMessage.To.Mailboxes)
+                    AddToRecipient(mailbox, allowSelf: false);
+
+                // Message had no To recipients other than the user; fall back to Cc.
+                if (toRecipients.Count == 0)
+                {
+                    foreach (var mailbox in referenceMessage.Cc.Mailboxes)
+                        AddToRecipient(mailbox, allowSelf: false);
+                }
+
+                // Message was sent only to the user's own addresses; reply to self.
+                if (toRecipients.Count == 0)
+                {
+                    foreach (var mailbox in replyTargets)
+                        AddToRecipient(mailbox, allowSelf: true);
+                }
             }
-            else if (referenceMessage.From.Mailboxes.Any())
+            else
             {
-                foreach (var mailbox in referenceMessage.From.Mailboxes)
+                foreach (var mailbox in replyTargets)
                     AddToRecipient(mailbox, allowSelf: true);
-            }
-            else if (referenceMessage.Sender is MailboxAddress senderMailbox)
-            {
-                AddToRecipient(senderMailbox, allowSelf: true);
             }
 
             if (reason == DraftCreationReason.ReplyAll)

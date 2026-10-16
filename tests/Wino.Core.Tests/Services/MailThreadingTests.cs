@@ -329,6 +329,56 @@ public class MailThreadingTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CreateDraftAsync_ReplyToOwnSentMessage_TargetsOriginalRecipients()
+    {
+        var referencedMimeMessage = new MimeMessage();
+        referencedMimeMessage.From.Add(new MailboxAddress("Test User", "me@test.local"));
+        referencedMimeMessage.To.Add(new MailboxAddress("Recipient", "recipient@example.com"));
+        referencedMimeMessage.Cc.Add(new MailboxAddress("Copied", "copied@example.com"));
+        referencedMimeMessage.Subject = "Sent subject";
+        referencedMimeMessage.Body = new TextPart("plain") { Text = "Body" };
+
+        var replyMessage = await CreateReplyMimeAsync(DraftCreationReason.Reply, referencedMimeMessage);
+        var replyAllMessage = await CreateReplyMimeAsync(DraftCreationReason.ReplyAll, referencedMimeMessage);
+
+        replyMessage.To.Mailboxes.Select(m => m.Address).Should().Equal("recipient@example.com");
+        replyMessage.Cc.Mailboxes.Should().BeEmpty();
+        replyAllMessage.To.Mailboxes.Select(m => m.Address).Should().Equal("recipient@example.com");
+        replyAllMessage.Cc.Mailboxes.Select(m => m.Address).Should().Equal("copied@example.com");
+    }
+
+    [Fact]
+    public async Task CreateDraftAsync_ReplyToOwnMessageSentToSelf_TargetsSelf()
+    {
+        var referencedMimeMessage = new MimeMessage();
+        referencedMimeMessage.From.Add(new MailboxAddress("Test User", "me@test.local"));
+        referencedMimeMessage.To.Add(new MailboxAddress("Test User", "me@test.local"));
+        referencedMimeMessage.Subject = "Note to self";
+        referencedMimeMessage.Body = new TextPart("plain") { Text = "Body" };
+
+        var replyMessage = await CreateReplyMimeAsync(DraftCreationReason.Reply, referencedMimeMessage);
+
+        replyMessage.To.Mailboxes.Select(m => m.Address).Should().Equal("me@test.local");
+    }
+
+    private async Task<MimeMessage> CreateReplyMimeAsync(DraftCreationReason reason, MimeMessage referencedMimeMessage)
+    {
+        var (_, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(
+            _account.Id,
+            new DraftCreationOptions
+            {
+                Reason = reason,
+                ReferencedMessage = new ReferencedMessage
+                {
+                    MimeMessage = referencedMimeMessage,
+                    MailCopy = new MailCopy { UniqueId = Guid.NewGuid(), Id = Guid.NewGuid().ToString(), MessageId = "sent-parent@domain.com" }
+                }
+            });
+
+        return draftBase64MimeMessage.GetMimeMessageFromBase64();
+    }
+
+    [Fact]
     public async Task ApplyMailStateUpdatesAsync_ForBatchReadStateChange_SendsBulkMailUpdatedMessage()
     {
         var mail1 = new MailCopy

@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -16,6 +17,7 @@ using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.AutoDiscovery;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models.CardDav;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Domain.Models.Telemetry;
@@ -31,6 +33,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 {
     private readonly IAutoDiscoveryService _autoDiscoveryService;
     private readonly ICalDavClient _calDavClient;
+    private readonly ICardDavClient _cardDavClient;
     private readonly IAccountService _accountService;
     private readonly IMailDialogService _mailDialogService;
     private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
@@ -251,7 +254,8 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                                            IMailServerTestService mailServerTestService = null,
                                            IKnownImapProviderCatalog knownImapProviderCatalog = null,
                                            IAccountCapabilityService accountCapabilityService = null,
-                                           IExternalLauncher externalLauncher = null)
+                                           IExternalLauncher externalLauncher = null,
+                                           ICardDavClient cardDavClient = null)
     {
         _knownImapProviderCatalog = knownImapProviderCatalog;
         _accountCapabilityService = accountCapabilityService;
@@ -260,6 +264,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
         _autoDiscoveryService = autoDiscoveryService;
         _calDavClient = calDavClient;
+        _cardDavClient = cardDavClient;
         _accountService = accountService;
         _mailDialogService = mailDialogService;
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
@@ -308,6 +313,8 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         }
 
         SyncCapabilitiesFromState(context.AccountCreationDialogResult);
+        Log.Debug("IMAP setup opened in {Mode}: wizard contacts source {Source}, contact mode {ContactMode}, CardDAV {IsCardDavEnabled}",
+            _pageMode, _wizardContext.ContactIntegrationSource, Capabilities.ContactMode, _isCardDavEnabled);
         UpdateAppPasswordHelp();
         NotifySetupLayoutChanged();
 
@@ -347,6 +354,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         {
             ValidateCapabilitySelection();
             await EnsureImapSettingsPreparedAsync();
+            await ResolveCardDavServiceUrlAsync();
 
             serverInformation = BuildServerInformation();
 
@@ -377,6 +385,11 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             else
             {
                 IsCalDavValidationSucceeded = false;
+            }
+
+            if (_isCardDavEnabled)
+            {
+                await ValidateCardDavConnectivityAsync(serverInformation);
             }
 
             TrackImapSetupEvent(
@@ -954,6 +967,89 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         };
 
         await _calDavClient.DiscoverCalendarsAsync(settings).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Fills an empty CardDAV URL from the provider catalog, then from RFC 6764 discovery on the
+    /// email address. Leaves it empty when neither finds one; validation then reports it.
+    /// </summary>
+    private async Task ResolveCardDavServiceUrlAsync()
+    {
+        if (!_isCardDavEnabled || !string.IsNullOrWhiteSpace(CardDavServiceUrl))
+        {
+            Log.Debug("CardDAV address lookup skipped: CardDAV {IsCardDavEnabled}, URL set {HasUrl}",
+                _isCardDavEnabled, !string.IsNullOrWhiteSpace(CardDavServiceUrl));
+            return;
+        }
+
+        var knownUrl = _knownImapProviderCatalog.ResolveCardDavServiceUrl(_editingSpecialImapProvider, IncomingServer);
+        if (!string.IsNullOrWhiteSpace(knownUrl))
+        {
+            CardDavServiceUrl = knownUrl;
+            return;
+        }
+
+        var email = (EmailAddress ?? string.Empty).Trim();
+        if (!email.Contains('@'))
+            return;
+
+        try
+        {
+            var discoveredUri = await _autoDiscoveryService.DiscoverCardDavServiceUriAsync(email);
+            Log.Debug("CardDAV address lookup found {Uri}", discoveredUri);
+            if (discoveredUri != null)
+                CardDavServiceUrl = discoveredUri.ToString();
+        }
+        catch (Exception ex)
+        {
+            // A missing CardDAV address is reported by validation, not as a discovery error.
+            Log.Debug(ex, "CardDAV address lookup failed");
+        }
+    }
+
+    /// <summary>
+    /// Signs in to the CardDAV server and lists the address books, so an account is never added
+    /// with a contacts server that cannot be reached.
+    /// </summary>
+    private async Task ValidateCardDavConnectivityAsync(CustomServerInformation serverInformation)
+    {
+        if (string.IsNullOrWhiteSpace(serverInformation.CardDavServiceUrl))
+        {
+            IsCardDavExpanded = true;
+            throw new InvalidOperationException(Translator.ImapSetup_CardDavNotFound);
+        }
+
+        if (!Uri.TryCreate(serverInformation.CardDavServiceUrl, UriKind.Absolute, out var serviceUri) ||
+            (serviceUri.Scheme != Uri.UriSchemeHttps && serviceUri.Scheme != Uri.UriSchemeHttp))
+        {
+            IsCardDavExpanded = true;
+            throw new InvalidOperationException(Translator.ImapSetup_CardDavUrlInvalid);
+        }
+
+        if (_cardDavClient == null)
+            return;
+
+        var settings = new CardDavConnectionSettings
+        {
+            ServiceUri = serviceUri,
+            AccountAddress = serverInformation.Address,
+            Authentication = new DavAuthenticationProfile
+            {
+                Kind = DavAuthenticationKind.Basic,
+                Username = serverInformation.CalDavUsername,
+                Password = serverInformation.CalDavPassword
+            }
+        };
+
+        try
+        {
+            await _cardDavClient.DiscoverAsync(settings).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            await ExecuteUIThread(() => IsCardDavExpanded = true).ConfigureAwait(false);
+            throw new InvalidOperationException(string.Format(Translator.ImapSetup_CardDavConnectionFailed, ex.Message), ex);
+        }
     }
 
     private void CompleteCreateFlow(CustomServerInformation serverInformation)

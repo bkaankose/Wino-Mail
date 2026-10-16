@@ -84,7 +84,9 @@ public class AutoDiscoveryService : IAutoDiscoveryService
     /// 2. HTTPS on the targets of a plain <c>_caldav._tcp</c> record, when no TLS record exists.
     /// 3. <c>https://domain/.well-known/caldav</c> and <c>https://caldav.domain/</c>.
     /// 4. TLS SRV records of the domains the MX hosts belong to (hosted mail).
-    /// 5. Plain HTTP on the <c>_caldav._tcp</c> targets, only when nothing secure answered.
+    /// 5. The well-known URI on the hoster's groupware host, read from the <c>_autodiscover._tcp</c> SRV target
+    ///    and the <c>autodiscover</c> and <c>autoconfig</c> CNAME targets (hosted groupware, for example).
+    /// 6. Plain HTTP on the <c>_caldav._tcp</c> targets, only when nothing secure answered.
     /// </summary>
     private async Task<Uri> DiscoverDavServiceUriAsync(DavService service, string mailAddress, CancellationToken cancellationToken)
     {
@@ -116,6 +118,14 @@ public class AutoDiscoveryService : IAutoDiscoveryService
             {
                 resolved = await TryResolveSrvCandidatesAsync(service, mxDomains, insecureCandidates, probed, cancellationToken).ConfigureAwait(false);
             }
+        }
+
+        if (resolved == null)
+        {
+            var hostedCandidates = (await GetAutoconfigHostsAsync(domain, cancellationToken).ConfigureAwait(false))
+                .Select(host => new Uri($"https://{host}{service.WellKnownPath}"));
+
+            resolved = await TryResolveFirstCandidateAsync(hostedCandidates, probed, cancellationToken).ConfigureAwait(false);
         }
 
         if (resolved == null && insecureCandidates.Count > 0)
@@ -618,6 +628,36 @@ public class AutoDiscoveryService : IAutoDiscoveryService
         return results;
     }
 
+    /// <summary>
+    /// Hosts that a domain delegates client configuration to: the <c>_autodiscover._tcp</c> SRV target and the
+    /// CNAME targets of <c>autodiscover.domain</c> and <c>autoconfig.domain</c>. Hosted groupware usually serves
+    /// DAV from the same host.
+    /// </summary>
+    private async Task<IReadOnlyList<string>> GetAutoconfigHostsAsync(string domain, CancellationToken cancellationToken)
+    {
+        var hosts = new List<string>();
+
+        var srvTargets = (await QueryDnsAsync($"_autodiscover._tcp.{domain}", "SRV", cancellationToken).ConfigureAwait(false))
+            .Select(ParseSrvRecord)
+            .Where(record => record != null)
+            .OrderBy(record => record.Priority)
+            .ThenByDescending(record => record.Weight)
+            .Select(record => record.Target);
+
+        hosts.AddRange(srvTargets);
+
+        foreach (var alias in new[] { $"autodiscover.{domain}", $"autoconfig.{domain}" })
+        {
+            var targets = await QueryDnsAsync(alias, "CNAME", cancellationToken).ConfigureAwait(false);
+            hosts.AddRange(targets.Select(target => target.Trim().TrimEnd('.')));
+        }
+
+        return hosts
+            .Where(host => !string.IsNullOrWhiteSpace(host))
+            .Distinct(IgnoreCase)
+            .ToList();
+    }
+
     private async Task<string> GetFirstResolvableHostAsync(IEnumerable<string> hostCandidates, CancellationToken cancellationToken)
     {
         foreach (var host in hostCandidates.Where(h => !string.IsNullOrWhiteSpace(h)).Distinct(IgnoreCase))
@@ -773,7 +813,13 @@ public class AutoDiscoveryService : IAutoDiscoveryService
         }
     }
 
-    private static IEnumerable<string> BuildDomainCandidatesFromHost(string hostOrDomain)
+    /// <summary>
+    /// Returns the host and each parent domain down to the registrable one, nearest first.
+    /// <c>mx1.mail.example.net</c> gives <c>mx1.mail.example.net</c>, <c>mail.example.net</c> and <c>example.net</c>;
+    /// hosters publish their ISPDB entry under the registrable domain, as Thunderbird looks it up.
+    /// A two-label public suffix such as <c>co.uk</c> is never returned.
+    /// </summary>
+    internal static IEnumerable<string> BuildDomainCandidatesFromHost(string hostOrDomain)
     {
         if (string.IsNullOrWhiteSpace(hostOrDomain))
             yield break;
@@ -785,11 +831,26 @@ public class AutoDiscoveryService : IAutoDiscoveryService
         yield return normalized;
 
         var segments = normalized.Split('.', StringSplitOptions.RemoveEmptyEntries);
-        if (segments.Length > 2)
+
+        for (var skip = 1; segments.Length - skip >= 2; skip++)
         {
-            yield return string.Join('.', segments.Skip(1));
+            var remaining = segments.Skip(skip).ToArray();
+
+            if (remaining.Length == 2 && IsLikelyPublicSecondLevelDomain(remaining[0], remaining[1]))
+                yield break;
+
+            yield return string.Join('.', remaining);
         }
     }
+
+    private static readonly HashSet<string> PublicSecondLevelLabels = new(IgnoreCase)
+    {
+        "ac", "co", "com", "edu", "gob", "gov", "gv", "ltd", "me", "mil", "ne", "net", "nic", "or", "org", "plc", "sch"
+    };
+
+    /// <summary>Heuristic for country-code second levels such as <c>co.uk</c>, <c>com.tr</c> or <c>or.jp</c>.</summary>
+    private static bool IsLikelyPublicSecondLevelDomain(string secondLevel, string topLevel)
+        => topLevel.Length == 2 && PublicSecondLevelLabels.Contains(secondLevel);
 
     private static bool TryGetEmailParts(string email, out string localPart, out string domain)
     {

@@ -72,8 +72,9 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         ViewModel.PropertyChanged += ShellViewModelPropertyChanged;
 
         // The preference service is an application singleton. Tracking it through x:Bind kept
-        // closing windows subscribed, so the pane state is applied here instead and the
-        // handler is detached with the rest of the window state.
+        // closing windows subscribed, so the pane state is applied from code and the handler is
+        // detached with the rest of the window state. It is set here, before the first layout,
+        // so the navigation view builds its template in the remembered state.
         navigationView.IsPaneOpen = ViewModel.PreferencesService.IsNavigationPaneOpened;
     }
 
@@ -132,6 +133,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         // Establish the pane state before the first mode publishes its menu.
+        ApplyRememberedPaneState(navigationView.DisplayMode);
         UpdatePaneLayout(navigationView.DisplayMode, navigationView.IsPaneOpen);
 
         if (_activeMode == null)
@@ -561,7 +563,35 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         => UpdatePaneLayout(sender.DisplayMode, isPaneOpen: false);
 
     private void NavigationViewDisplayModeChanged(NavigationView sender, NavigationViewDisplayModeChangedEventArgs args)
-        => UpdatePaneLayout(args.DisplayMode, sender.IsPaneOpen);
+    {
+        ApplyRememberedPaneState(args.DisplayMode);
+        UpdatePaneLayout(args.DisplayMode, sender.IsPaneOpen);
+    }
+
+    /// <summary>
+    /// An expanded pane opens or stays closed as the user last left it, across launches and
+    /// window resizes. A narrow window starts with the pane closed, because an open compact or
+    /// minimal pane covers the content; the title bar button still opens it there.
+    /// The display mode changes during the navigation view's own measure pass, and changing
+    /// IsPaneOpen inside it leaves the pane at its open width with the compact items clipped,
+    /// so a correction is applied on the next dispatcher tick.
+    /// </summary>
+    private void ApplyRememberedPaneState(NavigationViewDisplayMode displayMode)
+    {
+        var shouldBeOpen = displayMode == NavigationViewDisplayMode.Expanded
+                           && ViewModel.PreferencesService.IsNavigationPaneOpened;
+
+        if (_isPreparedForWindowClose || navigationView.IsPaneOpen == shouldBeOpen)
+            return;
+
+        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
+        {
+            if (_isPreparedForWindowClose || navigationView.DisplayMode != displayMode)
+                return;
+
+            navigationView.IsPaneOpen = shouldBeOpen;
+        });
+    }
 
     private void UpdatePaneLayout(NavigationViewDisplayMode displayMode, bool isPaneOpen)
     {

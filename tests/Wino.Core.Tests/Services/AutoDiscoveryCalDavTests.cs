@@ -122,14 +122,21 @@ public sealed class AutoDiscoveryCalDavTests
     [Fact]
     public async Task NothingPublished_ReturnsNull()
     {
-        // adastria.ws: no SRV, no well-known, MX at the hoster without SRV.
+        // No SRV, no well-known, MX at the hoster without SRV, no autodiscover delegation.
         var handler = new FakeDiscoveryHandler();
-        handler.Dns["adastria.ws|MX"] = ["1 mx1.mail.ovh.net."];
+        handler.Dns["example.org|MX"] = ["1 mx1.mail.hoster.net."];
 
-        var result = await new AutoDiscoveryService(new HttpClient(handler)).DiscoverCalDavServiceUriAsync("user@adastria.ws");
+        var result = await new AutoDiscoveryService(new HttpClient(handler)).DiscoverCalDavServiceUriAsync("user@example.org");
 
         result.Should().BeNull();
     }
+
+    [Theory]
+    [InlineData("example.com.", new[] { "example.com" })]
+    [InlineData("mail.example.co.uk", new[] { "mail.example.co.uk", "example.co.uk" })]
+    [InlineData("example.com.tr", new[] { "example.com.tr" })]
+    public void DomainCandidates_WalkUpToTheRegistrableDomain(string host, string[] expected)
+        => AutoDiscoveryService.BuildDomainCandidatesFromHost(host).Should().Equal(expected);
 
     [Fact]
     public async Task CardDav_UsesItsOwnSrvLabels_AndCache()

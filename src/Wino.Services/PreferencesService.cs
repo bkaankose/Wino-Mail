@@ -688,6 +688,12 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(UndoDeletingMailsIntervalInSeconds), Math.Clamp(value, 1, 10));
     }
 
+    public bool IsAppModeTaskbarIconSwitchDisabled
+    {
+        get => _configurationService.Get(nameof(IsAppModeTaskbarIconSwitchDisabled), false);
+        set => SetPropertyAndSave(nameof(IsAppModeTaskbarIconSwitchDisabled), value);
+    }
+
     public bool IsStoreUpdateNotificationsEnabled
     {
         get => !_configurationService.Contains(Constants.StoreUpdateNotificationSuppressionKey);

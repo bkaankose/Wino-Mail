@@ -477,6 +477,25 @@ public sealed class CardDavSynchronizationTests
             It.Is<CustomServerInformation>(server => server.CardDavServiceUrl == Origin + "/")), Times.Once);
     }
 
+    [Fact]
+    public async Task MissingServiceUrl_IsDiscoveredFromTheAccountAddress_AndSaved()
+    {
+        var autoDiscovery = new Mock<IAutoDiscoveryService>();
+        autoDiscovery
+            .Setup(item => item.DiscoverCardDavServiceUriAsync("user@example.test", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Uri(Origin + "/"));
+        await using var fixture = await Fixture.CreateAsync(autoDiscoveryService: autoDiscovery.Object);
+        fixture.Account.ServerInformation.CardDavServiceUrl = string.Empty;
+        fixture.Server.Put("a", Person("UID-A", "Alice"));
+
+        var result = await fixture.SyncAsync();
+
+        result.CompletedState.Should().Be(SynchronizationCompletedState.Success);
+        (await fixture.ContactNamesAsync()).Should().Equal("Alice");
+        fixture.Accounts.Verify(item => item.UpdateAccountCustomServerInformationAsync(
+            It.Is<CustomServerInformation>(server => server.CardDavServiceUrl == Origin + "/")), Times.Once);
+    }
+
     private sealed class Fixture : IAsyncDisposable
     {
         public InMemoryDatabaseService Database { get; } = new();
@@ -493,7 +512,7 @@ public sealed class CardDavSynchronizationTests
 
         public Mock<IAccountService> Accounts { get; } = new();
 
-        public static async Task<Fixture> CreateAsync(IKnownImapProviderCatalog providerCatalog = null)
+        public static async Task<Fixture> CreateAsync(IKnownImapProviderCatalog providerCatalog = null, IAutoDiscoveryService autoDiscoveryService = null)
         {
             var fixture = new Fixture();
             await fixture.Database.InitializeAsync();
@@ -515,7 +534,8 @@ public sealed class CardDavSynchronizationTests
             fixture.Contacts = new ContactService(fixture.Database);
             fixture.Lists = new CardDavContactListService(client, fixture.Store, codec, credentials.Object, accounts.Object, fixture.Contacts);
             fixture._engine = new CardDavSynchronizationEngine(client, fixture.Store, codec, fixture.Contacts,
-                Mock.Of<IWinoLogger>(), credentials.Object, accounts.Object, listService: fixture.Lists, providerCatalog: providerCatalog);
+                Mock.Of<IWinoLogger>(), credentials.Object, accounts.Object, listService: fixture.Lists, providerCatalog: providerCatalog,
+                autoDiscoveryService: autoDiscoveryService);
             return fixture;
         }
 

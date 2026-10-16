@@ -48,14 +48,6 @@
             <Setter Property="MaxHeight" Value="184" />
         </Style>
 
-        <!--  Every font is previewed with its own typeface so the list can be scanned by look, not by name.  -->
-        <DataTemplate x:Key="FontFamilyOptionTemplate" x:DataType="editor:EditorFontFamilyOption">
-            <TextBlock
-                FontFamily="{x:Bind PreviewFontFamily}"
-                Text="{x:Bind DisplayName}"
-                TextTrimming="CharacterEllipsis" />
-        </DataTemplate>
-
         <DataTemplate x:Key="ColorSwatchTemplate" x:DataType="editor:EditorColorOption">
             <Grid
                 Width="28"
@@ -115,7 +107,6 @@
                         MaxWidth="152"
                         AutomationProperties.AutomationId="FontFamilyComboBox"
                         AutomationProperties.Name="{x:Bind domain:Translator.Composer_Font, Mode=OneTime}"
-                        ItemTemplate="{StaticResource FontFamilyOptionTemplate}"
                         PlaceholderText="{x:Bind domain:Translator.Composer_Font, Mode=OneTime}"
                         SelectionChanged="FontFamilyComboBox_SelectionChanged"
                         Style="{StaticResource PickerComboBoxStyle}"

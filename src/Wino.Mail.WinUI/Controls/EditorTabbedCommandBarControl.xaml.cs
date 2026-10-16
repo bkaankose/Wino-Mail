@@ -217,12 +217,12 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
 
         try
         {
-            var fonts = capabilities.Fonts.ToArray();
             var fontSizes = capabilities.FontSizes.ToArray();
             var paragraphStyles = capabilities.ParagraphStyles.ToArray();
 
+            ApplyFontItems(capabilities.Fonts);
+
             // Each list is new, so every assignment is a change. The concrete array types let Native AOT project them.
-            FontFamilyComboBox.ItemsSource = fonts;
             FontSizeComboBox.ItemsSource = fontSizes;
             ParagraphStyleComboBox.ItemsSource = paragraphStyles;
             _textColorOptions = capabilities.TextColors.Select(color => new EditorColorOption(color.Name, color.Value)).ToArray();
@@ -347,14 +347,41 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         }
     }
 
+    // Capabilities carry font names as strings. Each name becomes a ComboBoxItem previewed in its own typeface;
+    // a template typed for EditorFontFamilyOption cannot cast those strings and rendered blank rows in Native AOT.
+    private void ApplyFontItems(IEnumerable<string> fontNames)
+    {
+        FontFamilyComboBox.Items.Clear();
+
+        foreach (var fontName in fontNames)
+        {
+            var item = new ComboBoxItem
+            {
+                Content = fontName,
+                Tag = fontName
+            };
+
+            AutomationProperties.SetName(item, fontName);
+
+            try
+            {
+                item.FontFamily = new FontFamily(fontName);
+            }
+            catch (Exception ex)
+            {
+                // The name stays readable in the default typeface when a preview font cannot be applied.
+                Debug.WriteLine($"Error applying preview font '{fontName}': {ex}");
+            }
+
+            FontFamilyComboBox.Items.Add(item);
+        }
+    }
+
     private object? MatchFontItem(string? value)
     {
-        if (FontFamilyComboBox.ItemsSource is not IEnumerable<EditorFontFamilyOption> fonts)
-        {
-            return null;
-        }
-
-        return fonts.FirstOrDefault(item => string.Equals(item.DisplayName, value, StringComparison.OrdinalIgnoreCase));
+        return FontFamilyComboBox.Items
+            .OfType<ComboBoxItem>()
+            .FirstOrDefault(item => item.Tag is string name && string.Equals(name, value, StringComparison.OrdinalIgnoreCase));
     }
 
     private static object? MatchValueItem<T>(object? itemsSource, T? value) where T : struct
@@ -484,12 +511,12 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
 
     private async void FontFamilyComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_isApplyingState || FontFamilyComboBox.SelectedItem is not EditorFontFamilyOption font)
+        if (_isApplyingState || FontFamilyComboBox.SelectedItem is not ComboBoxItem { Tag: string fontFamily })
         {
             return;
         }
 
-        await ExecuteAsync(EditorCommand.SetFontFamily(font.DisplayName));
+        await ExecuteAsync(EditorCommand.SetFontFamily(fontFamily));
     }
 
     private async void FontSizeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
