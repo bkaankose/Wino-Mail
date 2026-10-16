@@ -5,6 +5,8 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI.Controls;
+using WinRT;
+using Microsoft.UI.Xaml.Shapes;
 
 namespace Wino.Controls;
 
@@ -45,6 +47,9 @@ public partial class AccountNavigationItem : WinoNavigationViewItem
         DefaultStyleKey = typeof(AccountNavigationItem);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ItemsRepeater))]
+    [DynamicWindowsRuntimeCast(typeof(Rectangle))]
+    [DynamicWindowsRuntimeCast(typeof(NavigationViewItemPresenter))]
     protected override void OnApplyTemplate()
     {
         base.OnApplyTemplate();
@@ -86,6 +91,7 @@ public partial class AccountNavigationItem : WinoNavigationViewItem
         contentGrid.Margin = _isPaneClosed ? new Thickness(0) : OpenPaneContentGridMargin;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(Panel))]
     private static FrameworkElement? FindContentGrid(DependencyObject parent)
     {
         var childCount = VisualTreeHelper.GetChildrenCount(parent);

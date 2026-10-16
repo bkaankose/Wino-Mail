@@ -7,7 +7,6 @@
     xmlns:coreStyles="using:Wino.Mail.WinUI.Styles"
     xmlns:local="using:Wino.Mail.WinUI"
     xmlns:mailStyles="using:Wino.Mail.WinUI.Styles.Mail"
-    xmlns:shellMenu="using:Wino.Mail.WinUI.Styles.ShellMenu"
     xmlns:styles="using:Wino.Styles"
     xmlns:uwp="using:Wino.Mail.WinUI">
     <uwp:WinoApplication.Resources>
@@ -29,9 +28,6 @@
 
                 <coreStyles:CustomMessageDialogStyles />
                 <coreStyles:DataTemplates />
-
-                <!--  Shared shell navigation item pieces. Per-mode item templates are merged on demand.  -->
-                <shellMenu:ShellMenuTemplates />
 
                 <ResourceDictionary>
                     <Style TargetType="ScrollViewer">

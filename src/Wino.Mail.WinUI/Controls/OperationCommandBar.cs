@@ -17,6 +17,7 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Helpers;
 using Wino.Messaging.Client.Shell;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Controls;
 
@@ -276,6 +277,8 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
         SecondaryCommands.Clear();
     }
 
+    [DynamicWindowsRuntimeCast(typeof(AppBarButton))]
+    [DynamicWindowsRuntimeCast(typeof(AppBarToggleButton))]
     private void DetachCommandHandlers(IEnumerable<ICommandBarElement> commands)
     {
         foreach (var command in commands)
@@ -294,6 +297,7 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(AppBarButton))]
     private ICommandBarElement? CreateCommandElement(IMenuOperation item)
     {
         if (item is MailOperationMenuItem mailOperation && mailOperation.Operation == MailOperation.Seperator)
@@ -356,6 +360,7 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
         return null;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(AppBarToggleButton))]
     private AppBarToggleButton CreateAIActionsToggleButton()
     {
         var button = (AppBarToggleButton)LoadCommandBarElementTemplate(
@@ -372,6 +377,7 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
         return button;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(AppBarButton))]
     private AppBarButton CreateThemeToggleButton()
     {
         var label = IsEditorThemeDark ? Translator.Composer_LightTheme : Translator.Composer_DarkTheme;
@@ -385,6 +391,7 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
         return button;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(AppBarButton))]
     private AppBarButton CreatePopOutButton()
     {
         var button = (AppBarButton)LoadCommandBarElementTemplate(
@@ -412,6 +419,7 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
         return button;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(AppBarButton))]
     private void OperationButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is AppBarButton button && button.Tag is IMenuOperation operation)
@@ -486,6 +494,9 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
         return false;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(DataTemplate))]
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
+    [DynamicWindowsRuntimeCast(typeof(DependencyObject))]
     private ICommandBarElement LoadCommandBarElementTemplate(string resourceKey, object dataContext)
     {
         var template = FindTemplateResource(resourceKey) as DataTemplate

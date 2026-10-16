@@ -7,6 +7,7 @@ using Wino.Mail.Controls.ContextFlyout;
 using Wino.Mail.WinUI;
 using Wino.Mail.ViewModels.Data;
 using Wino.Views.Abstract;
+using WinRT;
 
 namespace Wino.Views.Settings;
 
@@ -53,6 +54,7 @@ public sealed partial class AliasManagementPage : AliasManagementPageAbstract
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ComboBox))]
     private static (MailAccountAlias? alias, X509Certificate2? cert) GetAliasAndSelectedCertificateForCombobox(object sender)
     {
         var comboBox = sender as ComboBox;
@@ -62,6 +64,7 @@ public sealed partial class AliasManagementPage : AliasManagementPageAbstract
         return (alias, selected);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ToggleSwitch))]
     private async void SmimeToggled(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
         // Toggled also fires while the row is being realized. Only a value that differs from the

@@ -3,6 +3,7 @@ using Microsoft.Windows.AppLifecycle;
 using Windows.ApplicationModel.Activation;
 using Windows.Storage;
 using Wino.Core.Domain.Enums;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Activation;
 
@@ -31,6 +32,7 @@ internal static class RedirectedLaunchActivationOverride
         ApplicationData.Current.LocalSettings.Values[PendingActivationKey] = CreateCompositeValue(activation!);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ApplicationDataCompositeValue))]
     public static bool TryConsume(AppActivationArguments activationArgs, out RedirectedLaunchActivation activation)
     {
         activation = null!;

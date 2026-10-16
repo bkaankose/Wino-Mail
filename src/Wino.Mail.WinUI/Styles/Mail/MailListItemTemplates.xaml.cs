@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Wino.Mail.Controls.Core;
 using Wino.Views.Mail;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Styles.Mail;
 
@@ -18,6 +19,7 @@ public sealed partial class MailListItemTemplates
         InitializeComponent();
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ContentPresenter))]
     private void ThreadChevronLoaded(object sender, RoutedEventArgs e)
     {
         var presenter = (ContentPresenter)sender;
@@ -40,6 +42,7 @@ public sealed partial class MailListItemTemplates
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ContentPresenter))]
     private void ThreadChevronUnloaded(object sender, RoutedEventArgs e)
     {
         var presenter = (ContentPresenter)sender;
@@ -47,6 +50,7 @@ public sealed partial class MailListItemTemplates
         presenter.Visibility = Visibility.Collapsed;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(DependencyObject))]
     private void ThreadChevronPointerPressed(object sender, PointerRoutedEventArgs e)
     {
         for (var parent = VisualTreeHelper.GetParent((DependencyObject)sender); parent != null; parent = VisualTreeHelper.GetParent(parent))

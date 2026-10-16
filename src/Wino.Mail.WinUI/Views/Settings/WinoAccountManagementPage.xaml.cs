@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.ViewModels.Data;
 using Wino.Views.Abstract;
+using WinRT;
 
 namespace Wino.Views.Settings;
 
@@ -23,6 +24,7 @@ public sealed partial class WinoAccountManagementPage : WinoAccountManagementPag
     /// The view model already decides which offer opens first. The grid has no selection
     /// of its own until something selects one, so mirror that choice once it exists.
     /// </summary>
+    [DynamicWindowsRuntimeCast(typeof(ItemsView))]
     private void BenefitsItemsViewLoaded(object sender, RoutedEventArgs e)
     {
         if (sender is not ItemsView itemsView || ViewModel.SelectedBenefit is null)

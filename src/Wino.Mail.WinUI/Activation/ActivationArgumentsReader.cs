@@ -5,6 +5,7 @@ using Microsoft.Windows.AppNotifications;
 using Serilog;
 using Windows.ApplicationModel.Activation;
 using Wino.Core.Domain.Enums;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Activation;
 
@@ -89,6 +90,7 @@ internal sealed record PendingMigrationActivation(
 {
     public static PendingMigrationActivation StandardLaunch { get; } = new(ExtendedActivationKind.Launch);
 
+    [DynamicWindowsRuntimeCast(typeof(AppNotificationActivatedEventArgs))]
     public static PendingMigrationActivation Capture(AppActivationArguments? activationArgs)
     {
         if (activationArgs == null)

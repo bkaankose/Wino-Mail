@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Controls;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Controls;
 
@@ -28,6 +29,7 @@ public partial class WinoNavigationView : NavigationView
         RegisterPropertyChangedCallback(IsPaneOpenProperty, OnIsPaneOpenChanged);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ItemsRepeater))]
     protected override void OnApplyTemplate()
     {
         DetachRepeaters();

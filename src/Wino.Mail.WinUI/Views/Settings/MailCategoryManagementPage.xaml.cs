@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Views.Abstract;
+using WinRT;
 
 namespace Wino.Views.Settings;
 
@@ -13,6 +14,7 @@ public sealed partial class MailCategoryManagementPage : MailCategoryManagementP
         InitializeComponent();
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ToggleButton))]
     private async void FavoriteCategoryChecked(object sender, RoutedEventArgs e)
     {
         if (sender is ToggleButton toggleButton && toggleButton.Tag is MailCategory category)
@@ -21,6 +23,7 @@ public sealed partial class MailCategoryManagementPage : MailCategoryManagementP
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ToggleButton))]
     private async void FavoriteCategoryUnchecked(object sender, RoutedEventArgs e)
     {
         if (sender is ToggleButton toggleButton && toggleButton.Tag is MailCategory category)
@@ -29,6 +32,7 @@ public sealed partial class MailCategoryManagementPage : MailCategoryManagementP
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(Button))]
     private async void EditCategoryClicked(object sender, RoutedEventArgs e)
     {
         if (sender is Button button && button.Tag is MailCategory category)
@@ -37,6 +41,7 @@ public sealed partial class MailCategoryManagementPage : MailCategoryManagementP
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(Button))]
     private async void DeleteCategoryClicked(object sender, RoutedEventArgs e)
     {
         if (sender is Button button && button.Tag is MailCategory category)

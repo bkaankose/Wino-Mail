@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Data;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Controls;
 
@@ -28,6 +29,8 @@ public partial class ShellCalendarView : CalendarView
     [GeneratedDependencyProperty(DefaultValue = "")]
     public partial string ExpansionGlyph { get; set; }
 
+    [DynamicWindowsRuntimeCast(typeof(ToggleButton))]
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     protected override void OnApplyTemplate()
     {
         if (_expansionToggleButton != null)

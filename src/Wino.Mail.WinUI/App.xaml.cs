@@ -58,6 +58,7 @@ using Wino.Views;
 using WinUIEx;
 using PendingBootstrapActivation = Wino.Core.Activation.PendingBootstrapActivation;
 using PendingBootstrapActivationKind = Wino.Core.Activation.PendingBootstrapActivationKind;
+using WinRT;
 namespace Wino.Mail.WinUI;
 
 public partial class App : WinoApplication,
@@ -218,6 +219,7 @@ public partial class App : WinoApplication,
         lifetimeWindow.Close();
     }
 
+    [DynamicWindowsRuntimeCast(typeof(Window))]
     private void BackgroundLifetimeWindowClosed(object sender, WindowEventArgs args)
     {
         if (sender is Window lifetimeWindow)
@@ -695,6 +697,7 @@ public partial class App : WinoApplication,
 
     internal async void ExitApplication() => await ExitApplicationAsync();
 
+    [DynamicWindowsRuntimeCast(typeof(AppNotificationActivatedEventArgs))]
     public bool IsNotificationActivation(out AppNotificationActivatedEventArgs args)
     {
         var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
@@ -1169,6 +1172,7 @@ public partial class App : WinoApplication,
     private Task HandleToastActivationAsync(string toastArgument, IDictionary<string, string>? userInput = null)
         => _notificationHandler.HandleActivationAsync(toastArgument, userInput);
 
+    [DynamicWindowsRuntimeCast(typeof(ShareTargetActivatedEventArgs))]
     private async Task<bool> HandleShareTargetActivationAsync(AppActivationArguments activationArgs, bool activateWindow)
     {
         if (activationArgs.Kind != ExtendedActivationKind.ShareTarget ||

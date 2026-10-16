@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Wino.Mail.ViewModels.Data;
 using Wino.Views.Abstract;
+using WinRT;
 
 namespace Wino.Views;
 
@@ -18,6 +19,7 @@ public sealed partial class FolderCustomizationPage : FolderCustomizationPageAbs
         await ViewModel.PersistLayoutAsync();
     }
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private async void PinToggle_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement element && element.DataContext is FolderCustomizationItemViewModel item)
@@ -26,6 +28,7 @@ public sealed partial class FolderCustomizationPage : FolderCustomizationPageAbs
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private async void HideToggle_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement element && element.DataContext is FolderCustomizationItemViewModel item)

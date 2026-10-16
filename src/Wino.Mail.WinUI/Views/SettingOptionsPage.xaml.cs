@@ -6,6 +6,7 @@ using Wino.Core.Domain.Models.Settings;
 using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
 using Wino.Views.Abstract;
+using WinRT;
 
 namespace Wino.Views.Settings;
 
@@ -19,6 +20,7 @@ public sealed partial class SettingOptionsPage : SettingOptionsPageAbstract
     protected override void ReleasePageResources()
         => ReleaseTemplateSelector("AccountProviderViewModelTemplateSelector");
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private void SettingOptionClicked(object sender, RoutedEventArgs e)
     {
         WinoPage? page = sender switch

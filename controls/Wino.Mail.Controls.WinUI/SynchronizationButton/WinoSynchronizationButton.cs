@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
 using Windows.UI.ViewManagement;
+using WinRT;
 
 namespace Wino.Mail.Controls.SynchronizationButton;
 
@@ -89,6 +90,9 @@ public sealed partial class WinoSynchronizationButton : Button
         RegisterPropertyChangedCallback(IdleToolTipProperty, OnSynchronizationPropertyChanged);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(Border))]
+    [DynamicWindowsRuntimeCast(typeof(TextBlock))]
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     protected override void OnApplyTemplate()
     {
         base.OnApplyTemplate();

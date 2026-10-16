@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Helpers;
 
@@ -60,6 +61,8 @@ internal static class WindowCleanupHelper
         CleanupObject(instance, visited);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(Frame))]
+    [DynamicWindowsRuntimeCast(typeof(DependencyObject))]
     private static void CleanupObject(object? instance, HashSet<object> visited)
     {
         if (instance == null || !visited.Add(instance))

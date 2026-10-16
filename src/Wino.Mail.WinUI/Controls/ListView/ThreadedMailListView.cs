@@ -11,6 +11,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Models.MailItem;
 using global::Wino.Mail.Controls.MailListView;
 using Wino.Mail.ViewModels.Data;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Controls.ListView;
 
@@ -44,6 +45,7 @@ public sealed partial class ThreadedMailListView : WinoMailListView
 
     public DataTemplateSelector? GroupHeaderTemplateSelector
     {
+        [DynamicWindowsRuntimeCast(typeof(DataTemplateSelector))]
         get => (DataTemplateSelector?)GetValue(GroupHeaderTemplateSelectorProperty);
         set => SetValue(GroupHeaderTemplateSelectorProperty, value);
     }
@@ -74,6 +76,7 @@ public sealed partial class ThreadedMailListView : WinoMailListView
         return string.Join(", ", details.Where(value => !string.IsNullOrWhiteSpace(value)));
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ScrollViewer))]
     protected override void OnApplyTemplate()
     {
         base.OnApplyTemplate();

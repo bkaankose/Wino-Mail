@@ -6,6 +6,7 @@ using Windows.ApplicationModel.Activation;
 using Windows.Storage;
 using Wino.Core.Activation;
 using Wino.Core.Domain.Enums;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Activation;
 
@@ -29,6 +30,7 @@ internal static class SecondaryEntryBootstrapActivation
     public static void ClearPendingActivation()
         => ApplicationData.Current.LocalSettings.Values.Remove(PendingActivationKey);
 
+    [DynamicWindowsRuntimeCast(typeof(ApplicationDataCompositeValue))]
     public static PendingBootstrapActivation? ConsumePendingActivation()
     {
         if (!ApplicationData.Current.LocalSettings.Values.TryGetValue(PendingActivationKey, out var pendingActivationValue) ||

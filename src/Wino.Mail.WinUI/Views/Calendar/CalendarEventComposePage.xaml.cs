@@ -21,6 +21,7 @@ using Wino.Calendar.ViewModels.Data;
 using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Views.Abstract;
+using WinRT;
 
 namespace Wino.Calendar.Views;
 
@@ -119,6 +120,7 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
         await AddTypedAttendeesAsync(sender, notifyErrors: true);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(AutoSuggestBox))]
     private async void InviteBoxLostFocus(object sender, RoutedEventArgs e)
     {
         if (sender is AutoSuggestBox box)

@@ -24,6 +24,7 @@ using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Messaging.Client.Calendar;
+using WinRT;
 
 namespace Wino.Calendar.Views;
 
@@ -223,6 +224,7 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(Popup))]
     private void PopupPlacementChanged(object sender, object e)
     {
         if (sender is not Popup popup)

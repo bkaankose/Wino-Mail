@@ -13,6 +13,7 @@ using Wino.Mail.Controls.IntelligenceTileBar;
 using Wino.Mail.Controls.IntelligenceProgressRing;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.UI.ViewManagement;
+using WinRT;
 
 namespace Wino.Mail.Controls.IntelligenceHeader;
 
@@ -404,6 +405,15 @@ public sealed partial class WinoIntelligenceHeader : Control
             || !string.IsNullOrWhiteSpace(BriefingFactText)
             || IsSuggestedRepliesAvailable || IsFindSimilarMailAvailable));
 
+    [DynamicWindowsRuntimeCast(typeof(Grid))]
+    [DynamicWindowsRuntimeCast(typeof(Button))]
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
+    [DynamicWindowsRuntimeCast(typeof(UIElement))]
+    [DynamicWindowsRuntimeCast(typeof(TextBlock))]
+    [DynamicWindowsRuntimeCast(typeof(HyperlinkButton))]
+    [DynamicWindowsRuntimeCast(typeof(FontIcon))]
+    [DynamicWindowsRuntimeCast(typeof(ListView))]
+    [DynamicWindowsRuntimeCast(typeof(ComboBox))]
     protected override void OnApplyTemplate()
     {
         DetachTemplateHandlers();
@@ -488,6 +498,9 @@ public sealed partial class WinoIntelligenceHeader : Control
 
     // The cancel button lives in the feature's detail panel, not on the chip: the panel is where
     // progress is shown, so it is also where the request is called off.
+    [DynamicWindowsRuntimeCast(typeof(Button))]
+    [DynamicWindowsRuntimeCast(typeof(TextBlock))]
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private FeatureParts GetFeatureParts(string mainButtonName, string cancelButtonName, string labelName, string hintName, string resultDotName) => new(
         GetTemplateChild(mainButtonName) as Button,
         GetTemplateChild(cancelButtonName) as Button,

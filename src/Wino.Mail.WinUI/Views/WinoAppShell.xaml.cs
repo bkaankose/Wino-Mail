@@ -26,6 +26,7 @@ using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
 using Wino.Shell.ViewModels;
 using Wino.Views.Mail;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Views;
 
@@ -335,6 +336,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     /// every ancestor container is expanded and the entry's own container exists. Expands a
     /// container that lags behind its item so a later attempt finds the entry realized.
     /// </summary>
+    [DynamicWindowsRuntimeCast(typeof(NavigationViewItem))]
     private bool IsMenuItemReadyForSelection(object target)
     {
         if (ViewModel.CurrentMenu == null)

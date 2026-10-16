@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Mail.ViewModels.Data;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Controls.ListView;
 
@@ -24,6 +25,7 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
 
     public event EventHandler<MailDragStateChangedEventArgs>? MailDragStateChanged;
 
+    [DynamicWindowsRuntimeCast(typeof(ScrollViewer))]
     protected override void OnApplyTemplate()
     {
         base.OnApplyTemplate();

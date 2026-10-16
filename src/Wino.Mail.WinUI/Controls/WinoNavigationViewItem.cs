@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Media;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Controls;
 
@@ -53,6 +54,7 @@ public partial class WinoNavigationViewItem : NavigationViewItem
         //}
     }
 
+    [DynamicWindowsRuntimeCast(typeof(UIElement))]
     private void ScaleAnimation(Vector3 vector)
     {
         if (Content is UIElement content)

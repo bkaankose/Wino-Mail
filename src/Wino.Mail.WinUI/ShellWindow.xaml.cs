@@ -33,6 +33,7 @@ using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
 using Wino.Views.Mail;
 using WinUIEx;
+using WinRT;
 
 namespace Wino.Mail.WinUI;
 
@@ -231,6 +232,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     public Frame? GetFrame(NavigationReferenceFrame frameType)
         => frameType == NavigationReferenceFrame.ShellFrame ? MainShellFrame : null;
 
+    [DynamicWindowsRuntimeCast(typeof(Grid))]
     public FrameworkElement GetRootContent() => Content as Grid ?? throw new Exception("RootContent is not a Grid or empty.");
 
     private void BackButtonClicked(Microsoft.UI.Xaml.Controls.TitleBar sender, object args)
@@ -569,6 +571,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         TitleBarSearchBox.SearchHistoryItemsSource = [];
     }
 
+    [DynamicWindowsRuntimeCast(typeof(Control))]
     private void TitleBarSearchDismissed(object? sender, EventArgs args)
     {
         if (_activeTitleBarSearchHost is BasePage page)

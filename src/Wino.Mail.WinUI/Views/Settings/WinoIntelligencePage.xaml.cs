@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Controls;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Views.Abstract;
+using WinRT;
 
 namespace Wino.Views.Settings;
 
@@ -15,6 +16,7 @@ public sealed partial class WinoIntelligencePage : WinoIntelligencePageAbstract
 
     public WinoIntelligencePage() => InitializeComponent();
 
+    [DynamicWindowsRuntimeCast(typeof(ToggleSwitch))]
     private async void IntelligenceConsentToggle_Toggled(object sender, RoutedEventArgs e)
     {
         if (_isApplyingConsentState || ViewModel.IsConsentBusy ||

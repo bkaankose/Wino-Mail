@@ -23,6 +23,7 @@ using Wino.Mail.Controls.ContactPicture;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Messaging.Client.Shell;
 using Wino.Services;
+using WinRT;
 using WinUIEx;
 
 namespace Wino.Mail.WinUI;
@@ -161,6 +162,7 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
             : FlowDirection.LeftToRight);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private static void ApplyFlowDirection(WindowEx window, FlowDirection flowDirection)
     {
         void ApplyToRoot()

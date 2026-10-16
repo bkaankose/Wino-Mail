@@ -27,6 +27,7 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Controls;
 using Wino.MenuFlyouts;
 using Wino.MenuFlyouts.Context;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Styles.ShellMenu;
 
@@ -431,7 +432,7 @@ public sealed partial class ShellMenuTemplates
 
     private IMenuItem? _draggedItem;
 
-
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private static T? MenuItem<T>(object sender) where T : class, IMenuItem
         => (sender as FrameworkElement)?.Tag as T ?? (sender as FrameworkElement)?.DataContext as T;
 
@@ -441,6 +442,7 @@ public sealed partial class ShellMenuTemplates
             await item.NewGroupRequested();
     }
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private void ShellItem_DragStarting(UIElement sender, DragStartingEventArgs args)
     {
         _draggedItem = (sender as FrameworkElement)?.DataContext as AccountTaskListMenuItem;
@@ -466,6 +468,7 @@ public sealed partial class ShellMenuTemplates
     private void ShellItem_DragLeave(object sender, DragEventArgs e)
         => SetDropTargetState(sender, false);
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private bool CanAcceptDrop(object sender, DragEventArgs e)
     {
         var target = (sender as FrameworkElement)?.DataContext as AccountTaskListGroupMenuItem;
@@ -473,6 +476,7 @@ public sealed partial class ShellMenuTemplates
         return source is not null && target is not null && SameAccount(source, target) && CanDropOnTarget(source, target);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private void ShellItem_DragOver(object sender, DragEventArgs e)
     {
         if (CanAcceptDrop(sender, e))
@@ -487,6 +491,7 @@ public sealed partial class ShellMenuTemplates
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private async void ShellItem_Drop(object sender, DragEventArgs e)
     {
         var target = (sender as FrameworkElement)?.DataContext as AccountTaskListGroupMenuItem;

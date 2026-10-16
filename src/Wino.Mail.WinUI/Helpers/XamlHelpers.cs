@@ -29,6 +29,7 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
 using Wino.Services;
+using WinRT;
 
 namespace Wino.Helpers;
 
@@ -67,6 +68,7 @@ public static class XamlHelpers
         _ => WinoIconGlyph.Sparkle,
     };
 
+    [DynamicWindowsRuntimeCast(typeof(Brush))]
     private static Brush GetThemeBrush(string key, string fallbackKey = "AccentFillColorDefaultBrush")
     {
         if (Application.Current.Resources.TryGetValue(key, out var resource) && resource is Brush brush)
@@ -408,6 +410,7 @@ public static class XamlHelpers
         _ => WinoIconGlyph.Info,
     };
 
+    [DynamicWindowsRuntimeCast(typeof(Brush))]
     public static Brush InfoBarMessageTypeBrush(InfoBarMessageType messageType)
     {
         var key = messageType switch
@@ -425,6 +428,7 @@ public static class XamlHelpers
     /// Fill of the hero state dot on the intelligence page. Unlike an InfoBar the
     /// neutral state is the accent colour, because the dot has no other meaning.
     /// </summary>
+    [DynamicWindowsRuntimeCast(typeof(Brush))]
     public static Brush IntelligenceHeroStateBrush(InfoBarMessageType messageType)
     {
         var key = messageType switch
@@ -508,16 +512,19 @@ public static class XamlHelpers
                 : GetReadableTextColor(backgroundColorHex);
     public static FontWeight GetFontWeightBySyncState(bool isSyncing) => isSyncing ? FontWeights.SemiBold : FontWeights.Normal;
 
+    [DynamicWindowsRuntimeCast(typeof(Brush))]
     public static Brush GetWizardStepBadgeBrush(bool isActive)
         => isActive
             ? (Brush)Application.Current.Resources["AccentFillColorDefaultBrush"]
             : new SolidColorBrush(Color.FromArgb(30, 128, 128, 128));
 
+    [DynamicWindowsRuntimeCast(typeof(Brush))]
     public static Brush GetWizardStepNumberForeground(bool isActive)
         => isActive
             ? new SolidColorBrush(Colors.White)
             : (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
 
+    [DynamicWindowsRuntimeCast(typeof(Brush))]
     public static Brush GetChoiceCardBorderBrush(bool isSelected)
         => (Brush)Application.Current.Resources[isSelected
             ? "AccentFillColorDefaultBrush"
@@ -870,6 +877,7 @@ public static class XamlHelpers
     /// FolderOperation overload because x:Bind resolves helper functions by name alone and
     /// cannot choose between overloads.
     /// </summary>
+    [DynamicWindowsRuntimeCast(typeof(Microsoft.UI.Xaml.Shapes.Path))]
     public static Geometry GetGeometryFromPathMarkup(string pathMarkup)
     {
         string xaml =

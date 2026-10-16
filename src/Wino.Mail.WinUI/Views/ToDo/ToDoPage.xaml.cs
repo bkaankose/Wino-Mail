@@ -26,6 +26,7 @@ using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Views.Abstract;
 using Wino.Core.Domain.Enums;
+using WinRT;
 
 namespace Wino.Views.ToDo;
 
@@ -45,7 +46,11 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
     public SearchBarMode SearchMode => SearchBarMode.Tasks;
     public string SearchText { get; set; } = string.Empty;
 
-    private CollectionViewSource TaskCollectionViewSource => (CollectionViewSource)Resources["TaskCollectionViewSource"];
+    private CollectionViewSource TaskCollectionViewSource
+    {
+        [DynamicWindowsRuntimeCast(typeof(CollectionViewSource))]
+        get => (CollectionViewSource)Resources["TaskCollectionViewSource"];
+    }
 
     public ToDoPage()
     {
@@ -271,6 +276,7 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
             ? null
             : new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(icon));
 
+    [DynamicWindowsRuntimeCast(typeof(DatePickerFlyout))]
     private async Task PickTaskDueDateAsync(TaskItemViewModel task)
     {
         if (TaskDueDatePickerHost.Flyout is not DatePickerFlyout picker)

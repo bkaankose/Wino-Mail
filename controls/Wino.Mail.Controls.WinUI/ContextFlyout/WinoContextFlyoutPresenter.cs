@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Windows.System;
 using Wino.Mail.Controls.Core.ContextFlyout;
+using WinRT;
 
 namespace Wino.Mail.Controls.ContextFlyout;
 
@@ -53,6 +54,13 @@ public sealed partial class WinoContextFlyoutPresenter : Control
 
     public ObservableCollection<ContextFlyoutRow> VisibleItems => _visibleItems;
 
+    [DynamicWindowsRuntimeCast(typeof(Grid))]
+    [DynamicWindowsRuntimeCast(typeof(TextBox))]
+    [DynamicWindowsRuntimeCast(typeof(Button))]
+    [DynamicWindowsRuntimeCast(typeof(ItemsRepeater))]
+    [DynamicWindowsRuntimeCast(typeof(ListView))]
+    [DynamicWindowsRuntimeCast(typeof(TextBlock))]
+    [DynamicWindowsRuntimeCast(typeof(Storyboard))]
     protected override void OnApplyTemplate()
     {
         UnregisterHeaderItemHandlers();
@@ -348,6 +356,7 @@ public sealed partial class WinoContextFlyoutPresenter : Control
     /// Moves keyboard focus from the search field onto a row. The list has no selection, so arrow
     /// keys inside it are handled by the list itself from there.
     /// </summary>
+    [DynamicWindowsRuntimeCast(typeof(Control))]
     private bool TryFocusItem(bool fromEnd)
     {
         if (_itemsList is null)
@@ -380,6 +389,8 @@ public sealed partial class WinoContextFlyoutPresenter : Control
         return false;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(DependencyObject))]
+    [DynamicWindowsRuntimeCast(typeof(ListViewItem))]
     private ContextFlyoutRow? GetFocusedRow()
     {
         if (_itemsList?.XamlRoot is null)
@@ -407,6 +418,7 @@ public sealed partial class WinoContextFlyoutPresenter : Control
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ListViewItem))]
     private void ItemsListContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
     {
         if (args.ItemContainer is not ListViewItem container)
@@ -519,6 +531,7 @@ public sealed partial class WinoContextFlyoutPresenter : Control
         _areHandlersRegistered = true;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ButtonBase))]
     private void UnregisterHeaderItemHandlers()
     {
         if (_headerItems is null)
@@ -597,6 +610,7 @@ public sealed partial class WinoContextFlyoutPresenter : Control
         });
     }
 
+    [DynamicWindowsRuntimeCast(typeof(Control))]
     private bool TryFocusFirstHeaderItem()
     {
         if (_headerItems is null)
@@ -684,6 +698,7 @@ public sealed partial class WinoContextFlyoutPresenter : Control
     /// Header commands are invoked here rather than bound to the button, so the command runs before
     /// the flyout is dismissed.
     /// </summary>
+    [DynamicWindowsRuntimeCast(typeof(ButtonBase))]
     private void HeaderItemsElementPrepared(ItemsRepeater sender, ItemsRepeaterElementPreparedEventArgs args)
     {
         if (args.Element is ButtonBase button)
@@ -692,6 +707,7 @@ public sealed partial class WinoContextFlyoutPresenter : Control
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ButtonBase))]
     private void HeaderItemsElementClearing(ItemsRepeater sender, ItemsRepeaterElementClearingEventArgs args)
     {
         if (args.Element is ButtonBase button)
@@ -700,6 +716,7 @@ public sealed partial class WinoContextFlyoutPresenter : Control
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(UIElement))]
     private void HeaderItemClick(object sender, RoutedEventArgs e)
     {
         // The header template uses x:Bind, so realized elements carry no DataContext. The repeater
@@ -725,6 +742,7 @@ public sealed partial class WinoContextFlyoutPresenter : Control
         _owner.Close();
     }
 
+    [DynamicWindowsRuntimeCast(typeof(TranslateTransform))]
     private void UpdateBackButton(bool useTransitions = true)
     {
         if (_backButton is null)
@@ -760,6 +778,7 @@ public sealed partial class WinoContextFlyoutPresenter : Control
         _isBackButtonVisible = canGoBack;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(TranslateTransform))]
     private static void SetBackButtonStoryboardTargets(Storyboard? storyboard, Button button)
     {
         if (storyboard is null || storyboard.Children.Count != 3 || button.RenderTransform is not TranslateTransform transform)

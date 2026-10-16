@@ -8,6 +8,7 @@ using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Messaging.Client.Shell;
 using Wino.Views.Misc;
+using WinRT;
 using WinUIEx;
 
 namespace Wino.Mail.WinUI;
@@ -56,6 +57,7 @@ public sealed partial class WhatsNewWindow : WindowEx, IRecipient<ApplicationThe
     /// The theme service styles only the active window, so an open What's New window follows
     /// element theme changes here. Backdrop and custom theme changes apply the next time it opens.
     /// </summary>
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     public void Receive(ApplicationThemeChanged message)
     {
         DispatcherQueue.TryEnqueue(() =>

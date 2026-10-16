@@ -11,6 +11,7 @@ using Windows.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using WinRT;
 
 namespace Wino.Editor;
 
@@ -84,8 +85,8 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
     }
 
     public MailEditorFeatures EnabledFeatures { get => (MailEditorFeatures)GetValue(EnabledFeaturesProperty); set => SetValue(EnabledFeaturesProperty, value); }
-    public Visibility ToolbarVisibility { get => (Visibility)GetValue(ToolbarVisibilityProperty); set => SetValue(ToolbarVisibilityProperty, value); }
-    public Visibility StatusBarVisibility { get => (Visibility)GetValue(StatusBarVisibilityProperty); set => SetValue(StatusBarVisibilityProperty, value); }
+    public Visibility ToolbarVisibility { [DynamicWindowsRuntimeCast(typeof(Visibility))] get => (Visibility)GetValue(ToolbarVisibilityProperty); set => SetValue(ToolbarVisibilityProperty, value); }
+    public Visibility StatusBarVisibility { [DynamicWindowsRuntimeCast(typeof(Visibility))] get => (Visibility)GetValue(StatusBarVisibilityProperty); set => SetValue(StatusBarVisibilityProperty, value); }
     public bool UseBuiltInFilePickers { get => (bool)GetValue(UseBuiltInFilePickersProperty); set => SetValue(UseBuiltInFilePickersProperty, value); }
     public bool IsReadOnly { get => (bool)GetValue(IsReadOnlyProperty); set => SetValue(IsReadOnlyProperty, value); }
     public bool IsSmimeSigningEnabled { get => (bool)GetValue(IsSmimeSigningEnabledProperty); set => SetValue(IsSmimeSigningEnabledProperty, value); }

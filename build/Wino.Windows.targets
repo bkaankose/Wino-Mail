@@ -4,7 +4,8 @@
 
   <PropertyGroup Condition="'$(WinoIsReleaseBuild)' == 'true' and $(TargetFramework.Contains('-windows'))">
     <CsWinRTAotOptimizerEnabled>true</CsWinRTAotOptimizerEnabled>
-    <CsWinRTAotWarningLevel>2</CsWinRTAotWarningLevel>
+    <!-- Level 3 is the strictest CsWinRT level: it adds trim/AOT checks on casts to WinRT runtime classes. -->
+    <CsWinRTAotWarningLevel>3</CsWinRTAotWarningLevel>
     <EnableBindingDiagnostics>true</EnableBindingDiagnostics>
   </PropertyGroup>
 
@@ -14,6 +15,30 @@
     <!-- Generated XamlTypeInfo.g.cs registers obsolete WinAppSDK members (for example Icon); keep them as warnings. -->
     <WarningsNotAsErrors>$(WarningsNotAsErrors);CS0618</WarningsNotAsErrors>
   </PropertyGroup>
+
+  <!--
+    Native AOT link warnings. ILC fails the build on any warning through TreatWarningsAsErrors, so
+    every assembly reports each trim and AOT warning in detail. Ical.Net alone reports a single
+    summary warning, and only that summary code is ignored: it reflects over its RFC 5545 model and
+    serializers, and Wino roots the whole assembly (TrimmerRootAssembly in the WinUI project), so
+    the reflected members are preserved. Assemblies that declare themselves trimmable always
+    report in detail. No other assembly collapses to a summary, so a new first-party or package
+    warning still fails the build. Do not add IL codes to NoWarn.
+  -->
+  <PropertyGroup Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(PublishAot)' == 'true'">
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <NoWarn>$(NoWarn);IL2104;IL3053</NoWarn>
+  </PropertyGroup>
+
+  <Target Name="WinoCollapseUpstreamTrimWarnings"
+          AfterTargets="PrepareForILLink"
+          Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(PublishAot)' == 'true'">
+    <ItemGroup>
+      <ManagedAssemblyToLink Condition="'%(Filename)' == 'Ical.Net'">
+        <TrimmerSingleWarn>true</TrimmerSingleWarn>
+      </ManagedAssemblyToLink>
+    </ItemGroup>
+  </Target>
 
   <!--
     The MSIX targets can retain both a pre-link CopyLocal item and its Native AOT

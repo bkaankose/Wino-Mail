@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using WinRT;
 
 namespace Wino.Helpers;
 
@@ -20,6 +21,7 @@ public static class Accessibility
 
     public static void SetContainerName(DependencyObject element, string value) => element.SetValue(ContainerNameProperty, value);
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private static void OnContainerNameChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
     {
         if (sender is FrameworkElement element)
@@ -30,8 +32,11 @@ public static class Accessibility
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private static void OnTemplateLoaded(object sender, RoutedEventArgs args) => ApplyContainerName((FrameworkElement)sender);
 
+    [DynamicWindowsRuntimeCast(typeof(ListViewItem))]
+    [DynamicWindowsRuntimeCast(typeof(ListViewHeaderItem))]
     private static void ApplyContainerName(FrameworkElement element)
     {
         for (DependencyObject? parent = element; parent is not null; parent = VisualTreeHelper.GetParent(parent))

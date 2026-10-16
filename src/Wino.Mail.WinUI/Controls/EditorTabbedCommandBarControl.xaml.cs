@@ -15,6 +15,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Translations;
 using Wino.Editor;
 using Wino.Mail.WinUI;
+using WinRT;
 
 namespace Wino.Mail.Controls;
 
@@ -132,6 +133,8 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
     /// lays out labels and builds its overflow menu for its own children, so anything nested in a container
     /// would show up with the wrong label position and never collapse when the window gets narrow.
     /// </summary>
+    [DynamicWindowsRuntimeCast(typeof(Panel))]
+    [DynamicWindowsRuntimeCast(typeof(UIElement))]
     private static void ApplyInjectedCommands(CommandBar tabItem, List<ICommandBarElement> injectedCommands, object? content)
     {
         foreach (var injectedCommand in injectedCommands)
@@ -486,6 +489,7 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
     private async void EmojiButton_Click(object sender, RoutedEventArgs e) => await ExecuteAsync(EditorCommand.InsertEmoji());
     private async void RemoveLinkButton_Click(object sender, RoutedEventArgs e) => await ExecuteAsync(EditorCommand.RemoveLink());
 
+    [DynamicWindowsRuntimeCast(typeof(AppBarToggleButton))]
     private async void AlignmentButton_Click(object sender, RoutedEventArgs e)
     {
         if (_isApplyingState || sender is not AppBarToggleButton button)

@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using WinRT;
 
 namespace Wino.Editor;
 
@@ -30,10 +31,10 @@ public sealed partial class EditorSelectorBar : UserControl
         set => SetValue(SelectedCategoryProperty, value);
     }
 
-    public Visibility FormattingVisibility { get => (Visibility)GetValue(FormattingVisibilityProperty); set => SetValue(FormattingVisibilityProperty, value); }
-    public Visibility InsertVisibility { get => (Visibility)GetValue(InsertVisibilityProperty); set => SetValue(InsertVisibilityProperty, value); }
-    public Visibility TableVisibility { get => (Visibility)GetValue(TableVisibilityProperty); set => SetValue(TableVisibilityProperty, value); }
-    public Visibility SecurityVisibility { get => (Visibility)GetValue(SecurityVisibilityProperty); set => SetValue(SecurityVisibilityProperty, value); }
+    public Visibility FormattingVisibility { [DynamicWindowsRuntimeCast(typeof(Visibility))] get => (Visibility)GetValue(FormattingVisibilityProperty); set => SetValue(FormattingVisibilityProperty, value); }
+    public Visibility InsertVisibility { [DynamicWindowsRuntimeCast(typeof(Visibility))] get => (Visibility)GetValue(InsertVisibilityProperty); set => SetValue(InsertVisibilityProperty, value); }
+    public Visibility TableVisibility { [DynamicWindowsRuntimeCast(typeof(Visibility))] get => (Visibility)GetValue(TableVisibilityProperty); set => SetValue(TableVisibilityProperty, value); }
+    public Visibility SecurityVisibility { [DynamicWindowsRuntimeCast(typeof(Visibility))] get => (Visibility)GetValue(SecurityVisibilityProperty); set => SetValue(SecurityVisibilityProperty, value); }
 
     private static DependencyProperty RegisterVisibility(string name) => DependencyProperty.Register(
         name,

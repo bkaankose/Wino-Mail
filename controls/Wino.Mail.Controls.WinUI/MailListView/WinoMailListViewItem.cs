@@ -16,6 +16,7 @@ using Windows.UI.ViewManagement;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.HoverActions;
 using Wino.Mail.Controls.HoverActions;
+using WinRT;
 
 namespace Wino.Mail.Controls.MailListView;
 
@@ -165,6 +166,7 @@ public sealed partial class WinoMailListViewItem : ListViewItem
             DispatcherQueue.TryEnqueue(() => FrameworkElementAutomationPeer.FromElement(this)?.InvalidatePeer());
     }
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     protected override void OnApplyTemplate()
     {
         base.OnApplyTemplate();
