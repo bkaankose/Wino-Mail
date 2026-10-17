@@ -23,11 +23,14 @@ internal static class MenuFlyoutLanguageHelper
 
         var currentLanguage = WinoApplication.Current.Services.GetRequiredService<IPreferencesService>().CurrentLanguage;
 
-        string? targetLanguageTag = currentLanguage switch
+        string? targetLanguageTag = currentLanguage 
         {
-            AppLanguage.ChineseSimplified => ChineseSimplifiedLanguageTag,
-            AppLanguage.ChineseTraditional => ChineseTraditionalLanguageTag,
-            _ => null
+            switch
+            {
+                AppLanguage.ChineseSimplified => ChineseSimplifiedLanguageTag,
+                AppLanguage.ChineseTraditional => ChineseTraditionalLanguageTag,
+                _ => null
+            }
         };
 
         if (targetLanguageTag != null)
