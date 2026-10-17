@@ -189,8 +189,8 @@ unset preference plus account count is.
 - Same desktop behavior as Windows (W2) with the Keychain socket key store. App Attest is not supported
   on macOS, so the device path registers with attestation `None`; macOS sends only Gmail and Graph
   registrations, so no attestation is needed.
-- `RemoteNotifications` stays true so APNs continues to work as the secondary channel; the socket is
-  primary while the app runs.
+- `RemoteNotifications` is false: the Mac registers no push token and the relay has nothing to send a quit app.
+  The socket is the only channel, while the app runs (window or menu bar).
 - No introduction window: the Mac app is unreleased. `SyncMethod` defaults to `Relay`.
 
 ## iOS and iPadOS

@@ -11,66 +11,22 @@ using Wino.Mail.MacOS.Infrastructure;
 namespace Wino.Mail.MacOS;
 
 /// <summary>
-/// Live notifications through WinoRelay: registers for APNs, forwards the device token to
-/// <see cref="ApplePushTokenProvider"/>, hands data-only pushes to the shared notification handler and refreshes the
-/// relay registration when the app becomes active. Registration with the relay itself is opt-in (Settings ›
-/// Notifications) and runs in the shared relay service.
+/// Live updates through WinoRelay on the Mac come over the socket only (<c>RelaySocketCoordinator</c>) while the app
+/// runs; the Mac registers no push token, so a quit app receives nothing. This part refreshes the relay registration
+/// when the app becomes active and hosts the Debug bridge commands.
 /// </summary>
 public sealed partial class AppDelegate
 {
-    private static readonly TimeSpan RemoteNotificationBudget = TimeSpan.FromSeconds(25);
-
     partial void PushRelayServicesReady()
     {
-        // ServicesReady runs on the startup task; AppKit wants the registration on the main thread.
-        NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
-        {
-            try { NSApplication.SharedApplication.RegisterForRemoteNotifications(); }
-            catch (Exception error) { Serilog.Log.Warning(error, "Could not register for remote notifications."); }
-        });
 #if DEBUG
         if (_services is { } services) RegisterPushRelayDebugCommands(services);
 #endif
     }
 
-    public override void RegisteredForRemoteNotifications(NSApplication application, NSData deviceToken)
-    {
-        Serilog.Log.Information("Registered for remote notifications ({Length} byte token).", deviceToken.Length);
-        _services?.GetService<ApplePushTokenProvider>()?.SetToken(deviceToken);
-    }
-
-    public override void FailedToRegisterForRemoteNotifications(NSApplication application, NSError error)
-    {
-        // Expected for ad hoc builds and profiles without the Push Notifications capability.
-        Serilog.Log.Information("Remote notification registration failed: {Error}", error.LocalizedDescription);
-        _services?.GetService<ApplePushTokenProvider>()?.SetFailure(error.LocalizedDescription);
-    }
-
-    public override void ReceivedRemoteNotification(NSApplication application, NSDictionary userInfo)
-    {
-        var payload = ApplePushPayload.ToPayload(userInfo);
-        // Kind and reason only: the payload also carries account and mailbox ids.
-        Serilog.Log.Information("Relay push received: {Kind} ({Reason}).",
-            payload.GetValueOrDefault("t", "?"), payload.GetValueOrDefault("r", "-"));
-        if (!_runtimeStarted || _services?.GetService<IPushRelayNotificationHandler>() is not { } handler) return;
-        _ = HandleRemoteNotificationAsync(handler, payload);
-    }
-
     public override void DidBecomeActive(NSNotification notification)
     {
         if (_runtimeStarted) _services?.GetService<IPushRelayRegistrationService>()?.RequestSync(PushRelaySyncReason.Foreground);
-    }
-
-    private static async Task HandleRemoteNotificationAsync(IPushRelayNotificationHandler handler, Dictionary<string, string> payload)
-    {
-        try
-        {
-            using var budget = new CancellationTokenSource(RemoteNotificationBudget);
-            var outcome = await handler.HandleAsync(payload, budget.Token);
-            Serilog.Log.Debug("Relay push handled: {Outcome}", outcome);
-        }
-        catch (OperationCanceledException) { Serilog.Log.Warning("Relay push handling did not finish within {Seconds} s.", RemoteNotificationBudget.TotalSeconds); }
-        catch (Exception error) { Serilog.Log.Warning(error, "Relay push handling failed."); }
     }
 
 #if DEBUG

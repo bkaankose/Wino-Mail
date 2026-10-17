@@ -89,12 +89,10 @@ internal static class Composition
         services.AddSingleton<AppleNotificationSounds>();
         services.AddSingleton<INotificationBuilder, AppleNotificationBuilder>();
         services.AddSingleton<IStatePersistanceService, ConfigurationStatePersistenceService>();
-        // WinoRelay (opt-in on the Mac): AppDelegate.PushRelay forwards the APNs token and pushes.
-        services.AddSingleton<ApplePushTokenProvider>();
-        services.AddSingleton<IPushTokenProvider>(provider => provider.GetRequiredService<ApplePushTokenProvider>());
+        // WinoRelay on the Mac is socket-only: no push token is registered, so nothing arrives while the app is not running.
         services.AddSingleton<IPushRelayDeviceIdentityStore, SecureItemPushRelayDeviceIdentityStore>();
         services.AddSingleton<IPushRelayDeviceInfo, MacPushRelayDeviceInfo>();
-        // The desktop socket (Wino.PushRelay.Socket): the key lives in the Keychain; nothing starts the socket yet.
+        // The desktop socket (Wino.PushRelay.Socket): the key lives in the Keychain; RelaySocketCoordinator starts it with relay-based sync.
         services.AddSingleton<IPushRelaySocketKeyStore, SecureItemPushRelaySocketKeyStore>();
         services.AddWinoRelaySocketClient();
         // The app-level theme service adds the Wino themes (accent + backdrop, custom themes in the Windows file layout) on top of native appearance.
@@ -119,7 +117,7 @@ internal static class Composition
             Printing: true, PdfExport: true, Smime: true, AdditionalWindows: true, Notifications: true, NotificationActions: true,
             StartupIntegration: true, Tray: true, GlobalHotkeys: true, GeneralActivation: true,
             // Live notifications need APNs and the user's opt-in (mailbox credentials go through Wino servers).
-            RemoteNotifications: true, KeyboardShortcuts: true, FileBackup: true, Purchases: true,
+            RemoteNotifications: false, KeyboardShortcuts: true, FileBackup: true, Purchases: true,
             // The Dock badge launches the app; there is one Dock tile, so the taskbar identity never follows the mode.
             PointerHover: true, MailListDensity: true, PresentationDetection: true, ConfigurableSyncIntervals: true,
             BadgeLaunchNavigation: true,

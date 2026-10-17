@@ -986,8 +986,10 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
         }
     }
 
+    /// <summary>Desktop devices are socket-only: they never register a push token, so a closed app receives nothing.</summary>
     private string? CurrentPushToken
-        => _pushTokens is { IsPushChannelAvailable: true, CurrentToken: { Length: > 0 } token } ? token : null;
+        => _deviceInfo?.Describe().Platform is PushRelayPlatforms.Windows or PushRelayPlatforms.MacOS ? null
+            : _pushTokens is { IsPushChannelAvailable: true, CurrentToken: { Length: > 0 } token } ? token : null;
 
     private string? ResolveLocale()
     {
