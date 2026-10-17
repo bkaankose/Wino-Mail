@@ -6,5 +6,6 @@ public enum WinoWindowKind
     Welcome,
     Migration,
     HostedPopout,
-    WhatsNew
+    WhatsNew,
+    RelayIntroduction
 }

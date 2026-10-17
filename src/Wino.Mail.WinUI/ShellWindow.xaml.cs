@@ -101,6 +101,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         ApplyShellSynchronizationProvider();
         _ = RefreshDailyBriefingStateAsync();
         _ = RefreshWhatsNewButtonAsync();
+        _ = ShowRelayIntroductionIfPendingAsync();
         _ = EntitlementService.RefreshEntitlementAsync();
 
         // Handle window closing event for terminate vs background/tray behavior.
@@ -349,6 +350,36 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         catch (Exception exception)
         {
             Serilog.Log.Error(exception, "Failed to refresh the What's New title-bar button.");
+        }
+    }
+
+    /// <summary>
+    /// An install that already had accounts before the relay existed gets the sync method choice once. Fresh installs
+    /// never see it (the service records relay-based sync for them), and the window is shown at most once per install.
+    /// </summary>
+    private async Task ShowRelayIntroductionIfPendingAsync()
+    {
+        try
+        {
+            var introduction = WinoApplication.Current.Services.GetRequiredService<IRelayIntroductionService>();
+            if (!await introduction.IsIntroductionPendingAsync().ConfigureAwait(false))
+                return;
+
+            DispatcherQueue.TryEnqueue(async () =>
+            {
+                try
+                {
+                    await WindowManager.ShowThemedWindowAsync(WinoWindowKind.RelayIntroduction, () => new RelayIntroductionWindow());
+                }
+                catch (Exception exception)
+                {
+                    Serilog.Log.Error(exception, "The relay introduction window could not be shown.");
+                }
+            });
+        }
+        catch (Exception exception)
+        {
+            Serilog.Log.Error(exception, "The relay introduction check failed.");
         }
     }
 

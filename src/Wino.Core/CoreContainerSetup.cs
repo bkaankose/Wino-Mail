@@ -25,6 +25,19 @@ public static class CoreContainerSetup
 
         services.AddSingleton(loggerLevelSwitcher);
         services.AddSingleton<ISynchronizerFactory, SynchronizerFactory>();
+
+        // Relay registrations the app manages itself (Gmail watch, Graph subscription). IMAP's builder lives in Wino.Services.
+        services.AddSingleton<Wino.Core.PushRelay.PushRelayAppManagedRegistrationStore>();
+        services.AddSingleton<IPushRelayAppManagedRegistrationStore>(provider => provider.GetRequiredService<Wino.Core.PushRelay.PushRelayAppManagedRegistrationStore>());
+        services.AddSingleton<Wino.Core.PushRelay.RelayWellKnownCache>(provider => new Wino.Core.PushRelay.RelayWellKnownCache(provider.GetRequiredService<IPushRelayClient>()));
+        services.AddSingleton<IPushRelayMailboxRegistrationBuilder>(provider => new Wino.Core.PushRelay.GmailPushRelayMailboxRegistrationBuilder(
+            provider.GetRequiredService<IAuthenticationProvider>(),
+            provider.GetRequiredService<Wino.Core.PushRelay.RelayWellKnownCache>(),
+            provider.GetRequiredService<Wino.Core.PushRelay.PushRelayAppManagedRegistrationStore>()));
+        services.AddSingleton<IPushRelayMailboxRegistrationBuilder>(provider => new Wino.Core.PushRelay.GraphPushRelayMailboxRegistrationBuilder(
+            provider.GetRequiredService<IAuthenticationProvider>(),
+            provider.GetRequiredService<Wino.Core.PushRelay.RelayWellKnownCache>(),
+            provider.GetRequiredService<Wino.Core.PushRelay.PushRelayAppManagedRegistrationStore>()));
         services.AddSingleton<ModeSynchronizerFactory>();
         services.AddSingleton<IMailSynchronizerFactory>(provider => provider.GetRequiredService<ModeSynchronizerFactory>());
         services.AddSingleton<ICalendarSynchronizerFactory>(provider => provider.GetRequiredService<ModeSynchronizerFactory>());
@@ -44,7 +57,9 @@ public static class CoreContainerSetup
             () => provider.GetRequiredService<IWinoAccountIntelligenceSnapshotService>(),
             () => provider.GetRequiredService<IMailIntelligenceCoordinator>(),
             () => provider.GetRequiredService<Wino.Services.IntelligenceResultKeyLifecycle>(),
-            () => provider.GetRequiredService<IPushRelayRegistrationService>()));
+            () => provider.GetRequiredService<IPushRelayRegistrationService>(),
+            () => provider.GetService<IRelaySocketCoordinator>(),
+            () => provider.GetService<IRelayIntroductionService>()));
         services.AddSingleton<IApplicationRuntime>(provider => new ApplicationRuntime(
             provider.GetRequiredService<ISynchronizationManager>(),
             provider.GetRequiredService<IAccountService>(),
@@ -53,7 +68,8 @@ public static class CoreContainerSetup
             provider.GetRequiredService<CommunityToolkit.Mvvm.Messaging.IMessenger>(),
             provider.GetRequiredService<IWinoLogger>(),
             provider.GetRequiredService<ApplicationRuntimeInitialization>().InitializeAsync,
-            provider.GetRequiredService<ApplicationRuntimeInitialization>().RunBackgroundStartupAsync));
+            provider.GetRequiredService<ApplicationRuntimeInitialization>().RunBackgroundStartupAsync,
+            relayHealth: provider.GetService<IRelaySocketCoordinator>()));
 
         services.AddTransient<IGmailChangeProcessor, GmailChangeProcessor>();
         services.AddTransient<IImapChangeProcessor, ImapChangeProcessor>();

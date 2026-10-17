@@ -38,6 +38,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
     private readonly TimeProvider _timeProvider;
     private readonly Func<CancellationToken, Task> _initializeServices;
     private readonly Func<CancellationToken, Task> _backgroundStartup;
+    private readonly IRelayHealth? _relayHealth;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly SemaphoreSlim _autoSynchronizationSemaphore = new(1, 1);
     private readonly ConcurrentDictionary<Guid, int> _inboxSyncCounters = new();
@@ -59,8 +60,9 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
     public ApplicationRuntime(ISynchronizationManager synchronizationManager, IAccountService accountService,
         IPreferencesService preferencesService, IPlatformCapabilities platformCapabilities, IMessenger messenger, IWinoLogger logger,
         Func<CancellationToken, Task> initializeServices, Func<CancellationToken, Task> backgroundStartup,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null, IRelayHealth? relayHealth = null)
     {
+        _relayHealth = relayHealth;
         _synchronizationManager = synchronizationManager;
         _accountService = accountService;
         _preferencesService = preferencesService;
@@ -239,15 +241,43 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         _messenger.Register<AccountRemovedMessage>(this);
         _messenger.Register<AccountUpdatedMessage>(this);
         _preferencesService.PreferenceChanged += PreferencesChanged;
+        if (_relayHealth is not null) _relayHealth.Changed += RelayHealthChanged;
         _subscribed = true;
     }
 
     private void UnregisterRecipients()
     {
         _messenger.UnregisterAll(this);
-        if (_subscribed) _preferencesService.PreferenceChanged -= PreferencesChanged;
+        if (_subscribed)
+        {
+            _preferencesService.PreferenceChanged -= PreferencesChanged;
+            if (_relayHealth is not null) _relayHealth.Changed -= RelayHealthChanged;
+        }
         _subscribed = false;
     }
+
+    // The socket came up or went down. The mail loop decides per tick whether it may skip, so only the
+    // interval choice (user intervals or the 5 minute fallback) needs the loops restarted.
+    private void RelayHealthChanged(object? sender, EventArgs e)
+    {
+        lock (_gate)
+        {
+            if (_state != ApplicationRuntimeState.Running || !_hasAccounts) return;
+            if (!IsRelaySyncSelected) return;
+            RestartMailLoop();
+            RestartCalendarLoop();
+        }
+    }
+
+    /// <summary>Relay-based sync is the app-wide choice on a platform that offers the choice.</summary>
+    private bool IsRelaySyncSelected
+        => SettingAvailability.IsAvailable(PlatformSetting.SyncMethod, _platformCapabilities) && _preferencesService.SyncMethod == SyncMethod.Relay;
+
+    /// <summary>
+    /// In relay mode the timer only covers what the socket cannot deliver right now. Mail skips its tick while the
+    /// socket is connected (Gmail and Outlook arrive over it, desktop IMAP through the local IDLE client).
+    /// </summary>
+    private bool ShouldSkipTimerMailSync => IsRelaySyncSelected && _relayHealth is { IsSocketConnected: true };
 
     private void Track(Func<Task> operation)
     {
@@ -328,6 +358,12 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         lock (_gate)
         {
             if (_state != ApplicationRuntimeState.Running || !_hasAccounts) return;
+            if (propertyName == nameof(IPreferencesService.SyncMethod))
+            {
+                RestartMailLoop();
+                RestartCalendarLoop();
+                return;
+            }
             if (!SettingAvailability.IsAvailable(PlatformSetting.SyncIntervals, _platformCapabilities)) return;
             if (propertyName == nameof(IPreferencesService.EmailSyncIntervalMinutes)) RestartMailLoop();
             if (propertyName == nameof(IPreferencesService.CalendarSyncIntervalMinutes)) RestartCalendarLoop();
@@ -345,8 +381,12 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
 
     // Without configurable intervals (mobile) the foreground loops keep the default intervals, whatever a backup or
     // another platform stored.
+    // Relay mode on desktop replaces the user's intervals with the fixed fallback interval.
     private int GetSyncIntervalMinutes(int configuredMinutes, int defaultMinutes)
-        => Math.Max(1, SettingAvailability.IsAvailable(PlatformSetting.SyncIntervals, _platformCapabilities) ? configuredMinutes : defaultMinutes);
+    {
+        if (IsRelaySyncSelected) return Constants.RelayFallbackSyncIntervalMinutes;
+        return Math.Max(1, SettingAvailability.IsAvailable(PlatformSetting.SyncIntervals, _platformCapabilities) ? configuredMinutes : defaultMinutes);
+    }
 
     private void RestartMailLoop()
     {
@@ -889,12 +929,14 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
     {
         try
         {
+            // The first pass always runs: it catches up whatever arrived while the app was closed.
             await ExecuteAutoSynchronizationAsync(cancellationToken);
 
             using var timer = new PeriodicTimer(interval, _timeProvider);
 
             while (await timer.WaitForNextTickAsync(cancellationToken))
             {
+                if (ShouldSkipTimerMailSync) continue;
                 await ExecuteAutoSynchronizationAsync(cancellationToken);
             }
         }

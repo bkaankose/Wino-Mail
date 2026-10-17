@@ -452,11 +452,11 @@
             </controls:SettingsExpander.Items>
         </controls:SettingsExpander>
 
-        <!--  Live notifications through the Wino push relay. Windows has no push channel, so there is no test push.  -->
+        <!--  The app-wide sync method: relay-based (instant, over the relay socket) or timer-based. Windows has no push channel, so there is no test push.  -->
         <controls:SettingsExpander
             AutomationProperties.AutomationId="NotificationSettingsPushRelayExpander"
-            Description="{x:Bind domain:Translator.NotificationSettings_PushRelay_Description, Mode=OneTime}"
-            Header="{x:Bind domain:Translator.NotificationSettings_PushRelay_Title, Mode=OneTime}"
+            Description="{x:Bind domain:Translator.NotificationSettings_SyncMethod_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.NotificationSettings_SyncMethod_Title, Mode=OneTime}"
             Visibility="{x:Bind ViewModel.IsPushRelaySectionVisible, Mode=OneTime}">
             <controls:SettingsExpander.HeaderIcon>
                 <coreControls:WinoFontIcon Icon="Cloud" />
@@ -464,7 +464,7 @@
 
             <ToggleSwitch
                 AutomationProperties.AutomationId="NotificationSettingsPushRelayToggle"
-                AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_PushRelay_Title, Mode=OneTime}"
+                AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_SyncMethod_Title, Mode=OneTime}"
                 IsEnabled="{x:Bind ViewModel.IsPushRelayToggleEnabled, Mode=OneWay}"
                 IsOn="{x:Bind ViewModel.IsPushRelayEnabled, Mode=TwoWay}"
                 Visibility="{x:Bind ViewModel.IsPushRelayToggleVisible, Mode=OneTime}" />

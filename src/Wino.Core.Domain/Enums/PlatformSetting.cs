@@ -31,5 +31,8 @@ public enum PlatformSetting
     SyncIntervals,
 
     /// <summary>Open the folder the unread badge counts when the app is launched.</summary>
-    BadgeLaunchNavigation
+    BadgeLaunchNavigation,
+
+    /// <summary>The app-wide choice between timer-based and relay-based sync. Mobile always uses the relay.</summary>
+    SyncMethod
 }

@@ -14,6 +14,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.PushRelay;
+using Wino.Core.Domain.Models.Settings;
 using Wino.Messaging.UI;
 
 namespace Wino.Services.PushRelay;
@@ -62,6 +63,7 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
     private readonly IPushRelayDeviceInfo? _deviceInfo;
     private readonly IPushTokenProvider? _pushTokens;
     private readonly IPushRelaySocketKeyStore? _socketKeys;
+    private readonly IPreferencesService? _preferences;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger _logger = Log.ForContext<PushRelayRegistrationService>();
 
@@ -92,8 +94,10 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
         IPushRelayDeviceInfo? deviceInfo = null,
         IPushTokenProvider? pushTokens = null,
         TimeProvider? timeProvider = null,
-        IPushRelaySocketKeyStore? socketKeys = null)
+        IPushRelaySocketKeyStore? socketKeys = null,
+        IPreferencesService? preferences = null)
     {
+        _preferences = preferences;
         _client = client;
         _tokens = tokens;
         _stateStore = stateStore;
@@ -110,11 +114,11 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
         _socketKeys = socketKeys;
         _timeProvider = timeProvider ?? TimeProvider.System;
 
-        var optedIn = IsPlatformSupported && _stateStore.Load().UserOptIn;
+        var optedIn = IsPlatformSupported && IsRelaySelected;
         _snapshot = PushRelayRegistrationSnapshot.Initial(
             !IsPlatformSupported ? PushRelayAvailability.UnsupportedPlatform
                 : IsOptInPlatform && !optedIn ? PushRelayAvailability.DisabledByUser
-                : PushRelayAvailability.SignInRequired,
+                : PushRelayAvailability.Enabled,
             IsOptInPlatform, optedIn);
     }
 
@@ -124,11 +128,15 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
 
     public bool IsUserOptedIn => Snapshot.IsUserOptedIn;
 
-    /// <summary>The head registered the relay adapters and its capabilities allow the relay.</summary>
+    /// <summary>The head registered the relay adapters and its capabilities allow the relay (pushes, or the desktop socket).</summary>
     private bool IsPlatformSupported => _identityStore is not null && _deviceInfo is not null
-        && (_capabilities.RemoteNotifications || _capabilities.PushRelayOptIn);
+        && (_capabilities.RemoteNotifications || IsOptInPlatform);
 
-    private bool IsOptInPlatform => _capabilities.PushRelayOptIn;
+    /// <summary>Desktop: the app-wide sync method decides whether the relay is used.</summary>
+    private bool IsOptInPlatform => SettingAvailability.IsAvailable(PlatformSetting.SyncMethod, _capabilities);
+
+    /// <summary>Relay-based sync is selected (always true where the platform offers no choice).</summary>
+    private bool IsRelaySelected => !IsOptInPlatform || _preferences is null || _preferences.SyncMethod == SyncMethod.Relay;
 
     public Task StartAsync(CancellationToken cancellationToken = default)
     {
@@ -156,6 +164,9 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
 
         if (_pushTokens is { } pushTokens)
             pushTokens.TokenChanged += PushTokenChanged;
+
+        if (_preferences is { } preferences)
+            preferences.PreferenceChanged += PreferenceChanged;
 
         _ = Task.Run(() => RunCheckInTimerAsync(_lifetime.Token));
         RequestSync(PushRelaySyncReason.Startup);
@@ -201,22 +212,12 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
         if (!IsPlatformSupported)
             return;
 
-        await _passLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
+        // The switch is the app-wide sync method; the preference change event queues the pass.
+        var method = enabled ? SyncMethod.Relay : SyncMethod.Timer;
+        if (_preferences is { } preferences && preferences.SyncMethod != method)
         {
-            var state = _stateStore.Load();
-            if (state.UserOptIn != enabled)
-            {
-                state.UserOptIn = enabled;
-                _stateStore.Save(state);
-                _logger.Information("Live notifications turned {State} by the user.", enabled ? "on" : "off");
-            }
-
-            Publish(Snapshot.Availability, state, null, keepDevice: true);
-        }
-        finally
-        {
-            _passLock.Release();
+            preferences.SyncMethod = method;
+            _logger.Information("Sync method set to {Method} by the user.", method);
         }
 
         await SyncNowAsync(PushRelaySyncReason.OptInChanged, cancellationToken).ConfigureAwait(false);
@@ -240,19 +241,17 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
             try { locked = await _passLock.WaitAsync(SignOutDeleteBudget, cancellationToken).ConfigureAwait(false); }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { }
 
-            PushRelayDeviceIdentity? identity = null;
-            try { identity = await identityStore.LoadAsync(cancellationToken).ConfigureAwait(false); }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            // The device keeps its identity, registrations and credentials; only the Wino Account comes off it.
+            using var bounded = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            bounded.CancelAfter(SignOutDeleteBudget);
+            try { await _tokens.UnlinkDeviceAsync(bounded.Token).ConfigureAwait(false); }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                _logger.Warning(ex, "Relay device identity could not be read during sign-out.");
+                _logger.Information("Unlinking the relay device ran out of time; the API's sign-out covers it.");
             }
 
-            if (identity is not null)
-                await DeleteRemoteDeviceAsync(identity, SignOutDeleteBudget, cancellationToken).ConfigureAwait(false);
-
-            await ForgetDeviceAsync(cancellationToken).ConfigureAwait(false);
             _signInRejected = false;
-            Publish(PushRelayAvailability.SignInRequired, _stateStore.Load(), null);
+            Publish(Snapshot.Availability, _stateStore.Load(), null, keepDevice: true);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
@@ -270,13 +269,9 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
         if (!IsPlatformSupported || _identityStore is not { } identityStore)
             return PushRelayPushTestResult.NotRegistered;
 
-        var session = await _sessions.CaptureAsync(cancellationToken).ConfigureAwait(false);
         var identity = await identityStore.LoadAsync(cancellationToken).ConfigureAwait(false);
-        if (session is null || identity is null || identity.WinoUserId != session.AccountId
-            || Snapshot.Availability != PushRelayAvailability.Enabled)
-        {
+        if (identity is null || Snapshot.Availability != PushRelayAvailability.Enabled)
             return PushRelayPushTestResult.NotRegistered;
-        }
 
         try
         {
@@ -349,10 +344,33 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
     public void Receive(WinoAccountSignedInMessage message)
     {
         _signInRejected = false;
-        RequestSync(PushRelaySyncReason.WinoAccountChanged);
+        _ = LinkThenSyncAsync();
     }
 
     public void Receive(WinoAccountSignedOutMessage message) => RequestSync(PushRelaySyncReason.WinoAccountChanged);
+
+    /// <summary>A new Wino Account adopts this device at the API; the relay learns the owner from the API.</summary>
+    private async Task LinkThenSyncAsync()
+    {
+        try
+        {
+            using var bounded = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+            bounded.CancelAfter(TimeSpan.FromSeconds(20));
+            await _tokens.LinkDeviceAsync(bounded.Token).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !_lifetime.IsCancellationRequested)
+        {
+            _logger.Information(ex, "Linking the relay device after sign-in did not finish; the next pass tries again.");
+        }
+
+        RequestSync(PushRelaySyncReason.WinoAccountChanged);
+    }
+
+    private void PreferenceChanged(object? sender, string propertyName)
+    {
+        if (propertyName == nameof(IPreferencesService.SyncMethod))
+            RequestSync(PushRelaySyncReason.OptInChanged);
+    }
 
     private void PushTokenChanged(object? sender, EventArgs e) => RequestSync(PushRelaySyncReason.PushTokenChanged);
 
@@ -432,14 +450,15 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
 
         var session = await _sessions.CaptureAsync(cancellationToken).ConfigureAwait(false);
         var identity = await identityStore.LoadAsync(cancellationToken).ConfigureAwait(false);
-        var gate = EvaluateGate(state, session is not null);
+        var canAuthenticate = await CanAuthenticateAsync(cancellationToken).ConfigureAwait(false);
+        var gate = EvaluateGate(state, canAuthenticate);
 
-        if (gate != PushRelayAvailability.Enabled || session is null)
+        if (gate != PushRelayAvailability.Enabled)
         {
             if (identity is not null && gate is PushRelayAvailability.SignInRequired or PushRelayAvailability.DisabledByUser)
             {
                 _logger.Information("Live notifications are {Availability}; removing this relay device.", gate);
-                if (session is not null)
+                if (canAuthenticate)
                     await DeleteRemoteDeviceAsync(identity, OptOutDeleteBudget, cancellationToken).ConfigureAwait(false);
 
                 await ForgetDeviceAsync(cancellationToken).ConfigureAwait(false);
@@ -448,6 +467,13 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
 
             Publish(gate, state, null);
             return;
+        }
+
+        // A signed-in account that is not yet the device's owner gets linked before the pass registers anything.
+        if (session is not null)
+        {
+            try { await _tokens.LinkDeviceAsync(cancellationToken).ConfigureAwait(false); }
+            catch (PushRelayApiException ex) { _logger.Information("Linking the relay device failed ({Code}); continuing on the device path.", ex.Code); }
         }
 
         var now = UtcNow;
@@ -483,7 +509,7 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
         Publish(ComputeAvailability(state, true), state, identity);
     }
 
-    private async Task<PushRelayDeviceIdentity?> RunEnabledPassAsync(PushRelayState state, WinoAccountSession session,
+    private async Task<PushRelayDeviceIdentity?> RunEnabledPassAsync(PushRelayState state, WinoAccountSession? session,
         PushRelayDeviceIdentity? identity, IPushRelayDeviceIdentityStore identityStore, PushRelayDeviceDescriptor descriptor,
         HashSet<PushRelaySyncReason> reasons, DateTime now, CancellationToken cancellationToken)
     {
@@ -504,22 +530,15 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
                 var deviceFresh = false;
                 List<PushRelayMailbox>? serverView = null;
 
-                if (identity is null || identity.WinoUserId != session.AccountId)
+                if (identity is null)
                 {
-                    if (identity is not null)
-                    {
-                        // Registered for another Wino Account: that device is not ours to delete anymore.
-                        _logger.Information("The signed-in Wino Account changed; registering a new relay device.");
-                        await identityStore.DeleteAsync(cancellationToken).ConfigureAwait(false);
-                        identity = null;
-                    }
-
                     state.Mailboxes.Clear();
+                    var credential = await _tokens.GetDeviceCredentialAsync(cancellationToken).ConfigureAwait(false);
                     PushRelayRegisterDeviceResponse registration;
                     try
                     {
                         registration = await _client.RegisterDeviceAsync(
-                            new PushRelayRegisterDeviceRequest(descriptor.Platform, pushToken, appVersion, appBuild, locale, osVersion, name, socketKey),
+                            new PushRelayRegisterDeviceRequest(descriptor.Platform, pushToken, appVersion, appBuild, locale, osVersion, name, socketKey, credential?.DeviceId),
                             cancellationToken).ConfigureAwait(false);
                     }
                     catch (PushRelayApiException ex) when (ex.Status == 400 && ex.Code == PushRelayErrorCodes.InvalidRequest)
@@ -533,7 +552,7 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
                         return null;
                     }
 
-                    identity = new PushRelayDeviceIdentity(registration.DeviceId, session.AccountId, descriptor.Platform, now);
+                    identity = new PushRelayDeviceIdentity(registration.DeviceId, session?.AccountId, descriptor.Platform, now);
                     // The identity is saved before the state so a crash never leaves state for an unknown device.
                     await identityStore.SaveAsync(identity, cancellationToken).ConfigureAwait(false);
                     state.PlatformRejected = false;
@@ -655,7 +674,9 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
             else if (entry.CredentialFingerprint != registration.CredentialFingerprint || failedWithSameCredentials
                 || entry.Status == PushRelayMailboxStatuses.NeedsReauth)
             {
-                limitReached |= await UpdateCredentialsAsync(identity, entry, registration, now, allowCreate: true, cancellationToken).ConfigureAwait(false);
+                limitReached |= registration.IsAppManaged
+                    ? await CreateMailboxAsync(identity, entry, registration, now, cancellationToken).ConfigureAwait(false)
+                    : await UpdateCredentialsAsync(identity, entry, registration, now, allowCreate: true, cancellationToken).ConfigureAwait(false);
             }
         }
     }
@@ -762,22 +783,34 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
             ex.Code, ex.Problem.Reason, state.NextAttemptUtc);
     }
 
-    private PushRelayAvailability EvaluateGate(PushRelayState state, bool hasSession)
+    /// <summary>A relay token can be issued: the device path works, or a Wino Account is signed in.</summary>
+    private async Task<bool> CanAuthenticateAsync(CancellationToken cancellationToken)
+    {
+        try { return !await _tokens.RequiresSignInAsync(cancellationToken).ConfigureAwait(false); }
+        catch (PushRelayApiException ex)
+        {
+            // The API could not be reached while registering the device: treat it as authenticable and let the pass back off.
+            _logger.Information("Relay device registration is unavailable ({Code}); the pass will retry.", ex.Code);
+            return true;
+        }
+    }
+
+    private PushRelayAvailability EvaluateGate(PushRelayState state, bool canAuthenticate)
     {
         if (!IsPlatformSupported)
             return PushRelayAvailability.UnsupportedPlatform;
-        if (!hasSession)
-            return PushRelayAvailability.SignInRequired;
-        if (IsOptInPlatform && !state.UserOptIn)
+        if (IsOptInPlatform && !IsRelaySelected)
             return PushRelayAvailability.DisabledByUser;
+        if (!canAuthenticate)
+            return PushRelayAvailability.SignInRequired;
         if (state.PlatformRejected && state.PlatformRejectedAppVersion == Normalize(_metadata.AppVersion))
             return PushRelayAvailability.RejectedByRelay;
         return PushRelayAvailability.Enabled;
     }
 
-    private PushRelayAvailability ComputeAvailability(PushRelayState state, bool hasSession)
+    private PushRelayAvailability ComputeAvailability(PushRelayState state, bool canAuthenticate)
     {
-        var gate = EvaluateGate(state, hasSession);
+        var gate = EvaluateGate(state, canAuthenticate);
         if (gate != PushRelayAvailability.Enabled)
             return gate;
         if (_signInRejected)
@@ -860,7 +893,7 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
         var snapshot = new PushRelayRegistrationSnapshot(
             availability,
             IsOptInPlatform,
-            state.UserOptIn,
+            IsRelaySelected,
             deviceId,
             CurrentPushToken is not null,
             state.LastCheckInUtc,

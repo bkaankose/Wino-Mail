@@ -214,6 +214,18 @@ public interface IPreferencesService : INotifyPropertyChanged
     int EmailSyncIntervalMinutes { get; set; }
 
     /// <summary>
+    /// Setting: How mailbox changes reach the app, chosen once for the whole app on desktop. Reads
+    /// <see cref="SyncMethod.Relay"/> when nothing is stored. Platforms without the choice always read Relay.
+    /// </summary>
+    SyncMethod SyncMethod { get; set; }
+
+    /// <summary>
+    /// True once a sync method has been stored. An install that already has accounts but no stored value was
+    /// upgraded from a version without the relay; that is what triggers the Windows introduction window.
+    /// </summary>
+    bool IsSyncMethodConfigured { get; }
+
+    /// <summary>
     /// Setting: Whether sending drafts should be held briefly so it can be undone.
     /// </summary>
     bool IsUndoSendingDraftsEnabled { get; set; }

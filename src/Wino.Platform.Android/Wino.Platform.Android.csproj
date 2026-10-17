@@ -32,6 +32,7 @@
     <PackageReference Include="Xamarin.AndroidX.Tracing.Tracing.Ktx" />
     <!-- FCM token and messages for WinoRelay (compile-only until google-services.json exists). -->
     <PackageReference Include="Xamarin.Firebase.Messaging" />
+    <PackageReference Include="Xamarin.Google.Android.Play.Integrity" />
     <!-- Aligns the Lifecycle artifacts Sentry's Android SDK pulls with the rest of AndroidX (see Directory.Packages.props). -->
     <PackageReference Include="Xamarin.AndroidX.Lifecycle.Common.Java8" />
     <PackageReference Include="Xamarin.AndroidX.Lifecycle.Process" />

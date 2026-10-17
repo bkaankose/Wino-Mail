@@ -289,6 +289,79 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             WinoAccountApiJsonContext.Default.ApiEnvelopeRelayTokenDto,
             cancellationToken);
 
+    public Task<ApiEnvelope<RelayDeviceChallengeDto>> CreateRelayDeviceChallengeAsync(string platform, CancellationToken cancellationToken = default)
+        => SendAnonymousRequestAsync(
+            HttpMethod.Post,
+            "api/v1/relay/devices/challenge",
+            new RelayDeviceChallengeRequest(platform),
+            WinoAccountApiJsonContext.Default.RelayDeviceChallengeRequest,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeRelayDeviceChallengeDto,
+            cancellationToken);
+
+    public Task<ApiEnvelope<RelayDeviceDto>> RegisterRelayDeviceAsync(RegisterRelayDeviceRequest request, CancellationToken cancellationToken = default)
+        => SendAnonymousRequestAsync(
+            HttpMethod.Post,
+            "api/v1/relay/devices",
+            request,
+            WinoAccountApiJsonContext.Default.RegisterRelayDeviceRequest,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeRelayDeviceDto,
+            cancellationToken);
+
+    public Task<ApiEnvelope<RelayTokenDto>> CreateRelayTokenForDeviceAsync(Guid deviceId, string credential, RelayDeviceAssertion? assertion, CancellationToken cancellationToken = default)
+        => SendDeviceRequestAsync(HttpMethod.Post, "api/v1/relay/token", deviceId, credential, assertion,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeRelayTokenDto, cancellationToken);
+
+    public Task<ApiEnvelope<RelayDeviceDto>> LinkRelayDeviceAsync(Guid deviceId, string credential, RelayDeviceAssertion? assertion, CancellationToken cancellationToken = default)
+    {
+        var endpoint = $"api/v1/relay/devices/{deviceId:D}/link";
+        return SendAuthorizedEnvelopeAsync(async () =>
+        {
+            var request = await CreateAuthorizedRequestAsync(HttpMethod.Post, endpoint).ConfigureAwait(false);
+            if (request is not null) AddDeviceHeaders(request, deviceId, credential, assertion);
+            return request;
+        }, endpoint, WinoAccountApiJsonContext.Default.ApiEnvelopeRelayDeviceDto, cancellationToken);
+    }
+
+    public Task<ApiEnvelope<RelayDeviceDto>> UnlinkRelayDeviceAsync(Guid deviceId, string credential, RelayDeviceAssertion? assertion, CancellationToken cancellationToken = default)
+        => SendDeviceRequestAsync(HttpMethod.Post, $"api/v1/relay/devices/{deviceId:D}/unlink", deviceId, credential, assertion,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeRelayDeviceDto, cancellationToken);
+
+    public Task<ApiEnvelope<RelayDeviceListDto>> GetRelayDevicesAsync(CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync("api/v1/relay/devices", WinoAccountApiJsonContext.Default.ApiEnvelopeRelayDeviceListDto, cancellationToken);
+
+    private static void AddDeviceHeaders(HttpRequestMessage request, Guid deviceId, string credential, RelayDeviceAssertion? assertion)
+    {
+        request.Headers.TryAddWithoutValidation(RelayDeviceHeaders.Device, deviceId.ToString("D"));
+        request.Headers.TryAddWithoutValidation(RelayDeviceHeaders.Credential, credential);
+        if (assertion is not null)
+        {
+            request.Headers.TryAddWithoutValidation(RelayDeviceHeaders.Nonce, assertion.Nonce);
+            request.Headers.TryAddWithoutValidation(RelayDeviceHeaders.Assertion, assertion.Assertion);
+        }
+    }
+
+    /// <summary>An API call authenticated by the relay device credential headers instead of a Wino Account. Never logs them.</summary>
+    private async Task<ApiEnvelope<TResponse>> SendDeviceRequestAsync<TResponse>(HttpMethod method, string endpoint, Guid deviceId, string credential,
+        RelayDeviceAssertion? assertion, JsonTypeInfo<ApiEnvelope<TResponse>> responseTypeInfo, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(method, endpoint);
+            AddDeviceHeaders(request, deviceId, credential, assertion);
+            using var response = await SendAsync(request, cancellationToken).ConfigureAwait(false);
+            return await ReadEnvelopeAsync(response, responseTypeInfo, cancellationToken).ConfigureAwait(false);
+        }
+        catch (WinoAccountApiException ex)
+        {
+            return ApiEnvelope<TResponse>.Failure(ex.ErrorCode);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            _logger.Error(ex, "Wino account device request {Endpoint} failed unexpectedly.", endpoint);
+            return ApiEnvelope<TResponse>.Failure(ex.Message);
+        }
+    }
+
     public async Task<WinoSyncSnapshotDownload?> GetSyncSnapshotAsync(CancellationToken cancellationToken = default)
     {
         using var response = await SendAuthorizedAsync(
@@ -1117,6 +1190,11 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(ApiEnvelope<AppStoreRedeemResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<AiUsageStatusDto>))]
 [JsonSerializable(typeof(ApiEnvelope<RelayTokenDto>))]
+[JsonSerializable(typeof(RelayDeviceChallengeRequest))]
+[JsonSerializable(typeof(ApiEnvelope<RelayDeviceChallengeDto>))]
+[JsonSerializable(typeof(RegisterRelayDeviceRequest))]
+[JsonSerializable(typeof(ApiEnvelope<RelayDeviceDto>))]
+[JsonSerializable(typeof(ApiEnvelope<RelayDeviceListDto>))]
 [JsonSerializable(typeof(ApiEnvelope<UserMailboxSyncListDto>))]
 [JsonSerializable(typeof(ApiEnvelope<UserSyncSnapshotStatusDto>))]
 [JsonSerializable(typeof(ApiEnvelope<JsonElement>))]

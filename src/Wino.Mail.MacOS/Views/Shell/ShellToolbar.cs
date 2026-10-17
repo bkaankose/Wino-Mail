@@ -35,6 +35,8 @@ internal sealed class ShellToolbar : NSToolbarDelegate
     private NSToolbarItem? _syncItem;
     private NSButton? _syncButton;
     private NSProgressIndicator? _syncProgress;
+    private WinoSurfaceView? _relayFallbackDot;
+    private bool _relayFallbackActive;
     private NSSearchToolbarItem? _searchItem;
     private NSToolbarItem? _briefingItem;
     private NSButton? _briefingButton;
@@ -158,9 +160,15 @@ internal sealed class ShellToolbar : NSToolbarDelegate
             IsDisplayedWhenStopped = false,
             TranslatesAutoresizingMaskIntoConstraints = false
         };
+        // Relay health: a red dot on the sync button only while relay-based sync runs on the 5 minute fallback timer.
+        _relayFallbackDot = new WinoSurfaceView { CornerRadius = 3, Fill = NSColor.SystemRed, Hidden = !_relayFallbackActive };
+        _relayFallbackDot.ToolTip = Translator.Relay_FallbackFlyoutMessage;
+        WinoAccessibility.Label(_relayFallbackDot, Translator.Relay_FallbackIndicatorAutomationName);
+        WinoLayout.Size(_relayFallbackDot, 6, 6);
         var container = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
         container.AddSubview(_syncButton);
         container.AddSubview(_syncProgress);
+        container.AddSubview(_relayFallbackDot);
         NSLayoutConstraint.ActivateConstraints(
         [
             _syncButton.LeadingAnchor.ConstraintEqualTo(container.LeadingAnchor),
@@ -168,10 +176,21 @@ internal sealed class ShellToolbar : NSToolbarDelegate
             _syncButton.TopAnchor.ConstraintEqualTo(container.TopAnchor),
             _syncButton.BottomAnchor.ConstraintEqualTo(container.BottomAnchor),
             _syncProgress.CenterXAnchor.ConstraintEqualTo(_syncButton.CenterXAnchor),
-            _syncProgress.CenterYAnchor.ConstraintEqualTo(_syncButton.CenterYAnchor)
+            _syncProgress.CenterYAnchor.ConstraintEqualTo(_syncButton.CenterYAnchor),
+            _relayFallbackDot.TrailingAnchor.ConstraintEqualTo(_syncButton.TrailingAnchor, -5),
+            _relayFallbackDot.TopAnchor.ConstraintEqualTo(_syncButton.TopAnchor, 4)
         ]);
         item.View = container;
         return item;
+    }
+
+    /// <summary>Shows the relay fallback dot. Silent while live updates flow.</summary>
+    public void SetRelayFallbackActive(bool active)
+    {
+        _relayFallbackActive = active;
+        if (_relayFallbackDot is not null) _relayFallbackDot.Hidden = !active;
+        if (_syncButton is not null)
+            _syncButton.ToolTip = active ? $"{Translator.Relay_FallbackFlyoutTitle}. {Translator.Relay_FallbackFlyoutMessage}" : "Synchronize";
     }
 
     private NSToolbarItem CreateBriefingItem()

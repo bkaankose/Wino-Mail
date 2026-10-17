@@ -119,6 +119,8 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
 
         _toolbar = new ShellToolbar(_split.SplitView, () => SearchTarget, ToggleSidebar, Synchronize, ToggleBriefing, ShowWhatsNew, OpenAccount, ReportError);
         _toolbar.SetAccountHidden(ViewModel.PreferencesService.IsWinoAccountButtonHidden);
+        Bindings.Own(new PropertyBinding<WinoAppShellViewModel, bool>(ViewModel, nameof(ViewModel.IsRelayFallbackActive),
+            vm => vm.IsRelayFallbackActive, active => _toolbar?.SetRelayFallbackActive(active), Dispatcher, ReportError));
 
         Bindings.Own(new PropertyBinding<WinoAppShellViewModel, ShellMenu?>(ViewModel, nameof(ViewModel.CurrentMenu),
             vm => vm.CurrentMenu, menu => _sidebar.Bind(menu), Dispatcher, ReportError));

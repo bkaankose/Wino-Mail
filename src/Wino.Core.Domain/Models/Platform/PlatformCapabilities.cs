@@ -17,7 +17,6 @@ public sealed record PlatformCapabilities(
     bool MicrosoftStore = false,
     bool AppleAppStore = false,
     bool RemoteNotifications = false,
-    bool PushRelayOptIn = false,
     bool KeyboardShortcuts = false,
     bool FileBackup = false,
     bool Purchases = false,

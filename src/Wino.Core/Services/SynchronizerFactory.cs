@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Serilog;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
@@ -44,6 +45,7 @@ public class SynchronizerFactory : ISynchronizerFactory
     private readonly ISmtpTransport _smtpTransport;
     private readonly IMimeFileService _mimeFileService;
     private readonly ICalDavSynchronizationEngine _calDavSynchronizationEngine;
+    private readonly IPreferencesService _preferencesService;
 
     private readonly ConcurrentDictionary<Guid, IWinoSynchronizerBase> _synchronizers = new();
     internal IReadOnlyDictionary<Guid, IWinoSynchronizerBase> CachedSynchronizers => _synchronizers;
@@ -77,7 +79,8 @@ public class SynchronizerFactory : ISynchronizerFactory
                                IFolderService folderService = null,
                                ISmtpTransport smtpTransport = null,
                                IMimeFileService mimeFileService = null,
-                               ICalDavSynchronizationEngine calDavSynchronizationEngine = null)
+                               ICalDavSynchronizationEngine calDavSynchronizationEngine = null,
+                               IPreferencesService preferencesService = null)
     {
         _outlookChangeProcessor = outlookChangeProcessor;
         _gmailChangeProcessor = gmailChangeProcessor;
@@ -106,6 +109,9 @@ public class SynchronizerFactory : ISynchronizerFactory
         _smtpTransport = smtpTransport;
         _mimeFileService = mimeFileService;
         _calDavSynchronizationEngine = calDavSynchronizationEngine;
+        _preferencesService = preferencesService;
+        if (_preferencesService is not null)
+            _preferencesService.PreferenceChanged += PreferenceChanged;
     }
 
     public async Task<IWinoSynchronizerBase> GetAccountSynchronizerAsync(Guid accountId)
@@ -192,10 +198,11 @@ public class SynchronizerFactory : ISynchronizerFactory
     }
 
     /// <summary>
-    /// TEMPORARY (14 Oct 2026, WinoRelay testing): in-app IMAP IDLE is off for every account, so new IMAP mail arrives
-    /// only through relay pushes, manual sync and the periodic timer. Set back to false (or delete) before shipping.
+    /// IMAP IDLE runs in relay mode only (desktop IMAP never goes through the relay, so the local IDLE client is what
+    /// makes it instant). Timer mode keeps the periodic synchronization alone, as its settings card promises.
+    /// Mobile always reads <see cref="SyncMethod.Relay"/>.
     /// </summary>
-    internal static readonly bool IsImapIdleTemporarilyDisabled = true;
+    private bool IsImapIdleEnabled => _preferencesService is null || _preferencesService.SyncMethod == SyncMethod.Relay;
 
     private IWinoSynchronizerBase CreateAndCache(MailAccount account)
     {
@@ -203,9 +210,9 @@ public class SynchronizerFactory : ISynchronizerFactory
         _synchronizers[account.Id] = synchronizer;
         if (synchronizer is IImapSynchronizer imapSynchronizer && !account.IsNetworkAccessBlocked())
         {
-            if (IsImapIdleTemporarilyDisabled)
+            if (!IsImapIdleEnabled)
             {
-                Log.Information("IMAP IDLE is temporarily disabled; account {AccountId} relies on relay pushes and timers.", account.Id);
+                Log.Information("Timer-based sync is selected; account {AccountId} runs without IMAP IDLE.", account.Id);
             }
             else
             {
@@ -215,6 +222,19 @@ public class SynchronizerFactory : ISynchronizerFactory
             }
         }
         return synchronizer;
+    }
+
+    /// <summary>The sync method changed: start or stop IDLE on every cached IMAP synchronizer.</summary>
+    private void PreferenceChanged(object? sender, string propertyName)
+    {
+        if (propertyName != nameof(IPreferencesService.SyncMethod)) return;
+        var enable = IsImapIdleEnabled;
+        foreach (var synchronizer in _synchronizers.Values)
+        {
+            if (synchronizer is not IImapSynchronizer imap) continue;
+            if (synchronizer.Account?.IsNetworkAccessBlocked() == true) continue;
+            _ = enable ? imap.StartIdleClientAsync() : imap.StopIdleClientAsync();
+        }
     }
 
     /// <summary>
@@ -235,7 +255,7 @@ public class SynchronizerFactory : ISynchronizerFactory
         finally { gate.Release(); }
     }
 
-    private static async Task ApplyAttentionStateAsync(IWinoSynchronizerBase synchronizer, MailAccount current)
+    private async Task ApplyAttentionStateAsync(IWinoSynchronizerBase synchronizer, MailAccount current)
     {
         var cached = synchronizer.Account;
         if (cached == null || cached.AttentionReason == current.AttentionReason) return;
@@ -251,7 +271,7 @@ public class SynchronizerFactory : ISynchronizerFactory
             Log.Information("Account {AccountId} needs attention ({AttentionReason}). Suspending its IMAP connections.", cached.Id, cached.AttentionReason);
             await imapSynchronizer.SuspendNetworkAccessAsync().ConfigureAwait(false);
         }
-        else if (!IsImapIdleTemporarilyDisabled)
+        else if (IsImapIdleEnabled)
         {
             Log.Information("Account {AccountId} no longer needs attention. Resuming IMAP IDLE.", cached.Id);
             await imapSynchronizer.StartIdleClientAsync().ConfigureAwait(false);

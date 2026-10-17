@@ -52,8 +52,7 @@ public sealed class WindowsPushRelayDeviceIdentityStore : IPushRelayDeviceIdenti
                 return null;
             }
 
-            if (identity is null || identity.DeviceId == Guid.Empty || identity.WinoUserId == Guid.Empty
-                || string.IsNullOrWhiteSpace(identity.Platform))
+            if (identity is null || identity.DeviceId == Guid.Empty || string.IsNullOrWhiteSpace(identity.Platform))
             {
                 TryDelete(path);
                 return null;

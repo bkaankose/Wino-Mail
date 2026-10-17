@@ -45,6 +45,9 @@ public static class Constants
 
     /// <summary>Calendar synchronization interval in minutes when the user has not chosen one, or the platform has no choice.</summary>
     public const int DefaultCalendarSyncIntervalMinutes = 5;
+
+    /// <summary>Mail and calendar interval in minutes while relay-based sync is selected but the relay socket is down.</summary>
+    public const int RelayFallbackSyncIntervalMinutes = 5;
     public const string JumpListActionKey = "JumpListAction";
     public const string JumpListOpenMailFolderAction = "OpenMailFolder";
     public const string JumpListAccountIdKey = "JumpListAccountId";

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Json;
 using Google.Apis.Gmail.v1.Data;
 using Wino.Core.Google;
 
@@ -57,6 +58,39 @@ namespace Google.Apis.Gmail.v1
         public SettingsResource Settings { get; }
 
         public GetProfileRequest GetProfile(string userId) => new(_httpClient, _service, userId);
+
+        /// <summary><c>users.watch</c>: Gmail publishes mailbox changes to the Pub/Sub topic for about seven days.</summary>
+        public WatchRequest Watch(WatchRequestBody body, string userId) => new(_httpClient, _service, body, userId);
+
+        /// <summary><c>users.stop</c>: ends the current watch.</summary>
+        public StopRequest Stop(string userId) => new(_httpClient, _service, userId);
+
+        public sealed class WatchRequest : GoogleApiRequest<WatchResponse>
+        {
+            internal WatchRequest(HttpClient httpClient, object service, WatchRequestBody body, string userId)
+                : base(
+                    httpClient,
+                    service,
+                    HttpMethod.Post,
+                    () => $"{BaseUri}/{GoogleUrl.Segment(userId)}/watch",
+                    GoogleApiJsonContext.Default.WatchResponse,
+                    () => JsonContent.Create(body, GoogleApiJsonContext.Default.WatchRequestBody))
+            {
+            }
+        }
+
+        public sealed class StopRequest : GoogleApiRequest<GoogleEmptyResponse>
+        {
+            internal StopRequest(HttpClient httpClient, object service, string userId)
+                : base(
+                    httpClient,
+                    service,
+                    HttpMethod.Post,
+                    () => $"{BaseUri}/{GoogleUrl.Segment(userId)}/stop",
+                    GoogleApiJsonContext.Default.GoogleEmptyResponse)
+            {
+            }
+        }
 
         public sealed class GetProfileRequest : GoogleApiRequest<Profile>
         {

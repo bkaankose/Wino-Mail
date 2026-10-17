@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -45,8 +46,16 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
                                  IMicrosoftStoreService storeService,
                                  IMailDialogService dialogService,
                                  IWinoLogger logger,
-                                 IPlatformCapabilities platformCapabilities)
+                                 IPlatformCapabilities platformCapabilities,
+                                 IRelayHealth? relayHealth = null)
     {
+        _relayHealth = relayHealth;
+        if (_relayHealth is not null)
+        {
+            _relayHealth.Changed += RelayHealthChanged;
+            IsRelayFallbackActive = _relayHealth.IsFallbackActive;
+        }
+
         _providerResolver = providerResolver;
         PreferencesService = preferencesService;
         StatePersistenceService = statePersistenceService;
@@ -57,6 +66,21 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
         _platformCapabilities = platformCapabilities;
 
         StatePersistenceService.StatePropertyChanged += StatePersistenceServiceChanged;
+    }
+
+    private readonly IRelayHealth? _relayHealth;
+
+    /// <summary>
+    /// Relay-based sync is selected but the relay socket is down, so mail and calendar run on the 5 minute fallback
+    /// timer. The shell shows its red dot only then; a healthy relay shows nothing.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsRelayFallbackActive { get; set; }
+
+    private void RelayHealthChanged(object? sender, EventArgs e)
+    {
+        var active = _relayHealth?.IsFallbackActive == true;
+        _ = ExecuteUIThread(() => IsRelayFallbackActive = active);
     }
 
     public IPreferencesService PreferencesService { get; }

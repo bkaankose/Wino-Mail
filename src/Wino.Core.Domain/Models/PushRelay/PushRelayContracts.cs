@@ -9,6 +9,8 @@ namespace Wino.Core.Domain.Models.PushRelay;
 /// <summary>
 /// <c>POST /v1/devices</c>. <c>Name</c> and <c>OsVersion</c> are at most 64 characters. <c>SocketPublicKey</c> (desktop only)
 /// is the base64 SubjectPublicKeyInfo of the device's P-256 key for socket payload encryption; mobile leaves it null.
+/// <c>DeviceId</c> is the id the Wino Mail API issued for this install, so the relay row shares it; with a device-kind
+/// token the relay takes the id from the token subject anyway.
 /// </summary>
 public sealed record PushRelayRegisterDeviceRequest(
     string Platform,
@@ -18,7 +20,8 @@ public sealed record PushRelayRegisterDeviceRequest(
     string? Locale,
     string? OsVersion,
     string? Name,
-    string? SocketPublicKey = null);
+    string? SocketPublicKey = null,
+    Guid? DeviceId = null);
 
 public sealed record PushRelayRegisterDeviceResponse(Guid DeviceId, DateTimeOffset ServerTime);
 
@@ -84,8 +87,37 @@ public sealed record PushRelayImapCredentials(
     public override string ToString() => $"PushRelayImapCredentials {{ Host = {Host}, Port = {Port}, Security = {Security} }}";
 }
 
-/// <summary><c>POST /v1/mailboxes</c>. Gmail and Graph registrations are added with their provider builders.</summary>
-public sealed record PushRelayCreateMailboxRequest(string Provider, string ClientAccountId, PushRelayImapCredentials? Imap);
+/// <summary>
+/// Gmail registration: the app called <c>users.watch</c> with the relay's Pub/Sub topic; the relay verifies whose token it is
+/// and discards it. <see cref="ToString"/> never prints the token.
+/// </summary>
+public sealed record PushRelayGmailRegistration(string AccessToken, DateTimeOffset? WatchExpiresAt)
+{
+    public override string ToString() => $"PushRelayGmailRegistration {{ WatchExpiresAt = {WatchExpiresAt:O} }}";
+}
+
+/// <summary>
+/// Graph registration: the app created the subscription with the relay's notification URLs and a random client state.
+/// <see cref="ToString"/> never prints the client state.
+/// </summary>
+public sealed record PushRelayGraphRegistration(
+    string SubscriptionId,
+    string ClientState,
+    DateTimeOffset? ExpiresAt,
+    string EmailAddress,
+    string? Folder = null,
+    string? Resource = null)
+{
+    public override string ToString() => $"PushRelayGraphRegistration {{ SubscriptionId = {SubscriptionId}, ExpiresAt = {ExpiresAt:O}, Folder = {Folder} }}";
+}
+
+/// <summary><c>POST /v1/mailboxes</c>. Exactly one of <c>Imap</c>, <c>Gmail</c> or <c>Graph</c> is set, matching <c>Provider</c>.</summary>
+public sealed record PushRelayCreateMailboxRequest(
+    string Provider,
+    string ClientAccountId,
+    PushRelayImapCredentials? Imap,
+    PushRelayGmailRegistration? Gmail = null,
+    PushRelayGraphRegistration? Graph = null);
 
 /// <summary><c>PUT /v1/mailboxes/{id}/credentials</c>.</summary>
 public sealed record PushRelayUpdateCredentialsRequest(PushRelayImapCredentials? Imap);
@@ -159,5 +191,11 @@ public sealed record PushRelayMailboxRegistrationRequest(
     PushRelayUpdateCredentialsRequest Update,
     string CredentialFingerprint)
 {
+    /// <summary>
+    /// Gmail and Graph registrations are renewed by posting the create request again (the relay replaces the old
+    /// registration); only IMAP has a credential update route.
+    /// </summary>
+    public bool IsAppManaged => Create.Imap is null;
+
     public override string ToString() => $"PushRelayMailboxRegistrationRequest {{ Provider = {Create.Provider}, ClientAccountId = {Create.ClientAccountId} }}";
 }

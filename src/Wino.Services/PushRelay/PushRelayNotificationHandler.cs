@@ -22,15 +22,17 @@ public sealed class PushRelayNotificationHandler : IPushRelayNotificationHandler
     private readonly IAccountService _accountService;
     private readonly Func<IApplicationRuntime> _runtime;
     private readonly Func<INotificationBuilder?>? _notifications;
+    private readonly IPushRelayAppManagedRegistrationStore? _appManaged;
     private readonly ILogger _logger = Log.ForContext<PushRelayNotificationHandler>();
 
     public PushRelayNotificationHandler(IPushRelayRegistrationService registration, IAccountService accountService, Func<IApplicationRuntime> runtime,
-        Func<INotificationBuilder?>? notifications = null)
+        Func<INotificationBuilder?>? notifications = null, IPushRelayAppManagedRegistrationStore? appManaged = null)
     {
         _registration = registration;
         _accountService = accountService;
         _runtime = runtime;
         _notifications = notifications;
+        _appManaged = appManaged;
     }
 
     public async Task<PushRelayNotificationOutcome> HandleAsync(IReadOnlyDictionary<string, string> payload, CancellationToken cancellationToken = default)
@@ -88,8 +90,9 @@ public sealed class PushRelayNotificationHandler : IPushRelayNotificationHandler
                 return PushRelayNotificationOutcome.NoData;
 
             default:
-                // mailbox.renew belongs to app-managed Gmail and Graph registrations, which come later.
-                _logger.Information("Relay asked to renew a registration for account {AccountId}; not supported yet.", accountId);
+                // mailbox.renew: the Gmail watch or Graph subscription is about to expire. The next pass renews it and posts it again.
+                _appManaged?.MarkRenewalDue(accountId);
+                _registration.RequestSync(PushRelaySyncReason.CredentialsChanged);
                 return PushRelayNotificationOutcome.NoData;
         }
     }

@@ -1,4 +1,6 @@
 using System;
+using System.Threading.Tasks;
+using CommunityToolkit.WinUI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
@@ -31,6 +33,13 @@ public sealed partial class NotificationSettingsPage : NotificationSettingsPageA
         _snoozeRefreshTimer = DispatcherQueue.CreateTimer();
         _snoozeRefreshTimer.Interval = SnoozeRefreshInterval;
         _snoozeRefreshTimer.Tick += SnoozeRefreshTimer_Tick;
+
+        // Turning relay-based sync on for the first time (or after a policy bump) shows the privacy policy first.
+        ViewModel.PolicyAcceptanceHandler = () => DispatcherQueue.EnqueueAsync(() =>
+        {
+            var dialogs = WinoApplication.Current.Services.GetRequiredService<IWinoDialogService>();
+            return dialogs.ShowRelayPolicyDialogAsync(new Uri(AppUrls.PrivacyPolicy), () => Task.FromResult(true));
+        });
     }
 
     private void Page_Loaded(object sender, RoutedEventArgs e) => _snoozeRefreshTimer.Start();

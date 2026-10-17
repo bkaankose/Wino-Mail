@@ -18,6 +18,15 @@ public static class PushRelayDefaults
     /// <summary>The configuration key of the persisted <see cref="PushRelayState"/> JSON (non-roaming).</summary>
     public const string StateConfigurationKey = "PushRelay.State";
 
+    /// <summary>The privacy policy version relay-based sync requires. Bumping it re-prompts desktop users once.</summary>
+    public const int PolicyVersion = 1;
+
+    /// <summary>The configuration key of the accepted <see cref="PolicyVersion"/> (non-roaming).</summary>
+    public const string PolicyAcceptedVersionConfigurationKey = "PushRelay.PolicyAcceptedVersion";
+
+    /// <summary>The configuration key of the pending desktop introduction window (non-roaming).</summary>
+    public const string IntroductionPendingConfigurationKey = "PushRelay.IntroductionPending";
+
     /// <summary>Longest device name and OS version the relay accepts.</summary>
     public const int MaxDeviceTextLength = 64;
 

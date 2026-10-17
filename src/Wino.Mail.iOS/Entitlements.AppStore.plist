@@ -10,6 +10,8 @@
   </array>
   <!-- App Store builds (-p:WinoIOSDistribution=AppStore) register for production push. -->
   <key>aps-environment</key><string>production</string>
+  <!-- App Attest (relay device credential); TestFlight and App Store builds always attest against production. -->
+  <key>com.apple.developer.devicecheck.appattest-environment</key><string>production</string>
   <!-- Sign in with Apple (Wino Accounts). Restricted: the provisioning profile must include the capability. -->
   <key>com.apple.developer.applesignin</key>
   <array><string>Default</string></array>

@@ -29,5 +29,6 @@ namespace Wino.Services.PushRelay;
 [JsonSerializable(typeof(PushRelayWellKnown))]
 [JsonSerializable(typeof(PushRelayState))]
 [JsonSerializable(typeof(PushRelayDeviceIdentity))]
+[JsonSerializable(typeof(PushRelayDeviceCredential))]
 [JsonSerializable(typeof(Dictionary<string, JsonElement>))]
 public sealed partial class PushRelayJsonContext : JsonSerializerContext;

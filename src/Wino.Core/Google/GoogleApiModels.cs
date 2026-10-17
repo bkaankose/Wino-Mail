@@ -290,6 +290,27 @@ namespace Google.Apis.Gmail.v1.Data
         public string Value { get; set; }
     }
 
+    /// <summary>Body of <c>users.watch</c>.</summary>
+    public sealed class WatchRequestBody
+    {
+        public string TopicName { get; set; }
+
+        public List<string> LabelIds { get; set; }
+
+        /// <summary><c>INCLUDE</c> or <c>EXCLUDE</c>.</summary>
+        public string LabelFilterBehavior { get; set; }
+    }
+
+    /// <summary>Response of <c>users.watch</c>. <c>Expiration</c> is epoch milliseconds.</summary>
+    public sealed class WatchResponse
+    {
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+        public ulong? HistoryId { get; set; }
+
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+        public long? Expiration { get; set; }
+    }
+
     public sealed class Profile
     {
         public string EmailAddress { get; set; }

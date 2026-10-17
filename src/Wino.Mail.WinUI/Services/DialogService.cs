@@ -516,6 +516,18 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
         return dialog.IsAccepted;
     }
 
+    public async Task<bool> ShowRelayPolicyDialogAsync(Uri policyUri, Func<Task<bool>> acceptAsync)
+    {
+        var dialog = new RelayPolicyDialog(policyUri, acceptAsync)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(dialog);
+
+        return dialog.IsAccepted;
+    }
+
     public ExternalBrowserAuthenticationDialog? OpenExternalBrowserAuthenticationDialog(ExternalBrowserAuthenticationRequest request, Action cancelRequested)
     {
         var dialog = new ExternalBrowserAuthenticationDialog

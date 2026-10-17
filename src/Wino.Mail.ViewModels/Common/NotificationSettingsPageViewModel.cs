@@ -63,6 +63,7 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
     private readonly IUserPresenceStateProvider _userPresenceStateProvider;
     private readonly IPushRelayRegistrationService _pushRelay;
     private readonly IPlatformCapabilities _capabilities;
+    private readonly IRelayIntroductionService? _introduction;
     private Dictionary<Guid, string> _accountNames = [];
     private bool _isApplyingPushRelaySnapshot;
     private bool _isSubscribedToPushRelay;
@@ -77,11 +78,13 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
         INotificationPolicyService notificationPolicyService,
         IUserPresenceStateProvider userPresenceStateProvider,
         IPushRelayRegistrationService pushRelay,
-        IPlatformCapabilities capabilities)
+        IPlatformCapabilities capabilities,
+        IRelayIntroductionService? introduction = null)
     {
         PreferencesService = preferencesService;
         _pushRelay = pushRelay;
         _capabilities = capabilities;
+        _introduction = introduction;
         _accountService = accountService;
         _calendarService = calendarService;
         _notificationPolicyService = notificationPolicyService;
@@ -296,10 +299,11 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
     public bool IsSnoozeWhilePresentingAvailable => SettingAvailability.IsAvailable(PlatformSetting.SnoozeWhilePresenting, _capabilities);
 
     /// <summary>The live notifications card exists on platforms that can use the relay.</summary>
-    public bool IsPushRelaySectionVisible => _capabilities.RemoteNotifications || _capabilities.PushRelayOptIn;
+    public bool IsPushRelaySectionVisible => _capabilities.RemoteNotifications || IsPushRelayToggleVisible;
 
     /// <summary>Opt-in platforms (macOS, Windows) show a switch; iOS is always on while signed in.</summary>
-    public bool IsPushRelayToggleVisible => _capabilities.PushRelayOptIn;
+    /// <summary>Desktop: the switch is the app-wide sync method (relay-based on, timer-based off).</summary>
+    public bool IsPushRelayToggleVisible => SettingAvailability.IsAvailable(PlatformSetting.SyncMethod, _capabilities);
 
     /// <summary>The switch state on opt-in platforms; on iOS it mirrors whether the relay is active.</summary>
     [ObservableProperty]
@@ -327,6 +331,12 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
 
     public PushRelayAvailability PushRelayAvailability => _pushRelay.Snapshot.Availability;
 
+    /// <summary>
+    /// Set by the Windows page: shows the privacy policy and returns true when it was accepted. Only consulted when
+    /// <see cref="IRelayIntroductionService.IsPolicyAcceptanceRequired"/> says the recorded version is missing or old.
+    /// </summary>
+    public Func<Task<bool>>? PolicyAcceptanceHandler { get; set; }
+
     partial void OnIsPushRelayEnabledChanged(bool value)
     {
         if (_isApplyingPushRelaySnapshot || !IsPushRelayToggleVisible || value == _pushRelay.IsUserOptedIn)
@@ -339,6 +349,24 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
     {
         try
         {
+            if (enabled && _introduction is { IsPolicyAcceptanceRequired: true })
+            {
+                // Heads without a policy dialog (unreleased apps whose store listing carries the policy) accept implicitly.
+                var accepted = PolicyAcceptanceHandler is not { } handler || await handler().ConfigureAwait(false);
+                if (!accepted)
+                {
+                    await ExecuteUIThread(() =>
+                    {
+                        _isApplyingPushRelaySnapshot = true;
+                        IsPushRelayEnabled = false;
+                        _isApplyingPushRelaySnapshot = false;
+                    });
+                    return;
+                }
+
+                _introduction.AcceptPolicy();
+            }
+
             await _pushRelay.SetUserOptInAsync(enabled);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

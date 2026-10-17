@@ -30,11 +30,8 @@ public interface IPlatformCapabilities
     /// </summary>
     bool Purchases { get; }
 
-    /// <summary>The platform can receive relay pushes (APNs). Live notifications are always on when signed in unless <see cref="PushRelayOptIn"/>.</summary>
+    /// <summary>The platform can receive relay pushes (APNs). Live notifications follow the app-wide sync method on desktop and are always on when mobile.</summary>
     bool RemoteNotifications { get; }
-
-    /// <summary>Live notifications are an opt-in setting on this platform (off by default).</summary>
-    bool PushRelayOptIn { get; }
 
     /// <summary>Each app mode has its own taskbar entry, so the window's taskbar identity can follow the mode (Windows).</summary>
     bool AppModeTaskbarIdentity { get; }

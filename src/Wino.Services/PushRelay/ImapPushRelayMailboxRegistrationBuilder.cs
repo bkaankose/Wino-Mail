@@ -16,11 +16,14 @@ namespace Wino.Services.PushRelay;
 /// Builds relay registrations for IMAP accounts. Wino never uses OAuth over IMAP, so <c>authMethod</c> is always
 /// <c>password</c>. The fingerprint lets the registration service resend credentials only when they change.
 /// </summary>
-public sealed class ImapPushRelayMailboxRegistrationBuilder(IAccountService accountService) : IPushRelayMailboxRegistrationBuilder
+public sealed class ImapPushRelayMailboxRegistrationBuilder(IAccountService accountService, IPushRelayDeviceInfo? deviceInfo = null) : IPushRelayMailboxRegistrationBuilder
 {
     private const string PasswordAuthMethod = "password";
 
     public MailProviderType ProviderType => MailProviderType.IMAP4;
+
+    /// <summary>The relay watches IMAP for phones only; desktop IMAP stays on the app's own IDLE client and uploads nothing.</summary>
+    private bool IsMobile => deviceInfo?.Describe().Platform is PushRelayPlatforms.Ios or PushRelayPlatforms.Android;
 
     public async Task<bool> IsEligibleAsync(MailAccount account, CancellationToken cancellationToken = default)
         => await BuildAsync(account, cancellationToken).ConfigureAwait(false) is not null;
@@ -28,6 +31,8 @@ public sealed class ImapPushRelayMailboxRegistrationBuilder(IAccountService acco
     public async Task<PushRelayMailboxRegistrationRequest?> BuildAsync(MailAccount account, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(account);
+        if (!IsMobile)
+            return null;
         cancellationToken.ThrowIfCancellationRequested();
 
         if (account.ProviderType != MailProviderType.IMAP4

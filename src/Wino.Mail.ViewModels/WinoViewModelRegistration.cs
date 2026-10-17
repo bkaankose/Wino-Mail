@@ -32,6 +32,7 @@ public static class WinoViewModelRegistration
         services.AddSingleton<MailAppShellViewModel>();
         services.AddSingleton<CalendarAppShellViewModel>();
         services.AddSingleton<SettingsMenuProvider>();
+        services.AddTransient<RelayIntroductionPageViewModel>();
         services.AddSingleton<ContactsPageViewModel>();
         services.AddSingleton<ToDoPageViewModel>();
         services.AddSingleton<CalendarPageViewModel>();

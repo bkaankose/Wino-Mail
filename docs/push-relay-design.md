@@ -6,6 +6,8 @@ client repository still has to build. The relay server itself lives in the Wino-
 repository; its API contract is summarized here only where the client depends on it.
 
 Diagrams: [delivery overview](push-relay/overview.svg) and [new-user flow](push-relay/new-user-flow.svg).
+Implementation plans: [application](push-relay/plan-app.md), [Wino Mail API](push-relay/plan-api.md),
+[WinoRelay](push-relay/plan-relay.md).
 
 ## Goal
 
@@ -90,6 +92,11 @@ There is no timer-based mode. Everything goes through the relay.
 
 ## Privacy acceptance
 
+- Later decision (2026-10-17, evening): fresh installs never see an acceptance dialog; the updated
+  policy on the store listing and website covers them, and the first launch records the current
+  policy version. The dialog exists for installs whose recorded version is unset or older, which today
+  means existing Windows users. The mobile decline notice below is therefore not built. See
+  [plan-app.md](push-relay/plan-app.md), decision D1.
 - Selecting relay-based sync in any application, for any provider, opens the privacy policy to
   agree to. On desktop, declining returns to the sync method selection. On mobile, declining shows
   the launch-only sync notice.
@@ -151,8 +158,50 @@ There is no timer-based mode. Everything goes through the relay.
   the Windows `TeachingTip` migration.
 - iOS Notification Service Extension project with shared Keychain and app group; Android receiver.
 
+## Store and developer console setup for attestation
+
+Verified against Apple and Google documentation on 2026-10-17. None of the apps is published; the
+Play Console app does not exist yet; the only Google Cloud project is the one used for Gmail sync.
+
+### Apple (iOS and iPadOS)
+
+- App Attest needs the App Attest capability on App ID `com.winomail.macos` in the developer portal.
+  Changing App ID capabilities invalidates every provisioning profile; recreate "Wino Mail iOS
+  Development", "Wino Mail iOS App Store", "Wino Mail macOS App Store", "Wino Mail macOS Developer ID"
+  and "Wino Mail macOS Development" with their exact names.
+- Entitlement `com.apple.developer.devicecheck.appattest-environment`: `development` for development
+  signed builds, `production` for TestFlight and App Store. The API verifies against the matching
+  `aaguid`.
+- No App Store Connect setting and no Apple server credential is required. The App Attest root CA is
+  public. App Attest does not run in the Simulator and `DCAppAttestService.isSupported` is false on
+  macOS, so macOS never attests; it registers only Gmail and Graph, which verify themselves.
+- The App Store privacy label must declare the IMAP credential collection; that belongs to the
+  privacy session.
+
+### Google (Android)
+
+- Create the Play Console app for `com.winomail.android` and upload at least an internal-testing
+  build. `appRecognitionVerdict = PLAY_RECOGNIZED` is returned only for builds whose package and
+  signing certificate match what Play distributes, so sideloaded debug builds get
+  `UNRECOGNIZED_VERSION` and fall back to the Wino Account path.
+- In Play Console, Release > App integrity > Play Integrity API > Link a Cloud project. Reusing the
+  existing Gmail Cloud project is fine and keeps one project; linking enables the API automatically.
+- Create a service account in that project with the Play Integrity API role and store its JSON in the
+  API's Key Vault. The API calls `decodeIntegrityToken` with it (Google-managed keys; no key download).
+- Default quota is 10,000 token requests and 10,000 decryptions per day; an increase needs the app on
+  Google Play and the linked project. One attestation per device lifetime plus occasional re-attests
+  fits inside that for a long time.
+- The Play Data Safety form must declare account credentials collected and linked to the user; that
+  belongs to the privacy session.
+
+### Windows and macOS
+
+- No attestation exists. Desktop devices register with attestation kind `none`, can hold only Gmail and
+  Graph registrations, and are rate limited per IP at creation.
+
 ## Status
 
 - Done: shared `PushRelayRegistrationService`, IMAP builder, Apple and Android push token
   providers, desktop socket client (`src/Wino.PushRelay.Socket`, verified live 2026-10-17).
-- Relay-side counterpart items are tracked in the Wino-Mail-Relay repository.
+- Planned: see the three implementation plans linked at the top. Deploy order is relay, then API, then
+  apps.

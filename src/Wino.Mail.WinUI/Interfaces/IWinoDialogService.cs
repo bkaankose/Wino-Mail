@@ -31,6 +31,13 @@ public interface IWinoDialogService
     Task<bool> ShowIntelligenceConsentPolicyDialogAsync(Uri? policyUri, Func<Task<bool>> acceptAsync);
 
     /// <summary>
+    /// Shows the privacy policy before relay-based sync is turned on. <paramref name="acceptAsync"/> records the
+    /// acceptance; the dialog closes only when it succeeds.
+    /// </summary>
+    /// <returns>True when the policy was accepted.</returns>
+    Task<bool> ShowRelayPolicyDialogAsync(Uri policyUri, Func<Task<bool>> acceptAsync);
+
+    /// <summary>
     /// Opens the waiting surface for a browser sign-in on the main window without waiting for it to close.
     /// </summary>
     /// <returns>The open dialog, or null when it could not be shown because another dialog owns the window.</returns>

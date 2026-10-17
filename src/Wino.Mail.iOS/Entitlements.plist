@@ -11,6 +11,10 @@
   <!-- APNs: the device token registers this device with WinoRelay, whose data-only pushes trigger an inbox sync.
        The relay's APNs sandbox setting must match this environment. -->
   <key>aps-environment</key><string>development</string>
+  <!-- App Attest proves the genuine app to the Wino API before it issues the relay device credential. Development
+       builds attest against Apple's development environment; the App Store file says production. Needs the App Attest
+       capability on the App ID (recreating every provisioning profile). -->
+  <key>com.apple.developer.devicecheck.appattest-environment</key><string>development</string>
   <!-- Sign in with Apple (Wino Accounts). Restricted: the provisioning profile must include the capability. -->
   <key>com.apple.developer.applesignin</key>
   <array><string>Default</string></array>

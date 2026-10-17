@@ -118,6 +118,12 @@ public static class ServicesContainerSetup
         services.AddSingleton<ICalDavStateStore, CalDavStateStore>();
         services.AddTransient<ICalendarCapabilityService, CalendarCapabilityService>();
         services.AddSingleton<IWhatsNewService, WhatsNewService>();
+        services.AddSingleton<IRelayIntroductionService>(provider => new PushRelay.RelayIntroductionService(
+            provider.GetRequiredService<IPreferencesService>(),
+            provider.GetRequiredService<IConfigurationService>(),
+            provider.GetRequiredService<IAccountService>(),
+            provider.GetRequiredService<IPlatformCapabilities>(),
+            () => provider.GetRequiredService<IPushRelayRegistrationService>()));
     }
 
     /// <summary>
@@ -127,10 +133,21 @@ public static class ServicesContainerSetup
     /// </summary>
     private static void RegisterPushRelayServices(IServiceCollection services)
     {
-        services.AddSingleton<IPushRelayTokenProvider>(provider => new PushRelayTokenProvider(provider.GetRequiredService<IWinoAccountApiClient>()));
+        services.AddSingleton<IPushRelayDeviceCredentialStore>(provider =>
+            provider.GetService<ISecureItemStore>() is { } secureItems
+                ? new SecureItemPushRelayDeviceCredentialStore(secureItems)
+                : new ProtectedFilePushRelayDeviceCredentialStore(provider.GetRequiredService<ISecretProtector>(), provider.GetRequiredService<IApplicationConfiguration>()));
+        services.AddSingleton<IPushRelayTokenProvider>(provider => new PushRelayTokenProvider(
+            provider.GetRequiredService<IWinoAccountApiClient>(),
+            provider.GetRequiredService<IWinoAccountSessionService>(),
+            provider.GetRequiredService<IPushRelayDeviceCredentialStore>(),
+            // Heads with a platform attestation service (iOS, Android) register their provider; the rest attest with "none".
+            provider.GetService<IDeviceAttestationProvider>() ?? new NoDeviceAttestationProvider(),
+            provider.GetService<IPushRelayDeviceInfo>()));
         services.AddSingleton<IPushRelayClient>(provider => new PushRelayClient(provider.GetRequiredService<IPushRelayTokenProvider>()));
         services.AddSingleton<IPushRelayStateStore>(provider => new ConfigurationPushRelayStateStore(provider.GetRequiredService<IConfigurationService>()));
-        services.AddSingleton<IPushRelayMailboxRegistrationBuilder>(provider => new ImapPushRelayMailboxRegistrationBuilder(provider.GetRequiredService<IAccountService>()));
+        services.AddSingleton<IPushRelayMailboxRegistrationBuilder>(provider => new ImapPushRelayMailboxRegistrationBuilder(
+            provider.GetRequiredService<IAccountService>(), provider.GetService<IPushRelayDeviceInfo>()));
         services.AddSingleton<IPushRelayRegistrationService>(provider => new PushRelayRegistrationService(
             provider.GetRequiredService<IPushRelayClient>(),
             provider.GetRequiredService<IPushRelayTokenProvider>(),
@@ -145,13 +162,15 @@ public static class ServicesContainerSetup
             provider.GetService<IPushRelayDeviceIdentityStore>(),
             provider.GetService<IPushRelayDeviceInfo>(),
             provider.GetService<IPushTokenProvider>(),
-            socketKeys: provider.GetService<IPushRelaySocketKeyStore>()));
+            socketKeys: provider.GetService<IPushRelaySocketKeyStore>(),
+            preferences: provider.GetService<IPreferencesService>()));
         // Lazy, so the profile service (which signs the relay device out) is never built around the relay graph.
         services.AddSingleton<Func<IPushRelayRegistrationService>>(provider => () => provider.GetRequiredService<IPushRelayRegistrationService>());
         services.AddSingleton<IPushRelayNotificationHandler>(provider => new PushRelayNotificationHandler(
             provider.GetRequiredService<IPushRelayRegistrationService>(),
             provider.GetRequiredService<IAccountService>(),
             () => provider.GetRequiredService<IApplicationRuntime>(),
-            () => provider.GetService<INotificationBuilder>()));
+            () => provider.GetService<INotificationBuilder>(),
+            provider.GetService<IPushRelayAppManagedRegistrationStore>()));
     }
 }

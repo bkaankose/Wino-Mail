@@ -18,7 +18,9 @@ public sealed class ApplicationRuntimeInitialization(
     Func<IWinoAccountIntelligenceSnapshotService> entitlement,
     Func<IMailIntelligenceCoordinator> intelligence,
     Func<IntelligenceResultKeyLifecycle> keys,
-    Func<IPushRelayRegistrationService>? pushRelay = null)
+    Func<IPushRelayRegistrationService>? pushRelay = null,
+    Func<IRelaySocketCoordinator?>? relaySocket = null,
+    Func<IRelayIntroductionService?>? relayIntroduction = null)
 {
     private int _completedStep;
     private Task _entitlementRefresh = Task.CompletedTask;
@@ -68,6 +70,26 @@ public sealed class ApplicationRuntimeInitialization(
         return Task.WhenAll(_entitlementRefresh, pictures().BackfillAsync(), StartPushRelayAsync(cancellationToken));
     }
 
+    /// <summary>The desktop socket follows the relay registration; it starts after the registration service.</summary>
+    private async Task StartRelaySocketAsync(CancellationToken cancellationToken)
+    {
+        if (relaySocket?.Invoke() is not { } coordinator)
+            return;
+
+        try
+        {
+            await coordinator.StartAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Warning(ex, "The relay socket could not start.");
+        }
+    }
+
     /// <summary>Live notifications must never fail startup; the relay service logs its own problems.</summary>
     private async Task StartPushRelayAsync(CancellationToken cancellationToken)
     {
@@ -76,7 +98,13 @@ public sealed class ApplicationRuntimeInitialization(
 
         try
         {
+            // Decides timer or relay for this install (fresh: relay; upgraded with accounts: timer plus the Windows
+            // introduction) before the registration service reads the sync method.
+            if (relayIntroduction?.Invoke() is { } introduction)
+                await introduction.IsIntroductionPendingAsync(cancellationToken);
+
             await pushRelay().StartAsync(cancellationToken);
+            await StartRelaySocketAsync(cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

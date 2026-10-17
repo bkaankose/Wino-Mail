@@ -143,13 +143,15 @@ public static class AndroidPlatformRegistration
         services.AddSingleton(_ => new AndroidFcmTokenProvider(context));
         services.AddSingleton<IPushTokenProvider>(provider => provider.GetRequiredService<AndroidFcmTokenProvider>());
         services.AddSingleton<IPushRelayDeviceInfo, AndroidPushRelayDeviceInfo>();
+        // Play Integrity proves the Play-distributed build before the Wino API issues the relay device credential.
+        services.AddSingleton<IDeviceAttestationProvider>(new PushRelay.AndroidPlayIntegrityProvider(context));
 
         // Single-activity app: no additional windows, tray, hotkeys or sign-in startup. Printing and PDF export go
         // through PrintManager. Remote notifications need Firebase, which exists only in builds with google-services.json.
         services.AddSingleton<IPlatformCapabilities>(new PlatformCapabilities(
             Printing: true, PdfExport: true, Smime: false, AdditionalWindows: false, Notifications: true, NotificationActions: true,
             StartupIntegration: false, Tray: false, GlobalHotkeys: false, GeneralActivation: true, MicrosoftStore: false,
-            AppleAppStore: false, RemoteNotifications: AndroidFcmTokenProvider.IsFirebaseConfigured(context), PushRelayOptIn: false,
+            AppleAppStore: false, RemoteNotifications: AndroidFcmTokenProvider.IsFirebaseConfigured(context),
             // No configurable hardware shortcuts yet; backups are Windows and Mac files (paths, not content URIs); no Play
             // Billing in v1, so nothing is sold here.
             KeyboardShortcuts: false, FileBackup: false, Purchases: false,

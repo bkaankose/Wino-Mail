@@ -22,6 +22,7 @@ public static class SettingAvailability
         PlatformSetting.SnoozeWhilePresenting => capabilities.PresentationDetection,
         PlatformSetting.SyncIntervals => capabilities.ConfigurableSyncIntervals,
         PlatformSetting.BadgeLaunchNavigation => capabilities.BadgeLaunchNavigation,
+        PlatformSetting.SyncMethod => capabilities.ConfigurableSyncIntervals,
         _ => true
     };
 }

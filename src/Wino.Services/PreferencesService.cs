@@ -664,6 +664,14 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(EmailSyncIntervalMinutes), value);
     }
 
+    public SyncMethod SyncMethod
+    {
+        get => GetDefinedEnum(nameof(SyncMethod), SyncMethod.Relay);
+        set => SetPropertyAndSave(nameof(SyncMethod), value);
+    }
+
+    public bool IsSyncMethodConfigured => _configurationService.Contains(nameof(SyncMethod));
+
     public bool IsUndoSendingDraftsEnabled
     {
         get => _configurationService.Get(nameof(IsUndoSendingDraftsEnabled), true);
