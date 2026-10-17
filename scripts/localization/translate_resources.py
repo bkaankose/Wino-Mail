@@ -57,6 +57,7 @@ LOCALE_LABELS = {
     "sk_SK": "Slovak (Slovakia)",
     "tr_TR": "Turkish (Turkey)",
     "uk_UA": "Ukrainian (Ukraine)",
+    "zh_TW": "Chinese, Traditional (Taiwan)",
     "zh_CN": "Chinese, Simplified (China)",
 }
 
