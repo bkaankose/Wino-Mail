@@ -24,6 +24,7 @@ public static class AiActionCatalog
             new("ru-RU", Translator.Composer_AiTranslateLanguageRussian),
             new("ja-JP", Translator.Composer_AiTranslateLanguageJapanese),
             new("ko-KR", Translator.Composer_AiTranslateLanguageKorean),
+            new("zh-TW", Translator.Composer_AiTranslateLanguageChineseTraditional),
             new("zh-CN", Translator.Composer_AiTranslateLanguageChineseSimplified),
             new("ar-SA", Translator.Composer_AiTranslateLanguageArabic),
             new("hi-IN", Translator.Composer_AiTranslateLanguageHindi),
