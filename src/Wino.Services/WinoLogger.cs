@@ -65,6 +65,10 @@ public class WinoLogger : IWinoLogger
         SentrySdk.Init(options =>
         {
             options.Dsn = _applicationConfiguration.SentryDNS;
+            // Native crash handler and offline envelope cache must live under Wino's data folder.
+            // Without this the native SDK defaults to '<working directory>\.sentry-native',
+            // which litters folders the app was launched from (file and protocol activations).
+            options.CacheDirectoryPath = _applicationConfiguration.ApplicationDataFolderPath;
             options.Environment = _appMetadataService.SentryEnvironment;
             options.Release = _appMetadataService.SentryRelease;
             options.DefaultTags[SentryDiagnosticIdTag] = diagnosticId;

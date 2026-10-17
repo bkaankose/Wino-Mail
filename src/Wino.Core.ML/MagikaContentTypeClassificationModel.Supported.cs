@@ -15,7 +15,12 @@ public sealed class MagikaContentTypeClassificationModel : IContentTypeClassific
     private readonly Lazy<Task<ModelState>> _modelState;
     private bool _disposed;
 
-    public bool IsSupported => true;
+    // The model is only usable when the Visual C++ runtime onnxruntime.dll links against can be loaded safely.
+    // Loading onnxruntime.dll against an older runtime crashes the process natively, so nothing below touches
+    // ONNX until the preflight check passes.
+    public bool IsSupported => OnnxNativeRuntimeSupport.Status.IsAvailable;
+
+    public string? UnavailableReason => OnnxNativeRuntimeSupport.Status.UnavailableReason;
 
     public MagikaContentTypeClassificationModel()
         : this(MagikaAssetLoader.GetDefaultModelDirectory())
@@ -38,6 +43,9 @@ public sealed class MagikaContentTypeClassificationModel : IContentTypeClassific
 
         if (!content.CanRead || !content.CanSeek)
             throw new ArgumentException("Content must be a readable, seekable stream.", nameof(content));
+
+        if (!IsSupported)
+            return ContentTypeClassificationResult.Unavailable;
 
         try
         {

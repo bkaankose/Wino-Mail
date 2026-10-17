@@ -39,6 +39,7 @@ public class WinoTranslationDictionary : Dictionary<string, string>
             AppLanguage.Czech => "cs_CZ",
             AppLanguage.French => "fr_FR",
             AppLanguage.Chinese => "zh_CN",
+            AppLanguage.ChineseTraditional => "zh_TW",
             AppLanguage.Spanish => "es_ES",
             AppLanguage.Indonesian => "id_ID",
             AppLanguage.Italian => "it_IT",

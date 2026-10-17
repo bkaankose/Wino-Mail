@@ -103,13 +103,29 @@ public class TranslationService : ITranslationService
                 continue;
 
             var normalizedLanguageTag = languageTag.Replace('_', '-').Trim();
-            var languageCode = normalizedLanguageTag.Split('-')[0];
+            var subtags = normalizedLanguageTag.Split('-');
+            var languageCode = subtags[0];
+
+            if (string.Equals(languageCode, "zh", System.StringComparison.OrdinalIgnoreCase))
+                return IsTraditionalChineseTag(subtags) ? AppLanguage.ChineseTraditional : AppLanguage.Chinese;
 
             if (TryResolveSupportedLanguage(languageCode, out var supportedLanguage))
                 return supportedLanguage;
         }
 
         return DefaultAppLanguage;
+    }
+
+    // zh-Hant, zh-TW, zh-HK and zh-MO use Traditional script. An explicit Hans script wins over the region,
+    // and everything else, including bare zh, stays Simplified.
+    private static bool IsTraditionalChineseTag(string[] subtags)
+    {
+        var upperSubtags = subtags.Skip(1).Select(subtag => subtag.ToUpperInvariant()).ToArray();
+
+        if (upperSubtags.Contains("HANS"))
+            return false;
+
+        return upperSubtags.Any(subtag => subtag is "HANT" or "TW" or "HK" or "MO");
     }
 
     private static bool TryResolveSupportedLanguage(string languageCode, out AppLanguage supportedLanguage)
@@ -154,7 +170,8 @@ public class TranslationService : ITranslationService
     private static List<AppLanguageModel> CreateAvailableLanguages()
         =>
         [
-            new AppLanguageModel(AppLanguage.Chinese, "Chinese", "zh-CN"),
+            new AppLanguageModel(AppLanguage.Chinese, "Chinese (Simplified)", "zh-CN"),
+            new AppLanguageModel(AppLanguage.ChineseTraditional, "Chinese (Traditional)", "zh-TW"),
             new AppLanguageModel(AppLanguage.Czech, "Czech", "cs-CZ"),
             new AppLanguageModel(AppLanguage.Deutsch, "Deutsch", "de-DE"),
             new AppLanguageModel(AppLanguage.English, "English", "en-US"),

@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Serilog;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Attachments;
@@ -24,6 +25,8 @@ public sealed class ContentTypeDetectionService(
         "unknown/unknown"
     };
 
+    private int _unavailabilityReported;
+
     public async ValueTask<ContentTypeDetectionResult> DetectAsync(
         Stream content,
         string fileName,
@@ -33,7 +36,10 @@ public sealed class ContentTypeDetectionService(
         ArgumentNullException.ThrowIfNull(content);
 
         if (!classificationModel.IsSupported)
+        {
+            ReportUnavailabilityOnce();
             return ContentTypeDetectionResult.Unavailable;
+        }
 
         try
         {
@@ -78,6 +84,17 @@ public sealed class ContentTypeDetectionService(
             logger.CaptureException(ex, "AttachmentContentTypeDetection");
             return new ContentTypeDetectionResult(ContentTypeDetectionStatus.Failed);
         }
+    }
+
+    private void ReportUnavailabilityOnce()
+    {
+        if (Interlocked.Exchange(ref _unavailabilityReported, 1) != 0)
+            return;
+
+        var reason = classificationModel.UnavailableReason ?? "unknown reason";
+        Log.Warning("Attachment content-type detection is unavailable: {Reason}", reason);
+        // The reason names runtime library files and versions only, never user paths.
+        logger.TrackEvent("AttachmentContentTypeDetectionUnavailable", new Dictionary<string, string> { ["reason"] = reason });
     }
 
     private static bool IsSpecificMimeType(string? mimeType) =>
