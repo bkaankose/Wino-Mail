@@ -29,5 +29,7 @@ public enum AppLanguage
     Slovak,
     Ukrainian,
     Hebrew,
-    Vietnamese
+    Vietnamese,
+    // Appended so the stored name "Chinese" (Simplified) keeps resolving for existing users.
+    ChineseTraditional
 }

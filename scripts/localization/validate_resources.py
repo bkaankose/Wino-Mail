@@ -49,6 +49,7 @@ NON_LATIN_LOCALES = {
     "ru_RU",
     "uk_UA",
     "zh_CN",
+    "zh_TW",
 }
 
 ENGLISH_HINT_WORDS = {

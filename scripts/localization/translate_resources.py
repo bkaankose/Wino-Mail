@@ -58,6 +58,7 @@ LOCALE_LABELS = {
     "tr_TR": "Turkish (Turkey)",
     "uk_UA": "Ukrainian (Ukraine)",
     "zh_CN": "Chinese, Simplified (China)",
+    "zh_TW": "Chinese, Traditional (Taiwan)",
 }
 
 DEFAULT_TRANSLATIONS_ROOT = (

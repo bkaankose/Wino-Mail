@@ -107,7 +107,11 @@ public class ConfigurationService : IConfigurationService
 
         if (typeof(T).IsEnum)
         {
-            value = (T)Enum.Parse(typeof(T), stringValue);
+            // A renamed or removed member must fall back to the default instead of failing launch.
+            if (!Enum.TryParse(typeof(T), stringValue, out var enumValue))
+                return false;
+
+            value = (T)enumValue!;
             return true;
         }
 

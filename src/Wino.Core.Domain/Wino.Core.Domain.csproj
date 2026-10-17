@@ -38,6 +38,7 @@
 		<None Remove="Translations\uk_UA\resources.json" />
 		<None Remove="Translations\vi_VN\resources.json" />
 		<None Remove="Translations\zh_CN\resources.json" />
+		<None Remove="Translations\zh_TW\resources.json" />
 	</ItemGroup>
 	<ItemGroup>
 		<EmbeddedResource Include="Translations\bg_BG\resources.json" />
@@ -67,6 +68,7 @@
 		<EmbeddedResource Include="Translations\uk_UA\resources.json" />
 		<EmbeddedResource Include="Translations\vi_VN\resources.json" />
 		<EmbeddedResource Include="Translations\zh_CN\resources.json" />
+		<EmbeddedResource Include="Translations\zh_TW\resources.json" />
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.Diagnostics" />

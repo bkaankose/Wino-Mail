@@ -36,6 +36,7 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.ViewModels.Search;
 using Wino.Mail.WinUI;
+using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Controls.ListView;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
@@ -123,9 +124,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
         set => ViewModel.SearchQuery = value;
     }
 
-    public string ContextFlyoutLanguage => WinoApplication.Current.Services.GetRequiredService<IPreferencesService>().CurrentLanguage == AppLanguage.Chinese
-        ? "zh-CN"
-        : string.Empty;
+    public string ContextFlyoutLanguage => MenuFlyoutLanguageHelper.GetLanguageTag(WinoApplication.Current.Services.GetRequiredService<IPreferencesService>().CurrentLanguage)
+        ?? string.Empty;
 
     public MailListPage()
     {
