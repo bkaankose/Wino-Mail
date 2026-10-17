@@ -142,7 +142,8 @@ public class TranslationService : ITranslationService
             "tr" => AppLanguage.Turkish,
             "uk" => AppLanguage.Ukrainian,
             "vi" => AppLanguage.Vietnamese,
-            "zh" => AppLanguage.Chinese,
+            "zh-TW" => AppLanguage.ChineseTraditional,
+            "zh-CN" => AppLanguage.ChineseSimplified,
             _ => AppLanguage.None
         };
 
@@ -154,7 +155,8 @@ public class TranslationService : ITranslationService
     private static List<AppLanguageModel> CreateAvailableLanguages()
         =>
         [
-            new AppLanguageModel(AppLanguage.Chinese, "Chinese", "zh-CN"),
+            new AppLanguageModel(AppLanguage.ChineseTraditional, "Chinese", "zh-TW"),
+            new AppLanguageModel(AppLanguage.ChineseSimplified, "Chinese", "zh-CN"),
             new AppLanguageModel(AppLanguage.Czech, "Czech", "cs-CZ"),
             new AppLanguageModel(AppLanguage.Deutsch, "Deutsch", "de-DE"),
             new AppLanguageModel(AppLanguage.English, "English", "en-US"),
