@@ -4527,7 +4527,9 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
     private async Task<MimeMessage> DownloadMimeMessageAsync(string messageId, CancellationToken cancellationToken = default)
     {
         var mimeContentStream = await _graphClient.Me.Messages[messageId].Content.GetAsync(null, cancellationToken).ConfigureAwait(false);
-        return await MimeMessage.LoadAsync(mimeContentStream, cancellationToken).ConfigureAwait(false);
+        var mimeMessage = await MimeMessage.LoadAsync(mimeContentStream, cancellationToken).ConfigureAwait(false);
+
+        return mimeMessage.RecoverHeaderCharsets();
     }
 
     public override async Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(Message message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)

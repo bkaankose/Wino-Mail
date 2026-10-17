@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Text;
 using MailKit;
 using MimeKit;
 using Wino.Core.Domain;
@@ -120,9 +121,10 @@ public static class MailkitClientExtensions
         // MailCopy.Id maps to {FolderId}_{UID} for deterministic folder-local identity.
 
         var envelope = messageSummary.Envelope;
+        var fallbackEncoding = mime == null ? MimeHeaderCharsetRecovery.GetBodyFallbackEncoding(messageSummary.Body) : null;
 
         var messageUid = CreateUid(folder.Id, messageSummary.UniqueId.Id);
-        var subject = mime?.Subject ?? envelope?.Subject ?? string.Empty;
+        var subject = mime?.Subject ?? GetEnvelopeSubject(messageSummary, fallbackEncoding);
         var previewText = mime != null ? mime.GetPreviewText() : GetPreviewText(messageSummary, subject);
 
         // Prefer InternalDate (server received time). Fall back to envelope date and finally UTC now.
@@ -131,7 +133,7 @@ public static class MailkitClientExtensions
                            ?? DateTime.UtcNow;
 
         var messageId = MailHeaderExtensions.NormalizeMessageId(mime?.GetMessageId() ?? envelope?.MessageId);
-        var fromName = mime != null ? GetActualSenderName(mime) : GetEnvelopeSenderName(envelope);
+        var fromName = mime != null ? GetActualSenderName(mime) : GetEnvelopeSenderName(messageSummary, fallbackEncoding);
         var fromAddress = mime != null ? GetActualSenderAddress(mime) : GetEnvelopeSenderAddress(envelope);
         var references = mime?.References?.GetReferences() ?? messageSummary.References?.GetReferences();
         var inReplyTo = MailHeaderExtensions.NormalizeMessageId(mime != null ? mime.GetInReplyTo() : envelope?.InReplyTo);
@@ -217,6 +219,39 @@ public static class MailkitClientExtensions
 
         return subjectFallback ?? string.Empty;
     }
+
+    private static string GetEnvelopeSubject(IMessageSummary messageSummary, Encoding fallbackEncoding)
+    {
+        var header = FindRawHeader(messageSummary, HeaderId.Subject);
+
+        if (header != null && fallbackEncoding != null && MimeHeaderCharsetRecovery.NeedsRecovery(header))
+            return MimeHeaderCharsetRecovery.GetRecoveredValue(header, fallbackEncoding);
+
+        return messageSummary.Envelope?.Subject ?? string.Empty;
+    }
+
+    private static string GetEnvelopeSenderName(IMessageSummary messageSummary, Encoding fallbackEncoding)
+    {
+        var recovered = GetRecoveredMailbox(messageSummary, HeaderId.From, fallbackEncoding)
+                        ?? GetRecoveredMailbox(messageSummary, HeaderId.Sender, fallbackEncoding);
+
+        if (recovered != null)
+            return string.IsNullOrWhiteSpace(recovered.Name) ? recovered.Address : recovered.Name;
+
+        return GetEnvelopeSenderName(messageSummary.Envelope);
+    }
+
+    private static MailboxAddress GetRecoveredMailbox(IMessageSummary messageSummary, HeaderId headerId, Encoding fallbackEncoding)
+    {
+        var header = FindRawHeader(messageSummary, headerId);
+
+        return MimeHeaderCharsetRecovery.TryGetRecoveredAddresses(header, fallbackEncoding, out var addresses)
+            ? addresses.Mailboxes.FirstOrDefault()
+            : null;
+    }
+
+    private static Header FindRawHeader(IMessageSummary messageSummary, HeaderId headerId)
+        => messageSummary.Headers?.FirstOrDefault(header => header.Id == headerId);
 
     private static string GetEnvelopeSenderName(Envelope envelope)
     {

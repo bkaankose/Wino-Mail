@@ -9,6 +9,7 @@ using HtmlAgilityPack;
 using MimeKit;
 using MimeKit.Cryptography;
 using Serilog;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Reader;
@@ -37,7 +38,7 @@ public class MimeFileService : IMimeFileService
         var resourcePath = await GetMimeResourcePathAsync(accountId, fileId).ConfigureAwait(false);
         var mimeFilePath = GetEMLPath(resourcePath);
 
-        var loadedMimeMessage = await MimeMessage.LoadAsync(mimeFilePath, cancellationToken).ConfigureAwait(false);
+        var loadedMimeMessage = (await MimeMessage.LoadAsync(mimeFilePath, cancellationToken).ConfigureAwait(false)).RecoverHeaderCharsets();
 
         return new MimeMessageInformation(loadedMimeMessage, resourcePath);
     }
@@ -46,7 +47,7 @@ public class MimeFileService : IMimeFileService
     {
         var memoryStream = new MemoryStream(fileBytes);
 
-        var loadedMimeMessage = await MimeMessage.LoadAsync(memoryStream, cancellationToken).ConfigureAwait(false);
+        var loadedMimeMessage = (await MimeMessage.LoadAsync(memoryStream, cancellationToken).ConfigureAwait(false)).RecoverHeaderCharsets();
         return new MimeMessageInformation(loadedMimeMessage, emlDirectoryPath);
     }
 

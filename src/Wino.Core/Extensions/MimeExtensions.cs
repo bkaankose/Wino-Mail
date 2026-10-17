@@ -7,6 +7,7 @@ using MimeKit;
 using MimeKit.IO;
 using MimeKit.IO.Filters;
 using MimeKit.Utils;
+using Wino.Core.Domain.Extensions;
 using Wino.Services.Extensions;
 
 namespace Wino.Core.Extensions;
@@ -36,7 +37,7 @@ public static class MimeExtensions
             using var filtered = new FilteredStream(stream);
             filtered.Add(DecoderFilter.Create(ContentEncoding.Base64));
 
-            return MimeMessage.Load(filtered);
+            return MimeMessage.Load(filtered).RecoverHeaderCharsets();
         }
     }
 

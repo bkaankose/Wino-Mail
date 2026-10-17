@@ -625,7 +625,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
             await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
 
             EnsureMessageUidValidity(remoteFolder, new[] { mailItem });
-            var message = await remoteFolder.GetMessageAsync(uniqueId, cancellationToken, transferProgress).ConfigureAwait(false);
+            var message = (await remoteFolder.GetMessageAsync(uniqueId, cancellationToken, transferProgress).ConfigureAwait(false)).RecoverHeaderCharsets();
 
             await _imapChangeProcessor.SaveMimeFileAsync(mailItem.FileId, message, Account.Id, mailItem.Id).ConfigureAwait(false);
             await client.CloseSelectedMailboxAsync(remoteFolder, _logger, cancellationToken).ConfigureAwait(false);

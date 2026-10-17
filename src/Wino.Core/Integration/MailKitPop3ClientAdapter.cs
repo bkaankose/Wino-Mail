@@ -7,6 +7,7 @@ using MailKit.Net.Pop3;
 using MimeKit;
 using Wino.Core.Diagnostics;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Integration;
@@ -63,8 +64,8 @@ public sealed class MailKitPop3ClientAdapter : IPop3ClientAdapter
     public Task<HeaderList> GetMessageHeadersAsync(int index, CancellationToken cancellationToken = default)
         => _client.GetMessageHeadersAsync(index, cancellationToken);
 
-    public Task<MimeMessage> GetMessageAsync(int index, CancellationToken cancellationToken = default)
-        => _client.GetMessageAsync(index, cancellationToken);
+    public async Task<MimeMessage> GetMessageAsync(int index, CancellationToken cancellationToken = default)
+        => (await _client.GetMessageAsync(index, cancellationToken).ConfigureAwait(false)).RecoverHeaderCharsets();
 
     public Task DeleteMessageAsync(int index, CancellationToken cancellationToken = default)
         => _client.DeleteMessageAsync(index, cancellationToken);

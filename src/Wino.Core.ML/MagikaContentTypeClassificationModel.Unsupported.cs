@@ -10,6 +10,8 @@ public sealed class MagikaContentTypeClassificationModel : IContentTypeClassific
 {
     public bool IsSupported => false;
 
+    public string? UnavailableReason => "Local ML inference is supported only on x64 and ARM64.";
+
     public MagikaContentTypeClassificationModel()
     {
     }

@@ -450,7 +450,7 @@ public class UnifiedImapSynchronizer
                     .FetchAsync(new UniqueIdSet(newBatch.ToList(), SortOrder.Ascending),
                         new FetchRequest(_mailSynchronizationFlags, new[]
                         {
-                            "References", Domain.Constants.WinoLocalDraftHeader, Domain.Constants.LegacyWinoLocalDraftHeader, Domain.Constants.DispositionNotificationToHeader
+                            "References", "Subject", "From", "Sender", Domain.Constants.WinoLocalDraftHeader, Domain.Constants.LegacyWinoLocalDraftHeader, Domain.Constants.DispositionNotificationToHeader
                         }), cancellationToken)
                     .ConfigureAwait(false);
 
