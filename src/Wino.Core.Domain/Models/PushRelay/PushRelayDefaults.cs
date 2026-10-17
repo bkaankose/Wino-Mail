@@ -32,7 +32,7 @@ public static class PushRelayPlatforms
     public const string MacOS = "macos";
     public const string Android = "android";
 
-    /// <summary>Not accepted by the relay yet; Windows registrations are marked rejected per app version.</summary>
+    /// <summary>Desktop like <see cref="MacOS"/>: receives events over the relay socket, with WNS as the push channel.</summary>
     public const string Windows = "windows";
 }
 
@@ -76,6 +76,12 @@ public static class PushRelayPayloadKeys
 {
     public const string Version = "v";
     public const string Kind = "t";
+
+    /// <summary>The relay event id (<c>eid</c>), acknowledged over the socket or <c>POST /v1/devices/me/events/ack</c>.</summary>
+    public const string EventId = "eid";
+
+    /// <summary>The changed folder (<c>f</c>) when the relay knows it.</summary>
+    public const string Folder = "f";
     public const string SubscriptionId = "sid";
     public const string ClientAccountId = "cid";
     public const string MailboxId = "mid";

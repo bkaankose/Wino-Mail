@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Relay socket console: opens the desktop socket to WinoRelay as the Wino Account signed in to the app on this
+    machine, registers its own relay device, and prints every decrypted event. See README.md.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- On the Mac the app's tokens are Keychain items, which need the Apple platform layer (net10.0-macos). -->
+    <TargetFramework Condition="$([MSBuild]::IsOSPlatform('OSX'))">net10.0-macos</TargetFramework>
+    <TargetFramework Condition="!$([MSBuild]::IsOSPlatform('OSX'))">net10.0</TargetFramework>
+    <Platforms>x86;x64;arm64</Platforms>
+    <!-- A developer tool: outside the Release AOT gate, like the intelligence console. -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Wino.Relay.ConsoleApp</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$(TargetFramework.Contains('-macos'))">
+    <SupportedOSPlatformVersion>14.0</SupportedOSPlatformVersion>
+    <!-- The macOS SDK builds an app bundle even for a console; it needs an identifier and a plain console entry point. -->
+    <ApplicationId>com.winomail.relayconsole</ApplicationId>
+    <ApplicationTitle>Wino Relay Console</ApplicationTitle>
+    <!-- A console pumps no run loop, so Apple's NSUrlSession handler never completes; use the managed HttpClientHandler. -->
+    <UseNativeHttpHandler>false</UseNativeHttpHandler>
+    <!-- Signed with the development identity so Keychain's "Always Allow" for the app's tokens survives rebuilds
+         (an unsigned bundle gets a new requirement on every build). Pass -p:EnableCodeSigning=false without the certificate. -->
+    <EnableCodeSigning>true</EnableCodeSigning>
+    <CodesignKey>Apple Development: Created via API (724MPVZ5ZD)</CodesignKey>
+    <DefineConstants>$(DefineConstants);WINO_MACOS</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Serilog" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Wino.Core.Domain/Wino.Core.Domain.csproj" />
+    <ProjectReference Include="../../src/Wino.Services/Wino.Services.csproj" />
+    <ProjectReference Include="../../src/Wino.PushRelay.Socket/Wino.PushRelay.Socket.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$(TargetFramework.Contains('-macos'))">
+    <ProjectReference Include="../../src/Wino.Platform.Apple/Wino.Platform.Apple.csproj" />
+  </ItemGroup>
+</Project>

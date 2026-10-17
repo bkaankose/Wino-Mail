@@ -75,7 +75,7 @@ Runtime identifiers: Debug builds of the head use `android-arm64` (the Apple sil
 | `controls/Wino.Mail.Controls.Android` | Mail and group rows, list adapter, swipes, shell rows, settings cards and expander, avatars, pills, chips, info bar, calendar week strip, month grid and surface, contact and task rows |
 | `controls/Wino.Editor.Android` | `WebView` reader and editor sessions over `Wino.Editor.Core`: assets through `WebViewAssetLoader`, the `winoMail` `WebMessageListener` bridge with a Java `WinoJavaScriptBridge` fallback, remote-content policy in `shouldInterceptRequest` |
 
-`WinoMail.Android.slnx` has three folders: `/Android/` (the projects above), `/Shared/`, and `/Tests/`. Run the portable tests with the host commands in [macOS development](development-macos.md#build) or [Windows development](development-windows.md).
+`WinoMail.Android.slnx` has two folders: `/Android/` (the projects above) and `/Shared/`.
 
 **Views named only in XML.** Release builds trim with `TrimMode=full`, which removes a view that only a layout names. Every new `[Register]`ed view in `controls/Wino.Presentation.Android` or `controls/Wino.Mail.Controls.Android` that is used only from XML must be listed in that library's `ILLink.Descriptors.xml`; otherwise Debug works and the Release app fails with `ClassNotFoundException` while inflating.
 

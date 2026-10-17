@@ -22,6 +22,7 @@ internal interface IAppActivationHandlerHost
     Task<bool> HandleShareTargetActivationAsync(AppActivationArguments activationArgs, bool activateWindow);
     Task<bool> HandleMailToProtocolActivationAsync(MailToUri mailToUri, bool activateWindow);
     Task HandleBillingSuccessProtocolActivationAsync(bool activateWindow);
+    bool HandleWinoAccountAuthCallbackActivation(Uri? callback);
     Task<bool> HandlePendingBootstrapActivationAsync(PendingBootstrapActivation pendingBootstrapActivation);
     Task HandleFileActivationAsync(WinoApplicationMode mode, IReadOnlyList<string> filePaths, bool activateWindow);
     Task CompleteStandardLaunchAsync(Microsoft.UI.Xaml.LaunchActivatedEventArgs launchArgs, bool hasAnyAccount);
@@ -60,6 +61,8 @@ public partial class App : IAppActivationHandlerHost, IAppNotificationHandlerHos
         => HandleMailToProtocolActivationAsync(mailToUri, activateWindow);
     Task IAppActivationHandlerHost.HandleBillingSuccessProtocolActivationAsync(bool activateWindow)
         => HandleBillingSuccessProtocolActivationAsync(activateWindow);
+    bool IAppActivationHandlerHost.HandleWinoAccountAuthCallbackActivation(Uri? callback)
+        => HandleWinoAccountAuthCallbackActivation(callback);
     Task<bool> IAppActivationHandlerHost.HandlePendingBootstrapActivationAsync(PendingBootstrapActivation pendingBootstrapActivation)
         => HandlePendingBootstrapActivationAsync(pendingBootstrapActivation);
     Task IAppActivationHandlerHost.HandleFileActivationAsync(WinoApplicationMode mode, IReadOnlyList<string> filePaths, bool activateWindow)

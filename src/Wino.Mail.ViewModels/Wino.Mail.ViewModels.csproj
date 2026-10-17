@@ -34,7 +34,4 @@
 	<ItemGroup>
 	  <Folder Include="Helpers\" />
 	</ItemGroup>
-	<ItemGroup>
-	  <InternalsVisibleTo Include="Wino.Mail.ViewModels.Tests" />
-	</ItemGroup>
 </Project>

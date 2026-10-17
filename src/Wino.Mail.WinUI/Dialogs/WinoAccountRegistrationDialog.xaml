@@ -2,9 +2,11 @@
     x:Class="Wino.Dialogs.WinoAccountRegistrationDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Closing="DialogClosing"
     AutomationProperties.Name="{x:Bind domain:Translator.WinoAccount_RegisterDialog_Title, Mode=OneTime}"
     PrimaryButtonClick="RegisterClicked"
     PrimaryButtonStyle="{ThemeResource AccentButtonStyle}"
@@ -78,6 +80,75 @@
                     Header="{x:Bind domain:Translator.WinoAccount_ConfirmPasswordLabel, Mode=OneTime}"
                     KeyDown="ConfirmPasswordBox_KeyDown"
                     PasswordChanged="InputChanged" />
+            </StackPanel>
+
+            <!--  Sign in with Apple and Sign in with Google under an "or" rule, Apple first as Apple asks. Both run the
+                  API browser flow; the wino-mail://auth-complete protocol activation completes them. The privacy agreement below covers them too.  -->
+            <StackPanel x:Name="ExternalSignInPanel" Spacing="12">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border
+                        Height="1"
+                        VerticalAlignment="Center"
+                        Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                    <TextBlock
+                        Grid.Column="1"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.WinoAccount_LoginDialog_OrDivider, Mode=OneTime}" />
+                    <Border
+                        Grid.Column="2"
+                        Height="1"
+                        VerticalAlignment="Center"
+                        Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                </Grid>
+
+                <!--  Apple's own look: black fill, white mark and title; a hairline so it reads on a dark dialog.  -->
+                <Button
+                    x:Name="AppleSignInButton"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    AutomationProperties.AutomationId="AppleSignInButton"
+                    AutomationProperties.Name="{x:Bind domain:Translator.WinoAccount_SignInWithApple, Mode=OneTime}"
+                    Background="Black"
+                    BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                    Click="AppleSignInButton_Click"
+                    Foreground="White">
+                    <Button.Resources>
+                        <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#1F1F1F" />
+                        <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#333333" />
+                        <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="White" />
+                        <SolidColorBrush x:Key="ButtonForegroundPressed" Color="White" />
+                    </Button.Resources>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <coreControls:WinoFontIcon
+                            VerticalAlignment="Center"
+                            FontSize="16"
+                            Icon="Apple" />
+                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.WinoAccount_SignInWithApple, Mode=OneTime}" />
+                    </StackPanel>
+                </Button>
+
+                <!--  Google: a standard button with the colourful Google mark.  -->
+                <Button
+                    x:Name="GoogleSignInButton"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    AutomationProperties.AutomationId="GoogleSignInButton"
+                    AutomationProperties.Name="{x:Bind domain:Translator.WinoAccount_SignInWithGoogle, Mode=OneTime}"
+                    Click="GoogleSignInButton_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <coreControls:WinoFontIcon
+                            VerticalAlignment="Center"
+                            FontSize="16"
+                            Icon="Google" />
+                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.WinoAccount_SignInWithGoogle, Mode=OneTime}" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
 
             <!--  Creating the account is the agreement; the API takes no separate consent flag.  -->

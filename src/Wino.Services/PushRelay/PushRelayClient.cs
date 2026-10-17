@@ -74,6 +74,21 @@ public sealed class PushRelayClient : IPushRelayClient, IDisposable
     public Task<PushRelayPushTestResponse> SendPushTestAsync(Guid deviceId, CancellationToken cancellationToken = default)
         => SendRequiredAsync(HttpMethod.Post, "v1/devices/me/push-test", deviceId, null, PushRelayJsonContext.Default.PushRelayPushTestResponse, cancellationToken);
 
+    public Task<PushRelayDeviceEventList> ListDeviceEventsAsync(Guid deviceId, Guid? since = null, int? limit = null, bool unackedOnly = false, CancellationToken cancellationToken = default)
+    {
+        var query = new List<string>(3);
+        if (since is { } sinceId) query.Add("since=" + sinceId.ToString("D"));
+        if (limit is { } pageSize) query.Add("limit=" + pageSize.ToString(CultureInfo.InvariantCulture));
+        if (unackedOnly) query.Add("unacked=true");
+        var route = query.Count == 0 ? "v1/devices/me/events" : "v1/devices/me/events?" + string.Join('&', query);
+        return SendRequiredAsync(HttpMethod.Get, route, deviceId, null, PushRelayJsonContext.Default.PushRelayDeviceEventList, cancellationToken);
+    }
+
+    public Task<PushRelayAckEventsResponse> AckDeviceEventsAsync(Guid deviceId, PushRelayAckEventsRequest request, CancellationToken cancellationToken = default)
+        => SendRequiredAsync(HttpMethod.Post, "v1/devices/me/events/ack", deviceId,
+            () => JsonContent.Create(request, PushRelayJsonContext.Default.PushRelayAckEventsRequest),
+            PushRelayJsonContext.Default.PushRelayAckEventsResponse, cancellationToken);
+
     public Task<PushRelaySyncAccountsResponse> SyncAccountsAsync(Guid deviceId, List<string> clientAccountIds, CancellationToken cancellationToken = default)
         => SendRequiredAsync(HttpMethod.Put, "v1/devices/me/accounts", deviceId,
             () => JsonContent.Create(new PushRelaySyncAccountsRequest(clientAccountIds), PushRelayJsonContext.Default.PushRelaySyncAccountsRequest),

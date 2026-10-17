@@ -144,7 +144,8 @@ public static class ServicesContainerSetup
             provider.GetService<IMessenger>(),
             provider.GetService<IPushRelayDeviceIdentityStore>(),
             provider.GetService<IPushRelayDeviceInfo>(),
-            provider.GetService<IPushTokenProvider>()));
+            provider.GetService<IPushTokenProvider>(),
+            socketKeys: provider.GetService<IPushRelaySocketKeyStore>()));
         // Lazy, so the profile service (which signs the relay device out) is never built around the relay graph.
         services.AddSingleton<Func<IPushRelayRegistrationService>>(provider => () => provider.GetRequiredService<IPushRelayRegistrationService>());
         services.AddSingleton<IPushRelayNotificationHandler>(provider => new PushRelayNotificationHandler(

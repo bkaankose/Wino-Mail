@@ -28,6 +28,7 @@ using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Common;
 using Wino.Core.Domain.Models.Contacts;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
@@ -2386,7 +2387,8 @@ public partial class App : WinoApplication,
             }
 
             if (string.Equals(scheme, "mailto", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(scheme, "google.pw.oauth2", StringComparison.OrdinalIgnoreCase))
+                string.Equals(scheme, "google.pw.oauth2", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(scheme, WinoAccountExternalAuth.CallbackScheme, StringComparison.OrdinalIgnoreCase))
             {
                 mode = WinoApplicationMode.Mail;
                 return true;

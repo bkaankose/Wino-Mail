@@ -19,6 +19,7 @@ internal enum AppActivationPath
     ShareTarget,
     MailToProtocol,
     BillingSuccessProtocol,
+    WinoAccountAuthCallbackProtocol,
     SecondaryEntryBootstrap,
     FileImport,
     AppNotification,
@@ -57,7 +58,8 @@ internal readonly record struct LaunchActivationRoute(
     PendingBootstrapActivation? PendingBootstrapActivation = null,
     WinoApplicationMode ActivationMode = WinoApplicationMode.Mail,
     IReadOnlyList<string>? FilePaths = null,
-    NotificationHostActivation? ForwardedNotificationActivation = null)
+    NotificationHostActivation? ForwardedNotificationActivation = null,
+    Uri? WinoAccountAuthCallback = null)
 {
     public bool RequiresAppHostInfrastructure => Path switch
     {
@@ -80,7 +82,8 @@ internal readonly record struct RedirectedActivationRoute(
     AppNotificationActivatedEventArgs? AppNotificationArgs = null,
     IReadOnlyList<string>? FilePaths = null,
     NotificationHostActivation? ForwardedNotificationActivation = null,
-    NotificationActivationRoute NotificationRoute = default);
+    NotificationActivationRoute NotificationRoute = default,
+    Uri? WinoAccountAuthCallback = null);
 
 internal static class ActivationPathNames
 {
@@ -93,6 +96,7 @@ internal static class ActivationPathNames
             AppActivationPath.ShareTarget => "share target",
             AppActivationPath.MailToProtocol => "mailto protocol",
             AppActivationPath.BillingSuccessProtocol => "billing success protocol",
+            AppActivationPath.WinoAccountAuthCallbackProtocol => "Wino Account sign-in callback protocol",
             AppActivationPath.SecondaryEntryBootstrap => "secondary entry bootstrap",
             AppActivationPath.FileImport => "file import",
             AppActivationPath.AppNotification => "app notification",

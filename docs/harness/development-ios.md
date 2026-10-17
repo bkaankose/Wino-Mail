@@ -40,7 +40,7 @@ dotnet build WinoMail.iOS.slnx -c Debug -p:WinoTargetPlatform=iOS -p:EnableWindo
 
 Output is `src/Wino.Mail.iOS/bin/Debug/net10.0-ios/iossimulator-arm64/Wino.Mail.iOS.app`; the display name is "Wino Mail". A single library builds the same way, for example `dotnet build src/Wino.Platform.Apple/Wino.Platform.Apple.csproj -f net10.0-ios -p:WinoTargetPlatform=iOS`.
 
-`WinoMail.iOS.slnx` has four folders: `/iOS/` (head, UIKit projects, `Wino.Platform.iOS`, UIKit controls), `/Apple/` (`Wino.Platform.Apple`, `Wino.Core.Apple.Bindings`, `Wino.Editor.WebKit`), `/Shared/`, and `/Tests/`. Run the portable tests with the Mac commands in [macOS development](development-macos.md#build).
+`WinoMail.iOS.slnx` has four folders: `/iOS/` (head, UIKit projects, `Wino.Platform.iOS`, UIKit controls), `/Apple/` (`Wino.Platform.Apple`, `Wino.Core.Apple.Bindings`, `Wino.Editor.WebKit`), and `/Shared/`.
 
 Device builds need the signing identity and profile below, which do not exist yet:
 

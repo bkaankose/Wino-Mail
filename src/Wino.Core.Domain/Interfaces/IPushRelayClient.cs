@@ -22,6 +22,16 @@ public interface IPushRelayClient
     /// <summary>Signs this device out of the relay. Must run before the Wino tokens are discarded.</summary>
     Task DeleteDeviceAsync(Guid deviceId, CancellationToken cancellationToken = default);
     Task<PushRelayPushTestResponse> SendPushTestAsync(Guid deviceId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Pages the device event log (pushes sent in the last <c>retentionHours</c>), oldest first. <paramref name="since"/> continues
+    /// from a page's <c>nextSince</c>; <paramref name="limit"/> is clamped by the relay (default 100); <paramref name="unackedOnly"/>
+    /// lists only pushes the device has not acknowledged.
+    /// </summary>
+    Task<PushRelayDeviceEventList> ListDeviceEventsAsync(Guid deviceId, Guid? since = null, int? limit = null, bool unackedOnly = false, CancellationToken cancellationToken = default);
+
+    /// <summary>Marks events as processed (idempotent); same semantics as the socket's <c>Ack</c>.</summary>
+    Task<PushRelayAckEventsResponse> AckDeviceEventsAsync(Guid deviceId, PushRelayAckEventsRequest request, CancellationToken cancellationToken = default);
     Task<PushRelaySyncAccountsResponse> SyncAccountsAsync(Guid deviceId, List<string> clientAccountIds, CancellationToken cancellationToken = default);
     Task<PushRelayMailbox> CreateMailboxAsync(Guid deviceId, PushRelayCreateMailboxRequest request, CancellationToken cancellationToken = default);
     Task<PushRelayMailbox> UpdateMailboxCredentialsAsync(Guid deviceId, Guid subscriptionId, PushRelayUpdateCredentialsRequest request, CancellationToken cancellationToken = default);

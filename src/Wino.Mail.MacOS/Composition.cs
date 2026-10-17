@@ -18,6 +18,8 @@ using Wino.Platform.MacOS.Services;
 using Wino.Services;
 using Wino.Services.Dav;
 using Wino.Services.Platform;
+using Wino.PushRelay.Socket;
+using Wino.PushRelay.Socket.KeyStores;
 using Wino.Services.PushRelay;
 using Wino.Services.Security;
 
@@ -92,6 +94,9 @@ internal static class Composition
         services.AddSingleton<IPushTokenProvider>(provider => provider.GetRequiredService<ApplePushTokenProvider>());
         services.AddSingleton<IPushRelayDeviceIdentityStore, SecureItemPushRelayDeviceIdentityStore>();
         services.AddSingleton<IPushRelayDeviceInfo, MacPushRelayDeviceInfo>();
+        // The desktop socket (Wino.PushRelay.Socket): the key lives in the Keychain; nothing starts the socket yet.
+        services.AddSingleton<IPushRelaySocketKeyStore, SecureItemPushRelaySocketKeyStore>();
+        services.AddWinoRelaySocketClient();
         // The app-level theme service adds the Wino themes (accent + backdrop, custom themes in the Windows file layout) on top of native appearance.
         services.AddSingleton(provider => new Wino.Services.Themes.CustomThemeFileStore(provider.GetRequiredService<IApplicationConfiguration>()));
         services.AddSingleton<MacWinoThemeService>();

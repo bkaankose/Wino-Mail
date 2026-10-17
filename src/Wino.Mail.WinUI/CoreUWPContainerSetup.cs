@@ -6,8 +6,11 @@ using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Services;
 using Wino.Services;
 using Wino.Platform.Windows;
+using Wino.Platform.Windows.Authentication;
 using Wino.Platform.Windows.Services;
 using Wino.Platform.Windows.PushRelay;
+using Wino.PushRelay.Socket;
+using Wino.PushRelay.Socket.KeyStores;
 using Wino.Authentication;
 using Wino.Core.Domain.Models.Platform;
 
@@ -48,6 +51,9 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<IPushRelayDeviceIdentityStore, WindowsPushRelayDeviceIdentityStore>();
         services.AddSingleton<IPushRelayDeviceInfo, WindowsPushRelayDeviceInfo>();
         services.AddSingleton<IPushTokenProvider, NullPushTokenProvider>();
+        // The desktop socket (Wino.PushRelay.Socket): the key is a DPAPI-protected file; nothing starts the socket yet.
+        services.AddSingleton<IPushRelaySocketKeyStore, ProtectedFilePushRelaySocketKeyStore>();
+        services.AddWinoRelaySocketClient();
         services.AddSingleton<IOutlookAuthenticationHost>(provider => new WindowsOutlookAuthenticationHost(
             provider.GetRequiredService<IApplicationConfiguration>(),
             provider.GetRequiredService<IAuthenticatorConfig>(),
@@ -61,6 +67,15 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<IDialogServiceBase>(provider => provider.GetRequiredService<IMailDialogService>());
         services.AddSingleton<IWinoDialogService>(provider => (IWinoDialogService)provider.GetRequiredService<IMailDialogService>());
         services.AddSingleton<IExternalBrowserAuthenticationPresenter, ExternalBrowserAuthenticationPresenter>();
+
+        // Wino Account Sign in with Apple and Google: both through the API's browser flow. The wino-mail://auth-complete
+        // protocol activation (App.WinoAccountAuthActivation) delivers the redirect to the waiting broker.
+        services.AddSingleton<WindowsExternalAuthCallbacks>();
+        services.AddSingleton<IWinoAccountBrowserAuthBroker>(provider => new WindowsBrowserAuthBroker(
+            provider.GetRequiredService<IExternalLauncher>(), provider.GetRequiredService<WindowsExternalAuthCallbacks>()));
+        services.AddSingleton<IWinoAccountExternalSignInService>(provider => new WinoAccountExternalSignInService(
+            provider.GetRequiredService<IWinoAccountApiClient>(), provider.GetRequiredService<IWinoAccountProfileService>(),
+            apple: null, google: null, provider.GetRequiredService<IWinoAccountBrowserAuthBroker>()));
         global::Wino.Core.CoreContainerSetup.AddLoopbackGoogleAuthorizationCodeReceiver(services);
         services.AddTransient<IConfigurationService, ConfigurationService>();
         services.AddTransient<IFileService, FileService>();

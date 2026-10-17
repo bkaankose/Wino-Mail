@@ -27,7 +27,6 @@ src/Wino.Mail.UIKit.Pad    iPad shell and pages
 src/Wino.Mail.iOS          Universal iOS and iPadOS application head
 src/Wino.Mail.Android      Android application head (Views, XML layouts, AndroidX, Material)
 controls                   Shared control contracts and presentation helpers, editor engine, WinUI, AppKit, UIKit, WebKit and Android controls, playground
-tests                      Portable automated tests
 ```
 
 Mail requests flow through `WinoRequestDelegator`, `WinoRequestProcessor`, provider synchronizers, change processors, the local SQLite database, and messenger events. Initial synchronization queues identifiers and downloads MIME content on demand.

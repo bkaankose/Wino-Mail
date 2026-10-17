@@ -1,4 +1,6 @@
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
@@ -7,6 +9,7 @@ using Windows.System;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Mail.WinUI.Services;
 
 namespace Wino.Dialogs;
@@ -14,13 +17,23 @@ namespace Wino.Dialogs;
 public sealed partial class WinoAccountRegistrationDialog : ContentDialog
 {
     private readonly IWinoAccountProfileService _profileService;
+    private readonly IWinoAccountExternalSignInService? _externalSignIn;
+    private CancellationTokenSource? _externalSignInCancellation;
 
-    public WinoAccountRegistrationDialog(IWinoAccountProfileService profileService)
+    public WinoAccountRegistrationDialog(IWinoAccountProfileService profileService, IWinoAccountExternalSignInService? externalSignIn = null)
     {
         _profileService = profileService;
+        _externalSignIn = externalSignIn;
         InitializeComponent();
+
+        AppleSignInButton.Visibility = externalSignIn is { IsAppleAvailable: true } ? Visibility.Visible : Visibility.Collapsed;
+        GoogleSignInButton.Visibility = externalSignIn is { IsGoogleAvailable: true } ? Visibility.Visible : Visibility.Collapsed;
+        ExternalSignInPanel.Visibility = externalSignIn is { IsAppleAvailable: true } or { IsGoogleAvailable: true }
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
+    /// <summary>The signed-in account when Sign in with Apple or Google created or found it; null for the e-mail form, which ends in a confirmation mail.</summary>
     public WinoAccount? Result { get; private set; }
     public string? ConfirmationEmailAddress { get; private set; }
 
@@ -47,7 +60,63 @@ public sealed partial class WinoAccountRegistrationDialog : ContentDialog
         }
     }
 
-    private async System.Threading.Tasks.Task PerformRegistrationAsync()
+    private async void AppleSignInButton_Click(object sender, RoutedEventArgs e)
+        => await SignInExternallyAsync(token => _externalSignIn!.SignInWithAppleAsync(token));
+
+    private async void GoogleSignInButton_Click(object sender, RoutedEventArgs e)
+        => await SignInExternallyAsync(token => _externalSignIn!.SignInWithGoogleAsync(token));
+
+    /// <summary>
+    /// The API browser flow: the default browser opens the provider's page and the wino-mail://auth-complete redirect
+    /// comes back through protocol activation. The provider both registers and signs in. Cancel stays enabled so the
+    /// user can abandon the wait; a dismissed or cancelled flow shows nothing.
+    /// </summary>
+    private async Task SignInExternallyAsync(Func<CancellationToken, Task<WinoAccountOperationResult>> signIn)
+    {
+        if (_externalSignIn is null || _externalSignInCancellation is not null) return;
+
+        var cancellation = new CancellationTokenSource();
+        _externalSignInCancellation = cancellation;
+
+        try
+        {
+            SetExternalSignInBusyState(true);
+            HideError();
+
+            var result = await signIn(cancellation.Token);
+
+            if (result.IsSuccess && result.Account is not null)
+            {
+                Result = result.Account;
+                Hide();
+                return;
+            }
+
+            if (!cancellation.IsCancellationRequested && !WinoAccountClientErrorCodes.IsCancelled(result.ErrorCode))
+            {
+                ShowError(WinoAccountAuthErrorTranslator.Format(result.ErrorCode, result.ErrorMessage));
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The dialog was closed while the browser flow was waiting.
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex.Message);
+        }
+        finally
+        {
+            _externalSignInCancellation = null;
+            cancellation.Dispose();
+            SetExternalSignInBusyState(false);
+        }
+    }
+
+    private void DialogClosing(ContentDialog sender, ContentDialogClosingEventArgs args)
+        => _externalSignInCancellation?.Cancel();
+
+    private async Task PerformRegistrationAsync()
     {
         var validationError = ValidateInput();
         if (!string.IsNullOrWhiteSpace(validationError))
@@ -139,6 +208,15 @@ public sealed partial class WinoAccountRegistrationDialog : ContentDialog
         DisplayNameTextBox.IsEnabled = !isBusy;
         IsPrimaryButtonEnabled = !isBusy;
         IsSecondaryButtonEnabled = !isBusy;
+        ExternalSignInPanel.IsEnabled = !isBusy;
+        BusyRing.IsActive = isBusy;
+        BusyRing.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void SetExternalSignInBusyState(bool isBusy)
+    {
+        IsPrimaryButtonEnabled = !isBusy;
+        ExternalSignInPanel.IsEnabled = !isBusy;
         BusyRing.IsActive = isBusy;
         BusyRing.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
     }

@@ -62,6 +62,7 @@
   <ItemGroup>
     <ProjectReference Include="../Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj" />
     <ProjectReference Include="../Wino.Core/Wino.Core.csproj" />
+    <ProjectReference Include="../Wino.PushRelay.Socket/Wino.PushRelay.Socket.csproj" />
     <ProjectReference Include="../Wino.Platform.Apple/Wino.Platform.Apple.csproj" />
     <ProjectReference Include="../Wino.Platform.MacOS/Wino.Platform.MacOS.csproj" />
     <ProjectReference Include="../Wino.Core.Apple.Bindings/Wino.Core.Apple.Bindings.csproj" />

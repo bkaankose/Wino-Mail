@@ -56,7 +56,7 @@ codegraph explore "named symbol or affected behavior"
 ```
 
 If the result is unrelated or omits the requested script, use a targeted file read or `rg` search.
-CodeGraph results can miss tests. Use the changed behavior to select additional checks.
+Use the changed behavior to select additional checks.
 Read only references that apply to the task:
 
 | Task | Reference |
@@ -92,19 +92,19 @@ Mac F5 prepares the debugger, then runs a plain `dotnet build`. The iOS workspac
 | Change | Required evidence |
 | --- | --- |
 | Documentation or tooling | Valid links, command configuration, and affected script checks |
-| Domain or service logic | Affected project build and directly affected unit tests |
-| ViewModel behavior | Affected unit tests and manual checks for UI behavior on each affected platform |
+| Domain or service logic | Affected project build and manual checks in the running app when the behavior is user-visible |
+| ViewModel behavior | Affected project build and manual checks for UI behavior on each affected platform |
 | Windows XAML, navigation, activation, windows, or controls | Windows Debug build and manual checks in the lab |
 | AppKit views, navigation, activation, or controls | Native Debug arm64 and x64 builds and manual checks on the Mac |
 | UIKit views, navigation, activation, or controls | iOS Debug Simulator build and manual checks on iPhone and iPad simulators |
 | Android views, navigation, activation, or controls | Android Debug build and manual checks on the phone and tablet emulators |
 | Apple shared layer (`Wino.Platform.Apple`, `Wino.Core.Apple.Bindings`, `Wino.Editor.WebKit`) | Mac native Debug arm64 and x64 builds and the iOS Debug Simulator build |
 | Localization | English source only, generated output build, other locales untouched |
-| Windows package, trimming, or Native AOT | Windows Release build without launch, plus release-script tests when applicable |
+| Windows package, trimming, or Native AOT | Windows Release build without launch |
 | macOS signing, entitlements, or release inputs | Native Release arm64 and x64 builds and bundle identity, signature, and entitlement checks |
 | iOS signing, entitlements, or `Info.plist` | Signed device build and bundle identity, signature, and entitlement checks |
 | Android release inputs (manifest, signing, trimming, Mono AOT) | Release Mono AOT `android-arm64` build and the 16 KB page-size check |
-| Shared production code, dependencies, or build configuration | Windows Debug x64 build and Release x64 gate, affected tests, the Android Debug build, and the macOS and iOS builds as a handoff when no Mac is available |
+| Shared production code, dependencies, or build configuration | Windows Debug x64 build and Release x64 gate, the Android Debug build, and the macOS and iOS builds as a handoff when no Mac is available |
 
 Windows production changes always need the Release gate, run without launching or deploying:
 
@@ -113,7 +113,7 @@ dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Release -p:Platform=x
 ```
 
 Format changed XAML before building with `scripts/maintenance/windows/format-xaml.ps1 -Changed`, and run it with `-Check` before handoff.
-Keep unit tests and release-script tests. Agent-driven UI automation is retired. The [local Docker lab](tools/local-lab/README.md) is the Windows application testing environment; use manual interaction for UI checks.
+The repository has no automated test projects; do not add or run unit tests until the owner defines a new test project. Agent-driven UI automation is retired. The [local Docker lab](tools/local-lab/README.md) is the Windows application testing environment; use manual interaction for UI checks.
 A passing build does not prove UI behavior. Report manual verification as pending unless someone performed it.
 
 ## Accounts, OAuth clients and signing (hard rules)

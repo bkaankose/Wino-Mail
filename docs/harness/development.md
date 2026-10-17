@@ -16,12 +16,11 @@ Use the guide for the platform you change. A shared change, such as one in `src/
 These run on either host from the repository root:
 
 ```sh
-dotnet test tests/Wino.Core.Tests/Wino.Core.Tests.csproj -c Debug
 python scripts/localization/translate_resources.py --dry-run
 python scripts/localization/validate_resources.py --dry-run
 ```
 
-On Windows, add `-p:Platform=x64` to test commands as the Windows guide shows. On macOS, use `python3`.
+On macOS, use `python3`.
 
 The build resolves `WinoTargetPlatform` from the host when it is not passed: `Windows` on Windows, `MacOS` on macOS. Explicit `-p:WinoTargetPlatform=...` wins; iOS builds always pass `-p:WinoTargetPlatform=iOS`, and Android builds always pass `-p:WinoTargetPlatform=Android`. The host never selects iOS or Android. Other hosts receive no platform defaults; pass the platform explicitly.
 

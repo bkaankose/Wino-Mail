@@ -29,7 +29,7 @@ public class CalendarReminderServer : ICalendarReminderServer
     {
     }
 
-    /// <summary>Creates a server with a custom polling interval. Tests use a short interval.</summary>
+    /// <summary>Creates a server with a custom polling interval.</summary>
     internal CalendarReminderServer(ICalendarService calendarService, IAccountService accountService, INotificationBuilder notificationBuilder, TimeSpan pollingInterval)
     {
         _calendarService = calendarService;

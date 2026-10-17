@@ -27,7 +27,10 @@ public sealed class PushRelayState
     public string? LastName { get; set; }
     public string? LastOsVersion { get; set; }
 
-    /// <summary>The relay refused this platform (Windows today). Retried once the app version changes.</summary>
+    /// <summary>SHA-256 of the socket public key last sent to the relay (desktop); empty string when none was sent.</summary>
+    public string? LastSocketKeyHash { get; set; }
+
+    /// <summary>The relay refused this platform. Retried once the app version changes.</summary>
     public bool PlatformRejected { get; set; }
     public string? PlatformRejectedAppVersion { get; set; }
 

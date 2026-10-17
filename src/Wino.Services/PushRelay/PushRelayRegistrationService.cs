@@ -61,6 +61,7 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
     private readonly IPushRelayDeviceIdentityStore? _identityStore;
     private readonly IPushRelayDeviceInfo? _deviceInfo;
     private readonly IPushTokenProvider? _pushTokens;
+    private readonly IPushRelaySocketKeyStore? _socketKeys;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger _logger = Log.ForContext<PushRelayRegistrationService>();
 
@@ -90,7 +91,8 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
         IPushRelayDeviceIdentityStore? identityStore = null,
         IPushRelayDeviceInfo? deviceInfo = null,
         IPushTokenProvider? pushTokens = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IPushRelaySocketKeyStore? socketKeys = null)
     {
         _client = client;
         _tokens = tokens;
@@ -105,6 +107,7 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
         _identityStore = identityStore;
         _deviceInfo = deviceInfo;
         _pushTokens = pushTokens;
+        _socketKeys = socketKeys;
         _timeProvider = timeProvider ?? TimeProvider.System;
 
         var optedIn = IsPlatformSupported && _stateStore.Load().UserOptIn;
@@ -491,6 +494,8 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
         var appVersion = Normalize(_metadata.AppVersion);
         var appBuild = Normalize(_metadata.SentryDist);
         var locale = ResolveLocale();
+        var socketKey = await LoadSocketPublicKeyAsync(cancellationToken).ConfigureAwait(false);
+        var socketKeyHash = Hash(socketKey);
 
         for (var attempt = 0; ; attempt++)
         {
@@ -514,7 +519,7 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
                     try
                     {
                         registration = await _client.RegisterDeviceAsync(
-                            new PushRelayRegisterDeviceRequest(descriptor.Platform, pushToken, appVersion, appBuild, locale, osVersion, name),
+                            new PushRelayRegisterDeviceRequest(descriptor.Platform, pushToken, appVersion, appBuild, locale, osVersion, name, socketKey),
                             cancellationToken).ConfigureAwait(false);
                     }
                     catch (PushRelayApiException ex) when (ex.Status == 400 && ex.Code == PushRelayErrorCodes.InvalidRequest)
@@ -533,18 +538,19 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
                     await identityStore.SaveAsync(identity, cancellationToken).ConfigureAwait(false);
                     state.PlatformRejected = false;
                     state.PlatformRejectedAppVersion = null;
-                    RememberDevice(state, pushTokenHash, appVersion, appBuild, locale, name, osVersion);
+                    RememberDevice(state, pushTokenHash, appVersion, appBuild, locale, name, osVersion, socketKeyHash);
                     state.LastCheckInUtc = now;
                     _stateStore.Save(state);
                     deviceFresh = true;
                     _logger.Information("Registered relay device for platform {Platform}.", descriptor.Platform);
                 }
                 else if (state.LastPushTokenHash != pushTokenHash || state.LastAppVersion != appVersion || state.LastAppBuild != appBuild
-                    || state.LastLocale != locale || state.LastName != name || state.LastOsVersion != osVersion)
+                    || state.LastLocale != locale || state.LastName != name || state.LastOsVersion != osVersion
+                    || (state.LastSocketKeyHash ?? string.Empty) != socketKeyHash)
                 {
                     var device = await _client.UpdateDeviceAsync(identity.DeviceId,
-                        new PushRelayUpdateDeviceRequest(pushToken, appVersion, appBuild, locale, osVersion, name), cancellationToken).ConfigureAwait(false);
-                    RememberDevice(state, pushTokenHash, appVersion, appBuild, locale, name, osVersion);
+                        new PushRelayUpdateDeviceRequest(pushToken, appVersion, appBuild, locale, osVersion, name, socketKey), cancellationToken).ConfigureAwait(false);
+                    RememberDevice(state, pushTokenHash, appVersion, appBuild, locale, name, osVersion, socketKeyHash);
                     state.LastCheckInUtc = now;
                     serverView = device.Mailboxes ?? [];
                     deviceFresh = true;
@@ -914,7 +920,7 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
     }
 
     private static void RememberDevice(PushRelayState state, string pushTokenHash, string? appVersion, string? appBuild, string? locale,
-        string? name, string? osVersion)
+        string? name, string? osVersion, string socketKeyHash)
     {
         state.LastPushTokenHash = pushTokenHash;
         state.LastAppVersion = appVersion;
@@ -922,6 +928,28 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
         state.LastLocale = locale;
         state.LastName = name;
         state.LastOsVersion = osVersion;
+        state.LastSocketKeyHash = socketKeyHash;
+    }
+
+    /// <summary>
+    /// The desktop socket public key (base64 SubjectPublicKeyInfo), created on first use. Heads without a key store
+    /// (mobile) send none. A store failure is logged and the device registers without a key; the socket client reports
+    /// <c>socket_key_required</c> later if the relay insists on one.
+    /// </summary>
+    private async Task<string?> LoadSocketPublicKeyAsync(CancellationToken cancellationToken)
+    {
+        if (_socketKeys is null)
+            return null;
+
+        try
+        {
+            return (await _socketKeys.GetOrCreateAsync(cancellationToken).ConfigureAwait(false)).PublicKeySpkiBase64;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.Warning(ex, "The relay socket key could not be loaded; registering the device without one.");
+            return null;
+        }
     }
 
     private string? CurrentPushToken

@@ -135,7 +135,7 @@ Agent-driven UI automation is retired.
 
 Match verification to the change:
 
-- Core-only logic: build `Wino.Mail.Controls.Core` and run any directly affected repository tests.
+- Core-only logic: build `Wino.Mail.Controls.Core` and its consumers.
 - WinUI control or template: build `Wino.Mail.Controls.WinUI` and the playground, then request manual verification of the affected control in the app with the local lab.
 - Editor C#, XAML, or web assets: build `Wino.Editor.WinUI` and the playground, then request manual lab checks for initialization, editing/rendering, theme changes, navigation, and disposal.
 - AppKit control: build the Mac head for arm64 and x64, then request manual verification in the Mac app. There is no AppKit playground.

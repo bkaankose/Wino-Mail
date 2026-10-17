@@ -26,9 +26,11 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" />
     <!-- Source generators must not reference a newer Roslyn than the SDK compiler (CS9057). Keep in step with the .NET SDK. -->
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.12" />
+    <!-- The desktop relay socket (Wino.PushRelay.Socket); 10.0.13 fixes CVE-2026-70159 in SignalR.Common. -->
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Graph.Core" Version="4.0.1" />
     <PackageVersion Include="Microsoft.Graphics.Win2D" Version="1.4.0" />
     <PackageVersion Include="Microsoft.Identity.Client" Version="4.90.1" />
@@ -58,16 +60,16 @@
     <PackageVersion Include="System.Drawing.Common" Version="10.0.5" />
     <!-- Transitive via MimeKit; 10.0.13 fixes CVE-2026-84008 and CVE-2026-70162. -->
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
-    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" />
+    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.13" />
     <PackageVersion Include="System.Private.Uri" Version="4.3.2" />
     <PackageVersion Include="System.Text.Encoding.CodePages" Version="9.0.10" />
-    <PackageVersion Include="System.Text.Json" Version="10.0.12" />
+    <PackageVersion Include="System.Text.Json" Version="10.0.13" />
     <PackageVersion Include="CommunityToolkit.WinUI.Notifications" Version="7.1.2" />
     <PackageVersion Include="HtmlKit" Version="1.3.0" />
     <PackageVersion Include="MailKit" Version="4.18.1" />
     <PackageVersion Include="TimePeriodLibrary.NET" Version="2.1.6" />
-    <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.12" />
-    <PackageVersion Include="System.Text.Encodings.Web" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.13" />
+    <PackageVersion Include="System.Text.Encodings.Web" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
     <PackageVersion Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
     <PackageVersion Include="WinUIEx" Version="2.9.3" />
@@ -100,11 +102,5 @@
     <PackageVersion Include="Xamarin.Firebase.Messaging" Version="125.1.3" />
     <!-- WorkManager 2.11 pins tracing-ktx 1.3 while androidx.fragment 1.9 brings tracing 2.0; lifted like Gradle would. -->
     <PackageVersion Include="Xamarin.AndroidX.Tracing.Tracing.Ktx" Version="2.0.0" />
-    <!-- Testing packages -->
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
-    <PackageVersion Include="xunit" Version="2.9.3" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
-    <PackageVersion Include="FluentAssertions" Version="8.11.0" />
-    <PackageVersion Include="Moq" Version="4.21.0" />
   </ItemGroup>
 </Project>
