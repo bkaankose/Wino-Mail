@@ -49,6 +49,7 @@ public static class CoreContainerSetup
             provider.GetRequiredService<ISynchronizationManager>(),
             provider.GetRequiredService<IAccountService>(),
             provider.GetRequiredService<IPreferencesService>(),
+            provider.GetRequiredService<IPlatformCapabilities>(),
             provider.GetRequiredService<CommunityToolkit.Mvvm.Messaging.IMessenger>(),
             provider.GetRequiredService<IWinoLogger>(),
             provider.GetRequiredService<ApplicationRuntimeInitialization>().InitializeAsync,

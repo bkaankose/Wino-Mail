@@ -74,6 +74,7 @@ Read only references that apply to the task:
 | Reusable controls or playground | [controls/AGENTS.md](controls/AGENTS.md) |
 | Icons, icon fonts, or the colorful icon style | [icons/README.md](icons/README.md) and the Icons section of the [implementation rules](docs/harness/implementation-rules.md) |
 | Intelligence jobs, artifacts, or the daily briefing | [mail intelligence](docs/mail-intelligence.md) |
+| Push relay, live notifications, sync method, or relay privacy acceptance | [push relay design](docs/push-relay-design.md) |
 | Release packaging | [release guide](docs/releases.md); Android in the [Android release guide](docs/releases-android.md) |
 | What's New notes and illustrations | [whats-new skill](.claude/skills/whats-new/SKILL.md) |
 | Scripts | [script index](scripts/README.md) |

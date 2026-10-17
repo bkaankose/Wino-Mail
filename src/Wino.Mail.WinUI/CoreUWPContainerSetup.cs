@@ -38,6 +38,7 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<IAppMetadataService>(provider => provider.GetRequiredService<NativeAppService>());
         services.AddSingleton<IUserPresenceStateProvider>(provider => provider.GetRequiredService<NativeAppService>());
         services.AddSingleton<IPreferencesService, PreferencesService>();
+        services.AddSingleton<WindowsShellPreferences>();
         services.AddSingleton<ISecretProtector, DpapiSecretProtector>();
         services.AddSingleton<IAccountCredentialPersistence, WindowsAccountCredentialPersistence>();
         services.AddSingleton<IApplicationResourceResolver, WindowsApplicationResourceResolver>();
@@ -47,7 +48,9 @@ public static class CoreUWPContainerSetup
             Printing: Windows.Graphics.Printing.PrintManager.IsSupported(), PdfExport: true,
             Smime: true, AdditionalWindows: true, Notifications: true, NotificationActions: true,
             StartupIntegration: true, Tray: true, GlobalHotkeys: true, GeneralActivation: true,
-            MicrosoftStore: true, RemoteNotifications: false, PushRelayOptIn: true, KeyboardShortcuts: true, FileBackup: true, Purchases: true));
+            MicrosoftStore: true, RemoteNotifications: false, PushRelayOptIn: true, KeyboardShortcuts: true, FileBackup: true, Purchases: true,
+            AppModeTaskbarIdentity: true, PointerHover: true, MailListDensity: true, PresentationDetection: true,
+            ConfigurableSyncIntervals: true, BadgeLaunchNavigation: true));
         services.AddSingleton<IPushRelayDeviceIdentityStore, WindowsPushRelayDeviceIdentityStore>();
         services.AddSingleton<IPushRelayDeviceInfo, WindowsPushRelayDeviceInfo>();
         services.AddSingleton<IPushTokenProvider, NullPushTokenProvider>();

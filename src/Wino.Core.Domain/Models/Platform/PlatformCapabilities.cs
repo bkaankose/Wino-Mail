@@ -20,4 +20,10 @@ public sealed record PlatformCapabilities(
     bool PushRelayOptIn = false,
     bool KeyboardShortcuts = false,
     bool FileBackup = false,
-    bool Purchases = false) : IPlatformCapabilities;
+    bool Purchases = false,
+    bool AppModeTaskbarIdentity = false,
+    bool PointerHover = false,
+    bool MailListDensity = false,
+    bool PresentationDetection = false,
+    bool ConfigurableSyncIntervals = false,
+    bool BadgeLaunchNavigation = false) : IPlatformCapabilities;

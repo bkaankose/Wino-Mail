@@ -11,6 +11,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.Server;
@@ -30,6 +31,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
     private readonly object _gate = new();
     private readonly ISynchronizationManager _synchronizationManager;
     private readonly IPreferencesService _preferencesService;
+    private readonly IPlatformCapabilities _platformCapabilities;
     private readonly IAccountService _accountService;
     private readonly IMessenger _messenger;
     private readonly IWinoLogger _logger;
@@ -55,13 +57,14 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
     private ApplicationRuntimeState _state;
 
     public ApplicationRuntime(ISynchronizationManager synchronizationManager, IAccountService accountService,
-        IPreferencesService preferencesService, IMessenger messenger, IWinoLogger logger,
+        IPreferencesService preferencesService, IPlatformCapabilities platformCapabilities, IMessenger messenger, IWinoLogger logger,
         Func<CancellationToken, Task> initializeServices, Func<CancellationToken, Task> backgroundStartup,
         TimeProvider? timeProvider = null)
     {
         _synchronizationManager = synchronizationManager;
         _accountService = accountService;
         _preferencesService = preferencesService;
+        _platformCapabilities = platformCapabilities;
         _messenger = messenger;
         _logger = logger;
         _initializeServices = initializeServices;
@@ -325,6 +328,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         lock (_gate)
         {
             if (_state != ApplicationRuntimeState.Running || !_hasAccounts) return;
+            if (!SettingAvailability.IsAvailable(PlatformSetting.SyncIntervals, _platformCapabilities)) return;
             if (propertyName == nameof(IPreferencesService.EmailSyncIntervalMinutes)) RestartMailLoop();
             if (propertyName == nameof(IPreferencesService.CalendarSyncIntervalMinutes)) RestartCalendarLoop();
         }
@@ -339,12 +343,17 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         if (_contactLoop == null) RestartContactLoop();
     }
 
+    // Without configurable intervals (mobile) the foreground loops keep the default intervals, whatever a backup or
+    // another platform stored.
+    private int GetSyncIntervalMinutes(int configuredMinutes, int defaultMinutes)
+        => Math.Max(1, SettingAvailability.IsAvailable(PlatformSetting.SyncIntervals, _platformCapabilities) ? configuredMinutes : defaultMinutes);
+
     private void RestartMailLoop()
     {
         _mailLoop?.Cancel();
         var source = _mailLoop = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         Track(() => RunLoopWithCleanupAsync(source, () => RunAutoSynchronizationLoopAsync(
-            TimeSpan.FromMinutes(Math.Max(1, _preferencesService.EmailSyncIntervalMinutes)), source.Token)));
+            TimeSpan.FromMinutes(GetSyncIntervalMinutes(_preferencesService.EmailSyncIntervalMinutes, Constants.DefaultEmailSyncIntervalMinutes)), source.Token)));
     }
 
     private void RestartCalendarLoop()
@@ -352,7 +361,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         _calendarLoop?.Cancel();
         var source = _calendarLoop = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         Track(() => RunLoopWithCleanupAsync(source, () => RunCalendarAutoSynchronizationLoopAsync(
-            TimeSpan.FromMinutes(Math.Max(1, _preferencesService.CalendarSyncIntervalMinutes)), source.Token)));
+            TimeSpan.FromMinutes(GetSyncIntervalMinutes(_preferencesService.CalendarSyncIntervalMinutes, Constants.DefaultCalendarSyncIntervalMinutes)), source.Token)));
     }
 
     // Tasks and contacts are rarely used modes, and Google Tasks shares one daily quota across

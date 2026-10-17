@@ -120,6 +120,9 @@ internal static class Composition
             StartupIntegration: true, Tray: true, GlobalHotkeys: true, GeneralActivation: true,
             // Live notifications need APNs and the user's opt-in (mailbox credentials go through Wino servers).
             RemoteNotifications: true, PushRelayOptIn: true, KeyboardShortcuts: true, FileBackup: true, Purchases: true,
+            // The Dock badge launches the app; there is one Dock tile, so the taskbar identity never follows the mode.
+            PointerHover: true, MailListDensity: true, PresentationDetection: true, ConfigurableSyncIntervals: true,
+            BadgeLaunchNavigation: true,
 #if WINO_APPSTORE
             AppleAppStore: true
 #else

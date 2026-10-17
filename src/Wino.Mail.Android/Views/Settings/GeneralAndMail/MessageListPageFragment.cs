@@ -7,8 +7,8 @@ namespace Wino.Mail.Android.Views.Settings.GeneralAndMail;
 
 /// <summary>
 /// Message list: sender pictures, swipe actions, threads and the remaining row options (Windows MessageListPage, iOS
-/// MessageListPageViewController, same card order). The phone list has one row density and no pointer, so the Windows
-/// density and hover action options are left out. A settings page is a list of titles (owner, 15 Oct 2026), so the
+/// MessageListPageViewController, same card order). The phone list has one row density and no pointer, so density and hover
+/// actions are unavailable (SettingAvailability: MailListDensity, HoverActions). A settings page is a list of titles (owner, 15 Oct 2026), so the
 /// Windows live preview row, which is not a setting, is not shown.
 /// </summary>
 public sealed class MessageListPageFragment : SettingsPageFragment<MessageListPageViewModel>

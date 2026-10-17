@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using UIKit;
@@ -131,14 +132,15 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
     /// <summary>The untitled group that collects cards added straight to the page.</summary>
     private sealed class AutoGroup : WinoSettingsGroup;
 
-    protected WinoSettingsGroup Group(string? title, params UIView[] rows)
+    /// <summary>A settings group. A null row is a setting this platform does not offer (see SettingAvailability).</summary>
+    protected WinoSettingsGroup Group(string? title, params UIView?[] rows)
     {
         var group = new WinoSettingsGroup(title);
-        group.AddRange(rows);
+        group.AddRange(rows.OfType<UIView>().ToArray());
         return group;
     }
 
-    protected WinoSettingsGroup AddGroup(string? title, params UIView[] rows) => Add(Group(title, rows));
+    protected WinoSettingsGroup AddGroup(string? title, params UIView?[] rows) => Add(Group(title, rows));
 
     protected WinoSettingsCard Card(string header, string? description, WinoIconGlyph icon = WinoIconGlyph.None, UIView? content = null)
         => new(header, string.IsNullOrWhiteSpace(description) ? null : description, icon, content);
@@ -193,10 +195,10 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
         return card;
     }
 
-    protected WinoSettingsExpander Expander(string header, string? description, WinoIconGlyph icon, UIView? content, params UIView[] items)
+    protected WinoSettingsExpander Expander(string header, string? description, WinoIconGlyph icon, UIView? content, params UIView?[] items)
     {
         var expander = new WinoSettingsExpander(header, string.IsNullOrWhiteSpace(description) ? null : description, icon, content);
-        foreach (var item in items) expander.Add(item);
+        foreach (var item in items.OfType<UIView>()) expander.Add(item);
         return expander;
     }
 

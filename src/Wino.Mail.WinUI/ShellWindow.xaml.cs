@@ -55,6 +55,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     private bool _allowClose;
     public IStatePersistanceService StatePersistanceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception("StatePersistanceService not registered in DI container.");
     public IPreferencesService PreferencesService { get; } = WinoApplication.Current.Services.GetService<IPreferencesService>() ?? throw new Exception("PreferencesService not registered in DI container.");
+    private WindowsShellPreferences ShellPreferences { get; } = WinoApplication.Current.Services.GetService<WindowsShellPreferences>() ?? throw new Exception("WindowsShellPreferences not registered in DI container.");
     public INavigationService NavigationService { get; } = WinoApplication.Current.Services.GetService<INavigationService>() ?? throw new Exception("NavigationService not registered in DI container.");
     private IMailDialogService MailDialogService { get; } = WinoApplication.Current.Services.GetRequiredService<IMailDialogService>();
     private IWinoAccountProfileService WinoAccountProfileService { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoAccountProfileService>();
@@ -482,7 +483,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
             // Settings belongs to whichever app entry opened it. The three primary modes,
             // however, must follow their own taskbar entries even when switched in-app, unless the
             // user chose to keep the taskbar icon fixed across mode switches.
-            if (applicationMode != WinoApplicationMode.Settings && !PreferencesService.IsAppModeTaskbarIconSwitchDisabled)
+            if (applicationMode != WinoApplicationMode.Settings && !ShellPreferences.IsAppModeTaskbarIconSwitchDisabled)
             {
                 WindowAppUserModelIdHelper.TrySet(this, AppEntryConstants.GetAppUserModelId(applicationMode));
             }

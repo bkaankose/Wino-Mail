@@ -34,6 +34,7 @@
 
         <controls:SettingsCard
             AutomationProperties.AutomationId="MailPreferencesEmailSyncIntervalCard"
+            Visibility="{x:Bind ViewModel.IsSyncIntervalAvailable, Mode=OneTime}"
             Description="{x:Bind domain:Translator.SettingsAppPreferences_EmailSyncInterval_Description}"
             Header="{x:Bind domain:Translator.SettingsAppPreferences_EmailSyncInterval_Title}">
             <controls:SettingsCard.HeaderIcon>

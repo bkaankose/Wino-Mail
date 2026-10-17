@@ -39,6 +39,12 @@ public static class Constants
     public const string ToastStoreUpdateActionKey = nameof(ToastStoreUpdateActionKey);
     public const string ToastStoreUpdateActionInstall = nameof(ToastStoreUpdateActionInstall);
     public const string StoreUpdateNotificationSuppressionKey = nameof(StoreUpdateNotificationSuppressionKey);
+
+    /// <summary>Mail synchronization interval in minutes when the user has not chosen one, or the platform has no choice.</summary>
+    public const int DefaultEmailSyncIntervalMinutes = 3;
+
+    /// <summary>Calendar synchronization interval in minutes when the user has not chosen one, or the platform has no choice.</summary>
+    public const int DefaultCalendarSyncIntervalMinutes = 5;
     public const string JumpListActionKey = "JumpListAction";
     public const string JumpListOpenMailFolderAction = "OpenMailFolder";
     public const string JumpListAccountIdKey = "JumpListAccountId";

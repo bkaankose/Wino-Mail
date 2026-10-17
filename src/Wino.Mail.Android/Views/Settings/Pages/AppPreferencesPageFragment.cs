@@ -8,7 +8,8 @@ namespace Wino.Mail.Android.Views.Settings.Pages;
 /// <summary>
 /// General: the display language (Windows AppPreferencesPage). Android has no launch at sign-in or close behaviour
 /// (the system owns the app's lifetime, IPlatformCapabilities.StartupIntegration and Tray are false) and Google Play
-/// updates the app, so the Windows startup, close and update cards are absent, as on iOS.
+/// updates the app, so the startup, close and update settings are unavailable, as on iOS
+/// (SettingAvailability: LaunchAtSignIn, CloseBehavior, StoreUpdateNotifications).
 /// </summary>
 public sealed class AppPreferencesPageFragment : SettingsPageFragment<AppPreferencesPageViewModel>
 {

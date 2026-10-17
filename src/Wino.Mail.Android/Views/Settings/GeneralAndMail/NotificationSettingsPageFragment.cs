@@ -113,6 +113,10 @@ public sealed class NotificationSettingsPageFragment : SettingsPageFragment<Noti
 
         AddGroup(null, quiet, mail, calendar, tasks, LiveNotifications());
 
+        // Sounds: Android keeps them per notification channel, so the system settings own them.
+        AddGroup(null, StackedCard(Translator.Android_NotificationSettings_System_Title, Translator.Android_NotificationSettings_System_Description, WinoIconGlyph.None,
+            Row(Bind.Button(Translator.Android_NotificationSettings_System_Button, OpenSystemNotificationSettings))));
+
         // Per-account overrides.
         _accounts = Add(new WinoSettingsGroup(Ctx, Translator.NotificationSettings_Accounts_Title, Translator.NotificationSettings_Accounts_Description));
         Bindings.Own(new ActionDisposable(() => _accountScope?.Dispose()));
@@ -182,6 +186,18 @@ public sealed class NotificationSettingsPageFragment : SettingsPageFragment<Noti
             handler.RemoveCallbacksAndMessages(null);
             tick = null;
         }));
+    }
+
+    /// <summary>Opens Wino's notification settings in the system Settings app (channels, sounds, vibration).</summary>
+    private void OpenSystemNotificationSettings()
+    {
+        // Notification channels (and their settings page) arrived in Android 8; older versions show the app's details.
+        var intent = OperatingSystem.IsAndroidVersionAtLeast(26)
+            ? new global::Android.Content.Intent(global::Android.Provider.Settings.ActionAppNotificationSettings)
+                .PutExtra(global::Android.Provider.Settings.ExtraAppPackage, Ctx.PackageName)
+            : new global::Android.Content.Intent(global::Android.Provider.Settings.ActionApplicationDetailsSettings,
+                global::Android.Net.Uri.Parse("package:" + Ctx.PackageName));
+        Ctx.StartActivity(intent);
     }
 
     private async void ResetAsync()

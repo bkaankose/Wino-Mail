@@ -10,6 +10,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Messaging.Client.Navigation;
@@ -34,11 +35,16 @@ public partial class UnreadBadgeSettingsPageViewModel : MailBaseViewModel
     [ObservableProperty]
     public partial bool IsLaunchNavigationEnabled { get; set; }
 
+    /// <summary>Opening the counted folder at launch needs a taskbar or Dock badge that launches the app.</summary>
+    public bool IsLaunchNavigationAvailable { get; }
+
     public UnreadBadgeSettingsPageViewModel(IAccountService accountService,
                                             IUnreadBadgeService unreadBadgeService,
                                             INotificationBuilder notificationBuilder,
-                                            IPreferencesService preferencesService)
+                                            IPreferencesService preferencesService,
+                                            IPlatformCapabilities platformCapabilities)
     {
+        IsLaunchNavigationAvailable = SettingAvailability.IsAvailable(PlatformSetting.BadgeLaunchNavigation, platformCapabilities);
         _accountService = accountService;
         _unreadBadgeService = unreadBadgeService;
         _notificationBuilder = notificationBuilder;

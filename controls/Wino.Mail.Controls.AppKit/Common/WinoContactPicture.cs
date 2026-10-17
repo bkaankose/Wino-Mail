@@ -18,6 +18,7 @@ public sealed class WinoContactPicture : WinoSurfaceView
     private readonly NSLayoutConstraint _height;
     private double _size;
     private bool _isSquare;
+    private NSColor? _identityFill;
 
     public WinoContactPicture(double size = 32)
     {
@@ -65,9 +66,10 @@ public sealed class WinoContactPicture : WinoSurfaceView
     public void SetIdentity(string? displayName, string? colorKey, NSColor? colorOverride = null)
     {
         _initials.StringValue = Initials(displayName ?? colorKey);
-        Fill = colorOverride ?? WinoStyle.Hex(ContactPictureAppearance.PaletteColor(colorKey ?? displayName));
+        _identityFill = colorOverride ?? WinoStyle.Hex(ContactPictureAppearance.PaletteColor(colorKey ?? displayName));
         AccessibilityLabel = displayName ?? colorKey;
         if (_image.Image is null) _initials.Hidden = false;
+        UpdateFill();
     }
 
     public NSImage? Image
@@ -78,8 +80,12 @@ public sealed class WinoContactPicture : WinoSurfaceView
             _image.Image = value;
             _image.Hidden = value is null;
             _initials.Hidden = value is not null;
+            UpdateFill();
         }
     }
+
+    // A resolved picture (Gravatar, favicon, contact photo) may be transparent, so the palette fill only backs initials.
+    private void UpdateFill() => Fill = _image.Image is null ? _identityFill : null;
 
     /// <summary>The shared initials rule (<see cref="ContactPictureAppearance.Initials"/>).</summary>
     public static string Initials(string? name) => ContactPictureAppearance.Initials(name);

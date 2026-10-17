@@ -63,7 +63,7 @@ public sealed class CalendarPreferenceSettingsPageViewController(CalendarPrefere
         newEventControls.Alignment = UIStackViewAlignment.Fill;
         var newEvent = StackedCard(Translator.CalendarSettings_NewEventBehavior_Header, Translator.CalendarSettings_NewEventBehavior_Description, WinoIconGlyph.Calendar, newEventControls);
 
-        AddGroup(null, overlap, previewCard, sync, grouping, newEvent);
+        AddGroup(null, overlap, previewCard, vm.IsSyncIntervalAvailable ? sync : null, grouping, newEvent);
     }
 
     protected override async Task InitializeAsync(NavigationMode mode, object? parameter)

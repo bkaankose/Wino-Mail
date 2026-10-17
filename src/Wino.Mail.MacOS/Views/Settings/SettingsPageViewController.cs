@@ -1,3 +1,4 @@
+using System.Linq;
 using AppKit;
 using CoreGraphics;
 using Wino.Core.Domain.Enums;
@@ -65,14 +66,15 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
         return view;
     }
 
-    protected WinoSettingsGroup Group(string? title, params NSView[] rows)
+    /// <summary>A settings group. A null row is a setting this platform does not offer (see SettingAvailability).</summary>
+    protected WinoSettingsGroup Group(string? title, params NSView?[] rows)
     {
         var group = new WinoSettingsGroup(title);
-        group.AddRange(rows);
+        group.AddRange(rows.OfType<NSView>().ToArray());
         return group;
     }
 
-    protected WinoSettingsGroup AddGroup(string? title, params NSView[] rows) => Add(Group(title, rows));
+    protected WinoSettingsGroup AddGroup(string? title, params NSView?[] rows) => Add(Group(title, rows));
 
     protected WinoSettingsCard Card(string header, string? description, WinoIconGlyph icon = WinoIconGlyph.None, NSView? content = null)
         => new(header, string.IsNullOrWhiteSpace(description) ? null : description, icon, content);
@@ -104,10 +106,10 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
         return card;
     }
 
-    protected WinoSettingsExpander Expander(string header, string? description, WinoIconGlyph icon, NSView? content, params NSView[] items)
+    protected WinoSettingsExpander Expander(string header, string? description, WinoIconGlyph icon, NSView? content, params NSView?[] items)
     {
         var expander = new WinoSettingsExpander(header, string.IsNullOrWhiteSpace(description) ? null : description, icon, content);
-        foreach (var item in items) expander.Add(item);
+        foreach (var item in items.OfType<NSView>()) expander.Add(item);
         return expander;
     }
 

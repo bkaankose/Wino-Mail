@@ -642,7 +642,7 @@ public partial class PreferencesService(IConfigurationService configurationServi
 
     public int CalendarSyncIntervalMinutes
     {
-        get => _configurationService.Get(nameof(CalendarSyncIntervalMinutes), 5);
+        get => _configurationService.Get(nameof(CalendarSyncIntervalMinutes), Constants.DefaultCalendarSyncIntervalMinutes);
         set => SetPropertyAndSave(nameof(CalendarSyncIntervalMinutes), Math.Max(1, value));
     }
 
@@ -660,7 +660,7 @@ public partial class PreferencesService(IConfigurationService configurationServi
 
     public int EmailSyncIntervalMinutes
     {
-        get => _configurationService.Get(nameof(EmailSyncIntervalMinutes), 3);
+        get => _configurationService.Get(nameof(EmailSyncIntervalMinutes), Constants.DefaultEmailSyncIntervalMinutes);
         set => SetPropertyAndSave(nameof(EmailSyncIntervalMinutes), value);
     }
 
@@ -686,12 +686,6 @@ public partial class PreferencesService(IConfigurationService configurationServi
     {
         get => _configurationService.Get(nameof(UndoDeletingMailsIntervalInSeconds), 3);
         set => SetPropertyAndSave(nameof(UndoDeletingMailsIntervalInSeconds), Math.Clamp(value, 1, 10));
-    }
-
-    public bool IsAppModeTaskbarIconSwitchDisabled
-    {
-        get => _configurationService.Get(nameof(IsAppModeTaskbarIconSwitchDisabled), false);
-        set => SetPropertyAndSave(nameof(IsAppModeTaskbarIconSwitchDisabled), value);
     }
 
     public bool IsStoreUpdateNotificationsEnabled

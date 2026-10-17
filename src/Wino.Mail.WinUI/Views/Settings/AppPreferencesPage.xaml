@@ -32,6 +32,7 @@
 
         <controls:SettingsCard
             AutomationProperties.AutomationId="AppPreferencesPageSettingsCard2"
+            Visibility="{x:Bind ViewModel.IsLaunchAtSignInAvailable, Mode=OneTime}"
             Description="{x:Bind domain:Translator.SettingsAppPreferences_LaunchAtSignIn_Description}"
             Header="{x:Bind domain:Translator.SettingsAppPreferences_LaunchAtSignIn_Title}">
             <ToggleButton
@@ -47,6 +48,7 @@
 
         <controls:SettingsCard
             AutomationProperties.AutomationId="AppPreferencesPageSettingsCard6"
+            Visibility="{x:Bind ViewModel.IsCloseBehaviorAvailable, Mode=OneTime}"
             Description="{x:Bind domain:Translator.SettingsAppPreferences_CloseBehavior_Description}"
             Header="{x:Bind domain:Translator.SettingsAppPreferences_CloseBehavior_Title}">
             <ComboBox
@@ -60,6 +62,7 @@
 
         <controls:SettingsCard
             AutomationProperties.AutomationId="AppPreferencesPageSettingsCard7"
+            Visibility="{x:Bind ViewModel.IsStoreUpdateNotificationsAvailable, Mode=OneTime}"
             Description="{x:Bind domain:Translator.SettingsAppPreferences_StoreUpdateNotifications_Description}"
             Header="{x:Bind domain:Translator.SettingsAppPreferences_StoreUpdateNotifications_Title}">
             <ToggleSwitch AutomationProperties.AutomationId="AppPreferencesStoreUpdateNotificationsToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsStoreUpdateNotificationsEnabled, Mode=TwoWay}" />
@@ -70,9 +73,10 @@
 
         <controls:SettingsCard
             AutomationProperties.AutomationId="AppPreferencesPageSettingsCard8"
+            Visibility="{x:Bind ViewModel.IsAppModeTaskbarIdentityAvailable, Mode=OneTime}"
             Description="{x:Bind domain:Translator.SettingsAppPreferences_DisableAppModeTaskbarIconSwitch_Description}"
             Header="{x:Bind domain:Translator.SettingsAppPreferences_DisableAppModeTaskbarIconSwitch_Title}">
-            <ToggleSwitch AutomationProperties.AutomationId="AppPreferencesDisableAppModeTaskbarIconSwitchToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsAppModeTaskbarIconSwitchDisabled, Mode=TwoWay}" />
+            <ToggleSwitch AutomationProperties.AutomationId="AppPreferencesDisableAppModeTaskbarIconSwitchToggleSwitch" IsOn="{x:Bind ShellPreferences.IsAppModeTaskbarIconSwitchDisabled, Mode=TwoWay}" />
             <controls:SettingsCard.HeaderIcon>
                 <coreControls:WinoFontIcon Icon="Pin" />
             </controls:SettingsCard.HeaderIcon>

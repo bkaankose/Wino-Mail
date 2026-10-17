@@ -78,8 +78,10 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
             Bind.Enabled(Card(Translator.NotificationSettings_QuietHours_From_Title, Translator.NotificationSettings_QuietHours_From_Description, WinoIconGlyph.None, hours), p, nameof(p.AreQuietHoursEnabled), QuietOn),
             Bind.Enabled(Card(Translator.NotificationSettings_QuietHours_Days_Title, Translator.NotificationSettings_QuietHours_Days_Description, WinoIconGlyph.None, days), p, nameof(p.AreQuietHoursEnabled), QuietOn),
             // Presenting is detected by MacUserPresenceStateProvider (a full-display window in front).
-            Card(Translator.NotificationSettings_QuietHours_Presenting_Title, Translator.NotificationSettings_QuietHours_Presenting_Description, WinoIconGlyph.None,
-                Bind.Switch(p, nameof(p.SnoozeWhilePresenting), s => s.SnoozeWhilePresenting, (s, v) => s.SnoozeWhilePresenting = v, Translator.NotificationSettings_QuietHours_Presenting_Title)));
+            vm.IsSnoozeWhilePresentingAvailable
+                ? Card(Translator.NotificationSettings_QuietHours_Presenting_Title, Translator.NotificationSettings_QuietHours_Presenting_Description, WinoIconGlyph.None,
+                    Bind.Switch(p, nameof(p.SnoozeWhilePresenting), s => s.SnoozeWhilePresenting, (s, v) => s.SnoozeWhilePresenting = v, Translator.NotificationSettings_QuietHours_Presenting_Title))
+                : null);
         Bind.Bind(vm, nameof(vm.QuietHoursSummary), s => s.QuietHoursSummary, text => quiet.HeaderCard.Description = text);
 
         // Mail.

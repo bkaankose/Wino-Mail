@@ -138,6 +138,7 @@
         </controls:SettingsCard>
         <controls:SettingsCard
             AutomationProperties.AutomationId="CalendarPreferenceSyncIntervalCard"
+            Visibility="{x:Bind ViewModel.IsSyncIntervalAvailable, Mode=OneTime}"
             Description="{x:Bind domain:Translator.CalendarSettings_SyncInterval_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.CalendarSettings_SyncInterval_Title, Mode=OneTime}">
             <controls:SettingsCard.HeaderIcon>

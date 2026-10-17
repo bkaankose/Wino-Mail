@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Windows.Input;
 using Android.Content;
 using Android.Graphics;
@@ -130,14 +131,15 @@ public abstract class SettingsPageFragment<TViewModel> : WinoFragment<TViewModel
         return view;
     }
 
-    protected WinoSettingsGroup Group(string? title, params View[] rows)
+    /// <summary>A settings group. A null row is a setting this platform does not offer (see SettingAvailability).</summary>
+    protected WinoSettingsGroup Group(string? title, params View?[] rows)
     {
         var group = new WinoSettingsGroup(Ctx, title);
-        group.AddRange(rows);
+        group.AddRange(rows.OfType<View>().ToArray());
         return group;
     }
 
-    protected WinoSettingsGroup AddGroup(string? title, params View[] rows) => Add(Group(title, rows));
+    protected WinoSettingsGroup AddGroup(string? title, params View?[] rows) => Add(Group(title, rows));
 
     protected WinoSettingsCard Card(string header, string? description, WinoIconGlyph icon = WinoIconGlyph.None, View? content = null)
         => new(Ctx, header, string.IsNullOrWhiteSpace(description) ? null : description, icon, content);
@@ -199,10 +201,10 @@ public abstract class SettingsPageFragment<TViewModel> : WinoFragment<TViewModel
         return card;
     }
 
-    protected WinoSettingsExpander Expander(string header, string? description, WinoIconGlyph icon, View? content, params View[] items)
+    protected WinoSettingsExpander Expander(string header, string? description, WinoIconGlyph icon, View? content, params View?[] items)
     {
         var expander = new WinoSettingsExpander(Ctx, header, string.IsNullOrWhiteSpace(description) ? null : description, icon, content);
-        foreach (var item in items) expander.Add(item);
+        foreach (var item in items.OfType<View>()) expander.Add(item);
         return expander;
     }
 

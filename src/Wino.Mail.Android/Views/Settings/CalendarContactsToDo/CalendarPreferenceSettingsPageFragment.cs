@@ -70,7 +70,7 @@ public sealed class CalendarPreferenceSettingsPageFragment : SettingsPageFragmen
         var newEvent = StackedCard(Translator.CalendarSettings_NewEventBehavior_Header, Translator.CalendarSettings_NewEventBehavior_Description, WinoIconGlyph.Calendar,
             Stack(Resource.Dimension.wino_space_s, behavior, calendar));
 
-        AddGroup(null, overlap, previewCard, sync, grouping, newEvent);
+        AddGroup(null, overlap, previewCard, vm.IsSyncIntervalAvailable ? sync : null, grouping, newEvent);
     }
 
     /// <summary>

@@ -137,7 +137,10 @@ public static class IOSPlatformRegistration
             StartupIntegration: false, Tray: false, GlobalHotkeys: false, GeneralActivation: true, AppleAppStore: true,
             RemoteNotifications: true, PushRelayOptIn: false,
             // Hardware keyboard shortcuts are an iPad feature; backups are Windows and Mac files.
-            KeyboardShortcuts: isPad, FileBackup: false, Purchases: true));
+            KeyboardShortcuts: isPad, FileBackup: false, Purchases: true,
+            // One row density and no hover; the system schedules background refresh, so sync intervals are fixed.
+            PointerHover: false, MailListDensity: false, PresentationDetection: false, ConfigurableSyncIntervals: false,
+            BadgeLaunchNavigation: false));
         return services;
     }
 

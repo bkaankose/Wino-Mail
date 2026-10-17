@@ -17,8 +17,8 @@ namespace Wino.Mail.UIKit.Views.Settings;
 
 /// <summary>
 /// Message list: a live preview row, sender pictures, swipe actions, threads and the remaining row options (Windows
-/// MessageListPage, same card order). The phone list has one row density and no pointer, so the Windows density and
-/// hover action options are left out. The preview is the real mail row cell fed from the ViewModel's demo mail.
+/// MessageListPage, same card order). The phone list has one row density and no pointer, so density and hover actions are
+/// unavailable (SettingAvailability: MailListDensity, HoverActions). The preview is the real mail row cell fed from the ViewModel's demo mail.
 /// </summary>
 public sealed class MessageListPageViewController(MessageListPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
     : SettingsPageViewController<MessageListPageViewModel>(viewModel, dispatcher, logger)

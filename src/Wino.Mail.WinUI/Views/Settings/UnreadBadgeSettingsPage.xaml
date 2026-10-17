@@ -62,10 +62,12 @@
         <TextBlock
             Margin="0,8,0,0"
             Style="{StaticResource BodyStrongTextBlockStyle}"
-            Text="{x:Bind domain:Translator.UnreadBadges_LaunchBehaviour_Title, Mode=OneTime}" />
+            Text="{x:Bind domain:Translator.UnreadBadges_LaunchBehaviour_Title, Mode=OneTime}"
+            Visibility="{x:Bind ViewModel.IsLaunchNavigationAvailable, Mode=OneTime}" />
 
         <controls:SettingsCard
             AutomationProperties.AutomationId="UnreadBadgeSettingsPageLaunchCard"
+            Visibility="{x:Bind ViewModel.IsLaunchNavigationAvailable, Mode=OneTime}"
             Description="{x:Bind domain:Translator.UnreadBadges_Launch_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.UnreadBadges_Launch_Title, Mode=OneTime}">
             <controls:SettingsCard.HeaderIcon>

@@ -35,4 +35,25 @@ public interface IPlatformCapabilities
 
     /// <summary>Live notifications are an opt-in setting on this platform (off by default).</summary>
     bool PushRelayOptIn { get; }
+
+    /// <summary>Each app mode has its own taskbar entry, so the window's taskbar identity can follow the mode (Windows).</summary>
+    bool AppModeTaskbarIdentity { get; }
+
+    /// <summary>The mail list has a hovering pointer, so hover actions are offered.</summary>
+    bool PointerHover { get; }
+
+    /// <summary>The mail list offers more than one row density.</summary>
+    bool MailListDensity { get; }
+
+    /// <summary>The app can tell when the user is presenting or sharing the screen, so notifications can wait.</summary>
+    bool PresentationDetection { get; }
+
+    /// <summary>
+    /// The app synchronizes on its own timer at the user's chosen intervals. False on mobile, where the system decides
+    /// when the app runs in the background and the foreground loop uses the default intervals.
+    /// </summary>
+    bool ConfigurableSyncIntervals { get; }
+
+    /// <summary>The unread badge sits on a taskbar or Dock button that launches the app, so a launch can open the counted folder.</summary>
+    bool BadgeLaunchNavigation { get; }
 }

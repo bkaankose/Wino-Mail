@@ -10,6 +10,7 @@ using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.PushRelay;
 using Wino.Core.Domain.Translations;
@@ -290,6 +291,9 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
     #endregion
 
     #region Live notifications
+
+    /// <summary>Holding notifications while presenting needs presentation detection (desktop).</summary>
+    public bool IsSnoozeWhilePresentingAvailable => SettingAvailability.IsAvailable(PlatformSetting.SnoozeWhilePresenting, _capabilities);
 
     /// <summary>The live notifications card exists on platforms that can use the relay.</summary>
     public bool IsPushRelaySectionVisible => _capabilities.RemoteNotifications || _capabilities.PushRelayOptIn;

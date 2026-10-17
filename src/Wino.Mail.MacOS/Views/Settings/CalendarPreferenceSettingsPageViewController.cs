@@ -62,7 +62,7 @@ public sealed class CalendarPreferenceSettingsPageViewController(CalendarPrefere
         var newEvent = Card(Translator.CalendarSettings_NewEventBehavior_Header, Translator.CalendarSettings_NewEventBehavior_Description, WinoIconGlyph.Calendar, behavior);
         newEvent.BottomContent = calendar;
 
-        AddGroup(null, overlap, previewCard, sync, grouping, newEvent);
+        AddGroup(null, overlap, previewCard, vm.IsSyncIntervalAvailable ? sync : null, grouping, newEvent);
     }
 
     protected override async Task InitializeAsync(NavigationMode mode, object? parameter)

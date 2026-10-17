@@ -431,6 +431,8 @@ docs/design-prototypes/*
 !/docs/android-design-decisions.md
 !/docs/android-port-investigation.md
 !/docs/macos-shared-logic-roadmap.md
+!/docs/push-relay-design.md
+!/docs/push-relay/
 
 # Release tooling is source, not a build output directory.
 !/scripts/release/

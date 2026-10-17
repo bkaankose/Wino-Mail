@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Translations;
 
@@ -51,6 +52,11 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
     }
 
     public IPreferencesService PreferencesService { get; }
+
+    public bool IsLaunchAtSignInAvailable => SettingAvailability.IsAvailable(PlatformSetting.LaunchAtSignIn, PlatformCapabilities);
+    public bool IsCloseBehaviorAvailable => SettingAvailability.IsAvailable(PlatformSetting.CloseBehavior, PlatformCapabilities);
+    public bool IsStoreUpdateNotificationsAvailable => SettingAvailability.IsAvailable(PlatformSetting.StoreUpdateNotifications, PlatformCapabilities);
+    public bool IsAppModeTaskbarIdentityAvailable => SettingAvailability.IsAvailable(PlatformSetting.AppModeTaskbarIdentity, PlatformCapabilities);
 
     [ObservableProperty]
     public partial List<string> CloseBehaviorModes { get; set; }

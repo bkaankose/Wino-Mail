@@ -213,6 +213,7 @@
 
         <controls:SettingsCard
             AutomationProperties.AutomationId="MessageListMailSpacingCard"
+            Visibility="{x:Bind ViewModel.IsMailListDensityAvailable, Mode=OneTime}"
             Description="{x:Bind domain:Translator.SettingsMailSpacing_Description}"
             Header="{x:Bind domain:Translator.SettingsMailSpacing_Title}">
             <controls:SettingsCard.HeaderIcon>
@@ -227,6 +228,7 @@
 
         <controls:SettingsExpander
             AutomationProperties.AutomationId="MessageListPageSettingsExpander2"
+            Visibility="{x:Bind ViewModel.IsHoverActionsAvailable, Mode=OneTime}"
             Description="{x:Bind domain:Translator.SettingsHoverActions_Description}"
             Header="{x:Bind domain:Translator.SettingsHoverActions_Title}">
             <controls:SettingsExpander.HeaderIcon>

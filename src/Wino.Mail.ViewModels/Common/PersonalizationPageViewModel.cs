@@ -153,21 +153,8 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
     private void InitializeColors()
     {
         Colors.Clear();
-        Colors.Add(new AppColorViewModel("#0078d7"));
-        Colors.Add(new AppColorViewModel("#00838c"));
-        Colors.Add(new AppColorViewModel("#e3008c"));
-        Colors.Add(new AppColorViewModel("#ca4f07"));
-        Colors.Add(new AppColorViewModel("#e81123"));
-        Colors.Add(new AppColorViewModel("#00819e"));
-        Colors.Add(new AppColorViewModel("#10893e"));
-        Colors.Add(new AppColorViewModel("#881798"));
-        Colors.Add(new AppColorViewModel("#c239b3"));
-        Colors.Add(new AppColorViewModel("#767676"));
-        Colors.Add(new AppColorViewModel("#e1b12c"));
-        Colors.Add(new AppColorViewModel("#16a085"));
-        Colors.Add(new AppColorViewModel("#0984e3"));
-        Colors.Add(new AppColorViewModel("#4a69bd"));
-        Colors.Add(new AppColorViewModel("#05c46b"));
+        foreach (var hex in AppearanceSettingsModel.AccentPalette)
+            Colors.Add(new AppColorViewModel(hex));
 
         // Add system accent color as last item.
 

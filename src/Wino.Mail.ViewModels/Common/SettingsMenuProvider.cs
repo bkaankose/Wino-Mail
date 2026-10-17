@@ -241,7 +241,8 @@ public partial class SettingsMenuProvider(
         SetSelectedRootPage(selectedPage);
     }
 
-    private bool IsPageAvailable(WinoPage page)
+    /// <summary>The shared page rule (platform capabilities and the Wino Intelligence entitlement).</summary>
+    public bool IsPageAvailable(WinoPage page)
         => SettingsPageAvailability.IsAvailable(page, platformCapabilities, entitlementService.CurrentEntitlement.CanAccessSurfaces);
 
     private static SettingsShellPageMenuItem CreatePageMenuItem(SettingsNavigationItemInfo item, IMenuItem parentMenuItem = null)

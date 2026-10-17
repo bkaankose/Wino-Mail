@@ -26,13 +26,6 @@ namespace Wino.Mail.Android.Views.Settings.Personalization;
 /// </remarks>
 public sealed class PersonalizationPageFragment : SettingsPageFragment<PersonalizationPageViewModel>
 {
-    // The Windows accent palette (PersonalizationPageViewModel.InitializeColors).
-    private static readonly string[] AccentPalette =
-    [
-        "#0078d7", "#00838c", "#e3008c", "#ca4f07", "#e81123", "#00819e", "#10893e", "#881798",
-        "#c239b3", "#767676", "#e1b12c", "#16a085", "#0984e3", "#4a69bd", "#05c46b"
-    ];
-
     protected override void BuildPage()
     {
         var vm = VM;
@@ -40,7 +33,7 @@ public sealed class PersonalizationPageFragment : SettingsPageFragment<Personali
         if (MainApplication.Services?.GetService<AndroidThemeService>() is not { } themes) return;
         var appearance = Bindings.Own(new AndroidAppearanceModel(themes));
 
-        var swatches = new AccentSwatchRow(Ctx, AccentPalette);
+        var swatches = new AccentSwatchRow(Ctx, AppearanceSettingsModel.AccentPalette);
         Bind.Bind(appearance, nameof(AndroidAppearanceModel.AccentHex), s => s.AccentHex, hex => swatches.SelectedHex = hex);
         swatches.Picked += (_, hex) => appearance.AccentHex = hex;
         Bind.Enabled(swatches, appearance, nameof(AndroidAppearanceModel.UseSystemAccent), s => !s.UseSystemAccent);

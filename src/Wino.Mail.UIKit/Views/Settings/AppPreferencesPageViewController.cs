@@ -9,7 +9,8 @@ namespace Wino.Mail.UIKit.Views.Settings;
 
 /// <summary>
 /// General: the display language (Windows AppPreferencesPage). iOS has no launch-at-sign-in or close behaviour (the
-/// system owns app lifetime), and the App Store updates the app, so the Mac startup, close and update cards are absent.
+/// system owns app lifetime), and the App Store updates the app, so the startup, close and update settings are
+/// unavailable (SettingAvailability: LaunchAtSignIn, CloseBehavior, StoreUpdateNotifications).
 /// </summary>
 public sealed class AppPreferencesPageViewController(AppPreferencesPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
     : SettingsPageViewController<AppPreferencesPageViewModel>(viewModel, dispatcher, logger)

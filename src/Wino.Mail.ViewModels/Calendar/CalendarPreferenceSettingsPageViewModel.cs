@@ -11,6 +11,7 @@ using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Settings;
 
 namespace Wino.Calendar.ViewModels;
 
@@ -81,12 +82,17 @@ public partial class CalendarPreferenceSettingsPageViewModel : CalendarSettingsS
 
     public Task InitializationTask { get; }
 
+    /// <summary>The calendar sync interval is a choice only where the app runs its own timer (not on mobile).</summary>
+    public bool IsSyncIntervalAvailable { get; }
+
     public CalendarPreferenceSettingsPageViewModel(
         IPreferencesService preferencesService,
         ICalendarService calendarService,
-        IAccountService accountService)
+        IAccountService accountService,
+        IPlatformCapabilities platformCapabilities)
         : base(preferencesService, calendarService, accountService)
     {
+        IsSyncIntervalAvailable = SettingAvailability.IsAvailable(PlatformSetting.SyncIntervals, platformCapabilities);
         SelectedEventDisplayModeOption = EventDisplayModeOptions.FirstOrDefault(option => option.Mode == preferencesService.CalendarEventDisplayMode)
             ?? EventDisplayModeOptions[0];
 

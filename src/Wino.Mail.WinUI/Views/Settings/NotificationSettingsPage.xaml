@@ -188,6 +188,7 @@
 
                 <controls:SettingsCard
                     AutomationProperties.AutomationId="NotificationSettingsPresentingCard"
+                    Visibility="{x:Bind ViewModel.IsSnoozeWhilePresentingAvailable, Mode=OneTime}"
                     Description="{x:Bind domain:Translator.NotificationSettings_QuietHours_Presenting_Description, Mode=OneTime}"
                     Header="{x:Bind domain:Translator.NotificationSettings_QuietHours_Presenting_Title, Mode=OneTime}">
                     <ToggleSwitch

@@ -28,6 +28,9 @@ public sealed class UnreadBadgeSettingsPageFragment : SettingsPageFragment<Unrea
         Bindings.Own(new ActionDisposable(() => _rowScope?.Dispose()));
         Bind.Collection(vm.Accounts, RebuildAccounts);
 
+        // Opening the counted folder at launch needs a taskbar or Dock badge (not mobile).
+        if (!vm.IsLaunchNavigationAvailable) return;
+
         AddGroup(Translator.UnreadBadges_LaunchBehaviour_Title,
             Card(Translator.UnreadBadges_Launch_Title, Translator.UnreadBadges_Launch_Description, WinoIconGlyph.Open,
                 Bind.Switch(vm, nameof(vm.IsLaunchNavigationEnabled), s => s.IsLaunchNavigationEnabled, (s, v) => s.IsLaunchNavigationEnabled = v, Translator.UnreadBadges_Launch_Title)));

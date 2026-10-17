@@ -47,32 +47,11 @@ public sealed class MessageListPageViewController(MessageListPageViewModel viewM
         var density = Card(Translator.SettingsMailSpacing_Title, Translator.SettingsMailSpacing_Description, WinoIconGlyph.TextLineSpacing,
             Bind.Segmented(vm, vm.MailSpacingOptions, nameof(vm.SelectedMailSpacingIndex), s => s.SelectedMailSpacingIndex, (s, v) => s.SelectedMailSpacingIndex = v));
 
-        AddGroup(null, senderPictures, density);
+        AddGroup(null, senderPictures, vm.IsMailListDensityAvailable ? density : null);
 
-        // Hover actions
-        bool HoverOn(IPreferencesService s) => s.IsHoverActionsEnabled;
-        var hoverEnabled = Card(Translator.SettingsEnableHoverActions_Title, null, WinoIconGlyph.None,
-            Bind.Switch(p, nameof(p.IsHoverActionsEnabled), s => s.IsHoverActionsEnabled, (s, v) => s.IsHoverActionsEnabled = v, Translator.SettingsEnableHoverActions_Title));
-        AddGroup(null, Expander(Translator.SettingsHoverActions_Title, Translator.SettingsHoverActions_Description, WinoIconGlyph.CursorHover, null,
-            hoverEnabled,
-            Bind.Enabled(Card(Translator.SettingsHoverActionLeft, null, WinoIconGlyph.None,
-                Bind.PopUp(vm, vm.AvailableHoverActionsTranslations, nameof(vm.LeftHoverActionIndex), s => s.LeftHoverActionIndex, (s, v) => s.LeftHoverActionIndex = v, 150)),
-                p, nameof(p.IsHoverActionsEnabled), HoverOn),
-            Bind.Enabled(Card(Translator.SettingsHoverActionCenter, null, WinoIconGlyph.None,
-                Bind.PopUp(vm, vm.AvailableHoverActionsTranslations, nameof(vm.CenterHoverActionIndex), s => s.CenterHoverActionIndex, (s, v) => s.CenterHoverActionIndex = v, 150)),
-                p, nameof(p.IsHoverActionsEnabled), HoverOn),
-            Bind.Enabled(Card(Translator.SettingsHoverActionRight, null, WinoIconGlyph.None,
-                Bind.PopUp(vm, vm.AvailableHoverActionsTranslations, nameof(vm.RightHoverActionIndex), s => s.RightHoverActionIndex, (s, v) => s.RightHoverActionIndex = v, 150)),
-                p, nameof(p.IsHoverActionsEnabled), HoverOn),
-            Bind.Enabled(Card(Translator.SettingsHoverActionButtonSize, null, WinoIconGlyph.None,
-                Bind.PopUp(vm, vm.HoverActionButtonSizeOptions, nameof(vm.SelectedHoverActionButtonSizeIndex), s => s.SelectedHoverActionButtonSizeIndex, (s, v) => s.SelectedHoverActionButtonSizeIndex = v, 150)),
-                p, nameof(p.IsHoverActionsEnabled), HoverOn),
-            Bind.Enabled(Card(Translator.SettingsHoverActionPosition, null, WinoIconGlyph.None,
-                Bind.PopUp(vm, vm.HoverActionPositionOptions, nameof(vm.SelectedHoverActionPositionIndex), s => s.SelectedHoverActionPositionIndex, (s, v) => s.SelectedHoverActionPositionIndex = v, 150)),
-                p, nameof(p.IsHoverActionsEnabled), HoverOn),
-            Bind.Enabled(Card(Translator.SettingsHoverActionAnimation, null, WinoIconGlyph.None,
-                Bind.PopUp(vm, vm.HoverActionAnimationOptions, nameof(vm.SelectedHoverActionAnimationIndex), s => s.SelectedHoverActionAnimationIndex, (s, v) => s.SelectedHoverActionAnimationIndex = v, 150)),
-                p, nameof(p.IsHoverActionsEnabled), HoverOn)));
+        // Hover actions (pointer platforms)
+        if (vm.IsHoverActionsAvailable)
+            AddHoverActions(vm, p);
 
         // Swipe actions
         bool SwipeOn(IPreferencesService s) => s.IsSwipeActionsEnabled;
@@ -108,6 +87,34 @@ public sealed class MessageListPageViewController(MessageListPageViewModel viewM
         AddGroup(null,
             Card(Translator.SettingsShowPreviewText_Title, Translator.SettingsShowPreviewText_Description, WinoIconGlyph.TextDescription,
                 Bind.Switch(p, nameof(p.IsShowPreviewEnabled), s => s.IsShowPreviewEnabled, (s, v) => s.IsShowPreviewEnabled = v, Translator.SettingsShowPreviewText_Title)));
+    }
+
+    /// <summary>Hover actions: the switch and the left, center and right actions with their look.</summary>
+    private void AddHoverActions(MessageListPageViewModel vm, IPreferencesService p)
+    {
+        bool HoverOn(IPreferencesService s) => s.IsHoverActionsEnabled;
+        var hoverEnabled = Card(Translator.SettingsEnableHoverActions_Title, null, WinoIconGlyph.None,
+            Bind.Switch(p, nameof(p.IsHoverActionsEnabled), s => s.IsHoverActionsEnabled, (s, v) => s.IsHoverActionsEnabled = v, Translator.SettingsEnableHoverActions_Title));
+        AddGroup(null, Expander(Translator.SettingsHoverActions_Title, Translator.SettingsHoverActions_Description, WinoIconGlyph.CursorHover, null,
+            hoverEnabled,
+            Bind.Enabled(Card(Translator.SettingsHoverActionLeft, null, WinoIconGlyph.None,
+                Bind.PopUp(vm, vm.AvailableHoverActionsTranslations, nameof(vm.LeftHoverActionIndex), s => s.LeftHoverActionIndex, (s, v) => s.LeftHoverActionIndex = v, 150)),
+                p, nameof(p.IsHoverActionsEnabled), HoverOn),
+            Bind.Enabled(Card(Translator.SettingsHoverActionCenter, null, WinoIconGlyph.None,
+                Bind.PopUp(vm, vm.AvailableHoverActionsTranslations, nameof(vm.CenterHoverActionIndex), s => s.CenterHoverActionIndex, (s, v) => s.CenterHoverActionIndex = v, 150)),
+                p, nameof(p.IsHoverActionsEnabled), HoverOn),
+            Bind.Enabled(Card(Translator.SettingsHoverActionRight, null, WinoIconGlyph.None,
+                Bind.PopUp(vm, vm.AvailableHoverActionsTranslations, nameof(vm.RightHoverActionIndex), s => s.RightHoverActionIndex, (s, v) => s.RightHoverActionIndex = v, 150)),
+                p, nameof(p.IsHoverActionsEnabled), HoverOn),
+            Bind.Enabled(Card(Translator.SettingsHoverActionButtonSize, null, WinoIconGlyph.None,
+                Bind.PopUp(vm, vm.HoverActionButtonSizeOptions, nameof(vm.SelectedHoverActionButtonSizeIndex), s => s.SelectedHoverActionButtonSizeIndex, (s, v) => s.SelectedHoverActionButtonSizeIndex = v, 150)),
+                p, nameof(p.IsHoverActionsEnabled), HoverOn),
+            Bind.Enabled(Card(Translator.SettingsHoverActionPosition, null, WinoIconGlyph.None,
+                Bind.PopUp(vm, vm.HoverActionPositionOptions, nameof(vm.SelectedHoverActionPositionIndex), s => s.SelectedHoverActionPositionIndex, (s, v) => s.SelectedHoverActionPositionIndex = v, 150)),
+                p, nameof(p.IsHoverActionsEnabled), HoverOn),
+            Bind.Enabled(Card(Translator.SettingsHoverActionAnimation, null, WinoIconGlyph.None,
+                Bind.PopUp(vm, vm.HoverActionAnimationOptions, nameof(vm.SelectedHoverActionAnimationIndex), s => s.SelectedHoverActionAnimationIndex, (s, v) => s.SelectedHoverActionAnimationIndex = v, 150)),
+                p, nameof(p.IsHoverActionsEnabled), HoverOn)));
     }
 
     private NSView BuildPreview()

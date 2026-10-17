@@ -4,7 +4,7 @@ using Android.Graphics;
 using Android.Graphics.Drawables;
 using Android.Views;
 using Android.Widget;
-using CommunityToolkit.Mvvm.ComponentModel;
+using Wino.Core.ViewModels;
 using Google.Android.Material.Dialog;
 using Google.Android.Material.Slider;
 using Google.Android.Material.TextField;
@@ -415,53 +415,15 @@ public static class WinoColorPicker
     }
 }
 
-/// <summary>Observable adapter over the Android theme service for the Personalization page (iOS UIKitAppearanceModel).</summary>
-public sealed class AndroidAppearanceModel : ObservableObject, IDisposable
+/// <summary>The shared appearance model plus the Android wallpaper backdrop switch.</summary>
+public sealed class AndroidAppearanceModel : AppearanceSettingsModel
 {
-    private static readonly ApplicationElementTheme[] Themes = [ApplicationElementTheme.Default, ApplicationElementTheme.Light, ApplicationElementTheme.Dark];
     private readonly AndroidThemeService _themes;
-    private string? _lastAccent;
 
-    public AndroidAppearanceModel(AndroidThemeService themes)
+    public AndroidAppearanceModel(AndroidThemeService themes) : base(themes)
     {
         _themes = themes;
-        _themes.ElementThemeChanged += ThemeChanged;
-        _themes.AccentColorChanged += AccentChanged;
         _themes.AppearanceChanged += AppearanceChanged;
-        _lastAccent = string.IsNullOrEmpty(_themes.AccentColor) ? null : _themes.AccentColor;
-    }
-
-    public int ThemeIndex
-    {
-        get => Array.IndexOf(Themes, _themes.RootTheme);
-        set
-        {
-            if (value < 0 || value >= Themes.Length || Themes[value] == _themes.RootTheme) return;
-            _themes.RootTheme = Themes[value];
-            OnPropertyChanged();
-        }
-    }
-
-    /// <summary>The overriding accent, or null when the system accent is used.</summary>
-    public string? AccentHex
-    {
-        get => string.IsNullOrEmpty(_themes.AccentColor) ? null : _themes.AccentColor;
-        set
-        {
-            if (string.Equals(value ?? string.Empty, _themes.AccentColor ?? string.Empty, StringComparison.OrdinalIgnoreCase)) return;
-            if (!string.IsNullOrEmpty(value)) _lastAccent = value;
-            _themes.AccentColor = value ?? string.Empty;
-        }
-    }
-
-    public bool UseSystemAccent
-    {
-        get => string.IsNullOrEmpty(_themes.AccentColor);
-        set
-        {
-            if (value == UseSystemAccent) return;
-            AccentHex = value ? null : _lastAccent ?? "#0078d7";
-        }
     }
 
     public bool IsBackdropEnabled
@@ -475,26 +437,17 @@ public sealed class AndroidAppearanceModel : ObservableObject, IDisposable
         }
     }
 
-    private void AppearanceChanged(object? sender, EventArgs args)
+    protected override void NotifyAppearanceChanged()
     {
+        base.NotifyAppearanceChanged();
         OnPropertyChanged(nameof(IsBackdropEnabled));
-        OnPropertyChanged(nameof(ThemeIndex));
-        OnPropertyChanged(nameof(AccentHex));
-        OnPropertyChanged(nameof(UseSystemAccent));
     }
 
-    private void ThemeChanged(object? sender, ApplicationElementTheme theme) => OnPropertyChanged(nameof(ThemeIndex));
+    private void AppearanceChanged(object? sender, EventArgs args) => NotifyAppearanceChanged();
 
-    private void AccentChanged(object? sender, string accent)
+    public override void Dispose()
     {
-        OnPropertyChanged(nameof(AccentHex));
-        OnPropertyChanged(nameof(UseSystemAccent));
-    }
-
-    public void Dispose()
-    {
-        _themes.ElementThemeChanged -= ThemeChanged;
-        _themes.AccentColorChanged -= AccentChanged;
         _themes.AppearanceChanged -= AppearanceChanged;
+        base.Dispose();
     }
 }

@@ -27,9 +27,9 @@ public sealed class MailPreferencesPageViewController(MailPreferencesPageViewMod
 
         AddGroup(null,
             StackedCard(Translator.SettingsStartupItem_Title, Translator.SettingsStartupItem_Description, WinoIconGlyph.Home, startup),
-            StackedCard(Translator.SettingsAppPreferences_EmailSyncInterval_Title, Translator.SettingsAppPreferences_EmailSyncInterval_Description, WinoIconGlyph.Sync,
+            vm.IsSyncIntervalAvailable ? StackedCard(Translator.SettingsAppPreferences_EmailSyncInterval_Title, Translator.SettingsAppPreferences_EmailSyncInterval_Description, WinoIconGlyph.Sync,
                 SettingsCardLayout.Leading(Bind.Stepper(vm, nameof(vm.EmailSyncIntervalMinutes), s => s.EmailSyncIntervalMinutes, (s, v) => s.EmailSyncIntervalMinutes = v, 1, 1440,
-                    accessibilityLabel: Translator.SettingsAppPreferences_EmailSyncInterval_Title))),
+                    accessibilityLabel: Translator.SettingsAppPreferences_EmailSyncInterval_Title))) : null,
             StackedCard(Translator.SettingsAppPreferences_SearchMode_Title, Translator.SettingsAppPreferences_SearchMode_Description, WinoIconGlyph.Find,
                 Bind.PopUp<MailPreferencesPageViewModel, string>(vm, s => s.SearchModes, item => item,
                     nameof(vm.SelectedDefaultSearchMode), s => s.SelectedDefaultSearchMode, (s, v) => s.SelectedDefaultSearchMode = v)));

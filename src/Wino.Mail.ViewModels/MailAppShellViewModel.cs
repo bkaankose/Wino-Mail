@@ -16,6 +16,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Folders;
@@ -616,7 +617,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     /// </summary>
     private async Task<bool> TryNavigateToUnreadBadgeLocationAsync()
     {
-        if (!PreferencesService.IsTaskbarBadgeLaunchNavigationEnabled)
+        if (!SettingAvailability.IsAvailable(PlatformSetting.BadgeLaunchNavigation, PlatformCapabilities) ||
+            !PreferencesService.IsTaskbarBadgeLaunchNavigationEnabled)
             return false;
 
         try

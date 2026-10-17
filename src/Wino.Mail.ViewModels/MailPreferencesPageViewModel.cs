@@ -8,6 +8,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
@@ -23,6 +24,10 @@ public partial class MailPreferencesPageViewModel : MailBaseViewModel
 {
     private readonly IAccountService _accountService;
     private readonly IKnownImapProviderCatalog _providerCatalog;
+    private readonly IPlatformCapabilities _platformCapabilities;
+
+    /// <summary>The mail sync interval is a choice only where the app runs its own timer (not on mobile).</summary>
+    public bool IsSyncIntervalAvailable => SettingAvailability.IsAvailable(PlatformSetting.SyncIntervals, _platformCapabilities);
 
     private bool _isLoaded;
     private int _emailSyncIntervalMinutes;
@@ -35,9 +40,11 @@ public partial class MailPreferencesPageViewModel : MailBaseViewModel
     public MailPreferencesPageViewModel(
         IPreferencesService preferencesService,
         IAccountService accountService,
-        IKnownImapProviderCatalog providerCatalog)
+        IKnownImapProviderCatalog providerCatalog,
+        IPlatformCapabilities platformCapabilities)
     {
         PreferencesService = preferencesService;
+        _platformCapabilities = platformCapabilities;
         _accountService = accountService;
         _providerCatalog = providerCatalog;
 

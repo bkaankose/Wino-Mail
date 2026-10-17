@@ -152,7 +152,10 @@ public static class AndroidPlatformRegistration
             AppleAppStore: false, RemoteNotifications: AndroidFcmTokenProvider.IsFirebaseConfigured(context), PushRelayOptIn: false,
             // No configurable hardware shortcuts yet; backups are Windows and Mac files (paths, not content URIs); no Play
             // Billing in v1, so nothing is sold here.
-            KeyboardShortcuts: false, FileBackup: false, Purchases: false));
+            KeyboardShortcuts: false, FileBackup: false, Purchases: false,
+            // One row density and no hover; the system decides background work, so sync intervals are fixed.
+            PointerHover: false, MailListDensity: false, PresentationDetection: false, ConfigurableSyncIntervals: false,
+            BadgeLaunchNavigation: false));
         return services;
     }
 

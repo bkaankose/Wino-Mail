@@ -9,6 +9,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.HoverActions;
@@ -348,12 +349,19 @@ public partial class MessageListPageViewModel : MailBaseViewModel,
     }
     #endregion
 
+    private readonly IPlatformCapabilities _platformCapabilities;
+
+    public bool IsHoverActionsAvailable => SettingAvailability.IsAvailable(PlatformSetting.HoverActions, _platformCapabilities);
+    public bool IsMailListDensityAvailable => SettingAvailability.IsAvailable(PlatformSetting.MailListDensity, _platformCapabilities);
+
     public MessageListPageViewModel(IPreferencesService preferencesService,
                                     IThumbnailService thumbnailService,
                                     IStatePersistanceService statePersistenceService,
-                                    IDialogServiceBase dialogService)
+                                    IDialogServiceBase dialogService,
+                                    IPlatformCapabilities platformCapabilities)
     {
         PreferencesService = preferencesService;
+        _platformCapabilities = platformCapabilities;
         _thumbnailService = thumbnailService;
         _statePersistenceService = statePersistenceService;
         _dialogService = dialogService;
