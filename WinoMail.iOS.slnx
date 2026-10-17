@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/iOS/">
     <Project Path="src/Wino.Mail.iOS/Wino.Mail.iOS.csproj" />
+    <Project Path="src/Wino.Mail.iOS.NotificationService/Wino.Mail.iOS.NotificationService.csproj" />
     <Project Path="src/Wino.Mail.UIKit/Wino.Mail.UIKit.csproj" />
     <Project Path="src/Wino.Mail.UIKit.Phone/Wino.Mail.UIKit.Phone.csproj" />
     <Project Path="src/Wino.Mail.UIKit.Pad/Wino.Mail.UIKit.Pad.csproj" />

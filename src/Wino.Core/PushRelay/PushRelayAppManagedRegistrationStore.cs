@@ -27,6 +27,9 @@ public sealed class AppManagedRegistrationRecord
     public DateTimeOffset RegisteredAt { get; set; }
 
     public bool RenewalDue { get; set; }
+
+    /// <summary>How the registration was created. Graph: 2 = immutable message ids in notifications. Older records are replaced.</summary>
+    public int Format { get; set; }
 }
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]

@@ -50,9 +50,10 @@ public sealed class GraphSubscriptionClient(HttpClient? httpClient = null)
     private const string BaseUri = "https://graph.microsoft.com/v1.0/subscriptions";
     private readonly HttpClient _httpClient = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
 
+    /// <summary>Created with immutable ids, so change notifications name messages the way the synchronizer stores them.</summary>
     public Task<GraphSubscriptionResponse> CreateAsync(MailAccount account, IAuthenticator authenticator, GraphSubscriptionCreateRequest request, CancellationToken cancellationToken)
         => SendAsync(account, authenticator, HttpMethod.Post, BaseUri,
-            () => JsonContent.Create(request, GraphSubscriptionJsonContext.Default.GraphSubscriptionCreateRequest), cancellationToken);
+            () => JsonContent.Create(request, GraphSubscriptionJsonContext.Default.GraphSubscriptionCreateRequest), cancellationToken, immutableIds: true);
 
     public Task<GraphSubscriptionResponse> RenewAsync(MailAccount account, IAuthenticator authenticator, string subscriptionId, DateTimeOffset expiration, CancellationToken cancellationToken)
         => SendAsync(account, authenticator, HttpMethod.Patch, $"{BaseUri}/{Uri.EscapeDataString(subscriptionId)}",
@@ -71,13 +72,15 @@ public sealed class GraphSubscriptionClient(HttpClient? httpClient = null)
     }
 
     private async Task<GraphSubscriptionResponse> SendAsync(MailAccount account, IAuthenticator authenticator, HttpMethod method, string uri,
-        Func<HttpContent>? content, CancellationToken cancellationToken)
+        Func<HttpContent>? content, CancellationToken cancellationToken, bool immutableIds = false)
     {
         account.ThrowIfNetworkAccessBlocked();
-        var token = await authenticator.GetTokenInformationAsync(account, null, cancellationToken).ConfigureAwait(false);
+        var token = await authenticator.GetTokenInformationAsync(account, cancellationToken: cancellationToken).ConfigureAwait(false);
 
         using var request = new HttpRequestMessage(method, uri);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.AccessToken);
+        if (immutableIds)
+            request.Headers.TryAddWithoutValidation("Prefer", "IdType=\"ImmutableId\"");
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         request.Content = content?.Invoke();
 

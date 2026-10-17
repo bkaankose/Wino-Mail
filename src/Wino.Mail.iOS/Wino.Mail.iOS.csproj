@@ -61,6 +61,8 @@
     <ProjectReference Include="../Wino.Mail.UIKit.Pad/Wino.Mail.UIKit.Pad.csproj" />
     <ProjectReference Include="../Wino.Platform.iOS/Wino.Platform.iOS.csproj" />
     <ProjectReference Include="../Wino.Core.Apple.Bindings/Wino.Core.Apple.Bindings.csproj" />
+    <!-- Embedded Notification Service Extension (PlugIns/): rewrites relay alerts with sender, subject and preview. -->
+    <ProjectReference Include="../Wino.Mail.iOS.NotificationService/Wino.Mail.iOS.NotificationService.csproj" IsAppExtension="true" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Serilog.Extensions.Logging" />
     <!-- Wino.Core.ML uses ONNX Runtime; its iOS xcframework comes from the package's build targets, which do not flow

@@ -272,3 +272,15 @@ Not done or not verified:
 - Live test against the deployed relay and API once both backends are deployed (relay first, then API).
 - Notification Service Extension, DAV registration on mobile, calendar and contacts Graph subscriptions.
 
+## Verified live (2026-10-17, night)
+
+- iPhone 15 Pro, Debug and Release device builds signed with the regenerated profiles: App Attest registration at the
+  API, relay device under the same id, Graph subscription with immutable ids, `mailbox.changed` push, Notification
+  Service Extension (`src/Wino.Mail.iOS.NotificationService`) rewriting the alert with sender, subject, preview and
+  avatar (shared contact picture from the App Group `group.com.winomail.macos`, then Gravatar, then favicon), the app's
+  own notification suppressed, and a cold-launch tap opening the message (provider id, then RFC Message-ID fallback).
+- Mac Debug build: existing accounts start on timer, `relay on` switches to relay-based sync, the device links to the
+  Wino Account, the Graph subscription is created, the socket connects and reconnects on relaunch, a mail arrives as a
+  socket event followed by an inbox sync and a notification. Desktop IMAP stays local.
+- Not yet exercised: the fallback red dot (needs the relay unreachable), Windows end to end, Android.
+

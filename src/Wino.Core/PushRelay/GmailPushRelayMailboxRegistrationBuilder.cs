@@ -81,7 +81,7 @@ public sealed class GmailPushRelayMailboxRegistrationBuilder : IPushRelayMailbox
         }
 
         // The relay checks the token with Google's token-info endpoint and discards it; a fresh one is handed over every time.
-        var token = await authenticator.GetTokenInformationAsync(account, null, cancellationToken).ConfigureAwait(false);
+        var token = await authenticator.GetTokenInformationAsync(account, cancellationToken: cancellationToken).ConfigureAwait(false);
         var registration = new PushRelayGmailRegistration(token.AccessToken, record!.ExpiresAt);
         var create = new PushRelayCreateMailboxRequest(PushRelayProviders.Gmail, account.Id.ToString("D"), Imap: null, Gmail: registration);
         var fingerprint = Fingerprint(account.Address, record.ExpiresAt);

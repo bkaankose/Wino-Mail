@@ -450,7 +450,8 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
 
         var session = await _sessions.CaptureAsync(cancellationToken).ConfigureAwait(false);
         var identity = await identityStore.LoadAsync(cancellationToken).ConfigureAwait(false);
-        var canAuthenticate = await CanAuthenticateAsync(cancellationToken).ConfigureAwait(false);
+        // Timer mode asks the API for nothing: the device credential is only created once the relay is wanted.
+        var canAuthenticate = IsRelaySelected && await CanAuthenticateAsync(cancellationToken).ConfigureAwait(false);
         var gate = EvaluateGate(state, canAuthenticate);
 
         if (gate != PushRelayAvailability.Enabled)

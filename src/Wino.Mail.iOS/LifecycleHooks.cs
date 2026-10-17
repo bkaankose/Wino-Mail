@@ -23,6 +23,10 @@ internal sealed class NotificationsLifecycleHook(IServiceProvider services, Appl
         responses.Attach(services);
         await services.GetRequiredService<ICalendarReminderServer>().StartAsync();
         await builder.UpdateTaskbarIconBadgeAsync();
+        // The relay alert's Notification Service Extension needs to know the accounts behind the relay's cid values.
+        await services.GetRequiredService<Wino.Platform.iOS.PushRelay.RelayExtensionAccountDirectory>().StartAsync();
+        // Contact pictures go to the App Group so the extension can attach the same avatar the app would.
+        _ = services.GetRequiredService<Wino.Platform.iOS.PushRelay.RelayExtensionPictureMirror>().StartAsync();
     }
 
     public async Task StoppingAsync(bool runtimeStarted)

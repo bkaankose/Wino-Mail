@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Notification Service Extension of the iOS app. The relay's alert push arrives with mutable-content and plain
+       "New mail" text; this extension fetches sender, subject and preview from the provider within its 30 second budget
+       and rewrites the alert, then records the message id in the shared Keychain so the app does not notify again.
+       It references no Wino project on purpose: the extension runs in about 24 MB. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-ios</TargetFramework>
+    <OutputType>Library</OutputType>
+    <IsAppExtension>true</IsAppExtension>
+    <SupportedOSPlatformVersion>17.0</SupportedOSPlatformVersion>
+    <WinoTargetPlatform>iOS</WinoTargetPlatform>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <ApplicationTitle>Wino Mail Notifications</ApplicationTitle>
+    <ApplicationId>com.winomail.macos.notificationservice</ApplicationId>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Wino.Mail.iOS.NotificationService</RootNamespace>
+    <PublishAot>false</PublishAot>
+    <EnableDefaultCodesignEntitlements>false</EnableDefaultCodesignEntitlements>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('ios-'))">
+    <MtouchInterpreter Condition="'$(MtouchInterpreter)' == ''">-all</MtouchInterpreter>
+  </PropertyGroup>
+  <!-- Signing mirrors the app: development identity and the extension's development profile, or the App Store pair. -->
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('ios-')) and '$(WinoIOSDistribution)' != 'AppStore'">
+    <CodesignEntitlements>Entitlements.plist</CodesignEntitlements>
+    <CodesignKey Condition="'$(CodesignKey)' == ''">Apple Development</CodesignKey>
+    <CodesignProvision>Wino Mail iOS Notification Service Development</CodesignProvision>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('ios-')) and '$(WinoIOSDistribution)' == 'AppStore'">
+    <CodesignEntitlements>Entitlements.AppStore.plist</CodesignEntitlements>
+    <CodesignKey Condition="'$(CodesignKey)' == ''">Apple Distribution</CodesignKey>
+    <CodesignProvision>Wino Mail iOS Notification Service App Store</CodesignProvision>
+  </PropertyGroup>
+  <!-- Same version as the app (the Windows manifest version), as the App Store requires for embedded extensions. -->
+  <PropertyGroup>
+    <WinoManifestVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../Wino.Mail.WinUI/Package.appxmanifest')), '(?&lt;=&lt;Identity[^&gt;]*\sVersion=")\d+\.\d+\.\d+'))</WinoManifestVersion>
+    <ApplicationDisplayVersion Condition="'$(ApplicationDisplayVersion)' == ''">$(WinoManifestVersion)</ApplicationDisplayVersion>
+    <ApplicationVersion Condition="'$(ApplicationVersion)' == ''">$(WinoManifestVersion)</ApplicationVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- MSAL reads the app's token cache from the shared com.microsoft.adalcache Keychain group. -->
+    <PackageReference Include="Microsoft.Identity.Client" />
+  </ItemGroup>
+</Project>

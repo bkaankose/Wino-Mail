@@ -23,16 +23,25 @@ public sealed class PushRelayNotificationHandler : IPushRelayNotificationHandler
     private readonly Func<IApplicationRuntime> _runtime;
     private readonly Func<INotificationBuilder?>? _notifications;
     private readonly IPushRelayAppManagedRegistrationStore? _appManaged;
+    private readonly IRelayAlertCoverage? _coverage;
+    private readonly bool _pushesAreAlerts;
     private readonly ILogger _logger = Log.ForContext<PushRelayNotificationHandler>();
 
+    /// <summary>The relay's alert stays visible for about this long before the app may post its own notifications again.</summary>
+    internal static readonly TimeSpan AlertCoverage = TimeSpan.FromSeconds(90);
+
     public PushRelayNotificationHandler(IPushRelayRegistrationService registration, IAccountService accountService, Func<IApplicationRuntime> runtime,
-        Func<INotificationBuilder?>? notifications = null, IPushRelayAppManagedRegistrationStore? appManaged = null)
+        Func<INotificationBuilder?>? notifications = null, IPushRelayAppManagedRegistrationStore? appManaged = null,
+        IRelayAlertCoverage? coverage = null, IPushRelayDeviceInfo? deviceInfo = null)
     {
         _registration = registration;
         _accountService = accountService;
         _runtime = runtime;
         _notifications = notifications;
         _appManaged = appManaged;
+        _coverage = coverage;
+        // iOS: the relay sends a visible alert that the Notification Service Extension fills in. Everywhere else the app notifies.
+        _pushesAreAlerts = deviceInfo?.Describe().Platform == PushRelayPlatforms.Ios;
     }
 
     public async Task<PushRelayNotificationOutcome> HandleAsync(IReadOnlyDictionary<string, string> payload, CancellationToken cancellationToken = default)
@@ -77,6 +86,8 @@ public sealed class PushRelayNotificationHandler : IPushRelayNotificationHandler
         switch (kind)
         {
             case PushRelayPushKind.MailboxChanged:
+                if (_pushesAreAlerts && _coverage is not null && Read(payload, PushRelayPayloadKeys.Reason) is "new_mail" or "webhook" or null)
+                    _coverage.BeginCoverage(accountId, AlertCoverage);
                 return await SynchronizeAsync(accountId, cancellationToken).ConfigureAwait(false);
 
             case PushRelayPushKind.MailboxReauth:

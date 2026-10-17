@@ -40,6 +40,8 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
     private readonly AppleNotificationSounds _sounds;
     private readonly INotificationImageConverter _imageConverter;
     private readonly IApplicationBadgePresenter _badgePresenter;
+    private readonly IRelayAlertCoverage? _relayCoverage;
+    private readonly ISecureItemStore? _secureItems;
     private readonly SemaphoreSlim _badgeLock = new(1, 1);
     private readonly object _categoryLock = new();
     private Task<bool>? _authorization;
@@ -56,8 +58,12 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
                                   INotificationPolicyService policy,
                                   AppleNotificationSounds sounds,
                                   INotificationImageConverter imageConverter,
-                                  IApplicationBadgePresenter badgePresenter)
+                                  IApplicationBadgePresenter badgePresenter,
+                                  IRelayAlertCoverage? relayCoverage = null,
+                                  ISecureItemStore? secureItems = null)
     {
+        _relayCoverage = relayCoverage;
+        _secureItems = secureItems;
         _dispatcher = dispatcher;
         _preferences = preferences;
         _accountService = accountService;
@@ -244,6 +250,8 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
                 var mailItem = await _mailService.GetSingleMailItemAsync(item.UniqueId).ConfigureAwait(false);
                 if (mailItem?.AssignedFolder is null) continue;
                 var account = accounts.FirstOrDefault(account => account.Id == mailItem.AssignedFolder.MailAccountId);
+                // iOS: the relay's own alert (filled in by the Notification Service Extension) already covers this message.
+                if (account is not null && IsCoveredByRelayAlert(account.Id, mailItem.Id)) continue;
                 var settings = NotificationSettingsResolver.ResolveMail(_preferences, account?.Preferences);
                 if (settings.IsEnabled && NotificationContentRules.IsWithinNotificationScope(mailItem, settings.Scope))
                     notifiable.Add((mailItem, account?.Preferences));
@@ -276,6 +284,28 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
         catch (Exception error)
         {
             Serilog.Log.Error(error, "Failed to create notifications.");
+        }
+    }
+
+    /// <summary>
+    /// True while a relay alert push for the account is being handled, or when the extension recorded this message id
+    /// in the shared Keychain marker. Platforms without the extension never register either dependency.
+    /// </summary>
+    private bool IsCoveredByRelayAlert(Guid accountId, string? mailId)
+    {
+        if (_relayCoverage?.IsCovered(accountId) == true) return true;
+        if (_secureItems is null || string.IsNullOrEmpty(mailId)) return false;
+        try
+        {
+            var bytes = _secureItems.Read(PushRelay.RelayExtensionShared.NotifiedScope, accountId.ToString("D"));
+            if (bytes is null) return false;
+            var marker = System.Text.Json.JsonSerializer.Deserialize(bytes, PushRelay.RelayExtensionJsonContext.Default.RelayNotifiedMarker);
+            return marker?.Ids.Contains(mailId, StringComparer.Ordinal) == true;
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Debug(ex, "The relay notified marker could not be read.");
+            return false;
         }
     }
 

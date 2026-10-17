@@ -131,6 +131,9 @@ public static class IOSPlatformRegistration
         services.AddSingleton<IPushRelayDeviceInfo>(new IOSPushRelayDeviceInfo(UIDevice.CurrentDevice.Name, UIDevice.CurrentDevice.SystemVersion));
         // App Attest proves the genuine app before the Wino API issues the relay device credential (not in the Simulator).
         services.AddSingleton<IDeviceAttestationProvider>(provider => new PushRelay.IOSAppAttestProvider(provider.GetRequiredService<ISecureItemStore>()));
+        // The Notification Service Extension reads this Keychain directory to turn a relay cid into a provider and address.
+        services.AddSingleton<PushRelay.RelayExtensionAccountDirectory>();
+        services.AddSingleton<PushRelay.RelayExtensionPictureMirror>();
 
         // Additional windows are iPad scenes (pop-out reader and composer); iPhone has a single scene.
         // Live notifications are always on while a Wino Account is signed in (no opt-in switch on iOS).

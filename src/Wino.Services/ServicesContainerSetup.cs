@@ -166,11 +166,14 @@ public static class ServicesContainerSetup
             preferences: provider.GetService<IPreferencesService>()));
         // Lazy, so the profile service (which signs the relay device out) is never built around the relay graph.
         services.AddSingleton<Func<IPushRelayRegistrationService>>(provider => () => provider.GetRequiredService<IPushRelayRegistrationService>());
+        services.AddSingleton<IRelayAlertCoverage>(new RelayAlertCoverage());
         services.AddSingleton<IPushRelayNotificationHandler>(provider => new PushRelayNotificationHandler(
             provider.GetRequiredService<IPushRelayRegistrationService>(),
             provider.GetRequiredService<IAccountService>(),
             () => provider.GetRequiredService<IApplicationRuntime>(),
             () => provider.GetService<INotificationBuilder>(),
-            provider.GetService<IPushRelayAppManagedRegistrationStore>()));
+            provider.GetService<IPushRelayAppManagedRegistrationStore>(),
+            provider.GetRequiredService<IRelayAlertCoverage>(),
+            provider.GetService<IPushRelayDeviceInfo>()));
     }
 }

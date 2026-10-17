@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <!-- Same groups as the app, in the same order: the app's default group (its Keychain items, the extension's
+       directory and marker) and MSAL's token cache. -->
+  <key>keychain-access-groups</key>
+  <array>
+    <string>$(AppIdentifierPrefix)com.winomail.macos</string>
+    <string>$(AppIdentifierPrefix)com.microsoft.adalcache</string>
+  </array>
+  <!-- Shared container with the Notification Service Extension: contact pictures for enriched relay alerts. The
+       identifier is spelled exactly as the App Group was created in the developer portal. -->
+  <key>com.apple.security.application-groups</key>
+  <array><string>group.com.winomail.macos</string></array>
+</dict></plist>

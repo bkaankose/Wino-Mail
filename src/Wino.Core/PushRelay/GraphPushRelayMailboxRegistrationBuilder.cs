@@ -29,6 +29,9 @@ public sealed class GraphPushRelayMailboxRegistrationBuilder : IPushRelayMailbox
     private const string ChangeTypes = "created,updated,deleted";
     private const string InboxFolderLabel = "INBOX";
 
+    /// <summary>Subscriptions created with <c>Prefer: IdType="ImmutableId"</c>, so notifications name messages as the synchronizer stores them.</summary>
+    private const int CurrentFormat = 2;
+
     private readonly IAuthenticationProvider _authentication;
     private readonly RelayWellKnownCache _wellKnown;
     private readonly PushRelayAppManagedRegistrationStore _store;
@@ -73,6 +76,15 @@ public sealed class GraphPushRelayMailboxRegistrationBuilder : IPushRelayMailbox
         var record = _store.Load(account.Id);
         var valid = record is { Provider: PushRelayProviders.Graph } && !string.IsNullOrEmpty(record.ExternalId) && !string.IsNullOrEmpty(record.ClientState);
 
+        if (valid && record!.Format < CurrentFormat)
+        {
+            // Created before immutable ids were requested: its notifications carry ids the app cannot look up. Replace it.
+            _logger.Information("Graph subscription of account {AccountId} predates immutable ids; replacing it.", account.Id);
+            try { await _graph.DeleteAsync(account, authenticator, record.ExternalId!, cancellationToken).ConfigureAwait(false); }
+            catch (Exception ex) when (ex is not OperationCanceledException) { _logger.Debug(ex, "The old Graph subscription could not be deleted; it expires on its own."); }
+            valid = false;
+        }
+
         if (!valid)
         {
             record = await CreateAsync(account, authenticator, wellKnown, now, cancellationToken).ConfigureAwait(false);
@@ -107,7 +119,8 @@ public sealed class GraphPushRelayMailboxRegistrationBuilder : IPushRelayMailbox
             ClientState = clientState,
             ExpiresAt = response.ExpirationDateTime ?? now + SubscriptionLifetime,
             RegisteredAt = now,
-            RenewalDue = false
+            RenewalDue = false,
+            Format = CurrentFormat
         };
     }
 

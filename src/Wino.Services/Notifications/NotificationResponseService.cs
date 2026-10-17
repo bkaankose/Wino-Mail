@@ -32,8 +32,10 @@ public sealed class NotificationResponseService(
     INotificationBuilder notificationBuilder,
     IPreferencesService preferencesService,
     IExternalLauncher externalLauncher,
-    INotificationResponseNavigator navigator) : INotificationResponseService
+    INotificationResponseNavigator navigator,
+    IApplicationRuntime? runtime = null) : INotificationResponseService
 {
+    private static readonly TimeSpan RelayLookupSyncBudget = TimeSpan.FromSeconds(20);
     private readonly ILogger _logger = Log.ForContext<NotificationResponseService>();
 
     public async Task HandleAsync(NotificationResponse response)
@@ -72,10 +74,67 @@ public sealed class NotificationResponseService(
             return;
         }
 
+        // A relay alert: the extension's enriched notification names the provider message, a plain one only the account.
+        if (response.IsOpen && values.TryGetValue(Constants.ToastRelayClientAccountIdKey, out var cidValue) && Guid.TryParse(cidValue, out var relayAccountId))
+        {
+            values.TryGetValue(Constants.ToastRelayMailIdKey, out var relayMailId);
+            values.TryGetValue(Constants.ToastRelayInternetMessageIdKey, out var relayMessageId);
+            await OpenRelayMailAsync(relayAccountId, relayMailId, relayMessageId);
+            return;
+        }
+
         if (response.IsOpen)
         {
             var mode = ResolveMode(values);
             await navigator.OpenModeAsync(mode, DefaultModeParameter(mode));
+        }
+    }
+
+    /// <summary>
+    /// Opens the message a relay alert announced. The app may have been terminated, so the message is looked up by its
+    /// provider id, synchronized once when it is not stored yet, and mail opens plainly when it still cannot be found.
+    /// </summary>
+    private async Task OpenRelayMailAsync(Guid accountId, string? providerMailId, string? internetMessageId = null)
+    {
+        MailCopy? mailItem = await FindRelayMailAsync(accountId, providerMailId, internetMessageId);
+        if (mailItem is null && runtime is not null)
+        {
+            try
+            {
+                using var budget = new System.Threading.CancellationTokenSource(RelayLookupSyncBudget);
+                await runtime.SynchronizeAccountInboxAsync(accountId, budget.Token);
+            }
+            catch (Exception error)
+            {
+                _logger.Information("Inbox sync before opening a relay notification did not finish: {Error}", error.Message);
+            }
+
+            mailItem = await FindRelayMailAsync(accountId, providerMailId, internetMessageId);
+        }
+
+        if (mailItem?.AssignedFolder is { } folder)
+        {
+            await navigator.OpenMailAsync(accountId, folder.Id, mailItem);
+            return;
+        }
+
+        _logger.Information("Relay notification mail {MailId} of account {AccountId} was not found; opening mail.", providerMailId, accountId);
+        await navigator.OpenModeAsync(WinoApplicationMode.Mail);
+    }
+
+    private async Task<MailCopy?> FindRelayMailAsync(Guid accountId, string? providerMailId, string? internetMessageId)
+    {
+        try
+        {
+            MailCopy? item = string.IsNullOrEmpty(providerMailId) ? null : await mailService.GetSingleMailItemAsync(providerMailId);
+            if (item is null && !string.IsNullOrEmpty(internetMessageId))
+                item = await mailService.GetMailCopyByMessageIdAsync(accountId, internetMessageId);
+            return item is not null && (item.AssignedFolder is null || item.AssignedFolder.MailAccountId == accountId) ? item : null;
+        }
+        catch (Exception error)
+        {
+            _logger.Debug(error, "Relay mail lookup failed for {MailId}.", providerMailId);
+            return null;
         }
     }
 

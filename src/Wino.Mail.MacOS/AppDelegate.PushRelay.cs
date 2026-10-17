@@ -99,6 +99,10 @@ public sealed partial class AppDelegate
                 case "test": return "test " + await relay.SendPushTestAsync();
                 case "on": await relay.SetUserOptInAsync(true); break;
                 case "off": await relay.SetUserOptInAsync(false); break;
+                case "socket":
+                    // The desktop socket coordinator: what the shell's red dot and the runtime's fallback loops read.
+                    if (services.GetService<IRelaySocketCoordinator>() is not { } health) return "no socket coordinator";
+                    return $"method={services.GetRequiredService<IPreferencesService>().SyncMethod} connected={health.IsSocketConnected} fallback={health.IsFallbackActive} changed={health.LastChangeUtc:HH:mm:ss}";
             }
 
             var s = relay.Snapshot;
