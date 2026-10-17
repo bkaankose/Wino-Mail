@@ -9,7 +9,8 @@ namespace Wino.Mail.WinUI.Controls;
 
 internal static class MenuFlyoutLanguageHelper
 {
-    private const string ChineseLanguageTag = "zh-CN";
+    private const string ChineseSimplifiedLanguageTag = "zh-CN";
+    private const string ChineseTraditionalLanguageTag = "zh-TW";
 
     [DynamicWindowsRuntimeCast(typeof(MenuFlyoutItemBase))]
     [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
@@ -20,15 +21,24 @@ internal static class MenuFlyoutLanguageHelper
             return;
         }
 
-        if (WinoApplication.Current.Services.GetRequiredService<IPreferencesService>().CurrentLanguage == AppLanguage.Chinese)
+        var currentLanguage = WinoApplication.Current.Services.GetRequiredService<IPreferencesService>().CurrentLanguage;
+
+        string? targetLanguageTag = currentLanguage switch
+        {
+            AppLanguage.ChineseSimplified => ChineseSimplifiedLanguageTag,
+            AppLanguage.ChineseTraditional => ChineseTraditionalLanguageTag,
+            _ => null
+        };
+
+        if (targetLanguageTag != null)
         {
             switch (element)
             {
                 case MenuFlyoutItemBase menuFlyoutItem:
-                    menuFlyoutItem.Language = ChineseLanguageTag;
+                    menuFlyoutItem.Language = targetLanguageTag;
                     break;
                 case FrameworkElement frameworkElement:
-                    frameworkElement.Language = ChineseLanguageTag;
+                    frameworkElement.Language = targetLanguageTag;
                     break;
             }
         }
