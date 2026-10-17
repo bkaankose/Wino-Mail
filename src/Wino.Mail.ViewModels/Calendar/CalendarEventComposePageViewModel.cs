@@ -53,6 +53,11 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     private readonly IWinoRequestDelegator _winoRequestDelegator;
     private readonly CalendarEventComposeResultValidator _composeResultValidator = new();
     private readonly IAttachmentFileService _attachmentFileService;
+    private readonly ICalendarCapabilityService _calendarCapabilityService;
+
+    // Incremented on every calendar selection; a capability answer for an older selection is ignored.
+    private int _capabilityRequestVersion;
+    private CalendarCapabilities _calendarCapabilities = CalendarCapabilities.None;
 
     // Set while code writes several date fields at once, so the start-follows-end logic stays quiet.
     private bool _isSyncingDateRange;
@@ -199,15 +204,48 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     public int AttachmentCount => Attachments.Count;
     public bool HasAttendees => Attendees.Count > 0;
     public int AttendeeCount => Attendees.Count;
-    public string SaveButtonText => HasAttendees ? Translator.Buttons_Send : Translator.Buttons_Save;
+    // Attendees only receive an invitation when the calendar's server sends one.
+    public string SaveButtonText => HasAttendees && SendsInvitations ? Translator.Buttons_Send : Translator.Buttons_Save;
 
+    /// <summary>
+    /// What the selected calendar can do. Until the capability service answers, this holds the
+    /// fixed provider set (conservative CalDAV defaults for CalDAV), or <see cref="CalendarCapabilities.None"/>
+    /// when no calendar is selected.
+    /// </summary>
+    public CalendarCapabilities CalendarCapabilities
+    {
+        get => _calendarCapabilities;
+        private set
+        {
+            if (SetProperty(ref _calendarCapabilities, value ?? CalendarCapabilities.None))
+                NotifyCapabilityPropertiesChanged();
+        }
+    }
+
+    /// <summary>Completes when the capabilities of the current selection are loaded.</summary>
+    public Task CapabilityLoadTask { get; private set; } = Task.CompletedTask;
+
+    // Kept for the heads; attachment gating comes from the capabilities, not the provider.
     public bool IsSelectedCalendarCalDav => SelectedCalendar?.Account?.ProviderType == MailProviderType.IMAP4 &&
                                             SelectedCalendar.Account.ServerInformation?.CalendarSupportMode == ImapCalendarSupportMode.CalDav;
-    public bool CanAddAttachments => !IsSelectedCalendarCalDav;
-    public string AttachmentsDisabledTooltipText => IsSelectedCalendarCalDav
-        ? Translator.CalendarEventCompose_AttachmentsNotSupportedForCalDav
-        : string.Empty;
-    public bool CanAddOnlineMeeting => SelectedCalendar?.Account?.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail;
+    public bool CanAddAttachments => CalendarCapabilities.SupportsAttachments && !IsCalendarReadOnly;
+    public string AttachmentsDisabledTooltipText => CanAddAttachments
+        ? string.Empty
+        : IsCalendarReadOnly
+            ? Translator.CalendarCapability_SummaryReadOnly
+            : Translator.CalendarCapability_AttachmentsNotSupported;
+    public bool CanAddAttendees => CalendarCapabilities.SupportsAttendees && !IsCalendarReadOnly;
+    public bool SendsInvitations => CalendarCapabilities.SendsInvitations;
+    public bool HasInvitationsNotSentWarning => HasAttendees && CalendarCapabilities.SupportsAttendees && !SendsInvitations;
+    public string InvitationsNotSentText => HasInvitationsNotSentWarning ? Translator.CalendarCapability_InvitationsNotSent : string.Empty;
+    public int? MaxAttendees => CalendarCapabilities.MaxAttendees is int max && max > 0 ? max : null;
+    public bool HasAttendeeLimit => MaxAttendees.HasValue;
+    public string AttendeeLimitText => CalendarCapabilityPresenter.GetAttendeeLimitText(CalendarCapabilities);
+    public bool IsAttendeeLimitReached => MaxAttendees is int max && Attendees.Count >= max;
+    public bool IsCalendarReadOnly => CalendarCapabilities.IsReadOnly || SelectedCalendar?.IsReadOnly == true;
+    public bool HasQuotaWarning => CalendarCapabilityPresenter.HasLowQuota(CalendarCapabilities);
+    public string QuotaWarningText => CalendarCapabilityPresenter.GetQuotaWarningText(CalendarCapabilities);
+    public bool CanAddOnlineMeeting => CalendarCapabilities.SupportsOnlineMeeting;
     public string OnlineMeetingProviderText => SelectedCalendar?.Account?.ProviderType == MailProviderType.Gmail
         ? Translator.CalendarEventCompose_OnlineMeetingGoogleMeet
         : Translator.CalendarEventCompose_OnlineMeetingTeams;
@@ -230,7 +268,8 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
                                              IUnderlyingThemeService underlyingThemeService,
                                              IWinoRequestDelegator winoRequestDelegator,
                                              IAttachmentFileService attachmentFileService = null,
-                                             IRecipientSuggestionService recipientSuggestionService = null)
+                                             IRecipientSuggestionService recipientSuggestionService = null,
+                                             ICalendarCapabilityService calendarCapabilityService = null)
     {
         _accountService = accountService;
         _calendarService = calendarService;
@@ -242,6 +281,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
         _winoRequestDelegator = winoRequestDelegator;
         _attachmentFileService = attachmentFileService;
         _recipientSuggestionService = recipientSuggestionService;
+        _calendarCapabilityService = calendarCapabilityService;
         _calendarSettingsRefresh = new CoalescedRefresh(() => ExecuteUIThread(() => CurrentSettings = _preferencesService.GetCurrentCalendarSettings()));
 
         CurrentSettings = _preferencesService.GetCurrentCalendarSettings();
@@ -341,13 +381,80 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
 
     partial void OnSelectedCalendarChanged(AccountCalendarViewModel value)
     {
+        var requestVersion = ++_capabilityRequestVersion;
+
         if (value == null)
+        {
+            CalendarCapabilities = CalendarCapabilities.None;
+            CapabilityLoadTask = Task.CompletedTask;
             return;
+        }
 
         SelectedShowAsOption = ShowAsOptions.FirstOrDefault(option => option.ShowAs == value.DefaultShowAs)
                                ?? ShowAsOptions.FirstOrDefault();
 
-        if (IsSelectedCalendarCalDav && Attachments.Count > 0)
+        // The provider's fixed set (conservative for CalDAV) applies until the server's answer arrives.
+        CalendarCapabilities = CalendarCapabilityPresenter.GetFallback(value.Account, value.AccountCalendar);
+
+        if (!CanAddOnlineMeeting)
+        {
+            IsOnlineMeeting = false;
+        }
+
+        if (_calendarCapabilityService == null)
+        {
+            ApplyCapabilityRestrictions();
+            CapabilityLoadTask = Task.CompletedTask;
+        }
+        else
+        {
+            CapabilityLoadTask = LoadCapabilitiesAsync(value, requestVersion);
+        }
+
+        OnPropertyChanged(nameof(IsSelectedCalendarCalDav));
+        OnPropertyChanged(nameof(OnlineMeetingProviderText));
+        OnPropertyChanged(nameof(SelectedCalendarDisplayText));
+        OnPropertyChanged(nameof(SelectedCalendarAccountText));
+        OnPropertyChanged(nameof(OrganizerDisplayName));
+        OnPropertyChanged(nameof(OrganizerAddress));
+    }
+
+    private async Task LoadCapabilitiesAsync(AccountCalendarViewModel calendar, int requestVersion)
+    {
+        CalendarCapabilities capabilities;
+
+        try
+        {
+            capabilities = await _calendarCapabilityService.GetCalendarCapabilitiesAsync(calendar.Id).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            // The fallback set stays; the service itself already logs and answers None on failure.
+            Serilog.Log.Warning(ex, "Could not load the capabilities of calendar {CalendarId}", calendar.Id);
+            return;
+        }
+
+        await ExecuteUIThread(() =>
+        {
+            // A newer selection owns the page now.
+            if (requestVersion != _capabilityRequestVersion || !ReferenceEquals(SelectedCalendar, calendar))
+                return;
+
+            // None means the calendar or account vanished; the provider set is the better guess.
+            if (capabilities != null && capabilities.Source != CalendarCapabilitySource.None)
+                CalendarCapabilities = capabilities;
+
+            ApplyCapabilityRestrictions();
+        }).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Drops what the selected calendar cannot store, once its capabilities are final.
+    /// Attendees are kept; saving refuses a list the calendar cannot hold.
+    /// </summary>
+    private void ApplyCapabilityRestrictions()
+    {
+        if (!CanAddAttachments && Attachments.Count > 0)
         {
             Attachments.Clear();
         }
@@ -356,16 +463,33 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
         {
             IsOnlineMeeting = false;
         }
+    }
 
-        OnPropertyChanged(nameof(IsSelectedCalendarCalDav));
+    private void NotifyCapabilityPropertiesChanged()
+    {
         OnPropertyChanged(nameof(CanAddAttachments));
         OnPropertyChanged(nameof(AttachmentsDisabledTooltipText));
+        OnPropertyChanged(nameof(CanAddAttendees));
+        OnPropertyChanged(nameof(SendsInvitations));
+        OnPropertyChanged(nameof(HasInvitationsNotSentWarning));
+        OnPropertyChanged(nameof(InvitationsNotSentText));
+        OnPropertyChanged(nameof(MaxAttendees));
+        OnPropertyChanged(nameof(HasAttendeeLimit));
+        OnPropertyChanged(nameof(AttendeeLimitText));
+        OnPropertyChanged(nameof(IsAttendeeLimitReached));
+        OnPropertyChanged(nameof(IsCalendarReadOnly));
+        OnPropertyChanged(nameof(HasQuotaWarning));
+        OnPropertyChanged(nameof(QuotaWarningText));
         OnPropertyChanged(nameof(CanAddOnlineMeeting));
-        OnPropertyChanged(nameof(OnlineMeetingProviderText));
-        OnPropertyChanged(nameof(SelectedCalendarDisplayText));
-        OnPropertyChanged(nameof(SelectedCalendarAccountText));
-        OnPropertyChanged(nameof(OrganizerDisplayName));
-        OnPropertyChanged(nameof(OrganizerAddress));
+        OnPropertyChanged(nameof(SaveButtonText));
+    }
+
+    private void ShowCapabilityRefusal(string message)
+    {
+        _dialogService.InfoBarMessage(
+            Translator.CalendarCapability_ActionNotAvailableTitle,
+            message,
+            InfoBarMessageType.Warning);
     }
 
     partial void OnIsAllDayChanged(bool value)
@@ -470,7 +594,10 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     private async Task AddAttachmentsAsync()
     {
         if (!CanAddAttachments)
+        {
+            ShowCapabilityRefusal(AttachmentsDisabledTooltipText);
             return;
+        }
 
         var pickedFiles = await _dialogService.PickFilesMetadataAsync("*");
         if (pickedFiles.Count == 0)
@@ -489,6 +616,12 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     {
         if (string.IsNullOrWhiteSpace(filePath))
             return false;
+
+        if (!CanAddAttachments)
+        {
+            ShowCapabilityRefusal(AttachmentsDisabledTooltipText);
+            return false;
+        }
 
         var fileName = Path.GetFileName(filePath);
         var fileExtension = Path.GetExtension(filePath);
@@ -537,10 +670,32 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     private async Task CreateAsync()
     {
         LastCreationSucceeded = false;
+
+        // Decide on the selected calendar's real capabilities, not the fallback set.
+        await CapabilityLoadTask;
+
+        if (IsCalendarReadOnly)
+        {
+            _dialogService.ShowReadOnlyCalendarMessage();
+            return;
+        }
+
         var uniqueAttendees = Attendees
             .GroupBy(attendee => attendee.Email, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
             .ToList();
+
+        if (uniqueAttendees.Count > 0 && !CalendarCapabilities.SupportsAttendees)
+        {
+            ShowCapabilityRefusal(Translator.CalendarCapability_AttendeesNotSupported);
+            return;
+        }
+
+        if (MaxAttendees is int maxAttendees && uniqueAttendees.Count > maxAttendees)
+        {
+            ShowCapabilityRefusal(string.Format(CultureInfo.CurrentCulture, Translator.CalendarCapability_AttendeeLimitReached, maxAttendees));
+            return;
+        }
 
         CalendarEventComposeResult createdResult;
 
@@ -610,8 +765,27 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
 
     public void AddAttendee(CalendarComposeAttendeeViewModel attendee)
     {
-        if (Attendees.Any(existing => existing.Email.Equals(attendee.Email, StringComparison.OrdinalIgnoreCase)))
+        if (attendee == null ||
+            Attendees.Any(existing => existing.Email.Equals(attendee.Email, StringComparison.OrdinalIgnoreCase)))
+        {
             return;
+        }
+
+        if (!CanAddAttendees)
+        {
+            if (IsCalendarReadOnly)
+                _dialogService.ShowReadOnlyCalendarMessage();
+            else
+                ShowCapabilityRefusal(Translator.CalendarCapability_AttendeesNotSupported);
+
+            return;
+        }
+
+        if (IsAttendeeLimitReached && MaxAttendees is int maxAttendees)
+        {
+            ShowCapabilityRefusal(string.Format(CultureInfo.CurrentCulture, Translator.CalendarCapability_AttendeeLimitReached, maxAttendees));
+            return;
+        }
 
         Attendees.Add(attendee);
     }
@@ -1328,6 +1502,9 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
         OnPropertyChanged(nameof(HasAttendees));
         OnPropertyChanged(nameof(AttendeeCount));
         OnPropertyChanged(nameof(SaveButtonText));
+        OnPropertyChanged(nameof(HasInvitationsNotSentWarning));
+        OnPropertyChanged(nameof(InvitationsNotSentText));
+        OnPropertyChanged(nameof(IsAttendeeLimitReached));
     }
 
     private bool TryAddAttachment(string fileName, string filePath, string fileExtension, long size)

@@ -182,6 +182,7 @@ public sealed partial class ApplicationThemeEditorPage : ApplicationThemeEditorP
             ViewModel.SelectFocalPointCommand.Execute(alignment);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ColorPicker))]
     private void SurfaceColorFlyoutOpened(object sender, object e)
     {
         if (sender is not Flyout { Content: ColorPicker picker } || picker.Tag is not ThemePaletteColorOptionViewModel option)
@@ -190,6 +191,7 @@ public sealed partial class ApplicationThemeEditorPage : ApplicationThemeEditorP
         ShowPicker(picker, ThemeSurfacePreview.GetColor(option.Value));
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ColorPicker))]
     private void AccentColorFlyoutOpened(object sender, object e)
     {
         if (sender is not Flyout { Content: ColorPicker picker })

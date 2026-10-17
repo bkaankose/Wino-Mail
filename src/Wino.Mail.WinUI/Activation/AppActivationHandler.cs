@@ -9,6 +9,7 @@ using Wino.Core.Activation;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Mail.WinUI;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Activation;
 
@@ -173,6 +174,7 @@ internal sealed class AppActivationHandler
         return true;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(AppNotificationActivatedEventArgs))]
     private bool TryCreateStartupNotificationActivationRoute(Microsoft.UI.Xaml.LaunchActivatedEventArgs launchArgs,
                                                              AppActivationArguments? activationArgs,
                                                              out LaunchActivationRoute route)
@@ -268,6 +270,7 @@ internal sealed class AppActivationHandler
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(AppNotificationActivatedEventArgs))]
     public RedirectedActivationRoute ResolveRedirectedActivationRoute(AppActivationArguments args)
     {
         var activationMode = WinoApplicationMode.Mail;

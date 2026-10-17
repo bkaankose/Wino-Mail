@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Helpers;
 
@@ -19,6 +20,14 @@ internal static class CommandSourceHelper
     /// <c>NotifyCanExecuteChanged</c> still calls into it. Pages whose view model is a singleton
     /// call this when they go away.
     /// </remarks>
+    [DynamicWindowsRuntimeCast(typeof(MenuFlyoutSubItem))]
+    [DynamicWindowsRuntimeCast(typeof(MenuFlyoutItem))]
+    [DynamicWindowsRuntimeCast(typeof(SplitButton))]
+    [DynamicWindowsRuntimeCast(typeof(ButtonBase))]
+    [DynamicWindowsRuntimeCast(typeof(CommandBar))]
+    [DynamicWindowsRuntimeCast(typeof(DependencyObject))]
+    [DynamicWindowsRuntimeCast(typeof(Popup))]
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     public static void ReleaseCommands(DependencyObject? root)
     {
         if (root == null)
@@ -81,6 +90,10 @@ internal static class CommandSourceHelper
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(MenuFlyout))]
+    [DynamicWindowsRuntimeCast(typeof(CommandBarFlyout))]
+    [DynamicWindowsRuntimeCast(typeof(DependencyObject))]
+    [DynamicWindowsRuntimeCast(typeof(Flyout))]
     private static void PushFlyout(Stack<DependencyObject> pending, FlyoutBase? flyout)
     {
         switch (flyout)

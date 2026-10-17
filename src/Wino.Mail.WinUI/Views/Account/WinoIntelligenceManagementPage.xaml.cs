@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Wino.Mail.ViewModels.Data;
 using Wino.Views.Abstract;
+using WinRT;
 
 namespace Wino.Views;
 
@@ -22,6 +23,7 @@ public sealed partial class WinoIntelligenceManagementPage : WinoIntelligenceMan
         NavigationCacheMode = NavigationCacheMode.Required;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ToggleSwitch))]
     private async void WinoIntelligenceToggle_Toggled(object sender, RoutedEventArgs e)
     {
         if (_isApplyingToggleState || !ViewModel.IsPageReady || sender is not ToggleSwitch toggleSwitch)
@@ -40,6 +42,7 @@ public sealed partial class WinoIntelligenceManagementPage : WinoIntelligenceMan
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ToggleSwitch))]
     private async void DailyBriefingToggle_Toggled(object sender, RoutedEventArgs e)
     {
         if (_isApplyingIntelligencePreferenceState || !ViewModel.IsPageReady || sender is not ToggleSwitch toggleSwitch)
@@ -58,6 +61,7 @@ public sealed partial class WinoIntelligenceManagementPage : WinoIntelligenceMan
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ToggleSwitch))]
     private async void IntelligenceIndicatorToggle_Toggled(object sender, RoutedEventArgs e)
     {
         if (!ViewModel.IsPageReady ||

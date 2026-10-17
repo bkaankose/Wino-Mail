@@ -12,6 +12,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Mail.ViewModels;
 using Wino.Views.Mail;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Services;
 
@@ -221,6 +222,12 @@ internal sealed partial class KeyboardShortcutController : IDisposable
             _ => true
         };
 
+    [DynamicWindowsRuntimeCast(typeof(TextBox))]
+    [DynamicWindowsRuntimeCast(typeof(AutoSuggestBox))]
+    [DynamicWindowsRuntimeCast(typeof(PasswordBox))]
+    [DynamicWindowsRuntimeCast(typeof(RichEditBox))]
+    [DynamicWindowsRuntimeCast(typeof(ComboBox))]
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private static bool IsTextInput(object focusedElement)
     {
         if (focusedElement is TextBox or AutoSuggestBox or PasswordBox or RichEditBox or ComboBox)

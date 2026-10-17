@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Markup;
+using WinRT;
 
 namespace Wino.Controls;
 
@@ -24,6 +25,7 @@ public partial class WinoExpander : Control
 
     public UIElement Content
     {
+        [DynamicWindowsRuntimeCast(typeof(UIElement))]
         get { return (UIElement)GetValue(ContentProperty); }
         set { SetValue(ContentProperty, value); }
     }
@@ -42,10 +44,13 @@ public partial class WinoExpander : Control
 
     public UIElement Header
     {
+        [DynamicWindowsRuntimeCast(typeof(UIElement))]
         get { return (UIElement)GetValue(HeaderProperty); }
         set { SetValue(HeaderProperty, value); }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ContentControl))]
+    [DynamicWindowsRuntimeCast(typeof(Grid))]
     protected override void OnApplyTemplate()
     {
         base.OnApplyTemplate();

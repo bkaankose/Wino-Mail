@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Serilog;
 using Windows.Storage;
 using Windows.Storage.AccessCache;
@@ -21,6 +22,7 @@ using Wino.Mail.WinUI.Dialogs;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Messaging.Client.Shell;
+using WinRT;
 using WinRT.Interop;
 
 namespace Wino.Mail.WinUI.Services;
@@ -190,10 +192,9 @@ public class DialogServiceBase : IDialogServiceBase
 
     public virtual IAccountCreationDialog GetAccountCreationDialog(AccountCreationDialogResult accountCreationDialogResult)
     {
-        return new AccountCreationDialog
+        return new AccountCreationDialog(dialog => StartSessionDialog(dialog))
         {
-            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme(),
-            XamlRoot = GetXamlRoot()
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
         };
     }
 
@@ -229,20 +230,10 @@ public class DialogServiceBase : IDialogServiceBase
 
         var informationContainer = new CustomMessageDialogInformationContainer(title, description, icon ?? WinoCustomMessageDialogIcon.Information, isDontAskEnabled);
 
-        var dialog = new ContentDialog
+        var dialog = new WinoMessageDialog(informationContainer, approveButtonText, cancelButtonText)
         {
-            Style = ApplicationResourceManager.GetResource<Style>("WinoDialogStyle"),
-            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme(),
-            DefaultButton = ContentDialogButton.Primary,
-            PrimaryButtonText = approveButtonText,
-            ContentTemplate = ApplicationResourceManager.GetResource<DataTemplate>("CustomWinoContentDialogContentTemplate"),
-            Content = informationContainer
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
         };
-
-        if (!string.IsNullOrEmpty(cancelButtonText))
-        {
-            dialog.SecondaryButtonText = cancelButtonText;
-        }
 
         var dialogResult = await HandleDialogPresentationAsync(dialog);
 
@@ -283,6 +274,69 @@ public class DialogServiceBase : IDialogServiceBase
         }
 
         return ContentDialogResult.None;
+    }
+
+    /// <summary>
+    /// Opens a progress dialog that stays up while other work runs and is closed by its owner
+    /// (account creation, browser sign-in). It cannot wait in the presentation queue, because the
+    /// work it covers may itself need a queued dialog. WinUI allows one open ContentDialog per
+    /// XamlRoot, so it opens only when no other dialog owns the window.
+    /// </summary>
+    /// <returns>
+    /// Null when the dialog was not started. Otherwise a task that completes with true once the
+    /// dialog has opened, or false when presentation failed.
+    /// </returns>
+    protected Task<bool>? StartSessionDialog(ContentDialog dialog, XamlRoot? xamlRoot = null)
+    {
+        dialog.XamlRoot ??= xamlRoot ?? GetXamlRoot();
+
+        if (dialog.XamlRoot is not { } root || IsContentDialogOpen(root))
+        {
+            Log.Warning("{Dialog} was not shown because another dialog owns the window.", dialog.GetType().Name);
+            return null;
+        }
+
+        var opened = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        dialog.Opened += OnOpened;
+        _ = PresentAsync();
+
+        return opened.Task;
+
+        void OnOpened(ContentDialog sender, ContentDialogOpenedEventArgs args)
+        {
+            dialog.Opened -= OnOpened;
+            opened.TrySetResult(true);
+        }
+
+        async Task PresentAsync()
+        {
+            try
+            {
+                await dialog.ShowAsync();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Presenting {Dialog} failed.", dialog.GetType().Name);
+            }
+            finally
+            {
+                dialog.Opened -= OnOpened;
+                opened.TrySetResult(false);
+            }
+        }
+    }
+
+    [DynamicWindowsRuntimeCast(typeof(ContentDialog))]
+    private static bool IsContentDialogOpen(XamlRoot xamlRoot)
+    {
+        foreach (var popup in VisualTreeHelper.GetOpenPopupsForXamlRoot(xamlRoot))
+        {
+            if (popup.Child is ContentDialog)
+                return true;
+        }
+
+        return false;
     }
 
 

@@ -20,6 +20,34 @@ public interface IDatabaseService : IInitializeAsync
     SQLiteAsyncConnection Connection { get; }
 }
 
+/// <summary>
+/// What a version-210 database file says about itself, read without changing it.
+/// </summary>
+/// <param name="ReadError">Set when the file exists but could not be read; the other values are then unknown.</param>
+public sealed record DatabaseLifecycleSnapshot(
+    bool Exists,
+    int SchemaVersion,
+    bool HasMetadataTable,
+    MigrationStatus? MetadataStatus,
+    long AccountCount,
+    Exception ReadError)
+{
+    public static DatabaseLifecycleSnapshot Missing { get; } = new(false, 0, false, null, 0, null);
+
+    public bool IsReadable => Exists && ReadError == null;
+
+    /// <summary>A database that finished its migration or its fresh creation and can start normally.</summary>
+    public bool IsReady => IsReadable &&
+                           SchemaVersion == DatabaseService.CurrentSchemaVersion &&
+                           MetadataStatus is MigrationStatus.Completed or MigrationStatus.Skipped;
+
+    /// <summary>The file exists but is not a SQLite database or is damaged, so nothing in it can be read.</summary>
+    public bool IsDamaged => ReadError is SQLiteException { Result: SQLite3.Result.NonDBFile or SQLite3.Result.Corrupt };
+
+    /// <summary>Not ready, but holds no account: an interrupted first launch or fresh start.</summary>
+    public bool IsDisposable => IsReadable && !IsReady && AccountCount == 0;
+}
+
 public class DatabaseService : IDatabaseService
 {
     public const string LegacyDatabaseName = "Wino200.db";
@@ -128,36 +156,81 @@ public class DatabaseService : IDatabaseService
 
     private static async Task EnsureCompleted210DatabaseAsync(string databaseFileName)
     {
-        // Distinct flags give this handle its own pool entry; closing it leaves the main connection open.
-        var validationConnection = new SQLiteAsyncConnection(
-            databaseFileName,
-            SQLiteOpenFlags.ReadOnly | SQLiteOpenFlags.FullMutex | SQLiteOpenFlags.PrivateCache);
+        var lifecycle = await ReadLifecycleAsync(databaseFileName).ConfigureAwait(false);
 
-        bool isValid;
-        try
-        {
-            var version = await validationConnection.ExecuteScalarAsync<int>("PRAGMA user_version;").ConfigureAwait(false);
-            var metadataExists = await validationConnection.ExecuteScalarAsync<int>(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='__MigrationMetadata';")
-                .ConfigureAwait(false);
-            var isCompleted = metadataExists == 1 && await validationConnection.ExecuteScalarAsync<int>(
-                "SELECT COUNT(*) FROM __MigrationMetadata WHERE Id = 1 AND Status IN (?, ?);",
-                (int)MigrationStatus.Completed,
-                (int)MigrationStatus.Skipped).ConfigureAwait(false) == 1;
-
-            isValid = version == CurrentSchemaVersion && isCompleted;
-        }
-        finally
-        {
-            await validationConnection.CloseAsync().ConfigureAwait(false);
-        }
-
-        if (!isValid)
+        if (!lifecycle.IsReady)
         {
             throw new InvalidOperationException(
-                "Wino210.db is not a completed version-210 database. Run the migration coordinator before normal startup.");
+                "Wino210.db is not a completed version-210 database. Run the migration coordinator before normal startup.",
+                lifecycle.ReadError);
         }
     }
+
+    /// <summary>
+    /// Reads whether a version-210 database is ready for normal use. Startup and the migration
+    /// coordinator both decide with this one rule, so a database that starts normally never sends
+    /// the user to the migration window. Integrity and foreign-key checks belong to the migration's
+    /// own output, not to a database the user has been working in.
+    /// </summary>
+    public static async Task<DatabaseLifecycleSnapshot> ReadLifecycleAsync(string databaseFileName)
+    {
+        if (!File.Exists(databaseFileName))
+            return DatabaseLifecycleSnapshot.Missing;
+
+        Exception lastError = null;
+
+        // Another Wino process can hold a write lock for a moment while it closes. That is not a
+        // reason to treat the database as broken, so a busy database is read again before giving up.
+        for (var attempt = 0; attempt < LifecycleReadAttempts; attempt++)
+        {
+            if (attempt > 0)
+                await Task.Delay(LifecycleReadRetryDelay).ConfigureAwait(false);
+
+            // Distinct flags give this handle its own pool entry; closing it leaves the main connection open.
+            var connection = new SQLiteAsyncConnection(
+                databaseFileName,
+                SQLiteOpenFlags.ReadOnly | SQLiteOpenFlags.FullMutex | SQLiteOpenFlags.PrivateCache);
+
+            try
+            {
+                await connection.SetBusyTimeoutAsync(LifecycleBusyTimeout).ConfigureAwait(false);
+
+                var version = await connection.ExecuteScalarAsync<int>("PRAGMA user_version;").ConfigureAwait(false);
+                var hasMetadataTable = await TableExistsAsync(connection, "__MigrationMetadata").ConfigureAwait(false);
+                var metadataStatuses = hasMetadataTable
+                    ? await connection.QueryScalarsAsync<int>("SELECT Status FROM __MigrationMetadata WHERE Id = 1;").ConfigureAwait(false)
+                    : new List<int>();
+                MigrationStatus? metadataStatus = metadataStatuses.Count > 0 ? (MigrationStatus)metadataStatuses[0] : null;
+                var accountCount = await TableExistsAsync(connection, nameof(MailAccount)).ConfigureAwait(false)
+                    ? await connection.ExecuteScalarAsync<long>($"SELECT COUNT(*) FROM {nameof(MailAccount)};").ConfigureAwait(false)
+                    : 0;
+
+                return new DatabaseLifecycleSnapshot(true, version, hasMetadataTable, metadataStatus, accountCount, null);
+            }
+            catch (Exception ex) when (ex is SQLiteException or IOException or UnauthorizedAccessException)
+            {
+                lastError = ex;
+
+                if (ex is not SQLiteException { Result: SQLite3.Result.Busy or SQLite3.Result.Locked })
+                    break;
+            }
+            finally
+            {
+                await connection.CloseAsync().ConfigureAwait(false);
+            }
+        }
+
+        return new DatabaseLifecycleSnapshot(true, 0, false, null, 0, lastError);
+    }
+
+    private const int LifecycleReadAttempts = 3;
+    private static readonly TimeSpan LifecycleReadRetryDelay = TimeSpan.FromMilliseconds(500);
+    private static readonly TimeSpan LifecycleBusyTimeout = TimeSpan.FromSeconds(1);
+
+    private static async Task<bool> TableExistsAsync(SQLiteAsyncConnection connection, string tableName)
+        => await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?;",
+            tableName).ConfigureAwait(false) == 1;
 
     private async Task EnsureLifecycleMetadataAsync(bool databaseAlreadyExists)
     {

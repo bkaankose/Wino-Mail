@@ -10,6 +10,7 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:shellMenu="using:Wino.Mail.WinUI.Styles.ShellMenu"
     x:Name="Root"
     KeyboardAcceleratorPlacementMode="Hidden"
     Loaded="OnLoaded"
@@ -20,42 +21,54 @@
         command belongs to the mode view model of whatever the inner frame navigated to.
     -->
     <Page.Resources>
-        <coreSelectors:ShellMenuTemplateSelector
-            x:Key="ShellMenuTemplateSelector"
-            AccountCalendarGroupTemplate="{StaticResource AccountCalendarGroupTemplate}"
-            AccountTaskListGroupTemplate="{StaticResource AccountTaskListGroupTemplate}"
-            AccountTaskListTemplate="{StaticResource AccountTaskListTemplate}"
-            CalendarDatePickerTemplate="{StaticResource CalendarDatePickerTemplate}"
-            CalendarNewEventTemplate="{StaticResource CalendarNewEventTemplate}"
-            ContactCategoriesExpanderTemplate="{StaticResource ContactCategoriesExpanderTemplate}"
-            ContactCategoryFilterTemplate="{StaticResource ContactCategoryFilterTemplate}"
-            ContactFilterTemplate="{StaticResource ContactFilterTemplate}"
-            CreateNewMailTemplate="{StaticResource CreateNewMailTemplate}"
-            FixAuthenticationIssueTemplate="{StaticResource FixAuthenticationIssueTemplate}"
-            FixMissingFolderConfigTemplate="{StaticResource FixMissingFolderConfigTemplate}"
-            FolderMenuTemplate="{StaticResource FolderMenuTemplate}"
-            ImportantTaskTemplate="{StaticResource ImportantTaskTemplate}"
-            MailCategoryMenuTemplate="{StaticResource MailCategoryMenuTemplate}"
-            MergedAccountFolderMenuItemTemplate="{StaticResource MergedAccountFolderMenuItemTemplate}"
-            MergedAccountMoreFolderItemTemplate="{StaticResource MergedAccountMoreFolderItemTemplate}"
-            MergedAccountTemplate="{StaticResource MergedAccountTemplate}"
-            MergedMailCategoryMenuTemplate="{StaticResource MergedMailCategoryMenuTemplate}"
-            MyDayTaskTemplate="{StaticResource MyDayTaskTemplate}"
-            NewAddressListTemplate="{StaticResource NewAddressListTemplate}"
-            NewContactTemplate="{StaticResource NewContactTemplate}"
-            NewTaskListTemplate="{StaticResource NewTaskListTemplate}"
-            PlannedTaskTemplate="{StaticResource PlannedTaskTemplate}"
-            RatingItemTemplate="{StaticResource RatingItemTemplate}"
-            SeperatorTemplate="{StaticResource SeperatorTemplate}"
-            SettingsShellGroupItemTemplate="{StaticResource SettingsShellGroupItemTemplate}"
-            SettingsShellPageItemTemplate="{StaticResource SettingsShellPageItemTemplate}"
-            SettingsShellSectionItemTemplate="{StaticResource SettingsShellSectionItemTemplate}"
-            SettingsShellWinoAccountItemTemplate="{StaticResource SettingsShellWinoAccountItemTemplate}"
-            SettingsShellWinoIntelligenceItemTemplate="{StaticResource SettingsShellWinoIntelligenceItemTemplate}"
-            SharedAccountMenuTemplate="{StaticResource SharedAccountMenuTemplate}"
-            SharedCompactAccountMenuTemplate="{StaticResource SharedCompactAccountMenuTemplate}"
-            ShellSectionHeaderTemplate="{StaticResource ShellSectionHeaderTemplate}"
-            UngroupedCalendarTemplate="{StaticResource UngroupedCalendarTemplate}" />
+        <ResourceDictionary>
+            <!--
+                Each shell owns its menu templates. ItemsRepeater keeps recycled containers in a pool
+                attached to the DataTemplate, and a container's nested repeater keeps a raw pointer to
+                the NavigationView that first prepared it. Shared application-level templates let a
+                reopened shell reuse containers of a closed one, which crashes in NavigationView.
+            -->
+            <ResourceDictionary.MergedDictionaries>
+                <shellMenu:ShellMenuTemplates />
+            </ResourceDictionary.MergedDictionaries>
+
+            <coreSelectors:ShellMenuTemplateSelector
+                x:Key="ShellMenuTemplateSelector"
+                AccountCalendarGroupTemplate="{StaticResource AccountCalendarGroupTemplate}"
+                AccountTaskListGroupTemplate="{StaticResource AccountTaskListGroupTemplate}"
+                AccountTaskListTemplate="{StaticResource AccountTaskListTemplate}"
+                CalendarDatePickerTemplate="{StaticResource CalendarDatePickerTemplate}"
+                CalendarNewEventTemplate="{StaticResource CalendarNewEventTemplate}"
+                ContactCategoriesExpanderTemplate="{StaticResource ContactCategoriesExpanderTemplate}"
+                ContactCategoryFilterTemplate="{StaticResource ContactCategoryFilterTemplate}"
+                ContactFilterTemplate="{StaticResource ContactFilterTemplate}"
+                CreateNewMailTemplate="{StaticResource CreateNewMailTemplate}"
+                FixAuthenticationIssueTemplate="{StaticResource FixAuthenticationIssueTemplate}"
+                FixMissingFolderConfigTemplate="{StaticResource FixMissingFolderConfigTemplate}"
+                FolderMenuTemplate="{StaticResource FolderMenuTemplate}"
+                ImportantTaskTemplate="{StaticResource ImportantTaskTemplate}"
+                MailCategoryMenuTemplate="{StaticResource MailCategoryMenuTemplate}"
+                MergedAccountFolderMenuItemTemplate="{StaticResource MergedAccountFolderMenuItemTemplate}"
+                MergedAccountMoreFolderItemTemplate="{StaticResource MergedAccountMoreFolderItemTemplate}"
+                MergedAccountTemplate="{StaticResource MergedAccountTemplate}"
+                MergedMailCategoryMenuTemplate="{StaticResource MergedMailCategoryMenuTemplate}"
+                MyDayTaskTemplate="{StaticResource MyDayTaskTemplate}"
+                NewAddressListTemplate="{StaticResource NewAddressListTemplate}"
+                NewContactTemplate="{StaticResource NewContactTemplate}"
+                NewTaskListTemplate="{StaticResource NewTaskListTemplate}"
+                PlannedTaskTemplate="{StaticResource PlannedTaskTemplate}"
+                RatingItemTemplate="{StaticResource RatingItemTemplate}"
+                SeperatorTemplate="{StaticResource SeperatorTemplate}"
+                SettingsShellGroupItemTemplate="{StaticResource SettingsShellGroupItemTemplate}"
+                SettingsShellPageItemTemplate="{StaticResource SettingsShellPageItemTemplate}"
+                SettingsShellSectionItemTemplate="{StaticResource SettingsShellSectionItemTemplate}"
+                SettingsShellWinoAccountItemTemplate="{StaticResource SettingsShellWinoAccountItemTemplate}"
+                SettingsShellWinoIntelligenceItemTemplate="{StaticResource SettingsShellWinoIntelligenceItemTemplate}"
+                SharedAccountMenuTemplate="{StaticResource SharedAccountMenuTemplate}"
+                SharedCompactAccountMenuTemplate="{StaticResource SharedCompactAccountMenuTemplate}"
+                ShellSectionHeaderTemplate="{StaticResource ShellSectionHeaderTemplate}"
+                UngroupedCalendarTemplate="{StaticResource UngroupedCalendarTemplate}" />
+        </ResourceDictionary>
     </Page.Resources>
 
     <Grid x:Name="RootGrid">
@@ -133,25 +146,9 @@
             </Grid>
         </coreControls:WinoNavigationView>
 
-        <VisualStateManager.VisualStateGroups>
-            <VisualStateGroup x:Name="LowResolutionStates">
-                <VisualState x:Name="BigScreen">
-                    <VisualState.StateTriggers>
-                        <AdaptiveTrigger MinWindowWidth="1200" />
-                    </VisualState.StateTriggers>
-                    <VisualState.Setters>
-                        <Setter Target="navigationView.IsPaneOpen" Value="True" />
-                    </VisualState.Setters>
-                </VisualState>
-                <VisualState x:Name="SmallScreen">
-                    <VisualState.StateTriggers>
-                        <AdaptiveTrigger MinWindowWidth="0" />
-                    </VisualState.StateTriggers>
-                    <VisualState.Setters>
-                        <Setter Target="navigationView.IsPaneOpen" Value="False" />
-                    </VisualState.Setters>
-                </VisualState>
-            </VisualStateGroup>
-        </VisualStateManager.VisualStateGroups>
+        <!--
+            The pane's open state is the user's saved preference, applied from code whenever the
+            pane is expanded. Width-driven visual states must not set IsPaneOpen; they override it.
+        -->
     </Grid>
 </abstract:WinoAppShellAbstract>

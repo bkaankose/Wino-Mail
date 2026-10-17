@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.WinUI.Controls;
+using WinRT;
 
 namespace Wino.Calendar.Controls;
 
@@ -53,6 +54,8 @@ public partial class WinoCalendarTypeSelectorControl : Control
         DefaultStyleKey = typeof(WinoCalendarTypeSelectorControl);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(AppBarButton))]
+    [DynamicWindowsRuntimeCast(typeof(AppBarToggleButton))]
     protected override void OnApplyTemplate()
     {
         base.OnApplyTemplate();

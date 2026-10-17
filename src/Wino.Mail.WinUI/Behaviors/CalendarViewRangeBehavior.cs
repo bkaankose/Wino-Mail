@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Behaviors;
 
@@ -43,6 +44,7 @@ public static class CalendarViewRangeBehavior
     public static void SetClient(DependencyObject element, ICalendarShellClient? value)
         => element.SetValue(ClientProperty, value);
 
+    [DynamicWindowsRuntimeCast(typeof(CalendarView))]
     private static void OnClientChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         if (dependencyObject is not CalendarView calendarView)

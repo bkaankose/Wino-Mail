@@ -89,7 +89,9 @@ public sealed class ModeSynchronizerFactory :
         {
             AccountIntegrationSource.Local => true,
             AccountIntegrationSource.Provider => account.IsContactAccessGranted && IsProviderAccount(account),
-            AccountIntegrationSource.Dav => !string.IsNullOrWhiteSpace(account.ServerInformation?.CardDavServiceUrl),
+            // An empty CardDAV URL is filled in by discovery on the account address when contacts synchronize.
+            AccountIntegrationSource.Dav => !string.IsNullOrWhiteSpace(account.ServerInformation?.CardDavServiceUrl) ||
+                                            !string.IsNullOrWhiteSpace(account.Address),
             _ => false
         };
 

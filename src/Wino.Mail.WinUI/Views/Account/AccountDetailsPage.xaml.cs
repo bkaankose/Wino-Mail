@@ -5,6 +5,7 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Mail.ViewModels;
 using Wino.Views.Abstract;
 using Wino.Helpers;
+using WinRT;
 
 namespace Wino.Views;
 
@@ -15,6 +16,7 @@ public sealed partial class AccountDetailsPage : AccountDetailsPageAbstract
         InitializeComponent();
     }
 
+    [DynamicWindowsRuntimeCast(typeof(CheckBox))]
     private async void SyncFolderToggled(object sender, RoutedEventArgs e)
     {
         if (sender is CheckBox checkBox && checkBox.Tag is IMailItemFolder folder)
@@ -23,6 +25,7 @@ public sealed partial class AccountDetailsPage : AccountDetailsPageAbstract
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(CheckBox))]
     private async void JumpListCheckboxToggled(object sender, RoutedEventArgs e)
     {
         if (sender is CheckBox checkBox && checkBox.Tag is IMailItemFolder folder)
@@ -31,6 +34,7 @@ public sealed partial class AccountDetailsPage : AccountDetailsPageAbstract
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(CheckBox))]
     private void JumpListCheckBoxLoaded(object sender, RoutedEventArgs e)
     {
         if (sender is CheckBox checkBox)
@@ -39,6 +43,7 @@ public sealed partial class AccountDetailsPage : AccountDetailsPageAbstract
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ToggleSwitch))]
     private void JumpListMasterToggled(object sender, RoutedEventArgs e)
     {
         if (sender is not ToggleSwitch toggleSwitch)

@@ -68,6 +68,16 @@
             </controls:SettingsCard.HeaderIcon>
         </controls:SettingsCard>
 
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="AppPreferencesPageSettingsCard8"
+            Description="{x:Bind domain:Translator.SettingsAppPreferences_DisableAppModeTaskbarIconSwitch_Description}"
+            Header="{x:Bind domain:Translator.SettingsAppPreferences_DisableAppModeTaskbarIconSwitch_Title}">
+            <ToggleSwitch AutomationProperties.AutomationId="AppPreferencesDisableAppModeTaskbarIconSwitchToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsAppModeTaskbarIconSwitchDisabled, Mode=TwoWay}" />
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="Pin" />
+            </controls:SettingsCard.HeaderIcon>
+        </controls:SettingsCard>
+
     </StackPanel>
 
     <VisualStateManager.VisualStateGroups>

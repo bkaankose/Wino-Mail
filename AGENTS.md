@@ -41,6 +41,12 @@ Platform services live in `Wino.Platform.Windows`, `Wino.Platform.MacOS`, `Wino.
 - Shared Release builds keep their Native AOT, trimming, and warnings-as-errors gates. Only projects that target `-macos`, `-ios`, or `-android` (the AppKit, UIKit, and Android projects and the Apple shared layer) are exempt from the AOT gate.
 - `WinoTargetPlatform` (`Windows`, `MacOS`, `iOS`, or `Android`) and `WinoTargetRuntimeIdentifier` are the build interface. An explicit value wins; otherwise the host decides. The host never selects `iOS` or `Android`; those builds pass it explicitly. Platform build policy lives in `build/`; root `Directory.Build.*` holds only shared policy.
 
+## Windows dialogs
+
+- Every `ContentDialog` in the WinUI head is a dedicated `ContentDialog` file in `src/Wino.Mail.WinUI/Dialogs`, with its text from `Translator`. Never write `new ContentDialog { ... }` or declare a `<ContentDialog>` inside a page or control.
+- `src/Wino.Mail.WinUI/Services/DialogService.cs` (with `DialogServiceBase`) is the only code that creates or presents dialogs. It returns the result through an async method. Pages, controls, and other services call `IMailDialogService`, `IDialogServiceBase`, or the Windows-only `IWinoDialogService`; they never call `ShowAsync` or set `XamlRoot`.
+- WinUI allows one open `ContentDialog` per `XamlRoot`. Queued dialogs go through `HandleDialogPresentationAsync`. Progress dialogs that their owner closes go through `StartSessionDialog`.
+
 ## Discovery and references
 
 Use CodeGraph first for code discovery when `.codegraph/` exists:

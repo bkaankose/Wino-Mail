@@ -3,6 +3,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
     xmlns:contextFlyout="using:Wino.Mail.Controls.ContextFlyout"
+    xmlns:controls="using:Wino.Mail.Controls"
     xmlns:intelligence="using:Wino.Mail.Controls.IntelligenceHeader"
     xmlns:intelligenceProgress="using:Wino.Mail.Controls.IntelligenceProgressRing"
     xmlns:intelligenceTiles="using:Wino.Mail.Controls.IntelligenceTileBar"
@@ -14,6 +15,7 @@
 
     <ResourceDictionary.MergedDictionaries>
         <contextFlyout:WinoContextFlyoutResources />
+        <controls:WinoItemTemplates />
         <ResourceDictionary Source="ms-appx:///Wino.Mail.Controls.WinUI/Themes/WinoIntelligenceBranding.xaml" />
         <ResourceDictionary Source="ms-appx:///Wino.Mail.Controls.WinUI/IntelligenceProgressRing/WinoIntelligenceProgressRing.xaml" />
     </ResourceDictionary.MergedDictionaries>
@@ -31,7 +33,6 @@
             <StaticResource x:Key="WinoIntelligenceHeaderDeadlinePillForegroundBrush" ResourceKey="SystemFillColorCautionBrush" />
             <StaticResource x:Key="WinoIntelligenceHeaderNeedsReplyPillBackgroundBrush" ResourceKey="SystemFillColorAttentionBackgroundBrush" />
             <StaticResource x:Key="WinoIntelligenceHeaderNeedsReplyPillForegroundBrush" ResourceKey="SystemFillColorAttentionBrush" />
-            <StaticResource x:Key="WinoIntelligenceHeaderSecondaryTextBrush" ResourceKey="TextFillColorSecondaryBrush" />
             <!--  The skeleton is a resting surface, so the sweep only has to read a shade brighter than the block it crosses.  -->
             <SolidColorBrush x:Key="WinoShimmerBaseBrush" Color="#14000000" />
             <SolidColorBrush x:Key="WinoShimmerHighlightBrush" Color="#59FFFFFF" />
@@ -82,7 +83,6 @@
             <StaticResource x:Key="WinoIntelligenceHeaderDeadlinePillForegroundBrush" ResourceKey="SystemFillColorCautionBrush" />
             <StaticResource x:Key="WinoIntelligenceHeaderNeedsReplyPillBackgroundBrush" ResourceKey="SystemFillColorAttentionBackgroundBrush" />
             <StaticResource x:Key="WinoIntelligenceHeaderNeedsReplyPillForegroundBrush" ResourceKey="SystemFillColorAttentionBrush" />
-            <StaticResource x:Key="WinoIntelligenceHeaderSecondaryTextBrush" ResourceKey="TextFillColorSecondaryBrush" />
             <SolidColorBrush x:Key="WinoShimmerBaseBrush" Color="#16FFFFFF" />
             <SolidColorBrush x:Key="WinoShimmerHighlightBrush" Color="#1FFFFFFF" />
             <StaticResource x:Key="WinoMailIntelligenceTileBackgroundBrush" ResourceKey="SubtleFillColorSecondaryBrush" />
@@ -121,7 +121,6 @@
             <StaticResource x:Key="WinoIntelligenceHeaderDeadlinePillForegroundBrush" ResourceKey="SystemColorButtonTextColorBrush" />
             <StaticResource x:Key="WinoIntelligenceHeaderNeedsReplyPillBackgroundBrush" ResourceKey="SystemColorButtonFaceColorBrush" />
             <StaticResource x:Key="WinoIntelligenceHeaderNeedsReplyPillForegroundBrush" ResourceKey="SystemColorButtonTextColorBrush" />
-            <StaticResource x:Key="WinoIntelligenceHeaderSecondaryTextBrush" ResourceKey="SystemColorGrayTextColorBrush" />
             <StaticResource x:Key="WinoShimmerBaseBrush" ResourceKey="SystemColorButtonFaceColorBrush" />
             <SolidColorBrush x:Key="WinoShimmerHighlightBrush" Color="Transparent" />
             <StaticResource x:Key="WinoMailIntelligenceTileBackgroundBrush" ResourceKey="SystemColorButtonFaceColorBrush" />
@@ -143,29 +142,6 @@
     <StaticResource x:Key="WinoIntelligenceIconBrush" ResourceKey="WinoIntelligenceBrandIconBrush" />
     <StaticResource x:Key="WinoIntelligenceSparklePathData" ResourceKey="WinoIntelligenceBrandSparklePathData" />
 
-    <!--  A recent search, or the clear-history action that ends the list. Binds SearchBarHistoryEntry.  -->
-    <DataTemplate x:Key="WinoSearchBarHistoryItemTemplate">
-        <Grid
-            MinHeight="32"
-            Padding="0,4"
-            ColumnSpacing="12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <accountIcon:WinoFontIcon
-                VerticalAlignment="Center"
-                AutomationProperties.AccessibilityView="Raw"
-                FontSize="14"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Glyph="{Binding Glyph}" />
-            <TextBlock
-                Grid.Column="1"
-                VerticalAlignment="Center"
-                Text="{Binding Text}"
-                TextTrimming="CharacterEllipsis" />
-        </Grid>
-    </DataTemplate>
 
     <Style
         x:Key="WinoSearchBarFilterButtonStyle"
@@ -187,64 +163,7 @@
         <Setter Property="CornerRadius" Value="4" />
     </Style>
 
-    <!--
-        A ResourceDictionary has no x:Class, so x:DataType (and therefore x:Bind) is unavailable here
-        and these paths must use Binding. Trimming stays safe because WinoIntelligenceReply is marked
-        [GeneratedBindableCustomProperty], which preserves these properties for AOT. See the
-        WMC1510 NoWarn in Wino.Mail.Controls.csproj.
-    -->
-    <DataTemplate x:Key="WinoIntelligenceHeaderReplyItemTemplate">
-        <StackPanel Padding="10,7" Spacing="3">
-            <TextBlock
-                FontSize="11"
-                Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
-                Text="{Binding Tone}" />
-            <TextBlock Text="{Binding Text}" TextWrapping="WrapWholeWords" />
-        </StackPanel>
-    </DataTemplate>
 
-    <DataTemplate x:Key="WinoIntelligenceHeaderSimilarItemTemplate">
-        <Grid
-            MinHeight="54"
-            Padding="8,6"
-            ColumnSpacing="10">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="32" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <Border
-                Width="30"
-                Height="30"
-                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                CornerRadius="15">
-                <TextBlock
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    FontSize="11"
-                    Text="{Binding Initials}" />
-            </Border>
-            <StackPanel
-                Grid.Column="1"
-                VerticalAlignment="Center"
-                Spacing="2">
-                <TextBlock
-                    FontWeight="SemiBold"
-                    Text="{Binding Subject}"
-                    TextTrimming="CharacterEllipsis" />
-                <TextBlock
-                    Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
-                    Style="{StaticResource CaptionTextBlockStyle}"
-                    Text="{Binding Meta}"
-                    TextTrimming="CharacterEllipsis" />
-            </StackPanel>
-            <TextBlock
-                Grid.Column="2"
-                VerticalAlignment="Center"
-                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                Text="{Binding ScoreText}" />
-        </Grid>
-    </DataTemplate>
 
     <Style
         x:Key="WinoIntelligenceChipButtonStyle"
@@ -291,36 +210,6 @@
         <Setter Property="BorderThickness" Value="0" />
     </Style>
 
-    <DataTemplate x:Key="WinoSearchBarContactSuggestionTemplate">
-        <Grid
-            MinHeight="48"
-            Padding="7,4"
-            ColumnSpacing="9">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="30" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <Border
-                Width="28"
-                Height="28"
-                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                CornerRadius="14">
-                <TextBlock
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    FontSize="10"
-                    Text="{Binding Initials}" />
-            </Border>
-            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
-                <TextBlock
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Style="{StaticResource CaptionTextBlockStyle}"
-                    Text="{Binding Address}"
-                    TextTrimming="CharacterEllipsis" />
-            </StackPanel>
-        </Grid>
-    </DataTemplate>
 
     <!--
         A chrome-less text box for the AutoSuggestBox inside the field. The field Border paints the
@@ -1338,13 +1227,8 @@
                                                 <ComboBox
                                                     x:Name="PART_TranslationSourceComboBox"
                                                     MinWidth="140"
-                                                    AutomationProperties.AutomationId="WinoIntelligenceHeaderTranslationSource">
-                                                    <ComboBox.ItemTemplate>
-                                                        <DataTemplate>
-                                                            <TextBlock Text="{Binding Label}" />
-                                                        </DataTemplate>
-                                                    </ComboBox.ItemTemplate>
-                                                </ComboBox>
+                                                    AutomationProperties.AutomationId="WinoIntelligenceHeaderTranslationSource"
+                                                    ItemTemplate="{StaticResource WinoIntelligenceLanguageOptionTemplate}" />
                                                 <accountIcon:WinoFontIcon
                                                     VerticalAlignment="Center"
                                                     AutomationProperties.AccessibilityView="Raw"
@@ -1354,13 +1238,8 @@
                                                 <ComboBox
                                                     x:Name="PART_TranslationTargetComboBox"
                                                     MinWidth="140"
-                                                    AutomationProperties.AutomationId="WinoIntelligenceHeaderTranslationTarget">
-                                                    <ComboBox.ItemTemplate>
-                                                        <DataTemplate>
-                                                            <TextBlock Text="{Binding Label}" />
-                                                        </DataTemplate>
-                                                    </ComboBox.ItemTemplate>
-                                                </ComboBox>
+                                                    AutomationProperties.AutomationId="WinoIntelligenceHeaderTranslationTarget"
+                                                    ItemTemplate="{StaticResource WinoIntelligenceLanguageOptionTemplate}" />
                                                 <Button
                                                     x:Name="PART_TranslationRunButton"
                                                     AutomationProperties.AutomationId="WinoIntelligenceHeaderTranslateButton"
@@ -1581,11 +1460,11 @@
                                         Height="16"
                                         Foreground="{ThemeResource WinoSynchronizationButtonActiveForegroundBrush}"
                                         IsActive="False"
-                                        IsIndeterminate="{Binding IsIndeterminate, RelativeSource={RelativeSource TemplatedParent}}"
+                                        IsIndeterminate="{TemplateBinding IsIndeterminate}"
                                         Maximum="100"
                                         Minimum="0"
                                         Visibility="Collapsed"
-                                        Value="{Binding Progress, RelativeSource={RelativeSource TemplatedParent}}" />
+                                        Value="{TemplateBinding Progress}" />
                                 </Grid>
 
                                 <TextBlock
@@ -1595,7 +1474,7 @@
                                     VerticalAlignment="Center"
                                     Foreground="{ThemeResource WinoSynchronizationButtonActiveForegroundBrush}"
                                     Style="{ThemeResource CaptionTextBlockStyle}"
-                                    Text="{Binding Description, RelativeSource={RelativeSource TemplatedParent}}"
+                                    Text="{TemplateBinding Description}"
                                     TextTrimming="CharacterEllipsis"
                                     TextWrapping="NoWrap"
                                     Visibility="Collapsed" />

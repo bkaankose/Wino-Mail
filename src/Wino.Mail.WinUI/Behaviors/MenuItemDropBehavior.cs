@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Microsoft.UI.Xaml;
 using Windows.ApplicationModel.DataTransfer;
 using Wino.Core.Domain.Interfaces;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Behaviors;
 
@@ -27,6 +28,7 @@ public static class MenuItemDropBehavior
 
     public static void SetIsDropTarget(DependencyObject element, bool value) => element.SetValue(IsDropTargetProperty, value);
 
+    [DynamicWindowsRuntimeCast(typeof(UIElement))]
     private static void OnIsDropTargetChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         if (dependencyObject is not UIElement element)

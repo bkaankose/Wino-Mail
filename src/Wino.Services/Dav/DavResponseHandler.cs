@@ -31,7 +31,7 @@ public sealed class DavResponseHandler : IDavResponseHandler
         var errors = await ReadErrorsAsync(response.Content, cancellationToken).ConfigureAwait(false);
         var operation = response.RequestMessage?.Method.Method;
         var status = response.StatusCode;
-        var message = status switch
+        var message = GetPreconditionMessage(errors, status) ?? status switch
         {
             HttpStatusCode.Unauthorized => Translator.DavError_AuthenticationRequired,
             HttpStatusCode.Forbidden when string.Equals(operation, "MKCOL", StringComparison.OrdinalIgnoreCase)
@@ -51,6 +51,33 @@ public sealed class DavResponseHandler : IDavResponseHandler
             errors,
             response.Headers.RetryAfter?.Delta);
     }
+
+    /// <summary>
+    /// Storage and size refusals carry their own meaning whatever the status: 507 Insufficient
+    /// Storage (RFC 4918 section 11.5), the quota preconditions of RFC 4331 section 6, and the
+    /// CalDAV <c>max-resource-size</c> and <c>max-attendees-per-instance</c> preconditions
+    /// (RFC 4791 section 5.3.2.1).
+    /// </summary>
+    internal static string GetPreconditionMessage(IReadOnlyList<string> errors, HttpStatusCode status)
+    {
+        if (HasError(errors, "max-resource-size"))
+            return Translator.DavError_ResourceTooLarge;
+
+        if (HasError(errors, "max-attendees-per-instance"))
+            return Translator.DavError_TooManyAttendees;
+
+        if (status == HttpStatusCode.InsufficientStorage ||
+            HasError(errors, "quota-not-exceeded") ||
+            HasError(errors, "sufficient-disk-space"))
+        {
+            return Translator.DavError_QuotaExceeded;
+        }
+
+        return null;
+    }
+
+    private static bool HasError(IReadOnlyList<string> errors, string localName)
+        => errors.Any(value => value.EndsWith($"}}{localName}", StringComparison.OrdinalIgnoreCase));
 
     private static async Task<IReadOnlyList<string>> ReadErrorsAsync(
         HttpContent content,

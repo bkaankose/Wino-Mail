@@ -234,6 +234,26 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         NavigateDirectlyToRootPage(message.PageType);
     }
 
+    /// <summary>
+    /// Moves the open settings page to an activation target the navigation service resolved
+    /// while Settings mode was already active.
+    /// </summary>
+    public void NavigateToActivationTarget(object settingsTarget)
+    {
+        switch (settingsTarget)
+        {
+            case SettingsPageActivationContext { PageParameter: not null } activationContext:
+                NavigateToRootPage(activationContext.TargetPage, activationContext.PageParameter);
+                break;
+            case SettingsPageActivationContext activationContext:
+                Receive(new SettingsRootNavigationRequested(activationContext.TargetPage));
+                break;
+            case WinoPage targetPage:
+                Receive(new SettingsRootNavigationRequested(targetPage));
+                break;
+        }
+    }
+
     public void Receive(WinoIntelligenceEntitlementChanged message)
     {
         if (message.Entitlement.CanAccessSurfaces)

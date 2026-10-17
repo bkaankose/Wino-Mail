@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Input;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Mail.ViewModels;
 using Wino.Views.Abstract;
+using WinRT;
 
 namespace Wino.Views.Settings;
 
@@ -31,6 +32,7 @@ public sealed partial class ContactEditPage : ContactEditPageAbstract
             SelectCategoryNavigationItem();
     }
 
+    [DynamicWindowsRuntimeCast(typeof(NavigationViewItem))]
     private void CategoryNavigation_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
         if (args.SelectedItem is not NavigationViewItem selectedItem)
@@ -80,15 +82,19 @@ public sealed partial class ContactEditPage : ContactEditPageAbstract
     private void ContactEditPage_LosingFocus(UIElement sender, LosingFocusEventArgs args)
         => ViewModel.MarkDirty();
 
+    [DynamicWindowsRuntimeCast(typeof(Button))]
     private void RemoveEmail_Click(object sender, RoutedEventArgs e)
         => ViewModel.RemoveEmailCommand.Execute((sender as Button)?.DataContext as ContactEmailAddress);
 
+    [DynamicWindowsRuntimeCast(typeof(Button))]
     private void RemovePhone_Click(object sender, RoutedEventArgs e)
         => ViewModel.RemovePhoneCommand.Execute((sender as Button)?.DataContext as ContactPhoneNumber);
 
+    [DynamicWindowsRuntimeCast(typeof(Button))]
     private void RemoveImAddress_Click(object sender, RoutedEventArgs e)
         => ViewModel.RemoveImAddressCommand.Execute((sender as Button)?.DataContext as ContactImAddress);
 
+    [DynamicWindowsRuntimeCast(typeof(Button))]
     private void RemoveRelation_Click(object sender, RoutedEventArgs e)
         => ViewModel.RemoveRelationCommand.Execute((sender as Button)?.DataContext as ContactRelation);
 }

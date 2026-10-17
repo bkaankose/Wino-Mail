@@ -11,6 +11,7 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Requests.Calendar;
+using Wino.Core.Synchronizers.CalDav;
 using Wino.Core.Synchronizers.ImapSync;
 using Wino.Core.Synchronizers.Mail;
 using Xunit;
@@ -55,12 +56,18 @@ public class ImapSynchronizerCalDavConfigurationTests
             IsRecurringInstance = true,
             ETag = "\"unchanged\""
         };
+        const string seriesHref = "https://dav.example.test/calendars/default/series.ics";
         var calDavClient = new Mock<ICalDavClient>();
-        calDavClient.Setup(client => client.DiscoverCalendarsAsync(It.IsAny<CalDavConnectionSettings>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[] { remoteCalendar });
-        calDavClient.Setup(client => client.GetCalendarEventsAsync(
+        SetupDiscovery(calDavClient, remoteCalendar);
+        calDavClient.Setup(client => client.ListEventResourcesAsync(
                 It.IsAny<CalDavConnectionSettings>(), remoteCalendar, It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[] { remoteChild });
+            .ReturnsAsync(new[] { new CalDavResource { ExactHref = seriesHref, ETag = remoteChild.ETag } });
+        calDavClient.Setup(client => client.MultiGetEventsAsync(
+                It.IsAny<CalDavConnectionSettings>(), remoteCalendar, It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { new CalDavResource { ExactHref = seriesHref, ETag = remoteChild.ETag, IcsContent = "series-ics" } });
+        calDavClient.Setup(client => client.ExpandCalendarResource(
+                "series-ics", seriesHref, remoteChild.ETag, It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>()))
+            .Returns(new[] { remoteChild });
         var changeProcessor = new Mock<IImapChangeProcessor>();
         changeProcessor.Setup(processor => processor.GetAccountCalendarsAsync(It.IsAny<Guid>()))
             .ReturnsAsync(new List<AccountCalendar> { localCalendar });
@@ -83,8 +90,11 @@ public class ImapSynchronizerCalDavConfigurationTests
             (await synchronizer.SynchronizeCalendarEventsAsync(options)).CompletedState.Should().Be(SynchronizationCompletedState.Success);
             (await synchronizer.SynchronizeCalendarEventsAsync(options)).CompletedState.Should().Be(SynchronizationCompletedState.Success);
 
+            // The legacy token forces one complete re-import; the fresh token then skips the calendar.
+            calDavClient.Verify(client => client.MultiGetEventsAsync(
+                It.IsAny<CalDavConnectionSettings>(), remoteCalendar, It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()), Times.Once);
             calDavClient.Verify(client => client.GetCalendarEventsAsync(
-                It.IsAny<CalDavConnectionSettings>(), remoteCalendar, It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()), Times.Once);
+                It.IsAny<CalDavConnectionSettings>(), It.IsAny<CalDavCalendar>(), It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()), Times.Never);
             changeProcessor.Verify(processor => processor.ManageCalendarEventAsync(remoteChild, localCalendar, synchronizer.Account), Times.Once);
             localCalendar.SynchronizationDeltaToken.Should().NotBe("sync-1|ctag-1");
         }
@@ -96,7 +106,7 @@ public class ImapSynchronizerCalDavConfigurationTests
     }
 
     [Fact]
-    public async Task CalendarSync_WindowEndApproaching_ReanchorsOnceAndPrunesExpiredOccurrences()
+    public async Task CalendarSync_WindowEndApproaching_ReanchorsFromStoredIcsWithoutDownloadAndPrunesExpiredOccurrences()
     {
         var tempDirectory = CreateTempDirectory();
         var serverInformation = CreateServerInformation();
@@ -136,17 +146,30 @@ public class ImapSynchronizerCalDavConfigurationTests
             StartTimeZone = "UTC",
             EndTimeZone = "UTC"
         };
+        var remoteMaster = new CalDavCalendarEvent
+        {
+            RemoteEventId = parent.RemoteEventId,
+            IsSeriesMaster = true,
+            ETag = "\"unchanged\""
+        };
+        const string seriesHref = "https://dav.example.test/calendars/default/series.ics";
         var calDavClient = new Mock<ICalDavClient>();
-        calDavClient.Setup(client => client.DiscoverCalendarsAsync(It.IsAny<CalDavConnectionSettings>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[] { remoteCalendar });
-        calDavClient.Setup(client => client.GetCalendarEventsAsync(
-                It.IsAny<CalDavConnectionSettings>(), remoteCalendar, It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[] { remoteChild });
+        SetupDiscovery(calDavClient, remoteCalendar);
+        calDavClient.Setup(client => client.ExpandCalendarResource(
+                "stored-series-ics", seriesHref, "\"unchanged\"", It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>()))
+            .Returns(new[] { remoteMaster, remoteChild });
         var changeProcessor = new Mock<IImapChangeProcessor>();
         changeProcessor.Setup(processor => processor.GetAccountCalendarsAsync(It.IsAny<Guid>()))
             .ReturnsAsync(new List<AccountCalendar> { localCalendar });
         changeProcessor.Setup(processor => processor.GetCalendarItemAsync(localCalendar.Id, parent.RemoteEventId))
             .ReturnsAsync(parent);
+        changeProcessor.Setup(processor => processor.GetCalendarItemIcsETagAsync(It.IsAny<Guid>(), localCalendar.Id, parent.Id))
+            .ReturnsAsync("\"unchanged\"");
+        // The series is stored on disk; re-anchoring expands it again without a request.
+        changeProcessor.Setup(processor => processor.GetCalendarIcsShadowsAsync(It.IsAny<Guid>(), localCalendar.Id))
+            .ReturnsAsync(new[] { new CalendarIcsShadow { CalendarItemId = parent.Id, RemoteEventId = parent.RemoteEventId, ExactHref = seriesHref, ETag = "\"unchanged\"" } });
+        changeProcessor.Setup(processor => processor.GetCalendarItemIcsAsync(It.IsAny<Guid>(), localCalendar.Id, parent.Id))
+            .ReturnsAsync(new CalDavResourceSnapshot { ExactHref = seriesHref, ETag = "\"unchanged\"", IcsContent = "stored-series-ics" });
         var calendarService = new Mock<ICalendarService>();
         calendarService.Setup(service => service.GetCalendarEventsAsync(It.IsAny<IAccountCalendar>(), It.IsAny<ITimePeriod>()))
             // The database only returns the expired child for the open-ended "before the window" query.
@@ -165,11 +188,23 @@ public class ImapSynchronizerCalDavConfigurationTests
             providerToken.Should().Be("sync-1|ctag-1");
             windowEnd!.Value.Date.Should().Be(DateTimeOffset.UtcNow.AddYears(2).Date, "the calendar is re-anchored to a fresh window");
             changeProcessor.Verify(processor => processor.DeleteCalendarItemAsync(expiredChild.Id), Times.Once, "occurrences before the window are pruned");
+            changeProcessor.Verify(processor => processor.ManageCalendarEventAsync(remoteChild, localCalendar, synchronizer.Account), Times.Once,
+                "the occurrence that entered the window comes from the stored ICS file");
+            changeProcessor.Verify(processor => processor.ManageCalendarEventAsync(remoteMaster, It.IsAny<AccountCalendar>(), It.IsAny<MailAccount>()), Times.Never,
+                "the unchanged series master is not written again");
+            changeProcessor.Verify(processor => processor.DeleteCalendarItemAsync(parent.Id), Times.Never);
 
             (await synchronizer.SynchronizeCalendarEventsAsync(options)).CompletedState.Should().Be(SynchronizationCompletedState.Success);
 
+            // Neither the re-anchor nor the following sync downloads anything.
+            calDavClient.Verify(client => client.ListEventResourcesAsync(
+                It.IsAny<CalDavConnectionSettings>(), It.IsAny<CalDavCalendar>(), It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()), Times.Never);
+            calDavClient.Verify(client => client.MultiGetEventsAsync(
+                It.IsAny<CalDavConnectionSettings>(), It.IsAny<CalDavCalendar>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()), Times.Never);
             calDavClient.Verify(client => client.GetCalendarEventsAsync(
-                It.IsAny<CalDavConnectionSettings>(), remoteCalendar, It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()), Times.Once,
+                It.IsAny<CalDavConnectionSettings>(), It.IsAny<CalDavCalendar>(), It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()), Times.Never);
+            calDavClient.Verify(client => client.ExpandCalendarResource(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTimeOffset>(), It.IsAny<DateTimeOffset>()), Times.Once,
                 "an unchanged server token with a fresh window skips the calendar");
         }
         finally
@@ -267,10 +302,10 @@ public class ImapSynchronizerCalDavConfigurationTests
         serverInformation.CalDavServiceUrl = "https://caldav.icloud.com/";
         var calDavClient = new Mock<ICalDavClient>();
         calDavClient
-            .Setup(client => client.DiscoverCalendarsAsync(
+            .Setup(client => client.DiscoverAccountAsync(
                 It.IsAny<CalDavConnectionSettings>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync([]);
+            .ReturnsAsync(new CalDavAccountDiscovery());
         var changeProcessor = new Mock<IImapChangeProcessor>();
         changeProcessor
             .Setup(processor => processor.GetAccountCalendarsAsync(It.IsAny<Guid>()))
@@ -299,7 +334,7 @@ public class ImapSynchronizerCalDavConfigurationTests
 
             handler.GetType().Name.Should().Be("CalDavCalendarOperationHandler");
             result.CompletedState.Should().Be(SynchronizationCompletedState.Success);
-            calDavClient.Verify(client => client.DiscoverCalendarsAsync(
+            calDavClient.Verify(client => client.DiscoverAccountAsync(
                 It.IsAny<CalDavConnectionSettings>(),
                 It.IsAny<CancellationToken>()), Times.Once);
         }
@@ -323,7 +358,7 @@ public class ImapSynchronizerCalDavConfigurationTests
 
         try
         {
-            var resolvedUri = await InvokePrivateAsync<Uri>(synchronizer, "ResolveCalDavServiceUriAsync", CancellationToken.None);
+            var resolvedUri = await CalDavConnection.ResolveServiceUriAsync(synchronizer.Account, autoDiscovery.Object, CancellationToken.None);
 
             resolvedUri.Should().Be(new Uri("https://caldav.explicit.example.com/"));
             autoDiscovery.Verify(a => a.DiscoverCalDavServiceUriAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -349,7 +384,7 @@ public class ImapSynchronizerCalDavConfigurationTests
 
         try
         {
-            var password = InvokePrivate<string>(synchronizer, "ResolveCalDavPassword");
+            var password = CalDavConnection.ResolvePassword(synchronizer.Account);
 
             password.Should().Be("caldav-password");
         }
@@ -373,7 +408,7 @@ public class ImapSynchronizerCalDavConfigurationTests
 
         try
         {
-            var username = InvokePrivate<string>(synchronizer, "ResolveCalDavUsername");
+            var username = CalDavConnection.ResolveUsername(synchronizer.Account);
 
             username.Should().Be("calendar-user@example.com");
         }
@@ -426,6 +461,18 @@ public class ImapSynchronizerCalDavConfigurationTests
             calendarService ?? Mock.Of<ICalendarService>());
     }
 
+    private static void SetupDiscovery(Mock<ICalDavClient> calDavClient, CalDavCalendar remoteCalendar)
+    {
+        calDavClient.Setup(client => client.DiscoverAccountAsync(It.IsAny<CalDavConnectionSettings>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new CalDavAccountDiscovery
+            {
+                CalendarHomeHrefs = ["https://dav.example.test/calendars/"],
+                Calendars = [remoteCalendar]
+            });
+        calDavClient.Setup(client => client.ListCalendarsAsync(It.IsAny<CalDavConnectionSettings>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { remoteCalendar });
+    }
+
     private static CustomServerInformation CreateServerInformation()
         => new()
         {
@@ -463,14 +510,5 @@ public class ImapSynchronizerCalDavConfigurationTests
                      ?? throw new InvalidOperationException($"Method '{methodName}' not found.");
 
         return (T)method.Invoke(instance, null)!;
-    }
-
-    private static async Task<T> InvokePrivateAsync<T>(object instance, string methodName, params object[] parameters)
-    {
-        var method = instance.GetType().GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance)
-                     ?? throw new InvalidOperationException($"Method '{methodName}' not found.");
-
-        var task = (Task<T>)method.Invoke(instance, parameters)!;
-        return await task.ConfigureAwait(false);
     }
 }

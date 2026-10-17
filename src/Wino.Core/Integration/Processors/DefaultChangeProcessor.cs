@@ -165,6 +165,7 @@ public interface IImapChangeProcessor : IDefaultChangeProcessor
     Task<string> GetCalendarItemIcsETagAsync(Guid accountId, Guid calendarId, Guid calendarItemId);
     Task DeleteCalendarItemIcsAsync(Guid accountId, Guid calendarItemId);
     Task DeleteCalendarIcsForCalendarAsync(Guid accountId, Guid calendarId);
+    Task<IReadOnlyList<CalendarIcsShadow>> GetCalendarIcsShadowsAsync(Guid accountId, Guid calendarId);
 }
 
 public class DefaultChangeProcessor(IDatabaseService databaseService,

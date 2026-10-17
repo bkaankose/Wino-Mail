@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml.Controls;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Controls;
 
@@ -17,6 +18,8 @@ public partial class WinoMenuFlyout : MenuFlyout
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(MenuFlyoutSubItem))]
+    [DynamicWindowsRuntimeCast(typeof(SplitMenuFlyoutItem))]
     private static void ApplyLanguage(MenuFlyoutItemBase item)
     {
         MenuFlyoutLanguageHelper.Apply(item);

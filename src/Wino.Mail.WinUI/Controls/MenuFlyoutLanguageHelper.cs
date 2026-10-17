@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Controls;
 
@@ -10,6 +11,8 @@ internal static class MenuFlyoutLanguageHelper
 {
     private const string ChineseLanguageTag = "zh-CN";
 
+    [DynamicWindowsRuntimeCast(typeof(MenuFlyoutItemBase))]
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     public static void Apply(DependencyObject? element)
     {
         if (element == null)

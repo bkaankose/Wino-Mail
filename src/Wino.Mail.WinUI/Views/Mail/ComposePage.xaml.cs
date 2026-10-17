@@ -143,6 +143,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         }
     }
 
+    [WinRT.DynamicWindowsRuntimeCast(typeof(ComboBox))]
     private async void EmailTemplateSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (sender is not ComboBox comboBox || comboBox.SelectedItem is not EmailTemplate template)
@@ -1048,6 +1049,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         return !string.IsNullOrWhiteSpace(inReplyTo);
     }
 
+    [WinRT.DynamicWindowsRuntimeCast(typeof(WebView2))]
     private async Task ApplyInitialFocusAsync()
     {
         if (_isInitialFocusHandled || !_shouldApplyInitialFocus)

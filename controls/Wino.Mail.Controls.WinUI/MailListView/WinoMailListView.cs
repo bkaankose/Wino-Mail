@@ -15,6 +15,7 @@ using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.HoverActions;
 using Wino.Mail.Controls.HoverActions;
 using VirtualKey = Windows.System.VirtualKey;
+using WinRT;
 
 namespace Wino.Mail.Controls.MailListView;
 
@@ -200,24 +201,28 @@ public partial class WinoMailListView : ListView, IDisposable
 
     public DataTemplate? SingleItemTemplate
     {
+        [DynamicWindowsRuntimeCast(typeof(DataTemplate))]
         get => (DataTemplate?)GetValue(SingleItemTemplateProperty);
         set => SetValue(SingleItemTemplateProperty, value);
     }
 
     public DataTemplate? ThreadHeaderTemplate
     {
+        [DynamicWindowsRuntimeCast(typeof(DataTemplate))]
         get => (DataTemplate?)GetValue(ThreadHeaderTemplateProperty);
         set => SetValue(ThreadHeaderTemplateProperty, value);
     }
 
     public DataTemplate? ThreadChildTemplate
     {
+        [DynamicWindowsRuntimeCast(typeof(DataTemplate))]
         get => (DataTemplate?)GetValue(ThreadChildTemplateProperty);
         set => SetValue(ThreadChildTemplateProperty, value);
     }
 
     public DataTemplate? GroupHeaderTemplate
     {
+        [DynamicWindowsRuntimeCast(typeof(DataTemplate))]
         get => (DataTemplate?)GetValue(GroupHeaderTemplateProperty);
         set => SetValue(GroupHeaderTemplateProperty, value);
     }
@@ -544,6 +549,7 @@ public partial class WinoMailListView : ListView, IDisposable
 
     protected override DependencyObject GetContainerForItemOverride() => new WinoMailListViewItem();
 
+    [DynamicWindowsRuntimeCast(typeof(ScrollViewer))]
     protected override void OnApplyTemplate()
     {
         base.OnApplyTemplate();
@@ -806,6 +812,7 @@ public partial class WinoMailListView : ListView, IDisposable
         _focusWasInsideList = _removalAnchor.IsSet && IsFocusInsideList();
     }
 
+    [DynamicWindowsRuntimeCast(typeof(DependencyObject))]
     private bool IsFocusInsideList()
     {
         if (XamlRoot is null || FocusManager.GetFocusedElement(XamlRoot) is not DependencyObject focused)
@@ -865,6 +872,7 @@ public partial class WinoMailListView : ListView, IDisposable
         return new ViewportAnchor(candidates);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private void RestoreViewportAnchor()
     {
         var anchor = _viewportAnchor;
@@ -1412,6 +1420,7 @@ public partial class WinoMailListView : ListView, IDisposable
     /// the change: removing the focused container makes XAML move focus to the next control
     /// in tab order (typically the reader), and that stray move must not win.
     /// </summary>
+    [DynamicWindowsRuntimeCast(typeof(Control))]
     private void MoveFocusToReplacement(MailListRow row)
     {
         var focusWasInsideList = _focusWasInsideList;

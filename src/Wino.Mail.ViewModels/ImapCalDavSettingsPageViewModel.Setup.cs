@@ -173,7 +173,8 @@ public partial class ImapCalDavSettingsPageViewModel
     public string IncomingSummary => DescribeEndpoint(IncomingServer, IncomingServerPort, SelectedIncomingServerConnectionSecurityIndex);
     public string OutgoingSummary => DescribeEndpoint(OutgoingServer, OutgoingServerPort, SelectedOutgoingServerConnectionSecurityIndex);
     public string CalDavSummary => string.IsNullOrWhiteSpace(CalDavServiceUrl) ? Translator.ImapSetup_ServerNotSet : CalDavServiceUrl.Trim();
-    public string CardDavSummary => string.IsNullOrWhiteSpace(CardDavServiceUrl) ? Translator.ImapSetup_CardDavAutomatic : CardDavServiceUrl.Trim();
+    // Discovery fills the URL in, so an empty one means nothing was found and it must be typed.
+    public string CardDavSummary => string.IsNullOrWhiteSpace(CardDavServiceUrl) ? Translator.ImapSetup_ServerNotSet : CardDavServiceUrl.Trim();
 
     private string EffectiveOutgoingUsername => UseIncomingCredentialsForOutgoing ? IncomingServerUsername : OutgoingServerUsername;
     private string EffectiveOutgoingPassword => UseIncomingCredentialsForOutgoing ? IncomingServerPassword : OutgoingServerPassword;
@@ -235,6 +236,7 @@ public partial class ImapCalDavSettingsPageViewModel
                 IsIncomingExpanded = !isFound && IsMailSupportEnabled;
                 IsOutgoingExpanded = !isFound && IsMailSupportEnabled;
                 IsCalDavExpanded = IsCalDavSettingsVisible && string.IsNullOrWhiteSpace(CalDavServiceUrl);
+                IsCardDavExpanded = IsCardDavSettingsVisible && string.IsNullOrWhiteSpace(CardDavServiceUrl);
             }
 
             CurrentSetupStep = ImapSetupStep.Servers;
@@ -446,6 +448,8 @@ public partial class ImapCalDavSettingsPageViewModel
             isCalendarFound = !string.IsNullOrWhiteSpace(CalDavServiceUrl);
         }
 
+        await ResolveCardDavServiceUrlAsync();
+
         if (isMailFound && isCalendarFound)
             TrackImapSetupEvent("imap_autodiscovery_completed", result: "success", serverInformation: TryBuildServerInformationForTelemetry());
 
@@ -539,6 +543,7 @@ public partial class ImapCalDavSettingsPageViewModel
                 break;
             case nameof(AccountCapabilitySelection.ContactMode):
                 _isCardDavEnabled = Capabilities.ContactMode == AccountCapabilityMode.Provider;
+                Serilog.Log.Debug("IMAP setup contact mode changed to {ContactMode}", Capabilities.ContactMode);
                 OnPropertyChanged(nameof(IsCardDavSettingsVisible));
                 OnPropertyChanged(nameof(IsCardDavOnlySettingsVisible));
                 break;

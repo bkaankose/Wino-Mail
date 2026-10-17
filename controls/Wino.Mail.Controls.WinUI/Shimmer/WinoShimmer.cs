@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Media;
 using Windows.UI;
 using Windows.UI.ViewManagement;
+using WinRT;
 
 namespace Wino.Mail.Controls.Shimmer;
 
@@ -75,6 +76,7 @@ public sealed partial class WinoShimmer : Control, IDisposable
         ActualThemeChanged += OnActualThemeChanged;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(Border))]
     protected override void OnApplyTemplate()
     {
         StopSweep();
@@ -273,6 +275,7 @@ public sealed partial class WinoShimmer : Control, IDisposable
         GC.SuppressFinalize(this);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(SolidColorBrush))]
     private Color ResolveColor(Brush? brush) => brush is SolidColorBrush solidColorBrush
         ? solidColorBrush.Color
         : Colors.Transparent;

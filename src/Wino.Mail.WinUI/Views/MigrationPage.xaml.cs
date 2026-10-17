@@ -1,21 +1,24 @@
 using System;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Serilog;
+using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.ViewModels;
 
 namespace Wino.Mail.WinUI.Views;
 
 public sealed partial class MigrationPage : Page
 {
+    private readonly IWinoDialogService _dialogService;
+
     public MigrationPageViewModel ViewModel { get; }
 
     public MigrationPage()
     {
         ViewModel = WinoApplication.Current.Services.GetRequiredService<MigrationPageViewModel>();
+        _dialogService = WinoApplication.Current.Services.GetRequiredService<IWinoDialogService>();
         InitializeComponent();
         ViewModel.InitializeDispatcher(DispatcherQueue);
     }
@@ -36,17 +39,12 @@ public sealed partial class MigrationPage : Page
 
     private async void OnSkipMigrationClick(object sender, RoutedEventArgs e)
     {
-        var dialog = new ContentDialog
-        {
-            XamlRoot = XamlRoot,
-            Title = Wino.Core.Domain.Translator.Migration_SkipTitle,
-            Content = Wino.Core.Domain.Translator.Migration_SkipDescription,
-            PrimaryButtonText = Wino.Core.Domain.Translator.Migration_SkipConfirm,
-            CloseButtonText = Wino.Core.Domain.Translator.Migration_Cancel,
-            DefaultButton = ContentDialogButton.Close
-        };
+        var isConfirmed = await _dialogService.ShowCautiousConfirmationDialogAsync(
+            Wino.Core.Domain.Translator.Migration_SkipTitle,
+            Wino.Core.Domain.Translator.Migration_SkipDescription,
+            Wino.Core.Domain.Translator.Migration_SkipConfirm);
 
-        if (await TryShowDialogAsync(dialog) == ContentDialogResult.Primary)
+        if (isConfirmed)
             await ViewModel.StartFreshCommand.ExecuteAsync(null);
     }
 
@@ -72,36 +70,9 @@ public sealed partial class MigrationPage : Page
         }
     }
 
-    public async Task<bool> ConfirmExitAsync()
-    {
-        var dialog = new ContentDialog
-        {
-            XamlRoot = XamlRoot,
-            Title = Wino.Core.Domain.Translator.Migration_CloseTitle,
-            Content = Wino.Core.Domain.Translator.Migration_CloseDescription,
-            PrimaryButtonText = Wino.Core.Domain.Translator.Migration_Exit,
-            CloseButtonText = Wino.Core.Domain.Translator.Migration_Cancel,
-            DefaultButton = ContentDialogButton.Close
-        };
-
-        return await TryShowDialogAsync(dialog) == ContentDialogResult.Primary;
-    }
-
-    /// <summary>
-    /// Shows a dialog on this page's XamlRoot. WinUI allows one open ContentDialog per XamlRoot; while
-    /// another one is open (for example an account authentication prompt) ShowAsync throws a
-    /// COMException. That is treated as a cancelled prompt.
-    /// </summary>
-    private static async Task<ContentDialogResult> TryShowDialogAsync(ContentDialog dialog)
-    {
-        try
-        {
-            return await dialog.ShowAsync();
-        }
-        catch (COMException ex)
-        {
-            Log.Warning(ex, "Migration prompt was not shown because another dialog is open.");
-            return ContentDialogResult.None;
-        }
-    }
+    public Task<bool> ConfirmExitAsync()
+        => _dialogService.ShowCautiousConfirmationDialogAsync(
+            Wino.Core.Domain.Translator.Migration_CloseTitle,
+            Wino.Core.Domain.Translator.Migration_CloseDescription,
+            Wino.Core.Domain.Translator.Migration_Exit);
 }

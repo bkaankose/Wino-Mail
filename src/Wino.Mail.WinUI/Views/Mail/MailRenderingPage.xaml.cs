@@ -45,6 +45,7 @@ using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
 using Wino.Views.Abstract;
+using WinRT;
 
 namespace Wino.Views.Mail;
 
@@ -437,6 +438,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             ViewModel.IsDarkWebviewRenderer = message.IsUnderlyingThemeDark);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(HyperlinkButton))]
     private void InternetAddressClicked(object sender, RoutedEventArgs e)
     {
         // TODO: Popped out windows don't have xaml root assigned properly, therefore ShowAt will fail.
@@ -446,6 +448,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(HyperlinkButton))]
     private void CopyAddress_Click(object sender, RoutedEventArgs e)
     {
         if (sender is HyperlinkButton button && button.CommandParameter is string address)

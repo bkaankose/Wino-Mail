@@ -8,6 +8,7 @@ using Windows.System;
 using Windows.UI.Core;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
+using WinRT;
 
 namespace Wino.Calendar.Controls;
 
@@ -26,6 +27,7 @@ public sealed partial class CalendarPeriodControl
             ? new CalendarSelectionRange(start, SelectedEndDateTime ?? start.AddMinutes(TimedSelectionIntervalMinutes))
             : null);
 
+    [DynamicWindowsRuntimeCast(typeof(DependencyObject))]
     private bool TryBeginRangeSelection(PointerRoutedEventArgs e)
     {
         _suppressRangeTap = false;

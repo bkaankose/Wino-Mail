@@ -45,6 +45,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
     private readonly IAccountService _accountService;
     private readonly ICardDavAddressBookService _addressBookService;
     private readonly IKnownImapProviderCatalog _providerCatalog;
+    private readonly IAutoDiscoveryService _autoDiscoveryService;
 
     public CardDavSynchronizationEngine(
         ICardDavClient client,
@@ -56,7 +57,8 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         IAccountService accountService,
         ICardDavAddressBookService addressBookService = null,
         ICardDavContactListService listService = null,
-        IKnownImapProviderCatalog providerCatalog = null)
+        IKnownImapProviderCatalog providerCatalog = null,
+        IAutoDiscoveryService autoDiscoveryService = null)
     {
         _listService = listService;
         _client = client;
@@ -68,6 +70,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         _accountService = accountService;
         _addressBookService = addressBookService;
         _providerCatalog = providerCatalog;
+        _autoDiscoveryService = autoDiscoveryService;
     }
 
     #region Synchronization
@@ -82,7 +85,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
 
         try
         {
-            await RestoreKnownServiceUrlAsync(account).ConfigureAwait(false);
+            await RestoreKnownServiceUrlAsync(account, cancellationToken).ConfigureAwait(false);
             var settings = await CardDavConnection.CreateSettingsAsync(account, _credentialStore, _accountService, cancellationToken).ConfigureAwait(false);
             var legacyPassword = account.ServerInformation?.CalDavPassword;
             var discovery = await RefreshAddressBooksAsync(account, settings, cancellationToken).ConfigureAwait(false);
@@ -123,11 +126,12 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
     }
 
     /// <summary>
-    /// Fills in the catalog endpoint of a known provider whose CardDAV URL is missing. Accounts
-    /// restored from a snapshot that did not carry the endpoint would otherwise fall back to
-    /// discovery from the mail domain, which providers such as iCloud do not answer.
+    /// Fills in a missing CardDAV URL, from the catalog of a known provider first and then from
+    /// RFC 6764 discovery on the account address. Accounts set up before setup discovered CardDAV,
+    /// or restored from a snapshot without the endpoint, would otherwise only try the mail domain's
+    /// well-known URI, which hosted providers such as iCloud do not answer.
     /// </summary>
-    private async Task RestoreKnownServiceUrlAsync(MailAccount account)
+    private async Task RestoreKnownServiceUrlAsync(MailAccount account, CancellationToken cancellationToken)
     {
         var server = account.ServerInformation
                      ?? await _accountService.GetAccountCustomServerInformationAsync(account.Id).ConfigureAwait(false);
@@ -136,11 +140,33 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
 
         var knownUrl = _providerCatalog.ResolveCardDavServiceUrl(account.SpecialImapProvider, server.IncomingServer);
         if (string.IsNullOrWhiteSpace(knownUrl))
+            knownUrl = await DiscoverServiceUrlAsync(account, server, cancellationToken).ConfigureAwait(false);
+
+        if (string.IsNullOrWhiteSpace(knownUrl))
             return;
 
         server.CardDavServiceUrl = knownUrl;
         account.ServerInformation = server;
         await _accountService.UpdateAccountCustomServerInformationAsync(server).ConfigureAwait(false);
+    }
+
+    private async Task<string> DiscoverServiceUrlAsync(MailAccount account, CustomServerInformation server, CancellationToken cancellationToken)
+    {
+        if (_autoDiscoveryService == null)
+            return null;
+
+        var addresses = new[] { server.Address, account.Address }
+            .Where(address => !string.IsNullOrWhiteSpace(address) && address.Contains('@'))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var address in addresses)
+        {
+            var discovered = await _autoDiscoveryService.DiscoverCardDavServiceUriAsync(address, cancellationToken).ConfigureAwait(false);
+            if (discovered != null)
+                return discovered.ToString();
+        }
+
+        return null;
     }
 
     /// <summary>

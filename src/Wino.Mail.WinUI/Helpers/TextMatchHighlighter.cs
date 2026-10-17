@@ -3,6 +3,7 @@ using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Helpers;
 
@@ -25,6 +26,7 @@ public static class TextMatchHighlighter
     public static string GetQuery(TextBlock element) => (string)element.GetValue(QueryProperty);
     public static void SetQuery(TextBlock element, string value) => element.SetValue(QueryProperty, value);
 
+    [DynamicWindowsRuntimeCast(typeof(TextBlock))]
     private static void OnChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         if (d is not TextBlock textBlock)

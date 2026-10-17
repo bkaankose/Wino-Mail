@@ -15,6 +15,8 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Translations;
 using Wino.Editor;
 using Wino.Mail.WinUI;
+using Wino.Mail.WinUI.Interfaces;
+using WinRT;
 
 namespace Wino.Mail.Controls;
 
@@ -50,6 +52,7 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
     private readonly List<ICommandBarElement> _injectedOptionsCommands = [];
     private string _selectedSpellCheckLanguageCode = string.Empty;
     private bool _areSpellCheckLanguagesConfigured;
+    private bool _isEditorDialogOpen;
 
     public event EventHandler<SpellCheckEnabledChangedEventArgs>? SpellCheckEnabledChanged;
     public event EventHandler<SpellCheckLanguageChangedEventArgs>? SpellCheckLanguageChanged;
@@ -132,6 +135,8 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
     /// lays out labels and builds its overflow menu for its own children, so anything nested in a container
     /// would show up with the wrong label position and never collapse when the window gets narrow.
     /// </summary>
+    [DynamicWindowsRuntimeCast(typeof(Panel))]
+    [DynamicWindowsRuntimeCast(typeof(UIElement))]
     private static void ApplyInjectedCommands(CommandBar tabItem, List<ICommandBarElement> injectedCommands, object? content)
     {
         foreach (var injectedCommand in injectedCommands)
@@ -217,12 +222,12 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
 
         try
         {
-            var fonts = capabilities.Fonts.ToArray();
             var fontSizes = capabilities.FontSizes.ToArray();
             var paragraphStyles = capabilities.ParagraphStyles.ToArray();
 
+            ApplyFontItems(capabilities.Fonts);
+
             // Each list is new, so every assignment is a change. The concrete array types let Native AOT project them.
-            FontFamilyComboBox.ItemsSource = fonts;
             FontSizeComboBox.ItemsSource = fontSizes;
             ParagraphStyleComboBox.ItemsSource = paragraphStyles;
             _textColorOptions = capabilities.TextColors.Select(color => new EditorColorOption(color.Name, color.Value)).ToArray();
@@ -347,14 +352,41 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         }
     }
 
+    // Capabilities carry font names as strings. Each name becomes a ComboBoxItem previewed in its own typeface;
+    // a template typed for EditorFontFamilyOption cannot cast those strings and rendered blank rows in Native AOT.
+    private void ApplyFontItems(IEnumerable<string> fontNames)
+    {
+        FontFamilyComboBox.Items.Clear();
+
+        foreach (var fontName in fontNames)
+        {
+            var item = new ComboBoxItem
+            {
+                Content = fontName,
+                Tag = fontName
+            };
+
+            AutomationProperties.SetName(item, fontName);
+
+            try
+            {
+                item.FontFamily = new FontFamily(fontName);
+            }
+            catch (Exception ex)
+            {
+                // The name stays readable in the default typeface when a preview font cannot be applied.
+                Debug.WriteLine($"Error applying preview font '{fontName}': {ex}");
+            }
+
+            FontFamilyComboBox.Items.Add(item);
+        }
+    }
+
     private object? MatchFontItem(string? value)
     {
-        if (FontFamilyComboBox.ItemsSource is not IEnumerable<EditorFontFamilyOption> fonts)
-        {
-            return null;
-        }
-
-        return fonts.FirstOrDefault(item => string.Equals(item.DisplayName, value, StringComparison.OrdinalIgnoreCase));
+        return FontFamilyComboBox.Items
+            .OfType<ComboBoxItem>()
+            .FirstOrDefault(item => item.Tag is string name && string.Equals(name, value, StringComparison.OrdinalIgnoreCase));
     }
 
     private static object? MatchValueItem<T>(object? itemsSource, T? value) where T : struct
@@ -459,6 +491,7 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
     private async void EmojiButton_Click(object sender, RoutedEventArgs e) => await ExecuteAsync(EditorCommand.InsertEmoji());
     private async void RemoveLinkButton_Click(object sender, RoutedEventArgs e) => await ExecuteAsync(EditorCommand.RemoveLink());
 
+    [DynamicWindowsRuntimeCast(typeof(AppBarToggleButton))]
     private async void AlignmentButton_Click(object sender, RoutedEventArgs e)
     {
         if (_isApplyingState || sender is not AppBarToggleButton button)
@@ -484,12 +517,12 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
 
     private async void FontFamilyComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_isApplyingState || FontFamilyComboBox.SelectedItem is not EditorFontFamilyOption font)
+        if (_isApplyingState || FontFamilyComboBox.SelectedItem is not ComboBoxItem { Tag: string fontFamily })
         {
             return;
         }
 
-        await ExecuteAsync(EditorCommand.SetFontFamily(font.DisplayName));
+        await ExecuteAsync(EditorCommand.SetFontFamily(fontFamily));
     }
 
     private async void FontSizeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -622,7 +655,32 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
 
     private async void LinkButton_Click(object sender, RoutedEventArgs e) => await ShowLinkDialogAsync();
 
-    private async Task ShowLinkDialogAsync()
+    private static IWinoDialogService? GetDialogService()
+        => WinoApplication.Current?.Services?.GetService<IWinoDialogService>();
+
+    /// <summary>
+    /// A second click or Ctrl+K while an editor dialog is open would only queue a duplicate behind it.
+    /// </summary>
+    private async Task ShowEditorDialogAsync(Func<IWinoDialogService, Task> showAsync)
+    {
+        if (_isEditorDialogOpen || GetDialogService() is not { } dialogService)
+        {
+            return;
+        }
+
+        _isEditorDialogOpen = true;
+
+        try
+        {
+            await showAsync(dialogService);
+        }
+        finally
+        {
+            _isEditorDialogOpen = false;
+        }
+    }
+
+    private Task ShowLinkDialogAsync() => ShowEditorDialogAsync(async dialogService =>
     {
         if (CommandTarget == null)
         {
@@ -630,146 +688,39 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         }
 
         var currentState = CommandTarget.CurrentState;
-        var isImageSelected = currentState.IsImageSelected;
-        var urlTextBox = new TextBox
-        {
-            Header = Translator.Composer_LinkUrl,
-            Text = isImageSelected ? currentState.ImageLinkUrl ?? string.Empty : currentState.LinkUrl ?? string.Empty,
-            PlaceholderText = Translator.Composer_LinkUrlPlaceholder
-        };
-        var textTextBox = new TextBox
-        {
-            Header = Translator.Composer_LinkText,
-            Text = currentState.SelectedText ?? string.Empty,
-            PlaceholderText = Translator.Composer_LinkTextPlaceholder,
-            Visibility = isImageSelected ? Visibility.Collapsed : Visibility.Visible
-        };
-        var openInNewWindow = new CheckBox
-        {
-            Content = Translator.Composer_OpenLinkInNewWindow,
-            IsChecked = true
-        };
+        var url = currentState.IsImageSelected ? currentState.ImageLinkUrl : currentState.LinkUrl;
+        var link = await dialogService.ShowEditorLinkDialogAsync(url ?? string.Empty, currentState.SelectedText ?? string.Empty, currentState.IsImageSelected);
 
-        var dialog = new ContentDialog
+        if (link != null)
         {
-            XamlRoot = XamlRoot,
-            Title = isImageSelected ? Translator.Composer_EditImageLink : Translator.Composer_InsertLink,
-            PrimaryButtonText = Translator.Buttons_Apply,
-            CloseButtonText = Translator.Buttons_Cancel,
-            DefaultButton = ContentDialogButton.Primary,
-            Content = new StackPanel
-            {
-                Spacing = 12,
-                Children =
-                {
-                    urlTextBox,
-                    textTextBox,
-                    openInNewWindow
-                }
-            }
-        };
-
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(urlTextBox.Text))
-        {
-            await ExecuteAsync(EditorCommand.InsertLink(new EditorLinkCommandArgs(urlTextBox.Text.Trim(), textTextBox.Text.Trim(), openInNewWindow.IsChecked == true)));
+            await ExecuteAsync(EditorCommand.InsertLink(link));
         }
-    }
+    });
 
-    private async Task ShowImagePropertiesDialogAsync()
+    private Task ShowImagePropertiesDialogAsync() => ShowEditorDialogAsync(async dialogService =>
     {
         if (CommandTarget?.CurrentState is not { IsImageSelected: true } currentState)
         {
             return;
         }
 
-        var altTextBox = new TextBox
-        {
-            Header = Translator.Composer_ImageAltText,
-            Text = currentState.ImageAltText ?? string.Empty,
-            PlaceholderText = Translator.Composer_ImageAltTextPlaceholder
-        };
-        var urlTextBox = new TextBox
-        {
-            Header = Translator.Composer_LinkUrl,
-            Text = currentState.ImageLinkUrl ?? string.Empty,
-            PlaceholderText = Translator.Composer_LinkUrlPlaceholder
-        };
-        var openInNewWindow = new CheckBox
-        {
-            Content = Translator.Composer_OpenLinkInNewWindow,
-            IsChecked = true
-        };
-        var dialog = new ContentDialog
-        {
-            XamlRoot = XamlRoot,
-            Title = Translator.Composer_ImageProperties,
-            PrimaryButtonText = Translator.Buttons_Apply,
-            CloseButtonText = Translator.Buttons_Cancel,
-            DefaultButton = ContentDialogButton.Primary,
-            Content = new StackPanel
-            {
-                Spacing = 12,
-                Children =
-                {
-                    altTextBox,
-                    urlTextBox,
-                    openInNewWindow
-                }
-            }
-        };
+        var properties = await dialogService.ShowEditorImagePropertiesDialogAsync(currentState.ImageAltText ?? string.Empty, currentState.ImageLinkUrl ?? string.Empty);
 
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        if (properties != null)
         {
-            await ExecuteAsync(EditorCommand.SetImageProperties(new EditorImagePropertiesCommandArgs(
-                altTextBox.Text.Trim(),
-                string.IsNullOrWhiteSpace(urlTextBox.Text) ? null : urlTextBox.Text.Trim(),
-                openInNewWindow.IsChecked == true)));
+            await ExecuteAsync(EditorCommand.SetImageProperties(properties));
         }
-    }
+    });
 
-    private async void TableButton_Click(object sender, RoutedEventArgs e)
+    private async void TableButton_Click(object sender, RoutedEventArgs e) => await ShowEditorDialogAsync(async dialogService =>
     {
-        var rowsBox = new NumberBox
-        {
-            Header = Translator.Composer_TableRows,
-            Minimum = 1,
-            Maximum = 10,
-            SmallChange = 1,
-            Value = 2
-        };
-        var columnsBox = new NumberBox
-        {
-            Header = Translator.Composer_TableColumns,
-            Minimum = 1,
-            Maximum = 10,
-            SmallChange = 1,
-            Value = 2
-        };
+        var table = await dialogService.ShowEditorTableDialogAsync();
 
-        var dialog = new ContentDialog
+        if (table != null)
         {
-            XamlRoot = XamlRoot,
-            Title = Translator.Composer_InsertTable,
-            PrimaryButtonText = Translator.Buttons_Insert,
-            CloseButtonText = Translator.Buttons_Cancel,
-            DefaultButton = ContentDialogButton.Primary,
-            Content = new StackPanel
-            {
-                Spacing = 12,
-                Children =
-                {
-                    rowsBox,
-                    columnsBox
-                }
-            }
-        };
-
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-        {
-            await ExecuteAsync(EditorCommand.InsertTable(new EditorTableCommandArgs((int)Math.Max(1, rowsBox.Value), (int)Math.Max(1, columnsBox.Value))));
+            await ExecuteAsync(EditorCommand.InsertTable(table));
         }
-    }
-
+    });
 }
 
 public sealed class SpellCheckEnabledChangedEventArgs(bool isEnabled) : EventArgs

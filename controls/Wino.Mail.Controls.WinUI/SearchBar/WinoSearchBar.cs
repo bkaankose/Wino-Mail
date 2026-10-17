@@ -10,6 +10,7 @@ using Microsoft.UI.Xaml.Media;
 using Windows.System;
 using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Mail.Controls.AccountIcon;
+using WinRT;
 
 namespace Wino.Mail.Controls.SearchBar;
 
@@ -127,6 +128,16 @@ public sealed partial class WinoSearchBar : Control, IDisposable
 
     private bool AllowsHistory => IsHistoryEnabled && Mode != SearchBarMode.Settings;
 
+    [DynamicWindowsRuntimeCast(typeof(Grid))]
+    [DynamicWindowsRuntimeCast(typeof(Border))]
+    [DynamicWindowsRuntimeCast(typeof(AutoSuggestBox))]
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
+    [DynamicWindowsRuntimeCast(typeof(Button))]
+    [DynamicWindowsRuntimeCast(typeof(ToggleButton))]
+    [DynamicWindowsRuntimeCast(typeof(FontIcon))]
+    [DynamicWindowsRuntimeCast(typeof(TextBlock))]
+    [DynamicWindowsRuntimeCast(typeof(ContentControl))]
+    [DynamicWindowsRuntimeCast(typeof(Popup))]
     protected override void OnApplyTemplate()
     {
         Detach();
@@ -387,6 +398,7 @@ public sealed partial class WinoSearchBar : Control, IDisposable
 
     private void OnPageFlyoutOpenedOrClosed(object? sender, object e) => DispatcherQueue.TryEnqueue(UpdateFocusState);
 
+    [DynamicWindowsRuntimeCast(typeof(DependencyObject))]
     private void UpdateFocusState()
     {
         if (_disposed || XamlRoot is null) return;
@@ -598,6 +610,7 @@ public sealed partial class WinoSearchBar : Control, IDisposable
         IsEnabledChanged -= OnIsEnabledChanged;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(TextBox))]
     private static TextBox? FindTextBox(DependencyObject? root)
     {
         if (root is null) return null;

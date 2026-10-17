@@ -20,6 +20,7 @@ using DomainPrintCollation = Wino.Core.Domain.Enums.PrintCollation;
 using DomainPrintDuplex = Wino.Core.Domain.Enums.PrintDuplex;
 using DomainPrintMediaSize = Wino.Core.Domain.Enums.PrintMediaSize;
 using DomainPrintOrientation = Wino.Core.Domain.Enums.PrintOrientation;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Services;
 
@@ -534,6 +535,8 @@ public class PrintService : IWindowsPrintService
         return optionValue?.ToString() ?? string.Empty;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(PrintCopiesOptionDetails))]
+    [DynamicWindowsRuntimeCast(typeof(PrintPageRangeOptionDetails))]
     private object? GetOptionValue(string optionId)
     {
         if (_printTaskOptionDetails == null)

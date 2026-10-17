@@ -71,28 +71,202 @@ public class AutoDiscoveryService : IAutoDiscoveryService
         return settings;
     }
 
-    public async Task<Uri> DiscoverCalDavServiceUriAsync(string mailAddress, CancellationToken cancellationToken = default)
+    public Task<Uri> DiscoverCalDavServiceUriAsync(string mailAddress, CancellationToken cancellationToken = default)
+        => DiscoverDavServiceUriAsync(DavService.CalDav, mailAddress, cancellationToken);
+
+    public Task<Uri> DiscoverCardDavServiceUriAsync(string mailAddress, CancellationToken cancellationToken = default)
+        => DiscoverDavServiceUriAsync(DavService.CardDav, mailAddress, cancellationToken);
+
+    /// <summary>
+    /// RFC 6764 discovery. Candidates are probed in this order, and the first one that answers like
+    /// a DAV endpoint wins:
+    /// 1. <c>_caldavs._tcp</c> SRV targets of the domain and its parent (TLS), with the TXT <c>path</c>.
+    /// 2. HTTPS on the targets of a plain <c>_caldav._tcp</c> record, when no TLS record exists.
+    /// 3. <c>https://domain/.well-known/caldav</c> and <c>https://caldav.domain/</c>.
+    /// 4. TLS SRV records of the domains the MX hosts belong to (hosted mail).
+    /// 5. The well-known URI on the hoster's groupware host, read from the <c>_autodiscover._tcp</c> SRV target
+    ///    and the <c>autodiscover</c> and <c>autoconfig</c> CNAME targets (hosted groupware, for example).
+    /// 6. Plain HTTP on the <c>_caldav._tcp</c> targets, only when nothing secure answered.
+    /// </summary>
+    private async Task<Uri> DiscoverDavServiceUriAsync(DavService service, string mailAddress, CancellationToken cancellationToken)
     {
         if (!TryGetEmailParts(mailAddress, out _, out var domain))
             return null;
 
+        var cacheKey = service.CacheKeyPrefix + domain;
+
         lock (_calDavCacheLock)
         {
-            if (_calDavUriCache.TryGetValue(domain, out var cachedUri))
+            if (_calDavUriCache.TryGetValue(cacheKey, out var cachedUri))
                 return cachedUri;
         }
 
-        foreach (var candidate in GetCalDavCandidates(domain))
-        {
-            var resolved = await TryResolveCalDavEndpointAsync(candidate, cancellationToken).ConfigureAwait(false);
-            if (resolved == null)
-                continue;
+        var domainCandidates = BuildDomainCandidatesFromHost(domain).ToList();
+        var insecureCandidates = new List<Uri>();
+        var probed = new HashSet<Uri>();
 
-            CacheCalDavUri(domain, resolved);
-            return resolved;
+        var resolved = await TryResolveSrvCandidatesAsync(service, domainCandidates, insecureCandidates, probed, cancellationToken).ConfigureAwait(false)
+                       ?? await TryResolveFirstCandidateAsync(GetDavCandidates(service, domainCandidates), probed, cancellationToken).ConfigureAwait(false);
+
+        if (resolved == null)
+        {
+            var mxDomains = (await GetMxSearchDomainsAsync(domain, cancellationToken).ConfigureAwait(false))
+                .Where(candidate => !domainCandidates.Contains(candidate, IgnoreCase))
+                .ToList();
+
+            if (mxDomains.Count > 0)
+            {
+                resolved = await TryResolveSrvCandidatesAsync(service, mxDomains, insecureCandidates, probed, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        if (resolved == null)
+        {
+            var hostedCandidates = (await GetAutoconfigHostsAsync(domain, cancellationToken).ConfigureAwait(false))
+                .Select(host => new Uri($"https://{host}{service.WellKnownPath}"));
+
+            resolved = await TryResolveFirstCandidateAsync(hostedCandidates, probed, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (resolved == null && insecureCandidates.Count > 0)
+        {
+            Logger.Warning("{Service} discovery for {Domain} found only unencrypted SRV records; probing plain HTTP", service.Name, domain);
+            resolved = await TryResolveFirstCandidateAsync(insecureCandidates, probed, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (resolved == null)
+            return null;
+
+        CacheCalDavUri(cacheKey, resolved);
+        return resolved;
+    }
+
+    /// <summary>
+    /// Probes the TLS SRV targets of each domain in order. A domain without a TLS record has its plain
+    /// record read instead: the target is tried over HTTPS first, and the HTTP form is kept in
+    /// <paramref name="insecureCandidates"/> as a last resort.
+    /// </summary>
+    private async Task<Uri> TryResolveSrvCandidatesAsync(
+        DavService service,
+        IReadOnlyList<string> domains,
+        List<Uri> insecureCandidates,
+        HashSet<Uri> probed,
+        CancellationToken cancellationToken)
+    {
+        foreach (var candidateDomain in domains)
+        {
+            var secureCandidates = await GetSrvServiceUrisAsync(service, $"{service.SecureSrvLabel}.{candidateDomain}", "https", cancellationToken).ConfigureAwait(false);
+
+            if (secureCandidates.Count == 0)
+            {
+                var plainCandidates = await GetSrvServiceUrisAsync(service, $"{service.PlainSrvLabel}.{candidateDomain}", "http", cancellationToken).ConfigureAwait(false);
+
+                foreach (var plainCandidate in plainCandidates)
+                {
+                    secureCandidates.Add(UpgradeToHttps(plainCandidate));
+                    insecureCandidates.Add(plainCandidate);
+                }
+            }
+
+            var resolved = await TryResolveFirstCandidateAsync(secureCandidates, probed, cancellationToken).ConfigureAwait(false);
+            if (resolved != null)
+                return resolved;
         }
 
         return null;
+    }
+
+    private async Task<Uri> TryResolveFirstCandidateAsync(IEnumerable<Uri> candidates, HashSet<Uri> probed, CancellationToken cancellationToken)
+    {
+        foreach (var candidate in candidates)
+        {
+            if (!probed.Add(candidate))
+                continue;
+
+            var resolved = await TryResolveCalDavEndpointAsync(candidate, cancellationToken).ConfigureAwait(false);
+            if (resolved != null)
+                return resolved;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Reads an RFC 6764 SRV record and its TXT <c>path</c> into service URIs, best target first.
+    /// RFC 2782: lower priority wins, then higher weight. A "." target (no service) does not parse,
+    /// so it yields no candidate. Without a TXT path the target's well-known URI is used (RFC 6764 section 6).
+    /// </summary>
+    private async Task<List<Uri>> GetSrvServiceUrisAsync(DavService service, string queryName, string scheme, CancellationToken cancellationToken)
+    {
+        var records = (await QueryDnsAsync(queryName, "SRV", cancellationToken).ConfigureAwait(false))
+            .Select(ParseSrvRecord)
+            .Where(record => record != null)
+            .OrderBy(record => record.Priority)
+            .ThenByDescending(record => record.Weight)
+            .ToList();
+
+        var uris = new List<Uri>();
+
+        if (records.Count == 0)
+            return uris;
+
+        var txtRecords = await QueryDnsAsync(queryName, "TXT", cancellationToken).ConfigureAwait(false);
+        var path = ParseTxtPath(txtRecords) ?? service.WellKnownPath;
+
+        foreach (var record in records)
+        {
+            if (record.Port is <= 0 or > 65535)
+                continue;
+
+            var defaultPort = scheme == "https" ? 443 : 80;
+            var authority = record.Port == defaultPort ? record.Target : $"{record.Target}:{record.Port}";
+
+            if (Uri.TryCreate($"{scheme}://{authority}{path}", UriKind.Absolute, out var uri) && !uris.Contains(uri))
+                uris.Add(uri);
+        }
+
+        Logger.Debug("{Service} SRV {QueryName} gave {Count} candidate(s)", service.Name, queryName, uris.Count);
+        return uris;
+    }
+
+    /// <summary>
+    /// Returns the context path from TXT strings such as <c>path=/caldav/</c> (RFC 6764 section 4),
+    /// or null when no usable path is published.
+    /// </summary>
+    internal static string ParseTxtPath(IEnumerable<string> txtRecords)
+    {
+        foreach (var record in txtRecords ?? Array.Empty<string>())
+        {
+            if (string.IsNullOrWhiteSpace(record))
+                continue;
+
+            // DNS-over-HTTPS returns character strings quoted or unquoted, possibly several per record.
+            var segments = record.Split("\" \"", StringSplitOptions.None)
+                .Select(segment => segment.Trim().Trim('"').Trim());
+
+            foreach (var segment in segments)
+            {
+                if (!segment.StartsWith("path=", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var path = segment["path=".Length..].Trim();
+                if (path.StartsWith('/') && !path.StartsWith("//", StringComparison.Ordinal))
+                    return path;
+            }
+        }
+
+        return null;
+    }
+
+    private static Uri UpgradeToHttps(Uri plainUri)
+    {
+        var builder = new UriBuilder(plainUri)
+        {
+            Scheme = Uri.UriSchemeHttps,
+            Port = plainUri.IsDefaultPort ? -1 : plainUri.Port
+        };
+
+        return builder.Uri;
     }
 
     private async Task<AutoDiscoverySettings> TryGetThunderbirdSettingsAsync(
@@ -454,6 +628,36 @@ public class AutoDiscoveryService : IAutoDiscoveryService
         return results;
     }
 
+    /// <summary>
+    /// Hosts that a domain delegates client configuration to: the <c>_autodiscover._tcp</c> SRV target and the
+    /// CNAME targets of <c>autodiscover.domain</c> and <c>autoconfig.domain</c>. Hosted groupware usually serves
+    /// DAV from the same host.
+    /// </summary>
+    private async Task<IReadOnlyList<string>> GetAutoconfigHostsAsync(string domain, CancellationToken cancellationToken)
+    {
+        var hosts = new List<string>();
+
+        var srvTargets = (await QueryDnsAsync($"_autodiscover._tcp.{domain}", "SRV", cancellationToken).ConfigureAwait(false))
+            .Select(ParseSrvRecord)
+            .Where(record => record != null)
+            .OrderBy(record => record.Priority)
+            .ThenByDescending(record => record.Weight)
+            .Select(record => record.Target);
+
+        hosts.AddRange(srvTargets);
+
+        foreach (var alias in new[] { $"autodiscover.{domain}", $"autoconfig.{domain}" })
+        {
+            var targets = await QueryDnsAsync(alias, "CNAME", cancellationToken).ConfigureAwait(false);
+            hosts.AddRange(targets.Select(target => target.Trim().TrimEnd('.')));
+        }
+
+        return hosts
+            .Where(host => !string.IsNullOrWhiteSpace(host))
+            .Distinct(IgnoreCase)
+            .ToList();
+    }
+
     private async Task<string> GetFirstResolvableHostAsync(IEnumerable<string> hostCandidates, CancellationToken cancellationToken)
     {
         foreach (var host in hostCandidates.Where(h => !string.IsNullOrWhiteSpace(h)).Distinct(IgnoreCase))
@@ -600,16 +804,22 @@ public class AutoDiscoveryService : IAutoDiscoveryService
            || statusCode == HttpStatusCode.TemporaryRedirect
            || (int)statusCode == 308;
 
-    private static IEnumerable<Uri> GetCalDavCandidates(string domain)
+    private static IEnumerable<Uri> GetDavCandidates(DavService service, IEnumerable<string> domains)
     {
-        foreach (var candidateDomain in BuildDomainCandidatesFromHost(domain))
+        foreach (var candidateDomain in domains)
         {
-            yield return new Uri($"https://{candidateDomain}/.well-known/caldav");
-            yield return new Uri($"https://caldav.{candidateDomain}/");
+            yield return new Uri($"https://{candidateDomain}{service.WellKnownPath}");
+            yield return new Uri($"https://{service.HostPrefix}{candidateDomain}/");
         }
     }
 
-    private static IEnumerable<string> BuildDomainCandidatesFromHost(string hostOrDomain)
+    /// <summary>
+    /// Returns the host and each parent domain down to the registrable one, nearest first.
+    /// <c>mx1.mail.example.net</c> gives <c>mx1.mail.example.net</c>, <c>mail.example.net</c> and <c>example.net</c>;
+    /// hosters publish their ISPDB entry under the registrable domain, as Thunderbird looks it up.
+    /// A two-label public suffix such as <c>co.uk</c> is never returned.
+    /// </summary>
+    internal static IEnumerable<string> BuildDomainCandidatesFromHost(string hostOrDomain)
     {
         if (string.IsNullOrWhiteSpace(hostOrDomain))
             yield break;
@@ -621,11 +831,26 @@ public class AutoDiscoveryService : IAutoDiscoveryService
         yield return normalized;
 
         var segments = normalized.Split('.', StringSplitOptions.RemoveEmptyEntries);
-        if (segments.Length > 2)
+
+        for (var skip = 1; segments.Length - skip >= 2; skip++)
         {
-            yield return string.Join('.', segments.Skip(1));
+            var remaining = segments.Skip(skip).ToArray();
+
+            if (remaining.Length == 2 && IsLikelyPublicSecondLevelDomain(remaining[0], remaining[1]))
+                yield break;
+
+            yield return string.Join('.', remaining);
         }
     }
+
+    private static readonly HashSet<string> PublicSecondLevelLabels = new(IgnoreCase)
+    {
+        "ac", "co", "com", "edu", "gob", "gov", "gv", "ltd", "me", "mil", "ne", "net", "nic", "or", "org", "plc", "sch"
+    };
+
+    /// <summary>Heuristic for country-code second levels such as <c>co.uk</c>, <c>com.tr</c> or <c>or.jp</c>.</summary>
+    private static bool IsLikelyPublicSecondLevelDomain(string secondLevel, string topLevel)
+        => topLevel.Length == 2 && PublicSecondLevelLabels.Contains(secondLevel);
 
     private static bool TryGetEmailParts(string email, out string localPart, out string domain)
     {
@@ -644,11 +869,11 @@ public class AutoDiscoveryService : IAutoDiscoveryService
         return !string.IsNullOrWhiteSpace(localPart) && !string.IsNullOrWhiteSpace(domain);
     }
 
-    private void CacheCalDavUri(string domain, Uri calDavUri)
+    private void CacheCalDavUri(string cacheKey, Uri serviceUri)
     {
         lock (_calDavCacheLock)
         {
-            _calDavUriCache[domain] = calDavUri;
+            _calDavUriCache[cacheKey] = serviceUri;
         }
     }
 
@@ -692,5 +917,12 @@ public class AutoDiscoveryService : IAutoDiscoveryService
     }
 
     private sealed record SrvRecord(ushort Priority, ushort Weight, int Port, string Target);
+
+    /// <summary>The names RFC 6764 gives each DAV service.</summary>
+    private sealed record DavService(string Name, string SecureSrvLabel, string PlainSrvLabel, string WellKnownPath, string HostPrefix, string CacheKeyPrefix)
+    {
+        public static readonly DavService CalDav = new("CalDAV", "_caldavs._tcp", "_caldav._tcp", "/.well-known/caldav", "caldav.", string.Empty);
+        public static readonly DavService CardDav = new("CardDAV", "_carddavs._tcp", "_carddav._tcp", "/.well-known/carddav", "carddav.", "carddav:");
+    }
     private sealed record MxRecord(ushort Preference, string Target);
 }

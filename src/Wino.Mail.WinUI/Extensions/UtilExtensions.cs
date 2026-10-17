@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Media;
 using Windows.Foundation;
+using WinRT;
 
 namespace Wino.Extensions;
 
@@ -14,6 +15,7 @@ public static class UtilExtensions
 {
     public static float ToFloat(this double value) => (float)value;
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     public static List<FrameworkElement> Children(this DependencyObject parent)
     {
         var list = new List<FrameworkElement>();
@@ -75,6 +77,7 @@ public static class UtilExtensions
         return originalElementWidth.Equals(newElementWidth) && originalElementHeight.Equals(newElementHeight);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     public static void ScrollToElement(this ScrollViewer scrollViewer, FrameworkElement element,
         bool isVerticalScrolling = true, bool smoothScrolling = true, float? zoomFactor = null, bool bringToTopOrLeft = true, bool addMargin = true)
     {

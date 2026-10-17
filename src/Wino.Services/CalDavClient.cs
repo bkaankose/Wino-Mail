@@ -23,7 +23,12 @@ using Wino.Services.Dav;
 
 namespace Wino.Services;
 
-public sealed class CalDavClient : ICalDavClient
+/// <summary>
+/// CalDAV protocol requests (RFC 4791). Split by feature into partial files: discovery, sync and
+/// downloads live in CalDavClient.Sync.cs. Holds no state; the synchronization engine decides
+/// what to request.
+/// </summary>
+public sealed partial class CalDavClient : ICalDavClient
 {
     private static readonly XNamespace DavNamespace = "DAV:";
     private static readonly XNamespace CalDavNamespace = "urn:ietf:params:xml:ns:caldav";
@@ -59,23 +64,7 @@ public sealed class CalDavClient : ICalDavClient
         var principalUri = await DiscoverPrincipalUriAsync(connectionSettings, cancellationToken).ConfigureAwait(false);
         var homeSetUris = await DiscoverCalendarHomeSetUrisAsync(connectionSettings, principalUri, cancellationToken).ConfigureAwait(false);
 
-        var body = """
-            <D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav" xmlns:CS="http://calendarserver.org/ns/" xmlns:ICAL="http://apple.com/ns/ical/">
-              <D:prop>
-                <D:resourcetype />
-                <D:displayname />
-                <D:current-user-privilege-set />
-                <CS:getctag />
-                <D:sync-token />
-                <C:calendar-description />
-                <C:calendar-timezone />
-                <C:supported-calendar-component-set />
-                <C:schedule-calendar-transp />
-                <ICAL:calendar-color />
-                <ICAL:calendar-order />
-              </D:prop>
-            </D:propfind>
-            """;
+        var body = CalendarCollectionPropFindBody;
 
         var calendars = new List<CalDavCalendar>();
         foreach (var homeSetUri in homeSetUris)
@@ -324,6 +313,11 @@ public sealed class CalDavClient : ICalDavClient
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/xml"));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/xml"));
         request.Headers.Add("Depth", depth);
+
+        // RFC 8144: leave out properties the server does not have. Servers that ignore it answer as before.
+        if (method == PropFindMethod || method == ReportMethod)
+            request.Headers.TryAddWithoutValidation("Prefer", "return=minimal");
+
         // Zimbra rejects CalDAV REPORT bodies without an XML declaration (400 with an empty body).
         request.Content = new StringContent(XmlDeclaration + body, Encoding.UTF8, "application/xml");
 
@@ -380,74 +374,9 @@ public sealed class CalDavClient : ICalDavClient
             Password = settings.Password
         };
 
+    /// <summary>Calendar collections that accept VEVENT; collections for other components are left out.</summary>
     private static List<CalDavCalendar> ParseCalendarCollection(XDocument xml, Uri baseUri)
-    {
-        var result = new List<CalDavCalendar>();
-
-        foreach (var response in xml.Descendants(DavNamespace + "response"))
-        {
-            var href = response.Element(DavNamespace + "href")?.Value;
-            if (string.IsNullOrWhiteSpace(href))
-                continue;
-
-            foreach (var prop in GetSuccessProps(response))
-            {
-                var resourceType = prop.Element(DavNamespace + "resourcetype");
-                if (resourceType == null)
-                    continue;
-
-                var isCalendar = resourceType.Elements(CalDavNamespace + "calendar").Any();
-                if (!isCalendar)
-                    continue;
-
-                var displayName = prop.Element(DavNamespace + "displayname")?.Value ?? string.Empty;
-                var description = prop.Element(CalDavNamespace + "calendar-description")?.Value ?? string.Empty;
-                var ctag = prop.Element(CalendarServerNamespace + "getctag")?.Value ?? string.Empty;
-                var syncToken = prop.Element(DavNamespace + "sync-token")?.Value ?? string.Empty;
-                var timeZone = ExtractCalendarTimeZoneId(
-                    prop.Element(CalDavNamespace + "calendar-timezone")?.Value);
-                var backgroundColor = NormalizeCalendarColor(
-                    prop.Element(AppleCalendarNamespace + "calendar-color")?.Value);
-                var supportedComponents = prop.Elements(CalDavNamespace + "supported-calendar-component-set")
-                    .Elements(CalDavNamespace + "comp")
-                    .Select(e => e.Attribute("name")?.Value?.Trim())
-                    .Where(value => !string.IsNullOrWhiteSpace(value))
-                    .ToList();
-                var supportsEvents = supportedComponents.Count == 0 ||
-                                     supportedComponents.Contains("VEVENT", StringComparer.OrdinalIgnoreCase);
-                var isReadOnly = IsCalendarReadOnly(prop);
-                var defaultShowAs = GetDefaultShowAs(prop);
-                var calendarOrder = ParseCalendarOrder(
-                    prop.Element(AppleCalendarNamespace + "calendar-order")?.Value);
-                var remoteUri = CreateAbsoluteUri(EnsureCollectionUri(baseUri), href).ToString().TrimEnd('/');
-
-                if (!supportsEvents)
-                    continue;
-
-                if (string.IsNullOrWhiteSpace(displayName))
-                {
-                    displayName = WebUtility.UrlDecode(remoteUri.Split('/').LastOrDefault() ?? "Calendar");
-                }
-
-                result.Add(new CalDavCalendar
-                {
-                    RemoteCalendarId = remoteUri,
-                    Name = displayName,
-                    Description = description,
-                    CTag = ctag,
-                    SyncToken = syncToken,
-                    TimeZone = timeZone,
-                    BackgroundColorHex = backgroundColor,
-                    IsReadOnly = isReadOnly,
-                    SupportsEvents = supportsEvents,
-                    DefaultShowAs = defaultShowAs,
-                    Order = calendarOrder
-                });
-            }
-        }
-
-        return result;
-    }
+        => ParseCalendarCollections(xml, baseUri, includeNonEventCalendars: false);
 
     private static IEnumerable<CalDavEventResponse> ParseEventResponses(XDocument xml, Uri baseUri)
     {
@@ -812,7 +741,8 @@ public sealed class CalDavClient : ICalDavClient
             ShowAs = MapShowAs(sourceEvent.Transparency),
             IsHidden = status == CalendarItemStatus.Cancelled,
             Attendees = attendees,
-            Reminders = reminders
+            Reminders = reminders,
+            Attachments = ParseAttachments(sourceEvent)
         };
     }
 

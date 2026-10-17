@@ -10,6 +10,7 @@ using Microsoft.Windows.AppNotifications;
 using Microsoft.Windows.AppLifecycle;
 using Wino.Core.Activation;
 using Wino.Mail.WinUI.Activation;
+using WinRT;
 
 namespace Wino.Mail.WinUI;
 
@@ -313,6 +314,7 @@ public class Program
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(AppNotificationActivatedEventArgs))]
     internal static bool ShouldBringWindowToForegroundAfterRedirection(AppActivationArguments args)
     {
         if (args.Kind == ExtendedActivationKind.StartupTask)

@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Controls;
 
@@ -23,6 +24,7 @@ public sealed partial class AppModeFooterSwitcherControl : Segmented
 
     public Orientation Orientation
     {
+        [DynamicWindowsRuntimeCast(typeof(Orientation))]
         get => (Orientation)GetValue(OrientationProperty);
         set => SetValue(OrientationProperty, value);
     }

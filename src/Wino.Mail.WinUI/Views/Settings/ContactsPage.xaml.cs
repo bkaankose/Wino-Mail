@@ -23,6 +23,7 @@ using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Views.Abstract;
+using WinRT;
 
 namespace Wino.Views.Settings;
 
@@ -33,7 +34,11 @@ public sealed partial class ContactsPage : ContactsPageAbstract, ITitleBarSearch
     private CancellationTokenSource _searchCancellationTokenSource;
     private string _searchText = string.Empty;
 
-    private CollectionViewSource ContactCollectionViewSource => (CollectionViewSource)Resources["ContactCollectionViewSource"];
+    private CollectionViewSource ContactCollectionViewSource
+    {
+        [DynamicWindowsRuntimeCast(typeof(CollectionViewSource))]
+        get => (CollectionViewSource)Resources["ContactCollectionViewSource"];
+    }
 
     public string SearchText
     {
@@ -131,6 +136,8 @@ public sealed partial class ContactsPage : ContactsPageAbstract, ITitleBarSearch
         await flyout.ShowForAsync(target, position, ViewModel, contact);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ListView))]
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private async void ContactsListView_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
         if (args.Handled ||
@@ -171,6 +178,7 @@ public sealed partial class ContactsPage : ContactsPageAbstract, ITitleBarSearch
             filter.IsDraggingItemOver = false;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ListView))]
     private void ContactsListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         // Extended selection allows Ctrl and Shift multi-select outside selection mode,

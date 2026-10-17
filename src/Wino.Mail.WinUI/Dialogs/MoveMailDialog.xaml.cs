@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Models.Folders;
+using WinRT;
 
 namespace Wino.Dialogs;
 
@@ -36,6 +37,7 @@ public sealed partial class MoveMailDialog : ContentDialog
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(TreeViewItem))]
     private void VerifySelection()
     {
         if (SelectedFolder is null)

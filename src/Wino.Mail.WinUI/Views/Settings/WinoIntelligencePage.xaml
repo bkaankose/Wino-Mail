@@ -16,7 +16,6 @@
     xmlns:viewModelData="using:Wino.Core.ViewModels.Data"
     x:Name="Root"
     Title="{x:Bind domain:Translator.WinoIntelligence_SettingsTitle, Mode=OneTime}"
-    Unloaded="Root_Unloaded"
     mc:Ignorable="d">
 
     <Page.Resources>
@@ -451,61 +450,5 @@
                 </controls:SettingsExpander>
             </StackPanel>
         </ScrollViewer>
-
-        <ContentDialog
-            x:Name="ConsentPolicyDialog"
-            AutomationProperties.AutomationId="WinoConsentPolicyDialog"
-            CloseButtonText="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}"
-            DefaultButton="Primary"
-            PrimaryButtonClick="ConsentPolicyDialog_PrimaryButtonClick"
-            PrimaryButtonText="{x:Bind domain:Translator.Intelligence_AcceptPrivacyPolicyButton, Mode=OneTime}">
-            <ContentDialog.Resources>
-                <!--  The default 548 maximum is narrower than the policy content and clips it.  -->
-                <x:Double x:Key="ContentDialogMaxWidth">760</x:Double>
-            </ContentDialog.Resources>
-            <ContentDialog.Title>
-                <TextBlock Text="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentPolicyTitle, Mode=OneTime}" TextWrapping="WrapWholeWords" />
-            </ContentDialog.Title>
-            <Grid
-                Width="720"
-                Height="560"
-                RowSpacing="12">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <TextBlock Text="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentPolicyNotice, Mode=OneTime}" TextWrapping="WrapWholeWords" />
-                <WebView2
-                    x:Name="ConsentPolicyWebView"
-                    Grid.Row="1"
-                    AutomationProperties.AutomationId="WinoConsentPolicyWebView" />
-                <CheckBox
-                    x:Name="ConsentPolicyAcknowledgementCheckBox"
-                    Grid.Row="2"
-                    AutomationProperties.AutomationId="WinoConsentPolicyAcknowledgementCheckBox"
-                    Checked="ConsentPolicyAcknowledgementCheckBox_Changed"
-                    Unchecked="ConsentPolicyAcknowledgementCheckBox_Changed">
-                    <TextBlock Text="{x:Bind domain:Translator.Intelligence_PrivacyPolicyAcknowledgement, Mode=OneTime}" TextWrapping="WrapWholeWords" />
-                </CheckBox>
-                <TextBlock
-                    x:Name="ConsentPolicyErrorText"
-                    Grid.Row="3"
-                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                    TextWrapping="WrapWholeWords"
-                    Visibility="Collapsed" />
-            </Grid>
-        </ContentDialog>
-
-        <ContentDialog
-            x:Name="ConsentRevokeDialog"
-            Title="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentDisableTitle, Mode=OneTime}"
-            AutomationProperties.AutomationId="WinoConsentRevokeDialog"
-            CloseButtonText="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}"
-            DefaultButton="Primary"
-            PrimaryButtonText="{x:Bind domain:Translator.WinoAccount_DisableConsent, Mode=OneTime}">
-            <TextBlock Text="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentDisableMessage, Mode=OneTime}" TextWrapping="WrapWholeWords" />
-        </ContentDialog>
     </Grid>
 </abstract:WinoIntelligencePageAbstract>

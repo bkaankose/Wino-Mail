@@ -37,6 +37,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsStoreUpdateNotificationsEnabled { get; set; }
 
     /// <summary>
+    /// Setting: Whether the taskbar icon stays the same when the application mode changes in-app.
+    /// </summary>
+    bool IsAppModeTaskbarIconSwitchDisabled { get; set; }
+
+    /// <summary>
     /// Setting: Whether the system tray icon should be created while the shell is available.
     /// </summary>
     bool IsSystemTrayIconEnabled { get; set; }

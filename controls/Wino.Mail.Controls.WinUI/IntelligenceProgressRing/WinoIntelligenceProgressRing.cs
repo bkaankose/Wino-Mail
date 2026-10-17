@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Windows.UI;
 using Windows.UI.ViewManagement;
+using WinRT;
 
 namespace Wino.Mail.Controls.IntelligenceProgressRing;
 
@@ -50,6 +51,7 @@ public sealed partial class WinoIntelligenceProgressRing : Control, IDisposable
         Unloaded += OnUnloaded;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(AnimatedVisualPlayer))]
     protected override void OnApplyTemplate()
     {
         StopAnimation();
@@ -226,6 +228,7 @@ public sealed partial class WinoIntelligenceProgressRing : Control, IDisposable
         GC.SuppressFinalize(this);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(SolidColorBrush))]
     private Color ResolveForegroundColor() =>
         Foreground is SolidColorBrush solidColorBrush
             ? solidColorBrush.Color

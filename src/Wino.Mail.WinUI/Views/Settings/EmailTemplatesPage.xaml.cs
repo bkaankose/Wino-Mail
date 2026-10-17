@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Views.Abstract;
+using WinRT;
 
 namespace Wino.Views.Settings;
 
@@ -23,6 +24,7 @@ public sealed partial class EmailTemplatesPage : EmailTemplatesPageAbstract
         ViewModel.CreateTemplate();
     }
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private void TemplateClicked(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement element && element.Tag is EmailTemplate template)

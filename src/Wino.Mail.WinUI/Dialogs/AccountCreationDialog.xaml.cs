@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
@@ -9,7 +10,7 @@ namespace Wino.Dialogs;
 
 public sealed partial class AccountCreationDialog : ContentDialog, IAccountCreationDialog
 {
-    private TaskCompletionSource<bool> dialogOpened = new TaskCompletionSource<bool>();
+    private readonly Func<ContentDialog, Task<bool>?> _startPresentation;
     public CancellationTokenSource? CancellationTokenSource { get; private set; }
 
     public AccountCreationDialogState State
@@ -20,8 +21,11 @@ public sealed partial class AccountCreationDialog : ContentDialog, IAccountCreat
 
     public static readonly DependencyProperty StateProperty = DependencyProperty.Register(nameof(State), typeof(AccountCreationDialogState), typeof(AccountCreationDialog), new PropertyMetadata(AccountCreationDialogState.Idle));
 
-    public AccountCreationDialog()
+    /// <param name="startPresentation">The dialog service's presentation for progress dialogs.</param>
+    public AccountCreationDialog(Func<ContentDialog, Task<bool>?> startPresentation)
     {
+        _startPresentation = startPresentation;
+
         InitializeComponent();
     }
 
@@ -55,16 +59,9 @@ public sealed partial class AccountCreationDialog : ContentDialog, IAccountCreat
     {
         CancellationTokenSource = cancellationTokenSource;
 
-        Opened += DialogOpened;
-        _ = ShowAsync();
-
-        await dialogOpened.Task;
-    }
-
-    private void DialogOpened(ContentDialog sender, ContentDialogOpenedEventArgs args)
-    {
-        Opened -= DialogOpened;
-
-        dialogOpened?.SetResult(true);
+        // Account creation continues without the progress surface when another dialog owns the window.
+        var opened = _startPresentation(this);
+        if (opened != null)
+            await opened;
     }
 }

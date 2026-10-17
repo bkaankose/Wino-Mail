@@ -40,7 +40,13 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
     private readonly INotificationBuilder _notificationBuilder;
     private readonly IContactService _contactService;
     private readonly IAttachmentFileService _attachmentFileService;
+    private readonly ICalendarCapabilityService _calendarCapabilityService;
     private readonly CoalescedRefresh _calendarSettingsRefresh;
+
+    // The calendar whose capabilities are loaded or loading; a late answer for another one is ignored.
+    private Guid _capabilityCalendarId;
+    private int _capabilityRequestVersion;
+    private CalendarCapabilities _calendarCapabilities = CalendarCapabilities.None;
 
     private CalendarSettings _currentSettings;
 
@@ -86,8 +92,99 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
 
     partial void OnCurrentEventChanged(CalendarItemViewModel value)
     {
+        RefreshCapabilitiesForCurrentEvent(value);
+
+        // Read-only also depends on the event's own calendar, not only the capabilities.
+        NotifyCapabilityPropertiesChanged();
+
         // Notify the view to re-render the description
         Messenger.Send(new CalendarDescriptionRenderingRequested());
+    }
+
+    /// <summary>
+    /// What the event's calendar can do. Holds the provider's fixed set until the capability
+    /// service answers, and <see cref="CalendarCapabilities.None"/> without an event.
+    /// </summary>
+    public CalendarCapabilities CalendarCapabilities
+    {
+        get => _calendarCapabilities;
+        private set
+        {
+            if (SetProperty(ref _calendarCapabilities, value ?? CalendarCapabilities.None))
+                NotifyCapabilityPropertiesChanged();
+        }
+    }
+
+    /// <summary>Completes when the capabilities of the current event's calendar are loaded.</summary>
+    public Task CapabilityLoadTask { get; private set; } = Task.CompletedTask;
+
+    public bool IsCalendarReadOnly => CalendarCapabilities.IsReadOnly || CurrentEvent?.AssignedCalendar?.IsReadOnly == true;
+
+    /// <summary>Accept, Tentative and Decline are offered; a read-only calendar refuses them.</summary>
+    public bool CanRespondToInvitation => CurrentEvent != null && !IsCalendarReadOnly;
+
+    public bool SendsInvitations => CalendarCapabilities.SendsInvitations;
+
+    /// <summary>The server stores a response but does not deliver it to the organizer.</summary>
+    public bool HasResponseNotSentWarning => CalendarCapabilities.Source == CalendarCapabilitySource.CalDav && !SendsInvitations;
+
+    public string ResponseNotSentText => HasResponseNotSentWarning ? Translator.CalendarCapability_ResponseNotSent : string.Empty;
+
+    private void RefreshCapabilitiesForCurrentEvent(CalendarItemViewModel value)
+    {
+        var calendarId = value?.CalendarItem?.CalendarId ?? Guid.Empty;
+
+        // Optimistic updates replace the item view model often; the calendar rarely changes.
+        if (calendarId == _capabilityCalendarId && calendarId != Guid.Empty)
+            return;
+
+        var requestVersion = ++_capabilityRequestVersion;
+        _capabilityCalendarId = calendarId;
+
+        if (calendarId == Guid.Empty)
+        {
+            CalendarCapabilities = CalendarCapabilities.None;
+            CapabilityLoadTask = Task.CompletedTask;
+            return;
+        }
+
+        CalendarCapabilities = CalendarCapabilityPresenter.GetFallback(value.AssignedCalendar?.MailAccount, null);
+        CapabilityLoadTask = _calendarCapabilityService == null
+            ? Task.CompletedTask
+            : LoadCapabilitiesAsync(calendarId, requestVersion);
+    }
+
+    private async Task LoadCapabilitiesAsync(Guid calendarId, int requestVersion)
+    {
+        CalendarCapabilities capabilities;
+
+        try
+        {
+            capabilities = await _calendarCapabilityService.GetCalendarCapabilitiesAsync(calendarId).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Could not load the capabilities of calendar {CalendarId}", calendarId);
+            return;
+        }
+
+        await ExecuteUIThread(() =>
+        {
+            if (requestVersion != _capabilityRequestVersion || calendarId != _capabilityCalendarId)
+                return;
+
+            if (capabilities != null && capabilities.Source != CalendarCapabilitySource.None)
+                CalendarCapabilities = capabilities;
+        }).ConfigureAwait(false);
+    }
+
+    private void NotifyCapabilityPropertiesChanged()
+    {
+        OnPropertyChanged(nameof(IsCalendarReadOnly));
+        OnPropertyChanged(nameof(CanRespondToInvitation));
+        OnPropertyChanged(nameof(SendsInvitations));
+        OnPropertyChanged(nameof(HasResponseNotSentWarning));
+        OnPropertyChanged(nameof(ResponseNotSentText));
     }
 
     [ObservableProperty]
@@ -176,7 +273,8 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
                                      IUnderlyingThemeService underlyingThemeService,
                                      IContactService contactService,
                                      IApplicationConfiguration applicationConfiguration,
-                                     IAttachmentFileService attachmentFileService = null)
+                                     IAttachmentFileService attachmentFileService = null,
+                                     ICalendarCapabilityService calendarCapabilityService = null)
     {
         _calendarService = calendarService;
         _externalLauncher = externalLauncher;
@@ -189,6 +287,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
         _notificationBuilder = notificationBuilder;
         _contactService = contactService;
         _attachmentFileService = attachmentFileService;
+        _calendarCapabilityService = calendarCapabilityService;
         _calendarSettingsRefresh = new CoalescedRefresh(() => ExecuteUIThread(() => CurrentSettings = _preferencesService.GetCurrentCalendarSettings()));
 
         CurrentSettings = _preferencesService.GetCurrentCalendarSettings();
@@ -503,7 +602,10 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
     {
         LastMutationSucceeded = false;
         if (CurrentEvent == null) return;
-        if (CurrentEvent.AssignedCalendar?.IsReadOnly == true)
+
+        await CapabilityLoadTask;
+
+        if (IsCalendarReadOnly)
         {
             _dialogService.ShowReadOnlyCalendarMessage();
             return;
@@ -579,7 +681,10 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
     {
         LastMutationSucceeded = false;
         if (CurrentEvent == null) return;
-        if (CurrentEvent.AssignedCalendar?.IsReadOnly == true)
+
+        await CapabilityLoadTask;
+
+        if (IsCalendarReadOnly)
         {
             _dialogService.ShowReadOnlyCalendarMessage();
             return;
@@ -692,7 +797,10 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
     private async Task SendRsvpResponse(AttendeeStatus status)
     {
         if (CurrentEvent == null) return;
-        if (CurrentEvent.AssignedCalendar?.IsReadOnly == true)
+
+        await CapabilityLoadTask;
+
+        if (!CanRespondToInvitation)
         {
             _dialogService.ShowReadOnlyCalendarMessage();
             return;

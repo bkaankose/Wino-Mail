@@ -28,6 +28,7 @@ using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models.Personalization;
 using Wino.Mail.WinUI.Services;
 using Wino.Messaging.Client.Shell;
+using WinRT;
 using WinUIEx;
 
 namespace Wino.Services;
@@ -239,6 +240,7 @@ public class NewThemeService : INewThemeService
     private static ResourceDictionary? FindMergedThemeDictionary()
         => Application.Current.Resources.MergedDictionaries.LastOrDefault(dictionary => dictionary.ContainsKey(ThemeNameKey));
 
+    [DynamicWindowsRuntimeCast(typeof(ResourceDictionary))]
     private void EnsureHighContrastFallbacks(ResourceDictionary themeDictionary)
     {
         if (!themeDictionary.ThemeDictionaries.TryGetValue(HighContrastThemeKey, out var existing) ||
@@ -299,6 +301,7 @@ public class NewThemeService : INewThemeService
         isInitialized = true;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(DesktopAcrylicBackdrop))]
     public void ApplyBackdrop(WindowBackdropType backdropType)
     {
         backdropType = NormalizeBackdropType(backdropType);
@@ -488,6 +491,7 @@ public class NewThemeService : INewThemeService
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(SolidColorBrush))]
     private void SetBrushResource(string resourceKey, Color color, double opacity = 1)
     {
         if (!_applicationResourceManager.ContainsResourceKey(resourceKey))
@@ -540,6 +544,7 @@ public class NewThemeService : INewThemeService
     /// Points WinoIconFontFamily in the Light/Dark theme dictionaries of Styles/WinoIcons.xaml at the
     /// monochrome or the colorful fonts. HighContrast always keeps the monochrome font.
     /// </summary>
+    [DynamicWindowsRuntimeCast(typeof(ResourceDictionary))]
     private void ApplyIconStyle(bool refresh)
     {
         var isColorful = _preferencesService.IconStyle == WinoIconStyle.Colorful;
@@ -562,6 +567,7 @@ public class NewThemeService : INewThemeService
             RefreshThemeResource();
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ResourceDictionary))]
     private static void SetIconFontFamily(ResourceDictionary dictionary, string themeKey, string fontFamily)
     {
         if (dictionary.ThemeDictionaries.TryGetValue(themeKey, out var theme) && theme is ResourceDictionary themeDictionary)
@@ -595,6 +601,7 @@ public class NewThemeService : INewThemeService
     public Task ApplyCustomThemeAsync(bool isInitializing)
         => ApplyCustomThemeCoreAsync(isInitializing, forceReapply: false, throwOnError: false);
 
+    [DynamicWindowsRuntimeCast(typeof(ResourceDictionary))]
     private async Task ApplyCustomThemeCoreAsync(bool isInitializing, bool forceReapply, bool throwOnError)
     {
         // If no theme ID is set, don't apply any theme (for backward compatibility)
@@ -718,6 +725,8 @@ public class NewThemeService : INewThemeService
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ImageBrush))]
+    [DynamicWindowsRuntimeCast(typeof(ResourceDictionary))]
     private static void ConfigureCustomThemeDictionary(
         ResourceDictionary dictionary,
         CustomThemeMetadata metadata,
@@ -769,6 +778,7 @@ public class NewThemeService : INewThemeService
         SetPaletteColor(dictionary, "NavigationViewContentBackground", palette.NavigationViewContentBackground);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(SolidColorBrush))]
     private static void SetPaletteColor(ResourceDictionary dictionary, string key, string? hex, bool asColor = false)
     {
         if (string.IsNullOrWhiteSpace(hex))
@@ -829,6 +839,7 @@ public class NewThemeService : INewThemeService
     public ThemeRuntimeState CaptureRuntimeState()
         => new(currentApplicationThemeId, currentApplicationThemeId ?? WinoThemeCatalog.DefaultThemeId, AccentColor, RootTheme);
 
+    [DynamicWindowsRuntimeCast(typeof(ResourceDictionary))]
     public async Task PreviewCustomThemeAsync(
         CustomThemeMetadata metadata,
         byte[]? wallpaperData,
@@ -933,6 +944,7 @@ public class NewThemeService : INewThemeService
         return savedTheme;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(StorageFile))]
     private static async Task<StorageFile> ReplaceBytesAtomicallyAsync(StorageFolder folder, string fileName, byte[] data)
     {
         var tempFile = await folder.CreateFileAsync($"{fileName}.{Guid.NewGuid():N}.tmp", CreationCollisionOption.FailIfExists);
@@ -947,6 +959,7 @@ public class NewThemeService : INewThemeService
         return await folder.GetFileAsync(fileName);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(StorageFile))]
     private static async Task ReplaceTextAtomicallyAsync(StorageFolder folder, string fileName, string text)
     {
         var tempFile = await folder.CreateFileAsync($"{fileName}.{Guid.NewGuid():N}.tmp", CreationCollisionOption.FailIfExists);
@@ -1103,6 +1116,7 @@ public class NewThemeService : INewThemeService
 
     private WindowEx? GetThemeWindow() => _windowManager.ActiveWindow ?? WinoApplication.MainWindow;
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private FrameworkElement? TryGetShellRootContent()
     {
         var window = GetThemeWindow();

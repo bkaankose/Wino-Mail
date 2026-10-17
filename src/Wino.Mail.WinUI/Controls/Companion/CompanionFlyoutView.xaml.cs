@@ -12,6 +12,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Services.Companion;
+using WinRT;
 
 namespace Wino.Mail.WinUI.Controls.Companion;
 
@@ -114,6 +115,7 @@ public sealed partial class CompanionFlyoutView : UserControl
             sender,
             static (viewModel, parameter) => viewModel.OpenMailCommand.ExecuteAsync((MailItemViewModel)parameter));
 
+    [DynamicWindowsRuntimeCast(typeof(DependencyObject))]
     private async void MailRow_Tapped(object sender, TappedRoutedEventArgs e)
     {
         try
@@ -171,12 +173,15 @@ public sealed partial class CompanionFlyoutView : UserControl
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(Panel))]
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private static void SetHoverActionsVisibility(object sender, Visibility visibility)
     {
         if (sender is Panel panel && panel.Children.LastOrDefault() is FrameworkElement hoverActions)
             hoverActions.Visibility = visibility;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ButtonBase))]
     private static bool IsWithinButton(DependencyObject? element)
     {
         while (element is not null)

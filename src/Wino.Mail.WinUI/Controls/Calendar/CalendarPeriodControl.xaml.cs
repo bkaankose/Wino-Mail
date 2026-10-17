@@ -26,6 +26,7 @@ using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
+using WinRT;
 
 namespace Wino.Calendar.Controls;
 
@@ -534,6 +535,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(DependencyObject))]
     private bool IsCalendarItemSource(object originalSource)
     {
         var current = originalSource as DependencyObject;
@@ -557,6 +559,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         QueueRefresh();
     }
 
+    [DynamicWindowsRuntimeCast(typeof(DataTemplate))]
     private void RefreshTimedView()
     {
         TimedRoot.Visibility = Visibility.Visible;
@@ -616,6 +619,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         TimedAllDayHost.InvalidateArrange();
     }
 
+    [DynamicWindowsRuntimeCast(typeof(DataTemplate))]
     private void RefreshMonthView()
     {
         TimedRoot.Visibility = Visibility.Collapsed;
@@ -1662,6 +1666,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         visual.StopAnimation(nameof(visual.Scale));
     }
 
+    [DynamicWindowsRuntimeCast(typeof(InsetClip))]
     private static void ResetAnimatedElement(UIElement target)
     {
         var visual = ElementCompositionPreview.GetElementVisual(target);
@@ -1680,6 +1685,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(InsetClip))]
     private static void StartTimedElementTransition(Compositor compositor, UIElement target, float offsetX, float offsetY, float startingOpacity, TimeSpan duration, float leftInset, float rightInset, bool animateScale = true)
     {
         var visual = ElementCompositionPreview.GetElementVisual(target);
@@ -1758,6 +1764,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         return Color.FromArgb((byte)Math.Max(20, strokeColor.A / 4), strokeColor.R, strokeColor.G, strokeColor.B);
     }
 
+    [DynamicWindowsRuntimeCast(typeof(SolidColorBrush))]
     private static Color ToColor(Brush brush)
     {
         return brush is SolidColorBrush solidColorBrush
@@ -1773,6 +1780,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     private double GetHourHeight() => CalendarSettings?.HourHeight ?? 60d;
 
+    [DynamicWindowsRuntimeCast(typeof(SolidColorBrush))]
     private static Color GetStrokeColor()
     {
         if (Application.Current.Resources.TryGetValue("CardStrokeColorDefaultBrush", out var resource) &&

@@ -7,6 +7,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Mail.WinUI.Controls;
 using Wino.Helpers;
+using WinRT;
 
 namespace Wino.MenuFlyouts;
 
@@ -103,6 +104,7 @@ public partial class FilterMenuFlyout : WinoMenuFlyout
         return button;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ToggleMenuFlyoutItem))]
     private void SortingOptionChecked(object sender, RoutedEventArgs e)
     {
         if (sender is ToggleMenuFlyoutItem button)
@@ -116,8 +118,7 @@ public partial class FilterMenuFlyout : WinoMenuFlyout
         }
     }
 
-
-
+    [DynamicWindowsRuntimeCast(typeof(ToggleMenuFlyoutItem))]
     private void FilterToggleChecked(object sender, RoutedEventArgs e)
     {
         if (sender is ToggleMenuFlyoutItem button)
@@ -150,6 +151,7 @@ public partial class FilterMenuFlyout : WinoMenuFlyout
         button.Click -= FilterToggleChecked;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ToggleMenuFlyoutItem))]
     private void UncheckOtherFilterOptions()
     {
         if (Items.Any())
@@ -165,6 +167,7 @@ public partial class FilterMenuFlyout : WinoMenuFlyout
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ToggleMenuFlyoutItem))]
     private void UncheckOtherSortingOptions()
     {
         if (Items.Any())
@@ -180,6 +183,7 @@ public partial class FilterMenuFlyout : WinoMenuFlyout
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(ToggleMenuFlyoutItem))]
     public void Dispose()
     {
         foreach (var item in Items)

@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.ViewModels.Data;
 using Wino.Mail.WinUI.Views.Abstract;
+using WinRT;
 
 namespace Wino.Views.Settings;
 
@@ -11,6 +12,7 @@ public sealed partial class KeyboardShortcutsPage : KeyboardShortcutsPageAbstrac
         this.InitializeComponent();
     }
 
+    [DynamicWindowsRuntimeCast(typeof(Button))]
     private void EditShortcut_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
         if (sender is Button button && button.CommandParameter is KeyboardShortcutViewModel shortcut)
@@ -19,6 +21,7 @@ public sealed partial class KeyboardShortcutsPage : KeyboardShortcutsPageAbstrac
         }
     }
 
+    [DynamicWindowsRuntimeCast(typeof(Button))]
     private void DeleteShortcut_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
         if (sender is Button button && button.CommandParameter is KeyboardShortcutViewModel shortcut)
