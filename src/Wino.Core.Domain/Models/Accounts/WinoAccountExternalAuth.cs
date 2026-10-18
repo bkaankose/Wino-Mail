@@ -18,6 +18,9 @@ public static class WinoAccountExternalAuth
     public const string AppleProvider = "apple";
     public const string GoogleProvider = "google";
 
+    /// <summary>Sign in with Microsoft: personal, work and school accounts through the API browser flow on every platform.</summary>
+    public const string MicrosoftProvider = "microsoft";
+
     /// <summary>
     /// The Wino Accounts Google iOS client (Google Cloud project 973025879644), shared by the iOS and Mac apps through
     /// their common bundle id. The API lists it in <c>Secrets:Google:NativeClientIds</c>. Not the Windows app's Gmail

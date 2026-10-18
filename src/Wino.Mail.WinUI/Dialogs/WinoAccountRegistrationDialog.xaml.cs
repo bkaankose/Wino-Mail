@@ -28,12 +28,13 @@ public sealed partial class WinoAccountRegistrationDialog : ContentDialog
 
         AppleSignInButton.Visibility = externalSignIn is { IsAppleAvailable: true } ? Visibility.Visible : Visibility.Collapsed;
         GoogleSignInButton.Visibility = externalSignIn is { IsGoogleAvailable: true } ? Visibility.Visible : Visibility.Collapsed;
-        ExternalSignInPanel.Visibility = externalSignIn is { IsAppleAvailable: true } or { IsGoogleAvailable: true }
+        MicrosoftSignInButton.Visibility = externalSignIn is { IsMicrosoftAvailable: true } ? Visibility.Visible : Visibility.Collapsed;
+        ExternalSignInPanel.Visibility = externalSignIn is { IsAppleAvailable: true } or { IsGoogleAvailable: true } or { IsMicrosoftAvailable: true }
             ? Visibility.Visible
             : Visibility.Collapsed;
     }
 
-    /// <summary>The signed-in account when Sign in with Apple or Google created or found it; null for the e-mail form, which ends in a confirmation mail.</summary>
+    /// <summary>The signed-in account when Sign in with Apple, Google or Microsoft created or found it; null for the e-mail form, which ends in a confirmation mail.</summary>
     public WinoAccount? Result { get; private set; }
     public string? ConfirmationEmailAddress { get; private set; }
 
@@ -65,6 +66,9 @@ public sealed partial class WinoAccountRegistrationDialog : ContentDialog
 
     private async void GoogleSignInButton_Click(object sender, RoutedEventArgs e)
         => await SignInExternallyAsync(token => _externalSignIn!.SignInWithGoogleAsync(token));
+
+    private async void MicrosoftSignInButton_Click(object sender, RoutedEventArgs e)
+        => await SignInExternallyAsync(token => _externalSignIn!.SignInWithMicrosoftAsync(token));
 
     /// <summary>
     /// The API browser flow: the default browser opens the provider's page and the wino://auth-complete redirect
@@ -210,6 +214,7 @@ public sealed partial class WinoAccountRegistrationDialog : ContentDialog
         IsSecondaryButtonEnabled = !isBusy;
         AppleSignInButton.IsEnabled = !isBusy;
         GoogleSignInButton.IsEnabled = !isBusy;
+        MicrosoftSignInButton.IsEnabled = !isBusy;
         BusyRing.IsActive = isBusy;
         BusyRing.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -219,6 +224,7 @@ public sealed partial class WinoAccountRegistrationDialog : ContentDialog
         IsPrimaryButtonEnabled = !isBusy;
         AppleSignInButton.IsEnabled = !isBusy;
         GoogleSignInButton.IsEnabled = !isBusy;
+        MicrosoftSignInButton.IsEnabled = !isBusy;
         BusyRing.IsActive = isBusy;
         BusyRing.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
     }

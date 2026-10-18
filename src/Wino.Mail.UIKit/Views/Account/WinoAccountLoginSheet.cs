@@ -67,9 +67,15 @@ internal sealed class WinoAccountLoginSheet : WinoAccountSheet<WinoAccountLoginO
         }
         if (externalSignIn is { IsGoogleAvailable: true })
         {
-            var google = GoogleButton();
+            var google = OutlinedProviderButton(Translator.WinoAccount_SignInWithGoogle, WinoIconGlyph.Google);
             google.PrimaryActionTriggered += async (_, _) => await SignInExternallyAsync(token => externalSignIn.SignInWithGoogleAsync(token));
             buttons.Add(google);
+        }
+        if (externalSignIn is { IsMicrosoftAvailable: true })
+        {
+            var microsoft = OutlinedProviderButton(Translator.WinoAccount_SignInWithMicrosoft, WinoIconGlyph.Microsoft);
+            microsoft.PrimaryActionTriggered += async (_, _) => await SignInExternallyAsync(token => externalSignIn.SignInWithMicrosoftAsync(token));
+            buttons.Add(microsoft);
         }
         if (buttons.Count > 0)
         {
@@ -81,12 +87,12 @@ internal sealed class WinoAccountLoginSheet : WinoAccountSheet<WinoAccountLoginO
         UpdateMode();
     }
 
-    /// <summary>Google's sign-in button drawing: the colourful mark and the title on a neutral, outlined pill.</summary>
-    private static UIButton GoogleButton()
+    /// <summary>The Google and Microsoft sign-in buttons as their guidelines draw them: the colourful mark and the title on a neutral, outlined pill.</summary>
+    private static UIButton OutlinedProviderButton(string title, WinoIconGlyph glyph)
     {
         var configuration = UIButtonConfiguration.FilledButtonConfiguration;
-        configuration.Title = Translator.WinoAccount_SignInWithGoogle;
-        configuration.Image = WinoIcons.ColorfulImage(WinoIconGlyph.Google, 18);
+        configuration.Title = title;
+        configuration.Image = WinoIcons.ColorfulImage(glyph, 18);
         configuration.ImagePadding = 8;
         configuration.BaseForegroundColor = WinoStyle.PrimaryText;
         configuration.BaseBackgroundColor = UIColor.SystemBackground;
@@ -96,7 +102,7 @@ internal sealed class WinoAccountLoginSheet : WinoAccountSheet<WinoAccountLoginO
         configuration.CornerStyle = UIButtonConfigurationCornerStyle.Fixed;
         var button = new UIButton(UIButtonType.System) { Configuration = configuration, TranslatesAutoresizingMaskIntoConstraints = false };
         button.HeightAnchor.ConstraintEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
-        button.AccessibilityLabel = Translator.WinoAccount_SignInWithGoogle;
+        button.AccessibilityLabel = title;
         return button;
     }
 

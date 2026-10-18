@@ -31,6 +31,7 @@ public sealed partial class WinoAccountLoginDialog : ContentDialog
 
         AppleSignInButton.Visibility = externalSignIn is { IsAppleAvailable: true } ? Visibility.Visible : Visibility.Collapsed;
         GoogleSignInButton.Visibility = externalSignIn is { IsGoogleAvailable: true } ? Visibility.Visible : Visibility.Collapsed;
+        MicrosoftSignInButton.Visibility = externalSignIn is { IsMicrosoftAvailable: true } ? Visibility.Visible : Visibility.Collapsed;
         UpdateMode();
     }
 
@@ -67,6 +68,9 @@ public sealed partial class WinoAccountLoginDialog : ContentDialog
 
     private async void GoogleSignInButton_Click(object sender, RoutedEventArgs e)
         => await SignInExternallyAsync(token => _externalSignIn!.SignInWithGoogleAsync(token));
+
+    private async void MicrosoftSignInButton_Click(object sender, RoutedEventArgs e)
+        => await SignInExternallyAsync(token => _externalSignIn!.SignInWithMicrosoftAsync(token));
 
     /// <summary>
     /// The API browser flow: the default browser opens the provider's page and the wino://auth-complete redirect
@@ -235,6 +239,7 @@ public sealed partial class WinoAccountLoginDialog : ContentDialog
         IsSecondaryButtonEnabled = !isBusy;
         AppleSignInButton.IsEnabled = !isBusy;
         GoogleSignInButton.IsEnabled = !isBusy;
+        MicrosoftSignInButton.IsEnabled = !isBusy;
         BusyRing.IsActive = isBusy;
         BusyRing.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -244,6 +249,7 @@ public sealed partial class WinoAccountLoginDialog : ContentDialog
         IsPrimaryButtonEnabled = !isBusy;
         AppleSignInButton.IsEnabled = !isBusy;
         GoogleSignInButton.IsEnabled = !isBusy;
+        MicrosoftSignInButton.IsEnabled = !isBusy;
         ModeToggleButton.IsEnabled = !isBusy;
         BusyRing.IsActive = isBusy;
         BusyRing.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
@@ -279,7 +285,7 @@ public sealed partial class WinoAccountLoginDialog : ContentDialog
         SignInDescriptionTextBlock.Visibility = _isForgotPasswordMode ? Visibility.Collapsed : Visibility.Visible;
         PasswordPanel.Visibility = _isForgotPasswordMode ? Visibility.Collapsed : Visibility.Visible;
         ForgotPasswordInfoPanel.Visibility = _isForgotPasswordMode ? Visibility.Visible : Visibility.Collapsed;
-        ExternalSignInPanel.Visibility = !_isForgotPasswordMode && _externalSignIn is { IsAppleAvailable: true } or { IsGoogleAvailable: true }
+        ExternalSignInPanel.Visibility = !_isForgotPasswordMode && _externalSignIn is { IsAppleAvailable: true } or { IsGoogleAvailable: true } or { IsMicrosoftAvailable: true }
             ? Visibility.Visible
             : Visibility.Collapsed;
         ModeToggleButton.Content = _isForgotPasswordMode

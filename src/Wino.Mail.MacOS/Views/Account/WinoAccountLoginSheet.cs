@@ -19,9 +19,9 @@ internal sealed record WinoAccountLoginOutcome(
 /// <summary>
 /// Sign in to Wino Account (port of WinoAccountLoginDialog): email and password, a forgot-password
 /// mode that hides the password and sends a reset link, Return moving from Email to Password, and
-/// Sign in with Apple and Sign in with Google under an "or" rule. The Apple button is Apple's own (the
+/// Sign in with Apple, Google and Microsoft under an "or" rule. The Apple button is Apple's own (the
 /// one exception to the WinoIcons rule; HIG and App Review require it) and comes first, as Apple asks;
-/// Google is a standard button with the colourful Google mark. The row hides in forgot-password mode.
+/// Google and Microsoft are standard buttons with their colourful marks. The row hides in forgot-password mode.
 /// </summary>
 internal sealed class WinoAccountLoginSheet : WinoAccountSheet<WinoAccountLoginOutcome>
 {
@@ -80,6 +80,22 @@ internal sealed class WinoAccountLoginSheet : WinoAccountSheet<WinoAccountLoginO
             google.HeightAnchor.ConstraintEqualTo(36).Active = true;
             google.Activated += async (_, _) => await SignInExternallyAsync(token => externalSignIn.SignInWithGoogleAsync(token));
             _externalButtons.Add(google);
+        }
+        if (externalSignIn is { IsMicrosoftAvailable: true })
+        {
+            var microsoft = new NSButton
+            {
+                BezelStyle = NSBezelStyle.Rounded,
+                ControlSize = NSControlSize.Large,
+                Title = Translator.WinoAccount_SignInWithMicrosoft,
+                Image = WinoIcons.ColorfulImage(WinoIconGlyph.Microsoft, 16),
+                ImagePosition = NSCellImagePosition.ImageLeading,
+                ImageHugsTitle = true,
+                TranslatesAutoresizingMaskIntoConstraints = false
+            };
+            microsoft.HeightAnchor.ConstraintEqualTo(36).Active = true;
+            microsoft.Activated += async (_, _) => await SignInExternallyAsync(token => externalSignIn.SignInWithMicrosoftAsync(token));
+            _externalButtons.Add(microsoft);
         }
         if (_externalButtons.Count > 0)
         {

@@ -20,9 +20,14 @@ public interface IWinoAccountExternalSignInService
     /// <summary>True when this build can sign in with Google (natively or through the browser flow).</summary>
     bool IsGoogleAvailable { get; }
 
+    /// <summary>True when this build can sign in with Microsoft (always the browser flow).</summary>
+    bool IsMicrosoftAvailable { get; }
+
     Task<WinoAccountOperationResult> SignInWithAppleAsync(CancellationToken cancellationToken = default);
 
     Task<WinoAccountOperationResult> SignInWithGoogleAsync(CancellationToken cancellationToken = default);
+
+    Task<WinoAccountOperationResult> SignInWithMicrosoftAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>

@@ -871,7 +871,7 @@ WHERE SortKey IS NULL OR SortKey = ''").ConfigureAwait(false);
     private async Task EnsureWinoAccountSchemaAsync()
     {
         var columns = await Connection.GetTableInfoAsync(nameof(WinoAccount)).ConfigureAwait(false);
-        foreach (var column in new[] { nameof(WinoAccount.IsUnlimitedAccountsEnabled), nameof(WinoAccount.HasAppleLogin) })
+        foreach (var column in new[] { nameof(WinoAccount.IsUnlimitedAccountsEnabled), nameof(WinoAccount.HasAppleLogin), nameof(WinoAccount.HasMicrosoftLogin) })
         {
             if (columns.Any(c => c.Name == column)) continue;
 

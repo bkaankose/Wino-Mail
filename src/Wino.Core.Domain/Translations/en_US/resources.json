@@ -2400,6 +2400,7 @@
   "WinoAccount_LoginDialog_OrDivider": "or",
   "WinoAccount_SignInWithApple": "Sign in with Apple",
   "WinoAccount_SignInWithGoogle": "Sign in with Google",
+  "WinoAccount_SignInWithMicrosoft": "Sign in with Microsoft",
   "WinoAccount_Error_AiPackRequired": "An active Wino Intelligence subscription is required for this action.",
   "WinoAccount_Error_AiQuotaExceeded": "Your Wino Intelligence usage limit has been reached for the current billing period.",
   "WinoAccount_Error_AiHtmlEmpty": "There is no email content to process.",

@@ -12,7 +12,7 @@ using Wino.Mail.Api.Contracts.Common;
 namespace Wino.Services;
 
 /// <summary>
-/// Wino Account sign-in with Apple and Google. A provider signs in natively when the head registered its native half
+/// Wino Account sign-in with Apple, Google and Microsoft. A provider signs in natively when the head registered its native half
 /// (Apple's sheet through AuthenticationServices; a Google ID token from a web session or Credential Manager), and
 /// otherwise through the API browser flow when a <see cref="IWinoAccountBrowserAuthBroker"/> exists: the broker shows
 /// <c>api/v1/auth/{provider}/authorize</c> and returns the <see cref="WinoAccountExternalAuth.CallbackUri"/> redirect,
@@ -36,6 +36,9 @@ public sealed class WinoAccountExternalSignInService(
 
     public bool IsGoogleAvailable => google is not null || broker is not null;
 
+    /// <summary>Microsoft has no native half: every platform runs the API browser flow.</summary>
+    public bool IsMicrosoftAvailable => broker is not null;
+
     public Task<WinoAccountOperationResult> SignInWithAppleAsync(CancellationToken cancellationToken = default)
         => RunAsync(WinoAccountExternalAuth.AppleProvider, apple is null ? null : async token =>
         {
@@ -49,6 +52,9 @@ public sealed class WinoAccountExternalSignInService(
             var idToken = await google.RequestIdTokenAsync(token).ConfigureAwait(false);
             return idToken is null ? null : await profileService.SignInWithGoogleAsync(idToken, token).ConfigureAwait(false);
         }, cancellationToken);
+
+    public Task<WinoAccountOperationResult> SignInWithMicrosoftAsync(CancellationToken cancellationToken = default)
+        => RunAsync(WinoAccountExternalAuth.MicrosoftProvider, null, cancellationToken);
 
     /// <param name="native">The native path; a null result means the user dismissed the provider's UI.</param>
     private async Task<WinoAccountOperationResult> RunAsync(string provider, Func<CancellationToken, Task<WinoAccountOperationResult?>>? native, CancellationToken cancellationToken)

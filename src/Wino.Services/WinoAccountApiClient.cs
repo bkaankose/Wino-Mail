@@ -1131,6 +1131,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             HasGoogleLogin = result.User.HasGoogleLogin,
             HasFacebookLogin = result.User.HasFacebookLogin,
             HasAppleLogin = result.User.HasAppleLogin,
+            HasMicrosoftLogin = result.User.HasMicrosoftLogin,
             IsUnlimitedAccountsEnabled = result.User.IsUnlimitedAccountsEnabled,
             AccessToken = result.AccessToken,
             AccessTokenExpiresAtUtc = result.AccessTokenExpiresAtUtc.UtcDateTime,

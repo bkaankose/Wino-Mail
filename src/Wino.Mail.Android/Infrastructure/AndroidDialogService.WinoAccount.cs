@@ -40,15 +40,17 @@ public sealed partial class AndroidDialogService
             var password = form.AddTextField(Translator.WinoAccount_PasswordLabel, password: true);
             var passwordLayout = (View?)password.Parent?.Parent ?? password;
             var link = form.Add(Link(activity, Translator.WinoAccount_LoginDialog_ForgotPasswordLink), Resource.Dimension.wino_space_2xs);
-            // Sign in with Google (Credential Manager) and Sign in with Apple (the API browser flow) under an "or" rule,
-            // Google first on Android; hidden in forgot-password mode.
+            // Sign in with Google (Credential Manager), Apple (the API browser flow) and Microsoft (the browser flow) under
+            // an "or" rule, Google first on Android; hidden in forgot-password mode.
             var external = new List<View>();
-            if (externalSignIn is { IsAppleAvailable: true } || externalSignIn is { IsGoogleAvailable: true })
+            if (externalSignIn is { IsAppleAvailable: true } or { IsGoogleAvailable: true } or { IsMicrosoftAvailable: true })
                 external.Add(form.Add(OrRule(activity), Resource.Dimension.wino_space_m));
             if (externalSignIn is { IsGoogleAvailable: true })
                 external.Add(ExternalButton(form.Add(GoogleButton(activity), Resource.Dimension.wino_space_s), token => externalSignIn.SignInWithGoogleAsync(token)));
             if (externalSignIn is { IsAppleAvailable: true })
                 external.Add(ExternalButton(form.Add(AppleButton(activity), Resource.Dimension.wino_space_s), token => externalSignIn.SignInWithAppleAsync(token)));
+            if (externalSignIn is { IsMicrosoftAvailable: true })
+                external.Add(ExternalButton(form.Add(MicrosoftButton(activity), Resource.Dimension.wino_space_s), token => externalSignIn.SignInWithMicrosoftAsync(token)));
             void UpdateMode()
             {
                 form.Title = forgot ? Translator.WinoAccount_ForgotPasswordDialog_Title : Translator.WinoAccount_LoginDialog_Title;
@@ -350,11 +352,18 @@ public sealed partial class AndroidDialogService
 
     /// <summary>Sign in with Google as Google's guidelines draw it: the colourful mark and the title on a neutral, outlined pill.</summary>
     private static MaterialButton GoogleButton(global::Android.Content.Context context)
+        => OutlinedProviderButton(context, Translator.WinoAccount_SignInWithGoogle, WinoIconGlyph.Google);
+
+    /// <summary>Sign in with Microsoft as the brand guidelines draw it: the four-colour mark and the title on a neutral, outlined pill.</summary>
+    private static MaterialButton MicrosoftButton(global::Android.Content.Context context)
+        => OutlinedProviderButton(context, Translator.WinoAccount_SignInWithMicrosoft, WinoIconGlyph.Microsoft);
+
+    private static MaterialButton OutlinedProviderButton(global::Android.Content.Context context, string title, WinoIconGlyph glyph)
     {
         var button = new MaterialButton(context, null, Resource.Attribute.materialButtonOutlinedStyle)
         {
-            Text = Translator.WinoAccount_SignInWithGoogle,
-            ContentDescription = Translator.WinoAccount_SignInWithGoogle,
+            Text = title,
+            ContentDescription = title,
             IconGravity = MaterialButton.IconGravityTextStart,
             IconPadding = WinoTokens.Px(context, Resource.Dimension.wino_space_s)
         };
@@ -365,7 +374,7 @@ public sealed partial class AndroidDialogService
         button.SetMinimumHeight(WinoTokens.Px(context, Resource.Dimension.wino_pill_button_height));
         button.CornerRadius = WinoTokens.Px(context, Resource.Dimension.wino_radius_large);
         button.SetTextColor(WinoColors.PrimaryText(context));
-        button.Icon = WinoIcons.Drawable(context, WinoIconGlyph.Google, WinoTokens.Dp(context, Resource.Dimension.wino_glyph_ml), colorful: true);
+        button.Icon = WinoIcons.Drawable(context, glyph, WinoTokens.Dp(context, Resource.Dimension.wino_glyph_ml), colorful: true);
         button.IconTint = null;
         button.StrokeWidth = WinoTokens.Px(context, Resource.Dimension.wino_space_hairline);
         button.StrokeColor = ColorStateList.ValueOf(WinoColors.Outline(context));
