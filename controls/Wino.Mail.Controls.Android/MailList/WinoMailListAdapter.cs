@@ -20,8 +20,8 @@ public sealed record WinoMailListRowEntry(string Key, MailListRow Row) : WinoMai
 /// RecyclerView adapter over the shared <see cref="MailListProjection"/> (the twin of the iOS diffable table source):
 /// the projection's groups become group strips (when <see cref="IsGrouped"/>) followed by their rows, keyed by the row's
 /// stable identity (thread key for thread heads, mail id otherwise) with stable item ids. Projection changes are
-/// coalesced (synchronization publishes many small batches); small changes animate through DiffUtil, large swaps (a
-/// folder load, a re-sort) rebind. A bound row follows its leaves' property changes and re-maps itself, coalesced per
+/// coalesced (synchronization publishes many small batches); small changes animate through a managed diff (no DiffUtil
+/// callbacks across JNI), large swaps (a folder load, a re-sort) rebind. Rows the projection kept keep their entry and key. A bound row follows its leaves' property changes and re-maps itself, coalesced per
 /// main-loop turn. Row content comes from the page's <c>map</c> delegate (shared <c>MailRowPresentation</c> rules plus
 /// colours and pictures); the adapter only keeps the selection keys and the select mode, and raises row events.
 /// </summary>
@@ -29,6 +29,9 @@ public sealed class WinoMailListAdapter : RecyclerView.Adapter
 {
     private const int HeaderType = 0;
     private const int RowType = 1;
+
+    /// <summary>The view type of mail rows (pool sizing).</summary>
+    public const int RowViewType = RowType;
     private const int AnimatedChangeLimit = 40;
     private static readonly TimeSpan ProjectionThrottle = TimeSpan.FromMilliseconds(120);
 
@@ -60,6 +63,9 @@ public sealed class WinoMailListAdapter : RecyclerView.Adapter
 
     /// <summary>A row was long-pressed (the page starts the multi-select ActionMode).</summary>
     public event EventHandler<MailListRow>? RowLongClicked;
+
+    /// <summary>A row's sender picture was tapped (the page starts or extends multi-select).</summary>
+    public event EventHandler<MailListRow>? RowAvatarTapped;
 
     /// <summary>The selection keys changed through <see cref="SetSelected"/>, <see cref="SelectOnly"/> or <see cref="ClearSelection"/>.</summary>
     public event EventHandler? SelectionChanged;
@@ -226,9 +232,7 @@ public sealed class WinoMailListAdapter : RecyclerView.Adapter
         int selected = _selectedKeys.Count;
         _selectedKeys.IntersectWith(next.Select(static entry => entry.Key));
 
-        if (animate && previous.Count > 0 && Math.Abs(next.Count - previous.Count) < AnimatedChangeLimit)
-            DiffUtil.CalculateDiff(new EntryDiff(previous, next), false).DispatchUpdatesTo(this);
-        else
+        if (!animate || previous.Count == 0 || !EntryDiff.TryDispatch(previous, next, this, AnimatedChangeLimit))
             NotifyDataSetChanged();
 
         if (selected != _selectedKeys.Count) SelectionChanged?.Invoke(this, EventArgs.Empty);
@@ -237,8 +241,16 @@ public sealed class WinoMailListAdapter : RecyclerView.Adapter
 
     private List<WinoMailListEntry> Flatten()
     {
-        var entries = new List<WinoMailListEntry>();
+        var entries = new List<WinoMailListEntry>(_entries.Count + 8);
         if (_projection is null) return entries;
+        // Rows the projection kept are the same objects: reuse their entries (no new key strings or records).
+        var previousRows = new Dictionary<MailListRow, WinoMailListRowEntry>(_entries.Count, ReferenceEqualityComparer.Instance);
+        var previousHeaders = new Dictionary<string, WinoMailListHeaderEntry>(StringComparer.Ordinal);
+        foreach (var entry in _entries)
+        {
+            if (entry is WinoMailListRowEntry rowEntry) previousRows[rowEntry.Row] = rowEntry;
+            else if (entry is WinoMailListHeaderEntry headerEntry) previousHeaders[headerEntry.Key] = headerEntry;
+        }
         var seen = new HashSet<string>(StringComparer.Ordinal);
         int index = 0;
         foreach (var group in _projection.Groups)
@@ -250,12 +262,12 @@ public sealed class WinoMailListAdapter : RecyclerView.Adapter
                 var headerKey = "G:" + title;
                 if (!seen.Add(headerKey)) headerKey += "#" + index;
                 seen.Add(headerKey);
-                entries.Add(new WinoMailListHeaderEntry(headerKey, title));
+                entries.Add(previousHeaders.TryGetValue(headerKey, out var header) && header.Title == title ? header : new WinoMailListHeaderEntry(headerKey, title));
             }
             foreach (var row in group)
             {
-                var key = RowKey(row);
-                if (seen.Add(key)) entries.Add(new WinoMailListRowEntry(key, row));
+                var entry = previousRows.TryGetValue(row, out var kept) ? kept : new WinoMailListRowEntry(RowKey(row), row);
+                if (seen.Add(entry.Key)) entries.Add(entry);
             }
             index++;
         }
@@ -297,6 +309,7 @@ public sealed class WinoMailListAdapter : RecyclerView.Adapter
         };
         view.ThreadToggleRequested += (_, _) => { if (holder.Row is { } row) ToggleThread(row); };
         view.CheckboxToggled += (_, _) => { if (holder.Row is { } row) SetSelected(row, !IsSelected(row)); };
+        view.AvatarTapped += (_, _) => { if (holder.Row is { } row) RowAvatarTapped?.Invoke(this, row); };
         return holder;
     }
 
@@ -324,8 +337,9 @@ public sealed class WinoMailListAdapter : RecyclerView.Adapter
         if (holder is RowHolder contentHolder && payloads.Count > 0 && payloads.All(static payload => payload is ContentPayload or SelectionPayload)
             && contentHolder.Row is { } row && _entries[position] is WinoMailListRowEntry entry && ReferenceEquals(entry.Row, row))
         {
-            if (_map(row) is { } model) contentHolder.View.Apply(model);
-            ApplySelection(contentHolder);
+            var (selectionMode, isChecked, rowSelected) = SelectionState(row);
+            if (_map(row) is { } model) contentHolder.View.Apply(model, selectionMode, isChecked, rowSelected);
+            else contentHolder.View.SetSelectionState(selectionMode, isChecked, rowSelected);
             return;
         }
         OnBindViewHolder(holder, position);
@@ -363,8 +377,9 @@ public sealed class WinoMailListAdapter : RecyclerView.Adapter
         _bound.Add(holder);
         holder.Row = row;
         holder.View.Item = row;
-        if (_map(row) is { } initial) holder.View.Apply(initial);
-        ApplySelection(holder);
+        var (selectionMode, isChecked, rowSelected) = SelectionState(row);
+        if (_map(row) is { } initial) holder.View.Apply(initial, selectionMode, isChecked, rowSelected);
+        else holder.View.SetSelectionState(selectionMode, isChecked, rowSelected);
 
         var leaves = (row.IsThreadHead ? row.LeafItems : new[] { row.SourceItem }).OfType<INotifyPropertyChanged>().ToArray();
         bool pending = false;
@@ -400,10 +415,14 @@ public sealed class WinoMailListAdapter : RecyclerView.Adapter
 
     private void ApplySelection(RowHolder holder)
     {
-        bool selected = holder.Row is { } row && IsSelected(row);
-        holder.View.IsSelectionMode = _isSelectionMode;
-        holder.View.IsChecked = _isSelectionMode && selected;
-        holder.View.IsRowSelected = !_isSelectionMode && selected;
+        var (selectionMode, isChecked, rowSelected) = SelectionState(holder.Row);
+        holder.View.SetSelectionState(selectionMode, isChecked, rowSelected);
+    }
+
+    private (bool SelectionMode, bool IsChecked, bool RowSelected) SelectionState(MailListRow? row)
+    {
+        bool selected = row is not null && IsSelected(row);
+        return (_isSelectionMode, _isSelectionMode && selected, !_isSelectionMode && selected);
     }
 
     private sealed class HeaderHolder(TextView title) : RecyclerView.ViewHolder(title)
@@ -438,12 +457,88 @@ public sealed class WinoMailListAdapter : RecyclerView.Adapter
         public static readonly ContentPayload Instance = new();
     }
 
-    /// <summary>Same key is the same item; same entry (same row object, same title) is the same content.</summary>
-    private sealed class EntryDiff(List<WinoMailListEntry> previous, List<WinoMailListEntry> next) : DiffUtil.Callback
+    /// <summary>
+    /// The list diff in managed code (DiffUtil would call back across JNI for every comparison). Entries with the same key
+    /// are the same item; the longest run of kept items whose order did not change stays, everything else is removed and
+    /// inserted (a moved row animates out and in). A kept key with a different entry (a new row object) is a change.
+    /// </summary>
+    private static class EntryDiff
     {
-        public override int OldListSize => previous.Count;
-        public override int NewListSize => next.Count;
-        public override bool AreItemsTheSame(int oldItemPosition, int newItemPosition) => previous[oldItemPosition].Key == next[newItemPosition].Key;
-        public override bool AreContentsTheSame(int oldItemPosition, int newItemPosition) => previous[oldItemPosition] == next[newItemPosition];
+        /// <summary>Dispatches the updates; false when more than <paramref name="limit"/> rows change (the caller rebinds).</summary>
+        public static bool TryDispatch(List<WinoMailListEntry> previous, List<WinoMailListEntry> next, RecyclerView.Adapter adapter, int limit)
+        {
+            var nextIndex = new Dictionary<string, int>(next.Count, StringComparer.Ordinal);
+            for (int index = 0; index < next.Count; index++) nextIndex[next[index].Key] = index;
+
+            // New positions of the surviving entries, in old order; the longest increasing run keeps its place.
+            var survivors = new List<int>(previous.Count);
+            var survivorOld = new List<int>(previous.Count);
+            for (int index = 0; index < previous.Count; index++)
+            {
+                if (!nextIndex.TryGetValue(previous[index].Key, out var position)) continue;
+                survivors.Add(position);
+                survivorOld.Add(index);
+            }
+            var stay = LongestIncreasingRun(survivors);
+            var stayOld = new bool[previous.Count];
+            var stayNew = new bool[next.Count];
+            foreach (var survivor in stay)
+            {
+                stayOld[survivorOld[survivor]] = true;
+                stayNew[survivors[survivor]] = true;
+            }
+
+            int removed = previous.Count - stay.Count;
+            int inserted = next.Count - stay.Count;
+            if (removed + inserted > limit) return false;
+
+            // Removals from the end, so earlier positions stay valid; contiguous runs go out as one range.
+            for (int index = previous.Count - 1; index >= 0;)
+            {
+                if (stayOld[index]) { index--; continue; }
+                int end = index;
+                while (index >= 0 && !stayOld[index]) index--;
+                adapter.NotifyItemRangeRemoved(index + 1, end - index);
+            }
+            // The list now holds the kept entries in new order; insertions in ascending order land on their positions.
+            for (int index = 0; index < next.Count;)
+            {
+                if (stayNew[index]) { index++; continue; }
+                int start = index;
+                while (index < next.Count && !stayNew[index]) index++;
+                adapter.NotifyItemRangeInserted(start, index - start);
+            }
+            for (int index = 0; index < survivors.Count; index++)
+            {
+                int position = survivors[index];
+                if (stayNew[position] && previous[survivorOld[index]] != next[position])
+                    adapter.NotifyItemChanged(position);
+            }
+            return true;
+        }
+
+        /// <summary>Indices into <paramref name="values"/> of one longest strictly increasing subsequence (O(n log n)).</summary>
+        private static List<int> LongestIncreasingRun(List<int> values)
+        {
+            var tails = new List<int>(values.Count);
+            var previous = new int[values.Count];
+            for (int index = 0; index < values.Count; index++)
+            {
+                int low = 0, high = tails.Count;
+                while (low < high)
+                {
+                    int middle = (low + high) / 2;
+                    if (values[tails[middle]] < values[index]) low = middle + 1;
+                    else high = middle;
+                }
+                previous[index] = low > 0 ? tails[low - 1] : -1;
+                if (low == tails.Count) tails.Add(index);
+                else tails[low] = index;
+            }
+            var run = new List<int>(tails.Count);
+            for (int index = tails.Count > 0 ? tails[^1] : -1; index >= 0; index = previous[index]) run.Add(index);
+            run.Reverse();
+            return run;
+        }
     }
 }

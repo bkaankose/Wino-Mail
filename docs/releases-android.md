@@ -11,7 +11,7 @@ The head reads the version from `src/Wino.Mail.WinUI/Package.appxmanifest`, like
 
 ## Release build
 
-Release builds of the head use Mono full AOT with LLVM and full trimming for `android-arm64` ([build/Wino.Android.targets](../build/Wino.Android.targets)). `PublishAot` stays false.
+Release builds of the head use Mono full AOT and full trimming for `android-arm64`, without LLVM: with LLVM, async `FileStream` reads throw on Android and no mail renders ([dotnet/runtime#104167](https://github.com/dotnet/runtime/issues/104167), open) ([build/Wino.Android.targets](../build/Wino.Android.targets)). `PublishAot` stays false.
 
 ```sh
 dotnet publish src/Wino.Mail.Android/Wino.Mail.Android.csproj -c Release -r android-arm64 -p:WinoTargetPlatform=Android \

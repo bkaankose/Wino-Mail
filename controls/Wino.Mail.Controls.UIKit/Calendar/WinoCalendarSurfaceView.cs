@@ -178,6 +178,23 @@ public sealed class WinoCalendarSurfaceView : UIView
         }
     }
 
+    /// <summary>
+    /// False hides the Day and Week column header row (weekday and date), giving its height to the grid; the iPhone shows
+    /// the dates in its own period header. Month view keeps its weekday names. True by default (iPad, Mac).
+    /// </summary>
+    public bool ShowsDayHeader
+    {
+        get => _showsDayHeader;
+        set
+        {
+            if (_showsDayHeader == value) return;
+            _showsDayHeader = value;
+            SetNeedsLayout();
+        }
+    }
+
+    private bool _showsDayHeader = true;
+
     /// <summary>True while an empty-slot drag is selecting a range.</summary>
     public bool IsSelectingRange => _slotPress?.Dragging == true;
 
@@ -283,6 +300,7 @@ public sealed class WinoCalendarSurfaceView : UIView
 
         if (month)
         {
+            _header.Hidden = false;
             _header.Frame = new CGRect(0, 0, bounds.Width, MonthHeaderHeight);
             _month.Frame = new CGRect(0, MonthHeaderHeight, bounds.Width, Math.Max(0, bounds.Height - MonthHeaderHeight));
             _month.Relayout();
@@ -293,9 +311,11 @@ public sealed class WinoCalendarSurfaceView : UIView
         var dates = Dates;
         int lanes = CalendarLayoutCalculator.GetAllDayLaneCount(dates, _items);
         double allDayHeight = CalendarLayoutCalculator.GetAllDayHeight(lanes);
-        _header.Frame = new CGRect(0, 0, bounds.Width, TimedHeaderHeight);
-        _allDay.Frame = new CGRect(0, TimedHeaderHeight, bounds.Width, allDayHeight);
-        double scrollTop = TimedHeaderHeight + allDayHeight;
+        double headerHeight = _showsDayHeader ? TimedHeaderHeight : 0;
+        _header.Hidden = !_showsDayHeader;
+        _header.Frame = new CGRect(0, 0, bounds.Width, headerHeight);
+        _allDay.Frame = new CGRect(0, headerHeight, bounds.Width, allDayHeight);
+        double scrollTop = headerHeight + allDayHeight;
         _scroll.Frame = new CGRect(0, scrollTop, bounds.Width, Math.Max(0, bounds.Height - scrollTop));
         double canvasHeight = WinoCalendarSurfaceGeometry.CanvasHeight(HourHeight);
         _timed.Frame = new CGRect(0, 0, bounds.Width, canvasHeight);

@@ -4,6 +4,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.UIKit.Infrastructure;
+using Wino.Mail.UIKit.Phone.Shell;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Messaging.Client.Mails;
@@ -26,7 +27,8 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
     IRecipient<DisposeRenderingFrameRequested>,
     IRecipient<ComposeDetachedDraftRequested>,
     IRecipient<SelectMailItemContainerEvent>,
-    IRecipient<WinoIntelligenceEntitlementChanged>
+    IRecipient<WinoIntelligenceEntitlementChanged>,
+    IPhoneFloatingActionPage
 {
     private readonly IFolderService _folderService;
     private readonly IPreferencesService _preferences;
@@ -156,9 +158,6 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
         NavigationItem.Title = _selectionMode
             ? (ViewModel.SelectedItemsCount > 0 ? string.Format(Translator.MailsSelected, ViewModel.SelectedItemsCount) : Translator.NoMailSelected)
             : ViewModel.ActiveFolder?.FolderName ?? Translator.IOS_MailboxesTitle;
-        // The account address under the folder name (iOS 26 bar subtitle); linked accounts and edit mode have none.
-        if (OperatingSystem.IsIOSVersionAtLeast(26))
-            NavigationItem.Subtitle = !_selectionMode && ViewModel.ActiveFolder is IFolderMenuItem { ParentAccount: { } account } ? account.Address ?? string.Empty : string.Empty;
     }
 
     protected override void Dispose(bool disposing)

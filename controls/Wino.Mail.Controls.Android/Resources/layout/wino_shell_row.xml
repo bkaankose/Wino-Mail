@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- A navigation drawer item (canvas Material pass Mailboxes; Material 3 NavigationDrawer): the 56 dp full-radius active
-     indicator inset 12 dp from the drawer edges, the active-account indicator, then glyph or account avatar, the label
+     indicator inset 12 dp from the drawer edges and 3 dp from the rows around it, the active-account indicator, then glyph or account avatar, the label
      and subtitle, the unread count and the expand chevron. Sizes come from the wino_m3_drawer_* tokens. -->
 <merge xmlns:android="http://schemas.android.com/apk/res/android">
   <View
@@ -8,7 +8,9 @@
       android:layout_width="match_parent"
       android:layout_height="match_parent"
       android:layout_marginStart="@dimen/wino_m3_drawer_item_inset"
-      android:layout_marginEnd="@dimen/wino_m3_drawer_item_inset" />
+      android:layout_marginEnd="@dimen/wino_m3_drawer_item_inset"
+      android:layout_marginTop="@dimen/wino_m3_drawer_item_spacing"
+      android:layout_marginBottom="@dimen/wino_m3_drawer_item_spacing" />
   <View
       android:id="@+id/wino_shell_pipe"
       android:layout_width="@dimen/wino_m3_drawer_indicator_width"

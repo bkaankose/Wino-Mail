@@ -160,7 +160,8 @@ public partial class CalendarPreferenceSettingsPageViewModel : CalendarSettingsS
         foreach (var account in orderedAccounts)
         {
             var calendars = await CalendarService.GetAccountCalendarsAsync(account.Id).ConfigureAwait(false);
-            calendarOptions.AddRange(calendars.Select(calendar => new AccountCalendarViewModel(account, calendar)));
+            // New events cannot be written to read-only calendars, so the New event calendar setting never offers them.
+            calendarOptions.AddRange(calendars.Where(calendar => !calendar.IsReadOnly).Select(calendar => new AccountCalendarViewModel(account, calendar)));
 
             if (GroupedAccountCalendarViewModel.SupportsCalendar(account) && calendars.Count > 0)
                 startupAccounts.Add(account);

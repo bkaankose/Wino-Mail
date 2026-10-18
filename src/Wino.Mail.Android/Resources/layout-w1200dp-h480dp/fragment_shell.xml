@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Shell, expanded width (≥ 840 dp; canvas board Tablet, the Windows layout): the pinned navigation pane (320 dp) over
+<!-- Shell, expanded width (≥ 1200 dp; canvas board Tablet, the Windows layout): the pinned navigation pane (320 dp) over
      the wallpaper with the mode switcher card at its foot, the content page in a 420 dp list pane and the reader
      filling the rest. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"

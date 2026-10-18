@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Wino colour tokens in dark mode (Nighty accent; canvas Tokens board). -->
+<!-- Wino colour tokens in dark mode (canvas Tokens board). The accent tokens are the Default theme's fallback Wino
+     blue; Android 12 and later use the device's Material You accent instead (values-night-v31). -->
 <resources>
-  <color name="wino_accent">#E1B12C</color>
+  <color name="wino_accent">#5FB2F2</color>
   <color name="wino_on_accent">#1B1B1B</color>
-  <color name="wino_accent_text">#E1B12C</color>
-  <color name="wino_accent_container">#33E1B12C</color>
-  <color name="wino_secondary_container">#4D4125</color>
-  <color name="wino_primary_container">#5C4D26</color>
-  <color name="wino_backdrop">#202028</color>
+  <color name="wino_accent_text">#7FC2F5</color>
+  <color name="wino_accent_container">#335FB2F2</color>
+  <color name="wino_secondary_container">#24384A</color>
+  <color name="wino_primary_container">#284762</color>
+  <color name="wino_backdrop">#141416</color>
   <color name="wino_zone">#1E1E23</color>
   <color name="wino_zone_stroke">#14FFFFFF</color>
   <color name="wino_divider">#12FFFFFF</color>

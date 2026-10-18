@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Default theme's accent on Android 12 and later in dark mode: the device's Material You palette (Material 3
+     dark roles: primary accent1 200, primary container accent1 700, secondary container accent2 700). -->
+<resources>
+  <color name="wino_accent">@android:color/system_accent1_200</color>
+  <color name="wino_on_accent">@android:color/system_accent1_800</color>
+  <color name="wino_accent_text">@android:color/system_accent1_200</color>
+  <color name="wino_accent_container">@android:color/system_accent1_700</color>
+  <color name="wino_secondary_container">@android:color/system_accent2_700</color>
+  <color name="wino_primary_container">@android:color/system_accent1_700</color>
+</resources>

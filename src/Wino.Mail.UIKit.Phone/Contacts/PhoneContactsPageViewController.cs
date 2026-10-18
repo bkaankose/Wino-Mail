@@ -1,6 +1,8 @@
 using UIKit;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.UIKit.Infrastructure;
+using Wino.Mail.UIKit.Phone.Mail;
+using Wino.Mail.UIKit.Phone.Shell;
 using Wino.Mail.UIKit.Views.Contacts;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
@@ -8,26 +10,31 @@ using Wino.Mail.ViewModels.Data;
 namespace Wino.Mail.UIKit.Phone.Contacts;
 
 /// <summary>
-/// The iPhone Contacts tab (iOS design decisions): the letter-indexed list with a search controller and the filters as a
-/// bar menu; a tap pushes the contact card. New and edit open the editor as a full-screen sheet (PhonePageRegistry).
+/// The iPhone Contacts tab (iOS design decisions): the letter-indexed list with a search glyph in the bar and the filters
+/// in the shell drawer; a tap pushes the contact card. New and edit open the editor as a full-screen sheet (PhonePageRegistry).
 /// </summary>
 public sealed class PhoneContactsPageViewController(ContactsPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger,
     UIKitNavigationService navigation, IPictureStorageService pictures, IExternalLauncher launcher)
-    : ContactsPageViewController(viewModel, dispatcher, logger, navigation, pictures, launcher)
+    : ContactsPageViewController(viewModel, dispatcher, logger, navigation, pictures, launcher), IPhoneFloatingActionPage
 {
     private WeakReference<ContactCardViewController>? _card;
 
     protected override bool UsesSearchController => true;
 
-    protected override bool ShowsFilterMenu => true;
+    // The contact filters are the shell drawer's rows; the bar keeps New contact and search.
+    protected override bool ShowsFilterMenu => false;
+
+    // New contact is the shell's floating button.
+    protected override bool ShowsAddButton => false;
+
+    void IPhoneFloatingActionPage.FloatingActionInvoked() => AddContact();
 
     public override void ViewDidLoad()
     {
         base.ViewDidLoad();
         NavigationItem.LargeTitleDisplayMode = UINavigationItemLargeTitleDisplayMode.Never;
-        // No persistent search bar under the compact title: iOS 26 puts search behind a bar button.
-        if (OperatingSystem.IsIOSVersionAtLeast(26) && NavigationItem.SearchController is not null)
-            NavigationItem.PreferredSearchBarPlacement = UINavigationItemSearchBarPlacement.IntegratedButton;
+        // Search sits behind the bar's search glyph on every tab.
+        if (NavigationItem.SearchController is { } search) PhoneBarItems.BarSearch(NavigationItem, search);
     }
 
     protected override void ContactActivated(AccountContactViewModel contact)

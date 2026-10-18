@@ -37,11 +37,10 @@ public sealed partial class CalendarPageFragment
 
         if (_toolbar is not null)
         {
-            _toolbar.Title = Translator.KeyboardShortcuts_ModeCalendar;
             _toolbar.Menu.Clear();
             var add = _toolbar.Menu.Add(0, MenuNewEvent, 0, Translator.CalendarEventCompose_NewEventButton);
             add?.SetIcon(WinoIcons.Drawable(context, WinoIconGlyph.Add, WinoTokens.Dp(context, Resource.Dimension.wino_m3_glyph), WinoColors.SecondaryText(context)));
-            add?.SetShowAsAction(ShowAsAction.Always | ShowAsAction.WithText);
+            add?.SetShowAsAction(ShowAsAction.Always);
             _toolbar.MenuItemClick += (_, args) => { if (args.Item?.ItemId == MenuNewEvent) NewEvent(); };
         }
 
@@ -125,8 +124,8 @@ public sealed partial class CalendarPageFragment
 
     private void SurfaceRangeTextChanged(string? text)
     {
-        // The range is the app bar title (the period header has no room for it beside the four display types).
-        if (_toolbar is not null) _toolbar.Title = string.IsNullOrWhiteSpace(text) ? Translator.KeyboardShortcuts_ModeCalendar : text;
+        // The range leads the period header (the search bar took the app bar title's place).
+        if (View?.FindViewById<TextView>(Resource.Id.calendar_range) is { } range) range.Text = string.IsNullOrWhiteSpace(text) ? Translator.KeyboardShortcuts_ModeCalendar : text;
     }
 
     private void SurfaceItemsChanged()

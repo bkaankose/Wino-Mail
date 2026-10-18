@@ -48,6 +48,18 @@ public static class ShellMenuItemRules
     public static bool ShowsIndicator(IMenuItem item)
         => item is IAccountNavigationMenuItem { IsSelected: true } account && IsAccountRow(account);
 
+    /// <summary>
+    /// How deep a folder row sits under other folders (More, a parent folder), counted from its account whether or not
+    /// the account row is part of the flattened list: the children of More indent one level.
+    /// </summary>
+    public static int FolderIndent(IMenuItem item)
+    {
+        int indent = 0;
+        for (var parent = item.ParentMenuItem; parent is not null and not IAccountMenuItem; parent = parent.ParentMenuItem)
+            indent++;
+        return indent;
+    }
+
     public static IEnumerable<IMenuItem> Children(IMenuItem item) => item switch
     {
         AccountMenuItem account => account.SubMenuItems,

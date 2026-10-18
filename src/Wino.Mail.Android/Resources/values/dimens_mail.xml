@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Mail list header (owner request 18 Oct): a 40 dp row with compact 32 dp Focused / Other segments and the filter
+     button at its end, instead of the 48 dp chip row with 40 dp segments. -->
+<resources>
+  <dimen name="wino_mail_header_height">40dp</dimen>
+  <dimen name="wino_mail_header_button">40dp</dimen>
+  <dimen name="wino_mail_pivot_height">32dp</dimen>
+  <!-- Half the height: a larger radius draws stray edges past the rounded ends. -->
+  <dimen name="wino_mail_pivot_radius">16dp</dimen>
+  <dimen name="wino_mail_pivot_padding">12dp</dimen>
+  <dimen name="wino_mail_pivot_text">13sp</dimen>
+</resources>

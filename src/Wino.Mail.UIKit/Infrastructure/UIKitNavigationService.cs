@@ -173,6 +173,13 @@ public sealed class UIKitNavigationService : INavigationService, INavigationHost
     async Task INavigationHost.SetShellContentAsync(WinoPage page, object? parameter)
     {
         if (_shell is not { } shell) return;
+        // The live page of the same route takes the new parameter in place (a calendar date or view change), so its bar
+        // and view state stay as they are.
+        if (shell.Content is IReusableShellPage live && live.CanReuseFor(page))
+        {
+            await live.ReactivateAsync(parameter);
+            return;
+        }
         var controller = await CreateControllerAsync(page);
         await shell.SetContentAsync(controller, parameter);
     }

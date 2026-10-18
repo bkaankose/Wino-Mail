@@ -15,7 +15,7 @@ public static class WinoColors
 {
     private static Color? _accentOverride;
 
-    /// <summary>The selected theme's accent; null uses the resource accent (Clouds in light, Nighty in dark).</summary>
+    /// <summary>The selected theme's accent; null uses the resource accent (the device's Material You accent on Android 12 and later, else Wino blue).</summary>
     public static Color? AccentOverride
     {
         get => _accentOverride;
@@ -79,6 +79,12 @@ public static class WinoColors
 
     /// <summary>A fraction resource (0 to 1).</summary>
     public static float Fraction(Context context, int fractionResource) => context.Resources?.GetFraction(fractionResource, 1, 1) ?? 0f;
+
+    /// <summary>The calendar's today column: the theme accent at 4% (8% in dark mode).</summary>
+    public static Color CalendarTodayColumn(Context context) => WithAlpha(Accent(context), IsDark(context) ? 0.08 : 0.04);
+
+    /// <summary>The mini calendar's selected range band: the theme accent at 14% (20% in dark mode).</summary>
+    public static Color CalendarRangeBand(Context context) => WithAlpha(Accent(context), IsDark(context) ? 0.20 : 0.14);
 
     /// <summary>Selected rows: the accent at 10% (canvas Components, selected mail row).</summary>
     public static Color SelectedFill(Context context) => WithAlpha(Accent(context), 0.10);

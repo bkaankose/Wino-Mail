@@ -31,6 +31,9 @@ public sealed partial class MailListPageViewController
     private readonly UIButton _emptyFolderButton = new(UIButtonType.System) { Hidden = true, TranslatesAutoresizingMaskIntoConstraints = false };
     private readonly UIButton _selectButton = new(UIButtonType.System) { TranslatesAutoresizingMaskIntoConstraints = false };
     private readonly UIView _headerRow = new() { TranslatesAutoresizingMaskIntoConstraints = false };
+    private nfloat _lastScrollOffset;
+    private nfloat _scrollTravel;
+    private bool _headerCollapsed;
     private readonly WinoInfoBar _syncBar = new(WinoInfoBarSeverity.Informational, Translator.InfoBarTitle_SynchronizationDisabledFolder, Translator.InfoBarMessage_SynchronizationDisabledFolder)
     {
         ActionTitle = Translator.MacOS_MailList_EnableFolderSync,
@@ -138,6 +141,10 @@ public sealed partial class MailListPageViewController
         _dataSource = new UITableViewDiffableDataSource<NSString, NSString>(_table, CreateCell) { DefaultRowAnimation = UITableViewRowAnimation.Fade };
         _delegate = new ListDelegate(this);
         _table.Delegate = _delegate;
+        // Alongside the table's own touch handling (row highlight, scroll), so the press is not swallowed.
+        var longPress = new UILongPressGestureRecognizer(RowLongPressed) { MinimumPressDuration = 0.45 };
+        longPress.ShouldRecognizeSimultaneously = (_, _) => true;
+        _table.AddGestureRecognizer(longPress);
 
         var listHost = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
         WinoLayout.Fill(_table, listHost);
@@ -172,9 +179,9 @@ public sealed partial class MailListPageViewController
         _projection.ProjectionChanged += ProjectionChanged;
         ApplyEntries(animate: false);
 
-        Bind(nameof(ViewModel.ActiveFolder), vm => vm.ActiveFolder, _ => { UpdatePivots(); UpdateSyncBar(); UpdateOtherInboxLink(); UpdateTitle(); });
+        Bind(nameof(ViewModel.ActiveFolder), vm => vm.ActiveFolder, _ => { SetHeaderCollapsed(false); UpdatePivots(); UpdateSyncBar(); UpdateOtherInboxLink(); UpdateTitle(); });
         Bind(nameof(ViewModel.SelectedFolderPivot), vm => vm.SelectedFolderPivot, _ => { UpdatePivots(); UpdateOtherInboxLink(); });
-        Bind(nameof(ViewModel.IsEmptyFolderButtonVisible), vm => vm.IsEmptyFolderButtonVisible, visible => _emptyFolderButton.Hidden = !visible);
+        Bind(nameof(ViewModel.IsEmptyFolderButtonVisible), vm => vm.IsEmptyFolderButtonVisible, visible => { _emptyFolderButton.Hidden = !visible; ApplyHeaderRow(); });
         Bind(nameof(ViewModel.SelectedFilterOption), vm => vm.SelectedFilterOption, _ => UpdateFilterMenu());
         Bind(nameof(ViewModel.SelectedSortingOption), vm => vm.SelectedSortingOption, _ => UpdateFilterMenu());
         ViewModel.PivotFolders.CollectionChanged += PivotFoldersChanged;
@@ -265,13 +272,65 @@ public sealed partial class MailListPageViewController
 
     private void PivotFoldersChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs args) => OnUI(UpdatePivots);
 
+    /// <summary>
+    /// Outlook-style header (approach A of 18 Oct 2026): the Focused/Other, filter and Select row slides away after a
+    /// 24pt drag down the list and comes back after a 12pt drag up, or at the top. Only the user's own scrolling counts,
+    /// so a reload or a programmatic scroll never toggles it; edit mode keeps the row.
+    /// </summary>
+    internal void TrackHeaderCollapse(UIScrollView scrollView)
+    {
+        var offset = scrollView.ContentOffset.Y + scrollView.AdjustedContentInset.Top;
+        var delta = offset - _lastScrollOffset;
+        _lastScrollOffset = offset;
+        if (!scrollView.Dragging && !scrollView.Decelerating) { _scrollTravel = 0; return; }
+        if (offset <= 0 || _selectionMode) { SetHeaderCollapsed(false); return; }
+        // Travel restarts whenever the direction changes.
+        _scrollTravel = (delta > 0) == (_scrollTravel > 0) ? _scrollTravel + delta : delta;
+        if (_scrollTravel > 24) SetHeaderCollapsed(true);
+        else if (_scrollTravel < -12) SetHeaderCollapsed(false);
+    }
+
+    /// <summary>True when the folder has Focused and Other.</summary>
+    private bool HasPivots => ViewModel.PivotFolders.Count > 1;
+
+    private void SetHeaderCollapsed(bool collapsed)
+    {
+        if (_headerCollapsed == collapsed) return;
+        _headerCollapsed = collapsed;
+        ApplyHeaderRow(animated: !UIAccessibility.IsReduceMotionEnabled);
+    }
+
+    /// <summary>The header row shows for Focused/Other (or Empty folder) while the list is not scrolled away from it.</summary>
+    private void ApplyHeaderRow(bool animated = false)
+    {
+        bool hidden = _headerCollapsed || !(HasPivots || ViewModel.IsEmptyFolderButtonVisible);
+        _selectButton.Hidden = _selectionMode || !HasPivots;
+        if (_headerRow.Hidden == hidden) return;
+        if (!animated)
+        {
+            _headerRow.Hidden = hidden;
+            _headerRow.Alpha = hidden ? 0 : 1;
+            return;
+        }
+        UIView.Animate(0.22, 0, UIViewAnimationOptions.CurveEaseInOut | UIViewAnimationOptions.BeginFromCurrentState | UIViewAnimationOptions.AllowUserInteraction, () =>
+        {
+            _headerRow.Hidden = hidden;
+            _headerRow.Alpha = hidden ? 0 : 1;
+            _headerRow.Superview?.LayoutIfNeeded();
+        }, null);
+    }
+
     private void UpdatePivots()
     {
         var pivots = ViewModel.PivotFolders.ToArray();
         var items = pivots.Select(static pivot => new WinoPivotItem(pivot.FolderTitle, pivot.ShouldDisplaySelectedItemCount ? pivot.SelectedItemCount : 0)).ToArray();
         _pivotBar.SetItems(items, Array.IndexOf(pivots, ViewModel.SelectedFolderPivot));
-        // A folder without Focused/Other has a single pivot: its own name, which the title already shows.
+        // A folder without Focused/Other has a single pivot: its own name, which the title already shows. Then the header
+        // row goes away and Filter and Select move into the bar.
         _pivotBar.Hidden = pivots.Length < 2;
+        _filterButton.Hidden = pivots.Length < 2;
+        ApplyHeaderRow();
+        ApplyNavigationItems();
     }
 
     /// <summary>Windows FolderPivotChanged: flag the pivots, clear the selection and run the pivot command.</summary>
@@ -297,6 +356,7 @@ public sealed partial class MailListPageViewController
             () => Observe(ViewModel.SelectedSortingChangedCommand.ExecuteAsync(option)), on: ReferenceEquals(option, ViewModel.SelectedSortingOption))).ToArray();
         var searchFilters = PhoneBarItems.Action(Translator.MacOS_MailList_SearchFilters, WinoIconGlyph.Filter, ShowSearchFilters);
         _filterButton.Menu = UIMenu.Create([PhoneBarItems.Inline(filters), PhoneBarItems.Inline(sorting), PhoneBarItems.Inline(searchFilters)]);
+        if (_filterBarItem is { } barItem) barItem.Menu = _filterButton.Menu;
         if (_filterButton.Configuration is { } configuration)
         {
             configuration.Title = ViewModel.SelectedFilterOption?.Title ?? string.Empty;
@@ -714,6 +774,14 @@ public sealed partial class MailListPageViewController
 
         public override nfloat GetHeightForFooter(UITableView tableView, nint section) => 0;
 
+        /// <summary>Outside multi-select a conversation head expands or collapses; its messages open from their own rows.</summary>
+        public override NSIndexPath? WillSelectRow(UITableView tableView, NSIndexPath indexPath)
+        {
+            if (owner._selectionMode || owner.RowAt(indexPath) is not { IsThreadHead: true } row) return indexPath;
+            owner.ToggleThread(row);
+            return null;
+        }
+
         public override void RowSelected(UITableView tableView, NSIndexPath indexPath) => owner.TableSelectionChanged(indexPath, true);
 
         public override void RowDeselected(UITableView tableView, NSIndexPath indexPath) => owner.TableSelectionChanged(indexPath, false);
@@ -723,9 +791,6 @@ public sealed partial class MailListPageViewController
 
         public override UISwipeActionsConfiguration? GetTrailingSwipeActionsConfiguration(UITableView tableView, NSIndexPath indexPath)
             => owner.SwipeActions(indexPath, leading: false);
-
-        public override UIContextMenuConfiguration? GetContextMenuConfiguration(UITableView tableView, NSIndexPath indexPath, CoreGraphics.CGPoint point)
-            => owner.ContextMenu(indexPath);
 
         public override void CellDisplayingEnded(UITableView tableView, UITableViewCell cell, NSIndexPath indexPath)
         {
@@ -740,7 +805,11 @@ public sealed partial class MailListPageViewController
             if (cell is WinoMailRowCell { Item: null } mailCell && owner.RowAt(indexPath) is { } row) owner.BindCell(mailCell, row);
         }
 
-        public override void Scrolled(UIScrollView scrollView) => owner.CheckLoadMore();
+        public override void Scrolled(UIScrollView scrollView)
+        {
+            owner.CheckLoadMore();
+            owner.TrackHeaderCollapse(scrollView);
+        }
 
         // Range selection like Mail and Photos: a two-finger pan anywhere enters edit mode and selects the rows it crosses.
         public override bool ShouldBeginMultipleSelectionInteraction(UITableView tableView, NSIndexPath indexPath) => true;

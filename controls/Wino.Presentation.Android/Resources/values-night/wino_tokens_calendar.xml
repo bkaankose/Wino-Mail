@@ -9,6 +9,4 @@
   <color name="wino_calendar_grid_line">#1FFFFFFF</color>
   <color name="wino_calendar_half_hour_line">#0DFFFFFF</color>
   <color name="wino_calendar_weekend">#08FFFFFF</color>
-  <color name="wino_calendar_today_column">#140984E3</color>
-  <color name="wino_calendar_range_band">#330984E3</color>
 </resources>

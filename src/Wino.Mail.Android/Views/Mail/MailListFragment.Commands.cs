@@ -11,9 +11,6 @@ using Wino.Mail.Controls.Android.MailList;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.Android;
-using ActionMode = AndroidX.AppCompat.View.ActionMode;
-using IMenu = Android.Views.IMenu;
-using IMenuItem = Android.Views.IMenuItem;
 
 using Wino.Mail.Android.Infrastructure;
 
@@ -21,29 +18,40 @@ namespace Wino.Mail.Android.Views.Mail;
 
 public sealed partial class MailListFragment
 {
-    private const int ActionArchive = 101;
-    private const int ActionDelete = 102;
-    private const int ActionMove = 103;
-    private const int ActionFlag = 104;
-    private const int ActionSelectAll = 105;
-    private const int ActionMoreBase = 200;
+    private const int MenuSelectAll = 105;
 
-    private ActionMode? _actionMode;
-    private TextView? _actionModeTitle;
-    private List<(MailOperation Operation, bool Enabled)> _moreOperations = [];
+    private bool _selecting;
+    private LinearLayout? _selectionToolbar;
 
-    // ---- Swipe (canvas Components: leading Archive, trailing Delete) ----
+    // ---- Swipe (the user's swipe preferences, as on Windows, iPad and the Mac) ----
 
     private void AttachSwipe(Context context)
     {
         if (_list is null || _adapter is null) return;
-        var helper = WinoMailSwipeHelper.Attach(_list, _adapter, (row, leading) =>
-        {
-            if (_actionMode is not null || Leaves(row).Count == 0) return null;
-            if (leading) return ViewModel?.IsArchiveSpecialFolder == true ? MailOperation.UnArchive : MailOperation.Archive;
-            return MailOperation.SoftDelete;
-        }, (row, operation) => RunOperation(operation, Leaves(row), row.SourceItem as MailItemViewModel));
+        var helper = WinoMailSwipeHelper.Attach(_list, _adapter, SwipeOperation,
+            (row, operation) => RunOperation(operation, Leaves(row), row.SourceItem as MailItemViewModel));
         Bindings.Own(new ActionDisposable(() => helper.AttachToRecyclerView(null)));
+    }
+
+    /// <summary>
+    /// A rightward (leading) swipe runs the "right swipe" preference and a leftward one the "left swipe" preference, read
+    /// at swipe time so a settings change applies at once. Flag and read state toggle against the row; Archive in the
+    /// archive folder is Unarchive. None or disabled swipe actions turn that side off.
+    /// </summary>
+    private MailOperation? SwipeOperation(MailListRow row, bool leading)
+    {
+        if (_selecting || _preferences is not { IsSwipeActionsEnabled: true } preferences) return null;
+        var items = Leaves(row);
+        if (items.Count == 0) return null;
+        var operation = leading ? preferences.RightSwipeOperation : preferences.LeftSwipeOperation;
+        return operation switch
+        {
+            MailOperation.None => null,
+            MailOperation.SetFlag or MailOperation.ClearFlag => items.All(static item => item.IsFlagged) ? MailOperation.ClearFlag : MailOperation.SetFlag,
+            MailOperation.MarkAsRead or MailOperation.MarkAsUnread => items.All(static item => item.IsRead) ? MailOperation.MarkAsUnread : MailOperation.MarkAsRead,
+            MailOperation.Archive when ViewModel?.IsArchiveSpecialFolder == true => MailOperation.UnArchive,
+            _ => operation
+        };
     }
 
     private static IReadOnlyList<MailItemViewModel> Leaves(MailListRow row)
@@ -70,32 +78,46 @@ public sealed partial class MailListFragment
         }
     }
 
-    // ---- Multi-select: the contextual action mode (canvas decision A8) ----
+    // ---- Multi-select (canvas Mail inbox redesign "selection mode") ----
+    // Tapping a sender picture or long-pressing a row selects. The docked search bar turns into the contextual bar
+    // (Close, "N selected", Select all) and the bulk actions sit in a floating toolbar in place of the New mail button.
 
-    /// <summary>Starts multi-select, with <paramref name="row"/> selected when it came from a long press.</summary>
+    /// <summary>Starts multi-select, with <paramref name="row"/> selected when it came from a picture tap or a long press.</summary>
     private void StartSelectionMode(MailListRow? row)
     {
-        if (_adapter is null || ViewModel is not { } viewModel || Activity is not AppCompatActivity activity) return;
-        if (_actionMode is null)
+        if (_adapter is null || ViewModel is not { } viewModel) return;
+        if (!_selecting)
         {
+            _selecting = true;
             _adapter.ClearSelection();
             viewModel.IsMultiSelectionModeEnabled = true;
             _adapter.IsSelectionMode = true;
-            _actionMode = activity.StartSupportActionMode(new SelectionCallback(this));
-            if (_actionMode is not null && IsCompact) _actionMode.CustomView = _actionModeTitle = CompactSelectionTitle(activity);
+            _searchBar?.BeginContextual(string.Empty, EndSelectionMode);
+            BuildContextualMenu();
+            Chrome?.SuppressFab(true);
+            ShowSelectionToolbar(true);
         }
         if (row is not null) _adapter.SetSelected(row, true);
         UpdateActionMode();
     }
 
-    /// <summary>Leaves multi-select (Done, back, a destructive action) and drops the selection.</summary>
+    /// <summary>A picture tap: starts multi-select with the row, or toggles it while selecting.</summary>
+    private void AvatarTapped(MailListRow row)
+    {
+        if (_adapter is null) return;
+        if (_selecting) _adapter.SetSelected(row, !_adapter.IsSelected(row));
+        else StartSelectionMode(row);
+    }
+
+    /// <summary>Leaves multi-select (Close, back, a destructive action) and drops the selection.</summary>
     private void EndSelectionMode()
     {
-        var mode = _actionMode;
-        if (mode is null) return;
-        _actionMode = null;
-        _actionModeTitle = null;
-        mode.Finish();
+        if (!_selecting) return;
+        _selecting = false;
+        _searchBar?.EndContextual();
+        if (_toolbar?.Context is { } context) BuildMenu(context);
+        ShowSelectionToolbar(false);
+        if (!IsSearchPanelOpen) Chrome?.SuppressFab(false);
         SelectionModeEnded();
     }
 
@@ -109,135 +131,137 @@ public sealed partial class MailListFragment
         if (ViewModel is { IsMultiSelectionModeEnabled: true } viewModel) viewModel.IsMultiSelectionModeEnabled = false;
     }
 
+    /// <summary>The contextual bar's title and Select all, and the floating toolbar's actions, for the current selection.</summary>
     private void UpdateActionMode()
     {
-        if (_actionMode is not { } mode || ViewModel is not { } viewModel) return;
+        if (!_selecting || ViewModel is not { } viewModel) return;
         int count = viewModel.SelectedItemsCount;
-        string title = count > 0 ? string.Format(Translator.MailsSelected, count) : Translator.NoMailSelected;
-        if (_actionModeTitle is { } compact)
-        {
-            // Phones: "N selected" (canvas Material pass InboxDark) in the contextual app bar; TalkBack reads the
-            // shared sentence.
-            compact.Text = string.Format(System.Globalization.CultureInfo.CurrentCulture, Translator.Android_MailList_SelectedCount, count);
-            compact.ContentDescription = title;
-        }
-        else mode.Title = title;
-        mode.Invalidate();
+        string description = count > 0 ? string.Format(Translator.MailsSelected, count) : Translator.NoMailSelected;
+        _searchBar?.SetContextualTitle(string.Format(System.Globalization.CultureInfo.CurrentCulture, Translator.Android_MailList_SelectedCount, count), description);
+        _toolbar?.Menu?.FindItem(MenuSelectAll)?.SetTitle(viewModel.IsAllItemsSelected && count > 0 ? Translator.Buttons_UnselectAll : Translator.MacOSMenu_SelectAll);
+        UpdateSelectionToolbar();
     }
 
-    /// <summary>The compact action mode title: one line in the top app bar title style.</summary>
-    private static TextView CompactSelectionTitle(Context context)
+    private void BuildContextualMenu()
     {
-        var title = new TextView(context);
-        AndroidX.Core.Widget.TextViewCompat.SetTextAppearance(title, Resource.Style.TextAppearance_WinoKit_TopAppBarTitle);
-        title.SetSingleLine(true);
-        title.Ellipsize = global::Android.Text.TextUtils.TruncateAt.End;
-        title.AccessibilityLiveRegion = AccessibilityLiveRegion.Polite;
-        return title;
-    }
-
-    private void PrepareActionMenu(IMenu menu)
-    {
-        if (View?.Context is not { } context || ViewModel is not { } viewModel) return;
+        if (_toolbar?.Menu is not { } menu) return;
         menu.Clear();
+        menu.Add(0, MenuSelectAll, 0, Translator.MacOSMenu_SelectAll)?.SetShowAsAction(ShowAsAction.Always | ShowAsAction.WithText);
+    }
+
+    /// <summary>The contextual bar's Select all: selects every row, or clears the selection when all are selected.</summary>
+    private void ToggleSelectAll()
+    {
+        if (_adapter is null || ViewModel is not { } viewModel) return;
+        if (viewModel.IsAllItemsSelected && viewModel.SelectedItemsCount > 0) _adapter.ClearSelection();
+        else _adapter.SelectAll();
+    }
+
+    // ---- Floating toolbar: Archive, Delete, Mark read (the tonal primary action), Move, More ----
+
+    private void ShowSelectionToolbar(bool show)
+    {
+        if (show && _selectionToolbar is null && View?.Context is { } context && _refresh?.Parent is FrameLayout host)
+        {
+            _selectionToolbar = new LinearLayout(context) { Orientation = Orientation.Horizontal, Elevation = WinoUnits.DpF(context, 6) };
+            _selectionToolbar.SetGravity(GravityFlags.CenterVertical);
+            int height = WinoUnits.Dp(context, 64);
+            var shape = new Google.Android.Material.Shape.MaterialShapeDrawable(
+                Google.Android.Material.Shape.ShapeAppearanceModel.InvokeBuilder().SetAllCornerSizes(height / 2f).Build());
+            shape.FillColor = global::Android.Content.Res.ColorStateList.ValueOf(WinoColors.ZoneFill(context));
+            shape.SetStroke(Math.Max(1, WinoUnits.Dp(context, 1)), WinoColors.ZoneStroke(context));
+            _selectionToolbar.Background = shape;
+            _selectionToolbar.SetPadding(WinoUnits.Dp(context, 8), 0, WinoUnits.Dp(context, 8), 0);
+            _selectionToolbar.ContentDescription = Translator.Android_MailList_SelectionActions;
+            var layout = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, height, GravityFlags.Bottom | GravityFlags.CenterHorizontal)
+            {
+                BottomMargin = WinoUnits.Dp(context, 16)
+            };
+            host.AddView(_selectionToolbar, layout);
+        }
+        if (_selectionToolbar is not null) _selectionToolbar.Visibility = show ? ViewStates.Visible : ViewStates.Gone;
+        // The last rows stay reachable above the floating toolbar.
+        if (_list is not null && _list.Context is { } listContext)
+        {
+            _list.SetClipToPadding(false);
+            _list.SetPadding(_list.PaddingLeft, _list.PaddingTop, _list.PaddingRight, show ? WinoUnits.Dp(listContext, 96) : 0);
+        }
+        if (show) UpdateSelectionToolbar();
+    }
+
+    private void UpdateSelectionToolbar()
+    {
+        if (_selectionToolbar is not { } bar || bar.Context is not { } context || ViewModel is not { } viewModel) return;
+        bar.RemoveAllViews();
         var selected = viewModel.SelectedItems.ToArray();
         bool any = selected.Length > 0;
-        var tint = WinoColors.SecondaryText(context);
-        double glyph = WinoTokens.Dp(context, Resource.Dimension.wino_m3_glyph);
-        // Canvas Material pass InboxDark: Archive, Delete and Move on the bar, the rest in the overflow.
-        void Add(int id, int order, string title, WinoIconGlyph icon, ShowAsAction show)
-        {
-            var item = menu.Add(0, id, order, title);
-            item?.SetIcon(WinoIcons.Drawable(context, icon, glyph, tint));
-            item?.SetShowAsAction(show);
-            item?.SetEnabled(any);
-        }
         var archive = viewModel.IsArchiveSpecialFolder ? MailOperation.UnArchive : MailOperation.Archive;
-        Add(ActionArchive, 0, MailOperationDisplay.GetTitle(archive), MailOperationDisplay.GetGlyph(archive), ShowAsAction.Always);
-        Add(ActionDelete, 1, Translator.MailOperation_Delete, WinoIconGlyph.Delete, ShowAsAction.Always);
-        Add(ActionMove, 2, Translator.MailOperation_Move, WinoIconGlyph.Move, ShowAsAction.Always);
-        bool allFlagged = any && selected.All(static item => item.IsFlagged);
-        Add(ActionFlag, 3, allFlagged ? MailOperationDisplay.GetTitle(MailOperation.ClearFlag) : Translator.MailOperation_Flag, allFlagged ? WinoIconGlyph.ClearFlag : WinoIconGlyph.Flag, ShowAsAction.IfRoom);
-        menu.Add(0, ActionSelectAll, 4, viewModel.IsAllItemsSelected && any ? Translator.Buttons_UnselectAll : Translator.MacOSMenu_SelectAll);
+        bool allRead = any && selected.All(static mail => mail.IsRead);
+        var readOperation = allRead ? MailOperation.MarkAsUnread : MailOperation.MarkAsRead;
+        Button(MailOperationDisplay.GetTitle(archive), MailOperationDisplay.GetGlyph(archive), () => RunAndClose(archive, viewModel.SelectedItems.ToArray()));
+        Button(Translator.MailOperation_Delete, WinoIconGlyph.Delete, () => RunAndClose(MailOperation.SoftDelete, viewModel.SelectedItems.ToArray()));
+        Button(MailOperationDisplay.GetTitle(readOperation), allRead ? WinoIconGlyph.MarkUnread : WinoIconGlyph.MarkRead,
+            () => RunOperation(readOperation, viewModel.SelectedItems.ToArray(), null), primary: true);
+        Button(Translator.MailOperation_Move, WinoIconGlyph.Move, () => ShowMove(viewModel.SelectedItems.Select(static mail => mail.MailCopy).ToArray()));
+        View? more = null;
+        more = Button(Translator.More, WinoIconGlyph.More, () => ShowMoreActions(more ?? bar));
 
-        // The rest of the shared actions (Windows MailContextFlyoutBuilder) in the overflow, then Pin.
-        _moreOperations = [];
-        if (!any) return;
+        View Button(string title, WinoIconGlyph glyph, Action run, bool primary = false)
+        {
+            var button = new ImageButton(context) { ContentDescription = title, Enabled = any };
+            var color = primary ? WinoColors.OnAccent(context) : WinoColors.SecondaryText(context);
+            button.SetImageDrawable(WinoIcons.Drawable(context, glyph, WinoTokens.Dp(context, Resource.Dimension.wino_m3_glyph), color));
+            var fill = new global::Android.Graphics.Drawables.GradientDrawable();
+            fill.SetCornerRadius(WinoUnits.DpF(context, 24));
+            fill.SetColor(primary ? WinoColors.Accent(context) : global::Android.Graphics.Color.Transparent);
+            button.Background = new global::Android.Graphics.Drawables.RippleDrawable(
+                global::Android.Content.Res.ColorStateList.ValueOf(WinoColors.SubtleFill(context)), fill, fill);
+            button.Alpha = any ? 1f : 0.38f;
+            AndroidX.AppCompat.Widget.TooltipCompat.SetTooltipText(button, title);
+            button.Click += (_, _) => run();
+            var layout = new LinearLayout.LayoutParams(WinoUnits.Dp(context, 56), WinoUnits.Dp(context, 48)) { MarginStart = WinoUnits.Dp(context, 2), MarginEnd = WinoUnits.Dp(context, 2) };
+            bar.AddView(button, layout);
+            return button;
+        }
+    }
+
+    /// <summary>More: Flag, the rest of the shared actions (Windows MailContextFlyoutBuilder) and Pin.</summary>
+    private void ShowMoreActions(View anchor)
+    {
+        if (ViewModel is not { } viewModel || anchor.Context is not { } context) return;
+        var selected = viewModel.SelectedItems.ToArray();
+        if (selected.Length == 0) return;
+        var popup = new AndroidX.AppCompat.Widget.PopupMenu(context, anchor);
+        var actions = new Dictionary<int, Action>();
+        void Add(string title, Action run, bool enabled = true)
+        {
+            int id = actions.Count + 1;
+            actions[id] = run;
+            popup.Menu.Add(0, id, id, title)?.SetEnabled(enabled);
+        }
+        bool allFlagged = selected.All(static item => item.IsFlagged);
+        Add(allFlagged ? MailOperationDisplay.GetTitle(MailOperation.ClearFlag) : Translator.MailOperation_Flag,
+            () => RunOperation(allFlagged ? MailOperation.ClearFlag : MailOperation.SetFlag, selected, null));
         foreach (var available in viewModel.GetAvailableMailActions(selected))
         {
             if (available.Operation is MailOperation.Seperator or MailOperation.Archive or MailOperation.UnArchive or MailOperation.SoftDelete
-                or MailOperation.SetFlag or MailOperation.ClearFlag or MailOperation.Move) continue;
+                or MailOperation.SetFlag or MailOperation.ClearFlag or MailOperation.Move or MailOperation.MarkAsRead or MailOperation.MarkAsUnread) continue;
             var title = MailOperationDisplay.GetTitle(available.Operation);
             if (string.IsNullOrEmpty(title)) continue;
-            _moreOperations.Add((available.Operation, available.IsEnabled));
-            menu.Add(0, ActionMoreBase + _moreOperations.Count - 1, 10 + _moreOperations.Count, title)?.SetEnabled(available.IsEnabled);
+            var operation = available.Operation;
+            Add(title, () => RunOperation(operation, selected, selected.FirstOrDefault()), available.IsEnabled);
         }
         bool allPinned = selected.All(static item => item.MailCopy.IsPinned);
-        menu.Add(0, ActionMoreBase + 99, 200, allPinned ? Translator.FolderOperation_Unpin : Translator.FolderOperation_Pin);
-    }
-
-    private bool ActionClicked(IMenuItem item)
-    {
-        if (ViewModel is not { } viewModel || _adapter is null) return false;
-        var selected = viewModel.SelectedItems.ToArray();
-        switch (item.ItemId)
-        {
-            case ActionArchive:
-                RunAndClose(viewModel.IsArchiveSpecialFolder ? MailOperation.UnArchive : MailOperation.Archive, selected);
-                return true;
-            case ActionDelete:
-                RunAndClose(MailOperation.SoftDelete, selected);
-                return true;
-            case ActionMove:
-                ShowMove(selected.Select(static mail => mail.MailCopy).ToArray());
-                return true;
-            case ActionFlag:
-                RunOperation(selected.All(static mail => mail.IsFlagged) ? MailOperation.ClearFlag : MailOperation.SetFlag, selected, null);
-                return true;
-            case ActionSelectAll:
-                if (viewModel.IsAllItemsSelected && selected.Length > 0) _adapter.ClearSelection();
-                else _adapter.SelectAll();
-                return true;
-            case ActionMoreBase + 99:
-                Observe(viewModel.ChangePinnedStatusAsync(selected, !selected.All(static mail => mail.MailCopy.IsPinned)));
-                return true;
-            case >= ActionMoreBase when item.ItemId - ActionMoreBase < _moreOperations.Count:
-                RunOperation(_moreOperations[item.ItemId - ActionMoreBase].Operation, selected, selected.FirstOrDefault());
-                return true;
-        }
-        return false;
+        Add(allPinned ? Translator.FolderOperation_Unpin : Translator.FolderOperation_Pin,
+            () => Observe(viewModel.ChangePinnedStatusAsync(selected, !allPinned)));
+        popup.MenuItemClick += (_, args) => { if (args.Item?.ItemId is int id && actions.TryGetValue(id, out var run)) run(); };
+        popup.Show();
     }
 
     private void RunAndClose(MailOperation operation, IReadOnlyList<MailItemViewModel> items)
     {
         RunOperation(operation, items, null);
         EndSelectionMode();
-    }
-
-    private sealed class SelectionCallback(MailListFragment owner) : Java.Lang.Object, ActionMode.ICallback
-    {
-        public bool OnCreateActionMode(ActionMode mode, IMenu menu)
-        {
-            owner.PrepareActionMenu(menu);
-            return true;
-        }
-
-        public bool OnPrepareActionMode(ActionMode mode, IMenu menu)
-        {
-            owner.PrepareActionMenu(menu);
-            return true;
-        }
-
-        public bool OnActionItemClicked(ActionMode mode, IMenuItem item) => owner.ActionClicked(item);
-
-        public void OnDestroyActionMode(ActionMode mode)
-        {
-            // Back or Done closed the mode.
-            if (!ReferenceEquals(owner._actionMode, mode)) return;
-            owner._actionMode = null;
-            owner._actionModeTitle = null;
-            owner.SelectionModeEnded();
-        }
     }
 
     // ---- Move (bottom sheet on compact, dialog on wider windows; canvas board MoveSheet) ----

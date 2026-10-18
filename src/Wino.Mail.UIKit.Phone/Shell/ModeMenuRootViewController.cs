@@ -15,11 +15,12 @@ namespace Wino.Mail.UIKit.Phone.Shell;
 
 /// <summary>
 /// How a mode's menu rows look on its <see cref="ModeMenuRootViewController"/>: the row anatomy per item and which row is
-/// the surface on screen. One per mode that has a menu root (To Do: <see cref="ToDoMenuRowStyle"/>).
+/// the surface on screen. One per mode that lists its menu in the drawer (To Do: <see cref="ToDoMenuRowStyle"/>; Contacts:
+/// <see cref="PresentationMenuRowStyle"/>).
 /// </summary>
 internal interface IModeMenuRowStyle
 {
-    /// <summary>The root's title (the stack's back button reads it).</summary>
+    /// <summary>The drawer's title.</summary>
     string Title { get; }
 
     /// <summary>The row kind of <paramref name="item"/>, or null to leave it out.</summary>
@@ -32,11 +33,10 @@ internal interface IModeMenuRowStyle
 }
 
 /// <summary>
-/// A shell-owned stack root that lists the active mode's published menu (the iPhone counterpart of the iPad sidebar),
-/// the way Mailboxes is the Mail stack's root: the phone shell places the mode's content page over it, so the content
-/// has a back control to this list. A row that selects a surface goes through the shell, which shows the content again
-/// when it was popped back here; parents expand in place; pull to refresh synchronizes the mode. Rows follow their items
-/// live (counts, names, expansion). Used by To Do; Mail keeps its richer Mailboxes, Contacts and Calendar have no root.
+/// The shell drawer's content for a mode that lists its published menu (the iPhone counterpart of the iPad sidebar), the
+/// way Mailboxes is Mail's: a row that selects a surface closes the drawer and goes through the shell; parents expand in
+/// place; pull to refresh synchronizes the mode; the Settings row sits at the foot. Rows follow their items live (counts,
+/// names, expansion). Used by To Do and Contacts; Mail keeps its richer Mailboxes, Calendar lists its calendars.
 /// </summary>
 internal sealed class ModeMenuRootViewController : UIViewController
 {
@@ -58,7 +58,6 @@ internal sealed class ModeMenuRootViewController : UIViewController
         _dispatcher = dispatcher;
         _style = style;
         Mode = mode;
-        // NavigationItem.Title, not Title: the root page's Title would rename its tab.
         NavigationItem.Title = style.Title;
         NavigationItem.LargeTitleDisplayMode = UINavigationItemLargeTitleDisplayMode.Never;
     }
@@ -68,26 +67,32 @@ internal sealed class ModeMenuRootViewController : UIViewController
 
     public override void LoadView()
     {
+        // The drawer's blur is the surface: the rows sit on it directly, without a zone.
         var root = new UIView { BackgroundColor = UIColor.Clear };
-        var zone = new WinoZoneView();
-        root.AddSubview(zone);
-        var guide = root.SafeAreaLayoutGuide;
-        NSLayoutConstraint.ActivateConstraints(
-        [
-            zone.TopAnchor.ConstraintEqualTo(guide.TopAnchor, (nfloat)WinoStyle.ZoneGutter),
-            zone.LeadingAnchor.ConstraintEqualTo(guide.LeadingAnchor, (nfloat)WinoStyle.ZoneGutter),
-            zone.TrailingAnchor.ConstraintEqualTo(guide.TrailingAnchor, -(nfloat)WinoStyle.ZoneGutter),
-            zone.BottomAnchor.ConstraintEqualTo(guide.BottomAnchor, -(nfloat)WinoStyle.ZoneGutter)
-        ]);
         _table.BackgroundColor = UIColor.Clear;
         _table.SeparatorStyle = UITableViewCellSeparatorStyle.None;
+        _table.TranslatesAutoresizingMaskIntoConstraints = false;
         _table.RegisterClassForCellReuse(typeof(WinoShellRowCell), WinoShellRowCell.ReuseIdentifier);
         _table.Source = new RowsSource(this);
-        _table.ContentInset = new UIEdgeInsets(6, 0, 6, 0);
+        _table.ContentInset = new UIEdgeInsets(4, 0, 6, 0);
         _refresh.ValueChanged += (_, _) => Synchronize();
         _table.RefreshControl = _refresh;
         WinoAccessibility.Label(_table, _style.Title);
-        WinoLayout.Fill(_table, zone.ContentView, 0, 6, 0, 6);
+        var listHost = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
+        WinoLayout.Fill(_table, listHost, 0, 6, 0, 6);
+
+        var column = WinoLayout.VStack(0, listHost, DrawerSettingsRow.Create(_shell.OpenSettingsFromDrawer));
+        column.Alignment = UIStackViewAlignment.Fill;
+        column.TranslatesAutoresizingMaskIntoConstraints = false;
+        root.AddSubview(column);
+        var guide = root.SafeAreaLayoutGuide;
+        NSLayoutConstraint.ActivateConstraints(
+        [
+            column.TopAnchor.ConstraintEqualTo(guide.TopAnchor),
+            column.LeadingAnchor.ConstraintEqualTo(root.LeadingAnchor),
+            column.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor),
+            column.BottomAnchor.ConstraintEqualTo(guide.BottomAnchor)
+        ]);
         View = root;
     }
 
@@ -192,7 +197,7 @@ internal sealed class ModeMenuRootViewController : UIViewController
             RebuildRows();
             return;
         }
-        _shell.OpenFromModeRoot(item);
+        _shell.OpenFromDrawer(item);
     }
 
     private void Synchronize()

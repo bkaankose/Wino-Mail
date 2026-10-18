@@ -54,6 +54,44 @@ public abstract partial class ToDoPageViewController : WinoViewController<ToDoPa
     /// <summary>True when the page owns a UISearchController (iPhone); the iPad uses the shell's toolbar search.</summary>
     protected abstract bool UsesSearchController { get; }
 
+    /// <summary>
+    /// The iPhone bar (owner review of 18 Oct 2026): one More button with the filters, sort and list options, a separate
+    /// Suggestions button on My Day, and search; the page subtitle ("3 tasks") is left out. The iPad keeps two buttons.
+    /// </summary>
+    protected virtual bool CombinesBarMenus => false;
+
+    /// <summary>
+    /// True hides the quick add bar until <see cref="ShowQuickAdd"/> (the iPhone's floating button) and again once it
+    /// loses focus empty; the list then runs to the zone's foot.
+    /// </summary>
+    protected virtual bool QuickAddOnDemand => false;
+
+    private bool _quickAddOpen;
+    private UIBarButtonItem? _optionsItem;
+    private UIBarButtonItem? _suggestionsItem;
+
+    /// <summary>Opens the quick add bar on the keyboard (the iPhone's floating button).</summary>
+    protected void ShowQuickAdd()
+    {
+        if (!ViewModel.IsQuickAddVisible || !ViewModel.CanCreateTask) return;
+        _quickAddOpen = true;
+        ApplyQuickAddVisibility();
+        _quickAdd.Focus();
+    }
+
+    private void ApplyQuickAddVisibility()
+        => _quickAdd.Hidden = !ViewModel.IsQuickAddVisible || QuickAddOnDemand && !_quickAddOpen;
+
+    /// <summary>The phone bar: More, then Suggestions while My Day is shown (search is the bar's own glyph).</summary>
+    private void ApplyCombinedBarItems()
+    {
+        if (!CombinesBarMenus || _optionsItem is null) return;
+        _suggestionsItem ??= SuggestionsBarItem();
+        UIBarButtonItem[] items = ViewModel.IsMyDaySelected ? [_optionsItem, _suggestionsItem] : [_optionsItem];
+        if (NavigationItem.RightBarButtonItems is { } current && current.SequenceEqual(items)) return;
+        NavigationItem.SetRightBarButtonItems(items, false);
+    }
+
     /// <summary>A task row was tapped; the selection is already in the ViewModel.</summary>
     protected abstract void TaskActivated(TaskItemViewModel task);
 
@@ -87,7 +125,12 @@ public abstract partial class ToDoPageViewController : WinoViewController<ToDoPa
         _quickAdd.FocusChanged += (_, _) =>
         {
             if (_quickAdd.IsFocused) ViewModel.IsComposerExpanded = true;
-            else if (string.IsNullOrWhiteSpace(ViewModel.ComposerText)) ViewModel.IsComposerExpanded = false;
+            else if (string.IsNullOrWhiteSpace(ViewModel.ComposerText))
+            {
+                ViewModel.IsComposerExpanded = false;
+                _quickAddOpen = false;
+                ApplyQuickAddVisibility();
+            }
         };
 
         content.AddSubview(_header);
@@ -102,13 +145,14 @@ public abstract partial class ToDoPageViewController : WinoViewController<ToDoPa
             table.TopAnchor.ConstraintEqualTo(_header.BottomAnchor),
             table.LeadingAnchor.ConstraintEqualTo(content.LeadingAnchor, 4),
             table.TrailingAnchor.ConstraintEqualTo(content.TrailingAnchor, -4),
-            table.BottomAnchor.ConstraintEqualTo(_quickAdd.TopAnchor, -6),
             _quickAdd.LeadingAnchor.ConstraintEqualTo(content.LeadingAnchor, 12),
             _quickAdd.TrailingAnchor.ConstraintEqualTo(content.TrailingAnchor, -12),
             // The quick add bar rides on the keyboard; without one it rests on the zone's foot.
             _quickAdd.BottomAnchor.ConstraintLessThanOrEqualTo(content.BottomAnchor, -12),
             _quickAdd.BottomAnchor.ConstraintLessThanOrEqualTo(root.KeyboardLayoutGuide.TopAnchor, -8)
         ]);
+        // On demand the bar floats over the list's foot; otherwise the list stops above it.
+        (QuickAddOnDemand ? table.BottomAnchor.ConstraintEqualTo(content.BottomAnchor) : table.BottomAnchor.ConstraintEqualTo(_quickAdd.TopAnchor, -6)).Active = true;
         var rest = _quickAdd.BottomAnchor.ConstraintEqualTo(content.BottomAnchor, -12);
         rest.Priority = 700;
         rest.Active = true;
@@ -139,7 +183,12 @@ public abstract partial class ToDoPageViewController : WinoViewController<ToDoPa
     {
         base.ViewDidLoad();
         _title.Hidden = UsesNavigationTitle;
-        ModeBarItems.AppendRight(NavigationItem, OptionsBarItem(), FilterBarItem());
+        if (CombinesBarMenus)
+        {
+            _optionsItem = CombinedBarItem();
+            ApplyCombinedBarItems();
+        }
+        else ModeBarItems.AppendRight(NavigationItem, OptionsBarItem(), FilterBarItem());
         if (UsesSearchController) BuildSearchController();
         SetContentScrollView(Table, NSDirectionalRectEdge.Top);
     }
@@ -154,11 +203,12 @@ public abstract partial class ToDoPageViewController : WinoViewController<ToDoPa
             if (UsesNavigationTitle) NavigationItem.Title = value ?? Translator.ToDoPage_Title;
         });
         Bind(nameof(ViewModel.SelectedSurfaceSubtitle), static vm => vm.SelectedSurfaceSubtitle, value => _subtitle.Text = value ?? string.Empty);
-        Bind(nameof(ViewModel.HasSurfaceSubtitle), static vm => vm.HasSurfaceSubtitle, value => _subtitle.Hidden = !value);
+        Bind(nameof(ViewModel.HasSurfaceSubtitle), static vm => vm.HasSurfaceSubtitle, value => _subtitle.Hidden = !value || CombinesBarMenus);
+        Bind(nameof(ViewModel.IsMyDaySelected), static vm => vm.IsMyDaySelected, _ => ApplyCombinedBarItems());
         Bind(nameof(ViewModel.IsEmpty), static vm => vm.IsEmpty, value => _empty.Hidden = !value);
         Bind(nameof(ViewModel.EmptyStateTitle), static vm => vm.EmptyStateTitle, value => _empty.Title.Text = value ?? string.Empty);
         Bind(nameof(ViewModel.EmptyStateBody), static vm => vm.EmptyStateBody, value => _empty.Caption.Text = value ?? string.Empty);
-        Bind(nameof(ViewModel.IsQuickAddVisible), static vm => vm.IsQuickAddVisible, value => _quickAdd.Hidden = !value);
+        Bind(nameof(ViewModel.IsQuickAddVisible), static vm => vm.IsQuickAddVisible, _ => ApplyQuickAddVisibility());
         Bind(nameof(ViewModel.ComposerPlaceholder), static vm => vm.ComposerPlaceholder, value => _quickAdd.Placeholder = value ?? string.Empty);
         Bind(nameof(ViewModel.ComposerText), static vm => vm.ComposerText, value => _quickAdd.Text = value ?? string.Empty);
         Bind(nameof(ViewModel.CanCreateTask), static vm => vm.CanCreateTask, value => _quickAdd.Enabled = value);

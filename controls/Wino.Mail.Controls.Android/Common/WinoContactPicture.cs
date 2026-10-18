@@ -25,6 +25,13 @@ public class WinoContactPicture : View
     private string _initials = "?";
     private Bitmap? _bitmap;
     private Color _color = WinoColors.AvatarColor(null);
+    // The picture shader for the current bitmap and bounds, and the initials baseline offset for the current text size
+    // (OnDraw runs on every frame the row is redrawn; new Java objects there churn both garbage collectors).
+    private BitmapShader? _shader;
+    private Bitmap? _shaderBitmap;
+    private (float Width, float Height) _shaderView;
+    private float _metricsTextSize = -1;
+    private float _baselineOffset;
 
     public WinoContactPicture(Context context) : base(context) => Initialize();
     public WinoContactPicture(Context context, IAttributeSet? attrs) : base(context, attrs) => Initialize();
@@ -61,8 +68,11 @@ public class WinoContactPicture : View
     /// <summary>Initials from <paramref name="displayName"/>, colour from <paramref name="colorKey"/> unless overridden.</summary>
     public void SetIdentity(string? displayName, string? colorKey, Color? colorOverride = null)
     {
-        _initials = ContactPictureAppearance.Initials(displayName);
-        _color = colorOverride ?? WinoColors.AvatarColor(colorKey);
+        var initials = ContactPictureAppearance.Initials(displayName);
+        var color = colorOverride ?? WinoColors.AvatarColor(colorKey);
+        if (initials == _initials && color == _color) return;
+        _initials = initials;
+        _color = color;
         Invalidate();
     }
 
@@ -75,6 +85,8 @@ public class WinoContactPicture : View
             if (ReferenceEquals(_bitmap, value)) return;
             _bitmap = value;
             _image.SetShader(null);
+            _shader = null;
+            _shaderBitmap = null;
             Invalidate();
         }
     }
@@ -97,22 +109,34 @@ public class WinoContactPicture : View
 
         if (_bitmap is { } bitmap && bitmap.Width > 0 && bitmap.Height > 0)
         {
-            var shader = new BitmapShader(bitmap, WinoGraphics.Clamp, WinoGraphics.Clamp);
-            float scale = Math.Max(size / bitmap.Width, size / bitmap.Height);
-            var matrix = new Matrix();
-            matrix.SetScale(scale, scale);
-            matrix.PostTranslate(_bounds.Left + (size - bitmap.Width * scale) / 2, _bounds.Top + (size - bitmap.Height * scale) / 2);
-            shader.SetLocalMatrix(matrix);
-            _image.SetShader(shader);
+            if (_shader is null || !ReferenceEquals(_shaderBitmap, bitmap) || _shaderView != (Width, Height))
+            {
+                var shader = new BitmapShader(bitmap, WinoGraphics.Clamp, WinoGraphics.Clamp);
+                float scale = Math.Max(size / bitmap.Width, size / bitmap.Height);
+                var matrix = new Matrix();
+                matrix.SetScale(scale, scale);
+                matrix.PostTranslate(_bounds.Left + (size - bitmap.Width * scale) / 2, _bounds.Top + (size - bitmap.Height * scale) / 2);
+                shader.SetLocalMatrix(matrix);
+                _image.SetShader(shader);
+                _shader = shader;
+                _shaderBitmap = bitmap;
+                _shaderView = (Width, Height);
+            }
             canvas.DrawRoundRect(_bounds, radius, radius, _image);
             return;
         }
 
         _fill.Color = _color;
         canvas.DrawRoundRect(_bounds, radius, radius, _fill);
-        _text.TextSize = size * 0.375f;
-        var metrics = _text.GetFontMetrics();
-        float baseline = _bounds.CenterY() - ((metrics?.Ascent ?? 0) + (metrics?.Descent ?? 0)) / 2;
+        float textSize = size * 0.375f;
+        if (textSize != _metricsTextSize)
+        {
+            _text.TextSize = textSize;
+            var metrics = _text.GetFontMetrics();
+            _baselineOffset = ((metrics?.Ascent ?? 0) + (metrics?.Descent ?? 0)) / 2;
+            _metricsTextSize = textSize;
+        }
+        float baseline = _bounds.CenterY() - _baselineOffset;
         canvas.DrawText(_initials, _bounds.CenterX(), baseline, _text);
     }
 }

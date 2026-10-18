@@ -308,7 +308,7 @@ public sealed class WinoCalendarSurfaceView : LinearLayout
         {
             var date = Dates[index];
             float left = GutterPx + index * dayWidth;
-            if (date == today) FillPaint.Color = WinoTokens.Color(context, Resource.Color.wino_calendar_today_column);
+            if (date == today) FillPaint.Color = WinoColors.CalendarTodayColumn(context);
             else if (WinoCalendarSurfaceGeometry.IsShadedWeekend(date, Dates.Count)) FillPaint.Color = WinoTokens.Color(context, Resource.Color.wino_calendar_weekend);
             else continue;
             FillPaint.SetStyle(Paint.Style.Fill);
@@ -593,7 +593,7 @@ public sealed class WinoCalendarSurfaceView : LinearLayout
                 if (cell.Date == today)
                 {
                     FillPaint.SetStyle(Paint.Style.Fill);
-                    FillPaint.Color = WinoTokens.Color(context, Resource.Color.wino_calendar_today_column);
+                    FillPaint.Color = WinoColors.CalendarTodayColumn(context);
                     canvas.DrawRect(left, top, left + (float)b.Width * density, top + (float)b.Height * density, FillPaint);
                 }
                 _owner.DrawGridLine(canvas, left, top, left + (float)b.Width * density, top, Resource.Color.wino_calendar_grid_line);

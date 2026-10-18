@@ -42,7 +42,13 @@
   <dimen name="wino_m3_drawer_avatar_glyph">22dp</dimen>
   <dimen name="wino_m3_drawer_header_gap">16dp</dimen>
   <dimen name="wino_m3_drawer_list_padding_top">12dp</dimen>
-  <dimen name="wino_m3_drawer_item_height">56dp</dimen>
+  <!-- A drawer row is the 56 dp Material 3 item plus wino_m3_drawer_item_spacing above and below, so adjacent filled
+       items (New mail, the selected row) do not touch. -->
+  <dimen name="wino_m3_drawer_item_height">62dp</dimen>
+  <dimen name="wino_m3_drawer_item_spacing">3dp</dimen>
+  <!-- Mail folders are denser than the other drawer items: a 44 dp indicator with 2 dp above and below. -->
+  <dimen name="wino_m3_drawer_compact_item_height">48dp</dimen>
+  <dimen name="wino_m3_drawer_compact_item_spacing">2dp</dimen>
   <dimen name="wino_m3_drawer_section_height">56dp</dimen>
   <dimen name="wino_m3_drawer_item_inset">12dp</dimen>
   <dimen name="wino_m3_drawer_item_radius">28dp</dimen>
@@ -56,7 +62,7 @@
   <dimen name="wino_m3_drawer_disclosure_glyph">12dp</dimen>
   <dimen name="wino_m3_drawer_account_icon">32dp</dimen>
   <dimen name="wino_m3_drawer_indicator_width">3dp</dimen>
-  <dimen name="wino_m3_drawer_indicator_inset">16dp</dimen>
+  <dimen name="wino_m3_drawer_indicator_inset">19dp</dimen>
   <dimen name="wino_m3_drawer_indicator_radius">1.5dp</dimen>
 
   <!-- Navigation bar (compact) and rail (medium). -->

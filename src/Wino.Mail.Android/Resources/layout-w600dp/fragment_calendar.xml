@@ -33,28 +33,44 @@
             android:id="@+id/calendar_next"
             style="@style/Widget.WinoKit.GlyphButton" />
 
-        <Space
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:layout_weight="1" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/calendar_today"
-            style="@style/Widget.Wino.Calendar.HeaderButton"
-            android:layout_width="wrap_content" />
-
-        <HorizontalScrollView
+        <!-- The visible range (the search bar took the app bar title's place). -->
+        <TextView
+            android:id="@+id/calendar_range"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="@dimen/wino_space_s"
+            android:layout_marginEnd="@dimen/wino_space_s"
+            android:maxLines="1"
+            android:textAppearance="@style/TextAppearance.WinoKit.TopAppBarTitle" />
+
+        <!-- Today and the view chips sit at the end; when the details pane leaves too little room they scroll. -->
+        <HorizontalScrollView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:fillViewport="true"
+            android:requiresFadingEdge="horizontal"
             android:scrollbars="none">
 
-          <com.google.android.material.button.MaterialButtonToggleGroup
-              android:id="@+id/calendar_types"
+          <LinearLayout
               android:layout_width="wrap_content"
               android:layout_height="wrap_content"
-              app:selectionRequired="true"
-              app:singleSelection="true" />
+              android:gravity="end|center_vertical"
+              android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/calendar_today"
+                style="@style/Widget.Wino.Calendar.HeaderButton"
+                android:layout_width="wrap_content" />
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/calendar_types"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/wino_space_s"
+                app:selectionRequired="true"
+                app:singleSelection="true" />
+          </LinearLayout>
         </HorizontalScrollView>
       </LinearLayout>
 

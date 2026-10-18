@@ -157,6 +157,7 @@ public class WinoIconView : TextView
     private WinoIconGlyph _icon;
     private double _sizeDp = 16;
     private bool? _colorful = false;
+    private WinoIconStyle? _appliedStyle;
 
     public WinoIconView(Context context) : base(context) => Initialize();
     public WinoIconView(Context context, IAttributeSet? attrs) : base(context, attrs) => Initialize();
@@ -192,14 +193,24 @@ public class WinoIconView : TextView
     public WinoIconGlyph Icon
     {
         get => _icon;
-        set { _icon = value; Refresh(); }
+        set
+        {
+            if (_icon == value && IsCurrent) return;
+            _icon = value;
+            Refresh();
+        }
     }
 
     /// <summary>Glyph size in dp.</summary>
     public double GlyphSize
     {
         get => _sizeDp;
-        set { _sizeDp = value; Refresh(); }
+        set
+        {
+            if (_sizeDp == value && IsCurrent) return;
+            _sizeDp = value;
+            Refresh();
+        }
     }
 
     /// <summary>True for the colorful font, false for mono, null to follow <see cref="WinoIcons.Style"/>.</summary>
@@ -209,9 +220,13 @@ public class WinoIconView : TextView
         set { _colorful = value; Refresh(); }
     }
 
+    /// <summary>The shown glyph still matches the icon style (a view that follows the style re-applies after a style change).</summary>
+    private bool IsCurrent => _appliedStyle is { } style && (_colorful is not null || style == WinoIcons.Style);
+
     private void Refresh()
     {
         if (Context is not { } context) return;
+        _appliedStyle = WinoIcons.Style;
         Typeface = WinoIcons.Typeface(context, _colorful);
         SetTextSize(ComplexUnitType.Dip, (float)_sizeDp);
         Text = WinoIcons.Glyph(_icon);

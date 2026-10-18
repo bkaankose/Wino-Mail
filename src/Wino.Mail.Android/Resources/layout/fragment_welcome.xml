@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Welcome (Windows WelcomePageV2 content in the Material look): the hero over the theme wallpaper with the logo,
-     title and description, then one Wino zone with the Windows page's actions: the two restore links, the import
+<!-- Welcome (Windows WelcomePageV2 content in the Material look): the hero at the top over the theme wallpaper, the
+     logo with the title and description centred under it, then one Wino zone with the Windows page's actions: the two restore links, the import
      progress and status, the get-started description and the primary button. One column of at most 560 dp, centred on
      wide windows; everything scrolls when the window is short. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -24,20 +24,16 @@
           android:layout_height="wrap_content"
           android:orientation="vertical">
 
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/onboarding_hero_height"
-            android:paddingStart="@dimen/onboarding_page_padding"
-            android:paddingEnd="@dimen/onboarding_page_padding"
-            android:paddingBottom="@dimen/onboarding_page_padding">
-
-        <!-- The logo and the title block stay one row at the foot of the hero, whatever its height. -->
+        <!-- The hero at the top: the logo, then the welcome title and the tagline centred under it. -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom|start"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingStart="@dimen/onboarding_page_padding"
+            android:paddingTop="@dimen/onboarding_hero_top_padding"
+            android:paddingEnd="@dimen/onboarding_page_padding"
+            android:paddingBottom="@dimen/onboarding_page_padding">
 
           <com.google.android.material.imageview.ShapeableImageView
               android:id="@+id/welcome_logo"
@@ -48,28 +44,23 @@
               android:src="@drawable/wino_logo"
               app:shapeAppearanceOverlay="@style/ShapeAppearance.Wino.Logo" />
 
-          <LinearLayout
-              android:layout_width="0dp"
+          <TextView
+              android:id="@+id/welcome_title"
+              android:layout_width="match_parent"
               android:layout_height="wrap_content"
-              android:layout_marginStart="16dp"
-              android:layout_weight="1"
-              android:orientation="vertical">
+              android:layout_marginTop="@dimen/onboarding_hero_gap"
+              android:accessibilityHeading="true"
+              android:gravity="center_horizontal"
+              android:textAppearance="@style/TextAppearance.Wino.HeroTitle" />
 
-            <TextView
-                android:id="@+id/welcome_title"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:accessibilityHeading="true"
-                android:textAppearance="@style/TextAppearance.Wino.HeroTitle" />
-
-            <TextView
-                android:id="@+id/welcome_description"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textAppearance="@style/TextAppearance.Wino.HeroSubtitle" />
-          </LinearLayout>
+          <TextView
+              android:id="@+id/welcome_description"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:layout_marginTop="@dimen/wino_space_xs"
+              android:gravity="center_horizontal"
+              android:textAppearance="@style/TextAppearance.Wino.HeroSubtitle" />
         </LinearLayout>
-        </FrameLayout>
 
         <!-- The wallpaper shows between the hero and the zone, which holds only the actions. -->
         <Space

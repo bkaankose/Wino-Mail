@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
   <!-- The app theme: Material 3 day/night without an action bar, drawn edge to edge behind transparent system bars.
-       Colours are the Wino tokens (values/colors.xml, values-night/colors.xml); dynamic colour is not applied. -->
+       Colours are the Wino tokens (values/colors.xml, values-night/colors.xml); on Android 12 and later the accent tokens
+       follow the device's Material You palette (values-v31) until a theme overrides the accent. -->
   <style name="Theme.Wino" parent="Theme.Material3.DayNight.NoActionBar">
     <item name="colorPrimary">@color/wino_accent</item>
     <item name="colorOnPrimary">@color/wino_on_accent</item>
@@ -28,6 +29,9 @@
     <item name="android:statusBarColor">@android:color/transparent</item>
     <item name="android:navigationBarColor">@android:color/transparent</item>
     <item name="android:windowLightStatusBar">@bool/wino_light_system_bars</item>
+    <!-- Text actions in top app bars (Calendar's New event) are sentence case in the accent, as Material 3 asks. -->
+    <item name="actionMenuTextAppearance">@style/TextAppearance.Wino.TopBarAction</item>
+    <item name="actionMenuTextColor">@color/wino_accent_text</item>
     <item name="materialButtonStyle">@style/Widget.Wino.Button</item>
     <item name="materialButtonOutlinedStyle">@style/Widget.Wino.Button.Outlined</item>
     <!-- Material 3 small top app bar height (canvas Material pass): the contextual action mode uses it too. -->
@@ -41,6 +45,14 @@
     <item name="floatingActionButtonStyle">@style/Widget.WinoKit.Fab</item>
     <item name="bottomNavigationStyle">@style/Widget.WinoKit.NavigationBar</item>
     <item name="navigationRailStyle">@style/Widget.WinoKit.NavigationRail</item>
+  </style>
+
+  <!-- Material 3 full-screen dialog (What's New): the app theme in a window that fills the screen, edge to edge. -->
+  <style name="Theme.Wino.FullScreenDialog" parent="Theme.Wino">
+    <item name="android:windowIsFloating">false</item>
+    <item name="android:windowNoTitle">true</item>
+    <item name="windowNoTitle">true</item>
+    <item name="android:windowBackground">@color/wino_backdrop</item>
   </style>
 
   <style name="Widget.Wino.Button" parent="Widget.Material3.Button">

@@ -56,10 +56,8 @@ public sealed class ThemeThumbnailView : ImageView
             return string.IsNullOrEmpty(theme.PreviewImage) || !File.Exists(theme.PreviewImage) ? null : BitmapFactory.DecodeFile(theme.PreviewImage);
         if (WinoThemeCatalog.GradientFor(theme.ThemeName) is { } gradient)
             return AndroidThemeService.GradientBitmap(gradient, context is not null && WinoColors.IsDark(context));
-        if (theme.AppThemeType == AppThemeType.System)
-            return context is not null && WinoColors.IsDark(context)
-                ? AndroidThemeService.LoadAsset(AndroidThemeService.SystemDarkWallpaper)
-                : AndroidThemeService.LoadAsset(AndroidThemeService.SystemLightWallpaper);
+        // The system theme has no backdrop; its tile shows the plain surface.
+        if (theme.AppThemeType == AppThemeType.System) return null;
         return theme.ThemeName is { } name ? AndroidThemeService.LoadAsset(name) : null;
     }
 }
@@ -87,14 +85,16 @@ public sealed class ThemeTileView : LinearLayout
 
         var picture = new ImageView(context) { ImportantForAccessibility = ImportantForAccessibility.No };
         picture.SetScaleType(ImageView.ScaleType.CenterCrop);
-        picture.SetImageBitmap(ThemeThumbnailView.ImageFor(context, theme));
+        var image = ThemeThumbnailView.ImageFor(context, theme);
+        picture.SetImageBitmap(image);
         _frame.AddView(picture, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
 
         var texts = new LinearLayout(context) { Orientation = Orientation.Vertical, ImportantForAccessibility = ImportantForAccessibility.NoHideDescendants };
         WinoTokens.Pad(texts, Resource.Dimension.wino_m3_theme_card_padding_horizontal, Resource.Dimension.wino_m3_theme_card_padding_vertical,
             Resource.Dimension.wino_m3_theme_card_padding_horizontal, Resource.Dimension.wino_m3_theme_card_padding_vertical);
-        texts.AddView(OnImage(context, theme.ThemeName ?? string.Empty, WinoTextStyle.CaptionStrong));
-        if (!string.IsNullOrWhiteSpace(detail)) texts.AddView(OnImage(context, detail, WinoTextStyle.Tiny));
+        // Without a picture (the system theme) the labels sit on the plain card in the regular text colour.
+        texts.AddView(Label(context, theme.ThemeName ?? string.Empty, WinoTextStyle.CaptionStrong, image is not null));
+        if (!string.IsNullOrWhiteSpace(detail)) texts.AddView(Label(context, detail, WinoTextStyle.Tiny, image is not null));
         _frame.AddView(texts, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent, GravityFlags.Bottom | GravityFlags.Start));
 
         var badgeFill = new GradientDrawable();
@@ -117,11 +117,12 @@ public sealed class ThemeTileView : LinearLayout
         AddView(_frame, new LayoutParams(ViewGroup.LayoutParams.MatchParent, WinoTokens.Px(context, Resource.Dimension.wino_m3_theme_card_height)));
     }
 
-    private static TextView OnImage(Context context, string text, WinoTextStyle style)
+    private static TextView Label(Context context, string text, WinoTextStyle style, bool onImage)
     {
         var label = WinoTokens.Style(new TextView(context) { Text = text }, style);
         label.SetMaxLines(1);
         label.Ellipsize = global::Android.Text.TextUtils.TruncateAt.End;
+        if (!onImage) return label;
         label.SetTextColor(WinoTokens.Color(context, Resource.Color.wino_on_image_text));
         label.SetShadowLayer(WinoTokens.PxF(context, Resource.Dimension.wino_text_shadow_radius), 0, WinoTokens.PxF(context, Resource.Dimension.wino_text_shadow_offset),
             WinoTokens.Color(context, Resource.Color.wino_on_image_shadow));

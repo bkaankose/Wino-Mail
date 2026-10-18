@@ -122,6 +122,31 @@ public sealed class MailReaderFragment : WinoFragment<MailRenderingPageViewModel
         }));
     }
 
+    /// <summary>
+    /// The date sits beside the sender when the reader is wide enough; in a narrow reader (the tablet's reader pane) it
+    /// moves under the address so the name keeps its width.
+    /// </summary>
+    private void PlaceDate(LinearLayout row, LinearLayout column, int width)
+    {
+        if (_date is not { } date || width <= 0) return;
+        bool beside = width >= WinoTokens.Px(row.RequireContext(), Resource.Dimension.wino_reader_date_beside_min_width);
+        var parent = date.Parent as ViewGroup;
+        if (beside ? ReferenceEquals(parent, row) : ReferenceEquals(parent, column)) return;
+        parent?.RemoveView(date);
+        if (beside)
+        {
+            date.Gravity = GravityFlags.End;
+            date.SetMaxWidth(WinoTokens.Px(row.RequireContext(), Resource.Dimension.wino_reader_date_max_width));
+            row.AddView(date, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent) { MarginStart = WinoTokens.Px(row.RequireContext(), Resource.Dimension.wino_space_s) });
+        }
+        else
+        {
+            date.Gravity = GravityFlags.Start;
+            date.SetMaxWidth(int.MaxValue);
+            column.AddView(date, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent));
+        }
+    }
+
     private void FindViews(View view)
     {
         _toolbar = view.FindViewById<MaterialToolbar>(Resource.Id.reader_toolbar);
@@ -138,6 +163,14 @@ public sealed class MailReaderFragment : WinoFragment<MailRenderingPageViewModel
         _imageBanner = view.FindViewById<WinoInfoBar>(Resource.Id.reader_image_banner);
         _attachmentStrip = view.FindViewById(Resource.Id.reader_attachment_strip);
         _attachments = view.FindViewById<LinearLayout>(Resource.Id.reader_attachments);
+        if (view.FindViewById<LinearLayout>(Resource.Id.reader_sender_row) is { } senderRow
+            && view.FindViewById<LinearLayout>(Resource.Id.reader_sender_column) is { } senderColumn)
+            senderRow.LayoutChange += (_, args) =>
+            {
+                // Views move on the next frame, not from inside the layout pass.
+                int width = args.Right - args.Left;
+                senderRow.Post(() => PlaceDate(senderRow, senderColumn, width));
+            };
         _saveAll = view.FindViewById<MaterialButton>(Resource.Id.reader_save_all);
         _loading = view.FindViewById<CircularProgressIndicator>(Resource.Id.reader_loading);
         _web = view.FindViewById<WebView>(Resource.Id.reader_web);
@@ -519,6 +552,13 @@ public sealed class MailReaderFragment : WinoFragment<MailRenderingPageViewModel
     /// <summary>Renders the message (the bridge calls this for the ViewModel and when a new view attaches).</summary>
     internal async Task RenderAsync(string html)
     {
+        try { await RenderCoreAsync(html); }
+        // Switching messages quickly tears this view's session down mid-render; the next view renders.
+        catch (Exception exception) when (_disposed && exception is ObjectDisposedException or System.OperationCanceledException) { }
+    }
+
+    private async Task RenderCoreAsync(string html)
+    {
         if (_reader is not { } reader || _disposed || ViewModel is not { } viewModel) return;
         if (_web is not null) SetWebHeight(120);
         var options = viewModel.CurrentRenderModel?.MailRenderingOptions;
@@ -536,7 +576,12 @@ public sealed class MailReaderFragment : WinoFragment<MailRenderingPageViewModel
         _ = MeasureAsync(++_measureGeneration);
     }
 
-    internal Task ClearAsync() => _reader is null || _disposed ? Task.CompletedTask : _reader.ClearAsync();
+    internal async Task ClearAsync()
+    {
+        if (_reader is not { } reader || _disposed) return;
+        try { await reader.ClearAsync(); }
+        catch (Exception exception) when (_disposed && exception is ObjectDisposedException or System.OperationCanceledException) { }
+    }
 
     /// <summary>
     /// The body is as tall as its document so the page scroll owns vertical scrolling; it is measured again while late

@@ -7,10 +7,12 @@ using Google.Android.Material.Button;
 using Google.Android.Material.ImageView;
 using Google.Android.Material.MaterialSwitch;
 using Google.Android.Material.TextField;
+using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Android.Infrastructure;
+using Wino.Mail.Controls.Android.Common;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.Android;
@@ -66,6 +68,8 @@ public sealed class ProviderSelectionFragment : WinoFragment<ProviderSelectionPa
     private static void GoBack(ProviderSelectionPageViewModel viewModel)
     {
         if (viewModel.GoBackCommand.CanExecute(null)) viewModel.GoBackCommand.Execute(null);
+        // Opened from Settings, the first step leaves its back to the host (Windows shows a breadcrumb there).
+        else MainApplication.Services?.GetService<INavigationService>()?.GoBack();
     }
 
     private void BindProviderStep(View view, ViewBinder binder, ProviderSelectionPageViewModel viewModel)
@@ -112,7 +116,9 @@ public sealed class ProviderSelectionFragment : WinoFragment<ProviderSelectionPa
         }
         if (view.FindViewById<TextView>(Resource.Id.identity_color_title) is { } colorTitle) colorTitle.Text = Translator.ProviderSelection_AccountColorHeader;
         if (view.FindViewById<TextView>(Resource.Id.identity_color_description) is { } colorDescription) colorDescription.Text = Translator.ProviderSelection_AccountColorDescription;
-        if (view.FindViewById<LinearLayout>(Resource.Id.identity_colors) is not { Context: { } context } colors) return;
+        if (view.FindViewById<WinoFlowView>(Resource.Id.identity_colors) is not { Context: { } context } colors) return;
+        colors.Spacing = WinoUnits.Dp(context, 12);
+        colors.LineSpacing = WinoUnits.Dp(context, 12);
 
         var swatches = new List<(View View, string? Hex)>();
         void Rebuild()
@@ -135,7 +141,7 @@ public sealed class ProviderSelectionFragment : WinoFragment<ProviderSelectionPa
     }
 
     /// <summary>A round colour swatch with a ring when selected; the first one (no colour) clears the choice.</summary>
-    private static void AddSwatch(Context context, LinearLayout colors, List<(View View, string? Hex)> swatches, ViewBinder binder, string? hex, Action choose)
+    private static void AddSwatch(Context context, ViewGroup colors, List<(View View, string? Hex)> swatches, ViewBinder binder, string? hex, Action choose)
     {
         var size = context.Resources?.GetDimensionPixelSize(Resource.Dimension.onboarding_swatch_size) ?? WinoUnits.Dp(context, 36);
         var fill = hex is not null && WinoColors.FromHexString(hex) is { } parsed ? parsed : WinoColors.SubtleFill(context);
@@ -160,8 +166,7 @@ public sealed class ProviderSelectionFragment : WinoFragment<ProviderSelectionPa
             Focusable = true
         };
         if (hex is null) WinoIcons.Apply(swatch, WinoIconGlyph.Dismiss, 14);
-        var parameters = new LinearLayout.LayoutParams(size, size) { MarginEnd = WinoUnits.Dp(context, 12) };
-        colors.AddView(swatch, parameters);
+        colors.AddView(swatch, new ViewGroup.MarginLayoutParams(size, size));
         swatches.Add((swatch, hex));
         binder.Click(swatch, choose);
     }

@@ -2,5 +2,5 @@
 <!-- Tall windows (phones in portrait, tablets): the Welcome hero as drawn (360 of 915 dp on the board, less the
      status bar). -->
 <resources>
-  <dimen name="onboarding_hero_height">300dp</dimen>
+  <dimen name="onboarding_hero_top_padding">96dp</dimen>
 </resources>

@@ -8,6 +8,7 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Presentation;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.UIKit.MailList;
+using Wino.Mail.UIKit.Phone.Shell;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.UIKit;
 
@@ -16,9 +17,9 @@ namespace Wino.Mail.UIKit.Phone.Mail;
 public sealed partial class MailListPageViewController
 {
     private UIBarButtonItem? _mailboxesItem;
-    private UIBarButtonItem? _searchItem;
     private UIBarButtonItem? _cancelItem;
-    private UIBarButtonItem? _composeItem;
+    private UIBarButtonItem? _filterBarItem;
+    private UIBarButtonItem? _selectBarItem;
     private UIBarButtonItem? _selectAllItem;
     private bool _enteringSelectionByInteraction;
     private UINavigationController? _moveSheet;
@@ -32,14 +33,14 @@ public sealed partial class MailListPageViewController
     internal bool IsInSelectionMode => _selectionMode;
 
     /// <summary>
-    /// The compact bar: the sidebar button (Mailboxes drawer) leading; Search and New Message trailing. Edit mode swaps
+    /// The compact bar: the shell's account avatar (drawer with Mailboxes) leading, the folder name, and the search glyph
+    /// trailing, with Filter and Select beside it when the folder has no Focused/Other. Edit mode swaps
     /// them for Select All, "N selected" and Cancel. The select button itself sits in the header row of the zone.
     /// </summary>
     private void BuildBarItems()
     {
-        _mailboxesItem = PhoneBarItems.Button(WinoIconGlyph.PanelLeft, Translator.IOS_MailboxesTitle, () => PhoneShellViewController.Of(this)?.OpenMailboxes());
-        _searchItem = PhoneBarItems.Button(WinoIconGlyph.Find, Translator.SearchBarPlaceholder, ShowSearch);
-        _composeItem = PhoneBarItems.Compose(Compose);
+        _filterBarItem = PhoneBarItems.MenuButton(WinoIconGlyph.Filter, Translator.Accessibility_FilterMessages, _filterButton.Menu ?? UIMenu.Create([]));
+        _selectBarItem = PhoneBarItems.Button(WinoIconGlyph.CheckmarkCircle, Translator.Buttons_Multiselect, () => ViewModel.IsMultiSelectionModeEnabled = true);
         _cancelItem = new UIBarButtonItem(Translator.Buttons_Cancel, UIBarButtonItemStyle.Plain, (_, _) => ViewModel.IsMultiSelectionModeEnabled = false);
         _selectAllItem = new UIBarButtonItem(Translator.MacOSMenu_SelectAll, UIBarButtonItemStyle.Plain, (_, _) => ToggleSelectAll());
         var more = PhoneBarItems.RowButton(WinoIconGlyph.More, Translator.More, null);
@@ -59,9 +60,18 @@ public sealed partial class MailListPageViewController
         ApplyNavigationItems();
     }
 
+    /// <summary>The shell's account avatar, which leads the bar outside edit mode and opens the drawer.</summary>
+    internal bool HasMenuItem => _mailboxesItem is not null;
+
+    internal void SetMenuItem(UIBarButtonItem item)
+    {
+        _mailboxesItem = item;
+        ApplyNavigationItems();
+    }
+
     private void ApplyNavigationItems()
     {
-        if (_composeItem is null || _searchItem is null || _mailboxesItem is null || _cancelItem is null || _selectAllItem is null) return;
+        if (_filterBarItem is null || _selectBarItem is null || _cancelItem is null || _selectAllItem is null) return;
         if (_selectionMode)
         {
             NavigationItem.SetHidesBackButton(true, true);
@@ -71,11 +81,12 @@ public sealed partial class MailListPageViewController
         else
         {
             NavigationItem.SetHidesBackButton(false, true);
-            NavigationItem.SetLeftBarButtonItems([_mailboxesItem], true);
-            // The first item is the trailing-most: New Message, then Search.
-            NavigationItem.SetRightBarButtonItems([_composeItem, _searchItem], true);
+            NavigationItem.SetLeftBarButtonItems(_mailboxesItem is { } avatar ? [avatar] : [], true);
+            // With Focused/Other the zone's header row holds the filter and Select; without it the row is gone and they join
+            // the search glyph in the bar (Outlook). New message is the floating button.
+            NavigationItem.SetRightBarButtonItems(HasPivots ? [] : [_selectBarItem, _filterBarItem], false);
         }
-        _selectButton.Hidden = _selectionMode;
+        ApplyHeaderRow();
     }
 
     /// <summary>
@@ -87,6 +98,8 @@ public sealed partial class MailListPageViewController
     {
         if (_selectionMode == enabled && IsViewLoaded && _table.Editing == enabled) return;
         _selectionMode = enabled;
+        if (enabled) SetHeaderCollapsed(false);
+        PhoneShellViewController.Of(this)?.UpdateFloatingButton();
         // A two-finger pan that starts edit mode selects as it goes; only the button and the ViewModel start from nothing.
         if (!_enteringSelectionByInteraction) ClearSelection();
         if (_table.Editing != enabled) _table.SetEditing(enabled, true);
@@ -129,6 +142,8 @@ public sealed partial class MailListPageViewController
         if (ViewModel.IsAllItemsSelected && ViewModel.SelectedItemsCount > 0) ClearSelection();
         else SelectAllRows();
     }
+
+    void IPhoneFloatingActionPage.FloatingActionInvoked() => Compose();
 
     private void Compose()
     {
@@ -252,22 +267,20 @@ public sealed partial class MailListPageViewController
         return action;
     }
 
-    // ---- Long-press menu (Windows MailContextFlyoutBuilder, Mac BuildContextMenu) ----
+    // ---- Long press: edit mode (Outlook) ----
 
-    private UIContextMenuConfiguration? ContextMenu(NSIndexPath indexPath)
+    /// <summary>
+    /// A long press on a mail enters edit mode with that mail selected (owner review of 18 Oct 2026, Outlook); the
+    /// actions live in the edit toolbar and its More menu, and in the row's More swipe.
+    /// </summary>
+    private void RowLongPressed(UILongPressGestureRecognizer recognizer)
     {
-        if (RowAt(indexPath) is not { } row) return null;
-        var targets = Targets(row);
-        if (targets.Count == 0) return null;
-        var composeTarget = row.SourceItem as MailItemViewModel;
-        return UIContextMenuConfiguration.Create(null, null, _ =>
-        {
-            var elements = new List<UIMenuElement>(SelectionMenuElements(targets, composeTarget, includeQuickActions: true));
-            if (row.IsThreadHead && row.Thread is { Count: > 1 })
-                elements.Add(PhoneBarItems.Inline(PhoneBarItems.Action(row.IsExpanded ? Translator.MacOS_MailList_CollapseThread : Translator.MacOS_MailList_ExpandThread,
-                    row.IsExpanded ? WinoIconGlyph.ChevronUp : WinoIconGlyph.ChevronDown, () => ToggleThread(row))));
-            return UIMenu.Create(elements.ToArray());
-        });
+        if (recognizer.State != UIGestureRecognizerState.Began || _selectionMode || _released) return;
+        if (_table.IndexPathForRowAtPoint(recognizer.LocationInView(_table)) is not { } indexPath || RowAt(indexPath) is null) return;
+        BeginSelectionByInteraction();
+        _table.SelectRow(indexPath, false, UITableViewScrollPosition.None);
+        SyncSelectionFromTable();
+        new UIImpactFeedbackGenerator(UIImpactFeedbackStyle.Medium).ImpactOccurred();
     }
 
     /// <summary>

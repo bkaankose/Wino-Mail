@@ -44,6 +44,22 @@ internal static class PhoneBarItems
         return [UIBarButtonItem.FlexibleSpaceItem, new UIBarButtonItem(row), UIBarButtonItem.FlexibleSpaceItem];
     }
 
+    /// <summary>
+    /// Puts <paramref name="search"/> behind a search glyph in the bar of <paramref name="item"/> on every tab (approach A
+    /// of 18 Oct 2026): the field expands in place over the bar when tapped and costs no row at rest. iOS 26 does this
+    /// natively (integrated button, kept out of the bottom toolbar); earlier versions hide the field until pulled down.
+    /// </summary>
+    public static void BarSearch(UINavigationItem item, UISearchController search)
+    {
+        item.SearchController = search;
+        if (OperatingSystem.IsIOSVersionAtLeast(26))
+        {
+            item.PreferredSearchBarPlacement = UINavigationItemSearchBarPlacement.IntegratedButton;
+            item.SearchBarPlacementAllowsToolbarIntegration = false;
+        }
+        else item.HidesSearchBarWhenScrolling = true;
+    }
+
     /// <summary>The New Message button of Mailboxes and the message list.</summary>
     public static UIBarButtonItem Compose(Action compose) => Button(WinoIconGlyph.NewMail, Translator.MenuNewMail, compose);
 

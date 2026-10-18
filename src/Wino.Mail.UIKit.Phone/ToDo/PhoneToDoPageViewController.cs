@@ -1,6 +1,8 @@
 using UIKit;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.UIKit.Infrastructure;
+using Wino.Mail.UIKit.Phone.Mail;
+using Wino.Mail.UIKit.Phone.Shell;
 using Wino.Mail.UIKit.Views.ToDo;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
@@ -8,13 +10,12 @@ using Wino.Mail.ViewModels.Data;
 namespace Wino.Mail.UIKit.Phone.ToDo;
 
 /// <summary>
-/// The iPhone To Do tab (iOS design decisions): Lists (smart views and task lists, Windows order) → tasks (this page:
-/// sections, round checkboxes, swipes, quick add on the keyboard) → task detail (pushed). The phone shell places this
-/// page over its shell-owned Lists root (<c>ModeMenuRootViewController</c> with <see cref="ToDoMenuRowStyle"/>), the way
-/// Mail sits over Mailboxes; the page stays alive while popped back to Lists so a list tap shows it again at once.
+/// The iPhone To Do tab (iOS design decisions): tasks (this page: sections, round checkboxes, swipes, quick add on the
+/// keyboard) → task detail (pushed). The page is the tab's root; Lists (smart views and task lists, Windows order) are in
+/// the shell drawer (<c>ModeMenuRootViewController</c> with <see cref="ToDoMenuRowStyle"/>), the way Mailboxes is.
 /// </summary>
 public sealed class PhoneToDoPageViewController(ToDoPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger, UIKitNavigationService navigation)
-    : ToDoPageViewController(viewModel, dispatcher, logger, navigation)
+    : ToDoPageViewController(viewModel, dispatcher, logger, navigation), IPhoneFloatingActionPage
 {
     private WeakReference<ToDoTaskDetailViewController>? _detail;
     private bool _keepAliveOnPop;
@@ -26,15 +27,21 @@ public sealed class PhoneToDoPageViewController(ToDoPageViewModel viewModel, IDi
 
     protected override bool RowSeparators => true;
 
+    protected override bool CombinesBarMenus => true;
+
+    protected override bool QuickAddOnDemand => true;
+
+    /// <summary>The shell's floating button: the quick add bar on the keyboard.</summary>
+    void IPhoneFloatingActionPage.FloatingActionInvoked() => ShowQuickAdd();
+
     protected override void PrepareLayout() => PageViewModel.SetCompactLayout(true);
 
     public override void ViewDidLoad()
     {
         base.ViewDidLoad();
         NavigationItem.LargeTitleDisplayMode = UINavigationItemLargeTitleDisplayMode.Never;
-        // No persistent search bar under the compact title: iOS 26 puts search behind a bar button.
-        if (OperatingSystem.IsIOSVersionAtLeast(26) && NavigationItem.SearchController is not null)
-            NavigationItem.PreferredSearchBarPlacement = UINavigationItemSearchBarPlacement.IntegratedButton;
+        // Search sits behind the bar's search glyph on every tab.
+        if (NavigationItem.SearchController is { } search) PhoneBarItems.BarSearch(NavigationItem, search);
     }
 
     public override void ViewWillAppear(bool animated)

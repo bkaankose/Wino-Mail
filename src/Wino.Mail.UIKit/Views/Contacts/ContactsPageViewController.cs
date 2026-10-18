@@ -50,6 +50,9 @@ public abstract partial class ContactsPageViewController : WinoViewController<Co
     /// <summary>True when the filters (address books, lists, categories) are a bar menu (iPhone); the iPad sidebar shows them.</summary>
     protected abstract bool ShowsFilterMenu { get; }
 
+    /// <summary>False leaves New contact out of the bar (the iPhone's floating button creates contacts).</summary>
+    protected virtual bool ShowsAddButton => true;
+
     /// <summary>A contact row was tapped; the selection is already in the ViewModel.</summary>
     protected abstract void ContactActivated(AccountContactViewModel contact);
 
@@ -86,10 +89,8 @@ public abstract partial class ContactsPageViewController : WinoViewController<Co
     public override void ViewDidLoad()
     {
         base.ViewDidLoad();
-        var items = new List<UIBarButtonItem>
-        {
-            ModeBarItems.Button(WinoIconGlyph.PersonAdd, Translator.ContactsPane_NewContact, AddContact)
-        };
+        var items = new List<UIBarButtonItem>();
+        if (ShowsAddButton) items.Add(ModeBarItems.Button(WinoIconGlyph.PersonAdd, Translator.ContactsPane_NewContact, AddContact));
         if (ShowsFilterMenu) items.Add(FilterBarItem());
         ModeBarItems.AppendRight(NavigationItem, items.ToArray());
         if (UsesSearchController) BuildSearchController();
@@ -142,7 +143,7 @@ public abstract partial class ContactsPageViewController : WinoViewController<Co
         _blockedAction.Hidden = !readiness.IsPrimaryActionVisible;
     }
 
-    private void AddContact()
+    protected void AddContact()
     {
         if (ViewModel.AddContactCommand.CanExecute(null)) ViewModel.AddContactCommand.Execute(null);
     }

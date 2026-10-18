@@ -2,6 +2,6 @@
 <!-- One segment of the Focused / Other segmented button (canvas Material pass Inbox): MailListFragment adds one per
      shared pivot folder to the MaterialButtonToggleGroup, which rounds the outer corners only. -->
 <com.google.android.material.button.MaterialButton xmlns:android="http://schemas.android.com/apk/res/android"
-    style="@style/Widget.WinoKit.Segment"
+    style="@style/Widget.Wino.Mail.PivotSegment"
     android:layout_width="wrap_content"
     android:checkable="true" />

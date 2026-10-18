@@ -19,8 +19,8 @@ using PopupMenu = AndroidX.AppCompat.Widget.PopupMenu;
 namespace Wino.Mail.Android.Views.Mail;
 
 /// <summary>
-/// Search (canvas board Search; Windows MailListPage search, the iOS search controller): the app bar turns into a search
-/// field with the On device / Online scope, filter chips for attachments, unread and flagged mail, From and Subject chips
+/// Search (canvas board Search; Windows MailListPage search, the iOS search controller): typing in the docked search bar
+/// (<see cref="Shell.DockedSearchBar"/>) searches; the chip row under it holds the On device / Online scope, filter chips for attachments, unread and flagged mail, From and Subject chips
 /// that turn the typed text into a sender or subject filter, and the folder scope. Results replace the folder's rows in
 /// the same list; the header shows the result status and Try online search appears under local results. Searches run
 /// through the shared criteria factory and folder resolver, as on the Mac and iOS.
@@ -43,37 +43,20 @@ public sealed partial class MailListFragment
     private void BuildSearch(View view, Context context, MailListPageViewModel viewModel, IDispatcher dispatcher)
     {
         _searchPanel = view.FindViewById(Resource.Id.mail_search_panel);
-        _searchField = view.FindViewById<EditText>(Resource.Id.mail_search_field);
         _searchChips = view.FindViewById<ChipGroup>(Resource.Id.mail_search_chips);
         _searchStatus = view.FindViewById<TextView>(Resource.Id.mail_search_status);
         _headerSpace = view.FindViewById(Resource.Id.mail_header_space);
-        if (_searchField is null) return;
+        if (_searchBar is not { } bar) return;
+        _searchField = bar.Field;
 
-        // Back closes search first (Material 3 search), then leaves the page as before.
-        if (Activity is { } activity)
+        // The bar's Back (button or gesture) leaves search; focusing its field enters it.
+        bar.ActiveChanged += active =>
         {
-            _searchBack = new SearchBackCallback(this);
-            activity.OnBackPressedDispatcher.AddCallback(ViewLifecycleOwner, _searchBack);
-        }
-        _searchField.Hint = Translator.SearchBarPlaceholder;
-        _searchField.TextChanged += (_, _) => Observe(SearchTextChangedAsync(_searchField.Text ?? string.Empty));
-        _searchField.EditorAction += (_, args) =>
-        {
-            args.Handled = args.ActionId == ImeAction.Search;
-            if (!args.Handled) return;
-            HideKeyboard();
-            Observe(RunSearchOrCloseAsync(_searchText));
+            if (active) ShowSearchPanel(focus: false);
+            else CloseSearch();
         };
-        if (view.FindViewById<ImageButton>(Resource.Id.mail_search_close) is { } close)
-        {
-            close.ContentDescription = Translator.Buttons_Back;
-            close.Click += (_, _) => CloseSearch();
-        }
-        if (view.FindViewById<ImageButton>(Resource.Id.mail_search_clear) is { } clear)
-        {
-            clear.ContentDescription = Translator.SearchBar_ClearAllFilters;
-            clear.Click += (_, _) => _searchField.Text = string.Empty;
-        }
+        bar.QueryChanged += text => Observe(SearchTextChangedAsync(text));
+        bar.Submitted += _ => Observe(RunSearchOrCloseAsync(_searchText));
 
         Bind(viewModel, dispatcher, nameof(MailListPageViewModel.IsInSearchMode), vm => vm.IsInSearchMode, _ => UpdateSearchStatus());
         Bind(viewModel, dispatcher, nameof(MailListPageViewModel.SearchFilters), vm => vm.SearchFilters, _ => { UpdateSearchStatus(); BuildSearchChips(); });
@@ -89,48 +72,37 @@ public sealed partial class MailListFragment
         }
     }
 
-    private void OpenSearch() => ShowSearchPanel(focus: true);
-
     private void ShowSearchPanel(bool focus)
     {
-        if (_searchPanel is null || _searchField is null) return;
+        if (_searchPanel is null || _searchBar is not { } bar) return;
         _searchPanel.Visibility = ViewStates.Visible;
-        if (_toolbar is not null) _toolbar.Visibility = ViewStates.Gone;
         Chrome?.SuppressFab(true);
-        if (_searchBack is not null) _searchBack.Enabled = true;
-        if (_searchField.Text != _searchText) _searchField.Text = _searchText;
+        bar.Query = _searchText;
+        if (!bar.IsActive || focus) bar.Activate(focus);
         BuildSearchChips();
         UpdateSearchStatus();
-        if (!focus) return;
-        _searchField.RequestFocus();
-        (Context?.GetSystemService(Context.InputMethodService) as InputMethodManager)?.ShowSoftInput(_searchField, ShowFlags.Implicit);
     }
 
-    /// <summary>Back to the folder: the query and filters go, the folder's rows return.</summary>
+    /// <summary>Back to the folder (the bar left search): the query and filters go, the folder's rows return.</summary>
     private void CloseSearch()
     {
-        HideKeyboard();
+        if (_closingSearch) return;
+        _closingSearch = true;
+        try { CloseSearchCore(); }
+        finally { _closingSearch = false; }
+    }
+
+    private bool _closingSearch;
+
+    private void CloseSearchCore()
+    {
         if (_searchPanel is not null) _searchPanel.Visibility = ViewStates.Gone;
-        if (_toolbar is not null) _toolbar.Visibility = ViewStates.Visible;
         Chrome?.SuppressFab(false);
-        if (_searchBack is not null) _searchBack.Enabled = false;
         _online = false;
         _searchText = string.Empty;
-        if (_searchField is not null && !string.IsNullOrEmpty(_searchField.Text)) _searchField.Text = string.Empty;
+        if (_searchBar is { IsActive: true } bar) bar.Deactivate();
+        UpdateSearchStatus();
         Observe(SearchClearedAsync());
-    }
-
-    private void HideKeyboard()
-    {
-        if (_searchField is not null)
-            (Context?.GetSystemService(Context.InputMethodService) as InputMethodManager)?.HideSoftInputFromWindow(_searchField.WindowToken, HideSoftInputFlags.None);
-    }
-
-    private SearchBackCallback? _searchBack;
-
-    private sealed class SearchBackCallback(MailListFragment owner) : AndroidX.Activity.OnBackPressedCallback(false)
-    {
-        public override void HandleOnBackPressed() => owner.CloseSearch();
     }
 
     private bool IsSearchPanelOpen => _searchPanel?.Visibility == ViewStates.Visible;
@@ -201,7 +173,7 @@ public sealed partial class MailListFragment
         if (text.Length == 0) return null;
         _searchText = string.Empty;
         if (ViewModel is { } viewModel) viewModel.SearchQuery = string.Empty;
-        if (_searchField is not null) _searchField.Text = string.Empty;
+        if (_searchBar is not null) _searchBar.Query = string.Empty;
         return text;
     }
 
@@ -250,6 +222,7 @@ public sealed partial class MailListFragment
         if (_headerSpace is not null) _headerSpace.Visibility = searching ? ViewStates.Gone : ViewStates.Visible;
         if (_pivots is not null && searching) _pivots.Visibility = ViewStates.Gone;
         else if (!searching) UpdatePivots();
+        UpdateHeaderVisibility();
         if (searching)
             _searchStatus.Text = $"{(viewModel.AreSearchResultsOnline ? Translator.SettingsAppPreferences_SearchMode_Online : Translator.SettingsAppPreferences_SearchMode_Local)} · {viewModel.MailCollection.Count}";
     }

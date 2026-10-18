@@ -77,6 +77,7 @@
                   android:textIsSelectable="true" />
 
               <LinearLayout
+                  android:id="@+id/reader_sender_row"
                   android:layout_width="match_parent"
                   android:layout_height="wrap_content"
                   android:layout_marginTop="@dimen/wino_space_l"
@@ -89,6 +90,7 @@
                     android:layout_height="@dimen/wino_size_control" />
 
                 <LinearLayout
+                    android:id="@+id/reader_sender_column"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="@dimen/wino_space_l"

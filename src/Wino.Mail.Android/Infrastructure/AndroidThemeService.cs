@@ -19,8 +19,9 @@ namespace Wino.Mail.Android.Infrastructure;
 /// on one platform resolves to the same theme here. A theme sets the accent (<see cref="WinoColors.AccentOverride"/> for
 /// the Wino controls and Material widgets), may force light or dark (AppCompat night mode), and paints its wallpaper or
 /// gradient behind every page (<see cref="WinoBackdrop"/>, which the blurred bars also draw); custom themes also recolour
-/// the zones through <see cref="WinoThemeSurfaces"/>. The system theme keeps the canvas wallpapers (Clouds in light,
-/// Nighty in dark). Icon style follows the preference (<see cref="WinoIcons.Style"/>). No Material dynamic colour.
+/// the zones through <see cref="WinoThemeSurfaces"/>. The system theme (Default) has no backdrop, like Windows and iOS.
+/// Icon style follows the preference (<see cref="WinoIcons.Style"/>). The system theme's accent is the device's Material
+/// You accent on Android 12 and later (resource tokens in values-v31).
 /// </summary>
 /// <remarks>
 /// File and image work runs in the background; statics are set on the UI thread in <see cref="ApplyThemeToActiveWindowAsync"/>,
@@ -29,10 +30,6 @@ namespace Wino.Mail.Android.Infrastructure;
 /// </remarks>
 public sealed class AndroidThemeService(IDispatcher dispatcher, IConfigurationService configuration, IPreferencesService preferences, CustomThemeFileStore store) : INewThemeService
 {
-    /// <summary>The system theme's wallpapers (canvas boards Welcome and WelcomeDark).</summary>
-    public const string SystemLightWallpaper = "Clouds";
-    public const string SystemDarkWallpaper = "Nighty";
-
     /// <summary>The iOS and Mac key: Off keeps plain surfaces with the theme accent only.</summary>
     private const string BackdropEnabledKey = "MacThemeBackdropEnabled";
     private const int PreviewWidth = 480;
@@ -47,12 +44,15 @@ public sealed class AndroidThemeService(IDispatcher dispatcher, IConfigurationSe
     private readonly object _sync = new();
     private readonly Dictionary<Guid, Bitmap?> _customWallpapers = new();
     private List<CustomThemeMetadata> _customThemes = [];
+    // The user's Element Theme choice (saved), and the light or dark mode the active predefined theme forces (not
+    // saved: like Windows, leaving that theme returns to the user's choice).
     private ApplicationElementTheme _rootTheme;
+    private ApplicationElementTheme? _forcedTheme;
     private string _accent = string.Empty;
     private Guid? _themeId;
     private PreviewState? _preview;
     private byte[]? _previewWallpaper;
-    private BackdropState _backdrop = new(SystemLightWallpaper, SystemDarkWallpaper, null, null);
+    private BackdropState _backdrop = new(null, null, null, null);
     private bool _preferencesHooked;
 
     public event EventHandler<ApplicationElementTheme>? ElementThemeChanged;
@@ -84,7 +84,7 @@ public sealed class AndroidThemeService(IDispatcher dispatcher, IConfigurationSe
 
     public ApplicationElementTheme RootTheme
     {
-        get => _rootTheme;
+        get => _forcedTheme ?? _rootTheme;
         set
         {
             _rootTheme = value;
@@ -139,6 +139,7 @@ public sealed class AndroidThemeService(IDispatcher dispatcher, IConfigurationSe
             if (WinoThemeCatalog.IsPredefined(id)) _themeId = id;
             else if ((await RefreshCustomThemesAsync()).Any(theme => theme.Id == id)) _themeId = id;
         }
+        _forcedTheme = ForcedThemeOf(WinoThemeCatalog.Find(_themeId.Value));
         await ApplyThemeToActiveWindowAsync();
     }
 
@@ -180,13 +181,14 @@ public sealed class AndroidThemeService(IDispatcher dispatcher, IConfigurationSe
         _accent = predefined?.AccentColor ?? custom?.AccentColorHex ?? string.Empty;
         configuration.Set(WinoThemeCatalog.AccentColorKey, _accent);
         AccentColorChanged?.Invoke(this, _accent);
-        if (predefined is { ForcedElementTheme: not ApplicationElementTheme.Default } forced)
-        {
-            _rootTheme = forced.ForcedElementTheme;
-            configuration.Set(WinoThemeCatalog.SelectedAppThemeKey, _rootTheme);
-            ElementThemeChanged?.Invoke(this, _rootTheme);
-        }
+        var forced = ForcedThemeOf(predefined);
+        if (forced == _forcedTheme) return;
+        _forcedTheme = forced;
+        ElementThemeChanged?.Invoke(this, RootTheme);
     }
+
+    private static ApplicationElementTheme? ForcedThemeOf(WinoThemeDefinition? predefined)
+        => predefined is { ForcedElementTheme: not ApplicationElementTheme.Default and var forced } ? forced : null;
 
     private async Task ActivateStoredThemeAsync()
     {
@@ -203,8 +205,13 @@ public sealed class AndroidThemeService(IDispatcher dispatcher, IConfigurationSe
         return Task.CompletedTask;
     }
 
-    /// <summary>The resource accent of the system theme (Clouds blue; no Material dynamic colour).</summary>
-    public string GetSystemAccentColorHex() => "#0984e3";
+    /// <summary>The system theme's resource accent: the device's Material You accent on Android 12 and later, else Wino blue.</summary>
+    public string GetSystemAccentColorHex()
+    {
+        var context = Application.Context;
+        var accent = WinoColors.FromResource(context, Resource.Color.wino_accent);
+        return $"#{accent.R:x2}{accent.G:x2}{accent.B:x2}";
+    }
 
     /// <summary>The single apply point: resolves the theme (or the editor preview) and applies it on the UI thread.</summary>
     public async Task ApplyThemeToActiveWindowAsync()
@@ -227,7 +234,7 @@ public sealed class AndroidThemeService(IDispatcher dispatcher, IConfigurationSe
 
     private void ApplyOnUIThread(PreviewState? preview, CustomThemeMetadata? custom, Bitmap? customWallpaper)
     {
-        var root = preview?.ElementTheme ?? _rootTheme;
+        var root = preview?.ElementTheme ?? RootTheme;
         AppCompatDelegate.DefaultNightMode = root switch
         {
             ApplicationElementTheme.Dark => AppCompatDelegate.ModeNightYes,
@@ -248,8 +255,7 @@ public sealed class AndroidThemeService(IDispatcher dispatcher, IConfigurationSe
         else
         {
             var theme = _themeId is { } id ? WinoThemeCatalog.Find(id) : null;
-            if (!enabled) _backdrop = new BackdropState(null, null, null, null);
-            else if (theme is null || theme.IsSystemTheme) _backdrop = new BackdropState(SystemLightWallpaper, SystemDarkWallpaper, null, null);
+            if (!enabled || theme is null || theme.IsSystemTheme) _backdrop = new BackdropState(null, null, null, null);
             else if (theme.Gradient is { } gradient) _backdrop = new BackdropState(null, null, gradient, null);
             else _backdrop = new BackdropState(theme.Name, theme.Name, null, null);
             WinoThemeSurfaces.Clear();
@@ -350,10 +356,11 @@ public sealed class AndroidThemeService(IDispatcher dispatcher, IConfigurationSe
         configuration.Set(WinoThemeCatalog.CurrentApplicationThemeKey, state.ThemeId ?? WinoThemeCatalog.DefaultThemeId);
         _accent = state.AccentColor ?? string.Empty;
         _rootTheme = state.ElementTheme;
+        _forcedTheme = state.ThemeId is { } restored ? ForcedThemeOf(WinoThemeCatalog.Find(restored)) : null;
         if (state.ThemeId is { } id && !WinoThemeCatalog.IsPredefined(id) && FindCachedCustom(id) is null)
             await RefreshCustomThemesAsync();
         AccentColorChanged?.Invoke(this, _accent);
-        ElementThemeChanged?.Invoke(this, _rootTheme);
+        ElementThemeChanged?.Invoke(this, RootTheme);
         await ApplyThemeToActiveWindowAsync();
     }
 

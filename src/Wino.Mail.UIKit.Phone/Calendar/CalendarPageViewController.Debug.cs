@@ -3,7 +3,7 @@ using Wino.Mail.UIKit.Infrastructure;
 
 namespace Wino.Mail.UIKit.Phone.Calendar;
 
-/// <summary>iPhone bridge commands: calagenda on|off, calheader (opens the date picker sheet), calcalendars (the filter sheet).</summary>
+/// <summary>iPhone bridge commands: calagenda on|off, calheader (toggles the date panel).</summary>
 public sealed partial class CalendarPageViewController
 {
     protected override void RegisterIdiomDebugCommands()
@@ -17,18 +17,12 @@ public sealed partial class CalendarPageViewController
         UIKitDebugBridge.Register("calheader", _ =>
         {
             if (Released) return Task.FromResult("calendar page released");
-            ShowPicker();
-            return Task.FromResult("picker=" + (_pickerSheet is not null));
-        });
-        UIKitDebugBridge.Register("calcalendars", _ =>
-        {
-            if (Released) return Task.FromResult("calendar page released");
-            ShowCalendars();
-            return Task.FromResult("ok");
+            TogglePanel();
+            return Task.FromResult("panel=" + (_panel?.IsOpen == true));
         });
     }
 
     protected override string DebugLayoutInfo()
-        => $"agenda={_agendaOn} picker={_pickerSheet is not null} type={_displayType} title='{NavigationItem.Title}' stack={string.Join(">", NavigationController?.ViewControllers?.Select(page => page.GetType().Name) ?? Array.Empty<string>())}";
+        => $"agenda={_agendaOn} panel={_panel?.IsOpen == true} type={_displayType} title='{NavigationItem.Title}' stack={string.Join(">", NavigationController?.ViewControllers?.Select(page => page.GetType().Name) ?? Array.Empty<string>())}";
 }
 #endif

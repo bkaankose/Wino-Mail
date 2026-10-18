@@ -50,7 +50,7 @@ public sealed partial class MailListPageViewController
         bar.SearchTextField.AllowsDeletingTokens = true;
         bar.SearchTextField.TokenBackgroundColor = WinoStyle.Accent;
         _search.Delegate = _searchHandler;
-        NavigationItem.HidesSearchBarWhenScrolling = false;
+        PhoneBarItems.BarSearch(NavigationItem, _search);
         DefinesPresentationContext = true;
 
         var scopeConfiguration = UIButtonConfiguration.GrayButtonConfiguration;
@@ -84,31 +84,19 @@ public sealed partial class MailListPageViewController
 
     private bool IsSearchActive => !string.IsNullOrWhiteSpace(_searchText) || ViewModel.IsInSearchMode || ViewModel.ActiveSearchFilterCount > 0;
 
-    /// <summary>Puts the search controller in the bar (it is only there while a search is open).</summary>
+    /// <summary>The search controller stays in the bar behind its glyph; the debug bridge and the filters still ask for it.</summary>
     private void AttachSearch()
     {
-        if (NavigationItem.SearchController is null) NavigationItem.SearchController = _search;
+        if (NavigationItem.SearchController is null) PhoneBarItems.BarSearch(NavigationItem, _search);
     }
 
-    /// <summary>The bar's Search button: attaches the search controller and focuses its field.</summary>
+    /// <summary>Expands and focuses the search field (debug bridge).</summary>
     private void ShowSearch()
     {
         if (_released || _selectionMode) return;
         AttachSearch();
-        // Activate on the next turn, after the bar has taken the search controller.
-        CoreFoundation.DispatchQueue.MainQueue.DispatchAsync(() =>
-        {
-            if (_released) return;
-            _search.Active = true;
-            _search.SearchBar.BecomeFirstResponder();
-        });
-    }
-
-    /// <summary>Removes the search controller from the bar once no search is open, giving the list its height back.</summary>
-    private void DetachSearchIfIdle()
-    {
-        if (_released || _search.Active || IsSearchActive || NavigationItem.SearchController is null) return;
-        NavigationItem.SearchController = null;
+        _search.Active = true;
+        _search.SearchBar.BecomeFirstResponder();
     }
 
     private void UpdateScopeBar()
@@ -293,7 +281,6 @@ public sealed partial class MailListPageViewController
         {
             _search.SearchBar.SelectedScopeButtonIndex = 0;
             UpdateScopeBar();
-            DetachSearchIfIdle();
         });
     }
 
@@ -378,9 +365,6 @@ public sealed partial class MailListPageViewController
     /// <summary>The search bar's delegate and the results updater (tokens and suggestions).</summary>
     private sealed class SearchHandler(MailListPageViewController owner) : UISearchResultsUpdating, IUISearchBarDelegate, IUISearchControllerDelegate
     {
-        [Export("didDismissSearchController:")]
-        public void DidDismissSearchController(UISearchController searchController) => owner.DetachSearchIfIdle();
-
         public override void UpdateSearchResultsForSearchController(UISearchController searchController)
         {
             owner.TokensMaybeRemoved();

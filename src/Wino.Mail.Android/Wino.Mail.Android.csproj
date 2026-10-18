@@ -57,8 +57,8 @@
     <GoogleServicesJson Include="google-services.json" />
   </ItemGroup>
   <!-- The WinoIcons fonts ship with controls/Wino.Presentation.Android (assets Fonts/*.ttf, loaded by WinoIcons). -->
-  <!-- Theme wallpapers shared with Windows and the Apple heads (BackgroundImages): the theme gallery and the backdrop;
-       the system theme uses Clouds in light and Nighty in dark. -->
+  <!-- Theme wallpapers shared with Windows and the Apple heads (BackgroundImages): the theme gallery and the backdrop.
+       The system theme (Default) has no wallpaper. -->
   <ItemGroup>
     <AndroidAsset Include="../Wino.Mail.WinUI/BackgroundImages/*.jpg" Link="Assets/Themes/%(Filename)%(Extension)" />
   </ItemGroup>
@@ -66,5 +66,7 @@
        PackagedResourceInstaller copies everything under PackagedResources/ to AndroidPaths.PackagedResourceRoot. -->
   <ItemGroup>
     <AndroidAsset Include="../Wino.Mail.WinUI/Assets/Providers/*.png" Link="Assets/PackagedResources/Assets/Providers/%(Filename)%(Extension)" />
+    <!-- What's New release notes and illustrations (WhatsNewService reads them from PackagedResourceRoot). -->
+    <AndroidAsset Include="../Wino.Mail.WinUI/Assets/WhatsNew/*.json;../Wino.Mail.WinUI/Assets/WhatsNew/*.png" Link="Assets/PackagedResources/Assets/WhatsNew/%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

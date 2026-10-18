@@ -14,7 +14,7 @@ namespace Wino.Mail.Android.Views.Debug;
 /// loopback port with placeholder test credentials, folders and mails; nothing leaves the device) and opens Mail.
 /// <c>--es command seedcalendar</c> adds the shared demo calendars and events
 /// (<see cref="Wino.Mail.ViewModels.Diagnostics.CalendarDebugSeed"/>; <c>--es kind ADDRESS</c> picks the account) and opens
-/// Calendar. <c>--es command mail</c> only opens Mail; <c>seedrecipients</c> adds remembered correspondents for compose suggestions; <c>seedcontacts</c> and <c>seedtasks</c> fill a local address book and two task lists (shared <see cref="Wino.Mail.ViewModels.Diagnostics.ModeDebugSeed"/>) and open the mode. The activity finishes at once; results go to the log
+/// Calendar. <c>--es command mail</c> only opens Mail; <c>welcome</c> shows the welcome page; <c>seedrecipients</c> adds remembered correspondents for compose suggestions; <c>seedcontacts</c> and <c>seedtasks</c> fill a local address book and two task lists (shared <see cref="Wino.Mail.ViewModels.Diagnostics.ModeDebugSeed"/>) and open the mode. The activity finishes at once; results go to the log
 /// (<c>adb logcat -s DOTNET</c>).
 /// </summary>
 [Activity(Name = "com.winomail.android.DebugCommand", Exported = true, NoHistory = true, Theme = "@android:style/Theme.Translucent.NoTitleBar")]
@@ -71,6 +71,10 @@ public sealed class DebugCommandActivity : Activity
                     break;
                 case "mail":
                     await navigation.EnsureShellAsync(WinoApplicationMode.Mail);
+                    break;
+                case "welcome":
+                    // The welcome page as onboarding shows it, without removing the accounts (layout checks); "mail" returns.
+                    await navigation.NavigateAsync(WinoPage.WelcomePageV2);
                     break;
                 case "graceperiod":
                     // --ei seconds N shortens the background grace period (0 restores 10 minutes); applies from the next background.

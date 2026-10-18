@@ -54,6 +54,31 @@ public abstract partial class ToDoPageViewController
         ];
     }
 
+    /// <summary>One More button that opens its menu at once: filters and sort, then the list options (no suggestions).</summary>
+    private UIBarButtonItem CombinedBarItem()
+    {
+        var menu = UIMenu.Create([UIDeferredMenuElement.CreateUncached(completion => completion(
+            [ModeBarItems.Inline(FilterMenuElements()), .. OptionsMenuElements(includeSuggestions: false)]))]);
+        return ModeBarItems.MenuButton(WinoIconGlyph.More, Translator.ToDoPage_ListOptions, menu);
+    }
+
+    /// <summary>My Day's suggestions as their own bar button (the iPhone bar).</summary>
+    private UIBarButtonItem SuggestionsBarItem()
+    {
+        var menu = UIMenu.Create([UIDeferredMenuElement.CreateUncached(completion => completion(SuggestionElements()))]);
+        return ModeBarItems.MenuButton(WinoIconGlyph.Lightbulb, Translator.ToDoPage_Suggestions, menu);
+    }
+
+    /// <summary>Up to twelve suggestions, each adding its task to My Day.</summary>
+    private UIMenuElement[] SuggestionElements()
+    {
+        ViewModel.OpenSuggestionsCommand.Execute(null);
+        var suggestions = ViewModel.Suggestions.Take(12).Select(item => (UIMenuElement)ModeBarItems.Action(
+            string.IsNullOrEmpty(SuggestionCaption(item)) ? item.Title ?? string.Empty : $"{item.Title} · {SuggestionCaption(item)}",
+            WinoIconGlyph.Add, () => Observe(ViewModel.AddSuggestionToMyDayCommand.ExecuteAsync(item)))).ToArray();
+        return suggestions.Length > 0 ? suggestions : [ModeBarItems.Action(Translator.ToDoPage_SuggestionsEmpty, WinoIconGlyph.None, () => { }, enabled: false)];
+    }
+
     private UIBarButtonItem OptionsBarItem()
     {
         var menu = UIMenu.Create([UIDeferredMenuElement.CreateUncached(completion => completion(OptionsMenuElements()))]);
@@ -61,19 +86,11 @@ public abstract partial class ToDoPageViewController
     }
 
     /// <summary>Suggestions (My Day) and the Windows list overflow: rename, print, email, delete.</summary>
-    private UIMenuElement[] OptionsMenuElements()
+    private UIMenuElement[] OptionsMenuElements(bool includeSuggestions = true)
     {
         var elements = new List<UIMenuElement>();
-        if (ViewModel.IsMyDaySelected)
-        {
-            ViewModel.OpenSuggestionsCommand.Execute(null);
-            var suggestions = ViewModel.Suggestions.Take(12).Select(item => (UIMenuElement)ModeBarItems.Action(
-                string.IsNullOrEmpty(SuggestionCaption(item)) ? item.Title ?? string.Empty : $"{item.Title} · {SuggestionCaption(item)}",
-                WinoIconGlyph.Add, () => Observe(ViewModel.AddSuggestionToMyDayCommand.ExecuteAsync(item)))).ToArray();
-            if (suggestions.Length == 0)
-                suggestions = [ModeBarItems.Action(Translator.ToDoPage_SuggestionsEmpty, WinoIconGlyph.None, () => { }, enabled: false)];
-            elements.Add(ModeBarItems.Submenu(Translator.ToDoPage_Suggestions, WinoIconGlyph.Lightbulb, suggestions));
-        }
+        if (includeSuggestions && ViewModel.IsMyDaySelected)
+            elements.Add(ModeBarItems.Submenu(Translator.ToDoPage_Suggestions, WinoIconGlyph.Lightbulb, SuggestionElements()));
         if (ViewModel.IsNamedListSelected)
         {
             elements.Add(ModeBarItems.Inline(

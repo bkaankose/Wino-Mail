@@ -4,20 +4,21 @@ using Android.OS;
 namespace Wino.Mail.Android.Infrastructure;
 
 /// <summary>
-/// Material window width classes (plan section 1): compact phones in portrait use one pane, medium windows (landscape
-/// phones, small tablets) a rail with list and reader, expanded windows the Windows layout. A window at least 840 dp wide
-/// but under 480 dp tall (every phone in landscape; canvas decision A3) stays medium: the Windows layout needs height
-/// for its pane. Layout resources follow the same rule (layout-w600dp, layout-w840dp-h480dp).
+/// Window width classes (plan section 1): compact phones in portrait use one pane; medium windows (landscape phones and
+/// tablets under 1200 dp) a rail with list and reader; expanded windows (Material 3 large, 1200 dp and wider) the Windows
+/// layout with the pinned pane. Under 1200 dp the 320 dp pane and 420 dp list would leave the reader too narrow to read,
+/// so those tablets keep the rail. A window at least 1200 dp wide but under 480 dp tall stays medium: the Windows layout
+/// needs height for its pane. Layout resources follow the same rule (layout-w600dp, layout-w1200dp-h480dp).
 /// </summary>
 public enum WindowWidthClass
 {
     /// <summary>Narrower than 600 dp.</summary>
     Compact,
 
-    /// <summary>600 dp to 839 dp.</summary>
+    /// <summary>600 dp to 1199 dp.</summary>
     Medium,
 
-    /// <summary>840 dp and wider.</summary>
+    /// <summary>1200 dp and wider.</summary>
     Expanded
 }
 
@@ -43,7 +44,7 @@ public interface IWindowSizeClassService
 public sealed class AndroidWindowSizeClassService : IWindowSizeClassService
 {
     public const int MediumMinWidthDp = 600;
-    public const int ExpandedMinWidthDp = 840;
+    public const int ExpandedMinWidthDp = 1200;
     public const int ExpandedMinHeightDp = 480;
 
     public WindowWidthClass WidthClass { get; private set; } = WindowWidthClass.Compact;

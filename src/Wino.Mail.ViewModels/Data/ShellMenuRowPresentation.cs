@@ -84,7 +84,8 @@ public static class ShellMenuRowPresentation
     public static ShellMenuRowContent Describe(IMenuItem item, int depth, IPictureStorageService? pictures)
     {
         bool? expanded = HasChildren(item) && item is not IAccountMenuItem ? item.IsExpanded : null;
-        int indent = Math.Max(0, depth - 1);
+        // Folders indent by their folder ancestors (the children of More); other rows by their list depth.
+        int indent = item is IBaseFolderMenuItem or MergedAccountMoreFolderMenuItem ? ShellMenuItemRules.FolderIndent(item) : Math.Max(0, depth - 1);
         var row = new ShellMenuRowContent(KindOf(item), WinoIconGlyph.Folder, string.Empty, null, 0, indent, expanded, null,
             false, true, 0, false, ShellMenuItemRules.IsEnabled(item), ShellMenuItemRules.IsHighlightable(item), ShellMenuItemRules.ShowsIndicator(item));
 

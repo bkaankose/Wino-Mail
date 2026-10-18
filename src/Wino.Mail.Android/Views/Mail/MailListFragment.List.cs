@@ -40,6 +40,11 @@ public sealed partial class MailListFragment
         _adapter.IsGrouped = (viewModel.MailListOptions?.GroupMode ?? MailListGroupMode.Date) != MailListGroupMode.None;
         var layout = new LinearLayoutManager(context);
         _list.SetLayoutManager(layout);
+        // The list fills its pane, so adapter changes never resize it. A rebind after a large swap parks every visible
+        // row in the pool (the default keeps 5 per type), and change crossfades would bind a second holder per row.
+        _list.HasFixedSize = true;
+        _list.GetRecycledViewPool().SetMaxRecycledViews(WinoMailListAdapter.RowViewType, 24);
+        if (_list.GetItemAnimator() is SimpleItemAnimator animator) animator.SupportsChangeAnimations = false;
         _list.SetAdapter(_adapter);
         _list.ContentDescription = Translator.Accessibility_MailList;
         _adapter.Attach(_controller.Projection);
@@ -47,6 +52,7 @@ public sealed partial class MailListFragment
 
         _adapter.RowClicked += (_, row) => RowClicked(row);
         _adapter.RowLongClicked += (_, row) => StartSelectionMode(row);
+        _adapter.RowAvatarTapped += (_, row) => AvatarTapped(row);
         _adapter.SelectionChanged += (_, _) => SyncSelection();
         _adapter.EntriesChanged += (_, _) =>
         {
@@ -186,9 +192,15 @@ public sealed partial class MailListFragment
     private void RowClicked(MailListRow row)
     {
         if (_adapter is null) return;
-        if (_actionMode is not null)
+        if (_selecting)
         {
             _adapter.SetSelected(row, !_adapter.IsSelected(row));
+            return;
+        }
+        // A conversation head expands or collapses; its messages open from their own rows.
+        if (row.IsThreadHead)
+        {
+            _adapter.ToggleThread(row);
             return;
         }
         _adapter.SelectOnly(row);
@@ -198,7 +210,7 @@ public sealed partial class MailListFragment
     {
         if (_adapter is null || _controller is null) return;
         var selected = _adapter.SelectedRows();
-        _controller.PublishSelection(selected, _actionMode is null ? selected.LastOrDefault() : null);
+        _controller.PublishSelection(selected, !_selecting ? selected.LastOrDefault() : null);
     }
 
     /// <summary>Drops the list selection and publishes the empty selection.</summary>
@@ -213,7 +225,7 @@ public sealed partial class MailListFragment
     internal void SelectRow(MailListRow row, bool scroll)
     {
         if (_adapter is null) return;
-        if (_actionMode is null) _adapter.SelectOnly(row);
+        if (!_selecting) _adapter.SelectOnly(row);
         else _adapter.SetSelected(row, true);
         if (scroll && _adapter.PositionOf(row) is >= 0 and var position) _list?.ScrollToPosition(position);
     }

@@ -151,7 +151,7 @@ internal sealed class MailboxesRows : UITableViewSource
     {
         ShellSectionHeaderMenuItem => WinoShellRowKind.Header,
         IAccountMenuItem => WinoShellRowKind.Account,
-        IBaseFolderMenuItem => WinoShellRowKind.Folder,
+        IBaseFolderMenuItem or MergedAccountMoreFolderMenuItem => WinoShellRowKind.Folder,
         _ => null
     };
 
@@ -182,9 +182,13 @@ internal sealed class MailboxesRows : UITableViewSource
                 cell.ConfigureAccount(icon, account.AccountName, account.AccountAddress, account.UnreadItemCount);
                 cell.SetSync(account.IsSynchronizationInProgress, account.IsProgressIndeterminate, account.SynchronizationProgressValue);
                 break;
+            case MergedAccountMoreFolderMenuItem more:
+                // A linked account's More group expands in place like a single account's More folder.
+                cell.ConfigureFolder(WinoIconGlyph.SpecialFolderMore, Translator.More, 0, ShellMenuItemRules.FolderIndent(more), more.IsExpanded);
+                break;
             case IBaseFolderMenuItem folder:
                 cell.ConfigureFolder(SpecialFolderGlyphs.GetGlyphOrFolder(folder.SpecialFolderType), folder.FolderName ?? string.Empty,
-                    folder.ShowUnreadCount ? folder.UnreadItemCount : 0, depth > 0 ? depth - 1 : 0,
+                    folder.ShowUnreadCount ? folder.UnreadItemCount : 0, ShellMenuItemRules.FolderIndent(folder),
                     HasChildren(folder) ? folder.IsExpanded : null);
                 break;
         }

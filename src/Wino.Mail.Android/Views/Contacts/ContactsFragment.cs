@@ -22,7 +22,6 @@ using Wino.Mail.Controls.Android.Settings;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.Android;
-using SearchView = AndroidX.AppCompat.Widget.SearchView;
 
 namespace Wino.Mail.Android.Views.Contacts;
 
@@ -102,7 +101,7 @@ public sealed class ContactsFragment : WinoFragment<ContactsPageViewModel>
 
         Bind(viewModel, dispatcher, nameof(ContactsPageViewModel.SelectedFilter), static vm => vm.SelectedFilter, filter =>
         {
-            if (_toolbar is not null) _toolbar.Title = filter?.Name ?? Translator.ContactsPage_Title;
+            if (_searchBar is not null) _searchBar.Hint = $"{Translator.SearchBar_SearchIn} {filter?.Name ?? Translator.ContactsPage_Title}";
             ScheduleChips();
         });
         Bind(viewModel, dispatcher, nameof(ContactsPageViewModel.SelectedContact), static vm => vm.SelectedContact, contact =>
@@ -124,33 +123,22 @@ public sealed class ContactsFragment : WinoFragment<ContactsPageViewModel>
         ScheduleReload();
     }
 
-    // ---- Top app bar: menu, filter title, search, overflow ----
+    // ---- Docked search bar (the same in every mode): menu, "Search in <filter>", overflow ----
 
-    private const int MenuSearch = 1;
     private const int MenuNewContact = 2;
     private const int MenuNewList = 3;
+
+    private Shell.DockedSearchBar? _searchBar;
 
     private void BuildToolbar(View view, Context context, ContactsPageViewModel viewModel, IDispatcher dispatcher)
     {
         _toolbar = view.FindViewById<MaterialToolbar>(Resource.Id.contacts_toolbar);
         if (_toolbar is null) return;
-        _toolbar.Title = Translator.ContactsPage_Title;
-        _toolbar.SetNavigationIcon(Resource.Drawable.wino_ic_menu);
-        _toolbar.NavigationContentDescription = Translator.Android_Shell_OpenNavigation;
-        _toolbar.NavigationClick += (_, _) => Chrome?.ToggleNavigation();
+        _searchBar = Shell.DockedSearchBar.Attach(_toolbar, this, $"{Translator.SearchBar_SearchIn} {Translator.ContactsPage_Title}", () => Chrome?.ToggleNavigation());
+        _searchBar.QueryChanged += text => Search(text, select: false);
+        _searchBar.Submitted += text => Search(text, select: true);
         var menu = _toolbar.Menu;
         menu.Clear();
-        var search = menu.Add(0, MenuSearch, 0, Translator.ContactsPage_SearchPlaceholder);
-        if (search is not null)
-        {
-            search.SetIcon(WinoIcons.Drawable(context, WinoIconGlyph.Find, WinoTokens.Dp(context, Resource.Dimension.wino_m3_glyph), WinoColors.SecondaryText(context)));
-            search.SetShowAsAction(ShowAsAction.Always | ShowAsAction.CollapseActionView);
-            var field = new SearchView(context) { QueryHint = Translator.ContactsPage_SearchPlaceholder, MaxWidth = int.MaxValue };
-            field.QueryTextChange += (_, args) => { args.Handled = true; Search(args.NewText ?? string.Empty, select: false); };
-            field.QueryTextSubmit += (_, args) => { args.Handled = true; Search(args.NewText ?? string.Empty, select: true); };
-            search.SetActionView(field);
-            search.SetOnActionExpandListener(new ExpandListener(collapsed: () => Search(string.Empty, select: false)));
-        }
         menu.Add(0, MenuNewContact, 1, Translator.ContactsPane_NewContact);
         menu.Add(0, MenuNewList, 2, Translator.ContactList_NewTitle);
         _toolbar.MenuItemClick += (_, args) =>
@@ -167,17 +155,6 @@ public sealed class ContactsFragment : WinoFragment<ContactsPageViewModel>
         };
         Bind(viewModel, dispatcher, nameof(ContactsPageViewModel.HasCreateDestinations), static vm => vm.HasCreateDestinations, value => menu.FindItem(MenuNewContact)?.SetEnabled(value));
         Bind(viewModel, dispatcher, nameof(ContactsPageViewModel.HasListDestinations), static vm => vm.HasListDestinations, value => menu.FindItem(MenuNewList)?.SetVisible(value));
-    }
-
-    private sealed class ExpandListener(Action collapsed) : Java.Lang.Object, IMenuItemOnActionExpandListener
-    {
-        public bool OnMenuItemActionCollapse(global::Android.Views.IMenuItem item)
-        {
-            collapsed();
-            return true;
-        }
-
-        public bool OnMenuItemActionExpand(global::Android.Views.IMenuItem item) => true;
     }
 
     // ---- Filter chips (the shared pane filters) ----

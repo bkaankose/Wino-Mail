@@ -11,6 +11,7 @@ using Wino.Core.Domain.Presentation;
 using Wino.Mail.Controls.UIKit.Extras;
 using Wino.Mail.Controls.UIKit.Shell;
 using Wino.Mail.UIKit.Infrastructure;
+using Wino.Mail.UIKit.Phone.Shell;
 using Wino.Mail.UIKit.Views.Extras;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.UIKit;
@@ -18,7 +19,7 @@ using Wino.Presentation.UIKit;
 namespace Wino.Mail.UIKit.Phone.Mail;
 
 /// <summary>
-/// Mailboxes (Mail on iPhone), the content of the Mail drawer (<see cref="MailboxesDrawer"/>): the accounts, linked
+/// Mailboxes (Mail on iPhone), the Mail content of the shell drawer (<see cref="ShellDrawer"/>): the accounts, linked
 /// accounts and folders the shared <c>MailAppShellViewModel</c> publishes, as Windows shell rows with unread pills. A
 /// folder tap closes the drawer and lists the folder; "More" and parent folders expand in place; a long press offers the
 /// shared folder and account actions. The compose button starts a new message, pull to refresh synchronizes the loaded
@@ -28,7 +29,6 @@ namespace Wino.Mail.UIKit.Phone.Mail;
 public sealed class MailboxesViewController : UIViewController
 {
     private const double DisclosureHitWidth = 56;
-    private const double SettingsRowHeight = 50;
 
     private readonly PhoneShellViewController _shell;
     private readonly IServiceProvider _services;
@@ -39,7 +39,6 @@ public sealed class MailboxesViewController : UIViewController
     private readonly UIView _status = new() { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
     private readonly UILabel _statusLabel = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
     private readonly WinoSyncBar _statusBar = new();
-    private readonly UIButton _settingsRow = new(UIButtonType.System) { TranslatesAutoresizingMaskIntoConstraints = false };
     private IShellMenuProvider? _provider;
 
     public MailboxesViewController(PhoneShellViewController shell, IServiceProvider services)
@@ -82,7 +81,7 @@ public sealed class MailboxesViewController : UIViewController
         _empty.Place(listHost);
         _empty.Hidden = true;
 
-        var column = WinoLayout.VStack(0, listHost, _status, BuildSettingsRow());
+        var column = WinoLayout.VStack(0, listHost, _status, DrawerSettingsRow.Create(_shell.OpenSettingsFromDrawer));
         column.Alignment = UIStackViewAlignment.Fill;
         column.TranslatesAutoresizingMaskIntoConstraints = false;
         root.AddSubview(column);
@@ -101,48 +100,6 @@ public sealed class MailboxesViewController : UIViewController
         _rows.MenuProvider = BuildMenu;
         View = root;
         BuildBarItems();
-    }
-
-    /// <summary>The pinned Settings row: gear glyph, title and chevron, 50pt, under a hairline.</summary>
-    private UIView BuildSettingsRow()
-    {
-        var configuration = UIButtonConfiguration.PlainButtonConfiguration;
-        configuration.Image = WinoIcons.TemplateImage(WinoIconGlyph.Settings, 20);
-        configuration.ImagePadding = 12;
-        configuration.Title = Translator.MenuSettings;
-        configuration.BaseForegroundColor = UIColor.Label;
-        configuration.ContentInsets = new NSDirectionalEdgeInsets(0, 25, 0, 44);
-        _settingsRow.Configuration = configuration;
-        _settingsRow.HorizontalAlignment = UIControlContentHorizontalAlignment.Leading;
-        _settingsRow.PrimaryActionTriggered += (_, _) => _shell.OpenSettingsFromMailboxes();
-
-        var chevron = new WinoIconView(WinoIconGlyph.ChevronRight, 14, WinoStyle.SecondaryText)
-        {
-            UserInteractionEnabled = false,
-            IsAccessibilityElement = false,
-            TranslatesAutoresizingMaskIntoConstraints = false
-        };
-        var hairline = new UIView { BackgroundColor = WinoStyle.Separator, TranslatesAutoresizingMaskIntoConstraints = false };
-
-        var row = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
-        row.AddSubview(_settingsRow);
-        row.AddSubview(chevron);
-        row.AddSubview(hairline);
-        NSLayoutConstraint.ActivateConstraints(
-        [
-            row.HeightAnchor.ConstraintEqualTo((nfloat)SettingsRowHeight),
-            hairline.TopAnchor.ConstraintEqualTo(row.TopAnchor),
-            hairline.LeadingAnchor.ConstraintEqualTo(row.LeadingAnchor, 16),
-            hairline.TrailingAnchor.ConstraintEqualTo(row.TrailingAnchor, -16),
-            hairline.HeightAnchor.ConstraintEqualTo(1 / UIScreen.MainScreen.Scale),
-            _settingsRow.TopAnchor.ConstraintEqualTo(row.TopAnchor),
-            _settingsRow.BottomAnchor.ConstraintEqualTo(row.BottomAnchor),
-            _settingsRow.LeadingAnchor.ConstraintEqualTo(row.LeadingAnchor),
-            _settingsRow.TrailingAnchor.ConstraintEqualTo(row.TrailingAnchor),
-            chevron.CenterYAnchor.ConstraintEqualTo(row.CenterYAnchor),
-            chevron.TrailingAnchor.ConstraintEqualTo(row.TrailingAnchor, -20)
-        ]);
-        return row;
     }
 
     private void BuildBarItems()

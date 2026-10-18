@@ -41,8 +41,11 @@
         tools:node="merge" />
   </application>
 
-  <!-- Package visibility (API 30+): find a browser that offers Custom Tabs for links and sign-in. -->
+  <!-- Package visibility (API 30+): find a browser that offers Custom Tabs for links and sign-in, and the MSAL brokers
+       (Microsoft Authenticator, Intune Company Portal) for Outlook sign-in (AndroidOutlookAuthenticationHost). -->
   <queries>
+    <package android:name="com.azure.authenticator" />
+    <package android:name="com.microsoft.windowsintune.companyportal" />
     <intent>
       <action android:name="android.support.customtabs.action.CustomTabsService" />
     </intent>

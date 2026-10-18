@@ -808,6 +808,14 @@ public sealed partial class MailListPageViewController
             return header;
         }
 
+        /// <summary>Outside multi-select a conversation head expands or collapses; its messages open from their own rows.</summary>
+        public override NSIndexPath? WillSelectRow(UITableView tableView, NSIndexPath indexPath)
+        {
+            if (owner._selectionMode || owner.RowAt(indexPath) is not { IsThreadHead: true } row) return indexPath;
+            owner.ToggleThread(row);
+            return null;
+        }
+
         public override void RowSelected(UITableView tableView, NSIndexPath indexPath) => owner.TableSelectionChanged();
 
         public override void RowDeselected(UITableView tableView, NSIndexPath indexPath) => owner.TableSelectionChanged();

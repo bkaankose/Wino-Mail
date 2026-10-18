@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Calendar, compact width (date picker option B, 15 Oct 2026; the iPhone CalendarPage): the 64 dp top app bar (menu,
-     the visible range as the title that opens the date picker sheet, Today, overflow) over the wallpaper; in Day view a
+<!-- Calendar, compact width (date picker option B, 15 Oct 2026; the iPhone CalendarPage): the docked search bar (menu,
+     Search calendar, Today, overflow) and under it the visible range that opens the date picker sheet, over the wallpaper; in Day view a
      small zone with the week strip; then the content zone with the Windows calendar surface (Day, Week, Month) or the
      agenda list, pull to refresh, the readiness message and the tonal New event FAB. Week and Month have no header
      above the grid. -->
@@ -11,12 +11,14 @@
 
   <com.google.android.material.appbar.MaterialToolbar
       android:id="@+id/calendar_toolbar"
-      style="@style/Widget.WinoKit.TopAppBar">
+      style="@style/Widget.WinoKit.TopAppBar" />
 
-    <TextView
-        android:id="@+id/calendar_title"
-        style="@style/Widget.Wino.Calendar.TitleButton" />
-  </com.google.android.material.appbar.MaterialToolbar>
+  <!-- The visible range under the search bar: it opens the date picker sheet. -->
+  <TextView
+      android:id="@+id/calendar_title"
+      style="@style/Widget.Wino.Calendar.TitleButton"
+      android:layout_marginStart="@dimen/wino_space_m"
+      android:layout_marginBottom="@dimen/wino_space_xs" />
 
   <com.winomail.presentation.WinoZoneLayout
       android:id="@+id/calendar_strip_zone"

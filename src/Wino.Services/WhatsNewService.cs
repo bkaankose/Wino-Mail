@@ -35,7 +35,8 @@ public class WhatsNewService : IWhatsNewService
     {
     }
 
-    internal WhatsNewService(IConfigurationService configurationService,
+    /// <summary>For heads whose packaged files are not beside the assemblies (Android extracts them from the APK).</summary>
+    public WhatsNewService(IConfigurationService configurationService,
                              IAppMetadataService appMetadataService,
                              string releaseNotesDirectory)
     {

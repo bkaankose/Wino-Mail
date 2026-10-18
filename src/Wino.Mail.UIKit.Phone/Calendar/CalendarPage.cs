@@ -5,56 +5,38 @@ using Wino.Presentation.UIKit;
 namespace Wino.Mail.UIKit.Phone.Calendar;
 
 /// <summary>
-/// The iPhone Calendar tab's root view over the wallpaper (date picker option B, 15 Oct 2026): in Day view a small zone
-/// with the week strip (<see cref="CalendarWeekStripView"/>), then the content zone that holds the timed surface or the
-/// agenda list. Week and Month views drop the strip zone so the grid starts right under the bar; the period, agenda
-/// toggle and month picker live in the sheet the bar title opens (<see cref="CalendarPickerSheetViewController"/>).
+/// The iPhone Calendar tab's root view over the wallpaper (concept B of 18 Oct 2026): one content zone under the bar
+/// whose body holds the timed surface or the agenda list. The date lives only in the bar title, which drops the date
+/// panel (<see cref="CalendarDatePanelView"/>) over the zone; the grid's own column headers page with it.
 /// </summary>
 public sealed class CalendarPage : UIView
 {
     public static readonly CalendarDisplayType[] DisplayTypes = [CalendarDisplayType.Day, CalendarDisplayType.Week, CalendarDisplayType.Month];
 
-    private readonly NSLayoutConstraint _contentBelowStrip;
-    private readonly NSLayoutConstraint _contentAtTop;
-
     public CalendarPage()
     {
         BackgroundColor = UIColor.Clear;
-        StripZone = new WinoZoneView();
         ContentZone = new WinoZoneView();
-        AddSubview(StripZone);
         AddSubview(ContentZone);
-
-        WeekStrip = new CalendarWeekStripView();
-        WinoLayout.Fill(WeekStrip, StripZone.ContentView, 0, 4, 0, 4);
+        Body = new UIView { TranslatesAutoresizingMaskIntoConstraints = false, BackgroundColor = UIColor.Clear };
+        ContentZone.ContentView.ClipsToBounds = true;
+        WinoLayout.Fill(Body, ContentZone.ContentView);
 
         var guide = SafeAreaLayoutGuide;
         var gutter = (nfloat)WinoStyle.ZoneGutter;
-        _contentBelowStrip = ContentZone.TopAnchor.ConstraintEqualTo(StripZone.BottomAnchor, gutter);
-        _contentAtTop = ContentZone.TopAnchor.ConstraintEqualTo(guide.TopAnchor, gutter);
         NSLayoutConstraint.ActivateConstraints(
         [
-            StripZone.TopAnchor.ConstraintEqualTo(guide.TopAnchor, gutter),
-            StripZone.LeadingAnchor.ConstraintEqualTo(guide.LeadingAnchor, gutter),
-            StripZone.TrailingAnchor.ConstraintEqualTo(guide.TrailingAnchor, -gutter),
-            _contentBelowStrip,
+            ContentZone.TopAnchor.ConstraintEqualTo(guide.TopAnchor, gutter),
             ContentZone.LeadingAnchor.ConstraintEqualTo(guide.LeadingAnchor, gutter),
             ContentZone.TrailingAnchor.ConstraintEqualTo(guide.TrailingAnchor, -gutter),
             ContentZone.BottomAnchor.ConstraintEqualTo(guide.BottomAnchor, -gutter)
         ]);
     }
 
-    public WinoZoneView StripZone { get; }
     public WinoZoneView ContentZone { get; }
-    public CalendarWeekStripView WeekStrip { get; }
 
-    /// <summary>Shows the week strip (Day view) or gives its height to the grid (Week and Month).</summary>
-    public void SetStripVisible(bool visible)
-    {
-        StripZone.Hidden = !visible;
-        _contentBelowStrip.Active = visible;
-        _contentAtTop.Active = !visible;
-    }
+    /// <summary>Hosts the timed surface and the agenda list.</summary>
+    public UIView Body { get; }
 
     /// <summary>The segment of a display type; Work week shows as Week on the phone.</summary>
     public static int SegmentFor(CalendarDisplayType type) => type switch

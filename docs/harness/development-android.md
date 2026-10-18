@@ -58,7 +58,7 @@ Install the same SDK, workload, and JDK. Use `x86_64` system images instead of `
 Android builds pass `-p:WinoTargetPlatform=Android` on every command. The host never selects it: a Mac host resolves `MacOS` and a Windows host `Windows`. The head and the Android libraries also set it in their project files, but portable references such as `Wino.Core.ML` see only the global property, so a command without it builds those for the host platform.
 `Directory.Build.targets` imports [build/Wino.Android.targets](../../build/Wino.Android.targets) when `WinoTargetPlatform` is `Android` or the target framework contains `-android`. That file:
 
-- sets `IsAotCompatible=false` and `PublishAot=false` for `-android` targets. The app runs on Mono: JIT in Debug, full AOT with LLVM and full trimming (`TrimMode=full`) for Release apps (the condition tests `AndroidApplication`, because the SDK turns an app's `OutputType` `Exe` into `Library`). Native AOT for Android is experimental in .NET 10 and stays off. `-android` projects are exempt from the shared Release gate; portable libraries keep their Native AOT and trimming gates.
+- sets `IsAotCompatible=false` and `PublishAot=false` for `-android` targets. The app runs on Mono: JIT in Debug, full AOT without LLVM and full trimming (`TrimMode=full`) for Release (LLVM miscompiles async file reads, [dotnet/runtime#104167](https://github.com/dotnet/runtime/issues/104167); keep it off until a fixed runtime ships) apps (the condition tests `AndroidApplication`, because the SDK turns an app's `OutputType` `Exe` into `Library`). Native AOT for Android is experimental in .NET 10 and stays off. `-android` projects are exempt from the shared Release gate; portable libraries keep their Native AOT and trimming gates.
 - defaults `SupportedOSPlatformVersion` to 23 (Android 6.0). The head targets SDK 36.
 
 With `WinoTargetPlatform=Android`, `Wino.Core.ML` defines `WINO_ML_UNSUPPORTED` and leaves out ONNX Runtime and the Magika model: Android has no content-type classification, and attachments open through the system.
@@ -131,7 +131,7 @@ Outlook (MSAL) and Gmail (Play services) identify the app by package name and si
 
 | Service | Registration | Value per signing key |
 | --- | --- | --- |
-| Microsoft Entra | Add platform, Android, package `com.winomail.android` | Signature hash (Base64 of the certificate SHA-1). The app builds the redirect `msauth://com.winomail.android/<URL-encoded hash>` at runtime. |
+| Microsoft Entra | Add platform, Android, package `com.winomail.android` | Signature hash (Base64 of the certificate SHA-1). The app builds the redirect `msauth://com.winomail.android/<hash>` at runtime with the raw hash (MSAL's broker check requires it; MSAL URL-encodes it for Entra, and the portal shows the encoded form). |
 | Google Cloud | Android OAuth client for package `com.winomail.android` | Certificate SHA-1 |
 
 Compute both from the debug keystore (Mac path below; password `android`, alias `androiddebugkey`):

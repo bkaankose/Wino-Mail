@@ -48,8 +48,8 @@
   <dimen name="wino_calendar_agenda_card_radius">8dp</dimen>
   <dimen name="wino_calendar_agenda_card_padding_horizontal">12dp</dimen>
   <dimen name="wino_calendar_agenda_card_padding_vertical">8dp</dimen>
-  <dimen name="wino_calendar_details_width_expanded">340dp</dimen>
-  <dimen name="wino_calendar_details_width_medium">300dp</dimen>
+  <dimen name="wino_calendar_details_width_expanded">380dp</dimen>
+  <dimen name="wino_calendar_details_width_medium">360dp</dimen>
   <dimen name="wino_calendar_surface_header_height">48dp</dimen>
   <dimen name="wino_calendar_surface_day_header_height">44dp</dimen>
   <dimen name="wino_calendar_tile_title_text">12sp</dimen>
@@ -75,6 +75,4 @@
   <color name="wino_calendar_grid_line">#14000000</color>
   <color name="wino_calendar_half_hour_line">#08000000</color>
   <color name="wino_calendar_weekend">#05000000</color>
-  <color name="wino_calendar_today_column">#0A0984E3</color>
-  <color name="wino_calendar_range_band">#240984E3</color>
 </resources>

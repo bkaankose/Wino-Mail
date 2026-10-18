@@ -54,7 +54,8 @@ public sealed partial class MailListFragment : WinoFragment<MailListPageViewMode
     private MaterialButtonToggleGroup? _pivots;
     private Chip? _filterChip;
     private WinoIconView? _emptyFolder;
-    private WinoIconView? _select;
+    private WinoIconView? _filterButton;
+    private global::Android.Graphics.Drawables.Drawable? _filterButtonBackground;
     private WinoInfoBar? _syncBar;
     private View? _snackbarHost;
     private Google.Android.Material.Snackbar.Snackbar? _undoSnackbar;
@@ -114,39 +115,29 @@ public sealed partial class MailListFragment : WinoFragment<MailListPageViewMode
         }));
     }
 
-    // ---- App bar (Material 3 small top app bar: menu, title, search, overflow; no Sync button) ----
+    // ---- Docked search bar (canvas Mail inbox redesign: menu, "Search in <folder>", filter, overflow; no Sync button) ----
+
+    private DockedSearchBar? _searchBar;
 
     private void BuildToolbar(View view, Context context, MailListPageViewModel viewModel)
     {
         _toolbar = view.FindViewById<MaterialToolbar>(Resource.Id.mail_list_toolbar);
         if (_toolbar is null) return;
-        _toolbar.SetNavigationIcon(Resource.Drawable.wino_ic_menu);
-        _toolbar.NavigationContentDescription = Translator.Android_Shell_OpenNavigation;
-        _toolbar.NavigationClick += (_, _) => Chrome?.ToggleNavigation();
+        _searchBar = DockedSearchBar.Attach(_toolbar, this, Translator.SearchBarPlaceholder, () => Chrome?.ToggleNavigation());
 
-        var menu = _toolbar.Menu;
-        menu.Clear();
-        var search = menu.Add(0, MenuSearch, 0, Translator.SearchBarPlaceholder);
-        search?.SetIcon(WinoIcons.Drawable(context, WinoIconGlyph.Find, WinoTokens.Dp(context, Resource.Dimension.wino_m3_glyph), WinoColors.SecondaryText(context)));
-        search?.SetShowAsAction(ShowAsAction.Always);
-        // Daily briefing (Windows title-bar button in Mail mode): only while the shared entitlement rule offers it.
         _briefing = MainApplication.Services?.GetService<Extras.AndroidDailyBriefingPresenter>();
-        var briefing = menu.Add(0, MenuBriefing, 0, Translator.DailyBriefing_Menu);
-        briefing?.SetShowAsAction(ShowAsAction.Always);
-        menu.Add(0, MenuSelect, 1, Translator.Buttons_Multiselect);
-        menu.Add(0, MenuCompose, 2, Translator.MenuNewMail);
-        menu.Add(0, MenuSettings, 3, Translator.MenuSettings);
+        BuildMenu(context);
         _toolbar.MenuItemClick += (_, args) =>
         {
             switch (args.Item?.ItemId)
             {
-                case MenuSearch: OpenSearch(); break;
+                case MenuFilter: ShowFilters(_toolbar.FindViewById(MenuFilter) ?? _toolbar); break;
                 case MenuBriefing: _briefing?.Show(context, IsCompact); break;
                 case MenuSelect: StartSelectionMode(null); break;
-                case MenuCompose: _shell?.Compose(); break;
-                case MenuSettings: _shell?.OpenSettings(); break;
+                case MenuSelectAll: ToggleSelectAll(); break;
             }
         };
+        UpdateFilterChip();
         if (_shell is not null)
         {
             EventHandler<string> changed = (_, property) =>
@@ -169,6 +160,23 @@ public sealed partial class MailListFragment : WinoFragment<MailListPageViewMode
         }
         UpdateBriefingItem();
         UpdateTitle();
+    }
+
+    /// <summary>
+    /// The search bar's actions: the filter (only while the folder has no Focused/Other; otherwise it sits in the header
+    /// row), the daily briefing, and Select in the overflow. New mail is the FAB and Settings opens from the drawer.
+    /// </summary>
+    private void BuildMenu(Context context)
+    {
+        if (_toolbar?.Menu is not { } menu) return;
+        menu.Clear();
+        // The filter lives behind this icon; it fills while a filter other than All is on.
+        menu.Add(0, MenuFilter, 0, Translator.Accessibility_FilterMessages)?.SetShowAsAction(ShowAsAction.Always);
+        // Daily briefing (Windows title-bar button in Mail mode): only while the shared entitlement rule offers it.
+        menu.Add(0, MenuBriefing, 0, Translator.DailyBriefing_Menu)?.SetShowAsAction(ShowAsAction.Always);
+        menu.Add(0, MenuSelect, 1, Translator.Buttons_Multiselect);
+        UpdateBriefingItem();
+        UpdateFilterChip();
     }
 
     /// <summary>Shows the briefing action while it is available, with the unseen dot (Windows DailyBriefingUnseenBadge).</summary>
@@ -199,17 +207,15 @@ public sealed partial class MailListFragment : WinoFragment<MailListPageViewMode
         }
     }
 
-    private const int MenuSearch = 2;
+    private const int MenuFilter = 2;
     private const int MenuBriefing = 6;
     private const int MenuSelect = 3;
-    private const int MenuCompose = 4;
-    private const int MenuSettings = 5;
 
-    /// <summary>The folder name (canvas Material pass: no subtitle line); a finished synchronization stops pull to refresh.</summary>
+    /// <summary>"Search in <folder>" names the folder in place of a title; a finished synchronization stops pull to refresh.</summary>
     private void UpdateTitle()
     {
-        if (_toolbar is null || ViewModel is not { } viewModel) return;
-        _toolbar.SetHeading(viewModel.ActiveFolder?.FolderName ?? Translator.IOS_MailboxesTitle);
+        if (ViewModel is not { } viewModel) return;
+        if (_searchBar is not null) _searchBar.Hint = $"{Translator.SearchBar_SearchIn} {viewModel.ActiveFolder?.FolderName ?? Translator.IOS_MailboxesTitle}";
         if (_shell?.CurrentProvider?.SynchronizationState.IsSynchronizing != true) EndRefresh();
     }
 
@@ -227,7 +233,7 @@ public sealed partial class MailListFragment : WinoFragment<MailListPageViewMode
         _pivots = view.FindViewById<MaterialButtonToggleGroup>(Resource.Id.mail_pivots);
         _filterChip = view.FindViewById<Chip>(Resource.Id.mail_filter_chip);
         _emptyFolder = view.FindViewById<WinoIconView>(Resource.Id.mail_empty_folder);
-        _select = view.FindViewById<WinoIconView>(Resource.Id.mail_select);
+        _filterButton = view.FindViewById<WinoIconView>(Resource.Id.mail_filter_button);
 
         if (_pivots is not null)
         {
@@ -240,10 +246,16 @@ public sealed partial class MailListFragment : WinoFragment<MailListPageViewMode
         }
         if (_filterChip is not null)
         {
-            _filterChip.ContentDescription = Translator.Accessibility_FilterMessages;
+            // The active filter (canvas "filter active"): a check, its name and a clear button; only for a filter other
+            // than All. Tapping it reopens the filters; its close icon returns to All.
+            _filterChip.ChipIcon = WinoIcons.Drawable(context, WinoIconGlyph.Checkmark, 16, WinoColors.PrimaryText(context));
+            _filterChip.ChipIconVisible = true;
+            _filterChip.CloseIconVisible = true;
+            _filterChip.CloseIcon = WinoIcons.Drawable(context, WinoIconGlyph.Dismiss, 12, WinoColors.SecondaryText(context));
+            _filterChip.ChipBackgroundColor = global::Android.Content.Res.ColorStateList.ValueOf(WinoColors.SecondaryContainer(context));
+            _filterChip.ChipStrokeWidth = 0;
             _filterChip.Click += (_, _) => ShowFilters(_filterChip);
-            _filterChip.SetOnCloseIconClickListener(new ClickListener(() => ShowFilters(_filterChip)));
-            _filterChip.CloseIconContentDescription = Translator.Accessibility_FilterMessages;
+            _filterChip.SetOnCloseIconClickListener(new ClickListener(ClearFilter));
         }
         double glyph = WinoTokens.Dp(context, Resource.Dimension.wino_m3_glyph);
         if (_emptyFolder is not null)
@@ -253,12 +265,12 @@ public sealed partial class MailListFragment : WinoFragment<MailListPageViewMode
             _emptyFolder.ContentDescription = Translator.FolderOperation_Empty;
             _emptyFolder.Click += (_, _) => Observe(ViewModel?.EmptyFolderCommand.ExecuteAsync(null));
         }
-        if (_select is not null)
+        if (_filterButton is not null)
         {
-            _select.Icon = WinoIconGlyph.CheckmarkCircle;
-            _select.GlyphSize = glyph;
-            _select.ContentDescription = Translator.Buttons_Multiselect;
-            _select.Click += (_, _) => StartSelectionMode(null);
+            _filterButton.Icon = WinoIconGlyph.Filter;
+            _filterButton.GlyphSize = glyph;
+            _filterButton.Click += (_, _) => ShowFilters(_filterButton);
+            _filterButtonBackground = _filterButton.Background;
         }
 
         Bind(viewModel, dispatcher, nameof(MailListPageViewModel.ActiveFolder), vm => vm.ActiveFolder, _ => { UpdatePivots(); UpdateSyncBar(); UpdateOtherInboxLink(); UpdateTitle(); });
@@ -266,6 +278,7 @@ public sealed partial class MailListFragment : WinoFragment<MailListPageViewMode
         Bind(viewModel, dispatcher, nameof(MailListPageViewModel.IsEmptyFolderButtonVisible), vm => vm.IsEmptyFolderButtonVisible, visible =>
         {
             if (_emptyFolder is not null) _emptyFolder.Visibility = visible ? ViewStates.Visible : ViewStates.Gone;
+            UpdateHeaderVisibility();
         });
         Bind(viewModel, dispatcher, nameof(MailListPageViewModel.SelectedFilterOption), vm => vm.SelectedFilterOption, _ => UpdateFilterChip());
         Bind(viewModel, dispatcher, nameof(MailListPageViewModel.SelectedSortingOption), vm => vm.SelectedSortingOption, _ => UpdateFilterChip());
@@ -291,14 +304,32 @@ public sealed partial class MailListFragment : WinoFragment<MailListPageViewMode
                 button.Text = pivot.ShouldDisplaySelectedItemCount && pivot.SelectedItemCount > 0 ? $"{pivot.FolderTitle} ({pivot.SelectedItemCount})" : pivot.FolderTitle;
                 button.Tag = index;
                 bool selected = ReferenceEquals(pivot, viewModel.SelectedFolderPivot);
-                // Material 3 segmented buttons mark the selected segment with a check.
-                button.Icon = selected ? AndroidX.Core.Content.ContextCompat.GetDrawable(context, Resource.Drawable.wino_ic_check) : null;
                 WinoMaterialAccent.TintM3Segment(button);
                 _pivots.AddView(button);
                 if (selected) _pivots.Check(button.Id);
             }
         }
-        finally { _applyingPivots = false; }
+        finally
+        {
+            _applyingPivots = false;
+            UpdateHeaderVisibility();
+        }
+    }
+
+    /// <summary>
+    /// The header row costs space only when it has something to show (canvas Mail inbox redesign): Focused/Other, Empty
+    /// folder, the active filter or the search status. The filter button joins Focused/Other in that row; a folder without
+    /// pivots keeps it in the search bar so no row opens just for it.
+    /// </summary>
+    private void UpdateHeaderVisibility()
+    {
+        if (View?.FindViewById(Resource.Id.mail_list_header) is not { } header) return;
+        static bool Shown(View? view) => view?.Visibility == ViewStates.Visible;
+        bool filterInHeader = Shown(_pivots);
+        if (_filterButton is not null) _filterButton.Visibility = filterInHeader ? ViewStates.Visible : ViewStates.Gone;
+        _toolbar?.Menu?.FindItem(MenuFilter)?.SetVisible(!filterInHeader);
+        bool any = filterInHeader || Shown(_emptyFolder) || Shown(_filterChip) || Shown(_searchStatus);
+        header.Visibility = any ? ViewStates.Visible : ViewStates.Gone;
     }
 
     /// <summary>Windows FolderPivotChanged: flag the pivots, clear the selection and run the pivot command.</summary>
@@ -329,10 +360,69 @@ public sealed partial class MailListFragment : WinoFragment<MailListPageViewMode
         }
     }
 
+    private bool IsFilterActive => ViewModel?.SelectedFilterOption is { Type: not FilterOptionType.All };
+
+    /// <summary>The active-filter chip and the filled filter icon in the search bar and the header row.</summary>
     private void UpdateFilterChip()
     {
-        if (_filterChip is null || ViewModel is not { } viewModel) return;
-        _filterChip.Text = viewModel.SelectedFilterOption?.Title ?? Translator.FilteringOption_All;
+        if (ViewModel is not { } viewModel) return;
+        bool active = IsFilterActive;
+        if (_filterChip is not null)
+        {
+            _filterChip.Text = viewModel.SelectedFilterOption?.Title ?? Translator.FilteringOption_All;
+            _filterChip.CloseIconContentDescription = $"{Translator.SearchBar_ClearAllFilters}: {_filterChip.Text}";
+            _filterChip.Visibility = active ? ViewStates.Visible : ViewStates.Gone;
+        }
+        if (_filterButton?.Context is { } buttonContext)
+        {
+            // Filled while a filter other than All is on: the glyph on an accent circle, as in the search bar.
+            if (active)
+            {
+                var circle = new global::Android.Graphics.Drawables.GradientDrawable();
+                circle.SetShape(global::Android.Graphics.Drawables.ShapeType.Oval);
+                circle.SetColor(WinoColors.Accent(buttonContext));
+                _filterButton.Background = circle;
+                _filterButton.SetTextColor(WinoColors.OnAccent(buttonContext));
+            }
+            else
+            {
+                _filterButton.Background = _filterButtonBackground;
+                _filterButton.SetTextColor(WinoColors.SecondaryText(buttonContext));
+            }
+            _filterButton.ContentDescription = active
+                ? $"{Translator.Accessibility_FilterMessages}, {viewModel.SelectedFilterOption?.Title}"
+                : Translator.Accessibility_FilterMessages;
+        }
+        if (_toolbar?.Menu?.FindItem(MenuFilter) is { } item && _toolbar.Context is { } context)
+        {
+            double size = WinoTokens.Dp(context, Resource.Dimension.wino_m3_glyph);
+            if (!active) item.SetIcon(WinoIcons.Drawable(context, WinoIconGlyph.Filter, size, WinoColors.SecondaryText(context)));
+            else
+            {
+                // Filled: the glyph on an accent circle (canvas "filter active").
+                var circle = new global::Android.Graphics.Drawables.GradientDrawable();
+                circle.SetShape(global::Android.Graphics.Drawables.ShapeType.Oval);
+                circle.SetColor(WinoColors.Accent(context));
+                int diameter = WinoUnits.Dp(context, 40);
+                circle.SetSize(diameter, diameter);
+                var glyph = WinoIcons.Drawable(context, WinoIconGlyph.Filter, size, WinoColors.OnAccent(context));
+                var layers = new global::Android.Graphics.Drawables.LayerDrawable([circle, glyph]);
+                int inset = (diameter - glyph.IntrinsicWidth) / 2;
+                layers.SetLayerInset(1, inset, inset, inset, inset);
+                item.SetIcon(layers);
+            }
+            AndroidX.Core.View.MenuItemCompat.SetContentDescription(item, active
+                ? $"{Translator.Accessibility_FilterMessages}, {viewModel.SelectedFilterOption?.Title}"
+                : Translator.Accessibility_FilterMessages);
+        }
+        UpdateHeaderVisibility();
+    }
+
+    /// <summary>The active-filter chip's clear button: back to All.</summary>
+    private void ClearFilter()
+    {
+        if (ViewModel is not { } viewModel || viewModel.FilterOptions.FirstOrDefault(static option => option.Type == FilterOptionType.All) is not { } all) return;
+        Observe(viewModel.SelectedFilterChangedCommand.ExecuteAsync(all));
     }
 
     // ---- Shared helpers ----

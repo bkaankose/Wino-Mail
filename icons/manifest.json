@@ -2379,6 +2379,18 @@
         "color": "blue"
       },
       "source": "fluent:apps"
+    },
+    {
+      "name": "Hamburger",
+      "codepoint": "E0CB",
+      "svg": "Hamburger.svg",
+      "source": "fluent:line_horizontal_3"
+    },
+    {
+      "name": "ChevronLeft",
+      "codepoint": "E0CC",
+      "svg": "ChevronLeft.svg",
+      "source": "fluent:chevron_left"
     }
   ]
 }

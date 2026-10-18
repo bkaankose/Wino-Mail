@@ -4,8 +4,8 @@
        explicitly so the shared projects (for example Wino.Core.ML) see the platform; the host never
        selects Android. -->
 
-  <!-- The Android head and its libraries use the Mono runtime (JIT in Debug, full AOT with LLVM in
-       Release), not Native AOT, which is still experimental for Android in .NET 10.
+  <!-- The Android head and its libraries use the Mono runtime (JIT in Debug, full AOT in Release,
+       without LLVM; see below), not Native AOT, which is still experimental for Android in .NET 10.
        The portable libraries and the Windows release retain their AOT analyzer gates. -->
   <PropertyGroup Condition="$(TargetFramework.Contains('-android'))">
     <IsAotCompatible>false</IsAotCompatible>
@@ -19,13 +19,24 @@
     <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
   </PropertyGroup>
 
-  <!-- Release apps: Mono full AOT with LLVM and full trimming. Libraries are unaffected. The Android SDK turns an
+  <!-- Release apps: Mono full AOT and full trimming. Libraries are unaffected. LLVM stays off: with
+       EnableLLVM the Mono AOT compiler miscompiles the reusable ValueTask sources behind async FileStream reads,
+       so FileStream.ReadAsync throws InvalidOperationException on the first read and no mail renders
+       (dotnet/runtime#104167, open; a sister report on sockets is dotnet/runtime#104599). Turn it back on only after a fixed
+       runtime ships and a Release build opens mail on a device. The Android SDK turns an
        application's OutputType Exe into Library (and sets AndroidApplication) before this file is evaluated, so the
        condition tests AndroidApplication. -->
   <PropertyGroup Condition="$(TargetFramework.Contains('-android')) and '$(Configuration)' == 'Release' and '$(AndroidApplication)' == 'true'">
     <RunAOTCompilation>true</RunAOTCompilation>
     <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
-    <EnableLLVM>true</EnableLLVM>
+    <EnableLLVM>false</EnableLLVM>
     <TrimMode>full</TrimMode>
   </PropertyGroup>
+
+  <!-- MSAL's Android broker request types are serialized through a reflection resolver that
+       AndroidOutlookAuthenticationHost adds behind MSAL's source-generated JSON context (which lacks them).
+       Full trimming would remove the members that resolver reads, so MSAL is kept whole. -->
+  <ItemGroup Condition="$(TargetFramework.Contains('-android')) and '$(Configuration)' == 'Release' and '$(AndroidApplication)' == 'true'">
+    <TrimmerRootAssembly Include="Microsoft.Identity.Client" RootMode="All" />
+  </ItemGroup>
 </Project>

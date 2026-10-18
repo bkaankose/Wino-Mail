@@ -50,7 +50,7 @@ public interface IShellWideContent
 /// The app shell (plan section 1, canvas boards Inbox, Mailboxes, Landscape and Tablet) over <see cref="AndroidShellController"/>.
 /// The layout comes from the window size class through resource qualifiers: compact has bottom navigation, the New mail
 /// FAB and a modal drawer; medium (layout-w600dp) a navigation rail with the list and reader panes and the drawer for
-/// folders; expanded (layout-w840dp) the Windows layout with the pinned pane and the mode switcher card. The shell
+/// folders; expanded (layout-w1200dp) the Windows layout with the pinned pane and the mode switcher card. The shell
 /// places the navigation service's entries: the mode's content page in the list pane and, on medium and expanded widths,
 /// the rendering-frame page (the reader) in the reader pane. The account avatar opens Settings; Settings is never a mode.
 /// </summary>
@@ -152,6 +152,9 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
             if (view.FindViewById<WinoIconView>(avatarId) is not { } avatar) continue;
             avatar.Icon = WinoIconGlyph.Person;
             avatar.GlyphSize = WinoTokens.Dp(context, glyphSize);
+            // The theme accent with its readable glyph colour (WinoIconView starts in the secondary text colour).
+            avatar.BackgroundTintList = global::Android.Content.Res.ColorStateList.ValueOf(WinoColors.Accent(context));
+            avatar.SetTextColor(WinoColors.OnAccent(context));
             avatar.ContentDescription = Translator.MenuSettings;
             avatar.Clickable = true;
             EventHandler open = (_, _) =>
@@ -368,7 +371,7 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
         if (manager.IsDestroyed || manager.IsStateSaved) return;
 
         Place(manager, Resource.Id.shell_list_host, _navigation.ShellContentEntry ?? null, emptyFallback: true);
-        ApplyContentColumns(manager.FindFragmentById(Resource.Id.shell_list_host) as IShellWideContent);
+        ApplyContentColumns(manager.FindFragmentById(Resource.Id.shell_list_host) as IShellWideContent, _navigation.RenderingEntry is not null);
         if (_readerPane && _navigation.ShowsReaderPane)
         {
             var reader = _navigation.RenderingEntry;
@@ -381,9 +384,9 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
 
     /// <summary>
     /// Medium and expanded: a wide content page (Calendar) fills the list and reader columns and the reader column turns
-    /// into its fixed details pane; other pages get the list width back.
+    /// into its fixed details pane, shown only while details are open; other pages get the list width back.
     /// </summary>
-    private void ApplyContentColumns(IShellWideContent? wide)
+    private void ApplyContentColumns(IShellWideContent? wide, bool hasDetails)
     {
         if (!_readerPane || View is not { } view || view.FindViewById(Resource.Id.shell_list_host)?.Parent is not View listColumn
             || view.FindViewById(Resource.Id.shell_reader_pane) is not { } readerPane
@@ -395,6 +398,8 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
             listParams.Weight = 1;
             readerParams.Width = WinoTokens.Px(view.RequireContext(), wide.DetailsPaneWidthResource(WidthClass));
             readerParams.Weight = 0;
+            // No event open: the calendar takes the details pane's width too, instead of an empty placeholder.
+            readerPane.Visibility = hasDetails ? ViewStates.Visible : ViewStates.Gone;
         }
         else
         {
@@ -402,6 +407,7 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
             listParams.Weight = 0;
             readerParams.Width = 0;
             readerParams.Weight = 1;
+            readerPane.Visibility = ViewStates.Visible;
         }
         listColumn.LayoutParameters = listParams;
         readerPane.LayoutParameters = readerParams;

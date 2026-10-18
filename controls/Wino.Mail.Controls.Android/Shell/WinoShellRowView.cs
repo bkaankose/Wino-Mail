@@ -28,7 +28,7 @@ public enum WinoShellRowKind
 
 /// <summary>
 /// A drawer row for folders and accounts (UIKit <c>WinoShellRowCell</c>, same Configure methods; canvas Material pass
-/// Mailboxes). Rows are Material 3 navigation drawer items: 56 dp, a full-radius active indicator in the secondary
+/// Mailboxes). Rows are Material 3 navigation drawer items: 56 dp with 3 dp between neighbours, a full-radius active indicator in the secondary
 /// container inset 12 dp from the drawer edges, label-large text. New mail is a tonal (primary container) item.
 /// <see cref="ShowsIndicator"/> draws a short accent indicator that marks the active account while a folder below it
 /// holds the selection. Sizes come from the wino_m3_drawer_* tokens. Usable from XML as
@@ -43,6 +43,8 @@ public class WinoShellRowView : FrameLayout
     private WinoShellRowKind _kind = WinoShellRowKind.Folder;
     private bool _isRowSelected;
     private bool _showsIndicator;
+    private bool _isCompact;
+    private bool? _appliedCompact;
 
     public WinoShellRowView(Context context) : base(context) => Initialize(context);
     public WinoShellRowView(Context context, IAttributeSet? attrs) : base(context, attrs) => Initialize(context);
@@ -63,11 +65,6 @@ public class WinoShellRowView : FrameLayout
         _parts.Disclosure.Click += (_, _) => DisclosureToggled?.Invoke(this, EventArgs.Empty);
         _parts.Account.Size = WinoTokens.Dp(context, Resource.Dimension.wino_m3_drawer_account_icon);
         _parts.Sync.Indeterminate = true;
-        var mask = new GradientDrawable();
-        mask.SetColor(Color.White);
-        mask.SetCornerRadius(radius);
-        int inset = WinoTokens.Px(context, Resource.Dimension.wino_m3_drawer_item_inset);
-        Foreground = new RippleDrawable(global::Android.Content.Res.ColorStateList.ValueOf(WinoColors.SubtleFill(context)), null, new InsetDrawable(mask, inset, 0, inset, 0));
         Clickable = true;
         Focusable = true;
         Apply();
@@ -163,6 +160,13 @@ public class WinoShellRowView : FrameLayout
         set { _isRowSelected = value; Apply(); }
     }
 
+    /// <summary>Compact: the denser mail folder rows (48 dp, a 44 dp indicator) instead of the 62 dp drawer rows.</summary>
+    public bool IsCompact
+    {
+        get => _isCompact;
+        set { _isCompact = value; Apply(); }
+    }
+
     /// <summary>A short accent indicator without the fill (the active account).</summary>
     public bool ShowsIndicator
     {
@@ -186,11 +190,32 @@ public class WinoShellRowView : FrameLayout
             0, WinoTokens.Px(context, Resource.Dimension.wino_m3_drawer_item_padding_end), 0);
     }
 
+    /// <summary>The indicator, its ripple and the account pipe keep the row's spacing above and below.</summary>
+    private void ApplySpacing(Context context, bool compact)
+    {
+        _appliedCompact = compact;
+        int spacing = WinoTokens.Px(context, compact ? Resource.Dimension.wino_m3_drawer_compact_item_spacing : Resource.Dimension.wino_m3_drawer_item_spacing);
+        if (P.Fill.LayoutParameters is MarginLayoutParams fill)
+        {
+            fill.TopMargin = spacing;
+            fill.BottomMargin = spacing;
+            P.Fill.LayoutParameters = fill;
+        }
+        float radius = WinoTokens.PxF(context, Resource.Dimension.wino_m3_drawer_item_radius);
+        var mask = new GradientDrawable();
+        mask.SetColor(Color.White);
+        mask.SetCornerRadius(radius);
+        int inset = WinoTokens.Px(context, Resource.Dimension.wino_m3_drawer_item_inset);
+        Foreground = new RippleDrawable(global::Android.Content.Res.ColorStateList.ValueOf(WinoColors.SubtleFill(context)), null, new InsetDrawable(mask, inset, spacing, inset, spacing));
+    }
+
     private void Apply()
     {
         var p = P;
         var context = this.RequireContext();
-        SetMinimumHeight(WinoTokens.Px(context, HeightResource(_kind)));
+        bool compact = _isCompact && _kind == WinoShellRowKind.Folder;
+        SetMinimumHeight(WinoTokens.Px(context, compact ? Resource.Dimension.wino_m3_drawer_compact_item_height : HeightResource(_kind)));
+        if (_appliedCompact != compact) ApplySpacing(context, compact);
         bool newItem = _kind == WinoShellRowKind.NewItem;
         bool header = _kind == WinoShellRowKind.Header;
         Clickable = !header;

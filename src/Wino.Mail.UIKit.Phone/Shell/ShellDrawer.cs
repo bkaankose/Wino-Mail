@@ -3,16 +3,17 @@ using UIKit;
 using Wino.Core.Domain;
 using Wino.Presentation.UIKit;
 
-namespace Wino.Mail.UIKit.Phone.Mail;
+namespace Wino.Mail.UIKit.Phone.Shell;
 
 /// <summary>
-/// The iPhone Mailboxes drawer (iOS design decisions, revision 15 Oct): a blurred panel that slides in from the left over
-/// the Mail stack and the tab bar, min(85% of the width, 340pt) wide and full height, with a 34% black scrim over the
-/// rest. It opens from the message list's sidebar button or a left-edge pan, and closes on a scrim tap, a leftward swipe
-/// or a folder pick. The panel hosts Mailboxes in its own navigation controller as a child of the shell. Reduce Motion
-/// fades the panel instead of sliding it.
+/// The iPhone shell drawer (iOS design decisions, revision 18 Oct): a blurred panel that slides in from the left over
+/// the active tab's stack and the tab bar, min(85% of the width, 340pt) wide and full height, with a 34% black scrim over
+/// the rest. Every tab opens it from the hamburger bar button or a left-edge pan; it closes on a scrim tap, a leftward
+/// swipe or a row pick. The panel hosts the active mode's menu (Mailboxes, the calendars, the contact filters, the To Do
+/// lists, each with the Settings row at its foot) in its own navigation controller as a child of the shell; the shell
+/// swaps that root when the mode changes. Reduce Motion fades the panel instead of sliding it.
 /// </summary>
-internal sealed class MailboxesDrawer
+internal sealed class ShellDrawer
 {
     private const double MaximumWidth = 340;
     private const double WidthFraction = 0.85;
@@ -29,17 +30,25 @@ internal sealed class MailboxesDrawer
     private bool _attached;
     private int _animations;
 
-    public MailboxesDrawer(UIViewController host, UIViewController mailboxes, Func<bool> canOpen)
+    public ShellDrawer(UIViewController host, UIViewController root, Func<bool> canOpen)
     {
         _host = host;
         _canOpen = canOpen;
-        _content = new UINavigationController(mailboxes);
+        _content = new UINavigationController(root);
         _content.NavigationBar.PrefersLargeTitles = false;
         _panel.Escape = () => Close(true);
     }
 
     /// <summary>True while the drawer is open or opening.</summary>
     public bool IsOpen { get; private set; }
+
+    /// <summary>The menu the panel shows (the active mode's); the drawer closes first when it is open.</summary>
+    public void SetRoot(UIViewController root)
+    {
+        if (_content.ViewControllers is [var current] && ReferenceEquals(current, root)) return;
+        Close(false);
+        _content.SetViewControllers([root], false);
+    }
 
     /// <summary>Adds the scrim, the panel and the edge gesture to the shell's root view (above the tab bar controller).</summary>
     public void Attach(UIView root)

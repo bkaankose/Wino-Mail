@@ -20,6 +20,23 @@
     <item name="android:paddingEnd">@dimen/wino_m3_chip_row_padding_end</item>
   </style>
 
+  <!-- Compact Focused / Other segment: the fill marks the selected one, so it carries no check. -->
+  <style name="Widget.Wino.Mail.PivotSegment" parent="Widget.WinoKit.Segment">
+    <item name="android:layout_height">@dimen/wino_mail_pivot_height</item>
+    <item name="android:minHeight">@dimen/wino_mail_pivot_height</item>
+    <item name="android:minWidth">0dp</item>
+    <item name="android:paddingStart">@dimen/wino_mail_pivot_padding</item>
+    <item name="android:paddingEnd">@dimen/wino_mail_pivot_padding</item>
+    <item name="android:textSize">@dimen/wino_mail_pivot_text</item>
+    <item name="cornerRadius">@dimen/wino_mail_pivot_radius</item>
+  </style>
+
+  <!-- A glyph button sized for the 40 dp mail list header (filter, Empty folder). -->
+  <style name="Widget.Wino.Mail.HeaderButton" parent="Widget.WinoKit.GlyphButton">
+    <item name="android:layout_width">@dimen/wino_mail_header_button</item>
+    <item name="android:layout_height">@dimen/wino_mail_header_button</item>
+  </style>
+
   <style name="Widget.Wino.Mail.ChipRowStatus">
     <item name="android:ellipsize">end</item>
     <item name="android:maxLines">1</item>

@@ -25,7 +25,7 @@ namespace Wino.Mail.UIKit.Views.Calendar;
 /// details route, drag to move and resize, the shared context menu, the quick event and the debug bridge commands.
 /// The idiom pages build the layout, the date navigation and where details and the composer appear.
 /// </summary>
-public abstract partial class CalendarPageViewControllerBase : WinoViewController<CalendarPageViewModel>, IRenderingFrameHost
+public abstract partial class CalendarPageViewControllerBase : WinoViewController<CalendarPageViewModel>, IRenderingFrameHost, IReusableShellPage
 {
     private readonly IContextMenuItemService _contextMenus;
     private readonly IMailDialogService _dialogs;
@@ -128,6 +128,19 @@ public abstract partial class CalendarPageViewControllerBase : WinoViewControlle
             Shell.OnNavigatedTo(NavigationMode.New, new ShellModeActivationContext { IsInitialActivation = true });
         }
 #endif
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// A date or view change routes to the calendar page again (the shared shell navigates on every pick); the live page
+    /// takes it in place, so the bar, the open date panel and the agenda toggle stay as they are.
+    /// </summary>
+    bool IReusableShellPage.CanReuseFor(WinoPage page) => page == WinoPage.CalendarPage && IsActive;
+
+    Task IReusableShellPage.ReactivateAsync(object? parameter)
+    {
+        WeakReferenceMessenger.Default.Send(CalendarPageActivation.CreateLoadMessage(parameter,
+            InitialDisplayType(ViewModel.StatePersistanceService.CalendarDisplayType), DateContext.GetToday()));
         return Task.CompletedTask;
     }
 

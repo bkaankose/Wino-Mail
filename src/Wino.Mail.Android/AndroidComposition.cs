@@ -55,6 +55,10 @@ internal static class AndroidComposition
         services.AddSingleton<Views.Mail.AndroidSenderPictureProvider>();
         // The Daily briefing entry and sheet (shown only through the shared entitlement rule).
         services.AddSingleton<Views.Extras.AndroidDailyBriefingPresenter>();
+        // APK assets are not files: the release notes are read where PackagedResourceInstaller extracted them.
+        services.AddSingleton<IWhatsNewService>(provider => new WhatsNewService(provider.GetRequiredService<IConfigurationService>(),
+            provider.GetRequiredService<IAppMetadataService>(), Path.Combine(provider.GetRequiredService<AndroidPaths>().PackagedResourceRoot, "Assets", "WhatsNew")));
+        services.AddSingleton<Views.Extras.AndroidWhatsNewPresenter>();
         services.AddSingleton<AndroidNavigationService>(provider => new AndroidNavigationService(provider,
             provider.GetRequiredService<IDispatcher>(), provider.GetRequiredService<AndroidPageRegistry>()));
         services.AddSingleton<INavigationService>(provider => provider.GetRequiredService<AndroidNavigationService>());
@@ -87,5 +91,6 @@ internal static class AndroidComposition
 
         // Head lifecycle hooks (IApplicationLifecycleHook) run in registration order once the runtime started.
         services.AddSingleton<IApplicationLifecycleHook, Background.NotificationsLifecycleHook>();
+        services.AddSingleton<IApplicationLifecycleHook, Views.Extras.WhatsNewLifecycleHook>();
     }
 }

@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The folder's message list (canvas Material pass boards Inbox, InboxDark and Search; Windows MailListPage): the 64 dp
-     small top app bar over the wallpaper (menu, folder title, search, overflow; no Sync button and no subtitle), the
-     search header (56 dp search bar and the filter chip row) while searching, then one Wino zone with the 48 dp chip row
-     (Focused/Other segmented button, the dropdown filter chip, Select), the Windows info bars, the list with pull to
-     refresh (the only way to synchronize), the empty and loading states, the snackbar host and Try online search. -->
+<!-- The folder's message list (canvas Mail inbox redesign; Windows MailListPage): the docked search bar over the
+     wallpaper (menu, "Search in <folder>", filter, overflow; Views/Shell/DockedSearchBar), the search chip row while
+     searching, then one Wino zone with the 40 dp header row only when it has something to show (compact Focused/Other,
+     the dismissible active-filter chip, the search status, Empty folder, and the filter button whenever Focused/Other
+     shows), the Windows info bars, the list with pull to refresh (the only
+     way to synchronize), the empty and loading states, the floating selection toolbar, the snackbar host and Try online
+     search. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/mail_list_root"
@@ -21,32 +23,6 @@
       android:layout_height="wrap_content"
       android:orientation="vertical"
       android:visibility="gone">
-
-    <FrameLayout
-        style="@style/Widget.Wino.Mail.SearchHeader"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
-
-      <LinearLayout style="@style/Widget.Wino.Mail.SearchBar">
-
-        <ImageButton
-            android:id="@+id/mail_search_close"
-            style="@style/Widget.Wino.Mail.SearchBarIcon"
-            android:src="@drawable/wino_ic_arrow_back" />
-
-        <EditText
-            android:id="@+id/mail_search_field"
-            style="@style/Widget.Wino.Mail.SearchField"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1" />
-
-        <ImageButton
-            android:id="@+id/mail_search_clear"
-            style="@style/Widget.Wino.Mail.SearchBarIcon"
-            android:src="@drawable/wino_ic_close" />
-      </LinearLayout>
-    </FrameLayout>
 
     <HorizontalScrollView
         android:layout_width="match_parent"
@@ -76,7 +52,17 @@
 
       <LinearLayout
           android:id="@+id/mail_list_header"
-          style="@style/Widget.Wino.Mail.ChipRow">
+          style="@style/Widget.Wino.Mail.ChipRow"
+          android:layout_height="@dimen/wino_mail_header_height">
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/mail_filter_chip"
+            style="@style/Widget.Wino.Mail.FilterChip"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:ensureMinTouchTargetSize="false"
+            android:layout_marginEnd="@dimen/wino_space_s"
+            android:visibility="gone" />
 
         <com.google.android.material.button.MaterialButtonToggleGroup
             android:id="@+id/mail_pivots"
@@ -101,18 +87,15 @@
 
         <com.winomail.presentation.WinoIconView
             android:id="@+id/mail_empty_folder"
-            style="@style/Widget.WinoKit.GlyphButton"
+            style="@style/Widget.Wino.Mail.HeaderButton"
             android:visibility="gone" />
 
-        <com.google.android.material.chip.Chip
-            android:id="@+id/mail_filter_chip"
-            style="@style/Widget.Wino.Mail.FilterChip"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
-
+        <!-- The filter, next to Focused / Other; the search bar shows it instead when the folder has no pivots. -->
         <com.winomail.presentation.WinoIconView
-            android:id="@+id/mail_select"
-            style="@style/Widget.WinoKit.GlyphButton" />
+            android:id="@+id/mail_filter_button"
+            style="@style/Widget.Wino.Mail.HeaderButton"
+            android:visibility="gone" />
+
       </LinearLayout>
 
       <com.winomail.controls.WinoInfoBar

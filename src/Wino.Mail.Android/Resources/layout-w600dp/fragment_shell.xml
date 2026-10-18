@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Shell, medium width (600 dp and wider, under 840 dp or under 480 dp tall: every phone in landscape; canvas board
+<!-- Shell, medium width (600 dp and wider, under 1200 dp or under 480 dp tall: every phone in landscape; canvas board
      Landscape): a navigation rail with New mail and the four modes and the avatar at its foot, the content page in a
      360 dp list pane and the reader filling the rest. Folders stay in the modal drawer. -->
 <androidx.drawerlayout.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"

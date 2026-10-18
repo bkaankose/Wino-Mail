@@ -8,29 +8,31 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Controls.UIKit.Calendar;
 using Wino.Mail.UIKit.Phone.Mail;
+using Wino.Mail.UIKit.Phone.Shell;
 using Wino.Mail.UIKit.Views.Calendar;
 using Wino.Presentation.UIKit;
 
 namespace Wino.Mail.UIKit.Phone.Calendar;
 
 /// <summary>
-/// The iPhone Calendar tab (iOS design decisions, date picker option B of 15 Oct 2026): the range as a tappable title
-/// with Today and New event in the bar; the title opens the picker sheet (Day · Week · Month, the agenda toggle,
-/// the calendars filter, Today and the month grid). Day view shows a week strip above the content zone; the content zone holds
-/// the Windows timed surface (one column for Day) or the agenda list, and a horizontal swipe pages the period.
-/// A tile tap pushes the event details, the composer opens as a full-screen sheet, and a long press on empty time
-/// opens the quick event sheet; a long press on a tile moves it (or resizes it from its bottom edge).
-/// Partial files: Agenda (the list), Debug (bridge commands).
+/// The iPhone Calendar tab (iOS design decisions; concept B of 18 Oct 2026): the shell's account avatar leading, the date
+/// as a one-line title ("Sun, Oct 18", "Oct 12 – 18", "October 2026") and the event search glyph trailing; New event is
+/// the shell's floating button. The title drops the date panel over the grid (<see cref="CalendarDatePanelView"/>:
+/// Day · Week · Month, the agenda toggle, the month grid and Today); calendars are picked in the shell drawer. The content
+/// zone holds the Windows timed surface (Day without its own column header, Week and Month with theirs) or the agenda
+/// list, and a horizontal drag pages the period with the finger (<see cref="CalendarPagingInteraction"/>). A tile tap
+/// pushes the event details, the composer opens as a full-screen sheet, and a long press on empty time opens the quick
+/// event sheet; a long press on a tile moves it (or resizes it from its bottom edge).
+/// Partial files: Agenda (the list), Search (the event search), Debug (bridge commands).
 /// </summary>
-public sealed partial class CalendarPageViewController : CalendarPageViewControllerBase, ICalendarPickerHost
+public sealed partial class CalendarPageViewController : CalendarPageViewControllerBase, ICalendarPickerHost, IPhoneFloatingActionPage
 {
     private readonly PhoneShellHost _host;
     private CalendarPage? _page;
-    private UINavigationController? _calendarsSheet;
     private bool _agendaOn;
-    private UINavigationController? _pickerSheet;
-    private CalendarPickerSheetViewController? _picker;
+    private CalendarDatePanelView? _panel;
     private UIButton? _titleButton;
+    private CalendarPagingInteraction? _paging;
     private CalendarDisplayType _displayType = CalendarDisplayType.Week;
     private VisibleDateRange? _range;
     private DayOfWeek _firstDayOfWeek = System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.FirstDayOfWeek;
@@ -48,36 +50,21 @@ public sealed partial class CalendarPageViewController : CalendarPageViewControl
     {
         var page = new CalendarPage();
         _page = page;
-        PlaceSurface(page.ContentZone.ContentView);
-        BuildAgenda(page.ContentZone.ContentView);
+        PlaceSurface(page.Body);
+        BuildAgenda(page.Body);
+        ApplySurfaceHeader();
 
-        page.WeekStrip.DateClicked += (_, date) =>
-        {
-            // In the agenda a strip tap jumps to that day's header when the list holds it.
-            if (_agendaOn && ScrollAgendaTo(date)) page.WeekStrip.SelectedDate = date;
-            else GoToDate(date);
-        };
-        page.SetStripVisible(false);
+        _paging = new CalendarPagingInteraction(page.Body, () => !Surface.IsDraggingItem && !Surface.IsSelectingRange && !ViewModel.Readiness.IsBlocked && _panel?.IsOpen != true,
+            direction => { if (direction > 0) GoNext(); else GoPrevious(); });
 
-        // A horizontal swipe on the surface pages the period, like the iOS Calendar day view.
-        Surface.AddGestureRecognizer(new UISwipeGestureRecognizer(GoNext) { Direction = UISwipeGestureRecognizerDirection.Left });
-        Surface.AddGestureRecognizer(new UISwipeGestureRecognizer(GoPrevious) { Direction = UISwipeGestureRecognizerDirection.Right });
+        var panel = new CalendarDatePanelView(this);
+        _panel = panel;
+        WinoLayout.Fill(panel, page);
 
         NavigationItem.LargeTitleDisplayMode = UINavigationItemLargeTitleDisplayMode.Never;
         NavigationItem.TitleView = BuildTitleButton();
-        var today = new UIBarButtonItem(Translator.Today, UIBarButtonItemStyle.Plain, (_, _) => GoToday());
-        NavigationItem.LeftBarButtonItem = today;
+        BuildSearch();
         View = page;
-    }
-
-    protected override Task InitializeAsync(NavigationMode mode, object? parameter)
-    {
-        // The shell placed its Settings button before activation; New event joins it (the calendars filter is in the picker).
-        var items = new List<UIBarButtonItem>();
-        if (NavigationItem.RightBarButtonItem is { } avatar) items.Add(avatar);
-        items.Add(PhoneBarItems.Button(WinoIconGlyph.Add, Translator.CalendarEventCompose_NewEventButton, NewEvent));
-        NavigationItem.RightBarButtonItems = items.ToArray();
-        return base.InitializeAsync(mode, parameter);
     }
 
     public override void ViewWillAppear(bool animated)
@@ -103,18 +90,16 @@ public sealed partial class CalendarPageViewController : CalendarPageViewControl
     protected override void VisibleRangeChanged(VisibleDateRange? range)
     {
         _range = range;
-        _picker?.Refresh();
-        if (_page is not { } page || range is null) return;
-        page.WeekStrip.SelectedDate = range.AnchorDate;
-        ReloadAgenda();
+        _panel?.Refresh();
+        UpdateTitle();
+        if (range is not null) ReloadAgenda();
     }
 
     protected override void SettingsChanged(CalendarSettings? settings)
     {
         if (settings is null) return;
         _firstDayOfWeek = settings.FirstDayOfWeek;
-        if (_page is { } page) page.WeekStrip.FirstDayOfWeek = settings.FirstDayOfWeek;
-        _picker?.Refresh();
+        _panel?.Refresh();
     }
 
     protected override void ItemsChanged()
@@ -126,24 +111,58 @@ public sealed partial class CalendarPageViewController : CalendarPageViewControl
     protected override void DisplayTypeChanged(CalendarDisplayType type)
     {
         _displayType = type;
-        ApplyStripVisibility();
-        _picker?.Refresh();
+        ApplySurfaceHeader();
+        UpdateTitle();
+        _panel?.Refresh();
     }
 
-    protected override void RangeTextChanged(string? text)
+    /// <summary>
+    /// The one-line date title: the day, the week's range or the month. Only the title view's text changes, never the
+    /// item's Title, so the bar does not lay out its buttons again while paging.
+    /// </summary>
+    private void UpdateTitle()
     {
-        var title = string.IsNullOrWhiteSpace(text) ? Translator.KeyboardShortcuts_ModeCalendar : text;
-        NavigationItem.Title = title;
-        if (_titleButton is not { } button) return;
-        var configuration = button.Configuration ?? UIButtonConfiguration.PlainButtonConfiguration;
-        configuration.AttributedTitle = new Foundation.NSAttributedString(title, new UIStringAttributes { Font = WinoStyle.Fixed(17, UIFontWeight.Semibold), ForegroundColor = UIColor.Label });
-        button.Configuration = configuration;
-        button.AccessibilityLabel = title;
-        // The bar sizes an Auto Layout title view from its intrinsic size, so a longer range is not cut to the first one.
-        button.InvalidateIntrinsicContentSize();
+        var title = TitleText();
+        if (_titleButton is not { } button)
+        {
+            NavigationItem.Title = title;
+            return;
+        }
+        UIView.PerformWithoutAnimation(() =>
+        {
+            var configuration = button.Configuration ?? UIButtonConfiguration.PlainButtonConfiguration;
+            configuration.AttributedTitle = new Foundation.NSAttributedString(title, new UIStringAttributes { Font = WinoStyle.Fixed(17, UIFontWeight.Semibold), ForegroundColor = UIColor.Label });
+            button.Configuration = configuration;
+            button.AccessibilityLabel = title;
+            // The bar sizes an Auto Layout title view from its intrinsic size, so a longer title is not cut to the first one.
+            button.InvalidateIntrinsicContentSize();
+            button.LayoutIfNeeded();
+        });
     }
 
-    /// <summary>The bar title: the range with a chevron; a tap opens the date picker sheet.</summary>
+    private string TitleText()
+    {
+        if (_range is not { } range) return Translator.KeyboardShortcuts_ModeCalendar;
+        var culture = System.Globalization.CultureInfo.CurrentCulture;
+        static DateTime At(DateOnly date) => date.ToDateTime(TimeOnly.MinValue);
+        switch (_displayType)
+        {
+            case CalendarDisplayType.Day:
+                return At(range.AnchorDate).ToString("ddd, MMM d", culture);
+            case CalendarDisplayType.Month:
+                return At(range.AnchorDate).ToString("MMMM yyyy", culture);
+            default:
+                var dates = range.Dates.ToList();
+                if (dates.Count == 0) return At(range.AnchorDate).ToString("MMMM yyyy", culture);
+                var first = dates[0];
+                var last = dates[^1];
+                return first.Month == last.Month
+                    ? $"{At(first).ToString("MMM d", culture)} – {last.Day.ToString(culture)}"
+                    : $"{At(first).ToString("MMM d", culture)} – {At(last).ToString("MMM d", culture)}";
+        }
+    }
+
+    /// <summary>The bar title: the date with a chevron; a tap drops the date panel or closes it.</summary>
     private UIButton BuildTitleButton()
     {
         var configuration = UIButtonConfiguration.PlainButtonConfiguration;
@@ -155,30 +174,23 @@ public sealed partial class CalendarPageViewController : CalendarPageViewControl
         var button = new UIButton { Configuration = configuration, TranslatesAutoresizingMaskIntoConstraints = false };
         button.SetContentCompressionResistancePriority((float)UILayoutPriority.DefaultHigh, UILayoutConstraintAxis.Horizontal);
         button.AccessibilityHint = Translator.IOS_Calendar_ChooseDate;
-        button.PrimaryActionTriggered += (_, _) => ShowPicker();
+        button.PrimaryActionTriggered += (_, _) => TogglePanel();
         _titleButton = button;
-        RangeTextChanged(NavigationItem.Title);
+        UpdateTitle();
         return button;
     }
 
-    /// <summary>The date picker sheet (period, agenda, Today and the month grid).</summary>
-    private void ShowPicker()
+    private void TogglePanel()
     {
-        if (_pickerSheet is { PresentingViewController: not null }) return;
-        var picker = new CalendarPickerSheetViewController(this);
-        _picker = picker;
-        _pickerSheet = _host.PresentSheet(picker, PhoneSheetSize.MediumAndLarge, () => { _pickerSheet = null; _picker = null; });
+        if (_panel is not { } panel) return;
+        if (panel.IsOpen) panel.Close();
+        else panel.Open();
     }
 
-    private void ClosePickerSheet()
-    {
-        _picker = null;
-        if (_pickerSheet is { } sheet)
-        {
-            _pickerSheet = null;
-            _ = _host.DismissSheetAsync(sheet);
-        }
-    }
+    private void ClosePanel() => _panel?.Close();
+
+    /// <summary>The shell's floating button: New event.</summary>
+    void IPhoneFloatingActionPage.FloatingActionInvoked() => NewEvent();
 
     CalendarDisplayType ICalendarPickerHost.DisplayType => _displayType;
     bool ICalendarPickerHost.IsAgendaOn => _agendaOn;
@@ -186,36 +198,27 @@ public sealed partial class CalendarPageViewController : CalendarPageViewControl
     DayOfWeek ICalendarPickerHost.FirstDayOfWeek => _firstDayOfWeek;
     void ICalendarPickerHost.PickDisplayType(CalendarDisplayType type) => RequestDisplayType(type);
     void ICalendarPickerHost.PickAgenda(bool on) => SetAgenda(on);
-    void ICalendarPickerHost.PickToday() => GoToday();
+    void ICalendarPickerHost.PickToday()
+    {
+        GoToday();
+        ClosePanel();
+    }
     void ICalendarPickerHost.PickDate(DateOnly date)
     {
-        GoToDate(date);
-        ClosePickerSheet();
+        // In the agenda a picked day scrolls to its header when the list holds it.
+        if (!_agendaOn || !ScrollAgendaTo(date)) GoToDate(date);
+        ClosePanel();
     }
-    void ICalendarPickerHost.ClosePicker() => ClosePickerSheet();
-    void ICalendarPickerHost.PickCalendars()
-    {
-        // One sheet at a time: the calendars filter replaces the picker.
-        if (_pickerSheet is { } sheet)
-        {
-            _picker = null;
-            _pickerSheet = null;
-            _ = ReplacePickerWithCalendarsAsync(sheet);
-            return;
-        }
-        ShowCalendars();
-    }
+    void ICalendarPickerHost.ClosePicker() => ClosePanel();
 
     protected override void ReadinessChanged(bool blocked) => ApplyContentVisibility();
 
-    /// <summary>The week strip shows in Day view and over the agenda of Day and Week (Calendar board, 15 Oct 2026).</summary>
-    private void ApplyStripVisibility()
-        => _page?.SetStripVisible(_displayType == CalendarDisplayType.Day || _agendaOn && _displayType != CalendarDisplayType.Month);
+    /// <summary>Day shows no column header (the title names the day); Week and Month keep theirs, which page with the grid.</summary>
+    private void ApplySurfaceHeader() => Surface.ShowsDayHeader = _displayType != CalendarDisplayType.Day;
 
     private void SetAgenda(bool on)
     {
         _agendaOn = on;
-        ApplyStripVisibility();
         ApplyContentVisibility();
         if (on) ReloadAgenda();
     }
@@ -225,28 +228,6 @@ public sealed partial class CalendarPageViewController : CalendarPageViewControl
         bool blocked = ViewModel.Readiness.IsBlocked;
         Surface.Hidden = blocked || _agendaOn;
         SetAgendaHidden(blocked || !_agendaOn);
-    }
-
-    private async Task ReplacePickerWithCalendarsAsync(UINavigationController picker)
-    {
-        try
-        {
-            await _host.DismissSheetAsync(picker);
-            ShowCalendars();
-        }
-        catch (Exception exception) { ReportError(exception); }
-    }
-
-    /// <summary>The calendars filter: accounts and calendars with colour toggles, as a sheet.</summary>
-    private void ShowCalendars()
-    {
-        if (_calendarsSheet is { PresentingViewController: not null }) return;
-        var content = new CalendarsSheetViewController(Shell.AccountCalendarStateService, () =>
-        {
-            if (_calendarsSheet is { } sheet) _ = _host.DismissSheetAsync(sheet);
-            _calendarsSheet = null;
-        });
-        _calendarsSheet = _host.PresentSheet(content, PhoneSheetSize.MediumAndLarge, () => _calendarsSheet = null);
     }
 
     /// <summary>The event composer this page took from the rendering frame: a full-screen sheet.</summary>
@@ -260,11 +241,7 @@ public sealed partial class CalendarPageViewController : CalendarPageViewControl
     protected override void ReleaseIdiom()
     {
         ReleaseAgenda();
-        ClosePickerSheet();
-        if (_calendarsSheet is { } sheet)
-        {
-            _calendarsSheet = null;
-            _ = _host.DismissSheetAsync(sheet);
-        }
+        ReleaseSearch();
+        ClosePanel();
     }
 }

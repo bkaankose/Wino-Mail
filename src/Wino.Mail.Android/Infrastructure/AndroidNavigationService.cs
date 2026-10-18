@@ -353,6 +353,9 @@ public sealed class AndroidNavigationService : INavigationService, INavigationHo
         await ReleaseAllAsync(pushed);
         if (previous is not null) await previous.ReleaseAsync();
         await entry.ActivateAsync(NavigationMode.New);
+        // Back restores a folder without going through the pane, so the pane would keep the folder that was left.
+        if (parameter is NavigateMailFolderEventArgs { BaseFolderMenuItem: { } folder } && Shell is { } shell)
+            await _dispatcher.ExecuteOnUIThread(() => shell.ViewModel.SelectedMenuItem = folder);
         PostBackStateChanged();
     }
 
@@ -687,9 +690,11 @@ public sealed class AndroidNavigationService : INavigationService, INavigationHo
     {
         lock (_sync)
         {
+            // The secondary surface covers Settings, matching the coordinator's back order (Settings > Add account opens
+            // provider selection there).
+            if (_secondary is not null) return _secondary;
             // One host shows the whole Settings stack (list and page side by side when there is room).
             if (_settings.Count > 0) return _settingsHost ??= new PageEntry(WinoPage.None, null, null, static () => new SettingsHostFragment(), _dispatcher) { Host = AndroidPageHost.Settings };
-            if (_secondary is not null) return _secondary;
             // Pushed pages always cover the shell; the reader does on compact widths, else the shell shows it in its pane.
             if (CurrentModeStack() is { Count: > 0 } stack && (stack[^1].Host != AndroidPageHost.RenderingFrame || !_shellShown || !ShowsReaderPane))
                 return stack[^1];

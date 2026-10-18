@@ -10,6 +10,7 @@ using Android.Widget;
 using Google.Android.Material.Button;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Presentation;
+using Wino.Mail.Controls.Android.Common;
 using Wino.Mail.Controls.Android.Settings;
 using Wino.Presentation.Android;
 using PopupMenu = AndroidX.AppCompat.Widget.PopupMenu;
@@ -291,23 +292,21 @@ internal static class AccountSettingsParts
 }
 
 /// <summary>
-/// A horizontal row of colour swatches (the iOS WinoColorSwatchPicker): 32 dp circles in a scroll view, the selected
-/// one ringed; a tap raises <see cref="SelectionChanged"/> with the colour's hex value.
+/// The colour swatches (the iOS WinoColorSwatchPicker): 32 dp circles that wrap onto as many lines as they need, the
+/// selected one ringed; a tap raises <see cref="SelectionChanged"/> with the colour's hex value.
 /// </summary>
 internal sealed class AccountColorSwatches
 {
     private readonly Context _context;
-    private readonly LinearLayout _row;
+    private readonly WinoFlowView _row;
     private IReadOnlyList<string> _colors = [];
     private string? _selected;
 
     public AccountColorSwatches(Context context, string? accessibilityLabel)
     {
         _context = context;
-        _row = AccountSettingsParts.HRow(context);
-        var scroll = new HorizontalScrollView(context) { HorizontalScrollBarEnabled = false, ContentDescription = accessibilityLabel };
-        scroll.AddView(_row);
-        View = scroll;
+        _row = new WinoFlowView(context) { ContentDescription = accessibilityLabel };
+        View = _row;
     }
 
     public View View { get; }
@@ -342,7 +341,7 @@ internal sealed class AccountColorSwatches
             var captured = hex;
             swatch.Click += (_, _) => SelectionChanged?.Invoke(this, captured);
             var size = WinoTokens.Px(_context, Resource.Dimension.wino_size_swatch_large);
-            var layout = new LinearLayout.LayoutParams(size, size);
+            var layout = new ViewGroup.MarginLayoutParams(size, size);
             int horizontal = WinoTokens.Px(_context, Resource.Dimension.wino_space_2xs), vertical = WinoTokens.Px(_context, Resource.Dimension.wino_space_s);
             layout.SetMargins(horizontal, vertical, horizontal, vertical);
             _row.AddView(swatch, layout);

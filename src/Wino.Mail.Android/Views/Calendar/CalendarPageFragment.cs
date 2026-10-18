@@ -100,14 +100,8 @@ public sealed partial class CalendarPageFragment : WinoFragment<CalendarPageView
         _blocked = view.FindViewById<TextView>(Resource.Id.calendar_blocked);
         _refresh = view.FindViewById<SwipeRefreshLayout>(Resource.Id.calendar_refresh);
 
-        if (_toolbar is not null)
-        {
-            _toolbar.SetNavigationIcon(Resource.Drawable.wino_ic_menu);
-            _toolbar.NavigationContentDescription = Translator.Android_Shell_OpenNavigation;
-            EventHandler<AndroidX.AppCompat.Widget.Toolbar.NavigationClickEventArgs> navigation = (_, _) => Chrome?.ToggleNavigation();
-            _toolbar.NavigationClick += navigation;
-            Bindings.Own(new ActionDisposable(() => _toolbar.NavigationClick -= navigation));
-        }
+        // The docked search bar every mode shows (menu, "Search calendar", the page's actions).
+        BuildSearch(context);
 
         if (_refresh is not null)
         {

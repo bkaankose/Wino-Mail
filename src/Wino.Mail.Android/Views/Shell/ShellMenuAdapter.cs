@@ -4,6 +4,7 @@ using Android.OS;
 using Android.Views;
 using AndroidX.RecyclerView.Widget;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Controls.Android.Shell;
 using Wino.Mail.ViewModels.Data;
@@ -191,6 +192,8 @@ public sealed class ShellMenuAdapter : RecyclerView.Adapter
                 view.ConfigureFolder(row.Glyph, row.Title, row.UnreadCount, row.Indent, row.IsExpanded);
                 break;
         }
+        // Mail folders are denser than the other drawer items.
+        view.IsCompact = item is IBaseFolderMenuItem or MergedAccountMoreFolderMenuItem;
         view.IsRowSelected = row.IsHighlightable && ReferenceEquals(item, _selected);
         view.ShowsIndicator = row.ShowsIndicator;
         view.Enabled = row.IsEnabled && ShellMenuItemRules.IsInteractive(item);

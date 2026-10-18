@@ -1,5 +1,6 @@
 using System.Windows.Input;
 using UIKit;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels;
@@ -15,6 +16,19 @@ public interface IWinoViewController
     bool HasPendingWork { get; }
     Task ActivateAsync(NavigationMode mode, object? parameter);
     Task ReleaseAsync();
+}
+
+/// <summary>
+/// A shell-content page that takes a new navigation to its own route in place: the shell keeps the live page (its bar,
+/// sheets and view state) and hands it the new parameter instead of building and placing a fresh page.
+/// </summary>
+public interface IReusableShellPage
+{
+    /// <summary>True when a navigation to <paramref name="page"/> can reuse this live page.</summary>
+    bool CanReuseFor(WinoPage page);
+
+    /// <summary>Applies the new navigation parameter.</summary>
+    Task ReactivateAsync(object? parameter);
 }
 
 /// <summary>Exposes a page's ViewModel to the router (back confirmation and results).</summary>

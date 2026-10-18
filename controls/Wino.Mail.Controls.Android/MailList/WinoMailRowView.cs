@@ -34,6 +34,12 @@ public class WinoMailRowView : FrameLayout
     private readonly List<View> _tileViews = new();
     private RowParts? _parts;
     private WinoMailRowModel _model = new();
+    // What the views show, so a bind only touches what changed (each view call crosses JNI and many re-layout).
+    private WinoMailRowModel? _applied;
+    private RowPalette _palette;
+    private bool _paletteDirty = true;
+    private bool? _shownUnread;
+    private (bool Picture, bool CheckAsAvatar, bool SelectionMode, bool Checked, bool Selected, WinoMailRowDensity Density)? _shownSelection;
     private IReadOnlyList<WinoMailRowTile> _shownTiles = Array.Empty<WinoMailRowTile>();
     private bool _shownCompactTiles;
     private bool _isSelectionMode;
@@ -60,6 +66,15 @@ public class WinoMailRowView : FrameLayout
 
         p.Check.GlyphSize = 20;
         p.Check.Click += (_, _) => CheckboxToggled?.Invoke(this, EventArgs.Empty);
+        // Tapping the sender picture selects the row (canvas Mail inbox redesign), as in Material mail apps.
+        p.Avatar.Clickable = true;
+        p.Avatar.Click += (_, _) => AvatarTapped?.Invoke(this, EventArgs.Empty);
+        p.Avatar.ContentDescription = Wino.Core.Domain.Translator.Android_MailList_SelectMessage;
+        p.Avatar.LongClick += (_, args) =>
+        {
+            args.Handled = true;
+            AvatarTapped?.Invoke(this, EventArgs.Empty);
+        };
         p.Pin.Icon = WinoIconGlyph.Pin;
         p.Pin.GlyphSize = 12;
         p.Attachment.Icon = WinoIconGlyph.Attachment;
@@ -118,6 +133,9 @@ public class WinoMailRowView : FrameLayout
     /// <summary>The select-mode check was tapped.</summary>
     public event EventHandler? CheckboxToggled;
 
+    /// <summary>The sender picture was tapped.</summary>
+    public event EventHandler? AvatarTapped;
+
     /// <summary>The thread chevron was tapped.</summary>
     public event EventHandler? ThreadToggleRequested;
 
@@ -147,59 +165,105 @@ public class WinoMailRowView : FrameLayout
         set { _isRowSelected = value; ApplySelection(); }
     }
 
-    public void Apply(WinoMailRowModel model)
+    /// <summary>Sets the select-mode look in one pass (the adapter's partial rebind).</summary>
+    public void SetSelectionState(bool isSelectionMode, bool isChecked, bool isRowSelected)
+    {
+        _isSelectionMode = isSelectionMode;
+        _isChecked = isChecked;
+        _isRowSelected = isRowSelected;
+        ApplySelection();
+    }
+
+    public void Apply(WinoMailRowModel model) => Apply(model, _isSelectionMode, _isChecked, _isRowSelected);
+
+    /// <summary>Shows <paramref name="model"/> with the select-mode look; only the views whose content changed are touched.</summary>
+    public void Apply(WinoMailRowModel model, bool isSelectionMode, bool isChecked, bool isRowSelected)
     {
         var p = Parts;
+        var old = _applied;
         _model = model;
-        var context = this.RequireContext();
+        _isSelectionMode = isSelectionMode;
+        _isChecked = isChecked;
+        _isRowSelected = isRowSelected;
         var density = model.Density;
         bool compact = density == WinoMailRowDensity.Compact;
 
-        SetMinimumHeight(WinoUnits.Dp(context, WinoMailRowSizes.MinHeight(density)));
-        int indent = model.Kind == WinoMailRowKind.ThreadChild ? WinoUnits.Dp(context, WinoMailRowMetrics.ChildIndent(density)) : 0;
-        int vertical = WinoUnits.Dp(context, WinoMailRowSizes.VerticalPadding(density));
-        p.Content.SetPadding(WinoUnits.Dp(context, 14) + indent, vertical, WinoUnits.Dp(context, 16), vertical);
-        if (p.Highlight.LayoutParameters is MarginLayoutParams highlight)
+        if (old is null || old.Density != density || old.Kind != model.Kind)
         {
-            highlight.MarginStart = WinoUnits.Dp(context, WinoMailRowMetrics.ContentLeading) + indent;
-            p.Highlight.LayoutParameters = highlight;
+            var context = this.RequireContext();
+            SetMinimumHeight(WinoUnits.Dp(context, WinoMailRowSizes.MinHeight(density)));
+            int indent = model.Kind == WinoMailRowKind.ThreadChild ? WinoUnits.Dp(context, WinoMailRowMetrics.ChildIndent(density)) : 0;
+            int vertical = WinoUnits.Dp(context, WinoMailRowSizes.VerticalPadding(density));
+            p.Content.SetPadding(WinoUnits.Dp(context, 14) + indent, vertical, WinoUnits.Dp(context, 16), vertical);
+            int highlightStart = WinoUnits.Dp(context, WinoMailRowMetrics.ContentLeading) + indent;
+            if (p.Highlight.LayoutParameters is MarginLayoutParams highlight && highlight.MarginStart != highlightStart)
+            {
+                highlight.MarginStart = highlightStart;
+                p.Highlight.LayoutParameters = highlight;
+            }
+            p.Avatar.Size = WinoMailRowSizes.AvatarSize(density);
         }
 
-        p.Avatar.Size = WinoMailRowSizes.AvatarSize(density);
         p.Avatar.Image = model.Picture;
         p.Avatar.SetIdentity(string.IsNullOrWhiteSpace(model.Sender) ? model.SenderAddress : model.Sender,
             string.IsNullOrWhiteSpace(model.SenderAddress) ? model.Sender : model.SenderAddress);
 
-        p.Draft.Text = $"[{model.DraftLabel}]";
-        p.Draft.Visibility = Visible(model.IsDraft);
-        p.Sender.Text = model.IsDraft && string.IsNullOrWhiteSpace(model.Sender) ? model.SenderAddress : model.Sender;
-        bool threaded = model.Kind == WinoMailRowKind.ThreadHead && model.ThreadCount > 1;
-        p.ThreadCount.Text = model.ThreadCount.ToString(System.Globalization.CultureInfo.CurrentCulture);
-        p.ThreadCount.Visibility = Visible(threaded);
-        ApplyNickname(p.NicknameLeft, model, AccountNicknamePosition.Left);
-        ApplyNickname(p.NicknameRight, model, AccountNicknamePosition.Right);
-        p.Pin.Visibility = Visible(model.IsPinned);
-        p.Attachment.Visibility = Visible(model.HasAttachments);
-        p.Flag.Visibility = Visible(model.IsFlagged);
-        p.Busy.Visibility = Visible(model.IsBusy);
-        p.Date.Text = model.DateText;
+        if (old?.DraftLabel != model.DraftLabel) p.Draft.Text = $"[{model.DraftLabel}]";
+        Show(p.Draft, old?.IsDraft, model.IsDraft);
+        Text(p.Sender, old is null ? null : SenderText(old), SenderText(model));
+        bool threaded = IsThreaded(model);
+        if (old?.ThreadCount != model.ThreadCount) p.ThreadCount.Text = model.ThreadCount.ToString(System.Globalization.CultureInfo.CurrentCulture);
+        Show(p.ThreadCount, old is null ? null : IsThreaded(old), threaded);
+        if (old is null || old.ShowNickname != model.ShowNickname || old.NicknamePosition != model.NicknamePosition
+            || old.AccountNickname != model.AccountNickname || old.AccountColor != model.AccountColor)
+        {
+            ApplyNickname(p.NicknameLeft, model, AccountNicknamePosition.Left);
+            ApplyNickname(p.NicknameRight, model, AccountNicknamePosition.Right);
+        }
+        Show(p.Pin, old?.IsPinned, model.IsPinned);
+        Show(p.Attachment, old?.HasAttachments, model.HasAttachments);
+        Show(p.Flag, old?.IsFlagged, model.IsFlagged);
+        Show(p.Busy, old?.IsBusy, model.IsBusy);
+        Text(p.Date, old?.DateText, model.DateText);
 
-        p.Chevron.Visibility = Visible(threaded);
-        p.Chevron.Icon = model.IsThreadExpanded ? WinoIconGlyph.ChevronDown : WinoIconGlyph.ChevronRight;
-        p.Chevron.ContentDescription = model.IsThreadExpanded ? Wino.Core.Domain.Translator.MacOS_MailList_CollapseThread : Wino.Core.Domain.Translator.MacOS_MailList_ExpandThread;
-        p.Subject.Text = model.Subject;
-        p.Unread.Visibility = Visible(model.IsUnread);
+        Show(p.Chevron, old is null ? null : IsThreaded(old), threaded);
+        if (old?.IsThreadExpanded != model.IsThreadExpanded)
+        {
+            p.Chevron.Icon = model.IsThreadExpanded ? WinoIconGlyph.ChevronDown : WinoIconGlyph.ChevronRight;
+            p.Chevron.ContentDescription = model.IsThreadExpanded ? Wino.Core.Domain.Translator.MacOS_MailList_CollapseThread : Wino.Core.Domain.Translator.MacOS_MailList_ExpandThread;
+        }
+        Text(p.Subject, old?.Subject, model.Subject);
+        Show(p.Unread, old?.IsUnread, model.IsUnread);
 
-        p.Preview.Text = model.Preview;
-        p.Preview.Visibility = Visible(!compact && model.ShowPreview && !string.IsNullOrWhiteSpace(model.Preview));
+        Text(p.Preview, old?.Preview, model.Preview);
+        Show(p.Preview, old is null ? null : IsPreviewVisible(old), IsPreviewVisible(model));
 
         ApplyTiles(model);
-        ContentDescription = model.AccessibilityText;
+        if (old?.AccessibilityText != model.AccessibilityText) ContentDescription = model.AccessibilityText;
+        _applied = model;
         ApplyColors();
         ApplySelection();
     }
 
     private static ViewStates Visible(bool visible) => visible ? ViewStates.Visible : ViewStates.Gone;
+
+    private static void Show(View view, bool? shown, bool visible)
+    {
+        if (shown != visible) view.Visibility = Visible(visible);
+    }
+
+    private static void Text(TextView view, string? shown, string value)
+    {
+        if (!string.Equals(shown, value, StringComparison.Ordinal)) view.Text = value;
+    }
+
+    private static string SenderText(WinoMailRowModel model)
+        => model.IsDraft && string.IsNullOrWhiteSpace(model.Sender) ? model.SenderAddress : model.Sender;
+
+    private static bool IsThreaded(WinoMailRowModel model) => model.Kind == WinoMailRowKind.ThreadHead && model.ThreadCount > 1;
+
+    private static bool IsPreviewVisible(WinoMailRowModel model)
+        => model.Density != WinoMailRowDensity.Compact && model.ShowPreview && !string.IsNullOrWhiteSpace(model.Preview);
 
     private void ApplyNickname(WinoChipView chip, WinoMailRowModel model, AccountNicknamePosition position)
     {
@@ -293,31 +357,49 @@ public class WinoMailRowView : FrameLayout
         return chip;
     }
 
+    /// <summary>The row colours, resolved from resources once and again after an accent or configuration change.</summary>
+    private readonly record struct RowPalette(Color Accent, Color AccentText, Color PrimaryText, Color SecondaryText, Color Caution, Color Flagged, Color SelectedFill);
+
     private void ApplyColors()
     {
         var p = Parts;
-        var context = this.RequireContext();
+        if (_paletteDirty)
+        {
+            var context = this.RequireContext();
+            _palette = new RowPalette(WinoColors.Accent(context), WinoColors.AccentText(context), WinoColors.PrimaryText(context),
+                WinoColors.SecondaryText(context), WinoColors.Caution(context), WinoColors.Flagged(context), WinoColors.SelectedFill(context));
+            _paletteDirty = false;
+            _shownUnread = null;
+            _shownSelection = null;
+            _unreadFill.SetColor(_palette.Accent);
+            _pillFill.SetColor(_palette.Accent);
+            p.Attachment.SetTextColor(_palette.Caution);
+            p.Flag.SetTextColor(_palette.Flagged);
+            p.Pin.SetTextColor(_palette.SecondaryText);
+            p.Busy.SetTextColor(_palette.SecondaryText);
+            p.Chevron.SetTextColor(_palette.SecondaryText);
+        }
         bool unread = _model.IsUnread;
+        if (_shownUnread == unread) return;
+        _shownUnread = unread;
         p.Sender.Typeface = unread ? Medium : Regular;
         p.Subject.Typeface = unread ? Medium : Regular;
-        p.Subject.SetTextColor(unread ? WinoColors.AccentText(context) : WinoColors.PrimaryText(context));
-        _unreadFill.SetColor(WinoColors.Accent(context));
-        _pillFill.SetColor(WinoColors.Accent(context));
-        p.Attachment.SetTextColor(WinoColors.Caution(context));
-        p.Flag.SetTextColor(WinoColors.Flagged(context));
-        p.Pin.SetTextColor(WinoColors.SecondaryText(context));
-        p.Busy.SetTextColor(WinoColors.SecondaryText(context));
-        p.Chevron.SetTextColor(WinoColors.SecondaryText(context));
+        p.Subject.SetTextColor(unread ? _palette.AccentText : _palette.PrimaryText);
     }
 
     private void ApplySelection()
     {
-        var p = Parts;
-        var context = this.RequireContext();
         // Select mode (canvas Material pass InboxDark): with sender pictures a checked row shows the check in place of
         // the avatar and an unchecked row keeps its avatar; without pictures the round check stands before the text.
         bool picture = _model.ShowPicture;
         bool checkAsAvatar = _isSelectionMode && picture && _isChecked;
+        bool selected = _isRowSelected || (_isSelectionMode && _isChecked);
+        var state = (picture, checkAsAvatar, _isSelectionMode, _isChecked, selected, _model.Density);
+        if (_shownSelection == state) return;
+        _shownSelection = state;
+
+        var p = Parts;
+        var context = this.RequireContext();
         p.Avatar.Visibility = Visible(picture && !checkAsAvatar);
         p.Check.Visibility = Visible(_isSelectionMode && (!picture || _isChecked));
         if (p.Check.LayoutParameters is MarginLayoutParams check)
@@ -334,11 +416,17 @@ public class WinoMailRowView : FrameLayout
         }
         p.Check.GlyphSize = checkAsAvatar ? WinoMailRowSizes.AvatarSize(_model.Density) : WinoMailRowSizes.SelectCheckGlyph;
         p.Check.Icon = _isChecked ? WinoIconGlyph.CheckmarkCircleFilled : WinoIconGlyph.Circle;
-        p.Check.SetTextColor(_isChecked ? WinoColors.Accent(context) : WinoColors.SecondaryText(context));
-        bool selected = _isRowSelected || (_isSelectionMode && _isChecked);
-        _highlightFill.SetColor(selected ? WinoColors.SelectedFill(context) : Color.Transparent);
+        p.Check.ContentDescription = _isChecked ? Wino.Core.Domain.Translator.Android_MailList_DeselectMessage : Wino.Core.Domain.Translator.Android_MailList_SelectMessage;
+        p.Check.SetTextColor(_isChecked ? _palette.Accent : _palette.SecondaryText);
+        _highlightFill.SetColor(selected ? _palette.SelectedFill : Color.Transparent);
         p.Pill.Visibility = Visible(selected && !_isSelectionMode);
         Selected = selected;
+    }
+
+    protected override void OnConfigurationChanged(Configuration? newConfig)
+    {
+        base.OnConfigurationChanged(newConfig);
+        RefreshAppearance();
     }
 
     protected override void OnAttachedToWindow()
@@ -353,9 +441,13 @@ public class WinoMailRowView : FrameLayout
         base.OnDetachedFromWindow();
     }
 
-    private void AccentChanged(object? sender, EventArgs args)
+    private void AccentChanged(object? sender, EventArgs args) => RefreshAppearance();
+
+    /// <summary>Re-resolves the colours and re-applies the current model in full (accent, theme or night mode changed).</summary>
+    private void RefreshAppearance()
     {
-        ApplyColors();
-        ApplySelection();
+        _paletteDirty = true;
+        _applied = null;
+        Apply(_model);
     }
 }

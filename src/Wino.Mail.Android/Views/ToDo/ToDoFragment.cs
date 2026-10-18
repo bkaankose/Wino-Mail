@@ -23,7 +23,6 @@ using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.Android;
 using IMenuItem = Wino.Core.Domain.Interfaces.IMenuItem;
-using SearchView = AndroidX.AppCompat.Widget.SearchView;
 
 namespace Wino.Mail.Android.Views.ToDo;
 
@@ -81,7 +80,7 @@ public sealed class ToDoFragment : WinoFragment<ToDoPageViewModel>
 
         Bind(viewModel, dispatcher, nameof(ToDoPageViewModel.SelectedSurfaceTitle), static vm => vm.SelectedSurfaceTitle, title =>
         {
-            if (_toolbar is not null) _toolbar.Title = title ?? Translator.ToDoPage_Title;
+            if (_searchBar is not null) _searchBar.Hint = $"{Translator.SearchBar_SearchIn} {title ?? Translator.ToDoPage_Title}";
             ScheduleChips();
         });
         Bind(viewModel, dispatcher, nameof(ToDoPageViewModel.SelectedSurfaceSubtitle), static vm => vm.SelectedSurfaceSubtitle, value =>
@@ -126,30 +125,23 @@ public sealed class ToDoFragment : WinoFragment<ToDoPageViewModel>
 
     // ---- Top app bar: menu, title, search, overflow (Windows filter, sort, suggestions, list options) ----
 
-    private const int MenuSearch = 1;
     private const int MenuOptions = 2;
 
+    private Shell.DockedSearchBar? _searchBar;
+
+    /// <summary>The docked search bar (the same in every mode): menu, "Search in <list>", the list options.</summary>
     private void BuildToolbar(View view, Context context, ToDoPageViewModel viewModel)
     {
         _toolbar = view.FindViewById<MaterialToolbar>(Resource.Id.todo_toolbar);
         if (_toolbar is null) return;
-        _toolbar.SetNavigationIcon(Resource.Drawable.wino_ic_menu);
-        _toolbar.NavigationContentDescription = Translator.Android_Shell_OpenNavigation;
-        _toolbar.NavigationClick += (_, _) => Chrome?.ToggleNavigation();
+        _searchBar = Shell.DockedSearchBar.Attach(_toolbar, this, $"{Translator.SearchBar_SearchIn} {Translator.ToDoPage_Title}", () => Chrome?.ToggleNavigation());
+        _searchBar.QueryChanged += text => viewModel.FilterText = text;
+        _searchBar.Submitted += text => viewModel.FilterText = text;
         var menu = _toolbar.Menu;
         menu.Clear();
-        var search = menu.Add(0, MenuSearch, 0, Translator.ToDoPage_FilterTasks);
-        if (search is not null)
-        {
-            search.SetIcon(WinoIcons.Drawable(context, WinoIconGlyph.Find, WinoTokens.Dp(context, Resource.Dimension.wino_m3_glyph), WinoColors.SecondaryText(context)));
-            search.SetShowAsAction(ShowAsAction.Always | ShowAsAction.CollapseActionView);
-            var field = new SearchView(context) { QueryHint = Translator.ToDoPage_FilterTasks, MaxWidth = int.MaxValue };
-            field.QueryTextChange += (_, args) => { args.Handled = true; viewModel.FilterText = args.NewText ?? string.Empty; };
-            field.QueryTextSubmit += (_, args) => { args.Handled = true; viewModel.FilterText = args.NewText ?? string.Empty; };
-            search.SetActionView(field);
-        }
         var options = menu.Add(0, MenuOptions, 1, Translator.ToDoPage_ListOptions);
         options?.SetIcon(Resource.Drawable.wino_ic_more_vert);
+        if (options is not null) AndroidX.Core.View.MenuItemCompat.SetIconTintList(options, global::Android.Content.Res.ColorStateList.ValueOf(WinoColors.SecondaryText(context)));
         options?.SetShowAsAction(ShowAsAction.Always);
         _toolbar.MenuItemClick += (_, args) =>
         {

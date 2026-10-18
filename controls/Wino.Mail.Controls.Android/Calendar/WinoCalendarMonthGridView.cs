@@ -171,7 +171,7 @@ public sealed class WinoCalendarMonthGridView : View
             if (_highlighted.Contains(date))
             {
                 var (roundLeading, roundTrailing) = WinoMiniCalendarGrid.SelectionEnds(_highlighted, date, col);
-                _fillPaint.Color = WinoTokens.Color(context, Resource.Color.wino_calendar_range_band);
+                _fillPaint.Color = WinoColors.CalendarRangeBand(context);
                 var band = new RectF(roundLeading ? centerX - radius : left, centerY - radius, roundTrailing ? centerX + radius : left + column, centerY + radius);
                 canvas.DrawRoundRect(band, roundLeading || roundTrailing ? radius : 0, roundLeading || roundTrailing ? radius : 0, _fillPaint);
                 if (!roundLeading && roundTrailing) canvas.DrawRect(left, band.Top, centerX, band.Bottom, _fillPaint);
