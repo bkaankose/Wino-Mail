@@ -15,8 +15,8 @@ using Wino.Presentation.UIKit;
 namespace Wino.Mail.UIKit.Views.Settings;
 
 /// <summary>
-/// Manage accounts (Mac ManageAccountsPageViewController, Windows AccountManagementPage): Add account, the
-/// account-limit card (purchase channels, used/free meter and purchase), the Merge inboxes and Reorder cards, account
+/// Manage accounts (Mac ManageAccountsPageViewController, Windows AccountManagementPage): Add account as the navigation
+/// bar's "+", the account-limit card on the page (purchase channels, used/free meter and purchase), the Merge inboxes and Reorder cards, account
 /// identity rows (profile picture or provider icon, name, capability summary, attention state, chevron to account
 /// details) and linked inboxes. Reorder runs the shared command, which opens the account reorder dialog.
 /// </summary>
@@ -32,9 +32,9 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
     {
         var vm = ViewModel;
 
-        // Add account is an accent action row (settings rows, 15 Oct 2026).
-        AddGroup(null, Card(string.Empty, null, WinoIconGlyph.None, Bind.Button(Translator.Buttons_AddAccount, vm.AddNewAccountCommand)));
-        Bind.Visible(Add(Group(null, PurchaseCard())), vm, nameof(vm.IsPurchasePanelVisible), s => s.IsPurchasePanelVisible);
+        // Add account is the navigation bar's "+" (18 Oct 2026); the account-limit card stays on the page itself.
+        BarButton(WinoIconGlyph.Add, Translator.Buttons_AddAccount, vm.AddNewAccountCommand);
+        Bind.Visible(Add(PurchaseCard()), vm, nameof(vm.IsPurchasePanelVisible), s => s.IsPurchasePanelVisible);
 
         // Windows list header: Merge inboxes (with its "Mail only" scope tag) and Reorder, above the accounts.
         var merge = CommandCard(Translator.SettingsLinkAccounts_Title, Translator.SettingsLinkAccounts_Description, WinoIconGlyph.PeopleLink, vm.CreateMergedAccountCommand);
@@ -54,17 +54,20 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
     }
 
     /// <summary>
-    /// Account limits (Windows PurchasePanel): what the add-on lifts, which purchase channels are open, the used/free
-    /// count with its meter (amber one below the limit, red at the limit) and the purchase button under the text.
+    /// Account limits (Windows PurchasePanel) as one surface on the page, not behind a push (18 Oct 2026): the add-on
+    /// name, the free-account sentence, the open purchase channels, the used/free count with its meter (amber one below
+    /// the limit, red at the limit) and the purchase button.
     /// </summary>
-    private WinoSettingsCard PurchaseCard()
+    private UIView PurchaseCard()
     {
         var vm = ViewModel;
         var purchase = Bind.Button(Translator.WinoUpgradeMessage, vm.PurchaseUnlimitedAccountCommand, primary: true, icon: WinoIconGlyph.Sparkle);
         purchase.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
         // A short title keeps the card readable at phone width; the free-account sentence and the purchase channels follow
         // as the description and a caption (Windows shows the long sentence as the title on a wide pane).
-        var card = Card(Translator.WinoAddOn_UNLIMITED_ACCOUNTS_Name, Translator.WinoUpgradeDescription, WinoIconGlyph.PersonSquare);
+        var title = WinoStyle.Label(Translator.WinoAddOn_UNLIMITED_ACCOUNTS_Name, WinoSettingsStyle.CardTitle, WinoStyle.PrimaryText, 0);
+        title.AccessibilityTraits = UIAccessibilityTrait.Header;
+        var description = WinoStyle.Label(Translator.WinoUpgradeDescription, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0);
         var channels = WinoStyle.Label(vm.PurchaseChannelsDescription, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
         Bind.Bind(vm, nameof(vm.PurchaseChannelsDescription), s => s.PurchaseChannelsDescription, text =>
         {
@@ -89,11 +92,20 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
         Bind.Bind(vm, nameof(vm.HasUnlimitedAccountProduct), s => s.HasUnlimitedAccountProduct, _ => UpdateUsage());
         Bind.Collection(vm.Accounts, UpdateUsage);
 
-        var bottom = WinoLayout.VStack(6, channels, usage, meter, purchase);
-        bottom.Alignment = UIStackViewAlignment.Fill;
-        bottom.SetCustomSpacing(10, channels);
-        bottom.SetCustomSpacing(12, meter);
-        card.BottomContent = bottom;
+        var content = WinoLayout.VStack(6, title, description, channels, usage, meter, purchase);
+        content.Alignment = UIStackViewAlignment.Fill;
+        content.SetCustomSpacing(2, title);
+        content.SetCustomSpacing(10, channels);
+        content.SetCustomSpacing(12, meter);
+        var card = new WinoSurfaceView
+        {
+            Fill = WinoSettingsStyle.GroupFill,
+            Stroke = WinoSettingsStyle.CardStroke,
+            StrokeWidth = 1,
+            CornerRadius = WinoSettingsStyle.CardRadius,
+            TranslatesAutoresizingMaskIntoConstraints = false
+        };
+        WinoLayout.Fill(content, card, 12, WinoSettingsStyle.CardPadding, 12, WinoSettingsStyle.CardPadding);
         return card;
     }
 

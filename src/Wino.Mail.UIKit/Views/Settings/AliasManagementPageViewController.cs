@@ -15,8 +15,8 @@ using Wino.Presentation.UIKit;
 namespace Wino.Mail.UIKit.Views.Settings;
 
 /// <summary>
-/// Aliases of one account (Mac AliasManagementPageViewController, Windows AliasManagementPage): Add and Sync buttons,
-/// the summary line, then one expander per alias with its source, reply-to and send status. Copy address, Set primary
+/// Aliases of one account (Mac AliasManagementPageViewController, Windows AliasManagementPage): Add and Sync as
+/// navigation bar buttons, the summary line, then one expander per alias with its source, reply-to and send status. Copy address, Set primary
 /// and Delete sit in the row's 44pt actions menu at phone width (inline buttons on the Mac). With S/MIME available the
 /// nested rows hold the encryption switch and the signing certificate menu (enabled while encryption is on).
 /// </summary>
@@ -33,13 +33,14 @@ public sealed class AliasManagementPageViewController(AliasManagementPageViewMod
     protected override void BuildPage()
     {
         var vm = ViewModel;
-        var add = Bind.Button(Translator.Buttons_AddNewAlias, vm.AddNewAliasCommand, primary: true, icon: WinoIconGlyph.Add);
-        var sync = Bind.Button(Translator.Buttons_SyncAliases, vm.SyncAliasesCommand, icon: WinoIconGlyph.Sync);
-        Bind.Visible(sync, vm, nameof(vm.CanSynchronizeAliases), s => s.CanSynchronizeAliases);
+        // Add and Synchronize are navigation bar buttons.
+        BarButton(WinoIconGlyph.Add, Translator.Buttons_AddNewAlias, vm.AddNewAliasCommand);
+        var sync = BarButton(WinoIconGlyph.Sync, Translator.Buttons_SyncAliases, vm.SyncAliasesCommand);
+        Bind.Bind(vm, nameof(vm.CanSynchronizeAliases), s => s.CanSynchronizeAliases, visible => SetBarItemVisible(sync, visible));
         var syncing = Card(Translator.AccountAlias_Synchronizing, null, WinoIconGlyph.None, new UIActivityIndicatorView(UIActivityIndicatorViewStyle.Medium) { TranslatesAutoresizingMaskIntoConstraints = false });
         if (syncing.Content is UIActivityIndicatorView spinner) spinner.StartAnimating();
         Bind.Visible(syncing, vm, nameof(vm.IsSynchronizing), s => s.IsSynchronizing);
-        AddGroup(null, ActionRow(add), ActionRow(sync), syncing);
+        Add(syncing);
 
         // Both Windows InfoBars on this page are IsClosable="True".
         var info = InfoBar(WinoInfoBarSeverity.Informational, Translator.AccountAlias_Info_Title, Translator.AccountAlias_Info_Message);

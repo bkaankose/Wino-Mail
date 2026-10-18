@@ -131,8 +131,9 @@ public sealed class FolderCustomizationPageViewController(FolderCustomizationPag
 
         var content = WinoLayout.HStack(WinoStyle.Space2, icon, name);
         content.SetCustomSpacing((nfloat)WinoStyle.Space3, icon);
-        if (item.IsSystemFolder) content.AddArrangedSubview(SettingsRowParts.Tag(Translator.FolderCustomization_SystemTag));
+        // One tag at phone width: Hidden says more than System, and two tags would truncate the name.
         if (item.IsHidden) content.AddArrangedSubview(SettingsRowParts.Tag(Translator.FolderCustomization_HiddenTag));
+        else if (item.IsSystemFolder) content.AddArrangedSubview(SettingsRowParts.Tag(Translator.FolderCustomization_SystemTag));
 
         var hide = new SettingsGlyphButton(WinoIconGlyph.EyeOff, $"{(item.IsHidden ? Translator.FolderCustomization_Show : Translator.FolderCustomization_Hide)}, {item.FolderName}")
         {
@@ -150,7 +151,7 @@ public sealed class FolderCustomizationPageViewController(FolderCustomizationPag
             var pinned = key == PinnedKey;
             var pin = new SettingsGlyphButton(pinned ? WinoIconGlyph.UnPin : WinoIconGlyph.Pin,
                 $"{(pinned ? Translator.FolderCustomization_Unpin : Translator.FolderCustomization_Pin)}, {item.FolderName}");
-            pin.PrimaryActionTriggered += (_, _) => Run(ViewModel.TogglePinAsync(item));
+            pin.PrimaryActionTriggered += (_, _) => TogglePin(item);
             content.AddArrangedSubview(pin);
         }
 
@@ -172,11 +173,22 @@ public sealed class FolderCustomizationPageViewController(FolderCustomizationPag
 
     private void ToggleHidden(string key, FolderCustomizationItemViewModel item)
     {
-        // The ViewModel flips IsHidden before it awaits the database write, so the row can redraw now.
-        var operation = ViewModel.ToggleHiddenAsync(item);
-        _sections[key].List.ReloadRow(item);
-        UpdateCount(key);
-        Run(operation);
+        try
+        {
+            Serilog.Log.Information("Folder customization: toggle hidden {Folder} (was {Hidden}).", item.FolderName, item.IsHidden);
+            // The ViewModel flips IsHidden before it awaits the database write, so the row can redraw now.
+            var operation = ViewModel.ToggleHiddenAsync(item);
+            _sections[key].List.Reload();
+            UpdateCount(key);
+            Run(operation);
+        }
+        catch (Exception exception) { ReportError(exception); }
+    }
+
+    private void TogglePin(FolderCustomizationItemViewModel item)
+    {
+        Serilog.Log.Information("Folder customization: toggle pin {Folder}.", item.FolderName);
+        Run(ViewModel.TogglePinAsync(item));
     }
 
     private void OnDropped(ISettingsDragList source, int from, ISettingsDragList target, int to)

@@ -79,7 +79,12 @@ public abstract class WinoViewController<TViewModel> : UIViewController, IWinoVi
         return Task.CompletedTask;
     }
 
-    protected void ReportError(Exception exception) => Logger.CaptureException(exception, GetType().Name);
+    /// <summary>Logs a page error locally and reports it to telemetry (which only sends when the user opted in).</summary>
+    protected void ReportError(Exception exception)
+    {
+        Serilog.Log.Error(exception, "{Page} failed.", GetType().Name);
+        Logger.CaptureException(exception, GetType().Name);
+    }
 
     /// <summary>A system button that runs <paramref name="command"/> and follows its CanExecute.</summary>
     protected UIButton CommandButton(string title, ICommand command, Func<object?>? parameter = null, bool primary = false)

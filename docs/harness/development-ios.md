@@ -125,6 +125,11 @@ cat "$dir/out.log"
 
 The seed commands create a local IMAP account with a closed loopback port and placeholder credentials, so synchronization fails by design. A walk on a fresh simulator runs `seedmail`, `seedpeople`, `seedtasks` and `seedcalendar`, then relaunches the app. The bridge runs a file's lines back to back (`sleep` does not delay the next line), so write one command file per step when a step waits for an animation, and note that `settingspage` opens Settings itself (after `settings` it stacks a second Settings root). The Debug bridge and the seed data compile only in Debug. Feature code adds commands with `UIKitDebugBridge.Register` inside `#if DEBUG`.
 
+## UIKit pitfalls
+
+- Never construct a `UIButton` subclass with `base(UIButtonType.System)`: `buttonWithType:` returns a plain native `UIButton`, so the managed subclass instance is not the native object's peer, the GC collects it, and its event handlers, fields and identity are gone (the folder customization rows stopped reacting to taps and drags, 18 Oct 2026). Use the parameterless constructor (alloc/init) with a `UIButtonConfiguration`; plain `new UIButton(UIButtonType.System)` without a subclass is fine.
+- `ReportError` in `WinoViewController` writes to the local log and to telemetry; telemetry alone drops the exception when the user has not opted in, so a page error is only visible in `Logs/wino<date>.log`.
+
 ## Building from a Windows checkout
 
 The Windows host has no iOS toolchain; iOS builds run on the Mac. When the Mac builds a mirror of a Windows working tree:

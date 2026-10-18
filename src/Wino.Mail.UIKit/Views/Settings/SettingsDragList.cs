@@ -74,7 +74,7 @@ internal sealed class SettingsDragList<T> : UIView, ISettingsDragList where T : 
             SectionHeaderTopPadding = 0,
             TranslatesAutoresizingMaskIntoConstraints = false
         };
-        _table.RegisterClassForCellReuse(typeof(HostCell), HostCell.Identifier);
+        _table.RegisterClassForCellReuse(typeof(SettingsDragListHostCell), SettingsDragListHostCell.Identifier);
         _table.Source = _source;
         _table.SetEditing(group.CanDrop(this, this), false);
         WinoLayout.Fill(_table, this);
@@ -187,7 +187,7 @@ internal sealed class SettingsDragList<T> : UIView, ISettingsDragList where T : 
 
         public override UITableViewCell GetCell(UITableView tableView, NSIndexPath indexPath)
         {
-            var cell = (HostCell)tableView.DequeueReusableCell(HostCell.Identifier, indexPath);
+            var cell = (SettingsDragListHostCell)tableView.DequeueReusableCell(SettingsDragListHostCell.Identifier, indexPath);
             var index = indexPath.Row;
             var view = index >= 0 && index < owner._items.Count ? makeRow(owner._items[index], index) : new UIView();
             cell.Host(view, owner._rowSpacing);
@@ -205,39 +205,42 @@ internal sealed class SettingsDragList<T> : UIView, ISettingsDragList where T : 
         public override void MoveRow(UITableView tableView, NSIndexPath sourceIndexPath, NSIndexPath destinationIndexPath)
             => owner.Moved(sourceIndexPath.Row, destinationIndexPath.Row);
     }
+}
 
-    /// <summary>A clear, unselectable cell that hosts one custom row view with the row spacing under it.</summary>
-    private sealed class HostCell : UITableViewCell
+/// <summary>
+/// A clear, unselectable cell that hosts one custom row view with the row spacing under it. It is a top-level class:
+/// a cell nested in the generic list cannot be constructed from Objective-C (the table's dequeue crashed the page).
+/// </summary>
+internal sealed class SettingsDragListHostCell : UITableViewCell
+{
+    public const string Identifier = "SettingsDragListRow";
+    private UIView? _row;
+
+    public SettingsDragListHostCell(ObjCRuntime.NativeHandle handle) : base(handle) => Configure();
+
+    [Export("initWithStyle:reuseIdentifier:")]
+    public SettingsDragListHostCell(UITableViewCellStyle style, string? reuseIdentifier) : base(style, reuseIdentifier) => Configure();
+
+    private void Configure()
     {
-        public const string Identifier = "SettingsDragListRow";
-        private UIView? _row;
+        BackgroundColor = UIColor.Clear;
+        ContentView.BackgroundColor = UIColor.Clear;
+        SelectionStyle = UITableViewCellSelectionStyle.None;
+        ShowsReorderControl = true;
+    }
 
-        public HostCell(ObjCRuntime.NativeHandle handle) : base(handle) => Configure();
+    public void Host(UIView row, double spacing)
+    {
+        _row?.RemoveFromSuperview();
+        _row = row;
+        WinoLayout.Fill(row, ContentView, 0, 0, spacing, 0);
+    }
 
-        [Export("initWithStyle:reuseIdentifier:")]
-        public HostCell(UITableViewCellStyle style, string? reuseIdentifier) : base(style, reuseIdentifier) => Configure();
-
-        private void Configure()
-        {
-            BackgroundColor = UIColor.Clear;
-            ContentView.BackgroundColor = UIColor.Clear;
-            SelectionStyle = UITableViewCellSelectionStyle.None;
-            ShowsReorderControl = true;
-        }
-
-        public void Host(UIView row, double spacing)
-        {
-            _row?.RemoveFromSuperview();
-            _row = row;
-            WinoLayout.Fill(row, ContentView, 0, 0, spacing, 0);
-        }
-
-        public override void PrepareForReuse()
-        {
-            base.PrepareForReuse();
-            _row?.RemoveFromSuperview();
-            _row = null;
-        }
+    public override void PrepareForReuse()
+    {
+        base.PrepareForReuse();
+        _row?.RemoveFromSuperview();
+        _row = null;
     }
 }
 

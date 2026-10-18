@@ -48,22 +48,23 @@ public sealed class AboutPageViewController(AboutPageViewModel viewModel, IDispa
         links.Add(Link(Translator.SettingsPrivacyPolicy_Title, Translator.SettingsPrivacyPolicy_Description, WinoIconGlyph.Eye, () => vm.PrivacyPolicyUrl));
         Add(links);
 
-        // Phone width: the switch stays trailing; the log buttons and the identifier go under the text.
+        // The Diagnostics page (18 Oct 2026): every item is a row of the one pushed page, nothing pushes further. The
+        // Enable logs switch with its explanation as the footer, Share and Upload as action rows, then the identifier
+        // row: the explanation under the title, the ID itself as the next row's title with a copy button.
         var logsCard = Card(Translator.SettingsEnableLogs_Title, Translator.SettingsEnableLogs_Description, WinoIconGlyph.None,
             Bind.Switch(p, nameof(p.IsLoggingEnabled), s => s.IsLoggingEnabled, (s, v) => s.IsLoggingEnabled = v, Translator.SettingsEnableLogs_Title));
-        logsCard.BottomContent = Row(
-            Bind.Button(Translator.Buttons_Share, vm.ShareWinoLogCommand),
-            Bind.Button(Translator.Buttons_UploadLogs, vm.UploadWinoLogsCommand),
-            WinoLayout.Spacer());
+        var share = ActionRow(Bind.Button(Translator.Buttons_Share, vm.ShareWinoLogCommand));
+        var upload = ActionRow(Bind.Button(Translator.Buttons_UploadLogs, vm.UploadWinoLogsCommand));
 
+        var diagnosticCard = Card(Translator.SettingsDiagnostics_DiagnosticId_Title, Translator.SettingsDiagnostics_DiagnosticId_Description);
         var copy = Bind.Button(string.Empty, vm.CopyDiagnosticIdCommand, icon: WinoIconGlyph.Copy);
-        WinoAccessibility.Label(copy, Translator.SettingsDiagnostics_DiagnosticId_Title);
+        WinoAccessibility.Label(copy, $"{Translator.Buttons_Copy}: {Translator.SettingsDiagnostics_DiagnosticId_Title}");
         WinoLayout.Size(copy, 44, 44);
-        var diagnosticCard = Card(Translator.SettingsDiagnostics_DiagnosticId_Title, Translator.SettingsDiagnostics_DiagnosticId_Description, WinoIconGlyph.None, copy);
-        diagnosticCard.BottomContent = Bind.Label(p, nameof(p.DiagnosticId), s => s.DiagnosticId, WinoStyle.Description, WinoStyle.SecondaryText, 0);
+        var identifier = Card(p.DiagnosticId ?? string.Empty, null, WinoIconGlyph.None, copy);
+        Bind.Bind(p, nameof(p.DiagnosticId), s => s.DiagnosticId, id => identifier.Header = id ?? string.Empty);
 
         AddGroup(null, Expander(Translator.SettingsDiagnostics_Title, Translator.SettingsDiagnostics_Description, WinoIconGlyph.Bug, null,
-            logsCard, diagnosticCard));
+            logsCard, share, upload, diagnosticCard, identifier));
     }
 
     private WinoSettingsCard Link(string header, string description, WinoIconGlyph icon, Func<string> url)

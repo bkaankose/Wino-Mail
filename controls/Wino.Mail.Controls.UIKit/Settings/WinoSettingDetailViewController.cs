@@ -489,5 +489,14 @@ public sealed class WinoSettingsScrollView : UIScrollView
         BackgroundColor = UIColor.Clear;
     }
 
-    public override bool TouchesShouldCancelInContentView(UIView view) => true;
+    /// <summary>
+    /// A drag that starts on a control still scrolls the page, except inside a nested table (the folder and account
+    /// drag lists), whose reorder handles and row buttons keep their touches.
+    /// </summary>
+    public override bool TouchesShouldCancelInContentView(UIView view)
+    {
+        for (var ancestor = view; ancestor is not null && ancestor != this; ancestor = ancestor.Superview)
+            if (ancestor is UITableView) return false;
+        return true;
+    }
 }

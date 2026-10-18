@@ -284,7 +284,8 @@ public sealed class FormSheetPopUp : UIButton
     private IReadOnlyList<UIImage?>? _images;
     private int _selectedIndex;
 
-    public FormSheetPopUp(List<string> items, int selectedIndex, IReadOnlyList<UIImage?>? images = null) : base(UIButtonType.System)
+    // alloc/init: buttonWithType: returns a plain UIButton whose managed subclass peer the GC can drop.
+    public FormSheetPopUp(List<string> items, int selectedIndex, IReadOnlyList<UIImage?>? images = null)
     {
         _items = items;
         _images = images;

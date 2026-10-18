@@ -1,14 +1,11 @@
-using CoreGraphics;
 using UIKit;
-using WebKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Editor;
-using Wino.Editor.WebKit;
 using Wino.Mail.Controls.UIKit.Settings;
 using Wino.Mail.UIKit.Infrastructure;
+using Wino.Mail.UIKit.Views.Dialogs;
 using Wino.Mail.ViewModels;
 using Wino.Presentation.UIKit;
 
@@ -17,11 +14,10 @@ namespace Wino.Mail.UIKit.Views.Settings;
 /// <summary>
 /// Settings › Email templates › template (Windows CreateEmailTemplatePage). The title follows the template name, with
 /// "Edit template" (or "Create a new e-mail template") under it. Name and Description cards carry full-width fields;
-/// the Template content header precedes the HTML editor (the composer's WKWebView editor session, at least 270pt
-/// tall). The footer holds Delete (existing templates only) and the primary Save, which pass the editor HTML to the
-/// ViewModel; both return to the list. Navigation parameter: the template id, or none.
-/// The Mac page fuses the shared Format toolbar to the editor; this page hosts the bare editor session until the
-/// UIKit rich text editor view is available (formatting follows the system edit menu meanwhile).
+/// the Template content header precedes the rich text editor (<see cref="WinoRichTextEditorView"/>: the format
+/// toolbar over the composer's WKWebView editor session, at least 270pt tall, as in the signature editor). The footer
+/// holds Delete (existing templates only) and the primary Save, which pass the editor HTML to the ViewModel; both
+/// return to the list. Navigation parameter: the template id, or none.
 /// </summary>
 public sealed class CreateEmailTemplatePageViewController(
     CreateEmailTemplatePageViewModel viewModel,
@@ -34,12 +30,11 @@ public sealed class CreateEmailTemplatePageViewController(
     private const double MinimumEditorHeight = 270;
     private const double PreferredEditorHeight = 360;
 
-    private WebKitHtmlMailEditorSession? _editor;
+    private WinoRichTextEditorView? _editor;
     private UITextField? _nameField;
     private UIButton? _save;
     private UIButton? _delete;
     private bool _busy;
-    private bool _editorReady;
     private bool _editorDisposed;
 
     public string? PageTitle => !string.IsNullOrWhiteSpace(ViewModel.TemplateName)
@@ -119,46 +114,22 @@ public sealed class CreateEmailTemplatePageViewController(
         Refresh();
     }
 
-    /// <summary>A card-framed WKWebView hosting the composer's HTML editor session.</summary>
+    /// <summary>The rich text editor (format toolbar and editor surface) at the composer's preferred height.</summary>
     private UIView BuildEditor()
     {
-        var webView = new WKWebView(CGRect.Empty, new WKWebViewConfiguration())
-        {
-            TranslatesAutoresizingMaskIntoConstraints = false,
-            Opaque = false,
-            BackgroundColor = UIColor.Clear
-        };
-        webView.ScrollView.BackgroundColor = UIColor.Clear;
-        WinoAccessibility.Label(webView, Translator.SettingsEmailTemplates_ContentTitle);
-
-        var editor = new WebKitHtmlMailEditorSession(webView);
-        editor.Configure(launcher);
-        EventHandler<Exception> failed = (_, exception) => ReportError(exception);
-        editor.OperationFailed += failed;
-        Bindings.Own(new ActionDisposable(() => editor.OperationFailed -= failed));
-        _editor = editor;
-
-        var frame = new WinoSurfaceView
-        {
-            Fill = WinoSettingsStyle.GroupFill,
-            Stroke = WinoSettingsStyle.CardStroke,
-            StrokeWidth = 1,
-            CornerRadius = WinoSettingsStyle.CardRadius,
-            ClipsToBounds = true,
-            TranslatesAutoresizingMaskIntoConstraints = false
-        };
-        WinoLayout.Fill(webView, frame, 4);
-        var preferred = frame.HeightAnchor.ConstraintEqualTo((nfloat)PreferredEditorHeight);
+        var editor = new WinoRichTextEditorView(Translator.SettingsEmailTemplates_ContentTitle, launcher, preferences, ReportError);
+        var preferred = editor.EditorSurface.HeightAnchor.ConstraintEqualTo((nfloat)PreferredEditorHeight);
         preferred.Priority = 750;
         NSLayoutConstraint.ActivateConstraints(
         [
-            frame.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)MinimumEditorHeight),
+            editor.EditorSurface.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)MinimumEditorHeight),
             preferred
         ]);
-
-        // The editor follows the light and dark appearance once it is loaded.
-        WinoTraits.OnAppearanceChanged(frame, view => Run(ApplyThemeAsync(WinoTraits.IsDark(view.TraitCollection))));
-        return frame;
+        EventHandler ready = (_, _) => Refresh();
+        editor.ReadyChanged += ready;
+        Bindings.Own(new ActionDisposable(() => editor.ReadyChanged -= ready));
+        _editor = editor;
+        return editor;
     }
 
     protected override async Task InitializeAsync(NavigationMode mode, object? parameter)
@@ -180,34 +151,14 @@ public sealed class CreateEmailTemplatePageViewController(
         await DisposeEditorAsync();
     }
 
-    /// <summary>Initializes the editor with the composer typography and proofing preferences, then renders the template.</summary>
+    /// <summary>Renders the template once the editor session is up; the view applies the composer preferences and theme.</summary>
     private async Task LoadEditorAsync(string? html, bool dark)
     {
         if (_editor is not { } editor || _editorDisposed) return;
-
-        await editor.InitializeAsync();
-        await editor.SetThemeAsync(dark);
-        await editor.SetDefaultTypographyAsync(preferences.ComposerFont, preferences.ComposerFontSize);
-        await editor.ExecuteCommandAsync(EditorCommand.ToggleSpellCheck(preferences.IsComposerSpellCheckEnabled));
-        if (!string.IsNullOrWhiteSpace(preferences.ComposerSpellCheckLanguageCode))
-            await editor.ExecuteCommandAsync(EditorCommand.SetSpellCheckLanguage(preferences.ComposerSpellCheckLanguageCode));
-        await editor.ExecuteCommandAsync(EditorCommand.ToggleAutoCorrect(preferences.IsComposerAutoCorrectEnabled));
-        await editor.RenderHtmlAsync(html ?? string.Empty);
-        await Dispatcher.ExecuteOnUIThread(() =>
-        {
-            if (_editorDisposed) return;
-            _editorReady = true;
-            Refresh();
-        });
+        await editor.LoadAsync(html, dark);
     }
 
-    private async Task ApplyThemeAsync(bool dark)
-    {
-        if (!_editorReady || _editorDisposed || _editor is not { } editor) return;
-        await editor.SetThemeAsync(dark);
-    }
-
-    private bool CanSave => _editorReady && !_editorDisposed && !_busy;
+    private bool CanSave => _editor is { IsReady: true } && !_editorDisposed && !_busy;
 
     private void Refresh()
     {
@@ -258,7 +209,6 @@ public sealed class CreateEmailTemplatePageViewController(
     {
         if (_editorDisposed) return;
         _editorDisposed = true;
-        _editorReady = false;
         if (_editor is not { } editor) return;
         try { await editor.DisposeAsync(); }
         catch (Exception exception) { ReportError(exception); }

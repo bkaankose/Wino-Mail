@@ -25,9 +25,9 @@ public sealed class KeyboardShortcutsPageViewController(KeyboardShortcutsPageVie
     protected override void BuildPage()
     {
         var vm = ViewModel;
-        var add = Bind.Button(Translator.KeyboardShortcuts_Add, vm.StartAddingShortcutCommand, icon: WinoIconGlyph.Add);
+        BarButton(WinoIconGlyph.Add, Translator.KeyboardShortcuts_Add, vm.StartAddingShortcutCommand);
         var reset = Bind.Button(Translator.KeyboardShortcuts_ResetToDefaults, vm.ResetToDefaultsCommand, primary: true);
-        AddGroup(null, ActionRow(add), ActionRow(reset));
+        AddGroup(null, ActionRow(reset));
 
         var spinner = new UIActivityIndicatorView(UIActivityIndicatorViewStyle.Medium) { HidesWhenStopped = true, TranslatesAutoresizingMaskIntoConstraints = false };
         Add(spinner);

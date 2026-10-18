@@ -85,6 +85,55 @@ internal static class SettingsDebug
             return lines.ToString();
         });
 
+        // draglist: every gesture recognizer on the drag lists of the visible Settings page (class, enabled, cancels,
+        // press duration), for touch-delivery checks.
+        UIKitDebugBridge.Register("draglist", async _ =>
+        {
+            var lines = new System.Text.StringBuilder();
+            await services.GetRequiredService<IDispatcher>().ExecuteOnUIThread(() =>
+            {
+                void Dump(global::UIKit.UIView view, int level)
+                {
+                    if (level > 6) return;
+                    lines.Append(' ', level * 2).Append(view.GetType().Name).Append('/').Append(view.Class.Name).Append(view.UserInteractionEnabled ? string.Empty : " [no-interaction]");
+                    foreach (var recognizer in view.GestureRecognizers ?? [])
+                    {
+                        lines.Append(" {").Append(recognizer.Class.Name).Append(recognizer.Enabled ? string.Empty : " off").Append(recognizer.CancelsTouchesInView ? " cancels" : string.Empty);
+                        if (recognizer is global::UIKit.UILongPressGestureRecognizer press) lines.Append(" press=").Append(press.MinimumPressDuration);
+                        lines.Append('}');
+                    }
+                    lines.Append('\n');
+                    foreach (var child in view.Subviews) Dump(child, level + 1);
+                }
+                if (VisibleSettingsPage(services)?.View is not { } root) return;
+                var tables = new List<global::UIKit.UITableView>();
+                Collect(root, tables);
+                foreach (var table in tables) Dump(table, 0);
+            });
+            return lines.Length == 0 ? "no table" : lines.ToString();
+        });
+
+        // dragtap ROW COL: fires the COLth (0-based) button of the ROWth drag-list row's content programmatically.
+        UIKitDebugBridge.Register("dragtap", async args =>
+        {
+            var row = args.Length > 0 && int.TryParse(args[0], out var r) ? r : 0;
+            var column = args.Length > 1 && int.TryParse(args[1], out var c) ? c : 0;
+            string result = "no button";
+            await services.GetRequiredService<IDispatcher>().ExecuteOnUIThread(() =>
+            {
+                if (VisibleSettingsPage(services)?.View is not { } root) return;
+                var cells = new List<global::UIKit.UITableViewCell>();
+                Collect(root, cells);
+                if (row >= cells.Count) { result = $"only {cells.Count} rows"; return; }
+                var buttons = new List<global::UIKit.UIButton>();
+                Collect(cells[row].ContentView, buttons);
+                if (column >= buttons.Count) { result = $"only {buttons.Count} buttons"; return; }
+                buttons[column].SendActionForControlEvents(global::UIKit.UIControlEvent.PrimaryActionTriggered);
+                result = $"ok {buttons[column].AccessibilityLabel}";
+            });
+            return result;
+        });
+
         // settingsexpand N: toggles the Nth (0-based) visible expander of the visible Settings page.
         UIKitDebugBridge.Register("settingsexpand", async args =>
         {

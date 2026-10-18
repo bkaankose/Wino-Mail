@@ -1,3 +1,4 @@
+using Foundation;
 using UIKit;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.Controls.UIKit.Settings;
@@ -32,19 +33,22 @@ internal static class SettingsRowParts
 
 /// <summary>
 /// 44×44 touch target with a 17pt glyph and an optional pressed (toggled) wash: the Windows subtle ToggleButton/Button in
-/// the folder rows. The accessibility label is required.
+/// the folder rows. The accessibility label is required. Built with alloc/init (not <c>buttonWithType:</c>, which
+/// returns a plain UIButton whose managed subclass peer, and with it the tap handlers, is lost to the GC).
 /// </summary>
 internal sealed class SettingsGlyphButton : UIButton
 {
     private readonly WinoIconGlyph _glyph;
     private bool _isToggled;
 
-    public SettingsGlyphButton(WinoIconGlyph glyph, string label) : base(UIButtonType.System)
+    public SettingsGlyphButton(WinoIconGlyph glyph, string label)
     {
         _glyph = glyph;
         TranslatesAutoresizingMaskIntoConstraints = false;
         WinoLayout.Size(this, 44, 44);
-        Layer.CornerRadius = 8;
+        var configuration = UIButtonConfiguration.PlainButtonConfiguration;
+        configuration.ContentInsets = new NSDirectionalEdgeInsets(0, 0, 0, 0);
+        Configuration = configuration;
         Label = label;
         Apply();
         WinoTraits.OnAppearanceChanged(this, static view => view.Apply());
@@ -69,17 +73,24 @@ internal sealed class SettingsGlyphButton : UIButton
 
     private void Apply()
     {
+        if (Configuration is not { } configuration) return;
         var tint = _isToggled ? WinoStyle.PrimaryText : WinoStyle.SecondaryText;
-        SetImage(WinoIcons.Image(_glyph, 17, tint), UIControlState.Normal);
+        configuration.Image = WinoIcons.Image(_glyph, 17, tint);
+        configuration.BaseForegroundColor = tint;
+        // Configurations and their backgrounds are copies: change the copy, then assign it back.
+        var background = configuration.Background;
+        background.BackgroundColor = _isToggled ? WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.09), WinoStyle.Hex(0xFFFFFF, 0.12)) : UIColor.Clear;
+        background.CornerRadius = 8;
+        configuration.Background = background;
+        Configuration = configuration;
         TintColor = tint;
-        BackgroundColor = _isToggled ? WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.09), WinoStyle.Hex(0xFFFFFF, 0.12)) : UIColor.Clear;
     }
 }
 
-/// <summary>Small accent-text button on an accent wash ("Link", "Unlink", "Choose folders to count").</summary>
+/// <summary>Small accent-text button on an accent wash ("Link", "Unlink", "Choose folders to count"); alloc/init, see <see cref="SettingsGlyphButton"/>.</summary>
 internal sealed class SettingsPillButton : UIButton
 {
-    public SettingsPillButton(string title, WinoIconGlyph icon = WinoIconGlyph.None, bool washed = true) : base(UIButtonType.System)
+    public SettingsPillButton(string title, WinoIconGlyph icon = WinoIconGlyph.None, bool washed = true)
     {
         TranslatesAutoresizingMaskIntoConstraints = false;
         Washed = washed;

@@ -15,10 +15,10 @@ using Wino.Presentation.UIKit;
 namespace Wino.Mail.UIKit.Views.Settings;
 
 /// <summary>
-/// Settings › Mail › Email templates (Windows EmailTemplatesPage): the intro with the primary New template button,
-/// then "Your templates" with one card per template (Note glyph, name, description and an italic one-line text preview
+/// Settings › Mail › Email templates (Windows EmailTemplatesPage): New template as the navigation bar's "+", then
+/// "Your templates" with one card per template (Note glyph, name, description and an italic one-line text preview
 /// of its HTML) carrying Edit and Delete buttons. Tapping a card opens it; Delete confirms with the editor's strings and
-/// refreshes the list. With no templates a centred empty card offers "Create a template".
+/// refreshes the list. With no templates a centred empty card explains what templates are for.
 /// </summary>
 public sealed partial class EmailTemplatesPageViewController(
     EmailTemplatesPageViewModel viewModel,
@@ -36,10 +36,9 @@ public sealed partial class EmailTemplatesPageViewController(
 
     protected override void BuildPage()
     {
-        // iOS shows no page description: the primary New template action opens the page.
-        var create = Bind.Button(Translator.SettingsEmailTemplates_NewTemplateTitle, ViewModel.CreateTemplate, primary: true, icon: WinoIconGlyph.Add);
-        WinoAccessibility.Help(create, Translator.SettingsEmailTemplates_NewTemplateDescription);
-        AddGroup(null, ActionRow(create));
+        // iOS shows no page description: New template is the navigation bar's "+".
+        var create = BarButton(WinoIconGlyph.Add, Translator.SettingsEmailTemplates_NewTemplateTitle, ViewModel.CreateTemplate);
+        create.AccessibilityHint = Translator.SettingsEmailTemplates_NewTemplateDescription;
 
         var title = WinoStyle.Label(Translator.SettingsEmailTemplates_ListTitle, WinoSettingsStyle.SectionTitle, WinoStyle.PrimaryText);
         title.AccessibilityTraits = UIAccessibilityTrait.Header;
@@ -147,7 +146,7 @@ public sealed partial class EmailTemplatesPageViewController(
         await ViewModel.DeleteTemplateAsync(template, dialogService);
     }
 
-    /// <summary>Centred Note glyph, title, one-line hint and the secondary "Create a template" button.</summary>
+    /// <summary>Centred Note glyph, title and one-line hint; the bar's "+" creates the first template.</summary>
     private UIView EmptyState()
     {
         var card = new WinoSurfaceView { CornerRadius = WinoSettingsStyle.CardRadius, Fill = WinoSettingsStyle.GroupFill, Stroke = WinoSettingsStyle.CardStroke, StrokeWidth = 1, TranslatesAutoresizingMaskIntoConstraints = false };
@@ -157,13 +156,10 @@ public sealed partial class EmailTemplatesPageViewController(
         title.TextAlignment = UITextAlignment.Center;
         var hint = WinoStyle.Label(Translator.SettingsEmailTemplates_EmptyDescription, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0);
         hint.TextAlignment = UITextAlignment.Center;
-        var action = Bind.Button(Translator.SettingsEmailTemplates_EmptyAction, ViewModel.CreateTemplate);
-        action.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
 
-        var stack = WinoLayout.VStack(8, glyph, title, hint, action);
+        var stack = WinoLayout.VStack(8, glyph, title, hint);
         stack.Alignment = UIStackViewAlignment.Center;
         stack.SetCustomSpacing(12, glyph);
-        stack.SetCustomSpacing(16, hint);
         WinoLayout.Fill(stack, card, 36, 24, 36, 24);
         hint.WidthAnchor.ConstraintLessThanOrEqualTo(360).Active = true;
         glyph.IsAccessibilityElement = false;

@@ -30,7 +30,7 @@ public sealed class WinoInfoBarClosedEventArgs(WinoInfoBarCloseReason reason) : 
 
 /// <summary>
 /// Inline status banner (Windows InfoBar; UIKit twin of the AppKit <c>WinoInfoBar</c>): a tinted rounded box with the
-/// severity glyph from the WinoIcons font, a bold title followed by the secondary message as one wrapping paragraph,
+/// severity glyph from the WinoIcons font, a bold title with the secondary message wrapping under it,
 /// an optional action button and an optional close button at the trailing edge. Like the Windows bar it can dismiss
 /// itself after <see cref="AutoDismissInterval"/> on screen; the countdown restarts when the content changes while
 /// visible, pauses while the iPad pointer is over it, and stops when the bar is hidden or leaves its window. Closing by
@@ -310,7 +310,7 @@ public sealed class WinoInfoBar : WinoSurfaceView
         base.Dispose(disposing);
     }
 
-    /// <summary>Title and message flow as one paragraph: bold title, then the message in secondary text.</summary>
+    /// <summary>The bold title on its own line, then the message in secondary text under it (18 Oct 2026: the message no longer continues the title's line).</summary>
     private void UpdateText()
     {
         var text = new NSMutableAttributedString();
@@ -318,7 +318,7 @@ public sealed class WinoInfoBar : WinoSurfaceView
             text.Append(new NSAttributedString(_title, new UIStringAttributes { Font = WinoStyle.Scaled(13, UIFontWeight.Semibold), ForegroundColor = UIColor.Label }));
         if (_message.Length > 0)
         {
-            text.Append(new NSAttributedString((_title.Length > 0 ? "  " : string.Empty) + _message, new UIStringAttributes
+            text.Append(new NSAttributedString((_title.Length > 0 ? "\n" : string.Empty) + _message, new UIStringAttributes
             {
                 Font = WinoStyle.Description,
                 ForegroundColor = _title.Length > 0 ? UIColor.SecondaryLabel : UIColor.Label

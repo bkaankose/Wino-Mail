@@ -8,6 +8,7 @@ using Wino.Core.ViewModels;
 using Wino.Mail.Controls.UIKit.Common;
 using Wino.Mail.Controls.UIKit.Settings;
 using Wino.Mail.UIKit.Infrastructure;
+using Wino.Mail.UIKit.Views.Contacts;
 using Wino.Messaging.Client.Navigation;
 using Wino.Presentation.Bindings;
 using Wino.Presentation.UIKit;
@@ -44,6 +45,8 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
     private SettingsBinder? _binder;
     private UIStackView? _page;
     private UIScrollView? _scroll;
+    private readonly List<UIBarButtonItem> _barItems = [];
+    private readonly HashSet<UIBarButtonItem> _hiddenBarItems = [];
 
     protected SettingsBinder Bind => _binder ??= new SettingsBinder(Bindings, Dispatcher, ReportError);
 
@@ -185,7 +188,58 @@ public abstract class SettingsPageViewController<TViewModel>(TViewModel viewMode
     }
 
     /// <summary>
-    /// A list toolbar button as an accent action row (Add, Refresh, Restore defaults); the row hides with the button.
+    /// A glyph button in the navigation bar (18 Oct 2026: a page's Add and Refresh actions are bar buttons, not rows).
+    /// Buttons sit right to left in the order they are added, so add the primary "+" first.
+    /// </summary>
+    protected UIBarButtonItem BarButton(WinoIconGlyph glyph, string label, Action action)
+    {
+        var item = ModeBarItems.Button(glyph, label, () =>
+        {
+            try { action(); }
+            catch (Exception exception) { ReportError(exception); }
+        });
+        AppendBarItem(item);
+        return item;
+    }
+
+    /// <summary>A navigation bar glyph button that executes a command, enabled from CanExecute.</summary>
+    protected UIBarButtonItem BarButton(WinoIconGlyph glyph, string label, ICommand command, Func<object?>? parameter = null)
+    {
+        CommandBinding? binding = null;
+        var item = ModeBarItems.Button(glyph, label, () => binding?.Execute());
+        binding = Bindings.Own(new CommandBinding(command, parameter ?? (() => null), enabled => item.Enabled = enabled, Dispatcher, ReportError));
+        AppendBarItem(item);
+        return item;
+    }
+
+    /// <summary>A custom view (a busy spinner) in the navigation bar, placed like <see cref="BarButton(WinoIconGlyph, string, Action)"/>.</summary>
+    protected UIBarButtonItem BarItem(UIView view, string label)
+    {
+        var item = new UIBarButtonItem(view) { AccessibilityLabel = label };
+        AppendBarItem(item);
+        return item;
+    }
+
+    /// <summary>Shows or removes a bar item; the remaining items keep their order.</summary>
+    protected void SetBarItemVisible(UIBarButtonItem item, bool visible)
+    {
+        if (visible) _hiddenBarItems.Remove(item);
+        else _hiddenBarItems.Add(item);
+        ApplyBarItems();
+    }
+
+    private void AppendBarItem(UIBarButtonItem item)
+    {
+        _barItems.Add(item);
+        ApplyBarItems();
+    }
+
+    private void ApplyBarItems()
+        => NavigationItem.RightBarButtonItems = _barItems.Where(item => !_hiddenBarItems.Contains(item)).ToArray();
+
+    /// <summary>
+    /// A list toolbar button as an accent action row (Restore defaults, Reset); the row hides with the button. Add and
+    /// Refresh actions use <see cref="BarButton(WinoIconGlyph, string, Action)"/> instead.
     /// </summary>
     protected WinoSettingsCard ActionRow(UIButton button)
     {

@@ -67,15 +67,16 @@ public sealed partial class SignatureManagementPageViewController(SignatureManag
         Bind.Bind(vm, nameof(vm.IsSignatureEnabled), s => s.IsSignatureEnabled, on => { newCard.IsEnabled = on; followingCard.IsEnabled = on; });
         AddGroup(Translator.SettingsSignature_SignatureDefaults, newCard, followingCard);
 
-        // The Signatures section: the Add action row, then the list.
-        var add = Bind.Button(Translator.SettingsSignature_AddCustomSignature_Button, vm.OpenSignatureEditorCreateCommand, primary: true, icon: WinoIconGlyph.Add);
-        AddGroup(Translator.SettingsSignature_Signatures, ActionRow(add));
+        // The Signatures section: Add is the navigation bar's "+", then the list under the section title.
+        BarButton(WinoIconGlyph.Add, Translator.SettingsSignature_AddCustomSignature_Button, vm.OpenSignatureEditorCreateCommand);
+        var signatures = AddGroup(Translator.SettingsSignature_Signatures);
 
         _list.Alignment = UIStackViewAlignment.Fill;
         WinoLayout.Fill(_list, _listCard);
-        Add(_listCard);
+        signatures.Add(_listCard);
 
-        _empty = Add(EmptyState());
+        _empty = EmptyState();
+        signatures.Add(_empty);
 
         Bind.Collection(vm.Signatures, QueueRebuild);
         // The "Default" pill follows the new-message default.

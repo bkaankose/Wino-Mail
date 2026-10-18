@@ -51,15 +51,14 @@ public sealed class ApplicationThemeGalleryPageViewController(ApplicationThemeGa
         Bind.Visible(applyError, vm, nameof(vm.IsApplyError), s => s.IsApplyError);
         Add(applyError);
 
-        // Current theme, with Create custom theme under it (phone width).
+        // Current theme; Create custom theme is the navigation bar's "+" (18 Oct 2026).
         var currentText = WinoLayout.VStack(2, _currentName, _currentCompatibility);
         currentText.Alignment = UIStackViewAlignment.Leading;
         var currentRow = WinoLayout.HStack(WinoStyle.Space3, _currentPreview, currentText);
         currentRow.Alignment = UIStackViewAlignment.Center;
-        var create = Bind.Button(Translator.ApplicationThemeGallery_Create, vm.CreateThemeCommand, icon: WinoIconGlyph.Add);
-        create.HeightAnchor.ConstraintGreaterThanOrEqualTo(44).Active = true;
-        Bind.Visible(create, vm, nameof(vm.IsCreateThemeVisible), s => s.IsCreateThemeVisible);
-        var currentContent = WinoLayout.VStack(WinoStyle.Space3, currentRow, create);
+        var create = BarButton(WinoIconGlyph.Add, Translator.ApplicationThemeGallery_Create, vm.CreateThemeCommand);
+        Bind.Bind(vm, nameof(vm.IsCreateThemeVisible), s => s.IsCreateThemeVisible, visible => SetBarItemVisible(create, visible));
+        var currentContent = WinoLayout.VStack(WinoStyle.Space3, currentRow);
         currentContent.Alignment = UIStackViewAlignment.Leading;
         var currentCard = Card(Translator.ApplicationThemeGallery_CurrentTheme, null, WinoIconGlyph.PaintBrush);
         currentCard.BottomContent = currentContent;

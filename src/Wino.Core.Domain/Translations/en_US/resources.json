@@ -2084,6 +2084,8 @@
   "CalendarSettings_NewEventBehavior_Description": "Choose whether the New Event button should ask for a calendar each time or always open a specific calendar.",
   "CalendarSettings_NewEventBehavior_AskEachTime": "Ask each time.",
   "CalendarSettings_NewEventBehavior_AlwaysUseSpecificCalendar": "Always use specific calendar.",
+  "CalendarSettings_NewEventCalendar_Header": "Calendar",
+  "CalendarSettings_NewEventCalendar_Description": "The calendar the New Event button opens.",
   "CalendarSettings_Rendering_Title": "Rendering",
   "CalendarSettings_Rendering_Description": "Configure calendar layout and display behavior.",
   "CalendarSettings_Preferences_Title": "Preferences",

@@ -14,8 +14,8 @@ using Wino.Presentation.UIKit;
 namespace Wino.Mail.UIKit.Views.Settings;
 
 /// <summary>
-/// Mail filters of one account (Mac MailFiltersPageViewController, Windows MailFiltersPage): Refresh provider rules
-/// and New filter, the Gmail and provider-connect info bars, then the rules grouped as "Wino on this device" and the
+/// Mail filters of one account (Mac MailFiltersPageViewController, Windows MailFiltersPage): New filter and Refresh
+/// provider rules as navigation bar buttons, the Gmail and provider-connect info bars, then the rules grouped as "Wino on this device" and the
 /// provider's rules. Each card shows the rule's natural-language summary and a meta line (manager · source folder ·
 /// status) with the enable switch; Move up, Move down, Edit, Duplicate and Delete sit in a 44pt button row under the
 /// text at phone width. Navigation parameter: the account id.
@@ -38,23 +38,21 @@ public sealed class MailFiltersPageViewController(MailFiltersPageViewModel viewM
     {
         var vm = ViewModel;
 
-        // Header row under the title and description: Refresh provider rules and New filter.
-        var spinner = new UIActivityIndicatorView(UIActivityIndicatorViewStyle.Medium) { HidesWhenStopped = true, TranslatesAutoresizingMaskIntoConstraints = false };
-        Bind.Bind(vm, nameof(vm.IsBusy), s => s.IsBusy, busy => { if (busy) spinner.StartAnimating(); else spinner.StopAnimating(); });
-        var refresh = Bind.Button(Translator.MailFilters_Refresh, () => Run(vm.LoadAsync(vm.Account?.Id ?? Guid.Empty)), icon: WinoIconGlyph.ArrowClockwise);
-        Bind.Visible(refresh, vm, nameof(vm.IsProviderFiltersConnectedVisible), s => s.IsProviderFiltersConnectedVisible);
-        Bind.Enabled(refresh, vm, nameof(vm.IsBusy), s => !s.IsBusy);
-        var create = Bind.Button(Translator.MailFilters_NewFilter, vm.CreateFilter, primary: true, icon: WinoIconGlyph.Add);
-        WinoAccessibility.Help(create, Translator.MailFilters_NewFilterDescription);
-        var refreshRow = ActionRow(refresh);
-        AddGroup(null, ActionRow(create), refreshRow);
-        // The busy spinner sits at the trailing edge of the refresh row.
-        refreshRow.AddSubview(spinner);
-        NSLayoutConstraint.ActivateConstraints(
-        [
-            spinner.TrailingAnchor.ConstraintEqualTo(refreshRow.TrailingAnchor, -(nfloat)WinoSettingsStyle.CardPadding),
-            spinner.CenterYAnchor.ConstraintEqualTo(refreshRow.CenterYAnchor)
-        ]);
+        // Navigation bar: New filter, then Refresh provider rules, which a busy spinner replaces while rules load.
+        var create = BarButton(WinoIconGlyph.Add, Translator.MailFilters_NewFilter, vm.CreateFilter);
+        create.AccessibilityHint = Translator.MailFilters_NewFilterDescription;
+        var refresh = BarButton(WinoIconGlyph.ArrowClockwise, Translator.MailFilters_Refresh, () => Run(vm.LoadAsync(vm.Account?.Id ?? Guid.Empty)));
+        var spinner = new UIActivityIndicatorView(UIActivityIndicatorViewStyle.Medium) { HidesWhenStopped = true };
+        var busy = BarItem(spinner, Translator.MailFilters_Refresh);
+        void UpdateRefresh()
+        {
+            var connected = vm.IsProviderFiltersConnectedVisible;
+            SetBarItemVisible(refresh, connected && !vm.IsBusy);
+            SetBarItemVisible(busy, connected && vm.IsBusy);
+            if (vm.IsBusy) spinner.StartAnimating(); else spinner.StopAnimating();
+        }
+        Bind.Bind(vm, nameof(vm.IsProviderFiltersConnectedVisible), s => s.IsProviderFiltersConnectedVisible, _ => UpdateRefresh());
+        Bind.Bind(vm, nameof(vm.IsBusy), s => s.IsBusy, _ => UpdateRefresh());
 
         var gmail = InfoBar(WinoInfoBarSeverity.Informational, Translator.MailFilters_ProviderFeatureTitle, Translator.MailFilters_GmailProviderUnavailableDescription);
         Bind.Visible(Add(gmail), vm, nameof(vm.IsGmailAccount), s => s.IsGmailAccount);
@@ -107,7 +105,7 @@ public sealed class MailFiltersPageViewController(MailFiltersPageViewModel viewM
         catch (Exception exception) { ReportError(exception); }
     }
 
-    /// <summary>MailFilters_EmptyTitle / EmptyDescription with the Filter glyph and a create button.</summary>
+    /// <summary>MailFilters_EmptyTitle / EmptyDescription with the Filter glyph; the bar's "+" creates the first filter.</summary>
     private UIView EmptyState()
     {
         var vm = ViewModel;
@@ -118,11 +116,8 @@ public sealed class MailFiltersPageViewController(MailFiltersPageViewModel viewM
         var text = WinoStyle.Label(Translator.MailFilters_EmptyDescription, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0);
         text.TextAlignment = UITextAlignment.Center;
         text.WidthAnchor.ConstraintLessThanOrEqualTo(360).Active = true;
-        var create = Bind.Button(Translator.MailFilters_NewFilter, vm.CreateFilter);
-        create.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
-        var stack = WinoLayout.VStack(WinoStyle.Space2, icon, title, text, create);
+        var stack = WinoLayout.VStack(WinoStyle.Space2, icon, title, text);
         stack.Alignment = UIStackViewAlignment.Center;
-        stack.SetCustomSpacing(12, text);
 
         var surface = new WinoSurfaceView
         {

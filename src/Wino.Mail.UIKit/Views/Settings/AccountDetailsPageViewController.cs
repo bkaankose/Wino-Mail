@@ -257,7 +257,7 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
         return host;
     }
 
-    /// <summary>The Windows folder tree: every folder with its Synchronize check.</summary>
+    /// <summary>The Windows folder tree: every folder with its Synchronize switch (the Jump List column is Windows-only).</summary>
     private void RebuildFolderRows()
     {
         _folderScope?.Dispose();
@@ -292,35 +292,25 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
         return host;
     }
 
-    /// <summary>A centred 44pt check button in a fixed-width column.</summary>
+    /// <summary>A centred native switch in a fixed-width column (18 Oct 2026: the glyph check buttons drew as squares on iOS).</summary>
     private UIView FolderCheck(SettingsBinder rows, IMailItemFolder folder, string column, bool isOn, Func<bool, Task> toggled)
     {
-        var check = new UIButton(UIButtonType.System) { TranslatesAutoresizingMaskIntoConstraints = false };
-        WinoLayout.Size(check, 44, 44);
-        void Apply(bool value)
+        var toggle = new UISwitch { On = isOn, OnTintColor = WinoStyle.Accent, TranslatesAutoresizingMaskIntoConstraints = false };
+        rows.OnActivated(toggle, async () =>
         {
-            check.Selected = value;
-            check.SetImage(WinoIcons.Image(value ? WinoIconGlyph.CheckmarkCircleFilled : WinoIconGlyph.Circle, 20, value ? WinoStyle.Accent : WinoStyle.SecondaryText), UIControlState.Normal);
-            check.AccessibilityTraits = value ? UIAccessibilityTrait.Button | UIAccessibilityTrait.Selected : UIAccessibilityTrait.Button;
-        }
-        Apply(isOn);
-        rows.OnActivated(check, async () =>
-        {
-            var value = !check.Selected;
-            Apply(value);
-            try { await toggled(value); }
+            try { await toggled(toggle.On); }
             catch (Exception ex) { ReportError(ex); }
-        });
-        check.Hidden = !folder.IsMoveTarget;
-        WinoAccessibility.Label(check, $"{folder.FolderName}, {column}");
+        }, UIControlEvent.ValueChanged);
+        toggle.Hidden = !folder.IsMoveTarget;
+        WinoAccessibility.Label(toggle, $"{folder.FolderName}, {column}");
         var host = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
-        host.AddSubview(check);
+        host.AddSubview(toggle);
         NSLayoutConstraint.ActivateConstraints(
         [
             host.WidthAnchor.ConstraintEqualTo((nfloat)FolderCheckColumnWidth),
-            check.CenterXAnchor.ConstraintEqualTo(host.CenterXAnchor),
-            check.TopAnchor.ConstraintEqualTo(host.TopAnchor),
-            check.BottomAnchor.ConstraintEqualTo(host.BottomAnchor)
+            toggle.CenterXAnchor.ConstraintEqualTo(host.CenterXAnchor),
+            toggle.CenterYAnchor.ConstraintEqualTo(host.CenterYAnchor),
+            host.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget)
         ]);
         return host;
     }

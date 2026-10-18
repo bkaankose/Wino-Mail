@@ -13,7 +13,7 @@ namespace Wino.Mail.UIKit.Views.Settings;
 
 /// <summary>
 /// Categories of one account (Mac MailCategoryManagementPageViewController, Windows MailCategoryManagementPage): the
-/// page description, Refresh (Outlook only) and Add, then one card per category with its colour chip, name, colour
+/// Add and Refresh (Outlook only) navigation bar buttons, then one card per category with its colour chip, name, colour
 /// pair, a 44pt favourite toggle and an actions menu with Edit and Delete (inline buttons on the Mac). Navigation
 /// parameter: the account id.
 /// </summary>
@@ -31,11 +31,11 @@ public sealed class MailCategoryManagementPageViewController(MailCategoryManagem
     protected override void BuildPage()
     {
         var vm = ViewModel;
-        var add = Bind.Button(Translator.Buttons_Add, vm.AddCategoryCommand, primary: true, icon: WinoIconGlyph.Add);
-        var refresh = Bind.Button(Translator.Buttons_Refresh, vm.RefreshCategoriesCommand, icon: WinoIconGlyph.ArrowClockwise);
-        WinoAccessibility.Help(refresh, Translator.MailCategoryManagementPage_RefreshConfirmationMessage);
-        Bind.Visible(refresh, vm, nameof(vm.CanRefresh), s => s.CanRefresh);
-        AddGroup(null, ActionRow(add), ActionRow(refresh));
+        // Add and Refresh (Outlook only) are navigation bar buttons.
+        BarButton(WinoIconGlyph.Add, Translator.Buttons_Add, vm.AddCategoryCommand);
+        var refresh = BarButton(WinoIconGlyph.ArrowClockwise, Translator.Buttons_Refresh, vm.RefreshCategoriesCommand);
+        refresh.AccessibilityHint = Translator.MailCategoryManagementPage_RefreshConfirmationMessage;
+        Bind.Bind(vm, nameof(vm.CanRefresh), s => s.CanRefresh, visible => SetBarItemVisible(refresh, visible));
 
         var empty = Card(Translator.MailCategoryManagementPage_Empty, null, WinoIconGlyph.Tag);
         Bind.Visible(Add(empty), vm, nameof(vm.HasCategories), s => !s.HasCategories);

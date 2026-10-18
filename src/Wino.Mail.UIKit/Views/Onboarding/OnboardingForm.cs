@@ -175,7 +175,8 @@ public sealed class FormBinder<TSource>(TSource source, BindingScope scope, IDis
 /// <summary>A button that shows its current choice and opens a menu of the choices (the AppKit NSPopUpButton).</summary>
 public sealed class WinoPopUpButton : UIButton
 {
-    public WinoPopUpButton(string? accessibilityLabel = null) : base(UIButtonType.System)
+    // alloc/init: buttonWithType: returns a plain UIButton whose managed subclass peer the GC can drop.
+    public WinoPopUpButton(string? accessibilityLabel = null)
     {
         TranslatesAutoresizingMaskIntoConstraints = false;
         ShowsMenuAsPrimaryAction = true;
