@@ -84,7 +84,7 @@
             </StackPanel>
 
             <!--
-                Sign in with Google, Apple and Microsoft under an "or" rule, Google first on Windows. All run the
+                Sign in with Microsoft, Google and Apple under an "or" rule, Microsoft first on Windows. All run the
                 API browser flow; the wino://auth-complete protocol activation completes them. The privacy agreement below covers them too.
             -->
             <StackPanel x:Name="ExternalSignInPanel" Spacing="12">
@@ -109,6 +109,23 @@
                         VerticalAlignment="Center"
                         Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
                 </Grid>
+
+                <!--  Microsoft: a standard button with the four-colour Microsoft mark, as the brand guidelines ask.  -->
+                <Button
+                    x:Name="MicrosoftSignInButton"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    AutomationProperties.AutomationId="MicrosoftSignInButton"
+                    AutomationProperties.Name="{x:Bind domain:Translator.WinoAccount_SignInWithMicrosoft, Mode=OneTime}"
+                    Click="MicrosoftSignInButton_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <coreControls:WinoFontIcon
+                            VerticalAlignment="Center"
+                            FontSize="16"
+                            Icon="Microsoft" />
+                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.WinoAccount_SignInWithMicrosoft, Mode=OneTime}" />
+                    </StackPanel>
+                </Button>
 
                 <!--  Google: a standard button with the colourful Google mark.  -->
                 <Button
@@ -150,23 +167,6 @@
                             FontSize="16"
                             Icon="Apple" />
                         <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.WinoAccount_SignInWithApple, Mode=OneTime}" />
-                    </StackPanel>
-                </Button>
-
-                <!--  Microsoft: a standard button with the four-colour Microsoft mark, as the brand guidelines ask.  -->
-                <Button
-                    x:Name="MicrosoftSignInButton"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Center"
-                    AutomationProperties.AutomationId="MicrosoftSignInButton"
-                    AutomationProperties.Name="{x:Bind domain:Translator.WinoAccount_SignInWithMicrosoft, Mode=OneTime}"
-                    Click="MicrosoftSignInButton_Click">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <coreControls:WinoFontIcon
-                            VerticalAlignment="Center"
-                            FontSize="16"
-                            Icon="Microsoft" />
-                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.WinoAccount_SignInWithMicrosoft, Mode=OneTime}" />
                     </StackPanel>
                 </Button>
             </StackPanel>
