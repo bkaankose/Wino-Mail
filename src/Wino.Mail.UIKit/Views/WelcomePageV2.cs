@@ -1,7 +1,6 @@
 using Foundation;
 using UIKit;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Enums;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Presentation.UIKit;
 
@@ -9,7 +8,7 @@ namespace Wino.Mail.UIKit.Views;
 
 /// <summary>
 /// Welcome screen (design board "Onboarding · Welcome", Mac WelcomePageV2): the Wino Mail logo, title, one-line
-/// description, four feature tiles with WinoIcons glyphs, the restore links and the primary "add account" button.
+/// description, the restore links and the primary "add account" button.
 /// The theme backdrop fills the screen; the content sits in one Wino zone, a centred column on iPad.
 /// </summary>
 public sealed class WelcomePageV2 : UIView
@@ -41,13 +40,6 @@ public sealed class WelcomePageV2 : UIView
         description.TextAlignment = UITextAlignment.Center;
         _wrapping.AddRange([title, description, status]);
 
-        var tiles = WinoLayout.VStack(WinoStyle.Space3,
-            Tile(WinoIconGlyph.Mail, WinoStyle.Hex(0x0F6CBD), Translator.MacOS_Welcome_AccountsTitle, Translator.MacOS_Welcome_AccountsDescription),
-            Tile(WinoIconGlyph.LockClosed, WinoStyle.Hex(0x2F9E63), Translator.MacOS_Welcome_PrivacyTitle, Translator.MacOS_Welcome_PrivacyDescription),
-            Tile(WinoIconGlyph.Sparkle, WinoStyle.Hex(0x6C5CE7), Translator.MacOS_Welcome_IntelligenceTitle, Translator.MacOS_Welcome_IntelligenceDescription),
-            Tile(WinoIconGlyph.PaintBrush, WinoStyle.Hex(0xE58E26), Translator.MacOS_Welcome_ThemesTitle, Translator.MacOS_Welcome_ThemesDescription));
-        tiles.Alignment = UIStackViewAlignment.Fill;
-
         status.Font = WinoStyle.Description;
         status.TextColor = WinoStyle.SecondaryText;
         status.TextAlignment = UITextAlignment.Center;
@@ -67,7 +59,7 @@ public sealed class WelcomePageV2 : UIView
         ]);
         var heading = WinoLayout.VStack(WinoStyle.Space2, logoHolder, title, description);
         heading.Alignment = UIStackViewAlignment.Fill;
-        var column = WinoLayout.VStack(WinoStyle.Space6, heading, tiles, status, getStarted, links);
+        var column = WinoLayout.VStack(WinoStyle.Space6, heading, status, getStarted, links);
         column.Alignment = UIStackViewAlignment.Fill;
         column.SetCustomSpacing((nfloat)WinoStyle.Space3, getStarted);
         getStarted.HeightAnchor.ConstraintGreaterThanOrEqualTo(50).Active = true;
@@ -139,28 +131,5 @@ public sealed class WelcomePageV2 : UIView
     {
         var path = Path.Combine(NSBundle.MainBundle.ResourcePath ?? AppContext.BaseDirectory, LogoResource);
         return File.Exists(path) ? UIImage.FromFile(path) : null;
-    }
-
-    /// <summary>A feature row: the glyph on a coloured badge, the title and a wrapping description.</summary>
-    private static UIView Tile(WinoIconGlyph glyph, UIColor color, string title, string detail)
-    {
-        var badge = new WinoSurfaceView { Fill = color, CornerRadius = 8 };
-        WinoLayout.Size(badge, 34, 34);
-        var icon = new WinoIconView(glyph, 18, UIColor.White) { Colorful = false, TranslatesAutoresizingMaskIntoConstraints = false };
-        badge.AddSubview(icon);
-        icon.CenterXAnchor.ConstraintEqualTo(badge.CenterXAnchor).Active = true;
-        icon.CenterYAnchor.ConstraintEqualTo(badge.CenterYAnchor).Active = true;
-
-        var text = WinoLayout.VStack(2, WinoStyle.Label(title, WinoStyle.BodyStrong, WinoStyle.PrimaryText, 0),
-            WinoStyle.Label(detail, WinoStyle.Description, WinoStyle.SecondaryText, 0));
-        text.Alignment = UIStackViewAlignment.Fill;
-        var row = WinoLayout.HStack(WinoStyle.Space3, badge, text);
-        row.Alignment = UIStackViewAlignment.Center;
-
-        var surface = new WinoSurfaceView { Fill = WinoStyle.GroupFill, Stroke = WinoStyle.GroupStroke, CornerRadius = 10 };
-        WinoLayout.Fill(row, surface, 12);
-        surface.IsAccessibilityElement = true;
-        surface.AccessibilityLabel = $"{title}, {detail}";
-        return surface;
     }
 }

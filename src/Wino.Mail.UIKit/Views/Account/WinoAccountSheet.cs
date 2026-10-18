@@ -256,21 +256,28 @@ internal abstract class WinoAccountSheet<TResult>
 
         public override void LoadView()
         {
+            // The controller sizes its root view; it keeps its autoresizing mask. The scroll view ends at the
+            // keyboard, so the fields and the sign-in buttons below them stay reachable while it is up.
+            var root = new UIView { BackgroundColor = UIColor.SystemGroupedBackground };
             var scroll = new UIScrollView
             {
-                BackgroundColor = UIColor.SystemGroupedBackground,
+                TranslatesAutoresizingMaskIntoConstraints = false,
                 AlwaysBounceVertical = true,
                 KeyboardDismissMode = UIScrollViewKeyboardDismissMode.Interactive
             };
-            // The controller sizes its root view; it keeps its autoresizing mask.
             content.TranslatesAutoresizingMaskIntoConstraints = false;
             scroll.AddSubview(content);
+            root.AddSubview(scroll);
             var frame = scroll.FrameLayoutGuide;
             var guide = scroll.ContentLayoutGuide;
             var width = content.WidthAnchor.ConstraintEqualTo(frame.WidthAnchor, 1, -40);
             width.Priority = 750;
             NSLayoutConstraint.ActivateConstraints(
             [
+                scroll.TopAnchor.ConstraintEqualTo(root.TopAnchor),
+                scroll.LeadingAnchor.ConstraintEqualTo(root.LeadingAnchor),
+                scroll.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor),
+                scroll.BottomAnchor.ConstraintEqualTo(root.KeyboardLayoutGuide.TopAnchor),
                 content.TopAnchor.ConstraintEqualTo(guide.TopAnchor, 20),
                 content.BottomAnchor.ConstraintEqualTo(guide.BottomAnchor, -24),
                 content.CenterXAnchor.ConstraintEqualTo(frame.CenterXAnchor),
@@ -278,7 +285,7 @@ internal abstract class WinoAccountSheet<TResult>
                 content.LeadingAnchor.ConstraintGreaterThanOrEqualTo(frame.LeadingAnchor, 20),
                 width
             ]);
-            View = scroll;
+            View = root;
         }
     }
 

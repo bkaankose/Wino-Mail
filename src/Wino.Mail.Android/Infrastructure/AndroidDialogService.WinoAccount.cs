@@ -40,15 +40,15 @@ public sealed partial class AndroidDialogService
             var password = form.AddTextField(Translator.WinoAccount_PasswordLabel, password: true);
             var passwordLayout = (View?)password.Parent?.Parent ?? password;
             var link = form.Add(Link(activity, Translator.WinoAccount_LoginDialog_ForgotPasswordLink), Resource.Dimension.wino_space_2xs);
-            // Sign in with Apple (the API browser flow) and Sign in with Google (Credential Manager) under an "or" rule,
-            // Apple first as Apple asks; hidden in forgot-password mode.
+            // Sign in with Google (Credential Manager) and Sign in with Apple (the API browser flow) under an "or" rule,
+            // Google first on Android; hidden in forgot-password mode.
             var external = new List<View>();
             if (externalSignIn is { IsAppleAvailable: true } || externalSignIn is { IsGoogleAvailable: true })
                 external.Add(form.Add(OrRule(activity), Resource.Dimension.wino_space_m));
-            if (externalSignIn is { IsAppleAvailable: true })
-                external.Add(ExternalButton(form.Add(AppleButton(activity), Resource.Dimension.wino_space_s), token => externalSignIn.SignInWithAppleAsync(token)));
             if (externalSignIn is { IsGoogleAvailable: true })
                 external.Add(ExternalButton(form.Add(GoogleButton(activity), Resource.Dimension.wino_space_s), token => externalSignIn.SignInWithGoogleAsync(token)));
+            if (externalSignIn is { IsAppleAvailable: true })
+                external.Add(ExternalButton(form.Add(AppleButton(activity), Resource.Dimension.wino_space_s), token => externalSignIn.SignInWithAppleAsync(token)));
             void UpdateMode()
             {
                 form.Title = forgot ? Translator.WinoAccount_ForgotPasswordDialog_Title : Translator.WinoAccount_LoginDialog_Title;
@@ -301,7 +301,7 @@ public sealed partial class AndroidDialogService
         return profile;
     }
 
-    /// <summary>A hairline, "or", a hairline: the rule between the password form and the Apple button.</summary>
+    /// <summary>A hairline, "or", a hairline: the rule between the password form and the external sign-in buttons.</summary>
     private static LinearLayout OrRule(global::Android.Content.Context context)
     {
         var rule = new LinearLayout(context) { Orientation = global::Android.Widget.Orientation.Horizontal, ImportantForAccessibility = ImportantForAccessibility.No };

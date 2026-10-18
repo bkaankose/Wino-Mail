@@ -2,6 +2,7 @@ using Android.App;
 using Android.Content;
 using Android.OS;
 using Android.Runtime;
+using AndroidX.Core.Content;
 using AndroidX.Credentials;
 using AndroidX.Credentials.Exceptions;
 using Google.Android.Libraries.Identity.GoogleId;
@@ -39,7 +40,7 @@ public sealed class AndroidGoogleSignInProvider(IDispatcher dispatcher, Func<Act
 
             var option = new GetSignInWithGoogleOption.Builder(WinoAccountExternalAuth.GoogleAndroidServerClientId).Build();
             var request = new GetCredentialRequest.Builder().AddCredentialOption(option).Build();
-            CredentialManager.Create(activity).GetCredentialAsync(activity, request, cancellation, activity.MainExecutor!, new Callback(completion));
+            CredentialManager.Create(activity).GetCredentialAsync(activity, request, cancellation, ContextCompat.GetMainExecutor(activity), new Callback(completion));
         }).ConfigureAwait(false);
 
         using var registration = cancellationToken.Register(() =>

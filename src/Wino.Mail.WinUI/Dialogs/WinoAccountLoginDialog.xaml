@@ -90,7 +90,7 @@
             </StackPanel>
 
             <!--
-                Sign in with Apple and Sign in with Google under an "or" rule, Apple first as Apple asks. Both run the
+                Sign in with Google and Sign in with Apple under an "or" rule, Google first on Windows. Both run the
                 API browser flow; the wino://auth-complete protocol activation completes them. Hidden in forgot-password mode.
             -->
             <StackPanel x:Name="ExternalSignInPanel" Spacing="12">
@@ -116,6 +116,23 @@
                         Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
                 </Grid>
 
+                <!--  Google: a standard button with the colourful Google mark.  -->
+                <Button
+                    x:Name="GoogleSignInButton"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    AutomationProperties.AutomationId="GoogleSignInButton"
+                    AutomationProperties.Name="{x:Bind domain:Translator.WinoAccount_SignInWithGoogle, Mode=OneTime}"
+                    Click="GoogleSignInButton_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <coreControls:WinoFontIcon
+                            VerticalAlignment="Center"
+                            FontSize="16"
+                            Icon="Google" />
+                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.WinoAccount_SignInWithGoogle, Mode=OneTime}" />
+                    </StackPanel>
+                </Button>
+
                 <!--  Apple's own look: black fill, white mark and title; a hairline so it reads on a dark dialog.  -->
                 <Button
                     x:Name="AppleSignInButton"
@@ -139,23 +156,6 @@
                             FontSize="16"
                             Icon="Apple" />
                         <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.WinoAccount_SignInWithApple, Mode=OneTime}" />
-                    </StackPanel>
-                </Button>
-
-                <!--  Google: a standard button with the colourful Google mark.  -->
-                <Button
-                    x:Name="GoogleSignInButton"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Center"
-                    AutomationProperties.AutomationId="GoogleSignInButton"
-                    AutomationProperties.Name="{x:Bind domain:Translator.WinoAccount_SignInWithGoogle, Mode=OneTime}"
-                    Click="GoogleSignInButton_Click">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <coreControls:WinoFontIcon
-                            VerticalAlignment="Center"
-                            FontSize="16"
-                            Icon="Google" />
-                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.WinoAccount_SignInWithGoogle, Mode=OneTime}" />
                     </StackPanel>
                 </Button>
             </StackPanel>
