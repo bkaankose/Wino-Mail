@@ -602,7 +602,7 @@ internal sealed class AppActivationHandler
 
             if (string.Equals(scheme, "mailto", System.StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(scheme, "google.pw.oauth2", System.StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(scheme, WinoAccountExternalAuth.CallbackScheme, System.StringComparison.OrdinalIgnoreCase))
+                WinoAccountExternalAuth.IsCallback(protocolArgs.Uri))
             {
                 mode = WinoApplicationMode.Mail;
                 return true;

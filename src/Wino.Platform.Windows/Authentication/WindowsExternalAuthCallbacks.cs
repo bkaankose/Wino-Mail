@@ -8,7 +8,7 @@ namespace Wino.Platform.Windows.Authentication;
 
 /// <summary>
 /// The redirect side of the Wino Account browser sign-in flow on Windows. <see cref="WindowsBrowserAuthBroker"/>
-/// registers a wait before it opens the system browser; the <c>wino-mail://auth-complete</c> protocol activation
+/// registers a wait before it opens the system browser; the <c>wino://auth-complete</c> protocol activation
 /// (redirected to the running instance by single-instancing, the same path the Gmail and billing redirects use) hands
 /// the address to <see cref="Deliver"/>. One flow runs at a time; the wait lives here, not in a dialog.
 /// </summary>

@@ -69,7 +69,7 @@ public sealed partial class WinoAccountLoginDialog : ContentDialog
         => await SignInExternallyAsync(token => _externalSignIn!.SignInWithGoogleAsync(token));
 
     /// <summary>
-    /// The API browser flow: the default browser opens the provider's page and the wino-mail://auth-complete redirect
+    /// The API browser flow: the default browser opens the provider's page and the wino://auth-complete redirect
     /// comes back through protocol activation. Cancel stays enabled so the user can abandon the wait; a dismissed or
     /// cancelled flow shows nothing.
     /// </summary>
@@ -233,7 +233,8 @@ public sealed partial class WinoAccountLoginDialog : ContentDialog
     {
         IsPrimaryButtonEnabled = !isBusy;
         IsSecondaryButtonEnabled = !isBusy;
-        ExternalSignInPanel.IsEnabled = !isBusy;
+        AppleSignInButton.IsEnabled = !isBusy;
+        GoogleSignInButton.IsEnabled = !isBusy;
         BusyRing.IsActive = isBusy;
         BusyRing.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -241,7 +242,8 @@ public sealed partial class WinoAccountLoginDialog : ContentDialog
     private void SetExternalSignInBusyState(bool isBusy)
     {
         IsPrimaryButtonEnabled = !isBusy;
-        ExternalSignInPanel.IsEnabled = !isBusy;
+        AppleSignInButton.IsEnabled = !isBusy;
+        GoogleSignInButton.IsEnabled = !isBusy;
         ModeToggleButton.IsEnabled = !isBusy;
         BusyRing.IsActive = isBusy;
         BusyRing.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;

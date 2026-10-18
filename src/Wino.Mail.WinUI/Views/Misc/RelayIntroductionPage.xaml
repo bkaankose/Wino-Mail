@@ -1,4 +1,4 @@
-<abstract:RelayIntroductionPageAbstract
+﻿<abstract:RelayIntroductionPageAbstract
     x:Class="Wino.Views.Misc.RelayIntroductionPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -78,7 +78,7 @@
                             VerticalAlignment="Top"
                             FontSize="18"
                             Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                            Icon="Accept"
+                            Icon="CheckmarkCircleFilled"
                             Visibility="{x:Bind ViewModel.IsTimerSelected, Mode=OneWay}" />
                     </Grid>
                     <TextBlock
@@ -119,7 +119,7 @@
                             VerticalAlignment="Top"
                             FontSize="18"
                             Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                            Icon="Accept"
+                            Icon="CheckmarkCircleFilled"
                             Visibility="{x:Bind ViewModel.IsRelaySelected, Mode=OneWay}" />
                     </Grid>
                     <TextBlock

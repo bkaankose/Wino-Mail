@@ -8,7 +8,7 @@ using Wino.Platform.Android.Authentication;
 namespace Wino.Mail.Android.Authentication;
 
 /// <summary>
-/// Receives the Wino Account browser sign-in redirect (<c>wino-mail://auth-complete?code=…</c>, the address the API's
+/// Receives the Wino Account browser sign-in redirect (<c>wino://auth-complete?code=…</c>, the address the API's
 /// <c>Secrets:ExternalAuth:AppCallbackUri</c> names; the client spells it once in <see cref="WinoAccountExternalAuth"/>)
 /// and hands it to the waiting <see cref="AndroidExternalAuthCallbacks"/>. It then brings the single-task
 /// <see cref="MainActivity"/> back without recreating it, so the sign-in dialog that started the flow is still open.

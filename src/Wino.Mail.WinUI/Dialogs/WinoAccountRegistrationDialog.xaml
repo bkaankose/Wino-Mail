@@ -6,8 +6,8 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    Closing="DialogClosing"
     AutomationProperties.Name="{x:Bind domain:Translator.WinoAccount_RegisterDialog_Title, Mode=OneTime}"
+    Closing="DialogClosing"
     PrimaryButtonClick="RegisterClicked"
     PrimaryButtonStyle="{ThemeResource AccentButtonStyle}"
     PrimaryButtonText="{x:Bind domain:Translator.WinoAccount_RegisterDialog_PrimaryButton, Mode=OneTime}"
@@ -20,7 +20,8 @@
         <x:Double x:Key="ContentDialogMaxWidth">440</x:Double>
     </ContentDialog.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <!--  The right padding keeps the fields clear of the vertical scrollbar.  -->
+    <ScrollViewer Padding="0,0,16,0" VerticalScrollBarVisibility="Auto">
         <StackPanel Spacing="24">
 
             <!--  Header. Matches the sign-in dialog: the product mark leads, then the title and one line of purpose.  -->
@@ -82,8 +83,10 @@
                     PasswordChanged="InputChanged" />
             </StackPanel>
 
-            <!--  Sign in with Apple and Sign in with Google under an "or" rule, Apple first as Apple asks. Both run the
-                  API browser flow; the wino-mail://auth-complete protocol activation completes them. The privacy agreement below covers them too.  -->
+            <!--
+                Sign in with Apple and Sign in with Google under an "or" rule, Apple first as Apple asks. Both run the
+                API browser flow; the wino://auth-complete protocol activation completes them. The privacy agreement below covers them too.
+            -->
             <StackPanel x:Name="ExternalSignInPanel" Spacing="12">
                 <Grid ColumnSpacing="12">
                     <Grid.ColumnDefinitions>

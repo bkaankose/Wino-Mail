@@ -140,7 +140,7 @@ Binding for every agent. Backend counterpart: `AGENTS.md` and `docs/social-sign-
   entitlement condition; `Composition` registers the native `AppleNativeSignInProvider` with it, and without it the
   shared `WinoAccountExternalSignInService` falls back to the `ASWebAuthenticationSession` browser flow. Android
   always uses the browser flow for Apple.
-- The browser flow's callback address (`wino-mail://auth-complete`, the API's `Secrets:ExternalAuth:AppCallbackUri`)
+- The browser flow's callback address (`wino://auth-complete`, the API's `Secrets:ExternalAuth:AppCallbackUri`)
   is spelled once on the client, in `WinoAccountExternalAuth` (`Wino.Core.Domain`); the Android intent filter and
   the Mac web session read it from there. Change it there and in the API together.
 - Provisioning profiles are selected by name ("Wino Mail iOS Development", "Wino Mail iOS App Store", "Wino Mail

@@ -83,14 +83,7 @@
 				</uap:Protocol>
 			</uap:Extension>
 
-			<!-- Protocol activation: Wino Account browser sign-in redirect (wino-mail://auth-complete) -->
-			<uap:Extension Category="windows.protocol">
-				<uap:Protocol Name="wino-mail">
-					<uap:DisplayName>Wino Account Sign-in Protocol</uap:DisplayName>
-				</uap:Protocol>
-			</uap:Extension>
-
-			<!-- Protocol activation: Wino deep links -->
+			<!-- Protocol activation: Wino deep links and the Wino Account browser sign-in redirect (wino://auth-complete) -->
 			<uap:Extension Category="windows.protocol">
 				<uap:Protocol Name="wino">
 					<uap:DisplayName>Wino Mail Protocol</uap:DisplayName>

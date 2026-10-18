@@ -71,7 +71,7 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<IWinoDialogService>(provider => (IWinoDialogService)provider.GetRequiredService<IMailDialogService>());
         services.AddSingleton<IExternalBrowserAuthenticationPresenter, ExternalBrowserAuthenticationPresenter>();
 
-        // Wino Account Sign in with Apple and Google: both through the API's browser flow. The wino-mail://auth-complete
+        // Wino Account Sign in with Apple and Google: both through the API's browser flow. The wino://auth-complete
         // protocol activation (App.WinoAccountAuthActivation) delivers the redirect to the waiting broker.
         services.AddSingleton<WindowsExternalAuthCallbacks>();
         services.AddSingleton<IWinoAccountBrowserAuthBroker>(provider => new WindowsBrowserAuthBroker(

@@ -2388,7 +2388,7 @@ public partial class App : WinoApplication,
 
             if (string.Equals(scheme, "mailto", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(scheme, "google.pw.oauth2", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(scheme, WinoAccountExternalAuth.CallbackScheme, StringComparison.OrdinalIgnoreCase))
+                WinoAccountExternalAuth.IsCallback(protocolArgs.Uri))
             {
                 mode = WinoApplicationMode.Mail;
                 return true;

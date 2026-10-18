@@ -5,7 +5,7 @@ namespace Wino.Platform.Android.Authentication;
 
 /// <summary>
 /// The redirect side of the Wino Account browser sign-in flow. <see cref="AndroidBrowserAuthBroker"/> registers a wait
-/// before it opens the Custom Tab; the head's redirect activity (the <c>wino-mail://auth-complete</c> intent filter)
+/// before it opens the Custom Tab; the head's redirect activity (the <c>wino://auth-complete</c> intent filter)
 /// hands the address to <see cref="Deliver"/>. One flow runs at a time; the wait lives here, not in an activity, so a
 /// redirect delivered after a configuration change still completes it.
 /// </summary>

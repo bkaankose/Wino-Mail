@@ -9,7 +9,7 @@ namespace Wino.Platform.Android.Authentication;
 
 /// <summary>
 /// The Wino Account browser sign-in flow on Android: the API's authorize page in a Custom Tab (partial height on
-/// Android 13 and later, the R2 decision; any browser otherwise), then the <c>wino-mail://auth-complete</c> redirect the
+/// Android 13 and later, the R2 decision; any browser otherwise), then the <c>wino://auth-complete</c> redirect the
 /// head's redirect activity delivers to <see cref="AndroidExternalAuthCallbacks"/>. The tab stays open if the user never
 /// returns; the shared service's timeout abandons the wait. Cancellation ends the wait with
 /// <see cref="OperationCanceledException"/> (the browser surface stays until the user closes it).

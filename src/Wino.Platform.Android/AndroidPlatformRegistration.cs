@@ -130,7 +130,7 @@ public static class AndroidPlatformRegistration
 
         // Wino Account external sign-in. Google is native through Credential Manager. Apple has no Android SDK, so it runs
         // the API browser flow in a Custom Tab; the head's WinoAccountAuthRedirectActivity delivers the
-        // wino-mail://auth-complete redirect to AndroidExternalAuthCallbacks.
+        // wino://auth-complete redirect to AndroidExternalAuthCallbacks.
         services.AddSingleton<AndroidExternalAuthCallbacks>();
         services.AddSingleton<IWinoAccountBrowserAuthBroker>(provider => new AndroidBrowserAuthBroker(
             context, provider.GetRequiredService<IDispatcher>(), currentActivity, provider.GetRequiredService<AndroidExternalAuthCallbacks>()));

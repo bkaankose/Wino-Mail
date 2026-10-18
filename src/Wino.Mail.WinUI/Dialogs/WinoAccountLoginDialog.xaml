@@ -19,7 +19,8 @@
         <x:Double x:Key="ContentDialogMaxWidth">440</x:Double>
     </ContentDialog.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <!--  The right padding keeps the fields clear of the vertical scrollbar.  -->
+    <ScrollViewer Padding="0,0,16,0" VerticalScrollBarVisibility="Auto">
         <StackPanel Spacing="24">
 
             <!--  Header. The product mark and the title replace the default title row so the logo can lead. Code-behind sets the title per mode.  -->
@@ -88,8 +89,10 @@
                     Content="{x:Bind domain:Translator.WinoAccount_LoginDialog_ForgotPasswordLink, Mode=OneTime}" />
             </StackPanel>
 
-            <!--  Sign in with Apple and Sign in with Google under an "or" rule, Apple first as Apple asks. Both run the
-                  API browser flow; the wino-mail://auth-complete protocol activation completes them. Hidden in forgot-password mode.  -->
+            <!--
+                Sign in with Apple and Sign in with Google under an "or" rule, Apple first as Apple asks. Both run the
+                API browser flow; the wino://auth-complete protocol activation completes them. Hidden in forgot-password mode.
+            -->
             <StackPanel x:Name="ExternalSignInPanel" Spacing="12">
                 <Grid ColumnSpacing="12">
                     <Grid.ColumnDefinitions>

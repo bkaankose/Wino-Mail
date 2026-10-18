@@ -31,7 +31,7 @@ public static class WinoAccountExternalAuth
     /// </summary>
     public const string GoogleAndroidServerClientId = "973025879644-92h0mdbvgaiq0p6efdv16hpiop65er6a.apps.googleusercontent.com";
 
-    public const string CallbackScheme = "wino-mail";
+    public const string CallbackScheme = "wino";
     public const string CallbackHost = "auth-complete";
 
     public static readonly Uri CallbackUri = new($"{CallbackScheme}://{CallbackHost}");
