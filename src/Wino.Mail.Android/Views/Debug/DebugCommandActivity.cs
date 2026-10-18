@@ -100,6 +100,18 @@ public sealed class DebugCommandActivity : Activity
                 case "backgroundstate":
                     Serilog.Log.Information("Debug command backgroundstate: {Result}", await DebugNotifications.DescribeAsync(services));
                     break;
+                case "relaytest":
+                    // The relay's test push to this device (Settings > Notifications > Send test, without the UI). A cold start
+                    // has no runtime and no relay snapshot yet, so start the background runtime first, as a push does.
+                    if (await Background.AndroidBackgroundRuntime.EnsureAsync(CancellationToken.None) is null)
+                    {
+                        Serilog.Log.Warning("Debug command relaytest: the runtime did not start.");
+                        break;
+                    }
+                    var relay = services.GetRequiredService<Wino.Core.Domain.Interfaces.IPushRelayRegistrationService>();
+                    Serilog.Log.Information("Debug command relaytest: availability={Availability} result={Result}",
+                        relay.Snapshot.Availability, await relay.SendPushTestAsync());
+                    break;
                 default:
                     Serilog.Log.Warning("Unknown debug command {Command}.", command);
                     break;
