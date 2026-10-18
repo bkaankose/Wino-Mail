@@ -123,8 +123,14 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     public Task<WinoAccountApiResult<AuthResultDto>> CompleteExternalSignInAsync(string code, CancellationToken cancellationToken = default)
         => SendAuthRequestAsync("api/v1/auth/external/complete", new CompleteExternalAuthRequest(code), WinoAccountApiJsonContext.Default.CompleteExternalAuthRequest, cancellationToken);
 
+    /// <summary>The production API starts on winomail.app (see <see cref="WinoAccountExternalAuth.StartUri"/>); a local API directly.</summary>
     public Uri GetExternalSignInAuthorizationUri(string provider)
-        => new(_httpClient.BaseAddress ?? new Uri(ApiUrl), WinoAccountExternalAuth.AuthorizePath(provider));
+    {
+        var baseAddress = _httpClient.BaseAddress ?? new Uri(ApiUrl);
+        return baseAddress.Host == "api.winomail.app"
+            ? WinoAccountExternalAuth.StartUri(provider)
+            : new Uri(baseAddress, $"api/v1/auth/{provider}/authorize");
+    }
 
     public Task<WinoAccountApiResult<AuthResultDto>> RefreshAsync(string refreshToken, CancellationToken cancellationToken = default)
         => SendAuthRequestAsync("api/v1/auth/refresh", new RefreshRequest(refreshToken), WinoAccountApiJsonContext.Default.RefreshRequest, cancellationToken);

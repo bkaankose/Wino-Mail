@@ -38,7 +38,7 @@ public interface IWinoAccountApiClient
     Task<WinoAccountApiResult<AuthResultDto>> SignInWithGoogleNativeAsync(string idToken, CancellationToken cancellationToken = default);
     /// <summary>Finishes the browser flow with the completion code the API redirected to <see cref="Models.Accounts.WinoAccountExternalAuth.CallbackUri"/>.</summary>
     Task<WinoAccountApiResult<AuthResultDto>> CompleteExternalSignInAsync(string code, CancellationToken cancellationToken = default);
-    /// <summary>The absolute address that starts the browser flow for <paramref name="provider"/> (see <see cref="Models.Accounts.WinoAccountExternalAuth.AuthorizePath"/>).</summary>
+    /// <summary>The absolute address that starts the browser flow for <paramref name="provider"/> (see <see cref="Models.Accounts.WinoAccountExternalAuth.StartUri"/>).</summary>
     Uri GetExternalSignInAuthorizationUri(string provider);
     Task<WinoAccountApiResult<AuthResultDto>> RefreshAsync(string refreshToken, CancellationToken cancellationToken = default);
     Task<ApiEnvelope<EmailConfirmationResendResultDto>> ResendEmailConfirmationAsync(string endpoint, string ticket, CancellationToken cancellationToken = default);

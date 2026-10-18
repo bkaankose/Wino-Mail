@@ -15,7 +15,7 @@ namespace Wino.Services;
 /// Wino Account sign-in with Apple, Google and Microsoft. A provider signs in natively when the head registered its native half
 /// (Apple's sheet through AuthenticationServices; a Google ID token from a web session or Credential Manager), and
 /// otherwise through the API browser flow when a <see cref="IWinoAccountBrowserAuthBroker"/> exists: the broker shows
-/// <c>api/v1/auth/{provider}/authorize</c> and returns the <see cref="WinoAccountExternalAuth.CallbackUri"/> redirect,
+/// <see cref="WinoAccountExternalAuth.StartUri"/> (which leads to <c>api/v1/auth/{provider}/authorize</c>) and returns the <see cref="WinoAccountExternalAuth.CallbackUri"/> redirect,
 /// whose completion code finishes the sign-in (bounded by <see cref="WinoAccountExternalAuth.CompletionCodeLifetime"/>).
 /// One provider sheet runs at a time; a second tap waits for the first.
 /// </summary>

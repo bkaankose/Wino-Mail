@@ -7,8 +7,8 @@ namespace Wino.Core.Domain.Models.Accounts;
 public sealed record WinoAccountExternalAuthCallback(string? Code, string? ErrorCode);
 
 /// <summary>
-/// The Wino Account browser sign-in flow (Android, Mac DMG builds, Windows): the app opens
-/// <c>api/v1/auth/{provider}/authorize</c>, the API finishes with the provider and redirects to <see cref="CallbackUri"/>
+/// The Wino Account browser sign-in flow (Android, Mac DMG builds, Windows): the app opens <see cref="StartUri"/>, which
+/// leads to <c>api/v1/auth/{provider}/authorize</c>, the API finishes with the provider and redirects to <see cref="CallbackUri"/>
 /// with <c>?code=</c> (a two-minute completion code for <c>api/v1/auth/external/complete</c>) or <c>?errorCode=</c>.
 /// The callback address is fixed on the API side (<c>Secrets:ExternalAuth:AppCallbackUri</c>); this is the only place
 /// the client spells it, so the Android intent filter and the Mac web session read it from here.
@@ -42,8 +42,12 @@ public static class WinoAccountExternalAuth
     /// <summary>How long the API accepts a completion code; the browser wait gives up after it.</summary>
     public static readonly TimeSpan CompletionCodeLifetime = TimeSpan.FromMinutes(2);
 
-    /// <summary>The relative API path that starts the browser flow for <paramref name="provider"/>.</summary>
-    public static string AuthorizePath(string provider) => $"api/v1/auth/{provider}/authorize";
+    /// <summary>
+    /// The page that starts the browser flow for <paramref name="provider"/>: the website's <c>/auth/{provider}</c>, which
+    /// redirects to the API's <c>api/v1/auth/{provider}/authorize</c> with the query unchanged. iOS and macOS name this
+    /// first host in their "wants to use … to sign in" prompt, so it is winomail.app rather than the API host.
+    /// </summary>
+    public static Uri StartUri(string provider) => new($"https://winomail.app/auth/{provider}");
 
     public static bool IsCallback(Uri? uri)
         => uri is { IsAbsoluteUri: true }
