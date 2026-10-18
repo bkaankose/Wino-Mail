@@ -87,6 +87,9 @@ internal sealed class AppActivationHandler
         if (activationArgs?.Kind == ExtendedActivationKind.StartupTask)
             return new LaunchActivationRoute(AppActivationPath.StartupTask, launchArgs, activationArgs);
 
+        if (SessionStartActivation.IsCurrentProcess)
+            return new LaunchActivationRoute(AppActivationPath.SessionStart, launchArgs, activationArgs);
+
         if (IsBillingSuccessProtocol(activationArgs))
             return new LaunchActivationRoute(AppActivationPath.BillingSuccessProtocol, launchArgs, activationArgs);
 
@@ -221,6 +224,19 @@ internal sealed class AppActivationHandler
             case AppActivationPath.StartupTask:
                 _host.CompleteStartupTaskLaunch(_host.HasConfiguredAccounts);
                 break;
+            case AppActivationPath.SessionStart:
+                // The StartupTask is the user's startup switch (Settings > Apps > Startup). The trigger only
+                // starts the application earlier than that switch would, never against it.
+                if (!await SessionStartActivation.IsStartupEnabledAsync())
+                {
+                    _host.LogActivation("Session-start launch while startup is disabled. Removing the trigger and exiting.");
+                    SessionStartActivation.Unregister();
+                    _host.ExitApplication();
+                    break;
+                }
+
+                _host.CompleteStartupTaskLaunch(_host.HasConfiguredAccounts);
+                break;
             case AppActivationPath.WelcomeWithoutAccounts:
                 await _host.LaunchWelcomeWindowAsync();
                 break;
@@ -275,6 +291,13 @@ internal sealed class AppActivationHandler
     {
         var activationMode = WinoApplicationMode.Mail;
         var shouldActivateWindow = args.Kind != ExtendedActivationKind.StartupTask;
+
+        if (args.Kind == ExtendedActivationKind.Launch &&
+            args.Data is ILaunchActivatedEventArgs sessionStartArgs &&
+            SessionStartActivation.Matches(sessionStartArgs.Arguments))
+        {
+            return new RedirectedActivationRoute(AppActivationPath.SessionStart, args, activationMode, ShouldActivateWindow: false);
+        }
 
         if (args.Kind == ExtendedActivationKind.Launch &&
             args.Data is ILaunchActivatedEventArgs forwardedLaunchArgs &&
@@ -416,6 +439,12 @@ internal sealed class AppActivationHandler
     private async Task HandleRedirectedActivationRouteAsync(RedirectedActivationRoute route)
     {
         _host.LogActivation($"Handling redirected activation path: {ActivationPathNames.GetDisplayName(route.Path)}.");
+
+        if (route.Path == AppActivationPath.SessionStart)
+        {
+            // The trigger reached an instance that is already running. There is nothing to start.
+            return;
+        }
 
         if (route.Path == AppActivationPath.AppNotification)
         {

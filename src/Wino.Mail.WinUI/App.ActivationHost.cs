@@ -18,6 +18,7 @@ internal interface IAppActivationHandlerHost
     Task EnsureActivationInfrastructureAsync();
     Task EnsureAppHostInfrastructureAsync();
     void CompleteStartupTaskLaunch(bool hasAnyAccount);
+    void ExitApplication();
     Task LaunchWelcomeWindowAsync();
     Task<bool> HandleShareTargetActivationAsync(AppActivationArguments activationArgs, bool activateWindow);
     Task<bool> HandleMailToProtocolActivationAsync(MailToUri mailToUri, bool activateWindow);
@@ -53,6 +54,7 @@ public partial class App : IAppActivationHandlerHost, IAppNotificationHandlerHos
     Task IAppActivationHandlerHost.EnsureActivationInfrastructureAsync() => EnsureActivationInfrastructureAsync();
     Task IAppActivationHandlerHost.EnsureAppHostInfrastructureAsync() => EnsureAppHostInfrastructureAsync();
     void IAppActivationHandlerHost.CompleteStartupTaskLaunch(bool hasAnyAccount) => CompleteStartupTaskLaunch(hasAnyAccount);
+    void IAppActivationHandlerHost.ExitApplication() => ExitApplication();
     Task IAppActivationHandlerHost.LaunchWelcomeWindowAsync() => LaunchWelcomeWindowAsync();
     Task<bool> IAppActivationHandlerHost.HandleShareTargetActivationAsync(AppActivationArguments activationArgs, bool activateWindow)
         => HandleShareTargetActivationAsync(activationArgs, activateWindow);

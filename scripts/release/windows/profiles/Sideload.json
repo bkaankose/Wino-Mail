@@ -13,5 +13,6 @@
     "Calendar": "9d4925a6-318b-5fb6-88af-bf6ab8b78358",
     "People": "65b3fc7c-599d-5310-9b25-1cbf604862bc",
     "Tasks": "9658d7a7-44ed-51fe-abe0-b5e70446124e"
-  }
+  },
+  "StartupTaskActivatorId": "f21ad7e1-2a93-434d-b325-f6749513245c"
 }

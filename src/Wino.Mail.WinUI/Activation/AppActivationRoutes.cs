@@ -14,6 +14,7 @@ namespace Wino.Mail.WinUI.Activation;
 internal enum AppActivationPath
 {
     StartupTask,
+    SessionStart,
     WelcomeWithoutAccounts,
     StandardLaunch,
     ShareTarget,
@@ -88,6 +89,7 @@ internal static class ActivationPathNames
         => path switch
         {
             AppActivationPath.StartupTask => "startup task",
+            AppActivationPath.SessionStart => "session-start background task",
             AppActivationPath.WelcomeWithoutAccounts => "welcome window without accounts",
             AppActivationPath.StandardLaunch => "standard launch",
             AppActivationPath.ShareTarget => "share target",

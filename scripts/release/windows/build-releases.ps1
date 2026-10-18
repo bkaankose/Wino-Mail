@@ -449,11 +449,17 @@ function Set-ReleaseLayoutProfile {
         $visual.SetAttribute('DisplayName', $name)
         foreach ($startup in $app.SelectNodes(".//*[local-name()='StartupTask']")) { $startup.SetAttribute('DisplayName', "$name Startup Service") }
         foreach ($node in $app.SelectNodes(".//*[local-name()='ToastNotificationActivation']")) { $node.SetAttribute('ToastActivatorCLSID', $Profile.NotificationActivatorIds.$mode) }
-        foreach ($node in $app.SelectNodes(".//*[local-name()='Class']")) {
-            $node.SetAttribute('Id', $Profile.NotificationActivatorIds.$mode)
-            $node.SetAttribute('DisplayName', "$name notification host")
+        foreach ($server in $app.SelectNodes(".//*[local-name()='ExeServer']")) {
+            # The application itself hosts the session-start background task; every other server is the notification host.
+            $isStartupServer = $server.GetAttribute('Executable') -eq 'Wino.Mail.WinUI.exe'
+            $displayName = if ($isStartupServer) { "$name startup service" } else { "$name notification host" }
+            $classId = if ($isStartupServer) { $Profile.StartupTaskActivatorId } else { $Profile.NotificationActivatorIds.$mode }
+            $server.SetAttribute('DisplayName', $displayName)
+            foreach ($node in $server.SelectNodes("*[local-name()='Class']")) {
+                $node.SetAttribute('Id', $classId)
+                $node.SetAttribute('DisplayName', $displayName)
+            }
         }
-        foreach ($node in $app.SelectNodes(".//*[local-name()='ExeServer']")) { $node.SetAttribute('DisplayName', "$name notification host") }
     }
     if ($Profile.Distribution -eq 'Beta') {
         $paths = @(Get-ReleaseBrandingPaths $Layout)
@@ -588,6 +594,7 @@ function Assert-PackagedReleaseProfile {
     try { $profile = $reader.ReadToEnd() | ConvertFrom-Json } finally { $reader.Dispose() }
     $expected = Get-ReleaseProfile $Plan $profile.Distribution
     if ($profile.PackageName -cne $expected.PackageName -or $profile.Publisher -cne $expected.Publisher -or
+        $profile.StartupTaskActivatorId -cne $expected.StartupTaskActivatorId -or
         $profile.PackageName -cne [string]$Manifest.Package.Identity.Name -or $profile.Publisher -cne [string]$Manifest.Package.Identity.Publisher) {
         throw 'The packaged release profile does not match its manifest or distribution.'
     }
@@ -602,8 +609,11 @@ function Assert-PackagedReleaseProfile {
         foreach ($node in $app.SelectNodes(".//*[local-name()='ToastNotificationActivation']")) {
             if ($node.GetAttribute('ToastActivatorCLSID') -cne $profile.NotificationActivatorIds.$mode) { throw 'Notification manifest and runtime IDs differ.' }
         }
-        foreach ($node in $app.SelectNodes(".//*[local-name()='Class']")) {
-            if ($node.GetAttribute('Id') -cne $profile.NotificationActivatorIds.$mode) { throw 'COM manifest and runtime IDs differ.' }
+        foreach ($server in $app.SelectNodes(".//*[local-name()='ExeServer']")) {
+            $expectedId = if ($server.GetAttribute('Executable') -eq 'Wino.Mail.WinUI.exe') { $profile.StartupTaskActivatorId } else { $profile.NotificationActivatorIds.$mode }
+            foreach ($node in $server.SelectNodes("*[local-name()='Class']")) {
+                if ($node.GetAttribute('Id') -cne $expectedId) { throw 'COM manifest and runtime IDs differ.' }
+            }
         }
     }
 }

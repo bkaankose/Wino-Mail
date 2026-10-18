@@ -24,6 +24,8 @@
     <DefaultItemExcludes>$(DefaultItemExcludes);AppPackages\**</DefaultItemExcludes>
     <!-- Bundle the Windows App SDK and .NET runtime into per-architecture MSIX outputs. -->
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- Ships UniversalBGTask.dll, the host for the session-start background task (Activation/SessionStartActivation.cs). -->
+    <WindowsAppSDKBackgroundTask>true</WindowsAppSDKBackgroundTask>
     <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
     <UseNativeAot Condition="'$(UseNativeAot)' == ''">true</UseNativeAot>
     <PublishAot Condition="'$(WinoIsReleaseBuild)' == 'true'">$(UseNativeAot)</PublishAot>

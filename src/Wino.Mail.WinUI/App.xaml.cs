@@ -14,6 +14,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.Windows.AppLifecycle;
 using Microsoft.Windows.AppNotifications;
+using Microsoft.Windows.AppNotifications.Builder;
 using Serilog;
 using Windows.ApplicationModel.Activation;
 using Windows.ApplicationModel.DataTransfer;
@@ -52,6 +53,7 @@ using Wino.Mail.WinUI.Services.Companion;
 using Wino.Mail.ViewModels.Companion;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
+using Wino.NotificationHost.Contracts;
 using Wino.Services;
 using Wino.Shell.ViewModels;
 using Wino.Views;
@@ -947,8 +949,12 @@ public partial class App : WinoApplication,
         {
             // A normal launch shows a window first; ActivateWindowAsync adds the tray after that
             // window's first frame. Other activations may never show one, so they get the tray now.
-            var isPlainLaunch = !ActivationArgumentsReader.TryGetKind(activationArgs, out var activationKind) ||
-                                activationKind == ExtendedActivationKind.Launch;
+            var isPlainLaunch = !SessionStartActivation.IsCurrentProcess &&
+                                (!ActivationArgumentsReader.TryGetKind(activationArgs, out var activationKind) ||
+                                 activationKind == ExtendedActivationKind.Launch);
+
+            if (SessionStartComServer.StartupFailure is { } comServerFailure)
+                Log.Warning(comServerFailure, "The session-start COM class object could not be registered.");
 
             if (!isPlainLaunch && ShouldCreateTrayIcon())
             {
@@ -979,6 +985,11 @@ public partial class App : WinoApplication,
     {
         UpdateTrayIconState(allowCreation: !_isExiting);
         _launchCompleted.TrySetResult();
+
+        // Keeps the session-start trigger in step with the startup task, including for installations
+        // that predate it. Nothing waits on this; it logs its own failures.
+        if (!_isExiting)
+            _ = SessionStartActivation.SyncRegistrationAsync();
     }
 
     private async Task<bool> TryShowMigrationAsync(
@@ -1002,9 +1013,12 @@ public partial class App : WinoApplication,
         _pendingMigrationLaunchArgs ??= launchArgs;
         _pendingMigrationActivation = pendingActivation;
 
-        if (pendingActivation.Kind == ExtendedActivationKind.StartupTask)
+        if (pendingActivation.Kind == ExtendedActivationKind.StartupTask || SessionStartActivation.IsCurrentProcess)
         {
-            LogActivation("Migration is pending. Startup-task activation is exiting without application-data initialization.");
+            // A background start cannot show the migration window. Without a prompt the user would get no
+            // mail and no notifications until they happen to open Wino.
+            LogActivation("Migration is pending. Startup activation is showing the update prompt and exiting without application-data initialization.");
+            await TryShowMigrationPendingNotificationAsync();
             ExitApplication();
             return true;
         }
@@ -1017,6 +1031,28 @@ public partial class App : WinoApplication,
 
         await ShowMigrationWindowAsync();
         return true;
+    }
+
+    /// <summary>
+    /// Clicking the toast launches Wino normally, and that launch shows the migration window first.
+    /// </summary>
+    private async Task TryShowMigrationPendingNotificationAsync()
+    {
+        try
+        {
+            var notification = new AppNotificationBuilder()
+                .AddText(Translator.WhatIsNew_MigrationNotification_Title)
+                .AddText(Translator.WhatIsNew_MigrationNotification_Message)
+                .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail)
+                .BuildNotification();
+            notification.Tag = "wino-migration-pending";
+
+            await Services.GetRequiredService<INotificationHostClient>().ShowAsync(NotificationHostApplication.Mail, notification);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "The pending-migration notification could not be shown.");
+        }
     }
 
     private async Task ShowMigrationWindowAsync()
