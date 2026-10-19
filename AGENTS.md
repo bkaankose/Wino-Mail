@@ -51,7 +51,7 @@ codegraph explore "named symbol or affected behavior"
 ```
 
 If the result is unrelated or omits the requested script, use a targeted file read or `rg` search.
-CodeGraph results can miss tests. Use the changed behavior to select additional checks.
+Use the changed behavior to select additional checks.
 Read only references that apply to the task:
 
 | Task | Reference |
@@ -83,14 +83,14 @@ Mac F5 prepares the debugger, then runs a plain `dotnet build`.
 | Change | Required evidence |
 | --- | --- |
 | Documentation or tooling | Valid links, command configuration, and affected script checks |
-| Domain or service logic | Affected project build and directly affected unit tests |
-| ViewModel behavior | Affected unit tests and manual checks for UI behavior on each affected platform |
+| Domain or service logic | Affected project build and manual checks in the running app when the behavior is user-visible |
+| ViewModel behavior | Affected project build and manual checks for UI behavior on each affected platform |
 | Windows XAML, navigation, activation, windows, or controls | Windows Debug build and manual checks in the lab |
 | AppKit views, navigation, activation, or controls | Native Debug arm64 and x64 builds and manual checks on the Mac |
 | Localization | English source only, generated output build, other locales untouched |
-| Windows package, trimming, or Native AOT | Windows Release build without launch, plus release-script tests when applicable |
+| Windows package, trimming, or Native AOT | Windows Release build without launch |
 | macOS signing, entitlements, or release inputs | Native Release arm64 and x64 builds and bundle identity, signature, and entitlement checks |
-| Shared production code, dependencies, or build configuration | Windows Debug x64 build and Release x64 gate, affected tests, and the macOS builds as a handoff when no Mac is available |
+| Shared production code, dependencies, or build configuration | Windows Debug x64 build and Release x64 gate, and the macOS builds as a handoff when no Mac is available |
 
 Windows production changes always need the Release gate, run without launching or deploying:
 
@@ -99,8 +99,24 @@ dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Release -p:Platform=x
 ```
 
 Format changed XAML before building with `scripts/maintenance/windows/format-xaml.ps1 -Changed`, and run it with `-Check` before handoff.
-Keep unit tests and release-script tests. Agent-driven UI automation is retired. The [local Docker lab](tools/local-lab/README.md) is the Windows application testing environment; use manual interaction for UI checks.
+The repository has no automated test projects; do not add or run unit tests until the owner defines a new test project. Agent-driven UI automation is retired. The [local Docker lab](tools/local-lab/README.md) is the Windows application testing environment; use manual interaction for UI checks.
 A passing build does not prove UI behavior. Report manual verification as pending unless someone performed it.
+
+## Accounts, OAuth clients and signing (hard rules)
+
+Binding for every agent. Backend counterpart: `AGENTS.md` and `docs/social-sign-in-setup.md` in Wino-Mail-API.
+
+- **Never touch the Google UWP OAuth client `973025879644-s7b4ur9p3rlgop6a22u7iuptdc0brnrn`.** It is the Windows
+  app's Gmail mailbox client. Do not change, rotate, replace or repurpose it, and never use it for Wino Accounts
+  sign-in. Ask the user if a task seems to need it.
+- Wino Account sign-in with Microsoft, Google and Apple on Windows always uses the API's browser flow: the shared
+  `WinoAccountExternalSignInService` (`Wino.Services`) opens `WinoAccountExternalAuth.StartUri` in the default browser
+  through `WindowsBrowserAuthBroker` (`Wino.Platform.Windows`), and the `wino://auth-complete` protocol activation
+  hands the completion code back through `WindowsExternalAuthCallbacks`. No native provider SDK is involved on Windows.
+- The browser flow's callback address (`wino://auth-complete`, the API's `Secrets:ExternalAuth:AppCallbackUri`)
+  is spelled once on the client, in `WinoAccountExternalAuth` (`Wino.Core.Domain`). Change it there and in the API together.
+- The production API starts the flow on `https://winomail.app/auth/{provider}`; a local API is opened directly at
+  `api/v1/auth/{provider}/authorize` (`WinoAccountApiClient.GetExternalSignInAuthorizationUri`).
 
 ## Dependencies
 

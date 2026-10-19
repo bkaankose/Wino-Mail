@@ -17,6 +17,14 @@ public static class WinoAccountClientErrorCodes
     /// <summary>The signed-in account changed while a request was running.</summary>
     public const string AccountSessionChanged = "AccountSessionChanged";
 
+    /// <summary>The user dismissed an external provider's sign-in UI; nothing to show.</summary>
+    public const string SignInCancelled = "WINO_SIGN_IN_CANCELLED";
+
+    /// <summary>The external provider's sign-in failed on the device before the API was reached (the message carries the provider's text).</summary>
+    public const string ExternalSignInFailed = "WINO_EXTERNAL_SIGN_IN_FAILED";
+
     public static bool IsServiceFailure(string? errorCode)
         => errorCode is ServiceUnavailable or InvalidServiceResponse;
+
+    public static bool IsCancelled(string? errorCode) => errorCode == SignInCancelled;
 }

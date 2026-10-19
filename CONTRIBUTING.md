@@ -1,6 +1,6 @@
 # Contributing to Wino Mail
 
-Wino Mail started as a personal project and grew through community interest. Contributions can include code, tests, documentation, bug reports, and proposals.
+Wino Mail started as a personal project and grew through community interest. Contributions can include code, documentation, bug reports, and proposals.
 
 Read this guide before you start implementation. For coding-agent rules, also read [`AGENTS.md`](AGENTS.md) and any closer `AGENTS.md` file.
 
@@ -12,7 +12,7 @@ Create a proposal before you design a large feature or a new subsystem. Wait for
 
 Wino preserves the direct experience of Windows Mail and Calendar. A proposal can be rejected when it conflicts with this product direction.
 
-AI-assisted contributions are welcome. Contributors remain responsible for the design, code, tests, security, and accuracy of every submitted change.
+AI-assisted contributions are welcome. Contributors remain responsible for the design, code, security, and accuracy of every submitted change.
 
 AI-assisted changes must obey the same architecture, coding rules, and maintainer decisions as manually written changes.
 
@@ -37,7 +37,6 @@ For terminal use:
 ```powershell
 dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64
 winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --arch x64 --detach
-dotnet test tests/Wino.Core.Tests/Wino.Core.Tests.csproj -c Debug -p:Platform=x64
 ```
 
 The SDK handles restore and compilation. F5 uses one PowerShell helper to skip compilation when inputs and output are unchanged.
@@ -48,7 +47,7 @@ On a Mac, open [`WinoMail.MacOS.code-workspace`](WinoMail.MacOS.code-workspace) 
 ## Testing and maintenance
 
 Use the [local Docker lab](tools/local-lab/README.md) for manual application testing on Windows. The lab does not run on macOS yet.
-Keep unit tests for logic and release-script tests for packaging.
+The repository has no automated test projects. Verify changes with builds and manual checks in the running application.
 Agent-driven UI suites and automation scripts are retired.
 
 Use the [script index](scripts/README.md) for release packaging, lab provisioning, XAML maintenance, and localization.
@@ -123,7 +122,6 @@ sequenceDiagram
 - [`controls`](controls) contains highly customized controls shared by Wino applications. It is not a general-purpose control library.
 - [`Wino.Editor`](controls/Wino.Editor) contains the HTML, CSS, and JavaScript assets for mail reading and composition.
 - [`Wino.Mail.Controls.Playground`](controls/Wino.Mail.Controls.Playground) is the quick test application for controls before full application integration.
-- [`tests`](tests) contains unit tests and script checks.
 
 ## Notification architecture
 
@@ -190,10 +188,9 @@ Every icon comes from the WinoIcons fonts. To add one, follow [Add an icon](icon
 ## Before you submit
 
 1. Review the diff and remove unrelated changes.
-2. Run the narrowest relevant build and tests.
+2. Run the narrowest relevant build.
 3. Run the XAML and UI checks when the change affects the interface.
-4. Add or update tests for changed behavior.
-5. Describe what you verified and what remains unverified.
+4. Describe what you verified and what remains unverified.
 
 ## Additional help
 

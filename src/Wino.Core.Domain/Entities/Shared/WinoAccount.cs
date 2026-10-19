@@ -24,6 +24,10 @@ public class WinoAccount
 
     public bool HasFacebookLogin { get; set; }
 
+    public bool HasAppleLogin { get; set; }
+
+    public bool HasMicrosoftLogin { get; set; }
+
     public bool IsUnlimitedAccountsEnabled { get; set; }
 
     public string AccessToken { get; set; } = string.Empty;

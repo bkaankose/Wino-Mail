@@ -35,13 +35,16 @@ namespace Wino.Services;
 public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogService, IRecipient<SemanticIndexingCompleted>
 {
     private readonly IWinoAccountProfileService _winoAccountProfileService;
+    private readonly IWinoAccountExternalSignInService _winoAccountExternalSignInService;
 
     public DialogService(INewThemeService themeService,
                          IConfigurationService configurationService,
                          IApplicationResourceManager<ResourceDictionary> applicationResourceManager,
-                         IWinoAccountProfileService winoAccountProfileService) : base(themeService, configurationService, applicationResourceManager)
+                         IWinoAccountProfileService winoAccountProfileService,
+                         IWinoAccountExternalSignInService winoAccountExternalSignInService) : base(themeService, configurationService, applicationResourceManager)
     {
         _winoAccountProfileService = winoAccountProfileService;
+        _winoAccountExternalSignInService = winoAccountExternalSignInService;
         WeakReferenceMessenger.Default.Register(this);
     }
 
@@ -351,12 +354,16 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
 
     public async Task<WinoAccount?> ShowWinoAccountRegistrationDialogAsync()
     {
-        var dialog = new WinoAccountRegistrationDialog(_winoAccountProfileService)
+        var dialog = new WinoAccountRegistrationDialog(_winoAccountProfileService, _winoAccountExternalSignInService)
         {
             RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
         };
 
         await HandleDialogPresentationAsync(dialog);
+
+        // Sign in with Microsoft, Google or Apple ends signed in; the e-mail form ends with a confirmation mail.
+        if (dialog.Result != null)
+            return dialog.Result;
 
         if (!string.IsNullOrWhiteSpace(dialog.ConfirmationEmailAddress))
         {
@@ -370,7 +377,7 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
 
     public async Task<WinoAccount?> ShowWinoAccountLoginDialogAsync()
     {
-        var dialog = new WinoAccountLoginDialog(_winoAccountProfileService)
+        var dialog = new WinoAccountLoginDialog(_winoAccountProfileService, _winoAccountExternalSignInService)
         {
             RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
         };

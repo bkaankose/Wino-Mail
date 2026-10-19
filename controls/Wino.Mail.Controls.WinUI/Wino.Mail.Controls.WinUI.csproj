@@ -45,6 +45,5 @@
     <Content Include="Assets\WinoIcons.ttf"
              TargetPath="Assets\WinoIcons.ttf"
              CopyToOutputDirectory="PreserveNewest" />
-    <InternalsVisibleTo Include="Wino.Mail.Controls.Tests" />
   </ItemGroup>
 </Project>

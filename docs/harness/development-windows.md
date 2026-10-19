@@ -34,7 +34,7 @@ Native AOT compatibility is a release-blocking correctness requirement. A bindin
 - Do not add `IL*` or `WMC1510` codes to `NoWarn`. ILC reports every assembly's warnings in detail. The only exception is the upstream allowlist in `build/Wino.Windows.targets` (`WinoCollapseUpstreamTrimWarnings`): Ical.Net collapses to a single summary warning that is ignored, and the WinUI project roots the whole assembly. A package that declares itself trimmable always reports in detail. Remove an unreachable unsafe path with a trimmer substitution (`ILLink.AotSubstitutions.xml`); the MimeKit default S/MIME context is removed this way. Fix a new package warning at the call site, by updating the package, or with a trimmer root. Add a package to the allowlist only with a comment explaining why it is safe at runtime.
 - DataTemplates in a library's `Themes/Generic.xaml` cannot declare `x:DataType`, because that dictionary has no `x:Class`. Put item templates in a class-backed dictionary such as `Themes/WinoItemTemplates.xaml`, bind them with `x:Bind`, and merge that dictionary into `Generic.xaml`. Inside a `ControlTemplate`, use `TemplateBinding` instead of `{Binding …, RelativeSource={RelativeSource TemplatedParent}}`.
 - Register event handlers in XAML wherever XAML can express them, including `Loaded`, `Unloaded`, and input events. Do not subscribe with `+=`/`-=` in code-behind when a XAML attribute works; reserve code subscriptions for events XAML cannot reach, such as `XamlRoot.Changed`, and prefer a XAML-only design over adding them.
-- Changes to production C#, XAML, bindings, WinRT-facing models, dependencies, or build configuration require both the Debug x64 build and the Release x64 gate below, in addition to applicable tests. Documentation-only changes do not require builds. Fix introduced errors and related build blockers before handoff; if an unrelated blocker prevents verification, report the failed check and do not claim Release/AOT validation passed.
+- Changes to production C#, XAML, bindings, WinRT-facing models, dependencies, or build configuration require both the Debug x64 build and the Release x64 gate below. Documentation-only changes do not require builds. Fix introduced errors and related build blockers before handoff; if an unrelated blocker prevents verification, report the failed check and do not claim Release/AOT validation passed.
 
 Run the Release gate without launching or deploying:
 
@@ -215,20 +215,27 @@ pwsh -File scripts/maintenance/windows/format-xaml.ps1 -Changed -Check
 
 The editor extension is a convenience. The pinned command-line result is the formatting source of truth.
 
-## Unit tests and manual lab checks
+## Manual lab checks
 
-Run the affected unit-test project directly:
-
-```powershell
-dotnet test tests/Wino.Core.Tests/Wino.Core.Tests.csproj -c Debug -p:Platform=x64 --filter "FullyQualifiedName~RelevantTestClass"
-dotnet test tests/Wino.Mail.ViewModels.Tests/Wino.Mail.ViewModels.Tests.csproj -c Debug -p:Platform=x64
-dotnet test tests/Wino.Mail.Controls.Tests/Wino.Mail.Controls.Tests.csproj -c Debug -p:Platform=x64
-```
+The repository has no automated test projects. Verify behavior with builds and manual checks in the running application.
 
 The [local Docker lab](../../tools/local-lab/README.md) is the application testing environment. It currently runs on Windows only.
 Its entry point is `scripts/lab/windows/local-lab.ps1`. `up` provisions five IMAP/SMTP/DAV servers (QRESYNC, CONDSTORE-only, and UID-only variants) with generated mail and generates account data; `install-app` installs that data into the Debug package and launches Wino. Nothing automates the UI.
 Agent-driven UI suites, recording scripts, automation-ID audits, and Sandbox test orchestration are retired.
-Report manual checks separately from compilation and unit-test results.
+Report manual checks separately from compilation results.
+
+## Wino Account sign-in with Microsoft, Google and Apple
+
+The Wino Account login and registration dialogs offer Sign in with Microsoft, Google and Apple under an "or" rule, Microsoft first. Every provider runs the API's browser flow on Windows; the app never embeds a provider SDK.
+
+1. The dialog calls `IWinoAccountExternalSignInService` (`WinoAccountExternalSignInService` in `Wino.Services`), which asks `IWinoAccountApiClient.GetExternalSignInAuthorizationUri` for the start page: `https://winomail.app/auth/{provider}` against the production API, or `api/v1/auth/{provider}/authorize` against a local API.
+2. `WindowsBrowserAuthBroker` (`Wino.Platform.Windows/Authentication`) registers a wait in `WindowsExternalAuthCallbacks` and opens that page with `IExternalLauncher`, the same launcher the Gmail sign-in uses.
+3. The API finishes with the provider and redirects to `wino://auth-complete?code=…` (or `?errorCode=…`). The existing `wino` protocol registration in `Package.appxmanifest` activates the app; single-instancing redirects the activation to the running instance, and `AppActivationHandler` routes it as `WinoAccountAuthCallbackProtocol` to `App.WinoAccountAuthActivation`, which delivers the address to the waiting broker. A callback with nothing waiting (a stale browser tab) just shows the shell.
+4. The service parses the callback with `WinoAccountExternalAuth.ParseCallback` and finishes with `IWinoAccountProfileService.CompleteExternalSignInAsync`, which persists and announces the account exactly like a password login.
+
+The wait gives up after `WinoAccountExternalAuth.CompletionCodeLifetime` (two minutes, the API's completion-code lifetime). Closing the dialog cancels the wait; the browser tab stays open. A dismissed or cancelled flow shows no error (`WinoAccountClientErrorCodes.SignInCancelled`). Error codes map to text in `WinoAccountAuthErrorTranslator` (`Wino.Core.Domain`), shared with the other heads.
+
+Verify manually in the lab: each button opens the default browser, the redirect returns to the running app and the dialog closes signed in, and Cancel during the wait leaves no stuck busy state. The protocol is only registered for the packaged app, so an unpackaged run cannot complete the flow.
 
 ## Release and maintenance
 

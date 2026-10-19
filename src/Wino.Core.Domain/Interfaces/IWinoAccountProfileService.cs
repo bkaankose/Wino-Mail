@@ -31,6 +31,12 @@ public interface IWinoAccountProfileService
 
     Task<WinoAccountOperationResult> RegisterAsync(string email, string password, CancellationToken cancellationToken = default);
     Task<WinoAccountOperationResult> LoginAsync(string email, string password, CancellationToken cancellationToken = default);
+    /// <summary>Signs in with a native Sign in with Apple credential; persists and announces the account like <see cref="LoginAsync"/>.</summary>
+    Task<WinoAccountOperationResult> SignInWithAppleAsync(AppleSignInCredential credential, CancellationToken cancellationToken = default);
+    /// <summary>Signs in with a native Google ID token; persists and announces the account like <see cref="LoginAsync"/>.</summary>
+    Task<WinoAccountOperationResult> SignInWithGoogleAsync(string idToken, CancellationToken cancellationToken = default);
+    /// <summary>Finishes the browser sign-in flow with its completion code; persists and announces the account like <see cref="LoginAsync"/>.</summary>
+    Task<WinoAccountOperationResult> CompleteExternalSignInAsync(string code, CancellationToken cancellationToken = default);
     Task<WinoAccountOperationResult> RefreshAsync(CancellationToken cancellationToken = default);
     Task<WinoAccountOperationResult> RefreshProfileAsync(CancellationToken cancellationToken = default);
     Task<ApiEnvelope<EmailConfirmationResendResultDto>> ResendEmailConfirmationAsync(string endpoint, string ticket, CancellationToken cancellationToken = default);

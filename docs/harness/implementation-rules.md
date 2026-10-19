@@ -18,7 +18,6 @@ src/Wino.Platform.MacOS    macOS platform services
 src/Wino.Mail.WinUI        Windows application (WinUI 3)
 src/Wino.Mail.MacOS        macOS application (AppKit)
 controls                   Shared control contracts, editor engine, WinUI and AppKit controls, playground
-tests                      Portable automated tests
 ```
 
 Mail requests flow through `WinoRequestDelegator`, `WinoRequestProcessor`, provider synchronizers, change processors, the local SQLite database, and messenger events. Initial synchronization queues identifiers and downloads MIME content on demand.

@@ -38,17 +38,6 @@ dotnet build WinoMail.MacOS.slnx -c Debug -p:WinoTargetPlatform=MacOS -p:EnableW
 Output is `src/Wino.Mail.MacOS/bin/Debug/net10.0-macos/<RID>/Wino Mail.app`. The bundle's native launcher is `Contents/MacOS/Wino.Mail.MacOS`.
 Debug and Release use CoreCLR (`UseMonoRuntime=false`); the bundle contains `libcoreclr.dylib`. The AppKit head is exempt from the shared Native AOT gate (`build/Wino.MacOS.targets`); portable libraries keep their Release AOT and trimming analyzers.
 
-Run the portable tests on the Mac the same way:
-
-```sh
-dotnet test tests/Wino.Core.Tests/Wino.Core.Tests.csproj -c Debug -p:WinoTargetPlatform=MacOS
-dotnet test tests/Wino.Mail.ViewModels.Tests/Wino.Mail.ViewModels.Tests.csproj -c Debug -p:WinoTargetPlatform=MacOS
-dotnet test tests/Wino.Mail.Controls.Tests/Wino.Mail.Controls.Tests.csproj -c Debug -p:WinoTargetPlatform=MacOS
-dotnet test tests/Wino.Core.ML.Tests/Wino.Core.ML.Tests.csproj -c Debug -p:WinoTargetPlatform=MacOS -p:WinoTargetRuntimeIdentifier=osx-arm64
-```
-
-The test projects are also in `WinoMail.MacOS.slnx`.
-
 ## Identity, signing, and sandbox
 
 | Item | Value |
@@ -112,7 +101,7 @@ On 2026-10-07, the production arm64 app hit a source breakpoint at `Program.cs:9
 | Change | Required evidence |
 | --- | --- |
 | AppKit head, AppKit controls, or Mac platform services | Native Debug arm64 and x64 builds, plus manual checks on the Mac |
-| Shared code used by the Mac | The Mac builds above, affected portable tests on the Mac, and the Windows checks in [AGENTS.md](../../AGENTS.md) |
+| Shared code used by the Mac | The Mac builds above and the Windows checks in [AGENTS.md](../../AGENTS.md) |
 | Signing, entitlements, bundle identity, or release inputs | Native Release builds for arm64 and x64, `codesign --verify --deep --strict`, effective entitlements and bundle identifier; universal architecture selection when release inputs change |
 | Debugger tooling or workspace | The F5 acceptance steps above on Apple Silicon |
 

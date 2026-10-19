@@ -74,6 +74,8 @@
 		<PackageReference Include="CommunityToolkit.Diagnostics" />
 		<PackageReference Include="CommunityToolkit.Mvvm" />
 		<PackageReference Include="MimeKit" />
+		<!-- Direct reference so the audited 10.0.13 wins over MimeKit's 10.0.0 (no transitive pinning). -->
+		<PackageReference Include="System.Security.Cryptography.Pkcs" />
 		<PackageReference Include="MailKit" />
 		<PackageReference Include="sqlite-net-pcl" />
 		<PackageReference Include="TimePeriodLibrary.NET" />

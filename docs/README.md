@@ -21,6 +21,6 @@ The [local Docker lab](../tools/local-lab/README.md) currently runs on Windows o
 Historical records, such as the [AppKit migration plan](appkit-platform-migration-plan.md) and the [AppKit foundation validation](harness/appkit-foundation-validation.md), describe earlier decisions and evidence; the guides above are current.
 
 Normal Windows development uses Debug and x64; normal Mac development uses Debug on Apple Silicon. Release packages are built and inspected without installation or launch.
-Official signing and publication require maintainer-granted access. Contributors can run translation dry runs and script tests without release credentials.
+Official signing and publication require maintainer-granted access. Contributors can run translation dry runs without release credentials.
 
 HTML files under `design-prototypes/` illustrate interface concepts. Their sample accounts and user-facing text represent application content, not developer setup instructions.

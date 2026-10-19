@@ -871,14 +871,14 @@ WHERE SortKey IS NULL OR SortKey = ''").ConfigureAwait(false);
     private async Task EnsureWinoAccountSchemaAsync()
     {
         var columns = await Connection.GetTableInfoAsync(nameof(WinoAccount)).ConfigureAwait(false);
-        if (columns.Any(c => c.Name == nameof(WinoAccount.IsUnlimitedAccountsEnabled)))
+        foreach (var column in new[] { nameof(WinoAccount.IsUnlimitedAccountsEnabled), nameof(WinoAccount.HasAppleLogin), nameof(WinoAccount.HasMicrosoftLogin) })
         {
-            return;
-        }
+            if (columns.Any(c => c.Name == column)) continue;
 
-        await Connection.ExecuteAsync(
-            $"ALTER TABLE {nameof(WinoAccount)} ADD COLUMN {nameof(WinoAccount.IsUnlimitedAccountsEnabled)} INTEGER NOT NULL DEFAULT 0")
-            .ConfigureAwait(false);
+            await Connection.ExecuteAsync(
+                $"ALTER TABLE {nameof(WinoAccount)} ADD COLUMN {column} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
     }
 
     private async Task EnsureKeyboardShortcutSchemaAsync()

@@ -113,6 +113,24 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     public Task<WinoAccountApiResult<AuthResultDto>> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
         => SendAuthRequestAsync("api/v1/auth/login", new LoginRequest(email, password), WinoAccountApiJsonContext.Default.LoginRequest, cancellationToken);
 
+    public Task<WinoAccountApiResult<AuthResultDto>> SignInWithAppleNativeAsync(string identityToken, string authorizationCode, string? givenName, string? familyName, CancellationToken cancellationToken = default)
+        => SendAuthRequestAsync("api/v1/auth/apple/native", new NativeAppleAuthRequest(identityToken, authorizationCode, givenName, familyName), WinoAccountApiJsonContext.Default.NativeAppleAuthRequest, cancellationToken);
+
+    public Task<WinoAccountApiResult<AuthResultDto>> SignInWithGoogleNativeAsync(string idToken, CancellationToken cancellationToken = default)
+        => SendAuthRequestAsync("api/v1/auth/google/native", new NativeGoogleAuthRequest(idToken), WinoAccountApiJsonContext.Default.NativeGoogleAuthRequest, cancellationToken);
+
+    public Task<WinoAccountApiResult<AuthResultDto>> CompleteExternalSignInAsync(string code, CancellationToken cancellationToken = default)
+        => SendAuthRequestAsync("api/v1/auth/external/complete", new CompleteExternalAuthRequest(code), WinoAccountApiJsonContext.Default.CompleteExternalAuthRequest, cancellationToken);
+
+    /// <summary>The production API starts on winomail.app (see <see cref="WinoAccountExternalAuth.StartUri"/>); a local API directly.</summary>
+    public Uri GetExternalSignInAuthorizationUri(string provider)
+    {
+        var baseAddress = _httpClient.BaseAddress ?? new Uri(ApiUrl);
+        return baseAddress.Host == "api.winomail.app"
+            ? WinoAccountExternalAuth.StartUri(provider)
+            : new Uri(baseAddress, $"api/v1/auth/{provider}/authorize");
+    }
+
     public Task<WinoAccountApiResult<AuthResultDto>> RefreshAsync(string refreshToken, CancellationToken cancellationToken = default)
         => SendAuthRequestAsync("api/v1/auth/refresh", new RefreshRequest(refreshToken), WinoAccountApiJsonContext.Default.RefreshRequest, cancellationToken);
 
@@ -1037,6 +1055,8 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             HasPassword = result.User.HasPassword,
             HasGoogleLogin = result.User.HasGoogleLogin,
             HasFacebookLogin = result.User.HasFacebookLogin,
+            HasAppleLogin = result.User.HasAppleLogin,
+            HasMicrosoftLogin = result.User.HasMicrosoftLogin,
             IsUnlimitedAccountsEnabled = result.User.IsUnlimitedAccountsEnabled,
             AccessToken = result.AccessToken,
             AccessTokenExpiresAtUtc = result.AccessTokenExpiresAtUtc.UtcDateTime,
@@ -1068,6 +1088,9 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(UpdateUserProfileRequest))]
 [JsonSerializable(typeof(RegisterRequest))]
 [JsonSerializable(typeof(LoginRequest))]
+[JsonSerializable(typeof(NativeAppleAuthRequest))]
+[JsonSerializable(typeof(NativeGoogleAuthRequest))]
+[JsonSerializable(typeof(CompleteExternalAuthRequest))]
 [JsonSerializable(typeof(RefreshRequest))]
 [JsonSerializable(typeof(LogoutRequest))]
 [JsonSerializable(typeof(ResendEmailConfirmationRequest))]

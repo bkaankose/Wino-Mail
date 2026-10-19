@@ -57,8 +57,8 @@ later reprocessed can resurface.
 ## Wiring
 
 Every DTO crossing the API boundary must be registered in `WinoAccountApiJsonContext`.
-`Wino.Services` is trimmable with the analyzer on and `tests/Wino.Services.AotSmoke` publishes
-it with `PublishAot`, so an unregistered type fails the publish rather than failing at runtime.
+`Wino.Services` is trimmable with the analyzer on, and the Windows Release gate publishes it with
+Native AOT, so an unregistered type fails the build rather than failing at runtime.
 
 Automatic-sync triggers swallow their exceptions on purpose. Intelligence must never break mail
 synchronization.

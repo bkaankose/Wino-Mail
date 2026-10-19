@@ -76,9 +76,28 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
         return WinoAccountOperationResult.Success(Map(response.Result));
     }
 
-    public async Task<WinoAccountOperationResult> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
+    public Task<WinoAccountOperationResult> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
+        => SignInAsync(token => _apiClient.LoginAsync(email, password, token), cancellationToken);
+
+    public Task<WinoAccountOperationResult> SignInWithAppleAsync(AppleSignInCredential credential, CancellationToken cancellationToken = default)
     {
-        var response = await _apiClient.LoginAsync(email, password, cancellationToken).ConfigureAwait(false);
+        ArgumentNullException.ThrowIfNull(credential);
+        return SignInAsync(token => _apiClient.SignInWithAppleNativeAsync(credential.IdentityToken, credential.AuthorizationCode, credential.GivenName, credential.FamilyName, token), cancellationToken);
+    }
+
+    public Task<WinoAccountOperationResult> SignInWithGoogleAsync(string idToken, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(idToken);
+        return SignInAsync(token => _apiClient.SignInWithGoogleNativeAsync(idToken, token), cancellationToken);
+    }
+
+    public Task<WinoAccountOperationResult> CompleteExternalSignInAsync(string code, CancellationToken cancellationToken = default)
+        => SignInAsync(token => _apiClient.CompleteExternalSignInAsync(code, token), cancellationToken);
+
+    /// <summary>Every sign-in path: the API call, then the session is persisted and announced.</summary>
+    private async Task<WinoAccountOperationResult> SignInAsync(Func<CancellationToken, Task<WinoAccountApiResult<AuthResultDto>>> request, CancellationToken cancellationToken)
+    {
+        var response = await request(cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         var result = await PersistResponseAsync(response).ConfigureAwait(false);
 
@@ -486,6 +505,8 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
            left.HasPassword == right.HasPassword &&
            left.HasGoogleLogin == right.HasGoogleLogin &&
            left.HasFacebookLogin == right.HasFacebookLogin &&
+           left.HasAppleLogin == right.HasAppleLogin &&
+           left.HasMicrosoftLogin == right.HasMicrosoftLogin &&
            left.IsUnlimitedAccountsEnabled == right.IsUnlimitedAccountsEnabled;
 
     private static WinoAccount MergeAccountProfile(WinoAccount existingAccount, AuthUserDto profile)
@@ -499,6 +520,8 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
             HasPassword = profile.HasPassword,
             HasGoogleLogin = profile.HasGoogleLogin,
             HasFacebookLogin = profile.HasFacebookLogin,
+            HasAppleLogin = profile.HasAppleLogin,
+            HasMicrosoftLogin = profile.HasMicrosoftLogin,
             IsUnlimitedAccountsEnabled = profile.IsUnlimitedAccountsEnabled,
             AccessToken = existingAccount.AccessToken,
             AccessTokenExpiresAtUtc = existingAccount.AccessTokenExpiresAtUtc,
@@ -518,6 +541,8 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
             HasPassword = result.User.HasPassword,
             HasGoogleLogin = result.User.HasGoogleLogin,
             HasFacebookLogin = result.User.HasFacebookLogin,
+            HasAppleLogin = result.User.HasAppleLogin,
+            HasMicrosoftLogin = result.User.HasMicrosoftLogin,
             IsUnlimitedAccountsEnabled = result.User.IsUnlimitedAccountsEnabled,
             AccessToken = result.AccessToken,
             AccessTokenExpiresAtUtc = result.AccessTokenExpiresAtUtc.UtcDateTime,

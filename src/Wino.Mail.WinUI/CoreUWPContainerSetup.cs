@@ -8,6 +8,7 @@ using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Services;
 using Wino.Services;
 using Wino.Platform.Windows;
+using Wino.Platform.Windows.Authentication;
 using Wino.Platform.Windows.Services;
 using Wino.Authentication;
 using Wino.Core.Domain.Models.Platform;
@@ -59,6 +60,15 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<IDialogServiceBase>(provider => provider.GetRequiredService<IMailDialogService>());
         services.AddSingleton<IWinoDialogService>(provider => (IWinoDialogService)provider.GetRequiredService<IMailDialogService>());
         services.AddSingleton<IExternalBrowserAuthenticationPresenter, ExternalBrowserAuthenticationPresenter>();
+
+        // Wino Account Sign in with Microsoft, Google and Apple: all through the API's browser flow. The wino://auth-complete
+        // protocol activation (App.WinoAccountAuthActivation) delivers the redirect to the waiting broker.
+        services.AddSingleton<WindowsExternalAuthCallbacks>();
+        services.AddSingleton<IWinoAccountBrowserAuthBroker>(provider => new WindowsBrowserAuthBroker(
+            provider.GetRequiredService<IExternalLauncher>(), provider.GetRequiredService<WindowsExternalAuthCallbacks>()));
+        services.AddSingleton<IWinoAccountExternalSignInService>(provider => new WinoAccountExternalSignInService(
+            provider.GetRequiredService<IWinoAccountApiClient>(), provider.GetRequiredService<IWinoAccountProfileService>(),
+            apple: null, google: null, provider.GetRequiredService<IWinoAccountBrowserAuthBroker>()));
         services.AddTransient<IConfigurationService, ConfigurationService>();
         services.AddTransient<IFileService, FileService>();
         services.AddSingleton<IMicrosoftStoreService, MicrosoftStoreService>();
