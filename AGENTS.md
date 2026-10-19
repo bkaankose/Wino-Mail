@@ -124,7 +124,10 @@ Binding for every agent. Backend counterpart: `AGENTS.md` and `docs/social-sign-
 - **Never touch the Google UWP OAuth client `973025879644-s7b4ur9p3rlgop6a22u7iuptdc0brnrn`.** It is the Windows
   app's Gmail mailbox client. Do not change, rotate, replace or repurpose it, and never use it for Wino Accounts
   sign-in. Ask the user if a task seems to need it.
-- Wino Accounts Google sign-in: Windows uses the API's browser flow (`/api/v1/auth/google/authorize`); iOS and
+- Wino Account sign-in with Microsoft, Google and Apple on Windows always uses the API's browser flow: the shared
+  `WinoAccountExternalSignInService` (`Wino.Services`) opens `WinoAccountExternalAuth.StartUri` in the default browser
+  through `WindowsBrowserAuthBroker` (`Wino.Platform.Windows`), and the `wino://auth-complete` protocol activation
+  hands the completion code back through `WindowsExternalAuthCallbacks`. No native provider SDK is involved on Windows.- Wino Accounts Google sign-in: Windows uses the API's browser flow; iOS and
   macOS use the iOS client `973025879644-qlc58h7f2gepqgu3ocvlr7mqvd3fff1c` (`WinoAccountExternalAuth.GoogleAppleClientId`,
   an `ASWebAuthenticationSession` with PKCE in `GoogleWebSessionSignInProvider`) and post the ID token to
   `/api/v1/auth/google/native`; Android uses Credential Manager (`AndroidGoogleSignInProvider`) with `serverClientId`
@@ -149,6 +152,8 @@ Binding for every agent. Backend counterpart: `AGENTS.md` and `docs/social-sign-
 - Build Apple targets with `~/.dotnet/dotnet` (it has the ios/macos/android workloads; `/usr/local/share/dotnet`
   does not). Code signing fails over SSH (`errSecInternalComponent`: the login keychain is locked per SSH
   session), so signed builds run in a local Terminal.
+- The production API starts the flow on `https://winomail.app/auth/{provider}`; a local API is opened directly at
+  `api/v1/auth/{provider}/authorize` (`WinoAccountApiClient.GetExternalSignInAuthorizationUri`).
 
 ## Dependencies
 

@@ -224,6 +224,19 @@ Its entry point is `scripts/lab/windows/local-lab.ps1`. `up` provisions five IMA
 Agent-driven UI suites, recording scripts, automation-ID audits, and Sandbox test orchestration are retired.
 Report manual checks separately from compilation results.
 
+## Wino Account sign-in with Microsoft, Google and Apple
+
+The Wino Account login and registration dialogs offer Sign in with Microsoft, Google and Apple under an "or" rule, Microsoft first. Every provider runs the API's browser flow on Windows; the app never embeds a provider SDK.
+
+1. The dialog calls `IWinoAccountExternalSignInService` (`WinoAccountExternalSignInService` in `Wino.Services`), which asks `IWinoAccountApiClient.GetExternalSignInAuthorizationUri` for the start page: `https://winomail.app/auth/{provider}` against the production API, or `api/v1/auth/{provider}/authorize` against a local API.
+2. `WindowsBrowserAuthBroker` (`Wino.Platform.Windows/Authentication`) registers a wait in `WindowsExternalAuthCallbacks` and opens that page with `IExternalLauncher`, the same launcher the Gmail sign-in uses.
+3. The API finishes with the provider and redirects to `wino://auth-complete?code=…` (or `?errorCode=…`). The existing `wino` protocol registration in `Package.appxmanifest` activates the app; single-instancing redirects the activation to the running instance, and `AppActivationHandler` routes it as `WinoAccountAuthCallbackProtocol` to `App.WinoAccountAuthActivation`, which delivers the address to the waiting broker. A callback with nothing waiting (a stale browser tab) just shows the shell.
+4. The service parses the callback with `WinoAccountExternalAuth.ParseCallback` and finishes with `IWinoAccountProfileService.CompleteExternalSignInAsync`, which persists and announces the account exactly like a password login.
+
+The wait gives up after `WinoAccountExternalAuth.CompletionCodeLifetime` (two minutes, the API's completion-code lifetime). Closing the dialog cancels the wait; the browser tab stays open. A dismissed or cancelled flow shows no error (`WinoAccountClientErrorCodes.SignInCancelled`). Error codes map to text in `WinoAccountAuthErrorTranslator` (`Wino.Core.Domain`), shared with the other heads.
+
+Verify manually in the lab: each button opens the default browser, the redirect returns to the running app and the dialog closes signed in, and Cancel during the wait leaves no stuck busy state. The protocol is only registered for the packaged app, so an unpackaged run cannot complete the flow.
+
 ## Release and maintenance
 
 Use the [Windows release guide](../releases-windows.md) to create distribution artifacts.

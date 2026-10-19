@@ -18,6 +18,15 @@
     <ContentDialog.Resources>
         <x:Double x:Key="ContentDialogMinWidth">440</x:Double>
         <x:Double x:Key="ContentDialogMaxWidth">440</x:Double>
+        <!--  Apple's own look on the stock button: black fill, white mark and title; border and corner radius stay the defaults.  -->
+        <Style
+            x:Key="AppleSignInButtonStyle"
+            BasedOn="{StaticResource DefaultButtonStyle}"
+            TargetType="Button">
+            <Setter Property="Background" Value="Black" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
+        </Style>
     </ContentDialog.Resources>
 
     <!--  The right padding keeps the fields clear of the vertical scrollbar.  -->
@@ -144,17 +153,15 @@
                     </StackPanel>
                 </Button>
 
-                <!--  Apple's own look: black fill, white mark and title; a hairline so it reads on a dark dialog.  -->
+                <!--  Apple's own look (AppleSignInButtonStyle).  -->
                 <Button
                     x:Name="AppleSignInButton"
                     HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Center"
                     AutomationProperties.AutomationId="AppleSignInButton"
                     AutomationProperties.Name="{x:Bind domain:Translator.WinoAccount_SignInWithApple, Mode=OneTime}"
-                    Background="Black"
-                    BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
                     Click="AppleSignInButton_Click"
-                    Foreground="White">
+                    Style="{StaticResource AppleSignInButtonStyle}">
                     <Button.Resources>
                         <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#1F1F1F" />
                         <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#333333" />

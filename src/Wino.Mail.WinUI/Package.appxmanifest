@@ -18,12 +18,19 @@
 				<Folder Name="WinoShared" />
 			</PublisherCacheFolders>
 		</Extension>
+		<!-- Windows App SDK background task host. The Mail entry's windows.backgroundTasks extension names it. -->
+		<Extension Category="windows.activatableClass.inProcessServer">
+			<InProcessServer>
+				<Path>Microsoft.Windows.ApplicationModel.Background.UniversalBGTask.dll</Path>
+				<ActivatableClass ActivatableClassId="Microsoft.Windows.ApplicationModel.Background.UniversalBGTask.Task" ThreadingModel="both" />
+			</InProcessServer>
+		</Extension>
 	</Extensions>
 	
   <Identity
     Name="58272BurakKSE.WinoMailPreview"
     Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
-    Version="2.2.4.0" />
+    Version="2.2.5.0" />
 
   <mp:PhoneIdentity PhoneProductId="7b7e90e9-cc55-4409-9769-99b4b5ed6e9b" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
@@ -70,6 +77,24 @@
 					Enabled="true"
 					DisplayName="Wino Mail" />
 			</uap5:Extension>
+
+			<!-- Session-start background task: Windows activates the application through this class seconds after
+			     logon, ahead of the startup queue that runs the StartupTask above. The permission string lets the
+			     app-container background task host activate it. See Activation/SessionStartActivation.cs. -->
+			<Extension Category="windows.backgroundTasks" EntryPoint="Microsoft.Windows.ApplicationModel.Background.UniversalBGTask.Task">
+				<BackgroundTasks>
+					<Task Type="systemEvent" />
+					<Task Type="general" />
+				</BackgroundTasks>
+			</Extension>
+			<com:Extension Category="windows.comServer">
+				<com:ComServer>
+					<com:ExeServer Executable="Wino.Mail.WinUI.exe" Arguments="--wino-mail --wino-session-start" DisplayName="Wino Mail startup service"
+					               LaunchAndActivationPermission="O:PSG:BUD:(A;;11;;;IU)(A;;11;;;S-1-15-2-1)S:(ML;;NX;;;LW)">
+						<com:Class Id="13437e7f-4198-4d62-bf1a-8cf5186397b3" DisplayName="Wino Mail startup service" />
+					</com:ExeServer>
+				</com:ComServer>
+			</com:Extension>
 
 			<!-- Protocol activation: mailto -->
 			<uap:Extension Category="windows.protocol">

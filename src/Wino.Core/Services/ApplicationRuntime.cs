@@ -53,6 +53,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
     private CancellationTokenSource? _calendarLoop;
     private CancellationTokenSource? _taskLoop;
     private CancellationTokenSource? _contactLoop;
+    private Task? _startupPass;
     private bool _hasAccounts;
     private bool _subscribed;
     private ApplicationRuntimeState _state;
@@ -373,6 +374,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
     private void EnsureLoops()
     {
         if (_state != ApplicationRuntimeState.Running || !_hasAccounts || _lifetime.IsCancellationRequested) return;
+        if (_startupPass == null) StartStartupPass();
         if (_mailLoop == null) RestartMailLoop();
         if (_calendarLoop == null) RestartCalendarLoop();
         if (_taskLoop == null) RestartTaskLoop();
@@ -392,16 +394,58 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
     {
         _mailLoop?.Cancel();
         var source = _mailLoop = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        var startupPass = PendingStartupPass;
         Track(() => RunLoopWithCleanupAsync(source, () => RunAutoSynchronizationLoopAsync(
-            TimeSpan.FromMinutes(GetSyncIntervalMinutes(_preferencesService.EmailSyncIntervalMinutes, Constants.DefaultEmailSyncIntervalMinutes)), source.Token)));
+            TimeSpan.FromMinutes(GetSyncIntervalMinutes(_preferencesService.EmailSyncIntervalMinutes, Constants.DefaultEmailSyncIntervalMinutes)), startupPass, source.Token)));
     }
 
     private void RestartCalendarLoop()
     {
         _calendarLoop?.Cancel();
         var source = _calendarLoop = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        var startupPass = PendingStartupPass;
         Track(() => RunLoopWithCleanupAsync(source, () => RunCalendarAutoSynchronizationLoopAsync(
-            TimeSpan.FromMinutes(GetSyncIntervalMinutes(_preferencesService.CalendarSyncIntervalMinutes, Constants.DefaultCalendarSyncIntervalMinutes)), source.Token)));
+            TimeSpan.FromMinutes(GetSyncIntervalMinutes(_preferencesService.CalendarSyncIntervalMinutes, Constants.DefaultCalendarSyncIntervalMinutes)), startupPass, source.Token)));
+    }
+
+    /// <summary>The startup pass while it still runs; a loop created meanwhile lets it cover the first run.</summary>
+    private Task? PendingStartupPass => _startupPass is { IsCompleted: false } ? _startupPass : null;
+
+    /// <summary>
+    /// The first synchronization after launch runs once, in priority order: mail, then calendar.
+    /// To Do and People keep their own six-hour schedule. Each loop used to run its own first pass
+    /// at the same time, and mail gave up its pass whenever the calendar pass held the shared
+    /// semaphore, so a background launch showed no new mail until the first timer tick minutes later.
+    /// </summary>
+    private void StartStartupPass()
+    {
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _startupPass = completion.Task;
+        Track(async () =>
+        {
+            try
+            {
+                await RunStartupStepAsync(ExecuteAutoSynchronizationAsync, "mail").ConfigureAwait(false);
+                await RunStartupStepAsync(ExecuteCalendarAutoSynchronizationAsync, "calendar").ConfigureAwait(false);
+            }
+            finally
+            {
+                completion.TrySetResult();
+            }
+        });
+    }
+
+    private async Task RunStartupStepAsync(Func<CancellationToken, Task> step, string name)
+    {
+        _lifetime.Token.ThrowIfCancellationRequested();
+        try
+        {
+            await step(_lifetime.Token).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Log.Information($"Startup {name} synchronization failed: {ex.Message}");
+        }
     }
 
     // Tasks and contacts are rarely used modes, and Google Tasks shares one daily quota across
@@ -925,12 +969,16 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         return issueLines.Count == 0 ? null : string.Join(Environment.NewLine, issueLines);
     }
 
-    private async Task RunAutoSynchronizationLoopAsync(TimeSpan interval, CancellationToken cancellationToken)
+    private async Task RunAutoSynchronizationLoopAsync(TimeSpan interval, Task? startupPass, CancellationToken cancellationToken)
     {
         try
         {
-            // The first pass always runs: it catches up whatever arrived while the app was closed.
-            await ExecuteAutoSynchronizationAsync(cancellationToken);
+            // The first pass catches up whatever arrived while the app was closed. At launch the ordered
+            // startup pass is that first run; a loop restarted later runs its own.
+            if (startupPass != null)
+                await startupPass.WaitAsync(cancellationToken);
+            else
+                await ExecuteAutoSynchronizationAsync(cancellationToken);
 
             using var timer = new PeriodicTimer(interval, _timeProvider);
 
@@ -950,11 +998,14 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         }
     }
 
-    private async Task RunCalendarAutoSynchronizationLoopAsync(TimeSpan interval, CancellationToken cancellationToken)
+    private async Task RunCalendarAutoSynchronizationLoopAsync(TimeSpan interval, Task? startupPass, CancellationToken cancellationToken)
     {
         try
         {
-            await ExecuteCalendarAutoSynchronizationAsync(cancellationToken);
+            if (startupPass != null)
+                await startupPass.WaitAsync(cancellationToken);
+            else
+                await ExecuteCalendarAutoSynchronizationAsync(cancellationToken);
 
             using var timer = new PeriodicTimer(interval, _timeProvider);
 

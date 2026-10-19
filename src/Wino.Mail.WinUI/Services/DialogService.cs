@@ -361,7 +361,7 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
 
         await HandleDialogPresentationAsync(dialog);
 
-        // Sign in with Apple or Google ends signed in; the e-mail form ends with a confirmation mail.
+        // Sign in with Microsoft, Google or Apple ends signed in; the e-mail form ends with a confirmation mail.
         if (dialog.Result != null)
             return dialog.Result;
 

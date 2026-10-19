@@ -78,15 +78,16 @@
                 <ProgressBar IsIndeterminate="True" />
             </StackPanel>
 
-            <TextBlock
-                x:Name="ImportStatusTextBlock"
-                HorizontalAlignment="Center"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Style="{StaticResource CaptionTextBlockStyle}"
-                Text="{x:Bind ViewModel.ImportStatusMessage, Mode=OneWay}"
-                TextAlignment="Center"
-                TextWrapping="WrapWholeWords"
-                Visibility="{x:Bind ViewModel.HasImportStatus, Mode=OneWay}" />
+            <!--  The restore outcome when nothing could be imported (no backup, no accounts): an InfoBar so it is not missed.  -->
+            <InfoBar
+                x:Name="ImportStatusInfoBar"
+                Margin="0,8,0,4"
+                HorizontalAlignment="Stretch"
+                AutomationProperties.AutomationId="WelcomePageV2ImportStatusInfoBar"
+                IsClosable="False"
+                IsOpen="{x:Bind ViewModel.HasImportStatus, Mode=OneWay}"
+                Message="{x:Bind ViewModel.ImportStatusMessage, Mode=OneWay}"
+                Severity="Informational" />
 
             <TextBlock
                 Margin="0,4"

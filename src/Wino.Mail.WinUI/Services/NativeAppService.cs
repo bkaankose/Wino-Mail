@@ -208,6 +208,9 @@ public partial class NativeAppService : INativeAppService, IAppMetadataService, 
             {
                 task.Disable();
             }
+
+            // The session-start trigger follows the startup task's state.
+            await Wino.Mail.WinUI.Activation.SessionStartActivation.SyncRegistrationAsync();
         }
         catch (Exception)
         {
