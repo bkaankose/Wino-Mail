@@ -25,6 +25,7 @@ public sealed class PushRelayNotificationHandler : IPushRelayNotificationHandler
     private readonly IPushRelayAppManagedRegistrationStore? _appManaged;
     private readonly IRelayAlertCoverage? _coverage;
     private readonly bool _pushesAreAlerts;
+    private readonly bool _boundSync;
     private readonly ILogger _logger = Log.ForContext<PushRelayNotificationHandler>();
 
     /// <summary>The relay's alert stays visible for about this long before the app may post its own notifications again.</summary>
@@ -41,7 +42,10 @@ public sealed class PushRelayNotificationHandler : IPushRelayNotificationHandler
         _appManaged = appManaged;
         _coverage = coverage;
         // iOS: the relay sends a visible alert that the Notification Service Extension fills in. Everywhere else the app notifies.
-        _pushesAreAlerts = deviceInfo?.Describe().Platform == PushRelayPlatforms.Ios;
+        var platform = deviceInfo?.Describe().Platform;
+        _pushesAreAlerts = platform == PushRelayPlatforms.Ios;
+        // Phones get a short background window per push. The desktop socket keeps running, so its sync is never cut short.
+        _boundSync = platform is not (PushRelayPlatforms.Windows or PushRelayPlatforms.MacOS);
     }
 
     public async Task<PushRelayNotificationOutcome> HandleAsync(IReadOnlyDictionary<string, string> payload, CancellationToken cancellationToken = default)
@@ -111,7 +115,8 @@ public sealed class PushRelayNotificationHandler : IPushRelayNotificationHandler
     private async Task<PushRelayNotificationOutcome> SynchronizeAsync(Guid accountId, CancellationToken cancellationToken)
     {
         using var bounded = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        bounded.CancelAfter(SynchronizationBudget);
+        if (_boundSync)
+            bounded.CancelAfter(SynchronizationBudget);
         try
         {
             var succeeded = await _runtime().SynchronizeAccountInboxAsync(accountId, bounded.Token).ConfigureAwait(false);

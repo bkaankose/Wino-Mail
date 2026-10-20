@@ -17,7 +17,7 @@ namespace Wino.PushRelay.Socket;
 /// <summary>
 /// Keeps one socket to WinoRelay for this device. <c>StartAsync</c> checks the preconditions (device id, relay token,
 /// socket key, the relay's socket info), opens the hub and waits for <c>hello</c>; afterwards a dropped socket is reopened
-/// with jittered backoff until <c>StopAsync</c>, except after <c>bye revoked|replaced|abuse</c> or a lost sign-in.
+/// with jittered backoff until <c>StopAsync</c>, except after <c>bye revoked|abuse</c>, a repeated <c>bye replaced</c> or a lost sign-in.
 /// Encrypted events are decrypted with the device key and the relay key the envelope names.
 /// </summary>
 /// <remarks>Every public member hops to the thread pool first; events are raised from pool threads.</remarks>
@@ -37,6 +37,7 @@ public sealed class WinoRelaySocketClient : IWinoRelaySocketClient
     private Session? _session;
     private int _state;
     private RelaySocketHello? _lastHello;
+    private DateTimeOffset? _lastReplacedReconnectAt;
 
     public WinoRelaySocketClient(
         IPushRelayTokenProvider tokens,
@@ -408,7 +409,14 @@ public sealed class WinoRelaySocketClient : IWinoRelaySocketClient
             RelaySocketByeReasons.Restart => RelaySocketDisconnectReason.RelayRestarting,
             _ => RelaySocketDisconnectReason.ConnectionLost,
         };
-        var reconnect = _options.AutoReconnect && reason is RelaySocketDisconnectReason.ConnectionLost or RelaySocketDisconnectReason.RelayRestarting;
+        var reconnect = _options.AutoReconnect && (reason is RelaySocketDisconnectReason.ConnectionLost or RelaySocketDisconnectReason.RelayRestarting
+            || (reason == RelaySocketDisconnectReason.Replaced && TryClaimReplacedReconnect()));
+
+        if (reconnect && reason == RelaySocketDisconnectReason.Replaced)
+        {
+            // bye(replaced) also means the API moved the device to another owner: reconnect with a fresh token.
+            _tokens.Invalidate();
+        }
 
         if (!reconnect)
         {
@@ -421,6 +429,23 @@ public sealed class WinoRelaySocketClient : IWinoRelaySocketClient
         Raise(Disconnected, new RelaySocketDisconnection(reason, true, attempt.ByeReason, error, attempt.CloseProblem));
         await session.ReleaseAsync(attempt).ConfigureAwait(false);
         session.ReconnectTask = Task.Run(() => ReconnectLoopAsync(session));
+    }
+
+    /// <summary>
+    /// The relay sends <c>bye(replaced)</c> both when the device's owner changed (reconnect under the new owner) and when
+    /// another socket of this device took over. The first gets one prompt reconnect; a second <c>replaced</c> within
+    /// <see cref="WinoRelaySocketOptions.ReplacedReconnectWindow"/> means another socket keeps taking over, so this one stays down.
+    /// </summary>
+    private bool TryClaimReplacedReconnect()
+    {
+        var now = _timeProvider.GetUtcNow();
+        lock (_gate)
+        {
+            if (_lastReplacedReconnectAt is { } last && now - last < _options.ReplacedReconnectWindow)
+                return false;
+            _lastReplacedReconnectAt = now;
+            return true;
+        }
     }
 
     private async Task ReconnectLoopAsync(Session session)

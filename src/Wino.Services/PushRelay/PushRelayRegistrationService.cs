@@ -392,8 +392,15 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
 
     private void PreferenceChanged(object? sender, string propertyName)
     {
-        if (propertyName == nameof(IPreferencesService.SyncMethod))
-            RequestSync(PushRelaySyncReason.OptInChanged);
+        if (propertyName != nameof(IPreferencesService.SyncMethod))
+            return;
+
+        // Turned off: publish at once, without the device, so the socket never reconnects with the identity the
+        // opt-out pass is about to delete. Turning it on again waits for the pass that registers after that one.
+        if (IsOptInPlatform && !IsRelaySelected)
+            Publish(PushRelayAvailability.DisabledByUser, _stateStore.Load(), null);
+
+        RequestSync(PushRelaySyncReason.OptInChanged);
     }
 
     private void PushTokenChanged(object? sender, EventArgs e) => RequestSync(PushRelaySyncReason.PushTokenChanged);
@@ -856,7 +863,8 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
 
     private void RecordPassFailure(PushRelayState state, PushRelayApiException ex, DateTime now)
     {
-        if (ex.IsSignInRequired || ex.IsTokenRejected)
+        // Desktop never needs a Wino Account, so a token failure there is retried with backoff like any other.
+        if ((ex.IsSignInRequired || ex.IsTokenRejected) && !IsDesktopDevice)
         {
             _signInRejected = true;
             state.FailureCount++;
@@ -1129,8 +1137,10 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
 
     /// <summary>Desktop devices are socket-only: they never register a push token, so a closed app receives nothing.</summary>
     private string? CurrentPushToken
-        => _deviceInfo?.Describe().Platform is PushRelayPlatforms.Windows or PushRelayPlatforms.MacOS ? null
+        => IsDesktopDevice ? null
             : _pushTokens is { IsPushChannelAvailable: true, CurrentToken: { Length: > 0 } token } ? token : null;
+
+    private bool IsDesktopDevice => _deviceInfo?.Describe().Platform is PushRelayPlatforms.Windows or PushRelayPlatforms.MacOS;
 
     private string? ResolveLocale()
     {

@@ -92,8 +92,16 @@ public sealed class PushRelayTokenProvider : IPushRelayTokenProvider
     {
         if (await GetDeviceCredentialAsync(cancellationToken).ConfigureAwait(false) is not null)
             return false;
+
+        // Desktop never needs a Wino Account: a missing credential (API device cap, unreachable API) is retried with backoff.
+        if (IsDesktop)
+            return false;
+
         return await CaptureSessionAsync(cancellationToken).ConfigureAwait(false) is null;
     }
+
+    /// <summary>Windows and macOS register without attestation and must work without a Wino Account.</summary>
+    private bool IsDesktop => _deviceInfo?.Describe().Platform is PushRelayPlatforms.Windows or PushRelayPlatforms.MacOS;
 
     public async Task<PushRelayDeviceCredential?> GetDeviceCredentialAsync(CancellationToken cancellationToken = default)
     {
@@ -379,32 +387,42 @@ public sealed class PushRelayTokenProvider : IPushRelayTokenProvider
             var session = await CaptureSessionAsync(cancellationToken).ConfigureAwait(false);
 
             // Device path: no link yet, or the signed-in account is not the linked one (the link call will follow).
-            if (credential is not null && (credential.LinkedWinoUserId is null || session is null || session.AccountId != credential.LinkedWinoUserId))
+            var devicePath = credential is not null && (credential.LinkedWinoUserId is null || session is null || session.AccountId != credential.LinkedWinoUserId);
+            if (!devicePath && session is not null)
             {
-                var assertion = await CreateAssertionAsync(credential, cancellationToken).ConfigureAwait(false);
-                var envelope = await _apiClient.CreateRelayTokenForDeviceAsync(credential.DeviceId, credential.Secret, assertion, cancellationToken).ConfigureAwait(false);
-                if (envelope.IsSuccess && envelope.Result is { } result && !string.IsNullOrWhiteSpace(result.Token))
-                    return ToToken(result);
+                var userEnvelope = await _apiClient.CreateRelayTokenAsync(cancellationToken).ConfigureAwait(false);
+                if (userEnvelope.IsSuccess && userEnvelope.Result is { } userResult && !string.IsNullOrWhiteSpace(userResult.Token))
+                    return ToToken(userResult);
 
-                if (IsDeviceGone(envelope.ErrorCode) && attempt == 0)
-                {
-                    // The API or the relay forgot this device: register again once.
-                    _logger.Information("The API no longer knows this relay device ({ErrorCode}); registering again.", envelope.ErrorCode);
-                    await ForgetDeviceAsync(cancellationToken).ConfigureAwait(false);
-                    continue;
-                }
+                var failure = MapFailure(userEnvelope.IsSuccess ? WinoAccountClientErrorCodes.InvalidServiceResponse : userEnvelope.ErrorCode, devicePath: false);
 
-                throw MapFailure(envelope.IsSuccess ? WinoAccountClientErrorCodes.InvalidServiceResponse : envelope.ErrorCode, devicePath: true);
+                // Desktop: the device credential keeps working when the linked account's session does not.
+                if (!failure.IsSignInRequired || !IsDesktop || credential is null)
+                    throw failure;
             }
 
-            if (session is null)
-                throw new PushRelayApiException(new PushRelayProblem(PushRelayErrorCodes.SignInRequired, 0, Detail: "No device credential and no Wino Account session."));
+            if (credential is null)
+            {
+                // Desktop never asks for a Wino Account: the device credential is missing for now (API device cap, unreachable API).
+                throw new PushRelayApiException(IsDesktop
+                    ? new PushRelayProblem(PushRelayErrorCodes.ServiceUnavailable, 0, Detail: "The relay device credential is not available yet.")
+                    : new PushRelayProblem(PushRelayErrorCodes.SignInRequired, 0, Detail: "No device credential and no Wino Account session."));
+            }
 
-            var userEnvelope = await _apiClient.CreateRelayTokenAsync(cancellationToken).ConfigureAwait(false);
-            if (!userEnvelope.IsSuccess || userEnvelope.Result is not { } userResult || string.IsNullOrWhiteSpace(userResult.Token))
-                throw MapFailure(userEnvelope.IsSuccess ? WinoAccountClientErrorCodes.InvalidServiceResponse : userEnvelope.ErrorCode, devicePath: false);
+            var assertion = await CreateAssertionAsync(credential, cancellationToken).ConfigureAwait(false);
+            var envelope = await _apiClient.CreateRelayTokenForDeviceAsync(credential.DeviceId, credential.Secret, assertion, cancellationToken).ConfigureAwait(false);
+            if (envelope.IsSuccess && envelope.Result is { } result && !string.IsNullOrWhiteSpace(result.Token))
+                return ToToken(result);
 
-            return ToToken(userResult);
+            if (IsDeviceGone(envelope.ErrorCode) && attempt == 0)
+            {
+                // The API or the relay forgot this device: register again once.
+                _logger.Information("The API no longer knows this relay device ({ErrorCode}); registering again.", envelope.ErrorCode);
+                await ForgetDeviceAsync(cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
+            throw MapFailure(envelope.IsSuccess ? WinoAccountClientErrorCodes.InvalidServiceResponse : envelope.ErrorCode, devicePath: true);
         }
     }
 

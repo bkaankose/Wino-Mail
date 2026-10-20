@@ -95,7 +95,10 @@ public enum RelaySocketDisconnectReason
     /// <summary><c>bye revoked</c>: the device must register again.</summary>
     Revoked,
 
-    /// <summary><c>bye replaced</c>: a newer socket of this device took over, so this client stays down.</summary>
+    /// <summary>
+    /// <c>bye replaced</c>: the device's owner changed, or a newer socket of this device took over. The client reconnects
+    /// once with a fresh token; a repeat soon after means another socket took over, and the client stays down.
+    /// </summary>
     Replaced,
 
     /// <summary><c>bye restart</c>: the relay instance is restarting; the client reconnects.</summary>

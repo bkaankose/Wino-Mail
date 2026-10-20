@@ -36,8 +36,6 @@ public sealed class SyncCoordinator : ISyncCoordinator,
     internal static readonly TimeSpan FlapWindow = TimeSpan.FromMinutes(10);
     internal const int FlapThreshold = 6;
     internal static readonly TimeSpan FlapCooldown = TimeSpan.FromMinutes(10);
-    internal static readonly TimeSpan RecoveryCatchUpMinimumOutage = TimeSpan.FromMinutes(2);
-    internal static readonly TimeSpan CatchUpMinimumGap = TimeSpan.FromMinutes(5);
     internal static readonly TimeSpan RetryThrottle = TimeSpan.FromMinutes(5);
     internal static readonly TimeSpan NetworkDebounce = TimeSpan.FromSeconds(5);
 
@@ -86,7 +84,6 @@ public sealed class SyncCoordinator : ISyncCoordinator,
     private DateTimeOffset? _socketDownSinceUtc;
     private DateTimeOffset? _cooldownUntilUtc;
     private DateTimeOffset? _lastSuccessfulSyncUtc;
-    private DateTimeOffset? _lastCatchUpUtc;
     private bool _networkAvailable = true;
     private ITimer? _graceTimer;
     private ITimer? _stableTimer;
@@ -433,6 +430,8 @@ public sealed class SyncCoordinator : ISyncCoordinator,
         var outage = socket.LastOutage;
         var now = _timeProvider.GetUtcNow();
         string? cause = null;
+        SyncCatchUpReason? catchUp = null;
+        string? catchUpNote = null;
 
         lock (_gate)
         {
@@ -444,6 +443,13 @@ public sealed class SyncCoordinator : ISyncCoordinator,
                 _rawSocketConnected = true;
                 RecordTransition(now);
                 DisposeTimer(ref _graceTimer);
+
+                // Back within the grace period: the mode never left Relay, so no transition will catch up for the gap.
+                if (_stableSocketConnected && _snapshot.Mode == EffectiveSyncMode.Relay && _socketDownSinceUtc is not null)
+                {
+                    (catchUp, catchUpNote) = DecideRecoveryCatchUp(now);
+                    _socketDownSinceUtc = null;
+                }
                 // Stays "down" until the socket survives the stable window; a bounce never flips the mode.
                 if (!_stableSocketConnected)
                     _stableTimer = StartTimer(ref _stableTimer, SocketUpStable, SocketStableElapsed);
@@ -451,7 +457,9 @@ public sealed class SyncCoordinator : ISyncCoordinator,
             else if (!connected && _rawSocketConnected)
             {
                 _rawSocketConnected = false;
-                _socketDownSinceUtc ??= now;
+                // Turning relay-based sync off closes the socket too; that is no outage to catch up after.
+                if (_preferences.SyncMethod == SyncMethod.Relay)
+                    _socketDownSinceUtc ??= now;
                 RecordTransition(now);
                 DisposeTimer(ref _stableTimer);
 
@@ -480,6 +488,15 @@ public sealed class SyncCoordinator : ISyncCoordinator,
             Recompute(cause);
         else
             RaiseChangedIfSocketStateDiffers();
+
+        if (catchUpNote is not null)
+            _logger.Information("Catch-up on relay socket reconnect: {Note}.", catchUpNote);
+
+        if (catchUp is { } reason)
+        {
+            try { CatchUpRequested?.Invoke(this, reason); }
+            catch (Exception ex) { _logger.Warning(ex, "A catch-up subscriber threw."); }
+        }
     }
 
     private void SocketGraceElapsed(object? state)
@@ -625,10 +642,8 @@ public sealed class SyncCoordinator : ISyncCoordinator,
             if (mode != previous.Mode)
                 (catchUp, catchUpNote) = DecideCatchUp(previous.Mode, mode, now);
 
-            if (catchUp is not null)
-                _lastCatchUpUtc = now;
-
-            if (_rawSocketConnected && mode == EffectiveSyncMode.Relay)
+            // Connected again, or the user left relay mode (a stop the user asked for is no outage).
+            if ((_rawSocketConnected && mode == EffectiveSyncMode.Relay) || mode == EffectiveSyncMode.Timer)
                 _socketDownSinceUtc = null;
 
             // Live updates are up, or the user left relay mode: the startup grace has nothing left to hide.
@@ -766,20 +781,21 @@ public sealed class SyncCoordinator : ISyncCoordinator,
         }
 
         if (previous == EffectiveSyncMode.RelayFallback && current == EffectiveSyncMode.Relay)
-        {
-            if (_socketDownSinceUtc is not { } downSince)
-                return (null, "skipped, no outage was recorded (first connection)");
-
-            var outage = now - downSince;
-            if (outage < RecoveryCatchUpMinimumOutage)
-                return (null, $"skipped, the outage lasted {outage.TotalSeconds:F0} s");
-            if (_lastCatchUpUtc is { } lastCatchUp && now - lastCatchUp < CatchUpMinimumGap)
-                return (null, $"skipped, a catch-up ran {(now - lastCatchUp).TotalSeconds:F0} s ago");
-
-            return (SyncCatchUpReason.Recovered, $"requested after a {outage.TotalMinutes:F1} min outage");
-        }
+            return DecideRecoveryCatchUp(now);
 
         return (null, null);
+    }
+
+    /// <summary>
+    /// Called under <see cref="_gate"/>. The relay queues nothing for a desktop while its socket is down, so every reconnect
+    /// after a real outage catches up once. The flap cool-down bounds how often that can happen.
+    /// </summary>
+    private (SyncCatchUpReason? Reason, string? Note) DecideRecoveryCatchUp(DateTimeOffset now)
+    {
+        if (_socketDownSinceUtc is not { } downSince)
+            return (null, "skipped, no outage was recorded (first connection)");
+
+        return (SyncCatchUpReason.Recovered, $"requested after a {(now - downSince).TotalSeconds:F0} s outage");
     }
 
     private static bool SameCoverage(IReadOnlyDictionary<Guid, AccountLiveCoverage> left, IReadOnlyDictionary<Guid, AccountLiveCoverage> right)

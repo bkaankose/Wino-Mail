@@ -39,6 +39,7 @@ public sealed class RelaySocketCoordinator : IRelaySocketCoordinator
     private bool _reconcileAgain;
     private bool? _wanted;
     private DateTimeOffset? _lastChange;
+    private Guid? _revokedDeviceId;
 
     public RelaySocketCoordinator(IWinoRelaySocketClient socket, IPushRelayRegistrationService registration,
         IPushRelayNotificationHandler handler, IPreferencesService preferences, IPlatformCapabilities capabilities)
@@ -264,10 +265,31 @@ public sealed class RelaySocketCoordinator : IRelaySocketCoordinator
             var result = await _socket.StartAsync(lifetime).ConfigureAwait(false);
             if (result.IsConnected) return;
 
-            _logger.Information("Relay socket did not open ({Outcome}); trying again in {Delay}.", result.Outcome, RetryDelay);
+            var delay = result.RetryAfterSeconds is { } seconds ? TimeSpan.FromSeconds(seconds) : RetryDelay;
             if (result.Outcome == RelaySocketStartOutcome.DeviceNotRegistered)
+            {
                 _registration.RequestSync(PushRelaySyncReason.UserRequested);
-            ScheduleRetry(result.RetryAfterSeconds is { } seconds ? TimeSpan.FromSeconds(seconds) : RetryDelay, lifetime);
+            }
+            else if (result.Problem?.Reason == PushRelayAuthReasons.DeviceRevoked)
+            {
+                // The relay no longer accepts this device: registration re-registers it and publishes the device, which
+                // reconciles again. If that device is refused too, the next registration pass waits for a later attempt,
+                // so the publish -> reconcile -> refusal cycle cannot spin.
+                bool repeated;
+                lock (_gate)
+                {
+                    repeated = _revokedDeviceId == snapshot.DeviceId;
+                    _revokedDeviceId = repeated ? null : snapshot.DeviceId;
+                }
+
+                if (repeated)
+                    delay = RetryDelay * 5;
+                else
+                    _registration.RequestSync(PushRelaySyncReason.DeviceRevoked);
+            }
+
+            _logger.Information("Relay socket did not open ({Outcome}/{Reason}); trying again in {Delay}.", result.Outcome, result.Problem?.Reason, delay);
+            ScheduleRetry(delay, lifetime);
         }
         catch (OperationCanceledException)
         {
@@ -304,6 +326,7 @@ public sealed class RelaySocketCoordinator : IRelaySocketCoordinator
     private void SocketConnected(object? sender, RelaySocketHello? hello)
     {
         _logger.Information("Relay socket connected.");
+        lock (_gate) _revokedDeviceId = null;
         SetState(true, RelaySocketOutageKind.None, false);
     }
 
@@ -314,6 +337,7 @@ public sealed class RelaySocketCoordinator : IRelaySocketCoordinator
         {
             case RelaySocketDisconnectReason.ConnectionLost:
             case RelaySocketDisconnectReason.RelayRestarting:
+            case RelaySocketDisconnectReason.Replaced when disconnection.WillReconnect:
                 SetState(false, RelaySocketOutageKind.Transient, disconnection.WillReconnect);
                 break;
             case RelaySocketDisconnectReason.Stopped:
@@ -331,7 +355,7 @@ public sealed class RelaySocketCoordinator : IRelaySocketCoordinator
                 break;
             case RelaySocketDisconnectReason.SignInRequired:
             case RelaySocketDisconnectReason.Refused:
-            case RelaySocketDisconnectReason.Replaced:
+            case RelaySocketDisconnectReason.Replaced when !disconnection.WillReconnect:
             case RelaySocketDisconnectReason.Abuse:
                 // The client stays down on these; look again later in case the state changed.
                 lock (_gate) { if (_lifetime is { } lifetime) ScheduleRetry(RetryDelay * 5, lifetime.Token); }
@@ -346,8 +370,12 @@ public sealed class RelaySocketCoordinator : IRelaySocketCoordinator
         var outcome = PushRelayNotificationOutcome.Failed;
         try
         {
-            using var budget = new CancellationTokenSource(HandleBudget);
-            outcome = await _handler.HandleAsync(relayEvent.Payload, budget.Token).ConfigureAwait(false);
+            // The sync the event starts is never cancelled by the budget; the ack only stops waiting for it.
+            outcome = await _handler.HandleAsync(relayEvent.Payload, CancellationToken.None).WaitAsync(HandleBudget).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            _logger.Debug("Relay socket event {EventId} ({Kind}) is still being handled; acknowledging it.", relayEvent.EventId, relayEvent.Kind);
         }
         catch (Exception ex)
         {

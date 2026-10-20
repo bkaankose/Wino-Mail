@@ -12,8 +12,17 @@ public sealed class WinoRelaySocketOptions
     /// <summary>How long <c>StartAsync</c> waits for the relay's <c>hello</c> before returning without it.</summary>
     public TimeSpan HelloTimeout { get; set; } = TimeSpan.FromSeconds(10);
 
-    /// <summary>Whether a dropped socket is reopened automatically (never after <c>bye revoked|replaced|abuse</c>).</summary>
+    /// <summary>
+    /// Whether a dropped socket is reopened automatically (never after <c>bye revoked|abuse</c>; after <c>bye replaced</c>
+    /// once per <see cref="ReplacedReconnectWindow"/>).
+    /// </summary>
     public bool AutoReconnect { get; set; } = true;
+
+    /// <summary>
+    /// A <c>bye replaced</c> within this long of the last reconnect after one means another socket of this device keeps
+    /// taking over; the client then stays down instead of displacing it in a loop.
+    /// </summary>
+    public TimeSpan ReplacedReconnectWindow { get; set; } = TimeSpan.FromMinutes(10);
 
     /// <summary>Delays before each reconnect attempt; the last one repeats. Each delay gets ±20 % jitter.</summary>
     public TimeSpan[] ReconnectDelays { get; set; } =

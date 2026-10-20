@@ -72,8 +72,9 @@ One app-wide setting, **Sync method**: *Timer-based* or *Relay-based*.
   keeps syncing on the user's configured Email interval. While the socket is down for more than
   30 s, flapping (6 transitions in 10 min starts a 10 min cool-down), or the registration is not
   `Enabled`, the mode is `RelayFallback` and all accounts sync on the user's intervals; one bounded
-  catch-up runs when coverage is lost (if the last sync is older than the interval) or recovered
-  after an outage over 2 min. Calendar always runs on the user's Calendar interval. Contacts and
+  catch-up runs when coverage is lost (if the last sync is older than the interval) and one after
+  every socket reconnect that follows a real outage (the relay queues nothing for a desktop while
+  its socket is down; turning relay-based sync off is no outage). Calendar always runs on the user's Calendar interval. Contacts and
   To Do always keep their timer-based approach. Every decision is logged once, on change, to the
   main log.
 - IMAP on desktop is never sent to the relay (the relay refuses it). The app's own IDLE client
