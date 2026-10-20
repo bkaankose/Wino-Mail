@@ -15,7 +15,7 @@ namespace Wino.Mail.UIKit.Infrastructure;
 /// <c>xcrun simctl get_app_container booted com.winomail.macos data</c> + <c>/tmp/wino-debug</c>.
 ///
 /// Commands: snap NAME · mode Mail|Calendar|Contacts|Tasks · page WinoPage · settings · back ·
-/// theme NAME|Default · appearance light|dark|system · iconstyle mono|color · sleep MS
+/// theme NAME|Default · appearance light|dark|system · iconstyle mono|color · iconset WinoIconSet · sleep MS
 /// Feature code can add commands with <see cref="Register"/>.
 /// </summary>
 public static class UIKitDebugBridge
@@ -107,6 +107,12 @@ public static class UIKitDebugBridge
             var preferences = services.GetRequiredService<IPreferencesService>();
             preferences.IconStyle = args.Length > 0 && args[0].StartsWith("mono", StringComparison.OrdinalIgnoreCase) ? WinoIconStyle.Monochrome : WinoIconStyle.Colorful;
             return Task.FromResult("ok " + preferences.IconStyle);
+        });
+        Register("iconset", args =>
+        {
+            var preferences = services.GetRequiredService<IPreferencesService>();
+            if (args.Length > 0 && Enum.TryParse<WinoIconSet>(args[0], ignoreCase: true, out var set)) preferences.IconSet = set;
+            return Task.FromResult("ok " + preferences.IconSet);
         });
     }
 

@@ -32,6 +32,7 @@ public sealed class MainActivity : AppCompatActivity
     private BackCallback? _back;
     private global::Android.Graphics.Color? _accent;
     private Wino.Core.Domain.Enums.WinoIconStyle _iconStyle;
+    private Wino.Core.Domain.Enums.WinoIconSet _iconSet;
 
     protected override void OnCreate(Bundle? savedInstanceState)
     {
@@ -48,6 +49,7 @@ public sealed class MainActivity : AppCompatActivity
         // Views take the accent and the icon font when they are created; a change recreates the activity (below).
         _accent = global::Wino.Presentation.Android.WinoColors.AccentOverride;
         _iconStyle = global::Wino.Presentation.Android.WinoIcons.Style;
+        _iconSet = global::Wino.Presentation.Android.WinoIcons.Set;
         ApplyWallpaper();
 
         _navigation = services.GetRequiredService<AndroidNavigationService>();
@@ -137,7 +139,8 @@ public sealed class MainActivity : AppCompatActivity
     private void OnAppearanceChanged(object? sender, EventArgs args)
     {
         if (IsFinishing || IsDestroyed || IsChangingConfigurations) return;
-        if (_accent != global::Wino.Presentation.Android.WinoColors.AccentOverride || _iconStyle != global::Wino.Presentation.Android.WinoIcons.Style)
+        if (_accent != global::Wino.Presentation.Android.WinoColors.AccentOverride || _iconStyle != global::Wino.Presentation.Android.WinoIcons.Style
+            || _iconSet != global::Wino.Presentation.Android.WinoIcons.Set)
         {
             Recreate();
             return;

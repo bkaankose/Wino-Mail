@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using UIKit;
 using Wino.Authentication;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Platform;
 using Wino.Platform.Apple;
@@ -145,7 +146,7 @@ public static class IOSPlatformRegistration
             KeyboardShortcuts: isPad, FileBackup: false, Purchases: true,
             // One row density and no hover; the system schedules background refresh, so sync intervals are fixed.
             PointerHover: false, MailListDensity: false, PresentationDetection: false, ConfigurableSyncIntervals: false,
-            BadgeLaunchNavigation: false));
+            BadgeLaunchNavigation: false, DefaultIconSet: WinoIconSet.Framework7));
         return services;
     }
 

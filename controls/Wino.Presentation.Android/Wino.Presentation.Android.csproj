@@ -27,8 +27,7 @@
   </ItemGroup>
   <!-- The WinoIcons fonts (icons/README.md), read from the app assets as Fonts/*.ttf by WinoIcons. -->
   <ItemGroup>
-    <AndroidAsset Include="../../src/Wino.Mail.WinUI/Assets/WinoIcons.ttf" Link="Assets/Fonts/WinoIcons.ttf" />
-    <AndroidAsset Include="../../src/Wino.Mail.WinUI/Assets/WinoIconsColor-Light.ttf" Link="Assets/Fonts/WinoIconsColor-Light.ttf" />
-    <AndroidAsset Include="../../src/Wino.Mail.WinUI/Assets/WinoIconsColor-Dark.ttf" Link="Assets/Fonts/WinoIconsColor-Dark.ttf" />
+    <!-- Every icon set's mono, colorful light and colorful dark font (WinoIconFonts). -->
+    <AndroidAsset Include="../../src/Wino.Mail.WinUI/Assets/WinoIcons*.ttf" Link="Assets/Fonts/%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

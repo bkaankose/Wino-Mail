@@ -5,6 +5,7 @@ using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Wino.Authentication;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Platform;
 using Wino.Platform.Android.Authentication;
@@ -157,7 +158,7 @@ public static class AndroidPlatformRegistration
             KeyboardShortcuts: false, FileBackup: false, Purchases: false,
             // One row density and no hover; the system decides background work, so sync intervals are fixed.
             PointerHover: false, MailListDensity: false, PresentationDetection: false, ConfigurableSyncIntervals: false,
-            BadgeLaunchNavigation: false));
+            BadgeLaunchNavigation: false, DefaultIconSet: WinoIconSet.MaterialOutlined));
         return services;
     }
 

@@ -173,11 +173,14 @@ public sealed class MacWinoThemeService(IDispatcher dispatcher, IConfigurationSe
     {
         _rootTheme = configuration.Get(SelectedAppThemeKey, ApplicationElementTheme.Default);
         _accent = configuration.Get(AccentColorKey, string.Empty) ?? string.Empty;
+        WinoIcons.Set = preferences.IconSet;
         WinoIcons.Style = preferences.IconStyle;
         preferences.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(IPreferencesService.IconStyle))
                 _ = dispatcher.ExecuteOnUIThread(() => WinoIcons.Style = preferences.IconStyle);
+            else if (args.PropertyName == nameof(IPreferencesService.IconSet))
+                _ = dispatcher.ExecuteOnUIThread(() => WinoIcons.Set = preferences.IconSet);
         };
         var stored = configuration.Get<Guid?>(CurrentApplicationThemeKey, null);
         _themeId = DefaultThemeId;

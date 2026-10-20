@@ -198,6 +198,12 @@ public interface IPreferencesService : INotifyPropertyChanged
     WinoIconStyle IconStyle { get; set; }
 
     /// <summary>
+    /// Setting: Which WinoIcons font family to draw with. Defaults to the platform's own design language
+    /// (<see cref="IPlatformCapabilities.DefaultIconSet"/>).
+    /// </summary>
+    WinoIconSet IconSet { get; set; }
+
+    /// <summary>
     /// Setting: Preferred time format for mail list and reader display.
     /// </summary>
     TimeFormatPreference MailTimeFormatPreference { get; set; }

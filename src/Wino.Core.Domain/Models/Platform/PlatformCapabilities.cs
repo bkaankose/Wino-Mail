@@ -1,3 +1,4 @@
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Domain.Models.Platform;
@@ -25,4 +26,5 @@ public sealed record PlatformCapabilities(
     bool MailListDensity = false,
     bool PresentationDetection = false,
     bool ConfigurableSyncIntervals = false,
-    bool BadgeLaunchNavigation = false) : IPlatformCapabilities;
+    bool BadgeLaunchNavigation = false,
+    WinoIconSet DefaultIconSet = WinoIconSet.Fluent) : IPlatformCapabilities;

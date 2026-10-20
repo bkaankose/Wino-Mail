@@ -10,21 +10,36 @@ using Android.Views;
 using Android.Widget;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Personalization;
 
 namespace Wino.Presentation.Android;
 
 /// <summary>
-/// The WinoIcons fonts (icons/README.md) from the app assets, which this library ships as Fonts/*.ttf: the mono font
-/// and the colorful light and dark fonts with the same code points as Windows and the Apple heads. Glyphs come from
-/// the shared <see cref="WinoIconGlyphs"/> map. Android twin of the UIKit <c>WinoIcons</c>.
+/// The WinoIcons fonts (icons/README.md) from the app assets, which this library ships as Fonts/*.ttf: every icon set
+/// has a mono font and colorful light and dark fonts with the same code points as Windows and the Apple heads. Glyphs
+/// come from the shared <see cref="WinoIconGlyphs"/> map. Android twin of the UIKit <c>WinoIcons</c>.
 /// </summary>
 public static class WinoIcons
 {
-    private static Typeface? _mono, _colorLight, _colorDark;
+    // Loaded typefaces by font file name.
+    private static readonly Dictionary<string, Typeface> s_typefaces = [];
     private static WinoIconStyle _style = WinoIconStyle.Monochrome;
+    private static WinoIconSet _set = WinoIconSet.Classic;
 
-    /// <summary>Raised after <see cref="Style"/> changes so long-lived views can redraw.</summary>
+    /// <summary>Raised after <see cref="Style"/> or <see cref="Set"/> changes so long-lived views can redraw.</summary>
     public static event EventHandler? StyleChanged;
+
+    /// <summary>The user's icon set (Settings, Personalization).</summary>
+    public static WinoIconSet Set
+    {
+        get => _set;
+        set
+        {
+            if (_set == value) return;
+            _set = value;
+            StyleChanged?.Invoke(null, EventArgs.Empty);
+        }
+    }
 
     /// <summary>The user's icon style (Settings, Personalization); colorful glyphs follow it unless a view forces one.</summary>
     public static WinoIconStyle Style
@@ -40,13 +55,10 @@ public static class WinoIcons
 
     public static bool IsColorful => _style == WinoIconStyle.Colorful;
 
-    public static Typeface Mono(Context context) => _mono ??= Load(context, "Fonts/WinoIcons.ttf");
+    public static Typeface Mono(Context context) => Font(context, colorful: false, dark: false);
 
     /// <summary>The colorful font for the appearance of <paramref name="context"/>.</summary>
-    public static Typeface Colorful(Context context)
-        => WinoColors.IsDark(context)
-            ? _colorDark ??= Load(context, "Fonts/WinoIconsColor-Dark.ttf")
-            : _colorLight ??= Load(context, "Fonts/WinoIconsColor-Light.ttf");
+    public static Typeface Colorful(Context context) => Font(context, colorful: true, dark: WinoColors.IsDark(context));
 
     /// <summary>The font for <paramref name="colorful"/>, or for the current <see cref="Style"/> when null.</summary>
     public static Typeface Typeface(Context context, bool? colorful = null) => colorful ?? IsColorful ? Colorful(context) : Mono(context);
@@ -76,6 +88,23 @@ public static class WinoIcons
     /// <summary>A drawable of <paramref name="icon"/> for MaterialButton icons, chips, menus and toolbars (tinted by the host).</summary>
     public static Drawable Drawable(Context context, WinoIconGlyph icon, double sizeDp = 20, Color? tint = null, bool colorful = false)
         => new WinoGlyphDrawable(context, Glyph(icon), sizeDp, tint ?? WinoColors.PrimaryText(context), colorful);
+
+    /// <summary>A font of the current set; a set whose fonts are missing draws with Classic.</summary>
+    private static Typeface Font(Context context, bool colorful, bool dark)
+    {
+        var file = WinoIconFonts.FileName(_set, colorful, dark);
+        if (s_typefaces.TryGetValue(file, out var typeface)) return typeface;
+        try
+        {
+            typeface = Load(context, "Fonts/" + file);
+        }
+        catch (Java.Lang.RuntimeException) when (_set != WinoIconSet.Classic)
+        {
+            typeface = Load(context, "Fonts/" + WinoIconFonts.FileName(WinoIconSet.Classic, colorful, dark));
+        }
+        s_typefaces[file] = typeface;
+        return typeface;
+    }
 
     private static Typeface Load(Context context, string asset)
     {
@@ -157,7 +186,7 @@ public class WinoIconView : TextView
     private WinoIconGlyph _icon;
     private double _sizeDp = 16;
     private bool? _colorful = false;
-    private WinoIconStyle? _appliedStyle;
+    private (WinoIconStyle Style, WinoIconSet Set)? _applied;
 
     public WinoIconView(Context context) : base(context) => Initialize();
     public WinoIconView(Context context, IAttributeSet? attrs) : base(context, attrs) => Initialize();
@@ -220,13 +249,13 @@ public class WinoIconView : TextView
         set { _colorful = value; Refresh(); }
     }
 
-    /// <summary>The shown glyph still matches the icon style (a view that follows the style re-applies after a style change).</summary>
-    private bool IsCurrent => _appliedStyle is { } style && (_colorful is not null || style == WinoIcons.Style);
+    /// <summary>The shown glyph still matches the icon set and style (a view re-applies after either changes).</summary>
+    private bool IsCurrent => _applied is { } applied && applied.Set == WinoIcons.Set && (_colorful is not null || applied.Style == WinoIcons.Style);
 
     private void Refresh()
     {
         if (Context is not { } context) return;
-        _appliedStyle = WinoIcons.Style;
+        _applied = (WinoIcons.Style, WinoIcons.Set);
         Typeface = WinoIcons.Typeface(context, _colorful);
         SetTextSize(ComplexUnitType.Dip, (float)_sizeDp);
         Text = WinoIcons.Glyph(_icon);

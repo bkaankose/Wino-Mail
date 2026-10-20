@@ -1,6 +1,7 @@
 using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Services;
@@ -50,7 +51,7 @@ public static class CoreUWPContainerSetup
             StartupIntegration: true, Tray: true, GlobalHotkeys: true, GeneralActivation: true,
             MicrosoftStore: true, RemoteNotifications: false, KeyboardShortcuts: true, FileBackup: true, Purchases: true,
             AppModeTaskbarIdentity: true, PointerHover: true, MailListDensity: true, PresentationDetection: true,
-            ConfigurableSyncIntervals: true, BadgeLaunchNavigation: true));
+            ConfigurableSyncIntervals: true, BadgeLaunchNavigation: true, DefaultIconSet: WinoIconSet.Fluent));
         services.AddSingleton<IPushRelayDeviceIdentityStore, WindowsPushRelayDeviceIdentityStore>();
         services.AddSingleton<IPushRelayDeviceInfo, WindowsPushRelayDeviceInfo>();
         services.AddSingleton<IPushTokenProvider, NullPushTokenProvider>();

@@ -19,15 +19,9 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-import pathops
-from fontTools.pens.svgPathPen import SVGPathPen
-from fontTools.pens.transformPen import TransformPen
-from fontTools.svgLib.path.parser import parse_path
-
-from wino_icons import ICONS_DIR, SVG_DIR, _ntos, format_codepoint, load_manifest, parse_codepoint, save_manifest, write_em_svg
+from wino_icons import ICONS_DIR, SVG_DIR, format_codepoint, load_manifest, parse_codepoint, save_manifest, union_path_data, write_em_svg
 
 CACHE_DIR = ICONS_DIR / ".cache"
-SVG_NS = "{http://www.w3.org/2000/svg}"
 
 
 def fetch(fluent: dict, stem: str, source: Path | None) -> Path:
@@ -51,21 +45,8 @@ def fetch(fluent: dict, stem: str, source: Path | None) -> Path:
 
 def normalized_path_data(svg_file: Path, upm: int, size: int) -> str:
     """Union all paths (honoring fill-rule), remove overlaps, scale the size grid onto the em."""
-    root = ET.parse(svg_file).getroot()
-    if root.find(f".//{SVG_NS}g[@transform]") is not None or root.find(f".//{SVG_NS}path[@transform]") is not None:
-        raise SystemExit(f"{svg_file.name}: transforms are not supported")
-    combined = pathops.Path()
-    for element in root.iter(f"{SVG_NS}path"):
-        path = pathops.Path()
-        parse_path(element.get("d"), path.getPen())
-        if element.get("fill-rule") == "evenodd":
-            path.fillType = pathops.FillType.EVEN_ODD
-        path = pathops.simplify(path, fix_winding=True)
-        combined = pathops.op(combined, path, pathops.PathOp.UNION, fix_winding=True)
     scale = upm / size
-    pen = SVGPathPen(None, ntos=_ntos)
-    combined.draw(TransformPen(pen, (scale, 0, 0, scale, 0, 0)))
-    return pen.getCommands()
+    return union_path_data(ET.parse(svg_file).getroot(), (scale, 0, 0, scale, 0, 0), svg_file.name)
 
 
 def find_or_split_entry(manifest: dict, name: str) -> dict:

@@ -5,10 +5,15 @@
     python icons/tools/build_fonts.py --verify-against old.ttf   # compare outlines with another font
     python icons/tools/build_fonts.py --preview out.html          # glyph sheet for a browser
 
-Three fonts are produced from the same outlines:
+Every icon set gets three fonts from the same outlines:
   WinoIcons.ttf               monochrome, every glyph follows Foreground
   WinoIconsColor-Light.ttf    COLR v0: accent layer (palette color) under the base layer (foreground)
   WinoIconsColor-Dark.ttf     same layers, dark palette
+
+The Classic set comes from manifest.json and icons/svg. The other sets (icons/sets.json, imported into
+icons/sets/<Set>.json by import_icon_sets.py) replace the outlines and accent layers of the icons they map
+and are named WinoIcons<Set>.ttf, WinoIcons<Set>Color-Light.ttf and WinoIcons<Set>Color-Dark.ttf.
+Every set keeps the manifest's codepoints, so switching sets only switches the font.
 
 Glyphs with a fixed "color" (brand logos) are a single colored layer in all three fonts.
 Glyphs with fixed-color "layers" (multi-color brand logos) keep those layers in all three fonts.
@@ -27,7 +32,9 @@ from fontTools.pens.statisticsPen import StatisticsPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont
 
-from wino_icons import ASSETS_DIR, REPO_ROOT, SVG_DIR, load_manifest, parse_codepoint, svg_to_glyph
+import json
+
+from wino_icons import ASSETS_DIR, REPO_ROOT, SETS_DIR, SVG_DIR, load_manifest, load_sets, parse_codepoint, path_to_glyph, set_font_specs, svg_to_glyph
 
 FOREGROUND = 0xFFFF
 # Fixed timestamp keeps the output byte-for-byte reproducible (2024-01-01, seconds since 1904).
@@ -74,8 +81,27 @@ def validate(manifest: dict) -> None:
         raise SystemExit("manifest errors:\n  " + "\n  ".join(errors))
 
 
-def build_font(manifest: dict, variant: str) -> bytes:
-    spec = manifest["fonts"][variant]
+def load_set_glyphs(manifest: dict) -> dict[str, dict]:
+    """Imported icon sets by name: {set: {icon: {"glyph": d, "accent": d?}}}."""
+    sets = load_sets()
+    names = {i["name"] for i in manifest["icons"]}
+    result, errors = {}, []
+    for set_name in sets["sets"]:
+        path = SETS_DIR / f"{set_name}.json"
+        if not path.is_file():
+            errors.append(f"{set_name}: {path.relative_to(REPO_ROOT)} is missing (run import_icon_sets.py)")
+            continue
+        glyphs = json.loads(path.read_text(encoding="utf-8"))
+        errors += [f"{set_name}: no glyph for {n}" for n in sets["icons"] if n not in glyphs]
+        errors += [f"{set_name}: {n} is not in manifest.json" for n in glyphs if n not in names]
+        result[set_name] = glyphs
+    if errors:
+        raise SystemExit("icon set errors:\n  " + "\n  ".join(errors))
+    return result
+
+
+def build_font(manifest: dict, spec: dict, set_glyphs: dict | None = None) -> bytes:
+    """One font. <set_glyphs> replaces the outline and accent of the icons it maps (brand marks keep theirs)."""
     upm = manifest["unitsPerEm"]
     ascent = manifest["ascent"]
     descent = manifest["descent"]
@@ -95,12 +121,21 @@ def build_font(manifest: dict, variant: str) -> bytes:
 
     for icon in manifest["icons"]:
         name = icon["name"]
+        replacement = (set_glyphs or {}).get(name)
         glyph_order.append(name)
-        glyphs[name] = svg_to_glyph(SVG_DIR / icon["svg"], ascent)
+        glyphs[name] = path_to_glyph(replacement["glyph"], upm, ascent) if replacement else svg_to_glyph(SVG_DIR / icon["svg"], ascent)
         advances[name] = icon.get("advance", upm)
         cmap[parse_codepoint(icon["codepoint"])] = name
 
-        if "color" in icon:
+        if replacement:
+            if palette_name and "accent" in icon and "accent" in replacement:
+                accent_name = f"{name}.accent"
+                glyph_order.append(accent_name)
+                glyphs[accent_name] = path_to_glyph(replacement["accent"], upm, ascent)
+                advances[accent_name] = advances[name]
+                palette_color = manifest["palettes"][palette_name][icon["accent"]["color"]]
+                layers[name] = [(accent_name, color_index(palette_color)), (name, FOREGROUND)]
+        elif "color" in icon:
             layers[name] = [(name, color_index(icon["color"]))]
         elif "layers" in icon:
             layers[name] = []
@@ -163,16 +198,25 @@ def build_font(manifest: dict, variant: str) -> bytes:
     return buffer.getvalue()
 
 
+def font_specs(manifest: dict) -> list[tuple[dict, str | None]]:
+    """(font spec, icon set or None for Classic) for every font that is built."""
+    specs = [(spec, None) for spec in manifest["fonts"].values()]
+    for set_name in load_sets()["sets"]:
+        specs += [(spec, set_name) for spec in set_font_specs(set_name).values()]
+    return specs
+
+
 def build_all(manifest: dict) -> dict[str, bytes]:
     validate(manifest)
-    return {manifest["fonts"][v]["file"]: build_font(manifest, v) for v in manifest["fonts"]}
+    set_glyphs = load_set_glyphs(manifest)
+    return {spec["file"]: build_font(manifest, spec, set_glyphs[set_name] if set_name else None) for spec, set_name in font_specs(manifest)}
 
 
 def output_paths(manifest: dict) -> list[tuple[Path, str]]:
     """Every place a font is written: the app's Assets folder plus any extra copies, such as the
     monochrome font the controls library packages for itself."""
     paths = []
-    for spec in manifest["fonts"].values():
+    for spec, _ in font_specs(manifest):
         paths.append((ASSETS_DIR / spec["file"], spec["file"]))
         for copy in spec.get("copies", []):
             paths.append((REPO_ROOT / copy / spec["file"], spec["file"]))
@@ -227,7 +271,7 @@ def write_preview(manifest: dict, fonts: dict[str, bytes], out: Path) -> None:
     # Fonts are copied next to the page so it works from any folder (and any drive).
     out.parent.mkdir(parents=True, exist_ok=True)
     faces, sections = [], []
-    for variant, spec in manifest["fonts"].items():
+    for spec, _ in font_specs(manifest):
         (out.parent / spec["file"]).write_bytes(fonts[spec["file"]])
         faces.append(f"@font-face{{font-family:'{spec['family']}';src:url('{spec['file']}')}}")
     cells = []
@@ -236,10 +280,11 @@ def write_preview(manifest: dict, fonts: dict[str, bytes], out: Path) -> None:
         tag = " accent" if "accent" in icon or "layers" in icon else ""
         cells.append(f'<div class="cell{tag}"><span class="g">{ch}</span><span class="n">{html.escape(icon["name"])}</span></div>')
     grid = "".join(cells)
-    fonts = manifest["fonts"]
-    for theme, variant in (("light", "light"), ("dark", "dark")):
-        for label, fam in (("Mono", fonts["mono"]["family"]), ("Colorful", fonts[variant]["family"])):
-            sections.append(f'<section class="{theme}" style="--f:\'{fam}\'"><h2>{theme.title()} · {label}</h2><div class="grid">{grid}</div></section>')
+    families = [("Classic", manifest["fonts"])] + [(name, set_font_specs(name)) for name in load_sets()["sets"]]
+    for set_name, specs in families:
+        for theme in ("light", "dark"):
+            for label, fam in (("Mono", specs["mono"]["family"]), ("Colorful", specs[theme]["family"])):
+                sections.append(f'<section class="{theme}" style="--f:\'{fam}\'"><h2>{set_name} · {theme.title()} · {label}</h2><div class="grid">{grid}</div></section>')
     out.write_text(
         f"""<!doctype html><html><head><meta charset="utf-8"><title>Wino icons</title><style>
 {''.join(faces)}

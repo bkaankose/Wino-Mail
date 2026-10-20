@@ -66,6 +66,13 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
     [ObservableProperty]
     public partial IconStyleContainer SelectedIconStyle { get; set; }
 
+    public List<IconSetContainer> IconSets { get; } = WinoIconFonts.Sets
+        .Select(set => new IconSetContainer(set, GetIconSetTitle(set)))
+        .ToList();
+
+    [ObservableProperty]
+    public partial IconSetContainer SelectedIconSet { get; set; }
+
     private AppColorViewModel _selectedAppColor;
 
     public AppColorViewModel SelectedAppColor
@@ -182,6 +189,7 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
             SelectedAppColor = Colors.FirstOrDefault(a => a.Hex == currentAccentColor);
 
         SelectedIconStyle = IconStyles.Find(a => a.IconStyle == PreferencesService.IconStyle) ?? IconStyles[0];
+        SelectedIconSet = IconSets.Find(a => a.IconSet == PreferencesService.IconSet) ?? IconSets[0];
 
         // Set the current backdrop from service - backdrop should be independent of theme selection
         var currentBackdropType = _newThemeService.CurrentBackdropType;
@@ -282,12 +290,26 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         {
             PreferencesService.IconStyle = SelectedIconStyle.IconStyle;
         }
+        else if (e.PropertyName == nameof(SelectedIconSet) && SelectedIconSet != null)
+        {
+            PreferencesService.IconSet = SelectedIconSet.IconSet;
+        }
         else
         {
             if (e.PropertyName == nameof(SelectedAppColor))
                 _newThemeService.AccentColor = SelectedAppColor.Hex;
         }
     }
+
+    /// <summary>The settings name of an icon set; also used by the native heads' pickers.</summary>
+    public static string GetIconSetTitle(WinoIconSet set) => set switch
+    {
+        WinoIconSet.Fluent => Translator.IconSet_Fluent,
+        WinoIconSet.MaterialOutlined => Translator.IconSet_MaterialOutlined,
+        WinoIconSet.MaterialRounded => Translator.IconSet_MaterialRounded,
+        WinoIconSet.Framework7 => Translator.IconSet_Framework7,
+        _ => Translator.IconSet_Classic,
+    };
 
     /// <summary>
     /// Drops the cached Gravatar and favicon images so the next render fetches them again.

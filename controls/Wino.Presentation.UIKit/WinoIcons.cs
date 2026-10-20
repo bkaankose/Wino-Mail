@@ -4,23 +4,36 @@ using Foundation;
 using UIKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Personalization;
 
 namespace Wino.Presentation.UIKit;
 
 /// <summary>
-/// The WinoIcons fonts on iOS (UIKit twin of the AppKit <c>WinoIcons</c>). The app bundles the same three fonts as
-/// Windows and the Mac (mono, colorful light, colorful dark) under <c>Fonts/</c>, and every Wino glyph is drawn from
-/// them through the shared <see cref="WinoIconGlyph"/> identifiers. <see cref="Style"/> follows the "icon style"
-/// preference.
+/// The WinoIcons fonts on iOS (UIKit twin of the AppKit <c>WinoIcons</c>). The app bundles the same fonts as Windows
+/// and the Mac under <c>Fonts/</c>: every icon set has a mono, a colorful light and a colorful dark font, and every
+/// Wino glyph is drawn from them through the shared <see cref="WinoIconGlyph"/> identifiers. <see cref="Set"/> and
+/// <see cref="Style"/> follow the "icon set" and "icon style" preferences.
 /// </summary>
 public static class WinoIcons
 {
-    private static string? _monoName, _lightName, _darkName;
-    private static bool _registered;
+    // Font names (mono, light, dark) per set, registered the first time a set is drawn.
+    private static readonly Dictionary<WinoIconSet, string?[]> s_names = [];
     private static WinoIconStyle _style = WinoIconStyle.Monochrome;
+    private static WinoIconSet _set = WinoIconSet.Classic;
 
-    /// <summary>Raised after <see cref="Style"/> changes so long-lived views can redraw.</summary>
+    /// <summary>Raised after <see cref="Style"/> or <see cref="Set"/> changes so long-lived views can redraw.</summary>
     public static event EventHandler? StyleChanged;
+
+    public static WinoIconSet Set
+    {
+        get => _set;
+        set
+        {
+            if (_set == value) return;
+            _set = value;
+            StyleChanged?.Invoke(null, EventArgs.Empty);
+        }
+    }
 
     public static WinoIconStyle Style
     {
@@ -35,18 +48,24 @@ public static class WinoIcons
 
     public static bool IsColorful => _style == WinoIconStyle.Colorful;
 
-    /// <summary>True once the mono font was found and registered.</summary>
-    public static bool IsAvailable => _monoName is not null;
+    /// <summary>True once the current set's mono font was found and registered.</summary>
+    public static bool IsAvailable => Names(_set)[0] is not null;
 
-    /// <summary>Registers the fonts found in the app bundle's Fonts folder. Safe to call twice.</summary>
-    public static void Register()
+    /// <summary>Registers the current set's fonts from the app bundle's Fonts folder. Safe to call twice.</summary>
+    public static void Register() => Names(_set);
+
+    /// <summary>The registered font names of <paramref name="set"/>; a set whose fonts are missing draws with Classic.</summary>
+    private static string?[] Names(WinoIconSet set)
     {
-        if (_registered) return;
-        _registered = true;
+        if (s_names.TryGetValue(set, out var names)) return names;
         var folder = Path.Combine(NSBundle.MainBundle.ResourcePath ?? NSBundle.MainBundle.BundlePath, "Fonts");
-        _monoName = RegisterFont(Path.Combine(folder, "WinoIcons.ttf"));
-        _lightName = RegisterFont(Path.Combine(folder, "WinoIconsColor-Light.ttf")) ?? _monoName;
-        _darkName = RegisterFont(Path.Combine(folder, "WinoIconsColor-Dark.ttf")) ?? _lightName;
+        var files = WinoIconFonts.FileNames(set);
+        var mono = RegisterFont(Path.Combine(folder, files[0]));
+        var light = RegisterFont(Path.Combine(folder, files[1])) ?? mono;
+        var dark = RegisterFont(Path.Combine(folder, files[2])) ?? light;
+        names = mono is null && set != WinoIconSet.Classic ? Names(WinoIconSet.Classic) : [mono, light, dark];
+        s_names[set] = names;
+        return names;
     }
 
     private static string? RegisterFont(string path)
@@ -61,9 +80,9 @@ public static class WinoIcons
     /// <summary>The font that draws glyphs for the given traits and the current style.</summary>
     public static UIFont? Font(double size, UITraitCollection? traits = null, bool? colorful = null)
     {
-        Register();
-        string? name = _monoName;
-        if (colorful ?? IsColorful) name = IsDark(traits) ? _darkName : _lightName;
+        var names = Names(_set);
+        string? name = names[0];
+        if (colorful ?? IsColorful) name = IsDark(traits) ? names[2] : names[1];
         return name is null ? null : UIFont.FromName(name, (nfloat)size);
     }
 

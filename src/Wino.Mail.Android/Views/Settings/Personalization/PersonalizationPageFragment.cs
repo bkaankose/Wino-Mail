@@ -55,7 +55,12 @@ public sealed class PersonalizationPageFragment : SettingsPageFragment<Personali
                 s => vm.IconStyles.FindIndex(style => style.IconStyle == s.IconStyle),
                 (s, v) => { if (v >= 0 && v < vm.IconStyles.Count) s.IconStyle = vm.IconStyles[v].IconStyle; }));
 
-        AddGroup(null, accent, appearanceCard, iconStyle);
+        var iconSet = StackedCard(Translator.SettingsIconSet_Title, Translator.SettingsIconSet_Description, WinoIconGlyph.Grid,
+            Row(Bind.PopUp(p, vm.IconSets.Select(set => set.Title).ToList(), nameof(p.IconSet),
+                s => vm.IconSets.FindIndex(set => set.IconSet == s.IconSet),
+                (s, v) => { if (v >= 0 && v < vm.IconSets.Count) s.IconSet = vm.IconSets[v].IconSet; })));
+
+        AddGroup(null, accent, appearanceCard, iconSet, iconStyle);
 
         // Wino themes: one entry point into the theme gallery, like the Windows Personalization page.
         var currentName = Caption(string.Empty);

@@ -75,9 +75,8 @@
   <!-- The WinoIcons fonts are built once into the WinUI assets (icons/README.md); the Mac bundle
        carries the same files and registers them at startup (WinoIcons.Register). -->
   <ItemGroup>
-    <BundleResource Include="../Wino.Mail.WinUI/Assets/WinoIcons.ttf" LogicalName="Fonts/WinoIcons.ttf" />
-    <BundleResource Include="../Wino.Mail.WinUI/Assets/WinoIconsColor-Light.ttf" LogicalName="Fonts/WinoIconsColor-Light.ttf" />
-    <BundleResource Include="../Wino.Mail.WinUI/Assets/WinoIconsColor-Dark.ttf" LogicalName="Fonts/WinoIconsColor-Dark.ttf" />
+    <!-- Every icon set's mono, colorful light and colorful dark font (WinoIconFonts). -->
+    <BundleResource Include="../Wino.Mail.WinUI/Assets/WinoIcons*.ttf" LogicalName="Fonts/%(Filename)%(Extension)" />
   </ItemGroup>
   <!-- Predefined theme wallpapers and preview images, shared with Windows (BackgroundImages). -->
   <ItemGroup>
