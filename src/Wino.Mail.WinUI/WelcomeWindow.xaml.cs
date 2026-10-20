@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -30,6 +30,7 @@ public sealed partial class WelcomeWindow : WindowEx, IWinoFrameProvider
         this.SetIcon("Assets/Wino_Icon.ico");
 
         ConfigureWindowChrome();
+        WindowMouseWheelRouter.Attach(this, RootFrame);
 
         IsResizable = false;
         IsMaximizable = false;

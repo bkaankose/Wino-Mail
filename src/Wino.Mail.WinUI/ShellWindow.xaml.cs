@@ -110,6 +110,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
         // Register global mouse button listener for back button
         RegisterMouseBackButtonListener();
+        WindowMouseWheelRouter.Attach(this, ShellRoot);
 
         this.SetIcon("Assets/Wino_Icon.ico");
 

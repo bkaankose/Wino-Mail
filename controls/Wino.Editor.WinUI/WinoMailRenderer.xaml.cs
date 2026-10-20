@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -142,6 +142,15 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
             await ExecuteDirectAsync("window.WinoRenderer.clear()");
             _renderedContentVersion = _contentVersion;
         });
+
+    public void ScrollBy(double deltaX, double deltaY)
+    {
+        if (RendererWebView2?.CoreWebView2 is not null)
+        {
+            _ = RendererWebView2.ExecuteScriptAsync(
+                $"window.scrollBy({{ left: {deltaX.ToString(System.Globalization.CultureInfo.InvariantCulture)}, top: {deltaY.ToString(System.Globalization.CultureInfo.InvariantCulture)}, behavior: 'auto' }});");
+        }
+    }
 
     public Task SetReaderTypographyAsync(string? fontFamily, int fontSize) =>
         RunBrowserOperationAsync(async () =>

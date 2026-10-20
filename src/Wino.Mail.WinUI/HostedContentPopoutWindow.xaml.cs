@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Wino.Core.Domain.Enums;
@@ -43,6 +43,7 @@ public sealed partial class HostedContentPopoutWindow : WindowEx
 
         this.SetIcon("Assets/Wino_Icon.ico");
         this.CenterOnScreen();
+        Helpers.WindowMouseWheelRouter.Attach(this, RootGrid);
 
         Closed += OnClosed;
     }

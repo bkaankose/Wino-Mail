@@ -1,4 +1,3 @@
-﻿using Microsoft.UI.Xaml.Input;
 using System;
 using System.Linq;
 using System.Collections.Generic;
@@ -25,7 +24,6 @@ public sealed partial class ThreadedMailListView : WinoMailListView
 {
     private const string ScrollViewerPartName = "ScrollViewer";
     private ScrollViewer? _scrollViewer;
-    private PointerEventHandler? _pointerWheelHandler;
 
     public static readonly DependencyProperty LoadMoreCommandProperty = DependencyProperty.Register(
         nameof(LoadMoreCommand),
@@ -99,13 +97,6 @@ public sealed partial class ThreadedMailListView : WinoMailListView
         }
 
         ApplyGroupHeaderTemplateSelector();
-
-        if (_pointerWheelHandler is not null)
-        {
-            RemoveHandler(PointerWheelChangedEvent, _pointerWheelHandler);
-        }
-        _pointerWheelHandler = new PointerEventHandler(OnPointerWheelChangedInternal);
-        AddHandler(PointerWheelChangedEvent, _pointerWheelHandler, handledEventsToo: true);
     }
 
     public override void Cleanup()
@@ -199,47 +190,4 @@ public sealed partial class ThreadedMailListView : WinoMailListView
 
     private void OnDragItemsCompleted(ListViewBase sender, DragItemsCompletedEventArgs args) =>
         MailDragStateChanged?.Invoke(this, new(false, 0));
-
-    protected override void OnPointerEntered(PointerRoutedEventArgs e)
-    {
-        base.OnPointerEntered(e);
-        if (FocusState == FocusState.Unfocused && XamlRoot is not null)
-        {
-            var focused = FocusManager.GetFocusedElement(XamlRoot);
-            if (focused is not TextBox && focused is not RichEditBox)
-            {
-                Focus(FocusState.Pointer);
-            }
-        }
-    }
-
-    private void OnPointerWheelChangedInternal(object sender, PointerRoutedEventArgs e)
-    {
-        if (_scrollViewer is null || _scrollViewer.ScrollableHeight <= 0)
-        {
-            return;
-        }
-
-        if (e.KeyModifiers.HasFlag(Windows.System.VirtualKeyModifiers.Control))
-        {
-            return;
-        }
-
-        var pointerPoint = e.GetCurrentPoint(this);
-        if (pointerPoint.Properties.IsHorizontalMouseWheel)
-        {
-            return;
-        }
-
-        int wheelDelta = pointerPoint.Properties.MouseWheelDelta;
-        if (wheelDelta != 0)
-        {
-            const double scrollFactor = 0.6;
-            double targetOffset = _scrollViewer.VerticalOffset - (wheelDelta * scrollFactor);
-            targetOffset = Math.Clamp(targetOffset, 0, _scrollViewer.ScrollableHeight);
-
-            _scrollViewer.ChangeView(null, targetOffset, null, disableAnimation: false);
-            e.Handled = true;
-        }
-    }
 }
