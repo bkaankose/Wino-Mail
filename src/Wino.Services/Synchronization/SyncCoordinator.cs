@@ -81,6 +81,7 @@ public sealed class SyncCoordinator : ISyncCoordinator,
     private PushRelayRegistrationSnapshot? _relay;
     private bool _rawSocketConnected;
     private bool _stableSocketConnected;
+    private bool _flapDownRecorded;
     private DateTimeOffset? _socketDownSinceUtc;
     private DateTimeOffset? _cooldownUntilUtc;
     private DateTimeOffset? _lastSuccessfulSyncUtc;
@@ -441,7 +442,10 @@ public sealed class SyncCoordinator : ISyncCoordinator,
             if (connected && !_rawSocketConnected)
             {
                 _rawSocketConnected = true;
-                RecordTransition(now);
+                // Only the return from a counted outage is a flap; a start after a stop or an owner handover is not.
+                if (_flapDownRecorded)
+                    RecordTransition(now);
+                _flapDownRecorded = false;
                 DisposeTimer(ref _graceTimer);
 
                 // Back within the grace period: the mode never left Relay, so no transition will catch up for the gap.
@@ -460,7 +464,10 @@ public sealed class SyncCoordinator : ISyncCoordinator,
                 // Turning relay-based sync off closes the socket too; that is no outage to catch up after.
                 if (_preferences.SyncMethod == SyncMethod.Relay)
                     _socketDownSinceUtc ??= now;
-                RecordTransition(now);
+                // A stop the user asked for and the relay's owner handover close the socket on purpose (outage None).
+                _flapDownRecorded = outage != RelaySocketOutageKind.None && _preferences.SyncMethod == SyncMethod.Relay;
+                if (_flapDownRecorded)
+                    RecordTransition(now);
                 DisposeTimer(ref _stableTimer);
 
                 if (outage == RelaySocketOutageKind.Terminal)

@@ -337,8 +337,11 @@ public sealed class RelaySocketCoordinator : IRelaySocketCoordinator
         {
             case RelaySocketDisconnectReason.ConnectionLost:
             case RelaySocketDisconnectReason.RelayRestarting:
-            case RelaySocketDisconnectReason.Replaced when disconnection.WillReconnect:
                 SetState(false, RelaySocketOutageKind.Transient, disconnection.WillReconnect);
+                break;
+            case RelaySocketDisconnectReason.Replaced when disconnection.WillReconnect:
+                // A planned handover to the device's new owner, not an outage: it must not count as a flap.
+                SetState(false, RelaySocketOutageKind.None, true);
                 break;
             case RelaySocketDisconnectReason.Stopped:
                 SetState(false, RelaySocketOutageKind.None, false);

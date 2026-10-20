@@ -86,7 +86,7 @@ public enum ImapIdleState
 /// <summary>What the last relay socket disconnect means for recovery.</summary>
 public enum RelaySocketOutageKind
 {
-    /// <summary>The socket is connected or was never started.</summary>
+    /// <summary>The socket is connected, was never started, or closed on purpose (stopped, or handed over to the device's new owner).</summary>
     None,
 
     /// <summary>The transport dropped or the relay is restarting; the client reconnects on its own.</summary>
