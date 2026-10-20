@@ -916,7 +916,6 @@
                                 HorizontalAlignment="Stretch"
                                 HorizontalContentAlignment="Stretch"
                                 toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
-                                toolkitExt:ScrollViewerExtensions.VerticalScrollBarMargin="-6"
                                 AutomationProperties.AutomationId="MailListView"
                                 AutomationProperties.Name="{x:Bind domain:Translator.Accessibility_MailList, Mode=OneTime}"
                                 CanDragItems="True"
