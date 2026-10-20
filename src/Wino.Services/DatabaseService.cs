@@ -879,6 +879,13 @@ WHERE SortKey IS NULL OR SortKey = ''").ConfigureAwait(false);
                 $"ALTER TABLE {nameof(WinoAccount)} ADD COLUMN {column} INTEGER NOT NULL DEFAULT 0")
                 .ConfigureAwait(false);
         }
+
+        if (!columns.Any(c => c.Name == nameof(WinoAccount.AcceptedAppPolicyVersion)))
+        {
+            await Connection.ExecuteAsync(
+                $"ALTER TABLE {nameof(WinoAccount)} ADD COLUMN {nameof(WinoAccount.AcceptedAppPolicyVersion)} INTEGER NULL")
+                .ConfigureAwait(false);
+        }
     }
 
     private async Task EnsureKeyboardShortcutSchemaAsync()

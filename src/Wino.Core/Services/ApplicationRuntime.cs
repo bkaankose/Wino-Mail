@@ -10,6 +10,7 @@ using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Synchronization;
@@ -38,10 +39,12 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
     private readonly TimeProvider _timeProvider;
     private readonly Func<CancellationToken, Task> _initializeServices;
     private readonly Func<CancellationToken, Task> _backgroundStartup;
-    private readonly IRelayHealth? _relayHealth;
+    private readonly ISyncCoordinator _coordinator;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly SemaphoreSlim _autoSynchronizationSemaphore = new(1, 1);
-    private readonly ConcurrentDictionary<Guid, int> _inboxSyncCounters = new();
+    // When each account last had a FullFolders pass. Time-based rather than tick-based, because covered accounts
+    // skip ticks and would otherwise never reach a full pass.
+    private readonly ConcurrentDictionary<Guid, DateTimeOffset> _lastFullFolderSyncUtc = new();
     private readonly ConcurrentDictionary<int, Task> _jobs = new();
     private readonly Queue<ApplicationRuntimeState> _stateChanges = new();
     private readonly HashSet<Guid> _pendingCreatedAccounts = new();
@@ -61,9 +64,9 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
     public ApplicationRuntime(ISynchronizationManager synchronizationManager, IAccountService accountService,
         IPreferencesService preferencesService, IPlatformCapabilities platformCapabilities, IMessenger messenger, IWinoLogger logger,
         Func<CancellationToken, Task> initializeServices, Func<CancellationToken, Task> backgroundStartup,
-        TimeProvider? timeProvider = null, IRelayHealth? relayHealth = null)
+        ISyncCoordinator coordinator, TimeProvider? timeProvider = null)
     {
-        _relayHealth = relayHealth;
+        _coordinator = coordinator;
         _synchronizationManager = synchronizationManager;
         _accountService = accountService;
         _preferencesService = preferencesService;
@@ -242,7 +245,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         _messenger.Register<AccountRemovedMessage>(this);
         _messenger.Register<AccountUpdatedMessage>(this);
         _preferencesService.PreferenceChanged += PreferencesChanged;
-        if (_relayHealth is not null) _relayHealth.Changed += RelayHealthChanged;
+        _coordinator.CatchUpRequested += CatchUpRequested;
         _subscribed = true;
     }
 
@@ -252,33 +255,22 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         if (_subscribed)
         {
             _preferencesService.PreferenceChanged -= PreferencesChanged;
-            if (_relayHealth is not null) _relayHealth.Changed -= RelayHealthChanged;
+            _coordinator.CatchUpRequested -= CatchUpRequested;
         }
         _subscribed = false;
     }
 
-    // The socket came up or went down. The mail loop decides per tick whether it may skip, so only the
-    // interval choice (user intervals or the 5 minute fallback) needs the loops restarted.
-    private void RelayHealthChanged(object? sender, EventArgs e)
+    // The coordinator decided that live coverage was lost long enough, or came back after a long enough outage,
+    // that one bounded mail pass is worth it. The loops themselves are not restarted: their intervals no longer
+    // depend on the relay, and each tick asks the coordinator per account.
+    private void CatchUpRequested(object? sender, SyncCatchUpReason reason)
     {
         lock (_gate)
         {
             if (_state != ApplicationRuntimeState.Running || !_hasAccounts) return;
-            if (!IsRelaySyncSelected) return;
-            RestartMailLoop();
-            RestartCalendarLoop();
+            Track(() => ExecuteAutoSynchronizationAsync(_lifetime.Token));
         }
     }
-
-    /// <summary>Relay-based sync is the app-wide choice on a platform that offers the choice.</summary>
-    private bool IsRelaySyncSelected
-        => SettingAvailability.IsAvailable(PlatformSetting.SyncMethod, _platformCapabilities) && _preferencesService.SyncMethod == SyncMethod.Relay;
-
-    /// <summary>
-    /// In relay mode the timer only covers what the socket cannot deliver right now. Mail skips its tick while the
-    /// socket is connected (Gmail and Outlook arrive over it, desktop IMAP through the local IDLE client).
-    /// </summary>
-    private bool ShouldSkipTimerMailSync => IsRelaySyncSelected && _relayHealth is { IsSocketConnected: true };
 
     private void Track(Func<Task> operation)
     {
@@ -334,8 +326,8 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         {
             hasAccounts = _hasAccounts = accounts.Any();
             var ids = accounts.Select(x => x.Id).ToHashSet();
-            foreach (var id in _inboxSyncCounters.Keys.Where(x => !ids.Contains(x)))
-                _inboxSyncCounters.TryRemove(id, out _);
+            foreach (var id in _lastFullFolderSyncUtc.Keys.Where(x => !ids.Contains(x)))
+                _lastFullFolderSyncUtc.TryRemove(id, out _);
 
             if (!_hasAccounts) StopLoops();
         }
@@ -359,12 +351,6 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         lock (_gate)
         {
             if (_state != ApplicationRuntimeState.Running || !_hasAccounts) return;
-            if (propertyName == nameof(IPreferencesService.SyncMethod))
-            {
-                RestartMailLoop();
-                RestartCalendarLoop();
-                return;
-            }
             if (!SettingAvailability.IsAvailable(PlatformSetting.SyncIntervals, _platformCapabilities)) return;
             if (propertyName == nameof(IPreferencesService.EmailSyncIntervalMinutes)) RestartMailLoop();
             if (propertyName == nameof(IPreferencesService.CalendarSyncIntervalMinutes)) RestartCalendarLoop();
@@ -381,22 +367,15 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         if (_contactLoop == null) RestartContactLoop();
     }
 
-    // Without configurable intervals (mobile) the foreground loops keep the default intervals, whatever a backup or
-    // another platform stored.
-    // Relay mode on desktop replaces the user's intervals with the fixed fallback interval.
-    private int GetSyncIntervalMinutes(int configuredMinutes, int defaultMinutes)
-    {
-        if (IsRelaySyncSelected) return Constants.RelayFallbackSyncIntervalMinutes;
-        return Math.Max(1, SettingAvailability.IsAvailable(PlatformSetting.SyncIntervals, _platformCapabilities) ? configuredMinutes : defaultMinutes);
-    }
-
+    // The intervals come from the coordinator: the user's settings on desktop (in timer mode and as the relay
+    // fallback alike), the defaults on mobile. The relay never changes them; it only lets covered accounts skip ticks.
     private void RestartMailLoop()
     {
         _mailLoop?.Cancel();
         var source = _mailLoop = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         var startupPass = PendingStartupPass;
-        Track(() => RunLoopWithCleanupAsync(source, () => RunAutoSynchronizationLoopAsync(
-            TimeSpan.FromMinutes(GetSyncIntervalMinutes(_preferencesService.EmailSyncIntervalMinutes, Constants.DefaultEmailSyncIntervalMinutes)), startupPass, source.Token)));
+        var interval = _coordinator.MailSyncInterval;
+        Track(() => RunLoopWithCleanupAsync(source, () => RunAutoSynchronizationLoopAsync(interval, startupPass, source.Token)));
     }
 
     private void RestartCalendarLoop()
@@ -404,8 +383,8 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         _calendarLoop?.Cancel();
         var source = _calendarLoop = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         var startupPass = PendingStartupPass;
-        Track(() => RunLoopWithCleanupAsync(source, () => RunCalendarAutoSynchronizationLoopAsync(
-            TimeSpan.FromMinutes(GetSyncIntervalMinutes(_preferencesService.CalendarSyncIntervalMinutes, Constants.DefaultCalendarSyncIntervalMinutes)), startupPass, source.Token)));
+        var interval = _coordinator.CalendarSyncInterval;
+        Track(() => RunLoopWithCleanupAsync(source, () => RunCalendarAutoSynchronizationLoopAsync(interval, startupPass, source.Token)));
     }
 
     /// <summary>The startup pass while it still runs; a loop created meanwhile lets it cover the first run.</summary>
@@ -984,7 +963,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
 
             while (await timer.WaitForNextTickAsync(cancellationToken))
             {
-                if (ShouldSkipTimerMailSync) continue;
+                // Each account decides for itself inside, through the coordinator's live coverage.
                 await ExecuteAutoSynchronizationAsync(cancellationToken);
             }
         }
@@ -1074,7 +1053,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
             return;
 
         var accounts = await _accountService.GetAccountsAsync();
-        foreach (var account in accounts.Where(a => a.IsTaskAccessGranted && !a.IsTaskReauthorizationRequired))
+        foreach (var account in accounts.Where(a => a.IsTaskAccessGranted && !a.IsTaskReauthorizationRequired && !a.IsNetworkAccessBlocked()))
         {
             cancellationToken.ThrowIfCancellationRequested();
             await _synchronizationManager.SynchronizeTasksAsync(new TaskSynchronizationOptions
@@ -1091,7 +1070,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
             return;
 
         var accounts = await _accountService.GetAccountsAsync();
-        foreach (var account in accounts.Where(a => a.IsContactAccessGranted))
+        foreach (var account in accounts.Where(a => a.IsContactAccessGranted && !a.IsNetworkAccessBlocked()))
         {
             cancellationToken.ThrowIfCancellationRequested();
             await _synchronizationManager.SynchronizeContactsAsync(new ContactSynchronizationOptions
@@ -1117,9 +1096,9 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
 
             var accounts = await _accountService.GetAccountsAsync();
             var currentAccountIds = accounts.Select(a => a.Id).ToHashSet();
-            foreach (var staleAccountId in _inboxSyncCounters.Keys.Where(a => !currentAccountIds.Contains(a)).ToList())
+            foreach (var staleAccountId in _lastFullFolderSyncUtc.Keys.Where(a => !currentAccountIds.Contains(a)).ToList())
             {
-                _inboxSyncCounters.TryRemove(staleAccountId, out _);
+                _lastFullFolderSyncUtc.TryRemove(staleAccountId, out _);
             }
 
             var synchronizationTasks = accounts
@@ -1147,8 +1126,9 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         try
         {
             var accounts = await _accountService.GetAccountsAsync();
+            // Accounts that need attention are left alone until the user fixes them; the timer never retries them.
             var synchronizationTasks = accounts
-                .Where(account => account.IsCalendarAccessGranted)
+                .Where(account => account.IsCalendarAccessGranted && !account.IsNetworkAccessBlocked())
                 .Select(account => ExecuteCalendarAutoSynchronizationForAccountAsync(account, cancellationToken))
                 .ToList();
 
@@ -1192,33 +1172,43 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         if (!account.IsMailAccessGranted)
             return;
 
-        var inboxSyncOptions = new MailSynchronizationOptions
+        // An account that needs attention (rejected credentials, certificate, missing system folders, offline demo)
+        // is left alone until the user fixes it. Retrying it on every tick only repeats the failure.
+        if (account.IsNetworkAccessBlocked())
+            return;
+
+        // A full pass is due once per InboxSyncsPerFullSync intervals, measured in time so that accounts covered
+        // live (which skip their inbox ticks) still get it. Covered accounts skip everything else.
+        var now = _timeProvider.GetUtcNow();
+        var fullPassDue = _lastFullFolderSyncUtc.TryGetValue(account.Id, out var lastFullPass)
+            && now - lastFullPass >= _coordinator.MailSyncInterval * InboxSyncsPerFullSync;
+
+        if (!fullPassDue && !_coordinator.ShouldRunTimerSync(account.Id))
+            return;
+
+        var options = new MailSynchronizationOptions
         {
             AccountId = account.Id,
-            Type = MailSynchronizationType.InboxOnly
+            Type = fullPassDue ? MailSynchronizationType.FullFolders : MailSynchronizationType.InboxOnly
         };
 
-        var inboxSyncResult = await _synchronizationManager.SynchronizeMailAsync(inboxSyncOptions, cancellationToken);
+        var result = await _synchronizationManager.SynchronizeMailAsync(options, cancellationToken);
+        var succeeded = result.CompletedState is SynchronizationCompletedState.Success or SynchronizationCompletedState.PartiallyCompleted;
 
-        if (inboxSyncResult.CompletedState is SynchronizationCompletedState.Success or SynchronizationCompletedState.PartiallyCompleted)
+        // A full pass restarts the clock whether or not it succeeded (the tick counter used to reset the same way),
+        // so a failing full pass waits another cycle instead of repeating on every tick.
+        if (fullPassDue)
+            _lastFullFolderSyncUtc[account.Id] = now;
+
+        if (succeeded)
         {
             await ClearInvalidCredentialAttentionIfNeededAsync(account.Id);
 
-            var inboxSyncCount = _inboxSyncCounters.AddOrUpdate(account.Id, 1, (_, currentCount) => currentCount + 1);
-
-            if (inboxSyncCount >= InboxSyncsPerFullSync)
-            {
-                var fullSyncOptions = new MailSynchronizationOptions
-                {
-                    AccountId = account.Id,
-                    Type = MailSynchronizationType.FullFolders
-                };
-
-                await _synchronizationManager.SynchronizeMailAsync(fullSyncOptions, cancellationToken);
-                _inboxSyncCounters[account.Id] = 0;
-            }
+            // The first successful pass starts the clock.
+            _lastFullFolderSyncUtc.TryAdd(account.Id, now);
         }
 
+        _coordinator.ReportTimerMailSyncCompleted(account.Id, succeeded, _timeProvider.GetUtcNow());
     }
 
     private async Task ClearInvalidCredentialAttentionIfNeededAsync(Guid accountId)

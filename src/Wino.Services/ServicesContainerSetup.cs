@@ -123,7 +123,27 @@ public static class ServicesContainerSetup
             provider.GetRequiredService<IConfigurationService>(),
             provider.GetRequiredService<IAccountService>(),
             provider.GetRequiredService<IPlatformCapabilities>(),
-            () => provider.GetRequiredService<IPushRelayRegistrationService>()));
+            () => provider.GetRequiredService<IPushRelayRegistrationService>(),
+            () => provider.GetRequiredService<IAppPolicyAcceptanceSyncService>()));
+        services.AddSingleton<IAppPolicyAcceptanceSyncService>(provider => new PushRelay.AppPolicyAcceptanceSyncService(
+            provider.GetRequiredService<IConfigurationService>(),
+            provider.GetRequiredService<IWinoAccountProfileService>(),
+            provider.GetRequiredService<IWinoAccountApiClient>(),
+            provider.GetService<IPushRelayDeviceInfo>(),
+            provider.GetService<IMessenger>()));
+
+        // One owner for sync mode, per-account live coverage, intervals, catch-ups and relay retries. It is also the
+        // IRelayHealth the shell binds; the socket coordinator stays the raw input underneath it.
+        services.AddSingleton<ISyncCoordinator>(provider => new Synchronization.SyncCoordinator(
+            provider.GetRequiredService<IPreferencesService>(),
+            provider.GetRequiredService<IPlatformCapabilities>(),
+            provider.GetRequiredService<IAccountService>(),
+            provider.GetRequiredService<IPushRelayRegistrationService>(),
+            provider.GetRequiredService<ISynchronizationManager>(),
+            provider.GetRequiredService<IMessenger>(),
+            provider.GetService<IRelayIntroductionService>(),
+            provider.GetService<IRelaySocketCoordinator>()));
+        services.AddSingleton<IRelayHealth>(provider => provider.GetRequiredService<ISyncCoordinator>());
     }
 
     /// <summary>

@@ -1,21 +1,29 @@
 using System;
+using Serilog;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Notifications;
+using Wino.Services.Logging;
 
 namespace Wino.Services;
 
 /// <summary>
 /// Owns snooze and quiet hours evaluation. Expiry is lazy rather than timer-driven: whoever reads
 /// the state next clears an elapsed snooze, so correctness never depends on a timer having fired.
+/// Every suppression is logged with its reason, throttled per reason and account so a busy quiet
+/// hour produces one line plus a count instead of one line per message.
 /// </summary>
 public class NotificationPolicyService(
     IPreferencesService preferencesService,
     IUserPresenceStateProvider userPresenceStateProvider) : INotificationPolicyService
 {
+    private static readonly TimeSpan SuppressionLogWindow = TimeSpan.FromMinutes(10);
+
     private readonly IPreferencesService _preferencesService = preferencesService;
     private readonly IUserPresenceStateProvider _userPresenceStateProvider = userPresenceStateProvider;
+    private readonly ILogger _logger = Log.ForContext<NotificationPolicyService>();
+    private readonly ThrottledLog _suppressionLog = new(SuppressionLogWindow);
 
     public NotificationSnoozeState GetSnoozeState(DateTimeOffset now)
     {
@@ -93,11 +101,31 @@ public class NotificationPolicyService(
 
     public NotificationDeliveryDecision Evaluate(NotificationKind kind, MailAccountPreferences? accountPreferences, DateTimeOffset now)
     {
+        var decision = EvaluateCore(kind, accountPreferences, now);
+
+        if (!decision.ShouldDeliver)
+            LogSuppression(kind, accountPreferences?.AccountId, decision.Reason);
+
+        return decision;
+    }
+
+    private void LogSuppression(NotificationKind kind, Guid? accountId, NotificationSuppressionReason reason)
+    {
+        var key = $"{reason}:{kind}:{accountId}";
+        if (!_suppressionLog.ShouldWrite(key, out var suppressed))
+            return;
+
+        _logger.Information("{NotificationKind} notification suppressed for account {AccountId}: {Reason} ({Suppressed} more in the last {Window} minutes).",
+            kind, accountId, reason, suppressed, SuppressionLogWindow.TotalMinutes);
+    }
+
+    private NotificationDeliveryDecision EvaluateCore(NotificationKind kind, MailAccountPreferences? accountPreferences, DateTimeOffset now)
+    {
         if (GetSnoozeState(now).IsSnoozed)
             return NotificationDeliveryDecision.Suppress(NotificationSuppressionReason.Snoozed);
 
         if (_preferencesService.SnoozeWhilePresenting && _userPresenceStateProvider.IsPresenting())
-            return NotificationDeliveryDecision.Suppress(NotificationSuppressionReason.Snoozed);
+            return NotificationDeliveryDecision.Suppress(NotificationSuppressionReason.Presenting);
 
         if (!IsTypeEnabled(kind, accountPreferences))
             return NotificationDeliveryDecision.Suppress(NotificationSuppressionReason.TypeDisabled);

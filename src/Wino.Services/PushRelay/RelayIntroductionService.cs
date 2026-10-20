@@ -8,6 +8,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.PushRelay;
 using Wino.Core.Domain.Models.Settings;
+using Wino.Mail.Api.Contracts.Users;
 
 namespace Wino.Services.PushRelay;
 
@@ -22,17 +23,19 @@ public sealed class RelayIntroductionService : IRelayIntroductionService
     private readonly IAccountService _accounts;
     private readonly IPlatformCapabilities _capabilities;
     private readonly Func<IPushRelayRegistrationService> _pushRelay;
+    private readonly Func<IAppPolicyAcceptanceSyncService> _policySync;
     private readonly SemaphoreSlim _lock = new(1, 1);
     private readonly ILogger _logger = Log.ForContext<RelayIntroductionService>();
 
     public RelayIntroductionService(IPreferencesService preferences, IConfigurationService configuration, IAccountService accounts,
-        IPlatformCapabilities capabilities, Func<IPushRelayRegistrationService> pushRelay)
+        IPlatformCapabilities capabilities, Func<IPushRelayRegistrationService> pushRelay, Func<IAppPolicyAcceptanceSyncService> policySync)
     {
         _preferences = preferences;
         _configuration = configuration;
         _accounts = accounts;
         _capabilities = capabilities;
         _pushRelay = pushRelay;
+        _policySync = policySync;
     }
 
     private bool HasChoice => SettingAvailability.IsAvailable(PlatformSetting.SyncMethod, _capabilities);
@@ -79,7 +82,7 @@ public sealed class RelayIntroductionService : IRelayIntroductionService
         }
     }
 
-    public void AcceptPolicy() => _configuration.Set(PushRelayDefaults.PolicyAcceptedVersionConfigurationKey, PushRelayDefaults.PolicyVersion);
+    public void AcceptPolicy() => RecordPolicy(AppPolicyAcceptanceSources.Explicit);
 
     public void DismissIntroduction() => _configuration.Set(PushRelayDefaults.IntroductionPendingConfigurationKey, false);
 
@@ -108,6 +111,17 @@ public sealed class RelayIntroductionService : IRelayIntroductionService
     private void RecordPolicyIfMissing()
     {
         if (_configuration.Get(PushRelayDefaults.PolicyAcceptedVersionConfigurationKey, 0) < PushRelayDefaults.PolicyVersion)
-            AcceptPolicy();
+            RecordPolicy(AppPolicyAcceptanceSources.StoreInstall);
+    }
+
+    /// <summary>Writes the per-device record, then lets the sync service copy it to the Wino Account in the background.</summary>
+    private void RecordPolicy(string source)
+    {
+        _configuration.Set(PushRelayDefaults.PolicyAcceptedVersionConfigurationKey, PushRelayDefaults.PolicyVersion);
+        try { _policySync().NotifyLocalAcceptance(source); }
+        catch (Exception ex)
+        {
+            _logger.Information(ex, "The app policy acceptance could not be queued for the Wino Account; startup retries it.");
+        }
     }
 }

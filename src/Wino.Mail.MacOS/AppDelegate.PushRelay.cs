@@ -26,7 +26,8 @@ public sealed partial class AppDelegate
 
     public override void DidBecomeActive(NSNotification notification)
     {
-        if (_runtimeStarted) _services?.GetService<IPushRelayRegistrationService>()?.RequestSync(PushRelaySyncReason.Foreground);
+        // The coordinator decides whether a stalled relay deserves a retry now, and throttles repeated activations.
+        if (_runtimeStarted) _services?.GetService<ISyncCoordinator>()?.RequestRelayRetry(RelayRetryTrigger.Foreground);
     }
 
 #if DEBUG
@@ -56,9 +57,12 @@ public sealed partial class AppDelegate
                 case "on": await relay.SetUserOptInAsync(true); break;
                 case "off": await relay.SetUserOptInAsync(false); break;
                 case "socket":
-                    // The desktop socket coordinator: what the shell's red dot and the runtime's fallback loops read.
+                    // The raw socket coordinator next to the sync coordinator's view (what the shell's red dot and the runtime read).
                     if (services.GetService<IRelaySocketCoordinator>() is not { } health) return "no socket coordinator";
-                    return $"method={services.GetRequiredService<IPreferencesService>().SyncMethod} connected={health.IsSocketConnected} fallback={health.IsFallbackActive} changed={health.LastChangeUtc:HH:mm:ss}";
+                    var coordinator = services.GetRequiredService<ISyncCoordinator>().Snapshot;
+                    var coverage = string.Join(", ", coordinator.Coverage.Values.Select(c => $"{c.AccountId.ToString()[..8]}={c.Kind}/{c.Gap}"));
+                    return $"method={services.GetRequiredService<IPreferencesService>().SyncMethod} socket connected={health.IsSocketConnected} outage={health.LastOutage} reconnecting={health.IsReconnecting} " +
+                        $"mode={coordinator.Mode} fallback={coordinator.Mode == EffectiveSyncMode.RelayFallback} cooldown={coordinator.IsFlapCooldownActive} changed={coordinator.ChangedUtc:HH:mm:ss} coverage=[{coverage}]";
             }
 
             var s = relay.Snapshot;

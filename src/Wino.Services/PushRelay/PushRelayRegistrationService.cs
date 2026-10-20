@@ -40,7 +40,7 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
     private static readonly TimeSpan[] Backoff =
     [
         TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(15),
-        TimeSpan.FromHours(1), TimeSpan.FromHours(6), TimeSpan.FromHours(24)
+        TimeSpan.FromMinutes(30), TimeSpan.FromHours(1)
     ];
 
     private static readonly PushRelaySyncReason[] ForcingReasons =
@@ -298,18 +298,23 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
             if (!state.Mailboxes.TryGetValue(accountId, out var entry))
                 return false;
 
+            var previousStatus = entry.Status;
+            var previousError = entry.LastErrorCode;
             entry.Status = status ?? entry.Status;
             entry.MonitoringReason = reason;
             entry.MonitoringMessage = message;
             entry.UpdatedUtc = UtcNow;
 
-            if (status != PushRelayMailboxStatuses.NeedsReauth)
-                return false;
+            var needsReauth = status == PushRelayMailboxStatuses.NeedsReauth;
+            if (needsReauth)
+            {
+                // The relay can no longer sign in: upload the current credentials again on the next pass.
+                entry.CredentialFingerprint = null;
+                entry.LastErrorCode = null;
+            }
 
-            // The relay can no longer sign in: upload the current credentials again on the next pass.
-            entry.CredentialFingerprint = null;
-            entry.LastErrorCode = null;
-            return true;
+            LogMailboxTransition(accountId, previousStatus, previousError, entry);
+            return needsReauth;
         });
 
     public void ReportTestPush()
@@ -344,6 +349,14 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
     public void Receive(WinoAccountSignedInMessage message)
     {
         _signInRejected = false;
+
+        // Timer mode asks the API for nothing: the pass only refreshes the published state.
+        if (!IsRelaySelected)
+        {
+            RequestSync(PushRelaySyncReason.WinoAccountChanged);
+            return;
+        }
+
         _ = LinkThenSyncAsync();
     }
 
@@ -442,6 +455,16 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
     private async Task RunPassAsync(HashSet<PushRelaySyncReason> reasons, CancellationToken cancellationToken)
     {
         var state = _stateStore.Load();
+
+        // A schedule persisted by an earlier version (up to 24 h) is clamped to the current longest backoff, so an
+        // upgrade never waits a day for the first retry.
+        if (state.NextAttemptUtc is { } scheduled && scheduled > UtcNow + Backoff[^1])
+        {
+            state.NextAttemptUtc = UtcNow + Backoff[^1];
+            _stateStore.Save(state);
+            _logger.Information("Relay registration retry moved earlier to {NextAttemptUtc:O} (previous schedule exceeded the {Max} backoff cap).", state.NextAttemptUtc, Backoff[^1]);
+        }
+
         if (!IsPlatformSupported || _identityStore is not { } identityStore || _deviceInfo is not { } deviceInfo)
         {
             Publish(PushRelayAvailability.UnsupportedPlatform, state, null);
@@ -451,7 +474,8 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
         var session = await _sessions.CaptureAsync(cancellationToken).ConfigureAwait(false);
         var identity = await identityStore.LoadAsync(cancellationToken).ConfigureAwait(false);
         // Timer mode asks the API for nothing: the device credential is only created once the relay is wanted.
-        var canAuthenticate = IsRelaySelected && await CanAuthenticateAsync(cancellationToken).ConfigureAwait(false);
+        // A registered device still authenticates once so turning the relay off removes it at the relay.
+        var canAuthenticate = (IsRelaySelected || identity is not null) && await CanAuthenticateAsync(cancellationToken).ConfigureAwait(false);
         var gate = EvaluateGate(state, canAuthenticate);
 
         if (gate != PushRelayAvailability.Enabled)
@@ -485,6 +509,7 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
             return;
         }
 
+        var mailboxesBefore = CaptureMailboxes(state);
         try
         {
             identity = await RunEnabledPassAsync(state, session, identity, identityStore, deviceInfo.Describe(), reasons, now, cancellationToken)
@@ -507,7 +532,30 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
         }
 
         _stateStore.Save(state);
+        LogMailboxTransitions(mailboxesBefore, state);
         Publish(ComputeAvailability(state, true), state, identity);
+    }
+
+    private static Dictionary<Guid, (string? Status, string? ErrorCode)> CaptureMailboxes(PushRelayState state)
+        => state.Mailboxes.ToDictionary(x => x.Key, x => (x.Value.Status, x.Value.LastErrorCode));
+
+    /// <summary>One line per mailbox whose status or error code changed during the pass.</summary>
+    private void LogMailboxTransitions(Dictionary<Guid, (string? Status, string? ErrorCode)> before, PushRelayState state)
+    {
+        foreach (var (accountId, entry) in state.Mailboxes)
+        {
+            var (previousStatus, previousError) = before.TryGetValue(accountId, out var previous) ? previous : (null, null);
+            LogMailboxTransition(accountId, previousStatus, previousError, entry);
+        }
+    }
+
+    private void LogMailboxTransition(Guid accountId, string? previousStatus, string? previousError, PushRelayMailboxRegistration entry)
+    {
+        if (previousStatus == entry.Status && previousError == entry.LastErrorCode)
+            return;
+
+        _logger.Information("Relay mailbox {AccountId} status {Previous} -> {Current} ({ErrorCode}).",
+            accountId, previousStatus, entry.Status, entry.LastErrorCode);
     }
 
     private async Task<PushRelayDeviceIdentity?> RunEnabledPassAsync(PushRelayState state, WinoAccountSession? session,
@@ -905,7 +953,13 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
             state.MailboxLimit ?? _tokens.MailboxLimit ?? PushRelayDefaults.DefaultMailboxLimit,
             state.LastTestPushUtc);
 
-        Volatile.Write(ref _snapshot, snapshot);
+        var previous = Interlocked.Exchange(ref _snapshot, snapshot);
+        if (previous.Availability != availability)
+        {
+            _logger.Information("Live notifications availability changed {Previous} -> {Current} (reason {Reason}, next attempt {NextAttemptUtc:O}).",
+                previous.Availability, availability, state.LastErrorCode, state.NextAttemptUtc);
+        }
+
         try
         {
             SnapshotChanged?.Invoke(this, snapshot);

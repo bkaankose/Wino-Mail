@@ -24,6 +24,12 @@ public static class PushRelayDefaults
     /// <summary>The configuration key of the accepted <see cref="PolicyVersion"/> (non-roaming).</summary>
     public const string PolicyAcceptedVersionConfigurationKey = "PushRelay.PolicyAcceptedVersion";
 
+    /// <summary>
+    /// The configuration key of how this device accepted the policy (non-roaming): an
+    /// <c>AppPolicyAcceptanceSources</c> value, sent again when the account upload is retried.
+    /// </summary>
+    public const string PolicyAcceptanceSourceConfigurationKey = "PushRelay.PolicyAcceptanceSource";
+
     /// <summary>The configuration key of the pending desktop introduction window (non-roaming).</summary>
     public const string IntroductionPendingConfigurationKey = "PushRelay.IntroductionPending";
 

@@ -45,6 +45,12 @@ public interface IWinoAccountApiClient
     Task<ApiEnvelope<JsonElement>> ForgotPasswordAsync(string email, CancellationToken cancellationToken = default);
     Task<ApiEnvelope<JsonElement>> LogoutAsync(string refreshToken, CancellationToken cancellationToken = default);
     Task<ApiEnvelope<AuthUserDto>> GetCurrentUserAsync(CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Records that the signed-in Wino Account accepted app privacy policy <paramref name="version"/>
+    /// (<c>POST api/v1/users/me/app-policy/accept</c>). Idempotent; <paramref name="source"/> is an
+    /// <see cref="AppPolicyAcceptanceSources"/> value and <paramref name="platform"/> a relay platform value.
+    /// </summary>
+    Task<ApiEnvelope<AppPolicyAcceptanceDto>> AcceptAppPolicyAsync(int version, string source, string platform, CancellationToken cancellationToken = default);
     Task<ApiEnvelope<AiSummaryResultDto>> SummarizeAsync(IReadOnlyList<MailContentSegment> segments, string targetLanguage, CancellationToken cancellationToken = default);
     Task<ApiEnvelope<AiTranslationResultDto>> TranslateAsync(IReadOnlyList<MailContentSegment> segments, string? sourceLanguage, string targetLanguage, CancellationToken cancellationToken = default);
     /// <param name="context">A <see cref="RewriteContexts"/> value: reading a received message or composing a draft.</param>

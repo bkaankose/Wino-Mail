@@ -4038,7 +4038,7 @@
   "RelayPolicy_AcceptanceFailed": "The privacy policy acceptance could not be saved. Try again.",
   "Relay_FallbackIndicatorAutomationName": "Live updates are offline",
   "Relay_FallbackFlyoutTitle": "Live updates are offline",
-  "Relay_FallbackFlyoutMessage": "Wino cannot reach the relay right now. Notifications may be delayed; mail and calendar are checked every 5 minutes until it is back.",
+  "Relay_FallbackFlyoutMessage": "Wino cannot reach the relay right now. Notifications may be delayed; mail and calendar are checked on your sync intervals until it is back.",
   "NotificationSettings_InstantPush_Title": "Instant Push Notifications",
   "RelayIntroduction_TipTitle": "Instant Push notifications are now available",
   "RelayIntroduction_TipSubtitle": "Check our new Notifications page to configure your live notifications.",

@@ -30,6 +30,9 @@ public class WinoAccount
 
     public bool IsUnlimitedAccountsEnabled { get; set; }
 
+    /// <summary>The highest app privacy policy version the account accepted on any device; null when none.</summary>
+    public int? AcceptedAppPolicyVersion { get; set; }
+
     public string AccessToken { get; set; } = string.Empty;
 
     public DateTime AccessTokenExpiresAtUtc { get; set; }

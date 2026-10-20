@@ -529,7 +529,8 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
            left.HasFacebookLogin == right.HasFacebookLogin &&
            left.HasAppleLogin == right.HasAppleLogin &&
            left.HasMicrosoftLogin == right.HasMicrosoftLogin &&
-           left.IsUnlimitedAccountsEnabled == right.IsUnlimitedAccountsEnabled;
+           left.IsUnlimitedAccountsEnabled == right.IsUnlimitedAccountsEnabled &&
+           left.AcceptedAppPolicyVersion == right.AcceptedAppPolicyVersion;
 
     private static WinoAccount MergeAccountProfile(WinoAccount existingAccount, AuthUserDto profile)
         => new()
@@ -545,6 +546,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
             HasAppleLogin = profile.HasAppleLogin,
             HasMicrosoftLogin = profile.HasMicrosoftLogin,
             IsUnlimitedAccountsEnabled = profile.IsUnlimitedAccountsEnabled,
+            AcceptedAppPolicyVersion = profile.AcceptedAppPolicyVersion,
             AccessToken = existingAccount.AccessToken,
             AccessTokenExpiresAtUtc = existingAccount.AccessTokenExpiresAtUtc,
             RefreshToken = existingAccount.RefreshToken,
@@ -566,6 +568,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
             HasAppleLogin = result.User.HasAppleLogin,
             HasMicrosoftLogin = result.User.HasMicrosoftLogin,
             IsUnlimitedAccountsEnabled = result.User.IsUnlimitedAccountsEnabled,
+            AcceptedAppPolicyVersion = result.User.AcceptedAppPolicyVersion,
             AccessToken = result.AccessToken,
             AccessTokenExpiresAtUtc = result.AccessTokenExpiresAtUtc.UtcDateTime,
             RefreshToken = result.RefreshToken,

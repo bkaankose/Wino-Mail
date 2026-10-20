@@ -1,6 +1,7 @@
 (function () {
     "use strict";
     const reader = document.getElementById("wino-reader");
+    const readerHeading = document.getElementById("wino-reader-heading");
     const readabilityMode = 1;
     const sanitizeOptions = {
         USE_PROFILES: { html: true },
@@ -64,6 +65,10 @@
         .wino-readability a { color: LinkText; }
         .wino-readability img { max-width: 100%; height: auto; }
         .wino-readability pre { font-family: Consolas, monospace; }
+        .wino-text-fallback {
+            position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+            overflow: hidden; clip-path: inset(50%); white-space: pre-wrap; border: 0;
+        }
     `;
 
     let originalHtml = "";
@@ -76,6 +81,9 @@
     let requiresLightOnly = false;
     let colorOverrides = [];
     let imageRefreshTimer = 0;
+    let fallbackElement = null;
+    let fallbackName = "Plain text message";
+    let fallbackText = "";
 
     function post(message) {
         message.sessionId = window.winoSessionId;
@@ -432,6 +440,7 @@
 
         applyColorPolicy();
         watchImageLoads();
+        updateTextFallback();
         revealAfterStylesSettle(version);
         return true;
     }
@@ -465,13 +474,36 @@
         }
     }
 
+    // Keyboard focus enters the message on a visually hidden heading, so screen readers announce only the
+    // message context and start reading at the top of the mail. A focusable container around the mail made
+    // NVDA read the whole message as one block, and the plain-text version used as its description was read
+    // in full again every time the reading cursor entered the body.
     function setAccessibility(subject, sender, date, bodyAutomationName, plainTextFallbackAutomationName, accessibleText) {
         const context = [subject, sender, date].filter(Boolean).join(", ");
         const bodyName = bodyAutomationName || "Message body";
-        reader.setAttribute("aria-label", context ? `${bodyName}, ${context}` : bodyName);
-        reader.dataset.plainTextFallbackAutomationName = plainTextFallbackAutomationName || "Plain text message";
-        if (accessibleText) reader.setAttribute("aria-description", accessibleText);
-        else reader.removeAttribute("aria-description");
+        readerHeading.textContent = context ? `${bodyName}, ${context}` : bodyName;
+        document.title = subject || bodyName;
+        fallbackName = plainTextFallbackAutomationName || "Plain text message";
+        fallbackText = accessibleText || "";
+        updateTextFallback();
+    }
+
+    // Screen readers read the rendered mail itself. The plain-text version is offered only when the
+    // rendered mail has no readable text, such as a message made of images without alternative text.
+    function updateTextFallback() {
+        if (fallbackElement) fallbackElement.remove();
+        fallbackElement = null;
+        if (!fallbackText || !mailBodyElement || hasReadableContent(mailBodyElement)) return;
+        fallbackElement = document.createElement("section");
+        fallbackElement.className = "wino-text-fallback";
+        fallbackElement.setAttribute("aria-label", fallbackName);
+        fallbackElement.textContent = fallbackText;
+        mailRoot.appendChild(fallbackElement);
+    }
+
+    function hasReadableContent(element) {
+        if ((element.textContent || "").trim()) return true;
+        return Array.from(element.querySelectorAll("img[alt]")).some(image => image.getAttribute("alt").trim());
     }
 
     document.addEventListener("click", event => {
@@ -500,6 +532,8 @@
             requiresLightOnly = false;
             mailHtmlElement = null;
             mailBodyElement = null;
+            fallbackElement = null;
+            fallbackText = "";
             fontFaceStyle.textContent = "";
             mailRoot.adoptedStyleSheets = [];
             mailRoot.replaceChildren();

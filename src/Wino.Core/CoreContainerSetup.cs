@@ -59,7 +59,8 @@ public static class CoreContainerSetup
             () => provider.GetRequiredService<Wino.Services.IntelligenceResultKeyLifecycle>(),
             () => provider.GetRequiredService<IPushRelayRegistrationService>(),
             () => provider.GetService<IRelaySocketCoordinator>(),
-            () => provider.GetService<IRelayIntroductionService>()));
+            () => provider.GetRequiredService<ISyncCoordinator>(),
+            () => provider.GetService<IAppPolicyAcceptanceSyncService>()));
         services.AddSingleton<IApplicationRuntime>(provider => new ApplicationRuntime(
             provider.GetRequiredService<ISynchronizationManager>(),
             provider.GetRequiredService<IAccountService>(),
@@ -69,7 +70,7 @@ public static class CoreContainerSetup
             provider.GetRequiredService<IWinoLogger>(),
             provider.GetRequiredService<ApplicationRuntimeInitialization>().InitializeAsync,
             provider.GetRequiredService<ApplicationRuntimeInitialization>().RunBackgroundStartupAsync,
-            relayHealth: provider.GetService<IRelaySocketCoordinator>()));
+            provider.GetRequiredService<ISyncCoordinator>()));
 
         services.AddTransient<IGmailChangeProcessor, GmailChangeProcessor>();
         services.AddTransient<IImapChangeProcessor, ImapChangeProcessor>();

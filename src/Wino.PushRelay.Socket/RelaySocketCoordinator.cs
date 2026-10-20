@@ -33,6 +33,11 @@ public sealed class RelaySocketCoordinator : IRelaySocketCoordinator
     private CancellationTokenSource? _retry;
     private bool _started;
     private bool _socketConnected;
+    private RelaySocketOutageKind _lastOutage;
+    private bool _isReconnecting;
+    private bool _reconciling;
+    private bool _reconcileAgain;
+    private bool? _wanted;
     private DateTimeOffset? _lastChange;
 
     public RelaySocketCoordinator(IWinoRelaySocketClient socket, IPushRelayRegistrationService registration,
@@ -50,6 +55,10 @@ public sealed class RelaySocketCoordinator : IRelaySocketCoordinator
     public bool IsFallbackActive { get { lock (_gate) return _started && IsRelaySelected && !_socketConnected; } }
 
     public DateTimeOffset? LastChangeUtc { get { lock (_gate) return _lastChange; } }
+
+    public RelaySocketOutageKind LastOutage { get { lock (_gate) return _lastOutage; } }
+
+    public bool IsReconnecting { get { lock (_gate) return _isReconnecting; } }
 
     public event EventHandler? Changed;
 
@@ -99,7 +108,31 @@ public sealed class RelaySocketCoordinator : IRelaySocketCoordinator
         lifetime?.Cancel();
         lifetime?.Dispose();
         await _socket.StopAsync().ConfigureAwait(false);
-        SetConnected(false);
+        lock (_gate) _wanted = null;
+        SetState(false, RelaySocketOutageKind.None, false);
+    }
+
+    public async Task RequestReconnectAsync()
+    {
+        RelaySocketOutageKind outage;
+        lock (_gate)
+        {
+            if (!_started) return;
+            _retry?.Cancel();
+            _retry = null;
+            outage = _lastOutage;
+        }
+
+        var state = _socket.State;
+        if (state == RelaySocketConnectionState.Connected) return;
+
+        _logger.Information("Relay socket reconnect requested (state {State}, outage {Outage}).", state, outage);
+
+        // The client is sleeping in its own backoff; stop it so the reconcile below starts it again right away.
+        if (state == RelaySocketConnectionState.Reconnecting)
+            await _socket.StopAsync().ConfigureAwait(false);
+
+        await ReconcileAsync(CancellationToken.None).ConfigureAwait(false);
     }
 
     public async ValueTask DisposeAsync()
@@ -117,33 +150,113 @@ public sealed class RelaySocketCoordinator : IRelaySocketCoordinator
 
     private void SnapshotChanged(object? sender, PushRelayRegistrationSnapshot snapshot) => _ = ReconcileAsync(CancellationToken.None);
 
-    /// <summary>Opens or closes the socket so it matches the sync method and the registration state.</summary>
+    /// <summary>
+    /// Opens or closes the socket so it matches the sync method and the registration state. A request that arrives
+    /// while a pass is running is coalesced into one more pass after it, so no change is dropped.
+    /// </summary>
     private async Task ReconcileAsync(CancellationToken cancellationToken)
     {
-        CancellationToken lifetime;
         lock (_gate)
         {
             if (!_started || _lifetime is null) return;
-            lifetime = _lifetime.Token;
+
+            // Checked before cancelling _retry: a retry timer passes its own token, which the line below cancels.
+            cancellationToken.ThrowIfCancellationRequested();
             _retry?.Cancel();
             _retry = null;
+            if (_reconciling)
+            {
+                _reconcileAgain = true;
+                return;
+            }
+
+            _reconciling = true;
+            _reconcileAgain = false;
         }
 
-        if (!await _reconcileLock.WaitAsync(0, cancellationToken).ConfigureAwait(false))
-            return;
+        // _reconciling is cleared in the same lock that decides to stop, so a request that sets _reconcileAgain
+        // is either seen by this loop or starts a loop of its own.
+        try
+        {
+            while (true)
+            {
+                CancellationToken lifetime;
+                lock (_gate)
+                {
+                    if (!_started || _lifetime is null)
+                    {
+                        _reconciling = false;
+                        return;
+                    }
 
+                    lifetime = _lifetime.Token;
+                }
+
+                // Passes are bounded by the lifetime; _reconciling keeps this lock uncontended.
+                await _reconcileLock.WaitAsync(lifetime).ConfigureAwait(false);
+                try
+                {
+                    await ReconcilePassAsync(lifetime).ConfigureAwait(false);
+                }
+                finally
+                {
+                    _reconcileLock.Release();
+                }
+
+                lock (_gate)
+                {
+                    if (!_reconcileAgain)
+                    {
+                        _reconciling = false;
+                        return;
+                    }
+
+                    _reconcileAgain = false;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Stopping.
+            lock (_gate) _reconciling = false;
+        }
+        catch
+        {
+            lock (_gate) _reconciling = false;
+            throw;
+        }
+    }
+
+    private async Task ReconcilePassAsync(CancellationToken lifetime)
+    {
         try
         {
             var snapshot = _registration.Snapshot;
-            var wanted = IsRelaySelected && snapshot.Availability == PushRelayAvailability.Enabled && snapshot.DeviceId is not null;
+            string? blocker = !IsRelaySelected ? "sync method"
+                : snapshot.Availability != PushRelayAvailability.Enabled ? "availability"
+                : snapshot.DeviceId is null ? "no device"
+                : null;
+            var wanted = blocker is null;
+
+            bool flipped;
+            lock (_gate)
+            {
+                flipped = _wanted != wanted;
+                _wanted = wanted;
+            }
 
             if (!wanted)
             {
+                if (flipped)
+                    _logger.Information("Relay socket not wanted ({Blocker}); stopping it.", blocker);
                 if (_socket.State != RelaySocketConnectionState.Stopped)
                     await _socket.StopAsync().ConfigureAwait(false);
-                SetConnected(false);
+                SetState(false, RelaySocketOutageKind.None, false);
                 return;
             }
+
+            if (flipped)
+                _logger.Information("Relay socket wanted (sync method, availability and device ready); starting it.");
 
             if (_socket.State is RelaySocketConnectionState.Connected or RelaySocketConnectionState.Connecting or RelaySocketConnectionState.Reconnecting)
                 return;
@@ -164,10 +277,6 @@ public sealed class RelaySocketCoordinator : IRelaySocketCoordinator
         {
             _logger.Warning(ex, "Relay socket reconcile failed; trying again in {Delay}.", RetryDelay);
             ScheduleRetry(RetryDelay, lifetime);
-        }
-        finally
-        {
-            _reconcileLock.Release();
         }
     }
 
@@ -192,11 +301,29 @@ public sealed class RelaySocketCoordinator : IRelaySocketCoordinator
         });
     }
 
-    private void SocketConnected(object? sender, RelaySocketHello? hello) => SetConnected(true);
+    private void SocketConnected(object? sender, RelaySocketHello? hello)
+    {
+        _logger.Information("Relay socket connected.");
+        SetState(true, RelaySocketOutageKind.None, false);
+    }
 
     private void SocketDisconnected(object? sender, RelaySocketDisconnection disconnection)
     {
-        SetConnected(false);
+        _logger.Information("Relay socket disconnected ({Reason}, retrying={Retrying}).", disconnection.Reason, disconnection.WillReconnect);
+        switch (disconnection.Reason)
+        {
+            case RelaySocketDisconnectReason.ConnectionLost:
+            case RelaySocketDisconnectReason.RelayRestarting:
+                SetState(false, RelaySocketOutageKind.Transient, disconnection.WillReconnect);
+                break;
+            case RelaySocketDisconnectReason.Stopped:
+                SetState(false, RelaySocketOutageKind.None, false);
+                break;
+            default:
+                SetState(false, RelaySocketOutageKind.Terminal, false);
+                break;
+        }
+
         switch (disconnection.Reason)
         {
             case RelaySocketDisconnectReason.Revoked:
@@ -243,13 +370,19 @@ public sealed class RelaySocketCoordinator : IRelaySocketCoordinator
     private void SocketEventFailed(object? sender, RelaySocketEventFailure failure)
         => _logger.Warning(failure.Error, "Relay socket event could not be read: {Reason}.", failure.Reason);
 
-    private void SetConnected(bool connected)
+    private void SetState(bool connected, RelaySocketOutageKind outage, bool reconnecting)
     {
         lock (_gate)
         {
-            if (_socketConnected == connected) return;
-            _socketConnected = connected;
-            _lastChange = DateTimeOffset.UtcNow;
+            if (_socketConnected == connected && _lastOutage == outage && _isReconnecting == reconnecting) return;
+            if (_socketConnected != connected)
+            {
+                _socketConnected = connected;
+                _lastChange = DateTimeOffset.UtcNow;
+            }
+
+            _lastOutage = outage;
+            _isReconnecting = reconnecting;
         }
 
         RaiseChanged();

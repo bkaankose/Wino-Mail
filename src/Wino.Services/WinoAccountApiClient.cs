@@ -215,6 +215,15 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         return RequireResult(envelope, "Intelligence consent could not be revoked.");
     }
 
+    public Task<ApiEnvelope<AppPolicyAcceptanceDto>> AcceptAppPolicyAsync(int version, string source, string platform, CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(
+            HttpMethod.Post,
+            "api/v1/users/me/app-policy/accept",
+            new AcceptAppPolicyRequest(version, source, platform),
+            WinoAccountApiJsonContext.Default.AcceptAppPolicyRequest,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeAppPolicyAcceptanceDto,
+            cancellationToken);
+
     public Task<ApiEnvelope<AiSummaryResultDto>> SummarizeAsync(IReadOnlyList<MailContentSegment> segments, string targetLanguage, CancellationToken cancellationToken = default)
         => SendAuthorizedRequestAsync(
             HttpMethod.Post,
@@ -1233,4 +1242,6 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(UpdateIntelligenceConsentRequest))]
 [JsonSerializable(typeof(RevokeIntelligenceConsentRequest))]
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceConsentDto>))]
+[JsonSerializable(typeof(AcceptAppPolicyRequest))]
+[JsonSerializable(typeof(ApiEnvelope<AppPolicyAcceptanceDto>))]
 internal sealed partial class WinoAccountApiJsonContext : JsonSerializerContext;

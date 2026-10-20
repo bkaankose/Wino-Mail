@@ -106,6 +106,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
         // Handle window closing event for terminate vs background/tray behavior.
         Closed += OnWindowClosed;
+        Activated += OnWindowActivated;
 
         // Use the AppWindow.Closing event to handle the close request
         AppWindow.Closing += OnAppWindowClosing;
@@ -384,6 +385,18 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         };
 
         RelayIntroductionTip.IsOpen = true;
+    }
+
+    /// <summary>
+    /// Coming to the foreground is a moment where a stalled relay registration or socket deserves another try. The
+    /// coordinator decides whether anything is stalled and throttles repeated activations.
+    /// </summary>
+    private void OnWindowActivated(object sender, Microsoft.UI.Xaml.WindowActivatedEventArgs args)
+    {
+        if (args.WindowActivationState == Microsoft.UI.Xaml.WindowActivationState.Deactivated)
+            return;
+
+        WinoApplication.Current.Services.GetService<ISyncCoordinator>()?.RequestRelayRetry(Wino.Core.Domain.Enums.RelayRetryTrigger.Foreground);
     }
 
     /// <summary>Closing the tip ends the introduction; the Notifications page keeps the setting reachable.</summary>

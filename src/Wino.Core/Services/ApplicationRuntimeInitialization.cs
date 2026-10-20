@@ -20,7 +20,8 @@ public sealed class ApplicationRuntimeInitialization(
     Func<IntelligenceResultKeyLifecycle> keys,
     Func<IPushRelayRegistrationService>? pushRelay = null,
     Func<IRelaySocketCoordinator?>? relaySocket = null,
-    Func<IRelayIntroductionService?>? relayIntroduction = null)
+    Func<ISyncCoordinator>? syncCoordinator = null,
+    Func<IAppPolicyAcceptanceSyncService?>? policySync = null)
 {
     private int _completedStep;
     private Task _entitlementRefresh = Task.CompletedTask;
@@ -30,10 +31,17 @@ public sealed class ApplicationRuntimeInitialization(
         await StepAsync(1, () => translations().InitializeAsync(), cancellationToken);
         await StepAsync(2, () => Task.WhenAll(database().InitializeAsync(), intelligenceStore().InitializeAsync(),
             translations().InitializeAsync(), synchronizationInitializer().InitializeAsync()), cancellationToken);
-        await StepAsync(3, () => shortcuts().InitializeAsync(), cancellationToken);
-        await StepAsync(4, () => pictures().MigrateLegacyAsync(), cancellationToken);
-        await StepAsync(5, () => senderPictures().InitializeAsync(), cancellationToken);
-        await StepAsync(6, async () =>
+
+        // Decides timer or relay for this install (fresh: relay; upgraded with accounts: timer plus the Windows
+        // introduction) and the initial per-account coverage. Runs once the database is ready and before the first
+        // synchronizer is created, so nothing reads the unconfigured sync method default.
+        if (syncCoordinator is not null)
+            await StepAsync(3, () => syncCoordinator().InitializeAsync(cancellationToken), cancellationToken);
+
+        await StepAsync(4, () => shortcuts().InitializeAsync(), cancellationToken);
+        await StepAsync(5, () => pictures().MigrateLegacyAsync(), cancellationToken);
+        await StepAsync(6, () => senderPictures().InitializeAsync(), cancellationToken);
+        await StepAsync(7, async () =>
         {
             await entitlement().GetEntitlementAsync();
             _entitlementRefresh = entitlement().RefreshEntitlementAsync(cancellationToken);
@@ -41,7 +49,7 @@ public sealed class ApplicationRuntimeInitialization(
 
         // This method installs several subscriptions before returning. If it throws part
         // way through, the singleton cannot safely be retried without its own rollback.
-        await StepAsync(7, async () =>
+        await StepAsync(8, async () =>
         {
             var coordinator = intelligence();
             try
@@ -61,7 +69,7 @@ public sealed class ApplicationRuntimeInitialization(
             }
         }, cancellationToken);
 
-        await StepAsync(8, () => keys().InitializeAsync(cancellationToken), cancellationToken);
+        await StepAsync(9, () => keys().InitializeAsync(cancellationToken), cancellationToken);
     }
 
     public Task RunBackgroundStartupAsync(CancellationToken cancellationToken)
@@ -98,10 +106,12 @@ public sealed class ApplicationRuntimeInitialization(
 
         try
         {
-            // Decides timer or relay for this install (fresh: relay; upgraded with accounts: timer plus the Windows
-            // introduction) before the registration service reads the sync method.
-            if (relayIntroduction?.Invoke() is { } introduction)
-                await introduction.IsIntroductionPendingAsync(cancellationToken);
+            // The sync method was decided in initialization step 3 (ISyncCoordinator), before any loop or
+            // synchronizer read it; the registration service starts against the configured value.
+
+            // Retries an app policy upload that failed earlier; never waited on, and it never throws.
+            if (policySync?.Invoke() is { } policy)
+                _ = policy.ReconcileAsync(cancellationToken);
 
             await pushRelay().StartAsync(cancellationToken);
             await StartRelaySocketAsync(cancellationToken);

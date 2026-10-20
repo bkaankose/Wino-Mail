@@ -64,6 +64,7 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
     private readonly IPushRelayRegistrationService _pushRelay;
     private readonly IPlatformCapabilities _capabilities;
     private readonly IRelayIntroductionService? _introduction;
+    private readonly ISyncCoordinator? _syncCoordinator;
     private Dictionary<Guid, string> _accountNames = [];
     private bool _isApplyingPushRelaySnapshot;
     private bool _isSubscribedToPushRelay;
@@ -79,12 +80,14 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
         IUserPresenceStateProvider userPresenceStateProvider,
         IPushRelayRegistrationService pushRelay,
         IPlatformCapabilities capabilities,
-        IRelayIntroductionService? introduction = null)
+        IRelayIntroductionService? introduction = null,
+        ISyncCoordinator? syncCoordinator = null)
     {
         PreferencesService = preferencesService;
         _pushRelay = pushRelay;
         _capabilities = capabilities;
         _introduction = introduction;
+        _syncCoordinator = syncCoordinator;
         _accountService = accountService;
         _calendarService = calendarService;
         _notificationPolicyService = notificationPolicyService;
@@ -548,6 +551,9 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
         PushRelayTestResultText = string.Empty;
         ApplyPushRelaySnapshot(_pushRelay.Snapshot);
         OfferInstantPushIfRequested(parameters);
+
+        // Opening the page is a moment the user looks at live notifications; a stalled relay tries again now.
+        _syncCoordinator?.RequestRelayRetry(RelayRetryTrigger.SettingsOpened);
 
         await LoadAccountsAsync();
         await ExecuteUIThread(() => ApplyPushRelaySnapshot(_pushRelay.Snapshot));

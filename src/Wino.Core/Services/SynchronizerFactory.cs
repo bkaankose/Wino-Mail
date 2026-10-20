@@ -45,7 +45,6 @@ public class SynchronizerFactory : ISynchronizerFactory
     private readonly ISmtpTransport _smtpTransport;
     private readonly IMimeFileService _mimeFileService;
     private readonly ICalDavSynchronizationEngine _calDavSynchronizationEngine;
-    private readonly IPreferencesService _preferencesService;
 
     private readonly ConcurrentDictionary<Guid, IWinoSynchronizerBase> _synchronizers = new();
     internal IReadOnlyDictionary<Guid, IWinoSynchronizerBase> CachedSynchronizers => _synchronizers;
@@ -79,8 +78,7 @@ public class SynchronizerFactory : ISynchronizerFactory
                                IFolderService folderService = null,
                                ISmtpTransport smtpTransport = null,
                                IMimeFileService mimeFileService = null,
-                               ICalDavSynchronizationEngine calDavSynchronizationEngine = null,
-                               IPreferencesService preferencesService = null)
+                               ICalDavSynchronizationEngine calDavSynchronizationEngine = null)
     {
         _outlookChangeProcessor = outlookChangeProcessor;
         _gmailChangeProcessor = gmailChangeProcessor;
@@ -109,9 +107,6 @@ public class SynchronizerFactory : ISynchronizerFactory
         _smtpTransport = smtpTransport;
         _mimeFileService = mimeFileService;
         _calDavSynchronizationEngine = calDavSynchronizationEngine;
-        _preferencesService = preferencesService;
-        if (_preferencesService is not null)
-            _preferencesService.PreferenceChanged += PreferenceChanged;
     }
 
     public async Task<IWinoSynchronizerBase> GetAccountSynchronizerAsync(Guid accountId)
@@ -198,43 +193,21 @@ public class SynchronizerFactory : ISynchronizerFactory
     }
 
     /// <summary>
-    /// IMAP IDLE runs in relay mode only (desktop IMAP never goes through the relay, so the local IDLE client is what
-    /// makes it instant). Timer mode keeps the periodic synchronization alone, as its settings card promises.
-    /// Mobile always reads <see cref="SyncMethod.Relay"/>.
+    /// Desktop IMAP never goes through the relay, so the local IDLE client is what makes it instant. It runs in both
+    /// sync methods, as it did before the relay existed; the timer stays the safety net. The sync coordinator reads
+    /// its state to decide which accounts the timer may skip.
     /// </summary>
-    private bool IsImapIdleEnabled => _preferencesService is null || _preferencesService.SyncMethod == SyncMethod.Relay;
-
     private IWinoSynchronizerBase CreateAndCache(MailAccount account)
     {
         var synchronizer = CreateIntegratorWithDefaultProcessor(account);
         _synchronizers[account.Id] = synchronizer;
         if (synchronizer is IImapSynchronizer imapSynchronizer && !account.IsNetworkAccessBlocked())
         {
-            if (!IsImapIdleEnabled)
-            {
-                Log.Information("Timer-based sync is selected; account {AccountId} runs without IMAP IDLE.", account.Id);
-            }
-            else
-            {
-                // The pool is warmed after the first synchronization so startup opens
-                // only the IDLE socket and one worker instead of competing handshakes.
-                _ = imapSynchronizer.StartIdleClientAsync();
-            }
+            // The pool is warmed after the first synchronization so startup opens
+            // only the IDLE socket and one worker instead of competing handshakes.
+            _ = imapSynchronizer.StartIdleClientAsync();
         }
         return synchronizer;
-    }
-
-    /// <summary>The sync method changed: start or stop IDLE on every cached IMAP synchronizer.</summary>
-    private void PreferenceChanged(object? sender, string propertyName)
-    {
-        if (propertyName != nameof(IPreferencesService.SyncMethod)) return;
-        var enable = IsImapIdleEnabled;
-        foreach (var synchronizer in _synchronizers.Values)
-        {
-            if (synchronizer is not IImapSynchronizer imap) continue;
-            if (synchronizer.Account?.IsNetworkAccessBlocked() == true) continue;
-            _ = enable ? imap.StartIdleClientAsync() : imap.StopIdleClientAsync();
-        }
     }
 
     /// <summary>
@@ -271,7 +244,7 @@ public class SynchronizerFactory : ISynchronizerFactory
             Log.Information("Account {AccountId} needs attention ({AttentionReason}). Suspending its IMAP connections.", cached.Id, cached.AttentionReason);
             await imapSynchronizer.SuspendNetworkAccessAsync().ConfigureAwait(false);
         }
-        else if (IsImapIdleEnabled)
+        else
         {
             Log.Information("Account {AccountId} no longer needs attention. Resuming IMAP IDLE.", cached.Id);
             await imapSynchronizer.StartIdleClientAsync().ConfigureAwait(false);

@@ -65,10 +65,20 @@ One app-wide setting, **Sync method**: *Timer-based* or *Relay-based*.
 
 - *Timer-based* keeps today's behavior and the user's configured intervals.
 - *Relay-based* keeps a SignalR socket to the relay while the app runs (foreground, tray or dock).
-  Mail and calendar fall back to a preconfigured 5 minute timer when the socket is down. Contacts
-  and To Do always keep their timer-based approach.
+  The shared `SyncCoordinator` decides per account whether live coverage exists: a Gmail or
+  Outlook mailbox that the relay watches (`active`) while the socket is stable, or a desktop IMAP
+  account whose IDLE loop is listening. Covered accounts skip their timer ticks; every other
+  account (POP3, IMAP without IDLE, a mailbox in `needs_reauth`/`error`, over the mailbox limit)
+  keeps syncing on the user's configured Email interval. While the socket is down for more than
+  30 s, flapping (6 transitions in 10 min starts a 10 min cool-down), or the registration is not
+  `Enabled`, the mode is `RelayFallback` and all accounts sync on the user's intervals; one bounded
+  catch-up runs when coverage is lost (if the last sync is older than the interval) or recovered
+  after an outage over 2 min. Calendar always runs on the user's Calendar interval. Contacts and
+  To Do always keep their timer-based approach. Every decision is logged once, on change, to the
+  main log.
 - IMAP on desktop is never sent to the relay (the relay refuses it). The app's own IDLE client
-  keeps watching it. No user-facing text points this out.
+  keeps watching it in both sync methods, exactly as before the relay existed; the timer keeps
+  ticking as the safety net. No user-facing text points this out.
 - Gmail and Outlook: the app registers the Gmail watch (`users.watch`) and the Graph subscription
   with its own token, pointing at the relay's Pub/Sub topic and webhook from `/.well-known/winorelay`.
   The relay stores no OAuth token and learns only "mailbox changed".
@@ -104,6 +114,12 @@ There is no timer-based mode. Everything goes through the relay.
   encrypted on Wino servers and that removal happens by removing the account or uninstalling, then
   links the full policy. Store review requires the disclosure at the point of collection.
 - The accepted policy version is stored; a version bump re-prompts once.
+- The local configuration value stays the per-device record, and the signed-in Wino Account keeps
+  its own record (`POST api/v1/users/me/app-policy/accept`, source `explicit` for the dialog and
+  `storeInstall` for silent first-launch acceptance). `AppPolicyAcceptanceSyncService` reconciles
+  the two on acceptance, sign-in, profile updates and startup: a newer local version is uploaded
+  (failures are retried at the next sync point and never block relay), and a newer account version
+  is adopted locally.
 - One privacy policy covers all four applications. The macOS, iOS and Android apps are unreleased
   and ship with the updated policy, so fresh installs never see a separate acceptance when adding
   accounts beyond the sync-method flow above.
@@ -152,8 +168,11 @@ There is no timer-based mode. Everything goes through the relay.
   Account fallback when attestation is unavailable.
 - Device-first identity in `PushRelayRegistrationService`: register without a Wino Account, link on
   sign-in, keep working on sign-out.
-- Desktop: start the socket from the apps when relay-based sync is selected, 5 minute fallback
-  timer, the red dot and flyout, HTTP replay of unacked events on connect.
+- Desktop: start the socket from the apps when relay-based sync is selected, per-account fallback
+  to the user's intervals through `SyncCoordinator`, the red dot and flyout, HTTP replay of
+  unacked events on connect. Relay registration backs off up to 1 h and retries early when the
+  network returns, the window comes to the foreground or the Notifications page opens (each
+  throttled to once per 5 min).
 - Settings: sync method picker, privacy acceptance screen with version, status-only account rows,
   the Windows `TeachingTip` migration.
 - iOS Notification Service Extension project with shared Keychain and app group; Android receiver.

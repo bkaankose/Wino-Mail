@@ -10,7 +10,10 @@ public enum NotificationSuppressionReason
     Snoozed = 1,
     QuietHours = 2,
     AccountDisabled = 3,
-    TypeDisabled = 4
+    TypeDisabled = 4,
+
+    /// <summary>"Snooze while presenting" is on and the user is presenting or in full screen.</summary>
+    Presenting = 5
 }
 
 public sealed record NotificationDeliveryDecision(bool ShouldDeliver, NotificationSuppressionReason Reason)

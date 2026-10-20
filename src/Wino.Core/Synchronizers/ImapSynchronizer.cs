@@ -101,6 +101,22 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
     private int _lastIdleInboxCount = -1;
     private DateTime _lastIdleSyncRequestUtc = DateTime.MinValue;
     private readonly TimeSpan _idleSyncDebounceWindow = TimeSpan.FromSeconds(15);
+    private ImapIdleStatus _idleStatus = ImapIdleStatus.NeverStarted;
+    private string? _idleExitReason;
+    private Exception? _idleExitException;
+
+    /// <summary>Why the IDLE loop stopped; carried as the reason of the Stopped transition.</summary>
+    private static class IdleExitReasons
+    {
+        public const string NoIdleCapability = "server has no IDLE capability";
+        public const string PoolWithoutIdle = "connection pool cannot run IDLE";
+        public const string NoInbox = "server exposes no Inbox";
+        public const string IdleRejected = "server rejected IDLE";
+        public const string AttentionRequired = "account needs attention";
+        public const string AuthRejected = "authentication rejected";
+        public const string Cancelled = "cancelled";
+        public const string Stopping = "stopped by the app";
+    }
 
     #endregion
 
@@ -1752,9 +1768,77 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
             _idleLoopCancellationTokenSource?.Dispose();
             _idleStopping = false;
             _idleLoopCancellationTokenSource = new CancellationTokenSource();
-            _idleLoopTask = RunIdleLoopAsync(_idleLoopCancellationTokenSource.Token);
+            _idleLoopTask = RunIdleLoopGuardedAsync(_idleLoopCancellationTokenSource.Token);
         }
         finally { _idleLifecycle.Release(); }
+    }
+
+    public ImapIdleStatus IdleStatus => Volatile.Read(ref _idleStatus);
+
+    /// <summary>
+    /// Publishes an IDLE state transition. Called only from the single IDLE loop task, so transitions are
+    /// sequential. Never call it under a lock: it sends a messenger message synchronously.
+    /// </summary>
+    /// <returns>True when the transition was published.</returns>
+    private bool SetIdleStatus(ImapIdleState state,
+                               string? reason,
+                               Exception? exception = null,
+                               bool alwaysPublish = false,
+                               bool writeLog = true)
+    {
+        var previous = Volatile.Read(ref _idleStatus);
+        var status = new ImapIdleStatus(state, reason, DateTimeOffset.UtcNow);
+        Volatile.Write(ref _idleStatus, status);
+
+        if (!alwaysPublish && previous.State == state && string.Equals(previous.Reason, reason, StringComparison.Ordinal))
+            return false;
+
+        if (writeLog)
+        {
+            if (exception == null)
+                _logger.Information("IMAP IDLE for {AccountName} is {IdleState} ({Reason}).", Account.Name, state, reason);
+            else
+                _logger.Information(exception, "IMAP IDLE for {AccountName} is {IdleState} ({Reason}).", Account.Name, state, reason);
+        }
+
+        try
+        {
+            WeakReferenceMessenger.Default.Send(new ImapIdleStateChanged(Account.Id, status));
+        }
+        catch (Exception ex)
+        {
+            _logger.Debug(ex, "Could not publish the IMAP IDLE state of {AccountName}.", Account.Name);
+        }
+
+        return true;
+    }
+
+    private void SetIdleExit(string reason, Exception? exception = null)
+    {
+        _idleExitReason = reason;
+        _idleExitException = exception;
+    }
+
+    private async Task RunIdleLoopGuardedAsync(CancellationToken cancellationToken)
+    {
+        _idleExitReason = null;
+        _idleExitException = null;
+
+        try
+        {
+            await RunIdleLoopAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            try
+            {
+                SetIdleStatus(ImapIdleState.Stopped, _idleExitReason ?? "loop ended", _idleExitException);
+            }
+            catch (Exception ex)
+            {
+                _logger.Debug(ex, "Could not record the stopped IMAP IDLE state of {AccountName}.", Account.Name);
+            }
+        }
     }
 
     private async Task RunIdleLoopAsync(CancellationToken cancellationToken)
@@ -1766,13 +1850,15 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
             // Resumed by SynchronizerFactory once the attention is cleared.
             if (Account.IsNetworkAccessBlocked())
             {
-                _logger.Information("Stopped IDLE loop for {AccountName}: the account needs attention.", Account.Name);
+                SetIdleExit(IdleExitReasons.AttentionRequired);
                 return;
             }
 
             IImapClient idleClient = null;
             IMailFolder inboxFolder = null;
             bool shouldReconnect = false;
+            string reconnectReason = "connection lost";
+            Exception? reconnectException = null;
 
             try
             {
@@ -1780,20 +1866,27 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
 
                 if (idleClient == null)
                 {
-                    if (!_clientPool.SupportsIdle) return;
+                    if (!_clientPool.SupportsIdle)
+                    {
+                        SetIdleExit(IdleExitReasons.PoolWithoutIdle);
+                        return;
+                    }
+
                     // Capacity may be occupied by foreground work. Try again after backoff.
+                    reconnectReason = "no pool capacity";
                     throw new IOException("No pool capacity for IDLE yet.");
                 }
 
+                // Automatic updates rely on the global sync interval after these exits.
                 if (!idleClient.Capabilities.HasFlag(ImapCapabilities.Idle))
                 {
-                    _logger.Information("{AccountName} does not support IMAP IDLE. Automatic updates rely on global sync interval.", Account.Name);
+                    SetIdleExit(IdleExitReasons.NoIdleCapability);
                     return;
                 }
 
                 if (idleClient.Inbox == null)
                 {
-                    _logger.Warning("{AccountName} does not expose Inbox for IDLE listening.", Account.Name);
+                    SetIdleExit(IdleExitReasons.NoInbox);
                     return;
                 }
 
@@ -1807,9 +1900,11 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                 inboxFolder.MessageExpunged += IdleInboxChanged;
                 inboxFolder.MessagesVanished += IdleInboxChanged;
 
+                SetIdleStatus(ImapIdleState.Listening,
+                              reconnectAttempt == 0 ? "connected" : $"reconnected after {reconnectAttempt} attempts");
+
                 // Reconcile changes that arrived while this listener was disconnected.
                 if (reconnectAttempt > 0) RequestIdleChangeSynchronization();
-                _logger.Debug("Started dedicated IDLE loop for {AccountName}.", Account.Name);
 
                 while (!cancellationToken.IsCancellationRequested && !IsDisposing && !_idleStopping && idleClient.IsConnected)
                 {
@@ -1828,7 +1923,8 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                         }
                         catch (ImapCommandException ex)
                         {
-                            _logger.Information(ex, "{AccountName} rejected IDLE despite advertising it. Updates will use scheduled synchronization.", Account.Name);
+                            // Advertised but rejected: updates use scheduled synchronization.
+                            SetIdleExit(IdleExitReasons.IdleRejected, ex);
                             return;
                         }
                         if (DateTime.UtcNow - started >= TimeSpan.FromMinutes(1)) reconnectAttempt = 0;
@@ -1841,38 +1937,44 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
             }
             catch (ImapProtocolException protocolException)
             {
-                _logger.Information(protocolException, "Idle client received protocol exception for {AccountName}.", Account.Name);
+                reconnectReason = "protocol error";
+                reconnectException = protocolException;
                 shouldReconnect = true;
             }
             catch (IOException ioException)
             {
-                _logger.Information(ioException, "Idle client received IO exception for {AccountName}.", Account.Name);
+                // reconnectReason stays "no pool capacity" when the pool had no free slot.
+                reconnectException = ioException;
                 shouldReconnect = true;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested || IsDisposing)
             {
+                SetIdleExit(_idleStopping ? IdleExitReasons.Stopping : IdleExitReasons.Cancelled);
                 break;
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException operationCanceledException)
             {
+                reconnectReason = "operation timed out";
+                reconnectException = operationCanceledException;
                 shouldReconnect = true;
             }
             catch (AccountAttentionRequiredException)
             {
-                _logger.Information("Stopped IDLE loop for {AccountName}: the account needs attention.", Account.Name);
+                SetIdleExit(IdleExitReasons.AttentionRequired);
                 return;
             }
             catch (Exception ex) when (ex is MailKit.Security.AuthenticationException or MailKit.Security.SaslException)
             {
                 // Rejected credentials cannot recover by reconnecting. Record the attention so every
                 // other path stops too; the loop restarts after the user fixes the account.
-                _logger.Warning(ex, "IDLE sign-in was rejected for {AccountName}. Stopping the IDLE loop.", Account.Name);
+                SetIdleExit(IdleExitReasons.AuthRejected, ex);
                 await ReportIdleAuthenticationFailureAsync(ex).ConfigureAwait(false);
                 return;
             }
             catch (Exception ex)
             {
                 _logger.Error(ex, "Idle client loop failed for {AccountName}.", Account.Name);
+                reconnectReason = "unexpected error";
                 shouldReconnect = true;
             }
             finally
@@ -1888,11 +1990,26 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                 _clientPool.ReleaseIdleClient(isFaulted: shouldReconnect);
             }
 
-            if (cancellationToken.IsCancellationRequested || IsDisposing || _idleStopping) break;
+            if (cancellationToken.IsCancellationRequested || IsDisposing || _idleStopping)
+            {
+                SetIdleExit(_idleStopping ? IdleExitReasons.Stopping : IdleExitReasons.Cancelled);
+                break;
+            }
 
             reconnectAttempt++;
             var reconnectDelay = GetIdleReconnectDelay(reconnectAttempt);
-            _logger.Information("Reconnecting IDLE client for {AccountName} in {Delay}.", Account.Name, reconnectDelay);
+
+            // Every attempt publishes; the log keeps attempts 1-3 and then every 5th.
+            SetIdleStatus(ImapIdleState.Reconnecting, reconnectReason, alwaysPublish: true, writeLog: false);
+
+            if (reconnectAttempt <= 3 || reconnectAttempt % 5 == 0)
+            {
+                // The stack trace goes out once, with the first attempt; later lines stay one line each.
+                if (reconnectException == null || reconnectAttempt > 1)
+                    _logger.Information("IMAP IDLE for {AccountName} is {IdleState} ({Reason}). Attempt {Attempt} in {Delay}.", Account.Name, ImapIdleState.Reconnecting, reconnectReason, reconnectAttempt, reconnectDelay);
+                else
+                    _logger.Information(reconnectException, "IMAP IDLE for {AccountName} is {IdleState} ({Reason}). Attempt {Attempt} in {Delay}.", Account.Name, ImapIdleState.Reconnecting, reconnectReason, reconnectAttempt, reconnectDelay);
+            }
 
             try
             {
@@ -1900,9 +2017,14 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
             }
             catch (OperationCanceledException)
             {
+                SetIdleExit(_idleStopping ? IdleExitReasons.Stopping : IdleExitReasons.Cancelled);
                 break;
             }
         }
+
+        // The loop condition ended it without an explicit exit.
+        if (_idleExitReason == null && (cancellationToken.IsCancellationRequested || IsDisposing || _idleStopping))
+            SetIdleExit(_idleStopping ? IdleExitReasons.Stopping : IdleExitReasons.Cancelled);
     }
 
     private async Task ReportIdleAuthenticationFailureAsync(Exception exception)
