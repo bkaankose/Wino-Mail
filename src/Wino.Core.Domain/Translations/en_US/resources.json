@@ -1,4 +1,12 @@
 {
+  "SettingsStartMenu_Title": "Start menu entries",
+  "SettingsStartMenu_Description": "Choose which extra entries appear in Start. Wino Mail always remains available. Windows may take a moment to refresh the list.",
+  "SettingsStartMenu_Calendar": "Wino Calendar",
+  "SettingsStartMenu_Contacts": "Wino People",
+  "SettingsStartMenu_Tasks": "Wino To Do",
+  "SettingsStartMenu_Shown": "Shown",
+  "SettingsStartMenu_Hidden": "Hidden",
+  "SettingsStartMenu_UpdateFailed": "The Start menu entry could not be updated. Your previous setting has been kept.",
   "Accessibility_ItemAction": "{0}: {1}",
   "Accessibility_AliasActions": "Actions for {0}",
   "Accessibility_PreviousCalendarPeriod": "Previous calendar period",

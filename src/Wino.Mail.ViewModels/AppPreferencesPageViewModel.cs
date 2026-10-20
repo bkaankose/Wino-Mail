@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -21,6 +22,8 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
     private readonly IStartupIntegrationService _startupIntegrationService;
     public IPlatformCapabilities PlatformCapabilities { get; }
     private readonly ITranslationService _translationService;
+    private readonly IStartMenuIntegrationService? _startMenuIntegrationService;
+    private readonly IWinoLogger? _logger;
 
     private bool _isLanguageInitialized;
     private string _selectedCloseBehaviorMode;
@@ -30,13 +33,17 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
         IPreferencesService preferencesService,
         IStartupIntegrationService startupIntegrationService,
         IPlatformCapabilities platformCapabilities,
-        ITranslationService translationService)
+        ITranslationService translationService,
+        IStartMenuIntegrationService? startMenuIntegrationService = null,
+        IWinoLogger? logger = null)
     {
         _dialogService = dialogService;
         PreferencesService = preferencesService;
         _startupIntegrationService = startupIntegrationService;
         PlatformCapabilities = platformCapabilities;
         _translationService = translationService;
+        _startMenuIntegrationService = startMenuIntegrationService;
+        _logger = logger;
 
         CloseBehaviorModes =
         [
@@ -51,6 +58,56 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
     }
 
     public IPreferencesService PreferencesService { get; }
+
+    public bool HasStartMenuIntegration => _startMenuIntegrationService is not null;
+    public bool CanChangeStartMenuEntries => HasStartMenuIntegration && !IsStartMenuUpdateInProgress;
+
+    [ObservableProperty]
+    public partial bool IsCalendarStartMenuEntryEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsContactsStartMenuEntryEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsTasksStartMenuEntryEnabled { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanChangeStartMenuEntries))]
+    [NotifyCanExecuteChangedFor(nameof(ToggleStartMenuEntryCommand))]
+    public partial bool IsStartMenuUpdateInProgress { get; set; }
+
+    private bool CanToggleStartMenuEntry() => HasStartMenuIntegration && !IsStartMenuUpdateInProgress;
+
+    [RelayCommand(CanExecute = nameof(CanToggleStartMenuEntry))]
+    private async Task ToggleStartMenuEntryAsync(WinoApplicationMode mode)
+    {
+        if (_startMenuIntegrationService is null || IsStartMenuUpdateInProgress) return;
+        IsStartMenuUpdateInProgress = true;
+        try
+        {
+            await _startMenuIntegrationService.SetEnabledAsync(mode, !_startMenuIntegrationService.IsEnabled(mode));
+        }
+        catch (Exception exception)
+        {
+            _logger?.CaptureException(exception, "UpdateStartMenuEntry");
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, Translator.SettingsStartMenu_UpdateFailed, InfoBarMessageType.Error);
+        }
+        finally
+        {
+            RefreshStartMenuEntries();
+            IsStartMenuUpdateInProgress = false;
+        }
+    }
+
+    private void RefreshStartMenuEntries()
+    {
+        IsCalendarStartMenuEntryEnabled = _startMenuIntegrationService?.IsEnabled(WinoApplicationMode.Calendar) == true;
+        IsContactsStartMenuEntryEnabled = _startMenuIntegrationService?.IsEnabled(WinoApplicationMode.Contacts) == true;
+        IsTasksStartMenuEntryEnabled = _startMenuIntegrationService?.IsEnabled(WinoApplicationMode.Tasks) == true;
+        OnPropertyChanged(nameof(IsCalendarStartMenuEntryEnabled));
+        OnPropertyChanged(nameof(IsContactsStartMenuEntryEnabled));
+        OnPropertyChanged(nameof(IsTasksStartMenuEntryEnabled));
+    }
 
     [ObservableProperty]
     public partial List<string> CloseBehaviorModes { get; set; }
@@ -106,6 +163,7 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
             _isLanguageInitialized = true;
 
             StartupBehaviorResult = startupBehaviorResult;
+            RefreshStartMenuEntries();
         });
     }
 

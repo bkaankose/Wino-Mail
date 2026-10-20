@@ -41,6 +41,8 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<IAccountCredentialPersistence, WindowsAccountCredentialPersistence>();
         services.AddSingleton<IApplicationResourceResolver, WindowsApplicationResourceResolver>();
         services.AddSingleton<IStartupIntegrationService, WindowsStartupIntegrationService>();
+        services.AddSingleton<WindowsStartMenuIntegrationService>();
+        services.AddSingleton<IStartMenuIntegrationService>(provider => provider.GetRequiredService<WindowsStartMenuIntegrationService>());
         services.AddSingleton<IReaderRuntimeService, WindowsReaderRuntimeService>();
         services.AddSingleton<IPlatformCapabilities>(_ => new PlatformCapabilities(
             Printing: Windows.Graphics.Printing.PrintManager.IsSupported(), PdfExport: true,

@@ -41,6 +41,10 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// </summary>
     bool IsAppModeTaskbarIconSwitchDisabled { get; set; }
 
+    bool IsCalendarStartMenuEntryEnabled { get; set; }
+    bool IsContactsStartMenuEntryEnabled { get; set; }
+    bool IsTasksStartMenuEntryEnabled { get; set; }
+
     /// <summary>
     /// Setting: Whether the system tray icon should be created while the shell is available.
     /// </summary>

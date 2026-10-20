@@ -694,6 +694,24 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(IsAppModeTaskbarIconSwitchDisabled), value);
     }
 
+    public bool IsCalendarStartMenuEntryEnabled
+    {
+        get => _configurationService.Get(nameof(IsCalendarStartMenuEntryEnabled), true);
+        set => SetPropertyAndSave(nameof(IsCalendarStartMenuEntryEnabled), value);
+    }
+
+    public bool IsContactsStartMenuEntryEnabled
+    {
+        get => _configurationService.Get(nameof(IsContactsStartMenuEntryEnabled), true);
+        set => SetPropertyAndSave(nameof(IsContactsStartMenuEntryEnabled), value);
+    }
+
+    public bool IsTasksStartMenuEntryEnabled
+    {
+        get => _configurationService.Get(nameof(IsTasksStartMenuEntryEnabled), true);
+        set => SetPropertyAndSave(nameof(IsTasksStartMenuEntryEnabled), value);
+    }
+
     public bool IsStoreUpdateNotificationsEnabled
     {
         get => !_configurationService.Contains(Constants.StoreUpdateNotificationSuppressionKey);

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
@@ -8,8 +8,10 @@
   xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
   xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
   xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+  xmlns:virtualization="http://schemas.microsoft.com/appx/manifest/virtualization/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap uap10 rescap com desktop">
+  IgnorableNamespaces="uap uap10 rescap com desktop desktop6 virtualization">
 	
 	<!-- Publisher Cache Folders -->
 	<Extensions>
@@ -35,6 +37,13 @@
   <mp:PhoneIdentity PhoneProductId="7b7e90e9-cc55-4409-9769-99b4b5ed6e9b" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
+    <!-- Windows 11 exposes only our managed shortcut directory; older Windows uses the legacy declaration. -->
+    <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
+    <virtualization:FileSystemWriteVirtualization>
+      <virtualization:ExcludedDirectories>
+        <virtualization:ExcludedDirectory>$(KnownFolder:RoamingAppData)\Microsoft\Windows\Start Menu\Programs\Wino Mail</virtualization:ExcludedDirectory>
+      </virtualization:ExcludedDirectories>
+    </virtualization:FileSystemWriteVirtualization>
     <DisplayName>Wino Mail</DisplayName>
     <PublisherDisplayName>Burak KÖSE</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
@@ -155,6 +164,7 @@
       <uap:VisualElements
         DisplayName="Wino Calendar"
         Description="Wino.Mail.WinUI.Calendar"
+        AppListEntry="none"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\AppEntries\CalendarAssets\Square150x150Logo.png"
         Square44x44Logo="Assets\AppEntries\CalendarAssets\Square44x44Logo.png">
@@ -209,6 +219,7 @@
       <uap:VisualElements
         DisplayName="Wino People"
         Description="Wino.Mail.WinUI.Contacts"
+        AppListEntry="none"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\AppEntries\PeopleAssets\Square150x150Logo.png"
         Square44x44Logo="Assets\AppEntries\PeopleAssets\Square44x44Logo.png">
@@ -242,6 +253,7 @@
       <uap:VisualElements
         DisplayName="Wino To Do"
         Description="Wino.Mail.WinUI.ToDo"
+        AppListEntry="none"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\AppEntries\ToDoAssets\Square150x150Logo.png"
         Square44x44Logo="Assets\AppEntries\ToDoAssets\Square44x44Logo.png">
@@ -272,5 +284,6 @@
 
   <Capabilities>
     <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="unvirtualizedResources" />
   </Capabilities>
 </Package>

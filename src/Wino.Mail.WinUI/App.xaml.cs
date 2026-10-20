@@ -987,6 +987,9 @@ public partial class App : WinoApplication,
         UpdateTrayIconState(allowCreation: !_isExiting);
         _launchCompleted.TrySetResult();
 
+        if (!_isExiting)
+            _ = Services.GetRequiredService<WindowsStartMenuIntegrationService>().SynchronizeAsync();
+
         // Keeps the session-start trigger in step with the startup task, including for installations
         // that predate it. Nothing waits on this; it logs its own failures.
         if (!_isExiting)

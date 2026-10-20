@@ -1,4 +1,12 @@
 ﻿{
+    "SettingsStartMenu_Title": "开始菜单入口",
+    "SettingsStartMenu_Description": "选择要在开始菜单中显示的附加入口。Wino Mail 始终保留。Windows 可能需要片刻刷新列表。",
+    "SettingsStartMenu_Calendar": "Wino 日历",
+    "SettingsStartMenu_Contacts": "Wino 联系人",
+    "SettingsStartMenu_Tasks": "Wino 待办事项",
+    "SettingsStartMenu_Shown": "显示",
+    "SettingsStartMenu_Hidden": "隐藏",
+    "SettingsStartMenu_UpdateFailed": "无法更新开始菜单入口，已保留之前的设置。",
     "Accessibility_ItemAction": "{0}：{1}",
     "Accessibility_AliasActions": "{0}的操作",
     "Accessibility_PreviousCalendarPeriod": "上一个日历周期",

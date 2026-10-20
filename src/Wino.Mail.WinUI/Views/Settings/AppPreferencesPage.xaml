@@ -7,6 +7,7 @@
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
+    xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:translations="using:Wino.Core.Domain.Models.Translations"
     mc:Ignorable="d">
@@ -78,6 +79,48 @@
             </controls:SettingsCard.HeaderIcon>
         </controls:SettingsCard>
 
+        <controls:SettingsExpander
+            x:Name="StartMenuEntriesSettings"
+            x:Load="{x:Bind ViewModel.HasStartMenuIntegration}"
+            AutomationProperties.AutomationId="StartMenuEntriesSettings"
+            Description="{x:Bind domain:Translator.SettingsStartMenu_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.SettingsStartMenu_Title, Mode=OneTime}">
+            <controls:SettingsExpander.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="Desktop" />
+            </controls:SettingsExpander.HeaderIcon>
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard Header="{x:Bind domain:Translator.SettingsStartMenu_Calendar, Mode=OneTime}">
+                    <ToggleSwitch
+                        x:Name="CalendarStartMenuToggle"
+                        AutomationProperties.AutomationId="CalendarStartMenuToggle"
+                        IsEnabled="{x:Bind ViewModel.CanChangeStartMenuEntries, Mode=OneWay}"
+                        IsOn="{x:Bind ViewModel.IsCalendarStartMenuEntryEnabled, Mode=OneWay}"
+                        OffContent="{x:Bind domain:Translator.SettingsStartMenu_Hidden, Mode=OneTime}"
+                        OnContent="{x:Bind domain:Translator.SettingsStartMenu_Shown, Mode=OneTime}"
+                        Toggled="StartMenuEntryToggled" />
+                </controls:SettingsCard>
+                <controls:SettingsCard Header="{x:Bind domain:Translator.SettingsStartMenu_Contacts, Mode=OneTime}">
+                    <ToggleSwitch
+                        x:Name="ContactsStartMenuToggle"
+                        AutomationProperties.AutomationId="ContactsStartMenuToggle"
+                        IsEnabled="{x:Bind ViewModel.CanChangeStartMenuEntries, Mode=OneWay}"
+                        IsOn="{x:Bind ViewModel.IsContactsStartMenuEntryEnabled, Mode=OneWay}"
+                        OffContent="{x:Bind domain:Translator.SettingsStartMenu_Hidden, Mode=OneTime}"
+                        OnContent="{x:Bind domain:Translator.SettingsStartMenu_Shown, Mode=OneTime}"
+                        Toggled="StartMenuEntryToggled" />
+                </controls:SettingsCard>
+                <controls:SettingsCard Header="{x:Bind domain:Translator.SettingsStartMenu_Tasks, Mode=OneTime}">
+                    <ToggleSwitch
+                        x:Name="TasksStartMenuToggle"
+                        AutomationProperties.AutomationId="TasksStartMenuToggle"
+                        IsEnabled="{x:Bind ViewModel.CanChangeStartMenuEntries, Mode=OneWay}"
+                        IsOn="{x:Bind ViewModel.IsTasksStartMenuEntryEnabled, Mode=OneWay}"
+                        OffContent="{x:Bind domain:Translator.SettingsStartMenu_Hidden, Mode=OneTime}"
+                        OnContent="{x:Bind domain:Translator.SettingsStartMenu_Shown, Mode=OneTime}"
+                        Toggled="StartMenuEntryToggled" />
+                </controls:SettingsCard>
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
     </StackPanel>
 
     <VisualStateManager.VisualStateGroups>
