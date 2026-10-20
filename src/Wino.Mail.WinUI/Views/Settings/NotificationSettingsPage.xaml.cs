@@ -38,7 +38,7 @@ public sealed partial class NotificationSettingsPage : NotificationSettingsPageA
         ViewModel.PolicyAcceptanceHandler = () => DispatcherQueue.EnqueueAsync(() =>
         {
             var dialogs = WinoApplication.Current.Services.GetRequiredService<IWinoDialogService>();
-            return dialogs.ShowRelayPolicyDialogAsync(new Uri(AppUrls.PrivacyPolicy), () => Task.FromResult(true));
+            return dialogs.ShowRelayPolicyDialogAsync(new Uri(AppUrls.PrivacyPolicyEmbedded), () => Task.FromResult(true));
         });
     }
 

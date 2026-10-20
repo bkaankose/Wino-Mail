@@ -1,4 +1,4 @@
-<abstract:NotificationSettingsPageAbstract
+﻿<abstract:NotificationSettingsPageAbstract
     x:Class="Wino.Views.Settings.NotificationSettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -19,106 +19,119 @@
 
     <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
 
+        <!--  Page status, above everything: held notifications, then Windows Do not disturb (which never says when it ends).  -->
+        <InfoBar
+            AutomationProperties.AutomationId="NotificationSettingsSnoozedInfoBar"
+            IsClosable="False"
+            IsOpen="{x:Bind ViewModel.IsSnoozed, Mode=OneWay}"
+            Message="{x:Bind ViewModel.SnoozeSummaryText, Mode=OneWay}"
+            Severity="Informational"
+            Visibility="{x:Bind ViewModel.IsSnoozed, Mode=OneWay}" />
+        <InfoBar
+            x:Name="SystemQuietTimeInfoBar"
+            AutomationProperties.AutomationId="NotificationSettingsSystemQuietTimeInfoBar"
+            IsClosable="False"
+            IsOpen="{x:Bind ViewModel.IsSystemQuietTimeActive, Mode=OneWay}"
+            Message="{x:Bind domain:Translator.NotificationSettings_DoNotDisturbOn, Mode=OneTime}"
+            Severity="Informational"
+            Visibility="{x:Bind ViewModel.IsSystemQuietTimeActive, Mode=OneWay}" />
+
         <!--
-            Snooze state. The one bespoke surface on the page: snooze is a thing people do daily,
-            so it sits above the settings rather than inside an expander.
+            The app-wide sync method: instant push (on) or timer-based synchronization (off). Normal operation needs no
+            status line, so the card shows messages only when something needs attention.
         -->
-        <Border
-            Margin="0,0,0,12"
-            Padding="24"
-            AutomationProperties.AutomationId="NotificationSettingsHeroCard"
-            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-            BorderThickness="1"
-            CornerRadius="8">
-            <StackPanel Spacing="16">
-                <Grid ColumnSpacing="24">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+        <StackPanel Spacing="{StaticResource SettingsCardSpacing}" Visibility="{x:Bind ViewModel.IsPushRelaySectionVisible, Mode=OneTime}">
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="NotificationSettingsInstantPushCard"
+                Description="{x:Bind domain:Translator.NotificationSettings_InstantPush_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.NotificationSettings_InstantPush_Title, Mode=OneTime}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="Flash" />
+                </controls:SettingsCard.HeaderIcon>
+                <ToggleSwitch
+                    AutomationProperties.AutomationId="NotificationSettingsInstantPushToggle"
+                    AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_InstantPush_Title, Mode=OneTime}"
+                    IsEnabled="{x:Bind ViewModel.IsPushRelayToggleEnabled, Mode=OneWay}"
+                    IsOn="{x:Bind ViewModel.IsPushRelayEnabled, Mode=TwoWay}"
+                    Visibility="{x:Bind ViewModel.IsPushRelayToggleVisible, Mode=OneTime}" />
+            </controls:SettingsCard>
+            <InfoBar
+                AutomationProperties.AutomationId="NotificationSettingsInstantPushSignInInfoBar"
+                IsClosable="False"
+                IsOpen="{x:Bind ViewModel.IsPushRelaySignInRequired, Mode=OneWay}"
+                Message="{x:Bind domain:Translator.NotificationSettings_PushRelay_SignInRequired, Mode=OneTime}"
+                Severity="Informational"
+                Visibility="{x:Bind ViewModel.IsPushRelaySignInRequired, Mode=OneWay}" />
+            <InfoBar
+                AutomationProperties.AutomationId="NotificationSettingsInstantPushProblemInfoBar"
+                IsClosable="False"
+                IsOpen="{x:Bind helpers:XamlHelpers.HasText(ViewModel.PushRelayProblemText), Mode=OneWay}"
+                Message="{x:Bind ViewModel.PushRelayProblemText, Mode=OneWay}"
+                Severity="Warning"
+                Visibility="{x:Bind helpers:XamlHelpers.TextToVisibility(ViewModel.PushRelayProblemText), Mode=OneWay}" />
+            <InfoBar
+                AutomationProperties.AutomationId="NotificationSettingsInstantPushMailboxWarningInfoBar"
+                IsClosable="False"
+                IsOpen="{x:Bind helpers:XamlHelpers.HasText(ViewModel.PushRelayMailboxWarningText), Mode=OneWay}"
+                Message="{x:Bind ViewModel.PushRelayMailboxWarningText, Mode=OneWay}"
+                Severity="Warning"
+                Visibility="{x:Bind helpers:XamlHelpers.TextToVisibility(ViewModel.PushRelayMailboxWarningText), Mode=OneWay}" />
+        </StackPanel>
 
-                    <StackPanel VerticalAlignment="Center" Spacing="6">
-                        <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.NotificationSettings_Hero_Title, Mode=OneTime}" />
-                        <TextBlock
-                            MaxWidth="560"
-                            HorizontalAlignment="Left"
-                            AutomationProperties.AutomationId="NotificationSettingsHeroStateText"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Style="{ThemeResource BodyTextBlockStyle}"
-                            Text="{x:Bind ViewModel.SnoozeSummaryText, Mode=OneWay}"
-                            TextWrapping="WrapWholeWords" />
-                    </StackPanel>
-
-                    <StackPanel
-                        Grid.Column="1"
-                        VerticalAlignment="Center"
-                        Orientation="Horizontal"
-                        Spacing="12">
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            AutomationProperties.AutomationId="NotificationSettingsSnoozeStateText"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Text="{x:Bind ViewModel.SnoozeStateText, Mode=OneWay}" />
-
-                        <ToggleSplitButton
-                            AutomationProperties.AutomationId="NotificationSettingsSnoozeSplitButton"
-                            AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_SnoozeAll, Mode=OneTime}"
-                            IsChecked="{x:Bind ViewModel.IsSnoozed, Mode=OneWay}"
-                            IsCheckedChanged="SnoozeToggle_IsCheckedChanged"
-                            ToolTipService.ToolTip="{x:Bind domain:Translator.NotificationSettings_SnoozeAll, Mode=OneTime}">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <coreControls:WinoFontIcon FontSize="14" Icon="AlertOff" />
-                                <TextBlock Text="{x:Bind ViewModel.SelectedSnoozePresetText, Mode=OneWay}" />
-                            </StackPanel>
-                            <ToggleSplitButton.Flyout>
-                                <contextFlyout:WinoContextFlyout Placement="Bottom">
-                                    <contextFlyout:WinoContextFlyoutItem
-                                        AutomationId="NotificationSettingsSnoozePresetThirtyMinutes"
-                                        Click="SnoozePreset_Click"
-                                        CommandParameter="ThirtyMinutes"
-                                        Text="{x:Bind domain:Translator.NotificationSnooze_ThirtyMinutes, Mode=OneTime}" />
-                                    <contextFlyout:WinoContextFlyoutItem
-                                        AutomationId="NotificationSettingsSnoozePresetOneHour"
-                                        Click="SnoozePreset_Click"
-                                        CommandParameter="OneHour"
-                                        Text="{x:Bind domain:Translator.NotificationSnooze_OneHour, Mode=OneTime}" />
-                                    <contextFlyout:WinoContextFlyoutItem
-                                        AutomationId="NotificationSettingsSnoozePresetTwoHours"
-                                        Click="SnoozePreset_Click"
-                                        CommandParameter="TwoHours"
-                                        Text="{x:Bind domain:Translator.NotificationSnooze_TwoHours, Mode=OneTime}" />
-                                    <contextFlyout:WinoContextFlyoutItem
-                                        AutomationId="NotificationSettingsSnoozePresetRestOfDay"
-                                        Click="SnoozePreset_Click"
-                                        CommandParameter="RestOfDay"
-                                        Text="{x:Bind domain:Translator.NotificationSnooze_RestOfDay, Mode=OneTime}" />
-                                    <contextFlyout:WinoContextFlyoutItem
-                                        AutomationId="NotificationSettingsSnoozePresetUntilTomorrowMorning"
-                                        Click="SnoozePreset_Click"
-                                        CommandParameter="UntilTomorrowMorning"
-                                        Text="{x:Bind domain:Translator.NotificationSnooze_UntilTomorrowMorning, Mode=OneTime}" />
-                                    <contextFlyout:WinoContextFlyoutItem
-                                        AutomationId="NotificationSettingsSnoozePresetUntilTurnedBackOn"
-                                        Click="SnoozePreset_Click"
-                                        CommandParameter="UntilTurnedBackOn"
-                                        Text="{x:Bind domain:Translator.NotificationSnooze_UntilTurnedBackOn, Mode=OneTime}" />
-                                </contextFlyout:WinoContextFlyout>
-                            </ToggleSplitButton.Flyout>
-                        </ToggleSplitButton>
-                    </StackPanel>
-                </Grid>
-
-                <!--  Windows exposes that Do not disturb is on, but never when it ends.  -->
-                <InfoBar
-                    x:Name="SystemQuietTimeInfoBar"
-                    AutomationProperties.AutomationId="NotificationSettingsSystemQuietTimeInfoBar"
-                    IsClosable="False"
-                    IsOpen="{x:Bind ViewModel.IsSystemQuietTimeActive, Mode=OneWay}"
-                    Message="{x:Bind domain:Translator.NotificationSettings_DoNotDisturbOn, Mode=OneTime}"
-                    Severity="Informational" />
-            </StackPanel>
-        </Border>
+        <!--  Snooze: a regular card. While notifications are held, the status shows at the top of the page instead.  -->
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="NotificationSettingsSnoozeCard"
+            Description="{x:Bind domain:Translator.NotificationSettings_Snooze_ActiveDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.NotificationSettings_Snooze_Title, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="AlertOff" />
+            </controls:SettingsCard.HeaderIcon>
+            <ToggleSplitButton
+                AutomationProperties.AutomationId="NotificationSettingsSnoozeSplitButton"
+                AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_SnoozeAll, Mode=OneTime}"
+                IsChecked="{x:Bind ViewModel.IsSnoozed, Mode=OneWay}"
+                IsCheckedChanged="SnoozeToggle_IsCheckedChanged"
+                ToolTipService.ToolTip="{x:Bind domain:Translator.NotificationSettings_SnoozeAll, Mode=OneTime}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <coreControls:WinoFontIcon FontSize="14" Icon="AlertOff" />
+                    <TextBlock Text="{x:Bind ViewModel.SelectedSnoozePresetText, Mode=OneWay}" />
+                </StackPanel>
+                <ToggleSplitButton.Flyout>
+                    <contextFlyout:WinoContextFlyout Placement="Bottom">
+                        <contextFlyout:WinoContextFlyoutItem
+                            AutomationId="NotificationSettingsSnoozePresetThirtyMinutes"
+                            Click="SnoozePreset_Click"
+                            CommandParameter="ThirtyMinutes"
+                            Text="{x:Bind domain:Translator.NotificationSnooze_ThirtyMinutes, Mode=OneTime}" />
+                        <contextFlyout:WinoContextFlyoutItem
+                            AutomationId="NotificationSettingsSnoozePresetOneHour"
+                            Click="SnoozePreset_Click"
+                            CommandParameter="OneHour"
+                            Text="{x:Bind domain:Translator.NotificationSnooze_OneHour, Mode=OneTime}" />
+                        <contextFlyout:WinoContextFlyoutItem
+                            AutomationId="NotificationSettingsSnoozePresetTwoHours"
+                            Click="SnoozePreset_Click"
+                            CommandParameter="TwoHours"
+                            Text="{x:Bind domain:Translator.NotificationSnooze_TwoHours, Mode=OneTime}" />
+                        <contextFlyout:WinoContextFlyoutItem
+                            AutomationId="NotificationSettingsSnoozePresetRestOfDay"
+                            Click="SnoozePreset_Click"
+                            CommandParameter="RestOfDay"
+                            Text="{x:Bind domain:Translator.NotificationSnooze_RestOfDay, Mode=OneTime}" />
+                        <contextFlyout:WinoContextFlyoutItem
+                            AutomationId="NotificationSettingsSnoozePresetUntilTomorrowMorning"
+                            Click="SnoozePreset_Click"
+                            CommandParameter="UntilTomorrowMorning"
+                            Text="{x:Bind domain:Translator.NotificationSnooze_UntilTomorrowMorning, Mode=OneTime}" />
+                        <contextFlyout:WinoContextFlyoutItem
+                            AutomationId="NotificationSettingsSnoozePresetUntilTurnedBackOn"
+                            Click="SnoozePreset_Click"
+                            CommandParameter="UntilTurnedBackOn"
+                            Text="{x:Bind domain:Translator.NotificationSnooze_UntilTurnedBackOn, Mode=OneTime}" />
+                    </contextFlyout:WinoContextFlyout>
+                </ToggleSplitButton.Flyout>
+            </ToggleSplitButton>
+        </controls:SettingsCard>
 
         <!--  Quiet hours  -->
         <controls:SettingsExpander
@@ -188,9 +201,9 @@
 
                 <controls:SettingsCard
                     AutomationProperties.AutomationId="NotificationSettingsPresentingCard"
-                    Visibility="{x:Bind ViewModel.IsSnoozeWhilePresentingAvailable, Mode=OneTime}"
                     Description="{x:Bind domain:Translator.NotificationSettings_QuietHours_Presenting_Description, Mode=OneTime}"
-                    Header="{x:Bind domain:Translator.NotificationSettings_QuietHours_Presenting_Title, Mode=OneTime}">
+                    Header="{x:Bind domain:Translator.NotificationSettings_QuietHours_Presenting_Title, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.IsSnoozeWhilePresentingAvailable, Mode=OneTime}">
                     <ToggleSwitch
                         AutomationProperties.AutomationId="NotificationSettingsPresentingToggle"
                         AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_QuietHours_Presenting_Title, Mode=OneTime}"
@@ -452,49 +465,6 @@
             </controls:SettingsExpander.Items>
         </controls:SettingsExpander>
 
-        <!--  The app-wide sync method: relay-based (instant, over the relay socket) or timer-based. Windows has no push channel, so there is no test push.  -->
-        <controls:SettingsExpander
-            AutomationProperties.AutomationId="NotificationSettingsPushRelayExpander"
-            Description="{x:Bind domain:Translator.NotificationSettings_SyncMethod_Description, Mode=OneTime}"
-            Header="{x:Bind domain:Translator.NotificationSettings_SyncMethod_Title, Mode=OneTime}"
-            Visibility="{x:Bind ViewModel.IsPushRelaySectionVisible, Mode=OneTime}">
-            <controls:SettingsExpander.HeaderIcon>
-                <coreControls:WinoFontIcon Icon="Cloud" />
-            </controls:SettingsExpander.HeaderIcon>
-
-            <ToggleSwitch
-                AutomationProperties.AutomationId="NotificationSettingsPushRelayToggle"
-                AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_SyncMethod_Title, Mode=OneTime}"
-                IsEnabled="{x:Bind ViewModel.IsPushRelayToggleEnabled, Mode=OneWay}"
-                IsOn="{x:Bind ViewModel.IsPushRelayEnabled, Mode=TwoWay}"
-                Visibility="{x:Bind ViewModel.IsPushRelayToggleVisible, Mode=OneTime}" />
-
-            <controls:SettingsExpander.ItemsHeader>
-                <StackPanel>
-                    <InfoBar
-                        AutomationProperties.AutomationId="NotificationSettingsPushRelaySignInInfoBar"
-                        BorderThickness="0"
-                        CornerRadius="0"
-                        IsClosable="False"
-                        IsOpen="{x:Bind ViewModel.IsPushRelaySignInRequired, Mode=OneWay}"
-                        Message="{x:Bind domain:Translator.NotificationSettings_PushRelay_SignInRequired, Mode=OneTime}"
-                        Severity="Informational" />
-                    <InfoBar
-                        AutomationProperties.AutomationId="NotificationSettingsPushRelayMailboxWarningInfoBar"
-                        BorderThickness="0"
-                        CornerRadius="0"
-                        IsClosable="False"
-                        IsOpen="{x:Bind helpers:XamlHelpers.HasText(ViewModel.PushRelayMailboxWarningText), Mode=OneWay}"
-                        Message="{x:Bind ViewModel.PushRelayMailboxWarningText, Mode=OneWay}"
-                        Severity="Warning" />
-                </StackPanel>
-            </controls:SettingsExpander.ItemsHeader>
-
-            <controls:SettingsExpander.Items>
-                <controls:SettingsCard AutomationProperties.AutomationId="NotificationSettingsPushRelayStatusCard" Header="{x:Bind ViewModel.PushRelayStatusText, Mode=OneWay}" />
-            </controls:SettingsExpander.Items>
-        </controls:SettingsExpander>
-
         <!--  Per-account overrides  -->
         <TextBlock
             Margin="2,16,0,0"
@@ -508,15 +478,17 @@
             Text="{x:Bind domain:Translator.NotificationSettings_Accounts_Description, Mode=OneTime}" />
 
         <ItemsControl AutomationProperties.AutomationId="NotificationSettingsAccountsList" ItemsSource="{x:Bind ViewModel.Accounts, Mode=OneWay}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Spacing="{StaticResource SettingsCardSpacing}" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
             <ItemsControl.ItemContainerTransitions>
                 <TransitionCollection />
             </ItemsControl.ItemContainerTransitions>
             <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="viewModels:AccountNotificationSettingsViewModel">
-                    <controls:SettingsExpander
-                        Margin="0,0,0,4"
-                        AutomationProperties.AutomationId="NotificationSettingsPageSettingsExpander"
-                        AutomationProperties.Name="{x:Bind helpers:XamlHelpers.FormatAutomationName(domain:Translator.Accessibility_AccountNotifications, AccountAddress), Mode=OneWay}">
+                    <controls:SettingsExpander AutomationProperties.AutomationId="NotificationSettingsPageSettingsExpander" AutomationProperties.Name="{x:Bind helpers:XamlHelpers.FormatAutomationName(domain:Translator.Accessibility_AccountNotifications, AccountAddress), Mode=OneWay}">
                         <controls:SettingsExpander.Header>
                             <appControls:AccountIdentityRowControl Account="{x:Bind Account}" Description="{x:Bind AccountAddress}" />
                         </controls:SettingsExpander.Header>
@@ -668,7 +640,6 @@
         </ItemsControl>
 
         <controls:SettingsCard
-            Margin="0,12,0,0"
             AutomationProperties.AutomationId="NotificationSettingsResetCard"
             Description="{x:Bind domain:Translator.NotificationSettings_Reset_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.NotificationSettings_Reset_Title, Mode=OneTime}">

@@ -81,6 +81,8 @@ public sealed class RelayIntroductionService : IRelayIntroductionService
 
     public void AcceptPolicy() => _configuration.Set(PushRelayDefaults.PolicyAcceptedVersionConfigurationKey, PushRelayDefaults.PolicyVersion);
 
+    public void DismissIntroduction() => _configuration.Set(PushRelayDefaults.IntroductionPendingConfigurationKey, false);
+
     public void CompleteWithTimer()
     {
         if (_preferences.SyncMethod != SyncMethod.Timer)

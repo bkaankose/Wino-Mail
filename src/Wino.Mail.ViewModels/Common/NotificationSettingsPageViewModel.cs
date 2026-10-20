@@ -205,8 +205,9 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
     {
         get
         {
+            // Unsnoozed, the card explains what snooze is for; snoozed, it says until when.
             if (!IsSnoozed)
-                return Translator.NotificationSettings_Hero_Active;
+                return Translator.NotificationSettings_Snooze_ActiveDescription;
 
             return SnoozedUntil is { } until
                 ? string.Format(Translator.NotificationSettings_Hero_SnoozedUntilFormat, FormatTime(until))
@@ -317,6 +318,13 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
 
     [ObservableProperty]
     public partial string PushRelayStatusText { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The status line only when something needs attention (service down, mailbox limit, an error). Empty while push
+    /// notifications work normally, are turned off, or wait for sign-in (which has its own message).
+    /// </summary>
+    [ObservableProperty]
+    public partial string PushRelayProblemText { get; set; } = string.Empty;
 
     /// <summary>Accounts the relay can no longer sign in to; empty when there are none.</summary>
     [ObservableProperty]
@@ -438,6 +446,7 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
             IsPushRelaySignInRequired = availability == PushRelayAvailability.SignInRequired;
             IsPushTestVisible = _capabilities.RemoteNotifications && availability == PushRelayAvailability.Enabled && snapshot.DeviceId is not null;
             PushRelayStatusText = GetPushRelayStatusText(snapshot);
+            PushRelayProblemText = GetPushRelayProblemText(snapshot);
             PushRelayMailboxWarningText = GetPushRelayMailboxWarningText(snapshot);
             OnPropertyChanged(nameof(PushRelayAvailability));
         }
@@ -459,6 +468,18 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
             => string.Format(Translator.NotificationSettings_PushRelay_ErrorFormat, error),
         _ => string.Format(Translator.NotificationSettings_PushRelay_RegisteredFormat,
             snapshot.Mailboxes.Count(x => x.IsWatched), snapshot.MailboxLimit)
+    };
+
+    private static string GetPushRelayProblemText(PushRelayRegistrationSnapshot snapshot) => snapshot.Availability switch
+    {
+        PushRelayAvailability.RejectedByRelay => Translator.NotificationSettings_PushRelay_PlatformUnsupported,
+        PushRelayAvailability.ServiceUnavailable => Translator.NotificationSettings_PushRelay_ServiceUnavailable,
+        PushRelayAvailability.UnsupportedPlatform or PushRelayAvailability.SignInRequired or PushRelayAvailability.DisabledByUser => string.Empty,
+        _ when snapshot.Mailboxes.Any(x => !x.IsWatched && x.LastErrorCode == PushRelayErrorCodes.MailboxLimitReached)
+            => Translator.NotificationSettings_PushRelay_LimitReached,
+        _ when snapshot.DeviceId is null && snapshot.LastErrorCode is { } error
+            => string.Format(Translator.NotificationSettings_PushRelay_ErrorFormat, error),
+        _ => string.Empty
     };
 
     private string GetPushRelayMailboxWarningText(PushRelayRegistrationSnapshot snapshot)
@@ -497,6 +518,25 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
 
     #endregion
 
+    /// <summary>
+    /// Opened from the upgrade introduction: switch instant push on through the toggle, so the privacy policy shows when
+    /// it has not been accepted. Declining the policy turns the toggle back off. Nothing happens when push is already on,
+    /// when the toggle is unavailable (for example, before Wino Account sign-in), or when the policy is already accepted.
+    /// </summary>
+    private void OfferInstantPushIfRequested(object? parameters)
+    {
+        if (parameters is not NotificationSettingsNavigationContext { OfferInstantPush: true })
+            return;
+
+        if (!IsPushRelayToggleVisible || !IsPushRelayToggleEnabled || IsPushRelayEnabled)
+            return;
+
+        if (_introduction is not { IsPolicyAcceptanceRequired: true })
+            return;
+
+        IsPushRelayEnabled = true;
+    }
+
     public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedTo(mode, parameters);
@@ -507,6 +547,7 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
         SubscribeToPushRelay();
         PushRelayTestResultText = string.Empty;
         ApplyPushRelaySnapshot(_pushRelay.Snapshot);
+        OfferInstantPushIfRequested(parameters);
 
         await LoadAccountsAsync();
         await ExecuteUIThread(() => ApplyPushRelaySnapshot(_pushRelay.Snapshot));

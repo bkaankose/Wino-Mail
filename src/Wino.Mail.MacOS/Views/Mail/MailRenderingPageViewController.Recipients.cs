@@ -287,7 +287,7 @@ internal sealed class MailRecipientRows : NSView
     private MailLinkButton Token(AccountContactViewModel contact)
     {
         // Windows ShortNameOrYou without its ";" separator: each recipient is its own link here.
-        var text = contact.IsMe ? Translator.AccountContactNameYou : contact.ShortDisplayName;
+        var text = contact.ShortNameOrYouLabel;
         var token = new MailLinkButton(text ?? string.Empty, NSFont.SystemFontOfSize(12)) { ToolTip = contact.DisplayName };
         WinoAccessibility.Label(token, contact.DisplayName);
         var name = contact.Name ?? string.Empty;

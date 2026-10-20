@@ -808,16 +808,31 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(AreQuietHoursEnabled), value);
     }
 
+    // The Windows time pickers bind two-way to these, and a picker writes the value back when the binding pushes it in.
+    // Raising a change for that echo pushes it in again, which recursed until the stack overflowed (Reset on the
+    // notifications page). An unchanged value is therefore not saved or announced.
     public TimeSpan QuietHoursStart
     {
         get => _configurationService.Get(nameof(QuietHoursStart), new TimeSpan(18, 30, 0));
-        set => SetPropertyAndSave(nameof(QuietHoursStart), value);
+        set
+        {
+            if (_configurationService.Contains(nameof(QuietHoursStart)) && QuietHoursStart == value)
+                return;
+
+            SetPropertyAndSave(nameof(QuietHoursStart), value);
+        }
     }
 
     public TimeSpan QuietHoursEnd
     {
         get => _configurationService.Get(nameof(QuietHoursEnd), new TimeSpan(8, 0, 0));
-        set => SetPropertyAndSave(nameof(QuietHoursEnd), value);
+        set
+        {
+            if (_configurationService.Contains(nameof(QuietHoursEnd)) && QuietHoursEnd == value)
+                return;
+
+            SetPropertyAndSave(nameof(QuietHoursEnd), value);
+        }
     }
 
     public QuietHoursDays QuietHoursDays

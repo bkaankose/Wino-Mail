@@ -456,8 +456,8 @@ public sealed class MailReaderFragment : WinoFragment<MailRenderingPageViewModel
         if (_date is not null) _date.Text = MailRowPresentation.FormatReaderDate(viewModel.CreationDate, viewModel.PreferencesService.MailTimeFormatPreference);
         if (_recipients is null) return;
         var lines = new List<string>();
-        if (viewModel.ToItems.Count > 0) lines.Add(Translator.ComposerTo + string.Join(", ", viewModel.ToItems.Select(static contact => contact.ShortDisplayName)));
-        if (viewModel.CcItems.Count > 0) lines.Add("Cc: " + string.Join(", ", viewModel.CcItems.Select(static contact => contact.ShortDisplayName)));
+        if (viewModel.ToItems.Count > 0) lines.Add(Translator.ComposerTo + string.Join(", ", viewModel.ToItems.Select(static contact => contact.ShortNameOrYouLabel)));
+        if (viewModel.CcItems.Count > 0) lines.Add("Cc: " + string.Join(", ", viewModel.CcItems.Select(static contact => contact.ShortNameOrYouLabel)));
         _recipients.Text = string.Join("\n", lines);
         _recipients.Visibility = lines.Count == 0 ? ViewStates.Gone : ViewStates.Visible;
     }

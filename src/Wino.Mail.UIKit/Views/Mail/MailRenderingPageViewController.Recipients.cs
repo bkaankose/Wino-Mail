@@ -236,7 +236,7 @@ internal sealed class MailRecipientRows : UIView
 
     private MailLinkButton Token(AccountContactViewModel contact)
     {
-        var text = contact.IsMe ? Translator.AccountContactNameYou : contact.ShortDisplayName;
+        var text = contact.ShortNameOrYouLabel;
         var token = new MailLinkButton(text ?? string.Empty);
         WinoAccessibility.Label(token, contact.DisplayName);
         var name = contact.Name ?? string.Empty;

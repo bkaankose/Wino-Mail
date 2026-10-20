@@ -48,7 +48,7 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
         });
         var presets = Bind.PopUp<NotificationSettingsPageViewModel, SnoozePresetOption>(vm, s => s.SnoozePresets, option => option.DisplayText,
             nameof(vm.SelectedSnoozePreset), s => s.SelectedSnoozePreset, (s, v) => s.StartSnoozeCommand.Execute(v.Value), width: 170);
-        var hero = Card(Translator.NotificationSettings_Hero_Title, null, WinoIconGlyph.AlertOff, Row(presets, snoozeSwitch));
+        var hero = Card(Translator.NotificationSettings_Snooze_Title, null, WinoIconGlyph.AlertOff, Row(presets, snoozeSwitch));
         Bind.Bind(vm, nameof(vm.SnoozeSummaryText), s => s.SnoozeSummaryText, text => hero.Description = text);
         var state = Card(string.Empty, null, WinoIconGlyph.None);
         Bind.Bind(vm, nameof(vm.SnoozeStateText), s => s.SnoozeStateText, text => { state.Header = text ?? string.Empty; state.Hidden = string.IsNullOrEmpty(text); });

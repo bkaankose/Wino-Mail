@@ -24,6 +24,12 @@ public interface IRelayIntroductionService
     /// <summary>Records the current policy version.</summary>
     void AcceptPolicy();
 
+    /// <summary>
+    /// The upgrade introduction (the Windows shell's teaching tip) was shown and closed or acted on. The sync method is
+    /// left as it is; turning instant push on happens on the Notifications page.
+    /// </summary>
+    void DismissIntroduction();
+
     /// <summary>The user kept timer-based sync, or closed the window; the introduction is done.</summary>
     void CompleteWithTimer();
 

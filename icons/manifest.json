@@ -1944,6 +1944,10 @@
       "name": "Flash",
       "codepoint": "E09D",
       "svg": "Flash.svg",
+      "accent": {
+        "svg": "Flash.accent.svg",
+        "color": "amber"
+      },
       "source": "fluent:flash"
     },
     {

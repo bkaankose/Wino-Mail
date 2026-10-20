@@ -481,5 +481,22 @@
             Closed="ShellInfoBar_Closed"
             IsClosable="False"
             IsOpen="False" />
+
+        <!--
+            Instant push introduction for installs that had accounts before it existed. It points at the Wino Account
+            button in the title bar; the icon is set from code with the colorful font for the current theme.
+        -->
+        <TeachingTip
+            x:Name="RelayIntroductionTip"
+            Title="{x:Bind domain:Translator.RelayIntroduction_TipTitle, Mode=OneTime}"
+            Grid.RowSpan="2"
+            ActionButtonClick="RelayIntroductionTipActionClicked"
+            ActionButtonContent="{x:Bind domain:Translator.RelayIntroduction_TipAction, Mode=OneTime}"
+            AutomationProperties.AutomationId="ShellRelayIntroductionTip"
+            CloseButtonClick="RelayIntroductionTipCloseClicked"
+            IsLightDismissEnabled="False"
+            IsOpen="False"
+            PreferredPlacement="BottomLeft"
+            Subtitle="{x:Bind domain:Translator.RelayIntroduction_TipSubtitle, Mode=OneTime}" />
     </Grid>
 </winuiex:WindowEx>
