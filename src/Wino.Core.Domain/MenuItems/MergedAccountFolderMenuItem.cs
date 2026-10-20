@@ -61,38 +61,8 @@ public partial class MergedAccountFolderMenuItem : MenuItemBase<List<IMailItemFo
 
     private void SetFolderName()
     {
-        // Folders that hold more than 1 folder belong to merged account.
-        // These folders will be displayed as their localized names based on the
-        // special type they have.
-
-        if (HandlingFolders.Count() > 1)
-        {
-            FolderName = GetSpecialFolderName(HandlingFolders.First());
-        }
-        else
-        {
-            // Folder only holds 1 Id, but it's displayed as merged account folder.
-            FolderName = HandlingFolders.First().FolderName;
-        }
-    }
-
-    private string GetSpecialFolderName(IMailItemFolder folder)
-    {
-        var specialType = folder.SpecialFolderType;
-
-        // We only handle 5 different types for combining folders.
-        // Rest of the types are not supported.
-
-        return specialType switch
-        {
-            SpecialFolderType.Inbox => Translator.MergedAccountCommonFolderInbox,
-            SpecialFolderType.Draft => Translator.MergedAccountCommonFolderDraft,
-            SpecialFolderType.Sent => Translator.MergedAccountCommonFolderSent,
-            SpecialFolderType.Deleted => Translator.MergedAccountCommonFolderTrash,
-            SpecialFolderType.Junk => Translator.MergedAccountCommonFolderJunk,
-            SpecialFolderType.Archive => Translator.MergedAccountCommonFolderArchive,
-            _ => folder.FolderName,
-        };
+        FolderName = MailFolderDisplayName.Get(Parameter[0]);
+        OnPropertyChanged(nameof(FolderName));
     }
 
     public void UpdateFolder(IMailItemFolder folder)

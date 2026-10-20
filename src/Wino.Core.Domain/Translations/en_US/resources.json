@@ -3954,5 +3954,14 @@
   "ComposerParity_ColorPink": "Pink",
   "ComposerParity_MoreColors": "More Colors…",
   "ComposerParity_SpellCheckAutomatic": "Automatic",
-  "ComposerParity_EditLink": "Edit link"
+  "ComposerParity_EditLink": "Edit link",
+  "FolderDisplayName_Starred": "Starred",
+  "FolderDisplayName_Important": "Important",
+  "FolderDisplayName_Chat": "Chats",
+  "FolderDisplayName_Unread": "Unread",
+  "FolderDisplayName_Forums": "Forums",
+  "FolderDisplayName_Updates": "Updates",
+  "FolderDisplayName_Personal": "Personal",
+  "FolderDisplayName_Promotions": "Promotions",
+  "FolderDisplayName_Social": "Social"
 }

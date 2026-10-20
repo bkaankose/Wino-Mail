@@ -46,19 +46,22 @@ public class TranslationService : ITranslationService
 
         if (ignoreCurrentLanguageCheck && isInitialized) return;
 
+        // Build the complete lookup before changing the active language. Missing or empty
+        // translations fall back to English, never to a previously selected language.
+        var translationLookups = await LoadLanguageAsync(DefaultAppLanguage).ConfigureAwait(false);
+        if (language != DefaultAppLanguage)
+        {
+            var localizedLookups = await LoadLanguageAsync(language).ConfigureAwait(false);
+            foreach (var pair in localizedLookups)
+            {
+                if (!string.IsNullOrWhiteSpace(pair.Value))
+                    translationLookups[pair.Key] = pair.Value;
+            }
+        }
+
         var currentDictionary = Translator.Resources;
-        await using var resourceStream = Core.Domain.Translations.WinoTranslationDictionary.GetLanguageStream(language);
-
-        var streamValue = await new StreamReader(resourceStream).ReadToEndAsync().ConfigureAwait(false);
-
-        var translationLookups = JsonSerializer.Deserialize(streamValue, BasicTypesJsonContext.Default.DictionaryStringString);
-
-        // Insert new translation key-value pairs.
-        // Overwrite existing values for the same keys.
-
         foreach (var pair in translationLookups)
         {
-            // Replace existing value.
             currentDictionary[pair.Key] = pair.Value;
         }
 
@@ -74,6 +77,16 @@ public class TranslationService : ITranslationService
 
         isInitialized = true;
         WeakReferenceMessenger.Default.Send(new LanguageChanged());
+    }
+
+    private static async Task<Dictionary<string, string>> LoadLanguageAsync(AppLanguage language)
+    {
+        using var resourceStream = Core.Domain.Translations.WinoTranslationDictionary.GetLanguageStream(language)
+            ?? throw new InvalidDataException($"Language resources are missing: {language}.");
+        using var reader = new StreamReader(resourceStream);
+        var content = await reader.ReadToEndAsync().ConfigureAwait(false);
+        return JsonSerializer.Deserialize(content, BasicTypesJsonContext.Default.DictionaryStringString)
+            ?? throw new InvalidDataException($"Language resources are invalid: {language}.");
     }
 
     private AppLanguage GetInitialLanguage()

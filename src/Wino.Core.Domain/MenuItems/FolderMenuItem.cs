@@ -24,20 +24,16 @@ public partial class FolderMenuItem : MenuItemBase<IMailItemFolder, FolderMenuIt
 
 
     /// <summary>
-    /// Display name of the folder. More and Category folders have localized display names.
+    /// Localized display name for known folder roles; custom folder names are preserved.
     /// </summary>
     public string FolderName
     {
         get
         {
-            if (Parameter.SpecialFolderType == SpecialFolderType.More)
-                return Translator.MoreFolderNameOverride;
-            else if (Parameter.SpecialFolderType == SpecialFolderType.Category)
-                return Translator.CategoriesFolderNameOverride;
-            else if (Parameter.SpecialFolderType == SpecialFolderType.Archive && ParentAccount.ProviderType == MailProviderType.Gmail)
+            if (Parameter.SpecialFolderType == SpecialFolderType.Archive && ParentAccount?.ProviderType == MailProviderType.Gmail)
                 return Translator.GmailArchiveFolderNameOverride;
             else
-                return Parameter.FolderName;
+                return MailFolderDisplayName.Get(Parameter);
         }
         set => SetProperty(Parameter.FolderName, value, Parameter, (u, n) => u.FolderName = n);
     }
