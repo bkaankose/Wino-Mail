@@ -629,8 +629,11 @@ internal sealed partial class NativeTrayIcon : IDisposable
         {
             EnsureWindowClassRegistered();
 
+            const int WS_EX_TOOLWINDOW = 0x00000080;
+            const int WS_EX_NOACTIVATE = 0x08000000;
+
             WindowHandle = CreateWindowExW(
-                0,
+                WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
                 ClassName,
                 string.Empty,
                 0,
