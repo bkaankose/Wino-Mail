@@ -1,4 +1,4 @@
-﻿<abstract:MailListPageAbstract
+<abstract:MailListPageAbstract
     x:Class="Wino.Views.Mail.MailListPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -913,6 +913,7 @@
                         <SemanticZoom.ZoomedInView>
                             <listview:ThreadedMailListView
                                 x:Name="MailListView"
+                                Background="Transparent"
                                 HorizontalAlignment="Stretch"
                                 HorizontalContentAlignment="Stretch"
                                 toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"

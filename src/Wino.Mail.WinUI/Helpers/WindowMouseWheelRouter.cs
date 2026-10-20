@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Input;
 using Windows.Foundation;
 using WinRT.Interop;
 
@@ -144,6 +145,13 @@ public sealed class WindowMouseWheelRouter
             return true;
         }
 
+        // 3. Fallback to focused element if cursor hit didn't produce a scrollable target
+        var focused = FocusManager.GetFocusedElement(_rootElement.XamlRoot) as UIElement;
+        if (focused is not null && TryScrollTarget(new[] { focused }, isHorizontal, isShiftPressed, scrollPixels))
+        {
+            return true;
+        }
+
         return false;
     }
 
@@ -153,26 +161,31 @@ public sealed class WindowMouseWheelRouter
 
         foreach (var element in elements)
         {
-            // 1. Check for WinoMailRenderer or WebView2
-            if (element is Wino.Editor.WinoMailRenderer mailRenderer)
+            // 1. Check for WinoMailRenderer or WebView2 (direct, parent, or child)
+            var mailRenderer = element as Wino.Editor.WinoMailRenderer
+                ?? FindParent<Wino.Editor.WinoMailRenderer>(element)
+                ?? FindChild<Wino.Editor.WinoMailRenderer>(element);
+            if (mailRenderer is not null)
             {
                 mailRenderer.ScrollBy(0, -(scrollPixels * 1.5));
                 return true;
             }
 
-            if (element is WebView2 webView)
+            var webView = element as WebView2
+                ?? FindParent<WebView2>(element)
+                ?? FindChild<WebView2>(element);
+            if (webView is not null && webView.CoreWebView2 is not null)
             {
-                if (webView.CoreWebView2 is not null)
-                {
-                    double deltaY = -(scrollPixels * 1.5);
-                    _ = webView.ExecuteScriptAsync(
-                        $"window.scrollBy({{ left: 0, top: {deltaY.ToString(CultureInfo.InvariantCulture)}, behavior: 'auto' }});");
-                    return true;
-                }
+                double deltaY = -(scrollPixels * 1.5);
+                _ = webView.ExecuteScriptAsync(
+                    $"window.scrollBy({{ left: 0, top: {deltaY.ToString(CultureInfo.InvariantCulture)}, behavior: 'auto' }});");
+                return true;
             }
 
-            // 2. Check for ScrollViewer
-            var scrollViewer = element as ScrollViewer ?? FindParent<ScrollViewer>(element);
+            // 2. Check for ScrollViewer (direct, parent, or child template)
+            var scrollViewer = element as ScrollViewer
+                ?? FindParent<ScrollViewer>(element)
+                ?? FindChild<ScrollViewer>(element);
             if (scrollViewer is not null)
             {
                 if (!isHorizontal && !isShiftPressed)
@@ -213,6 +226,20 @@ public sealed class WindowMouseWheelRouter
         {
             child = VisualTreeHelper.GetParent(child);
             if (child is T typed) return typed;
+        }
+        return null;
+    }
+
+    private static T? FindChild<T>(DependencyObject? parent) where T : DependencyObject
+    {
+        if (parent is null) return null;
+        int count = VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < count; i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T typed) return typed;
+            var found = FindChild<T>(child);
+            if (found is not null) return found;
         }
         return null;
     }
