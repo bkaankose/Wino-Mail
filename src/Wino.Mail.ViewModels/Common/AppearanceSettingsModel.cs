@@ -9,7 +9,7 @@ namespace Wino.Core.ViewModels;
 /// The Personalization page's theme and accent state over <see cref="INewThemeService"/>, shared by the macOS, iOS and
 /// Android pages. Platform pages derive from it for their own window backdrop or material switches.
 /// </summary>
-public class AppearanceSettingsModel : ObservableObject, IDisposable
+public partial class AppearanceSettingsModel : ObservableObject, IDisposable
 {
     /// <summary>The accent colors offered on every platform, in display order.</summary>
     public static readonly string[] AccentPalette =
