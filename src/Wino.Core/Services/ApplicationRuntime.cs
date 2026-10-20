@@ -29,6 +29,8 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
     private const int InboxSyncsPerFullSync = 20;
     private static readonly TimeSpan RareModeSynchronizationInterval = TimeSpan.FromHours(6);
     private static readonly TimeSpan RareModeDueCheckInterval = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan InboxRerunPollInterval = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan InboxRerunWaitLimit = TimeSpan.FromMinutes(2);
     private readonly object _gate = new();
     private readonly ISynchronizationManager _synchronizationManager;
     private readonly IPreferencesService _preferencesService;
@@ -48,6 +50,8 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
     private readonly ConcurrentDictionary<int, Task> _jobs = new();
     private readonly Queue<ApplicationRuntimeState> _stateChanges = new();
     private readonly HashSet<Guid> _pendingCreatedAccounts = new();
+    // One queued inbox pass per account for pushes that arrive while that account synchronizes. Guarded by _gate.
+    private readonly Dictionary<Guid, Task<bool>> _pendingInboxReruns = new();
     private bool _dispatchingStateChanges;
     private int _jobId;
     private Task? _initialization;
@@ -815,10 +819,69 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         var token = source.Token;
         token.ThrowIfCancellationRequested();
 
-        // A running synchronization of this account already covers the inbox.
+        // A running synchronization may have read the provider's changes before the one this push reports.
+        // One more inbox pass follows it; pushes that arrive in the meantime share that pass.
         if (_synchronizationManager.IsAccountSynchronizing(accountId))
-            return true;
+        {
+            var rerun = QueueInboxRerun(accountId);
+            try
+            {
+                return await rerun.WaitAsync(token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!_lifetime.Token.IsCancellationRequested)
+            {
+                // The caller's budget ran out while the running sync goes on; the queued pass still follows it.
+                return true;
+            }
+        }
 
+        return await RunInboxPassCoreAsync(accountId, token).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The pending rerun for the account, started when none is pending. It runs on the runtime lifetime, so a caller
+    /// that stops waiting does not cancel it for the others.
+    /// </summary>
+    private Task<bool> QueueInboxRerun(Guid accountId)
+    {
+        lock (_gate)
+        {
+            if (_pendingInboxReruns.TryGetValue(accountId, out var pending))
+                return pending;
+
+            var rerun = Task.Run(() => RunInboxRerunAsync(accountId, _lifetime.Token), CancellationToken.None);
+            _pendingInboxReruns[accountId] = rerun;
+            Track(() => rerun);
+            return rerun;
+        }
+    }
+
+    private async Task<bool> RunInboxRerunAsync(Guid accountId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var wait = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            wait.CancelAfter(InboxRerunWaitLimit);
+            while (_synchronizationManager.IsAccountSynchronizing(accountId))
+                await Task.Delay(InboxRerunPollInterval, _timeProvider, wait.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            Log.Information("Account {AccountId} is still synchronizing after {Limit}; the queued inbox pass is skipped.", accountId, InboxRerunWaitLimit);
+            return false;
+        }
+        finally
+        {
+            // Once the rerun starts it may read the changes before a later push's: that push queues a new one.
+            // Only this rerun can be pending for the account while it waits, so removing by key is safe.
+            lock (_gate) _pendingInboxReruns.Remove(accountId);
+        }
+
+        return await RunInboxPassCoreAsync(accountId, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<bool> RunInboxPassCoreAsync(Guid accountId, CancellationToken token)
+    {
         var result = await _synchronizationManager.SynchronizeMailAsync(new MailSynchronizationOptions
         {
             AccountId = accountId,

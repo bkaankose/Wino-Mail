@@ -264,6 +264,17 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
         }
     }
 
+    public async Task ReleaseAccountAsync(MailAccount account, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(account);
+        if (_builders.FirstOrDefault(x => x.ProviderType == account.ProviderType) is not { } builder)
+            return;
+
+        using var bounded = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        bounded.CancelAfter(OptOutDeleteBudget);
+        await ReleaseProviderRegistrationAsync(builder, account, bounded.Token, cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<PushRelayPushTestResult> SendPushTestAsync(CancellationToken cancellationToken = default)
     {
         if (!IsPlatformSupported || _identityStore is not { } identityStore)
@@ -483,6 +494,7 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
             if (identity is not null && gate is PushRelayAvailability.SignInRequired or PushRelayAvailability.DisabledByUser)
             {
                 _logger.Information("Live notifications are {Availability}; removing this relay device.", gate);
+                await ReleaseProviderRegistrationsAsync(OptOutDeleteBudget, cancellationToken).ConfigureAwait(false);
                 if (canAuthenticate)
                     await DeleteRemoteDeviceAsync(identity, OptOutDeleteBudget, cancellationToken).ConfigureAwait(false);
 
@@ -586,9 +598,22 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
                     PushRelayRegisterDeviceResponse registration;
                     try
                     {
-                        registration = await _client.RegisterDeviceAsync(
-                            new PushRelayRegisterDeviceRequest(descriptor.Platform, pushToken, appVersion, appBuild, locale, osVersion, name, socketKey, credential?.DeviceId),
-                            cancellationToken).ConfigureAwait(false);
+                        try
+                        {
+                            registration = await _client.RegisterDeviceAsync(
+                                new PushRelayRegisterDeviceRequest(descriptor.Platform, pushToken, appVersion, appBuild, locale, osVersion, name, socketKey, credential?.DeviceId),
+                                cancellationToken).ConfigureAwait(false);
+                        }
+                        catch (PushRelayApiException ex) when (ex.IsDeviceRevoked && credential is not null)
+                        {
+                            // The relay revoked the API device behind this credential: register a new one with the API, then try once more.
+                            _logger.Information("The relay revoked this API device; registering a new one.");
+                            await _tokens.ForgetDeviceAsync(cancellationToken).ConfigureAwait(false);
+                            credential = await _tokens.GetDeviceCredentialAsync(cancellationToken).ConfigureAwait(false);
+                            registration = await _client.RegisterDeviceAsync(
+                                new PushRelayRegisterDeviceRequest(descriptor.Platform, pushToken, appVersion, appBuild, locale, osVersion, name, socketKey, credential?.DeviceId),
+                                cancellationToken).ConfigureAwait(false);
+                        }
                     }
                     catch (PushRelayApiException ex) when (ex.Status == 400 && ex.Code == PushRelayErrorCodes.InvalidRequest)
                     {
@@ -628,6 +653,18 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
                 {
                     var device = await _client.GetDeviceAsync(identity.DeviceId, cancellationToken).ConfigureAwait(false);
                     state.LastCheckInUtc = now;
+
+                    // The relay invalidates a token that another device registered later; send ours again.
+                    // Desktop devices never have one (socket-only), so they never send one.
+                    if (!device.PushTokenRegistered && pushToken is not null)
+                    {
+                        _logger.Information("The relay has no valid push token for this device ({Reason}); sending it again.", device.PushTokenInvalidReason);
+                        state.LastPushTokenHash = null;
+                        device = await _client.UpdateDeviceAsync(identity.DeviceId,
+                            new PushRelayUpdateDeviceRequest(pushToken, appVersion, appBuild, locale, osVersion, name, socketKey), cancellationToken).ConfigureAwait(false);
+                        RememberDevice(state, pushTokenHash, appVersion, appBuild, locale, name, osVersion, socketKeyHash);
+                    }
+
                     serverView = device.Mailboxes ?? [];
                     deviceFresh = true;
                 }
@@ -718,41 +755,54 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
                     continue;
                 }
 
-                limitReached = await CreateMailboxAsync(identity, entry, registration, now, cancellationToken).ConfigureAwait(false);
+                limitReached = await CreateMailboxAsync(identity, account, entry, registration, now, cancellationToken).ConfigureAwait(false);
             }
             else if (entry.CredentialFingerprint != registration.CredentialFingerprint || failedWithSameCredentials
                 || entry.Status == PushRelayMailboxStatuses.NeedsReauth)
             {
                 limitReached |= registration.IsAppManaged
-                    ? await CreateMailboxAsync(identity, entry, registration, now, cancellationToken).ConfigureAwait(false)
-                    : await UpdateCredentialsAsync(identity, entry, registration, now, allowCreate: true, cancellationToken).ConfigureAwait(false);
+                    ? await CreateMailboxAsync(identity, account, entry, registration, now, cancellationToken).ConfigureAwait(false)
+                    : await UpdateCredentialsAsync(identity, account, entry, registration, now, allowCreate: true, cancellationToken).ConfigureAwait(false);
             }
         }
     }
 
     /// <summary>Returns true when the relay reported the mailbox limit.</summary>
-    private async Task<bool> CreateMailboxAsync(PushRelayDeviceIdentity identity, PushRelayMailboxRegistration entry,
+    private async Task<bool> CreateMailboxAsync(PushRelayDeviceIdentity identity, MailAccount account, PushRelayMailboxRegistration entry,
         PushRelayMailboxRegistrationRequest registration, DateTime now, CancellationToken cancellationToken)
     {
+        PushRelayMailbox mailbox;
         try
         {
-            var mailbox = await _client.CreateMailboxAsync(identity.DeviceId, registration.Create, cancellationToken).ConfigureAwait(false);
+            mailbox = await _client.CreateMailboxAsync(identity.DeviceId, registration.Create, cancellationToken).ConfigureAwait(false);
             Succeeded(entry, mailbox, registration, now);
-            return false;
         }
         catch (PushRelayApiException ex) when (ex.Code == PushRelayErrorCodes.MailboxAlreadyAdded && ex.Problem.SubscriptionId is { } subscriptionId)
         {
             entry.SubscriptionId = subscriptionId;
-            return await UpdateCredentialsAsync(identity, entry, registration, now, allowCreate: false, cancellationToken).ConfigureAwait(false);
+            return await UpdateCredentialsAsync(identity, account, entry, registration, now, allowCreate: false, cancellationToken).ConfigureAwait(false);
         }
         catch (PushRelayApiException ex) when (IsMailboxScoped(ex))
         {
             Failed(entry, ex, registration, now);
             return ex.Code == PushRelayErrorCodes.MailboxLimitReached;
         }
+
+        // Registrations this one replaced that no other device uses: the provider would keep calling the relay for them.
+        if (mailbox.ObsoleteExternalIds is { Count: > 0 } obsolete && _builders.FirstOrDefault(x => x.ProviderType == account.ProviderType) is { } builder)
+        {
+            _logger.Information("The relay retired {Count} provider registrations of account {AccountId}; deleting them.", obsolete.Count, account.Id);
+            try { await builder.DeleteObsoleteRegistrationsAsync(account, obsolete, cancellationToken).ConfigureAwait(false); }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.Information(ex, "Retired provider registrations of account {AccountId} could not be deleted.", account.Id);
+            }
+        }
+
+        return false;
     }
 
-    private async Task<bool> UpdateCredentialsAsync(PushRelayDeviceIdentity identity, PushRelayMailboxRegistration entry,
+    private async Task<bool> UpdateCredentialsAsync(PushRelayDeviceIdentity identity, MailAccount account, PushRelayMailboxRegistration entry,
         PushRelayMailboxRegistrationRequest registration, DateTime now, bool allowCreate, CancellationToken cancellationToken)
     {
         if (entry.SubscriptionId is not { } subscriptionId)
@@ -770,7 +820,7 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
             entry.SubscriptionId = null;
             entry.CredentialFingerprint = null;
             entry.Status = null;
-            return await CreateMailboxAsync(identity, entry, registration, now, cancellationToken).ConfigureAwait(false);
+            return await CreateMailboxAsync(identity, account, entry, registration, now, cancellationToken).ConfigureAwait(false);
         }
         catch (PushRelayApiException ex) when (IsMailboxScoped(ex))
         {
@@ -880,6 +930,43 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
         {
             // Best effort: the relay reaper removes devices that stop calling.
             _logger.Information("Relay device could not be removed ({Error}).", ex is PushRelayApiException relay ? relay.Code : ex.GetType().Name);
+        }
+    }
+
+    /// <summary>
+    /// Live notifications are being turned off: every account's own provider registration (Graph subscription) is
+    /// deleted so the provider stops notifying the relay. Bounded and best effort.
+    /// </summary>
+    private async Task ReleaseProviderRegistrationsAsync(TimeSpan budget, CancellationToken cancellationToken)
+    {
+        List<MailAccount> accounts;
+        try { accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false) ?? []; }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Accounts could not be read to release their provider registrations.");
+            return;
+        }
+
+        using var bounded = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        bounded.CancelAfter(budget);
+        foreach (var account in accounts)
+        {
+            if (_builders.FirstOrDefault(x => x.ProviderType == account.ProviderType) is { } builder)
+                await ReleaseProviderRegistrationAsync(builder, account, bounded.Token, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task ReleaseProviderRegistrationAsync(IPushRelayMailboxRegistrationBuilder builder, MailAccount account,
+        CancellationToken bounded, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await builder.ReleaseRegistrationAsync(account, bounded).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            // Best effort: the provider registration expires on its own.
+            _logger.Information("The provider registration of account {AccountId} could not be released ({Error}).", account.Id, ex.GetType().Name);
         }
     }
 

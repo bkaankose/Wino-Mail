@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
@@ -99,6 +100,53 @@ public sealed class GraphPushRelayMailboxRegistrationBuilder : IPushRelayMailbox
         var registration = new PushRelayGraphRegistration(record!.ExternalId!, record.ClientState!, record.ExpiresAt, account.Address, InboxFolderLabel, "mail");
         var create = new PushRelayCreateMailboxRequest(PushRelayProviders.Graph, account.Id.ToString("D"), Imap: null, Graph: registration);
         return new PushRelayMailboxRegistrationRequest(create, new PushRelayUpdateCredentialsRequest(null), Fingerprint(record));
+    }
+
+    public async Task DeleteObsoleteRegistrationsAsync(MailAccount account, IReadOnlyList<string> externalIds, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(account);
+        var current = _store.Load(account.Id)?.ExternalId;
+        var authenticator = _authentication.GetAuthenticator(MailProviderType.Outlook);
+        foreach (var subscriptionId in externalIds)
+        {
+            // Never the subscription this install just registered.
+            if (string.IsNullOrWhiteSpace(subscriptionId) || subscriptionId == current)
+                continue;
+
+            await DeleteSubscriptionAsync(account, authenticator, subscriptionId, "retired by the relay", cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    public async Task ReleaseRegistrationAsync(MailAccount account, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(account);
+        var record = _store.Load(account.Id);
+        if (record is not { Provider: PushRelayProviders.Graph })
+            return;
+
+        if (!string.IsNullOrEmpty(record.ExternalId))
+        {
+            var authenticator = _authentication.GetAuthenticator(MailProviderType.Outlook);
+            await DeleteSubscriptionAsync(account, authenticator, record.ExternalId, "released", cancellationToken).ConfigureAwait(false);
+        }
+
+        // Forgotten either way: a subscription that could not be deleted expires on its own within three days.
+        _store.Forget(account.Id);
+    }
+
+    private async Task DeleteSubscriptionAsync(MailAccount account, IAuthenticator authenticator, string subscriptionId, string reason,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _graph.DeleteAsync(account, authenticator, subscriptionId, cancellationToken).ConfigureAwait(false);
+            _logger.Information("Graph subscription of account {AccountId} deleted ({Reason}).", account.Id, reason);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            _logger.Information("Graph subscription of account {AccountId} could not be deleted ({Reason}, {Error}); it expires on its own.",
+                account.Id, reason, ex is GraphSubscriptionException graph ? ((int)graph.StatusCode).ToString(CultureInfo.InvariantCulture) : ex.GetType().Name);
+        }
     }
 
     private async Task<AppManagedRegistrationRecord> CreateAsync(MailAccount account, IAuthenticator authenticator, PushRelayWellKnown wellKnown,

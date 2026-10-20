@@ -136,7 +136,11 @@ public sealed record PushRelayMonitoring(
 
 public sealed record PushRelayHints(string? Folder, long? UidValidity, long? UidNext, long? HighestModSeq, int? Exists, string? HistoryId);
 
-/// <summary>One subscription of this device. <see cref="Id"/> is the subscription id used in mailbox routes.</summary>
+/// <summary>
+/// One subscription of this device. <see cref="Id"/> is the subscription id used in mailbox routes.
+/// <c>ObsoleteExternalIds</c> comes only with <c>POST /v1/mailboxes</c>: provider registrations (Graph subscription ids)
+/// the relay retired because this one replaced them and no other device uses them. The app deletes them at the provider.
+/// </summary>
 public sealed record PushRelayMailbox(
     Guid Id,
     Guid MailboxId,
@@ -152,7 +156,8 @@ public sealed record PushRelayMailbox(
     string? LastError,
     DateTimeOffset CreatedAt,
     DateTimeOffset? RegistrationExpiresAt,
-    bool Muted);
+    bool Muted,
+    List<string>? ObsoleteExternalIds = null);
 
 public sealed record PushRelayMailboxList(List<PushRelayMailbox>? Items);
 

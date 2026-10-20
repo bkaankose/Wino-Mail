@@ -38,6 +38,7 @@ public class AccountService : BaseDatabaseService, IAccountService
     private readonly IMailIntelligenceStore _localIntelligenceStore;
     private readonly ICardDavSynchronizationStore _cardDavSynchronizationStore;
     private readonly IDavCredentialStore _davCredentialStore;
+    private readonly Func<IPushRelayRegistrationService> _pushRelay;
 
     private readonly ILogger _logger = Log.ForContext<AccountService>();
 
@@ -52,7 +53,8 @@ public class AccountService : BaseDatabaseService, IAccountService
                           ISemanticIndexJobRegistry semanticIndexJobRegistry = null,
                           IMailIntelligenceStore localIntelligenceStore = null,
                           ICardDavSynchronizationStore cardDavSynchronizationStore = null,
-                          IDavCredentialStore davCredentialStore = null) : base(databaseService)
+                          IDavCredentialStore davCredentialStore = null,
+                          Func<IPushRelayRegistrationService> pushRelay = null) : base(databaseService)
     {
         _signatureService = signatureService;
         _authenticationProvider = authenticationProvider;
@@ -65,6 +67,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         _localIntelligenceStore = localIntelligenceStore;
         _cardDavSynchronizationStore = cardDavSynchronizationStore;
         _davCredentialStore = davCredentialStore;
+        _pushRelay = pushRelay;
     }
 
 
@@ -354,6 +357,20 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public async Task DeleteAccountAsync(MailAccount account)
     {
+        // While the provider token still exists: the provider stops notifying the relay for this account.
+        if (_pushRelay is not null)
+        {
+            try
+            {
+                await _pushRelay().ReleaseAccountAsync(account).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                // Live notifications must never block removing an account.
+                _logger.Warning(ex, "Failed to release the relay registration of account {AccountId}. Continuing account deletion.", account.Id);
+            }
+        }
+
         if (_semanticIndexJobRegistry is not null)
             await _semanticIndexJobRegistry.CancelAndWaitAsync(account.Id).ConfigureAwait(false);
 

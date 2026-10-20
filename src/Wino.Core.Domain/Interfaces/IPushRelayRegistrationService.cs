@@ -2,6 +2,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.PushRelay;
 
@@ -40,6 +41,12 @@ public interface IPushRelayRegistrationService
     /// Wino tokens are discarded; relay failures never escape it.
     /// </summary>
     Task SignOutAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes the account's own provider registration (the Graph subscription) so the provider stops notifying the
+    /// relay. Called before the account and its tokens are deleted; bounded, and failures never escape it.
+    /// </summary>
+    Task ReleaseAccountAsync(MailAccount account, CancellationToken cancellationToken = default);
 
     Task<PushRelayPushTestResult> SendPushTestAsync(CancellationToken cancellationToken = default);
 
