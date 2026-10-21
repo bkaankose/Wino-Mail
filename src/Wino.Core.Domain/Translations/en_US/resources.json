@@ -587,6 +587,7 @@
   "DialogMessage_AccountLimitMessage": "You have reached the account creation limit.\nWould you like to purchase 'Unlimited Account' add-on to continue?",
   "DialogMessage_AccountLimitTitle": "Account Limit Reached",
   "DialogMessage_AccountAddressExistsMessage": "An account with the same e-mail address already exists.",
+  "DialogMessage_ReauthenticationAccountMismatchMessage": "You signed in as {0}, which is already a separate account in Wino. To fix {1}, try again and sign in as {1}.",
   "DialogMessage_AccountExistsTitle": "Existing Account",
   "DialogMessage_AliasCreatedMessage": "New alias is succesfully created.",
   "DialogMessage_AliasCreatedTitle": "Created New Alias",

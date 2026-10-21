@@ -66,8 +66,10 @@ public sealed class AccountReauthenticationService(
             !string.Equals(account.Address?.Trim(), tokenAddress, StringComparison.OrdinalIgnoreCase))
         {
             // Signing in to a mailbox that another account already owns would merge two mailboxes.
+            // Usually the sign-in page was completed with a different account than the one being fixed.
             if (await accountService.AccountAddressExistsAsync(tokenAddress, account.Id).ConfigureAwait(false))
-                throw new InvalidOperationException(Translator.DialogMessage_AccountAddressExistsMessage);
+                throw new InvalidOperationException(string.Format(
+                    Translator.DialogMessage_ReauthenticationAccountMismatchMessage, tokenAddress, account.Address?.Trim()));
 
             account.Address = tokenAddress;
         }
