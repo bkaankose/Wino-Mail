@@ -23,6 +23,11 @@
       "description": "We tracked down crashes that only happened in the released app and fixed them across mail, calendar and settings. Unread counts on the taskbar icon show up again too."
     },
     {
+      "image": "screen-reader-friendly-reading.png",
+      "title": "Easier reading with screen readers",
+      "description": "Screen readers now announce the subject, sender and date when you move into a message, then read the mail from the top. Mails made only of images still get a readable text version."
+    },
+    {
       "image": "other-improvements.png",
       "title": "Other improvements",
       "description": "CalDAV calendars sync faster and handle invitations and attachments. Mail times match your time zone, Gmail and folders are more reliable, settings apply instantly, and Wino now speaks Traditional Chinese."
