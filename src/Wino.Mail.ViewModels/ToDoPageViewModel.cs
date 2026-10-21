@@ -814,21 +814,12 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         if (owner is null)
             return;
 
-        var existing = owner.Steps.FirstOrDefault(item => item.Step.Id == message.Step.Id);
+        // The owner keeps its task entity's step list in step with the rows: task snapshots taken later (due date,
+        // title) include the steps, and a stale list would revert this step when that snapshot is saved.
         if (message.Change == OptimisticEntityChange.Delete)
-        {
-            if (existing is not null)
-                owner.Steps.Remove(existing);
-            owner.RefreshStepSummary();
-            return;
-        }
-
-        if (existing is null)
-            owner.Steps.Add(new TaskStepViewModel(message.Step));
+            owner.RemoveStep(message.Step.Id);
         else
-            existing.ApplySnapshot(message.Step);
-
-        owner.RefreshStepSummary();
+            owner.ApplyStepSnapshot(message.Step);
     }
 
     private void ApplyAccountUpdate(MailAccount account)

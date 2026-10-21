@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -66,6 +67,48 @@ public partial class TaskItemViewModel : ObservableObject
         OnPropertyChanged(nameof(HasNote));
         RefreshDueDisplay();
         RefreshStepSummary();
+    }
+
+    /// <summary>
+    /// Applies a step snapshot (created or updated) to the step rows and to the task entity's own step list, so a later
+    /// task snapshot (a due date or title change) carries the step's current state instead of reverting it.
+    /// </summary>
+    public void ApplyStepSnapshot(AccountTaskStep step)
+    {
+        ArgumentNullException.ThrowIfNull(step);
+
+        var existing = Steps.FirstOrDefault(item => item.Step.Id == step.Id);
+        if (existing is null)
+            Steps.Add(new TaskStepViewModel(step));
+        else
+            existing.ApplySnapshot(step);
+
+        Task.Steps = ReplaceStep(Task.Steps, step);
+        _originalTask.Steps = ReplaceStep(_originalTask.Steps, RequestEntityCloner.TaskStep(step));
+        RefreshStepSummary();
+    }
+
+    /// <summary>Removes a step from the step rows and from the task entity's own step list.</summary>
+    public void RemoveStep(Guid stepId)
+    {
+        var existing = Steps.FirstOrDefault(item => item.Step.Id == stepId);
+        if (existing is not null)
+            Steps.Remove(existing);
+
+        Task.Steps = (Task.Steps ?? []).Where(item => item.Id != stepId).ToList();
+        _originalTask.Steps = (_originalTask.Steps ?? []).Where(item => item.Id != stepId).ToList();
+        RefreshStepSummary();
+    }
+
+    private static List<AccountTaskStep> ReplaceStep(List<AccountTaskStep> steps, AccountTaskStep step)
+    {
+        var result = steps?.ToList() ?? [];
+        int index = result.FindIndex(item => item.Id == step.Id);
+        if (index >= 0)
+            result[index] = step;
+        else
+            result.Add(step);
+        return result;
     }
 
     public Guid Id => Task.Id;
