@@ -72,12 +72,6 @@ public sealed class SettingsDebugActivity : Activity
                 case "accent":
                     theme.AccentColor = argument;
                     break;
-                case "iconset" when Enum.TryParse<WinoIconSet>(argument, ignoreCase: true, out var iconSet):
-                    services.GetRequiredService<IPreferencesService>().IconSet = iconSet;
-                    break;
-                case "iconstyle" when Enum.TryParse<WinoIconStyle>(argument, ignoreCase: true, out var iconStyle):
-                    services.GetRequiredService<IPreferencesService>().IconStyle = iconStyle;
-                    break;
                 case "dialog":
                     SettingsDebugDialogs.Open(services, argument);
                     break;

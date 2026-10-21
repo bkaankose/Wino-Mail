@@ -1,12 +1,6 @@
 {
-  "$comment": "Per-platform icon sets for WinoIcons. Maps each Wino icon name to a glyph in each source library. Edit, then run import_icon_sets.py and build_fonts.py. See icons/README.md.",
+  "$comment": "Platform icon sets for WinoIcons: Framework7 for macOS and iOS, Material Rounded for Android (Windows keeps the Classic manifest set). Maps each Wino icon name to a glyph in each source library. Edit, then run import_icon_sets.py and build_fonts.py. See icons/README.md.",
   "sources": {
-    "fluent": {
-      "package": "@fluentui/svg-icons",
-      "version": "1.1.341",
-      "license": "MIT",
-      "integrity": "sha512-BFuq3Eci/fhtp4IhMUB46Bs8xwuQ2dHY8XCFI3A3LhuSMtd2LG6RT4oNJw+xudsxLnBP4pzJlHzy1mzATnSF2Q=="
-    },
     "material": {
       "package": "@material-symbols/svg-400",
       "version": "0.47.6",
@@ -21,1434 +15,1152 @@
     }
   },
   "sets": {
-    "Fluent": {
-      "source": "fluent",
-      "style": "20"
-    },
-    "MaterialOutlined": {
-      "source": "material",
-      "style": "outlined"
-    },
     "MaterialRounded": {
       "source": "material",
-      "style": "rounded"
+      "style": "rounded",
+      "platforms": [
+        "Android"
+      ]
     },
     "Framework7": {
-      "source": "framework7"
+      "source": "framework7",
+      "platforms": [
+        "macOS",
+        "iOS"
+      ]
     }
   },
   "icons": {
     "NewMail": {
-      "fluent": "compose",
       "material": "edit_square",
       "framework7": "square_pencil"
     },
     "Mail": {
-      "fluent": "mail",
       "material": "mail",
       "framework7": "envelope"
     },
     "MailFilled": {
-      "fluent": "mail",
       "material": "mail",
       "framework7": "envelope",
       "filled": true
     },
     "Inbox": {
-      "fluent": "mail_inbox",
       "material": "inbox",
       "framework7": "tray"
     },
     "Reply": {
-      "fluent": "arrow_reply",
       "material": "reply",
       "framework7": "arrowshape_turn_up_left"
     },
     "ReplyAll": {
-      "fluent": "arrow_reply_all",
       "material": "reply_all",
       "framework7": "arrowshape_turn_up_left_2"
     },
     "Forward": {
-      "fluent": "arrow_forward",
       "material": "forward",
       "framework7": "arrowshape_turn_up_right"
     },
     "Send": {
-      "fluent": "send",
       "material": "send",
       "framework7": "paperplane"
     },
     "SendNew": {
-      "fluent": "send",
       "material": "send",
       "framework7": "paperplane",
       "filled": true
     },
     "Archive": {
-      "fluent": "archive",
       "material": "archive",
       "framework7": "archivebox"
     },
     "UnArchive": {
-      "fluent": "archive_arrow_back",
       "material": "unarchive",
       "framework7": "arrow_up_bin"
     },
     "Delete": {
-      "fluent": "delete",
       "material": "delete",
       "framework7": "trash"
     },
     "Move": {
-      "fluent": "folder_arrow_right",
       "material": "drive_file_move",
       "framework7": "folder"
     },
     "Draft": {
-      "fluent": "drafts",
       "material": "draft",
       "framework7": "doc"
     },
     "MarkRead": {
-      "fluent": "mail_read",
       "material": "drafts",
       "framework7": "envelope_open"
     },
     "MarkUnread": {
-      "fluent": "mail_unread",
       "material": "mark_email_unread",
       "framework7": "envelope_badge"
     },
     "Flag": {
-      "fluent": "flag",
       "material": "flag",
       "framework7": "flag"
     },
     "ClearFlag": {
-      "fluent": "flag_off",
       "material": "flag_check",
       "framework7": "flag_slash"
     },
     "Pin": {
-      "fluent": "pin",
       "material": "keep",
       "framework7": "pin"
     },
     "UnPin": {
-      "fluent": "pin_off",
       "material": "keep_off",
       "framework7": "pin_slash"
     },
     "Star": {
-      "fluent": "star",
       "material": "star",
       "framework7": "star"
     },
     "StarFilled": {
-      "fluent": "star",
       "material": "star",
       "framework7": "star",
       "filled": true
     },
     "Ignore": {
-      "fluent": "person_prohibited",
       "material": "person_cancel",
       "framework7": "person_crop_circle_badge_xmark"
     },
     "Attachment": {
-      "fluent": "attach",
       "material": "attach_file",
       "framework7": "paperclip"
     },
     "AttachmentNew": {
-      "fluent": "attach_arrow_right",
       "material": "attach_file_add",
       "framework7": "paperclip"
     },
     "MailBlocked": {
-      "fluent": "mail_prohibited",
       "material": "unsubscribe",
       "framework7": "nosign"
     },
     "MailArrowUp": {
-      "fluent": "mail_arrow_up",
       "material": "outgoing_mail",
       "framework7": "arrow_up_circle"
     },
     "MailCheckmark": {
-      "fluent": "mail_checkmark",
       "material": "mark_email_read",
       "framework7": "checkmark_circle"
     },
     "MailInboxCheckmark": {
-      "fluent": "mail_inbox_checkmark",
       "material": "inbox_customize",
       "framework7": "tray_full"
     },
     "ViewMessageSource": {
-      "fluent": "code",
       "material": "code",
       "framework7": "chevron_left_slash_chevron_right"
     },
     "Print": {
-      "fluent": "print",
       "material": "print",
       "framework7": "printer"
     },
     "Save": {
-      "fluent": "save",
       "material": "save",
       "framework7": "floppy_disk"
     },
     "Sync": {
-      "fluent": "arrow_sync",
       "material": "sync",
       "framework7": "arrow_2_circlepath"
     },
     "DontSync": {
-      "fluent": "arrow_sync_dismiss",
       "material": "sync_disabled",
       "framework7": "slash_circle"
     },
     "MultiSelect": {
-      "fluent": "multiselect_ltr",
       "material": "checklist",
       "framework7": "checkmark_circle"
     },
     "Zoom": {
-      "fluent": "zoom_in",
       "material": "zoom_in",
       "framework7": "zoom_in"
     },
     "Find": {
-      "fluent": "search",
       "material": "search",
       "framework7": "search"
     },
     "More": {
-      "fluent": "more_horizontal",
       "material": "more_horiz",
       "framework7": "ellipsis"
     },
     "Filter": {
-      "fluent": "filter",
       "material": "filter_list",
       "framework7": "line_horizontal_3_decrease"
     },
     "SortTextDesc": {
-      "fluent": "text_sort_descending",
       "material": "sort_by_alpha",
       "framework7": "textformat_abc"
     },
     "SortLinesDesc": {
-      "fluent": "arrow_sort_down_lines",
       "material": "sort",
       "framework7": "arrow_down_to_line"
     },
     "ArrowSort": {
-      "fluent": "arrow_sort",
       "material": "swap_vert",
       "framework7": "arrow_up_arrow_down"
     },
     "OpenInNewWindow": {
-      "fluent": "open",
       "material": "open_in_new",
       "framework7": "arrow_up_right_square"
     },
     "Rename": {
-      "fluent": "rename",
       "material": "drive_file_rename",
       "framework7": "pencil"
     },
     "Edit": {
-      "fluent": "edit",
       "material": "edit",
       "framework7": "pencil"
     },
     "Add": {
-      "fluent": "add",
       "material": "add",
       "framework7": "plus"
     },
     "New": {
-      "fluent": "add_circle",
       "material": "add_circle",
       "framework7": "plus_circle"
     },
     "Dismiss": {
-      "fluent": "dismiss",
       "material": "close",
       "framework7": "xmark"
     },
     "Folder": {
-      "fluent": "folder",
       "material": "folder",
       "framework7": "folder"
     },
     "CreateFolder": {
-      "fluent": "folder_add",
       "material": "create_new_folder",
       "framework7": "folder_badge_plus"
     },
     "EmptyFolder": {
-      "fluent": "delete_dismiss",
       "material": "delete_sweep",
       "framework7": "trash_slash"
     },
     "FolderSync": {
-      "fluent": "folder_sync",
       "material": "folder_managed",
       "framework7": "arrow_2_squarepath"
     },
     "FolderArrowUp": {
-      "fluent": "folder_arrow_up",
       "material": "drive_folder_upload",
       "framework7": "arrow_up_doc"
     },
     "SpecialFolderInbox": {
-      "fluent": "mail_inbox",
       "material": "inbox",
       "framework7": "tray"
     },
     "SpecialFolderSent": {
-      "fluent": "send",
       "material": "send",
       "framework7": "paperplane"
     },
     "SpecialFolderDraft": {
-      "fluent": "drafts",
       "material": "draft",
       "framework7": "doc"
     },
     "SpecialFolderArchive": {
-      "fluent": "archive",
       "material": "archive",
       "framework7": "archivebox"
     },
     "SpecialFolderDeleted": {
-      "fluent": "delete",
       "material": "delete",
       "framework7": "trash"
     },
     "SpecialFolderJunk": {
-      "fluent": "prohibited",
       "material": "report",
       "framework7": "bin_xmark"
     },
     "SpecialFolderUnread": {
-      "fluent": "mail_unread",
       "material": "mark_email_unread",
       "framework7": "envelope_badge"
     },
     "SpecialFolderStarred": {
-      "fluent": "star",
       "material": "star",
       "framework7": "star"
     },
     "SpecialFolderImportant": {
-      "fluent": "chat_warning",
       "material": "label_important",
       "framework7": "exclamationmark_bubble"
     },
     "SpecialFolderChat": {
-      "fluent": "chat",
       "material": "chat",
       "framework7": "bubble_left_bubble_right"
     },
     "SpecialFolderCategory": {
-      "fluent": "shapes",
       "material": "category",
       "framework7": "square_grid_2x2"
     },
     "SpecialFolderForums": {
-      "fluent": "people_community",
       "material": "forum",
       "framework7": "person_3"
     },
     "SpecialFolderUpdated": {
-      "fluent": "news",
       "material": "newspaper",
       "framework7": "doc_richtext"
     },
     "SpecialFolderPersonal": {
-      "fluent": "person_square",
       "material": "person",
       "framework7": "person_crop_square"
     },
     "SpecialFolderPromotions": {
-      "fluent": "tag",
       "material": "sell",
       "framework7": "tag"
     },
     "SpecialFolderSocial": {
-      "fluent": "people",
       "material": "group",
       "framework7": "person_2"
     },
     "SpecialFolderMore": {
-      "fluent": "more_circle",
       "material": "expand_circle_down",
       "framework7": "ellipsis_circle"
     },
     "SpecialFolderOther": {
-      "fluent": "folder",
       "material": "folder",
       "framework7": "folder"
     },
     "Calendar": {
-      "fluent": "calendar_ltr",
       "material": "calendar_month",
       "framework7": "calendar"
     },
     "CalendarFilled": {
-      "fluent": "calendar_ltr",
       "material": "calendar_month",
       "framework7": "calendar",
       "filled": true
     },
     "CalendarToday": {
-      "fluent": "calendar_today",
       "material": "today",
       "framework7": "calendar_today"
     },
     "CalendarDay": {
-      "fluent": "calendar_day",
       "material": "view_day",
       "framework7": "rectangle"
     },
     "CalendarWeek": {
-      "fluent": "calendar_3_day",
       "material": "view_week",
       "framework7": "rectangle_split_3x1"
     },
     "CalendarWorkWeek": {
-      "fluent": "calendar_work_week",
       "material": "date_range",
       "framework7": "rectangle_split_3x1"
     },
     "CalendarMonth": {
-      "fluent": "calendar_month",
       "material": "calendar_view_month",
       "framework7": "square_grid_3x2"
     },
     "CalendarYear": {
-      "fluent": "calendar_multiple",
       "material": "grid_view",
       "framework7": "square_grid_4x3_fill"
     },
     "CalendarAgenda": {
-      "fluent": "calendar_agenda",
       "material": "view_agenda",
       "framework7": "list_bullet_below_rectangle"
     },
     "CalendarEventRepeat": {
-      "fluent": "arrow_repeat_all",
       "material": "repeat",
       "framework7": "repeat"
     },
     "CalendarEventMuiltiDay": {
-      "fluent": "calendar_multiple",
       "material": "date_range",
       "framework7": "arrow_left_right_square"
     },
     "CalendarError": {
-      "fluent": "calendar_error",
       "material": "event_busy",
       "framework7": "calendar_badge_minus"
     },
     "CalendarCancel": {
-      "fluent": "calendar_cancel",
       "material": "event_busy",
       "framework7": "calendar_badge_minus"
     },
     "CalendarSync": {
-      "fluent": "calendar_sync",
       "material": "event_repeat",
       "framework7": "arrow_2_circlepath_circle"
     },
     "CalendarSettings": {
-      "fluent": "calendar_settings",
       "material": "edit_calendar",
       "framework7": "slider_horizontal_3"
     },
     "CalendarShowAs": {
-      "fluent": "status",
       "material": "event_available",
       "framework7": "circle_lefthalf_fill"
     },
     "CalendarAttendee": {
-      "fluent": "calendar_person",
       "material": "person",
       "framework7": "person_crop_circle"
     },
     "CalendarAttendees": {
-      "fluent": "people_team",
       "material": "groups",
       "framework7": "person_3"
     },
     "Reminder": {
-      "fluent": "clock_alarm",
       "material": "alarm",
       "framework7": "alarm"
     },
     "EventRespond": {
-      "fluent": "calendar_reply",
       "material": "reply",
       "framework7": "arrowshape_turn_up_left_circle"
     },
     "EventAccept": {
-      "fluent": "checkmark_circle",
       "material": "check_circle",
       "framework7": "checkmark_circle"
     },
     "EventTentative": {
-      "fluent": "question_circle",
       "material": "help",
       "framework7": "question_circle"
     },
     "EventDecline": {
-      "fluent": "dismiss_circle",
       "material": "cancel",
       "framework7": "xmark_circle"
     },
     "EventReminder": {
-      "fluent": "alert",
       "material": "notifications",
       "framework7": "bell"
     },
     "EventEditSeries": {
-      "fluent": "calendar_edit",
       "material": "edit_calendar",
       "framework7": "calendar_badge_plus"
     },
     "EventJoinOnline": {
-      "fluent": "video",
       "material": "videocam",
       "framework7": "videocam"
     },
     "WeatherSunny": {
-      "fluent": "weather_sunny",
       "material": "sunny",
       "framework7": "sun_max"
     },
     "WeatherSunnyHigh": {
-      "fluent": "weather_sunny_high",
       "material": "wb_sunny",
       "framework7": "sun_max"
     },
     "WeatherSunnyLow": {
-      "fluent": "weather_sunny_low",
       "material": "brightness_5",
       "framework7": "sun_min"
     },
     "WeatherPartlyCloudy": {
-      "fluent": "weather_partly_cloudy_day",
       "material": "partly_cloudy_day",
       "framework7": "cloud_sun"
     },
     "WeatherCloudy": {
-      "fluent": "weather_cloudy",
       "material": "cloud",
       "framework7": "cloud"
     },
     "WeatherCloudyNight": {
-      "fluent": "weather_partly_cloudy_night",
       "material": "partly_cloudy_night",
       "framework7": "cloud_moon"
     },
     "WeatherRainy": {
-      "fluent": "weather_rain",
       "material": "rainy",
       "framework7": "cloud_rain"
     },
     "WeatherRainSnow": {
-      "fluent": "weather_rain_snow",
       "material": "weather_mix",
       "framework7": "cloud_sleet"
     },
     "WeatherSnowy": {
-      "fluent": "weather_snow",
       "material": "weather_snowy",
       "framework7": "cloud_snow"
     },
     "WeatherSnowflake": {
-      "fluent": "weather_snowflake",
       "material": "ac_unit",
       "framework7": "snow"
     },
     "WeatherSnowShowerAtNight": {
-      "fluent": "weather_snow_shower_night",
       "material": "weather_snowy",
       "framework7": "cloud_moon_rain"
     },
     "WeatherSnowShowerNight": {
-      "fluent": "weather_snow_shower_night",
       "material": "weather_snowy",
       "framework7": "cloud_moon_rain"
     },
     "WeatherThunderstorm": {
-      "fluent": "weather_thunderstorm",
       "material": "thunderstorm",
       "framework7": "cloud_bolt_rain"
     },
     "WeatherBlow": {
-      "fluent": "weather_squalls",
       "material": "air",
       "framework7": "wind"
     },
     "People": {
-      "fluent": "people",
       "material": "group",
       "framework7": "person_2"
     },
     "PeopleFilled": {
-      "fluent": "people",
       "material": "group",
       "framework7": "person_2",
       "filled": true
     },
     "Person": {
-      "fluent": "person",
       "material": "person",
       "framework7": "person"
     },
     "PersonAdd": {
-      "fluent": "person_add",
       "material": "person_add",
       "framework7": "person_badge_plus"
     },
     "PersonDelete": {
-      "fluent": "person_delete",
       "material": "person_remove",
       "framework7": "person_badge_minus"
     },
     "PersonCall": {
-      "fluent": "person_call",
       "material": "contact_phone",
       "framework7": "phone"
     },
     "PersonLock": {
-      "fluent": "person_lock",
       "material": "lock_person",
       "framework7": "lock"
     },
     "PersonSwap": {
-      "fluent": "person_swap",
       "material": "switch_account",
       "framework7": "arrow_right_arrow_left_circle"
     },
     "PersonSquare": {
-      "fluent": "person_square",
       "material": "account_box",
       "framework7": "person_crop_square"
     },
     "PersonTag": {
-      "fluent": "person_tag",
       "material": "assignment_ind",
       "framework7": "person_crop_rectangle"
     },
     "PersonAccounts": {
-      "fluent": "person_accounts",
       "material": "account_circle",
       "framework7": "person_2_square_stack"
     },
     "PeopleTeam": {
-      "fluent": "people_team",
       "material": "groups",
       "framework7": "person_3"
     },
     "PeopleCommunity": {
-      "fluent": "people_community",
       "material": "diversity_3",
       "framework7": "person_3"
     },
     "PeopleLink": {
-      "fluent": "people_link",
       "material": "group_add",
       "framework7": "person_2"
     },
     "ContactCard": {
-      "fluent": "contact_card",
       "material": "badge",
       "framework7": "person_crop_rectangle"
     },
     "ManageAccounts": {
-      "fluent": "people_settings",
       "material": "manage_accounts",
       "framework7": "person_crop_circle_badge_checkmark"
     },
     "Info": {
-      "fluent": "info",
       "material": "info",
       "framework7": "info_circle"
     },
     "Warning": {
-      "fluent": "warning",
       "material": "warning",
       "framework7": "exclamationmark_triangle"
     },
     "AlertCircle": {
-      "fluent": "error_circle",
       "material": "error",
       "framework7": "exclamationmark_circle"
     },
     "Important": {
-      "fluent": "important",
       "material": "priority_high",
       "framework7": "exclamationmark"
     },
     "QuestionCircle": {
-      "fluent": "question_circle",
       "material": "help",
       "framework7": "question_circle"
     },
     "Checkmark": {
-      "fluent": "checkmark",
       "material": "check",
       "framework7": "checkmark"
     },
     "CheckmarkCircle": {
-      "fluent": "checkmark_circle",
       "material": "check_circle",
       "framework7": "checkmark_circle"
     },
     "CheckmarkCircleFilled": {
-      "fluent": "checkmark_circle",
       "material": "check_circle",
       "framework7": "checkmark_circle",
       "filled": true
     },
     "DismissCircle": {
-      "fluent": "dismiss_circle",
       "material": "cancel",
       "framework7": "xmark_circle"
     },
     "SubtractCircle": {
-      "fluent": "subtract_circle",
       "material": "do_not_disturb_on",
       "framework7": "minus_circle"
     },
     "Blocked": {
-      "fluent": "prohibited",
       "material": "block",
       "framework7": "nosign"
     },
     "Circle": {
-      "fluent": "circle",
       "material": "radio_button_unchecked",
       "framework7": "circle"
     },
     "Dot": {
-      "fluent": "circle_small",
       "material": "fiber_manual_record",
       "framework7": "circle_fill",
       "filled": true
     },
     "Alert": {
-      "fluent": "alert",
       "material": "notifications",
       "framework7": "bell"
     },
     "AlertBadge": {
-      "fluent": "alert_badge",
       "material": "notifications_unread",
       "framework7": "bell_circle"
     },
     "AlertOff": {
-      "fluent": "alert_off",
       "material": "notifications_off",
       "framework7": "bell_slash"
     },
     "TurnOfNotifications": {
-      "fluent": "alert_snooze",
       "material": "notifications_paused",
       "framework7": "moon_zzz"
     },
     "Shield": {
-      "fluent": "shield",
       "material": "shield",
       "framework7": "shield"
     },
     "ShieldError": {
-      "fluent": "shield_error",
       "material": "gpp_maybe",
       "framework7": "exclamationmark_shield"
     },
     "LockClosed": {
-      "fluent": "lock_closed",
       "material": "lock",
       "framework7": "lock"
     },
     "Key": {
-      "fluent": "key",
       "material": "key",
       "framework7": "lock"
     },
     "Certificate": {
-      "fluent": "certificate",
       "material": "license",
       "framework7": "checkmark_seal"
     },
     "DocumentLock": {
-      "fluent": "document_lock",
       "material": "encrypted",
       "framework7": "lock_circle"
     },
     "Eye": {
-      "fluent": "eye",
       "material": "visibility",
       "framework7": "eye"
     },
     "EyeOff": {
-      "fluent": "eye_off",
       "material": "visibility_off",
       "framework7": "eye_slash"
     },
     "TextBold": {
-      "fluent": "text_bold",
       "material": "format_bold",
       "framework7": "bold"
     },
     "TextItalic": {
-      "fluent": "text_italic",
       "material": "format_italic",
       "framework7": "italic"
     },
     "TextUnderline": {
-      "fluent": "text_underline",
       "material": "format_underlined",
       "framework7": "underline"
     },
     "TextStrikethrough": {
-      "fluent": "text_strikethrough",
       "material": "format_strikethrough",
       "framework7": "strikethrough"
     },
     "TextFont": {
-      "fluent": "text_font",
       "material": "text_fields",
       "framework7": "textformat"
     },
     "TextColor": {
-      "fluent": "text_color",
       "material": "format_color_text",
       "framework7": "textformat"
     },
     "Highlight": {
-      "fluent": "highlight",
       "material": "ink_highlighter",
       "framework7": "pencil_outline"
     },
     "TextClearFormatting": {
-      "fluent": "text_clear_formatting",
       "material": "format_clear",
       "framework7": "clear"
     },
     "TextBulletList": {
-      "fluent": "text_bullet_list_ltr",
       "material": "format_list_bulleted",
       "framework7": "list_bullet"
     },
     "TextNumberList": {
-      "fluent": "text_number_list_ltr",
       "material": "format_list_numbered",
       "framework7": "list_number"
     },
     "TextBulletListTree": {
-      "fluent": "text_bullet_list_tree",
       "material": "segment",
       "framework7": "list_bullet_indent"
     },
     "TextIndentDecrease": {
-      "fluent": "text_indent_decrease_ltr",
       "material": "format_indent_decrease",
       "framework7": "decrease_indent"
     },
     "TextIndentIncrease": {
-      "fluent": "text_indent_increase_ltr",
       "material": "format_indent_increase",
       "framework7": "increase_indent"
     },
     "TextAlignLeft": {
-      "fluent": "text_align_left",
       "material": "format_align_left",
       "framework7": "text_alignleft"
     },
     "TextAlignCenter": {
-      "fluent": "text_align_center",
       "material": "format_align_center",
       "framework7": "text_aligncenter"
     },
     "TextAlignRight": {
-      "fluent": "text_align_right",
       "material": "format_align_right",
       "framework7": "text_alignright"
     },
     "TextAlignJustify": {
-      "fluent": "text_align_justify",
       "material": "format_align_justify",
       "framework7": "text_justify"
     },
     "TextLineSpacing": {
-      "fluent": "text_line_spacing",
       "material": "format_line_spacing",
       "framework7": "arrow_up_arrow_down"
     },
     "TextParagraphDirection": {
-      "fluent": "text_paragraph_direction",
       "material": "format_textdirection_l_to_r",
       "framework7": "paragraph"
     },
     "TextProofingTools": {
-      "fluent": "text_proofing_tools",
       "material": "spellcheck",
       "framework7": "textformat_abc_dottedunderline"
     },
     "TextDescription": {
-      "fluent": "text_description",
       "material": "notes",
       "framework7": "text_justifyleft"
     },
     "Copy": {
-      "fluent": "copy",
       "material": "content_copy",
       "framework7": "doc_on_doc"
     },
     "Link": {
-      "fluent": "link",
       "material": "link",
       "framework7": "link"
     },
     "LinkDismiss": {
-      "fluent": "link_dismiss",
       "material": "link_off",
       "framework7": "xmark_circle"
     },
     "Image": {
-      "fluent": "image",
       "material": "image",
       "framework7": "photo"
     },
     "ImageAdd": {
-      "fluent": "image_add",
       "material": "add_photo_alternate",
       "framework7": "photo"
     },
     "Emoji": {
-      "fluent": "emoji",
       "material": "mood",
       "framework7": "face_smiling"
     },
     "Table": {
-      "fluent": "table",
       "material": "table",
       "framework7": "table"
     },
     "CalligraphyPen": {
-      "fluent": "calligraphy_pen",
       "material": "ink_pen",
       "framework7": "pencil"
     },
     "Signature": {
-      "fluent": "signature",
       "material": "signature",
       "framework7": "signature"
     },
     "ArrowUndo": {
-      "fluent": "arrow_undo",
       "material": "undo",
       "framework7": "arrow_uturn_left"
     },
     "ArrowRedo": {
-      "fluent": "arrow_redo",
       "material": "redo",
       "framework7": "arrow_uturn_right"
     },
     "SelectAll": {
-      "fluent": "select_all_on",
       "material": "select_all",
       "framework7": "selection_pin_in_out"
     },
     "LightEditor": {
-      "fluent": "weather_sunny",
       "material": "light_mode",
       "framework7": "sun_max"
     },
     "DarkEditor": {
-      "fluent": "weather_moon",
       "material": "dark_mode",
       "framework7": "moon"
     },
     "ArrowLeft": {
-      "fluent": "arrow_left",
       "material": "arrow_back",
       "framework7": "arrow_left"
     },
     "ArrowRight": {
-      "fluent": "arrow_right",
       "material": "arrow_forward",
       "framework7": "arrow_right"
     },
     "ArrowDown": {
-      "fluent": "arrow_down",
       "material": "arrow_downward",
       "framework7": "arrow_down"
     },
     "ChevronLeft": {
-      "fluent": "chevron_left",
       "material": "chevron_left",
       "framework7": "chevron_left"
     },
     "ChevronRight": {
-      "fluent": "chevron_right",
       "material": "chevron_right",
       "framework7": "chevron_right"
     },
     "ChevronUp": {
-      "fluent": "chevron_up",
       "material": "keyboard_arrow_up",
       "framework7": "chevron_up"
     },
     "ChevronDown": {
-      "fluent": "chevron_down",
       "material": "keyboard_arrow_down",
       "framework7": "chevron_down"
     },
     "Hamburger": {
-      "fluent": "line_horizontal_3",
       "material": "menu",
       "framework7": "bars"
     },
     "ReOrderDotsVertical": {
-      "fluent": "re_order_dots_vertical",
       "material": "drag_indicator",
       "framework7": "line_horizontal_3"
     },
     "PanelLeft": {
-      "fluent": "panel_left",
       "material": "side_navigation",
       "framework7": "sidebar_left"
     },
     "PanelLeftExpand": {
-      "fluent": "panel_left_expand",
       "material": "left_panel_open",
       "framework7": "sidebar_left"
     },
     "PanelLeftContract": {
-      "fluent": "panel_left_contract",
       "material": "left_panel_close",
       "framework7": "sidebar_left"
     },
     "Home": {
-      "fluent": "home",
       "material": "home",
       "framework7": "house"
     },
     "Grid": {
-      "fluent": "grid",
       "material": "grid_view",
       "framework7": "square_grid_2x2"
     },
     "List": {
-      "fluent": "list",
       "material": "list",
       "framework7": "list_bullet"
     },
     "GroupList": {
-      "fluent": "group_list",
       "material": "view_list",
       "framework7": "list_bullet_below_rectangle"
     },
     "TaskList": {
-      "fluent": "task_list_ltr",
       "material": "checklist",
       "framework7": "checkmark_square"
     },
     "Open": {
-      "fluent": "open",
       "material": "open_in_new",
       "framework7": "arrow_up_right_square"
     },
     "Window": {
-      "fluent": "window",
       "material": "web_asset",
       "framework7": "macwindow"
     },
     "ArrowDownload": {
-      "fluent": "arrow_download",
       "material": "download",
       "framework7": "arrow_down_circle"
     },
     "ArrowUpload": {
-      "fluent": "arrow_upload",
       "material": "upload",
       "framework7": "arrow_up_circle"
     },
     "ArrowSyncCircle": {
-      "fluent": "arrow_sync_circle",
       "material": "autorenew",
       "framework7": "arrow_2_circlepath_circle"
     },
     "ArrowClockwise": {
-      "fluent": "arrow_clockwise",
       "material": "refresh",
       "framework7": "arrow_clockwise"
     },
     "ArrowSwap": {
-      "fluent": "arrow_swap",
       "material": "swap_horiz",
       "framework7": "arrow_right_arrow_left"
     },
     "ArrowReset": {
-      "fluent": "arrow_reset",
       "material": "restart_alt",
       "framework7": "arrow_counterclockwise"
     },
     "ArrowRepeatAll": {
-      "fluent": "arrow_repeat_all",
       "material": "repeat",
       "framework7": "repeat"
     },
     "SignOut": {
-      "fluent": "sign_out",
       "material": "logout",
       "framework7": "square_arrow_right"
     },
     "Power": {
-      "fluent": "power",
       "material": "power_settings_new",
       "framework7": "power"
     },
     "Settings": {
-      "fluent": "settings",
       "material": "settings",
       "framework7": "gear"
     },
     "SettingsFilled": {
-      "fluent": "settings",
       "material": "settings",
       "framework7": "gear",
       "filled": true
     },
     "SettingsNew": {
-      "fluent": "settings",
       "material": "settings",
       "framework7": "gear",
       "filled": true
     },
     "IconStyle": {
-      "fluent": "icons",
       "material": "interests",
       "framework7": "square_on_circle"
     },
     "Color": {
-      "fluent": "color",
       "material": "palette",
       "framework7": "paintbrush"
     },
     "PaintBrush": {
-      "fluent": "paint_brush",
       "material": "brush",
       "framework7": "paintbrush"
     },
     "DarkTheme": {
-      "fluent": "dark_theme",
       "material": "contrast",
       "framework7": "circle_lefthalf_fill"
     },
     "Blur": {
-      "fluent": "blur",
       "material": "blur_on",
       "framework7": "circle_grid_hex"
     },
     "Translate": {
-      "fluent": "translate",
       "material": "translate",
       "framework7": "globe"
     },
     "Keyboard": {
-      "fluent": "keyboard",
       "material": "keyboard",
       "framework7": "keyboard"
     },
     "Storage": {
-      "fluent": "storage",
       "material": "database",
       "framework7": "tray_2"
     },
     "Desktop": {
-      "fluent": "desktop",
       "material": "desktop_windows",
       "framework7": "desktopcomputer"
     },
     "Laptop": {
-      "fluent": "laptop",
       "material": "laptop_windows",
       "framework7": "device_laptop"
     },
     "Phone": {
-      "fluent": "phone",
       "material": "mobile",
       "framework7": "device_phone_portrait"
     },
     "Devices": {
-      "fluent": "phone_laptop",
       "material": "devices",
       "framework7": "device_laptop"
     },
     "Cloud": {
-      "fluent": "cloud",
       "material": "cloud",
       "framework7": "cloud"
     },
     "Globe": {
-      "fluent": "globe",
       "material": "language",
       "framework7": "globe"
     },
     "GlobeDesktop": {
-      "fluent": "globe_desktop",
       "material": "web",
       "framework7": "desktopcomputer"
     },
     "GlobeSearch": {
-      "fluent": "globe_search",
       "material": "travel_explore",
       "framework7": "search_circle"
     },
     "Wrench": {
-      "fluent": "wrench",
       "material": "build",
       "framework7": "wrench"
     },
     "Bug": {
-      "fluent": "bug",
       "material": "bug_report",
       "framework7": "ant"
     },
     "Pulse": {
-      "fluent": "pulse",
       "material": "ecg_heart",
       "framework7": "waveform_path_ecg"
     },
     "CursorHover": {
-      "fluent": "cursor_hover",
       "material": "arrow_selector_tool",
       "framework7": "cursor_rays"
     },
     "TapSingle": {
-      "fluent": "tap_single",
       "material": "touch_app",
       "framework7": "hand_point_left"
     },
     "ToggleLeft": {
-      "fluent": "toggle_left",
       "material": "toggle_off",
       "framework7": "slider_horizontal_below_rectangle"
     },
     "Lightbulb": {
-      "fluent": "lightbulb",
       "material": "lightbulb",
       "framework7": "lightbulb"
     },
     "Sparkle": {
-      "fluent": "sparkle",
       "material": "star_shine",
       "framework7": "sparkles"
     },
     "Speaker": {
-      "fluent": "speaker_2",
       "material": "volume_up",
       "framework7": "speaker_2"
     },
     "Document": {
-      "fluent": "document",
       "material": "description",
       "framework7": "doc_text"
     },
     "DocumentAdd": {
-      "fluent": "document_add",
       "material": "note_add",
       "framework7": "doc_append"
     },
     "DocumentPdf": {
-      "fluent": "document_pdf",
       "material": "picture_as_pdf",
       "framework7": "doc_richtext"
     },
     "Note": {
-      "fluent": "note",
       "material": "sticky_note_2",
       "framework7": "doc_plaintext"
     },
     "NoteEdit": {
-      "fluent": "note_edit",
       "material": "edit_note",
       "framework7": "square_pencil"
     },
     "Library": {
-      "fluent": "library",
       "material": "library_books",
       "framework7": "book"
     },
     "Board": {
-      "fluent": "board",
       "material": "dashboard",
       "framework7": "rectangle_3_offgrid"
     },
     "Tag": {
-      "fluent": "tag",
       "material": "label",
       "framework7": "tag"
     },
     "News": {
-      "fluent": "news",
       "material": "newspaper",
       "framework7": "doc_richtext"
     },
     "Announcement": {
-      "fluent": "megaphone",
       "material": "campaign",
       "framework7": "speaker_3"
     },
     "Message": {
-      "fluent": "chat",
       "material": "chat",
       "framework7": "bubble_left"
     },
     "Camera": {
-      "fluent": "camera",
       "material": "photo_camera",
       "framework7": "camera"
     },
     "Location": {
-      "fluent": "location",
       "material": "location_on",
       "framework7": "placemark"
     },
     "Clock": {
-      "fluent": "clock",
       "material": "schedule",
       "framework7": "clock"
     },
     "History": {
-      "fluent": "history",
       "material": "history",
       "framework7": "arrow_counterclockwise"
     },
     "Briefcase": {
-      "fluent": "briefcase",
       "material": "work",
       "framework7": "briefcase"
     },
     "Heart": {
-      "fluent": "heart",
       "material": "favorite",
       "framework7": "heart"
     },
     "Play": {
-      "fluent": "play",
       "material": "play_arrow",
       "framework7": "play"
     },
     "Stop": {
-      "fluent": "stop",
       "material": "stop",
       "framework7": "stop"
     },
     "Flash": {
-      "fluent": "flash",
       "material": "bolt",
       "framework7": "bolt"
     },
     "Airplane": {
-      "fluent": "airplane",
       "material": "flight",
       "framework7": "airplane"
     },
     "Cart": {
-      "fluent": "cart",
       "material": "shopping_cart",
       "framework7": "cart"
     },
     "Payment": {
-      "fluent": "payment",
       "material": "credit_card",
       "framework7": "creditcard"
     },
     "Package": {
-      "fluent": "box",
       "material": "package_2",
       "framework7": "shippingbox"
     },
     "MicrosoftStore": {
-      "fluent": "store_microsoft",
       "material": "storefront",
       "framework7": "bag"
     },
     "CustomServer": {
-      "fluent": "server",
       "material": "dns",
       "framework7": "rectangle_stack"
     },
     "IMAP": {
-      "fluent": "mail",
       "material": "alternate_email",
       "framework7": "at"
     },
     "ProviderCatalog": {
-      "fluent": "apps",
       "material": "apps",
       "framework7": "square_grid_3x2"
     },
     "AppModeMail": {
-      "fluent": "mail",
       "material": "mail",
       "framework7": "envelope"
     },
     "AppModeCalendar": {
-      "fluent": "calendar_ltr",
       "material": "calendar_month",
       "framework7": "calendar"
     },
     "AppModeContacts": {
-      "fluent": "people",
       "material": "contacts",
       "framework7": "person_2"
     },
     "AppModeToDo": {
-      "fluent": "checkbox_checked",
       "material": "task_alt",
       "framework7": "checkmark_square"
     },
     "WinoIntelligence": {
-      "fluent": "sparkle",
       "material": "star_shine",
       "framework7": "sparkles"
     },
     "DailyBriefing": {
-      "fluent": "text_bullet_list_square",
       "material": "summarize",
       "framework7": "doc_text"
     },
     "Companion": {
-      "fluent": "panel_right",
       "material": "dock_to_left",
       "framework7": "sidebar_right"
     },
     "BenefitDeviceTransfer": {
-      "fluent": "phone_laptop",
       "material": "devices",
       "framework7": "arrow_right_arrow_left_square"
     },
     "BenefitEntitlements": {
-      "fluent": "shield_checkmark",
       "material": "verified_user",
       "framework7": "checkmark_shield"
     },
     "BenefitUnlimitedAccounts": {
-      "fluent": "people_add",
       "material": "group_add",
       "framework7": "person_3"
     }

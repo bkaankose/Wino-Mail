@@ -1,5 +1,3 @@
-using Wino.Core.Domain.Enums;
-
 namespace Wino.Core.Domain.Interfaces;
 
 public interface IPlatformCapabilities
@@ -55,7 +53,4 @@ public interface IPlatformCapabilities
 
     /// <summary>The unread badge sits on a taskbar or Dock button that launches the app, so a launch can open the counted folder.</summary>
     bool BadgeLaunchNavigation { get; }
-
-    /// <summary>The icon set drawn in this platform's design language, used until the user picks one.</summary>
-    WinoIconSet DefaultIconSet { get; }
 }

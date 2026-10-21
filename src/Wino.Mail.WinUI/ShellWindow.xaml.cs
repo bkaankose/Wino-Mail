@@ -374,12 +374,13 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
             RelayIntroductionTip.PreferredPlacement = TeachingTipPlacementMode.TopRight;
         }
 
-        // The colorful style's Flash glyph (amber accent) from the user's icon set, whatever icon style they picked.
+        // The colorful style's Flash glyph (amber accent), whatever icon style the user picked.
         var isDark = ShellRoot.ActualTheme == ElementTheme.Dark;
         RelayIntroductionTip.IconSource = new FontIconSource
         {
-            FontFamily = new Microsoft.UI.Xaml.Media.FontFamily(
-                global::Wino.Services.NewThemeService.GetIconFontFamily(PreferencesService.IconSet, colorful: true, dark: isDark)),
+            FontFamily = new Microsoft.UI.Xaml.Media.FontFamily(isDark
+                ? "ms-appx:///Assets/WinoIconsColor-Dark.ttf#WinoIconsColorDark"
+                : "ms-appx:///Assets/WinoIconsColor-Light.ttf#WinoIconsColorLight"),
             Glyph = WinoIconGlyphs.GetGlyph(WinoIconGlyph.Flash)
         };
 

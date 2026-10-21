@@ -18,10 +18,9 @@ using Wino.Messaging.Client.Shell;
 
 namespace Wino.Services;
 
-public partial class PreferencesService(IConfigurationService configurationService, IPlatformCapabilities platformCapabilities) : ObservableObject, IPreferencesService
+public partial class PreferencesService(IConfigurationService configurationService) : ObservableObject, IPreferencesService
 {
     private readonly IConfigurationService _configurationService = configurationService;
-    private readonly IPlatformCapabilities _platformCapabilities = platformCapabilities;
 
     public event EventHandler<string>? PreferenceChanged;
 
@@ -126,12 +125,6 @@ public partial class PreferencesService(IConfigurationService configurationServi
     {
         get => _configurationService.Get(nameof(IconStyle), WinoIconStyle.Monochrome);
         set => SetPropertyAndSave(nameof(IconStyle), value);
-    }
-
-    public WinoIconSet IconSet
-    {
-        get => GetDefinedEnum(nameof(IconSet), _platformCapabilities.DefaultIconSet);
-        set => SetPropertyAndSave(nameof(IconSet), value);
     }
 
     public MailListDisplayMode MailItemDisplayMode

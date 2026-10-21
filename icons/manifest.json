@@ -1494,7 +1494,7 @@
         "svg": "Desktop.accent.svg",
         "color": "blue"
       },
-      "source": "fluent:desktop"
+      "source": "fluent:desktop (20px)"
     },
     {
       "name": "Laptop",
@@ -1704,7 +1704,7 @@
       "name": "Companion",
       "codepoint": "E077",
       "svg": "Companion.svg",
-      "source": "companion flyout (previous settings path icon)"
+      "source": "fluent:panel_right (20px)"
     },
     {
       "name": "AlertOff",
@@ -1908,7 +1908,7 @@
       "name": "DailyBriefing",
       "codepoint": "E097",
       "svg": "DailyBriefing.svg",
-      "source": "daily briefing (previous inline XAML path)"
+      "source": "fluent:text_bullet_list_square (20px)"
     },
     {
       "name": "BenefitDeviceTransfer",

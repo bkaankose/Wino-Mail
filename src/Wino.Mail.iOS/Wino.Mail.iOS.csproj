@@ -69,10 +69,11 @@
          through project references, so the app references the package itself. -->
     <PackageReference Include="Microsoft.ML.OnnxRuntime" />
   </ItemGroup>
-  <!-- The WinoIcons fonts (icons/README.md) as Fonts/*.ttf; WinoIcons.Register loads them at launch. -->
+  <!-- The Framework7 WinoIcons fonts (icons/README.md) as Fonts/WinoIcons*.ttf; WinoIcons.Register loads them at launch. -->
   <ItemGroup>
-    <!-- Every icon set's mono, colorful light and colorful dark font (WinoIconFonts). -->
-    <BundleResource Include="../Wino.Mail.WinUI/Assets/WinoIcons*.ttf" LogicalName="Fonts/%(Filename)%(Extension)" />
+    <BundleResource Include="../../icons/fonts/WinoIconsFramework7.ttf" LogicalName="Fonts/WinoIcons.ttf" />
+    <BundleResource Include="../../icons/fonts/WinoIconsFramework7Color-Light.ttf" LogicalName="Fonts/WinoIconsColor-Light.ttf" />
+    <BundleResource Include="../../icons/fonts/WinoIconsFramework7Color-Dark.ttf" LogicalName="Fonts/WinoIconsColor-Dark.ttf" />
     <!-- The Wino Mail logo on the Welcome page. -->
     <BundleResource Include="../Wino.Mail.WinUI/Assets/WinoLogo.png" LogicalName="WinoLogo.png" />
   </ItemGroup>

@@ -78,25 +78,6 @@
             TextWrapping="Wrap" />
 
         <controls:SettingsCard
-            AutomationProperties.AutomationId="PersonalizationIconSetCard"
-            Description="{x:Bind domain:Translator.SettingsIconSet_Description, Mode=OneTime}"
-            Header="{x:Bind domain:Translator.SettingsIconSet_Title, Mode=OneTime}">
-            <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon Icon="Grid" />
-            </controls:SettingsCard.HeaderIcon>
-            <ComboBox
-                AutomationProperties.AutomationId="PersonalizationIconSetComboBox"
-                ItemsSource="{x:Bind ViewModel.IconSets}"
-                SelectedItem="{x:Bind ViewModel.SelectedIconSet, Mode=TwoWay}">
-                <ComboBox.ItemTemplate>
-                    <DataTemplate x:DataType="personalization:IconSetContainer">
-                        <TextBlock Text="{x:Bind Title}" />
-                    </DataTemplate>
-                </ComboBox.ItemTemplate>
-            </ComboBox>
-        </controls:SettingsCard>
-
-        <controls:SettingsCard
             AutomationProperties.AutomationId="PersonalizationIconStyleCard"
             Description="{x:Bind domain:Translator.SettingsIconStyle_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.SettingsIconStyle_Title, Mode=OneTime}">

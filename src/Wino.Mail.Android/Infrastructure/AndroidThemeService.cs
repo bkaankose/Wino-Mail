@@ -128,8 +128,7 @@ public sealed class AndroidThemeService(IDispatcher dispatcher, IConfigurationSe
             _preferencesHooked = true;
             preferences.PropertyChanged += (_, args) =>
             {
-                if (args.PropertyName is nameof(IPreferencesService.IconStyle) or nameof(IPreferencesService.IconSet))
-                    _ = ObserveAsync(ApplyThemeToActiveWindowAsync());
+                if (args.PropertyName == nameof(IPreferencesService.IconStyle)) _ = ObserveAsync(ApplyThemeToActiveWindowAsync());
             };
         }
         var stored = configuration.Get<Guid?>(WinoThemeCatalog.CurrentApplicationThemeKey, null);
@@ -243,7 +242,6 @@ public sealed class AndroidThemeService(IDispatcher dispatcher, IConfigurationSe
             _ => AppCompatDelegate.ModeNightFollowSystem
         };
         WinoColors.AccentOverride = WinoColors.FromHexString(preview is null ? _accent : preview.Metadata.AccentColorHex);
-        WinoIcons.Set = preferences.IconSet;
         WinoIcons.Style = preferences.IconStyle;
         bool enabled = IsBackdropEnabled;
 

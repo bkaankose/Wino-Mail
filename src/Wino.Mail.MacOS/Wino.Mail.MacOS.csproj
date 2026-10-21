@@ -72,11 +72,12 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Serilog.Extensions.Logging" />
   </ItemGroup>
-  <!-- The WinoIcons fonts are built once into the WinUI assets (icons/README.md); the Mac bundle
-       carries the same files and registers them at startup (WinoIcons.Register). -->
+  <!-- The Framework7 WinoIcons fonts (icons/README.md), bundled under the WinoIcons file names and registered
+       at startup (WinoIcons.Register). -->
   <ItemGroup>
-    <!-- Every icon set's mono, colorful light and colorful dark font (WinoIconFonts). -->
-    <BundleResource Include="../Wino.Mail.WinUI/Assets/WinoIcons*.ttf" LogicalName="Fonts/%(Filename)%(Extension)" />
+    <BundleResource Include="../../icons/fonts/WinoIconsFramework7.ttf" LogicalName="Fonts/WinoIcons.ttf" />
+    <BundleResource Include="../../icons/fonts/WinoIconsFramework7Color-Light.ttf" LogicalName="Fonts/WinoIconsColor-Light.ttf" />
+    <BundleResource Include="../../icons/fonts/WinoIconsFramework7Color-Dark.ttf" LogicalName="Fonts/WinoIconsColor-Dark.ttf" />
   </ItemGroup>
   <!-- Predefined theme wallpapers and preview images, shared with Windows (BackgroundImages). -->
   <ItemGroup>

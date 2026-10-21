@@ -6,7 +6,6 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 using Wino.Authentication;
 using Wino.Core;
-using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Platform;
 using Wino.Mail.MacOS.Infrastructure;
@@ -121,7 +120,7 @@ internal static class Composition
             RemoteNotifications: false, KeyboardShortcuts: true, FileBackup: true, Purchases: true,
             // The Dock badge launches the app; there is one Dock tile, so the taskbar identity never follows the mode.
             PointerHover: true, MailListDensity: true, PresentationDetection: true, ConfigurableSyncIntervals: true,
-            BadgeLaunchNavigation: true, DefaultIconSet: WinoIconSet.Framework7,
+            BadgeLaunchNavigation: true,
 #if WINO_APPSTORE
             AppleAppStore: true
 #else

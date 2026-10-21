@@ -109,12 +109,6 @@ public static class MacDebugBridge
             Get<IPreferencesService>().IconStyle = args[0].StartsWith("c", StringComparison.OrdinalIgnoreCase) ? WinoIconStyle.Colorful : WinoIconStyle.Monochrome;
             return Task.FromResult("ok");
         });
-        Register("iconset", args =>
-        {
-            var preferences = Get<IPreferencesService>();
-            if (args.Length > 0 && Enum.TryParse<WinoIconSet>(args[0], ignoreCase: true, out var set)) preferences.IconSet = set;
-            return Task.FromResult("ok " + preferences.IconSet);
-        });
         Register("size", args =>
         {
             var window = NSApplication.SharedApplication.MainWindow ?? AllWindows().FirstOrDefault(item => item.IsVisible);

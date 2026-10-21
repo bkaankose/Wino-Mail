@@ -1,4 +1,4 @@
-"""Import the per-platform icon sets from their pinned npm packages.
+"""Import the platform icon sets from their pinned npm packages.
 
     python icons/tools/import_icon_sets.py            # write icons/sets/<Set>.json
     python icons/tools/import_icon_sets.py --check    # exit 1 if the committed set files are stale
@@ -69,8 +69,6 @@ class Library:
         return ET.fromstring(self.archive.extractfile(member).read())
 
     def files(self, name: str, style: str | None) -> tuple[str, str]:
-        if self.key == "fluent":
-            return f"icons/{name}_{style}_regular.svg", f"icons/{name}_{style}_filled.svg"
         if self.key == "material":
             return f"{style}/{name}.svg", f"{style}/{name}-fill.svg"
         if name.endswith("_fill"):

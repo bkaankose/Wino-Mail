@@ -12,8 +12,8 @@ Every icon set gets three fonts from the same outlines:
 
 The Classic set comes from manifest.json and icons/svg. The other sets (icons/sets.json, imported into
 icons/sets/<Set>.json by import_icon_sets.py) replace the outlines and accent layers of the icons they map
-and are named WinoIcons<Set>.ttf, WinoIcons<Set>Color-Light.ttf and WinoIcons<Set>Color-Dark.ttf.
-Every set keeps the manifest's codepoints, so switching sets only switches the font.
+and are named WinoIcons<Set>.ttf, WinoIcons<Set>Color-Light.ttf and WinoIcons<Set>Color-Dark.ttf in icons/fonts.
+Every set keeps the manifest's codepoints. Windows draws Classic; macOS, iOS and Android each bundle their own set.
 
 Glyphs with a fixed "color" (brand logos) are a single colored layer in all three fonts.
 Glyphs with fixed-color "layers" (multi-color brand logos) keep those layers in all three fonts.
@@ -34,7 +34,7 @@ from fontTools.ttLib import TTFont
 
 import json
 
-from wino_icons import ASSETS_DIR, REPO_ROOT, SETS_DIR, SVG_DIR, load_manifest, load_sets, parse_codepoint, path_to_glyph, set_font_specs, svg_to_glyph
+from wino_icons import ASSETS_DIR, FONTS_DIR, REPO_ROOT, SETS_DIR, SVG_DIR, load_manifest, load_sets, parse_codepoint, path_to_glyph, set_font_specs, svg_to_glyph
 
 FOREGROUND = 0xFFFF
 # Fixed timestamp keeps the output byte-for-byte reproducible (2024-01-01, seconds since 1904).
@@ -213,11 +213,11 @@ def build_all(manifest: dict) -> dict[str, bytes]:
 
 
 def output_paths(manifest: dict) -> list[tuple[Path, str]]:
-    """Every place a font is written: the app's Assets folder plus any extra copies, such as the
-    monochrome font the controls library packages for itself."""
+    """Every place a font is written: the app's Assets folder (Classic) or icons/fonts (the other sets), plus any
+    extra copies, such as the monochrome font the controls library packages for itself."""
     paths = []
-    for spec, _ in font_specs(manifest):
-        paths.append((ASSETS_DIR / spec["file"], spec["file"]))
+    for spec, set_name in font_specs(manifest):
+        paths.append(((FONTS_DIR if set_name else ASSETS_DIR) / spec["file"], spec["file"]))
         for copy in spec.get("copies", []):
             paths.append((REPO_ROOT / copy / spec["file"], spec["file"]))
     return paths

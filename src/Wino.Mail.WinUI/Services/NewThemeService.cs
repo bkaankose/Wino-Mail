@@ -29,7 +29,6 @@ using Wino.Mail.WinUI.Models.Personalization;
 using Wino.Mail.WinUI.Services;
 using Wino.Messaging.Client.Shell;
 using WinRT;
-using WinoFontIconFamily = Wino.Mail.Controls.AccountIcon.WinoFontIconFamily;
 using WinUIEx;
 
 namespace Wino.Services;
@@ -60,8 +59,11 @@ public class NewThemeService : INewThemeService
     private readonly IWinoWindowManager _windowManager;
     private readonly IPreferencesService _preferencesService;
 
-    // The key must match Styles/WinoIcons.xaml; the fonts come from icons/tools/build_fonts.py.
+    // Keys and fonts must match Styles/WinoIcons.xaml; the fonts come from icons/tools/build_fonts.py.
     private const string IconFontFamilyKey = "WinoIconFontFamily";
+    private const string MonochromeIconFontFamily = "ms-appx:///Assets/WinoIcons.ttf#WinoIcons";
+    private const string LightIconFontFamily = "ms-appx:///Assets/WinoIconsColor-Light.ttf#WinoIconsColorLight";
+    private const string DarkIconFontFamily = "ms-appx:///Assets/WinoIconsColor-Dark.ttf#WinoIconsColorDark";
 
     // The catalog is shared with the other platforms so theme ids, accents and forced themes stay identical.
     private List<AppThemeBase> preDefinedThemes { get; set; } = WinoThemeCatalog.PredefinedThemes
@@ -524,7 +526,7 @@ public class NewThemeService : INewThemeService
 
     private void PreferenceChanged(object? sender, string propertyName)
     {
-        if (propertyName != nameof(IPreferencesService.IconStyle) && propertyName != nameof(IPreferencesService.IconSet)) return;
+        if (propertyName != nameof(IPreferencesService.IconStyle)) return;
 
         var dispatcherQueue = GetThemeWindow()?.DispatcherQueue;
         if (dispatcherQueue == null)
@@ -538,23 +540,14 @@ public class NewThemeService : INewThemeService
 
     public void ApplyIconStyle() => ApplyIconStyle(refresh: false);
 
-    /// <summary>The ms-appx font family of one WinoIcons font (<see cref="WinoIconFonts"/>).</summary>
-    public static string GetIconFontFamily(WinoIconSet set, bool colorful, bool dark)
-        => $"ms-appx:///Assets/{WinoIconFonts.FileName(set, colorful, dark)}#{WinoIconFonts.FamilyName(set, colorful, dark)}";
-
     /// <summary>
-    /// Points WinoIconFontFamily in the theme dictionaries of Styles/WinoIcons.xaml at the fonts of the user's icon
-    /// set: monochrome or colorful in Light/Dark, always monochrome in HighContrast. The controls library's icons
-    /// (<see cref="WinoFontIconFamily"/>) follow the set's monochrome font.
+    /// Points WinoIconFontFamily in the Light/Dark theme dictionaries of Styles/WinoIcons.xaml at the
+    /// monochrome or the colorful fonts. HighContrast always keeps the monochrome font.
     /// </summary>
     [DynamicWindowsRuntimeCast(typeof(ResourceDictionary))]
     private void ApplyIconStyle(bool refresh)
     {
         var isColorful = _preferencesService.IconStyle == WinoIconStyle.Colorful;
-        var iconSet = _preferencesService.IconSet;
-        var monochrome = GetIconFontFamily(iconSet, colorful: false, dark: false);
-
-        WinoFontIconFamily.Set(monochrome);
 
         var iconDictionary = Application.Current.Resources.MergedDictionaries
             .FirstOrDefault(d => d.ThemeDictionaries.TryGetValue("Light", out var light)
@@ -567,9 +560,8 @@ public class NewThemeService : INewThemeService
             return;
         }
 
-        SetIconFontFamily(iconDictionary, "Light", isColorful ? GetIconFontFamily(iconSet, colorful: true, dark: false) : monochrome);
-        SetIconFontFamily(iconDictionary, "Dark", isColorful ? GetIconFontFamily(iconSet, colorful: true, dark: true) : monochrome);
-        SetIconFontFamily(iconDictionary, "HighContrast", monochrome);
+        SetIconFontFamily(iconDictionary, "Light", isColorful ? LightIconFontFamily : MonochromeIconFontFamily);
+        SetIconFontFamily(iconDictionary, "Dark", isColorful ? DarkIconFontFamily : MonochromeIconFontFamily);
 
         if (refresh)
             RefreshThemeResource();

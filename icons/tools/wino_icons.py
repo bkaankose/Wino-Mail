@@ -25,6 +25,8 @@ SETS_PATH = ICONS_DIR / "sets.json"
 SETS_DIR = ICONS_DIR / "sets"
 SVG_NS = "{http://www.w3.org/2000/svg}"
 ASSETS_DIR = REPO_ROOT / "src" / "Wino.Mail.WinUI" / "Assets"
+# The platform icon sets (sets.json) live outside the WinUI assets; the Mac, iOS and Android projects bundle them.
+FONTS_DIR = ICONS_DIR / "fonts"
 
 
 def load_manifest() -> dict:
@@ -43,7 +45,8 @@ def load_sets() -> dict:
 
 
 def set_font_specs(set_name: str) -> dict:
-    """The three fonts of an icon set. Names must match WinoIconFonts in Wino.Core.Domain."""
+    """The three fonts of an icon set, written to FONTS_DIR. The Mac, iOS and Android projects bundle them under the
+    Classic file names (WinoIcons.ttf, WinoIconsColor-Light.ttf, WinoIconsColor-Dark.ttf)."""
     return {
         "mono": {"file": f"WinoIcons{set_name}.ttf", "family": f"WinoIcons{set_name}"},
         "light": {"file": f"WinoIcons{set_name}Color-Light.ttf", "family": f"WinoIcons{set_name}ColorLight", "palette": "light"},
