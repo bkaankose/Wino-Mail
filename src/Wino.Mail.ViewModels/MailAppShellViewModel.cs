@@ -1420,6 +1420,13 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                                              Translator.Info_DraftMissingAliasMessage,
                                              InfoBarMessageType.Error);
             }
+            catch (Exception ex)
+            {
+                // Any other failure (a storage or synchronizer error) used to reach only the caller's logger,
+                // so New Message did nothing visible.
+                Log.Error(ex, "Creating a new draft for account {AccountId} failed.", account.Id);
+                _dialogService.InfoBarMessage(Translator.Info_DraftCreationFailed, ex.Message, InfoBarMessageType.Error);
+            }
         }
         finally
         {
