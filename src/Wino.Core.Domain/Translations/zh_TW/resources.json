@@ -3947,5 +3947,12 @@
     "ComposerParity_ColorPink": "粉紅色",
     "ComposerParity_MoreColors": "更多色彩…",
     "ComposerParity_SpellCheckAutomatic": "自動",
-    "ComposerParity_EditLink": "編輯連結"
+    "ComposerParity_EditLink": "編輯連結",
+    "DialogMessage_ReauthenticationAccountMismatchMessage": "您是以 {0} 的身分登入，而該帳戶已是 Wino 中的另一個帳戶。若要修正 {1}，請再試一次，並以 {1} 的身分登入。",
+    "WinoAccount_Error_ExternalProviderUnavailable": "目前無法使用此提供者登入。請稍後再試。",
+    "WinoAccount_Error_ExternalSignInFailed": "無法在此裝置上完成登入。",
+    "WinoAccount_LoginDialog_OrDivider": "或",
+    "WinoAccount_SignInWithApple": "使用 Apple 登入",
+    "WinoAccount_SignInWithGoogle": "使用 Google 登入",
+    "WinoAccount_SignInWithMicrosoft": "使用 Microsoft 登入"
 }

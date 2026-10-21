@@ -3947,5 +3947,12 @@
     "ComposerParity_ColorPink": "Hồng",
     "ComposerParity_MoreColors": "Thêm màu…",
     "ComposerParity_SpellCheckAutomatic": "Tự động",
-    "ComposerParity_EditLink": "Chỉnh sửa liên kết"
+    "ComposerParity_EditLink": "Chỉnh sửa liên kết",
+    "DialogMessage_ReauthenticationAccountMismatchMessage": "Bạn đã đăng nhập với tư cách {0}, tài khoản này đã là một tài khoản riêng trong Wino. Để khắc phục {1}, hãy thử lại và đăng nhập với tư cách {1}.",
+    "WinoAccount_Error_ExternalProviderUnavailable": "Hiện không thể đăng nhập bằng nhà cung cấp này. Vui lòng thử lại sau.",
+    "WinoAccount_Error_ExternalSignInFailed": "Không thể hoàn tất đăng nhập trên thiết bị này.",
+    "WinoAccount_LoginDialog_OrDivider": "hoặc",
+    "WinoAccount_SignInWithApple": "Đăng nhập bằng Apple",
+    "WinoAccount_SignInWithGoogle": "Đăng nhập bằng Google",
+    "WinoAccount_SignInWithMicrosoft": "Đăng nhập bằng Microsoft"
 }

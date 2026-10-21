@@ -3947,5 +3947,12 @@
     "ComposerParity_ColorPink": "Merah muda",
     "ComposerParity_MoreColors": "Warna lainnya…",
     "ComposerParity_SpellCheckAutomatic": "Otomatis",
-    "ComposerParity_EditLink": "Edit tautan"
+    "ComposerParity_EditLink": "Edit tautan",
+    "DialogMessage_ReauthenticationAccountMismatchMessage": "Anda masuk sebagai {0}, yang sudah menjadi akun terpisah di Wino. Untuk memperbaiki {1}, coba lagi dan masuk sebagai {1}.",
+    "WinoAccount_Error_ExternalProviderUnavailable": "Masuk dengan penyedia ini saat ini tidak tersedia. Silakan coba lagi nanti.",
+    "WinoAccount_Error_ExternalSignInFailed": "Proses masuk tidak dapat diselesaikan di perangkat ini.",
+    "WinoAccount_LoginDialog_OrDivider": "atau",
+    "WinoAccount_SignInWithApple": "Masuk dengan Apple",
+    "WinoAccount_SignInWithGoogle": "Masuk dengan Google",
+    "WinoAccount_SignInWithMicrosoft": "Masuk dengan Microsoft"
 }

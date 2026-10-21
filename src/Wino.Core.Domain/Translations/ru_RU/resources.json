@@ -3947,5 +3947,12 @@
     "ComposerParity_ColorPink": "Розовый",
     "ComposerParity_MoreColors": "Другие цвета…",
     "ComposerParity_SpellCheckAutomatic": "Автоматически",
-    "ComposerParity_EditLink": "Изменить ссылку"
+    "ComposerParity_EditLink": "Изменить ссылку",
+    "DialogMessage_ReauthenticationAccountMismatchMessage": "Вы вошли как {0}, а это уже отдельная учётная запись в Wino. Чтобы исправить ситуацию: {1}, повторите попытку и войдите как {1}.",
+    "WinoAccount_Error_ExternalProviderUnavailable": "Вход через этого провайдера сейчас недоступен. Повторите попытку позже.",
+    "WinoAccount_Error_ExternalSignInFailed": "Не удалось выполнить вход на этом устройстве.",
+    "WinoAccount_LoginDialog_OrDivider": "или",
+    "WinoAccount_SignInWithApple": "Войти через Apple",
+    "WinoAccount_SignInWithGoogle": "Войти через Google",
+    "WinoAccount_SignInWithMicrosoft": "Войти через Microsoft"
 }

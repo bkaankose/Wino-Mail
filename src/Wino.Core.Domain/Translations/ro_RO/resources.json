@@ -3947,5 +3947,12 @@
     "ComposerParity_ColorPink": "Roz",
     "ComposerParity_MoreColors": "Mai multe culori…",
     "ComposerParity_SpellCheckAutomatic": "Automat",
-    "ComposerParity_EditLink": "Editează linkul"
+    "ComposerParity_EditLink": "Editează linkul",
+    "DialogMessage_ReauthenticationAccountMismatchMessage": "Te-ai conectat ca {0}, care este deja un cont separat în Wino. Pentru a remedia {1}, încearcă din nou și conectează-te ca {1}.",
+    "WinoAccount_Error_ExternalProviderUnavailable": "Conectarea cu acest furnizor nu este disponibilă momentan. Încearcă din nou mai târziu.",
+    "WinoAccount_Error_ExternalSignInFailed": "Conectarea nu a putut fi finalizată pe acest dispozitiv.",
+    "WinoAccount_LoginDialog_OrDivider": "sau",
+    "WinoAccount_SignInWithApple": "Conectare cu Apple",
+    "WinoAccount_SignInWithGoogle": "Conectare cu Google",
+    "WinoAccount_SignInWithMicrosoft": "Conectare cu Microsoft"
 }

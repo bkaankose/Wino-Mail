@@ -3947,5 +3947,12 @@
     "ComposerParity_ColorPink": "Różowy",
     "ComposerParity_MoreColors": "Więcej kolorów…",
     "ComposerParity_SpellCheckAutomatic": "Automatyczny",
-    "ComposerParity_EditLink": "Edytuj łącze"
+    "ComposerParity_EditLink": "Edytuj łącze",
+    "DialogMessage_ReauthenticationAccountMismatchMessage": "Zalogowano się jako {0}, które jest już osobnym kontem w Wino. Aby naprawić problem z {1}, spróbuj ponownie i zaloguj się jako {1}.",
+    "WinoAccount_Error_ExternalProviderUnavailable": "Logowanie za pomocą tego dostawcy jest obecnie niedostępne. Spróbuj ponownie później.",
+    "WinoAccount_Error_ExternalSignInFailed": "Nie udało się dokończyć logowania na tym urządzeniu.",
+    "WinoAccount_LoginDialog_OrDivider": "lub",
+    "WinoAccount_SignInWithApple": "Zaloguj się przez Apple",
+    "WinoAccount_SignInWithGoogle": "Zaloguj się przez Google",
+    "WinoAccount_SignInWithMicrosoft": "Zaloguj się przez Microsoft"
 }

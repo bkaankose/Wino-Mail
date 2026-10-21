@@ -3947,5 +3947,12 @@
     "ComposerParity_ColorPink": "Rosa",
     "ComposerParity_MoreColors": "Altri colori…",
     "ComposerParity_SpellCheckAutomatic": "Automatico",
-    "ComposerParity_EditLink": "Modifica link"
+    "ComposerParity_EditLink": "Modifica link",
+    "DialogMessage_ReauthenticationAccountMismatchMessage": "Hai effettuato l'accesso come {0}, che è già un account separato in Wino. Per risolvere il problema {1}, riprova ed effettua l'accesso come {1}.",
+    "WinoAccount_Error_ExternalProviderUnavailable": "L'accesso con questo provider non è al momento disponibile. Riprova più tardi.",
+    "WinoAccount_Error_ExternalSignInFailed": "Non è stato possibile completare l'accesso su questo dispositivo.",
+    "WinoAccount_LoginDialog_OrDivider": "oppure",
+    "WinoAccount_SignInWithApple": "Accedi con Apple",
+    "WinoAccount_SignInWithGoogle": "Accedi con Google",
+    "WinoAccount_SignInWithMicrosoft": "Accedi con Microsoft"
 }

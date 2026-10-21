@@ -3947,5 +3947,12 @@
     "ComposerParity_ColorPink": "ピンク",
     "ComposerParity_MoreColors": "その他の色…",
     "ComposerParity_SpellCheckAutomatic": "自動",
-    "ComposerParity_EditLink": "リンクを編集"
+    "ComposerParity_EditLink": "リンクを編集",
+    "DialogMessage_ReauthenticationAccountMismatchMessage": "{0} としてサインインしましたが、Wino ではすでに別のアカウントとして登録されています。{1} を修正するには、もう一度 {1} としてサインインしてください。",
+    "WinoAccount_Error_ExternalProviderUnavailable": "現在、このプロバイダーでのサインインは利用できません。後でもう一度お試しください。",
+    "WinoAccount_Error_ExternalSignInFailed": "このデバイスではサインインを完了できませんでした。",
+    "WinoAccount_LoginDialog_OrDivider": "または",
+    "WinoAccount_SignInWithApple": "Apple でサインイン",
+    "WinoAccount_SignInWithGoogle": "Google でサインイン",
+    "WinoAccount_SignInWithMicrosoft": "Microsoft でサインイン"
 }

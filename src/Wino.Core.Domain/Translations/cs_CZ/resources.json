@@ -3947,5 +3947,12 @@
     "ComposerParity_ColorPink": "Růžová",
     "ComposerParity_MoreColors": "Více barev…",
     "ComposerParity_SpellCheckAutomatic": "Automaticky",
-    "ComposerParity_EditLink": "Upravit odkaz"
+    "ComposerParity_EditLink": "Upravit odkaz",
+    "DialogMessage_ReauthenticationAccountMismatchMessage": "Přihlásili jste se jako {0}, což je ve Wino již samostatný účet. Chcete-li opravit {1}, zkuste to znovu a přihlaste se jako {1}.",
+    "WinoAccount_Error_ExternalProviderUnavailable": "Přihlášení pomocí tohoto poskytovatele momentálně není k dispozici. Zkuste to znovu později.",
+    "WinoAccount_Error_ExternalSignInFailed": "Přihlášení se na tomto zařízení nepodařilo dokončit.",
+    "WinoAccount_LoginDialog_OrDivider": "nebo",
+    "WinoAccount_SignInWithApple": "Přihlásit se pomocí Apple",
+    "WinoAccount_SignInWithGoogle": "Přihlásit se pomocí Google",
+    "WinoAccount_SignInWithMicrosoft": "Přihlásit se pomocí Microsoftu"
 }

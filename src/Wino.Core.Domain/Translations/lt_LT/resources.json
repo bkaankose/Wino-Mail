@@ -3947,5 +3947,12 @@
     "ComposerParity_ColorPink": "Rožinė",
     "ComposerParity_MoreColors": "Daugiau spalvų…",
     "ComposerParity_SpellCheckAutomatic": "Automatinis",
-    "ComposerParity_EditLink": "Redaguoti nuorodą"
+    "ComposerParity_EditLink": "Redaguoti nuorodą",
+    "DialogMessage_ReauthenticationAccountMismatchMessage": "Prisijungėte kaip {0}, o tai jau yra atskira Wino paskyra. Norėdami išspręsti problemą {1}, bandykite dar kartą ir prisijunkite kaip {1}.",
+    "WinoAccount_Error_ExternalProviderUnavailable": "Prisijungti naudojant šį teikėją šiuo metu negalima. Bandykite dar kartą vėliau.",
+    "WinoAccount_Error_ExternalSignInFailed": "Šiame įrenginyje nepavyko užbaigti prisijungimo.",
+    "WinoAccount_LoginDialog_OrDivider": "arba",
+    "WinoAccount_SignInWithApple": "Prisijungti naudojant „Apple“",
+    "WinoAccount_SignInWithGoogle": "Prisijungti naudojant „Google“",
+    "WinoAccount_SignInWithMicrosoft": "Prisijungti naudojant „Microsoft“"
 }

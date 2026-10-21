@@ -3947,5 +3947,12 @@
     "ComposerParity_ColorPink": "Vaaleanpunainen",
     "ComposerParity_MoreColors": "Lisää värejä…",
     "ComposerParity_SpellCheckAutomatic": "Automaattinen",
-    "ComposerParity_EditLink": "Muokkaa linkkiä"
+    "ComposerParity_EditLink": "Muokkaa linkkiä",
+    "DialogMessage_ReauthenticationAccountMismatchMessage": "Kirjauduit sisään tunnuksella {0}, joka on jo erillinen tili Winossa. Korjaa {1} yrittämällä uudelleen ja kirjautumalla tunnuksella {1}.",
+    "WinoAccount_Error_ExternalProviderUnavailable": "Sisäänkirjautuminen tällä palveluntarjoajalla ei ole juuri nyt käytettävissä. Yritä myöhemmin uudelleen.",
+    "WinoAccount_Error_ExternalSignInFailed": "Sisäänkirjautumista ei voitu suorittaa loppuun tällä laitteella.",
+    "WinoAccount_LoginDialog_OrDivider": "tai",
+    "WinoAccount_SignInWithApple": "Kirjaudu Applella",
+    "WinoAccount_SignInWithGoogle": "Kirjaudu Googlella",
+    "WinoAccount_SignInWithMicrosoft": "Kirjaudu Microsoftilla"
 }

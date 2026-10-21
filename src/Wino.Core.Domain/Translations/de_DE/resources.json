@@ -3947,5 +3947,12 @@
     "ComposerParity_ColorPink": "Rosa",
     "ComposerParity_MoreColors": "Weitere Farben…",
     "ComposerParity_SpellCheckAutomatic": "Automatisch",
-    "ComposerParity_EditLink": "Link bearbeiten"
+    "ComposerParity_EditLink": "Link bearbeiten",
+    "DialogMessage_ReauthenticationAccountMismatchMessage": "Sie haben sich als {0} angemeldet. Dieses Konto ist bereits ein separates Konto in Wino. Um {1} zu beheben, versuchen Sie es erneut und melden Sie sich als {1} an.",
+    "WinoAccount_Error_ExternalProviderUnavailable": "Die Anmeldung mit diesem Anbieter ist derzeit nicht verfügbar. Bitte versuchen Sie es später erneut.",
+    "WinoAccount_Error_ExternalSignInFailed": "Die Anmeldung konnte auf diesem Gerät nicht abgeschlossen werden.",
+    "WinoAccount_LoginDialog_OrDivider": "oder",
+    "WinoAccount_SignInWithApple": "Mit Apple anmelden",
+    "WinoAccount_SignInWithGoogle": "Mit Google anmelden",
+    "WinoAccount_SignInWithMicrosoft": "Mit Microsoft anmelden"
 }

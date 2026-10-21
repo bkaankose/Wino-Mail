@@ -3947,5 +3947,12 @@
     "ComposerParity_ColorPink": "Roze",
     "ComposerParity_MoreColors": "Meer kleuren…",
     "ComposerParity_SpellCheckAutomatic": "Automatisch",
-    "ComposerParity_EditLink": "Link bewerken"
+    "ComposerParity_EditLink": "Link bewerken",
+    "DialogMessage_ReauthenticationAccountMismatchMessage": "Je hebt je aangemeld als {0}, wat al een afzonderlijk account in Wino is. Probeer het opnieuw en meld je aan als {1} om {1} op te lossen.",
+    "WinoAccount_Error_ExternalProviderUnavailable": "Aanmelden met deze provider is momenteel niet beschikbaar. Probeer het later opnieuw.",
+    "WinoAccount_Error_ExternalSignInFailed": "Aanmelden kon niet worden voltooid op dit apparaat.",
+    "WinoAccount_LoginDialog_OrDivider": "of",
+    "WinoAccount_SignInWithApple": "Aanmelden met Apple",
+    "WinoAccount_SignInWithGoogle": "Aanmelden met Google",
+    "WinoAccount_SignInWithMicrosoft": "Aanmelden met Microsoft"
 }

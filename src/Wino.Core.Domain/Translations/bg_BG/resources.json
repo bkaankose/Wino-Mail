@@ -3947,5 +3947,12 @@
     "ComposerParity_ColorPink": "Розов",
     "ComposerParity_MoreColors": "Още цветове…",
     "ComposerParity_SpellCheckAutomatic": "Автоматично",
-    "ComposerParity_EditLink": "Редактиране на връзката"
+    "ComposerParity_EditLink": "Редактиране на връзката",
+    "DialogMessage_ReauthenticationAccountMismatchMessage": "Влязохте като {0}, което вече е отделен акаунт в Wino. За да коригирате {1}, опитайте отново и влезте като {1}.",
+    "WinoAccount_Error_ExternalProviderUnavailable": "Влизането с този доставчик в момента не е достъпно. Опитайте отново по-късно.",
+    "WinoAccount_Error_ExternalSignInFailed": "Влизането не може да бъде завършено на това устройство.",
+    "WinoAccount_LoginDialog_OrDivider": "или",
+    "WinoAccount_SignInWithApple": "Влизане с Apple",
+    "WinoAccount_SignInWithGoogle": "Влизане с Google",
+    "WinoAccount_SignInWithMicrosoft": "Влизане с Microsoft"
 }

@@ -3947,5 +3947,12 @@
     "ComposerParity_ColorPink": "ורוד",
     "ComposerParity_MoreColors": "צבעים נוספים…",
     "ComposerParity_SpellCheckAutomatic": "אוטומטי",
-    "ComposerParity_EditLink": "עריכת קישור"
+    "ComposerParity_EditLink": "עריכת קישור",
+    "DialogMessage_ReauthenticationAccountMismatchMessage": "נכנסת כ-{0}, שהוא כבר חשבון נפרד ב-Wino. כדי לתקן את {1}, נסה שוב והיכנס כ-{1}.",
+    "WinoAccount_Error_ExternalProviderUnavailable": "הכניסה באמצעות ספק זה אינה זמינה כרגע. נסה שוב מאוחר יותר.",
+    "WinoAccount_Error_ExternalSignInFailed": "לא ניתן היה להשלים את הכניסה במכשיר הזה.",
+    "WinoAccount_LoginDialog_OrDivider": "או",
+    "WinoAccount_SignInWithApple": "כניסה באמצעות Apple",
+    "WinoAccount_SignInWithGoogle": "כניסה באמצעות Google",
+    "WinoAccount_SignInWithMicrosoft": "כניסה באמצעות Microsoft"
 }

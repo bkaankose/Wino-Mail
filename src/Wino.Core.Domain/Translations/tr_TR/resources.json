@@ -3947,5 +3947,12 @@
     "ComposerParity_ColorPink": "Pembe",
     "ComposerParity_MoreColors": "Daha fazla renk…",
     "ComposerParity_SpellCheckAutomatic": "Otomatik",
-    "ComposerParity_EditLink": "Bağlantıyı düzenle"
+    "ComposerParity_EditLink": "Bağlantıyı düzenle",
+    "DialogMessage_ReauthenticationAccountMismatchMessage": "Zaten Wino'da ayrı bir hesap olan {0} olarak oturum açtınız. {1} sorununu düzeltmek için tekrar deneyin ve {1} olarak oturum açın.",
+    "WinoAccount_Error_ExternalProviderUnavailable": "Bu sağlayıcıyla oturum açma şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin.",
+    "WinoAccount_Error_ExternalSignInFailed": "Bu cihazda oturum açma tamamlanamadı.",
+    "WinoAccount_LoginDialog_OrDivider": "veya",
+    "WinoAccount_SignInWithApple": "Apple ile oturum aç",
+    "WinoAccount_SignInWithGoogle": "Google ile oturum aç",
+    "WinoAccount_SignInWithMicrosoft": "Microsoft ile oturum aç"
 }

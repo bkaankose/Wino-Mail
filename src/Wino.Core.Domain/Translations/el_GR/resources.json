@@ -3947,5 +3947,12 @@
     "ComposerParity_ColorPink": "Ροζ",
     "ComposerParity_MoreColors": "Περισσότερα χρώματα…",
     "ComposerParity_SpellCheckAutomatic": "Αυτόματο",
-    "ComposerParity_EditLink": "Επεξεργασία συνδέσμου"
+    "ComposerParity_EditLink": "Επεξεργασία συνδέσμου",
+    "DialogMessage_ReauthenticationAccountMismatchMessage": "Συνδεθήκατε ως {0}, που είναι ήδη ξεχωριστός λογαριασμός στο Wino. Για να διορθώσετε το {1}, δοκιμάστε ξανά και συνδεθείτε ως {1}.",
+    "WinoAccount_Error_ExternalProviderUnavailable": "Η σύνδεση με αυτόν τον πάροχο δεν είναι διαθέσιμη αυτήν τη στιγμή. Δοκιμάστε ξανά αργότερα.",
+    "WinoAccount_Error_ExternalSignInFailed": "Δεν ήταν δυνατή η ολοκλήρωση της σύνδεσης σε αυτήν τη συσκευή.",
+    "WinoAccount_LoginDialog_OrDivider": "ή",
+    "WinoAccount_SignInWithApple": "Σύνδεση με Apple",
+    "WinoAccount_SignInWithGoogle": "Σύνδεση με Google",
+    "WinoAccount_SignInWithMicrosoft": "Σύνδεση με Microsoft"
 }

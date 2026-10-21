@@ -3947,5 +3947,12 @@
     "ComposerParity_ColorPink": "粉色",
     "ComposerParity_MoreColors": "更多颜色…",
     "ComposerParity_SpellCheckAutomatic": "自动",
-    "ComposerParity_EditLink": "编辑链接"
+    "ComposerParity_EditLink": "编辑链接",
+    "DialogMessage_ReauthenticationAccountMismatchMessage": "您登录的账号是 {0}，它已是 Wino 中的另一个独立账号。要修复 {1}，请重试并使用 {1} 登录。",
+    "WinoAccount_Error_ExternalProviderUnavailable": "目前无法使用此提供商登录。请稍后重试。",
+    "WinoAccount_Error_ExternalSignInFailed": "无法在此设备上完成登录。",
+    "WinoAccount_LoginDialog_OrDivider": "或",
+    "WinoAccount_SignInWithApple": "使用 Apple 登录",
+    "WinoAccount_SignInWithGoogle": "使用 Google 登录",
+    "WinoAccount_SignInWithMicrosoft": "使用 Microsoft 登录"
 }

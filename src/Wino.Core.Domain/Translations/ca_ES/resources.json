@@ -3947,5 +3947,12 @@
     "ComposerParity_ColorPink": "Rosa",
     "ComposerParity_MoreColors": "Més colors…",
     "ComposerParity_SpellCheckAutomatic": "Automàtic",
-    "ComposerParity_EditLink": "Edita l'enllaç"
+    "ComposerParity_EditLink": "Edita l'enllaç",
+    "DialogMessage_ReauthenticationAccountMismatchMessage": "Has iniciat la sessió com a {0}, que ja és un compte separat a Wino. Per solucionar {1}, torna-ho a provar i inicia la sessió com a {1}.",
+    "WinoAccount_Error_ExternalProviderUnavailable": "L'inici de sessió amb aquest proveïdor no està disponible ara mateix. Torna-ho a provar més tard.",
+    "WinoAccount_Error_ExternalSignInFailed": "No s'ha pogut completar l'inici de sessió en aquest dispositiu.",
+    "WinoAccount_LoginDialog_OrDivider": "o",
+    "WinoAccount_SignInWithApple": "Inicia la sessió amb Apple",
+    "WinoAccount_SignInWithGoogle": "Inicia la sessió amb Google",
+    "WinoAccount_SignInWithMicrosoft": "Inicia la sessió amb Microsoft"
 }
