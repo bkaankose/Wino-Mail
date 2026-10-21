@@ -572,13 +572,16 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
             return;
         }
 
-        var pickedCalendar = TryResolveConfiguredNewEventCalendar();
+        // New events cannot be written to read-only calendars, so the picker never offers them.
+        var availableGroups = BuildWritableCalendarPickerGroups(AccountCalendarStateService.GroupedAccountCalendars);
+
+        // With a single writable calendar there is nothing to choose: it wins over the New event setting.
+        var pickedCalendar = availableGroups is [{ Calendars: [var onlyCalendar] }]
+            ? onlyCalendar
+            : TryResolveConfiguredNewEventCalendar();
 
         if (pickedCalendar == null)
         {
-            // New events cannot be written to read-only calendars, so the picker never offers them.
-            var availableGroups = BuildWritableCalendarPickerGroups(AccountCalendarStateService.GroupedAccountCalendars);
-
             if (availableGroups.Count == 0)
             {
                 _dialogService.InfoBarMessage(
@@ -680,7 +683,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         }
 
         return AccountCalendarStateService.AllCalendars
-            .FirstOrDefault(calendar => calendar.Id == PreferencesService.DefaultNewEventCalendarId.Value)?
+            .FirstOrDefault(calendar => calendar.Id == PreferencesService.DefaultNewEventCalendarId.Value && !calendar.IsReadOnly)?
             .AccountCalendar;
     }
 
@@ -782,8 +785,9 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
             return;
         }
 
+        // A calendar that became read-only can no longer take new events either.
         var exists = AccountCalendarStateService.AllCalendars
-            .Any(calendar => calendar.Id == PreferencesService.DefaultNewEventCalendarId.Value);
+            .Any(calendar => calendar.Id == PreferencesService.DefaultNewEventCalendarId.Value && !calendar.IsReadOnly);
 
         if (!exists)
         {

@@ -110,7 +110,8 @@ public abstract class CalendarSettingsSectionViewModelBase : CalendarBaseViewMod
         foreach (var account in accounts)
         {
             var calendars = await CalendarService.GetAccountCalendarsAsync(account.Id).ConfigureAwait(false);
-            calendarsByAccount.AddRange(calendars.Select(calendar => new AccountCalendarViewModel(account, calendar)));
+            // New events cannot be written to read-only calendars, so the New event calendar setting never offers them.
+            calendarsByAccount.AddRange(calendars.Where(calendar => !calendar.IsReadOnly).Select(calendar => new AccountCalendarViewModel(account, calendar)));
         }
 
         await ExecuteUIThread(() =>
