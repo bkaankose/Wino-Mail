@@ -733,18 +733,25 @@ public partial class WinoMailListView : ListView, IDisposable
 
         _isReattachingItemsSource = true;
         ItemsSource = null;
+
+        // The grouped view must not watch the groups while they are cleared and refilled.
+        // A view that stays attached through that loses track of row changes inside the
+        // groups afterwards, so the list's items fall out of step with the projection.
+        GetViewSource().Source = null;
     }
 
     private void OnProjectionGroupsReset(object? sender, EventArgs args)
     {
         _lastLoadMoreCount = -1;
-        if (!_isReattachingItemsSource)
+        if (!_isReattachingItemsSource || _projection is null)
         {
             return;
         }
 
         _isReattachingItemsSource = false;
-        ItemsSource = DetachCurrency(GetViewSource().View);
+        var viewSource = GetViewSource();
+        viewSource.Source = _projection.Groups;
+        ItemsSource = DetachCurrency(viewSource.View);
     }
 
     /// <summary>
