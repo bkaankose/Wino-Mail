@@ -3,6 +3,9 @@
     const reader = document.getElementById("wino-reader");
     const readerHeading = document.getElementById("wino-reader-heading");
     const readabilityMode = 1;
+    // Share of a message still painted light under the sender's own dark rules at which those
+    // rules are treated as ineffective.
+    const ineffectiveDarkSupportCoverage = 0.5;
     const sanitizeOptions = {
         USE_PROFILES: { html: true },
         FORBID_TAGS: [
@@ -49,6 +52,7 @@
         }
         :where(.wino-mail-body) :where(img:not([width]):not([height])) { max-width: 100%; }
         :where(.wino-mail-body) :where(pre) { white-space: pre-wrap; }
+        .wino-mail-body a[href]:hover { text-decoration-line: underline !important; text-decoration-thickness: 2px !important; }
         .wino-readability {
             box-sizing: border-box;
             width: min(100%, 760px);
@@ -77,6 +81,7 @@
     let schemeRules = [];
     let declaresDarkSupport = false;
     let requiresLightOnly = false;
+    let adaptsColors = false;
     let colorOverrides = [];
     let imageRefreshTimer = 0;
     let fallbackElement = null;
@@ -353,19 +358,25 @@
     // - light theme, or a sender that asked for "light only": the original colors;
     // - dark theme with sender dark support: the sender's own dark styles;
     // - dark theme otherwise: the original design with selective color adaptation.
+    // Some senders declare dark support, but their dark rules only target other clients
+    // (such as Outlook's [data-ogsc] selectors) or swap a logo, so the message stays mostly
+    // white. Such a message keeps the sender's dark rules and is adapted on top of them.
     function applyColorPolicy() {
         clearColorOverrides();
         const scheme = isDarkTheme && declaresDarkSupport && !requiresLightOnly ? "dark" : "light";
-        const adapt = isDarkTheme && !declaresDarkSupport && !requiresLightOnly;
         const surface = isDarkTheme && !requiresLightOnly ? "dark" : "light";
 
         document.documentElement.dataset.surface = surface;
         reader.dataset.mailScheme = scheme;
         forceColorScheme(scheme);
+        adaptsColors = false;
         if (!mailHtmlElement) return;
 
         propagateBodyBackground();
-        if (adapt && window.WinoMailColors) {
+        adaptsColors = isDarkTheme && !requiresLightOnly && !!window.WinoMailColors &&
+            (!declaresDarkSupport ||
+                window.WinoMailColors.lightSurfaceCoverage(mailHtmlElement) >= ineffectiveDarkSupportCoverage);
+        if (adaptsColors) {
             const surfaceColor = getComputedStyle(document.documentElement).backgroundColor;
             applyColorOverrides(window.WinoMailColors.computeDarkOverrides(mailHtmlElement, surfaceColor));
         }
@@ -375,7 +386,7 @@
     function watchImageLoads() {
         if (!mailHtmlElement) return;
         const refresh = () => {
-            if (!isDarkTheme || declaresDarkSupport || requiresLightOnly) return;
+            if (!isDarkTheme || requiresLightOnly || (declaresDarkSupport && !adaptsColors)) return;
             window.clearTimeout(imageRefreshTimer);
             imageRefreshTimer = window.setTimeout(() => {
                 if (mailHtmlElement) applyColorPolicy();
@@ -396,6 +407,7 @@
     }
 
     function render(base64Html, linkify, mode) {
+        reportLink(null);
         const decodedHtml = decode(base64Html);
         const useReadability = Number(mode) === readabilityMode;
         const hints = readColorSchemeHints(decodedHtml);
@@ -489,8 +501,7 @@
 
     document.addEventListener("click", event => {
         // Clicks inside the shadow tree are retargeted to the host, so the path is inspected.
-        const anchor = event.composedPath().find(node =>
-            node instanceof Element && node.localName === "a" && node.hasAttribute("href"));
+        const anchor = findLink(event);
         if (!anchor) return;
         event.preventDefault();
         const href = (anchor.getAttribute("href") || "").trim();
@@ -501,9 +512,60 @@
         post({ type: "navigation", uri: anchor.href });
     });
 
+    // Hovering or focusing a link tells the host which link it is, and the host shows the
+    // address in its own UI. An empty uri means no link is hovered any more.
+    let reportedLink = null;
+    // Microsoft Defender Safe Links rewrite every link to one of these hosts and keep the original
+    // address in the url query parameter.
+    const safeLinksHost = /(^|\.)safelinks\.protection\.(outlook\.com|office365\.us)$/i;
+
+    function findLink(event) {
+        return event.composedPath().find(node =>
+            node instanceof Element && node.localName === "a" && node.hasAttribute("href"));
+    }
+
+    // Returns the address a Safe Links redirect leads to, or "" when the link is not one.
+    // Links wrapped more than once are unwrapped up to three times.
+    function unwrapSafeLink(href) {
+        let current = href;
+        let unwrapped = false;
+        for (let depth = 0; depth < 3; depth += 1) {
+            let parsed;
+            try {
+                parsed = new URL(current);
+            } catch (_) {
+                break;
+            }
+            const target = safeLinksHost.test(parsed.hostname) ? parsed.searchParams.get("url") : null;
+            if (!target) break;
+            current = target;
+            unwrapped = true;
+        }
+        return unwrapped ? current : "";
+    }
+
+    function reportLink(anchor) {
+        const href = anchor ? (anchor.getAttribute("href") || "").trim() : "";
+        const link = href && !href.startsWith("#") ? anchor : null;
+        if (link === reportedLink) return;
+        reportedLink = link;
+        post(link
+            ? { type: "linkHover", uri: link.href, target: unwrapSafeLink(link.href) }
+            : { type: "linkHover", uri: "", target: "" });
+    }
+
+    // WebView2 does not reliably dispatch mouseover inside the mail's shadow tree, so the pointer
+    // is followed with mousemove. Moves within the same link return early.
+    document.addEventListener("mousemove", event => reportLink(findLink(event)));
+    document.addEventListener("focusin", event => reportLink(findLink(event)));
+    document.addEventListener("focusout", () => reportLink(null));
+    document.documentElement.addEventListener("mouseleave", () => reportLink(null));
+    window.addEventListener("scroll", () => reportLink(null), true);
+
     window.WinoRenderer = {
         render,
         clear() {
+            reportLink(null);
             beginPresentationUpdate();
             window.clearTimeout(imageRefreshTimer);
             clearColorOverrides();
@@ -511,6 +573,7 @@
             schemeRules = [];
             declaresDarkSupport = false;
             requiresLightOnly = false;
+            adaptsColors = false;
             mailHtmlElement = null;
             mailBodyElement = null;
             fallbackElement = null;
@@ -524,7 +587,7 @@
         getOriginalHtml() { return originalHtml; },
         getColorPolicy() {
             if (!isDarkTheme || requiresLightOnly) return "original";
-            return declaresDarkSupport ? "sender-dark" : "adapted";
+            return declaresDarkSupport && !adaptsColors ? "sender-dark" : "adapted";
         },
         setTheme,
         setTypography,

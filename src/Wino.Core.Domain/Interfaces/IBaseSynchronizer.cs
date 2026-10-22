@@ -31,6 +31,17 @@ public interface IBaseSynchronizer
     bool HasQueuedRequests();
 
     /// <summary>
+    /// Returns a copy of the requests waiting to execute, in queue order. The queue is unchanged.
+    /// </summary>
+    IReadOnlyList<IRequestBase> GetQueuedRequestSnapshot();
+
+    /// <summary>
+    /// Removes and returns every request waiting to execute, in queue order, so a replacement
+    /// synchronizer for the same account can queue them again instead of losing the user's actions.
+    /// </summary>
+    IReadOnlyList<IRequestBase> TakeQueuedRequests();
+
+    /// <summary>
     /// Returns whether there is an in-progress (queued or currently executing) operation for the given mail unique id.
     /// </summary>
     /// <param name="mailUniqueId">Mail unique id to check.</param>

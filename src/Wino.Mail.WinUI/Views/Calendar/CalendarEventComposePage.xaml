@@ -638,7 +638,10 @@
                                     MinHeight="360"
                                     AutomationProperties.AutomationId="CalendarEventNotesEditor"
                                     IsEditorDarkMode="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=OneWay}"
-                                    IsEditorWebViewEditor="False" />
+                                    IsEditorWebViewEditor="False"
+                                    LinkOpenRequested="EditorLinkOpenRequested"
+                                    OpenLinkLabel="{x:Bind domain:Translator.Composer_OpenLink, Mode=OneTime}"
+                                    RemoveLinkLabel="{x:Bind domain:Translator.Composer_RemoveLink, Mode=OneTime}" />
                             </StackPanel>
                         </Border>
                     </StackPanel>

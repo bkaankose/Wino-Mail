@@ -184,6 +184,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         _categoryEditor = mailCategoryService is null
             ? null
             : new CategoryEditor(mailCategoryService, contactService, dialogService, requestDelegator);
+        _categoriesExpander.NewCategoryRequested = () => CreateCategoryAsync(GetActiveAccountId());
         Contacts.CollectionChanged += ContactsCollectionChanged;
     }
 
@@ -619,6 +620,21 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         catch (Exception ex)
         {
             _dialogService.InfoBarMessage(Translator.ContactInfoBar_ErrorTitle, ex.Message, InfoBarMessageType.Error);
+        }
+    }
+
+    private async Task CreateCategoryAsync(Guid? accountId)
+    {
+        if (_categoryEditor is null || accountId is not Guid id || !_accounts.TryGetValue(id, out var account))
+            return;
+
+        if (await _categoryEditor.CreateOrUpdateAsync(account))
+        {
+            // Show the new category where it was asked for.
+            _categoriesExpander.IsExpanded = true;
+
+            await BuildFiltersAsync();
+            await ReloadContactsAsync();
         }
     }
 

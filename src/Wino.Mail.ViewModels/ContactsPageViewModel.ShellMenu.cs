@@ -235,9 +235,10 @@ public partial class ContactsPageViewModel
             AddSection(desired, _addressBooksHeader, _addressBookFilterGroup.Where(filter => filter.AccountId == activeAccountId));
             AddSection(desired, _listsHeader, _listFilterGroup.Where(filter => filter.List?.MailAccountId == activeAccountId));
 
-            // Categories stay behind one entry until it is expanded.
+            // Categories stay behind one entry until it is expanded. The entry stays even
+            // without categories, so its context menu can create the first one.
             var categories = _categoryFilterGroup.Where(filter => filter.AccountId == activeAccountId).ToList();
-            if (categories.Count > 0)
+            if (categories.Count > 0 || _categoryEditor is not null)
             {
                 desired.Add(_categoriesExpander);
 
@@ -381,6 +382,7 @@ public partial class ContactsPageViewModel
         filter.DropHandler = (list, contactIds) => AssignContactsToListAsync(list, contactIds);
         filter.RenameRequested = item => RenameListCommand.Execute(item);
         filter.DeleteRequested = item => DeleteListCommand.Execute(item);
+        filter.NewCategoryRequested = item => CreateCategoryAsync(item.AccountId);
         filter.SynchronizeAccountRequested = SynchronizeAccountAsync;
     }
 }

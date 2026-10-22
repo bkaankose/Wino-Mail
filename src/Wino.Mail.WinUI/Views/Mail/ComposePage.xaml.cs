@@ -1212,4 +1212,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
             Volatile.Write(ref _isExecutingEditorShortcut, 0);
         }
     }
+
+    private void EditorLinkOpenRequested(object? sender, Uri uri) => EditorLinkLauncher.Open(uri);
 }

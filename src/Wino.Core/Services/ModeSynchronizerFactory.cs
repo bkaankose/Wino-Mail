@@ -121,6 +121,10 @@ public sealed class ModeSynchronizerFactory :
                 throw new InvalidOperationException(UnavailableReason);
         }
 
+        // Same rule as SynchronizationManager: an account that needs attention never synchronizes.
+        // Account is read from storage when the adapter is resolved. Queued requests stay queued.
+        protected bool IsNetworkAccessBlocked => Account.IsNetworkAccessBlocked();
+
         protected void QueueRequests<TRequest>(IReadOnlyList<TRequest> requests) where TRequest : IRequestBase
         {
             EnsureAvailable();
@@ -138,12 +142,18 @@ public sealed class ModeSynchronizerFactory :
         public Task<MailSynchronizationResult> SynchronizeAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
         {
             EnsureAvailable();
+            if (IsNetworkAccessBlocked)
+                return Task.FromResult(MailSynchronizationResult.Canceled);
+
             return Synchronizer.SynchronizeMailsAsync(options, cancellationToken);
         }
 
         public Task<MailSynchronizationResult> ExecuteRequestsAsync(IReadOnlyList<IMailActionRequest> requests, CancellationToken cancellationToken = default)
         {
             QueueRequests(requests);
+            if (IsNetworkAccessBlocked)
+                return Task.FromResult(MailSynchronizationResult.Canceled);
+
             return Synchronizer.SynchronizeMailsAsync(new MailSynchronizationOptions { AccountId = Account.Id, Type = MailSynchronizationType.ExecuteRequests }, cancellationToken);
         }
     }
@@ -156,12 +166,18 @@ public sealed class ModeSynchronizerFactory :
         public Task<CalendarSynchronizationResult> SynchronizeAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
         {
             EnsureAvailable();
+            if (IsNetworkAccessBlocked)
+                return Task.FromResult(CalendarSynchronizationResult.Canceled);
+
             return Synchronizer.SynchronizeCalendarEventsAsync(options, cancellationToken);
         }
 
         public Task<CalendarSynchronizationResult> ExecuteRequestsAsync(IReadOnlyList<ICalendarActionRequest> requests, CancellationToken cancellationToken = default)
         {
             QueueRequests(requests);
+            if (IsNetworkAccessBlocked)
+                return Task.FromResult(CalendarSynchronizationResult.Canceled);
+
             return Synchronizer.SynchronizeCalendarEventsAsync(new CalendarSynchronizationOptions { AccountId = Account.Id, Type = CalendarSynchronizationType.ExecuteRequests }, cancellationToken);
         }
     }
@@ -174,12 +190,18 @@ public sealed class ModeSynchronizerFactory :
         public Task<ContactSynchronizationResult> SynchronizeAsync(ContactSynchronizationOptions options, CancellationToken cancellationToken = default)
         {
             EnsureAvailable();
+            if (IsNetworkAccessBlocked)
+                return Task.FromResult(ContactSynchronizationResult.Canceled);
+
             return Synchronizer.SynchronizeContactsAsync(options, cancellationToken);
         }
 
         public Task<ContactSynchronizationResult> ExecuteRequestsAsync(IReadOnlyList<IContactActionRequest> requests, CancellationToken cancellationToken = default)
         {
             QueueRequests(requests);
+            if (IsNetworkAccessBlocked)
+                return Task.FromResult(ContactSynchronizationResult.Canceled);
+
             return Synchronizer.SynchronizeContactsAsync(new ContactSynchronizationOptions { AccountId = Account.Id, Type = ContactSynchronizationType.ExecuteRequests }, cancellationToken);
         }
     }
@@ -192,12 +214,18 @@ public sealed class ModeSynchronizerFactory :
         public Task<TaskSynchronizationResult> SynchronizeAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken = default)
         {
             EnsureAvailable();
+            if (IsNetworkAccessBlocked)
+                return Task.FromResult(TaskSynchronizationResult.Canceled);
+
             return Synchronizer.SynchronizeTasksAsync(options, cancellationToken);
         }
 
         public Task<TaskSynchronizationResult> ExecuteRequestsAsync(IReadOnlyList<ITaskActionRequest> requests, CancellationToken cancellationToken = default)
         {
             QueueRequests(requests);
+            if (IsNetworkAccessBlocked)
+                return Task.FromResult(TaskSynchronizationResult.Canceled);
+
             return Synchronizer.SynchronizeTasksAsync(new TaskSynchronizationOptions { AccountId = Account.Id, Type = TaskSynchronizationType.ExecuteRequests }, cancellationToken);
         }
     }

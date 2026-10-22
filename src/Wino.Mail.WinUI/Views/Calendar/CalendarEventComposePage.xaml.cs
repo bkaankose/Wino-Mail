@@ -22,6 +22,7 @@ using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Views.Abstract;
 using WinRT;
+using Wino.Helpers;
 
 namespace Wino.Calendar.Views;
 
@@ -265,4 +266,6 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
         base.UnregisterRecipients();
         WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
     }
+
+    private void EditorLinkOpenRequested(object? sender, Uri uri) => EditorLinkLauncher.Open(uri);
 }

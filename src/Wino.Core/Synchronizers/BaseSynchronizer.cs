@@ -177,6 +177,22 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
             return changeRequestQueue.ToList();
     }
 
+    public IReadOnlyList<IRequestBase> GetQueuedRequestSnapshot() => GetQueuedRequests();
+
+    public IReadOnlyList<IRequestBase> TakeQueuedRequests()
+    {
+        lock (requestQueueLock)
+        {
+            List<IRequestBase> taken = [.. changeRequestQueue];
+            changeRequestQueue.Clear();
+
+            foreach (var request in taken)
+                UntrackProcessedRequest(request);
+
+            return taken;
+        }
+    }
+
     protected void RemoveQueuedRequests(IEnumerable<IRequestBase> requests)
     {
         lock (requestQueueLock)

@@ -24,7 +24,6 @@ public class SynchronizationManagerInitializer : IInitializeAsync
         var accountService = _serviceProvider.GetRequiredService<IAccountService>();
         var authenticationProvider = _serviceProvider.GetRequiredService<IAuthenticationProvider>();
         var notificationBuilder = _serviceProvider.GetRequiredService<INotificationBuilder>();
-        var telemetryService = _serviceProvider.GetRequiredService<IWinoTelemetryService>();
         var preferencesService = _serviceProvider.GetRequiredService<IPreferencesService>();
         var draftSyncRetryService = _serviceProvider.GetRequiredService<IDraftSyncRetryService>();
 
@@ -37,7 +36,6 @@ public class SynchronizationManagerInitializer : IInitializeAsync
             accountService,
             notificationBuilder,
             authenticationProvider,
-            telemetryService,
             preferencesService,
             draftSyncRetryService,
             _serviceProvider.GetRequiredService<IDraftUpdateCoordinator>(),

@@ -1794,6 +1794,10 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                         // Cancellation should stop the entire sync
                         throw;
                     }
+                    catch (OutlookForeignMailboxFolderException foreignFolderException)
+                    {
+                        await RemoveForeignMailboxFolderAsync(foreignFolderException).ConfigureAwait(false);
+                    }
                     catch (ODataError odataError)
                     {
                         // Handle OData errors - determine if we should continue or stop
@@ -1870,6 +1874,34 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         unreadNewItems.RemoveAll(item => suppressedIds.Contains(item.Id));
 
         return MailSynchronizationResult.CompletedWithFolderResults(unreadNewItems, folderResults);
+    }
+
+    /// <summary>
+    /// A local folder whose remote id belongs to another mailbox (for example after the account's mailbox was
+    /// replaced or migrated) fails every listing with "doesn't belong to the targeted mailbox". Remove it locally
+    /// and restart the folder-list delta, so the next folder sync lists the current mailbox in full and drops any
+    /// other stale folders instead of failing the account sync on every round.
+    /// </summary>
+    private async Task RemoveForeignMailboxFolderAsync(OutlookForeignMailboxFolderException exception)
+    {
+        var folder = exception.Folder;
+        var errorCode = (exception.InnerException as ODataError)?.Error?.Code;
+
+        _logger.Warning("Outlook folder {FolderName} does not belong to the signed-in mailbox for {AccountName}. Removing it locally and resetting the folder list. Error code: {ErrorCode}",
+            folder?.FolderName, Account.Name, errorCode);
+
+        if (folder == null || string.IsNullOrEmpty(folder.RemoteFolderId))
+            return;
+
+        await _outlookChangeProcessor.DeleteFolderAsync(Account.Id, folder.RemoteFolderId).ConfigureAwait(false);
+
+        if (!string.IsNullOrEmpty(Account.SynchronizationDeltaIdentifier))
+        {
+            Account.SynchronizationDeltaIdentifier = await _outlookChangeProcessor
+                .UpdateAccountDeltaSynchronizationIdentifierAsync(Account.Id, string.Empty).ConfigureAwait(false);
+        }
+
+        WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
     }
 
     public Task DownloadSearchResultMessageAsync(string messageId, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
@@ -1996,16 +2028,24 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                 _logger.Information("Downloading all available messages for folder {FolderName}", folder.FolderName);
             }
 
-            var messageCollectionPage = await _graphClient.Me.MailFolders[folder.RemoteFolderId].Messages.Delta.GetAsDeltaGetResponseAsync((config) =>
+            DeltaGetResponse messageCollectionPage;
+            try
             {
-                config.QueryParameters.Select = outlookMessageSelectParameters;
-                config.QueryParameters.Orderby = ["receivedDateTime desc"];
-
-                if (filterDate != null)
+                messageCollectionPage = await _graphClient.Me.MailFolders[folder.RemoteFolderId].Messages.Delta.GetAsDeltaGetResponseAsync((config) =>
                 {
-                    config.QueryParameters.Filter = $"receivedDateTime ge {filterDate}";
-                }
-            }, cancellationToken).ConfigureAwait(false);
+                    config.QueryParameters.Select = outlookMessageSelectParameters;
+                    config.QueryParameters.Orderby = ["receivedDateTime desc"];
+
+                    if (filterDate != null)
+                    {
+                        config.QueryParameters.Filter = $"receivedDateTime ge {filterDate}";
+                    }
+                }, cancellationToken).ConfigureAwait(false);
+            }
+            catch (ODataError odataError) when (IsForeignMailboxIdError(odataError))
+            {
+                throw new OutlookForeignMailboxFolderException(folder, odataError);
+            }
 
             var totalProcessed = 0;
             var existingMails = await _outlookChangeProcessor.GetMailsByFolderIdAsync(folder.Id).ConfigureAwait(false);
@@ -2091,6 +2131,14 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                     await _outlookChangeProcessor.DeleteAssignmentAsync(Account.Id, message.Id, folder.RemoteFolderId).ConfigureAwait(false);
                     return true;
                 }
+                catch (ApiException ex) when (IsForeignMailboxIdError(ex))
+                {
+                    // A follow-up read of this item was rejected because its id belongs to another mailbox. Skip it;
+                    // the folder delta still advances, so the item is not retried on every round.
+                    _logger.Warning("Skipping message {MessageId} in folder {FolderName} during initial sync: it does not belong to the signed-in mailbox. Error code: {ErrorCode}",
+                        message.Id, folder.FolderName, (ex as ODataError)?.Error?.Code);
+                    return true;
+                }
                 catch (Exception ex)
                 {
                     _logger.Error(ex, "Failed to process message {MessageId} during initial sync for folder {FolderName}", message.Id, folder.FolderName);
@@ -2156,7 +2204,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
 
             throw;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OutlookForeignMailboxFolderException)
         {
             _logger.Error(ex, "Error occurred during initial mail download for folder {FolderName}", folder.FolderName);
             throw;
@@ -2597,8 +2645,9 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                 current = await _graphClient.Me.Messages[existing.Id].GetAsync(config =>
                     config.QueryParameters.Select = ["id", "parentFolderId"], cancellationToken).ConfigureAwait(false);
             }
-            catch (ApiException ex) when (ex.ResponseStatusCode == 404)
+            catch (ApiException ex) when (ex.ResponseStatusCode == 404 || IsForeignMailboxIdError(ex))
             {
+                // A local copy whose id belongs to another mailbox can never be read through /me again.
                 await _outlookChangeProcessor.DeleteAssignmentAsync(Account.Id, existing.Id, folder.RemoteFolderId).ConfigureAwait(false);
                 continue;
             }
@@ -2621,9 +2670,17 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         {
             var requestInformation = CreateMessageDeltaRequest(folder);
 
-            var messageCollectionPage = await _graphClient.RequestAdapter.SendAsync(requestInformation,
-                DeltaGetResponse.CreateFromDiscriminatorValue,
-                cancellationToken: cancellationToken);
+            DeltaGetResponse messageCollectionPage;
+            try
+            {
+                messageCollectionPage = await _graphClient.RequestAdapter.SendAsync(requestInformation,
+                    DeltaGetResponse.CreateFromDiscriminatorValue,
+                    cancellationToken: cancellationToken);
+            }
+            catch (ODataError odataError) when (IsForeignMailboxIdError(odataError))
+            {
+                throw new OutlookForeignMailboxFolderException(folder, odataError);
+            }
 
             // Use PageIterator<DeltaGetResponse> for iterating mails
             var messageIterator = PageIterator<Message, DeltaGetResponse>
@@ -2637,6 +2694,12 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                     catch (ApiException ex) when (ex.ResponseStatusCode == 404)
                     {
                         await _outlookChangeProcessor.DeleteAssignmentAsync(Account.Id, item.Id, folder.RemoteFolderId).ConfigureAwait(false);
+                        return true;
+                    }
+                    catch (ApiException ex) when (IsForeignMailboxIdError(ex))
+                    {
+                        _logger.Warning("Skipping delta item {Id} in folder {FolderName}: it does not belong to the signed-in mailbox. Error code: {ErrorCode}",
+                            item.Id, folder.FolderName, (ex as ODataError)?.Error?.Code);
                         return true;
                     }
                     catch (Exception ex)
@@ -2957,8 +3020,9 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
             {
                 await _graphClient.Me.MailFolders[existing.RemoteFolderId].GetAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
             }
-            catch (ApiException ex) when (ex.ResponseStatusCode == 404)
+            catch (ApiException ex) when (ex.ResponseStatusCode == 404 || IsForeignMailboxIdError(ex))
             {
+                // A folder id minted for another mailbox is as unreachable as a deleted folder.
                 await _outlookChangeProcessor.DeleteFolderAsync(Account.Id, existing.RemoteFolderId).ConfigureAwait(false);
                 _isFolderStructureChanged = true;
             }
@@ -4146,6 +4210,36 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                || normalizedMessage.Contains("not found")
                || normalizedMessage.Contains("does not exist")
                || normalizedMessage.Contains("cannot be found");
+    }
+
+    /// <summary>
+    /// Exchange rejects an id that was minted for a different mailbox than the one /me targets, for example
+    /// "Item '...' doesn't belong to the targeted mailbox '...'". Ids like that never become valid for this account.
+    /// The error code is checked first; the message is the fallback because the code is not documented as stable.
+    /// </summary>
+    private static bool IsForeignMailboxIdError(Exception exception)
+    {
+        if (exception is not ODataError odataError)
+            return false;
+
+        var errorCode = odataError.Error?.Code;
+        if (string.Equals(errorCode, "ErrorInvalidMailboxItemId", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var errorMessage = odataError.Error?.Message ?? odataError.Message;
+        return !string.IsNullOrEmpty(errorMessage)
+               && (errorMessage.Contains("belong to the targeted mailbox", StringComparison.OrdinalIgnoreCase)
+                   || errorMessage.Contains("belong to the current mailbox", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Raised when a local folder's remote id belongs to another mailbox, so neither its message listing nor its
+    /// delta can ever be read through /me.
+    /// </summary>
+    private sealed class OutlookForeignMailboxFolderException(MailItemFolder folder, Exception innerException)
+        : Exception($"Outlook folder '{folder?.FolderName}' does not belong to the signed-in mailbox.", innerException)
+    {
+        public MailItemFolder Folder { get; } = folder;
     }
 
     protected override Task MarkDraftSyncFailedAsync(Guid mailUniqueId, string error)

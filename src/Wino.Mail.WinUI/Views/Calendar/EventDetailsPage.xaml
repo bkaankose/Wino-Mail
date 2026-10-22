@@ -446,7 +446,8 @@
                             Grid.Row="3"
                             AutomationProperties.AutomationId="CalendarEventDescriptionRenderer"
                             InitializationFailed="EventDetailsRenderer_InitializationFailed"
-                            NavigationRequested="EventDetailsRenderer_NavigationRequested" />
+                            NavigationRequested="EventDetailsRenderer_NavigationRequested"
+                            ProtectedLinkFormat="{x:Bind domain:Translator.Reader_ProtectedLinkFormat, Mode=OneTime}" />
                     </Grid>
                 </Grid>
 

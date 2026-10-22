@@ -14,4 +14,8 @@ public sealed record RendererMessage
 
     [System.Text.Json.Serialization.JsonPropertyName("error")]
     public string? Error { get; init; }
+
+    /// <summary>For linkHover: the address an Outlook Safe Links redirect leads to, or empty.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("target")]
+    public string? Target { get; init; }
 }

@@ -488,11 +488,8 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
             message.Options.GroupedSynchronizationTrackingId,
             message.Options.Type));
 
-        if (syncResult.CompletedState is SynchronizationCompletedState.Success or SynchronizationCompletedState.PartiallyCompleted)
-        {
-            await ClearInvalidCredentialAttentionIfNeededAsync(message.Options.AccountId).ConfigureAwait(false);
-
-        }
+        // Attention is never cleared by a synchronization result: the manager refuses to start any
+        // synchronization while it is set, so only the user's fix (sign-in, server settings) clears it.
 
         if (syncResult.CompletedState == SynchronizationCompletedState.Failed ||
             syncResult.CompletedState == SynchronizationCompletedState.PartiallyCompleted)
@@ -986,8 +983,6 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
 
         if (inboxSyncResult.CompletedState is SynchronizationCompletedState.Success or SynchronizationCompletedState.PartiallyCompleted)
         {
-            await ClearInvalidCredentialAttentionIfNeededAsync(account.Id);
-
             var inboxSyncCount = _inboxSyncCounters.AddOrUpdate(account.Id, 1, (_, currentCount) => currentCount + 1);
 
             if (inboxSyncCount >= InboxSyncsPerFullSync)
@@ -1002,21 +997,5 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
                 _inboxSyncCounters[account.Id] = 0;
             }
         }
-
     }
-
-    private async Task ClearInvalidCredentialAttentionIfNeededAsync(Guid accountId)
-    {
-        if (_accountService == null)
-            return;
-
-        var account = await _accountService.GetAccountAsync(accountId);
-
-        if (account?.AttentionReason != AccountAttentionReason.InvalidCredentials)
-            return;
-
-        await _accountService.ClearAccountAttentionAsync(accountId);
-    }
-
-
 }

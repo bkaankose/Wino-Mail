@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Serilog;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Retry;
 using Wino.Core.Domain.Models.Synchronization;
@@ -68,6 +69,13 @@ public class RetryExecutor : IRetryExecutor
                     {
                         _logger.Warning(handlerEx, "Error handler threw an exception");
                     }
+                }
+
+                // An account that needs a sign-in or another fix never recovers by retrying.
+                if (ex is AuthenticationAttentionException or AccountAttentionRequiredException)
+                {
+                    _logger.Warning("Account needs attention, failing without retry");
+                    throw;
                 }
 
                 // Check if we should retry based on error severity

@@ -40,7 +40,6 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
     private readonly ICardDavSynchronizationStore _store;
     private readonly IVCardCodec _codec;
     private readonly IContactService _contactService;
-    private readonly IWinoLogger _logger;
     private readonly IDavCredentialStore _credentialStore;
     private readonly IAccountService _accountService;
     private readonly ICardDavAddressBookService _addressBookService;
@@ -52,7 +51,6 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         ICardDavSynchronizationStore store,
         IVCardCodec codec,
         IContactService contactService,
-        IWinoLogger logger,
         IDavCredentialStore credentialStore,
         IAccountService accountService,
         ICardDavAddressBookService addressBookService = null,
@@ -65,7 +63,6 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         _store = store;
         _codec = codec;
         _contactService = contactService;
-        _logger = logger;
         _credentialStore = credentialStore;
         _accountService = accountService;
         _addressBookService = addressBookService;
@@ -118,7 +115,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         }
         catch (Exception ex)
         {
-            _logger.CaptureException(ex, "CardDavSynchronization");
+            Logger.Warning(ex, "CardDAV synchronization failed for account {AccountId}", account.Id);
             return ContactSynchronizationResult.Failed(ex).MergeIssues([Classify(ex, "Account")]);
         }
 
@@ -244,12 +241,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         }
         catch (Exception ex)
         {
-            _logger.CaptureException(ex, "CardDavAddressBookSynchronization", new Dictionary<string, string>
-            {
-                ["AccountId"] = context.AccountId.ToString("D"),
-                ["AddressBookId"] = state.AddressBookId.ToString("D"),
-                ["StatusCode"] = (ex as DavRequestException)?.StatusCode.ToString()
-            });
+            Logger.Warning(ex, "CardDAV synchronization of address book {AddressBookId} failed", state.AddressBookId);
             result.MergeIssues([Classify(ex, context.Binding.AddressBook.DisplayName)]);
         }
     }

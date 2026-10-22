@@ -626,7 +626,8 @@
                     AutomationProperties.Name="{x:Bind domain:Translator.Reader_MessageBodyAutomationName, Mode=OneTime}"
                     InitializationFailed="MailRenderer_InitializationFailed"
                     IsDarkMode="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=OneWay}"
-                    NavigationRequested="MailRenderer_NavigationRequested">
+                    NavigationRequested="MailRenderer_NavigationRequested"
+                    ProtectedLinkFormat="{x:Bind domain:Translator.Reader_ProtectedLinkFormat, Mode=OneTime}">
                     <editor:WinoMailRenderer.KeyboardAccelerators>
                         <KeyboardAccelerator Key="Escape" Invoked="EscapeInvoked" />
                     </editor:WinoMailRenderer.KeyboardAccelerators>
