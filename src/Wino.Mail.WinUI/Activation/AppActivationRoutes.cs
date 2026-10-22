@@ -19,8 +19,6 @@ internal enum AppActivationPath
     StandardLaunch,
     ShareTarget,
     MailToProtocol,
-    BillingSuccessProtocol,
-    WinoAccountAuthCallbackProtocol,
     SecondaryEntryBootstrap,
     FileImport,
     AppNotification,
@@ -31,7 +29,6 @@ internal enum AppActivationPath
 
 internal enum NotificationActivationPath
 {
-    StoreUpdate,
     Dismiss,
     CalendarNavigation,
     CalendarSnooze,
@@ -59,8 +56,7 @@ internal readonly record struct LaunchActivationRoute(
     PendingBootstrapActivation? PendingBootstrapActivation = null,
     WinoApplicationMode ActivationMode = WinoApplicationMode.Mail,
     IReadOnlyList<string>? FilePaths = null,
-    NotificationHostActivation? ForwardedNotificationActivation = null,
-    Uri? WinoAccountAuthCallback = null)
+    NotificationHostActivation? ForwardedNotificationActivation = null)
 {
     public bool RequiresAppHostInfrastructure => Path switch
     {
@@ -83,8 +79,7 @@ internal readonly record struct RedirectedActivationRoute(
     AppNotificationActivatedEventArgs? AppNotificationArgs = null,
     IReadOnlyList<string>? FilePaths = null,
     NotificationHostActivation? ForwardedNotificationActivation = null,
-    NotificationActivationRoute NotificationRoute = default,
-    Uri? WinoAccountAuthCallback = null);
+    NotificationActivationRoute NotificationRoute = default);
 
 internal static class ActivationPathNames
 {
@@ -97,8 +92,6 @@ internal static class ActivationPathNames
             AppActivationPath.StandardLaunch => "standard launch",
             AppActivationPath.ShareTarget => "share target",
             AppActivationPath.MailToProtocol => "mailto protocol",
-            AppActivationPath.BillingSuccessProtocol => "billing success protocol",
-            AppActivationPath.WinoAccountAuthCallbackProtocol => "Wino Account sign-in callback protocol",
             AppActivationPath.SecondaryEntryBootstrap => "secondary entry bootstrap",
             AppActivationPath.FileImport => "file import",
             AppActivationPath.AppNotification => "app notification",
@@ -111,7 +104,7 @@ internal static class ActivationPathNames
     public static string GetDisplayName(NotificationActivationPath path)
         => path switch
         {
-            NotificationActivationPath.StoreUpdate => "store update notification",
+
             NotificationActivationPath.Dismiss => "notification dismiss",
             NotificationActivationPath.CalendarNavigation => "calendar notification navigation",
             NotificationActivationPath.CalendarSnooze => "calendar notification snooze",

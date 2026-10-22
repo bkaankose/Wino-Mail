@@ -2,7 +2,7 @@
 
 Read the relevant section before changing C#, XAML, translations, storage, or editor assets.
 The architecture, core, localization, and storage rules apply to both applications. The WinUI and XAML rules apply to the Windows application only.
-Build and runtime commands are in the [Windows](development-windows.md) and [macOS](development-macos.md) development guides.
+Build and runtime commands are in the [Windows development guide](development-windows.md).
 
 ## Architecture
 
@@ -14,15 +14,13 @@ src/Wino.Mail.ViewModels   Active Mail, Calendar, Contacts, To Do, Settings, and
 src/Wino.Core.ViewModels   Frozen legacy ViewModels for the deprecated UWP host
 src/Wino.Messages          Messenger contracts (Wino.Messaging)
 src/Wino.Platform.Windows  Windows platform services
-src/Wino.Platform.MacOS    macOS platform services
 src/Wino.Mail.WinUI        Windows application (WinUI 3)
-src/Wino.Mail.MacOS        macOS application (AppKit)
 controls                   Shared control contracts, editor engine, WinUI and AppKit controls, playground
 ```
 
 Mail requests flow through `WinoRequestDelegator`, `WinoRequestProcessor`, provider synchronizers, change processors, the local SQLite database, and messenger events. Initial synchronization queues identifiers and downloads MIME content on demand.
 
-Register core services in `CoreContainerSetup` (`RegisterCoreServices`) and shared services in `ServicesContainerSetup` (`RegisterSharedServices`). Each application registers its platform services and ViewModels in its own composition root: `App.xaml.cs` on Windows, `Composition.cs` and `Infrastructure/MacViewModelRegistration*.cs` on macOS. Keep the two ViewModel registration lists and their lifetimes in step.
+Register core services in `CoreContainerSetup` (`RegisterCoreServices`) and shared services in `ServicesContainerSetup` (`RegisterSharedServices`). Each application registers its platform services and ViewModels in its own composition root: `App.xaml.cs` on Windows.
 
 Published cross-repository dependencies must use unconditional `PackageReference` items. A sibling checkout must never change the dependency graph.
 
@@ -87,7 +85,7 @@ The editor extension is a convenience. The pinned command-line result is the for
 - Add English source strings only to `src/Wino.Core.Domain/Translations/en_US/resources.json`.
 - Use generated `Translator` properties. XAML translation bindings use `Mode=OneTime` because `Translator` does not implement `INotifyPropertyChanged`.
 - Treat non-English resource files as externally managed and do not edit them.
-- The main SQLite database and EML files live under `IApplicationConfiguration.ApplicationDataFolderPath`: the package LocalState folder on Windows and the sandbox container's Application Support folder on macOS. Resolve them through `MainDatabasePaths` and `MimeFileService.GetMimeMessagePath()`; never build platform paths in shared code. The Windows publisher cache is read only as a legacy migration source.
+- The main SQLite database and EML files live under `IApplicationConfiguration.ApplicationDataFolderPath`: the package LocalState folder on Windows. Resolve them through `MainDatabasePaths` and `MimeFileService.GetMimeMessagePath()`; never build platform paths in shared code. The Windows publisher cache is read only as a legacy migration source.
 - `controls/Wino.Editor.Core` is the only reader/editor HTML, CSS, and JavaScript asset source for WebView2 and WKWebView. Preserve its document-ready bridge and on-demand MIME loading.
 
 

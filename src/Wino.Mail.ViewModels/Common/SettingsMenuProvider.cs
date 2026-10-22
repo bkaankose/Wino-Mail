@@ -21,13 +21,11 @@ namespace Wino.Core.ViewModels;
 /// </summary>
 public partial class SettingsMenuProvider(
     INavigationService navigationService,
-    IWinoAccountIntelligenceSnapshotService entitlementService,
     IPlatformCapabilities platformCapabilities) :
     CoreBaseViewModel,
     IShellMenuProvider,
     IRecipient<ActiveSettingsPageChanged>,
-    IRecipient<LanguageChanged>,
-    IRecipient<WinoIntelligenceEntitlementChanged>
+    IRecipient<LanguageChanged>
 {
     private bool _hasRegisteredPersistentRecipients;
     private ShellMenu _shellMenu;
@@ -56,7 +54,6 @@ public partial class SettingsMenuProvider(
         };
 
         RebuildMenuItems();
-        _ = RefreshEntitlementAsync();
     }
 
     /// <summary>
@@ -167,26 +164,6 @@ public partial class SettingsMenuProvider(
         SetSelectedRootPage(selectedPage);
     }
 
-    public void Receive(WinoIntelligenceEntitlementChanged message)
-        => _ = ExecuteUIThread(() =>
-        {
-            var selectedRootPage = SettingsNavigationInfoProvider.GetRootPage(
-                (SelectedMenuItem as SettingsShellPageMenuItem)?.PageType ?? WinoPage.SettingOptionsPage);
-
-            RebuildMenuItems();
-            if (!message.Entitlement.CanAccessSurfaces &&
-                selectedRootPage == WinoPage.WinoIntelligencePage)
-            {
-                SetSelectedRootPage(WinoPage.WinoAccountManagementPage);
-            }
-        });
-
-    private async Task RefreshEntitlementAsync()
-    {
-        await entitlementService.GetEntitlementAsync().ConfigureAwait(false);
-        await entitlementService.RefreshEntitlementAsync().ConfigureAwait(false);
-    }
-
     private void RebuildMenuItems()
     {
         if (_shellMenu is null)
@@ -211,12 +188,6 @@ public partial class SettingsMenuProvider(
 
         foreach (var node in SettingsNavigationInfoProvider.GetPaneNodes())
         {
-            if (!entitlementService.CurrentEntitlement.CanAccessSurfaces &&
-                node.Item?.PageType == WinoPage.WinoIntelligencePage)
-            {
-                continue;
-            }
-
             if (!node.IsGroup)
             {
                 if (node.Item?.PageType == WinoPage.SignatureAndEncryptionPage && !platformCapabilities.Smime)
@@ -307,7 +278,6 @@ public partial class SettingsMenuProvider(
         base.RegisterRecipients();
         Messenger.Register<ActiveSettingsPageChanged>(this);
         Messenger.Register<LanguageChanged>(this);
-        Messenger.Register<WinoIntelligenceEntitlementChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -315,6 +285,5 @@ public partial class SettingsMenuProvider(
         base.UnregisterRecipients();
         Messenger.Unregister<ActiveSettingsPageChanged>(this);
         Messenger.Unregister<LanguageChanged>(this);
-        Messenger.Unregister<WinoIntelligenceEntitlementChanged>(this);
     }
 }

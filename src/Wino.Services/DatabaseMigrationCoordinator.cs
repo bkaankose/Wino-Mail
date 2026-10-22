@@ -20,7 +20,7 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
     [
         "MergedInbox", "MailAccount", "CustomServerInformation", "AccountSignature",
         "MailServerCertificateTrust", "EmailTemplate", "MailAccountPreferences", "MailAccountAlias",
-        "KeyboardShortcut", "WinoAccount"
+        "KeyboardShortcut"
     ];
 
     private static readonly string[] MailTables =

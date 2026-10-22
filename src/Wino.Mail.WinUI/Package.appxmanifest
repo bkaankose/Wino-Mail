@@ -108,13 +108,6 @@
 				</uap:Protocol>
 			</uap:Extension>
 
-			<!-- Protocol activation: Wino deep links and the Wino Account browser sign-in redirect (wino://auth-complete) -->
-			<uap:Extension Category="windows.protocol">
-				<uap:Protocol Name="wino">
-					<uap:DisplayName>Mail-Cal Protocol</uap:DisplayName>
-				</uap:Protocol>
-			</uap:Extension>
-
 			<!-- Share target activation -->
 			<uap:Extension Category="windows.shareTarget">
 				<uap:ShareTarget>

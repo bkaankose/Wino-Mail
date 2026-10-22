@@ -53,11 +53,6 @@
             Grid.Row="2"
             MaxWidth="600"
             HorizontalAlignment="Center">
-            <HyperlinkButton
-                HorizontalAlignment="Center"
-                AutomationProperties.AutomationId="WelcomePageV2HyperlinkButton"
-                Command="{x:Bind ViewModel.ImportFromWinoAccountCommand}"
-                Content="{x:Bind domain:Translator.WelcomeWindow_ImportFromWinoAccount}" />
 
             <HyperlinkButton
                 HorizontalAlignment="Center"

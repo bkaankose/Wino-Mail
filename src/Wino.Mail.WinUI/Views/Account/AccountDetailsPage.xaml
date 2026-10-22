@@ -321,7 +321,7 @@
                         <Button
                             AutomationProperties.AutomationId="AccountDetailsProtocolLogExportButton"
                             Command="{x:Bind ViewModel.ExportProtocolLogsCommand}"
-                            Content="{x:Bind domain:Translator.ProtocolLog_ExportAction, Mode=OneTime}" />
+                            Content="{x:Bind domain:Translator.ProtocolLog_ExportAction, Mode=OneTime}" />
                     </StackPanel>
                 </controls:SettingsCard>
 
@@ -432,17 +432,6 @@
 
 
 
-                <accessibilityControls:WinoSettingsCard
-                    AutomationProperties.AutomationId="AccountDetailsWinoIntelligenceCard"
-                    Command="{x:Bind ViewModel.ManageWinoIntelligenceCommand}"
-                    Description="{x:Bind domain:Translator.SemanticIndex_Description, Mode=OneTime}"
-                    Header="{x:Bind domain:Translator.SemanticIndex_Title, Mode=OneTime}"
-                    IsClickEnabled="True"
-                    Visibility="{x:Bind ViewModel.CanAccessWinoIntelligence, Mode=OneWay}">
-                    <controls:SettingsCard.HeaderIcon>
-                        <coreControls:WinoFontIcon Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" Icon="WinoIntelligence" />
-                    </controls:SettingsCard.HeaderIcon>
-                </accessibilityControls:WinoSettingsCard>
 
                 <accessibilityControls:WinoSettingsCard
                     AutomationProperties.AutomationId="AccountDetailsPageSettingsCard9"

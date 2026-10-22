@@ -51,7 +51,6 @@ Keep manual lab verification separate: successful compilation and generated acce
 - Before deployment, compare the installed package identity and publisher with the manifest. Stop on a mismatch or a signed non-development installation.
 - Close the Debug application, including its tray process, before deployment if it holds package files open.
 - Never launch the packaged executable directly. Release validation compiles and packages without launching.
-- The package declares no `Microsoft.VCLibs` dependency, and only `onnxruntime.dll` needs the Visual C++ runtime. `Wino.Core.ML` ships that runtime (`src/Wino.Core.ML/NativeRuntime/<rid>`) into the package root, and `OnnxNativeRuntimeSupport` refuses to load ONNX when the copy the loader would use is older than 14.40, because an older `msvcp140.dll` crashes the process natively instead of throwing. Keep the bundled files at least as new as the toolset `onnxruntime.dll` was built with; see [NativeRuntime/README.md](../../src/Wino.Core.ML/NativeRuntime/README.md).
 - Agent-driven UI automation is retired. Do not create or run UI test scripts or require `winapp ui` audits.
 
 ## VS Code F5

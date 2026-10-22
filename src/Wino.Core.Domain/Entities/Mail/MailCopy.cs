@@ -4,7 +4,6 @@ using SQLite;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
-using Wino.Core.Domain.Models.Intelligence;
 
 namespace Wino.Core.Domain.Entities.Mail;
 
@@ -210,12 +209,6 @@ public class MailCopy
 
     [Ignore]
     public List<MailCategory> Categories { get; set; } = [];
-
-    /// <summary>
-    /// Passive intelligence artifacts loaded from the separate local intelligence store.
-    /// </summary>
-    [Ignore]
-    public MailIntelligenceMetadata? IntelligenceMetadata { get; set; }
 
     public IEnumerable<Guid> GetContainingIds() => [UniqueId];
     public override string ToString() => $"{Subject} <-> {Id}";

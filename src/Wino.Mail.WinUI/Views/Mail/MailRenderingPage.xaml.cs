@@ -20,21 +20,13 @@ using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Ai;
 using Wino.Core.Domain.Models.Calendar;
-using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Printing;
-using Wino.Core.Domain.Models.SemanticIndexing;
 using Wino.Editor;
 using Wino.Helpers;
-using Wino.Mail.AI.Abstractions;
-using Wino.Mail.AI.ContentProcessing;
-using Wino.Mail.Controls.Core.IntelligenceHeader;
-using Wino.Mail.Controls.Core.IntelligenceTileBar;
 using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.ViewModels.Data;
-using Wino.Mail.ViewModels.Intelligence;
 using Wino.Mail.ViewModels.Models;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Extensions;
@@ -87,8 +79,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     {
         InitializeComponent();
         _readerSession = new WindowsHtmlMailReaderSession(MailRenderer);
-
-        InitializeWinoIntelligenceHeader();
 
         WebViewExtensions.EnsureWebView2Environment();
 
@@ -152,7 +142,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         Interlocked.Increment(ref _activeRenderCount);
 
         _currentRenderedHtml = htmlBody ?? string.Empty;
-        _intelligence.SetRenderedContent(_currentRenderedHtml);
 
         try
         {
@@ -162,13 +151,10 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             await UpdateReaderFontPropertiesAsync();
             if (IsStaleRender(renderVersion)) return;
 
-            // The header becomes visible before cloud/local metadata finishes loading.
-            var intelligenceLoadingTask = LoadIntelligenceContextAsync();
             await RenderActiveContentAsync();
             if (IsStaleRender(renderVersion)) return;
 
             await UpdateAccessibleMailContextAsync();
-            await intelligenceLoadingTask;
         }
         finally
         {
@@ -180,7 +166,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     private async Task RenderActiveContentAsync()
     {
-        var html = _intelligence.ResolveActiveHtml(_currentRenderedHtml);
+        var html = _currentRenderedHtml;
         var renderMode = IsReaderViewEnabled
             ? HtmlMailRenderMode.Readability
             : HtmlMailRenderMode.Original;
@@ -266,7 +252,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private void ResetReaderContentState()
     {
         _currentRenderedHtml = string.Empty;
-        _intelligence.ResetContent();
     }
 
     public async Task PrepareForIdleAsync()
@@ -274,7 +259,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         // Clearing the renderer means this item is no longer being shown. The page stays alive for
         // a short grace period, so a re-selection must not be suppressed as an already-loaded item.
         _currentMailItem = null;
-        _intelligence.ForgetMailItem();
 
         await ClearRenderedContentAsync();
 
@@ -304,8 +288,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         ViewModel.PrintPresenter = null;
         ViewModel.RenderHtmlAsyncFunc = null;
         ViewModel.ClearRenderedHtmlAsyncFunc = null;
-        _intelligence.ClearContext();
-        _intelligence.ForgetMailItem();
         _currentMailItem = null;
         _currentRenderedHtml = string.Empty;
         RendererCommandBar.PopOutClicked -= RendererCommandBar_PopOutClicked;
@@ -348,11 +330,9 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             // Abandons a render that is still in flight for the previous message.
             Interlocked.Increment(ref _renderVersion);
 
-            _intelligence.ClearContext();
             ResetReaderContentState();
 
             _currentMailItem = mailItemViewModel;
-            _intelligence.BeginMailItem(_currentMailItem);
 
             // Deliberately no _readerSession.ClearAsync(). The previous body stays loaded behind the
             // opaque loading overlay instead of blanking the pane, which is what removes the flash.
@@ -374,7 +354,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     {
         ViewModel.PrintPresenter = CreatePrintPresenter();
         _currentMailItem = e.Parameter as MailItemViewModel;
-        _intelligence.BeginMailItem(_currentMailItem);
         ViewModel.RenderHtmlAsyncFunc = RenderInternalAsync;
         ViewModel.ClearRenderedHtmlAsyncFunc = ClearRenderedContentAsync;
         RendererCommandBar.PopOutClicked -= RendererCommandBar_PopOutClicked;
@@ -504,7 +483,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         base.RegisterRecipients();
 
         WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
-        _intelligence.Attach();
     }
 
     protected override void UnregisterRecipients()
@@ -512,7 +490,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         base.UnregisterRecipients();
 
         WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
-        _intelligence.Detach();
     }
 
     private void EscapeInvoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender, Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)
@@ -520,157 +497,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         WeakReferenceMessenger.Default.Send(new ClearMailSelectionsRequested());
     }
 
-    #region Wino Intelligence
-
-    // The shared presenter owns the intelligence context, snapshot and requests. This page copies
-    // its state onto the header control and routes the header's events back to it.
-    private WinoIntelligenceHeaderPresenter _intelligence = null!;
     private MailItemViewModel? _currentMailItem;
-
-    private void InitializeWinoIntelligenceHeader()
-    {
-        _intelligence = ActivatorUtilities.CreateInstance<WinoIntelligenceHeaderPresenter>(
-            App.Current.Services, new PageQueueDispatcher(this));
-
-        IntelligenceHeader.TranslationLanguages = _intelligence.TranslationLanguages;
-        IntelligenceHeader.SelectedSourceLanguage = _intelligence.SelectedSourceLanguage;
-        IntelligenceHeader.SelectedTargetLanguage = _intelligence.SelectedTargetLanguage;
-
-        // Suggested replies, find-similar, deadlines and reply status are no longer produced.
-        IntelligenceHeader.IsSuggestedRepliesAvailable = false;
-        IntelligenceHeader.IsFindSimilarMailAvailable = false;
-        IntelligenceHeader.NeedsReply = false;
-        IntelligenceHeader.NeedsReplyDetailText = string.Empty;
-        IntelligenceHeader.IsAddToCalendarAvailable = false;
-
-        _intelligence.PropertyChanged += Intelligence_PropertyChanged;
-        _intelligence.RerenderRequested += RenderActiveContentAsync;
-        _intelligence.SummaryCompleted += (requestId, summary) => IntelligenceHeader.CompleteSummary(requestId, summary);
-        _intelligence.SummaryFailed += requestId => IntelligenceHeader.FailRequest(requestId);
-    }
-
-    private Task LoadIntelligenceContextAsync()
-        => _intelligence.OnHtmlRendered(_currentRenderedHtml, ViewModel.Subject, ViewModel.FromAddress, ViewModel.CreationDate);
-
-    private void Intelligence_PropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        switch (e.PropertyName)
-        {
-            case nameof(WinoIntelligenceHeaderPresenter.IsVisible):
-                IntelligenceHeader.Visibility = _intelligence.IsVisible ? Visibility.Visible : Visibility.Collapsed;
-                break;
-            case nameof(WinoIntelligenceHeaderPresenter.ContentKey):
-                IntelligenceHeader.ContentKey = _intelligence.ContentKey;
-                break;
-            case nameof(WinoIntelligenceHeaderPresenter.ProcessingState):
-                IntelligenceHeader.ProcessingState = _intelligence.ProcessingState;
-                break;
-            case nameof(WinoIntelligenceHeaderPresenter.IsSummaryAvailable):
-                IntelligenceHeader.IsSummaryAvailable = _intelligence.IsSummaryAvailable;
-                break;
-            case nameof(WinoIntelligenceHeaderPresenter.IsTranslateAvailable):
-                IntelligenceHeader.IsTranslateAvailable = _intelligence.IsTranslateAvailable;
-                break;
-            case nameof(WinoIntelligenceHeaderPresenter.IsProcessingAvailable):
-                IntelligenceHeader.IsProcessingAvailable = _intelligence.IsProcessingAvailable;
-                break;
-            case nameof(WinoIntelligenceHeaderPresenter.BriefingFactText):
-                IntelligenceHeader.BriefingFactText = _intelligence.BriefingFactText;
-                break;
-            case nameof(WinoIntelligenceHeaderPresenter.DeadlineText):
-                IntelligenceHeader.DeadlineText = _intelligence.DeadlineText;
-                break;
-            case nameof(WinoIntelligenceHeaderPresenter.DeadlineDetailText):
-                IntelligenceHeader.DeadlineDetailText = _intelligence.DeadlineDetailText;
-                break;
-            case nameof(WinoIntelligenceHeaderPresenter.VerificationCode):
-                IntelligenceHeader.VerificationCode = _intelligence.VerificationCode;
-                break;
-            case nameof(WinoIntelligenceHeaderPresenter.SummaryText):
-                IntelligenceHeader.SummaryText = _intelligence.SummaryText;
-                break;
-            case nameof(WinoIntelligenceHeaderPresenter.IntelligenceTiles):
-                IntelligenceHeader.IntelligenceTiles = _intelligence.IntelligenceTiles;
-                break;
-            case nameof(WinoIntelligenceHeaderPresenter.SelectedSourceLanguage):
-                IntelligenceHeader.SelectedSourceLanguage = _intelligence.SelectedSourceLanguage;
-                break;
-            case nameof(WinoIntelligenceHeaderPresenter.SelectedTargetLanguage):
-                IntelligenceHeader.SelectedTargetLanguage = _intelligence.SelectedTargetLanguage;
-                break;
-            case nameof(WinoIntelligenceHeaderPresenter.IsTranslationBusy):
-                IntelligenceHeader.IsTranslationBusy = _intelligence.IsTranslationBusy;
-                break;
-            case nameof(WinoIntelligenceHeaderPresenter.HasTranslationResult):
-                IntelligenceHeader.HasTranslationResult = _intelligence.HasTranslationResult;
-                break;
-            case nameof(WinoIntelligenceHeaderPresenter.IsTranslationApplied):
-                IntelligenceHeader.IsTranslationApplied = _intelligence.IsTranslationApplied;
-                break;
-            case nameof(WinoIntelligenceHeaderPresenter.TranslationStatusText):
-                IntelligenceHeader.TranslationStatusText = _intelligence.TranslationStatusText;
-                break;
-        }
-    }
-
-    private async void IntelligenceHeader_CopyCodeRequested(object? sender, EventArgs e)
-        => await _intelligence.CopyVerificationCodeAsync();
-
-    private async void IntelligenceHeader_FeatureRequested(object? sender, WinoIntelligenceRequestEventArgs e)
-    {
-        // Suggested replies and find-similar are no longer offered; the header never
-        // raises them, and an unexpected request fails rather than hanging.
-        if (e.Feature != WinoIntelligenceFeature.Summary)
-        {
-            IntelligenceHeader.FailRequest(e.RequestId);
-            return;
-        }
-
-        await _intelligence.RunSummaryAsync(e.RequestId);
-    }
-
-    private void IntelligenceHeader_FeatureCancelRequested(object? sender, WinoIntelligenceCancelRequestedEventArgs e)
-        => _intelligence.CancelSummaryRequest(e.RequestId);
-
-    private async void IntelligenceHeader_ProcessRequested(object? sender, EventArgs e)
-        => await _intelligence.RequestProcessingAsync();
-
-    private async void IntelligenceHeader_ActionInvoked(object? sender, WinoIntelligenceActionEventArgs e)
-    {
-        switch (e.Action)
-        {
-            case WinoIntelligenceAction.Translate:
-                // The header owns the language pickers.
-                _intelligence.SelectedSourceLanguage = IntelligenceHeader.SelectedSourceLanguage;
-                _intelligence.SelectedTargetLanguage = IntelligenceHeader.SelectedTargetLanguage;
-                await _intelligence.TranslateAsync();
-                break;
-            case WinoIntelligenceAction.CancelTranslation:
-                _intelligence.CancelTranslation();
-                break;
-            case WinoIntelligenceAction.AddDeadlineToCalendar:
-                // Deadlines are no longer produced, so the header never offers this.
-                break;
-        }
-    }
-
-    public override void OnLanguageChanged()
-    {
-        base.OnLanguageChanged();
-
-        _intelligence.OnLanguageChanged();
-    }
-
-    /// <summary>Queues presenter callbacks on this page's thread, like DispatcherQueue.TryEnqueue.</summary>
-    private sealed class PageQueueDispatcher(MailRenderingPage page) : IDispatcher
-    {
-        public Task ExecuteOnUIThread(Action action)
-        {
-            page.DispatcherQueue.TryEnqueue(() => action());
-            return Task.CompletedTask;
-        }
-    }
-
-    #endregion
 
 }

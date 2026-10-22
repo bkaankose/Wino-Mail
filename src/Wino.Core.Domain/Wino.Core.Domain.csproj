@@ -96,6 +96,5 @@
 			GlobalPropertiesToRemove="PublishAot;PublishTrimmed;TrimMode;SelfContained" />
 	</ItemGroup>
 	<ItemGroup>
-		<PackageReference Include="Wino.Mail.AI.Abstractions" />
 	</ItemGroup>
 </Project>

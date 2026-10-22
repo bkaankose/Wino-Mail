@@ -97,20 +97,9 @@ public interface IMailDialogService : IDialogServiceBase
     Task<KeyboardShortcutDialogResult> ShowKeyboardShortcutDialogAsync(KeyboardShortcut existingShortcut = null);
 #pragma warning restore CS8625
 
-    Task<WinoAccount?> ShowWinoAccountRegistrationDialogAsync();
-
-    Task<WinoAccount?> ShowWinoAccountLoginDialogAsync();
-
     /// <summary>
-    /// Confirms a backup to the Wino Account. Returns false when the user closes the dialog.
-    /// </summary>
-    Task<bool> ShowWinoAccountExportDialogAsync();
-
-    /// <summary>
-    /// Asks for the Wino Account password or the sync passphrase that unlocks a sync snapshot.
+    /// Asks for the backup password that locks or unlocks a backup file.
     /// Returns null when the user cancels.
     /// </summary>
-    Task<string?> ShowWinoAccountSyncSecretDialogAsync(SyncSnapshotSecretRequest request);
-
-    Task<UnlimitedAccountsPurchaseChannel?> ShowUnlimitedAccountsPurchaseChannelDialogAsync();
+    Task<string?> ShowBackupPasswordDialogAsync(SyncSnapshotSecretRequest request);
 }

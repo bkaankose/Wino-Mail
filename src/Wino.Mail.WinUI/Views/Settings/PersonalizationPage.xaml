@@ -138,14 +138,5 @@
             <ToggleSwitch AutomationProperties.AutomationId="PersonalizationCompactAccountMenuToggle" IsOn="{x:Bind ViewModel.PreferencesService.IsCompactAccountMenuItemEnabled, Mode=TwoWay}" />
         </controls:SettingsCard>
 
-        <controls:SettingsCard
-            AutomationProperties.AutomationId="PersonalizationHideWinoAccountButtonCard"
-            Description="{x:Bind domain:Translator.SettingsAppPreferences_HideWinoAccountButton_Description, Mode=OneTime}"
-            Header="{x:Bind domain:Translator.SettingsAppPreferences_HideWinoAccountButton_Title, Mode=OneTime}">
-            <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon Icon="Person" />
-            </controls:SettingsCard.HeaderIcon>
-            <ToggleSwitch AutomationProperties.AutomationId="PersonalizationHideWinoAccountButtonToggle" IsOn="{x:Bind ViewModel.PreferencesService.IsWinoAccountButtonHidden, Mode=TwoWay}" />
-        </controls:SettingsCard>
     </StackPanel>
 </abstract:PersonalizationPageAbstract>

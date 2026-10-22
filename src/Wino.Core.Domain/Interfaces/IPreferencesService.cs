@@ -25,12 +25,6 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// </summary>
     AppLanguage CurrentLanguage { get; set; }
 
-
-    /// <summary>
-    /// Setting: Whether Microsoft Store update notifications should be shown.
-    /// </summary>
-    bool IsStoreUpdateNotificationsEnabled { get; set; }
-
     /// <summary>
     /// Setting: Whether the taskbar icon stays the same when the application mode changes in-app.
     /// </summary>
@@ -244,11 +238,6 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsCompactAccountMenuItemEnabled { get; set; }
 
     /// <summary>
-    /// Setting: Show locally ignored Daily Briefing items for review.
-    /// </summary>
-    bool IsDailyBriefingShowingIgnored { get; set; }
-
-    /// <summary>
     /// Setting: Marking the item as read preference mode.
     /// </summary>
     MailMarkAsOption MarkAsPreference { get; set; }
@@ -429,7 +418,6 @@ public interface IPreferencesService : INotifyPropertyChanged
     string ComposerSpellCheckLanguageCode { get; set; }
 
 
-
     /// <summary>
     /// Setting: Whether the next item should be automatically selected once the current item is moved or removed.
     /// </summary>
@@ -462,20 +450,6 @@ public interface IPreferencesService : INotifyPropertyChanged
 
     #endregion
 
-    #region Intelligence
-
-    /// <summary>
-    /// Setting: Default target language code used for AI translation actions.
-    /// </summary>
-    string AiDefaultTranslationLanguageCode { get; set; }
-
-    /// <summary>
-    /// Setting: Preferred target language code for AI summarize actions.
-    /// </summary>
-    string AiSummarizeLanguageCode { get; set; }
-
-    #endregion
-
     #region Shell
 
     /// <summary>
@@ -483,10 +457,6 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// </summary>
     bool IsNavigationPaneOpened { get; set; }
 
-    /// <summary>
-    /// Setting: Whether the Wino account profile button in the shell title bar should be hidden.
-    /// </summary>
-    bool IsWinoAccountButtonHidden { get; set; }
 
     #endregion
 

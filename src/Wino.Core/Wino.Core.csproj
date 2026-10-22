@@ -27,8 +27,6 @@
 		<PackageReference Include="Nito.AsyncEx.Tasks" />
 		<PackageReference Include="NodaTime" />
 		<PackageReference Include="SkiaSharp" />
-		<PackageReference Include="Wino.Mail.AI.Abstractions" />
-		<PackageReference Include="Wino.Mail.AI.ContentProcessing" />
 	</ItemGroup>
 	
 	<ItemGroup>

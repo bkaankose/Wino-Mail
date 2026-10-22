@@ -30,12 +30,6 @@ internal static class ToastActivationResolver
 
     public static bool ShouldBringToForeground(NotificationArguments toastArguments)
     {
-        if (toastArguments.TryGetValue(Constants.ToastStoreUpdateActionKey, out string storeUpdateAction) &&
-            storeUpdateAction == Constants.ToastStoreUpdateActionInstall)
-        {
-            return true;
-        }
-
         if (toastArguments.TryGetValue(Constants.ToastCalendarActionKey, out string calendarAction))
         {
             return calendarAction == Constants.ToastCalendarNavigateAction;
@@ -76,8 +70,7 @@ internal static class ToastActivationResolver
     }
 
     private static bool ContainsKnownToastKey(NotificationArguments toastArguments)
-        => toastArguments.TryGetValue(Constants.ToastStoreUpdateActionKey, out string _) ||
-           toastArguments.TryGetValue(Constants.ToastCalendarActionKey, out string _) ||
+        => toastArguments.TryGetValue(Constants.ToastCalendarActionKey, out string _) ||
            toastArguments.TryGetValue(Constants.ToastDismissActionKey, out string _) ||
            toastArguments.TryGetValue(Constants.ToastActionKey, out string _) ||
            toastArguments.TryGetValue(Constants.ToastModeKey, out string _);

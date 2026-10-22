@@ -10,7 +10,6 @@ public enum ActivationUriKind
 {
     Unsupported,
     MailTo,
-    BillingSuccess,
     Webcal,
     CalendarFile,
     ContactFile,
@@ -34,9 +33,6 @@ public static class ActivationUriClassifier
 
         if (string.Equals(uri.Scheme, "mailto", StringComparison.OrdinalIgnoreCase))
             return ActivationUriKind.MailTo;
-
-        if (WinoProtocolActivationResolver.IsBillingSuccess(uri))
-            return ActivationUriKind.BillingSuccess;
 
         if (SecondaryEntryActivationContract.TryCreateProtocol(uri, out _))
             return ActivationUriKind.Webcal;
@@ -79,7 +75,6 @@ public static class ActivationUriClassifier
         ActivationUriKind.MailTo or ActivationUriKind.MailFile => WinoApplicationMode.Mail,
         ActivationUriKind.Webcal or ActivationUriKind.CalendarFile => WinoApplicationMode.Calendar,
         ActivationUriKind.ContactFile => WinoApplicationMode.Contacts,
-        ActivationUriKind.BillingSuccess => WinoApplicationMode.Settings,
         _ => null
     };
 }

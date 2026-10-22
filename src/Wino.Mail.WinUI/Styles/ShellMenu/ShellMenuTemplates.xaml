@@ -1072,30 +1072,7 @@
     </DataTemplate>
 
 
-    <DataTemplate x:Key="SettingsShellWinoAccountItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
-        <coreControls:WinoNavigationViewItem
-            AutomationProperties.AutomationId="DataTemplatesWinoNavigationViewItem4"
-            Content="{x:Bind Title}"
-            DataContext="{x:Bind}">
-            <muxc:NavigationViewItem.Icon>
-                <BitmapIcon ShowAsMonochrome="False" UriSource="/Assets/Wino_Icon.ico" />
-            </muxc:NavigationViewItem.Icon>
-        </coreControls:WinoNavigationViewItem>
-    </DataTemplate>
 
-    <DataTemplate x:Key="SettingsShellWinoIntelligenceItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
-        <coreControls:WinoNavigationViewItem
-            AutomationProperties.AutomationId="DataTemplatesWinoNavigationViewItem6"
-            Content="{x:Bind Title}"
-            DataContext="{x:Bind}">
-            <muxc:NavigationViewItem.Icon>
-                <coreControls:WinoFontIcon
-                    FontFamily="{ThemeResource WinoIconFontFamily}"
-                    Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}"
-                    Icon="WinoIntelligence" />
-            </muxc:NavigationViewItem.Icon>
-        </coreControls:WinoNavigationViewItem>
-    </DataTemplate>
 
     <DataTemplate x:Key="SettingsShellGroupItemTemplate" x:DataType="menu:SettingsShellGroupMenuItem">
         <coreControls:WinoNavigationViewItem
@@ -1163,19 +1140,4 @@
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
-    <DataTemplate x:Key="RatingItemTemplate" x:DataType="menu:RateMenuItem">
-        <coreControls:WinoNavigationViewItem
-            AutomationProperties.AutomationId="DataTemplatesWinoNavigationViewItem7"
-            Content="{x:Bind domain:Translator.MenuRate}"
-            DataContext="{x:Bind}"
-            SelectsOnInvoked="False">
-            <muxc:NavigationViewItem.Icon>
-                <coreControls:WinoFontIcon
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    FontFamily="{ThemeResource WinoIconFontFamily}"
-                    Icon="Heart" />
-            </muxc:NavigationViewItem.Icon>
-        </coreControls:WinoNavigationViewItem>
-    </DataTemplate>
 </ResourceDictionary>

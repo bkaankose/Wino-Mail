@@ -51,16 +51,12 @@ public enum WinoPage
     EmailTemplatesPage,
     CreateEmailTemplatePage,
     StoragePage,
-    WinoAccountManagementPage,
-    WinoIntelligencePage,
     WelcomePageV2,
     WelcomeHostPage,
     ProviderSelectionPage,
     AccountSetupProgressPage,
     SpecialImapCredentialsPage,
     TestPage,
-    WinoIntelligenceManagementPage,
-    IntelligenceCoveragePage,
     CompanionSettingsPage,
     NotificationSettingsPage
 }

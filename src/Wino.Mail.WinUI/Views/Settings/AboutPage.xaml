@@ -92,10 +92,10 @@
                     Icon="Open" />
             </controls:SettingsCard.ActionIcon>
         </accessibilityControls:WinoSettingsCard>
-
-
-
-
+
+
+
+
 
         <controls:SettingsExpander
             AutomationProperties.AutomationId="AboutPageSettingsExpander"
@@ -117,10 +117,10 @@
                         <Button
                             AutomationProperties.AutomationId="AboutPageButton"
                             Command="{x:Bind ViewModel.ShareWinoLogCommand}"
-                            Content="{x:Bind domain:Translator.Buttons_Share}" />
+                            Content="{x:Bind domain:Translator.Buttons_Share}" />
                         <ToggleSwitch AutomationProperties.AutomationId="AboutPageToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsLoggingEnabled, Mode=TwoWay}" />
                     </StackPanel>
-                </controls:SettingsCard>
+                </controls:SettingsCard>
             </controls:SettingsExpander.Items>
         </controls:SettingsExpander>
 

@@ -13,6 +13,4 @@ public sealed record PlatformCapabilities(
     bool StartupIntegration = false,
     bool Tray = false,
     bool GlobalHotkeys = false,
-    bool GeneralActivation = false,
-    bool MicrosoftStore = false,
-    bool AppleAppStore = false) : IPlatformCapabilities;
+    bool GeneralActivation = false) : IPlatformCapabilities;

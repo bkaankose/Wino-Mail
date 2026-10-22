@@ -33,7 +33,6 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
     IRecipient<AccountCreatedMessage>,
     IRecipient<AccountRemovedMessage>,
     IRecipient<AccountUpdatedMessage>,
-    IRecipient<WinoIntelligenceEntitlementChanged>,
     IInnerNavigationHost,
     ITitleBarSearchHost
 {
@@ -44,12 +43,9 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
     public SettingsPage()
     {
         InitializeComponent();
-        EntitlementService = WinoApplication.Current.Services.GetRequiredService<IWinoAccountIntelligenceSnapshotService>();
     }
 
-    private IWinoAccountIntelligenceSnapshotService EntitlementService { get; }
-
-    protected override async void OnNavigatedTo(NavigationEventArgs e)
+    protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
 
@@ -61,9 +57,6 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         var initialPage = activationContext?.TargetPage
                           ?? e.Parameter as WinoPage?
                           ?? WinoPage.SettingOptionsPage;
-        await EntitlementService.GetEntitlementAsync();
-        if (IsIntelligencePage(initialPage) && !EntitlementService.CurrentEntitlement.CanAccessSurfaces)
-            initialPage = WinoPage.WinoAccountManagementPage;
         NavigateToRootPage(initialPage, activationContext?.PageParameter);
     }
 
@@ -84,19 +77,6 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         if (manageAccountsEntry != null)
         {
             manageAccountsEntry.Title = Translator.SettingsManageAccountSettings_Title;
-        }
-
-        var winoAccountEntry = PageHistory.FirstOrDefault(a => a.Request.PageType == WinoPage.WinoAccountManagementPage);
-
-        if (winoAccountEntry != null)
-        {
-            winoAccountEntry.Title = Translator.WinoAccount_SettingsSection_Title;
-        }
-
-        var intelligenceEntry = PageHistory.FirstOrDefault(a => a.Request.PageType == WinoPage.WinoIntelligencePage);
-        if (intelligenceEntry != null)
-        {
-            intelligenceEntry.Title = Translator.WinoIntelligence_SettingsTitle;
         }
 
         _ = RefreshCurrentPageStateAsync();
@@ -134,7 +114,6 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         WeakReferenceMessenger.Default.Register<AccountCreatedMessage>(this);
         WeakReferenceMessenger.Default.Register<AccountRemovedMessage>(this);
         WeakReferenceMessenger.Default.Register<AccountUpdatedMessage>(this);
-        WeakReferenceMessenger.Default.Register<WinoIntelligenceEntitlementChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -148,7 +127,6 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         WeakReferenceMessenger.Default.Unregister<AccountCreatedMessage>(this);
         WeakReferenceMessenger.Default.Unregister<AccountRemovedMessage>(this);
         WeakReferenceMessenger.Default.Unregister<AccountUpdatedMessage>(this);
-        WeakReferenceMessenger.Default.Unregister<WinoIntelligenceEntitlementChanged>(this);
     }
 
     void IRecipient<BreadcrumbNavigationRequested>.Receive(BreadcrumbNavigationRequested message)
@@ -214,12 +192,6 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
     public void Receive(SettingsRootNavigationRequested message)
     {
-        if (IsIntelligencePage(message.PageType) && !EntitlementService.CurrentEntitlement.CanAccessSurfaces)
-        {
-            NavigateDirectlyToRootPage(WinoPage.WinoAccountManagementPage);
-            return;
-        }
-
         var activePage = PageHistory.LastOrDefault()?.Request.PageType ?? WinoPage.SettingOptionsPage;
 
         if (activePage == message.PageType)
@@ -252,19 +224,6 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
                 Receive(new SettingsRootNavigationRequested(targetPage));
                 break;
         }
-    }
-
-    public void Receive(WinoIntelligenceEntitlementChanged message)
-    {
-        if (message.Entitlement.CanAccessSurfaces)
-            return;
-
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            var activePage = PageHistory.LastOrDefault()?.Request.PageType;
-            if (activePage is WinoPage.WinoIntelligencePage or WinoPage.WinoIntelligenceManagementPage or WinoPage.IntelligenceCoveragePage)
-                NavigateDirectlyToRootPage(WinoPage.WinoAccountManagementPage);
-        });
     }
 
     public void Receive(AccountUpdatedMessage message)
@@ -308,12 +267,6 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
     private void NavigateBreadcrumb(BreadcrumbNavigationRequested message)
     {
-        if (IsIntelligencePage(message.PageType) && !EntitlementService.CurrentEntitlement.CanAccessSurfaces)
-        {
-            NavigateDirectlyToRootPage(WinoPage.WinoAccountManagementPage);
-            return;
-        }
-
         if (!BreadcrumbNavigationHelper.Navigate(SettingsFrame, PageHistory, message, ViewModel.NavigationService.GetPageType))
             return;
 
@@ -324,12 +277,6 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
     private void NavigateToRootPage(WinoPage targetPage, object? pageParameter = null)
     {
-        if (IsIntelligencePage(targetPage) && !EntitlementService.CurrentEntitlement.CanAccessSurfaces)
-        {
-            NavigateDirectlyToRootPage(WinoPage.WinoAccountManagementPage);
-            return;
-        }
-
         if (targetPage == WinoPage.SettingOptionsPage)
         {
             NavigateToSettingsHome();
@@ -350,23 +297,12 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
                 pageParameter)
         }));
 
-    private static bool IsIntelligencePage(WinoPage page)
-        => page is WinoPage.WinoIntelligencePage
-            or WinoPage.WinoIntelligenceManagementPage
-            or WinoPage.IntelligenceCoveragePage;
-
     private void NavigateToRoute(SettingsNavigationRoute route)
     {
         if (route.Steps.Count == 0)
             return;
 
         var destination = route.Destination;
-        if (IsIntelligencePage(destination.PageType) && !EntitlementService.CurrentEntitlement.CanAccessSurfaces)
-        {
-            NavigateDirectlyToRootPage(WinoPage.WinoAccountManagementPage);
-            return;
-        }
-
         var pageType = ViewModel.NavigationService.GetPageType(destination.PageType);
 
         if (pageType == null)

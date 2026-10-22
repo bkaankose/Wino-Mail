@@ -19,7 +19,6 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Folders;
@@ -42,12 +41,10 @@ using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Wino.Services;
 using Wino.Services.Extensions;
-using Wino.Mail.AI.Abstractions;
-using MailBodyLocator = Wino.Core.Domain.Models.Intelligence.MailBodyLocator;
 
 namespace Wino.Core.Synchronizers.Mail;
 
-public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreationPackage, object, AccountContact>, IImapSynchronizer, ISemanticMailBodySynchronizer
+public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreationPackage, object, AccountContact>, IImapSynchronizer
 {
     private readonly LocalContactSynchronizer _localContactSynchronizer;
     private readonly LocalTaskSynchronizer _localTaskSynchronizer;
@@ -540,71 +537,6 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
 
     internal static MimeMessage CreateSmtpMessage(MimeMessage draftMessage)
         => MailKitSmtpTransport.CreateSmtpMessage(draftMessage);
-
-    public async Task<SemanticMailContent> GetSemanticBodyAsync(
-        MailBodyLocator locator,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(locator);
-        if (locator.ImapUid is not uint uid || locator.ImapUidValidity is not uint expectedUidValidity)
-        {
-            throw new ArgumentException("IMAP semantic body retrieval requires UID and UIDVALIDITY.", nameof(locator));
-        }
-
-        IImapClient client = null;
-        var destroyClient = false;
-        try
-        {
-            client = await _clientPool.GetClientAsync(cancellationToken, purpose: "SemanticBody").ConfigureAwait(false);
-            var remoteFolder = await client.GetFolderAsync(locator.RemoteFolderId, cancellationToken).ConfigureAwait(false);
-            await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
-            if (remoteFolder.UidValidity != expectedUidValidity)
-            {
-                throw new InvalidOperationException("IMAP UIDVALIDITY changed; synchronize the folder before indexing.");
-            }
-
-            var uniqueId = new UniqueId(uid);
-            var summaries = await remoteFolder.FetchAsync(
-                [uniqueId],
-                MessageSummaryItems.UniqueId | MessageSummaryItems.BodyStructure | MessageSummaryItems.Envelope,
-                cancellationToken).ConfigureAwait(false);
-            var summary = summaries.SingleOrDefault()
-                ?? throw new SynchronizerEntityNotFoundException("The IMAP message no longer exists in the selected folder.");
-            var selectedPart = summary.TextBody ?? summary.HtmlBody
-                ?? throw new InvalidOperationException("IMAP message contains no indexable text body part.");
-            var entity = await remoteFolder.GetBodyPartAsync(uniqueId, selectedPart, cancellationToken).ConfigureAwait(false);
-            if (entity is not TextPart textPart)
-            {
-                throw new InvalidOperationException("The selected IMAP body part is not textual.");
-            }
-
-            return new SemanticMailContent(
-                new MailBodyContent(
-                    textPart.IsHtml ? MailBodyFormat.Html : MailBodyFormat.PlainText,
-                    textPart.Text ?? string.Empty),
-                summary.Envelope?.From?.Mailboxes.Select(x => new MailAddress(x.Address, x.Name)).ToArray() ?? [],
-                summary.Envelope?.To?.Mailboxes.Select(x => x.Address).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray() ?? [],
-                summary.Envelope?.Cc?.Mailboxes.Select(x => x.Address).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray() ?? [],
-                summary.BodyParts
-                    .Where(static part => part.IsAttachment)
-                    .Select(static part => new SemanticMailAttachment(
-                        part.ContentDisposition?.FileName ?? part.ContentType.Name ?? string.Empty,
-                        part.ContentType.MimeType))
-                    .ToArray());
-        }
-        catch
-        {
-            destroyClient = true;
-            throw;
-        }
-        finally
-        {
-            if (client is not null)
-            {
-                _clientPool.Release(client, destroyClient);
-            }
-        }
-    }
 
     public override async Task DownloadMissingMimeMessageAsync(MailCopy mailItem,
                                                            ITransferProgress transferProgress = null,

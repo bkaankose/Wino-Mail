@@ -18,11 +18,6 @@
       "description": "Check your day without opening Wino. Click the Wino icon in the system tray or press Ctrl+Shift+Space to see your next meeting, unread mail and My Day tasks. Set it up in Settings > General > Companion."
     },
     {
-      "image": "wino-intelligence-briefing.png",
-      "title": "Wino Intelligence",
-      "description": "Let Wino read ahead for you. The daily briefing sums up the mail that matters, with actions like Pay invoice or Track shipment. You can also summarize and translate any message. Needs a Wino Account subscription."
-    },
-    {
       "image": "account-profile-pictures.png",
       "title": "Pictures for your accounts",
       "description": "Tell your accounts apart at a glance. Choose your own picture for each account, or use your Gmail or Outlook photo. Change it in Manage Accounts > your account > Profile picture."

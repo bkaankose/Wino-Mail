@@ -3,12 +3,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.ViewModels;
-using Wino.Mail.ViewModels.Intelligence;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Services;
 using Wino.Services;
 using Wino.Platform.Windows;
-using Wino.Platform.Windows.Authentication;
 using Wino.Platform.Windows.Services;
 using Wino.Authentication;
 using Wino.Core.Domain.Models.Platform;
@@ -45,8 +43,7 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<IPlatformCapabilities>(_ => new PlatformCapabilities(
             Printing: Windows.Graphics.Printing.PrintManager.IsSupported(), PdfExport: true,
             Smime: true, AdditionalWindows: true, Notifications: true, NotificationActions: true,
-            StartupIntegration: true, Tray: true, GlobalHotkeys: true, GeneralActivation: true,
-            MicrosoftStore: true));
+            StartupIntegration: true, Tray: true, GlobalHotkeys: true, GeneralActivation: true));
         services.AddSingleton<IOutlookAuthenticationHost>(provider => new WindowsOutlookAuthenticationHost(
             provider.GetRequiredService<IApplicationConfiguration>(),
             provider.GetRequiredService<IAuthenticatorConfig>(),
@@ -61,21 +58,10 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<IWinoDialogService>(provider => (IWinoDialogService)provider.GetRequiredService<IMailDialogService>());
         services.AddSingleton<IExternalBrowserAuthenticationPresenter, ExternalBrowserAuthenticationPresenter>();
 
-        // Wino Account Sign in with Microsoft, Google and Apple: all through the API's browser flow. The wino://auth-complete
-        // protocol activation (App.WinoAccountAuthActivation) delivers the redirect to the waiting broker.
-        services.AddSingleton<WindowsExternalAuthCallbacks>();
-        services.AddSingleton<IWinoAccountBrowserAuthBroker>(provider => new WindowsBrowserAuthBroker(
-            provider.GetRequiredService<IExternalLauncher>(), provider.GetRequiredService<WindowsExternalAuthCallbacks>()));
-        services.AddSingleton<IWinoAccountExternalSignInService>(provider => new WinoAccountExternalSignInService(
-            provider.GetRequiredService<IWinoAccountApiClient>(), provider.GetRequiredService<IWinoAccountProfileService>(),
-            apple: null, google: null, provider.GetRequiredService<IWinoAccountBrowserAuthBroker>()));
         services.AddTransient<IConfigurationService, ConfigurationService>();
         services.AddTransient<IFileService, FileService>();
-        services.AddSingleton<IMicrosoftStoreService, MicrosoftStoreService>();
-        // Lazy edges break the two constructor cycles in the shell: the Store service reaches the
-        // dialog service (dialog -> profile -> intelligence -> billing -> store), and the window
-        // manager reaches the theme service (theme -> window manager).
-        services.AddSingleton(provider => new Lazy<IMailDialogService>(provider.GetRequiredService<IMailDialogService>));
+        // Lazy edges break constructor cycles: the window manager reaches the theme service
+        // (theme -> window manager), and the browser presenter reaches the dialog service.
         services.AddSingleton(provider => new Lazy<INewThemeService>(provider.GetRequiredService<INewThemeService>));
         services.AddSingleton(provider => new Lazy<IWinoDialogService>(provider.GetRequiredService<IWinoDialogService>));
         services.AddSingleton<INotificationHostClient, NotificationHostClient>();
@@ -96,7 +82,6 @@ public static class CoreUWPContainerSetup
         services.AddTransient(typeof(WelcomeHostPageViewModel));
         services.AddTransient(typeof(KeyboardShortcutsPageViewModel));
         services.AddTransient(typeof(WhatsNewPageViewModel));
-        services.AddTransient<WinoIntelligenceHeaderPresenter>();
     }
 }
 

@@ -15,7 +15,6 @@
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:illustrations="using:Wino.Controls.Illustrations"
-    xmlns:intelligenceCore="using:Wino.Mail.Controls.Core.IntelligenceTileBar"
     xmlns:interfaces="using:Wino.Core.Domain.Interfaces"
     xmlns:listview="using:Wino.Mail.WinUI.Controls.ListView"
     xmlns:mail="using:Wino.Core.Domain.Entities.Mail"
@@ -643,7 +642,6 @@
                     <coreControls:OperationCommandBar
                         HorizontalAlignment="Left"
                         DefaultLabelPosition="Collapsed"
-                        IsAIActionsPaneToggleVisible="False"
                         IsEnabled="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.SelectedItemsCount), Mode=OneWay}"
                         ItemInvokedCommand="{x:Bind ViewModel.ExecuteTopBarActionCommand}"
                         MenuItems="{x:Bind ViewModel.ActionItems, Mode=OneWay}"

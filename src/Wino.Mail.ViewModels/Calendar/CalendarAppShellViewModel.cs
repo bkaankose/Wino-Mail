@@ -200,11 +200,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     public async void Receive(PreferenceChangedMessage message)
     {
-        if (message.PropertyName == nameof(IPreferencesService.IsStoreUpdateNotificationsEnabled))
-        {
-            await RefreshFooterItemsAsync(false);
-        }
-
         if (message.PropertyName == nameof(IPreferencesService.IsCalendarAccountsGrouped))
         {
             await ApplyCalendarGroupingPreferenceChangeAsync();

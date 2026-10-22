@@ -15,16 +15,8 @@ public sealed class WindowsAccountCredentialPersistence : IAccountCredentialPers
         return Task.FromResult(information);
     }
 
-    public Task<WinoAccount> PrepareWinoAccountForStorageAsync(WinoAccount account, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(account);
-    }
-
     public Task RestoreServerInformationSecretsAsync(CustomServerInformation information, CancellationToken cancellationToken = default) => Complete(cancellationToken);
-    public Task RestoreWinoAccountSecretsAsync(WinoAccount account, CancellationToken cancellationToken = default) => Complete(cancellationToken);
     public Task DeleteMailAccountSecretsAsync(Guid accountId, CancellationToken cancellationToken = default) => Complete(cancellationToken);
-    public Task DeleteWinoAccountSecretsAsync(Guid accountId, CancellationToken cancellationToken = default) => Complete(cancellationToken);
 
     private static Task Complete(CancellationToken cancellationToken)
     {

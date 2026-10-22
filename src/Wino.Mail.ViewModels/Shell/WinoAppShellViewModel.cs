@@ -25,12 +25,6 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
     private readonly Dictionary<WinoApplicationMode, IShellMenuProvider> _providers = [];
     private bool _isApplyingSelection;
     private readonly IShellMenuProviderResolver _providerResolver;
-    private readonly IMicrosoftStoreService _storeService;
-    private readonly IMailDialogService _dialogService;
-    private readonly IWinoLogger _logger;
-    private readonly IPlatformCapabilities _platformCapabilities;
-    private bool _isCheckingStoreUpdate;
-    private bool _hasShownStoreUpdatePrompt;
 
     private WinoApplicationMode _currentMode;
     private ShellMenu? _currentMenu;
@@ -41,20 +35,12 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
     public WinoAppShellViewModel(IShellMenuProviderResolver providerResolver,
                                  IPreferencesService preferencesService,
                                  IStatePersistanceService statePersistenceService,
-                                 INavigationService navigationService,
-                                 IMicrosoftStoreService storeService,
-                                 IMailDialogService dialogService,
-                                 IWinoLogger logger,
-                                 IPlatformCapabilities platformCapabilities)
+                                 INavigationService navigationService)
     {
         _providerResolver = providerResolver;
         PreferencesService = preferencesService;
         StatePersistenceService = statePersistenceService;
         NavigationService = navigationService;
-        _storeService = storeService;
-        _dialogService = dialogService;
-        _logger = logger;
-        _platformCapabilities = platformCapabilities;
 
         StatePersistenceService.StatePropertyChanged += StatePersistenceServiceChanged;
     }
@@ -178,7 +164,6 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
     {
         base.OnNavigatedTo(mode, parameters);
         CurrentMode = StatePersistenceService.ApplicationMode;
-        _ = ShowStoreUpdateDialogIfNeededAsync();
     }
 
     public IShellMenuProvider GetProvider(WinoApplicationMode mode)
@@ -264,51 +249,6 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
         if (propertyName == nameof(IStatePersistanceService.ApplicationMode))
         {
             SetCurrentMode(StatePersistenceService.ApplicationMode);
-        }
-    }
-
-    private async Task ShowStoreUpdateDialogIfNeededAsync()
-    {
-        if (!_platformCapabilities.MicrosoftStore || _isShutdown || _isCheckingStoreUpdate || _hasShownStoreUpdatePrompt ||
-            !PreferencesService.IsStoreUpdateNotificationsEnabled)
-            return;
-
-        _isCheckingStoreUpdate = true;
-
-        try
-        {
-            var hasAvailableUpdate = await _storeService.RefreshAvailabilityAsync();
-
-            if (_isShutdown || !hasAvailableUpdate || !PreferencesService.IsStoreUpdateNotificationsEnabled)
-                return;
-
-            await ExecuteUIThreadAsync(async () =>
-            {
-                if (_isShutdown || !PreferencesService.IsStoreUpdateNotificationsEnabled)
-                    return;
-
-                _hasShownStoreUpdatePrompt = true;
-                var shouldUpdate = await _dialogService.ShowWinoCustomMessageDialogAsync(
-                    Translator.Notifications_StoreUpdateAvailableTitle,
-                    Translator.Notifications_StoreUpdateAvailableMessage,
-                    Translator.Buttons_Update,
-                    WinoCustomMessageDialogIcon.Information,
-                    Translator.Buttons_NotNow,
-                    Constants.StoreUpdateNotificationSuppressionKey);
-
-                if (shouldUpdate && !_isShutdown)
-                {
-                    await _storeService.StartUpdateAsync();
-                }
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.CaptureException(ex, nameof(ShowStoreUpdateDialogIfNeededAsync));
-        }
-        finally
-        {
-            _isCheckingStoreUpdate = false;
         }
     }
 }

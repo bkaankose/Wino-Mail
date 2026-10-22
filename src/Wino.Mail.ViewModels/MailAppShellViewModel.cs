@@ -88,7 +88,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly IConfigurationService _configurationService;
     private readonly IAccountService _accountService;
     private readonly IContextMenuItemService _contextMenuItemService;
-    private readonly IMicrosoftStoreService _storeService;
     private readonly IActivationStateService _activationStateService;
     private readonly INotificationBuilder _notificationBuilder;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
@@ -121,7 +120,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                              IMailCategoryService mailCategoryService,
                              IAccountService accountService,
                              IContextMenuItemService contextMenuItemService,
-                             IMicrosoftStoreService storeService,
                              IPreferencesService preferencesService,
                              IActivationStateService activationStateService,
                              INotificationBuilder notificationBuilder,
@@ -149,7 +147,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         _unreadBadgeService = unreadBadgeService;
         _accountService = accountService;
         _contextMenuItemService = contextMenuItemService;
-        _storeService = storeService;
         _activationStateService = activationStateService;
         _notificationBuilder = notificationBuilder;
         _winoRequestDelegator = winoRequestDelegator;
@@ -1011,11 +1008,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         {
             await FixAccountIssuesAsync(fixAccountItem.Account);
         }
-        else if (clickedMenuItem is RateMenuItem)
-        {
-            if (PlatformCapabilities.MicrosoftStore || PlatformCapabilities.AppleAppStore)
-                await _storeService.LaunchStorePageForReviewAsync();
-        }
         else if (clickedMenuItem is NewMailMenuItem)
         {
             await HandleCreateNewMailAsync();
@@ -1025,10 +1017,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         {
             // Don't navigate to base folders that contain non-move target folders.
             // Theory: This is a special folder like Categories or More. Don't navigate to it.
-
-            // Prompt user rating dialog if eligible.
-            if (PlatformCapabilities.MicrosoftStore || PlatformCapabilities.AppleAppStore)
-                _ = _storeService.PromptRatingDialogAsync();
 
             await NavigateFolderAsync(baseFolderMenuItem);
         }
@@ -1254,9 +1242,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     public async Task HandleCreateNewMailAsync()
     {
-        if (PlatformCapabilities.MicrosoftStore || PlatformCapabilities.AppleAppStore)
-            _ = _storeService.PromptRatingDialogAsync();
-
         MailAccount operationAccount = null;
 
         // Check whether we have active folder item selected for any account.

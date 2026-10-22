@@ -35,9 +35,6 @@ public partial class ComposePageViewModel
     /// <summary>Editor hook: (new signature HTML or empty to remove, previously inserted HTML or null).</summary>
     public Func<string, string, Task> ApplySignatureHtmlFunc { get; set; }
 
-    /// <summary>When set, rewrite failures go here instead of the info bar (the macOS inline error strip).</summary>
-    public Action<string> RewriteErrorHandler { get; set; }
-
     partial void OnCurrentMimeMessageChanged(MimeMessage value) => _ = LoadSignaturesAsync();
 
     /// <summary>

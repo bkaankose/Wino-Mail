@@ -139,12 +139,6 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(IsCompactAccountMenuItemEnabled), value);
     }
 
-    public bool IsDailyBriefingShowingIgnored
-    {
-        get => _configurationService.Get(nameof(IsDailyBriefingShowingIgnored), false);
-        set => SetPropertyAndSave(nameof(IsDailyBriefingShowingIgnored), value);
-    }
-
     public bool IsHardDeleteProtectionEnabled
     {
         get => _configurationService.Get(nameof(IsHardDeleteProtectionEnabled), true);
@@ -689,23 +683,7 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(IsAppModeTaskbarIconSwitchDisabled), value);
     }
 
-    public bool IsStoreUpdateNotificationsEnabled
-    {
-        get => !_configurationService.Contains(Constants.StoreUpdateNotificationSuppressionKey);
-        set
-        {
-            if (value)
-            {
-                _configurationService.Remove(Constants.StoreUpdateNotificationSuppressionKey);
-            }
-            else
-            {
-                _configurationService.Set(Constants.StoreUpdateNotificationSuppressionKey, true);
-            }
 
-            OnPropertyChanged();
-        }
-    }
 
     public bool IsSystemTrayIconEnabled
     {
@@ -902,24 +880,6 @@ public partial class PreferencesService(IConfigurationService configurationServi
             OnPropertyChanged(nameof(AppCloseBehavior));
             OnPropertyChanged(nameof(IsSystemTrayIconEnabled));
         }
-    }
-
-    public bool IsWinoAccountButtonHidden
-    {
-        get => _configurationService.Get(nameof(IsWinoAccountButtonHidden), false);
-        set => SetPropertyAndSave(nameof(IsWinoAccountButtonHidden), value);
-    }
-
-    public string AiDefaultTranslationLanguageCode
-    {
-        get => _configurationService.Get(nameof(AiDefaultTranslationLanguageCode), "en-US");
-        set => SetPropertyAndSave(nameof(AiDefaultTranslationLanguageCode), string.IsNullOrWhiteSpace(value) ? "en-US" : value.Trim());
-    }
-
-    public string AiSummarizeLanguageCode
-    {
-        get => _configurationService.Get(nameof(AiSummarizeLanguageCode), "en-US");
-        set => SetPropertyAndSave(nameof(AiSummarizeLanguageCode), string.IsNullOrWhiteSpace(value) ? "en-US" : value.Trim());
     }
 
     public CalendarSettings GetCurrentCalendarSettings()

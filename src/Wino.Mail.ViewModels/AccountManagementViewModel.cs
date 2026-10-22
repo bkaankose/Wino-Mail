@@ -32,12 +32,10 @@ namespace Wino.Mail.ViewModels;
 public partial class AccountManagementViewModel : AccountManagementPageViewModelBase
 {
 
-    private readonly IWinoAccountDataSyncService _syncService;
+    private readonly ILocalBackupService _syncService;
     private readonly IWinoLogger _winoLogger;
     private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
     private readonly ICalDavClient _calDavClient;
-    private readonly IMicrosoftStoreService _storeService;
-    private readonly IWinoAppStorePurchaseService? _appStorePurchases;
 
     public IMailDialogService MailDialogService { get; }
 
@@ -45,25 +43,19 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                                       INavigationService navigationService,
                                       IAccountService accountService,
                                       IKnownImapProviderCatalog providerCatalog,
-                                      IWinoBillingService billingService,
-                                      IWinoAccountProfileService winoAccountProfileService,
-                                      IWinoAccountDataSyncService syncService,
+                                      ILocalBackupService syncService,
                                       IWinoLogger winoLogger,
                                       ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
                                       ICalDavClient calDavClient,
-                                      IMicrosoftStoreService storeService,
                                       IAuthenticationProvider authenticationProvider,
                                       IPreferencesService preferencesService,
-                                      IPlatformCapabilities platformCapabilities,
-                                      IWinoAppStorePurchaseService? appStorePurchases = null) : base(dialogService, navigationService, accountService, providerCatalog, billingService, winoAccountProfileService, authenticationProvider, preferencesService, platformCapabilities)
+                                      IPlatformCapabilities platformCapabilities) : base(dialogService, navigationService, accountService, providerCatalog, authenticationProvider, preferencesService, platformCapabilities)
     {
         MailDialogService = dialogService;
         _syncService = syncService;
         _winoLogger = winoLogger;
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
         _calDavClient = calDavClient;
-        _storeService = storeService;
-        _appStorePurchases = appStorePurchases;
     }
 
     [ObservableProperty]
@@ -95,76 +87,15 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
 
     [RelayCommand]
-    private async Task AddNewAccountAsync()
+    private void AddNewAccount()
     {
-        if (IsAccountCreationBlocked)
-        {
-            var isPurchaseClicked = await DialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_AccountLimitMessage, Translator.DialogMessage_AccountLimitTitle, Translator.Buttons_Purchase);
-
-            if (!isPurchaseClicked) return;
-
-            await PurchaseUnlimitedAccountAsync();
-
-            return;
-        }
-
         Messenger.Send(new BreadcrumbNavigationRequested(
             Translator.WelcomeWizard_Step2Title,
             WinoPage.ProviderSelectionPage,
             ProviderSelectionNavigationContext.CreateForSettingsAddAccount()));
     }
 
-    public Task StartAddNewAccountAsync() => AddNewAccountAsync();
-
-    [RelayCommand]
-    private async Task PurchaseUnlimitedAccountAsync()
-    {
-        if (!PlatformCapabilities.MicrosoftStore && !PlatformCapabilities.AppleAppStore)
-        {
-            await PurchaseUnlimitedAccountWithWinoAccountAsync();
-            return;
-        }
-
-        var channel = await SelectPurchaseChannelAsync();
-
-        if (channel == UnlimitedAccountsPurchaseChannel.AppleAppStore)
-        {
-            if (_appStorePurchases is not null &&
-                await AppStoreAddOnPurchase.PurchaseAsync(_appStorePurchases, WinoAddOnProductType.UNLIMITED_ACCOUNTS, DialogService, _winoLogger).ConfigureAwait(false))
-            {
-                await ManageStorePurchasesAsync().ConfigureAwait(false);
-            }
-
-            return;
-        }
-
-        if (channel == UnlimitedAccountsPurchaseChannel.WinoAccount)
-        {
-            await PurchaseUnlimitedAccountWithWinoAccountAsync();
-            return;
-        }
-
-        if (channel != UnlimitedAccountsPurchaseChannel.MicrosoftStore)
-            return;
-
-        if (await UnlimitedAccountsStorePurchase.PurchaseAsync(_storeService, DialogService, _winoLogger, PlatformCapabilities).ConfigureAwait(false))
-        {
-            await ManageStorePurchasesAsync().ConfigureAwait(false);
-        }
-    }
-
-    /// <summary>
-    /// App Store builds offer other channels only where Apple allows it (the United States storefront);
-    /// elsewhere the App Store is the only channel and no choice is shown.
-    /// </summary>
-    private async Task<UnlimitedAccountsPurchaseChannel?> SelectPurchaseChannelAsync()
-    {
-        if (PlatformCapabilities.AppleAppStore && _appStorePurchases?.IsAvailable == true &&
-            !await _appStorePurchases.IsExternalPurchaseAllowedAsync().ConfigureAwait(false))
-            return UnlimitedAccountsPurchaseChannel.AppleAppStore;
-
-        return await MailDialogService.ShowUnlimitedAccountsPurchaseChannelDialogAsync();
-    }
+    public void StartAddNewAccount() => AddNewAccount();
 
     private async Task ValidateSpecialImapConnectivityAsync(CustomServerInformation serverInformation)
     {
@@ -263,7 +194,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         {
             DialogService.InfoBarMessage(
                 Translator.GeneralTitle_Error,
-                WinoAccountApiErrorTranslator.Describe(ex),
+                ex.Message,
                 InfoBarMessageType.Error);
         }
         finally
@@ -316,7 +247,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         {
             DialogService.InfoBarMessage(
                 Translator.GeneralTitle_Error,
-                WinoAccountApiErrorTranslator.Describe(ex),
+                ex.Message,
                 InfoBarMessageType.Error);
         }
         finally
@@ -328,7 +259,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     private bool CanTransferLocalData() => !IsDataTransferInProgress;
 
     private Task<string?> PromptSyncSecretAsync(SyncSnapshotSecretRequest request)
-        => ExecuteUIThreadAsync(() => MailDialogService.ShowWinoAccountSyncSecretDialogAsync(request));
+        => ExecuteUIThreadAsync(() => MailDialogService.ShowBackupPasswordDialogAsync(request));
 
     public override void OnNavigatedFrom(NavigationMode mode, object parameters)
     {
@@ -420,8 +351,6 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
             }
         });
 
-
-        await ManageStorePurchasesAsync().ConfigureAwait(false);
     }
 
     private static string BuildExportSuccessMessage(Wino.Core.Domain.Models.Accounts.WinoAccountSyncExportResult result)

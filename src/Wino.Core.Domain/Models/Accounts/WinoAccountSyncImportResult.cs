@@ -30,7 +30,7 @@ public sealed class WinoAccountSyncImportResult
 
     /// <summary>
     /// Theme and layout carried by the snapshot. Applying it touches the window, so the caller
-    /// applies it on the UI thread through <see cref="Interfaces.IWinoAccountDataSyncService.ApplyAppearance"/>.
+    /// applies it on the UI thread through <see cref="Interfaces.ILocalBackupService.ApplyAppearance"/>.
     /// </summary>
     public SyncSnapshotAppearance? Appearance { get; init; }
 

@@ -20,7 +20,6 @@ using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Folders;
-using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
@@ -54,8 +53,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     IRecipient<MailOperationRequested>,
     IRecipient<UndoableMailActionPackChanged>,
     IRecipient<RefreshUnreadCountsMessage>,
-    IRecipient<IntelligenceMetadataChanged>,
-    IRecipient<IntelligenceVisibilityChanged>,
     IRecipient<LanguageChanged>,
     IRecipient<PreferenceChangedMessage>
 {
@@ -71,7 +68,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly HashSet<Guid> gmailUnreadFolderMarkedAsReadUniqueIds = [];
 
     public MailListStore MailCollection { get; } = new();
-    private readonly IWinoAccountIntelligenceSnapshotService? _entitlementService;
 
     [ObservableProperty]
     public partial MailListProjectionOptions MailListOptions { get; set; } = new();
@@ -222,14 +218,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         IsOnlineSearchEnabled = SearchCriteria.ExecutionMode == SearchMode.Online;
     }
 
-    public Task ApplyIntelligenceEntitlementAsync(bool canAccess)
-    {
-        foreach (var item in MailCollection.Items)
-            item.CanShowIntelligence = canAccess;
-
-        return Task.CompletedTask;
-    }
-
     [ObservableProperty]
     public partial FilterOption SelectedFilterOption { get; set; }
     private SortingOption _selectedSortingOption;
@@ -328,8 +316,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  IWinoLogger winoLogger,
                                  ISynchronizationManager synchronizationManager,
                                  IDraftSyncRetryService draftSyncRetryService,
-                                 IMailShellClient shellMenuProvider = null,
-                                 IWinoAccountIntelligenceSnapshotService entitlementService = null)
+                                 IMailShellClient shellMenuProvider = null)
     {
         ShellMenuProvider = shellMenuProvider;
 
@@ -344,7 +331,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         _winoRequestDelegator = winoRequestDelegator;
         _synchronizationManager = synchronizationManager;
         _draftSyncRetryService = draftSyncRetryService;
-        _entitlementService = entitlementService;
 
         PreferencesService = preferencesService;
         ThemeService = themeService;
@@ -371,10 +357,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     }
 
     private MailItemViewModel CreateMailItemViewModel(MailCopy mailCopy)
-        => new(mailCopy, CurrentAccountNicknamePosition)
-        {
-            CanShowIntelligence = _entitlementService?.CurrentEntitlement.CanAccessSurfaces == true
-        };
+        => new(mailCopy, CurrentAccountNicknamePosition);
 
     private void UpdateAccountNicknamePositionForItems()
         => MailCollection.UpdateAccountNicknamePosition(CurrentAccountNicknamePosition);
@@ -3354,68 +3337,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         _ = MailCollection.UpdateThumbnailsForAddressAsync(message.Email);
     }
 
-    public async void Receive(IntelligenceMetadataChanged message)
-    {
-        try
-        {
-            var visibleMails = ((IEnumerable<MailItemViewModel>)MailCollection.Items)
-                .Where(item => message.Scope == IntelligenceMetadataChangeScope.DatabaseReset ||
-                    item.MailCopy?.AssignedAccount?.Id == message.LocalAccountId)
-                .Where(item => message.Scope != IntelligenceMetadataChangeScope.Messages ||
-                    (RemoteMessageIdentity.TryCreate(item.MailCopy) is string remoteId && message.RemoteMessageIds.Contains(remoteId)))
-                .Select(static item => item.MailCopy)
-                .ToArray();
-
-            if (visibleMails.Length == 0)
-            {
-                return;
-            }
-
-            if (message.Scope == IntelligenceMetadataChangeScope.Messages)
-            {
-                await _mailService.HydrateIntelligenceMetadataAsync(visibleMails).ConfigureAwait(false);
-            }
-            else
-            {
-                foreach (var mail in visibleMails)
-                {
-                    mail.IntelligenceMetadata = null;
-                }
-            }
-
-            await MailCollection.UpdateMailCopiesAsync(
-                visibleMails,
-                EntityUpdateSource.Server,
-                MailCopyChangeFlags.IntelligenceMetadata).ConfigureAwait(false);
-        }
-        catch (Exception exception)
-        {
-            _logger.Error(exception, "Failed to refresh visible intelligence metadata.");
-        }
-    }
-
-    public async void Receive(IntelligenceVisibilityChanged message)
-    {
-        await ExecuteUIThread(() =>
-        {
-            foreach (var mailItem in ((IEnumerable<MailItemViewModel>)MailCollection.Items).Where(item =>
-                item.MailCopy?.AssignedAccount?.Id == message.LocalAccountId))
-            {
-                mailItem.ApplyIntelligenceVisibility(message.ExcludedIndicatorIds);
-            }
-        });
-    }
-
     public async void Receive(LanguageChanged message)
     {
         await ExecuteUIThread(() =>
         {
             OnPropertyChanged(nameof(OtherInboxUnreadNoticeText));
-
-            foreach (var mailItem in MailCollection.Items)
-            {
-                mailItem.RefreshIntelligenceTiles();
-            }
         });
     }
 
@@ -3433,8 +3359,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         Messenger.Register<MailOperationRequested>(this);
         Messenger.Register<UndoableMailActionPackChanged>(this);
         Messenger.Register<RefreshUnreadCountsMessage>(this);
-        Messenger.Register<IntelligenceMetadataChanged>(this);
-        Messenger.Register<IntelligenceVisibilityChanged>(this);
         Messenger.Register<LanguageChanged>(this);
         Messenger.Register<PreferenceChangedMessage>(this);
     }
@@ -3453,8 +3377,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         Messenger.Unregister<MailOperationRequested>(this);
         Messenger.Unregister<UndoableMailActionPackChanged>(this);
         Messenger.Unregister<RefreshUnreadCountsMessage>(this);
-        Messenger.Unregister<IntelligenceMetadataChanged>(this);
-        Messenger.Unregister<IntelligenceVisibilityChanged>(this);
         Messenger.Unregister<LanguageChanged>(this);
         Messenger.Unregister<PreferenceChangedMessage>(this);
     }

@@ -93,35 +93,6 @@ public static class XamlHelpers
         _ => "SystemFillColorAttentionBrush"
     });
 
-    // Daily briefing tiles: one Fluent system fill pair per semantic tone, so categories stay
-    // colorful without hand-picked colors that break in high contrast.
-    public static Brush GetBriefingToneBackground(DailyBriefingTone tone) => GetThemeBrush(tone switch
-    {
-        DailyBriefingTone.Critical => "SystemFillColorCriticalBackgroundBrush",
-        DailyBriefingTone.Caution => "SystemFillColorCautionBackgroundBrush",
-        DailyBriefingTone.Success => "SystemFillColorSuccessBackgroundBrush",
-        DailyBriefingTone.Attention => "SystemFillColorAttentionBackgroundBrush",
-        _ => "SubtleFillColorSecondaryBrush"
-    }, "SubtleFillColorSecondaryBrush");
-
-    public static Brush GetBriefingToneForeground(DailyBriefingTone tone) => GetThemeBrush(tone switch
-    {
-        DailyBriefingTone.Critical => "SystemFillColorCriticalBrush",
-        DailyBriefingTone.Caution => "SystemFillColorCautionBrush",
-        DailyBriefingTone.Success => "SystemFillColorSuccessBrush",
-        DailyBriefingTone.Attention => "SystemFillColorAttentionBrush",
-        _ => "TextFillColorSecondaryBrush"
-    }, "TextFillColorSecondaryBrush");
-
-    public static Visibility GetBriefingNeutralToneVisibility(DailyBriefingTone tone)
-        => tone == DailyBriefingTone.Neutral ? Visibility.Visible : Visibility.Collapsed;
-
-    public static Visibility GetBriefingNonNeutralToneVisibility(DailyBriefingTone tone)
-        => tone == DailyBriefingTone.Neutral ? Visibility.Collapsed : Visibility.Visible;
-
-    public static Brush GetBriefingPriorityBorderBrush(bool isPriority)
-        => GetThemeBrush(isPriority ? "SystemFillColorCriticalBackgroundBrush" : "CardStrokeColorDefaultBrush", "CardStrokeColorDefaultBrush");
-
     public static Brush GetSelectionBorderBrush(bool isSelected)
         => GetThemeBrush(isSelected ? "AccentFillColorDefaultBrush" : "CardStrokeColorDefaultBrush");
 
@@ -581,9 +552,6 @@ public static class XamlHelpers
         Translator.HoverActionOption_MoveJunk);
 
     public static Visibility StringToVisibilityConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Collapsed : Visibility.Visible;
-    public static System.Collections.ObjectModel.ObservableCollection<Wino.Core.ViewModels.Data.WinoIntelligenceMailboxItemViewModel>? ItemsWhen(
-        bool condition, System.Collections.ObjectModel.ObservableCollection<Wino.Core.ViewModels.Data.WinoIntelligenceMailboxItemViewModel> items)
-        => condition ? items : null;
     public static Visibility StringToVisibilityReversedConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Visible : Visibility.Collapsed;
     public static bool IsAccountNicknameVisible(string accountNickname, AccountNicknamePosition position, AccountNicknamePosition targetPosition)
         => !string.IsNullOrWhiteSpace(accountNickname) && position == targetPosition;

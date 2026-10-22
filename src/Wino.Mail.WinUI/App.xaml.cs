@@ -774,9 +774,7 @@ public partial class App : WinoApplication,
 
         services.AddTransient(typeof(ImapCalDavSettingsPageViewModel));
         services.AddTransient(typeof(AccountDetailsPageViewModel));
-        services.AddTransient(typeof(WinoIntelligenceManagementPageViewModel));
-        services.AddTransient(typeof(IntelligenceCoveragePageViewModel));
-        services.AddTransient(typeof(DailyBriefingPanelViewModel));
+
         services.AddTransient(typeof(FolderCustomizationPageViewModel));
         services.AddTransient(typeof(SignatureManagementPageViewModel));
         services.AddTransient(typeof(MessageListPageViewModel));
@@ -791,7 +789,7 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(MailPreferencesPageViewModel));
         services.AddTransient(typeof(BackupRestorePageViewModel));
         services.AddTransient(typeof(StoragePageViewModel));
-        services.AddTransient(typeof(WinoAccountManagementPageViewModel));
+
         services.AddTransient(typeof(AliasManagementPageViewModel));
         services.AddTransient(typeof(MailCategoryManagementPageViewModel));
         services.AddTransient(typeof(MailFiltersPageViewModel));
@@ -1365,8 +1363,6 @@ public partial class App : WinoApplication,
             LogActivation($"Creating shell window for {mode} activation.");
             wasCreated = true;
 
-            var initialWinoAccount = _hasConfiguredAccounts ? ReadInitialWinoAccountAsync() : null;
-
             CreateWindow(
                 null,
                 AppEntryConstants.GetModeLaunchArgument(mode),
@@ -1377,11 +1373,6 @@ public partial class App : WinoApplication,
                 });
 
             await NewThemeService.InitializeAsync();
-
-            if (initialWinoAccount != null)
-            {
-                PublishInitialWinoAccount(await initialWinoAccount);
-            }
 
             shellWindow = windowManager.GetWindow(WinoWindowKind.Shell) as IWinoShellWindow ?? MainWindow as IWinoShellWindow;
         }
@@ -1424,20 +1415,6 @@ public partial class App : WinoApplication,
         return new ShellWindowActivationResult(shellWindow, wasCreated);
     }
 
-    private async Task HandleStoreUpdateToastAsync()
-    {
-        if (!IsAppRunning())
-            await CreateAndActivateWindow(null!);
-        else
-            await ExecuteOnActivationUiThreadAsync(() =>
-            {
-                EnsureMainWindowVisibleAndForeground();
-                return Task.CompletedTask;
-            });
-
-        var storeService = Services.GetRequiredService<IMicrosoftStoreService>();
-        await storeService.StartUpdateAsync();
-    }
 
     private async Task HandleCalendarToastNavigationAsync(Guid calendarItemId)
     {
@@ -1532,16 +1509,9 @@ public partial class App : WinoApplication,
             return;
         }
 
-        var initialWinoAccount = hasAnyAccount ? ReadInitialWinoAccountAsync() : null;
-
         CreateWindow(args);
 
         await NewThemeService.InitializeAsync();
-
-        if (initialWinoAccount != null)
-        {
-            PublishInitialWinoAccount(await initialWinoAccount);
-        }
 
         LogActivation("Theme service initialized.");
 
@@ -2106,8 +2076,6 @@ public partial class App : WinoApplication,
                     SuppressStartupFlows = true
                 });
 
-            await LoadInitialWinoAccountAsync();
-
             // Preserve an active XAML window throughout the welcome-to-shell handoff.
             if (MainWindow != null)
             {
@@ -2120,7 +2088,7 @@ public partial class App : WinoApplication,
             {
                 try
                 {
-                    Services.GetRequiredService<IWinoAccountDataSyncService>().ApplyAppearance(message.Appearance);
+                    Services.GetRequiredService<ILocalBackupService>().ApplyAppearance(message.Appearance);
                 }
                 catch (Exception ex)
                 {
@@ -2244,24 +2212,6 @@ public partial class App : WinoApplication,
         }
     }
 
-    private async Task LoadInitialWinoAccountAsync()
-        => PublishInitialWinoAccount(await ReadInitialWinoAccountAsync());
-
-    /// <summary>
-    /// Start this before the shell window is constructed. The read runs off the UI thread while
-    /// the window builds, and the result is published before activation so the title bar's
-    /// first frame already shows the signed-in account.
-    /// </summary>
-    private Task<Wino.Core.Domain.Entities.Shared.WinoAccount?> ReadInitialWinoAccountAsync()
-        => Services.GetRequiredService<IWinoAccountProfileService>().GetActiveAccountAsync();
-
-    private static void PublishInitialWinoAccount(Wino.Core.Domain.Entities.Shared.WinoAccount? winoAccount)
-    {
-        if (winoAccount != null)
-        {
-            WeakReferenceMessenger.Default.Send(new WinoAccountProfileUpdatedMessage(winoAccount));
-        }
-    }
 
     /// <summary>
     /// Handles activation redirected from another instance (single-instancing).
@@ -2497,8 +2447,7 @@ public partial class App : WinoApplication,
             }
 
             if (string.Equals(scheme, "mailto", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(scheme, "google.pw.oauth2", StringComparison.OrdinalIgnoreCase) ||
-                WinoAccountExternalAuth.IsCallback(protocolArgs.Uri))
+                string.Equals(scheme, "google.pw.oauth2", StringComparison.OrdinalIgnoreCase))
             {
                 mode = WinoApplicationMode.Mail;
                 return true;

@@ -17,8 +17,6 @@ public sealed partial class MainPage : Page
         new("mailListInteractions", typeof(MailListInteractionsPage)),
         new("editor", typeof(EditorPage)),
         new("searchBar", typeof(SearchBarPage)),
-        new("intelligenceHeader", typeof(IntelligenceHeaderPage)),
-        new("intelligenceProgress", typeof(IntelligenceProgressPage)),
         new("synchronizationButton", typeof(SynchronizationButtonPage)),
         new("hoverActions", typeof(HoverActionsPage)),
         new("contextFlyout", typeof(ContextFlyoutPage)),

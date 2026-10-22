@@ -1,7 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Wino.Mail.Controls.Core;
-using Wino.Mail.Controls.Core.IntelligenceTileBar;
 using Wino.Mail.Controls.Playground.Models;
 using Wino.Mail.Controls.AccountIcon;
 
@@ -78,36 +77,6 @@ public sealed class MailListPageViewModel : INotifyPropertyChanged
         SeedItems();
     }
 
-    public void ApplyMetadata()
-    {
-        if (((IEnumerable<MailListPlaygroundItem>)Items).FirstOrDefault() is { } item)
-        {
-            item.IntelligenceTiles = new WinoIntelligenceTile[]
-            {
-                new(WinoIntelligenceTileKind.Priority, WinoIconCodes.Warning, "Urgent", "Urgent priority", isWarning: true),
-                new(WinoIntelligenceTileKind.SmartLabel, WinoIconCodes.Tag, "Finance", "Finance"),
-            };
-        }
-    }
-
-    public void ReplaceMetadata()
-    {
-        if (((IEnumerable<MailListPlaygroundItem>)Items).FirstOrDefault() is { } item)
-        {
-            item.IntelligenceTiles = new WinoIntelligenceTile[]
-            {
-                new(WinoIntelligenceTileKind.SmartLabel, WinoIconCodes.Tag, "Receipt", "Receipt"),
-                new(WinoIntelligenceTileKind.SmartLabel, WinoIconCodes.Tag, "Travel", "Travel"),
-            };
-        }
-    }
-
-    public void ClearMetadata()
-    {
-        if (((IEnumerable<MailListPlaygroundItem>)Items).FirstOrDefault() is { } item)
-            item.IntelligenceTiles = Array.Empty<WinoIntelligenceTile>();
-    }
-
     private void SeedItems()
     {
         var now = DateTime.Now;
@@ -120,12 +89,6 @@ public sealed class MailListPageViewModel : INotifyPropertyChanged
             new("DesignReview", now.Date.AddDays(-1).AddHours(16), "Jamie Park", "Design review follow-up", "Two-message thread grouped under yesterday.", "jamie@example.com"),
             new("DesignReview", now.Date.AddDays(-1).AddHours(11), "Alex Kim", "Design review agenda", "The original agenda for yesterday's review.", "alex@example.com"),
         };
-        items[1].IntelligenceTiles = new WinoIntelligenceTile[]
-        {
-            new(WinoIntelligenceTileKind.Priority, WinoIconCodes.Warning, "High priority", "High priority", isWarning: true),
-            new(WinoIntelligenceTileKind.SmartLabel, WinoIconCodes.Tag, "Action", "Action"),
-        };
-
         var senders = new[] { "Avery Stone", "Jordan Blake", "Casey Morgan", "Robin Shah", "Drew Ellis", "Quinn Parker" };
         var subjects = new[] { "Weekly status update", "Invoice clarification", "Launch checklist", "Customer feedback", "Planning notes", "Follow-up required" };
         for (var index = 0; index < 120; index++)

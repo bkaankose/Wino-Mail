@@ -22,50 +22,17 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     public ObservableCollection<IAccountProviderDetailViewModel> Accounts { get; set; } = [];
     public ObservableCollection<IAccountProviderDetailViewModel> StartupAccounts { get; } = [];
 
-    public bool IsPurchasePanelVisible => !HasUnlimitedAccountProduct;
     public int UsedAccountCount => Accounts?.Sum(account => account.HoldingAccountCount) ?? 0;
-    public bool IsAccountCreationAlmostOnLimit => UsedAccountCount == FREE_ACCOUNT_COUNT - 1;
     public bool HasAccountsDefined => Accounts != null && Accounts.Any();
     public bool CanReorderAccounts => Accounts?.Sum(a => a.HoldingAccountCount) > 1;
-
-    public string UsedAccountsString => string.Format(Translator.WinoUpgradeRemainingAccountsMessage, UsedAccountCount, FREE_ACCOUNT_COUNT);
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsPurchasePanelVisible))]
-    public partial bool HasUnlimitedAccountProduct { get; set; }
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsAccountCreationAlmostOnLimit))]
-    [NotifyPropertyChangedFor(nameof(IsPurchasePanelVisible))]
-    public partial bool IsAccountCreationBlocked { get; set; }
 
     [ObservableProperty]
     public partial IAccountProviderDetailViewModel StartupAccount { get; set; }
 
-    /// <summary>
-    /// Stripe checkout needs a signed-in Wino Account. The Microsoft Store and App Store channels work either way.
-    /// </summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PurchaseChannelsDescription))]
-    public partial bool IsWinoAccountSignedIn { get; set; }
-
-    public string PurchaseChannelsDescription => PlatformCapabilities.AppleAppStore
-        ? Translator.UnlimitedAccountsPurchaseChannels_AppStore
-        : PlatformCapabilities.MicrosoftStore
-        ? IsWinoAccountSignedIn
-            ? Translator.UnlimitedAccountsPurchaseChannels_SignedIn
-            : Translator.UnlimitedAccountsPurchaseChannels_SignedOut
-        : IsWinoAccountSignedIn
-            ? Translator.UnlimitedAccountsPurchaseDialog_WinoAccountDescription
-            : Translator.UnlimitedAccountsPurchaseDialog_WinoAccountSignInRequired;
-
-    public int FREE_ACCOUNT_COUNT { get; } = Constants.FreeAccountLimit;
     protected IDialogServiceBase DialogService { get; }
     protected INavigationService NavigationService { get; }
     protected IAccountService AccountService { get; }
     protected IKnownImapProviderCatalog ProviderCatalog { get; }
-    protected IWinoBillingService BillingService { get; }
-    protected IWinoAccountProfileService WinoAccountProfileService { get; }
     protected IAuthenticationProvider AuthenticationProvider { get; }
     protected IPreferencesService PreferencesService { get; }
     protected IPlatformCapabilities PlatformCapabilities { get; }
@@ -74,8 +41,6 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
                                               INavigationService navigationService,
                                               IAccountService accountService,
                                               IKnownImapProviderCatalog providerCatalog,
-                                              IWinoBillingService billingService,
-                                              IWinoAccountProfileService winoAccountProfileService,
                                               IAuthenticationProvider authenticationProvider,
                                               IPreferencesService preferencesService,
                                               IPlatformCapabilities platformCapabilities)
@@ -84,8 +49,6 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
         NavigationService = navigationService;
         AccountService = accountService;
         ProviderCatalog = providerCatalog;
-        BillingService = billingService;
-        WinoAccountProfileService = winoAccountProfileService;
         AuthenticationProvider = authenticationProvider;
         PreferencesService = preferencesService;
         PlatformCapabilities = platformCapabilities;
@@ -111,60 +74,6 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
         Messenger.Send(new BreadcrumbNavigationRequested(GetAccountDetailsTitle(accountDetails.Account),
                                                          WinoPage.AccountDetailsPage,
                                                          navigationContext));
-    }
-
-    protected async Task PurchaseUnlimitedAccountWithWinoAccountAsync()
-    {
-        WinoAccount account;
-        try
-        {
-            account = await WinoAccountProfileService.GetAuthenticatedAccountAsync().ConfigureAwait(false);
-        }
-        catch (WinoAccountApiException ex)
-        {
-            DialogService.InfoBarMessage(
-                Translator.GeneralTitle_Error,
-                WinoAccountApiErrorTranslator.Translate(ex.ErrorCode),
-                InfoBarMessageType.Error);
-            return;
-        }
-
-        if (account == null)
-        {
-            DialogService.InfoBarMessage(
-                Translator.GeneralTitle_Warning,
-                Translator.WinoAccount_Management_CheckoutSignInRequired,
-                InfoBarMessageType.Warning);
-            await ExecuteUIThread(() => NavigationService.Navigate(WinoPage.WinoAccountManagementPage));
-            return;
-        }
-
-        if (!await BillingService.OpenCheckoutAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS).ConfigureAwait(false))
-        {
-            DialogService.InfoBarMessage(
-                Translator.GeneralTitle_Error,
-                Translator.WinoAccount_Management_PurchaseStartFailed,
-                InfoBarMessageType.Error);
-            return;
-        }
-
-        DialogService.InfoBarMessage(
-            Translator.GeneralTitle_Info,
-            Translator.WinoAccount_Management_CheckoutOpened,
-            InfoBarMessageType.Information);
-    }
-
-    public async Task ManageStorePurchasesAsync()
-    {
-        var hasUnlimitedAccountProduct = await BillingService.HasUnlimitedAccountsAsync().ConfigureAwait(false);
-        var isWinoAccountSignedIn = await WinoAccountProfileService.HasActiveAccountAsync().ConfigureAwait(false);
-
-        await ExecuteUIThread(() =>
-        {
-            HasUnlimitedAccountProduct = hasUnlimitedAccountProduct;
-            IsWinoAccountSignedIn = isWinoAccountSignedIn;
-            IsAccountCreationBlocked = !hasUnlimitedAccountProduct && UsedAccountCount >= FREE_ACCOUNT_COUNT;
-        });
     }
 
     public AccountProviderDetailViewModel GetAccountProviderDetails(MailAccount account)
@@ -195,8 +104,6 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     {
         OnPropertyChanged(nameof(HasAccountsDefined));
         OnPropertyChanged(nameof(UsedAccountCount));
-        OnPropertyChanged(nameof(UsedAccountsString));
-        OnPropertyChanged(nameof(IsAccountCreationAlmostOnLimit));
         RefreshStartupAccounts();
         RestoreStartupAccountSelection();
     }

@@ -121,12 +121,6 @@ internal sealed class AppNotificationHandler
                                           IDictionary<string, string>? userInput,
                                           out NotificationActivationRoute route)
     {
-        if (toastArguments.TryGetValue(Constants.ToastStoreUpdateActionKey, out string storeUpdateAction) &&
-            storeUpdateAction == Constants.ToastStoreUpdateActionInstall)
-        {
-            route = new NotificationActivationRoute(NotificationActivationPath.StoreUpdate, true, _host.HandleStoreUpdateToastAsync);
-            return true;
-        }
 
         if (toastArguments.TryGetValue(Constants.ToastDismissActionKey, out string _))
         {

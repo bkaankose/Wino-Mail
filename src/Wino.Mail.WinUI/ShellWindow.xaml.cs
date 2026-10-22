@@ -16,7 +16,6 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Extensions;
@@ -42,12 +41,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     IRecipient<ApplicationThemeChanged>,
     IRecipient<InfoBarMessageRequested>,
     IRecipient<TitleBarShellContentUpdated>,
-    IRecipient<WinoAccountProfileUpdatedMessage>,
-    IRecipient<WinoAccountProfileDeletedMessage>,
-    IRecipient<DailyBriefingStateChanged>,
-    IRecipient<IntelligenceMetadataChanged>,
-    IRecipient<WinoIntelligenceAccessChanged>,
-    IRecipient<WinoIntelligenceEntitlementChanged>,
     IRecipient<WhatsNewOpened>,
     IRecipient<WhatsNewOpenRequested>,
     IRecipient<AccountSynchronizationProgressUpdatedMessage>
@@ -57,9 +50,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     public IPreferencesService PreferencesService { get; } = WinoApplication.Current.Services.GetService<IPreferencesService>() ?? throw new Exception("PreferencesService not registered in DI container.");
     public INavigationService NavigationService { get; } = WinoApplication.Current.Services.GetService<INavigationService>() ?? throw new Exception("NavigationService not registered in DI container.");
     private IMailDialogService MailDialogService { get; } = WinoApplication.Current.Services.GetRequiredService<IMailDialogService>();
-    private IWinoAccountProfileService WinoAccountProfileService { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoAccountProfileService>();
-    private IWinoAccountIntelligenceSnapshotService EntitlementService { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoAccountIntelligenceSnapshotService>();
-    private ILocalIntelligenceService LocalIntelligenceService { get; } = WinoApplication.Current.Services.GetRequiredService<ILocalIntelligenceService>();
     private IWhatsNewService WhatsNewService { get; } = WinoApplication.Current.Services.GetRequiredService<IWhatsNewService>();
     private IWinoWindowManager WindowManager { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoWindowManager>();
 
@@ -70,7 +60,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     private const double ShellTitleSynchronizationButtonInset = 40;
     private bool _isBackButtonVisibilityReady;
     private bool _isSynchronizingTitleBarSearch;
-    private bool _hasDailyBriefingAccess;
     private ISearchHistoryService SearchHistoryService { get; } = WinoApplication.Current.Services.GetRequiredService<ISearchHistoryService>();
     private bool _isPreparedForClose;
     private bool _isCloseRequestInProgress;
@@ -88,19 +77,14 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         _pointerPressedHandler = OnPointerPressed;
         RegisterRecipients();
         StatePersistanceService.StatePropertyChanged += StatePersistenceServiceChanged;
-        PreferencesService.PreferenceChanged += PreferencesServiceChanged;
-        DailyBriefingPanelControl.IsOpenChanged += DailyBriefingPanelIsOpenChanged;
 
         MinWidth = 420;
         MinHeight = 420;
         ConfigureTitleBar();
         UpdateShellTitles();
-        UpdateWinoAccountButtonVisibility();
         ApplyTitleBarSearchHost();
         ApplyShellSynchronizationProvider();
-        _ = RefreshDailyBriefingStateAsync();
         _ = RefreshWhatsNewButtonAsync();
-        _ = EntitlementService.RefreshEntitlementAsync();
 
         // Handle window closing event for terminate vs background/tray behavior.
         Closed += OnWindowClosed;
@@ -296,44 +280,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         DispatcherQueue.TryEnqueue(() => ShowInfoBarMessage(message));
     }
 
-    public void Receive(WinoAccountProfileUpdatedMessage message)
-    {
-        DispatcherQueue.TryEnqueue(() => UpdateWinoAccountState(message.Account));
-        _ = RefreshDailyBriefingStateAsync();
-    }
-
-    public void Receive(WinoAccountProfileDeletedMessage message)
-    {
-        DispatcherQueue.TryEnqueue(() => UpdateWinoAccountState(null));
-        _ = RefreshDailyBriefingStateAsync();
-    }
-
-    public async void Receive(DailyBriefingStateChanged message) => await RefreshDailyBriefingStateAsync();
-
-    /// <summary>Freshly imported artifacts can make the briefing unseen again, so the badge is re-evaluated.</summary>
-    public async void Receive(IntelligenceMetadataChanged message) => await RefreshDailyBriefingStateAsync();
-
-    public async void Receive(WinoIntelligenceAccessChanged message) => await RefreshDailyBriefingStateAsync();
-
-    public void Receive(WinoIntelligenceEntitlementChanged message)
-    {
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            _hasDailyBriefingAccess = message.Entitlement.CanAccessSurfaces;
-            if (!_hasDailyBriefingAccess)
-            {
-                DailyBriefingPanelControl.Close();
-                DailyBriefingUnseenBadge.Visibility = Visibility.Collapsed;
-            }
-
-            RefreshDailyBriefingButtonVisibility();
-            SynchronizeTitleBarSearchBox();
-        });
-
-        if (message.Entitlement.CanAccessSurfaces)
-            _ = RefreshDailyBriefingStateAsync();
-    }
-
     public void Receive(WhatsNewOpened message)
         => DispatcherQueue.TryEnqueue(() => WhatsNewButton.Visibility = Visibility.Collapsed);
 
@@ -363,54 +309,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
         WhatsNewService.MarkOpenedForCurrentVersion();
         WeakReferenceMessenger.Default.Send(new WhatsNewOpened());
-    }
-
-    private async void DailyBriefingToggleButtonClicked(object sender, RoutedEventArgs e)
-    {
-        await DailyBriefingPanelControl.ToggleAsync();
-        DailyBriefingToggleButton.IsChecked = DailyBriefingPanelControl.IsOpen;
-    }
-
-    private void DailyBriefingPanelIsOpenChanged(object? sender, bool isOpen)
-        => DailyBriefingToggleButton.IsChecked = isOpen;
-
-    private async Task RefreshDailyBriefingStateAsync()
-    {
-        try
-        {
-            var entitlement = await EntitlementService.GetEntitlementAsync().ConfigureAwait(false);
-            var hasAccess = entitlement.CanAccessSurfaces;
-            var eligible = hasAccess
-                ? await LocalIntelligenceService.GetEligibleAccountsAsync().ConfigureAwait(false)
-                : [];
-            var unseen = eligible.Count > 0
-                ? await LocalIntelligenceService.GetUnseenStateAsync().ConfigureAwait(false)
-                : new DailyBriefingUnseenState(false, null);
-            DispatcherQueue.TryEnqueue(() =>
-            {
-                _hasDailyBriefingAccess = hasAccess;
-                DailyBriefingUnseenBadge.Visibility = unseen.HasUnseenContent ? Visibility.Visible : Visibility.Collapsed;
-                RefreshDailyBriefingButtonVisibility();
-            });
-        }
-        catch (Exception exception)
-        {
-            Serilog.Log.Error(exception, "Failed to refresh the Daily Briefing title-bar state.");
-            DispatcherQueue.TryEnqueue(() =>
-            {
-                _hasDailyBriefingAccess = false;
-                DailyBriefingUnseenBadge.Visibility = Visibility.Collapsed;
-                RefreshDailyBriefingButtonVisibility();
-            });
-        }
-    }
-
-    private void RefreshDailyBriefingButtonVisibility()
-    {
-        var isMailMode = StatePersistanceService.ApplicationMode == WinoApplicationMode.Mail;
-        DailyBriefingToggleButton.Visibility = isMailMode && _hasDailyBriefingAccess
-            ? Visibility.Visible
-            : Visibility.Collapsed;
     }
 
     private void UpdateTitleBarColors(bool isDarkTheme)
@@ -470,13 +368,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
             UpdateShellTitles();
         }
 
-        // The briefing panel belongs to the mail surface it was opened over. A mode switch replaces
-        // that surface, so the panel goes with it instead of hanging over the new one.
         if (propertyName == nameof(IStatePersistanceService.ApplicationMode))
         {
-            DailyBriefingPanelControl.Close();
-            RefreshDailyBriefingButtonVisibility();
-
             var applicationMode = StatePersistanceService.ApplicationMode;
 
             // Settings belongs to whichever app entry opened it. The three primary modes,
@@ -643,20 +536,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         }
     }
 
-    private void PreferencesServiceChanged(object? sender, string propertyName)
-    {
-        if (propertyName != nameof(IPreferencesService.IsWinoAccountButtonHidden))
-            return;
-
-        if (DispatcherQueue.HasThreadAccess)
-        {
-            UpdateWinoAccountButtonVisibility();
-            return;
-        }
-
-        DispatcherQueue.TryEnqueue(UpdateWinoAccountButtonVisibility);
-    }
-
     private void UpdateShellTitles()
     {
         // The TitleBar's own Title/Subtitle stay unset. Rendering them ourselves is what
@@ -668,11 +547,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
             : $"{StatePersistanceService.AppModeTitle} - {StatePersistanceService.CoreWindowTitle}";
     }
 
-    private void UpdateWinoAccountButtonVisibility()
-        => WinoAccountButton.Visibility = PreferencesService.IsWinoAccountButtonHidden
-            ? Visibility.Collapsed
-            : Visibility.Visible;
-
     public void PrepareForClose()
     {
         if (_isPreparedForClose)
@@ -683,8 +557,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
         AppWindow.Closing -= OnAppWindowClosing;
         StatePersistanceService.StatePropertyChanged -= StatePersistenceServiceChanged;
-        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
-        DailyBriefingPanelControl.IsOpenChanged -= DailyBriefingPanelIsOpenChanged;
         UnregisterRecipients();
 
         if (Content is UIElement rootElement)
@@ -937,12 +809,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Register<TitleBarShellContentUpdated>(this);
         WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
         WeakReferenceMessenger.Default.Register<InfoBarMessageRequested>(this);
-        WeakReferenceMessenger.Default.Register<WinoAccountProfileUpdatedMessage>(this);
-        WeakReferenceMessenger.Default.Register<WinoAccountProfileDeletedMessage>(this);
-        WeakReferenceMessenger.Default.Register<DailyBriefingStateChanged>(this);
-        WeakReferenceMessenger.Default.Register<IntelligenceMetadataChanged>(this);
-        WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this);
-        WeakReferenceMessenger.Default.Register<WinoIntelligenceEntitlementChanged>(this);
         WeakReferenceMessenger.Default.Register<WhatsNewOpened>(this);
         WeakReferenceMessenger.Default.Register<WhatsNewOpenRequested>(this);
         WeakReferenceMessenger.Default.Register<AccountSynchronizationProgressUpdatedMessage>(this);
@@ -953,12 +819,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Unregister<TitleBarShellContentUpdated>(this);
         WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
         WeakReferenceMessenger.Default.Unregister<InfoBarMessageRequested>(this);
-        WeakReferenceMessenger.Default.Unregister<WinoAccountProfileUpdatedMessage>(this);
-        WeakReferenceMessenger.Default.Unregister<WinoAccountProfileDeletedMessage>(this);
-        WeakReferenceMessenger.Default.Unregister<DailyBriefingStateChanged>(this);
-        WeakReferenceMessenger.Default.Unregister<IntelligenceMetadataChanged>(this);
-        WeakReferenceMessenger.Default.Unregister<WinoIntelligenceAccessChanged>(this);
-        WeakReferenceMessenger.Default.Unregister<WinoIntelligenceEntitlementChanged>(this);
         WeakReferenceMessenger.Default.Unregister<WhatsNewOpened>(this);
         WeakReferenceMessenger.Default.Unregister<WhatsNewOpenRequested>(this);
         WeakReferenceMessenger.Default.Unregister<AccountSynchronizationProgressUpdatedMessage>(this);
@@ -1001,135 +861,4 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
             ShellInfoBar.IsOpen = true;
         });
     }
-
-    private int _accountPresentationVersion;
-
-    private void UpdateWinoAccountState(WinoAccount? account)
-    {
-        var isSignedIn = account != null;
-
-        WinoAccountSignedOutView.Visibility = isSignedIn ? Visibility.Collapsed : Visibility.Visible;
-        WinoAccountSignedInView.Visibility = isSignedIn ? Visibility.Visible : Visibility.Collapsed;
-
-        WinoAccountButtonPicture.Visibility = isSignedIn ? Visibility.Visible : Visibility.Collapsed;
-        WinoAccountSignedOutIcon.Visibility = isSignedIn ? Visibility.Collapsed : Visibility.Visible;
-
-        var displayName = string.IsNullOrWhiteSpace(account?.DisplayName) ? account?.Email : account.DisplayName;
-        var initials = GetInitials(displayName);
-
-        WinoAccountButtonPicture.Initials = initials;
-        WinoAccountFlyoutPicture.Initials = initials;
-        WinoAccountButtonPicture.DisplayName = displayName ?? Translator.WinoAccount_Titlebar_SignedOutTitle;
-        WinoAccountFlyoutPicture.DisplayName = displayName ?? Translator.WinoAccount_Titlebar_SignedOutTitle;
-
-        WinoAccountFlyoutNameText.Text = displayName ?? string.Empty;
-        WinoAccountFlyoutEmailText.Text = account?.Email ?? string.Empty;
-        WinoAccountButtonPicture.ProfilePicture = null;
-        WinoAccountFlyoutPicture.ProfilePicture = null;
-        var version = ++_accountPresentationVersion;
-        if (account is not null) _ = LoadWinoAccountAvatarAsync(account, version);
-    }
-
-    private async Task LoadWinoAccountAvatarAsync(WinoAccount account, int version)
-    {
-        var path = await WinoAccountProfileService.GetAvatarPathAsync(account.Id, account.AvatarRevision);
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            if (version != _accountPresentationVersion) return;
-            var image = Wino.Helpers.XamlHelpers.AccountAvatarToBitmapImage(path);
-            WinoAccountButtonPicture.ProfilePicture = image;
-            WinoAccountFlyoutPicture.ProfilePicture = image;
-        });
-    }
-
-    private async void WinoAccountFlyoutOpened(object sender, object args)
-    {
-        try
-        {
-            await WinoAccountProfileService.RefreshProfileAsync();
-            var account = await WinoAccountProfileService.GetActiveAccountAsync();
-            UpdateWinoAccountState(account);
-        }
-        catch (Exception exception)
-        {
-            WinoApplication.Current.Services.GetRequiredService<IWinoLogger>().CaptureException(exception, nameof(WinoAccountFlyoutOpened));
-        }
-    }
-
-    private static string GetInitials(string? email)
-    {
-        if (string.IsNullOrWhiteSpace(email))
-        {
-            return "W";
-        }
-
-        var localPart = email.Split('@')[0];
-        var segments = localPart
-            .Split(['.', '_', '-', ' '], StringSplitOptions.RemoveEmptyEntries)
-            .Where(segment => !string.IsNullOrWhiteSpace(segment))
-            .Take(2)
-            .ToArray();
-
-        if (segments.Length == 0)
-        {
-            return email[..1].ToUpperInvariant();
-        }
-
-        return string.Concat(segments.Select(segment => char.ToUpperInvariant(segment[0])));
-    }
-
-    private async void RegisterWinoAccountClicked(object sender, RoutedEventArgs e)
-    {
-        WinoAccountFlyout.Hide();
-        var account = await MailDialogService.ShowWinoAccountRegistrationDialogAsync();
-        if (account != null)
-        {
-            ShowInfoBarMessage(new InfoBarMessageRequested(
-                InfoBarMessageType.Success,
-                Translator.GeneralTitle_Info,
-                string.Format(Translator.WinoAccount_RegisterSuccessMessage, account.Email)));
-        }
-    }
-
-    private async void LoginWinoAccountClicked(object sender, RoutedEventArgs e)
-    {
-        WinoAccountFlyout.Hide();
-        var account = await MailDialogService.ShowWinoAccountLoginDialogAsync();
-        if (account != null)
-        {
-            ShowInfoBarMessage(new InfoBarMessageRequested(
-                InfoBarMessageType.Success,
-                Translator.GeneralTitle_Info,
-                string.Format(Translator.WinoAccount_LoginSuccessMessage, account.Email)));
-        }
-    }
-
-    private void ManageWinoAccountClicked(object sender, RoutedEventArgs e)
-    {
-        WinoAccountFlyout.Hide();
-
-        // Navigate switches the shell into Settings mode when the target is a settings-only page.
-        NavigationService.Navigate(WinoPage.WinoAccountManagementPage);
-    }
-
-    private async void SignOutWinoAccountClicked(object sender, RoutedEventArgs e)
-    {
-        var activeAccount = await WinoAccountProfileService.GetActiveAccountAsync();
-        if (activeAccount == null)
-        {
-            ShowInfoBarMessage(new InfoBarMessageRequested(
-                InfoBarMessageType.Warning,
-                Translator.GeneralTitle_Info,
-                Translator.WinoAccount_SignOut_NoAccountMessage));
-            return;
-        }
-
-        await WinoAccountProfileService.SignOutAsync();
-
-        ShowInfoBarMessage(new InfoBarMessageRequested(
-            InfoBarMessageType.Success,
-            Translator.GeneralTitle_Info,
-            string.Format(Translator.WinoAccount_SignOut_SuccessMessage, activeAccount.Email)));
-    }
-
 }

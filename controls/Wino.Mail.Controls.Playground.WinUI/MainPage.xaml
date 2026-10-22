@@ -60,22 +60,6 @@
                 </NavigationViewItem.Icon>
             </NavigationViewItem>
             <NavigationViewItem
-                AutomationProperties.AutomationId="IntelligenceHeaderNavigationItem"
-                Content="Intelligence header"
-                Tag="intelligenceHeader">
-                <NavigationViewItem.Icon>
-                    <accountIcon:WinoFontIcon Glyph="&#xE076;" />
-                </NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem
-                AutomationProperties.AutomationId="IntelligenceProgressNavigationItem"
-                Content="Intelligence progress"
-                Tag="intelligenceProgress">
-                <NavigationViewItem.Icon>
-                    <accountIcon:WinoFontIcon Glyph="&#xE895;" />
-                </NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem
                 AutomationProperties.AutomationId="SynchronizationButtonNavigationItem"
                 Content="Synchronization button"
                 Tag="synchronizationButton">

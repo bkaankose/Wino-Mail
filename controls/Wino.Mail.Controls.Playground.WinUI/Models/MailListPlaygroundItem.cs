@@ -1,7 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Wino.Mail.Controls.Core;
-using Wino.Mail.Controls.Core.IntelligenceTileBar;
 using WinRT;
 
 namespace Wino.Mail.Controls.Playground.Models;
@@ -10,7 +9,6 @@ namespace Wino.Mail.Controls.Playground.Models;
 public sealed partial class MailListPlaygroundItem : IMailListSourceItem, IContactPicture
 {
     private bool _isSelected;
-    private IReadOnlyList<WinoIntelligenceTile> _intelligenceTiles = [];
 
     public MailListPlaygroundItem(
         string threadId,
@@ -48,16 +46,6 @@ public sealed partial class MailListPlaygroundItem : IMailListSourceItem, IConta
     string IContactPicture.Name => Sender;
     string IContactPicture.Address => SenderAddress;
     public string? LocalImagePath => null;
-
-    public IReadOnlyList<WinoIntelligenceTile> IntelligenceTiles
-    {
-        get => _intelligenceTiles;
-        set
-        {
-            _intelligenceTiles = value ?? [];
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IntelligenceTiles)));
-        }
-    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

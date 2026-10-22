@@ -58,15 +58,6 @@
             </controls:SettingsCard.HeaderIcon>
         </controls:SettingsCard>
 
-        <controls:SettingsCard
-            AutomationProperties.AutomationId="AppPreferencesPageSettingsCard7"
-            Description="{x:Bind domain:Translator.SettingsAppPreferences_StoreUpdateNotifications_Description}"
-            Header="{x:Bind domain:Translator.SettingsAppPreferences_StoreUpdateNotifications_Title}">
-            <ToggleSwitch AutomationProperties.AutomationId="AppPreferencesStoreUpdateNotificationsToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsStoreUpdateNotificationsEnabled, Mode=TwoWay}" />
-            <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon Icon="ArrowDownload" />
-            </controls:SettingsCard.HeaderIcon>
-        </controls:SettingsCard>
 
         <controls:SettingsCard
             AutomationProperties.AutomationId="AppPreferencesPageSettingsCard8"

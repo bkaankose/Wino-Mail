@@ -104,14 +104,13 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
                 Track(() => _backgroundStartup(_lifetime.Token));
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             lock (_gate)
             {
                 UnregisterRecipients();
                 if (_state is not (ApplicationRuntimeState.Stopping or ApplicationRuntimeState.Stopped))
-                    ChangeState(ex is RuntimeInitializationFaultException
-                        ? ApplicationRuntimeState.Faulted : ApplicationRuntimeState.Uninitialized);
+                    ChangeState(ApplicationRuntimeState.Uninitialized);
 
                 _initialization = null;
             }

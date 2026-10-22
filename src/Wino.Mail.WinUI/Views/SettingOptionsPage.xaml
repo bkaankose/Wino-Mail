@@ -144,7 +144,7 @@
                     HorizontalAlignment="Right"
                     VerticalAlignment="Center"
                     Orientation="Horizontal"
-                    Spacing="12">
+                    Spacing="12">
 
                     <Button
                         AutomationProperties.AutomationId="SettingOptionsPageButton2"
@@ -160,7 +160,7 @@
                                 Stretch="Uniform" />
                         </Viewbox>
                     </Button>
-
+
                 </StackPanel>
             </Grid>
         </Border>

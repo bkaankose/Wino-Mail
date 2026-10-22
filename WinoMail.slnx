@@ -41,11 +41,6 @@
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
-    <Project Path="src/Wino.Core.ML/Wino.Core.ML.csproj">
-      <Platform Solution="*|arm64" Project="arm64" />
-      <Platform Solution="*|x64" Project="x64" />
-      <Platform Solution="*|x86" Project="x86" />
-    </Project>
     <Project Path="src/Wino.Core/Wino.Core.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
@@ -97,11 +92,6 @@
     </Project>
   </Folder>
   <Folder Name="/tools/">
-    <Project Path="tools/Wino.Intelligence.Console/Wino.Intelligence.Console.csproj">
-      <Platform Solution="*|arm64" Project="arm64" />
-      <Platform Solution="*|x64" Project="x64" />
-      <Platform Solution="*|x86" Project="x86" />
-    </Project>
   </Folder>
   <Project Path="src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj" Id="bf340564-2cc8-486d-924d-8474cb5f3316">
     <Platform Solution="*|arm64" Project="ARM64" />

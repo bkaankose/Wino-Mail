@@ -309,8 +309,7 @@ VALUES
             Connection.CreateTableAsync<CalendarAttachment>(),
             Connection.CreateTableAsync<Reminder>(),
             Connection.CreateTableAsync<MailInvitationCalendarMapping>(),
-            Connection.CreateTableAsync<SentMailReceiptState>(),
-            Connection.CreateTableAsync<WinoAccount>());
+            Connection.CreateTableAsync<SentMailReceiptState>());
 
         await EnsureSchemaUpgradesAsync().ConfigureAwait(false);
         await EnsureIndexesAsync().ConfigureAwait(false);
@@ -322,8 +321,8 @@ VALUES
     private async Task EnsureSchemaUpgradesAsync()
     {
         await EnsureKeyboardShortcutSchemaAsync().ConfigureAwait(false);
-        await EnsureWinoAccountSchemaAsync().ConfigureAwait(false);
-        await Connection.ExecuteAsync("UPDATE WinoAccount SET DisplayName = Email WHERE DisplayName IS NULL OR DisplayName = ''").ConfigureAwait(false);
+        // Wino Account sign-in was removed; drop the table and any session it still holds.
+        await Connection.ExecuteAsync("DROP TABLE IF EXISTS WinoAccount").ConfigureAwait(false);
 
         if (_countedFolderSeedRequired)
         {
@@ -868,19 +867,6 @@ SET SortKey = LOWER(COALESCE(
 WHERE SortKey IS NULL OR SortKey = ''").ConfigureAwait(false);
     }
 
-    private async Task EnsureWinoAccountSchemaAsync()
-    {
-        var columns = await Connection.GetTableInfoAsync(nameof(WinoAccount)).ConfigureAwait(false);
-        foreach (var column in new[] { nameof(WinoAccount.IsUnlimitedAccountsEnabled), nameof(WinoAccount.HasAppleLogin), nameof(WinoAccount.HasMicrosoftLogin) })
-        {
-            if (columns.Any(c => c.Name == column)) continue;
-
-            await Connection.ExecuteAsync(
-                $"ALTER TABLE {nameof(WinoAccount)} ADD COLUMN {column} INTEGER NOT NULL DEFAULT 0")
-                .ConfigureAwait(false);
-        }
-    }
-
     private async Task EnsureKeyboardShortcutSchemaAsync()
     {
         var keyboardShortcutColumns = await Connection.GetTableInfoAsync(nameof(KeyboardShortcut)).ConfigureAwait(false);
@@ -990,7 +976,6 @@ SET {nameof(KeyboardShortcut.Action)} =
         await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_MailAccountPreferences_AccountId ON MailAccountPreferences(AccountId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_CustomServerInformation_AccountId ON CustomServerInformation(AccountId)").ConfigureAwait(false);
         await Connection.ExecuteAsync($"CREATE UNIQUE INDEX IF NOT EXISTS IX_MailServerCertificateTrust_Endpoint ON {nameof(MailServerCertificateTrust)}({nameof(MailServerCertificateTrust.AccountId)}, {nameof(MailServerCertificateTrust.Protocol)}, {nameof(MailServerCertificateTrust.Host)}, {nameof(MailServerCertificateTrust.Port)})").ConfigureAwait(false);
-        await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_WinoAccount_Email ON WinoAccount(Email)").ConfigureAwait(false);
 
         // Calendar indexes
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_AccountCalendar_AccountId ON AccountCalendar(AccountId)").ConfigureAwait(false);

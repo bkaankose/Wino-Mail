@@ -34,15 +34,12 @@ public static class CoreContainerSetup
         services.AddTransient<SynchronizationManagerInitializer>();
         services.AddSingleton(provider => new ApplicationRuntimeInitialization(
             () => provider.GetRequiredService<IDatabaseService>(),
-            () => provider.GetRequiredService<IMailIntelligenceStore>(),
+            () => provider.GetRequiredService<IApplicationConfiguration>(),
             () => provider.GetRequiredService<ITranslationService>(),
             () => provider.GetRequiredService<SynchronizationManagerInitializer>(),
             () => provider.GetRequiredService<IKeyboardShortcutService>(),
             () => provider.GetRequiredService<Wino.Services.AccountProfilePictureMaintenance>(),
-            () => provider.GetRequiredService<Wino.Services.AccountSenderPictureDirectory>(),
-            () => provider.GetRequiredService<IWinoAccountIntelligenceSnapshotService>(),
-            () => provider.GetRequiredService<IMailIntelligenceCoordinator>(),
-            () => provider.GetRequiredService<Wino.Services.IntelligenceResultKeyLifecycle>()));
+            () => provider.GetRequiredService<Wino.Services.AccountSenderPictureDirectory>()));
         services.AddSingleton<IApplicationRuntime>(provider => new ApplicationRuntime(
             provider.GetRequiredService<ISynchronizationManager>(),
             provider.GetRequiredService<IAccountService>(),

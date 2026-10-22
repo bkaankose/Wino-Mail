@@ -9,9 +9,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Intelligence;
 using Wino.Mail.Controls.Core;
-using Wino.Mail.Controls.Core.IntelligenceTileBar;
 #if WINRT_EXPOSED
 using WinRT;
 #endif
@@ -74,10 +72,6 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
     [NotifyPropertyChangedFor(nameof(SenderContact))]
     [NotifyPropertyChangedFor(nameof(Categories))]
     [NotifyPropertyChangedFor(nameof(HasCategories))]
-    [NotifyPropertyChangedFor(nameof(IntelligenceTiles))]
-    [NotifyPropertyChangedFor(nameof(HasIntelligenceTiles))]
-    [NotifyPropertyChangedFor(nameof(RowIntelligenceTiles))]
-    [NotifyPropertyChangedFor(nameof(HasRowIntelligenceTiles))]
     [NotifyPropertyChangedFor(nameof(RowTiles))]
     [NotifyPropertyChangedFor(nameof(HasRowTiles))]
     public partial MailCopy MailCopy { get; set; }
@@ -96,12 +90,6 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
     /// </summary>
     [ObservableProperty]
     public partial bool IsBusy { get; set; }
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasIntelligenceTiles))]
-    [NotifyPropertyChangedFor(nameof(HasRowIntelligenceTiles))]
-    [NotifyPropertyChangedFor(nameof(HasRowTiles))]
-    public partial bool CanShowIntelligence { get; set; }
 
     /// <summary>
     /// One-shot navigation hint used only when this draft was just created by a compose action.
@@ -232,62 +220,13 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
 
     public bool HasCategories => Categories.Count > 0;
 
-    public IReadOnlyList<WinoIntelligenceTile> IntelligenceTiles => MailIntelligenceTileFactory.Create(
-        MailCopy?.IntelligenceMetadata,
-        MailCopy?.AssignedAccount?.Preferences?.ExcludedIntelligenceIndicatorIds);
-
-    public bool HasIntelligenceTiles => CanShowIntelligence && IntelligenceTiles.Count > 0;
-
     /// <summary>
-    /// The tiles a mail row shows. Briefing facts are left out: they are a headline the reading pane
-    /// spells out in full, and as an icon with no label they say nothing in a list row.
+    /// Categories as one untyped list so a mail row renders them through a single items control.
+    /// <see cref="Categories"/> stays the editable collection because it is written back to <see cref="MailCopy"/>.
     /// </summary>
-    public IReadOnlyList<WinoIntelligenceTile> RowIntelligenceTiles
-        => IntelligenceTiles.ToArray();
+    public List<object> RowTiles => [.. Categories];
 
-    public bool HasRowIntelligenceTiles => CanShowIntelligence && RowIntelligenceTiles.Count > 0;
-
-    /// <summary>
-    /// Intelligence metadata and categories in one list so a mail row renders both through a single
-    /// items control. Categories lead, so intelligence tiles trail them and wrap underneath once the
-    /// line runs out. <see cref="Categories"/> stays category-only because it is written back to
-    /// <see cref="MailCopy"/>.
-    /// </summary>
-    public List<object> RowTiles
-    {
-        get
-        {
-            var tiles = RowIntelligenceTiles;
-            var items = new List<object>(tiles.Count + Categories.Count);
-            items.AddRange(Categories);
-            items.AddRange(tiles);
-
-            return items;
-        }
-    }
-
-    public bool HasRowTiles => HasRowIntelligenceTiles || HasCategories;
-
-    public void RefreshIntelligenceTiles()
-    {
-        OnPropertyChanged(nameof(IntelligenceTiles));
-        OnPropertyChanged(nameof(HasIntelligenceTiles));
-        OnPropertyChanged(nameof(RowIntelligenceTiles));
-        OnPropertyChanged(nameof(HasRowIntelligenceTiles));
-        OnPropertyChanged(nameof(RowTiles));
-        OnPropertyChanged(nameof(HasRowTiles));
-    }
-
-    public void ApplyIntelligenceVisibility(IEnumerable<string>? excludedIndicatorIds)
-    {
-        var preferences = MailCopy?.AssignedAccount?.Preferences;
-        if (preferences is null)
-            return;
-
-        preferences.ExcludedIntelligenceIndicatorIds =
-            IntelligenceIndicatorId.NormalizeExcluded(excludedIndicatorIds);
-        RefreshIntelligenceTiles();
-    }
+    public bool HasRowTiles => HasCategories;
 
     partial void OnMailCopyChanged(MailCopy value)
     {
@@ -476,9 +415,7 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
             nameof(UniqueId) => MailCopyChangeFlags.UniqueId,
             nameof(ContactPictureFileId) or nameof(SenderContact) => MailCopyChangeFlags.SenderContact,
             nameof(Categories) or nameof(HasCategories) => MailCopyChangeFlags.Categories,
-            nameof(IntelligenceTiles) or nameof(HasIntelligenceTiles) => MailCopyChangeFlags.IntelligenceMetadata,
-            nameof(RowIntelligenceTiles) or nameof(HasRowIntelligenceTiles) => MailCopyChangeFlags.IntelligenceMetadata,
-            nameof(RowTiles) or nameof(HasRowTiles) => MailCopyChangeFlags.Categories | MailCopyChangeFlags.IntelligenceMetadata,
+            nameof(RowTiles) or nameof(HasRowTiles) => MailCopyChangeFlags.Categories,
             _ => MailCopyChangeFlags.None
         };
     }
@@ -534,7 +471,6 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
             changedFlags |= SetIfChanged(MailCopy.ReadReceiptStatus, source.ReadReceiptStatus, value => MailCopy.ReadReceiptStatus = value, MailCopyChangeFlags.ReadReceiptState);
             changedFlags |= SetIfChanged(MailCopy.ReadReceiptAcknowledgedAtUtc, source.ReadReceiptAcknowledgedAtUtc, value => MailCopy.ReadReceiptAcknowledgedAtUtc = value, MailCopyChangeFlags.ReadReceiptState);
             changedFlags |= SetIfChanged(MailCopy.ReadReceiptMessageUniqueId, source.ReadReceiptMessageUniqueId, value => MailCopy.ReadReceiptMessageUniqueId = value, MailCopyChangeFlags.ReadReceiptState);
-            changedFlags |= SetIfChanged(MailCopy.IntelligenceMetadata, source.IntelligenceMetadata, value => MailCopy.IntelligenceMetadata = value, MailCopyChangeFlags.IntelligenceMetadata);
         }
 
         if (changeHint == MailCopyChangeFlags.All)
@@ -737,15 +673,7 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
             Queue(nameof(HasCategories));
         }
 
-        if ((changedFlags & MailCopyChangeFlags.IntelligenceMetadata) != 0)
-        {
-            Queue(nameof(IntelligenceTiles));
-            Queue(nameof(HasIntelligenceTiles));
-            Queue(nameof(RowIntelligenceTiles));
-            Queue(nameof(HasRowIntelligenceTiles));
-        }
-
-        if ((changedFlags & (MailCopyChangeFlags.Categories | MailCopyChangeFlags.IntelligenceMetadata)) != 0)
+        if ((changedFlags & MailCopyChangeFlags.Categories) != 0)
         {
             Queue(nameof(RowTiles));
             Queue(nameof(HasRowTiles));

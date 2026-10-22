@@ -25,7 +25,6 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
 {
     private const string MailOperationTemplateKey = "OperationCommandBarMailOperationTemplate";
     private const string FolderOperationTemplateKey = "OperationCommandBarFolderOperationTemplate";
-    private const string AIActionsTemplateKey = "OperationCommandBarAIActionsTemplate";
     private const string PopOutTemplateKey = "OperationCommandBarThemeToggleTemplate";
     private const string ThemeToggleTemplateKey = "OperationCommandBarThemeToggleTemplate";
     private const string SeparatorTemplateKey = "OperationCommandBarSeparatorTemplate";
@@ -39,12 +38,6 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
 
     [GeneratedDependencyProperty]
     public partial ICommand? ItemInvokedCommand { get; set; }
-
-    [GeneratedDependencyProperty]
-    public partial bool IsAIActionsEnabled { get; set; }
-
-    [GeneratedDependencyProperty]
-    public partial bool IsAIActionsPaneToggleVisible { get; set; }
 
     [GeneratedDependencyProperty]
     public partial bool IsEditorThemeDark { get; set; }
@@ -61,7 +54,6 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
     [GeneratedDependencyProperty]
     public partial bool IsReaderViewEnabled { get; set; }
 
-    public event EventHandler<bool>? AIActionsEnabledChanged;
     public event EventHandler? PopOutClicked;
 
     public OperationCommandBar()
@@ -85,16 +77,6 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
     partial void OnItemInvokedCommandChanged(ICommand? newValue)
     {
         InvalidateCommands();
-    }
-
-    partial void OnIsAIActionsEnabledChanged(bool newValue)
-    {
-        AIActionsEnabledChanged?.Invoke(this, newValue);
-    }
-
-    partial void OnIsAIActionsPaneToggleVisibleChanged(bool newValue)
-    {
-        QueueCommandRefresh();
     }
 
     partial void OnIsEditorThemeDarkChanged(bool newValue)
@@ -194,11 +176,6 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
 
         ClearGeneratedCommands();
 
-        if (IsAIActionsPaneToggleVisible)
-        {
-            PrimaryCommands.Add(CreateAIActionsToggleButton());
-        }
-
         if (IsPopOutButtonVisible)
         {
             PrimaryCommands.Add(CreatePopOutButton());
@@ -247,7 +224,6 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
     {
         var signature = new StringBuilder();
         signature
-            .Append(IsAIActionsPaneToggleVisible).Append('|')
             .Append(IsPopOutButtonVisible).Append('|')
             .Append(IsEditorThemeToggleVisible).Append('|')
             .Append(IsReaderViewToggleVisible).Append('|')
@@ -358,23 +334,6 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
         }
 
         return null;
-    }
-
-    [DynamicWindowsRuntimeCast(typeof(AppBarToggleButton))]
-    private AppBarToggleButton CreateAIActionsToggleButton()
-    {
-        var button = (AppBarToggleButton)LoadCommandBarElementTemplate(
-            AIActionsTemplateKey,
-            new OperationCommandBarAIActionsItemViewModel(Translator.Composer_AiActions, WinoIconGlyph.Sparkle));
-
-        button.SetBinding(AppBarToggleButton.IsCheckedProperty, new Binding
-        {
-            Mode = BindingMode.TwoWay,
-            Path = new PropertyPath(nameof(IsAIActionsEnabled)),
-            Source = this
-        });
-
-        return button;
     }
 
     [DynamicWindowsRuntimeCast(typeof(AppBarButton))]
@@ -560,18 +519,6 @@ public sealed class OperationCommandBarMenuOperationItemViewModel
     public string ToolTip { get; }
     public bool IsEnabled => Operation.IsEnabled;
     public CommandBarLabelPosition LabelPosition { get; }
-}
-
-public sealed class OperationCommandBarAIActionsItemViewModel
-{
-    public OperationCommandBarAIActionsItemViewModel(string toolTip, WinoIconGlyph icon)
-    {
-        ToolTip = toolTip;
-        Icon = icon;
-    }
-
-    public string ToolTip { get; }
-    public WinoIconGlyph Icon { get; }
 }
 
 public sealed class OperationCommandBarThemeItemViewModel

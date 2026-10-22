@@ -18,173 +18,26 @@ using Wino.Messaging.UI;
 namespace Wino.Mail.ViewModels;
 
 /// <summary>
-/// The single home for backups: a file on this PC, and the encrypted copy in the Wino Account.
+/// The single home for backups: an encrypted file on this PC.
 /// This is app-wide data, so it lives under General rather than with a single account.
 /// </summary>
-public partial class BackupRestorePageViewModel : CoreBaseViewModel,
-    IRecipient<WinoAccountProfileUpdatedMessage>,
-    IRecipient<WinoAccountProfileDeletedMessage>
+public partial class BackupRestorePageViewModel : CoreBaseViewModel
 {
 
     private readonly IMailDialogService _dialogService;
-    private readonly IWinoAccountDataSyncService _syncService;
-    private readonly IWinoAccountProfileService _profileService;
+    private readonly ILocalBackupService _syncService;
 
     public BackupRestorePageViewModel(IMailDialogService dialogService,
-                                      IWinoAccountDataSyncService syncService,
-                                      IWinoAccountProfileService profileService)
+                                      ILocalBackupService syncService)
     {
         _dialogService = dialogService;
         _syncService = syncService;
-        _profileService = profileService;
     }
 
-    /// <summary>
-    /// One flag for both backups: a file transfer and a Wino Account transfer never run together.
-    /// </summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ExportLocalDataCommand))]
     [NotifyCanExecuteChangedFor(nameof(ImportLocalDataCommand))]
-    [NotifyCanExecuteChangedFor(nameof(ExportToWinoAccountCommand))]
-    [NotifyCanExecuteChangedFor(nameof(ImportFromWinoAccountCommand))]
     public partial bool IsDataTransferInProgress { get; set; }
-
-    /// <summary>
-    /// Enables the Wino Account options. False keeps both cards disabled until the profile is read.
-    /// </summary>
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(ExportToWinoAccountCommand))]
-    [NotifyCanExecuteChangedFor(nameof(ImportFromWinoAccountCommand))]
-    public partial bool IsWinoAccountSignedIn { get; set; }
-
-    public override void OnNavigatedTo(NavigationMode mode, object parameters)
-    {
-        base.OnNavigatedTo(mode, parameters);
-
-        _ = LoadWinoAccountStateAsync();
-    }
-
-    protected override void RegisterRecipients()
-    {
-        base.RegisterRecipients();
-
-        Messenger.Register<WinoAccountProfileUpdatedMessage>(this);
-        Messenger.Register<WinoAccountProfileDeletedMessage>(this);
-    }
-
-    protected override void UnregisterRecipients()
-    {
-        base.UnregisterRecipients();
-
-        Messenger.Unregister<WinoAccountProfileUpdatedMessage>(this);
-        Messenger.Unregister<WinoAccountProfileDeletedMessage>(this);
-    }
-
-    public void Receive(WinoAccountProfileUpdatedMessage message)
-        => _ = LoadWinoAccountStateAsync();
-
-    public void Receive(WinoAccountProfileDeletedMessage message)
-        => _ = LoadWinoAccountStateAsync();
-
-    private async Task LoadWinoAccountStateAsync()
-    {
-        var isSignedIn = false;
-
-        try
-        {
-            isSignedIn = await _profileService.HasActiveAccountAsync().ConfigureAwait(false);
-        }
-        catch (Exception)
-        {
-            // Treat an unreadable profile as signed out. The Wino Account options stay disabled.
-        }
-
-        await ExecuteUIThread(() => IsWinoAccountSignedIn = isSignedIn);
-    }
-
-    [RelayCommand]
-    private void OpenWinoAccountManagement()
-        => Messenger.Send(new SettingsRootNavigationRequested(WinoPage.WinoAccountManagementPage));
-
-    [RelayCommand(CanExecute = nameof(CanTransferWinoAccountData))]
-    private async Task ExportToWinoAccountAsync()
-    {
-        try
-        {
-            var isConfirmed = await ExecuteUIThreadAsync(_dialogService.ShowWinoAccountExportDialogAsync).ConfigureAwait(false);
-            if (!isConfirmed)
-            {
-                return;
-            }
-
-            await ExecuteUIThread(() => IsDataTransferInProgress = true);
-
-            var result = await _syncService.ExportAsync(new WinoAccountSyncSelection(), PromptSyncSecretAsync).ConfigureAwait(false);
-
-            _dialogService.InfoBarMessage(
-                Translator.GeneralTitle_Info,
-                BuildExportSuccessMessage(result),
-                InfoBarMessageType.Success);
-        }
-        catch (Exception ex)
-        {
-            _dialogService.InfoBarMessage(
-                Translator.GeneralTitle_Error,
-                WinoAccountApiErrorTranslator.Describe(ex),
-                InfoBarMessageType.Error);
-        }
-        finally
-        {
-            await ExecuteUIThread(() => IsDataTransferInProgress = false);
-        }
-    }
-
-    [RelayCommand(CanExecute = nameof(CanTransferWinoAccountData))]
-    private async Task ImportFromWinoAccountAsync()
-    {
-        await ExecuteUIThread(() => IsDataTransferInProgress = true);
-
-        try
-        {
-            var result = await _syncService.ImportAsync(new WinoAccountSyncSelection(), PromptSyncSecretAsync).ConfigureAwait(false);
-
-            if (result.Appearance != null)
-            {
-                await ExecuteUIThread(() => _syncService.ApplyAppearance(result.Appearance));
-            }
-
-            if (!result.HasAnyRemoteData)
-            {
-                _dialogService.InfoBarMessage(
-                    Translator.GeneralTitle_Info,
-                    Translator.WinoAccount_Management_NoRemoteSettings,
-                    InfoBarMessageType.Information);
-                return;
-            }
-
-            var messageType = result.FailedPreferenceCount > 0
-                ? InfoBarMessageType.Warning
-                : InfoBarMessageType.Success;
-
-            _dialogService.InfoBarMessage(
-                result.FailedPreferenceCount > 0 ? Translator.GeneralTitle_Warning : Translator.GeneralTitle_Info,
-                BuildImportMessage(result),
-                messageType);
-        }
-        catch (Exception ex)
-        {
-            _dialogService.InfoBarMessage(
-                Translator.GeneralTitle_Error,
-                WinoAccountApiErrorTranslator.Describe(ex),
-                InfoBarMessageType.Error);
-        }
-        finally
-        {
-            await ExecuteUIThread(() => IsDataTransferInProgress = false);
-        }
-    }
-
-    private bool CanTransferWinoAccountData() => IsWinoAccountSignedIn && !IsDataTransferInProgress;
 
     [RelayCommand(CanExecute = nameof(CanTransferLocalData))]
     private async Task ExportLocalDataAsync()
@@ -215,7 +68,7 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
         }
         catch (Exception ex)
         {
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, WinoAccountApiErrorTranslator.Describe(ex), InfoBarMessageType.Error);
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
         }
         finally
         {
@@ -266,7 +119,7 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
         }
         catch (Exception ex)
         {
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, WinoAccountApiErrorTranslator.Describe(ex), InfoBarMessageType.Error);
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
         }
         finally
         {
@@ -277,7 +130,7 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
     private bool CanTransferLocalData() => !IsDataTransferInProgress;
 
     private Task<string?> PromptSyncSecretAsync(SyncSnapshotSecretRequest request)
-        => ExecuteUIThreadAsync(() => _dialogService.ShowWinoAccountSyncSecretDialogAsync(request));
+        => ExecuteUIThreadAsync(() => _dialogService.ShowBackupPasswordDialogAsync(request));
 
     private static string BuildExportSuccessMessage(WinoAccountSyncExportResult result)
     {

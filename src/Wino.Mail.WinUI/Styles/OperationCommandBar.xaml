@@ -41,21 +41,6 @@
         </AppBarButton>
     </DataTemplate>
 
-    <DataTemplate x:Key="OperationCommandBarAIActionsTemplate" x:DataType="controls:OperationCommandBarAIActionsItemViewModel">
-        <AppBarToggleButton
-            MinWidth="40"
-            AutomationProperties.AutomationId="XBindToolTip3"
-            AutomationProperties.Name="{x:Bind ToolTip}"
-            LabelPosition="Collapsed"
-            ToolTipService.ToolTip="{x:Bind ToolTip}">
-            <AppBarToggleButton.Icon>
-                <controls:WinoFontIcon
-                    FontFamily="{ThemeResource WinoIconFontFamily}"
-                    Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}"
-                    Icon="WinoIntelligence" />
-            </AppBarToggleButton.Icon>
-        </AppBarToggleButton>
-    </DataTemplate>
 
     <DataTemplate x:Key="OperationCommandBarThemeToggleTemplate" x:DataType="controls:OperationCommandBarThemeItemViewModel">
         <AppBarButton

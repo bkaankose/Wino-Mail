@@ -22,15 +22,13 @@ using Wino.Messaging.UI;
 namespace Wino.Services;
 
 /// <summary>
-/// Builds the sync snapshot from everything the app owns, encrypts it on this device and moves it
-/// through the Wino Account or a file. The service never sees the plaintext. Passwords, tokens
-/// and mail content are never part of the snapshot.
+/// Builds a backup snapshot from everything the app owns and encrypts it on this device into a
+/// file. Passwords, tokens and mail content are never part of the snapshot.
 /// </summary>
-public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
+public sealed class LocalBackupService : ILocalBackupService
 {
     private const int DefaultMaxConcurrentClients = 5;
 
-    private readonly IWinoAccountProfileService _profileService;
     private readonly IPreferencesService _preferencesService;
     private readonly IAccountService _accountService;
     private readonly IFolderService _folderService;
@@ -43,10 +41,9 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
     private readonly INewThemeService? _themeService;
     private readonly IStatePersistanceService? _stateService;
     private readonly IKnownImapProviderCatalog? _providerCatalog;
-    private readonly ILogger _logger = Log.ForContext<WinoAccountDataSyncService>();
+    private readonly ILogger _logger = Log.ForContext<LocalBackupService>();
 
-    public WinoAccountDataSyncService(
-        IWinoAccountProfileService profileService,
+    public LocalBackupService(
         IPreferencesService preferencesService,
         IAccountService accountService,
         IFolderService folderService,
@@ -60,7 +57,6 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         IStatePersistanceService? stateService = null,
         IKnownImapProviderCatalog? providerCatalog = null)
     {
-        _profileService = profileService;
         _preferencesService = preferencesService;
         _accountService = accountService;
         _folderService = folderService;
@@ -75,27 +71,6 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         _providerCatalog = providerCatalog;
     }
 
-    public async Task<WinoAccountSyncExportResult> ExportAsync(WinoAccountSyncSelection selection, SyncSnapshotSecretPrompt? secretPrompt = null, CancellationToken cancellationToken = default)
-    {
-        _ = await _profileService.GetActiveAccountAsync().ConfigureAwait(false)
-            ?? throw WinoAccountApiException.SignInRequired();
-
-        var key = await DeriveNewKeyAsync(secretPrompt, cancellationToken).ConfigureAwait(false);
-        var prepared = await PrepareExportAsync(selection).ConfigureAwait(false);
-        var payload = Seal(prepared.Document, key);
-
-        await _profileService.PutSyncSnapshotAsync(payload, null, cancellationToken).ConfigureAwait(false);
-
-        // The structured mailbox list stays on the server in the clear: it holds no secrets and
-        // mail intelligence proves mailbox ownership against it.
-        if (selection.IncludeAccounts && prepared.Document.Mailboxes != null)
-        {
-            await _profileService.ReplaceMailboxesAsync(new ReplaceUserMailboxesRequestDto { Mailboxes = prepared.Document.Mailboxes }, cancellationToken).ConfigureAwait(false);
-        }
-
-        return prepared.ExportResult;
-    }
-
     public async Task<WinoAccountSyncFileExportResult> ExportToFileAsync(WinoAccountSyncSelection selection, SyncSnapshotSecretPrompt? secretPrompt = null, CancellationToken cancellationToken = default)
     {
         var key = await DeriveNewKeyAsync(secretPrompt, cancellationToken).ConfigureAwait(false);
@@ -107,23 +82,6 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             FileName = WinoAccountSyncFileExportResult.CreateFileName(DateTime.Now),
             ExportResult = prepared.ExportResult
         };
-    }
-
-    public async Task<WinoAccountSyncImportResult> ImportAsync(WinoAccountSyncSelection selection, SyncSnapshotSecretPrompt? secretPrompt = null, CancellationToken cancellationToken = default)
-    {
-        var download = await _profileService.GetSyncSnapshotAsync(cancellationToken).ConfigureAwait(false);
-        if (download == null)
-        {
-            return new WinoAccountSyncImportResult
-            {
-                IncludedPreferences = selection.IncludePreferences,
-                IncludedAccounts = selection.IncludeAccounts
-            };
-        }
-
-        var document = await OpenAsync(download.Payload, secretPrompt, cancellationToken).ConfigureAwait(false);
-
-        return await ApplyDocumentAsync(selection, document, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<WinoAccountSyncImportResult> ImportFromFileAsync(byte[] content, SyncSnapshotSecretPrompt? secretPrompt = null, CancellationToken cancellationToken = default)

@@ -92,12 +92,6 @@ internal sealed class AppActivationHandler
         if (SessionStartActivation.IsCurrentProcess)
             return new LaunchActivationRoute(AppActivationPath.SessionStart, launchArgs, activationArgs);
 
-        if (IsBillingSuccessProtocol(activationArgs))
-            return new LaunchActivationRoute(AppActivationPath.BillingSuccessProtocol, launchArgs, activationArgs);
-
-        if (TryGetWinoAccountAuthCallback(activationArgs, out var launchAuthCallback))
-            return new LaunchActivationRoute(AppActivationPath.WinoAccountAuthCallbackProtocol, launchArgs, activationArgs, WinoAccountAuthCallback: launchAuthCallback);
-
         if (activationArgs?.Kind == ExtendedActivationKind.ShareTarget &&
             _host.TryMarkInitialShareActivationHandled())
         {
@@ -261,16 +255,6 @@ internal sealed class AppActivationHandler
                     await _host.CompleteStandardLaunchAsync(route.LaunchArgs, _host.HasConfiguredAccounts);
                 }
                 break;
-            case AppActivationPath.BillingSuccessProtocol:
-                _host.LogActivation("Processing billing success protocol activation from OnLaunched.");
-                await _host.HandleBillingSuccessProtocolActivationAsync(activateWindow: true);
-                break;
-            case AppActivationPath.WinoAccountAuthCallbackProtocol:
-                // A fresh process has no sign-in waiting for this redirect; deliver it anyway (it logs) and open the app.
-                _host.LogActivation("Processing Wino Account sign-in callback protocol activation from OnLaunched.");
-                _host.HandleWinoAccountAuthCallbackActivation(route.WinoAccountAuthCallback);
-                await _host.CompleteStandardLaunchAsync(route.LaunchArgs, _host.HasConfiguredAccounts);
-                break;
             case AppActivationPath.SecondaryEntryBootstrap:
                 if (route.PendingBootstrapActivation != null)
                 {
@@ -352,25 +336,6 @@ internal sealed class AppActivationHandler
                 args,
                 WinoApplicationMode.Mail,
                 shouldActivateWindow);
-        }
-
-        if (IsBillingSuccessProtocol(args))
-        {
-            return new RedirectedActivationRoute(
-                AppActivationPath.BillingSuccessProtocol,
-                args,
-                WinoApplicationMode.Settings,
-                shouldActivateWindow);
-        }
-
-        if (TryGetWinoAccountAuthCallback(args, out var authCallback))
-        {
-            return new RedirectedActivationRoute(
-                AppActivationPath.WinoAccountAuthCallbackProtocol,
-                args,
-                WinoApplicationMode.Mail,
-                shouldActivateWindow,
-                WinoAccountAuthCallback: authCallback);
         }
 
         if (TryCreateMailToUri(args, out var mailToUri))
@@ -499,23 +464,6 @@ internal sealed class AppActivationHandler
             return;
         }
 
-        if (route.Path == AppActivationPath.BillingSuccessProtocol)
-        {
-            _host.LogActivation("Processing redirected billing success protocol activation.");
-            await _host.HandleBillingSuccessProtocolActivationAsync(activateWindow: true);
-            return;
-        }
-
-        if (route.Path == AppActivationPath.WinoAccountAuthCallbackProtocol)
-        {
-            // The sign-in dialog that opened the browser is still waiting; the window was already brought forward
-            // by the redirection. Nothing waiting means a stale tab: just show the shell.
-            _host.LogActivation("Processing redirected Wino Account sign-in callback protocol activation.");
-            if (!_host.HandleWinoAccountAuthCallbackActivation(route.WinoAccountAuthCallback))
-                await _host.ActivateRedirectedShellAsync(route);
-            return;
-        }
-
         if (route.Path == AppActivationPath.ToastLaunch)
         {
             _host.LogActivation("Processing redirected toast launch activation.");
@@ -574,28 +522,6 @@ internal sealed class AppActivationHandler
         }
     }
 
-    private static bool TryGetWinoAccountAuthCallback(AppActivationArguments? activationArgs, out Uri? callback)
-    {
-        callback = null;
-
-        if (activationArgs?.Kind == ExtendedActivationKind.Protocol &&
-            activationArgs.Data is IProtocolActivatedEventArgs { Uri: { } protocolUri } &&
-            WinoAccountExternalAuth.IsCallback(protocolUri))
-        {
-            callback = protocolUri;
-            return true;
-        }
-
-        return false;
-    }
-
-    private static bool IsBillingSuccessProtocol(AppActivationArguments? activationArgs)
-    {
-        return activationArgs?.Kind == ExtendedActivationKind.Protocol &&
-               activationArgs.Data is IProtocolActivatedEventArgs protocolArgs &&
-               WinoProtocolActivationResolver.IsBillingSuccess(protocolArgs.Uri);
-    }
-
     private static IDictionary<string, string>? CopyUserInput(IDictionary<string, string>? userInput)
         => userInput == null ? null : new Dictionary<string, string>(userInput);
 
@@ -630,8 +556,7 @@ internal sealed class AppActivationHandler
             }
 
             if (string.Equals(scheme, "mailto", System.StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(scheme, "google.pw.oauth2", System.StringComparison.OrdinalIgnoreCase) ||
-                WinoAccountExternalAuth.IsCallback(protocolArgs.Uri))
+                string.Equals(scheme, "google.pw.oauth2", System.StringComparison.OrdinalIgnoreCase))
             {
                 mode = WinoApplicationMode.Mail;
                 return true;

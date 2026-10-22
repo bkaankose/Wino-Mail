@@ -22,8 +22,6 @@ internal interface IAppActivationHandlerHost
     Task LaunchWelcomeWindowAsync();
     Task<bool> HandleShareTargetActivationAsync(AppActivationArguments activationArgs, bool activateWindow);
     Task<bool> HandleMailToProtocolActivationAsync(MailToUri mailToUri, bool activateWindow);
-    Task HandleBillingSuccessProtocolActivationAsync(bool activateWindow);
-    bool HandleWinoAccountAuthCallbackActivation(Uri? callback);
     Task<bool> HandlePendingBootstrapActivationAsync(PendingBootstrapActivation pendingBootstrapActivation);
     Task HandleFileActivationAsync(WinoApplicationMode mode, IReadOnlyList<string> filePaths, bool activateWindow);
     Task CompleteStandardLaunchAsync(Microsoft.UI.Xaml.LaunchActivatedEventArgs launchArgs, bool hasAnyAccount);
@@ -35,7 +33,7 @@ internal interface IAppNotificationHandlerHost
     bool IsAppRunning();
     void ExitApplication();
     void LogActivation(string message);
-    Task HandleStoreUpdateToastAsync();
+
     Task HandleNotificationDismissAsync();
     Task HandleCalendarToastNavigationAsync(Guid calendarItemId);
     Task HandleCalendarToastSnoozeAsync(IDictionary<string, string>? userInput, Guid calendarItemId);
@@ -61,10 +59,6 @@ public partial class App : IAppActivationHandlerHost, IAppNotificationHandlerHos
         => HandleShareTargetActivationAsync(activationArgs, activateWindow);
     Task<bool> IAppActivationHandlerHost.HandleMailToProtocolActivationAsync(MailToUri mailToUri, bool activateWindow)
         => HandleMailToProtocolActivationAsync(mailToUri, activateWindow);
-    Task IAppActivationHandlerHost.HandleBillingSuccessProtocolActivationAsync(bool activateWindow)
-        => HandleBillingSuccessProtocolActivationAsync(activateWindow);
-    bool IAppActivationHandlerHost.HandleWinoAccountAuthCallbackActivation(Uri? callback)
-        => HandleWinoAccountAuthCallbackActivation(callback);
     Task<bool> IAppActivationHandlerHost.HandlePendingBootstrapActivationAsync(PendingBootstrapActivation pendingBootstrapActivation)
         => HandlePendingBootstrapActivationAsync(pendingBootstrapActivation);
     Task IAppActivationHandlerHost.HandleFileActivationAsync(WinoApplicationMode mode, IReadOnlyList<string> filePaths, bool activateWindow)
@@ -77,7 +71,7 @@ public partial class App : IAppActivationHandlerHost, IAppNotificationHandlerHos
     bool IAppNotificationHandlerHost.IsAppRunning() => IsAppRunning();
     void IAppNotificationHandlerHost.ExitApplication() => ExitApplication();
     void IAppNotificationHandlerHost.LogActivation(string message) => LogActivation(message);
-    Task IAppNotificationHandlerHost.HandleStoreUpdateToastAsync() => HandleStoreUpdateToastAsync();
+
     Task IAppNotificationHandlerHost.HandleNotificationDismissAsync()
     {
         LogActivation("Handling notification dismiss action.");

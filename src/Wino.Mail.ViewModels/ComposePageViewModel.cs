@@ -45,9 +45,6 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     public Func<Task<string>> GetHTMLBodyFunction;
     public Func<string, Task> RenderHtmlBodyAsyncFunc { get; set; }
 
-    /// <summary>Wino Intelligence rewrite for this draft. Hidden unless the account is eligible.</summary>
-    public ComposerRewriteSession RewriteSession { get; }
-
     public override async Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args)
     {
         if (args.Handled || args.Mode != WinoApplicationMode.Mail)
@@ -227,7 +224,6 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                 IRecipientSuggestionService recipientSuggestionService,
                                 IRecipientHistoryService recipientHistoryService,
                                 IAttachmentFileService attachmentFileService = null,
-                                IWinoIntelligenceCoordinator intelligenceCoordinator = null,
                                 ISynchronizationManager synchronizationManager = null,
                                 ISignatureService signatureService = null)
     {
@@ -254,17 +250,6 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         _draftSaveService = draftSaveService;
         _attachmentFileService = attachmentFileService;
         _synchronizationManager = synchronizationManager ?? SynchronizationManager.Instance;
-
-        RewriteSession = new ComposerRewriteSession(
-            intelligenceCoordinator,
-            async () => GetHTMLBodyFunction == null ? null : await GetHTMLBodyFunction(),
-            html => RenderHtmlBodyAsyncFunc?.Invoke(html) ?? Task.CompletedTask,
-            () => ComposingAccount?.Id,
-            error =>
-            {
-                if (RewriteErrorHandler != null) RewriteErrorHandler(error);
-                else _dialogService.InfoBarMessage(Translator.Composer_AiErrorTitle, error, InfoBarMessageType.Error);
-            });
 
         IncludedAttachments.CollectionChanged += (_, _) => OnPropertyChanged(nameof(AttachmentsSummary));
 
@@ -1313,27 +1298,6 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         StopObservingDraftMapping();
         IsDraftSyncFailed = value?.MailCopy?.IsDraftSyncFailed == true;
         OnPropertyChanged(nameof(DraftSyncErrorMessage));
-
-        // A rewrite belongs to the draft it was made from.
-        RewriteSession.Reset();
-    }
-
-    partial void OnComposingAccountChanged(MailAccount value) => _ = RefreshRewriteAvailabilityAsync();
-
-    /// <summary>
-    /// Re-checks rewrite eligibility for the composing account. Called when the account changes and
-    /// when Wino Intelligence access changes.
-    /// </summary>
-    public async Task RefreshRewriteAvailabilityAsync()
-    {
-        try
-        {
-            await ExecuteUIThreadAsync(() => RewriteSession.RefreshAvailabilityAsync());
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "Could not refresh composer rewrite availability.");
-        }
     }
 
     protected override async void OnDraftFailed(MailCopy draftMail, MailAccount account)

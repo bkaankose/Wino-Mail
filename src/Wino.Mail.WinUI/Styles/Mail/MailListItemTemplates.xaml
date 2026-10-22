@@ -6,7 +6,6 @@
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
-    xmlns:intelligenceCore="using:Wino.Mail.Controls.Core.IntelligenceTileBar"
     xmlns:mail="using:Wino.Core.Domain.Entities.Mail"
     xmlns:mailListCore="using:Wino.Mail.Controls.Core"
     xmlns:primitives="using:Wino.Mail.Controls.Primitives"
@@ -46,85 +45,16 @@
         The leading mark is what separates it from a category: a per-kind glyph where the tile has
         one, and the neutral intelligence dot where it does not.
     -->
-    <DataTemplate x:Key="DetailedIntelligenceTileTemplate" x:DataType="intelligenceCore:WinoIntelligenceTile">
-        <Border
-            x:Name="DetailedIntelligenceTileRoot"
-            Margin="0,0,4,0"
-            Padding="6,2"
-            AutomationProperties.AccessibilityView="Content"
-            AutomationProperties.Name="{x:Bind AccessibleText, Mode=OneTime}"
-            Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-            CornerRadius="4"
-            ToolTipService.ToolTip="{x:Bind AccessibleText, Mode=OneTime}">
-            <StackPanel Orientation="Horizontal" Spacing="6">
-                <coreControls:WinoFontIcon
-                    x:Name="DetailedIntelligenceTileGlyph"
-                    VerticalAlignment="Center"
-                    AutomationProperties.AccessibilityView="Raw"
-                    FontFamily="{ThemeResource WinoIconFontFamily}"
-                    FontSize="11"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Glyph="{x:Bind Glyph, Mode=OneTime}"
-                    Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(Glyph), Mode=OneTime}" />
-                <Ellipse
-                    x:Name="DetailedIntelligenceTileDot"
-                    Width="6"
-                    Height="6"
-                    VerticalAlignment="Center"
-                    Fill="{ThemeResource TextFillColorSecondaryBrush}"
-                    Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(Glyph), Mode=OneTime}" />
-                <TextBlock
-                    x:Name="DetailedIntelligenceTileText"
-                    MaxWidth="180"
-                    VerticalAlignment="Center"
-                    Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                    Style="{StaticResource CaptionTextBlockStyle}"
-                    Text="{x:Bind Text, Mode=OneTime}"
-                    TextTrimming="CharacterEllipsis" />
-            </StackPanel>
-        </Border>
-    </DataTemplate>
 
     <!--  Compact rows drop labels the same way categories collapse to a dot there.  -->
-    <DataTemplate x:Key="CompactIntelligenceTileTemplate" x:DataType="intelligenceCore:WinoIntelligenceTile">
-        <Border
-            x:Name="CompactIntelligenceTileRoot"
-            Width="18"
-            Height="18"
-            Margin="0,0,4,0"
-            AutomationProperties.AccessibilityView="Content"
-            AutomationProperties.Name="{x:Bind AccessibleText, Mode=OneTime}"
-            Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-            CornerRadius="9"
-            ToolTipService.ToolTip="{x:Bind AccessibleText, Mode=OneTime}">
-            <Grid>
-                <coreControls:WinoFontIcon
-                    x:Name="CompactIntelligenceTileGlyph"
-                    AutomationProperties.AccessibilityView="Raw"
-                    FontFamily="{ThemeResource WinoIconFontFamily}"
-                    FontSize="10"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Glyph="{x:Bind Glyph, Mode=OneTime}"
-                    Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(Glyph), Mode=OneTime}" />
-                <Ellipse
-                    x:Name="CompactIntelligenceTileDot"
-                    Width="6"
-                    Height="6"
-                    Fill="{ThemeResource TextFillColorSecondaryBrush}"
-                    Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(Glyph), Mode=OneTime}" />
-            </Grid>
-        </Border>
-    </DataTemplate>
 
     <selectors:MailRowTileTemplateSelector
         x:Key="DetailedMailRowTileTemplateSelector"
-        CategoryTemplate="{StaticResource DetailedMailCategoryTemplate}"
-        IntelligenceTileTemplate="{StaticResource DetailedIntelligenceTileTemplate}" />
+        CategoryTemplate="{StaticResource DetailedMailCategoryTemplate}" />
 
     <selectors:MailRowTileTemplateSelector
         x:Key="CompactMailRowTileTemplateSelector"
-        CategoryTemplate="{StaticResource CompactMailCategoryTemplate}"
-        IntelligenceTileTemplate="{StaticResource CompactIntelligenceTileTemplate}" />
+        CategoryTemplate="{StaticResource CompactMailCategoryTemplate}" />
 
     <DataTemplate x:Key="SubjectThreadChevronTemplate" x:DataType="mailListCore:MailListRow">
         <Grid

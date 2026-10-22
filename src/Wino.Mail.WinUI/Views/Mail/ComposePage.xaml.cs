@@ -53,8 +53,7 @@ namespace Wino.Views.Mail;
 
 public sealed partial class ComposePage : ComposePageAbstract,
     IPopoutClient,
-    IRecipient<ApplicationThemeChanged>,
-    IRecipient<WinoIntelligenceAccessChanged>
+    IRecipient<ApplicationThemeChanged>
 {
     private const int InitialFocusRetryCount = 3;
     public IHtmlMailEditorSession EditorSession { get; private set; } = null!;
@@ -89,24 +88,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
         EditorSession = new WindowsHtmlMailEditorSession(WebViewEditor);
         WebViewEditor.IsEditorDarkMode = WinoApplication.Current.UnderlyingThemeService.IsUnderlyingThemeDark();
         ViewModel.CloseRequested += ViewModel_CloseRequested;
-        BuildRewriteModesFlyout();
-    }
-
-    /// <summary>One menu item per tone, in catalog order. Choosing one rewrites the draft.</summary>
-    private void BuildRewriteModesFlyout()
-    {
-        ComposeRewriteModesFlyout.Items.Clear();
-        foreach (var mode in ViewModel.RewriteSession.Modes)
-        {
-            var item = new MenuFlyoutItem
-            {
-                Text = mode.Label,
-                Command = ViewModel.RewriteSession.RewriteCommand,
-                CommandParameter = mode.Mode,
-            };
-            AutomationProperties.SetAutomationId(item, $"ComposeRewriteMode_{mode.Mode}");
-            ComposeRewriteModesFlyout.Items.Add(item);
-        }
     }
 
     public HostedPopoutDescriptor GetPopoutDescriptor()
@@ -375,8 +356,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
         ViewModel.GetHTMLBodyFunction = GetEditorHtmlBodyAsync;
         var editorLifecycleToken = _editorLifecycleCancellationSource.Token;
         ViewModel.RenderHtmlBodyAsyncFunc = html => RenderComposeHtmlAsync(html, editorLifecycleToken);
-
-        _ = ViewModel.RefreshRewriteAvailabilityAsync();
     }
 
     private void ShowCCBCCClicked(object sender, RoutedEventArgs e)
@@ -866,8 +845,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
         _isNavigatingFrom = true;
         _editorLifecycleCancellationSource?.Cancel();
 
-        // The editor is going away, so a rewrite in flight has nowhere to land.
-        ViewModel.RewriteSession.Reset();
         ViewModel.RenderHtmlBodyAsyncFunc = null;
 
         try
@@ -988,7 +965,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
         base.RegisterRecipients();
 
         WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
-        WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -996,15 +972,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         base.UnregisterRecipients();
 
         WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
-        WeakReferenceMessenger.Default.Unregister<WinoIntelligenceAccessChanged>(this);
     }
-
-    public void Receive(WinoIntelligenceAccessChanged message)
-        => DispatcherQueue.TryEnqueue(() =>
-        {
-            Bindings.Update();
-            _ = ViewModel.RefreshRewriteAvailabilityAsync();
-        });
 
     // TODO: Save mime on closing the app.
     private async void OnClose(object sender, SystemNavigationCloseRequestedPreviewEventArgs e)

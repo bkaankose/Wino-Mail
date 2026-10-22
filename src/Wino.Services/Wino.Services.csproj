@@ -24,18 +24,14 @@
 		<PackageReference Include="Serilog.Sinks.File" />
 		<PackageReference Include="SkiaSharp" />
 		<PackageReference Include="Wino.Mail.Contracts" />
-		<PackageReference Include="Wino.Mail.AI.Abstractions" />
-		<PackageReference Include="Wino.Mail.AI.ContentProcessing" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
-		<ProjectReference Include="..\Wino.Core.ML\Wino.Core.ML.csproj" />
 		<ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
 		<ProjectReference Include="..\Wino.SourceGenerators\Wino.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="PublishAot;PublishTrimmed;TrimMode;SelfContained" />
 	</ItemGroup>
 	<ItemGroup>
 		<TrimmerRootDescriptor Include="ILLink.Descriptors.xml" />
-		<EmbeddedResource Include="Security\Keys\intelligence-public.pem" />
 		<EmbeddedResource Include="Configuration\known-imap-providers.json" />
 	</ItemGroup>
 </Project>

@@ -18,10 +18,7 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Misc;
-using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.MailItem;
-using Wino.Mail.AI.Abstractions;
-using Wino.Mail.Contracts.Intelligence;
 using Wino.Messaging.UI;
 using Wino.Services.Extensions;
 
@@ -41,8 +38,6 @@ public class MailService : BaseDatabaseService, IMailService
     private readonly IPreferencesService _preferencesService;
     private readonly ISentMailReceiptService _sentMailReceiptService;
     private readonly IMailCategoryService _mailCategoryService;
-    private readonly IWinoAccountProfileService _winoAccountProfileService;
-    private readonly IMailIntelligenceStore _localIntelligenceStore;
     private readonly IRecipientHistoryService _recipientHistoryService;
 
     private readonly ILogger _logger = Log.ForContext<MailService>();
@@ -56,8 +51,6 @@ public class MailService : BaseDatabaseService, IMailService
                        IPreferencesService preferencesService,
                        ISentMailReceiptService sentMailReceiptService,
                        IMailCategoryService mailCategoryService,
-                       IWinoAccountProfileService winoAccountProfileService = null,
-                       IMailIntelligenceStore localIntelligenceStore = null,
                        DraftUpdateRegistry draftUpdates = null,
                        IRecipientHistoryService recipientHistoryService = null) : base(databaseService)
     {
@@ -71,8 +64,6 @@ public class MailService : BaseDatabaseService, IMailService
         _preferencesService = preferencesService;
         _sentMailReceiptService = sentMailReceiptService;
         _mailCategoryService = mailCategoryService;
-        _winoAccountProfileService = winoAccountProfileService;
-        _localIntelligenceStore = localIntelligenceStore;
     }
 
     public async Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(Guid accountId, DraftCreationOptions draftCreationOptions)
@@ -827,7 +818,6 @@ public class MailService : BaseDatabaseService, IMailService
                 .First())
             .ToList();
         await _sentMailReceiptService.PopulateReceiptStatesAsync(mails).ConfigureAwait(false);
-        await HydrateIntelligenceMetadataAsync(mails, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
 
         stopwatch.Stop();
@@ -952,68 +942,8 @@ public class MailService : BaseDatabaseService, IMailService
 
         AssignPropertiesFromCaches(mails, folderCache, accountCache, contactCache);
         await _sentMailReceiptService.PopulateReceiptStatesAsync(mails).ConfigureAwait(false);
-        await HydrateIntelligenceMetadataAsync(mails).ConfigureAwait(false);
 
         return mails;
-    }
-
-    public async Task HydrateIntelligenceMetadataAsync(
-        IReadOnlyCollection<MailCopy> mailCopies,
-        CancellationToken cancellationToken = default)
-    {
-        if (mailCopies is null || mailCopies.Count == 0 ||
-            _localIntelligenceStore is null || _winoAccountProfileService is null ||
-            !_localIntelligenceStore.DatabaseExists)
-        {
-            return;
-        }
-
-        if (!await _winoAccountProfileService.HasActiveAccountAsync().ConfigureAwait(false))
-            return;
-
-        foreach (var accountGroup in mailCopies
-                     .Where(static mail => mail?.AssignedAccount is not null)
-                     .GroupBy(static mail => mail.AssignedAccount.Id))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var mailsByRemoteId = accountGroup
-                .Select(mail => (Mail: mail, RemoteId: RemoteMessageIdentity.TryCreate(mail)))
-                .Where(static item => item.RemoteId is not null)
-                .GroupBy(static item => item.RemoteId!, StringComparer.Ordinal)
-                .ToDictionary(
-                    static group => group.Key,
-                    static group => group.Select(static item => item.Mail).ToArray(),
-                    StringComparer.Ordinal);
-            if (mailsByRemoteId.Count == 0)
-                continue;
-
-            var remoteIds = mailsByRemoteId.Keys.ToArray();
-            var classificationByRemoteId = await _localIntelligenceStore.GetClassificationArtifactsAsync(
-                accountGroup.Key, remoteIds, cancellationToken).ConfigureAwait(false);
-            var enrichmentByRemoteId = await _localIntelligenceStore.GetEnrichmentArtifactsAsync(
-                accountGroup.Key, remoteIds, cancellationToken).ConfigureAwait(false);
-
-            foreach (var (remoteId, matchingMails) in mailsByRemoteId)
-            {
-                var metadata = CreateIntelligenceMetadata(remoteId, classificationByRemoteId, enrichmentByRemoteId);
-                foreach (var mail in matchingMails)
-                    mail.IntelligenceMetadata = metadata;
-            }
-        }
-    }
-
-    internal static MailIntelligenceMetadata CreateIntelligenceMetadata(
-        string remoteMessageId,
-        IReadOnlyDictionary<string, ClassificationArtifact> classificationArtifacts,
-        IReadOnlyDictionary<string, EnrichmentArtifact> enrichmentArtifacts)
-    {
-        if (!classificationArtifacts.TryGetValue(remoteMessageId, out var classification))
-        {
-            return null;
-        }
-
-        enrichmentArtifacts.TryGetValue(remoteMessageId, out var enrichment);
-        return MailIntelligenceMetadata.From(classification, enrichment);
     }
 
     private async Task<MailCopy> HydrateMailCopyAsync(MailCopy mailCopy)
@@ -1918,8 +1848,7 @@ public class MailService : BaseDatabaseService, IMailService
             ReadReceiptStatus = source.ReadReceiptStatus,
             ReadReceiptAcknowledgedAtUtc = source.ReadReceiptAcknowledgedAtUtc,
             ReadReceiptMessageUniqueId = source.ReadReceiptMessageUniqueId,
-            Categories = source.Categories == null ? [] : [.. source.Categories],
-            IntelligenceMetadata = source.IntelligenceMetadata
+            Categories = source.Categories == null ? [] : [.. source.Categories]
         };
     }
 

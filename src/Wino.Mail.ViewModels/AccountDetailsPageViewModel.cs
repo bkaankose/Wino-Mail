@@ -31,7 +31,7 @@ using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels;
 
-public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient<WinoIntelligenceEntitlementChanged>
+public partial class AccountDetailsPageViewModel : MailBaseViewModel
 {
     private readonly IMailDialogService _dialogService;
     private readonly IAccountService _accountService;
@@ -49,7 +49,6 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     private readonly IWinoLogger _winoLogger;
     private readonly IAccountCapabilityService _accountCapabilityService;
     private readonly ISynchronizationManager _synchronizationManager;
-    private readonly IWinoAccountIntelligenceSnapshotService? _entitlementService;
     private bool isLoaded = false;
     private readonly object _preferenceWriteGate = new();
     private Task _preferenceWrites = Task.CompletedTask;
@@ -58,9 +57,6 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
 
     [ObservableProperty]
     public partial MailAccount Account { get; set; }
-
-    [ObservableProperty]
-    public partial bool CanAccessWinoIntelligence { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ChangeProfilePictureCommand))]
@@ -244,8 +240,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         IPreferencesService preferencesService,
         IWinoLogger winoLogger,
         IAccountCapabilityService accountCapabilityService,
-        ISynchronizationManager synchronizationManager,
-        IWinoAccountIntelligenceSnapshotService? entitlementService = null)
+        ISynchronizationManager synchronizationManager)
     {
         _dialogService = dialogService;
         _accountService = accountService;
@@ -263,8 +258,6 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         _winoLogger = winoLogger;
         _accountCapabilityService = accountCapabilityService;
         _synchronizationManager = synchronizationManager;
-        _entitlementService = entitlementService;
-        CanAccessWinoIntelligence = entitlementService?.CurrentEntitlement.CanAccessSurfaces == true;
 
         var colorHexList = _themeService.GetAvailableAccountColors();
         AvailableColors = colorHexList.Select(a => new AppColorViewModel(a)).ToList();
@@ -306,36 +299,6 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
             string.Format(Translator.UnreadBadges_AccountSettingsTitleFormat, Account.Name),
             WinoPage.AccountUnreadBadgePage,
             Account.Id));
-
-    [RelayCommand]
-    private void ManageWinoIntelligence()
-    {
-        if (CanAccessWinoIntelligence)
-            Messenger.Send(new BreadcrumbNavigationRequested(Translator.SemanticIndex_PageTitle, WinoPage.WinoIntelligenceManagementPage, Account.Id));
-    }
-
-    public void Receive(WinoIntelligenceEntitlementChanged message)
-        => _ = ExecuteUIThread(() => CanAccessWinoIntelligence = message.Entitlement.CanAccessSurfaces);
-
-    protected override void RegisterRecipients()
-    {
-        base.RegisterRecipients();
-        Messenger.Register<WinoIntelligenceEntitlementChanged>(this);
-        if (_entitlementService is not null)
-            _ = RefreshEntitlementAsync();
-    }
-
-    protected override void UnregisterRecipients()
-    {
-        Messenger.Unregister<WinoIntelligenceEntitlementChanged>(this);
-        base.UnregisterRecipients();
-    }
-
-    private async Task RefreshEntitlementAsync()
-    {
-        var entitlement = await _entitlementService!.GetEntitlementAsync().ConfigureAwait(false);
-        await ExecuteUIThread(() => CanAccessWinoIntelligence = entitlement.CanAccessSurfaces);
-    }
 
     [RelayCommand]
     private void EditImapCalDavSettings()

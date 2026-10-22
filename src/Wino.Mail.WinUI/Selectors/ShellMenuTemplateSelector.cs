@@ -19,12 +19,9 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
 {
     public DataTemplate? SeperatorTemplate { get; set; }
     public DataTemplate? ShellSectionHeaderTemplate { get; set; }
-    public DataTemplate? RatingItemTemplate { get; set; }
     public DataTemplate? SettingsShellSectionItemTemplate { get; set; }
     public DataTemplate? SettingsShellGroupItemTemplate { get; set; }
     public DataTemplate? SettingsShellPageItemTemplate { get; set; }
-    public DataTemplate? SettingsShellWinoAccountItemTemplate { get; set; }
-    public DataTemplate? SettingsShellWinoIntelligenceItemTemplate { get; set; }
     public DataTemplate? CalendarDatePickerTemplate { get; set; }
     public DataTemplate? AccountCalendarGroupTemplate { get; set; }
     public DataTemplate? UngroupedCalendarTemplate { get; set; }
@@ -61,7 +58,6 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
         // Shared
         SeperatorItem => SeperatorTemplate,
         ShellSectionHeaderMenuItem => ShellSectionHeaderTemplate,
-        RateMenuItem => RatingItemTemplate,
 
         // Settings
         SettingsShellSectionMenuItem => SettingsShellSectionItemTemplate,
@@ -110,12 +106,6 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
 
     private DataTemplate? GetSettingsPageTemplate(SettingsShellPageMenuItem item)
     {
-        if (string.Equals(item.Title, Translator.WinoAccount_SettingsSection_Title, System.StringComparison.Ordinal))
-            return SettingsShellWinoAccountItemTemplate;
-
-        if (string.Equals(item.Title, Translator.WinoIntelligence_SettingsTitle, System.StringComparison.Ordinal))
-            return SettingsShellWinoIntelligenceItemTemplate;
-
         return SettingsShellPageItemTemplate;
     }
 

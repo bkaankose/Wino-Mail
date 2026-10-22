@@ -5,7 +5,6 @@ Each platform builds its release artifacts with its own scripts on its own host.
 | Platform | Artifacts | Host | Guide | Scripts |
 | --- | --- | --- | --- | --- |
 | Windows | Store upload, Beta and stable sideload bundles, App Installer feeds | Windows | [Windows release packages](releases-windows.md) | `scripts/release/windows` |
-| macOS | Notarized DMG with Sparkle feed, Mac App Store package | Mac | [macOS release packages](releases-macos.md) | `scripts/release/macos` |
 
 ## Before any release
 

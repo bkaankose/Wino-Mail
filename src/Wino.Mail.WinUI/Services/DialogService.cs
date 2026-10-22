@@ -32,30 +32,13 @@ using Wino.Messaging.UI;
 
 namespace Wino.Services;
 
-public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogService, IRecipient<SemanticIndexingCompleted>
+public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogService
 {
-    private readonly IWinoAccountProfileService _winoAccountProfileService;
-    private readonly IWinoAccountExternalSignInService _winoAccountExternalSignInService;
-
     public DialogService(INewThemeService themeService,
                          IConfigurationService configurationService,
-                         IApplicationResourceManager<ResourceDictionary> applicationResourceManager,
-                         IWinoAccountProfileService winoAccountProfileService,
-                         IWinoAccountExternalSignInService winoAccountExternalSignInService) : base(themeService, configurationService, applicationResourceManager)
+                         IApplicationResourceManager<ResourceDictionary> applicationResourceManager) : base(themeService, configurationService, applicationResourceManager)
     {
-        _winoAccountProfileService = winoAccountProfileService;
-        _winoAccountExternalSignInService = winoAccountExternalSignInService;
-        WeakReferenceMessenger.Default.Register(this);
     }
-
-    public void Receive(SemanticIndexingCompleted message)
-        => InfoBarMessage(
-            Translator.SemanticIndex_CompletedNotificationTitle,
-            string.Format(
-                Translator.SemanticIndex_CompletedNotificationMessage,
-                message.IndexedMessageCount,
-                message.AccountAddress),
-            InfoBarMessageType.Success);
 
     public void ShowReadOnlyCalendarMessage()
         => InfoBarMessage(
@@ -352,99 +335,9 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
         return dialog.Result;
     }
 
-    public async Task<WinoAccount?> ShowWinoAccountRegistrationDialogAsync()
-    {
-        var dialog = new WinoAccountRegistrationDialog(_winoAccountProfileService, _winoAccountExternalSignInService)
-        {
-            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
-        };
-
-        await HandleDialogPresentationAsync(dialog);
-
-        // Sign in with Microsoft, Google or Apple ends signed in; the e-mail form ends with a confirmation mail.
-        if (dialog.Result != null)
-            return dialog.Result;
-
-        if (!string.IsNullOrWhiteSpace(dialog.ConfirmationEmailAddress))
-        {
-            await ShowMessageAsync(
-                string.Format(Translator.WinoAccount_EmailConfirmationSentDialog_Message, dialog.ConfirmationEmailAddress),
-                Translator.WinoAccount_EmailConfirmationSentDialog_Title);
-        }
-
-        return null;
-    }
-
-    public async Task<WinoAccount?> ShowWinoAccountLoginDialogAsync()
-    {
-        var dialog = new WinoAccountLoginDialog(_winoAccountProfileService, _winoAccountExternalSignInService)
-        {
-            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
-        };
-
-        var result = await HandleDialogPresentationAsync(dialog);
-
-        if (dialog.EmailConfirmationRequiredDetails != null && !string.IsNullOrWhiteSpace(dialog.PendingConfirmationEmailAddress))
-        {
-            var confirmationDialog = new WinoAccountEmailConfirmationRequiredDialog(
-                _winoAccountProfileService,
-                dialog.PendingConfirmationEmailAddress,
-                dialog.EmailConfirmationRequiredDetails)
-            {
-                RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
-            };
-
-            await HandleDialogPresentationAsync(confirmationDialog);
-
-            if (confirmationDialog.ResendSucceeded)
-            {
-                await ShowMessageAsync(
-                    string.Format(Translator.WinoAccount_EmailConfirmationResentDialog_Message, dialog.PendingConfirmationEmailAddress),
-                    Translator.WinoAccount_EmailConfirmationResentDialog_Title);
-            }
-
-            return null;
-        }
-
-        if (!string.IsNullOrWhiteSpace(dialog.PasswordResetEmailAddress))
-        {
-            await ShowMessageAsync(
-                string.Format(Translator.WinoAccount_ForgotPasswordDialog_SuccessMessage, dialog.PasswordResetEmailAddress),
-                Translator.WinoAccount_ForgotPasswordDialog_SuccessTitle);
-
-            return null;
-        }
-
-        return dialog.Result;
-    }
-
-    public async Task<bool> ShowWinoAccountExportDialogAsync()
-    {
-        var dialog = new WinoAccountSyncExportDialog
-        {
-            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
-        };
-
-        return await HandleDialogPresentationAsync(dialog) == ContentDialogResult.Primary;
-    }
-
-    public async Task<string?> ShowWinoAccountSyncSecretDialogAsync(SyncSnapshotSecretRequest request)
+    public async Task<string?> ShowBackupPasswordDialogAsync(SyncSnapshotSecretRequest request)
     {
         var dialog = new WinoAccountSyncSecretDialog(request)
-        {
-            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
-        };
-
-        await HandleDialogPresentationAsync(dialog);
-
-        return dialog.Result;
-    }
-
-    public async Task<UnlimitedAccountsPurchaseChannel?> ShowUnlimitedAccountsPurchaseChannelDialogAsync()
-    {
-        var isWinoAccountAvailable = await _winoAccountProfileService.HasActiveAccountAsync();
-
-        var dialog = new UnlimitedAccountsPurchaseChannelDialog(isWinoAccountAvailable)
         {
             RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
         };
@@ -502,18 +395,6 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
         await HandleDialogPresentationAsync(dialog);
 
         return dialog.Result;
-    }
-
-    public async Task<bool> ShowIntelligenceConsentPolicyDialogAsync(Uri? policyUri, Func<Task<bool>> acceptAsync)
-    {
-        var dialog = new IntelligenceConsentPolicyDialog(policyUri, acceptAsync)
-        {
-            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
-        };
-
-        await HandleDialogPresentationAsync(dialog);
-
-        return dialog.IsAccepted;
     }
 
     public ExternalBrowserAuthenticationDialog? OpenExternalBrowserAuthenticationDialog(ExternalBrowserAuthenticationRequest request, Action cancelRequested)

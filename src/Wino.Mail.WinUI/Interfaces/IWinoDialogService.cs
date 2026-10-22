@@ -24,11 +24,6 @@ public interface IWinoDialogService
 
     Task<EditorTableCommandArgs?> ShowEditorTableDialogAsync();
 
-    /// <summary>
-    /// Shows the privacy policy. <paramref name="acceptAsync"/> records consent; the dialog closes only when it succeeds.
-    /// </summary>
-    /// <returns>True when consent was recorded.</returns>
-    Task<bool> ShowIntelligenceConsentPolicyDialogAsync(Uri? policyUri, Func<Task<bool>> acceptAsync);
 
     /// <summary>
     /// Opens the waiting surface for a browser sign-in on the main window without waiting for it to close.

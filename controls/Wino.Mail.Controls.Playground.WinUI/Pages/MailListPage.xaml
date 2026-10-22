@@ -9,7 +9,6 @@
     xmlns:core="using:Wino.Mail.Controls.Core"
     xmlns:hoverActions="using:Wino.Mail.Controls.HoverActions"
     xmlns:hoverCore="using:Wino.Mail.Controls.Core.HoverActions"
-    xmlns:intelligenceTiles="using:Wino.Mail.Controls.IntelligenceTileBar"
     xmlns:local="using:Wino.Mail.Controls.Playground.Pages"
     xmlns:models="using:Wino.Mail.Controls.Playground.Models"
     xmlns:search="using:Wino.Mail.Controls.SearchBar">
@@ -77,10 +76,6 @@
                         MaxLines="1"
                         Text="{x:Bind models:MailListPlaygroundFormat.Preview(SourceItem)}"
                         TextTrimming="CharacterEllipsis" />
-                    <intelligenceTiles:WinoMailIntelligenceTileBar
-                        MaxWidth="360"
-                        x:SuppressXamlTrimWarnings="True"
-                        Items="{Binding SourceItem.IntelligenceTiles}" />
                 </StackPanel>
             </Grid>
         </DataTemplate>
@@ -113,11 +108,6 @@
                             TextTrimming="CharacterEllipsis" />
                     </Grid>
                     <TextBlock Style="{ThemeResource CaptionTextBlockStyle}" Text="{x:Bind models:MailListPlaygroundFormat.Sender(SourceItem)}" />
-                    <intelligenceTiles:WinoMailIntelligenceTileBar
-                        MaxWidth="180"
-                        x:SuppressXamlTrimWarnings="True"
-                        IsCompact="True"
-                        Items="{Binding SourceItem.IntelligenceTiles}" />
                     <TextBlock
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         MaxLines="1"
@@ -141,11 +131,6 @@
                 <StackPanel Grid.Column="1" Spacing="1">
                     <TextBlock FontWeight="SemiBold" Text="{x:Bind models:MailListPlaygroundFormat.Subject(SourceItem)}" />
                     <TextBlock Style="{ThemeResource CaptionTextBlockStyle}" Text="{x:Bind models:MailListPlaygroundFormat.Sender(SourceItem)}" />
-                    <intelligenceTiles:WinoMailIntelligenceTileBar
-                        MaxWidth="180"
-                        x:SuppressXamlTrimWarnings="True"
-                        IsCompact="True"
-                        Items="{Binding SourceItem.IntelligenceTiles}" />
                 </StackPanel>
             </Grid>
         </DataTemplate>
@@ -335,16 +320,6 @@
                         CornerRadius="10">
                         <StackPanel Spacing="12">
                             <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Add mail" />
-                            <TextBlock FontWeight="SemiBold" Text="Late intelligence metadata" />
-                            <TextBlock
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Text="Apply, replace, or clear tiles on the newest visible message without an account or network."
-                                TextWrapping="Wrap" />
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Button Click="ApplyMetadata_Click" Content="Apply" />
-                                <Button Click="ReplaceMetadata_Click" Content="Replace" />
-                                <Button Click="ClearMetadata_Click" Content="Clear" />
-                            </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button Click="AddToMyThread_Click" Content="Add to MyThread1" />
                                 <Button Click="AddStandalone_Click" Content="Add standalone" />

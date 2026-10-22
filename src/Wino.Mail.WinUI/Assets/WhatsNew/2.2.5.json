@@ -3,11 +3,6 @@
   "isStarred": false,
   "features": [
     {
-      "image": "wino-account-social-sign-in.png",
-      "title": "Sign in with one click",
-      "description": "Sign in to your Wino Account with Microsoft, Google or Apple. There is no new password to remember. Open Wino Account from the title bar or from Settings to try it."
-    },
-    {
       "image": "fewer-crashes.png",
       "title": "Fewer crashes",
       "description": "We tracked down crashes that only happened in the released app and fixed them across mail, calendar and settings. Unread counts on the taskbar icon show up again too."

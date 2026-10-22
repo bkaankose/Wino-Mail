@@ -32,16 +32,6 @@
                         Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataExportAction, Mode=OneTime}" />
                 </controls:SettingsCard>
 
-                <controls:SettingsCard
-                    AutomationProperties.AutomationId="BackupRestoreBackupWinoAccountCard"
-                    Description="{x:Bind domain:Translator.SettingsBackupRestore_BackupWinoAccountDescription, Mode=OneTime}"
-                    Header="{x:Bind domain:Translator.SettingsBackupRestore_WinoAccountTarget, Mode=OneTime}"
-                    IsEnabled="{x:Bind ViewModel.IsWinoAccountSignedIn, Mode=OneWay}">
-                    <Button
-                        AutomationProperties.AutomationId="BackupRestoreWinoAccountExportButton"
-                        Command="{x:Bind ViewModel.ExportToWinoAccountCommand}"
-                        Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataExportAction, Mode=OneTime}" />
-                </controls:SettingsCard>
             </controls:SettingsExpander.Items>
         </controls:SettingsExpander>
 
@@ -66,16 +56,6 @@
                         Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataImportAction, Mode=OneTime}" />
                 </controls:SettingsCard>
 
-                <controls:SettingsCard
-                    AutomationProperties.AutomationId="BackupRestoreRestoreWinoAccountCard"
-                    Description="{x:Bind domain:Translator.SettingsBackupRestore_RestoreWinoAccountDescription, Mode=OneTime}"
-                    Header="{x:Bind domain:Translator.SettingsBackupRestore_WinoAccountTarget, Mode=OneTime}"
-                    IsEnabled="{x:Bind ViewModel.IsWinoAccountSignedIn, Mode=OneWay}">
-                    <Button
-                        AutomationProperties.AutomationId="BackupRestoreWinoAccountImportButton"
-                        Command="{x:Bind ViewModel.ImportFromWinoAccountCommand}"
-                        Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataImportAction, Mode=OneTime}" />
-                </controls:SettingsCard>
             </controls:SettingsExpander.Items>
         </controls:SettingsExpander>
 

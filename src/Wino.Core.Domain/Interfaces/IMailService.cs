@@ -30,7 +30,6 @@ public interface IMailService
     Task<List<MailCopy>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default);
     Task<int> CountMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default);
     Task<List<MailCopy>> FetchPinnedMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default);
-    Task HydrateIntelligenceMetadataAsync(IReadOnlyCollection<MailCopy> mailCopies, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Deletes all mail copies for all folders.
