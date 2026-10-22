@@ -145,8 +145,8 @@ public sealed partial class CalendarPeriodControl
 
     /// <summary>
     /// CompositionTarget.Rendering is a static event XAML cannot attach to. It is hooked only while
-    /// the rail moves on its own (a glide or wheel smoothing) and unhooked when the movement ends
-    /// and when the control unloads.
+    /// the rail moves (a glide, wheel smoothing or a pan) and unhooked when the movement ends and
+    /// when the control unloads.
     /// </summary>
     private void HookRendering()
     {
@@ -161,7 +161,7 @@ public sealed partial class CalendarPeriodControl
 
     private void UnhookRenderingWhenIdle()
     {
-        if (!_isRenderingHooked || _isGliding || _isWheelScrolling)
+        if (!_isRenderingHooked || _isGliding || _isWheelScrolling || _isPanning)
         {
             return;
         }
@@ -176,6 +176,13 @@ public sealed partial class CalendarPeriodControl
         {
             StopGlide();
             StopWheelScrolling();
+            return;
+        }
+
+        // A pan moves the rail from pointer events; the frame hook stays alive so XAML commits
+        // every translation on the next vsync instead of batching it behind input.
+        if (_isPanning)
+        {
             return;
         }
 

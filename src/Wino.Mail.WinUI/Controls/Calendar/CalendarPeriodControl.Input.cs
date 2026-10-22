@@ -185,6 +185,10 @@ public sealed partial class CalendarPeriodControl
         // The press turned into a pan, so the empty-slot tap it would otherwise produce is dropped.
         _suppressRangeTap = true;
 
+        // Pointer events alone let XAML batch the rail's translation behind input; keeping the frame
+        // hook alive for the pan makes every move land on the next vsync, so small drags stay fluent.
+        HookRendering();
+
         return true;
     }
 
@@ -214,6 +218,7 @@ public sealed partial class CalendarPeriodControl
         var wasPanning = _isPanning;
 
         ClearPanState();
+        UnhookRenderingWhenIdle();
 
         if (wasPanning && pointer is not null)
         {
