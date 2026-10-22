@@ -182,18 +182,7 @@ Every channel in a run is packaged from one compilation, so the build stores its
 Native AOT image PDB: Release crashes reference only that image, so the build fails if it is missing. Managed
 library PDBs are not kept because Native AOT compiles that code into the image. A later run for the same version, for example Beta after Store, keeps the existing `Symbols/`
 when its PDB files are identical. If they differ, that run's channels get their own `Symbols/` directory instead.
-Symbol upload is intentionally opt-in: an interactive build asks whether to upload them after packaging.
-Declining does not delete the symbols. Upload them later with:
-
-```powershell
-pwsh -NoProfile -File .\scripts\release\windows\upload-sentry-symbols.ps1 `
-  -Version 2.1.1.0 `
-  -SymbolsPath 'D:\Wino Releases\2.1.1.0\Symbols'
-```
-
-The upload script uses the `SENTRY_AUTH_TOKEN` environment variable and the
-`bkaankose/winomail` Sentry project. It uploads the symbols for one exact
-build once, regardless of how many signed packages were produced.
+The symbols stay local; this fork sends no crash reports or symbols anywhere.
 
 Only selected channels appear. Both sideload bundles have a verified, timestamped signature.
 Stable sideload folder and bundle names use three version components. Package manifests and App Installer versions retain all four components.

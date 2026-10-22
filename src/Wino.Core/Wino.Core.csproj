@@ -11,6 +11,7 @@
 	</PropertyGroup>
 	
 	<ItemGroup>
+		<PackageReference Include="Serilog" />
 		<PackageReference Include="CommunityToolkit.Diagnostics" />
 		<PackageReference Include="CommunityToolkit.Mvvm" />
 		<PackageReference Include="HtmlAgilityPack" />
@@ -25,7 +26,6 @@
 		<PackageReference Include="morelinq" />
 		<PackageReference Include="Nito.AsyncEx.Tasks" />
 		<PackageReference Include="NodaTime" />
-		<PackageReference Include="Sentry.Serilog" />
 		<PackageReference Include="SkiaSharp" />
 		<PackageReference Include="Wino.Mail.AI.Abstractions" />
 		<PackageReference Include="Wino.Mail.AI.ContentProcessing" />

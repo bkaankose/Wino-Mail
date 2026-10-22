@@ -16,7 +16,7 @@ using Windows.System;
 using Windows.UI.Core;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.Telemetry;
+
 using Wino.Helpers;
 using Wino.Mail.WinUI.Extensions;
 
@@ -166,16 +166,10 @@ public partial class NativeAppService : INativeAppService, IAppMetadataService, 
     public string PackageName => Package.Current.Id.Name;
 
 #if DEBUG
-    public string BuildConfiguration => AppTelemetryMetadata.GetBuildConfiguration(isDebug: true);
-    public string SentryEnvironment => AppTelemetryMetadata.GetEnvironment(isDebug: true);
+    public string BuildConfiguration => "Debug";
 #else
-    public string BuildConfiguration => AppTelemetryMetadata.GetBuildConfiguration(isDebug: false);
-    public string SentryEnvironment => AppTelemetryMetadata.GetEnvironment(isDebug: false);
+    public string BuildConfiguration => "Release";
 #endif
-
-    public string SentryRelease => AppTelemetryMetadata.GetRelease(AppVersion);
-
-    public string SentryDist => AppTelemetryMetadata.NormalizeAppVersion(AppVersion);
 
     public Task CopyClipboardAsync(string text)
     {

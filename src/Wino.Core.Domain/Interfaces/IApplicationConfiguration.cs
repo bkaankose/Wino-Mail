@@ -36,11 +36,6 @@ public interface IApplicationConfiguration
     /// </summary>
     string CalendarAttachmentsFolderPath => EnsureDataSubfolder("CalendarAttachments");
 
-    /// <summary>
-    /// Application insights instrumentation key.
-    /// </summary>
-    string SentryDNS { get; }
-
     protected string EnsureDataSubfolder(string name)
     {
         var path = System.IO.Path.Combine(ApplicationDataFolderPath, name);

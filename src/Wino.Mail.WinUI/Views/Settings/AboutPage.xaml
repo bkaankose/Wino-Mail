@@ -54,9 +54,9 @@
         <accessibilityControls:WinoSettingsCard
             AutomationProperties.AutomationId="AboutPageSettingsCard"
             Command="{x:Bind ViewModel.NavigateCommand}"
-            CommandParameter="{x:Bind ViewModel.WebsiteUrl}"
-            Description="{x:Bind domain:Translator.SettingsWebsite_Description}"
-            Header="{x:Bind domain:Translator.SettingsWebsite_Title}"
+            CommandParameter="{x:Bind ViewModel.UpstreamUrl}"
+            Description="{x:Bind domain:Translator.SettingsUpstream_Description}"
+            Header="{x:Bind domain:Translator.SettingsUpstream_Title}"
             IsClickEnabled="True">
             <controls:SettingsCard.HeaderIcon>
                 <coreControls:WinoFontIcon
@@ -92,87 +92,10 @@
                     Icon="Open" />
             </controls:SettingsCard.ActionIcon>
         </accessibilityControls:WinoSettingsCard>
-
-        <accessibilityControls:WinoSettingsCard
-            AutomationProperties.AutomationId="AboutPageSettingsCard3"
-            Command="{x:Bind ViewModel.NavigateCommand}"
-            CommandParameter="{x:Bind ViewModel.DiscordChannelUrl}"
-            Description="{x:Bind domain:Translator.SettingsDiscord_Description}"
-            Header="{x:Bind domain:Translator.SettingsDiscord_Title}"
-            IsClickEnabled="True">
-            <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Icon="Discord" />
-            </controls:SettingsCard.HeaderIcon>
-            <controls:SettingsCard.ActionIcon>
-                <coreControls:WinoFontIcon
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Icon="Open" />
-            </controls:SettingsCard.ActionIcon>
-        </accessibilityControls:WinoSettingsCard>
-
-        <accessibilityControls:WinoSettingsCard
-            AutomationProperties.AutomationId="AboutPageSettingsCard4"
-            Command="{x:Bind ViewModel.NavigateCommand}"
-            CommandParameter="Store"
-            Description="{x:Bind domain:Translator.SettingsStore_Description}"
-            Header="{x:Bind domain:Translator.SettingsStore_Title}"
-            IsClickEnabled="True">
-            <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Icon="MicrosoftStore" />
-            </controls:SettingsCard.HeaderIcon>
-            <controls:SettingsCard.ActionIcon>
-                <coreControls:WinoFontIcon
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Icon="Open" />
-            </controls:SettingsCard.ActionIcon>
-        </accessibilityControls:WinoSettingsCard>
-
-        <accessibilityControls:WinoSettingsCard
-            AutomationProperties.AutomationId="AboutPageSettingsCard5"
-            Command="{x:Bind ViewModel.NavigateCommand}"
-            CommandParameter="{x:Bind ViewModel.PaypalUrl}"
-            Description="{x:Bind domain:Translator.SettingsPaypal_Description}"
-            Header="{x:Bind domain:Translator.SettingsPaypal_Title}"
-            IsClickEnabled="True">
-            <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon Icon="PayPal" />
-            </controls:SettingsCard.HeaderIcon>
-            <controls:SettingsCard.ActionIcon>
-                <coreControls:WinoFontIcon
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Icon="Open" />
-            </controls:SettingsCard.ActionIcon>
-        </accessibilityControls:WinoSettingsCard>
-
-        <accessibilityControls:WinoSettingsCard
-            AutomationProperties.AutomationId="AboutPageSettingsCard6"
-            Command="{x:Bind ViewModel.NavigateCommand}"
-            CommandParameter="{x:Bind ViewModel.PrivacyPolicyUrl}"
-            Description="{x:Bind domain:Translator.SettingsPrivacyPolicy_Description}"
-            Header="{x:Bind domain:Translator.SettingsPrivacyPolicy_Title}"
-            IsClickEnabled="True">
-            <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Icon="Eye" />
-            </controls:SettingsCard.HeaderIcon>
-            <controls:SettingsCard.ActionIcon>
-                <coreControls:WinoFontIcon
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Icon="Open" />
-            </controls:SettingsCard.ActionIcon>
-        </accessibilityControls:WinoSettingsCard>
+
+
+
+
 
         <controls:SettingsExpander
             AutomationProperties.AutomationId="AboutPageSettingsExpander"
@@ -194,41 +117,10 @@
                         <Button
                             AutomationProperties.AutomationId="AboutPageButton"
                             Command="{x:Bind ViewModel.ShareWinoLogCommand}"
-                            Content="{x:Bind domain:Translator.Buttons_Share}" />
-                        <Button
-                            AutomationProperties.AutomationId="AboutPageButton2"
-                            Command="{x:Bind ViewModel.UploadWinoLogsCommand}"
-                            Content="{x:Bind domain:Translator.Buttons_UploadLogs}" />
+                            Content="{x:Bind domain:Translator.Buttons_Share}" />
                         <ToggleSwitch AutomationProperties.AutomationId="AboutPageToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsLoggingEnabled, Mode=TwoWay}" />
                     </StackPanel>
-                </controls:SettingsCard>
-                <controls:SettingsCard
-                    HorizontalContentAlignment="Stretch"
-                    VerticalContentAlignment="Stretch"
-                    AutomationProperties.AutomationId="AboutPageSettingsCard8"
-                    ContentAlignment="Vertical"
-                    Description="{x:Bind domain:Translator.SettingsDiagnostics_DiagnosticId_Description}"
-                    Header="{x:Bind domain:Translator.SettingsDiagnostics_DiagnosticId_Title}">
-                    <StackPanel Orientation="Horizontal" Spacing="16">
-
-                        <Button
-                            Grid.Column="1"
-                            HorizontalAlignment="Right"
-                            AutomationProperties.AutomationId="AboutPageButton3"
-                            Command="{x:Bind ViewModel.CopyDiagnosticIdCommand}">
-                            <coreControls:WinoFontIcon
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                Icon="Copy" />
-                        </Button>
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            FontWeight="SemiBold"
-                            Foreground="{StaticResource DiagnosticIdCopyBrush}"
-                            IsTextSelectionEnabled="True"
-                            Text="{x:Bind ViewModel.PreferencesService.DiagnosticId}" />
-                    </StackPanel>
-                </controls:SettingsCard>
+                </controls:SettingsCard>
             </controls:SettingsExpander.Items>
         </controls:SettingsExpander>
 

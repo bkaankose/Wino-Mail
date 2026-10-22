@@ -1014,13 +1014,7 @@ function Invoke-InteractiveRelease {
     $tools = Get-ReleaseTools $selection
     $storeCertificate = if ($selection.Store) { Get-StoreSigningCertificate $plan $StoreTestCertificateThumbprint } else { $null }
     $signing = if ($selection.Beta -or $selection.Sideload) { Get-ReleaseSigningConfiguration -IncludeBeta:$selection.Beta -IncludeSideload:$selection.Sideload } else { $null }
-    $symbolsPath = Invoke-ReleaseBuild $plan $tools $signing $storeCertificate
-    if (-not $NonInteractive -and -not [string]::IsNullOrWhiteSpace([string]$symbolsPath)) {
-        $upload = Read-ReleaseChoice "Upload symbols for $($plan.Version) now? (yes/no)" @{ yes = $true; y = $true; no = $false; n = $false }
-        if ($upload) {
-            & (Join-Path $PSScriptRoot 'upload-sentry-symbols.ps1') -Version $plan.Version -SymbolsPath $symbolsPath
-        }
-    }
+    $null = Invoke-ReleaseBuild $plan $tools $signing $storeCertificate
     if (-not $NonInteractive) {
         try { Invoke-Item -LiteralPath $plan.VersionRoot } catch { Write-Warning 'Packages are ready, but Explorer could not open the output folder.' }
     }

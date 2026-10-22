@@ -34,8 +34,6 @@ public class ApplicationConfiguration : IApplicationConfiguration
     public string PublisherSharedFolderPath { get; set; }
     public string ApplicationTempFolderPath { get; set; }
 
-    public string SentryDNS => "https://81365d32d74c6f223a0674a2fb7bade5@o4509722249134080.ingest.de.sentry.io/4509722259095632";
-
     private string EnsureSubfolder(string name)
     {
         var path = Path.Combine(ApplicationDataFolderPath, name);

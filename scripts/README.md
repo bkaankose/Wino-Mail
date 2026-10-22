@@ -9,7 +9,6 @@ See the [Windows](../docs/harness/development-windows.md) and [macOS](../docs/ha
 | Development | `development/windows/start-wino.ps1` | Windows | PowerShell 7.2+ | Check build inputs and output, then build if needed and launch the packaged Debug app |
 | Release | `release/windows/build-releases.ps1` | Windows | PowerShell 7 | Optionally translate resources, then build and package Store, Beta, and sideload releases |
 | Release | `release/windows/publish-releases.ps1` | Windows | PowerShell 7 | Publish Beta and sideload releases to download.winomail.app |
-| Release | `release/windows/upload-sentry-symbols.ps1` | Windows | PowerShell 7 | Upload symbols for a selected release |
 | Release | `release/macos/build-macos-release.sh` | macOS | Bash | Optionally translate resources, then build the signed, notarized macOS DMG |
 | Release | `release/macos/build-macos-appstore.sh` | macOS | Bash | Optionally translate resources, then build, validate, and optionally upload the Mac App Store package |
 | Release | `release/whats-new/validate.ps1` | Both | PowerShell 7 | Validate release notes and illustration references |

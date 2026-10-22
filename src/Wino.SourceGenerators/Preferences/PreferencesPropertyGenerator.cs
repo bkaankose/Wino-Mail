@@ -37,8 +37,7 @@ public sealed class PreferencesPropertyGenerator : IIncrementalGenerator
                 .Where(static property =>
                     !property.IsIndexer &&
                     property.GetMethod != null &&
-                    property.SetMethod != null &&
-                    property.Name != "DiagnosticId")
+                    property.SetMethod != null)
                 .OrderBy(static property => property.Name, StringComparer.Ordinal)
                 .ToImmutableArray();
         });

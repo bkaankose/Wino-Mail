@@ -27,7 +27,7 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
     private readonly IAppMetadataService _appMetadataService;
     private readonly IAccountService _accountService;
     private readonly IMimeFileService _mimeFileService;
-    private readonly IMicrosoftStoreService _storeService;
+
     private readonly ITranslationService _translationService;
     private readonly INewThemeService _newThemeService;
     private readonly IPreferencesService _preferencesService;
@@ -37,9 +37,6 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
     private bool _isAppearanceSelectionPaused;
 
     public string GitHubUrl => AppUrls.GitHub;
-    public string PaypalUrl => AppUrls.Paypal;
-    public string WebsiteUrl => AppUrls.Website;
-    public string PrivacyPolicyUrl => AppUrls.PrivacyPolicy;
 
     public ObservableCollection<SettingsNavigationItemInfo> SearchSuggestions { get; } = [];
     public ObservableCollection<IAccountProviderDetailViewModel> Accounts { get; } = [];
@@ -88,7 +85,6 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
                                         IAppMetadataService appMetadataService,
                                         IAccountService accountService,
                                         IMimeFileService mimeFileService,
-                                         IMicrosoftStoreService storeService,
                                           ITranslationService translationService,
                                           INewThemeService newThemeService,
                                           IPreferencesService preferencesService,
@@ -99,7 +95,7 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
         _appMetadataService = appMetadataService;
         _accountService = accountService;
         _mimeFileService = mimeFileService;
-        _storeService = storeService;
+
         _translationService = translationService;
         _newThemeService = newThemeService;
         _preferencesService = preferencesService;
@@ -402,15 +398,6 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
     {
         if (target is not string stringTarget || string.IsNullOrWhiteSpace(stringTarget))
             return;
-
-        if (stringTarget == "Store")
-        {
-            if (!PlatformCapabilities.MicrosoftStore)
-                return;
-
-            await _storeService.LaunchStorePageForReviewAsync();
-            return;
-        }
 
         (await _externalLauncher.LaunchUriAsync(new Uri(stringTarget))).ThrowIfNotSucceeded();
     }

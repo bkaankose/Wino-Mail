@@ -428,11 +428,6 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(AutoSelectNextItem), value);
     }
 
-    public string DiagnosticId
-    {
-        get => GetOrCreateDiagnosticId();
-        set => SetPropertyAndSave(nameof(DiagnosticId), value);
-    }
 
     public SearchMode DefaultSearchMode
     {
@@ -1074,18 +1069,6 @@ public partial class PreferencesService(IConfigurationService configurationServi
         return Convert.ChangeType(value.GetString(), targetType, CultureInfo.InvariantCulture);
     }
 
-    private string GetOrCreateDiagnosticId()
-    {
-        var diagnosticId = _configurationService.Get(nameof(DiagnosticId), string.Empty);
-
-        if (!Guid.TryParse(diagnosticId, out _))
-        {
-            diagnosticId = Guid.NewGuid().ToString();
-            SaveProperty(nameof(DiagnosticId), diagnosticId);
-        }
-
-        return diagnosticId;
-    }
 
     private sealed record PreferenceAccessor(
         string Name,

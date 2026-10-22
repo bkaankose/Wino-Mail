@@ -529,59 +529,6 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     }
 
     [RelayCommand]
-    private async Task UploadProtocolLogsAsync()
-    {
-        if (Account == null)
-            return;
-
-        var logsFolder = WinoProtocolLogger.GetAccountLogFolder(
-            _applicationConfiguration.ApplicationDataFolderPath,
-            Account.Id);
-
-        if (!System.IO.Directory.Exists(logsFolder))
-        {
-            _dialogService.InfoBarMessage(
-                Translator.Info_LogsNotFoundTitle,
-                Translator.ProtocolLog_NoLogsMessage,
-                InfoBarMessageType.Error);
-            return;
-        }
-
-        var archiveFileName = $"Wino-Protocol-{Account.Id:N}.zip";
-        var archivePath = await _fileService.CreateLogsArchiveAsync(
-            logsFolder,
-            _applicationConfiguration.ApplicationTempFolderPath,
-            archiveFileName,
-            sanitizeSensitiveData: true);
-
-        if (string.IsNullOrEmpty(archivePath))
-        {
-            _dialogService.InfoBarMessage(
-                Translator.Info_LogsNotFoundTitle,
-                Translator.ProtocolLog_NoLogsMessage,
-                InfoBarMessageType.Error);
-            return;
-        }
-
-        try
-        {
-            await _winoLogger.UploadDiagnosticLogsAsync(archivePath, _preferencesService.DiagnosticId);
-            _dialogService.InfoBarMessage(
-                Translator.Info_LogsUploadedTitle,
-                string.Format(Translator.Info_LogsUploadedMessage, archiveFileName),
-                InfoBarMessageType.Success);
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to upload IMAP protocol logs to Sentry.");
-            _dialogService.InfoBarMessage(
-                Translator.GeneralTitle_Error,
-                Translator.Info_LogsUploadFailedMessage,
-                InfoBarMessageType.Error);
-        }
-    }
-
-    [RelayCommand]
     private async Task DeleteAccountAsync()
     {
         if (Account == null)

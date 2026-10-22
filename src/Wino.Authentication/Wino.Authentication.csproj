@@ -10,10 +10,10 @@
 		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
 	</PropertyGroup>
 	<ItemGroup>
+		<PackageReference Include="Serilog" />
 		<PackageReference Include="CommunityToolkit.Diagnostics" />
 		<PackageReference Include="CommunityToolkit.Mvvm" />
 		<PackageReference Include="Microsoft.Identity.Client" />
-		<PackageReference Include="Sentry.Serilog" />
 	</ItemGroup>
 	<ItemGroup>
 		<EmbeddedResource Include="Assets\AuthorizationResult.html" LogicalName="Wino.Authentication.Assets.AuthorizationResult.html" />

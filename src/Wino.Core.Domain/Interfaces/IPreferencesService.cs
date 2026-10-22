@@ -25,11 +25,6 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// </summary>
     AppLanguage CurrentLanguage { get; set; }
 
-    /// <summary>
-    /// Diagnostic ID for the application.
-    /// Changes per-install.
-    /// </summary>
-    string DiagnosticId { get; set; }
 
     /// <summary>
     /// Setting: Whether Microsoft Store update notifications should be shown.

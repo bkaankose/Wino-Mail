@@ -278,7 +278,6 @@
 	<PackageReference Include="Microsoft.Identity.Client" />
 	  
 	<PackageReference Include="ColorHashSharp" />
-	<PackageReference Include="Sentry.Serilog" />
 	<PackageReference Include="Serilog.Extensions.Logging" />
 	<PackageReference Include="sqlite-net-pcl" />
 	<PackageReference Include="EmailValidation" />

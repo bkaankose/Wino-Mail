@@ -19,7 +19,7 @@
   </Target>
 
   <!-- Export the PDB files the MSIX tooling selects for the .appxsym, including the Native AOT image PDB
-       that never appears in the package payload. Sentry needs exactly these files to symbolicate. -->
+       that never appears in the package payload. They are kept for local crash analysis. -->
   <Target Name="WinoExportReleaseSymbols" AfterTargets="_CalculateInputsForGenerateAppxPackageRecipe"
           Condition="'$(Configuration)' == 'Release' and '$(DesignTimeBuild)' != 'true'">
     <Error Condition="'@(PDBPayload)' == ''" Text="The release build produced no symbol files." />
