@@ -4,7 +4,8 @@ using UIKit;
 namespace Wino.Mail.UIKit.Phone.Calendar;
 
 /// <summary>
-/// Pages the iPhone calendar body with the finger (design pass of 18 Oct 2026): a mostly horizontal drag moves a snapshot
+/// Pages the iPhone agenda list with the finger (design pass of 18 Oct 2026; the surface rails on its own,
+/// docs/calendar-rail-navigation.md): a mostly horizontal drag moves a snapshot
 /// of the current period with the touch; past 30% of the width (or a quick flick) the snapshot leaves, the page moves to
 /// the next or previous period and the live content slides in from the other side; a short drag springs back. Reduce
 /// Motion crossfades.

@@ -2,6 +2,7 @@ using System;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Helpers;
 
 namespace Wino.Dialogs;
 
@@ -76,4 +77,6 @@ public sealed partial class SignatureEditorDialog : ContentDialog
     }
 
     private void SignatureNameTextBoxTextChanged(object sender, TextChangedEventArgs e) => IsPrimaryButtonEnabled = !string.IsNullOrWhiteSpace(SignatureNameTextBox.Text);
+
+    private void EditorLinkOpenRequested(object? sender, Uri uri) => EditorLinkLauncher.Open(uri);
 }

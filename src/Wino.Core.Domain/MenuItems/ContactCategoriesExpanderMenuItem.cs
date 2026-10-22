@@ -1,3 +1,6 @@
+using System;
+using System.Threading.Tasks;
+
 namespace Wino.Core.Domain.MenuItems;
 
 /// <summary>
@@ -7,4 +10,7 @@ namespace Wino.Core.Domain.MenuItems;
 public sealed class ContactCategoriesExpanderMenuItem(string title) : MenuItemBase
 {
     public string Title { get; } = title;
+
+    /// <summary>Creates a category for the active account from the entry's context menu.</summary>
+    public Func<Task> NewCategoryRequested { get; set; }
 }

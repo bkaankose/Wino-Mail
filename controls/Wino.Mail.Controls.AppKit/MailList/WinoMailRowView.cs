@@ -132,7 +132,7 @@ public class WinoMailRowView : NSTableCellView
         _subject = WinoStyle.Label(string.Empty, WinoStyle.Body);
         _subject.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
         _subject.SetContentCompressionResistancePriority(200, NSLayoutConstraintOrientation.Horizontal);
-        _date = WinoStyle.Label(string.Empty, WinoStyle.Caption, NSColor.Label.ColorWithAlphaComponent((nfloat)0.7));
+        _date = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.LabelWithOpacity(0.7));
         _date.SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Horizontal);
         _date.SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Horizontal);
         _unreadDot = new WinoSurfaceView { CornerRadius = 3, Fill = WinoStyle.Accent, Hidden = true };
@@ -142,7 +142,7 @@ public class WinoMailRowView : NSTableCellView
         _line2.SetCustomSpacing(4, _chevron);
 
         // ---- Line 3 and tiles ----
-        _preview = WinoStyle.Label(string.Empty, NSFont.SystemFontOfSize(12), NSColor.Label.ColorWithAlphaComponent((nfloat)0.7));
+        _preview = WinoStyle.Label(string.Empty, NSFont.SystemFontOfSize(12), WinoStyle.LabelWithOpacity(0.7));
         _preview.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
         _preview.SetContentCompressionResistancePriority(200, NSLayoutConstraintOrientation.Horizontal);
         // Windows: a WinoWrapPanel with 4pt vertical spacing, so many tiles wrap instead of clipping.

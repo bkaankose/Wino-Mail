@@ -25,6 +25,8 @@ public class WinoSettingsCard : NSView
     private NSLayoutConstraint[] _trailingConstraints = [];
     private NSView? _content;
     private NSView? _bottomContent;
+    private NSLayoutConstraint[] _bottomConstraints = [];
+    private IDisposable? _bottomHiddenObserver;
     private NSView? _leadingView;
     private bool _isClickable;
     private bool? _showsChevron;
@@ -181,21 +183,46 @@ public class WinoSettingsCard : NSView
         get => _bottomContent;
         set
         {
+            _bottomHiddenObserver?.Dispose();
+            _bottomHiddenObserver = null;
+            NSLayoutConstraint.DeactivateConstraints(_bottomConstraints);
+            _bottomConstraints = [];
             _bottomContent?.RemoveFromSuperview();
             _bottomContent = value;
-            _textBottom.Active = value is null;
-            if (value is null) return;
-            value.TranslatesAutoresizingMaskIntoConstraints = false;
-            _surface.AddSubview(value);
-            NSLayoutConstraint.ActivateConstraints(
-            [
-                value.TopAnchor.ConstraintEqualTo(_text.BottomAnchor, 10),
-                value.LeadingAnchor.ConstraintEqualTo(_text.LeadingAnchor),
-                value.TrailingAnchor.ConstraintEqualTo(_surface.TrailingAnchor, -(nfloat)WinoSettingsStyle.CardPadding),
-                value.BottomAnchor.ConstraintEqualTo(_surface.BottomAnchor, -(nfloat)WinoSettingsStyle.CardVerticalPadding),
-                _text.TopAnchor.ConstraintEqualTo(_surface.TopAnchor, (nfloat)WinoSettingsStyle.CardVerticalPadding)
-            ]);
+            if (value is not null)
+            {
+                value.TranslatesAutoresizingMaskIntoConstraints = false;
+                _surface.AddSubview(value);
+                _bottomConstraints =
+                [
+                    value.TopAnchor.ConstraintEqualTo(_text.BottomAnchor, 10),
+                    value.LeadingAnchor.ConstraintEqualTo(_text.LeadingAnchor),
+                    value.TrailingAnchor.ConstraintEqualTo(_surface.TrailingAnchor, -(nfloat)WinoSettingsStyle.CardPadding),
+                    value.BottomAnchor.ConstraintEqualTo(_surface.BottomAnchor, -(nfloat)WinoSettingsStyle.CardVerticalPadding),
+                    _text.TopAnchor.ConstraintEqualTo(_surface.TopAnchor, (nfloat)WinoSettingsStyle.CardVerticalPadding)
+                ];
+                // Bottom content shown only for some settings gives its space back while it is hidden.
+                _bottomHiddenObserver = value.AddObserver("hidden", Foundation.NSKeyValueObservingOptions.New, _ => ApplyBottomContent());
+            }
+            ApplyBottomContent();
         }
+    }
+
+    private bool IsBottomContentShown => _bottomContent is { Hidden: false };
+
+    private void ApplyBottomContent()
+    {
+        if (IsBottomContentShown)
+        {
+            _textBottom.Active = false;
+            NSLayoutConstraint.ActivateConstraints(_bottomConstraints);
+        }
+        else
+        {
+            NSLayoutConstraint.DeactivateConstraints(_bottomConstraints);
+            _textBottom.Active = true;
+        }
+        RebuildTrailingConstraints();
     }
 
     /// <summary>Navigation card: shows a chevron and raises <see cref="Activated"/> on click, Return or Space.</summary>
@@ -360,9 +387,11 @@ public class WinoSettingsCard : NSView
             constraints.Add(_content.TrailingAnchor.ConstraintEqualTo(trailingEdge, _chevron.Hidden ? -pad : -12));
             constraints.Add(_content.TopAnchor.ConstraintGreaterThanOrEqualTo(_surface.TopAnchor, vpad));
             constraints.Add(_content.BottomAnchor.ConstraintLessThanOrEqualTo(_surface.BottomAnchor, -vpad));
-            var center = _content.CenterYAnchor.ConstraintEqualTo(_surface.CenterYAnchor);
+            // With bottom content the control stays beside the header text, above the bottom content.
+            var center = _content.CenterYAnchor.ConstraintEqualTo(IsBottomContentShown ? _text.CenterYAnchor : _surface.CenterYAnchor);
             center.Priority = 700;
             constraints.Add(center);
+            if (_bottomContent is { Hidden: false } bottom) constraints.Add(bottom.TopAnchor.ConstraintGreaterThanOrEqualTo(_content.BottomAnchor, 8));
             trailingEdge = _content.LeadingAnchor;
             gap = -pad;
         }
@@ -406,4 +435,14 @@ public class WinoSettingsCard : NSView
 
     private void UpdateAccessibilityRole()
         => AccessibilityRole = _isClickable ? NSAccessibilityRoles.ButtonRole : NSAccessibilityRoles.GroupRole;
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _bottomHiddenObserver?.Dispose();
+            _bottomHiddenObserver = null;
+        }
+        base.Dispose(disposing);
+    }
 }

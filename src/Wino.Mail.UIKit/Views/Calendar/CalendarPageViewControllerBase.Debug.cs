@@ -37,8 +37,11 @@ public abstract partial class CalendarPageViewControllerBase
 
     private void RegisterDebugCommands()
     {
-        Register("calprev", _ => { GoPrevious(); return "ok"; });
-        Register("calnext", _ => { GoNext(); return "ok"; });
+        Register("calprev", _ => { NavigatePeriods(-1); return "ok"; });
+        Register("calnext", _ => { NavigatePeriods(1); return "ok"; });
+        Register("calrail", _ => Surface.DescribeRail());
+        Register("calrailpos", args => { Surface.DebugSetRailPosition(double.Parse(args[0], CultureInfo.InvariantCulture)); return Surface.DescribeRail(); });
+        Register("calrailsettle", _ => { Surface.DebugSettleRail(); return "ok"; });
         Register("caltoday", _ => { GoToday(); return "ok"; });
         Register("caltype", args => { RequestDisplayType(Enum.Parse<CalendarDisplayType>(args[0], true)); return "ok"; });
         Register("calselect", args =>

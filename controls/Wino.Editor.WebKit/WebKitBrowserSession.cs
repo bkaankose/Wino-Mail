@@ -20,6 +20,9 @@ internal sealed class WebKitBrowserSession : NSObject, IWKScriptMessageHandler
     public event EventHandler<EditorMessage>? Message;
     public event EventHandler<RendererNavigationRequestedEventArgs>? NavigationRequested;
     public event EventHandler<Exception>? OperationFailed;
+
+    /// <summary>The reader's hovered or focused link changed (the host shows its address).</summary>
+    public event EventHandler<RendererLinkHoverEventArgs>? LinkHovered;
     public WebKitBrowserSession(WKWebView browser)
     {
         Browser = browser;
@@ -100,10 +103,17 @@ internal sealed class WebKitBrowserSession : NSObject, IWKScriptMessageHandler
                 if (Uri.TryCreate(message.Url ?? reader?.Uri, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https" or "mailto")
                     OpenLink(uri);
             }
+            else if (message.Type == "linkHover")
+            {
+                var hover = JsonSerializer.Deserialize(json, EditorJsonContext.Default.RendererMessage);
+                LinkHovered?.Invoke(this, new(NullIfBlank(hover?.Uri), NullIfBlank(hover?.Target)));
+            }
             else Message?.Invoke(this, message);
         }
         catch (JsonException) { }
     }
+    private static string? NullIfBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
+
     private async void OpenLink(Uri uri)
     {
         NavigationRequested?.Invoke(this, new(uri));
@@ -123,7 +133,7 @@ internal sealed class WebKitBrowserSession : NSObject, IWKScriptMessageHandler
             Browser.StopLoading();
             Browser.Configuration.UserContentController.RemoveScriptMessageHandler("winoMail");
             Browser.NavigationDelegate = null;
-            Message = null; NavigationRequested = null; OperationFailed = null;
+            Message = null; NavigationRequested = null; OperationFailed = null; LinkHovered = null;
             releaseVisual();
             _navigation.Dispose();
             return Task.CompletedTask;

@@ -16,7 +16,7 @@ using Wino.Presentation.UIKit;
 namespace Wino.Mail.UIKit.Views.Settings;
 
 /// <summary>
-/// Notifications: snooze, quiet hours, mail, calendar and task sections, per-account overrides and reset (Windows
+/// Notifications: status bars, instant push, snooze, quiet hours, mail, calendar and task sections, per-account overrides and reset (Windows
 /// NotificationSettingsPage). Sounds are the iOS alert sounds stored in the Apple-only keys
 /// (<see cref="AppleNotificationSounds"/>), each with a Play preview; Windows' sound values are never written.
 /// iOS cannot see whether another app is presenting, so "Snooze while presenting" is left out; Focus modes already
@@ -38,7 +38,21 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
         var vm = ViewModel;
         var p = vm.PreferencesService;
 
-        // Snooze hero: the switch stays trailing, the preset pop-up sits under the text.
+        // Page status, above everything: held notifications, then Focus (which never says when it ends).
+        var snoozed = InfoBar(WinoInfoBarSeverity.Informational, null, null);
+        Bind.Bind(vm, nameof(vm.SnoozeSummaryText), s => s.SnoozeSummaryText, text => snoozed.Message = text);
+        Bind.Visible(snoozed, vm, nameof(vm.IsSnoozed), s => s.IsSnoozed);
+        Add(snoozed);
+
+        var quietTime = InfoBar(WinoInfoBarSeverity.Informational, null, Translator.NotificationSettings_DoNotDisturbOn);
+        Bind.Visible(quietTime, vm, nameof(vm.IsSystemQuietTimeActive), s => s.IsSystemQuietTimeActive);
+        Add(quietTime);
+
+        if (vm.IsPushRelaySectionVisible)
+            AddInstantPush();
+
+        // Snooze: a regular card; the switch stays trailing, the preset pop-up sits under the text. While notifications
+        // are held, the status shows at the top of the page instead.
         var snoozeSwitch = new WinoLabeledSwitch();
         WinoAccessibility.Label(snoozeSwitch.Switch, Translator.NotificationSettings_SnoozeAll);
         Bind.Bind(vm, nameof(vm.IsSnoozed), s => s.IsSnoozed, value => snoozeSwitch.IsOn = value);
@@ -50,16 +64,9 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
         }, UIControlEvent.ValueChanged);
         var presets = Bind.PopUp<NotificationSettingsPageViewModel, SnoozePresetOption>(vm, s => s.SnoozePresets, option => option.DisplayText,
             nameof(vm.SelectedSnoozePreset), s => s.SelectedSnoozePreset, (s, v) => s.StartSnoozeCommand.Execute(v.Value));
-        var hero = Card(Translator.NotificationSettings_Snooze_Title, null, WinoIconGlyph.AlertOff, snoozeSwitch);
-        hero.BottomContent = presets;
-        Bind.Bind(vm, nameof(vm.SnoozeSummaryText), s => s.SnoozeSummaryText, text => hero.Description = text);
-        var state = Card(string.Empty, null, WinoIconGlyph.None);
-        Bind.Bind(vm, nameof(vm.SnoozeStateText), s => s.SnoozeStateText, text => { state.Header = text ?? string.Empty; state.Hidden = string.IsNullOrEmpty(text); });
-        AddGroup(null, hero, state);
-
-        var quietTime = InfoBar(WinoInfoBarSeverity.Informational, null, Translator.NotificationSettings_DoNotDisturbOn);
-        Bind.Visible(quietTime, vm, nameof(vm.IsSystemQuietTimeActive), s => s.IsSystemQuietTimeActive);
-        Add(quietTime);
+        var snooze = Card(Translator.NotificationSettings_Snooze_Title, Translator.NotificationSettings_Snooze_ActiveDescription, WinoIconGlyph.AlertOff, snoozeSwitch);
+        snooze.BottomContent = presets;
+        AddGroup(null, snooze);
 
         // Quiet hours.
         bool QuietOn(IPreferencesService s) => s.AreQuietHoursEnabled;
@@ -123,7 +130,7 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
                 TypeSoundPicker(AppleNotificationSoundKind.Task)));
         Bind.Bind(vm, nameof(vm.TaskSummary), s => s.TaskSummary, text => tasks.HeaderCard.Description = text);
 
-        AddGroup(null, quiet, mail, calendar, tasks, LiveNotifications());
+        AddGroup(null, quiet, mail, calendar, tasks);
 
         // Per-account overrides.
         var accountsHeader = new WinoSettingsGroup(Translator.NotificationSettings_Accounts_Title, Translator.NotificationSettings_Accounts_Description);
@@ -138,37 +145,42 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
     }
 
     /// <summary>
-    /// Live notifications (WinoRelay). Always on while a Wino Account is signed in, so iOS has no switch: the expander
-    /// shows the status, a sign-in hint, mailboxes the relay could not sign in to, and a test push.
+    /// Instant push (Windows NotificationSettingsPage). iOS is always on, so the card has no switch: its description
+    /// counts the watched mailboxes, and the bars under it show only what needs attention. iOS keeps the test push,
+    /// which needs an APNs token the desktop heads do not have.
     /// </summary>
-    private WinoSettingsExpander LiveNotifications()
+    private void AddInstantPush()
     {
         var vm = ViewModel;
-        var signIn = InfoBar(WinoInfoBarSeverity.Informational, null, Translator.NotificationSettings_PushRelay_SignInRequired);
-        Bind.Visible(signIn, vm, nameof(vm.IsPushRelaySignInRequired), s => s.IsPushRelaySignInRequired);
-
-        var status = Card(string.Empty, null, WinoIconGlyph.Info);
-        Bind.Bind(vm, nameof(vm.PushRelayStatusText), s => s.PushRelayStatusText, text => status.Header = text ?? string.Empty);
-        // The sign-in hint already says it; the status card would repeat the same sentence.
-        Bind.Visible(status, vm, nameof(vm.IsPushRelaySignInRequired), s => !s.IsPushRelaySignInRequired);
-
-        var warning = Card(string.Empty, null, WinoIconGlyph.Warning);
-        Bind.Bind(vm, nameof(vm.PushRelayMailboxWarningText), s => s.PushRelayMailboxWarningText, text =>
-        {
-            warning.Header = text ?? string.Empty;
-            warning.Hidden = string.IsNullOrEmpty(text);
-        });
+        var card = Card(Translator.NotificationSettings_InstantPush_Title, null, WinoIconGlyph.Flash);
+        Bind.Bind(vm, nameof(vm.InstantPushDescription), s => s.InstantPushDescription,
+            text => card.Description = string.IsNullOrEmpty(text) ? null : text);
 
         var test = StackedCard(Translator.NotificationSettings_PushRelay_SendTest, null, WinoIconGlyph.Send,
             SettingsCardLayout.Leading(Bind.Button(Translator.NotificationSettings_PushRelay_SendTest, vm.SendPushTestCommand)));
         Bind.Bind(vm, nameof(vm.PushRelayTestResultText), s => s.PushRelayTestResultText,
             text => test.Description = string.IsNullOrEmpty(text) ? null : text);
         Bind.Visible(test, vm, nameof(vm.IsPushTestVisible), s => s.IsPushTestVisible);
+        AddGroup(null, card, test);
 
-        var expander = Expander(Translator.NotificationSettings_PushRelay_Title, Translator.NotificationSettings_PushRelay_Description,
-            WinoIconGlyph.Cloud, null, signIn, status, warning, test);
-        Bind.Visible(expander, vm, nameof(vm.IsPushRelaySectionVisible), s => s.IsPushRelaySectionVisible);
-        return expander;
+        var signIn = InfoBar(WinoInfoBarSeverity.Informational, null, Translator.NotificationSettings_PushRelay_SignInRequired);
+        Bind.Visible(signIn, vm, nameof(vm.IsPushRelaySignInRequired), s => s.IsPushRelaySignInRequired);
+        Add(signIn);
+
+        Add(TextInfoBar(nameof(vm.PushRelayProblemText), s => s.PushRelayProblemText));
+        Add(TextInfoBar(nameof(vm.PushRelayMailboxWarningText), s => s.PushRelayMailboxWarningText));
+    }
+
+    /// <summary>A warning bar that shows a view model text and hides while it is empty.</summary>
+    private WinoInfoBar TextInfoBar(string property, Func<NotificationSettingsPageViewModel, string?> read)
+    {
+        var bar = InfoBar(WinoInfoBarSeverity.Warning, null, null);
+        Bind.Bind(ViewModel, property, read, text =>
+        {
+            bar.Message = text;
+            bar.Hidden = string.IsNullOrEmpty(text);
+        });
+        return bar;
     }
 
     protected override Task InitializeAsync(NavigationMode mode, object? parameter)

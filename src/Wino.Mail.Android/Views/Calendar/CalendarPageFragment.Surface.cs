@@ -1,9 +1,11 @@
 using Android.Content;
 using Android.Views;
 using Android.Widget;
+using CommunityToolkit.Mvvm.Messaging;
 using Google.Android.Material.Button;
 using Wino.Calendar.ViewModels;
 using Wino.Calendar.ViewModels.Data;
+using Wino.Messaging.Client.Calendar;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
@@ -44,8 +46,8 @@ public sealed partial class CalendarPageFragment
             _toolbar.MenuItemClick += (_, args) => { if (args.Item?.ItemId == MenuNewEvent) NewEvent(); };
         }
 
-        ConfigureHeaderButton(view, context, Resource.Id.calendar_previous, WinoIconGlyph.ArrowLeft, Translator.Accessibility_PreviousCalendarPeriod, GoPrevious);
-        ConfigureHeaderButton(view, context, Resource.Id.calendar_next, WinoIconGlyph.ArrowRight, Translator.Accessibility_NextCalendarPeriod, GoNext);
+        ConfigureHeaderButton(view, context, Resource.Id.calendar_previous, WinoIconGlyph.ArrowLeft, Translator.Accessibility_PreviousCalendarPeriod, () => NavigatePeriods(-1));
+        ConfigureHeaderButton(view, context, Resource.Id.calendar_next, WinoIconGlyph.ArrowRight, Translator.Accessibility_NextCalendarPeriod, () => NavigatePeriods(1));
         if (view.FindViewById<MaterialButton>(Resource.Id.calendar_today) is { } today)
         {
             today.Text = Translator.Today;
@@ -90,6 +92,29 @@ public sealed partial class CalendarPageFragment
             if (IsPhone) PhoneSlotClicked(args);
             else OpenComposerAt(args.Start, args.IsAllDay);
         };
+        _surface.PeriodSettled += SurfacePeriodSettled;
+        _surface.ViewportPeriodChanged += SurfaceViewportPeriodChanged;
+    }
+
+    /// <summary>Glides the rail by whole periods; before the surface shows a period the shell steps instead.</summary>
+    private void NavigatePeriods(int direction)
+    {
+        if (_surface?.NavigatePeriods(direction) == true) return;
+        if (direction < 0) GoPrevious();
+        else GoNext();
+    }
+
+    /// <summary>
+    /// The rail settled on a period the view model has not loaded; the view model answers through CurrentVisibleRange,
+    /// which confirms the position without moving the rail again.
+    /// </summary>
+    private void SurfacePeriodSettled(object? sender, CalendarPeriodEventArgs args)
+        => WeakReferenceMessenger.Default.Send(new LoadCalendarMessage(new CalendarDisplayRequest(args.DisplayType, args.AnchorDate)));
+
+    /// <summary>While the rail moves the title names the period nearest to the viewport; the view model writes the same text once it loads.</summary>
+    private void SurfaceViewportPeriodChanged(object? sender, CalendarPeriodEventArgs args)
+    {
+        if (ViewModel is { } viewModel) RangeTextChanged(viewModel.FormatRangeText(args.DisplayType, args.AnchorDate));
     }
 
     private void ConfigureHeaderButton(View view, Context context, int id, WinoIconGlyph glyph, string description, Action action)

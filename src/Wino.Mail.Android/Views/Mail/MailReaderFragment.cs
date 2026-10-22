@@ -75,6 +75,8 @@ public sealed class MailReaderFragment : WinoFragment<MailRenderingPageViewModel
     private LinearLayout? _attachments;
     private MaterialButton? _saveAll;
     private CircularProgressIndicator? _loading;
+    private TextView? _linkTarget;
+    private bool _lastInputWasTouch;
     private MailReaderCommandPlan? _plan;
     private bool _compact;
     private bool _dark;
@@ -174,6 +176,10 @@ public sealed class MailReaderFragment : WinoFragment<MailRenderingPageViewModel
         _saveAll = view.FindViewById<MaterialButton>(Resource.Id.reader_save_all);
         _loading = view.FindViewById<CircularProgressIndicator>(Resource.Id.reader_loading);
         _web = view.FindViewById<WebView>(Resource.Id.reader_web);
+        _linkTarget = view.FindViewById<TextView>(Resource.Id.reader_link_target);
+        // The page scrolls the reader, not the document, so the document never reports this scroll itself.
+        if (view.FindViewById<AndroidX.Core.Widget.NestedScrollView>(Resource.Id.reader_scroll) is { } scroll)
+            scroll.ScrollChange += (_, _) => HideLinkTarget();
     }
 
     // ---- Chrome: compact app bar and bottom bar, or the pane's command bar ----
@@ -540,7 +546,48 @@ public sealed class MailReaderFragment : WinoFragment<MailRenderingPageViewModel
         var reader = _reader = new AndroidHtmlMailReaderSession(_web);
         reader.Configure(viewModel.ExternalLauncher);
         reader.OperationFailed += (_, exception) => ReportError(exception);
+        reader.NavigationRequested += (_, _) => _web?.Post(HideLinkTarget);
+        reader.LinkHovered += (_, args) => _web?.Post(() => ShowLinkTarget(args));
+        // A finger tap also reports its link (compatibility mouse events and focus); only a mouse, a stylus or the
+        // keyboard shows the address, as hovering does on Windows. The listeners observe and never consume input.
+        _web.Touch += (_, args) =>
+        {
+            _lastInputWasTouch = args.Event?.GetToolType(0) == MotionEventToolType.Finger;
+            args.Handled = false;
+        };
+        _web.Hover += (_, args) =>
+        {
+            _lastInputWasTouch = false;
+            args.Handled = false;
+        };
+        _web.KeyPress += (_, args) =>
+        {
+            _lastInputWasTouch = false;
+            args.Handled = false;
+        };
         Observe(InitializeReaderAsync(reader));
+    }
+
+    /// <summary>Shows the hovered or focused link's address (Windows WinoMailRenderer link bar); a Safe Links address shows where it leads.</summary>
+    private void ShowLinkTarget(RendererLinkHoverEventArgs args)
+    {
+        if (_linkTarget is null || _disposed) return;
+        if (args.Uri is null || _lastInputWasTouch)
+        {
+            HideLinkTarget();
+            return;
+        }
+        _linkTarget.Text = args.SafeLinkTarget is { } target
+            ? Translator.Reader_ProtectedLinkFormat.Replace("{0}", target, StringComparison.Ordinal)
+            : args.Uri;
+        _linkTarget.Visibility = ViewStates.Visible;
+    }
+
+    private void HideLinkTarget()
+    {
+        if (_linkTarget is null || _linkTarget.Visibility == ViewStates.Gone) return;
+        _linkTarget.Visibility = ViewStates.Gone;
+        _linkTarget.Text = string.Empty;
     }
 
     private async Task InitializeReaderAsync(AndroidHtmlMailReaderSession reader)
@@ -560,6 +607,7 @@ public sealed class MailReaderFragment : WinoFragment<MailRenderingPageViewModel
     private async Task RenderCoreAsync(string html)
     {
         if (_reader is not { } reader || _disposed || ViewModel is not { } viewModel) return;
+        HideLinkTarget();
         if (_web is not null) SetWebHeight(120);
         var options = viewModel.CurrentRenderModel?.MailRenderingOptions;
         var policy = (options?.LoadImages ?? true) ? RemoteContentPolicy.ImagesAndFontsAllowed : RemoteContentPolicy.Blocked;
@@ -579,6 +627,7 @@ public sealed class MailReaderFragment : WinoFragment<MailRenderingPageViewModel
     internal async Task ClearAsync()
     {
         if (_reader is not { } reader || _disposed) return;
+        HideLinkTarget();
         try { await reader.ClearAsync(); }
         catch (Exception exception) when (_disposed && exception is ObjectDisposedException or System.OperationCanceledException) { }
     }

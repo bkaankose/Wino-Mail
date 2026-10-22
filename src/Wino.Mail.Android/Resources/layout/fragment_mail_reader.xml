@@ -198,6 +198,27 @@
               android:layout_gravity="center"
               android:indeterminate="true"
               android:visibility="gone" />
+
+          <!-- The hovered or focused link's address (Windows link bar): mouse, stylus and keyboard only, never touch. -->
+          <TextView
+              android:id="@+id/reader_link_target"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:layout_gravity="bottom|start"
+              android:layout_marginStart="@dimen/wino_space_s"
+              android:layout_marginEnd="@dimen/wino_reader_link_target_end_margin"
+              android:layout_marginBottom="@dimen/wino_space_s"
+              android:background="@drawable/reader_link_target_background"
+              android:ellipsize="end"
+              android:importantForAccessibility="no"
+              android:maxWidth="@dimen/wino_reader_link_target_max_width"
+              android:paddingStart="@dimen/wino_space_m"
+              android:paddingTop="@dimen/wino_space1"
+              android:paddingEnd="@dimen/wino_space_m"
+              android:paddingBottom="@dimen/wino_space1"
+              android:singleLine="true"
+              android:textAppearance="@style/TextAppearance.WinoKit.Caption"
+              android:visibility="gone" />
         </FrameLayout>
       </LinearLayout>
     </com.winomail.presentation.WinoZoneLayout>

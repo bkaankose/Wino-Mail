@@ -21,8 +21,8 @@ namespace Wino.Mail.Android.Views.Calendar;
 /// Month, the agenda toggle, the calendars filter, Today and the month grid). Day view shows the week strip in its own
 /// small zone, and so does the agenda of a day or week (canvas Material pass Calendar board); Week and Month grids and the
 /// month agenda start right under the bar. The content zone holds the Windows calendar surface or, with the agenda
-/// toggle on, the agenda list of the visible range. A horizontal swipe on the surface pages the period;
-/// on the strip it moves a week. Month cells show only their event count; tapping a day opens it in Day view. Rules
+/// toggle on, the agenda list of the visible range. A horizontal drag on the surface moves its rail
+/// through the periods with the finger; on the strip it moves a week. Month cells show only their event count; tapping a day opens it in Day view. Rules
 /// (which events fall on a day, their order and texts) come from the shared <see cref="CalendarAgenda"/>.
 /// </summary>
 public sealed partial class CalendarPageFragment : ICalendarPickerHost
@@ -50,11 +50,6 @@ public sealed partial class CalendarPageFragment : ICalendarPickerHost
         _displayType = viewModel.StatePersistanceService.CalendarDisplayType;
 
         BuildSurfaceCore(view, context);
-        if (_surface is not null)
-        {
-            _surface.SwipedNext += (_, _) => GoNext();
-            _surface.SwipedPrevious += (_, _) => GoPrevious();
-        }
 
         if (_title is not null)
         {

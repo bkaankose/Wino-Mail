@@ -34,6 +34,7 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Domain.Models.Tasks;
 using Wino.Core.Extensions;
@@ -2627,8 +2628,82 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
 
     #region Mail Integrations
 
+    /// <summary>
+    /// Gmail's batchModify and batchDelete accept at most 1000 message ids per call.
+    /// </summary>
+    private const int MaximumGmailBatchMessageIdCount = 1000;
+
+    /// <summary>
+    /// Archive is a virtual Wino folder for Gmail ("not in INBOX"). Its RemoteFolderId is not a Gmail label.
+    /// </summary>
+    private static bool IsGmailArchiveFolder(IMailItemFolder folder)
+        => folder?.SpecialFolderType == SpecialFolderType.Archive || folder?.RemoteFolderId == ServiceConstants.ARCHIVE_LABEL_ID;
+
+    /// <summary>
+    /// True when the id can be sent to Gmail in addLabelIds/removeLabelIds.
+    /// </summary>
+    private static bool IsGmailLabelId(string labelId)
+        => !string.IsNullOrWhiteSpace(labelId) && labelId != ServiceConstants.ARCHIVE_LABEL_ID;
+
+    /// <summary>
+    /// Builds Gmail batchModify/batchDelete bundles for mail requests. Items without a Gmail message id
+    /// (local-only drafts, empty ids) are left out, and when no id remains no network call is made:
+    /// the request completes as a no-op and the next synchronization reconciles local state.
+    /// </summary>
+    private List<IRequestBundle<IGoogleApiRequest>> CreateMessageIdBatchBundles<TRequest>(
+        BatchCollection<TRequest> request,
+        Func<List<string>, IGoogleApiRequest> createNetworkCall)
+        where TRequest : MailRequestBase, IUIChangeRequest
+    {
+        var messageIds = request
+            .Where(item => item?.Item != null && !item.Item.IsLocalDraft && !string.IsNullOrWhiteSpace(item.Item.Id))
+            .Select(item => item.Item.Id)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (messageIds.Count == 0)
+        {
+            _logger.Debug("Skipping Gmail {Operation} for {Name}: none of the {Count} items has a Gmail message id.",
+                typeof(TRequest).Name, Account.Name, request.Count);
+            return [];
+        }
+
+        var bundles = new List<IRequestBundle<IGoogleApiRequest>>();
+
+        foreach (var chunk in messageIds.Chunk(MaximumGmailBatchMessageIdCount))
+        {
+            bundles.Add(new HttpRequestBundle<IGoogleApiRequest>(createNetworkCall(new List<string>(chunk)), request));
+        }
+
+        return bundles;
+    }
+
+    private List<IRequestBundle<IGoogleApiRequest>> CreateBatchModifyBundles<TRequest>(
+        BatchCollection<TRequest> request,
+        List<string> addLabelIds,
+        List<string> removeLabelIds)
+        where TRequest : MailRequestBase, IUIChangeRequest
+    {
+        var labelsToAdd = addLabelIds?.Where(IsGmailLabelId).Distinct(StringComparer.Ordinal).ToList() ?? new List<string>();
+        var labelsToRemove = removeLabelIds?.Where(IsGmailLabelId).Distinct(StringComparer.Ordinal).ToList() ?? new List<string>();
+
+        // Nothing to change on Gmail's side.
+        if (labelsToAdd.Count == 0 && labelsToRemove.Count == 0)
+            return [];
+
+        return CreateMessageIdBatchBundles(request, ids => _gmailService.Users.Messages.BatchModify(new BatchModifyMessagesRequest
+        {
+            Ids = ids,
+            AddLabelIds = labelsToAdd.Count == 0 ? null : labelsToAdd,
+            RemoveLabelIds = labelsToRemove.Count == 0 ? null : labelsToRemove
+        }, "me"));
+    }
+
     public override List<IRequestBundle<IGoogleApiRequest>> Move(BatchMoveRequest request)
     {
+        if (request.Count == 0)
+            return [];
+
         var toFolder = request[0].ToFolder;
         var fromFolder = request[0].FromFolder;
 
@@ -2638,111 +2713,79 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
         // but still has Sent label. It's just hidden from the user.
         // Proper assignments will be done later on CreateAssignment call to mimic this behavior.
 
-        var batchModifyRequest = new BatchModifyMessagesRequest
-        {
-            Ids = request.Select(a => a.Item.Id.ToString()).ToList(),
-            AddLabelIds = [toFolder.RemoteFolderId]
-        };
+        var addLabelIds = new List<string>();
+        var removeLabelIds = new List<string>();
 
-        // Archived item is being moved to different folder.
-        // Unarchive will move it to Inbox, so this is a different case.
-        // We can't remove ARCHIVE label because it's a virtual folder and does not exist in Gmail.
-        // We will just add the target label and Gmail will handle the rest.
-
-        if (fromFolder.SpecialFolderType == SpecialFolderType.Archive)
+        if (IsGmailArchiveFolder(toFolder))
         {
-            batchModifyRequest.AddLabelIds = [toFolder.RemoteFolderId];
+            // Archive is virtual: there is no ARCHIVE label to add. Moving into it is archiving,
+            // which for Gmail means dropping INBOX (as Archive does) and the source label, so the
+            // message ends up "in:archive" and MapArchivedMailsAsync assigns it to the Archive folder.
+            if (IsGmailArchiveFolder(fromFolder))
+                return [];
+
+            removeLabelIds.Add(ServiceConstants.INBOX_LABEL_ID);
+
+            if (fromFolder?.SpecialFolderType != SpecialFolderType.Sent)
+                removeLabelIds.Add(fromFolder?.RemoteFolderId);
         }
-        else if (fromFolder.SpecialFolderType != SpecialFolderType.Sent)
+        else
         {
-            // Only add remove label ids if the source folder is not sent folder.
-            batchModifyRequest.RemoveLabelIds = [fromFolder.RemoteFolderId];
+            addLabelIds.Add(toFolder?.RemoteFolderId);
+
+            // Archived item is being moved to different folder.
+            // We can't remove ARCHIVE label because it's a virtual folder and does not exist in Gmail.
+            // We just add the target label and Gmail will handle the rest.
+            // Only remove the source label if it is not the Sent folder.
+            if (!IsGmailArchiveFolder(fromFolder) && fromFolder?.SpecialFolderType != SpecialFolderType.Sent)
+                removeLabelIds.Add(fromFolder?.RemoteFolderId);
         }
 
-        var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
-
-        return [new HttpRequestBundle<IGoogleApiRequest>(networkCall, request)];
+        return CreateBatchModifyBundles(request, addLabelIds, removeLabelIds);
     }
 
     public override List<IRequestBundle<IGoogleApiRequest>> ChangeFlag(BatchChangeFlagRequest request)
     {
-        bool isFlagged = request[0].IsFlagged;
+        if (request.Count == 0)
+            return [];
 
-        var batchModifyRequest = new BatchModifyMessagesRequest
-        {
-            Ids = request.Select(a => a.Item.Id.ToString()).ToList(),
-        };
+        var labelIds = new List<string> { ServiceConstants.STARRED_LABEL_ID };
 
-        if (isFlagged)
-            batchModifyRequest.AddLabelIds = new List<string>() { ServiceConstants.STARRED_LABEL_ID };
-        else
-            batchModifyRequest.RemoveLabelIds = new List<string>() { ServiceConstants.STARRED_LABEL_ID };
-
-        var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
-
-        return [new HttpRequestBundle<IGoogleApiRequest>(networkCall, request)];
+        return request[0].IsFlagged
+            ? CreateBatchModifyBundles(request, labelIds, null)
+            : CreateBatchModifyBundles(request, null, labelIds);
     }
 
     public override List<IRequestBundle<IGoogleApiRequest>> ChangeJunkState(BatchChangeJunkStateRequest request)
     {
-        bool isJunk = request[0].IsJunk;
+        if (request.Count == 0)
+            return [];
 
-        var addLabelIds = new HashSet<string>();
-        var removeLabelIds = new HashSet<string>();
+        var spam = new List<string> { ServiceConstants.SPAM_LABEL_ID };
+        var inbox = new List<string> { ServiceConstants.INBOX_LABEL_ID };
 
-        if (isJunk)
-        {
-            addLabelIds.Add(ServiceConstants.SPAM_LABEL_ID);
-            removeLabelIds.Add(ServiceConstants.INBOX_LABEL_ID);
-        }
-        else
-        {
-            addLabelIds.Add(ServiceConstants.INBOX_LABEL_ID);
-            removeLabelIds.Add(ServiceConstants.SPAM_LABEL_ID);
-        }
-
-        var batchModifyRequest = new BatchModifyMessagesRequest
-        {
-            Ids = request.Select(a => a.Item.Id.ToString()).ToList(),
-            AddLabelIds = addLabelIds.ToList(),
-            RemoveLabelIds = removeLabelIds.ToList()
-        };
-
-        var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
-
-        return [new HttpRequestBundle<IGoogleApiRequest>(networkCall, request)];
+        return request[0].IsJunk
+            ? CreateBatchModifyBundles(request, spam, inbox)
+            : CreateBatchModifyBundles(request, inbox, spam);
     }
 
     public override List<IRequestBundle<IGoogleApiRequest>> MarkRead(BatchMarkReadRequest request)
     {
-        bool readStatus = request[0].IsRead;
+        if (request.Count == 0)
+            return [];
 
-        var batchModifyRequest = new BatchModifyMessagesRequest
-        {
-            Ids = request.Select(a => a.Item.Id.ToString()).ToList(),
-        };
+        var labelIds = new List<string> { ServiceConstants.UNREAD_LABEL_ID };
 
-        if (readStatus)
-            batchModifyRequest.RemoveLabelIds = new List<string>() { ServiceConstants.UNREAD_LABEL_ID };
-        else
-            batchModifyRequest.AddLabelIds = new List<string>() { ServiceConstants.UNREAD_LABEL_ID };
-
-        var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
-
-        return [new HttpRequestBundle<IGoogleApiRequest>(networkCall, request)];
+        return request[0].IsRead
+            ? CreateBatchModifyBundles(request, null, labelIds)
+            : CreateBatchModifyBundles(request, labelIds, null);
     }
 
     public override List<IRequestBundle<IGoogleApiRequest>> Delete(BatchDeleteRequest request)
-    {
-        var batchModifyRequest = new BatchDeleteMessagesRequest
+        => CreateMessageIdBatchBundles(request, ids => _gmailService.Users.Messages.BatchDelete(new BatchDeleteMessagesRequest
         {
-            Ids = request.Select(a => a.Item.Id.ToString()).ToList(),
-        };
-
-        var networkCall = _gmailService.Users.Messages.BatchDelete(batchModifyRequest, "me");
-
-        return [new HttpRequestBundle<IGoogleApiRequest>(networkCall, request)];
-    }
+            Ids = ids
+        }, "me"));
 
     public override List<IRequestBundle<IGoogleApiRequest>> CreateDraft(CreateDraftRequest singleRequest)
     {
@@ -2763,24 +2806,14 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
 
     public override List<IRequestBundle<IGoogleApiRequest>> Archive(BatchArchiveRequest request)
     {
-        bool isArchiving = request[0].IsArchiving;
-        var batchModifyRequest = new BatchModifyMessagesRequest
-        {
-            Ids = request.Select(a => a.Item.Id.ToString()).ToList()
-        };
+        if (request.Count == 0)
+            return [];
 
-        if (isArchiving)
-        {
-            batchModifyRequest.RemoveLabelIds = new[] { ServiceConstants.INBOX_LABEL_ID };
-        }
-        else
-        {
-            batchModifyRequest.AddLabelIds = new[] { ServiceConstants.INBOX_LABEL_ID };
-        }
+        var inbox = new List<string> { ServiceConstants.INBOX_LABEL_ID };
 
-        var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
-
-        return [new HttpRequestBundle<IGoogleApiRequest>(networkCall, request)];
+        return request[0].IsArchiving
+            ? CreateBatchModifyBundles(request, null, inbox)
+            : CreateBatchModifyBundles(request, inbox, null);
     }
 
     public override List<IRequestBundle<IGoogleApiRequest>> SendDraft(SendDraftRequest singleDraftRequest)
@@ -2819,9 +2852,6 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
         var queryText = BuildOnlineSearchQuery(criteria);
         if (string.IsNullOrWhiteSpace(queryText))
             return [];
-
-        static bool IsArchiveFolder(IMailItemFolder folder)
-            => folder?.SpecialFolderType == SpecialFolderType.Archive || folder?.RemoteFolderId == ServiceConstants.ARCHIVE_LABEL_ID;
 
         var distinctFolders = folders?
             .Where(folder => folder != null)
@@ -2877,7 +2907,7 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
                 var request = _gmailService.Users.Messages.List("me");
                 request.MaxResults = 500;
 
-                if (IsArchiveFolder(folder))
+                if (IsGmailArchiveFolder(folder))
                 {
                     // Gmail archive is virtual. Query via search operator instead of label id.
                     request.Q = $"in:archive {queryText}".Trim();
@@ -2945,36 +2975,80 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
 
         foreach (var batch in batches)
         {
-            var batchRequest = new GoogleBatchRequest(_gmailService);
             var downloadedMessages = new List<Message>();
             var missingMessageIds = new List<string>();
             var failures = new List<Exception>();
+            var pendingMessageIds = batch.ToList();
 
-            foreach (var messageId in batch)
+            for (var attempt = 0; ; attempt++)
             {
-                var request = downloadRawMime ? CreateSingleMessageGetRaw(messageId) : CreateSingleMessageGet(messageId);
+                var batchRequest = new GoogleBatchRequest(_gmailService);
+                var throttledMessageIds = new List<string>();
+                var throttledErrors = new List<Exception>();
+                TimeSpan? retryAfter = null;
 
-                batchRequest.Queue<Message>(request, (message, error, index, httpMessage) =>
+                foreach (var messageId in pendingMessageIds)
                 {
-                    if (error != null)
-                    {
-                        if (error.Code == 404)
-                            missingMessageIds.Add(messageId);
-                        else
-                            failures.Add(new InvalidOperationException($"Gmail message {messageId} download failed ({error.Code}): {error.Message}"));
-                    }
-                    else if (message != null)
-                        downloadedMessages.Add(message);
-                    else
-                        failures.Add(new InvalidOperationException($"Gmail returned an empty response for message {messageId}."));
-                });
-            }
+                    var request = downloadRawMime ? CreateSingleMessageGetRaw(messageId) : CreateSingleMessageGet(messageId);
 
-            // Execute the batch request
-            await batchRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
-            cancellationToken.ThrowIfCancellationRequested();
-            if (failures.Count > 0)
-                throw new AggregateException("Gmail batch download failed; the history cursor was not advanced.", failures);
+                    batchRequest.Queue<Message>(request, (message, error, index, httpMessage) =>
+                    {
+                        if (error != null)
+                        {
+                            var failure = new InvalidOperationException($"Gmail message {messageId} download failed ({error.Code}): {error.Message}");
+
+                            if (error.Code == 404)
+                                missingMessageIds.Add(messageId);
+                            else if (IsGmailThrottlingError(error.Code, error.Errors?.Select(detail => detail?.Reason), error.Message))
+                            {
+                                throttledMessageIds.Add(messageId);
+                                throttledErrors.Add(failure);
+
+                                var serverDelay = GetRetryAfter(httpMessage);
+                                if (serverDelay.HasValue && (!retryAfter.HasValue || serverDelay > retryAfter))
+                                    retryAfter = serverDelay;
+                            }
+                            else
+                                failures.Add(failure);
+                        }
+                        else if (message != null)
+                            downloadedMessages.Add(message);
+                        else
+                            failures.Add(new InvalidOperationException($"Gmail returned an empty response for message {messageId}."));
+                    });
+                }
+
+                try
+                {
+                    await batchRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch (GoogleApiException ex) when (attempt < MaximumGmailDownloadRetryCount
+                                                    && IsGmailThrottlingError((int)ex.HttpStatusCode, ex.Error?.Errors?.Select(detail => detail?.Reason), ex.Message))
+                {
+                    // The whole batch call was throttled before any part was processed; retry all pending ids.
+                    throttledMessageIds = pendingMessageIds;
+                    throttledErrors = [ex];
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (failures.Count > 0)
+                    throw new AggregateException("Gmail batch download failed; the history cursor was not advanced.", failures);
+
+                if (throttledMessageIds.Count == 0)
+                    break;
+
+                if (attempt >= MaximumGmailDownloadRetryCount)
+                    throw new AggregateException("Gmail batch download was throttled after retries; the history cursor was not advanced.", throttledErrors);
+
+                var delay = GetGmailRetryDelay(attempt, retryAfter);
+
+                _logger.Warning("Gmail throttled {Count} message downloads for {Name}. Retrying in {Delay} (attempt {Attempt}/{MaxAttempts}).",
+                    throttledMessageIds.Count, Account.Name, delay, attempt + 1, MaximumGmailDownloadRetryCount);
+
+                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+                pendingMessageIds = throttledMessageIds;
+            }
 
             if (missingMessageIds.Count > 0)
                 await _gmailChangeProcessor.DeleteMailsAsync(Account.Id, missingMessageIds).ConfigureAwait(false);
@@ -3034,6 +3108,64 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
                 await _gmailChangeProcessor.CreateMailsAsync(Account.Id, pendingPackages).ConfigureAwait(false);
             }
         }
+    }
+
+    /// <summary>
+    /// Retries for throttled batch downloads. With exponential backoff (4, 8, 16, 32 s) this spans
+    /// Gmail's per-minute per-user quota window.
+    /// </summary>
+    private const int MaximumGmailDownloadRetryCount = 4;
+
+    private static readonly TimeSpan MaximumGmailRetryDelay = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    /// 429, 503 and the 403 rate-limit/quota variants are transient and worth retrying after a delay.
+    /// </summary>
+    private static bool IsGmailThrottlingError(int statusCode, IEnumerable<string> reasons, string message)
+    {
+        if (statusCode is 429 or 503)
+            return true;
+
+        if (statusCode != 403)
+            return false;
+
+        if (reasons != null && reasons.Any(reason =>
+                string.Equals(reason, "rateLimitExceeded", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(reason, "userRateLimitExceeded", StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        return message != null
+               && (message.Contains("Quota exceeded", StringComparison.OrdinalIgnoreCase)
+                   || message.Contains("Rate Limit Exceeded", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static TimeSpan? GetRetryAfter(HttpResponseMessage response)
+    {
+        var retryAfter = response?.Headers?.RetryAfter;
+        if (retryAfter == null)
+            return null;
+
+        if (retryAfter.Delta.HasValue)
+            return retryAfter.Delta.Value;
+
+        if (retryAfter.Date.HasValue)
+        {
+            var delay = retryAfter.Date.Value - DateTimeOffset.UtcNow;
+            return delay > TimeSpan.Zero ? delay : TimeSpan.Zero;
+        }
+
+        return null;
+    }
+
+    private static TimeSpan GetGmailRetryDelay(int attempt, TimeSpan? retryAfter)
+    {
+        var backoff = TimeSpan.FromSeconds(4 * Math.Pow(2, attempt))
+                      + TimeSpan.FromMilliseconds(Random.Shared.Next(0, 1000));
+
+        var delay = retryAfter.HasValue && retryAfter.Value > backoff ? retryAfter.Value : backoff;
+        return delay > MaximumGmailRetryDelay ? MaximumGmailRetryDelay : delay;
     }
 
     /// <summary>
@@ -4922,7 +5054,10 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
                     break;
                 case MailFilterActionType.Move:
                     removeLabels.Add("INBOX");
-                    addLabels.Add(action.TargetRemoteFolderId);
+
+                    // Moving to the virtual Archive folder is archiving: there is no ARCHIVE label to add.
+                    if (IsGmailLabelId(action.TargetRemoteFolderId))
+                        addLabels.Add(action.TargetRemoteFolderId);
                     break;
                 case MailFilterActionType.Archive:
                     removeLabels.Add("INBOX");

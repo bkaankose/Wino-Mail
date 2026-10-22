@@ -67,20 +67,34 @@
 .wino-link-bubble {
     position: fixed;
     display: none;
-    min-height: 30px;
-    padding: 4px 10px;
+    gap: 2px;
+    padding: 2px;
     border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
     border-radius: 6px;
     color: CanvasText;
     background: Canvas;
     box-shadow: 0 4px 14px rgb(0 0 0 / 18%);
-    font: 12px/20px "Segoe UI", sans-serif;
     pointer-events: auto;
-    cursor: pointer;
 }
 
 .wino-link-bubble.is-visible {
-    display: block;
+    display: flex;
+}
+
+.wino-link-bubble-action {
+    min-height: 26px;
+    padding: 2px 8px;
+    border: 0;
+    border-radius: 4px;
+    color: inherit;
+    background: transparent;
+    font: 12px/20px "Segoe UI", sans-serif;
+    cursor: pointer;
+}
+
+.wino-link-bubble-action:hover,
+.wino-link-bubble-action:focus-visible {
+    background: color-mix(in srgb, CanvasText 8%, transparent);
 }
 
 #wino-editor a {

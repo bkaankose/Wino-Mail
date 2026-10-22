@@ -220,20 +220,47 @@ public sealed partial class ShellMenuTemplates
             return;
         }
 
+        var items = new List<ContextFlyoutMenuEntry>();
+        if (contactList.IsCategory)
+        {
+            items.Add(CreateContextCommand(
+                Translator.ContactsPage_NewCategory,
+                WinoIconGlyph.New,
+                "ContactsPaneNewCategory",
+                contactList.NewCategoryCommand));
+        }
+
+        items.Add(CreateContextCommand(
+            contactList.IsCategory ? Translator.Buttons_Edit : Translator.ContactList_Rename,
+            WinoIconGlyph.Rename,
+            "ContactsPaneRenameList",
+            contactList.RenameListCommand));
+        items.Add(CreateContextCommand(
+            Translator.ContactsPage_Delete,
+            WinoIconGlyph.Delete,
+            "ContactsPaneDeleteList",
+            contactList.DeleteListCommand,
+            isDestructive: true,
+            shortcut: new ContextFlyoutShortcut("Delete", "Delete")));
+
+        WinoContextFlyoutHelper.Show(target, args, items);
+    }
+
+    private void ContactCategoriesContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (sender is not FrameworkElement { DataContext: ContactCategoriesExpanderMenuItem expander } target ||
+            expander.NewCategoryRequested is null)
+        {
+            return;
+        }
+
         WinoContextFlyoutHelper.Show(target, args, (ContextFlyoutMenuEntry[])
         [
             CreateContextCommand(
-                contactList.IsCategory ? Translator.Buttons_Edit : Translator.ContactList_Rename,
-                WinoIconGlyph.Rename,
-                "ContactsPaneRenameList",
-                contactList.RenameListCommand),
-            CreateContextCommand(
-                Translator.ContactsPage_Delete,
-                WinoIconGlyph.Delete,
-                "ContactsPaneDeleteList",
-                contactList.DeleteListCommand,
-                isDestructive: true,
-                shortcut: new ContextFlyoutShortcut("Delete", "Delete"))
+                Translator.ContactsPage_NewCategory,
+                WinoIconGlyph.New,
+                "ContactsPaneNewCategory",
+                new AsyncRelayCommand(expander.NewCategoryRequested))
         ]);
     }
 

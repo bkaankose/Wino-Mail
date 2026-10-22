@@ -74,6 +74,7 @@ Read only references that apply to the task:
 | Reusable controls or playground | [controls/AGENTS.md](controls/AGENTS.md) |
 | Icons, icon fonts, or the colorful icon style | [icons/README.md](icons/README.md) and the Icons section of the [implementation rules](docs/harness/implementation-rules.md) |
 | Intelligence jobs, artifacts, or the daily briefing | [mail intelligence](docs/mail-intelligence.md) |
+| Calendar period navigation, the rail model, or the loaded event window | [calendar rail navigation](docs/calendar-rail-navigation.md) |
 | Push relay, live notifications, sync method, or relay privacy acceptance | [push relay design](docs/push-relay-design.md) |
 | Release packaging | [release guide](docs/releases.md); Android in the [Android release guide](docs/releases-android.md) |
 | What's New notes and illustrations | [whats-new skill](.claude/skills/whats-new/SKILL.md) |
@@ -127,7 +128,8 @@ Binding for every agent. Backend counterpart: `AGENTS.md` and `docs/social-sign-
 - Wino Account sign-in with Microsoft, Google and Apple on Windows always uses the API's browser flow: the shared
   `WinoAccountExternalSignInService` (`Wino.Services`) opens `WinoAccountExternalAuth.StartUri` in the default browser
   through `WindowsBrowserAuthBroker` (`Wino.Platform.Windows`), and the `wino://auth-complete` protocol activation
-  hands the completion code back through `WindowsExternalAuthCallbacks`. No native provider SDK is involved on Windows.- Wino Accounts Google sign-in: Windows uses the API's browser flow; iOS and
+  hands the completion code back through `WindowsExternalAuthCallbacks`. No native provider SDK is involved on Windows.
+- Wino Accounts Google sign-in: Windows uses the API's browser flow; iOS and
   macOS use the iOS client `973025879644-qlc58h7f2gepqgu3ocvlr7mqvd3fff1c` (`WinoAccountExternalAuth.GoogleAppleClientId`,
   an `ASWebAuthenticationSession` with PKCE in `GoogleWebSessionSignInProvider`) and post the ID token to
   `/api/v1/auth/google/native`; Android uses Credential Manager (`AndroidGoogleSignInProvider`) with `serverClientId`

@@ -8,6 +8,7 @@ using Wino.Core.ViewModels.Data;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.Controls.AppKit.Settings;
 using Wino.Mail.MacOS.Infrastructure;
+using Wino.Mail.ViewModels.Data;
 using Wino.Platform.Apple.Services;
 using Wino.Platform.MacOS.Services;
 using Wino.Presentation.AppKit;
@@ -22,7 +23,7 @@ namespace Wino.Mail.MacOS.Views.Settings;
 /// "Snooze while presenting" uses <see cref="MacUserPresenceStateProvider"/>'s full-display window check.
 /// </summary>
 public sealed class NotificationSettingsPageViewController(NotificationSettingsPageViewModel viewModel, IMailDialogService dialogs, AppleNotificationSounds sounds,
-    IDispatcher dispatcher, IWinoLogger logger)
+    IPictureStorageService pictures, IDispatcher dispatcher, IWinoLogger logger)
     : SettingsPageViewController<NotificationSettingsPageViewModel>(viewModel, dispatcher, logger)
 {
     private readonly NSStackView _accounts = WinoLayout.VStack(8);
@@ -61,8 +62,10 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
         });
         var presets = Bind.PopUp<NotificationSettingsPageViewModel, SnoozePresetOption>(vm, s => s.SnoozePresets, option => option.DisplayText,
             nameof(vm.SelectedSnoozePreset), s => s.SelectedSnoozePreset, (s, v) => s.StartSnoozeCommand.Execute(v.Value), width: 170);
-        AddGroup(null, Card(Translator.NotificationSettings_Snooze_Title, Translator.NotificationSettings_Snooze_ActiveDescription, WinoIconGlyph.AlertOff,
-            Row(presets, snoozeSwitch)));
+        // The duration sits under the text: beside the switch it leaves the text column too narrow.
+        var snooze = Card(Translator.NotificationSettings_Snooze_Title, Translator.NotificationSettings_Snooze_ActiveDescription, WinoIconGlyph.AlertOff, snoozeSwitch);
+        snooze.BottomContent = WinoLayout.VStack(0, presets);
+        AddGroup(null, snooze);
 
         // Quiet hours.
         bool QuietOn(IPreferencesService s) => s.AreQuietHoursEnabled;
@@ -316,8 +319,10 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
             bool Overrides(AccountNotificationSettingsViewModel a) => a.AreOverrideFieldsEnabled;
             bool Enabled(AccountNotificationSettingsViewModel a) => a.AreNotificationsEnabled;
             var sources = new[] { Translator.NotificationSettings_Account_UseDefaults, Translator.NotificationSettings_Account_Customise };
-            var expander = new WinoSettingsExpander(account.Account.Name ?? string.Empty, account.AccountAddress, WinoIconGlyph.Person,
+            var expander = new WinoSettingsExpander(account.Account.Name ?? string.Empty, account.AccountAddress, WinoIconGlyph.None,
                 rows.Switch(account, nameof(account.AreNotificationsEnabled), Enabled, (a, v) => a.AreNotificationsEnabled = v, account.Account.Name));
+            // The account's picture or provider logo, as on the account details and unread badge pages.
+            expander.HeaderCard.LeadingView = new WinoAccountIconView(28) { Account = MailAccountIconInfoFactory.Create(account.Account, pictures) };
             rows.Bind(account, nameof(account.StatusText), a => a.StatusText, text => expander.HeaderCard.Description = string.IsNullOrEmpty(text) ? account.AccountAddress : text);
             expander.Add(rows.Enabled(new WinoSettingsCard(Translator.NotificationSettings_Account_Source_Title, Translator.NotificationSettings_Account_Source_Description, WinoIconGlyph.None,
                 rows.PopUp(account, sources, nameof(account.HasCustomNotificationSettings), a => a.HasCustomNotificationSettings ? 1 : 0, (a, v) => a.HasCustomNotificationSettings = v == 1, 170)),

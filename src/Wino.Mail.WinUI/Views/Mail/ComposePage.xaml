@@ -934,6 +934,9 @@
                     AutomationProperties.AutomationId="ComposeMailEditor"
                     IsEditorWebViewEditor="False"
                     IsTabStop="True"
+                    LinkOpenRequested="EditorLinkOpenRequested"
+                    OpenLinkLabel="{x:Bind domain:Translator.Composer_OpenLink, Mode=OneTime}"
+                    RemoveLinkLabel="{x:Bind domain:Translator.Composer_RemoveLink, Mode=OneTime}"
                     TabIndex="6" />
 
                 <!--  Dropzone for images  -->

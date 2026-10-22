@@ -34,34 +34,19 @@ public static class WinoTelemetrySanitizer
     private static readonly HashSet<string> SearchableTagKeys = new(StringComparer.Ordinal)
     {
         "app_close_behavior",
-        "calendar_enabled",
-        "certificate_action",
-        "certificate_error_kind",
         "error_origin",
         "event_kind",
         "exception_type",
-        "failure_category",
         "failure_stage",
-        "feature",
         "has_configured_accounts",
         "icon_exists",
         "is_calendar_access_enabled",
         "is_mail_access_enabled",
         "is_oauth_provider",
-        "mail_enabled",
         "operation",
-        "provider",
         "provider_type",
         "result",
-        "setup_operation",
-        "special_provider",
-        "state",
-        "sync_area",
-        "sync_completed_state",
-        "sync_issue_category",
-        "sync_issue_operation",
-        "sync_issue_severity",
-        "sync_type"
+        "setup_operation"
     };
 
     public static Dictionary<string, string> CreateSafeProperties(

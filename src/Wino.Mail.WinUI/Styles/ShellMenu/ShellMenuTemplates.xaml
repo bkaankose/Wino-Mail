@@ -816,6 +816,7 @@
             MinHeight="36"
             AutomationProperties.AutomationId="ContactsCategoriesExpander"
             AutomationProperties.Name="{x:Bind Title, Mode=OneTime}"
+            ContextRequested="ContactCategoriesContextRequested"
             DataContext="{x:Bind}"
             IsEnabled="{x:Bind IsEnabled, Mode=OneWay}"
             SelectsOnInvoked="False">

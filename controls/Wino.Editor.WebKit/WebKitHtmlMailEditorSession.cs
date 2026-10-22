@@ -13,6 +13,8 @@ public sealed class WebKitHtmlMailEditorSession : NSObject, IHtmlMailEditorSessi
 {
     private readonly WebKitBrowserSession _host;
     private bool _dark;
+    private string? _openLinkLabel;
+    private string? _removeLinkLabel;
     public IHtmlMailEditorSession Session => this;
     public EditorState CurrentState { get; private set; } = new();
     public EditorCommandCapabilities Capabilities { get; } = new()
@@ -40,8 +42,23 @@ public sealed class WebKitHtmlMailEditorSession : NSObject, IHtmlMailEditorSessi
     public void Configure(IExternalLauncher launcher) => _host.Configure(launcher);
     private async Task EnsureReadyAsync(CancellationToken token)
     {
-        if (!_host.IsReady) await _host.LoadAsync(true, RemoteContentPolicy.Blocked, _dark, token);
+        if (_host.IsReady) return;
+        await _host.LoadAsync(true, RemoteContentPolicy.Blocked, _dark, token);
+        await ApplyLinkLabelsAsync();
     }
+
+    /// <summary>Localized labels of the link bubble (Open link, Remove link); applied now and to every later document.</summary>
+    public Task SetLinkLabelsAsync(string openLabel, string removeLabel, CancellationToken cancellationToken = default) =>
+        _host.Queue.RunAsync(async () =>
+        {
+            _openLinkLabel = openLabel;
+            _removeLinkLabel = removeLabel;
+            if (_host.IsReady) await ApplyLinkLabelsAsync();
+        }, cancellationToken);
+
+    private Task ApplyLinkLabelsAsync() => _openLinkLabel is null || _removeLinkLabel is null
+        ? Task.CompletedTask
+        : _host.EvaluateAsync($"window.WinoEditor.setLinkLabels({Quote(_openLinkLabel)}, {Quote(_removeLinkLabel)})");
 
     private Task RunAsync(Func<Task> operation, CancellationToken token) => _host.Queue.RunAsync(async lifetime =>
     {

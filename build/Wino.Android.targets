@@ -12,11 +12,11 @@
     <PublishAot>false</PublishAot>
   </PropertyGroup>
 
-  <!-- Minimum OS is Android 6.0 (API 23), the floor of current AndroidX and Material Components.
+  <!-- Minimum OS is Android 7.0 (API 24), the floor of Play's automatic protection.
        The SDK fills an unset SupportedOSPlatformVersion with its own default before this file is
-       evaluated; a project that sets its own minimum above 23 keeps it. -->
+       evaluated; a project that sets its own minimum above 24 keeps it. -->
   <PropertyGroup Condition="$(TargetFramework.Contains('-android')) and ('$(SupportedOSPlatformVersion)' == '' or '$(SupportedOSPlatformVersion)' == '21' or '$(SupportedOSPlatformVersion)' == '21.0' or '$(SupportedOSPlatformVersion)' == '$(TargetPlatformVersion)')">
-    <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion>24</SupportedOSPlatformVersion>
   </PropertyGroup>
 
   <!-- Release apps: Mono full AOT and full trimming. Libraries are unaffected. LLVM stays off: with

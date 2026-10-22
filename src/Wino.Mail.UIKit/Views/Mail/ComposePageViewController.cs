@@ -372,6 +372,7 @@ public sealed partial class ComposePageViewController(ComposePageViewModel viewM
         BindSecurityOptions();
         BindRecipientSuggestions();
 
+        await editor.SetLinkLabelsAsync(Translator.Composer_OpenLink, Translator.Composer_RemoveLink);
         await editor.InitializeAsync();
         await editor.SetThemeAsync(_darkEditor);
         await Dispatcher.ExecuteOnUIThread(UpdateThemeButton);

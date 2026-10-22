@@ -61,6 +61,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private readonly UIView _intelligenceHost = new() { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
     private readonly WinoInfoBar _imageBanner = new(WinoInfoBarSeverity.Warning, null, Translator.ImageRenderingDisabled);
     private readonly ReaderWebView _webView = new();
+    private readonly ReaderLinkTargetBar _linkTarget = new();
     private readonly UIStackView _attachmentTiles = WinoLayout.HStack(10);
     private readonly UIView _attachmentStrip = new() { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
     private readonly UIButton _saveAllButton = new(UIButtonType.System) { TranslatesAutoresizingMaskIntoConstraints = false };
@@ -206,6 +207,9 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
             column.TopAnchor.ConstraintEqualTo(root.SafeAreaLayoutGuide.TopAnchor),
             column.BottomAnchor.ConstraintEqualTo(root.BottomAnchor)
         ]);
+        // The page scrolls the reader, not the document, so the bar sits on the visible scroll frame and hides on scroll.
+        _linkTarget.Attach(root, _scroll, _webView);
+        _scroll.Scrolled += (_, _) => _linkTarget.Clear();
 
         _loadingHost.BackgroundColor = WinoStyle.ZoneFill;
         WinoLayout.Fill(_loading, _loadingHost);
@@ -233,6 +237,8 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         var reader = _reader = new WebKitHtmlMailReaderSession(_webView) { ContentInset = BodyInset };
         reader.Configure(ViewModel.ExternalLauncher);
         reader.OperationFailed += (_, exception) => ReportError(exception);
+        reader.LinkHovered += (_, args) => _linkTarget.Show(args);
+        reader.NavigationRequested += (_, _) => _linkTarget.Clear();
         _dark = IsDarkAppearance();
         ViewModel.IsDarkWebviewRenderer = _dark;
         ViewModel.RenderHtmlAsyncFunc = RenderAsync;
@@ -486,6 +492,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private async Task RenderAsync(string html)
     {
         if (_reader is null || _disposedReader) return;
+        _linkTarget.Clear();
         _currentRenderedHtml = html ?? string.Empty;
         // A shorter message must be able to shrink the body: measure from a small frame again.
         if (_webHeight is not null) _webHeight.Constant = 120;
@@ -517,6 +524,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private Task ClearAsync()
     {
         _currentRenderedHtml = string.Empty;
+        _linkTarget.Clear();
         IntelligenceContentCleared();
         return _reader is null || _disposedReader ? Task.CompletedTask : _reader.ClearAsync();
     }
@@ -581,6 +589,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         if (_reader is not { } reader || _disposedReader) return;
         // The print presenter's web view getter returns null from here on, so print and PDF report Unavailable.
         _disposedReader = true;
+        _linkTarget.Clear();
         _contentSizeObserver?.Dispose();
         _contentSizeObserver = null;
         try { await reader.DisposeAsync(); }

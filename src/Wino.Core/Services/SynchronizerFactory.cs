@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Serilog;
@@ -48,6 +49,11 @@ public class SynchronizerFactory : ISynchronizerFactory
 
     private readonly ConcurrentDictionary<Guid, IWinoSynchronizerBase> _synchronizers = new();
     internal IReadOnlyDictionary<Guid, IWinoSynchronizerBase> CachedSynchronizers => _synchronizers;
+
+    // User actions that were still queued when an account's synchronizer was torn down (sign-in
+    // fix, server settings change). The next synchronizer for the account queues them again.
+    private readonly ConcurrentDictionary<Guid, IReadOnlyList<IRequestBase>> _carriedOverRequests = new();
+    private readonly ConcurrentDictionary<Guid, byte> _accountsWithRequeuedRequests = new();
     private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _accountGates = new();
 
     private SemaphoreSlim GetAccountGate(Guid accountId) => _accountGates.GetOrAdd(accountId, _ => new SemaphoreSlim(1, 1));
@@ -116,7 +122,12 @@ public class SynchronizerFactory : ISynchronizerFactory
         try
         {
             var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
-            if (account == null) return null;
+            if (account == null)
+            {
+                // The account was deleted; its queued actions have nothing left to run against.
+                _carriedOverRequests.TryRemove(accountId, out _);
+                return null;
+            }
             if (_synchronizers.TryGetValue(accountId, out var existing))
             {
                 if (!SynchronizationManager.RequiresSynchronizerRefresh(existing.Account, account))
@@ -126,7 +137,11 @@ public class SynchronizerFactory : ISynchronizerFactory
                 }
                 // Complete teardown before publishing a replacement for this account.
                 try { await existing.KillSynchronizerAsync().ConfigureAwait(false); }
-                finally { _synchronizers.TryRemove(accountId, out _); }
+                finally
+                {
+                    CarryOverQueuedRequests(existing);
+                    _synchronizers.TryRemove(accountId, out _);
+                }
             }
             return CreateAndCache(account);
         }
@@ -201,6 +216,16 @@ public class SynchronizerFactory : ISynchronizerFactory
     {
         var synchronizer = CreateIntegratorWithDefaultProcessor(account);
         _synchronizers[account.Id] = synchronizer;
+
+        if (synchronizer != null && _carriedOverRequests.TryRemove(account.Id, out var carriedOverRequests))
+        {
+            foreach (var request in carriedOverRequests)
+                synchronizer.QueueRequest(request);
+
+            _accountsWithRequeuedRequests[account.Id] = 0;
+
+            Log.Information("Re-queued {RequestCount} request(s) from the previous synchronizer of account {AccountId}.", carriedOverRequests.Count, account.Id);
+        }
         if (synchronizer is IImapSynchronizer imapSynchronizer && !account.IsNetworkAccessBlocked())
         {
             // The pool is warmed after the first synchronization so startup opens
@@ -274,9 +299,39 @@ public class SynchronizerFactory : ISynchronizerFactory
             if (_synchronizers.TryGetValue(accountId, out var synchronizer))
             {
                 try { await synchronizer.KillSynchronizerAsync().ConfigureAwait(false); }
-                finally { _synchronizers.TryRemove(accountId, out _); }
+                finally
+                {
+                    CarryOverQueuedRequests(synchronizer);
+                    _synchronizers.TryRemove(accountId, out _);
+                }
             }
         }
         finally { gate.Release(); }
     }
+
+    /// <summary>
+    /// Keeps the requests a synchronizer had not executed yet so the account's next synchronizer
+    /// runs them. Runs after the old synchronizer was stopped, so it no longer executes them itself.
+    /// </summary>
+    private void CarryOverQueuedRequests(IWinoSynchronizerBase synchronizer)
+    {
+        var accountId = synchronizer.Account?.Id;
+        if (accountId is not { } id)
+            return;
+
+        var queuedRequests = synchronizer.TakeQueuedRequests();
+        if (queuedRequests.Count == 0)
+            return;
+
+        _carriedOverRequests.AddOrUpdate(
+            id,
+            queuedRequests,
+            (_, existing) => existing.Concat(queuedRequests).ToList());
+    }
+
+    /// <summary>
+    /// Whether a new synchronizer for the account received requests from its predecessor since
+    /// the last call. Those requests still need an execution run.
+    /// </summary>
+    internal bool TryConsumeRequeuedRequests(Guid accountId) => _accountsWithRequeuedRequests.TryRemove(accountId, out _);
 }

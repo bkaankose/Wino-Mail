@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -551,22 +550,15 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
 
             Log.Warning(exception, "Category synchronization failed during account setup for provider {ProviderType}. Setup will continue.",
                 _createdAccount.ProviderType);
-
-            CaptureAccountSetupException(
-                new InvalidOperationException(Translator.Exception_FailedToSynchronizeCategories, exception),
-                SetupOperationCategorySync,
-                categoryResult);
         }
         catch (Exception ex)
         {
             Log.Warning(ex, "Category synchronization threw during account setup for provider {ProviderType}. Setup will continue.",
                 _createdAccount.ProviderType);
-
-            CaptureAccountSetupException(ex, SetupOperationCategorySync);
         }
     }
 
-    private void CaptureAccountSetupException(Exception exception, string operationName, MailSynchronizationResult synchronizationResult = null)
+    private void CaptureAccountSetupException(Exception exception, string operationName)
     {
         var properties = new Dictionary<string, string>
         {
@@ -587,22 +579,6 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
             properties["account_provider_type"] = _createdAccount.ProviderType.ToString();
             properties["account_mail_access_granted"] = _createdAccount.IsMailAccessGranted.ToString();
             properties["account_calendar_access_granted"] = _createdAccount.IsCalendarAccessGranted.ToString();
-        }
-
-        if (synchronizationResult != null)
-        {
-            var firstIssue = synchronizationResult.AllIssues.FirstOrDefault();
-
-            properties["sync_completed_state"] = synchronizationResult.CompletedState.ToString();
-            properties["sync_issue_count"] = synchronizationResult.AllIssues.Count().ToString();
-
-            if (firstIssue != null)
-            {
-                properties["sync_issue_category"] = firstIssue.Category.ToString();
-                properties["sync_issue_severity"] = firstIssue.Severity.ToString();
-                properties["sync_issue_operation"] = firstIssue.OperationType ?? string.Empty;
-                properties["sync_issue_code"] = firstIssue.ErrorCode?.ToString() ?? string.Empty;
-            }
         }
 
         _winoLogger.CaptureException(exception, operationName, properties);

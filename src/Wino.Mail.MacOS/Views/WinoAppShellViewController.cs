@@ -28,6 +28,10 @@ namespace Wino.Mail.MacOS.Views;
 public sealed class WinoAppShellViewController : WinoViewController<WinoAppShellViewModel>
 {
     private const double BriefingPanelWidth = 400;
+    private const double SidebarMinimumWidth = 220;
+    private const double SidebarReopenMargin = 8;
+    private const float SidebarMinimumPriority = 999;
+    private const float SidebarMinimumLiveResizePriority = 490;
 
     private readonly INavigationService _navigation;
     private readonly IStatePersistanceService _state;
@@ -38,6 +42,9 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
     private readonly WinoZoneView _emptyZone = new();
     private ShellSidebarViewController? _sidebar;
     private NSSplitViewItem? _sidebarItem;
+    private Foundation.NSObject? _splitResizeObserver;
+    private NSLayoutConstraint? _sidebarMinimum;
+    private nfloat _autoCollapsedWidth;
     private ShellToolbar? _toolbar;
     private NSViewController? _child;
     private IShellCommandTarget? _commandTarget;
@@ -80,11 +87,18 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         var menus = new ShellSidebarMenuContext(MailClient, Navigation, Dispatcher, ReportError, FixAccountAsync);
         _sidebar = new ShellSidebarViewController(Dispatcher, ReportError, Select, SwitchMode, FixAccount, context, menus);
         _sidebarItem = NSSplitViewItem.FromViewController(_sidebar);
-        _sidebarItem.MinimumThickness = 220;
         _sidebarItem.MaximumThickness = 380;
         _sidebarItem.CanCollapse = true;
-        _sidebarItem.CanCollapseFromWindowResize = true;
+        // The shell collapses the pane on a narrow window itself (SplitViewResized): AppKit's own
+        // collapse re-expands the pane while the window is still too narrow, and the two loop.
+        _sidebarItem.CanCollapseFromWindowResize = false;
         _sidebarItem.HoldingPriority = 262;
+        // The split view treats a minimum stronger than the window size as fixed: opening the pane
+        // widens a narrow window. During a live resize the minimum turns soft so a narrowing drag
+        // squeezes the pane, which is the cue to collapse it.
+        _sidebarMinimum = _sidebar.View.WidthAnchor.ConstraintGreaterThanOrEqualTo((nfloat)SidebarMinimumWidth);
+        _sidebarMinimum.Priority = SidebarMinimumPriority;
+        _sidebarMinimum.Active = true;
         // The Windows pane opens at 280; a soft width keeps it there when the content page changes.
         var preferredWidth = _sidebar.View.WidthAnchor.ConstraintEqualTo(280);
         preferredWidth.Priority = 251;
@@ -103,9 +117,14 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         _split.SplitView.AutosaveName = "WinoShellSplit.v3";
         _split.AddSplitViewItem(_sidebarItem);
         _split.AddSplitViewItem(contentItem);
+        _splitResizeObserver = Foundation.NSNotificationCenter.DefaultCenter.AddObserver(
+            new Foundation.NSString("NSSplitViewDidResizeSubviewsNotification"), _ => SplitViewResized(), _split.SplitView);
 
         // The theme backdrop fills the whole window: title bar, pane and content sit on it.
-        var root = new NSView();
+        var root = new LiveResizeView(live =>
+        {
+            if (_sidebarMinimum is not null) _sidebarMinimum.Priority = live ? SidebarMinimumLiveResizePriority : SidebarMinimumPriority;
+        });
         WinoLayout.Fill(new ThemeBackdropView(), root);
         AddChildViewController(_split);
         Layout.Fill(_split.View, root);
@@ -117,7 +136,7 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
             if (!hasSavedLayout) _split.SplitView.SetPositionOfDivider(280, 0);
         });
 
-        _toolbar = new ShellToolbar(_split.SplitView, () => SearchTarget, ToggleSidebar, Synchronize, ToggleBriefing, ShowWhatsNew, OpenAccount, ReportError);
+        _toolbar = new ShellToolbar(() => SearchTarget, ToggleSidebar, Synchronize, ToggleBriefing, ShowWhatsNew, OpenAccount, ReportError);
         _toolbar.SetAccountHidden(ViewModel.PreferencesService.IsWinoAccountButtonHidden);
         Bindings.Own(new PropertyBinding<WinoAppShellViewModel, bool>(ViewModel, nameof(ViewModel.IsRelayFallbackActive),
             vm => vm.IsRelayFallbackActive, active => _toolbar?.SetRelayFallbackActive(active), Dispatcher, ReportError));
@@ -307,7 +326,35 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
     public void ToggleSidebar()
     {
         if (_sidebarItem is null) return;
+        _autoCollapsedWidth = 0;
         ((NSSplitViewItem)_sidebarItem.Animator).Collapsed = !_sidebarItem.Collapsed;
+    }
+
+    /// <summary>
+    /// Collapses the pane when a window drag squeezes it below its minimum (the content page is
+    /// already at its own minimum then) and expands it again once the drag passes that width.
+    /// A pane closed with the toggle stays closed.
+    /// </summary>
+    private void SplitViewResized()
+    {
+        if (_sidebarItem is null || _sidebar is null || _content.Window is not { InLiveResize: true } window) return;
+        if (!_sidebarItem.Collapsed)
+        {
+            var squeeze = (nfloat)SidebarMinimumWidth - _sidebar.View.Frame.Width;
+            if (squeeze < 1) return;
+            _autoCollapsedWidth = window.Frame.Width + squeeze;
+            NSApplication.SharedApplication.BeginInvokeOnMainThread(() => SetSidebarCollapsed(true));
+        }
+        else if (_autoCollapsedWidth > 0 && window.Frame.Width >= _autoCollapsedWidth + SidebarReopenMargin)
+        {
+            _autoCollapsedWidth = 0;
+            NSApplication.SharedApplication.BeginInvokeOnMainThread(() => SetSidebarCollapsed(false));
+        }
+    }
+
+    private void SetSidebarCollapsed(bool collapsed)
+    {
+        if (_sidebarItem is { } item && item.Collapsed != collapsed) item.Collapsed = collapsed;
     }
 
     public void FocusSearch() => _toolbar?.FocusSearch();
@@ -554,6 +601,22 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         window.Subtitle = subtitle;
     }
 
+    /// <summary>Reports the start and end of a live window resize.</summary>
+    private sealed class LiveResizeView(Action<bool> liveResizeChanged) : NSView
+    {
+        public override void ViewWillStartLiveResize()
+        {
+            base.ViewWillStartLiveResize();
+            liveResizeChanged(true);
+        }
+
+        public override void ViewDidEndLiveResize()
+        {
+            base.ViewDidEndLiveResize();
+            liveResizeChanged(false);
+        }
+    }
+
     /// <summary>A split view whose 1 pt divider stays draggable but draws nothing.</summary>
     private sealed class ClearDividerSplitView : NSSplitView
     {
@@ -570,6 +633,8 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         {
             DetachCommandTarget();
             ObserveBriefing(null);
+            if (_splitResizeObserver is not null) Foundation.NSNotificationCenter.DefaultCenter.RemoveObserver(_splitResizeObserver);
+            _splitResizeObserver = null;
             _sidebar?.Dispose();
         }
         base.Dispose(disposing);

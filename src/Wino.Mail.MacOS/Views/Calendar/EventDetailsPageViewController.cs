@@ -99,7 +99,8 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         RebuildReminderMenu();
         ViewModel.ReminderOptions.CollectionChanged += ReminderOptionsChanged;
         var reminderRow = WinoLayout.HStack(6, new WinoIconView(WinoIconGlyph.Reminder, 16, WinoStyle.SecondaryText), _reminder);
-        var actions = new NSStackView { Orientation = NSUserInterfaceLayoutOrientation.Horizontal, Spacing = 2, TranslatesAutoresizingMaskIntoConstraints = false };
+        var actions = new ActionRow { Orientation = NSUserInterfaceLayoutOrientation.Horizontal, Spacing = 2, TranslatesAutoresizingMaskIntoConstraints = false };
+        actions.Collapsible = [_delete, _series, _join];
         actions.Alignment = NSLayoutAttribute.CenterY;
         foreach (var view in new NSView[] { _join, _rsvp, _delete, _series }) actions.AddArrangedSubview(view);
         actions.AddArrangedSubview(WinoLayout.Spacer());
@@ -704,6 +705,30 @@ internal sealed class DetailRow : NSStackView
     }
 }
 
+/// <summary>
+/// The details action row. The pane is narrow: while the labelled actions do not fit, the
+/// <see cref="Collapsible"/> ones drop to their glyphs in order, so the response status keeps its full text.
+/// </summary>
+internal sealed class ActionRow : NSStackView
+{
+    /// <summary>The buttons that may lose their label, first to go first.</summary>
+    public ActionBarButton[] Collapsible { get; set; } = [];
+
+    public override void Layout()
+    {
+        base.Layout();
+        var visible = ArrangedSubviews.Where(static view => !view.Hidden).ToList();
+        double needed = visible.Sum(static view => view is ActionBarButton button ? button.LabelledWidth : (double)view.FittingSize.Width)
+            + Spacing * Math.Max(0, visible.Count - 1);
+        foreach (var button in Collapsible)
+        {
+            bool fits = needed <= Bounds.Width;
+            button.ShowsLabel = fits;
+            if (!fits && !button.Hidden) needed -= button.LabelledWidth - button.IconWidth;
+        }
+    }
+}
+
 /// <summary>Windows TransparentActionButtonStyle: glyph, label, hover fill, 28pt tall.</summary>
 internal sealed class ActionBarButton : WinoSurfaceView
 {
@@ -716,6 +741,8 @@ internal sealed class ActionBarButton : WinoSurfaceView
     {
         CornerRadius = 5;
         _icon = new WinoIconView(glyph, 14, tint);
+        // The label truncates before the glyph squeezes away (both sat at 750 and the glyph lost).
+        _icon.SetContentCompressionResistancePriority(999, NSLayoutConstraintOrientation.Horizontal);
         var children = new List<NSView> { _icon };
         if (title is not null) { _label = WinoStyle.Label(title, NSFont.SystemFontOfSize(12)); children.Add(_label); }
         var stack = WinoLayout.HStack(6, children.ToArray());
@@ -733,6 +760,19 @@ internal sealed class ActionBarButton : WinoSurfaceView
     public string Title
     {
         set { if (_label is not null) _label.StringValue = value ?? string.Empty; }
+    }
+
+    /// <summary>The button's width with its label shown (insets, glyph, spacing and label).</summary>
+    public double LabelledWidth => IconWidth + (_label is null ? 0 : 6 + (double)_label.IntrinsicContentSize.Width);
+
+    /// <summary>The button's width as its glyph alone.</summary>
+    public double IconWidth => 8 + 14 + 8;
+
+    /// <summary>Whether the label is shown; without it the button is its glyph, named by the tooltip.</summary>
+    public bool ShowsLabel
+    {
+        get => _label is { Hidden: false };
+        set { if (_label is not null && _label.Hidden == value) _label.Hidden = !value; }
     }
 
     public bool Enabled

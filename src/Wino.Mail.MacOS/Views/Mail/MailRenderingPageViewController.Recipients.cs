@@ -102,6 +102,8 @@ public sealed partial class MailRenderingPageViewController
             ImagePosition = NSCellImagePosition.ImageTrailing,
             ToolTip = Translator.MacOS_Reader_CopyAddress
         };
+        // Links give way to their row by default; the card sizes itself to the full address instead.
+        addressLink.SetContentCompressionResistancePriority(750, NSLayoutConstraintOrientation.Horizontal);
         WinoAccessibility.Label(addressLink, $"{Translator.MacOS_Reader_CopyAddress} {address}");
         addressLink.Activated += (_, _) =>
         {
@@ -110,8 +112,11 @@ public sealed partial class MailRenderingPageViewController
         };
         var text = WinoLayout.VStack(2, nameLabel, addressLink);
         text.WidthAnchor.ConstraintLessThanOrEqualTo(320).Active = true;
-        var content = WinoLayout.HStack(10, picture, text);
-        content.EdgeInsets = new NSEdgeInsets(12, 12, 12, 14);
+        var stack = WinoLayout.HStack(10, picture, text);
+        // A plain container carries the padding: the popover sizes itself from its content view's
+        // fitting size, which ignores a stack view's own edge insets.
+        var content = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
+        WinoLayout.Fill(stack, content, 12, 14, 12, 16);
 
         var card = new NSPopover
         {
@@ -119,6 +124,7 @@ public sealed partial class MailRenderingPageViewController
             Animates = true,
             ContentViewController = new NSViewController { View = content }
         };
+        card.ContentSize = content.FittingSize;
         // A transient dismissal releases the card too, outside the popover's own close callback.
         _contactCardObserver = Foundation.NSNotificationCenter.DefaultCenter.AddObserver(NSPopover.DidCloseNotification,
             _ => NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
@@ -163,7 +169,8 @@ public sealed partial class MailRenderingPageViewController
 }
 
 /// <summary>
-/// To, Cc and Bcc rows: a label and a wrapping row of recipient links. A row shows at most
+/// To, Cc and Bcc rows: a wrapping row that starts with its caption, then the recipient links. The
+/// caption is a borderless button like the links, so both share one baseline. A row shows at most
 /// <see cref="TokenLimit"/> recipients and a "{0} more" link that expands it in place until the next message.
 /// </summary>
 internal sealed class MailRecipientRows : NSView
@@ -177,9 +184,8 @@ internal sealed class MailRecipientRows : NSView
 
     private sealed class Row
     {
-        public required NSView Container { get; init; }
-        public required NSTextField Label { get; init; }
         public required WinoFlowView Flow { get; init; }
+        public required MailRecipientCaption Caption { get; init; }
         public AccountContactViewModel[] Contacts { get; set; } = [];
         public bool Expanded { get; set; }
     }
@@ -193,26 +199,10 @@ internal sealed class MailRecipientRows : NSView
         var stack = WinoLayout.VStack(4);
         for (int index = 0; index < _rows.Length; index++)
         {
-            var label = WinoStyle.Label(string.Empty, NSFont.SystemFontOfSize(12, NSFontWeight.Semibold), WinoStyle.SecondaryText);
-            label.SetContentHuggingPriorityForOrientation(750, NSLayoutConstraintOrientation.Horizontal);
-            label.SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Horizontal);
-            var flow = new WinoFlowView { Spacing = 4, LineSpacing = 2 };
-            var container = new NSView { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
-            container.AddSubview(label);
-            container.AddSubview(flow);
-            NSLayoutConstraint.ActivateConstraints(
-            [
-                label.LeadingAnchor.ConstraintEqualTo(container.LeadingAnchor),
-                label.TopAnchor.ConstraintEqualTo(container.TopAnchor, 2),
-                label.BottomAnchor.ConstraintLessThanOrEqualTo(container.BottomAnchor),
-                flow.LeadingAnchor.ConstraintEqualTo(label.TrailingAnchor, 6),
-                flow.TrailingAnchor.ConstraintEqualTo(container.TrailingAnchor),
-                flow.TopAnchor.ConstraintEqualTo(container.TopAnchor),
-                flow.BottomAnchor.ConstraintEqualTo(container.BottomAnchor)
-            ]);
-            stack.AddArrangedSubview(container);
-            container.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
-            _rows[index] = new Row { Container = container, Label = label, Flow = flow };
+            var flow = new WinoFlowView { Spacing = 4, LineSpacing = 2, Hidden = true };
+            stack.AddArrangedSubview(flow);
+            flow.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
+            _rows[index] = new Row { Flow = flow, Caption = new MailRecipientCaption() };
         }
         WinoLayout.Fill(stack, this);
         Hidden = true;
@@ -227,14 +217,14 @@ internal sealed class MailRecipientRows : NSView
     public void SetRecipients(int row, string label, IReadOnlyList<AccountContactViewModel> contacts)
     {
         var target = _rows[row];
-        target.Label.StringValue = label;
+        target.Caption.Text = label;
         if (!SameContacts(target.Contacts, contacts))
         {
             target.Contacts = contacts.ToArray();
             Rebuild(target);
         }
-        target.Container.Hidden = target.Contacts.Length == 0;
-        Hidden = _rows.All(static candidate => candidate.Container.Hidden);
+        target.Flow.Hidden = target.Contacts.Length == 0;
+        Hidden = _rows.All(static candidate => candidate.Flow.Hidden);
     }
 
     /// <summary>Re-applies the accent to the links (the owner follows the accent event).</summary>
@@ -265,7 +255,7 @@ internal sealed class MailRecipientRows : NSView
 
     private void Rebuild(Row row)
     {
-        var views = new List<NSView>();
+        var views = new List<NSView> { row.Caption };
         var shown = row.Expanded ? row.Contacts : row.Contacts.Take(TokenLimit).ToArray();
         foreach (var contact in shown) views.Add(Token(contact));
         int hidden = row.Contacts.Length - shown.Length;
@@ -281,7 +271,7 @@ internal sealed class MailRecipientRows : NSView
         }
         var previous = row.Flow.Subviews;
         row.Flow.SetItems(views);
-        foreach (var old in previous) old.Dispose();
+        foreach (var old in previous) if (!ReferenceEquals(old, row.Caption)) old.Dispose();
     }
 
     private MailLinkButton Token(AccountContactViewModel contact)
@@ -305,7 +295,7 @@ internal sealed class MailRecipientRows : NSView
 #if DEBUG
     /// <summary>Debug: the rows with their visible tokens.</summary>
     public string Dump()
-        => string.Join(" | ", _rows.Select(static row => $"{row.Label.StringValue} hidden={row.Container.Hidden} expanded={row.Expanded} count={row.Contacts.Length} tokens=[" +
+        => string.Join(" | ", _rows.Select(static row => $"{row.Caption.Text} hidden={row.Flow.Hidden} expanded={row.Expanded} count={row.Contacts.Length} tokens=[" +
             string.Join(", ", row.Flow.Subviews.OfType<MailLinkButton>().Select(static token => token.Text)) + "]"));
 #endif
 
@@ -315,7 +305,37 @@ internal sealed class MailRecipientRows : NSView
         {
             ContactInvoked = null;
             CopyRequested = null;
+            foreach (var row in _rows) row.Caption.Dispose();
         }
         base.Dispose(disposing);
     }
+}
+
+/// <summary>
+/// The "To:", "Cc:" or "Bcc:" caption at the start of a recipient row: a borderless button drawn
+/// like the recipient links (same cell, same baseline) that takes no clicks or focus.
+/// </summary>
+internal sealed class MailRecipientCaption : NSButton
+{
+    public MailRecipientCaption()
+    {
+        Bordered = false;
+        TranslatesAutoresizingMaskIntoConstraints = false;
+        SetButtonType(NSButtonType.MomentaryChange);
+        AccessibilityRole = NSAccessibilityRoles.StaticTextRole;
+    }
+
+    public string Text
+    {
+        get => Title;
+        set => AttributedTitle = new Foundation.NSAttributedString(value ?? string.Empty, new NSStringAttributes
+        {
+            ForegroundColor = WinoStyle.SecondaryText,
+            Font = NSFont.SystemFontOfSize(12, NSFontWeight.Semibold)
+        });
+    }
+
+    public override bool AcceptsFirstResponder() => false;
+
+    public override NSView? HitTest(CGPoint point) => null;
 }

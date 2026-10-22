@@ -9,22 +9,20 @@ using Wino.Presentation.AppKit;
 namespace Wino.Mail.MacOS.Views.Shell;
 
 /// <summary>
-/// The unified window toolbar in the Windows title bar order: sidebar toggle and tracking
-/// separator, synchronization, the window title and subtitle (native), a centred search field,
+/// The unified window toolbar in the Windows title bar order: sidebar toggle, synchronization
+/// (navigational, so it precedes the title), the window title and subtitle (native), a centred search field,
 /// then Daily briefing, What's New and the Wino account. Mail actions live in the reader command
 /// bar and the Message menu, as on Windows. Every glyph comes from the WinoIcons font.
 /// </summary>
 internal sealed class ShellToolbar : NSToolbarDelegate
 {
     private const string ToggleSidebarId = "wino.toggleSidebar";
-    private const string SidebarSeparatorId = "wino.sidebarSeparator";
     private const string SyncId = "wino.sync";
     private const string SearchId = "wino.search";
     private const string BriefingId = "wino.briefing";
     private const string WhatsNewId = "wino.whatsNew";
     private const string AccountId = "wino.account";
 
-    private readonly NSSplitView _splitView;
     private readonly Func<IShellSearchTarget?> _searchTarget;
     private readonly Action _toggleSidebar;
     private readonly Action _synchronize;
@@ -49,10 +47,9 @@ internal sealed class ShellToolbar : NSToolbarDelegate
     private bool _whatsNewVisible;
     private bool _accountHidden;
 
-    public ShellToolbar(NSSplitView splitView, Func<IShellSearchTarget?> searchTarget, Action toggleSidebar, Action synchronize,
+    public ShellToolbar(Func<IShellSearchTarget?> searchTarget, Action toggleSidebar, Action synchronize,
         Action<NSView> briefing, Action whatsNew, Action<NSView> account, Action<Exception> error)
     {
-        _splitView = splitView;
         _searchTarget = searchTarget;
         _toggleSidebar = toggleSidebar;
         _synchronize = synchronize;
@@ -78,7 +75,8 @@ internal sealed class ShellToolbar : NSToolbarDelegate
     private static string[] Identifiers() =>
     [
         ToggleSidebarId,
-        SidebarSeparatorId,
+        // Adjacent buttons share one glass capsule; the space gives sync a capsule of its own.
+        NSToolbar.NSToolbarSpaceItemIdentifier,
         SyncId,
         NSToolbar.NSToolbarFlexibleSpaceItemIdentifier,
         SearchId,
@@ -87,6 +85,16 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         WhatsNewId,
         AccountId
     ];
+
+    /// <summary>
+    /// The space before sync must be navigational too, or AppKit moves it after the window title
+    /// and the sync button joins the sidebar toggle's capsule.
+    /// </summary>
+    public override void WillAddItem(NSNotification notification)
+    {
+        if (notification.UserInfo?["item"] is NSToolbarItem { Identifier: var identifier } item && identifier == NSToolbar.NSToolbarSpaceItemIdentifier)
+            item.Navigational = true;
+    }
 
     public override string[] DefaultItemIdentifiers(NSToolbar toolbar) => Identifiers();
     public override string[] AllowedItemIdentifiers(NSToolbar toolbar) => Identifiers();
@@ -100,8 +108,6 @@ internal sealed class ShellToolbar : NSToolbarDelegate
                 toggle.ToolTip = $"{Translator.MacOSMenu_ToggleSidebar} (⌃⌘S)";
                 toggle.Navigational = true;
                 return toggle;
-            case SidebarSeparatorId:
-                return NSTrackingSeparatorToolbarItem.GetTrackingSeparatorToolbar(SidebarSeparatorId, _splitView, 0);
             case SyncId:
                 return _syncItem = CreateSyncItem();
             case SearchId:
@@ -181,6 +187,8 @@ internal sealed class ShellToolbar : NSToolbarDelegate
             _relayFallbackDot.TopAnchor.ConstraintEqualTo(_syncButton.TopAnchor, 4)
         ]);
         item.View = container;
+        // Navigational items sit before the window title, so the title follows the sync button.
+        item.Navigational = true;
         return item;
     }
 

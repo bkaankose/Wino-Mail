@@ -268,30 +268,24 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
     }
 
     private void CalendarToolbarPreviousDateRequested(object? sender, EventArgs e)
-        => RequestPreviousPeriod();
+        => CalendarSurface.NavigatePeriods(-1);
 
     private void CalendarToolbarNextDateRequested(object? sender, EventArgs e)
-        => RequestNextPeriod();
+        => CalendarSurface.NavigatePeriods(1);
 
-    private void CalendarSurfacePreviousPeriodRequested(object? sender, EventArgs e)
-        => RequestPreviousPeriod();
+    // The rail settled on a period the view model has not loaded; the view model answers through
+    // CurrentVisibleRange, which confirms the position without moving the rail again.
+    private void CalendarSurfacePeriodSettled(object? sender, CalendarPeriodEventArgs e)
+        => WeakReferenceMessenger.Default.Send(new LoadCalendarMessage(new CalendarDisplayRequest(e.DisplayType, e.AnchorDate)));
 
-    private void CalendarSurfaceNextPeriodRequested(object? sender, EventArgs e)
-        => RequestNextPeriod();
+    // While the rail moves, the title names the period nearest to the viewport; the view model
+    // writes the same text once that period settles and loads.
+    private void CalendarSurfaceViewportPeriodChanged(object? sender, CalendarPeriodEventArgs e)
+        => CalendarToolbar.VisibleDateRangeText = ViewModel.FormatRangeText(e.DisplayType, e.AnchorDate);
 
-    private void RequestPreviousPeriod()
+    private void CalendarSurfaceTodayRequested(object? sender, EventArgs e)
     {
-        var command = CalendarShellClient.PreviousDateRangeCommand;
-
-        if (command.CanExecute(null))
-        {
-            command.Execute(null);
-        }
-    }
-
-    private void RequestNextPeriod()
-    {
-        var command = CalendarShellClient.NextDateRangeCommand;
+        var command = CalendarShellClient.TodayClickedCommand;
 
         if (command.CanExecute(null))
         {
@@ -350,8 +344,9 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         _calendarTypeSelectorChangedToken = CalendarToolbar.RegisterSelectedTypeChanged(CalendarTypeSelectorSelectedTypeChanged);
         CalendarToolbar.PreviousDateRequested += CalendarToolbarPreviousDateRequested;
         CalendarToolbar.NextDateRequested += CalendarToolbarNextDateRequested;
-        CalendarSurface.PreviousPeriodRequested += CalendarSurfacePreviousPeriodRequested;
-        CalendarSurface.NextPeriodRequested += CalendarSurfaceNextPeriodRequested;
+        CalendarSurface.PeriodSettled += CalendarSurfacePeriodSettled;
+        CalendarSurface.TodayRequested += CalendarSurfaceTodayRequested;
+        CalendarSurface.ViewportPeriodChanged += CalendarSurfaceViewportPeriodChanged;
         ViewModel.PropertyChanged += ViewModelPropertyChanged;
         CalendarShellClient.PropertyChanged += CalendarShellClientPropertyChanged;
         CalendarShellClient.StatePersistenceService.StatePropertyChanged += CalendarStatePersistenceServiceChanged;
@@ -370,8 +365,9 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         CalendarToolbar.UnregisterSelectedTypeChanged(_calendarTypeSelectorChangedToken);
         CalendarToolbar.PreviousDateRequested -= CalendarToolbarPreviousDateRequested;
         CalendarToolbar.NextDateRequested -= CalendarToolbarNextDateRequested;
-        CalendarSurface.PreviousPeriodRequested -= CalendarSurfacePreviousPeriodRequested;
-        CalendarSurface.NextPeriodRequested -= CalendarSurfaceNextPeriodRequested;
+        CalendarSurface.PeriodSettled -= CalendarSurfacePeriodSettled;
+        CalendarSurface.TodayRequested -= CalendarSurfaceTodayRequested;
+        CalendarSurface.ViewportPeriodChanged -= CalendarSurfaceViewportPeriodChanged;
         ViewModel.PropertyChanged -= ViewModelPropertyChanged;
         CalendarShellClient.PropertyChanged -= CalendarShellClientPropertyChanged;
         CalendarShellClient.StatePersistenceService.StatePropertyChanged -= CalendarStatePersistenceServiceChanged;

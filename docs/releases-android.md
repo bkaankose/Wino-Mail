@@ -3,7 +3,7 @@
 This guide explains how to build the Android release APK and App Bundle (AAB).
 The [release index](releases.md) lists the shared steps. Toolchain, emulators, and sign-in registrations are in the [Android development guide](harness/development-android.md).
 
-Google Play is the distribution target, but nothing exists on the Play side yet: no Play Console app, upload key, or store listing. Local testing uses APKs installed on emulators or devices. There is no Android release script.
+Google Play is the distribution target. The Play Console app `com.winomail.android` and the upload key exist; the store listing and app content declarations are in progress. Local testing uses APKs installed on emulators or devices. There is no Android release script.
 
 ## Version
 
@@ -28,7 +28,7 @@ Known issue: restore of a Release build fails with NU1902/NU1903 for `System.Sec
 
 ## Signing with the upload key
 
-The upload key does not exist yet. When it is created:
+The upload key was created on 21 Oct 2026. It lives outside the repository at `~/WinoSigning/android/wino-upload.keystore` on the owner's Mac (alias `wino-upload`, PKCS12, one password for the store and the key); its SHA-1 is `98:B8:6E:EE:79:9C:C3:20:CF:09:57:8B:A6:25:EB:F1:A2:48:07:1D`. The Play app signing certificate SHA-1 is `A0:1C:A9:41:1D:01:70:C8:14:28:3A:EC:F5:CB:C1:3A:E4:FF:DC:37`. Both are registered as Android redirects on the Entra app `b19c2035-d740-49ff-b297-de6ec561b208` (22 Oct 2026). The steps were:
 
 1. Generate it once with `keytool -genkeypair -v -keystore wino-upload.keystore -alias wino-upload -keyalg RSA -keysize 4096 -validity 10000`, store it and its passwords outside the repository, and keep an offline backup. `.gitignore` ignores `*.keystore` and `*.jks`.
 2. Enroll the app in Play App Signing; Google holds the app signing key and the upload key only authenticates uploads.
@@ -45,7 +45,7 @@ The package id `com.winomail.android` cannot change after the first Play upload.
 
 ## 16 KB page-size check
 
-Play requires native libraries aligned for 16 KB memory pages for apps that target Android 15 or later. Check every release package:
+Play requires native libraries aligned for 16 KB memory pages for apps that target Android 15 or later. Play automatic protection requires minSdk 24 or later; Play rejected the first upload at minSdk 23. Check every release package:
 
 ```sh
 zipalign -c -P 16 -v 4 com.winomail.android-Signed.apk
@@ -56,7 +56,7 @@ adb shell getconf PAGE_SIZE
 adb install -r com.winomail.android-Signed.apk
 ```
 
-Every LOAD segment must show `0x4000`. `llvm-readelf` is in NDK r28c (`sdkmanager "ndk;28.2.13676358"`, then `$ANDROID_HOME/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/bin`). The APK stores native libraries compressed (`extractNativeLibs=true` for minSdk 23), so zip alignment does not apply to them; the ELF alignment does. `getconf` must print `16384`. The app must start and reach its first page without a crash in `adb logcat`. Also start the Release APK on `Wino_Phone_API23` to check the minimum OS.
+Every LOAD segment must show `0x4000`. `llvm-readelf` is in NDK r28c (`sdkmanager "ndk;28.2.13676358"`, then `$ANDROID_HOME/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/bin`). The APK stores native libraries compressed (`extractNativeLibs=true`, verified with minSdk 24), so zip alignment does not apply to them; the ELF alignment does. `getconf` must print `16384`. The app must start and reach its first page without a crash in `adb logcat`. Also start the Release APK on `Wino_Phone_API24` to check the minimum OS.
 
 ## Deferred
 

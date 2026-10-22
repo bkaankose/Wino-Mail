@@ -447,6 +447,7 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
     private async Task InitializeEditorAsync(AndroidHtmlMailEditorSession editor)
     {
         await editor.SetThemeAsync(_darkEditor);
+        await editor.SetLinkLabelsAsync(Translator.Composer_OpenLink, Translator.Composer_RemoveLink);
         await editor.InitializeAsync();
     }
 

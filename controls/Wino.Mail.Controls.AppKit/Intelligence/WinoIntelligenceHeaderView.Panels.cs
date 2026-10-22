@@ -15,14 +15,14 @@ namespace Wino.Mail.Controls.AppKit.Intelligence;
 /// </summary>
 public sealed partial class WinoIntelligenceHeaderView
 {
-    private NSStackView _summaryPanel = null!;
+    private NSView _summaryCard = null!;
     private NSStackView _summaryWaitingRow = null!;
     private NSProgressIndicator _summarySpinner = null!;
     private NSTextField _summaryText = null!;
     private NSButton _summaryCopyButton = null!;
     private NSButton _summaryRegenerateButton = null!;
 
-    private NSStackView _translatePanel = null!;
+    private NSView _translateCard = null!;
     private NSPopUpButton _sourcePicker = null!;
     private NSPopUpButton _targetPicker = null!;
     private NSButton _translationRunButton = null!;
@@ -53,9 +53,12 @@ public sealed partial class WinoIntelligenceHeaderView
         _summaryText = WinoStyle.Label(string.Empty, WinoStyle.Body, WinoStyle.PrimaryText, 0);
         _summaryText.Selectable = true;
 
-        _summaryPanel = WinoLayout.VStack(8, summaryHeader, _summaryWaitingRow, _summaryText);
-        _summaryPanel.Alignment = NSLayoutAttribute.Width;
-        WinoAccessibility.Label(_summaryPanel, Translator.WinoIntelligence_Summary);
+        _summaryText.Alignment = NSTextAlignment.Left;
+        var summaryPanel = WinoLayout.VStack(8, summaryHeader, _summaryWaitingRow, _summaryText);
+        FillWidth(summaryPanel);
+        // Windows PART_SummaryPanel: a card with padding 10 and corner radius 6.
+        _summaryCard = InnerCard(summaryPanel, 10, 10, 6);
+        WinoAccessibility.Label(_summaryCard, Translator.WinoIntelligence_Summary);
 
         // ---- Translation ----
         var translateHeading = WinoStyle.Label(Translator.WinoIntelligence_TranslateMessage, WinoStyle.BodyStrong);
@@ -91,16 +94,17 @@ public sealed partial class WinoIntelligenceHeaderView
         _translationStatusText.Selectable = true;
         _translationAppliedRow = WinoLayout.HStack(6, appliedIcon, _translationStatusText, WinoLayout.Spacer());
 
-        _translatePanel = WinoLayout.VStack(8, translateHeader, pickers, _translationWaitingRow, _translationAppliedRow);
-        _translatePanel.Alignment = NSLayoutAttribute.Width;
-        WinoAccessibility.Label(_translatePanel, Translator.WinoIntelligence_TranslateMessage);
+        var translatePanel = WinoLayout.VStack(10, translateHeader, pickers, _translationWaitingRow, _translationAppliedRow);
+        FillWidth(translatePanel);
+        _translateCard = InnerCard(translatePanel, 10, 10, 6);
+        WinoAccessibility.Label(_translateCard, Translator.WinoIntelligence_TranslateMessage);
     }
 
     private void SyncPanels()
     {
         var state = CurrentState;
 
-        _summaryPanel.Hidden = !_view.IsSummaryPanelOpen;
+        _summaryCard.Hidden = !_view.IsSummaryPanelOpen;
         var summaryBusy = _view.IsSummaryWaitingShown;
         _summaryWaitingRow.Hidden = !summaryBusy;
         if (summaryBusy) _summarySpinner.StartAnimation(this);
@@ -110,7 +114,7 @@ public sealed partial class WinoIntelligenceHeaderView
         _summaryCopyButton.Enabled = _view.CanCopySummary;
         _summaryRegenerateButton.Enabled = _view.CanRegenerateSummary;
 
-        _translatePanel.Hidden = !_view.IsTranslatePanelOpen;
+        _translateCard.Hidden = !_view.IsTranslatePanelOpen;
         var translationBusy = _view.IsTranslationWaitingShown;
         _translationWaitingRow.Hidden = !translationBusy;
         if (translationBusy) _translationSpinner.StartAnimation(this);

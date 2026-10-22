@@ -8,6 +8,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Loaded="ControlLoaded"
     mc:Ignorable="d">
 
     <UserControl.Resources>
@@ -45,7 +46,7 @@
                     AutomationProperties.Name="{x:Bind domain:Translator.Accessibility_PreviousCalendarPeriod, Mode=OneTime}"
                     Click="PreviousDateClicked"
                     Style="{StaticResource CalendarNavigationButtonStyle}">
-                    <Viewbox Width="12">
+                    <Viewbox x:Name="PreviousArrow" Width="12">
                         <coreControls:WinoFontIcon Icon="ArrowLeft" />
                     </Viewbox>
                 </Button>
@@ -56,7 +57,7 @@
                     AutomationProperties.Name="{x:Bind domain:Translator.Accessibility_NextCalendarPeriod, Mode=OneTime}"
                     Click="NextDateClicked"
                     Style="{StaticResource CalendarNavigationButtonStyle}">
-                    <Viewbox Width="12">
+                    <Viewbox x:Name="NextArrow" Width="12">
                         <coreControls:WinoFontIcon Icon="ArrowRight" />
                     </Viewbox>
                 </Button>

@@ -6,6 +6,9 @@
   <dimen name="wino_shell_list_width_expanded">420dp</dimen>
   <!-- Reader header date: wraps to two lines at large font scales so the sender keeps its room. -->
   <dimen name="wino_reader_date_max_width">120dp</dimen>
+  <!-- The reader link bar (Windows LinkTargetBar: MaxWidth 720, margin 8,0,48,8). -->
+  <dimen name="wino_reader_link_target_max_width">720dp</dimen>
+  <dimen name="wino_reader_link_target_end_margin">48dp</dimen>
   <!-- Narrower readers (the tablet's reader pane) show the date under the sender address instead of beside the name. -->
   <dimen name="wino_reader_date_beside_min_width">400dp</dimen>
 </resources>

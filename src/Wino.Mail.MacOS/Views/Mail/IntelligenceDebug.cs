@@ -27,6 +27,14 @@ public sealed partial class MailRenderingPageViewController
                 : WaitForSummaryAsync(presenter);
         }));
 
+        // "intel-expand [translate]" expands the header (or opens the translate panel) without requesting anything.
+        MacDebugBridge.Register("intel-expand", args => IntelligenceDebugAsync(() =>
+        {
+            if (args.Length > 0 && args[0] == "translate") _intelligenceHeader?.ShowTranslation();
+            else if (_intelligenceHeader is { } header) header.IsExpanded = true;
+            return Task.CompletedTask;
+        }));
+
         MacDebugBridge.Register("intel-translate", args => IntelligenceDebugAsync(() =>
         {
             if (_intelligence is not { IsTranslateAvailable: true } presenter) return Task.CompletedTask;

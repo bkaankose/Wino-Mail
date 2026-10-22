@@ -43,6 +43,7 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     internal Action<ContactFilterViewModel> RenameRequested { get; set; }
 
     internal Action<ContactFilterViewModel> DeleteRequested { get; set; }
+    internal Func<ContactFilterViewModel, Task> NewCategoryRequested { get; set; }
     internal Func<Guid, Task> SynchronizeAccountRequested { get; set; }
 
     public ContactFilterKind Kind { get; }
@@ -216,6 +217,9 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
 
     [RelayCommand(CanExecute = nameof(CanModifyList))]
     private void DeleteList() => DeleteRequested?.Invoke(this);
+
+    [RelayCommand]
+    private Task NewCategory() => NewCategoryRequested?.Invoke(this) ?? Task.CompletedTask;
 
     #endregion
 }

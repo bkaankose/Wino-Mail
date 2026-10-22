@@ -30,6 +30,7 @@ public sealed class WinoSearchScopeBar : WinoSurfaceView
         });
         _reach.ControlSize = NSControlSize.Small;
         _reach.SelectedSegment = 0;
+        WinoStyle.UseAccentSelection(_reach);
         _reach.TranslatesAutoresizingMaskIntoConstraints = false;
 
         _scope = new NSPopUpButton { PullsDown = false, ControlSize = NSControlSize.Small, TranslatesAutoresizingMaskIntoConstraints = false };

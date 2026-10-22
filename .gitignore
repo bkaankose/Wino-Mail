@@ -433,6 +433,7 @@ docs/design-prototypes/*
 !/docs/macos-shared-logic-roadmap.md
 !/docs/push-relay-design.md
 !/docs/push-relay/
+!/docs/calendar-rail-navigation.md
 
 # Release tooling is source, not a build output directory.
 !/scripts/release/

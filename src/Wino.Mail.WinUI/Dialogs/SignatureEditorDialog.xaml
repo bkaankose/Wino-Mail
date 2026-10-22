@@ -63,7 +63,10 @@
                     x:Name="WebViewEditor"
                     AutomationProperties.AutomationId="SignatureMailEditor"
                     IsEditorWebViewEditor="False"
-                    IsPasteOptionsEnabled="True" />
+                    IsPasteOptionsEnabled="True"
+                    LinkOpenRequested="EditorLinkOpenRequested"
+                    OpenLinkLabel="{x:Bind domain:Translator.Composer_OpenLink, Mode=OneTime}"
+                    RemoveLinkLabel="{x:Bind domain:Translator.Composer_RemoveLink, Mode=OneTime}" />
             </Border>
         </Grid>
     </Grid>

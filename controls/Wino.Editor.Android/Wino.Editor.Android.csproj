@@ -4,7 +4,7 @@
        bridge and the document generations. -->
   <PropertyGroup>
     <TargetFramework>net10.0-android</TargetFramework>
-    <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion>24</SupportedOSPlatformVersion>
     <WinoTargetPlatform>Android</WinoTargetPlatform>
     <RootNamespace>Wino.Editor.Android</RootNamespace>
     <Nullable>enable</Nullable>

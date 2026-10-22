@@ -340,6 +340,7 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
         BindSendShortcut();
         BindRecipientPopup();
 
+        await _editor.SetLinkLabelsAsync(Translator.Composer_OpenLink, Translator.Composer_RemoveLink);
         await _editor.InitializeAsync();
         await _editor.SetThemeAsync(_darkEditor);
         await Dispatcher.ExecuteOnUIThread(UpdateThemeButton);

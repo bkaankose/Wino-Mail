@@ -70,6 +70,13 @@ internal sealed partial class EditorBridge : IDisposable
     public Task RemoveLinkAsync() =>
         ExecuteScriptAsync("window.WinoEditor.removeLink()");
 
+    public Task SetLinkLabelsAsync(string openLabel, string removeLabel)
+    {
+        string openJson = JsonSerializer.Serialize(openLabel, EditorJsonContext.Default.String);
+        string removeJson = JsonSerializer.Serialize(removeLabel, EditorJsonContext.Default.String);
+        return ExecuteScriptAsync($"window.WinoEditor.setLinkLabels({openJson}, {removeJson})");
+    }
+
     public Task SetSelectedImagePropertiesAsync(EditorImagePropertiesCommandArgs properties)
     {
         string propertiesJson = JsonSerializer.Serialize(properties, EditorJsonContext.Default.EditorImagePropertiesCommandArgs);

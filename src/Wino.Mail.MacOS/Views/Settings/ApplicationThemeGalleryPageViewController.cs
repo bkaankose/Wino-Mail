@@ -358,7 +358,16 @@ internal sealed class ThemeGalleryItem : NSCollectionViewItem
         _stack.Alignment = NSLayoutAttribute.Leading;
         _edit.ControlSize = NSControlSize.Small;
         _edit.Activated += (_, _) => _editAction?.Invoke();
-        WinoLayout.Fill(_stack, root, 0, 4, 0, 4);
+        // Pinned to the top only: the item is taller than its content, and a stretched stack opened the
+        // gap above the compatibility label, so it read as the caption of the row below.
+        root.AddSubview(_stack);
+        NSLayoutConstraint.ActivateConstraints(
+        [
+            _stack.TopAnchor.ConstraintEqualTo(root.TopAnchor),
+            _stack.LeadingAnchor.ConstraintEqualTo(root.LeadingAnchor, 4),
+            _stack.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor, -4),
+            _stack.BottomAnchor.ConstraintLessThanOrEqualTo(root.BottomAnchor)
+        ]);
         root.AccessibilityElement = true;
         root.AccessibilityRole = NSAccessibilityRoles.ButtonRole;
         View = root;

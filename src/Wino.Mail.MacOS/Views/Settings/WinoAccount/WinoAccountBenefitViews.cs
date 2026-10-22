@@ -295,7 +295,7 @@ public sealed class WinoAccountBenefitIllustrationView : NSView
     private static NSColor Divider => NSColor.Separator;
     private static NSColor Accent(double opacity = 1) => opacity >= 1 ? WinoStyle.Accent : WinoStyle.Accent.ColorWithAlphaComponent((nfloat)opacity);
     /// <summary>Windows TextFillColorTertiary at an extra opacity.</summary>
-    private static NSColor Tertiary(double opacity) => NSColor.Label.ColorWithAlphaComponent((nfloat)(0.45 * opacity));
+    private static NSColor Tertiary(double opacity) => WinoStyle.LabelWithOpacity(0.45 * opacity);
 
     private static void Rect(double x, double y, double w, double h, double r, NSColor fill, NSColor? stroke = null, double strokeWidth = 1.5)
     {

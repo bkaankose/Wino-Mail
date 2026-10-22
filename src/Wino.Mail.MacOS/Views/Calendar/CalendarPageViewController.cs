@@ -66,9 +66,10 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         var root = new WinoSurfaceView { Fill = null, AccessibilityElement = false };
 
         _toolbar = new CalendarToolbarView();
-        _toolbar.PreviousRequested += (_, _) => _shell.PreviousDateRangeCommand.Execute(null);
-        _toolbar.NextRequested += (_, _) => _shell.NextDateRangeCommand.Execute(null);
-        _toolbar.TodayRequested += (_, _) => _shell.TodayClickedCommand.Execute(null);
+        // The arrows glide the rail by a period; it asks for the period once it settles (Windows CalendarPage).
+        _toolbar.PreviousRequested += (_, _) => NavigatePeriods(-1);
+        _toolbar.NextRequested += (_, _) => NavigatePeriods(1);
+        _toolbar.TodayRequested += (_, _) => RequestToday();
         _toolbar.DisplayTypeRequested += (_, type) => ViewModel.StatePersistanceService.CalendarDisplayType = type;
 
         _zone = new WinoZoneView();
@@ -86,6 +87,9 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         _surface.ItemDoubleClicked += SurfaceItemDoubleClicked;
         _surface.ItemRightClicked += SurfaceItemRightClicked;
         _surface.SlotClicked += SurfaceSlotClicked;
+        _surface.PeriodSettled += SurfacePeriodSettled;
+        _surface.ViewportPeriodChanged += SurfaceViewportPeriodChanged;
+        _surface.TodayRequested += (_, _) => RequestToday();
         WinoLayout.Fill(_surface, _zone.ContentView);
         _readiness = new CalendarReadinessView { Hidden = true };
         WinoLayout.Fill(_readiness, _zone.ContentView);
@@ -107,7 +111,8 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
             _toolbar.TopAnchor.ConstraintEqualTo(root.TopAnchor),
             _toolbar.LeadingAnchor.ConstraintEqualTo(root.LeadingAnchor),
             _toolbar.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor),
-            _zone.TopAnchor.ConstraintEqualTo(_toolbar.BottomAnchor),
+            // The gap between the date row and the calendar surface.
+            _zone.TopAnchor.ConstraintEqualTo(_toolbar.BottomAnchor, 12),
             _zone.LeadingAnchor.ConstraintEqualTo(root.LeadingAnchor, 4),
             _zone.BottomAnchor.ConstraintEqualTo(root.BottomAnchor, -7),
             zoneTrailing,
@@ -202,6 +207,36 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         if (item is null) Observe(ClearAsync());
         else ViewModel.NavigateEventDetailsCommand.Execute(null);
     }
+
+    // ------------------------------------------------------------ rail navigation
+
+    /// <summary>Glides the rail by whole periods; before the surface shows a period the shell steps instead.</summary>
+    private void NavigatePeriods(int direction)
+    {
+        if (_surface.NavigatePeriods(direction)) return;
+        var command = direction < 0 ? _shell.PreviousDateRangeCommand : _shell.NextDateRangeCommand;
+        if (command.CanExecute(null)) command.Execute(null);
+    }
+
+    /// <summary>Today (toolbar or Home): the view model publishes today's period and the rail glides there.</summary>
+    private void RequestToday()
+    {
+        if (_shell.TodayClickedCommand.CanExecute(null)) _shell.TodayClickedCommand.Execute(null);
+    }
+
+    /// <summary>
+    /// The rail settled on a period the view model has not loaded; the view model answers through
+    /// CurrentVisibleRange, which confirms the position without moving the rail again.
+    /// </summary>
+    private void SurfacePeriodSettled(object? sender, CalendarPeriodEventArgs args)
+    {
+        CloseQuickEvent();
+        WeakReferenceMessenger.Default.Send(new LoadCalendarMessage(new CalendarDisplayRequest(args.DisplayType, args.AnchorDate)));
+    }
+
+    /// <summary>While the rail moves the title names the period nearest to the viewport; the view model writes the same text once it loads.</summary>
+    private void SurfaceViewportPeriodChanged(object? sender, CalendarPeriodEventArgs args)
+        => _toolbar.RangeText = ViewModel.FormatRangeText(args.DisplayType, args.AnchorDate);
 
     // ------------------------------------------------------------ surface interaction
 
@@ -443,8 +478,18 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
     /// </summary>
     private void RegisterDebugCommands()
     {
-        MacDebugBridge.Register("calprev", _ => { _shell.PreviousDateRangeCommand.Execute(null); return Task.FromResult("ok"); });
-        MacDebugBridge.Register("calnext", _ => { _shell.NextDateRangeCommand.Execute(null); return Task.FromResult("ok"); });
+        MacDebugBridge.Register("calprev", _ => { NavigatePeriods(-1); return Task.FromResult("ok"); });
+        MacDebugBridge.Register("calnext", _ => { NavigatePeriods(1); return Task.FromResult("ok"); });
+        // "calrail" reports the rail; "calrail POSITION" parks it mid-motion (fractional unit index); "calrail settle" snaps it.
+        MacDebugBridge.Register("calrail", args =>
+        {
+            if (args.Length > 0 && args[0].Equals("settle", StringComparison.OrdinalIgnoreCase)) _surface.DebugSettleRail();
+            else if (args.Length > 0 && args[0].Length > 1 && (args[0][0] is '+' or '-'))
+                // "calrail +0.4" moves relative to the current position (absolute positions are day numbers, never negative).
+                _surface.DebugSetRailPosition(_surface.DebugRailPosition + double.Parse(args[0], System.Globalization.CultureInfo.InvariantCulture));
+            else if (args.Length > 0) _surface.DebugSetRailPosition(double.Parse(args[0], System.Globalization.CultureInfo.InvariantCulture));
+            return Task.FromResult($"{_surface.DescribeRail()} title='{_toolbar.RangeText}' vmRange={ViewModel.CurrentVisibleRange?.StartDate}..{ViewModel.CurrentVisibleRange?.EndDate}");
+        });
         MacDebugBridge.Register("caltoday", _ => { _shell.TodayClickedCommand.Execute(null); return Task.FromResult("ok"); });
         MacDebugBridge.Register("caltype", args => { ViewModel.StatePersistanceService.CalendarDisplayType = Enum.Parse<CalendarDisplayType>(args[0], true); return Task.FromResult("ok"); });
         MacDebugBridge.Register("calselect", args =>

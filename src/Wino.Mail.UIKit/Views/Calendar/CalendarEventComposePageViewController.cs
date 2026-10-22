@@ -590,6 +590,7 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
         });
         try
         {
+            await editor.SetLinkLabelsAsync(Translator.Composer_OpenLink, Translator.Composer_RemoveLink);
             await editor.InitializeAsync();
             await editor.SetThemeAsync(dark);
             await editor.SetDefaultTypographyAsync(_preferences.ComposerFont, _preferences.ComposerFontSize);

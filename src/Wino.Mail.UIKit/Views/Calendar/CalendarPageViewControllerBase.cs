@@ -98,6 +98,8 @@ public abstract partial class CalendarPageViewControllerBase : WinoViewControlle
         Surface.ItemDoubleClicked += SurfaceItemDoubleClicked;
         Surface.ItemRightClicked += SurfaceItemRightClicked;
         Surface.SlotClicked += SurfaceSlotClicked;
+        Surface.PeriodSettled += SurfacePeriodSettled;
+        Surface.ViewportPeriodChanged += SurfaceViewportPeriodChanged;
         Wino.Presentation.UIKit.WinoLayout.Fill(Surface, zoneContent);
         Wino.Presentation.UIKit.WinoLayout.Fill(Readiness, zoneContent);
         _editMenuDelegate = new EditMenuDelegate(this);
@@ -182,6 +184,14 @@ public abstract partial class CalendarPageViewControllerBase : WinoViewControlle
 
     protected void GoPrevious() => Shell.PreviousDateRangeCommand.Execute(null);
     protected void GoNext() => Shell.NextDateRangeCommand.Execute(null);
+
+    /// <summary>Glides the surface's rail by whole periods; before the surface shows a period the shell steps instead.</summary>
+    protected void NavigatePeriods(int direction)
+    {
+        if (Surface.NavigatePeriods(direction)) return;
+        if (direction < 0) GoPrevious();
+        else GoNext();
+    }
     protected void GoToday() => Shell.TodayClickedCommand.Execute(null);
     protected void NewEvent() => Shell.NewEventCommand.Execute(null);
 
@@ -235,6 +245,27 @@ public abstract partial class CalendarPageViewControllerBase : WinoViewControlle
     {
         if (ViewModel.DisplayDetailsCalendarItemViewModel is not null) ViewModel.DisplayDetailsCalendarItemViewModel = null;
     }
+
+    // ------------------------------------------------------------ rail navigation
+
+    /// <summary>
+    /// The rail settled on a period the view model has not loaded; the view model answers through CurrentVisibleRange,
+    /// which confirms the position without moving the rail again.
+    /// </summary>
+    private void SurfacePeriodSettled(object? sender, CalendarPeriodEventArgs args)
+    {
+        CloseQuickEvent();
+        WeakReferenceMessenger.Default.Send(new LoadCalendarMessage(new CalendarDisplayRequest(args.DisplayType, args.AnchorDate)));
+    }
+
+    private void SurfaceViewportPeriodChanged(object? sender, CalendarPeriodEventArgs args) => ViewportPeriodChanged(args.DisplayType, args.AnchorDate);
+
+    /// <summary>
+    /// While the rail moves the title names the period nearest to the viewport; the view model writes the same text once
+    /// it loads. Idiom pages with their own title format override this.
+    /// </summary>
+    protected virtual void ViewportPeriodChanged(CalendarDisplayType displayType, DateOnly anchorDate)
+        => RangeTextChanged(ViewModel.FormatRangeText(displayType, anchorDate));
 
     // ------------------------------------------------------------ surface interaction
 

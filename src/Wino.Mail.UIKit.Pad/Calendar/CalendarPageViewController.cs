@@ -71,8 +71,8 @@ public sealed partial class CalendarPageViewController : CalendarPageViewControl
     {
         if (_page is not { } page) return;
         var leading = new List<UIBarButtonItem>(PadShell?.LeadingItems ?? NavigationItem.LeftBarButtonItems ?? []);
-        leading.Add(BarButton(WinoIconGlyph.ArrowLeft, Translator.Accessibility_PreviousCalendarPeriod, GoPrevious));
-        leading.Add(BarButton(WinoIconGlyph.ArrowRight, Translator.Accessibility_NextCalendarPeriod, GoNext));
+        leading.Add(BarButton(WinoIconGlyph.ArrowLeft, Translator.Accessibility_PreviousCalendarPeriod, () => NavigatePeriods(-1)));
+        leading.Add(BarButton(WinoIconGlyph.ArrowRight, Translator.Accessibility_NextCalendarPeriod, () => NavigatePeriods(1)));
         leading.Add(new UIBarButtonItem(Translator.Today, UIBarButtonItemStyle.Plain, (_, _) => GoToday()));
         NavigationItem.LeftBarButtonItems = leading.ToArray();
         // The range replaces the folder title of the mail list (Mac: 18pt semibold range text next to the arrows).

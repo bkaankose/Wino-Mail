@@ -74,6 +74,11 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
     /// </summary>
     public CoreWebView2Environment? WebViewEnvironment { get; set; }
 
+    /// <summary>
+    /// Localized text of the link bar for an Outlook Safe Links address. {0} is the original address.
+    /// </summary>
+    public string ProtectedLinkFormat { get; set; } = "Protected by Outlook: {0}";
+
     public Task InitializeAsync() =>
         RunBrowserOperationAsync(EnsureInitializedCoreAsync);
 
@@ -96,6 +101,7 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
         bool shouldLinkify = true) =>
         RunBrowserOperationAsync(async () =>
         {
+            HideLinkTarget();
             _originalHtml = html ?? string.Empty;
             _shouldLinkify = shouldLinkify;
             _renderMode = renderMode;
@@ -131,6 +137,7 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
     public Task ClearAsync() =>
         RunBrowserOperationAsync(async () =>
         {
+            HideLinkTarget();
             _originalHtml = string.Empty;
             _contentVersion++;
 
@@ -415,6 +422,32 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
         {
             NavigationRequested?.Invoke(this, new RendererNavigationRequestedEventArgs(uri));
         }
+        else if (message?.Type == "linkHover")
+        {
+            ShowLinkTarget(message.Uri, message.Target);
+        }
+    }
+
+    private void ShowLinkTarget(string? uri, string? safeLinkTarget)
+    {
+        if (string.IsNullOrWhiteSpace(uri))
+        {
+            HideLinkTarget();
+            return;
+        }
+
+        LinkTargetText.Text = string.IsNullOrWhiteSpace(safeLinkTarget)
+            ? uri
+            : ProtectedLinkFormat.Replace("{0}", safeLinkTarget, StringComparison.Ordinal);
+        LinkTargetBar.Visibility = Visibility.Visible;
+    }
+
+    private void HideLinkTarget()
+    {
+        if (LinkTargetBar is null) return;
+
+        LinkTargetBar.Visibility = Visibility.Collapsed;
+        LinkTargetText.Text = string.Empty;
     }
 
     private void CoreWebView2_WebMessageReceived(
@@ -490,6 +523,7 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
         {
             _allowNextInternalNavigation = false;
             _documentNavigationId = args.NavigationId;
+            HideLinkTarget();
             return;
         }
 
@@ -525,6 +559,7 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
 
     private async void WinoMailRenderer_Unloaded(object sender, RoutedEventArgs e)
     {
+        HideLinkTarget();
         try { await EnterIdleAfterUnloadAsync(); }
         catch (Exception exception) when (exception is not ObjectDisposedException)
         {
@@ -574,6 +609,7 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
 
     private void EnterIdleCore()
     {
+        HideLinkTarget();
         var coreWebView = RendererWebView2?.CoreWebView2;
         if (coreWebView is null) return;
 
@@ -647,10 +683,19 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
     private static TaskCompletionSource<bool> CreateReadySource() =>
         new(TaskCreationOptions.RunContinuationsAsynchronously);
 
+    // Waiters still see the disposal, but a source nobody awaited must not surface
+    // as an unobserved task exception from the finalizer.
+    private static void FaultWithDisposed(TaskCompletionSource<bool> source)
+    {
+        if (source.TrySetException(new ObjectDisposedException(nameof(WinoMailRenderer))))
+            _ = source.Task.Exception;
+    }
+
     public void Dispose()
     {
         if (_disposed || _disposeRequested) return;
 
+        if (DispatcherQueue?.HasThreadAccess == true) HideLinkTarget();
         _disposeRequested = true;
         _disposeDelayCancellation = new CancellationTokenSource();
         _disposalTask = DisposeAfterDelayAsync(_disposeDelayCancellation);
@@ -702,8 +747,8 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
 
                 _disposed = true;
                 _disposeRequested = false;
-                _loadedSource.TrySetException(new ObjectDisposedException(nameof(WinoMailRenderer)));
-                _ready.TrySetException(new ObjectDisposedException(nameof(WinoMailRenderer)));
+                FaultWithDisposed(_loadedSource);
+                FaultWithDisposed(_ready);
                 DisposeBrowser();
             }
             finally

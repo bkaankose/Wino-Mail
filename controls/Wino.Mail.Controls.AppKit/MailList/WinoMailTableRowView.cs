@@ -82,7 +82,7 @@ public class WinoMailTableRowView : NSTableRowView
 
     public override void DrawBackground(CGRect dirtyRect)
     {
-        if (_hovered && !Selected) FillBox(NSColor.Label.ColorWithAlphaComponent((nfloat)0.045));
+        if (_hovered && !Selected) FillBox(WinoStyle.LabelWithOpacity(0.045));
     }
 
     public override void DrawSeparator(CGRect dirtyRect)

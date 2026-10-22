@@ -1,4 +1,4 @@
-<abstract:CreateEmailTemplatePageAbstract
+﻿<abstract:CreateEmailTemplatePageAbstract
     x:Class="Wino.Views.Settings.CreateEmailTemplatePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -21,25 +21,25 @@
         </Grid.RowDefinitions>
 
         <controls:SettingsCard
-            AutomationProperties.AutomationId="CreateEmailTemplatePageSettingsCard"
             Grid.Row="0"
+            AutomationProperties.AutomationId="CreateEmailTemplatePageSettingsCard"
             Header="{x:Bind domain:Translator.SettingsEmailTemplates_NameTitle}"
             IsClickEnabled="False">
             <TextBox
-                AutomationProperties.AutomationId="TemplateNameTextBox"
                 x:Name="TemplateNameTextBox"
+                AutomationProperties.AutomationId="TemplateNameTextBox"
                 PlaceholderText="{x:Bind domain:Translator.SettingsEmailTemplates_NamePlaceholder}"
                 Text="{x:Bind ViewModel.TemplateName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
         </controls:SettingsCard>
 
         <controls:SettingsCard
-            AutomationProperties.AutomationId="CreateEmailTemplatePageSettingsCard2"
             Grid.Row="1"
+            AutomationProperties.AutomationId="CreateEmailTemplatePageSettingsCard2"
             Header="{x:Bind domain:Translator.SettingsEmailTemplates_DescriptionTitle}"
             IsClickEnabled="False">
             <TextBox
-                AutomationProperties.AutomationId="CreateEmailTemplatePageTextBox"
                 AcceptsReturn="True"
+                AutomationProperties.AutomationId="CreateEmailTemplatePageTextBox"
                 PlaceholderText="{x:Bind domain:Translator.SettingsEmailTemplates_DescriptionPlaceholder}"
                 Text="{x:Bind ViewModel.TemplateDescription, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
         </controls:SettingsCard>
@@ -57,7 +57,10 @@
                 <editor:WinoMailEditor
                     x:Name="WebViewEditor"
                     AutomationProperties.AutomationId="TemplateMailEditor"
-                    IsEditorWebViewEditor="False" />
+                    IsEditorWebViewEditor="False"
+                    LinkOpenRequested="EditorLinkOpenRequested"
+                    OpenLinkLabel="{x:Bind domain:Translator.Composer_OpenLink, Mode=OneTime}"
+                    RemoveLinkLabel="{x:Bind domain:Translator.Composer_RemoveLink, Mode=OneTime}" />
             </Border>
         </StackPanel>
 

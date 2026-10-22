@@ -22,10 +22,14 @@ public sealed class WebKitHtmlMailReaderSession : NSObject, IHtmlMailReaderSessi
     public event EventHandler<RendererNavigationRequestedEventArgs>? NavigationRequested;
     public event EventHandler<Exception>? OperationFailed;
 
+    /// <summary>The link under the pointer or keyboard focus changed; the host shows its address (Windows link bar).</summary>
+    public event EventHandler<RendererLinkHoverEventArgs>? LinkHovered;
+
     public WebKitHtmlMailReaderSession(WKWebView browser)
     {
         _host = new(browser);
         _host.NavigationRequested += (_, e) => NavigationRequested?.Invoke(this, e);
+        _host.LinkHovered += (_, e) => LinkHovered?.Invoke(this, e);
         _host.OperationFailed += (_, e) => OperationFailed?.Invoke(this, e);
     }
 

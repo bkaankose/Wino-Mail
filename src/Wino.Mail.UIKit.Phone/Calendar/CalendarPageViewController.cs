@@ -20,7 +20,8 @@ namespace Wino.Mail.UIKit.Phone.Calendar;
 /// the shell's floating button. The title drops the date panel over the grid (<see cref="CalendarDatePanelView"/>:
 /// Day · Week · Month, the agenda toggle, the month grid and Today); calendars are picked in the shell drawer. The content
 /// zone holds the Windows timed surface (Day without its own column header, Week and Month with theirs) or the agenda
-/// list, and a horizontal drag pages the period with the finger (<see cref="CalendarPagingInteraction"/>). A tile tap
+/// list. The surface's rail follows the finger through the periods (day columns horizontally, month rows vertically); the
+/// agenda pages its period with a horizontal drag (<see cref="CalendarPagingInteraction"/>). A tile tap
 /// pushes the event details, the composer opens as a full-screen sheet, and a long press on empty time opens the quick
 /// event sheet; a long press on a tile moves it (or resizes it from its bottom edge).
 /// Partial files: Agenda (the list), Search (the event search), Debug (bridge commands).
@@ -54,7 +55,8 @@ public sealed partial class CalendarPageViewController : CalendarPageViewControl
         BuildAgenda(page.Body);
         ApplySurfaceHeader();
 
-        _paging = new CalendarPagingInteraction(page.Body, () => !Surface.IsDraggingItem && !Surface.IsSelectingRange && !ViewModel.Readiness.IsBlocked && _panel?.IsOpen != true,
+        // The surface rails on its own; the agenda list still pages the period.
+        _paging = new CalendarPagingInteraction(page.Body, () => _agendaOn && !ViewModel.Readiness.IsBlocked && _panel?.IsOpen != true,
             direction => { if (direction > 0) GoNext(); else GoPrevious(); });
 
         var panel = new CalendarDatePanelView(this);
@@ -120,9 +122,9 @@ public sealed partial class CalendarPageViewController : CalendarPageViewControl
     /// The one-line date title: the day, the week's range or the month. Only the title view's text changes, never the
     /// item's Title, so the bar does not lay out its buttons again while paging.
     /// </summary>
-    private void UpdateTitle()
+    private void UpdateTitle(VisibleDateRange? range = null)
     {
-        var title = TitleText();
+        var title = TitleText(range ?? _range);
         if (_titleButton is not { } button)
         {
             NavigationItem.Title = title;
@@ -140,9 +142,16 @@ public sealed partial class CalendarPageViewController : CalendarPageViewControl
         });
     }
 
-    private string TitleText()
+    /// <summary>While the surface's rail moves, the title names the period nearest to the viewport in the same format.</summary>
+    protected override void ViewportPeriodChanged(CalendarDisplayType displayType, DateOnly anchorDate)
     {
-        if (_range is not { } range) return Translator.KeyboardShortcuts_ModeCalendar;
+        if (ViewModel.CurrentSettings is not { } settings) return;
+        UpdateTitle(CalendarRangeResolver.Resolve(new CalendarDisplayRequest(displayType, anchorDate), settings, DateContext.GetToday()));
+    }
+
+    private string TitleText(VisibleDateRange? range)
+    {
+        if (range is null) return Translator.KeyboardShortcuts_ModeCalendar;
         var culture = System.Globalization.CultureInfo.CurrentCulture;
         static DateTime At(DateOnly date) => date.ToDateTime(TimeOnly.MinValue);
         switch (_displayType)

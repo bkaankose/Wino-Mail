@@ -185,6 +185,7 @@ internal sealed class WinoRichTextEditorView : NSView
     /// </summary>
     public async Task LoadAsync(string? html, bool dark)
     {
+        await _editor.SetLinkLabelsAsync(Translator.Composer_OpenLink, Translator.Composer_RemoveLink);
         await _editor.InitializeAsync();
         IsDarkTheme = dark;
         await _editor.SetThemeAsync(dark);

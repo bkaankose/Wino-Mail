@@ -285,8 +285,37 @@
         return overrides;
     }
 
+    // Share of `root` covered by light surfaces the sender painted, from 0 to 1. A light block
+    // is measured once as a whole; blocks with a background image are not counted.
+    function lightSurfaceCoverage(root) {
+        const rootBounds = root.getBoundingClientRect();
+        const total = rootBounds.width * rootBounds.height;
+        if (total <= 0) return 0;
+        let covered = 0;
+
+        function visit(element) {
+            if (skippedTags.has(element.tagName.toUpperCase())) return;
+            const style = getComputedStyle(element);
+            if (style.display === "none") return;
+            if (style.backgroundImage && style.backgroundImage !== "none") return;
+
+            const background = parseColor(style.backgroundColor);
+            if (background && background.a >= 0.5 && isLightSurface(toHsl(background))) {
+                const bounds = element.getBoundingClientRect();
+                covered += bounds.width * bounds.height;
+                return;
+            }
+
+            for (const child of element.children) visit(child);
+        }
+
+        visit(root);
+        return Math.min(1, covered / total);
+    }
+
     window.WinoMailColors = {
         computeDarkOverrides,
+        lightSurfaceCoverage,
         parseColor,
         contrast
     };

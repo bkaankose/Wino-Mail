@@ -1,6 +1,8 @@
+using System;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Navigation;
 using Wino.Views.Abstract;
+using Wino.Helpers;
 
 namespace Wino.Views.Settings;
 
@@ -39,4 +41,6 @@ public sealed partial class CreateEmailTemplatePage : CreateEmailTemplatePageAbs
     {
         await ViewModel.DeleteAsync();
     }
+
+    private void EditorLinkOpenRequested(object? sender, Uri uri) => EditorLinkLauncher.Open(uri);
 }

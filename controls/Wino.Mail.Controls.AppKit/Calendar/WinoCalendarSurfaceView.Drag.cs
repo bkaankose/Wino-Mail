@@ -146,7 +146,7 @@ public sealed partial class WinoCalendarSurfaceView
     public bool PreviewDrag(ICalendarItem item, int days, double minutes, bool resize)
     {
         EndTileDrag(commit: false);
-        TileHostView host = IsMonth ? _month : item.IsAllDayEvent ? _allDay : _timed;
+        TileHostView host = IsMonth ? _monthRail : item.IsAllDayEvent ? _allDayRail : _timedRail;
         if (host.FindTile(item) is not { } tile) return false;
         var frame = tile.Frame;
         var down = new CGPoint(frame.GetMidX(), resize ? frame.GetMaxY() - 2 : frame.GetMidY());

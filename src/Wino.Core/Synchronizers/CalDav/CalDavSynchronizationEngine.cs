@@ -51,22 +51,19 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
     private readonly ICalendarService _calendarService;
     private readonly IAutoDiscoveryService _autoDiscoveryService;
     private readonly ICalDavStateStore _stateStore;
-    private readonly IWinoLogger? _logger;
 
     public CalDavSynchronizationEngine(
         ICalDavClient client,
         IImapChangeProcessor changeProcessor,
         ICalendarService calendarService,
         IAutoDiscoveryService autoDiscoveryService,
-        ICalDavStateStore? stateStore = null,
-        IWinoLogger? logger = null)
+        ICalDavStateStore? stateStore = null)
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
         _changeProcessor = changeProcessor ?? throw new ArgumentNullException(nameof(changeProcessor));
         _calendarService = calendarService ?? throw new ArgumentNullException(nameof(calendarService));
         _autoDiscoveryService = autoDiscoveryService ?? throw new ArgumentNullException(nameof(autoDiscoveryService));
         _stateStore = stateStore ?? new TransientCalDavStateStore();
-        _logger = logger;
     }
 
     #region Synchronization
@@ -205,12 +202,6 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
             catch (Exception ex)
             {
                 // One calendar failing (a refused REPORT, an unreadable payload) must not stop the others.
-                _logger?.CaptureException(ex, "CalDavCalendarSynchronization", new Dictionary<string, string>
-                {
-                    ["AccountId"] = account.Id.ToString("D"),
-                    ["CalendarId"] = localCalendar.Id.ToString("D"),
-                    ["StatusCode"] = (ex as DavRequestException)?.StatusCode.ToString() ?? string.Empty
-                });
                 Logger.Warning(ex, "CalDAV synchronization of calendar {CalendarName} failed", localCalendar.Name);
                 result.MergeIssues([Classify(ex, localCalendar)]);
             }

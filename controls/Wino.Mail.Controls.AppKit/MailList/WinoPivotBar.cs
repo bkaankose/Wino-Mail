@@ -38,6 +38,7 @@ public sealed class WinoPivotBar : NSView
         SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
         SetContentCompressionResistancePriority(200, NSLayoutConstraintOrientation.Horizontal);
         _segments.Activated += SegmentActivated;
+        WinoStyle.UseAccentSelection(_segments);
     }
 
     /// <summary>Raised with the index the user clicked; the owner sets <see cref="SelectedIndex"/> back.</summary>

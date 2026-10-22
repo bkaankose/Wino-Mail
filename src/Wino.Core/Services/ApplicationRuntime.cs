@@ -520,11 +520,8 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
             message.Options.GroupedSynchronizationTrackingId,
             message.Options.Type));
 
-        if (syncResult.CompletedState is SynchronizationCompletedState.Success or SynchronizationCompletedState.PartiallyCompleted)
-        {
-            await ClearInvalidCredentialAttentionIfNeededAsync(message.Options.AccountId).ConfigureAwait(false);
-
-        }
+        // Attention is never cleared by a synchronization result: the manager refuses to start any
+        // synchronization while it is set, so only the user's fix (sign-in, server settings) clears it.
 
         if (syncResult.CompletedState == SynchronizationCompletedState.Failed ||
             syncResult.CompletedState == SynchronizationCompletedState.PartiallyCompleted)
@@ -891,7 +888,6 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         if (result.CompletedState is not (SynchronizationCompletedState.Success or SynchronizationCompletedState.PartiallyCompleted))
             return false;
 
-        await ClearInvalidCredentialAttentionIfNeededAsync(accountId).ConfigureAwait(false);
         return true;
     }
 
@@ -1265,27 +1261,10 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
 
         if (succeeded)
         {
-            await ClearInvalidCredentialAttentionIfNeededAsync(account.Id);
-
             // The first successful pass starts the clock.
             _lastFullFolderSyncUtc.TryAdd(account.Id, now);
         }
 
         _coordinator.ReportTimerMailSyncCompleted(account.Id, succeeded, _timeProvider.GetUtcNow());
     }
-
-    private async Task ClearInvalidCredentialAttentionIfNeededAsync(Guid accountId)
-    {
-        if (_accountService == null)
-            return;
-
-        var account = await _accountService.GetAccountAsync(accountId);
-
-        if (account?.AttentionReason != AccountAttentionReason.InvalidCredentials)
-            return;
-
-        await _accountService.ClearAccountAttentionAsync(accountId);
-    }
-
-
 }

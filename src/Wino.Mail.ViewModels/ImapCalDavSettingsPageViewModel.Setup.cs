@@ -8,7 +8,6 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Accounts;
-using Wino.Core.Domain.Models.Telemetry;
 using Wino.Core.Domain.Validation;
 using Wino.Mail.ViewModels.Data;
 
@@ -318,21 +317,10 @@ public partial class ImapCalDavSettingsPageViewModel
 
             MailConnectionState = ConnectionTestState.Succeeded;
             IsImapValidationSucceeded = true;
-
-            TrackImapSetupEvent("imap_connection_test_completed", result: "success", serverInformation: serverInformation);
         }
         catch (Exception ex)
         {
             SetMailConnectionFailed(ex);
-
-            TrackImapSetupEvent(
-                "imap_connection_test_completed",
-                result: "failure",
-                failureStage: "imap_connection_test",
-                failureCategory: ClassifySetupFailure(ex),
-                exception: ex,
-                serverInformation: serverInformation,
-                level: WinoTelemetryLevel.Warning);
 
             throw;
         }
@@ -349,21 +337,10 @@ public partial class ImapCalDavSettingsPageViewModel
 
             CalDavConnectionState = ConnectionTestState.Succeeded;
             IsCalDavValidationSucceeded = true;
-
-            TrackImapSetupEvent("caldav_test_completed", result: "success", serverInformation: serverInformation);
         }
         catch (Exception ex)
         {
             SetCalDavConnectionFailed(ex);
-
-            TrackImapSetupEvent(
-                "caldav_test_completed",
-                result: "failure",
-                failureStage: "caldav_test",
-                failureCategory: ClassifySetupFailure(ex),
-                exception: ex,
-                serverInformation: serverInformation,
-                level: WinoTelemetryLevel.Warning);
 
             throw;
         }
@@ -418,17 +395,9 @@ public partial class ImapCalDavSettingsPageViewModel
             {
                 await AutoDiscoverAndApplySettingsAsync(BuildMinimalSettingsOrThrow());
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 isMailFound = false;
-
-                TrackImapSetupEvent(
-                    "imap_autodiscovery_completed",
-                    result: "failure",
-                    failureStage: "autodiscovery",
-                    failureCategory: ClassifySetupFailure(ex),
-                    exception: ex,
-                    level: WinoTelemetryLevel.Warning);
             }
         }
 
@@ -449,9 +418,6 @@ public partial class ImapCalDavSettingsPageViewModel
         }
 
         await ResolveCardDavServiceUrlAsync();
-
-        if (isMailFound && isCalendarFound)
-            TrackImapSetupEvent("imap_autodiscovery_completed", result: "success", serverInformation: TryBuildServerInformationForTelemetry());
 
         return isMailFound && isCalendarFound;
     }

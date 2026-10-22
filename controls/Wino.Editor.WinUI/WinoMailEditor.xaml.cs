@@ -77,6 +77,13 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
     public event EventHandler<EditorShortcutKind>? ShortcutRequested;
     public event EventHandler<EditorApplicationShortcutGesture>? ApplicationShortcutRequested;
 
+    /// <summary>Raised when the user opens a link from the link bubble or with Ctrl+click. The host launches it.</summary>
+    public event EventHandler<Uri>? LinkOpenRequested;
+
+    /// <summary>Localized labels of the link bubble. Applied when the editor document is ready.</summary>
+    public string OpenLinkLabel { get; set; } = "Open link";
+    public string RemoveLinkLabel { get; set; } = "Remove link";
+
     public IReadOnlyList<EditorFontFamilyOption> AvailableFonts
     {
         get => GetValue(AvailableFontsProperty) as IReadOnlyList<EditorFontFamilyOption>
@@ -306,6 +313,7 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
         await _bridge!.SetReadOnlyAsync(IsReadOnly);
         await _bridge.SetPasteAsHtmlAsync(IsPasteOptionsEnabled);
         await _bridge.SetThemeAsync(IsEditorDarkMode);
+        await _bridge.SetLinkLabelsAsync(OpenLinkLabel, RemoveLinkLabel);
         ApplyConfiguration();
         SetStatus("Ready (WebView2)", false);
     }
@@ -345,20 +353,16 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
     private void Bridge_ApplicationShortcutRequested(object? sender, EditorApplicationShortcutGesture gesture)
         => ApplicationShortcutRequested?.Invoke(this, gesture);
 
-    private static async void Bridge_LinkNavigationRequested(object? sender, string url)
+    private void Bridge_LinkNavigationRequested(object? sender, string url)
     {
-        try
+        if (Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp ||
+             uri.Scheme == Uri.UriSchemeHttps ||
+             uri.Scheme == Uri.UriSchemeMailto ||
+             uri.Scheme == Uri.UriSchemeFtp))
         {
-            if (Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
-                (uri.Scheme == Uri.UriSchemeHttp ||
-                 uri.Scheme == Uri.UriSchemeHttps ||
-                 uri.Scheme == Uri.UriSchemeMailto ||
-                 uri.Scheme == Uri.UriSchemeFtp))
-            {
-                await Windows.System.Launcher.LaunchUriAsync(uri);
-            }
+            LinkOpenRequested?.Invoke(this, uri);
         }
-        catch { }
     }
 
     private void Bridge_ShortcutRequested(object? sender, string command)

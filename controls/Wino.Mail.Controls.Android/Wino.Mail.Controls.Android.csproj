@@ -5,7 +5,7 @@
        Wino.Presentation.Core; references no platform service project and no ViewModel. -->
   <PropertyGroup>
     <TargetFramework>net10.0-android</TargetFramework>
-    <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion>24</SupportedOSPlatformVersion>
     <WinoTargetPlatform>Android</WinoTargetPlatform>
     <RootNamespace>Wino.Mail.Controls.Android</RootNamespace>
     <Nullable>enable</Nullable>

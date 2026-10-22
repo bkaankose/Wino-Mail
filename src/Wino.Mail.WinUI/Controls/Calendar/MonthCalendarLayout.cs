@@ -1,63 +1,13 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using Microsoft.UI.Xaml;
 using Wino.Calendar.ViewModels.Data;
-using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Calendar.Controls;
 
-public sealed class MonthCellLayout
-{
-    public MonthCellLayout(DateOnly date, int index, int row, int column, LayoutRect bounds)
-    {
-        Date = date;
-        Index = index;
-        Row = row;
-        Column = column;
-        Bounds = bounds;
-    }
-
-    public DateOnly Date { get; set; }
-    public int Index { get; set; }
-    public int Row { get; set; }
-    public int Column { get; set; }
-    public LayoutRect Bounds { get; set; }
-}
-
-public sealed class MonthItemLayout
-{
-    public MonthItemLayout(CalendarItemViewModel item, int cellIndex, DateOnly date, LayoutRect bounds, DataTemplate? template = null)
-    {
-        Item = item;
-        CellIndex = cellIndex;
-        Date = date;
-        Bounds = bounds;
-        Template = template;
-    }
-
-    public CalendarItemViewModel Item { get; set; }
-    public int CellIndex { get; set; }
-    public DateOnly Date { get; set; }
-    public LayoutRect Bounds { get; set; }
-    public DataTemplate? Template { get; set; }
-}
-
-public sealed class MonthCellLabelLayout
-{
-    public MonthCellLabelLayout(string dayText, double labelOpacity, LayoutRect bounds)
-    {
-        DayText = dayText;
-        LabelOpacity = labelOpacity;
-        Bounds = bounds;
-    }
-
-    public string DayText { get; set; }
-    public double LabelOpacity { get; set; }
-    public LayoutRect Bounds { get; set; }
-}
-
-internal sealed record MonthCalendarLayoutResult(double CellWidth, double CellHeight, IReadOnlyList<MonthCellLayout> Cells, IReadOnlyList<MonthItemLayout> Items);
+/// <summary>
+/// The placement of one calendar item inside a month week row. Bounds are relative to the row.
+/// </summary>
+internal readonly record struct MonthItemLayout(CalendarItemViewModel Item, int Column, DateOnly Date, LayoutRect Bounds);
 
 internal static class MonthCalendarLayoutCalculator
 {
@@ -70,55 +20,49 @@ internal static class MonthCalendarLayoutCalculator
     private const double ExpandedItemHeight = 30d;
     private const double ItemGap = 2d;
 
-    public static MonthCalendarLayoutResult Calculate(VisibleDateRange range, IEnumerable<CalendarItemViewModel> items, double availableWidth, double availableHeight)
+    /// <summary>
+    /// Lays out the items of one week row. Each cell stacks its items under the day label and
+    /// drops the ones that do not fit.
+    /// </summary>
+    public static List<MonthItemLayout> CalculateRow(IReadOnlyList<DateOnly> dates, IEnumerable<CalendarItemViewModel> items, double cellWidth, double cellHeight)
     {
-        var cellWidth = availableWidth <= 0 ? 0d : availableWidth / ColumnCount;
-        var cellHeight = availableHeight <= 0 ? 0d : availableHeight / RowCount;
-        var cells = range.Dates
-            .Select((date, index) =>
-            {
-                var row = index / ColumnCount;
-                var column = index % ColumnCount;
-                return new MonthCellLayout(
-                    date,
-                    index,
-                    row,
-                    column,
-                    new LayoutRect(column * cellWidth, row * cellHeight, cellWidth, cellHeight));
-            })
-            .ToArray();
-
         var itemLayouts = new List<MonthItemLayout>();
 
-        foreach (var cell in cells)
+        if (cellWidth <= 0d || cellHeight <= 0d)
         {
-            var cellItems = GetCellItems(items, cell.Date).ToList();
-            var nextItemY = cell.Bounds.Y + DayLabelHeight + CellPadding;
+            return itemLayouts;
+        }
 
-            for (var index = 0; index < cellItems.Count; index++)
+        for (var column = 0; column < dates.Count; column++)
+        {
+            var date = dates[column];
+            var cellX = column * cellWidth;
+            var nextItemY = DayLabelHeight + CellPadding;
+
+            foreach (var item in GetCellItems(items, date))
             {
-                var itemHeight = GetItemHeight(cellItems[index]);
+                var itemHeight = GetItemHeight(item);
 
-                if (nextItemY + itemHeight > cell.Bounds.Y + cell.Bounds.Height - CellPadding)
+                if (nextItemY + itemHeight > cellHeight - CellPadding)
                 {
                     break;
                 }
 
                 itemLayouts.Add(new MonthItemLayout(
-                    cellItems[index],
-                    cell.Index,
-                    cell.Date,
+                    item,
+                    column,
+                    date,
                     new LayoutRect(
-                        cell.Bounds.X + CellPadding,
+                        cellX + CellPadding,
                         nextItemY,
-                        Math.Max(0, cell.Bounds.Width - (CellPadding * 2)),
+                        Math.Max(0, cellWidth - (CellPadding * 2)),
                         itemHeight)));
 
                 nextItemY += itemHeight + ItemGap;
             }
         }
 
-        return new MonthCalendarLayoutResult(cellWidth, cellHeight, cells, itemLayouts);
+        return itemLayouts;
     }
 
     private static IEnumerable<CalendarItemViewModel> GetCellItems(IEnumerable<CalendarItemViewModel> items, DateOnly date)

@@ -16,7 +16,7 @@ Build, emulator, and verification commands are in [Android development](harness/
 
 | Topic | Decision |
 | --- | --- |
-| Package | `com.winomail.android`, minSdk 23 (Android 6.0), targetSdk 36. Apple uses `com.winomail.macos` for universal purchase; Play has no equivalent, and the id cannot change after the first Play upload. |
+| Package | `com.winomail.android`, minSdk 24 (Android 7.0, required by Play automatic protection), targetSdk 36. Apple uses `com.winomail.macos` for universal purchase; Play has no equivalent, and the id cannot change after the first Play upload. |
 | Runtime | Mono: JIT in Debug, full AOT without LLVM and full trimming in Release (LLVM breaks async file reads, dotnet/runtime#104167), `android-arm64` only. `PublishAot=false`; shared code stays Native AOT-clean. |
 | Size classes | Compact (< 600 dp): single pane with bottom navigation. Medium (600 to 1199 dp: every phone in landscape and tablets under 1200 dp): navigation rail, list, and reader. Expanded (Material 3 large, 1200 dp and wider): the Windows layout with the pinned drawer and the mode card at its foot. Under 1200 dp the 320 dp pane and 420 dp list left the reader about 250 dp wide (18 Oct 2026), so those tablets keep the rail. Expanded also needs 480 dp of height, so phones in landscape get the medium layout. Layout resources `layout`, `layout-w600dp` (and `layout-w600dp-h480dp`), `layout-w1200dp-h480dp`. |
 | Modes | Mail, Calendar, Contacts, and To Do. Settings is never a mode: the avatar in the drawer header, the rail foot, or the expanded mode card opens it. |

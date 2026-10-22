@@ -8,8 +8,9 @@ namespace Wino.Mail.Controls.AppKit.Shell;
 /// <summary>
 /// The Windows AppModeFooterSwitcherControl at the bottom of the shell pane: a native select-one
 /// segmented control with five icon segments (Mail, Calendar, Contacts, To Do, Settings). AppKit draws
-/// the selection, handles keyboard navigation and exposes the segments as a radio group; the selected
-/// segment shows the Filled glyph in the accent colour.
+/// the selection, handles keyboard navigation and exposes the segments as a radio group. The selected
+/// segment's pill takes the theme accent (not the system accent) and shows the Filled glyph in a colour
+/// readable on it.
 /// </summary>
 public sealed class WinoModeSwitcher : NSView
 {
@@ -63,12 +64,17 @@ public sealed class WinoModeSwitcher : NSView
 
     private void Refresh()
     {
+        // AppKit fills the selected segment with the system accent; a theme accent glyph on it clashed
+        // or disappeared (blue on blue with the Default theme).
+        var accent = WinoStyle.Accent;
+        _control.SelectedSegmentBezelColor = accent;
+        var selectedGlyph = MailList.WinoMailRowView.ReadableText(accent);
         for (int index = 0; index < Segments.Count; index++)
         {
             var segment = Segments[index];
             bool selected = segment.Mode == _selected;
-            // The selected glyph is drawn in the accent itself: a template tint is lost in the colorful icon style.
-            _control.SetImage(WinoIcons.Image(selected ? segment.Filled : segment.Regular, 18, selected ? WinoStyle.Accent : null, segment.Title), index);
+            // The selected glyph is drawn in its colour itself: a template tint is lost in the colorful icon style.
+            _control.SetImage(WinoIcons.Image(selected ? segment.Filled : segment.Regular, 18, selected ? selectedGlyph : null, segment.Title), index);
             if (selected) _control.SelectedSegment = index;
         }
     }

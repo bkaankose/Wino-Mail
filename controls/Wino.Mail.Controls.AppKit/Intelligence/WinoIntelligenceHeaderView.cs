@@ -12,10 +12,11 @@ namespace Wino.Mail.Controls.AppKit.Intelligence;
 
 /// <summary>
 /// Native Wino Intelligence header of the reading pane, laid out like the Windows
-/// WinoIntelligenceHeader: a card with the sparkle, title and briefing headline (or the
-/// processing status) beside the Copy code and Process actions and the disclosure chevron; the
-/// intelligence tiles under it; and a collapsible body with the Summarize and Translate entry
-/// points, each opening its detail panel (summary text, or the language pickers and status).
+/// WinoIntelligenceHeader: one header row (sparkle, title, the briefing fact, the status or
+/// processing line and the disclosure chevron, then Process and Copy code at the trailing edge)
+/// and, under a divider, the collapsible body: the deadline and locked-insights cards, the
+/// Translate and Summarize chips, and the open feature's panel card. Classification tiles are not
+/// shown here; as on Windows they appear only in the mail list.
 /// </summary>
 /// <remarks>
 /// The view is passive: <see cref="Update"/> applies a <see cref="WinoIntelligenceHeaderState"/>
@@ -33,17 +34,17 @@ public sealed partial class WinoIntelligenceHeaderView : WinoSurfaceView
     private readonly NSTextField _title;
     private readonly NSTextField _briefing;
     private readonly NSTextField _subtitle;
-    private readonly NSStackView _titleBlock;
     private readonly NSProgressIndicator _processingSpinner;
     private readonly NSTextField _processingStatus;
     private readonly NSStackView _processingRow;
     private readonly NSButton _copyCodeButton;
     private readonly NSButton _processButton;
     private readonly NSButton _chevron;
-    private readonly WinoFlowView _tiles;
-    private readonly NSStackView _body;
+    private readonly NSView _bodyHost;
+    private readonly WinoSurfaceView _bodySeparator;
     private readonly NSTextField _deadline;
-    private readonly NSTextField _insightsLocked;
+    private readonly NSView _deadlineCard;
+    private readonly NSView _insightsLockedCard;
     private readonly NSStackView _featureRow;
     private readonly WinoChipButton _summaryChip;
     private readonly WinoChipButton _translateChip;
@@ -82,21 +83,16 @@ public sealed partial class WinoIntelligenceHeaderView : WinoSurfaceView
         AccessibilityRole = NSAccessibilityRoles.GroupRole;
         AccessibilityLabel = Translator.WinoIntelligence_HeaderTitle;
 
-        // ---- Header row ----
+        // ---- Header row (Windows PART_HeaderRow: one line, MinHeight 40, padding 10,5) ----
         var sparkle = new WinoIconView(WinoIconGlyph.Sparkle, 16, WinoStyle.Accent);
         _title = WinoStyle.Label(Translator.WinoIntelligence_HeaderTitle, WinoStyle.BodyStrong);
-        _briefing = WinoStyle.Label(string.Empty, WinoStyle.Body, WinoStyle.PrimaryText, 2);
+        _title.SetContentCompressionResistancePriority(750, NSLayoutConstraintOrientation.Horizontal);
+        _briefing = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
+        _briefing.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
+        _briefing.WidthAnchor.ConstraintLessThanOrEqualTo(360).Active = true;
         _subtitle = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
+        _subtitle.SetContentCompressionResistancePriority(740, NSLayoutConstraintOrientation.Horizontal);
         foreach (var label in new[] { _title, _briefing, _subtitle }) label.Alignment = NSTextAlignment.Left;
-        _titleBlock = WinoLayout.VStack(2, _title, _briefing, _subtitle);
-        _titleBlock.Alignment = NSLayoutAttribute.Leading;
-        foreach (var label in new[] { _title, _briefing, _subtitle })
-            label.WidthAnchor.ConstraintLessThanOrEqualTo(_titleBlock.WidthAnchor).Active = true;
-        // NSStackView ignores content hugging for its own size; its hugging priority is what lets it stretch.
-        _titleBlock.SetHuggingPriority(1, NSLayoutConstraintOrientation.Horizontal);
-        _titleBlock.SetContentCompressionResistancePriority(200, NSLayoutConstraintOrientation.Horizontal);
-        // The title block toggles the body, like the whole Windows header row.
-        _titleBlock.AddGestureRecognizer(new NSClickGestureRecognizer(() => ToggleExpanded()));
 
         _processingSpinner = new NSProgressIndicator
         {
@@ -108,46 +104,64 @@ public sealed partial class WinoIntelligenceHeaderView : WinoSurfaceView
         };
         _processingStatus = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
         _processingRow = WinoLayout.HStack(6, _processingSpinner, _processingStatus);
+        _processingRow.SetHuggingPriority(750, NSLayoutConstraintOrientation.Horizontal);
+
+        _chevron = IconButton(WinoIconGlyph.ChevronDown, Translator.WinoIntelligence_HeaderTitle);
+        _chevron.Activated += (_, _) => ToggleExpanded();
+
+        // The toggle zone (Windows PART_HeaderToggleButton): the briefing takes the free width, so the
+        // status and chevron sit just before the actions.
+        var spacer = WinoLayout.Spacer();
+        var toggleZone = WinoLayout.HStack(8, sparkle, _title, _briefing, spacer, _subtitle, _processingRow, _chevron);
+        toggleZone.Distribution = NSStackViewDistribution.Fill;
+        toggleZone.SetHuggingPriority(1, NSLayoutConstraintOrientation.Horizontal);
+        toggleZone.AddGestureRecognizer(new NSClickGestureRecognizer(() => ToggleExpanded()));
 
         _copyCodeButton = TextButton(Translator.Intelligence_ActionCopyCode, WinoIconGlyph.Copy);
         _copyCodeButton.Activated += (_, _) => { if (!string.IsNullOrWhiteSpace(CurrentState.VerificationCode)) CopyCodeRequested?.Invoke(this, EventArgs.Empty); };
         _processButton = TextButton(Translator.WinoIntelligence_Process, WinoIconGlyph.Sparkle);
         WinoAccessibility.Help(_processButton, Translator.WinoIntelligence_ProcessAutomation);
         _processButton.Activated += (_, _) => { if (CurrentState.CanRequestProcessing) ProcessRequested?.Invoke(this, EventArgs.Empty); };
-        _chevron = IconButton(WinoIconGlyph.ChevronDown, Translator.WinoIntelligence_HeaderTitle);
-        _chevron.Activated += (_, _) => ToggleExpanded();
 
-        // Fill gives the spare width to the title block (lowest hugging), keeping the status,
-        // Process and chevron pinned to the trailing edge; gravity areas left them after the text.
-        _processingRow.SetHuggingPriority(750, NSLayoutConstraintOrientation.Horizontal);
-        var headerRow = WinoLayout.HStack(10, sparkle, _titleBlock, _processingRow, _copyCodeButton, _processButton, _chevron);
-        headerRow.Alignment = NSLayoutAttribute.CenterY;
+        var headerRow = WinoLayout.HStack(10, toggleZone, _processButton, _copyCodeButton);
         headerRow.Distribution = NSStackViewDistribution.Fill;
+        var headerHost = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
+        WinoLayout.Fill(headerRow, headerHost, 5, 12, 5, 8);
+        headerHost.HeightAnchor.ConstraintGreaterThanOrEqualTo(40).Active = true;
 
-        // ---- Tiles (always visible while the header is) ----
-        _tiles = new WinoFlowView { Spacing = 6, LineSpacing = 6 };
+        // ---- Body (Windows PART_BodyRoot: a top divider, padding 12, spacing 10) ----
+        _bodySeparator = new WinoSurfaceView { Fill = WinoStyle.ZoneStroke };
+        _bodySeparator.HeightAnchor.ConstraintEqualTo(1).Active = true;
 
-        // ---- Body ----
         _deadline = WinoStyle.Label(string.Empty, WinoStyle.Body, WinoStyle.PrimaryText, 0);
+        _deadline.Alignment = NSTextAlignment.Left;
         _deadline.Selectable = true;
-        _insightsLocked = WinoStyle.Label(Translator.WinoIntelligence_InsightsLocked, WinoStyle.Description, WinoStyle.SecondaryText, 0);
+        var deadlineIcon = new WinoIconView(WinoIconGlyph.Clock, 14, WinoStyle.Caution);
+        var deadlineRow = WinoLayout.HStack(10, deadlineIcon, _deadline);
+        _deadline.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
+        _deadlineCard = InnerCard(deadlineRow, 8, 10, 4);
 
-        _summaryChip = new WinoChipButton(WinoIconGlyph.TextDescription, Translator.WinoIntelligence_Summarize);
-        _summaryChip.Clicked += (_, _) => SummaryChipClicked();
+        var insightsLocked = WinoStyle.Label(Translator.WinoIntelligence_InsightsLocked, NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText, 0);
+        insightsLocked.Alignment = NSTextAlignment.Left;
+        _insightsLockedCard = InnerCard(insightsLocked, 8, 10, 4);
+
+        // Windows order: Translate, then Summarize.
         _translateChip = new WinoChipButton(WinoIconGlyph.Translate, Translator.WinoIntelligence_Translate);
         _translateChip.Clicked += (_, _) => OpenPanel(WinoIntelligenceHeaderPanel.Translate);
-        _featureRow = WinoLayout.HStack(8, _summaryChip, _translateChip, WinoLayout.Spacer());
+        _summaryChip = new WinoChipButton(WinoIconGlyph.TextDescription, Translator.WinoIntelligence_Summarize);
+        _summaryChip.Clicked += (_, _) => SummaryChipClicked();
+        _featureRow = WinoLayout.HStack(6, _translateChip, _summaryChip, WinoLayout.Spacer());
 
         BuildPanels();
 
-        // Width alignment instead of explicit width constraints: the stacks detach hidden rows, and
-        // the rows must fill the card again when they come back.
-        _body = WinoLayout.VStack(10, _deadline, _insightsLocked, _featureRow, _summaryPanel, _translatePanel);
-        _body.Alignment = NSLayoutAttribute.Width;
+        // The padding lives on the host, so the rows span exactly the padded width.
+        var body = WinoLayout.VStack(10, _deadlineCard, _insightsLockedCard, _featureRow, _summaryCard, _translateCard);
+        FillWidth(body);
+        _bodyHost = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
+        WinoLayout.Fill(body, _bodyHost, 12);
 
-        var root = WinoLayout.VStack(10, headerRow, _tiles, _body);
-        root.Alignment = NSLayoutAttribute.Width;
-        root.EdgeInsets = new NSEdgeInsets(10, 14, 12, 12);
+        var root = WinoLayout.VStack(0, headerHost, _bodySeparator, _bodyHost);
+        FillWidth(root);
         WinoLayout.Fill(root, this);
 
         Sync();
@@ -164,8 +178,7 @@ public sealed partial class WinoIntelligenceHeaderView : WinoSurfaceView
     public void Update(WinoIntelligenceHeaderState state)
     {
         ArgumentNullException.ThrowIfNull(state);
-        var (tilesChanged, languagesChanged) = _view.Update(state);
-        if (tilesChanged) SyncTiles();
+        var (_, languagesChanged) = _view.Update(state);
         if (languagesChanged) RebuildLanguagePickers();
         Sync();
     }
@@ -220,24 +233,6 @@ public sealed partial class WinoIntelligenceHeaderView : WinoSurfaceView
         Sync();
     }
 
-    private void SyncTiles()
-    {
-        var previous = _tiles.Subviews;
-        var chips = new List<NSView>();
-        foreach (var tile in CurrentState.Tiles)
-        {
-            var chip = new WinoChipView(22) { CornerRadius = 4, Text = tile.IsAlwaysIconOnly ? string.Empty : tile.Text, ToolTip = tile.AccessibleText, MaxTextWidth = 220 };
-            var tint = tile.IsWarning ? WinoStyle.Caution : WinoStyle.Accent;
-            chip.Fill = tint.ColorWithAlphaComponent((nfloat)0.13);
-            chip.TextColor = tint;
-            chip.SetGlyph(string.IsNullOrEmpty(tile.Glyph) ? WinoIcons.Glyph(WinoIconGlyph.Sparkle) : tile.Glyph, 12);
-            chip.AccessibilityLabel = tile.AccessibleText;
-            chips.Add(chip);
-        }
-        _tiles.SetItems(chips);
-        foreach (var view in previous) view.Dispose();
-    }
-
     private void Sync()
     {
         if (_synchronizing) return;
@@ -248,6 +243,7 @@ public sealed partial class WinoIntelligenceHeaderView : WinoSurfaceView
 
             // Header row: the briefing replaces the status line; a processed message says nothing there.
             _briefing.StringValue = state.BriefingFactText ?? string.Empty;
+            _briefing.ToolTip = state.BriefingFactText;
             _briefing.Hidden = !state.HasBriefingFact;
             var subtitle = WinoIntelligenceHeaderText.Subtitle(state.ProcessingState);
             _subtitle.StringValue = subtitle;
@@ -267,13 +263,12 @@ public sealed partial class WinoIntelligenceHeaderView : WinoSurfaceView
             WinoAccessibility.Label(_chevron, WinoIntelligenceHeaderText.HeaderAccessibility(state, expanded));
             _chevron.ToolTip = WinoIntelligenceHeaderText.ExpansionText(expanded);
 
-            _tiles.Hidden = state.Tiles.Count == 0;
-
             // Body.
-            _body.Hidden = !expanded;
+            _bodyHost.Hidden = !expanded;
+            _bodySeparator.Hidden = !expanded;
             _deadline.StringValue = WinoIntelligenceHeaderText.Deadline(state);
-            _deadline.Hidden = !state.HasDeadline;
-            _insightsLocked.Hidden = !state.CanRequestProcessing;
+            _deadlineCard.Hidden = !state.HasDeadline;
+            _insightsLockedCard.Hidden = !state.CanRequestProcessing;
 
             _summaryChip.Hidden = !state.IsSummaryAvailable;
             _summaryChip.Checked = state.SummaryState == WinoIntelligenceFeatureState.Done;
@@ -298,6 +293,7 @@ public sealed partial class WinoIntelligenceHeaderView : WinoSurfaceView
             Title = title,
             BezelStyle = NSBezelStyle.Rounded,
             ControlSize = NSControlSize.Small,
+            Font = WinoStyle.Caption,
             Image = WinoIcons.Image(glyph, 12),
             ImagePosition = NSCellImagePosition.ImageLeading,
             TranslatesAutoresizingMaskIntoConstraints = false
@@ -305,6 +301,25 @@ public sealed partial class WinoIntelligenceHeaderView : WinoSurfaceView
         button.SetContentCompressionResistancePriority(760, NSLayoutConstraintOrientation.Horizontal);
         button.SetContentHuggingPriorityForOrientation(750, NSLayoutConstraintOrientation.Horizontal);
         return button;
+    }
+
+    /// <summary>
+    /// Stretches every row of a vertical stack to its width. Vertical stacks have no reliable
+    /// width alignment (with it the rows drifted to the trailing edge); a leading stack with width
+    /// constraints keeps them, and the constraints stay while a hidden row is detached.
+    /// </summary>
+    private static void FillWidth(NSStackView stack)
+    {
+        stack.Alignment = NSLayoutAttribute.Leading;
+        foreach (var row in stack.ArrangedSubviews) row.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
+    }
+
+    /// <summary>A Windows fact or panel card: subtle fill, card stroke and the given padding and corner radius.</summary>
+    private static WinoSurfaceView InnerCard(NSView content, double vertical, double horizontal, double radius)
+    {
+        var card = new WinoSurfaceView { CornerRadius = radius, Fill = WinoStyle.SubtleFill, Stroke = WinoBriefingCardView.CardStroke };
+        WinoLayout.Fill(content, card, vertical, horizontal, vertical, horizontal);
+        return card;
     }
 
     private static NSButton IconButton(WinoIconGlyph glyph, string label)

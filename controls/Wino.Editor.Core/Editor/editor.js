@@ -37,12 +37,25 @@
         whiteSpace: "pre-wrap",
         overflowWrap: "anywhere"
     };
-    const linkBubble = document.createElement("button");
-    linkBubble.type = "button";
+    // The host replaces these with localized labels through setLinkLabels.
+    let openLinkLabel = "Open link";
+    let removeLinkLabel = "Remove link";
+    const linkBubble = document.createElement("div");
     linkBubble.className = "wino-link-bubble";
     linkBubble.dataset.winoEditorArtifact = "true";
-    linkBubble.textContent = "Remove link";
+    const openLinkButton = createLinkBubbleButton(openLinkLabel);
+    const removeLinkButton = createLinkBubbleButton(removeLinkLabel);
+    linkBubble.append(openLinkButton, removeLinkButton);
     document.getElementById("wino-overlay").appendChild(linkBubble);
+
+    function createLinkBubbleButton(label) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "wino-link-bubble-action";
+        button.textContent = label;
+        button.addEventListener("pointerdown", event => event.preventDefault());
+        return button;
+    }
 
     function post(message) {
         message.sessionId = window.winoSessionId;
@@ -328,7 +341,8 @@
     function hideLinkBubble() {
         displayedLink = null;
         linkBubble.classList.remove("is-visible");
-        linkBubble.removeAttribute("aria-label");
+        openLinkButton.removeAttribute("aria-label");
+        removeLinkButton.removeAttribute("aria-label");
     }
 
     function updateLinkBubble() {
@@ -352,7 +366,8 @@
         linkBubble.style.top = `${Math.max(8, preferredTop + linkBubble.offsetHeight <= window.innerHeight - 8
             ? preferredTop
             : fallbackTop)}px`;
-        linkBubble.setAttribute("aria-label", `Remove link ${anchor.href}`);
+        openLinkButton.setAttribute("aria-label", `${openLinkLabel} ${anchor.href}`);
+        removeLinkButton.setAttribute("aria-label", `${removeLinkLabel} ${anchor.href}`);
     }
 
     function replaceTemporaryFontSizes(pixelSize, existingFonts) {
@@ -1122,8 +1137,12 @@
     });
     editor.addEventListener("scroll", () => updateLinkBubble());
     window.addEventListener("resize", () => updateLinkBubble());
-    linkBubble.addEventListener("pointerdown", event => event.preventDefault());
-    linkBubble.addEventListener("click", event => {
+    openLinkButton.addEventListener("click", event => {
+        event.preventDefault();
+        if (displayedLink && displayedLink.href) post({ type: "openLink", url: displayedLink.href });
+        hideLinkBubble();
+    });
+    removeLinkButton.addEventListener("click", event => {
         event.preventDefault();
         removeLink(displayedLink);
     });
@@ -1362,10 +1381,19 @@
         return true;
     }
 
+    function setLinkLabels(openLabel, removeLabel) {
+        openLinkLabel = String(openLabel || openLinkLabel);
+        removeLinkLabel = String(removeLabel || removeLinkLabel);
+        openLinkButton.textContent = openLinkLabel;
+        removeLinkButton.textContent = removeLinkLabel;
+        return true;
+    }
+
     window.WinoEditor = {
         exec,
         createLink,
         removeLink,
+        setLinkLabels,
         clearFormatting,
         insertHtml,
         setContent,

@@ -8,13 +8,16 @@ using Wino.Presentation.AppKit;
 namespace Wino.Mail.Controls.AppKit.Calendar;
 
 /// <summary>
-/// Drag across empty slots to pick a quick-event range (Windows CalendarPeriodControl.Selection).
-/// A press that moves less than <see cref="SelectionDragThreshold"/> is a slot click, as before.
-/// A drag selects <see cref="DragSnapMinutes"/> cells in the hour grid (spanning days) or whole days
-/// in the month grid, with an accent highlight and a time chip. Esc cancels; releasing outside the
-/// grid keeps the last valid cell. On release <see cref="SlotClicked"/> carries the range end.
-/// <see cref="SelectionRange"/> keeps a range highlighted, for example while the quick-event popover is open.
-/// The all-day strip stays click-only, like Windows.
+/// Presses on empty surface space (Windows CalendarPeriodControl.Selection and .Input). A press that
+/// moves <see cref="PanStartThreshold"/> along the rail axis, more than across it, pans the rail and
+/// glides to a period on release. Otherwise a press that moves less than
+/// <see cref="SelectionDragThreshold"/> is a slot click, and a drag across the rail axis (or any
+/// drag with Shift, as on Windows) picks a quick-event range: <see cref="DragSnapMinutes"/> cells in
+/// the hour grid (spanning days) or whole days in the month grid, with an accent highlight and a
+/// time chip. Esc cancels; releasing outside the grid keeps the last valid cell. On release
+/// <see cref="SlotClicked"/> carries the range end. <see cref="SelectionRange"/> keeps a range
+/// highlighted, for example while the quick-event popover is open. The day header and the all-day
+/// strip only pan; the all-day strip clicks on release.
 /// </summary>
 public sealed partial class WinoCalendarSurfaceView
 {
@@ -34,8 +37,8 @@ public sealed partial class WinoCalendarSurfaceView
         {
             if (Equals(_selectionRange, value)) return;
             _selectionRange = value;
-            _timed.NeedsDisplay = true;
-            _month.NeedsDisplay = true;
+            _timedRail.NeedsDisplay = true;
+            _monthRail.NeedsDisplay = true;
         }
     }
 
@@ -44,37 +47,69 @@ public sealed partial class WinoCalendarSurfaceView
 
     private CalendarSelectionRange? DisplayedSelection => _slotPress is { Dragging: true } press ? press.Range : _selectionRange;
 
-    /// <summary>One press on empty grid space: a click, or a range drag once it moves.</summary>
-    private sealed class SlotPress(NSView host, bool month, DateTime anchorCell, CGPoint downPoint, Action click)
+    /// <summary>One press on empty surface space: a click, a pan once it moves along the rail, or a range drag.</summary>
+    private sealed class SlotPress(NSView host, bool month, DateTime? anchorCell, CGPoint downPoint, CGPoint downInWindow, bool shift, Action? click)
     {
         public NSView Host { get; } = host;
         public bool Month { get; } = month;
-        public DateTime AnchorCell { get; } = anchorCell;
+
+        /// <summary>The cell a range drag starts from; null where the press can only click or pan (header, all-day strip).</summary>
+        public DateTime? AnchorCell { get; } = anchorCell;
         public CGPoint DownPoint { get; } = downPoint;
-        public Action Click { get; } = click;
+        public CGPoint DownInWindow { get; } = downInWindow;
+
+        /// <summary>Shift with the press always selects a range, as on Windows.</summary>
+        public bool Shift { get; } = shift;
+        public Action? Click { get; } = click;
         public bool Dragging { get; set; }
+        public bool Panning { get; set; }
         public CalendarSelectionRange? Range { get; set; }
         public NSObject? KeyMonitor { get; set; }
     }
 
     private TimeSpan CellDuration(bool month) => month ? TimeSpan.FromDays(1) : TimeSpan.FromMinutes(Math.Max(1, DragSnapMinutes));
 
-    /// <summary>The canvas got a press on empty space; <paramref name="click"/> runs if it never becomes a drag.</summary>
-    internal void BeginSlotPress(NSView host, bool month, CGPoint point, Action click)
+    /// <summary>The grid got a press on empty space; <paramref name="click"/> runs if it never becomes a pan or a drag.</summary>
+    internal void BeginSlotPress(NSView host, bool month, CGPoint point, NSEvent native, Action click)
     {
         CancelSlotSelection();
-        var cell = month ? _month.CellAt(point) : TimedCellAt(point);
-        if (cell is null) { click(); return; }
-        _slotPress = new SlotPress(host, month, cell.Value, point, click);
+        FocusSurface();
+        var cell = month ? _monthRail.CellAt(point) : TimedCellAt(point);
+        bool shift = native.ModifierFlags.HasFlag(NSEventModifierMask.ShiftKeyMask);
+        _slotPress = new SlotPress(host, month, cell, point, native.LocationInWindow, shift, click);
+    }
+
+    /// <summary>A press that can only pan the rail or click (the day header and the all-day strip).</summary>
+    internal void BeginRailPress(NSView host, NSEvent native, Action? click)
+    {
+        CancelSlotSelection();
+        FocusSurface();
+        var point = host.ConvertPointFromView(native.LocationInWindow, null);
+        _slotPress = new SlotPress(host, IsMonth, null, point, native.LocationInWindow, shift: false, click);
     }
 
     internal void DragSlotPress(NSEvent native)
     {
         if (_slotPress is not { } press) return;
+        var (along, across) = AxisDeltas(press.DownInWindow, native.LocationInWindow);
+        if (press.Panning)
+        {
+            UpdatePan(along, native.Timestamp);
+            return;
+        }
         var point = press.Host.ConvertPointFromView(native.LocationInWindow, null);
         if (!press.Dragging)
         {
+            if (!press.Shift && _space is not null && _unitSize > 0 && Math.Abs(along) >= PanStartThreshold && Math.Abs(along) > Math.Abs(across))
+            {
+                press.Panning = true;
+                BeginPan(along, native.Timestamp);
+                return;
+            }
+            if (press.AnchorCell is null) return;
             if (Math.Abs(point.X - press.DownPoint.X) < SelectionDragThreshold && Math.Abs(point.Y - press.DownPoint.Y) < SelectionDragThreshold) return;
+            // Movement along the rail may still become a pan.
+            if (!press.Shift && Math.Abs(along) >= Math.Abs(across)) return;
             press.Dragging = true;
             // Esc cancels the drag; the monitor lives only while the drag does.
             press.KeyMonitor = NSEvent.AddLocalMonitorForEventsMatchingMask(NSEventMask.KeyDown, keyEvent =>
@@ -84,26 +119,33 @@ public sealed partial class WinoCalendarSurfaceView
                 return null!;
             });
         }
+        if (press.AnchorCell is not { } anchor) return;
         if (!press.Month) press.Host.Autoscroll(native);
-        var current = press.Month ? _month.CellAt(point, clamp: true) : TimedCellAt(point);
-        if (current is { } cell) press.Range = CalendarSelectionRange.FromCells(press.AnchorCell, cell, CellDuration(press.Month));
+        var current = press.Month ? _monthRail.CellAt(point, clamp: true) : TimedCellAt(point);
+        if (current is { } cell) press.Range = CalendarSelectionRange.FromCells(anchor, cell, CellDuration(press.Month));
         press.Host.NeedsDisplay = true;
     }
 
     internal void EndSlotPress(NSEvent native)
     {
         if (_slotPress is not { } press) return;
+        if (press.Panning)
+        {
+            _slotPress = null;
+            EndPan(AxisDeltas(press.DownInWindow, native.LocationInWindow).Along, native.Timestamp);
+            return;
+        }
         if (!press.Dragging)
         {
             _slotPress = null;
-            press.Click();
+            press.Click?.Invoke();
             return;
         }
         DragSlotPress(native);
         var range = press.Range;
         EndSlotSession();
-        if (range is null) return;
-        var anchor = press.Month ? _month.CellBounds(DateOnly.FromDateTime(press.AnchorCell)) : TimedSegmentBounds(range, DateOnly.FromDateTime(press.AnchorCell));
+        if (range is null || press.AnchorCell is not { } anchorCell) return;
+        var anchor = press.Month ? _monthRail.CellBounds(DateOnly.FromDateTime(anchorCell)) : TimedSegmentBounds(range, DateOnly.FromDateTime(anchorCell));
         if (anchor is not { } rect) return;
         SlotClicked?.Invoke(this, new CalendarSlotClickedEventArgs(range.Start, ConvertRectFromView(rect, press.Host), press.Month, range.End));
     }
@@ -112,7 +154,12 @@ public sealed partial class WinoCalendarSurfaceView
     public void CancelSlotSelection()
     {
         if (_slotPress is null) return;
+        bool wasPanning = _slotPress.Panning;
         EndSlotSession();
+        if (!wasPanning) return;
+        // An interrupted pan still comes to rest on a period.
+        CancelPan();
+        if (_space is { } space) GlideTo(CalendarRailMotion.ChooseSnapUnit(space, _position, 0), GlideDurationMilliseconds);
     }
 
     private void EndSlotSession()
@@ -125,13 +172,30 @@ public sealed partial class WinoCalendarSurfaceView
 
     public override void ViewWillMoveToWindow(NSWindow? newWindow)
     {
-        if (newWindow is null) CancelSlotSelection();
+        if (newWindow is null)
+        {
+            CancelSlotSelection();
+            // A glide in flight lands at once, so the rail and the loaded period stay in step.
+            bool wasGliding = _isGliding;
+            int glideTarget = _glideTarget;
+            StopAllMotion();
+            if (wasGliding)
+            {
+                SetRailPosition(glideTarget);
+                SettleRail(glideTarget);
+            }
+            // The display link belongs to the old screen; a new one is made on the next glide.
+            ReleaseFrameDriver();
+        }
         base.ViewWillMoveToWindow(newWindow);
     }
 
     /// <summary>The snap cell under <paramref name="point"/> in the hour grid, clamped to the visible days and the day's last cell.</summary>
     private DateTime? TimedCellAt(CGPoint point)
-        => WinoCalendarSurfaceGeometry.TimedCellAt(point.X, point.Y, Dates, DayWidth, HourHeight, DragSnapMinutes);
+    {
+        point = new CGPoint(_timedRail.ClampToVisible(point).X, point.Y);
+        return WinoCalendarSurfaceGeometry.TimedCellAt(point.X, point.Y, Dates, DayWidth, HourHeight, DragSnapMinutes);
+    }
 
     /// <summary>The part of <paramref name="range"/> on <paramref name="date"/> in hour-grid coordinates.</summary>
     private CGRect? TimedSegmentBounds(CalendarSelectionRange range, DateOnly date)

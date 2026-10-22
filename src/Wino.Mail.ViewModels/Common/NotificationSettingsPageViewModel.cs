@@ -329,6 +329,13 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
     [ObservableProperty]
     public partial string PushRelayProblemText { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The instant push card's description. Desktop explains its switch; mobile has no switch (push is always on), so it
+    /// shows how many mailboxes are watched, and nothing while a bar under the card already says what needs attention.
+    /// </summary>
+    [ObservableProperty]
+    public partial string InstantPushDescription { get; set; } = string.Empty;
+
     /// <summary>Accounts the relay can no longer sign in to; empty when there are none.</summary>
     [ObservableProperty]
     public partial string PushRelayMailboxWarningText { get; set; } = string.Empty;
@@ -451,6 +458,9 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
             PushRelayStatusText = GetPushRelayStatusText(snapshot);
             PushRelayProblemText = GetPushRelayProblemText(snapshot);
             PushRelayMailboxWarningText = GetPushRelayMailboxWarningText(snapshot);
+            InstantPushDescription = IsPushRelayToggleVisible
+                ? Translator.NotificationSettings_InstantPush_Description
+                : IsPushRelaySignInRequired || !string.IsNullOrEmpty(PushRelayProblemText) ? string.Empty : PushRelayStatusText;
             OnPropertyChanged(nameof(PushRelayAvailability));
         }
         finally

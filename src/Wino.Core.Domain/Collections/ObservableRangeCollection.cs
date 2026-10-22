@@ -149,6 +149,33 @@ public class ObservableRangeCollection<T> : ObservableCollection<T>
         OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
     }
 
+    /// <summary>
+    /// Inserts the items at <paramref name="index"/>, in order, and raises one Add notification
+    /// that names the inserted items and their starting index.
+    /// </summary>
+    public void InsertRange(int index, IEnumerable<T> items)
+    {
+        if (items == null)
+            throw new ArgumentNullException(nameof(items));
+        if (index < 0 || index > Count)
+            throw new ArgumentOutOfRangeException(nameof(index));
+
+        CheckReentrancy();
+
+        var changedItems = items is List<T> list ? list : new List<T>(items);
+
+        if (changedItems.Count == 0)
+            return;
+
+        for (var offset = 0; offset < changedItems.Count; offset++)
+            Items.Insert(index + offset, changedItems[offset]);
+
+        RaiseChangeNotificationEvents(
+            action: NotifyCollectionChangedAction.Add,
+            changedItems: changedItems,
+            startingIndex: index);
+    }
+
     private bool AddArrangeCore(IEnumerable<T> collection)
     {
         var itemAdded = false;

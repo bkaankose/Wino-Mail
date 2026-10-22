@@ -1276,12 +1276,19 @@ public class MailService : BaseDatabaseService, IMailService
             return null;
         }
 
-        _logger.Debug("Inserting mail {MailCopyId} to {FolderName}", mailCopy.Id, mailCopy.AssignedFolder.FolderName);
+        // Assignment copies come from a lookup without the account loaded; the target folder knows the account.
+        var accountId = mailCopy.AssignedAccount?.Id ?? mailCopy.AssignedFolder?.MailAccountId ?? Guid.Empty;
+        if (accountId == Guid.Empty)
+        {
+            _logger.Warning("Unknown account for MailCopyId {Id} in InsertMailAsync", mailCopy.Id);
+            return null;
+        }
+
+        _logger.Debug("Inserting mail {MailCopyId} to {FolderName}", mailCopy.Id, mailCopy.AssignedFolder?.FolderName);
 
         var inserted = false;
         await Connection.RunInTransactionAsync(connection =>
         {
-            var accountId = mailCopy.AssignedAccount.Id;
             if (_draftUpdates?.IsRemoteProtected(accountId, mailCopy) == true ||
                 _draftUpdates?.IsStaleRemote(accountId, mailCopy.Id) == true) return;
             connection.Insert(mailCopy, typeof(MailCopy));

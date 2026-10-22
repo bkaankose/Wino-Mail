@@ -29,7 +29,7 @@ dotnet build src/Wino.Mail.Android/Wino.Mail.Android.csproj -t:InstallAndroidDep
   -p:AndroidSdkDirectory="$HOME/Library/Android/sdk" -p:JavaSdkDirectory="$HOME/Library/Java/jdk-17" \
   -p:AcceptAndroidSDKLicenses=True -p:WinoTargetPlatform=Android
 sdkmanager "emulator" "system-images;android-36;google_apis_playstore;arm64-v8a" \
-  "system-images;android-36;google_apis_playstore_ps16k;arm64-v8a" "system-images;android-23;google_apis;arm64-v8a"
+  "system-images;android-36;google_apis_playstore_ps16k;arm64-v8a" "system-images;android-24;google_apis;arm64-v8a"
 ```
 
 The 16 KB page-size check needs `llvm-readelf` from NDK r28c: `sdkmanager "ndk;28.2.13676358"` ([Android release packages](../releases-android.md#16-kb-page-size-check)). Builds do not need the NDK.
@@ -43,7 +43,7 @@ Last verified combination on the Mac (2026-10-14): .NET SDK 10.0.401, workload s
 | `Wino_Phone_API36` | `android-36` `google_apis_playstore` arm64, Pixel 8 | Compact and medium (landscape) layouts, Play services sign-in |
 | `Wino_Tablet_API36` | `android-36` `google_apis_playstore` arm64, Pixel Tablet | Medium and expanded layouts |
 | `Wino_Phone_API36_16KB` | `android-36` `google_apis_playstore_ps16k` arm64, Pixel 8 | 16 KB page-size launch check |
-| `Wino_Phone_API23` | `android-23` `google_apis` arm64, Pixel | Minimum OS launch check |
+| `Wino_Phone_API24` | `android-24` `google_apis` arm64, Pixel | Minimum OS launch check |
 
 Create one with `avdmanager create avd -n Wino_Phone_API36 -k "system-images;android-36;google_apis_playstore;arm64-v8a" -d pixel_8` and start it with `emulator -avd Wino_Phone_API36`. When several agents share one machine, give each task its own AVD and address it with `adb -s emulator-NNNN`, so installs do not replace each other's builds.
 
@@ -59,7 +59,7 @@ Android builds pass `-p:WinoTargetPlatform=Android` on every command. The host n
 `Directory.Build.targets` imports [build/Wino.Android.targets](../../build/Wino.Android.targets) when `WinoTargetPlatform` is `Android` or the target framework contains `-android`. That file:
 
 - sets `IsAotCompatible=false` and `PublishAot=false` for `-android` targets. The app runs on Mono: JIT in Debug, full AOT without LLVM and full trimming (`TrimMode=full`) for Release (LLVM miscompiles async file reads, [dotnet/runtime#104167](https://github.com/dotnet/runtime/issues/104167); keep it off until a fixed runtime ships) apps (the condition tests `AndroidApplication`, because the SDK turns an app's `OutputType` `Exe` into `Library`). Native AOT for Android is experimental in .NET 10 and stays off. `-android` projects are exempt from the shared Release gate; portable libraries keep their Native AOT and trimming gates.
-- defaults `SupportedOSPlatformVersion` to 23 (Android 6.0). The head targets SDK 36.
+- defaults `SupportedOSPlatformVersion` to 24 (Android 7.0), the minimum for Play automatic protection. The head targets SDK 36.
 
 With `WinoTargetPlatform=Android`, `Wino.Core.ML` defines `WINO_ML_UNSUPPORTED` and leaves out ONNX Runtime and the Magika model: Android has no content-type classification, and attachments open through the system.
 
@@ -173,7 +173,7 @@ Open [WinoMail.Android.code-workspace](../../WinoMail.Android.code-workspace). I
 | Release inputs (manifest, signing, trimming, AOT, packaging) | Release Mono AOT build and the 16 KB page-size check ([Android release packages](../releases-android.md)) |
 | Shared code used by the Android app | The Android Debug build, plus the Windows, Mac, and iOS checks in [AGENTS.md](../../AGENTS.md) |
 
-Manual checks cover the three width classes (phone portrait, phone landscape, tablet), light and dark, rotation and dark-mode recreation without losing the page, back navigation, font scale, and TalkBack. A build does not prove UI behavior. The API 23 emulator checks that the app still starts on the minimum OS.
+Manual checks cover the three width classes (phone portrait, phone landscape, tablet), light and dark, rotation and dark-mode recreation without losing the page, back navigation, font scale, and TalkBack. A build does not prove UI behavior. The API 24 emulator checks that the app still starts on the minimum OS.
 
 ## Troubleshooting
 
@@ -182,7 +182,7 @@ Manual checks cover the three width classes (phone portrait, phone landscape, ta
 | iOS build fails at `AOTCompile` after an Android workload install | The workload set moved. Run `dotnet workload update --version 10.0.401.1`. |
 | Release restore fails with NU1902/NU1903 for `System.Security.Cryptography.Pkcs` 10.0.0 | Known issue: a pre-existing advisory in the shared graph, an error in Release. Until the package is updated, builds that must proceed pass `-p:NuGetAudit=false`; report it as a known issue, not a fix. Debug shows it as warnings. |
 | App closes at start after `adb install` | Fast deployment. Use `-t:Install` or `-t:Run`. |
-| Manifest merge fails after a package update | An AndroidX or Play services version needs minSdk 24 or later. Keep the version that supports 23: `androidx.webkit` 1.15, `play-services-auth` 21.x. |
+| Manifest merge fails after a package update | An AndroidX or Play services version needs a minSdk above 24. Keep the previous version. `androidx.webkit` 1.15 and `play-services-auth` 21.x were held back for the old API 23 floor and can move to versions that need 24. |
 | Sentry build error about assemblies | Keep `AndroidEnableAssemblyCompression` on in the head. |
 | Release app: `ClassNotFoundException` while inflating a `com.winomail.*` view | Full trimming removed a view that only XML names. Add it to the library's `ILLink.Descriptors.xml`. |
 | Release app: `TypeLoadException` in `Mono.Android.Runtime` at start | Stale incremental Release output. Delete `src/Wino.Mail.Android/obj/Release` and `bin/Release` and publish again. |

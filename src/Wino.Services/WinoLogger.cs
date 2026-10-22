@@ -1,6 +1,11 @@
-using System.Collections.Generic;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 using Sentry;
 using Serilog;
@@ -8,6 +13,8 @@ using Serilog.Core;
 using Serilog.Events;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Attachments;
+using Wino.Core.Domain.Models.CardDav;
 using Wino.Core.Domain.Models.Telemetry;
 
 namespace Wino.Services;
@@ -20,12 +27,20 @@ public class WinoLogger : IWinoLogger
     private const string BuildConfigurationTag = "build_configuration";
     private const string PackageNameTag = "package_name";
     private const string DistTag = "dist";
-    private const string ErrorOriginTag = "error_origin";
     private const string AppModeTag = "app_mode";
     private const string EventKindTag = "event_kind";
     private const string UserInitiatedTag = "user_initiated";
-    private const string AccountSetupErrorOrigin = "AccountSetup";
     private const string DiagnosticLogsUploadOperation = "DiagnosticLogsUpload";
+    private const int MaximumExceptionChainDepth = 16;
+
+    // Provider response exceptions that report a server or account condition, matched with base types.
+    private static readonly string[] ExpectedConditionTypeNames =
+    [
+        "Microsoft.Identity.Client.MsalServiceException",
+        "Google.GoogleApiException",
+        "Google.Apis.Auth.OAuth2.Responses.TokenResponseException",
+        "Microsoft.Kiota.Abstractions.ApiException"
+    ];
 
     private readonly LoggingLevelSwitch _levelSwitch = new LoggingLevelSwitch();
     private readonly IPreferencesService _preferencesService;
@@ -85,7 +100,7 @@ public class WinoLogger : IWinoLogger
 #endif
             options.AutoSessionTracking = true;
 
-            // Set user context and filter out known exceptions.
+            // Set user context, filter out expected conditions and scrub encoded secrets.
             options.SetBeforeSend((sentryEvent, hint) =>
             {
                 var currentContext = _telemetryContextProvider.GetCurrent();
@@ -95,21 +110,17 @@ public class WinoLogger : IWinoLogger
                 if (!currentContext.IsTelemetryEnabled && !isUserInitiated)
                     return null;
 
-                // Don't send synchronization failure exceptions to Sentry.
-                var isAccountSetupError = sentryEvent.Tags.TryGetValue(ErrorOriginTag, out var errorOrigin)
-                    && string.Equals(errorOrigin, AccountSetupErrorOrigin, System.StringComparison.Ordinal);
-                var isStructuredSyncFailure = sentryEvent.Tags.TryGetValue(EventKindTag, out var eventKind)
-                    && string.Equals(eventKind, "sync_failure", StringComparison.Ordinal);
-
-                if (!isStructuredSyncFailure &&
-                    ShouldDropHandledSynchronizationEvent(sentryEvent, isAccountSetupError))
+                if (!isUserInitiated && ShouldDropEvent(sentryEvent))
                     return null;
 
+                WinoSentryEventScrubber.Scrub(sentryEvent);
                 ApplyDiagnosticId(sentryEvent, currentContext.DiagnosticId);
                 ApplyAppMetadata(sentryEvent);
                 sentryEvent.SetTag(AppModeTag, currentContext.AppMode);
                 return sentryEvent;
             });
+
+            options.SetBeforeBreadcrumb((breadcrumb, hint) => WinoSentryEventScrubber.Scrub(breadcrumb));
         });
 
         ApplyDiagnosticIdToScope(diagnosticId);
@@ -282,55 +293,93 @@ public class WinoLogger : IWinoLogger
         sentryEvent.SetExtra("SentryDist", _appMetadataService.SentryDist);
     }
 
-    internal static bool ShouldDropHandledSynchronizationEvent(SentryEvent sentryEvent, bool isAccountSetupError)
+    internal static bool ShouldDropEvent(SentryEvent sentryEvent)
     {
-        if (sentryEvent.Exception is Wino.Core.Domain.Models.Attachments.AttachmentPolicyCancellationException)
+        var exception = sentryEvent.Exception;
+
+        if (exception is AttachmentPolicyCancellationException)
             return true;
 
-        if (ContainsExpectedUserFlowException(sentryEvent.Exception))
+        // Canceled account setups and authentication failures are expected user flows, even when wrapped.
+        if (AnyInChain(exception, static candidate => candidate is AccountSetupCanceledException or AuthenticationException))
             return true;
 
-        if (isAccountSetupError || sentryEvent.Level == SentryLevel.Fatal)
+        // Crashes are always reported.
+        if (IsUnhandled(sentryEvent))
             return false;
 
-        if (sentryEvent.Exception is SynchronizerException)
+        // Server, network and credential conditions need no code change, so they only cost quota.
+        if (AnyInChain(exception, IsExpectedCondition))
             return true;
 
         var logger = sentryEvent.Logger ?? string.Empty;
-        if (logger.Contains("Synchronizer", StringComparison.Ordinal) ||
-            logger.Contains("ImapClientPool", StringComparison.Ordinal) ||
-            logger.Contains("GraphRateLimitHandler", StringComparison.Ordinal))
+        return logger.Contains("Synchronizer", StringComparison.Ordinal) ||
+               logger.Contains("ImapClientPool", StringComparison.Ordinal) ||
+               logger.Contains("GraphRateLimitHandler", StringComparison.Ordinal);
+    }
+
+    private static bool IsUnhandled(SentryEvent sentryEvent)
+        => sentryEvent.Level == SentryLevel.Fatal
+           || sentryEvent.SentryExceptions?.Any(exception => exception.Mechanism?.Handled == false) == true;
+
+    private static bool IsExpectedCondition(Exception exception)
+    {
+        if (exception is HttpRequestException
+            or SocketException
+            or WebException
+            or TimeoutException
+            or OperationCanceledException
+            or System.Security.Authentication.AuthenticationException
+            or SynchronizerException
+            or ImapValidationException
+            or ImapTestSSLCertificateException
+            or ImapClientPoolException
+            or DavRequestException
+            or GoogleAuthenticationException)
         {
             return true;
         }
 
-        var exceptionType = sentryEvent.Exception?.GetType().FullName ?? string.Empty;
-        return exceptionType.Contains("MailKit", StringComparison.Ordinal) ||
-               exceptionType.Contains("Google.GoogleApiException", StringComparison.Ordinal) ||
-               exceptionType.Contains("Microsoft.Graph", StringComparison.Ordinal);
+        // Transport failures surface as IOException; missing local files are still reported.
+        if (exception is IOException and not (FileNotFoundException or DirectoryNotFoundException or PathTooLongException or DriveNotFoundException))
+            return true;
+
+        // Wino.Services does not reference the provider SDKs, so their exceptions are matched by name.
+        for (var type = exception.GetType(); type != null; type = type.BaseType)
+        {
+            var typeName = type.FullName ?? string.Empty;
+
+            if (typeName.StartsWith("MailKit.", StringComparison.Ordinal) ||
+                typeName.StartsWith("Microsoft.Graph.", StringComparison.Ordinal) ||
+                ExpectedConditionTypeNames.Contains(typeName))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
-    // Canceled account setups and authentication failures are expected user flows, even when wrapped.
-    private static bool ContainsExpectedUserFlowException(Exception exception)
+    private static bool AnyInChain(Exception? exception, Func<Exception, bool> predicate, int depth = 0)
     {
-        if (exception == null)
+        if (exception == null || depth > MaximumExceptionChainDepth)
             return false;
 
-        if (exception is AccountSetupCanceledException or AuthenticationException)
+        if (predicate(exception))
             return true;
 
         if (exception is AggregateException aggregateException)
         {
             foreach (var innerException in aggregateException.InnerExceptions)
             {
-                if (ContainsExpectedUserFlowException(innerException))
+                if (AnyInChain(innerException, predicate, depth + 1))
                     return true;
             }
 
             return false;
         }
 
-        return ContainsExpectedUserFlowException(exception.InnerException);
+        return AnyInChain(exception.InnerException, predicate, depth + 1);
     }
 
     private sealed class DiagnosticIdEnricher(IPreferencesService preferencesService) : ILogEventEnricher

@@ -27,7 +27,6 @@ public interface ISynchronizationManager
                         IAccountService accountService,
                         INotificationBuilder notificationBuilder,
                         IAuthenticationProvider authenticationProvider,
-                        IWinoTelemetryService telemetryService,
                         IPreferencesService preferencesService,
                         IDraftSyncRetryService draftSyncRetryService,
                         IDraftUpdateCoordinator draftUpdateCoordinator = null, IMailService draftMailService = null);

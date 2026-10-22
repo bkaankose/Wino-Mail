@@ -215,8 +215,10 @@ internal sealed class MailLoadingView : NSView
         stack.TranslatesAutoresizingMaskIntoConstraints = false;
         AddSubview(stack);
 
+        // Below the reading pane's holding priority: a preference must not set the reader's minimum width
+        // (at 500 it held the pane at 576pt against divider drags).
         var preferredWidth = stack.WidthAnchor.ConstraintEqualTo((nfloat)MaxContentWidth);
-        preferredWidth.Priority = 500;
+        preferredWidth.Priority = 240;
         NSLayoutConstraint.ActivateConstraints(
         [
             stack.CenterXAnchor.ConstraintEqualTo(CenterXAnchor),
@@ -440,6 +442,7 @@ internal sealed class MailReaderCommandBar : NSView
     private readonly NSButton _moreButton;
     private readonly WinoSurfaceView _separator;
     private bool _iconOnly;
+    private bool _hugsCommands;
     private readonly List<Slot> _slots = new();
     private Func<NSMenu>? _moreMenu;
     private bool _labelsHidden;
@@ -504,6 +507,33 @@ internal sealed class MailReaderCommandBar : NSView
         }
     }
 
+    /// <summary>
+    /// Icon-only bar sized to its commands, for a row it shares with other content (the reader's
+    /// subject row): its intrinsic width shows every command, and it gives way first when the row
+    /// is narrow, moving trailing commands into More.
+    /// </summary>
+    public bool HugsCommands
+    {
+        get => _hugsCommands;
+        set
+        {
+            _hugsCommands = value;
+            SetContentHuggingPriorityForOrientation(value ? 750 : 250, NSLayoutConstraintOrientation.Horizontal);
+            SetContentCompressionResistancePriority(value ? 250 : 750, NSLayoutConstraintOrientation.Horizontal);
+            InvalidateIntrinsicContentSize();
+        }
+    }
+
+    public override CGSize IntrinsicContentSize
+    {
+        get
+        {
+            if (!_hugsCommands) return base.IntrinsicContentSize;
+            int total = _slots.Count(static slot => slot.Button is not null);
+            return new CGSize((nfloat)RequiredWidth(false, total, total), NSView.NoIntrinsicMetric);
+        }
+    }
+
     private static NSButton Button(WinoIconGlyph glyph, string title, Action run)
     {
         var button = new NSButton
@@ -553,6 +583,7 @@ internal sealed class MailReaderCommandBar : NSView
                 _shown = -1;
             }
         }
+        if (_hugsCommands) InvalidateIntrinsicContentSize();
         NeedsLayout = true;
     }
 

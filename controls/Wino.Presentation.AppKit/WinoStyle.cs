@@ -54,6 +54,24 @@ public static class WinoStyle
     public static event EventHandler? AccentChanged;
 
     /// <summary>
+    /// Draws a select-one segmented control's selected segment in the theme accent rather than the
+    /// system accent, so it matches the accent-tinted glyphs and pills around it, and follows accent
+    /// changes for as long as the control lives.
+    /// </summary>
+    public static void UseAccentSelection(NSSegmentedControl control)
+    {
+        control.SelectedSegmentBezelColor = Accent;
+        var target = new WeakReference<NSSegmentedControl>(control);
+        EventHandler? handler = null;
+        handler = (_, _) =>
+        {
+            if (target.TryGetTarget(out var live) && live.Handle != IntPtr.Zero) live.SelectedSegmentBezelColor = Accent;
+            else AccentChanged -= handler;
+        };
+        AccentChanged += handler;
+    }
+
+    /// <summary>
     /// True while a Wino theme paints the window (wallpaper or gradient). Panes then float as
     /// Wino zones (<see cref="WinoZoneView"/>) and lists draw on a clear background.
     /// </summary>
@@ -89,6 +107,14 @@ public static class WinoStyle
     public static NSColor Dynamic(NSColor light, NSColor dark)
         => NSColor.GetColor(string.Empty, appearance =>
             appearance.FindBestMatch([NSAppearance.NameAqua, NSAppearance.NameDarkAqua]) == NSAppearance.NameDarkAqua ? dark : light);
+
+    /// <summary>
+    /// Black or white text at <paramref name="opacity"/>, resolved per appearance. <c>NSColor.Label.ColorWithAlphaComponent</c>
+    /// resolves against the app appearance when it is created, so a light-themed window over a dark system
+    /// drew it white.
+    /// </summary>
+    public static NSColor LabelWithOpacity(double opacity)
+        => Dynamic(NSColor.Black.ColorWithAlphaComponent((nfloat)opacity), NSColor.White.ColorWithAlphaComponent((nfloat)opacity));
 
     /// <summary>Grouped settings rows and cards: the System Settings group surface.</summary>
     public static NSColor GroupFill => NSColor.ControlBackground;

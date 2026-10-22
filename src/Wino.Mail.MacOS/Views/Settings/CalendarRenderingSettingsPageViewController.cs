@@ -71,8 +71,11 @@ public sealed class CalendarRenderingSettingsPageViewController(CalendarRenderin
             Translator.CalendarSettings_TimedDayHeaderFormat_Placeholder, 180);
         var presets = Bind.PopUp(vm, vm.TimedDayHeaderFormatPresets.ToList(), nameof(vm.SelectedTimedDayHeaderFormatPresetIndex),
             s => s.SelectedTimedDayHeaderFormatPresetIndex, (s, v) => s.SelectedTimedDayHeaderFormatPresetIndex = v, 140);
-        var headerFormat = Card(Translator.CalendarSettings_TimedDayHeaderFormat_Header, Translator.CalendarSettings_TimedDayHeaderFormat_Description, WinoIconGlyph.None, Row(format, presets));
-        headerFormat.BottomContent = Bind.Label(vm, nameof(vm.TimedDayHeaderFormatPreview), s => s.TimedDayHeaderFormatPreview, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0);
+        // The format field and presets are too wide for the trailing column: they sit under the text with the preview.
+        var headerFormat = Card(Translator.CalendarSettings_TimedDayHeaderFormat_Header, Translator.CalendarSettings_TimedDayHeaderFormat_Description);
+        var headerFormatControls = WinoLayout.VStack(8, Row(format, presets),
+            Bind.Label(vm, nameof(vm.TimedDayHeaderFormatPreview), s => s.TimedDayHeaderFormatPreview, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0));
+        headerFormat.BottomContent = headerFormatControls;
 
         var rendering = new WinoSettingsExpander(Translator.CalendarSettings_CalendarRendering_Header, Translator.CalendarSettings_CalendarRendering_Description, WinoIconGlyph.CalendarSettings, isExpanded: true);
         rendering.Add(hourHeight);
