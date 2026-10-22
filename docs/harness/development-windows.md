@@ -5,7 +5,6 @@ Use plain `dotnet` and WinApp CLI commands from the repository root. The app alw
 The deprecated UWP project is frozen; do not change it.
 
 Shared rules for every platform are in [AGENTS.md](../../AGENTS.md) and the [implementation rules](implementation-rules.md).
-The macOS application has its own [macOS development guide](development-macos.md).
 
 ## Requirements
 
@@ -113,7 +112,7 @@ Deploy an existing build without compilation:
 winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --arch x64 --no-build --detach
 ```
 
-The manifest supplies package name `58272BurakKSE.WinoMailPreview` and publisher `CN=51FBDAF3-E212-4149-89A2-A2636B3BC911`.
+The manifest supplies package name `hairokuma.MailCal` and publisher `CN=hairokuma`.
 WinApp activates the registered package. It does not launch an unpackaged executable.
 A development layout provides MSIX identity without creating an installer on every run.
 
@@ -145,7 +144,7 @@ Changed inputs still use the normal SDK build. The helper does not replace any S
 Before deployment, inspect the installed package:
 
 ```powershell
-Get-AppxPackage -Name 58272BurakKSE.WinoMailPreview | Select-Object Name, Publisher, IsDevelopmentMode, InstallLocation
+Get-AppxPackage -Name hairokuma.MailCal | Select-Object Name, Publisher, IsDevelopmentMode, InstallLocation
 ```
 
 The publisher must match the source manifest. An existing installation must permit development deployment.
@@ -187,10 +186,10 @@ For managed debugging on the host, select **Debug Wino Mail (packaged, x64)**.
 Before deployment, inspect the guest installation:
 
 ```powershell
-winapp target exec sandbox --json -- powershell.exe -NoProfile -Command "Get-AppxPackage -Name 58272BurakKSE.WinoMailPreview | Select-Object Name,Publisher,IsDevelopmentMode,InstallLocation | ConvertTo-Json"
+winapp target exec sandbox --json -- powershell.exe -NoProfile -Command "Get-AppxPackage -Name hairokuma.MailCal | Select-Object Name,Publisher,IsDevelopmentMode,InstallLocation | ConvertTo-Json"
 ```
 
-If installed, its publisher must match `CN=51FBDAF3-E212-4149-89A2-A2636B3BC911` and `IsDevelopmentMode` must be true.
+If installed, its publisher must match `CN=hairokuma` and `IsDevelopmentMode` must be true.
 Stop on a mismatch or a signed non-development installation. Close the guest Debug app and its tray process before redeployment.
 
 Build, deploy, and activate the checked-in package in Sandbox:

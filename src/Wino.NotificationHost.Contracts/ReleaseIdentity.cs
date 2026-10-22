@@ -16,7 +16,8 @@ public sealed class ReleaseIdentity
     public IReadOnlyDictionary<string, Guid> NotificationActivatorIds { get; }
     /// <summary>COM class of the session-start background task, hosted by the Mail application itself.</summary>
     public Guid StartupTaskActivatorId { get; }
-    public bool AllowsLegacyMigration => Distribution is "Store" or "Sideload";
+    /// <summary>This standalone fork never migrates data from the legacy UWP Wino Mail package.</summary>
+    public bool AllowsLegacyMigration => false;
     public string SingleInstanceKey => $"WinoMail.{PackageFamilyName}.SingleInstance";
     public string MailHostMutexName => $"Local\\WinoMail.{PackageFamilyName}.MailHostRunning";
     public string AlternateModeEventName => $"Local\\WinoMail.{PackageFamilyName}.ForceAlternateMode";
@@ -41,9 +42,7 @@ public sealed class ReleaseIdentity
         var distribution = root.GetProperty("Distribution").GetString();
         var expectedName = distribution switch
         {
-            "Store" => "58272BurakKSE.WinoMailPreview",
-            "Sideload" => "WinoMail.Sideload",
-            "Beta" => "WinoMail.Beta",
+            "Standalone" => "hairokuma.MailCal",
             _ => throw new InvalidDataException("Unknown release distribution.")
         };
 

@@ -1,45 +1,21 @@
-<p align="center">
-  <a href="https://apps.microsoft.com/detail/Wino%20Mail/9NCRCVJC50WL?launch=true&mode=full">
-    <img src="https://www.winomail.app/logo.png" width="90" height="90" alt="Wino Mail logo">
-  </a>
-</p>
+# Mail-Cal
 
-<h1 align="center">Wino Mail</h1>
+A standalone fork of [Wino Mail](https://github.com/bkaankose/Wino-Mail): a native Mail, Calendar, People, and To Do client for Windows that talks only to the mail and calendar providers you configure.
 
-<p align="center">A native Mail, Calendar, People, and To Do client for Windows.</p>
+## What differs from Wino Mail
 
-<p align="center">
-  <a href="https://apps.microsoft.com/detail/Wino%20Mail/9NCRCVJC50WL?launch=true&mode=full">Microsoft Store</a>
-  · <a href="https://github.com/bkaankose/Wino-Mail/releases">Beta releases</a>
-  · <a href="CONTRIBUTING.md">Contributing</a>
-</p>
+- **No external services.** The fork removes Wino Account, Wino Sync, AI and intelligence features (summaries, Daily Briefing, rewrite), Microsoft Store purchases and update checks, Sentry telemetry, Gravatar and favicon lookups, and third-party mail autodiscovery.
+- **No account limit.** There is no paid add-on.
+- **Calendar tray popup.** The tray icon opens a month calendar, the events of the selected day, and a quick-add form.
+- **Its own package identity** (`hairokuma.MailCal`), so it installs next to Wino Mail.
 
-![Wino Mail screenshot](https://user-images.githubusercontent.com/12009960/232114528-2d2c8e3c-dbe7-429a-94e0-6aecc73bdf70.png)
+Network traffic goes only to your providers: IMAP/SMTP/POP3 servers, Gmail and Google Calendar APIs, Microsoft Graph, CalDAV/CardDAV servers, and their sign-in endpoints.
 
-## Motivation
+### OAuth client IDs
 
-I'm a big fan of Windows Mail & Calendars due to its simplicity. Personally, I find it more intuitive for daily use cases compared to Outlook desktop and the new WebView2 powered Outlook version. Seeing [Microsoft deprecating it](https://support.microsoft.com/en-us/office/outlook-for-windows-the-future-of-mail-calendar-and-people-on-windows-11-715fc27c-e0f4-4652-9174-47faa751b199#:~:text=The%20Mail%20and%20Calendar%20applications,will%20no%20longer%20be%20supported.) dragged me into starting to work on Wino a couple of years ago. Wino's main motivation is to bring all the existing functionality from Mail & Calendars over time without changing the user experience that millions have loved since the Windows 8 days in Mail & Calendars.
+Gmail and Outlook sign-in still use the OAuth client registrations of upstream Wino Mail (`src/Wino.Authentication/MailAuthenticatorConfiguration.cs`). For a fully independent build, register your own Azure app and Google OAuth client and replace those IDs.
 
-Wino started before the current AI era. The project welcomes AI-assisted contributions when they comply with its coding rules, architecture, and maintainer decisions.
-
-## Download
-
-Install Wino Mail from the Microsoft Store or directly with App Installer.
-
-| Distribution | Recommended for | Installation |
-| --- | --- | --- |
-| Microsoft Store | Most users | [Install Wino Mail from Microsoft Store](https://apps.microsoft.com/detail/Wino%20Mail/9NCRCVJC50WL?launch=true&mode=full) |
-| Direct download | Users who prefer to install outside Microsoft Store | [Install Wino Mail with App Installer](https://download.winomail.app/WinoMail.appinstaller) |
-
-<a href="https://apps.microsoft.com/detail/Wino%20Mail/9NCRCVJC50WL?launch=true&mode=full">
-  <img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200" alt="Get Wino Mail from Microsoft Store">
-</a>
-
-### Beta releases
-
-Beta releases are available from [GitHub Releases](https://github.com/bkaankose/Wino-Mail/releases). They can contain unfinished changes and are for testing.
-
-## Other features
+## Features
 
 - Native WinUI 3 interface with light, dark, and high-contrast support
 - Outlook, Gmail, IMAP, POP3, CalDAV, CardDAV, and local data support
@@ -48,21 +24,23 @@ Beta releases are available from [GitHub Releases](https://github.com/bkaankose/
 - Background synchronization and toast notifications
 - WebView2-based mail reading and composition
 - EML and ICS file integration
-- `mailto`, `webcal`, `webcals`, and Wino protocol activation
+- `mailto`, `webcal`, and `webcals` protocol activation
+- Encrypted local backup and restore
 
-## Contributing
+## Building and running
 
-Read the [contribution guide](CONTRIBUTING.md) for developer setup, build commands, and contribution rules. Discuss large features in an issue or proposal first.
+Requirements: Windows with Developer Mode, the .NET SDK from `global.json`, and [WinApp CLI](https://github.com/microsoft/WinAppCli) 0.7 or later.
 
-Contributors remain responsible for every submitted change, including AI-assisted changes.
+```powershell
+winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --arch x64 --detach
+```
 
-## Donate
+See [Windows development](docs/harness/development-windows.md) for F5 debugging and build details.
 
-Donations help to fund the project website and development costs.
+## Roadmap
 
-- [Donate with PayPal](https://www.paypal.com/donate/?hosted_button_id=LGPERGGXFMQ7U)
-- Buy the Unlimited Accounts add-on in Wino. It is a one-time purchase.
+- Native Linux support (UI framework not decided yet: Uno Platform, Avalonia, or GTK).
 
-## License
+## Credits and license
 
-See [`LICENSE.md`](LICENSE.md).
+Mail-Cal is based on Wino Mail by Burak Kaan Köse and its contributors. Like the original, it is licensed under the GNU General Public License v3.0. See [`LICENSE.md`](LICENSE.md).

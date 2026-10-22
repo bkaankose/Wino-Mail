@@ -28,15 +28,15 @@
 	</Extensions>
 	
   <Identity
-    Name="58272BurakKSE.WinoMailPreview"
-    Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
+    Name="hairokuma.MailCal"
+    Publisher="CN=hairokuma"
     Version="2.2.5.0" />
 
   <mp:PhoneIdentity PhoneProductId="7b7e90e9-cc55-4409-9769-99b4b5ed6e9b" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>Wino Mail</DisplayName>
-    <PublisherDisplayName>Burak KÖSE</PublisherDisplayName>
+    <DisplayName>Mail-Cal</DisplayName>
+    <PublisherDisplayName>hairokuma</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
@@ -55,7 +55,7 @@
       EntryPoint="$targetentrypoint$"
       uap10:Parameters="--wino-mail">
       <uap:VisualElements
-        DisplayName="Wino Mail"
+        DisplayName="Mail-Cal"
         Description="Wino.Mail.WinUI"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\AppEntries\MailAssets\Square150x150Logo.png"
@@ -75,7 +75,7 @@
 				<uap5:StartupTask
 					TaskId="WinoStartupId"
 					Enabled="true"
-					DisplayName="Wino Mail" />
+					DisplayName="Mail-Cal" />
 			</uap5:Extension>
 
 			<!-- Session-start background task: Windows activates the application through this class seconds after
@@ -89,9 +89,9 @@
 			</Extension>
 			<com:Extension Category="windows.comServer">
 				<com:ComServer>
-					<com:ExeServer Executable="Wino.Mail.WinUI.exe" Arguments="--wino-mail --wino-session-start" DisplayName="Wino Mail startup service"
+					<com:ExeServer Executable="Wino.Mail.WinUI.exe" Arguments="--wino-mail --wino-session-start" DisplayName="Mail-Cal startup service"
 					               LaunchAndActivationPermission="O:PSG:BUD:(A;;11;;;IU)(A;;11;;;S-1-15-2-1)S:(ML;;NX;;;LW)">
-						<com:Class Id="13437e7f-4198-4d62-bf1a-8cf5186397b3" DisplayName="Wino Mail startup service" />
+						<com:Class Id="2eb07bbb-80e4-4abf-a3b0-6d73dafbf007" DisplayName="Mail-Cal startup service" />
 					</com:ExeServer>
 				</com:ComServer>
 			</com:Extension>
@@ -111,7 +111,7 @@
 			<!-- Protocol activation: Wino deep links and the Wino Account browser sign-in redirect (wino://auth-complete) -->
 			<uap:Extension Category="windows.protocol">
 				<uap:Protocol Name="wino">
-					<uap:DisplayName>Wino Mail Protocol</uap:DisplayName>
+					<uap:DisplayName>Mail-Cal Protocol</uap:DisplayName>
 				</uap:Protocol>
 			</uap:Extension>
 
@@ -136,12 +136,12 @@
 
 			<!-- Toast activation: Windows starts the notification host, not the UI executable. -->
 			<desktop:Extension Category="windows.toastNotificationActivation">
-				<desktop:ToastNotificationActivation ToastActivatorCLSID="b67c209f-9f3b-4220-ad8f-828073616967" />
+				<desktop:ToastNotificationActivation ToastActivatorCLSID="b2a5406e-9637-4cc8-bade-960c31f999ff" />
 			</desktop:Extension>
 			<com:Extension Category="windows.comServer">
 				<com:ComServer>
-					<com:ExeServer Executable="Wino.NotificationHost.exe" Arguments="----AppNotificationActivated:" DisplayName="Wino Mail notification host">
-						<com:Class Id="b67c209f-9f3b-4220-ad8f-828073616967" DisplayName="Wino Mail notification host" />
+					<com:ExeServer Executable="Wino.NotificationHost.exe" Arguments="----AppNotificationActivated:" DisplayName="Mail-Cal notification host">
+						<com:Class Id="b2a5406e-9637-4cc8-bade-960c31f999ff" DisplayName="Mail-Cal notification host" />
 					</com:ExeServer>
 				</com:ComServer>
 			</com:Extension>
@@ -153,7 +153,7 @@
       EntryPoint="$targetentrypoint$"
       uap10:Parameters="--wino-calendar">
       <uap:VisualElements
-        DisplayName="Wino Calendar"
+        DisplayName="Mail-Cal Calendar"
         Description="Wino.Mail.WinUI.Calendar"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\AppEntries\CalendarAssets\Square150x150Logo.png"
@@ -191,12 +191,12 @@
         </uap:Extension>
 
         <desktop:Extension Category="windows.toastNotificationActivation">
-          <desktop:ToastNotificationActivation ToastActivatorCLSID="a075d82f-106f-4007-b69a-5c4135b2ac58" />
+          <desktop:ToastNotificationActivation ToastActivatorCLSID="ae42f6a9-b0b9-455a-80a2-9cd565658865" />
         </desktop:Extension>
         <com:Extension Category="windows.comServer">
           <com:ComServer>
-            <com:ExeServer Executable="Wino.NotificationHost.exe" Arguments="----AppNotificationActivated:" DisplayName="Wino Calendar notification host">
-              <com:Class Id="a075d82f-106f-4007-b69a-5c4135b2ac58" DisplayName="Wino Calendar notification host" />
+            <com:ExeServer Executable="Wino.NotificationHost.exe" Arguments="----AppNotificationActivated:" DisplayName="Mail-Cal Calendar notification host">
+              <com:Class Id="ae42f6a9-b0b9-455a-80a2-9cd565658865" DisplayName="Mail-Cal Calendar notification host" />
             </com:ExeServer>
           </com:ComServer>
         </com:Extension>
@@ -207,7 +207,7 @@
       EntryPoint="$targetentrypoint$"
       uap10:Parameters="--wino-contacts">
       <uap:VisualElements
-        DisplayName="Wino People"
+        DisplayName="Mail-Cal People"
         Description="Wino.Mail.WinUI.Contacts"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\AppEntries\PeopleAssets\Square150x150Logo.png"
@@ -224,12 +224,12 @@
 
       <Extensions>
         <desktop:Extension Category="windows.toastNotificationActivation">
-          <desktop:ToastNotificationActivation ToastActivatorCLSID="427688f0-3b7f-4f5b-938f-f76535aa7970" />
+          <desktop:ToastNotificationActivation ToastActivatorCLSID="a1cdd0d5-6caa-4bb6-9565-79e730d887ad" />
         </desktop:Extension>
         <com:Extension Category="windows.comServer">
           <com:ComServer>
-            <com:ExeServer Executable="Wino.NotificationHost.exe" Arguments="----AppNotificationActivated:" DisplayName="Wino People notification host">
-              <com:Class Id="427688f0-3b7f-4f5b-938f-f76535aa7970" DisplayName="Wino People notification host" />
+            <com:ExeServer Executable="Wino.NotificationHost.exe" Arguments="----AppNotificationActivated:" DisplayName="Mail-Cal People notification host">
+              <com:Class Id="a1cdd0d5-6caa-4bb6-9565-79e730d887ad" DisplayName="Mail-Cal People notification host" />
             </com:ExeServer>
           </com:ComServer>
         </com:Extension>
@@ -240,7 +240,7 @@
       EntryPoint="$targetentrypoint$"
       uap10:Parameters="--wino-todo">
       <uap:VisualElements
-        DisplayName="Wino To Do"
+        DisplayName="Mail-Cal To Do"
         Description="Wino.Mail.WinUI.ToDo"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\AppEntries\ToDoAssets\Square150x150Logo.png"
@@ -257,12 +257,12 @@
 
       <Extensions>
         <desktop:Extension Category="windows.toastNotificationActivation">
-          <desktop:ToastNotificationActivation ToastActivatorCLSID="a5851908-6870-4384-912c-be36b23f142f" />
+          <desktop:ToastNotificationActivation ToastActivatorCLSID="41c27c8b-0682-4050-9438-9ade1e20d0d4" />
         </desktop:Extension>
         <com:Extension Category="windows.comServer">
           <com:ComServer>
-            <com:ExeServer Executable="Wino.NotificationHost.exe" Arguments="----AppNotificationActivated:" DisplayName="Wino To Do notification host">
-              <com:Class Id="a5851908-6870-4384-912c-be36b23f142f" DisplayName="Wino To Do notification host" />
+            <com:ExeServer Executable="Wino.NotificationHost.exe" Arguments="----AppNotificationActivated:" DisplayName="Mail-Cal To Do notification host">
+              <com:Class Id="41c27c8b-0682-4050-9438-9ade1e20d0d4" DisplayName="Mail-Cal To Do notification host" />
             </com:ExeServer>
           </com:ComServer>
         </com:Extension>

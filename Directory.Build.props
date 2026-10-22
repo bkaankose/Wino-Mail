@@ -7,11 +7,10 @@
 	</PropertyGroup>
 
 	<!-- WinoTargetPlatform selects the platform build policy and the shared projects' target frameworks.
-	     An explicit value (Windows or MacOS) wins; otherwise the native host decides. Other hosts receive
-	     no platform defaults and must pass the platform explicitly. -->
+	     An explicit value wins; otherwise the native host decides. Windows is the only platform today;
+	     a future Linux head plugs in here. Other hosts must pass the platform explicitly. -->
 	<PropertyGroup Condition="'$(WinoTargetPlatform)' == ''">
 		<WinoTargetPlatform Condition="$([MSBuild]::IsOSPlatform('Windows'))">Windows</WinoTargetPlatform>
-		<WinoTargetPlatform Condition="$([MSBuild]::IsOSPlatform('OSX'))">MacOS</WinoTargetPlatform>
 	</PropertyGroup>
 
 	<Import Project="build/Wino.Windows.props" Condition="'$(WinoTargetPlatform)' == 'Windows'" />

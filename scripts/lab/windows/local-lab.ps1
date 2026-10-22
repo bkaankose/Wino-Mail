@@ -25,7 +25,7 @@ $stateRoot = Join-Path $labRoot '.state'
 $generatedRoot = Join-Path $labRoot 'generated'
 $servers = @('dovecot', 'condstore', 'stalwart', 'greenmail', 'james', 'baikal', 'radicale-condstore', 'radicale-greenmail', 'radicale-james')
 $publishedPorts = @(1143, 1587, 4025, 2143, 2587, 3143, 3587, 8803, 4143, 4080, 5143, 5587, 5800, 8800, 8802, 8804, 8805)
-$packageName = '58272BurakKSE.WinoMailPreview'
+$packageName = 'hairokuma.MailCal'
 
 function Resolve-Docker {
     if (Get-Command docker -ErrorAction SilentlyContinue) { return }

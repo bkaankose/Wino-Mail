@@ -5,7 +5,7 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(TargetFramework)' != 'netstandard2.0' and '$(IsTestProject)' != 'true' and !$(TargetFramework.Contains('-macos'))">
+  <PropertyGroup Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(TargetFramework)' != 'netstandard2.0' and '$(IsTestProject)' != 'true'">
     <!-- Release is the repository-wide Native AOT compatibility gate. -->
     <IsAotCompatible>true</IsAotCompatible>
     <IsTrimmable>true</IsTrimmable>
@@ -21,10 +21,9 @@
 
   <!-- Platform build policy. The shared Release gate above applies to every platform. -->
   <Import Project="build/Wino.Windows.targets" Condition="'$(WinoTargetPlatform)' == 'Windows'" />
-  <Import Project="build/Wino.MacOS.targets" Condition="'$(WinoTargetPlatform)' == 'MacOS' or $(TargetFramework.Contains('-macos'))" />
 
   <Target Name="WinoValidateTargetPlatform">
-    <Error Condition="'$(WinoTargetPlatform)' != '' and '$(WinoTargetPlatform)' != 'Windows' and '$(WinoTargetPlatform)' != 'MacOS'"
-           Text="WinoTargetPlatform must be Windows or MacOS, not '$(WinoTargetPlatform)'." />
+    <Error Condition="'$(WinoTargetPlatform)' != '' and '$(WinoTargetPlatform)' != 'Windows'"
+           Text="WinoTargetPlatform must be Windows, not '$(WinoTargetPlatform)'." />
   </Target>
 </Project>
