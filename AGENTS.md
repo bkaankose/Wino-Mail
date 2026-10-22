@@ -65,6 +65,7 @@ Read only references that apply to the task:
 | Reusable controls or playground | [controls/AGENTS.md](controls/AGENTS.md) |
 | Icons, icon fonts, or the colorful icon style | [icons/README.md](icons/README.md) and the Icons section of the [implementation rules](docs/harness/implementation-rules.md) |
 | Intelligence jobs, artifacts, or the daily briefing | [mail intelligence](docs/mail-intelligence.md) |
+| Calendar period navigation, the rail model, or the loaded event window | [calendar rail navigation](docs/calendar-rail-navigation.md) |
 | Release packaging | [release guide](docs/releases.md) |
 | What's New notes and illustrations | [whats-new skill](.claude/skills/whats-new/SKILL.md) |
 | Scripts | [script index](scripts/README.md) |

@@ -1,32 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.UI.Xaml;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Calendar.Controls;
 
-public sealed class TimedItemLayout
-{
-    public TimedItemLayout(CalendarItemViewModel item, int dayIndex, DateOnly date, LayoutRect bounds, DataTemplate? template = null)
-    {
-        Item = item;
-        DayIndex = dayIndex;
-        Date = date;
-        Bounds = bounds;
-        Template = template;
-    }
-
-    public CalendarItemViewModel Item { get; set; }
-    public int DayIndex { get; set; }
-    public DateOnly Date { get; set; }
-    public LayoutRect Bounds { get; set; }
-    public DataTemplate? Template { get; set; }
-}
-
-internal sealed record TimedCalendarLayoutResult(IReadOnlyList<DateOnly> VisibleDates, double DayWidth, IReadOnlyList<TimedItemLayout> Items);
+/// <summary>
+/// The placement of one calendar item inside a single day column. Bounds are relative to the column.
+/// </summary>
+internal readonly record struct TimedItemLayout(CalendarItemViewModel Item, DateOnly Date, LayoutRect Bounds);
 
 internal static class TimedCalendarLayoutCalculator
 {
@@ -50,57 +34,80 @@ internal static class TimedCalendarLayoutCalculator
                ((laneCount - 1) * AllDayItemGap);
     }
 
-    public static TimedCalendarLayoutResult Calculate(VisibleDateRange range, IEnumerable<CalendarItemViewModel> items, double availableWidth, double hourHeight, CalendarEventDisplayMode displayMode = CalendarEventDisplayMode.Stacked)
+    /// <summary>
+    /// Lays out the timed (not all-day) items of one date inside a column of <paramref name="dayWidth"/>.
+    /// </summary>
+    public static List<TimedItemLayout> CalculateDay(DateOnly date, IEnumerable<CalendarItemViewModel> items, double dayWidth, double hourHeight, CalendarEventDisplayMode displayMode = CalendarEventDisplayMode.Stacked)
     {
-        var visibleDates = range.Dates;
-        var dayWidth = visibleDates.Count == 0 ? 0d : availableWidth / visibleDates.Count;
         var layouts = new List<TimedItemLayout>();
+        var daySegments = BuildDaySegments(items, date)
+            .OrderBy(segment => segment.StartMinute)
+            .ThenBy(segment => segment.EndMinute)
+            .ToList();
 
-        for (var dayIndex = 0; dayIndex < visibleDates.Count; dayIndex++)
+        if (displayMode is CalendarEventDisplayMode.Overlapped or CalendarEventDisplayMode.LimitedOverlap or CalendarEventDisplayMode.ProtectTitles)
         {
-            var date = visibleDates[dayIndex];
-            var daySegments = BuildDaySegments(items, date)
-                .OrderBy(segment => segment.StartMinute)
-                .ThenBy(segment => segment.EndMinute)
-                .ToList();
+            var placements = CalendarEventPlacementCalculator.Calculate(daySegments.Select((segment, index) =>
+                new CalendarOverlapInterval(index, segment.Item.Id, segment.StartMinute, segment.EndMinute)), dayWidth, hourHeight, displayMode);
 
-            if (displayMode is CalendarEventDisplayMode.Overlapped or CalendarEventDisplayMode.LimitedOverlap or CalendarEventDisplayMode.ProtectTitles)
+            foreach (var placement in placements)
             {
-                var placements = CalendarEventPlacementCalculator.Calculate(daySegments.Select((segment, index) =>
-                    new CalendarOverlapInterval(index, segment.Item.Id, segment.StartMinute, segment.EndMinute)), dayWidth, hourHeight, displayMode);
+                var segment = daySegments[placement.SourceIndex];
+                var y = (segment.StartMinute / 60d) * hourHeight;
+                var height = Math.Max(1d, ((segment.EndMinute - segment.StartMinute) / 60d) * hourHeight);
 
-                foreach (var placement in placements)
-                {
-                    var segment = daySegments[placement.SourceIndex];
-                    var x = (dayIndex * dayWidth) + placement.Left;
-                    var y = (segment.StartMinute / 60d) * hourHeight;
-                    var height = Math.Max(1d, ((segment.EndMinute - segment.StartMinute) / 60d) * hourHeight);
-                    layouts.Add(new TimedItemLayout(segment.Item, dayIndex, date,
-                        new LayoutRect(x, y, placement.Width + ItemRightSpacing, height)));
-                }
-
-                continue;
+                layouts.Add(new TimedItemLayout(segment.Item, date,
+                    new LayoutRect(placement.Left, y, placement.Width + ItemRightSpacing, height)));
             }
 
-            foreach (var cluster in BuildClusters(daySegments))
+            return layouts;
+        }
+
+        foreach (var cluster in BuildClusters(daySegments))
+        {
+            AssignColumns(cluster);
+            var columnCount = cluster.Max(segment => segment.ColumnIndex) + 1;
+            var subColumnWidth = columnCount == 0 ? dayWidth : dayWidth / columnCount;
+
+            foreach (var segment in cluster)
             {
-                AssignColumns(cluster);
-                var columnCount = cluster.Max(segment => segment.ColumnIndex) + 1;
-                var subColumnWidth = columnCount == 0 ? dayWidth : dayWidth / columnCount;
+                var x = (segment.ColumnIndex * subColumnWidth) + 2;
+                var width = Math.Max(0, subColumnWidth - 4);
+                var y = (segment.StartMinute / 60d) * hourHeight;
+                var height = Math.Max(1, ((segment.EndMinute - segment.StartMinute) / 60d) * hourHeight);
 
-                foreach (var segment in cluster)
-                {
-                    var x = (dayIndex * dayWidth) + (segment.ColumnIndex * subColumnWidth) + 2;
-                    var width = Math.Max(0, subColumnWidth - 4);
-                    var y = (segment.StartMinute / 60d) * hourHeight;
-                    var height = Math.Max(1, ((segment.EndMinute - segment.StartMinute) / 60d) * hourHeight);
-
-                    layouts.Add(new TimedItemLayout(segment.Item, dayIndex, date, new LayoutRect(x, y, width, height)));
-                }
+                layouts.Add(new TimedItemLayout(segment.Item, date, new LayoutRect(x, y, width, height)));
             }
         }
 
-        return new TimedCalendarLayoutResult(visibleDates, dayWidth, layouts);
+        return layouts;
+    }
+
+    /// <summary>
+    /// Stacks the all-day items of one date inside a column of <paramref name="dayWidth"/>. The
+    /// number of returned items is the column's lane count.
+    /// </summary>
+    public static List<TimedItemLayout> CalculateAllDayItems(DateOnly date, IEnumerable<CalendarItemViewModel> items, double dayWidth)
+    {
+        var layouts = new List<TimedItemLayout>();
+        var dayItems = BuildAllDayItems(items, date)
+            .OrderBy(item => item.StartDate)
+            .ThenBy(item => item.EndDate)
+            .ThenBy(item => item.Title)
+            .ToList();
+
+        for (var rowIndex = 0; rowIndex < dayItems.Count; rowIndex++)
+        {
+            var y = AllDaySectionPadding + (rowIndex * (AllDayItemHeight + AllDayItemGap));
+            var width = Math.Max(0d, dayWidth - 4d);
+
+            layouts.Add(new TimedItemLayout(
+                dayItems[rowIndex],
+                date,
+                new LayoutRect(2d, y, width, AllDayItemHeight)));
+        }
+
+        return layouts;
     }
 
     private static List<Segment> BuildDaySegments(IEnumerable<CalendarItemViewModel> items, DateOnly date)
@@ -141,50 +148,6 @@ internal static class TimedCalendarLayoutCalculator
         }
 
         return segments;
-    }
-
-    public static IReadOnlyList<TimedItemLayout> CalculateAllDayItems(VisibleDateRange range, IEnumerable<CalendarItemViewModel> items, double availableWidth)
-    {
-        var visibleDates = range.Dates;
-        var dayWidth = visibleDates.Count == 0 ? 0d : availableWidth / visibleDates.Count;
-        var layouts = new List<TimedItemLayout>();
-
-        for (var dayIndex = 0; dayIndex < visibleDates.Count; dayIndex++)
-        {
-            var date = visibleDates[dayIndex];
-            var dayItems = BuildAllDayItems(items, date)
-                .OrderBy(item => item.StartDate)
-                .ThenBy(item => item.EndDate)
-                .ThenBy(item => item.Title)
-                .ToList();
-
-            for (var rowIndex = 0; rowIndex < dayItems.Count; rowIndex++)
-            {
-                var y = AllDaySectionPadding + (rowIndex * (AllDayItemHeight + AllDayItemGap));
-                var x = (dayIndex * dayWidth) + 2d;
-                var width = Math.Max(0d, dayWidth - 4d);
-
-                layouts.Add(new TimedItemLayout(
-                    dayItems[rowIndex],
-                    dayIndex,
-                    date,
-                    new LayoutRect(x, y, width, AllDayItemHeight)));
-            }
-        }
-
-        return layouts;
-    }
-
-    public static int GetAllDayLaneCount(IReadOnlyList<DateOnly> visibleDates, IEnumerable<CalendarItemViewModel> items)
-    {
-        var laneCount = 0;
-
-        foreach (var date in visibleDates)
-        {
-            laneCount = Math.Max(laneCount, BuildAllDayItems(items, date).Count);
-        }
-
-        return laneCount;
     }
 
     private static IEnumerable<List<Segment>> BuildClusters(List<Segment> segments)

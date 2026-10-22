@@ -18,8 +18,6 @@
     mc:Ignorable="d">
 
     <UserControl.Resources>
-
-
         <DataTemplate x:Key="CalendarEventTemplate" x:DataType="viewModels:CalendarItemViewModel">
             <local:CalendarItemControl CalendarItem="{x:Bind}" />
         </DataTemplate>
@@ -48,16 +46,6 @@
             <local:CalendarItemControl CalendarItem="{x:Bind}" IsCustomEventArea="True" />
         </DataTemplate>
 
-        <DataTemplate x:Key="TimedHeaderTemplate" x:DataType="local:HeaderTextLayout">
-            <TextBlock
-                Width="{x:Bind Width}"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                FontWeight="SemiBold"
-                Text="{x:Bind Text}"
-                TextAlignment="Center" />
-        </DataTemplate>
-
         <DataTemplate x:Key="MonthHeaderTemplate" x:DataType="local:HeaderTextLayout">
             <TextBlock
                 Width="{x:Bind Width}"
@@ -73,8 +61,21 @@
         </ItemsPanelTemplate>
     </UserControl.Resources>
 
+    <!--
+        The surface is a viewport over an infinite rail of units (day columns, or week rows in
+        the month view). Each rail is a Canvas moved with UIElement.Translation; its host clips it
+        so that it never paints over the hour column or the month header.
+    -->
     <Grid>
-        <Grid x:Name="TimedRoot" Visibility="Collapsed">
+        <!--
+            The wheel is handled where it is raised. Inside the hour ScrollViewer the content grid
+            handles it first, so a pan marks it handled before the ScrollViewer can scroll the hours;
+            the plain vertical wheel is left alone and still scrolls them.
+        -->
+        <Grid
+            x:Name="TimedRoot"
+            PointerWheelChanged="ControlPointerWheelChanged"
+            Visibility="Collapsed">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="{x:Bind helpers:XamlHelpers.DoubleToGridLength(TimedAllDayHeight), Mode=OneWay}" />
@@ -97,30 +98,26 @@
             <Grid
                 x:Name="TimedHeaderHost"
                 Grid.Row="0"
-                Grid.ColumnSpan="2"
+                Grid.Column="1"
                 Height="44"
-                Margin="64,0,0,0"
-                Background="{ThemeResource LayerFillColorDefaultBrush}">
-                <!--
-                    Every Win2D canvas sits in a panel of its own. The canvas keeps a hard reference
-                    to its parent, so a parent that carries event handlers or interactive siblings
-                    would keep this control and its page alive through them.
-                -->
-                <Grid IsHitTestVisible="False">
-                    <win2d:CanvasControl
-                        x:Name="TimedHeaderCanvas"
-                        Draw="TimedHeaderCanvasDraw"
-                        IsHitTestVisible="False" />
-                </Grid>
-                <ItemsControl
-                    x:Name="TimedHeadersItemsControl"
-                    HorizontalContentAlignment="Stretch"
-                    ItemTemplate="{StaticResource TimedHeaderTemplate}"
-                    ItemsSource="{x:Bind TimedHeaderTexts, Mode=OneWay}">
-                    <ItemsControl.ItemsPanel>
-                        <StaticResource ResourceKey="HorizontalItemsPanel" />
-                    </ItemsControl.ItemsPanel>
-                </ItemsControl>
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                SizeChanged="RailHostSizeChanged">
+                <Grid.Clip>
+                    <RectangleGeometry x:Name="TimedHeaderClip" />
+                </Grid.Clip>
+                <Canvas x:Name="TimedHeaderRail" IsHitTestVisible="False">
+                    <!--
+                        Every Win2D canvas sits in a panel of its own. The canvas keeps a hard reference
+                        to its parent, so a parent that carries event handlers or interactive siblings
+                        would keep this control and its page alive through them.
+                    -->
+                    <Grid x:Name="TimedHeaderCanvasHost" IsHitTestVisible="False">
+                        <win2d:CanvasControl
+                            x:Name="TimedHeaderCanvas"
+                            Draw="TimedHeaderCanvasDraw"
+                            IsHitTestVisible="False" />
+                    </Grid>
+                </Canvas>
             </Grid>
 
             <Border
@@ -145,14 +142,19 @@
                 Drop="TimedAllDayHostDrop"
                 PointerExited="CalendarDropTargetPointerExited"
                 PointerMoved="TimedAllDayHostPointerMoved"
+                SizeChanged="RailHostSizeChanged"
                 Visibility="{x:Bind HasTimedAllDayItems, Mode=OneWay}">
-                <Grid IsHitTestVisible="False">
-                    <win2d:CanvasControl
-                        x:Name="TimedAllDayCanvas"
-                        Draw="TimedAllDayCanvasDraw"
-                        IsHitTestVisible="False" />
-                </Grid>
-                <Canvas x:Name="TimedAllDayItemsCanvas" />
+                <Grid.Clip>
+                    <RectangleGeometry x:Name="TimedAllDayClip" />
+                </Grid.Clip>
+                <Canvas x:Name="TimedAllDayRail">
+                    <Grid x:Name="TimedAllDayCanvasHost" IsHitTestVisible="False">
+                        <win2d:CanvasControl
+                            x:Name="TimedAllDayCanvas"
+                            Draw="TimedAllDayCanvasDraw"
+                            IsHitTestVisible="False" />
+                    </Grid>
+                </Canvas>
             </Grid>
 
             <Grid
@@ -165,7 +167,10 @@
                     HorizontalScrollBarVisibility="Disabled"
                     VerticalScrollBarVisibility="Auto"
                     VerticalScrollMode="Enabled">
-                    <Grid x:Name="TimedScrollContentGrid" Height="{x:Bind TimelineHeight, Mode=OneWay}">
+                    <Grid
+                        x:Name="TimedScrollContentGrid"
+                        Height="{x:Bind TimelineHeight, Mode=OneWay}"
+                        PointerWheelChanged="ControlPointerWheelChanged">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="64" />
                             <ColumnDefinition Width="*" />
@@ -185,18 +190,23 @@
                             DragOver="TimedViewportDragOver"
                             Drop="TimedViewportDrop"
                             PointerExited="CalendarDropTargetPointerExited"
-                            PointerMoved="TimedViewportPointerMoved">
-                            <Grid IsHitTestVisible="False">
-                                <win2d:CanvasControl
-                                    x:Name="TimedStructureCanvas"
-                                    Draw="TimedStructureCanvasDraw"
-                                    IsHitTestVisible="False" />
-                            </Grid>
+                            PointerMoved="TimedViewportPointerMoved"
+                            SizeChanged="RailHostSizeChanged">
+                            <Grid.Clip>
+                                <RectangleGeometry x:Name="TimedViewportClip" />
+                            </Grid.Clip>
                             <Border
                                 x:Name="TimedInteractionLayer"
                                 Background="Transparent"
                                 Tapped="TimedInteractionLayerTapped" />
-                            <Canvas x:Name="TimedItemsCanvas" />
+                            <Canvas x:Name="TimedBodyRail">
+                                <Grid x:Name="TimedStructureCanvasHost" IsHitTestVisible="False">
+                                    <win2d:CanvasControl
+                                        x:Name="TimedStructureCanvas"
+                                        Draw="TimedStructureCanvasDraw"
+                                        IsHitTestVisible="False" />
+                                </Grid>
+                            </Canvas>
                         </Grid>
                     </Grid>
                 </ScrollViewer>
@@ -204,7 +214,10 @@
 
         </Grid>
 
-        <Grid x:Name="MonthRoot" Visibility="Collapsed">
+        <Grid
+            x:Name="MonthRoot"
+            PointerWheelChanged="ControlPointerWheelChanged"
+            Visibility="Collapsed">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
@@ -232,24 +245,22 @@
                 DragOver="MonthViewportDragOver"
                 Drop="MonthViewportDrop"
                 PointerExited="CalendarDropTargetPointerExited"
-                PointerMoved="MonthViewportPointerMoved">
-                <Grid IsHitTestVisible="False">
-                    <win2d:CanvasControl
-                        x:Name="MonthStructureCanvas"
-                        Draw="MonthStructureCanvasDraw"
-                        IsHitTestVisible="False" />
-                </Grid>
+                PointerMoved="MonthViewportPointerMoved"
+                SizeChanged="RailHostSizeChanged">
+                <Grid.Clip>
+                    <RectangleGeometry x:Name="MonthViewportClip" />
+                </Grid.Clip>
                 <Border
                     x:Name="MonthInteractionLayer"
                     Background="Transparent"
                     Tapped="MonthInteractionLayerTapped" />
-                <Canvas x:Name="MonthCellLabelsCanvas" IsHitTestVisible="False" />
-                <Canvas x:Name="MonthItemsCanvas">
-                    <Canvas.Transitions>
-                        <TransitionCollection>
-                            <AddDeleteThemeTransition />
-                        </TransitionCollection>
-                    </Canvas.Transitions>
+                <Canvas x:Name="MonthRail">
+                    <Grid x:Name="MonthStructureCanvasHost" IsHitTestVisible="False">
+                        <win2d:CanvasControl
+                            x:Name="MonthStructureCanvas"
+                            Draw="MonthStructureCanvasDraw"
+                            IsHitTestVisible="False" />
+                    </Grid>
                 </Canvas>
             </Grid>
         </Grid>

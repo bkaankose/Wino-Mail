@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -14,6 +15,7 @@ using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Calendar.ViewModels.Messages;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Enums;
@@ -188,8 +190,12 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     [ObservableProperty]
     public partial bool IsCalendarEnabled { get; set; } = true;
 
+    /// <summary>
+    /// Every item inside <see cref="LoadedDateWindow"/>, sorted by start, end and id. Window moves
+    /// add and remove whole ranges; single edits insert, replace or remove one item.
+    /// </summary>
     [ObservableProperty]
-    public partial ObservableCollection<CalendarItemViewModel> CalendarItems { get; set; } = new();
+    public partial ObservableRangeCollection<CalendarItemViewModel> CalendarItems { get; set; } = new();
 
     #endregion
 
@@ -226,6 +232,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     private bool _subscriptionsAttached;
     private CancellationTokenSource _pageLifetimeCts = new();
     private long _pageLifetimeVersion;
+    private long _displayRequestVersion;
     private bool _isCalendarBadgeClearedForPageLifetime;
     private Dictionary<Guid, CalendarItemViewModel> _loadedCalendarItems = new();
 
@@ -800,9 +807,25 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     public bool LastDisplayLoadSucceeded { get; private set; }
 
+    /// <summary>
+    /// The title for a period the surface is passing while its rail moves, before that period is
+    /// settled and loaded. Same formatter as <see cref="VisibleDateRangeText"/>.
+    /// </summary>
+    public string FormatRangeText(CalendarDisplayType displayType, DateOnly anchorDate)
+    {
+        if (CurrentSettings == null)
+            return string.Empty;
+
+        var today = _dateContextProvider.GetToday();
+        var range = CalendarRangeResolver.Resolve(new CalendarDisplayRequest(displayType, anchorDate), CurrentSettings, today);
+
+        return _calendarRangeTextFormatter.Format(range, _dateContextProvider);
+    }
+
     public async Task ApplyDisplayRequestAsync(CalendarDisplayRequest request, bool forceReload = false, CalendarItemTarget pendingTarget = null)
     {
         var lifetimeVersion = CurrentPageLifetimeVersion;
+        var requestVersion = Interlocked.Increment(ref _displayRequestVersion);
         var hasLoadingLock = await WaitForCalendarLoadingLockAsync(lifetimeVersion).ConfigureAwait(false);
         var loadSucceeded = false;
 
@@ -811,7 +834,9 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         try
         {
-            await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () => { LastDisplayLoadSucceeded = false; IsCalendarEnabled = false; }).ConfigureAwait(false);
+            // Railing through several periods queues a request per settle; only the latest one is worth loading.
+            if (pendingTarget == null && !forceReload && requestVersion != Interlocked.Read(ref _displayRequestVersion))
+                return;
 
             if (!IsPageActive(lifetimeVersion))
                 return;
@@ -819,6 +844,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             CalendarSettings currentSettings = null;
             VisibleDateRange currentVisibleRange = null;
             DateRange currentLoadedDateWindow = null;
+            HashSet<Guid> loadedItemIds = null;
 
             await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
             {
@@ -830,6 +856,14 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                 currentSettings = CurrentSettings;
                 currentVisibleRange = CurrentVisibleRange;
                 currentLoadedDateWindow = LoadedDateWindow;
+                loadedItemIds = _loadedCalendarItems.Keys.ToHashSet();
+                LastDisplayLoadSucceeded = false;
+
+                // The surface stays interactive while a window loads; only the first load has nothing to show yet.
+                if (currentVisibleRange == null)
+                {
+                    IsCalendarEnabled = false;
+                }
             }).ConfigureAwait(false);
 
             if (currentSettings == null || !IsPageActive(lifetimeVersion))
@@ -837,36 +871,50 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
             var today = _dateContextProvider.GetToday();
             var visibleRange = CalendarRangeResolver.Resolve(request, currentSettings, today);
-            var previousRange = CalendarRangeResolver.Navigate(visibleRange, -1, currentSettings, today);
-            var nextRange = CalendarRangeResolver.Navigate(visibleRange, 1, currentSettings, today);
-            var loadedDateWindow = new DateRange(
-                previousRange.StartDate.ToDateTime(TimeOnly.MinValue),
-                nextRange.EndDate.AddDays(1).ToDateTime(TimeOnly.MinValue));
+            var loadedDateWindow = CalendarLoadWindow.GetWindow(visibleRange, currentSettings, today);
+            var missingRanges = forceReload
+                ? new[] { loadedDateWindow }
+                : CalendarLoadWindow.GetMissingRanges(currentLoadedDateWindow, loadedDateWindow);
 
-            var shouldReload =
-                forceReload ||
-                !IsSameVisibleRange(currentVisibleRange, visibleRange) ||
-                !IsSameDateRange(currentLoadedDateWindow, loadedDateWindow);
-            List<CalendarItemViewModel> loadedItems = null;
-
-            if (shouldReload)
+            // The range is published before its items arrive so the title and the surface follow the rail at once.
+            await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
             {
-                loadedItems = await LoadCalendarItemsAsync(loadedDateWindow, lifetimeVersion).ConfigureAwait(false);
+                EnsureSelectedQuickEventAccountCalendar();
+                CurrentVisibleRange = visibleRange;
+                VisibleDateRangeText = _calendarRangeTextFormatter.Format(visibleRange, _dateContextProvider);
+            }).ConfigureAwait(false);
+
+            var loadedItems = new List<CalendarItemViewModel>();
+
+            foreach (var missingRange in missingRanges)
+            {
+                loadedItems.AddRange(await LoadCalendarItemsAsync(missingRange, lifetimeVersion).ConfigureAwait(false));
+
                 if (!IsPageActive(lifetimeVersion))
                     return;
             }
 
+            // The diff runs off the UI thread; the UI thread only applies the sorted result.
+            var addedItems = forceReload
+                ? loadedItems
+                : loadedItems
+                    .Where(item => !loadedItemIds.Contains(item.Id))
+                    .DistinctBy(item => item.Id)
+                    .OrderBy(item => item, Comparer<CalendarItemViewModel>.Create(CompareCalendarItems))
+                    .ToList();
+
             await ExecuteUIThreadIfActiveAsync(lifetimeVersion, () =>
             {
-                if (loadedItems != null)
+                if (forceReload)
                 {
-                    ReplaceLoadedCalendarItems(loadedItems);
+                    ReplaceLoadedCalendarItems(addedItems);
+                }
+                else
+                {
+                    ApplyLoadedWindowChanges(loadedDateWindow, addedItems);
                 }
 
-                EnsureSelectedQuickEventAccountCalendar();
-                CurrentVisibleRange = visibleRange;
                 LoadedDateWindow = loadedDateWindow;
-                VisibleDateRangeText = _calendarRangeTextFormatter.Format(visibleRange, _dateContextProvider);
                 LastDisplayLoadSucceeded = true;
                 if (DisplayDetailsCalendarItemViewModel != null && !IsCalendarActive(DisplayDetailsCalendarItemViewModel.AssignedCalendar?.Id))
                 {
@@ -1022,31 +1070,6 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             .ThenBy(item => item.EndDate)
             .ThenBy(item => item.Id)
             .ToList();
-    }
-
-    private static bool IsSameVisibleRange(VisibleDateRange current, VisibleDateRange next)
-    {
-        if (current == null && next == null)
-            return true;
-
-        if (current == null || next == null)
-            return false;
-
-        return current.DisplayType == next.DisplayType &&
-               current.AnchorDate == next.AnchorDate &&
-               current.StartDate == next.StartDate &&
-               current.EndDate == next.EndDate;
-    }
-
-    private static bool IsSameDateRange(DateRange current, DateRange next)
-    {
-        if (current == null && next == null)
-            return true;
-
-        if (current == null || next == null)
-            return false;
-
-        return current.StartDate == next.StartDate && current.EndDate == next.EndDate;
     }
 
     private bool IsCalendarActive(Guid? calendarId)
@@ -1325,8 +1348,62 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     private void ReplaceLoadedCalendarItems(IEnumerable<CalendarItemViewModel> loadedItems)
     {
         var loadedItemsList = loadedItems?.ToList() ?? [];
-        CalendarItems = new ObservableCollection<CalendarItemViewModel>(loadedItemsList);
+        CalendarItems.ReplaceRange(loadedItemsList);
         _loadedCalendarItems = loadedItemsList.ToDictionary(item => item.Id);
+    }
+
+    /// <summary>
+    /// Moves the loaded window: items that no longer touch it leave in one range removal, and the
+    /// newly loaded items join in one range insertion at their sorted position. A window that only
+    /// shifted by a few periods inserts at one end; anything else merges and resets once.
+    /// </summary>
+    private void ApplyLoadedWindowChanges(DateRange loadedDateWindow, List<CalendarItemViewModel> addedItems)
+    {
+        var evictedItems = _loadedCalendarItems.Values
+            .Where(item => !CalendarLoadWindow.Intersects(loadedDateWindow, item.StartDate, item.EndDate))
+            .ToList();
+
+        foreach (var evictedItem in evictedItems)
+        {
+            _loadedCalendarItems.Remove(evictedItem.Id);
+        }
+
+        if (evictedItems.Count > 0)
+        {
+            CalendarItems.RemoveRange(evictedItems, NotifyCollectionChangedAction.Remove);
+        }
+
+        var insertedItems = new List<CalendarItemViewModel>(addedItems.Count);
+
+        foreach (var addedItem in addedItems)
+        {
+            if (_loadedCalendarItems.ContainsKey(addedItem.Id))
+                continue;
+
+            _loadedCalendarItems[addedItem.Id] = addedItem;
+            insertedItems.Add(addedItem);
+        }
+
+        if (insertedItems.Count == 0)
+            return;
+
+        if (CalendarItems.Count == 0 || CompareCalendarItems(insertedItems[0], CalendarItems[^1]) >= 0)
+        {
+            CalendarItems.AddRange(insertedItems);
+        }
+        else if (CompareCalendarItems(insertedItems[^1], CalendarItems[0]) <= 0)
+        {
+            CalendarItems.InsertRange(0, insertedItems);
+        }
+        else
+        {
+            var mergedItems = CalendarItems
+                .Concat(insertedItems)
+                .OrderBy(item => item, Comparer<CalendarItemViewModel>.Create(CompareCalendarItems))
+                .ToList();
+
+            CalendarItems.ReplaceRange(mergedItems);
+        }
     }
 
     private void InsertLoadedCalendarItem(CalendarItemViewModel calendarItemViewModel)

@@ -115,6 +115,35 @@ public sealed partial class CalendarPeriodControl
         {
             CancelRangeSelection();
             e.Handled = true;
+            return;
+        }
+
+        if (e.Handled || _space is not CalendarRailSpace space)
+        {
+            return;
+        }
+
+        var isMonth = space.Axis == CalendarRailAxis.Vertical;
+        var direction = e.Key switch
+        {
+            VirtualKey.Left when !isMonth => -1,
+            VirtualKey.Right when !isMonth => 1,
+            VirtualKey.Up when isMonth => -1,
+            VirtualKey.Down when isMonth => 1,
+            _ => 0
+        };
+
+        if (direction != 0)
+        {
+            NavigatePeriods(direction);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == VirtualKey.Home)
+        {
+            TodayRequested?.Invoke(this, EventArgs.Empty);
+            e.Handled = true;
         }
     }
 }
