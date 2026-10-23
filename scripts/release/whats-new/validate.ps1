@@ -6,6 +6,7 @@ Validates the What's New release notes bundled with the app.
 Checks src/Wino.Mail.WinUI/Assets/WhatsNew/<version>.json for the given version (default: the
 Package.appxmanifest version) and every other notes file in the folder. Each feature needs a
 title, a description, and a 1120x600 PNG illustration with a descriptive kebab-case name.
+A version may have no notes file when release-notes/<version>.md has no Highlights.
 Exits with code 1 when a check fails. Dot-source the script to use Get-WhatsNewValidationErrors.
 #>
 [CmdletBinding()]
@@ -42,6 +43,18 @@ function Get-PngSize {
     $width = ([int]$bytes[16] -shl 24) -bor ([int]$bytes[17] -shl 16) -bor ([int]$bytes[18] -shl 8) -bor [int]$bytes[19]
     $height = ([int]$bytes[20] -shl 24) -bor ([int]$bytes[21] -shl 16) -bor ([int]$bytes[22] -shl 8) -bor [int]$bytes[23]
     return [pscustomobject]@{ Width = $width; Height = $height }
+}
+
+function Test-WhatsNewSkipped {
+    param([string]$Root, [string]$Version)
+
+    # A release whose reviewed notes have no Highlights ships without What's New notes on purpose.
+    $notesPath = Join-Path $Root "release-notes/$Version.md"
+    if (-not (Test-Path -LiteralPath $notesPath -PathType Leaf)) { return $false }
+    $text = (Get-Content -LiteralPath $notesPath -Raw) -replace "`r`n", "`n"
+    if ($text -notmatch '(?ms)^## +Highlights\s*$(.*?)(?=^## |\z)') { return $false }
+    $highlights = $Matches[1].Trim()
+    return -not $highlights -or $highlights -match '^_?None_?\.?$'
 }
 
 function Get-WhatsNewValidationErrors {
@@ -99,8 +112,8 @@ function Get-WhatsNewValidationErrors {
         }
     }
 
-    if (-not $versions.ContainsKey($RequiredVersion)) {
-        $errors.Add("No release notes for $RequiredVersion. Expected Assets\WhatsNew\$RequiredVersion.json.")
+    if (-not $versions.ContainsKey($RequiredVersion) -and -not (Test-WhatsNewSkipped $Root $RequiredVersion)) {
+        $errors.Add("No release notes for $RequiredVersion. Expected Assets\WhatsNew\$RequiredVersion.json, or release-notes\$RequiredVersion.md with Highlights set to _None_.")
     }
     return $errors.ToArray()
 }

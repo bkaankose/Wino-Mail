@@ -91,10 +91,8 @@ pwsh -NoProfile -File .\scripts\release\windows\build-releases.ps1 -NonInteracti
 ```
 
 For all architectures, supply `x86,x64,ARM64` from PowerShell.
-The CI beta workflow uses this same script and requires the artwork in the checkout.
-CI uses the `WINO_BETA_RELEASE_*` secrets listed below. It no longer uses the old PFX secret.
-GitHub beta tags use `beta/v<version>` to keep them separate from stable tags.
-The workflow creates a GitHub prerelease. Website feed publication remains a separate operation.
+Beta builds reach testers only through the beta App Installer feed (`publish-releases.ps1`). They never get a GitHub release or tag.
+GitHub Releases list stable versions only; `scripts/release/release.ps1 publish` creates them after the Store build is live. See the [release guide](releases.md).
 
 ## Main database relocation
 

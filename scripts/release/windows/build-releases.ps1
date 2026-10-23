@@ -975,7 +975,7 @@ function Confirm-ReleaseWhatsNew {
     # Missing notes do not break a package, but users would not see the What's New button.
     $errors = @(Get-ReleaseWhatsNewErrors $Plan)
     if ($errors.Count -eq 0) { return $true }
-    Write-Warning "The What's New notes for $(([version]$Plan.Version).ToString(3)) are missing or invalid. Run the whats-new skill or scripts/release/whats-new/validate.ps1."
+    Write-Warning "The What's New notes for $(([version]$Plan.Version).ToString(3)) are missing or invalid. Run the whatsnew skill or scripts/release/whats-new/validate.ps1."
     $errors | ForEach-Object { Write-Warning $_ }
     if ($NonInteractive) { return $true }
     return Read-ReleaseChoice 'Continue without valid What''s New notes? (yes/no)' @{ yes = $true; y = $true; no = $false; n = $false }
