@@ -15,6 +15,7 @@ public partial class AccountNavigationItem : WinoNavigationViewItem
 
     public static readonly DependencyProperty IsActiveAccountProperty = DependencyProperty.Register(nameof(IsActiveAccount), typeof(bool), typeof(AccountNavigationItem), new PropertyMetadata(false, new PropertyChangedCallback(OnIsActiveAccountChanged)));
     public static readonly DependencyProperty BindingDataProperty = DependencyProperty.Register(nameof(BindingData), typeof(IMenuItem), typeof(AccountNavigationItem), new PropertyMetadata(null));
+    public static readonly DependencyProperty IconBoxHeightProperty = DependencyProperty.Register(nameof(IconBoxHeight), typeof(double), typeof(AccountNavigationItem), new PropertyMetadata(28d, new PropertyChangedCallback(OnIconBoxHeightChanged)));
 
 
     public bool IsActiveAccount
@@ -29,10 +30,17 @@ public partial class AccountNavigationItem : WinoNavigationViewItem
         set { SetValue(BindingDataProperty, value); }
     }
 
+    public double IconBoxHeight
+    {
+        get { return (double)GetValue(IconBoxHeightProperty); }
+        set { SetValue(IconBoxHeightProperty, value); }
+    }
+
     private const string PART_NavigationViewItemMenuItemsHost = "NavigationViewItemMenuItemsHost";
     private const string PART_SelectionIndicator = "CustomSelectionIndicator";
     private const string PART_NavigationViewItemPresenter = "NavigationViewItemPresenter";
     private const string PresenterContentGridName = "ContentGrid";
+    private const string PresenterIconBoxName = "IconBox";
 
     // The presenter template's own right margin on its content grid while the pane is open.
     private static readonly Thickness OpenPaneContentGridMargin = new(0, 0, 14, 0);
@@ -67,6 +75,7 @@ public partial class AccountNavigationItem : WinoNavigationViewItem
 
         UpdateSelectionBorder();
         UpdatePresenterContentGridMargin();
+        UpdateIconBoxHeight();
     }
 
     /// <summary>
@@ -81,18 +90,33 @@ public partial class AccountNavigationItem : WinoNavigationViewItem
         UpdatePresenterContentGridMargin();
     }
 
-    private void PresenterLoaded(object sender, RoutedEventArgs e) => UpdatePresenterContentGridMargin();
+    private void PresenterLoaded(object sender, RoutedEventArgs e)
+    {
+        UpdatePresenterContentGridMargin();
+        UpdateIconBoxHeight();
+    }
 
     private void UpdatePresenterContentGridMargin()
     {
-        if (_presenter == null || FindContentGrid(_presenter) is not { } contentGrid)
+        if (_presenter == null || FindPresenterChild(_presenter, PresenterContentGridName) is not { } contentGrid)
             return;
 
         contentGrid.Margin = _isPaneClosed ? new Thickness(0) : OpenPaneContentGridMargin;
     }
 
-    [DynamicWindowsRuntimeCast(typeof(Panel))]
-    private static FrameworkElement? FindContentGrid(DependencyObject parent)
+    /// <summary>
+    /// The item style fixes the presenter's icon box resource at 28 px for the account avatars, and the
+    /// presenter reads it only while building its template. A smaller glyph needs the box itself resized.
+    /// </summary>
+    private void UpdateIconBoxHeight()
+    {
+        if (_presenter == null || FindPresenterChild(_presenter, PresenterIconBoxName) is not { } iconBox)
+            return;
+
+        iconBox.Height = IconBoxHeight;
+    }
+
+    private static FrameworkElement? FindPresenterChild(DependencyObject parent, string name)
     {
         var childCount = VisualTreeHelper.GetChildrenCount(parent);
 
@@ -100,15 +124,21 @@ public partial class AccountNavigationItem : WinoNavigationViewItem
         {
             var child = VisualTreeHelper.GetChild(parent, index);
 
-            if (child is FrameworkElement { Name: PresenterContentGridName } contentGrid)
-                return contentGrid;
+            if (child is FrameworkElement element && element.Name == name)
+                return element;
 
-            // The content grid sits two panels below the presenter. Icons and content hang below it.
-            if (child is Panel && FindContentGrid(child) is { } nested)
+            // The icon box sits in a Border inside the content grid, so every child is searched.
+            if (FindPresenterChild(child, name) is { } nested)
                 return nested;
         }
 
         return null;
+    }
+
+    private static void OnIconBoxHeightChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
+    {
+        if (obj is AccountNavigationItem control)
+            control.UpdateIconBoxHeight();
     }
 
     private static void OnIsActiveAccountChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
