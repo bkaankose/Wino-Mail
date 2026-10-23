@@ -100,6 +100,9 @@ public partial class MailAccountPreferences
     /// </summary>
     public bool IsTaskbarBadgeEnabled { get; set; } = true;
 
+    /// <summary>Device-local: not part of Wino Account data sync.</summary>
+    public bool IsTrayIconBadgeEnabled { get; set; } = true;
+
     /// <summary>
     /// Gets or sets whether the account row in the navigation shows its unread total.
     /// </summary>

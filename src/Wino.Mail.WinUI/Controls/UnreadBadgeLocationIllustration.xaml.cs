@@ -9,7 +9,8 @@ public enum UnreadBadgeIllustrationKind
 {
     AccountBadge = 0,
     TaskbarBadge = 1,
-    FolderBadges = 2
+    FolderBadges = 2,
+    TrayIcon = 3
 }
 
 /// <summary>

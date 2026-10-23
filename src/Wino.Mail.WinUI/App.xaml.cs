@@ -70,7 +70,8 @@ public partial class App : WinoApplication,
     IRecipient<AccountRemovedMessage>,
     IRecipient<AccountUpdatedMessage>,
     IRecipient<GetStartedFromWelcomeRequested>,
-    IRecipient<WelcomeImportCompletedMessage>
+    IRecipient<WelcomeImportCompletedMessage>,
+    IRecipient<TrayUnreadIndicatorChanged>
 {
     private IApplicationRuntime? _applicationRuntime;
     private const string ToggleDefaultModeLaunchArgument = "--mode=toggle-default";
@@ -365,6 +366,7 @@ public partial class App : WinoApplication,
         }
 
         var companion = _companionIntegration;
+        companion.SetUnreadIndicator(NotificationBuilder.LastSnapshot?.IsTrayIconIndicatorVisible == true);
         companion.TryConfigureHotKey(
             _preferencesService?.IsCompanionHotKeyEnabled ?? false,
             GetConfiguredCompanionHotKey());
@@ -2001,6 +2003,13 @@ public partial class App : WinoApplication,
         WeakReferenceMessenger.Default.Register<GetStartedFromWelcomeRequested>(this);
         WeakReferenceMessenger.Default.Register<WelcomeImportCompletedMessage>(this);
         WeakReferenceMessenger.Default.Register<LanguageChanged>(this);
+        WeakReferenceMessenger.Default.Register<TrayUnreadIndicatorChanged>(this);
+    }
+
+    public void Receive(TrayUnreadIndicatorChanged message)
+    {
+        // Shell_NotifyIcon belongs to the tray window's thread; a tray created later reads LastSnapshot.
+        _applicationDispatcherQueue?.TryEnqueue(() => _companionIntegration?.SetUnreadIndicator(message.IsVisible));
     }
 
     public void Receive(AccountSynchronizationCompleted message)

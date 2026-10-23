@@ -27,6 +27,7 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
     private readonly IFolderService _folderService;
     private readonly IUnreadBadgeService _unreadBadgeService;
     private readonly INotificationBuilder _notificationBuilder;
+    private readonly IPreferencesService _preferencesService;
 
     private MailAccount _account;
     private bool _isLoaded;
@@ -67,6 +68,12 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
     public partial bool IsTaskbarBadgeEnabled { get; set; }
 
     [ObservableProperty]
+    public partial bool IsTrayIconBadgeEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsTrayIconUnavailable { get; set; }
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsFolderBadgesOffHintVisible))]
     public partial bool AreFolderBadgesEnabled { get; set; }
 
@@ -90,12 +97,14 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
     public AccountUnreadBadgePageViewModel(IAccountService accountService,
                                           IFolderService folderService,
                                           IUnreadBadgeService unreadBadgeService,
-                                          INotificationBuilder notificationBuilder)
+                                          INotificationBuilder notificationBuilder,
+                                          IPreferencesService preferencesService)
     {
         _accountService = accountService;
         _folderService = folderService;
         _unreadBadgeService = unreadBadgeService;
         _notificationBuilder = notificationBuilder;
+        _preferencesService = preferencesService;
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -128,6 +137,8 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
 
         IsAccountBadgeEnabled = _account.Preferences.IsAccountBadgeEnabled;
         IsTaskbarBadgeEnabled = _account.Preferences.IsTaskbarBadgeEnabled;
+        IsTrayIconBadgeEnabled = _account.Preferences.IsTrayIconBadgeEnabled;
+        IsTrayIconUnavailable = _preferencesService.AppCloseBehavior != AppCloseBehavior.RunInBackgroundWithTrayIcon;
         AreFolderBadgesEnabled = _account.Preferences.AreFolderBadgesEnabled;
         IsInboxOnlySource = _account.Preferences.UnreadBadgeCountSource == UnreadBadgeCountSource.InboxOnly;
 
@@ -252,6 +263,10 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
                 var taskbarBadge = IsTaskbarBadgeEnabled;
                 PreferenceWrites.Enqueue(async () => { _account.Preferences.IsTaskbarBadgeEnabled = taskbarBadge; await SaveAndRefreshAsync(); });
                 break;
+            case nameof(IsTrayIconBadgeEnabled):
+                var trayIconBadge = IsTrayIconBadgeEnabled;
+                PreferenceWrites.Enqueue(async () => { _account.Preferences.IsTrayIconBadgeEnabled = trayIconBadge; await SaveAndRefreshAsync(); });
+                break;
             case nameof(AreFolderBadgesEnabled):
                 var folderBadges = AreFolderBadgesEnabled;
                 PreferenceWrites.Enqueue(async () => { _account.Preferences.AreFolderBadgesEnabled = folderBadges; await SaveAndRefreshAsync(); });
@@ -275,11 +290,13 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
 
         _account.Preferences.IsAccountBadgeEnabled = true;
         _account.Preferences.IsTaskbarBadgeEnabled = true;
+        _account.Preferences.IsTrayIconBadgeEnabled = true;
         _account.Preferences.AreFolderBadgesEnabled = true;
         _account.Preferences.UnreadBadgeCountSource = UnreadBadgeCountSource.InboxOnly;
 
         IsAccountBadgeEnabled = true;
         IsTaskbarBadgeEnabled = true;
+        IsTrayIconBadgeEnabled = true;
         AreFolderBadgesEnabled = true;
         IsInboxOnlySource = true;
 

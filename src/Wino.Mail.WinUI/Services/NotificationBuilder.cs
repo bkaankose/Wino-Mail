@@ -216,6 +216,9 @@ public class NotificationBuilder : INotificationBuilder
 
             LastSnapshot = snapshot;
 
+            // Once per cycle, from the same snapshot, so the tray dot and the taskbar badge agree.
+            WeakReferenceMessenger.Default.Send(new TrayUnreadIndicatorChanged(snapshot.IsTrayIconIndicatorVisible));
+
             UpdateBadge(AppEntryConstants.MailApplicationId, totalUnreadCount > 0 ? totalUnreadCount : null);
         }
         catch (Exception ex)

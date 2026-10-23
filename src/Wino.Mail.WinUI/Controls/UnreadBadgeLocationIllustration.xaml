@@ -39,7 +39,7 @@
     </UserControl.Resources>
 
     <!--
-        Small drawings of the three places a badge can appear. They are decoration: the card next to
+        Small drawings of the places a badge can appear. They are decoration: the card next to
         each one names the place and its switch says whether it is on.
     -->
     <Border
@@ -197,6 +197,70 @@
                             Opacity="0.5"
                             RadiusX="4"
                             RadiusY="4" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Grid Visibility="{x:Bind GetKindVisibility(Kind, 3), Mode=OneWay}">
+                <StackPanel
+                    Margin="8"
+                    VerticalAlignment="Top"
+                    Spacing="4">
+                    <Rectangle Width="46" Style="{StaticResource IllustrationLineStyle}" />
+                    <Rectangle Width="30" Style="{StaticResource IllustrationLineStyle}" />
+                </StackPanel>
+                <Border
+                    Height="38"
+                    Padding="8,0"
+                    VerticalAlignment="Bottom"
+                    Background="{ThemeResource SubtleFillColorTertiaryBrush}"
+                    CornerRadius="0,0,3,3">
+                    <StackPanel
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal"
+                        Spacing="8">
+                        <Rectangle
+                            Width="12"
+                            Height="12"
+                            VerticalAlignment="Center"
+                            Fill="{ThemeResource TextFillColorTertiaryBrush}"
+                            Opacity="0.5"
+                            RadiusX="3"
+                            RadiusY="3" />
+                        <Grid
+                            Width="20"
+                            Height="20"
+                            VerticalAlignment="Center">
+                            <Image
+                                Width="16"
+                                Height="16"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Bottom"
+                                Source="ms-appx:///Assets/AppEntries/Mail.svg" />
+                            <Ellipse
+                                Width="9"
+                                Height="9"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Top"
+                                Fill="{ThemeResource SystemFillColorCriticalBrush}"
+                                Stroke="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                                StrokeThickness="1"
+                                Visibility="{x:Bind IsOn, Mode=OneWay}" />
+                            <Rectangle
+                                Width="9"
+                                Height="9"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Top"
+                                RadiusX="4.5"
+                                RadiusY="4.5"
+                                Style="{StaticResource IllustrationEmptyBadgeStyle}"
+                                Visibility="{x:Bind GetOffVisibility(IsOn), Mode=OneWay}" />
+                        </Grid>
+                        <StackPanel VerticalAlignment="Center" Spacing="3">
+                            <Rectangle Width="18" Style="{StaticResource IllustrationLineStyle}" />
+                            <Rectangle Width="14" Style="{StaticResource IllustrationLineStyle}" />
+                        </StackPanel>
                     </StackPanel>
                 </Border>
             </Grid>

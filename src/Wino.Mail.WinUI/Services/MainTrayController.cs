@@ -42,7 +42,8 @@ internal sealed class MainTrayController
             BuildMenu,
             ToggleFlyoutAsync,
             OpenMailAsync,
-            PrepareForTrayInteraction);
+            PrepareForTrayInteraction,
+            Path.Combine(AppContext.BaseDirectory, "Assets", "Wino_Icon_Unread.ico"));
         _companion = new CompanionService(
             services,
             dispatcher,
@@ -77,6 +78,8 @@ internal sealed class MainTrayController
     }
 
     public Task SetReadinessAsync(CompanionReadinessState state) => _companion.SetReadinessAsync(state);
+
+    public void SetUnreadIndicator(bool isVisible) => _icon.SetUnreadIndicator(isVisible);
 
     public async Task ShutdownAsync()
     {
