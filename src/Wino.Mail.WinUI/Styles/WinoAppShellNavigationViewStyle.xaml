@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -398,7 +398,7 @@
                                                 VerticalContentAlignment="Stretch"
                                                 IsTabStop="False" />
 
-                                            <winoControls:AppModeFooterSwitcherControl x:Name="FooterAppModeSwitcher" Grid.Row="3" />
+                                            <winoControls:AppModeSwitcherControl x:Name="FooterAppModeSwitcher" Grid.Row="3" />
 
                                             <!--  FooterItems - Disabled  -->
                                             <controls:ItemsRepeaterScrollHost Grid.Row="3" Visibility="Collapsed">

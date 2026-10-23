@@ -1,0 +1,234 @@
+﻿<Page
+    x:Class="Wino.Mail.Controls.Playground.Pages.ModeSwitcherPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:modeSwitcher="using:Wino.Mail.Controls.ModeSwitcher"
+    mc:Ignorable="d">
+
+    <ScrollViewer Padding="24">
+        <StackPanel MaxWidth="820" Spacing="20">
+
+            <StackPanel Spacing="4">
+                <TextBlock Style="{ThemeResource TitleTextBlockStyle}" Text="Mode switcher" />
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{ThemeResource BodyTextBlockStyle}"
+                    Text="Footer switcher between application modes. A floating card holds one glyph per mode, an accent thumb springs to the selected one, and modes that appear or leave fold away while the others slide into place. The pinned mode keeps a fixed slot behind a divider."
+                    TextWrapping="Wrap" />
+            </StackPanel>
+
+            <!--  Live control at the bottom of a mock navigation pane.  -->
+            <Border
+                x:Name="LivePane"
+                Width="280"
+                Height="260"
+                HorizontalAlignment="Left"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock
+                        x:Name="PaneCaption"
+                        Margin="12,10"
+                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                        Style="{ThemeResource CaptionTextBlockStyle}"
+                        Text="Navigation pane" />
+                    <modeSwitcher:WinoModeSwitcher
+                        x:Name="LiveSwitcher"
+                        Grid.Row="1"
+                        AutomationProperties.AutomationId="PlaygroundModeSwitcher"
+                        ItemInvoked="SwitcherItemInvoked">
+                        <modeSwitcher:WinoModeSwitcher.Items>
+                            <modeSwitcher:WinoModeSwitcherItem
+                                x:Name="MailItem"
+                                AutomationId="ModeSwitcherMail"
+                                Glyph="&#xE0A4;"
+                                Label="Mail"
+                                SelectedGlyph="&#xE0AA;"
+                                Tag="mail" />
+                            <modeSwitcher:WinoModeSwitcherItem
+                                x:Name="CalendarItem"
+                                AutomationId="ModeSwitcherCalendar"
+                                Glyph="&#xE912;"
+                                Label="Calendar"
+                                SelectedGlyph="&#xE0AB;"
+                                Tag="calendar" />
+                            <modeSwitcher:WinoModeSwitcherItem
+                                x:Name="ContactsItem"
+                                AutomationId="ModeSwitcherContacts"
+                                Glyph="&#xF007;"
+                                Label="Contacts"
+                                SelectedGlyph="&#xE0AC;"
+                                Tag="contacts" />
+                            <modeSwitcher:WinoModeSwitcherItem
+                                x:Name="ToDoItem"
+                                AutomationId="ModeSwitcherToDo"
+                                Glyph="&#xE00C;"
+                                Label="To Do"
+                                SelectedGlyph="&#xE0AD;"
+                                Tag="todo" />
+                            <modeSwitcher:WinoModeSwitcherItem
+                                x:Name="SettingsItem"
+                                AutomationId="ModeSwitcherSettings"
+                                Glyph="&#xE050;"
+                                IsPinned="True"
+                                Label="Settings"
+                                SelectedGlyph="&#xE0AE;"
+                                Tag="settings" />
+                        </modeSwitcher:WinoModeSwitcher.Items>
+                    </modeSwitcher:WinoModeSwitcher>
+                </Grid>
+            </Border>
+
+            <TextBlock
+                x:Name="InvokedText"
+                AutomationProperties.AutomationId="ModeSwitcherInvokedText"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{ThemeResource CaptionTextBlockStyle}"
+                Text="Nothing invoked yet. Click a mode, or focus one and use the arrow keys." />
+
+            <StackPanel Spacing="12">
+                <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Modes the accounts provide" />
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{ThemeResource CaptionTextBlockStyle}"
+                    Text="Settings is pinned and always present." />
+
+                <StackPanel Orientation="Horizontal" Spacing="24">
+                    <ToggleSwitch
+                        x:Name="MailToggle"
+                        Header="Mail"
+                        IsOn="True"
+                        Toggled="ModeToggled" />
+                    <ToggleSwitch
+                        x:Name="CalendarToggle"
+                        Header="Calendar"
+                        IsOn="True"
+                        Toggled="ModeToggled" />
+                    <ToggleSwitch
+                        x:Name="ContactsToggle"
+                        Header="Contacts"
+                        IsOn="True"
+                        Toggled="ModeToggled" />
+                    <ToggleSwitch
+                        x:Name="ToDoToggle"
+                        Header="To Do"
+                        IsOn="True"
+                        Toggled="ModeToggled" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button
+                        AutomationProperties.AutomationId="ModeSwitcherPresetAll"
+                        Click="PresetAllClicked"
+                        Content="Gmail / Outlook" />
+                    <Button
+                        AutomationProperties.AutomationId="ModeSwitcherPresetMail"
+                        Click="PresetMailClicked"
+                        Content="IMAP mail only" />
+                    <Button
+                        AutomationProperties.AutomationId="ModeSwitcherPresetMailCalendar"
+                        Click="PresetMailCalendarClicked"
+                        Content="IMAP + CalDAV" />
+                    <Button
+                        AutomationProperties.AutomationId="ModeSwitcherPresetNone"
+                        Click="PresetNoneClicked"
+                        Content="No accounts" />
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Spacing="12">
+                <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Pane" />
+
+                <ToggleSwitch
+                    x:Name="CompactToggle"
+                    Header="Compact pane (vertical)"
+                    Toggled="CompactToggled" />
+
+                <ToggleSwitch
+                    x:Name="EnabledToggle"
+                    Header="Is enabled"
+                    IsOn="True"
+                    Toggled="EnabledToggled" />
+
+                <ToggleSwitch
+                    x:Name="LightThemeToggle"
+                    Header="Light theme sample"
+                    Toggled="LightThemeToggled" />
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button
+                        AutomationProperties.AutomationId="ModeSwitcherSelectCalendar"
+                        Click="SelectCalendarClicked"
+                        Content="Select Calendar from code" />
+                    <Button
+                        AutomationProperties.AutomationId="ModeSwitcherClearSelection"
+                        Click="ClearSelectionClicked"
+                        Content="Clear selection" />
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Spacing="12">
+                <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Every state" />
+                <StackPanel Orientation="Horizontal" Spacing="16">
+                    <Border
+                        Width="280"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <modeSwitcher:WinoModeSwitcher x:Name="MailOnlySwitcher" VerticalAlignment="Bottom">
+                            <modeSwitcher:WinoModeSwitcher.Items>
+                                <modeSwitcher:WinoModeSwitcherItem
+                                    x:Name="MailOnlyMailItem"
+                                    Glyph="&#xE0A4;"
+                                    Label="Mail"
+                                    SelectedGlyph="&#xE0AA;" />
+                                <modeSwitcher:WinoModeSwitcherItem
+                                    Glyph="&#xE050;"
+                                    IsPinned="True"
+                                    Label="Settings"
+                                    SelectedGlyph="&#xE0AE;" />
+                            </modeSwitcher:WinoModeSwitcher.Items>
+                        </modeSwitcher:WinoModeSwitcher>
+                    </Border>
+                    <Border
+                        Width="280"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <modeSwitcher:WinoModeSwitcher
+                            x:Name="DisabledSwitcher"
+                            VerticalAlignment="Bottom"
+                            IsEnabled="False">
+                            <modeSwitcher:WinoModeSwitcher.Items>
+                                <modeSwitcher:WinoModeSwitcherItem
+                                    x:Name="DisabledMailItem"
+                                    Glyph="&#xE0A4;"
+                                    Label="Mail"
+                                    SelectedGlyph="&#xE0AA;" />
+                                <modeSwitcher:WinoModeSwitcherItem
+                                    Glyph="&#xE912;"
+                                    Label="Calendar"
+                                    SelectedGlyph="&#xE0AB;" />
+                                <modeSwitcher:WinoModeSwitcherItem
+                                    Glyph="&#xE050;"
+                                    IsPinned="True"
+                                    Label="Settings"
+                                    SelectedGlyph="&#xE0AE;" />
+                            </modeSwitcher:WinoModeSwitcher.Items>
+                        </modeSwitcher:WinoModeSwitcher>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

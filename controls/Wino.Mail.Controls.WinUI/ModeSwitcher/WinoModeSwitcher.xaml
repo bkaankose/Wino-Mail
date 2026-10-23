@@ -1,0 +1,216 @@
+﻿<UserControl
+    x:Class="Wino.Mail.Controls.ModeSwitcher.WinoModeSwitcher"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    HorizontalAlignment="Stretch"
+    IsTabStop="False"
+    Loaded="ControlLoaded"
+    Unloaded="ControlUnloaded">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <StaticResource x:Key="WinoModeSwitcherCardBackgroundBrush" ResourceKey="CardBackgroundFillColorDefaultBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherCardBorderBrush" ResourceKey="CardStrokeColorDefaultBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherDividerBrush" ResourceKey="DividerStrokeColorDefaultBrush" />
+                    <SolidColorBrush
+                        x:Key="WinoModeSwitcherThumbBackgroundBrush"
+                        Opacity="0.18"
+                        Color="{ThemeResource SystemAccentColor}" />
+                    <SolidColorBrush
+                        x:Key="WinoModeSwitcherThumbBorderBrush"
+                        Opacity="0.32"
+                        Color="{ThemeResource SystemAccentColor}" />
+                    <StaticResource x:Key="WinoModeSwitcherItemForegroundBrush" ResourceKey="TextFillColorSecondaryBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherItemForegroundPointerOverBrush" ResourceKey="TextFillColorPrimaryBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherItemForegroundPressedBrush" ResourceKey="TextFillColorTertiaryBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherItemForegroundDisabledBrush" ResourceKey="TextFillColorDisabledBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherItemForegroundSelectedBrush" ResourceKey="AccentTextFillColorPrimaryBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherItemBackgroundPointerOverBrush" ResourceKey="SubtleFillColorSecondaryBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherItemBackgroundPressedBrush" ResourceKey="SubtleFillColorTertiaryBrush" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <StaticResource x:Key="WinoModeSwitcherCardBackgroundBrush" ResourceKey="CardBackgroundFillColorDefaultBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherCardBorderBrush" ResourceKey="CardStrokeColorDefaultBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherDividerBrush" ResourceKey="DividerStrokeColorDefaultBrush" />
+                    <SolidColorBrush
+                        x:Key="WinoModeSwitcherThumbBackgroundBrush"
+                        Opacity="0.12"
+                        Color="{ThemeResource SystemAccentColor}" />
+                    <SolidColorBrush
+                        x:Key="WinoModeSwitcherThumbBorderBrush"
+                        Opacity="0.26"
+                        Color="{ThemeResource SystemAccentColor}" />
+                    <StaticResource x:Key="WinoModeSwitcherItemForegroundBrush" ResourceKey="TextFillColorSecondaryBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherItemForegroundPointerOverBrush" ResourceKey="TextFillColorPrimaryBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherItemForegroundPressedBrush" ResourceKey="TextFillColorTertiaryBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherItemForegroundDisabledBrush" ResourceKey="TextFillColorDisabledBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherItemForegroundSelectedBrush" ResourceKey="AccentTextFillColorPrimaryBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherItemBackgroundPointerOverBrush" ResourceKey="SubtleFillColorSecondaryBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherItemBackgroundPressedBrush" ResourceKey="SubtleFillColorTertiaryBrush" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <StaticResource x:Key="WinoModeSwitcherCardBackgroundBrush" ResourceKey="SystemColorButtonFaceColorBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherCardBorderBrush" ResourceKey="SystemColorButtonTextColorBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherDividerBrush" ResourceKey="SystemColorButtonTextColorBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherThumbBackgroundBrush" ResourceKey="SystemColorHighlightColorBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherThumbBorderBrush" ResourceKey="SystemColorHighlightColorBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherItemForegroundBrush" ResourceKey="SystemColorButtonTextColorBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherItemForegroundPointerOverBrush" ResourceKey="SystemColorHighlightTextColorBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherItemForegroundPressedBrush" ResourceKey="SystemColorHighlightTextColorBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherItemForegroundDisabledBrush" ResourceKey="SystemColorGrayTextColorBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherItemForegroundSelectedBrush" ResourceKey="SystemColorHighlightTextColorBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherItemBackgroundPointerOverBrush" ResourceKey="SystemColorHighlightColorBrush" />
+                    <StaticResource x:Key="WinoModeSwitcherItemBackgroundPressedBrush" ResourceKey="SystemColorHighlightColorBrush" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
+            <!--
+                The selected look lives on the thumb beneath the buttons, so the checked
+                states only recolor the glyph. Hover and press keep their own subtle fill.
+            -->
+            <Style x:Key="WinoModeSwitcherItemStyle" TargetType="ToggleButton">
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="MinWidth" Value="0" />
+                <Setter Property="MinHeight" Value="0" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="VerticalAlignment" Value="Stretch" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{ThemeResource WinoModeSwitcherItemForegroundBrush}" />
+                <Setter Property="CornerRadius" Value="6" />
+                <Setter Property="UseSystemFocusVisuals" Value="True" />
+                <Setter Property="FocusVisualMargin" Value="-2" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Grid
+                                x:Name="Root"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="{TemplateBinding CornerRadius}">
+                                <ContentPresenter
+                                    x:Name="ContentPresenter"
+                                    Padding="{TemplateBinding Padding}"
+                                    HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                    AutomationProperties.AccessibilityView="Raw"
+                                    Content="{TemplateBinding Content}"
+                                    Foreground="{TemplateBinding Foreground}" />
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="PointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="Root.Background" Value="{ThemeResource WinoModeSwitcherItemBackgroundPointerOverBrush}" />
+                                                <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource WinoModeSwitcherItemForegroundPointerOverBrush}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Target="Root.Background" Value="{ThemeResource WinoModeSwitcherItemBackgroundPressedBrush}" />
+                                                <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource WinoModeSwitcherItemForegroundPressedBrush}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Disabled">
+                                            <VisualState.Setters>
+                                                <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource WinoModeSwitcherItemForegroundDisabledBrush}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Checked">
+                                            <VisualState.Setters>
+                                                <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource WinoModeSwitcherItemForegroundSelectedBrush}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="CheckedPointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource WinoModeSwitcherItemForegroundSelectedBrush}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="CheckedPressed">
+                                            <VisualState.Setters>
+                                                <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource WinoModeSwitcherItemForegroundSelectedBrush}" />
+                                                <Setter Target="ContentPresenter.Opacity" Value="0.7" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="CheckedDisabled">
+                                            <VisualState.Setters>
+                                                <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource WinoModeSwitcherItemForegroundDisabledBrush}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid>
+        <!--
+            The card floats above the pane with a ThemeShadow; its Translation Z is set in
+            code because the compact layout drops the card, and the shadow with it.
+        -->
+        <Border
+            x:Name="Card"
+            Margin="8,6,8,10"
+            Padding="5"
+            Background="{ThemeResource WinoModeSwitcherCardBackgroundBrush}"
+            BorderBrush="{ThemeResource WinoModeSwitcherCardBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="9">
+            <Border.Shadow>
+                <ThemeShadow />
+            </Border.Shadow>
+            <Grid
+                x:Name="ItemsPanel"
+                ColumnSpacing="2"
+                KeyDown="ItemsPanelKeyDown"
+                RowSpacing="2">
+                <!--
+                    The thumb is laid out at the panel origin and only ever moved by its
+                    Translation, so XAML layout and the spring never fight over its place.
+                    Buttons are added after it and therefore draw above it.
+                -->
+                <Border
+                    x:Name="Thumb"
+                    Width="0"
+                    Height="0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Background="{ThemeResource WinoModeSwitcherThumbBackgroundBrush}"
+                    BorderBrush="{ThemeResource WinoModeSwitcherThumbBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    IsHitTestVisible="False"
+                    Opacity="0">
+                    <Border.Shadow>
+                        <ThemeShadow />
+                    </Border.Shadow>
+                </Border>
+
+                <Rectangle
+                    x:Name="Divider"
+                    Fill="{ThemeResource WinoModeSwitcherDividerBrush}"
+                    IsHitTestVisible="False"
+                    Visibility="Collapsed" />
+            </Grid>
+        </Border>
+
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="LayoutStates">
+                <VisualState x:Name="HorizontalLayout" />
+                <VisualState x:Name="VerticalLayout">
+                    <VisualState.Setters>
+                        <Setter Target="Card.Margin" Value="0,0,0,8" />
+                        <Setter Target="Card.Padding" Value="0" />
+                        <Setter Target="Card.Background" Value="Transparent" />
+                        <Setter Target="Card.BorderThickness" Value="0" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+    </Grid>
+</UserControl>

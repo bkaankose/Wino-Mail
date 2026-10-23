@@ -1,0 +1,48 @@
+﻿<UserControl
+    x:Class="Wino.Mail.WinUI.Controls.AppModeSwitcherControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:modeSwitcher="using:Wino.Mail.Controls.ModeSwitcher"
+    HorizontalAlignment="Stretch"
+    IsTabStop="False"
+    Loaded="ControlLoaded"
+    Unloaded="ControlUnloaded">
+    <!--
+        Labels come from Translator in code-behind. Which modes show is decided from
+        AppModeVisibility; the switcher animates the result.
+    -->
+    <modeSwitcher:WinoModeSwitcher
+        x:Name="Switcher"
+        AutomationProperties.AutomationId="AppModeSwitcher"
+        ItemInvoked="SwitcherItemInvoked"
+        Visibility="Collapsed">
+        <modeSwitcher:WinoModeSwitcher.Items>
+            <modeSwitcher:WinoModeSwitcherItem
+                x:Name="MailModeItem"
+                AutomationId="AppModeSwitcherMail"
+                Glyph="&#xE0A4;"
+                SelectedGlyph="&#xE0AA;" />
+            <modeSwitcher:WinoModeSwitcherItem
+                x:Name="CalendarModeItem"
+                AutomationId="AppModeSwitcherCalendar"
+                Glyph="&#xE912;"
+                SelectedGlyph="&#xE0AB;" />
+            <modeSwitcher:WinoModeSwitcherItem
+                x:Name="ContactsModeItem"
+                AutomationId="AppModeSwitcherContacts"
+                Glyph="&#xF007;"
+                SelectedGlyph="&#xE0AC;" />
+            <modeSwitcher:WinoModeSwitcherItem
+                x:Name="ToDoModeItem"
+                AutomationId="AppModeSwitcherToDo"
+                Glyph="&#xE00C;"
+                SelectedGlyph="&#xE0AD;" />
+            <modeSwitcher:WinoModeSwitcherItem
+                x:Name="SettingsModeItem"
+                AutomationId="AppModeSwitcherSettings"
+                Glyph="&#xE050;"
+                IsPinned="True"
+                SelectedGlyph="&#xE0AE;" />
+        </modeSwitcher:WinoModeSwitcher.Items>
+    </modeSwitcher:WinoModeSwitcher>
+</UserControl>
