@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "Nulstil konto-cache",
     "AccountCacheReset_Message": "Denne konto kræver fuld gen-synkronisering for at fortsætte med at fungere. Vent venligst, mens Wino synkroniserer dine meddelelser...",
     "AccountContactNameYou": "Du",
+    "AccountContactNameYouWithAddressFormat": "Dig <{0}>",
     "Accessibility_MailItemFlagged": "Markeret",
     "Accessibility_MailItemHasAttachments": "Har vedhæftede filer",
     "Attachment_ContentTypeMismatchInline": "Registreret som {0}; filtypenavnet stemmer ikke overens.",

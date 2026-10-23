@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "Réinitialiser le cache du compte",
     "AccountCacheReset_Message": "Ce compte nécessite une resynchronisation complète pour continuer à fonctionner. Veuillez patienter pendant que Wino synchronise à nouveau vos messages...",
     "AccountContactNameYou": "Vous",
+    "AccountContactNameYouWithAddressFormat": "Vous <{0}>",
     "Accessibility_MailItemFlagged": "Épinglé",
     "Accessibility_MailItemHasAttachments": "Pièces jointes",
     "Attachment_ContentTypeMismatchInline": "Détecté comme {0} ; l’extension du nom de fichier ne correspond pas.",

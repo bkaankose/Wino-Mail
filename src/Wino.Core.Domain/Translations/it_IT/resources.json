@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "Ripristino cache account",
     "AccountCacheReset_Message": "Questo account richiede la ri-sincronizzazione completa per continuare a funzionare. Attendere mentre Wino ri-sincronizza i messaggi…",
     "AccountContactNameYou": "Tu",
+    "AccountContactNameYouWithAddressFormat": "Tu <{0}>",
     "Accessibility_MailItemFlagged": "Contrassegnato",
     "Accessibility_MailItemHasAttachments": "Ha allegati",
     "Attachment_ContentTypeMismatchInline": "Rilevato come {0}; l'estensione del nome del file non corrisponde.",

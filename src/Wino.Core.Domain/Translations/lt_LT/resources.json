@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "Paskyros talpyklos atstatymas",
     "AccountCacheReset_Message": "Šiai paskyrai reikia visiško sinchronizavimo, kad veiktų toliau. Prašome palaukti, kol Wino sinchronizuos jūsų laiškus...",
     "AccountContactNameYou": "Jūs",
+    "AccountContactNameYouWithAddressFormat": "Jūs <{0}>",
     "Accessibility_MailItemFlagged": "Pažymėta",
     "Accessibility_MailItemHasAttachments": "Yra priedų",
     "Attachment_ContentTypeMismatchInline": "Aptikta, kad tai yra {0}; failo vardo plėtinys neatitinka.",

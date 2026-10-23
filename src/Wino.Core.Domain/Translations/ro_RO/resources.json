@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "Resetare Cache Cont",
     "AccountCacheReset_Message": "Acest cont necesită resincronizare completă pentru a continua să funcționeze. Vă rugăm să așteptați în timp ce Wino vă resincronizează mesajele...",
     "AccountContactNameYou": "Dvs.",
+    "AccountContactNameYouWithAddressFormat": "Tu <{0}>",
     "Accessibility_MailItemFlagged": "Marcat",
     "Accessibility_MailItemHasAttachments": "Are atașamente",
     "Attachment_ContentTypeMismatchInline": "Detectat ca {0}; extensia numelui fișierului nu corespunde.",

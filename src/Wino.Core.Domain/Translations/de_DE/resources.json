@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "Account-Cache zurücksetzen",
     "AccountCacheReset_Message": "Dieser Account erfordert eine vollständige Neu-Sychronisierung, um fortzufahren. Bitte warten Sie, während Wino Ihre Nachrichten erneut synchronisiert...",
     "AccountContactNameYou": "Sie",
+    "AccountContactNameYouWithAddressFormat": "Sie <{0}>",
     "Accessibility_MailItemFlagged": "Markiert",
     "Accessibility_MailItemHasAttachments": "Anhänge vorhanden",
     "Attachment_ContentTypeMismatchInline": "Erkannt als {0}; die Dateinamenerweiterung stimmt nicht überein.",

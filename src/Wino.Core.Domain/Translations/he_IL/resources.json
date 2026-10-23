@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "איפוס מטמון החשבון",
     "AccountCacheReset_Message": "חשבון זה דורש סנכרון מלא מחדש כדי להמשיך לעבוד. אנא המתן בזמן ש-Wino מסנכרן מחדש את ההודעות שלך...",
     "AccountContactNameYou": "אַתָה",
+    "AccountContactNameYouWithAddressFormat": "את/ה <{0}>",
     "Accessibility_MailItemFlagged": "מסומן",
     "Accessibility_MailItemHasAttachments": "יש קבצים מצורפים",
     "Attachment_ContentTypeMismatchInline": "זוהה כ-{0}; סיומת שם הקובץ אינה תואמת.",

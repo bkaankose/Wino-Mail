@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "Restablecer o caché da conta",
     "AccountCacheReset_Message": "Esta conta require unha re-sincronización completa para continuar a funcionar. Por favor agarda mentres Wino re-sincroniza as túas mensaxes...",
     "AccountContactNameYou": "Ti",
+    "AccountContactNameYouWithAddressFormat": "Ti <{0}>",
     "Accessibility_MailItemFlagged": "Marcado",
     "Accessibility_MailItemHasAttachments": "Ten anexos",
     "Attachment_ContentTypeMismatchInline": "Detectouse como {0}; a extensión do nome do ficheiro non coincide.",

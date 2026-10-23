@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "Hesap Hafızası Sıfırlaması",
     "AccountCacheReset_Message": "Bu hesabın kullanılabilmesi için tekrar senkronize edilmesi gerekiyor. Lütfen Wino mesajlarınızı senkronize ederken bekleyiniz...",
     "AccountContactNameYou": "Siz",
+    "AccountContactNameYouWithAddressFormat": "Siz <{0}>",
     "Accessibility_MailItemFlagged": "Bayraklı",
     "Accessibility_MailItemHasAttachments": "Ekler var",
     "Attachment_ContentTypeMismatchInline": "{0} olarak algılandı; dosya adı uzantısı eşleşmiyor.",

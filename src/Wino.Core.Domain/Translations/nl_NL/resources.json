@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "Account cache gereset",
     "AccountCacheReset_Message": "Dit account moet opnieuw gesynchroniseerd worden om te blijven werken. Wacht totdat Wino uw berichten opnieuw heeft gesynchroniseerd...",
     "AccountContactNameYou": "U",
+    "AccountContactNameYouWithAddressFormat": "Jij <{0}>",
     "Accessibility_MailItemFlagged": "Gemarkeerd",
     "Accessibility_MailItemHasAttachments": "Heeft bijlagen",
     "Attachment_ContentTypeMismatchInline": "Gedetecteerd als {0}; de bestandsextensie komt niet overeen.",

@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "Επαναφορά Κρυφής Μνήμης Λογαριασμού",
     "AccountCacheReset_Message": "Αυτός ο λογαριασμός απαιτεί πλήρη επανασυγχρονισμό για να συνεχίσει να δουλεύει. Παρακαλώ περιμένετε ενώ ο Wino επανασυγχρονίζει τα μηνύματά σας...",
     "AccountContactNameYou": "Εσείς",
+    "AccountContactNameYouWithAddressFormat": "Εσείς <{0}>",
     "Accessibility_MailItemFlagged": "Επισημασμένο",
     "Accessibility_MailItemHasAttachments": "Έχει συνημμένα",
     "Attachment_ContentTypeMismatchInline": "Εντοπίστηκε ως {0}· η επέκταση ονόματος αρχείου δεν ταιριάζει.",

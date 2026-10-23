@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "Нулиране на кеша на акаунта",
     "AccountCacheReset_Message": "Този акаунт изисква пълна ресинхронизация, за да продължи да работи. Моля, изчакайте, докато Wino ресинхронизира съобщенията ви...",
     "AccountContactNameYou": "Вие",
+    "AccountContactNameYouWithAddressFormat": "Вие <{0}>",
     "Accessibility_MailItemFlagged": "Флагнато",
     "Accessibility_MailItemHasAttachments": "Има прикачени файлове",
     "Attachment_ContentTypeMismatchInline": "Открито като {0}; разширението на името на файла не съвпада.",

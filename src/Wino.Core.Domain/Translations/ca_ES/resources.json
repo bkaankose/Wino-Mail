@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "Restabliment de la caché del compte",
     "AccountCacheReset_Message": "Aquest compte requereix una re-sincronització completa per continuar funcionant. Si us plau espera mentre Wino re-sincronitza els teus missatges...",
     "AccountContactNameYou": "Tu",
+    "AccountContactNameYouWithAddressFormat": "Tu <{0}>",
     "Accessibility_MailItemFlagged": "Marcat",
     "Accessibility_MailItemHasAttachments": "Té adjunts",
     "Attachment_ContentTypeMismatchInline": "Detectat com a {0}; l’extensió del nom del fitxer no coincideix.",

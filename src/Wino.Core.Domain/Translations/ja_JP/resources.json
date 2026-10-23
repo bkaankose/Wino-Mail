@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "アカウント キャッシュのリセット",
     "AccountCacheReset_Message": "このアカウントは作業を継続するために完全な再同期が必要です。Wino がメッセージを再同期していますので、しばらくお待ちください...",
     "AccountContactNameYou": "あなた",
+    "AccountContactNameYouWithAddressFormat": "あなた <{0}>",
     "Accessibility_MailItemFlagged": "フラグ付き",
     "Accessibility_MailItemHasAttachments": "添付ファイルあり",
     "Attachment_ContentTypeMismatchInline": "{0}として検出されました。ファイル名の拡張子が一致しません。",

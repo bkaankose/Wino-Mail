@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "Скидання кешу облікового запису",
     "AccountCacheReset_Message": "Для цього облікового запису необхідно повністю пересинхронізувати ваші повідомлення. Будь ласка, дочекайтеся, поки Wino синхронізує ваші повідомлення...",
     "AccountContactNameYou": "Ви",
+    "AccountContactNameYouWithAddressFormat": "Ви <{0}>",
     "Accessibility_MailItemFlagged": "Позначено прапорцем",
     "Accessibility_MailItemHasAttachments": "Є вкладення",
     "Attachment_ContentTypeMismatchInline": "Визначено як {0}; розширення імені файлу не відповідає.",

@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "Đặt lại bộ nhớ đệm tài khoản",
     "AccountCacheReset_Message": "Tài khoản này cần được đồng bộ hóa lại toàn bộ để tiếp tục hoạt động. Vui lòng chờ trong khi Wino đồng bộ hóa lại thư của bạn...",
     "AccountContactNameYou": "Bạn",
+    "AccountContactNameYouWithAddressFormat": "Bạn <{0}>",
     "Accessibility_MailItemFlagged": "Đã gắn cờ",
     "Accessibility_MailItemHasAttachments": "Có tệp đính kèm",
     "Attachment_ContentTypeMismatchInline": "Được phát hiện là {0}; phần mở rộng tên tệp không khớp.",

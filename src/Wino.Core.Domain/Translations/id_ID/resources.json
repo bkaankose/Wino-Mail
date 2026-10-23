@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "Reset Cache Akun",
     "AccountCacheReset_Message": "Akun ini memerlukan sinkronisasi ulang secara penuh agar bisa terus bekerja. Harap tunggu saat Wino menyinkronkan pesan-pesan Anda...",
     "AccountContactNameYou": "Anda",
+    "AccountContactNameYouWithAddressFormat": "Anda <{0}>",
     "Accessibility_MailItemFlagged": "Ditandai",
     "Accessibility_MailItemHasAttachments": "Ada lampiran",
     "Attachment_ContentTypeMismatchInline": "Terdeteksi sebagai {0}; ekstensi nama file tidak cocok.",

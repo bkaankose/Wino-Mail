@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "Tilin välimuistin tyhjennys",
     "AccountCacheReset_Message": "Tämä tili tarvitsee täydellisen uudelleensynkronoinnin toimiakseen. Odota, kun Wino synkronoi viestisi uudelleen.",
     "AccountContactNameYou": "Sinä",
+    "AccountContactNameYouWithAddressFormat": "Sinä <{0}>",
     "Accessibility_MailItemFlagged": "Merkitty",
     "Accessibility_MailItemHasAttachments": "Liitteitä on",
     "Attachment_ContentTypeMismatchInline": "Tunnistettu tyypiksi {0}; tiedostotunniste ei vastaa sitä.",

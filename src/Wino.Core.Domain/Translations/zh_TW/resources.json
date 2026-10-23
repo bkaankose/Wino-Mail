@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "重設帳戶快取",
     "AccountCacheReset_Message": "此帳戶需要完整重新同步才能繼續運作。請稍候，Wino 正在重新同步您的郵件...",
     "AccountContactNameYou": "您",
+    "AccountContactNameYouWithAddressFormat": "您 <{0}>",
     "Accessibility_MailItemFlagged": "已加旗標",
     "Accessibility_MailItemHasAttachments": "含有附件",
     "Attachment_ContentTypeMismatchInline": "偵測為 {0}；檔名副檔名不相符。",

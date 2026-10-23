@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "Сброс кэша учетной записи",
     "AccountCacheReset_Message": "Этой учетной записи требуется полная повторная синхронизация для продолжения работы. Подождите, пока Wino повторно синхронизирует ваши сообщения...",
     "AccountContactNameYou": "Вы",
+    "AccountContactNameYouWithAddressFormat": "Вы <{0}>",
     "Accessibility_MailItemFlagged": "Помечено",
     "Accessibility_MailItemHasAttachments": "Имеются вложения",
     "Attachment_ContentTypeMismatchInline": "Определён как {0}; расширение имени файла не соответствует типу.",

@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "계정 캐시 재설정",
     "AccountCacheReset_Message": "이 계정은 계속 작동하려면 전체 재동기화가 필요합니다. Wino가 메시지를 다시 동기화하는 동안 기다려 주세요...",
     "AccountContactNameYou": "나",
+    "AccountContactNameYouWithAddressFormat": "나 <{0}>",
     "Accessibility_MailItemFlagged": "깃발 표시됨",
     "Accessibility_MailItemHasAttachments": "첨부 파일이 있습니다",
     "Attachment_ContentTypeMismatchInline": "{0}(으)로 감지됨; 파일 이름 확장자가 일치하지 않습니다.",

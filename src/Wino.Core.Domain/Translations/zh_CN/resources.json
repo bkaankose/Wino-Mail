@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "账户缓存重置",
     "AccountCacheReset_Message": "此帐户需要完全重新同步才能继续工作。请等待 Wino 重新同步您的消息……",
     "AccountContactNameYou": "您",
+    "AccountContactNameYouWithAddressFormat": "您 <{0}>",
     "Accessibility_MailItemFlagged": "已标记",
     "Accessibility_MailItemHasAttachments": "有附件",
     "Attachment_ContentTypeMismatchInline": "检测为 {0}；文件名扩展名不匹配。",

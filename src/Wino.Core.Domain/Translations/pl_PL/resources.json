@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "Reset pamięci podręcznej konta",
     "AccountCacheReset_Message": "To konto wymaga ponownej pełnej synchronizacji, aby kontynuować pracę. Poczekaj, aż Wino zsynchronizuje ponownie Twoje wiadomości...",
     "AccountContactNameYou": "Ty",
+    "AccountContactNameYouWithAddressFormat": "Ty <{0}>",
     "Accessibility_MailItemFlagged": "Oflagowany",
     "Accessibility_MailItemHasAttachments": "Zawiera załączniki",
     "Attachment_ContentTypeMismatchInline": "Wykryto jako {0}; rozszerzenie nazwy pliku jest niezgodne.",

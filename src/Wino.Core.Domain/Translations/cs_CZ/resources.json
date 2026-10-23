@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "Obnovení mezipaměti účtu",
     "AccountCacheReset_Message": "Tento účet vyžaduje úplnou znovusynchronizaci, aby mohl pokračovat v práci. Počkejte prosím, až Wino znovu synchronizuje vaše zprávy...",
     "AccountContactNameYou": "Vy",
+    "AccountContactNameYouWithAddressFormat": "Vy <{0}>",
     "Accessibility_MailItemFlagged": "Označeno",
     "Accessibility_MailItemHasAttachments": "Obsahuje přílohy",
     "Attachment_ContentTypeMismatchInline": "Zjištěn typ {0}; přípona názvu souboru neodpovídá.",

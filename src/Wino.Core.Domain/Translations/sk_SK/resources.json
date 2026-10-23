@@ -87,6 +87,7 @@
     "AccountCacheReset_Title": "Resetovať vyrovnávaciu pamäť účtu",
     "AccountCacheReset_Message": "Tento účet si vyžaduje znova úplnú synchronizáciu, aby mohol ďalej fungovať. Počkajte, prosím, kým Wino znovu zosynchronizuje vaše správy…",
     "AccountContactNameYou": "Vy",
+    "AccountContactNameYouWithAddressFormat": "Vy <{0}>",
     "Accessibility_MailItemFlagged": "Označené",
     "Accessibility_MailItemHasAttachments": "Má prílohy",
     "Attachment_ContentTypeMismatchInline": "Zistený typ: {0}; prípona názvu súboru sa nezhoduje.",
