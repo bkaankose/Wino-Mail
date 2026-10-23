@@ -74,7 +74,8 @@ public partial class App : IAppActivationHandlerHost, IAppNotificationHandlerHos
     Task IAppActivationHandlerHost.ActivateRedirectedShellAsync(RedirectedActivationRoute route)
         => ActivateRedirectedShellAsync(route);
 
-    bool IAppNotificationHandlerHost.IsAppRunning() => IsAppRunning();
+    // A process kept alive in the background after its shell closed is still running and must not exit.
+    bool IAppNotificationHandlerHost.IsAppRunning() => IsAppRunning() || _backgroundLifetimeWindow != null;
     void IAppNotificationHandlerHost.ExitApplication() => ExitApplication();
     void IAppNotificationHandlerHost.LogActivation(string message) => LogActivation(message);
     Task IAppNotificationHandlerHost.HandleStoreUpdateToastAsync() => HandleStoreUpdateToastAsync();
