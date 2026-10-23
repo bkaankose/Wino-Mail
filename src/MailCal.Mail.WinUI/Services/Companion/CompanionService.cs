@@ -23,7 +23,6 @@ internal sealed class CompanionService : ICompanionService
     private readonly INativeAppService _nativeAppService;
     private readonly INewThemeService _themeService;
     private readonly IUnderlyingThemeService _underlyingThemeService;
-    private readonly DateTimeOffset _sessionStartedAtUtc;
     private readonly Func<(bool Success, RectInt32 Rect)> _getTrayIconRect;
     private readonly CompanionNavigationCallbacks _navigation;
     private readonly IMailCalLogger _logger;
@@ -40,14 +39,12 @@ internal sealed class CompanionService : ICompanionService
         IServiceProvider services,
         DispatcherQueue dispatcher,
         INativeAppService nativeAppService,
-        DateTimeOffset sessionStartedAtUtc,
         Func<(bool Success, RectInt32 Rect)> getTrayIconRect,
         CompanionNavigationCallbacks navigation)
     {
         _services = services;
         _dispatcher = dispatcher;
         _nativeAppService = nativeAppService;
-        _sessionStartedAtUtc = sessionStartedAtUtc;
         _getTrayIconRect = getTrayIconRect;
         _navigation = navigation;
         _logger = services.GetRequiredService<IMailCalLogger>();
@@ -205,7 +202,7 @@ internal sealed class CompanionService : ICompanionService
             return;
 
         var actions = new CompanionActionHandler(_services, _navigation);
-        _viewModel = new CompanionDashboardViewModel(_services, actions, _dispatcher, _sessionStartedAtUtc);
+        _viewModel = new CompanionDashboardViewModel(_services, actions, _dispatcher);
         _viewModel.NavigationCompleted += SurfaceHideRequested;
         _view = new CompanionFlyoutView(_viewModel);
         _host = new CompanionFlyoutHost(_view);

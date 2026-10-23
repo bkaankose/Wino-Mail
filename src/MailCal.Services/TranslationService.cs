@@ -46,20 +46,26 @@ public class TranslationService : ITranslationService
 
         if (ignoreCurrentLanguageCheck && isInitialized) return;
 
+        // English is the source language and the only one new strings are added to, so it is the base.
+        // The selected language overrides the keys it has; a key it lacks shows in English, not as its name.
+        var english = await LoadLanguageAsync(AppLanguage.English).ConfigureAwait(false);
+        var selected = language == AppLanguage.English
+            ? null
+            : await LoadLanguageAsync(language).ConfigureAwait(false);
+
         var currentDictionary = Translator.Resources;
-        await using var resourceStream = Core.Domain.Translations.MailCalTranslationDictionary.GetLanguageStream(language);
+        currentDictionary.Clear();
 
-        var streamValue = await new StreamReader(resourceStream).ReadToEndAsync().ConfigureAwait(false);
-
-        var translationLookups = JsonSerializer.Deserialize(streamValue, BasicTypesJsonContext.Default.DictionaryStringString);
-
-        // Insert new translation key-value pairs.
-        // Overwrite existing values for the same keys.
-
-        foreach (var pair in translationLookups)
-        {
-            // Replace existing value.
+        foreach (var pair in english)
             currentDictionary[pair.Key] = pair.Value;
+
+        if (selected != null)
+        {
+            foreach (var pair in selected)
+            {
+                if (!string.IsNullOrEmpty(pair.Value))
+                    currentDictionary[pair.Key] = pair.Value;
+            }
         }
 
         _preferencesService.CurrentLanguage = language;
@@ -74,6 +80,15 @@ public class TranslationService : ITranslationService
 
         isInitialized = true;
         WeakReferenceMessenger.Default.Send(new LanguageChanged());
+    }
+
+    private static async Task<Dictionary<string, string>> LoadLanguageAsync(AppLanguage language)
+    {
+        await using var resourceStream = Core.Domain.Translations.MailCalTranslationDictionary.GetLanguageStream(language);
+        using var reader = new StreamReader(resourceStream);
+        var streamValue = await reader.ReadToEndAsync().ConfigureAwait(false);
+
+        return JsonSerializer.Deserialize(streamValue, BasicTypesJsonContext.Default.DictionaryStringString) ?? [];
     }
 
     private AppLanguage GetInitialLanguage()

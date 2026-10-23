@@ -6,18 +6,11 @@ using System.Threading.Tasks;
 namespace MailCal.Mail.ViewModels.Companion;
 
 /// <summary>
-/// The host's navigation into the main app. Each platform fills these with its own window and
-/// activation routes (Windows App.xaml.cs, the macOS AppDelegate).
+/// The host's navigation into the main app, filled with the platform's window and activation routes.
 /// </summary>
 public sealed record CompanionNavigationCallbacks(
     Func<CancellationToken, Task> OpenMailCal,
     Func<CancellationToken, Task> OpenCalendar,
-    Func<CancellationToken, Task> OpenTasks,
-    Func<Guid?, CancellationToken, Task> OpenInbox,
-    Func<Guid, Guid, CancellationToken, Task> OpenMail,
     Func<Guid, Guid, CancellationToken, Task> OpenCalendarEvent,
-    Func<Guid, Guid, CancellationToken, Task> JoinCalendarEvent,
-    Func<string?, CancellationToken, Task> FindContact,
-    Func<Guid?, CancellationToken, Task> NewMail,
-    Func<Guid?, DateTimeOffset?, CancellationToken, Task> NewEvent,
+    Func<CompanionEventDraft, CancellationToken, Task> NewEvent,
     Func<CancellationToken, Task> OpenSettings);

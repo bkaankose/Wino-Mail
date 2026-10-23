@@ -89,7 +89,6 @@ public partial class App : MailCalApplication,
     private readonly AppNotificationHandler _notificationHandler;
     private readonly AppActivationHandler _activationHandler;
     private readonly DispatcherQueue? _applicationDispatcherQueue;
-    private readonly DateTimeOffset _sessionStartedAtUtc = DateTimeOffset.UtcNow;
 
     /// <summary>
     /// Completes after the launch activation, including the first frame of its window. Automatic
@@ -316,29 +315,11 @@ public partial class App : MailCalApplication,
                     ? ActivateShellFromTrayAsync(MailCalApplicationMode.Calendar)
                     : ActivateWelcomeWindowAsync(),
                 cancellationToken),
-            cancellationToken => ExecuteCompanionNavigationAsync(
-                () => EnsureShellWindowAsync(MailCalApplicationMode.Tasks, activateWindow: true),
-                cancellationToken),
-            (accountId, cancellationToken) => ExecuteCompanionNavigationAsync(
-                () => OpenCompanionInboxAsync(accountId),
-                cancellationToken),
-            (accountId, mailId, cancellationToken) => ExecuteCompanionNavigationAsync(
-                () => HandleToastNavigationAsync(mailId),
-                cancellationToken),
             (accountId, eventId, cancellationToken) => ExecuteCompanionNavigationAsync(
                 () => HandleCalendarToastNavigationAsync(eventId),
                 cancellationToken),
-            (accountId, eventId, cancellationToken) => ExecuteCompanionNavigationAsync(
-                () => HandleCalendarToastJoinOnlineAsync(eventId),
-                cancellationToken),
-            (query, cancellationToken) => ExecuteCompanionNavigationAsync(
-                () => FindCompanionContactAsync(query),
-                cancellationToken),
-            (accountId, cancellationToken) => ExecuteCompanionNavigationAsync(
-                () => OpenCompanionNewMailAsync(accountId),
-                cancellationToken),
-            (accountId, startAt, cancellationToken) => ExecuteCompanionNavigationAsync(
-                () => OpenCompanionNewEventAsync(accountId, startAt),
+            (draft, cancellationToken) => ExecuteCompanionNavigationAsync(
+                () => OpenCompanionNewEventAsync(draft),
                 cancellationToken),
             cancellationToken => ExecuteCompanionNavigationAsync(OpenCompanionSettingsAsync, cancellationToken));
 
@@ -348,7 +329,6 @@ public partial class App : MailCalApplication,
                 dispatcher,
                 Services,
                 Services.GetRequiredService<INativeAppService>(),
-                _sessionStartedAtUtc,
                 navigation,
                 ActivatePreferredWindowAsync,
                 () => ActivateShellFromTrayAsync(MailCalApplicationMode.Calendar),
@@ -451,19 +431,6 @@ public partial class App : MailCalApplication,
         await action();
     }
 
-    private async Task FindCompanionContactAsync(string? query)
-    {
-        await EnsureShellWindowAsync(MailCalApplicationMode.Contacts, activateWindow: true);
-        if (string.IsNullOrWhiteSpace(query))
-            return;
-
-        var contactsViewModel = Services.GetRequiredService<ContactsPageViewModel>();
-        var matches = await contactsViewModel.SearchContactsAsync(query, 1);
-        var match = matches.FirstOrDefault();
-        if (match != null)
-            await contactsViewModel.LoadAndSelectContactAsync(match.Id);
-    }
-
     private async Task OpenCompanionSettingsAsync()
     {
         if (HasShellWindow())
@@ -493,54 +460,19 @@ public partial class App : MailCalApplication,
         });
     }
 
-    private async Task OpenCompanionInboxAsync(Guid? accountId)
-    {
-        await EnsureShellWindowAsync(MailCalApplicationMode.Mail, activateWindow: true);
-
-        await ExecuteOnActivationUiThreadAsync(async () =>
-        {
-            var mailShell = Services.GetRequiredService<MailAppShellViewModel>();
-            if (accountId is { } id && mailShell.MenuItems.TryGetAccountMenuItem(id, out IAccountMenuItem accountMenuItem))
-                await mailShell.ChangeLoadedAccountAsync(accountMenuItem, navigateInbox: true);
-        });
-    }
-
-    private async Task OpenCompanionNewMailAsync(Guid? accountId)
-    {
-        await EnsureShellWindowAsync(MailCalApplicationMode.Mail, activateWindow: true);
-
-        var mailShell = Services.GetRequiredService<MailAppShellViewModel>();
-        if (accountId is { } id)
-        {
-            var account = await Services.GetRequiredService<IAccountService>().GetAccountAsync(id);
-            if (account?.IsMailAccessGranted == true)
-            {
-                await ExecuteOnActivationUiThreadAsync(() => mailShell.CreateNewMailForAsync(account));
-                return;
-            }
-        }
-
-        await ExecuteOnActivationUiThreadAsync(mailShell.HandleCreateNewMailAsync);
-    }
-
-    private async Task OpenCompanionNewEventAsync(Guid? accountId, DateTimeOffset? startAt)
+    private async Task OpenCompanionNewEventAsync(CompanionEventDraft draft)
     {
         await EnsureShellWindowAsync(MailCalApplicationMode.Calendar, activateWindow: true);
 
-        Guid? calendarId = null;
-        if (accountId is { } id)
-        {
-            calendarId = (await Services.GetRequiredService<ICalendarService>().GetAccountCalendarsAsync(id))
-                .FirstOrDefault(calendar => !calendar.IsReadOnly)?.Id;
-        }
-
-        var start = startAt?.LocalDateTime ?? DateTime.Now;
         var args = new CalendarEventComposeNavigationArgs
         {
-            SelectedCalendarId = calendarId,
-            StartDate = start,
-            EndDate = start.AddHours(1),
-            RequireCalendarPickerWhenUnresolved = calendarId == null
+            HasPendingInput = true,
+            SelectedCalendarId = draft.CalendarId,
+            Title = draft.Title,
+            IsAllDay = draft.IsAllDay,
+            StartDate = draft.Start,
+            EndDate = draft.End,
+            RequireCalendarPickerWhenUnresolved = draft.CalendarId == null
         };
 
         await ExecuteOnActivationUiThreadAsync(() =>

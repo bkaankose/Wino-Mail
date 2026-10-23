@@ -596,29 +596,10 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         var startDate = IsAllDay ? SelectedQuickEventDate.Value.Date : QuickEventStartTime;
         var endDate = IsAllDay ? GetQuickEventAllDayEnd() : QuickEventEndTime;
-        var composeResult = new CalendarEventComposeResult
-        {
-            CalendarId = SelectedQuickEventAccountCalendar.Id,
-            AccountId = SelectedQuickEventAccountCalendar.Account.Id,
-            Title = EventName,
-            Location = Location ?? string.Empty,
-            HtmlNotes = string.Empty,
-            StartDate = startDate,
-            EndDate = endDate,
-            IsAllDay = IsAllDay,
-            TimeZoneId = TimeZoneInfo.Local.Id,
-            ShowAs = SelectedQuickEventAccountCalendar.DefaultShowAs,
-            SelectedReminders = [],
-            Attendees = [],
-            Attachments = [],
-            Recurrence = string.Empty,
-            RecurrenceSummary = string.Empty
-        };
+        var composeResult = QuickEventFactory.Create(
+            SelectedQuickEventAccountCalendar, EventName, Location, startDate, endDate, IsAllDay);
 
-        var preparationRequest = new CalendarOperationPreparationRequest(
-            CalendarSynchronizerOperation.CreateEvent,
-            ComposeResult: composeResult);
-        await _mailCalRequestDelegator.ExecuteAsync(preparationRequest);
+        await QuickEventFactory.CreateAsync(_mailCalRequestDelegator, composeResult);
         LastQuickCreationSucceeded = true;
     }
 

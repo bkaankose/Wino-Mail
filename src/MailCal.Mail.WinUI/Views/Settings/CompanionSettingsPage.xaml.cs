@@ -19,13 +19,8 @@ public sealed partial class CompanionSettingsPage : CompanionSettingsPageAbstrac
     {
         InitializeComponent();
         HotKeyEnabledToggle.IsOn = ViewModel.PreferencesService.IsCompanionHotKeyEnabled;
-        UnreadBehaviorComboBox.SelectedItem = ViewModel.PreferencesService.CompanionUnreadMessageBehavior
-            == CompanionUnreadMessageBehavior.Everything
-                ? EverythingComboBoxItem
-                : AfterAppSessionComboBoxItem;
         RestoreHotKeyInput();
         UpdateHotKeyAvailability();
-        UpdatePersonalizationAvailability();
 
         if (HotKeyEnabledToggle.IsOn && !TryConfigure(true, GetStoredGesture()))
         {
@@ -44,23 +39,7 @@ public sealed partial class CompanionSettingsPage : CompanionSettingsPageAbstrac
     private void CompanionEnabled_Toggled(object sender, RoutedEventArgs e)
     {
         if (sender is ToggleSwitch { IsLoaded: true } toggle)
-        {
             UpdateHotKeyAvailability(toggle.IsOn);
-            UpdatePersonalizationAvailability(toggle.IsOn);
-        }
-    }
-
-    private void UnreadBehaviorComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (sender is not ComboBox { IsLoaded: true } comboBox)
-            return;
-
-        var behavior = ReferenceEquals(comboBox.SelectedItem, EverythingComboBoxItem)
-            ? CompanionUnreadMessageBehavior.Everything
-            : CompanionUnreadMessageBehavior.AfterAppSession;
-
-        if (ViewModel.PreferencesService.CompanionUnreadMessageBehavior != behavior)
-            ViewModel.PreferencesService.CompanionUnreadMessageBehavior = behavior;
     }
 
     private void HotKeyEnabled_Toggled(object sender, RoutedEventArgs e)
@@ -159,12 +138,6 @@ public sealed partial class CompanionSettingsPage : CompanionSettingsPageAbstrac
         var isEnabled = isCompanionEnabled ?? ViewModel.PreferencesService.IsCompanionEnabled;
         HotKeyEnabledToggle.IsEnabled = isEnabled;
         HotKeyInput.IsEnabled = isEnabled && HotKeyEnabledToggle.IsOn;
-    }
-
-    private void UpdatePersonalizationAvailability(bool? isCompanionEnabled = null)
-    {
-        var isEnabled = isCompanionEnabled ?? ViewModel.PreferencesService.IsCompanionEnabled;
-        CompanionContentExpander.IsEnabled = isEnabled;
     }
 
     private static ModifierKeys ToDomainModifiers(VirtualKeyModifiers modifiers)

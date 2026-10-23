@@ -1,34 +1,33 @@
 ﻿using System;
-using System.Linq;
+using System.ComponentModel;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
 using Windows.System;
-using MailCal.Calendar.ViewModels.Data;
-using MailCal.Core.Domain;
-using MailCal.Core.Domain.Enums;
-using MailCal.Mail.ViewModels.Data;
 using MailCal.Mail.WinUI.Services.Companion;
-using WinRT;
 
 namespace MailCal.Mail.WinUI.Controls.Companion;
 
 public sealed partial class CompanionFlyoutView : UserControl
 {
+    // Set while the view pushes the view model's date into the CalendarView, so that change is not
+    // read back as a user selection.
+    private bool _isSyncingCalendar;
+
     internal CompanionFlyoutView(CompanionDashboardViewModel viewModel)
     {
         ViewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         InitializeComponent();
+
+        ViewModel.PropertyChanged += ViewModel_PropertyChanged;
+        Loaded += (_, _) => SyncCalendarSelection();
     }
 
     public CompanionDashboardViewModel ViewModel { get; }
 
     internal event EventHandler? HideRequested;
-
-    private async void OpenEvent_Click(object? sender, EventArgs e) => await OpenEventAsync();
 
     private void Root_KeyDown(object sender, KeyRoutedEventArgs e)
     {
@@ -39,45 +38,55 @@ public sealed partial class CompanionFlyoutView : UserControl
         HideRequested?.Invoke(this, EventArgs.Empty);
     }
 
-    private async void SnoozeSplitButton_IsCheckedChanged(ToggleSplitButton sender, ToggleSplitButtonIsCheckedChangedEventArgs args)
+    private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        // The event also fires when the binding pushes state in, so only act on a real divergence.
-        // Without this the preference change would loop straight back into another write.
-        if (sender.IsChecked == ViewModel.SnoozeNotifications)
+        if (e.PropertyName == nameof(ViewModel.SelectedDate))
+            SyncCalendarSelection();
+    }
+
+    private void MonthCalendar_SelectedDatesChanged(CalendarView sender, CalendarViewSelectedDatesChangedEventArgs args)
+    {
+        if (_isSyncingCalendar)
             return;
 
+        if (args.AddedDates.Count > 0)
+        {
+            ViewModel.SelectedDate = args.AddedDates[0].Date;
+            return;
+        }
+
+        // Clicking the selected day clears the selection; a day is always selected here.
+        if (sender.SelectedDates.Count == 0)
+            SyncCalendarSelection();
+    }
+
+    private void SyncCalendarSelection()
+    {
+        var selected = new DateTimeOffset(ViewModel.SelectedDate);
+        if (MonthCalendar.SelectedDates.Count == 1 && MonthCalendar.SelectedDates[0].Date == ViewModel.SelectedDate)
+            return;
+
+        _isSyncingCalendar = true;
         try
         {
-            if (sender.IsChecked)
-            {
-                // Pressing the button itself is the open-ended choice: hold everything until the
-                // user turns it back on. Timed durations come from the dropdown.
-                await ViewModel.StartNotificationSnoozeCommand.ExecuteAsync(NotificationSnoozePreset.UntilTurnedBackOn);
-            }
-            else
-            {
-                await ViewModel.ResumeNotificationsCommand.ExecuteAsync(null);
-            }
+            MonthCalendar.SelectedDates.Clear();
+            MonthCalendar.SelectedDates.Add(selected);
+            MonthCalendar.SetDisplayDate(selected);
         }
-        catch (Exception ex)
+        finally
         {
-            ViewModel.ReportActionError(ex);
+            _isSyncingCalendar = false;
         }
     }
 
-    private async void SnoozePreset_Click(object sender, RoutedEventArgs e)
+    private void QuickTitleBox_KeyDown(object sender, KeyRoutedEventArgs e)
     {
-        try
-        {
-            if (sender is FrameworkElement { Tag: string tag } && Enum.TryParse<NotificationSnoozePreset>(tag, out var preset))
-            {
-                await ViewModel.StartNotificationSnoozeCommand.ExecuteAsync(preset);
-            }
-        }
-        catch (Exception ex)
-        {
-            ViewModel.ReportActionError(ex);
-        }
+        if (e.Key != VirtualKey.Enter)
+            return;
+
+        e.Handled = true;
+        if (ViewModel.CreateQuickEventCommand.CanExecute(null))
+            ViewModel.CreateQuickEventCommand.Execute(null);
     }
 
     private async void Retry_Click(object sender, RoutedEventArgs e)
@@ -88,75 +97,14 @@ public sealed partial class CompanionFlyoutView : UserControl
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine(ex);
-        }
-    }
-
-    private async void LaterEvent_Click(object sender, RoutedEventArgs e)
-        => await ExecuteCommandAsync(
-            sender,
-            static (viewModel, parameter) => viewModel.OpenCalendarEventCommand.ExecuteAsync((CalendarItemViewModel)parameter));
-
-    private async Task OpenEventAsync()
-    {
-        try
-        {
-            if (ViewModel.NextEvent is { } calendarItem)
-                await ViewModel.OpenCalendarEventCommand.ExecuteAsync(calendarItem);
-        }
-        catch (Exception ex)
-        {
             ViewModel.ReportActionError(ex);
         }
     }
 
-    private async void Mail_Click(object sender, RoutedEventArgs e)
+    private async void DayEvent_Click(object sender, RoutedEventArgs e)
         => await ExecuteCommandAsync(
             sender,
-            static (viewModel, parameter) => viewModel.OpenMailCommand.ExecuteAsync((MailItemViewModel)parameter));
-
-    [DynamicWindowsRuntimeCast(typeof(DependencyObject))]
-    private async void MailRow_Tapped(object sender, TappedRoutedEventArgs e)
-    {
-        try
-        {
-            if (IsWithinButton(e.OriginalSource as DependencyObject))
-                return;
-
-            if (sender is FrameworkElement { Tag: MailItemViewModel mail })
-                await ViewModel.OpenMailCommand.ExecuteAsync(mail);
-        }
-        catch (Exception ex)
-        {
-            ViewModel.ReportActionError(ex);
-        }
-    }
-
-    private void MailRow_PointerEntered(object sender, PointerRoutedEventArgs e)
-        => SetHoverActionsVisibility(sender, Visibility.Visible);
-
-    private void MailRow_PointerExited(object sender, PointerRoutedEventArgs e)
-        => SetHoverActionsVisibility(sender, Visibility.Collapsed);
-
-    private async void ArchiveMail_Click(object sender, RoutedEventArgs e)
-        => await ExecuteCommandAsync(
-            sender,
-            static (viewModel, parameter) => viewModel.ArchiveMailCommand.ExecuteAsync((MailItemViewModel)parameter));
-
-    private async void MarkMailRead_Click(object sender, RoutedEventArgs e)
-        => await ExecuteCommandAsync(
-            sender,
-            static (viewModel, parameter) => viewModel.MarkMailReadCommand.ExecuteAsync((MailItemViewModel)parameter));
-
-    private async void TaskCompleted_Click(object sender, RoutedEventArgs e)
-        => await ExecuteCommandAsync(
-            sender,
-            static (viewModel, parameter) => viewModel.SetTaskCompletedCommand.ExecuteAsync((TaskItemViewModel)parameter));
-
-    private async void Contact_Click(object sender, RoutedEventArgs e)
-        => await ExecuteCommandAsync(
-            sender,
-            static (viewModel, parameter) => viewModel.FindContactCommand.ExecuteAsync((AccountContactViewModel)parameter));
+            static (viewModel, parameter) => viewModel.OpenCalendarEventCommand.ExecuteAsync((MailCal.Mail.ViewModels.Companion.CompanionDayEvent)parameter));
 
     private async Task ExecuteCommandAsync(
         object sender,
@@ -171,27 +119,5 @@ public sealed partial class CompanionFlyoutView : UserControl
         {
             ViewModel.ReportActionError(ex);
         }
-    }
-
-    [DynamicWindowsRuntimeCast(typeof(Panel))]
-    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
-    private static void SetHoverActionsVisibility(object sender, Visibility visibility)
-    {
-        if (sender is Panel panel && panel.Children.LastOrDefault() is FrameworkElement hoverActions)
-            hoverActions.Visibility = visibility;
-    }
-
-    [DynamicWindowsRuntimeCast(typeof(ButtonBase))]
-    private static bool IsWithinButton(DependencyObject? element)
-    {
-        while (element is not null)
-        {
-            if (element is ButtonBase)
-                return true;
-
-            element = VisualTreeHelper.GetParent(element);
-        }
-
-        return false;
     }
 }

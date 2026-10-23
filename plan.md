@@ -146,6 +146,15 @@ Working copy: `C:\Users\fdoelling_ailio\source\Wino-Mail` (Windows). It builds a
 
 ## Phase 5: Calendar tray popup (replaces the Companion content)
 
+**Status (2026-10-23):** implemented, uncommitted; Debug x64 and the Release x64 gate pass. Manual checks in the running app are pending (see Verification, Tray). Deviations from the steps below:
+- Rows are `CompanionDayEvent` (time text for the selected day, colour, location) and the calendar picker uses `CompanionCalendarOption`, rather than binding `CalendarItemViewModel` / `AccountCalendar` directly.
+- "Shown in the calendar page" is read from `AccountCalendar.IsExtended`, which the calendar page's checkbox persists. The quick-add list holds the shown calendars that are writable.
+- `CalendarOperationPreparationRequest` has no `Trace`, so quick-add events carry no `RequestTrace`.
+- "More options…" passes the whole form (calendar, title, times, all-day) to the editor through `CompanionEventDraft`, instead of `NewEvent(accountId, startAt)`.
+- The month calendar is a plain `CalendarView`; busy-day dots were not added.
+- Unused companion strings were removed from `en_US` only; other locales are untouched.
+- `TranslationService` now loads English first and lays the selected language over it. Before, a key missing from the selected language showed as its raw name (for example `Companion_QuickAddPlaceholder` in German), which made the "English strings only" rule unusable.
+
 The tray icon (`Services/NativeTrayIcon.cs`, custom Win32), its controller (`Services/MainTrayController.cs`) and the flyout host (`ThirdParty/DesktopFlyouts/CompanionFlyoutHost.cs`, 400px wide, at most 720px tall) all stay as they are. Left-click opens the popup; right-click keeps the native menu (Show Mail-Cal, Show Calendar, Exit). Only the content and the view model change.
 
 ### ViewModel
