@@ -169,7 +169,8 @@ internal sealed partial class ShellSidebarViewController : NSViewController
             return;
         }
         _selectionHandledRow = -1;
-        if (_rows.HasChildren(item))
+        // The mail mode owns a merged account's expansion on click; its model change moves the outline.
+        if (_rows.HasChildren(item) && item is not IMergedAccountMenuItem)
         {
             if (_outline.IsItemExpanded(node)) _outline.CollapseItem(node);
             else _outline.ExpandItem(node);

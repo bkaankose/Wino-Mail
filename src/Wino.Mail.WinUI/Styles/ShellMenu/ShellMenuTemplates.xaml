@@ -422,7 +422,7 @@
             BindingData="{x:Bind}"
             ContextRequested="MergedAccountContextRequested"
             DataContext="{x:Bind}"
-            IsActiveAccount="{x:Bind IsSelected, Mode=TwoWay}"
+            IsActiveAccount="{x:Bind helpers:XamlHelpers.IsMergedAccountIndicatorVisible(IsSelected, IsChildSelected, IsExpanded), Mode=OneWay}"
             IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
             MenuItemsSource="{x:Bind SubMenuItems}"
             SelectsOnInvoked="False"

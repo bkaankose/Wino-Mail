@@ -538,6 +538,7 @@ public static class XamlHelpers
     public static GridLength GetColumnWidthByVisibility(bool isVisible)
         => isVisible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
     public static FontWeight GetFontWeightByChildSelectedState(bool isChildSelected) => isChildSelected ? FontWeights.SemiBold : FontWeights.Normal;
+    public static bool IsMergedAccountIndicatorVisible(bool isSelected, bool isChildSelected, bool isExpanded) => isSelected || (isChildSelected && !isExpanded);
     public static FontWeight GetFontWeightByReadState(bool isChildSelected) => isChildSelected ? FontWeights.Normal : FontWeights.SemiBold;
     public static FontWeight GetMailItemSenderFontWeightByReadState(bool isRead) => isRead ? FontWeights.Normal : FontWeights.Bold;
     public static HoverActionKind GetHoverActionKind(MailOperation operation) => operation switch
