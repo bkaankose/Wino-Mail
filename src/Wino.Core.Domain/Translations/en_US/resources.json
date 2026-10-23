@@ -89,6 +89,7 @@
   "AccountCacheReset_Title": "Account Cache Reset",
   "AccountCacheReset_Message": "This account requires full re-sychronization to continue working. Please wait while Wino re-synchronizes your messages...",
   "AccountContactNameYou": "You",
+  "AccountContactNameYouWithAddressFormat": "You <{0}>",
   "Accessibility_MailItemFlagged": "Flagged",
   "Accessibility_MailItemHasAttachments": "Has attachments",
   "Attachment_ContentTypeMismatchInline": "Detected as {0}; the filename extension does not match.",

@@ -178,10 +178,20 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
     public bool IsSemicolon { get; set; } = true;
 
     /// <summary>
-    /// Provides a short name of the contact.
-    /// <see cref="ShortDisplayName"/> or "You"
+    /// Provides a short name of the contact followed by the separator.
+    /// <see cref="ShortDisplayName"/> or "You &lt;address&gt;"
     /// </summary>
-    public string ShortNameOrYou => (IsMe ? Translator.AccountContactNameYou : ShortDisplayName) + (IsSemicolon ? ";" : string.Empty);
+    public string ShortNameOrYou => ShortNameOrYouLabel + (IsSemicolon ? ";" : string.Empty);
+
+    /// <summary>
+    /// <see cref="ShortDisplayName"/>, or "You &lt;address&gt;" for the receiving account. The address is kept because a
+    /// linked inbox, aliases and forwarding all deliver to "you" through different mailboxes.
+    /// </summary>
+    public string ShortNameOrYouLabel => !IsMe
+        ? ShortDisplayName
+        : string.IsNullOrWhiteSpace(Address)
+            ? Translator.AccountContactNameYou
+            : string.Format(Translator.AccountContactNameYouWithAddressFormat, Address.ToLowerInvariant());
 
     /// <summary>
     /// Short display name of the contact.
