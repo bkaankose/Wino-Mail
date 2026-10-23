@@ -12,6 +12,8 @@ namespace Wino.Calendar.Controls;
 /// </summary>
 internal readonly record struct TimedItemLayout(CalendarItemViewModel Item, DateOnly Date, LayoutRect Bounds);
 
+internal readonly record struct AllDayColumnLayout(List<TimedItemLayout> Items, CalendarOverflowLayout? Overflow);
+
 internal static class TimedCalendarLayoutCalculator
 {
     internal const double ItemRightSpacing = CalendarEventPlacementCalculator.RightSpacing;
@@ -22,17 +24,31 @@ internal static class TimedCalendarLayoutCalculator
 
     public static double GetTimelineHeight(double hourHeight) => hourHeight * 24d;
 
-    public static double GetAllDayHeight(int laneCount)
+    public static double GetAllDayHeight(int laneCount, bool hasMoreRow)
     {
         if (laneCount <= 0)
         {
             return 0d;
         }
 
-        return (AllDaySectionPadding * 2d) +
-               (laneCount * AllDayItemHeight) +
-               ((laneCount - 1) * AllDayItemGap);
+        var height = (AllDaySectionPadding * 2d) +
+                     (laneCount * AllDayItemHeight) +
+                     ((laneCount - 1) * AllDayItemGap);
+
+        return hasMoreRow
+            ? height + CalendarItemOverflow.MoreButtonGap + CalendarItemOverflow.MoreButtonHeight
+            : height;
     }
+
+    public static LayoutRect GetAllDayMoreButtonBounds(double dayWidth)
+        => new(
+            2d,
+            AllDaySectionPadding +
+            (CalendarItemOverflow.MaxAllDayLanes * AllDayItemHeight) +
+            ((CalendarItemOverflow.MaxAllDayLanes - 1) * AllDayItemGap) +
+            CalendarItemOverflow.MoreButtonGap,
+            Math.Max(0d, dayWidth - 4d),
+            CalendarItemOverflow.MoreButtonHeight);
 
     /// <summary>
     /// Lays out the timed (not all-day) items of one date inside a column of <paramref name="dayWidth"/>.
@@ -87,7 +103,7 @@ internal static class TimedCalendarLayoutCalculator
     /// Stacks the all-day items of one date inside a column of <paramref name="dayWidth"/>. The
     /// number of returned items is the column's lane count.
     /// </summary>
-    public static List<TimedItemLayout> CalculateAllDayItems(DateOnly date, IEnumerable<CalendarItemViewModel> items, double dayWidth)
+    public static AllDayColumnLayout CalculateAllDayItems(DateOnly date, IEnumerable<CalendarItemViewModel> items, double dayWidth)
     {
         var layouts = new List<TimedItemLayout>();
         var dayItems = BuildAllDayItems(items, date)
@@ -95,11 +111,12 @@ internal static class TimedCalendarLayoutCalculator
             .ThenBy(item => item.EndDate)
             .ThenBy(item => item.Title)
             .ToList();
+        var laneCount = Math.Min(dayItems.Count, CalendarItemOverflow.MaxAllDayLanes);
+        var width = Math.Max(0d, dayWidth - 4d);
 
-        for (var rowIndex = 0; rowIndex < dayItems.Count; rowIndex++)
+        for (var rowIndex = 0; rowIndex < laneCount; rowIndex++)
         {
             var y = AllDaySectionPadding + (rowIndex * (AllDayItemHeight + AllDayItemGap));
-            var width = Math.Max(0d, dayWidth - 4d);
 
             layouts.Add(new TimedItemLayout(
                 dayItems[rowIndex],
@@ -107,7 +124,11 @@ internal static class TimedCalendarLayoutCalculator
                 new LayoutRect(2d, y, width, AllDayItemHeight)));
         }
 
-        return layouts;
+        CalendarOverflowLayout? overflow = laneCount < dayItems.Count
+            ? new CalendarOverflowLayout(date, 0, dayItems.GetRange(laneCount, dayItems.Count - laneCount), GetAllDayMoreButtonBounds(dayWidth))
+            : null;
+
+        return new AllDayColumnLayout(layouts, overflow);
     }
 
     private static List<Segment> BuildDaySegments(IEnumerable<CalendarItemViewModel> items, DateOnly date)

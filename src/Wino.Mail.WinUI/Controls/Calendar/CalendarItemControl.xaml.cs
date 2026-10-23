@@ -39,6 +39,9 @@ public sealed partial class CalendarItemControl : UserControl
     [CommunityToolkit.WinUI.GeneratedDependencyProperty]
     public partial bool ProtectTitle { get; set; }
 
+    [CommunityToolkit.WinUI.GeneratedDependencyProperty]
+    public partial bool IsDragDisabled { get; set; }
+
     private readonly IContextMenuItemService _contextMenuItemService;
 #if DEBUG
     private readonly INotificationBuilder _notificationBuilder;
@@ -137,7 +140,7 @@ public sealed partial class CalendarItemControl : UserControl
 
     private void ControlDragStarting(UIElement sender, DragStartingEventArgs args)
     {
-        if (CalendarItem?.CanDragDrop != true)
+        if (IsDragDisabled || CalendarItem?.CanDragDrop != true)
         {
             args.Cancel = true;
             IsDragging = false;
@@ -181,6 +184,8 @@ public sealed partial class CalendarItemControl : UserControl
     }
 
     partial void OnProtectTitleChanged(bool newValue) => UpdateSizeStates(ActualWidth, ActualHeight);
+
+    public static bool CanDragItem(bool canDragDrop, bool isDragDisabled) => canDragDrop && !isDragDisabled;
 
     private void ControlDropped(UIElement sender, DropCompletedEventArgs args) => IsDragging = false;
 

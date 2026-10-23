@@ -211,8 +211,8 @@ public sealed partial class WinoCalendarSurfaceView : NSView
         }
 
         var dates = Dates;
-        int lanes = CalendarLayoutCalculator.GetAllDayLaneCount(dates, _items);
-        double allDayHeight = CalendarLayoutCalculator.GetAllDayHeight(lanes);
+        var (lanes, hasAllDayOverflow) = CalendarLayoutCalculator.GetAllDayLaneCount(dates, _items);
+        double allDayHeight = CalendarLayoutCalculator.GetAllDayHeight(lanes, hasAllDayOverflow);
         _header.Frame = new CGRect(0, 0, bounds.Width, TimedHeaderHeight);
         _allDay.Frame = new CGRect(0, TimedHeaderHeight, bounds.Width, allDayHeight);
         double scrollTop = TimedHeaderHeight + allDayHeight;
@@ -243,6 +243,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
         {
             _clock.Invalidate();
             CancelSlotSelection();
+            CloseOverflow();
             WinoStyle.AccentChanged -= AccentChanged;
             if (_observableItems is not null) _observableItems.CollectionChanged -= ItemsChanged;
         }
@@ -419,13 +420,15 @@ public sealed partial class WinoCalendarSurfaceView : NSView
     private sealed class AllDayView(WinoCalendarSurfaceView owner) : TileHostView(owner)
     {
         private double _contentWidth;
+        private List<CalendarOverflowCell> _overflows = [];
 
         public void Relayout(double contentWidth)
         {
             _contentWidth = contentWidth;
             double dayWidth = Owner.Dates.Count == 0 ? 0 : Math.Max(0, contentWidth - HourColumnWidth) / Owner.Dates.Count;
-            var placements = CalendarLayoutCalculator.CalculateAllDay(Owner.Dates, Owner.Items, dayWidth)
-                .Select(p => p with { Bounds = new CGRect(p.Bounds.X + HourColumnWidth, p.Bounds.Y, p.Bounds.Width, p.Bounds.Height) });
+            var (items, overflows) = CalendarLayoutCalculator.CalculateAllDay(Owner.Dates, Owner.Items, dayWidth);
+            var placements = items.Select(p => p with { Bounds = new CGRect(p.Bounds.X + HourColumnWidth, p.Bounds.Y, p.Bounds.Width, p.Bounds.Height) });
+            _overflows = overflows.Select(o => o with { Bounds = new CGRect(o.Bounds.X + HourColumnWidth, o.Bounds.Y, o.Bounds.Width, o.Bounds.Height) }).ToList();
             SyncTiles(placements);
             NeedsDisplay = true;
         }
@@ -472,11 +475,13 @@ public sealed partial class WinoCalendarSurfaceView : NSView
             var font = NSFont.SystemFontOfSize(11);
             var size = Measure(Translator.CalendarItemAllDay, font);
             DrawText(Translator.CalendarItemAllDay, font, WinoStyle.TertiaryText, new CGPoint(HourColumnWidth - 8 - size.Width, (bounds.Height - size.Height) / 2));
+            DrawMoreLinks(_overflows);
         }
 
         public override void MouseDown(NSEvent theEvent)
         {
             var point = ConvertPointFromView(theEvent.LocationInWindow, null);
+            if (Owner.TryShowOverflow(this, _overflows, point)) return;
             var dates = Owner.Dates;
             double dayWidth = dates.Count == 0 ? 0 : Math.Max(0, _contentWidth - HourColumnWidth) / dates.Count;
             if (dayWidth <= 0 || point.X < HourColumnWidth) return;
@@ -655,13 +660,15 @@ public sealed partial class WinoCalendarSurfaceView : NSView
     private sealed class MonthCanvasView(WinoCalendarSurfaceView owner) : TileHostView(owner)
     {
         private List<CalendarMonthCell> _cells = [];
+        private List<CalendarOverflowCell> _overflows = [];
 
         public void Relayout()
         {
             var dates = Owner.MonthDates;
-            if (dates.Count == 0) { _cells = []; SyncTiles([]); return; }
-            var (cells, items) = CalendarLayoutCalculator.CalculateMonth(dates, Owner.Items, Bounds.Width, Bounds.Height);
+            if (dates.Count == 0) { _cells = []; _overflows = []; SyncTiles([]); return; }
+            var (cells, items, overflows) = CalendarLayoutCalculator.CalculateMonth(dates, Owner.Items, Bounds.Width, Bounds.Height);
             _cells = cells;
+            _overflows = overflows;
             SyncTiles(items);
             NeedsDisplay = true;
         }
@@ -708,6 +715,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
                 FillRect(new CGRect(0, Math.Min(bounds.Height - 1, Math.Round(row * cellHeight)), bounds.Width, 1));
             for (int column = 1; column < CalendarLayoutCalculator.MonthColumns; column++)
                 FillRect(new CGRect(Math.Round(column * cellWidth), 0, 1, bounds.Height));
+            DrawMoreLinks(_overflows);
             Owner.DrawMonthSelection(_cells);
         }
 
@@ -737,6 +745,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
         public override void MouseDown(NSEvent theEvent)
         {
             var point = ConvertPointFromView(theEvent.LocationInWindow, null);
+            if (Owner.TryShowOverflow(this, _overflows, point)) return;
             var cell = _cells.FirstOrDefault(c => c.Bounds.Contains(point));
             if (cell is null) return;
             Owner.BeginSlotPress(this, month: true, point, () => Owner.RaiseSlotClicked(cell.Date.ToDateTime(TimeOnly.MinValue), cell.Bounds, this, true));

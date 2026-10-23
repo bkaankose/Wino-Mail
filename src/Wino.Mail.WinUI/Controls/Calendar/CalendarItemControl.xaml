@@ -12,7 +12,7 @@
     d:DesignHeight="300"
     d:DesignWidth="400"
     AutomationProperties.Name="{x:Bind calendarHelpers:CalendarXamlHelpers.GetEventAutomationName(CalendarItem.Title, CalendarItem.StartDate, CalendarItem.EndDate, CalendarItem.IsAllDayEvent, CalendarItem.IsRecurringEvent, CalendarItem.Location, CalendarItem.AssignedCalendar.Name, CalendarItem.CalendarSettings), Mode=OneWay}"
-    CanDrag="{x:Bind CalendarItem.CanDragDrop, Mode=OneWay, FallbackValue=False}"
+    CanDrag="{x:Bind local:CalendarItemControl.CanDragItem(CalendarItem.CanDragDrop, IsDragDisabled), Mode=OneWay, FallbackValue=False}"
     DragStarting="ControlDragStarting"
     DropCompleted="ControlDropped"
     Loaded="OnControlLoaded"
