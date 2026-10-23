@@ -20,6 +20,7 @@ public sealed class WindowsHtmlMailEditorSession(WinoMailEditor control) : IHtml
     public Task<string?> GetHtmlBodyAsync(CancellationToken cancellationToken = default) => RunAsync(control.GetHtmlBodyAsync, cancellationToken);
     public Task SetThemeAsync(bool isDarkMode, CancellationToken cancellationToken = default) => RunAsync(() => control.SetThemeAsync(isDarkMode), cancellationToken);
     public Task SetDefaultTypographyAsync(string? fontFamily, int fontSize, CancellationToken cancellationToken = default) => RunAsync(() => control.SetDefaultTypographyAsync(fontFamily, fontSize), cancellationToken);
+    public Task SetSignatureAsync(string? html, string? previousHtml, CancellationToken cancellationToken = default) => RunAsync(() => control.SetSignatureAsync(html, previousHtml), cancellationToken);
     public Task FocusEditorAsync(bool focusControlAsWell, CancellationToken cancellationToken = default) => RunAsync(() => control.FocusEditorAsync(focusControlAsWell), cancellationToken);
     public Task SetApplicationShortcutsAsync(IReadOnlyList<EditorApplicationShortcutGesture> shortcuts, CancellationToken cancellationToken = default) => RunAsync(() => control.SetApplicationShortcutsAsync(shortcuts), cancellationToken);
     public Task InsertImagesAsync(IEnumerable<EditorImageInfo> images, CancellationToken cancellationToken = default) => RunAsync(() => control.InsertImagesAsync(images), cancellationToken);

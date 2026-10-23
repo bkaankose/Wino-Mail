@@ -3923,6 +3923,7 @@
   "Composer_SearchTemplates": "Search templates",
   "Composer_ManageTemplates": "Manage templates…",
   "Composer_ManageSignatures": "Manage signatures…",
+  "Composer_NoSignature": "(no signature)",
   "Composer_SmimeNoCertificateTooltip": "No S/MIME certificate for {0}. Import one in Settings › Accounts.",
   "Composer_AiRewriteShortTitle": "Rewrite",
   "Buttons_Done": "Done",

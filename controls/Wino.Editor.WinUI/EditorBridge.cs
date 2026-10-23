@@ -132,6 +132,13 @@ internal sealed partial class EditorBridge : IDisposable
         return ExecuteScriptAsync($"window.WinoEditor.setTheme({isDarkMode.ToString().ToLowerInvariant()})");
     }
 
+    public Task SetSignatureAsync(string? html, string? previousHtml)
+    {
+        string htmlJson = JsonSerializer.Serialize(Convert.ToBase64String(Encoding.UTF8.GetBytes(html ?? string.Empty)), EditorJsonContext.Default.String);
+        string previousJson = JsonSerializer.Serialize(Convert.ToBase64String(Encoding.UTF8.GetBytes(previousHtml ?? string.Empty)), EditorJsonContext.Default.String);
+        return ExecuteScriptAsync($"window.WinoEditor.setSignature({htmlJson}, {previousJson})");
+    }
+
     public Task SetTypographyAsync(string? fontFamily, int fontSize)
     {
         string fontJson = JsonSerializer.Serialize(fontFamily ?? "Calibri", EditorJsonContext.Default.String);
