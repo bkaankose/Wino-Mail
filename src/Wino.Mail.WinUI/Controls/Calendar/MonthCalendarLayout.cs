@@ -16,8 +16,9 @@ internal static class MonthCalendarLayoutCalculator
 
     private const double CellPadding = 4d;
     private const double DayLabelHeight = 20d;
-    private const double RegularItemHeight = 18d;
-    private const double ExpandedItemHeight = 30d;
+
+    // 22 px rather than the 21 px a title line needs keeps descenders inside the tile.
+    private const double ItemHeight = 22d;
     private const double ItemGap = 2d;
 
     /// <summary>
@@ -41,7 +42,7 @@ internal static class MonthCalendarLayoutCalculator
 
             foreach (var item in GetCellItems(items, date))
             {
-                var itemHeight = GetItemHeight(item);
+                var itemHeight = ItemHeight;
 
                 if (nextItemY + itemHeight > cellHeight - CellPadding)
                 {
@@ -91,9 +92,4 @@ internal static class MonthCalendarLayoutCalculator
             }
         }
     }
-
-    private static double GetItemHeight(CalendarItemViewModel item)
-        => item.IsAllDayEvent || item.IsMultiDayEvent
-            ? ExpandedItemHeight
-            : RegularItemHeight;
 }

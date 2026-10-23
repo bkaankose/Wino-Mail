@@ -15,6 +15,27 @@ namespace Wino.Calendar.Controls;
 
 public sealed partial class CalendarItemControl : UserControl
 {
+    // Height tiers, from the XAML text metrics: the text panel starts 3 px down, a 13 px
+    // SemiBold title line is 18 px tall, an 11 px detail line 15 px, and lines are 2 px apart.
+    // Thresholds are fixed pixels; at text scaling above 100% the text can still clip.
+    private const double TextTopMargin = 3d;
+    private const double TitleLineHeight = 18d;
+    private const double DetailLineHeight = 15d;
+    private const double LineSpacing = 2d;
+    private const double BottomSlack = 1d;
+
+    private const double CompactTierMinHeight = 14d;
+
+    private const double SingleLineTierMinHeight = TextTopMargin + TitleLineHeight;
+
+    private const double TwoLineTierMinHeight = TextTopMargin + (TitleLineHeight * 2d) + BottomSlack;
+
+    private const double TimeTierMinHeight = TextTopMargin + (TitleLineHeight * 2d) + LineSpacing + DetailLineHeight + BottomSlack;
+
+    private const double FullTierMinHeight = TimeTierMinHeight + LineSpacing + DetailLineHeight;
+
+    private const double AttributeIconsMinWidth = 48d;
+
     [CommunityToolkit.WinUI.GeneratedDependencyProperty]
     public partial bool ProtectTitle { get; set; }
 
@@ -110,6 +131,8 @@ public sealed partial class CalendarItemControl : UserControl
         {
             VisualStateManager.GoToState(this, "RegularEvent", true);
         }
+
+        UpdateSizeStates(ActualWidth, ActualHeight);
     }
 
     private void ControlDragStarting(UIElement sender, DragStartingEventArgs args)
@@ -132,12 +155,32 @@ public sealed partial class CalendarItemControl : UserControl
         IsDragging = true;
     }
 
-    private void ControlSizeChanged(object sender, SizeChangedEventArgs e)
+    private void ControlSizeChanged(object sender, SizeChangedEventArgs e) => UpdateSizeStates(e.NewSize.Width, e.NewSize.Height);
+
+    /// <summary>Presenters are recycled without a size change, so this also runs when the item changes.</summary>
+    private void UpdateSizeStates(double width, double height)
     {
-        EventDetailsPanel.Visibility = !IsCustomEventArea && CalendarItem?.IsAllDayEvent == false &&
-            CalendarItem?.IsMultiDayEvent == false && e.NewSize.Height >= 52
-            ? Visibility.Visible : Visibility.Collapsed;
+        if (width <= 0d || height <= 0d)
+        {
+            return;
+        }
+
+        var isSingleLineOnly = IsCustomEventArea || ProtectTitle || CalendarItem is null || CalendarItem.IsAllDayEvent || CalendarItem.IsMultiDayEvent;
+        var heightState = height switch
+        {
+            < CompactTierMinHeight => "HiddenTextHeight",
+            < SingleLineTierMinHeight => "CompactHeight",
+            _ when isSingleLineOnly || height < TwoLineTierMinHeight => "SingleLineHeight",
+            < TimeTierMinHeight => "TwoLineHeight",
+            < FullTierMinHeight => "TwoLineWithTimeHeight",
+            _ => "FullHeight"
+        };
+
+        VisualStateManager.GoToState(this, heightState, false);
+        VisualStateManager.GoToState(this, width < AttributeIconsMinWidth ? "NarrowWidth" : "RegularWidth", false);
     }
+
+    partial void OnProtectTitleChanged(bool newValue) => UpdateSizeStates(ActualWidth, ActualHeight);
 
     private void ControlDropped(UIElement sender, DropCompletedEventArgs args) => IsDragging = false;
 

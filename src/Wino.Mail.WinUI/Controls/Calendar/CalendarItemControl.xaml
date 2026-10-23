@@ -82,15 +82,21 @@
                 FontWeight="SemiBold"
                 Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
                 HorizontalTextAlignment="Left"
+                MaxLines="2"
                 Text="{x:Bind CalendarItem.DisplayTitle, Mode=OneWay}"
-                TextTrimming="CharacterEllipsis" />
-            <StackPanel x:Name="EventDetailsPanel" Spacing="2">
+                TextTrimming="CharacterEllipsis"
+                TextWrapping="Wrap" />
+            <StackPanel
+                x:Name="EventDetailsPanel"
+                Spacing="2"
+                Visibility="Collapsed">
                 <TextBlock
                     FontSize="11"
                     Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
                     Text="{x:Bind CalendarItem.DisplayTimeRange, Mode=OneWay}"
                     TextTrimming="CharacterEllipsis" />
                 <TextBlock
+                    x:Name="EventLocationTextBlock"
                     FontSize="11"
                     Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
                     Text="{x:Bind CalendarItem.Location, Mode=OneWay}"
@@ -195,11 +201,8 @@
                     <VisualState.Setters>
                         <Setter Target="EventTitleTextblock.HorizontalAlignment" Value="Stretch" />
                         <Setter Target="EventTitleTextblock.HorizontalTextAlignment" Value="Left" />
-                        <Setter Target="EventTextPanel.Margin" Value="6,3,4,0" />
-                        <Setter Target="EventDetailsPanel.Visibility" Value="Collapsed" />
                         <Setter Target="AttributeStack.VerticalAlignment" Value="Center" />
                         <Setter Target="AttributeStack.Margin" Value="0,0,4,0" />
-                        <Setter Target="MainGrid.MinHeight" Value="30" />
                         <Setter Target="MainBorder.StrokeThickness" Value="0" />
                     </VisualState.Setters>
                 </VisualState>
@@ -209,14 +212,10 @@
                     <VisualState.Setters>
                         <Setter Target="MainBackground.Opacity" Value="1" />
                         <Setter Target="MainBorder.StrokeThickness" Value="0" />
-                        <Setter Target="AttributeStack.Visibility" Value="Visible" />
                         <Setter Target="AttributeStack.Margin" Value="0,0,4,0" />
                         <Setter Target="AttributeStack.VerticalAlignment" Value="Center" />
-                        <Setter Target="MainGrid.MinHeight" Value="30" />
                         <Setter Target="EventTitleTextblock.HorizontalAlignment" Value="Stretch" />
                         <Setter Target="EventTitleTextblock.HorizontalTextAlignment" Value="Left" />
-                        <Setter Target="EventTextPanel.Margin" Value="6,3,4,0" />
-                        <Setter Target="EventDetailsPanel.Visibility" Value="Collapsed" />
                     </VisualState.Setters>
                 </VisualState>
 
@@ -231,8 +230,50 @@
                         <Setter Target="MainBackground.Opacity" Value="0.2" />
                         <Setter Target="MainGrid.IsHitTestVisible" Value="False" />
                         <Setter Target="MainBorder.StrokeThickness" Value="0" />
-                        <Setter Target="AttributeStack.Visibility" Value="Collapsed" />
+                        <Setter Target="AttributeStack.Opacity" Value="0" />
                         <Setter Target="EventTextPanel.Visibility" Value="Collapsed" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+
+            <VisualStateGroup x:Name="HeightStates">
+                <VisualState x:Name="TwoLineHeight" />
+                <VisualState x:Name="HiddenTextHeight">
+                    <VisualState.Setters>
+                        <Setter Target="EventTitleTextblock.Visibility" Value="Collapsed" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="CompactHeight">
+                    <VisualState.Setters>
+                        <Setter Target="EventTitleTextblock.FontSize" Value="11" />
+                        <Setter Target="EventTitleTextblock.MaxLines" Value="1" />
+                        <Setter Target="EventTextPanel.Margin" Value="6,0,4,0" />
+                        <Setter Target="EventTextPanel.VerticalAlignment" Value="Center" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="SingleLineHeight">
+                    <VisualState.Setters>
+                        <Setter Target="EventTitleTextblock.MaxLines" Value="1" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="TwoLineWithTimeHeight">
+                    <VisualState.Setters>
+                        <Setter Target="EventDetailsPanel.Visibility" Value="Visible" />
+                        <Setter Target="EventLocationTextBlock.Visibility" Value="Collapsed" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="FullHeight">
+                    <VisualState.Setters>
+                        <Setter Target="EventDetailsPanel.Visibility" Value="Visible" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+
+            <VisualStateGroup x:Name="WidthStates">
+                <VisualState x:Name="RegularWidth" />
+                <VisualState x:Name="NarrowWidth">
+                    <VisualState.Setters>
+                        <Setter Target="AttributeStack.Visibility" Value="Collapsed" />
                     </VisualState.Setters>
                 </VisualState>
             </VisualStateGroup>

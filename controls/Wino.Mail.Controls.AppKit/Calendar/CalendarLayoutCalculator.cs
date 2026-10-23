@@ -38,8 +38,7 @@ public static class CalendarLayoutCalculator
     public const int MonthRows = 6;
     private const double MonthCellPadding = 4;
     private const double MonthDayLabelHeight = 20;
-    private const double MonthRegularItemHeight = 18;
-    private const double MonthExpandedItemHeight = 30;
+    private const double MonthItemHeight = 22;
     private const double MonthItemGap = 2;
 
     public static double GetAllDayHeight(int laneCount)
@@ -137,7 +136,7 @@ public static class CalendarLayoutCalculator
             double nextY = cell.Bounds.Y + MonthDayLabelHeight + MonthCellPadding;
             foreach (var item in GetCellItems(list, cell.Date))
             {
-                double itemHeight = item.IsAllDayEvent || item.IsMultiDayEvent ? MonthExpandedItemHeight : MonthRegularItemHeight;
+                double itemHeight = MonthItemHeight;
                 if (nextY + itemHeight > cell.Bounds.GetMaxY() - MonthCellPadding) break;
                 placements.Add(new CalendarItemPlacement(item, cell.Date,
                     new CGRect(cell.Bounds.X + MonthCellPadding, nextY, Math.Max(0, cell.Bounds.Width - MonthCellPadding * 2), itemHeight), CalendarPlacementKind.MonthCell));
