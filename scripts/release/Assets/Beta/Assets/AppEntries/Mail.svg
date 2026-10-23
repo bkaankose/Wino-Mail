@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="182" height="182" viewBox="37 37 182 182" fill="none">
-  <title>Wino Mail</title>
+  <title>Mail-Cal</title>
   <defs>
     <!-- App tile background: 45deg gradient, top-left -> bottom-right -->
     <linearGradient id="mailTile" gradientUnits="userSpaceOnUse" x1="37" y1="37" x2="219" y2="219">

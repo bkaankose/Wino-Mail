@@ -8,7 +8,7 @@ set -euo pipefail
 role="${LAB_ROLE:-hub}"
 
 # Plaintext IMAP, SMTP submission, and authentication: this lab only listens on 127.0.0.1.
-cat > /etc/dovecot/conf.d/99-wino-lab.conf <<'EOF'
+cat > /etc/dovecot/conf.d/99-mailcal-lab.conf <<'EOF'
 ssl = no
 auth_allow_cleartext = yes
 EOF
@@ -27,8 +27,8 @@ greenmail.test   smtp:[greenmail]:3025
 james.test       smtp:[james]:25
 EOF
   postconf -e 'transport_maps = texthash:/etc/postfix/transport-lab'
-  postconf -e 'default_transport=error:Local Wino lab does not deliver external mail'
-  postconf -e 'relay_transport=error:Local Wino lab does not relay external mail'
+  postconf -e 'default_transport=error:Local Mail-Cal lab does not deliver external mail'
+  postconf -e 'relay_transport=error:Local Mail-Cal lab does not relay external mail'
   # GreenMail and the host-side GreenMail account hand mail to port 25 without authentication.
   postconf -e 'smtpd_recipient_restrictions = permit_mynetworks, permit_sasl_authenticated, reject_unauth_destination'
   postconf -e 'relay_domains = dovecot.test, condstore.test, stalwart.test, greenmail.test, james.test'
@@ -69,7 +69,7 @@ if [[ "$role" != "hub" ]]; then
     filtered=$(echo "$filtered" | grep -v -E '^CONDSTORE$')
   fi
   capability=$(echo "$filtered" | tr '\n' ' ' | sed 's/ *$//')
-  cat >> /etc/dovecot/conf.d/99-wino-lab.conf <<EOF
+  cat >> /etc/dovecot/conf.d/99-mailcal-lab.conf <<EOF
 protocol imap {
   imap_capability = $capability
 }

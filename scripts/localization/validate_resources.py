@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Audit translated Wino `resources.json` files for values that still look English
+Audit translated Mail-Cal `resources.json` files for values that still look English
 and optionally retranslate only those suspect values via the OpenAI API.
 
 By default this script runs in dry-run mode and only reports suspect keys.
@@ -13,7 +13,7 @@ Examples:
   python scripts/localization/validate_resources.py --dry-run --suspect-mode heuristic
 
 Usage:
-    Set WINO_OPENAI_API_KEY as described in docs/local-script-environment.md.
+    Set MAILCAL_OPENAI_API_KEY as described in docs/local-script-environment.md.
     python .\\scripts\\localization\\validate_resources.py --dry-run
     python .\\scripts\\localization\\validate_resources.py --apply --locales da_DK --workers 2
 """
@@ -131,7 +131,7 @@ WORD_RE = re.compile(r"[A-Za-z][A-Za-z']*")
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Audit and optionally repair untranslated Wino resources.json values."
+        description="Audit and optionally repair untranslated Mail-Cal resources.json values."
     )
     parser.add_argument(
         "--translations-root",
@@ -150,8 +150,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--model",
-        default=os.environ.get("WINO_TRANSLATION_VALIDATION_MODEL") or "gpt-5-nano",
-        help="OpenAI model name. Defaults to WINO_TRANSLATION_VALIDATION_MODEL or gpt-5-nano.",
+        default=os.environ.get("MAILCAL_TRANSLATION_VALIDATION_MODEL") or "gpt-5-nano",
+        help="OpenAI model name. Defaults to MAILCAL_TRANSLATION_VALIDATION_MODEL or gpt-5-nano.",
     )
     parser.add_argument(
         "--chunk-size",
@@ -418,7 +418,7 @@ def process_locale(
     if suspects and args.apply:
         if not api_key:
             raise RuntimeError(
-                "Missing API key. Set WINO_OPENAI_API_KEY before using --apply."
+                "Missing API key. Set MAILCAL_OPENAI_API_KEY before using --apply."
             )
         suspect_entries = [(suspect["key"], source_data[suspect["key"]]) for suspect in suspects]
         translated = translate_missing_entries(
@@ -491,7 +491,7 @@ def main() -> int:
         print("No target locales found.", file=sys.stderr)
         return 1
 
-    api_key = os.environ.get("WINO_OPENAI_API_KEY")
+    api_key = os.environ.get("MAILCAL_OPENAI_API_KEY")
     print(
         f"Auditing {len(locales)} locale(s) from {source_path} "
         f"using suspect-mode={args.suspect_mode} in {'apply' if args.apply else 'dry-run'} mode.",

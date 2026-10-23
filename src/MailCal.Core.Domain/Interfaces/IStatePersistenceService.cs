@@ -1,0 +1,68 @@
+﻿using System;
+using System.ComponentModel;
+using MailCal.Core.Domain.Enums;
+
+namespace MailCal.Core.Domain.Interfaces;
+
+public interface IStatePersistanceService : INotifyPropertyChanged
+{
+    event EventHandler<string> StatePropertyChanged;
+
+    /// <summary>
+    /// True when there is an active renderer for selected mail.
+    /// </summary>
+    bool IsReadingMail { get; set; }
+
+    /// <summary>
+    /// Shell's app bar title string.
+    /// </summary>
+    string CoreWindowTitle { get; set; }
+
+    /// <summary>
+    /// App mode title shown in the title bar.
+    /// </summary>
+    string AppModeTitle { get; set; }
+
+    /// <summary>
+    /// When only reader page is visible in small sized window.
+    /// </summary>
+    bool IsReaderNarrowed { get; set; }
+
+    /// <summary>
+    /// Current application mode (Mail or Calendar).
+    /// Not persisted to configuration, only kept in memory.
+    /// </summary>
+    MailCalApplicationMode ApplicationMode { get; set; }
+
+    /// <summary>
+    /// Whether event details page is visible in Calendar mode.
+    /// </summary>
+    bool IsEventDetailsVisible { get; set; }
+
+    /// <summary>
+    /// Setting: Opened pane length for the navigation view.
+    /// </summary>
+    double OpenPaneLength { get; set; }
+
+    /// <summary>
+    /// Whether the mail rendering page should be shifted from top to adjust the design
+    /// for standalone EML viewer or not.
+    /// </summary>
+    bool ShouldShiftMailRenderingDesign { get; set; }
+
+    /// <summary>
+    /// Setting: Mail list pane length for listing mails.
+    /// </summary>
+    double MailListPaneLength { get; set; }
+
+    /// <summary>
+    /// Setting: Calendar display type.
+    /// </summary>
+    CalendarDisplayType CalendarDisplayType { get; set; }
+
+    /// <summary>
+    /// Setting: Calendar display count for the day view.
+    /// </summary>
+    int DayDisplayCount { get; set; }
+
+}

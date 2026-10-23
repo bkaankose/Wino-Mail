@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWinUI>true</UseWinUI>
+    <RootNamespace>MailCal.Mail.Controls</RootNamespace>
+    <Platforms>x86;x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Labs.WinUI.DependencyPropertyGenerator" />
+    <!--
+      Keep WinUI's transitive SDK tooling aligned with the app project.
+      Otherwise solution builds can load an older task assembly from this
+      project before importing newer MSIX targets from MailCal.Mail.WinUI.
+    -->
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.MSIX">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
+    <PackageReference Include="SkiaSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MailCal.Mail.Controls.Core\MailCal.Mail.Controls.Core.csproj" />
+  </ItemGroup>
+
+  <!-- MailCalIconCodes (string constants per icon) is generated from the shared icon manifest. -->
+  <PropertyGroup>
+    <MailCalIconCodesNamespace>MailCal.Mail.Controls.AccountIcon</MailCalIconCodesNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <CompilerVisibleProperty Include="MailCalIconCodesNamespace" />
+    <AdditionalFiles Include="..\..\icons\manifest.json" Link="Icons\manifest.json" />
+    <ProjectReference Include="..\..\src\MailCal.SourceGenerators\MailCal.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\MailCalIcons.ttf"
+             TargetPath="Assets\MailCalIcons.ttf"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

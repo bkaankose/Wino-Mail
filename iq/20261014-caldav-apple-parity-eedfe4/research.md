@@ -1,4 +1,4 @@
-# CalDAV parity research: Wino vs. Apple Calendar
+# CalDAV parity research: Mail-Cal vs. Apple Calendar
 
 Date: 2026-10-14. Probed live with the three test accounts (credentials are not stored here).
 Servers: iCloud (`https://caldav.icloud.com/`), Yahoo (`https://caldav.calendar.yahoo.com/`),
@@ -23,11 +23,11 @@ OVH Zimbra for `adastria.ws` (`https://zimbra1.mail.ovh.net/`, principal `/princ
 | Managed attachments (RFC 8607) | yes | no | no |
 | Quota | `quota-available-bytes` per collection, `max-attendees-per-instance` 300, no `max-resource-size` | `max-resource-size` 0 (meaning unlimited) | none |
 | Default alarms | `calendar-default-alarms` in DAV header; no values on this account | no | no |
-| Push | `push-transports` = Apple APNs only (needs an Apple entitlement; unusable by Wino) | no | no |
+| Push | `push-transports` = Apple APNs only (needs an Apple entitlement; unusable by Mail-Cal) | no | no |
 | `Prefer: return=minimal` | no `Preference-Applied` | no | no |
 | DNS SRV `_caldavs._tcp` | `0 0 443 caldav.icloud.com` | `1 1 443 caldav.calendar.yahoo.com` | none; `/.well-known/caldav` 404; MX points to OVH; endpoint is only reachable through the provider catalog or manual entry |
 
-Wino today (`src/Wino.Services/CalDavClient.cs`, `ImapSynchronizer.SynchronizeCalendarEventsInternalAsync`):
+Mail-Cal today (`src/MailCal.Services/CalDavClient.cs`, `ImapSynchronizer.SynchronizeCalendarEventsInternalAsync`):
 PROPFIND home with ctag/sync-token, then one `calendar-query` with `calendar-data` for the whole
 three-year window whenever the calendar token changed; VTODO collections are skipped
 (`SupportsEvents == false`); events are written with PUT/If-Match; no scheduling, inbox,
@@ -39,13 +39,13 @@ free/busy, sharing, attachments, SRV discovery, quota or default-alarm handling.
    `calendar-query` that asks for `getetag` only and a multiget of the changed hrefs (Yahoo, Zimbra).
    Per-resource href/ETag knowledge already exists in the ICS file store (`event.meta.json`), so no
    database change is needed. Re-anchoring the window re-expands recurrences from the stored ICS files.
-2. Scheduling (RFC 6638): all three servers run implicit scheduling. Wino must (a) use an address
+2. Scheduling (RFC 6638): all three servers run implicit scheduling. Mail-Cal must (a) use an address
    from `calendar-user-address-set` as ORGANIZER / to find its own ATTENDEE, (b) reply by changing its
    own `PARTSTAT` instead of the event `STATUS`, (c) read and clear the schedule inbox after sync.
 3. VTODO: separate collections on iCloud and Zimbra, mixed on Yahoo. Map to the existing task tables
    through `RemoteId`/`RemoteVersion`/`TaskDeltaLink` and a new `TaskSourceKind.CalDav` enum value.
 4. Push: only Apple APNs on iCloud; WebDAV-Push is not offered by any of the three. Not feasible
-   without a relay service Wino does not operate. Polling stays, but it becomes a cheap home PROPFIND
+   without a relay service Mail-Cal does not operate. Polling stays, but it becomes a cheap home PROPFIND
    plus deltas after item 1.
 5. Free/busy: POST a `VFREEBUSY` request to the schedule outbox (all three advertise one).
 6. Sharing and delegation: iCloud exposes sharees (`CS:invite`), sharing modes and a notification

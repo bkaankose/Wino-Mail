@@ -2,25 +2,25 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Run Wino Mail (Sandbox, Debug x64)",
+      "label": "Run Mail-Cal (Sandbox, Debug x64)",
       "type": "process",
       "command": "pwsh",
       "args": [
         "-NoProfile",
         "-File",
-        "${workspaceFolder}/scripts/development/windows/start-wino.ps1",
+        "${workspaceFolder}/scripts/development/windows/start-mailcal.ps1",
         "-Target",
         "sandbox"
       ],
       "problemMatcher": "$msCompile"
     },
     {
-      "label": "Build Wino Mail (Debug, x64)",
+      "label": "Build Mail-Cal (Debug, x64)",
       "type": "process",
       "command": "dotnet",
       "args": [
         "build",
-        "${workspaceFolder}/src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj",
+        "${workspaceFolder}/src/MailCal.Mail.WinUI/MailCal.Mail.WinUI.csproj",
         "-c",
         "Debug",
         "-p:Platform=x64",
@@ -33,13 +33,13 @@
       "problemMatcher": "$msCompile"
     },
     {
-      "label": "Run Wino Mail (packaged, x64)",
+      "label": "Run Mail-Cal (packaged, x64)",
       "type": "process",
       "command": "pwsh",
       "args": [
         "-NoProfile",
         "-File",
-        "${workspaceFolder}/scripts/development/windows/start-wino.ps1"
+        "${workspaceFolder}/scripts/development/windows/start-mailcal.ps1"
       ],
       "problemMatcher": "$msCompile"
     }

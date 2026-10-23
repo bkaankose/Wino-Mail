@@ -11,7 +11,7 @@ assignees: ''
 A clear and concise description of what you want to happen.
 
 **Is your proposal implemented in Windows Mail?**
-Wino's priority is to catch up with the feature set of Windows Mail first. 
+Mail-Cal's priority is to catch up with the feature set of Windows Mail first. 
 
 **Additional context**
 Add any other context or screenshots about the feature request here.

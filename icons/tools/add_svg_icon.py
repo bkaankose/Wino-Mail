@@ -26,7 +26,7 @@ from fontTools.pens.transformPen import TransformPen
 from fontTools.svgLib.path.parser import parse_path
 
 from add_fluent_icon import ENTRY_KEY_ORDER, SVG_NS, find_or_split_entry, next_free_codepoint
-from wino_icons import SVG_DIR, _ntos, format_codepoint, load_manifest, save_manifest, write_em_svg
+from mailcal_icons import SVG_DIR, _ntos, format_codepoint, load_manifest, save_manifest, write_em_svg
 
 # Fluent 24 icons keep a 2px margin, so artwork spans at most 20/24 of the em.
 CONTENT_RATIO = 20 / 24

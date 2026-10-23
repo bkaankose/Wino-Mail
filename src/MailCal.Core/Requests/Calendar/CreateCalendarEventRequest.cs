@@ -1,0 +1,63 @@
+using System;
+using CommunityToolkit.Mvvm.Messaging;
+using MailCal.Core.Domain.Entities.Calendar;
+using MailCal.Core.Domain.Enums;
+using MailCal.Core.Domain.Models.Calendar;
+using MailCal.Core.Domain.Models.Requests;
+using MailCal.Core.Helpers;
+using MailCal.Messaging.Client.Calendar;
+
+namespace MailCal.Core.Requests.Calendar;
+
+/// <summary>
+/// Request to create a new calendar event on the server.
+/// Non-recurring events create an optimistic in-memory item for immediate UI feedback.
+/// Recurring events skip optimistic rendering and rely on provider synchronization to materialize instances.
+/// </summary>
+public record CreateCalendarEventRequest : CalendarRequestBase
+{
+    public CalendarEventComposeResult ComposeResult { get; }
+    public AccountCalendar AssignedCalendar { get; }
+    public PreparedCalendarEventCreateModel PreparedEvent { get; }
+    public CalendarItem PreparedItem => PreparedEvent.CalendarItem;
+    public bool IsRecurring => !string.IsNullOrWhiteSpace(ComposeResult?.Recurrence);
+
+    public CreateCalendarEventRequest(CalendarEventComposeResult composeResult, AccountCalendar assignedCalendar)
+        : this(composeResult, assignedCalendar, CalendarEventComposeMapper.Prepare(composeResult, assignedCalendar))
+    {
+    }
+
+    private CreateCalendarEventRequest(
+        CalendarEventComposeResult composeResult,
+        AccountCalendar assignedCalendar,
+        PreparedCalendarEventCreateModel preparedEvent)
+        : base(ShouldCreateOptimisticItem(composeResult) ? preparedEvent.CalendarItem : null)
+    {
+        ComposeResult = composeResult ?? throw new ArgumentNullException(nameof(composeResult));
+        AssignedCalendar = assignedCalendar ?? throw new ArgumentNullException(nameof(assignedCalendar));
+        PreparedEvent = preparedEvent ?? throw new ArgumentNullException(nameof(preparedEvent));
+    }
+
+    public override CalendarSynchronizerOperation Operation => CalendarSynchronizerOperation.CreateEvent;
+
+    public override int ResynchronizationDelay => 5000;
+
+    public override void ApplyUIChanges()
+    {
+        if (Item == null)
+            return;
+
+        WeakReferenceMessenger.Default.Send(new CalendarItemAdded(Item, EntityUpdateSource.ClientUpdated));
+    }
+
+    public override void RevertUIChanges()
+    {
+        if (Item == null)
+            return;
+
+        WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(Item, EntityUpdateSource.ClientReverted));
+    }
+
+    private static bool ShouldCreateOptimisticItem(CalendarEventComposeResult composeResult)
+        => string.IsNullOrWhiteSpace(composeResult?.Recurrence);
+}

@@ -2,18 +2,18 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Wino.Core.Domain.Entities.Mail;
-using Wino.Core.Domain.Entities.Calendar;
-using Wino.Core.Domain.Entities.Shared;
-using Wino.Core.Domain.Enums;
-using Wino.Mail.Api.Contracts.Users;
-using Wino.Services;
-using Wino.Services.Dav;
+using MailCal.Core.Domain.Entities.Mail;
+using MailCal.Core.Domain.Entities.Calendar;
+using MailCal.Core.Domain.Entities.Shared;
+using MailCal.Core.Domain.Enums;
+using MailCal.Core.Domain.Models.LocalBackup;
+using MailCal.Services;
+using MailCal.Services.Dav;
 
-// Generates Wino210.db with one IMAP account per lab server, the DAV credential files, and an
-// encrypted .winosnap backup. Account definitions come from the seed tool's fixtures.json.
+// Generates MailCal210.db with one IMAP account per lab server, the DAV credential files, and an
+// encrypted .mailcalsnap backup. Account definitions come from the seed tool's fixtures.json.
 if (!OperatingSystem.IsWindows())
-    throw new PlatformNotSupportedException("Run on Windows as the user who will run Wino (DAV credentials use CurrentUser DPAPI).");
+    throw new PlatformNotSupportedException("Run on Windows as the user who will run Mail-Cal (DAV credentials use CurrentUser DPAPI).");
 
 if (args.Length != 2)
     throw new ArgumentException("Usage: DatabaseGenerator <generated-directory> <fixtures.json>");
@@ -42,7 +42,7 @@ var colors = new[] { "#2675BF", "#B05A32", "#577B49", "#7A4B9E", "#B8860B" };
 try
 {
     await database.InitializeAsync();
-    var credentials = new DavCredentialStore(configuration, new Wino.Platform.Windows.DpapiSecretProtector());
+    var credentials = new DavCredentialStore(configuration, new MailCal.Platform.Windows.DpapiSecretProtector());
     var accounts = new List<object>();
     var mailboxes = new List<UserMailboxSyncItemDto>();
     var capabilitiesSnapshot = new List<object>();
@@ -101,8 +101,7 @@ try
             IsSignatureEnabled = true, SignatureIdForNewMessages = signatureId,
             SignatureIdForFollowingMessages = signatureId
         };
-        preferences.PrepareForStorage();
-        var signatureHtml = $"<p>{displayName}<br>Wino local lab ({definition["server"]?.GetValue<string>()})</p>";
+        var signatureHtml = $"<p>{displayName}<br>Mail-Cal local lab ({definition["server"]?.GetValue<string>()})</p>";
 
         await database.Connection.RunInTransactionAsync(connection =>
         {
@@ -179,8 +178,8 @@ try
     if (!validation.IsValid)
         throw new InvalidOperationException($"Database validation failed: {validation}");
 
-    // Encrypted backup in Wino's own snapshot format (Settings > Backup & restore). The document shape
-    // mirrors WinoSyncSnapshotDocument; passwords are never part of a snapshot, so restoring asks for "1".
+    // Encrypted backup in Mail-Cal's own snapshot format (Settings > Backup & restore). The document shape
+    // mirrors MailCalSyncSnapshotDocument; passwords are never part of a snapshot, so restoring asks for "1".
     var snapshot = new
     {
         Version = 1, ExportedAtUtc = DateTime.UtcNow, Mailboxes = mailboxes, AccountCapabilities = capabilitiesSnapshot
@@ -194,7 +193,7 @@ try
     var decrypted = SyncSnapshotCryptography.Decrypt(sealedSnapshot, reopened.Key);
     if (!decrypted.AsSpan().SequenceEqual(plaintext))
         throw new InvalidOperationException("The generated backup did not round-trip with the lab password.");
-    var backupName = "wino-lab-backup.winosnap";
+    var backupName = "mailcal-lab-backup.mailcalsnap";
     await File.WriteAllBytesAsync(Path.Combine(staging, backupName), sealedSnapshot);
 
     var manifest = new
@@ -233,7 +232,7 @@ finally
 }
 
 static Guid StableId(string key)
-    => new(SHA256.HashData(Encoding.UTF8.GetBytes("Wino.LocalLab/" + key)).AsSpan(0, 16));
+    => new(SHA256.HashData(Encoding.UTF8.GetBytes("MailCal.LocalLab/" + key)).AsSpan(0, 16));
 
 static async Task RetryFileOperationAsync(Action operation)
 {

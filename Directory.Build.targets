@@ -1,11 +1,11 @@
-<Project InitialTargets="WinoValidateTargetPlatform">
+<Project InitialTargets="MailCalValidateTargetPlatform">
   <PropertyGroup>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <Nullable>annotations</Nullable>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(TargetFramework)' != 'netstandard2.0' and '$(IsTestProject)' != 'true'">
+  <PropertyGroup Condition="'$(MailCalIsReleaseBuild)' == 'true' and '$(TargetFramework)' != 'netstandard2.0' and '$(IsTestProject)' != 'true'">
     <!-- Release is the repository-wide Native AOT compatibility gate. -->
     <IsAotCompatible>true</IsAotCompatible>
     <IsTrimmable>true</IsTrimmable>
@@ -15,15 +15,15 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(TargetFramework)' == 'netstandard2.0'">
+  <PropertyGroup Condition="'$(MailCalIsReleaseBuild)' == 'true' and '$(TargetFramework)' == 'netstandard2.0'">
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
   <!-- Platform build policy. The shared Release gate above applies to every platform. -->
-  <Import Project="build/Wino.Windows.targets" Condition="'$(WinoTargetPlatform)' == 'Windows'" />
+  <Import Project="build/MailCal.Windows.targets" Condition="'$(MailCalTargetPlatform)' == 'Windows'" />
 
-  <Target Name="WinoValidateTargetPlatform">
-    <Error Condition="'$(WinoTargetPlatform)' != '' and '$(WinoTargetPlatform)' != 'Windows'"
-           Text="WinoTargetPlatform must be Windows, not '$(WinoTargetPlatform)'." />
+  <Target Name="MailCalValidateTargetPlatform">
+    <Error Condition="'$(MailCalTargetPlatform)' != '' and '$(MailCalTargetPlatform)' != 'Windows'"
+           Text="MailCalTargetPlatform must be Windows, not '$(MailCalTargetPlatform)'." />
   </Target>
 </Project>

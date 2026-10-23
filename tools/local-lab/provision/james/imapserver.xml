@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <!--
-  Apache James IMAP configuration for the Wino local lab.
+  Apache James IMAP configuration for the Mail-Cal local lab.
   Derived from the memory-app sample configuration (Apache License 2.0).
   Plain-text authentication on port 143 is intentional: the lab only listens on 127.0.0.1.
 -->

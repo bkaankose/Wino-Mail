@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<RootNamespace>MailCal.Authentication</RootNamespace>
+		<Platforms>x86;x64;arm64</Platforms>
+		<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+		<IsTrimmable>true</IsTrimmable>
+		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="Serilog" />
+		<PackageReference Include="CommunityToolkit.Diagnostics" />
+		<PackageReference Include="CommunityToolkit.Mvvm" />
+		<PackageReference Include="Microsoft.Identity.Client" />
+	</ItemGroup>
+	<ItemGroup>
+		<EmbeddedResource Include="Assets\AuthorizationResult.html" LogicalName="MailCal.Authentication.Assets.AuthorizationResult.html" />
+		<EmbeddedResource Include="..\MailCal.Mail.WinUI\Assets\AppEntries\MailCal.svg" Link="Assets\MailCalLogo.svg" LogicalName="MailCal.Authentication.Assets.MailCalLogo.svg" />
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\MailCal.Core.Domain\MailCal.Core.Domain.csproj" />
+		<ProjectReference Include="..\MailCal.Messages\MailCal.Messaging.csproj" />
+	</ItemGroup>
+</Project>

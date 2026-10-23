@@ -13,10 +13,10 @@ Counts today:
 
 | Layer | Registration site | Service-ish classes |
 | --- | --- | --- |
-| `Wino.Core.Domain/Interfaces` | — | 81 `I*Service` interfaces |
-| `Wino.Services` | `ServicesContainerSetup` | ~65 registrations |
-| `Wino.Core/Services` | `CoreContainerSetup` | ~30 registrations |
-| `Wino.Mail.WinUI/Services` | `CoreUWPContainerSetup` + `App.xaml.cs` | ~40 registrations |
+| `MailCal.Core.Domain/Interfaces` | — | 81 `I*Service` interfaces |
+| `MailCal.Services` | `ServicesContainerSetup` | ~65 registrations |
+| `MailCal.Core/Services` | `CoreContainerSetup` | ~30 registrations |
+| `MailCal.Mail.WinUI/Services` | `CoreUWPContainerSetup` + `App.xaml.cs` | ~40 registrations |
 
 The proposals below remove **23 classes and 20 interfaces** without changing a
 single feature. They are ordered by value-to-risk, and each one states the DI
@@ -106,7 +106,7 @@ nothing reads. Proposal 7 removes both.
 ## 1. Platform capability → `INativeAppService`
 
 This is the merge you described. The target already exists and is already a
-singleton in `Wino.Mail.WinUI`, so everything below is an intra-project move
+singleton in `MailCal.Mail.WinUI`, so everything below is an intra-project move
 with no new dependency edges.
 
 **Absorb into `NativeAppService` / `INativeAppService`:**
@@ -135,7 +135,7 @@ becomes a forwarder.
 **Deliberately NOT absorbed:**
 
 - `IStoreRatingService` — depends on `IMailDialogService`, which depends on
-  `INewThemeService` and `IWinoAccountProfileService`. Folding it in would give
+  `INewThemeService` and `IMailCalAccountProfileService`. Folding it in would give
   the platform-capability singleton a transitive edge to the whole shell. See
   proposal 2 instead.
 - `IFileService` — not a Windows API wrapper; it does log archiving and
@@ -161,7 +161,7 @@ press, 4 for startup behaviour, 3 for WebView2.
 **Also while you are in there:** `INativeAppService.GetFullAppVersion()` and
 `IAppMetadataService.AppVersion` return the same string from the same class.
 Drop `GetFullAppVersion()` and move its four callers to `AppVersion`. That is
-what lets proposal 8 cut the `Wino.Services -> INativeAppService` edge.
+what lets proposal 8 cut the `MailCal.Services -> INativeAppService` edge.
 
 **Net: −6 classes, −5 interfaces** (`IUserPresenceStateProvider` survives).
 
@@ -184,7 +184,7 @@ One class, one `StoreContext`, one `RunOnMainWindowAsync` helper (currently only
 `StoreManagementService` does the HWND init on whatever thread calls it).
 
 Dependencies after merge: `IConfigurationService`, `IMailDialogService`,
-`IWinoLogger`. No cycle — nothing in the dialog or theme stack asks for the
+`IMailCalLogger`. No cycle — nothing in the dialog or theme stack asks for the
 store.
 
 **DI:** `AddSingleton<IMicrosoftStoreService, MicrosoftStoreService>()`.
@@ -201,10 +201,10 @@ throw away.
 
 You named this one. Here is what is actually there:
 
-- `WhatsNewService` (119 lines, `Wino.Services`) — reads `Assets\WhatsNew\*.json`,
+- `WhatsNewService` (119 lines, `MailCal.Services`) — reads `Assets\WhatsNew\*.json`,
   tracks last-opened version in `IConfigurationService`. Cohesive; **keep**.
-- `WhatsNewWindowLauncher` (33 lines, `Wino.Mail.WinUI`) — "get-or-create a
-  `WinoWindowKind` window, apply the theme, activate it." **Merge.**
+- `WhatsNewWindowLauncher` (33 lines, `MailCal.Mail.WinUI`) — "get-or-create a
+  `MailCalWindowKind` window, apply the theme, activate it." **Merge.**
 
 `WhatsNewWindowLauncher.ShowAsync()` and
 `HostedContentPopoutCoordinator.PopOutCurrentContentAsync()` contain the same
@@ -213,19 +213,19 @@ twenty lines: `windowManager.GetWindow(kind)` → activate if present, else
 `ActivateWindow`. Both carry the same comment explaining why the theme must be
 applied before activation.
 
-Put that sequence on `IWinoWindowManager` as
-`Task<TWindow> ShowThemedWindowAsync(WinoWindowKind kind, Func<Window> factory, string? name = null)`,
+Put that sequence on `IMailCalWindowManager` as
+`Task<TWindow> ShowThemedWindowAsync(MailCalWindowKind kind, Func<Window> factory, string? name = null)`,
 then `WhatsNewWindowLauncher` collapses to two lines at its single call site and
 the interface disappears. `HostedContentPopoutCoordinator` (already a static
 helper, not a DI service) shrinks too.
 
-Check that `IWinoWindowManager` taking `INewThemeService` does not close a cycle:
+Check that `IMailCalWindowManager` taking `INewThemeService` does not close a cycle:
 `NewThemeService` depends on `IPreferencesService`, `IConfigurationService`,
 `IApplicationResourceManager`, and `IUnderlyingThemeService` — not on the window
 manager. Safe. If a later change makes it mutual, inject `Func<INewThemeService>`.
 
 **Also:** `WhatsNewService` takes `INativeAppService` for the single call
-`GetFullAppVersion()`. That is a `Wino.Services -> shell-platform` edge for one
+`GetFullAppVersion()`. That is a `MailCal.Services -> shell-platform` edge for one
 version string. Switch it to `IAppMetadataService.AppVersion` (proposal 1).
 
 **Net: −1 class, −1 interface, −1 duplicated block.**
@@ -239,14 +239,14 @@ Three "services" that hold no state, do no I/O, and return a hardcoded list:
 | Service | Size | Returns |
 | --- | --- | --- |
 | `AiActionOptionsService` (WinUI) | 46 | 16 translation languages + 7 rewrite modes, from `Translator` |
-| `ProviderService` (WinUI, namespace `Wino.Mail.Services`) | 37 | the provider list |
-| `FontService` (`Wino.Core`) | 26 | `SKFontManager` families + 8 defaults, behind a `Lazy` |
+| `ProviderService` (WinUI, namespace `MailCal.Mail.Services`) | 37 | the provider list |
+| `FontService` (`MailCal.Core`) | 26 | `SKFontManager` families + 8 defaults, behind a `Lazy` |
 
 - **`AiActionOptionsService`** has nothing WinUI about it — it reads `Translator`,
-  which lives in `Wino.Core.Domain`. Move it to `Wino.Core.Domain` as a static
+  which lives in `MailCal.Core.Domain`. Move it to `MailCal.Core.Domain` as a static
   `AiActionCatalog`. Four call sites.
 - **`ProviderService`** depends only on `IKnownImapProviderCatalog`, which lives
-  in `Wino.Services`, yet the class sits in the WinUI project. Fold
+  in `MailCal.Services`, yet the class sits in the WinUI project. Fold
   `GetAvailableProviders`/`GetProviderDetail` onto `IKnownImapProviderCatalog`
   itself — that interface already exposes `SetupProviders`, which is where the
   data comes from. Eight call sites.
@@ -350,7 +350,7 @@ share request, pending compose share request. One place to look when asking
 "what did activation hand us."
 
 `IActivationFileImportService` (1008 lines) is real import work — keep separate,
-but move the three files into a common `Activation/` folder in `Wino.Services`.
+but move the three files into a common `Activation/` folder in `MailCal.Services`.
 
 **Net: −1 class, −1 interface.**
 
@@ -358,20 +358,20 @@ but move the three files into a common `Activation/` folder in `Wino.Services`.
 
 ## 10. Intelligence entitlement → fold into the snapshot service
 
-`WinoIntelligenceEntitlementService` (109) is a cached-snapshot facade over
-`WinoAccountIntelligenceSnapshotService` (202): `Current`, `GetAsync`,
+`MailCalIntelligenceEntitlementService` (109) is a cached-snapshot facade over
+`MailCalAccountIntelligenceSnapshotService` (202): `Current`, `GetAsync`,
 `RefreshAsync`, `SetSignedOut` against the snapshot service's
 `GetCachedAsync`/`RefreshAsync`/`ClearAsync`. Same data, same lifecycle, two
 singletons. Merge.
 
-Likewise `IWinoPendingCheckoutStore` (33 lines, get/set/clear a product type per
-account) belongs inside `IWinoBillingService` — it exists only to be read by the
+Likewise `IMailCalPendingCheckoutStore` (33 lines, get/set/clear a product type per
+account) belongs inside `IMailCalBillingService` — it exists only to be read by the
 reconciliation service after a checkout.
 
-**Explicitly do NOT merge the rest of the Wino-account cluster.**
-`IWinoAccountSessionService`, `IWinoAccountProfileService`, `IWinoBillingService`
-and `IWinoPurchaseReconciliationService` form a deliberate layering: session
-generation → profile → billing → reconciliation. `WinoPurchaseReconciliationService`
+**Explicitly do NOT merge the rest of the Mail-Cal-account cluster.**
+`IMailCalAccountSessionService`, `IMailCalAccountProfileService`, `IMailCalBillingService`
+and `IMailCalPurchaseReconciliationService` form a deliberate layering: session
+generation → profile → billing → reconciliation. `MailCalPurchaseReconciliationService`
 already is the coordinator. Collapsing any two of them creates the constructor
 cycle you are worried about (billing needs profile, profile needs session,
 reconciliation needs all three).
@@ -391,16 +391,16 @@ Today, "where does X live on disk" is answered in four places:
   (`contacts`, `account-profile-pictures`, `Assets\WhatsNew`)
 
 Because the MIME and calendar-attachment paths sit on `INativeAppService`, three
-`Wino.Services` types (`MimeStorageService`, `MimeFileService`, `WhatsNewService`)
+`MailCal.Services` types (`MimeStorageService`, `MimeFileService`, `WhatsNewService`)
 take a dependency on the shell platform service to learn a folder name.
 
 Move both path methods onto `IApplicationConfiguration` as
 `MimeStorageFolderPath` and `CalendarAttachmentsFolderPath`. `ApplicationConfiguration`
-is 16 lines in `Wino.Services` and is initialized at startup from the WinUI layer,
+is 16 lines in `MailCal.Services` and is initialized at startup from the WinUI layer,
 which is exactly where `ApplicationData.Current.LocalFolder` is known.
 
 This is the highest-value *cross-dependency* change in the document: it is what
-lets `Wino.Services` stop referencing `INativeAppService` at all, which is the
+lets `MailCal.Services` stop referencing `INativeAppService` at all, which is the
 direction of the layering. Do it together with proposals 1, 3 and 8.
 
 **Net: 0 classes removed, 3 unnecessary layer-crossing edges removed.**
@@ -436,9 +436,9 @@ being a base class. Inline it into `NavigationService` as a private static.
 - **`IAccountCapabilityService` / `IAccountProviderFeatureService` /
   `IProviderFeatureAuthorizationService`** — three services around
   `ProviderFeature`, which looks mergeable, but they sit on different sides of a
-  layer boundary: the storage one is in `Wino.Services`, the authorization and
-  capability ones are in `Wino.Core` with synchronizer dependencies. Merging
-  would pull `Wino.Services` up into `Wino.Core`. Leave.
+  layer boundary: the storage one is in `MailCal.Services`, the authorization and
+  capability ones are in `MailCal.Core` with synchronizer dependencies. Merging
+  would pull `MailCal.Services` up into `MailCal.Core`. Leave.
 - **`MailService` (3048 lines)** — the opposite problem. Out of scope here, but
   worth its own splitting pass later.
 
@@ -451,7 +451,7 @@ being a base class. Inline it into `NavigationService` as a private static.
 | 0.4 | Delete dead registrations | −2 | 0 |
 | 1 | Platform capability → `INativeAppService` | −6 | −5 |
 | 2 | Store surface → `IMicrosoftStoreService` | −2 | −2 |
-| 3 | What's New launcher → `IWinoWindowManager` | −1 | −1 |
+| 3 | What's New launcher → `IMailCalWindowManager` | −1 | −1 |
 | 4 | Static catalogs → static classes / existing owners | −3 | −3 |
 | 5 | Context menus → one service | −1 | −1 |
 | 6 | IMAP/POP3 tests → one service | −1 | −1 |
@@ -482,7 +482,7 @@ Each step builds and ships on its own.
 
 - Nothing here introduces a constructor cycle. The two places where one is
   possible are flagged inline (proposal 3's window-manager → theme edge, and the
-  Wino-account cluster in 10, which is why that cluster stays split).
+  Mail-Cal-account cluster in 10, which is why that cluster stays split).
 - Where a class implements several interfaces, register the concrete type once
   and forward each interface with
   `AddSingleton<IFoo>(p => p.GetRequiredService<Concrete>())`. The codebase
@@ -500,17 +500,17 @@ Every proposal above is implemented on `feature/vNext`. Four points differ from
 the text, each because the dependency graph turned out to be tighter than the
 scan assumed:
 
-- **10, pending checkout store: kept.** `WinoAccountProfileService` clears the
-  pending checkout on sign-out. Folding the store into `IWinoBillingService`
+- **10, pending checkout store: kept.** `MailCalAccountProfileService` clears the
+  pending checkout on sign-out. Folding the store into `IMailCalBillingService`
   would give profile → billing → store → dialog → profile, the exact cycle this
-  section warns about. `IWinoPendingCheckoutStore` stays as the leaf it is.
+  section warns about. `IMailCalPendingCheckoutStore` stays as the leaf it is.
 - **2, store service takes `Lazy<IMailDialogService>`.** The dialog service does
   reach the store transitively (dialog → profile → intelligence coordinator →
   snapshot → billing → store). The lazy edge is registered in
   `CoreUWPContainerSetup` next to the store service.
 - **3, window manager takes `Lazy<INewThemeService>`.** `NewThemeService`
-  already depends on `IWinoWindowManager`, so the mutual edge the section
-  anticipated exists today. `AboutPageViewModel` lives in `Wino.Core.ViewModels`
+  already depends on `IMailCalWindowManager`, so the mutual edge the section
+  anticipated exists today. `AboutPageViewModel` lives in `MailCal.Core.ViewModels`
   and cannot see the window manager; it sends `WhatsNewOpenRequested`, which the
   shell window handles with the same two lines as its title-bar button.
 - **8, delete-older-than is reshaped.** `MailService` depends on

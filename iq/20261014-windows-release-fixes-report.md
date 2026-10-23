@@ -4,12 +4,12 @@ Plan: `iq/20261014-windows-release-fixes.md`. All changes are local and uncommit
 
 ## Verification run on Windows
 - `scripts/maintenance/windows/format-xaml.ps1 -Changed` then `-Check`: 23 of 23 files pass.
-- Debug: `dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug -p:Platform=x64` — 0 warnings, 0 errors.
-- Release gate: `dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -p:GenerateAppxPackageOnBuild=false` — 0 warnings, 0 errors.
-- Tests (`dotnet test tests/<project> -p:WinoTargetPlatform=Windows`):
-  - Wino.Core.Tests 1067/1068. The one failure, `MailRecipientHistoryTests.TheSameMessageInASecondFolder_IsCountedOnce`, also fails on a clean checkout of HEAD `80ca7f38`; it is pre-existing and unrelated.
-  - Wino.Mail.ViewModels.Tests 157/157.
-  - Wino.Mail.Controls.Tests 34/34.
+- Debug: `dotnet build src/MailCal.Mail.WinUI/MailCal.Mail.WinUI.csproj -c Debug -p:Platform=x64` — 0 warnings, 0 errors.
+- Release gate: `dotnet build src/MailCal.Mail.WinUI/MailCal.Mail.WinUI.csproj -c Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -p:GenerateAppxPackageOnBuild=false` — 0 warnings, 0 errors.
+- Tests (`dotnet test tests/<project> -p:MailCalTargetPlatform=Windows`):
+  - MailCal.Core.Tests 1067/1068. The one failure, `MailRecipientHistoryTests.TheSameMessageInASecondFolder_IsCountedOnce`, also fails on a clean checkout of HEAD `80ca7f38`; it is pre-existing and unrelated.
+  - MailCal.Mail.ViewModels.Tests 157/157.
+  - MailCal.Mail.Controls.Tests 34/34.
   - Six new tests were added: the draft-missing save path, primary-alias repair, and the single-flight database initialization.
 
 ## Not run
@@ -27,10 +27,10 @@ Plan: `iq/20261014-windows-release-fixes.md`. All changes are local and uncommit
 | 2PG | Fixed | `GmailSynchronizer` handles a null People profile. |
 | 2VD 31D 31E | Fixed | `MailService.CreateAssignmentInternalAsync` handles a null `AssignedFolder`. |
 | 33W | Fixed | `ApplicationRuntime.StopCoreAsync` tolerates an uninitialized synchronization manager. |
-| 2Q5 2Y5 2ZP 2Z4 33T 2W6 | Fixed (needs runtime check) | `WinoAppShell` applies NavigationView selection from code, deferring nested items until the group is expanded and realized, with a guarded retry. `SettingsMenuProvider` clears selection before rebuilding. Residual risk: the mail-menu rebuilds still clear items under a live selection. |
+| 2Q5 2Y5 2ZP 2Z4 33T 2W6 | Fixed (needs runtime check) | `MailCalAppShell` applies NavigationView selection from code, deferring nested items until the group is expanded and realized, with a guarded retry. `SettingsMenuProvider` clears selection before rebuilding. Residual risk: the mail-menu rebuilds still clear items under a live selection. |
 | 2WZ 2WY | Likely already fixed | HEAD binds the concrete `AliasManagementItemList`. The 2.2.2.0 build predates `d44e011f`. Verify in the Release package. |
 | 2HS | Fixed | `MailCategoryColorOptionList` replaces the array `ItemsSource`. |
-| 2DD 33S | Defensive | Dialogs are given a XamlRoot only when they have none, taken from the active window. The Wino Intelligence consent dialogs are guarded. The root cause was not located (no managed frames). |
+| 2DD 33S | Defensive | Dialogs are given a XamlRoot only when they have none, taken from the active window. The AI features consent dialogs are guarded. The root cause was not located (no managed frames). |
 | 31T | Fixed | `IsPaneOpen` is applied from code on the shell's own dispatcher, detached on close. |
 | 2ZH 328 339 346 33B 34N 2R0 2E4 34E | Fixed | The editor and renderer convert "WebView2 gone" into `ObjectDisposedException`. Pages catch it during teardown and idle. Editor start-up failure shows a status message instead of crashing. |
 | 2VW | Fixed | `SaveDraftMetadataAsync` and `DraftSaveService` return false when the draft is gone. `ComposePage.OnNavigatingFrom` catches the save failure. |
@@ -51,5 +51,5 @@ Plan: `iq/20261014-windows-release-fixes.md`. All changes are local and uncommit
 ## Follow-ups
 - **`Program.cs:48`** still calls `GetActivatedEventArgs()` unguarded.
 - **Share-target activations during migration** cannot be replayed after the migration completes.
-- **`WinoMailEditor.ReportInitializationFailure`** is a new public API; the controls playground was not updated.
+- **`MailCalMailEditor.ReportInitializationFailure`** is a new public API; the controls playground was not updated.
 - **Other draft-creating view models** (`MailListPageViewModel`, `MailRenderingPageViewModel`, `DailyBriefingPanelViewModel`) rely on the alias auto-repair but do not catch `MissingAliasException`.

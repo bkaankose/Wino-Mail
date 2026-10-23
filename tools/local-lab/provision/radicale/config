@@ -1,4 +1,4 @@
-# Radicale configuration for the Wino local lab. Plain-text passwords are intentional here.
+# Radicale configuration for the Mail-Cal local lab. Plain-text passwords are intentional here.
 [server]
 hosts = 0.0.0.0:5232
 

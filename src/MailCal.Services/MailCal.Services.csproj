@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<Platforms>x86;x64;arm64</Platforms>
+		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+		<IsTrimmable>true</IsTrimmable>
+		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	</PropertyGroup>
+	<ItemGroup>
+	  <Compile Remove="Misc\**" />
+	  <EmbeddedResource Remove="Misc\**" />
+	  <None Remove="Misc\**" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="HtmlAgilityPack" />
+		<PackageReference Include="Konscious.Security.Cryptography.Argon2" />
+		<PackageReference Include="Ical.Net" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+		<PackageReference Include="Microsoft.Extensions.Logging" />
+		<PackageReference Include="Serilog" />
+		<PackageReference Include="Serilog.Sinks.Debug" />
+		<PackageReference Include="Serilog.Sinks.File" />
+		<PackageReference Include="SkiaSharp" />
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\MailCal.Core.Domain\MailCal.Core.Domain.csproj" />
+		<ProjectReference Include="..\MailCal.Messages\MailCal.Messaging.csproj" />
+		<ProjectReference Include="..\MailCal.SourceGenerators\MailCal.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="PublishAot;PublishTrimmed;TrimMode;SelfContained" />
+	</ItemGroup>
+	<ItemGroup>
+		<TrimmerRootDescriptor Include="ILLink.Descriptors.xml" />
+		<EmbeddedResource Include="Configuration\known-imap-providers.json" />
+	</ItemGroup>
+</Project>

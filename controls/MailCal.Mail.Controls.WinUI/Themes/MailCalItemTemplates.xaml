@@ -1,0 +1,76 @@
+﻿<ResourceDictionary
+    x:Class="MailCal.Mail.Controls.MailCalItemTemplates"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:accountIcon="using:MailCal.Mail.Controls.AccountIcon"
+    xmlns:coreSearch="using:MailCal.Mail.Controls.Core.SearchBar"
+    xmlns:local="using:MailCal.Mail.Controls.SearchBar">
+
+    <!--
+        Item templates for the controls in Generic.xaml. They live in a class-backed dictionary so
+        they can declare x:DataType and use compiled x:Bind, which trimming and Native AOT can
+        verify. Generic.xaml has no x:Class and would need reflection-based {Binding} paths.
+    -->
+
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light" />
+        <ResourceDictionary x:Key="Dark" />
+        <ResourceDictionary x:Key="HighContrast" />
+    </ResourceDictionary.ThemeDictionaries>
+
+    <!--  A recent search, or the clear-history action that ends the list.  -->
+    <DataTemplate x:Key="MailCalSearchBarHistoryItemTemplate" x:DataType="local:SearchBarHistoryEntry">
+        <Grid
+            MinHeight="32"
+            Padding="0,4"
+            ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <accountIcon:MailCalFontIcon
+                VerticalAlignment="Center"
+                AutomationProperties.AccessibilityView="Raw"
+                FontSize="14"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Glyph="{x:Bind Glyph, Mode=OneTime}" />
+            <TextBlock
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                Text="{x:Bind Text, Mode=OneTime}"
+                TextTrimming="CharacterEllipsis" />
+        </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="MailCalSearchBarContactSuggestionTemplate" x:DataType="coreSearch:SearchBarContactSuggestion">
+        <Grid
+            MinHeight="48"
+            Padding="7,4"
+            ColumnSpacing="9">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="30" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border
+                Width="28"
+                Height="28"
+                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                CornerRadius="14">
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    FontSize="10"
+                    Text="{x:Bind Initials, Mode=OneTime}" />
+            </Border>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Text="{x:Bind DisplayName, Mode=OneTime}" TextTrimming="CharacterEllipsis" />
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind Address, Mode=OneTime}"
+                    TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+        </Grid>
+    </DataTemplate>
+
+</ResourceDictionary>

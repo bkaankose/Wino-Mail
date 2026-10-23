@@ -1,6 +1,6 @@
 # Developer documentation
 
-These documents explain Wino Mail's development conventions, local tooling, and release process for the Windows application.
+These documents explain Mail-Cal's development conventions, local tooling, and release process for the Windows application.
 Commands use paths relative to the repository root unless stated otherwise.
 
 | Document | Platform | Purpose |
@@ -11,8 +11,8 @@ Commands use paths relative to the repository root unless stated otherwise.
 | [Implementation rules](harness/implementation-rules.md) | Both | C#, localization, storage, and architecture conventions, plus WinUI XAML rules. |
 | [Local script environment](local-script-environment.md) | Both | Environment variables and prerequisites for release signing and translation maintenance. |
 | [Release packages](releases.md) | Windows | Shared release steps, with the [Windows](releases-windows.md) guide. |
-| [Wino design guideline](wino-design-guideline.md) | Windows, shared parity | Interface layout, controls, themes, accessibility, and interaction conventions. |
-| [Visual design reference](design-prototypes/wino-design-guideline.html) | Windows | Browser presentation of the design conventions. The Markdown guideline is the primary reference. |
+| [Mail-Cal design guideline](mailcal-design-guideline.md) | Windows, shared parity | Interface layout, controls, themes, accessibility, and interaction conventions. |
+| [Visual design reference](design-prototypes/mailcal-design-guideline.html) | Windows | Browser presentation of the design conventions. The Markdown guideline is the primary reference. |
 
 The [local Docker lab](../tools/local-lab/README.md) currently runs on Windows only.
 Historical records, such as the [AppKit migration plan](appkit-platform-migration-plan.md) and the [AppKit foundation validation](harness/appkit-foundation-validation.md), describe earlier decisions and evidence; the guides above are current.

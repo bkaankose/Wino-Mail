@@ -8,9 +8,9 @@
     <IsAotCompatible>false</IsAotCompatible>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../../src/Wino.Services/Wino.Services.csproj" />
+    <ProjectReference Include="../../../src/MailCal.Services/MailCal.Services.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../../../src/Wino.Platform.Windows/Wino.Platform.Windows.csproj" />
+    <ProjectReference Include="../../../src/MailCal.Platform.Windows/MailCal.Platform.Windows.csproj" />
   </ItemGroup>
 </Project>

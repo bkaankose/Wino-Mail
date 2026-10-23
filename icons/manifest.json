@@ -1,5 +1,5 @@
 {
-  "$comment": "Source of truth for WinoIcons. Edit with icons/tools, then run build_fonts.py. See icons/README.md.",
+  "$comment": "Source of truth for MailCalIcons. Edit with icons/tools, then run build_fonts.py. See icons/README.md.",
   "unitsPerEm": 1024,
   "ascent": 960,
   "descent": 64,
@@ -10,20 +10,20 @@
   },
   "fonts": {
     "mono": {
-      "file": "WinoIcons.ttf",
-      "family": "WinoIcons",
+      "file": "MailCalIcons.ttf",
+      "family": "MailCalIcons",
       "copies": [
-        "controls/Wino.Mail.Controls.WinUI/Assets"
+        "controls/MailCal.Mail.Controls.WinUI/Assets"
       ]
     },
     "light": {
-      "file": "WinoIconsColor-Light.ttf",
-      "family": "WinoIconsColorLight",
+      "file": "MailCalIconsColor-Light.ttf",
+      "family": "MailCalIconsColorLight",
       "palette": "light"
     },
     "dark": {
-      "file": "WinoIconsColor-Dark.ttf",
-      "family": "WinoIconsColorDark",
+      "file": "MailCalIconsColor-Dark.ttf",
+      "family": "MailCalIconsColorDark",
       "palette": "dark"
     }
   },
@@ -1695,10 +1695,10 @@
       "source": "brand logo (previous inline XAML path)"
     },
     {
-      "name": "WinoIntelligence",
+      "name": "MailCalIntelligence",
       "codepoint": "E076",
-      "svg": "WinoIntelligence.svg",
-      "source": "Wino Intelligence brand sparkle (WinoIntelligenceBrandSparklePathData)"
+      "svg": "MailCalIntelligence.svg",
+      "source": "AI features brand sparkle (MailCalIntelligenceBrandSparklePathData)"
     },
     {
       "name": "Companion",
@@ -1914,19 +1914,19 @@
       "name": "BenefitDeviceTransfer",
       "codepoint": "E098",
       "svg": "BenefitDeviceTransfer.svg",
-      "source": "Wino account benefit tile (DeviceTransfer)"
+      "source": "Mail-Cal account benefit tile (DeviceTransfer)"
     },
     {
       "name": "BenefitEntitlements",
       "codepoint": "E099",
       "svg": "BenefitEntitlements.svg",
-      "source": "Wino account benefit tile (Entitlements)"
+      "source": "Mail-Cal account benefit tile (Entitlements)"
     },
     {
       "name": "BenefitUnlimitedAccounts",
       "codepoint": "E09A",
       "svg": "BenefitUnlimitedAccounts.svg",
-      "source": "Wino account benefit tile (UnlimitedAccounts)"
+      "source": "Mail-Cal account benefit tile (UnlimitedAccounts)"
     },
     {
       "name": "Payment",

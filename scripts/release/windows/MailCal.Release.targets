@@ -1,0 +1,38 @@
+<Project>
+  <!-- Opt-in export only. These targets never start a build or a publish operation. -->
+  <PropertyGroup>
+    <_MailCalReleaseExportDir>$(MailCalReleaseStagingRoot)\$(Platform)\</_MailCalReleaseExportDir>
+  </PropertyGroup>
+
+  <Target Name="MailCalExportReleasePayload" AfterTargets="_ComputeAppxPackagePayload"
+          Condition="'$(Configuration)' == 'Release' and '$(DesignTimeBuild)' != 'true'">
+    <Error Condition="'@(AppxPackagePayload)' == ''" Text="The release package payload is empty." />
+    <Error Condition="!Exists('$(ProjectPriFullPath)')" Text="The complete application PRI is missing." />
+    <MakeDir Directories="$(_MailCalReleaseExportDir)payload" />
+    <Copy SourceFiles="@(AppxPackagePayload)"
+          DestinationFiles="@(AppxPackagePayload->'$(_MailCalReleaseExportDir)payload\%(TargetPath)')" />
+    <Copy SourceFiles="$(ProjectPriFullPath)" DestinationFiles="$(_MailCalReleaseExportDir)application.pri" />
+    <WriteLinesToFile File="$(_MailCalReleaseExportDir)application-pri-path.txt"
+                      Lines="@(ProjectPriFile->'%(TargetPath)')" Overwrite="true" Encoding="UTF-8" />
+    <WriteLinesToFile File="$(_MailCalReleaseExportDir)payload-paths.txt"
+                      Lines="@(AppxPackagePayload->'%(TargetPath)')" Overwrite="true" Encoding="UTF-8" />
+  </Target>
+
+  <!-- Export the PDB files the MSIX tooling selects for the .appxsym, including the Native AOT image PDB
+       that never appears in the package payload. They are kept for local crash analysis. -->
+  <Target Name="MailCalExportReleaseSymbols" AfterTargets="_CalculateInputsForGenerateAppxPackageRecipe"
+          Condition="'$(Configuration)' == 'Release' and '$(DesignTimeBuild)' != 'true'">
+    <Error Condition="'@(PDBPayload)' == ''" Text="The release build produced no symbol files." />
+    <MakeDir Directories="$(_MailCalReleaseExportDir)symbols" />
+    <Copy SourceFiles="@(PDBPayload)" DestinationFiles="@(PDBPayload->'$(_MailCalReleaseExportDir)symbols\%(Filename)%(Extension)')" />
+    <Error Condition="'$(PublishAot)' == 'true' and !Exists('$(_MailCalReleaseExportDir)symbols\$(TargetName).pdb')"
+           Text="The Native AOT symbol file $(TargetName).pdb was not exported." />
+  </Target>
+
+  <Target Name="MailCalExportReleaseManifest" AfterTargets="_GenerateAppxManifest"
+          Condition="'$(Configuration)' == 'Release' and '$(DesignTimeBuild)' != 'true'">
+    <Error Condition="'@(FinalAppxManifest)' == ''" Text="The generated release manifest is missing." />
+    <MakeDir Directories="$(_MailCalReleaseExportDir)payload" />
+    <Copy SourceFiles="@(FinalAppxManifest)" DestinationFiles="$(_MailCalReleaseExportDir)payload\AppxManifest.xml" />
+  </Target>
+</Project>

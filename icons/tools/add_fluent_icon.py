@@ -1,6 +1,6 @@
 """Add (or replace) an icon from Fluent UI System Icons.
 
-    python icons/tools/add_fluent_icon.py <fluent_name> <WinoName> [--accent <paletteKey>]
+    python icons/tools/add_fluent_icon.py <fluent_name> <MailCalName> [--accent <paletteKey>]
                                           [--codepoint E0xx] [--alias Name ...] [--no-regular]
 
 <fluent_name> is the Fluent file stem without size/style, e.g. "mail_inbox" for
@@ -24,7 +24,7 @@ from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.pens.transformPen import TransformPen
 from fontTools.svgLib.path.parser import parse_path
 
-from wino_icons import ICONS_DIR, SVG_DIR, _ntos, format_codepoint, load_manifest, parse_codepoint, save_manifest, write_em_svg
+from mailcal_icons import ICONS_DIR, SVG_DIR, _ntos, format_codepoint, load_manifest, parse_codepoint, save_manifest, write_em_svg
 
 CACHE_DIR = ICONS_DIR / ".cache"
 SVG_NS = "{http://www.w3.org/2000/svg}"

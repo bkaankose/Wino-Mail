@@ -6,7 +6,7 @@ rows. The rail snaps to period boundaries, loads events only once it settles, an
 window of events in memory. This note describes the shared model so the macOS and iOS surfaces
 behave exactly like the Windows one.
 
-## Shared model (`Wino.Core.Domain`)
+## Shared model (`MailCal.Core.Domain`)
 
 | Type | Role |
 | --- | --- |
@@ -59,4 +59,4 @@ model produces for the anchor date, so a settled unit and a loaded range always 
 7. Handle the wheel on the elements that raise it, inside any scroll container, so a pan marks
    the event handled before the container scrolls (Shift+wheel in the timed views).
 
-The Windows implementation lives in `src/Wino.Mail.WinUI/Controls/Calendar/CalendarPeriodControl*`.
+The Windows implementation lives in `src/MailCal.Mail.WinUI/Controls/Calendar/CalendarPeriodControl*`.

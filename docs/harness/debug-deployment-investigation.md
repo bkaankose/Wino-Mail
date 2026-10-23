@@ -13,24 +13,24 @@ The findings describe the original behavior. Implemented changes and verificatio
 The local failure was reproducible without compilation:
 
 ```powershell
-winapp run . --project Wino.Mail.WinUI --no-build --detach --json
+winapp run . --project MailCal.Mail.WinUI --no-build --detach --json
 ```
 
 WinApp returned `UnauthorizedAccess_IODenied_NoPathName`.
-Verbose output stopped after `Using appxrecipe for layout: Wino.Mail.WinUI.build.appxrecipe`.
+Verbose output stopped after `Using appxrecipe for layout: MailCal.Mail.WinUI.build.appxrecipe`.
 The failure occurred before package activation.
 
 Stopping the main app did not release every package file.
-There were 39 surviving `Wino.Mail.NotificationHost.exe` processes.
+There were 39 surviving `MailCal.Mail.NotificationHost.exe` processes.
 Their command lines identified the checked-in Debug registration's `AppX` directory.
-A write-access probe on `AppX/Wino.Mail.NotificationHost.exe` reported that another process held the file.
+A write-access probe on `AppX/MailCal.Mail.NotificationHost.exe` reported that another process held the file.
 The build recipe required replacement of the host executable and other host payload files.
 
 After doctor passed, the investigation force-stopped only the 39 verified Debug hosts.
 The same no-build command then succeeded with PID `76612` and the existing package identity.
 No identity change, package cleanup, or data deletion was necessary.
 
-This is a package-layout file lock, rather than a failure inside Wino's main activation code.
+This is a package-layout file lock, rather than a failure inside Mail-Cal's main activation code.
 WinApp 0.7.0 copies recipe files with `AtomicFile.Copy` before registration and activation.
 The generic error hides the destination that failed.
 
@@ -57,7 +57,7 @@ That property is not the same mechanism as the CLI's `--no-restore` option.
 Two consecutive restore commands reproduced the repeated host messages without source edits:
 
 ```powershell
-dotnet restore src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -v:normal
+dotnet restore src/MailCal.Mail.WinUI/MailCal.Mail.WinUI.csproj -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -v:normal
 ```
 
 Detailed restore diagnostics reported unchanged inputs, unchanged assets files, and `No-Op restore` for the hosts.
@@ -73,7 +73,7 @@ Removing that duplicate traversal alone cannot explain or eliminate the full bui
 Two consecutive Debug x64 builds passed with zero warnings and errors:
 
 ```powershell
-dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -p:GenerateAppxPackageOnBuild=false -p:AppxPackageSigningEnabled=false
+dotnet build src/MailCal.Mail.WinUI/MailCal.Mail.WinUI.csproj -c Debug --no-restore -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -p:GenerateAppxPackageOnBuild=false -p:AppxPackageSigningEnabled=false
 ```
 
 The first took 62.71 seconds. The second took 63.15 seconds.
@@ -83,7 +83,7 @@ The second build's diagnostic log identified this exact invalidation:
 
 ```text
 Building target "XamlPreCompile" completely.
-Input file "...\App.g.cs" is newer than output file "...\Wino.Mail.WinUI.pdb".
+Input file "...\App.g.cs" is newer than output file "...\MailCal.Mail.WinUI.pdb".
 ```
 
 During XAML pass 1, `App.g.cs` was an empty file with a fresh timestamp.
@@ -101,10 +101,10 @@ It does not justify skipping XAML checks after a real source, reference, or reso
 
 ### Plain launch commands: working directory and packaged run support
 
-At the repository root, `winapp run .` finds `WinoMail.slnx` and several runnable projects.
-It requires `--project Wino.Mail.WinUI` to select the app.
+At the repository root, `winapp run .` finds `MailCal.slnx` and several runnable projects.
+It requires `--project MailCal.Mail.WinUI` to select the app.
 
-From `src/Wino.Mail.WinUI`, this plain project-directory command passed after Debug processes released the layout:
+From `src/MailCal.Mail.WinUI`, this plain project-directory command passed after Debug processes released the layout:
 
 ```powershell
 winapp run . --detach --json
@@ -131,7 +131,7 @@ winapp target exec sandbox --json -- powershell.exe -NoProfile -Command "Write-O
 ```
 
 WinApp returned `sandbox_start_failed`, `wsbVerb: share`, and `hresult: 0x80070005`.
-This command does not access Wino's package layout.
+This command does not access Mail-Cal's package layout.
 The local host-file lock therefore does not explain the Sandbox bootstrap failure.
 Guest-agent setup and folder-sharing access require their own investigation.
 
@@ -156,7 +156,7 @@ Evidence resides in `artifacts/debug-deployment-investigation-20261001/`:
 1. Add shared deployment preparation for the main app and its four notification hosts.
    Apply package identity checks before process shutdown.
    Scope shutdown to the checked-in Debug registration and report unresolved process ownership.
-   Use the same preparation in `wino.ps1`, UI runners, and the packaged run bridge.
+   Use the same preparation in `mailcal.ps1`, UI runners, and the packaged run bridge.
 2. Remove redundant Debug restore/build traversal where project references already supply the required payload.
    Retain the separate Release publish requirement.
    Check clean restore, missing host output, host-source edits, and unchanged repeated builds.
@@ -168,7 +168,7 @@ Evidence resides in `artifacts/debug-deployment-investigation-20261001/`:
    Preserve the checked-in identity, launch arguments, and data.
    Prevent recursive builds and retain compile-only Release behavior.
 5. Document root-level project selection and project-directory `winapp run .`.
-   Check both entry points and `wino.ps1 run app` against the current Debug app.
+   Check both entry points and `mailcal.ps1 run app` against the current Debug app.
 6. Continue Sandbox bootstrap diagnosis independently.
    Local deployment remains the default.
 
@@ -178,7 +178,7 @@ The app now uses its four project references for notification-host restore and D
 The duplicate `RestoreNotificationHost` and `BuildNotificationHost` targets are removed.
 The Release publish target remains in place.
 
-`Wino.Debug.targets` excludes only the empty generated `App.g.cs` placeholder from `XamlPreCompile` inputs in Debug builds.
+`MailCal.Debug.targets` excludes only the empty generated `App.g.cs` placeholder from `XamlPreCompile` inputs in Debug builds.
 It restores the original compile item before pass two or final compilation.
 It also removes the final compiler's PDB from the precompile output list.
 The SDK precompile task uses `DebugType=none` and does not produce that PDB.
@@ -186,7 +186,7 @@ The final compiler's original symbol items are restored before pass two and fina
 Nonempty generated code, real source, XAML, resources, and references retain their normal invalidation rules.
 Design-time and Release compilation use the original inputs.
 
-`Prepare-WinoDebugDeployment` verifies package identity and the checkout's Debug installation path before shutdown.
+`Prepare-MailCalDebugDeployment` verifies package identity and the checkout's Debug installation path before shutdown.
 It collects and verifies process paths before stopping any process.
 It uses CIM command lines when the executable path is unavailable.
 The harness, UI runner, and regression runner share this preparation.
@@ -200,7 +200,7 @@ That produced a Win2D architecture warning and selected different outputs from t
 The references now use the app's x64 and `win-x64` defaults for project-only builds.
 The controls project declares the supported runtime identifiers so plain restore supplies its native assets.
 
-`wino.ps1` remains useful for preparation, tests, affected analysis, and formatting.
+`mailcal.ps1` remains useful for preparation, tests, affected analysis, and formatting.
 It contained no file-change cache to remove.
 Plain WinApp remains available after explicit local preparation; it cannot invoke that preparation before `--no-build` deployment.
 The harness now restores the caller's working directory on success and failure.
@@ -233,7 +233,7 @@ No automatic source cache or implicit `--no-build` shortcut was added.
 Local launch checks succeeded:
 
 - Plain `dotnet run` from the app directory: PID `44144`, with no AnyCPU warning.
-- Root `winapp run . --project Wino.Mail.WinUI --no-build --detach --json`: PID `59044` after preparation.
+- Root `winapp run . --project MailCal.Mail.WinUI --no-build --detach --json`: PID `59044` after preparation.
 - App-directory `winapp run . --detach --json`: PID `116040` after preparation.
 - The UI runner built and deployed current source, then passed Settings navigation and account-flyout open/dismiss checks.
   After the final target update, the integration suite rebuilt the app and the same UI scenarios passed again.
@@ -260,10 +260,10 @@ Final evidence:
 
 ## References
 
-- [App build targets](../../src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj)
+- [App build targets](../../src/MailCal.Mail.WinUI/MailCal.Mail.WinUI.csproj)
 - [Current development commands](development.md)
-- [Notification host runtime](../../src/Wino.NotificationHost/Program.cs)
-- [Notification host client](../../src/Wino.Mail.WinUI/Services/NotificationHostClient.cs)
+- [Notification host runtime](../../src/MailCal.NotificationHost/Program.cs)
+- [Notification host client](../../src/MailCal.Mail.WinUI/Services/NotificationHostClient.cs)
 - [WinApp 0.7.0 recipe materialization source](https://github.com/microsoft/winappCli/blob/v0.7.0/src/winapp-CLI/WinApp.Cli/Services/MsixService.Identity.cs)
 - [Packaged dotnet run support](https://github.com/microsoft/winappCli/blob/main/docs/dotnet-run-support.md)
 - [Sandbox execution](https://github.com/microsoft/winappCli/blob/main/docs/sandbox-execution.md)

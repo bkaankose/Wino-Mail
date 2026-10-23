@@ -1,14 +1,14 @@
-"""Build the Wino icon fonts from icons/manifest.json and icons/svg.
+"""Build the Mail-Cal icon fonts from icons/manifest.json and icons/svg.
 
-    python icons/tools/build_fonts.py                 # write the fonts into Wino.Mail.WinUI/Assets
+    python icons/tools/build_fonts.py                 # write the fonts into MailCal.Mail.WinUI/Assets
     python icons/tools/build_fonts.py --check         # exit 1 if the committed fonts are stale
     python icons/tools/build_fonts.py --verify-against old.ttf   # compare outlines with another font
     python icons/tools/build_fonts.py --preview out.html          # glyph sheet for a browser
 
 Three fonts are produced from the same outlines:
-  WinoIcons.ttf               monochrome, every glyph follows Foreground
-  WinoIconsColor-Light.ttf    COLR v0: accent layer (palette color) under the base layer (foreground)
-  WinoIconsColor-Dark.ttf     same layers, dark palette
+  MailCalIcons.ttf               monochrome, every glyph follows Foreground
+  MailCalIconsColor-Light.ttf    COLR v0: accent layer (palette color) under the base layer (foreground)
+  MailCalIconsColor-Dark.ttf     same layers, dark palette
 
 Glyphs with a fixed "color" (brand logos) are a single colored layer in all three fonts.
 Glyphs with fixed-color "layers" (multi-color brand logos) keep those layers in all three fonts.
@@ -27,7 +27,7 @@ from fontTools.pens.statisticsPen import StatisticsPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont
 
-from wino_icons import ASSETS_DIR, REPO_ROOT, SVG_DIR, load_manifest, parse_codepoint, svg_to_glyph
+from mailcal_icons import ASSETS_DIR, REPO_ROOT, SVG_DIR, load_manifest, parse_codepoint, svg_to_glyph
 
 FOREGROUND = 0xFFFF
 # Fixed timestamp keeps the output byte-for-byte reproducible (2024-01-01, seconds since 1904).
@@ -147,7 +147,7 @@ def build_font(manifest: dict, variant: str) -> bytes:
         sTypoLineGap=0,
         usWinAscent=ascent,
         usWinDescent=descent,
-        achVendID="WINO",
+        achVendID="MAILCAL",
         fsType=0,
     )
     fb.setupPost()
@@ -241,7 +241,7 @@ def write_preview(manifest: dict, fonts: dict[str, bytes], out: Path) -> None:
         for label, fam in (("Mono", fonts["mono"]["family"]), ("Colorful", fonts[variant]["family"])):
             sections.append(f'<section class="{theme}" style="--f:\'{fam}\'"><h2>{theme.title()} · {label}</h2><div class="grid">{grid}</div></section>')
     out.write_text(
-        f"""<!doctype html><html><head><meta charset="utf-8"><title>Wino icons</title><style>
+        f"""<!doctype html><html><head><meta charset="utf-8"><title>Mail-Cal icons</title><style>
 {''.join(faces)}
 body{{margin:0;font:12px 'Segoe UI',sans-serif}}section{{padding:16px 20px}}
 .light{{background:#f9f9f9;color:#1a1a1a}}.dark{{background:#202020;color:#fff}}

@@ -1,0 +1,432 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using Serilog;
+using MailCal.Core.Domain.Models.LocalBackup;
+using MailCal.Core.Domain;
+using MailCal.Core.Domain.Models.Accounts;
+using MailCal.Core.Domain.Entities.Mail;
+using MailCal.Core.Domain.Entities.Shared;
+using MailCal.Core.Domain.Enums;
+using MailCal.Core.Domain.Exceptions;
+using MailCal.Core.Domain.Interfaces;
+using MailCal.Core.Domain.Models.Calendar;
+using MailCal.Core.Domain.Models.Navigation;
+using MailCal.Core.Domain.Models.Synchronization;
+using MailCal.Core.Services;
+using MailCal.Core.ViewModels;
+using MailCal.Core.ViewModels.Data;
+using MailCal.Mail.ViewModels.Data;
+using MailCal.Messaging.Client.Navigation;
+using MailCal.Messaging.UI;
+
+namespace MailCal.Mail.ViewModels;
+
+public partial class AccountManagementViewModel : AccountManagementPageViewModelBase
+{
+
+    private readonly ILocalBackupService _syncService;
+    private readonly IMailCalLogger _mailCalLogger;
+    private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
+    private readonly ICalDavClient _calDavClient;
+
+    public IMailDialogService MailDialogService { get; }
+
+    public AccountManagementViewModel(IMailDialogService dialogService,
+                                      INavigationService navigationService,
+                                      IAccountService accountService,
+                                      IKnownImapProviderCatalog providerCatalog,
+                                      ILocalBackupService syncService,
+                                      IMailCalLogger mailCalLogger,
+                                      ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
+                                      ICalDavClient calDavClient,
+                                      IAuthenticationProvider authenticationProvider,
+                                      IPreferencesService preferencesService,
+                                      IPlatformCapabilities platformCapabilities) : base(dialogService, navigationService, accountService, providerCatalog, authenticationProvider, preferencesService, platformCapabilities)
+    {
+        MailDialogService = dialogService;
+        _syncService = syncService;
+        _mailCalLogger = mailCalLogger;
+        _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
+        _calDavClient = calDavClient;
+    }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ExportLocalDataCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ImportLocalDataCommand))]
+    public partial bool IsDataTransferInProgress { get; set; }
+
+    [RelayCommand]
+    private async Task CreateMergedAccountAsync()
+    {
+        var linkName = await DialogService.ShowTextInputDialogAsync(string.Empty, Translator.DialogMessage_CreateLinkedAccountTitle, Translator.DialogMessage_CreateLinkedAccountMessage, Translator.Buttons_Create);
+
+        if (string.IsNullOrEmpty(linkName)) return;
+
+        // Create arbitary empty merged inbox with an empty Guid and go to edit page.
+        var mergedInbox = new MergedInbox()
+        {
+            Id = Guid.Empty,
+            Name = linkName
+        };
+
+        var mergedAccountProviderDetailViewModel = new MergedAccountProviderDetailViewModel(mergedInbox, new List<AccountProviderDetailViewModel>());
+
+        Messenger.Send(new BreadcrumbNavigationRequested(mergedAccountProviderDetailViewModel.MergedInbox.Name,
+                                 MailCalPage.MergedAccountDetailsPage,
+                                 mergedAccountProviderDetailViewModel));
+    }
+
+
+
+    [RelayCommand]
+    private void AddNewAccount()
+    {
+        Messenger.Send(new BreadcrumbNavigationRequested(
+            Translator.WelcomeWizard_Step2Title,
+            MailCalPage.ProviderSelectionPage,
+            ProviderSelectionNavigationContext.CreateForSettingsAddAccount()));
+    }
+
+    public void StartAddNewAccount() => AddNewAccount();
+
+    private async Task ValidateSpecialImapConnectivityAsync(CustomServerInformation serverInformation)
+    {
+        while (true)
+        {
+            var connectivityResult = await SynchronizationManager.Instance
+                .TestImapConnectivityAsync(serverInformation)
+                .ConfigureAwait(false);
+
+            if (!connectivityResult.IsCertificateUIRequired)
+            {
+                if (!connectivityResult.IsSuccess)
+                    throw new InvalidOperationException(connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage);
+                break;
+            }
+
+            var failure = connectivityResult.CertificateFailure;
+            if (failure?.CanTrust != true)
+                throw new InvalidOperationException(connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_CertificateCannotBeTrusted);
+
+            var certificateMessage =
+                $"{Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row0}\n\n" +
+                $"{Translator.IMAPSetupDialog_CertificateProtocol}: {failure.Protocol}\n{Translator.IMAPSetupDialog_CertificateEndpoint}: {failure.Host}:{failure.Port}\n{Translator.IMAPSetupDialog_CertificateSubject}: {failure.Subject}\n{Translator.IMAPSetupDialog_CertificateSans}: {failure.SubjectAlternativeNames}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateIssuer}: {failure.Issuer}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateValidFrom}: {failure.ValidFromUtc:u}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateValidTo}: {failure.ValidToUtc:u}\n{Translator.IMAPSetupDialog_CertificateFingerprint}: {failure.CertificateSha256}\n{Translator.IMAPSetupDialog_CertificateFailureReason}: {failure.ChainStatusDetails}\n\n" +
+                $"{Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row1}";
+
+            var allowCertificate = await ExecuteUIThreadAsync(
+                () => MailDialogService.ShowServerCertificateTrustDialogAsync(certificateMessage, failure.CertificateRawData))
+                .ConfigureAwait(false);
+
+            if (!allowCertificate)
+                throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
+
+            serverInformation.PendingCertificateTrusts.RemoveAll(item => item.Protocol == failure.Protocol &&
+                string.Equals(item.Host, failure.Host, StringComparison.OrdinalIgnoreCase) && item.Port == failure.Port);
+            serverInformation.PendingCertificateTrusts.Add(failure.CreateTrust(serverInformation.AccountId));
+        }
+
+        if (serverInformation.CalendarSupportMode != ImapCalendarSupportMode.CalDav)
+            return;
+
+        if (string.IsNullOrWhiteSpace(serverInformation.CalDavServiceUrl))
+            throw new InvalidOperationException(Translator.ImapCalDavSettingsPage_CalDavUrlRequired);
+
+        var settings = new CalDavConnectionSettings
+        {
+            ServiceUri = new Uri(serverInformation.CalDavServiceUrl, UriKind.Absolute),
+            Username = serverInformation.CalDavUsername,
+            Password = serverInformation.CalDavPassword
+        };
+
+        await _calDavClient.DiscoverCalendarsAsync(settings).ConfigureAwait(false);
+    }
+
+    [RelayCommand]
+    private void EditMergedAccounts(MergedAccountProviderDetailViewModel mergedAccountProviderDetailViewModel)
+    {
+        Messenger.Send(new BreadcrumbNavigationRequested(mergedAccountProviderDetailViewModel.MergedInbox.Name,
+                                             MailCalPage.MergedAccountDetailsPage,
+                                             mergedAccountProviderDetailViewModel));
+    }
+
+    [RelayCommand(CanExecute = nameof(CanReorderAccounts))]
+    private Task ReorderAccountsAsync() => MailDialogService.ShowAccountReorderDialogAsync(availableAccounts: Accounts);
+
+    [RelayCommand(CanExecute = nameof(CanTransferLocalData))]
+    private async Task ExportLocalDataAsync()
+    {
+        try
+        {
+            // Write to exactly the path the platform returns. On macOS this is the URL of the save
+            // panel, the only location the sandbox grants; on Windows it is the picked folder plus this name.
+            var suggestedFileName = MailCalAccountSyncFileExportResult.CreateFileName(DateTime.Now);
+            var exportPath = await ExecuteUIThreadAsync(
+                () => MailDialogService.PickFilePathAsync(suggestedFileName))
+                .ConfigureAwait(false);
+
+            if (string.IsNullOrWhiteSpace(exportPath))
+            {
+                return;
+            }
+
+            await ExecuteUIThread(() => IsDataTransferInProgress = true);
+
+            var exportResult = await _syncService.ExportToFileAsync(new(), PromptSyncSecretAsync).ConfigureAwait(false);
+            await File.WriteAllBytesAsync(exportPath, exportResult.Content).ConfigureAwait(false);
+
+            DialogService.InfoBarMessage(
+                Translator.GeneralTitle_Info,
+                $"{BuildExportSuccessMessage(exportResult.ExportResult)} {string.Format(Translator.MailCalAccount_Management_LocalDataSaved, exportPath)}",
+                InfoBarMessageType.Success);
+        }
+        catch (Exception ex)
+        {
+            DialogService.InfoBarMessage(
+                Translator.GeneralTitle_Error,
+                ex.Message,
+                InfoBarMessageType.Error);
+        }
+        finally
+        {
+            await ExecuteUIThread(() => IsDataTransferInProgress = false);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanTransferLocalData))]
+    private async Task ImportLocalDataAsync()
+    {
+        try
+        {
+            var fileContent = await ExecuteUIThreadAsync(
+                () => MailDialogService.PickWindowsFileContentAsync(SyncSnapshotFormat.FileExtension, SyncSnapshotFormat.LegacyFileExtension))
+                .ConfigureAwait(false);
+
+            if (fileContent.Length == 0)
+            {
+                return;
+            }
+
+            await ExecuteUIThread(() => IsDataTransferInProgress = true);
+
+            var result = await _syncService.ImportFromFileAsync(fileContent, PromptSyncSecretAsync).ConfigureAwait(false);
+            if (result.Appearance != null)
+            {
+                await ExecuteUIThread(() => _syncService.ApplyAppearance(result.Appearance));
+            }
+
+            await InitializeAccountsAsync().ConfigureAwait(false);
+
+            var messageType = result.FailedPreferenceCount > 0
+                ? InfoBarMessageType.Warning
+                : InfoBarMessageType.Success;
+
+            DialogService.InfoBarMessage(
+                result.FailedPreferenceCount > 0 ? Translator.GeneralTitle_Warning : Translator.GeneralTitle_Info,
+                BuildImportMessage(result),
+                messageType);
+        }
+        catch (JsonException)
+        {
+            DialogService.InfoBarMessage(
+                Translator.GeneralTitle_Error,
+                Translator.MailCalAccount_Management_LocalDataInvalidFile,
+                InfoBarMessageType.Error);
+        }
+        catch (Exception ex)
+        {
+            DialogService.InfoBarMessage(
+                Translator.GeneralTitle_Error,
+                ex.Message,
+                InfoBarMessageType.Error);
+        }
+        finally
+        {
+            await ExecuteUIThread(() => IsDataTransferInProgress = false);
+        }
+    }
+
+    private bool CanTransferLocalData() => !IsDataTransferInProgress;
+
+    private Task<string?> PromptSyncSecretAsync(SyncSnapshotSecretRequest request)
+        => ExecuteUIThreadAsync(() => MailDialogService.ShowBackupPasswordDialogAsync(request));
+
+    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedFrom(mode, parameters);
+
+        Accounts.CollectionChanged -= AccountCollectionChanged;
+
+        PropertyChanged -= PagePropertyChanged;
+    }
+
+    private void AccountCollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        ReorderAccountsCommand.NotifyCanExecuteChanged();
+    }
+
+    private void PagePropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(StartupAccount) && StartupAccount != null)
+        {
+            PreferencesService.StartupEntityId = StartupAccount.StartupEntityId;
+        }
+    }
+
+    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        => await InitializeAsync(mode, parameters);
+
+    public async Task InitializeAsync(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedTo(mode, parameters);
+
+        Accounts.CollectionChanged -= AccountCollectionChanged;
+        Accounts.CollectionChanged += AccountCollectionChanged;
+
+        await InitializeAccountsAsync();
+
+        // Returning here from the account must not forward into it again.
+        if (mode != NavigationMode.Back && parameters is AccountDetailsNavigationContext accountDetailsContext)
+        {
+            NavigateToRequestedAccountDetails(accountDetailsContext);
+        }
+
+        PropertyChanged -= PagePropertyChanged;
+        PropertyChanged += PagePropertyChanged;
+    }
+
+    public override async Task InitializeAccountsAsync()
+    {
+        await ExecuteUIThread(() =>
+        {
+            StartupAccount = null;
+            Accounts.Clear();
+        }).ConfigureAwait(false);
+
+        var accounts = await AccountService.GetAccountsAsync().ConfigureAwait(false);
+
+        // Group accounts and display merged ones at the top.
+        var groupedAccounts = accounts.GroupBy(a => a.MergedInboxId);
+
+        await ExecuteUIThread(() =>
+        {
+            foreach (var accountGroup in groupedAccounts)
+            {
+                var mergedInboxId = accountGroup.Key;
+
+                if (mergedInboxId == null)
+                {
+                    foreach (var account in accountGroup)
+                    {
+                        var accountDetails = GetAccountProviderDetails(account);
+
+                        Accounts.Add(accountDetails);
+                    }
+                }
+                else
+                {
+                    var mergedInbox = accountGroup.First(a => a.MergedInboxId == mergedInboxId).MergedInbox;
+
+                    var holdingAccountProviderDetails = accountGroup.Select(a => GetAccountProviderDetails(a)).ToList();
+                    var mergedAccountViewModel = new MergedAccountProviderDetailViewModel(mergedInbox, holdingAccountProviderDetails);
+
+                    Accounts.Add(mergedAccountViewModel);
+                }
+            }
+
+            // Handle startup entity.
+            if (PreferencesService.StartupEntityId != null)
+            {
+                StartupAccount = Accounts.FirstOrDefault(a => a.StartupEntityId == PreferencesService.StartupEntityId);
+            }
+        });
+
+    }
+
+    private static string BuildExportSuccessMessage(MailCal.Core.Domain.Models.Accounts.MailCalAccountSyncExportResult result)
+    {
+        var parts = new Collection<string>();
+
+        if (result.IncludedPreferences)
+        {
+            parts.Add(Translator.MailCalAccount_Management_ExportPreferencesSucceeded);
+        }
+
+        if (result.IncludedAccounts)
+        {
+            parts.Add(string.Format(Translator.MailCalAccount_Management_ExportAccountsSucceeded, result.ExportedMailboxCount));
+        }
+
+        if (result.ExportedAccountDataCount > 0)
+        {
+            parts.Add(string.Format(Translator.MailCalAccount_Management_ExportAccountDataSucceeded, result.ExportedAccountDataCount));
+        }
+
+        if (result.ExportedAppDataCount > 0)
+        {
+            parts.Add(string.Format(Translator.MailCalAccount_Management_ExportAppDataSucceeded, result.ExportedAppDataCount));
+        }
+
+        if (parts.Count == 0)
+        {
+            parts.Add(Translator.MailCalAccount_Management_ExportSucceeded);
+        }
+
+        return string.Join(" ", parts);
+    }
+
+    private static string BuildImportMessage(MailCal.Core.Domain.Models.Accounts.MailCalAccountSyncImportResult result)
+    {
+        var parts = new Collection<string>();
+
+        if (result.HadRemotePreferences)
+        {
+            parts.Add(result.FailedPreferenceCount > 0
+                ? string.Format(Translator.MailCalAccount_Management_ImportPartial, result.AppliedPreferenceCount, result.FailedPreferenceCount)
+                : string.Format(Translator.MailCalAccount_Management_ImportPreferencesSucceeded, result.AppliedPreferenceCount));
+        }
+
+        if (result.ImportedMailboxCount > 0)
+        {
+            parts.Add(string.Format(Translator.MailCalAccount_Management_ImportAccountsSucceeded, result.ImportedMailboxCount));
+        }
+
+        if (result.SkippedDuplicateMailboxCount > 0)
+        {
+            parts.Add(string.Format(Translator.MailCalAccount_Management_ImportDuplicateAccountsSkipped_Device, result.SkippedDuplicateMailboxCount));
+        }
+
+        if (result.AppliedAccountDataCount > 0)
+        {
+            parts.Add(string.Format(Translator.MailCalAccount_Management_ImportAccountDataSucceeded, result.AppliedAccountDataCount));
+        }
+
+        if (result.AppliedAppDataCount > 0)
+        {
+            parts.Add(string.Format(Translator.MailCalAccount_Management_ImportAppDataSucceeded, result.AppliedAppDataCount));
+        }
+
+        if (parts.Count == 0)
+        {
+            parts.Add(Translator.MailCalAccount_Management_ImportEmpty);
+        }
+
+        if (result.ImportedMailboxCount > 0)
+        {
+            parts.Add(Translator.MailCalAccount_Management_ImportReloginReminder);
+        }
+
+        return string.Join(" ", parts);
+    }
+}

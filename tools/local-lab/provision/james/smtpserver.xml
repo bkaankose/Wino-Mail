@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <!--
-  Apache James SMTP configuration for the Wino local lab.
+  Apache James SMTP configuration for the Mail-Cal local lab.
   Derived from the memory-app sample configuration (Apache License 2.0).
   Port 25 receives lab mail from the hub; port 587 is authenticated plain-text submission.
 -->
@@ -29,7 +29,7 @@
         <verifyIdentity>true</verifyIdentity>
         <maxmessagesize>0</maxmessagesize>
         <addressBracketsEnforcement>true</addressBracketsEnforcement>
-        <smtpGreeting>Apache JAMES Wino lab SMTP Server</smtpGreeting>
+        <smtpGreeting>Apache JAMES Mail-Cal lab SMTP Server</smtpGreeting>
         <handlerchain coreHandlersPackage="org.apache.james.smtpserver.NoAuthCmdHandlerLoader">
             <handler class="org.apache.james.smtpserver.fastfail.ValidRcptHandler"/>
         </handlerchain>
@@ -58,7 +58,7 @@
         <verifyIdentity>true</verifyIdentity>
         <maxmessagesize>0</maxmessagesize>
         <addressBracketsEnforcement>true</addressBracketsEnforcement>
-        <smtpGreeting>Apache JAMES Wino lab submission</smtpGreeting>
+        <smtpGreeting>Apache JAMES Mail-Cal lab submission</smtpGreeting>
         <handlerchain>
             <handler class="org.apache.james.smtpserver.fastfail.ValidRcptHandler"/>
             <handler class="org.apache.james.smtpserver.CoreCmdHandlerLoader"/>

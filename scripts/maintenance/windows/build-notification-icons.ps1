@@ -4,7 +4,7 @@ Builds the notification button icons and the extra attribution logo sizes.
 
 .DESCRIPTION
 Windows shows toast button icons as 16x16 px images at 100% scale. Every icon gets
-the same set of resource folders under src/Wino.Mail.WinUI/Assets/NotificationIcons:
+the same set of resource folders under src/MailCal.Mail.WinUI/Assets/NotificationIcons:
 
   theme-dark      white glyph
   theme-light     black glyph
@@ -35,10 +35,10 @@ if ($PSVersionTable.PSVersion.Major -ge 6 -and -not $IsWindows) { throw 'Renderi
 Add-Type -AssemblyName PresentationCore, WindowsBase
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
-$iconRoot = Join-Path $repoRoot 'src\Wino.Mail.WinUI\Assets\NotificationIcons'
+$iconRoot = Join-Path $repoRoot 'src\MailCal.Mail.WinUI\Assets\NotificationIcons'
 $svgRoot = Join-Path $repoRoot 'icons\svg'
 $appEntryRoots = @(
-    Join-Path $repoRoot 'src\Wino.Mail.WinUI\Assets\AppEntries'
+    Join-Path $repoRoot 'src\MailCal.Mail.WinUI\Assets\AppEntries'
     Join-Path $repoRoot 'scripts\release\Assets\Beta\Assets\AppEntries'
 )
 

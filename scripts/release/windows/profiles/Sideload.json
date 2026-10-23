@@ -1,12 +1,12 @@
 {
   "Distribution": "Sideload",
-  "PackageName": "WinoMail.Sideload",
+  "PackageName": "MailCal.Sideload",
   "Publisher": "CN=Burak Kaan Köse, O=Burak Kaan Köse, L=Wroclaw, S=Dolnośląskie, C=PL",
   "DisplayNames": {
-    "Mail": "Wino Mail",
-    "Calendar": "Wino Calendar",
-    "People": "Wino People",
-    "Tasks": "Wino To Do"
+    "Mail": "Mail-Cal",
+    "Calendar": "Mail-Cal Calendar",
+    "People": "Mail-Cal People",
+    "Tasks": "Mail-Cal To Do"
   },
   "NotificationActivatorIds": {
     "Mail": "c05cb457-54df-542f-abe8-900789e71cb5",

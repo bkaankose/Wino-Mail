@@ -1,0 +1,864 @@
+﻿using System;
+using System.Linq;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using CommunityToolkit.WinUI;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Data;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Hosting;
+using MailCal.Core.Domain;
+using MailCal.Core.Domain.Entities.Shared;
+using MailCal.Core.Domain.Enums;
+using MailCal.Core.Domain.Interfaces;
+using MailCal.Core.Domain.Models.Launch;
+using MailCal.Core.Domain.Models.Navigation;
+using MailCal.Extensions;
+using MailCal.Mail.Controls.Core.SearchBar;
+using MailCal.Mail.WinUI.Activation;
+using MailCal.Mail.WinUI.Extensions;
+using MailCal.Mail.WinUI.Helpers;
+using MailCal.Mail.WinUI.Interfaces;
+using MailCal.Mail.WinUI.Models;
+using MailCal.Mail.WinUI.Services;
+using MailCal.Mail.WinUI.Views;
+using MailCal.Messaging.Client.Mails;
+using MailCal.Messaging.Client.Shell;
+using MailCal.Messaging.UI;
+using MailCal.Views.Mail;
+using WinUIEx;
+using WinRT;
+
+namespace MailCal.Mail.WinUI;
+
+public sealed partial class ShellWindow : WindowEx, IMailCalShellWindow,
+    IMailCalFrameProvider,
+    IRecipient<ApplicationThemeChanged>,
+    IRecipient<InfoBarMessageRequested>,
+    IRecipient<TitleBarShellContentUpdated>,
+    IRecipient<WhatsNewOpened>,
+    IRecipient<WhatsNewOpenRequested>,
+    IRecipient<AccountSynchronizationProgressUpdatedMessage>
+{
+    private bool _allowClose;
+    public IStatePersistanceService StatePersistanceService { get; } = MailCalApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception("StatePersistanceService not registered in DI container.");
+    public IPreferencesService PreferencesService { get; } = MailCalApplication.Current.Services.GetService<IPreferencesService>() ?? throw new Exception("PreferencesService not registered in DI container.");
+    public INavigationService NavigationService { get; } = MailCalApplication.Current.Services.GetService<INavigationService>() ?? throw new Exception("NavigationService not registered in DI container.");
+    private IMailDialogService MailDialogService { get; } = MailCalApplication.Current.Services.GetRequiredService<IMailDialogService>();
+    private IWhatsNewService WhatsNewService { get; } = MailCalApplication.Current.Services.GetRequiredService<IWhatsNewService>();
+    private IMailCalWindowManager WindowManager { get; } = MailCalApplication.Current.Services.GetRequiredService<IMailCalWindowManager>();
+
+    private bool _calendarReminderServerStartAttempted;
+    private ITitleBarSearchHost? _activeTitleBarSearchHost;
+    private IShellMenuProvider? _activeSynchronizationProvider;
+    private float? _shellTitleOpacity;
+    private const double ShellTitleSynchronizationButtonInset = 40;
+    private bool _isBackButtonVisibilityReady;
+    private bool _isSynchronizingTitleBarSearch;
+    private ISearchHistoryService SearchHistoryService { get; } = MailCalApplication.Current.Services.GetRequiredService<ISearchHistoryService>();
+    private bool _isPreparedForClose;
+    private bool _isCloseRequestInProgress;
+    private readonly Microsoft.UI.Xaml.Input.PointerEventHandler _pointerPressedHandler;
+
+    public ShellWindow()
+    {
+        InitializeComponent();
+
+        // Use the same root as NewThemeService. A local theme on ShellRoot would override
+        // later changes to the outer WinUIEx content root instead of inheriting them.
+        var configuration = MailCalApplication.Current.Services.GetRequiredService<IConfigurationService>();
+        GetRootContent().RequestedTheme = configuration.Get(UnderlyingThemeService.SelectedAppThemeKey, ApplicationElementTheme.Default).ToWindowsElementTheme();
+
+        _pointerPressedHandler = OnPointerPressed;
+        RegisterRecipients();
+        StatePersistanceService.StatePropertyChanged += StatePersistenceServiceChanged;
+
+        MinWidth = 420;
+        MinHeight = 420;
+        ConfigureTitleBar();
+        UpdateShellTitles();
+        ApplyTitleBarSearchHost();
+        ApplyShellSynchronizationProvider();
+        _ = RefreshWhatsNewButtonAsync();
+
+        // Handle window closing event for terminate vs background/tray behavior.
+        Closed += OnWindowClosed;
+
+        // Use the AppWindow.Closing event to handle the close request
+        AppWindow.Closing += OnAppWindowClosing;
+
+        // Register global mouse button listener for back button
+        RegisterMouseBackButtonListener();
+
+        this.SetIcon("Assets/MailCal_Icon.ico");
+
+        AttachTitleBarWidthStates();
+    }
+
+    /// <summary>
+    /// The adaptive triggers live in XAML; applying their result does not. A VisualState Setter can
+    /// only reach a named element in its own namescope, and everything the width states have to
+    /// touch sits inside the TitleBar's template, so the state change is forwarded here instead.
+    /// </summary>
+    private void AttachTitleBarWidthStates()
+    {
+        var group = VisualStateManager.GetVisualStateGroups(TitleBarStateHost).FirstOrDefault(x => x.Name == "TitleBarWidthStates");
+        if (group is null) return;
+
+        // The triggers move CurrentState on their own, but the change notification is not something
+        // to lean on here, so the state is also re-read after every resize and after load.
+        group.CurrentStateChanged += (_, e) => ApplyTitleBarWidthState(e.NewState?.Name);
+        TitleBarStateHost.Loaded += (_, _) => ApplyTitleBarWidthState(group.CurrentState?.Name);
+        ShellRoot.SizeChanged += (_, _) => DispatcherQueue.TryEnqueue(() => ApplyTitleBarWidthState(group.CurrentState?.Name));
+    }
+
+    private void ApplyTitleBarWidthState(string? stateName)
+    {
+        var isCompact = stateName is not null and not "WideTitleBarState";
+
+        ShellTitleHost.Visibility = stateName == "MinimalTitleBarState" ? Visibility.Collapsed : Visibility.Visible;
+        TitleBarSearchBox.IsCompact = isCompact;
+
+        // The wide field contracts with the title bar before switching to the compact icon. The icon
+        // is the whole control in compact mode, so the wide layout's width floor must then disappear.
+        TitleBarSearchBox.MinWidth = isCompact ? 0 : 210;
+        TitleBarSearchBox.MaxWidth = isCompact ? 48 : 390;
+        TitleBarSearchBox.HorizontalAlignment = isCompact ? HorizontalAlignment.Left : HorizontalAlignment.Stretch;
+    }
+
+    private void ConfigureTitleBar()
+    {
+        AppWindow.TitleBar.ExtendsContentIntoTitleBar = true;
+
+        // Apply initial theme colors
+        var themeService = MailCalApplication.Current.Services.GetService<INewThemeService>();
+        if (themeService != null)
+        {
+            var underlyingThemeService = MailCalApplication.Current.Services.GetService<IUnderlyingThemeService>();
+            if (underlyingThemeService != null)
+            {
+                UpdateTitleBarColors(underlyingThemeService.IsUnderlyingThemeDark());
+            }
+        }
+    }
+
+    private void RegisterMouseBackButtonListener()
+    {
+        // Subscribe to pointer pressed events on the root content
+        if (Content is UIElement rootElement)
+        {
+            rootElement.AddHandler(UIElement.PointerPressedEvent, _pointerPressedHandler, true);
+        }
+    }
+
+    private void OnPointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        // Check if it's the back button (XButton1)
+        var pointerPoint = e.GetCurrentPoint(null);
+        var properties = pointerPoint.Properties;
+
+        // XButton1 is the back button on most mice
+        if (properties.IsXButton1Pressed)
+        {
+            // Call GoBack on NavigationService
+            NavigationService.GoBack();
+            e.Handled = true;
+        }
+    }
+
+    public void HandleAppActivation(string? launchArguments, string? tileId = null, string? appId = null)
+    {
+        var targetMode = AppModeActivationResolver.Resolve(launchArguments, tileId, appId, MailCalApplicationMode.Mail);
+        WindowAppUserModelIdHelper.TrySet(this, AppEntryConstants.GetAppUserModelId(targetMode));
+
+        if (TryCreateMailFolderLaunchRequest(launchArguments, out var folderLaunchRequest))
+        {
+            NavigationService.RestoreShell(targetMode, new ShellModeActivationContext
+            {
+                Parameter = folderLaunchRequest
+            });
+
+            return;
+        }
+
+        NavigationService.RestoreShell(targetMode);
+    }
+
+    private static bool TryCreateMailFolderLaunchRequest(string? launchArguments, out MailFolderLaunchRequest? request)
+    {
+        request = null;
+
+        var arguments = NotificationArguments.Parse(launchArguments);
+
+        if (!arguments.TryGetValue(Constants.JumpListActionKey, out var action) ||
+            !string.Equals(action, Constants.JumpListOpenMailFolderAction, StringComparison.Ordinal) ||
+            !arguments.TryGetValue(Constants.JumpListAccountIdKey, out var accountIdString) ||
+            !arguments.TryGetValue(Constants.JumpListFolderIdKey, out var folderIdString) ||
+            !Guid.TryParse(accountIdString, out var accountId) ||
+            !Guid.TryParse(folderIdString, out var folderId))
+        {
+            return false;
+        }
+
+        request = new MailFolderLaunchRequest(accountId, folderId);
+        return true;
+    }
+
+    public Microsoft.UI.Xaml.Controls.TitleBar GetTitleBar() => ShellTitleBar;
+
+    public Frame GetMainFrame() => MainShellFrame;
+
+    public Frame? GetFrame(NavigationReferenceFrame frameType)
+        => frameType == NavigationReferenceFrame.ShellFrame ? MainShellFrame : null;
+
+    [DynamicWindowsRuntimeCast(typeof(Grid))]
+    public FrameworkElement GetRootContent() => Content as Grid ?? throw new Exception("RootContent is not a Grid or empty.");
+
+    private void BackButtonClicked(Microsoft.UI.Xaml.Controls.TitleBar sender, object args)
+    {
+        NavigationService.GoBack();
+    }
+
+    private void MainFrameNavigated(object sender, Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+    {
+        if (!_calendarReminderServerStartAttempted)
+        {
+            _calendarReminderServerStartAttempted = true;
+            _ = StartCalendarReminderServerAsync();
+        }
+
+        _isBackButtonVisibilityReady = true;
+        ApplyTitleBarSearchHost();
+        ApplyShellSynchronizationProvider();
+        RefreshBackButtonVisibility();
+    }
+
+    private async Task StartCalendarReminderServerAsync()
+    {
+        try
+        {
+            var reminderServer = MailCalApplication.Current.Services.GetService<ICalendarReminderServer>();
+            if (reminderServer != null)
+            {
+                await reminderServer.StartAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _calendarReminderServerStartAttempted = false;
+            Serilog.Log.Error(ex, "Failed to start calendar reminder server.");
+        }
+    }
+
+    private void PaneButtonClicked(Microsoft.UI.Xaml.Controls.TitleBar sender, object args)
+    {
+        PreferencesService.IsNavigationPaneOpened = !PreferencesService.IsNavigationPaneOpened;
+    }
+
+    public void Receive(TitleBarShellContentUpdated message)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            ApplyTitleBarSearchHost();
+            ApplyShellSynchronizationProvider();
+            RefreshBackButtonVisibility();
+        });
+    }
+
+    public void Receive(ApplicationThemeChanged message)
+    {
+        DispatcherQueue.TryEnqueue(() => UpdateTitleBarColors(message.IsUnderlyingThemeDark));
+    }
+
+    public void Receive(InfoBarMessageRequested message)
+    {
+        DispatcherQueue.TryEnqueue(() => ShowInfoBarMessage(message));
+    }
+
+    public void Receive(WhatsNewOpened message)
+        => DispatcherQueue.TryEnqueue(() => WhatsNewButton.Visibility = Visibility.Collapsed);
+
+    /// <summary>The button stays until the window has been opened once for the running version.</summary>
+    private async Task RefreshWhatsNewButtonAsync()
+    {
+        try
+        {
+            var shouldShow = await WhatsNewService.ShouldShowShellEntryAsync().ConfigureAwait(false);
+            DispatcherQueue.TryEnqueue(() => WhatsNewButton.Visibility = shouldShow ? Visibility.Visible : Visibility.Collapsed);
+        }
+        catch (Exception exception)
+        {
+            Serilog.Log.Error(exception, "Failed to refresh the What's New title-bar button.");
+        }
+    }
+
+    private async void WhatsNewButtonClicked(object sender, RoutedEventArgs e)
+        => await ShowWhatsNewAsync();
+
+    public async void Receive(WhatsNewOpenRequested message)
+        => await ShowWhatsNewAsync();
+
+    private async Task ShowWhatsNewAsync()
+    {
+        await WindowManager.ShowThemedWindowAsync(MailCalWindowKind.WhatsNew, () => new WhatsNewWindow());
+
+        WhatsNewService.MarkOpenedForCurrentVersion();
+        WeakReferenceMessenger.Default.Send(new WhatsNewOpened());
+    }
+
+    private void UpdateTitleBarColors(bool isDarkTheme)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (AppWindow == null) return;
+
+            SystemCaptionButtonColorHelper.Apply(AppWindow.TitleBar, isDarkTheme);
+        });
+    }
+
+    private void ApplyTitleBarSearchHost()
+    {
+        if (ReferenceEquals(_activeTitleBarSearchHost, ResolveActiveTitleBarSearchHost()))
+        {
+            SynchronizeTitleBarSearchBox();
+            return;
+        }
+        ClearPageSearchBindings();
+        _activeTitleBarSearchHost = ResolveActiveTitleBarSearchHost();
+        if (_activeTitleBarSearchHost is BasePage page)
+        {
+            TitleBarSearchBox.SetBinding(MailCal.Mail.Controls.SearchBar.MailCalSearchBar.HeaderFlyoutProperty,
+                new Binding { Source = page, Path = new PropertyPath(nameof(BasePage.HeaderFlyout)), Mode = BindingMode.OneWay });
+            TitleBarSearchBox.SetBinding(MailCal.Mail.Controls.SearchBar.MailCalSearchBar.FilterFlyoutProperty,
+                new Binding { Source = page, Path = new PropertyPath(nameof(BasePage.FilterFlyout)), Mode = BindingMode.OneWay });
+            TitleBarSearchBox.SetBinding(MailCal.Mail.Controls.SearchBar.MailCalSearchBar.SelectedHeaderButtonTitleProperty,
+                new Binding { Source = page, Path = new PropertyPath(nameof(BasePage.SelectedHeaderButtonTitle)), Mode = BindingMode.OneWay });
+        }
+        SynchronizeTitleBarSearchBox(resetReach: true);
+    }
+
+    private void ClearPageSearchBindings()
+    {
+        TitleBarSearchBox.HeaderFlyout?.Hide();
+        TitleBarSearchBox.FilterFlyout?.Hide();
+        TitleBarSearchBox.ClearValue(MailCal.Mail.Controls.SearchBar.MailCalSearchBar.HeaderFlyoutProperty);
+        TitleBarSearchBox.ClearValue(MailCal.Mail.Controls.SearchBar.MailCalSearchBar.FilterFlyoutProperty);
+        TitleBarSearchBox.ClearValue(MailCal.Mail.Controls.SearchBar.MailCalSearchBar.SelectedHeaderButtonTitleProperty);
+    }
+
+    private void StatePersistenceServiceChanged(object? sender, string propertyName)
+    {
+        if (!DispatcherQueue.HasThreadAccess)
+        {
+            var enqueued = DispatcherQueue.TryEnqueue(() => StatePersistenceServiceChanged(sender, propertyName));
+            if (!enqueued)
+                throw new InvalidOperationException("Could not marshal shell state changes onto the UI thread.");
+
+            return;
+        }
+
+        if (propertyName is nameof(IStatePersistanceService.AppModeTitle)
+            or nameof(IStatePersistanceService.CoreWindowTitle))
+        {
+            UpdateShellTitles();
+        }
+
+        if (propertyName == nameof(IStatePersistanceService.ApplicationMode))
+        {
+            var applicationMode = StatePersistanceService.ApplicationMode;
+
+            // Settings belongs to whichever app entry opened it. The three primary modes,
+            // however, must follow their own taskbar entries even when switched in-app, unless the
+            // user chose to keep the taskbar icon fixed across mode switches.
+            if (applicationMode != MailCalApplicationMode.Settings && !PreferencesService.IsAppModeTaskbarIconSwitchDisabled)
+            {
+                WindowAppUserModelIdHelper.TrySet(this, AppEntryConstants.GetAppUserModelId(applicationMode));
+            }
+        }
+
+        if (propertyName == nameof(IStatePersistanceService.ApplicationMode) ||
+            propertyName == nameof(IStatePersistanceService.IsReadingMail) ||
+            propertyName == nameof(IStatePersistanceService.IsReaderNarrowed) ||
+            propertyName == nameof(IStatePersistanceService.IsEventDetailsVisible))
+        {
+            RefreshBackButtonVisibility();
+        }
+    }
+
+    private void RefreshBackButtonVisibility()
+    {
+        if (!_isBackButtonVisibilityReady)
+        {
+            ShellTitleBar.IsBackButtonVisible = false;
+            return;
+        }
+
+        ShellTitleBar.IsBackButtonVisible = NavigationService.CanGoBack();
+    }
+
+    private ITitleBarSearchHost? ResolveActiveTitleBarSearchHost()
+    {
+        if (MainShellFrame.Content is MailCalAppShell shellPage)
+        {
+            return shellPage.GetFrame(NavigationReferenceFrame.InnerShellFrame)?.Content as ITitleBarSearchHost;
+        }
+
+        return MainShellFrame.Content as ITitleBarSearchHost;
+    }
+
+    private void SynchronizeTitleBarSearchBox(bool resetReach = false)
+    {
+        _isSynchronizingTitleBarSearch = true;
+        try
+        {
+            TitleBarSearchBox.IsEnabled = _activeTitleBarSearchHost != null;
+            TitleBarSearchBox.Mode = _activeTitleBarSearchHost?.SearchMode ?? SearchBarMode.Mail;
+            TitleBarSearchBox.PlaceholderText = Translator.SearchBarPlaceholder;
+            TitleBarSearchBox.ItemsSource = _activeTitleBarSearchHost?.SearchSuggestions;
+            TitleBarSearchBox.Text = _activeTitleBarSearchHost?.SearchText ?? string.Empty;
+            TitleBarSearchBox.SearchHistoryItemsSource = _activeTitleBarSearchHost is null
+                ? null
+                : SearchHistoryService.GetHistory(_activeTitleBarSearchHost.SearchMode);
+            if (resetReach && _activeTitleBarSearchHost is IMailTitleBarSearchHost)
+                ApplyDefaultSearchMode();
+        }
+        finally
+        {
+            _isSynchronizingTitleBarSearch = false;
+        }
+    }
+
+    /// <summary>
+    /// Seeds the search bar from the user's default search mode. This only decides where a search
+    /// starts; changing the reach toggle during a search still wins.
+    /// </summary>
+    private void ApplyDefaultSearchMode()
+    {
+        var defaultSearchMode = PreferencesService.DefaultSearchMode;
+
+        TitleBarSearchBox.SearchReach = defaultSearchMode == SearchMode.Online
+            ? SearchBarReach.IncludeServer
+            : SearchBarReach.DownloadedOnly;
+    }
+
+    private async void TitleBarSearchTextChanged(object? sender, SearchBarTextChangedEventArgs args)
+    {
+        if (_isSynchronizingTitleBarSearch || _activeTitleBarSearchHost == null)
+            return;
+
+        _activeTitleBarSearchHost.SearchText = args.Text;
+        await _activeTitleBarSearchHost.OnTitleBarSearchTextChangedAsync();
+    }
+
+    private void TitleBarClearSearchHistoryRequested(object? sender, EventArgs e)
+    {
+        if (_activeTitleBarSearchHost == null)
+            return;
+
+        SearchHistoryService.Clear(_activeTitleBarSearchHost.SearchMode);
+        TitleBarSearchBox.SearchHistoryItemsSource = [];
+    }
+
+    [DynamicWindowsRuntimeCast(typeof(Control))]
+    private void TitleBarSearchDismissed(object? sender, EventArgs args)
+    {
+        if (_activeTitleBarSearchHost is BasePage page)
+        {
+            if (FocusManager.FindFirstFocusableElement(page) is Control first)
+                first.Focus(FocusState.Programmatic);
+            else
+                page.Focus(FocusState.Programmatic);
+        }
+    }
+
+    private async void TitleBarSearchSubmitted(object? sender, SearchBarSubmittedEventArgs args)
+    {
+        if (_activeTitleBarSearchHost == null)
+            return;
+
+        SearchHistoryService.Record(args.Mode, args.QueryText);
+        if (_activeTitleBarSearchHost is IMailTitleBarSearchHost mailHost)
+            await mailHost.OnMailSearchSubmittedAsync(args);
+        else
+        {
+            var suggestion = args.ChosenSuggestion as TitleBarSearchSuggestion;
+            if (suggestion is not null)
+                _activeTitleBarSearchHost.OnTitleBarSearchSuggestionChosen(suggestion);
+            await _activeTitleBarSearchHost.OnTitleBarSearchSubmittedAsync(args.QueryText, suggestion);
+        }
+
+        SynchronizeTitleBarSearchBox();
+    }
+
+    private async void OnAppWindowClosing(object sender, AppWindowClosingEventArgs e)
+    {
+        var app = Application.Current as App;
+
+        if (_allowClose || app?.IsExiting == true)
+            return;
+
+        // Snapshot the preference once so a single close request cannot take different branches
+        // before and after asynchronous draft/compose confirmation.
+        var closeBehavior = PreferencesService.AppCloseBehavior;
+
+        if (app?.TryExitApplicationOnShellWindowClose(closeBehavior) == true)
+            return;
+
+        e.Cancel = true;
+
+        if (_isCloseRequestInProgress)
+            return;
+
+        _isCloseRequestInProgress = true;
+
+        try
+        {
+            if (!await PrepareMailModeForCloseAsync())
+                return;
+
+            if (app?.TryPrepareForBackgroundShellWindowClose(closeBehavior) != true)
+                return;
+
+            PrepareForClose();
+
+            // PrepareForClose removes this handler and permits the real close. The managed
+            // app and tray keep running, but this HWND and its complete XAML tree do not.
+            Close();
+        }
+        finally
+        {
+            _isCloseRequestInProgress = false;
+        }
+    }
+
+    private void UpdateShellTitles()
+    {
+        // The TitleBar's own Title/Subtitle stay unset. Rendering them ourselves is what
+        // lets a running synchronization fade them without collapsing their columns.
+        ShellTitleText.Text = StatePersistanceService.AppModeTitle;
+        ShellSubtitleText.Text = StatePersistanceService.CoreWindowTitle;
+        Title = string.IsNullOrWhiteSpace(StatePersistanceService.CoreWindowTitle)
+            ? StatePersistanceService.AppModeTitle
+            : $"{StatePersistanceService.AppModeTitle} - {StatePersistanceService.CoreWindowTitle}";
+    }
+
+    public void PrepareForClose()
+    {
+        if (_isPreparedForClose)
+            return;
+
+        _isPreparedForClose = true;
+        _allowClose = true;
+
+        AppWindow.Closing -= OnAppWindowClosing;
+        StatePersistanceService.StatePropertyChanged -= StatePersistenceServiceChanged;
+        UnregisterRecipients();
+
+        if (Content is UIElement rootElement)
+        {
+            rootElement.RemoveHandler(UIElement.PointerPressedEvent, _pointerPressedHandler);
+        }
+
+        DetachTitleBarSearchHost();
+        DetachShellSynchronizationProvider();
+        CloseHostedPopoutWindows();
+
+        if (MainShellFrame.Content is MailCalAppShell shellPage)
+        {
+            shellPage.PrepareForWindowClose();
+        }
+
+        Bindings.StopTracking();
+
+        var rootContent = Content;
+        WindowCleanupHelper.CleanupObject(rootContent);
+        Content = null;
+    }
+
+    private void DetachTitleBarSearchHost()
+    {
+        ClearPageSearchBindings();
+        _activeTitleBarSearchHost = null;
+        TitleBarSearchBox.ItemsSource = null;
+        TitleBarSearchBox.SearchHistoryItemsSource = null;
+    }
+
+    #region Title bar synchronization
+
+    /// <summary>
+    /// Rebinds the title bar's synchronization button to whichever mode is publishing a
+    /// menu. The window never learns what any mode synchronizes; it only forwards the
+    /// surface <see cref="IShellMenuProvider"/> exposes.
+    /// </summary>
+    private void ApplyShellSynchronizationProvider()
+    {
+        var provider = ResolveActiveShellMenuProvider();
+
+        if (!ReferenceEquals(_activeSynchronizationProvider, provider))
+        {
+            if (_activeSynchronizationProvider != null)
+            {
+                _activeSynchronizationProvider.PropertyChanged -= ShellSynchronizationProviderPropertyChanged;
+            }
+
+            _activeSynchronizationProvider = provider;
+
+            if (_activeSynchronizationProvider != null)
+            {
+                _activeSynchronizationProvider.PropertyChanged += ShellSynchronizationProviderPropertyChanged;
+            }
+        }
+
+        RefreshShellSynchronizationButton();
+    }
+
+    private IShellMenuProvider? ResolveActiveShellMenuProvider()
+        => MainShellFrame.Content is MailCalAppShell shellPage ? shellPage.CurrentShellMenuProvider : null;
+
+    private void ShellSynchronizationProviderPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (!ReferenceEquals(sender, _activeSynchronizationProvider))
+            return;
+
+        if (e.PropertyName is not (nameof(IShellMenuProvider.IsSynchronizationSupported)
+            or nameof(IShellMenuProvider.CanSynchronize)
+            or nameof(IShellMenuProvider.SynchronizationState)
+            or nameof(IShellMenuProvider.SynchronizationDescription)
+            or nameof(IShellMenuProvider.SynchronizationToolTip)))
+        {
+            return;
+        }
+
+        DispatcherQueue.TryEnqueue(RefreshShellSynchronizationButton);
+    }
+
+    /// <summary>
+    /// The provider computes its state from the synchronization manager on every read, so
+    /// progress updates only have to nudge the button rather than carry a payload.
+    /// </summary>
+    public void Receive(AccountSynchronizationProgressUpdatedMessage message)
+        => DispatcherQueue.TryEnqueue(RefreshShellSynchronizationButton);
+
+    private void RefreshShellSynchronizationButton()
+    {
+        var provider = _activeSynchronizationProvider;
+
+        if (provider?.IsSynchronizationSupported != true)
+        {
+            ShellSynchronizationButton.Visibility = Visibility.Collapsed;
+            ShellSynchronizationButton.IsSynchronizing = false;
+            SetShellTitleReservesSynchronizationButton(false);
+
+            // Switching to a mode without synchronization while the pill was out must not
+            // leave the title faded behind it.
+            SetShellTitleFaded(false);
+
+            return;
+        }
+
+        var state = provider.SynchronizationState;
+
+        ShellSynchronizationButton.Visibility = Visibility.Visible;
+        SetShellTitleReservesSynchronizationButton(true);
+        ShellSynchronizationButton.IsSynchronizing = state.IsSynchronizing;
+        ShellSynchronizationButton.IsIndeterminate = state.IsIndeterminate;
+        ShellSynchronizationButton.Progress = state.ProgressPercentage;
+        ShellSynchronizationButton.Description = provider.SynchronizationDescription ?? string.Empty;
+        ShellSynchronizationButton.IdleToolTip = provider.SynchronizationToolTip ?? string.Empty;
+
+        // A running synchronization leaves the button looking enabled - the click handler
+        // is what refuses to restart it - because the disabled visual state dims the glyph,
+        // and dimming it would wash out the pill the state is being reported in.
+        ShellSynchronizationButton.IsEnabled = provider.CanSynchronize || state.IsSynchronizing;
+
+        // The expanded pill overhangs the title, so the title steps aside while it is out.
+        SetShellTitleFaded(state.IsSynchronizing);
+
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(ShellSynchronizationButton,
+            state.IsSynchronizing
+                ? provider.SynchronizationDescription ?? string.Empty
+                : provider.SynchronizationToolTip ?? string.Empty);
+    }
+
+    private async void ShellSynchronizationButtonClicked(object sender, RoutedEventArgs e)
+    {
+        var provider = _activeSynchronizationProvider;
+
+        if (provider?.IsSynchronizationSupported != true || !provider.CanSynchronize)
+            return;
+
+        try
+        {
+            await provider.SynchronizeAsync();
+        }
+        catch (Exception exception)
+        {
+            // Failures are reported by the synchronizers through the shell info bar. The
+            // button only has to stop claiming that something is running.
+            Serilog.Log.Error(exception, "Title bar synchronization request failed.");
+        }
+        finally
+        {
+            RefreshShellSynchronizationButton();
+        }
+    }
+
+    /// <summary>
+    /// The title sits after the synchronization button's 36px footprint (plus its -2 overhang
+    /// and spacing), so modes without synchronization, such as Settings, pull it back to the edge.
+    /// Moving the title shifts the search box, and the TitleBar only recomputes its passthrough
+    /// rects on resize, so they are refreshed here after the new layout is in place.
+    /// </summary>
+    private void SetShellTitleReservesSynchronizationButton(bool reserve)
+    {
+        var margin = new Thickness(reserve ? ShellTitleSynchronizationButtonInset : 0, 0, 0, 0);
+
+        if (ShellTitleHost.Margin == margin)
+            return;
+
+        ShellTitleHost.Margin = margin;
+        // ShellTitleBar.UpdateLayout();
+        ShellTitleBar.RecomputeDragRegions();
+    }
+
+    /// <summary>
+    /// Fades the title and subtitle while the synchronization pill is expanded over them.
+    /// Opacity, not visibility: their layout has to stay put or the search box slides out of
+    /// the middle of the window.
+    /// </summary>
+    private void SetShellTitleFaded(bool isFaded)
+    {
+        var targetOpacity = isFaded ? 0f : 1f;
+
+        if (_shellTitleOpacity is not null && Math.Abs(_shellTitleOpacity.Value - targetOpacity) < 0.001f)
+            return;
+
+        _shellTitleOpacity = targetOpacity;
+
+        var visual = ElementCompositionPreview.GetElementVisual(ShellTitleHost);
+        var compositor = visual.Compositor;
+
+        var animation = compositor.CreateScalarKeyFrameAnimation();
+        animation.InsertKeyFrame(1f, targetOpacity);
+        animation.Duration = TimeSpan.FromMilliseconds(isFaded ? 140 : 220);
+
+        // Coming back has to wait for the pill to finish collapsing over it.
+        if (!isFaded)
+        {
+            animation.DelayTime = TimeSpan.FromMilliseconds(90);
+        }
+
+        visual.StartAnimation("Opacity", animation);
+    }
+
+    private void DetachShellSynchronizationProvider()
+    {
+        if (_activeSynchronizationProvider != null)
+        {
+            _activeSynchronizationProvider.PropertyChanged -= ShellSynchronizationProviderPropertyChanged;
+            _activeSynchronizationProvider = null;
+        }
+    }
+
+    #endregion
+
+    private static void CloseHostedPopoutWindows()
+    {
+        var windowManager = MailCalApplication.Current.Services.GetService<IMailCalWindowManager>();
+        var hostedPopouts = windowManager?.GetWindows().OfType<HostedContentPopoutWindow>().ToList() ?? [];
+
+        foreach (var hostedPopout in hostedPopouts)
+        {
+            hostedPopout.Close();
+        }
+    }
+
+    private void OnWindowClosed(object sender, WindowEventArgs e)
+    {
+        Closed -= OnWindowClosed;
+        AppWindow.Closing -= OnAppWindowClosing;
+
+        // No need to prepare for close or cleanup if the application is exiting, as the process will be terminated shortly after.
+        if ((Application.Current as App)?.IsExiting == true)
+            return;
+
+        PrepareForClose();
+    }
+
+    private async Task<bool> PrepareMailModeForCloseAsync()
+    {
+        if (MainShellFrame.Content is not MailCalAppShell shellPage)
+            return true;
+
+        if (shellPage.GetFrame(NavigationReferenceFrame.InnerShellFrame)?.Content is not MailListPage mailListPage)
+            return true;
+
+        await mailListPage.ClearMailSelectionAsync();
+        WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
+
+        return true;
+    }
+
+    private void RegisterRecipients()
+    {
+        WeakReferenceMessenger.Default.Register<TitleBarShellContentUpdated>(this);
+        WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
+        WeakReferenceMessenger.Default.Register<InfoBarMessageRequested>(this);
+        WeakReferenceMessenger.Default.Register<WhatsNewOpened>(this);
+        WeakReferenceMessenger.Default.Register<WhatsNewOpenRequested>(this);
+        WeakReferenceMessenger.Default.Register<AccountSynchronizationProgressUpdatedMessage>(this);
+    }
+
+    private void UnregisterRecipients()
+    {
+        WeakReferenceMessenger.Default.Unregister<TitleBarShellContentUpdated>(this);
+        WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<InfoBarMessageRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<WhatsNewOpened>(this);
+        WeakReferenceMessenger.Default.Unregister<WhatsNewOpenRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<AccountSynchronizationProgressUpdatedMessage>(this);
+    }
+
+    private readonly Queue<InfoBarMessageRequested> _pendingInfoBarMessages = new();
+
+    private void ShellInfoBar_Closed(InfoBar sender, InfoBarClosedEventArgs args)
+    {
+        if (_pendingInfoBarMessages.TryDequeue(out var message))
+            ShowInfoBarMessage(message);
+    }
+
+    private void ShowInfoBarMessage(InfoBarMessageRequested message)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (ShellInfoBar.IsOpen)
+            {
+                _pendingInfoBarMessages.Enqueue(message);
+                return;
+            }
+
+            if (string.IsNullOrEmpty(message.ActionButtonTitle) || message.Action == null)
+            {
+                ShellInfoBar.ActionButton = null;
+            }
+            else
+            {
+                ShellInfoBar.ActionButton = new Button()
+                {
+                    Content = message.ActionButtonTitle,
+                    Command = new RelayCommand(message.Action)
+                };
+            }
+
+            ShellInfoBar.Message = message.Message;
+            ShellInfoBar.Title = message.Title;
+            ShellInfoBar.Severity = message.Severity.AsMUXCInfoBarSeverity();
+            ShellInfoBar.IsOpen = true;
+        });
+    }
+}

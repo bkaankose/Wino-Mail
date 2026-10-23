@@ -12,10 +12,10 @@ $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "../../..")).Path
 $configurationPath = Join-Path $repositoryRoot "Settings.XamlStyler"
 $toolManifestPath = Join-Path $repositoryRoot ".config\dotnet-tools.json"
 $defaultRoots = @(
-    "src\Wino.Mail.WinUI",
-    "controls\Wino.Mail.Controls.WinUI",
-    "controls\Wino.Mail.Controls.Playground.WinUI",
-    "controls\Wino.Editor.WinUI"
+    "src\MailCal.Mail.WinUI",
+    "controls\MailCal.Mail.Controls.WinUI",
+    "controls\MailCal.Mail.Controls.Playground.WinUI",
+    "controls\MailCal.Editor.WinUI"
 )
 
 function Get-XamlFilesFromPath {

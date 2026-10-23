@@ -1,0 +1,14 @@
+﻿using System.IO;
+
+namespace MailCal.Core.Domain.Models.Common;
+
+/// <summary>
+/// Abstraction for StorageFile
+/// </summary>
+/// <param name="FullFilePath">Full path of the file.</param>
+/// <param name="Data">Content</param>
+public record SharedFile(string FullFilePath, byte[] Data)
+{
+    public string FileName => Path.GetFileName(FullFilePath);
+    public string FileExtension => Path.GetExtension(FullFilePath)?.ToLowerInvariant();
+}

@@ -3,15 +3,15 @@
 		<LangVersion>preview</LangVersion>
 		<IsAotCompatible>true</IsAotCompatible>
 		<Configurations>Debug;Release</Configurations>
-		<WinoIsReleaseBuild Condition="'$(Configuration)' == 'Release'">true</WinoIsReleaseBuild>
+		<MailCalIsReleaseBuild Condition="'$(Configuration)' == 'Release'">true</MailCalIsReleaseBuild>
 	</PropertyGroup>
 
-	<!-- WinoTargetPlatform selects the platform build policy and the shared projects' target frameworks.
+	<!-- MailCalTargetPlatform selects the platform build policy and the shared projects' target frameworks.
 	     An explicit value wins; otherwise the native host decides. Windows is the only platform today;
 	     a future Linux head plugs in here. Other hosts must pass the platform explicitly. -->
-	<PropertyGroup Condition="'$(WinoTargetPlatform)' == ''">
-		<WinoTargetPlatform Condition="$([MSBuild]::IsOSPlatform('Windows'))">Windows</WinoTargetPlatform>
+	<PropertyGroup Condition="'$(MailCalTargetPlatform)' == ''">
+		<MailCalTargetPlatform Condition="$([MSBuild]::IsOSPlatform('Windows'))">Windows</MailCalTargetPlatform>
 	</PropertyGroup>
 
-	<Import Project="build/Wino.Windows.props" Condition="'$(WinoTargetPlatform)' == 'Windows'" />
+	<Import Project="build/MailCal.Windows.props" Condition="'$(MailCalTargetPlatform)' == 'Windows'" />
 </Project>

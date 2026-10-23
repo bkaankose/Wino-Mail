@@ -5,12 +5,12 @@ Work record: `iq/20261014-caldav-apple-parity-eedfe4.md`. Reports: `T1-report.md
 ## What a Windows or Mac host still has to run
 
 1. Windows Debug x64 build:
-   `dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64`
+   `dotnet build src/MailCal.Mail.WinUI/MailCal.Mail.WinUI.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64`
 2. Windows Release x64 gate (Native AOT, trimming, warnings as errors), no launch:
-   `dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -p:GenerateAppxPackageOnBuild=false`
+   `dotnet build src/MailCal.Mail.WinUI/MailCal.Mail.WinUI.csproj -c Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -p:GenerateAppxPackageOnBuild=false`
    Note: on the Linux host the Release restore only succeeds with `-p:NuGetAudit=false` because of the pre-existing advisories NU1902/NU1903 for `System.Security.Cryptography.Pkcs` 10.0.0; that is unrelated to this work.
-3. macOS Debug arm64 and x64 builds of `src/Wino.Mail.MacOS/Wino.Mail.MacOS.csproj` (see `docs/harness/development-macos.md`).
-4. Windows and macOS test projects as usual (`tests/Wino.Core.Tests`, `tests/Wino.Mail.ViewModels.Tests`); on Linux the same 13 Core tests fail before and after this work (culture, Unicode normalization and Windows-path tests under invariant globalization).
+3. macOS Debug arm64 and x64 builds of `src/MailCal.Mail.MacOS/MailCal.Mail.MacOS.csproj` (see `docs/harness/development-macos.md`).
+4. Windows and macOS test projects as usual (`tests/MailCal.Core.Tests`, `tests/MailCal.Mail.ViewModels.Tests`); on Linux the same 13 Core tests fail before and after this work (culture, Unicode normalization and Windows-path tests under invariant globalization).
 
 ## Head bindings (no head was edited; ViewModel properties already exist)
 
@@ -42,7 +42,7 @@ Denied actions are already refused inside the ViewModels with translated info-ba
 - `ExecuteRequests` and single-calendar syncs compare ETags instead of re-downloading the window.
 - Failed endpoint auto-discovery is retried after 30 minutes.
 - Local calendars with attendees show "Save" instead of "Send"; Add attachment is disabled until a calendar is selected.
-- Imported invitations the user has not answered now show as not responded; ones the user declined elsewhere are hidden (same as a decline made in Wino).
+- Imported invitations the user has not answered now show as not responded; ones the user declined elsewhere are hidden (same as a decline made in Mail-Cal).
 - Yahoo and Zimbra strip ATTACH on write, so attachments never reach those servers; the capability reports no support there.
 - Events imported before this change gain attachment rows only when they next change on the server.
 

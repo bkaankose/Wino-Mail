@@ -1,0 +1,286 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ResourceDictionary
+    x:Class="MailCal.Mail.WinUI.Styles.DataTemplates"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:animatedvisuals="using:Microsoft.UI.Xaml.Controls.AnimatedVisuals"
+    xmlns:controls="using:MailCal.Controls"
+    xmlns:coreControls="using:MailCal.Mail.WinUI.Controls"
+    xmlns:coreSelectors="using:MailCal.Mail.WinUI.Selectors"
+    xmlns:coreViewModelData="using:MailCal.Core.ViewModels.Data"
+    xmlns:data="using:MailCal.Calendar.ViewModels.Data"
+    xmlns:domain="using:MailCal.Core.Domain"
+    xmlns:helpers="using:MailCal.Helpers"
+    xmlns:local="using:MailCal.Mail.WinUI.Styles"
+    xmlns:mailControls="using:MailCal.Mail.Controls.ContactPicture"
+    xmlns:menu="using:MailCal.Core.Domain.MenuItems"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:personalization="using:MailCal.Mail.WinUI.Models.Personalization"
+    xmlns:selectors1="using:MailCal.Selectors"
+    xmlns:shared="using:MailCal.Core.Domain.Entities.Shared"
+    xmlns:viewModelData="using:MailCal.Mail.ViewModels.Data"
+    xmlns:winuiControls="using:CommunityToolkit.WinUI.Controls">
+
+    <!--  Removes default styles for content of navigation view  -->
+    <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
+    <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="Transparent" />
+
+
+
+    <!--#region Navigation Menu Templates-->
+
+    <DataTemplate x:Key="ContactsTemplate" x:DataType="menu:ContactsMenuItem">
+        <coreControls:MailCalNavigationViewItem
+            AutomationProperties.AutomationId="DataTemplatesMailCalNavigationViewItem"
+            Content="{x:Bind domain:Translator.ContactsPage_Title}"
+            DataContext="{x:Bind}">
+            <muxc:NavigationViewItem.Icon>
+                <coreControls:MailCalFontIcon FontFamily="{ThemeResource MailCalIconFontFamily}" Icon="People" />
+            </muxc:NavigationViewItem.Icon>
+        </coreControls:MailCalNavigationViewItem>
+    </DataTemplate>
+
+    <!--  Settings Item  -->
+    <DataTemplate x:Key="SettingsItemTemplate" x:DataType="menu:SettingsItem">
+        <coreControls:MailCalNavigationViewItem
+            AutomationProperties.AutomationId="DataTemplatesMailCalNavigationViewItem2"
+            Content="{x:Bind domain:Translator.MenuSettings}"
+            DataContext="{x:Bind}">
+            <coreControls:MailCalNavigationViewItem.Icon>
+                <muxc:AnimatedIcon>
+                    <muxc:AnimatedIcon.Source>
+                        <animatedvisuals:AnimatedSettingsVisualSource />
+                    </muxc:AnimatedIcon.Source>
+                    <muxc:AnimatedIcon.FallbackIconSource>
+                        <coreControls:MailCalFontIconSource Icon="Settings" />
+                    </muxc:AnimatedIcon.FallbackIconSource>
+                </muxc:AnimatedIcon>
+            </coreControls:MailCalNavigationViewItem.Icon>
+        </coreControls:MailCalNavigationViewItem>
+    </DataTemplate>
+
+    <!--  Rating Item  -->
+
+    <!--#endregion-->
+
+    <!--#region Settings-->
+    <!--  System Theme Template  -->
+    <DataTemplate x:Key="SystemAppThemeTemplate" x:DataType="personalization:SystemAppTheme">
+        <Grid
+            Width="175"
+            CornerRadius="6"
+            RowSpacing="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="125" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid CornerRadius="6,6,0,0">
+                <Grid.Background>
+                    <ImageBrush ImageSource="{x:Bind PreviewImage}" />
+                </Grid.Background>
+                <Grid
+                    Width="20"
+                    Height="20"
+                    Margin="0,12,12,0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Background="{ThemeResource SystemAccentColor}" />
+            </Grid>
+
+            <Grid Grid.Row="1" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+                <TextBlock
+                    Padding="0,8"
+                    HorizontalAlignment="Center"
+                    Text="{x:Bind ThemeName}" />
+            </Grid>
+        </Grid>
+    </DataTemplate>
+
+    <!--  Custom Theme Template  -->
+    <DataTemplate x:Key="CustomAppThemeTemplate" x:DataType="personalization:CustomAppTheme">
+        <Grid
+            Width="175"
+            CornerRadius="6"
+            RowSpacing="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="125" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid CornerRadius="6,6,0,0">
+                <Grid.Background>
+                    <ImageBrush ImageSource="{x:Bind PreviewImage}" />
+                </Grid.Background>
+                <!--  Accent Assigned  -->
+                <Grid x:Name="AccentAssignedGrid" x:Load="{x:Bind IsAccentColorAssigned}">
+                    <Grid
+                        Width="20"
+                        Height="20"
+                        Margin="0,12,12,0"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(AccentColor)}" />
+                </Grid>
+
+                <!--  Accent Not Assigned  -->
+                <Grid x:Name="AccentNotAssignedGrid" x:Load="{x:Bind IsAccentColorAssigned, Converter={StaticResource ReverseBooleanConverter}}">
+                    <Grid
+                        Width="20"
+                        Height="20"
+                        Margin="0,12,12,0"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Background="{ThemeResource SystemAccentColor}" />
+                </Grid>
+
+            </Grid>
+
+            <Grid Grid.Row="1" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+                <TextBlock
+                    Padding="0,8"
+                    HorizontalAlignment="Center"
+                    Text="{x:Bind ThemeName}" />
+            </Grid>
+        </Grid>
+    </DataTemplate>
+
+    <!--  Mail-Cal Template  -->
+    <DataTemplate x:Key="PreDefinedAppThemeTemplate" x:DataType="personalization:PreDefinedAppTheme">
+        <Grid
+            Width="175"
+            CornerRadius="6"
+            RowSpacing="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="125" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid CornerRadius="6,6,0,0">
+                <Grid.Background>
+                    <ImageBrush ImageSource="{x:Bind PreviewImage}" />
+                </Grid.Background>
+
+                <Grid
+                    Width="20"
+                    Height="20"
+                    Margin="0,12,12,0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(AccentColor)}" />
+            </Grid>
+
+            <!--  Dark Theme Title  -->
+            <Grid Grid.Row="1" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+                <TextBlock
+                    Padding="0,8"
+                    HorizontalAlignment="Center"
+                    Text="{x:Bind ThemeName}" />
+            </Grid>
+        </Grid>
+    </DataTemplate>
+
+    <!--  Account Color Picker Template  -->
+    <DataTemplate x:Key="AccountColorTemplate" x:DataType="coreViewModelData:AppColorViewModel">
+        <Grid
+            Width="32"
+            Height="32"
+            Margin="2"
+            AutomationProperties.Name="{x:Bind DisplayName}">
+            <Rectangle
+                Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(Hex)}"
+                RadiusX="4"
+                RadiusY="4" />
+        </Grid>
+    </DataTemplate>
+
+    <coreSelectors:AppThemePreviewTemplateSelector
+        x:Key="AppThemePreviewTemplateSelector"
+        CustomAppTemplate="{StaticResource CustomAppThemeTemplate}"
+        PreDefinedThemeTemplate="{StaticResource PreDefinedAppThemeTemplate}"
+        SystemThemeTemplate="{StaticResource SystemAppThemeTemplate}" />
+
+    <Style x:Key="SettingTitleTextBlockStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <DataTemplate x:Key="ContactTokenTemplate" x:DataType="shared:IContactDisplayItem">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <ToolTipService.ToolTip>
+                <ToolTip Content="{x:Bind Address}" />
+            </ToolTipService.ToolTip>
+
+            <Viewbox Width="24">
+                <mailControls:MailCalContactPicture ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(PreviewContact, DisplayName, Address), Mode=OneTime}" />
+            </Viewbox>
+
+            <TextBlock
+                Grid.Column="1"
+                Margin="6,0,8,0"
+                VerticalAlignment="Center"
+                Text="{x:Bind DisplayName}" />
+        </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ContactSuggestionTemplate" x:DataType="shared:IContactDisplayItem">
+        <Grid Margin="0,12" ColumnSpacing="6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <mailControls:MailCalContactPicture
+                Width="40"
+                Height="40"
+                ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(PreviewContact, DisplayName, Address), Mode=OneTime}" />
+
+            <TextBlock Grid.Column="1">
+                <Run FontWeight="SemiBold" Text="{x:Bind DisplayName}" />
+                <LineBreak />
+                <Run Text="{x:Bind Address}" />
+            </TextBlock>
+        </Grid>
+    </DataTemplate>
+
+    <!--  ShowAs Status Stripe Templates  -->
+    <DataTemplate x:Key="FreeStripeTemplate" x:DataType="data:CalendarItemViewModel">
+        <Border Background="#4CAF50" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="TentativeStripeTemplate" x:DataType="data:CalendarItemViewModel">
+        <Border Background="#FFC107" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="BusyStripeTemplate" x:DataType="data:CalendarItemViewModel">
+        <Border Background="#F44336" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="OutOfOfficeStripeTemplate" x:DataType="data:CalendarItemViewModel">
+        <Border Background="#9C27B0" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="WorkingElsewhereStripeTemplate" x:DataType="data:CalendarItemViewModel">
+        <Border Background="#2196F3" />
+    </DataTemplate>
+
+    <!--  ShowAs Status Stripe Selector  -->
+    <selectors1:CalendarItemShowAsStripeTemplateSelector
+        x:Key="ShowAsStripeSelector"
+        BusyTemplate="{StaticResource BusyStripeTemplate}"
+        FreeTemplate="{StaticResource FreeStripeTemplate}"
+        OutOfOfficeTemplate="{StaticResource OutOfOfficeStripeTemplate}"
+        TentativeTemplate="{StaticResource TentativeStripeTemplate}"
+        WorkingElsewhereTemplate="{StaticResource WorkingElsewhereStripeTemplate}" />
+
+    <!--#endregion-->
+
+</ResourceDictionary>
+
+
+
+

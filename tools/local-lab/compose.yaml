@@ -1,4 +1,4 @@
-name: wino-local-lab
+name: mailcal-local-lab
 # Five IMAP servers with different capability sets, each with CalDAV/CardDAV, all on one network.
 # Host ports bind to 127.0.0.1 only. Plaintext connections are intentional for this local lab.
 # Account password for every mailbox, DAV login, and admin console: 1
@@ -90,7 +90,7 @@ services:
     networks: [lab]
 
   # 4. GreenMail: UID-only IMAP (LITERAL+ UIDPLUS SORT IDLE MOVE QUOTA). It never relays outbound
-  #    mail, so the Wino account for it sends through the hub's unauthenticated port 4025.
+  #    mail, so the Mail-Cal account for it sends through the hub's unauthenticated port 4025.
   greenmail:
     image: greenmail/standalone:2.1.8
     hostname: greenmail.test

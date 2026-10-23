@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <!--
-  Apache James mailet container for the Wino local lab.
+  Apache James mailet container for the Mail-Cal local lab.
   Derived from the memory-app sample configuration (Apache License 2.0).
   The only change: RemoteDelivery sends every non-local message to the lab hub (dovecot:25).
 -->

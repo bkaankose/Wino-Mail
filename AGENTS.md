@@ -6,14 +6,14 @@ It is a native mail, calendar, contacts, and To Do client for Windows:
 
 | Platform | Application | Solution | Guide |
 | --- | --- | --- | --- |
-| Windows | `src/Wino.Mail.WinUI` (WinUI 3, MSIX, Native AOT) | `WinoMail.slnx` | [Windows development](docs/harness/development-windows.md) |
+| Windows | `src/MailCal.Mail.WinUI` (WinUI 3, MSIX, Native AOT) | `MailCal.slnx` | [Windows development](docs/harness/development-windows.md) |
 
-The application uses the platform-neutral shared backend: `Wino.Core.Domain`, `Wino.Core`, `Wino.Services`, `Wino.Authentication`, `Wino.Messaging`, `Wino.Mail.ViewModels`, `controls/Wino.Mail.Controls.Core`, and `controls/Wino.Editor.Core`.
-Platform services live in `Wino.Platform.Windows`. Do not change the deprecated UWP project.
+The application uses the platform-neutral shared backend: `MailCal.Core.Domain`, `MailCal.Core`, `MailCal.Services`, `MailCal.Authentication`, `MailCal.Messaging`, `MailCal.Mail.ViewModels`, `controls/MailCal.Mail.Controls.Core`, and `controls/MailCal.Editor.Core`.
+Platform services live in `MailCal.Platform.Windows`. Do not change the deprecated UWP project.
 
 ## Platform routing
 
-- **Windows change** (WinUI head, Windows platform services, WinUI controls, XAML, MSIX, `build/Wino.Windows.*`, Windows scripts): read the [Windows guide](docs/harness/development-windows.md) before editing. Its Native AOT and build safety section is release-blocking.
+- **Windows change** (WinUI head, Windows platform services, WinUI controls, XAML, MSIX, `build/MailCal.Windows.*`, Windows scripts): read the [Windows guide](docs/harness/development-windows.md) before editing. Its Native AOT and build safety section is release-blocking.
 - **Shared change** (shared projects above, translations, `Directory.Build.*`, `Directory.Packages.props`, `global.json`): keep shared code free of platform UI references so a future Linux head can reuse it.
 
 ## Scope and completion
@@ -29,17 +29,17 @@ Platform services live in `Wino.Platform.Windows`. Do not change the deprecated 
 ## Shared coding rules
 
 - Treat nullable diagnostics as real defects. Guard missing items and owners explicitly; two null account IDs comparing equal does not make either account safe to dereference. Do not hide errors with null-forgiving operators, warning suppressions, disabled analyzers, or weakened Release settings.
-- Give collection expressions that target read-only interfaces an explicit concrete backing type. Collections that reach an items source need a concrete static type, not an interface; `WINOAOT001` enforces it. See the [implementation rules](docs/harness/implementation-rules.md#core-implementation-rules).
+- Give collection expressions that target read-only interfaces an explicit concrete backing type. Collections that reach an items source need a concrete static type, not an interface; `MCAOT001` enforces it. See the [implementation rules](docs/harness/implementation-rules.md#core-implementation-rules).
 - Verify which source file the active project compiles before editing. Legacy and active files can share a namespace and type name.
 - Keep business rules in shared services and ViewModels. Platform heads adapt them; they do not re-implement them.
-- Add English strings only to `src/Wino.Core.Domain/Translations/en_US/resources.json`.
+- Add English strings only to `src/MailCal.Core.Domain/Translations/en_US/resources.json`.
 - Shared Release builds keep their Native AOT, trimming, and warnings-as-errors gates.
-- `WinoTargetPlatform` (`Windows`; a future Linux head adds a value) and `WinoTargetRuntimeIdentifier` are the build interface. An explicit value wins; otherwise the host decides. Platform build policy lives in `build/`; root `Directory.Build.*` holds only shared policy.
+- `MailCalTargetPlatform` (`Windows`; a future Linux head adds a value) and `MailCalTargetRuntimeIdentifier` are the build interface. An explicit value wins; otherwise the host decides. Platform build policy lives in `build/`; root `Directory.Build.*` holds only shared policy.
 
 ## Windows dialogs
 
-- Every `ContentDialog` in the WinUI head is a dedicated `ContentDialog` file in `src/Wino.Mail.WinUI/Dialogs`, with its text from `Translator`. Never write `new ContentDialog { ... }` or declare a `<ContentDialog>` inside a page or control.
-- `src/Wino.Mail.WinUI/Services/DialogService.cs` (with `DialogServiceBase`) is the only code that creates or presents dialogs. It returns the result through an async method. Pages, controls, and other services call `IMailDialogService`, `IDialogServiceBase`, or the Windows-only `IWinoDialogService`; they never call `ShowAsync` or set `XamlRoot`.
+- Every `ContentDialog` in the WinUI head is a dedicated `ContentDialog` file in `src/MailCal.Mail.WinUI/Dialogs`, with its text from `Translator`. Never write `new ContentDialog { ... }` or declare a `<ContentDialog>` inside a page or control.
+- `src/MailCal.Mail.WinUI/Services/DialogService.cs` (with `DialogServiceBase`) is the only code that creates or presents dialogs. It returns the result through an async method. Pages, controls, and other services call `IMailDialogService`, `IDialogServiceBase`, or the Windows-only `IMailCalDialogService`; they never call `ShowAsync` or set `XamlRoot`.
 - WinUI allows one open `ContentDialog` per `XamlRoot`. Queued dialogs go through `HandleDialogPresentationAsync`. Progress dialogs that their owner closes go through `StartSessionDialog`.
 
 ## Discovery and references
@@ -58,7 +58,7 @@ Read only references that apply to the task:
 | --- | --- |
 | C#, XAML, translations, storage, or editor changes | Relevant sections of [implementation rules](docs/harness/implementation-rules.md) |
 | Windows build, deployment, F5, or runtime verification | [Windows development](docs/harness/development-windows.md) |
-| New Windows UI feature or visual pattern | [Wino design guideline](docs/wino-design-guideline.md) |
+| New Windows UI feature or visual pattern | [Mail-Cal design guideline](docs/mailcal-design-guideline.md) |
 | Reusable controls or playground | [controls/AGENTS.md](controls/AGENTS.md) |
 | Icons, icon fonts, or the colorful icon style | [icons/README.md](icons/README.md) and the Icons section of the [implementation rules](docs/harness/implementation-rules.md) |
 | Calendar period navigation, the rail model, or the loaded event window | [calendar rail navigation](docs/calendar-rail-navigation.md) |
@@ -72,7 +72,7 @@ Use focused skills for the affected subsystem. Avoid loading overlapping general
 ## Development loop
 
 Use plain `dotnet`, `winapp`, and platform tools. Build and run commands restore dependencies by default; use the SDK's normal incremental behavior.
-VS Code F5 on Windows uses the approved `scripts/development/windows/start-wino.ps1` helper to reuse unchanged Debug x64 output. This is the only development wrapper and input-hash cache. Keep custom debug build targets out of the project.
+VS Code F5 on Windows uses the approved `scripts/development/windows/start-mailcal.ps1` helper to reuse unchanged Debug x64 output. This is the only development wrapper and input-hash cache. Keep custom debug build targets out of the project.
 
 ## Verification scope
 
@@ -89,28 +89,17 @@ VS Code F5 on Windows uses the approved `scripts/development/windows/start-wino.
 Windows production changes always need the Release gate, run without launching or deploying:
 
 ```powershell
-dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -p:GenerateAppxPackageOnBuild=false
+dotnet build src/MailCal.Mail.WinUI/MailCal.Mail.WinUI.csproj -c Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -p:GenerateAppxPackageOnBuild=false
 ```
 
 Format changed XAML before building with `scripts/maintenance/windows/format-xaml.ps1 -Changed`, and run it with `-Check` before handoff.
 The repository has no automated test projects; do not add or run unit tests until the owner defines a new test project. Agent-driven UI automation is retired. The [local Docker lab](tools/local-lab/README.md) is the Windows application testing environment; use manual interaction for UI checks.
 A passing build does not prove UI behavior. Report manual verification as pending unless someone performed it.
 
-## Accounts, OAuth clients and signing (hard rules)
-
-Binding for every agent. Backend counterpart: `AGENTS.md` and `docs/social-sign-in-setup.md` in Wino-Mail-API.
+## OAuth clients (hard rule)
 
 - **Never touch the Google UWP OAuth client `973025879644-s7b4ur9p3rlgop6a22u7iuptdc0brnrn`.** It is the Windows
-  app's Gmail mailbox client. Do not change, rotate, replace or repurpose it, and never use it for Wino Accounts
-  sign-in. Ask the user if a task seems to need it.
-- Wino Account sign-in with Microsoft, Google and Apple on Windows always uses the API's browser flow: the shared
-  `WinoAccountExternalSignInService` (`Wino.Services`) opens `WinoAccountExternalAuth.StartUri` in the default browser
-  through `WindowsBrowserAuthBroker` (`Wino.Platform.Windows`), and the `wino://auth-complete` protocol activation
-  hands the completion code back through `WindowsExternalAuthCallbacks`. No native provider SDK is involved on Windows.
-- The browser flow's callback address (`wino://auth-complete`, the API's `Secrets:ExternalAuth:AppCallbackUri`)
-  is spelled once on the client, in `WinoAccountExternalAuth` (`Wino.Core.Domain`). Change it there and in the API together.
-- The production API starts the flow on `https://winomail.app/auth/{provider}`; a local API is opened directly at
-  `api/v1/auth/{provider}/authorize` (`WinoAccountApiClient.GetExternalSignInAuthorizationUri`).
+  app's Gmail mailbox client. Do not change, rotate, replace or repurpose it. Ask the user if a task seems to need it.
 
 ## Dependencies
 

@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "MailCal.Mail.Controls.Playground (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "MailCal.Mail.Controls.Playground (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

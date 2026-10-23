@@ -1,6 +1,6 @@
-# Wino icons
+# Mail-Cal icons
 
-Every icon in the app comes from the WinoIcons fonts. This folder is their source of truth.
+Every icon in the app comes from the MailCalIcons fonts. This folder is their source of truth.
 
 ## Add an icon
 
@@ -47,24 +47,24 @@ Run the commands below with `icons\.venv\Scripts\python`, or activate the enviro
    python icons/tools/build_fonts.py
    ```
 
-3. Build the app. `WinoIconGlyph.MyIcon` and `WinoIconCodes.MyIcon` are generated automatically.
+3. Build the app. `MailCalIconGlyph.MyIcon` and `MailCalIconCodes.MyIcon` are generated automatically.
 
 4. Use the icon:
 
    ```xml
    <!-- App -->
-   <coreControls:WinoFontIcon Icon="MyIcon" />
+   <coreControls:MailCalFontIcon Icon="MyIcon" />
    <!-- Controls library template (codepoint from manifest.json) -->
-   <accountIcon:WinoFontIcon Glyph="&#xEEA6;" />
+   <accountIcon:MailCalFontIcon Glyph="&#xEEA6;" />
    ```
 
-   In controls-library C#, use `WinoIconCodes.MyIcon`.
+   In controls-library C#, use `MailCalIconCodes.MyIcon`.
 
 5. Commit:
 
    - the new SVG files in `icons/svg`
    - `icons/manifest.json`
-   - every regenerated font: the three fonts in `src/Wino.Mail.WinUI/Assets` and `controls/Wino.Mail.Controls.WinUI/Assets/WinoIcons.ttf`
+   - every regenerated font: the three fonts in `src/MailCal.Mail.WinUI/Assets` and `controls/MailCal.Mail.Controls.WinUI/Assets/MailCalIcons.ttf`
 
 ### Do not
 
@@ -94,12 +94,12 @@ Open the preview to see every glyph in all three fonts on light and dark backgro
 
 ### Controls library templates
 
-Inside a `ControlTemplate` in a style dictionary, the implicit `WinoFontIcon` style is not applied. Set `FontFamily="{ThemeResource WinoIconFontFamily}"` on the icon, or it falls back to Segoe Fluent Icons and shows whatever Segoe has at that codepoint. `audit-xaml-icons.ps1` checks this. Data templates are not affected.
+Inside a `ControlTemplate` in a style dictionary, the implicit `MailCalFontIcon` style is not applied. Set `FontFamily="{ThemeResource MailCalIconFontFamily}"` on the icon, or it falls back to Segoe Fluent Icons and shows whatever Segoe has at that codepoint. `audit-xaml-icons.ps1` checks this. Data templates are not affected.
 
 ## Rules
 
 - Never change a codepoint once it has shipped. Add a new glyph instead.
-- Name icons after what they show (`Alert`) or what they mean in Wino (`SpecialFolderJunk`). Do not name them after Segoe codepoints.
+- Name icons after what they show (`Alert`) or what they mean in Mail-Cal (`SpecialFolderJunk`). Do not name them after Segoe codepoints.
 - Palette colors live in `manifest.json` under `palettes.light` and `palettes.dark`. Dark colors are lighter and more opaque so the tint does not turn muddy on dark backgrounds.
 
 ## Checks
@@ -118,13 +118,13 @@ icons/
   tools/          scripts that edit the manifest and build the fonts
 ```
 
-The build writes three fonts into `src/Wino.Mail.WinUI/Assets`. It also writes the monochrome font into `controls/Wino.Mail.Controls.WinUI/Assets`, because the reusable controls library packages its own copy.
+The build writes three fonts into `src/MailCal.Mail.WinUI/Assets`. It also writes the monochrome font into `controls/MailCal.Mail.Controls.WinUI/Assets`, because the reusable controls library packages its own copy.
 
 | Font | Used when |
 | --- | --- |
-| `WinoIcons.ttf` | Monochrome icon style, High Contrast, and every `WinoFontIconSource` |
-| `WinoIconsColor-Light.ttf` | Colorful icon style, light theme |
-| `WinoIconsColor-Dark.ttf` | Colorful icon style, dark theme |
+| `MailCalIcons.ttf` | Monochrome icon style, High Contrast, and every `MailCalFontIconSource` |
+| `MailCalIconsColor-Light.ttf` | Colorful icon style, light theme |
+| `MailCalIconsColor-Dark.ttf` | Colorful icon style, dark theme |
 
 The color fonts use COLR v0. Each glyph with an accent has two layers:
 
@@ -133,10 +133,10 @@ The color fonts use COLR v0. Each glyph with an accent has two layers:
 
 Glyphs without an accent look the same in all three fonts. Brand logos with a fixed `color` or fixed-color `layers` (Google, Microsoft) are COLR glyphs in all three fonts, including the monochrome one.
 
-`src/Wino.SourceGenerators/Icons/WinoIconGenerator.cs` generates code from `manifest.json`:
+`src/MailCal.SourceGenerators/Icons/MailCalIconGenerator.cs` generates code from `manifest.json`:
 
-- **`WinoIconGlyph` and `WinoIconGlyphs.GetGlyph`** go into `Wino.Core.Domain`. App XAML uses `Icon="Name"`.
-- **`WinoIconCodes`** goes into `Wino.Mail.Controls`, as string constants per icon. The controls library cannot reference Domain; it opts in with the `WinoIconCodesNamespace` MSBuild property.
+- **`MailCalIconGlyph` and `MailCalIconGlyphs.GetGlyph`** go into `MailCal.Core.Domain`. App XAML uses `Icon="Name"`.
+- **`MailCalIconCodes`** goes into `MailCal.Mail.Controls`, as string constants per icon. The controls library cannot reference Domain; it opts in with the `MailCalIconCodesNamespace` MSBuild property.
 
 Every SVG in `icons/svg` is in em space: `viewBox="0 0 1024 1024"`, y pointing down. The add scripts convert to this space. New glyphs get the next free codepoint. If a name is currently an alias of another icon, the alias is split into its own glyph.
 

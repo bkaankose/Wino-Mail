@@ -3,7 +3,7 @@
 .SYNOPSIS
 Validates the What's New release notes bundled with the app.
 .DESCRIPTION
-Checks src/Wino.Mail.WinUI/Assets/WhatsNew/<version>.json for the given version (default: the
+Checks src/MailCal.Mail.WinUI/Assets/WhatsNew/<version>.json for the given version (default: the
 Package.appxmanifest version) and every other notes file in the folder. Each feature needs a
 title, a description, and a 1120x600 PNG illustration with a descriptive kebab-case name.
 Exits with code 1 when a check fails. Dot-source the script to use Get-WhatsNewValidationErrors.
@@ -24,7 +24,7 @@ $script:WhatsNewImageNamePattern = '^[a-z0-9]+(-[a-z0-9]+)+\.png$'
 function Get-WhatsNewManifestVersion {
     param([string]$Root)
 
-    $manifestPath = Join-Path $Root 'src/Wino.Mail.WinUI/Package.appxmanifest'
+    $manifestPath = Join-Path $Root 'src/MailCal.Mail.WinUI/Package.appxmanifest'
     $manifest = [xml](Get-Content -LiteralPath $manifestPath -Raw)
     $packageVersion = [version][string]$manifest.Package.Identity.Version
     return '{0}.{1}.{2}' -f $packageVersion.Major, $packageVersion.Minor, $packageVersion.Build
@@ -48,16 +48,16 @@ function Get-WhatsNewValidationErrors {
     param([string]$Root, [string]$RequiredVersion)
 
     $Root = [IO.Path]::GetFullPath($Root)
-    $folder = Join-Path $Root 'src/Wino.Mail.WinUI/Assets/WhatsNew'
+    $folder = Join-Path $Root 'src/MailCal.Mail.WinUI/Assets/WhatsNew'
     $errors = [Collections.Generic.List[string]]::new()
     if (-not $RequiredVersion) { $RequiredVersion = Get-WhatsNewManifestVersion $Root }
 
-    $project = Get-Content -LiteralPath (Join-Path $Root 'src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj') -Raw
+    $project = Get-Content -LiteralPath (Join-Path $Root 'src/MailCal.Mail.WinUI/MailCal.Mail.WinUI.csproj') -Raw
     if ($project -notmatch '<Content Include="Assets\\WhatsNew\\\*\.json"') {
-        $errors.Add('Wino.Mail.WinUI.csproj must contain <Content Include="Assets\WhatsNew\*.json" />.')
+        $errors.Add('MailCal.Mail.WinUI.csproj must contain <Content Include="Assets\WhatsNew\*.json" />.')
     }
     if ($project -match '<Content Remove="Assets\\WhatsNew') {
-        $errors.Add('Wino.Mail.WinUI.csproj removes What''s New assets from the package.')
+        $errors.Add('MailCal.Mail.WinUI.csproj removes What''s New assets from the package.')
     }
 
     $files = if (Test-Path -LiteralPath $folder) { @(Get-ChildItem -LiteralPath $folder -Filter '*.json' -File) } else { @() }

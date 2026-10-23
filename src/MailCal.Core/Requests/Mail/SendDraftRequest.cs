@@ -1,0 +1,53 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Threading;
+using CommunityToolkit.Mvvm.Messaging;
+using MailCal.Core.Domain.Enums;
+using MailCal.Core.Domain.Interfaces;
+using MailCal.Core.Domain.Models.MailItem;
+using MailCal.Core.Domain.Models.Requests;
+using MailCal.Messaging.UI;
+
+namespace MailCal.Core.Requests.Mail;
+
+public record SendDraftRequest(SendDraftPreparationRequest Request)
+    : MailRequestBase(Request.MailItem),
+    ICustomFolderSynchronizationRequest
+{
+    private int isUiChangeApplied;
+
+    public List<Guid> SynchronizationFolderIds
+    {
+        get
+        {
+            var folderIds = new List<Guid> { Request.DraftFolder.Id };
+
+            if (Request.SentFolder != null)
+            {
+                folderIds.Add(Request.SentFolder.Id);
+            }
+
+            return folderIds;
+        }
+    }
+
+    public bool ExcludeMustHaveFolders => false;
+
+    public override MailSynchronizerOperation Operation => MailSynchronizerOperation.Send;
+
+    public override void ApplyUIChanges()
+    {
+        if (Interlocked.Exchange(ref isUiChangeApplied, 1) == 1)
+            return;
+
+        WeakReferenceMessenger.Default.Send(new MailRemovedMessage(Item, EntityUpdateSource.ClientUpdated));
+    }
+
+    public override void RevertUIChanges()
+    {
+        if (Interlocked.Exchange(ref isUiChangeApplied, 0) == 0)
+            return;
+
+        WeakReferenceMessenger.Default.Send(new MailAddedMessage(Item, EntityUpdateSource.ClientReverted));
+    }
+}

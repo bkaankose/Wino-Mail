@@ -1,0 +1,151 @@
+﻿<abstract:MailCalAppShellAbstract
+    x:Class="MailCal.Mail.WinUI.Views.MailCalAppShell"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:MailCal.Mail.WinUI.Views.Abstract"
+    xmlns:controls1="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:MailCal.Mail.WinUI.Controls"
+    xmlns:coreSelectors="using:MailCal.Mail.WinUI.Selectors"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:MailCal.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:shellMenu="using:MailCal.Mail.WinUI.Styles.ShellMenu"
+    x:Name="Root"
+    KeyboardAcceleratorPlacementMode="Hidden"
+    Loaded="OnLoaded"
+    mc:Ignorable="d">
+
+    <!--
+        The shell hosts a navigation menu but never builds one. Every item, template and
+        command belongs to the mode view model of whatever the inner frame navigated to.
+    -->
+    <Page.Resources>
+        <ResourceDictionary>
+            <!--
+                Each shell owns its menu templates. ItemsRepeater keeps recycled containers in a pool
+                attached to the DataTemplate, and a container's nested repeater keeps a raw pointer to
+                the NavigationView that first prepared it. Shared application-level templates let a
+                reopened shell reuse containers of a closed one, which crashes in NavigationView.
+            -->
+            <ResourceDictionary.MergedDictionaries>
+                <shellMenu:ShellMenuTemplates />
+            </ResourceDictionary.MergedDictionaries>
+
+            <coreSelectors:ShellMenuTemplateSelector
+                x:Key="ShellMenuTemplateSelector"
+                AccountCalendarGroupTemplate="{StaticResource AccountCalendarGroupTemplate}"
+                AccountTaskListGroupTemplate="{StaticResource AccountTaskListGroupTemplate}"
+                AccountTaskListTemplate="{StaticResource AccountTaskListTemplate}"
+                CalendarDatePickerTemplate="{StaticResource CalendarDatePickerTemplate}"
+                CalendarNewEventTemplate="{StaticResource CalendarNewEventTemplate}"
+                ContactCategoriesExpanderTemplate="{StaticResource ContactCategoriesExpanderTemplate}"
+                ContactCategoryFilterTemplate="{StaticResource ContactCategoryFilterTemplate}"
+                ContactFilterTemplate="{StaticResource ContactFilterTemplate}"
+                CreateNewMailTemplate="{StaticResource CreateNewMailTemplate}"
+                FixAuthenticationIssueTemplate="{StaticResource FixAuthenticationIssueTemplate}"
+                FixMissingFolderConfigTemplate="{StaticResource FixMissingFolderConfigTemplate}"
+                FolderMenuTemplate="{StaticResource FolderMenuTemplate}"
+                ImportantTaskTemplate="{StaticResource ImportantTaskTemplate}"
+                MailCategoryMenuTemplate="{StaticResource MailCategoryMenuTemplate}"
+                MergedAccountFolderMenuItemTemplate="{StaticResource MergedAccountFolderMenuItemTemplate}"
+                MergedAccountMoreFolderItemTemplate="{StaticResource MergedAccountMoreFolderItemTemplate}"
+                MergedAccountTemplate="{StaticResource MergedAccountTemplate}"
+                MergedMailCategoryMenuTemplate="{StaticResource MergedMailCategoryMenuTemplate}"
+                MyDayTaskTemplate="{StaticResource MyDayTaskTemplate}"
+                NewAddressListTemplate="{StaticResource NewAddressListTemplate}"
+                NewContactTemplate="{StaticResource NewContactTemplate}"
+                NewTaskListTemplate="{StaticResource NewTaskListTemplate}"
+                PlannedTaskTemplate="{StaticResource PlannedTaskTemplate}"
+                SeperatorTemplate="{StaticResource SeperatorTemplate}"
+                SettingsShellGroupItemTemplate="{StaticResource SettingsShellGroupItemTemplate}"
+                SettingsShellPageItemTemplate="{StaticResource SettingsShellPageItemTemplate}"
+                SettingsShellSectionItemTemplate="{StaticResource SettingsShellSectionItemTemplate}"
+                SharedAccountMenuTemplate="{StaticResource SharedAccountMenuTemplate}"
+                SharedCompactAccountMenuTemplate="{StaticResource SharedCompactAccountMenuTemplate}"
+                ShellSectionHeaderTemplate="{StaticResource ShellSectionHeaderTemplate}"
+                UngroupedCalendarTemplate="{StaticResource UngroupedCalendarTemplate}" />
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <Grid x:Name="RootGrid">
+        <coreControls:MailCalNavigationView
+            x:Name="navigationView"
+            HorizontalContentAlignment="Stretch"
+            VerticalContentAlignment="Stretch"
+            AlwaysShowHeader="True"
+            AutomationProperties.AutomationId="NavigationView"
+            Background="Transparent"
+            DisplayModeChanged="NavigationViewDisplayModeChanged"
+            FooterMenuItemsSource="{x:Bind ViewModel.CurrentMenu.FooterItems, Mode=OneWay}"
+            IsBackButtonVisible="Collapsed"
+            IsPaneToggleButtonVisible="False"
+            IsSettingsVisible="False"
+            IsTabStop="True"
+            IsTitleBarAutoPaddingEnabled="False"
+            ItemInvoked="NavigationViewItemInvoked"
+            MenuItemTemplateSelector="{StaticResource ShellMenuTemplateSelector}"
+            MenuItemsSource="{x:Bind ViewModel.CurrentMenu.Items, Mode=OneWay}"
+            OpenPaneLength="{x:Bind ViewModel.StatePersistenceService.OpenPaneLength, Mode=TwoWay}"
+            PaneClosing="NavigationPaneClosing"
+            PaneDisplayMode="Auto"
+            PaneOpening="NavigationPaneOpening"
+            ScrollViewer.VerticalScrollBarVisibility="Hidden"
+            SelectionChanged="MenuSelectionChanged"
+            Style="{StaticResource MailCalAppShellNavigationViewStyle}">
+            <coreControls:MailCalNavigationView.ContentTransitions>
+                <TransitionCollection>
+                    <AddDeleteThemeTransition />
+                </TransitionCollection>
+            </coreControls:MailCalNavigationView.ContentTransitions>
+
+            <Grid>
+                <controls1:PropertySizer
+                    Width="1"
+                    HorizontalAlignment="Left"
+                    AutomationProperties.Name="{x:Bind domain:Translator.Accessibility_ResizeNavigationPane, Mode=OneTime}"
+                    Background="Transparent"
+                    Binding="{x:Bind ViewModel.StatePersistenceService.OpenPaneLength, Mode=TwoWay}"
+                    Canvas.ZIndex="20"
+                    Foreground="Transparent"
+                    IsHitTestVisible="{x:Bind navigationView.IsPaneOpen, Mode=OneWay}"
+                    IsTabStop="False"
+                    Maximum="1000"
+                    Minimum="160" />
+
+                <!--  Mode content. The shell never inspects what lands here.  -->
+                <Frame
+                    x:Name="InnerShellFrame"
+                    Padding="0,0,7,7"
+                    IsNavigationStackEnabled="True"
+                    Navigated="ShellFrameContentNavigated">
+                    <Frame.ContentTransitions>
+                        <TransitionCollection>
+                            <PopupThemeTransition />
+                        </TransitionCollection>
+                    </Frame.ContentTransitions>
+                </Frame>
+
+                <coreControls:MailCalInfoBar
+                    x:Name="ShellInfoBar"
+                    MaxWidth="700"
+                    Margin="0,60,25,0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    IsClosable="False"
+                    IsOpen="False" />
+
+                <muxc:TeachingTip
+                    x:Name="ShellTip"
+                    IsOpen="False"
+                    PreferredPlacement="Bottom"
+                    Target="{x:Bind ShellInfoBar}" />
+            </Grid>
+        </coreControls:MailCalNavigationView>
+
+        <!--
+            The pane's open state is the user's saved preference, applied from code whenever the
+            pane is expanded. Width-driven visual states must not set IsPaneOpen; they override it.
+        -->
+    </Grid>
+</abstract:MailCalAppShellAbstract>

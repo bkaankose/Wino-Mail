@@ -1,4 +1,4 @@
-# Stalwart v0.13 configuration for the Wino local lab.
+# Stalwart v0.13 configuration for the Mail-Cal local lab.
 # Plaintext listeners and plain-text authentication are intentional: the lab only listens on 127.0.0.1.
 # Accounts and the domain are created by seed/seed.py through the management API (admin / 1).
 

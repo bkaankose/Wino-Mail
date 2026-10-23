@@ -1,0 +1,37 @@
+<!doctype html>
+<html id="mailcal-document" lang="en" data-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mail-Cal mail renderer</title>
+    <link rel="stylesheet" href="reader.css">
+    <script>
+        window.__mailCalRendererBootstrapError = "";
+        window.onerror = function (message, source, line, column) {
+            window.__mailCalRendererBootstrapError = String(message) + " (line " + line + ", column " + column + ")";
+        };
+        function mailCalGetRendererStatus() {
+            if (window.__mailCalRendererBootstrapError) {
+                return "JavaScript error: " + window.__mailCalRendererBootstrapError;
+            }
+            if (typeof window.DOMPurify !== "function") return "window.DOMPurify is missing";
+            if (typeof window.Readability !== "function") return "window.Readability is missing";
+            if (typeof window.MailCalColors !== "object") return "window.MailCalColors is missing";
+            return typeof window.MailCalRenderer === "object" ? "ready" : "window.MailCalRenderer is missing";
+        }
+        if (!("isConnected" in Node.prototype)) {
+            Object.defineProperty(Node.prototype, "isConnected", {
+                configurable: true,
+                get: function () { return document.documentElement.contains(this); }
+            });
+        }
+    </script>
+    <script defer src="mail-colors.js"></script>
+    <script defer src="linkify.min.js"></script>
+    <script defer src="linkify-element.min.js"></script>
+    <script defer src="dompurify-3.4.14.min.js"></script>
+    <script defer src="readability-0.6.0.js"></script>
+    <script defer src="reader.js"></script>
+</head>
+<body id="mailcal-body"><h1 id="mailcal-reader-heading" tabindex="0">Message body</h1><main id="mailcal-reader"></main></body>
+</html>

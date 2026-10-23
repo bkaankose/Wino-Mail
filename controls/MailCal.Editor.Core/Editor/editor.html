@@ -1,0 +1,44 @@
+<!doctype html>
+<html id="mailcal-document">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mail-Cal editor</title>
+    <link rel="stylesheet" href="editor.css">
+    <script>
+        window.__mailCalBootstrapError = "";
+        window.onerror = function (message, source, line, column) {
+            window.__mailCalBootstrapError = String(message) + " (line " + line + ", column " + column + ")";
+            try {
+                if (window.external && typeof window.external.notify === "function") {
+                    window.external.notify(JSON.stringify({
+                        type: "bootstrapError",
+                        message: window.__mailCalBootstrapError
+                    }));
+                }
+            } catch (ignored) { }
+        };
+        function mailCalGetEditorStatus() {
+            if (window.__mailCalBootstrapError) {
+                return "JavaScript error: " + window.__mailCalBootstrapError;
+            }
+            return typeof window.MailCalEditor === "object" ? "ready" : "window.MailCalEditor is missing";
+        }
+        if (!("isConnected" in Node.prototype)) {
+            Object.defineProperty(Node.prototype, "isConnected", {
+                configurable: true,
+                get: function () { return document.documentElement.contains(this); }
+            });
+        }
+    </script>
+    <script defer src="dompurify-3.4.14.min.js"></script>
+    <script defer src="mail-colors.js"></script>
+    <script defer src="editor.js"></script>
+    <script defer src="editor-images.js"></script>
+    <script defer src="editor-tables.js"></script>
+</head>
+<body id="mailcal-body">
+    <div id="mailcal-editor" contenteditable="true" spellcheck="true" aria-label="Message body"><p><br></p></div>
+    <div id="mailcal-overlay" aria-hidden="true"></div>
+</body>
+</html>

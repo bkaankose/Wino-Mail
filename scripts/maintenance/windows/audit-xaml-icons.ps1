@@ -2,21 +2,21 @@ param(
     [string[]]$Root = @((Join-Path $PSScriptRoot '../../../src'), (Join-Path $PSScriptRoot '../../../controls'))
 )
 
-# Fails when icons bypass the WinoIcons fonts generated from icons/manifest.json.
-# App XAML uses WinoFontIcon Icon="Name"; the controls library uses its WinoFontIcon with WinoIconCodes.
+# Fails when icons bypass the MailCalIcons fonts generated from icons/manifest.json.
+# App XAML uses MailCalFontIcon Icon="Name"; the controls library uses its MailCalFontIcon with MailCalIconCodes.
 # See icons/README.md for adding an icon.
 
 $ErrorActionPreference = "Stop"
 
 # Allowed on purpose: the copied InfoBar template keeps the platform close symbol.
 $allowList = @(
-    @{ File = "Styles\WinoInfoBar.xaml"; Pattern = "InfoBarCloseButtonSymbol" }
+    @{ File = "Styles\MailCalInfoBar.xaml"; Pattern = "InfoBarCloseButtonSymbol" }
 )
 
 # Elements whose Icon, HeaderIcon, ActionIcon or IconSource property is an IconElement or IconSource,
 # so Icon="Name" there silently creates a SymbolIcon. Other controls may declare their own typed Icon.
 $iconHosts = @(
-    "AppBarButton", "AppBarToggleButton", "NavigationViewItem", "WinoNavigationViewItem", "MenuFlyoutItem",
+    "AppBarButton", "AppBarToggleButton", "NavigationViewItem", "MailCalNavigationViewItem", "MenuFlyoutItem",
     "MenuFlyoutSubItem", "ToggleMenuFlyoutItem", "RadioMenuFlyoutItem", "SelectorBarItem", "SettingsCard",
     "SettingsExpander", "SwipeItem", "TabViewItem", "InfoBar", "TeachingTip", "XamlUICommand", "StandardUICommand",
     "SegmentedItem", "SplitButton", "TokenItem"
@@ -91,10 +91,10 @@ function Find-Violations {
     }
 }
 
-# The app WinoFontIcon gets its FontFamily from an implicit style. Inside a ControlTemplate of a
+# The app MailCalFontIcon gets its FontFamily from an implicit style. Inside a ControlTemplate of a
 # style dictionary that style is not applied, so the icon falls back to Segoe Fluent Icons and draws
-# whatever Segoe has at the Wino codepoint. Such icons must set FontFamily themselves.
-$appIconNamespace = "using:Wino.Mail.WinUI.Controls"
+# whatever Segoe has at the Mail-Cal codepoint. Such icons must set FontFamily themselves.
+$appIconNamespace = "using:MailCal.Mail.WinUI.Controls"
 
 function Find-TemplateIconViolations {
     param([System.IO.FileInfo]$File, [string]$RootPath)
@@ -108,7 +108,7 @@ function Find-TemplateIconViolations {
 
     $relativePath = $File.FullName.Substring($RootPath.Length).TrimStart('\', '/')
     foreach ($element in $document.Descendants()) {
-        if ($element.Name.LocalName -notin @("WinoFontIcon", "WinoFontIconSource") -or $element.Name.NamespaceName -ne $appIconNamespace) {
+        if ($element.Name.LocalName -notin @("MailCalFontIcon", "MailCalFontIconSource") -or $element.Name.NamespaceName -ne $appIconNamespace) {
             continue
         }
         if ($null -ne $element.Attribute("FontFamily")) {
@@ -121,8 +121,8 @@ function Find-TemplateIconViolations {
         [PSCustomObject]@{
             File = $relativePath
             Line = ([System.Xml.IXmlLineInfo]$element).LineNumber
-            Rule = "WinoFontIcon in ControlTemplate without FontFamily"
-            Text = 'Add FontFamily="{ThemeResource WinoIconFontFamily}"'
+            Rule = "MailCalFontIcon in ControlTemplate without FontFamily"
+            Text = 'Add FontFamily="{ThemeResource MailCalIconFontFamily}"'
         }
     }
 }
@@ -149,8 +149,8 @@ foreach ($folder in $Root) {
 
 if ($violations.Count -gt 0) {
     $violations | Sort-Object File, Line | Format-Table -AutoSize -Wrap
-    Write-Error "Found $($violations.Count) icon(s) that bypass the WinoIcons fonts. Add the icon with icons/tools/add_fluent_icon.py and use WinoFontIcon instead."
+    Write-Error "Found $($violations.Count) icon(s) that bypass the MailCalIcons fonts. Add the icon with icons/tools/add_fluent_icon.py and use MailCalFontIcon instead."
 }
 else {
-    Write-Host "All icons use the WinoIcons fonts."
+    Write-Host "All icons use the MailCalIcons fonts."
 }

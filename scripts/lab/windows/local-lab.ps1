@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Starts, seeds, and verifies the five-server local Docker mail lab, then generates Wino account artifacts.
+Starts, seeds, and verifies the five-server local Docker mail lab, then generates Mail-Cal account artifacts.
 .EXAMPLE
 .\scripts\lab\windows\local-lab.ps1 up
 .EXAMPLE
@@ -36,7 +36,7 @@ function Resolve-Docker {
 
 function Invoke-Compose {
     param([string[]]$Arguments)
-    & docker compose --project-name wino-local-lab --file $composeFile @Arguments
+    & docker compose --project-name mailcal-local-lab --file $composeFile @Arguments
     if ($LASTEXITCODE -ne 0) { throw "Docker Compose failed ($LASTEXITCODE). Check Docker Desktop and run local-lab.ps1 logs." }
 }
 
@@ -52,7 +52,7 @@ function Assert-Docker {
 
 function Assert-Ports {
     # Accept an occupied endpoint only if this project's running container owns it.
-    $owned = @(& docker compose --project-name wino-local-lab --file $composeFile ps --format json)
+    $owned = @(& docker compose --project-name mailcal-local-lab --file $composeFile ps --format json)
     if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect existing lab containers.' }
     $running = @()
     foreach ($line in $owned) {
@@ -111,53 +111,53 @@ function Start-Lab {
 
 function Install-App {
     # The only command that touches application data. It replaces the Debug package's database with the
-    # generated one (after backing the old one up), copies the artifacts to the Desktop, and launches Wino.
-    if (!(Test-Path -LiteralPath (Join-Path $generatedRoot 'Wino210.db'))) { throw 'Generated artifacts are missing. Run local-lab.ps1 up first.' }
+    # generated one (after backing the old one up), copies the artifacts to the Desktop, and launches Mail-Cal.
+    if (!(Test-Path -LiteralPath (Join-Path $generatedRoot 'MailCal210.db'))) { throw 'Generated artifacts are missing. Run local-lab.ps1 up first.' }
     if (!(Get-Command winapp -ErrorAction SilentlyContinue)) { throw 'WinApp CLI 0.7+ must be on PATH for install-app.' }
-    $startWino = Join-Path $repositoryRoot 'scripts/development/windows/start-wino.ps1'
-    $manifest = Join-Path $repositoryRoot 'src/Wino.Mail.WinUI/Package.appxmanifest'
-    $project = Join-Path $repositoryRoot 'src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj'
-    . $startWino
+    $startMailCal = Join-Path $repositoryRoot 'scripts/development/windows/start-mailcal.ps1'
+    $manifest = Join-Path $repositoryRoot 'src/MailCal.Mail.WinUI/Package.appxmanifest'
+    $project = Join-Path $repositoryRoot 'src/MailCal.Mail.WinUI/MailCal.Mail.WinUI.csproj'
+    . $startMailCal
     Write-Host 'Building, registering, and launching the Debug package (reuses unchanged output).'
-    Start-Wino -Root $repositoryRoot
+    Start-MailCal -Root $repositoryRoot
     $package = Get-AppxPackage -Name $packageName
     if (!$package) { throw 'The development package is not registered after launch; cannot locate its LocalState.' }
     $localState = Join-Path $env:LOCALAPPDATA "Packages/$($package.PackageFamilyName)/LocalState"
     Start-Sleep -Seconds 8
-    Stop-WinoDebugPackage -ManifestPath $manifest
+    Stop-MailCalDebugPackage -ManifestPath $manifest
     Start-Sleep -Seconds 2
     New-Item -ItemType Directory -Path $localState -Force | Out-Null
 
     $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     $backupRoot = Join-Path $labRoot "app-backups/$timestamp"
-    $existing = @(Get-ChildItem -LiteralPath $localState -Force | Where-Object { $_.Name -like 'Wino2*.db*' -or $_.Name -eq 'credentials' })
+    $existing = @(Get-ChildItem -LiteralPath $localState -Force | Where-Object { $_.Name -like 'MailCal2*.db*' -or $_.Name -eq 'credentials' })
     if ($existing.Count) {
         New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
         foreach ($item in $existing) { Move-Item -LiteralPath $item.FullName -Destination $backupRoot -Force }
         Write-Host "Previous application data moved to $backupRoot"
     }
-    Copy-Item -LiteralPath (Join-Path $generatedRoot 'Wino210.db') -Destination $localState -Force
+    Copy-Item -LiteralPath (Join-Path $generatedRoot 'MailCal210.db') -Destination $localState -Force
     $credentialTarget = Join-Path $localState 'credentials/dav'
     New-Item -ItemType Directory -Path $credentialTarget -Force | Out-Null
     Copy-Item -Path (Join-Path $generatedRoot 'credentials/dav/*') -Destination $credentialTarget -Force
 
-    $desktop = Join-Path ([Environment]::GetFolderPath('Desktop')) 'wino-lab'
+    $desktop = Join-Path ([Environment]::GetFolderPath('Desktop')) 'mailcal-lab'
     New-Item -ItemType Directory -Path $desktop -Force | Out-Null
-    foreach ($name in @('Wino210.db', 'wino-lab-backup.winosnap', 'manifest.json')) {
+    foreach ($name in @('MailCal210.db', 'mailcal-lab-backup.mailcalsnap', 'manifest.json')) {
         Copy-Item -LiteralPath (Join-Path $generatedRoot $name) -Destination $desktop -Force
     }
     Write-Host "Database and encrypted backup (password 1) copied to $desktop"
 
     & winapp run $project --arch x64 --no-build --detach
     if ($LASTEXITCODE) { throw "WinApp failed to launch the package ($LASTEXITCODE)." }
-    Write-Host 'Wino launched with the five lab accounts. All passwords are 1.'
+    Write-Host 'Mail-Cal launched with the five lab accounts. All passwords are 1.'
 }
 
 $operationLock = $null
 try {
     if ($Command -eq 'help') {
         @'
-Wino local lab (Windows PowerShell 5.1+ / PowerShell 7)
+Mail-Cal local lab (Windows PowerShell 5.1+ / PowerShell 7)
 Prerequisites: Docker Desktop (Linux containers, Compose v2), repository .NET SDK, WinApp CLI for install-app.
 Run from any directory: scripts/lab/windows/local-lab.ps1 <command>
 
@@ -167,9 +167,9 @@ status         Container state, endpoint reachability, artifact paths.
 provision      Re-run account provisioning on Stalwart and James.
 seed           Add missing fixtures to running servers; preserve existing data/edits.
 verify         Print capabilities per server and send delivery probes between every account pair.
-generate-db    Generate Wino210.db, DAV credentials, and wino-lab-backup.winosnap (password 1).
+generate-db    Generate MailCal210.db, DAV credentials, and mailcal-lab-backup.mailcalsnap (password 1).
 install-app    Build/register the Debug package, replace its database with the generated one (old data is
-               backed up), copy artifacts to Desktop\wino-lab, and launch Wino.
+               backed up), copy artifacts to Desktop\mailcal-lab, and launch Mail-Cal.
 stop           Stop services, retain data.
 reset -Force   Delete ONLY this lab's server volumes and seed state, rebuild everything.
 logs           Recent server logs. Optional: -Service <name>
@@ -181,7 +181,7 @@ Servers (IMAP / SMTP / DAV on 127.0.0.1), password 1 everywhere:
   stalwart   carol@stalwart.test    3143 / 3587 / http://127.0.0.1:8803/dav/       QRESYNC (IMAP4rev2)
   greenmail  dave@greenmail.test    4143 / 4025 (hub, no auth) / http://127.0.0.1:8804/  UID only
   james      eve@james.test         5143 / 5587 / http://127.0.0.1:8805/           probed
-Output: tools/local-lab/generated (Wino210.db, credentials/dav, wino-lab-backup.winosnap, manifest.json).
+Output: tools/local-lab/generated (MailCal210.db, credentials/dav, mailcal-lab-backup.mailcalsnap, manifest.json).
 See tools/local-lab/README.md for details.
 '@ | Write-Output
         return
@@ -218,7 +218,7 @@ See tools/local-lab/README.md for details.
                 finally { $client.Dispose() }
                 Write-Output "127.0.0.1:$port reachable=$reachable"
             }
-            Write-Output "Artifacts: $generatedRoot (exists=$(Test-Path -LiteralPath (Join-Path $generatedRoot 'Wino210.db')))"
+            Write-Output "Artifacts: $generatedRoot (exists=$(Test-Path -LiteralPath (Join-Path $generatedRoot 'MailCal210.db')))"
         }
         'reset' {
             if (!$Force) { throw 'Reset deletes this lab baseline. Use reset -Force to explicitly request it.' }

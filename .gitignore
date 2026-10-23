@@ -185,9 +185,9 @@ publish/
 # Note: Comment the next line if you want to checkin your web deploy settings,
 # but database connection strings (with potential passwords) will be unencrypted
 *.pubxml
-!src/Wino.Mail.WinUI/Properties/PublishProfiles/win-x86.pubxml
-!src/Wino.Mail.WinUI/Properties/PublishProfiles/win-x64.pubxml
-!src/Wino.Mail.WinUI/Properties/PublishProfiles/win-arm64.pubxml
+!src/MailCal.Mail.WinUI/Properties/PublishProfiles/win-x86.pubxml
+!src/MailCal.Mail.WinUI/Properties/PublishProfiles/win-x64.pubxml
+!src/MailCal.Mail.WinUI/Properties/PublishProfiles/win-arm64.pubxml
 *.publishproj
 
 # Microsoft Azure Web App publish settings. Comment the next line if you want to
@@ -372,8 +372,8 @@ FodyWeavers.xsd
 !.vscode/launch.json
 !.vscode/extensions.json
 *.code-workspace
-!/WinoMail.Windows.code-workspace
-!/WinoMail.MacOS.code-workspace
+!/MailCal.Windows.code-workspace
+!/MailCal.MacOS.code-workspace
 
 # Local History for Visual Studio Code
 .history/
@@ -388,28 +388,28 @@ FodyWeavers.xsd
 # JetBrains Rider
 .idea/
 *.sln.iml
-.vs/Wino/v16/.suo
-.vs/Wino/v16/.suo
+.vs/MailCal/v16/.suo
+.vs/MailCal/v16/.suo
 *.v2
-Wino/obj/x86/Debug/App.g.cs
-Wino/obj/x86/Debug/DesignTimeResolveAssemblyReferencesInput.cache
-Wino/obj/x86/Debug/XamlSaveStateFile.xml
-.vs/Wino/v16/.suo
-.vs/Wino/DesignTimeBuild/.dtbcache.v2
-.vs/Wino/v16/.suo
+MailCal/obj/x86/Debug/App.g.cs
+MailCal/obj/x86/Debug/DesignTimeResolveAssemblyReferencesInput.cache
+MailCal/obj/x86/Debug/XamlSaveStateFile.xml
+.vs/MailCal/v16/.suo
+.vs/MailCal/DesignTimeBuild/.dtbcache.v2
+.vs/MailCal/v16/.suo
 *.v2
-Wino/obj/x86/Debug/XamlSaveStateFile.xml
-Wino/obj/x86/Debug/DesignTimeResolveAssemblyReferencesInput.cache
-Wino/obj/x86/Debug/XamlSaveStateFile.xml
-Wino/obj/x86/Debug/XamlSaveStateFile.xml
+MailCal/obj/x86/Debug/XamlSaveStateFile.xml
+MailCal/obj/x86/Debug/DesignTimeResolveAssemblyReferencesInput.cache
+MailCal/obj/x86/Debug/XamlSaveStateFile.xml
+MailCal/obj/x86/Debug/XamlSaveStateFile.xml
 *.cache
-.vs/Wino/v16/.suo
+.vs/MailCal/v16/.suo
 /.claude/settings.local.json
 /prototypes
 .proto/
 /.prototypes
 docs/design-prototypes/*
-!/docs/design-prototypes/wino-design-guideline.html
+!/docs/design-prototypes/mailcal-design-guideline.html
 /docs/blog
 /docs/*
 # Track only the platform guides below; other local documents under docs stay ignored.

@@ -5,36 +5,36 @@ Status: done on this host (Linux/WSL). Nothing committed, no app launched, work 
 ## Files
 
 Added
-- `src/Wino.Mail.ViewModels/Calendar/CalendarCapabilityPresenter.cs`: shared wording and fallback.
+- `src/MailCal.Mail.ViewModels/Calendar/CalendarCapabilityPresenter.cs`: shared wording and fallback.
   - `GetFallback(account, calendar)`: the static provider set used before the service answers. It mirrors `CalendarCapabilityService.ResolveSource`.
   - `HasLowQuota`: true below 5 MB.
   - `GetAttendeeLimitText`, `GetQuotaWarningText`, `BuildSummary` and `FormatStorageSize`.
-- `src/Wino.Services/CalDavUserIdentity.cs`: the user's identity from `calendar-user-address-set`.
+- `src/MailCal.Services/CalDavUserIdentity.cs`: the user's identity from `calendar-user-address-set`.
   - `Resolve`, `IsUser` (string or Uri), `ResolveOrganizerAddress` and `ExtractEmail`.
-- `src/Wino.Core/Synchronizers/CalDav/CalDavSynchronizationEngine.Scheduling.cs` (partial):
+- `src/MailCal.Core/Synchronizers/CalDav/CalDavSynchronizationEngine.Scheduling.cs` (partial):
   - `GetUserIdentityAsync`, `ApplyUserIdentityAsync`
   - `TryRespondAsAttendeeAsync`, `PersistOwnResponseAsync`
   - `MapResponseToParticipation`
   - `ResolveImportedResponseStatus`: a helper for T5 (see Unfinished).
 - Tests:
-  - `tests/Wino.Core.Tests/Synchronizers/CalDavSchedulingMutatorTests.cs` (14 cases)
-  - `tests/Wino.Core.Tests/Synchronizers/CalDavSchedulingEngineTests.cs` (6 cases, `FakeCalDavServer`; no new routes)
-  - `tests/Wino.Mail.ViewModels.Tests/CalendarCapabilityAdoptionTests.cs` (12 cases)
+  - `tests/MailCal.Core.Tests/Synchronizers/CalDavSchedulingMutatorTests.cs` (14 cases)
+  - `tests/MailCal.Core.Tests/Synchronizers/CalDavSchedulingEngineTests.cs` (6 cases, `FakeCalDavServer`; no new routes)
+  - `tests/MailCal.Mail.ViewModels.Tests/CalendarCapabilityAdoptionTests.cs` (12 cases)
 
 Changed
 - `CalendarEventComposePageViewModel.cs`, `EventDetailsPageViewModel.cs` and `CalendarAccountSettingsPageViewModel.cs`:
   - Each takes a new optional last constructor parameter, `ICalendarCapabilityService calendarCapabilityService = null`.
   - No DI change was needed. T1 registers the service in `ServicesContainerSetup`. Both heads resolve these ViewModels by constructor (`AddTransient`), and MS.DI fills an optional parameter when the service is registered.
-- `src/Wino.Services/CalDavIcsMutator.cs`:
+- `src/MailCal.Services/CalDavIcsMutator.cs`:
   - new `UpdateEvent(..., CalDavUserIdentity identity)` overload; the old signature delegates to it
   - new `IsOrganizedByOther` and `SetOwnParticipation`
   - new organizer and attendee merge rules
   - one latent bug fixed (see below)
-- `src/Wino.Core/Synchronizers/CalDav/CalDavSynchronizationEngine.cs`, three anchored edits only:
+- `src/MailCal.Core/Synchronizers/CalDav/CalDavSynchronizationEngine.cs`, three anchored edits only:
   - `RespondToEventAsync` is now async. It tries the attendee path first.
   - `UpsertEventAsync` gets one inserted line after `EnsureCalendarItemDefaults`: `var identity = await ApplyUserIdentityAsync(...)`.
   - `UpsertEventAsync` also passes `identity` to `CalDavIcsMutator.UpdateEvent`.
-- `src/Wino.Core.Domain/Translations/en_US/resources.json`: 17 keys added right after `CalendarEventCompose_AttachmentsNotSupportedForCalDav`.
+- `src/MailCal.Core.Domain/Translations/en_US/resources.json`: 17 keys added right after `CalendarEventCompose_AttachmentsNotSupportedForCalDav`.
 - Not changed: `CalendarIcsBuilder.cs`. The ORGANIZER of a new event is fixed by setting `item.OrganizerEmail` in the engine before the builder runs. The item is persisted after the PUT, so the database row matches the server.
 
 ## New bindable properties
@@ -182,13 +182,13 @@ Baseline: the ViewModel tests were run on a clean `HEAD` worktree (`git worktree
 
 | Command | Result |
 | --- | --- |
-| `dotnet build tests/Wino.Core.Tests/... -c Debug -p:WinoTargetPlatform=MacOS -p:EnableWindowsTargeting=true` | 0 errors, no warnings in T2 files |
-| `dotnet test tests/Wino.Core.Tests/... --no-build --filter "FullyQualifiedName~CalDav\|...~Imap\|...~CardDav"` | **Passed 341, Failed 0** (239 baseline + T2's 20 + T3/T4 tests in flight) |
+| `dotnet build tests/MailCal.Core.Tests/... -c Debug -p:MailCalTargetPlatform=MacOS -p:EnableWindowsTargeting=true` | 0 errors, no warnings in T2 files |
+| `dotnet test tests/MailCal.Core.Tests/... --no-build --filter "FullyQualifiedName~CalDav\|...~Imap\|...~CardDav"` | **Passed 341, Failed 0** (239 baseline + T2's 20 + T3/T4 tests in flight) |
 | `dotnet test ... --filter "FullyQualifiedName~CalDavScheduling"` | 20/20 |
 | Core tests that touch these ViewModels (`CalendarAccountSettings`, `CalendarReadOnly`) | 6/6 |
-| `dotnet build tests/Wino.Mail.ViewModels.Tests/...` | 0 errors, no warnings in T2 files |
-| `dotnet test tests/Wino.Mail.ViewModels.Tests/... --no-build` | **Passed 169, Failed 0** (157 + 12 new) |
-| `dotnet build src/Wino.Mail.ViewModels/... -c Release -p:WinoTargetPlatform=MacOS -p:NuGetAudit=false` | 0 errors; only the existing NETSDK1188 package-locale warnings |
+| `dotnet build tests/MailCal.Mail.ViewModels.Tests/...` | 0 errors, no warnings in T2 files |
+| `dotnet test tests/MailCal.Mail.ViewModels.Tests/... --no-build` | **Passed 169, Failed 0** (157 + 12 new) |
+| `dotnet build src/MailCal.Mail.ViewModels/... -c Release -p:MailCalTargetPlatform=MacOS -p:NuGetAudit=false` | 0 errors; only the existing NETSDK1188 package-locale warnings |
 
 During the run, T3's and T4's in-progress files briefly broke the shared build. I waited for them and did not edit their files.
 
@@ -227,7 +227,7 @@ The lab was kept out of `tools/caldav-lab/Program.cs` to avoid colliding with T3
 - The setup PUT with `If-None-Match` returned 201, so iCloud accepted an event whose ORGANIZER is not the user.
 - The address set has 2 principal paths, `urn:uuid:`, a `mailto:` outlook.com address and a `mailto:` icloud.com address. The identity resolved to the account's address.
 - Before: `STATUS=CONFIRMED SEQUENCE=0`, own line `PARTSTAT=NEEDS-ACTION;RSVP=TRUE`.
-- `RespondToEventAsync(Accept)` sent exactly 1 request: `PUT .../wino-t2-lab-....ics If-Match -> 204 (ETag returned)`.
+- `RespondToEventAsync(Accept)` sent exactly 1 request: `PUT .../mailcal-t2-lab-....ics If-Match -> 204 (ETag returned)`.
 - After: `STATUS=CONFIRMED SEQUENCE=0`, own line `PARTSTAT=ACCEPTED;RSVP=TRUE`, organizer line unchanged.
 - Local state: Status=Accepted, own attendee row Accepted. The next sync sent 2 requests and downloaded nothing.
 - Cleanup: `DELETE If-Match -> 204`, then `GET -> 404`. The lab ran twice on iCloud; both events were deleted, the first with a DELETE that returned 204.
@@ -256,7 +256,7 @@ Side effect: both servers schedule implicitly, so each test reply (and each atte
    - Organizer edits no longer duplicate attendee lines (the latent bug above).
 4. **Handoff (not possible here):**
    - Windows Debug x64 build
-   - Windows Release x64 gate (`dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -p:GenerateAppxPackageOnBuild=false`)
+   - Windows Release x64 gate (`dotnet build src/MailCal.Mail.WinUI/MailCal.Mail.WinUI.csproj -c Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -p:GenerateAppxPackageOnBuild=false`)
    - macOS Debug arm64 and x64 builds
    - the manual UI checks listed above, after the head bindings are added
 

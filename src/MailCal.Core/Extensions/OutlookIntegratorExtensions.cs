@@ -1,0 +1,507 @@
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using Microsoft.Graph.Models;
+using MimeKit;
+using MailCal.Core.Domain.Entities.Calendar;
+using MailCal.Core.Domain.Entities.Mail;
+using MailCal.Core.Domain.Entities.Shared;
+using MailCal.Core.Domain.Enums;
+using MailCal.Core.Domain.Extensions;
+using MailCal.Core.Misc;
+
+namespace MailCal.Core.Extensions;
+
+public static class OutlookIntegratorExtensions
+{
+    public static MailItemFolder GetLocalFolder(this MailFolder nativeFolder, Guid accountId)
+    {
+        return new MailItemFolder()
+        {
+            Id = Guid.NewGuid(),
+            FolderName = nativeFolder.DisplayName,
+            RemoteFolderId = nativeFolder.Id,
+            ParentRemoteFolderId = nativeFolder.ParentFolderId,
+            IsSynchronizationEnabled = true,
+            MailAccountId = accountId,
+            IsHidden = nativeFolder.IsHidden.GetValueOrDefault()
+        };
+    }
+
+    public static bool GetIsDraft(this Message message)
+        => message != null && message.IsDraft.GetValueOrDefault();
+
+    public static bool GetIsRead(this Message message)
+        => message != null && message.IsRead.GetValueOrDefault();
+
+    public static bool GetIsFocused(this Message message)
+        => message?.InferenceClassification != null && message.InferenceClassification.Value == InferenceClassificationType.Focused;
+
+    public static bool GetIsFlagged(this Message message)
+        => message?.Flag?.FlagStatus != null && message.Flag.FlagStatus == FollowupFlagStatus.Flagged;
+
+    public static bool GetIsReadReceiptRequested(this Message message)
+        => message?.IsReadReceiptRequested.GetValueOrDefault() == true
+           || message?.InternetMessageHeaders?.Any(h =>
+               string.Equals(h.Name, Domain.Constants.DispositionNotificationToHeader, StringComparison.OrdinalIgnoreCase)
+               && !string.IsNullOrWhiteSpace(h.Value)) == true;
+
+    public static MailCopy AsMailCopy(this Message outlookMessage)
+    {
+        bool isDraft = GetIsDraft(outlookMessage);
+
+        var mailCopy = new MailCopy()
+        {
+            MessageId = MailHeaderExtensions.NormalizeMessageId(outlookMessage.InternetMessageId),
+            IsFlagged = GetIsFlagged(outlookMessage),
+            IsFocused = GetIsFocused(outlookMessage),
+            Importance = !outlookMessage.Importance.HasValue ? MailImportance.Normal : (MailImportance)outlookMessage.Importance.Value,
+            IsRead = GetIsRead(outlookMessage),
+            IsReadReceiptRequested = GetIsReadReceiptRequested(outlookMessage),
+            IsDraft = isDraft,
+            CreationDate = outlookMessage.ReceivedDateTime.GetValueOrDefault().UtcDateTime,
+            HasAttachments = outlookMessage.HasAttachments.GetValueOrDefault(),
+            PreviewText = outlookMessage.BodyPreview,
+            Id = outlookMessage.Id,
+            ThreadId = outlookMessage.ConversationId,
+            FromName = outlookMessage.From?.EmailAddress?.Name,
+            FromAddress = outlookMessage.From?.EmailAddress?.Address,
+            Subject = outlookMessage.Subject,
+            FileId = Guid.NewGuid(),
+            ItemType = MailItemType.Mail // ItemType will be set by caller if calendar access is granted
+        };
+
+        // Extract In-Reply-To and References from InternetMessageHeaders for threading.
+        if (outlookMessage.InternetMessageHeaders != null)
+        {
+            var inReplyToHeader = outlookMessage.InternetMessageHeaders
+                .FirstOrDefault(h => string.Equals(h.Name, "In-Reply-To", StringComparison.OrdinalIgnoreCase));
+            if (inReplyToHeader != null)
+                mailCopy.InReplyTo = MailHeaderExtensions.StripAngleBrackets(inReplyToHeader.Value);
+
+            var referencesHeader = outlookMessage.InternetMessageHeaders
+                .FirstOrDefault(h => string.Equals(h.Name, "References", StringComparison.OrdinalIgnoreCase));
+            if (referencesHeader != null)
+                mailCopy.References = MailHeaderExtensions.NormalizeReferences(referencesHeader.Value);
+        }
+
+        if (mailCopy.IsDraft)
+            mailCopy.DraftId = mailCopy.ThreadId;
+
+        return mailCopy;
+    }
+
+    public static MailItemType GetMailItemType(this Message message)
+    {
+        // Check if the message is an EventMessage (calendar-related)
+        if (message is EventMessage eventMessage)
+        {
+            // Try to get MeetingMessageType from the property
+            if (eventMessage.MeetingMessageType.HasValue)
+            {
+                return eventMessage.MeetingMessageType.Value switch
+                {
+                    MeetingMessageType.MeetingRequest => MailItemType.CalendarInvitation,
+                    MeetingMessageType.MeetingCancelled => MailItemType.CalendarCancellation,
+                    MeetingMessageType.MeetingAccepted or
+                    MeetingMessageType.MeetingTenativelyAccepted or
+                    MeetingMessageType.MeetingDeclined => MailItemType.CalendarResponse,
+                    _ => MailItemType.Mail
+                };
+            }
+
+            // Fallback: Check @odata.type in AdditionalData to determine specific type
+            if (message.AdditionalData?.TryGetValue("@odata.type", out var odataType) == true)
+            {
+                var odataTypeString = odataType?.ToString();
+                if (odataTypeString != null)
+                {
+                    // eventMessageRequest -> CalendarInvitation
+                    if (odataTypeString.Contains("eventMessageRequest", StringComparison.OrdinalIgnoreCase))
+                        return MailItemType.CalendarInvitation;
+
+                    // eventMessageResponse -> CalendarResponse
+                    if (odataTypeString.Contains("eventMessageResponse", StringComparison.OrdinalIgnoreCase))
+                        return MailItemType.CalendarResponse;
+
+                    // Generic eventMessage without specific type - assume invitation
+                    if (odataTypeString.Contains("eventMessage", StringComparison.OrdinalIgnoreCase))
+                        return MailItemType.CalendarInvitation;
+                }
+            }
+
+            return MailItemType.CalendarInvitation;
+        }
+
+        return MailItemType.Mail;
+    }
+
+    public static Message AsOutlookMessage(this MimeMessage mime, bool includeInternetHeaders, string conversationId = null)
+    {
+        var fromAddress = GetRecipients(mime.From).ElementAt(0);
+        var toAddresses = GetRecipients(mime.To).ToList();
+        var ccAddresses = GetRecipients(mime.Cc).ToList();
+        var bccAddresses = GetRecipients(mime.Bcc).ToList();
+        var replyToAddresses = GetRecipients(mime.ReplyTo).ToList();
+
+        // Prefer HTML body, fall back to plain text.
+        var (bodyContent, bodyType) = mime.HtmlBody != null
+            ? (mime.HtmlBody, BodyType.Html)
+            : (mime.TextBody ?? string.Empty, BodyType.Text);
+
+        var message = new Message()
+        {
+            Subject = mime.Subject,
+            Importance = GetImportance(mime.Importance),
+            Body = new ItemBody() { ContentType = bodyType, Content = bodyContent },
+            IsDraft = false,
+            IsRead = true,
+            ToRecipients = toAddresses,
+            CcRecipients = ccAddresses,
+            BccRecipients = bccAddresses,
+            From = fromAddress,
+            InternetMessageId = MailHeaderExtensions.ToHeaderMessageId(mime.MessageId),
+            IsReadReceiptRequested = mime.HasReadReceiptRequest(),
+            ReplyTo = replyToAddresses,
+        };
+
+        if (!string.IsNullOrEmpty(conversationId))
+        {
+            message.ConversationId = conversationId;
+        }
+
+        // Headers are only included when creating the draft.
+        // Graph API throws an error if headers are included in send/patch operations.
+        if (includeInternetHeaders)
+        {
+            message.InternetMessageHeaders = GetHeaderList(mime);
+        }
+
+        return message;
+    }
+
+    public static AccountCalendar AsCalendar(this Calendar outlookCalendar, MailAccount assignedAccount, string fallbackBackgroundColor = null)
+    {
+        var calendar = new AccountCalendar()
+        {
+            AccountId = assignedAccount.Id,
+            Id = Guid.NewGuid(),
+            RemoteCalendarId = outlookCalendar.Id,
+            IsPrimary = outlookCalendar.IsDefaultCalendar.GetValueOrDefault(),
+            IsReadOnly = !outlookCalendar.CanEdit.GetValueOrDefault(true),
+            Name = outlookCalendar.Name,
+            IsSynchronizationEnabled = true,
+            IsExtended = true,
+        };
+
+        // Colors:
+        // Bg must be present. Generate flat one if doesn't exists.
+        // Text doesnt exists for Outlook.
+
+        calendar.BackgroundColorHex = fallbackBackgroundColor ?? ColorHelpers.GenerateFlatColorHex();
+        calendar.TextColorHex = ColorHelpers.GetReadableTextColorHex(calendar.BackgroundColorHex);
+
+        return calendar;
+    }
+
+    private static string GetRfc5545DayOfWeek(DayOfWeekObject dayOfWeek)
+    {
+        return dayOfWeek switch
+        {
+            DayOfWeekObject.Monday => "MO",
+            DayOfWeekObject.Tuesday => "TU",
+            DayOfWeekObject.Wednesday => "WE",
+            DayOfWeekObject.Thursday => "TH",
+            DayOfWeekObject.Friday => "FR",
+            DayOfWeekObject.Saturday => "SA",
+            DayOfWeekObject.Sunday => "SU",
+            _ => throw new ArgumentOutOfRangeException(nameof(dayOfWeek), dayOfWeek, null)
+        };
+    }
+
+    public static string ToRfc5545RecurrenceString(this PatternedRecurrence recurrence)
+    {
+        if (recurrence == null || recurrence.Pattern == null)
+            throw new ArgumentNullException(nameof(recurrence), "PatternedRecurrence or its Pattern cannot be null.");
+
+        var ruleBuilder = new StringBuilder("RRULE:");
+        var pattern = recurrence.Pattern;
+
+        // Frequency
+        switch (pattern.Type)
+        {
+            case RecurrencePatternType.Daily:
+                ruleBuilder.Append("FREQ=DAILY;");
+                break;
+            case RecurrencePatternType.Weekly:
+                ruleBuilder.Append("FREQ=WEEKLY;");
+                break;
+            case RecurrencePatternType.AbsoluteMonthly:
+                ruleBuilder.Append("FREQ=MONTHLY;");
+                break;
+            case RecurrencePatternType.AbsoluteYearly:
+                ruleBuilder.Append("FREQ=YEARLY;");
+                break;
+            case RecurrencePatternType.RelativeMonthly:
+                ruleBuilder.Append("FREQ=MONTHLY;");
+                break;
+            case RecurrencePatternType.RelativeYearly:
+                ruleBuilder.Append("FREQ=YEARLY;");
+                break;
+            default:
+                throw new NotSupportedException($"Unsupported recurrence pattern type: {pattern.Type}");
+        }
+
+        // Interval
+        if (pattern.Interval > 0)
+            ruleBuilder.Append($"INTERVAL={pattern.Interval};");
+
+        // Days of Week
+        if (pattern.DaysOfWeek?.Any() == true)
+        {
+            var days = string.Join(",", pattern.DaysOfWeek.Select(day => day.ToString().ToUpperInvariant().Substring(0, 2)));
+            ruleBuilder.Append($"BYDAY={days};");
+        }
+
+        // Day of Month (BYMONTHDAY)
+        if (pattern.Type == RecurrencePatternType.AbsoluteMonthly || pattern.Type == RecurrencePatternType.AbsoluteYearly)
+        {
+            if (pattern.DayOfMonth <= 0)
+                throw new ArgumentException("DayOfMonth must be greater than 0 for absoluteMonthly or absoluteYearly patterns.");
+
+            ruleBuilder.Append($"BYMONTHDAY={pattern.DayOfMonth};");
+        }
+
+        // Month (BYMONTH)
+        if (pattern.Type == RecurrencePatternType.AbsoluteYearly || pattern.Type == RecurrencePatternType.RelativeYearly)
+        {
+            if (pattern.Month <= 0)
+                throw new ArgumentException("Month must be greater than 0 for absoluteYearly or relativeYearly patterns.");
+
+            ruleBuilder.Append($"BYMONTH={pattern.Month};");
+        }
+
+        // Count or Until
+        if (recurrence.Range != null)
+        {
+            if (recurrence.Range.Type == RecurrenceRangeType.EndDate && recurrence.Range.EndDate != null)
+            {
+                // RFC 5545 requires YYYYMMDD or YYYYMMDDTHHMMSSinvalid format (no dashes or colons)
+                var untilDate = recurrence.Range.EndDate.Value.DateTime.ToString("yyyyMMdd'T'HHmmss'Z'", System.Globalization.CultureInfo.InvariantCulture);
+                ruleBuilder.Append($"UNTIL={untilDate};");
+            }
+            else if (recurrence.Range.Type == RecurrenceRangeType.Numbered && recurrence.Range.NumberOfOccurrences.HasValue)
+            {
+                ruleBuilder.Append($"COUNT={recurrence.Range.NumberOfOccurrences.Value};");
+            }
+        }
+
+        // Remove trailing semicolon
+        return ruleBuilder.ToString().TrimEnd(';');
+    }
+
+    public static DateTimeOffset GetDateTimeOffsetFromDateTimeTimeZone(DateTimeTimeZone dateTimeTimeZone)
+    {
+        if (dateTimeTimeZone == null || string.IsNullOrEmpty(dateTimeTimeZone.DateTime))
+        {
+            throw new ArgumentException("DateTimeTimeZone or DateTime is null or empty.");
+        }
+
+        try
+        {
+            // Parse the DateTime string
+            if (!DateTime.TryParse(dateTimeTimeZone.DateTime, out DateTime parsedDateTime))
+            {
+                throw new ArgumentException("DateTime string is not in a valid format.");
+            }
+
+            // If no timezone is provided, assume UTC
+            if (string.IsNullOrEmpty(dateTimeTimeZone.TimeZone))
+            {
+                return new DateTimeOffset(parsedDateTime, TimeSpan.Zero);
+            }
+
+            try
+            {
+                // Get TimeZoneInfo to get the offset
+                TimeZoneInfo timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById(dateTimeTimeZone.TimeZone);
+                TimeSpan offset = timeZoneInfo.GetUtcOffset(parsedDateTime);
+                return new DateTimeOffset(parsedDateTime, offset);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                // If timezone is not found, assume UTC as fallback
+                return new DateTimeOffset(parsedDateTime, TimeSpan.Zero);
+            }
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+    }
+
+    public static DateTime GetLocalDateTimeFromDateTimeTimeZone(DateTimeTimeZone dateTimeTimeZone)
+    {
+        if (dateTimeTimeZone == null || string.IsNullOrEmpty(dateTimeTimeZone.DateTime))
+        {
+            throw new ArgumentException("DateTimeTimeZone or DateTime is null or empty.");
+        }
+
+        if (!DateTime.TryParse(dateTimeTimeZone.DateTime, out DateTime parsedDateTime))
+        {
+            throw new ArgumentException("DateTime string is not in a valid format.");
+        }
+
+        return DateTime.SpecifyKind(parsedDateTime, DateTimeKind.Unspecified);
+    }
+
+    private static AttendeeStatus GetAttendeeStatus(ResponseType? responseType)
+    {
+        return responseType switch
+        {
+            ResponseType.None => AttendeeStatus.NeedsAction,
+            ResponseType.NotResponded => AttendeeStatus.NeedsAction,
+            ResponseType.Organizer => AttendeeStatus.Accepted,
+            ResponseType.TentativelyAccepted => AttendeeStatus.Tentative,
+            ResponseType.Accepted => AttendeeStatus.Accepted,
+            ResponseType.Declined => AttendeeStatus.Declined,
+            _ => AttendeeStatus.NeedsAction
+        };
+    }
+
+    public static CalendarEventAttendee CreateAttendee(this Attendee attendee, Guid calendarItemId, string organizerEmail = null)
+    {
+        // Check if this attendee is the organizer by comparing email addresses
+        bool isOrganizer = !string.IsNullOrEmpty(organizerEmail) &&
+                          !string.IsNullOrEmpty(attendee?.EmailAddress?.Address) &&
+                          string.Equals(attendee.EmailAddress.Address, organizerEmail, StringComparison.OrdinalIgnoreCase);
+
+        var eventAttendee = new CalendarEventAttendee()
+        {
+            CalendarItemId = calendarItemId,
+            Id = Guid.NewGuid(),
+            Email = attendee.EmailAddress?.Address,
+            Name = attendee.EmailAddress?.Name,
+            AttendenceStatus = GetAttendeeStatus(attendee.Status.Response),
+            IsOrganizer = isOrganizer,
+            IsOptionalAttendee = attendee.Type == AttendeeType.Optional,
+        };
+
+        return eventAttendee;
+    }
+
+    #region Mime to Outlook Message Helpers
+
+    /// <summary>
+    /// Extracts all attachments (inline and regular) from a MimeMessage
+    /// and returns them as Graph SDK FileAttachment objects.
+    /// </summary>
+    public static List<FileAttachment> ExtractAttachments(this MimeMessage mime)
+    {
+        var attachments = new List<FileAttachment>();
+
+        foreach (var part in mime.BodyParts)
+        {
+            bool isInline = part.ContentDisposition?.Disposition == "inline";
+
+            if (!part.IsAttachment && !isInline)
+                continue;
+
+            if (part is not MimePart mimePart || mimePart.Content == null)
+                continue;
+
+            using var memory = new MemoryStream();
+            mimePart.Content.DecodeTo(memory);
+
+            attachments.Add(new FileAttachment()
+            {
+                Name = part.ContentDisposition?.FileName ?? part.ContentType.Name,
+                ContentBytes = memory.ToArray(),
+                ContentType = part.ContentType.MimeType,
+                ContentId = part.ContentId,
+                IsInline = isInline
+            });
+        }
+
+        return attachments;
+    }
+
+    private static IEnumerable<Recipient> GetRecipients(this InternetAddressList internetAddresses)
+    {
+        foreach (var address in internetAddresses)
+        {
+            if (address is MailboxAddress mailboxAddress)
+                yield return new Recipient() { EmailAddress = new EmailAddress() { Address = mailboxAddress.Address, Name = mailboxAddress.Name } };
+            else if (address is GroupAddress groupAddress)
+            {
+                // TODO: Group addresses are not directly supported.
+                // It'll be individually added.
+
+                foreach (var mailbox in groupAddress.Members)
+                    if (mailbox is MailboxAddress groupMemberMailAddress)
+                        yield return new Recipient() { EmailAddress = new EmailAddress() { Address = groupMemberMailAddress.Address, Name = groupMemberMailAddress.Name } };
+            }
+        }
+    }
+
+    private static Importance? GetImportance(MessageImportance importance)
+    {
+        return importance switch
+        {
+            MessageImportance.Low => Importance.Low,
+            MessageImportance.Normal => Importance.Normal,
+            MessageImportance.High => Importance.High,
+            _ => null
+        };
+    }
+
+    private static List<InternetMessageHeader> GetHeaderList(this MimeMessage mime)
+    {
+        // Graph API only allows max of 5 headers.
+        // Graph only allows setting custom internet headers (typically X-*).
+        // Reply/threading headers like In-Reply-To and References are managed by
+        // createReply/createReplyAll flows and must not be sent here.
+
+        const int headerLimit = 5;
+        string[] headersToIgnore = ["Date", "To", "Cc", "Bcc", "MIME-Version", "From", "Subject", "Message-Id"];
+
+        var headers = new List<InternetMessageHeader>();
+
+        void AddHeader(string name, string value)
+        {
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(value)) return;
+            if (headers.Count >= headerLimit) return;
+            if (headers.Any(h => string.Equals(h.Name, name, StringComparison.OrdinalIgnoreCase))) return;
+
+            // No header value should exceed 995 characters.
+            var headerValue = value.Length >= 995 ? value.Substring(0, 995) : value;
+            headers.Add(new InternetMessageHeader() { Name = name, Value = headerValue });
+        }
+
+        // PRIORITY: Always include MailCalLocalDraftHeader first if it exists.
+        var mailCalDraftHeader = mime.Headers.FirstOrDefault(h => h.Field == Domain.Constants.MailCalLocalDraftHeader);
+        if (mailCalDraftHeader != null)
+            AddHeader(mailCalDraftHeader.Field, mailCalDraftHeader.Value);
+
+        // Fill remaining slots with custom headers only (avoid Graph restrictions).
+        foreach (var header in mime.Headers)
+        {
+            if (headers.Count >= headerLimit) break;
+            if (Domain.Constants.IsLocalDraftHeader(header.Field)) continue;
+            if (headersToIgnore.Contains(header.Field)) continue;
+
+            // Only include custom headers beyond the core threading ones.
+            if (!header.Field.StartsWith("X-", StringComparison.OrdinalIgnoreCase)) continue;
+
+            AddHeader(header.Field, header.Value);
+        }
+
+        return headers;
+    }
+
+
+
+    #endregion
+}

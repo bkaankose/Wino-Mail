@@ -5,19 +5,19 @@ Status: done on this host (Linux/WSL). Nothing committed, no app launched, work 
 ## Files
 
 Added
-- `src/Wino.Core/Synchronizers/CalDav/CalendarIcsBuilder.DefaultAlarms.cs`: `CalDavDefaultAlarm` record; `ParseDefaultAlarms`, `AddDefaultAlarms`, `TryParseIcsDuration` (partial of `CalendarIcsBuilder`)
-- `src/Wino.Core/Synchronizers/CalDav/CalDavSynchronizationEngine.DefaultAlarms.cs`: import seeding, create hook, public read API `GetDefaultReminders`
-- `src/Wino.Core/Synchronizers/CalDav/CalDavSynchronizationEngine.Limits.cs`: pre-PUT check, post-PUT quota bookkeeping
-- `tests/Wino.Core.Tests/Services/AutoDiscoveryCalDavTests.cs` (15 tests)
-- `tests/Wino.Core.Tests/Synchronizers/CalDavDefaultAlarmTests.cs` (29 tests). This file also defines `CalDavEngineTestHost`: the real engine over `FakeCalDavServer`, with an `InterceptingTransport` that can rewrite the home listing and answer PUTs, so `FakeCalDavServer.cs` was not edited.
-- `tests/Wino.Core.Tests/Synchronizers/CalDavLimitTests.cs` (18 tests)
+- `src/MailCal.Core/Synchronizers/CalDav/CalendarIcsBuilder.DefaultAlarms.cs`: `CalDavDefaultAlarm` record; `ParseDefaultAlarms`, `AddDefaultAlarms`, `TryParseIcsDuration` (partial of `CalendarIcsBuilder`)
+- `src/MailCal.Core/Synchronizers/CalDav/CalDavSynchronizationEngine.DefaultAlarms.cs`: import seeding, create hook, public read API `GetDefaultReminders`
+- `src/MailCal.Core/Synchronizers/CalDav/CalDavSynchronizationEngine.Limits.cs`: pre-PUT check, post-PUT quota bookkeeping
+- `tests/MailCal.Core.Tests/Services/AutoDiscoveryCalDavTests.cs` (15 tests)
+- `tests/MailCal.Core.Tests/Synchronizers/CalDavDefaultAlarmTests.cs` (29 tests). This file also defines `CalDavEngineTestHost`: the real engine over `FakeCalDavServer`, with an `InterceptingTransport` that can rewrite the home listing and answer PUTs, so `FakeCalDavServer.cs` was not edited.
+- `tests/MailCal.Core.Tests/Synchronizers/CalDavLimitTests.cs` (18 tests)
 
 Changed
-- `src/Wino.Core/Services/AutoDiscoveryService.cs`: RFC 6764 discovery (details below)
-- `src/Wino.Core.Domain/Interfaces/IAutoDiscoveryService.cs`: new `DiscoverCardDavServiceUriAsync`. The only implementer is `AutoDiscoveryService`; mocks keep compiling.
-- `src/Wino.Services/Dav/DavResponseHandler.cs`: `GetPreconditionMessage` runs before the status mapping
-- `src/Wino.Core.Domain/Translations/en_US/resources.json`: 3 keys after `DavError_InvalidResponse`
-- `src/Wino.Core/Synchronizers/CalDav/CalDavSynchronizationEngine.cs`: 4 one-line hooks (below). `CalendarIcsBuilder.cs` was **not** edited (see the default-alarm design).
+- `src/MailCal.Core/Services/AutoDiscoveryService.cs`: RFC 6764 discovery (details below)
+- `src/MailCal.Core.Domain/Interfaces/IAutoDiscoveryService.cs`: new `DiscoverCardDavServiceUriAsync`. The only implementer is `AutoDiscoveryService`; mocks keep compiling.
+- `src/MailCal.Services/Dav/DavResponseHandler.cs`: `GetPreconditionMessage` runs before the status mapping
+- `src/MailCal.Core.Domain/Translations/en_US/resources.json`: 3 keys after `DavError_InvalidResponse`
+- `src/MailCal.Core/Synchronizers/CalDav/CalDavSynchronizationEngine.cs`: 4 one-line hooks (below). `CalendarIcsBuilder.cs` was **not** edited (see the default-alarm design).
 
 ## Hook lines inserted into `CalDavSynchronizationEngine.cs` (for conflict resolution)
 
@@ -65,7 +65,7 @@ Other behavior:
 - A URI is never probed twice in one discovery.
 - `ParseTxtPath` is `internal static` for tests. It rejects relative paths and `//host` paths.
 
-**CardDAV:** the sibling method exists and has a test. It has **no consumer yet**: `CardDavClient` builds its own `/.well-known/carddav` URI inside `Wino.Services`, which does not reference `Wino.Core`. Wiring it in needs a change in `CardDavAddressBookService` or in the account setup, outside T3.
+**CardDAV:** the sibling method exists and has a test. It has **no consumer yet**: `CardDavClient` builds its own `/.well-known/carddav` URI inside `MailCal.Services`, which does not reference `MailCal.Core`. Wiring it in needs a change in `CardDavAddressBookService` or in the account setup, outside T3.
 
 ## B. Default alarms
 
@@ -75,12 +75,12 @@ Other behavior:
 - Blocks with an absolute trigger (`VALUE=DATE-TIME`) are ignored. So is `ACTION:NONE`, which is Apple's "no default" sentinel. iCloud stores exactly that on this test account's home datetime default.
 - **Local reminder:**
   - A relative trigger at or before the start becomes `CalDavEventReminder` (seconds before start; `EMAIL` maps to Email, anything else to Popup).
-  - A trigger after the start (Apple's all-day "on the day at 09:00", `PT9H`) or `RELATED=END` is still written to the server but gets no local reminder, because Wino reminders count seconds before the start.
+  - A trigger after the start (Apple's all-day "on the day at 09:00", `PT9H`) or `RELATED=END` is still written to the server but gets no local reminder, because Mail-Cal reminders count seconds before the start.
 - **Block written to the server:** the alarm-instance properties (`UID`, `X-WR-ALARMUID`, `ACKNOWLEDGED`, `RELATED-TO`, and any existing marker) are dropped, `X-APPLE-DEFAULT-ALARM:TRUE` is added, and long lines are folded again.
 
 **Which default applies:** a value on the calendar wins over the home value, even when it means "none". The home value is the fallback. Timed events use `-datetime`; all-day events (`CalendarItem.IsAllDayEvent`) use `-date`.
 
-**Import (hook 1):** an item that is new to Wino, has no parsed reminders, and whose resource text contains no `BEGIN:VALARM` gets the default reminder rows through `ICalendarService.SaveRemindersAsync`.
+**Import (hook 1):** an item that is new to Mail-Cal, has no parsed reminders, and whose resource text contains no `BEGIN:VALARM` gets the default reminder rows through `ICalendarService.SaveRemindersAsync`.
 - Existing items keep their local reminder choice, the same rule as `ImapChangeProcessor`.
 - Defaults are parsed once per `CalendarContext` (a `ConditionalWeakTable`), which costs one state-store read per calendar per sync.
 - This approach avoids copying `CalDavCalendarEvent`, which T4 extended with `Attachments`.
@@ -126,10 +126,10 @@ Callers can use `HasError(...)` for both pre-checks and server answers. No PUT i
 
 ## Verification (this host)
 
-- **Debug build:** `dotnet build tests/Wino.Core.Tests/... -c Debug -p:WinoTargetPlatform=MacOS -p:EnableWindowsTargeting=true` gives 0 errors and no warnings from T3 files.
+- **Debug build:** `dotnet build tests/MailCal.Core.Tests/... -c Debug -p:MailCalTargetPlatform=MacOS -p:EnableWindowsTargeting=true` gives 0 errors and no warnings from T3 files.
 - **Filtered tests** (`CalDav|Imap|CardDav|AutoDiscovery`): **Passed 343, Failed 0**. That is the 239 baseline, 62 new T3 tests, and the rest from T2/T4. An earlier run had 3 failures in T2's in-progress `CalDavScheduling*Tests`; they passed on the final run.
 - **T3 tests and existing engine tests:** `AutoDiscoveryCalDavTests|CalDavDefaultAlarmTests|CalDavLimitTests|CalDavSynchronizationEngineTests` gives 75/75 (62 new plus 13 existing engine tests).
-- **Release build:** `dotnet build src/Wino.Core/Wino.Core.csproj -c Release -p:WinoTargetPlatform=MacOS -p:NuGetAudit=false` currently fails on **T4's** `src/Wino.Services/CalDavClient.Attachments.cs(60,66)` CS8604, which is not mine.
+- **Release build:** `dotnet build src/MailCal.Core/MailCal.Core.csproj -c Release -p:MailCalTargetPlatform=MacOS -p:NuGetAudit=false` currently fails on **T4's** `src/MailCal.Services/CalDavClient.Attachments.cs(60,66)` CS8604, which is not mine.
   - With `-p:WarningsAsErrors= -p:TreatWarningsAsErrors=false` it builds. The only warning is that T4 line; T3 files have none.
   - Re-run the plain Release command after T4 fixes it.
 - **Test coverage:**
@@ -166,6 +166,6 @@ The lab ran from the scratchpad (`.../scratchpad/t3lab`, not in the repository).
 - **Release gate:** re-run the plain Release build once T4's CS8604 is fixed.
 - **Seeding scope:** seeding only checks for `BEGIN:VALARM` anywhere in the resource. An override instance without its own alarm in a series whose master has one is not seeded, which is deliberate.
 - **Past events:** past events in a first import also get the default reminder row, as Apple does. They never notify, because their trigger time is in the past.
-- **Reminder types:** an `EMAIL` default becomes an Email reminder row. Wino only notifies Popup rows, as before.
+- **Reminder types:** an `EMAIL` default becomes an Email reminder row. Mail-Cal only notifies Popup rows, as before.
 - **Discovery URI choice:** for iCloud the probe returns the `.well-known` URI itself, because GET gives 400 and OPTIONS gives 200, so there is no redirect to follow. `DavTransport` follows the PROPFIND redirect at sync time, and the live discovery confirmed this.
-- **Handoff:** Windows Debug x64 build, Windows Release x64 AOT gate (`dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -p:GenerateAppxPackageOnBuild=false`), macOS Debug arm64 and x64 builds. No UI changed. The new messages reach users wherever write errors already show `Exception.Message`, which needs a manual check once T2's ViewModel refusal handling is in.
+- **Handoff:** Windows Debug x64 build, Windows Release x64 AOT gate (`dotnet build src/MailCal.Mail.WinUI/MailCal.Mail.WinUI.csproj -c Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -p:GenerateAppxPackageOnBuild=false`), macOS Debug arm64 and x64 builds. No UI changed. The new messages reach users wherever write errors already show `Exception.Message`, which needs a manual check once T2's ViewModel refusal handling is in.

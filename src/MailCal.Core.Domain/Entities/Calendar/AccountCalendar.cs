@@ -1,0 +1,34 @@
+﻿using System;
+using SQLite;
+using MailCal.Core.Domain.Entities.Shared;
+using MailCal.Core.Domain.Enums;
+using MailCal.Core.Domain.Interfaces;
+
+namespace MailCal.Core.Domain.Entities.Calendar;
+
+[Preserve]
+public class AccountCalendar : IAccountCalendar
+{
+    [PrimaryKey]
+    public Guid Id { get; set; }
+    public Guid AccountId { get; set; }
+    public string RemoteCalendarId { get; set; }
+    public string SynchronizationDeltaToken { get; set; }
+    public string Name { get; set; }
+    public bool IsPrimary { get; set; }
+    public bool IsReadOnly { get; set; }
+    public bool IsSynchronizationEnabled { get; set; } = true;
+    public bool IsExtended { get; set; } = true;
+    public CalendarItemShowAs DefaultShowAs { get; set; } = CalendarItemShowAs.Busy;
+
+    /// <summary>
+    /// Unused for now.
+    /// </summary>
+    public string TextColorHex { get; set; }
+    public string BackgroundColorHex { get; set; }
+    public bool IsBackgroundColorUserOverridden { get; set; }
+    public string TimeZone { get; set; }
+
+    [Ignore]
+    public MailAccount MailAccount { get; set; }
+}

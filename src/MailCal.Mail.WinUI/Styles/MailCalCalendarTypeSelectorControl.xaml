@@ -1,0 +1,71 @@
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:MailCal.Calendar.Controls"
+    xmlns:controls1="using:MailCal.Mail.WinUI.Controls">
+
+    <Style TargetType="controls:MailCalCalendarTypeSelectorControl">
+        <Style.Setters>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="controls:MailCalCalendarTypeSelectorControl">
+                        <CommandBar
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch"
+                            DefaultLabelPosition="Right">
+
+                            <CommandBar.PrimaryCommands>
+                                <AppBarButton
+                                    x:Name="PART_TodayButton"
+                                    AutomationProperties.AutomationId="PARTTodayButton"
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
+                                    <AppBarButton.Icon>
+                                        <controls1:MailCalFontIcon FontFamily="{ThemeResource MailCalIconFontFamily}" Icon="CalendarToday" />
+                                    </AppBarButton.Icon>
+                                </AppBarButton>
+
+                                <AppBarSeparator />
+
+                                <AppBarToggleButton
+                                    x:Name="PART_DayToggle"
+                                    AutomationProperties.AutomationId="PARTDayToggle"
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
+                                    <AppBarToggleButton.Icon>
+                                        <controls1:MailCalFontIcon FontFamily="{ThemeResource MailCalIconFontFamily}" Icon="CalendarDay" />
+                                    </AppBarToggleButton.Icon>
+                                </AppBarToggleButton>
+
+                                <AppBarToggleButton
+                                    x:Name="PART_WeekToggle"
+                                    AutomationProperties.AutomationId="PARTWeekToggle"
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
+                                    <AppBarToggleButton.Icon>
+                                        <controls1:MailCalFontIcon FontFamily="{ThemeResource MailCalIconFontFamily}" Icon="CalendarWeek" />
+                                    </AppBarToggleButton.Icon>
+                                </AppBarToggleButton>
+
+                                <AppBarToggleButton
+                                    x:Name="PART_WorkWeekToggle"
+                                    AutomationProperties.AutomationId="PARTWorkWeekToggle"
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
+                                    <AppBarToggleButton.Icon>
+                                        <controls1:MailCalFontIcon FontFamily="{ThemeResource MailCalIconFontFamily}" Icon="CalendarWorkWeek" />
+                                    </AppBarToggleButton.Icon>
+                                </AppBarToggleButton>
+
+                                <AppBarToggleButton
+                                    x:Name="PART_MonthToggle"
+                                    AutomationProperties.AutomationId="PARTMonthToggle"
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
+                                    <AppBarToggleButton.Icon>
+                                        <controls1:MailCalFontIcon FontFamily="{ThemeResource MailCalIconFontFamily}" Icon="CalendarMonth" />
+                                    </AppBarToggleButton.Icon>
+                                </AppBarToggleButton>
+                            </CommandBar.PrimaryCommands>
+                        </CommandBar>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style.Setters>
+    </Style>
+</ResourceDictionary>

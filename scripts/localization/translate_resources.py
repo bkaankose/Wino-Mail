@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-One-off maintenance script for syncing translated Wino `resources.json` files
+One-off maintenance script for syncing translated Mail-Cal `resources.json` files
 with `en_US/resources.json` and bulk-translating missing keys via the OpenAI API.
 
 By default this script runs in dry-run mode and only reports the planned changes.
@@ -13,7 +13,7 @@ Examples:
 
 
 Usage:
-    Set WINO_OPENAI_API_KEY as described in docs/local-script-environment.md.
+    Set MAILCAL_OPENAI_API_KEY as described in docs/local-script-environment.md.
     python .\\scripts\\localization\\translate_resources.py --dry-run
     python .\\scripts\\localization\\translate_resources.py --apply --workers 4
 """
@@ -62,12 +62,12 @@ LOCALE_LABELS = {
 }
 
 DEFAULT_TRANSLATIONS_ROOT = (
-    Path(__file__).resolve().parents[2] / "src" / "Wino.Core.Domain" / "Translations"
+    Path(__file__).resolve().parents[2] / "src" / "MailCal.Core.Domain" / "Translations"
 )
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Bulk-sync and translate Wino resources.json files.")
+    parser = argparse.ArgumentParser(description="Bulk-sync and translate Mail-Cal resources.json files.")
     parser.add_argument(
         "--translations-root",
         default=str(DEFAULT_TRANSLATIONS_ROOT),
@@ -103,8 +103,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--model",
-        default=os.environ.get("WINO_TRANSLATION_MODEL") or "gpt-5.6-luna",
-        help="OpenAI model name. Defaults to WINO_TRANSLATION_MODEL or gpt-5.6-luna.",
+        default=os.environ.get("MAILCAL_TRANSLATION_MODEL") or "gpt-5.6-luna",
+        help="OpenAI model name. Defaults to MAILCAL_TRANSLATION_MODEL or gpt-5.6-luna.",
     )
     parser.add_argument(
         "--dry-run",
@@ -187,7 +187,7 @@ def call_openai_chat(
         "- {0}, {1}, {Name}, {{escaped braces}}",
         "- %s, %1$s and similar printf-style tokens",
         "- Ellipses, punctuation, capitalization, line breaks, tabs, HTML, Markdown, and URLs",
-        "- Product and protocol names such as Wino, Gmail, Outlook, IMAP, SMTP, OAuth, CalDav, Edge, Chrome, Firefox, WebView2, SQLite",
+        "- Product and protocol names such as Mail-Cal, Gmail, Outlook, IMAP, SMTP, OAuth, CalDav, Edge, Chrome, Firefox, WebView2, SQLite",
         "Prefer natural UI phrasing for the target locale.",
         f"Locale code: {locale}",
         "",
@@ -318,7 +318,7 @@ def process_locale(
     if missing_keys and args.apply:
         if not api_key:
             raise RuntimeError(
-                "Missing API key. Set WINO_OPENAI_API_KEY before using --apply."
+                "Missing API key. Set MAILCAL_OPENAI_API_KEY before using --apply."
             )
         missing_entries = [(key, source_data[key]) for key in missing_keys]
         translated_missing = translate_missing_entries(
@@ -377,7 +377,7 @@ def main() -> int:
         print("No target locales found.", file=sys.stderr)
         return 1
 
-    api_key = os.environ.get("WINO_OPENAI_API_KEY")
+    api_key = os.environ.get("MAILCAL_OPENAI_API_KEY")
     print(
         f"Processing {len(locales)} locale(s) from {source_path} "
         f"using model {args.model} in {'apply' if args.apply else 'dry-run'} mode.",

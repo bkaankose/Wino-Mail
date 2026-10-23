@@ -23,13 +23,13 @@ param(
     [ValidateSet('x86', 'x64', 'ARM64')][string[]]$Architectures = @('x64'),
     [string]$BetaAssetsPath,
     [string]$StoreTestCertificateThumbprint,
-    [string]$OutputRoot = $(if ($env:WINO_RELEASES_ROOT) { $env:WINO_RELEASES_ROOT } else { 'D:\Wino Releases' })
+    [string]$OutputRoot = $(if ($env:MAILCAL_RELEASES_ROOT) { $env:MAILCAL_RELEASES_ROOT } else { 'D:\Mail-Cal Releases' })
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $script:ReleaseRepositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
-$script:SideloadIdentityName = 'WinoMail.Sideload'
+$script:SideloadIdentityName = 'MailCal.Sideload'
 $script:BetaAssetsPath = $BetaAssetsPath
 $script:ReleaseOutputRoot = [IO.Path]::GetFullPath($OutputRoot)
 $script:SideloadPublisher = 'CN=Burak Kaan Köse, O=Burak Kaan Köse, L=Wroclaw, S=Dolnośląskie, C=PL'
@@ -102,7 +102,7 @@ function Assert-ReleaseDestinations {
 function New-ReleasePlan {
     param([object]$Selection, [string]$RepositoryRoot = $script:ReleaseRepositoryRoot)
 
-    $project = Join-Path $RepositoryRoot 'src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj'
+    $project = Join-Path $RepositoryRoot 'src/MailCal.Mail.WinUI/MailCal.Mail.WinUI.csproj'
     $manifestPath = Join-Path (Split-Path $project) 'Package.appxmanifest'
     $manifest = [xml](Get-Content -LiteralPath $manifestPath -Raw)
     $version = Get-ReleaseVersion ([string]$manifest.Package.Identity.Version)
@@ -110,8 +110,8 @@ function New-ReleasePlan {
     $versionRoot = Resolve-ReleaseChildPath $outputRoot $version
     # FolderName names the bundle and its versioned directory on the download site, independent of the local layout.
     $sideloadChannels = @()
-    if ($Selection.Beta) { $sideloadChannels += [pscustomobject]@{ Name = 'Beta'; FolderName = "WinoMail_Beta_$version" } }
-    if ($Selection.Sideload) { $sideloadChannels += [pscustomobject]@{ Name = 'Sideload'; FolderName = "WinoMail_SideloadRelease_$(([version]$version).ToString(3))" } }
+    if ($Selection.Beta) { $sideloadChannels += [pscustomobject]@{ Name = 'Beta'; FolderName = "MailCal_Beta_$version" } }
+    if ($Selection.Sideload) { $sideloadChannels += [pscustomobject]@{ Name = 'Sideload'; FolderName = "MailCal_SideloadRelease_$(([version]$version).ToString(3))" } }
     $destinations = @()
     if ($Selection.Store) { $destinations += Join-Path $versionRoot 'Store' }
     foreach ($channel in $sideloadChannels) { $destinations += Join-Path $versionRoot $channel.Name }
@@ -166,7 +166,7 @@ function Get-StoreSigningCertificate {
     param([object]$Plan, [string]$Thumbprint)
 
     if ([string]::IsNullOrWhiteSpace($Thumbprint)) {
-        $Thumbprint = [Environment]::GetEnvironmentVariable('WINO_STORE_TEST_CERTIFICATE_THUMBPRINT')
+        $Thumbprint = [Environment]::GetEnvironmentVariable('MAILCAL_STORE_TEST_CERTIFICATE_THUMBPRINT')
     }
 
     $now = Get-Date
@@ -186,7 +186,7 @@ function Get-StoreSigningCertificate {
     }
 
     if ($certificates.Count -eq 0) {
-        throw "No Store test signing certificate was found in Cert:\CurrentUser\My for publisher '$($Plan.StorePublisher)'. Create or import one, or set WINO_STORE_TEST_CERTIFICATE_THUMBPRINT."
+        throw "No Store test signing certificate was found in Cert:\CurrentUser\My for publisher '$($Plan.StorePublisher)'. Create or import one, or set MAILCAL_STORE_TEST_CERTIFICATE_THUMBPRINT."
     }
 
     $certificate = $certificates[0]
@@ -206,10 +206,10 @@ function Get-ReleaseSigningConfiguration {
 
     $configuration = @{}
     $settings = @{
-        Endpoint = 'WINO_BETA_RELEASE_SIGNING_ENDPOINT'
-        CodeSigningAccountName = 'WINO_BETA_RELEASE_SIGNING_ACCOUNT_NAME'
-        CertificateProfileName = 'WINO_BETA_RELEASE_SIGNING_CERTIFICATE_PROFILE_NAME'
-        PublisherSubject = 'WINO_BETA_RELEASE_PUBLISHER_SUBJECT'
+        Endpoint = 'MAILCAL_BETA_RELEASE_SIGNING_ENDPOINT'
+        CodeSigningAccountName = 'MAILCAL_BETA_RELEASE_SIGNING_ACCOUNT_NAME'
+        CertificateProfileName = 'MAILCAL_BETA_RELEASE_SIGNING_CERTIFICATE_PROFILE_NAME'
+        PublisherSubject = 'MAILCAL_BETA_RELEASE_PUBLISHER_SUBJECT'
     }
     foreach ($name in $settings.Keys) {
         $configuration[$name] = [Environment]::GetEnvironmentVariable($settings[$name])
@@ -226,13 +226,13 @@ function Get-ReleaseSigningConfiguration {
     }
     $credentials = @{}
     foreach ($name in @('AZURE_TENANT_ID', 'AZURE_CLIENT_ID', 'AZURE_CLIENT_SECRET')) {
-        $inputName = "WINO_BETA_RELEASE_$name"
+        $inputName = "MAILCAL_BETA_RELEASE_$name"
         $value = [Environment]::GetEnvironmentVariable($inputName)
         if ([string]::IsNullOrWhiteSpace($value)) { throw "Set $inputName before building a signed sideload release. See docs/local-script-environment.md." }
         $credentials[$name] = $value
     }
 
-    $dlib = $env:WINO_BETA_RELEASE_SIGNING_DLIB_PATH
+    $dlib = $env:MAILCAL_BETA_RELEASE_SIGNING_DLIB_PATH
     if ([string]::IsNullOrWhiteSpace($dlib)) {
         $roots = @(
             (Join-Path $env:LOCALAPPDATA 'Microsoft/MicrosoftArtifactSigningClientTools'),
@@ -247,19 +247,19 @@ function Get-ReleaseSigningConfiguration {
             Sort-Object FullName | Select-Object -First 1 -ExpandProperty FullName
     }
     if ([string]::IsNullOrWhiteSpace($dlib) -or -not (Test-Path -LiteralPath $dlib -PathType Leaf)) {
-        throw 'Install Azure Artifact Signing Client Tools, or set WINO_BETA_RELEASE_SIGNING_DLIB_PATH to its x64 DLL.'
+        throw 'Install Azure Artifact Signing Client Tools, or set MAILCAL_BETA_RELEASE_SIGNING_DLIB_PATH to its x64 DLL.'
     }
     $distributions = @{}
     if ($IncludeBeta) {
         $distributions.Beta = Get-ReleaseDistributionConfiguration @{
-            AppInstallerUri = $env:WINO_BETA_RELEASE_APPINSTALLER_URI
-            PackageBaseUri = $env:WINO_BETA_RELEASE_PACKAGE_BASE_URI
+            AppInstallerUri = $env:MAILCAL_BETA_RELEASE_APPINSTALLER_URI
+            PackageBaseUri = $env:MAILCAL_BETA_RELEASE_PACKAGE_BASE_URI
         }
     }
     if ($IncludeSideload) {
         $distributions.Sideload = Get-ReleaseDistributionConfiguration @{
-            AppInstallerUri = if ($env:WINO_SIDELOAD_RELEASE_APPINSTALLER_URI) { $env:WINO_SIDELOAD_RELEASE_APPINSTALLER_URI } else { 'https://download.winomail.app/WinoMail.appinstaller' }
-            PackageBaseUri = $env:WINO_SIDELOAD_RELEASE_PACKAGE_BASE_URI
+            AppInstallerUri = $env:MAILCAL_SIDELOAD_RELEASE_APPINSTALLER_URI
+            PackageBaseUri = $env:MAILCAL_SIDELOAD_RELEASE_PACKAGE_BASE_URI
         }
     }
     if ($IncludeBeta -and $IncludeSideload -and $distributions.Beta.AppInstallerUri -eq $distributions.Sideload.AppInstallerUri) {
@@ -286,7 +286,7 @@ function Invoke-ReleaseTool {
     foreach ($argument in $Arguments) { $start.ArgumentList.Add($argument) }
     # MSBuild imports environment variables as properties. Keep local settings and credentials out.
     foreach ($key in @($start.Environment.Keys)) {
-        if ($key -like 'AZURE_*' -or $key -like 'WINO_*' -or $key -like 'OPENAI_*') { $null = $start.Environment.Remove($key) }
+        if ($key -like 'AZURE_*' -or $key -like 'MAILCAL_*' -or $key -like 'OPENAI_*') { $null = $start.Environment.Remove($key) }
     }
     foreach ($key in $SigningEnvironment.Keys) { $start.Environment[$key] = $SigningEnvironment[$key] }
     # Native AOT links through vcvarsall.bat, which runs vswhere.exe from PATH. The Visual Studio installer
@@ -360,7 +360,7 @@ function Get-ReleaseBuildArguments {
     return $arguments + @(
         '-t:Build', '-p:GenerateAppxPackageOnBuild=true', '-p:AppxBundle=Always',
         "-p:AppxBundlePlatforms=$($Plan.Selection.Architectures -join '|')", "-p:UapAppxPackageBuildMode=$mode",
-        "-p:AppxPackageDir=$(Join-Path $Staging 'sdk')\", "-p:WinoReleaseStagingRoot=$(Join-Path $Staging 'exports')",
+        "-p:AppxPackageDir=$(Join-Path $Staging 'sdk')\", "-p:MailCalReleaseStagingRoot=$(Join-Path $Staging 'exports')",
         '-p:AppxPackageSigningEnabled=false', '-p:GenerateTemporaryStoreCertificate=false',
         '-p:GenerateAppInstallerFile=false', '-p:AppxAutoIncrementPackageRevision=false',
         '-p:AppxSymbolPackageEnabled=true', '-p:GenerateTestArtifacts=true'
@@ -418,7 +418,7 @@ function Get-PriCandidates {
 function Get-ReleaseProfile {
     param([object]$Plan, [ValidateSet('Store', 'Beta', 'Sideload')][string]$Channel)
 
-    $path = if ($Channel -eq 'Store') { Join-Path $script:ReleaseRepositoryRoot 'src/Wino.Mail.WinUI/release-profile.json' }
+    $path = if ($Channel -eq 'Store') { Join-Path $script:ReleaseRepositoryRoot 'src/MailCal.Mail.WinUI/release-profile.json' }
         else { Join-Path $PSScriptRoot "profiles/$Channel.json" }
     return Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
 }
@@ -430,7 +430,7 @@ function Get-ReleaseBrandingPaths {
         [IO.Path]::GetRelativePath($Layout, $_.FullName).Replace('\', '/')
     } | Where-Object {
         ($_ -match '^Assets/AppEntries/.+\.(png|svg)$' -and $_ -notmatch '/_Sources/') -or
-        $_ -match '^Assets/(Wino_Icon\.ico|WinoLogo\.png|StoreLogo[^/]*\.png)$' -or
+        $_ -match '^Assets/(MailCal_Icon\.ico|MailCalLogo\.png|StoreLogo[^/]*\.png)$' -or
         $_ -eq 'EML/eml.png'
     } | Sort-Object)
 }
@@ -451,7 +451,7 @@ function Set-ReleaseLayoutProfile {
         foreach ($node in $app.SelectNodes(".//*[local-name()='ToastNotificationActivation']")) { $node.SetAttribute('ToastActivatorCLSID', $Profile.NotificationActivatorIds.$mode) }
         foreach ($server in $app.SelectNodes(".//*[local-name()='ExeServer']")) {
             # The application itself hosts the session-start background task; every other server is the notification host.
-            $isStartupServer = $server.GetAttribute('Executable') -eq 'Wino.Mail.WinUI.exe'
+            $isStartupServer = $server.GetAttribute('Executable') -eq 'MailCal.Mail.WinUI.exe'
             $displayName = if ($isStartupServer) { "$name startup service" } else { "$name notification host" }
             $classId = if ($isStartupServer) { $Profile.StartupTaskActivatorId } else { $Profile.NotificationActivatorIds.$mode }
             $server.SetAttribute('DisplayName', $displayName)
@@ -534,7 +534,7 @@ function New-SideloadPackage {
         throw "Sideload resource candidates differ from the compiled resources for $Architecture."
     }
 
-    $package = Join-Path $Staging "$Channel/packages/WinoMail_${Channel}_$($Plan.Version)_$Architecture.msix"
+    $package = Join-Path $Staging "$Channel/packages/MailCal_${Channel}_$($Plan.Version)_$Architecture.msix"
     $null = New-Item -ItemType Directory -Path (Split-Path $package) -Force
     Invoke-ReleaseTool $Tools.MakeAppx @('pack', '/d', $layout, '/p', $package, '/h', 'SHA256') (Join-Path $Staging "logs/pack-$Architecture.log")
     return $package
@@ -566,7 +566,7 @@ function Assert-ReleaseBundle {
             try {
                 Assert-PackagedReleaseProfile $inner $appManifest $Plan
                 $binaryEntries = @($inner.Entries | Where-Object { $_.Name -match '\.(exe|dll)$' })
-                if (@($binaryEntries | Where-Object { $_.Name -eq 'Wino.Mail.WinUI.exe' }).Count -ne 1) { throw 'The package has no Wino executable.' }
+                if (@($binaryEntries | Where-Object { $_.Name -eq 'MailCal.Mail.WinUI.exe' }).Count -ne 1) { throw 'The package has no Mail-Cal executable.' }
                 foreach ($binary in $binaryEntries) {
                     $stream = $binary.Open()
                     try { $hash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($stream)) } finally { $stream.Dispose() }
@@ -610,7 +610,7 @@ function Assert-PackagedReleaseProfile {
             if ($node.GetAttribute('ToastActivatorCLSID') -cne $profile.NotificationActivatorIds.$mode) { throw 'Notification manifest and runtime IDs differ.' }
         }
         foreach ($server in $app.SelectNodes(".//*[local-name()='ExeServer']")) {
-            $expectedId = if ($server.GetAttribute('Executable') -eq 'Wino.Mail.WinUI.exe') { $profile.StartupTaskActivatorId } else { $profile.NotificationActivatorIds.$mode }
+            $expectedId = if ($server.GetAttribute('Executable') -eq 'MailCal.Mail.WinUI.exe') { $profile.StartupTaskActivatorId } else { $profile.NotificationActivatorIds.$mode }
             foreach ($node in $server.SelectNodes("*[local-name()='Class']")) {
                 if ($node.GetAttribute('Id') -cne $expectedId) { throw 'COM manifest and runtime IDs differ.' }
             }
@@ -650,9 +650,9 @@ function Get-StoreReleaseArtifact {
     $hashes = Assert-ReleaseBundle $bundlePath $Plan $Plan.StoreName $Plan.StorePublisher (Join-Path $Staging 'inspect/store')
     $folder = Join-Path $Staging 'ready/Store'
     $null = New-Item -ItemType Directory -Path $folder -Force
-    Copy-Item -LiteralPath $uploads[0].FullName -Destination (Join-Path $folder "WinoMail_Store_$($Plan.Version).msixupload")
-    $installableBundle = Join-Path $folder "WinoMail_Store_$($Plan.Version).msixbundle"
-    $certificatePath = Join-Path $folder 'WinoMail_Store_TestCertificate.cer'
+    Copy-Item -LiteralPath $uploads[0].FullName -Destination (Join-Path $folder "MailCal_Store_$($Plan.Version).msixupload")
+    $installableBundle = Join-Path $folder "MailCal_Store_$($Plan.Version).msixbundle"
+    $certificatePath = Join-Path $folder 'MailCal_Store_TestCertificate.cer'
     Copy-Item -LiteralPath $bundlePath -Destination $installableBundle
     Sign-StoreReleaseBundle $installableBundle $certificatePath $StoreCertificate $Tools (Join-Path $Staging 'logs/sign-store-test.log')
     return $hashes
@@ -680,7 +680,8 @@ function Copy-ReleaseDependencies {
 function Get-ReleaseDistributionConfiguration {
     param([hashtable]$Configuration)
 
-    $installerText = if ($Configuration['AppInstallerUri']) { $Configuration['AppInstallerUri'] } else { 'https://download.winomail.app/WinoMailBetaIsolated.appinstaller' }
+    $installerText = $Configuration['AppInstallerUri']
+    if (-not $installerText) { throw 'Set the App Installer feed URL for each sideload channel (MAILCAL_BETA_RELEASE_APPINSTALLER_URI, MAILCAL_SIDELOAD_RELEASE_APPINSTALLER_URI). There is no hosted default.' }
     $baseText = if ($Configuration['PackageBaseUri']) { $Configuration['PackageBaseUri'] } else { ([uri]::new([uri]$installerText, '.')).AbsoluteUri }
     $uris = @{}
     foreach ($entry in @{ AppInstallerUri = $installerText; PackageBaseUri = $baseText }.GetEnumerator()) {
@@ -694,7 +695,7 @@ function Get-ReleaseDistributionConfiguration {
     $fileName = [Uri]::UnescapeDataString($uris.AppInstallerUri.Segments[-1])
     if ($fileName -notmatch '^[A-Za-z0-9_.-]+\.appinstaller$') { throw 'AppInstallerUri must end with an .appinstaller filename.' }
     if (-not $uris.PackageBaseUri.AbsolutePath.EndsWith('/')) { throw 'PackageBaseUri must end with a slash.' }
-    if ($uris.AppInstallerUri.AbsolutePath -match '/WinoMailBeta\.appinstaller$') { throw 'The legacy beta feed belongs to WinoMail.Sideload. Use a new beta feed URL.' }
+    if ($uris.AppInstallerUri.AbsolutePath -match '/MailCalBeta\.appinstaller$') { throw 'The legacy beta feed belongs to MailCal.Sideload. Use a new beta feed URL.' }
     return [pscustomobject]@{ AppInstallerUri = $uris.AppInstallerUri; PackageBaseUri = $uris.PackageBaseUri; FileName = $fileName }
 }
 
@@ -712,7 +713,7 @@ function New-SideloadAppInstaller {
     $manifest = Get-ArchiveXml $Bundle 'AppxMetadata/AppxBundleManifest.xml'
     Assert-ReleaseIdentity $manifest.Bundle.Identity $profile.PackageName $script:SideloadPublisher $Plan.Version
     $folder = Split-Path $Bundle
-    # The download site keeps each release in a directory named after its bundle, e.g. WinoMail_Beta_2.2.0.0/.
+    # The download site keeps each release in a directory named after its bundle, e.g. MailCal_Beta_2.2.0.0/.
     $folderName = [IO.Path]::GetFileNameWithoutExtension($Bundle)
     $namespace = 'http://schemas.microsoft.com/appx/appinstaller/2017/2'
     $document = [xml]::new()
@@ -839,14 +840,14 @@ function Copy-ReleaseSymbols {
         throw "The release symbol export directory is missing: $source"
     }
 
-    # Wino.Release.targets exports the .appxsym symbol set per architecture. Managed library PDBs from the
+    # MailCal.Release.targets exports the .appxsym symbol set per architecture. Managed library PDBs from the
     # payload are not kept: Native AOT compiles them into the image, so crashes never reference them.
     $staged = Resolve-ReleaseChildPath $Staging 'symbols'
     if (Test-Path -LiteralPath $staged) { throw "The staged symbol directory already exists: $staged" }
     foreach ($architecture in $Plan.Selection.Architectures) {
         $exported = Resolve-ReleaseChildPath $source "$architecture/symbols"
-        if (-not (Test-Path -LiteralPath (Join-Path $exported 'Wino.Mail.WinUI.pdb') -PathType Leaf)) {
-            throw "The $architecture build did not export the Native AOT symbol file Wino.Mail.WinUI.pdb: $exported"
+        if (-not (Test-Path -LiteralPath (Join-Path $exported 'MailCal.Mail.WinUI.pdb') -PathType Leaf)) {
+            throw "The $architecture build did not export the Native AOT symbol file MailCal.Mail.WinUI.pdb: $exported"
         }
         $target = Resolve-ReleaseChildPath $staged $architecture
         $null = New-Item -ItemType Directory -Path $target -Force
@@ -990,8 +991,8 @@ function Invoke-ReleaseTranslation {
         else { Read-ReleaseChoice 'Translate missing resources with translate_resources.py before building? (yes/no)' @{ yes = $true; y = $true; no = $false; n = $false } }
     if (-not $run) { return }
 
-    if ([string]::IsNullOrWhiteSpace($env:WINO_OPENAI_API_KEY)) {
-        throw 'WINO_OPENAI_API_KEY is not set. Set it as described in docs/local-script-environment.md, or skip translation.'
+    if ([string]::IsNullOrWhiteSpace($env:MAILCAL_OPENAI_API_KEY)) {
+        throw 'MAILCAL_OPENAI_API_KEY is not set. Set it as described in docs/local-script-environment.md, or skip translation.'
     }
     & python (Join-Path $RepositoryRoot 'scripts/localization/translate_resources.py') --apply
     if ($LASTEXITCODE -ne 0) { throw "Translation failed with exit code $LASTEXITCODE. Nothing was built." }
@@ -1006,7 +1007,7 @@ function Invoke-InteractiveRelease {
     if ($null -eq $selection) { Write-Host 'No channels selected. Nothing to build.'; return }
     $plan = New-ReleasePlan $selection
     if (-not (Confirm-ReleaseWhatsNew $plan)) { Write-Host 'Release stopped. Add the What''s New notes first.'; return }
-    if ($selection.Beta -and -not (Test-Path -LiteralPath (Join-Path $plan.BetaAssetsPath 'Assets/Wino_Icon.ico') -PathType Leaf)) {
+    if ($selection.Beta -and -not (Test-Path -LiteralPath (Join-Path $plan.BetaAssetsPath 'Assets/MailCal_Icon.ico') -PathType Leaf)) {
         throw "Supply beta artwork under $($plan.BetaAssetsPath) before building. See scripts/release/Assets/Beta/README.md."
     }
     Write-Host "Version: $($plan.Version) | Store: $($selection.Store) | Beta: $($selection.Beta) | Stable sideload: $($selection.Sideload) | Architectures: $($selection.Architectures -join ', ')"

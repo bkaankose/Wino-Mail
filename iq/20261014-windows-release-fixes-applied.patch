@@ -1,7 +1,7 @@
-diff --git a/src/Wino.Core/Services/ApplicationRuntime.cs b/src/Wino.Core/Services/ApplicationRuntime.cs
+diff --git a/src/MailCal.Core/Services/ApplicationRuntime.cs b/src/MailCal.Core/Services/ApplicationRuntime.cs
 index 77ecedd1..33dcfd72 100644
---- a/src/Wino.Core/Services/ApplicationRuntime.cs
-+++ b/src/Wino.Core/Services/ApplicationRuntime.cs
+--- a/src/MailCal.Core/Services/ApplicationRuntime.cs
++++ b/src/MailCal.Core/Services/ApplicationRuntime.cs
 @@ -156,7 +156,19 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
  
          try
@@ -9,25 +9,25 @@ index 77ecedd1..33dcfd72 100644
 -            var cancellation = _synchronizationManager.GetAllSynchronizers()
 +            // A runtime stopped before initialization step 2 completed has no synchronizers to drain,
 +            // and the manager throws rather than returning an empty set in that state.
-+            IEnumerable<IWinoSynchronizerBase> synchronizers;
++            IEnumerable<IMailCalSynchronizerBase> synchronizers;
 +            try
 +            {
 +                synchronizers = _synchronizationManager.GetAllSynchronizers();
 +            }
 +            catch (InvalidOperationException)
 +            {
-+                synchronizers = Array.Empty<IWinoSynchronizerBase>();
++                synchronizers = Array.Empty<IMailCalSynchronizerBase>();
 +            }
 +
 +            var cancellation = synchronizers
                  .Select(x => _synchronizationManager.CancelSynchronizationsAsync(x.Account.Id));
              // Stopped means the runtime has actually drained. A timeout must never
              // authorize native process termination while provider work is still running.
-diff --git a/src/Wino.Core/Synchronizers/GmailSynchronizer.cs b/src/Wino.Core/Synchronizers/GmailSynchronizer.cs
+diff --git a/src/MailCal.Core/Synchronizers/GmailSynchronizer.cs b/src/MailCal.Core/Synchronizers/GmailSynchronizer.cs
 index 29ef21be..1e522936 100644
---- a/src/Wino.Core/Synchronizers/GmailSynchronizer.cs
-+++ b/src/Wino.Core/Synchronizers/GmailSynchronizer.cs
-@@ -1194,11 +1194,12 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
+--- a/src/MailCal.Core/Synchronizers/GmailSynchronizer.cs
++++ b/src/MailCal.Core/Synchronizers/GmailSynchronizer.cs
+@@ -1194,11 +1194,12 @@ public partial class GmailSynchronizer : MailCalSynchronizer<IGoogleApiRequest, Mes
              ?? gmailProfileAddress
              ?? Account.Address;
  
@@ -42,10 +42,10 @@ index 29ef21be..1e522936 100644
              : senderName;
  
          senderName = string.IsNullOrWhiteSpace(senderName)
-diff --git a/src/Wino.Services/AccountService.cs b/src/Wino.Services/AccountService.cs
+diff --git a/src/MailCal.Services/AccountService.cs b/src/MailCal.Services/AccountService.cs
 index 02d6d4e3..416bdb4a 100644
---- a/src/Wino.Services/AccountService.cs
-+++ b/src/Wino.Services/AccountService.cs
+--- a/src/MailCal.Services/AccountService.cs
++++ b/src/MailCal.Services/AccountService.cs
 @@ -446,7 +446,10 @@ public class AccountService : BaseDatabaseService, IAccountService
  
          if (account.MergedInboxId != null)
@@ -58,10 +58,10 @@ index 02d6d4e3..416bdb4a 100644
  
              // There will be only one account in the merged inbox. Remove the link for the other account as well.
              if (mergedInboxAccountCount == 2)
-diff --git a/src/Wino.Services/CalendarService.cs b/src/Wino.Services/CalendarService.cs
+diff --git a/src/MailCal.Services/CalendarService.cs b/src/MailCal.Services/CalendarService.cs
 index 791015fe..29e2d1fe 100644
---- a/src/Wino.Services/CalendarService.cs
-+++ b/src/Wino.Services/CalendarService.cs
+--- a/src/MailCal.Services/CalendarService.cs
++++ b/src/MailCal.Services/CalendarService.cs
 @@ -91,9 +91,10 @@ public class CalendarService : BaseDatabaseService, ICalendarService
  
      public async Task DeleteAccountCalendarAsync(AccountCalendar accountCalendar)
@@ -75,10 +75,10 @@ index 791015fe..29e2d1fe 100644
          await Connection.DeleteAsync<AccountCalendar>(accountCalendar.Id);
  
          WeakReferenceMessenger.Default.Send(new CalendarListDeleted(accountCalendar));
-diff --git a/src/Wino.Services/MailService.cs b/src/Wino.Services/MailService.cs
+diff --git a/src/MailCal.Services/MailService.cs b/src/MailCal.Services/MailService.cs
 index ff27a6bd..f9c814ad 100644
---- a/src/Wino.Services/MailService.cs
-+++ b/src/Wino.Services/MailService.cs
+--- a/src/MailCal.Services/MailService.cs
++++ b/src/MailCal.Services/MailService.cs
 @@ -1788,7 +1788,8 @@ public class MailService : BaseDatabaseService, IMailService
          MailCopy removedMail = null;
          var mailCopyToInsert = mailCopy;

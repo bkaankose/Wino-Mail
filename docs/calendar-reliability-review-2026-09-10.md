@@ -5,7 +5,7 @@
 - Calendar menus display global shortcuts, including the configured Delete binding.
 - Event cards use nearly square corners and top-left titles, with time and location when height permits.
 - Shift + left drag highlights an inclusive cell range and opens quick creation on release. End dates survive midnight and month-range selection.
-- Calendar item menus now use `WinoContextFlyout` and its shared presenter. Menu definitions distinguish submenus from executable commands.
+- Calendar item menus now use `MailCalContextFlyout` and its shared presenter. Menu definitions distinguish submenus from executable commands.
 - Delete and Join online no longer fail the old optional-parameter guard. Commands capture their event before the flyout closes.
 - Busy events and changes to read-only calendars have disabled commands.
 - Overlapped events have an explicit `Border`, an opaque background, and a themed outline.
@@ -40,7 +40,7 @@ Microsoft requires the immutable-ID preference on each request and documents cas
 Both `SynchronizeCalendarsAsync` implementations fetch one response and compare that response with every local calendar.
 They delete local calendars absent from that first page. Neither implementation follows the calendar-list continuation token before deletion.
 
-Evidence: `src/Wino.Core/Synchronizers/OutlookSynchronizer.cs:4367` and `src/Wino.Core/Synchronizers/GmailSynchronizer.cs:1726`.
+Evidence: `src/MailCal.Core/Synchronizers/OutlookSynchronizer.cs:4367` and `src/MailCal.Core/Synchronizers/GmailSynchronizer.cs:1726`.
 The next change needs complete pagination before comparison, plus tests for second-page calendars and a failed continuation request.
 
 ### P1: Recurring events can lose their series relationship
@@ -48,13 +48,13 @@ The next change needs complete pagination before comparison, plus tests for seco
 Outlook sorts delta entries by event type, but calendar-view responses contain occurrences and exceptions without necessarily including their series master.
 The processor saves children without a parent and only logs a warning. Series commands then lack the required relationship.
 
-Evidence: `src/Wino.Core/Integration/Processors/OutlookChangeProcessor.cs:98` and `src/Wino.Core/Synchronizers/OutlookSynchronizer.cs:4266`.
+Evidence: `src/MailCal.Core/Integration/Processors/OutlookChangeProcessor.cs:98` and `src/MailCal.Core/Synchronizers/OutlookSynchronizer.cs:4266`.
 The next change needs explicit parent retrieval and persistence before child processing.
 
 Gmail retrieves missing parents, but catches retrieval errors and returns normally. Its processor can then skip the child without throwing.
 That path still permits checkpoint advancement despite the exception-based checkpoint guard in this patch.
 
-Evidence: `src/Wino.Core/Synchronizers/GmailSynchronizer.cs:1676` and `src/Wino.Core/Integration/Processors/GmailChangeProcessor.cs:84`.
+Evidence: `src/MailCal.Core/Synchronizers/GmailSynchronizer.cs:1676` and `src/MailCal.Core/Integration/Processors/GmailChangeProcessor.cs:84`.
 The next change needs an explicit processing result, including separate handling for deleted series and retryable parent failures.
 
 ### P1: Full synchronization does not reconcile stale local events
@@ -63,7 +63,7 @@ Gmail clears an expired token and downloads again, but does not compare the comp
 Events absent from the new snapshot can remain locally. Google requires local-state replacement after an invalid token.
 See [Google synchronization guidance](https://developers.google.com/workspace/calendar/api/guides/sync).
 
-Evidence: `src/Wino.Core/Synchronizers/GmailSynchronizer.cs:1595`.
+Evidence: `src/MailCal.Core/Synchronizers/GmailSynchronizer.cs:1595`.
 The next change needs a complete staged snapshot and reconciliation that preserves pending local writes and local reminders.
 
 ### P2: Outlook synchronization has a fixed date window and incomplete reset behavior
@@ -71,7 +71,7 @@ The next change needs a complete staged snapshot and reconciliation that preserv
 Initial synchronization covers two years before and after its start date. Stored deltas retain that original window as time passes.
 The code also has no calendar-specific expired-token recovery. It extracts the token instead of storing the full continuation URL.
 
-Evidence: `src/Wino.Core/Synchronizers/OutlookSynchronizer.cs:4219` and `src/Wino.Core/Synchronizers/OutlookSynchronizer.cs:4326`.
+Evidence: `src/MailCal.Core/Synchronizers/OutlookSynchronizer.cs:4219` and `src/MailCal.Core/Synchronizers/OutlookSynchronizer.cs:4326`.
 The next change needs stored window boundaries, controlled window expansion, and expired-token snapshot reconciliation.
 Microsoft documents opaque continuation URLs and fixed calendar-view ranges in [calendar delta guidance](https://learn.microsoft.com/en-us/graph/delta-query-events).
 
@@ -80,7 +80,7 @@ Microsoft documents opaque continuation URLs and fixed calendar-view ranges in [
 Outlook catches errors from local create persistence and attachment upload, logs at Debug level, and returns normally.
 The remote event can exist while its local mapping or attachments remain incomplete.
 
-Evidence: `src/Wino.Core/Synchronizers/OutlookSynchronizer.cs:3835`.
+Evidence: `src/MailCal.Core/Synchronizers/OutlookSynchronizer.cs:3835`.
 The next change needs separate event-creation and attachment outcomes. Retrying attachment failure must not create another remote event.
 
 ### P2: Join online opens the event page
@@ -88,7 +88,7 @@ The next change needs separate event-creation and attachment outcomes. Retrying 
 Outlook stores `WebLink` as `HtmlLink`. Gmail stores the event's `HtmlLink`.
 The Join online command opens this value, which is not necessarily a Teams or Meet conference URL.
 
-Evidence: `src/Wino.Core/Integration/Processors/OutlookChangeProcessor.cs:126`, `src/Wino.Core/Integration/Processors/GmailChangeProcessor.cs:164`, and `src/Wino.Calendar.ViewModels/CalendarPageViewModel.cs:1299`.
+Evidence: `src/MailCal.Core/Integration/Processors/OutlookChangeProcessor.cs:126`, `src/MailCal.Core/Integration/Processors/GmailChangeProcessor.cs:164`, and `src/MailCal.Calendar.ViewModels/CalendarPageViewModel.cs:1299`.
 The next change needs a separate conference URL or a label that accurately describes opening the provider event page.
 
 ## Checks
@@ -101,7 +101,7 @@ The next change needs a separate conference URL or a label that accurately descr
 - WinApp 0.6 deployed the existing manifest identity. Process: `24324`. Window: `1640718`. Theme: Dark.
 - Calendar navigation: activated the Calendar item and checked that the calendar toolbar appeared.
 - Context menu: opened an existing event, entered Show as, and found `CalendarContextShowAsSingleBusy`.
-- Quick creation: saved `Wino calendar QA 20260910` and found exactly one visible title.
+- Quick creation: saved `Mail-Cal calendar QA 20260910` and found exactly one visible title.
 - Deletion: invoked `CalendarContextDelete`, waited for the QA title to disappear, requested synchronization, and found zero matching titles afterward.
 - The QA event had no attendees. Existing calendar events were not deleted.
 - Visual evidence: `artifacts/calendar-review-current.png` and `artifacts/calendar-review-flyout.png` show the overlap outlines and shared presenter.

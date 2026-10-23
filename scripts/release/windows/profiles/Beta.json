@@ -1,12 +1,12 @@
 {
   "Distribution": "Beta",
-  "PackageName": "WinoMail.Beta",
+  "PackageName": "MailCal.Beta",
   "Publisher": "CN=Burak Kaan Köse, O=Burak Kaan Köse, L=Wroclaw, S=Dolnośląskie, C=PL",
   "DisplayNames": {
-    "Mail": "Wino Mail Beta",
-    "Calendar": "Wino Calendar Beta",
-    "People": "Wino People Beta",
-    "Tasks": "Wino To Do Beta"
+    "Mail": "Mail-Cal Beta",
+    "Calendar": "Mail-Cal Calendar Beta",
+    "People": "Mail-Cal People Beta",
+    "Tasks": "Mail-Cal To Do Beta"
   },
   "NotificationActivatorIds": {
     "Mail": "831a4df3-e11b-55ae-953c-5296e497a280",

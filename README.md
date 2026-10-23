@@ -7,13 +7,13 @@ A standalone fork of [Wino Mail](https://github.com/bkaankose/Wino-Mail): a nati
 - **No external services.** The fork removes Wino Account, Wino Sync, AI and intelligence features (summaries, Daily Briefing, rewrite), Microsoft Store purchases and update checks, Sentry telemetry, Gravatar and favicon lookups, and third-party mail autodiscovery.
 - **No account limit.** There is no paid add-on.
 - **Calendar tray popup.** The tray icon opens a month calendar, the events of the selected day, and a quick-add form.
-- **Its own package identity** (`hairokuma.MailCal`), so it installs next to Wino Mail.
+- **Its own name and package identity** (`hairokuma.MailCal`), so it installs next to Wino Mail. Code, projects and files use the `MailCal` name.
 
 Network traffic goes only to your providers: IMAP/SMTP/POP3 servers, Gmail and Google Calendar APIs, Microsoft Graph, CalDAV/CardDAV servers, and their sign-in endpoints.
 
 ### OAuth client IDs
 
-Gmail and Outlook sign-in still use the OAuth client registrations of upstream Wino Mail (`src/Wino.Authentication/MailAuthenticatorConfiguration.cs`). For a fully independent build, register your own Azure app and Google OAuth client and replace those IDs.
+Gmail and Outlook sign-in still use the OAuth client registrations of upstream Wino Mail (`src/MailCal.Authentication/MailAuthenticatorConfiguration.cs`). For a fully independent build, register your own Azure app and Google OAuth client and replace those IDs.
 
 ## Features
 
@@ -32,7 +32,7 @@ Gmail and Outlook sign-in still use the OAuth client registrations of upstream W
 Requirements: Windows with Developer Mode, the .NET SDK from `global.json`, and [WinApp CLI](https://github.com/microsoft/WinAppCli) 0.7 or later.
 
 ```powershell
-winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --arch x64 --detach
+winapp run src/MailCal.Mail.WinUI/MailCal.Mail.WinUI.csproj --arch x64 --detach
 ```
 
 See [Windows development](docs/harness/development-windows.md) for F5 debugging and build details.

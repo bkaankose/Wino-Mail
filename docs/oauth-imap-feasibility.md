@@ -4,7 +4,7 @@ Research snapshot from 2026-09-29 for the Gmail sign-in reliability work and a p
 OAuth path for IMAP/SMTP accounts. Everything marked *unverified* was not confirmed against a
 primary source and needs a check before it drives a design decision.
 
-## 1. What Wino has today
+## 1. What Mail-Cal has today
 
 - Gmail: authorization code + PKCE, public client, system browser, `HttpListener` on
   `http://127.0.0.1:{port}/authorize/`, tokens in JSON files under the app data folder.
@@ -40,7 +40,7 @@ Yandex ID docs, Thunderbird `OAuth2Providers.sys.mjs`, MailKit `ExchangeOAuth2.m
 Practical reading: a generic "OAuth for IMAP" feature realistically covers Microsoft accounts on
 IMAP (useful for tenants that block the Graph app or for users who prefer IMAP), Google (already
 handled by the Gmail provider), and Fastmail or Yahoo only after a partner registration. Yandex and
-Mail.ru work only if Wino ships a client secret the way Thunderbird does, which is acceptable for
+Mail.ru work only if Mail-Cal ships a client secret the way Thunderbird does, which is acceptable for
 a desktop app (the secret is not confidential) but must be a deliberate choice.
 
 ## 3. Flows that fit a native Windows app
@@ -75,12 +75,12 @@ server accepts a token, not where to get one.
   `rundll32 url.dll,FileProtocolHandler`, relies on the identity provider echoing `state` untouched.
   Deprecated by its author since WinUIEx 2.6 in favor of `OAuth2Manager`. Not worth adopting new.
 - MSAL with the WAM broker works for Microsoft identities only; its system-browser fallback is the
-  same loopback listener Wino uses for Google.
+  same loopback listener Mail-Cal uses for Google.
 
 Loopback hardening that matters more than any broker for the reported Google failures:
 
 - Browser launch: `Launcher.LaunchUriAsync` returns `false` instead of throwing and needs the app in
-  the foreground. Wino already resolves the default browser executable directly; the new dialog adds
+  the foreground. Mail-Cal already resolves the default browser executable directly; the new dialog adds
   the copy-link escape hatch when both paths fail.
 - `HttpListener` on `http://127.0.0.1:{port}` needs no URL ACL for the current user on Windows 10+,
   but group policy can remove the reservation. A raw `TcpListener` sidesteps HTTP.sys entirely if
@@ -115,7 +115,7 @@ Loopback hardening that matters more than any broker for the reported Google fai
   endpoints, scopes, SASL mechanism preference (OAUTHBEARER before XOAUTH2), redirect style
   (loopback or scheme), client id, optional client secret, PKCE flag, and an optional discovery URL.
   Start with Microsoft and Google; add Fastmail and Yahoo when a registration exists.
-- A shared `BrowserAuthorizationCodeFlow` extracted from `WinoGmailCodeReceiver`: build the
+- A shared `BrowserAuthorizationCodeFlow` extracted from `MailCalGmailCodeReceiver`: build the
   authorization URI, run the loopback listener, drive `IExternalBrowserAuthenticationPresenter`,
   exchange the code. The Gmail authenticator becomes one consumer of it.
 - An `IImapOAuthTokenStore` behind the credential locker and an `ImapOAuthAuthenticator`
@@ -126,4 +126,4 @@ Loopback hardening that matters more than any broker for the reported Google fai
   on `client.AuthenticationMechanisms`; otherwise keep the password path.
 - Wizard: when the entered IMAP host matches an issuer, offer "Sign in with {provider}" next to the
   password fields, and keep an advanced escape hatch for a user-supplied client id and secret
-  (FairEmail model) so power users can use providers Wino has no registration for.
+  (FairEmail model) so power users can use providers Mail-Cal has no registration for.

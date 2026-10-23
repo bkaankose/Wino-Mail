@@ -1,0 +1,63 @@
+﻿<ContentDialog
+    x:Class="MailCal.Mail.Dialogs.ImapValidationFailedDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:MailCal.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="{x:Bind domain:Translator.ImapValidationFailedDialog_Title, Mode=OneTime}"
+    CloseButtonText="{x:Bind domain:Translator.Buttons_Close, Mode=OneTime}"
+    DefaultButton="Close"
+    PrimaryButtonClick="CopyDiagnosticsClicked"
+    PrimaryButtonText="{x:Bind domain:Translator.ImapValidationFailedDialog_Copy, Mode=OneTime}"
+    Style="{StaticResource MailCalDialogStyle}"
+    mc:Ignorable="d">
+
+    <ContentDialog.Resources>
+        <x:Double x:Key="ContentDialogMaxWidth">900</x:Double>
+    </ContentDialog.Resources>
+
+    <Grid MaxWidth="820" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <InfoBar
+            Title="{x:Bind domain:Translator.ImapValidationFailedDialog_ErrorSummary, Mode=OneTime}"
+            AutomationProperties.Name="{x:Bind domain:Translator.ImapValidationFailedDialog_ErrorSummary, Mode=OneTime}"
+            IsClosable="False"
+            IsOpen="True"
+            Message="{x:Bind ErrorMessage}"
+            Severity="Error" />
+
+        <TextBlock
+            Grid.Row="1"
+            Style="{ThemeResource BodyStrongTextBlockStyle}"
+            Text="{x:Bind domain:Translator.ImapValidationFailedDialog_ProtocolLog, Mode=OneTime}" />
+
+        <Border
+            Grid.Row="2"
+            MaxHeight="480"
+            Padding="12"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="6">
+            <ScrollViewer
+                HorizontalScrollBarVisibility="Auto"
+                HorizontalScrollMode="Enabled"
+                VerticalScrollBarVisibility="Auto"
+                VerticalScrollMode="Enabled">
+                <TextBlock
+                    AutomationProperties.Name="{x:Bind domain:Translator.ImapValidationFailedDialog_ProtocolLog, Mode=OneTime}"
+                    FontFamily="Consolas"
+                    FontSize="12"
+                    IsTextSelectionEnabled="True"
+                    Text="{x:Bind ProtocolLog}"
+                    TextWrapping="NoWrap" />
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</ContentDialog>

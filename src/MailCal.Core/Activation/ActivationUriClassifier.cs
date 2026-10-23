@@ -1,0 +1,80 @@
+#nullable enable
+
+using System;
+using MailCal.Core.Domain.Enums;
+
+namespace MailCal.Core.Activation;
+
+/// <summary>What an operating-system activation URL asks Mail-Cal to do.</summary>
+public enum ActivationUriKind
+{
+    Unsupported,
+    MailTo,
+    Webcal,
+    CalendarFile,
+    ContactFile,
+    MailFile
+}
+
+/// <summary>
+/// Classifies the URLs a platform head receives from the OS (URL schemes and opened documents)
+/// without touching services, so every head routes them the same way. <c>.eml</c> files classify as
+/// <see cref="ActivationUriKind.MailFile"/> and open read-only in the mail reader.
+/// </summary>
+public static class ActivationUriClassifier
+{
+    public static ActivationUriKind Classify(Uri? uri)
+    {
+        if (uri == null || !uri.IsAbsoluteUri)
+            return ActivationUriKind.Unsupported;
+
+        if (uri.IsFile)
+            return ClassifyFilePath(uri.LocalPath);
+
+        if (string.Equals(uri.Scheme, "mailto", StringComparison.OrdinalIgnoreCase))
+            return ActivationUriKind.MailTo;
+
+        if (SecondaryEntryActivationContract.TryCreateProtocol(uri, out _))
+            return ActivationUriKind.Webcal;
+
+        return ActivationUriKind.Unsupported;
+    }
+
+    /// <summary>Classifies a URL string or an absolute file path.</summary>
+    public static ActivationUriKind Classify(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return ActivationUriKind.Unsupported;
+
+        var trimmed = value.Trim();
+
+        // A mailto URL without "//" is still absolute; Uri parses it, but a bare path must not be
+        // mistaken for one, so absolute paths go straight to the file rules.
+        if (trimmed.StartsWith('/'))
+            return ClassifyFilePath(trimmed);
+
+        return Uri.TryCreate(trimmed, UriKind.Absolute, out var uri)
+            ? Classify(uri)
+            : ActivationUriKind.Unsupported;
+    }
+
+    public static ActivationUriKind ClassifyFilePath(string? path)
+    {
+        if (string.Equals(System.IO.Path.GetExtension(path), ".eml", StringComparison.OrdinalIgnoreCase))
+            return ActivationUriKind.MailFile;
+
+        if (!SecondaryEntryActivationContract.TryResolveFileMode(path, out var mode))
+            return ActivationUriKind.Unsupported;
+
+        return mode == MailCalApplicationMode.Calendar ? ActivationUriKind.CalendarFile : ActivationUriKind.ContactFile;
+    }
+
+    /// <summary>The application mode an activation opens, or null when it opens Settings or nothing.</summary>
+    public static MailCalApplicationMode? GetMode(ActivationUriKind kind) => kind switch
+    {
+        ActivationUriKind.MailTo or ActivationUriKind.MailFile => MailCalApplicationMode.Mail,
+        ActivationUriKind.Webcal or ActivationUriKind.CalendarFile => MailCalApplicationMode.Calendar,
+        ActivationUriKind.ContactFile => MailCalApplicationMode.Contacts,
+        _ => null
+    };
+}

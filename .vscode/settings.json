@@ -1,7 +1,7 @@
 {
-    "dotnet.defaultSolution": "WinoMail.slnx",
+    "dotnet.defaultSolution": "MailCal.slnx",
     "winapp.appDirectories": [
-        "src/Wino.Mail.WinUI"
+        "src/MailCal.Mail.WinUI"
     ],
     "debug.hideSlowPreLaunchWarning": true
 }

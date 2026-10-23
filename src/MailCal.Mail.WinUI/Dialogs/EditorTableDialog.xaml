@@ -1,0 +1,34 @@
+﻿<ContentDialog
+    x:Class="MailCal.Dialogs.EditorTableDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:MailCal.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="{x:Bind domain:Translator.Composer_InsertTable, Mode=OneTime}"
+    CloseButtonText="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}"
+    DefaultButton="Primary"
+    PrimaryButtonClick="InsertClicked"
+    PrimaryButtonText="{x:Bind domain:Translator.Buttons_Insert, Mode=OneTime}"
+    Style="{StaticResource MailCalDialogStyle}"
+    mc:Ignorable="d">
+
+    <StackPanel Spacing="12">
+        <NumberBox
+            x:Name="RowsNumberBox"
+            AutomationProperties.AutomationId="EditorTableRowsNumberBox"
+            Header="{x:Bind domain:Translator.Composer_TableRows, Mode=OneTime}"
+            Maximum="10"
+            Minimum="1"
+            SmallChange="1"
+            Value="2" />
+        <NumberBox
+            x:Name="ColumnsNumberBox"
+            AutomationProperties.AutomationId="EditorTableColumnsNumberBox"
+            Header="{x:Bind domain:Translator.Composer_TableColumns, Mode=OneTime}"
+            Maximum="10"
+            Minimum="1"
+            SmallChange="1"
+            Value="2" />
+    </StackPanel>
+</ContentDialog>

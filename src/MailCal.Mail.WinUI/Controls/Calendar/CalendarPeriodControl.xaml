@@ -1,0 +1,268 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="MailCal.Calendar.Controls.CalendarPeriodControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:helpers="using:MailCal.Helpers"
+    xmlns:local="using:MailCal.Calendar.Controls"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewModels="using:MailCal.Calendar.ViewModels.Data"
+    xmlns:win2d="using:Microsoft.Graphics.Canvas.UI.Xaml"
+    x:Name="Root"
+    AutomationProperties.AutomationId="CalendarPeriodSurface"
+    IsTabStop="True"
+    KeyDown="SelectionKeyDown"
+    SizeChanged="ControlSizeChanged"
+    Unloaded="ControlUnloaded"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <DataTemplate x:Key="CalendarEventTemplate" x:DataType="viewModels:CalendarItemViewModel">
+            <local:CalendarItemControl CalendarItem="{x:Bind}" />
+        </DataTemplate>
+
+        <DataTemplate x:Key="OverlappedCalendarEventTemplate" x:DataType="viewModels:CalendarItemViewModel">
+            <Border
+                Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                BorderBrush="{ThemeResource ControlStrongStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="1">
+                <local:CalendarItemControl CalendarItem="{x:Bind}" />
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="ProtectedTitleCalendarEventTemplate" x:DataType="viewModels:CalendarItemViewModel">
+            <Border
+                Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                BorderBrush="{ThemeResource ControlStrongStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="1">
+                <local:CalendarItemControl CalendarItem="{x:Bind}" ProtectTitle="True" />
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="MonthEventTemplate" x:DataType="viewModels:CalendarItemViewModel">
+            <local:CalendarItemControl CalendarItem="{x:Bind}" IsCustomEventArea="True" />
+        </DataTemplate>
+
+        <DataTemplate x:Key="MonthHeaderTemplate" x:DataType="local:HeaderTextLayout">
+            <TextBlock
+                Width="{x:Bind Width}"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                FontWeight="SemiBold"
+                Text="{x:Bind Text}"
+                TextAlignment="Center" />
+        </DataTemplate>
+
+        <ItemsPanelTemplate x:Key="HorizontalItemsPanel">
+            <StackPanel Orientation="Horizontal" />
+        </ItemsPanelTemplate>
+    </UserControl.Resources>
+
+    <!--
+        The surface is a viewport over an infinite rail of units (day columns, or week rows in
+        the month view). Each rail is a Canvas moved with UIElement.Translation; its host clips it
+        so that it never paints over the hour column or the month header.
+    -->
+    <Grid>
+        <!--
+            The wheel is handled where it is raised. Inside the hour ScrollViewer the content grid
+            handles it first, so a pan marks it handled before the ScrollViewer can scroll the hours;
+            the plain vertical wheel is left alone and still scrolls them.
+        -->
+        <Grid
+            x:Name="TimedRoot"
+            PointerWheelChanged="ControlPointerWheelChanged"
+            Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="{x:Bind helpers:XamlHelpers.DoubleToGridLength(TimedAllDayHeight), Mode=OneWay}" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="64" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border
+                x:Name="TimedHourHeaderHost"
+                Grid.Row="0"
+                Grid.Column="0"
+                Height="44"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="0,0,1,1" />
+
+            <Grid
+                x:Name="TimedHeaderHost"
+                Grid.Row="0"
+                Grid.Column="1"
+                Height="44"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                SizeChanged="RailHostSizeChanged">
+                <Grid.Clip>
+                    <RectangleGeometry x:Name="TimedHeaderClip" />
+                </Grid.Clip>
+                <Canvas x:Name="TimedHeaderRail" IsHitTestVisible="False">
+                    <!--
+                        Every Win2D canvas sits in a panel of its own. The canvas keeps a hard reference
+                        to its parent, so a parent that carries event handlers or interactive siblings
+                        would keep this control and its page alive through them.
+                    -->
+                    <Grid x:Name="TimedHeaderCanvasHost" IsHitTestVisible="False">
+                        <win2d:CanvasControl
+                            x:Name="TimedHeaderCanvas"
+                            Draw="TimedHeaderCanvasDraw"
+                            IsHitTestVisible="False" />
+                    </Grid>
+                </Canvas>
+            </Grid>
+
+            <Border
+                x:Name="TimedAllDayCornerHost"
+                Grid.Row="1"
+                Grid.Column="0"
+                Height="{x:Bind TimedAllDayHeight, Mode=OneWay}"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="0,0,1,1"
+                Visibility="{x:Bind HasTimedAllDayItems, Mode=OneWay}" />
+
+            <Grid
+                x:Name="TimedAllDayHost"
+                Grid.Row="1"
+                Grid.Column="1"
+                Height="{x:Bind TimedAllDayHeight, Mode=OneWay}"
+                AllowDrop="True"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                DragLeave="CalendarDropTargetDragLeave"
+                DragOver="TimedAllDayHostDragOver"
+                Drop="TimedAllDayHostDrop"
+                PointerExited="CalendarDropTargetPointerExited"
+                PointerMoved="TimedAllDayHostPointerMoved"
+                SizeChanged="RailHostSizeChanged"
+                Visibility="{x:Bind HasTimedAllDayItems, Mode=OneWay}">
+                <Grid.Clip>
+                    <RectangleGeometry x:Name="TimedAllDayClip" />
+                </Grid.Clip>
+                <Canvas x:Name="TimedAllDayRail">
+                    <Grid x:Name="TimedAllDayCanvasHost" IsHitTestVisible="False">
+                        <win2d:CanvasControl
+                            x:Name="TimedAllDayCanvas"
+                            Draw="TimedAllDayCanvasDraw"
+                            IsHitTestVisible="False" />
+                    </Grid>
+                </Canvas>
+            </Grid>
+
+            <Grid
+                Grid.Row="2"
+                Grid.ColumnSpan="2"
+                Background="Transparent">
+                <ScrollViewer
+                    x:Name="TimedScrollViewer"
+                    Background="Transparent"
+                    HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto"
+                    VerticalScrollMode="Enabled">
+                    <Grid
+                        x:Name="TimedScrollContentGrid"
+                        Height="{x:Bind TimelineHeight, Mode=OneWay}"
+                        PointerWheelChanged="ControlPointerWheelChanged">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="64" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Canvas
+                            x:Name="HourLabelsCanvas"
+                            Width="64"
+                            IsHitTestVisible="False" />
+
+                        <Grid
+                            x:Name="TimedViewport"
+                            Grid.Column="1"
+                            Height="{x:Bind TimelineHeight, Mode=OneWay}"
+                            AllowDrop="True"
+                            DragLeave="CalendarDropTargetDragLeave"
+                            DragOver="TimedViewportDragOver"
+                            Drop="TimedViewportDrop"
+                            PointerExited="CalendarDropTargetPointerExited"
+                            PointerMoved="TimedViewportPointerMoved"
+                            SizeChanged="RailHostSizeChanged">
+                            <Grid.Clip>
+                                <RectangleGeometry x:Name="TimedViewportClip" />
+                            </Grid.Clip>
+                            <Border
+                                x:Name="TimedInteractionLayer"
+                                Background="Transparent"
+                                Tapped="TimedInteractionLayerTapped" />
+                            <Canvas x:Name="TimedBodyRail">
+                                <Grid x:Name="TimedStructureCanvasHost" IsHitTestVisible="False">
+                                    <win2d:CanvasControl
+                                        x:Name="TimedStructureCanvas"
+                                        Draw="TimedStructureCanvasDraw"
+                                        IsHitTestVisible="False" />
+                                </Grid>
+                            </Canvas>
+                        </Grid>
+                    </Grid>
+                </ScrollViewer>
+            </Grid>
+
+        </Grid>
+
+        <Grid
+            x:Name="MonthRoot"
+            PointerWheelChanged="ControlPointerWheelChanged"
+            Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Grid Height="36">
+                <ItemsControl
+                    x:Name="MonthHeadersItemsControl"
+                    VerticalAlignment="Center"
+                    ItemTemplate="{StaticResource MonthHeaderTemplate}"
+                    ItemsSource="{x:Bind MonthHeaderTexts, Mode=OneWay}">
+                    <ItemsControl.ItemsPanel>
+                        <StaticResource ResourceKey="HorizontalItemsPanel" />
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+            </Grid>
+
+            <Grid
+                x:Name="MonthViewport"
+                Grid.Row="1"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                AllowDrop="True"
+                DragLeave="CalendarDropTargetDragLeave"
+                DragOver="MonthViewportDragOver"
+                Drop="MonthViewportDrop"
+                PointerExited="CalendarDropTargetPointerExited"
+                PointerMoved="MonthViewportPointerMoved"
+                SizeChanged="RailHostSizeChanged">
+                <Grid.Clip>
+                    <RectangleGeometry x:Name="MonthViewportClip" />
+                </Grid.Clip>
+                <Border
+                    x:Name="MonthInteractionLayer"
+                    Background="Transparent"
+                    Tapped="MonthInteractionLayerTapped" />
+                <Canvas x:Name="MonthRail">
+                    <Grid x:Name="MonthStructureCanvasHost" IsHitTestVisible="False">
+                        <win2d:CanvasControl
+                            x:Name="MonthStructureCanvas"
+                            Draw="MonthStructureCanvasDraw"
+                            IsHitTestVisible="False" />
+                    </Grid>
+                </Canvas>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

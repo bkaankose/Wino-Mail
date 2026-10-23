@@ -5,16 +5,16 @@ Status: done on this host (Linux/WSL). Nothing committed, no app launched, work 
 ## Files
 
 Added
-- `src/Wino.Core.Domain/Interfaces/ICalDavClient.Sync.cs`: partial interface with discovery, sync-collection, ETag listing, multiget, GET and expansion
-- `src/Wino.Core.Domain/Interfaces/ICalDavStateStore.cs`, `ICalDavSynchronizationEngine.cs`, `ICalendarCapabilityService.cs`
-- `src/Wino.Core.Domain/Models/Calendar/CalDavSyncModels.cs`: `CalDavResource`, `CalDavSyncPage`, `CalDavAccountDiscovery`, `CalendarIcsShadow`
-- `src/Wino.Core.Domain/Models/Calendar/CalDavStateModels.cs`: `CalDavAccountState`, `CalDavCalendarState`
-- `src/Wino.Core.Domain/Models/Calendar/CalendarCapabilities.cs`: record plus the `CalendarCapabilitySource` enum
-- `src/Wino.Services/CalDavClient.Sync.cs`: partial client
-- `src/Wino.Services/CalDav/CalDavStateStore.cs`: store plus its source-generated `CalDavStateJsonContext`
-- `src/Wino.Services/CalendarCapabilityService.cs`
-- `src/Wino.Core/Synchronizers/CalDav/CalDavSynchronizationEngine.cs`, `CalDavConnection.cs`, `CalendarIcsBuilder.cs` (the ICS builder and item defaults, moved out of `ImapSynchronizer`)
-- `tests/Wino.Core.Tests/Synchronizers/FakeCalDavServer.cs`, `CalDavSynchronizationEngineTests.cs`, `CalDavStateAndCapabilityTests.cs`
+- `src/MailCal.Core.Domain/Interfaces/ICalDavClient.Sync.cs`: partial interface with discovery, sync-collection, ETag listing, multiget, GET and expansion
+- `src/MailCal.Core.Domain/Interfaces/ICalDavStateStore.cs`, `ICalDavSynchronizationEngine.cs`, `ICalendarCapabilityService.cs`
+- `src/MailCal.Core.Domain/Models/Calendar/CalDavSyncModels.cs`: `CalDavResource`, `CalDavSyncPage`, `CalDavAccountDiscovery`, `CalendarIcsShadow`
+- `src/MailCal.Core.Domain/Models/Calendar/CalDavStateModels.cs`: `CalDavAccountState`, `CalDavCalendarState`
+- `src/MailCal.Core.Domain/Models/Calendar/CalendarCapabilities.cs`: record plus the `CalendarCapabilitySource` enum
+- `src/MailCal.Services/CalDavClient.Sync.cs`: partial client
+- `src/MailCal.Services/CalDav/CalDavStateStore.cs`: store plus its source-generated `CalDavStateJsonContext`
+- `src/MailCal.Services/CalendarCapabilityService.cs`
+- `src/MailCal.Core/Synchronizers/CalDav/CalDavSynchronizationEngine.cs`, `CalDavConnection.cs`, `CalendarIcsBuilder.cs` (the ICS builder and item defaults, moved out of `ImapSynchronizer`)
+- `tests/MailCal.Core.Tests/Synchronizers/FakeCalDavServer.cs`, `CalDavSynchronizationEngineTests.cs`, `CalDavStateAndCapabilityTests.cs`
 
 Changed
 - `ICalDavClient.cs` and `CalDavClient.cs` are now `partial`. Discovery uses one shared collection PROPFIND that also asks for the capability properties, and `Prefer: return=minimal` is sent on every PROPFIND and REPORT. `ParseCalendarCollection` delegates to the new parser and keeps its name and signature, so the reflection tests still work.
@@ -59,11 +59,11 @@ Untouched: no schema, entity, migration, ViewModel, XAML/AppKit, `AutoDiscoveryS
 
 ## Verification (this host)
 
-- `dotnet build tests/Wino.Core.Tests/... -c Debug -p:WinoTargetPlatform=MacOS -p:EnableWindowsTargeting=true`: 0 errors.
+- `dotnet build tests/MailCal.Core.Tests/... -c Debug -p:MailCalTargetPlatform=MacOS -p:EnableWindowsTargeting=true`: 0 errors.
 - Filtered tests (`CalDav|Imap|CardDav`): **Passed 239, Failed 0** (baseline 221; 18 new: 13 engine tests, 5 state and capability tests).
-- Full `Wino.Core.Tests`: Passed 1073, Failed 13. The same 13 fail on a clean `HEAD` worktree on this host (`MailRecipientHistoryTests`, `ActivationFileImportServiceTests` vCard import, a Gmail date-format test, NFC key derivation, HTML preview, a backslash file name and five `CalendarAccessibilityFormatterTests`). They come from Linux and invariant-globalization differences, not from T1.
-- `dotnet build src/Wino.Mail.ViewModels/...`: 0 errors.
-- `dotnet build src/Wino.Core/Wino.Core.csproj -c Release -p:WinoTargetPlatform=MacOS -p:NuGetAudit=false`: 0 errors, no warnings from the new files. Without `NuGetAudit=false`, Release restore fails here on the existing advisories NU1902 and NU1903 for `System.Security.Cryptography.Pkcs` 10.0.0. That is unrelated to T1 and needs a separate dependency bump.
+- Full `MailCal.Core.Tests`: Passed 1073, Failed 13. The same 13 fail on a clean `HEAD` worktree on this host (`MailRecipientHistoryTests`, `ActivationFileImportServiceTests` vCard import, a Gmail date-format test, NFC key derivation, HTML preview, a backslash file name and five `CalendarAccessibilityFormatterTests`). They come from Linux and invariant-globalization differences, not from T1.
+- `dotnet build src/MailCal.Mail.ViewModels/...`: 0 errors.
+- `dotnet build src/MailCal.Core/MailCal.Core.csproj -c Release -p:MailCalTargetPlatform=MacOS -p:NuGetAudit=false`: 0 errors, no warnings from the new files. Without `NuGetAudit=false`, Release restore fails here on the existing advisories NU1902 and NU1903 for `System.Security.Cryptography.Pkcs` 10.0.0. That is unrelated to T1 and needs a separate dependency bump.
 - New tests cover:
   - initial full listing, after which an unchanged sync sends 1 PROPFIND and no calendar-data
   - a sync-collection delta with changed, new and deleted resources
@@ -100,14 +100,14 @@ The state file never contained the password. Probes forcing a sync-collection RE
 Server facts that differ from `research.md` (OPTIONS on the calendar home):
 - Yahoo returns `DAV: 1, 3, calendar-access`.
 - Zimbra returns `1, 2, 3, access-control, calendar-access, calendar-auto-schedule, ...`, so Zimbra reports `SendsInvitations = true`; Yahoo does not.
-- Yahoo's PUT returns no ETag, so a resource created by Wino on Yahoo is downloaded once on the next sync.
+- Yahoo's PUT returns no ETag, so a resource created by Mail-Cal on Yahoo is downloaded once on the next sync.
 - Zimbra's component set is `VEVENT,VFREEBUSY`, and its Tasks collection `VTODO,VFREEBUSY` is skipped.
 - iCloud has default alarms on the home and none per calendar.
 - iCloud's address set includes relative principal paths.
 
 ## Unfinished or uncertain
 
-- Not possible on this host, handoff: Windows Debug x64 build, the Windows Release x64 AOT gate (`dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -p:GenerateAppxPackageOnBuild=false`), and macOS Debug arm64 and x64 builds. No UI changed, so there is nothing to check manually.
+- Not possible on this host, handoff: Windows Debug x64 build, the Windows Release x64 AOT gate (`dotnet build src/MailCal.Mail.WinUI/MailCal.Mail.WinUI.csproj -c Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -p:GenerateAppxPackageOnBuild=false`), and macOS Debug arm64 and x64 builds. No UI changed, so there is nothing to check manually.
 - Behavior changes to be aware of:
   - A failure in one calendar is now reported as a `PartiallyCompleted` issue while the other calendars continue; 401 still fails the whole sync.
   - `ExecuteRequests` and `SingleCalendar` syncs no longer download the window again; they check ETags.
@@ -119,7 +119,7 @@ Server facts that differ from `research.md` (OPTIONS on the calendar home):
 
 ## Extension points for T2–T4
 
-- **New client feature:** add `src/Wino.Core.Domain/Interfaces/ICalDavClient.<Feature>.cs` (`public partial interface ICalDavClient`) and `src/Wino.Services/CalDavClient.<Feature>.cs` (`public sealed partial class CalDavClient`).
+- **New client feature:** add `src/MailCal.Core.Domain/Interfaces/ICalDavClient.<Feature>.cs` (`public partial interface ICalDavClient`) and `src/MailCal.Services/CalDavClient.<Feature>.cs` (`public sealed partial class CalDavClient`).
   - Reuse the private helpers `SendXmlAsync`, `_davTransport`, `CreateAuthentication`, `ValidateConnectionSettings`, `CreateAbsoluteUri`, `GetSuccessProps`, `ResourceKey` and `ParseStatusCode`.
   - Add any new collection property to `CalendarCollectionProperties` in `CalDavClient.Sync.cs`, and map it in `ParseCalendarCollections` and `CalDavSynchronizationEngine.ApplyCalendars`.
   - Existing `Mock<ICalDavClient>` setups keep compiling.

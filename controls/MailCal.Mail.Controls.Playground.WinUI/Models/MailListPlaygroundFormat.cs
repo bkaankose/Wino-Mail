@@ -1,0 +1,17 @@
+using MailCal.Mail.Controls.Core;
+using MailCal.Mail.Controls.AccountIcon;
+
+namespace MailCal.Mail.Controls.Playground.Models;
+
+public static class MailListPlaygroundFormat
+{
+    public static IContactPicture ContactPicture(IMailListSourceItem item) => (IContactPicture)item;
+
+    public static string Subject(IMailListSourceItem item) => ((MailListPlaygroundItem)item).Subject;
+
+    public static string Sender(IMailListSourceItem item) => ((MailListPlaygroundItem)item).Sender;
+
+    public static string Preview(IMailListSourceItem item) => ((MailListPlaygroundItem)item).Preview;
+
+    public static string ChevronGlyph(bool isExpanded) => isExpanded ? MailCalIconCodes.ChevronDown : MailCalIconCodes.ChevronRight;
+}

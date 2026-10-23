@@ -1,0 +1,13 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "dotnet.defaultSolution": "MailCal.slnx",
+    "winapp.appDirectories": [
+      "src/MailCal.Mail.WinUI"
+    ]
+  }
+}

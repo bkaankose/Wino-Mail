@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-  <title>Wino People</title>
+  <title>Mail-Cal People</title>
   <defs>
   <linearGradient id="bg" x1="0" y1="0" x2="200" y2="200" gradientUnits="userSpaceOnUse">
     <stop offset="0" stop-color="#5F4AE4"/><stop offset="1" stop-color="#491FD1"/>

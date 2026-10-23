@@ -1,0 +1,32 @@
+﻿<ContentDialog
+    x:Class="MailCal.Dialogs.EditorLinkDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:MailCal.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    CloseButtonText="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}"
+    DefaultButton="Primary"
+    PrimaryButtonClick="ApplyClicked"
+    PrimaryButtonText="{x:Bind domain:Translator.Buttons_Apply, Mode=OneTime}"
+    Style="{StaticResource MailCalDialogStyle}"
+    mc:Ignorable="d">
+
+    <StackPanel Spacing="12">
+        <TextBox
+            x:Name="UrlTextBox"
+            AutomationProperties.AutomationId="EditorLinkUrlTextBox"
+            Header="{x:Bind domain:Translator.Composer_LinkUrl, Mode=OneTime}"
+            PlaceholderText="{x:Bind domain:Translator.Composer_LinkUrlPlaceholder, Mode=OneTime}" />
+        <TextBox
+            x:Name="LinkTextBox"
+            AutomationProperties.AutomationId="EditorLinkTextTextBox"
+            Header="{x:Bind domain:Translator.Composer_LinkText, Mode=OneTime}"
+            PlaceholderText="{x:Bind domain:Translator.Composer_LinkTextPlaceholder, Mode=OneTime}" />
+        <CheckBox
+            x:Name="OpenInNewWindowCheckBox"
+            AutomationProperties.AutomationId="EditorLinkOpenInNewWindowCheckBox"
+            Content="{x:Bind domain:Translator.Composer_OpenLinkInNewWindow, Mode=OneTime}"
+            IsChecked="True" />
+    </StackPanel>
+</ContentDialog>

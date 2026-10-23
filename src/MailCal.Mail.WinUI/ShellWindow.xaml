@@ -1,0 +1,246 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<winuiex:WindowEx
+    x:Class="MailCal.Mail.WinUI.ShellWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:coreControls="using:MailCal.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:MailCal.Core.Domain"
+    xmlns:helpers="using:MailCal.Helpers"
+    xmlns:local="using:MailCal.Mail.WinUI"
+    xmlns:mailControls="using:MailCal.Mail.Controls.ContactPicture"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:searchControls="using:MailCal.Mail.Controls.SearchBar"
+    xmlns:searchCore="using:MailCal.Mail.Controls.Core.SearchBar"
+    xmlns:searchModels="using:MailCal.Mail.WinUI.Models"
+    xmlns:syncButton="using:MailCal.Mail.Controls.SynchronizationButton"
+    xmlns:winuiex="using:WinUIEx"
+    Title="ShellWindow"
+    PersistenceId="MailCalShellWindow"
+    mc:Ignorable="d">
+
+    <!--  WinUIEx saves the placement when the window is destroyed and restores it on first activation.  -->
+
+    <!--  SystemBackdrop will be set by NewThemeService  -->
+
+    <Grid x:Name="ShellRoot">
+        <Grid.Resources>
+            <DataTemplate x:Key="TitleBarSenderSuggestionTemplate" x:DataType="searchCore:SearchBarContactSuggestion">
+                <Grid
+                    MinHeight="48"
+                    Padding="8,4"
+                    ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <mailControls:MailCalContactPicture
+                        Width="32"
+                        Height="32"
+                        ContactPicture="{x:Bind ContactPicture, Mode=OneTime}" />
+                    <StackPanel
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Spacing="1">
+                        <TextBlock
+                            FontWeight="SemiBold"
+                            Text="{x:Bind DisplayName}"
+                            TextTrimming="CharacterEllipsis" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind Address}"
+                            TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </Grid>
+            </DataTemplate>
+        </Grid.Resources>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.RowSpan="2" Background="{ThemeResource MailCalApplicationBackgroundColor}" />
+        <UserControl x:Name="ShellTitleBarHost" IsTabStop="False">
+            <Grid x:Name="TitleBarStateHost">
+                <TitleBar
+                    x:Name="ShellTitleBar"
+                    Margin="-2"
+                    HorizontalContentAlignment="Stretch"
+                    VerticalContentAlignment="Stretch"
+                    BackRequested="BackButtonClicked"
+                    Background="{ThemeResource AppBarBackgroundColor}"
+                    IsPaneToggleButtonVisible="True"
+                    IsTabStop="False"
+                    PaneToggleRequested="PaneButtonClicked">
+                    <!--
+                        One synchronization button for every mode, plus the title and subtitle. The
+                        TitleBar's own Title/Subtitle are left unset and rendered here instead: that is
+                        what lets a running synchronization fade them out without collapsing their
+                        columns, which would slide the search box out of the middle of the window.
+                        
+                        The button itself keeps a fixed 36x36 footprint and overhangs its pill to the
+                        right, so nothing in the title bar reflows while it is expanded either.
+                    -->
+                    <TitleBar.LeftHeader>
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel
+                                x:Name="ShellTitleHost"
+                                Margin="40,0,0,0"
+                                VerticalAlignment="Center"
+                                Orientation="Horizontal"
+                                Spacing="8">
+                                <TextBlock
+                                    x:Name="ShellTitleText"
+                                    MinWidth="{ThemeResource TitleBarTitleMinWidth}"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    TextTrimming="CharacterEllipsis"
+                                    TextWrapping="NoWrap" />
+                                <TextBlock
+                                    x:Name="ShellSubtitleText"
+                                    MinWidth="{ThemeResource TitleBarSubtitleMinWidth}"
+                                    Margin="{ThemeResource TitleBarSubtitleMargin}"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center"
+                                    Foreground="{ThemeResource TitleBarSubtitleForegroundBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    TextTrimming="CharacterEllipsis"
+                                    TextWrapping="NoWrap" />
+                            </StackPanel>
+                            <syncButton:MailCalSynchronizationButton
+                                x:Name="ShellSynchronizationButton"
+                                Margin="-2,0,0,0"
+                                HorizontalAlignment="Left"
+                                AutomationProperties.AutomationId="ShellSynchronizationButton"
+                                Canvas.ZIndex="1"
+                                Click="ShellSynchronizationButtonClicked"
+                                Visibility="Collapsed" />
+                        </Grid>
+                    </TitleBar.LeftHeader>
+                    <TitleBar.Resources>
+                        <HorizontalAlignment x:Key="TitleBarContentHorizontalAlignment">Stretch</HorizontalAlignment>
+                        <VerticalAlignment x:Key="TitleBarContentVerticalAlignment">Stretch</VerticalAlignment>
+                    </TitleBar.Resources>
+                    <TitleBar.Content>
+                        <searchControls:MailCalSearchBar
+                            x:Name="TitleBarSearchBox"
+                            MaxWidth="390"
+                            Margin="12,0,16,0"
+                            VerticalAlignment="Center"
+                            AutomationProperties.AutomationId="TitleBarSearchBox"
+                            AutomationProperties.Name="{x:Bind domain:Translator.SearchBarPlaceholder}"
+                            ClearHistoryText="{x:Bind domain:Translator.SearchBar_ClearHistory}"
+                            ClearSearchHistoryRequested="TitleBarClearSearchHistoryRequested"
+                            ClearText="{x:Bind domain:Translator.SearchBar_Close}"
+                            FilterText="{x:Bind domain:Translator.SearchBar_SearchOptions}"
+                            LocalText="{x:Bind domain:Translator.SettingsAppPreferences_SearchMode_Local}"
+                            OnlineText="{x:Bind domain:Translator.SettingsAppPreferences_SearchMode_Online}"
+                            PlaceholderText="{x:Bind domain:Translator.SearchBarPlaceholder}"
+                            SearchButtonText="{x:Bind domain:Translator.SearchBar_SearchButton}"
+                            SearchDismissed="TitleBarSearchDismissed"
+                            SearchSubmitted="TitleBarSearchSubmitted"
+                            SearchTextChanged="TitleBarSearchTextChanged"
+                            TitleBar.IsDragRegion="False">
+                            <searchControls:MailCalSearchBar.ItemTemplate>
+                                <DataTemplate x:DataType="searchModels:TitleBarSearchSuggestion">
+                                    <Grid MinHeight="48" Padding="8,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <mailControls:MailCalContactPicture
+                                            Width="32"
+                                            Height="32"
+                                            Margin="0,0,10,0"
+                                            ContactPicture="{x:Bind ContactPicture, Mode=OneTime}"
+                                            Visibility="{x:Bind helpers:XamlHelpers.NotNullToVisibility(ContactPicture), Mode=OneTime}" />
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                Text="{x:Bind Subtitle}"
+                                                TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </searchControls:MailCalSearchBar.ItemTemplate>
+                        </searchControls:MailCalSearchBar>
+                    </TitleBar.Content>
+                    <TitleBar.RightHeader>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button
+                                x:Name="WhatsNewButton"
+                                Width="38"
+                                Height="38"
+                                Padding="0"
+                                AutomationProperties.AutomationId="ShellWhatsNewButton"
+                                AutomationProperties.Name="{x:Bind domain:Translator.WhatsNew_ShellButtonTooltip, Mode=OneTime}"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                Click="WhatsNewButtonClicked"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.WhatsNew_ShellButtonTooltip, Mode=OneTime}"
+                                Visibility="Collapsed">
+                                <Viewbox Width="22" Height="22">
+                                    <coreControls:MailCalFontIcon Icon="Announcement" />
+                                </Viewbox>
+                            </Button>
+                        </StackPanel>
+                    </TitleBar.RightHeader>
+                </TitleBar>
+                <!--
+                    The title bar gives up its pieces in the order it can most afford to. First the search
+                    field collapses into a single icon that opens the field beneath itself, the way the
+                    Settings app does it; only when the window is narrower still do the app title and the
+                    folder subtitle go, leaving the pane toggle, the icon and the account button.
+                    
+                    Triggers are declared narrowest first: the last state whose trigger is active wins. The
+                    states carry no Setters. Setter.Target cannot reach ShellTitleHost or TitleBarSearchBox
+                    because the TitleBar hosts them through its own template, outside this namescope, so the
+                    width state is applied from ApplyTitleBarWidthState in the code-behind instead.
+                -->
+                <VisualStateManager.VisualStateGroups>
+                    <VisualStateGroup x:Name="TitleBarWidthStates">
+                        <VisualState x:Name="MinimalTitleBarState">
+                            <VisualState.StateTriggers>
+                                <AdaptiveTrigger MinWindowWidth="0" />
+                            </VisualState.StateTriggers>
+                        </VisualState>
+                        <VisualState x:Name="CompactTitleBarState">
+                            <VisualState.StateTriggers>
+                                <AdaptiveTrigger MinWindowWidth="560" />
+                            </VisualState.StateTriggers>
+                        </VisualState>
+                        <VisualState x:Name="WideTitleBarState">
+                            <VisualState.StateTriggers>
+                                <AdaptiveTrigger MinWindowWidth="900" />
+                            </VisualState.StateTriggers>
+                        </VisualState>
+                    </VisualStateGroup>
+                </VisualStateManager.VisualStateGroups>
+            </Grid>
+        </UserControl>
+
+        <Frame
+            x:Name="MainShellFrame"
+            Grid.Row="1"
+            CacheSize="0"
+            IsNavigationStackEnabled="False"
+            Navigated="MainFrameNavigated" />
+
+        <!--  Overlays the navigated frame without a scrim, so the shell underneath stays interactive.  -->
+
+        <coreControls:MailCalInfoBar
+            x:Name="ShellInfoBar"
+            Grid.RowSpan="2"
+            MaxWidth="700"
+            Margin="0,60,25,0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Closed="ShellInfoBar_Closed"
+            IsClosable="False"
+            IsOpen="False" />
+    </Grid>
+</winuiex:WindowEx>
