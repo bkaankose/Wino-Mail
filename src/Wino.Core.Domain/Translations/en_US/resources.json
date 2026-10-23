@@ -3973,5 +3973,13 @@
   "ComposerParity_ColorPink": "Pink",
   "ComposerParity_MoreColors": "More Colors…",
   "ComposerParity_SpellCheckAutomatic": "Automatic",
-  "ComposerParity_EditLink": "Edit link"
+  "ComposerParity_EditLink": "Edit link",
+  "SettingsPersonalization_AppModes_Title": "App modes",
+  "SettingsPersonalization_AppModes_Description": "Choose which modes appear in the mode switcher. Modes none of your accounts provide are hidden automatically.",
+  "SettingsPersonalization_AppModes_ShownDescription": "Shown in the mode switcher",
+  "SettingsPersonalization_AppModes_HiddenDescription": "Hidden from the mode switcher",
+  "SettingsPersonalization_AppModes_LastVisibleDescription": "Shown in the mode switcher. The last visible mode can't be hidden.",
+  "SettingsPersonalization_AppModes_UnavailableDescription": "None of your accounts provides this feature. Turn it on for an account under Manage accounts to make this mode available.",
+  "AppModeSwitcher_ModeUnavailableTitle": "{0} isn't available",
+  "AppModeSwitcher_ModeUnavailableMessage": "Wino opened {0} instead. You can show hidden modes again under Settings > Personalization."
 }

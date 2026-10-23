@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
@@ -40,6 +41,14 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// Setting: Whether the taskbar icon stays the same when the application mode changes in-app.
     /// </summary>
     bool IsAppModeTaskbarIconSwitchDisabled { get; set; }
+
+    /// <summary>
+    /// Setting: App modes the user removed from the mode switcher. A mode no account provides
+    /// is hidden regardless; this only covers modes the accounts would otherwise offer.
+    /// </summary>
+    IReadOnlyCollection<WinoApplicationMode> HiddenApplicationModes { get; set; }
+
+    void SetApplicationModeHidden(WinoApplicationMode mode, bool isHidden);
 
     /// <summary>
     /// Setting: Whether the system tray icon should be created while the shell is available.

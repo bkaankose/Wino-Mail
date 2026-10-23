@@ -19,4 +19,10 @@ public interface IAppModeReadinessService
     event EventHandler ReadinessInvalidated;
 
     Task<AppModeReadiness> GetReadinessAsync(WinoApplicationMode mode, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The modes the switcher should offer: provided by an account and not hidden by the user.
+    /// Changes arrive through <see cref="ReadinessInvalidated"/>.
+    /// </summary>
+    Task<AppModeVisibility> GetVisibilityAsync(CancellationToken cancellationToken = default);
 }

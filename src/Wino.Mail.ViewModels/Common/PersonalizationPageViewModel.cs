@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -12,6 +13,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Personalization;
 using Wino.Core.ViewModels.Data;
@@ -27,8 +29,12 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
     private readonly IDialogServiceBase _dialogService;
     private readonly INewThemeService _newThemeService;
     private readonly IThumbnailService _thumbnailService;
+    private readonly IAppModeReadinessService _appModeReadinessService;
 
     private bool isPropChangeDisabled = false;
+    private int _appModeRequestId;
+
+    public ObservableCollection<AppModeOptionViewModel> AppModeOptions { get; } = [];
 
     // Sample mail copy to use in previewing mail display modes.
     public MailCopy DemoPreviewMailCopy { get; } = new MailCopy()
@@ -125,14 +131,21 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
                                         IStatePersistanceService statePersistanceService,
                                         INewThemeService newThemeService,
                                         IPreferencesService preferencesService,
-                                        IThumbnailService thumbnailService)
+                                        IThumbnailService thumbnailService,
+                                        IAppModeReadinessService appModeReadinessService)
     {
         _dialogService = dialogService;
         _newThemeService = newThemeService;
         _thumbnailService = thumbnailService;
+        _appModeReadinessService = appModeReadinessService;
 
         StatePersistenceService = statePersistanceService;
         PreferencesService = preferencesService;
+
+        foreach (var mode in AppModeVisibility.SwitchableModes)
+        {
+            AppModeOptions.Add(new AppModeOptionViewModel(mode, PreferencesService.SetApplicationModeHidden));
+        }
 
         DemoPreviewMailItemInformation = new DemoMailItemDisplayInformation(
             DemoPreviewMailCopy.FromName,
@@ -227,9 +240,13 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
 
         InitializeColors();
         SetInitialValues();
+        await RefreshAppModeOptionsAsync();
 
         PropertyChanged -= PersonalizationSettingsUpdated;
         PropertyChanged += PersonalizationSettingsUpdated;
+
+        _appModeReadinessService.ReadinessInvalidated -= AppModeReadinessInvalidated;
+        _appModeReadinessService.ReadinessInvalidated += AppModeReadinessInvalidated;
 
         _newThemeService.AccentColorChanged -= AccentColorChanged;
         _newThemeService.ElementThemeChanged -= ElementThemeChanged;
@@ -263,9 +280,34 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         Deactivate();
     }
 
+    private void AppModeReadinessInvalidated(object sender, EventArgs e) => _ = RefreshAppModeOptionsAsync();
+
+    private async Task RefreshAppModeOptionsAsync()
+    {
+        var requestId = Interlocked.Increment(ref _appModeRequestId);
+        var visibility = await _appModeReadinessService.GetVisibilityAsync();
+
+        if (requestId != _appModeRequestId)
+            return;
+
+        await ExecuteUIThreadAsync(() =>
+        {
+            if (requestId != _appModeRequestId)
+                return Task.CompletedTask;
+
+            foreach (var option in AppModeOptions)
+            {
+                option.Apply(visibility);
+            }
+
+            return Task.CompletedTask;
+        });
+    }
+
     private void Deactivate()
     {
         PropertyChanged -= PersonalizationSettingsUpdated;
+        _appModeReadinessService.ReadinessInvalidated -= AppModeReadinessInvalidated;
 
         _newThemeService.AccentColorChanged -= AccentColorChanged;
         _newThemeService.ElementThemeChanged -= ElementThemeChanged;
