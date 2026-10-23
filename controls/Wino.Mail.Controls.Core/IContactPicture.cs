@@ -15,8 +15,7 @@ public interface IContactPicture
     string Name { get; }
 
     /// <summary>
-    /// Email address of the contact. The domain after '@' is used for
-    /// favicon resolution; the full address is used for Gravatar.
+    /// Email address of the contact. Used for identity and initials.
     /// </summary>
     string Address { get; }
 

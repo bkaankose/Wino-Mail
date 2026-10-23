@@ -23,7 +23,6 @@ public partial class MessageListPageViewModel : MailBaseViewModel,
     IRecipient<PreferenceChangedMessage>
 {
     public IPreferencesService PreferencesService { get; }
-    private readonly IThumbnailService _thumbnailService;
     private readonly IStatePersistanceService _statePersistenceService;
     private readonly IDialogServiceBase _dialogService;
 
@@ -349,12 +348,10 @@ public partial class MessageListPageViewModel : MailBaseViewModel,
     #endregion
 
     public MessageListPageViewModel(IPreferencesService preferencesService,
-                                    IThumbnailService thumbnailService,
                                     IStatePersistanceService statePersistenceService,
                                     IDialogServiceBase dialogService)
     {
         PreferencesService = preferencesService;
-        _thumbnailService = thumbnailService;
         _statePersistenceService = statePersistenceService;
         _dialogService = dialogService;
         leftHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.LeftHoverAction);
@@ -481,8 +478,6 @@ public partial class MessageListPageViewModel : MailBaseViewModel,
     private static bool IsPreviewAffectingPreference(string propertyName) => propertyName is
         nameof(IPreferencesService.MailItemDisplayMode) or
         nameof(IPreferencesService.IsShowSenderPicturesEnabled) or
-        nameof(IPreferencesService.IsGravatarEnabled) or
-        nameof(IPreferencesService.IsFaviconEnabled) or
         nameof(IPreferencesService.IsShowPreviewEnabled) or
         nameof(IPreferencesService.MailTimeFormatPreference) or
         nameof(IPreferencesService.AccountNicknamePosition) or
@@ -537,12 +532,6 @@ public partial class MessageListPageViewModel : MailBaseViewModel,
                 previewItem.IsFlagged = !previewItem.IsFlagged;
                 break;
         }
-    }
-
-    [RelayCommand]
-    private async Task ClearAvatarsCacheAsync()
-    {
-        await _thumbnailService.ClearCache();
     }
 
     private bool IsValidHoverActionIndex(int index) => index >= 0 && index < availableHoverActions.Count;

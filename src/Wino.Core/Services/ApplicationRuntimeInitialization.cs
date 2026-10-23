@@ -18,9 +18,11 @@ public sealed class ApplicationRuntimeInitialization(
     Func<AccountProfilePictureMaintenance> pictures,
     Func<AccountSenderPictureDirectory> senderPictures)
 {
-    // Local store of the removed cloud intelligence feature, left behind by upstream Wino Mail installs.
-    private static readonly string[] LegacyIntelligenceFiles =
+    // Data of removed cloud features left behind by upstream Wino Mail installs: the intelligence
+    // store and the Gravatar/favicon image cache.
+    private static readonly string[] LegacyFiles =
         ["WinoMailIntelligence.db", "WinoMailIntelligence.db-wal", "WinoMailIntelligence.db-shm"];
+    private static readonly string[] LegacyFolders = ["thumbnails"];
 
     private int _completedStep;
 
@@ -37,17 +39,17 @@ public sealed class ApplicationRuntimeInitialization(
     public Task RunBackgroundStartupAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        DeleteLegacyIntelligenceStore();
+        DeleteLegacyCloudData();
         return pictures().BackfillAsync();
     }
 
-    private void DeleteLegacyIntelligenceStore()
+    private void DeleteLegacyCloudData()
     {
         var folder = configuration().ApplicationDataFolderPath;
         if (string.IsNullOrEmpty(folder))
             return;
 
-        foreach (var fileName in LegacyIntelligenceFiles)
+        foreach (var fileName in LegacyFiles)
         {
             try
             {
@@ -56,7 +58,20 @@ public sealed class ApplicationRuntimeInitialization(
             }
             catch (Exception ex)
             {
-                Log.Warning(ex, "Legacy intelligence store file {FileName} could not be removed.", fileName);
+                Log.Warning(ex, "Legacy file {FileName} could not be removed.", fileName);
+            }
+        }
+
+        foreach (var folderName in LegacyFolders)
+        {
+            try
+            {
+                var path = Path.Combine(folder, folderName);
+                if (Directory.Exists(path)) Directory.Delete(path, recursive: true);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Legacy folder {FolderName} could not be removed.", folderName);
             }
         }
     }

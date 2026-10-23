@@ -50,7 +50,6 @@ public class NotificationBuilder : INotificationBuilder
     private readonly IFolderService _folderService;
     private readonly IUnreadBadgeService _unreadBadgeService;
     private readonly IMailService _mailService;
-    private readonly IThumbnailService _thumbnailService;
     private readonly IPreferencesService _preferencesService;
     private readonly IPictureStorageService _pictureStorageService;
     private readonly INotificationHostClient _notificationHostClient;
@@ -60,7 +59,6 @@ public class NotificationBuilder : INotificationBuilder
                                IFolderService folderService,
                                IUnreadBadgeService unreadBadgeService,
                                IMailService mailService,
-                               IThumbnailService thumbnailService,
                                IPreferencesService preferencesService,
                                IPictureStorageService pictureStorageService,
                                INotificationHostClient notificationHostClient,
@@ -70,7 +68,6 @@ public class NotificationBuilder : INotificationBuilder
         _folderService = folderService;
         _unreadBadgeService = unreadBadgeService;
         _mailService = mailService;
-        _thumbnailService = thumbnailService;
         _preferencesService = preferencesService;
         _pictureStorageService = pictureStorageService;
         _notificationHostClient = notificationHostClient;
@@ -455,12 +452,6 @@ public class NotificationBuilder : INotificationBuilder
         var builder = CreateBuilder();
 
         var senderPictureUri = GetSenderPictureUri(mailItem);
-        if (senderPictureUri == null)
-        {
-            var avatarThumbnail = await _thumbnailService.GetThumbnailAsync(mailItem.FromAddress, awaitLoad: true);
-            senderPictureUri = avatarThumbnail == null ? null : new Uri(avatarThumbnail.AppDataUri);
-        }
-
         if (senderPictureUri != null)
             builder.SetAppLogoOverride(senderPictureUri, AppNotificationImageCrop.Circle);
 

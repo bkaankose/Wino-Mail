@@ -27,27 +27,21 @@
                 <controls:WinoContactPicture
                     Width="{StaticResource AvatarSize}"
                     Height="{StaticResource AvatarSize}"
-                    ContactPicture="{x:Bind ViewModel.Ada}"
-                    IsFaviconEnabled="False"
-                    IsGravatarEnabled="False" />
+                    ContactPicture="{x:Bind ViewModel.Ada}" />
                 <TextBlock HorizontalAlignment="Center" Text="Ada Lovelace" />
             </StackPanel>
             <StackPanel Spacing="8">
                 <controls:WinoContactPicture
                     Width="{StaticResource AvatarSize}"
                     Height="{StaticResource AvatarSize}"
-                    ContactPicture="{x:Bind ViewModel.Grace}"
-                    IsFaviconEnabled="False"
-                    IsGravatarEnabled="False" />
+                    ContactPicture="{x:Bind ViewModel.Grace}" />
                 <TextBlock HorizontalAlignment="Center" Text="Grace Hopper" />
             </StackPanel>
             <StackPanel Spacing="8">
                 <controls:WinoContactPicture
                     Width="{StaticResource AvatarSize}"
                     Height="{StaticResource AvatarSize}"
-                    ContactPicture="{x:Bind ViewModel.NoAddress}"
-                    IsFaviconEnabled="False"
-                    IsGravatarEnabled="False" />
+                    ContactPicture="{x:Bind ViewModel.NoAddress}" />
                 <TextBlock HorizontalAlignment="Center" Text="No address" />
             </StackPanel>
         </StackPanel>

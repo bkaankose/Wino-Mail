@@ -13,6 +13,14 @@ Shared rules for every platform are in [AGENTS.md](../../AGENTS.md) and the [imp
 - WinApp CLI 0.7 or later on `PATH`
 - VS Code with Microsoft's C# extension for F5 debugging
 - PowerShell 7.2 or later (`pwsh`) for the F5 helper
+- For the Release x64 gate (Native AOT): Windows SDK 10.0.26100 and the MSVC C++ build tools. Without the SDK, CsWinRT fails with `Could not find the Windows SDK in the registry`; without MSVC, the AOT compiler reports `Platform linker not found`.
+
+  ```powershell
+  winget install --id Microsoft.WindowsSDK.10.0.26100 --source winget
+  winget install --id Microsoft.VisualStudio.2022.BuildTools --source winget --override "--quiet --wait --norestart --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
+  ```
+
+  Open a new terminal after installing. The AOT linker setup calls `vswhere.exe` through `PATH`, which only new sessions pick up.
 
 NuGet restore supplies the Windows App SDK. The app targets .NET 10 and defaults to x64 for development.
 Microsoft documents [WinApp project mode](https://github.com/microsoft/WinAppCli/blob/main/docs/usage.md#project-mode-net-sdk-projects) and [VS Code C# debugging](https://code.visualstudio.com/docs/csharp/debugger-settings).
@@ -153,6 +161,8 @@ Preserve the existing installation and its data.
 If deployment reports a locked file, exit Wino and its notification hosts before retrying.
 The [historical deployment investigation](debug-deployment-investigation.md) describes notification-host file locks.
 Do not use `--clean`, unregister the package, or change its identity to solve a launch error.
+
+One exception: if the F5 helper reports `The development package install location is missing`, the package was registered from a folder that no longer exists (for example a deleted or moved clone). Copy `%LOCALAPPDATA%\Packages\<package family>\LocalState` somewhere safe, run `Remove-AppxPackage -Package <PackageFullName> -PreserveApplicationData`, and start F5 again. The app data stays in place.
 
 For startup diagnostics without the VS Code debugger:
 

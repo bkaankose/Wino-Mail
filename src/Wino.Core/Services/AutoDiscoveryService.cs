@@ -17,14 +17,12 @@ using Wino.Core.Domain.Validation;
 namespace Wino.Core.Services;
 
 /// <summary>
-/// Mail and CalDAV endpoint discovery with Thunderbird-style methods and fallbacks.
+/// Mail, CalDAV and CardDAV endpoint discovery that only contacts the user's own mail domain:
+/// its autoconfig document, well-known DAV URLs, and common host names checked with the system
+/// DNS resolver. No third-party database or DNS-over-HTTPS service is queried.
 /// </summary>
 public class AutoDiscoveryService : IAutoDiscoveryService
 {
-    private const string ThunderbirdIspdbUrl = "https://autoconfig.thunderbird.net/v1.1/";
-    private const string FiretrustUrl = "https://emailsettings.firetrust.com/settings?q=";
-    private const string GoogleDnsResolveUrl = "https://dns.google/resolve";
-
     private static readonly ILogger Logger = Log.ForContext<AutoDiscoveryService>();
     private static readonly StringComparer IgnoreCase = StringComparer.OrdinalIgnoreCase;
     private static readonly HttpMethod OptionsMethod = new("OPTIONS");
@@ -55,13 +53,7 @@ public class AutoDiscoveryService : IAutoDiscoveryService
             : "IMAP";
 
         var settings = await TryGetThunderbirdSettingsAsync(domain, autoDiscoveryMinimalSettings.Email, localPart, incomingProtocol, cancellationToken).ConfigureAwait(false)
-                       ?? await TryGetIspdbSettingsAsync(domain, autoDiscoveryMinimalSettings.Email, localPart, incomingProtocol, cancellationToken).ConfigureAwait(false)
-                       ?? await TryGetMxBasedSettingsAsync(domain, autoDiscoveryMinimalSettings.Email, localPart, incomingProtocol, cancellationToken).ConfigureAwait(false)
-                       ?? await TryGetSrvBasedSettingsAsync(domain, autoDiscoveryMinimalSettings.Email, incomingProtocol, cancellationToken).ConfigureAwait(false)
-                       ?? await TryGetGuessedHostSettingsAsync(domain, autoDiscoveryMinimalSettings.Email, incomingProtocol, cancellationToken).ConfigureAwait(false)
-                       ?? (incomingProtocol == "IMAP"
-                           ? await GetSettingsFromFiretrustAsync(autoDiscoveryMinimalSettings.Email, cancellationToken).ConfigureAwait(false)
-                           : null);
+                       ?? await TryGetGuessedHostSettingsAsync(domain, autoDiscoveryMinimalSettings.Email, incomingProtocol, cancellationToken).ConfigureAwait(false);
 
         if (settings != null && string.IsNullOrWhiteSpace(settings.Domain))
         {
@@ -78,15 +70,8 @@ public class AutoDiscoveryService : IAutoDiscoveryService
         => DiscoverDavServiceUriAsync(DavService.CardDav, mailAddress, cancellationToken);
 
     /// <summary>
-    /// RFC 6764 discovery. Candidates are probed in this order, and the first one that answers like
-    /// a DAV endpoint wins:
-    /// 1. <c>_caldavs._tcp</c> SRV targets of the domain and its parent (TLS), with the TXT <c>path</c>.
-    /// 2. HTTPS on the targets of a plain <c>_caldav._tcp</c> record, when no TLS record exists.
-    /// 3. <c>https://domain/.well-known/caldav</c> and <c>https://caldav.domain/</c>.
-    /// 4. TLS SRV records of the domains the MX hosts belong to (hosted mail).
-    /// 5. The well-known URI on the hoster's groupware host, read from the <c>_autodiscover._tcp</c> SRV target
-    ///    and the <c>autodiscover</c> and <c>autoconfig</c> CNAME targets (hosted groupware, for example).
-    /// 6. Plain HTTP on the <c>_caldav._tcp</c> targets, only when nothing secure answered.
+    /// RFC 6764 discovery limited to the user's own domain: <c>https://domain/.well-known/caldav</c>
+    /// (or <c>carddav</c>) and <c>https://caldav.domain/</c>, for the domain and its parent domains.
     /// </summary>
     private async Task<Uri> DiscoverDavServiceUriAsync(DavService service, string mailAddress, CancellationToken cancellationToken)
     {
@@ -102,78 +87,15 @@ public class AutoDiscoveryService : IAutoDiscoveryService
         }
 
         var domainCandidates = BuildDomainCandidatesFromHost(domain).ToList();
-        var insecureCandidates = new List<Uri>();
         var probed = new HashSet<Uri>();
 
-        var resolved = await TryResolveSrvCandidatesAsync(service, domainCandidates, insecureCandidates, probed, cancellationToken).ConfigureAwait(false)
-                       ?? await TryResolveFirstCandidateAsync(GetDavCandidates(service, domainCandidates), probed, cancellationToken).ConfigureAwait(false);
-
-        if (resolved == null)
-        {
-            var mxDomains = (await GetMxSearchDomainsAsync(domain, cancellationToken).ConfigureAwait(false))
-                .Where(candidate => !domainCandidates.Contains(candidate, IgnoreCase))
-                .ToList();
-
-            if (mxDomains.Count > 0)
-            {
-                resolved = await TryResolveSrvCandidatesAsync(service, mxDomains, insecureCandidates, probed, cancellationToken).ConfigureAwait(false);
-            }
-        }
-
-        if (resolved == null)
-        {
-            var hostedCandidates = (await GetAutoconfigHostsAsync(domain, cancellationToken).ConfigureAwait(false))
-                .Select(host => new Uri($"https://{host}{service.WellKnownPath}"));
-
-            resolved = await TryResolveFirstCandidateAsync(hostedCandidates, probed, cancellationToken).ConfigureAwait(false);
-        }
-
-        if (resolved == null && insecureCandidates.Count > 0)
-        {
-            Logger.Warning("{Service} discovery for {Domain} found only unencrypted SRV records; probing plain HTTP", service.Name, domain);
-            resolved = await TryResolveFirstCandidateAsync(insecureCandidates, probed, cancellationToken).ConfigureAwait(false);
-        }
+        var resolved = await TryResolveFirstCandidateAsync(GetDavCandidates(service, domainCandidates), probed, cancellationToken).ConfigureAwait(false);
 
         if (resolved == null)
             return null;
 
         CacheCalDavUri(cacheKey, resolved);
         return resolved;
-    }
-
-    /// <summary>
-    /// Probes the TLS SRV targets of each domain in order. A domain without a TLS record has its plain
-    /// record read instead: the target is tried over HTTPS first, and the HTTP form is kept in
-    /// <paramref name="insecureCandidates"/> as a last resort.
-    /// </summary>
-    private async Task<Uri> TryResolveSrvCandidatesAsync(
-        DavService service,
-        IReadOnlyList<string> domains,
-        List<Uri> insecureCandidates,
-        HashSet<Uri> probed,
-        CancellationToken cancellationToken)
-    {
-        foreach (var candidateDomain in domains)
-        {
-            var secureCandidates = await GetSrvServiceUrisAsync(service, $"{service.SecureSrvLabel}.{candidateDomain}", "https", cancellationToken).ConfigureAwait(false);
-
-            if (secureCandidates.Count == 0)
-            {
-                var plainCandidates = await GetSrvServiceUrisAsync(service, $"{service.PlainSrvLabel}.{candidateDomain}", "http", cancellationToken).ConfigureAwait(false);
-
-                foreach (var plainCandidate in plainCandidates)
-                {
-                    secureCandidates.Add(UpgradeToHttps(plainCandidate));
-                    insecureCandidates.Add(plainCandidate);
-                }
-            }
-
-            var resolved = await TryResolveFirstCandidateAsync(secureCandidates, probed, cancellationToken).ConfigureAwait(false);
-            if (resolved != null)
-                return resolved;
-        }
-
-        return null;
     }
 
     private async Task<Uri> TryResolveFirstCandidateAsync(IEnumerable<Uri> candidates, HashSet<Uri> probed, CancellationToken cancellationToken)
@@ -191,84 +113,6 @@ public class AutoDiscoveryService : IAutoDiscoveryService
         return null;
     }
 
-    /// <summary>
-    /// Reads an RFC 6764 SRV record and its TXT <c>path</c> into service URIs, best target first.
-    /// RFC 2782: lower priority wins, then higher weight. A "." target (no service) does not parse,
-    /// so it yields no candidate. Without a TXT path the target's well-known URI is used (RFC 6764 section 6).
-    /// </summary>
-    private async Task<List<Uri>> GetSrvServiceUrisAsync(DavService service, string queryName, string scheme, CancellationToken cancellationToken)
-    {
-        var records = (await QueryDnsAsync(queryName, "SRV", cancellationToken).ConfigureAwait(false))
-            .Select(ParseSrvRecord)
-            .Where(record => record != null)
-            .OrderBy(record => record.Priority)
-            .ThenByDescending(record => record.Weight)
-            .ToList();
-
-        var uris = new List<Uri>();
-
-        if (records.Count == 0)
-            return uris;
-
-        var txtRecords = await QueryDnsAsync(queryName, "TXT", cancellationToken).ConfigureAwait(false);
-        var path = ParseTxtPath(txtRecords) ?? service.WellKnownPath;
-
-        foreach (var record in records)
-        {
-            if (record.Port is <= 0 or > 65535)
-                continue;
-
-            var defaultPort = scheme == "https" ? 443 : 80;
-            var authority = record.Port == defaultPort ? record.Target : $"{record.Target}:{record.Port}";
-
-            if (Uri.TryCreate($"{scheme}://{authority}{path}", UriKind.Absolute, out var uri) && !uris.Contains(uri))
-                uris.Add(uri);
-        }
-
-        Logger.Debug("{Service} SRV {QueryName} gave {Count} candidate(s)", service.Name, queryName, uris.Count);
-        return uris;
-    }
-
-    /// <summary>
-    /// Returns the context path from TXT strings such as <c>path=/caldav/</c> (RFC 6764 section 4),
-    /// or null when no usable path is published.
-    /// </summary>
-    internal static string ParseTxtPath(IEnumerable<string> txtRecords)
-    {
-        foreach (var record in txtRecords ?? Array.Empty<string>())
-        {
-            if (string.IsNullOrWhiteSpace(record))
-                continue;
-
-            // DNS-over-HTTPS returns character strings quoted or unquoted, possibly several per record.
-            var segments = record.Split("\" \"", StringSplitOptions.None)
-                .Select(segment => segment.Trim().Trim('"').Trim());
-
-            foreach (var segment in segments)
-            {
-                if (!segment.StartsWith("path=", StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                var path = segment["path=".Length..].Trim();
-                if (path.StartsWith('/') && !path.StartsWith("//", StringComparison.Ordinal))
-                    return path;
-            }
-        }
-
-        return null;
-    }
-
-    private static Uri UpgradeToHttps(Uri plainUri)
-    {
-        var builder = new UriBuilder(plainUri)
-        {
-            Scheme = Uri.UriSchemeHttps,
-            Port = plainUri.IsDefaultPort ? -1 : plainUri.Port
-        };
-
-        return builder.Uri;
-    }
-
     private async Task<AutoDiscoverySettings> TryGetThunderbirdSettingsAsync(
         string lookupDomain,
         string email,
@@ -284,70 +128,6 @@ public class AutoDiscoveryService : IAutoDiscoveryService
         }
 
         return null;
-    }
-
-    private async Task<AutoDiscoverySettings> TryGetIspdbSettingsAsync(
-        string lookupDomain,
-        string email,
-        string localPart,
-        string incomingProtocol,
-        CancellationToken cancellationToken)
-    {
-        var endpoint = $"{ThunderbirdIspdbUrl}{lookupDomain}?emailaddress={Uri.EscapeDataString(email)}";
-        return await TryGetSettingsFromXmlEndpointAsync(endpoint, email, localPart, lookupDomain, incomingProtocol, cancellationToken).ConfigureAwait(false);
-    }
-
-    private async Task<AutoDiscoverySettings> TryGetMxBasedSettingsAsync(
-        string domain,
-        string email,
-        string localPart,
-        string incomingProtocol,
-        CancellationToken cancellationToken)
-    {
-        var mxDomains = await GetMxSearchDomainsAsync(domain, cancellationToken).ConfigureAwait(false);
-
-        foreach (var mxDomain in mxDomains)
-        {
-            if (IgnoreCase.Equals(mxDomain, domain))
-                continue;
-
-            var settings = await TryGetThunderbirdSettingsAsync(mxDomain, email, localPart, incomingProtocol, cancellationToken).ConfigureAwait(false)
-                           ?? await TryGetIspdbSettingsAsync(mxDomain, email, localPart, incomingProtocol, cancellationToken).ConfigureAwait(false);
-
-            if (settings != null)
-                return settings;
-        }
-
-        return null;
-    }
-
-    private async Task<AutoDiscoverySettings> TryGetSrvBasedSettingsAsync(
-        string domain,
-        string email,
-        string incomingProtocol,
-        CancellationToken cancellationToken)
-    {
-        var incoming = incomingProtocol == "POP3"
-            ? await TryResolveSrvRecordAsync($"_pop3s._tcp.{domain}", "POP3", "SSL", cancellationToken).ConfigureAwait(false)
-              ?? await TryResolveSrvRecordAsync($"_pop3._tcp.{domain}", "POP3", "STARTTLS", cancellationToken).ConfigureAwait(false)
-            : await TryResolveSrvRecordAsync($"_imaps._tcp.{domain}", "IMAP", "SSL", cancellationToken).ConfigureAwait(false)
-              ?? await TryResolveSrvRecordAsync($"_imap._tcp.{domain}", "IMAP", "STARTTLS", cancellationToken).ConfigureAwait(false);
-
-        var outgoing = await TryResolveSrvRecordAsync($"_submissions._tcp.{domain}", "SMTP", "SSL", cancellationToken).ConfigureAwait(false)
-                      ?? await TryResolveSrvRecordAsync($"_submission._tcp.{domain}", "SMTP", "STARTTLS", cancellationToken).ConfigureAwait(false)
-                      ?? await TryResolveSrvRecordAsync($"_smtp._tcp.{domain}", "SMTP", "STARTTLS", cancellationToken).ConfigureAwait(false);
-
-        if (incoming == null || outgoing == null)
-            return null;
-
-        incoming.Username = email;
-        outgoing.Username = email;
-
-        return new AutoDiscoverySettings
-        {
-            Domain = domain,
-            Settings = [incoming, outgoing]
-        };
     }
 
     private async Task<AutoDiscoverySettings> TryGetGuessedHostSettingsAsync(
@@ -550,114 +330,6 @@ public class AutoDiscoveryService : IAutoDiscoveryService
         yield return $"https://{domain}/.well-known/autoconfig/mail/config-v1.1.xml?emailaddress={escapedEmail}";
     }
 
-    private async Task<AutoDiscoverySettings> GetSettingsFromFiretrustAsync(string mailAddress, CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var response = await _httpClient.GetAsync($"{FiretrustUrl}{Uri.EscapeDataString(mailAddress)}", cancellationToken).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
-            {
-                Logger.Warning("Firetrust autodiscovery failed with status {StatusCode}", response.StatusCode);
-                return null;
-            }
-
-            var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            return JsonSerializer.Deserialize(content, DomainModelsJsonContext.Default.AutoDiscoverySettings);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "Failed to deserialize Firetrust autodiscovery response.");
-            return null;
-        }
-    }
-
-    private async Task<AutoDiscoveryProviderSetting> TryResolveSrvRecordAsync(
-        string queryName,
-        string protocol,
-        string secureHint,
-        CancellationToken cancellationToken)
-    {
-        var records = await QueryDnsAsync(queryName, "SRV", cancellationToken).ConfigureAwait(false);
-        var srvRecord = records
-            .Select(ParseSrvRecord)
-            .Where(r => r != null)
-            .OrderBy(r => r.Priority)
-            .ThenBy(r => r.Weight)
-            .FirstOrDefault();
-
-        if (srvRecord == null)
-            return null;
-
-        return new AutoDiscoveryProviderSetting
-        {
-            Protocol = protocol,
-            Address = srvRecord.Target,
-            Port = srvRecord.Port,
-            Secure = secureHint
-        };
-    }
-
-    private async Task<IReadOnlyList<string>> GetMxSearchDomainsAsync(string domain, CancellationToken cancellationToken)
-    {
-        var results = new List<string> { domain };
-        var records = await QueryDnsAsync(domain, "MX", cancellationToken).ConfigureAwait(false);
-
-        var hosts = records
-            .Select(ParseMxRecord)
-            .Where(r => r != null)
-            .OrderBy(r => r.Preference)
-            .Select(r => r.Target)
-            .Distinct(IgnoreCase)
-            .ToList();
-
-        foreach (var host in hosts)
-        {
-            foreach (var candidateDomain in BuildDomainCandidatesFromHost(host))
-            {
-                if (!results.Contains(candidateDomain, IgnoreCase))
-                {
-                    results.Add(candidateDomain);
-                }
-            }
-        }
-
-        return results;
-    }
-
-    /// <summary>
-    /// Hosts that a domain delegates client configuration to: the <c>_autodiscover._tcp</c> SRV target and the
-    /// CNAME targets of <c>autodiscover.domain</c> and <c>autoconfig.domain</c>. Hosted groupware usually serves
-    /// DAV from the same host.
-    /// </summary>
-    private async Task<IReadOnlyList<string>> GetAutoconfigHostsAsync(string domain, CancellationToken cancellationToken)
-    {
-        var hosts = new List<string>();
-
-        var srvTargets = (await QueryDnsAsync($"_autodiscover._tcp.{domain}", "SRV", cancellationToken).ConfigureAwait(false))
-            .Select(ParseSrvRecord)
-            .Where(record => record != null)
-            .OrderBy(record => record.Priority)
-            .ThenByDescending(record => record.Weight)
-            .Select(record => record.Target);
-
-        hosts.AddRange(srvTargets);
-
-        foreach (var alias in new[] { $"autodiscover.{domain}", $"autoconfig.{domain}" })
-        {
-            var targets = await QueryDnsAsync(alias, "CNAME", cancellationToken).ConfigureAwait(false);
-            hosts.AddRange(targets.Select(target => target.Trim().TrimEnd('.')));
-        }
-
-        return hosts
-            .Where(host => !string.IsNullOrWhiteSpace(host))
-            .Distinct(IgnoreCase)
-            .ToList();
-    }
-
     private async Task<string> GetFirstResolvableHostAsync(IEnumerable<string> hostCandidates, CancellationToken cancellationToken)
     {
         foreach (var host in hostCandidates.Where(h => !string.IsNullOrWhiteSpace(h)).Distinct(IgnoreCase))
@@ -674,45 +346,10 @@ public class AutoDiscoveryService : IAutoDiscoveryService
         if (MailAccountAddressValidator.IsImplicitlyResolvableHost(host))
             return true;
 
-        var aRecords = await QueryDnsAsync(host, "A", cancellationToken).ConfigureAwait(false);
-        if (aRecords.Count > 0)
-            return true;
-
-        var aaaaRecords = await QueryDnsAsync(host, "AAAA", cancellationToken).ConfigureAwait(false);
-        return aaaaRecords.Count > 0;
-    }
-
-    private async Task<IReadOnlyList<string>> QueryDnsAsync(string queryName, string queryType, CancellationToken cancellationToken)
-    {
         try
         {
-            var url = $"{GoogleDnsResolveUrl}?name={Uri.EscapeDataString(queryName)}&type={Uri.EscapeDataString(queryType)}";
-            using var response = await _httpClient.GetAsync(url, cancellationToken).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
-                return Array.Empty<string>();
-
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
-
-            if (!document.RootElement.TryGetProperty("Answer", out var answerArray) ||
-                answerArray.ValueKind != JsonValueKind.Array)
-            {
-                return Array.Empty<string>();
-            }
-
-            var values = new List<string>();
-
-            foreach (var answer in answerArray.EnumerateArray())
-            {
-                if (answer.TryGetProperty("data", out var dataNode) && dataNode.ValueKind == JsonValueKind.String)
-                {
-                    var data = dataNode.GetString();
-                    if (!string.IsNullOrWhiteSpace(data))
-                        values.Add(data);
-                }
-            }
-
-            return values;
+            var addresses = await Dns.GetHostAddressesAsync(host, cancellationToken).ConfigureAwait(false);
+            return addresses.Length > 0;
         }
         catch (OperationCanceledException)
         {
@@ -720,8 +357,8 @@ public class AutoDiscoveryService : IAutoDiscoveryService
         }
         catch (Exception ex)
         {
-            Logger.Debug(ex, "DNS-over-HTTPS query failed for {QueryName} ({Type})", queryName, queryType);
-            return Array.Empty<string>();
+            Logger.Debug(ex, "DNS lookup failed for {Host}", host);
+            return false;
         }
     }
 
@@ -877,52 +514,10 @@ public class AutoDiscoveryService : IAutoDiscoveryService
         }
     }
 
-    private static SrvRecord ParseSrvRecord(string rawValue)
-    {
-        if (string.IsNullOrWhiteSpace(rawValue))
-            return null;
-
-        var parts = rawValue.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length < 4)
-            return null;
-
-        if (!ushort.TryParse(parts[0], out var priority) ||
-            !ushort.TryParse(parts[1], out var weight) ||
-            !int.TryParse(parts[2], out var port))
-        {
-            return null;
-        }
-
-        var target = parts[3].Trim().TrimEnd('.');
-        if (string.IsNullOrWhiteSpace(target))
-            return null;
-
-        return new SrvRecord(priority, weight, port, target);
-    }
-
-    private static MxRecord ParseMxRecord(string rawValue)
-    {
-        if (string.IsNullOrWhiteSpace(rawValue))
-            return null;
-
-        var parts = rawValue.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length < 2 || !ushort.TryParse(parts[0], out var preference))
-            return null;
-
-        var target = parts[1].Trim().TrimEnd('.');
-        if (string.IsNullOrWhiteSpace(target))
-            return null;
-
-        return new MxRecord(preference, target);
-    }
-
-    private sealed record SrvRecord(ushort Priority, ushort Weight, int Port, string Target);
-
     /// <summary>The names RFC 6764 gives each DAV service.</summary>
     private sealed record DavService(string Name, string SecureSrvLabel, string PlainSrvLabel, string WellKnownPath, string HostPrefix, string CacheKeyPrefix)
     {
         public static readonly DavService CalDav = new("CalDAV", "_caldavs._tcp", "_caldav._tcp", "/.well-known/caldav", "caldav.", string.Empty);
         public static readonly DavService CardDav = new("CardDAV", "_carddavs._tcp", "_carddav._tcp", "/.well-known/carddav", "carddav.", "carddav:");
     }
-    private sealed record MxRecord(ushort Preference, string Target);
 }

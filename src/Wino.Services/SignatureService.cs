@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;
 
@@ -32,8 +33,8 @@ public class SignatureService(IDatabaseService databaseService) : BaseDatabaseSe
             Id = Guid.NewGuid(),
             MailAccountId = accountId,
             // TODO: Should be translated?
-            Name = "Wino Default Signature",
-            HtmlBody = $@"<p>Sent from <a href=""https://github.com/bkaankose/Wino-Mail/"">Wino Mail</a> for {(OperatingSystem.IsMacOS() ? "Mac" : "Windows")}</p>"
+            Name = "Default Signature",
+            HtmlBody = $@"<p>Sent from <a href=""{AppUrls.GitHub}"">Mail-Cal</a></p>"
         };
 
         await Connection.InsertAsync(defaultSignature, typeof(AccountSignature));

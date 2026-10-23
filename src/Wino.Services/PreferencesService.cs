@@ -301,18 +301,6 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(IsLoggingEnabled), value);
     }
 
-    public bool IsGravatarEnabled
-    {
-        get => _configurationService.Get(nameof(IsGravatarEnabled), true);
-        set => SetPropertyAndSave(nameof(IsGravatarEnabled), value);
-    }
-
-    public bool IsFaviconEnabled
-    {
-        get => _configurationService.Get(nameof(IsFaviconEnabled), true);
-        set => SetPropertyAndSave(nameof(IsFaviconEnabled), value);
-    }
-
     public AccountNicknamePosition AccountNicknamePosition
     {
         get => _configurationService.Get(nameof(AccountNicknamePosition), AccountNicknamePosition.None);

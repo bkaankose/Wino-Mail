@@ -216,10 +216,7 @@
             </ToolTipService.ToolTip>
 
             <Viewbox Width="24">
-                <mailControls:WinoContactPicture
-                    ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(PreviewContact, DisplayName, Address), Mode=OneTime}"
-                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                <mailControls:WinoContactPicture ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(PreviewContact, DisplayName, Address), Mode=OneTime}" />
             </Viewbox>
 
             <TextBlock
@@ -240,9 +237,7 @@
             <mailControls:WinoContactPicture
                 Width="40"
                 Height="40"
-                ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(PreviewContact, DisplayName, Address), Mode=OneTime}"
-                IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(PreviewContact, DisplayName, Address), Mode=OneTime}" />
 
             <TextBlock Grid.Column="1">
                 <Run FontWeight="SemiBold" Text="{x:Bind DisplayName}" />

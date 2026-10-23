@@ -13,7 +13,7 @@ namespace Wino.Services;
 /// <summary>
 /// Maps the addresses of the accounts in the app to their locally stored profile pictures,
 /// so a mail sent by one of the user's own accounts shows that account's picture instead of
-/// a Gravatar or initials. Lookups are synchronous and free of IO for use from XAML bindings;
+/// initials. Lookups are synchronous and free of IO for use from XAML bindings;
 /// the map follows account create, update and remove messages.
 /// </summary>
 public sealed class AccountSenderPictureDirectory :

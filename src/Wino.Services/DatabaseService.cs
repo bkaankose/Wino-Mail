@@ -301,7 +301,6 @@ VALUES
             Connection.CreateTableAsync<MergedInbox>(),
             Connection.CreateTableAsync<MailAccountPreferences>(),
             Connection.CreateTableAsync<MailAccountAlias>(),
-            Connection.CreateTableAsync<Thumbnail>(),
             Connection.CreateTableAsync<KeyboardShortcut>(),
             Connection.CreateTableAsync<AccountCalendar>(),
             Connection.CreateTableAsync<CalendarEventAttendee>(),
@@ -811,32 +810,8 @@ WHERE ImapUid > 0 AND COALESCE(ImapUidValidity, 0) = 0
                 .ConfigureAwait(false);
         }
 
-        var thumbnailColumns = await Connection.GetTableInfoAsync(nameof(Thumbnail)).ConfigureAwait(false);
-
-        var isThumbnailFileCacheMigrationNeeded = false;
-
-        if (!thumbnailColumns.Any(c => c.Name == nameof(Thumbnail.GravatarFileName)))
-        {
-            await Connection
-                .ExecuteAsync($"ALTER TABLE {nameof(Thumbnail)} ADD COLUMN {nameof(Thumbnail.GravatarFileName)} TEXT NULL")
-                .ConfigureAwait(false);
-
-            isThumbnailFileCacheMigrationNeeded = true;
-        }
-
-        if (!thumbnailColumns.Any(c => c.Name == nameof(Thumbnail.FaviconFileName)))
-        {
-            await Connection
-                .ExecuteAsync($"ALTER TABLE {nameof(Thumbnail)} ADD COLUMN {nameof(Thumbnail.FaviconFileName)} TEXT NULL")
-                .ConfigureAwait(false);
-
-            isThumbnailFileCacheMigrationNeeded = true;
-        }
-
-        if (isThumbnailFileCacheMigrationNeeded)
-        {
-            await Connection.DeleteAllAsync<Thumbnail>().ConfigureAwait(false);
-        }
+        // Gravatar and favicon lookups were removed; drop their cache table.
+        await Connection.ExecuteAsync("DROP TABLE IF EXISTS Thumbnail").ConfigureAwait(false);
 
         var accountCalendarColumns = await Connection.GetTableInfoAsync(nameof(AccountCalendar)).ConfigureAwait(false);
 

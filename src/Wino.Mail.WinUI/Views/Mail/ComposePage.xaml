@@ -48,10 +48,7 @@
                 </ToolTipService.ToolTip>
 
                 <Viewbox Width="24">
-                    <contactControls:WinoContactPicture
-                        ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(PreviewContact, DisplayName, Address), Mode=OneTime}"
-                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                    <contactControls:WinoContactPicture ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(PreviewContact, DisplayName, Address), Mode=OneTime}" />
                 </Viewbox>
 
                 <TextBlock
@@ -79,9 +76,7 @@
                     Width="32"
                     Height="32"
                     VerticalAlignment="Center"
-                    ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(PreviewContact, DisplayName, Address), Mode=OneTime}"
-                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                    ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(PreviewContact, DisplayName, Address), Mode=OneTime}" />
 
                 <StackPanel
                     Grid.Column="1"

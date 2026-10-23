@@ -498,9 +498,7 @@
                                         <mailControls:WinoContactPicture
                                             Width="40"
                                             Height="40"
-                                            ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(ResolvedContact, Name, Email), Mode=OneTime}"
-                                            IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                                            IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                                            ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(ResolvedContact, Name, Email), Mode=OneTime}" />
 
                                         <Grid Grid.Column="1" RowSpacing="4">
                                             <Grid.RowDefinitions>

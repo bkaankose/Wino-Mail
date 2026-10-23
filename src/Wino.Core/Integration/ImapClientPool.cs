@@ -670,13 +670,12 @@ public class ImapClientPool : IDisposable, IAsyncDisposable
     {
         var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
 
+        // Some servers require an IMAP ID. Send only the client name and version: no OS details
+        // and no vendor URL.
         return new ImapImplementation
         {
-            Name = "Wino Mail",
-            Version = version,
-            Vendor = "Wino",
-            OS = Environment.OSVersion.VersionString,
-            SupportUrl = "https://www.winomail.app"
+            Name = "Mail-Cal",
+            Version = version
         };
     }
 

@@ -26,7 +26,6 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
 
     private readonly IDialogServiceBase _dialogService;
     private readonly INewThemeService _newThemeService;
-    private readonly IThumbnailService _thumbnailService;
 
     private bool isPropChangeDisabled = false;
 
@@ -124,12 +123,10 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
     public PersonalizationPageViewModel(IDialogServiceBase dialogService,
                                         IStatePersistanceService statePersistanceService,
                                         INewThemeService newThemeService,
-                                        IPreferencesService preferencesService,
-                                        IThumbnailService thumbnailService)
+                                        IPreferencesService preferencesService)
     {
         _dialogService = dialogService;
         _newThemeService = newThemeService;
-        _thumbnailService = thumbnailService;
 
         StatePersistenceService = statePersistanceService;
         PreferencesService = preferencesService;
@@ -301,12 +298,6 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
                 _newThemeService.AccentColor = SelectedAppColor.Hex;
         }
     }
-
-    /// <summary>
-    /// Drops the cached Gravatar and favicon images so the next render fetches them again.
-    /// </summary>
-    [RelayCommand]
-    private async Task ClearAvatarsCacheAsync() => await _thumbnailService.ClearCache();
 
     private sealed partial class DemoMailItemDisplayInformation(
         string fromName,

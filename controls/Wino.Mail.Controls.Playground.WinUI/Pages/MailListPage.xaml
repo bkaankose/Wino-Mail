@@ -62,9 +62,7 @@
                 <contact:WinoContactPicture
                     Width="36"
                     Height="36"
-                    ContactPicture="{x:Bind models:MailListPlaygroundFormat.ContactPicture(SourceItem)}"
-                    IsFaviconEnabled="False"
-                    IsGravatarEnabled="False" />
+                    ContactPicture="{x:Bind models:MailListPlaygroundFormat.ContactPicture(SourceItem)}" />
                 <StackPanel Grid.Column="1" Spacing="2">
                     <TextBlock
                         FontWeight="SemiBold"
@@ -88,9 +86,7 @@
                 <contact:WinoContactPicture
                     Width="36"
                     Height="36"
-                    ContactPicture="{x:Bind models:MailListPlaygroundFormat.ContactPicture(SourceItem)}"
-                    IsFaviconEnabled="False"
-                    IsGravatarEnabled="False" />
+                    ContactPicture="{x:Bind models:MailListPlaygroundFormat.ContactPicture(SourceItem)}" />
                 <StackPanel Grid.Column="1" Spacing="2">
                     <Grid ColumnSpacing="4">
                         <Grid.ColumnDefinitions>
@@ -125,9 +121,7 @@
                 <contact:WinoContactPicture
                     Width="28"
                     Height="28"
-                    ContactPicture="{x:Bind models:MailListPlaygroundFormat.ContactPicture(SourceItem)}"
-                    IsFaviconEnabled="False"
-                    IsGravatarEnabled="False" />
+                    ContactPicture="{x:Bind models:MailListPlaygroundFormat.ContactPicture(SourceItem)}" />
                 <StackPanel Grid.Column="1" Spacing="1">
                     <TextBlock FontWeight="SemiBold" Text="{x:Bind models:MailListPlaygroundFormat.Subject(SourceItem)}" />
                     <TextBlock Style="{ThemeResource CaptionTextBlockStyle}" Text="{x:Bind models:MailListPlaygroundFormat.Sender(SourceItem)}" />

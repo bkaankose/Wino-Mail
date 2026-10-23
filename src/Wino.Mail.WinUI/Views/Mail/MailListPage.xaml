@@ -370,9 +370,7 @@
                         x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                         x:Phase="1"
                         ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
-                        FontSize="12"
-                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                        FontSize="12" />
                     <ContentPresenter
                         Grid.Column="1"
                         Content="{x:Bind SourceItem}"
@@ -399,9 +397,7 @@
                         x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                         x:Phase="1"
                         ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
-                        FontSize="12"
-                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                        FontSize="12" />
                     <ContentPresenter
                         Grid.Column="1"
                         Content="{x:Bind SourceItem}"
@@ -428,9 +424,7 @@
                         x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                         x:Phase="1"
                         ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
-                        FontSize="12"
-                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                        FontSize="12" />
                     <ContentPresenter
                         Grid.Column="1"
                         Content="{x:Bind SourceItem}"
@@ -454,9 +448,7 @@
                         x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                         x:Phase="1"
                         ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
-                        FontSize="12"
-                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                        FontSize="12" />
                     <!--  The subject row of the shared body owns the thread chevron.  -->
                     <ContentPresenter
                         Grid.Column="1"
@@ -481,9 +473,7 @@
                         x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                         x:Phase="1"
                         ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
-                        FontSize="12"
-                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                        FontSize="12" />
                     <!--  The subject row of the shared body owns the thread chevron.  -->
                     <ContentPresenter
                         Grid.Column="1"
@@ -508,9 +498,7 @@
                         x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                         x:Phase="1"
                         ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
-                        FontSize="12"
-                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                        FontSize="12" />
                     <!--  The subject row of the shared body owns the thread chevron.  -->
                     <ContentPresenter
                         Grid.Column="1"

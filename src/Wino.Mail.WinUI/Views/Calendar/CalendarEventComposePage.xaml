@@ -687,9 +687,7 @@
                                 <contactControls:WinoContactPicture
                                     Width="32"
                                     Height="32"
-                                    ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(x:Null, ViewModel.OrganizerDisplayName, ViewModel.OrganizerAddress), Mode=OneWay}"
-                                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                                    ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(x:Null, ViewModel.OrganizerDisplayName, ViewModel.OrganizerAddress), Mode=OneWay}" />
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                     <TextBlock
                                         FontSize="13"
@@ -730,9 +728,7 @@
                                             <contactControls:WinoContactPicture
                                                 Width="32"
                                                 Height="32"
-                                                ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(ResolvedContact, DisplayName, Email), Mode=OneTime}"
-                                                IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                                                IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                                                ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(ResolvedContact, DisplayName, Email), Mode=OneTime}" />
 
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                 <TextBlock

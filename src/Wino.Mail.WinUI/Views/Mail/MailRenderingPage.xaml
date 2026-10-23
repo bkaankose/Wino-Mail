@@ -51,9 +51,7 @@
                                 Grid.RowSpan="2"
                                 Width="36"
                                 Height="36"
-                                ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
-                                IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                                IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                                ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}" />
 
                             <TextBlock Grid.Column="1" Text="{x:Bind Name}" />
 
@@ -321,8 +319,6 @@
                                 AutomationProperties.AccessibilityView="Raw"
                                 ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(ViewModel.CurrentMailItemDisplayInformation), Mode=OneWay}"
                                 FontSize="16"
-                                IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                                IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}"
                                 IsTabStop="False"
                                 Visibility="{x:Bind ViewModel.IsMailContentReady, Mode=OneWay}" />
 

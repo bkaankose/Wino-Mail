@@ -21,9 +21,7 @@
                     Height="30"
                     VerticalAlignment="Center"
                     ContactPicture="{x:Bind models:MailListLabFormat.ContactPicture(SourceItem), Mode=OneTime}"
-                    FontSize="12"
-                    IsFaviconEnabled="False"
-                    IsGravatarEnabled="False" />
+                    FontSize="12" />
                 <StackPanel Grid.Column="1" Spacing="1">
                     <TextBlock
                         x:SuppressXamlTrimWarnings="True"
@@ -78,9 +76,7 @@
                     Height="30"
                     VerticalAlignment="Center"
                     ContactPicture="{x:Bind models:MailListLabFormat.ContactPicture(SourceItem), Mode=OneTime}"
-                    FontSize="12"
-                    IsFaviconEnabled="False"
-                    IsGravatarEnabled="False" />
+                    FontSize="12" />
                 <StackPanel Grid.Column="1" Spacing="1">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <accountIcon:WinoFontIcon
@@ -151,9 +147,7 @@
                     Height="24"
                     VerticalAlignment="Center"
                     ContactPicture="{x:Bind models:MailListLabFormat.ContactPicture(SourceItem), Mode=OneTime}"
-                    FontSize="10"
-                    IsFaviconEnabled="False"
-                    IsGravatarEnabled="False" />
+                    FontSize="10" />
                 <StackPanel Grid.Column="1" Spacing="1">
                     <TextBlock
                         x:SuppressXamlTrimWarnings="True"

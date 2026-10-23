@@ -26,7 +26,7 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
     private static readonly string[] MailTables =
     [
         "MailItemFolder", "FolderConfigurationOverride", "MailCopy", "MailCategory", "MailCategoryAssignment",
-        "Thumbnail", "SentMailReceiptState"
+        "SentMailReceiptState"
     ];
 
     private static readonly string[] CalendarTables =

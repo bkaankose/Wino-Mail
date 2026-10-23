@@ -60,7 +60,6 @@ public static class ServicesContainerSetup
         services.AddSingleton<ISyncSnapshotKeyService, SyncSnapshotKeyService>();
         services.AddTransient<ILocalBackupService, LocalBackupService>();
         services.AddSingleton<IPictureStorageService, PictureStorageService>();
-        services.AddSingleton<IThumbnailService, ThumbnailService>();
         services.AddSingleton<AccountProfilePictureMaintenance>();
         services.AddSingleton<AccountSenderPictureDirectory>();
 

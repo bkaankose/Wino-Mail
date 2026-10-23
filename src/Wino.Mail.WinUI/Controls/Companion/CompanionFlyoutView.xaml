@@ -259,8 +259,6 @@
                                         Height="34"
                                         ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
                                         FontSize="13"
-                                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}"
                                         IsHitTestVisible="False" />
                                     <Border
                                         Margin="0,-2,-2,0"

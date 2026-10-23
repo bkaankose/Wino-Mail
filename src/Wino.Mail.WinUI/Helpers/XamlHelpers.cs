@@ -221,8 +221,6 @@ public static class XamlHelpers
         var date = new DateTime(year ?? 2000, month.Value, Math.Min(day.Value, DateTime.DaysInMonth(year ?? 2000, month.Value)));
         return year.HasValue ? date.ToString("d MMMM yyyy") : date.ToString("d MMMM");
     }
-    public static bool GetGravatarEnabled() => PreferencesService?.IsGravatarEnabled ?? true;
-    public static bool GetFaviconEnabled() => PreferencesService?.IsFaviconEnabled ?? true;
 
     /// <summary>
     /// Every shell pane draws account identity at one size, so a row reads the same
@@ -264,7 +262,7 @@ public static class XamlHelpers
             ? contact.Address
             : address ?? string.Empty;
         // A sender that is one of the user's own accounts shows that account's picture
-        // before any Gravatar or initials fallback.
+        // before the initials fallback.
         var localImagePath = (contact?.ContactPictureFileId is Guid fileId
                 ? PictureStorageService.GetPicturePath(PictureKind.Contact, fileId)
                 : null)

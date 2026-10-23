@@ -35,9 +35,7 @@
                     VerticalAlignment="Center"
                     x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                     ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
-                    FontSize="12"
-                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                    FontSize="12" />
                 <ContentPresenter
                     Grid.Column="1"
                     Content="{x:Bind SourceItem}"
@@ -60,9 +58,7 @@
                     VerticalAlignment="Center"
                     x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                     ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
-                    FontSize="12"
-                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                    FontSize="12" />
                 <ContentPresenter
                     Grid.Column="1"
                     Content="{x:Bind SourceItem}"
@@ -85,9 +81,7 @@
                     VerticalAlignment="Center"
                     x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                     ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
-                    FontSize="12"
-                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                    FontSize="12" />
                 <ContentPresenter
                     Grid.Column="1"
                     Content="{x:Bind SourceItem}"
@@ -167,49 +161,15 @@
         </Border>
 
         <!--  Sender pictures  -->
-        <controls:SettingsExpander
-            AutomationProperties.AutomationId="MessageListSenderPicturesExpander"
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="MessageListSenderPicturesCard"
             Description="{x:Bind domain:Translator.SettingsShowSenderPictures_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.SettingsShowSenderPictures_Title, Mode=OneTime}">
-            <controls:SettingsExpander.HeaderIcon>
+            <controls:SettingsCard.HeaderIcon>
                 <coreControls:WinoFontIcon Icon="Person" />
-            </controls:SettingsExpander.HeaderIcon>
+            </controls:SettingsCard.HeaderIcon>
             <ToggleSwitch AutomationProperties.AutomationId="MessageListShowSenderPicturesToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=TwoWay}" />
-            <controls:SettingsExpander.Items>
-                <controls:SettingsCard
-                    AutomationProperties.AutomationId="MessageListGravatarCard"
-                    Description="{x:Bind domain:Translator.SettingsEnableGravatarAvatars_Description, Mode=OneTime}"
-                    Header="{x:Bind domain:Translator.SettingsEnableGravatarAvatars_Title, Mode=OneTime}">
-                    <controls:SettingsCard.Content>
-                        <ToggleSwitch
-                            AutomationProperties.AutomationId="MessageListGravatarToggleSwitch"
-                            IsEnabled="{x:Bind ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}"
-                            IsOn="{x:Bind ViewModel.PreferencesService.IsGravatarEnabled, Mode=TwoWay}" />
-                    </controls:SettingsCard.Content>
-                </controls:SettingsCard>
-
-                <controls:SettingsCard
-                    AutomationProperties.AutomationId="MessageListFaviconCard"
-                    Description="{x:Bind domain:Translator.SettingsEnableFavicons_Description, Mode=OneTime}"
-                    Header="{x:Bind domain:Translator.SettingsEnableFavicons_Title, Mode=OneTime}">
-                    <controls:SettingsCard.Content>
-                        <ToggleSwitch
-                            AutomationProperties.AutomationId="MessageListFaviconToggleSwitch"
-                            IsEnabled="{x:Bind ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}"
-                            IsOn="{x:Bind ViewModel.PreferencesService.IsFaviconEnabled, Mode=TwoWay}" />
-                    </controls:SettingsCard.Content>
-                </controls:SettingsCard>
-
-                <controls:SettingsCard AutomationProperties.AutomationId="MessageListClearAvatarsCacheCard">
-                    <controls:SettingsCard.Content>
-                        <Button
-                            AutomationProperties.AutomationId="MessageListClearAvatarsCacheButton"
-                            Command="{x:Bind ViewModel.ClearAvatarsCacheCommand}"
-                            Content="{x:Bind domain:Translator.SettingsMailList_ClearAvatarsCache_Button, Mode=OneTime}" />
-                    </controls:SettingsCard.Content>
-                </controls:SettingsCard>
-            </controls:SettingsExpander.Items>
-        </controls:SettingsExpander>
+        </controls:SettingsCard>
 
         <controls:SettingsCard
             AutomationProperties.AutomationId="MessageListMailSpacingCard"

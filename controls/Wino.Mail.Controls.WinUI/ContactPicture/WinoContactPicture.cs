@@ -8,8 +8,8 @@ using Wino.Mail.Controls.Core;
 namespace Wino.Mail.Controls.ContactPicture;
 
 /// <summary>
-/// PersonPicture that resolves a contact avatar with Local picture -> Gravatar -> Favicon -> Initials
-/// priority. Bound identities (<see cref="IContactPicture"/>) are immutable; the
+/// PersonPicture that shows a contact's local picture, falling back to initials.
+/// Nothing is fetched from the network. Bound identities (<see cref="IContactPicture"/>) are immutable; the
 /// picture is resolved exactly once per identity and never re-reacts to property
 /// changes. Safe under aggressive ListView container recycling: recycling both
 /// cancels the in-flight load and changes the identity key, and an async result
@@ -17,6 +17,8 @@ namespace Wino.Mail.Controls.ContactPicture;
 /// </summary>
 public sealed partial class WinoContactPicture : PersonPicture
 {
+    private const int AvatarPixelSize = 48;
+
     // Named ContactPicture (not Contact) because PersonPicture already exposes a
     // Contact property of type Windows.ApplicationModel.Contacts.Contact.
     public static readonly DependencyProperty ContactPictureProperty = DependencyProperty.Register(
@@ -24,18 +26,6 @@ public sealed partial class WinoContactPicture : PersonPicture
         typeof(object),
         typeof(WinoContactPicture),
         new PropertyMetadata(null, static (d, e) => ((WinoContactPicture)d).OnContactChanged(e.NewValue)));
-
-    public static readonly DependencyProperty IsGravatarEnabledProperty = DependencyProperty.Register(
-        nameof(IsGravatarEnabled),
-        typeof(bool),
-        typeof(WinoContactPicture),
-        new PropertyMetadata(true));
-
-    public static readonly DependencyProperty IsFaviconEnabledProperty = DependencyProperty.Register(
-        nameof(IsFaviconEnabled),
-        typeof(bool),
-        typeof(WinoContactPicture),
-        new PropertyMetadata(true));
 
     // All of this state is read and mutated exclusively on the UI thread, which
     // is what makes the identity re-check in ApplyImage race-free without locks.
@@ -63,26 +53,6 @@ public sealed partial class WinoContactPicture : PersonPicture
     {
         get => GetValue(ContactPictureProperty);
         set => SetValue(ContactPictureProperty, value);
-    }
-
-    /// <summary>
-    /// Whether Gravatar lookup is attempted for the contact address. Read once
-    /// when a load starts; runtime changes do not retrigger resolution.
-    /// </summary>
-    public bool IsGravatarEnabled
-    {
-        get => (bool)GetValue(IsGravatarEnabledProperty);
-        set => SetValue(IsGravatarEnabledProperty, value);
-    }
-
-    /// <summary>
-    /// Whether favicon lookup is attempted for the address domain. Read once
-    /// when a load starts; runtime changes do not retrigger resolution.
-    /// </summary>
-    public bool IsFaviconEnabled
-    {
-        get => (bool)GetValue(IsFaviconEnabledProperty);
-        set => SetValue(IsFaviconEnabledProperty, value);
     }
 
     private void OnContactChanged(object? newValue)
@@ -124,8 +94,7 @@ public sealed partial class WinoContactPicture : PersonPicture
         Background = new SolidColorBrush(ContactVisual.GetBackgroundColor(name.Length > 0 ? name : address));
         Foreground = new SolidColorBrush(Colors.White);
 
-        if (!IsLoaded || (_localImagePath is null &&
-            (_normalizedAddress is null || (!IsGravatarEnabled && !IsFaviconEnabled)))) return;
+        if (!IsLoaded || _localImagePath is null) return;
 
         StartLoad();
     }
@@ -137,8 +106,7 @@ public sealed partial class WinoContactPicture : PersonPicture
         if (_identityKey is not null &&
             !string.Equals(_appliedImageKey, _identityKey, StringComparison.Ordinal) &&
             _loadCancellation is null &&
-            (_localImagePath is not null ||
-             (_normalizedAddress is not null && (IsGravatarEnabled || IsFaviconEnabled))))
+            _localImagePath is not null)
         {
             StartLoad();
         }
@@ -165,9 +133,7 @@ public sealed partial class WinoContactPicture : PersonPicture
         var request = new LoadRequest(
             _identityKey!,
             _normalizedAddress,
-            _localImagePath,
-            IsGravatarEnabled,
-            IsFaviconEnabled);
+            _localImagePath);
 
         _loadCancellation = new CancellationTokenSource();
         _ = LoadAsync(request, _loadCancellation.Token);
@@ -179,19 +145,8 @@ public sealed partial class WinoContactPicture : PersonPicture
         {
             var imagePath = request.LocalImagePath;
 
-            if (imagePath is null || !File.Exists(imagePath))
-            {
-                imagePath = request.Address is null
-                    ? null
-                    : await ContactThumbnailLoader.ResolveAsync(
-                        request.Address,
-                        request.IsGravatarEnabled,
-                        request.IsFaviconEnabled,
-                        cancellationToken).ConfigureAwait(false);
-            }
-
-            // Null means no Gravatar and no favicon: the initials placeholder is final.
-            if (imagePath is null) return;
+            // Without a local picture the initials placeholder is final.
+            if (imagePath is null || !File.Exists(imagePath)) return;
 
             var bytes = await File.ReadAllBytesAsync(imagePath, cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
@@ -220,8 +175,8 @@ public sealed partial class WinoContactPicture : PersonPicture
             var bitmap = new BitmapImage
             {
                 DecodePixelType = DecodePixelType.Logical,
-                DecodePixelWidth = ContactThumbnailLoader.AvatarPixelSize,
-                DecodePixelHeight = ContactThumbnailLoader.AvatarPixelSize,
+                DecodePixelWidth = AvatarPixelSize,
+                DecodePixelHeight = AvatarPixelSize,
             };
 
             using var stream = new MemoryStream(bytes);
@@ -245,7 +200,5 @@ public sealed partial class WinoContactPicture : PersonPicture
     private sealed record LoadRequest(
         string IdentityKey,
         string? Address,
-        string? LocalImagePath,
-        bool IsGravatarEnabled,
-        bool IsFaviconEnabled);
+        string? LocalImagePath);
 }

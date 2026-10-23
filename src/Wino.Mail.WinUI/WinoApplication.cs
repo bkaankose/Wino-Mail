@@ -38,7 +38,6 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
     protected IApplicationConfiguration AppConfiguration { get; }
     public INewThemeService NewThemeService { get; }
     public IUnderlyingThemeService UnderlyingThemeService { get; }
-    public IThumbnailService ThumbnailService { get; }
     protected IDatabaseService DatabaseService { get; }
     protected ITranslationService TranslationService { get; }
     private readonly IWinoWindowManager _windowManager;
@@ -78,12 +77,6 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
         _windowManager.ActiveWindowChanged += WindowManagerActiveWindowChanged;
         UnderlyingThemeService = Services.GetRequiredService<IUnderlyingThemeService>();
 
-        // Keep new contact thumbnails beside the existing avatar cache. The new
-        // loader uses distinct file names and leaves legacy cache entries untouched.
-        ContactThumbnailLoader.CacheRootFolder = Path.Combine(AppConfiguration.ApplicationDataFolderPath, "thumbnails");
-
-        // ThumbnailService requires ApplicationData paths to be setup, so we initialize it after setting up the paths.
-        ThumbnailService = Services.GetRequiredService<IThumbnailService>();
 
         ConfigureLogging();
     }

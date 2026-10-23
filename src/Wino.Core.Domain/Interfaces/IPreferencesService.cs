@@ -434,16 +434,6 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsShowActionLabelsEnabled { get; set; }
 
     /// <summary>
-    /// Setting: Enable/disable Gravatar for sender avatars.
-    /// </summary>
-    bool IsGravatarEnabled { get; set; }
-
-    /// <summary>
-    /// Setting: Enable/disable Favicon for sender avatars.
-    /// </summary>
-    bool IsFaviconEnabled { get; set; }
-
-    /// <summary>
     /// Setting: The position of the account nickname indicator.
     /// </summary>
     AccountNicknamePosition AccountNicknamePosition { get; set; }

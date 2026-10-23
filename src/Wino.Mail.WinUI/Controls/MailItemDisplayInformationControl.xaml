@@ -90,8 +90,6 @@
                     VerticalAlignment="Center"
                     ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(MailItemInformation), Mode=OneWay}"
                     FontSize="14"
-                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}"
                     Visibility="{x:Bind IsAvatarVisible, Mode=OneWay}" />
 
                 <Grid

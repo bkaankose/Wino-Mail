@@ -56,9 +56,7 @@
                     Grid.Column="0"
                     Width="40"
                     Height="40"
-                    ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
-                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                    ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}" />
 
                 <StackPanel
                     Grid.Column="1"
@@ -390,9 +388,7 @@
                                 Width="88"
                                 Height="88"
                                 HorizontalAlignment="Center"
-                                ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(ViewModel.SelectedContact.SenderContact, ViewModel.SelectedContact.FromName, ViewModel.SelectedContact.FromAddress), Mode=OneWay}"
-                                IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                                IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                                ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(ViewModel.SelectedContact.SenderContact, ViewModel.SelectedContact.FromName, ViewModel.SelectedContact.FromAddress), Mode=OneWay}" />
 
                             <TextBlock
                                 HorizontalAlignment="Center"
