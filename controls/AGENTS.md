@@ -4,13 +4,12 @@ This file provides guidance for agents working in `controls/`, Mail-Cal's reusab
 
 ## Scope
 
-The directory has three groups. Read the rules for each group you change:
+The directory has two groups. Read the rules for each group you change:
 
 | Group | Projects | Platform guide |
 | --- | --- | --- |
-| Shared contracts and editor engine | `MailCal.Mail.Controls.Core`, `MailCal.Editor.Core` | Both: [Windows](../docs/harness/development-windows.md) and [macOS](../docs/harness/development-macos.md) |
+| Shared contracts and editor engine | `MailCal.Mail.Controls.Core`, `MailCal.Editor.Core` | Platform-neutral; verify through [Windows](../docs/harness/development-windows.md) |
 | WinUI 3 and WebView2 | `MailCal.Mail.Controls.WinUI`, `MailCal.Editor.WinUI`, `MailCal.Mail.Controls.Playground.WinUI` | [Windows](../docs/harness/development-windows.md) |
-| AppKit and WKWebView | `MailCal.Presentation.AppKit`, `MailCal.Mail.Controls.AppKit`, `MailCal.Editor.AppKit` | [macOS](../docs/harness/development-macos.md) |
 
 The projects:
 
@@ -18,7 +17,6 @@ The projects:
 - `MailCal.Mail.Controls.WinUI` contains reusable WinUI 3 controls. Public controls belong in a matching feature folder and namespace, such as `MailListView/MailCalMailListView.cs` in `MailCal.Mail.Controls.MailListView`.
 - `MailCal.Editor.Core` owns portable sessions, serialization, operation queues, document policies, and the sole embedded HTML, CSS, and JavaScript bundle.
 - `MailCal.Editor.WinUI` adapts these contracts to WebView2.
-- `MailCal.Presentation.AppKit`, `MailCal.Mail.Controls.AppKit`, and `MailCal.Editor.AppKit` contain native macOS binding/layout helpers, reusable collection presentation, and WKWebView sessions. Verify them in the production Mac head; do not create an AppKit playground.
 - `MailCal.Mail.Controls.Playground.WinUI` is the development and verification app. It must demonstrate every public UI control.
 
 Do not move application-specific mail behavior into these projects. Keep reusable contracts and collection behavior in Core, reusable presentation behavior in the control libraries, and sample-only data or wiring in the playground.
@@ -49,12 +47,6 @@ dotnet build controls\MailCal.Editor.WinUI\MailCal.Editor.WinUI.csproj -c Debug 
 
 # Playground app and all referenced control projects
 dotnet build controls\MailCal.Mail.Controls.Playground.WinUI\MailCal.Mail.Controls.Playground.WinUI.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -p:GenerateAppxPackageOnBuild=false -p:AppxPackageSigningEnabled=false
-```
-
-AppKit libraries build on a Mac through the production head (see the [macOS guide](../docs/harness/development-macos.md)):
-
-```sh
-dotnet build src/MailCal.Mail.MacOS/MailCal.Mail.MacOS.csproj -c Debug -r osx-arm64 -p:MailCalTargetRuntimeIdentifier=osx-arm64 -p:MailCalTargetPlatform=MacOS -p:EnableWindowsTargeting=true
 ```
 
 After the first successful restore, add `--no-restore` unless package or project references changed. Prefer the narrow affected-project build; build the playground when UI, resources, templates, or public control integration changes.
@@ -119,8 +111,7 @@ Match verification to the change:
 - Core-only logic: build `MailCal.Mail.Controls.Core` and its consumers.
 - WinUI control or template: build `MailCal.Mail.Controls.WinUI` and the playground, then request manual verification of the affected control in the app with the local lab.
 - Editor C#, XAML, or web assets: build `MailCal.Editor.WinUI` and the playground, then request manual lab checks for initialization, editing/rendering, theme changes, navigation, and disposal.
-- AppKit control or WKWebView session: build the Mac head for arm64 and x64, then request manual verification in the Mac app. There is no AppKit playground.
-- Shared Core or editor engine change: verify the WinUI consumers above and hand off, or run, the Mac builds.
+- Shared Core or editor engine change: verify the WinUI consumers above. Keep the code free of WinUI references so a future Linux head can reuse it.
 - Public API change: search CodeGraph for consumers and build each affected project.
 
 Do not report a UI change as verified from compilation alone. If interactive verification is unavailable, state that clearly in the handoff.

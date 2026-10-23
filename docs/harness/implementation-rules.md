@@ -11,20 +11,19 @@ src/MailCal.Core.Domain       Contracts, entities, translations, enums
 src/MailCal.Core              Synchronization, authentication, request processing
 src/MailCal.Services          Database, mail, folder, account, preference services
 src/MailCal.Mail.ViewModels   Active Mail, Calendar, Contacts, To Do, Settings, and Shell ViewModels
-src/MailCal.Core.ViewModels   Frozen legacy ViewModels for the deprecated UWP host
-src/MailCal.Messages          Messenger contracts (MailCal.Messaging)
+src/MailCal.Messages          Messenger contracts
+src/MailCal.NotificationHost  Toast activation host for the Windows package
+src/MailCal.SourceGenerators  Source generators and the MCAOT001 analyzer
 src/MailCal.Platform.Windows  Windows platform services
 src/MailCal.Mail.WinUI        Windows application (WinUI 3)
-controls                   Shared control contracts, editor engine, WinUI and AppKit controls, playground
+controls                      Shared control contracts, editor engine, WinUI controls, playground
 ```
 
 Mail requests flow through `MailCalRequestDelegator`, `MailCalRequestProcessor`, provider synchronizers, change processors, the local SQLite database, and messenger events. Initial synchronization queues identifiers and downloads MIME content on demand.
 
 Register core services in `CoreContainerSetup` (`RegisterCoreServices`) and shared services in `ServicesContainerSetup` (`RegisterSharedServices`). Each application registers its platform services and ViewModels in its own composition root: `App.xaml.cs` on Windows.
 
-Published cross-repository dependencies must use unconditional `PackageReference` items. A sibling checkout must never change the dependency graph.
-
-If a change to a published cross-repository dependency requires a new version, run the security audit and publish that version during the task. Then update the centrally managed package version in every consumer. Do not substitute a local NuGet feed or sibling-project reference.
+Dependencies use unconditional `PackageReference` items with versions in `Directory.Packages.props`. A sibling checkout must never change the dependency graph. Do not substitute a local NuGet feed or sibling-project reference. See [Dependencies](../../AGENTS.md#dependencies).
 
 ## Core implementation rules
 
@@ -32,7 +31,7 @@ If a change to a published cross-repository dependency requires a new version, r
 - Use public partial properties with `[ObservableProperty]`.
 - Do not annotate private backing fields.
 - Register messenger handlers in `RegisterRecipients()` and unregister them in `UnregisterRecipients()`.
-- Messenger recipients run on background threads by default. Marshal UI-bound state, collections, navigation, windows, and platform UI APIs (WinRT or AppKit) through `ExecuteUIThread(...)` or the appropriate dispatcher.
+- Messenger recipients run on background threads by default. Marshal UI-bound state, collections, navigation, windows, and platform UI APIs (WinRT) through `ExecuteUIThread(...)` or the appropriate dispatcher.
 - Treat code after `ConfigureAwait(false)` as background-thread code until explicitly dispatched.
 - Keep ViewModels limited to UI state and interaction. Put authentication, account API, token, preferences, and other business operations in services.
 - Avoid new NuGet packages when existing platform or repository libraries are sufficient.

@@ -8,8 +8,8 @@ It is a native mail, calendar, contacts, and To Do client for Windows:
 | --- | --- | --- | --- |
 | Windows | `src/MailCal.Mail.WinUI` (WinUI 3, MSIX, Native AOT) | `MailCal.slnx` | [Windows development](docs/harness/development-windows.md) |
 
-The application uses the platform-neutral shared backend: `MailCal.Core.Domain`, `MailCal.Core`, `MailCal.Services`, `MailCal.Authentication`, `MailCal.Messaging`, `MailCal.Mail.ViewModels`, `controls/MailCal.Mail.Controls.Core`, and `controls/MailCal.Editor.Core`.
-Platform services live in `MailCal.Platform.Windows`. Do not change the deprecated UWP project.
+The application uses the platform-neutral shared backend: `MailCal.Core.Domain`, `MailCal.Core`, `MailCal.Services`, `MailCal.Authentication`, `MailCal.Messages`, `MailCal.Mail.ViewModels`, `controls/MailCal.Mail.Controls.Core`, and `controls/MailCal.Editor.Core`.
+Platform services live in `MailCal.Platform.Windows`. `MailCal.NotificationHost` (with `MailCal.NotificationHost.Contracts`) handles toast activation for the Windows package, and `MailCal.SourceGenerators` holds the source generators and the `MCAOT001` analyzer.
 
 ## Platform routing
 
@@ -103,10 +103,7 @@ A passing build does not prove UI behavior. Report manual verification as pendin
 
 ## Dependencies
 
-Both applications share `Directory.Packages.props`, `global.json`, and `nuget.config`.
-Published cross-repository dependencies must use unconditional `PackageReference` items.
-If a dependency change requires publication, audit and publish the version, then update every consumer.
-Publish without asking for approval. When `NUGET_API_KEY` is set in the local environment, pack and push the package to nuget.org yourself. This does not need a git commit or push.
-Never substitute a local feed, local package reference, or sibling project reference.
-Wait until nuget.org indexes the version before you restore consumers.
-Never print or log the key.
+Package versions are managed centrally in `Directory.Packages.props`; `global.json` pins the SDK and `nuget.config` lists the feeds.
+External dependencies use unconditional `PackageReference` items from nuget.org. Never substitute a local feed, local package reference, or sibling project reference.
+Avoid new packages when the platform or existing libraries are sufficient, and check that a new package does not contact endpoints outside the configured providers.
+Mail-Cal does not publish packages; ask before packing or pushing anything to a feed.

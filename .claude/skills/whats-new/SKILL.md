@@ -5,7 +5,7 @@ description: Write the release notes for Mail-Cal's What's New window before a r
 
 # What's New release notes
 
-Release flow: bump `src/MailCal.Mail.WinUI/Package.appxmanifest` → run this skill → `scripts/release/windows/build-releases.ps1` (Windows) or `scripts/release/macos/build-macos-release.sh` (Mac).
+Release flow: bump `src/MailCal.Mail.WinUI/Package.appxmanifest` → run this skill → `scripts/release/windows/build-releases.ps1`.
 The release script runs `scripts/release/whats-new/validate.ps1` and warns when notes for the manifest version are missing or invalid.
 
 The app reads every `src/MailCal.Mail.WinUI/Assets/WhatsNew/*.json` file (`WhatsNewService`). It lists the versions newest first in the What's New window.
@@ -94,4 +94,4 @@ The PNG is the only output. The HTML scene is a scratch file: write it in the se
 - The PNGs are packaged by the Windows App SDK `**/*.png` Content glob. The JSON is packaged by `<Content Include="Assets\WhatsNew\*.json" />` in `MailCal.Mail.WinUI.csproj`. Do not add per-file csproj entries.
 - Run `pwsh -NoProfile -File .\scripts\release\whats-new\validate.ps1`. It checks the JSON, the version, the image names, the 1120x600 size, and the csproj rules. Fix every failure.
 - Show the user the final titles, descriptions, and each PNG (send the PNGs to the user as files) for approval before they run the release script.
-- Do not build, deploy, or change `Package.appxmanifest`. The user runs the release scripts under `scripts/release/windows` or `scripts/release/macos`.
+- Do not build, deploy, or change `Package.appxmanifest`. The user runs the release script under `scripts/release/windows`.

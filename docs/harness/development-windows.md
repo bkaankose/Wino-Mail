@@ -2,7 +2,6 @@
 
 This is the authoritative guide for the WinUI 3 application in `src/MailCal.Mail.WinUI` and its solution `MailCal.slnx`.
 Use plain `dotnet` and WinApp CLI commands from the repository root. The app always runs with MSIX package identity.
-The deprecated UWP project is frozen; do not change it.
 
 Shared rules for every platform are in [AGENTS.md](../../AGENTS.md) and the [implementation rules](implementation-rules.md).
 
@@ -27,7 +26,7 @@ Microsoft documents [WinApp project mode](https://github.com/microsoft/WinAppCli
 
 ## Native AOT and build safety — critical
 
-Native AOT compatibility is a release-blocking correctness requirement. A binding that works in Debug can fail when users open a page in Release. Prevent these failures during implementation; do not rely on users or Sentry to discover them.
+Native AOT compatibility is a release-blocking correctness requirement. A binding that works in Debug can fail when users open a page in Release. Prevent these failures during implementation; Mail-Cal has no crash telemetry, so a Release-only failure reaches you only through a user report.
 
 - Prefer compiled `x:Bind` for application properties and commands, including `CopyClipboardCommand`. Do not introduce runtime `{Binding}` paths where compiled bindings suffice.
 - When runtime bindings are necessary, audit every custom CLR object traversed by the path. For `ViewModel.Property`, both the page's `ViewModel` getter and the ViewModel's property need generated binding support. Use narrowly scoped `WinRT.GeneratedBindableCustomProperty` annotations on partial types, guarded by `WINRT_EXPOSED` in shared Windows/portable code. Framework and dependency-property bindings do not require blanket annotations.

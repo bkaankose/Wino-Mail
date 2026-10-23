@@ -6,8 +6,7 @@ Configure only the variables required for the task and platform. Store packaging
 | Platform | Sections | Where to set variables |
 | --- | --- | --- |
 | Windows | Windows Store local-update signing, Windows sideload signing, Windows release output, Windows publication | Windows **Environment Variables**, under the developer's user account or system settings |
-| macOS | macOS notarization and App Store Connect | The shell profile, such as `~/.zprofile`, with `export KEY=value` |
-| Both | Translations | Either of the above, on the host that runs the script |
+| Any | Translations | The environment of the host that runs the script |
 
 Restart the terminal and its parent application after changes. Existing processes keep their previous environment.
 Secret values belong in the environment, never in this document or a script.
@@ -60,7 +59,7 @@ Only selected channels require valid feed settings. Beta and stable sideload mus
 
 | Optional key | Default | Purpose |
 | --- | --- | --- |
-| `MAILCAL_RELEASES_ROOT` | `D:\Mail-Cal Releases` | Where `build-releases.ps1` writes packages. The `-OutputRoot` and `-ReleasesRoot` parameters override it for one run. On a Mac the default is `~/Mail-Cal Releases`. |
+| `MAILCAL_RELEASES_ROOT` | `D:\Mail-Cal Releases` | Where `build-releases.ps1` writes packages. The `-OutputRoot` and `-ReleasesRoot` parameters override it for one run. |
 
 ## Translations
 
@@ -77,8 +76,8 @@ Both scripts use the same API key. Dry runs need no key and make no API calls.
 `--model` overrides the corresponding environment variable for one run.
 Both scripts read credentials only from `MAILCAL_OPENAI_API_KEY`.
 
-The release scripts on both platforms can run `translate_resources.py --apply` before building; that run requires `MAILCAL_OPENAI_API_KEY`.
-Run these commands from the repository root with Python 3.10 or later (`python3` on macOS):
+The Windows release script can run `translate_resources.py --apply` before building; that run requires `MAILCAL_OPENAI_API_KEY`.
+Run these commands from the repository root with Python 3.10 or later:
 
 ```powershell
 python .\scripts\localization\translate_resources.py --dry-run
@@ -89,4 +88,4 @@ Use `--apply` instead of `--dry-run` to write changes. Translation requests use 
 Use `--locales`, such as `--locales de_DE pl_PL`, to limit the affected languages.
 The shared rules in `.config/translation_allowlist.json` exclude legitimate English terms from the validation report.
 
-See the [release index](releases.md) for the Windows and macOS build prerequisites, package outputs, and publication steps.
+See the [release index](releases.md) for the build prerequisites, package outputs, and publication steps.
