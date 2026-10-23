@@ -30,7 +30,7 @@
   <Identity
     Name="hairokuma.MailCal"
     Publisher="CN=hairokuma"
-    Version="2.2.5.0" />
+    Version="2.3.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="7b7e90e9-cc55-4409-9769-99b4b5ed6e9b" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 

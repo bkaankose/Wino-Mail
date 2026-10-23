@@ -1,0 +1,16 @@
+{
+  "version": "2.3.0",
+  "isStarred": false,
+  "features": [
+    {
+      "image": "calendar-tray-popup.png",
+      "title": "Your calendar in the tray",
+      "description": "Click the Mail-Cal icon in the taskbar tray to see this month and the events of any day. Add an event right there, or choose More options for the full editor. Adjust it in Settings > Companion."
+    },
+    {
+      "image": "private-by-design.png",
+      "title": "Private by design",
+      "description": "Mail-Cal only talks to the mail, calendar and contacts accounts you add. There is no telemetry, no extra online account, no AI service and no lookups to third-party sites."
+    }
+  ]
+}

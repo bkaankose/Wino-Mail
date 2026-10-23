@@ -592,7 +592,9 @@ function Assert-PackagedReleaseProfile {
     if ($null -eq $entry) { throw 'The package is missing release-profile.json.' }
     $reader = [IO.StreamReader]::new($entry.Open())
     try { $profile = $reader.ReadToEnd() | ConvertFrom-Json } finally { $reader.Dispose() }
-    $expected = Get-ReleaseProfile $Plan $profile.Distribution
+    # The source profile names its distribution 'Standalone'; the release script packages it as the Store channel.
+    $channel = if ($profile.Distribution -ceq 'Standalone') { 'Store' } else { $profile.Distribution }
+    $expected = Get-ReleaseProfile $Plan $channel
     if ($profile.PackageName -cne $expected.PackageName -or $profile.Publisher -cne $expected.Publisher -or
         $profile.StartupTaskActivatorId -cne $expected.StartupTaskActivatorId -or
         $profile.PackageName -cne [string]$Manifest.Package.Identity.Name -or $profile.Publisher -cne [string]$Manifest.Package.Identity.Publisher) {
