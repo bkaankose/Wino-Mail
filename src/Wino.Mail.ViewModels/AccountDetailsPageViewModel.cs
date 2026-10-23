@@ -126,6 +126,9 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     public partial bool IsJumpListEnabled { get; set; }
 
     [ObservableProperty]
+    public partial bool IsNotificationContentHidden { get; set; }
+
+    [ObservableProperty]
     public partial bool IsProtocolLogEnabled { get; set; }
 
     [ObservableProperty]
@@ -904,6 +907,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
             IsAppendMessageSettingVisible = Account.ProviderType == MailProviderType.IMAP4;
             IsAppendMessageSettinEnabled = Account.Preferences.ShouldAppendMessagesToSentFolder;
             IsJumpListEnabled = Account.Preferences.IsJumpListEnabled;
+            IsNotificationContentHidden = Account.Preferences.HideNotificationContent;
             IsProtocolLogEnabled = Account.IsProtocolLogEnabled;
 
             if (!string.IsNullOrEmpty(Account.AccountColorHex))
@@ -1101,7 +1105,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
 
         if (!isLoaded || Account is null) return;
         if (e.PropertyName is not (nameof(IsFocusedInboxEnabled) or nameof(IsAppendMessageSettinEnabled) or
-            nameof(IsSignatureEnabled) or nameof(IsJumpListEnabled) or nameof(SelectedPrimaryCalendar))) return;
+            nameof(IsSignatureEnabled) or nameof(IsJumpListEnabled) or nameof(IsNotificationContentHidden) or
+            nameof(SelectedPrimaryCalendar))) return;
 
         var write = PersistPreferenceChangeAsync(e.PropertyName, Account);
         lock (_preferenceWriteGate)
@@ -1129,6 +1134,10 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
                 break;
             case nameof(IsJumpListEnabled):
                 account.Preferences.IsJumpListEnabled = IsJumpListEnabled;
+                await _accountService.UpdateAccountAsync(account);
+                break;
+            case nameof(IsNotificationContentHidden):
+                account.Preferences.HideNotificationContent = IsNotificationContentHidden;
                 await _accountService.UpdateAccountAsync(account);
                 break;
             case nameof(SelectedPrimaryCalendar) when SelectedPrimaryCalendar != null:

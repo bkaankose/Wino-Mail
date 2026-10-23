@@ -81,6 +81,9 @@ public partial class MailAccountPreferences
     /// </summary>
     public AccountQuietHoursStance QuietHoursStance { get; set; } = AccountQuietHoursStance.Follow;
 
+    /// <summary>Read regardless of <see cref="HasCustomNotificationSettings"/>, and wins over the chosen notification content.</summary>
+    public bool HideNotificationContent { get; set; }
+
     /// <summary>
     /// Gets or sets whether the account has Focused inbox support.
     /// Null if the account provider type doesn't support Focused inbox.

@@ -14,6 +14,8 @@ public static class MacNotificationCategories
 {
     public const string Mail = "wino.mail";
     public const string MailSummary = "wino.mail.summary";
+
+    public const string MailHidden = "wino.mail.hidden";
     public const string Calendar = "wino.calendar";
     public const string Generic = "wino.generic";
 
@@ -78,6 +80,9 @@ public static class MacNotificationCategories
         _ => operation.ToString()
     };
 
+    public static bool IsReplyAction(MailOperation operation)
+        => operation is MailOperation.Reply or MailOperation.ReplyAll or MailOperation.Forward;
+
     public static string SnoozeTitle(int minutes) => $"{Translator.CalendarReminder_SnoozeAction} ({string.Format(Translator.CalendarReminder_SnoozeMinutesOption, minutes)})";
 
     /// <summary>A snooze length a category exists for; null when the reminder offers no snooze.</summary>
@@ -90,7 +95,11 @@ public static class MacNotificationCategories
         var categories = new List<UNNotificationCategory>
         {
             Category(Mail, MailAction(firstMailAction), MailAction(secondMailAction), Dismiss()),
-            Category(MailSummary, Dismiss())
+            Category(MailSummary, Dismiss()),
+            Category(MailHidden, [.. new[] { firstMailAction, secondMailAction }
+                .Where(action => !IsReplyAction(action))
+                .Select(MailAction)
+                .Append(Dismiss())])
         };
         foreach (var join in new[] { false, true })
         {

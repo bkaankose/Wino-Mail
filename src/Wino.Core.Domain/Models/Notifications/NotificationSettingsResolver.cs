@@ -41,7 +41,7 @@ public static class NotificationSettingsResolver
             return new EffectiveMailNotificationSettings(
                 IsEnabled: false,
                 Scope: defaults.MailNotificationScope,
-                Content: defaults.MailNotificationContent,
+                Content: ResolveContent(account, defaults.MailNotificationContent),
                 Sound: defaults.MailNotificationSoundEvent,
                 QuietHoursStance: account.QuietHoursStance);
         }
@@ -51,7 +51,7 @@ public static class NotificationSettingsResolver
             return new EffectiveMailNotificationSettings(
                 IsEnabled: defaults.AreNewMailNotificationsEnabled,
                 Scope: defaults.MailNotificationScope,
-                Content: defaults.MailNotificationContent,
+                Content: ResolveContent(account, defaults.MailNotificationContent),
                 Sound: defaults.MailNotificationSoundEvent,
                 QuietHoursStance: account.QuietHoursStance);
         }
@@ -59,10 +59,16 @@ public static class NotificationSettingsResolver
         return new EffectiveMailNotificationSettings(
             IsEnabled: defaults.AreNewMailNotificationsEnabled && account.IsNewMailNotificationEnabled,
             Scope: account.NotificationScope,
-            Content: account.NotificationContent,
+            Content: ResolveContent(account, account.NotificationContent),
             Sound: account.AccountNotificationSoundEvent,
             QuietHoursStance: account.QuietHoursStance);
     }
+
+    public static bool HidesNotificationContent(MailAccountPreferences? account)
+        => account?.HideNotificationContent == true;
+
+    private static MailNotificationContent ResolveContent(MailAccountPreferences account, MailNotificationContent chosen)
+        => HidesNotificationContent(account) ? MailNotificationContent.Nothing : chosen;
 
     public static bool ResolveCalendarRemindersEnabled(IPreferencesService defaults, MailAccountPreferences? account)
     {

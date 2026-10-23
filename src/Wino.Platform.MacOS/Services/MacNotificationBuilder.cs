@@ -250,13 +250,20 @@ public sealed class MacNotificationBuilder : INotificationBuilder
 
             if (notifiable.Count == 0) return;
 
-            if (notifiable.Count > 3)
+            // Hidden-content accounts are announced by count, one notification each, and never join the summary.
+            var visible = notifiable.Where(item => !NotificationSettingsResolver.HidesNotificationContent(item.Preferences)).ToList();
+            var hiddenGroups = notifiable
+                .Where(item => NotificationSettingsResolver.HidesNotificationContent(item.Preferences))
+                .GroupBy(item => item.Preferences?.AccountId ?? Guid.Empty)
+                .ToList();
+
+            if (visible.Count > 3)
             {
                 await ShowAsync(new NotificationRequest(
                     Identifier: "mail-summary-" + Guid.NewGuid().ToString("N"),
                     Title: Translator.Notifications_MultipleNotificationsTitle,
                     Subtitle: null,
-                    Body: string.Format(Translator.Notifications_MultipleNotificationsMessage, notifiable.Count),
+                    Body: string.Format(Translator.Notifications_MultipleNotificationsMessage, visible.Count),
                     Category: MacNotificationCategories.MailSummary,
                     ThreadIdentifier: null,
                     UserInfo: new Dictionary<string, string> { [Constants.ToastModeKey] = Constants.ToastModeMail },
@@ -265,8 +272,31 @@ public sealed class MacNotificationBuilder : INotificationBuilder
             }
             else
             {
-                foreach (var (mailItem, accountPreferences) in notifiable)
+                foreach (var (mailItem, accountPreferences) in visible)
                     await CreateSingleNotificationAsync(mailItem, accountPreferences).ConfigureAwait(false);
+            }
+
+            foreach (var hiddenGroup in hiddenGroups)
+            {
+                var hiddenItems = hiddenGroup.ToList();
+                var (firstMailItem, accountPreferences) = hiddenItems[0];
+
+                if (hiddenItems.Count == 1)
+                {
+                    await CreateSingleNotificationAsync(firstMailItem, accountPreferences).ConfigureAwait(false);
+                    continue;
+                }
+
+                await ShowAsync(new NotificationRequest(
+                    Identifier: "mail-hidden-" + Guid.NewGuid().ToString("N"),
+                    Title: NotificationContentRules.HiddenMailTitle,
+                    Subtitle: null,
+                    Body: NotificationContentRules.ComposeHiddenMailText(hiddenItems.Count),
+                    Category: MacNotificationCategories.MailSummary,
+                    ThreadIdentifier: firstMailItem.AssignedFolder?.MailAccountId.ToString(),
+                    UserInfo: new Dictionary<string, string> { [Constants.ToastModeKey] = Constants.ToastModeMail },
+                    Sound: _sounds.ResolveMail(accountPreferences)),
+                    NotificationKind.Mail, accountPreferences).ConfigureAwait(false);
             }
 
             await UpdateTaskbarIconBadgeAsync().ConfigureAwait(false);
@@ -305,7 +335,13 @@ public sealed class MacNotificationBuilder : INotificationBuilder
         // Windows AddMailNotificationText: as much as the account's privacy level allows.
         string title;
         string? subtitle = null, body = null;
-        if (settings.Content == MailNotificationContent.Nothing)
+        var hidesContent = NotificationSettingsResolver.HidesNotificationContent(accountPreferences);
+        if (hidesContent)
+        {
+            title = NotificationContentRules.HiddenMailTitle;
+            body = NotificationContentRules.ComposeHiddenMailText(1);
+        }
+        else if (settings.Content == MailNotificationContent.Nothing)
         {
             title = Translator.Notifications_MultipleNotificationsTitle;
         }
@@ -325,7 +361,7 @@ public sealed class MacNotificationBuilder : INotificationBuilder
             Title: title,
             Subtitle: subtitle,
             Body: body,
-            Category: MacNotificationCategories.Mail,
+            Category: hidesContent ? MacNotificationCategories.MailHidden : MacNotificationCategories.Mail,
             ThreadIdentifier: accountId?.ToString(),
             UserInfo: new Dictionary<string, string>
             {
@@ -410,14 +446,25 @@ public sealed class MacNotificationBuilder : INotificationBuilder
         if (calendarItem.AssignedCalendar?.AccountId is { } accountId)
             accountPreferences = (await _accountService.GetAccountAsync(accountId).ConfigureAwait(false))?.Preferences;
 
-        var localStart = calendarItem.GetLocalStartDate();
-        var body = $"{GetCalendarReminderContext(localStart, DateTime.Now)} - {localStart:g}";
-        if (!string.IsNullOrWhiteSpace(calendarItem.Location)) body += "\n" + calendarItem.Location;
+        var hidesContent = NotificationSettingsResolver.HidesNotificationContent(accountPreferences);
+        string title, body;
+        if (hidesContent)
+        {
+            title = NotificationContentRules.HiddenCalendarReminderTitle;
+            body = NotificationContentRules.ComposeHiddenCalendarReminderText();
+        }
+        else
+        {
+            var localStart = calendarItem.GetLocalStartDate();
+            title = calendarItem.Title ?? string.Empty;
+            body = $"{GetCalendarReminderContext(localStart, DateTime.Now)} - {localStart:g}";
+            if (!string.IsNullOrWhiteSpace(calendarItem.Location)) body += "\n" + calendarItem.Location;
+        }
 
         // One Snooze action whose length follows the "Default snooze duration" setting (Windows' default pick).
         var snoozeMinutes = MacNotificationCategories.NormalizeSnoozeMinutes(CalendarReminderSnoozeOptions.GetDefaultSnoozeMinutes(
             reminderDurationInSeconds, _preferences.DefaultReminderDurationInSeconds, _preferences.DefaultSnoozeDurationInMinutes));
-        var canJoin = CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out _);
+        var canJoin = !hidesContent && CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out _);
         var userInfo = new Dictionary<string, string>
         {
             [Constants.ToastCalendarActionKey] = Constants.ToastCalendarNavigateAction,
@@ -428,7 +475,7 @@ public sealed class MacNotificationBuilder : INotificationBuilder
 
         await ShowAsync(new NotificationRequest(
             Identifier: $"calendar-reminder-{calendarItem.Id:N}-{reminderDurationInSeconds}",
-            Title: calendarItem.Title ?? string.Empty,
+            Title: title,
             Subtitle: null,
             Body: body,
             Category: MacNotificationCategories.CalendarCategory(canJoin, snoozeMinutes),
