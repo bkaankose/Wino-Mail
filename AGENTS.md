@@ -42,6 +42,7 @@ The maintainer commits straight to `main`, and release notes are drafted from th
 
 - Treat nullable diagnostics as real defects. Guard missing items and owners explicitly; two null account IDs comparing equal does not make either account safe to dereference. Do not hide errors with null-forgiving operators, warning suppressions, disabled analyzers, or weakened Release settings.
 - Give collection expressions that target read-only interfaces an explicit concrete backing type. Collections that reach an items source need a concrete static type, not an interface; `WINOAOT001` enforces it. See the [implementation rules](docs/harness/implementation-rules.md#core-implementation-rules).
+- Write no comments in source code unless one identifies a potential risk, explains an uncommon decision behind the code, or is needed for everyone to understand it. Do not restate member names, describe what the code plainly does, or narrate the feature.
 - Verify which source file the active project compiles before editing. Legacy and active files can share a namespace and type name.
 - Keep business rules in shared services and ViewModels. Platform heads adapt them; they do not re-implement them.
 - Add English strings only to `src/Wino.Core.Domain/Translations/en_US/resources.json`.
