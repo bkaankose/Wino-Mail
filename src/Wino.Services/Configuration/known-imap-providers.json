@@ -37,6 +37,7 @@
       "calDavServiceUrl": "https://caldav.icloud.com/",
       "cardDavServiceUrl": "https://contacts.icloud.com/",
       "appPasswordHelpUrl": "https://support.apple.com/102654",
+      "customDomainLogin": true,
       "folderAliases": [
         {
           "role": "Sent",

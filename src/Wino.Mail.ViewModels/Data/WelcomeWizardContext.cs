@@ -52,6 +52,12 @@ public partial class WelcomeWizardContext : ObservableObject
     [ObservableProperty]
     public partial string AppSpecificPassword { get; set; }
 
+    /// <summary>
+    /// The provider address that signs in when <see cref="EmailAddress"/> is on a custom domain. Null otherwise.
+    /// </summary>
+    [ObservableProperty]
+    public partial string LoginAddress { get; set; }
+
     [ObservableProperty]
     public partial ImapCalendarSupportMode CalendarSupportMode { get; set; } = ImapCalendarSupportMode.Disabled;
 
@@ -87,7 +93,8 @@ public partial class WelcomeWizardContext : ObservableObject
             DisplayName,
             SelectedProvider.SpecialImapProvider,
             CalendarSupportMode,
-            RegionId);
+            RegionId,
+            LoginAddress);
     }
 
     public AccountCreationDialogResult BuildAccountCreationDialogResult()
@@ -121,6 +128,7 @@ public partial class WelcomeWizardContext : ObservableObject
         DisplayName = null;
         EmailAddress = null;
         AppSpecificPassword = null;
+        LoginAddress = null;
         CalendarSupportMode = ImapCalendarSupportMode.Disabled;
         RegionId = null;
         ImapCalDavSetupResult = null;

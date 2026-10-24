@@ -104,6 +104,19 @@ public partial class MailAccountPreferences
     public MailOperation CustomRightSwipeOperation { get; set; }
 
     /// <summary>
+    /// Device-local, because browser and profile ids only exist on this machine. While false the
+    /// All accounts browser applies. While true a null <see cref="CustomLinkBrowserId"/> means System default.
+    /// </summary>
+    public bool HasCustomLinkBrowser { get; set; }
+
+    public string? CustomLinkBrowserId { get; set; }
+
+    public string? CustomLinkBrowserProfileId { get; set; }
+
+    /// <summary>Kept so the warning can still name a browser after it was uninstalled.</summary>
+    public string? CustomLinkBrowserName { get; set; }
+
+    /// <summary>
     /// Gets or sets whether the account has Focused inbox support.
     /// Null if the account provider type doesn't support Focused inbox.
     /// </summary>

@@ -44,6 +44,7 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<IApplicationResourceResolver, WindowsApplicationResourceResolver>();
         services.AddSingleton<IStartupIntegrationService, WindowsStartupIntegrationService>();
         services.AddSingleton<IReaderRuntimeService, WindowsReaderRuntimeService>();
+        services.AddSingleton<IInstalledBrowserService, WindowsInstalledBrowserService>();
         services.AddSingleton<IPlatformCapabilities>(_ => new PlatformCapabilities(
             Printing: Windows.Graphics.Printing.PrintManager.IsSupported(), PdfExport: true,
             Smime: true, AdditionalWindows: true, Notifications: true, NotificationActions: true,

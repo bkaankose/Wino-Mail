@@ -84,6 +84,19 @@ public class KnownImapProviderCatalog : IKnownImapProviderCatalog
         return atIndex > 0 ? normalized[..atIndex] : normalized;
     }
 
+    public bool IsProviderDomain(KnownImapProviderDefinition provider, string emailAddress)
+    {
+        var domain = GetDomain(emailAddress);
+        return provider != null
+            && !string.IsNullOrEmpty(domain)
+            && provider.EmailDomains.Any(candidate => string.Equals(candidate, domain, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public bool RequiresLoginAddress(KnownImapProviderDefinition provider, string emailAddress)
+        => provider?.CustomDomainLogin == true
+            && !string.IsNullOrEmpty(GetDomain(emailAddress))
+            && !IsProviderDomain(provider, emailAddress);
+
     public KnownAppPasswordHelp FindAppPasswordHelp(string emailAddress)
     {
         var domain = GetDomain(emailAddress);

@@ -15,6 +15,7 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Platform;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Navigation;
@@ -31,6 +32,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
 {
     private readonly ICalendarService _calendarService;
     private readonly IExternalLauncher _externalLauncher;
+    private readonly ILinkBrowserService _linkBrowserService;
     private readonly IApplicationConfiguration _applicationConfiguration;
     private readonly IPreferencesService _preferencesService;
     private readonly IMailDialogService _dialogService;
@@ -57,6 +59,10 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
     }
 
     public IExternalLauncher ExternalLauncher => _externalLauncher;
+
+    /// <summary>Opens a link from the event description in the browser chosen for the calendar's account.</summary>
+    public Task<PlatformOperationResult> OpenLinkAsync(Uri uri)
+        => _linkBrowserService?.OpenLinkAsync(uri, CurrentEvent?.AssignedCalendar?.AccountId) ?? _externalLauncher.LaunchUriAsync(uri);
     public bool LastMutationSucceeded { get; private set; }
 
     /// <summary>
@@ -274,10 +280,12 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
                                      IContactService contactService,
                                      IApplicationConfiguration applicationConfiguration,
                                      IAttachmentFileService attachmentFileService = null,
-                                     ICalendarCapabilityService calendarCapabilityService = null)
+                                     ICalendarCapabilityService calendarCapabilityService = null,
+                                     ILinkBrowserService linkBrowserService = null)
     {
         _calendarService = calendarService;
         _externalLauncher = externalLauncher;
+        _linkBrowserService = linkBrowserService;
         _applicationConfiguration = applicationConfiguration;
         _preferencesService = preferencesService;
         _dialogService = dialogService;

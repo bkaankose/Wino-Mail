@@ -19,6 +19,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Platform;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Attachments;
 using Wino.Core.Domain.Models.MailItem;
@@ -162,12 +163,17 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     #endregion
 
     public IExternalLauncher ExternalLauncher { get; }
+    private readonly ILinkBrowserService _linkBrowserService;
     private readonly IClipboardService _clipboardService;
     public IStatePersistanceService StatePersistenceService { get; }
     public IPreferencesService PreferencesService { get; }
     public IPlatformCapabilities PlatformCapabilities { get; }
     public Guid? CurrentMailAccountId => initializedMailItemViewModel?.MailCopy.AssignedAccount?.Id;
     public Guid? CurrentMailFileId => initializedMailItemViewModel?.MailCopy.FileId;
+
+    /// <summary>Opens a link from the message in the browser chosen for its account.</summary>
+    public Task<PlatformOperationResult> OpenLinkAsync(Uri uri)
+        => _linkBrowserService?.OpenLinkAsync(uri, CurrentMailAccountId) ?? ExternalLauncher.LaunchUriAsync(uri);
 
     public override async Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args)
     {
@@ -213,10 +219,12 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         IPreferencesService preferencesService,
         IPlatformCapabilities platformCapabilities,
         IApplicationConfiguration applicationConfiguration,
-        IAttachmentFileService attachmentFileService = null)
+        IAttachmentFileService attachmentFileService = null,
+        ILinkBrowserService linkBrowserService = null)
     {
         _dialogService = dialogService;
         ExternalLauncher = externalLauncher;
+        _linkBrowserService = linkBrowserService;
         _clipboardService = clipboardService;
         StatePersistenceService = statePersistenceService;
         _contactService = contactService;
@@ -296,7 +304,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                 confirmed = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationGoToWebsiteMessage, FromName), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.DialogMessage_UnsubscribeConfirmationGoToWebsiteConfirmButton);
                 if (!confirmed) return;
 
-                (await ExternalLauncher.LaunchUriAsync(new Uri(CurrentRenderModel.UnsubscribeInfo.HttpLink))).ThrowIfNotSucceeded();
+                (await OpenLinkAsync(new Uri(CurrentRenderModel.UnsubscribeInfo.HttpLink))).ThrowIfNotSucceeded();
             }
         }
         else if (CurrentRenderModel.UnsubscribeInfo.MailToLink is not null)

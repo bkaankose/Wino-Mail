@@ -58,6 +58,24 @@ public sealed class SpecialImapCredentialsPageViewController(SpecialImapCredenti
         email.ContentType = NSTextContentType.EmailAddress;
         grid.Row(Translator.ProviderSelection_EmailHeader, email);
 
+        // Custom domains sign in with the provider's own address (iCloud+ custom email domains).
+        var customDomain = new WinoInfoBar(WinoInfoBarSeverity.Informational);
+        _form.Bind(nameof(vm.CustomDomainMessage), s => s.CustomDomainMessage, text => customDomain.Message = text);
+        _form.Visible(customDomain, nameof(vm.IsCustomDomain), s => s.IsCustomDomain);
+        var loginLabel = FormGrid.FieldLabel(string.Empty);
+        _form.Label(loginLabel, nameof(vm.LoginAddressHeader), s => s.LoginAddressHeader);
+        var login = _form.Text(nameof(vm.LoginAddress), s => s.LoginAddress, (s, v) => s.LoginAddress = v,
+            vm.LoginAddressPlaceholder, vm.LoginAddressHeader);
+        login.ContentType = NSTextContentType.EmailAddress;
+        _form.Bind(nameof(vm.LoginAddressPlaceholder), s => s.LoginAddressPlaceholder, text => login.PlaceholderString = text);
+        _form.Bind(nameof(vm.LoginAddressHeader), s => s.LoginAddressHeader, text => login.AccessibilityLabel = text);
+        var loginRow = grid.Row(loginLabel, login);
+        var loginHelp = FormGrid.Help();
+        _form.Label(loginHelp, nameof(vm.LoginAddressDescription), s => s.LoginAddressDescription);
+        var loginHelpRow = grid.Row((NSTextField?)null, loginHelp);
+        _form.Visible(loginRow, nameof(vm.IsCustomDomain), s => s.IsCustomDomain);
+        _form.Visible(loginHelpRow, nameof(vm.IsCustomDomain), s => s.IsCustomDomain);
+
         // Region, only for providers whose servers depend on the data centre (Zoho and others).
         var region = WinoAccessibility.Label(new NSPopUpButton { TranslatesAutoresizingMaskIntoConstraints = false }, Translator.ProviderSelection_RegionHeader);
         _form.KeyViews.Add(region);
@@ -90,7 +108,7 @@ public sealed class SpecialImapCredentialsPageViewController(SpecialImapCredenti
         var passwordRow = grid.Row(passwordLabel, password);
         _form.Visible(passwordRow, nameof(vm.RequiresAppSpecificPassword), s => s.RequiresAppSpecificPassword);
 
-        var content = WinoLayout.VStack(WinoStyle.Space4, hint, OnboardingPageView.Group(null, grid));
+        var content = WinoLayout.VStack(WinoStyle.Space4, hint, OnboardingPageView.Group(null, grid), customDomain);
         content.Alignment = NSLayoutAttribute.Leading;
         foreach (var view in content.ArrangedSubviews) view.WidthAnchor.ConstraintEqualTo(content.WidthAnchor).Active = true;
 

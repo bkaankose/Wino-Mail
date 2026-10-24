@@ -58,6 +58,25 @@ public sealed class SpecialImapCredentialsPageViewController(SpecialImapCredenti
         email.TextContentType = UITextContentType.EmailAddress;
         grid.Row(Translator.ProviderSelection_EmailHeader, email);
 
+        // Custom domains sign in with the provider's own address (iCloud+ custom email domains).
+        var customDomain = new WinoInfoBar(WinoInfoBarSeverity.Informational);
+        form.Bind(nameof(vm.CustomDomainMessage), s => s.CustomDomainMessage, text => customDomain.Message = text);
+        form.Visible(customDomain, nameof(vm.IsCustomDomain), s => s.IsCustomDomain);
+        var loginLabel = FormGrid.FieldLabel(string.Empty);
+        form.Label(loginLabel, nameof(vm.LoginAddressHeader), s => s.LoginAddressHeader);
+        var login = form.Text(nameof(vm.LoginAddress), s => s.LoginAddress, (s, v) => s.LoginAddress = v,
+            vm.LoginAddressPlaceholder, vm.LoginAddressHeader);
+        login.KeyboardType = UIKeyboardType.EmailAddress;
+        login.TextContentType = UITextContentType.EmailAddress;
+        form.Bind(nameof(vm.LoginAddressPlaceholder), s => s.LoginAddressPlaceholder, text => login.Placeholder = text);
+        form.Bind(nameof(vm.LoginAddressHeader), s => s.LoginAddressHeader, text => login.AccessibilityLabel = text);
+        var loginRow = grid.Row(loginLabel, login);
+        var loginHelp = FormGrid.Help();
+        form.Label(loginHelp, nameof(vm.LoginAddressDescription), s => s.LoginAddressDescription);
+        var loginHelpRow = grid.Row((string?)null, loginHelp);
+        form.Visible(loginRow, nameof(vm.IsCustomDomain), s => s.IsCustomDomain);
+        form.Visible(loginHelpRow, nameof(vm.IsCustomDomain), s => s.IsCustomDomain);
+
         // Region, only for providers whose servers depend on the data centre (Zoho and others).
         var region = new WinoPopUpButton(Translator.ProviderSelection_RegionHeader);
         form.Bind(nameof(vm.Regions), s => s.Regions, regions =>
@@ -80,7 +99,7 @@ public sealed class SpecialImapCredentialsPageViewController(SpecialImapCredenti
         var passwordRow = grid.Row(passwordLabel, password);
         form.Visible(passwordRow, nameof(vm.RequiresAppSpecificPassword), s => s.RequiresAppSpecificPassword);
 
-        var content = WinoLayout.VStack(WinoStyle.Space4, hint, OnboardingPageView.Group(null, grid));
+        var content = WinoLayout.VStack(WinoStyle.Space4, hint, OnboardingPageView.Group(null, grid), customDomain);
         content.Alignment = UIStackViewAlignment.Fill;
 
         var back = SettingsBinder.CreateButton(Translator.Buttons_Back);

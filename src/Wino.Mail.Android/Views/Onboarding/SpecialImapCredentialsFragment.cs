@@ -48,6 +48,19 @@ public sealed class SpecialImapCredentialsFragment : WinoFragment<SpecialImapCre
                 (vm, value) => vm.DisplayName = value, InputTypes.ClassText | InputTypes.TextFlagCapWords).PlaceholderText = Translator.ProviderSelection_DisplayNamePlaceholder;
             form.Field(Translator.ProviderSelection_EmailHeader, nameof(viewModel.EmailAddress), vm => vm.EmailAddress,
                 (vm, value) => vm.EmailAddress = value, InputTypes.ClassText | InputTypes.TextVariationEmailAddress).PlaceholderText = Translator.ProviderSelection_EmailPlaceholder;
+
+            // Custom domains sign in with the provider's own address (iCloud+ custom email domains).
+            form.Group(() =>
+            {
+                var customDomain = form.InfoBar(WinoInfoBarSeverity.Informational);
+                customDomain.IsOpen = true;
+                binder.Bind(viewModel, nameof(viewModel.CustomDomainMessage), vm => vm.CustomDomainMessage, text => customDomain.Message = text);
+                var login = form.Field(viewModel.LoginAddressHeader, nameof(viewModel.LoginAddress), vm => vm.LoginAddress,
+                    (vm, value) => vm.LoginAddress = value, InputTypes.ClassText | InputTypes.TextVariationEmailAddress);
+                binder.Bind(viewModel, nameof(viewModel.LoginAddressHeader), vm => vm.LoginAddressHeader, header => login.Hint = header);
+                binder.Bind(viewModel, nameof(viewModel.LoginAddressPlaceholder), vm => vm.LoginAddressPlaceholder, placeholder => login.PlaceholderText = placeholder);
+                form.Help(property: nameof(viewModel.LoginAddressDescription), read: vm => vm.LoginAddressDescription);
+            }, nameof(viewModel.IsCustomDomain), vm => vm.IsCustomDomain);
             form.Group(() =>
             {
                 var password = form.Field(Translator.ProviderSelection_AppPasswordHeader, nameof(viewModel.AppSpecificPassword), vm => vm.AppSpecificPassword,

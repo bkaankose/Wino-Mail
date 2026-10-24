@@ -16,6 +16,16 @@ public interface IKnownImapProviderCatalog
     string ResolveUsername(ImapUsernamePolicy policy, string emailAddress);
 
     /// <summary>
+    /// Whether the address is on one of the provider's own domains.
+    /// </summary>
+    bool IsProviderDomain(KnownImapProviderDefinition provider, string emailAddress);
+
+    /// <summary>
+    /// Whether the address is on a custom domain that signs in through a separate provider address.
+    /// </summary>
+    bool RequiresLoginAddress(KnownImapProviderDefinition provider, string emailAddress);
+
+    /// <summary>
     /// Finds app-password guidance for the address's domain, or null when the catalog has none.
     /// </summary>
     KnownAppPasswordHelp FindAppPasswordHelp(string emailAddress);

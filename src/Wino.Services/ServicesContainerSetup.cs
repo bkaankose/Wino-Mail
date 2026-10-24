@@ -1,5 +1,6 @@
 using System;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Services.PushRelay;
 using Wino.Core.Domain.Intelligence.Keys;
@@ -39,6 +40,9 @@ public static class ServicesContainerSetup
         services.AddSingleton<IAttachmentFileService, AttachmentFileService>();
         services.AddSingleton<ICalendarIcsFileService, CalendarIcsFileService>();
         services.AddSingleton<IActivationFileImportService, ActivationFileImportService>();
+        // A platform head that lists browsers registers its own IInstalledBrowserService, which wins over this one.
+        services.TryAddSingleton<IInstalledBrowserService, UnsupportedInstalledBrowserService>();
+        services.AddSingleton<ILinkBrowserService, LinkBrowserService>();
         // Needs the platform INotificationBuilder; each head starts it once its shell is running.
         services.AddSingleton<ICalendarReminderServer, CalendarReminderServer>();
         // Needs the head's INotificationResponseNavigator (ViewModels layer) and platform INotificationBuilder.

@@ -36,6 +36,12 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
     public partial string AppSpecificPassword { get; set; }
 
     [ObservableProperty]
+    public partial string LoginAddress { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsCustomDomain { get; set; }
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RequiresAppSpecificPassword))]
     public partial int SelectedCalendarModeIndex { get; set; }
 
@@ -122,6 +128,27 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
         KnownImapSetupHint.LocalBridgeRequired or
         KnownImapSetupHint.ThirdPartyAccessRequired;
 
+    public string CustomDomainMessage
+    {
+        get
+        {
+            if (!IsCustomDomain || !MailAccountAddressValidator.TryGetDomain(EmailAddress, out var domain))
+                return string.Empty;
+
+            return string.Format(Translator.ProviderSelection_CustomDomain_Message, domain, ProviderName, EmailAddress.Trim());
+        }
+    }
+
+    public string LoginAddressHeader => string.Format(Translator.ProviderSelection_LoginAddressHeader, ProviderName);
+
+    public string LoginAddressPlaceholder => ProviderDefinition?.EmailDomains.Count > 0
+        ? string.Format(Translator.ProviderSelection_LoginAddressPlaceholder, ProviderDefinition.EmailDomains[0])
+        : string.Empty;
+
+    public string LoginAddressDescription => ProviderDefinition?.EmailDomains.Count > 0
+        ? string.Format(Translator.ProviderSelection_LoginAddressDescription, string.Join(", ", ProviderDefinition.EmailDomains.Select(domain => $"@{domain}")))
+        : string.Empty;
+
     public string RegionDescription => string.Format(Translator.ProviderSelection_RegionDescription, ProviderName);
 
     public string CalendarModeCalDavDescription
@@ -149,6 +176,7 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
         DisplayName = WizardContext.DisplayName;
         EmailAddress = WizardContext.EmailAddress;
         AppSpecificPassword = WizardContext.AppSpecificPassword;
+        LoginAddress = WizardContext.LoginAddress;
 
         SelectedCalendarModeIndex = WizardContext.CalendarSupportMode switch
         {
@@ -179,6 +207,9 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
         OnPropertyChanged(nameof(CalendarModeCalDavDescription));
         OnPropertyChanged(nameof(IsCalendarModeSelectionVisible));
         OnPropertyChanged(nameof(RequiresAppSpecificPassword));
+        OnPropertyChanged(nameof(LoginAddressHeader));
+        OnPropertyChanged(nameof(LoginAddressPlaceholder));
+        OnPropertyChanged(nameof(LoginAddressDescription));
 
         Validate();
     }
@@ -186,6 +217,7 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
     partial void OnDisplayNameChanged(string value) => Validate();
     partial void OnEmailAddressChanged(string value) => Validate();
     partial void OnAppSpecificPasswordChanged(string value) => Validate();
+    partial void OnLoginAddressChanged(string value) => Validate();
     partial void OnSelectedRegionChanged(KnownImapProviderRegion value) => Validate();
     partial void OnSelectedCalendarModeIndexChanged(int value)
     {
@@ -195,12 +227,21 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
 
     private void Validate()
     {
+        var isEmailValid = !string.IsNullOrWhiteSpace(EmailAddress) && MailAccountAddressValidator.IsValid(EmailAddress);
+        IsCustomDomain = isEmailValid && _knownImapProviderCatalog.RequiresLoginAddress(ProviderDefinition, EmailAddress);
+        OnPropertyChanged(nameof(CustomDomainMessage));
+
         CanProceed = !string.IsNullOrWhiteSpace(DisplayName)
-            && !string.IsNullOrWhiteSpace(EmailAddress)
-            && MailAccountAddressValidator.IsValid(EmailAddress)
+            && isEmailValid
+            && (!IsCustomDomain || IsLoginAddressValid())
             && (!RequiresAppSpecificPassword || !string.IsNullOrWhiteSpace(AppSpecificPassword))
             && (!IsRegionSelectionVisible || SelectedRegion != null);
     }
+
+    private bool IsLoginAddressValid()
+        => !string.IsNullOrWhiteSpace(LoginAddress)
+            && MailAccountAddressValidator.IsValid(LoginAddress)
+            && _knownImapProviderCatalog.IsProviderDomain(ProviderDefinition, LoginAddress);
 
     [RelayCommand]
     private async Task ProceedAsync()
@@ -219,6 +260,7 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
         WizardContext.DisplayName = DisplayName?.Trim();
         WizardContext.EmailAddress = EmailAddress?.Trim();
         WizardContext.AppSpecificPassword = AppSpecificPassword?.Trim();
+        WizardContext.LoginAddress = IsCustomDomain ? LoginAddress?.Trim() : null;
         WizardContext.RegionId = SelectedRegion?.Id;
         Messenger.Send(new BreadcrumbNavigationRequested(
             Translator.WelcomeWizard_Step3Title,
