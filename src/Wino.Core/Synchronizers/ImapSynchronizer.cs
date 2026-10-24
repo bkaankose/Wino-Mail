@@ -252,7 +252,8 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
             var sourceFolder = await client.GetFolderAsync(requests[0].FromFolder.RemoteFolderId, cancellationToken).ConfigureAwait(false);
             var destinationFolder = await client.GetFolderAsync(requests[0].ToFolder.RemoteFolderId, cancellationToken).ConfigureAwait(false);
             var candidates = requests.Select(item => (item.Item, UniqueId: GetUniqueId(item.Item))).ToList();
-            var uniqueIds = candidates.Select(item => item.UniqueId).ToList();
+            // QQ Mail rejects descending UID ranges (#575, #1137); selections arrive newest first.
+            var uniqueIds = new UniqueIdSet(candidates.Select(item => item.UniqueId), SortOrder.Ascending);
 
             await sourceFolder.OpenAsync(FolderAccess.ReadWrite, cancellationToken).ConfigureAwait(false);
             try
@@ -287,7 +288,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         {
             var folder = requests[0].Item.AssignedFolder;
             var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId, cancellationToken).ConfigureAwait(false);
-            var uniqueIds = requests.Select(item => GetUniqueId(item.Item)).ToList();
+            var uniqueIds = new UniqueIdSet(requests.Select(item => GetUniqueId(item.Item)), SortOrder.Ascending);
             var request = new StoreFlagsRequest(requests[0].IsFlagged ? StoreAction.Add : StoreAction.Remove, MessageFlags.Flagged)
             {
                 Silent = true
@@ -316,7 +317,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
             var folder = requests[0].Item.AssignedFolder;
             var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId, cancellationToken).ConfigureAwait(false);
             var candidates = requests.Select(request => (request.Item, UniqueId: GetUniqueId(request.Item))).ToList();
-            var uniqueIds = candidates.Select(item => item.UniqueId).ToList();
+            var uniqueIds = new UniqueIdSet(candidates.Select(item => item.UniqueId), SortOrder.Ascending);
             var storeRequest = new StoreFlagsRequest(StoreAction.Add, MessageFlags.Deleted) { Silent = true };
 
             await remoteFolder.OpenAsync(FolderAccess.ReadWrite, cancellationToken).ConfigureAwait(false);
@@ -344,7 +345,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         {
             var folder = requests[0].Item.AssignedFolder;
             var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId, cancellationToken).ConfigureAwait(false);
-            var uniqueIds = requests.Select(request => GetUniqueId(request.Item)).ToList();
+            var uniqueIds = new UniqueIdSet(requests.Select(request => GetUniqueId(request.Item)), SortOrder.Ascending);
             var storeRequest = new StoreFlagsRequest(requests[0].IsRead ? StoreAction.Add : StoreAction.Remove, MessageFlags.Seen)
             {
                 Silent = true

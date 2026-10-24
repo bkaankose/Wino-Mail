@@ -43,7 +43,8 @@ public sealed partial class MailListFragment
         if (_selecting || _preferences is not { IsSwipeActionsEnabled: true } preferences) return null;
         var items = Leaves(row);
         if (items.Count == 0) return null;
-        var operation = leading ? preferences.RightSwipeOperation : preferences.LeftSwipeOperation;
+        var swipe = ViewModel?.MailActionResolver?.ResolveSwipeActions(row) ?? MailListActionPreferences.GetDefaultSwipeActions(preferences);
+        var operation = leading ? swipe.Right : swipe.Left;
         return operation switch
         {
             MailOperation.None => null,

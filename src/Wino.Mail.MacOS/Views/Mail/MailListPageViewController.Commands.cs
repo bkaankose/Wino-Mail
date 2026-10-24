@@ -163,7 +163,8 @@ public sealed partial class MailListPageViewController
     private NSTableViewRowAction[] SwipeActions(nint index, NSTableRowActionEdge edge)
     {
         if (!_preferences.IsSwipeActionsEnabled || RowAt(index) is not { } row) return [];
-        var operation = edge == NSTableRowActionEdge.Leading ? _preferences.RightSwipeOperation : _preferences.LeftSwipeOperation;
+        var swipe = ViewModel.MailActionResolver?.ResolveSwipeActions(row) ?? MailListActionPreferences.GetDefaultSwipeActions(_preferences);
+        var operation = edge == NSTableRowActionEdge.Leading ? swipe.Right : swipe.Left;
         if (operation == MailOperation.None) return [];
         var items = Leaves(row);
         operation = operation switch

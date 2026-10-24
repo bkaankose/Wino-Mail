@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -115,6 +115,15 @@ public static class XamlHelpers
         => kind == global::Wino.Mail.Controls.Core.MailListRowKind.ThreadChild ? new Thickness(20, 0, 0, 0) : new Thickness(0);
     public static Thickness GetDetailedMailListRowMargin(global::Wino.Mail.Controls.Core.MailListRowKind kind)
         => kind == global::Wino.Mail.Controls.Core.MailListRowKind.ThreadChild ? new Thickness(24, 0, 0, 0) : new Thickness(0);
+    public static Thickness GetMailGroupHeaderPadding()
+        => (PreferencesService?.MailItemDisplayMode ?? MailListDisplayMode.Spacious) switch
+        {
+            MailListDisplayMode.Compact => new Thickness(12, 8, 12, 8),
+            MailListDisplayMode.Medium => new Thickness(12, 10, 12, 10),
+            _ => new Thickness(12),
+        };
+    public static Thickness GetMailGroupHeaderMargin()
+        => PreferencesService?.MailItemDisplayMode == MailListDisplayMode.Compact ? new Thickness(0, 0, 0, 4) : new Thickness(0, 0, 0, 6);
     public static bool IsThreadMessageHead(global::Wino.Mail.Controls.Core.MailListRowKind kind)
         => kind == global::Wino.Mail.Controls.Core.MailListRowKind.ThreadHead;
     public static WinoIconGlyph GetThreadChevronGlyph(bool isExpanded) => isExpanded ? WinoIconGlyph.ChevronDown : WinoIconGlyph.ChevronRight;
@@ -507,15 +516,7 @@ public static class XamlHelpers
     public static bool IsMergedAccountIndicatorVisible(bool isSelected, bool isChildSelected, bool isExpanded) => isSelected || (isChildSelected && !isExpanded);
     public static FontWeight GetFontWeightByReadState(bool isChildSelected) => isChildSelected ? FontWeights.Normal : FontWeights.SemiBold;
     public static FontWeight GetMailItemSenderFontWeightByReadState(bool isRead) => isRead ? FontWeights.Normal : FontWeights.Bold;
-    public static HoverActionKind GetHoverActionKind(MailOperation operation) => operation switch
-    {
-        MailOperation.Archive => HoverActionKind.Archive,
-        MailOperation.SoftDelete => HoverActionKind.Delete,
-        MailOperation.SetFlag or MailOperation.ClearFlag => HoverActionKind.ToggleFlag,
-        MailOperation.MarkAsRead or MailOperation.MarkAsUnread => HoverActionKind.ToggleRead,
-        MailOperation.MoveToJunk => HoverActionKind.MoveToJunk,
-        _ => HoverActionKind.None,
-    };
+    public static HoverActionKind GetHoverActionKind(MailOperation operation) => MailListActionResolver.ToHoverActionKind(operation);
 
     public static HoverActionAnimation GetHoverActionAnimation(MailHoverActionAnimation animation) => animation switch
     {

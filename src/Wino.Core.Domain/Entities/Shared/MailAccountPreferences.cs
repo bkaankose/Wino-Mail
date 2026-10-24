@@ -85,6 +85,25 @@ public partial class MailAccountPreferences
     public bool HideNotificationContent { get; set; }
 
     /// <summary>
+    /// Device-local: not part of Wino Account data sync. While false the app-wide hover actions apply
+    /// and the three values below are ignored; they are written whenever the flag turns on.
+    /// </summary>
+    public bool HasCustomHoverActions { get; set; }
+
+    public MailOperation CustomLeftHoverAction { get; set; }
+
+    public MailOperation CustomCenterHoverAction { get; set; }
+
+    public MailOperation CustomRightHoverAction { get; set; }
+
+    /// <summary>Device-local. Same contract as <see cref="HasCustomHoverActions"/>, for swipe.</summary>
+    public bool HasCustomSwipeActions { get; set; }
+
+    public MailOperation CustomLeftSwipeOperation { get; set; }
+
+    public MailOperation CustomRightSwipeOperation { get; set; }
+
+    /// <summary>
     /// Gets or sets whether the account has Focused inbox support.
     /// Null if the account provider type doesn't support Focused inbox.
     /// </summary>

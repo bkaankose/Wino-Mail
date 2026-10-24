@@ -201,7 +201,8 @@ public sealed partial class MailListPageViewController
     {
         if (!_preferences.IsSwipeActionsEnabled || _selectionMode || RowAt(path) is not { } row) return null;
 
-        var operation = leading ? _preferences.RightSwipeOperation : _preferences.LeftSwipeOperation;
+        var swipe = ViewModel.MailActionResolver?.ResolveSwipeActions(row) ?? MailListActionPreferences.GetDefaultSwipeActions(_preferences);
+        var operation = leading ? swipe.Right : swipe.Left;
         if (operation == MailOperation.None) return null;
 
         var items = Leaves(row);

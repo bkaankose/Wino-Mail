@@ -1,3 +1,5 @@
+using Android.Views;
+using Wino.Presentation.Android;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -36,6 +38,8 @@ public sealed class MessageListPageFragment : SettingsPageFragment<MessageListPa
         static bool SwipeOn(IPreferencesService s) => s.IsSwipeActionsEnabled;
         AddGroup(null, Expander(Translator.SettingsSwipeActions_Title, Translator.SettingsSwipeActions_Description, WinoIconGlyph.ArrowSwap,
             Bind.Switch(p, nameof(p.IsSwipeActionsEnabled), s => s.IsSwipeActionsEnabled, (s, v) => s.IsSwipeActionsEnabled = v, Translator.SettingsSwipeActions_Title),
+            CustomisedAccountsNote(vm),
+            Bind.Enabled(SwipeScopeCard(vm), p, nameof(p.IsSwipeActionsEnabled), SwipeOn),
             Bind.Enabled(StackedCard(Translator.SettingsSwipeActionLeft, null, WinoIconGlyph.None,
                 Bind.PopUp(vm, vm.AvailableSwipeActionsTranslations, nameof(vm.LeftSwipeActionIndex), s => s.LeftSwipeActionIndex, (s, v) => s.LeftSwipeActionIndex = v)),
                 p, nameof(p.IsSwipeActionsEnabled), SwipeOn),
@@ -66,5 +70,32 @@ public sealed class MessageListPageFragment : SettingsPageFragment<MessageListPa
         AddGroup(null,
             Card(Translator.SettingsShowPreviewText_Title, Translator.SettingsShowPreviewText_Description, WinoIconGlyph.TextDescription,
                 Bind.Switch(p, nameof(p.IsShowPreviewEnabled), s => s.IsShowPreviewEnabled, (s, v) => s.IsShowPreviewEnabled = v, Translator.SettingsShowPreviewText_Title)));
+    }
+
+    /// <summary>
+    /// "All accounts" or one account whose swipe actions the pickers below edit, with "Use all accounts" while that
+    /// account carries its own (Windows MessageListPage scope card). Hidden with a single account and no override.
+    /// </summary>
+    private View SwipeScopeCard(MessageListPageViewModel vm)
+    {
+        var popup = Bind.PopUp<MessageListPageViewModel, string>(vm, s => s.ActionScopeOptions, option => option, nameof(vm.SelectedSwipeScopeIndex),
+            s => s.SelectedSwipeScopeIndex >= 0 && s.SelectedSwipeScopeIndex < s.ActionScopeOptions.Count ? s.ActionScopeOptions[s.SelectedSwipeScopeIndex] : null,
+            (s, option) => { var index = s.ActionScopeOptions.IndexOf(option); if (index >= 0) s.SelectedSwipeScopeIndex = index; },
+            itemsProperty: nameof(vm.ActionScopeOptions));
+        var useDefaults = Bind.Button(Translator.SettingsActionScope_UseAllAccounts, vm.UseDefaultSwipeActionsCommand);
+        Bind.Visible(useDefaults, vm, nameof(vm.CanUseDefaultSwipeActions), s => s.CanUseDefaultSwipeActions);
+        var card = StackedCard(Translator.SettingsActionScope_Title, vm.SwipeScopeDescription, WinoIconGlyph.None, Row(popup, useDefaults));
+        Bind.Bind(vm, nameof(vm.SwipeScopeDescription), s => s.SwipeScopeDescription, description => card.Description = description);
+        Bind.Visible(card, vm, nameof(vm.IsAccountScopeAvailable), s => s.IsAccountScopeAvailable);
+        return card;
+    }
+
+    /// <summary>The accounts that carry their own swipe actions, shown while any does.</summary>
+    private View CustomisedAccountsNote(MessageListPageViewModel vm)
+    {
+        var note = Bind.Label(vm, nameof(vm.CustomisedSwipeAccountsText), s => s.CustomisedSwipeAccountsText, WinoTextStyle.Description, 0);
+        var card = Card(string.Empty, null, WinoIconGlyph.None, note);
+        Bind.Visible(card, vm, nameof(vm.HasCustomisedSwipeAccounts), s => s.HasCustomisedSwipeAccounts);
+        return card;
     }
 }

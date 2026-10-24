@@ -57,6 +57,8 @@ public sealed class MessageListPageViewController(MessageListPageViewModel viewM
         bool SwipeOn(IPreferencesService s) => s.IsSwipeActionsEnabled;
         AddGroup(null, Expander(Translator.SettingsSwipeActions_Title, Translator.SettingsSwipeActions_Description, WinoIconGlyph.ArrowSwap,
             Bind.Switch(p, nameof(p.IsSwipeActionsEnabled), s => s.IsSwipeActionsEnabled, (s, v) => s.IsSwipeActionsEnabled = v, Translator.SettingsSwipeActions_Title),
+            CustomisedAccountsNote(vm, swipe: true),
+            Bind.Enabled(ScopeCard(vm, swipe: true), p, nameof(p.IsSwipeActionsEnabled), SwipeOn),
             Bind.Enabled(Card(Translator.SettingsSwipeActionLeft, null, WinoIconGlyph.None,
                 Bind.PopUp(vm, vm.AvailableSwipeActionsTranslations, nameof(vm.LeftSwipeActionIndex), s => s.LeftSwipeActionIndex, (s, v) => s.LeftSwipeActionIndex = v, 150)),
                 p, nameof(p.IsSwipeActionsEnabled), SwipeOn),
@@ -97,6 +99,8 @@ public sealed class MessageListPageViewController(MessageListPageViewModel viewM
             Bind.Switch(p, nameof(p.IsHoverActionsEnabled), s => s.IsHoverActionsEnabled, (s, v) => s.IsHoverActionsEnabled = v, Translator.SettingsEnableHoverActions_Title));
         AddGroup(null, Expander(Translator.SettingsHoverActions_Title, Translator.SettingsHoverActions_Description, WinoIconGlyph.CursorHover, null,
             hoverEnabled,
+            CustomisedAccountsNote(vm, swipe: false),
+            Bind.Enabled(ScopeCard(vm, swipe: false), p, nameof(p.IsHoverActionsEnabled), HoverOn),
             Bind.Enabled(Card(Translator.SettingsHoverActionLeft, null, WinoIconGlyph.None,
                 Bind.PopUp(vm, vm.AvailableHoverActionsTranslations, nameof(vm.LeftHoverActionIndex), s => s.LeftHoverActionIndex, (s, v) => s.LeftHoverActionIndex = v, 150)),
                 p, nameof(p.IsHoverActionsEnabled), HoverOn),
@@ -106,15 +110,60 @@ public sealed class MessageListPageViewController(MessageListPageViewModel viewM
             Bind.Enabled(Card(Translator.SettingsHoverActionRight, null, WinoIconGlyph.None,
                 Bind.PopUp(vm, vm.AvailableHoverActionsTranslations, nameof(vm.RightHoverActionIndex), s => s.RightHoverActionIndex, (s, v) => s.RightHoverActionIndex = v, 150)),
                 p, nameof(p.IsHoverActionsEnabled), HoverOn),
-            Bind.Enabled(Card(Translator.SettingsHoverActionButtonSize, null, WinoIconGlyph.None,
+            PresentationCard(vm, Translator.SettingsHoverActionButtonSize,
                 Bind.PopUp(vm, vm.HoverActionButtonSizeOptions, nameof(vm.SelectedHoverActionButtonSizeIndex), s => s.SelectedHoverActionButtonSizeIndex, (s, v) => s.SelectedHoverActionButtonSizeIndex = v, 150)),
-                p, nameof(p.IsHoverActionsEnabled), HoverOn),
-            Bind.Enabled(Card(Translator.SettingsHoverActionPosition, null, WinoIconGlyph.None,
+            PresentationCard(vm, Translator.SettingsHoverActionPosition,
                 Bind.PopUp(vm, vm.HoverActionPositionOptions, nameof(vm.SelectedHoverActionPositionIndex), s => s.SelectedHoverActionPositionIndex, (s, v) => s.SelectedHoverActionPositionIndex = v, 150)),
-                p, nameof(p.IsHoverActionsEnabled), HoverOn),
-            Bind.Enabled(Card(Translator.SettingsHoverActionAnimation, null, WinoIconGlyph.None,
-                Bind.PopUp(vm, vm.HoverActionAnimationOptions, nameof(vm.SelectedHoverActionAnimationIndex), s => s.SelectedHoverActionAnimationIndex, (s, v) => s.SelectedHoverActionAnimationIndex = v, 150)),
-                p, nameof(p.IsHoverActionsEnabled), HoverOn)));
+            PresentationCard(vm, Translator.SettingsHoverActionAnimation,
+                Bind.PopUp(vm, vm.HoverActionAnimationOptions, nameof(vm.SelectedHoverActionAnimationIndex), s => s.SelectedHoverActionAnimationIndex, (s, v) => s.SelectedHoverActionAnimationIndex = v, 150))));
+    }
+
+    /// <summary>Size, position and animation are app-wide, so they lock while an account is selected (Windows MessageListPage).</summary>
+    private NSView PresentationCard(MessageListPageViewModel vm, string header, NSView content)
+    {
+        var card = Card(header, vm.HoverPresentationDescription, WinoIconGlyph.None, content);
+        Bind.Bind(vm, nameof(vm.HoverPresentationDescription), s => s.HoverPresentationDescription, description => card.Description = description);
+        return Bind.Enabled(card, vm, nameof(vm.IsHoverPresentationEditable), s => s.IsHoverPresentationEditable);
+    }
+
+    /// <summary>
+    /// "All accounts" or one account whose hover or swipe actions the pickers below edit, with "Use all accounts" while
+    /// that account carries its own (Windows MessageListPage scope card). Hidden with a single account and no override.
+    /// </summary>
+    private NSView ScopeCard(MessageListPageViewModel vm, bool swipe)
+    {
+        var indexProperty = swipe ? nameof(vm.SelectedSwipeScopeIndex) : nameof(vm.SelectedHoverScopeIndex);
+        var popup = Bind.PopUp<MessageListPageViewModel, string>(vm, s => s.ActionScopeOptions, option => option, indexProperty,
+            s => ScopeOption(s, swipe ? s.SelectedSwipeScopeIndex : s.SelectedHoverScopeIndex),
+            (s, option) =>
+            {
+                var index = s.ActionScopeOptions.IndexOf(option);
+                if (index < 0) return;
+                if (swipe) s.SelectedSwipeScopeIndex = index; else s.SelectedHoverScopeIndex = index;
+            },
+            itemsProperty: nameof(vm.ActionScopeOptions), width: 220);
+        var useDefaults = Bind.Button(Translator.SettingsActionScope_UseAllAccounts, swipe ? vm.UseDefaultSwipeActionsCommand : vm.UseDefaultHoverActionsCommand);
+        Bind.Visible(useDefaults, vm, swipe ? nameof(vm.CanUseDefaultSwipeActions) : nameof(vm.CanUseDefaultHoverActions),
+            s => swipe ? s.CanUseDefaultSwipeActions : s.CanUseDefaultHoverActions);
+        var card = Card(Translator.SettingsActionScope_Title, swipe ? vm.SwipeScopeDescription : vm.HoverScopeDescription, WinoIconGlyph.None, Row(useDefaults, popup));
+        Bind.Bind(vm, swipe ? nameof(vm.SwipeScopeDescription) : nameof(vm.HoverScopeDescription),
+            s => swipe ? s.SwipeScopeDescription : s.HoverScopeDescription, description => card.Description = description);
+        Bind.Visible(card, vm, nameof(vm.IsAccountScopeAvailable), s => s.IsAccountScopeAvailable);
+        return card;
+    }
+
+    private static string? ScopeOption(MessageListPageViewModel vm, int index)
+        => index >= 0 && index < vm.ActionScopeOptions.Count ? vm.ActionScopeOptions[index] : null;
+
+    /// <summary>The accounts that carry their own actions, shown while any does.</summary>
+    private NSView CustomisedAccountsNote(MessageListPageViewModel vm, bool swipe)
+    {
+        var note = Bind.Label(vm, swipe ? nameof(vm.CustomisedSwipeAccountsText) : nameof(vm.CustomisedHoverAccountsText),
+            s => swipe ? s.CustomisedSwipeAccountsText : s.CustomisedHoverAccountsText, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0);
+        var card = Card(string.Empty, null, WinoIconGlyph.None, note);
+        Bind.Visible(card, vm, swipe ? nameof(vm.HasCustomisedSwipeAccounts) : nameof(vm.HasCustomisedHoverAccounts),
+            s => swipe ? s.HasCustomisedSwipeAccounts : s.HasCustomisedHoverAccounts);
+        return card;
     }
 
     private NSView BuildPreview()
