@@ -19,6 +19,11 @@ public class SpecialImapProviderConfigResolver(IKnownImapProviderCatalog catalog
         // A region only swaps hosts and DAV endpoints; the first one is the default when none was chosen.
         var region = ResolveRegion(provider, details.RegionId);
 
+        // A custom-domain address only receives and sends; the provider signs in with its own address.
+        var loginAddress = string.IsNullOrWhiteSpace(details.LoginAddress)
+            ? details.Address
+            : details.LoginAddress.Trim();
+
         var resolvedConfig = new CustomServerInformation
         {
             IncomingServer = region?.IncomingHost ?? provider.Incoming.Host,
@@ -26,12 +31,12 @@ public class SpecialImapProviderConfigResolver(IKnownImapProviderCatalog catalog
             IncomingServerType = CustomIncomingServerType.IMAP4,
             IncomingServerSocketOption = provider.Incoming.Security,
             IncomingAuthenticationMethod = provider.Incoming.Authentication,
-            IncomingServerUsername = catalog.ResolveUsername(provider.Incoming.UsernamePolicy, details.Address),
+            IncomingServerUsername = catalog.ResolveUsername(provider.Incoming.UsernamePolicy, loginAddress),
             OutgoingServer = region?.OutgoingHost ?? provider.Outgoing.Host,
             OutgoingServerPort = provider.Outgoing.Port.ToString(System.Globalization.CultureInfo.InvariantCulture),
             OutgoingServerSocketOption = provider.Outgoing.Security,
             OutgoingAuthenticationMethod = provider.Outgoing.Authentication,
-            OutgoingServerUsername = catalog.ResolveUsername(provider.Outgoing.UsernamePolicy, details.Address),
+            OutgoingServerUsername = catalog.ResolveUsername(provider.Outgoing.UsernamePolicy, loginAddress),
             MaxConcurrentClients = provider.MaxConcurrentClients,
             ConnectionPolicyVersion = provider.ConnectionPolicyVersion,
             CalDavServiceUrl = region == null ? provider.CalDavServiceUrl : region.CalDavServiceUrl,
@@ -44,7 +49,7 @@ public class SpecialImapProviderConfigResolver(IKnownImapProviderCatalog catalog
         resolvedConfig.OutgoingServerPassword = details.Password;
         resolvedConfig.DisplayName = details.SenderName;
         resolvedConfig.CalendarSupportMode = details.CalendarSupportMode;
-        resolvedConfig.CalDavUsername = details.Address;
+        resolvedConfig.CalDavUsername = loginAddress;
         resolvedConfig.CalDavPassword = details.Password;
 
         var requiresDavCredentials = details.CalendarSupportMode == ImapCalendarSupportMode.CalDav ||

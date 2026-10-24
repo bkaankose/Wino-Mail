@@ -64,6 +64,13 @@ public sealed record KnownImapProviderDefinition
     public string CalDavServiceUrl { get; init; } = string.Empty;
     public string CardDavServiceUrl { get; init; } = string.Empty;
     public string AppPasswordHelpUrl { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The provider hosts addresses on the user's own domain but signs in with an address on one
+    /// of <see cref="EmailDomains"/>. Setup asks for that login address when the typed one is custom.
+    /// </summary>
+    public bool CustomDomainLogin { get; init; }
+
     public IReadOnlyList<KnownImapFolderAlias> FolderAliases { get; init; } = [];
 }
 
