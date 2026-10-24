@@ -230,6 +230,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     /// </summary>
     public IShellMenuProvider? CurrentShellMenuProvider => ViewModel.CurrentProvider;
 
+    [DynamicWindowsRuntimeCast(typeof(NavigationViewItem))]
     private async void NavigationViewItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
     {
         // Templated containers do not always carry a DataContext, so fall back to the item

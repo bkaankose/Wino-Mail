@@ -78,6 +78,7 @@ public sealed partial class AppModeFooterSwitcherControl : UserControl
 
     // The card starts collapsed, so the Segmented template (and its panel) applies only after
     // the first visibility result. The panel announces itself once it exists.
+    [DynamicWindowsRuntimeCast(typeof(Grid))]
     private void ItemsPanelLoaded(object sender, RoutedEventArgs e)
     {
         _itemsPanel = sender as Grid;
@@ -157,6 +158,7 @@ public sealed partial class AppModeFooterSwitcherControl : UserControl
     /// share the rest, so Settings always has a way back. The compact pane stacks the same
     /// sequence vertically.
     /// </summary>
+    [DynamicWindowsRuntimeCast(typeof(Grid))]
     private void ArrangeItems()
     {
         var isVertical = Orientation == Orientation.Vertical;
