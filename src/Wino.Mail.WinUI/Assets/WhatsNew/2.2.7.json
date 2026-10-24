@@ -1,0 +1,26 @@
+{
+  "version": "2.2.7",
+  "isStarred": false,
+  "features": [
+    {
+      "image": "app-mode-visibility.png",
+      "title": "Only the modes you use",
+      "description": "The mode switcher now shows only the modes your accounts provide, and slides smoothly to the one you pick. Don't need People or To Do? Hide them in Settings > Personalization > App modes."
+    },
+    {
+      "image": "reader-action-order.png",
+      "title": "Arrange the reader's buttons",
+      "description": "Put the buttons above an open message in the order you want. Drag them around, uncheck the ones you rarely use to tuck them into the More menu, and preview the bar before you apply it. Find it in Settings > Reader & Composer > Reader actions."
+    },
+    {
+      "image": "link-browser-per-account.png",
+      "title": "Open links your way",
+      "description": "Pick the browser and profile that opens links for each account, so work links open in your work profile. It covers links in messages, unsubscribe pages and events. Set it under Open links in, in Settings > Reader & Composer."
+    },
+    {
+      "image": "per-account-mail-actions.png",
+      "title": "Actions for each account",
+      "description": "Give each account its own hover and swipe actions, or let it use the shared ones. Choose an account in the Configure for picker under Settings > Message List."
+    }
+  ]
+}
