@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -9,6 +9,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.HoverActions;
@@ -16,6 +17,7 @@ using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Messaging.Client.Shell;
+using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels;
 
@@ -24,6 +26,9 @@ public partial class MessageListPageViewModel : MailBaseViewModel,
 {
     public IPreferencesService PreferencesService { get; }
     private readonly IThumbnailService _thumbnailService;
+    private readonly IAccountService _accountService;
+    private readonly List<MailAccount> _scopeAccounts = [];
+    private bool _isSyncingScope;
     private readonly IStatePersistanceService _statePersistenceService;
     private readonly IDialogServiceBase _dialogService;
 
@@ -290,7 +295,7 @@ public partial class MessageListPageViewModel : MailBaseViewModel,
         {
             if (SetProperty(ref leftHoverActionIndex, value) && IsValidHoverActionIndex(value))
             {
-                PreferencesService.LeftHoverAction = availableHoverActions[value];
+                OnHoverActionIndexChanged();
             }
         }
     }
@@ -303,7 +308,7 @@ public partial class MessageListPageViewModel : MailBaseViewModel,
         {
             if (SetProperty(ref centerHoverActionIndex, value) && IsValidHoverActionIndex(value))
             {
-                PreferencesService.CenterHoverAction = availableHoverActions[value];
+                OnHoverActionIndexChanged();
             }
         }
     }
@@ -316,7 +321,7 @@ public partial class MessageListPageViewModel : MailBaseViewModel,
         {
             if (SetProperty(ref rightHoverActionIndex, value) && IsValidHoverActionIndex(value))
             {
-                PreferencesService.RightHoverAction = availableHoverActions[value];
+                OnHoverActionIndexChanged();
             }
         }
     }
@@ -329,7 +334,7 @@ public partial class MessageListPageViewModel : MailBaseViewModel,
         {
             if (SetProperty(ref leftSwipeActionIndex, value) && IsValidSwipeActionIndex(value))
             {
-                PreferencesService.LeftSwipeOperation = availableSwipeActions[value];
+                OnSwipeActionIndexChanged();
             }
         }
     }
@@ -342,19 +347,336 @@ public partial class MessageListPageViewModel : MailBaseViewModel,
         {
             if (SetProperty(ref rightSwipeActionIndex, value) && IsValidSwipeActionIndex(value))
             {
-                PreferencesService.RightSwipeOperation = availableSwipeActions[value];
+                OnSwipeActionIndexChanged();
             }
         }
     }
     #endregion
 
+    #region Per-account scope
+
+    /// <summary>"All accounts" first, then one entry per mail account, in the order of <see cref="_scopeAccounts"/>.</summary>
+    [ObservableProperty]
+    public partial List<string> ActionScopeOptions { get; set; } = [Translator.SettingsActionScope_AllAccounts];
+
+    /// <summary>Hidden with a single account unless that account still carries an override to undo.</summary>
+    [ObservableProperty]
+    public partial bool IsAccountScopeAvailable { get; set; }
+
+    [ObservableProperty]
+    public partial int SelectedHoverScopeIndex { get; set; }
+
+    [ObservableProperty]
+    public partial int SelectedSwipeScopeIndex { get; set; }
+
+    [ObservableProperty]
+    public partial string HoverScopeDescription { get; set; } = Translator.SettingsActionScope_AllAccountsDescription;
+
+    [ObservableProperty]
+    public partial string SwipeScopeDescription { get; set; } = Translator.SettingsActionScope_AllAccountsDescription;
+
+    [ObservableProperty]
+    public partial bool CanUseDefaultHoverActions { get; set; }
+
+    [ObservableProperty]
+    public partial bool CanUseDefaultSwipeActions { get; set; }
+
+    /// <summary>Size, position and animation are app-wide, so they lock while an account is selected.</summary>
+    [ObservableProperty]
+    public partial bool IsHoverPresentationEditable { get; set; }
+
+    [ObservableProperty]
+    public partial string? HoverPresentationDescription { get; set; }
+
+    [ObservableProperty]
+    public partial bool HasCustomisedHoverAccounts { get; set; }
+
+    [ObservableProperty]
+    public partial string CustomisedHoverAccountsText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool HasCustomisedSwipeAccounts { get; set; }
+
+    [ObservableProperty]
+    public partial string CustomisedSwipeAccountsText { get; set; } = string.Empty;
+
+    /// <summary>The preview row follows whichever scope is selected in each expander.</summary>
+    [ObservableProperty]
+    public partial MailListActionResolver? PreviewActionResolver { get; set; }
+
+    private MailAccount? SelectedHoverAccount => GetScopeAccount(SelectedHoverScopeIndex);
+
+    private MailAccount? SelectedSwipeAccount => GetScopeAccount(SelectedSwipeScopeIndex);
+
+    private MailAccount? GetScopeAccount(int scopeIndex)
+        => scopeIndex > 0 && scopeIndex <= _scopeAccounts.Count ? _scopeAccounts[scopeIndex - 1] : null;
+
+    partial void OnSelectedHoverScopeIndexChanged(int value) => SyncHoverScope();
+
+    partial void OnSelectedSwipeScopeIndexChanged(int value) => SyncSwipeScope();
+
+    private async Task LoadScopeAccountsAsync()
+    {
+        var accounts = (await _accountService.GetAccountsAsync()).Where(account => account.Preferences != null).ToList();
+
+        await ExecuteUIThread(() =>
+        {
+            _scopeAccounts.Clear();
+            _scopeAccounts.AddRange(accounts);
+
+            var options = new List<string> { Translator.SettingsActionScope_AllAccounts };
+            options.AddRange(accounts.Select(GetScopeDisplayName));
+            ActionScopeOptions = options;
+
+            var defaultHover = MailListActionPreferences.GetDefaultHoverActions(PreferencesService);
+            var defaultSwipe = MailListActionPreferences.GetDefaultSwipeActions(PreferencesService);
+
+            IsAccountScopeAvailable = accounts.Count > 1 || accounts.Any(account =>
+                MailListActionPreferences.HasCustomHoverActions(account.Preferences, defaultHover) ||
+                MailListActionPreferences.HasCustomSwipeActions(account.Preferences, defaultSwipe));
+
+            SelectedHoverScopeIndex = 0;
+            SelectedSwipeScopeIndex = 0;
+            SyncHoverScope();
+            SyncSwipeScope();
+        });
+    }
+
+    private static string GetScopeDisplayName(MailAccount account)
+        => string.IsNullOrWhiteSpace(account.Address) || string.Equals(account.Name, account.Address, StringComparison.OrdinalIgnoreCase)
+            ? account.Name
+            : $"{account.Name} ({account.Address})";
+
+    private void SyncHoverScope()
+    {
+        var actions = MailListActionPreferences.ResolveHoverActions(PreferencesService, SelectedHoverAccount?.Preferences);
+
+        _isSyncingScope = true;
+
+        try
+        {
+            LeftHoverActionIndex = Math.Max(0, availableHoverActions.IndexOf(actions.Left));
+            CenterHoverActionIndex = Math.Max(0, availableHoverActions.IndexOf(actions.Center));
+            RightHoverActionIndex = Math.Max(0, availableHoverActions.IndexOf(actions.Right));
+        }
+        finally
+        {
+            _isSyncingScope = false;
+        }
+
+        RefreshHoverScopeState();
+    }
+
+    private void SyncSwipeScope()
+    {
+        var actions = MailListActionPreferences.ResolveSwipeActions(PreferencesService, SelectedSwipeAccount?.Preferences);
+
+        _isSyncingScope = true;
+
+        try
+        {
+            LeftSwipeActionIndex = Math.Max(0, availableSwipeActions.IndexOf(actions.Left));
+            RightSwipeActionIndex = Math.Max(0, availableSwipeActions.IndexOf(actions.Right));
+        }
+        finally
+        {
+            _isSyncingScope = false;
+        }
+
+        RefreshSwipeScopeState();
+    }
+
+    private void RefreshHoverScopeState()
+    {
+        var defaults = MailListActionPreferences.GetDefaultHoverActions(PreferencesService);
+        var account = SelectedHoverAccount;
+        var isCustomised = MailListActionPreferences.HasCustomHoverActions(account?.Preferences, defaults);
+
+        CanUseDefaultHoverActions = isCustomised;
+        IsHoverPresentationEditable = account is null && PreferencesService.IsHoverActionsEnabled;
+        HoverPresentationDescription = account is null ? null : Translator.SettingsActionScope_PresentationFollowsAllAccounts;
+        HoverScopeDescription = GetScopeDescription(account, isCustomised);
+
+        var customisedNames = string.Join(", ", _scopeAccounts
+            .Where(scopeAccount => MailListActionPreferences.HasCustomHoverActions(scopeAccount.Preferences, defaults))
+            .Select(scopeAccount => scopeAccount.Name));
+
+        HasCustomisedHoverAccounts = customisedNames.Length > 0;
+        CustomisedHoverAccountsText = HasCustomisedHoverAccounts
+            ? string.Format(Translator.SettingsHoverActions_CustomisedAccounts, customisedNames)
+            : string.Empty;
+
+        RefreshPreviewActionResolver();
+    }
+
+    private void RefreshSwipeScopeState()
+    {
+        var defaults = MailListActionPreferences.GetDefaultSwipeActions(PreferencesService);
+        var account = SelectedSwipeAccount;
+        var isCustomised = MailListActionPreferences.HasCustomSwipeActions(account?.Preferences, defaults);
+
+        CanUseDefaultSwipeActions = isCustomised;
+        SwipeScopeDescription = GetScopeDescription(account, isCustomised);
+
+        var customisedNames = string.Join(", ", _scopeAccounts
+            .Where(scopeAccount => MailListActionPreferences.HasCustomSwipeActions(scopeAccount.Preferences, defaults))
+            .Select(scopeAccount => scopeAccount.Name));
+
+        HasCustomisedSwipeAccounts = customisedNames.Length > 0;
+        CustomisedSwipeAccountsText = HasCustomisedSwipeAccounts
+            ? string.Format(Translator.SettingsSwipeActions_CustomisedAccounts, customisedNames)
+            : string.Empty;
+
+        RefreshPreviewActionResolver();
+    }
+
+    private static string GetScopeDescription(MailAccount? account, bool isCustomised)
+        => account is null
+            ? Translator.SettingsActionScope_AllAccountsDescription
+            : string.Format(isCustomised ? Translator.SettingsActionScope_CustomisedDescription : Translator.SettingsActionScope_FollowingDescription, account.Name);
+
+    private void RefreshPreviewActionResolver()
+    {
+        var hover = MailListActionPreferences.ResolveHoverActions(PreferencesService, SelectedHoverAccount?.Preferences);
+        var swipe = MailListActionPreferences.ResolveSwipeActions(PreferencesService, SelectedSwipeAccount?.Preferences);
+
+        PreviewActionResolver = new MailListActionResolver(hover, swipe);
+    }
+
+    private void OnHoverActionIndexChanged()
+    {
+        if (_isSyncingScope) return;
+
+        _ = ObserveScopeSaveAsync(ApplyHoverActionsAsync());
+    }
+
+    private void OnSwipeActionIndexChanged()
+    {
+        if (_isSyncingScope) return;
+
+        _ = ObserveScopeSaveAsync(ApplySwipeActionsAsync());
+    }
+
+    private static async Task ObserveScopeSaveAsync(Task save)
+    {
+        try { await save; }
+        catch (Exception exception) { Serilog.Log.Error(exception, "Failed to save mail list actions."); }
+    }
+
+    private async Task ApplyHoverActionsAsync()
+    {
+        if (!IsValidHoverActionIndex(leftHoverActionIndex) || !IsValidHoverActionIndex(centerHoverActionIndex) || !IsValidHoverActionIndex(rightHoverActionIndex))
+            return;
+
+        var actions = new HoverMailActions(
+            availableHoverActions[leftHoverActionIndex],
+            availableHoverActions[centerHoverActionIndex],
+            availableHoverActions[rightHoverActionIndex]);
+
+        if (SelectedHoverAccount is { Preferences: { } preferences } account)
+        {
+            MailListActionPreferences.SetCustomHoverActions(preferences, actions, MailListActionPreferences.GetDefaultHoverActions(PreferencesService));
+            await SaveAccountActionsAsync(account);
+        }
+        else
+        {
+            PreferencesService.LeftHoverAction = actions.Left;
+            PreferencesService.CenterHoverAction = actions.Center;
+            PreferencesService.RightHoverAction = actions.Right;
+
+            await DropMatchingOverridesAsync();
+        }
+
+        RefreshHoverScopeState();
+    }
+
+    private async Task ApplySwipeActionsAsync()
+    {
+        if (!IsValidSwipeActionIndex(leftSwipeActionIndex) || !IsValidSwipeActionIndex(rightSwipeActionIndex))
+            return;
+
+        var actions = new SwipeMailActions(availableSwipeActions[leftSwipeActionIndex], availableSwipeActions[rightSwipeActionIndex]);
+
+        if (SelectedSwipeAccount is { Preferences: { } preferences } account)
+        {
+            MailListActionPreferences.SetCustomSwipeActions(preferences, actions, MailListActionPreferences.GetDefaultSwipeActions(PreferencesService));
+            await SaveAccountActionsAsync(account);
+        }
+        else
+        {
+            PreferencesService.LeftSwipeOperation = actions.Left;
+            PreferencesService.RightSwipeOperation = actions.Right;
+
+            await DropMatchingOverridesAsync();
+        }
+
+        RefreshSwipeScopeState();
+    }
+
+    /// <summary>
+    /// An override equal to the new app-wide actions is no override. Dropping it keeps the account
+    /// following future changes instead of silently freezing it on a copy.
+    /// </summary>
+    private async Task DropMatchingOverridesAsync()
+    {
+        var defaultHover = MailListActionPreferences.GetDefaultHoverActions(PreferencesService);
+        var defaultSwipe = MailListActionPreferences.GetDefaultSwipeActions(PreferencesService);
+
+        foreach (var account in _scopeAccounts)
+        {
+            if (account.Preferences is not { } preferences) continue;
+
+            var dropHover = preferences.HasCustomHoverActions && MailListActionPreferences.GetCustomHoverActions(preferences) == defaultHover;
+            var dropSwipe = preferences.HasCustomSwipeActions && MailListActionPreferences.GetCustomSwipeActions(preferences) == defaultSwipe;
+
+            if (!dropHover && !dropSwipe) continue;
+
+            if (dropHover) preferences.HasCustomHoverActions = false;
+            if (dropSwipe) preferences.HasCustomSwipeActions = false;
+
+            await SaveAccountActionsAsync(account);
+        }
+    }
+
+    private async Task SaveAccountActionsAsync(MailAccount account)
+    {
+        if (account.Preferences is not { } preferences) return;
+
+        await _accountService.UpdateAccountPreferencesAsync(preferences);
+        Messenger.Send(new AccountMailActionsUpdated(account.Id));
+    }
+
+    [RelayCommand]
+    private async Task UseDefaultHoverActionsAsync()
+    {
+        if (SelectedHoverAccount is not { Preferences: { } preferences } account) return;
+
+        preferences.HasCustomHoverActions = false;
+        await SaveAccountActionsAsync(account);
+        SyncHoverScope();
+    }
+
+    [RelayCommand]
+    private async Task UseDefaultSwipeActionsAsync()
+    {
+        if (SelectedSwipeAccount is not { Preferences: { } preferences } account) return;
+
+        preferences.HasCustomSwipeActions = false;
+        await SaveAccountActionsAsync(account);
+        SyncSwipeScope();
+    }
+
+    #endregion
+
     public MessageListPageViewModel(IPreferencesService preferencesService,
                                     IThumbnailService thumbnailService,
                                     IStatePersistanceService statePersistenceService,
-                                    IDialogServiceBase dialogService)
+                                    IDialogServiceBase dialogService,
+                                    IAccountService accountService)
     {
         PreferencesService = preferencesService;
         _thumbnailService = thumbnailService;
+        _accountService = accountService;
         _statePersistenceService = statePersistenceService;
         _dialogService = dialogService;
         leftHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.LeftHoverAction);
@@ -422,6 +744,8 @@ public partial class MessageListPageViewModel : MailBaseViewModel,
         }
 
         PreviewMailCollection.MailItemFactory = mailCopy => new MailItemViewModel(mailCopy, PreferencesService.AccountNicknamePosition);
+        IsHoverPresentationEditable = PreferencesService.IsHoverActionsEnabled;
+        RefreshPreviewActionResolver();
     }
 
     protected override void OnDispatcherAssigned()
@@ -439,6 +763,7 @@ public partial class MessageListPageViewModel : MailBaseViewModel,
         base.OnNavigatedTo(mode, parameters);
         _previewActive = true;
 
+        await LoadScopeAccountsAsync();
         await RefreshPreviewAsync();
     }
 
@@ -464,6 +789,12 @@ public partial class MessageListPageViewModel : MailBaseViewModel,
 
     public void Receive(PreferenceChangedMessage message)
     {
+        if (message.PropertyName == nameof(IPreferencesService.IsHoverActionsEnabled))
+        {
+            IsHoverPresentationEditable = SelectedHoverAccount is null && PreferencesService.IsHoverActionsEnabled;
+            return;
+        }
+
         if (!IsPreviewAffectingPreference(message.PropertyName)) return;
 
         _ = ObservePreviewRefreshAsync(RefreshPreviewAsync());

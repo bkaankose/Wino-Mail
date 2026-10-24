@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Windows.Input;
 using CommunityToolkit.WinUI;
@@ -117,6 +117,12 @@ public partial class WinoMailListView : ListView, IDisposable
         typeof(bool),
         typeof(WinoMailListView),
         new PropertyMetadata(true, OnHoverActionConfigurationChanged));
+
+    public static readonly DependencyProperty ActionResolverProperty = DependencyProperty.Register(
+        nameof(ActionResolver),
+        typeof(IMailListActionResolver),
+        typeof(WinoMailListView),
+        new PropertyMetadata(null, OnHoverActionConfigurationChanged));
 
     public static readonly DependencyProperty LeftHoverActionProperty = DependencyProperty.Register(
         nameof(LeftHoverAction),
@@ -257,6 +263,16 @@ public partial class WinoMailListView : ListView, IDisposable
     /// </summary>
     [GeneratedDependencyProperty]
     public partial bool SelectAdjacentOnRemoval { get; set; }
+
+    /// <summary>
+    /// Per-row action source. When set it wins over the three hover action properties, which then
+    /// only serve rows the resolver cannot place.
+    /// </summary>
+    public IMailListActionResolver? ActionResolver
+    {
+        get => (IMailListActionResolver?)GetValue(ActionResolverProperty);
+        set => SetValue(ActionResolverProperty, value);
+    }
 
     public HoverActionKind LeftHoverAction
     {
@@ -599,6 +615,7 @@ public partial class WinoMailListView : ListView, IDisposable
             container.OwnerList = null;
             container.Row = null;
             container.HoverActionCommand = null;
+            container.ActionResolver = null;
         }
 
         base.ClearContainerForItemOverride(element, item);
@@ -662,9 +679,16 @@ public partial class WinoMailListView : ListView, IDisposable
 
     private void ApplyHoverActionConfiguration(WinoMailListViewItem container)
     {
-        container.LeftHoverAction = IsHoverActionsEnabled ? LeftHoverAction : HoverActionKind.None;
-        container.CenterHoverAction = IsHoverActionsEnabled ? CenterHoverAction : HoverActionKind.None;
-        container.RightHoverAction = IsHoverActionsEnabled ? RightHoverAction : HoverActionKind.None;
+        var actions = !IsHoverActionsEnabled
+            ? HoverActionSet.None
+            : ActionResolver is { } resolver && container.Row is { } row
+                ? resolver.ResolveHoverActions(row)
+                : new HoverActionSet(LeftHoverAction, CenterHoverAction, RightHoverAction);
+
+        container.LeftHoverAction = actions.Left;
+        container.CenterHoverAction = actions.Center;
+        container.RightHoverAction = actions.Right;
+        container.ActionResolver = ActionResolver;
         container.HoverActionLabels = HoverActionLabels;
         container.HoverActionCommand = HoverActionCommand;
         container.HoverActionAnimation = HoverActionAnimation;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Numerics;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -82,6 +82,10 @@ public sealed partial class WinoMailListViewItem : ListViewItem
     /// </summary>
     [GeneratedDependencyProperty(DefaultValue = true)]
     public partial bool AreSwipeOperationsEnabled { get; set; }
+
+    /// <summary>Forwarded to the swipe control in the template so swipe items follow the row's account too.</summary>
+    [GeneratedDependencyProperty]
+    public partial IMailListActionResolver? ActionResolver { get; set; }
 
     private readonly List<IMailListSourceItem> _automationSources = [];
 

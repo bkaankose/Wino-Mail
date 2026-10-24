@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -543,15 +543,7 @@ public static class XamlHelpers
     public static bool IsMergedAccountIndicatorVisible(bool isSelected, bool isChildSelected, bool isExpanded) => isSelected || (isChildSelected && !isExpanded);
     public static FontWeight GetFontWeightByReadState(bool isChildSelected) => isChildSelected ? FontWeights.Normal : FontWeights.SemiBold;
     public static FontWeight GetMailItemSenderFontWeightByReadState(bool isRead) => isRead ? FontWeights.Normal : FontWeights.Bold;
-    public static HoverActionKind GetHoverActionKind(MailOperation operation) => operation switch
-    {
-        MailOperation.Archive => HoverActionKind.Archive,
-        MailOperation.SoftDelete => HoverActionKind.Delete,
-        MailOperation.SetFlag or MailOperation.ClearFlag => HoverActionKind.ToggleFlag,
-        MailOperation.MarkAsRead or MailOperation.MarkAsUnread => HoverActionKind.ToggleRead,
-        MailOperation.MoveToJunk => HoverActionKind.MoveToJunk,
-        _ => HoverActionKind.None,
-    };
+    public static HoverActionKind GetHoverActionKind(MailOperation operation) => MailListActionResolver.ToHoverActionKind(operation);
 
     public static HoverActionAnimation GetHoverActionAnimation(MailHoverActionAnimation animation) => animation switch
     {

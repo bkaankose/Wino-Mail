@@ -57,7 +57,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     IRecipient<IntelligenceMetadataChanged>,
     IRecipient<IntelligenceVisibilityChanged>,
     IRecipient<LanguageChanged>,
-    IRecipient<PreferenceChangedMessage>
+    IRecipient<PreferenceChangedMessage>,
+    IRecipient<AccountMailActionsUpdated>
 {
     private Guid? trackingSynchronizationId = null;
     private int completedTrackingSynchronizationCount = 0;
@@ -79,6 +80,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     [ObservableProperty]
     public partial IReadOnlyList<IMenuOperation> ActionItems { get; set; } = [];
+
+    [ObservableProperty]
+    public partial MailListActionResolver? MailActionResolver { get; set; }
 
     private readonly SemaphoreSlim listManipulationSemepahore = new SemaphoreSlim(1);
     private readonly object mailLoadSync = new();
@@ -705,6 +709,14 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     private async Task ApplyPreferenceChangeAsync(string propertyName)
     {
+        if (propertyName is nameof(IPreferencesService.LeftHoverAction) or nameof(IPreferencesService.CenterHoverAction)
+            or nameof(IPreferencesService.RightHoverAction) or nameof(IPreferencesService.LeftSwipeOperation)
+            or nameof(IPreferencesService.RightSwipeOperation))
+        {
+            await RefreshMailActionResolverAsync();
+            return;
+        }
+
         if (propertyName is nameof(IPreferencesService.MarkAsPreference) or nameof(IPreferencesService.MarkAsDelay))
         {
             CancelPendingMarkAsRead();
@@ -3347,6 +3359,24 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         base.OnDispatcherAssigned();
 
         MailCollection.CoreDispatcher = Dispatcher;
+        _ = RefreshMailActionResolverAsync();
+    }
+
+    public void Receive(AccountMailActionsUpdated message) => _ = RefreshMailActionResolverAsync();
+
+    private async Task RefreshMailActionResolverAsync()
+    {
+        try
+        {
+            var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
+            var resolver = MailListActionResolver.Create(PreferencesService, accounts);
+
+            await ExecuteUIThread(() => MailActionResolver = resolver);
+        }
+        catch (Exception exception)
+        {
+            Log.Error(exception, "Failed to refresh mail list action resolver.");
+        }
     }
 
     public void Receive(ThumbnailAdded message)
@@ -3437,6 +3467,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         Messenger.Register<IntelligenceVisibilityChanged>(this);
         Messenger.Register<LanguageChanged>(this);
         Messenger.Register<PreferenceChangedMessage>(this);
+        Messenger.Register<AccountMailActionsUpdated>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -3457,6 +3488,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         Messenger.Unregister<IntelligenceVisibilityChanged>(this);
         Messenger.Unregister<LanguageChanged>(this);
         Messenger.Unregister<PreferenceChangedMessage>(this);
+        Messenger.Unregister<AccountMailActionsUpdated>(this);
     }
 
     public async void Receive(MailOperationRequested message)

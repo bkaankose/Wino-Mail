@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
@@ -10,8 +10,10 @@ using Microsoft.UI.Xaml.Media;
 using Wino.Mail.WinUI.Controls;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.MailItem;
 using Wino.Helpers;
 using Wino.Mail.Controls.Core;
+using Wino.Mail.Controls.Core.HoverActions;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.WinUI;
@@ -44,6 +46,10 @@ public partial class WinoSwipeControl : SwipeControl
     [GeneratedDependencyProperty(DefaultValue = true)]
     public partial bool AreOperationsEnabled { get; set; }
 
+    /// <summary>Per-account swipe actions. Without one the app-wide preferences apply.</summary>
+    [GeneratedDependencyProperty]
+    public partial IMailListActionResolver? ActionResolver { get; set; }
+
     public WinoSwipeControl()
     {
         Loaded += OnLoaded;
@@ -51,6 +57,14 @@ public partial class WinoSwipeControl : SwipeControl
     }
 
     partial void OnMailRowPropertyChanged(DependencyPropertyChangedEventArgs e)
+    {
+        if (_isLoaded)
+        {
+            BuildSwipeItems();
+        }
+    }
+
+    partial void OnActionResolverPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
         if (_isLoaded)
         {
@@ -88,18 +102,18 @@ public partial class WinoSwipeControl : SwipeControl
             return;
         }
 
-        var preferencesService = WinoApplication.Current.Services.GetRequiredService<IPreferencesService>();
+        var actions = ResolveSwipeActions();
 
         _leftItems.Mode = LeftItemsMode;
         _rightItems.Mode = RightItemsMode;
 
-        _leftSwipeItem = GetSwipeItem(preferencesService.LeftSwipeOperation);
+        _leftSwipeItem = GetSwipeItem(actions.Left);
         if (_leftSwipeItem != null)
         {
             _leftItems.Add(_leftSwipeItem);
         }
 
-        _rightSwipeItem = GetSwipeItem(preferencesService.RightSwipeOperation);
+        _rightSwipeItem = GetSwipeItem(actions.Right);
         if (_rightSwipeItem != null)
         {
             _rightItems.Add(_rightSwipeItem);
@@ -107,6 +121,18 @@ public partial class WinoSwipeControl : SwipeControl
 
 
         AttachSwipeItems();
+    }
+
+    private SwipeMailActions ResolveSwipeActions()
+    {
+        if (ActionResolver is MailListActionResolver resolver && MailRow is { } row)
+        {
+            return resolver.ResolveSwipeActions(row);
+        }
+
+        var preferencesService = WinoApplication.Current.Services.GetRequiredService<IPreferencesService>();
+
+        return MailListActionPreferences.GetDefaultSwipeActions(preferencesService);
     }
 
     private void AttachSwipeItems()

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -21,6 +21,7 @@
                         <ControlTemplate TargetType="mailControls:WinoMailListViewItem">
                             <controls:WinoSwipeControl
                                 x:Name="ThreadSwipeControl"
+                                ActionResolver="{TemplateBinding ActionResolver}"
                                 AreOperationsEnabled="{TemplateBinding AreSwipeOperationsEnabled}"
                                 DeleteOperationBrush="{ThemeResource SwipeDeleteOperationBackgroundBrush}"
                                 LeftItemsMode="Execute"
@@ -125,6 +126,7 @@
                         <ControlTemplate TargetType="mailControls:WinoMailListViewItem">
                             <controls:WinoSwipeControl
                                 x:Name="MailSwipeControl"
+                                ActionResolver="{TemplateBinding ActionResolver}"
                                 AreOperationsEnabled="{TemplateBinding AreSwipeOperationsEnabled}"
                                 DeleteOperationBrush="{ThemeResource SwipeDeleteOperationBackgroundBrush}"
                                 LeftItemsMode="Execute"
