@@ -170,8 +170,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     public bool IsCapabilitySelectionChanged => Account is not null &&
         (Account.IsMailAccessGranted != IsMailCapabilitySelected ||
          Account.IsCalendarAccessGranted != IsCalendarCapabilitySelected ||
-         Account.IsContactAccessGranted != IsContactsCapabilitySelected ||
-         Account.IsTaskAccessGranted != IsTasksCapabilitySelected);
+         Account.IsContactAccessEnabled != IsContactsCapabilitySelected ||
+         Account.IsTaskAccessEnabled != IsTasksCapabilitySelected);
 
     /// <summary>
     /// Gets whether the sender display name is worth showing for this account.
@@ -357,8 +357,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         {
             IsMailCapabilitySelected = Account.IsMailAccessGranted;
             IsCalendarCapabilitySelected = Account.IsCalendarAccessGranted;
-            IsContactsCapabilitySelected = Account.IsContactAccessGranted;
-            IsTasksCapabilitySelected = Account.IsTaskAccessGranted;
+            IsContactsCapabilitySelected = Account.IsContactAccessEnabled;
+            IsTasksCapabilitySelected = Account.IsTaskAccessEnabled;
             return;
         }
 
@@ -385,8 +385,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         {
             IsMailCapabilitySelected = Account.IsMailAccessGranted;
             IsCalendarCapabilitySelected = Account.IsCalendarAccessGranted;
-            IsContactsCapabilitySelected = Account.IsContactAccessGranted;
-            IsTasksCapabilitySelected = Account.IsTaskAccessGranted;
+            IsContactsCapabilitySelected = Account.IsContactAccessEnabled;
+            IsTasksCapabilitySelected = Account.IsTaskAccessEnabled;
             _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
         }
         finally
@@ -396,9 +396,9 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     }
 
     /// <summary>
-    /// Asks once for every selected transition that removes data from this PC or changes where a
-    /// mode reads from. Turning mail or calendar off deletes their local data; turning contacts or
-    /// tasks off moves them to a local store. Enabling contacts or tasks replaces the local store.
+    /// Asks once for every selected transition that removes data from this device. Turning a
+    /// feature off deletes its local data, local stores included. Enabling contacts or tasks
+    /// replaces any local store with the provider's.
     /// </summary>
     private async Task<bool> ConfirmCapabilityTransitionsAsync()
     {
@@ -417,17 +417,21 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
             messages.Add(Translator.AccountDetailsPage_DisableCalendarConfirmation_Device);
         }
 
-        if (Account.IsContactAccessGranted != IsContactsCapabilitySelected)
+        if (Account.IsContactAccessEnabled != IsContactsCapabilitySelected)
         {
-            titles.Add(Translator.AccountDetailsPage_ContactsTransitionTitle);
+            titles.Add(IsContactsCapabilitySelected
+                ? Translator.AccountDetailsPage_ContactsTransitionTitle
+                : Translator.AccountDetailsPage_DisableContactsTitle);
             messages.Add(IsContactsCapabilitySelected
                 ? Translator.AccountDetailsPage_EnableContactsConfirmation
                 : Translator.AccountDetailsPage_DisableContactsConfirmation);
         }
 
-        if (Account.IsTaskAccessGranted != IsTasksCapabilitySelected)
+        if (Account.IsTaskAccessEnabled != IsTasksCapabilitySelected)
         {
-            titles.Add(Translator.AccountDetailsPage_TasksTransitionTitle);
+            titles.Add(IsTasksCapabilitySelected
+                ? Translator.AccountDetailsPage_TasksTransitionTitle
+                : Translator.AccountDetailsPage_DisableTasksTitle);
             messages.Add(IsTasksCapabilitySelected
                 ? Translator.AccountDetailsPage_EnableTasksConfirmation
                 : Translator.AccountDetailsPage_DisableTasksConfirmation);
@@ -1095,8 +1099,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         RefreshProfilePictureCommand.NotifyCanExecuteChanged();
         IsMailCapabilitySelected = value?.IsMailAccessGranted == true;
         IsCalendarCapabilitySelected = value?.IsCalendarAccessGranted == true;
-        IsContactsCapabilitySelected = value?.IsContactAccessGranted == true;
-        IsTasksCapabilitySelected = value?.IsTaskAccessGranted == true;
+        IsContactsCapabilitySelected = value?.IsContactAccessEnabled == true;
+        IsTasksCapabilitySelected = value?.IsTaskAccessEnabled == true;
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)

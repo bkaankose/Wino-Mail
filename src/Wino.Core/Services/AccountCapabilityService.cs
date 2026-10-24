@@ -64,7 +64,13 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
         var synchronizer = await _synchronizationManager.GetSynchronizerAsync(account.Id).ConfigureAwait(false);
         var synchronizerAccount = synchronizer?.Account;
         var isOAuthProvider = account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook;
-        var shouldRemoveProviderTasksAfterCommit = false;
+
+        // The page shows the mode as on for a local-only store too. Leaving that toggle on is
+        // not a request for the provider; only off -> on is.
+        var keepLocalContacts = isOAuthProvider && includeContacts && previous.ContactsEnabled && !previous.Contacts;
+        var keepLocalTasks = isOAuthProvider && includeTasks && previous.TasksEnabled && !previous.Tasks;
+        var shouldRemoveContactDataAfterCommit = isOAuthProvider && !includeContacts && previous.ContactsEnabled;
+        var shouldRemoveTaskDataAfterCommit = isOAuthProvider && !includeTasks && previous.TasksEnabled;
         var shouldRemoveCalendarDataAfterCommit = !includeCalendar && previous.Calendar;
         var shouldRemoveMailDataAfterCommit = !includeMail && previous.Mail;
         HashSet<Guid> existingProviderTaskListIds = isOAuthProvider
@@ -76,17 +82,17 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
                 .ToHashSet()
             : [];
 
-        ApplyFlags(account, includeMail, includeCalendar, includeContacts, includeTasks, previous, isOAuthProvider);
+        ApplyFlags(account, includeMail, includeCalendar, includeContacts, includeTasks, previous, isOAuthProvider, keepLocalContacts, keepLocalTasks);
         if (synchronizerAccount is not null)
-            ApplyFlags(synchronizerAccount, includeMail, includeCalendar, includeContacts, includeTasks, previous, isOAuthProvider);
+            ApplyFlags(synchronizerAccount, includeMail, includeCalendar, includeContacts, includeTasks, previous, isOAuthProvider, keepLocalContacts, keepLocalTasks);
 
         try
         {
             var requiresInteractiveAuthorization = isOAuthProvider &&
                 ((!previous.Mail && includeMail) ||
                  (!previous.Calendar && includeCalendar) ||
-                 (!previous.Contacts && includeContacts) ||
-                 (!previous.Tasks && includeTasks) ||
+                 (!previous.Contacts && includeContacts && !keepLocalContacts) ||
+                 (!previous.Tasks && includeTasks && !keepLocalTasks) ||
                  (previous.ContactReauthorization && includeContacts) ||
                  (previous.TaskReauthorization && includeTasks));
             if (requiresInteractiveAuthorization)
@@ -111,7 +117,7 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
                 }
             }
 
-            if (includeContacts && !previous.Contacts)
+            if (includeContacts && !previous.Contacts && !keepLocalContacts)
             {
                 var result = await _synchronizationManager.SynchronizeContactsAsync(new ContactSynchronizationOptions
                 {
@@ -123,17 +129,10 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
 
                 await _contactService.DeleteAddressBooksBySourceAsync(account.Id, ContactSourceKind.Local).ConfigureAwait(false);
             }
-            else if (!includeContacts && previous.Contacts)
-            {
-                // Provider contacts go away; the People mode stays on with a local address book.
-                var source = account.ProviderType == MailProviderType.Gmail ? ContactSourceKind.Gmail : ContactSourceKind.Outlook;
-                await _contactService.DeleteAddressBooksBySourceAsync(account.Id, source).ConfigureAwait(false);
-                await _contactService.EnsureLocalAddressBookAsync(account.Id, account.Name).ConfigureAwait(false);
-            }
 
             if (isOAuthProvider)
             {
-                if (includeTasks && !previous.Tasks)
+                if (includeTasks && !previous.Tasks && !keepLocalTasks)
                 {
                     var result = await _synchronizationManager.SynchronizeTasksAsync(new TaskSynchronizationOptions
                     {
@@ -142,13 +141,6 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
                     }, cancellationToken).ConfigureAwait(false);
                     if (result.CompletedState != SynchronizationCompletedState.Success)
                         throw result.Exception ?? new InvalidOperationException("Task synchronization failed.");
-                }
-                else if (!includeTasks && previous.Tasks)
-                {
-                    // Defer cache removal until the account flags are committed. If the
-                    // capability transition fails, the previous read-only cache remains
-                    // available for recovery.
-                    shouldRemoveProviderTasksAfterCommit = true;
                 }
             }
             else
@@ -162,13 +154,19 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
 
             // Data removal runs only after the flags are committed, so a failed transition
             // never leaves an account that still claims a mode whose data is gone.
-            if (shouldRemoveProviderTasksAfterCommit)
+            if (shouldRemoveContactDataAfterCommit || shouldRemoveTaskDataAfterCommit)
             {
-                var source = account.ProviderType == MailProviderType.Gmail ? TaskSourceKind.Gmail : TaskSourceKind.Outlook;
-                await _taskService.DeleteTaskListsBySourceAsync(account.Id, source).ConfigureAwait(false);
+                await _synchronizationManager.CancelSynchronizationsAsync(account.Id).ConfigureAwait(false);
+            }
 
-                // Provider tasks go away; the To Do mode stays on with a local list.
-                await _taskService.EnsureLocalTaskListAsync(account.Id, account.Name).ConfigureAwait(false);
+            if (shouldRemoveContactDataAfterCommit)
+            {
+                await _contactService.DeleteAccountContactsAsync(account.Id).ConfigureAwait(false);
+            }
+
+            if (shouldRemoveTaskDataAfterCommit)
+            {
+                await _taskService.DeleteAccountTasksAsync(account.Id).ConfigureAwait(false);
             }
 
             if (shouldRemoveCalendarDataAfterCommit)
@@ -203,7 +201,7 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
                 foreach (var list in currentProviderLists.Where(list => list.SourceKind == source && !existingProviderTaskListIds.Contains(list.Id)))
                     await _taskService.RemoveTaskListAsync(list.Id).ConfigureAwait(false);
             }
-            else if (shouldRemoveProviderTasksAfterCommit || shouldRemoveCalendarDataAfterCommit || shouldRemoveMailDataAfterCommit)
+            else if (shouldRemoveContactDataAfterCommit || shouldRemoveTaskDataAfterCommit || shouldRemoveCalendarDataAfterCommit || shouldRemoveMailDataAfterCommit)
             {
                 // A deferred removal has not run when the account update fails. Restore
                 // the persisted flags so the cached data stays usable.
@@ -223,9 +221,9 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
 
     /// <summary>
     /// Keeps the mode and backend flags in step with the granted flags. The details page only
-    /// offers on/off per mode, so on Gmail and Outlook "on" always means the provider backend.
-    /// Calendar turns fully off. People and To Do keep running against a local store, matching
-    /// the confirmation the page shows for those two modes.
+    /// offers on/off per mode, so on Gmail and Outlook "on" always means the provider backend
+    /// and "off" turns the mode off for the account, local store included. A local-only store
+    /// is chosen in the account setup wizard, not here.
     /// </summary>
     private static void ApplyFlags(
         MailAccount account,
@@ -234,12 +232,14 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
         bool includeContacts,
         bool includeTasks,
         CapabilityFlags previous,
-        bool isOAuthProvider)
+        bool isOAuthProvider,
+        bool keepLocalContacts,
+        bool keepLocalTasks)
     {
         account.IsMailAccessGranted = includeMail;
         account.IsCalendarAccessGranted = includeCalendar;
-        account.IsContactAccessGranted = includeContacts;
-        account.IsTaskAccessGranted = includeTasks;
+        account.IsContactAccessGranted = includeContacts && !keepLocalContacts;
+        account.IsTaskAccessGranted = includeTasks && !keepLocalTasks;
 
         if (!isOAuthProvider)
             return;
@@ -255,26 +255,16 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
             account.CalendarIntegrationSource = AccountIntegrationSource.Local;
         }
 
-        if (includeContacts)
+        if (!keepLocalContacts)
         {
-            account.IsContactAccessEnabled = true;
-            account.ContactIntegrationSource = AccountIntegrationSource.Provider;
-        }
-        else if (previous.Contacts)
-        {
-            account.IsContactAccessEnabled = true;
-            account.ContactIntegrationSource = AccountIntegrationSource.Local;
+            account.IsContactAccessEnabled = includeContacts;
+            account.ContactIntegrationSource = includeContacts ? AccountIntegrationSource.Provider : AccountIntegrationSource.Local;
         }
 
-        if (includeTasks)
+        if (!keepLocalTasks)
         {
-            account.IsTaskAccessEnabled = true;
-            account.TaskIntegrationSource = AccountIntegrationSource.Provider;
-        }
-        else if (previous.Tasks)
-        {
-            account.IsTaskAccessEnabled = true;
-            account.TaskIntegrationSource = AccountIntegrationSource.Local;
+            account.IsTaskAccessEnabled = includeTasks;
+            account.TaskIntegrationSource = includeTasks ? AccountIntegrationSource.Provider : AccountIntegrationSource.Local;
         }
     }
 
