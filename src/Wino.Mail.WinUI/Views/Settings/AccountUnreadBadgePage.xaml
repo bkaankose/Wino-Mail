@@ -94,7 +94,7 @@
         -->
         <controls:SettingsExpander
             AutomationProperties.AutomationId="AccountUnreadBadgePageLocationsExpander"
-            Description="{x:Bind domain:Translator.UnreadBadges_Locations_Description, Mode=OneTime}"
+            Description="{x:Bind domain:Translator.UnreadBadges_Locations_Description_Windows, Mode=OneTime}"
             Header="{x:Bind domain:Translator.UnreadBadges_Locations_Title, Mode=OneTime}"
             IsExpanded="True">
             <controls:SettingsExpander.HeaderIcon>
@@ -153,6 +153,29 @@
                         IsOn="{x:Bind ViewModel.IsTaskbarBadgeEnabled, Mode=TwoWay}" />
                 </controls:SettingsCard>
 
+                <controls:SettingsCard AutomationProperties.AutomationId="AccountUnreadBadgePageTrayIconCard" AutomationProperties.Name="{x:Bind domain:Translator.UnreadBadges_TrayIcon_Title, Mode=OneTime}">
+                    <controls:SettingsCard.Header>
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <winoControls:UnreadBadgeLocationIllustration IsOn="{x:Bind ViewModel.IsTrayIconBadgeEnabled, Mode=OneWay}" Kind="TrayIcon" />
+                            <StackPanel
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Spacing="2">
+                                <TextBlock Text="{x:Bind domain:Translator.UnreadBadges_TrayIcon_Title, Mode=OneTime}" />
+                                <TextBlock Style="{StaticResource UnreadBadgeLocationDescriptionStyle}" Text="{x:Bind domain:Translator.UnreadBadges_TrayIcon_Description, Mode=OneTime}" />
+                            </StackPanel>
+                        </Grid>
+                    </controls:SettingsCard.Header>
+                    <ToggleSwitch
+                        AutomationProperties.AutomationId="AccountUnreadBadgePageTrayIconToggle"
+                        AutomationProperties.Name="{x:Bind domain:Translator.UnreadBadges_TrayIcon_Title, Mode=OneTime}"
+                        IsOn="{x:Bind ViewModel.IsTrayIconBadgeEnabled, Mode=TwoWay}" />
+                </controls:SettingsCard>
+
                 <controls:SettingsCard AutomationProperties.AutomationId="AccountUnreadBadgePageFolderBadgesCard" AutomationProperties.Name="{x:Bind domain:Translator.UnreadBadges_FolderBadges_Title, Mode=OneTime}">
                     <controls:SettingsCard.Header>
                         <Grid ColumnSpacing="16">
@@ -179,6 +202,16 @@
                         IsOn="{x:Bind ViewModel.AreFolderBadgesEnabled, Mode=TwoWay}" />
                 </controls:SettingsCard>
             </controls:SettingsExpander.Items>
+            <controls:SettingsExpander.ItemsHeader>
+                <InfoBar
+                    AutomationProperties.AutomationId="AccountUnreadBadgePageTrayIconUnavailableHint"
+                    BorderThickness="0"
+                    CornerRadius="0"
+                    IsClosable="False"
+                    IsOpen="{x:Bind ViewModel.IsTrayIconUnavailable, Mode=OneWay}"
+                    Message="{x:Bind domain:Translator.UnreadBadges_TrayIcon_UnavailableHint, Mode=OneTime}"
+                    Severity="Informational" />
+            </controls:SettingsExpander.ItemsHeader>
         </controls:SettingsExpander>
 
         <!--  What the account badge counts.  -->

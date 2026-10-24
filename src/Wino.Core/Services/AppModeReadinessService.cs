@@ -25,6 +25,7 @@ public sealed class AppModeReadinessService : IAppModeReadinessService
     private readonly ICalendarService _calendarService;
     private readonly ITaskQueryService _taskQueryService;
     private readonly IContactQueryService _contactQueryService;
+    private readonly IPreferencesService _preferencesService;
     private readonly IWinoLogger _logger;
 
     public event EventHandler ReadinessInvalidated;
@@ -35,6 +36,7 @@ public sealed class AppModeReadinessService : IAppModeReadinessService
         ICalendarService calendarService,
         ITaskQueryService taskQueryService,
         IContactQueryService contactQueryService,
+        IPreferencesService preferencesService,
         IWinoLogger logger = null)
     {
         _accountService = accountService;
@@ -42,9 +44,38 @@ public sealed class AppModeReadinessService : IAppModeReadinessService
         _calendarService = calendarService;
         _taskQueryService = taskQueryService;
         _contactQueryService = contactQueryService;
+        _preferencesService = preferencesService;
         _logger = logger;
 
+        _preferencesService.PreferenceChanged += PreferenceChanged;
         RegisterInvalidationMessages(WeakReferenceMessenger.Default);
+    }
+
+    public async Task<AppModeVisibility> GetVisibilityAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false) ?? [];
+            cancellationToken.ThrowIfCancellationRequested();
+
+            return AppModeVisibility.Evaluate(accounts, _preferencesService.HiddenApplicationModes);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // A failed check must never hide a mode the user may need.
+            _logger?.CaptureException(ex, nameof(AppModeReadinessService));
+            return AppModeVisibility.All;
+        }
+    }
+
+    private void PreferenceChanged(object sender, string propertyName)
+    {
+        if (propertyName == nameof(IPreferencesService.HiddenApplicationModes))
+            Invalidate();
     }
 
     public async Task<AppModeReadiness> GetReadinessAsync(WinoApplicationMode mode, CancellationToken cancellationToken = default)

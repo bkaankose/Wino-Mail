@@ -456,7 +456,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
         while (current is not null && current != this)
         {
-            if (current is CalendarItemControl)
+            if (current is CalendarItemControl or CalendarMoreEventsButton)
             {
                 return true;
             }

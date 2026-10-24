@@ -44,6 +44,7 @@ public class UnreadBadgeService : IUnreadBadgeService
                     contributions.Sum(contribution => contribution.UnreadCount),
                     account.Preferences.IsAccountBadgeEnabled,
                     account.Preferences.IsTaskbarBadgeEnabled,
+                    account.Preferences.IsTrayIconBadgeEnabled,
                     contributions));
             }
 

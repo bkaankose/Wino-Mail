@@ -123,6 +123,10 @@ public sealed partial class CalendarPeriodControl
         {
             ShiftWindow(space, firstVisibleUnit - SpareUnitCount, windowCount);
         }
+        else
+        {
+            UpdateAllDayHeight();
+        }
 
         UpdateDominantMonth(force: !isCovered);
         ApplyRailTranslation();
@@ -278,6 +282,7 @@ public sealed partial class CalendarPeriodControl
 
             Canvas.SetLeft(timedUnit.AllDayCanvas, offset);
             timedUnit.AllDayCanvas.Width = _unitSize;
+            PlaceMoreButton(timedUnit.MoreButton, TimedCalendarLayoutCalculator.GetAllDayMoreButtonBounds(_unitSize));
 
             Canvas.SetLeft(timedUnit.BodyCanvas, offset);
             timedUnit.BodyCanvas.Width = _unitSize;
@@ -297,7 +302,20 @@ public sealed partial class CalendarPeriodControl
                 Canvas.SetTop(label, MonthDayLabelInsetY);
                 label.Width = Math.Max(0d, _monthCellWidth - MonthDayLabelInsetX);
             }
+
+            for (var column = 0; column < monthUnit.MoreButtons.Length; column++)
+            {
+                PlaceMoreButton(monthUnit.MoreButtons[column], MonthCalendarLayoutCalculator.GetMoreButtonBounds(column, _monthCellWidth, _unitSize));
+            }
         }
+    }
+
+    private static void PlaceMoreButton(CalendarMoreEventsButton button, LayoutRect bounds)
+    {
+        Canvas.SetLeft(button, bounds.X);
+        Canvas.SetTop(button, bounds.Y);
+        button.Width = bounds.Width;
+        button.Height = bounds.Height;
     }
 
     /// <summary>
@@ -331,16 +349,27 @@ public sealed partial class CalendarPeriodControl
         }
 
         var laneCount = 0;
+        var hasMoreRow = false;
+        var firstVisibleUnit = (int)Math.Floor(_position);
+        var lastVisibleUnit = _space is CalendarRailSpace space
+            ? (int)Math.Ceiling(_position + space.VisibleUnitCount) - 1
+            : firstVisibleUnit;
 
         foreach (var unit in _units.Values)
         {
             if (unit is TimedRailUnit timedUnit)
             {
                 laneCount = Math.Max(laneCount, timedUnit.AllDayLaneCount);
+
+                // Only a viewport day grows the strip for its link row; a spare day's link stays clipped.
+                if (timedUnit.HasAllDayOverflow && unit.Index >= firstVisibleUnit && unit.Index <= lastVisibleUnit)
+                {
+                    hasMoreRow = true;
+                }
             }
         }
 
-        var allDayHeight = TimedCalendarLayoutCalculator.GetAllDayHeight(laneCount);
+        var allDayHeight = TimedCalendarLayoutCalculator.GetAllDayHeight(laneCount, hasMoreRow);
 
         if (allDayHeight == TimedAllDayHeight)
         {
@@ -448,12 +477,15 @@ public sealed partial class CalendarPeriodControl
 
         var allDayCanvas = new Canvas();
         var bodyCanvas = new Canvas();
+        var moreButton = new CalendarMoreEventsButton { Visibility = Visibility.Collapsed };
+
+        allDayCanvas.Children.Add(moreButton);
 
         TimedHeaderRail.Children.Add(header);
         TimedAllDayRail.Children.Add(allDayCanvas);
         TimedBodyRail.Children.Add(bodyCanvas);
 
-        return new TimedRailUnit(header, headerText, allDayCanvas, bodyCanvas);
+        return new TimedRailUnit(header, headerText, allDayCanvas, bodyCanvas, moreButton);
     }
 
     private MonthRailUnit CreateMonthUnit()
@@ -469,9 +501,19 @@ public sealed partial class CalendarPeriodControl
             row.Children.Add(label);
         }
 
+        var moreButtons = new CalendarMoreEventsButton[MonthCalendarLayoutCalculator.ColumnCount];
+
+        for (var column = 0; column < moreButtons.Length; column++)
+        {
+            var moreButton = new CalendarMoreEventsButton { Visibility = Visibility.Collapsed };
+
+            moreButtons[column] = moreButton;
+            row.Children.Add(moreButton);
+        }
+
         MonthRail.Children.Add(row);
 
-        return new MonthRailUnit(row, labels);
+        return new MonthRailUnit(row, labels, moreButtons);
     }
 
     /// <summary>
@@ -491,6 +533,8 @@ public sealed partial class CalendarPeriodControl
         if (unit is TimedRailUnit timedUnit)
         {
             timedUnit.AllDayLaneCount = 0;
+            timedUnit.HasAllDayOverflow = false;
+            ClearMoreButton(timedUnit.MoreButton);
             timedUnit.Header.Visibility = Visibility.Collapsed;
             timedUnit.AllDayCanvas.Visibility = Visibility.Collapsed;
             timedUnit.BodyCanvas.Visibility = Visibility.Collapsed;
@@ -498,6 +542,11 @@ public sealed partial class CalendarPeriodControl
         }
         else if (unit is MonthRailUnit monthUnit)
         {
+            foreach (var moreButton in monthUnit.MoreButtons)
+            {
+                ClearMoreButton(moreButton);
+            }
+
             monthUnit.Row.Visibility = Visibility.Collapsed;
             _monthUnitPool.Push(monthUnit);
         }
@@ -573,14 +622,16 @@ public sealed partial class CalendarPeriodControl
     {
         var date = unit.Dates[0];
         var displayMode = CalendarSettings?.EventDisplayMode ?? CalendarEventDisplayMode.Stacked;
-        var allDayLayouts = TimedCalendarLayoutCalculator.CalculateAllDayItems(date, items, _unitSize);
+        var allDayLayout = TimedCalendarLayoutCalculator.CalculateAllDayItems(date, items, _unitSize);
         var bodyLayouts = TimedCalendarLayoutCalculator.CalculateDay(date, items, _unitSize, GetHourHeight(), displayMode);
 
-        unit.AllDayLaneCount = allDayLayouts.Count;
+        unit.AllDayLaneCount = allDayLayout.Items.Count;
+        unit.HasAllDayOverflow = allDayLayout.Overflow is not null;
+        AssignMoreButton(unit, unit.MoreButton, allDayLayout.Overflow);
 
         if (_allDayTemplate is DataTemplate allDayTemplate)
         {
-            foreach (var layout in allDayLayouts)
+            foreach (var layout in allDayLayout.Items)
             {
                 PlacePresenter(unit, new PresenterKey(layout.Item, AllDayPresenterSlot), unit.AllDayCanvas, allDayTemplate, layout.Bounds);
                 PrepareDisplayMetadata(layout.Item, layout.Date);
@@ -606,13 +657,60 @@ public sealed partial class CalendarPeriodControl
             return;
         }
 
-        var layouts = MonthCalendarLayoutCalculator.CalculateRow(unit.Dates, items, _monthCellWidth, _unitSize);
+        var rowLayout = MonthCalendarLayoutCalculator.CalculateRow(unit.Dates, items, _monthCellWidth, _unitSize);
 
-        foreach (var layout in layouts)
+        foreach (var layout in rowLayout.Items)
         {
             PlacePresenter(unit, new PresenterKey(layout.Item, layout.Column), unit.Row, monthTemplate, layout.Bounds);
             PrepareDisplayMetadata(layout.Item, layout.Date);
         }
+
+        for (var column = 0; column < unit.MoreButtons.Length; column++)
+        {
+            CalendarOverflowLayout? columnOverflow = null;
+
+            foreach (var overflow in rowLayout.Overflows)
+            {
+                if (overflow.Column == column)
+                {
+                    columnOverflow = overflow;
+                    break;
+                }
+            }
+
+            AssignMoreButton(unit, unit.MoreButtons[column], columnOverflow);
+        }
+    }
+
+    /// <summary>Hidden items count as shown by the unit, so removing or changing one marks it dirty.</summary>
+    private void AssignMoreButton(RailUnit unit, CalendarMoreEventsButton button, CalendarOverflowLayout? overflow)
+    {
+        if (overflow is not CalendarOverflowLayout dayOverflow || dayOverflow.HiddenItems.Count == 0)
+        {
+            ClearMoreButton(button);
+            return;
+        }
+
+        foreach (var hiddenItem in dayOverflow.HiddenItems)
+        {
+            unit.TrackHiddenItem(hiddenItem);
+            PrepareDisplayMetadata(hiddenItem, dayOverflow.Date);
+        }
+
+        button.Overflow = new CalendarDayOverflow(dayOverflow.Date, dayOverflow.HiddenItems, CalendarSettings?.CultureInfo);
+        button.Visibility = Visibility.Visible;
+    }
+
+    private static void ClearMoreButton(CalendarMoreEventsButton button)
+    {
+        if (button.Visibility == Visibility.Collapsed && button.Overflow is null)
+        {
+            return;
+        }
+
+        button.HideFlyout();
+        button.Visibility = Visibility.Collapsed;
+        button.Overflow = null;
     }
 
     private void PlacePresenter(RailUnit unit, PresenterKey key, Canvas host, DataTemplate template, LayoutRect bounds)
@@ -860,6 +958,8 @@ public sealed partial class CalendarPeriodControl
             Items.Add(key.Item);
         }
 
+        public void TrackHiddenItem(CalendarItemViewModel item) => Items.Add(item);
+
         /// <summary>
         /// Ends a layout pass and returns the presenters the pass did not keep.
         /// </summary>
@@ -875,12 +975,13 @@ public sealed partial class CalendarPeriodControl
 
     private sealed class TimedRailUnit : RailUnit
     {
-        public TimedRailUnit(Grid header, TextBlock headerText, Canvas allDayCanvas, Canvas bodyCanvas)
+        public TimedRailUnit(Grid header, TextBlock headerText, Canvas allDayCanvas, Canvas bodyCanvas, CalendarMoreEventsButton moreButton)
         {
             Header = header;
             HeaderText = headerText;
             AllDayCanvas = allDayCanvas;
             BodyCanvas = bodyCanvas;
+            MoreButton = moreButton;
         }
 
         public Grid Header { get; }
@@ -891,19 +992,26 @@ public sealed partial class CalendarPeriodControl
 
         public Canvas BodyCanvas { get; }
 
+        public CalendarMoreEventsButton MoreButton { get; }
+
         public int AllDayLaneCount { get; set; }
+
+        public bool HasAllDayOverflow { get; set; }
     }
 
     private sealed class MonthRailUnit : RailUnit
     {
-        public MonthRailUnit(Canvas row, TextBlock[] dayLabels)
+        public MonthRailUnit(Canvas row, TextBlock[] dayLabels, CalendarMoreEventsButton[] moreButtons)
         {
             Row = row;
             DayLabels = dayLabels;
+            MoreButtons = moreButtons;
         }
 
         public Canvas Row { get; }
 
         public TextBlock[] DayLabels { get; }
+
+        public CalendarMoreEventsButton[] MoreButtons { get; }
     }
 }

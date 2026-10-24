@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -179,6 +180,12 @@ public partial class PreferencesService(IConfigurationService configurationServi
     {
         get => _configurationService.Get(nameof(IsShowActionLabelsEnabled), true);
         set => SetPropertyAndSave(nameof(IsShowActionLabelsEnabled), value);
+    }
+
+    public string ReaderCommandLayout
+    {
+        get => _configurationService.Get(nameof(ReaderCommandLayout), string.Empty);
+        set => SetPropertyAndSave(nameof(ReaderCommandLayout), value);
     }
 
     public bool IsShowSenderPicturesEnabled
@@ -694,6 +701,50 @@ public partial class PreferencesService(IConfigurationService configurationServi
     {
         get => _configurationService.Get(nameof(UndoDeletingMailsIntervalInSeconds), 3);
         set => SetPropertyAndSave(nameof(UndoDeletingMailsIntervalInSeconds), Math.Clamp(value, 1, 10));
+    }
+
+    public IReadOnlyCollection<WinoApplicationMode> HiddenApplicationModes
+    {
+        get
+        {
+            var modes = new HashSet<WinoApplicationMode>();
+            var stored = _configurationService.Get(nameof(HiddenApplicationModes), string.Empty);
+
+            if (string.IsNullOrEmpty(stored))
+                return modes;
+
+            foreach (var part in stored.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (Enum.TryParse<WinoApplicationMode>(part, out var mode) &&
+                    Enum.IsDefined(mode) &&
+                    mode != WinoApplicationMode.Settings)
+                {
+                    modes.Add(mode);
+                }
+            }
+
+            return modes;
+        }
+        set
+        {
+            var names = (value ?? Array.Empty<WinoApplicationMode>())
+                .Where(mode => mode != WinoApplicationMode.Settings)
+                .Distinct()
+                .Select(mode => mode.ToString());
+
+            SetPropertyAndSave(nameof(HiddenApplicationModes), string.Join(',', names));
+        }
+    }
+
+    public void SetApplicationModeHidden(WinoApplicationMode mode, bool isHidden)
+    {
+        var modes = new HashSet<WinoApplicationMode>(HiddenApplicationModes);
+        var changed = isHidden ? modes.Add(mode) : modes.Remove(mode);
+
+        if (changed)
+        {
+            HiddenApplicationModes = modes;
+        }
     }
 
     public bool IsStoreUpdateNotificationsEnabled

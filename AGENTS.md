@@ -31,10 +31,23 @@ Platform services live in `Wino.Platform.Windows`, `Wino.Platform.MacOS`, `Wino.
 - Run checks on the available host. Report the other platform's exact pending checks as a handoff; do not claim cross-platform completion without that evidence.
 - Never commit or push unless the user explicitly asks in the current request. Creating a local branch is fine; changes stay uncommitted on the local machine until the user asks for a commit or push.
 
+## Commits and release notes
+
+The maintainer commits straight to `main`, and release notes are drafted from those commits (`scripts/release/release.ps1 notes`). Every commit you make must carry what the notes need:
+
+- Write the subject as the user-visible change ("Show an info bar when creating a draft fails"), not the implementation. Internal work says so plainly ("Build: …", "Docs: …").
+- Add one `Refs: #N` trailer per GitHub issue the commit addresses, and run `scripts/release/release.ps1 mark N` for each, which adds the `pending release` label.
+- When the user describes a bug without an issue number, search `gh issue list --search "<keywords>" --state all` and ask the user to confirm the matches before adding them.
+- Add `Highlight: yes` only when the user calls the change a headline feature.
+- Never use closing keywords (`Fixes #N`, `Closes #N`). Issues close when the release is published, not when the fix reaches `main`.
+- Commit one issue per commit, also during bug bashes, so each fix becomes its own release-notes entry.
+- For user-visible work in another repository (API, relay, website), run `scripts/release/release.ps1 add "<user-facing text>"` when the user asks for it in the notes.
+
 ## Shared coding rules
 
 - Treat nullable diagnostics as real defects. Guard missing items and owners explicitly; two null account IDs comparing equal does not make either account safe to dereference. Do not hide errors with null-forgiving operators, warning suppressions, disabled analyzers, or weakened Release settings.
 - Give collection expressions that target read-only interfaces an explicit concrete backing type. Collections that reach an items source need a concrete static type, not an interface; `WINOAOT001` enforces it. See the [implementation rules](docs/harness/implementation-rules.md#core-implementation-rules).
+- Write no comments in source code unless one identifies a potential risk, explains an uncommon decision behind the code, or is needed for everyone to understand it. Do not restate member names, describe what the code plainly does, or narrate the feature.
 - Verify which source file the active project compiles before editing. Legacy and active files can share a namespace and type name.
 - Keep business rules in shared services and ViewModels. Platform heads adapt them; they do not re-implement them.
 - Add English strings only to `src/Wino.Core.Domain/Translations/en_US/resources.json`.
@@ -77,7 +90,8 @@ Read only references that apply to the task:
 | Calendar period navigation, the rail model, or the loaded event window | [calendar rail navigation](docs/calendar-rail-navigation.md) |
 | Push relay, live notifications, sync method, or relay privacy acceptance | [push relay design](docs/push-relay-design.md) |
 | Release packaging | [release guide](docs/releases.md); Android in the [Android release guide](docs/releases-android.md) |
-| What's New notes and illustrations | [whats-new skill](.claude/skills/whats-new/SKILL.md) |
+| Release notes, GitHub releases, or marking issues for a release | [release skill](.claude/skills/release/SKILL.md) and [release notes format](release-notes/README.md) |
+| What's New notes and illustrations | [whatsnew skill](.claude/skills/whatsnew/SKILL.md) |
 | Scripts | [script index](scripts/README.md) |
 
 Repository commands and package rules take precedence over stale personal skill instructions.

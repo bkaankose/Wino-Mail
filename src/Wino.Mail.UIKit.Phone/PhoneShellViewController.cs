@@ -4,6 +4,7 @@ using UIKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Navigation;
@@ -213,7 +214,23 @@ public sealed class PhoneShellViewController : UIKitShellViewController
         }
     }
 
-    public override UINavigationController? CurrentNavigationController => _stacks[Math.Clamp((int)_tabs.SelectedIndex, 0, _stacks.Length - 1)];
+    public override UINavigationController? CurrentNavigationController
+        => _tabs.SelectedViewController as UINavigationController ?? _stacks[IndexOf(ActiveMode ?? WinoApplicationMode.Mail)];
+
+    /// <summary>The tab bar shows the visible modes only; the stacks keep every mode so a mode shown again keeps its pages.</summary>
+    protected override void ModeVisibilityChanged(AppModeVisibility? visibility)
+    {
+        var visible = _stacks.Where((_, index) => visibility is null || visibility.IsVisible(_segments[index].Mode)).ToArray();
+        var current = _tabs.ViewControllers ?? [];
+        if (!visible.SequenceEqual(current)) _tabs.ViewControllers = visible;
+        if (ActiveMode is { } mode and not WinoApplicationMode.Settings) SelectTab(mode);
+    }
+
+    private void SelectTab(WinoApplicationMode mode)
+    {
+        var tab = Array.IndexOf(_tabs.ViewControllers ?? [], _stacks[IndexOf(mode)]);
+        if (tab >= 0 && _tabs.SelectedIndex != tab) _tabs.SelectedIndex = tab;
+    }
 
     private UINavigationController MailStack => _stacks[IndexOf(WinoApplicationMode.Mail)];
 
@@ -259,8 +276,7 @@ public sealed class PhoneShellViewController : UIKitShellViewController
         if (mode == WinoApplicationMode.Settings) return;
         _drawer.SetRoot(DrawerRoot(mode));
         UpdateFloatingButton();
-        var index = IndexOf(mode);
-        if (_tabs.SelectedIndex != index) _tabs.SelectedIndex = index;
+        SelectTab(mode);
     }
 
     protected override void MenuChanged(ShellMenu? menu)
@@ -362,7 +378,7 @@ public sealed class PhoneShellViewController : UIKitShellViewController
     /// </summary>
     private bool CanOpenDrawer()
     {
-        if (ActiveMode is not { } mode || mode == WinoApplicationMode.Settings || _tabs.SelectedIndex != IndexOf(mode) || PresentedViewController is not null) return false;
+        if (ActiveMode is not { } mode || mode == WinoApplicationMode.Settings || !ReferenceEquals(_tabs.SelectedViewController, _stacks[IndexOf(mode)]) || PresentedViewController is not null) return false;
         var stack = _stacks[IndexOf(mode)];
         if ((stack.ViewControllers?.Length ?? 0) != 1) return false;
         return stack.TopViewController is not MailListPageViewController { IsInSelectionMode: true };

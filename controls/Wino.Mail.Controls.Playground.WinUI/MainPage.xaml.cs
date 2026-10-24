@@ -24,6 +24,7 @@ public sealed partial class MainPage : Page
         new("contextFlyout", typeof(ContextFlyoutPage)),
         new("hotKeyInput", typeof(HotKeyInputPage)),
         new("shimmer", typeof(ShimmerPage)),
+        new("modeSwitcher", typeof(ModeSwitcherPage)),
     ];
 
     private readonly SemaphoreSlim _navigationGate = new(1, 1);

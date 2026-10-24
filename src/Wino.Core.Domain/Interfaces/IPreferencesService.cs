@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
@@ -35,6 +36,14 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// Setting: Whether Microsoft Store update notifications should be shown.
     /// </summary>
     bool IsStoreUpdateNotificationsEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: App modes the user removed from the mode switcher. A mode no account provides
+    /// is hidden regardless; this only covers modes the accounts would otherwise offer.
+    /// </summary>
+    IReadOnlyCollection<WinoApplicationMode> HiddenApplicationModes { get; set; }
+
+    void SetApplicationModeHidden(WinoApplicationMode mode, bool isHidden);
 
     /// <summary>
     /// Setting: Whether the system tray icon should be created while the shell is available.
@@ -456,6 +465,12 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// Setting: Whether the mail rendering page will show the action labels
     /// </summary>
     bool IsShowActionLabelsEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Order and visibility of the reader command bar actions. Empty means the default layout.
+    /// Read it through <see cref="Models.Reader.ReaderCommandLayout.Parse"/>.
+    /// </summary>
+    string ReaderCommandLayout { get; set; }
 
     /// <summary>
     /// Setting: Enable/disable Gravatar for sender avatars.

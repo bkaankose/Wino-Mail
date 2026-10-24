@@ -113,9 +113,19 @@ public class NotificationBuilder : INotificationBuilder
                 }
             }
 
-            var mailCount = inboxMailItems.Count;
-            if (mailCount == 0)
+            if (inboxMailItems.Count == 0)
                 return;
+
+            // Hidden-content accounts never join the aggregate summary; they are announced by count only.
+            var visibleMailItems = inboxMailItems
+                .Where(item => !NotificationSettingsResolver.HidesNotificationContent(item.Preferences))
+                .ToList();
+            var hiddenMailGroups = inboxMailItems
+                .Where(item => NotificationSettingsResolver.HidesNotificationContent(item.Preferences))
+                .GroupBy(item => item.Preferences?.AccountId ?? Guid.Empty)
+                .ToList();
+
+            var mailCount = visibleMailItems.Count;
 
             if (mailCount > 3)
             {
@@ -130,9 +140,24 @@ public class NotificationBuilder : INotificationBuilder
             }
             else
             {
-                foreach (var (mailItem, accountPreferences) in inboxMailItems)
+                foreach (var (mailItem, accountPreferences) in visibleMailItems)
                 {
                     await CreateSingleNotificationAsync(mailItem, accountPreferences);
+                }
+            }
+
+            foreach (var hiddenMailGroup in hiddenMailGroups)
+            {
+                var hiddenItems = hiddenMailGroup.ToList();
+                var (firstMailItem, accountPreferences) = hiddenItems[0];
+
+                if (hiddenItems.Count == 1)
+                {
+                    await CreateSingleNotificationAsync(firstMailItem, accountPreferences);
+                }
+                else
+                {
+                    await CreateHiddenMailSummaryNotificationAsync(hiddenItems.Count, accountPreferences);
                 }
             }
 
@@ -142,6 +167,21 @@ public class NotificationBuilder : INotificationBuilder
         {
             Log.Error(ex, "Failed to create notifications.");
         }
+    }
+
+    private async Task CreateHiddenMailSummaryNotificationAsync(int mailCount, MailAccountPreferences? accountPreferences)
+    {
+        var settings = NotificationSettingsResolver.ResolveMail(_preferencesService, accountPreferences);
+        var builder = CreateBuilder();
+
+        builder.AddText(NotificationContentRules.HiddenMailTitle);
+        builder.AddText(NotificationContentRules.ComposeHiddenMailText(mailCount));
+        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
+        builder.AddButton(CreateDismissButton());
+        builder.SetAudioEvent((AppNotificationSoundEvent)settings.Sound);
+
+        // Unique per batch so a later batch never rewrites an earlier count.
+        await ShowNotificationAsync(NotificationHostApplication.Mail, builder, $"hidden-{Guid.NewGuid():N}", accountPreferences);
     }
 
     public async Task CreateTestNotificationsAsync(IEnumerable<MailCopy> mailItems)
@@ -175,6 +215,9 @@ public class NotificationBuilder : INotificationBuilder
             var totalUnreadCount = snapshot.TaskbarUnreadCount;
 
             LastSnapshot = snapshot;
+
+            // Once per cycle, from the same snapshot, so the tray dot and the taskbar badge agree.
+            WeakReferenceMessenger.Default.Send(new TrayUnreadIndicatorChanged(snapshot.IsTrayIconIndicatorVisible));
 
             UpdateBadge(AppEntryConstants.MailApplicationId, totalUnreadCount > 0 ? totalUnreadCount : null);
         }
@@ -312,15 +355,25 @@ public class NotificationBuilder : INotificationBuilder
         // Resolved so the account's own calendar-reminder switch and quiet hours stance apply,
         // not just the app-wide default.
         var accountPreferences = await GetCalendarAccountPreferencesAsync(calendarItem).ConfigureAwait(false);
+        var hidesContent = NotificationSettingsResolver.HidesNotificationContent(accountPreferences);
         var builder = CreateBuilder(AppNotificationScenario.Reminder);
-        var localStart = calendarItem.GetLocalStartDate();
-        var reminderContext = GetCalendarReminderContext(localStart, DateTime.Now);
 
-        builder.AddText(calendarItem.Title);
-        builder.AddText($"{reminderContext} - {localStart:g}");
+        if (hidesContent)
+        {
+            builder.AddText(NotificationContentRules.HiddenCalendarReminderTitle);
+            builder.AddText(NotificationContentRules.ComposeHiddenCalendarReminderText());
+        }
+        else
+        {
+            var localStart = calendarItem.GetLocalStartDate();
+            var reminderContext = GetCalendarReminderContext(localStart, DateTime.Now);
 
-        if (!string.IsNullOrWhiteSpace(calendarItem.Location))
-            builder.AddText(calendarItem.Location);
+            builder.AddText(calendarItem.Title);
+            builder.AddText($"{reminderContext} - {localStart:g}");
+
+            if (!string.IsNullOrWhiteSpace(calendarItem.Location))
+                builder.AddText(calendarItem.Location);
+        }
 
         builder.AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarNavigateAction);
         builder.AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString());
@@ -360,7 +413,8 @@ public class NotificationBuilder : INotificationBuilder
             .AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString())
             .AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar));
 
-        if (CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out _))
+        // A join link would reveal the meeting, so a hidden reminder offers Open instead.
+        if (!hidesContent && CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out _))
         {
             builder.AddButton(CreateButton(Translator.CalendarEventDetails_JoinOnline, "calendar-join")
                 .AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarJoinOnlineAction)
@@ -452,29 +506,50 @@ public class NotificationBuilder : INotificationBuilder
     private async Task CreateSingleNotificationAsync(MailCopy mailItem, MailAccountPreferences? accountPreferences = null)
     {
         var settings = NotificationSettingsResolver.ResolveMail(_preferencesService, accountPreferences);
+        var hidesContent = NotificationSettingsResolver.HidesNotificationContent(accountPreferences);
         var builder = CreateBuilder();
 
-        var senderPictureUri = GetSenderPictureUri(mailItem);
-        if (senderPictureUri == null)
+        // The sender's picture identifies the sender, so it is left out when nothing may be shown.
+        if (settings.Content != MailNotificationContent.Nothing)
         {
-            var avatarThumbnail = await _thumbnailService.GetThumbnailAsync(mailItem.FromAddress, awaitLoad: true);
-            senderPictureUri = avatarThumbnail == null ? null : new Uri(avatarThumbnail.AppDataUri);
-        }
+            var senderPictureUri = GetSenderPictureUri(mailItem);
+            if (senderPictureUri == null)
+            {
+                var avatarThumbnail = await _thumbnailService.GetThumbnailAsync(mailItem.FromAddress, awaitLoad: true);
+                senderPictureUri = avatarThumbnail == null ? null : new Uri(avatarThumbnail.AppDataUri);
+            }
 
-        if (senderPictureUri != null)
-            builder.SetAppLogoOverride(senderPictureUri, AppNotificationImageCrop.Circle);
+            if (senderPictureUri != null)
+                builder.SetAppLogoOverride(senderPictureUri, AppNotificationImageCrop.Circle);
+        }
 
         builder.SetTimeStamp(mailItem.CreationDate.ToLocalTime());
 
-        AddMailNotificationText(builder, mailItem, settings.Content);
+        if (hidesContent)
+        {
+            builder.AddText(NotificationContentRules.HiddenMailTitle);
+            builder.AddText(NotificationContentRules.ComposeHiddenMailText(1));
+        }
+        else
+        {
+            AddMailNotificationText(builder, mailItem, settings.Content);
+        }
 
+        // The mail's id stays on a hidden toast too, so reading the mail removes it and Open navigates to it.
         builder.AddArgument(Constants.ToastMailUniqueIdKey, mailItem.UniqueId.ToString());
         builder.AddArgument(Constants.ToastActionKey, MailOperation.Navigate.ToString());
         builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
 
+        // Reply, Reply all and Forward open the message, so a hidden toast drops them.
         var (firstAction, secondAction) = GetConfiguredMailNotificationActions();
-        builder.AddButton(CreateMailNotificationActionButton(firstAction, mailItem.UniqueId));
-        builder.AddButton(CreateMailNotificationActionButton(secondAction, mailItem.UniqueId));
+        foreach (var action in new[] { firstAction, secondAction })
+        {
+            if (hidesContent && IsReplyAction(action))
+                continue;
+
+            builder.AddButton(CreateMailNotificationActionButton(action, mailItem.UniqueId));
+        }
+
         builder.AddButton(CreateDismissButton());
         builder.SetAudioEvent((AppNotificationSoundEvent)settings.Sound);
 
@@ -594,6 +669,9 @@ public class NotificationBuilder : INotificationBuilder
 
         return (firstAction, secondAction);
     }
+
+    private static bool IsReplyAction(MailOperation action)
+        => action is MailOperation.Reply or MailOperation.ReplyAll or MailOperation.Forward;
 
     private static MailOperation ResolveMailNotificationAction(MailOperation configuredAction, MailOperation fallbackAction)
         => SupportedMailNotificationActions.Contains(configuredAction) ? configuredAction : fallbackAction;

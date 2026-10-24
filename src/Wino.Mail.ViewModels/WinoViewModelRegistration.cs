@@ -87,6 +87,7 @@ public static class WinoViewModelRegistration
         services.AddTransient<MailPreferencesPageViewModel>();
         services.AddTransient<MessageListPageViewModel>();
         services.AddTransient<ReadComposePanePageViewModel>();
+        services.AddTransient<ReaderActionsPageViewModel>();
         services.AddTransient<NotificationSettingsPageViewModel>();
         services.AddTransient<UnreadBadgeSettingsPageViewModel>();
         services.AddTransient<AccountUnreadBadgePageViewModel>();

@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using UIKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels;
@@ -61,11 +62,15 @@ public abstract class UIKitShellViewController : WinoViewController<WinoAppShell
     /// <summary>The selected menu item changed. Main thread.</summary>
     protected virtual void SelectedItemChanged(object? item) { }
 
+    /// <summary>The modes the switcher offers changed (an account or its features, or a mode hidden in Settings). Main thread.</summary>
+    protected virtual void ModeVisibilityChanged(AppModeVisibility? visibility) { }
+
     protected void BindShell()
     {
         Bind(nameof(ViewModel.CurrentMenu), vm => vm.CurrentMenu, MenuChanged);
         Bind(nameof(ViewModel.SelectedMenuItem), vm => vm.SelectedMenuItem, SelectedItemChanged);
         Bind(nameof(ViewModel.CurrentMode), vm => vm.CurrentMode, ModeChanged);
+        Bind(nameof(ViewModel.ModeVisibility), vm => vm.ModeVisibility, ModeVisibilityChanged);
     }
 
     protected override async Task InitializeAsync(NavigationMode mode, object? parameter)

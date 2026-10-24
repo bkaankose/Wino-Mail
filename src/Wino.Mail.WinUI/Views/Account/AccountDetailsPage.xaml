@@ -584,6 +584,15 @@
                                 IsOn="{x:Bind ViewModel.IsJumpListEnabled, Mode=TwoWay}"
                                 Toggled="JumpListMasterToggled" />
                         </controls:SettingsCard>
+                        <controls:SettingsCard
+                            AutomationProperties.AutomationId="AccountDetailsPageHideNotificationContentCard"
+                            Description="{x:Bind domain:Translator.SettingsHideNotificationContent_Description, Mode=OneTime}"
+                            Header="{x:Bind domain:Translator.SettingsHideNotificationContent_Title, Mode=OneTime}">
+                            <controls:SettingsCard.HeaderIcon>
+                                <coreControls:WinoFontIcon Icon="EyeOff" />
+                            </controls:SettingsCard.HeaderIcon>
+                            <ToggleSwitch AutomationProperties.AutomationId="AccountDetailsPageHideNotificationContentToggle" IsOn="{x:Bind ViewModel.IsNotificationContentHidden, Mode=TwoWay}" />
+                        </controls:SettingsCard>
                     </controls:SettingsExpander.Items>
                 </controls:SettingsExpander>
 

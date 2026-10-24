@@ -33,6 +33,7 @@ public static partial class SettingsPageRoutes
                 await vm.DrainPreferenceWritesAsync();
             });
         registry.Register<ReadComposePanePageFragment, ReadComposePanePageViewModel>(WinoPage.ReadComposePanePage, host);
+        registry.Register<ReaderActionsPageFragment, ReaderActionsPageViewModel>(WinoPage.ReaderActionsPage, host);
         // iOS InitializeAsync: OnNavigatedTo, then the load the page waits for (the fragment reads the result from the entry).
         registry.Register<EmailTemplatesPageFragment, EmailTemplatesPageViewModel>(WinoPage.EmailTemplatesPage, host,
             activated: EmailTemplatesPageFragment.LoadAsync);

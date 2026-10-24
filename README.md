@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://apps.microsoft.com/detail/Wino%20Mail/9NCRCVJC50WL?launch=true&mode=full">Microsoft Store</a>
-  · <a href="https://github.com/bkaankose/Wino-Mail/releases">Beta releases</a>
+  · <a href="https://github.com/bkaankose/Wino-Mail/releases">Release notes</a>
   · <a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
@@ -35,9 +35,13 @@ Install Wino Mail from the Microsoft Store or directly with App Installer.
   <img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200" alt="Get Wino Mail from Microsoft Store">
 </a>
 
-### Beta releases
+### Release notes
 
-Beta releases are available from [GitHub Releases](https://github.com/bkaankose/Wino-Mail/releases). They can contain unfinished changes and are for testing.
+[GitHub Releases](https://github.com/bkaankose/Wino-Mail/releases) lists every stable version available in Microsoft Store, with its full list of changes and fixed issues.
+
+### Beta
+
+The beta channel gets new changes before they reach Microsoft Store. Beta builds can contain unfinished changes and are for testing. Install the beta with [App Installer](https://download.winomail.app/WinoMailBetaIsolated.appinstaller); it installs next to the Store version.
 
 ## Platforms
 

@@ -5,6 +5,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Personalization;
 using Wino.Core.ViewModels;
+using Wino.Core.ViewModels.Data;
 using Wino.Mail.Controls.UIKit.Settings;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Presentation.UIKit;
@@ -60,6 +61,10 @@ public sealed class PersonalizationPageViewController(PersonalizationPageViewMod
 
         AddGroup(null, accent, appearance, iconStyle);
 
+        // App modes (Windows PersonalizationPage): the modes the tab bar or sidebar card offers; a mode no account provides stays off.
+        AddGroup(null, Expander(Translator.SettingsPersonalization_AppModes_Title, Translator.SettingsPersonalization_AppModes_Description, WinoIconGlyph.Grid, null,
+            vm.AppModeOptions.Select(AppModeCard).ToArray()));
+
         // Wino themes: one entry point into the theme gallery, like the Windows Personalization page.
         var themeContent = WinoLayout.HStack(WinoStyle.Space2, _currentThemeName, _currentThemePreview);
         themeContent.Alignment = UIStackViewAlignment.Center;
@@ -83,9 +88,23 @@ public sealed class PersonalizationPageViewController(PersonalizationPageViewMod
 
     protected override Task InitializeAsync(NavigationMode mode, object? parameter)
         // Deliberately not ViewModel.OnNavigatedTo: see the class remarks.
-        => RefreshCurrentThemeAsync();
+        => Task.WhenAll(RefreshCurrentThemeAsync(), ViewModel.ActivateAppModeOptionsAsync());
 
-    protected override Task DeactivateAsync() => Task.CompletedTask;
+    protected override Task DeactivateAsync()
+    {
+        ViewModel.DeactivateAppModeOptions();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>One app mode row: its switch, and the description and enabled state that follow the accounts.</summary>
+    private UIView AppModeCard(AppModeOptionViewModel option)
+    {
+        var card = Card(option.Title, option.Description, option.Icon,
+            Bind.Switch(option, nameof(option.IsShown), s => s.IsShown, (s, v) => s.IsShown = v, option.Title));
+        Bind.Bind(option, nameof(option.Description), s => s.Description, description => card.Description = description);
+        Bind.Bind(option, nameof(option.CanToggle), s => s.CanToggle, canToggle => card.IsEnabled = canToggle);
+        return card;
+    }
 
     /// <summary>Shows the current theme's name and preview on the gallery card.</summary>
     private async Task RefreshCurrentThemeAsync()

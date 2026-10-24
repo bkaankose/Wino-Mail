@@ -14,8 +14,8 @@ namespace Wino.Mail.Controls.AppKit.Shell;
 /// </summary>
 public sealed class WinoModeSwitcher : NSView
 {
-    /// <summary>The shared Windows segment order and glyphs (<see cref="WinoModeSegments.All"/>).</summary>
-    private static readonly IReadOnlyList<WinoModeSegment> Segments = WinoModeSegments.All;
+    /// <summary>The shared Windows segment order and glyphs (<see cref="WinoModeSegments.All"/>), less the modes hidden by <see cref="SetVisibleModes"/>.</summary>
+    private IReadOnlyList<WinoModeSegment> Segments = WinoModeSegments.All;
 
     private readonly NSSegmentedControl _control = new()
     {
@@ -24,7 +24,7 @@ public sealed class WinoModeSwitcher : NSView
         SegmentStyle = NSSegmentStyle.Automatic,
         SegmentDistribution = NSSegmentDistribution.FillEqually,
         ControlSize = NSControlSize.Large,
-        SegmentCount = Segments.Count
+        SegmentCount = WinoModeSegments.All.Count
     };
 
     private WinoApplicationMode _selected = WinoApplicationMode.Mail;
@@ -35,8 +35,7 @@ public sealed class WinoModeSwitcher : NSView
     public WinoModeSwitcher()
     {
         TranslatesAutoresizingMaskIntoConstraints = false;
-        for (int index = 0; index < Segments.Count; index++)
-            _control.SetToolTip($"{Segments[index].Title} ({Segments[index].Shortcut})", index);
+        ApplyToolTips();
         _control.Activated += SegmentActivated;
         WinoLayout.Fill(_control, this, 8, 8, 12, 8);
         WinoAccessibility.Label(_control, "Mode");
@@ -50,6 +49,28 @@ public sealed class WinoModeSwitcher : NSView
     {
         get => _selected;
         set { if (_selected == value) return; _selected = value; Refresh(); }
+    }
+
+    /// <summary>
+    /// Shows only <paramref name="visible"/> (the shell's <c>AppModeVisibility.VisibleModes</c>) plus Settings, which is
+    /// always reachable (Windows AppModeFooterSwitcherControl); null shows every segment.
+    /// </summary>
+    public void SetVisibleModes(IReadOnlyCollection<WinoApplicationMode>? visible)
+    {
+        var segments = WinoModeSegments.All
+            .Where(segment => visible is null || segment.Mode == WinoApplicationMode.Settings || visible.Contains(segment.Mode))
+            .ToArray();
+        if (segments.Select(segment => segment.Mode).SequenceEqual(Segments.Select(segment => segment.Mode))) return;
+        Segments = segments;
+        _control.SegmentCount = segments.Length;
+        ApplyToolTips();
+        Refresh();
+    }
+
+    private void ApplyToolTips()
+    {
+        for (int index = 0; index < Segments.Count; index++)
+            _control.SetToolTip($"{Segments[index].Title} ({Segments[index].Shortcut})", index);
     }
 
     private void SegmentActivated(object? sender, EventArgs args)

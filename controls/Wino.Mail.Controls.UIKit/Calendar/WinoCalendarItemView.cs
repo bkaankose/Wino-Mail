@@ -26,6 +26,12 @@ public sealed record CalendarItemPlacement(ICalendarItem Item, DateOnly Date, CG
 
 public sealed record CalendarMonthCell(DateOnly Date, int Index, int Row, int Column, CGRect Bounds);
 
+/// <summary>The "n more events" link of a day whose items did not all fit, with the hidden items.</summary>
+public sealed record CalendarOverflowCell(DateOnly Date, List<ICalendarItem> HiddenItems, CGRect Bounds)
+{
+    public string Text => CalendarItemOverflow.FormatMoreText(HiddenItems.Count);
+}
+
 /// <summary>
 /// UIKit adapter over the shared Domain <see cref="CalendarSurfaceLayoutCalculator"/> (the port of the Windows timed and
 /// month layout calculators): converts its neutral rectangles to <see cref="CGRect"/>. Same API as the AppKit adapter.
@@ -35,9 +41,9 @@ public static class CalendarLayoutCalculator
     public const int MonthColumns = CalendarSurfaceLayoutCalculator.MonthColumns;
     public const int MonthRows = CalendarSurfaceLayoutCalculator.MonthRows;
 
-    public static double GetAllDayHeight(int laneCount) => CalendarSurfaceLayoutCalculator.GetAllDayHeight(laneCount);
+    public static double GetAllDayHeight(int laneCount, bool hasMoreRow) => CalendarSurfaceLayoutCalculator.GetAllDayHeight(laneCount, hasMoreRow);
 
-    public static int GetAllDayLaneCount(IReadOnlyList<DateOnly> dates, IEnumerable<ICalendarItem> items)
+    public static (int Lanes, bool HasOverflow) GetAllDayLaneCount(IReadOnlyList<DateOnly> dates, IEnumerable<ICalendarItem> items)
         => CalendarSurfaceLayoutCalculator.GetAllDayLaneCount(dates, items);
 
     /// <summary>Timed and multi-day placements for the hour grid. X is relative to the first day column.</summary>
@@ -45,16 +51,20 @@ public static class CalendarLayoutCalculator
         double dayWidth, double hourHeight, CalendarEventDisplayMode mode)
         => CalendarSurfaceLayoutCalculator.CalculateTimed(dates, items, dayWidth, hourHeight, mode).ConvertAll(ToUIKit);
 
-    /// <summary>All-day lanes above the hour grid.</summary>
-    public static List<CalendarItemPlacement> CalculateAllDay(IReadOnlyList<DateOnly> dates, IEnumerable<ICalendarItem> items, double dayWidth)
-        => CalendarSurfaceLayoutCalculator.CalculateAllDay(dates, items, dayWidth).ConvertAll(ToUIKit);
+    /// <summary>All-day lanes above the hour grid, and the days whose extra items sit behind an "n more" link.</summary>
+    public static (List<CalendarItemPlacement> Items, List<CalendarOverflowCell> Overflows) CalculateAllDay(IReadOnlyList<DateOnly> dates, IEnumerable<ICalendarItem> items, double dayWidth)
+    {
+        var (placements, overflows) = CalendarSurfaceLayoutCalculator.CalculateAllDay(dates, items, dayWidth);
+        return (placements.ConvertAll(ToUIKit), overflows.ConvertAll(ToUIKit));
+    }
 
-    /// <summary>The 6x7 month grid. Dates must already be week-aligned (42 entries).</summary>
-    public static (List<CalendarMonthCell> Cells, List<CalendarItemPlacement> Items) CalculateMonth(IReadOnlyList<DateOnly> dates,
+    /// <summary>The month grid (7 cells per week row). Dates must already be week-aligned.</summary>
+    public static (List<CalendarMonthCell> Cells, List<CalendarItemPlacement> Items, List<CalendarOverflowCell> Overflows) CalculateMonth(IReadOnlyList<DateOnly> dates,
         IEnumerable<ICalendarItem> items, double width, double height)
     {
-        var (cells, placements) = CalendarSurfaceLayoutCalculator.CalculateMonth(dates, items, width, height);
-        return (cells.ConvertAll(cell => new CalendarMonthCell(cell.Date, cell.Index, cell.Row, cell.Column, ToRect(cell.Bounds))), placements.ConvertAll(ToUIKit));
+        var (cells, placements, overflows) = CalendarSurfaceLayoutCalculator.CalculateMonth(dates, items, width, height);
+        return (cells.ConvertAll(cell => new CalendarMonthCell(cell.Date, cell.Index, cell.Row, cell.Column, ToRect(cell.Bounds))),
+            placements.ConvertAll(ToUIKit), overflows.ConvertAll(ToUIKit));
     }
 
     /// <summary>Expands a month range to full weeks (42 days) like the Windows control.</summary>
@@ -63,6 +73,9 @@ public static class CalendarLayoutCalculator
 
     private static CalendarItemPlacement ToUIKit(CalendarLayoutPlacement placement)
         => new(placement.Item, placement.Date, ToRect(placement.Bounds), placement.Kind);
+
+    private static CalendarOverflowCell ToUIKit(CalendarLayoutOverflowCell overflow)
+        => new(overflow.Date, overflow.HiddenItems, ToRect(overflow.Bounds));
 
     private static CGRect ToRect(CalendarLayoutRect rect) => new(rect.X, rect.Y, rect.Width, rect.Height);
 }

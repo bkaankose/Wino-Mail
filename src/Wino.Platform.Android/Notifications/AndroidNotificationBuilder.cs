@@ -216,26 +216,68 @@ public sealed class AndroidNotificationBuilder : INotificationBuilder
             if (notifiable.Count == 0) return;
             await RefreshBadgeCountAsync().ConfigureAwait(false);
 
-            if (notifiable.Count > NotificationContentRules.MaxIndividualMailNotifications)
+            // Hidden-content accounts are announced by count, one notification each, and never join the summary.
+            var visible = notifiable.Where(item => !NotificationSettingsResolver.HidesNotificationContent(item.Account?.Preferences)).ToList();
+            var hiddenGroups = notifiable
+                .Where(item => NotificationSettingsResolver.HidesNotificationContent(item.Account?.Preferences))
+                .GroupBy(item => item.Account?.Id ?? Guid.Empty)
+                .ToList();
+
+            if (visible.Count > NotificationContentRules.MaxIndividualMailNotifications)
             {
-                if (!ShouldDeliver(NotificationKind.Mail, null, "mail summary")) return;
-                var summary = NotificationContentRules.ComposeSummaryText(notifiable.Count);
-                Post(new Request(
-                    Tag: "mail-summary",
-                    Id: MailSummaryId,
-                    Channel: AndroidNotificationChannels.MailSummary,
-                    Category: "wino.mail.summary",
-                    Title: summary.Title,
-                    Subtitle: null,
-                    Body: summary.Body,
-                    Values: new Dictionary<string, string> { [Constants.ToastModeKey] = Constants.ToastModeMail },
-                    SmallIcon: Resource.Drawable.wino_notification_mail,
-                    AndroidCategory: NotificationCompat.CategoryEmail));
+                if (ShouldDeliver(NotificationKind.Mail, null, "mail summary"))
+                {
+                    var summary = NotificationContentRules.ComposeSummaryText(visible.Count);
+                    Post(new Request(
+                        Tag: "mail-summary",
+                        Id: MailSummaryId,
+                        Channel: AndroidNotificationChannels.MailSummary,
+                        Category: "wino.mail.summary",
+                        Title: summary.Title,
+                        Subtitle: null,
+                        Body: summary.Body,
+                        Values: new Dictionary<string, string> { [Constants.ToastModeKey] = Constants.ToastModeMail },
+                        SmallIcon: Resource.Drawable.wino_notification_mail,
+                        AndroidCategory: NotificationCompat.CategoryEmail));
+                }
             }
             else
             {
-                foreach (var (mailItem, account) in notifiable)
+                foreach (var (mailItem, account) in visible)
                     await CreateSingleNotificationAsync(mailItem, account).ConfigureAwait(false);
+            }
+
+            foreach (var hiddenGroup in hiddenGroups)
+            {
+                var hiddenItems = hiddenGroup.ToList();
+                var (firstMailItem, account) = hiddenItems[0];
+
+                if (hiddenItems.Count == 1)
+                {
+                    await CreateSingleNotificationAsync(firstMailItem, account).ConfigureAwait(false);
+                    continue;
+                }
+
+                if (!ShouldDeliver(NotificationKind.Mail, account?.Preferences, "hidden mail")) continue;
+                var hidden = NotificationContentRules.ComposeHiddenMail(hiddenItems.Count);
+                string channel = AndroidNotificationChannels.MailSummary;
+                if (account is not null)
+                {
+                    AndroidNotificationChannels.EnsureAccount(_context, account);
+                    channel = AndroidNotificationChannels.ForAccount(account.Id);
+                }
+
+                Post(new Request(
+                    Tag: "mail-hidden-" + (account?.Id ?? Guid.Empty).ToString("N"),
+                    Id: MailSummaryId,
+                    Channel: channel,
+                    Category: "wino.mail.summary",
+                    Title: hidden.Title,
+                    Subtitle: null,
+                    Body: hidden.Body,
+                    Values: new Dictionary<string, string> { [Constants.ToastModeKey] = Constants.ToastModeMail },
+                    SmallIcon: Resource.Drawable.wino_notification_mail,
+                    AndroidCategory: NotificationCompat.CategoryEmail));
             }
         }
         catch (Exception error)
@@ -279,7 +321,11 @@ public sealed class AndroidNotificationBuilder : INotificationBuilder
                 imagePath = (await _thumbnailService.GetThumbnailAsync(mailItem.FromAddress, awaitLoad: true).ConfigureAwait(false))?.FilePath;
         }
 
-        var text = NotificationContentRules.ComposeMailText(mailItem, settings.Content);
+        // Hidden-content accounts say only that new mail arrived (Windows NotificationBuilder).
+        var hidesContent = NotificationSettingsResolver.HidesNotificationContent(accountPreferences);
+        var text = hidesContent
+            ? NotificationContentRules.ComposeHiddenMail(1)
+            : NotificationContentRules.ComposeMailText(mailItem, settings.Content);
         string channel = AndroidNotificationChannels.MailSummary;
         string? group = null;
         if (account is not null)
@@ -308,7 +354,9 @@ public sealed class AndroidNotificationBuilder : INotificationBuilder
             Group: group,
             ImagePath: imagePath,
             AndroidCategory: NotificationCompat.CategoryEmail,
-            Actions: [MailAction(first), MailAction(second)],
+            Actions: hidesContent
+                ? [.. new[] { first, second }.Where(action => !NotificationContentRules.IsReplyAction(action)).Select(MailAction)]
+                : [MailAction(first), MailAction(second)],
             SubText: account?.Address));
 
         if (account is not null) PostGroupSummary(account);
@@ -463,9 +511,10 @@ public sealed class AndroidNotificationBuilder : INotificationBuilder
         _reminderState.RecordShown(DateTime.Now);
         if (!ShouldDeliver(NotificationKind.CalendarReminder, accountPreferences, "calendar reminder")) return;
 
+        var hidesContent = NotificationSettingsResolver.HidesNotificationContent(accountPreferences);
         var snoozeMinutes = NotificationContentRules.ResolveReminderSnoozeMinutes(
             reminderDurationInSeconds, _preferences.DefaultReminderDurationInSeconds, _preferences.DefaultSnoozeDurationInMinutes);
-        var canJoin = CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out _);
+        var canJoin = !hidesContent && CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out _);
         var values = new Dictionary<string, string>
         {
             [Constants.ToastCalendarActionKey] = Constants.ToastCalendarNavigateAction,
@@ -484,9 +533,9 @@ public sealed class AndroidNotificationBuilder : INotificationBuilder
             Id: CalendarId,
             Channel: AndroidNotificationChannels.Calendar,
             Category: "wino.calendar",
-            Title: calendarItem.Title ?? string.Empty,
+            Title: hidesContent ? NotificationContentRules.HiddenCalendarReminderTitle : calendarItem.Title ?? string.Empty,
             Subtitle: null,
-            Body: NotificationContentRules.ComposeCalendarReminderBody(calendarItem, DateTime.Now),
+            Body: hidesContent ? NotificationContentRules.ComposeHiddenCalendarReminderText() : NotificationContentRules.ComposeCalendarReminderBody(calendarItem, DateTime.Now),
             Values: values,
             SmallIcon: Resource.Drawable.wino_notification_calendar,
             AndroidCategory: NotificationCompat.CategoryReminder,

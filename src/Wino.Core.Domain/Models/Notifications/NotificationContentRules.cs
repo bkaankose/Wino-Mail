@@ -69,6 +69,10 @@ public static class NotificationContentRules
         return (first, second);
     }
 
+    /// <summary>Actions that need the message's content; a hidden-content notification offers none of them.</summary>
+    public static bool IsReplyAction(MailOperation operation)
+        => operation is MailOperation.Reply or MailOperation.ReplyAll or MailOperation.Forward;
+
     public static string MailActionTitle(MailOperation operation) => operation switch
     {
         MailOperation.MarkAsRead => Translator.MailOperation_MarkAsRead,
@@ -118,4 +122,20 @@ public static class NotificationContentRules
         var minutes = CalendarReminderSnoozeOptions.GetDefaultSnoozeMinutes(reminderDurationInSeconds, defaultReminderDurationInSeconds, defaultSnoozeDurationInMinutes);
         return minutes is { } value && CalendarReminderSnoozeOptions.GetSupportedSnoozeMinutes().Contains(value) ? value : null;
     }
+
+    /// <summary>The title of a notification whose account hides its content (Windows HiddenMailTitle).</summary>
+    public static string HiddenMailTitle => Translator.Notifications_MultipleNotificationsTitle;
+
+    public static string ComposeHiddenMailText(int count)
+        => string.Format(count == 1
+            ? Translator.Notifications_HiddenContentMessage_Singular
+            : Translator.Notifications_HiddenContentMessage_Plural, count);
+
+    /// <summary>The whole text of a hidden-content mail notification: the generic title and the count.</summary>
+    public static MailNotificationText ComposeHiddenMail(int count) => new(HiddenMailTitle, null, ComposeHiddenMailText(count));
+
+    public static string HiddenCalendarReminderTitle => Translator.CalendarReminder_HiddenContentTitle;
+
+    public static string ComposeHiddenCalendarReminderText()
+        => Translator.CalendarReminder_HiddenContentMessage;
 }

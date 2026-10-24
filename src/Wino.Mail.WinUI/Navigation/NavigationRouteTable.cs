@@ -60,6 +60,7 @@ public static class NavigationRouteTable
         Settings(WinoPage.UnreadBadgeSettingsPage, typeof(UnreadBadgeSettingsPage)),
         Settings(WinoPage.AccountUnreadBadgePage, typeof(AccountUnreadBadgePage)),
         Settings(WinoPage.ReadComposePanePage, typeof(ReadComposePanePage)),
+        Settings(WinoPage.ReaderActionsPage, typeof(ReaderActionsPage)),
         Settings(WinoPage.AppPreferencesPage, typeof(AppPreferencesPage)),
         Settings(WinoPage.CompanionSettingsPage, typeof(CompanionSettingsPage)),
         Settings(WinoPage.MailPreferencesPage, typeof(MailPreferencesPage)),

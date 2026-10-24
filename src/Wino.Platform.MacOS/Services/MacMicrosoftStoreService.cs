@@ -24,6 +24,7 @@ public sealed class MacMicrosoftStoreService(IConfigurationService configuration
     private static readonly TimeSpan RequestInterval = TimeSpan.FromDays(120);
 
     public bool HasAvailableUpdate => false;
+    public string? AvailableUpdateVersion => null;
     public Task<bool> HasProductAsync(WinoAddOnProductType productType) => Task.FromResult(false);
     public Task<StorePurchaseResult> PurchaseAsync(WinoAddOnProductType productType) => Task.FromException<StorePurchaseResult>(new PlatformNotSupportedException("Microsoft Store is not available on macOS."));
     public Task<string?> GetCustomerCollectionsIdAsync(string serviceTicket, string publisherUserId) => Task.FromResult<string?>(null);

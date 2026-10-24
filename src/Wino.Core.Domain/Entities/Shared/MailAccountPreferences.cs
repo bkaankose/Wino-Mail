@@ -81,6 +81,9 @@ public partial class MailAccountPreferences
     /// </summary>
     public AccountQuietHoursStance QuietHoursStance { get; set; } = AccountQuietHoursStance.Follow;
 
+    /// <summary>Read regardless of <see cref="HasCustomNotificationSettings"/>, and wins over the chosen notification content.</summary>
+    public bool HideNotificationContent { get; set; }
+
     /// <summary>
     /// Gets or sets whether the account has Focused inbox support.
     /// Null if the account provider type doesn't support Focused inbox.
@@ -96,6 +99,9 @@ public partial class MailAccountPreferences
     /// Gets or sets whether this account's unread items should be included in taskbar badge.
     /// </summary>
     public bool IsTaskbarBadgeEnabled { get; set; } = true;
+
+    /// <summary>Device-local: not part of Wino Account data sync.</summary>
+    public bool IsTrayIconBadgeEnabled { get; set; } = true;
 
     /// <summary>
     /// Gets or sets whether the account row in the navigation shows its unread total.

@@ -123,7 +123,7 @@ public sealed partial class ComposePageViewController
         var selected = ViewModel.SelectedSignature;
         var items = new List<UIMenuElement>
         {
-            EditorFormatToolbar.Action(Translator.EditorToolbarOption_None, () => Observe(ViewModel.ApplySignatureCommand.ExecuteAsync(null)), selected is null, account is not null)
+            EditorFormatToolbar.Action(Translator.Composer_NoSignature, () => Observe(ViewModel.ApplySignatureCommand.ExecuteAsync(null)), selected is null, account is not null)
         };
         foreach (var signature in ViewModel.AvailableSignatures.ToArray())
         {

@@ -1034,9 +1034,19 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
             await NavigateFolderAsync(baseFolderMenuItem);
         }
-        else if (clickedMenuItem is MergedAccountMenuItem clickedMergedAccountMenuItem && latestSelectedAccountMenuItem != clickedMenuItem)
+        else if (clickedMenuItem is MergedAccountMenuItem clickedMergedAccountMenuItem)
         {
-            // Don't navigate to merged account if it's already selected. Preserve user's already selected folder.
+            // The mode owns the group's expansion for this click, set before the first await so the
+            // heads can neutralize their own click toggle. With the merged folders loaded the click
+            // only toggles the group; otherwise it loads them and keeps the accounts visible.
+            if (latestSelectedAccountMenuItem == clickedMergedAccountMenuItem)
+            {
+                clickedMergedAccountMenuItem.IsExpanded = !clickedMergedAccountMenuItem.IsExpanded;
+                return;
+            }
+
+            clickedMergedAccountMenuItem.IsExpanded = true;
+
             await ChangeLoadedAccountAsync(clickedMergedAccountMenuItem, true);
         }
         else if (clickedMenuItem is IAccountMenuItem clickedAccountMenuItem)
@@ -1077,7 +1087,17 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                 latestSelectedAccountMenuItem.IsSelected = false;
             }
 
+            if (latestSelectedAccountMenuItem?.ParentMenuItem is MergedAccountMenuItem previousParentMenuItem)
+            {
+                previousParentMenuItem.IsChildSelected = false;
+            }
+
             clickedBaseAccountMenuItem.IsSelected = true;
+
+            if (clickedBaseAccountMenuItem.ParentMenuItem is MergedAccountMenuItem clickedParentMenuItem)
+            {
+                clickedParentMenuItem.IsChildSelected = true;
+            }
 
             latestSelectedAccountMenuItem = clickedBaseAccountMenuItem;
 

@@ -237,10 +237,19 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         var menuItem = (args.InvokedItemContainer as FrameworkElement)?.DataContext as IMenuItem
                        ?? args.InvokedItem as IMenuItem;
 
-        if (menuItem != null)
+        if (menuItem == null) return;
+
+        var invokeTask = ViewModel.InvokeMenuItemAsync(menuItem);
+
+        // NavigationView toggles a group's expansion right after this handler returns. The mail mode
+        // sets the expansion it wants for a merged account before its first await, so it is inverted
+        // here for that toggle to restore it.
+        if (menuItem is IMergedAccountMenuItem && args.InvokedItemContainer is NavigationViewItem invokedContainer)
         {
-            await ViewModel.InvokeMenuItemAsync(menuItem);
+            invokedContainer.IsExpanded = !invokedContainer.IsExpanded;
         }
+
+        await invokeTask;
     }
 
     private async void MenuSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)

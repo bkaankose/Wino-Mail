@@ -17,6 +17,7 @@ public sealed record AccountUnreadBadge(
     int UnreadCount,
     bool IsAccountBadgeEnabled,
     bool ContributesToTaskbar,
+    bool ContributesToTrayIcon,
     IReadOnlyList<UnreadBadgeFolderContribution> Contributions)
 {
     /// <summary>Counted folders that actually hold unread mail right now.</summary>
@@ -39,6 +40,9 @@ public sealed record UnreadBadgeSnapshot(IReadOnlyList<AccountUnreadBadge> Accou
     /// <summary>Accounts that are both allowed to contribute and actually have unread mail.</summary>
     public IReadOnlyList<AccountUnreadBadge> TaskbarContributors
         => Accounts.Where(static account => account.ContributesToTaskbar && account.UnreadCount > 0).ToList();
+
+    public bool IsTrayIconIndicatorVisible
+        => Accounts.Any(static account => account.ContributesToTrayIcon && account.UnreadCount > 0);
 
     public AccountUnreadBadge GetAccount(Guid accountId)
         => Accounts.FirstOrDefault(account => account.AccountId == accountId);

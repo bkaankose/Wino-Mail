@@ -155,6 +155,12 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
         await _bridge!.SetTypographyAsync(fontFamily, fontSize);
     }
 
+    public async Task SetSignatureAsync(string? html, string? previousHtml)
+    {
+        await InitializeAsync();
+        await _bridge!.SetSignatureAsync(html, previousHtml);
+    }
+
     public async Task ConfigureSpellCheckAsync(bool isEnabled, string languageCode)
     {
         await InitializeAsync();

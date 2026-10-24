@@ -136,7 +136,7 @@ public sealed partial class ComposePageViewController
         }
 
         var selected = ViewModel.SelectedSignature;
-        menu.AddItem(new NSMenuItem(Translator.EditorToolbarOption_None, (_, _) => Observe(ViewModel.ApplySignatureCommand.ExecuteAsync(null)))
+        menu.AddItem(new NSMenuItem(Translator.Composer_NoSignature, (_, _) => Observe(ViewModel.ApplySignatureCommand.ExecuteAsync(null)))
         {
             State = selected is null ? NSCellStateValue.On : NSCellStateValue.Off,
             Enabled = account is not null
@@ -155,7 +155,7 @@ public sealed partial class ComposePageViewController
 
         _signaturePopup.Menu = menu;
         _signaturePopup.Enabled = account is not null;
-        var value = selected is null ? Translator.EditorToolbarOption_None : selected.Name;
+        var value = selected is null ? Translator.Composer_NoSignature : selected.Name;
         _signaturePopup.AccessibilityValue = new NSString(value ?? string.Empty);
     }
 

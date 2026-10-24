@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Navigation;
@@ -149,6 +150,8 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
             vm => vm.CurrentProvider, ObserveProvider, Dispatcher, ReportError));
         Bindings.Own(new PropertyBinding<WinoAppShellViewModel, WinoApplicationMode>(ViewModel, nameof(ViewModel.CurrentMode),
             vm => vm.CurrentMode, mode => { _sidebar.SetMode(mode); UpdateTitle(); }, Dispatcher, ReportError));
+        Bindings.Own(new PropertyBinding<WinoAppShellViewModel, AppModeVisibility?>(ViewModel, nameof(ViewModel.ModeVisibility),
+            vm => vm.ModeVisibility, visibility => _sidebar.SetModeVisibility(visibility), Dispatcher, ReportError));
 #if DEBUG
         // "folder NAME" invokes the first folder menu item with that name, as a sidebar click would.
         // "account TEXT" invokes the account menu item whose account name or address contains TEXT.

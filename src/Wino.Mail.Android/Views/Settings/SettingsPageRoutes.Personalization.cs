@@ -13,8 +13,10 @@ public static partial class SettingsPageRoutes
     {
         const AndroidPageHost host = AndroidPageHost.Settings;
         // The page drives the theme service itself (iOS and Mac): no Windows navigation work on the ViewModel.
+        // The app mode options are the one part of the shared page the fragment shows as the ViewModel builds it.
         registry.Register<PersonalizationPageFragment, PersonalizationPageViewModel>(WinoPage.PersonalizationPage, host,
-            static (_, _, _) => Task.CompletedTask, static _ => Task.CompletedTask);
+            static (vm, _, _) => vm.ActivateAppModeOptionsAsync(),
+            static vm => { vm.DeactivateAppModeOptions(); return Task.CompletedTask; });
         registry.Register<ApplicationThemeGalleryPageFragment, ApplicationThemeGalleryPageViewModel>(WinoPage.ApplicationThemeGalleryPage, host,
             static (vm, mode, parameter) => vm.InitializeNavigationAsync(mode, parameter));
         registry.Register<ApplicationThemeEditorPageFragment, ApplicationThemeEditorPageViewModel>(WinoPage.ApplicationThemeEditorPage, host,

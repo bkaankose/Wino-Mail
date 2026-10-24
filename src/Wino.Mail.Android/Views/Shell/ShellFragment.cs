@@ -56,7 +56,7 @@ public interface IShellWideContent
 /// </summary>
 public sealed class ShellFragment : WinoFragment, IShellChrome
 {
-    private readonly IReadOnlyList<WinoModeSegment> _segments = WinoModeSegments.AppModes;
+    private IReadOnlyList<WinoModeSegment> _segments = WinoModeSegments.AppModes;
     private AndroidNavigationService? _navigation;
     private AndroidShellController? _shell;
     private ShellMenuAdapter? _menuAdapter;
@@ -95,6 +95,7 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
 
         BuildPanel(view, context, services);
         BuildModeSwitchers(view, context);
+        ApplyModeVisibility();
 
         if (view.FindViewById<FloatingActionButton>(Resource.Id.shell_fab) is { } fab)
         {
@@ -225,6 +226,9 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
             case nameof(_shell.ViewModel.CurrentMode) or nameof(AndroidShellController.ActiveMode):
                 ApplyMode();
                 break;
+            case nameof(_shell.ViewModel.ModeVisibility):
+                ApplyModeVisibility();
+                break;
             case nameof(IShellMenuProvider.SynchronizationState):
                 ApplyStatus();
                 break;
@@ -277,13 +281,6 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
         foreach (var bar in new NavigationBarView?[] { _bottomNav, _rail })
         {
             if (bar is null) continue;
-            bar.Menu.Clear();
-            for (int index = 0; index < _segments.Count; index++)
-            {
-                var segment = _segments[index];
-                var menuItem = bar.Menu.Add(0, ItemId(segment.Mode), index, segment.Title);
-                menuItem?.SetIcon(WinoIcons.Drawable(context, segment.Regular, WinoTokens.Dp(context, Resource.Dimension.wino_m3_nav_icon)));
-            }
             WinoMaterialAccent.Tint(bar);
             EventHandler<NavigationBarView.ItemSelectedEventArgs> selected = (_, args) =>
             {
@@ -311,10 +308,28 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
         }
 
         _modeCard = view.FindViewById<LinearLayout>(Resource.Id.shell_mode_card);
+        if (_modeCard is not null && _pane is not null) _modeCard.Visibility = ViewStates.Visible;
+        PopulateModeSwitchers(context);
+    }
+
+    /// <summary>Fills the bars and the switcher card with the current segments (every visible mode, then Settings on the card).</summary>
+    private void PopulateModeSwitchers(Context context)
+    {
+        foreach (var bar in new NavigationBarView?[] { _bottomNav, _rail })
+        {
+            if (bar is null) continue;
+            bar.Menu.Clear();
+            for (int index = 0; index < _segments.Count; index++)
+            {
+                var segment = _segments[index];
+                var menuItem = bar.Menu.Add(0, ItemId(segment.Mode), index, segment.Title);
+                menuItem?.SetIcon(WinoIcons.Drawable(context, segment.Regular, WinoTokens.Dp(context, Resource.Dimension.wino_m3_nav_icon)));
+            }
+        }
+
         if (_modeCard is not null && _pane is not null)
         {
             // Expanded: the Windows mode switcher card at the foot of the pane, then the avatar for Settings.
-            _modeCard.Visibility = ViewStates.Visible;
             _modeCard.RemoveAllViews();
             foreach (var segment in _segments)
             {
@@ -328,6 +343,18 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
             settings.Click += (_, _) => _shell?.OpenSettings();
             _modeCard.AddView(settings, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MatchParent, 1));
         }
+    }
+
+    /// <summary>Offers only the modes the accounts provide and the user kept (Windows AppModeFooterSwitcherControl).</summary>
+    private void ApplyModeVisibility()
+    {
+        if (_shell is null || View?.Context is not { } context) return;
+        var visibility = _shell.ViewModel.ModeVisibility;
+        var segments = WinoModeSegments.AppModes.Where(segment => visibility is null || visibility.IsVisible(segment.Mode)).ToArray();
+        if (segments.Select(segment => segment.Mode).SequenceEqual(_segments.Select(segment => segment.Mode))) return;
+        _segments = segments;
+        PopulateModeSwitchers(context);
+        ApplyMode();
     }
 
     private void ApplyMode()

@@ -36,6 +36,7 @@ public sealed partial class MacPageRegistry
         Register<AccountDetailsPageViewController>(WinoPage.AccountDetailsPage, MacPageHost.SettingsWindow);
         Register<MailPreferencesPageViewController>(WinoPage.MailPreferencesPage, MacPageHost.SettingsWindow);
         Register<ReadComposePanePageViewController>(WinoPage.ReadComposePanePage, MacPageHost.SettingsWindow);
+        Register<ReaderActionsPageViewController>(WinoPage.ReaderActionsPage, MacPageHost.SettingsWindow);
         Register<NotificationSettingsPageViewController>(WinoPage.NotificationSettingsPage, MacPageHost.SettingsWindow);
         Register<UnreadBadgeSettingsPageViewController>(WinoPage.UnreadBadgeSettingsPage, MacPageHost.SettingsWindow);
         Register<ContactsPreferenceSettingsPageViewController>(WinoPage.ContactsPreferenceSettingsPage, MacPageHost.SettingsWindow);

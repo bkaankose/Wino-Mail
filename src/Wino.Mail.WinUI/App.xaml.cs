@@ -70,7 +70,8 @@ public partial class App : WinoApplication,
     IRecipient<AccountRemovedMessage>,
     IRecipient<AccountUpdatedMessage>,
     IRecipient<GetStartedFromWelcomeRequested>,
-    IRecipient<WelcomeImportCompletedMessage>
+    IRecipient<WelcomeImportCompletedMessage>,
+    IRecipient<TrayUnreadIndicatorChanged>
 {
     private IApplicationRuntime? _applicationRuntime;
     private const string ToggleDefaultModeLaunchArgument = "--mode=toggle-default";
@@ -365,6 +366,7 @@ public partial class App : WinoApplication,
         }
 
         var companion = _companionIntegration;
+        companion.SetUnreadIndicator(NotificationBuilder.LastSnapshot?.IsTrayIconIndicatorVisible == true);
         companion.TryConfigureHotKey(
             _preferencesService?.IsCompanionHotKeyEnabled ?? false,
             GetConfiguredCompanionHotKey());
@@ -1586,8 +1588,7 @@ public partial class App : WinoApplication,
 
         if (mailItem == null)
         {
-            LogActivation("Mail item not found. Exiting.");
-            ExitApplication();
+            LogActivation("Mail item not found.");
             return;
         }
 
@@ -1613,8 +1614,7 @@ public partial class App : WinoApplication,
 
             if (_synchronizationManager == null)
             {
-                LogActivation("Synchronization manager is not initialized. Exiting.");
-                ExitApplication();
+                LogActivation("Synchronization manager is not initialized.");
                 return;
             }
 
@@ -1636,7 +1636,8 @@ public partial class App : WinoApplication,
                     // Queue all requests for this account.
                     foreach (var request in accountGroup)
                     {
-                        await _synchronizationManager.QueueRequestAsync(request, accountId, triggerSynchronization: false);
+                        // No window can show the undo bar, and a deferred request would be lost on exit.
+                        await _synchronizationManager.QueueRequestAsync(request, accountId, triggerSynchronization: false, allowUndo: false);
                     }
 
                     // Create synchronization options to execute the queued requests.
@@ -1657,10 +1658,8 @@ public partial class App : WinoApplication,
                 await notificationBuilder.UpdateTaskbarIconBadgeAsync();
             }
 
-            LogActivation("Toast action handling complete. Exiting app.");
-
-            // Exit the app after synchronization is complete.
-            ExitApplication();
+            // The notification handler exits a transient process once this completes.
+            LogActivation("Toast action handling complete.");
         }
     }
 
@@ -1927,6 +1926,13 @@ public partial class App : WinoApplication,
         WeakReferenceMessenger.Default.Register<GetStartedFromWelcomeRequested>(this);
         WeakReferenceMessenger.Default.Register<WelcomeImportCompletedMessage>(this);
         WeakReferenceMessenger.Default.Register<LanguageChanged>(this);
+        WeakReferenceMessenger.Default.Register<TrayUnreadIndicatorChanged>(this);
+    }
+
+    public void Receive(TrayUnreadIndicatorChanged message)
+    {
+        // Shell_NotifyIcon belongs to the tray window's thread; a tray created later reads LastSnapshot.
+        _applicationDispatcherQueue?.TryEnqueue(() => _companionIntegration?.SetUnreadIndicator(message.IsVisible));
     }
 
     public void Receive(AccountSynchronizationCompleted message)

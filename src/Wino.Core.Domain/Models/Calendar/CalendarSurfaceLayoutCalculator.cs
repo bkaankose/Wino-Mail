@@ -38,6 +38,15 @@ public sealed record CalendarLayoutPlacement(ICalendarItem Item, DateOnly Date, 
 public sealed record CalendarLayoutMonthCell(DateOnly Date, int Index, int Row, int Column, CalendarLayoutRect Bounds);
 
 /// <summary>
+/// The "n more events" link of a day whose items did not all fit (Windows CalendarDayOverflow): the hidden items in
+/// their stacking order and the link's rectangle, in the same coordinates as the placements around it.
+/// </summary>
+public sealed record CalendarLayoutOverflowCell(DateOnly Date, List<ICalendarItem> HiddenItems, CalendarLayoutRect Bounds)
+{
+    public string Text => CalendarItemOverflow.FormatMoreText(HiddenItems.Count);
+}
+
+/// <summary>
 /// Event placement for native calendar surfaces, ported from the Windows TimedCalendarLayoutCalculator
 /// and MonthCalendarLayoutCalculator: the same clusters, column splitting, all-day lanes and month
 /// cell packing. Timed X values are relative to the first day column.
@@ -52,23 +61,34 @@ public static class CalendarSurfaceLayoutCalculator
     public const int MonthRows = 6;
     public const double MonthCellPadding = 4;
     public const double MonthDayLabelHeight = 20;
-    public const double MonthRegularItemHeight = 18;
-    public const double MonthExpandedItemHeight = 30;
+    /// <summary>22 rather than the 21 a title line needs keeps descenders inside the tile (Windows MonthCalendarLayout).</summary>
+    public const double MonthItemHeight = 22;
     public const double MonthItemGap = 2;
 
-    public static double GetAllDayHeight(int laneCount)
-        => laneCount <= 0 ? 0 : AllDaySectionPadding * 2 + laneCount * AllDayItemHeight + (laneCount - 1) * AllDayItemGap;
+    /// <summary>The all-day strip height for <paramref name="laneCount"/> lanes, plus the "n more" row when a day overflows.</summary>
+    public static double GetAllDayHeight(int laneCount, bool hasMoreRow)
+    {
+        if (laneCount <= 0) return 0;
+        double height = AllDaySectionPadding * 2 + laneCount * AllDayItemHeight + (laneCount - 1) * AllDayItemGap;
+        return hasMoreRow ? height + CalendarItemOverflow.MoreButtonGap + CalendarItemOverflow.MoreButtonHeight : height;
+    }
 
-    public static int GetAllDayLaneCount(IReadOnlyList<DateOnly> dates, IEnumerable<ICalendarItem> items)
+    /// <summary>The lanes the strip shows (at most <see cref="CalendarItemOverflow.MaxAllDayLanes"/>) and whether any day has more.</summary>
+    public static (int Lanes, bool HasOverflow) GetAllDayLaneCount(IReadOnlyList<DateOnly> dates, IEnumerable<ICalendarItem> items)
     {
         ArgumentNullException.ThrowIfNull(dates);
         ArgumentNullException.ThrowIfNull(items);
 
         var list = items as IList<ICalendarItem> ?? items.ToList();
-        int lanes = 0;
-        foreach (var date in dates) lanes = Math.Max(lanes, BuildAllDayItems(list, date).Count);
-        return lanes;
+        int count = 0;
+        foreach (var date in dates) count = Math.Max(count, BuildAllDayItems(list, date).Count);
+        return (Math.Min(count, CalendarItemOverflow.MaxAllDayLanes), count > CalendarItemOverflow.MaxAllDayLanes);
     }
+
+    /// <summary>The Y of the all-day "n more" row: under the last lane the strip can show.</summary>
+    public static double AllDayMoreRowY
+        => AllDaySectionPadding + CalendarItemOverflow.MaxAllDayLanes * AllDayItemHeight +
+           (CalendarItemOverflow.MaxAllDayLanes - 1) * AllDayItemGap + CalendarItemOverflow.MoreButtonGap;
 
     /// <summary>Timed and multi-day placements for the hour grid.</summary>
     public static List<CalendarLayoutPlacement> CalculateTimed(IReadOnlyList<DateOnly> dates, IEnumerable<ICalendarItem> items,
@@ -119,32 +139,50 @@ public static class CalendarSurfaceLayoutCalculator
         return result;
     }
 
-    /// <summary>All-day lanes above the hour grid.</summary>
-    public static List<CalendarLayoutPlacement> CalculateAllDay(IReadOnlyList<DateOnly> dates, IEnumerable<ICalendarItem> items, double dayWidth)
+    /// <summary>
+    /// All-day lanes above the hour grid: at most <see cref="CalendarItemOverflow.MaxAllDayLanes"/> per day, the rest
+    /// behind that day's "n more" link (Windows TimedCalendarLayoutCalculator.CalculateAllDayItems).
+    /// </summary>
+    public static (List<CalendarLayoutPlacement> Items, List<CalendarLayoutOverflowCell> Overflows) CalculateAllDay(
+        IReadOnlyList<DateOnly> dates, IEnumerable<ICalendarItem> items, double dayWidth)
     {
         ArgumentNullException.ThrowIfNull(dates);
         ArgumentNullException.ThrowIfNull(items);
 
         var result = new List<CalendarLayoutPlacement>();
+        var overflows = new List<CalendarLayoutOverflowCell>();
         var list = items as IList<ICalendarItem> ?? items.ToList();
+        const int maxLanes = CalendarItemOverflow.MaxAllDayLanes;
+        double moreY = AllDayMoreRowY;
         for (int dayIndex = 0; dayIndex < dates.Count; dayIndex++)
         {
             var date = dates[dayIndex];
             var dayItems = BuildAllDayItems(list, date).OrderBy(i => i.StartDate).ThenBy(i => i.EndDate).ThenBy(i => i.Title).ToList();
-            for (int row = 0; row < dayItems.Count; row++)
+            int lanes = Math.Min(dayItems.Count, maxLanes);
+            for (int row = 0; row < lanes; row++)
             {
                 double y = AllDaySectionPadding + row * (AllDayItemHeight + AllDayItemGap);
                 result.Add(new CalendarLayoutPlacement(dayItems[row], date,
                     new CalendarLayoutRect(dayIndex * dayWidth + 2, y, Math.Max(0, dayWidth - 4), AllDayItemHeight), CalendarPlacementKind.AllDay));
             }
+
+            if (lanes < dayItems.Count)
+            {
+                overflows.Add(new CalendarLayoutOverflowCell(date, dayItems.GetRange(lanes, dayItems.Count - lanes),
+                    new CalendarLayoutRect(dayIndex * dayWidth + 2, moreY, Math.Max(0, dayWidth - 4), CalendarItemOverflow.MoreButtonHeight)));
+            }
         }
 
-        return result;
+        return (result, overflows);
     }
 
-    /// <summary>The 6x7 month grid. Dates must already be week-aligned (42 entries).</summary>
-    public static (List<CalendarLayoutMonthCell> Cells, List<CalendarLayoutPlacement> Items) CalculateMonth(IReadOnlyList<DateOnly> dates,
-        IEnumerable<ICalendarItem> items, double width, double height)
+    /// <summary>
+    /// The month grid: <see cref="MonthColumns"/> cells per week row, as many rows as <paramref name="dates"/> fills
+    /// (<paramref name="height"/> is the height of <see cref="MonthRows"/> rows). Each cell stacks its items under the day
+    /// label and reports the ones that do not fit as overflow (Windows MonthCalendarLayoutCalculator.CalculateRow).
+    /// </summary>
+    public static (List<CalendarLayoutMonthCell> Cells, List<CalendarLayoutPlacement> Items, List<CalendarLayoutOverflowCell> Overflows) CalculateMonth(
+        IReadOnlyList<DateOnly> dates, IEnumerable<ICalendarItem> items, double width, double height)
     {
         ArgumentNullException.ThrowIfNull(dates);
         ArgumentNullException.ThrowIfNull(items);
@@ -159,21 +197,36 @@ public static class CalendarSurfaceLayoutCalculator
         }
 
         var placements = new List<CalendarLayoutPlacement>();
+        var overflows = new List<CalendarLayoutOverflowCell>();
         var list = items as IList<ICalendarItem> ?? items.ToList();
         foreach (var cell in cells)
         {
-            double nextY = cell.Bounds.Y + MonthDayLabelHeight + MonthCellPadding;
-            foreach (var item in GetCellItems(list, cell.Date))
+            var cellItems = GetCellItems(list, cell.Date).ToList();
+            if (cellItems.Count == 0) continue;
+            double stackTop = cell.Bounds.Y + MonthDayLabelHeight + MonthCellPadding;
+            double available = cell.Bounds.Bottom - MonthCellPadding - stackTop;
+            var heights = new double[cellItems.Count];
+            Array.Fill(heights, MonthItemHeight);
+            int shown = CalendarItemOverflow.FitStack(heights, available, MonthItemGap, CalendarItemOverflow.MoreButtonHeight);
+            double nextY = stackTop;
+            double itemX = cell.Bounds.X + MonthCellPadding;
+            double itemWidth = Math.Max(0, cell.Bounds.Width - MonthCellPadding * 2);
+            for (int index = 0; index < shown; index++)
             {
-                double itemHeight = item.IsAllDayEvent || item.IsMultiDayEvent ? MonthExpandedItemHeight : MonthRegularItemHeight;
-                if (nextY + itemHeight > cell.Bounds.Bottom - MonthCellPadding) break;
-                placements.Add(new CalendarLayoutPlacement(item, cell.Date,
-                    new CalendarLayoutRect(cell.Bounds.X + MonthCellPadding, nextY, Math.Max(0, cell.Bounds.Width - MonthCellPadding * 2), itemHeight), CalendarPlacementKind.MonthCell));
-                nextY += itemHeight + MonthItemGap;
+                placements.Add(new CalendarLayoutPlacement(cellItems[index], cell.Date,
+                    new CalendarLayoutRect(itemX, nextY, itemWidth, MonthItemHeight), CalendarPlacementKind.MonthCell));
+                nextY += MonthItemHeight + MonthItemGap;
+            }
+
+            if (shown < cellItems.Count)
+            {
+                overflows.Add(new CalendarLayoutOverflowCell(cell.Date, cellItems.GetRange(shown, cellItems.Count - shown),
+                    new CalendarLayoutRect(itemX, Math.Max(cell.Bounds.Y, cell.Bounds.Bottom - MonthCellPadding - CalendarItemOverflow.MoreButtonHeight),
+                        itemWidth, CalendarItemOverflow.MoreButtonHeight)));
             }
         }
 
-        return (cells, placements);
+        return (cells, placements, overflows);
     }
 
     /// <summary>Expands a month range to full weeks (42 days) like the Windows control.</summary>

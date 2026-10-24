@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using ObjCRuntime;
 using UIKit;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models;
@@ -212,6 +213,8 @@ public sealed partial class PadShellViewController : UIKitShellViewController
     }
 
     protected override void MenuChanged(ShellMenu? menu) => _sidebar.Bind(menu);
+
+    protected override void ModeVisibilityChanged(AppModeVisibility? visibility) => _sidebar.SetModeVisibility(visibility);
 
     protected override void SelectedItemChanged(object? item)
     {

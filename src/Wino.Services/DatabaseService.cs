@@ -68,6 +68,7 @@ public class DatabaseService : IDatabaseService
     private bool _contactOrganizationMigrationRequired;
     private bool _countedFolderSeedRequired;
     private bool _calendarDirectJoinLinkBackfillRequired;
+    private bool _trayIconBadgeSeedRequired;
     private readonly IApplicationConfiguration _folderConfiguration;
     private readonly string _databaseName;
 
@@ -141,6 +142,10 @@ public class DatabaseService : IDatabaseService
         var preCreateFolderColumns = await Connection.GetTableInfoAsync(nameof(MailItemFolder)).ConfigureAwait(false);
         _countedFolderSeedRequired = preCreateFolderColumns.Count > 0 &&
             !preCreateFolderColumns.Any(column => column.Name == nameof(MailItemFolder.IsCountedInAccountTotal));
+        // CreateTablesAsync adds the tray dot column without its default, so sample before it is added.
+        var preCreateAccountPreferencesColumns = await Connection.GetTableInfoAsync(nameof(MailAccountPreferences)).ConfigureAwait(false);
+        _trayIconBadgeSeedRequired = preCreateAccountPreferencesColumns.Count > 0 &&
+            !preCreateAccountPreferencesColumns.Any(column => column.Name == nameof(MailAccountPreferences.IsTrayIconBadgeEnabled));
         var preCreateCalendarItemColumns = await Connection.GetTableInfoAsync(nameof(CalendarItem)).ConfigureAwait(false);
         _calendarDirectJoinLinkBackfillRequired = preCreateCalendarItemColumns.Count > 0 &&
             !preCreateCalendarItemColumns.Any(column => column.Name == nameof(CalendarItem.DirectJoinLink));
@@ -329,6 +334,13 @@ VALUES
         {
             await Connection.ExecuteAsync(
                 $"UPDATE {nameof(MailItemFolder)} SET {nameof(MailItemFolder.IsCountedInAccountTotal)} = {nameof(MailItemFolder.ShowUnreadCount)}")
+                .ConfigureAwait(false);
+        }
+
+        if (_trayIconBadgeSeedRequired)
+        {
+            await Connection.ExecuteAsync(
+                $"UPDATE {nameof(MailAccountPreferences)} SET {nameof(MailAccountPreferences.IsTrayIconBadgeEnabled)} = 1")
                 .ConfigureAwait(false);
         }
 

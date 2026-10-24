@@ -1,6 +1,7 @@
 using System.Collections.Specialized;
 using Android.Content;
 using Android.Graphics;
+using Google.Android.Material.Dialog;
 using Android.Runtime;
 using Android.Text;
 using Android.Util;
@@ -293,6 +294,36 @@ public sealed partial class WinoCalendarSurfaceView : LinearLayout
     private static string Ellipsize(string text, TextPaint paint, float width)
         => width <= 0 ? string.Empty : TextUtils.EllipsizeFormatted(new Java.Lang.String(text), paint, width, TextUtils.TruncateAt.End!)?.ToString() ?? string.Empty;
 
+    /// <summary>The "n more events" link (Windows CalendarMoreEventsButton): accent medium text, left aligned in its row.</summary>
+    private void DrawMoreLink(Canvas canvas, Context context, string text, RectF bounds)
+    {
+        LabelPaint.TextAlign = Paint.Align.Left;
+        LabelPaint.TextSize = WinoTokens.PxF(context, Resource.Dimension.wino_calendar_tile_title_text);
+        LabelPaint.SetTypeface(Typeface.Create("sans-serif-medium", TypefaceStyle.Normal));
+        LabelPaint.Color = WinoColors.AccentText(context);
+        float padding = 4 * Density;
+        var shown = TextUtils.Ellipsize(text, LabelPaint, Math.Max(0, bounds.Width() - padding * 2), TextUtils.TruncateAt.End) ?? text;
+        var metrics = LabelPaint.GetFontMetrics();
+        float baseline = bounds.CenterY() - ((metrics?.Ascent ?? 0) + (metrics?.Descent ?? 0)) / 2;
+        canvas.DrawText(shown, bounds.Left + padding, baseline, LabelPaint);
+    }
+
+    /// <summary>The hidden events of a day, picked from a list (the Windows and Mac "n more" flyout); a pick is an item click.</summary>
+    private void ShowOverflow(View anchor, CalendarLayoutOverflowCell overflow, float x, float y)
+    {
+        if (Context is not { } context || overflow.HiddenItems.Count == 0) return;
+        var items = overflow.HiddenItems;
+        var culture = _settings?.CultureInfo ?? System.Globalization.CultureInfo.CurrentCulture;
+        new MaterialAlertDialogBuilder(context)
+            .SetTitle(overflow.Date.ToDateTime(TimeOnly.MinValue).ToString("D", culture))
+            .SetItems(items.Select(item => item.Title ?? string.Empty).ToArray(), (_, args) =>
+            {
+                if (args.Which >= 0 && args.Which < items.Count)
+                    ItemClicked?.Invoke(this, new WinoCalendarItemEventArgs(items[args.Which], anchor, x, y));
+            })
+            .Show();
+    }
+
     private void DrawCenteredLabel(Canvas canvas, string text, float x, float centerY, Color color, int sizeResource, bool medium)
     {
         LabelPaint.Color = color;
@@ -383,6 +414,7 @@ public sealed partial class WinoCalendarSurfaceView : LinearLayout
         private readonly GestureDetector _gestures;
         private readonly RecordedLayer _rail = new();
         private List<CalendarLayoutPlacement> _placements = [];
+        private List<CalendarLayoutOverflowCell> _overflows = [];
         private int _placementsVersion = -1;
         private float _placementsUnit;
 
@@ -396,8 +428,8 @@ public sealed partial class WinoCalendarSurfaceView : LinearLayout
 
         protected override void OnMeasure(int widthMeasureSpec, int heightMeasureSpec)
         {
-            int lanes = _owner is null ? 0 : CalendarSurfaceLayoutCalculator.GetAllDayLaneCount(_owner.Dates, _owner.Snapshot());
-            int height = (int)Math.Ceiling(CalendarSurfaceLayoutCalculator.GetAllDayHeight(lanes) * (_owner?.Density ?? 1));
+            var (lanes, hasOverflow) = _owner is null ? (0, false) : CalendarSurfaceLayoutCalculator.GetAllDayLaneCount(_owner.Dates, _owner.Snapshot());
+            int height = (int)Math.Ceiling(CalendarSurfaceLayoutCalculator.GetAllDayHeight(lanes, hasOverflow) * (_owner?.Density ?? 1));
             SetMeasuredDimension(MeasureSpec.GetSize(widthMeasureSpec), height);
         }
 
@@ -408,7 +440,7 @@ public sealed partial class WinoCalendarSurfaceView : LinearLayout
             float dayWidth = _owner.UnitPx;
             if (_placementsVersion != _owner._layoutVersion || _placementsUnit != dayWidth)
             {
-                _placements = CalendarSurfaceLayoutCalculator.CalculateAllDay(_owner.Dates, _owner.Snapshot(), dayWidth / density);
+                (_placements, _overflows) = CalendarSurfaceLayoutCalculator.CalculateAllDay(_owner.Dates, _owner.Snapshot(), dayWidth / density);
                 _placementsVersion = _owner._layoutVersion;
                 _placementsUnit = dayWidth;
             }
@@ -422,6 +454,14 @@ public sealed partial class WinoCalendarSurfaceView : LinearLayout
                 {
                     var b = placement.Bounds;
                     _owner.DrawTile(layer, placement.Item, placement.Date, new RectF((float)b.X * density, (float)b.Y * density, (float)b.Right * density, (float)b.Bottom * density), placement.Kind);
+                }
+                if (Context is { } context)
+                {
+                    foreach (var overflow in _overflows)
+                    {
+                        var b = overflow.Bounds;
+                        _owner.DrawMoreLink(layer, context, overflow.Text, new RectF((float)b.X * density, (float)b.Y * density, (float)b.Right * density, (float)b.Bottom * density));
+                    }
                 }
             });
             canvas.Restore();
@@ -438,6 +478,14 @@ public sealed partial class WinoCalendarSurfaceView : LinearLayout
             return _placements.LastOrDefault(placement => placement.Bounds.Contains(cx, cy))?.Item;
         }
 
+        private CalendarLayoutOverflowCell? OverflowAt(float x, float y)
+        {
+            if (x < _owner.GutterPx) return null;
+            float density = _owner.Density;
+            double cx = (x - _owner.ColumnLeft(0)) / density, cy = y / density;
+            return _overflows.FirstOrDefault(overflow => overflow.Bounds.Contains(cx, cy));
+        }
+
         private sealed class TapListener(AllDayView view) : GestureDetector.SimpleOnGestureListener
         {
             public override bool OnDown(MotionEvent e) => true;
@@ -446,6 +494,7 @@ public sealed partial class WinoCalendarSurfaceView : LinearLayout
             {
                 var owner = view._owner;
                 if (view.HitTest(e.GetX(), e.GetY()) is { } item) owner.ItemClicked?.Invoke(owner, new WinoCalendarItemEventArgs(item, view, e.GetX(), e.GetY()));
+                else if (view.OverflowAt(e.GetX(), e.GetY()) is { } overflow) owner.ShowOverflow(view, overflow, e.GetX(), e.GetY());
                 else if (owner.ColumnAt(e.GetX()) is var index and >= 0)
                 {
                     owner.SlotClicked?.Invoke(owner, new WinoCalendarSlotEventArgs(owner.Dates[index].ToDateTime(TimeOnly.MinValue), true));
@@ -630,7 +679,8 @@ public sealed partial class WinoCalendarSurfaceView : LinearLayout
         private int _preparedVersion = -1;
 
         /// <summary>One laid-out month: its cells and tiles (or, where cells are phone-narrow, only its counts).</summary>
-        private sealed record MonthPage(DateOnly Month, List<CalendarLayoutMonthCell> Cells, List<CalendarLayoutPlacement> Placements, bool CountOnly)
+        private sealed record MonthPage(DateOnly Month, List<CalendarLayoutMonthCell> Cells, List<CalendarLayoutPlacement> Placements,
+            List<CalendarLayoutOverflowCell> Overflows, bool CountOnly)
         {
             /// <summary>The page's drawing, replayed while it moves.</summary>
             public RecordedLayer Layer { get; } = new();
@@ -664,10 +714,10 @@ public sealed partial class WinoCalendarSurfaceView : LinearLayout
             float density = _owner.Density;
             var month = MonthStart(monthIndex);
             var dates = CalendarSurfaceLayoutCalculator.MonthGridDates(month, FirstDayOfWeek);
-            var (cells, placements) = CalendarSurfaceLayoutCalculator.CalculateMonth(dates, _owner.Snapshot(), Width / density, (Height - HeaderPx) / density);
+            var (cells, placements, overflows) = CalendarSurfaceLayoutCalculator.CalculateMonth(dates, _owner.Snapshot(), Width / density, (Height - HeaderPx) / density);
             // Phone-width cells show only the day's event count (owner, 15 Oct 2026; the iPhone surface): titles are unreadable there.
             bool countOnly = Width / (float)CalendarSurfaceLayoutCalculator.MonthColumns < WinoTokens.PxF(context, Resource.Dimension.wino_calendar_month_count_only_width);
-            page = new MonthPage(month, cells, countOnly ? [] : placements, countOnly);
+            page = new MonthPage(month, cells, countOnly ? [] : placements, countOnly ? [] : overflows, countOnly);
             // Panning realizes at most two pages at a time; keep a few for back-and-forth movement.
             if (_pages.Count > 6)
             {
@@ -762,6 +812,11 @@ public sealed partial class WinoCalendarSurfaceView : LinearLayout
                 var rect = new RectF((float)b.X * density, header + (float)b.Y * density, (float)b.Right * density, header + (float)b.Bottom * density);
                 _owner.DrawTile(canvas, placement.Item, placement.Date, rect, placement.Kind);
             }
+            foreach (var overflow in page.Overflows)
+            {
+                var b = overflow.Bounds;
+                _owner.DrawMoreLink(canvas, context, overflow.Text, new RectF((float)b.X * density, header + (float)b.Y * density, (float)b.Right * density, header + (float)b.Bottom * density));
+            }
         }
 
         /// <summary>Events that touch <paramref name="date"/> (an all-day event's exclusive end does not count).</summary>
@@ -800,25 +855,27 @@ public sealed partial class WinoCalendarSurfaceView : LinearLayout
         {
             public override bool OnDown(MotionEvent e) => true;
 
-            /// <summary>The tile and the day under a press on the page the rail rests on.</summary>
-            private (ICalendarItem? Item, DateOnly? Date) Hit(MotionEvent e)
+            /// <summary>The tile, the "n more" link and the day under a press on the page the rail rests on.</summary>
+            private (ICalendarItem? Item, DateOnly? Date, CalendarLayoutOverflowCell? Overflow) Hit(MotionEvent e)
             {
-                if (view.Context is not { } context || !view._owner.IsMonthPages) return (null, null);
+                if (view.Context is not { } context || !view._owner.IsMonthPages) return (null, null, null);
                 double position = view._owner._position;
                 int monthIndex = (int)Math.Round(position);
                 var page = view.Page(context, monthIndex);
                 float density = view._owner.Density;
                 double x = (e.GetX() - (monthIndex - position) * view.Width) / density, y = (e.GetY() - view.HeaderPx) / density;
                 var item = page.Placements.LastOrDefault(p => p.Bounds.Contains(x, y))?.Item;
+                var overflow = page.Overflows.FirstOrDefault(o => o.Bounds.Contains(x, y));
                 var date = page.Cells.FirstOrDefault(c => c.Bounds.Contains(x, y))?.Date;
-                return (item, date);
+                return (item, date, overflow);
             }
 
             public override bool OnSingleTapUp(MotionEvent e)
             {
                 var owner = view._owner;
-                var (item, date) = Hit(e);
+                var (item, date, overflow) = Hit(e);
                 if (item is not null) owner.ItemClicked?.Invoke(owner, new WinoCalendarItemEventArgs(item, view, e.GetX(), e.GetY()));
+                else if (overflow is not null) owner.ShowOverflow(view, overflow, e.GetX(), e.GetY());
                 else if (date is { } day) owner.SlotClicked?.Invoke(owner, new WinoCalendarSlotEventArgs(day.ToDateTime(TimeOnly.MinValue), true));
                 return true;
             }

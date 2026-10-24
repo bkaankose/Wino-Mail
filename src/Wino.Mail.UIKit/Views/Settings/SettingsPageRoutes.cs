@@ -44,6 +44,7 @@ public static class SettingsPageRoutes
         Route<UnreadBadgeSettingsPageViewController>(registry, WinoPage.UnreadBadgeSettingsPage, host);
         Route<AccountUnreadBadgePageViewController>(registry, WinoPage.AccountUnreadBadgePage, host);
         Route<ReadComposePanePageViewController>(registry, WinoPage.ReadComposePanePage, host);
+        Route<ReaderActionsPageViewController>(registry, WinoPage.ReaderActionsPage, host);
         Route<EmailTemplatesPageViewController>(registry, WinoPage.EmailTemplatesPage, host);
         Route<CreateEmailTemplatePageViewController>(registry, WinoPage.CreateEmailTemplatePage, host);
         Route<StoragePageViewController>(registry, WinoPage.StoragePage, host);

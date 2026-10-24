@@ -115,6 +115,14 @@
                     <accountIcon:WinoFontIcon Glyph="&#xE052;" />
                 </NavigationViewItem.Icon>
             </NavigationViewItem>
+            <NavigationViewItem
+                AutomationProperties.AutomationId="ModeSwitcherNavigationItem"
+                Content="Mode switcher"
+                Tag="modeSwitcher">
+                <NavigationViewItem.Icon>
+                    <accountIcon:WinoFontIcon Glyph="&#xE0AA;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
         </NavigationView.MenuItems>
         <Grid RowSpacing="8">
             <Grid.RowDefinitions>

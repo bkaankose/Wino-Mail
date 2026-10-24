@@ -8,6 +8,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Personalization;
 using Wino.Core.ViewModels;
+using Wino.Core.ViewModels.Data;
 using Wino.Mail.Android.Infrastructure;
 using Wino.Presentation.Android;
 
@@ -57,6 +58,10 @@ public sealed class PersonalizationPageFragment : SettingsPageFragment<Personali
 
         AddGroup(null, accent, appearanceCard, iconStyle);
 
+        // App modes (Windows PersonalizationPage): the modes the bottom bar, rail or switcher card offers; a mode no account provides stays off.
+        AddGroup(null, Expander(Translator.SettingsPersonalization_AppModes_Title, Translator.SettingsPersonalization_AppModes_Description, WinoIconGlyph.Grid, null,
+            vm.AppModeOptions.Select(AppModeCard).ToArray()));
+
         // Wino themes: one entry point into the theme gallery, like the Windows Personalization page.
         var currentName = Caption(string.Empty);
         var currentPreview = new ThemeThumbnailView(Ctx, Resource.Dimension.wino_theme_thumb_width, Resource.Dimension.wino_theme_thumb_height);
@@ -96,6 +101,16 @@ public sealed class PersonalizationPageFragment : SettingsPageFragment<Personali
     /// A wrapping row of round accent swatches (canvas ThemeGallery "Accent"; iOS WinoColorSwatchPicker): 40 dp circles
     /// 12 dp apart, the selected one in a 2 dp on-surface ring.
     /// </summary>
+    /// <summary>One app mode row: its switch, and the description and enabled state that follow the accounts.</summary>
+    private View AppModeCard(AppModeOptionViewModel option)
+    {
+        var card = Card(option.Title, option.Description, option.Icon,
+            Bind.Switch(option, nameof(option.IsShown), s => s.IsShown, (s, v) => s.IsShown = v, option.Title));
+        Bind.Bind(option, nameof(option.Description), s => s.Description, description => card.Description = description);
+        Bind.Bind(option, nameof(option.CanToggle), s => s.CanToggle, canToggle => card.IsEnabled = canToggle);
+        return card;
+    }
+
     private sealed class AccentSwatchRow : ViewGroup
     {
         private readonly List<(string Hex, View View, GradientDrawable Ring)> _items = [];

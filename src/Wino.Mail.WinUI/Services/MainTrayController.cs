@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Dispatching;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
@@ -21,7 +22,9 @@ internal sealed class MainTrayController
     private readonly Func<Task> _openMail;
     private readonly Func<Task> _openCalendar;
     private readonly Func<Task> _exit;
+    private readonly IAppModeReadinessService _appModeReadinessService;
     private CancellationTokenSource? _pendingToggle;
+    private volatile bool _isCalendarModeVisible = true;
     private bool _isCompanionEnabled;
     private bool _isHotKeyEnabled;
     private HotKeyGesture _hotKey = HotKeyGesture.Default;
@@ -35,6 +38,9 @@ internal sealed class MainTrayController
         _openMail = openMail;
         _openCalendar = openCalendar;
         _exit = exit;
+        _appModeReadinessService = services.GetRequiredService<IAppModeReadinessService>();
+        _appModeReadinessService.ReadinessInvalidated += AppModeReadinessInvalidated;
+        _ = RefreshCalendarModeVisibilityAsync();
         _icon = new NativeTrayIcon(
             dispatcher,
             Path.Combine(AppContext.BaseDirectory, "Assets", "Wino_Icon.ico"),
@@ -42,7 +48,8 @@ internal sealed class MainTrayController
             BuildMenu,
             ToggleFlyoutAsync,
             OpenMailAsync,
-            PrepareForTrayInteraction);
+            PrepareForTrayInteraction,
+            Path.Combine(AppContext.BaseDirectory, "Assets", "Wino_Icon_Unread.ico"));
         _companion = new CompanionService(
             services,
             dispatcher,
@@ -78,10 +85,13 @@ internal sealed class MainTrayController
 
     public Task SetReadinessAsync(CompanionReadinessState state) => _companion.SetReadinessAsync(state);
 
+    public void SetUnreadIndicator(bool isVisible) => _icon.SetUnreadIndicator(isVisible);
+
     public async Task ShutdownAsync()
     {
         _companion.SessionDisabled -= CompanionSessionDisabled;
         _icon.TaskbarRecreated -= TrayIconTaskbarRecreated;
+        _appModeReadinessService.ReadinessInvalidated -= AppModeReadinessInvalidated;
         await _companion.ShutdownAsync();
         _icon.Dispose();
     }
@@ -129,15 +139,30 @@ internal sealed class MainTrayController
         await _openMail();
     }
 
+    private void AppModeReadinessInvalidated(object? sender, EventArgs e) => _ = RefreshCalendarModeVisibilityAsync();
+
+    private async Task RefreshCalendarModeVisibilityAsync()
+    {
+        var visibility = await _appModeReadinessService.GetVisibilityAsync();
+        _isCalendarModeVisible = visibility.IsVisible(WinoApplicationMode.Calendar);
+    }
+
     private IReadOnlyList<NativeTrayIcon.NativeTrayMenuItem> BuildMenu()
     {
         _ = HideFlyoutAsync();
-        return new NativeTrayIcon.NativeTrayMenuItem[]
+
+        var items = new List<NativeTrayIcon.NativeTrayMenuItem>
         {
-            new(Translator.SystemTrayMenu_ShowWino, OpenMailAsync, IsDefault: true),
-            new(Translator.SystemTrayMenu_ShowWinoCalendar, _openCalendar),
-            NativeTrayIcon.NativeTrayMenuItem.Separator(),
-            new(Translator.SystemTrayMenu_ExitWino, _exit)
+            new(Translator.SystemTrayMenu_ShowWino, OpenMailAsync, IsDefault: true)
         };
+
+        if (_isCalendarModeVisible)
+        {
+            items.Add(new(Translator.SystemTrayMenu_ShowWinoCalendar, _openCalendar));
+        }
+
+        items.Add(NativeTrayIcon.NativeTrayMenuItem.Separator());
+        items.Add(new(Translator.SystemTrayMenu_ExitWino, _exit));
+        return items;
     }
 }

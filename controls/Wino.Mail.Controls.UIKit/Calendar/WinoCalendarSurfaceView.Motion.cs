@@ -143,6 +143,7 @@ public sealed partial class WinoCalendarSurfaceView
     {
         _isPanning = false;
         StopGlide();
+        CloseOverflow();
     }
 
     /// <summary>The surface leaves the window: a glide in flight lands at once, so the rail and the loaded period stay in step.</summary>

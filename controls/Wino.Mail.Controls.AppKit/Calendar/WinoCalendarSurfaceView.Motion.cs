@@ -513,6 +513,7 @@ public sealed partial class WinoCalendarSurfaceView
         if (_space is not { } space) return;
         StopGlide();
         StopWheelScrolling();
+        CloseOverflow();
         _isPanning = true;
         _panStartPosition = _position;
         _panStartUnit = CalendarRailMotion.ChooseSnapUnit(space, _position, 0);

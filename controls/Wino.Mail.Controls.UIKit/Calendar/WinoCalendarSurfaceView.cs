@@ -394,7 +394,8 @@ public sealed partial class WinoCalendarSurfaceView : UIView
         }
 
         _monthRail.Clear();
-        double allDayHeight = CalendarLayoutCalculator.GetAllDayHeight(CalendarLayoutCalculator.GetAllDayLaneCount(Dates, _items));
+        var (allDayLanes, hasAllDayOverflow) = CalendarLayoutCalculator.GetAllDayLaneCount(Dates, _items);
+        double allDayHeight = CalendarLayoutCalculator.GetAllDayHeight(allDayLanes, hasAllDayOverflow);
         if (allDayHeight != _allDayHeight)
         {
             _allDayHeight = allDayHeight;
@@ -450,6 +451,7 @@ public sealed partial class WinoCalendarSurfaceView : UIView
             _clock = null;
             StopAllMotion();
             ReleaseFrameDriver();
+            CloseOverflow();
             WinoStyle.AccentChanged -= AccentChanged;
             if (_observableItems is not null) _observableItems.CollectionChanged -= ItemsChanged;
         }
@@ -778,6 +780,9 @@ public sealed partial class WinoCalendarSurfaceView : UIView
         /// <summary>A tap on empty space; hosts raise their slot click.</summary>
         protected virtual void SlotTapped(CGPoint point) { }
 
+        /// <summary>The "n more events" link under <paramref name="point"/>, when the host shows any.</summary>
+        protected virtual CalendarOverflowCell? OverflowAt(CGPoint point) => null;
+
         /// <summary>Whether a long press on empty space at <paramref name="point"/> selects a range.</summary>
         protected virtual bool SelectsRanges => false;
 
@@ -795,6 +800,7 @@ public sealed partial class WinoCalendarSurfaceView : UIView
         {
             var point = recognizer.LocationInView(this);
             if (TileAt(point) is { } tile) Owner.RaiseItem(tile, recognizer, 1);
+            else if (OverflowAt(point) is { } overflow) Owner.ShowOverflow(this, overflow);
             else SlotTapped(point);
         }
 
@@ -1009,13 +1015,18 @@ public sealed partial class WinoCalendarSurfaceView : UIView
     /// <summary>All-day lanes of the realized columns: weekend shading, column lines and the all-day tiles.</summary>
     private sealed class AllDayRailView(WinoCalendarSurfaceView owner) : TileHostView(owner)
     {
+        private List<CalendarOverflowCell> _overflows = new();
+
         public void Relayout()
         {
-            var placements = CalendarLayoutCalculator.CalculateAllDay(Owner.Dates, Owner.Items, Owner.DayWidth)
-                .Select(p => p with { Bounds = new CGRect(p.Bounds.X + HourColumnWidth, p.Bounds.Y, p.Bounds.Width, p.Bounds.Height) });
+            var (items, overflows) = CalendarLayoutCalculator.CalculateAllDay(Owner.Dates, Owner.Items, Owner.DayWidth);
+            var placements = items.Select(p => p with { Bounds = new CGRect(p.Bounds.X + HourColumnWidth, p.Bounds.Y, p.Bounds.Width, p.Bounds.Height) });
+            _overflows = overflows.ConvertAll(o => o with { Bounds = new CGRect(o.Bounds.X + HourColumnWidth, o.Bounds.Y, o.Bounds.Width, o.Bounds.Height) });
             SyncTiles(placements);
             SetNeedsDisplay();
         }
+
+        protected override CalendarOverflowCell? OverflowAt(CGPoint point) => _overflows.FirstOrDefault(o => o.Bounds.Contains(point));
 
         /// <summary>All-day tiles move by whole days along the strip.</summary>
         internal override WinoCalendarDragTarget? ResolveDrag(DragSession session, CGPoint point)
@@ -1042,6 +1053,7 @@ public sealed partial class WinoCalendarSurfaceView : UIView
                 MinorLineColor.SetFill();
                 FillRect(new CGRect(Math.Round(x) - 1, 0, 1, bounds.Height));
             }
+            DrawMoreLinks(_overflows);
         }
 
         protected override void SlotTapped(CGPoint point)
@@ -1202,6 +1214,7 @@ public sealed partial class WinoCalendarSurfaceView : UIView
         private const double CountOnlyCellWidth = 90;
 
         private List<CalendarMonthCell> _cells = new();
+        private List<CalendarOverflowCell> _overflows = new();
         private readonly Dictionary<DateOnly, int> _counts = new();
 
         protected override bool SelectsRanges => true;
@@ -1213,18 +1226,26 @@ public sealed partial class WinoCalendarSurfaceView : UIView
         public void Relayout()
         {
             var dates = Owner.Dates;
-            if (dates.Count == 0) { _cells = new(); SyncTiles(Array.Empty<CalendarItemPlacement>()); return; }
-            var (cells, items) = CalendarLayoutCalculator.CalculateMonth(dates, Owner.Items, Bounds.Width, Owner.UnitSize * CalendarLayoutCalculator.MonthRows);
+            if (dates.Count == 0) { _cells = new(); _overflows = new(); SyncTiles(Array.Empty<CalendarItemPlacement>()); return; }
+            var (cells, items, overflows) = CalendarLayoutCalculator.CalculateMonth(dates, Owner.Items, Bounds.Width, Owner.UnitSize * CalendarLayoutCalculator.MonthRows);
             _cells = cells;
             _counts.Clear();
             if (CountOnly)
             {
+                // The count pill already stands for every event of the day.
+                _overflows = new();
                 foreach (var cell in cells) _counts[cell.Date] = CountOn(cell.Date);
                 SyncTiles(Array.Empty<CalendarItemPlacement>());
             }
-            else SyncTiles(items);
+            else
+            {
+                _overflows = overflows;
+                SyncTiles(items);
+            }
             SetNeedsDisplay();
         }
+
+        protected override CalendarOverflowCell? OverflowAt(CGPoint point) => _overflows.FirstOrDefault(o => o.Bounds.Contains(point));
 
         public override void Draw(CGRect rect)
         {
@@ -1272,6 +1293,7 @@ public sealed partial class WinoCalendarSurfaceView : UIView
                 FillRect(new CGRect(0, Math.Round(row * rowHeight) - 1, bounds.Width, 1));
             for (int column = 1; column < CalendarLayoutCalculator.MonthColumns; column++)
                 FillRect(new CGRect(Math.Round(column * cellWidth), 0, 1, bounds.Height));
+            DrawMoreLinks(_overflows);
             Owner.DrawMonthSelection(_cells);
         }
 

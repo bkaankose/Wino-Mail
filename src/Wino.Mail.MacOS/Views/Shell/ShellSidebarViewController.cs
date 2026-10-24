@@ -6,6 +6,7 @@ using Foundation;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Navigation;
@@ -125,6 +126,9 @@ internal sealed partial class ShellSidebarViewController : NSViewController
     /// <summary>Highlights the mode segment; the switch itself goes through the shell.</summary>
     public void SetMode(WinoApplicationMode mode) => _switcher.Selected = mode;
 
+    /// <summary>Offers only the modes the accounts provide and the user kept (Windows AppModeFooterSwitcherControl).</summary>
+    public void SetModeVisibility(AppModeVisibility? visibility) => _switcher.SetVisibleModes(visibility?.VisibleModes);
+
     /// <summary>Reflects the ViewModel's selected menu item without re-invoking it.</summary>
     public void SetSelectedItem(IMenuItem? item)
     {
@@ -170,7 +174,8 @@ internal sealed partial class ShellSidebarViewController : NSViewController
             return;
         }
         _selectionHandledRow = -1;
-        if (_rows.HasChildren(item))
+        // The mail mode owns a merged account's expansion on click; its model change moves the outline.
+        if (_rows.HasChildren(item) && item is not IMergedAccountMenuItem)
         {
             if (_outline.IsItemExpanded(node)) _outline.CollapseItem(node);
             else _outline.ExpandItem(node);

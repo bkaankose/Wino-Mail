@@ -65,8 +65,8 @@ public sealed class ReadComposePanePageFragment : SettingsPageFragment<ReadCompo
                         nameof(vm.CurrentSpellCheckLanguage), s => s.CurrentSpellCheckLanguage, (s, v) => s.CurrentSpellCheckLanguage = v))));
 
         AddGroup(null,
-            Card(Translator.SettingsMailRendering_ActionLabels_Title, Translator.SettingsMailRendering_ActionLabels_Description, WinoIconGlyph.ToggleLeft,
-                Bind.Switch(p, nameof(p.IsShowActionLabelsEnabled), s => s.IsShowActionLabelsEnabled, (s, v) => s.IsShowActionLabelsEnabled = v, Translator.SettingsMailRendering_ActionLabels_Title)),
+            NavigationCard(Translator.ReaderActions_Title, Translator.ReaderActions_EntryDescription, WinoIconGlyph.ReOrderDotsVertical,
+                () => vm.OpenReaderActionsCommand.Execute(null)),
             Card(Translator.SettingsLoadImages_Title, null, WinoIconGlyph.Image,
                 Bind.Switch(p, nameof(p.RenderImages), s => s.RenderImages, (s, v) => s.RenderImages = v, Translator.SettingsLoadImages_Title)),
             Card(Translator.SettingsLoadStyles_Title, null, WinoIconGlyph.Color,

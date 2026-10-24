@@ -54,6 +54,19 @@ public sealed class WinoModeSwitcher : WinoSurfaceView
         set { if (_selected == value) return; _selected = value; Refresh(); }
     }
 
+    /// <summary>
+    /// Shows only <paramref name="visible"/> (the shell's <c>AppModeVisibility.VisibleModes</c>) plus Settings, which is
+    /// always reachable (Windows AppModeFooterSwitcherControl); null shows every tile.
+    /// </summary>
+    public void SetVisibleModes(IReadOnlyCollection<WinoApplicationMode>? visible)
+    {
+        for (int index = 0; index < _segments.Count; index++)
+        {
+            var mode = _segments[index].Mode;
+            _tiles[index].Hidden = !(visible is null || mode == WinoApplicationMode.Settings || visible.Contains(mode));
+        }
+    }
+
     private UIButton CreateTile(WinoModeSegment segment)
     {
         var configuration = UIButtonConfiguration.PlainButtonConfiguration;

@@ -426,6 +426,27 @@
                     <controls1:EditorTabbedCommandBarControl.OptionsCustomContent>
                         <StackPanel Orientation="Horizontal">
 
+                            <AppBarElementContainer VerticalContentAlignment="Center" Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.AvailableSignatures.Count), Mode=OneWay}">
+                                <ComboBox
+                                    x:Name="SignatureComboBox"
+                                    Height="32"
+                                    MinWidth="200"
+                                    Margin="0,0,8,0"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="SignatureComboBox"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.SettingsSignature_Title, Mode=OneTime}"
+                                    ItemsSource="{x:Bind ViewModel.SignaturePickerItems, Mode=OneWay}"
+                                    SelectedItem="{x:Bind ViewModel.SelectedSignaturePickerItem, Mode=OneWay}"
+                                    SelectionChanged="SignatureSelectionChanged"
+                                    ToolTipService.ToolTip="{x:Bind domain:Translator.SettingsSignature_Title, Mode=OneTime}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="mail:AccountSignature">
+                                            <TextBlock Text="{x:Bind Name}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </AppBarElementContainer>
+
                             <!--  Importance is a three way choice, so it reads as a checked list instead of an on/off button.  -->
                             <AppBarButton
                                 x:Name="ImportanceButton"

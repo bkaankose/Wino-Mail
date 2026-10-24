@@ -7,6 +7,7 @@ using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Navigation;
@@ -155,6 +156,9 @@ internal sealed partial class PadSidebarViewController : UIViewController
     }
 
     /// <summary>Highlights the mode segment; the switch itself goes through the shell.</summary>
+    /// <summary>Offers only the modes the accounts provide and the user kept (Windows AppModeFooterSwitcherControl).</summary>
+    public void SetModeVisibility(AppModeVisibility? visibility) => _switcher.SetVisibleModes(visibility?.VisibleModes);
+
     public void SetMode(WinoApplicationMode mode)
     {
         if (mode != WinoApplicationMode.Settings) _switcher.Selected = mode;

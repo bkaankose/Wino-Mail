@@ -6,16 +6,17 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MimeKit;
 using Serilog;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Mail.ViewModels;
 
 /// <summary>
-/// Signature choice for the draft (macOS composer picker; Windows has none and does not set
-/// <see cref="ApplySignatureHtmlFunc"/>). Signatures belong to the composing account. The default
-/// follows draft creation: the new-message signature for a new mail, the following-message one for
-/// replies and forwards, nothing while signatures are off.
+/// Signature choice for the draft (the macOS composer menu and the Windows Options tab picker).
+/// Signatures belong to the composing account. The default follows draft creation: the new-message
+/// signature for a new mail, the following-message one for replies and forwards, nothing while
+/// signatures are off.
 /// </summary>
 public partial class ComposePageViewModel
 {
@@ -28,9 +29,17 @@ public partial class ComposePageViewModel
     /// <summary>Signatures of <see cref="ComposingAccount"/>.</summary>
     public ObservableCollection<AccountSignature> AvailableSignatures { get; } = [];
 
+    /// <summary>Sentinel that stands for null; it never reaches <see cref="SelectedSignature"/>.</summary>
+    public AccountSignature NoSignatureItem { get; } = new() { Id = Guid.Empty, Name = Translator.Composer_NoSignature };
+
+    public ObservableCollection<AccountSignature> SignaturePickerItems { get; } = [];
+
     /// <summary>The signature in the draft; null for none.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectedSignaturePickerItem))]
     public partial AccountSignature SelectedSignature { get; set; }
+
+    public AccountSignature SelectedSignaturePickerItem => SelectedSignature ?? NoSignatureItem;
 
     /// <summary>Editor hook: (new signature HTML or empty to remove, previously inserted HTML or null).</summary>
     public Func<string, string, Task> ApplySignatureHtmlFunc { get; set; }
@@ -55,6 +64,7 @@ public partial class ComposePageViewModel
             {
                 if (generation != _signatureGeneration) return;
                 AvailableSignatures.Clear();
+                RebuildSignaturePickerItems();
                 SelectedSignature = null;
                 _insertedSignatureHtml = null;
             }).ConfigureAwait(false);
@@ -76,6 +86,7 @@ public partial class ComposePageViewModel
                 AvailableSignatures.Clear();
                 foreach (var signature in signatures.OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase))
                     AvailableSignatures.Add(signature);
+                RebuildSignaturePickerItems();
                 if (keepSelection)
                 {
                     var currentId = SelectedSignature?.Id;
@@ -86,6 +97,8 @@ public partial class ComposePageViewModel
                     SelectedSignature = AvailableSignatures.FirstOrDefault(x => x.Id == defaultId);
                     _insertedSignatureHtml = SelectedSignature?.HtmlBody;
                 }
+
+                OnPropertyChanged(nameof(SelectedSignaturePickerItem));
             }).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -94,14 +107,23 @@ public partial class ComposePageViewModel
         }
     }
 
+    private void RebuildSignaturePickerItems()
+    {
+        SignaturePickerItems.Clear();
+        SignaturePickerItems.Add(NoSignatureItem);
+        foreach (var signature in AvailableSignatures)
+            SignaturePickerItems.Add(signature);
+    }
+
     /// <summary>Reloads <see cref="AvailableEmailTemplates"/>, for example before showing the picker.</summary>
     public Task RefreshEmailTemplatesAsync() => LoadEmailTemplatesAsync();
 
-    /// <summary>Swaps the signature in the body; null removes it.</summary>
+    /// <summary>Swaps the signature in the body; null or <see cref="NoSignatureItem"/> removes it.</summary>
     [RelayCommand]
     private async Task ApplySignatureAsync(AccountSignature signature)
     {
         if (ApplySignatureHtmlFunc == null) return;
+        if (ReferenceEquals(signature, NoSignatureItem)) signature = null;
 
         await ApplySignatureHtmlFunc(signature?.HtmlBody ?? string.Empty, _insertedSignatureHtml);
         _insertedSignatureHtml = signature?.HtmlBody;

@@ -149,8 +149,40 @@ public sealed partial class ComposePage : ComposePageAbstract,
         if (sender is not ComboBox comboBox || comboBox.SelectedItem is not EmailTemplate template)
             return;
 
-        await EditorSession.RenderHtmlAsync(template.HtmlContent);
+        try
+        {
+            await EditorSession.RenderHtmlAsync(template.HtmlContent);
+            await ViewModel.ReapplySignatureAsync();
+        }
+        catch (ObjectDisposedException) when (_isNavigatingFrom) { }
+
         comboBox.SelectedItem = null;
+    }
+
+    [WinRT.DynamicWindowsRuntimeCast(typeof(ComboBox))]
+    private async void SignatureSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        // Selection the ViewModel pushed through the binding is already in the draft;
+        // only a different user choice changes the body.
+        if (sender is not ComboBox comboBox
+            || comboBox.SelectedItem is not AccountSignature signature
+            || ReferenceEquals(signature, ViewModel.SelectedSignaturePickerItem))
+            return;
+
+        try
+        {
+            await ViewModel.ApplySignatureCommand.ExecuteAsync(signature);
+        }
+        catch (ObjectDisposedException) when (_isNavigatingFrom) { }
+    }
+
+    private async Task ApplySignatureHtmlAsync(string? html, string? previousHtml)
+    {
+        try
+        {
+            await EditorSession.SetSignatureAsync(html, previousHtml);
+        }
+        catch (ObjectDisposedException) when (_isNavigatingFrom) { }
     }
 
     private async void SubjectTextBoxPreviewKeyDown(object sender, KeyRoutedEventArgs e)
@@ -375,6 +407,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         ViewModel.GetHTMLBodyFunction = GetEditorHtmlBodyAsync;
         var editorLifecycleToken = _editorLifecycleCancellationSource.Token;
         ViewModel.RenderHtmlBodyAsyncFunc = html => RenderComposeHtmlAsync(html, editorLifecycleToken);
+        ViewModel.ApplySignatureHtmlFunc = ApplySignatureHtmlAsync;
 
         _ = ViewModel.RefreshRewriteAvailabilityAsync();
     }
@@ -869,6 +902,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         // The editor is going away, so a rewrite in flight has nowhere to land.
         ViewModel.RewriteSession.Reset();
         ViewModel.RenderHtmlBodyAsyncFunc = null;
+        ViewModel.ApplySignatureHtmlFunc = null;
 
         try
         {

@@ -1,0 +1,11 @@
+{
+  "version": "2.2.6",
+  "isStarred": false,
+  "features": [
+    {
+      "image": "calendar-continuous-navigation.png",
+      "title": "Glide through your calendar",
+      "description": "Drag the calendar with your mouse, pen or finger, or scroll with the wheel, and it glides smoothly to the next days, weeks or months. It works in every calendar view. Press Home to jump back to today."
+    }
+  ]
+}

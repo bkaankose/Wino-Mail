@@ -16,6 +16,8 @@ public static class AppleNotificationCategories
 {
     public const string Mail = "wino.mail";
     public const string MailSummary = "wino.mail.summary";
+
+    public const string MailHidden = "wino.mail.hidden";
     public const string Calendar = "wino.calendar";
     public const string Generic = "wino.generic";
 
@@ -50,6 +52,8 @@ public static class AppleNotificationCategories
 
     public static string MailActionTitle(MailOperation operation) => NotificationContentRules.MailActionTitle(operation);
 
+    public static bool IsReplyAction(MailOperation operation) => NotificationContentRules.IsReplyAction(operation);
+
     public static string SnoozeTitle(int minutes) => NotificationContentRules.SnoozeTitle(minutes);
 
     /// <summary>A snooze length a category exists for; null when the reminder offers no snooze.</summary>
@@ -62,7 +66,11 @@ public static class AppleNotificationCategories
         var categories = new List<UNNotificationCategory>
         {
             Category(Mail, MailAction(firstMailAction), MailAction(secondMailAction), Dismiss()),
-            Category(MailSummary, Dismiss())
+            Category(MailSummary, Dismiss()),
+            Category(MailHidden, [.. new[] { firstMailAction, secondMailAction }
+                .Where(action => !IsReplyAction(action))
+                .Select(MailAction)
+                .Append(Dismiss())])
         };
         foreach (var join in new[] { false, true })
         {

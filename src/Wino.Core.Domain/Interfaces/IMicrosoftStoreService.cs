@@ -41,6 +41,11 @@ public interface IMicrosoftStoreService
     /// </summary>
     bool HasAvailableUpdate { get; }
 
+    /// <summary>
+    /// The package version of the available update, or null when none is known.
+    /// </summary>
+    string? AvailableUpdateVersion { get; }
+
     Task<bool> RefreshAvailabilityAsync();
 
     Task<bool> StartUpdateAsync();

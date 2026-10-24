@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text;
@@ -131,6 +132,37 @@ public sealed class GoogleTasksClient
 
     private async Task<T> SendAsync<T>(HttpMethod method, string uri, object body, string etag, JsonTypeInfo<T> responseTypeInfo, CancellationToken cancellationToken)
     {
+        var response = await SendOnceAsync(method, uri, body, etag, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            // Google changes a task's etag without a user edit (recurring tasks, list moves, its own
+            // housekeeping), so a stored etag can stay stale through every refresh. The local change
+            // is the user's latest intent: retry once against the server's current etag. When Google
+            // rejects the etag it just returned, its precondition is unusable, so the retry omits it.
+            if (response.StatusCode == HttpStatusCode.PreconditionFailed && !string.IsNullOrWhiteSpace(etag))
+            {
+                var currentEtag = await GetCurrentEtagAsync(uri, cancellationToken).ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(currentEtag))
+                {
+                    var retryEtag = string.Equals(currentEtag, etag, StringComparison.Ordinal) ? null : currentEtag;
+                    response.Dispose();
+                    response = await SendOnceAsync(method, uri, body, retryEtag, cancellationToken).ConfigureAwait(false);
+                }
+            }
+
+            await GoogleApiErrorParser.ThrowIfUnsuccessfulAsync(response, cancellationToken).ConfigureAwait(false);
+            if (typeof(T) == typeof(object) || response.Content.Headers.ContentLength == 0)
+                return default;
+            return await response.Content.ReadFromJsonAsync(responseTypeInfo, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            response.Dispose();
+        }
+    }
+
+    private async Task<HttpResponseMessage> SendOnceAsync(HttpMethod method, string uri, object body, string etag, CancellationToken cancellationToken)
+    {
         using var request = new HttpRequestMessage(method, uri);
         if (!string.IsNullOrWhiteSpace(etag))
             request.Headers.TryAddWithoutValidation("If-Match", etag);
@@ -139,11 +171,20 @@ public sealed class GoogleTasksClient
             request.Content = new StringContent(SerializeBody(body), Encoding.UTF8, "application/json");
         }
 
-        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        await GoogleApiErrorParser.ThrowIfUnsuccessfulAsync(response, cancellationToken).ConfigureAwait(false);
-        if (typeof(T) == typeof(object) || response.Content.Headers.ContentLength == 0)
-            return default;
-        return await response.Content.ReadFromJsonAsync(responseTypeInfo, cancellationToken).ConfigureAwait(false);
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<string> GetCurrentEtagAsync(string uri, CancellationToken cancellationToken)
+    {
+        using var response = await _httpClient.GetAsync(uri, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            return null;
+
+        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+        return document.RootElement.TryGetProperty("etag", out var etagElement) && etagElement.ValueKind == JsonValueKind.String
+            ? etagElement.GetString()
+            : null;
     }
 
     private static string SerializeBody(object body)

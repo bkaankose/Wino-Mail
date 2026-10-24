@@ -188,6 +188,8 @@ public static class XamlHelpers
     /// <summary>A completed title keeps the theme's own text color and recedes with opacity.</summary>
     public static double GetTaskTitleOpacity(bool isCompleted) => isCompleted ? 0.6 : 1d;
 
+    public static double GetHiddenItemOpacity(bool isVisible) => isVisible ? 1d : 0.5;
+
     /// <summary>x:Bind cannot convert double to GridLength, so the drawer width comes through here.</summary>
     public static GridLength GetTaskDrawerWidth(bool isOpen, bool isCompactLayout)
         => isOpen
@@ -502,6 +504,7 @@ public static class XamlHelpers
     public static GridLength GetColumnWidthByVisibility(bool isVisible)
         => isVisible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
     public static FontWeight GetFontWeightByChildSelectedState(bool isChildSelected) => isChildSelected ? FontWeights.SemiBold : FontWeights.Normal;
+    public static bool IsMergedAccountIndicatorVisible(bool isSelected, bool isChildSelected, bool isExpanded) => isSelected || (isChildSelected && !isExpanded);
     public static FontWeight GetFontWeightByReadState(bool isChildSelected) => isChildSelected ? FontWeights.Normal : FontWeights.SemiBold;
     public static FontWeight GetMailItemSenderFontWeightByReadState(bool isRead) => isRead ? FontWeights.Normal : FontWeights.Bold;
     public static HoverActionKind GetHoverActionKind(MailOperation operation) => operation switch

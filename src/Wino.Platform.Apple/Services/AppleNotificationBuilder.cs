@@ -259,9 +259,16 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
 
             if (notifiable.Count == 0) return;
 
-            if (notifiable.Count > NotificationContentRules.MaxIndividualMailNotifications)
+            // Hidden-content accounts are announced by count, one notification each, and never join the summary.
+            var visible = notifiable.Where(item => !NotificationSettingsResolver.HidesNotificationContent(item.Preferences)).ToList();
+            var hiddenGroups = notifiable
+                .Where(item => NotificationSettingsResolver.HidesNotificationContent(item.Preferences))
+                .GroupBy(item => item.Preferences?.AccountId ?? Guid.Empty)
+                .ToList();
+
+            if (visible.Count > NotificationContentRules.MaxIndividualMailNotifications)
             {
-                var summary = NotificationContentRules.ComposeSummaryText(notifiable.Count);
+                var summary = NotificationContentRules.ComposeSummaryText(visible.Count);
                 await ShowAsync(new NotificationRequest(
                     Identifier: "mail-summary-" + Guid.NewGuid().ToString("N"),
                     Title: summary.Title,
@@ -275,8 +282,31 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
             }
             else
             {
-                foreach (var (mailItem, accountPreferences) in notifiable)
+                foreach (var (mailItem, accountPreferences) in visible)
                     await CreateSingleNotificationAsync(mailItem, accountPreferences).ConfigureAwait(false);
+            }
+
+            foreach (var hiddenGroup in hiddenGroups)
+            {
+                var hiddenItems = hiddenGroup.ToList();
+                var (firstMailItem, accountPreferences) = hiddenItems[0];
+
+                if (hiddenItems.Count == 1)
+                {
+                    await CreateSingleNotificationAsync(firstMailItem, accountPreferences).ConfigureAwait(false);
+                    continue;
+                }
+
+                await ShowAsync(new NotificationRequest(
+                    Identifier: "mail-hidden-" + Guid.NewGuid().ToString("N"),
+                    Title: NotificationContentRules.HiddenMailTitle,
+                    Subtitle: null,
+                    Body: NotificationContentRules.ComposeHiddenMailText(hiddenItems.Count),
+                    Category: AppleNotificationCategories.MailSummary,
+                    ThreadIdentifier: firstMailItem.AssignedFolder?.MailAccountId.ToString(),
+                    UserInfo: new Dictionary<string, string> { [Constants.ToastModeKey] = Constants.ToastModeMail },
+                    Sound: _sounds.ResolveMail(accountPreferences)),
+                    NotificationKind.Mail, accountPreferences).ConfigureAwait(false);
             }
 
             await UpdateTaskbarIconBadgeAsync().ConfigureAwait(false);
@@ -334,7 +364,10 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
                 imagePath = (await _thumbnailService.GetThumbnailAsync(mailItem.FromAddress, awaitLoad: true).ConfigureAwait(false))?.FilePath;
         }
 
-        var (title, subtitle, body) = NotificationContentRules.ComposeMailText(mailItem, settings.Content);
+        var hidesContent = NotificationSettingsResolver.HidesNotificationContent(accountPreferences);
+        var (title, subtitle, body) = hidesContent
+            ? NotificationContentRules.ComposeHiddenMail(1)
+            : NotificationContentRules.ComposeMailText(mailItem, settings.Content);
 
         var accountId = mailItem.AssignedFolder?.MailAccountId;
         await ShowAsync(new NotificationRequest(
@@ -342,7 +375,7 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
             Title: title,
             Subtitle: subtitle,
             Body: body,
-            Category: AppleNotificationCategories.Mail,
+            Category: hidesContent ? AppleNotificationCategories.MailHidden : AppleNotificationCategories.Mail,
             ThreadIdentifier: accountId?.ToString(),
             UserInfo: new Dictionary<string, string>
             {
@@ -413,12 +446,16 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
         if (calendarItem.AssignedCalendar?.AccountId is { } accountId)
             accountPreferences = (await _accountService.GetAccountAsync(accountId).ConfigureAwait(false))?.Preferences;
 
-        var body = NotificationContentRules.ComposeCalendarReminderBody(calendarItem, DateTime.Now);
+        var hidesContent = NotificationSettingsResolver.HidesNotificationContent(accountPreferences);
+        var title = hidesContent ? NotificationContentRules.HiddenCalendarReminderTitle : calendarItem.Title ?? string.Empty;
+        var body = hidesContent
+            ? NotificationContentRules.ComposeHiddenCalendarReminderText()
+            : NotificationContentRules.ComposeCalendarReminderBody(calendarItem, DateTime.Now);
 
         // One Snooze action whose length follows the "Default snooze duration" setting (Windows' default pick).
         var snoozeMinutes = NotificationContentRules.ResolveReminderSnoozeMinutes(
             reminderDurationInSeconds, _preferences.DefaultReminderDurationInSeconds, _preferences.DefaultSnoozeDurationInMinutes);
-        var canJoin = CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out _);
+        var canJoin = !hidesContent && CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out _);
         var userInfo = new Dictionary<string, string>
         {
             [Constants.ToastCalendarActionKey] = Constants.ToastCalendarNavigateAction,
@@ -429,7 +466,7 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
 
         await ShowAsync(new NotificationRequest(
             Identifier: $"calendar-reminder-{calendarItem.Id:N}-{reminderDurationInSeconds}",
-            Title: calendarItem.Title ?? string.Empty,
+            Title: title,
             Subtitle: null,
             Body: body,
             Category: AppleNotificationCategories.CalendarCategory(canJoin, snoozeMinutes),

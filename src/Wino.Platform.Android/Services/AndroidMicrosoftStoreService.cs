@@ -11,6 +11,7 @@ namespace Wino.Platform.Android.Services;
 public sealed class AndroidMicrosoftStoreService(string packageName, IExternalLauncher launcher) : IMicrosoftStoreService
 {
     public bool HasAvailableUpdate => false;
+    public string? AvailableUpdateVersion => null;
     public Task<bool> HasProductAsync(WinoAddOnProductType productType) => Task.FromResult(false);
     public Task<StorePurchaseResult> PurchaseAsync(WinoAddOnProductType productType) => Task.FromException<StorePurchaseResult>(new PlatformNotSupportedException("Microsoft Store is not available on Android."));
     public Task<string?> GetCustomerCollectionsIdAsync(string serviceTicket, string publisherUserId) => Task.FromResult<string?>(null);

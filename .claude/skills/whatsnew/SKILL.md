@@ -1,39 +1,45 @@
 ---
-name: whats-new
-description: Write the release notes for Wino's What's New window before a release. Use when the user gives a list of features for the next version (after bumping Package.appxmanifest) and asks for What's New notes, release highlights, or illustrations. Finds each feature in git history, writes a short user-facing description, renders a 1120x600 space-gradient illustration into Assets\WhatsNew, writes Assets\WhatsNew\<version>.json, and validates it.
+name: whatsnew
+description: Write the in-app What's New notes for Wino before a release. Use after release-notes/<version>.md has been drafted and reviewed, or when the user asks for What's New notes, highlights, or illustrations. Takes the features from the Highlights section of the release notes, writes a short user-facing description for each, renders a 1120x600 space-gradient illustration into Assets\WhatsNew, writes Assets\WhatsNew\<version>.json, and validates it.
 ---
 
 # What's New release notes
 
-Release flow: bump `src/Wino.Mail.WinUI/Package.appxmanifest` → run this skill → `scripts/release/windows/build-releases.ps1` (Windows) or `scripts/release/macos/build-macos-release.sh` (Mac).
-The release script runs `scripts/release/whats-new/validate.ps1` and warns when notes for the manifest version are missing or invalid.
+Release flow (see `docs/releases.md` and the `release` skill): `release.ps1 bump` → `release.ps1 notes` → the maintainer reviews `release-notes/<version>.md` → **this skill** → validate → build and submit → `release.ps1 publish`.
+The Windows release script runs `scripts/release/whats-new/validate.ps1` and warns when notes for the manifest version are missing or invalid.
 
 The app reads every `src/Wino.Mail.WinUI/Assets/WhatsNew/*.json` file (`WhatsNewService`). It lists the versions newest first in the What's New window.
 The title-bar button appears only when a file exists for the running package version.
 
+The release notes list every change; What's New shows only the major ones. Bug fixes, small improvements, and internal work never go into What's New.
+
 ## Input
 
-The user supplies feature names, each with a sentence about what it does.
-The user also decides which versions are starred. Set `isStarred` to `true` only when the user asks for it.
+The features are the items in the **Highlights** section of `release-notes/<version>.md`, in that order, after the maintainer has reviewed the file. Each item is `- **Title.** Description`.
+
+- If the notes file is missing, stop and ask the user to run `scripts/release/release.ps1 notes` and review it first.
+- If Highlights is empty or `_None_`, this version has no What's New notes. Do not write a JSON file; tell the user and stop. The validator accepts this.
+- If the user names a feature that is not in Highlights, ask whether to add it to Highlights first, so the release notes and the app stay in step.
+
+The user decides which versions are starred. Set `isStarred` to `true` only when the user asks for it.
 
 ## 1. Find the version and the change range
 
 1. Read `Version` from `Package.appxmanifest`. The notes version is the first three parts (`2.1.4.0` → `2.1.4`).
-2. Find the previous notes version: the highest `Assets/WhatsNew/<version>.json` below the new one.
-3. Find the base commit, which is the commit that set the manifest to that previous version:
-   `git log --format="%h %ad %s" --date=short -G'Version="X.Y.Z.0"' -- src/Wino.Mail.WinUI/Package.appxmanifest`
-   Use the oldest match. If nothing matches (for example, for the first notes file), ask the user for the base commit or tag.
-4. If `<version>.json` already exists, update it. Do not create a second file.
+2. The change range starts at the `base` tag in the notes file's front matter (for example `v2.2.5.0`). If it is missing, use `git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD`.
+3. If `<version>.json` already exists, update it. Do not create a second file.
 
 ## 2. Identify each feature
 
-For each feature the user lists:
+For each Highlights item:
 
 1. Search `git log <base>..HEAD --format="%h %s"` and `git log <base>..HEAD -S"<keyword>" --stat` for commit messages and diffs.
 2. Use CodeGraph (`codegraph explore "<feature words>"`) to find the code and the XAML that shows the feature.
 3. If two or more changes match, or none do, ask the user which change they mean. Do not guess.
 
 ## 3. Write the copy
+
+Start from the Highlights title and description. Rewrite them to these rules; the in-app copy may be longer and more specific than the one-line release-notes entry.
 
 - **Title:** 2–5 words, sentence case, no final period. Name the benefit, not the component ("Colorful icons", not "WinoIconsColor font").
 - **Description:** 3–4 short lines, 280 characters or fewer. Write for a non-technical user:
@@ -93,5 +99,6 @@ The PNG is the only output. The HTML scene is a scratch file: write it in the se
 
 - The PNGs are packaged by the Windows App SDK `**/*.png` Content glob. The JSON is packaged by `<Content Include="Assets\WhatsNew\*.json" />` in `Wino.Mail.WinUI.csproj`. Do not add per-file csproj entries.
 - Run `pwsh -NoProfile -File .\scripts\release\whats-new\validate.ps1`. It checks the JSON, the version, the image names, the 1120x600 size, and the csproj rules. Fix every failure.
+- `release.ps1 publish` also shows these PNGs under Highlights in the GitHub release.
 - Show the user the final titles, descriptions, and each PNG (send the PNGs to the user as files) for approval before they run the release script.
 - Do not build, deploy, or change `Package.appxmanifest`. The user runs the release scripts under `scripts/release/windows` or `scripts/release/macos`.
