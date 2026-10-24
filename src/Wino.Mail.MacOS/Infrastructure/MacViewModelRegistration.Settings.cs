@@ -26,6 +26,7 @@ public static partial class MacViewModelRegistration
         services.AddTransient<AccountDetailsPageViewModel>();
         services.AddTransient<MailPreferencesPageViewModel>();
         services.AddTransient<ReadComposePanePageViewModel>();
+        services.AddTransient<ReaderActionsPageViewModel>();
         services.AddTransient<NotificationSettingsPageViewModel>();
         services.AddTransient<UnreadBadgeSettingsPageViewModel>();
         services.AddTransient<ContactsPreferenceSettingsPageViewModel>();

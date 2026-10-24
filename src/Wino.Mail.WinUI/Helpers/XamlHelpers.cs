@@ -209,6 +209,8 @@ public static class XamlHelpers
     /// <summary>A completed title keeps the theme's own text color and recedes with opacity.</summary>
     public static double GetTaskTitleOpacity(bool isCompleted) => isCompleted ? 0.6 : 1d;
 
+    public static double GetHiddenItemOpacity(bool isVisible) => isVisible ? 1d : 0.5;
+
     /// <summary>x:Bind cannot convert double to GridLength, so the drawer width comes through here.</summary>
     public static GridLength GetTaskDrawerWidth(bool isOpen, bool isCompactLayout)
         => isOpen

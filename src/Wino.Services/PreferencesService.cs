@@ -182,6 +182,12 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(IsShowActionLabelsEnabled), value);
     }
 
+    public string ReaderCommandLayout
+    {
+        get => _configurationService.Get(nameof(ReaderCommandLayout), string.Empty);
+        set => SetPropertyAndSave(nameof(ReaderCommandLayout), value);
+    }
+
     public bool IsShowSenderPicturesEnabled
     {
         get => _configurationService.Get(nameof(IsShowSenderPicturesEnabled), true);

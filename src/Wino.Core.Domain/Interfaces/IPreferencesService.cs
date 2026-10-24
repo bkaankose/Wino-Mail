@@ -460,6 +460,12 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsShowActionLabelsEnabled { get; set; }
 
     /// <summary>
+    /// Setting: Order and visibility of the reader command bar actions. Empty means the default layout.
+    /// Read it through <see cref="Models.Reader.ReaderCommandLayout.Parse"/>.
+    /// </summary>
+    string ReaderCommandLayout { get; set; }
+
+    /// <summary>
     /// Setting: Enable/disable Gravatar for sender avatars.
     /// </summary>
     bool IsGravatarEnabled { get; set; }

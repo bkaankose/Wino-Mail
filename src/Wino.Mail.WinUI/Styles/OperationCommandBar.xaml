@@ -62,6 +62,7 @@
             MinWidth="40"
             AutomationProperties.AutomationId="XBindToolTip4"
             AutomationProperties.Name="{x:Bind ToolTip}"
+            Label="{x:Bind ToolTip}"
             LabelPosition="Collapsed"
             ToolTipService.ToolTip="{x:Bind ToolTip}">
             <AppBarButton.Icon>

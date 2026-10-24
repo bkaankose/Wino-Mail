@@ -142,13 +142,14 @@
         </controls:SettingsExpander>
 
         <controls:SettingsCard
-            AutomationProperties.AutomationId="ReadComposePanePageSettingsCard7"
-            Description="{x:Bind domain:Translator.SettingsMailRendering_ActionLabels_Description}"
-            Header="{x:Bind domain:Translator.SettingsMailRendering_ActionLabels_Title}">
+            AutomationProperties.AutomationId="ReadComposePanePageReaderActionsCard"
+            Command="{x:Bind ViewModel.OpenReaderActionsCommand}"
+            Description="{x:Bind domain:Translator.ReaderActions_EntryDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.ReaderActions_Title, Mode=OneTime}"
+            IsClickEnabled="True">
             <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon Icon="ToggleLeft" />
+                <coreControls:WinoFontIcon Icon="ReOrderDotsVertical" />
             </controls:SettingsCard.HeaderIcon>
-            <ToggleSwitch AutomationProperties.AutomationId="ReadComposePanePageToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsShowActionLabelsEnabled, Mode=TwoWay}" />
         </controls:SettingsCard>
 
         <controls:SettingsCard AutomationProperties.AutomationId="ReadComposePanePageSettingsCard8" Header="{x:Bind domain:Translator.SettingsLoadImages_Title}">
