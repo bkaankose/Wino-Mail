@@ -142,11 +142,11 @@
 
     <DataTemplate x:Key="CompactSingleMailItemTemplate" x:DataType="viewModelData:MailItemViewModel">
         <Grid
-            MinHeight="56"
-            Padding="0,4,8,4"
+            MinHeight="48"
+            Padding="0,4,12,4"
             x:DefaultBindMode="OneWay"
             Background="Transparent">
-            <Grid VerticalAlignment="Center" RowSpacing="2">
+            <Grid VerticalAlignment="Center">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -301,12 +301,13 @@
 
     <DataTemplate x:Key="MediumSingleMailItemTemplate" x:DataType="viewModelData:MailItemViewModel">
         <Grid
-            MinHeight="76"
-            Padding="0,6,8,6"
+            MinHeight="68"
+            Padding="0,6,12,6"
             x:DefaultBindMode="OneWay"
             Background="Transparent">
 
-            <Grid VerticalAlignment="Center" RowSpacing="2">
+            <!--  Optional rows carry their own top margin instead of Grid RowSpacing, so a collapsed row costs no height.  -->
+            <Grid VerticalAlignment="Center">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -449,13 +450,14 @@
                     Grid.Row="2"
                     MaxLines="1"
                     Opacity="0.7"
+                    Style="{StaticResource CaptionTextBlockStyle}"
                     Text="{x:Bind PreviewText, Mode=OneWay}"
                     TextTrimming="CharacterEllipsis"
                     Visibility="{x:Bind helpers:XamlHelpers.GetMailItemPreviewTextVisibility(PreviewText), Mode=OneWay}" />
                 <ItemsControl
                     x:Name="CategoriesItemsControl"
                     Grid.Row="3"
-                    Margin="0,2,0,0"
+                    Margin="0,4,0,0"
                     HorizontalAlignment="Left"
                     x:Load="{x:Bind HasRowTiles, Mode=OneWay}"
                     IsHitTestVisible="False"
@@ -474,11 +476,11 @@
     <DataTemplate x:Key="SpaciousSingleMailItemTemplate" x:DataType="viewModelData:MailItemViewModel">
         <Grid
             MinHeight="88"
-            Padding="0,8,8,8"
+            Padding="0,12,12,12"
             x:DefaultBindMode="OneWay"
             Background="Transparent">
 
-            <Grid VerticalAlignment="Center" RowSpacing="2">
+            <Grid VerticalAlignment="Center">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -566,7 +568,10 @@
                     </Grid>
                 </Grid>
 
-                <Grid Grid.Row="1" ColumnSpacing="8">
+                <Grid
+                    Grid.Row="1"
+                    Margin="0,2,0,0"
+                    ColumnSpacing="8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
@@ -626,6 +631,7 @@
 
                 <TextBlock
                     Grid.Row="2"
+                    Margin="0,2,0,0"
                     MaxLines="1"
                     Opacity="0.7"
                     Text="{x:Bind PreviewText, Mode=OneWay}"
@@ -634,7 +640,7 @@
                 <ItemsControl
                     x:Name="CategoriesItemsControl"
                     Grid.Row="3"
-                    Margin="0,4,0,0"
+                    Margin="0,8,0,0"
                     HorizontalAlignment="Left"
                     x:Load="{x:Bind HasRowTiles, Mode=OneWay}"
                     IsHitTestVisible="False"

@@ -136,6 +136,15 @@ public static class XamlHelpers
         => kind == global::Wino.Mail.Controls.Core.MailListRowKind.ThreadChild ? new Thickness(20, 0, 0, 0) : new Thickness(0);
     public static Thickness GetDetailedMailListRowMargin(global::Wino.Mail.Controls.Core.MailListRowKind kind)
         => kind == global::Wino.Mail.Controls.Core.MailListRowKind.ThreadChild ? new Thickness(24, 0, 0, 0) : new Thickness(0);
+    public static Thickness GetMailGroupHeaderPadding()
+        => (PreferencesService?.MailItemDisplayMode ?? MailListDisplayMode.Spacious) switch
+        {
+            MailListDisplayMode.Compact => new Thickness(12, 8, 12, 8),
+            MailListDisplayMode.Medium => new Thickness(12, 10, 12, 10),
+            _ => new Thickness(12),
+        };
+    public static Thickness GetMailGroupHeaderMargin()
+        => PreferencesService?.MailItemDisplayMode == MailListDisplayMode.Compact ? new Thickness(0, 0, 0, 4) : new Thickness(0, 0, 0, 6);
     public static bool IsThreadMessageHead(global::Wino.Mail.Controls.Core.MailListRowKind kind)
         => kind == global::Wino.Mail.Controls.Core.MailListRowKind.ThreadHead;
     public static WinoIconGlyph GetThreadChevronGlyph(bool isExpanded) => isExpanded ? WinoIconGlyph.ChevronDown : WinoIconGlyph.ChevronRight;

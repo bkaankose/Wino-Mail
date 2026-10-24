@@ -31,7 +31,7 @@
                     x:Name="PreviewCompactSenderPicture"
                     Width="28"
                     Height="28"
-                    Margin="8,0,6,0"
+                    Margin="8,0,8,0"
                     VerticalAlignment="Center"
                     x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                     ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
@@ -54,9 +54,9 @@
                 </Grid.ColumnDefinitions>
                 <mailControls:WinoContactPicture
                     x:Name="PreviewMediumSenderPicture"
-                    Width="30"
-                    Height="30"
-                    Margin="8,0,8,0"
+                    Width="32"
+                    Height="32"
+                    Margin="8,0,12,0"
                     VerticalAlignment="Center"
                     x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                     ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
@@ -79,9 +79,9 @@
                 </Grid.ColumnDefinitions>
                 <mailControls:WinoContactPicture
                     x:Name="PreviewSpaciousSenderPicture"
-                    Width="36"
-                    Height="36"
-                    Margin="4,0,8,0"
+                    Width="40"
+                    Height="40"
+                    Margin="8,0,12,0"
                     VerticalAlignment="Center"
                     x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                     ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
