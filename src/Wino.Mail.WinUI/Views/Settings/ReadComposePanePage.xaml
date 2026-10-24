@@ -133,6 +133,62 @@
             </controls:SettingsExpander.Items>
         </controls:SettingsExpander>
 
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="ReadComposePanePageLinkBrowserSettingsExpander"
+            Description="{x:Bind domain:Translator.SettingsLinkBrowser_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.SettingsLinkBrowser_Title, Mode=OneTime}"
+            Visibility="{x:Bind ViewModel.IsLinkBrowserSupported, Mode=OneTime}">
+            <controls:SettingsExpander.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="Globe" />
+            </controls:SettingsExpander.HeaderIcon>
+            <controls:SettingsExpander.ItemsHeader>
+                <InfoBar
+                    AutomationProperties.AutomationId="ReadComposePanePageLinkBrowserCustomisedAccountsInfoBar"
+                    BorderThickness="0"
+                    CornerRadius="0"
+                    IsClosable="False"
+                    IsOpen="{x:Bind ViewModel.HasCustomisedLinkBrowserAccounts, Mode=OneWay}"
+                    Message="{x:Bind ViewModel.CustomisedLinkBrowserAccountsText, Mode=OneWay}"
+                    Severity="Informational" />
+            </controls:SettingsExpander.ItemsHeader>
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="ReadComposePanePageLinkBrowserScopeSettingsCard"
+                    Description="{x:Bind ViewModel.LinkBrowserScopeDescription, Mode=OneWay}"
+                    Header="{x:Bind domain:Translator.SettingsActionScope_Title, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.IsLinkBrowserScopeAvailable, Mode=OneWay}">
+                    <controls:SettingsCard.Content>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <HyperlinkButton
+                                AutomationProperties.AutomationId="ReadComposePanePageLinkBrowserUseAllAccountsButton"
+                                Command="{x:Bind ViewModel.UseAllAccountsLinkBrowserCommand}"
+                                Content="{x:Bind domain:Translator.SettingsLinkBrowser_UseAllAccounts, Mode=OneTime}"
+                                Visibility="{x:Bind ViewModel.CanUseAllAccountsLinkBrowser, Mode=OneWay}" />
+                            <ComboBox
+                                Width="220"
+                                AutomationProperties.AutomationId="ReadComposePanePageLinkBrowserScopeComboBox"
+                                ItemsSource="{x:Bind ViewModel.LinkBrowserScopeOptions, Mode=OneWay}"
+                                SelectedIndex="{x:Bind ViewModel.SelectedLinkBrowserScopeIndex, Mode=TwoWay}" />
+                        </StackPanel>
+                    </controls:SettingsCard.Content>
+                </controls:SettingsCard>
+
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="ReadComposePanePageLinkBrowserSettingsCard"
+                    Description="{x:Bind ViewModel.LinkBrowserDescription, Mode=OneWay}"
+                    Header="{x:Bind domain:Translator.SettingsLinkBrowser_Browser, Mode=OneTime}">
+                    <controls:SettingsCard.Content>
+                        <ComboBox
+                            MinWidth="220"
+                            MaxWidth="360"
+                            AutomationProperties.AutomationId="ReadComposePanePageLinkBrowserComboBox"
+                            ItemsSource="{x:Bind ViewModel.LinkBrowserOptions, Mode=OneWay}"
+                            SelectedIndex="{x:Bind ViewModel.SelectedLinkBrowserIndex, Mode=TwoWay}" />
+                    </controls:SettingsCard.Content>
+                </controls:SettingsCard>
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+
         <controls:SettingsCard
             AutomationProperties.AutomationId="ReadComposePanePageReaderActionsCard"
             Command="{x:Bind ViewModel.OpenReaderActionsCommand}"
