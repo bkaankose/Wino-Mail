@@ -280,7 +280,12 @@ public sealed partial class MailListPageViewController
         BeginSelectionByInteraction();
         _table.SelectRow(indexPath, false, UITableViewScrollPosition.None);
         SyncSelectionFromTable();
-        new UIImpactFeedbackGenerator(UIImpactFeedbackStyle.Medium).ImpactOccurred();
+        var haptics = OperatingSystem.IsIOSVersionAtLeast(17, 5)
+            ? UIImpactFeedbackGenerator.GetFeedbackGenerator(UIImpactFeedbackStyle.Medium, _table)
+#pragma warning disable CA1422 // The view-bound generator exists only from iOS 17.5; the plain one still works before it.
+            : new UIImpactFeedbackGenerator(UIImpactFeedbackStyle.Medium);
+#pragma warning restore CA1422
+        haptics.ImpactOccurred();
     }
 
     /// <summary>
