@@ -44,8 +44,6 @@ public sealed partial class WinoModeSwitcher : UserControl
     private static readonly TimeSpan ThumbResizeDuration = TimeSpan.FromMilliseconds(260);
     private static readonly TimeSpan ThumbFadeDuration = TimeSpan.FromMilliseconds(160);
     private static readonly TimeSpan ItemSlideDuration = TimeSpan.FromMilliseconds(300);
-    private static readonly TimeSpan ItemShowDuration = TimeSpan.FromMilliseconds(220);
-    private static readonly TimeSpan ItemHideDuration = TimeSpan.FromMilliseconds(160);
     private static readonly TimeSpan GlyphPopDuration = TimeSpan.FromMilliseconds(380);
 
     private readonly UISettings _uiSettings = new();
@@ -261,8 +259,7 @@ public sealed partial class WinoModeSwitcher : UserControl
 
     /// <summary>
     /// Rebuilds the panel definitions for the visible sequence: unpinned items, the
-    /// divider, then pinned items. Hidden buttons stay in the panel, collapsed, so their
-    /// hide animation can play from where they were.
+    /// divider, then pinned items. Hidden buttons stay in the panel, collapsed.
     /// </summary>
     private void ArrangeItems()
     {
@@ -570,8 +567,8 @@ public sealed partial class WinoModeSwitcher : UserControl
     #region Item animations
 
     /// <summary>
-    /// Implicit animations attach once the button has its first layout, so items slide to
-    /// new slots and fade in or out from then on, but never animate in from the origin.
+    /// The implicit offset animation attaches once the button has its first layout, so items
+    /// slide to new slots from then on, but never animate in from the origin.
     /// </summary>
     private void ItemLoaded(object sender, RoutedEventArgs e)
     {
@@ -595,15 +592,9 @@ public sealed partial class WinoModeSwitcher : UserControl
         implicitAnimations["Offset"] = slide;
         visual.ImplicitAnimations = implicitAnimations;
 
-        var show = compositor.CreateAnimationGroup();
-        show.Add(CreateOpacityAnimation(compositor, 0f, 1f, ItemShowDuration, easing));
-        show.Add(CreateScaleAnimation(compositor, 0.6f, 1f, ItemShowDuration, easing));
-        ElementCompositionPreview.SetImplicitShowAnimation(view.Button, show);
-
-        var hide = compositor.CreateAnimationGroup();
-        hide.Add(CreateOpacityAnimation(compositor, null, 0f, ItemHideDuration, easing));
-        hide.Add(CreateScaleAnimation(compositor, null, 0.6f, ItemHideDuration, easing));
-        ElementCompositionPreview.SetImplicitHideAnimation(view.Button, hide);
+        // No implicit show or hide animations: after the shell window closes to the tray, they
+        // leave the compositor with a malformed batch that fail-fasts the process when the next
+        // shell window is created.
     }
 
     private void PlayGlyphPop(WinoFontIcon icon)
@@ -623,48 +614,6 @@ public sealed partial class WinoModeSwitcher : UserControl
         pop.Duration = GlyphPopDuration;
 
         icon.StartAnimation(pop);
-    }
-
-    private static ScalarKeyFrameAnimation CreateOpacityAnimation(
-        Compositor compositor,
-        float? from,
-        float to,
-        TimeSpan duration,
-        CompositionEasingFunction easing)
-    {
-        var animation = compositor.CreateScalarKeyFrameAnimation();
-        animation.Target = "Opacity";
-
-        if (from.HasValue)
-        {
-            animation.InsertKeyFrame(0f, from.Value);
-        }
-
-        animation.InsertKeyFrame(1f, to, easing);
-        animation.Duration = duration;
-
-        return animation;
-    }
-
-    private static Vector3KeyFrameAnimation CreateScaleAnimation(
-        Compositor compositor,
-        float? from,
-        float to,
-        TimeSpan duration,
-        CompositionEasingFunction easing)
-    {
-        var animation = compositor.CreateVector3KeyFrameAnimation();
-        animation.Target = "Scale";
-
-        if (from.HasValue)
-        {
-            animation.InsertKeyFrame(0f, new Vector3(from.Value, from.Value, 1f));
-        }
-
-        animation.InsertKeyFrame(1f, new Vector3(to, to, 1f), easing);
-        animation.Duration = duration;
-
-        return animation;
     }
 
     private static CompositionEasingFunction CreateStandardEasing(Compositor compositor)
