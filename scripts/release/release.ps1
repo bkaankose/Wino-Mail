@@ -13,6 +13,8 @@ Commands:
   publish <x.y.z>         Tag -Ref as vx.y.z.0, create the GitHub release (marked Latest), then remove the label
                           from, comment on and close every issue linked in the notes. -DryRun only renders the
                           texts into release-notes/.out/<x.y.z>; run it before the Store submission for store.txt.
+                          -Draft pushes the tag and creates a draft release while the Store build is in review,
+                          leaving the issues alone. A later publish turns the draft into the Latest release.
 
 Run it from any directory, also from sibling repositories. Requires git, gh (signed in) and, for notes, claude.
 See docs/releases.md and release-notes/README.md.
@@ -29,6 +31,7 @@ param(
     [string]$Model,
     [switch]$Force,
     [switch]$DryRun,
+    [switch]$Draft,
     [switch]$Yes
 )
 
@@ -353,7 +356,7 @@ function Get-SocialText {
 }
 
 function Invoke-Publish {
-    if ($Arguments.Count -ne 1) { throw 'Usage: release.ps1 publish <x.y.z> [-Ref <commit>] [-DryRun] [-Yes]' }
+    if ($Arguments.Count -ne 1) { throw 'Usage: release.ps1 publish <x.y.z> [-Ref <commit>] [-DryRun | -Draft] [-Yes]' }
     $version = $Arguments[0]
     Assert-ReleaseVersion $version
     $notesPath = Join-Path $script:NotesFolder "$version.md"
@@ -399,16 +402,34 @@ function Invoke-Publish {
         return
     }
 
-    if ($tagExists -and @(Invoke-Gh @('release', 'view', $tag, '--repo', $script:Repository, '--json', 'url') -AllowFailure | Select-Object -First 1) -match 'url') {
-        throw "A GitHub release for $tag already exists."
+    $existing = $null
+    if ($tagExists) {
+        $view = (@(Invoke-Gh @('release', 'view', $tag, '--repo', $script:Repository, '--json', 'isDraft') -AllowFailure) -join "`n")
+        if ($view -match 'isDraft') { $existing = $view | ConvertFrom-Json }
     }
-    if (-not (Read-YesNo "Publish $tag, then comment on and close $($issues.Count) issues?")) { Write-Host 'Stopped.'; return }
+    if ($existing -and (-not $existing.isDraft -or $Draft)) {
+        throw "A GitHub $(if ($existing.isDraft) { 'draft ' })release for $tag already exists."
+    }
+    $question = if ($Draft) { "Push $tag and create a draft release? Issues stay unchanged." }
+        elseif ($existing) { "Publish the draft $tag as Latest, then comment on and close $($issues.Count) issues?" }
+        else { "Publish $tag, then comment on and close $($issues.Count) issues?" }
+    if (-not (Read-YesNo $question)) { Write-Host 'Stopped.'; return }
 
     if (-not $tagExists) { Invoke-Git @('tag', '-a', $tag, $commit, '-m', "Wino Mail $version") | Out-Null }
     $tagsToPush = @($tag)
     if ($notes.Base -match '^v[0-9.]+$' -and -not @(Invoke-Git @('ls-remote', '--tags', 'origin', "refs/tags/$($notes.Base)"))) { $tagsToPush += $notes.Base }
     Invoke-Git (@('push', 'origin') + ($tagsToPush | ForEach-Object { "refs/tags/$_" })) | Out-Null
-    Invoke-Gh @('release', 'create', $tag, '--repo', $script:Repository, '--verify-tag', '--latest', '--title', "Wino Mail $version", '--notes-file', $bodyPath) | Out-Null
+    if ($Draft) {
+        $draftUrl = @(Invoke-Gh @('release', 'create', $tag, '--repo', $script:Repository, '--verify-tag', '--draft', '--title', "Wino Mail $version", '--notes-file', $bodyPath))[-1]
+        Write-Host "Created draft $draftUrl. Run publish without -Draft once the Store build is live." -ForegroundColor Green
+        return
+    }
+    if ($existing) {
+        Invoke-Gh @('release', 'edit', $tag, '--repo', $script:Repository, '--draft=false', '--latest', '--title', "Wino Mail $version", '--notes-file', $bodyPath) | Out-Null
+    }
+    else {
+        Invoke-Gh @('release', 'create', $tag, '--repo', $script:Repository, '--verify-tag', '--latest', '--title', "Wino Mail $version", '--notes-file', $bodyPath) | Out-Null
+    }
     Write-Host "Published $releaseUrl" -ForegroundColor Green
 
     $comment = "This is addressed in Wino Mail $version, which is now available in the Microsoft Store. Thanks for reporting it!`n`nRelease notes: $releaseUrl"

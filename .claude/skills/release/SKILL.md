@@ -23,6 +23,10 @@ GitHub Releases list stable Windows versions only, one per version that is live 
 
 The user then builds with `scripts/release/windows/build-releases.ps1` and submits to the Store.
 
+## Draft (Store build submitted, not live yet)
+
+When the user asks for the GitHub release before the Store build is live, run `release.ps1 publish <x.y.z> -Draft -Yes`. It pushes the tag and creates a draft release; issues stay unchanged. The publish steps below later turn the draft into the Latest release.
+
 ## Publish (after the Store build is live)
 
 Only when the user says the Store build is live:
