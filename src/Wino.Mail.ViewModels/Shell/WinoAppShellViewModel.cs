@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -35,6 +37,15 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
     private readonly IAppModeReadinessService _appModeReadinessService;
     private bool _isCheckingStoreUpdate;
     private bool _hasShownStoreUpdatePrompt;
+
+    [ObservableProperty]
+    public partial bool IsStoreUpdateCardVisible { get; set; }
+
+    [ObservableProperty]
+    public partial string StoreUpdateCardMessage { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool IsStoreUpdateDontAskAgainChecked { get; set; }
     private int _modeVisibilityRequestId;
 
     private WinoApplicationMode _currentMode;
@@ -197,7 +208,7 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
         base.OnNavigatedTo(mode, parameters);
         CurrentMode = StatePersistenceService.ApplicationMode;
         _ = RefreshModeVisibilityAsync();
-        _ = ShowStoreUpdateDialogIfNeededAsync();
+        _ = ShowStoreUpdateCardIfNeededAsync();
     }
 
     public IShellMenuProvider GetProvider(WinoApplicationMode mode)
@@ -342,7 +353,7 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
         }
     }
 
-    private async Task ShowStoreUpdateDialogIfNeededAsync()
+    private async Task ShowStoreUpdateCardIfNeededAsync()
     {
         if (!_platformCapabilities.MicrosoftStore || _isShutdown || _isCheckingStoreUpdate || _hasShownStoreUpdatePrompt ||
             !PreferencesService.IsStoreUpdateNotificationsEnabled)
@@ -357,33 +368,61 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
             if (_isShutdown || !hasAvailableUpdate || !PreferencesService.IsStoreUpdateNotificationsEnabled)
                 return;
 
-            await ExecuteUIThreadAsync(async () =>
+            var version = _storeService.AvailableUpdateVersion;
+
+            await ExecuteUIThreadAsync(() =>
             {
                 if (_isShutdown || !PreferencesService.IsStoreUpdateNotificationsEnabled)
-                    return;
+                    return Task.CompletedTask;
 
                 _hasShownStoreUpdatePrompt = true;
-                var shouldUpdate = await _dialogService.ShowWinoCustomMessageDialogAsync(
-                    Translator.Notifications_StoreUpdateAvailableTitle,
-                    Translator.Notifications_StoreUpdateAvailableMessage,
-                    Translator.Buttons_Update,
-                    WinoCustomMessageDialogIcon.Information,
-                    Translator.Buttons_NotNow,
-                    Constants.StoreUpdateNotificationSuppressionKey);
+                StoreUpdateCardMessage = string.IsNullOrEmpty(version)
+                    ? Translator.Notifications_StoreUpdateAvailableMessage
+                    : string.Format(Translator.Notifications_StoreUpdateAvailableVersionMessage, version);
+                IsStoreUpdateDontAskAgainChecked = false;
+                IsStoreUpdateCardVisible = true;
 
-                if (shouldUpdate && !_isShutdown)
-                {
-                    await _storeService.StartUpdateAsync();
-                }
+                return Task.CompletedTask;
             });
         }
         catch (Exception ex)
         {
-            _logger.CaptureException(ex, nameof(ShowStoreUpdateDialogIfNeededAsync));
+            _logger.CaptureException(ex, nameof(ShowStoreUpdateCardIfNeededAsync));
         }
         finally
         {
             _isCheckingStoreUpdate = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task InstallStoreUpdateAsync()
+    {
+        CloseStoreUpdateCard();
+
+        if (_isShutdown)
+            return;
+
+        try
+        {
+            await _storeService.StartUpdateAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.CaptureException(ex, nameof(InstallStoreUpdateAsync));
+        }
+    }
+
+    [RelayCommand]
+    private void DismissStoreUpdateCard() => CloseStoreUpdateCard();
+
+    private void CloseStoreUpdateCard()
+    {
+        IsStoreUpdateCardVisible = false;
+
+        if (IsStoreUpdateDontAskAgainChecked)
+        {
+            PreferencesService.IsStoreUpdateNotificationsEnabled = false;
         }
     }
 }

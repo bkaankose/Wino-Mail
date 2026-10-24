@@ -150,5 +150,92 @@
             The pane's open state is the user's saved preference, applied from code whenever the
             pane is expanded. Width-driven visual states must not set IsPaneOpen; they override it.
         -->
+
+        <!--  Floating Store update notice. It never blocks the shell; closing it with the box checked turns the notice off.  -->
+        <Border
+            x:Name="StoreUpdateCard"
+            Width="400"
+            Margin="0,0,24,24"
+            Padding="16"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            x:Load="{x:Bind ViewModel.IsStoreUpdateCardVisible, Mode=OneWay}"
+            AutomationProperties.AutomationId="StoreUpdateCard"
+            Background="{ThemeResource SolidBackgroundFillColorSecondaryBrush}"
+            BorderBrush="{ThemeResource SurfaceStrokeColorFlyoutBrush}"
+            BorderThickness="1"
+            Canvas.ZIndex="50"
+            CornerRadius="{ThemeResource OverlayCornerRadius}"
+            Translation="0,0,32">
+            <Border.Shadow>
+                <ThemeShadow />
+            </Border.Shadow>
+            <Border.Transitions>
+                <TransitionCollection>
+                    <PopupThemeTransition />
+                </TransitionCollection>
+            </Border.Transitions>
+            <Grid RowSpacing="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <FontIcon
+                        VerticalAlignment="Top"
+                        FontSize="20"
+                        Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                        Glyph="&#xE946;" />
+
+                    <StackPanel Grid.Column="1" Spacing="2">
+                        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.Notifications_StoreUpdateAvailableTitle, Mode=OneTime}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind ViewModel.StoreUpdateCardMessage, Mode=OneWay}"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <Button
+                        Grid.Column="2"
+                        Width="32"
+                        Height="32"
+                        Margin="0,-6,-6,0"
+                        Padding="0"
+                        VerticalAlignment="Top"
+                        AutomationProperties.AutomationId="StoreUpdateCardCloseButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Close, Mode=OneTime}"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Command="{x:Bind ViewModel.DismissStoreUpdateCardCommand}"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Close, Mode=OneTime}">
+                        <FontIcon FontSize="12" Glyph="&#xE711;" />
+                    </Button>
+                </Grid>
+
+                <Button
+                    Grid.Row="1"
+                    HorizontalAlignment="Stretch"
+                    AutomationProperties.AutomationId="StoreUpdateCardInstallButton"
+                    Command="{x:Bind ViewModel.InstallStoreUpdateCommand}"
+                    Content="{x:Bind domain:Translator.Buttons_InstallNow, Mode=OneTime}"
+                    Style="{StaticResource AccentButtonStyle}" />
+
+                <CheckBox
+                    Grid.Row="2"
+                    MinWidth="0"
+                    AutomationProperties.AutomationId="StoreUpdateCardDontAskAgainCheckBox"
+                    Content="{x:Bind domain:Translator.Dialog_DontAskAgain, Mode=OneTime}"
+                    IsChecked="{x:Bind ViewModel.IsStoreUpdateDontAskAgainChecked, Mode=TwoWay}" />
+            </Grid>
+        </Border>
     </Grid>
 </abstract:WinoAppShellAbstract>
