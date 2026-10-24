@@ -13,17 +13,10 @@
     mc:Ignorable="d">
 
     <StackPanel>
-        <StackPanel.ChildrenTransitions>
-            <TransitionCollection>
-                <RepositionThemeTransition IsStaggeringEnabled="False" />
-            </TransitionCollection>
-        </StackPanel.ChildrenTransitions>
-
         <controls:SettingsExpander
             AutomationProperties.AutomationId="ReadComposePanePageSettingsExpander"
             Description="{x:Bind domain:Translator.SettingsReaderFontFamily_Description}"
-            Header="{x:Bind domain:Translator.SettingsReaderFont_Title}"
-            IsExpanded="True">
+            Header="{x:Bind domain:Translator.SettingsReaderFont_Title}">
             <controls:SettingsExpander.HeaderIcon>
                 <coreControls:WinoFontIcon
                     HorizontalAlignment="Center"
@@ -68,8 +61,7 @@
         <controls:SettingsExpander
             AutomationProperties.AutomationId="ReadComposePanePageSettingsExpander2"
             Description="{x:Bind domain:Translator.SettingsComposerFontFamily_Description}"
-            Header="{x:Bind domain:Translator.SettingsComposerFont_Title}"
-            IsExpanded="True">
+            Header="{x:Bind domain:Translator.SettingsComposerFont_Title}">
             <controls:SettingsExpander.HeaderIcon>
                 <coreControls:WinoFontIcon
                     HorizontalAlignment="Center"
