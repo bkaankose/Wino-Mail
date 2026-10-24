@@ -577,6 +577,11 @@ public sealed partial class ComposePage : ComposePageAbstract,
             .Split([';', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToList();
 
+    private static List<(string Text, bool IsValid, string Address, string? Name)> ParseRecipientText(string text)
+        => SplitRecipientText(text)
+            .Select(part => (Text: part, IsValid: TryParseRecipient(part, out var address, out var name), Address: address, Name: name))
+            .ToList();
+
     /// <summary>
     /// The suggestion Enter should take. When Enter comes before the debounced search has
     /// answered, the search runs now so fast typists get the same result.
@@ -642,20 +647,16 @@ public sealed partial class ComposePage : ComposePageAbstract,
                 return;
             }
 
-            var parts = SplitRecipientText(args.TokenText);
-            if (parts.Count == 0)
+            var parsed = ParseRecipientText(args.TokenText);
+            if (parsed.Count == 0)
             {
                 args.Cancel = true;
                 return;
             }
 
-            var parsed = parts
-                .Select(part => (Text: part, IsValid: TryParseRecipient(part, out var address, out var name), Address: address, Name: name))
-                .ToList();
-
             if (!parsed[0].IsValid)
             {
-                var suggestion = parts.Count == 1 ? await GetTopSuggestionAsync(sender, parts[0], addressCollection) : null;
+                var suggestion = parsed.Count == 1 ? await GetTopSuggestionAsync(sender, parsed[0].Text, addressCollection) : null;
 
                 if (suggestion is { IsList: true })
                 {
@@ -842,37 +843,103 @@ public sealed partial class ComposePage : ComposePageAbstract,
         };
     }
 
+    /// <summary>
+    /// Tab with typed text commits it as Enter does and keeps focus in the box, so an accepted
+    /// address and a rejected one both stay in view. Tab in an empty box moves on.
+    /// </summary>
+    [WinRT.DynamicWindowsRuntimeCast(typeof(TextBox))]
+    private void AddressBoxPreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != VirtualKey.Tab || IsShiftKeyDown() ||
+            sender is not TokenizingTextBox box ||
+            e.OriginalSource is not TextBox { DataContext: ITokenStringContainer } textBox ||
+            string.IsNullOrWhiteSpace(textBox.Text))
+            return;
+
+        // The Toolkit's own PreviewKeyDown handler on the box assigns Handled for every key, but it is
+        // subscribed in the box's constructor and so runs before this one.
+        e.Handled = true;
+
+        var typedText = textBox.Text;
+
+        // Clearing first matches the box's Enter handling; TokenItemAdding puts back text it rejects.
+        textBox.Text = string.Empty;
+        box.Text = string.Empty;
+
+        if (GetHighlightedSuggestion(box) is { } suggestion)
+            box.AddTokenItem(suggestion);
+        else
+            box.AddTokenItem(typedText);
+    }
+
+    /// <summary>
+    /// The suggestion picked with the arrow keys, which Enter would take. The box does not copy it
+    /// into the text, so it is read from the open suggestion list.
+    /// </summary>
+    [WinRT.DynamicWindowsRuntimeCast(typeof(Popup))]
+    [WinRT.DynamicWindowsRuntimeCast(typeof(ListView))]
+    private RecipientSuggestion? GetHighlightedSuggestion(TokenizingTextBox box)
+    {
+        if (GetSuggestionState(box).Owner is not { } owner)
+            return null;
+
+        var popup = WinoVisualTreeHelper.GetChildObject<Popup>(owner, "SuggestionsPopup");
+        if (popup is not { IsOpen: true })
+            return null;
+
+        return WinoVisualTreeHelper.GetChildObject<ListView>(popup.Child, "SuggestionsList")?.SelectedItem as RecipientSuggestion;
+    }
+
+    /// <summary>
+    /// Commits typed text when focus leaves the box another way, such as Shift+Tab or a click.
+    /// Complete addresses become tokens and anything invalid stays in the box. Unlike Enter and Tab,
+    /// partial text never takes a suggestion, so a guessed recipient cannot go out unnoticed.
+    /// </summary>
+    [WinRT.DynamicWindowsRuntimeCast(typeof(TextBox))]
     private async void AddressBoxLostFocus(object sender, RoutedEventArgs e)
     {
-        // Automatically add current text as item if it is valid mail address.
+        // The box's Text and its pre-token string only catch up when AutoSuggestBox raises TextChanged,
+        // which waits for a pause in typing, so a quick Tab would read them a few characters short.
+        if (sender is not TokenizingTextBox box ||
+            e.OriginalSource is not TextBox { DataContext: ITokenStringContainer { IsLast: true } } textBox)
+            return;
 
-        if (sender is TokenizingTextBox tokenizingTextBox)
+        var addressCollection = GetAddressCollection(box);
+        var typedText = textBox.Text;
+        if (addressCollection is null || string.IsNullOrWhiteSpace(typedText))
+            return;
+
+        var parsed = ParseRecipientText(typedText);
+        if (!parsed.Any(part => part.IsValid))
+            return;
+
+        try
         {
-            if (tokenizingTextBox.Items.LastOrDefault() is not ITokenStringContainer info) return;
-
-            var currentText = info.Text;
-
-            if (!string.IsNullOrEmpty(currentText) && EmailValidator.Validate(currentText))
+            var hasDuplicate = false;
+            foreach (var part in parsed.Where(part => part.IsValid))
             {
-                var addressCollection = GetAddressCollection(tokenizingTextBox);
-
-                AccountContact? addedItem = null;
-
-                if (addressCollection != null)
-                    addedItem = await ViewModel.GetAddressInformationAsync(currentText, addressCollection);
-
-                // Item has already been added.
-                if (addedItem == null)
-                {
-                    tokenizingTextBox.Text = string.Empty;
-                }
-                else if (addressCollection != null)
-                {
-                    addressCollection.Add(addedItem);
-                    tokenizingTextBox.Text = string.Empty;
-                }
+                var recipient = await ResolveTypedRecipientAsync(part.Address, part.Name, addressCollection);
+                if (recipient is null || !ViewModel.TryAddRecipient(addressCollection, recipient))
+                    hasDuplicate = true;
             }
+
+            if (hasDuplicate)
+                ViewModel.NotifyAddressExists();
         }
+        catch (Exception exception)
+        {
+            _logger.CaptureException(exception, "ComposePage.AddressBoxLostFocus");
+            return;
+        }
+
+        // The user may have come back and typed more while the contacts were looked up.
+        if (!string.Equals(textBox.Text, typedText, StringComparison.Ordinal))
+            return;
+
+        var remainingText = string.Join("; ", parsed.Where(part => !part.IsValid).Select(part => part.Text));
+        textBox.Text = remainingText;
+        box.Text = remainingText;
+        ClearRecipientSuggestions(box);
     }
 
     private void ComposerLoaded(object sender, RoutedEventArgs e)
