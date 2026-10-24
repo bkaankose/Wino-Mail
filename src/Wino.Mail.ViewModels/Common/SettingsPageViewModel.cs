@@ -260,6 +260,8 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
                 return Translator.SettingsHome_ManageAccounts_Description;
             case WinoPage.CreateEmailTemplatePage:
                 return Translator.SettingsEmailTemplates_NewTemplateDescription;
+            case WinoPage.ReaderActionsPage:
+                return Translator.ReaderActions_Description;
             case WinoPage.CalendarAccountSettingsPage:
                 var calendarAccountName = await GetCalendarAccountNameAsync(parameter).ConfigureAwait(false);
                 return string.Format(

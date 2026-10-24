@@ -16,7 +16,7 @@
         <DataTemplate x:Key="ReaderActionTemplate" x:DataType="data:ReaderCommandLayoutItemViewModel">
             <Grid
                 Width="124"
-                Height="104"
+                Height="96"
                 Padding="4,0,4,8"
                 AutomationProperties.Name="{x:Bind Title}"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
@@ -28,7 +28,6 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <CheckBox
@@ -38,20 +37,6 @@
                     AutomationProperties.Name="{x:Bind VisibilityAutomationName}"
                     IsChecked="{x:Bind IsVisible, Mode=TwoWay}" />
 
-                <Border
-                    Margin="0,6,2,0"
-                    Padding="6,0"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Top"
-                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                    CornerRadius="8"
-                    Visibility="{x:Bind IsTogglePair}">
-                    <TextBlock
-                        FontSize="10"
-                        Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                        Text="{x:Bind domain:Translator.ReaderActions_TogglePairTag, Mode=OneTime}" />
-                </Border>
-
                 <StackPanel
                     Grid.Row="1"
                     HorizontalAlignment="Center"
@@ -60,13 +45,13 @@
                     Orientation="Horizontal"
                     Spacing="8">
                     <Viewbox Width="20" Height="20">
-                        <coreControls:WinoFontIcon Icon="{x:Bind Icon}" />
+                        <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind Icon}" />
                     </Viewbox>
                     <Viewbox
                         Width="20"
                         Height="20"
                         Visibility="{x:Bind HasSecondIcon}">
-                        <coreControls:WinoFontIcon Icon="{x:Bind SecondIcon}" />
+                        <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind SecondIcon}" />
                     </Viewbox>
                 </StackPanel>
 
@@ -80,28 +65,13 @@
                     TextAlignment="Center"
                     TextTrimming="CharacterEllipsis"
                     TextWrapping="Wrap" />
-
-                <TextBlock
-                    Grid.Row="3"
-                    HorizontalAlignment="Center"
-                    FontSize="11"
-                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                    Text="{x:Bind Note}"
-                    TextAlignment="Center"
-                    TextTrimming="CharacterEllipsis" />
             </Grid>
         </DataTemplate>
     </Page.Resources>
 
     <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
         <TextBlock
-            Margin="1,0,0,8"
-            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-            Text="{x:Bind domain:Translator.ReaderActions_Description, Mode=OneTime}"
-            TextWrapping="WrapWholeWords" />
-
-        <TextBlock
-            Margin="1,8,0,4"
+            Margin="1,0,0,4"
             Style="{StaticResource BodyStrongTextBlockStyle}"
             Text="{x:Bind domain:Translator.ReaderActions_PreviewHeader, Mode=OneTime}" />
 
