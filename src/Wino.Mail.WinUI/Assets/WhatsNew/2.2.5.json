@@ -3,19 +3,9 @@
   "isStarred": false,
   "features": [
     {
-      "image": "instant-mail-relay.png",
-      "title": "Mail the moment it arrives",
-      "description": "New mail now shows up the instant it lands, not at the next timer check. Wino's relay watches your mailboxes and wakes the app right away. Choose it when Wino asks, or turn it on in Settings > Notifications."
-    },
-    {
       "image": "wino-account-social-sign-in.png",
       "title": "Sign in with one click",
       "description": "Sign in to your Wino Account with Microsoft, Google or Apple. There is no new password to remember. Open Wino Account from the title bar or from Settings to try it."
-    },
-    {
-      "image": "faster-startup-after-sign-in.png",
-      "title": "Ready right after you sign in",
-      "description": "When Wino starts with Windows, it is now ready within seconds of signing in instead of waiting behind other startup apps. Turn it on in Settings > App Preferences."
     },
     {
       "image": "fewer-crashes.png",
@@ -26,11 +16,6 @@
       "image": "screen-reader-friendly-reading.png",
       "title": "Easier reading with screen readers",
       "description": "Screen readers now announce the subject, sender and date when you move into a message, then read the mail from the top. Mails made only of images still get a readable text version."
-    },
-    {
-      "image": "other-improvements.png",
-      "title": "Other improvements",
-      "description": "CalDAV calendars sync faster and handle invitations and attachments. Mail times match your time zone, Gmail and folders are more reliable, settings apply instantly, and Wino now speaks Traditional Chinese."
     }
   ]
 }
