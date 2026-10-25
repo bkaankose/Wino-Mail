@@ -18,6 +18,9 @@ public sealed partial class MailListPageViewController
 
     public event EventHandler? CommandStateChanged;
 
+    /// <summary>The toolbar shows mail actions only while a message is open in the reading pane.</summary>
+    public bool ShowsMailActions => !_released && _paneChild is MailRenderingPageViewController;
+
     // ---- Toolbar and Message menu ----
 
     public bool CanExecute(ShellCommand command)

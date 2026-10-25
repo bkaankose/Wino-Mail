@@ -140,7 +140,7 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         });
 
         _toolbar = new ShellToolbar(() => SearchTarget, ToggleSidebar, Synchronize, ToggleBriefing, ShowWhatsNew, OpenAccount, ReportError,
-            () => _commandTarget is not null, CanExecuteCommand, (command, anchor) => { if (_commandTarget is { } target && target.CanExecute(command)) target.Execute(command, anchor); });
+            () => _commandTarget is { ShowsMailActions: true }, CanExecuteCommand, (command, anchor) => { if (_commandTarget is { } target && target.CanExecute(command)) target.Execute(command, anchor); });
         _toolbar.SetAccountHidden(ViewModel.PreferencesService.IsWinoAccountButtonHidden);
         _toolbar.SetCommandLayout(ReaderCommandLayout.Parse(ViewModel.PreferencesService.ReaderCommandLayout));
         _toolbar.SetCommandLabels(ViewModel.PreferencesService.IsShowActionLabelsEnabled);

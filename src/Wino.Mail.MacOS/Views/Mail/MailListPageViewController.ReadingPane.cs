@@ -139,6 +139,7 @@ public sealed partial class MailListPageViewController : IRenderingFrameHost, IR
                 previous.Dispose();
             }
             _paneChild = next;
+            CommandStateChanged?.Invoke(this, EventArgs.Empty);
             if (next is null) return;
             if (next is IReadingPaneChild paneChild) paneChild.PaneHost = this;
             AddChildViewController(next);
@@ -158,6 +159,7 @@ public sealed partial class MailListPageViewController : IRenderingFrameHost, IR
                 child.View.RemoveFromSuperview();
                 child.RemoveFromParentViewController();
                 _paneChild = null;
+                CommandStateChanged?.Invoke(this, EventArgs.Empty);
             });
         }
         finally { _paneGate.Release(); }

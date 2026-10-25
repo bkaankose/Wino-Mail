@@ -83,9 +83,9 @@ internal sealed class ShellToolbar : NSToolbarDelegate
 
     public ShellToolbar(Func<IShellSearchTarget?> searchTarget, Action toggleSidebar, Action synchronize,
         Action<NSView> briefing, Action whatsNew, Action<NSView> account, Action<Exception> error,
-        Func<bool> hasCommandTarget, Func<ShellCommand, bool> canExecute, Action<ShellCommand, NSView> execute)
+        Func<bool> showsCommands, Func<ShellCommand, bool> canExecute, Action<ShellCommand, NSView> execute)
     {
-        _hasCommandTarget = hasCommandTarget;
+        _hasCommandTarget = showsCommands;
         _canExecute = canExecute;
         _execute = execute;
         _searchTarget = searchTarget;

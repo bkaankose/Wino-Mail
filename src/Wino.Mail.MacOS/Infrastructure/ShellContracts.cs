@@ -72,6 +72,9 @@ public interface IShellCommandTarget
 
     /// <summary>Raise when selection or state changes so the toolbar revalidates.</summary>
     event EventHandler? CommandStateChanged;
+
+    /// <summary>False hides the toolbar's mail actions altogether (nothing is being read, or a composer is open).</summary>
+    bool ShowsMailActions => true;
 }
 
 /// <summary>Implemented by the shell's current content page to receive the toolbar search field.</summary>
