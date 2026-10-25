@@ -103,6 +103,15 @@ The first setup needs access to nuget.org. If the VS Code CLI is outside `PATH` 
 
 On 2026-10-07, the production arm64 app hit a source breakpoint at `Program.cs:9`, stepped to line 10, then hit `AppDelegate.StartAsync` at `AppDelegate.cs:38` with locals and managed stack frames visible. Continuing opened the saved account's native shell and Inbox. A final run through the Mac workspace repeated the `Program.cs:9` breakpoint, stepping and shell continuation with exact source checks and automatic setup. Evidence is recorded locally on the Mac in `artifacts/appkit-macos-f5-acceptance.txt`. These checks establish debugger startup and continuation; fresh authentication, Remote SSH debugging, full UI parity and manual acceptance remain separate work.
 
+## Control lifetime and performance rules
+
+- Views that AppKit creates many times (table and outline cells, row views, calendar tiles, chips, zones) never subscribe to the static C# events `WinoStyle.AccentChanged`, `WinoStyle.BackdropChanged` or `WinoIcons.StyleChanged`. AppKit does not call `Dispose` on pooled cells, so a static event roots them for the life of the app. Register on the weak counterparts instead (`WinoStyle.AccentWatchers`, `WinoStyle.BackdropWatchers`, `WinoIcons.StyleWatchers`) with a static lambda that takes the view as its parameter, and remove in `Dispose`. Pages with a `Bindings` scope may use the static events through `Bindings.Own`.
+- Cache colours, fonts and attributed strings that do not change per row. Dynamic `NSColor`s resolve per appearance at draw time, so one static instance is correct in light and dark mode.
+- In `Configure`, `Apply` and `Bind`, set only what changed: fonts re-measure fields, `SetCustomSpacing` and constraint constants re-solve the stack, `NeedsDisplay` repaints the layer.
+- Add one `InVisibleRect` tracking area per view and keep it; do not rebuild it in `UpdateTrackingAreas`.
+- Timers and observers that reference a view start in `ViewDidMoveToWindow` when the window is set and stop when it is cleared.
+- Coalesce collection bursts into one reload per run-loop turn with `BeginInvokeOnMainThread` and a flag; `IDispatcher.ExecuteOnUIThread` runs inline on the main thread and does not coalesce.
+
 ## Verification
 
 | Change | Required evidence |
