@@ -116,6 +116,7 @@ public partial class AccountNavigationItem : WinoNavigationViewItem
         iconBox.Height = IconBoxHeight;
     }
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private static FrameworkElement? FindPresenterChild(DependencyObject parent, string name)
     {
         var childCount = VisualTreeHelper.GetChildrenCount(parent);

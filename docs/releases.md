@@ -28,6 +28,8 @@ Run `pwsh scripts/release/release.ps1 publish 2.2.6` (add `-Ref <commit>` when t
 2. Creates the GitHub release, marked Latest, with the Store badge, the App Installer link, Highlights with their What's New illustrations, and the full lists.
 3. For every issue linked in the notes: removes `pending release`, posts a "now available" comment with the release link, and closes the issue.
 
+While the Store build is still in review, `publish 2.2.6 -Draft` pushes the tag and creates the release as a draft without touching the issues. The later `publish 2.2.6` turns that draft into the Latest release and then updates the issues.
+
 GitHub Releases list stable Windows versions that are live in Microsoft Store, and nothing else. Beta builds reach testers through the beta App Installer feed only.
 Between releases, mark addressed issues with `release.ps1 mark <N>` or the `pending release` label on GitHub, and add work from other repositories with `release.ps1 add "<text>"`. The commit rules in [AGENTS.md](../AGENTS.md#commits-and-release-notes) keep the next draft complete.
 
