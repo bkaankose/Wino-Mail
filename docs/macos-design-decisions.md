@@ -144,3 +144,16 @@ Templates, Filters, Folder customization, theme gallery and editor), Wino Accoun
 themes, localisation keys for the few Mac-only strings, dev code signing with a stable identity (keychain
 prompts on every rebuild), and the shared-layer fixes listed in the infra notes (MIME path separator, swallowed
 MSAL errors, reader attention state).
+
+## Revision 3: native chrome (25 October 2026)
+
+A pass that moves the shell closer to a stock AppKit application; the Wino theme look stays available with wallpaper and gradient themes.
+
+| Topic | Decision |
+| --- | --- |
+| Panes | Without a wallpaper or gradient theme (`WinoStyle.FloatingZones` false) the sidebar, list, reader, calendar, contacts, To Do and Settings panes run edge to edge and meet at hairline dividers. The rounded, shadowed `WinoZoneView` cards and their gutters return only while a theme paints a backdrop. `WinoZoneView.AttachTo` and `WinoZoneInsets.Track` switch the gutters. |
+| Toolbar | Mail actions (Reply, Reply all, Forward; Archive, Delete, Move; Flag, Mark read) are `NSToolbarItem`s in three groups while a mail page is current, validated through `IShellCommandTarget`. The search field sits at the trailing edge (240pt). The reader header keeps only Pop out and More; the Message menu runs the same commands. |
+| Sidebar | Source-list look: rounded fill without the accent pipe, regular weight (medium for the active account), 36pt account rows with a 22pt icon and the address in the tooltip, grey unread badges, the mode switcher as a plain segmented control. |
+| Lists | Mail date groups and Contacts letters are plain secondary labels; the tinted strips return with a wallpaper theme. |
+| Settings | No title block above the cards (the window title names the page), plain small-caps section headers in the sidebar, no On/Off word beside switches, and the page runs edge to edge. |
+| Calendar | Today sits beside the period arrows; the view switcher keeps the trailing edge. Event tiles use the tinted Apple Calendar style (`WinoCalendarItemView`). |

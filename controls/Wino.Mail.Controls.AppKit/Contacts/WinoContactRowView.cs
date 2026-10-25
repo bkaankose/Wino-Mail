@@ -196,12 +196,13 @@ public sealed class WinoContactGroupHeaderView : NSTableCellView
 {
     public const string ReuseIdentifier = "WinoContactGroupHeader";
     private readonly WinoSurfaceView _strip = new() { CornerRadius = 6 };
-    private readonly NSTextField _title = WinoStyle.Label(string.Empty, WinoStyle.BodyStrong);
+    private readonly NSTextField _title = WinoStyle.Label(string.Empty, WinoStyle.BodyStrong, WinoStyle.SecondaryText);
 
     public WinoContactGroupHeaderView()
     {
         Identifier = ReuseIdentifier;
-        _strip.Fill = WinoContactStyle.HeaderFill;
+        // A plain letter like Contacts; the strip fill only returns with a wallpaper theme.
+        _strip.Fill = WinoStyle.FloatingZones ? WinoContactStyle.HeaderFill : null;
         WinoLayout.Fill(_strip, this, 6, 0, 2, 0);
         _strip.AddSubview(_title);
         NSLayoutConstraint.ActivateConstraints(
@@ -215,7 +216,7 @@ public sealed class WinoContactGroupHeaderView : NSTableCellView
         WinoStyle.AccentChanged += AccentChanged;
     }
 
-    private void AccentChanged(object? sender, EventArgs args) => _title.TextColor = WinoStyle.Accent;
+    private void AccentChanged(object? sender, EventArgs args) => _title.TextColor = WinoStyle.SecondaryText;
 
     public string Title
     {
@@ -223,7 +224,7 @@ public sealed class WinoContactGroupHeaderView : NSTableCellView
         set
         {
             _title.StringValue = value ?? string.Empty;
-            _title.TextColor = WinoStyle.Accent;
+            _title.TextColor = WinoStyle.SecondaryText;
             AccessibilityLabel = value;
         }
     }

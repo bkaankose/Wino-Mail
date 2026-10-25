@@ -79,7 +79,7 @@ public sealed class SettingsWindowController : NSWindowController
         WinoStyle.BackdropChanged += updateVeil;
         window.WillClose += (_, _) => WinoStyle.BackdropChanged -= updateVeil;
 
-        ((WinoSurfaceView)_zone.ContentView).CornerRadius = 7;
+        _zone.FloatingRadius = 7;
         root.AddSubview(_zone);
 
         _crumb = WinoStyle.Label(string.Empty, WinoSettingsStyle.PageTitle, WinoStyle.SecondaryText);
@@ -92,6 +92,8 @@ public sealed class SettingsWindowController : NSWindowController
         var header = WinoLayout.VStack(4, titleRow, _description);
         header.Alignment = NSLayoutAttribute.Leading;
         header.EdgeInsets = new NSEdgeInsets(22, 32, 6, 32);
+        // The window title names the page, as in System Settings; the Windows title block stays out.
+        header.Hidden = true;
         titleRow.WidthAnchor.ConstraintEqualTo(header.WidthAnchor, 1, -64).Active = true;
         _description.WidthAnchor.ConstraintEqualTo(header.WidthAnchor, 1, -64).Active = true;
 
@@ -104,14 +106,14 @@ public sealed class SettingsWindowController : NSWindowController
             sidebarPane.TopAnchor.ConstraintEqualTo(root.TopAnchor),
             sidebarPane.BottomAnchor.ConstraintEqualTo(root.BottomAnchor),
             sidebarPane.WidthAnchor.ConstraintEqualTo((nfloat)SidebarWidth),
-            _zone.LeadingAnchor.ConstraintEqualTo(sidebarPane.TrailingAnchor, 4),
-            _zone.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor, -7),
+            WinoZoneInsets.Track(_zone.LeadingAnchor.ConstraintEqualTo(sidebarPane.TrailingAnchor), 4),
+            WinoZoneInsets.Track(_zone.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor), -7),
             _zone.TopAnchor.ConstraintEqualTo(root.SafeAreaLayoutGuide.TopAnchor),
-            _zone.BottomAnchor.ConstraintEqualTo(root.BottomAnchor, -7),
+            WinoZoneInsets.Track(_zone.BottomAnchor.ConstraintEqualTo(root.BottomAnchor), -7),
             header.TopAnchor.ConstraintEqualTo(content.TopAnchor),
             header.LeadingAnchor.ConstraintEqualTo(content.LeadingAnchor),
             header.TrailingAnchor.ConstraintEqualTo(content.TrailingAnchor),
-            _pageHost.TopAnchor.ConstraintEqualTo(header.BottomAnchor),
+            _pageHost.TopAnchor.ConstraintEqualTo(content.TopAnchor, 8),
             _pageHost.LeadingAnchor.ConstraintEqualTo(content.LeadingAnchor),
             _pageHost.TrailingAnchor.ConstraintEqualTo(content.TrailingAnchor),
             _pageHost.BottomAnchor.ConstraintEqualTo(content.BottomAnchor)

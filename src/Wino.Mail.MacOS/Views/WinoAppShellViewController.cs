@@ -108,7 +108,7 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
 
         // Pages start below the toolbar; while no page is shown an empty zone keeps the layout.
         _contentHost.View = _content;
-        PinBelowToolbar(_emptyZone);
+        _emptyZone.AttachTo(_content, 2, 0, 7, 7, _content.SafeAreaLayoutGuide.TopAnchor);
         var contentItem = NSSplitViewItem.FromViewController(_contentHost);
         contentItem.MinimumThickness = 560;
 
@@ -138,7 +138,8 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
             if (!hasSavedLayout) _split.SplitView.SetPositionOfDivider(280, 0);
         });
 
-        _toolbar = new ShellToolbar(() => SearchTarget, ToggleSidebar, Synchronize, ToggleBriefing, ShowWhatsNew, OpenAccount, ReportError);
+        _toolbar = new ShellToolbar(() => SearchTarget, ToggleSidebar, Synchronize, ToggleBriefing, ShowWhatsNew, OpenAccount, ReportError,
+            () => _commandTarget is not null, CanExecuteCommand, (command, anchor) => { if (_commandTarget is { } target && target.CanExecute(command)) target.Execute(command, anchor); });
         _toolbar.SetAccountHidden(ViewModel.PreferencesService.IsWinoAccountButtonHidden);
         ViewModel.PreferencesService.PreferenceChanged += PreferenceChanged;
         Bindings.Own(new PropertyBinding<WinoAppShellViewModel, bool>(ViewModel, nameof(ViewModel.IsRelayFallbackActive),
@@ -298,13 +299,12 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
     {
         view.TranslatesAutoresizingMaskIntoConstraints = false;
         _content.AddSubview(view);
-        bool isZone = ReferenceEquals(view, _emptyZone);
         NSLayoutConstraint.ActivateConstraints(
         [
-            view.TopAnchor.ConstraintEqualTo(_content.SafeAreaLayoutGuide.TopAnchor, isZone ? 2 : 0),
+            view.TopAnchor.ConstraintEqualTo(_content.SafeAreaLayoutGuide.TopAnchor),
             view.LeadingAnchor.ConstraintEqualTo(_content.LeadingAnchor),
-            view.TrailingAnchor.ConstraintEqualTo(_content.TrailingAnchor, isZone ? -7 : 0),
-            view.BottomAnchor.ConstraintEqualTo(_content.BottomAnchor, isZone ? -7 : 0)
+            view.TrailingAnchor.ConstraintEqualTo(_content.TrailingAnchor),
+            view.BottomAnchor.ConstraintEqualTo(_content.BottomAnchor)
         ]);
     }
 
@@ -633,13 +633,21 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         }
     }
 
-    /// <summary>A split view whose 1 pt divider stays draggable but draws nothing.</summary>
+    /// <summary>
+    /// A split view whose 1 pt divider stays draggable. It draws nothing while zones float over a theme
+    /// backdrop (Windows has no line between pane and content) and the system hairline otherwise.
+    /// </summary>
     private sealed class ClearDividerSplitView : NSSplitView
     {
-        public override NSColor DividerColor => NSColor.Clear;
+        public ClearDividerSplitView() => WinoStyle.BackdropChanged += (_, _) => NeedsDisplay = true;
+
+        public override NSColor DividerColor => WinoStyle.FloatingZones ? NSColor.Clear : NSColor.Separator;
 
         public override void DrawDivider(CoreGraphics.CGRect rect)
         {
+            if (WinoStyle.FloatingZones) return;
+            NSColor.Separator.SetFill();
+            NSGraphics.RectFill(rect);
         }
     }
 

@@ -95,7 +95,9 @@ internal sealed class CalendarToolbarView : NSView
 
         _navigation.SetContentHuggingPriorityForOrientation(750, NSLayoutConstraintOrientation.Horizontal);
         _displayType.SetContentHuggingPriorityForOrientation(750, NSLayoutConstraintOrientation.Horizontal);
-        var row = WinoLayout.HStack(16, _navigation, _rangeText, WinoLayout.Spacer(), today, _displayType);
+        // Today sits beside the period arrows, as in Calendar; the view switcher keeps the trailing edge.
+        var row = WinoLayout.HStack(16, _navigation, today, _rangeText, WinoLayout.Spacer(), _displayType);
+        row.SetCustomSpacing(8, _navigation);
         row.Alignment = NSLayoutAttribute.CenterY;
         row.EdgeInsets = new NSEdgeInsets(0, 4, 0, 7);
         WinoLayout.Fill(row, this);

@@ -29,7 +29,7 @@ internal sealed record ShellPaneContext(Func<MailAccount, IAccountIconInfo?> Acc
 internal sealed class ShellPaneCell : NSTableCellView
 {
     public const string ReuseIdentifier = "WinoShellPaneCell";
-    private const double AccountIconSize = 28;
+    private const double AccountIconSize = 22;
     // Leading insets from the cell edge (the pane edge on root rows). The selection pipe ends at
     // x = 7, so avatars sit 5pt and 16pt glyphs 9pt beside it, as in the Windows NavigationView.
     private const int AvatarInset = 12;
@@ -169,6 +169,7 @@ internal sealed class ShellPaneCell : NSTableCellView
         _item = item;
         ObserveParameter(null);
         Reset();
+        ToolTip = null;
         bool enabled = ShellMenuItemRules.IsEnabled(item);
         AlphaValue = enabled ? 1 : 0.45f;
         _chevron.Hidden = !hasChildren;
@@ -199,7 +200,7 @@ internal sealed class ShellPaneCell : NSTableCellView
                 _glyph.PointSize = 20;
                 _glyph.Icon = WinoIconGlyph.PeopleLink;
                 _glyph.Tint = null;
-                SetTitle(merged.MergedAccountName, merged.IsChildSelected || bold ? WinoStyle.BodyStrong : WinoStyle.Body);
+                SetTitle(merged.MergedAccountName, merged.IsChildSelected || bold ? WinoStyle.BodyMedium : WinoStyle.Body);
                 SetSubtitle(merged.IsSynchronizationProgressVisible && !string.IsNullOrWhiteSpace(merged.SynchronizationStatus)
                     ? merged.SynchronizationStatus
                     : merged.MergedAccountCount + Translator.MenuMergedAccountItemAccountsSuffix);
@@ -210,36 +211,37 @@ internal sealed class ShellPaneCell : NSTableCellView
                 Leading(AccountIconSize);
                 _accountIcon.Hidden = false;
                 _accountIcon.Account = account.Account is { } mailAccount ? _context.AccountIcon(mailAccount) : null;
-                SetTitle(account.AccountName, account.IsSelected ? WinoStyle.BodyStrong : WinoStyle.Body);
-                // The compact account row (Windows SharedCompactAccountMenuTemplate) shows the name alone.
-                SetSubtitle(_context.CompactAccounts() ? null : account.AccountAddress);
+                SetTitle(account.AccountName, account.IsSelected ? WinoStyle.BodyMedium : WinoStyle.Body);
+                // Accounts read as section headers on the Mac: the name alone, the address in the tooltip.
+                SetSubtitle(null);
+                ToolTip = account.AccountAddress;
                 SetSync(account.IsSynchronizationProgressVisible, account.IsProgressIndeterminate, account.SynchronizationProgressValue);
                 _pill.Count = account.UnreadItemCount;
                 _attention.Hidden = !account.IsAttentionRequired;
                 break;
             case MailCategoryMenuItem category:
                 GlyphRow(WinoIconGlyph.Tag, 16, WinoStyle.FromHexString(category.BackgroundColorHex) ?? WinoStyle.FromHexString(category.TextColorHex));
-                SetTitle(category.FolderName, bold ? WinoStyle.BodyStrong : WinoStyle.Body);
+                SetTitle(category.FolderName, WinoStyle.Body);
                 _pill.Count = category.ShowUnreadCount ? category.UnreadItemCount : 0;
                 break;
             case MergedMailCategoryMenuItem mergedCategory:
                 GlyphRow(WinoIconGlyph.Tag, 16, WinoStyle.FromHexString(mergedCategory.TextColorHex));
-                SetTitle(mergedCategory.FolderName, bold ? WinoStyle.BodyStrong : WinoStyle.Body, WinoStyle.FromHexString(mergedCategory.TextColorHex));
+                SetTitle(mergedCategory.FolderName, WinoStyle.Body, WinoStyle.FromHexString(mergedCategory.TextColorHex));
                 _pill.Count = mergedCategory.UnreadItemCount;
                 break;
             case MergedAccountMoreFolderMenuItem:
                 GlyphRow(WinoIconGlyph.SpecialFolderMore, 16, null);
-                SetTitle(Translator.More, bold ? WinoStyle.BodyStrong : WinoStyle.Body);
+                SetTitle(Translator.More, WinoStyle.Body);
                 break;
             case FolderMenuItem { HasTextColor: true } coloured:
                 GlyphRow(SpecialFolderGlyphs.GetGlyph(coloured.SpecialFolderType), 16, null);
-                SetTitle(coloured.FolderName, bold ? WinoStyle.BodyStrong : WinoStyle.Body, WinoStyle.FromHexString(coloured.Parameter?.TextColorHex),
+                SetTitle(coloured.FolderName, WinoStyle.Body, WinoStyle.FromHexString(coloured.Parameter?.TextColorHex),
                     WinoStyle.FromHexString(coloured.Parameter?.BackgroundColorHex));
                 _pill.Count = coloured.ShowUnreadCount ? coloured.UnreadItemCount : 0;
                 break;
             case IBaseFolderMenuItem folder:
                 GlyphRow(SpecialFolderGlyphs.GetGlyph(folder.SpecialFolderType), 16, null);
-                SetTitle(folder.FolderName, bold ? WinoStyle.BodyStrong : WinoStyle.Body);
+                SetTitle(folder.FolderName, WinoStyle.Body);
                 _pill.Count = folder.ShowUnreadCount ? folder.UnreadItemCount : 0;
                 break;
             case UngroupedCalendarMenuItem calendar:
@@ -262,7 +264,7 @@ internal sealed class ShellPaneCell : NSTableCellView
                 break;
             case ContactFilterViewModel { IsCategory: true } categoryFilter:
                 GlyphRow(WinoIconGlyph.Tag, 16, WinoStyle.FromHexString(categoryFilter.CategoryColorHex));
-                SetTitle(categoryFilter.Name, bold ? WinoStyle.BodyStrong : WinoStyle.Body);
+                SetTitle(categoryFilter.Name, WinoStyle.Body);
                 _pill.Count = categoryFilter.Count;
                 break;
             case ContactFilterViewModel filter:
@@ -281,22 +283,22 @@ internal sealed class ShellPaneCell : NSTableCellView
                     _glyph.Glyph = filter.Glyph ?? string.Empty;
                     _glyph.Tint = null;
                 }
-                SetTitle(filter.Name, bold ? WinoStyle.BodyStrong : WinoStyle.Body);
+                SetTitle(filter.Name, WinoStyle.Body);
                 _pill.Count = filter.Count;
                 break;
             case MyDayTaskMenuItem myDay:
                 GlyphRow(WinoIconGlyph.WeatherSunny, 16, WinoStyle.Accent);
-                SetTitle(Translator.ToDoPage_MyDay, bold ? WinoStyle.BodyStrong : WinoStyle.Body);
+                SetTitle(Translator.ToDoPage_MyDay, WinoStyle.Body);
                 _pill.Count = myDay.Count;
                 break;
             case PlannedTaskMenuItem planned:
                 GlyphRow(WinoIconGlyph.Calendar, 16, null);
-                SetTitle(Translator.ToDoPage_Planned, bold ? WinoStyle.BodyStrong : WinoStyle.Body);
+                SetTitle(Translator.ToDoPage_Planned, WinoStyle.Body);
                 _pill.Count = planned.Count;
                 break;
             case ImportantTaskMenuItem important:
                 GlyphRow(WinoIconGlyph.Star, 16, null);
-                SetTitle(Translator.ToDoPage_Important, bold ? WinoStyle.BodyStrong : WinoStyle.Body);
+                SetTitle(Translator.ToDoPage_Important, WinoStyle.Body);
                 _pill.Count = important.Count;
                 break;
             case AccountTaskListGroupMenuItem group:
@@ -305,7 +307,7 @@ internal sealed class ShellPaneCell : NSTableCellView
                 break;
             case AccountTaskListMenuItem list:
                 GlyphRow(WinoIconGlyph.Dot, 20, WinoStyle.FromHexString(list.ColorHex));
-                SetTitle(list.Title, bold ? WinoStyle.BodyStrong : WinoStyle.Body);
+                SetTitle(list.Title, WinoStyle.Body);
                 _pill.Count = list.Count;
                 break;
             case RateMenuItem:

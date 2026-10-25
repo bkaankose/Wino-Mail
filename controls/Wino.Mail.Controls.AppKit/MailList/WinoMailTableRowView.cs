@@ -182,8 +182,9 @@ public class WinoMailGroupHeaderView : NSTableCellView
     public WinoMailGroupHeaderView()
     {
         Identifier = ReuseIdentifier;
-        _strip = new WinoSurfaceView { CornerRadius = 6, Fill = WinoMailListTheme.GroupHeaderFill() };
-        _title = WinoStyle.Label(string.Empty, WinoStyle.CaptionStrong, WinoStyle.PrimaryText);
+        // Plain text like Mail's date groups; the theme strip fill only returns with a wallpaper theme.
+        _strip = new WinoSurfaceView { CornerRadius = 6, Fill = HeaderFill() };
+        _title = WinoStyle.Label(string.Empty, WinoStyle.BodyStrong, WinoStyle.SecondaryText);
         AddSubview(_strip);
         _strip.AddSubview(_title);
         NSLayoutConstraint.ActivateConstraints(
@@ -201,7 +202,9 @@ public class WinoMailGroupHeaderView : NSTableCellView
     }
 
     /// <summary>Re-reads the theme colour (accent or backdrop changed).</summary>
-    public void RefreshTheme() => _strip.Fill = WinoMailListTheme.GroupHeaderFill();
+    public void RefreshTheme() => _strip.Fill = HeaderFill();
+
+    private static NSColor? HeaderFill() => WinoStyle.FloatingZones ? WinoMailListTheme.GroupHeaderFill() : null;
 
     public string Title
     {

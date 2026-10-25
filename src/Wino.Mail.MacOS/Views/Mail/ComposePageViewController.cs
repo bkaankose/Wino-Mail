@@ -105,6 +105,7 @@ public sealed partial class ComposePageViewController : WinoViewController<Compo
         // ---- Command row ----
         _sendButton = new ComposeSendButton(() => IsSendKeyEquivalentInScope()) { Title = Translator.Buttons_Send, BezelStyle = NSBezelStyle.Rounded, TranslatesAutoresizingMaskIntoConstraints = false };
         _sendButton.Image = WinoIcons.Image(WinoIconGlyph.Send, 14, null, Translator.Buttons_Send);
+        _sendButton.BezelColor = WinoStyle.Accent;
         _sendButton.ImagePosition = NSCellImagePosition.ImageLeading;
         _sendButton.BezelColor = WinoStyle.Accent;
         _sendButton.KeyEquivalent = "\r";

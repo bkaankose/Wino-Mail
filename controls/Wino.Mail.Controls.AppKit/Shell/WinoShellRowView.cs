@@ -5,10 +5,10 @@ using Wino.Presentation.AppKit;
 namespace Wino.Mail.Controls.AppKit.Shell;
 
 /// <summary>
-/// Row background for the shell pane. Selection is the Windows NavigationViewItem look: a subtle
-/// rounded fill inset from the pane edges and a 3pt accent pipe on the left, never the blue
-/// source-list highlight. <see cref="ShowsIndicator"/> draws the pipe alone, which is how the
-/// active account is marked while a folder below it holds the selection.
+/// Row background for the shell pane: the source-list look, a subtle rounded fill inset from the
+/// pane edges, with a lighter fill on hover. <see cref="ShowsIndicator"/> marks the active account
+/// while a folder below it holds the selection; the cell shows it through its title weight, so the
+/// row itself draws nothing for it.
 /// </summary>
 public sealed class WinoShellRowView : NSTableRowView
 {
@@ -74,16 +74,14 @@ public sealed class WinoShellRowView : NSTableRowView
     {
         if (!_highlightable) return;
         var rect = new CGRect(Bounds.X + HorizontalInset, Bounds.Y + 0.5, Bounds.Width - HorizontalInset * 2, Bounds.Height - 1);
-        WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.06), WinoStyle.Hex(0xFFFFFF, 0.10)).SetFill();
+        WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.07), WinoStyle.Hex(0xFFFFFF, 0.11)).SetFill();
         NSBezierPath.FromRoundedRect(rect, (nfloat)CornerRadius, (nfloat)CornerRadius).Fill();
-        DrawIndicator();
     }
 
     public override void DrawBackground(CGRect dirtyRect)
     {
         base.DrawBackground(dirtyRect);
         if (!Selected && _hovered && _highlightable && !_isDropTarget) DrawHover();
-        if (!Selected && _showsIndicator) DrawIndicator();
         if (_isDropTarget) DrawDropTarget();
     }
 
@@ -107,14 +105,6 @@ public sealed class WinoShellRowView : NSTableRowView
 
     /// <summary>The pane draws its own drop highlight (<see cref="IsDropTarget"/>).</summary>
     public override void DrawDraggingDestinationFeedback(CGRect dirtyRect) { }
-
-    private void DrawIndicator()
-    {
-        var inset = Math.Min(11, Bounds.Height / 4);
-        var rect = new CGRect(Bounds.X + 4, Bounds.Y + inset, 3, Bounds.Height - inset * 2);
-        WinoStyle.Accent.SetFill();
-        NSBezierPath.FromRoundedRect(rect, 1.5f, 1.5f).Fill();
-    }
 
     public override void ViewDidChangeEffectiveAppearance()
     {

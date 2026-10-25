@@ -15,8 +15,8 @@ public sealed class WinoUnreadPill : WinoSurfaceView
     public WinoUnreadPill()
     {
         CornerRadius = 9;
-        Fill = WinoStyle.Accent;
-        _label = WinoStyle.Label(string.Empty, NSFont.SystemFontOfSize(11, NSFontWeight.Semibold), NSColor.White);
+        Fill = BadgeFill;
+        _label = WinoStyle.Label(string.Empty, NSFont.SystemFontOfSize(11, NSFontWeight.Semibold), WinoStyle.SecondaryText);
         _label.Alignment = NSTextAlignment.Center;
         AddSubview(_label);
         _label.SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Horizontal);
@@ -38,7 +38,10 @@ public sealed class WinoUnreadPill : WinoSurfaceView
         Hidden = true;
     }
 
-    private void AccentChanged(object? sender, EventArgs args) => Fill = WinoStyle.Accent;
+    /// <summary>The grey source-list badge (Mail, Finder), not the accent.</summary>
+    private static NSColor BadgeFill => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.08), WinoStyle.Hex(0xFFFFFF, 0.14));
+
+    private void AccentChanged(object? sender, EventArgs args) => Fill = BadgeFill;
 
     public override CoreGraphics.CGSize IntrinsicContentSize
     {

@@ -53,7 +53,7 @@ public sealed partial class ContactsPageViewController : WinoViewController<Cont
     {
         var root = new NSView();
         _zone = new WinoZoneView();
-        WinoLayout.Fill(_zone, root, 2, 4, 7, 7);
+        _zone.AttachTo(root, 2, 4, 7, 7);
         var content = _zone.ContentView;
 
         var list = BuildListPane();

@@ -69,11 +69,11 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
         // over the theme backdrop with a 6pt gutter (the invisible divider) between them.
         var listHost = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
         _listZone = new WinoZoneView();
-        WinoLayout.Fill(_listZone, listHost, 2, WinoStyle.ZoneGutter, 8, 0);
+        _listZone.AttachTo(listHost, 2, WinoStyle.ZoneGutter, 8, 0);
         WinoLayout.Fill(BuildListPane(), _listZone.ContentView);
         var readerHost = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
         _readerZone = new WinoZoneView { Fill = WinoThemeSurfaces.ReadingPaneFill };
-        WinoLayout.Fill(_readerZone, readerHost, 3, 0, 8, 8);
+        _readerZone.AttachTo(readerHost, 3, 0, 8, 8);
         WinoLayout.Fill(BuildReadingPane(), _readerZone.ContentView);
 
         var listController = new NSViewController { View = listHost };
@@ -110,15 +110,23 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
         if (_split?.SplitView.ArrangedSubviews.Length == 2) _split.SplitView.SetPositionOfDivider((nfloat)width, 0);
     }
 
-    /// <summary>A split view whose divider is the transparent 6pt gutter between the two zones.</summary>
+    /// <summary>
+    /// A split view whose divider is the transparent 6pt gutter between floating zones, or the system
+    /// hairline between flat panes.
+    /// </summary>
     private sealed class GutterSplitView : NSSplitView
     {
-        public override nfloat DividerThickness => (nfloat)WinoStyle.ZoneGutter;
+        public GutterSplitView() => WinoStyle.BackdropChanged += (_, _) => { AdjustSubviews(); NeedsDisplay = true; };
 
-        public override NSColor DividerColor => NSColor.Clear;
+        public override nfloat DividerThickness => WinoStyle.FloatingZones ? (nfloat)WinoStyle.ZoneGutter : 1;
+
+        public override NSColor DividerColor => WinoStyle.FloatingZones ? NSColor.Clear : NSColor.Separator;
 
         public override void DrawDivider(CoreGraphics.CGRect rect)
         {
+            if (WinoStyle.FloatingZones) return;
+            NSColor.Separator.SetFill();
+            NSGraphics.RectFill(rect);
         }
     }
 

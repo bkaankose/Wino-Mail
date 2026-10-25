@@ -85,17 +85,13 @@ public sealed class WinoModeSwitcher : NSView
 
     private void Refresh()
     {
-        // AppKit fills the selected segment with the system accent; a theme accent glyph on it clashed
-        // or disappeared (blue on blue with the Default theme).
-        var accent = WinoStyle.Accent;
-        _control.SelectedSegmentBezelColor = accent;
-        var selectedGlyph = MailList.WinoMailRowView.ReadableText(accent);
+        // The system draws the selected segment (a plain segmented control, as in Finder); the filled
+        // glyph alone marks the active mode.
         for (int index = 0; index < Segments.Count; index++)
         {
             var segment = Segments[index];
             bool selected = segment.Mode == _selected;
-            // The selected glyph is drawn in its colour itself: a template tint is lost in the colorful icon style.
-            _control.SetImage(WinoIcons.Image(selected ? segment.Filled : segment.Regular, 18, selected ? selectedGlyph : null, segment.Title), index);
+            _control.SetImage(WinoIcons.Image(selected ? segment.Filled : segment.Regular, 18, null, segment.Title), index);
             if (selected) _control.SelectedSegment = index;
         }
     }

@@ -92,6 +92,12 @@ public static class WinoStyle
     /// <summary>Raised on the UI thread after the theme backdrop changes.</summary>
     public static event EventHandler? BackdropChanged;
 
+    /// <summary>
+    /// True while a wallpaper or gradient theme paints the window: panes then float as rounded zones
+    /// with gutters. Otherwise panes run edge to edge with hairline dividers, like a native split view.
+    /// </summary>
+    public static bool FloatingZones => HasBackdrop && !IsWindowMaterialOnly;
+
     /// <summary>Gap between the window edge, the sidebar and the zones (Windows uses 6).</summary>
     public const double ZoneGutter = WinoTokens.ZoneGutter;
     public const double ZoneRadius = WinoTokens.ZoneRadius;

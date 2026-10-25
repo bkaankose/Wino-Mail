@@ -19,6 +19,8 @@ public sealed class WinoLabeledSwitch : NSView
         Switch = new NSSwitch { TranslatesAutoresizingMaskIntoConstraints = false, ControlSize = NSControlSize.Regular };
         _label = WinoStyle.Label(Translator.CalendarSettings_Toggle_Off, WinoStyle.Body, WinoStyle.SecondaryText);
         _label.Alignment = NSTextAlignment.Right;
+        // macOS switches carry no On/Off word; the label stays available for hosts that ask for it.
+        _label.Hidden = true;
         var width = Math.Max(Measure(Translator.CalendarSettings_Toggle_On), Measure(Translator.CalendarSettings_Toggle_Off));
         _label.WidthAnchor.ConstraintGreaterThanOrEqualTo((nfloat)Math.Ceiling(width)).Active = true;
         var row = WinoLayout.HStack(8, _label, Switch);

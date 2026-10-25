@@ -72,8 +72,7 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         _toolbar.TodayRequested += (_, _) => RequestToday();
         _toolbar.DisplayTypeRequested += (_, type) => ViewModel.StatePersistanceService.CalendarDisplayType = type;
 
-        _zone = new WinoZoneView();
-        ((WinoSurfaceView)_zone.ContentView).CornerRadius = 7;
+        _zone = new WinoZoneView { FloatingRadius = 7 };
         _surface = new WinoCalendarSurfaceView
         {
             TileFactory = (item, date) => CalendarTileMapper.Map(item, date, ViewModel.CurrentSettings),
@@ -94,8 +93,7 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         _readiness = new CalendarReadinessView { Hidden = true };
         WinoLayout.Fill(_readiness, _zone.ContentView);
 
-        _detailsZone = new WinoZoneView { Hidden = true };
-        ((WinoSurfaceView)_detailsZone.ContentView).CornerRadius = 7;
+        _detailsZone = new WinoZoneView { Hidden = true, FloatingRadius = 7 };
         _detailsContent = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
         WinoLayout.Fill(_detailsContent, _detailsZone.ContentView);
         _detailsWidth = _detailsZone.WidthAnchor.ConstraintEqualTo((nfloat)DetailsWidth);
@@ -104,7 +102,7 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         root.AddSubview(_toolbar);
         root.AddSubview(_zone);
         root.AddSubview(_detailsZone);
-        var zoneTrailing = _zone.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor, -7);
+        var zoneTrailing = WinoZoneInsets.Track(_zone.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor), -7);
         zoneTrailing.Priority = 700;
         NSLayoutConstraint.ActivateConstraints(
         [
@@ -113,14 +111,14 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
             _toolbar.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor),
             // The gap between the date row and the calendar surface.
             _zone.TopAnchor.ConstraintEqualTo(_toolbar.BottomAnchor, 12),
-            _zone.LeadingAnchor.ConstraintEqualTo(root.LeadingAnchor, 4),
-            _zone.BottomAnchor.ConstraintEqualTo(root.BottomAnchor, -7),
+            WinoZoneInsets.Track(_zone.LeadingAnchor.ConstraintEqualTo(root.LeadingAnchor), 4),
+            WinoZoneInsets.Track(_zone.BottomAnchor.ConstraintEqualTo(root.BottomAnchor), -7),
             zoneTrailing,
             _detailsZone.TopAnchor.ConstraintEqualTo(_zone.TopAnchor),
             _detailsZone.BottomAnchor.ConstraintEqualTo(_zone.BottomAnchor),
-            _detailsZone.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor, -7)
+            WinoZoneInsets.Track(_detailsZone.TrailingAnchor.ConstraintEqualTo(root.TrailingAnchor), -7)
         ]);
-        _detailsLeading = _detailsZone.LeadingAnchor.ConstraintEqualTo(_zone.TrailingAnchor, 7);
+        _detailsLeading = WinoZoneInsets.Track(_detailsZone.LeadingAnchor.ConstraintEqualTo(_zone.TrailingAnchor), 7);
         View = root;
     }
 

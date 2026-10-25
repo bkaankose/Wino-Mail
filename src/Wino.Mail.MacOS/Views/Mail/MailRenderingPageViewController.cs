@@ -392,6 +392,14 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
 
     // ---- Command bar ----
 
+    /// <summary>Operations the unified toolbar shows (<see cref="ShellCommand"/>), so the reader does not repeat them.</summary>
+    private static readonly HashSet<MailOperation> ToolbarOperations =
+    [
+        MailOperation.Reply, MailOperation.ReplyAll, MailOperation.Forward,
+        MailOperation.Archive, MailOperation.UnArchive, MailOperation.SoftDelete, MailOperation.HardDelete, MailOperation.Move,
+        MailOperation.SetFlag, MailOperation.ClearFlag, MailOperation.MarkAsRead, MailOperation.MarkAsUnread
+    ];
+
     /// <summary>The primary commands and the More menu from the shared <see cref="MailReaderCommandLayout"/>.</summary>
     private void UpdateCommandBar()
     {
@@ -399,11 +407,14 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         var commands = new List<MailReaderCommand?>();
         foreach (var slot in plan.Primary)
         {
-            if (slot is null) { commands.Add(null); continue; }
+            // The window toolbar carries reply, file and mark actions; the reader keeps the rest.
+            if (slot is null) { if (commands.Count > 0 && commands[^1] is not null) commands.Add(null); continue; }
+            if (ToolbarOperations.Contains(slot.Operation)) continue;
             var captured = slot.Item;
             commands.Add(new MailReaderCommand(MailOperationDisplay.GetGlyph(slot.Operation), slot.Title,
                 captured is null ? static () => { } : () => Observe(ViewModel.OperationClickedCommand.ExecuteAsync(captured)), slot.IsEnabled));
         }
+        while (commands.Count > 0 && commands[^1] is null) commands.RemoveAt(commands.Count - 1);
         // A loaded message gets the pop-out command; a saved message file and the placeholder set do not.
         if (plan.Kind == MailReaderCommandPlanKind.Message)
             AppendPopOutCommand(commands);

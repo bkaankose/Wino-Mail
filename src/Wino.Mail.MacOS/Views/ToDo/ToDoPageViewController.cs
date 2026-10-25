@@ -44,7 +44,7 @@ public sealed partial class ToDoPageViewController : WinoViewController<ToDoPage
     {
         var root = new ToDoPage();
         _zone.Fill = WinoStyle.ZoneFill;
-        WinoLayout.Fill(_zone, root, 2, 4, 7, 7);
+        _zone.AttachTo(root, 2, 4, 7, 7);
         var content = _zone.ContentView;
 
         _listSurface = BuildListSurface();

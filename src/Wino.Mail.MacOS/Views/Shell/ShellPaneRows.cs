@@ -18,9 +18,9 @@ internal static class ShellPaneRows
     public static double Height(IMenuItem item, bool compactAccounts) => item switch
     {
         NewAddressListMenuItem => 44,
-        NewMailMenuItem or NewContactMenuItem or NewTaskListMenuItem => 50,
-        MergedAccountMenuItem => 50,
-        IAccountNavigationMenuItem account when ShellMenuItemRules.IsAccountRow(account) => compactAccounts ? 40 : 50,
+        NewMailMenuItem or NewContactMenuItem or NewTaskListMenuItem => 40,
+        MergedAccountMenuItem => 44,
+        IAccountNavigationMenuItem account when ShellMenuItemRules.IsAccountRow(account) => 36,
         FixAccountIssuesMenuItem => 58,
         ShellSectionHeaderMenuItem => 28,
         SeperatorItem => 9,
