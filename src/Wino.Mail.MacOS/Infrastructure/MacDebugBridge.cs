@@ -104,6 +104,21 @@ public static class MacDebugBridge
             };
             return Task.FromResult("ok");
         });
+        // "pref NAME" prints a preference; "pref NAME VALUE" sets it (bool, number, string or enum member name).
+        Register("pref", args =>
+        {
+            var preferences = Get<IPreferencesService>();
+            var property = typeof(IPreferencesService).GetProperty(args[0]);
+            if (property is null) return Task.FromResult("no preference " + args[0]);
+            if (args.Length > 1)
+            {
+                var text = string.Join(' ', args.Skip(1));
+                var type = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+                object value = type.IsEnum ? Enum.Parse(type, text, true) : Convert.ChangeType(text, type, System.Globalization.CultureInfo.InvariantCulture);
+                property.SetValue(preferences, value);
+            }
+            return Task.FromResult($"{args[0]}={property.GetValue(preferences)}");
+        });
         Register("iconstyle", args =>
         {
             Get<IPreferencesService>().IconStyle = args[0].StartsWith("c", StringComparison.OrdinalIgnoreCase) ? WinoIconStyle.Colorful : WinoIconStyle.Monochrome;
