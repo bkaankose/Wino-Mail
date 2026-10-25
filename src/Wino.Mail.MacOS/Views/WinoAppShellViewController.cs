@@ -8,6 +8,7 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Reader;
 using Wino.Mail.Controls.Core.AccountIcon;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.MacOS.Views.Shell;
@@ -141,6 +142,7 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         _toolbar = new ShellToolbar(() => SearchTarget, ToggleSidebar, Synchronize, ToggleBriefing, ShowWhatsNew, OpenAccount, ReportError,
             () => _commandTarget is not null, CanExecuteCommand, (command, anchor) => { if (_commandTarget is { } target && target.CanExecute(command)) target.Execute(command, anchor); });
         _toolbar.SetAccountHidden(ViewModel.PreferencesService.IsWinoAccountButtonHidden);
+        _toolbar.SetCommandLayout(ReaderCommandLayout.Parse(ViewModel.PreferencesService.ReaderCommandLayout));
         ViewModel.PreferencesService.PreferenceChanged += PreferenceChanged;
         Bindings.Own(new PropertyBinding<WinoAppShellViewModel, bool>(ViewModel, nameof(ViewModel.IsRelayFallbackActive),
             vm => vm.IsRelayFallbackActive, active => _toolbar?.SetRelayFallbackActive(active), Dispatcher, ReportError));
@@ -344,6 +346,9 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
             NSApplication.SharedApplication.BeginInvokeOnMainThread(() => _toolbar?.SetAccountHidden(ViewModel.PreferencesService.IsWinoAccountButtonHidden));
         else if (name == nameof(IPreferencesService.IsCompactAccountMenuItemEnabled))
             NSApplication.SharedApplication.BeginInvokeOnMainThread(() => _sidebar?.ReloadRows());
+        else if (name == nameof(IPreferencesService.ReaderCommandLayout))
+            NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
+                _toolbar?.SetCommandLayout(ReaderCommandLayout.Parse(ViewModel.PreferencesService.ReaderCommandLayout)));
     }
 
     /// <summary>

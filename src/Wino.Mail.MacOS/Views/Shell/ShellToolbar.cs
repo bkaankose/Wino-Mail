@@ -3,6 +3,7 @@ using CoreGraphics;
 using Foundation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Reader;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Presentation.AppKit;
 
@@ -43,6 +44,17 @@ internal sealed class ShellToolbar : NSToolbarDelegate
     private readonly Action<ShellCommand, NSView> _execute;
     private readonly Dictionary<ShellCommand, NSToolbarItem> _commandItems = new();
     private bool _navigationalSpaceAdded;
+    private NSToolbar? _toolbar;
+
+    /// <summary>The three command groups (reply, file, mark); the reader layout setting orders and hides members.</summary>
+    private static readonly ShellCommand[][] CommandGroups =
+    [
+        [ShellCommand.Reply, ShellCommand.ReplyAll, ShellCommand.Forward],
+        [ShellCommand.Archive, ShellCommand.Delete, ShellCommand.Move],
+        [ShellCommand.Flag, ShellCommand.ToggleRead]
+    ];
+
+    private ShellCommand[][] _visibleGroups = CommandGroups;
 
     private readonly Func<IShellSearchTarget?> _searchTarget;
     private readonly Action _toggleSidebar;
@@ -93,26 +105,21 @@ internal sealed class ShellToolbar : NSToolbarDelegate
             AllowsUserCustomization = false,
             AutosavesConfiguration = false
         };
+        _toolbar = toolbar;
         return toolbar;
     }
 
-    private static string[] Identifiers() =>
+    private static readonly string[] LeadingIdentifiers =
     [
         ToggleSidebarId,
         // Adjacent buttons share one glass capsule; the space gives sync a capsule of its own.
         NSToolbar.NSToolbarSpaceItemIdentifier,
         SyncId,
-        NSToolbar.NSToolbarFlexibleSpaceItemIdentifier,
-        CommandId(ShellCommand.Reply),
-        CommandId(ShellCommand.ReplyAll),
-        CommandId(ShellCommand.Forward),
-        NSToolbar.NSToolbarSpaceItemIdentifier,
-        CommandId(ShellCommand.Archive),
-        CommandId(ShellCommand.Delete),
-        CommandId(ShellCommand.Move),
-        NSToolbar.NSToolbarSpaceItemIdentifier,
-        CommandId(ShellCommand.Flag),
-        CommandId(ShellCommand.ToggleRead),
+        NSToolbar.NSToolbarFlexibleSpaceItemIdentifier
+    ];
+
+    private static readonly string[] TrailingIdentifiers =
+    [
         NSToolbar.NSToolbarFlexibleSpaceItemIdentifier,
         SearchId,
         BriefingId,
@@ -120,7 +127,75 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         AccountId
     ];
 
+    private string[] Identifiers() => [.. LeadingIdentifiers, .. CommandIdentifiers(), .. TrailingIdentifiers];
+
+    /// <summary>The visible command groups in the configured order, a space between groups.</summary>
+    private string[] CommandIdentifiers()
+    {
+        var ids = new List<string>();
+        foreach (var group in _visibleGroups)
+        {
+            if (group.Length == 0) continue;
+            if (ids.Count > 0) ids.Add(NSToolbar.NSToolbarSpaceItemIdentifier);
+            ids.AddRange(group.Select(CommandId));
+        }
+        return ids.ToArray();
+    }
+
     private static string CommandId(ShellCommand command) => CommandIdPrefix + command;
+
+    /// <summary>
+    /// Applies the reader action layout (Settings › Reader & Composer › Reader actions): each group keeps
+    /// its members in the configured order and drops the hidden ones. Move has no layout entry and stays.
+    /// </summary>
+    public void SetCommandLayout(IEnumerable<ReaderCommandLayoutEntry> entries)
+    {
+        var order = new Dictionary<ShellCommand, int>();
+        var hidden = new HashSet<ShellCommand>();
+        int position = 0;
+        foreach (var entry in entries)
+        {
+            if (ToShellCommand(entry.Action) is not { } command) continue;
+            order[command] = position++;
+            if (!entry.IsVisible) hidden.Add(command);
+        }
+        var groups = CommandGroups
+            .Select(group => group.Where(command => !hidden.Contains(command))
+                .OrderBy(command => order.TryGetValue(command, out var index) ? index : int.MaxValue)
+                .ToArray())
+            .ToArray();
+        if (groups.Select(group => string.Join(',', group)).SequenceEqual(_visibleGroups.Select(group => string.Join(',', group)))) return;
+        _visibleGroups = groups;
+        RebuildCommandItems();
+    }
+
+    private static ShellCommand? ToShellCommand(ReaderCommandAction action) => action switch
+    {
+        ReaderCommandAction.Reply => ShellCommand.Reply,
+        ReaderCommandAction.ReplyAll => ShellCommand.ReplyAll,
+        ReaderCommandAction.Forward => ShellCommand.Forward,
+        ReaderCommandAction.Archive => ShellCommand.Archive,
+        ReaderCommandAction.Delete => ShellCommand.Delete,
+        ReaderCommandAction.Flag => ShellCommand.Flag,
+        ReaderCommandAction.ReadState => ShellCommand.ToggleRead,
+        _ => null
+    };
+
+    /// <summary>Replaces the command items between the leading and trailing groups with the current layout.</summary>
+    private void RebuildCommandItems()
+    {
+        if (_toolbar is null) return;
+        var items = _toolbar.Items;
+        for (int index = items.Length - 1; index >= LeadingIdentifiers.Length; index--)
+        {
+            var id = items[index].Identifier;
+            if (id.StartsWith(CommandIdPrefix, StringComparison.Ordinal) || id == NSToolbar.NSToolbarSpaceItemIdentifier)
+                _toolbar.RemoveItem(index);
+        }
+        _commandItems.Clear();
+        int insertAt = LeadingIdentifiers.Length;
+        foreach (var id in CommandIdentifiers()) _toolbar.InsertItem(id, insertAt++);
+    }
 
     /// <summary>
     /// The space before sync must be navigational too, or AppKit moves it after the window title
