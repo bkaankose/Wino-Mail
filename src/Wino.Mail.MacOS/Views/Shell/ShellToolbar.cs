@@ -207,21 +207,16 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         _briefingButton = (NSButton)item.View!;
         _briefingButton.SetButtonType(NSButtonType.PushOnPushOff);
         _briefingButton.Activated += (_, _) => Safe(() => _briefing(_briefingButton));
+        // The dot sits inside the button itself: wrapping the button in a container stops the
+        // toolbar from styling it like its siblings, and the bezel then fills the wrong shape.
         _briefingDot = new WinoSurfaceView { CornerRadius = 3, Fill = WinoStyle.Accent, Hidden = true };
         WinoLayout.Size(_briefingDot, 6, 6);
-        var container = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
-        container.AddSubview(_briefingButton);
-        container.AddSubview(_briefingDot);
+        _briefingButton.AddSubview(_briefingDot);
         NSLayoutConstraint.ActivateConstraints(
         [
-            _briefingButton.LeadingAnchor.ConstraintEqualTo(container.LeadingAnchor),
-            _briefingButton.TrailingAnchor.ConstraintEqualTo(container.TrailingAnchor),
-            _briefingButton.TopAnchor.ConstraintEqualTo(container.TopAnchor),
-            _briefingButton.BottomAnchor.ConstraintEqualTo(container.BottomAnchor),
             _briefingDot.TrailingAnchor.ConstraintEqualTo(_briefingButton.TrailingAnchor, -5),
             _briefingDot.TopAnchor.ConstraintEqualTo(_briefingButton.TopAnchor, 4)
         ]);
-        item.View = container;
         item.Hidden = !_briefingVisible;
         ApplyBriefing();
         return item;
