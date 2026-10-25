@@ -416,7 +416,12 @@ internal sealed class ShellPaneCell : NSTableCellView
     }
 
     /// <summary>True when the point (in cell coordinates) is over the trailing chevron area.</summary>
-    public bool IsInChevronArea(CGPoint point) => !_chevron.Hidden && point.X >= Bounds.Width - 34;
+    public bool IsInChevronArea(CGPoint point)
+    {
+        if (_chevron.Hidden) return false;
+        var chevron = ConvertRectFromView(_chevron.Bounds, _chevron);
+        return point.X >= chevron.X - 12;
+    }
 
     protected override void Dispose(bool disposing)
     {

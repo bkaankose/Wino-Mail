@@ -18,6 +18,7 @@ public sealed class WinoShellRowView : NSTableRowView
     private bool _showsIndicator;
     private bool _highlightable = true;
     private bool _isDropTarget;
+    private bool _hovered;
 
     /// <summary>Draws the accent pipe even while the row is not selected.</summary>
     public bool ShowsIndicator
@@ -43,6 +44,29 @@ public sealed class WinoShellRowView : NSTableRowView
         set { if (_isDropTarget == value) return; _isDropTarget = value; NeedsDisplay = true; }
     }
 
+    /// <summary>True while the pointer is over the row; the pane draws a lighter fill than the selection.</summary>
+    public bool IsHovered
+    {
+        get => _hovered;
+        set { if (_hovered == value) return; _hovered = value; NeedsDisplay = true; }
+    }
+
+    public override void UpdateTrackingAreas()
+    {
+        base.UpdateTrackingAreas();
+        foreach (var area in TrackingAreas()) RemoveTrackingArea(area);
+        AddTrackingArea(new NSTrackingArea(Bounds, NSTrackingAreaOptions.MouseEnteredAndExited | NSTrackingAreaOptions.ActiveInKeyWindow | NSTrackingAreaOptions.InVisibleRect, this, null));
+    }
+
+    public override void MouseEntered(NSEvent theEvent) => IsHovered = true;
+    public override void MouseExited(NSEvent theEvent) => IsHovered = false;
+
+    public override void PrepareForReuse()
+    {
+        base.PrepareForReuse();
+        IsHovered = false;
+    }
+
     /// <summary>Cells keep their own colours; nothing is inverted on selection.</summary>
     public override NSBackgroundStyle InteriorBackgroundStyle => NSBackgroundStyle.Normal;
 
@@ -58,8 +82,16 @@ public sealed class WinoShellRowView : NSTableRowView
     public override void DrawBackground(CGRect dirtyRect)
     {
         base.DrawBackground(dirtyRect);
+        if (!Selected && _hovered && _highlightable && !_isDropTarget) DrawHover();
         if (!Selected && _showsIndicator) DrawIndicator();
         if (_isDropTarget) DrawDropTarget();
+    }
+
+    private void DrawHover()
+    {
+        var rect = new CGRect(Bounds.X + HorizontalInset, Bounds.Y + 0.5, Bounds.Width - HorizontalInset * 2, Bounds.Height - 1);
+        WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.035), WinoStyle.Hex(0xFFFFFF, 0.06)).SetFill();
+        NSBezierPath.FromRoundedRect(rect, (nfloat)CornerRadius, (nfloat)CornerRadius).Fill();
     }
 
     private void DrawDropTarget()

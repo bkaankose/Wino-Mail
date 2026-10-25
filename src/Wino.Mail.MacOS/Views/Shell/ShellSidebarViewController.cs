@@ -259,8 +259,15 @@ internal sealed partial class ShellSidebarViewController : NSViewController
         }
 
         /// <summary>
+        /// The disclosure triangle gets no frame; the cell's trailing chevron is the pane's control.
+        /// The delegate still reports the outline cell as shown, because AppKit refuses to collapse
+        /// items otherwise.
+        /// </summary>
+        public override CGRect FrameOfOutlineCellAtRow(nint row) => CGRect.Empty;
+
+        /// <summary>
         /// AppKit reserves an 18pt disclosure gutter before every outline cell even though the pane
-        /// never shows the outline cell (expansion uses the trailing chevron). Dropping it puts root
+        /// never draws the triangle (expansion uses the trailing chevron). Dropping it puts root
         /// rows right beside the selection pipe, like the Windows NavigationView, and leaves only
         /// <see cref="NSOutlineView.IndentationPerLevel"/> per nesting level.
         /// </summary>
@@ -402,6 +409,9 @@ internal sealed partial class ShellSidebarViewController : NSViewController
 
         public bool HasChildren(IMenuItem item) => ShellMenuItemRules.Children(item).Any(ShellMenuItemRules.IsShown);
 
+        /// <summary>True while an outline notification writes IsExpanded back to the model.</summary>
+        public bool SuppressOutlineSync { get; set; }
+
         public void Bind(IList<IMenuItem>? items)
         {
             Detach();
@@ -475,6 +485,12 @@ internal sealed partial class ShellSidebarViewController : NSViewController
                     switch (args.PropertyName)
                     {
                         case nameof(IMenuItem.IsExpanded):
+                            if (SuppressOutlineSync)
+                            {
+                                // Raised from the outline's own notification: only the chevron needs updating, after the outline finishes.
+                                NSApplication.SharedApplication.BeginInvokeOnMainThread(() => { if (!_disposed) Refresh(item, node, remeasure: false); });
+                                return;
+                            }
                             if (item.IsExpanded) owner._outline.ExpandItem(node);
                             else owner._outline.CollapseItem(node);
                             Refresh(item, node, remeasure: false);
@@ -627,14 +643,20 @@ internal sealed partial class ShellSidebarViewController : NSViewController
 
         public override nfloat GetRowHeight(NSOutlineView outlineView, NSObject item) => (nfloat)ShellPaneRows.Height(((Node)item).Item, owner._context.CompactAccounts());
 
-        public override bool ShouldShowOutlineCell(NSOutlineView outlineView, NSObject item) => false;
+        /// <summary>
+        /// Stays true even though the pane never shows the disclosure triangle (the outline subclass
+        /// gives it an empty frame): with false, AppKit's collapseItem: is a no-op and expanded rows
+        /// such as More can never be collapsed again.
+        /// </summary>
+        public override bool ShouldShowOutlineCell(NSOutlineView outlineView, NSObject item) => true;
 
         public override bool ShouldSelectItem(NSOutlineView outlineView, NSObject item)
         {
             var node = (Node)item;
             if (!owner.IsSelectable(node.Item)) return false;
-            // A click on the chevron of an expandable folder toggles it instead of selecting.
-            if (owner._rows.HasChildren(node.Item) && NSApplication.SharedApplication.CurrentEvent is { Type: NSEventType.LeftMouseDown } click)
+            // A click on the chevron of an expandable folder toggles it instead of selecting. The
+            // outline is a drag source, so AppKit may defer the selection to the mouse up.
+            if (owner._rows.HasChildren(node.Item) && NSApplication.SharedApplication.CurrentEvent is { Type: NSEventType.LeftMouseDown or NSEventType.LeftMouseUp } click)
             {
                 var row = outlineView.RowForItem(item);
                 if (row >= 0 && outlineView.GetView(0, row, false) is ShellPaneCell cell && cell.IsInChevronArea(cell.ConvertPointFromView(click.LocationInWindow, null)))
@@ -664,14 +686,21 @@ internal sealed partial class ShellSidebarViewController : NSViewController
             owner.Invoke(node.Item);
         }
 
-        public override void ItemDidExpand(NSNotification notification)
-        {
-            if (notification.UserInfo?["NSObject"] is Node node && !node.Item.IsExpanded && node.Item is MenuItemBase menu) menu.IsExpanded = true;
-        }
+        public override void ItemDidExpand(NSNotification notification) => SyncModel(notification, true);
 
-        public override void ItemDidCollapse(NSNotification notification)
+        public override void ItemDidCollapse(NSNotification notification) => SyncModel(notification, false);
+
+        /// <summary>
+        /// Mirrors the outline's expansion into the model. The model change must not call back into
+        /// ExpandItem/CollapseItem: the notification arrives while NSOutlineView is still inside its
+        /// own expand or collapse, and a re-entrant call leaves the outline unable to collapse later.
+        /// </summary>
+        private void SyncModel(NSNotification notification, bool expanded)
         {
-            if (notification.UserInfo?["NSObject"] is Node node && node.Item.IsExpanded && node.Item is MenuItemBase menu) menu.IsExpanded = false;
+            if (notification.UserInfo?["NSObject"] is not Node node || node.Item.IsExpanded == expanded || node.Item is not MenuItemBase menu) return;
+            owner._rows.SuppressOutlineSync = true;
+            try { menu.IsExpanded = expanded; }
+            finally { owner._rows.SuppressOutlineSync = false; }
         }
     }
 }
