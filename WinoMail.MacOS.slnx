@@ -20,7 +20,4 @@
     <Project Path="src/Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
     <Project Path="controls/Wino.Mail.Controls.Core/Wino.Mail.Controls.Core.csproj" />
   </Folder>
-  <Folder Name="/Tools/">
-    <Project Path="tools/Wino.Relay.Console/Wino.Relay.Console.csproj" />
-  </Folder>
 </Solution>

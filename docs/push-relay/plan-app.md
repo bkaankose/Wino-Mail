@@ -234,7 +234,7 @@ unset preference plus account count is.
   with accounts and a `SyncMethod` key removed from preferences, both outcomes and the decline path.
 - macOS native Debug arm64 and x64; iOS Simulator (expect the sign-in fallback) and a device build for
   App Attest; Android emulator (expect the sign-in fallback) and a Play internal-testing build.
-- Live relay test with `tools/Wino.Relay.Console` once the relay accepts device tokens.
+- Live relay test from a running app once the relay accepts device tokens.
 
 ## Decisions (closed 2026-10-17)
 
