@@ -341,14 +341,22 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private void Bind<TValue>(string property, Func<MailRenderingPageViewModel, TValue> read, Action<TValue> apply)
         => Bindings.Own(new PropertyBinding<MailRenderingPageViewModel, TValue>(ViewModel, property, read, apply, Dispatcher, ReportError));
 
+    private bool _attachmentsQueued;
+
     private void ObserveCollection(INotifyCollectionChanged collection, bool attachments = false)
     {
-        NotifyCollectionChangedEventHandler handler = (_, _) => _ = Dispatcher.ExecuteOnUIThread(() =>
+        NotifyCollectionChangedEventHandler handler = (_, _) =>
         {
-            if (Bindings.IsDisposed) return;
-            if (attachments) UpdateAttachments();
-            else UpdateRecipients();
-        });
+            if (!attachments) { _ = Dispatcher.ExecuteOnUIThread(() => { if (!Bindings.IsDisposed) UpdateRecipients(); }); return; }
+            // Both attachment collections change item by item while a message loads; one rebuild per turn.
+            if (_attachmentsQueued) return;
+            _attachmentsQueued = true;
+            NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
+            {
+                _attachmentsQueued = false;
+                if (!Bindings.IsDisposed) UpdateAttachments();
+            });
+        };
         collection.CollectionChanged += handler;
         Bindings.Own(new ActionDisposable(() => collection.CollectionChanged -= handler));
     }
@@ -512,10 +520,13 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         tile.AccessibilityLabel = $"{attachment.FileName}, {attachment.ReadableSize}";
         tile.Opened += (_, _) => Observe(ViewModel.OpenAttachmentCommand.ExecuteAsync(attachment));
         tile.Menu = new NSMenu();
-        tile.Menu.AddItem(new NSMenuItem(Translator.Buttons_Open, (_, _) => Observe(ViewModel.OpenAttachmentCommand.ExecuteAsync(attachment))) { Image = WinoIcons.Image(WinoIconGlyph.Open, 16) });
-        tile.Menu.AddItem(new NSMenuItem(Translator.Buttons_Save, (_, _) => Observe(ViewModel.SaveAttachmentCommand.ExecuteAsync(attachment))) { Image = WinoIcons.Image(WinoIconGlyph.Save, 16) });
+        tile.Menu.AddItem(new NSMenuItem(Translator.Buttons_Open, (_, _) => Observe(ViewModel.OpenAttachmentCommand.ExecuteAsync(attachment))) { Image = OpenIcon });
+        tile.Menu.AddItem(new NSMenuItem(Translator.Buttons_Save, (_, _) => Observe(ViewModel.SaveAttachmentCommand.ExecuteAsync(attachment))) { Image = SaveIcon });
         return tile;
     }
+
+    private static readonly NSImage OpenIcon = WinoIcons.Image(WinoIconGlyph.Open, 16);
+    private static readonly NSImage SaveIcon = WinoIcons.Image(WinoIconGlyph.Save, 16);
 
     private static NSColor ExtensionColor(string extension) => extension switch
     {

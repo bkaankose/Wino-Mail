@@ -13,6 +13,10 @@ namespace Wino.Presentation.AppKit;
 /// </summary>
 public static class WinoCheckbox
 {
+    /// <summary>
+    /// <paramref name="activated"/> must not capture a reusable cell: the button keeps it alive natively.
+    /// Cells create the box without it and attach <see cref="WinoControlEvents.OnActivated{T}(NSControl, T, Action{T})"/>.
+    /// </summary>
     public static NSButton Create(string? title, Action? activated = null)
     {
         var button = new NSButton { Cell = new WinoCheckboxCell(), TranslatesAutoresizingMaskIntoConstraints = false };

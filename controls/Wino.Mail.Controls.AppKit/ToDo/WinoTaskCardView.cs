@@ -36,6 +36,7 @@ public sealed class WinoTaskCardView : NSTableCellView
 
     public WinoTaskCardView()
     {
+        WinoLiveObjects.Track(this);
         Identifier = ReuseIdentifier;
         WinoLayout.Fill(_card, this, 2, 0, 2, 0);
 
@@ -60,7 +61,7 @@ public sealed class WinoTaskCardView : NSTableCellView
         text.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
 
         _star = WinoToDoStyle.IconButton(WinoIconGlyph.Star, string.Empty, 15, 24, 24, WinoStyle.SecondaryText);
-        _star.Activated += (_, _) => ImportanceToggled?.Invoke(this, EventArgs.Empty);
+        _star.OnActivated(this, static card => card.ImportanceToggled?.Invoke(card, EventArgs.Empty));
 
         var row = WinoLayout.HStack(12, _check, text, WinoLayout.Spacer(), _star);
         row.EdgeInsets = new NSEdgeInsets(10, 12, 10, 12);

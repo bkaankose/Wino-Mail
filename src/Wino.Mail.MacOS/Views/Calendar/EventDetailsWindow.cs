@@ -71,7 +71,7 @@ internal sealed class EventDetailsWindow
             return;
         }
 
-        var page = services.GetRequiredService<EventDetailsPageViewController>();
+        var page = Infrastructure.PageScopes.Resolve<EventDetailsPageViewController>(services);
         page.IsInOwnWindow = true;
         try
         {

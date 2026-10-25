@@ -274,7 +274,7 @@ public sealed class AppKitNavigationService : INavigationService, INavigationHos
         if (!_registry.TryGet(page, out var type, out _))
             throw new NotSupportedException($"The native route {page} has not been implemented.");
         NSViewController? created = null;
-        await _dispatcher.ExecuteOnUIThread(() => created = (NSViewController)_services.GetRequiredService(type));
+        await _dispatcher.ExecuteOnUIThread(() => created = (NSViewController)PageScopes.Resolve(_services, type));
         return created ?? throw new InvalidOperationException($"The native route {page} produced no controller.");
     }
 

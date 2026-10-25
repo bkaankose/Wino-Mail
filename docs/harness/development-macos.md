@@ -111,6 +111,10 @@ On 2026-10-07, the production arm64 app hit a source breakpoint at `Program.cs:9
 - Add one `InVisibleRect` tracking area per view and keep it; do not rebuild it in `UpdateTrackingAreas`.
 - Timers and observers that reference a view start in `ViewDidMoveToWindow` when the window is set and stop when it is cleared.
 - Coalesce collection bursts into one reload per run-loop turn with `BeginInvokeOnMainThread` and a flag; `IDispatcher.ExecuteOnUIThread` runs inline on the main thread and does not coalesce.
+- A framework control (`NSButton`, `NSMenuItem`, `NSTextField`) with a managed event handler keeps its managed wrapper rooted while its native object lives. A handler that captures the owning cell or page forms a cycle across the native boundary that the collector cannot break. In reusable cells attach handlers with `WinoControlEvents.OnActivated(control, this, static owner => ...)`; never pass a capturing lambda to `WinoCheckbox.Create` from a cell. Menus owned by a view are released with `WinoMenus.DisposeTree`.
+- Page controllers resolve from DI through `PageScopes.Resolve`, which gives each page its own scope; a transient `IDisposable` resolved from the root provider is tracked until the app exits.
+- `WinoViewController.Dispose` disposes child controllers, removes the page view from its superview and disposes every wrapper in the tree (`ViewTreeDisposal`), including table and pop-up menus. A page that keeps extra native objects outside its view tree (menus shown with `PopUpMenu`, windows, timers) releases them in its own `Dispose` override.
+- Check for leaks with the debug bridge: `live` prints the tracked view and page instances that survive a full collection (the second number is instances whose native peer is already disposed), `chain <Type>` prints their superview chains, and `scripts/maintenance/macos/collect-gcdump.sh` collects a GC heap graph (the sandbox truncates the diagnostics socket name, so the script proxies it; `dotnet-dump` cannot run inside the sandbox). Launch the binary directly for a diagnostics socket; an `open`-launched instance has none.
 
 ## Verification
 

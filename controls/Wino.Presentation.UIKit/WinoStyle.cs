@@ -62,10 +62,16 @@ public static class WinoStyle
     public static UIColor? AccentOverride
     {
         get => _accentOverride;
-        set { _accentOverride = value; AccentChanged?.Invoke(null, EventArgs.Empty); }
+        set { _accentOverride = value; AccentChanged?.Invoke(null, EventArgs.Empty); AccentWatchers.Raise(); }
     }
 
     private static UIColor? _accentOverride;
+
+    /// <summary>Weak counterpart of <see cref="AccentChanged"/> for views that are created many times (cells, tiles, chips).</summary>
+    public static WinoWeakEvent AccentWatchers { get; } = new();
+
+    /// <summary>Weak counterpart of <see cref="BackdropChanged"/>.</summary>
+    public static WinoWeakEvent BackdropWatchers { get; } = new();
 
     /// <summary>Raised on the UI thread after the accent changes, so long-lived views can refresh.</summary>
     public static event EventHandler? AccentChanged;
@@ -74,7 +80,7 @@ public static class WinoStyle
     public static bool HasBackdrop
     {
         get => _hasBackdrop;
-        set { _hasBackdrop = value; BackdropChanged?.Invoke(null, EventArgs.Empty); }
+        set { _hasBackdrop = value; BackdropChanged?.Invoke(null, EventArgs.Empty); BackdropWatchers.Raise(); }
     }
 
     private static bool _hasBackdrop;

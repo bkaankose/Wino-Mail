@@ -34,6 +34,7 @@ public abstract class WinoViewController<TViewModel> : NSViewController, IWinoVi
 
     protected WinoViewController(TViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
     {
+        WinoLiveObjects.Track(this);
         ViewModel = viewModel;
         Dispatcher = dispatcher;
         Logger = logger;
@@ -108,8 +109,10 @@ public abstract class WinoViewController<TViewModel> : NSViewController, IWinoVi
             _active = false;
             _released = true;
             ViewModel.Dispatcher = null!;
+            ViewTreeDisposal.DisposeController(this);
         }
         base.Dispose(disposing);
+        if (disposing) PageScopes.Release(this);
     }
 }
 
@@ -117,4 +120,63 @@ internal sealed class ActionDisposable(Action dispose) : IDisposable
 {
     private Action? _dispose = dispose;
     public void Dispose() => Interlocked.Exchange(ref _dispose, null)?.Invoke();
+}
+
+/// <summary>
+/// Releases the managed peers of a page's view tree once the tree has left the window. A framework
+/// view (an NSButton, an NSTextField) with a managed event handler keeps a strong handle on its
+/// managed wrapper while its native object lives; the handler references the parent view, whose
+/// managed wrapper retains the native parent, which retains the button. That cycle crosses the
+/// managed/native boundary, so the collector never breaks it and a detached page stays in memory
+/// with every cell, card and ViewModel it holds. Disposing the wrappers bottom-up lets the native
+/// objects reach a zero retain count and the cycle unwinds.
+/// </summary>
+public static class ViewTreeDisposal
+{
+    /// <summary>
+    /// A disposed page is gone for good: its child controllers go first (a split view controller's
+    /// wrapper otherwise keeps the native tree alive through the page), then its view leaves the
+    /// hierarchy and every peer in the tree is released.
+    /// </summary>
+    public static void DisposeController(NSViewController controller)
+    {
+        if (controller.Handle == IntPtr.Zero) return;
+        foreach (var child in controller.ChildViewControllers)
+        {
+            DisposeController(child);
+            if (child.Handle != IntPtr.Zero) { child.RemoveFromParentViewController(); child.Dispose(); }
+        }
+        if (controller.ViewLoaded) DisposeTree(controller.View);
+    }
+
+    public static void DisposeTree(NSView root)
+    {
+        if (root.Handle == IntPtr.Zero) return;
+        if (root.Superview is not null) root.RemoveFromSuperview();
+        Dispose(root);
+    }
+
+    private static void Dispose(NSView view)
+    {
+        if (view.Handle == IntPtr.Zero) return;
+        // A context menu's items keep handlers that reference the page; text views share the system
+        // menu, so theirs stay.
+        if (view is not (NSText or NSTextField or WebKit.WKWebView) && view.Menu is { } menu)
+        {
+            view.Menu = null;
+            WinoMenus.DisposeTree(menu);
+        }
+        switch (view)
+        {
+            case NSTableView table:
+                table.DataSource = null!;
+                table.Delegate = null!;
+                break;
+            case NSScrollView scroll when scroll.DocumentView is NSView document:
+                Dispose(document);
+                break;
+        }
+        foreach (var child in view.Subviews) Dispose(child);
+        view.Dispose();
+    }
 }

@@ -102,7 +102,11 @@ public sealed class WinoChipButton : WinoPressableView
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) WinoStyle.AccentWatchers.Remove(this);
+        if (disposing)
+        {
+            WinoStyle.AccentWatchers.Remove(this);
+            if (_menu is { } menu) { _menu = null; WinoMenus.DisposeTree(menu); }
+        }
         base.Dispose(disposing);
     }
 }

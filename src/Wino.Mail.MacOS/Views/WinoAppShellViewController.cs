@@ -143,6 +143,7 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
             () => _commandTarget is not null, CanExecuteCommand, (command, anchor) => { if (_commandTarget is { } target && target.CanExecute(command)) target.Execute(command, anchor); });
         _toolbar.SetAccountHidden(ViewModel.PreferencesService.IsWinoAccountButtonHidden);
         _toolbar.SetCommandLayout(ReaderCommandLayout.Parse(ViewModel.PreferencesService.ReaderCommandLayout));
+        _toolbar.SetCommandLabels(ViewModel.PreferencesService.IsShowActionLabelsEnabled);
         ViewModel.PreferencesService.PreferenceChanged += PreferenceChanged;
         Bindings.Own(new PropertyBinding<WinoAppShellViewModel, bool>(ViewModel, nameof(ViewModel.IsRelayFallbackActive),
             vm => vm.IsRelayFallbackActive, active => _toolbar?.SetRelayFallbackActive(active), Dispatcher, ReportError));
@@ -349,6 +350,8 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         else if (name == nameof(IPreferencesService.ReaderCommandLayout))
             NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
                 _toolbar?.SetCommandLayout(ReaderCommandLayout.Parse(ViewModel.PreferencesService.ReaderCommandLayout)));
+        else if (name == nameof(IPreferencesService.IsShowActionLabelsEnabled))
+            NSApplication.SharedApplication.BeginInvokeOnMainThread(() => _toolbar?.SetCommandLabels(ViewModel.PreferencesService.IsShowActionLabelsEnabled));
     }
 
     /// <summary>

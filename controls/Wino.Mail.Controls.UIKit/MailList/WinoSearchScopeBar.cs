@@ -62,7 +62,7 @@ public sealed class WinoSearchScopeBar : WinoSurfaceView
         ]);
 
         ShouldGroupAccessibilityChildren = true;
-        WinoStyle.AccentChanged += AccentChanged;
+        WinoStyle.AccentWatchers.Add(this, static view => view.AccentChanged(null, EventArgs.Empty));
     }
 
     public event EventHandler? ReachChanged;
@@ -176,7 +176,7 @@ public sealed class WinoSearchScopeBar : WinoSurfaceView
     {
         if (disposing)
         {
-            WinoStyle.AccentChanged -= AccentChanged;
+            WinoStyle.AccentWatchers.Remove(this);
             ReachChanged = null;
             ScopeChanged = null;
             DoneClicked = null;

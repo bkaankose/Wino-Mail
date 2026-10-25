@@ -74,7 +74,7 @@ public sealed class EmlReaderSheet
         }
 
         MailRenderingPageViewController? created = null;
-        await dispatcher.ExecuteOnUIThread(() => created = services.GetRequiredService<MailRenderingPageViewController>());
+        await dispatcher.ExecuteOnUIThread(() => created = Infrastructure.PageScopes.Resolve<MailRenderingPageViewController>(services));
         if (created is not { } page)
         {
             DeleteFolder(workingFolder);

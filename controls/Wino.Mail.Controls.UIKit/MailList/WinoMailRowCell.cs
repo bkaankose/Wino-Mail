@@ -144,7 +144,7 @@ public class WinoMailRowCell : UITableViewCell
         chevronConfiguration.ContentInsets = new NSDirectionalEdgeInsets(0, 0, 0, 0);
         _chevron = new UIButton { Configuration = chevronConfiguration, Hidden = true, TranslatesAutoresizingMaskIntoConstraints = false };
         WinoLayout.Size(_chevron, 16, 16);
-        _chevron.PrimaryActionTriggered += (_, _) => ThreadToggleRequested?.Invoke(this, EventArgs.Empty);
+        _chevron.OnPrimaryAction(this, static cell => cell.ThreadToggleRequested?.Invoke(cell, EventArgs.Empty));
         _subject = WinoStyle.Label(string.Empty, WinoMailRowMeasure.Font(WinoMailRowMetrics.PrimaryFontSize));
         WinoLayout.Priorities(_subject, UILayoutConstraintAxis.Horizontal, 1, 200);
         _date = WinoStyle.Label(string.Empty, WinoMailRowMeasure.Font(11), UIColor.Label.ColorWithAlpha(0.7f));
@@ -205,7 +205,7 @@ public class WinoMailRowCell : UITableViewCell
         AddGestureRecognizer(new UIHoverGestureRecognizer(PointerChanged));
 
         IsAccessibilityElement = true;
-        WinoStyle.AccentChanged += AccentChanged;
+        WinoStyle.AccentWatchers.Add(this, static view => view.AccentChanged(null, EventArgs.Empty));
         ApplyHoverActions();
         ApplyColors();
         ApplySelection();
@@ -613,7 +613,7 @@ public class WinoMailRowCell : UITableViewCell
     {
         if (disposing)
         {
-            WinoStyle.AccentChanged -= AccentChanged;
+            WinoStyle.AccentWatchers.Remove(this);
             Subscription = null;
             HoverActionInvoked = null;
             ThreadToggleRequested = null;

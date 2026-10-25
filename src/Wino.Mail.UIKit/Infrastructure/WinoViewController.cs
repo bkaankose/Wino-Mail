@@ -157,8 +157,10 @@ public abstract class WinoViewController<TViewModel> : UIViewController, IWinoVi
             if (_active && !_released) ViewModel.OnNavigatedFrom(NavigationMode.New, null);
             _active = false;
             _released = true;
+            ViewTreeDisposal.DisposeController(this);
         }
         base.Dispose(disposing);
+        if (disposing) PageScopes.Release(this);
     }
 }
 
@@ -167,4 +169,51 @@ public sealed class ActionDisposable(Action dispose) : IDisposable
 {
     private Action? _dispose = dispose;
     public void Dispose() => Interlocked.Exchange(ref _dispose, null)?.Invoke();
+}
+
+/// <summary>
+/// Releases the managed peers of a page's view tree once the tree has left the window. A framework
+/// view with a managed event handler keeps a strong handle on its wrapper while its native object
+/// lives; the handler references the parent view, whose wrapper retains the native parent, which
+/// retains the child. The collector cannot break that managed/native cycle, so disposing the
+/// wrappers bottom-up is what lets a detached page go.
+/// </summary>
+public static class ViewTreeDisposal
+{
+    /// <summary>A disposed page is gone for good: child controllers first, then its view leaves the hierarchy and every peer in the tree is released.</summary>
+    public static void DisposeController(UIViewController controller)
+    {
+        if (controller.Handle == IntPtr.Zero) return;
+        foreach (var child in controller.ChildViewControllers)
+        {
+            DisposeController(child);
+            if (child.Handle != IntPtr.Zero) { child.RemoveFromParentViewController(); child.Dispose(); }
+        }
+        if (controller.IsViewLoaded && controller.View is { } view) DisposeTree(view);
+    }
+
+    public static void DisposeTree(UIView root)
+    {
+        if (root.Handle == IntPtr.Zero) return;
+        if (root.Superview is not null) root.RemoveFromSuperview();
+        Dispose(root);
+    }
+
+    private static void Dispose(UIView view)
+    {
+        if (view.Handle == IntPtr.Zero) return;
+        switch (view)
+        {
+            case UITableView table:
+                table.DataSource = null!;
+                table.Delegate = null!;
+                break;
+            case UICollectionView collection:
+                collection.DataSource = null!;
+                collection.Delegate = null!;
+                break;
+        }
+        foreach (var child in view.Subviews) Dispose(child);
+        view.Dispose();
+    }
 }

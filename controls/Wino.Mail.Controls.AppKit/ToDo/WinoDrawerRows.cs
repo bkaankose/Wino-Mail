@@ -117,7 +117,11 @@ public sealed class WinoDrawerActionRow : WinoPressableView
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) WinoStyle.AccentWatchers.Remove(this);
+        if (disposing)
+        {
+            WinoStyle.AccentWatchers.Remove(this);
+            if (Menu is { } menu) { Menu = null; WinoMenus.DisposeTree(menu); }
+        }
         base.Dispose(disposing);
     }
 }

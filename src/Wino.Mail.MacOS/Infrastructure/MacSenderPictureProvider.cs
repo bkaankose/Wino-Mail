@@ -68,19 +68,19 @@ public sealed class MacSenderPictureProvider : IRecipient<ThumbnailAdded>
         var token = new object();
         _loading[key] = token;
         string? path = null;
-        try { path = (await _thumbnails.GetThumbnailAsync(key).ConfigureAwait(false))?.FilePath; }
-        catch { }
+        NSImage? image = null;
+        try
+        {
+            path = (await _thumbnails.GetThumbnailAsync(key).ConfigureAwait(false))?.FilePath;
+            // The file check and decode stay on this background continuation; the main thread only stores the result.
+            if (path is not null && File.Exists(path)) image = new NSImage(path);
+            if (image is { IsValid: false }) image = null;
+        }
+        catch { image = null; }
         OnMain(() =>
         {
             if (!_loading.TryGetValue(key, out var current) || !ReferenceEquals(current, token)) return;
             _loading.Remove(key);
-            NSImage? image = null;
-            try
-            {
-                if (path is not null && File.Exists(path)) image = new NSImage(path);
-            }
-            catch { }
-            if (image is { IsValid: false }) image = null;
             _images.TryGetValue(key, out var previous);
             _images[key] = image;
             if (image is not null || previous is not null) PictureChanged?.Invoke(this, key);

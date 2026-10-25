@@ -74,6 +74,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
 
     public WinoCalendarSurfaceView()
     {
+        WinoLiveObjects.Track(this);
         TranslatesAutoresizingMaskIntoConstraints = false;
         WantsLayer = true;
         _header = new HeaderView(this);
@@ -129,7 +130,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
             _clock?.Invalidate();
             _clock = null;
         }
-        else _clock ??= NSTimer.CreateRepeatingScheduledTimer(60, _ => _timedRail.NeedsDisplay = true);
+        else _clock ??= NSTimer.CreateRepeatingScheduledTimer(60, _ => _timedRail.InvalidateNowLine());
     }
 
     /// <summary>Converts an item into what its tile shows. Set before items arrive.</summary>
@@ -423,6 +424,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
 
         protected void SyncTiles(IEnumerable<CalendarItemPlacement> placements)
         {
+            bool attached = false;
             var seen = new HashSet<(ICalendarItem, DateOnly)>();
             foreach (var placement in placements)
             {
@@ -434,6 +436,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
                     view.Hidden = false;
                     _active[key] = view;
                     if (view.Superview != this) AddSubview(view);
+                    attached = true;
                 }
                 view.Item = placement.Item;
                 view.Kind = placement.Kind;
@@ -452,8 +455,9 @@ public sealed partial class WinoCalendarSurfaceView : NSView
                 if (_spare.Count < 64) _spare.Push(view);
                 else { view.RemoveFromSuperview(); view.Dispose(); }
             }
-            // Ghosts behind real tiles: re-adding a subview moves it to the top.
-            if (_active.Values.Any(v => v.Kind == CalendarPlacementKind.MultiDayGhost))
+            // Ghosts behind real tiles: re-adding a subview moves it to the top. Only a pass that
+            // attached new tiles can change the order, so unchanged layouts skip the reordering.
+            if (attached && _active.Values.Any(v => v.Kind == CalendarPlacementKind.MultiDayGhost))
                 foreach (var view in _active.Values.Where(v => v.Kind != CalendarPlacementKind.MultiDayGhost)) AddSubview(view);
         }
 
@@ -744,6 +748,17 @@ public sealed partial class WinoCalendarSurfaceView : NSView
             NeedsDisplay = true;
         }
 
+        private double _lastNowY = -1;
+
+        /// <summary>The clock tick repaints only the strip around the old and new current-time line, not the whole rail.</summary>
+        public void InvalidateNowLine()
+        {
+            double y = TimelinePadding + DateTime.Now.TimeOfDay.TotalHours * Owner.HourHeight;
+            double low = _lastNowY < 0 ? y : Math.Min(_lastNowY, y);
+            double high = _lastNowY < 0 ? y : Math.Max(_lastNowY, y);
+            SetNeedsDisplayInRect(new CGRect(0, low - 8, Bounds.Width, high - low + 16));
+        }
+
         public override void DrawRect(CGRect dirtyRect)
         {
             var bounds = Bounds;
@@ -756,9 +771,15 @@ public sealed partial class WinoCalendarSurfaceView : NSView
             int visibleCount = Owner.VisibleUnitCount;
             var settings = Owner.CurrentSettings;
             double top = TimelinePadding;
+            // Only the columns and 30-minute lines inside the dirty rect are painted; a selection or
+            // clock change otherwise re-rasterised the whole realized window.
+            int firstColumn = dayWidth > 0 ? Math.Max(0, (int)Math.Floor((dirtyRect.GetMinX() - HourColumnWidth) / dayWidth) - 1) : 0;
+            int lastColumn = dayWidth > 0 ? Math.Min(dates.Count - 1, (int)Math.Ceiling((dirtyRect.GetMaxX() - HourColumnWidth) / dayWidth) + 1) : dates.Count - 1;
+            int firstInterval = intervalHeight > 0 ? Math.Max(0, (int)Math.Floor((dirtyRect.GetMinY() - top) / intervalHeight) - 1) : 0;
+            int lastInterval = intervalHeight > 0 ? Math.Min(intervals, (int)Math.Ceiling((dirtyRect.GetMaxY() - top) / intervalHeight) + 1) : intervals;
 
             // Weekend columns.
-            for (int index = 0; index < dates.Count; index++)
+            for (int index = firstColumn; index <= lastColumn; index++)
             {
                 if (WinoCalendarSurfaceGeometry.IsShadedWeekend(dates[index], visibleCount))
                 {
@@ -773,7 +794,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
                 var offHours = WinoThemeSurfaces.Dynamic(WinoThemeSurface.CalendarDefaultHour, WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.02), WinoStyle.Hex(0x000000, 0.10)));
                 var workHours = WinoThemeSurfaces.Dynamic(WinoThemeSurface.CalendarWorkHour, NSColor.Clear);
                 double workStart = settings.WorkingHourStart.TotalHours, workEnd = settings.WorkingHourEnd.TotalHours;
-                for (int index = 0; index < dates.Count; index++)
+                for (int index = firstColumn; index <= lastColumn; index++)
                 {
                     bool workingDay = settings.WorkingDays.Contains(dates[index].DayOfWeek);
                     double x = HourColumnWidth + index * dayWidth;
@@ -786,7 +807,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
             }
 
             // Horizontal 30-minute lines.
-            for (int interval = 0; interval <= intervals; interval++)
+            for (int interval = firstInterval; interval <= lastInterval; interval++)
             {
                 double y = top + interval * intervalHeight;
                 (interval % 2 == 0 ? LineColor : MinorLineColor).SetFill();
@@ -795,7 +816,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
 
             // Day boundaries, just left of each column so the one on the gutter is clipped.
             LineColor.SetFill();
-            for (int index = 0; index <= dates.Count; index++)
+            for (int index = firstColumn; index <= Math.Min(dates.Count, lastColumn + 1); index++)
                 FillRect(new CGRect(Math.Round(HourColumnWidth + index * dayWidth) - 1, 0, 1, bounds.Height));
 
             // Current time across the period that holds today.
@@ -803,6 +824,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
             {
                 var now = DateTime.Now;
                 double y = top + now.TimeOfDay.TotalHours * hourHeight;
+                _lastNowY = y;
                 NowColor.SetFill();
                 FillRect(new CGRect(HourColumnWidth + span.First * dayWidth, y - 1, span.Count * dayWidth, 2));
                 if (span.TodayIndex >= 0)

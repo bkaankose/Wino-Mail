@@ -68,7 +68,13 @@ public sealed partial class ComposePageViewController
 
     private void BindAttachments()
     {
-        NotifyCollectionChangedEventHandler attachments = (_, _) => _ = Dispatcher.ExecuteOnUIThread(UpdateAttachments);
+        // Attaching several files raises one event per file; one rebuild per run-loop turn.
+        NotifyCollectionChangedEventHandler attachments = (_, _) =>
+        {
+            if (_attachmentsQueued) return;
+            _attachmentsQueued = true;
+            NSApplication.SharedApplication.BeginInvokeOnMainThread(() => { _attachmentsQueued = false; UpdateAttachments(); });
+        };
         ViewModel.IncludedAttachments.CollectionChanged += attachments;
         Bindings.Own(new ActionDisposable(() => ViewModel.IncludedAttachments.CollectionChanged -= attachments));
         Bind(nameof(ViewModel.AttachmentsSummary), vm => vm.AttachmentsSummary, summary =>
@@ -78,6 +84,8 @@ public sealed partial class ComposePageViewController
         });
         UpdateAttachments();
     }
+
+    private bool _attachmentsQueued;
 
     private void UpdateAttachments()
     {
@@ -116,11 +124,17 @@ public sealed partial class ComposePageViewController
     private void DisposeAttachments() => UnsubscribeAttachments();
 
     /// <summary>The Finder icon for the file's type.</summary>
+    private static readonly Dictionary<string, NSImage> IconsByExtension = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The Finder icon for the file type, looked up once per extension.</summary>
     private static NSImage Icon(string? fileName)
     {
         var extension = Path.GetExtension(fileName ?? string.Empty).TrimStart('.');
+        if (IconsByExtension.TryGetValue(extension, out var cached)) return cached;
         var type = string.IsNullOrEmpty(extension) ? null : UTType.CreateFromExtension(extension);
-        return NSWorkspace.SharedWorkspace.GetIcon(type ?? UTTypes.Data);
+        var icon = NSWorkspace.SharedWorkspace.GetIcon(type ?? UTTypes.Data);
+        IconsByExtension[extension] = icon;
+        return icon;
     }
 
     // Mirrors the WinUI composer attachment menu: open, save, then remove.

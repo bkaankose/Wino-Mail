@@ -207,6 +207,7 @@ public sealed partial class ContactsPageViewController
 
     private void RebuildEntries()
     {
+        var previous = _entries.ToArray();
         _entries.Clear();
         if (_searchResults is { } results)
         {
@@ -233,12 +234,28 @@ public sealed partial class ContactsPageViewController
         _restoringSelection = true;
         try
         {
-            _table.ReloadData();
-            SelectRow(ViewModel.SelectedContact, scroll: false);
+            // Load-more pages only append: insert the new rows so the realized cells stay bound.
+            if (previous.Length > 0 && _entries.Count >= previous.Length && (nint)previous.Length == _table.RowCount && IsPrefix(previous))
+            {
+                if (_entries.Count > previous.Length)
+                    _table.InsertRows(NSIndexSet.FromNSRange(new NSRange(previous.Length, _entries.Count - previous.Length)), NSTableViewAnimation.None);
+            }
+            else
+            {
+                _table.ReloadData();
+                SelectRow(ViewModel.SelectedContact, scroll: false);
+            }
         }
         finally { _restoringSelection = false; }
         UpdateEmptyState();
         MaybeLoadMore();
+    }
+
+    private bool IsPrefix(ListEntry[] previous)
+    {
+        for (int index = 0; index < previous.Length; index++)
+            if (!Equals(previous[index], _entries[index])) return false;
+        return true;
     }
 
     private void UpdateEmptyState()

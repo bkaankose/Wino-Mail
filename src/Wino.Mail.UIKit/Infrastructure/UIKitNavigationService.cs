@@ -361,7 +361,7 @@ public sealed class UIKitNavigationService : INavigationService, INavigationHost
         if (!_registry.TryGet(page, out var type, out _))
             throw new NotSupportedException($"The UIKit route {page} has not been implemented.");
         UIViewController? created = null;
-        await _dispatcher.ExecuteOnUIThread(() => created = (UIViewController)_services.GetRequiredService(type));
+        await _dispatcher.ExecuteOnUIThread(() => created = (UIViewController)PageScopes.Resolve(_services, type));
         return created ?? throw new InvalidOperationException($"The UIKit route {page} produced no controller.");
     }
 }

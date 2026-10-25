@@ -49,7 +49,7 @@ public sealed class WhatsNewPresenter : IUIKitWhatsNewPresenter, IRecipient<What
             await _dispatcher.ExecuteOnUIThread(() =>
             {
                 if (_page is not null || _host.TopViewController is null) return;
-                page = _page = _services.GetRequiredService<WhatsNewPageViewController>();
+                page = _page = Infrastructure.PageScopes.Resolve<WhatsNewPageViewController>(_services);
                 page.NavigationItem.RightBarButtonItem = new UIBarButtonItem(UIBarButtonSystemItem.Done, (_, _) => _ = CloseAsync());
                 // Settings-style sheets use FullScreenSheet on iPhone; What's New stays a dismissible page sheet on both.
                 _sheet = _host.PresentSheet(page, UIKitPageHost.Sheet, () => _ = ReleaseAsync());

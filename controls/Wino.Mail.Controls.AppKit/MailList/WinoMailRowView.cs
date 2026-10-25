@@ -76,6 +76,7 @@ public class WinoMailRowView : NSTableCellView
 
     public WinoMailRowView()
     {
+        WinoLiveObjects.Track(this);
         Identifier = ReuseIdentifier;
 
         _box = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
@@ -89,7 +90,8 @@ public class WinoMailRowView : NSTableCellView
             _box.BottomAnchor.ConstraintEqualTo(BottomAnchor, -(nfloat)WinoMailRowMetrics.RowGap)
         ]);
 
-        _checkbox = WinoCheckbox.Create(null, () => CheckboxToggled?.Invoke(this, EventArgs.Empty));
+        _checkbox = WinoCheckbox.Create(null);
+        _checkbox.OnActivated(this, static row => row.CheckboxToggled?.Invoke(row, EventArgs.Empty));
         _checkbox.TranslatesAutoresizingMaskIntoConstraints = false;
         _checkbox.ControlSize = NSControlSize.Small;
         _checkbox.Hidden = true;
@@ -133,7 +135,7 @@ public class WinoMailRowView : NSTableCellView
         };
         _chevron.SetButtonType(NSButtonType.MomentaryChange);
         WinoLayout.Size(_chevron, 12, 16);
-        _chevron.Activated += (_, _) => ThreadToggleRequested?.Invoke(this, EventArgs.Empty);
+        _chevron.OnActivated(this, static row => row.ThreadToggleRequested?.Invoke(row, EventArgs.Empty));
         _subject = WinoStyle.Label(string.Empty, WinoStyle.Body);
         _subject.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
         _subject.SetContentCompressionResistancePriority(200, NSLayoutConstraintOrientation.Horizontal);
@@ -225,10 +227,11 @@ public class WinoMailRowView : NSTableCellView
         width.Active = height.Active = true;
         _hoverButtonSize.Add(width);
         _hoverButtonSize.Add(height);
-        button.Activated += (_, _) =>
+        var captured = slot;
+        button.OnActivated(this, row =>
         {
-            if (_hoverKinds[slot] != HoverActionKind.None) HoverActionInvoked?.Invoke(this, _hoverKinds[slot]);
-        };
+            if (row._hoverKinds[captured] != HoverActionKind.None) row.HoverActionInvoked?.Invoke(row, row._hoverKinds[captured]);
+        });
         return button;
     }
 

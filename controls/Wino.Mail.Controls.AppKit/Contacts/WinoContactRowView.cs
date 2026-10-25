@@ -70,6 +70,7 @@ public sealed class WinoContactRowView : NSTableCellView
 
     public WinoContactRowView()
     {
+        WinoLiveObjects.Track(this);
         Identifier = ReuseIdentifier;
         _name.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
         _secondary.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
@@ -81,7 +82,7 @@ public sealed class WinoContactRowView : NSTableCellView
         _star = new NSButton { Bordered = false, BezelStyle = NSBezelStyle.Inline, TranslatesAutoresizingMaskIntoConstraints = false };
         _star.SetButtonType(NSButtonType.MomentaryChange);
         _star.ImagePosition = NSCellImagePosition.ImageOnly;
-        _star.Activated += (_, _) => _toggleFavorite?.Invoke();
+        _star.OnActivated(this, static row => row._toggleFavorite?.Invoke());
         WinoLayout.Size(_star, 28, 28);
 
         var row = WinoLayout.HStack(12, _picture, text, _star);

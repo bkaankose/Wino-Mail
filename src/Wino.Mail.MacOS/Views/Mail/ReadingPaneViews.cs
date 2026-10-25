@@ -18,6 +18,7 @@ internal sealed class MailIdleView : NSView
 
     public MailIdleView()
     {
+        WinoLiveObjects.Track(this);
         TranslatesAutoresizingMaskIntoConstraints = false;
         var glyph = new WinoIconView(WinoIconGlyph.Mail, 56, WinoStyle.TertiaryText);
         _title = WinoStyle.Label(Translator.NoMailSelected, NSFont.SystemFontOfSize(15, NSFontWeight.Semibold), WinoStyle.PrimaryText);

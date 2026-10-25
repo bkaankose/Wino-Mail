@@ -22,6 +22,9 @@ public static class WinoIcons
     /// <summary>Raised after <see cref="Style"/> changes so long-lived views can redraw.</summary>
     public static event EventHandler? StyleChanged;
 
+    /// <summary>Weak counterpart of <see cref="StyleChanged"/> for views that are created many times.</summary>
+    public static WinoWeakEvent StyleWatchers { get; } = new();
+
     public static WinoIconStyle Style
     {
         get => _style;
@@ -30,6 +33,7 @@ public static class WinoIcons
             if (_style == value) return;
             _style = value;
             StyleChanged?.Invoke(null, EventArgs.Empty);
+            StyleWatchers.Raise();
         }
     }
 
@@ -197,7 +201,7 @@ public class WinoIconView : UIView
         SetContentHuggingPriority(750, UILayoutConstraintAxis.Vertical);
         SetContentCompressionResistancePriority(750, UILayoutConstraintAxis.Horizontal);
         WinoTraits.OnAppearanceChanged(this, static view => view.SetNeedsDisplay());
-        WinoIcons.StyleChanged += IconStyleChanged;
+        WinoIcons.StyleWatchers.Add(this, static view => view.SetNeedsDisplay());
     }
 
     public WinoIconGlyph Icon { set => Glyph = value == WinoIconGlyph.None ? string.Empty : WinoIcons.Glyph(value); }
@@ -229,8 +233,6 @@ public class WinoIconView : UIView
 
     public override CGSize IntrinsicContentSize => new(_pointSize, _pointSize);
 
-    private void IconStyleChanged(object? sender, EventArgs args) => SetNeedsDisplay();
-
     public override void Draw(CGRect rect)
     {
         var size = Math.Min(_pointSize, Math.Min(Bounds.Width, Bounds.Height));
@@ -240,7 +242,7 @@ public class WinoIconView : UIView
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) WinoIcons.StyleChanged -= IconStyleChanged;
+        if (disposing) WinoIcons.StyleWatchers.Remove(this);
         base.Dispose(disposing);
     }
 }

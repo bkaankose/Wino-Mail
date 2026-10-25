@@ -1,3 +1,4 @@
+using Wino.Presentation.AppKit;
 using AppKit;
 using CoreGraphics;
 
@@ -18,6 +19,7 @@ public class WinoZoneView : NSView
 
     public WinoZoneView()
     {
+        WinoLiveObjects.Track(this);
         TranslatesAutoresizingMaskIntoConstraints = false;
         WantsLayer = true;
         _surface.Fill = WinoStyle.ZoneFill;

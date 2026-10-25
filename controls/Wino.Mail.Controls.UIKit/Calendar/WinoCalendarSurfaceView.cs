@@ -131,7 +131,7 @@ public sealed partial class WinoCalendarSurfaceView : UIView
         AddSubview(_month);
         _railPan = CreateRailPan();
         WinoTraits.OnAppearanceChanged(this, static view => view.Invalidate());
-        WinoStyle.AccentChanged += AccentChanged;
+        WinoStyle.AccentWatchers.Add(this, static view => view.AccentChanged(null, EventArgs.Empty));
     }
 
     /// <summary>Converts an item into what its tile shows. Set before items arrive.</summary>
@@ -452,7 +452,7 @@ public sealed partial class WinoCalendarSurfaceView : UIView
             StopAllMotion();
             ReleaseFrameDriver();
             CloseOverflow();
-            WinoStyle.AccentChanged -= AccentChanged;
+            WinoStyle.AccentWatchers.Remove(this);
             if (_observableItems is not null) _observableItems.CollectionChanged -= ItemsChanged;
         }
         base.Dispose(disposing);

@@ -69,7 +69,7 @@ public sealed class WinoTaskRowCell : UITableViewCell
         WinoLayout.Priorities(text, UILayoutConstraintAxis.Horizontal, 1, 250);
 
         _star = WinoToDoStyle.IconButton(WinoIconGlyph.Star, string.Empty, 16, 44, 44, WinoStyle.SecondaryText);
-        _star.PrimaryActionTriggered += (_, _) => ImportanceToggled?.Invoke(this, EventArgs.Empty);
+        _star.OnPrimaryAction(this, static cell => cell.ImportanceToggled?.Invoke(cell, EventArgs.Empty));
 
         _content = WinoLayout.HStack(12, _check, text, WinoLayout.Spacer(), _star);
         var row = WinoLayout.Insets(_content, 6, 8, 6, 0);
@@ -79,7 +79,7 @@ public sealed class WinoTaskRowCell : UITableViewCell
             _hovered = recognizer.State is UIGestureRecognizerState.Began or UIGestureRecognizerState.Changed;
             UpdateSurface();
         }));
-        WinoStyle.AccentChanged += AccentChanged;
+        WinoStyle.AccentWatchers.Add(this, static view => view.AccentChanged(null, EventArgs.Empty));
         UpdateSurface();
     }
 
@@ -191,7 +191,7 @@ public sealed class WinoTaskRowCell : UITableViewCell
     {
         if (disposing)
         {
-            WinoStyle.AccentChanged -= AccentChanged;
+            WinoStyle.AccentWatchers.Remove(this);
             Subscription = null;
             CompletionToggled = null;
             ImportanceToggled = null;

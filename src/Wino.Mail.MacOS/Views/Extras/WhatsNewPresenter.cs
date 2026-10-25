@@ -45,7 +45,7 @@ public sealed class WhatsNewPresenter : IWhatsNewPresenter, IRecipient<WhatsNewO
                 _window ??= CreateWindow();
                 if (_page is null)
                 {
-                    page = _page = _services.GetRequiredService<WhatsNewPageViewController>();
+                    page = _page = Infrastructure.PageScopes.Resolve<WhatsNewPageViewController>(_services);
                     _window.SetPage(page);
                 }
                 _window.Present();

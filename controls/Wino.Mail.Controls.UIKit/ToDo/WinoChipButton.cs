@@ -35,7 +35,7 @@ public sealed class WinoChipButton : WinoPressableView
         WinoLayout.Priorities(this, UILayoutConstraintAxis.Horizontal, 750, 760);
         AccessibilityLabel = accessibilityLabel ?? title;
         _menuButton.AccessibilityLabel = AccessibilityLabel;
-        WinoStyle.AccentChanged += AccentChanged;
+        WinoStyle.AccentWatchers.Add(this, static view => view.AccentChanged(null, EventArgs.Empty));
         Refresh();
     }
 
@@ -83,7 +83,7 @@ public sealed class WinoChipButton : WinoPressableView
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) WinoStyle.AccentChanged -= AccentChanged;
+        if (disposing) WinoStyle.AccentWatchers.Remove(this);
         base.Dispose(disposing);
     }
 }

@@ -14,6 +14,8 @@ public sealed class BindingScope : IDisposable
     public T Own<T>(T binding) where T : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        // Pages replace a child scope on every collection rebuild; the disposed ones must not pile up here.
+        _bindings.RemoveAll(static owned => owned is BindingScope { IsDisposed: true });
         _bindings.Add(binding);
         return binding;
     }

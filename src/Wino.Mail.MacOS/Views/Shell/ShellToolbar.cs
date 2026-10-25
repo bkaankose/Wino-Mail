@@ -55,6 +55,7 @@ internal sealed class ShellToolbar : NSToolbarDelegate
     ];
 
     private ShellCommand[][] _visibleGroups = CommandGroups;
+    private bool _showsCommandLabels;
 
     private readonly Func<IShellSearchTarget?> _searchTarget;
     private readonly Action _toggleSidebar;
@@ -270,11 +271,26 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         var title = entry.Title();
         var item = Button(id, entry.Glyph, title, null);
         var button = (NSButton)item.View!;
+        button.Title = title;
+        button.Font = NSFont.SystemFontOfSize(NSFont.SystemFontSize);
         button.Activated += (_, _) => Safe(() => _execute(entry.Command, button));
         _commandItems[entry.Command] = item;
+        ApplyCommandLabel(button);
         ApplyCommandState(entry.Command, item);
         return item;
     }
+
+    /// <summary>Settings › Reader actions › "Show action labels": the mail action buttons show their title beside the glyph.</summary>
+    public void SetCommandLabels(bool visible)
+    {
+        if (_showsCommandLabels == visible) return;
+        _showsCommandLabels = visible;
+        foreach (var item in _commandItems.Values)
+            if (item.View is NSButton button) ApplyCommandLabel(button);
+    }
+
+    private void ApplyCommandLabel(NSButton button)
+        => button.ImagePosition = _showsCommandLabels ? NSCellImagePosition.ImageLeading : NSCellImagePosition.ImageOnly;
 
     private void ApplyCommandState(ShellCommand command, NSToolbarItem item)
     {

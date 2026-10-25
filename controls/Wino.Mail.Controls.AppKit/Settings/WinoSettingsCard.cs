@@ -37,6 +37,7 @@ public class WinoSettingsCard : NSView
 
     public WinoSettingsCard(string header, string? description = null, WinoIconGlyph icon = WinoIconGlyph.None, NSView? content = null)
     {
+        WinoLiveObjects.Track(this);
         TranslatesAutoresizingMaskIntoConstraints = false;
         _surface.CornerRadius = WinoSettingsStyle.CardRadius;
         WinoLayout.Fill(_surface, this);

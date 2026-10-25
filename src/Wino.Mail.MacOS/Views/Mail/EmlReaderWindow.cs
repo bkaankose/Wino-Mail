@@ -95,7 +95,7 @@ internal sealed class EmlReaderWindow
 
         var title = string.IsNullOrWhiteSpace(message.Subject) ? Translator.MailItemNoSubject : message.Subject;
         MailRenderingPageViewController page = null!;
-        await dispatcher.ExecuteOnUIThread(() => page = services.GetRequiredService<MailRenderingPageViewController>());
+        await dispatcher.ExecuteOnUIThread(() => page = Infrastructure.PageScopes.Resolve<MailRenderingPageViewController>(services));
         try
         {
             await page.ActivateAsync(NavigationMode.New, information);

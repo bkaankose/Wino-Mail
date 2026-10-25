@@ -40,8 +40,8 @@ public sealed class WinoModeSwitcher : WinoSurfaceView
         WinoLayout.Fill(row, this, 6, 6, 6, 6);
         WinoAccessibility.Label(this, "Mode");
         Refresh();
-        WinoStyle.AccentChanged += StyleChanged;
-        WinoIcons.StyleChanged += StyleChanged;
+        WinoStyle.AccentWatchers.Add(this, static view => view.StyleChanged(null, EventArgs.Empty));
+        WinoIcons.StyleWatchers.Add(this, static view => view.StyleChanged(null, EventArgs.Empty));
     }
 
     /// <summary>The modes in tile order.</summary>
@@ -111,8 +111,8 @@ public sealed class WinoModeSwitcher : WinoSurfaceView
     {
         if (disposing)
         {
-            WinoStyle.AccentChanged -= StyleChanged;
-            WinoIcons.StyleChanged -= StyleChanged;
+            WinoStyle.AccentWatchers.Remove(this);
+            WinoIcons.StyleWatchers.Remove(this);
             ModeSelected = null;
         }
         base.Dispose(disposing);

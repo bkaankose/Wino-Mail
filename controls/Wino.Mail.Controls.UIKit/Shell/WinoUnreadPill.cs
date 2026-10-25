@@ -36,7 +36,7 @@ public sealed class WinoUnreadPill : WinoSurfaceView
         SetContentHuggingPriority(1000, UILayoutConstraintAxis.Vertical);
         IsAccessibilityElement = true;
         AccessibilityTraits = UIAccessibilityTrait.StaticText;
-        WinoStyle.AccentChanged += AccentChanged;
+        WinoStyle.AccentWatchers.Add(this, static view => view.AccentChanged(null, EventArgs.Empty));
         Hidden = true;
     }
 
@@ -68,7 +68,7 @@ public sealed class WinoUnreadPill : WinoSurfaceView
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) WinoStyle.AccentChanged -= AccentChanged;
+        if (disposing) WinoStyle.AccentWatchers.Remove(this);
         base.Dispose(disposing);
     }
 }
@@ -104,7 +104,7 @@ public sealed class WinoSyncBar : UIView
         IsAccessibilityElement = true;
         AccessibilityTraits = UIAccessibilityTrait.UpdatesFrequently;
         Update(false, 0);
-        WinoStyle.AccentChanged += AccentChanged;
+        WinoStyle.AccentWatchers.Add(this, static view => view.AccentChanged(null, EventArgs.Empty));
     }
 
     private void AccentChanged(object? sender, EventArgs args) => _fill.Fill = WinoStyle.Accent;
@@ -170,7 +170,7 @@ public sealed class WinoSyncBar : UIView
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) WinoStyle.AccentChanged -= AccentChanged;
+        if (disposing) WinoStyle.AccentWatchers.Remove(this);
         base.Dispose(disposing);
     }
 }

@@ -62,6 +62,7 @@ internal sealed class ShellPaneCell : NSTableCellView
 
     public ShellPaneCell(ShellPaneContext context)
     {
+        WinoLiveObjects.Track(this);
         _context = context;
         Identifier = ReuseIdentifier;
 
@@ -76,7 +77,7 @@ internal sealed class ShellPaneCell : NSTableCellView
         _check.Title = string.Empty;
         _check.ControlSize = NSControlSize.Small;
         _check.TranslatesAutoresizingMaskIntoConstraints = false;
-        _check.Activated += CheckActivated;
+        _check.OnActivated(this, static cell => cell.CheckActivated(cell._check, EventArgs.Empty));
         foreach (var view in new NSView[] { _glyph, _accountIcon, _dot, _check })
         {
             _leadingBox.AddSubview(view);
@@ -119,9 +120,9 @@ internal sealed class ShellPaneCell : NSTableCellView
 
         _attention = IconButton(WinoIconGlyph.Warning, 18, 28, Translator.Info_AccountAttentionRequiredAction, Translator.Info_AccountAttentionRequiredClickableMessage);
         _attention.ContentTintColor = WinoStyle.Caution;
-        _attention.Activated += (_, _) => { if (_item is { } item) AttentionClicked?.Invoke(item); };
+        _attention.OnActivated(this, static cell => { if (cell._item is { } item) cell.AttentionClicked?.Invoke(item); });
         _action = IconButton(WinoIconGlyph.Folder, 16, 30, Translator.ToDoPage_NewGroup, Translator.ToDoPage_NewGroup);
-        _action.Activated += (_, _) => { if (_item is { } item) ActionClicked?.Invoke(item); };
+        _action.OnActivated(this, static cell => { if (cell._item is { } item) cell.ActionClicked?.Invoke(item); });
         _chevron.WidthAnchor.ConstraintEqualTo(12).Active = true;
 
         _row = WinoLayout.HStack(12, _leadingBox, text, _attention, _pill, _action, _chevron);
@@ -605,7 +606,7 @@ internal sealed class ShellCalendarGroupCell : NSTableCellView
         _check.AllowsMixedState = true;
         _check.ControlSize = NSControlSize.Small;
         _check.TranslatesAutoresizingMaskIntoConstraints = false;
-        _check.Activated += (_, _) => { if (_group is { } group && !_applying) group.IsCheckedState = _check.State == NSCellStateValue.On; };
+        _check.OnActivated(this, static cell => { if (cell._group is { } group && !cell._applying) group.IsCheckedState = cell._check.State == NSCellStateValue.On; });
         WinoLayout.Size(_dot, 12, 12);
         // Two lines (name, then address or the sync status while syncing) centred on the checkbox
         // and colour dot; the sync bar hangs below them so it never shifts the text.

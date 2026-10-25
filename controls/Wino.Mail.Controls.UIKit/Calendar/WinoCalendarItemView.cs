@@ -103,7 +103,7 @@ public sealed class WinoCalendarItemView : UIView
         IsAccessibilityElement = true;
         AccessibilityTraits = UIAccessibilityTrait.Button;
         WinoTraits.OnAppearanceChanged(this, static view => view.SetNeedsDisplay());
-        WinoIcons.StyleChanged += StyleChanged;
+        WinoIcons.StyleWatchers.Add(this, static view => view.StyleChanged(null, EventArgs.Empty));
         AddGestureRecognizer(new UIHoverGestureRecognizer(recognizer =>
         {
             _hover = recognizer.State is UIGestureRecognizerState.Began or UIGestureRecognizerState.Changed;
@@ -236,7 +236,7 @@ public sealed class WinoCalendarItemView : UIView
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) WinoIcons.StyleChanged -= StyleChanged;
+        if (disposing) WinoIcons.StyleWatchers.Remove(this);
         base.Dispose(disposing);
     }
 }

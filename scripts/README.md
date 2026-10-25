@@ -21,6 +21,7 @@ See the [Windows](../docs/harness/development-windows.md), [macOS](../docs/harne
 | Maintenance | `maintenance/windows/audit-xaml-icons.ps1` | Windows | PowerShell | Check use of the Wino icon system in WinUI code |
 | Maintenance | `maintenance/windows/build-notification-icons.ps1` | Windows | PowerShell | Render toast button icons with theme, contrast, and scale variants; `-AttributionLogos` adds missing app logo target sizes to the app and the beta artwork |
 | Maintenance | `maintenance/macos/setup-macos-debugger.sh` | macOS (Apple Silicon) | Bash | Prepare the matching VS Code C# debugger and pinned Microsoft diagnostic shim for sandboxed Mac F5 |
+| Maintenance | `maintenance/macos/collect-gcdump.sh` | macOS | Bash | Collect a .NET GC heap graph from the running sandboxed Debug app through a proxied diagnostics socket |
 | Localization | `localization/translate_resources.py` | Both | Python 3.10+ | Generate translations from English resources |
 | Localization | `localization/validate_resources.py` | Both | Python 3.10+ | Audit or repair translations |
 

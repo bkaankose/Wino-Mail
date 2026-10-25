@@ -117,7 +117,7 @@ public sealed class WinoShellRowCell : UITableViewCell
         ]);
 
         IsAccessibilityElement = true;
-        WinoStyle.AccentChanged += AccentChanged;
+        WinoStyle.AccentWatchers.Add(this, static view => view.AccentChanged(null, EventArgs.Empty));
         ApplySelection();
     }
 
@@ -316,7 +316,7 @@ public sealed class WinoShellRowCell : UITableViewCell
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) WinoStyle.AccentChanged -= AccentChanged;
+        if (disposing) WinoStyle.AccentWatchers.Remove(this);
         base.Dispose(disposing);
     }
 }

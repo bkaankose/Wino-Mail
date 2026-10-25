@@ -278,7 +278,23 @@ public sealed partial class ToDoPageViewController
 
     private void GroupsChanged(object? sender, NotifyCollectionChangedEventArgs e) => OnUI(() => { ObserveGroups(); ScheduleReload(); });
     private void GroupChanged(object? sender, NotifyCollectionChangedEventArgs e) => OnUI(ScheduleReload);
-    private void GroupPropertyChanged(object? sender, PropertyChangedEventArgs e) => OnUI(ScheduleReload);
+    private void GroupPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        // The count text changes with every toggle; the header row takes it in place. Anything else reshapes the list.
+        if (e.PropertyName == nameof(TaskGroup.HeaderCountText) && sender is TaskGroup group) OnUI(() => RefreshGroupHeader(group));
+        else OnUI(ScheduleReload);
+    }
+
+    private void RefreshGroupHeader(TaskGroup group)
+    {
+        if (_released || _reloadScheduled) return;
+        for (int row = 0; row < _entries.Count; row++)
+        {
+            if (!ReferenceEquals(_entries[row].Group, group)) continue;
+            if (_table.GetView(0, row, false) is WinoTaskGroupHeaderView header) header.Apply(group.Key, group.HeaderCountText);
+            return;
+        }
+    }
 
     private void ObserveGroups()
     {
@@ -305,6 +321,7 @@ public sealed partial class ToDoPageViewController
 
     private void RebuildEntries()
     {
+        var previous = _entries.ToArray();
         _entries.Clear();
         foreach (var group in _previewGroups ?? (IEnumerable<TaskGroup>)ViewModel.TaskGroups)
         {
@@ -314,7 +331,10 @@ public sealed partial class ToDoPageViewController
         _restoringSelection = true;
         try
         {
-            _table.ReloadData();
+            // An unchanged list keeps its cells; anything else reloads, which rebinds the visible cards.
+            bool same = previous.Length == _entries.Count && (nint)previous.Length == _table.RowCount;
+            for (int index = 0; same && index < previous.Length; index++) same = Equals(previous[index], _entries[index]);
+            if (!same) _table.ReloadData();
             ApplySelection(ViewModel.SelectedTasks.ToList());
         }
         finally { _restoringSelection = false; }

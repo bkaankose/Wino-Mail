@@ -84,7 +84,7 @@ public sealed class WinoContactRowCell : UITableViewCell
         var configuration = UIButtonConfiguration.PlainButtonConfiguration;
         configuration.ContentInsets = new NSDirectionalEdgeInsets(0, 0, 0, 0);
         _star = new UIButton { Configuration = configuration, TranslatesAutoresizingMaskIntoConstraints = false };
-        _star.PrimaryActionTriggered += (_, _) => _toggleFavorite?.Invoke();
+        _star.OnPrimaryAction(this, static cell => cell._toggleFavorite?.Invoke());
         WinoLayout.Size(_star, 44, 44);
 
         var row = WinoLayout.Insets(WinoLayout.HStack(12, _picture, text, WinoLayout.Spacer(), _source, _star), 6, 12, 6, 0);

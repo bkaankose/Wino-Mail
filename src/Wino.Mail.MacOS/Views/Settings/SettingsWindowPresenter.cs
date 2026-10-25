@@ -335,7 +335,7 @@ public sealed class SettingsWindowPresenter : ISettingsWindowPresenter, IRecipie
             return new SettingsPlaceholderViewController(page);
         try
         {
-            return (NSViewController)_services.GetRequiredService(type);
+            return (NSViewController)Infrastructure.PageScopes.Resolve(_services, type);
         }
         catch (Exception exception)
         {

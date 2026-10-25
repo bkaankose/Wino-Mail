@@ -47,6 +47,7 @@ public sealed class WinoCalendarItemView : NSView
 
     public WinoCalendarItemView()
     {
+        WinoLiveObjects.Track(this);
         WantsLayer = true;
         WinoIcons.StyleWatchers.Add(this, static tile => tile.NeedsDisplay = true);
     }

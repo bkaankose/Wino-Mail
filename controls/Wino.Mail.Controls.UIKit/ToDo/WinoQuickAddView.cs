@@ -42,7 +42,7 @@ public sealed class WinoQuickAddView : UIView
         var row = WinoLayout.Insets(WinoLayout.HStack(10, _icon, _field, _button), 8, 12, 8, 12);
         WinoLayout.Fill(row, _card);
         HeightAnchor.ConstraintGreaterThanOrEqualTo(52).Active = true;
-        WinoStyle.AccentChanged += AccentChanged;
+        WinoStyle.AccentWatchers.Add(this, static view => view.AccentChanged(null, EventArgs.Empty));
     }
 
     public event EventHandler? Submitted;
@@ -87,7 +87,7 @@ public sealed class WinoQuickAddView : UIView
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) WinoStyle.AccentChanged -= AccentChanged;
+        if (disposing) WinoStyle.AccentWatchers.Remove(this);
         base.Dispose(disposing);
     }
 }

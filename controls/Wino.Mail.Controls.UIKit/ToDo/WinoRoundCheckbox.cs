@@ -25,7 +25,7 @@ public sealed class WinoRoundCheckbox : WinoPressableView
         WinoLayout.Priorities(this, UILayoutConstraintAxis.Horizontal, 750, 750);
         AccessibilityTraits = UIAccessibilityTrait.Button;
         WinoTraits.OnAppearanceChanged(this, static view => view.SetNeedsDisplay());
-        WinoStyle.AccentChanged += AccentChanged;
+        WinoStyle.AccentWatchers.Add(this, static view => view.AccentChanged(null, EventArgs.Empty));
     }
 
     /// <summary>Raised on a press while enabled; the owner decides what happens.</summary>
@@ -80,7 +80,7 @@ public sealed class WinoRoundCheckbox : WinoPressableView
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) WinoStyle.AccentChanged -= AccentChanged;
+        if (disposing) WinoStyle.AccentWatchers.Remove(this);
         base.Dispose(disposing);
     }
 }
