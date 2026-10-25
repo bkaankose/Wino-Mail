@@ -63,6 +63,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     private ILocalIntelligenceService LocalIntelligenceService { get; } = WinoApplication.Current.Services.GetRequiredService<ILocalIntelligenceService>();
     private IWhatsNewService WhatsNewService { get; } = WinoApplication.Current.Services.GetRequiredService<IWhatsNewService>();
     private IWinoWindowManager WindowManager { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoWindowManager>();
+    private IRelayHealth? RelayHealth { get; } = WinoApplication.Current.Services.GetService<IRelayHealth>();
 
     private bool _calendarReminderServerStartAttempted;
     private ITitleBarSearchHost? _activeTitleBarSearchHost;
@@ -102,6 +103,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         _ = RefreshDailyBriefingStateAsync();
         _ = RefreshWhatsNewButtonAsync();
         _ = ShowRelayIntroductionTipIfPendingAsync();
+        AttachRelayFallbackIndicator();
         _ = EntitlementService.RefreshEntitlementAsync();
 
         // Handle window closing event for terminate vs background/tray behavior.
@@ -398,6 +400,21 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
         WinoApplication.Current.Services.GetService<ISyncCoordinator>()?.RequestRelayRetry(Wino.Core.Domain.Enums.RelayRetryTrigger.Foreground);
     }
+
+    private void AttachRelayFallbackIndicator()
+    {
+        if (RelayHealth is null)
+            return;
+
+        RelayHealth.Changed += RelayHealthChanged;
+        UpdateRelayFallbackIndicator();
+    }
+
+    private void RelayHealthChanged(object? sender, EventArgs e)
+        => DispatcherQueue.TryEnqueue(UpdateRelayFallbackIndicator);
+
+    private void UpdateRelayFallbackIndicator()
+        => RelayFallbackIndicator.Visibility = RelayHealth?.IsFallbackActive == true ? Visibility.Visible : Visibility.Collapsed;
 
     /// <summary>Closing the tip ends the introduction; the Notifications page keeps the setting reachable.</summary>
     private void RelayIntroductionTipCloseClicked(TeachingTip sender, object args)
@@ -987,6 +1004,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     {
         Closed -= OnWindowClosed;
         AppWindow.Closing -= OnAppWindowClosing;
+        if (RelayHealth is not null)
+            RelayHealth.Changed -= RelayHealthChanged;
 
         // No need to prepare for close or cleanup if the application is exiting, as the process will be terminated shortly after.
         if ((Application.Current as App)?.IsExiting == true)

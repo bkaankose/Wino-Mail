@@ -90,8 +90,8 @@ public sealed class SyncCoordinator : ISyncCoordinator,
     private ITimer? _stableTimer;
     private ITimer? _cooldownTimer;
     private ITimer? _networkTimer;
-    private ITimer? _startupTimer;
-    private volatile bool _startupGraceActive;
+    private ITimer? _connectGraceTimer;
+    private volatile bool _connectGraceActive;
     private bool _initialized;
     private bool _disposed;
 
@@ -128,10 +128,20 @@ public sealed class SyncCoordinator : ISyncCoordinator,
     public bool IsSocketConnected => Snapshot.IsSocketConnected;
 
     /// <summary>
-    /// The shell indicator. Suppressed during the startup grace so a normal launch (socket not yet connected) does not
-    /// flash "live updates are offline"; the timer loops still treat that window as fallback.
+    /// The shell's red dot: relay-based sync is selected and the connection failed. It follows the raw socket, not the
+    /// sync mode, so a connected socket clears it at once although the mode waits <see cref="SocketUpStable"/> before
+    /// it skips timer ticks. The connect grace (after launch, or after the user turns relay-based sync on) and a drop
+    /// within the socket-down grace are not failures yet. A flap cool-down counts as failed even while connected.
     /// </summary>
-    public bool IsFallbackActive => Snapshot.Mode == EffectiveSyncMode.RelayFallback && !_startupGraceActive;
+    public bool IsFallbackActive
+    {
+        get
+        {
+            var snapshot = Snapshot;
+            return snapshot.Mode == EffectiveSyncMode.RelayFallback
+                && (snapshot.IsFlapCooldownActive || (!snapshot.IsSocketConnected && !_connectGraceActive));
+        }
+    }
 
     public DateTimeOffset? LastChangeUtc => Snapshot.ChangedUtc;
 
@@ -175,13 +185,10 @@ public sealed class SyncCoordinator : ISyncCoordinator,
 
         lock (_gate)
         {
-            // A relay-mode launch starts in fallback until the socket is stable. Hide the indicator for one grace
-            // period so the user does not see "offline" on every launch; the mode itself is not affected.
+            // A relay-mode launch starts in fallback until the socket is stable; the red dot stays hidden for one grace
+            // period so a normal launch never shows "offline". The mode itself is not affected.
             if (HasChoice && _socket is not null && _preferences.SyncMethod == SyncMethod.Relay)
-            {
-                _startupGraceActive = true;
-                _startupTimer = StartTimer(ref _startupTimer, SocketDownGrace, StartupGraceElapsed);
-            }
+                StartConnectGrace();
 
             _accounts.Clear();
             foreach (var account in accounts)
@@ -317,7 +324,7 @@ public sealed class SyncCoordinator : ISyncCoordinator,
             DisposeTimer(ref _stableTimer);
             DisposeTimer(ref _cooldownTimer);
             DisposeTimer(ref _networkTimer);
-            DisposeTimer(ref _startupTimer);
+            DisposeTimer(ref _connectGraceTimer);
         }
 
         if (!_initialized)
@@ -411,6 +418,26 @@ public sealed class SyncCoordinator : ISyncCoordinator,
         }
 
         _logger.Information("Preference {Preference} changed {Previous} -> {Current}.", propertyName, previous ?? "(unset)", current);
+
+        if (propertyName == nameof(IPreferencesService.SyncMethod))
+        {
+            lock (_gate)
+            {
+                if (_preferences.SyncMethod == SyncMethod.Relay)
+                {
+                    if (HasChoice && _socket is not null)
+                        StartConnectGrace();
+                }
+                else
+                {
+                    // Turning relay-based sync off stops the socket on purpose. The socket must prove itself stable
+                    // again when it is turned back on, or the mode would claim live coverage before it reconnects.
+                    _stableSocketConnected = false;
+                    DisposeTimer(ref _stableTimer);
+                    DisposeTimer(ref _graceTimer);
+                }
+            }
+        }
 
         if (propertyName is nameof(IPreferencesService.SyncMethod) or nameof(IPreferencesService.EmailSyncIntervalMinutes) or nameof(IPreferencesService.CalendarSyncIntervalMinutes))
             Recompute($"preference {propertyName}");
@@ -532,18 +559,25 @@ public sealed class SyncCoordinator : ISyncCoordinator,
         Recompute($"socket up for {SocketUpStable.TotalSeconds:F0} s");
     }
 
-    private void StartupGraceElapsed(object? state)
+    /// <summary>Called under <see cref="_gate"/>.</summary>
+    private void StartConnectGrace()
+    {
+        _connectGraceActive = true;
+        _connectGraceTimer = StartTimer(ref _connectGraceTimer, SocketDownGrace, ConnectGraceElapsed);
+    }
+
+    private void ConnectGraceElapsed(object? state)
     {
         lock (_gate)
         {
-            DisposeTimer(ref _startupTimer);
-            if (_disposed || !_startupGraceActive)
+            DisposeTimer(ref _connectGraceTimer);
+            if (_disposed || !_connectGraceActive)
                 return;
-            _startupGraceActive = false;
+            _connectGraceActive = false;
         }
 
         if (Snapshot.Mode == EffectiveSyncMode.RelayFallback)
-            _logger.Information("Live updates did not come up within {Seconds:F0} s of launch; the fallback indicator is shown.", SocketDownGrace.TotalSeconds);
+            _logger.Information("Live updates did not come up within {Seconds:F0} s; fallback indicator shown={Shown}.", SocketDownGrace.TotalSeconds, IsFallbackActive);
 
         RaiseChanged();
     }
@@ -653,11 +687,11 @@ public sealed class SyncCoordinator : ISyncCoordinator,
             if ((_rawSocketConnected && mode == EffectiveSyncMode.Relay) || mode == EffectiveSyncMode.Timer)
                 _socketDownSinceUtc = null;
 
-            // Live updates are up, or the user left relay mode: the startup grace has nothing left to hide.
-            if (mode != EffectiveSyncMode.RelayFallback && _startupGraceActive)
+            // Live updates are up, or the user left relay mode: the connect grace has nothing left to hide.
+            if (mode != EffectiveSyncMode.RelayFallback && _connectGraceActive)
             {
-                _startupGraceActive = false;
-                DisposeTimer(ref _startupTimer);
+                _connectGraceActive = false;
+                DisposeTimer(ref _connectGraceTimer);
             }
 
             Volatile.Write(ref _snapshot, next);

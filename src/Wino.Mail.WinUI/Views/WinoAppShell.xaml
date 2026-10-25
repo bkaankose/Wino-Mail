@@ -143,37 +143,6 @@
                     IsOpen="False"
                     PreferredPlacement="Bottom"
                     Target="{x:Bind ShellInfoBar}" />
-
-                <!--  Relay health. Silent while live updates flow; a red dot only while the 5 minute fallback timer is covering.  -->
-                <Button
-                    x:Name="RelayFallbackIndicator"
-                    Width="32"
-                    Height="32"
-                    Margin="0,12,12,0"
-                    Padding="0"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Top"
-                    AutomationProperties.AutomationId="ShellRelayFallbackIndicator"
-                    AutomationProperties.Name="{x:Bind domain:Translator.Relay_FallbackIndicatorAutomationName, Mode=OneTime}"
-                    Style="{StaticResource SubtleButtonStyle}"
-                    ToolTipService.ToolTip="{x:Bind domain:Translator.Relay_FallbackFlyoutTitle, Mode=OneTime}"
-                    Visibility="{x:Bind ViewModel.IsRelayFallbackActive, Mode=OneWay}">
-                    <Ellipse
-                        Width="10"
-                        Height="10"
-                        Fill="{ThemeResource SystemFillColorCriticalBrush}" />
-                    <Button.Flyout>
-                        <Flyout Placement="Bottom">
-                            <StackPanel MaxWidth="320" Spacing="6">
-                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.Relay_FallbackFlyoutTitle, Mode=OneTime}" />
-                                <TextBlock
-                                    Style="{StaticResource BodyTextBlockStyle}"
-                                    Text="{x:Bind domain:Translator.Relay_FallbackFlyoutMessage, Mode=OneTime}"
-                                    TextWrapping="WrapWholeWords" />
-                            </StackPanel>
-                        </Flyout>
-                    </Button.Flyout>
-                </Button>
             </Grid>
         </coreControls:WinoNavigationView>
 

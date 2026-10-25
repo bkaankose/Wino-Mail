@@ -55,7 +55,8 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<IPushRelayDeviceIdentityStore, WindowsPushRelayDeviceIdentityStore>();
         services.AddSingleton<IPushRelayDeviceInfo, WindowsPushRelayDeviceInfo>();
         services.AddSingleton<IPushTokenProvider, NullPushTokenProvider>();
-        // The desktop socket (Wino.PushRelay.Socket): the key is a DPAPI-protected file; nothing starts the socket yet.
+        // The desktop socket (Wino.PushRelay.Socket): the key is a DPAPI-protected file. ApplicationRuntimeInitialization
+        // starts the socket after the relay registration in background startup.
         services.AddSingleton<IPushRelaySocketKeyStore, ProtectedFilePushRelaySocketKeyStore>();
         services.AddWinoRelaySocketClient();
         services.AddSingleton<IOutlookAuthenticationHost>(provider => new WindowsOutlookAuthenticationHost(

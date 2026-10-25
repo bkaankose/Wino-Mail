@@ -218,6 +218,34 @@
                                     <coreControls:WinoFontIcon Icon="Announcement" />
                                 </Viewbox>
                             </Button>
+                            <!--  Relay-based sync is selected but the relay connection failed; mail and calendar run on the user's intervals.  -->
+                            <Button
+                                x:Name="RelayFallbackIndicator"
+                                Width="38"
+                                Height="38"
+                                Padding="0"
+                                AutomationProperties.AutomationId="ShellRelayFallbackIndicator"
+                                AutomationProperties.Name="{x:Bind domain:Translator.Relay_FallbackIndicatorAutomationName, Mode=OneTime}"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Relay_FallbackFlyoutTitle, Mode=OneTime}"
+                                Visibility="Collapsed">
+                                <Ellipse
+                                    Width="10"
+                                    Height="10"
+                                    Fill="{ThemeResource SystemFillColorCriticalBrush}" />
+                                <Button.Flyout>
+                                    <Flyout Placement="Bottom">
+                                        <StackPanel MaxWidth="320" Spacing="6">
+                                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.Relay_FallbackFlyoutTitle, Mode=OneTime}" />
+                                            <TextBlock
+                                                Style="{StaticResource BodyTextBlockStyle}"
+                                                Text="{x:Bind domain:Translator.Relay_FallbackFlyoutMessage, Mode=OneTime}"
+                                                TextWrapping="WrapWholeWords" />
+                                        </StackPanel>
+                                    </Flyout>
+                                </Button.Flyout>
+                            </Button>
                             <Button
                                 x:Name="WinoAccountButton"
                                 AutomationProperties.AutomationId="WinoAccountButton"
