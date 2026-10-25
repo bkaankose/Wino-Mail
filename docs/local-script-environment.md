@@ -77,10 +77,12 @@ The key needs the **Developer** role or higher. The script passes the key to `no
 `build-macos-appstore.sh` uses the same variables to validate and upload the Mac App Store package with `xcrun altool`.
 `WINO_RELEASES_ROOT` also applies on the Mac. Its default there is `~/Wino Releases`.
 
-## Windows publication (Beta and stable sideload)
+## Publication to download.winomail.app (Windows Beta and sideload, macOS DMG)
 
-`publish-releases.ps1` uploads to the `wino-downloads` Cloudflare R2 bucket that serves `https://download.winomail.app`.
-It uses R2's S3-compatible API, because bundles exceed the 300 MB single-request limit of the Cloudflare API.
+`publish-releases.ps1` on Windows and `publish-macos-release.sh` on the Mac upload to the `wino-downloads` Cloudflare R2
+bucket that serves `https://download.winomail.app`. Both use R2's S3-compatible API, because packages exceed the 300 MB
+single-request limit of the Cloudflare API. Set the same three variables on each host that publishes; on the Mac, in the
+shell profile with `export KEY=value`.
 
 | Key | Value | Purpose and source |
 | --- | --- | --- |

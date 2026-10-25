@@ -51,6 +51,7 @@ Debug and Release use CoreCLR (`UseMonoRuntime=false`); the bundle contains `lib
 | App Store signing | **Apple Distribution** with the App Store profile and `Entitlements.AppStore.plist` |
 
 `Entitlements.plist` enables App Sandbox, network client, network server (loopback listeners for system-browser OAuth callbacks), user-selected file read/write, and JIT. It also grants Sparkle's installer mach-lookup exception for DMG builds. `Entitlements.AppStore.plist` is the same set without Sparkle's exception; keep the two in step.
+Debug builds read Sparkle's feed from `http://127.0.0.1:8089/appcast.xml` (`Sparkle.Debug.plist`), never the production feed, so they are not offered the published DMG.
 
 Live updates (WinoRelay) on the Mac use the relay socket only, while the app runs; the Mac registers no APNs token and a quit app receives nothing (owner decision, 2026-10-17). The `com.apple.developer.aps-environment` entitlement is still present in the signed builds because the profiles carry the Push Notifications capability ("Wino Mail macOS Development" development, "Wino Mail macOS App Store" and "Wino Mail macOS Developer ID" production; the DMG script passes `-p:WinoApsEnvironment=production`), and a profile-signed app must carry what its profile allows. Ad hoc builds (`-p:CodesignKey=- -p:CodesignProvision=`) have no profile and no entitlement, which changes nothing for the relay.
 

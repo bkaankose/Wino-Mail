@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Debug builds only, merged after Sparkle.plist. Release DMGs carry a build number much larger than a Debug build's
+     version, so on the production feed Sparkle would offer to replace every Debug build with the published DMG.
+     Debug builds read a local test feed instead; see Wino.Core.Apple.Bindings/README.md for serving one. -->
+<plist version="1.0"><dict>
+  <key>SUFeedURL</key><string>http://127.0.0.1:8089/appcast.xml</string>
+</dict></plist>

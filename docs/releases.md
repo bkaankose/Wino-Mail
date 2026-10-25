@@ -12,7 +12,7 @@ Each platform builds its release artifacts with its own scripts on its own host.
 
 The [release skill](../.claude/skills/release/SKILL.md) runs these steps; `scripts/release/release.ps1` does the mechanical work.
 
-1. Set the new version: `pwsh scripts/release/release.ps1 bump 2.2.6`. Every platform reads it from `src/Wino.Mail.WinUI/Package.appxmanifest`: `2.2.6.0` is the Windows package version and becomes Mac and iOS app version `2.2.6`, and Android version name `2.2.6` with version code `2002006`.
+1. Set the new version: `pwsh scripts/release/release.ps1 bump 2.2.6`. Every platform reads it from `src/Wino.Mail.WinUI/Package.appxmanifest`: `2.2.6.0` is the Windows package version and becomes Mac and iOS app version `2.2.6`, and Android version name `2.2.6` with version code `2002006`. The Mac DMG adds its own build number to every build (see the [macOS guide](releases-macos.md#macos-dmg)).
 2. Draft the release notes: `pwsh scripts/release/release.ps1 notes`. Claude Code (`claude -p`, run locally) writes `release-notes/<major.minor.build>.md` from every commit since the previous `v*` tag, the issues labeled `pending release`, `Refs: #N` commit trailers, and `release-notes/unreleased.md`. The [format](../release-notes/README.md) separates Highlights from the full lists.
 3. Review that file. It is the only text you edit. Keep only major features in Highlights, and resolve the Review section.
 4. Add the What's New notes for the Highlights with the [whatsnew skill](../.claude/skills/whatsnew/SKILL.md).

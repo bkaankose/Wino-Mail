@@ -94,6 +94,9 @@ changes, build, and commit the framework and `Sparkle.version` together. The scr
 
 The app side lives in `Wino.Mail.MacOS`:
 - `Sparkle.plist` (merged into Info.plist): feed URL, EdDSA public key, daily checks, installer service.
+- `Sparkle.Debug.plist` (Debug only, merged after it): points the feed at `http://127.0.0.1:8089/appcast.xml`.
+  Release builds carry a `yyDDDHHMM` build number, far above a Debug build's version, so the production feed
+  would offer every Debug build the published DMG.
 - `Entitlements.plist`: the mach-lookup exception for Sparkle's sandboxed installer
   (`Entitlements.AppStore.plist` omits it).
 - `WinoSignSparkleHelpers` in the project file signs Sparkle's `Autoupdate` and `Updater.app`, which the
@@ -101,6 +104,9 @@ The app side lives in `Wino.Mail.MacOS`:
 - `AppDelegate.Updates.cs`: starts the updater and adds **Check for Updates…** to the app menu.
   Settings › General has the automatic-update switches.
 
-To try an update locally, serve an appcast and a signed `.zip` of a newer build from `127.0.0.1`, then
-`defaults write ~/Library/Containers/com.winomail.macos/Data/Library/Preferences/com.winomail.macos SUFeedURL <url>`.
-Delete the override afterwards.
+To try an update with a Debug build, serve an appcast and a signed `.zip` or DMG of a build with a higher
+`CFBundleVersion` from port 8089, for example `python3 -m http.server 8089` in that folder, then choose
+**Check for Updates…**. A Release build reads the production feed. To point it elsewhere, use
+`defaults write ~/Library/Containers/com.winomail.macos/Data/Library/Preferences/com.winomail.macos SUFeedURL <url>`
+and delete the override afterwards: Debug and Release builds share that container, so a forgotten override also
+redirects an installed DMG.

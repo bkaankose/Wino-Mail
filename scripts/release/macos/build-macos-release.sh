@@ -22,6 +22,7 @@ SPARKLE_ACCOUNT="com.winomail.macos"
 DOWNLOAD_BASE_URL="https://download.winomail.app/macos"
 
 ARCH=""
+BUILD_NUMBER=""
 NON_INTERACTIVE=0
 TRANSLATE=""
 OUTPUT_ROOT="${WINO_RELEASES_ROOT:-$HOME/Wino Releases}"
@@ -31,6 +32,8 @@ usage() {
 Usage: build-macos-release.sh [options]
 
   --arch arm64|universal   Apple silicon only, or Apple silicon + Intel (default: universal).
+  --build-number <n>       CFBundleVersion and Sparkle version of this build.
+                           Default: the UTC time as yyDDDHHMM, which always increases.
   --output-root <path>     Release root. Default: $WINO_RELEASES_ROOT or ~/Wino Releases.
   --translate              Run translate_resources.py --apply before building, without asking.
   --skip-translation       Build without translating and without asking.
@@ -51,6 +54,8 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --arch) [ $# -ge 2 ] || fail "--arch needs a value: arm64 or universal."; ARCH="$2"; shift 2 ;;
     --arch=*) ARCH="${1#*=}"; shift ;;
+    --build-number) [ $# -ge 2 ] || fail "--build-number needs a value."; BUILD_NUMBER="$2"; shift 2 ;;
+    --build-number=*) BUILD_NUMBER="${1#*=}"; shift ;;
     --output-root) [ $# -ge 2 ] || fail "--output-root needs a path."; OUTPUT_ROOT="$2"; shift 2 ;;
     --output-root=*) OUTPUT_ROOT="${1#*=}"; shift ;;
     --translate) set_release_translation yes; shift ;;
@@ -165,7 +170,11 @@ FULL_VERSION="$(awk '/<Identity/{f=1} f && match($0, /Version="[^"]*"/){print su
 [ "${BASH_REMATCH[1]}" -ne 0 ] || fail "The major version must be nonzero ($FULL_VERSION)."
 [ "${BASH_REMATCH[4]}" -eq 0 ] || fail "The revision must be zero ($FULL_VERSION)."
 VERSION="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
-info "Version: $VERSION (manifest $FULL_VERSION)"
+# Sparkle and macOS compare CFBundleVersion, which must grow with every published build, also when the manifest
+# version stays the same. The App Store script uses the same scheme, so both channels count alike.
+[ -n "$BUILD_NUMBER" ] || BUILD_NUMBER="$(date -u +%y%j%H%M | sed 's/^0*//')"
+[[ "$BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]] || fail "--build-number must be a positive integer ($BUILD_NUMBER)."
+info "Version: $VERSION (manifest $FULL_VERSION), build $BUILD_NUMBER"
 
 # ---------------------------------------------------------------- translations
 run_release_translation
@@ -190,9 +199,9 @@ case "$ARCH" in
   *) fail "--arch must be arm64 or universal." ;;
 esac
 
-DEST="$OUTPUT_ROOT/$FULL_VERSION/macOS"
-DMG_NAME="WinoMail_${VERSION}_${ARCH}.dmg"
-[ ! -e "$DEST/$DMG_NAME" ] || fail "$DEST/$DMG_NAME already exists. Move it or change the manifest version."
+DEST="$OUTPUT_ROOT/$FULL_VERSION/macOS/$BUILD_NUMBER"
+DMG_NAME="WinoMail_${VERSION}_${BUILD_NUMBER}_${ARCH}.dmg"
+[ ! -e "$DEST/$DMG_NAME" ] || fail "$DEST/$DMG_NAME already exists. Wait a minute or pass another --build-number."
 
 info "Architecture: $ARCH"
 info "Output: $DEST/$DMG_NAME"
@@ -227,17 +236,26 @@ PROJECT_DIR="$(dirname "$PROJECT")"
 # Release outputs only; Debug outputs stay untouched.
 rm -rf "$PROJECT_DIR/bin/Release" "$PROJECT_DIR/obj/Release"
 BUILD_LOG="$STAGE/publish.log"
+# release.json records the commit for the platform tag. Checkouts copied with git archive have no repository.
+COMMIT="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || true)"
+DIRTY="null"
+if [ -n "$COMMIT" ]; then
+  if [ -n "$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null)" ]; then DIRTY="true"; else DIRTY="false"; fi
+  info "Commit: $COMMIT$([ "$DIRTY" = "true" ] && printf ' (with uncommitted changes)')"
+else
+  info "Commit: unknown (not a git checkout)"
+fi
 # Info.plist holds development values; this partial manifest overrides them (see the csproj).
 VERSION_PLIST="$STAGE/Version.plist"
 plutil -create xml1 "$VERSION_PLIST"
 plutil -insert CFBundleShortVersionString -string "$VERSION" "$VERSION_PLIST"
-plutil -insert CFBundleVersion -string "$VERSION" "$VERSION_PLIST"
+plutil -insert CFBundleVersion -string "$BUILD_NUMBER" "$VERSION_PLIST"
 export DOTNET_CLI_TELEMETRY_OPTOUT=1
 if ! "$DOTNET" publish "$PROJECT" -c Release -nologo \
     -p:WinoTargetPlatform=MacOS -p:EnableWindowsTargeting=true \
     "${RID_ARGS[@]}" \
     -p:WinoVersionPlist="$VERSION_PLIST" \
-    -p:ApplicationDisplayVersion="$VERSION" -p:ApplicationVersion="$VERSION" \
+    -p:ApplicationDisplayVersion="$VERSION" -p:ApplicationVersion="$BUILD_NUMBER" \
     -p:EnableCodeSigning=true -p:CodesignKey="$IDENTITY" -p:CodesignProvision="$PROFILE_UUID" \
     -p:WinoApsEnvironment=production -p:WinoAppleSignIn=false \
     -p:CodesignEntitlements="$ENTITLEMENTS" -p:UseHardenedRuntime=true \
@@ -278,7 +296,7 @@ EMBEDDED="$APP_DIR/Contents/embedded.provisionprofile"
 PLIST="$APP_DIR/Contents/Info.plist"
 [ "$(plutil -extract CFBundleIdentifier raw "$PLIST")" = "$BUNDLE_ID" ] || fail "CFBundleIdentifier is not $BUNDLE_ID."
 [ "$(plutil -extract CFBundleShortVersionString raw "$PLIST")" = "$VERSION" ] || fail "CFBundleShortVersionString is not $VERSION."
-[ "$(plutil -extract CFBundleVersion raw "$PLIST")" = "$VERSION" ] || fail "CFBundleVersion is not $VERSION."
+[ "$(plutil -extract CFBundleVersion raw "$PLIST")" = "$BUILD_NUMBER" ] || fail "CFBundleVersion is not $BUILD_NUMBER."
 EXE="$APP_DIR/Contents/MacOS/$(plutil -extract CFBundleExecutable raw "$PLIST")"
 ARCHS="$(lipo -archs "$EXE")"
 for a in $EXPECTED_ARCHS; do [[ " $ARCHS " == *" $a "* ]] || fail "The executable lacks $a (has: $ARCHS)."; done
@@ -293,7 +311,7 @@ done
 [ "$(plutil -extract SUFeedURL raw "$PLIST")" = "$DOWNLOAD_BASE_URL/appcast.xml" ] || fail "The app's SUFeedURL is not $DOWNLOAD_BASE_URL/appcast.xml."
 info "Signed by $IDENTITY, hardened runtime, no get-task-allow"
 info "Sparkle.framework and its helpers signed; feed $DOWNLOAD_BASE_URL/appcast.xml"
-info "$BUNDLE_ID $VERSION, executable: $ARCHS"
+info "$BUNDLE_ID $VERSION ($BUILD_NUMBER), executable: $ARCHS"
 
 # ---------------------------------------------------------------- symbols
 SYMBOLS="$STAGE/Symbols/$ARCH"
@@ -377,7 +395,7 @@ cat >"$APPCAST" <<APPCAST_XML
     <item>
       <title>Wino Mail $VERSION</title>
       <pubDate>$(LC_ALL=C date -u '+%a, %d %b %Y %H:%M:%S +0000')</pubDate>
-      <sparkle:version>$VERSION</sparkle:version>
+      <sparkle:version>$BUILD_NUMBER</sparkle:version>
       <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>$(plutil -extract LSMinimumSystemVersion raw "$PLIST")</sparkle:minimumSystemVersion>$HARDWARE
       <enclosure url="$DOWNLOAD_BASE_URL/$DMG_NAME" $SPARKLE_SIGNATURE type="application/octet-stream"/>
@@ -400,13 +418,27 @@ if [ -d "$STAGE/Symbols/$ARCH" ]; then
   rm -rf "$DEST/Symbols/$ARCH"; mkdir -p "$DEST/Symbols"; mv "$STAGE/Symbols/$ARCH" "$DEST/Symbols/$ARCH"
 fi
 mv "$DMG" "$DEST/"
+cat >"$DEST/release.json" <<RELEASE_JSON
+{
+  "platform": "macos",
+  "version": "$VERSION",
+  "manifestVersion": "$FULL_VERSION",
+  "build": "$BUILD_NUMBER",
+  "arch": "$ARCH",
+  "dmg": "$DMG_NAME",
+  "commit": $([ -n "$COMMIT" ] && printf '"%s"' "$COMMIT" || printf 'null'),
+  "dirty": $DIRTY,
+  "builtUtc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+RELEASE_JSON
 SUCCESS=1
 
 printf '\nDone.\n'
 info "$DEST/$DMG_NAME"
 info "$DEST/$DMG_NAME.sha256"
 info "$DEST/appcast.xml"
+info "$DEST/release.json"
 info "$DEST/$(basename "$NOTARY_LOG")"
 [ -d "$DEST/Symbols/$ARCH" ] && info "$DEST/Symbols/$ARCH"
-printf '\nTo publish, upload %s first and then appcast.xml to %s/.\n' "$DMG_NAME" "$DOWNLOAD_BASE_URL"
+printf '\nTo publish: bash scripts/release/macos/publish-macos-release.sh --version %s\n' "$FULL_VERSION"
 exit 0

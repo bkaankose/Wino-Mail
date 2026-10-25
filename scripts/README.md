@@ -11,6 +11,7 @@ See the [Windows](../docs/harness/development-windows.md), [macOS](../docs/harne
 | Release | `release/windows/publish-releases.ps1` | Windows | PowerShell 7 | Publish Beta and sideload releases to download.winomail.app |
 | Release | `release/windows/upload-sentry-symbols.ps1` | Windows | PowerShell 7 | Upload symbols for a selected release |
 | Release | `release/macos/build-macos-release.sh` | macOS | Bash | Optionally translate resources, then build the signed, notarized macOS DMG |
+| Release | `release/macos/publish-macos-release.sh` | macOS | Bash | Publish a built DMG and its Sparkle appcast to download.winomail.app |
 | Release | `release/macos/build-macos-appstore.sh` | macOS | Bash | Optionally translate resources, then build, validate, and optionally upload the Mac App Store package |
 | Release | `release/release.ps1` | Both | PowerShell 7 | Bump the version, draft release notes with Claude Code, mark issues, and publish the GitHub release |
 | Release | `release/whats-new/validate.ps1` | Both | PowerShell 7 | Validate What's New notes and illustration references |
@@ -41,6 +42,7 @@ python scripts/localization/translate_resources.py --help
 
 ```sh
 bash scripts/release/macos/build-macos-release.sh --help
+bash scripts/release/macos/publish-macos-release.sh --help
 bash scripts/maintenance/macos/setup-macos-debugger.sh
 ```
 
