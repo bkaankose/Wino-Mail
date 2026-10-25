@@ -31,7 +31,8 @@ internal static class CalendarTileMapper
             item.IsRecurringEvent,
             item.IsMultiDayEvent,
             viewModel?.IsSelected ?? false,
-            viewModel?.IsBusy ?? false);
+            viewModel?.IsBusy ?? false,
+            item.IsAllDayEvent);
     }
 
     /// <summary>True when the item belongs to a read-only calendar (shared <see cref="CalendarEventDisplay.IsReadOnly"/>).</summary>
