@@ -134,6 +134,7 @@ public sealed partial class EventDetailsPageViewController
         {
             await reader.InitializeAsync();
             await reader.SetThemeAsync(_dark);
+            await reader.SetReaderTypographyAsync($"{ViewModel.PreferencesService.ReaderFont}, sans-serif", ViewModel.PreferencesService.ReaderFontSize);
         }
         catch (Exception exception) { ReportError(exception); }
     }

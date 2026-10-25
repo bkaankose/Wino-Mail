@@ -442,6 +442,7 @@ internal sealed class MailReaderCommandBar : NSView
     private readonly NSButton _moreButton;
     private readonly WinoSurfaceView _separator;
     private bool _iconOnly;
+    private bool _showsLabels;
     private bool _hugsCommands;
     private readonly List<Slot> _slots = new();
     private Func<NSMenu>? _moreMenu;
@@ -508,6 +509,26 @@ internal sealed class MailReaderCommandBar : NSView
     }
 
     /// <summary>
+    /// Shows command labels on an <see cref="IconOnly"/> bar while they fit (the action labels setting,
+    /// Windows OperationCommandBar). The bar keeps its icon-only chrome and accessibility.
+    /// </summary>
+    public bool ShowsLabels
+    {
+        get => _showsLabels;
+        set
+        {
+            if (_showsLabels == value) return;
+            _showsLabels = value;
+            foreach (var slot in _slots) if (slot.Button is not null) Measure(slot);
+            _shown = -1;
+            if (_hugsCommands) InvalidateIntrinsicContentSize();
+            NeedsLayout = true;
+        }
+    }
+
+    private bool LabelsAllowed => !_iconOnly || _showsLabels;
+
+    /// <summary>
     /// Icon-only bar sized to its commands, for a row it shares with other content (the reader's
     /// subject row): its intrinsic width shows every command, and it gives way first when the row
     /// is narrow, moving trailing commands into More.
@@ -530,7 +551,7 @@ internal sealed class MailReaderCommandBar : NSView
         {
             if (!_hugsCommands) return base.IntrinsicContentSize;
             int total = _slots.Count(static slot => slot.Button is not null);
-            return new CGSize((nfloat)RequiredWidth(false, total, total), NSView.NoIntrinsicMetric);
+            return new CGSize((nfloat)RequiredWidth(LabelsAllowed, total, total), NSView.NoIntrinsicMetric);
         }
     }
 
@@ -636,7 +657,7 @@ internal sealed class MailReaderCommandBar : NSView
     private void Measure(Slot slot)
     {
         var button = slot.Button!;
-        if (_iconOnly)
+        if (!LabelsAllowed)
         {
             button.ImagePosition = NSCellImagePosition.ImageOnly;
             button.Title = string.Empty;
@@ -677,7 +698,7 @@ internal sealed class MailReaderCommandBar : NSView
         int total = _slots.Count(static slot => slot.Button is not null);
         if (total == 0) { _moreButton.Hidden = _moreMenu is null; return; }
         double available = (double)Bounds.Width;
-        bool labels = !_iconOnly && RequiredWidth(true, total, total) <= available;
+        bool labels = LabelsAllowed && RequiredWidth(true, total, total) <= available;
         int shown = total;
         if (!labels) while (shown > 0 && RequiredWidth(false, shown, total) > available) shown--;
         if (labels != _labelsHidden && shown == _shown) return;

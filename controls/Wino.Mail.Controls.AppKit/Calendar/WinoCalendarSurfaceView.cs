@@ -542,7 +542,10 @@ public sealed partial class WinoCalendarSurfaceView : NSView
         public override void MouseUp(NSEvent theEvent) => owner.EndSlotPress(theEvent);
     }
 
-    /// <summary>The day names and numbers of the realized columns, drawn on the header rail.</summary>
+    /// <summary>
+    /// The day headers of the realized columns, drawn on the header rail in the user's timed day header format
+    /// (Windows CalendarPeriodControl); today sits on an accent pill.
+    /// </summary>
     private sealed class HeaderRailView(WinoCalendarSurfaceView owner) : NSView
     {
         public override bool IsFlipped => true;
@@ -558,9 +561,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
             var culture = settings?.CultureInfo ?? System.Globalization.CultureInfo.CurrentCulture;
             var today = owner.Today();
             double dayWidth = owner.DayWidth;
-            bool singleDay = owner.VisibleUnitCount == 1;
-            var nameFont = NSFont.SystemFontOfSize(12);
-            var numberFont = NSFont.SystemFontOfSize(13, NSFontWeight.Semibold);
+            var headerFont = NSFont.SystemFontOfSize(13, NSFontWeight.Semibold);
             for (int index = 0; index < dates.Count; index++)
             {
                 var date = dates[index];
@@ -569,30 +570,22 @@ public sealed partial class WinoCalendarSurfaceView : NSView
                 // Boundary lines sit just left of each column, so the one resting on the gutter is clipped.
                 LineColor.SetFill();
                 FillRect(new CGRect(Math.Round(x) - 1, 0, 1, bounds.Height));
-                string name = singleDay
-                    ? date.ToDateTime(TimeOnly.MinValue).ToString("dddd", culture)
-                    : culture.DateTimeFormat.AbbreviatedDayNames[(int)date.DayOfWeek];
-                string number = date.Day.ToString(culture);
+                string text = settings?.GetTimedDayHeaderText(date) ?? date.ToDateTime(TimeOnly.MinValue).ToString("ddd dd", culture);
                 bool isToday = date == today;
-                var nameSize = Measure(name, nameFont);
-                var numberSize = Measure(number, numberFont);
-                double circle = 24;
-                double numberWidth = isToday ? circle : numberSize.Width;
-                double total = nameSize.Width + 6 + numberWidth;
-                double start = x + (dayWidth - total) / 2;
-                DrawText(name, nameFont, WinoStyle.SecondaryText, new CGPoint(start, (bounds.Height - nameSize.Height) / 2));
-                double numberX = start + nameSize.Width + 6;
+                var size = Measure(text, headerFont);
+                var column = new CGRect(x + 4, 0, Math.Max(0, dayWidth - 8), bounds.Height);
+                double pillWidth = Math.Min(column.Width, size.Width + 16);
+                var pill = new CGRect(x + (dayWidth - pillWidth) / 2, (bounds.Height - 24) / 2, pillWidth, 24);
+                NSGraphicsContext.GlobalSaveGraphicsState();
+                NSBezierPath.ClipRect(column);
                 if (isToday)
                 {
-                    var circleRect = new CGRect(numberX, (bounds.Height - circle) / 2, circle, circle);
                     WinoStyle.Accent.SetFill();
-                    NSBezierPath.FromOvalInRect(circleRect).Fill();
-                    DrawCentered(number, numberFont, NSColor.White, circleRect);
+                    NSBezierPath.FromRoundedRect(pill, 12, 12).Fill();
                 }
-                else
-                {
-                    DrawText(number, numberFont, WinoStyle.PrimaryText, new CGPoint(numberX, (bounds.Height - numberSize.Height) / 2));
-                }
+                DrawText(text, headerFont, isToday ? NSColor.White : WinoStyle.PrimaryText,
+                    new CGPoint(x + Math.Max(4, (dayWidth - size.Width) / 2), (bounds.Height - size.Height) / 2));
+                NSGraphicsContext.GlobalRestoreGraphicsState();
             }
             LineColor.SetFill();
             FillRect(new CGRect(Math.Round(HourColumnWidth + dates.Count * dayWidth) - 1, 0, 1, bounds.Height));
@@ -720,7 +713,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
         }
 
         private static string HourLabel(CalendarSettings? settings, int hour)
-            => settings is null ? $"{hour:00}:00" : settings.GetTimeString(TimeSpan.FromHours(hour));
+            => settings?.GetTimedHourLabelText(hour) ?? $"{hour:00}:00";
     }
 
     /// <summary>The realized day columns of the hour grid: shading, working hours, lines, the current time, the selection and the timed tiles.</summary>

@@ -15,12 +15,12 @@ internal static class ShellPaneRows
     /// <summary>Indent of child rows under their parent, the Windows pane child offset.</summary>
     public const double ChildIndent = 12;
 
-    public static double Height(IMenuItem item) => item switch
+    public static double Height(IMenuItem item, bool compactAccounts) => item switch
     {
         NewAddressListMenuItem => 44,
         NewMailMenuItem or NewContactMenuItem or NewTaskListMenuItem => 50,
         MergedAccountMenuItem => 50,
-        IAccountNavigationMenuItem account when ShellMenuItemRules.IsAccountRow(account) => 50,
+        IAccountNavigationMenuItem account when ShellMenuItemRules.IsAccountRow(account) => compactAccounts ? 40 : 50,
         FixAccountIssuesMenuItem => 58,
         ShellSectionHeaderMenuItem => 28,
         SeperatorItem => 9,

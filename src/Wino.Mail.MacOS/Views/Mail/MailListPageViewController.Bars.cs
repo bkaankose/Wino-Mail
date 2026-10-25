@@ -35,10 +35,10 @@ public sealed partial class MailListPageViewController
 
     // ---- Action bar (Windows MailListPage.xaml ActionBarGrid) ----
 
-    /// <summary>Icon-only command bar over <see cref="Wino.Mail.ViewModels.MailListPageViewModel.ActionItems"/>; shown while the preference is on.</summary>
+    /// <summary>Command bar over <see cref="Wino.Mail.ViewModels.MailListPageViewModel.ActionItems"/>; shown while the preference is on, labelled per the action labels setting.</summary>
     private NSView BuildActionBar()
     {
-        _actionBar = new MailReaderCommandBar { IconOnly = true };
+        _actionBar = new MailReaderCommandBar { IconOnly = true, ShowsLabels = _preferences.IsShowActionLabelsEnabled };
         var host = new WinoSurfaceView { Fill = WinoStyle.SubtleFill, CornerRadius = WinoStyle.GroupRadius };
         WinoLayout.Fill(_actionBar, host);
         host.AccessibilityElement = true;
@@ -280,5 +280,6 @@ public sealed partial class MailListPageViewController
     {
         if (name == nameof(_preferences.IsMailListActionBarEnabled)) UpdateActionBar();
         else if (name == nameof(_preferences.IsOtherInboxUnreadNoticeEnabled)) UpdateOtherInboxLink();
+        else if (name == nameof(_preferences.IsShowActionLabelsEnabled)) _actionBar.ShowsLabels = _preferences.IsShowActionLabelsEnabled;
     }
 }

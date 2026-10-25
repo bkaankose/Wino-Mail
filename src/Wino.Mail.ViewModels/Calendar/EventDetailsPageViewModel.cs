@@ -81,6 +81,8 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
 
     public ObservableCollection<CalendarAttachmentViewModel> Attachments { get; } = new ObservableCollection<CalendarAttachmentViewModel>();
 
+    public IPreferencesService PreferencesService => _preferencesService;
+
     /// <summary>
     /// Returns true if the current event has attachments.
     /// </summary>

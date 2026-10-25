@@ -84,7 +84,8 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
             account => pictures is null
                 ? MailAccountIconInfoFactory.CreateProviderFallback(account.ProviderType, account.SpecialImapProvider)
                 : MailAccountIconInfoFactory.Create(account, pictures),
-            () => ViewModel.PreferencesService.FirstDayOfWeek);
+            () => ViewModel.PreferencesService.FirstDayOfWeek,
+            () => ViewModel.PreferencesService.IsCompactAccountMenuItemEnabled);
         var menus = new ShellSidebarMenuContext(MailClient, Navigation, Dispatcher, ReportError, FixAccountAsync);
         _sidebar = new ShellSidebarViewController(Dispatcher, ReportError, Select, SwitchMode, FixAccount, context, menus);
         _sidebarItem = NSSplitViewItem.FromViewController(_sidebar);
@@ -133,12 +134,13 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         bool hasSavedLayout = Foundation.NSUserDefaults.StandardUserDefaults["NSSplitView Subview Frames WinoShellSplit.v3"] is not null;
         NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
         {
-            if (_sidebarItem is { Collapsed: true }) _sidebarItem.Collapsed = false;
+            SetSidebarCollapsed(!ViewModel.PreferencesService.IsNavigationPaneOpened);
             if (!hasSavedLayout) _split.SplitView.SetPositionOfDivider(280, 0);
         });
 
         _toolbar = new ShellToolbar(() => SearchTarget, ToggleSidebar, Synchronize, ToggleBriefing, ShowWhatsNew, OpenAccount, ReportError);
         _toolbar.SetAccountHidden(ViewModel.PreferencesService.IsWinoAccountButtonHidden);
+        ViewModel.PreferencesService.PreferenceChanged += PreferenceChanged;
         Bindings.Own(new PropertyBinding<WinoAppShellViewModel, bool>(ViewModel, nameof(ViewModel.IsRelayFallbackActive),
             vm => vm.IsRelayFallbackActive, active => _toolbar?.SetRelayFallbackActive(active), Dispatcher, ReportError));
 
@@ -278,6 +280,7 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         if (_child is IWinoViewController child) await child.ReleaseAsync();
         await Dispatcher.ExecuteOnUIThread(() =>
         {
+            ViewModel.PreferencesService.PreferenceChanged -= PreferenceChanged;
             DetachCommandTarget();
             _child?.Dispose();
             _child = null;
@@ -330,7 +333,17 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
     {
         if (_sidebarItem is null) return;
         _autoCollapsedWidth = 0;
-        ((NSSplitViewItem)_sidebarItem.Animator).Collapsed = !_sidebarItem.Collapsed;
+        bool collapse = !_sidebarItem.Collapsed;
+        ((NSSplitViewItem)_sidebarItem.Animator).Collapsed = collapse;
+        ViewModel.PreferencesService.IsNavigationPaneOpened = !collapse;
+    }
+
+    private void PreferenceChanged(object? sender, string name)
+    {
+        if (name == nameof(IPreferencesService.IsWinoAccountButtonHidden))
+            NSApplication.SharedApplication.BeginInvokeOnMainThread(() => _toolbar?.SetAccountHidden(ViewModel.PreferencesService.IsWinoAccountButtonHidden));
+        else if (name == nameof(IPreferencesService.IsCompactAccountMenuItemEnabled))
+            NSApplication.SharedApplication.BeginInvokeOnMainThread(() => _sidebar?.ReloadRows());
     }
 
     /// <summary>

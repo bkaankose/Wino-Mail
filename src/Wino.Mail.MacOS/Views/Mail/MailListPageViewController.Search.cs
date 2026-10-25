@@ -1,5 +1,6 @@
 using AppKit;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Mail.Controls.AppKit.MailList;
@@ -24,6 +25,7 @@ public sealed partial class MailListPageViewController : IShellSearchTarget
             FiltersTitle = Translator.SearchBar_Filters
         };
         _scopeBar.SetScopes([Translator.SearchBar_CurrentFolder, Translator.SearchBar_ScopeSubfolders, Translator.SearchBar_AllFolders], 0);
+        _scopeBar.IsOnline = IsDefaultSearchOnline;
         _scopeBar.ReachChanged += (_, _) => Observe(RerunSearchAsync());
         _scopeBar.ScopeChanged += (_, index) =>
         {
@@ -46,6 +48,9 @@ public sealed partial class MailListPageViewController : IShellSearchTarget
         Bind(nameof(ViewModel.AreSearchResultsOnline), vm => vm.AreSearchResultsOnline, _ => UpdateScopeBar());
         Bind(nameof(ViewModel.IsEmpty), vm => vm.IsEmpty, _ => UpdateScopeBar());
     }
+
+    /// <summary>Where a new search starts (Windows ApplyDefaultSearchMode); changing the reach during a search still wins.</summary>
+    private bool IsDefaultSearchOnline => _preferences.DefaultSearchMode == SearchMode.Online;
 
     private bool IsSearchActive => !string.IsNullOrWhiteSpace(_searchText) || ViewModel.IsInSearchMode || ViewModel.ActiveSearchFilterCount > 0;
 
@@ -116,7 +121,7 @@ public sealed partial class MailListPageViewController : IShellSearchTarget
         ViewModel.IsOnlineSearchButtonVisible = false;
         ViewModel.SetSearchCriteria(MailSearchCriteria.Empty, []);
         await ViewModel.PerformSearchAsync();
-        OnUI(() => { _scopeBar.IsOnline = false; UpdateScopeBar(); });
+        OnUI(() => { _scopeBar.IsOnline = IsDefaultSearchOnline; UpdateScopeBar(); });
     }
 
     private Task RerunSearchAsync() => RunSearchOrCloseAsync(_searchText);

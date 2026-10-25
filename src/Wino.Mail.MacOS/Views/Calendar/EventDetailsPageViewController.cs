@@ -511,11 +511,13 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
         try
         {
             string document = html.Contains('<') ? html : $"<p>{System.Net.WebUtility.HtmlEncode(html).Replace("\n", "<br>")}</p>";
-            var styled = $"<meta charset=\"utf-8\"><style>body{{font-family:-apple-system;font-size:12px;color:{(WinoIcons.IsDark(View.EffectiveAppearance) ? "#e6e6e6" : "#1b1b1b")};}}</style>{document}";
+            var preferences = ViewModel.PreferencesService;
+            var font = preferences.ReaderFont.Replace("\"", string.Empty).Replace("<", string.Empty);
+            var styled = $"<meta charset=\"utf-8\"><style>body{{font-family:\"{font}\",-apple-system,sans-serif;font-size:{Math.Clamp(preferences.ReaderFontSize, 8, 72)}px;color:{(WinoIcons.IsDark(View.EffectiveAppearance) ? "#e6e6e6" : "#1b1b1b")};}}</style>{document}";
             attributed = NSAttributedString.CreateWithHTML(NSData.FromString(styled, NSStringEncoding.UTF8), out NSDictionary _);
         }
         catch (Exception exception) { ReportError(exception); }
-        attributed ??= new NSAttributedString(html, new NSStringAttributes { Font = NSFont.SystemFontOfSize(12), ForegroundColor = WinoStyle.PrimaryText });
+        attributed ??= new NSAttributedString(html, new NSStringAttributes { Font = NSFont.SystemFontOfSize(Math.Clamp(ViewModel.PreferencesService.ReaderFontSize, 8, 72)), ForegroundColor = WinoStyle.PrimaryText });
         attributed = TrimEdges(attributed);
         // Drop baked-in foreground colours so the text follows light/dark through the view's TextColor; links keep their own style.
         var mutable = new NSMutableAttributedString(attributed);

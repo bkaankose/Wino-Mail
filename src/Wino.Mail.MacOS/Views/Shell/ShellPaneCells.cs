@@ -19,7 +19,7 @@ using Wino.Core.Domain.Presentation;
 namespace Wino.Mail.MacOS.Views.Shell;
 
 /// <summary>Services the pane cells need from the shell.</summary>
-internal sealed record ShellPaneContext(Func<MailAccount, IAccountIconInfo?> AccountIcon, Func<DayOfWeek> FirstDayOfWeek);
+internal sealed record ShellPaneContext(Func<MailAccount, IAccountIconInfo?> AccountIcon, Func<DayOfWeek> FirstDayOfWeek, Func<bool> CompactAccounts);
 
 /// <summary>
 /// The general pane row, configured per menu item type to match the Windows templates: New item,
@@ -211,7 +211,8 @@ internal sealed class ShellPaneCell : NSTableCellView
                 _accountIcon.Hidden = false;
                 _accountIcon.Account = account.Account is { } mailAccount ? _context.AccountIcon(mailAccount) : null;
                 SetTitle(account.AccountName, account.IsSelected ? WinoStyle.BodyStrong : WinoStyle.Body);
-                SetSubtitle(account.AccountAddress);
+                // The compact account row (Windows SharedCompactAccountMenuTemplate) shows the name alone.
+                SetSubtitle(_context.CompactAccounts() ? null : account.AccountAddress);
                 SetSync(account.IsSynchronizationProgressVisible, account.IsProgressIndeterminate, account.SynchronizationProgressValue);
                 _pill.Count = account.UnreadItemCount;
                 _attention.Hidden = !account.IsAttentionRequired;

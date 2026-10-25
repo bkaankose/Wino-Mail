@@ -84,7 +84,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     {
         var root = new NSView();
 
-        // ---- Subject row: the subject, then the icon-only commands at the trailing edge ----
+        // ---- Subject row: the subject, then the commands at the trailing edge ----
         _commandBar = new MailReaderCommandBar { IconOnly = true, HugsCommands = true };
         // IconOnly hands the toolbar role to a host; here the bar is the reader's toolbar itself.
         _commandBar.AccessibilityElement = true;
@@ -270,6 +270,9 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _reader.OperationFailed += (_, exception) => ReportError(exception);
         _reader.LinkHovered += (_, args) => _linkTarget.Show(args);
         _reader.NavigationRequested += (_, _) => _linkTarget.Clear();
+        _commandBar.ShowsLabels = ViewModel.PreferencesService.IsShowActionLabelsEnabled;
+        ViewModel.PreferencesService.PreferenceChanged -= PreferenceChanged;
+        ViewModel.PreferencesService.PreferenceChanged += PreferenceChanged;
         _dark = IsDarkAppearance();
         ViewModel.IsDarkWebviewRenderer = _dark;
         ViewModel.RenderHtmlAsyncFunc = RenderAsync;
@@ -521,6 +524,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _linkTarget.Clear();
         _currentRenderedHtml = html ?? string.Empty;
         await _reader.SetThemeAsync(_dark);
+        await _reader.SetReaderTypographyAsync($"{ViewModel.PreferencesService.ReaderFont}, sans-serif", ViewModel.PreferencesService.ReaderFontSize);
         // The intelligence context loads while the body renders, like the Windows reader.
         var intelligence = IntelligenceHtmlRendered(_currentRenderedHtml);
         await RenderActiveContentAsync();
@@ -684,12 +688,19 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         ViewModel.CloseRequested -= CloseRequested;
         ViewModel.ComposeRequested -= ComposeRequested;
         CloseContactCard();
+        ViewModel.PreferencesService.PreferenceChanged -= PreferenceChanged;
         ViewModel.RenderHtmlAsyncFunc = null;
         ViewModel.ClearRenderedHtmlAsyncFunc = null;
         ViewModel.PrintPresenter = null!;
         ViewModel.OnNavigatedFrom(NavigationMode.New, null);
         IntelligenceDispose();
         await DisposeReaderAsync();
+    }
+
+    private void PreferenceChanged(object? sender, string name)
+    {
+        if (name != nameof(IPreferencesService.IsShowActionLabelsEnabled)) return;
+        NSApplication.SharedApplication.BeginInvokeOnMainThread(() => _commandBar.ShowsLabels = ViewModel.PreferencesService.IsShowActionLabelsEnabled);
     }
 
     private async Task DisposeReaderAsync()
@@ -708,6 +719,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         {
             ViewModel.CloseRequested -= CloseRequested;
             ViewModel.ComposeRequested -= ComposeRequested;
+            ViewModel.PreferencesService.PreferenceChanged -= PreferenceChanged;
             IntelligenceDispose();
             if (!_disposedReader && _reader is not null) _ = DisposeReaderAsync();
         }

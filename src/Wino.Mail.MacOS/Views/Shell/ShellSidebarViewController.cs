@@ -123,6 +123,14 @@ internal sealed partial class ShellSidebarViewController : NSViewController
         _rows.Bind(menu?.Items);
     }
 
+    /// <summary>Re-lays every row after a setting that changes row content or height.</summary>
+    public void ReloadRows()
+    {
+        if (!ViewLoaded) return;
+        _outline.ReloadData();
+        ApplySelection();
+    }
+
     /// <summary>Highlights the mode segment; the switch itself goes through the shell.</summary>
     public void SetMode(WinoApplicationMode mode) => _switcher.Selected = mode;
 
@@ -617,7 +625,7 @@ internal sealed partial class ShellSidebarViewController : NSViewController
             return row;
         }
 
-        public override nfloat GetRowHeight(NSOutlineView outlineView, NSObject item) => (nfloat)ShellPaneRows.Height(((Node)item).Item);
+        public override nfloat GetRowHeight(NSOutlineView outlineView, NSObject item) => (nfloat)ShellPaneRows.Height(((Node)item).Item, owner._context.CompactAccounts());
 
         public override bool ShouldShowOutlineCell(NSOutlineView outlineView, NSObject item) => false;
 

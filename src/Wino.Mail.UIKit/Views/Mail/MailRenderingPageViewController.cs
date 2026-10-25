@@ -497,6 +497,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         // A shorter message must be able to shrink the body: measure from a small frame again.
         if (_webHeight is not null) _webHeight.Constant = 120;
         await _reader.SetThemeAsync(_dark);
+        await _reader.SetReaderTypographyAsync($"{ViewModel.PreferencesService.ReaderFont}, sans-serif", ViewModel.PreferencesService.ReaderFontSize);
         var intelligence = IntelligenceHtmlRendered(_currentRenderedHtml);
         await RenderActiveContentAsync();
         await _reader.SetAccessibilityContextAsync(new ReaderAccessibilityContext(
