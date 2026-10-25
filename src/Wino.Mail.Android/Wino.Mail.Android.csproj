@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- The Android app: one activity hosting fragments with XML layouts (docs: iq/20261014-android-port-c0e8a8/plan.md).
+  <!-- The Android app: one activity hosting fragments with XML layouts (docs/android-design-decisions.md).
        Shared services, the Android platform (Wino.Platform.Android) and the ViewModels are composed once per process
        in MainApplication (AndroidComposition). -->
   <PropertyGroup>

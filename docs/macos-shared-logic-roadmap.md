@@ -25,22 +25,22 @@ Paths: **M** = `src/Wino.Mail.MacOS`, **CA** = `controls/Wino.Mail.Controls.AppK
 
 ## Status after the iOS Phase 0 (13 October 2026)
 
-The iOS platform work moved shared prerequisites out of the Mac head before adding a third app (plan and reports in `iq/20261013-ios-platform-a3f9c1/`: A to D for the moves, E for the integrated Windows and Mac builds and tests). These entries changed. Manual runtime checks on both platforms are still pending, so Phase 4 deletion has not started for any of them.
+The iOS platform work moved shared prerequisites out of the Mac head before adding a third app. These entries changed. Manual runtime checks on both platforms are still pending, so Phase 4 deletion has not started for any of them.
 
-| Entry | What landed | Remaining | Report |
-| --- | --- | --- | --- |
-| #25 copied registration lists | `RegisterWinoViewModels()` in `Wino.Mail.ViewModels` holds every shared ViewModel with the WinUI lifetimes. WinUI, the Mac and the iOS head call it; `MacViewModelRegistration*.cs` keeps only views. | None | A |
-| #12, #37 account lifecycle and back confirmation | `NavigationCoordinator` (`Wino.Mail.ViewModels/Navigation`) owns history, `IConfirmBackNavigation`, account created and removed, and `IsModeAvailable`. `AppKitNavigationService` and `UIKitNavigationService` are host adapters. | WinUI `NavigationService` does not use it; mode selection after account creation and the Settings window history are unchanged | A |
-| Notification responses, activation, start and stop order (not numbered) | `NotificationResponseService` (`Wino.Services`), `ActivationRouter` and `ApplicationLifecycleCoordinator` (`Wino.Mail.ViewModels`). The Mac handlers are thin adapters; the notification delegate is `AppleNotificationResponseHandler` in `Wino.Platform.Apple`. | WinUI toast and activation handlers do not use them yet | B |
-| #50 theme catalog | `WinoThemeCatalog` (`Wino.Core.Domain`) feeds `MacWinoThemeService` and WinUI `NewThemeService` | None | C |
-| #8 operation presentation | `MailOperationDisplay` and `FolderOperationDisplay` (`Wino.Core.Domain`). The Mac uses both; WinUI delegates folder operations. | WinUI mail operation glyphs and titles differ from the shared map (Move, Focused/Other, AlwaysMove, RetryDraftUpload); pick one set | C |
-| #30 special-folder glyphs and menu rules | `SpecialFolderGlyphs` (`Wino.Core.Domain`) and `ShellMenuItemRules` (`Wino.Mail.ViewModels`). The Mac uses both; WinUI delegates the folder glyph. | WinUI shell templates still hold the menu rules | C |
-| #52 provider glyphs, #55 account error text | `MailProviderGlyphs`; `WinoAccountAuthErrorTranslator` and `WinoAccountEmailConfirmationHelper` moved from WinUI into Domain. `WinoAccountErrorText.cs` is deleted. | None | C |
-| #36 Settings page visibility | `SettingsPageAvailability` (`Wino.Core.Domain`), used by `SettingsPageCatalog.IsVisible` on the Mac and WinUI `SettingsMenuProvider` | The rest of the Mac `SettingsPageCatalog` was not rechecked | C |
-| #31 list date, #43 recurrence text | `MailRowPresentation` (`Wino.Mail.ViewModels`) formats list and reader dates through `DateTimeDisplayFormatter`; `CalendarEventDisplay` (`Wino.Core.Domain`) gives the full recurrence summary. The Mac uses both. | WinUI `CalendarXamlHelpers` (no all-day branch, Ical.Net recurrence text) | C |
-| #44 calendar layout | `CalendarSurfaceLayoutCalculator` (`Wino.Core.Domain`). The AppKit and UIKit calculators are thin adapters. | WinUI `TimedCalendarLayout` and `MonthCalendarLayout`; the swap is not mechanical | C |
-| #11 readable text colour | `ReadableTextColor` (`Wino.Core.Domain`) keeps both rules under separate names; the Mac and WinUI use it | `Wino.Core/Misc/ColorHelpers.GetReadableTextColorHex` duplicates it | C |
-| Row metrics, avatar palette, mini-calendar grid, intelligence header state | Moved to `controls/Wino.Mail.Controls.Core`; typed bindings and tokens to `controls/Wino.Presentation.Core` | WinUI `ContactVisual` uses its own hash and initials | C, D |
+| Entry | What landed | Remaining |
+| --- | --- | --- |
+| #25 copied registration lists | `RegisterWinoViewModels()` in `Wino.Mail.ViewModels` holds every shared ViewModel with the WinUI lifetimes. WinUI, the Mac and the iOS head call it; `MacViewModelRegistration*.cs` keeps only views. | None |
+| #12, #37 account lifecycle and back confirmation | `NavigationCoordinator` (`Wino.Mail.ViewModels/Navigation`) owns history, `IConfirmBackNavigation`, account created and removed, and `IsModeAvailable`. `AppKitNavigationService` and `UIKitNavigationService` are host adapters. | WinUI `NavigationService` does not use it; mode selection after account creation and the Settings window history are unchanged |
+| Notification responses, activation, start and stop order (not numbered) | `NotificationResponseService` (`Wino.Services`), `ActivationRouter` and `ApplicationLifecycleCoordinator` (`Wino.Mail.ViewModels`). The Mac handlers are thin adapters; the notification delegate is `AppleNotificationResponseHandler` in `Wino.Platform.Apple`. | WinUI toast and activation handlers do not use them yet |
+| #50 theme catalog | `WinoThemeCatalog` (`Wino.Core.Domain`) feeds `MacWinoThemeService` and WinUI `NewThemeService` | None |
+| #8 operation presentation | `MailOperationDisplay` and `FolderOperationDisplay` (`Wino.Core.Domain`). The Mac uses both; WinUI delegates folder operations. | WinUI mail operation glyphs and titles differ from the shared map (Move, Focused/Other, AlwaysMove, RetryDraftUpload); pick one set |
+| #30 special-folder glyphs and menu rules | `SpecialFolderGlyphs` (`Wino.Core.Domain`) and `ShellMenuItemRules` (`Wino.Mail.ViewModels`). The Mac uses both; WinUI delegates the folder glyph. | WinUI shell templates still hold the menu rules |
+| #52 provider glyphs, #55 account error text | `MailProviderGlyphs`; `WinoAccountAuthErrorTranslator` and `WinoAccountEmailConfirmationHelper` moved from WinUI into Domain. `WinoAccountErrorText.cs` is deleted. | None |
+| #36 Settings page visibility | `SettingsPageAvailability` (`Wino.Core.Domain`), used by `SettingsPageCatalog.IsVisible` on the Mac and WinUI `SettingsMenuProvider` | The rest of the Mac `SettingsPageCatalog` was not rechecked |
+| #31 list date, #43 recurrence text | `MailRowPresentation` (`Wino.Mail.ViewModels`) formats list and reader dates through `DateTimeDisplayFormatter`; `CalendarEventDisplay` (`Wino.Core.Domain`) gives the full recurrence summary. The Mac uses both. | WinUI `CalendarXamlHelpers` (no all-day branch, Ical.Net recurrence text) |
+| #44 calendar layout | `CalendarSurfaceLayoutCalculator` (`Wino.Core.Domain`). The AppKit and UIKit calculators are thin adapters. | WinUI `TimedCalendarLayout` and `MonthCalendarLayout`; the swap is not mechanical |
+| #11 readable text colour | `ReadableTextColor` (`Wino.Core.Domain`) keeps both rules under separate names; the Mac and WinUI use it | `Wino.Core/Misc/ColorHelpers.GetReadableTextColorHex` duplicates it |
+| Row metrics, avatar palette, mini-calendar grid, intelligence header state | Moved to `controls/Wino.Mail.Controls.Core`; typed bindings and tokens to `controls/Wino.Presentation.Core` | WinUI `ContactVisual` uses its own hash and initials |
 
 ## Phase 1: Restore shared behavior
 
