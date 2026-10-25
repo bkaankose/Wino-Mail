@@ -22,11 +22,11 @@ public static class WinoSettingsStyle
     public const double CardSpacing = 4;
     public const double PopUpMinWidth = 180;
 
-    public static NSColor CardFill => WinoStyle.Dynamic(WinoStyle.Hex(0xF7F7F8), WinoStyle.Hex(0xFFFFFF, 0.06));
-    public static NSColor CardStroke => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.06), WinoStyle.Hex(0xFFFFFF, 0.07));
-    public static NSColor SubtleFill => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.05), WinoStyle.Hex(0xFFFFFF, 0.08));
-    public static NSColor SelectedFill => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.06), WinoStyle.Hex(0xFFFFFF, 0.10));
-    public static NSColor PaneVeil => WinoStyle.Dynamic(WinoStyle.Hex(0xFFFFFF, 0.45), WinoStyle.Hex(0x14141A, 0.45));
+    public static NSColor CardFill { get; } = WinoStyle.Dynamic(WinoStyle.Hex(0xF7F7F8), WinoStyle.Hex(0xFFFFFF, 0.06));
+    public static NSColor CardStroke { get; } = WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.06), WinoStyle.Hex(0xFFFFFF, 0.07));
+    public static NSColor SubtleFill { get; } = WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.05), WinoStyle.Hex(0xFFFFFF, 0.08));
+    public static NSColor SelectedFill { get; } = WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.06), WinoStyle.Hex(0xFFFFFF, 0.10));
+    public static NSColor PaneVeil { get; } = WinoStyle.Dynamic(WinoStyle.Hex(0xFFFFFF, 0.45), WinoStyle.Hex(0x14141A, 0.45));
 
     public static NSFont SectionTitle => NSFont.SystemFontOfSize(13, NSFontWeight.Semibold);
     public static NSFont PageTitle => NSFont.SystemFontOfSize(24, NSFontWeight.Semibold);

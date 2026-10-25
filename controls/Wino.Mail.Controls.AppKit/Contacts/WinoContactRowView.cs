@@ -15,17 +15,17 @@ namespace Wino.Mail.Controls.AppKit.Contacts;
 public static class WinoContactStyle
 {
     /// <summary>Full-width group header strip tint (Windows LayerFillColorDefault).</summary>
-    public static NSColor HeaderFill => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.045), WinoStyle.Hex(0xFFFFFF, 0.07));
+    public static NSColor HeaderFill { get; } = WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.045), WinoStyle.Hex(0xFFFFFF, 0.07));
 
     /// <summary>Selected row fill: subtle, like the Windows list item selection on a zone.</summary>
-    public static NSColor SelectedFill => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.06), WinoStyle.Hex(0xFFFFFF, 0.10));
+    public static NSColor SelectedFill { get; } = WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.06), WinoStyle.Hex(0xFFFFFF, 0.10));
 
-    public static NSColor HoverFill => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.035), WinoStyle.Hex(0xFFFFFF, 0.06));
+    public static NSColor HoverFill => WinoStyle.RowHoverFill;
 
     /// <summary>Card surface in the detail pane (Windows CardBackgroundFillColorDefault).</summary>
-    public static NSColor CardFill => WinoStyle.Dynamic(WinoStyle.Hex(0xF7F7F8), WinoStyle.Hex(0xFFFFFF, 0.06));
+    public static NSColor CardFill { get; } = WinoStyle.Dynamic(WinoStyle.Hex(0xF7F7F8), WinoStyle.Hex(0xFFFFFF, 0.06));
 
-    public static NSColor CardStroke => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.06), WinoStyle.Hex(0xFFFFFF, 0.07));
+    public static NSColor CardStroke { get; } = WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.06), WinoStyle.Hex(0xFFFFFF, 0.07));
 
     /// <summary>Star toggle image: filled in the caution colour when favourite, otherwise a tertiary grey outline. Always mono.</summary>
     public static NSImage StarImage(bool favorite, double size)
@@ -213,10 +213,7 @@ public sealed class WinoContactGroupHeaderView : NSTableCellView
         ]);
         AccessibilityElement = true;
         AccessibilityRole = NSAccessibilityRoles.StaticTextRole;
-        WinoStyle.AccentChanged += AccentChanged;
     }
-
-    private void AccentChanged(object? sender, EventArgs args) => _title.TextColor = WinoStyle.SecondaryText;
 
     public string Title
     {
@@ -224,15 +221,8 @@ public sealed class WinoContactGroupHeaderView : NSTableCellView
         set
         {
             _title.StringValue = value ?? string.Empty;
-            _title.TextColor = WinoStyle.SecondaryText;
             AccessibilityLabel = value;
         }
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing) WinoStyle.AccentChanged -= AccentChanged;
-        base.Dispose(disposing);
     }
 }
 

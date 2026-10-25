@@ -116,7 +116,7 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
     /// </summary>
     private sealed class GutterSplitView : NSSplitView
     {
-        public GutterSplitView() => WinoStyle.BackdropChanged += (_, _) => { AdjustSubviews(); NeedsDisplay = true; };
+        public GutterSplitView() => WinoStyle.BackdropWatchers.Add(this, static split => { split.AdjustSubviews(); split.NeedsDisplay = true; });
 
         public override nfloat DividerThickness => WinoStyle.FloatingZones ? (nfloat)WinoStyle.ZoneGutter : 1;
 

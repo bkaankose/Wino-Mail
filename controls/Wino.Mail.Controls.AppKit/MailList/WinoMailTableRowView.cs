@@ -64,6 +64,9 @@ public class WinoMailTableRowView : NSTableRowView
         NSBezierPath.FromRoundedRect(ContentBox, 6, 6).Fill();
     }
 
+    private static readonly NSColor SelectionFill = WinoStyle.Dynamic(NSColor.Black.ColorWithAlphaComponent((nfloat)0.06), NSColor.White.ColorWithAlphaComponent((nfloat)0.10));
+    private static readonly NSColor HoverFill = WinoStyle.LabelWithOpacity(0.045);
+
     public override void DrawSelection(CGRect dirtyRect)
     {
         if (IsSelectionMode)
@@ -71,7 +74,7 @@ public class WinoMailTableRowView : NSTableRowView
             FillBox(WinoStyle.Accent.ColorWithAlphaComponent((nfloat)0.12));
             return;
         }
-        FillBox(WinoStyle.Dynamic(NSColor.Black.ColorWithAlphaComponent((nfloat)0.06), NSColor.White.ColorWithAlphaComponent((nfloat)0.10)));
+        FillBox(SelectionFill);
         WinoStyle.Accent.SetFill();
         // Windows ListViewItem pill: inside the fill, vertically centred, shorter than the row.
         var box = ContentBox;
@@ -82,7 +85,7 @@ public class WinoMailTableRowView : NSTableRowView
 
     public override void DrawBackground(CGRect dirtyRect)
     {
-        if (_hovered && !Selected) FillBox(WinoStyle.LabelWithOpacity(0.045));
+        if (_hovered && !Selected) FillBox(HoverFill);
     }
 
     public override void DrawSeparator(CGRect dirtyRect)

@@ -781,7 +781,7 @@ internal sealed class MailReaderStatusRow : NSView
         };
         _unsubscribe.Activated += (_, _) => UnsubscribeInvoked?.Invoke(this, EventArgs.Empty);
         ApplyAccent();
-        WinoStyle.AccentChanged += AccentChanged;
+        WinoStyle.AccentWatchers.Add(this, static row => row.ApplyAccent());
 
         // Certificate glyph with a corner badge, like the Windows InfoBadge on the signature button.
         var certificate = new WinoIconView(WinoIconGlyph.Certificate, 16);
@@ -833,7 +833,6 @@ internal sealed class MailReaderStatusRow : NSView
         => $"row={(Hidden ? "hidden" : "visible")} unsubscribe={!_unsubscribe.Hidden} signed={!_signature.Hidden} " +
            $"badge={(_signaturesValid ? "valid" : "invalid")} encrypted={!_encrypted.Hidden}";
 
-    private void AccentChanged(object? sender, EventArgs args) => ApplyAccent();
 
     private void ApplyAccent()
     {
@@ -848,7 +847,7 @@ internal sealed class MailReaderStatusRow : NSView
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) WinoStyle.AccentChanged -= AccentChanged;
+        if (disposing) WinoStyle.AccentWatchers.Remove(this);
         base.Dispose(disposing);
     }
 }

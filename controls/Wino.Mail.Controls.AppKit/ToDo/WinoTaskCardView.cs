@@ -65,7 +65,7 @@ public sealed class WinoTaskCardView : NSTableCellView
         var row = WinoLayout.HStack(12, _check, text, WinoLayout.Spacer(), _star);
         row.EdgeInsets = new NSEdgeInsets(10, 12, 10, 12);
         WinoLayout.Fill(row, _card);
-        WinoStyle.AccentChanged += AccentChanged;
+        WinoStyle.AccentWatchers.Add(this, static card => card.AccentChanged(null, EventArgs.Empty));
     }
 
     /// <summary>Checkbox clicked. The owner runs the toggle command and re-applies the model.</summary>
@@ -165,7 +165,7 @@ public sealed class WinoTaskCardView : NSTableCellView
     {
         if (disposing)
         {
-            WinoStyle.AccentChanged -= AccentChanged;
+            WinoStyle.AccentWatchers.Remove(this);
             Subscription?.Dispose();
             Subscription = null;
         }

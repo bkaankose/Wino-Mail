@@ -63,7 +63,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
     private readonly TimedRailView _timedRail;
     private readonly RailClipView _month;
     private readonly MonthRailView _monthRail;
-    private readonly NSTimer _clock;
+    private NSTimer? _clock;
     private VisibleDateRange? _range;
     private CalendarSettings? _settings;
     private IReadOnlyList<ICalendarItem> _items = [];
@@ -113,8 +113,23 @@ public sealed partial class WinoCalendarSurfaceView : NSView
         AddSubview(_allDay);
         AddSubview(_scroll);
         AddSubview(_month);
-        _clock = NSTimer.CreateRepeatingScheduledTimer(60, _ => _timedRail.NeedsDisplay = true);
-        WinoStyle.AccentChanged += AccentChanged;
+        WinoStyle.AccentWatchers.Add(this, static surface => surface.Invalidate());
+    }
+
+    /// <summary>
+    /// The current-time line ticks only while the surface is in a window. A scheduled timer is retained
+    /// by the run loop and its callback retains the surface, so a timer that outlives the window would
+    /// keep a detached surface alive and redrawing.
+    /// </summary>
+    public override void ViewDidMoveToWindow()
+    {
+        base.ViewDidMoveToWindow();
+        if (Window is null)
+        {
+            _clock?.Invalidate();
+            _clock = null;
+        }
+        else _clock ??= NSTimer.CreateRepeatingScheduledTimer(60, _ => _timedRail.NeedsDisplay = true);
     }
 
     /// <summary>Converts an item into what its tile shows. Set before items arrive.</summary>
@@ -171,8 +186,6 @@ public sealed partial class WinoCalendarSurfaceView : NSView
         _monthRail.RefreshModels();
     }
 
-    private void AccentChanged(object? sender, EventArgs args) => Invalidate();
-
     /// <summary>Lays every realized unit out again and redraws every strip.</summary>
     private void Invalidate()
     {
@@ -200,13 +213,14 @@ public sealed partial class WinoCalendarSurfaceView : NSView
     internal VisibleDateRange? Range => _range;
     internal CalendarSettings? CurrentSettings => _settings;
 
-    internal static NSColor LineColor => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.08), WinoStyle.Hex(0xFFFFFF, 0.09));
-    internal static NSColor MinorLineColor => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.04), WinoStyle.Hex(0xFFFFFF, 0.045));
-    internal static NSColor HeaderFill => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.045), WinoStyle.Hex(0xFFFFFF, 0.07));
+    // Dynamic colours resolve per appearance at draw time, so one instance each serves every grid line.
+    internal static NSColor LineColor { get; } = WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.08), WinoStyle.Hex(0xFFFFFF, 0.09));
+    internal static NSColor MinorLineColor { get; } = WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.04), WinoStyle.Hex(0xFFFFFF, 0.045));
+    internal static NSColor HeaderFill { get; } = WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.045), WinoStyle.Hex(0xFFFFFF, 0.07));
     /// <summary>The all-day lane: half the header tint (alpha applied to the tint, not replacing it).</summary>
-    internal static NSColor AllDayFill => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.0225), WinoStyle.Hex(0xFFFFFF, 0.035));
-    internal static NSColor WeekendFill => WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.035), WinoStyle.Hex(0xFFFFFF, 0.05));
-    internal static NSColor NowColor => WinoStyle.Hex(0xD63031);
+    internal static NSColor AllDayFill { get; } = WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.0225), WinoStyle.Hex(0xFFFFFF, 0.035));
+    internal static NSColor WeekendFill { get; } = WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.035), WinoStyle.Hex(0xFFFFFF, 0.05));
+    internal static NSColor NowColor { get; } = WinoStyle.Hex(0xD63031);
 
     internal CalendarTileModel Tile(ICalendarItem item, DateOnly date)
         => TileFactory?.Invoke(item, date) ?? new CalendarTileModel(item.Title ?? string.Empty, null, null,
@@ -345,12 +359,13 @@ public sealed partial class WinoCalendarSurfaceView : NSView
     {
         if (disposing)
         {
-            _clock.Invalidate();
+            _clock?.Invalidate();
+            _clock = null;
             CancelSlotSelection();
             StopAllMotion();
             ReleaseFrameDriver();
             CloseOverflow();
-            WinoStyle.AccentChanged -= AccentChanged;
+            WinoStyle.AccentWatchers.Remove(this);
             if (_observableItems is not null) _observableItems.CollectionChanged -= ItemsChanged;
         }
         base.Dispose(disposing);

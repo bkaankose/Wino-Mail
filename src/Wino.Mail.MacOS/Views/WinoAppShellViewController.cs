@@ -644,7 +644,7 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
     /// </summary>
     private sealed class ClearDividerSplitView : NSSplitView
     {
-        public ClearDividerSplitView() => WinoStyle.BackdropChanged += (_, _) => NeedsDisplay = true;
+        public ClearDividerSplitView() => WinoStyle.BackdropWatchers.Add(this, static split => split.NeedsDisplay = true);
 
         public override NSColor DividerColor => WinoStyle.FloatingZones ? NSColor.Clear : NSColor.Separator;
 

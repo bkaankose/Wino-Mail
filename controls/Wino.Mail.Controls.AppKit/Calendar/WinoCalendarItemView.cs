@@ -48,7 +48,7 @@ public sealed class WinoCalendarItemView : NSView
     public WinoCalendarItemView()
     {
         WantsLayer = true;
-        WinoIcons.StyleChanged += StyleChanged;
+        WinoIcons.StyleWatchers.Add(this, static tile => tile.NeedsDisplay = true);
     }
 
     /// <summary>The item this tile stands for (page-defined).</summary>
@@ -57,7 +57,13 @@ public sealed class WinoCalendarItemView : NSView
     public CalendarTileModel? Model
     {
         get => _model;
-        set { _model = value; ToolTip = value?.Title; NeedsDisplay = true; }
+        set
+        {
+            if (Equals(_model, value)) return;
+            if (_model?.Title != value?.Title) ToolTip = value?.Title;
+            _model = value;
+            NeedsDisplay = true;
+        }
     }
 
     public CalendarPlacementKind Kind
@@ -135,11 +141,15 @@ public sealed class WinoCalendarItemView : NSView
 
     public override void RightMouseDown(NSEvent theEvent) => RightClicked?.Invoke(this, theEvent);
 
+    private NSTrackingArea? _tracking;
+
+    /// <summary>One InVisibleRect area follows the bounds by itself; it is added once rather than rebuilt per layout.</summary>
     public override void UpdateTrackingAreas()
     {
         base.UpdateTrackingAreas();
-        foreach (var area in TrackingAreas()) RemoveTrackingArea(area);
-        AddTrackingArea(new NSTrackingArea(Bounds, NSTrackingAreaOptions.MouseEnteredAndExited | NSTrackingAreaOptions.ActiveInKeyWindow | NSTrackingAreaOptions.InVisibleRect, this, null));
+        if (_tracking is not null) return;
+        _tracking = new NSTrackingArea(Bounds, NSTrackingAreaOptions.MouseEnteredAndExited | NSTrackingAreaOptions.ActiveInKeyWindow | NSTrackingAreaOptions.InVisibleRect, this, null);
+        AddTrackingArea(_tracking);
     }
 
     public override void MouseEntered(NSEvent theEvent) { _hover = true; NeedsDisplay = true; }
@@ -150,8 +160,6 @@ public sealed class WinoCalendarItemView : NSView
         base.ViewDidChangeEffectiveAppearance();
         NeedsDisplay = true;
     }
-
-    private void StyleChanged(object? sender, EventArgs args) => NeedsDisplay = true;
 
     /// <summary>Stripe colours from the Windows ShowAs stripe templates.</summary>
     public static NSColor StripeColor(CalendarItemShowAs showAs) => WinoStyle.Hex(WinoCalendarTileAppearance.StripeColor(showAs));
@@ -331,7 +339,7 @@ public sealed class WinoCalendarItemView : NSView
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) WinoIcons.StyleChanged -= StyleChanged;
+        if (disposing) WinoIcons.StyleWatchers.Remove(this);
         base.Dispose(disposing);
     }
 }

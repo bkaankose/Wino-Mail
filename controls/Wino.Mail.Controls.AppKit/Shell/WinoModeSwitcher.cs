@@ -40,8 +40,7 @@ public sealed class WinoModeSwitcher : NSView
         WinoLayout.Fill(_control, this, 8, 8, 12, 8);
         WinoAccessibility.Label(_control, "Mode");
         Refresh();
-        WinoStyle.AccentChanged += StyleChanged;
-        WinoIcons.StyleChanged += StyleChanged;
+        WinoIcons.StyleWatchers.Add(this, static switcher => switcher.Refresh());
     }
 
     /// <summary>The mode whose segment is drawn selected.</summary>
@@ -81,8 +80,6 @@ public sealed class WinoModeSwitcher : NSView
         if (index >= 0 && index < Segments.Count) ModeSelected?.Invoke(this, Segments[index].Mode);
     }
 
-    private void StyleChanged(object? sender, EventArgs args) => Refresh();
-
     private void Refresh()
     {
         // The system draws the selected segment (a plain segmented control, as in Finder); the filled
@@ -107,8 +104,7 @@ public sealed class WinoModeSwitcher : NSView
         if (disposing)
         {
             _control.Activated -= SegmentActivated;
-            WinoStyle.AccentChanged -= StyleChanged;
-            WinoIcons.StyleChanged -= StyleChanged;
+            WinoIcons.StyleWatchers.Remove(this);
         }
         base.Dispose(disposing);
     }
@@ -138,7 +134,7 @@ public sealed class WinoPaneBackdropView : NSView
         WinoLayout.Fill(_effect, this);
         WinoLayout.Fill(_veil, this);
         Apply();
-        WinoStyle.BackdropChanged += BackdropChanged;
+        WinoStyle.BackdropWatchers.Add(this, static view => view.BackdropChanged(null, EventArgs.Empty));
     }
 
     private void BackdropChanged(object? sender, EventArgs args) => Apply();
@@ -155,7 +151,7 @@ public sealed class WinoPaneBackdropView : NSView
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) WinoStyle.BackdropChanged -= BackdropChanged;
+        if (disposing) WinoStyle.BackdropWatchers.Remove(this);
         base.Dispose(disposing);
     }
 }

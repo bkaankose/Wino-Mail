@@ -23,7 +23,7 @@ public class WinoZoneView : NSView
         _surface.Fill = WinoStyle.ZoneFill;
         WinoLayout.Fill(_surface, this);
         Apply();
-        WinoStyle.BackdropChanged += BackdropChanged;
+        WinoStyle.BackdropWatchers.Add(this, static zone => zone.Apply());
     }
 
     /// <summary>Add children here; it is clipped to the zone's rounded corners while floating.</summary>
@@ -54,8 +54,6 @@ public class WinoZoneView : NSView
         ]);
     }
 
-    private void BackdropChanged(object? sender, EventArgs args) => Apply();
-
     private void Apply()
     {
         bool floating = WinoStyle.FloatingZones;
@@ -73,7 +71,7 @@ public class WinoZoneView : NSView
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) WinoStyle.BackdropChanged -= BackdropChanged;
+        if (disposing) WinoStyle.BackdropWatchers.Remove(this);
         base.Dispose(disposing);
     }
 }

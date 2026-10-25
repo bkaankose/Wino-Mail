@@ -45,8 +45,14 @@ public static class WinoStyle
     public static NSColor? AccentOverride
     {
         get => _accentOverride;
-        set { _accentOverride = value; AccentChanged?.Invoke(null, EventArgs.Empty); }
+        set { _accentOverride = value; AccentChanged?.Invoke(null, EventArgs.Empty); AccentWatchers.Raise(); }
     }
+
+    /// <summary>Weak counterpart of <see cref="AccentChanged"/> for views that are created many times.</summary>
+    public static WinoWeakEvent AccentWatchers { get; } = new();
+
+    /// <summary>Weak counterpart of <see cref="BackdropChanged"/> for views that are created many times.</summary>
+    public static WinoWeakEvent BackdropWatchers { get; } = new();
 
     private static NSColor? _accentOverride;
 
@@ -78,7 +84,7 @@ public static class WinoStyle
     public static bool HasBackdrop
     {
         get => _hasBackdrop;
-        set { _hasBackdrop = value; BackdropChanged?.Invoke(null, EventArgs.Empty); }
+        set { _hasBackdrop = value; BackdropChanged?.Invoke(null, EventArgs.Empty); BackdropWatchers.Raise(); }
     }
 
     private static bool _hasBackdrop;
@@ -106,8 +112,8 @@ public static class WinoStyle
     /// The Windows WinoContentZoneBackgroud: opaque white in light, a translucent layer in dark
     /// so the wallpaper glows through the reader and list.
     /// </summary>
-    public static NSColor ZoneFill => WinoThemeSurfaces.Dynamic(WinoThemeSurface.Workspace, Dynamic(NSColor.White, Hex(0x2B2B2F, 0.82)));
-    public static NSColor ZoneStroke => Dynamic(Hex(0x000000, 0.08), Hex(0xFFFFFF, 0.08));
+    public static NSColor ZoneFill { get; } = WinoThemeSurfaces.Dynamic(WinoThemeSurface.Workspace, Dynamic(NSColor.White, Hex(0x2B2B2F, 0.82)));
+    public static NSColor ZoneStroke { get; } = Dynamic(Hex(0x000000, 0.08), Hex(0xFFFFFF, 0.08));
 
     /// <summary>A colour that resolves per appearance.</summary>
     public static NSColor Dynamic(NSColor light, NSColor dark)
@@ -121,6 +127,12 @@ public static class WinoStyle
     /// </summary>
     public static NSColor LabelWithOpacity(double opacity)
         => Dynamic(NSColor.Black.ColorWithAlphaComponent((nfloat)opacity), NSColor.White.ColorWithAlphaComponent((nfloat)opacity));
+
+    /// <summary>The row hover fill shared by the pane, list and settings rows (cached: dynamic colours resolve at draw time).</summary>
+    public static NSColor RowHoverFill { get; } = Dynamic(Hex(0x000000, 0.035), Hex(0xFFFFFF, 0.06));
+
+    /// <summary>The row selection fill of the pane and settings rows.</summary>
+    public static NSColor RowSelectionFill { get; } = Dynamic(Hex(0x000000, 0.07), Hex(0xFFFFFF, 0.11));
 
     /// <summary>Grouped settings rows and cards: the System Settings group surface.</summary>
     public static NSColor GroupFill => NSColor.ControlBackground;

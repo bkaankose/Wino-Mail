@@ -543,7 +543,9 @@ public sealed partial class MailListPageViewController
         {
             for (int index = 0; index < previous.Length; index++)
                 if (!Equals(previous[index], _entries[index])) return false;
-            RefreshVisibleCells();
+            // Single messages update through their own property subscriptions; only thread heads
+            // summarise leaves that may have changed inside an unchanged entry list.
+            RefreshVisibleCells(threadHeadsOnly: true);
             return true;
         }
 
@@ -571,13 +573,14 @@ public sealed partial class MailListPageViewController
     }
 
     /// <summary>Rebinds the realized mail cells so thread heads pick up new leaves and counts.</summary>
-    private void RefreshVisibleCells()
+    private void RefreshVisibleCells(bool threadHeadsOnly = false)
     {
         var visible = _table.RowsInRect(_table.VisibleRect());
         var heights = new NSMutableIndexSet();
         for (nint index = visible.Location; index < visible.Location + visible.Length; index++)
         {
             if (RowAt(index) is not { } row || _table.GetView(0, index, false) is not WinoMailRowView cell) continue;
+            if (threadHeadsOnly && !row.IsThreadHead) continue;
             var before = cell.Model;
             BindCell(cell, row);
             if (TileLayoutChanged(before, cell.Model)) heights.Add((nuint)index);

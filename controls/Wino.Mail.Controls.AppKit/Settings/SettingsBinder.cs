@@ -315,14 +315,23 @@ public sealed class SettingsBinder
         return view;
     }
 
-    /// <summary>Runs <paramref name="rebuild"/> on the UI thread now and after every collection change.</summary>
+    /// <summary>
+    /// Runs <paramref name="rebuild"/> on the UI thread now and once per run-loop turn after collection
+    /// changes, so filling a collection item by item rebuilds the view once rather than once per item.
+    /// </summary>
     public void Collection(INotifyCollectionChanged collection, Action rebuild)
     {
         var disposed = false;
-        NotifyCollectionChangedEventHandler handler = async (_, _) =>
+        var queued = false;
+        NotifyCollectionChangedEventHandler handler = (_, _) =>
         {
-            try { await _dispatcher.ExecuteOnUIThread(() => { if (!disposed) rebuild(); }); }
-            catch (Exception error) { if (!disposed) _error(error); }
+            if (queued) return;
+            queued = true;
+            NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
+            {
+                queued = false;
+                if (!disposed) Guard(rebuild);
+            });
         };
         collection.CollectionChanged += handler;
         Own(new SettingsDisposable(() => { disposed = true; collection.CollectionChanged -= handler; }));

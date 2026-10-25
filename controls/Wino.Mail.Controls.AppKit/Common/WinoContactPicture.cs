@@ -49,6 +49,7 @@ public sealed class WinoContactPicture : WinoSurfaceView
         get => _size;
         set
         {
+            if (_size == value) return;
             _size = value;
             _width.Constant = _height.Constant = (nfloat)value;
             _initials.Font = NSFont.SystemFontOfSize((nfloat)Math.Max(9, Math.Round(value * 0.38)), NSFontWeight.Semibold);

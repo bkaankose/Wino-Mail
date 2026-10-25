@@ -52,7 +52,7 @@ public sealed class WinoMiniCalendarView : NSView
         for (int i = 0; i < _dayElements.Length; i++)
             _dayElements[i] = new PressElement(this, element => ClickDay(element.Date));
         RebuildAccessibility();
-        WinoStyle.AccentChanged += AccentChanged;
+        WinoStyle.AccentWatchers.Add(this, static view => view.AccentChanged(null, EventArgs.Empty));
     }
 
     private void AccentChanged(object? sender, EventArgs args) => NeedsDisplay = true;
@@ -370,7 +370,7 @@ public sealed class WinoMiniCalendarView : NSView
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) WinoStyle.AccentChanged -= AccentChanged;
+        if (disposing) WinoStyle.AccentWatchers.Remove(this);
         base.Dispose(disposing);
     }
 }

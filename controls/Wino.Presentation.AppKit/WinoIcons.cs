@@ -20,6 +20,9 @@ public static class WinoIcons
     /// <summary>Raised after <see cref="Style"/> changes so long-lived views can redraw.</summary>
     public static event EventHandler? StyleChanged;
 
+    /// <summary>Weak counterpart of <see cref="StyleChanged"/> for views that are created many times.</summary>
+    public static WinoWeakEvent StyleWatchers { get; } = new();
+
     public static WinoIconStyle Style
     {
         get => _style;
@@ -28,6 +31,7 @@ public static class WinoIcons
             if (_style == value) return;
             _style = value;
             StyleChanged?.Invoke(null, EventArgs.Empty);
+            StyleWatchers.Raise();
         }
     }
 
@@ -133,7 +137,7 @@ public class WinoIconView : NSView
         SetContentHuggingPriorityForOrientation(750, NSLayoutConstraintOrientation.Horizontal);
         SetContentHuggingPriorityForOrientation(750, NSLayoutConstraintOrientation.Vertical);
         SetContentCompressionResistancePriority(750, NSLayoutConstraintOrientation.Horizontal);
-        WinoIcons.StyleChanged += IconStyleChanged;
+        WinoIcons.StyleWatchers.Add(this, static view => view.NeedsDisplay = true);
     }
 
     public WinoIconGlyph Icon { set => Glyph = value == WinoIconGlyph.None ? string.Empty : WinoIcons.Glyph(value); }
@@ -147,7 +151,7 @@ public class WinoIconView : NSView
     public NSColor? Tint
     {
         get => _tint;
-        set { _tint = value; NeedsDisplay = true; }
+        set { if (ReferenceEquals(_tint, value) || (_tint is not null && _tint.Equals(value))) return; _tint = value; NeedsDisplay = true; }
     }
 
     public double PointSize
@@ -173,8 +177,6 @@ public class WinoIconView : NSView
         NeedsDisplay = true;
     }
 
-    private void IconStyleChanged(object? sender, EventArgs args) => NeedsDisplay = true;
-
     public override void DrawRect(CGRect dirtyRect)
     {
         var size = Math.Min(_pointSize, Math.Min(Bounds.Width, Bounds.Height));
@@ -184,7 +186,7 @@ public class WinoIconView : NSView
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) WinoIcons.StyleChanged -= IconStyleChanged;
+        if (disposing) WinoIcons.StyleWatchers.Remove(this);
         base.Dispose(disposing);
     }
 }

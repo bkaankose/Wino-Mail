@@ -415,6 +415,7 @@ internal sealed partial class ShellSidebarViewController : NSViewController
         public void Bind(IList<IMenuItem>? items)
         {
             Detach();
+            lock (_children) _children.Clear();
             _items = items;
             Observe(items);
             owner._outline.ReloadData();
@@ -459,20 +460,20 @@ internal sealed partial class ShellSidebarViewController : NSViewController
             _properties.Clear();
         }
 
-        private async void CollectionChanged(object? sender, NotifyCollectionChangedEventArgs args)
+        private void CollectionChanged(object? sender, NotifyCollectionChangedEventArgs args)
         {
-            // Menus are rebuilt in bursts; coalesce into one reload per dispatcher turn.
+            // Menus are rebuilt in bursts, usually on the main thread already. The dispatcher runs inline
+            // there, which would reload once per event; a posted block coalesces a burst into one reload.
+            lock (_children) _children.Clear();
             if (_reloadQueued) return;
             _reloadQueued = true;
-            try
+            NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
             {
-                await owner._dispatcher.ExecuteOnUIThread(() =>
-                {
-                    _reloadQueued = false;
-                    if (!_disposed) Bind(_items);
-                });
-            }
-            catch (Exception exception) { if (!_disposed) owner._error(exception); }
+                _reloadQueued = false;
+                if (_disposed) return;
+                try { Bind(_items); }
+                catch (Exception exception) { owner._error(exception); }
+            });
         }
 
         private async void PropertyChanged(object? sender, PropertyChangedEventArgs args)
@@ -525,10 +526,25 @@ internal sealed partial class ShellSidebarViewController : NSViewController
             if (row >= 0) owner._outline.NoteHeightOfRowsWithIndexesChanged(NSIndexSet.FromIndex(row));
         }
 
+        private readonly Dictionary<object, List<IMenuItem>> _children = new();
+        private static readonly object RootKey = new();
+
+        /// <summary>
+        /// The shown children of a node, cached until the menu changes: AppKit asks for the count, each
+        /// child and the expandability separately, and a fresh filtered list per call made expanding a
+        /// folder with k children cost k² work.
+        /// </summary>
         private IList<IMenuItem> Items(NSObject? item)
         {
-            var items = item is Node node ? ShellMenuItemRules.Children(node.Item) : _items ?? (IEnumerable<IMenuItem>)Array.Empty<IMenuItem>();
-            return items.Where(ShellMenuItemRules.IsShown).ToList();
+            var key = item is Node node ? node.Item : RootKey;
+            lock (_children)
+            {
+                if (_children.TryGetValue(key, out var cached)) return cached;
+                var items = item is Node n ? ShellMenuItemRules.Children(n.Item) : _items ?? (IEnumerable<IMenuItem>)Array.Empty<IMenuItem>();
+                var list = items.Where(ShellMenuItemRules.IsShown).ToList();
+                _children[key] = list;
+                return list;
+            }
         }
 
         public override nint GetChildrenCount(NSOutlineView outlineView, NSObject? item) => Items(item).Count;

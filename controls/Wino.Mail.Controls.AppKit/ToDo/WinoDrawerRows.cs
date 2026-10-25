@@ -41,7 +41,7 @@ public sealed class WinoDrawerActionRow : WinoPressableView
         WinoLayout.Fill(stack, _surface);
         HeightAnchor.ConstraintEqualTo(36).Active = true;
         AccessibilityLabel = text;
-        WinoStyle.AccentChanged += AccentChanged;
+        WinoStyle.AccentWatchers.Add(this, static view => view.AccentChanged(null, EventArgs.Empty));
     }
 
     public NSMenu? Menu { get; set; }
@@ -117,7 +117,7 @@ public sealed class WinoDrawerActionRow : WinoPressableView
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) WinoStyle.AccentChanged -= AccentChanged;
+        if (disposing) WinoStyle.AccentWatchers.Remove(this);
         base.Dispose(disposing);
     }
 }

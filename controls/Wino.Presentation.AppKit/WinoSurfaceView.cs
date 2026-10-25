@@ -23,11 +23,13 @@ public class WinoSurfaceView : NSView
         LayerContentsRedrawPolicy = NSViewLayerContentsRedrawPolicy.OnSetNeedsDisplay;
     }
 
-    public NSColor? Fill { get => _fill; set { _fill = value; NeedsDisplay = true; } }
-    public NSColor? Stroke { get => _stroke; set { _stroke = value; NeedsDisplay = true; } }
-    public double StrokeWidth { get => _strokeWidth; set { _strokeWidth = value; NeedsDisplay = true; } }
-    public double CornerRadius { get => _cornerRadius; set { _cornerRadius = value; NeedsDisplay = true; } }
-    public CACornerMask Corners { get => _corners; set { _corners = value; NeedsDisplay = true; } }
+    public NSColor? Fill { get => _fill; set { if (Same(_fill, value)) return; _fill = value; NeedsDisplay = true; } }
+    public NSColor? Stroke { get => _stroke; set { if (Same(_stroke, value)) return; _stroke = value; NeedsDisplay = true; } }
+    public double StrokeWidth { get => _strokeWidth; set { if (_strokeWidth == value) return; _strokeWidth = value; NeedsDisplay = true; } }
+    public double CornerRadius { get => _cornerRadius; set { if (_cornerRadius == value) return; _cornerRadius = value; NeedsDisplay = true; } }
+    public CACornerMask Corners { get => _corners; set { if (_corners == value) return; _corners = value; NeedsDisplay = true; } }
+
+    private static bool Same(NSColor? current, NSColor? value) => ReferenceEquals(current, value) || (current is not null && value is not null && current.Equals(value));
 
     public override bool WantsUpdateLayer => true;
     public override bool IsFlipped => true;

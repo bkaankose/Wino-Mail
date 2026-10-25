@@ -51,11 +51,15 @@ public sealed class WinoShellRowView : NSTableRowView
         set { if (_hovered == value) return; _hovered = value; NeedsDisplay = true; }
     }
 
+    private NSTrackingArea? _tracking;
+
+    /// <summary>One InVisibleRect area follows the bounds by itself; it is added once rather than rebuilt per scroll.</summary>
     public override void UpdateTrackingAreas()
     {
         base.UpdateTrackingAreas();
-        foreach (var area in TrackingAreas()) RemoveTrackingArea(area);
-        AddTrackingArea(new NSTrackingArea(Bounds, NSTrackingAreaOptions.MouseEnteredAndExited | NSTrackingAreaOptions.ActiveInKeyWindow | NSTrackingAreaOptions.InVisibleRect, this, null));
+        if (_tracking is not null) return;
+        _tracking = new NSTrackingArea(Bounds, NSTrackingAreaOptions.MouseEnteredAndExited | NSTrackingAreaOptions.ActiveInKeyWindow | NSTrackingAreaOptions.InVisibleRect, this, null);
+        AddTrackingArea(_tracking);
     }
 
     public override void MouseEntered(NSEvent theEvent) => IsHovered = true;
@@ -74,7 +78,7 @@ public sealed class WinoShellRowView : NSTableRowView
     {
         if (!_highlightable) return;
         var rect = new CGRect(Bounds.X + HorizontalInset, Bounds.Y + 0.5, Bounds.Width - HorizontalInset * 2, Bounds.Height - 1);
-        WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.07), WinoStyle.Hex(0xFFFFFF, 0.11)).SetFill();
+        WinoStyle.RowSelectionFill.SetFill();
         NSBezierPath.FromRoundedRect(rect, (nfloat)CornerRadius, (nfloat)CornerRadius).Fill();
     }
 
@@ -88,7 +92,7 @@ public sealed class WinoShellRowView : NSTableRowView
     private void DrawHover()
     {
         var rect = new CGRect(Bounds.X + HorizontalInset, Bounds.Y + 0.5, Bounds.Width - HorizontalInset * 2, Bounds.Height - 1);
-        WinoStyle.Dynamic(WinoStyle.Hex(0x000000, 0.035), WinoStyle.Hex(0xFFFFFF, 0.06)).SetFill();
+        WinoStyle.RowHoverFill.SetFill();
         NSBezierPath.FromRoundedRect(rect, (nfloat)CornerRadius, (nfloat)CornerRadius).Fill();
     }
 

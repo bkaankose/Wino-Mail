@@ -537,11 +537,17 @@ public class WinoMailRowView : NSTableCellView
             SyncTiles(tiles, compact);
         _compactTiles.Hidden = !compact || model.Tiles.Count == 0;
         _tiles.Hidden = compact || model.Tiles.Count == 0;
+        // Custom spacing changes invalidate the stack's layout, so they are applied only when the tile line moves.
+        double tileSpacing = _tiles.Hidden ? 0 : WinoMailRowMetrics.LineSpacing + WinoMailRowMetrics.TileLineTopMargin(model.Density);
+        var spacingKey = (tileSpacing, _preview.Hidden);
+        if (spacingKey == _shownSpacing) return;
+        _shownSpacing = spacingKey;
         _text.SetCustomSpacing((nfloat)WinoMailRowMetrics.LineSpacing, _line2);
         _text.SetCustomSpacing((nfloat)WinoMailRowMetrics.LineSpacing, _preview);
-        if (!_tiles.Hidden)
-            _text.SetCustomSpacing((nfloat)(WinoMailRowMetrics.LineSpacing + WinoMailRowMetrics.TileLineTopMargin(model.Density)), _preview.Hidden ? _line2 : _preview);
+        if (!_tiles.Hidden) _text.SetCustomSpacing((nfloat)tileSpacing, _preview.Hidden ? _line2 : _preview);
     }
+
+    private (double TileSpacing, bool PreviewHidden)? _shownSpacing;
 
     /// <summary>
     /// Updates the retained tile views in place and adds or removes only the difference. Switching
@@ -647,12 +653,22 @@ public class WinoMailRowView : NSTableCellView
             : NSColor.White;
     }
 
+    private static readonly NSFont SenderUnreadFont = NSFont.SystemFontOfSize(13, NSFontWeight.Bold);
+    private static readonly NSFont SubjectUnreadFont = NSFont.SystemFontOfSize(13, NSFontWeight.Semibold);
+    private static readonly NSFont ReadFont = NSFont.SystemFontOfSize(13, NSFontWeight.Regular);
+    private bool? _shownUnread;
+
     private void ApplyColors()
     {
         bool unread = _model.IsUnread;
-        _sender.Font = NSFont.SystemFontOfSize(13, unread ? NSFontWeight.Bold : NSFontWeight.Regular);
+        // Setting a font re-measures the field; the read state rarely changes between binds of the same row.
+        if (_shownUnread != unread)
+        {
+            _shownUnread = unread;
+            _sender.Font = unread ? SenderUnreadFont : ReadFont;
+            _subject.Font = unread ? SubjectUnreadFont : ReadFont;
+        }
         _sender.TextColor = WinoStyle.PrimaryText;
-        _subject.Font = NSFont.SystemFontOfSize(13, unread ? NSFontWeight.Semibold : NSFontWeight.Regular);
         _subject.TextColor = unread ? WinoStyle.Accent : WinoStyle.PrimaryText;
         _unreadDot.Fill = WinoStyle.Accent;
     }
