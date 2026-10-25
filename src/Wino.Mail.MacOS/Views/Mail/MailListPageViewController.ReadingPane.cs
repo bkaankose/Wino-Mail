@@ -222,6 +222,9 @@ public sealed partial class MailListPageViewController : IRenderingFrameHost, IR
         {
             // A detached draft opened from elsewhere replaces the selection; keep it on screen.
             if (_detachedComposerActive) return;
+            // The multi-selection overlay covers the pane. Keeping the reader (and its web view) under it means
+            // dropping back to one selected mail renders in place instead of building a new web view.
+            if (ViewModel.SelectedItemsCount > 1 && _paneChild is MailRenderingPageViewController) return;
             if (_paneChild is not IdlePageViewController) ShowIdleContent();
             return;
         }

@@ -48,10 +48,16 @@ public class WinoMailRowView : NSTableCellView
     private readonly NSTextField _preview;
     private readonly WinoFlowView _tiles;
     private readonly WinoSurfaceView _hoverBar;
-    private readonly NSButton _archiveButton;
-    private readonly NSButton _deleteButton;
-    private readonly NSButton _flagButton;
-    private readonly NSButton _readButton;
+    private readonly NSButton[] _hoverButtons;
+    private readonly HoverActionKind[] _hoverKinds = new HoverActionKind[3];
+    private readonly WinoIconGlyph[] _shownHoverGlyphs = new WinoIconGlyph[3];
+    private readonly List<NSLayoutConstraint> _hoverButtonSize = new();
+    private NSLayoutConstraint[] _hoverPlacement = [];
+    private MailHoverActionButtonSize _hoverButtonSizeSetting = MailHoverActionButtonSize.Small;
+    private HoverActionPosition _hoverPosition = HoverActionPosition.RightCenter;
+    private HoverActionAnimation _hoverAnimation = HoverActionAnimation.Popup;
+    private bool _hoverShown;
+    private int _hoverGeneration;
     private readonly NSLayoutConstraint _boxLeading;
     private readonly NSLayoutConstraint _contentTop;
     private readonly NSLayoutConstraint _contentBottom;
@@ -59,15 +65,14 @@ public class WinoMailRowView : NSTableCellView
     private List<WinoMailRowTile> _shownTiles = new();
     private bool _shownCompactTiles;
     private bool? _shownExpanded;
-    private bool? _shownFlagged;
-    private bool? _shownUnread;
     private WinoMailRowModel _model = new();
     private bool _hovered;
     private bool _selectionMode;
     private bool _hoverActionsEnabled = true;
     private IDisposable? _subscription;
-    private (string Archive, string Delete, string Flag, string Unflag, string Read, string Unread) _labels =
-        ("Archive", "Delete", "Flag", "Clear flag", "Mark as read", "Mark as unread");
+    private HoverActionSet _hoverActions = new(HoverActionKind.Archive, HoverActionKind.Delete, HoverActionKind.ToggleFlag);
+    private (string Archive, string Delete, string Flag, string Unflag, string Read, string Unread, string Junk) _labels =
+        ("Archive", "Delete", "Flag", "Clear flag", "Mark as read", "Mark as unread", "Move to Junk");
 
     public WinoMailRowView()
     {
@@ -177,11 +182,8 @@ public class WinoMailRowView : NSTableCellView
         ]);
 
         // ---- Hover actions (Windows: trailing edge, over the row content) ----
-        _archiveButton = HoverButton(WinoIconGlyph.Archive, HoverActionKind.Archive);
-        _deleteButton = HoverButton(WinoIconGlyph.Delete, HoverActionKind.Delete);
-        _flagButton = HoverButton(WinoIconGlyph.Flag, HoverActionKind.ToggleFlag);
-        _readButton = HoverButton(WinoIconGlyph.MarkRead, HoverActionKind.ToggleRead);
-        var hoverStack = WinoLayout.HStack(2, _archiveButton, _deleteButton, _flagButton, _readButton);
+        _hoverButtons = [HoverButton(0), HoverButton(1), HoverButton(2)];
+        var hoverStack = WinoLayout.HStack(2, _hoverButtons);
         hoverStack.EdgeInsets = new NSEdgeInsets(2, 2, 2, 2);
         _hoverBar = new WinoSurfaceView
         {
@@ -192,15 +194,11 @@ public class WinoMailRowView : NSTableCellView
         };
         WinoLayout.Fill(hoverStack, _hoverBar);
         AddSubview(_hoverBar);
-        NSLayoutConstraint.ActivateConstraints(
-        [
-            _hoverBar.TrailingAnchor.ConstraintEqualTo(_box.TrailingAnchor, -(nfloat)WinoMailRowMetrics.InnerTrailing),
-            _hoverBar.CenterYAnchor.ConstraintEqualTo(_box.CenterYAnchor)
-        ]);
+        ApplyHoverPlacement();
 
         AccessibilityElement = true;
         AccessibilityRole = NSAccessibilityRoles.CellRole;
-        ApplyHoverLabels();
+        ApplyHoverActions();
         ApplyColors();
     }
 
@@ -211,24 +209,30 @@ public class WinoMailRowView : NSTableCellView
         return chip;
     }
 
-    private NSButton HoverButton(WinoIconGlyph glyph, HoverActionKind kind)
+    private NSButton HoverButton(int slot)
     {
         var button = new NSButton
         {
             Bordered = false,
             BezelStyle = NSBezelStyle.Inline,
             Title = string.Empty,
-            Image = WinoIcons.Image(glyph, 14),
             ImagePosition = NSCellImagePosition.ImageOnly,
             ContentTintColor = WinoStyle.PrimaryText,
             TranslatesAutoresizingMaskIntoConstraints = false
         };
-        WinoLayout.Size(button, 28, 26);
-        button.Activated += (_, _) => HoverActionInvoked?.Invoke(this, kind);
+        var width = button.WidthAnchor.ConstraintEqualTo(28);
+        var height = button.HeightAnchor.ConstraintEqualTo(26);
+        width.Active = height.Active = true;
+        _hoverButtonSize.Add(width);
+        _hoverButtonSize.Add(height);
+        button.Activated += (_, _) =>
+        {
+            if (_hoverKinds[slot] != HoverActionKind.None) HoverActionInvoked?.Invoke(this, _hoverKinds[slot]);
+        };
         return button;
     }
 
-    /// <summary>Raised for the Archive, Delete, ToggleFlag and ToggleRead hover buttons.</summary>
+    /// <summary>Raised with the action of the hover button that was clicked.</summary>
     public event EventHandler<HoverActionKind>? HoverActionInvoked;
 
     public event EventHandler? ThreadToggleRequested;
@@ -253,24 +257,117 @@ public class WinoMailRowView : NSTableCellView
     public WinoMailRowModel Model => _model;
 
     /// <summary>Localised labels for the hover buttons.</summary>
-    public void SetLabels(string archive, string delete, string flag, string unflag, string markRead, string markUnread)
+    public void SetLabels(string archive, string delete, string flag, string unflag, string markRead, string markUnread, string moveToJunk)
     {
-        _labels = (archive, delete, flag, unflag, markRead, markUnread);
-        ApplyHoverLabels();
+        _labels = (archive, delete, flag, unflag, markRead, markUnread, moveToJunk);
+        ApplyHoverActions();
     }
 
-    private void ApplyHoverLabels()
+    /// <summary>The left, center and right hover actions for this row's account; None leaves its slot out.</summary>
+    public HoverActionSet HoverActions
     {
-        _archiveButton.ToolTip = _labels.Archive;
-        WinoAccessibility.Label(_archiveButton, _labels.Archive);
-        _deleteButton.ToolTip = _labels.Delete;
-        WinoAccessibility.Label(_deleteButton, _labels.Delete);
-        var flag = _model.IsFlagged ? _labels.Unflag : _labels.Flag;
-        _flagButton.ToolTip = flag;
-        WinoAccessibility.Label(_flagButton, flag);
-        var read = _model.IsUnread ? _labels.Read : _labels.Unread;
-        _readButton.ToolTip = read;
-        WinoAccessibility.Label(_readButton, read);
+        get => _hoverActions;
+        set { if (_hoverActions == value) return; _hoverActions = value; ApplyHoverActions(); UpdateHover(); }
+    }
+
+    private void ApplyHoverActions()
+    {
+        _hoverKinds[0] = _hoverActions.Left;
+        _hoverKinds[1] = _hoverActions.Center;
+        _hoverKinds[2] = _hoverActions.Right;
+        for (int slot = 0; slot < _hoverButtons.Length; slot++)
+        {
+            var button = _hoverButtons[slot];
+            var kind = _hoverKinds[slot];
+            button.Hidden = kind == HoverActionKind.None;
+            if (kind == HoverActionKind.None) continue;
+
+            var glyph = HoverGlyph(kind);
+            if (_shownHoverGlyphs[slot] != glyph)
+            {
+                _shownHoverGlyphs[slot] = glyph;
+                button.Image = WinoIcons.Image(glyph, 14);
+            }
+            var label = HoverLabel(kind);
+            button.ToolTip = label;
+            WinoAccessibility.Label(button, label);
+        }
+    }
+
+    private WinoIconGlyph HoverGlyph(HoverActionKind kind) => kind switch
+    {
+        HoverActionKind.Archive => WinoIconGlyph.Archive,
+        HoverActionKind.Delete => WinoIconGlyph.Delete,
+        HoverActionKind.ToggleFlag => _model.IsFlagged ? WinoIconGlyph.ClearFlag : WinoIconGlyph.Flag,
+        HoverActionKind.ToggleRead => _model.IsUnread ? WinoIconGlyph.MarkRead : WinoIconGlyph.MarkUnread,
+        HoverActionKind.MoveToJunk => WinoIconGlyph.Blocked,
+        _ => WinoIconGlyph.None,
+    };
+
+    private string HoverLabel(HoverActionKind kind) => kind switch
+    {
+        HoverActionKind.Archive => _labels.Archive,
+        HoverActionKind.Delete => _labels.Delete,
+        HoverActionKind.ToggleFlag => _model.IsFlagged ? _labels.Unflag : _labels.Flag,
+        HoverActionKind.ToggleRead => _model.IsUnread ? _labels.Read : _labels.Unread,
+        HoverActionKind.MoveToJunk => _labels.Junk,
+        _ => string.Empty,
+    };
+
+    private bool HasHoverActions => _hoverActions != HoverActionSet.None;
+
+    /// <summary>Small keeps the compact Mac buttons; Medium and Large are the Windows 32 and 40 point squares.</summary>
+    public MailHoverActionButtonSize HoverButtonSize
+    {
+        get => _hoverButtonSizeSetting;
+        set
+        {
+            if (_hoverButtonSizeSetting == value) return;
+            _hoverButtonSizeSetting = value;
+            var (width, height) = value switch
+            {
+                MailHoverActionButtonSize.Large => (40, 40),
+                MailHoverActionButtonSize.Medium => (32, 32),
+                _ => (28, 26),
+            };
+            for (int i = 0; i < _hoverButtonSize.Count; i += 2)
+            {
+                _hoverButtonSize[i].Constant = width;
+                _hoverButtonSize[i + 1].Constant = height;
+            }
+        }
+    }
+
+    public HoverActionPosition HoverPosition
+    {
+        get => _hoverPosition;
+        set { if (_hoverPosition == value) return; _hoverPosition = value; ApplyHoverPlacement(); }
+    }
+
+    public HoverActionAnimation HoverAnimation
+    {
+        get => _hoverAnimation;
+        set => _hoverAnimation = value;
+    }
+
+    private void ApplyHoverPlacement()
+    {
+        NSLayoutConstraint.DeactivateConstraints(_hoverPlacement);
+        const double edge = 4;
+        var trailing = _hoverBar.TrailingAnchor.ConstraintEqualTo(_box.TrailingAnchor, -(nfloat)WinoMailRowMetrics.InnerTrailing);
+        var centerX = _hoverBar.CenterXAnchor.ConstraintEqualTo(_box.CenterXAnchor);
+        var top = _hoverBar.TopAnchor.ConstraintEqualTo(_box.TopAnchor, (nfloat)edge);
+        var bottom = _hoverBar.BottomAnchor.ConstraintEqualTo(_box.BottomAnchor, -(nfloat)edge);
+        var centerY = _hoverBar.CenterYAnchor.ConstraintEqualTo(_box.CenterYAnchor);
+        _hoverPlacement = _hoverPosition switch
+        {
+            HoverActionPosition.RightTop => [trailing, top],
+            HoverActionPosition.RightBottom => [trailing, bottom],
+            HoverActionPosition.TopCenter => [centerX, top],
+            HoverActionPosition.BottomCenter => [centerX, bottom],
+            _ => [trailing, centerY],
+        };
+        NSLayoutConstraint.ActivateConstraints(_hoverPlacement);
     }
 
     public bool HoverActionsEnabled
@@ -297,7 +394,76 @@ public class WinoMailRowView : NSTableCellView
         set => _checkbox.State = value ? NSCellStateValue.On : NSCellStateValue.Off;
     }
 
-    private void UpdateHover() => _hoverBar.Hidden = !(_hovered && _hoverActionsEnabled && !_selectionMode && !_model.IsBusy);
+    private void UpdateHover() => SetHoverShown(_hovered && _hoverActionsEnabled && HasHoverActions && !_selectionMode && !_model.IsBusy, animate: true);
+
+    /// <summary>Shows or hides the hover bar with the chosen animation (Windows WinoMailListViewItem: 150 ms in, 90 ms out).</summary>
+    private void SetHoverShown(bool shown, bool animate)
+    {
+        if (shown == _hoverShown && (animate || _hoverBar.Hidden == !shown)) return;
+        _hoverShown = shown;
+        int generation = ++_hoverGeneration;
+        var layer = _hoverBar.Layer;
+        bool motion = animate && _hoverAnimation != HoverActionAnimation.NoAnimation && layer is not null
+            && !NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceMotion;
+        layer?.RemoveAllAnimations();
+        if (!motion)
+        {
+            _hoverBar.AlphaValue = 1;
+            _hoverBar.Hidden = !shown;
+            return;
+        }
+
+        LayoutSubtreeIfNeeded();
+        var bounds = _hoverBar.Bounds;
+        var offset = HoverOffsetTransform(bounds);
+        var duration = shown ? 0.15 : 0.09;
+        var transform = CoreAnimation.CABasicAnimation.FromKeyPath("transform");
+        transform.Duration = duration;
+        transform.From = NSValue.FromCATransform3D(shown ? offset : CoreAnimation.CATransform3D.Identity);
+        transform.To = NSValue.FromCATransform3D(shown ? CoreAnimation.CATransform3D.Identity : offset);
+        transform.TimingFunction = shown
+            ? CoreAnimation.CAMediaTimingFunction.FromControlPoints(0.1f, 0.9f, 0.2f, 1f)
+            : CoreAnimation.CAMediaTimingFunction.FromControlPoints(0.7f, 0f, 1f, 0.5f);
+        layer!.AddAnimation(transform, "hover");
+
+        var fade = CoreAnimation.CABasicAnimation.FromKeyPath("opacity");
+        fade.Duration = duration;
+        fade.From = NSNumber.FromDouble(shown ? 0 : 1);
+        fade.To = NSNumber.FromDouble(shown ? 1 : 0);
+        fade.TimingFunction = transform.TimingFunction;
+        fade.FillMode = CoreAnimation.CAFillMode.Forwards;
+        fade.RemovedOnCompletion = false;
+        layer.AddAnimation(fade, "hover-fade");
+        _hoverBar.Hidden = false;
+
+        // Not NSAnimationContext: a managed exception inside its block cannot unwind through AppKit and aborts the app.
+        CoreFoundation.DispatchQueue.MainQueue.DispatchAfter(new CoreFoundation.DispatchTime(CoreFoundation.DispatchTime.Now, TimeSpan.FromSeconds(duration)), () =>
+        {
+            if (generation != _hoverGeneration) return;
+            _hoverBar.Layer?.RemoveAllAnimations();
+            _hoverBar.Hidden = !shown;
+        });
+    }
+
+    private CoreAnimation.CATransform3D HoverOffsetTransform(CGRect bounds)
+    {
+        if (_hoverAnimation == HoverActionAnimation.Popup)
+        {
+            // Layers scale around their origin on macOS; recentre so the bar grows from its middle.
+            const double scale = 0.85;
+            var cx = bounds.Width / 2;
+            var cy = bounds.Height / 2;
+            return CoreAnimation.CATransform3D.MakeTranslation(cx, cy, 0).Scale((nfloat)scale, (nfloat)scale, 1).Translate(-cx, -cy, 0);
+        }
+        const double slide = 24;
+        return _hoverPosition switch
+        {
+            // The bar is a flipped view, so y grows downward as on Windows.
+            HoverActionPosition.TopCenter => CoreAnimation.CATransform3D.MakeTranslation(0, -(nfloat)slide, 0),
+            HoverActionPosition.BottomCenter => CoreAnimation.CATransform3D.MakeTranslation(0, (nfloat)slide, 0),
+            _ => CoreAnimation.CATransform3D.MakeTranslation((nfloat)slide, 0, 0),
+        };
+    }
 
     public void Apply(WinoMailRowModel model)
     {
@@ -345,17 +511,7 @@ public class WinoMailRowView : NSTableCellView
 
         ApplyTiles(model);
 
-        if (_shownFlagged != model.IsFlagged)
-        {
-            _shownFlagged = model.IsFlagged;
-            _flagButton.Image = WinoIcons.Image(model.IsFlagged ? WinoIconGlyph.ClearFlag : WinoIconGlyph.Flag, 14);
-        }
-        if (_shownUnread != model.IsUnread)
-        {
-            _shownUnread = model.IsUnread;
-            _readButton.Image = WinoIcons.Image(model.IsUnread ? WinoIconGlyph.MarkRead : WinoIconGlyph.MarkUnread, 14);
-        }
-        ApplyHoverLabels();
+        ApplyHoverActions();
         UpdateHover();
 
         AccessibilityLabel = model.AccessibilityText;
@@ -507,7 +663,7 @@ public class WinoMailRowView : NSTableCellView
         Subscription = null;
         Item = null;
         _hovered = false;
-        UpdateHover();
+        SetHoverShown(false, animate: false);
     }
 
     protected override void Dispose(bool disposing)

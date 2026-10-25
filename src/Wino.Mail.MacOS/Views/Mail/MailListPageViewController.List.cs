@@ -4,6 +4,7 @@ using CoreGraphics;
 using Foundation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.Controls.AppKit.MailList;
@@ -269,13 +270,16 @@ public sealed partial class MailListPageViewController
         Bind(nameof(ViewModel.IsBarOpen), vm => vm.IsBarOpen, _ => UpdateInfoBar());
         Bind(nameof(ViewModel.BarMessage), vm => vm.BarMessage, _ => UpdateInfoBar());
         Bind(nameof(ViewModel.BarTitle), vm => vm.BarTitle, _ => UpdateInfoBar());
-        Bind(nameof(ViewModel.SelectedItemsCount), vm => vm.SelectedItemsCount, _ =>
+        Bind(nameof(ViewModel.SelectedItemsCount), vm => vm.SelectedItemsCount, count =>
         {
+            // A reader kept under the multi-selection overlay must not reappear once nothing is selected.
+            if (count == 0 && _paneChild is MailRenderingPageViewController && !_detachedComposerActive) ShowIdleContent();
             UpdatePivots();
             UpdateSelectAllCheckbox();
             UpdateMultiSelectionOverlay();
             CommandStateChanged?.Invoke(this, EventArgs.Empty);
         });
+        Bind(nameof(ViewModel.MailActionResolver), vm => vm.MailActionResolver, _ => RefreshHoverActions());
         BindBars();
 
         _preferences.PreferenceChanged += PreferenceChanged;
@@ -333,7 +337,8 @@ public sealed partial class MailListPageViewController
         {
             if (name is nameof(_preferences.MailItemDisplayMode) or nameof(_preferences.IsShowPreviewEnabled)
                 or nameof(_preferences.IsShowSenderPicturesEnabled) or nameof(_preferences.IsHoverActionsEnabled)
-                or nameof(_preferences.AccountNicknamePosition))
+                or nameof(_preferences.HoverActionButtonSize) or nameof(_preferences.HoverActionPosition)
+                or nameof(_preferences.HoverActionAnimation) or nameof(_preferences.AccountNicknamePosition))
                 ReloadNow();
             else BarsPreferenceChanged(name);
         });
@@ -701,7 +706,7 @@ public sealed partial class MailListPageViewController
         {
             cell = new WinoMailRowView();
             cell.SetLabels(Translator.MailOperation_Archive, Translator.MailOperation_Delete, Translator.MailOperation_SetFlag,
-                Translator.MailOperation_ClearFlag, Translator.MailOperation_MarkAsRead, Translator.MailOperation_MarkAsUnread);
+                Translator.MailOperation_ClearFlag, Translator.MailOperation_MarkAsRead, Translator.MailOperation_MarkAsUnread, Translator.MailOperation_MoveJunk);
             cell.HoverActionInvoked += (sender, kind) =>
             {
                 if ((sender as WinoMailRowView)?.Item is MailListRow hovered)
@@ -746,11 +751,46 @@ public sealed partial class MailListPageViewController
         UpdateMultiSelectionOverlay();
     });
 
+    private HoverActionSet ResolveHoverActions(MailListRow row)
+    {
+        if (ViewModel.MailActionResolver is { } resolver) return resolver.ResolveHoverActions(row);
+        var defaults = MailListActionPreferences.GetDefaultHoverActions(_preferences);
+        return new HoverActionSet(MailListActionResolver.ToHoverActionKind(defaults.Left),
+            MailListActionResolver.ToHoverActionKind(defaults.Center), MailListActionResolver.ToHoverActionKind(defaults.Right));
+    }
+
+    private void RefreshHoverActions()
+    {
+        if (!_listBound) return;
+        var visible = _table.RowsInRect(_table.VisibleRect());
+        for (nint index = visible.Location; index < visible.Location + visible.Length; index++)
+        {
+            if (RowAt(index) is { } row && _table.GetView(0, index, false) is WinoMailRowView cell)
+                cell.HoverActions = ResolveHoverActions(row);
+        }
+    }
+
     private void BindCell(WinoMailRowView cell, MailListRow row)
     {
         cell.Item = row;
         cell.IsSelectionMode = _selectionMode;
         cell.HoverActionsEnabled = _preferences.IsHoverActionsEnabled;
+        cell.HoverActions = ResolveHoverActions(row);
+        cell.HoverButtonSize = _preferences.HoverActionButtonSize;
+        cell.HoverPosition = _preferences.HoverActionPosition switch
+        {
+            MailHoverActionPosition.RightTop => HoverActionPosition.RightTop,
+            MailHoverActionPosition.RightBottom => HoverActionPosition.RightBottom,
+            MailHoverActionPosition.TopCenter => HoverActionPosition.TopCenter,
+            MailHoverActionPosition.BottomCenter => HoverActionPosition.BottomCenter,
+            _ => HoverActionPosition.RightCenter,
+        };
+        cell.HoverAnimation = _preferences.HoverActionAnimation switch
+        {
+            MailHoverActionAnimation.Slide => HoverActionAnimation.Slide,
+            MailHoverActionAnimation.NoAnimation => HoverActionAnimation.NoAnimation,
+            _ => HoverActionAnimation.Popup,
+        };
         cell.Apply(MapRow(row));
 
         var leaves = (row.IsThreadHead ? row.LeafItems : [row.SourceItem]).OfType<INotifyPropertyChanged>().ToArray();
@@ -857,6 +897,15 @@ public sealed partial class MailListPageViewController
             _table.SelectRows(indexes, false);
             _table.ScrollRowToVisible((nint)indexes.FirstIndex);
             return Task.FromResult("ok");
+        });
+        // "rowrect N" prints the screen centre of mail row N in top-left screen coordinates, for synthetic clicks.
+        MacDebugBridge.Register("rowrect", args =>
+        {
+            int index = MailRowIndex(int.Parse(args[0]));
+            if (index < 0 || _table.Window is not { } window || window.Screen is not { } screen) return Task.FromResult("no such row");
+            var inWindow = _table.ConvertRectToView(_table.RectForRow(index), null);
+            var onScreen = window.ConvertRectToScreen(inWindow);
+            return Task.FromResult($"{onScreen.GetMidX():0} {screen.Frame.Height - onScreen.GetMidY():0}");
         });
         // "mailop OPERATION" runs a MailOperation on the selection, as the reading-pane bar does.
         MacDebugBridge.Register("mailop", args =>

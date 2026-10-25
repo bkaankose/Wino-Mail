@@ -5,6 +5,7 @@ using Foundation;
 using UIKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.HoverActions;
@@ -223,6 +224,7 @@ public sealed partial class MailListPageViewController
             UpdateMultiSelectionOverlay();
             CommandStateChanged?.Invoke(this, EventArgs.Empty);
         });
+        Bind(nameof(ViewModel.MailActionResolver), vm => vm.MailActionResolver, _ => RefreshHoverActions());
         BindBars();
         BindDrag();
 
@@ -635,7 +637,7 @@ public sealed partial class MailListPageViewController
         if (_wiredCells.Add(cell.Handle))
         {
             cell.SetLabels(Translator.MailOperation_Archive, Translator.MailOperation_Delete, Translator.MailOperation_SetFlag,
-                Translator.MailOperation_ClearFlag, Translator.MailOperation_MarkAsRead, Translator.MailOperation_MarkAsUnread);
+                Translator.MailOperation_ClearFlag, Translator.MailOperation_MarkAsRead, Translator.MailOperation_MarkAsUnread, Translator.MailOperation_MoveJunk);
             cell.HoverActionInvoked += (sender, kind) =>
             {
                 if ((sender as WinoMailRowCell)?.Item is MailListRow hovered)
@@ -673,11 +675,30 @@ public sealed partial class MailListPageViewController
         UpdateMultiSelectionOverlay();
     });
 
+    private HoverActionSet ResolveHoverActions(MailListRow row)
+    {
+        if (ViewModel.MailActionResolver is { } resolver) return resolver.ResolveHoverActions(row);
+        var defaults = MailListActionPreferences.GetDefaultHoverActions(_preferences);
+        return new HoverActionSet(MailListActionResolver.ToHoverActionKind(defaults.Left),
+            MailListActionResolver.ToHoverActionKind(defaults.Center), MailListActionResolver.ToHoverActionKind(defaults.Right));
+    }
+
+    private void RefreshHoverActions()
+    {
+        if (!_listBound) return;
+        foreach (var path in _table.IndexPathsForVisibleRows ?? [])
+        {
+            if (RowAt(path) is { } row && _table.CellAt(path) is WinoMailRowCell cell)
+                cell.HoverActions = ResolveHoverActions(row);
+        }
+    }
+
     private void BindCell(WinoMailRowCell cell, MailListRow row)
     {
         cell.Item = row;
         cell.IsSelectionMode = _selectionMode;
         cell.HoverActionsEnabled = _preferences.IsHoverActionsEnabled;
+        cell.HoverActions = ResolveHoverActions(row);
         cell.Apply(MapRow(row));
 
         var leaves = (row.IsThreadHead ? row.LeafItems : [row.SourceItem]).OfType<INotifyPropertyChanged>().ToArray();

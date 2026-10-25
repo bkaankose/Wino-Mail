@@ -650,7 +650,7 @@ public sealed partial class MailListPageViewController
         {
             cell.IsWired = true;
             cell.SetLabels(Translator.MailOperation_Archive, Translator.MailOperation_Delete, Translator.MailOperation_SetFlag,
-                Translator.MailOperation_ClearFlag, Translator.MailOperation_MarkAsRead, Translator.MailOperation_MarkAsUnread);
+                Translator.MailOperation_ClearFlag, Translator.MailOperation_MarkAsRead, Translator.MailOperation_MarkAsUnread, Translator.MailOperation_MoveJunk);
             cell.HoverActionsEnabled = false;
             // The table draws the selection circles in edit mode.
             cell.UsesSystemSelectionControl = true;

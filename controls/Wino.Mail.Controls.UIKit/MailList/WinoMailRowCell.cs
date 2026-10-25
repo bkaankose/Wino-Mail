@@ -49,10 +49,9 @@ public class WinoMailRowCell : UITableViewCell
     private readonly UILabel _preview;
     private readonly WinoFlowView _tiles;
     private readonly WinoSurfaceView _hoverBar;
-    private readonly UIButton _archiveButton;
-    private readonly UIButton _deleteButton;
-    private readonly UIButton _flagButton;
-    private readonly UIButton _readButton;
+    private readonly UIButton[] _hoverButtons;
+    private readonly HoverActionKind[] _hoverKinds = new HoverActionKind[3];
+    private readonly WinoIconGlyph[] _shownHoverGlyphs = new WinoIconGlyph[3];
     private readonly NSLayoutConstraint _boxLeading;
     private readonly NSLayoutConstraint _contentTop;
     private readonly NSLayoutConstraint _contentBottom;
@@ -61,8 +60,6 @@ public class WinoMailRowCell : UITableViewCell
     private List<WinoMailRowTile> _shownTiles = new();
     private bool _shownCompactTiles;
     private bool? _shownExpanded;
-    private bool? _shownFlagged;
-    private bool? _shownUnread;
     private WinoMailRowModel _model = new();
     private bool _hovered;
     private bool _selectionMode;
@@ -70,8 +67,9 @@ public class WinoMailRowCell : UITableViewCell
     private bool _checked;
     private bool _hoverActionsEnabled;
     private IDisposable? _subscription;
-    private (string Archive, string Delete, string Flag, string Unflag, string Read, string Unread) _labels =
-        ("Archive", "Delete", "Flag", "Clear flag", "Mark as read", "Mark as unread");
+    private HoverActionSet _hoverActions = new(HoverActionKind.Archive, HoverActionKind.Delete, HoverActionKind.ToggleFlag);
+    private (string Archive, string Delete, string Flag, string Unflag, string Read, string Unread, string Junk) _labels =
+        ("Archive", "Delete", "Flag", "Clear flag", "Mark as read", "Mark as unread", "Move to Junk");
 
     public WinoMailRowCell() : this(ReuseIdentifier) { }
 
@@ -188,11 +186,8 @@ public class WinoMailRowCell : UITableViewCell
         ]);
 
         // ---- Hover actions (iPad pointer; Windows: trailing edge, over the row content) ----
-        _archiveButton = HoverButton(WinoIconGlyph.Archive, HoverActionKind.Archive);
-        _deleteButton = HoverButton(WinoIconGlyph.Delete, HoverActionKind.Delete);
-        _flagButton = HoverButton(WinoIconGlyph.Flag, HoverActionKind.ToggleFlag);
-        _readButton = HoverButton(WinoIconGlyph.MarkRead, HoverActionKind.ToggleRead);
-        var hoverStack = WinoLayout.Insets(WinoLayout.HStack(2, _archiveButton, _deleteButton, _flagButton, _readButton), 2, 2, 2, 2);
+        _hoverButtons = [HoverButton(0), HoverButton(1), HoverButton(2)];
+        var hoverStack = WinoLayout.Insets(WinoLayout.HStack(2, _hoverButtons), 2, 2, 2, 2);
         _hoverBar = new WinoSurfaceView
         {
             CornerRadius = 7,
@@ -211,7 +206,7 @@ public class WinoMailRowCell : UITableViewCell
 
         IsAccessibilityElement = true;
         WinoStyle.AccentChanged += AccentChanged;
-        ApplyHoverLabels();
+        ApplyHoverActions();
         ApplyColors();
         ApplySelection();
     }
@@ -223,15 +218,17 @@ public class WinoMailRowCell : UITableViewCell
         return chip;
     }
 
-    private UIButton HoverButton(WinoIconGlyph glyph, HoverActionKind kind)
+    private UIButton HoverButton(int slot)
     {
         var configuration = UIButtonConfiguration.PlainButtonConfiguration;
-        configuration.Image = WinoIcons.Image(glyph, 14);
         configuration.BaseForegroundColor = WinoStyle.PrimaryText;
         configuration.ContentInsets = new NSDirectionalEdgeInsets(0, 0, 0, 0);
         var button = new UIButton { Configuration = configuration, TranslatesAutoresizingMaskIntoConstraints = false };
         WinoLayout.Size(button, 28, 26);
-        button.PrimaryActionTriggered += (_, _) => HoverActionInvoked?.Invoke(this, kind);
+        button.PrimaryActionTriggered += (_, _) =>
+        {
+            if (_hoverKinds[slot] != HoverActionKind.None) HoverActionInvoked?.Invoke(this, _hoverKinds[slot]);
+        };
         return button;
     }
 
@@ -242,7 +239,7 @@ public class WinoMailRowCell : UITableViewCell
         button.Configuration = configuration;
     }
 
-    /// <summary>Raised for the Archive, Delete, ToggleFlag and ToggleRead hover buttons (iPad pointer).</summary>
+    /// <summary>Raised with the action of the hover button that was tapped (iPad pointer).</summary>
     public event EventHandler<HoverActionKind>? HoverActionInvoked;
 
     public event EventHandler? ThreadToggleRequested;
@@ -267,19 +264,62 @@ public class WinoMailRowCell : UITableViewCell
     public WinoMailRowModel Model => _model;
 
     /// <summary>Localised labels for the hover buttons.</summary>
-    public void SetLabels(string archive, string delete, string flag, string unflag, string markRead, string markUnread)
+    public void SetLabels(string archive, string delete, string flag, string unflag, string markRead, string markUnread, string moveToJunk)
     {
-        _labels = (archive, delete, flag, unflag, markRead, markUnread);
-        ApplyHoverLabels();
+        _labels = (archive, delete, flag, unflag, markRead, markUnread, moveToJunk);
+        ApplyHoverActions();
     }
 
-    private void ApplyHoverLabels()
+    /// <summary>The left, center and right hover actions for this row's account; None leaves its slot out.</summary>
+    public HoverActionSet HoverActions
     {
-        WinoAccessibility.Label(_archiveButton, _labels.Archive);
-        WinoAccessibility.Label(_deleteButton, _labels.Delete);
-        WinoAccessibility.Label(_flagButton, _model.IsFlagged ? _labels.Unflag : _labels.Flag);
-        WinoAccessibility.Label(_readButton, _model.IsUnread ? _labels.Read : _labels.Unread);
+        get => _hoverActions;
+        set { if (_hoverActions == value) return; _hoverActions = value; ApplyHoverActions(); UpdateHover(); }
     }
+
+    private void ApplyHoverActions()
+    {
+        _hoverKinds[0] = _hoverActions.Left;
+        _hoverKinds[1] = _hoverActions.Center;
+        _hoverKinds[2] = _hoverActions.Right;
+        for (int slot = 0; slot < _hoverButtons.Length; slot++)
+        {
+            var button = _hoverButtons[slot];
+            var kind = _hoverKinds[slot];
+            button.Hidden = kind == HoverActionKind.None;
+            if (kind == HoverActionKind.None) continue;
+
+            var glyph = HoverGlyph(kind);
+            if (_shownHoverGlyphs[slot] != glyph)
+            {
+                _shownHoverGlyphs[slot] = glyph;
+                SetButtonImage(button, WinoIcons.Image(glyph, 14));
+            }
+            WinoAccessibility.Label(button, HoverLabel(kind));
+        }
+    }
+
+    private WinoIconGlyph HoverGlyph(HoverActionKind kind) => kind switch
+    {
+        HoverActionKind.Archive => WinoIconGlyph.Archive,
+        HoverActionKind.Delete => WinoIconGlyph.Delete,
+        HoverActionKind.ToggleFlag => _model.IsFlagged ? WinoIconGlyph.ClearFlag : WinoIconGlyph.Flag,
+        HoverActionKind.ToggleRead => _model.IsUnread ? WinoIconGlyph.MarkRead : WinoIconGlyph.MarkUnread,
+        HoverActionKind.MoveToJunk => WinoIconGlyph.Blocked,
+        _ => WinoIconGlyph.None,
+    };
+
+    private string HoverLabel(HoverActionKind kind) => kind switch
+    {
+        HoverActionKind.Archive => _labels.Archive,
+        HoverActionKind.Delete => _labels.Delete,
+        HoverActionKind.ToggleFlag => _model.IsFlagged ? _labels.Unflag : _labels.Flag,
+        HoverActionKind.ToggleRead => _model.IsUnread ? _labels.Read : _labels.Unread,
+        HoverActionKind.MoveToJunk => _labels.Junk,
+        _ => string.Empty,
+    };
+
+    private bool HasHoverActions => _hoverActions != HoverActionSet.None;
 
     /// <summary>Shows the hover actions under the iPad pointer. Off by default: the phone uses swipe actions only.</summary>
     public bool HoverActionsEnabled
@@ -331,7 +371,7 @@ public class WinoMailRowCell : UITableViewCell
         }
     }
 
-    private void UpdateHover() => _hoverBar.Hidden = !(_hovered && _hoverActionsEnabled && !_selectionMode && !_model.IsBusy);
+    private void UpdateHover() => _hoverBar.Hidden = !(_hovered && _hoverActionsEnabled && HasHoverActions && !_selectionMode && !_model.IsBusy);
 
     private void PointerChanged(UIHoverGestureRecognizer recognizer)
         => IsHovered = recognizer.State is UIGestureRecognizerState.Began or UIGestureRecognizerState.Changed;
@@ -416,17 +456,7 @@ public class WinoMailRowCell : UITableViewCell
 
         ApplyTiles(model);
 
-        if (_shownFlagged != model.IsFlagged)
-        {
-            _shownFlagged = model.IsFlagged;
-            SetButtonImage(_flagButton, WinoIcons.Image(model.IsFlagged ? WinoIconGlyph.ClearFlag : WinoIconGlyph.Flag, 14));
-        }
-        if (_shownUnread != model.IsUnread)
-        {
-            _shownUnread = model.IsUnread;
-            SetButtonImage(_readButton, WinoIcons.Image(model.IsUnread ? WinoIconGlyph.MarkRead : WinoIconGlyph.MarkUnread, 14));
-        }
-        ApplyHoverLabels();
+        ApplyHoverActions();
         UpdateHover();
 
         AccessibilityLabel = model.AccessibilityText;

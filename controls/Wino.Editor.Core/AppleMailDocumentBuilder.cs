@@ -11,6 +11,16 @@ namespace Wino.Editor;
 /// </summary>
 public static class AppleMailDocumentBuilder
 {
+    // The shell scripts and styles never change, so they are assembled once; each load only swaps in its own
+    // policy and nonce. The placeholder cannot occur in the packaged assets.
+    private const string PolicyPlaceholder = "wino-content-security-policy-placeholder";
+
+    private static readonly Lazy<Task<string>> ReaderTemplate = new(() => EditorDocumentAssets.BuildDocumentAsync("reader.html", "reader.css",
+        PolicyPlaceholder, "mail-colors.js", "linkify.min.js", "linkify-element.min.js", "dompurify-3.4.14.min.js", "readability-0.6.0.js", "reader.js"));
+
+    private static readonly Lazy<Task<string>> EditorTemplate = new(() => EditorDocumentAssets.BuildDocumentAsync("editor.html", "editor.css",
+        PolicyPlaceholder, "dompurify-3.4.14.min.js", "mail-colors.js", "linkify.min.js", "linkify-element.min.js", "editor.js", "editor-images.js", "editor-tables.js"));
+
     public static Task<string> BuildReaderAsync(string sessionId, RemoteContentPolicy policy,
         bool darkMode, CancellationToken cancellationToken = default, bool useCommandKey = true) =>
         BuildAsync(false, sessionId, policy, darkMode, useCommandKey, cancellationToken);
@@ -30,12 +40,10 @@ public static class AppleMailDocumentBuilder
         string csp = $"default-src 'none'; script-src 'nonce-{nonce}'; style-src 'unsafe-inline'; " +
             $"img-src data:{remote}; font-src data:{remote}; connect-src 'none'; media-src 'none'; " +
             "frame-src 'none'; child-src 'none'; object-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'";
-        string[] scripts = editor
-            ? ["dompurify-3.4.14.min.js", "mail-colors.js", "linkify.min.js", "linkify-element.min.js", "editor.js", "editor-images.js", "editor-tables.js"]
-            : ["mail-colors.js", "linkify.min.js", "linkify-element.min.js", "dompurify-3.4.14.min.js", "readability-0.6.0.js", "reader.js"];
-        string document = await EditorDocumentAssets.BuildDocumentAsync(editor ? "editor.html" : "reader.html",
-            editor ? "editor.css" : "reader.css", csp, scripts).ConfigureAwait(false);
-        document = document.Replace($"nonce=\"{EditorDocumentAssets.ProcessScriptNonce}\"", $"nonce=\"{nonce}\"", StringComparison.Ordinal);
+        string template = await (editor ? EditorTemplate : ReaderTemplate).Value.WaitAsync(cancellationToken).ConfigureAwait(false);
+        string document = template
+            .Replace(PolicyPlaceholder, csp, StringComparison.Ordinal)
+            .Replace($"nonce=\"{EditorDocumentAssets.ProcessScriptNonce}\"", $"nonce=\"{nonce}\"", StringComparison.Ordinal);
         string bootstrap = $"<script nonce=\"{nonce}\">window.winoSessionId={JsonSerializer.Serialize(sessionId, EditorJsonContext.Default.String)};window.winoUseCommandKey={(useCommandKey ? "true" : "false")};</script>";
         // Policy and trusted generation bootstrap precede every stylesheet/script and all mail parsing.
         int metaEnd = document.IndexOf(">", document.IndexOf("<meta http-equiv=\"Content-Security-Policy\"", StringComparison.Ordinal), StringComparison.Ordinal);

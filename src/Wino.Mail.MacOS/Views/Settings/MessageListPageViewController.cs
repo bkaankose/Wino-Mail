@@ -91,14 +91,12 @@ public sealed class MessageListPageViewController(MessageListPageViewModel viewM
                 Bind.Switch(p, nameof(p.IsShowPreviewEnabled), s => s.IsShowPreviewEnabled, (s, v) => s.IsShowPreviewEnabled = v, Translator.SettingsShowPreviewText_Title)));
     }
 
-    /// <summary>Hover actions: the switch and the left, center and right actions with their look.</summary>
+    /// <summary>Hover actions: the header switch and the left, center and right actions with their look.</summary>
     private void AddHoverActions(MessageListPageViewModel vm, IPreferencesService p)
     {
         bool HoverOn(IPreferencesService s) => s.IsHoverActionsEnabled;
-        var hoverEnabled = Card(Translator.SettingsEnableHoverActions_Title, null, WinoIconGlyph.None,
-            Bind.Switch(p, nameof(p.IsHoverActionsEnabled), s => s.IsHoverActionsEnabled, (s, v) => s.IsHoverActionsEnabled = v, Translator.SettingsEnableHoverActions_Title));
-        AddGroup(null, Expander(Translator.SettingsHoverActions_Title, Translator.SettingsHoverActions_Description, WinoIconGlyph.CursorHover, null,
-            hoverEnabled,
+        AddGroup(null, Expander(Translator.SettingsHoverActions_Title, Translator.SettingsHoverActions_Description, WinoIconGlyph.CursorHover,
+            Bind.Switch(p, nameof(p.IsHoverActionsEnabled), s => s.IsHoverActionsEnabled, (s, v) => s.IsHoverActionsEnabled = v, Translator.SettingsHoverActions_Title),
             CustomisedAccountsNote(vm, swipe: false),
             Bind.Enabled(ScopeCard(vm, swipe: false), p, nameof(p.IsHoverActionsEnabled), HoverOn),
             Bind.Enabled(Card(Translator.SettingsHoverActionLeft, null, WinoIconGlyph.None,
