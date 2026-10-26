@@ -199,7 +199,12 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
     /// <param name="isEnabled">Whether menu items should be enabled or disabled.</param>
     public async Task SetAccountMenuItemEnabledStatusAsync(bool isEnabled)
     {
-        var accountItems = this.Where(a => a is IAccountMenuItem).Cast<IAccountMenuItem>().ToList();
+        // Accounts linked into a merged inbox sit under it, and the clicked one was disabled while it loaded too.
+        var accountItems = this.OfType<IAccountMenuItem>()
+            .SelectMany(static item => item is MergedAccountMenuItem merged
+                ? merged.SubMenuItems.OfType<IAccountMenuItem>().Prepend(item)
+                : new IAccountMenuItem[] { item })
+            .ToList();
 
         await _dispatcher.ExecuteOnUIThread(() =>
         {
