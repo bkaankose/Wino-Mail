@@ -212,9 +212,8 @@ internal sealed class ShellPaneCell : NSTableCellView
                 Leading(AccountIconSize);
                 _accountIcon.Hidden = false;
                 _accountIcon.Account = account.Account is { } mailAccount ? _context.AccountIcon(mailAccount) : null;
-                SetTitle(account.AccountName, account.IsSelected ? WinoStyle.BodyMedium : WinoStyle.Body);
-                // Accounts read as section headers on the Mac: the name alone, the address in the tooltip.
-                SetSubtitle(null);
+                SetTitle(account.AccountName, WinoStyle.Body);
+                SetSubtitle(_context.CompactAccounts() ? null : account.AccountAddress);
                 ToolTip = account.AccountAddress;
                 SetSync(account.IsSynchronizationProgressVisible, account.IsProgressIndeterminate, account.SynchronizationProgressValue);
                 _pill.Count = account.UnreadItemCount;
@@ -323,6 +322,14 @@ internal sealed class ShellPaneCell : NSTableCellView
                 GlyphRow(WinoIconGlyph.Folder, 16, null);
                 SetTitle(item.ToString() ?? string.Empty, WinoStyle.Body);
                 break;
+        }
+
+        // The selected folder and the active account read as selected through a semibold accent title.
+        // A title on a coloured chip keeps its own colour so it stays readable.
+        if (selected || ShellMenuItemRules.ShowsIndicator(item))
+        {
+            _title.Font = NSFont.SystemFontOfSize(_title.Font.PointSize, NSFontWeight.Semibold);
+            if (_titleChip.Fill is null) _title.TextColor = WinoStyle.Accent;
         }
         AccessibilityLabel = _pill.Hidden ? _title.StringValue : $"{_title.StringValue}, {_pill.AccessibilityLabel}";
     }

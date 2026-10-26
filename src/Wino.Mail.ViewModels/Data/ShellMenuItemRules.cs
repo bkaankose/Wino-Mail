@@ -37,16 +37,29 @@ public static class ShellMenuItemRules
     /// <summary>Rows that may show the selection fill.</summary>
     public static bool IsHighlightable(IMenuItem item) => IsInteractive(item) && item is not UngroupedCalendarMenuItem;
 
+    /// <summary>
+    /// Account rows follow IsNavigationEnabled only, like the Windows account templates: the shell turns IsEnabled off
+    /// while an account loads its folders, and reading it would dim every account row on each switch.
+    /// </summary>
     public static bool IsEnabled(IMenuItem item)
-        => item is not MenuItemBase { IsEnabled: false } && item is not IAccountNavigationMenuItem { IsNavigationEnabled: false };
+        => item switch
+        {
+            IAccountNavigationMenuItem account => account.IsNavigationEnabled,
+            IAccountMenuItem => true,
+            _ => item is not MenuItemBase { IsEnabled: false }
+        };
 
     /// <summary>Windows collapses these entries while they are disabled instead of greying them out.</summary>
     public static bool IsShown(IMenuItem item)
         => item is not (NewContactMenuItem or NewAddressListMenuItem) || item is MenuItemBase { IsEnabled: true };
 
     /// <summary>Whether the model item carries the accent indicator while it is not the pane selection.</summary>
-    public static bool ShowsIndicator(IMenuItem item)
-        => item is IAccountNavigationMenuItem { IsSelected: true } account && IsAccountRow(account);
+    public static bool ShowsIndicator(IMenuItem item) => item switch
+    {
+        IAccountNavigationMenuItem { IsSelected: true } account => IsAccountRow(account),
+        IAccountMenuItem { IsSelected: true } => true,
+        _ => false
+    };
 
     /// <summary>
     /// How deep a folder row sits under other folders (More, a parent folder), counted from its account whether or not

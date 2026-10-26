@@ -111,10 +111,20 @@ internal sealed partial class ShellSidebarViewController : NSViewController
             _switcher.BottomAnchor.ConstraintEqualTo(root.BottomAnchor)
         ]);
         View = root;
+        WinoStyle.AccentChanged += AccentChanged;
 #if DEBUG
         RegisterDebugCommands();
 #endif
     }
+
+    /// <summary>Selected titles use the accent colour, so visible rows are configured again when it changes.</summary>
+    private void AccentChanged(object? sender, EventArgs args) => NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
+    {
+        if (!ViewLoaded) return;
+        var visible = _outline.RowsInRect(_outline.VisibleRect());
+        for (nint row = visible.Location; row < visible.Location + visible.Length; row++)
+            if (_outline.ItemAtRow(row) is Node node) _selection.Configure(_outline.GetView(0, row, false), node.Item, row);
+    });
 
     /// <summary>Replaces the menu shown in the pane.</summary>
     public void Bind(ShellMenu? menu)
@@ -323,6 +333,23 @@ internal sealed partial class ShellSidebarViewController : NSViewController
             }
             return Task.FromResult("nothing ran");
         });
+        // "sidebar-rows" lists each visible row: index, type, title, enabled/selectable/selected and its screen centre (top-left origin).
+        Infrastructure.MacDebugBridge.Register("sidebar-rows", _ =>
+        {
+            var lines = new List<string>();
+            var screen = _outline.Window?.Screen;
+            for (nint row = 0; row < _outline.RowCount; row++)
+            {
+                if (_outline.ItemAtRow(row) is not Node node) continue;
+                var item = node.Item;
+                var rect = _outline.Window?.ConvertRectToScreen(_outline.ConvertRectToView(_outline.RectForRow(row), null)) ?? CGRect.Empty;
+                var title = item switch { MergedAccountMenuItem merged => merged.MergedAccountName, IAccountNavigationMenuItem account => account.AccountName, IBaseFolderMenuItem folder => folder.FolderName, _ => string.Empty };
+                lines.Add($"{row}:{item.GetType().Name} '{title}' enabled={ShellMenuItemRules.IsEnabled(item)} selectable={IsSelectable(item)} " +
+                    $"selected={(item as IAccountMenuItem)?.IsSelected} expanded={_outline.IsItemExpanded(node)} at {rect.GetMidX():0},{(screen?.Frame.Height ?? 0) - rect.GetMidY():0}" +
+                    (_outline.GetView(0, row, false) is NSTableCellView { TextField: { } field } ? $" font={field.Font?.FontName} accent={field.TextColor?.Equals(WinoStyle.Accent)}" : string.Empty));
+            }
+            return Task.FromResult(string.Join(" | ", lines));
+        });
         Infrastructure.MacDebugBridge.Register("sidebar-popup", args =>
         {
             if (!TryDebugRow(args, out _, out var point) || !PrepareContextMenu(point)) return Task.FromResult("no menu");
@@ -378,6 +405,7 @@ internal sealed partial class ShellSidebarViewController : NSViewController
     {
         if (disposing)
         {
+            WinoStyle.AccentChanged -= AccentChanged;
             _outline.Activated -= Clicked;
             _outline.PrepareMenu = null;
             _outline.DragFinished = null;
@@ -404,6 +432,8 @@ internal sealed partial class ShellSidebarViewController : NSViewController
         private IList<IMenuItem>? _items;
         private bool _disposed;
         private bool _reloadQueued;
+        private bool _nestedChangeQueued;
+        private List<IMenuItem> _shownRoots = new();
 
         public bool TryGetNode(IMenuItem item, out Node node) => _nodes.TryGetValue(item, out node!);
 
@@ -419,14 +449,50 @@ internal sealed partial class ShellSidebarViewController : NSViewController
             _items = items;
             Observe(items);
             owner._outline.ReloadData();
+            _shownRoots = Items(null).ToList();
+            PruneNodes();
+            ExpandFromModel(items);
+            owner.ApplySelection();
+        }
+
+        /// <summary>
+        /// Applies a change of the top-level list (an account switch replaces the folders below the
+        /// accounts) as row removals and insertions, so the rows that stay are not redrawn.
+        /// </summary>
+        private void SyncRoots()
+        {
+            var previous = _shownRoots;
+            var current = Items(null).ToList();
+            int prefix = 0;
+            while (prefix < previous.Count && prefix < current.Count && ReferenceEquals(previous[prefix], current[prefix])) prefix++;
+            int suffix = 0;
+            while (suffix < previous.Count - prefix && suffix < current.Count - prefix
+                && ReferenceEquals(previous[^(suffix + 1)], current[^(suffix + 1)])) suffix++;
+            int removed = previous.Count - prefix - suffix;
+            int added = current.Count - prefix - suffix;
+
+            Detach();
+            Observe(_items);
+            _shownRoots = current;
+            if (removed == 0 && added == 0) return;
+
+            owner._outline.BeginUpdates();
+            if (removed > 0) owner._outline.RemoveItems(NSIndexSet.FromNSRange(new NSRange(prefix, removed)), null, NSTableViewAnimation.None);
+            if (added > 0) owner._outline.InsertItems(NSIndexSet.FromNSRange(new NSRange(prefix, added)), null, NSTableViewAnimation.None);
+            owner._outline.EndUpdates();
+            PruneNodes();
+            ExpandFromModel(current.GetRange(prefix, added));
+            owner.ApplySelection();
+        }
+
+        private void PruneNodes()
+        {
             var live = new HashSet<IMenuItem>(_properties.OfType<IMenuItem>());
             foreach (var stale in _nodes.Keys.Where(key => !live.Contains(key)).ToList())
             {
                 _nodes[stale].Dispose();
                 _nodes.Remove(stale);
             }
-            ExpandFromModel(items);
-            owner.ApplySelection();
         }
 
         private void ExpandFromModel(IEnumerable<IMenuItem>? items)
@@ -465,13 +531,21 @@ internal sealed partial class ShellSidebarViewController : NSViewController
             // Menus are rebuilt in bursts, usually on the main thread already. The dispatcher runs inline
             // there, which would reload once per event; a posted block coalesces a burst into one reload.
             lock (_children) _children.Clear();
+            // Only top-level changes are applied in place; a nested list (a folder's children) still reloads the outline.
+            if (!ReferenceEquals(sender, _items)) _nestedChangeQueued = true;
             if (_reloadQueued) return;
             _reloadQueued = true;
             NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
             {
                 _reloadQueued = false;
+                bool nested = _nestedChangeQueued;
+                _nestedChangeQueued = false;
                 if (_disposed) return;
-                try { Bind(_items); }
+                try
+                {
+                    if (nested) Bind(_items);
+                    else SyncRoots();
+                }
                 catch (Exception exception) { owner._error(exception); }
             });
         }
