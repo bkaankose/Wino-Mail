@@ -1,7 +1,6 @@
 using Wino.Core.Domain.Enums;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Mail.UIKit.Phone.Mail;
-using Wino.Mail.UIKit.Shell;
 using Wino.Mail.UIKit.Views.Mail;
 using Wino.Mail.UIKit.Views.Settings;
 

@@ -73,6 +73,9 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     public ObservableCollection<CalendarComposeAttachmentViewModel> Attachments { get; } = [];
     public ObservableCollection<ShowAsOption> ShowAsOptions { get; } = [];
     public ObservableCollection<ReminderOption> ReminderOptions { get; } = [];
+    public const int MinRecurrenceInterval = 1;
+    public const int MaxRecurrenceInterval = 99;
+
     public ObservableCollection<int> RecurrenceIntervalOptions { get; } = [];
     public ObservableCollection<CalendarComposeFrequencyOption> RecurrenceFrequencyOptions { get; } = [];
     public ObservableCollection<CalendarComposeWeekdayOption> WeekdayOptions { get; } = [];
@@ -301,7 +304,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
             ReminderOptions.Add(new ReminderOption(reminderMinutes));
         }
 
-        foreach (var interval in Enumerable.Range(1, 99))
+        foreach (var interval in Enumerable.Range(MinRecurrenceInterval, MaxRecurrenceInterval - MinRecurrenceInterval + 1))
         {
             RecurrenceIntervalOptions.Add(interval);
         }
@@ -1446,7 +1449,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
 
         try
         {
-            SelectedRecurrenceInterval = Math.Clamp(interval, 1, 99);
+            SelectedRecurrenceInterval = Math.Clamp(interval, MinRecurrenceInterval, MaxRecurrenceInterval);
             SelectedRecurrenceFrequencyOption = GetFrequencyOption(frequency);
 
             foreach (var weekday in WeekdayOptions)

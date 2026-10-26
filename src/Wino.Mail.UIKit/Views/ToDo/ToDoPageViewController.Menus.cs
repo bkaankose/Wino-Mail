@@ -5,6 +5,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Mail.Controls.UIKit.ToDo;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Mail.UIKit.Views.Contacts;
+using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.UIKit;
 
@@ -146,13 +147,12 @@ public abstract partial class ToDoPageViewController
                 ModeBarItems.Action(task.ImportanceActionText, WinoIconGlyph.Star, () => Observe(ViewModel.ToggleImportanceCommand.ExecuteAsync(task)), editable),
                 ModeBarItems.Action(task.CompletionActionText, WinoIconGlyph.Checkmark, () => Observe(ViewModel.ToggleTaskCommand.ExecuteAsync(task)), editable)),
             ModeBarItems.Inline(
-                ModeBarItems.Action(Translator.ToDoPage_DueToday, WinoIconGlyph.CalendarToday, () => Observe(ViewModel.SetTaskDueDateAsync(task, DateTime.Now.Date)), editable),
-                ModeBarItems.Action(Translator.ToDoPage_DueTomorrow, WinoIconGlyph.Calendar, () => Observe(ViewModel.SetTaskDueDateAsync(task, DateTime.Now.Date.AddDays(1))), editable),
+                ModeBarItems.Action(Translator.ToDoPage_DueToday, WinoIconGlyph.CalendarToday, () => Observe(ViewModel.SetTaskDueDateAsync(task, ToDoPageViewModel.DuePresetDate("today"))), editable),
+                ModeBarItems.Action(Translator.ToDoPage_DueTomorrow, WinoIconGlyph.Calendar, () => Observe(ViewModel.SetTaskDueDateAsync(task, ToDoPageViewModel.DuePresetDate("tomorrow"))), editable),
                 ModeBarItems.Action(Translator.ToDoPage_DuePresetPickDate + "…", WinoIconGlyph.Calendar, () => PresentDueDatePicker(task), editable),
                 ModeBarItems.Action(Translator.ToDoPage_RemoveDueDate, WinoIconGlyph.Calendar, () => Observe(ViewModel.SetTaskDueDateAsync(task, null)), editable && task.HasDueDate))
         };
-        var destinations = ViewModel.TaskLists.Where(list => !list.IsReadOnly && list.Id != task.Task.TaskListId &&
-            list.MailAccountId == task.Task.MailAccountId && list.SourceKind == task.Task.SourceKind).ToList();
+        var destinations = ViewModel.GetMoveDestinations(task);
         if (destinations.Count > 0 && editable)
             groups.Add(ModeBarItems.Inline(ModeBarItems.Submenu(Translator.ToDoPage_MoveTaskTo, WinoIconGlyph.Move,
                 destinations.Select(list => (UIMenuElement)ModeBarItems.Action(list.Title ?? string.Empty, WinoIconGlyph.Folder,

@@ -30,18 +30,18 @@ public sealed partial class CalendarEventComposePageViewController
     private NSView BuildCustomRecurrence()
     {
         var everyLabel = WinoStyle.Label(Translator.CalendarEventCompose_RepeatEvery, WinoStyle.Body);
-        var formatter = new NSNumberFormatter { NumberStyle = NSNumberFormatterStyle.None, AllowsFloats = false, Minimum = NSNumber.FromInt32(1), Maximum = NSNumber.FromInt32(99) };
+        var formatter = new NSNumberFormatter { NumberStyle = NSNumberFormatterStyle.None, AllowsFloats = false, Minimum = NSNumber.FromInt32(CalendarEventComposePageViewModel.MinRecurrenceInterval), Maximum = NSNumber.FromInt32(CalendarEventComposePageViewModel.MaxRecurrenceInterval) };
         _interval = new NSTextField { Formatter = formatter, Alignment = NSTextAlignment.Right, TranslatesAutoresizingMaskIntoConstraints = false };
         _interval.WidthAnchor.ConstraintEqualTo(44).Active = true;
         WinoAccessibility.Label(_interval, Translator.CalendarEventCompose_RepeatEvery);
         _interval.Activated += (_, _) => PushInterval();
         _interval.EditingEnded += (_, _) => PushInterval();
-        _intervalStepper = new NSStepper { MinValue = 1, MaxValue = 99, Increment = 1, ValueWraps = false, TranslatesAutoresizingMaskIntoConstraints = false };
+        _intervalStepper = new NSStepper { MinValue = CalendarEventComposePageViewModel.MinRecurrenceInterval, MaxValue = CalendarEventComposePageViewModel.MaxRecurrenceInterval, Increment = 1, ValueWraps = false, TranslatesAutoresizingMaskIntoConstraints = false };
         WinoAccessibility.Label(_intervalStepper, Translator.CalendarEventCompose_RepeatEvery);
         _intervalStepper.Activated += (_, _) =>
         {
             if (_applyingRecurrence) return;
-            ViewModel.SelectedRecurrenceInterval = Math.Clamp((int)_intervalStepper.IntValue, 1, 99);
+            ViewModel.SelectedRecurrenceInterval = Math.Clamp((int)_intervalStepper.IntValue, CalendarEventComposePageViewModel.MinRecurrenceInterval, CalendarEventComposePageViewModel.MaxRecurrenceInterval);
         };
         _frequency = Popup(Translator.CalendarEventCompose_RepeatEvery);
         _frequency.Activated += (_, _) => Select(ViewModel.RecurrenceFrequencyOptions, _frequency, option => ViewModel.SelectedRecurrenceFrequencyOption = option);
@@ -152,7 +152,7 @@ public sealed partial class CalendarEventComposePageViewController
     private void PushInterval()
     {
         if (_applyingRecurrence) return;
-        if (int.TryParse(_interval.StringValue, out var value) && value is >= 1 and <= 99)
+        if (int.TryParse(_interval.StringValue, out var value) && value is >= CalendarEventComposePageViewModel.MinRecurrenceInterval and <= CalendarEventComposePageViewModel.MaxRecurrenceInterval)
         {
             if (ViewModel.SelectedRecurrenceInterval != value) ViewModel.SelectedRecurrenceInterval = value;
         }

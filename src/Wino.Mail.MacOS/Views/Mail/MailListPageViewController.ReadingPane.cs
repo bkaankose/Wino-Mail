@@ -232,8 +232,7 @@ public sealed partial class MailListPageViewController : IRenderingFrameHost, IR
         }
 
         _detachedComposerActive = false;
-        ViewModel.NavigationService.Navigate(item.IsDraft ? WinoPage.ComposePage : WinoPage.MailRenderingPage,
-            item, NavigationReferenceFrame.RenderingFrame);
+        ViewModel.OpenItem(item);
     }
 
     private void UpdateMultiSelectionOverlay()

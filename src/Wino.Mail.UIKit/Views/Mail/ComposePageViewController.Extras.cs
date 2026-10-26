@@ -74,7 +74,7 @@ public sealed partial class ComposePageViewController
     private async Task DiscardAsync()
     {
         if (!ViewModel.DiscardCommand.CanExecute(null)) return;
-        _autosave?.Cancel();
+        ViewModel.CancelAutosave();
         await ViewModel.DiscardCommand.ExecuteAsync(null);
     }
 

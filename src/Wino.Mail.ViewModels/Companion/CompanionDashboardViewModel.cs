@@ -211,15 +211,7 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
         : string.Format(Translator.Companion_EventAttendeesFormat, NextEvent.Attendees.Count);
     public string NextEventCalendarName => NextEvent?.AssignedCalendar?.Name ?? string.Empty;
     public string NextEventCalendarColorHex
-    {
-        get
-        {
-            var customColor = NextEvent?.CalendarItem.CustomEventColorHex;
-            return !string.IsNullOrWhiteSpace(customColor)
-                ? customColor
-                : NextEvent?.AssignedCalendar?.BackgroundColorHex ?? string.Empty;
-        }
-    }
+        => NextEvent is null ? string.Empty : Wino.Calendar.ViewModels.CalendarAgenda.ColorHex(NextEvent) ?? string.Empty;
     public string NextEventPrimaryActionText => NextEvent is not null && HasJoinUri(NextEvent)
         ? Translator.Companion_Join
         : Translator.Companion_View;

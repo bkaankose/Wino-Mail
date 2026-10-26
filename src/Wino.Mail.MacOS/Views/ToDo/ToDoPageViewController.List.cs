@@ -513,12 +513,11 @@ public sealed partial class ToDoPageViewController
         menu.AddItem(MenuItem(task.ImportanceActionText, () => Observe(ViewModel.ToggleImportanceCommand.ExecuteAsync(task)), WinoIconGlyph.Star, enabled: editable));
         menu.AddItem(MenuItem(task.CompletionActionText, () => Observe(ViewModel.ToggleTaskCommand.ExecuteAsync(task)), WinoIconGlyph.Checkmark, enabled: editable));
         menu.AddItem(NSMenuItem.SeparatorItem);
-        menu.AddItem(MenuItem(Translator.ToDoPage_DueToday, () => Observe(ViewModel.SetTaskDueDateAsync(task, DateTime.Now.Date)), WinoIconGlyph.CalendarToday, enabled: editable));
-        menu.AddItem(MenuItem(Translator.ToDoPage_DueTomorrow, () => Observe(ViewModel.SetTaskDueDateAsync(task, DateTime.Now.Date.AddDays(1))), WinoIconGlyph.Calendar, enabled: editable));
+        menu.AddItem(MenuItem(Translator.ToDoPage_DueToday, () => Observe(ViewModel.SetTaskDueDateAsync(task, ToDoPageViewModel.DuePresetDate("today"))), WinoIconGlyph.CalendarToday, enabled: editable));
+        menu.AddItem(MenuItem(Translator.ToDoPage_DueTomorrow, () => Observe(ViewModel.SetTaskDueDateAsync(task, ToDoPageViewModel.DuePresetDate("tomorrow"))), WinoIconGlyph.Calendar, enabled: editable));
         menu.AddItem(MenuItem(Translator.ToDoPage_DuePresetPickDate + "…", () => ShowDueDatePicker(task, row), WinoIconGlyph.Calendar, enabled: editable));
         menu.AddItem(MenuItem(Translator.ToDoPage_RemoveDueDate, () => Observe(ViewModel.SetTaskDueDateAsync(task, null)), WinoIconGlyph.Calendar, enabled: editable && task.HasDueDate));
-        var destinations = ViewModel.TaskLists.Where(list => !list.IsReadOnly && list.Id != task.Task.TaskListId &&
-            list.MailAccountId == task.Task.MailAccountId && list.SourceKind == task.Task.SourceKind).ToList();
+        var destinations = ViewModel.GetMoveDestinations(task);
         if (destinations.Count > 0)
         {
             menu.AddItem(NSMenuItem.SeparatorItem);

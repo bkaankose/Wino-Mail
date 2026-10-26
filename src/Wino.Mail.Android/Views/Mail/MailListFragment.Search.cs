@@ -3,12 +3,12 @@ using Android.Views;
 using Android.Views.InputMethods;
 using Android.Widget;
 using Google.Android.Material.Chip;
-using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Mail.Android.Infrastructure;
 using Wino.Mail.Controls.Android.Common;
 using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Mail.ViewModels;
@@ -23,13 +23,12 @@ namespace Wino.Mail.Android.Views.Mail;
 /// (<see cref="Shell.DockedSearchBar"/>) searches; the chip row under it holds the On device / Online scope, filter chips for attachments, unread and flagged mail, From and Subject chips
 /// that turn the typed text into a sender or subject filter, and the folder scope. Results replace the folder's rows in
 /// the same list; the header shows the result status and Try online search appears under local results. Searches run
-/// through the shared criteria factory and folder resolver, as on the Mac and iOS.
+/// through the shared <see cref="MailListPageViewModel.SearchAsync"/>, as on the Mac.
 /// </summary>
 public sealed partial class MailListFragment
 {
-    private static readonly MailSearchScope[] Scopes = [MailSearchScope.CurrentFolder, MailSearchScope.Subfolders, MailSearchScope.AllFolders];
-
     private View? _searchPanel;
+    private CancellationTokenSource _searchCancellation = new();
     private EditText? _searchField;
     private ChipGroup? _searchChips;
     private TextView? _searchStatus;
@@ -48,6 +47,8 @@ public sealed partial class MailListFragment
         _headerSpace = view.FindViewById(Resource.Id.mail_header_space);
         if (_searchBar is not { } bar) return;
         _searchField = bar.Field;
+        var searchCancellation = _searchCancellation = new CancellationTokenSource();
+        Bindings.Own(new ActionDisposable(searchCancellation.Cancel));
 
         // The bar's Back (button or gesture) leaves search; focusing its field enters it.
         bar.ActiveChanged += active =>
@@ -119,8 +120,9 @@ public sealed partial class MailListFragment
             var filters = viewModel.SearchFilters ?? MailSearchFilters.Empty;
 
             // Canvas Material pass Search: the folder scope dropdown leads the row; the chips carry text only.
-            int scopeIndex = Math.Max(0, Array.IndexOf(Scopes, viewModel.SearchScope));
-            var scope = WinoChips.Assist(context, ScopeTitle(Scopes[scopeIndex]));
+            var scopes = MailListPageViewModel.SearchScopes;
+            int scopeIndex = Math.Max(0, scopes.IndexOf(viewModel.SearchScope));
+            var scope = WinoChips.Assist(context, ScopeTitle(scopes[scopeIndex]));
             scope.ContentDescription = Translator.SearchBar_SearchIn;
             scope.Click += (_, _) => ShowScopeMenu(scope);
             _searchChips.AddView(scope);
@@ -188,17 +190,18 @@ public sealed partial class MailListFragment
     private void ShowScopeMenu(View anchor)
     {
         if (Context is not { } context || ViewModel is not { } viewModel) return;
+        var scopes = MailListPageViewModel.SearchScopes;
         var popup = new PopupMenu(context, anchor);
-        for (int index = 0; index < Scopes.Length; index++)
+        for (int index = 0; index < scopes.Length; index++)
         {
-            var item = popup.Menu.Add(0, index, index, ScopeTitle(Scopes[index]));
+            var item = popup.Menu.Add(0, index, index, ScopeTitle(scopes[index]));
             item?.SetCheckable(true);
-            item?.SetChecked(viewModel.SearchScope == Scopes[index]);
+            item?.SetChecked(viewModel.SearchScope == scopes[index]);
         }
         popup.MenuItemClick += (_, args) =>
         {
-            if (args.Item is not { } item || item.ItemId < 0 || item.ItemId >= Scopes.Length) return;
-            var scope = Scopes[item.ItemId];
+            if (args.Item is not { } item || item.ItemId < 0 || item.ItemId >= scopes.Length) return;
+            var scope = scopes[item.ItemId];
             if (viewModel.SearchScope == scope) return;
             viewModel.SearchScope = scope;
             Observe(RunSearchOrCloseAsync(_searchText));
@@ -243,11 +246,8 @@ public sealed partial class MailListFragment
     private async Task SearchClearedAsync()
     {
         if (ViewModel is not { } viewModel) return;
-        viewModel.SearchFilters = MailSearchFilters.Empty;
         viewModel.SearchQuery = string.Empty;
-        viewModel.IsOnlineSearchButtonVisible = false;
-        viewModel.SetSearchCriteria(MailSearchCriteria.Empty, Array.Empty<IMailItemFolder>());
-        await viewModel.PerformSearchAsync();
+        await viewModel.ClearSearchAsync();
     }
 
     private Task RunOnlineSearchAsync()
@@ -273,24 +273,7 @@ public sealed partial class MailListFragment
 
     private async Task RunMailSearchAsync(MailListPageViewModel viewModel, string query)
     {
-        if (MainApplication.Services?.GetService<IFolderService>() is not { } folderService) return;
-        bool online = _online;
-        var scope = viewModel.SearchScope;
-        var activeFolders = viewModel.ActiveFolder?.HandlingFolders.ToArray() ?? [];
-        var folders = await MailSearchFolderResolver.ResolveAsync(scope, activeFolders,
-            async accountId => (IReadOnlyList<IMailItemFolder>)(await folderService.GetFoldersAsync(accountId).ConfigureAwait(false)).Cast<IMailItemFolder>().ToList())
-            .ConfigureAwait(false);
-        var criteria = MailSearchCriteriaFactory.Create(query, online ? SearchBarReach.IncludeServer : SearchBarReach.DownloadedOnly,
-            scope, viewModel.SearchFilters, DateTime.Now,
-            folders.Select(static folder => folder.Id).ToArray(),
-            folders.Select(static folder => folder.MailAccountId).Distinct().ToArray());
-        var dispatcher = Entry?.Dispatcher;
-        if (dispatcher is null) return;
-        await dispatcher.ExecuteOnUIThread(() =>
-        {
-            viewModel.SetSearchCriteria(criteria, folders);
-            if (viewModel.PerformSearchCommand.CanExecute(null)) viewModel.PerformSearchCommand.Execute(null);
-            UpdateSearchStatus();
-        });
+        await viewModel.SearchAsync(query, _online, _searchCancellation.Token);
+        if (Entry?.Dispatcher is { } dispatcher) await dispatcher.ExecuteOnUIThread(UpdateSearchStatus);
     }
 }

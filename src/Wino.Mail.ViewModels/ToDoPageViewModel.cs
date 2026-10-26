@@ -1543,16 +1543,19 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         if (SelectedTask is null || !CanEditSelectedTask)
             return;
 
+        await SetTaskDueDateAsync(SelectedTask, DuePresetDate(preset)).ConfigureAwait(false);
+    }
+
+    public static DateTime? DuePresetDate(string preset)
+    {
         var today = DateTime.Now.Date;
-        DateTime? due = preset switch
+        return preset switch
         {
             "today" => today,
             "tomorrow" => today.AddDays(1),
             "nextweek" => today.AddDays(7),
             _ => null
         };
-
-        await SetTaskDueDateAsync(SelectedTask, due).ConfigureAwait(false);
     }
 
     public async Task SetTaskDueDateAsync(TaskItemViewModel item, DateTime? dueDate)
@@ -1574,14 +1577,31 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             OriginalTask: original)).ConfigureAwait(false);
     }
 
+    public List<AccountTaskList> GetMoveDestinations(TaskItemViewModel task)
+    {
+        var destinations = new List<AccountTaskList>();
+        if (task is null)
+            return destinations;
+
+        foreach (var list in TaskLists)
+        {
+            if (IsMoveDestination(task, list))
+                destinations.Add(list);
+        }
+
+        return destinations;
+    }
+
+    private static bool IsMoveDestination(TaskItemViewModel item, AccountTaskList destination)
+        => !destination.IsReadOnly &&
+           destination.Id != item.Task.TaskListId &&
+           destination.MailAccountId == item.Task.MailAccountId &&
+           destination.SourceKind == item.Task.SourceKind;
+
     public async Task MoveTaskAsync(TaskItemViewModel item, AccountTaskList destination)
     {
-        if (item is null || item.IsReadOnly || destination is null || destination.IsReadOnly ||
-            destination.Id == item.Task.TaskListId || destination.MailAccountId != item.Task.MailAccountId ||
-            destination.SourceKind != item.Task.SourceKind)
-        {
+        if (item is null || item.IsReadOnly || destination is null || !IsMoveDestination(item, destination))
             return;
-        }
 
         var original = RequestEntityCloner.Task(item.Task);
         var desired = RequestEntityCloner.Task(item.Task);

@@ -901,6 +901,24 @@ public sealed partial class MailListPageViewController
             _table.ScrollRowToVisible((nint)indexes.FirstIndex);
             return Task.FromResult("ok");
         });
+        // "swipe N leading|trailing [run]" prints the resolved swipe operation for mail row N and optionally runs it.
+        MacDebugBridge.Register("swipe", async args =>
+        {
+            int index = MailRowIndex(int.Parse(args[0]));
+            if (index < 0 || RowAt(index) is not { } row) return "no such row";
+            bool leading = args.Length < 2 || args[1] == "leading";
+            var operation = ViewModel.ResolveSwipeOperation(row, leading);
+            if (args.Length > 2 && args[2] == "run") await ViewModel.ExecuteSwipeAsync(row, leading);
+            return operation.ToString();
+        });
+        // "search TEXT" submits a shell search; "search" alone clears it.
+        MacDebugBridge.Register("search", async args =>
+        {
+            if (args.Length == 0) await SearchClearedAsync();
+            else await SearchSubmittedAsync(string.Join(' ', args));
+            await Task.Delay(1500);
+            return $"rows={_entries.Count(static entry => entry.Row is not null)} searching={ViewModel.IsInSearchMode}";
+        });
         // "rowrect N" prints the screen centre of mail row N in top-left screen coordinates, for synthetic clicks.
         MacDebugBridge.Register("rowrect", args =>
         {

@@ -9,6 +9,7 @@ using Wino.Mail.Controls.UIKit.Extras;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.UIKit;
+using Wino.Mail.ViewModels;
 
 namespace Wino.Mail.UIKit.Views.Contacts;
 
@@ -279,8 +280,8 @@ public abstract partial class ContactsPageViewController
         var cancellation = _searchCancellation = new CancellationTokenSource();
         try
         {
-            if (!select) await Task.Delay(150, cancellation.Token);
-            var results = await ViewModel.SearchContactsAsync(text, 200);
+            if (!select) await Task.Delay(ContactsPageViewModel.SearchDebounce, cancellation.Token);
+            var results = await ViewModel.SearchContactsAsync(text, ContactsPageViewModel.SearchLimit);
             if (cancellation.IsCancellationRequested || IsReleased) return;
             await Dispatcher.ExecuteOnUIThread(() =>
             {

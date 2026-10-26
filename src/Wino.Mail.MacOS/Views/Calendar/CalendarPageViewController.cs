@@ -343,9 +343,7 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         }
         if (!ViewModel.Readiness.IsReady) return;
         bool isAllDay = ViewModel.CurrentVisibleRange?.DisplayType == CalendarDisplayType.Month;
-        // A drag across slots carries its own end (Windows EmptySlotTapped EndDate).
-        var end = args.End is { } dragged && dragged > args.Start ? dragged : isAllDay ? args.Start.Date.AddDays(1) : args.Start.AddMinutes(30);
-        ViewModel.SelectQuickEventRange(args.Start, end, isAllDay);
+        ViewModel.BeginQuickEvent(args.Start, args.End, isAllDay);
         CloseQuickEvent();
         _quickEvent = new QuickEventPopover(ViewModel, Dispatcher, ReportError);
         _quickEvent.Closed += (_, _) => { _quickEvent = null; };
@@ -695,16 +693,8 @@ internal static class CalendarContextMenuLabels
         };
     }
 
-    /// <summary>
-    /// Windows CalendarItemCommandBarFlyout: busy items take no action, and a read-only calendar's
-    /// events cannot be deleted, re-marked (Show as) or answered.
-    /// </summary>
     public static bool IsEnabled(CalendarContextMenuItem entry, CalendarItemViewModel item)
-    {
-        bool isMutation = entry.Action.ActionType is CalendarContextMenuActionType.Delete
-            or CalendarContextMenuActionType.ShowAs or CalendarContextMenuActionType.Respond;
-        return entry.IsEnabled && !item.IsBusy && (!isMutation || !CalendarTileMapper.IsReadOnly(item));
-    }
+        => CalendarEventDisplay.CanRunMenuEntry(entry.IsEnabled, item, item.IsBusy, entry.Action.ActionType);
 
     public static string ShowAsText(CalendarItemShowAs showAs) => showAs switch
     {

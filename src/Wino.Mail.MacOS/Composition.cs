@@ -87,6 +87,7 @@ internal static class Composition
         services.AddSingleton<INotificationImageConverter, MacNotificationImageConverter>();
         services.AddSingleton<IApplicationBadgePresenter, MacDockBadgePresenter>();
         services.AddSingleton<AppleNotificationSounds>();
+        services.AddSingleton<INotificationSoundProvider>(provider => provider.GetRequiredService<AppleNotificationSounds>());
         services.AddSingleton<INotificationBuilder, AppleNotificationBuilder>();
         services.AddSingleton<IStatePersistanceService, ConfigurationStatePersistenceService>();
         // WinoRelay on the Mac is socket-only: no push token is registered, so nothing arrives while the app is not running.

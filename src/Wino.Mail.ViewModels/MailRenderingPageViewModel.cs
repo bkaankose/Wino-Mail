@@ -111,6 +111,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     [NotifyPropertyChangedFor(nameof(ShouldDisplayDownloadProgress))]
     public partial bool IsIndetermineProgress { get; set; }
 
+    [ObservableProperty]
+    public partial bool IsReaderViewEnabled { get; set; }
+
     /// <summary>
     /// False from the moment a message starts loading until its body has been handed to the renderer.
     /// The reader shows skeletons while it is false, so no half-populated header is ever on screen.
@@ -933,7 +936,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         {
             attachmentViewModel.IsBusy = true;
 
-            var pickedPath = await _dialogService.PickWindowsFolderAsync();
+            var pickedPath = await _dialogService.PickFolderAsync();
 
             if (string.IsNullOrEmpty(pickedPath)) return;
 
@@ -988,7 +991,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     [RelayCommand]
     private async Task SaveAllAttachmentsAsync()
     {
-        var pickedPath = await _dialogService.PickWindowsFolderAsync();
+        var pickedPath = await _dialogService.PickFolderAsync();
 
         if (string.IsNullOrEmpty(pickedPath)) return;
 
@@ -1027,7 +1030,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     {
         try
         {
-            var pickedFolder = await _dialogService.PickWindowsFolderAsync();
+            var pickedFolder = await _dialogService.PickFolderAsync();
 
             if (string.IsNullOrEmpty(pickedFolder)) return;
 
@@ -1064,7 +1067,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                 return;
             }
 
-            var pickedFolder = await _dialogService.PickWindowsFolderAsync();
+            var pickedFolder = await _dialogService.PickFolderAsync();
 
             if (string.IsNullOrEmpty(pickedFolder)) return;
 

@@ -78,7 +78,6 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private bool _showsCommandBar = !IsPhone;
     private bool _dark;
     private bool _disposedReader;
-    private bool _readerViewEnabled;
 
     /// <summary>Set by a host that closes the reader itself (the EML sheet); otherwise Close clears the rendering frame.</summary>
     internal Action? CloseOverride { get; set; }
@@ -404,7 +403,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         if (group.Count > 0) groups.Add(UIMenu.Create(string.Empty, null, UIMenuIdentifier.None, UIMenuOptions.DisplayInline, group.ToArray()));
 
         var readerView = UIAction.Create(Translator.Reader_ReaderView, WinoIcons.Image(WinoIconGlyph.Document, 18), null, _ => ToggleReaderView());
-        readerView.State = _readerViewEnabled ? UIMenuElementState.On : UIMenuElementState.Off;
+        readerView.State = ViewModel.IsReaderViewEnabled ? UIMenuElementState.On : UIMenuElementState.Off;
         if (string.IsNullOrWhiteSpace(_currentRenderedHtml)) readerView.Attributes = UIMenuElementAttributes.Disabled;
         var theme = UIAction.Create(_dark ? Translator.Composer_LightTheme : Translator.Composer_DarkTheme,
             WinoIcons.Image(_dark ? WinoIconGlyph.LightEditor : WinoIconGlyph.DarkEditor, 18), null, _ => ToggleTheme());
@@ -416,7 +415,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private void ToggleReaderView()
     {
         if (_reader is null || _disposedReader) return;
-        _readerViewEnabled = !_readerViewEnabled;
+        ViewModel.IsReaderViewEnabled = !ViewModel.IsReaderViewEnabled;
         if (!string.IsNullOrWhiteSpace(_currentRenderedHtml)) Observe(RenderActiveContentAsync());
     }
 
@@ -518,7 +517,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         var options = ViewModel.CurrentRenderModel?.MailRenderingOptions;
         var policy = (options?.LoadImages ?? true) ? RemoteContentPolicy.ImagesAndFontsAllowed : RemoteContentPolicy.Blocked;
         await _reader.RenderAsync(new HtmlMailReaderRequest(string.IsNullOrEmpty(html) ? " " : html, policy,
-            _readerViewEnabled ? HtmlMailRenderMode.Readability : HtmlMailRenderMode.Original, options?.RenderPlaintextLinks ?? true));
+            ViewModel.IsReaderViewEnabled ? HtmlMailRenderMode.Readability : HtmlMailRenderMode.Original, options?.RenderPlaintextLinks ?? true));
         UpdateWebHeight();
     }
 

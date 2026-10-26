@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
+using Serilog;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -44,6 +45,7 @@ public sealed partial class NavigationCoordinator : INavigationService, IDisposa
     private Task _pending = Task.CompletedTask;
     // Completes once the current shell finished its first mode activation (its menus and first route).
     private Task _shellActivated = Task.CompletedTask;
+    private readonly HashSet<WinoPage> _reportedMissingRoutes = new();
 
     /// <param name="services">Resolves the logger, account service, runtime and wizard context lazily, when a route needs them.</param>
     /// <param name="messenger">Defaults to <see cref="WeakReferenceMessenger.Default"/>; tests pass their own.</param>
@@ -78,7 +80,14 @@ public sealed partial class NavigationCoordinator : INavigationService, IDisposa
 
     public bool Navigate(WinoPage page, object? parameter = null, NavigationReferenceFrame? frame = null, NavigationTransitionType transition = NavigationTransitionType.None)
     {
-        if (_stopping || !_host.TryGetRoute(page, parameter, out var host)) return false;
+        if (_stopping) return false;
+        if (!_host.TryGetRoute(page, parameter, out var host))
+        {
+            bool firstMiss;
+            lock (_reportedMissingRoutes) firstMiss = _reportedMissingRoutes.Add(page);
+            if (firstMiss) Log.Warning("Navigation to {Page} was ignored: this head has no route for it.", page);
+            return false;
+        }
         _pending = host switch
         {
             NavigationHostKind.RenderingFrame => ObserveAsync(ShowInRenderingFrameAsync(page, parameter)),
@@ -330,11 +339,30 @@ public sealed partial class NavigationCoordinator : INavigationService, IDisposa
     {
         // From Settings > Add account the shell already exists: just close the add-account surface.
         if (_host.IsSecondaryWindowShown) await CloseSecondaryWindowAsync();
+        var shellExisted = _host.IsShellShown;
         await ShowShellAsync();
         // Windows App.Receive(AccountCreatedMessage): the runtime holds a new account's first full
         // mail, calendar, contacts and To Do synchronization until the host hands it over after the
         // shell is up. Without it only the shell's Inbox sync ran and calendar events never arrived.
         await _services.GetRequiredService<IApplicationRuntime>().SynchronizeCreatedAccountAsync(account);
+        await ShowCreatedAccountAsync(account, shellExisted);
+    }
+
+    /// <summary>
+    /// Windows WinoAppShell.Receive(AccountCreatedMessage): switch to the first mode the account provides and,
+    /// for mail, refresh the menu and select the account.
+    /// </summary>
+    private async Task ShowCreatedAccountAsync(MailAccount account, bool shellExisted)
+    {
+        if (_stopping || !_host.IsShellShown) return;
+        var mode = ShellModeSelection.ForCreatedAccount(account);
+        // The mode switch runs first so the mail menu refresh below never navigates while another mode is on screen.
+        // Activating the mode already on screen does nothing, so this does not navigate twice.
+        await ActivateModeAsync(mode, null);
+        // A shell presented just now built its menus from storage, new account included; refreshing them again would
+        // only repeat the first folder route.
+        if (!shellExisted || mode != WinoApplicationMode.Mail || _stopping) return;
+        if (_services.GetService<IMailShellClient>() is { } mail) await mail.HandleAccountCreatedAsync(account);
     }
 
     public void Receive(WelcomeImportCompletedMessage message) => _pending = ObserveAsync(ShowShellAsync());

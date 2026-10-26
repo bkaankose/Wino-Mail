@@ -1,5 +1,6 @@
 using AppKit;
 using Itenso.TimePeriod;
+using Wino.Calendar.ViewModels;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
@@ -19,9 +20,7 @@ internal static class CalendarTileMapper
         var viewModel = item as CalendarItemViewModel;
         var period = new TimeRange(date.ToDateTime(TimeOnly.MinValue), date.AddDays(1).ToDateTime(TimeOnly.MinValue));
         string title = settings is null ? item.Title ?? string.Empty : item.GetDisplayTitle(period, settings) ?? string.Empty;
-        string? time = settings is null
-            ? $"{item.StartDate:t} – {item.EndDate:t}"
-            : $"{settings.GetTimeString(item.StartDate.TimeOfDay)} – {settings.GetTimeString(item.EndDate.TimeOfDay)}";
+        string? time = CalendarAgenda.TimeRangeText(item.StartDate, item.EndDate, settings);
         return new CalendarTileModel(
             title,
             time,
@@ -47,11 +46,11 @@ internal static class CalendarTileMapper
             ? CalendarEventDisplay.GetDragRefusal(viewModel.CalendarItem, viewModel.IsBusy)
             : CalendarDragRefusal.Busy;
 
-    /// <summary>The calendar colour (Windows binds the assigned calendar's background), falling back to the accent.</summary>
+    /// <summary>The shared event colour (<see cref="CalendarAgenda.ColorHex"/>), falling back to the accent.</summary>
     public static NSColor Fill(ICalendarItem item)
     {
-        var custom = (item as CalendarItemViewModel)?.CalendarItem.CustomEventColorHex;
-        return WinoStyle.FromHexString(custom) ?? WinoStyle.FromHexString(item.AssignedCalendar?.BackgroundColorHex) ?? WinoStyle.Accent;
+        var hex = item is CalendarItemViewModel viewModel ? CalendarAgenda.ColorHex(viewModel) : item.AssignedCalendar?.BackgroundColorHex;
+        return WinoStyle.FromHexString(hex) ?? WinoStyle.Accent;
     }
 
     /// <summary>The event details date line (shared <see cref="CalendarEventDisplay.FormatDateRange"/>).</summary>

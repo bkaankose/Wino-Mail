@@ -60,7 +60,8 @@ public static class CoreContainerSetup
             () => provider.GetRequiredService<IPushRelayRegistrationService>(),
             () => provider.GetService<IRelaySocketCoordinator>(),
             () => provider.GetRequiredService<ISyncCoordinator>(),
-            () => provider.GetService<IAppPolicyAcceptanceSyncService>()));
+            () => provider.GetService<IAppPolicyAcceptanceSyncService>(),
+            () => provider.GetServices<IStartupInitializer>()));
         services.AddSingleton<IApplicationRuntime>(provider => new ApplicationRuntime(
             provider.GetRequiredService<ISynchronizationManager>(),
             provider.GetRequiredService<IAccountService>(),

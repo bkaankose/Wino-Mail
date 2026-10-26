@@ -277,7 +277,7 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
                     Category: AppleNotificationCategories.MailSummary,
                     ThreadIdentifier: null,
                     UserInfo: new Dictionary<string, string> { [Constants.ToastModeKey] = Constants.ToastModeMail },
-                    Sound: _sounds.Resolve(AppleNotificationSoundKind.Mail)),
+                    Sound: _sounds.Resolve(NotificationSoundKind.Mail)),
                     NotificationKind.Mail).ConfigureAwait(false);
             }
             else
@@ -472,7 +472,7 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
             Category: AppleNotificationCategories.CalendarCategory(canJoin, snoozeMinutes),
             ThreadIdentifier: "calendar",
             UserInfo: userInfo,
-            Sound: _sounds.Resolve(AppleNotificationSoundKind.Calendar)),
+            Sound: _sounds.Resolve(NotificationSoundKind.Calendar)),
             NotificationKind.CalendarReminder, accountPreferences).ConfigureAwait(false);
     }
 
@@ -507,7 +507,7 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
             Category: AppleNotificationCategories.Generic,
             ThreadIdentifier: "tasks",
             UserInfo: new Dictionary<string, string> { [Constants.ToastModeKey] = Constants.ToastModeTasks },
-            Sound: _sounds.Resolve(AppleNotificationSoundKind.Task)),
+            Sound: _sounds.Resolve(NotificationSoundKind.Task)),
             NotificationKind.TaskReminder);
     }
 
@@ -520,7 +520,7 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
             Category: AppleNotificationCategories.Generic,
             ThreadIdentifier: "live-notifications",
             UserInfo: new Dictionary<string, string> { [Constants.ToastModeKey] = Constants.ToastModeMail },
-            Sound: _sounds.Resolve(AppleNotificationSoundKind.Mail)),
+            Sound: _sounds.Resolve(NotificationSoundKind.Mail)),
             NotificationKind.Other);
 
     #endregion

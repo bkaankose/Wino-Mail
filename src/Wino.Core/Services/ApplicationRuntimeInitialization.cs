@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Interfaces;
@@ -21,13 +22,16 @@ public sealed class ApplicationRuntimeInitialization(
     Func<IPushRelayRegistrationService>? pushRelay = null,
     Func<IRelaySocketCoordinator?>? relaySocket = null,
     Func<ISyncCoordinator>? syncCoordinator = null,
-    Func<IAppPolicyAcceptanceSyncService?>? policySync = null)
+    Func<IAppPolicyAcceptanceSyncService?>? policySync = null,
+    Func<IEnumerable<IStartupInitializer>>? startupInitializers = null)
 {
     private int _completedStep;
+    private bool _startupInitializersCompleted;
     private Task _entitlementRefresh = Task.CompletedTask;
 
     public async Task InitializeAsync(CancellationToken cancellationToken)
     {
+        await RunStartupInitializersAsync(cancellationToken);
         await StepAsync(1, () => translations().InitializeAsync(), cancellationToken);
         await StepAsync(2, () => Task.WhenAll(database().InitializeAsync(), intelligenceStore().InitializeAsync(),
             translations().InitializeAsync(), synchronizationInitializer().InitializeAsync()), cancellationToken);
@@ -124,6 +128,19 @@ public sealed class ApplicationRuntimeInitialization(
         {
             Serilog.Log.Warning(ex, "Live notifications could not start.");
         }
+    }
+
+    /// <summary>Runs first so shared configuration is in place even when a later step such as the database fails.</summary>
+    private async Task RunStartupInitializersAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_startupInitializersCompleted || startupInitializers is null)
+            return;
+
+        foreach (var initializer in startupInitializers())
+            await initializer.InitializeAsync();
+
+        _startupInitializersCompleted = true;
     }
 
     private async Task StepAsync(int step, Func<Task> operation, CancellationToken cancellationToken)

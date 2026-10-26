@@ -49,11 +49,11 @@ public static class CalendarTileMapper
             ? CalendarEventDisplay.GetDragRefusal(viewModel.CalendarItem, viewModel.IsBusy)
             : CalendarDragRefusal.Busy;
 
-    /// <summary>The calendar colour (Windows binds the assigned calendar's background), falling back to the accent.</summary>
+    /// <summary>The shared event colour (<see cref="Wino.Calendar.ViewModels.CalendarAgenda.ColorHex"/>), falling back to the accent.</summary>
     public static UIColor Fill(ICalendarItem item)
     {
-        var custom = (item as CalendarItemViewModel)?.CalendarItem.CustomEventColorHex;
-        return WinoStyle.FromHexString(custom) ?? WinoStyle.FromHexString(item.AssignedCalendar?.BackgroundColorHex) ?? WinoStyle.Accent;
+        var hex = item is CalendarItemViewModel viewModel ? Wino.Calendar.ViewModels.CalendarAgenda.ColorHex(viewModel) : item.AssignedCalendar?.BackgroundColorHex;
+        return WinoStyle.FromHexString(hex) ?? WinoStyle.Accent;
     }
 
     /// <summary>The event details date line (shared <see cref="CalendarEventDisplay.FormatDateRange"/>).</summary>

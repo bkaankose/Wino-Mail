@@ -131,8 +131,7 @@ public sealed partial class CalendarPageFragment
     private void OpenComposerAt(DateTime start, bool isAllDay)
     {
         if (ViewModel is not { } viewModel || !viewModel.Readiness.IsReady) return;
-        var end = isAllDay ? start.Date.AddDays(1) : start.AddMinutes(30);
-        viewModel.SelectQuickEventRange(start, end, isAllDay);
+        viewModel.BeginQuickEvent(start, null, isAllDay);
         if (viewModel.GoToEventComposePageCommand.CanExecute(null)) viewModel.GoToEventComposePageCommand.Execute(null);
     }
 

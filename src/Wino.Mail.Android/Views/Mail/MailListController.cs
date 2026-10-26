@@ -121,7 +121,7 @@ public sealed class MailListController : IDisposable,
             }
             // Multi-select selects without opening.
             if (IsSelectionMode) return;
-            ViewModel.NavigationService.Navigate(item.IsDraft ? WinoPage.ComposePage : WinoPage.MailRenderingPage, item, NavigationReferenceFrame.RenderingFrame);
+            ViewModel.OpenItem(item);
         });
     }
 

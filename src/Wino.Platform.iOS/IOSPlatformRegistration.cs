@@ -90,6 +90,7 @@ public static class IOSPlatformRegistration
         services.AddSingleton<IReaderRuntimeService, AppleReaderRuntimeService>();
         services.AddSingleton<IStatePersistanceService, ConfigurationStatePersistenceService>();
         services.AddSingleton<AppleNotificationSounds>();
+        services.AddSingleton<INotificationSoundProvider>(provider => provider.GetRequiredService<AppleNotificationSounds>());
         services.AddSingleton<INotificationBuilder, AppleNotificationBuilder>();
         services.AddSingleton<IAppStoreClient, AppleAppStoreClient>();
         services.AddSingleton<IAppMetadataService>(new HostAppMetadataService(

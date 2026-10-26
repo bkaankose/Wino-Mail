@@ -44,8 +44,8 @@ public sealed partial class MailRenderingPageViewController
         });
         UIKitDebugBridge.Register("reader-view", args => ReaderDebugAsync(() =>
         {
-            if (args.Length > 0 && (args[0] == "on") != _readerViewEnabled) ToggleReaderView();
-            return $"readerView={_readerViewEnabled} rendered={!string.IsNullOrWhiteSpace(_currentRenderedHtml)}";
+            if (args.Length > 0 && (args[0] == "on") != ViewModel.IsReaderViewEnabled) ToggleReaderView();
+            return $"readerView={ViewModel.IsReaderViewEnabled} rendered={!string.IsNullOrWhiteSpace(_currentRenderedHtml)}";
         }));
         UIKitDebugBridge.Register("reader-recipients", args => ReaderDebugAsync(() =>
         {

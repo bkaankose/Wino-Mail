@@ -13,7 +13,7 @@ public sealed record SettingsSidebarEntry(string Title, WinoPage? Page, WinoIcon
 /// <summary>
 /// The Settings window's page list over the shared <see cref="SettingsCatalog"/> (groups, order, titles, glyphs and
 /// visibility, the same list as the Windows pane and the iOS and Android Settings). The Mac adds only the sidebar
-/// row shape, the default page for a request without one, and the root page description under a sub-page's title.
+/// row shape and the default page for a request without one.
 /// </summary>
 public static class SettingsPageCatalog
 {
@@ -36,11 +36,7 @@ public static class SettingsPageCatalog
     public static string Title(WinoPage page) => SettingsCatalog.Title(page);
 
     /// <summary>The Windows page description shown under the breadcrumb title (a sub-page shows its root page's).</summary>
-    public static string Description(WinoPage page)
-    {
-        if (page is WinoPage.WinoIntelligenceManagementPage or WinoPage.IntelligenceCoveragePage) return SettingsCatalog.Description(page);
-        return SettingsCatalog.RootDescription(RootPage(page));
-    }
+    public static string Description(WinoPage page) => SettingsCatalog.BreadcrumbDescription(page);
 
     /// <summary>The Windows pane glyph of the page's root entry.</summary>
     public static WinoIconGlyph Glyph(WinoPage page) => SettingsCatalog.Glyph(RootPage(page));

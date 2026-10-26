@@ -12,6 +12,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Notifications;
 using Wino.Core.Domain.Models.PushRelay;
 using Wino.Core.Domain.Translations;
 using Wino.Core.ViewModels.Data;
@@ -65,6 +66,7 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
     private readonly IPlatformCapabilities _capabilities;
     private readonly IRelayIntroductionService? _introduction;
     private readonly ISyncCoordinator? _syncCoordinator;
+    private readonly INotificationSoundProvider? _soundProvider;
     private Dictionary<Guid, string> _accountNames = [];
     private bool _isApplyingPushRelaySnapshot;
     private bool _isSubscribedToPushRelay;
@@ -81,9 +83,11 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
         IPushRelayRegistrationService pushRelay,
         IPlatformCapabilities capabilities,
         IRelayIntroductionService? introduction = null,
-        ISyncCoordinator? syncCoordinator = null)
+        ISyncCoordinator? syncCoordinator = null,
+        INotificationSoundProvider? soundProvider = null)
     {
         PreferencesService = preferencesService;
+        _soundProvider = soundProvider;
         _pushRelay = pushRelay;
         _capabilities = capabilities;
         _introduction = introduction;
@@ -651,9 +655,46 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
         RefreshSnoozeState();
     }
 
+    #region Sound provider
+
+    /// <summary>
+    /// True on platforms whose sounds are chosen by id through <see cref="INotificationSoundProvider"/> instead of
+    /// the <see cref="NotificationSoundEvent"/> options (<see cref="SoundOptions"/>).
+    /// </summary>
+    public bool HasSoundProvider => _soundProvider != null;
+
+    public IReadOnlyList<NotificationSoundChoice> SoundChoices => _soundProvider?.Choices ?? (NotificationSoundChoice[])[];
+
+    public string GetSound(NotificationSoundKind kind) => _soundProvider?.GetSound(kind) ?? NotificationSoundChoice.DefaultId;
+
+    public void SetSound(NotificationSoundKind kind, string id) => _soundProvider?.SetSound(kind, id);
+
+    /// <summary>
+    /// The sound of an account's override: its stored choice, otherwise its <see cref="NotificationSoundEvent"/> mapped
+    /// by the provider, which is what the notification plays.
+    /// </summary>
+    public string GetAccountSound(Guid accountId)
+    {
+        if (_soundProvider == null) return NotificationSoundChoice.DefaultId;
+
+        var stored = _soundProvider.GetAccountSound(accountId);
+        if (!string.IsNullOrEmpty(stored)) return stored;
+
+        var preferences = Accounts.FirstOrDefault(account => account.AccountId == accountId)?.Account?.Preferences;
+        return preferences == null
+            ? NotificationSoundChoice.DefaultId
+            : _soundProvider.MapSoundEvent(preferences.AccountNotificationSoundEvent);
+    }
+
+    public void SetAccountSound(Guid accountId, string id) => _soundProvider?.SetAccountSound(accountId, id);
+
+    public Task PlaySoundAsync(string id) => _soundProvider?.PlayAsync(id) ?? Task.CompletedTask;
+
+    #endregion
+
     /// <summary>
     /// The Reset button (Windows NotificationSettingsPage): asks first, then <see cref="ResetAsync"/>. True when the
-    /// preferences were reset, so a head can refresh what it keeps outside the ViewModel (the Mac alert sounds).
+    /// preferences were reset, so a head can refresh what it keeps outside the ViewModel (its sound pickers).
     /// </summary>
     public async Task<bool> ConfirmResetAsync(IDialogServiceBase dialogService)
     {
@@ -708,6 +749,8 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
 
             await _accountService.UpdateAccountAsync(account);
         }
+
+        _soundProvider?.ResetAll(Accounts.Select(account => account.AccountId).ToArray());
 
         LoadSelections();
         RefreshSnoozeState();

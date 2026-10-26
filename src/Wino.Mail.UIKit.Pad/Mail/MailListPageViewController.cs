@@ -111,6 +111,7 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
     public override async Task ReleaseAsync()
     {
         _released = true;
+        _searchCancellation.Cancel();
         await base.ReleaseAsync();
     }
 
@@ -172,8 +173,7 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
         }
 
         _detachedComposerActive = false;
-        ViewModel.NavigationService.Navigate(item.IsDraft ? WinoPage.ComposePage : WinoPage.MailRenderingPage,
-            item, NavigationReferenceFrame.RenderingFrame);
+        ViewModel.OpenItem(item);
     }
 
     private void AttachMultiSelection()
@@ -275,6 +275,7 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
         if (disposing)
         {
             _released = true;
+            _searchCancellation.Cancel();
             UnregisterRecipients();
             _movePresenter.Detach(this);
             CloseSearchFilters();

@@ -66,12 +66,10 @@ public sealed partial class ComposePageViewController(ComposePageViewModel viewM
     private ComposeRecipientField? _ccField;
     private ComposeRecipientField? _bccField;
     private WebKitHtmlMailEditorSession? _editor;
-    private CancellationTokenSource? _autosave;
     private bool _editorDisposed;
     private bool _closing;
     private bool _sendEnabled;
     private bool _sendToServerEnabled;
-    private string _lastSavedStatus = string.Empty;
 
     /// <summary>
     /// Replaces the default close: dismissing the sheet through the shell host when this page is a sheet root,
@@ -332,6 +330,7 @@ public sealed partial class ComposePageViewController(ComposePageViewModel viewM
 
         ViewModel.GetHTMLBodyFunction = GetHtmlBodyAsync;
         ViewModel.RenderHtmlBodyAsyncFunc = RenderBodyAsync;
+        ViewModel.BeforeAutosave = BeforeAutosaveAsync;
         ViewModel.CloseRequested += CloseRequested;
         ViewModel.ApplySignatureHtmlFunc = ApplySignatureHtmlAsync;
         ViewModel.RewriteErrorHandler = ShowRewriteError;
@@ -356,6 +355,7 @@ public sealed partial class ComposePageViewController(ComposePageViewModel viewM
         Bind(nameof(ViewModel.ComposingAccount), vm => vm.ComposingAccount, _ => UpdateFrom());
         Bind(nameof(ViewModel.CurrentMailDraftItem), vm => vm.CurrentMailDraftItem, _ => UpdateSendButton());
         Bind(nameof(ViewModel.IsDraftBusy), vm => vm.IsDraftBusy, _ => { UpdateSendButton(); UpdateDraftStatus(); });
+        Bind(nameof(ViewModel.LastSavedText), vm => vm.LastSavedText, _ => UpdateDraftStatus());
         Bind(nameof(ViewModel.IsDraftSyncFailed), vm => vm.IsDraftSyncFailed, _ => UpdateSyncFailedBar());
         Bind(nameof(ViewModel.DraftSyncErrorMessage), vm => vm.DraftSyncErrorMessage, _ => UpdateSyncFailedBar());
         Bindings.Own(new CommandBinding(ViewModel.SendCommand, () => null, enabled => { _sendEnabled = enabled; UpdateSendButton(); }, Dispatcher, ReportError));
@@ -384,10 +384,11 @@ public sealed partial class ComposePageViewController(ComposePageViewModel viewM
 
     protected override async Task DeactivateAsync()
     {
-        _autosave?.Cancel();
+        ViewModel.CancelAutosave();
         ViewModel.CloseRequested -= CloseRequested;
         ViewModel.RewriteSession.Reset();
         ViewModel.RenderHtmlBodyAsyncFunc = null;
+        ViewModel.BeforeAutosave = null;
         ViewModel.ApplySignatureHtmlFunc = null;
         ViewModel.RewriteErrorHandler = null;
         CloseSuggestions();
@@ -498,7 +499,7 @@ public sealed partial class ComposePageViewController(ComposePageViewModel viewM
         else
         {
             _draftSpinner.StopAnimating();
-            _draftStatus.Text = _lastSavedStatus;
+            _draftStatus.Text = ViewModel.LastSavedText ?? string.Empty;
         }
     }
 
@@ -512,27 +513,13 @@ public sealed partial class ComposePageViewController(ComposePageViewModel viewM
         if (failed) UIAccessibility.PostNotification(UIAccessibilityPostNotification.Announcement, new Foundation.NSString($"{Translator.Draft_SyncFailedInfoBarTitle}. {ViewModel.DraftSyncErrorMessage}"));
     }
 
-    private void ScheduleAutosave()
-    {
-        _autosave?.Cancel();
-        var source = _autosave = new CancellationTokenSource();
-        Observe(AutosaveAsync(source.Token));
-    }
+    private void ScheduleAutosave() => Observe(ViewModel.ScheduleAutosave());
 
-    private async Task AutosaveAsync(CancellationToken token)
+    private async Task<bool> BeforeAutosaveAsync()
     {
-        try { await Task.Delay(TimeSpan.FromSeconds(3), token); }
-        catch (OperationCanceledException) { return; }
-        if (token.IsCancellationRequested || _editorDisposed || Bindings.IsDisposed) return;
+        if (_editorDisposed || Bindings.IsDisposed) return false;
         await SyncAllRecipientsAsync();
-        if (await ViewModel.UpdateMimeChangesAsync())
-        {
-            await Dispatcher.ExecuteOnUIThread(() =>
-            {
-                _lastSavedStatus = string.Format(Translator.MacOS_Composer_DraftSaved, DateTime.Now.ToString("t", System.Globalization.CultureInfo.CurrentCulture));
-                UpdateDraftStatus();
-            });
-        }
+        return true;
     }
 
     private async Task SendAsync()
@@ -572,7 +559,7 @@ public sealed partial class ComposePageViewController(ComposePageViewModel viewM
                     await DismissComposerAsync();
                     break;
                 case ThreeButtonDialogResult.Secondary:
-                    _autosave?.Cancel();
+                    ViewModel.CancelAutosave();
                     await ViewModel.DiscardDraftAsync(false);
                     await DismissComposerAsync();
                     break;
@@ -642,7 +629,7 @@ public sealed partial class ComposePageViewController(ComposePageViewModel viewM
     {
         if (disposing)
         {
-            _autosave?.Cancel();
+            ViewModel.CancelAutosave();
             ViewModel.CloseRequested -= CloseRequested;
             DisposeRecipients();
             DisposeAttachments();

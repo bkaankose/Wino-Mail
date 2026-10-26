@@ -17,7 +17,7 @@ public sealed partial class CalendarEventComposePageViewController
 {
     private readonly WinoSurfaceView _customRecurrence = new() { Fill = WinoStyle.SubtleFill, Stroke = WinoStyle.GroupStroke, CornerRadius = 6, Hidden = true };
     private readonly UILabel _intervalLabel = WinoStyle.Label("1", WinoStyle.BodyMedium);
-    private readonly UIStepper _intervalStepper = new() { MinimumValue = 1, MaximumValue = 99, StepValue = 1, Wraps = false, AutoRepeat = true, TranslatesAutoresizingMaskIntoConstraints = false };
+    private readonly UIStepper _intervalStepper = new() { MinimumValue = CalendarEventComposePageViewModel.MinRecurrenceInterval, MaximumValue = CalendarEventComposePageViewModel.MaxRecurrenceInterval, StepValue = 1, Wraps = false, AutoRepeat = true, TranslatesAutoresizingMaskIntoConstraints = false };
     private readonly UIButton _frequencyButton = MenuButton(Translator.CalendarEventCompose_RepeatEvery);
     private readonly UIStackView _weekdayRow = WinoLayout.HStack(3);
     private readonly List<UIButton> _weekdayButtons = [];
@@ -37,7 +37,7 @@ public sealed partial class CalendarEventComposePageViewController
         _intervalStepper.ValueChanged += (_, _) =>
         {
             if (_applyingRecurrence) return;
-            ViewModel.SelectedRecurrenceInterval = Math.Clamp((int)_intervalStepper.Value, 1, 99);
+            ViewModel.SelectedRecurrenceInterval = Math.Clamp((int)_intervalStepper.Value, CalendarEventComposePageViewModel.MinRecurrenceInterval, CalendarEventComposePageViewModel.MaxRecurrenceInterval);
         };
         _frequencyButton.Menu = DeferredMenu(() => OptionMenu(ViewModel.RecurrenceFrequencyOptions, ViewModel.SelectedRecurrenceFrequencyOption,
             option => option.PluralLabel(ViewModel.SelectedRecurrenceInterval), option => ViewModel.SelectedRecurrenceFrequencyOption = option));

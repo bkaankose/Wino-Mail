@@ -63,7 +63,6 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private string _currentRenderedHtml = string.Empty;
     private bool _dark;
     private bool _disposedReader;
-    private bool _readerViewEnabled;
     private NSStackView _header = null!;
     private NSStackView _stripRow = null!;
     private readonly List<NSLayoutConstraint> _headerWidths = new();
@@ -454,7 +453,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         // Windows OperationCommandBar: the Reader View toggle (simplified Readability layout) and the editor theme toggle.
         var readerView = new NSMenuItem(Translator.Reader_ReaderView, (_, _) => ToggleReaderView())
         {
-            State = _readerViewEnabled ? NSCellStateValue.On : NSCellStateValue.Off,
+            State = ViewModel.IsReaderViewEnabled ? NSCellStateValue.On : NSCellStateValue.Off,
             Enabled = !string.IsNullOrWhiteSpace(_currentRenderedHtml),
             Image = WinoIcons.Image(WinoIconGlyph.Document, 16)
         };
@@ -471,7 +470,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private void ToggleReaderView()
     {
         if (_reader is null || _disposedReader) return;
-        _readerViewEnabled = !_readerViewEnabled;
+        ViewModel.IsReaderViewEnabled = !ViewModel.IsReaderViewEnabled;
         if (!string.IsNullOrWhiteSpace(_currentRenderedHtml)) Observe(RenderActiveContentAsync());
     }
 
@@ -568,7 +567,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         var options = ViewModel.CurrentRenderModel?.MailRenderingOptions;
         var policy = (options?.LoadImages ?? true) ? RemoteContentPolicy.ImagesAndFontsAllowed : RemoteContentPolicy.Blocked;
         await _reader.RenderAsync(new HtmlMailReaderRequest(string.IsNullOrEmpty(html) ? " " : html, policy,
-            _readerViewEnabled ? HtmlMailRenderMode.Readability : HtmlMailRenderMode.Original, options?.RenderPlaintextLinks ?? true));
+            ViewModel.IsReaderViewEnabled ? HtmlMailRenderMode.Readability : HtmlMailRenderMode.Original, options?.RenderPlaintextLinks ?? true));
     }
 
     private Task ClearAsync()
@@ -666,8 +665,8 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         });
         MacDebugBridge.Register("reader-view", args => ReaderDebugAsync(() =>
         {
-            if (args.Length > 0 && (args[0] == "on") != _readerViewEnabled) ToggleReaderView();
-            return $"readerView={_readerViewEnabled} rendered={!string.IsNullOrWhiteSpace(_currentRenderedHtml)}";
+            if (args.Length > 0 && (args[0] == "on") != ViewModel.IsReaderViewEnabled) ToggleReaderView();
+            return $"readerView={ViewModel.IsReaderViewEnabled} rendered={!string.IsNullOrWhiteSpace(_currentRenderedHtml)}";
         }));
         MacDebugBridge.Register("reader-recipients", args => ReaderDebugAsync(() =>
         {

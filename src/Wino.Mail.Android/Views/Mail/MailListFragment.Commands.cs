@@ -29,36 +29,18 @@ public sealed partial class MailListFragment
     {
         if (_list is null || _adapter is null) return;
         var helper = WinoMailSwipeHelper.Attach(_list, _adapter, SwipeOperation,
-            (row, operation) => RunOperation(operation, Leaves(row), row.SourceItem as MailItemViewModel));
+            (row, leading) => { if (ViewModel is { } viewModel) Observe(viewModel.ExecuteSwipeAsync(row, leading)); });
         Bindings.Own(new ActionDisposable(() => helper.AttachToRecyclerView(null)));
     }
 
-    /// <summary>
-    /// A rightward (leading) swipe runs the "right swipe" preference and a leftward one the "left swipe" preference, read
-    /// at swipe time so a settings change applies at once. Flag and read state toggle against the row; Archive in the
-    /// archive folder is Unarchive. None or disabled swipe actions turn that side off.
-    /// </summary>
     private MailOperation? SwipeOperation(MailListRow row, bool leading)
     {
-        if (_selecting || _preferences is not { IsSwipeActionsEnabled: true } preferences) return null;
-        var items = Leaves(row);
-        if (items.Count == 0) return null;
-        var swipe = ViewModel?.MailActionResolver?.ResolveSwipeActions(row) ?? MailListActionPreferences.GetDefaultSwipeActions(preferences);
-        var operation = leading ? swipe.Right : swipe.Left;
-        return operation switch
-        {
-            MailOperation.None => null,
-            MailOperation.SetFlag or MailOperation.ClearFlag => items.All(static item => item.IsFlagged) ? MailOperation.ClearFlag : MailOperation.SetFlag,
-            MailOperation.MarkAsRead or MailOperation.MarkAsUnread => items.All(static item => item.IsRead) ? MailOperation.MarkAsUnread : MailOperation.MarkAsRead,
-            MailOperation.Archive when ViewModel?.IsArchiveSpecialFolder == true => MailOperation.UnArchive,
-            _ => operation
-        };
+        if (_selecting || ViewModel is not { } viewModel) return null;
+        var operation = viewModel.ResolveSwipeOperation(row, leading);
+        return operation == MailOperation.None ? null : operation;
     }
 
-    private static IReadOnlyList<MailItemViewModel> Leaves(MailListRow row)
-        => (row.IsThreadHead ? row.LeafItems : new[] { row.SourceItem }).OfType<MailItemViewModel>().ToArray();
-
-    /// <summary>Runs an operation on explicit targets (swipe, the action mode), like the Mac and iOS lists.</summary>
+    /// <summary>Runs an operation on explicit targets (the action mode), like the Mac and iOS lists.</summary>
     private void RunOperation(MailOperation operation, IReadOnlyList<MailItemViewModel> items, MailItemViewModel? composeTarget)
     {
         if (items.Count == 0 || ViewModel is not { } viewModel) return;

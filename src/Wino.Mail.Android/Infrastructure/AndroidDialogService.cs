@@ -280,6 +280,11 @@ public sealed partial class AndroidDialogService(IDispatcher dispatcher, Android
     public Task<MailAccount?> ShowAccountPickerDialogAsync(List<MailAccount> availableAccounts)
         => PickAsync(Translator.AccountPickerDialog_Title, (availableAccounts ?? []).Select(account => (account, AccountLine(account), (string?)null)).ToList());
 
+    /// <summary>The account for a new mail from several accounts; Cancel, back or dismissal answer null.</summary>
+    public Task<MailAccount?> PickAccountAsync(IReadOnlyList<MailAccount> accounts, string title)
+        => PickAsync(string.IsNullOrWhiteSpace(title) ? Translator.AccountPickerDialog_Title : title,
+            accounts.Select(account => (account, AccountChoiceLine(account), (string?)null)).ToList());
+
     public async Task<AccountCalendarPickingResult> ShowSingleCalendarPickerDialogAsync(List<CalendarPickerAccountGroup> availableCalendarGroups)
     {
         var rows = (availableCalendarGroups ?? []).SelectMany(group => (group.Calendars ?? []).Select(calendar =>
@@ -308,6 +313,16 @@ public sealed partial class AndroidDialogService(IDispatcher dispatcher, Android
         var available = (accounts ?? []).ToList();
         var owner = available.Count == 1 ? available[0] : selectedAccount ?? await ShowAccountPickerDialogAsync(available);
         return owner is null ? null : new ContactListCreationResult(name, owner);
+    }
+
+    /// <summary>"Name (address)", or whichever of the two exists.</summary>
+    private static string AccountChoiceLine(MailAccount account)
+    {
+        var name = account.Name?.Trim() ?? string.Empty;
+        var address = account.Address?.Trim() ?? string.Empty;
+        if (name.Length == 0) return address;
+        if (address.Length == 0 || string.Equals(name, address, StringComparison.OrdinalIgnoreCase)) return name;
+        return $"{name} ({address})";
     }
 
     /// <summary>"Name · address", or whichever of the two exists.</summary>

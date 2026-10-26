@@ -29,7 +29,6 @@ using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Extensions;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Mails;
 using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels;
@@ -761,8 +760,63 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         }
     }
 
+    public static readonly TimeSpan AutosaveDelay = TimeSpan.FromSeconds(3);
+
+    private CancellationTokenSource? _autosaveCancellation;
+
+    /// <summary>Runs before each autosave; returning false skips that save (for example once the editor is gone).</summary>
+    public Func<Task<bool>>? BeforeAutosave { get; set; }
+
+    [ObservableProperty]
+    public partial DateTime? LastSavedAt { get; set; }
+
+    [ObservableProperty]
+    public partial string? LastSavedText { get; set; }
+
+    /// <summary>
+    /// Restarts the autosave countdown. The returned task completes when this countdown is superseded,
+    /// cancelled or saved, and faults only when the save itself fails.
+    /// </summary>
+    public Task ScheduleAutosave()
+    {
+        var previous = _autosaveCancellation;
+        var source = _autosaveCancellation = new CancellationTokenSource();
+        previous?.Cancel();
+        previous?.Dispose();
+        return AutosaveAfterDelayAsync(source.Token);
+    }
+
+    public void CancelAutosave()
+    {
+        var source = _autosaveCancellation;
+        _autosaveCancellation = null;
+        source?.Cancel();
+        source?.Dispose();
+    }
+
+    private async Task AutosaveAfterDelayAsync(CancellationToken token)
+    {
+        try { await Task.Delay(AutosaveDelay, token); }
+        catch (OperationCanceledException) { return; }
+
+        if (token.IsCancellationRequested) return;
+        if (BeforeAutosave is { } beforeAutosave && !await beforeAutosave()) return;
+        if (token.IsCancellationRequested) return;
+
+        if (await UpdateMimeChangesAsync())
+        {
+            var savedAt = DateTime.Now;
+            await ExecuteUIThread(() =>
+            {
+                LastSavedAt = savedAt;
+                LastSavedText = string.Format(Translator.Composer_DraftSaved, savedAt.ToString("t", System.Globalization.CultureInfo.CurrentCulture));
+            });
+        }
+    }
+
     public override void OnNavigatedFrom(NavigationMode mode, object? parameters)
     {
+        CancelAutosave();
         ReleaseSigningCertificates();
         base.OnNavigatedFrom(mode, parameters);
     }
@@ -1082,8 +1136,6 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
             Subject = replyingMime.Subject;
             IsReadReceiptRequested = replyingMime.HasReadReceiptRequest();
-
-            Messenger.Send(new CreateNewComposeMailRequested(renderModel));
         }).ConfigureAwait(false);
 
         if (RenderHtmlBodyAsyncFunc != null)

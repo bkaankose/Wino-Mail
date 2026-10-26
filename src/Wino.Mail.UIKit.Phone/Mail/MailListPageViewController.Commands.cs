@@ -192,50 +192,43 @@ public sealed partial class MailListPageViewController
         return _selectionMode && ViewModel.IsMailSelected(item.UniqueId) ? ViewModel.SelectedItems.ToArray() : new[] { item };
     }
 
-    // ---- Swipe actions (leading Archive; trailing Delete, Flag and More) ----
+    // ---- Swipe actions (the shared swipe preference; trailing adds More) ----
 
     private UISwipeActionsConfiguration? SwipeActions(NSIndexPath indexPath, bool leading)
     {
         if (_selectionMode || RowAt(indexPath) is not { } row) return null;
-        var items = Leaves(row);
-        if (items.Count == 0) return null;
-        var composeTarget = row.SourceItem as MailItemViewModel;
-        UIContextualAction[] actions;
-        if (leading)
-        {
-            var archive = ViewModel.IsArchiveSpecialFolder ? MailOperation.UnArchive : MailOperation.Archive;
-            actions = [Swipe(archive, UIColor.SystemGreen, () => RunOperation(archive, items, composeTarget))];
-        }
-        else
-        {
-            var flag = items.All(static item => item.IsFlagged) ? MailOperation.ClearFlag : MailOperation.SetFlag;
-            actions =
-            [
-                Swipe(MailOperation.SoftDelete, UIColor.SystemRed, () => RunOperation(MailOperation.SoftDelete, items, composeTarget)),
-                Swipe(flag, UIColor.SystemOrange, () => RunOperation(flag, items, composeTarget)),
-                SwipeMore(row, items, composeTarget)
-            ];
-        }
+        var operation = ViewModel.ResolveSwipeOperation(row, leading);
+        if (operation == MailOperation.None) return null;
+        var primary = Swipe(operation, () => Observe(ViewModel.ExecuteSwipeAsync(row, leading)));
+        UIContextualAction[] actions = leading ? [primary] : [primary, SwipeMore(row, Leaves(row), row.SourceItem as MailItemViewModel, operation)];
         var configuration = UISwipeActionsConfiguration.FromActions(actions);
         configuration.PerformsFirstActionWithFullSwipe = true;
         return configuration;
     }
 
-    private static UIContextualAction Swipe(MailOperation operation, UIColor color, Action run)
+    private static UIContextualAction Swipe(MailOperation operation, Action run)
     {
         var title = operation == MailOperation.SetFlag ? Translator.MailOperation_Flag : MailOperationDisplay.GetTitle(operation);
-        var action = UIContextualAction.FromContextualActionStyle(UIContextualActionStyle.Normal, title, (_, _, done) =>
+        bool destructive = operation is MailOperation.SoftDelete or MailOperation.HardDelete;
+        var action = UIContextualAction.FromContextualActionStyle(destructive ? UIContextualActionStyle.Destructive : UIContextualActionStyle.Normal, title, (_, _, done) =>
         {
             run();
             done(true);
         });
-        action.BackgroundColor = color;
-        action.Image = WinoIcons.TemplateImage(MailOperationDisplay.GetGlyph(operation), 20);
+        action.BackgroundColor = operation switch
+        {
+            MailOperation.SoftDelete or MailOperation.HardDelete => UIColor.SystemRed,
+            MailOperation.Archive or MailOperation.UnArchive => UIColor.SystemGreen,
+            MailOperation.SetFlag or MailOperation.ClearFlag => UIColor.SystemOrange,
+            _ => WinoStyle.Accent
+        };
+        if (MailOperationDisplay.GetGlyph(operation) is var glyph && glyph != WinoIconGlyph.None)
+            action.Image = WinoIcons.TemplateImage(glyph, 20);
         return action;
     }
 
     /// <summary>The trailing More action: an action sheet with the rest of the shared actions for the row.</summary>
-    private UIContextualAction SwipeMore(MailListRow row, IReadOnlyList<MailItemViewModel> items, MailItemViewModel? composeTarget)
+    private UIContextualAction SwipeMore(MailListRow row, IReadOnlyList<MailItemViewModel> items, MailItemViewModel? composeTarget, MailOperation swiped)
     {
         var action = UIContextualAction.FromContextualActionStyle(UIContextualActionStyle.Normal, Translator.More, (_, _, done) =>
         {
@@ -243,8 +236,7 @@ public sealed partial class MailListPageViewController
             var sheet = UIAlertController.Create(null, null, UIAlertControllerStyle.ActionSheet);
             foreach (var available in ViewModel.GetAvailableMailActions(items))
             {
-                if (available.Operation is MailOperation.Seperator or MailOperation.Archive or MailOperation.UnArchive or MailOperation.SoftDelete
-                    or MailOperation.SetFlag or MailOperation.ClearFlag || !available.IsEnabled) continue;
+                if (available.Operation == MailOperation.Seperator || available.Operation == swiped || !available.IsEnabled) continue;
                 var title = MailOperationDisplay.GetTitle(available.Operation);
                 if (string.IsNullOrEmpty(title)) continue;
                 var operation = available.Operation;

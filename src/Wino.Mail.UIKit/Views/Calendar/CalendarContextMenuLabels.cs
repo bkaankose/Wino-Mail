@@ -7,6 +7,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Calendar.ViewModels.Messages;
 using Wino.Presentation.UIKit;
+using Wino.Core.Domain.Presentation;
 
 namespace Wino.Mail.UIKit.Views.Calendar;
 
@@ -41,16 +42,8 @@ public static class CalendarContextMenuLabels
         };
     }
 
-    /// <summary>
-    /// Windows CalendarItemCommandBarFlyout: busy items take no action, and a read-only calendar's events cannot be
-    /// deleted, re-marked (Show as) or answered.
-    /// </summary>
     public static bool IsEnabled(CalendarContextMenuItem entry, CalendarItemViewModel item)
-    {
-        bool isMutation = entry.Action.ActionType is CalendarContextMenuActionType.Delete
-            or CalendarContextMenuActionType.ShowAs or CalendarContextMenuActionType.Respond;
-        return entry.IsEnabled && !item.IsBusy && (!isMutation || !CalendarTileMapper.IsReadOnly(item));
-    }
+        => CalendarEventDisplay.CanRunMenuEntry(entry.IsEnabled, item, item.IsBusy, entry.Action.ActionType);
 
     public static string ShowAsText(CalendarItemShowAs showAs) => showAs switch
     {

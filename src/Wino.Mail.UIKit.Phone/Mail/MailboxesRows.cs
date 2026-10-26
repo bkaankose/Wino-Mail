@@ -17,7 +17,7 @@ namespace Wino.Mail.UIKit.Phone.Mail;
 /// <summary>
 /// The Mail shell menu as the iPhone Mailboxes rows (<see cref="WinoShellRowCell"/>): accounts with their unread pill and
 /// sync bar, linked (merged) accounts, section headers and folders by depth, with "More" and parent folders expanding in
-/// place. Unlike the read-only <c>ShellMenuRows</c> it follows every shown item's property changes (unread counts,
+/// place. It follows every shown item's property changes (unread counts,
 /// expansion, synchronization, selection) and coalesces them into one reload per main-loop turn. The New mail entry is
 /// left out: Mailboxes has a compose button instead. Visibility and child rules come from <see cref="ShellMenuItemRules"/>.
 /// </summary>

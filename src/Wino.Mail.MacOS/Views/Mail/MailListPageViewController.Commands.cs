@@ -165,24 +165,16 @@ public sealed partial class MailListPageViewController
 
     private NSTableViewRowAction[] SwipeActions(nint index, NSTableRowActionEdge edge)
     {
-        if (!_preferences.IsSwipeActionsEnabled || RowAt(index) is not { } row) return [];
-        var swipe = ViewModel.MailActionResolver?.ResolveSwipeActions(row) ?? MailListActionPreferences.GetDefaultSwipeActions(_preferences);
-        var operation = edge == NSTableRowActionEdge.Leading ? swipe.Right : swipe.Left;
+        if (RowAt(index) is not { } row) return [];
+        bool leading = edge == NSTableRowActionEdge.Leading;
+        var operation = ViewModel.ResolveSwipeOperation(row, leading);
         if (operation == MailOperation.None) return [];
-        var items = Leaves(row);
-        operation = operation switch
-        {
-            MailOperation.SetFlag or MailOperation.ClearFlag => items.All(static item => item.IsFlagged) ? MailOperation.ClearFlag : MailOperation.SetFlag,
-            MailOperation.MarkAsRead or MailOperation.MarkAsUnread => items.All(static item => item.IsRead) ? MailOperation.MarkAsUnread : MailOperation.MarkAsRead,
-            MailOperation.Archive when ViewModel.IsArchiveSpecialFolder => MailOperation.UnArchive,
-            _ => operation
-        };
         bool destructive = operation is MailOperation.SoftDelete or MailOperation.HardDelete;
         var action = NSTableViewRowAction.FromStyle(destructive ? NSTableViewRowActionStyle.Destructive : NSTableViewRowActionStyle.Regular,
             MailOperationDisplay.GetTitle(operation), (_, _) =>
             {
                 _table.RowActionsVisible = false;
-                RunOperation(operation, items, items.FirstOrDefault(), null);
+                Observe(ViewModel.ExecuteSwipeAsync(row, leading));
             });
         action.BackgroundColor = operation switch
         {

@@ -6,6 +6,7 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.SearchBar;
+using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Search;
 using Wino.Presentation.UIKit;
 
@@ -21,7 +22,7 @@ namespace Wino.Mail.UIKit.Phone.Mail;
 /// </summary>
 public sealed partial class MailListPageViewController
 {
-    private static readonly MailSearchScope[] Scopes = [MailSearchScope.CurrentFolder, MailSearchScope.Subfolders, MailSearchScope.AllFolders];
+    private readonly CancellationTokenSource _searchCancellation = new();
     private static readonly string[] ScopeTitles = [Translator.SearchBar_CurrentFolder, Translator.SearchBar_ScopeSubfolders, Translator.SearchBar_AllFolders];
 
     private readonly UISearchController _search = new();
@@ -115,8 +116,8 @@ public sealed partial class MailListPageViewController
 
     private void UpdateScopeMenu()
     {
-        int selected = Array.IndexOf(Scopes, ViewModel.SearchScope);
-        var actions = Scopes.Select((scope, index) => (UIMenuElement)PhoneBarItems.Action(ScopeTitles[index], WinoIconGlyph.None, () =>
+        int selected = MailListPageViewModel.SearchScopes.IndexOf(ViewModel.SearchScope);
+        var actions = MailListPageViewModel.SearchScopes.Select((scope, index) => (UIMenuElement)PhoneBarItems.Action(ScopeTitles[index], WinoIconGlyph.None, () =>
         {
             if (ViewModel.SearchScope == scope) return;
             ViewModel.SearchScope = scope;
@@ -273,10 +274,7 @@ public sealed partial class MailListPageViewController
     private async Task SearchClearedAsync()
     {
         _searchText = string.Empty;
-        ViewModel.SearchFilters = MailSearchFilters.Empty;
-        ViewModel.IsOnlineSearchButtonVisible = false;
-        ViewModel.SetSearchCriteria(MailSearchCriteria.Empty, Array.Empty<IMailItemFolder>());
-        await ViewModel.PerformSearchAsync();
+        await ViewModel.ClearSearchAsync();
         OnUI(() =>
         {
             _search.SearchBar.SelectedScopeButtonIndex = 0;
@@ -307,23 +305,9 @@ public sealed partial class MailListPageViewController
     {
         bool online = false;
         await Dispatcher.ExecuteOnUIThread(() => online = IsOnlineSearch);
-        var scope = ViewModel.SearchScope;
-        var activeFolders = ViewModel.ActiveFolder?.HandlingFolders.ToArray() ?? [];
-        var folders = await MailSearchFolderResolver.ResolveAsync(scope, activeFolders,
-            async accountId => (IReadOnlyList<IMailItemFolder>)(await _folderService.GetFoldersAsync(accountId).ConfigureAwait(false)).Cast<IMailItemFolder>().ToList())
-            .ConfigureAwait(false);
-        var criteria = MailSearchCriteriaFactory.Create(query, online ? SearchBarReach.IncludeServer : SearchBarReach.DownloadedOnly,
-            scope, ViewModel.SearchFilters, DateTime.Now,
-            folders.Select(static folder => folder.Id).ToArray(),
-            folders.Select(static folder => folder.MailAccountId).Distinct().ToArray());
-
-        await Dispatcher.ExecuteOnUIThread(() =>
-        {
-            if (_released) return;
-            ViewModel.SetSearchCriteria(criteria, folders);
-            if (ViewModel.PerformSearchCommand.CanExecute(null)) ViewModel.PerformSearchCommand.Execute(null);
-            UpdateScopeBar();
-        });
+        if (_released) return;
+        await ViewModel.SearchAsync(query, online, _searchCancellation.Token);
+        OnUI(UpdateScopeBar);
     }
 
     // ---- Filter editor sheet (Windows SearchFilterFlyout) ----

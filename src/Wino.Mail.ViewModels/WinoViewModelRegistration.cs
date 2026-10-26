@@ -8,6 +8,7 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Intelligence;
+using Wino.Mail.ViewModels.Settings;
 using Wino.Shell.ViewModels;
 
 namespace Wino.Mail.ViewModels;
@@ -32,6 +33,7 @@ public static class WinoViewModelRegistration
         services.AddSingleton<MailAppShellViewModel>();
         services.AddSingleton<CalendarAppShellViewModel>();
         services.AddSingleton<SettingsMenuProvider>();
+        services.AddSingleton<IStartupInitializer, SettingsCatalogInitializer>();
         services.AddSingleton<ContactsPageViewModel>();
         services.AddSingleton<ToDoPageViewModel>();
         services.AddSingleton<CalendarPageViewModel>();

@@ -199,26 +199,16 @@ public sealed partial class MailListPageViewController
     /// <summary>Leading swipe runs the "right swipe" preference and trailing the "left swipe" one, as on the Mac trackpad.</summary>
     private UISwipeActionsConfiguration? SwipeActions(NSIndexPath path, bool leading)
     {
-        if (!_preferences.IsSwipeActionsEnabled || _selectionMode || RowAt(path) is not { } row) return null;
+        if (_selectionMode || RowAt(path) is not { } row) return null;
 
-        var swipe = ViewModel.MailActionResolver?.ResolveSwipeActions(row) ?? MailListActionPreferences.GetDefaultSwipeActions(_preferences);
-        var operation = leading ? swipe.Right : swipe.Left;
+        var operation = ViewModel.ResolveSwipeOperation(row, leading);
         if (operation == MailOperation.None) return null;
 
-        var items = Leaves(row);
-        operation = operation switch
-        {
-            MailOperation.SetFlag or MailOperation.ClearFlag => items.All(static item => item.IsFlagged) ? MailOperation.ClearFlag : MailOperation.SetFlag,
-            MailOperation.MarkAsRead or MailOperation.MarkAsUnread => items.All(static item => item.IsRead) ? MailOperation.MarkAsUnread : MailOperation.MarkAsRead,
-            MailOperation.Archive when ViewModel.IsArchiveSpecialFolder => MailOperation.UnArchive,
-            _ => operation
-        };
         bool destructive = IsDestructive(operation);
-        var cell = _table.CellAt(path);
         var action = UIContextualAction.FromContextualActionStyle(destructive ? UIContextualActionStyle.Destructive : UIContextualActionStyle.Normal,
             MailOperationDisplay.GetTitle(operation), (_, _, completion) =>
             {
-                RunOperation(operation, items, items.FirstOrDefault(), cell);
+                Observe(ViewModel.ExecuteSwipeAsync(row, leading));
                 completion(true);
             });
         action.BackgroundColor = operation switch

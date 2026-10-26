@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
@@ -34,6 +35,7 @@ using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.ViewModels.Search;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.HoverActions;
+using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
@@ -225,6 +227,47 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         SearchQuery = SearchCriteria.Query;
         IsOnlineSearchEnabled = SearchCriteria.ExecutionMode == SearchMode.Online;
     }
+
+    public static ImmutableArray<MailSearchScope> SearchScopes { get; } =
+        [MailSearchScope.CurrentFolder, MailSearchScope.Subfolders, MailSearchScope.AllFolders];
+
+    /// <summary>
+    /// Runs <paramref name="query"/> with the current <see cref="SearchScope"/> and <see cref="SearchFilters"/>.
+    /// Results are dropped when the folder changes or <paramref name="cancellationToken"/> is cancelled before they apply.
+    /// </summary>
+    public async Task SearchAsync(string query, bool includeServer, CancellationToken cancellationToken = default)
+    {
+        var scope = SearchScope;
+        var filters = SearchFilters;
+        var activeFolders = ActiveFolder?.HandlingFolders.ToArray() ?? [];
+        var generation = Volatile.Read(ref folderChangeGeneration);
+
+        var folders = await MailSearchFolderResolver.ResolveAsync(scope, activeFolders, LoadSearchAccountFoldersAsync).ConfigureAwait(false);
+        var criteria = MailSearchCriteriaFactory.Create(query,
+            includeServer ? SearchBarReach.IncludeServer : SearchBarReach.DownloadedOnly,
+            scope, filters, DateTime.Now,
+            folders.Select(static folder => folder.Id).ToArray(),
+            folders.Select(static folder => folder.MailAccountId).Distinct().ToArray());
+
+        await ExecuteUIThread(() =>
+        {
+            if (cancellationToken.IsCancellationRequested || generation != Volatile.Read(ref folderChangeGeneration)) return;
+
+            SetSearchCriteria(criteria, folders);
+            if (PerformSearchCommand.CanExecute(null)) PerformSearchCommand.Execute(null);
+        });
+    }
+
+    public Task ClearSearchAsync()
+    {
+        SearchFilters = MailSearchFilters.Empty;
+        IsOnlineSearchButtonVisible = false;
+        SetSearchCriteria(MailSearchCriteria.Empty, []);
+        return PerformSearchAsync();
+    }
+
+    private async Task<IReadOnlyList<IMailItemFolder>> LoadSearchAccountFoldersAsync(Guid accountId)
+        => (await _folderService.GetFoldersAsync(accountId).ConfigureAwait(false)).Cast<IMailItemFolder>().ToList();
 
     public Task ApplyIntelligenceEntitlementAsync(bool canAccess)
     {
@@ -906,6 +949,50 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     }
 
     #region Commands
+
+    public static IReadOnlyList<MailItemViewModel> GetRowMailItems(MailListRow row)
+        => row.LeafItems.OfType<MailItemViewModel>().ToArray();
+
+    /// <summary>
+    /// The operation a swipe toward <paramref name="leading"/> runs on the row: the account's or app-wide swipe
+    /// action, with flag and read state toggled against the row's mails and Archive turned into Unarchive in the
+    /// archive folder. None when swipe actions are off or the row has no mail.
+    /// </summary>
+    public MailOperation ResolveSwipeOperation(MailListRow row, bool leading)
+    {
+        if (!PreferencesService.IsSwipeActionsEnabled) return MailOperation.None;
+
+        var items = GetRowMailItems(row);
+        if (items.Count == 0) return MailOperation.None;
+
+        var swipe = MailActionResolver?.ResolveSwipeActions(row) ?? MailListActionPreferences.GetDefaultSwipeActions(PreferencesService);
+        return (leading ? swipe.Right : swipe.Left) switch
+        {
+            MailOperation.SetFlag or MailOperation.ClearFlag => items.All(static item => item.IsFlagged) ? MailOperation.ClearFlag : MailOperation.SetFlag,
+            MailOperation.MarkAsRead or MailOperation.MarkAsUnread => items.All(static item => item.IsRead) ? MailOperation.MarkAsUnread : MailOperation.MarkAsRead,
+            MailOperation.Archive when IsArchiveSpecialFolder => MailOperation.UnArchive,
+            var operation => operation
+        };
+    }
+
+    public Task ExecuteSwipeAsync(MailListRow row, bool leading)
+    {
+        var operation = ResolveSwipeOperation(row, leading);
+        if (operation == MailOperation.None) return Task.CompletedTask;
+
+        return ExecuteMailOperationAsync(new MailOperationPreperationRequest(operation,
+            GetRowMailItems(row).Select(static item => item.MailCopy)));
+    }
+
+    /// <summary>Shows a draft in the composer and any other mail in the reader.</summary>
+    public bool OpenItem(MailItemViewModel item, NavigationTransitionType composeTransition = NavigationTransitionType.None)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        return item.IsDraft
+            ? NavigationService.Navigate(WinoPage.ComposePage, item, NavigationReferenceFrame.RenderingFrame, composeTransition)
+            : NavigationService.Navigate(WinoPage.MailRenderingPage, item, NavigationReferenceFrame.RenderingFrame);
+    }
 
     [RelayCommand]
     private Task ExecuteHoverAction(HoverActionCommandRequest request)

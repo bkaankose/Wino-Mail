@@ -136,6 +136,16 @@ public static class CalendarEventDisplay
     /// <summary>True when the item belongs to a read-only calendar (subscribed, birthdays, shared without write access).</summary>
     public static bool IsReadOnly(ICalendarItem? item) => item?.AssignedCalendar?.IsReadOnly == true;
 
+    /// <summary>Delete, Show as and Respond change the event, so a read-only calendar refuses them.</summary>
+    public static bool IsMutatingMenuAction(CalendarContextMenuActionType actionType)
+        => actionType is CalendarContextMenuActionType.Delete
+            or CalendarContextMenuActionType.ShowAs
+            or CalendarContextMenuActionType.Respond;
+
+    /// <summary>A context menu entry runs when it is enabled, the item is not busy, and it does not change a read-only calendar's event.</summary>
+    public static bool CanRunMenuEntry(bool entryEnabled, ICalendarItem? item, bool isBusy, CalendarContextMenuActionType actionType)
+        => entryEnabled && item is not null && !isBusy && (!IsMutatingMenuAction(actionType) || !IsReadOnly(item));
+
     /// <summary>
     /// Why a tile cannot be dragged, mirroring the checks of the calendar page's move command:
     /// no editable item or a busy one is ignored, a locked event is not allowed, a read-only calendar refuses.

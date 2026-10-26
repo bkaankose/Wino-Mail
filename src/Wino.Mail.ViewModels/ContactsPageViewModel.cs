@@ -53,6 +53,8 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     }
     
     private const int ContactPageSize = 50;
+    public static readonly TimeSpan SearchDebounce = TimeSpan.FromMilliseconds(150);
+    public const int SearchLimit = 200;
     private readonly IContactQueryService _contactService;
     private readonly IAccountService _accountService;
     private readonly ISynchronizationManager _synchronizationManager;

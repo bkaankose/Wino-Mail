@@ -536,7 +536,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 {
                     // Composer is already active. Skip connected animation since the page
                     // will be reused in-place (no navigation occurs).
-                    // NavigationService will send ReaderItemRefreshRequestedEvent instead.
+                    // NavigationService refreshes the existing composer with the selected item.
                 }
                 else
                     composerPageTransition = NavigationTransitionType.DrillIn;

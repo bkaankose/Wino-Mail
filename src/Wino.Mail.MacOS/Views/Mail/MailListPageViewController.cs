@@ -159,6 +159,7 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
     public override async Task ReleaseAsync()
     {
         _released = true;
+        _searchCancellation.Cancel();
         await base.ReleaseAsync();
     }
 
@@ -204,6 +205,7 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
         if (disposing)
         {
             _released = true;
+            _searchCancellation.Cancel();
             UnregisterRecipients();
             _navigation.DetachRenderingHost(this);
             CloseSearchFilters();

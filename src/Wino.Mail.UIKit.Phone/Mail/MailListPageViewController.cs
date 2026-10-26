@@ -104,6 +104,7 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
     {
         if (_keepAliveOnPop) return Task.CompletedTask;
         _released = true;
+        _searchCancellation.Cancel();
         return base.ReleaseAsync();
     }
 
@@ -165,6 +166,7 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
         if (disposing)
         {
             _released = true;
+            _searchCancellation.Cancel();
             UnregisterRecipients();
             ReleaseList();
         }

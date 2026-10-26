@@ -21,8 +21,8 @@ public sealed record SettingsCatalogSection(string? Title, List<SettingsCatalogE
 /// The Settings page list for the native heads (the Mac sidebar, the iOS and Android root lists). Groups, order,
 /// titles and glyphs come from <see cref="SettingsNavigationInfoProvider"/>, the source of the Windows settings pane, so
 /// every platform lists the same pages in the same places; visibility follows <see cref="SettingsPageAvailability"/>
-/// with the platform's <see cref="IPlatformCapabilities"/> and the Wino Intelligence entitlement. The composition root
-/// calls <see cref="Configure"/> once services exist.
+/// with the platform's <see cref="IPlatformCapabilities"/> and the Wino Intelligence entitlement. The shared
+/// SettingsCatalogInitializer calls <see cref="Configure"/> at the start of runtime initialization on every head.
 /// </summary>
 public static class SettingsCatalog
 {
@@ -114,6 +114,10 @@ public static class SettingsCatalog
         if (page == WinoPage.IntelligenceCoveragePage) return Translator.SemanticIndex_CoverageEditorPageDescription;
         return RootPage(page) == page ? RootDescription(page) : string.Empty;
     }
+
+    /// <summary>The description under a breadcrumb title: the page's own, otherwise its list row's.</summary>
+    public static string BreadcrumbDescription(WinoPage page)
+        => Description(page) is { Length: > 0 } own ? own : RootDescription(RootPage(page));
 
     /// <summary>The Windows pane glyph of the page's list row.</summary>
     public static WinoIconGlyph Glyph(WinoPage page)

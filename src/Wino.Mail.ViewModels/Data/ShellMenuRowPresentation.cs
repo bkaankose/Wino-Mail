@@ -108,8 +108,8 @@ public static class ShellMenuRowPresentation
                 {
                     Glyph = WinoIconGlyph.Warning,
                     Title = fix.Account?.AttentionReason == AccountAttentionReason.MissingSystemFolderConfiguration
-                        ? Translator.MacOS_Shell_FixMissingSystemFolders
-                        : Translator.MacOS_Shell_FixInvalidCredentials,
+                        ? Translator.Shell_FixMissingSystemFolders
+                        : Translator.Shell_FixInvalidCredentials,
                     Indent = 0,
                     IsExpanded = null
                 };

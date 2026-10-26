@@ -1,20 +1,13 @@
 using System.Diagnostics.CodeAnalysis;
 using Foundation;
 using UserNotifications;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Notifications;
 
 namespace Wino.Platform.Apple.Services;
-
-/// <summary>The notification types that carry their own sound choice.</summary>
-public enum AppleNotificationSoundKind
-{
-    Mail,
-    Calendar,
-    Task
-}
 
 /// <summary>
 /// Apple notification sounds. Windows stores a <see cref="NotificationSoundEvent"/> per type and per
@@ -24,10 +17,10 @@ public enum AppleNotificationSoundKind
 /// come from the app container, so a chosen sound is copied once, in the background, into the container's
 /// Library/Sounds.
 /// </summary>
-public sealed class AppleNotificationSounds
+public sealed class AppleNotificationSounds : INotificationSoundProvider
 {
-    public const string DefaultSound = "default";
-    public const string NoSound = "none";
+    public const string DefaultSound = NotificationSoundChoice.DefaultId;
+    public const string NoSound = NotificationSoundChoice.NoneId;
 
     // The key names predate the iOS app; the Mac app's stored choices depend on them.
     private const string KeyPrefix = "MacNotificationSound.";
@@ -38,6 +31,7 @@ public sealed class AppleNotificationSounds
     private readonly INotificationSoundCatalog _catalog;
     private readonly object _copyLock = new();
     private readonly HashSet<string> _copying = new(StringComparer.OrdinalIgnoreCase);
+    private List<NotificationSoundChoice>? _choices;
 
     public AppleNotificationSounds(IConfigurationService configuration, IPreferencesService preferences, INotificationSoundCatalog catalog)
     {
@@ -54,25 +48,27 @@ public sealed class AppleNotificationSounds
 
     #region Stored choices
 
-    private static string TypeKey(AppleNotificationSoundKind kind) => KeyPrefix + kind;
+    private static string TypeKey(NotificationSoundKind kind) => KeyPrefix + kind;
     private static string AccountKey(Guid accountId) => AccountKeyPrefix + accountId.ToString("N");
 
     /// <summary>The Apple choice stored for a type; empty when the shared enum value applies.</summary>
-    public string GetStored(AppleNotificationSoundKind kind) => _configuration.Get(TypeKey(kind), string.Empty) ?? string.Empty;
+    public string GetStored(NotificationSoundKind kind) => _configuration.Get(TypeKey(kind), string.Empty) ?? string.Empty;
 
-    public void SetStored(AppleNotificationSoundKind kind, string sound)
+    public void SetStored(NotificationSoundKind kind, string sound)
     {
         _configuration.Set(TypeKey(kind), sound ?? string.Empty);
         Prepare(sound);
+        Changed?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>The Apple choice stored for an account's override; empty when the account's enum value applies.</summary>
     public string GetStoredForAccount(Guid accountId) => _configuration.Get(AccountKey(accountId), string.Empty) ?? string.Empty;
 
-    public void SetStoredForAccount(Guid accountId, string sound)
+    public void SetStoredForAccount(Guid accountId, string? sound)
     {
         _configuration.Set(AccountKey(accountId), sound ?? string.Empty);
         Prepare(sound);
+        Changed?.Invoke(this, EventArgs.Empty);
     }
 
     public void ResetAccount(Guid accountId) => _configuration.Remove(AccountKey(accountId));
@@ -80,8 +76,62 @@ public sealed class AppleNotificationSounds
     /// <summary>Removes every Apple sound choice (notification settings reset).</summary>
     public void ResetAll(IEnumerable<Guid> accountIds)
     {
-        foreach (var kind in Enum.GetValues<AppleNotificationSoundKind>()) _configuration.Remove(TypeKey(kind));
+        foreach (var kind in Enum.GetValues<NotificationSoundKind>()) _configuration.Remove(TypeKey(kind));
         foreach (var accountId in accountIds) ResetAccount(accountId);
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    #endregion
+
+    #region INotificationSoundProvider
+
+    public event EventHandler? Changed;
+
+    public IReadOnlyList<NotificationSoundChoice> Choices => _choices ??= CreateChoices();
+
+    private List<NotificationSoundChoice> CreateChoices()
+    {
+        var choices = new List<NotificationSoundChoice>(SystemSounds.Count + 2)
+        {
+            new(DefaultSound, Translator.NotificationSound_Default),
+            new(NoSound, Translator.ContactsShellMac_NotificationSoundNone)
+        };
+        choices.AddRange(SystemSounds.Select(sound => new NotificationSoundChoice(sound, sound)));
+        return choices;
+    }
+
+    public string GetSound(NotificationSoundKind kind) => Resolve(kind);
+
+    public void SetSound(NotificationSoundKind kind, string id) => SetStored(kind, id);
+
+    public string GetAccountSound(Guid accountId) => GetStoredForAccount(accountId);
+
+    public void SetAccountSound(Guid accountId, string? id) => SetStoredForAccount(accountId, id);
+
+    public string MapSoundEvent(NotificationSoundEvent soundEvent) => Map(soundEvent);
+
+    public Task PlayAsync(string id)
+    {
+        if (NSThread.IsMain)
+        {
+            Play(id);
+            return Task.CompletedTask;
+        }
+
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        NSRunLoop.Main.BeginInvokeOnMainThread(() =>
+        {
+            try
+            {
+                Play(id);
+                completion.SetResult();
+            }
+            catch (Exception error)
+            {
+                completion.SetException(error);
+            }
+        });
+        return completion.Task;
     }
 
     #endregion
@@ -89,14 +139,14 @@ public sealed class AppleNotificationSounds
     #region Resolution
 
     /// <summary>The sound in effect for a type: the Apple choice, otherwise the shared enum value mapped.</summary>
-    public string Resolve(AppleNotificationSoundKind kind)
+    public string Resolve(NotificationSoundKind kind)
     {
         var stored = GetStored(kind);
         if (!string.IsNullOrEmpty(stored)) return stored;
         return Map(kind switch
         {
-            AppleNotificationSoundKind.Mail => _preferences.MailNotificationSoundEvent,
-            AppleNotificationSoundKind.Calendar => _preferences.CalendarNotificationSoundEvent,
+            NotificationSoundKind.Mail => _preferences.MailNotificationSoundEvent,
+            NotificationSoundKind.Calendar => _preferences.CalendarNotificationSoundEvent,
             _ => _preferences.TaskNotificationSoundEvent
         });
     }
@@ -108,7 +158,7 @@ public sealed class AppleNotificationSounds
     public string ResolveMail(MailAccountPreferences? account)
     {
         if (account is null || !account.IsNotificationsEnabled || !account.HasCustomNotificationSettings)
-            return Resolve(AppleNotificationSoundKind.Mail);
+            return Resolve(NotificationSoundKind.Mail);
 
         return ResolveAccount(account);
     }
@@ -202,7 +252,7 @@ public sealed class AppleNotificationSounds
     /// <summary>Prepares every stored and mapped type sound, so the first notification already plays it.</summary>
     public void PrepareConfiguredSounds()
     {
-        foreach (var kind in Enum.GetValues<AppleNotificationSoundKind>()) Prepare(Resolve(kind));
+        foreach (var kind in Enum.GetValues<NotificationSoundKind>()) Prepare(Resolve(kind));
     }
 
     /// <summary>Plays a preview: the named catalog sound, the alert sound for "default", nothing for "none". UI thread only.</summary>
@@ -218,7 +268,7 @@ public sealed class AppleNotificationSounds
         string Status(string sound) => IsSystemSound(sound)
             ? ContainerFileName(sound) is { } fileName && File.Exists(Path.Combine(ContainerSoundsFolder, fileName)) ? "copied" : "pending"
             : "-";
-        var parts = Enum.GetValues<AppleNotificationSoundKind>()
+        var parts = Enum.GetValues<NotificationSoundKind>()
             .Select(kind => $"{kind}={Resolve(kind)}(stored='{GetStored(kind)}',{Status(Resolve(kind))})")
             .Concat(accounts.Select(account => $"account {account.AccountId:N}={ResolveMail(account)}(stored='{GetStoredForAccount(account.AccountId)}',custom={account.HasCustomNotificationSettings})"));
         return $"system={SystemSounds.Count} folder={ContainerSoundsFolder} " + string.Join(" ", parts);

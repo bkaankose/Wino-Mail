@@ -412,12 +412,11 @@ public sealed class ToDoFragment : WinoFragment<ToDoPageViewModel>
         Add(popup.Menu, task.MyDayActionText, editable, () => PeopleViews.Observe(viewModel.ToggleMyDayCommand.ExecuteAsync(task), ReportError));
         Add(popup.Menu, task.ImportanceActionText, editable, () => PeopleViews.Observe(viewModel.ToggleImportanceCommand.ExecuteAsync(task), ReportError));
         Add(popup.Menu, task.CompletionActionText, editable, () => PeopleViews.Observe(viewModel.ToggleTaskCommand.ExecuteAsync(task), ReportError));
-        Add(popup.Menu, Translator.ToDoPage_DueToday, editable, () => PeopleViews.Observe(viewModel.SetTaskDueDateAsync(task, DateTime.Now.Date), ReportError));
-        Add(popup.Menu, Translator.ToDoPage_DueTomorrow, editable, () => PeopleViews.Observe(viewModel.SetTaskDueDateAsync(task, DateTime.Now.Date.AddDays(1)), ReportError));
+        Add(popup.Menu, Translator.ToDoPage_DueToday, editable, () => PeopleViews.Observe(viewModel.SetTaskDueDateAsync(task, ToDoPageViewModel.DuePresetDate("today")), ReportError));
+        Add(popup.Menu, Translator.ToDoPage_DueTomorrow, editable, () => PeopleViews.Observe(viewModel.SetTaskDueDateAsync(task, ToDoPageViewModel.DuePresetDate("tomorrow")), ReportError));
         Add(popup.Menu, Translator.ToDoPage_DuePresetPickDate, editable, () => TaskDatePicker.Show(this, task.DueDate, date => PeopleViews.Observe(viewModel.SetTaskDueDateAsync(task, date), ReportError)));
         if (task.HasDueDate) Add(popup.Menu, Translator.ToDoPage_RemoveDueDate, editable, () => PeopleViews.Observe(viewModel.SetTaskDueDateAsync(task, null), ReportError));
-        var destinations = viewModel.TaskLists.Where(list => !list.IsReadOnly && list.Id != task.Task.TaskListId &&
-            list.MailAccountId == task.Task.MailAccountId && list.SourceKind == task.Task.SourceKind).ToList();
+        var destinations = viewModel.GetMoveDestinations(task);
         if (destinations.Count > 0 && editable)
         {
             Add(popup.Menu, Translator.ToDoPage_MoveTaskTo, true, () => WinoChoiceSheet.Show(context, Translator.ToDoPage_MoveTaskTo,

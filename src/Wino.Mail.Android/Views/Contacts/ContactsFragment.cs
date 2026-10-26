@@ -446,8 +446,8 @@ public sealed class ContactsFragment : WinoFragment<ContactsPageViewModel>
         var cancellation = _searchCancellation = new CancellationTokenSource();
         try
         {
-            if (!select) await Task.Delay(150, cancellation.Token);
-            var results = await viewModel.SearchContactsAsync(text, 200);
+            if (!select) await Task.Delay(ContactsPageViewModel.SearchDebounce, cancellation.Token);
+            var results = await viewModel.SearchContactsAsync(text, ContactsPageViewModel.SearchLimit);
             if (cancellation.IsCancellationRequested) return;
             await entry.Dispatcher.ExecuteOnUIThread(() =>
             {

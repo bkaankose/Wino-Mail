@@ -42,7 +42,7 @@ namespace Wino.Mail.Android.Views.Mail;
 /// (ACTION_VIEW). The ViewModel renders through a <see cref="ReaderBridge"/> that lives with the page, so a rotation
 /// recreates the WebView and renders the same message again.
 /// </summary>
-public sealed class MailReaderFragment : WinoFragment<MailRenderingPageViewModel>
+public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageViewModel>
 {
     private static readonly MailOperation[] BottomBarOrder =
     [
@@ -80,7 +80,6 @@ public sealed class MailReaderFragment : WinoFragment<MailRenderingPageViewModel
     private MailReaderCommandPlan? _plan;
     private bool _compact;
     private bool _dark;
-    private bool _readerView;
     private bool _disposed;
     private int _measureGeneration;
 
@@ -113,6 +112,7 @@ public sealed class MailReaderFragment : WinoFragment<MailRenderingPageViewModel
         FindViews(view);
         BuildChrome(view, context);
         BuildHeader(context, viewModel, dispatcher);
+        BuildHeaderExtras(view, context, viewModel, dispatcher, services);
         BuildBody(view, viewModel);
 
         _bridge = Entry is { } current ? BridgeFor(current) : null;
@@ -352,14 +352,14 @@ public sealed class MailReaderFragment : WinoFragment<MailRenderingPageViewModel
             if (item.Operation != MailOperation.Seperator) Add(item);
         const int ReaderViewId = 1000;
         const int ThemeId = 1001;
-        popup.Menu.Add(1, ReaderViewId, 1000, Translator.Reader_ReaderView)?.SetCheckable(true)?.SetChecked(_readerView);
+        popup.Menu.Add(1, ReaderViewId, 1000, Translator.Reader_ReaderView)?.SetCheckable(true)?.SetChecked(viewModel.IsReaderViewEnabled);
         popup.Menu.Add(1, ThemeId, 1001, _dark ? Translator.Composer_LightTheme : Translator.Composer_DarkTheme);
         popup.MenuItemClick += (_, args) =>
         {
             switch (args.Item?.ItemId)
             {
                 case ReaderViewId:
-                    _readerView = !_readerView;
+                    viewModel.IsReaderViewEnabled = !viewModel.IsReaderViewEnabled;
                     if (_bridge?.Html is { } html) Observe(RenderAsync(html));
                     break;
                 case ThemeId:
@@ -613,7 +613,7 @@ public sealed class MailReaderFragment : WinoFragment<MailRenderingPageViewModel
         var policy = (options?.LoadImages ?? true) ? RemoteContentPolicy.ImagesAndFontsAllowed : RemoteContentPolicy.Blocked;
         await reader.SetThemeAsync(_dark);
         await reader.RenderAsync(new HtmlMailReaderRequest(string.IsNullOrEmpty(html) ? " " : html, policy,
-            _readerView ? HtmlMailRenderMode.Readability : HtmlMailRenderMode.Original, options?.RenderPlaintextLinks ?? true));
+            viewModel.IsReaderViewEnabled ? HtmlMailRenderMode.Readability : HtmlMailRenderMode.Original, options?.RenderPlaintextLinks ?? true));
         await reader.SetAccessibilityContextAsync(new ReaderAccessibilityContext(
             string.IsNullOrWhiteSpace(viewModel.Subject) ? Translator.MailItemNoSubject : viewModel.Subject,
             string.IsNullOrWhiteSpace(viewModel.FromName) ? viewModel.FromAddress : $"{viewModel.FromName} <{viewModel.FromAddress}>",
@@ -622,12 +622,14 @@ public sealed class MailReaderFragment : WinoFragment<MailRenderingPageViewModel
             Translator.Reader_PlainTextFallbackAutomationName,
             viewModel.CurrentRenderModel?.AccessibleText ?? string.Empty));
         _ = MeasureAsync(++_measureGeneration);
+        Observe(IntelligenceHtmlRenderedAsync(html));
     }
 
     internal async Task ClearAsync()
     {
         if (_reader is not { } reader || _disposed) return;
         HideLinkTarget();
+        IntelligenceContentCleared();
         try { await reader.ClearAsync(); }
         catch (Exception exception) when (_disposed && exception is ObjectDisposedException or System.OperationCanceledException) { }
     }

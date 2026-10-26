@@ -18,14 +18,14 @@ public sealed class WinoMailSwipeHelper : ItemTouchHelper.SimpleCallback
 {
     private readonly WinoMailListAdapter _adapter;
     private readonly Func<MailListRow, bool, MailOperation?> _operation;
-    private readonly Action<MailListRow, MailOperation> _invoked;
+    private readonly Action<MailListRow, bool> _invoked;
     private readonly Paint _fill = new();
     private readonly Paint _glyph = new(PaintFlags.AntiAlias);
     private readonly Paint _label = new(PaintFlags.AntiAlias);
 
     /// <param name="operation">The operation for a row and side (true = leading, a start-to-end swipe); null disables that side.</param>
-    /// <param name="invoked">Runs the operation for the row.</param>
-    public WinoMailSwipeHelper(WinoMailListAdapter adapter, Func<MailListRow, bool, MailOperation?> operation, Action<MailListRow, MailOperation> invoked)
+    /// <param name="invoked">Runs the swipe for the row and side (true = leading).</param>
+    public WinoMailSwipeHelper(WinoMailListAdapter adapter, Func<MailListRow, bool, MailOperation?> operation, Action<MailListRow, bool> invoked)
         : base(0, ItemTouchHelper.Start | ItemTouchHelper.End)
     {
         _adapter = adapter;
@@ -40,7 +40,7 @@ public sealed class WinoMailSwipeHelper : ItemTouchHelper.SimpleCallback
 
     /// <summary>Attaches a new helper to <paramref name="recyclerView"/>.</summary>
     public static ItemTouchHelper Attach(RecyclerView recyclerView, WinoMailListAdapter adapter,
-        Func<MailListRow, bool, MailOperation?> operation, Action<MailListRow, MailOperation> invoked)
+        Func<MailListRow, bool, MailOperation?> operation, Action<MailListRow, bool> invoked)
     {
         var helper = new ItemTouchHelper(new WinoMailSwipeHelper(adapter, operation, invoked));
         helper.AttachToRecyclerView(recyclerView);
@@ -75,7 +75,7 @@ public sealed class WinoMailSwipeHelper : ItemTouchHelper.SimpleCallback
         if (_adapter.RowAt(position) is not { } row) return;
         bool leading = (direction & ItemTouchHelper.End) != 0;
         _adapter.NotifyItemChanged(position);
-        if (_operation(row, leading) is { } operation) _invoked(row, operation);
+        if (_operation(row, leading) is not null) _invoked(row, leading);
     }
 
     public override void OnChildDraw(Canvas c, RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder, float dX, float dY, int actionState, bool isCurrentlyActive)

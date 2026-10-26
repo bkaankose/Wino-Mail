@@ -6,6 +6,7 @@ using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Mail.Controls.UIKit.MailList;
 using Wino.Mail.UIKit.Infrastructure;
 using Wino.Mail.UIKit.Pad.Shell;
+using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Search;
 
 namespace Wino.Mail.UIKit.Pad.Mail;
@@ -17,7 +18,7 @@ namespace Wino.Mail.UIKit.Pad.Mail;
 /// </summary>
 public sealed partial class MailListPageViewController : IShellSearchTarget
 {
-    private static readonly MailSearchScope[] Scopes = [MailSearchScope.CurrentFolder, MailSearchScope.Subfolders, MailSearchScope.AllFolders];
+    private readonly CancellationTokenSource _searchCancellation = new();
     private WinoSearchScopeBar _scopeBar = null!;
     private string _searchText = string.Empty;
     private MailListFilterPopoverViewController? _filterPopover;
@@ -33,8 +34,9 @@ public sealed partial class MailListPageViewController : IShellSearchTarget
         _scopeBar.ReachChanged += (_, _) => Observe(RerunSearchAsync());
         _scopeBar.ScopeChanged += (_, index) =>
         {
-            if (index < 0 || index >= Scopes.Length || Scopes[index] == ViewModel.SearchScope) return;
-            ViewModel.SearchScope = Scopes[index];
+            var scopes = MailListPageViewModel.SearchScopes;
+            if (index < 0 || index >= scopes.Length || scopes[index] == ViewModel.SearchScope) return;
+            ViewModel.SearchScope = scopes[index];
             Observe(RerunSearchAsync());
         };
         _scopeBar.DoneClicked += (_, _) =>
@@ -54,7 +56,7 @@ public sealed partial class MailListPageViewController : IShellSearchTarget
         Bind(nameof(ViewModel.IsInSearchMode), vm => vm.IsInSearchMode, _ => UpdateScopeBar());
         Bind(nameof(ViewModel.SearchFilters), vm => vm.SearchFilters, _ => UpdateScopeBar());
         Bind(nameof(ViewModel.SearchScope), vm => vm.SearchScope, scope => _scopeBar.SetScopes(
-            [Translator.SearchBar_CurrentFolder, Translator.SearchBar_ScopeSubfolders, Translator.SearchBar_AllFolders], Array.IndexOf(Scopes, scope)));
+            [Translator.SearchBar_CurrentFolder, Translator.SearchBar_ScopeSubfolders, Translator.SearchBar_AllFolders], MailListPageViewModel.SearchScopes.IndexOf(scope)));
         Bind(nameof(ViewModel.AreSearchResultsOnline), vm => vm.AreSearchResultsOnline, _ => UpdateScopeBar());
         Bind(nameof(ViewModel.IsEmpty), vm => vm.IsEmpty, _ => UpdateScopeBar());
     }
@@ -126,10 +128,7 @@ public sealed partial class MailListPageViewController : IShellSearchTarget
     public async Task SearchClearedAsync()
     {
         _searchText = string.Empty;
-        ViewModel.SearchFilters = MailSearchFilters.Empty;
-        ViewModel.IsOnlineSearchButtonVisible = false;
-        ViewModel.SetSearchCriteria(MailSearchCriteria.Empty, []);
-        await ViewModel.PerformSearchAsync();
+        await ViewModel.ClearSearchAsync();
         OnUI(() => { _scopeBar.IsOnline = false; UpdateScopeBar(); });
     }
 
@@ -198,22 +197,8 @@ public sealed partial class MailListPageViewController : IShellSearchTarget
     {
         bool online = false;
         await Dispatcher.ExecuteOnUIThread(() => online = _scopeBar.IsOnline);
-        var scope = ViewModel.SearchScope;
-        var activeFolders = ViewModel.ActiveFolder?.HandlingFolders.ToArray() ?? [];
-        var folders = await MailSearchFolderResolver.ResolveAsync(scope, activeFolders,
-            async accountId => (IReadOnlyList<IMailItemFolder>)(await _folderService.GetFoldersAsync(accountId).ConfigureAwait(false)).Cast<IMailItemFolder>().ToList())
-            .ConfigureAwait(false);
-        var criteria = MailSearchCriteriaFactory.Create(query, online ? SearchBarReach.IncludeServer : SearchBarReach.DownloadedOnly,
-            scope, ViewModel.SearchFilters, DateTime.Now,
-            folders.Select(static folder => folder.Id).ToArray(),
-            folders.Select(static folder => folder.MailAccountId).Distinct().ToArray());
-
-        await Dispatcher.ExecuteOnUIThread(() =>
-        {
-            if (_released) return;
-            ViewModel.SetSearchCriteria(criteria, folders);
-            if (ViewModel.PerformSearchCommand.CanExecute(null)) ViewModel.PerformSearchCommand.Execute(null);
-            UpdateScopeBar();
-        });
+        if (_released) return;
+        await ViewModel.SearchAsync(query, online, _searchCancellation.Token);
+        OnUI(UpdateScopeBar);
     }
 }

@@ -106,7 +106,7 @@ public partial class AboutPageViewModel : CoreBaseViewModel,
     {
         var appDataFolder = _appInitializerService.ApplicationDataFolderPath;
 
-        var selectedFolderPath = await _dialogService.PickWindowsFolderAsync();
+        var selectedFolderPath = await _dialogService.PickFolderAsync();
 
         if (string.IsNullOrEmpty(selectedFolderPath)) return;
 

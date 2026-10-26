@@ -1336,7 +1336,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
                     if (!mergedAccounts.Any()) return;
 
-                    Messenger.Send(new CreateNewMailWithMultipleAccountsRequested(mergedAccounts.ToList()));
+                    operationAccount = await PickNewMailAccountAsync(mergedAccounts.ToList());
                 }
                 else if (latestSelectedAccountMenuItem is AccountMenuItem selectedAccountMenuItem)
                 {
@@ -1345,13 +1345,23 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                 else
                 {
                     // User is at some other page. List all accounts.
-                    Messenger.Send(new CreateNewMailWithMultipleAccountsRequested(accounts));
+                    operationAccount = await PickNewMailAccountAsync(accounts);
                 }
             }
         }
 
         if (operationAccount != null)
             await CreateNewMailForAsync(operationAccount);
+    }
+
+    private async Task<MailAccount> PickNewMailAccountAsync(List<MailAccount> accounts)
+    {
+        Messenger.Send(new CreateNewMailWithMultipleAccountsRequested(accounts));
+
+        if (_dialogService.HandlesMultipleAccountNewMailPicker)
+            return null;
+
+        return await _dialogService.PickAccountAsync(accounts, Translator.MailShell_PickAccountForNewMail);
     }
 
     public async Task CreateNewMailForAsync(MailAccount account)

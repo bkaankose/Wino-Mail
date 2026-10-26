@@ -374,9 +374,7 @@ public abstract partial class CalendarPageViewControllerBase : WinoViewControlle
     protected void OpenQuickEvent(DateTime start, DateTime? draggedEnd, UIView? anchorView, CGRect anchorRect)
     {
         bool isAllDay = ViewModel.CurrentVisibleRange?.DisplayType == CalendarDisplayType.Month;
-        // A drag across slots carries its own end (Windows EmptySlotTapped EndDate).
-        var end = draggedEnd is { } dragged && dragged > start ? dragged : isAllDay ? start.Date.AddDays(1) : start.AddMinutes(30);
-        ViewModel.SelectQuickEventRange(start, end, isAllDay);
+        ViewModel.BeginQuickEvent(start, draggedEnd, isAllDay);
         CloseQuickEvent();
         var quick = new QuickEventViewController(ViewModel, Dispatcher, ReportError);
         quick.Closed += (_, _) => { if (ReferenceEquals(_quickEvent, quick)) _quickEvent = null; };

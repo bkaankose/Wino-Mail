@@ -2,7 +2,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.UIKit.Infrastructure;
-using Wino.Mail.UIKit.Shell;
 using Wino.Mail.UIKit.Views;
 using Wino.Mail.UIKit.Views.Onboarding;
 using Wino.Mail.ViewModels.Activation;

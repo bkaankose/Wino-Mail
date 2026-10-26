@@ -958,7 +958,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
         {
             attachmentViewModel.IsBusy = true;
 
-            var pickedPath = await _dialogService.PickWindowsFolderAsync();
+            var pickedPath = await _dialogService.PickFolderAsync();
             if (string.IsNullOrEmpty(pickedPath)) return;
 
             // Download if not already downloaded

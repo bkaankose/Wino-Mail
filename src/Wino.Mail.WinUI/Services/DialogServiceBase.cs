@@ -42,6 +42,8 @@ public class DialogServiceBase : IDialogServiceBase
         ApplicationResourceManager = applicationResourceManager;
     }
 
+    public bool HandlesMultipleAccountNewMailPicker => true;
+
     /// <summary>
     /// The XamlRoot a new dialog should open in: the window the user is working in, so a dialog
     /// raised from a secondary window opens there instead of behind it on the main window. A

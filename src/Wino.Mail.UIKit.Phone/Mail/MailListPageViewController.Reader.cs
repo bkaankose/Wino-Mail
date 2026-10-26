@@ -34,7 +34,7 @@ public sealed partial class MailListPageViewController
         // Edit mode selects without opening.
         if (_selectionMode) return;
         PopToList(animated: false);
-        ViewModel.NavigationService.Navigate(item.IsDraft ? WinoPage.ComposePage : WinoPage.MailRenderingPage, item, NavigationReferenceFrame.RenderingFrame);
+        ViewModel.OpenItem(item);
     }
 
     /// <summary>True while a page this list opened (the reader) is on top of it.</summary>

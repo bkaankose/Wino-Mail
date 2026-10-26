@@ -55,7 +55,6 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
     private WinoContactPicture? _fromAvatar;
     private EditText? _subject;
     private WinoInfoBar? _syncFailed;
-    private CancellationTokenSource? _autosave;
     private bool _compact;
     private bool _darkEditor;
     private bool _editorDisposed;
@@ -91,9 +90,12 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
 
         _bridge = Entry is { } entry ? ComposeBridge.For(entry) : null;
         _bridge?.Attach(this);
+        Func<Task<bool>> beforeAutosave = BeforeAutosaveAsync;
+        viewModel.BeforeAutosave = beforeAutosave;
         Bindings.Own(new ActionDisposable(() =>
         {
-            _autosave?.Cancel();
+            viewModel.CancelAutosave();
+            if (ReferenceEquals(viewModel.BeforeAutosave, beforeAutosave)) viewModel.BeforeAutosave = null;
             _bridge?.Detach(this);
             CloseSuggestions();
             _ = DisposeEditorAsync();
@@ -287,8 +289,7 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
         // A failed upload stays "busy" in the ViewModel until it retries; the failure bar says so, the spinner does not.
         var busy = viewModel.IsDraftBusy && !viewModel.IsDraftSyncFailed;
         if (_saving is not null) _saving.Visibility = busy ? ViewStates.Visible : ViewStates.Gone;
-        // The Material 3 bar has no subtitle line: the status shows only while a save runs.
-        _status.Text = busy ? Translator.Composer_SavingDraft : string.Empty;
+        _status.Text = busy ? Translator.Composer_SavingDraft : viewModel.LastSavedText ?? string.Empty;
         _status.Visibility = string.IsNullOrEmpty(_status.Text) ? ViewStates.Gone : ViewStates.Visible;
     }
 
@@ -315,6 +316,7 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
         Bind(viewModel, dispatcher, nameof(viewModel.ComposingAccount), vm => vm.ComposingAccount, _ => UpdateFrom());
         Bind(viewModel, dispatcher, nameof(viewModel.CurrentMailDraftItem), vm => vm.CurrentMailDraftItem, _ => UpdateSendButton());
         Bind(viewModel, dispatcher, nameof(viewModel.IsDraftBusy), vm => vm.IsDraftBusy, _ => { UpdateSendButton(); UpdateDraftStatus(); });
+        Bind(viewModel, dispatcher, nameof(viewModel.LastSavedText), vm => vm.LastSavedText, _ => UpdateDraftStatus());
         Bind(viewModel, dispatcher, nameof(viewModel.IsDraftSyncFailed), vm => vm.IsDraftSyncFailed, _ => { UpdateSyncFailedBar(); UpdateDraftStatus(); });
         Bind(viewModel, dispatcher, nameof(viewModel.DraftSyncErrorMessage), vm => vm.DraftSyncErrorMessage, _ => UpdateSyncFailedBar());
         Bindings.Own(new CommandBinding(viewModel.SendCommand, () => null, enabled => { _sendEnabled = enabled; UpdateSendButton(); }, dispatcher, ReportError));
@@ -530,22 +532,15 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
 
     private void ScheduleAutosave()
     {
-        _autosave?.Cancel();
-        var source = _autosave = new CancellationTokenSource();
-        Observe(AutosaveAsync(source.Token));
+        if (ViewModel is { } viewModel) Observe(viewModel.ScheduleAutosave());
     }
 
-    private async Task AutosaveAsync(CancellationToken token)
+    private async Task<bool> BeforeAutosaveAsync()
     {
-        try { await Task.Delay(TimeSpan.FromSeconds(3), token); }
-        catch (OperationCanceledException) { return; }
-        if (token.IsCancellationRequested || _editorDisposed || _closing || ViewModel is not { } viewModel) return;
+        if (_editorDisposed || _closing || View is null) return false;
         await SyncAllRecipientsAsync();
-        if (await viewModel.UpdateMimeChangesAsync())
-            await (_dispatcher?.ExecuteOnUIThread(MarkSaved) ?? Task.CompletedTask);
+        return true;
     }
-
-    private void MarkSaved() => UpdateDraftStatus();
 
     private async Task SendOrUploadAsync()
     {
@@ -556,7 +551,7 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
             if (viewModel.SendToServerCommand.CanExecute(null)) await viewModel.SendToServerCommand.ExecuteAsync(null);
             return;
         }
-        _autosave?.Cancel();
+        viewModel.CancelAutosave();
         if (viewModel.SendCommand.CanExecute(null)) await viewModel.SendCommand.ExecuteAsync(null);
     }
 
@@ -567,7 +562,7 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
         _closing = true;
         try
         {
-            _autosave?.Cancel();
+            viewModel.CancelAutosave();
             CloseSuggestions();
             if (viewModel.CurrentMailDraftItem is not null && viewModel.ComposingAccount is not null)
             {
@@ -597,7 +592,7 @@ public sealed partial class ComposeFragment : WinoFragment<ComposePageViewModel>
             Translator.Buttons_Cancel);
         if (!confirmed || _closing) return;
         _closing = true;
-        _autosave?.Cancel();
+        viewModel.CancelAutosave();
         if (_bridge is not null) _bridge.IsClosing = true;
         try
         {
