@@ -330,6 +330,46 @@ for rid_dir in "$BIN"/osx-*; do
 done
 [ -n "$(ls -A "$SYMBOLS")" ] || rmdir "$SYMBOLS" "$STAGE/Symbols"
 
+# ---------------------------------------------------------------- notarize the app
+NOTARY=(--key "$WINO_NOTARY_KEY_PATH" --key-id "$WINO_NOTARY_KEY_ID" --issuer "$WINO_NOTARY_ISSUER_ID")
+
+# Submits a file, waits, and keeps Apple's log. Fails with the log's issues unless the submission is Accepted.
+notarize() {
+  local file="$1" log="$2" name submit_json submit_err submit_rc submission_id status
+  name="$(basename "$file")"
+  submit_json="$STAGE/$name.notary-submit.json"
+  submit_err="$STAGE/$name.notary-submit.err"
+  set +e
+  xcrun notarytool submit "$file" "${NOTARY[@]}" --wait --timeout 1h --output-format json >"$submit_json" 2>"$submit_err"
+  submit_rc=$?
+  set -e
+  submission_id="$(plutil -extract id raw "$submit_json" 2>/dev/null || true)"
+  status="$(plutil -extract status raw "$submit_json" 2>/dev/null || true)"
+  [ -n "$submission_id" ] || { cat "$submit_err" "$submit_json" >&2; fail "notarytool submit of $name failed (exit $submit_rc)."; }
+  info "$name: submission $submission_id, ${status:-unknown}"
+  xcrun notarytool log "$submission_id" "${NOTARY[@]}" "$log" >/dev/null 2>&1 || info "Could not download the notarization log of $name."
+  if [ "$status" != "Accepted" ]; then
+    if [ -f "$log" ]; then
+      echo "Notarization issues:" >&2
+      plutil -extract issues json -o - "$log" 2>/dev/null >&2 || cat "$log" >&2
+    fi
+    fail "Notarization of $name is '${status:-unknown}'. See $log"
+  fi
+}
+
+# The app gets its own ticket before it goes into the DMG. The DMG's ticket only travels with the DMG, so without
+# this an app copied to Applications must reach Apple on its first launch, and Gatekeeper blocks it offline.
+step "Notarizing the app (this usually takes a few minutes)"
+APP_ZIP="$STAGE/$(basename "$APP_NAME" .app).zip"
+APP_NOTARY_LOG="$STAGE/${DMG_NAME%.dmg}.app-notarization.json"
+ditto -c -k --keepParent "$APP_DIR" "$APP_ZIP" || fail "Zipping the app for notarization failed."
+notarize "$APP_ZIP" "$APP_NOTARY_LOG"
+rm -f "$APP_ZIP"
+xcrun stapler staple -q "$APP_DIR" || fail "stapler staple failed for the app."
+xcrun stapler validate -q "$APP_DIR" || fail "stapler validate failed for the app."
+codesign --verify --deep --strict "$APP_DIR" >/dev/null 2>&1 || fail "The app signature is invalid after stapling."
+info "Ticket stapled to $APP_NAME"
+
 # ---------------------------------------------------------------- DMG
 step "Creating the DMG"
 ln -s /Applications "$STAGE/dmg/Applications"
@@ -340,27 +380,10 @@ codesign --sign "$IDENTITY" --timestamp "$DMG" || fail "Signing the DMG failed."
 codesign --verify --strict --verbose=2 "$DMG" >/dev/null 2>&1 || fail "DMG signature verification failed."
 info "$DMG_NAME ($(du -h "$DMG" | cut -f1 | tr -d ' '))"
 
-# ---------------------------------------------------------------- notarize
-step "Notarizing (this usually takes a few minutes)"
-NOTARY=(--key "$WINO_NOTARY_KEY_PATH" --key-id "$WINO_NOTARY_KEY_ID" --issuer "$WINO_NOTARY_ISSUER_ID")
-SUBMIT_JSON="$STAGE/notary-submit.json"
+# ---------------------------------------------------------------- notarize the DMG
+step "Notarizing the DMG (this usually takes a few minutes)"
 NOTARY_LOG="$STAGE/${DMG_NAME%.dmg}.notarization.json"
-set +e
-xcrun notarytool submit "$DMG" "${NOTARY[@]}" --wait --timeout 1h --output-format json >"$SUBMIT_JSON" 2>"$STAGE/notary-submit.err"
-submit_rc=$?
-set -e
-SUBMISSION_ID="$(plutil -extract id raw "$SUBMIT_JSON" 2>/dev/null || true)"
-STATUS="$(plutil -extract status raw "$SUBMIT_JSON" 2>/dev/null || true)"
-[ -n "$SUBMISSION_ID" ] || { cat "$STAGE/notary-submit.err" "$SUBMIT_JSON" >&2; fail "notarytool submit failed (exit $submit_rc)."; }
-info "Submission $SUBMISSION_ID: ${STATUS:-unknown}"
-xcrun notarytool log "$SUBMISSION_ID" "${NOTARY[@]}" "$NOTARY_LOG" >/dev/null 2>&1 || info "Could not download the notarization log."
-if [ "$STATUS" != "Accepted" ]; then
-  if [ -f "$NOTARY_LOG" ]; then
-    echo "Notarization issues:" >&2
-    plutil -extract issues json -o - "$NOTARY_LOG" 2>/dev/null >&2 || cat "$NOTARY_LOG" >&2
-  fi
-  fail "Notarization status is '${STATUS:-unknown}'. See $NOTARY_LOG"
-fi
+notarize "$DMG" "$NOTARY_LOG"
 
 # ---------------------------------------------------------------- staple and assess
 step "Stapling and assessing"
@@ -372,13 +395,14 @@ mkdir -p "$MOUNT"
 hdiutil attach -quiet -nobrowse -readonly -noautoopen -mountpoint "$MOUNT" "$DMG" || fail "Mounting the DMG failed."
 APP_ASSESS="$(spctl --assess --type execute -vv "$MOUNT/$APP_NAME" 2>&1)" ||
   { echo "$APP_ASSESS" >&2; fail "Gatekeeper rejected the app inside the DMG."; }
+xcrun stapler validate -q "$MOUNT/$APP_NAME" || fail "The app inside the DMG has no stapled ticket."
 hdiutil detach -quiet "$MOUNT"
 for out in "$DMG_ASSESS" "$APP_ASSESS"; do
   grep -q 'accepted' <<<"$out" && grep -q 'source=Notarized Developer ID' <<<"$out" ||
     { echo "$out" >&2; fail "Gatekeeper did not report a notarized Developer ID."; }
 done
 info "DMG: $(head -2 <<<"$DMG_ASSESS" | tr '\n' ' ')"
-info "App: $(head -2 <<<"$APP_ASSESS" | tr '\n' ' ')"
+info "App: $(head -2 <<<"$APP_ASSESS" | tr '\n' ' ')(ticket stapled)"
 
 # ---------------------------------------------------------------- appcast
 # Sparkle signs the final (stapled) DMG; any later change to the file invalidates the signature.
@@ -414,7 +438,7 @@ step "Finalizing"
 (cd "$STAGE" && shasum -a 256 "$DMG_NAME" >"$DMG_NAME.sha256")
 mkdir -p "$DEST"
 [ ! -e "$DEST/$DMG_NAME" ] || fail "$DEST/$DMG_NAME appeared during the run."
-mv "$NOTARY_LOG" "$DEST/"
+mv "$NOTARY_LOG" "$APP_NOTARY_LOG" "$DEST/"
 mv "$DMG.sha256" "$DEST/"
 mv "$APPCAST" "$DEST/appcast.xml"
 if [ -d "$STAGE/Symbols/$ARCH" ]; then
@@ -442,6 +466,7 @@ info "$DEST/$DMG_NAME.sha256"
 info "$DEST/appcast.xml"
 info "$DEST/release.json"
 info "$DEST/$(basename "$NOTARY_LOG")"
+info "$DEST/$(basename "$APP_NOTARY_LOG")"
 [ -d "$DEST/Symbols/$ARCH" ] && info "$DEST/Symbols/$ARCH"
 printf '\nTo publish: bash scripts/release/macos/publish-macos-release.sh --version %s\n' "$FULL_VERSION"
 exit 0

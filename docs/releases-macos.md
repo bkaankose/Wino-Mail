@@ -47,10 +47,11 @@ For unattended runs, use `--non-interactive --arch universal` or `--arch arm64`,
 The script checks the tools, signing identity, and credentials before it compiles.
 It publishes Release with the Developer ID identity and profile, the hardened runtime, and the app's sandbox entitlements plus `com.apple.developer.aps-environment = production` for live notifications.
 Debug builds keep the Apple Development identity and profile.
-It verifies the signature, entitlements (including the APNs entitlement and the embedded profile), bundle ID, version, and architectures, then creates and signs the DMG.
+It verifies the signature, entitlements (including the APNs entitlement and the embedded profile), bundle ID, version, and architectures.
+It then notarizes the app on its own and staples the ticket to it, so a copy in Applications opens without reaching Apple, even offline. Only then does it create and sign the DMG.
 It also verifies Sparkle: the framework and its helpers carry the Developer ID signature, and the feed URL and public key match `Sparkle.plist`.
-Notarization usually takes a few minutes. When Apple rejects the DMG, the script prints the issues from the notarization log.
-After acceptance, it staples the ticket and requires Gatekeeper to report `source=Notarized Developer ID` for the DMG and the app.
+The DMG is notarized as a second submission. Each submission usually takes a few minutes; when Apple rejects one, the script prints the issues from its notarization log.
+After acceptance, it staples the DMG's ticket, requires Gatekeeper to report `source=Notarized Developer ID` for the DMG and the app, and checks that the app inside the DMG carries its own ticket.
 
 Outputs appear under `~/Wino Releases`, or `WINO_RELEASES_ROOT` or `--output-root`:
 
@@ -62,7 +63,8 @@ Outputs appear under `~/Wino Releases`, or `WINO_RELEASES_ROOT` or `--output-roo
       WinoMail_2.0.55_262981530_universal.dmg.sha256
       appcast.xml                                 (Sparkle feed for this DMG)
       release.json                                (version, build, architecture and the commit it was built from)
-      WinoMail_2.0.55_262981530_universal.notarization.json
+      WinoMail_2.0.55_262981530_universal.notarization.json       (DMG submission log)
+      WinoMail_2.0.55_262981530_universal.app-notarization.json   (app submission log)
       Symbols/universal/                          (dSYM and PDB files, when produced)
 ```
 
