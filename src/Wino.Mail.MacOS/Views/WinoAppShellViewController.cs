@@ -140,7 +140,7 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
         });
 
         _toolbar = new ShellToolbar(() => SearchTarget, ToggleSidebar, Synchronize, ToggleBriefing, ShowWhatsNew, OpenAccount, ReportError,
-            () => _commandTarget is { ShowsMailActions: true }, CanExecuteCommand, (command, anchor) => { if (_commandTarget is { } target && target.CanExecute(command)) target.Execute(command, anchor); });
+            () => _commandTarget is { ShowsMailActions: true }, CanExecuteCommand, IsCommandActive, (command, anchor) => { if (_commandTarget is { } target && target.CanExecute(command)) target.Execute(command, anchor); });
         _toolbar.SetAccountHidden(ViewModel.PreferencesService.IsWinoAccountButtonHidden);
         _toolbar.SetCommandLayout(ReaderCommandLayout.Parse(ViewModel.PreferencesService.ReaderCommandLayout));
         _toolbar.SetCommandLabels(ViewModel.PreferencesService.IsShowActionLabelsEnabled);
@@ -161,6 +161,7 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
 #if DEBUG
         // "folder NAME" invokes the first folder menu item with that name, as a sidebar click would.
         // "account TEXT" invokes the account menu item whose account name or address contains TEXT.
+        Infrastructure.MacDebugBridge.Register("toolbar-commands", _ => Task.FromResult(_toolbar?.DumpCommands() ?? "no toolbar"));
         Infrastructure.MacDebugBridge.Register("newmail", _ =>
         {
             var item = ViewModel.CurrentMenu?.Items.OfType<NewMailMenuItem>().FirstOrDefault();
@@ -318,6 +319,8 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
     }
 
     public bool CanExecuteCommand(ShellCommand command) => _commandTarget?.CanExecute(command) == true;
+
+    public bool IsCommandActive(ShellCommand command) => _commandTarget?.IsCommandActive(command) == true;
 
     /// <summary>The content page's ViewModel, for keyboard shortcut eligibility (Windows rootPage.AssociatedViewModel).</summary>
     public object? ContentViewModel => (_child as IViewModelHost)?.AssociatedViewModel;

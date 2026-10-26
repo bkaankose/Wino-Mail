@@ -34,6 +34,17 @@ public sealed partial class MailListPageViewController
         };
     }
 
+    public bool IsCommandActive(ShellCommand command)
+    {
+        if (_released || ViewModel.SelectedItemsCount == 0) return false;
+        return command switch
+        {
+            ShellCommand.Flag => ViewModel.SelectedItems.All(static item => item.IsFlagged),
+            ShellCommand.ToggleRead => ViewModel.SelectedItems.All(static item => item.IsRead),
+            _ => false
+        };
+    }
+
     public void Execute(ShellCommand command, NSView? anchor)
     {
         if (!CanExecute(command)) return;
@@ -47,10 +58,10 @@ public sealed partial class MailListPageViewController
                 RunSelectionOperation(MailOperation.SoftDelete);
                 break;
             case ShellCommand.Flag:
-                RunSelectionOperation(items.All(static item => item.IsFlagged) ? MailOperation.ClearFlag : MailOperation.SetFlag);
+                RunSelectionOperation(IsCommandActive(command) ? MailOperation.ClearFlag : MailOperation.SetFlag);
                 break;
             case ShellCommand.ToggleRead:
-                RunSelectionOperation(items.All(static item => item.IsRead) ? MailOperation.MarkAsUnread : MailOperation.MarkAsRead);
+                RunSelectionOperation(IsCommandActive(command) ? MailOperation.MarkAsUnread : MailOperation.MarkAsRead);
                 break;
             case ShellCommand.Move:
                 ShowMovePopover(items.ToArray(), anchor);

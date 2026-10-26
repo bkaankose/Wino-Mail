@@ -802,15 +802,27 @@ public sealed partial class MailListPageViewController
         // its leaves). Coalesce them into one re-map per run-loop turn instead of one per property.
         int pending = 0;
         bool rebind = false;
+        bool commandState = false;
         bool active = true;
-        void Schedule(bool leavesChanged)
+        void Schedule(bool leavesChanged, bool commandStateChanged = false)
         {
             if (leavesChanged) rebind = true;
+            if (commandStateChanged) commandState = true;
             if (Interlocked.Exchange(ref pending, 1) == 1) return;
             NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
             {
                 Interlocked.Exchange(ref pending, 0);
                 if (!active || _released || !ReferenceEquals(cell.Item, row)) return;
+                // Read and flag state of the selection drives the toolbar's Mark as read/unread and Flag/Unflag.
+                if (commandState)
+                {
+                    commandState = false;
+                    if (leaves.OfType<MailItemViewModel>().Any(leaf => ViewModel.SelectedItems.Contains(leaf)))
+                    {
+                        UpdateMultiSelectionOverlay();
+                        CommandStateChanged?.Invoke(this, EventArgs.Empty);
+                    }
+                }
                 // The thread gained or lost leaves: subscribe to the new set.
                 if (rebind) BindCell(cell, row);
                 else cell.Apply(MapRow(row));
@@ -825,7 +837,7 @@ public sealed partial class MailListPageViewController
         PropertyChangedEventHandler handler = (_, args) =>
         {
             if (args.PropertyName is nameof(MailItemViewModel.IsSelected) or nameof(MailItemViewModel.ThumbnailUpdatedEvent)) return;
-            Schedule(false);
+            Schedule(false, args.PropertyName is nameof(MailItemViewModel.IsRead) or nameof(MailItemViewModel.IsFlagged));
         };
         foreach (var leaf in leaves) leaf.PropertyChanged += handler;
         PropertyChangedEventHandler rowHandler = (_, args) =>
@@ -848,23 +860,12 @@ public sealed partial class MailListPageViewController
         return rowView;
     }
 
-    /// <summary>In select mode a plain click toggles the clicked row instead of replacing the selection.</summary>
     private NSIndexSet ProposeSelection(NSIndexSet proposed)
     {
         var filtered = new NSMutableIndexSet();
         foreach (var index in proposed.ToArray())
             if (RowAt((nint)index) is not null) filtered.Add(index);
-
-        if (!_selectionMode || filtered.Count != 1) return filtered;
-        var current = NSApplication.SharedApplication.CurrentEvent;
-        if (current is null || current.Type is not (NSEventType.LeftMouseDown or NSEventType.LeftMouseUp)) return filtered;
-        if ((current.ModifierFlags & (NSEventModifierMask.CommandKeyMask | NSEventModifierMask.ShiftKeyMask)) != 0) return filtered;
-
-        var toggled = new NSMutableIndexSet(_table.SelectedRows);
-        var clicked = filtered.FirstIndex;
-        if (toggled.Contains(clicked)) toggled.Remove(clicked);
-        else toggled.Add(clicked);
-        return toggled;
+        return filtered;
     }
 
     private void TableSelectionChanged()
@@ -1057,6 +1058,23 @@ public sealed partial class MailListPageViewController
                 owner.ScheduleTileRelayout();
             }
             base.Layout();
+        }
+
+        /// <summary>
+        /// In select mode a plain click toggles the clicked row: the table gets it as a ⌘-click. Rewriting the
+        /// proposed selection instead depended on the current event type, which trackpad pressure and small
+        /// drags change mid-click, and then the click replaced the whole selection.
+        /// </summary>
+        public override void MouseDown(NSEvent theEvent)
+        {
+            if (owner._selectionMode && (theEvent.ModifierFlags & (NSEventModifierMask.CommandKeyMask | NSEventModifierMask.ShiftKeyMask)) == 0
+                && NSEvent.MouseEvent(theEvent.Type, theEvent.LocationInWindow, theEvent.ModifierFlags | NSEventModifierMask.CommandKeyMask,
+                    theEvent.Timestamp, theEvent.WindowNumber, null, theEvent.EventNumber, theEvent.ClickCount, theEvent.Pressure) is { } toggle)
+            {
+                base.MouseDown(toggle);
+                return;
+            }
+            base.MouseDown(theEvent);
         }
 
         public override void KeyDown(NSEvent theEvent)

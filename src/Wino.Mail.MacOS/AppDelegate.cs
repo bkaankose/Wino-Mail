@@ -425,7 +425,13 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
         public override void MenuWillOpen(NSMenu menu)
         {
             var current = shell();
-            foreach (var (command, item) in items) item.Enabled = current?.CanExecuteCommand(command) == true;
+            foreach (var (command, item) in items)
+            {
+                item.Enabled = current?.CanExecuteCommand(command) == true;
+                bool active = current?.IsCommandActive(command) == true;
+                if (command == ShellCommand.Flag) item.Title = active ? Translator.MailOperation_ClearFlag : Translator.MailOperation_Flag;
+                else if (command == ShellCommand.ToggleRead) item.Title = active ? Translator.MailOperation_MarkAsUnread : Translator.MailOperation_MarkAsRead;
+            }
         }
 
         public override void MenuDidClose(NSMenu menu)

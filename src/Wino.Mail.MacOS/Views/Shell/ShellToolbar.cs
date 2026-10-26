@@ -41,6 +41,7 @@ internal sealed class ShellToolbar : NSToolbarDelegate
 
     private readonly Func<bool> _hasCommandTarget;
     private readonly Func<ShellCommand, bool> _canExecute;
+    private readonly Func<ShellCommand, bool> _isActive;
     private readonly Action<ShellCommand, NSView> _execute;
     private readonly Dictionary<ShellCommand, NSToolbarItem> _commandItems = new();
     private bool _navigationalSpaceAdded;
@@ -83,10 +84,11 @@ internal sealed class ShellToolbar : NSToolbarDelegate
 
     public ShellToolbar(Func<IShellSearchTarget?> searchTarget, Action toggleSidebar, Action synchronize,
         Action<NSView> briefing, Action whatsNew, Action<NSView> account, Action<Exception> error,
-        Func<bool> showsCommands, Func<ShellCommand, bool> canExecute, Action<ShellCommand, NSView> execute)
+        Func<bool> showsCommands, Func<ShellCommand, bool> canExecute, Func<ShellCommand, bool> isActive, Action<ShellCommand, NSView> execute)
     {
         _hasCommandTarget = showsCommands;
         _canExecute = canExecute;
+        _isActive = isActive;
         _execute = execute;
         _searchTarget = searchTarget;
         _toggleSidebar = toggleSidebar;
@@ -295,8 +297,29 @@ internal sealed class ShellToolbar : NSToolbarDelegate
     private void ApplyCommandState(ShellCommand command, NSToolbarItem item)
     {
         item.Hidden = !_hasCommandTarget();
-        if (item.View is NSButton button) button.Enabled = _canExecute(command);
+        if (item.View is not NSButton button) return;
+        button.Enabled = _canExecute(command);
+        if (ToggledAppearance(command, _isActive(command)) is not var (glyph, title) || item.Label == title) return;
+        button.Image = WinoIcons.Image(glyph, 17, null, title);
+        button.Title = title;
+        button.ToolTip = title;
+        WinoAccessibility.Label(button, title);
+        item.Label = title;
+        item.PaletteLabel = title;
+        item.ToolTip = title;
     }
+
+    /// <summary>Flag and ToggleRead show the action they will run: Clear flag on a flagged selection, Mark as unread on a read one.</summary>
+    private static (WinoIconGlyph Glyph, string Title)? ToggledAppearance(ShellCommand command, bool active) => command switch
+    {
+        ShellCommand.Flag => active ? (WinoIconGlyph.ClearFlag, Translator.MailOperation_ClearFlag) : (WinoIconGlyph.Flag, Translator.MailOperation_Flag),
+        ShellCommand.ToggleRead => active ? (WinoIconGlyph.MarkUnread, Translator.MailOperation_MarkAsUnread) : (WinoIconGlyph.MarkRead, Translator.MailOperation_MarkAsRead),
+        _ => null
+    };
+
+    /// <summary>Debug: each command item's label, enabled and hidden state.</summary>
+    internal string DumpCommands() => string.Join(" | ", _commandItems.Select(pair =>
+        $"{pair.Key}='{pair.Value.Label}' enabled={(pair.Value.View as NSButton)?.Enabled} hidden={pair.Value.Hidden}"));
 
     private void Safe(Action action)
     {
