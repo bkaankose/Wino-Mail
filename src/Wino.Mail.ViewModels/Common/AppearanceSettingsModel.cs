@@ -2,6 +2,7 @@ using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Personalization;
 
 namespace Wino.Core.ViewModels;
 
@@ -37,12 +38,17 @@ public partial class AppearanceSettingsModel : ObservableObject, IDisposable
         get => Array.IndexOf(Themes, _themes.RootTheme);
         set
         {
-            if (value < 0 || value >= Themes.Length || Themes[value] == _themes.RootTheme) return;
+            if (!CanSelectElementTheme || value < 0 || value >= Themes.Length || Themes[value] == _themes.RootTheme) return;
             _themes.RootTheme = Themes[value];
             OnRootThemeChanged();
             OnPropertyChanged();
         }
     }
+
+    /// <summary>False while the selected predefined theme forces light or dark (Windows PersonalizationPageViewModel).</summary>
+    public bool CanSelectElementTheme
+        => _themes.CurrentApplicationThemeId is not { } id || WinoThemeCatalog.Find(id) is not { } theme
+           || theme.ForcedElementTheme == ApplicationElementTheme.Default;
 
     /// <summary>The overriding accent, or null when the system accent is used.</summary>
     public string? AccentHex
@@ -73,6 +79,7 @@ public partial class AppearanceSettingsModel : ObservableObject, IDisposable
     protected virtual void NotifyAppearanceChanged()
     {
         OnPropertyChanged(nameof(ThemeIndex));
+        OnPropertyChanged(nameof(CanSelectElementTheme));
         OnPropertyChanged(nameof(AccentHex));
         OnPropertyChanged(nameof(UseSystemAccent));
     }

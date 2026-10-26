@@ -55,6 +55,11 @@ public sealed class PersonalizationPageViewController(PersonalizationPageViewMod
         var appearance = Card(Translator.SettingsElementTheme_Title, Translator.SettingsElementTheme_SelectThemeDescription, WinoIconGlyph.DarkTheme,
             Bind.Segmented(_appearance, vm.ElementThemes.Select(theme => theme.Title).ToList(),
                 nameof(MacAppearanceModel.ThemeIndex), s => s.ThemeIndex, (s, v) => s.ThemeIndex = v));
+        Bind.Bind(_appearance, nameof(MacAppearanceModel.CanSelectElementTheme), s => s.CanSelectElementTheme, canSelect =>
+        {
+            appearance.IsEnabled = canSelect;
+            appearance.Description = canSelect ? Translator.SettingsElementTheme_SelectThemeDescription : Translator.SettingsElementThemeSelectionDisabled;
+        });
 
         var iconStyle = Card(Translator.SettingsIconStyle_Title, Translator.SettingsIconStyle_Description, WinoIconGlyph.IconStyle,
             Bind.Segmented(p, vm.IconStyles.Select(style => style.Title).ToList(), nameof(p.IconStyle),

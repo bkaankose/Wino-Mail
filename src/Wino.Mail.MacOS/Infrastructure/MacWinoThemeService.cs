@@ -280,7 +280,9 @@ public sealed class MacWinoThemeService(IDispatcher dispatcher, IConfigurationSe
 
     private void ApplyOnUIThread(PreviewState? preview, CustomThemeMetadata? custom, NSImage? wallpaper)
     {
-        var root = preview?.ElementTheme ?? _rootTheme;
+        // A predefined theme that forces light or dark wins over a stored appearance that disagrees with it.
+        var forced = preview is null && _themeId is { } themeId ? FindPredefined(themeId)?.ForceElementTheme : null;
+        var root = preview?.ElementTheme ?? (forced is { } forcedTheme && forcedTheme != ApplicationElementTheme.Default ? forcedTheme : _rootTheme);
         NSApplication.SharedApplication.Appearance = root switch
         {
             ApplicationElementTheme.Dark => NSAppearance.GetAppearance(NSAppearance.NameDarkAqua),
