@@ -3,11 +3,11 @@
        The code uses Foundation and WebKit only; each head creates and hosts the WKWebView itself. -->
   <PropertyGroup>
     <TargetFrameworks>net10.0-macos;net10.0-ios</TargetFrameworks>
-    <!-- An app build that passes a RuntimeIdentifier (-r osx-arm64, -r iossimulator-arm64) passes it to every
-         project it restores. The other platform's target framework cannot restore with that RID (NU1102), so
-         such a build only contains the target framework of the RID's platform (same rule as Wino.Platform.Apple). -->
-    <TargetFrameworks Condition="$(RuntimeIdentifier.StartsWith('osx-'))">net10.0-macos</TargetFrameworks>
-    <TargetFrameworks Condition="$(RuntimeIdentifier.StartsWith('ios-')) or $(RuntimeIdentifier.StartsWith('iossimulator-'))">net10.0-ios</TargetFrameworks>
+    <!-- An app build that passes a RuntimeIdentifier (-r osx-arm64, -r iossimulator-arm64) or a universal
+         RuntimeIdentifiers list passes it to every project it restores. The other platform's target framework
+         cannot restore with that RID (NU1102), so such a build only contains the target framework of the RID's platform (same rule as Wino.Platform.Apple). -->
+    <TargetFrameworks Condition="$(RuntimeIdentifier.StartsWith('osx-')) or $(RuntimeIdentifiers.StartsWith('osx-'))">net10.0-macos</TargetFrameworks>
+    <TargetFrameworks Condition="$(RuntimeIdentifier.StartsWith('ios-')) or $(RuntimeIdentifier.StartsWith('iossimulator-')) or $(RuntimeIdentifiers.StartsWith('ios'))">net10.0-ios</TargetFrameworks>
     <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-macos'))">14.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-ios'))">17.0</SupportedOSPlatformVersion>
     <RootNamespace>Wino.Editor.WebKit</RootNamespace>
