@@ -7,6 +7,7 @@ public enum AppleKeychainFailure
     Locked,
     InteractionRequired,
     Denied,
+    MissingEntitlement,
     NativeFailure
 }
 

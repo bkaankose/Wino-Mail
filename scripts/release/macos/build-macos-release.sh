@@ -289,6 +289,9 @@ grep -q 'com.apple.security.app-sandbox' <<<"$ENTS" || fail "The app entitlement
 grep -q 'com.winomail.macos-spki' <<<"$ENTS" || fail "The app entitlements lack Sparkle's installer exception."
 [ "$(plutil -extract com\\.apple\\.developer\\.aps-environment raw - <<<"$ENTS" 2>/dev/null)" = "production" ] ||
   fail "The app entitlements lack com.apple.developer.aps-environment = production (live notifications)."
+# The keychain store uses the data protection keychain, which needs the profile's application identifier.
+[ "$(plutil -extract com\\.apple\\.application-identifier raw - <<<"$ENTS" 2>/dev/null)" = "$TEAM_ID.$BUNDLE_ID" ] ||
+  fail "The app entitlements lack com.apple.application-identifier $TEAM_ID.$BUNDLE_ID (the keychain needs it)."
 EMBEDDED="$APP_DIR/Contents/embedded.provisionprofile"
 [ -f "$EMBEDDED" ] || fail "The app has no embedded.provisionprofile."
 [ "$(security cms -D -i "$EMBEDDED" 2>/dev/null | plutil -extract UUID raw -)" = "$PROFILE_UUID" ] ||

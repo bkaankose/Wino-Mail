@@ -22,7 +22,10 @@ public sealed class AppleKeychainStore : ISecureItemStore
 
     private SecRecord Query(string scope, string? account)
     {
-        var record = new SecRecord(SecKind.GenericPassword) { Service = Service(scope) };
+        // macOS otherwise uses the file-based login keychain, whose per-binary access lists prompt after every new
+        // build or update. The data protection keychain grants access by the signed application identifier instead,
+        // so unsigned or ad hoc Mac builds get errSecMissingEntitlement. iOS only has this keychain.
+        var record = new SecRecord(SecKind.GenericPassword) { Service = Service(scope), UseDataProtectionKeychain = true };
         // SecRecord's string setters reject null; absence is the scope-wide query.
         if (account is not null) record.Account = account;
         return record;
@@ -104,6 +107,7 @@ public sealed class AppleKeychainStore : ISecureItemStore
                 -25308 => AppleKeychainFailure.InteractionRequired,
                 -25293 => AppleKeychainFailure.Denied,
                 -25291 => AppleKeychainFailure.Locked,
+                -34018 => AppleKeychainFailure.MissingEntitlement,
                 _ => AppleKeychainFailure.NativeFailure,
             };
             throw new AppleKeychainException(failure, (int)status);

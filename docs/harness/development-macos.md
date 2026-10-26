@@ -46,8 +46,9 @@ Debug and Release use CoreCLR (`UseMonoRuntime=false`); the bundle contains `lib
 | --- | --- |
 | Bundle identifier | `com.winomail.macos` (`ApplicationId` in the project, `CFBundleIdentifier` in `Info.plist`) |
 | Team | `4VB7YWRAQ9` |
-| Debug signing | `Apple Development` identity with the **Wino Mail macOS Development** profile. Pass `-p:CodesignKey=- -p:CodesignProvision=` to sign ad hoc. |
-| DMG release signing | **Developer ID Application**, hardened runtime, no profile ([macOS release guide](../releases-macos.md)) |
+| Debug signing | `Apple Development` identity with the **Wino Mail macOS Development** profile. Pass `-p:CodesignKey=- -p:CodesignProvision=` to sign ad hoc; an ad hoc build cannot use the keychain, so it cannot keep accounts signed in. |
+| DMG release signing | **Developer ID Application** with the **Wino Mail macOS Developer ID** profile, hardened runtime ([macOS release guide](../releases-macos.md)) |
+| Keychain | `AppleKeychainStore` uses the data protection keychain. Access follows the signed `com.apple.application-identifier`, which only a provisioning profile provides, so new builds and updates never ask for keychain access. |
 | App Store signing | **Apple Distribution** with the App Store profile and `Entitlements.AppStore.plist` |
 
 `Entitlements.plist` enables App Sandbox, network client, network server (loopback listeners for system-browser OAuth callbacks), user-selected file read/write, and JIT. It also grants Sparkle's installer mach-lookup exception for DMG builds. `Entitlements.AppStore.plist` is the same set without Sparkle's exception; keep the two in step.
