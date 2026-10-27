@@ -77,12 +77,12 @@
         FORBID_TAGS: [
             "script", "form", "input", "button", "textarea", "select", "option",
             "fieldset", "legend", "output", "datalist", "iframe", "frame", "frameset",
-            "object", "embed", "applet", "base", "meta", "link", "template"
+            "object", "embed", "applet", "base", "meta", "link", "template", "style"
         ],
         // Extends DOMPurify's defaults, which drop <title>, <noscript> and similar text from removed elements.
         ADD_FORBID_CONTENTS: [
             "script", "form", "iframe", "frame", "frameset", "object", "embed",
-            "applet", "template"
+            "applet", "template", "style"
         ]
     };
 
@@ -1096,6 +1096,8 @@
         return true;
     }
 
+    editor.addEventListener("load", scheduleDarkColorRefresh, true);
+    editor.addEventListener("error", scheduleDarkColorRefresh, true);
     editor.addEventListener("compositionstart", () => { correctionRevision++; });
     editor.addEventListener("input", event => {
         correctionRevision++;

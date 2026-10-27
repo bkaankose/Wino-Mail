@@ -1,8 +1,11 @@
 using System;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Interfaces;
 using Wino.Helpers;
+using Wino.Mail.WinUI;
 
 namespace Wino.Dialogs;
 
@@ -13,6 +16,7 @@ public sealed partial class SignatureEditorDialog : ContentDialog
     public SignatureEditorDialog()
     {
         InitializeComponent();
+        WebViewEditor.IsEditorDarkMode = WinoApplication.Current.UnderlyingThemeService.IsUnderlyingThemeDark();
 
         SignatureNameTextBox.Header = Translator.SignatureEditorDialog_SignatureName_TitleNew;
 
@@ -23,6 +27,7 @@ public sealed partial class SignatureEditorDialog : ContentDialog
     public SignatureEditorDialog(AccountSignature signatureModel)
     {
         InitializeComponent();
+        WebViewEditor.IsEditorDarkMode = WinoApplication.Current.UnderlyingThemeService.IsUnderlyingThemeDark();
 
         Result = new AccountSignature
         {
@@ -41,6 +46,8 @@ public sealed partial class SignatureEditorDialog : ContentDialog
 
     private async void SignatureDialogOpened(ContentDialog sender, ContentDialogOpenedEventArgs args)
     {
+        var preferences = WinoApplication.Current.Services.GetRequiredService<IPreferencesService>();
+        await WebViewEditor.SetDefaultTypographyAsync(preferences.ComposerFont, preferences.ComposerFontSize);
         await WebViewEditor.RenderHtmlAsync(Result?.HtmlBody ?? string.Empty);
     }
 

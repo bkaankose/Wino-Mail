@@ -44,6 +44,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     public Func<Task<string>> GetHTMLBodyFunction;
     public Func<string, Task> RenderHtmlBodyAsyncFunc { get; set; }
 
+    public bool ShouldBlockRemoteContent { get; private set; }
+
     /// <summary>Wino Intelligence rewrite for this draft. Hidden unless the account is eligible.</summary>
     public ComposerRewriteSession RewriteSession { get; }
 
@@ -1107,6 +1109,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         var mimeFilePath = mimeMessageInformation.Path;
 
         var renderModel = _mimeFileService.GetMailRenderModel(replyingMime, mimeFilePath);
+        var shouldBlockRemoteContent = await ShouldBlockRemoteContentAsync(replyingMime).ConfigureAwait(false);
         var toItems = await ResolveAddressInfoAsync(replyingMime.To).ConfigureAwait(false);
         var ccItems = await ResolveAddressInfoAsync(replyingMime.Cc).ConfigureAwait(false);
         var bccItems = await ResolveAddressInfoAsync(replyingMime.Bcc).ConfigureAwait(false);
@@ -1116,6 +1119,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             // Extract information
 
             CurrentMimeMessage = replyingMime;
+            ShouldBlockRemoteContent = shouldBlockRemoteContent;
 
             ToItems.Clear();
             CCItems.Clear();
@@ -1142,6 +1146,26 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         {
             await ExecuteUIThreadAsync(() => RenderHtmlBodyAsyncFunc(renderModel.RenderHtml))
                 .ConfigureAwait(false);
+        }
+    }
+
+    private async Task<bool> ShouldBlockRemoteContentAsync(MimeMessage draftMessage)
+    {
+        if (!PreferencesService.RenderImages) return true;
+
+        var accountId = ComposingAccount?.Id;
+        var referenceMessageId = MailHeaderExtensions.NormalizeMessageId(draftMessage.InReplyTo);
+        if (accountId == null || string.IsNullOrEmpty(referenceMessageId)) return false;
+
+        try
+        {
+            var referenceMail = await _mailService.GetMailCopyByMessageIdAsync(accountId.Value, referenceMessageId).ConfigureAwait(false);
+            return referenceMail?.AssignedFolder?.SpecialFolderType == SpecialFolderType.Junk;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Could not resolve the replied message for the composer remote content policy.");
+            return true;
         }
     }
 

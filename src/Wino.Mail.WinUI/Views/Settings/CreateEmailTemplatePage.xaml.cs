@@ -1,8 +1,11 @@
 using System;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Navigation;
+using Wino.Core.Domain.Interfaces;
 using Wino.Views.Abstract;
 using Wino.Helpers;
+using Wino.Mail.WinUI;
 
 namespace Wino.Views.Settings;
 
@@ -11,6 +14,7 @@ public sealed partial class CreateEmailTemplatePage : CreateEmailTemplatePageAbs
     public CreateEmailTemplatePage()
     {
         InitializeComponent();
+        WebViewEditor.IsEditorDarkMode = WinoApplication.Current.UnderlyingThemeService.IsUnderlyingThemeDark();
     }
 
     protected async override void OnNavigatedTo(NavigationEventArgs e)
@@ -18,6 +22,8 @@ public sealed partial class CreateEmailTemplatePage : CreateEmailTemplatePageAbs
         base.OnNavigatedTo(e);
 
         var htmlContent = await ViewModel.LoadAsync(e.Parameter);
+        var preferences = WinoApplication.Current.Services.GetRequiredService<IPreferencesService>();
+        await WebViewEditor.SetDefaultTypographyAsync(preferences.ComposerFont, preferences.ComposerFontSize);
         await WebViewEditor.RenderHtmlAsync(htmlContent);
 
         if (!ViewModel.IsExistingTemplate)

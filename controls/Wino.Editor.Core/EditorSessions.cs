@@ -34,6 +34,7 @@ public interface IHtmlMailEditorSession : IEditorCommandTarget, IAsyncDisposable
     Task SetApplicationShortcutsAsync(IReadOnlyList<EditorApplicationShortcutGesture> shortcuts, CancellationToken cancellationToken = default);
     Task InsertImagesAsync(IEnumerable<EditorImageInfo> images, CancellationToken cancellationToken = default);
     Task ExecuteCommandAsync(EditorCommand command, CancellationToken cancellationToken);
+    Task SetRemoteContentPolicyAsync(RemoteContentPolicy policy, CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
 
 public interface IHtmlMailReaderSession : IAsyncDisposable

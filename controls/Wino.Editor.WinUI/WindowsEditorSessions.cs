@@ -24,6 +24,16 @@ public sealed class WindowsHtmlMailEditorSession(WinoMailEditor control) : IHtml
     public Task FocusEditorAsync(bool focusControlAsWell, CancellationToken cancellationToken = default) => RunAsync(() => control.FocusEditorAsync(focusControlAsWell), cancellationToken);
     public Task SetApplicationShortcutsAsync(IReadOnlyList<EditorApplicationShortcutGesture> shortcuts, CancellationToken cancellationToken = default) => RunAsync(() => control.SetApplicationShortcutsAsync(shortcuts), cancellationToken);
     public Task InsertImagesAsync(IEnumerable<EditorImageInfo> images, CancellationToken cancellationToken = default) => RunAsync(() => control.InsertImagesAsync(images), cancellationToken);
+    public Task SetRemoteContentPolicyAsync(RemoteContentPolicy policy, CancellationToken cancellationToken = default) => RunAsync(() =>
+    {
+        control.BlockRemoteResources = policy switch
+        {
+            RemoteContentPolicy.Blocked => true,
+            RemoteContentPolicy.ImagesAndFontsAllowed => false,
+            _ => throw new ArgumentOutOfRangeException(nameof(policy))
+        };
+        return Task.CompletedTask;
+    }, cancellationToken);
     public Task ExecuteCommandAsync(EditorCommand command) => ExecuteCommandAsync(command, default);
     public Task ExecuteCommandAsync(EditorCommand command, CancellationToken cancellationToken) => RunAsync(() => control.ExecuteCommandAsync(command), cancellationToken);
     private Task RunAsync(Func<Task> operation, CancellationToken cancellationToken) =>

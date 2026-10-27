@@ -1232,6 +1232,9 @@ public sealed partial class ComposePage : ComposePageAbstract,
             if (editorLifecycleToken.IsCancellationRequested)
                 return;
 
+            await EditorSession.SetRemoteContentPolicyAsync(
+                ViewModel.ShouldBlockRemoteContent ? RemoteContentPolicy.Blocked : RemoteContentPolicy.ImagesAndFontsAllowed,
+                editorLifecycleToken);
             await EditorSession.RenderHtmlAsync(html, editorLifecycleToken);
 
             if (!editorLifecycleToken.IsCancellationRequested)
