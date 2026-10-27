@@ -16,15 +16,19 @@ namespace Wino.Calendar.Helpers;
 public static class CalendarXamlHelpers
 {
     public static string GetEventAutomationName(string title, DateTime start, DateTime end, bool isAllDay,
-        bool isRecurring, string location, string calendarName, CalendarSettings settings)
+        bool isRecurring, string location, string calendarName, string stateDescription, CalendarSettings settings)
         => string.Join(", ", new[]
         {
             title,
             CalendarAccessibilityFormatter.FormatPeriod(start, end, isAllDay, settings),
             isRecurring ? Translator.CalendarEventCompose_Recurring : null,
+            stateDescription,
             location,
             calendarName
         }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    public static string GetEventToolTip(string title, string stateDescription)
+        => string.IsNullOrWhiteSpace(stateDescription) ? title : $"{title}{Environment.NewLine}{stateDescription}";
 
     public static string GetEventDateAutomationName(DateTime start, DateTime end, bool isAllDay, CalendarSettings settings)
         => start == default ? string.Empty : CalendarAccessibilityFormatter.FormatPeriod(start, end, isAllDay, settings);

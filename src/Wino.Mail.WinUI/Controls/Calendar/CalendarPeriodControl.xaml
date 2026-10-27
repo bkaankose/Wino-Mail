@@ -25,9 +25,9 @@
         <DataTemplate x:Key="OverlappedCalendarEventTemplate" x:DataType="viewModels:CalendarItemViewModel">
             <Border
                 Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
-                BorderBrush="{ThemeResource ControlStrongStrokeColorDefaultBrush}"
+                BorderBrush="{ThemeResource SolidBackgroundFillColorBaseBrush}"
                 BorderThickness="1"
-                CornerRadius="1">
+                CornerRadius="5">
                 <local:CalendarItemControl CalendarItem="{x:Bind}" />
             </Border>
         </DataTemplate>
@@ -35,9 +35,9 @@
         <DataTemplate x:Key="ProtectedTitleCalendarEventTemplate" x:DataType="viewModels:CalendarItemViewModel">
             <Border
                 Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
-                BorderBrush="{ThemeResource ControlStrongStrokeColorDefaultBrush}"
+                BorderBrush="{ThemeResource SolidBackgroundFillColorBaseBrush}"
                 BorderThickness="1"
-                CornerRadius="1">
+                CornerRadius="5">
                 <local:CalendarItemControl CalendarItem="{x:Bind}" ProtectTitle="True" />
             </Border>
         </DataTemplate>

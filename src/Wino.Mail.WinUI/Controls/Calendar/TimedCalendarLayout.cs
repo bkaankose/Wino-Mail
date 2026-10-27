@@ -22,6 +22,11 @@ internal static class TimedCalendarLayoutCalculator
     private const double AllDayItemGap = 4d;
     private const double AllDaySectionPadding = 6d;
 
+    // Short events are laid out as if they lasted this tall, so a 15-minute event keeps its bar and a
+    // compact title. Overlap columns are computed from the stretched end, so a following event moves
+    // into the next column instead of being painted over.
+    private const double MinimumItemHeight = 18d;
+
     public static double GetTimelineHeight(double hourHeight) => hourHeight * 24d;
 
     public static double GetAllDayHeight(int laneCount, bool hasMoreRow)
@@ -56,7 +61,7 @@ internal static class TimedCalendarLayoutCalculator
     public static List<TimedItemLayout> CalculateDay(DateOnly date, IEnumerable<CalendarItemViewModel> items, double dayWidth, double hourHeight, CalendarEventDisplayMode displayMode = CalendarEventDisplayMode.Stacked)
     {
         var layouts = new List<TimedItemLayout>();
-        var daySegments = BuildDaySegments(items, date)
+        var daySegments = BuildDaySegments(items, date, hourHeight)
             .OrderBy(segment => segment.StartMinute)
             .ThenBy(segment => segment.EndMinute)
             .ToList();
@@ -131,11 +136,13 @@ internal static class TimedCalendarLayoutCalculator
         return new AllDayColumnLayout(layouts, overflow);
     }
 
-    private static List<Segment> BuildDaySegments(IEnumerable<CalendarItemViewModel> items, DateOnly date)
+    private static List<Segment> BuildDaySegments(IEnumerable<CalendarItemViewModel> items, DateOnly date, double hourHeight)
     {
         var dayStart = date.ToDateTime(TimeOnly.MinValue);
         var dayEnd = dayStart.AddDays(1);
         var segments = new List<Segment>();
+        var minimumMinutes = hourHeight > 0d ? MinimumItemHeight * 60d / hourHeight : 0d;
+        var dayMinutes = (dayEnd - dayStart).TotalMinutes;
 
         foreach (var item in items)
         {
@@ -165,7 +172,10 @@ internal static class TimedCalendarLayoutCalculator
                 continue;
             }
 
-            segments.Add(new Segment(item, (segmentStart - dayStart).TotalMinutes, (segmentEnd - dayStart).TotalMinutes));
+            var startMinute = (segmentStart - dayStart).TotalMinutes;
+            var endMinute = Math.Max((segmentEnd - dayStart).TotalMinutes, Math.Min(dayMinutes, startMinute + minimumMinutes));
+
+            segments.Add(new Segment(item, startMinute, endMinute));
         }
 
         return segments;

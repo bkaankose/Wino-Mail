@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Itenso.TimePeriod;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
@@ -80,6 +82,42 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
     public bool IsRecurringChild => CalendarItem.IsRecurringChild;
     public bool IsRecurringParent => CalendarItem.IsRecurringParent;
     public bool CanDragDrop => !IsBusy && CalendarItem.CanChangeStartAndEndDate;
+
+    /// <summary>The event's own colour, else its calendar's.</summary>
+    public string DisplayColorHex => string.IsNullOrWhiteSpace(CalendarItem.CustomEventColorHex)
+        ? AssignedCalendar?.BackgroundColorHex
+        : CalendarItem.CustomEventColorHex;
+
+    public CalendarItemShowAs ShowAs => CalendarItem.ShowAs;
+    public bool IsOutOfOffice => CalendarItem.ShowAs == CalendarItemShowAs.OutOfOffice;
+    public bool IsWorkingElsewhere => CalendarItem.ShowAs == CalendarItemShowAs.WorkingElsewhere;
+
+    /// <summary>Declined invitations are stored as cancelled and hidden, so this covers cancelled events only.</summary>
+    public bool IsCancelled => CalendarItem.Status == CalendarItemStatus.Cancelled;
+
+    /// <summary>Synchronizers set NotResponded only for invitations the user has not answered.</summary>
+    public bool NeedsResponse => CalendarItem.Status == CalendarItemStatus.NotResponded;
+
+    public bool IsPrivate => CalendarItem.Visibility is CalendarItemVisibility.Private or CalendarItemVisibility.Confidential;
+
+    /// <summary>Evaluated when read; a tile does not dim by itself when its event ends while it is shown.</summary>
+    public bool IsPast => EndDate < DateTime.Now;
+
+    /// <summary>Show-as, response and privacy words that the tile only draws as shapes and glyphs.</summary>
+    public string StateDescription => string.Join(", ", new[]
+    {
+        CalendarItem.ShowAs switch
+        {
+            CalendarItemShowAs.Free => Translator.CalendarShowAs_Free,
+            CalendarItemShowAs.Tentative => Translator.CalendarShowAs_Tentative,
+            CalendarItemShowAs.OutOfOffice => Translator.CalendarShowAs_OutOfOffice,
+            CalendarItemShowAs.WorkingElsewhere => Translator.CalendarShowAs_WorkingElsewhere,
+            _ => Translator.CalendarShowAs_Busy
+        },
+        IsCancelled ? Translator.CalendarItemStatus_Cancelled : null,
+        NeedsResponse ? Translator.CalendarItemStatus_NeedsResponse : null,
+        IsPrivate ? Translator.CalendarEventCompose_Private : null
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
@@ -175,6 +213,15 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
         OnPropertyChanged(nameof(CanDragDrop));
         OnPropertyChanged(nameof(AssignedCalendar));
         OnPropertyChanged(nameof(DisplayTitle));
+        OnPropertyChanged(nameof(DisplayColorHex));
+        OnPropertyChanged(nameof(ShowAs));
+        OnPropertyChanged(nameof(IsOutOfOffice));
+        OnPropertyChanged(nameof(IsWorkingElsewhere));
+        OnPropertyChanged(nameof(IsCancelled));
+        OnPropertyChanged(nameof(NeedsResponse));
+        OnPropertyChanged(nameof(IsPrivate));
+        OnPropertyChanged(nameof(IsPast));
+        OnPropertyChanged(nameof(StateDescription));
     }
 
     /// <summary>

@@ -455,6 +455,8 @@
   "CalendarShowAs_Busy": "Busy",
   "CalendarShowAs_OutOfOffice": "Out of Office",
   "CalendarShowAs_WorkingElsewhere": "Working Elsewhere",
+  "CalendarItemStatus_Cancelled": "Cancelled",
+  "CalendarItemStatus_NeedsResponse": "Needs response",
   "CalendarContextMenu_AllEventsInSeries": "All events in the series",
   "CalendarItem_DetailsPopup_JoinOnline": "Join online",
   "CalendarContextMenu_ThisEventOnly": "This event only",

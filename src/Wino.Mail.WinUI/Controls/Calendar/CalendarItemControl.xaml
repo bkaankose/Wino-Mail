@@ -5,13 +5,13 @@
     xmlns:calendarHelpers="using:Wino.Calendar.Helpers"
     xmlns:controls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:helpers="using:Wino.Helpers"
     xmlns:local="using:Wino.Calendar.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     d:DesignHeight="300"
     d:DesignWidth="400"
-    AutomationProperties.Name="{x:Bind calendarHelpers:CalendarXamlHelpers.GetEventAutomationName(CalendarItem.Title, CalendarItem.StartDate, CalendarItem.EndDate, CalendarItem.IsAllDayEvent, CalendarItem.IsRecurringEvent, CalendarItem.Location, CalendarItem.AssignedCalendar.Name, CalendarItem.CalendarSettings), Mode=OneWay}"
+    ActualThemeChanged="OnControlActualThemeChanged"
+    AutomationProperties.Name="{x:Bind calendarHelpers:CalendarXamlHelpers.GetEventAutomationName(CalendarItem.Title, CalendarItem.StartDate, CalendarItem.EndDate, CalendarItem.IsAllDayEvent, CalendarItem.IsRecurringEvent, CalendarItem.Location, CalendarItem.AssignedCalendar.Name, CalendarItem.StateDescription, CalendarItem.CalendarSettings), Mode=OneWay}"
     CanDrag="{x:Bind local:CalendarItemControl.CanDragItem(CalendarItem.CanDragDrop, IsDragDisabled), Mode=OneWay, FallbackValue=False}"
     DragStarting="ControlDragStarting"
     DropCompleted="ControlDropped"
@@ -20,14 +20,24 @@
     Unloaded="OnControlUnloaded"
     mc:Ignorable="d">
 
+    <!--
+        Tinted tile: a wash of the calendar colour pre-mixed with an opaque grid colour, a 3 px bar of
+        the full colour, theme text, and the time line in a contrast-safe variant of the colour. The
+        colour brushes come from code (CalendarTileColors); shapes and theme brushes switch here.
+    -->
     <Grid
         x:Name="MainGrid"
-        CornerRadius="1"
+        Background="Transparent"
+        CornerRadius="4"
         DoubleTapped="ControlDoubleTapped"
+        PointerCanceled="MainGridPointerLeft"
+        PointerCaptureLost="MainGridPointerLeft"
+        PointerEntered="MainGridPointerEntered"
+        PointerExited="MainGridPointerLeft"
         RightTapped="ControlRightTapped"
         Tapped="ControlTapped">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="3" />
+            <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
@@ -40,35 +50,64 @@
                 ShowMode="Auto" />
         </Grid.ContextFlyout>
         <ToolTipService.ToolTip>
-            <ToolTip Content="{x:Bind CalendarItem.DisplayTitle, Mode=OneWay}" />
+            <ToolTip Content="{x:Bind calendarHelpers:CalendarXamlHelpers.GetEventToolTip(CalendarItem.DisplayTitle, CalendarItem.StateDescription), Mode=OneWay}" />
         </ToolTipService.ToolTip>
 
+        <Border
+            x:Name="WashLayer"
+            Grid.ColumnSpan="3"
+            Background="{x:Bind TileBackground, Mode=OneWay}" />
+
+        <Border
+            x:Name="HoverLayer"
+            Grid.ColumnSpan="3"
+            Background="{x:Bind TileHover, Mode=OneWay}"
+            Opacity="0" />
+
+        <Border
+            x:Name="SelectedLayer"
+            Grid.ColumnSpan="3"
+            Background="{x:Bind TileHover, Mode=OneWay}"
+            Opacity="0" />
 
         <Grid
-            x:Name="MainBackground"
-            Grid.Column="1"
-            Grid.ColumnSpan="2"
-            Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
-            Opacity="0.9" />
+            x:Name="BarHost"
+            Width="3"
+            Margin="2,2,0,2"
+            SizeChanged="BarHostSizeChanged">
+            <Rectangle
+                x:Name="SolidBar"
+                Fill="{x:Bind TileAccent, Mode=OneWay}"
+                RadiusX="1.5"
+                RadiusY="1.5" />
+            <Rectangle
+                x:Name="HollowBar"
+                RadiusX="1.5"
+                RadiusY="1.5"
+                Stroke="{x:Bind TileAccent, Mode=OneWay}"
+                StrokeThickness="1"
+                Visibility="Collapsed" />
+            <!--  Dash lengths are in multiples of the 3 px thickness: 4 px dashes, 3 px gaps.  -->
+            <Line
+                x:Name="DashedBar"
+                Stroke="{x:Bind TileAccent, Mode=OneWay}"
+                StrokeDashArray="1.3333 1"
+                StrokeThickness="3"
+                Visibility="Collapsed"
+                X1="1.5"
+                X2="1.5"
+                Y1="0"
+                Y2="0" />
+        </Grid>
 
         <Rectangle
-            x:Name="MainBorder"
-            Grid.Column="1"
-            Grid.ColumnSpan="2"
-            Canvas.ZIndex="2"
-            Stroke="{ThemeResource CalendarItemBorderBrush}"
-            StrokeThickness="0" />
-
-        <!--  ShowAs Status Stripe  -->
-        <ContentControl
-            x:Name="ShowAsStripe"
-            Grid.Column="0"
-            HorizontalContentAlignment="Stretch"
-            VerticalContentAlignment="Stretch"
-            Canvas.ZIndex="10000"
-            Content="{x:Bind CalendarItem, Mode=OneWay}"
-            ContentTemplateSelector="{StaticResource ShowAsStripeSelector}"
-            IsTabStop="False" />
+            x:Name="StatusOutline"
+            Grid.ColumnSpan="3"
+            RadiusX="4"
+            RadiusY="4"
+            Stroke="{x:Bind TileOutline, Mode=OneWay}"
+            StrokeThickness="1"
+            Visibility="Collapsed" />
 
         <StackPanel
             x:Name="EventTextPanel"
@@ -76,29 +115,56 @@
             Margin="6,3,4,0"
             VerticalAlignment="Top"
             Spacing="2">
-            <TextBlock
-                x:Name="EventTitleTextblock"
-                FontSize="13"
-                FontWeight="SemiBold"
-                Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
-                HorizontalTextAlignment="Left"
-                MaxLines="2"
-                Text="{x:Bind CalendarItem.DisplayTitle, Mode=OneWay}"
-                TextTrimming="CharacterEllipsis"
-                TextWrapping="Wrap" />
+            <Grid x:Name="TitleRow" ColumnSpacing="4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock
+                    x:Name="StartTimeTextBlock"
+                    VerticalAlignment="Center"
+                    FontSize="11"
+                    FontWeight="SemiBold"
+                    Foreground="{x:Bind TileTextBrush, Mode=OneWay}"
+                    Text="{x:Bind CalendarItem.DisplayStartTime, Mode=OneWay}"
+                    Visibility="Collapsed" />
+                <controls:WinoFontIcon
+                    x:Name="PrivateGlyph"
+                    Grid.Column="1"
+                    Margin="0,3,0,0"
+                    VerticalAlignment="Top"
+                    FontSize="11"
+                    Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                    Icon="LockClosed"
+                    Visibility="{x:Bind CalendarItem.IsPrivate, Mode=OneWay}" />
+                <TextBlock
+                    x:Name="EventTitleTextblock"
+                    Grid.Column="2"
+                    FontSize="13"
+                    FontWeight="SemiBold"
+                    Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                    HorizontalTextAlignment="Left"
+                    MaxLines="2"
+                    Text="{x:Bind CalendarItem.DisplayTitle, Mode=OneWay}"
+                    TextTrimming="CharacterEllipsis"
+                    TextWrapping="Wrap" />
+            </Grid>
             <StackPanel
                 x:Name="EventDetailsPanel"
                 Spacing="2"
                 Visibility="Collapsed">
                 <TextBlock
+                    x:Name="EventTimeTextBlock"
                     FontSize="11"
-                    Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
+                    FontWeight="SemiBold"
+                    Foreground="{x:Bind TileTextBrush, Mode=OneWay}"
                     Text="{x:Bind CalendarItem.DisplayTimeRange, Mode=OneWay}"
                     TextTrimming="CharacterEllipsis" />
                 <TextBlock
                     x:Name="EventLocationTextBlock"
                     FontSize="11"
-                    Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                     Text="{x:Bind CalendarItem.Location, Mode=OneWay}"
                     TextTrimming="CharacterEllipsis" />
             </StackPanel>
@@ -109,33 +175,68 @@
             Grid.Column="2"
             Width="10"
             Height="10"
-            Margin="0,2,2,0"
+            Margin="0,4,5,0"
             HorizontalAlignment="Right"
             VerticalAlignment="Top"
             IsActive="False"
             Visibility="Collapsed" />
 
-        <!--  TODO: Event attributes  -->
         <StackPanel
             x:Name="AttributeStack"
             Grid.Column="2"
-            Margin="0,4,4,0"
+            Margin="0,4,5,0"
             HorizontalAlignment="Right"
             VerticalAlignment="Top"
             Orientation="Horizontal"
-            Spacing="6">
+            Spacing="4">
             <controls:WinoFontIcon
                 FontSize="12"
-                Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
+                Foreground="{x:Bind TileTextBrush, Mode=OneWay}"
+                Icon="QuestionCircle"
+                Visibility="{x:Bind CalendarItem.NeedsResponse, Mode=OneWay}" />
+
+            <controls:WinoFontIcon
+                FontSize="12"
+                Foreground="{x:Bind TileTextBrush, Mode=OneWay}"
+                Icon="Airplane"
+                Visibility="{x:Bind CalendarItem.IsOutOfOffice, Mode=OneWay}" />
+
+            <controls:WinoFontIcon
+                FontSize="12"
+                Foreground="{x:Bind TileTextBrush, Mode=OneWay}"
+                Icon="Home"
+                Visibility="{x:Bind CalendarItem.IsWorkingElsewhere, Mode=OneWay}" />
+
+            <controls:WinoFontIcon
+                FontSize="12"
+                Foreground="{x:Bind TileTextBrush, Mode=OneWay}"
                 Icon="CalendarEventRepeat"
                 Visibility="{x:Bind CalendarItem.IsRecurringEvent, Mode=OneWay}" />
 
             <controls:WinoFontIcon
                 FontSize="12"
-                Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
+                Foreground="{x:Bind TileTextBrush, Mode=OneWay}"
                 Icon="CalendarEventMuiltiDay"
                 Visibility="{x:Bind CalendarItem.IsMultiDayEvent, Mode=OneWay}" />
         </StackPanel>
+
+        <Border
+            x:Name="SelectionBorder"
+            Grid.ColumnSpan="3"
+            BorderBrush="{ThemeResource CalendarItemSelectedBorderBrush}"
+            BorderThickness="2"
+            CornerRadius="4"
+            Visibility="Collapsed" />
+
+        <Rectangle
+            x:Name="DragOutline"
+            Grid.ColumnSpan="3"
+            RadiusX="4"
+            RadiusY="4"
+            Stroke="{ThemeResource CalendarItemDraggingBorderBrush}"
+            StrokeDashArray="2.5"
+            StrokeThickness="2"
+            Visibility="Collapsed" />
 
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="TitlePlacementStates">
@@ -147,18 +248,23 @@
                     <VisualState.Setters>
                         <Setter Target="EventTitleTextblock.VerticalAlignment" Value="Top" />
                         <Setter Target="EventTitleTextblock.HorizontalTextAlignment" Value="Left" />
-                        <Setter Target="EventTitleTextblock.Margin" Value="6,4,6,0" />
                     </VisualState.Setters>
                 </VisualState>
             </VisualStateGroup>
-            <!--  TODO: Selection of items are disabled temporarily.  -->
+            <VisualStateGroup x:Name="CommonStates">
+                <VisualState x:Name="PointerNormal" />
+                <VisualState x:Name="PointerOver">
+                    <VisualState.Setters>
+                        <Setter Target="HoverLayer.Opacity" Value="0.12" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
             <VisualStateGroup x:Name="SelectionStates">
                 <VisualState x:Name="NonSelected" />
                 <VisualState x:Name="Selected">
                     <VisualState.Setters>
-                        <Setter Target="MainBorder.StrokeThickness" Value="1" />
-                        <Setter Target="MainBorder.Margin" Value="1" />
-                        <Setter Target="MainBorder.Stroke" Value="{ThemeResource CalendarItemSelectedBorderBrush}" />
+                        <Setter Target="SelectionBorder.Visibility" Value="Visible" />
+                        <Setter Target="SelectedLayer.Opacity" Value="0.12" />
                     </VisualState.Setters>
                     <VisualState.StateTriggers>
                         <StateTrigger IsActive="{x:Bind CalendarItem.IsSelected, Mode=OneWay, FallbackValue=False}" />
@@ -172,9 +278,7 @@
                         <StateTrigger IsActive="{x:Bind IsDragging, Mode=OneWay}" />
                     </VisualState.StateTriggers>
                     <VisualState.Setters>
-                        <Setter Target="MainBorder.StrokeThickness" Value="2" />
-                        <Setter Target="MainBorder.Stroke" Value="{ThemeResource CalendarItemDraggingBorderBrush}" />
-                        <Setter Target="MainBorder.StrokeDashArray" Value="2.5" />
+                        <Setter Target="DragOutline.Visibility" Value="Visible" />
                     </VisualState.Setters>
                 </VisualState>
             </VisualStateGroup>
@@ -185,37 +289,120 @@
                         <StateTrigger IsActive="{x:Bind CalendarItem.IsBusy, Mode=OneWay, FallbackValue=False}" />
                     </VisualState.StateTriggers>
                     <VisualState.Setters>
-                        <Setter Target="MainBackground.Opacity" Value="0.55" />
+                        <Setter Target="MainGrid.Opacity" Value="0.6" />
                         <Setter Target="BusyRing.IsActive" Value="True" />
                         <Setter Target="BusyRing.Visibility" Value="Visible" />
                     </VisualState.Setters>
                 </VisualState>
             </VisualStateGroup>
 
+            <!--  Show-as: Busy keeps the solid bar, Free hollows it and Tentative dashes it.  -->
+            <VisualStateGroup x:Name="BarStates">
+                <VisualState x:Name="SolidBarState" />
+                <VisualState x:Name="HollowBarState">
+                    <VisualState.Setters>
+                        <Setter Target="SolidBar.Visibility" Value="Collapsed" />
+                        <Setter Target="HollowBar.Visibility" Value="Visible" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="DashedBarState">
+                    <VisualState.Setters>
+                        <Setter Target="SolidBar.Visibility" Value="Collapsed" />
+                        <Setter Target="DashedBar.Visibility" Value="Visible" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+
+            <VisualStateGroup x:Name="OutlineStates">
+                <VisualState x:Name="NoOutline" />
+                <VisualState x:Name="SolidOutline">
+                    <VisualState.Setters>
+                        <Setter Target="StatusOutline.Visibility" Value="Visible" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="DashedOutline">
+                    <VisualState.Setters>
+                        <Setter Target="StatusOutline.Visibility" Value="Visible" />
+                        <Setter Target="StatusOutline.StrokeThickness" Value="1.5" />
+                        <Setter Target="StatusOutline.StrokeDashArray" Value="3 2" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+
+            <VisualStateGroup x:Name="EmphasisStates">
+                <VisualState x:Name="NormalEmphasis" />
+                <VisualState x:Name="PastEmphasis">
+                    <VisualState.Setters>
+                        <Setter Target="BarHost.Opacity" Value="0.45" />
+                        <Setter Target="EventTitleTextblock.Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Setter Target="PrivateGlyph.Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Setter Target="EventTimeTextBlock.Opacity" Value="0.7" />
+                        <Setter Target="StartTimeTextBlock.Opacity" Value="0.7" />
+                        <Setter Target="AttributeStack.Opacity" Value="0.7" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="CancelledEmphasis">
+                    <VisualState.Setters>
+                        <Setter Target="BarHost.Opacity" Value="0.35" />
+                        <Setter Target="EventTitleTextblock.Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Setter Target="EventTitleTextblock.TextDecorations" Value="Strikethrough" />
+                        <Setter Target="PrivateGlyph.Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Setter Target="EventTimeTextBlock.Opacity" Value="0.7" />
+                        <Setter Target="StartTimeTextBlock.Opacity" Value="0.7" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+
             <VisualStateGroup x:Name="EventDurationStates">
-                <!--  Regular event template in the panel.  -->
-                <VisualState x:Name="RegularEvent" />
+                <!--  Regular event template in the panel. The bottom pixel separates back-to-back tiles.  -->
+                <VisualState x:Name="RegularEvent">
+                    <VisualState.Setters>
+                        <Setter Target="MainGrid.Margin" Value="0,0,0,1" />
+                    </VisualState.Setters>
+                </VisualState>
 
                 <!--  All-Day template for top area.  -->
                 <VisualState x:Name="AllDayEvent">
                     <VisualState.Setters>
+                        <Setter Target="EventTextPanel.VerticalAlignment" Value="Center" />
+                        <Setter Target="EventTextPanel.Margin" Value="6,0,4,0" />
                         <Setter Target="EventTitleTextblock.HorizontalAlignment" Value="Stretch" />
                         <Setter Target="EventTitleTextblock.HorizontalTextAlignment" Value="Left" />
                         <Setter Target="AttributeStack.VerticalAlignment" Value="Center" />
-                        <Setter Target="AttributeStack.Margin" Value="0,0,4,0" />
-                        <Setter Target="MainBorder.StrokeThickness" Value="0" />
+                        <Setter Target="AttributeStack.Margin" Value="0,0,5,0" />
                     </VisualState.Setters>
                 </VisualState>
 
-                <!--  Multi-Day template for top area.  -->
+                <!--  Month row of a timed event: start time, then the title.  -->
+                <VisualState x:Name="MonthEvent">
+                    <VisualState.Setters>
+                        <Setter Target="BarHost.Height" Value="14" />
+                        <Setter Target="BarHost.VerticalAlignment" Value="Center" />
+                        <Setter Target="BarHost.Margin" Value="3,0,0,0" />
+                        <Setter Target="EventTextPanel.VerticalAlignment" Value="Center" />
+                        <Setter Target="EventTextPanel.Margin" Value="5,0,4,0" />
+                        <Setter Target="StartTimeTextBlock.Visibility" Value="Visible" />
+                        <Setter Target="PrivateGlyph.Margin" Value="0,2,0,0" />
+                        <Setter Target="EventTitleTextblock.FontSize" Value="12" />
+                        <Setter Target="AttributeStack.VerticalAlignment" Value="Center" />
+                        <Setter Target="AttributeStack.Margin" Value="0,0,4,0" />
+                    </VisualState.Setters>
+                </VisualState>
+
+                <!--  All-day and multi-day rows of the month view.  -->
                 <VisualState x:Name="CustomAreaMultiDayEvent">
                     <VisualState.Setters>
-                        <Setter Target="MainBackground.Opacity" Value="1" />
-                        <Setter Target="MainBorder.StrokeThickness" Value="0" />
-                        <Setter Target="AttributeStack.Margin" Value="0,0,4,0" />
-                        <Setter Target="AttributeStack.VerticalAlignment" Value="Center" />
+                        <Setter Target="BarHost.Height" Value="14" />
+                        <Setter Target="BarHost.VerticalAlignment" Value="Center" />
+                        <Setter Target="BarHost.Margin" Value="3,0,0,0" />
+                        <Setter Target="EventTextPanel.VerticalAlignment" Value="Center" />
+                        <Setter Target="EventTextPanel.Margin" Value="5,0,4,0" />
+                        <Setter Target="PrivateGlyph.Margin" Value="0,2,0,0" />
+                        <Setter Target="EventTitleTextblock.FontSize" Value="12" />
                         <Setter Target="EventTitleTextblock.HorizontalAlignment" Value="Stretch" />
                         <Setter Target="EventTitleTextblock.HorizontalTextAlignment" Value="Left" />
+                        <Setter Target="AttributeStack.VerticalAlignment" Value="Center" />
+                        <Setter Target="AttributeStack.Margin" Value="0,0,4,0" />
                     </VisualState.Setters>
                 </VisualState>
 
@@ -227,9 +414,8 @@
                 <VisualState x:Name="MultiDayEvent">
                     <VisualState.Setters>
                         <Setter Target="MainGrid.CornerRadius" Value="0" />
-                        <Setter Target="MainBackground.Opacity" Value="0.2" />
                         <Setter Target="MainGrid.IsHitTestVisible" Value="False" />
-                        <Setter Target="MainBorder.StrokeThickness" Value="0" />
+                        <Setter Target="BarHost.Visibility" Value="Collapsed" />
                         <Setter Target="AttributeStack.Opacity" Value="0" />
                         <Setter Target="EventTextPanel.Visibility" Value="Collapsed" />
                     </VisualState.Setters>
@@ -240,15 +426,18 @@
                 <VisualState x:Name="TwoLineHeight" />
                 <VisualState x:Name="HiddenTextHeight">
                     <VisualState.Setters>
-                        <Setter Target="EventTitleTextblock.Visibility" Value="Collapsed" />
+                        <Setter Target="TitleRow.Visibility" Value="Collapsed" />
                     </VisualState.Setters>
                 </VisualState>
                 <VisualState x:Name="CompactHeight">
                     <VisualState.Setters>
                         <Setter Target="EventTitleTextblock.FontSize" Value="11" />
                         <Setter Target="EventTitleTextblock.MaxLines" Value="1" />
+                        <Setter Target="PrivateGlyph.Margin" Value="0,2,0,0" />
                         <Setter Target="EventTextPanel.Margin" Value="6,0,4,0" />
                         <Setter Target="EventTextPanel.VerticalAlignment" Value="Center" />
+                        <Setter Target="AttributeStack.Margin" Value="0,0,5,0" />
+                        <Setter Target="AttributeStack.VerticalAlignment" Value="Center" />
                     </VisualState.Setters>
                 </VisualState>
                 <VisualState x:Name="SingleLineHeight">
@@ -280,4 +469,3 @@
         </VisualStateManager.VisualStateGroups>
     </Grid>
 </UserControl>
-
