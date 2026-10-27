@@ -13,6 +13,8 @@ public interface IVCardCodec
     AccountContact Project(VCardDocument document);
     VCardDocument Create(AccountContact contact, string version, string uid = null);
     void Patch(VCardDocument document, AccountContact contact);
+    void SetPhoto(VCardDocument document, byte[] photo);
+    void RemovePhoto(VCardDocument document);
 
     /// <summary>True for a group vCard (Apple X-ADDRESSBOOKSERVER-KIND or RFC 6350 KIND).</summary>
     IReadOnlyList<string> GetCategories(VCardDocument document);

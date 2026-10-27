@@ -269,6 +269,39 @@ public sealed class VCardCodec : IVCardCodec
 
     public string GetUid(VCardDocument document) => TextValue(First(document, "UID"))?.Trim();
 
+    public void SetPhoto(VCardDocument document, byte[] photo)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(photo);
+
+        RemovePhoto(document);
+        // Radicale escapes the ';' of a vCard 4 data: URI and corrupts it; ENCODING=b survives in both versions.
+        var subtype = GetImageSubtype(photo);
+        var property = Property("PHOTO", Convert.ToBase64String(photo));
+        var encoding = new VCardParameter { Name = "ENCODING" };
+        encoding.Values.Add("b");
+        var type = new VCardParameter { Name = "TYPE" };
+        type.Values.Add(subtype.ToUpperInvariant());
+        property.Parameters.Add(encoding);
+        property.Parameters.Add(type);
+        document.Properties.Add(property);
+    }
+
+    public void RemovePhoto(VCardDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        document.Properties.RemoveAll(property => property.Name.Equals("PHOTO", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string GetImageSubtype(byte[] photo)
+    {
+        if (photo.Length >= 8 && photo[0] == 0x89 && photo[1] == 0x50 && photo[2] == 0x4E && photo[3] == 0x47)
+            return "png";
+        if (photo.Length >= 6 && photo[0] == 0x47 && photo[1] == 0x49 && photo[2] == 0x46)
+            return "gif";
+        return "jpeg";
+    }
+
     public IReadOnlyList<string> GetCategories(VCardDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);

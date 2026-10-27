@@ -45,6 +45,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
     private readonly ICardDavAddressBookService _addressBookService;
     private readonly IKnownImapProviderCatalog _providerCatalog;
     private readonly IAutoDiscoveryService _autoDiscoveryService;
+    private readonly IPictureStorageService _pictureStorageService;
 
     public CardDavSynchronizationEngine(
         ICardDavClient client,
@@ -56,7 +57,8 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         ICardDavAddressBookService addressBookService = null,
         ICardDavContactListService listService = null,
         IKnownImapProviderCatalog providerCatalog = null,
-        IAutoDiscoveryService autoDiscoveryService = null)
+        IAutoDiscoveryService autoDiscoveryService = null,
+        IPictureStorageService pictureStorageService = null)
     {
         _listService = listService;
         _client = client;
@@ -68,6 +70,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         _addressBookService = addressBookService;
         _providerCatalog = providerCatalog;
         _autoDiscoveryService = autoDiscoveryService;
+        _pictureStorageService = pictureStorageService;
     }
 
     #region Synchronization
@@ -683,7 +686,41 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
                 break;
             case ContactSynchronizerOperation.SetPhoto:
             case ContactSynchronizerOperation.DeletePhoto:
-                throw new NotSupportedException(Translator.DavError_InvalidResponse);
+            {
+                var stored = await _contactService.GetContactAsync(contact.Id).ConfigureAwait(false) ?? contact;
+                if (string.IsNullOrWhiteSpace(stored.RemoteId))
+                    throw new InvalidOperationException(Translator.DavError_NotFound);
+
+                var setsPhoto = request.Operation == ContactSynchronizerOperation.SetPhoto;
+                if (setsPhoto && (request.Photo is not { Length: > 0 } || _pictureStorageService is null))
+                    throw new InvalidOperationException(Translator.DavError_InvalidResponse);
+
+                var current = await _client.GetResourceAsync(settings, stored.RemoteId, cancellationToken).ConfigureAwait(false);
+                if (current.IsDeleted)
+                    throw new DavRequestException(404, Translator.DavError_NotFound);
+
+                var document = _codec.Parse(current.VCard);
+                if (setsPhoto)
+                    _codec.SetPhoto(document, request.Photo);
+                else
+                    _codec.RemovePhoto(document);
+
+                var written = await _client.PutResourceAsync(
+                    settings,
+                    stored.RemoteId,
+                    _codec.Serialize(document),
+                    current.ETag,
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
+
+                var photoContact = RequestEntityCloner.Contact(stored);
+                photoContact.ContactPictureFileId = setsPhoto
+                    ? await _pictureStorageService.SavePictureAsync(PictureKind.Contact, request.Photo).ConfigureAwait(false)
+                    : null;
+                await CompleteWriteAsync(binding, photoContact, written, _codec.GetUid(document)).ConfigureAwait(false);
+                if (!setsPhoto)
+                    await _contactService.SuppressContactPictureAsync(stored.Id, stored.RemotePhotoKey).ConfigureAwait(false);
+                break;
+            }
             default:
                 throw new NotSupportedException($"CardDAV contact operation {request.Operation} is not supported.");
         }
