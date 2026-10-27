@@ -430,7 +430,18 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
 
     public async Task ExecuteCommandAsync(EditorCommand command)
     {
-        await FocusEditorAsync(true);
+        if (_disposed)
+            return;
+
+        try
+        {
+            await FocusEditorAsync(true);
+        }
+        catch (ObjectDisposedException) when (_disposed)
+        {
+            return;
+        }
+
         switch (command.Kind)
         {
             case EditorCommandKind.Undo: await _bridge!.ExecuteCommandAsync("undo"); break;
