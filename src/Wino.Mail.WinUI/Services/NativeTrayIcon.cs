@@ -28,6 +28,7 @@ internal sealed partial class NativeTrayIcon : IDisposable
     private const uint NotifyIconVersion4 = 4;
     private const uint CsDblClks = 0x0008;
     private const uint WmDestroy = 0x0002;
+    private const uint WmLButtonDown = 0x0201;
     private const uint WmLButtonUp = 0x0202;
     private const uint WmLButtonDoubleClick = 0x0203;
     private const uint NinKeySelect = 0x0401;
@@ -577,6 +578,12 @@ internal sealed partial class NativeTrayIcon : IDisposable
             case TrayCallbackMessage:
                 switch (GetLowWord(lParam))
                 {
+                    // Pressing the icon activates the taskbar, which hides an open companion through its
+                    // focus check before the button is released. Announcing the interaction here keeps it
+                    // open, so the click that follows closes it instead of opening it again.
+                    case WmLButtonDown:
+                        NotifyLeftInteractionStarted();
+                        break;
                     case WmLButtonUp:
                         NotifyLeftInteractionStarted();
                         SetForegroundWindow(windowHandle);
