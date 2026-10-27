@@ -2444,6 +2444,16 @@ public class MailService : BaseDatabaseService, IMailService
 
             if (draftCreationOptions.MailToUri.Bcc.Any())
                 message.Bcc.AddRange(draftCreationOptions.MailToUri.Bcc.Select(x => new MailboxAddress(x, x)));
+
+            var inReplyTo = MailHeaderExtensions.NormalizeMessageId(draftCreationOptions.MailToUri.InReplyTo);
+            if (!string.IsNullOrEmpty(inReplyTo))
+            {
+                message.InReplyTo = inReplyTo;
+
+                var existingReferences = MailHeaderExtensions.SplitMessageIds(draftCreationOptions.MailToUri.References);
+                foreach (var referenceId in MailHeaderExtensions.BuildReferencesChain(existingReferences, inReplyTo))
+                    message.References.Add(referenceId);
+            }
         }
 
         if (signature != null)
