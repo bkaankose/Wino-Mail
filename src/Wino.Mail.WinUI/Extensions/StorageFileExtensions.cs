@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using Windows.Storage;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Models.Common;
 
 namespace Wino.Mail.WinUI.Extensions;
@@ -13,6 +14,12 @@ public static class StorageFileExtensions
         var content = await storageFile.ToByteArrayAsync();
 
         return new SharedFile(storageFile.Path, content);
+    }
+
+    public static async Task<bool> IsWithinAttachmentLimitAsync(this StorageFile file)
+    {
+        var properties = await file.GetBasicPropertiesAsync();
+        return properties.Size <= Constants.MaximumLocalAttachmentSizeBytes;
     }
 
     public static async Task<byte[]> ToByteArrayAsync(this StorageFile file)

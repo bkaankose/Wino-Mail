@@ -364,6 +364,15 @@ public sealed partial class ComposePage : ComposePageAbstract,
         // Convert files to MailAttachmentViewModel.
         foreach (var file in files)
         {
+            if (!await file.IsWithinAttachmentLimitAsync())
+            {
+                WinoApplication.Current.Services.GetRequiredService<IMailDialogService>().InfoBarMessage(
+                    Translator.Info_AttachmentTooLargeTitle,
+                    string.Format(Translator.Info_AttachmentTooLargeMessage, file.Name, Constants.MaximumLocalAttachmentSizeBytes / (1024 * 1024)),
+                    InfoBarMessageType.Warning);
+                continue;
+            }
+
             var sharedFile = await file.ToSharedFileAsync();
 
             ViewModel.AddAttachment(sharedFile);

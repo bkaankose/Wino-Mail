@@ -52,6 +52,7 @@ public static class Constants
 
     /// <summary>Mail synchronization interval in minutes when the user has not chosen one, or the platform has no choice.</summary>
     public const int DefaultEmailSyncIntervalMinutes = 3;
+    public const long MaximumLocalAttachmentSizeBytes = 150L * 1024 * 1024;
 
     /// <summary>Calendar synchronization interval in minutes when the user has not chosen one, or the platform has no choice.</summary>
     public const int DefaultCalendarSyncIntervalMinutes = 5;

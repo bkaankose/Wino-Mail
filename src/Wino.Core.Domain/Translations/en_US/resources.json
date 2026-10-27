@@ -938,6 +938,8 @@
   "Info_DraftCreationFailed": "Draft creation failed",
   "Info_DraftMissingAliasMessage": "This account has no sender address. Add an alias in the account's alias settings, then try again.",
   "Info_FailedToOpenFileMessage": "File might be removed from the disk.",
+  "Info_AttachmentTooLargeTitle": "File too large",
+  "Info_AttachmentTooLargeMessage": "{0} is larger than {1} MB and wasn't attached.",
   "Info_FailedToOpenFileTitle": "Failed to launch file.",
   "Info_FileLaunchFailedTitle": "Failed to launch file",
   "Info_InvalidAddressMessage": "'{0}' is not a valid e-mail address.",

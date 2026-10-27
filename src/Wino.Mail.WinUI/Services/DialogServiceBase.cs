@@ -122,6 +122,12 @@ public class DialogServiceBase : IDialogServiceBase
 
         foreach (var file in files)
         {
+            if (!await file.IsWithinAttachmentLimitAsync())
+            {
+                ShowAttachmentTooLarge(file.Name);
+                continue;
+            }
+
             StorageApplicationPermissions.FutureAccessList.Add(file);
 
             var sharedFile = await file.ToSharedFileAsync();
@@ -341,6 +347,12 @@ public class DialogServiceBase : IDialogServiceBase
         return false;
     }
 
+
+    public void ShowAttachmentTooLarge(string fileName)
+        => InfoBarMessage(
+            Translator.Info_AttachmentTooLargeTitle,
+            string.Format(Translator.Info_AttachmentTooLargeMessage, fileName, Constants.MaximumLocalAttachmentSizeBytes / (1024 * 1024)),
+            InfoBarMessageType.Warning);
 
     public void InfoBarMessage(string title, string message, InfoBarMessageType messageType)
         => WeakReferenceMessenger.Default.Send(new InfoBarMessageRequested(messageType, title, message));
