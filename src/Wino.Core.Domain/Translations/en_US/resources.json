@@ -4123,5 +4123,10 @@
   "SettingsPersonalization_AppModes_LastVisibleDescription": "Shown in the mode switcher. The last visible mode can't be hidden.",
   "SettingsPersonalization_AppModes_UnavailableDescription": "None of your accounts provides this feature. Turn it on for an account under Manage accounts to make this mode available.",
   "AppModeSwitcher_ModeUnavailableTitle": "{0} isn't available",
-  "AppModeSwitcher_ModeUnavailableMessage": "Wino opened {0} instead. You can show hidden modes again under Settings > Personalization."
+  "AppModeSwitcher_ModeUnavailableMessage": "Wino opened {0} instead. You can show hidden modes again under Settings > Personalization.",
+  "Calendar_EarlierEvents_Singular": "{0} earlier event",
+  "Calendar_EarlierEvents_Plural": "{0} earlier events",
+  "Calendar_LaterEvents_Singular": "{0} later event",
+  "Calendar_LaterEvents_Plural": "{0} later events",
+  "Calendar_HiddenEvents_AccessibleName": "{0} on {1}"
 }
