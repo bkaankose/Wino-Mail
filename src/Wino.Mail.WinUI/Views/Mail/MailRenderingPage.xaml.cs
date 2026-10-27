@@ -434,8 +434,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     void IRecipient<ApplicationThemeChanged>.Receive(ApplicationThemeChanged message)
     {
-        DispatcherQueue.TryEnqueue(() =>
-            ViewModel.IsDarkWebviewRenderer = message.IsUnderlyingThemeDark);
+        DispatcherQueue.TryEnqueue(() => ViewModel.ApplyApplicationTheme(message.IsUnderlyingThemeDark));
     }
 
     [DynamicWindowsRuntimeCast(typeof(HyperlinkButton))]
@@ -461,6 +460,9 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     {
         PopOutRequested?.Invoke(this, PopOutRequestedEventArgs.Default);
     }
+
+    private void RendererCommandBar_EditorThemeToggled(object? sender, bool isDark)
+        => ViewModel.RememberReaderTheme(isDark);
 
     private void ViewModel_CloseRequested(object? sender, EventArgs e)
     {

@@ -324,6 +324,8 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// </summary>
     bool RenderImages { get; set; }
 
+    MailContentTheme ReaderContentTheme { get; set; }
+
     /// <summary>
     /// Setting: Set whether 'style' tags in rendered HTMls should be removed.
     /// </summary>

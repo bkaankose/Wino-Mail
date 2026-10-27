@@ -242,7 +242,33 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         _folderService = folderService;
         _fileService = fileService;
         _requestDelegator = requestDelegator;
-        IsDarkWebviewRenderer = _underlyingThemeService.IsUnderlyingThemeDark();
+        IsDarkWebviewRenderer = GetReaderThemeIsDark(_underlyingThemeService.IsUnderlyingThemeDark());
+    }
+
+    public bool GetReaderThemeIsDark(bool isUnderlyingThemeDark) => PreferencesService.ReaderContentTheme switch
+    {
+        MailContentTheme.Light => false,
+        MailContentTheme.Dark => true,
+        _ => isUnderlyingThemeDark
+    };
+
+    public void RememberReaderTheme(bool isDark)
+    {
+        PreferencesService.ReaderContentTheme = isDark == _underlyingThemeService.IsUnderlyingThemeDark()
+            ? MailContentTheme.FollowApplication
+            : isDark ? MailContentTheme.Dark : MailContentTheme.Light;
+    }
+
+    public void ApplyApplicationTheme(bool isUnderlyingThemeDark)
+    {
+        var rememberedTheme = PreferencesService.ReaderContentTheme;
+        if ((rememberedTheme == MailContentTheme.Dark && isUnderlyingThemeDark) ||
+            (rememberedTheme == MailContentTheme.Light && !isUnderlyingThemeDark))
+        {
+            PreferencesService.ReaderContentTheme = MailContentTheme.FollowApplication;
+        }
+
+        IsDarkWebviewRenderer = GetReaderThemeIsDark(isUnderlyingThemeDark);
     }
 
     [RelayCommand]
@@ -518,7 +544,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
         try
         {
-            IsDarkWebviewRenderer = _underlyingThemeService.IsUnderlyingThemeDark();
+            IsDarkWebviewRenderer = GetReaderThemeIsDark(_underlyingThemeService.IsUnderlyingThemeDark());
 
             // Mime content might not be available for now and might require a download.
             if (parameters is MailItemViewModel selectedMailItemViewModel)
@@ -1178,6 +1204,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         if (message.PropertyName == nameof(IPreferencesService.ReaderCommandLayout))
         {
             _ = ExecuteUIThread(InitializeCommandBarItems);
+        }
+        else if (message.PropertyName == nameof(IPreferencesService.ReaderContentTheme))
+        {
+            _ = ExecuteUIThread(() => IsDarkWebviewRenderer = GetReaderThemeIsDark(_underlyingThemeService.IsUnderlyingThemeDark()));
         }
     }
 

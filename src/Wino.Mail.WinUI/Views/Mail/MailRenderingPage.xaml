@@ -296,6 +296,7 @@
                     Grid.Row="1"
                     HorizontalContentAlignment="Stretch"
                     DefaultLabelPosition="Right"
+                    EditorThemeToggled="RendererCommandBar_EditorThemeToggled"
                     IsEditorThemeDark="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=TwoWay}"
                     IsEditorThemeToggleVisible="True"
                     IsPopOutButtonVisible="{x:Bind SupportsPopOut, Mode=OneTime}"

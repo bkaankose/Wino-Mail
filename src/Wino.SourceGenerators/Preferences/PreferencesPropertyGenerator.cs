@@ -18,6 +18,8 @@ public sealed class PreferencesPropertyGenerator : IIncrementalGenerator
     private const string InterfaceMetadataName = "Wino.Core.Domain.Interfaces.IPreferencesService";
     private const string ServiceMetadataName = "Wino.Services.PreferencesService";
 
+    private static readonly string[] ExcludedPropertyNames = ["DiagnosticId", "ReaderContentTheme"];
+
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var model = context.CompilationProvider.Select(static (compilation, _) =>
@@ -38,7 +40,7 @@ public sealed class PreferencesPropertyGenerator : IIncrementalGenerator
                     !property.IsIndexer &&
                     property.GetMethod != null &&
                     property.SetMethod != null &&
-                    property.Name != "DiagnosticId")
+                    Array.IndexOf(ExcludedPropertyNames, property.Name) < 0)
                 .OrderBy(static property => property.Name, StringComparer.Ordinal)
                 .ToImmutableArray();
         });

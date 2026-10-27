@@ -230,6 +230,12 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(RenderImages), value);
     }
 
+    public MailContentTheme ReaderContentTheme
+    {
+        get => GetDefinedEnum(nameof(ReaderContentTheme), MailContentTheme.FollowApplication);
+        set => SetPropertyAndSave(nameof(ReaderContentTheme), GetDefinedValue(value, MailContentTheme.FollowApplication));
+    }
+
     public TimeFormatPreference MailTimeFormatPreference
     {
         get => _configurationService.Get(nameof(MailTimeFormatPreference), TimeFormatPreference.UseLanguageCulture);

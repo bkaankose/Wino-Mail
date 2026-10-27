@@ -69,6 +69,7 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
 
     public event EventHandler<bool>? AIActionsEnabledChanged;
     public event EventHandler? PopOutClicked;
+    public event EventHandler<bool>? EditorThemeToggled;
 
     public OperationCommandBar()
     {
@@ -501,6 +502,7 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
     private void ThemeButton_Click(object sender, RoutedEventArgs e)
     {
         IsEditorThemeDark = !IsEditorThemeDark;
+        EditorThemeToggled?.Invoke(this, IsEditorThemeDark);
     }
 
     private void PopOutButton_Click(object sender, RoutedEventArgs e)
