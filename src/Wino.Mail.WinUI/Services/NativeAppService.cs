@@ -178,6 +178,13 @@ public partial class NativeAppService : INativeAppService, IAppMetadataService, 
     public string SentryDist => AppTelemetryMetadata.NormalizeAppVersion(AppVersion);
     public string PlatformDisplayName => "Windows";
 
+    public WindowsAppDistribution Distribution => Wino.NotificationHost.Contracts.ReleaseIdentity.Current.Distribution switch
+    {
+        "Sideload" => WindowsAppDistribution.Sideload,
+        "Beta" => WindowsAppDistribution.Beta,
+        _ => WindowsAppDistribution.Store
+    };
+
     public Task CopyClipboardAsync(string text)
     {
         var package = new DataPackage();

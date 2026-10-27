@@ -151,7 +151,7 @@
             pane is expanded. Width-driven visual states must not set IsPaneOpen; they override it.
         -->
 
-        <!--  Floating Store update notice. It never blocks the shell; closing it with the box checked turns the notice off.  -->
+        <!--  Floating update notice for Store and stable sideload builds. It never blocks the shell; closing it with the box checked turns the notice off.  -->
         <Border
             x:Name="StoreUpdateCard"
             Width="400"
@@ -226,15 +226,26 @@
                     HorizontalAlignment="Stretch"
                     AutomationProperties.AutomationId="StoreUpdateCardInstallButton"
                     Command="{x:Bind ViewModel.InstallStoreUpdateCommand}"
-                    Content="{x:Bind domain:Translator.Buttons_InstallNow, Mode=OneTime}"
-                    Style="{StaticResource AccentButtonStyle}" />
+                    Content="{x:Bind domain:Translator.Buttons_UpdateAndRestart, Mode=OneTime}"
+                    Style="{StaticResource AccentButtonStyle}"
+                    Visibility="{x:Bind ViewModel.IsStoreUpdateIdle, Mode=OneWay}" />
+
+                <ProgressBar
+                    Grid.Row="1"
+                    AutomationProperties.AutomationId="StoreUpdateCardProgressBar"
+                    AutomationProperties.Name="{x:Bind ViewModel.StoreUpdateCardMessage, Mode=OneWay}"
+                    IsIndeterminate="{x:Bind ViewModel.IsStoreUpdateProgressIndeterminate, Mode=OneWay}"
+                    Maximum="100"
+                    Visibility="{x:Bind ViewModel.IsStoreUpdateInstalling, Mode=OneWay}"
+                    Value="{x:Bind ViewModel.StoreUpdateProgress, Mode=OneWay}" />
 
                 <CheckBox
                     Grid.Row="2"
                     MinWidth="0"
                     AutomationProperties.AutomationId="StoreUpdateCardDontAskAgainCheckBox"
                     Content="{x:Bind domain:Translator.Dialog_DontAskAgain, Mode=OneTime}"
-                    IsChecked="{x:Bind ViewModel.IsStoreUpdateDontAskAgainChecked, Mode=TwoWay}" />
+                    IsChecked="{x:Bind ViewModel.IsStoreUpdateDontAskAgainChecked, Mode=TwoWay}"
+                    Visibility="{x:Bind ViewModel.IsStoreUpdateIdle, Mode=OneWay}" />
             </Grid>
         </Border>
     </Grid>

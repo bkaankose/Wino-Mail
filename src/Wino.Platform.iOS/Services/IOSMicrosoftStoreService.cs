@@ -33,7 +33,7 @@ public sealed class IOSMicrosoftStoreService(IConfigurationService configuration
     public Task<StorePurchaseResult> PurchaseAsync(WinoAddOnProductType productType) => Task.FromException<StorePurchaseResult>(new PlatformNotSupportedException("Microsoft Store is not available on iOS."));
     public Task<string?> GetCustomerCollectionsIdAsync(string serviceTicket, string publisherUserId) => Task.FromResult<string?>(null);
     public Task<bool> RefreshAvailabilityAsync() => Task.FromResult(false);
-    public Task<bool> StartUpdateAsync() => Task.FromResult(false);
+    public Task<bool> StartUpdateAsync(IProgress<double>? progress = null) => Task.FromResult(false);
 
     public Task PromptRatingDialogAsync()
     {

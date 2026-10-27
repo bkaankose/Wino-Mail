@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Enums;
 
@@ -48,5 +49,10 @@ public interface IMicrosoftStoreService
 
     Task<bool> RefreshAvailabilityAsync();
 
-    Task<bool> StartUpdateAsync();
+    /// <summary>
+    /// Downloads and installs the available update. Installation closes the app and Windows relaunches it,
+    /// so a true result may never be observed. False means nothing was installed.
+    /// </summary>
+    /// <param name="progress">Download and install progress from 0 to 100.</param>
+    Task<bool> StartUpdateAsync(IProgress<double>? progress = null);
 }

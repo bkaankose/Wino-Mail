@@ -42,6 +42,12 @@ public interface INativeAppService
     WindowsTaskbarPosition GetTaskbarPosition();
 
     /// <summary>
+    /// The channel this package was built for, read from its validated release profile.
+    /// Debug builds report <see cref="WindowsAppDistribution.Store"/>.
+    /// </summary>
+    WindowsAppDistribution Distribution { get; }
+
+    /// <summary>
     /// Gets or sets the function that returns a pointer for main window hwnd for UWP.
     /// This is used to display WAM broker dialog on running UWP app called by a windowless server code.
     /// </summary>

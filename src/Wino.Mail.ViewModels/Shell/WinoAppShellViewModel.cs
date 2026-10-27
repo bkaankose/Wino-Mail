@@ -46,6 +46,21 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
 
     [ObservableProperty]
     public partial bool IsStoreUpdateDontAskAgainChecked { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsStoreUpdateIdle))]
+    public partial bool IsStoreUpdateInstalling { get; set; }
+
+    public bool IsStoreUpdateIdle => !IsStoreUpdateInstalling;
+
+    /// <summary>
+    /// Download and install progress from 0 to 100. Indeterminate until the first report arrives.
+    /// </summary>
+    [ObservableProperty]
+    public partial double StoreUpdateProgress { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsStoreUpdateProgressIndeterminate { get; set; }
     private int _modeVisibilityRequestId;
 
     private WinoApplicationMode _currentMode;
@@ -399,8 +414,9 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
                     return Task.CompletedTask;
 
                 _hasShownStoreUpdatePrompt = true;
+                // Only Store updates report a version; App Installer feeds do not.
                 StoreUpdateCardMessage = string.IsNullOrEmpty(version)
-                    ? Translator.Notifications_StoreUpdateAvailableMessage
+                    ? Translator.Notifications_AppUpdateAvailableMessage
                     : string.Format(Translator.Notifications_StoreUpdateAvailableVersionMessage, version);
                 IsStoreUpdateDontAskAgainChecked = false;
                 IsStoreUpdateCardVisible = true;
@@ -421,19 +437,37 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
     [RelayCommand]
     private async Task InstallStoreUpdateAsync()
     {
-        CloseStoreUpdateCard();
-
-        if (_isShutdown)
+        if (_isShutdown || IsStoreUpdateInstalling)
             return;
+
+        IsStoreUpdateInstalling = true;
+        IsStoreUpdateProgressIndeterminate = true;
+        StoreUpdateProgress = 0;
+        StoreUpdateCardMessage = Translator.Notifications_AppUpdateInstallingMessage;
+
+        var progress = new Progress<double>(value =>
+        {
+            IsStoreUpdateProgressIndeterminate = false;
+            StoreUpdateProgress = value;
+        });
+
+        var isInstalled = false;
 
         try
         {
-            await _storeService.StartUpdateAsync();
+            isInstalled = await _storeService.StartUpdateAsync(progress);
         }
         catch (Exception ex)
         {
             _logger.CaptureException(ex, nameof(InstallStoreUpdateAsync));
         }
+
+        // A successful install closes the app, so reaching here usually means nothing was installed.
+        if (_isShutdown || isInstalled)
+            return;
+
+        IsStoreUpdateInstalling = false;
+        StoreUpdateCardMessage = Translator.Notifications_AppUpdateFailedMessage;
     }
 
     [RelayCommand]
