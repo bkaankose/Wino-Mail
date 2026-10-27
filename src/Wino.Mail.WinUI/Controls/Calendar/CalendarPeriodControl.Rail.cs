@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Numerics;
+using Microsoft.Graphics.Canvas;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -324,11 +325,12 @@ public sealed partial class CalendarPeriodControl
     /// </summary>
     private void SizeStructureCanvases()
     {
-        var span = _windowCount * _unitSize;
+        var maximumExtent = GetMaximumCanvasExtent();
+        var span = Math.Min(_windowCount * _unitSize, maximumExtent);
 
         if (IsMonthRail)
         {
-            MonthStructureCanvasHost.Width = _monthRowWidth;
+            MonthStructureCanvasHost.Width = Math.Min(_monthRowWidth, maximumExtent);
             MonthStructureCanvasHost.Height = span;
             return;
         }
@@ -338,7 +340,25 @@ public sealed partial class CalendarPeriodControl
         TimedAllDayCanvasHost.Width = span;
         TimedAllDayCanvasHost.Height = TimedAllDayHeight;
         TimedStructureCanvasHost.Width = span;
-        TimedStructureCanvasHost.Height = TimelineHeight;
+        TimedStructureCanvasHost.Height = Math.Min(TimelineHeight, maximumExtent);
+    }
+
+    // A Win2D canvas larger than the device's bitmap limit throws while drawing, which crashes the app
+    // on wide or high-DPI windows. The farthest spare days lose their grid lines instead.
+    private double GetMaximumCanvasExtent()
+    {
+        int maximumPixels;
+        try
+        {
+            maximumPixels = CanvasDevice.GetSharedDevice().MaximumBitmapSizeInPixels;
+        }
+        catch (Exception)
+        {
+            maximumPixels = 8192;
+        }
+
+        var scale = Math.Max(1d, XamlRoot?.RasterizationScale ?? 1d);
+        return Math.Floor((maximumPixels - 2) / scale);
     }
 
     private void UpdateAllDayHeight()
