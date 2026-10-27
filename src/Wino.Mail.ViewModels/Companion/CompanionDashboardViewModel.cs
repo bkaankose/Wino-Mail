@@ -443,7 +443,9 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
             var calendars = await calendarService.GetAccountCalendarsAsync(account.Id);
-            foreach (var calendar in calendars.Where(static calendar => calendar.IsPrimary))
+            // The calendars checked in the calendar's account list (IsExtended), so the companion lists what
+            // the calendar shows, including secondary and subscribed calendars and their recurring events.
+            foreach (var calendar in calendars.Where(static calendar => calendar.IsExtended))
             {
                 var items = await calendarService.GetCalendarEventsAsync(calendar, period);
                 foreach (var item in items.Where(item =>
