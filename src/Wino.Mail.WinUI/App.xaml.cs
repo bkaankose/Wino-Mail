@@ -2305,7 +2305,17 @@ public partial class App : WinoApplication,
 
         if (route.ShouldActivateWindow && activationWindow != null)
         {
-            await ActivateWindowAsync(activationWindow, applyThemeToWindow: !activationWindow.AppWindow.IsVisible);
+            var wasHidden = !activationWindow.AppWindow.IsVisible;
+
+            await ActivateWindowAsync(activationWindow, applyThemeToWindow: wasHidden);
+
+            if (wasHidden &&
+                route.Path == AppActivationPath.StandardLaunch &&
+                route.ActivationMode == WinoApplicationMode.Mail &&
+                ReferenceEquals(activationWindow, shellWindow))
+            {
+                WeakReferenceMessenger.Default.Send(new UnreadBadgeLaunchNavigationRequested());
+            }
         }
     }
 

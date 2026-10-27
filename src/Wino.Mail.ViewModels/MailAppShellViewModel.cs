@@ -39,6 +39,7 @@ namespace Wino.Mail.ViewModels;
 public partial class MailAppShellViewModel : MailBaseViewModel,
     IMailShellClient,
     IRecipient<MailtoProtocolMessageRequested>,
+    IRecipient<UnreadBadgeLaunchNavigationRequested>,
     IRecipient<RefreshUnreadCountsMessage>,
     IRecipient<AccountsMenuRefreshRequested>,
     IRecipient<MergedInboxRenamed>,
@@ -1497,6 +1498,9 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     public void Receive(MailtoProtocolMessageRequested message)
         => _ = ExecuteUIThreadAsync(HandleMailToProtocolMessageAsync);
 
+    public void Receive(UnreadBadgeLaunchNavigationRequested message)
+        => _ = TryNavigateToUnreadBadgeLocationAsync();
+
     private async Task HandleMailToProtocolMessageAsync()
     {
         var mailToUri = _activationStateService.MailToUri;
@@ -1879,6 +1883,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         Messenger.Register<NavigateMailFolderEvent>(this);
         Messenger.Register<AccountUpdatedMessage>(this);
         Messenger.Register<MailtoProtocolMessageRequested>(this);
+        Messenger.Register<UnreadBadgeLaunchNavigationRequested>(this);
         Messenger.Register<RefreshUnreadCountsMessage>(this);
         Messenger.Register<AccountsMenuRefreshRequested>(this);
         Messenger.Register<MergedInboxRenamed>(this);
@@ -1898,6 +1903,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         Messenger.Unregister<NavigateMailFolderEvent>(this);
         Messenger.Unregister<AccountUpdatedMessage>(this);
         Messenger.Unregister<MailtoProtocolMessageRequested>(this);
+        Messenger.Unregister<UnreadBadgeLaunchNavigationRequested>(this);
         Messenger.Unregister<RefreshUnreadCountsMessage>(this);
         Messenger.Unregister<AccountsMenuRefreshRequested>(this);
         Messenger.Unregister<MergedInboxRenamed>(this);
