@@ -59,6 +59,39 @@
         </controls:SettingsExpander>
 
         <controls:SettingsExpander
+            AutomationProperties.AutomationId="ReadComposePanePageReaderDarkModeExpander"
+            Description="{x:Bind domain:Translator.SettingsReaderDarkMode_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.SettingsReaderDarkMode_Title, Mode=OneTime}">
+            <controls:SettingsExpander.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="DarkEditor" />
+            </controls:SettingsExpander.HeaderIcon>
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="ReadComposePanePageReaderMessageColorsCard"
+                    Description="{x:Bind domain:Translator.SettingsReaderMessageColors_Description, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.SettingsReaderMessageColors_Title, Mode=OneTime}">
+                    <ComboBox
+                        AutomationProperties.AutomationId="ReadComposePanePageReaderMessageColorsComboBox"
+                        ItemsSource="{x:Bind ViewModel.ReaderContentThemeOptions}"
+                        SelectedIndex="{x:Bind ViewModel.SelectedReaderContentThemeIndex, Mode=TwoWay}" />
+                </controls:SettingsCard>
+
+                <controls:SettingsCard
+                    HorizontalContentAlignment="Stretch"
+                    VerticalContentAlignment="Stretch"
+                    AutomationProperties.AutomationId="ReadComposePanePageReaderDarkModeMethodCard"
+                    ContentAlignment="Vertical"
+                    Description="{x:Bind domain:Translator.SettingsReaderDarkModeMethod_Description, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.SettingsReaderDarkModeMethod_Title, Mode=OneTime}">
+                    <RadioButtons AutomationProperties.AutomationId="ReadComposePanePageReaderDarkModeMethodRadioButtons" SelectedIndex="{x:Bind ViewModel.SelectedReaderDarkModeMethodIndex, Mode=TwoWay}">
+                        <RadioButton AutomationProperties.AutomationId="ReadComposePanePageReaderDarkModeAdaptiveRadio" Content="{x:Bind domain:Translator.SettingsReaderDarkModeMethod_Adaptive, Mode=OneTime}" />
+                        <RadioButton AutomationProperties.AutomationId="ReadComposePanePageReaderDarkModeInvertedRadio" Content="{x:Bind domain:Translator.SettingsReaderDarkModeMethod_Inverted, Mode=OneTime}" />
+                    </RadioButtons>
+                </controls:SettingsCard>
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+
+        <controls:SettingsExpander
             AutomationProperties.AutomationId="ReadComposePanePageSettingsExpander2"
             Description="{x:Bind domain:Translator.SettingsComposerFontFamily_Description}"
             Header="{x:Bind domain:Translator.SettingsComposerFont_Title}">

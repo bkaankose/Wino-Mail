@@ -236,6 +236,12 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(ReaderContentTheme), GetDefinedValue(value, MailContentTheme.FollowApplication));
     }
 
+    public MailDarkModeMethod ReaderDarkModeMethod
+    {
+        get => GetDefinedEnum(nameof(ReaderDarkModeMethod), MailDarkModeMethod.Adaptive);
+        set => SetPropertyAndSave(nameof(ReaderDarkModeMethod), GetDefinedValue(value, MailDarkModeMethod.Adaptive));
+    }
+
     public TimeFormatPreference MailTimeFormatPreference
     {
         get => _configurationService.Get(nameof(MailTimeFormatPreference), TimeFormatPreference.UseLanguageCulture);

@@ -5,7 +5,6 @@ internal static class EditorAssetProvider
     internal static string ReaderContentSecurityPolicy => EditorDocumentAssets.ReaderContentSecurityPolicy;
     internal static string EditorContentSecurityPolicy => EditorDocumentAssets.EditorContentSecurityPolicy;
     public static async Task<string> GetEditorDocumentAsync() => ValidateDocument(await EditorDocumentAssets.GetEditorDocumentAsync().ConfigureAwait(false));
-    public static async Task<string> GetReaderDocumentAsync(bool isDarkMode) => ValidateDocument(await EditorDocumentAssets.GetReaderDocumentAsync(isDarkMode).ConfigureAwait(false));
     internal static string BindSession(string document, string sessionId)
     {
         int scriptStart = document.IndexOf("<script nonce=", StringComparison.Ordinal);

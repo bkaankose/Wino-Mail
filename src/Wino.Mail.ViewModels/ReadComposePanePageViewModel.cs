@@ -42,6 +42,24 @@ public partial class ReadComposePanePageViewModel : MailBaseViewModel
     [ObservableProperty]
     public partial AppLanguageModel? CurrentSpellCheckLanguage { get; set; }
 
+    private static readonly MailContentTheme[] ReaderContentThemes =
+        [MailContentTheme.FollowApplication, MailContentTheme.Light, MailContentTheme.Dark];
+    private static readonly MailDarkModeMethod[] ReaderDarkModeMethods =
+        [MailDarkModeMethod.Adaptive, MailDarkModeMethod.Inverted];
+
+    public List<string> ReaderContentThemeOptions { get; } =
+    [
+        Translator.SettingsReaderMessageColors_FollowApplication,
+        Translator.SettingsReaderMessageColors_AlwaysLight,
+        Translator.SettingsReaderMessageColors_AlwaysDark
+    ];
+
+    [ObservableProperty]
+    public partial int SelectedReaderContentThemeIndex { get; set; }
+
+    [ObservableProperty]
+    public partial int SelectedReaderDarkModeMethodIndex { get; set; }
+
     private readonly IAccountService _accountService;
     private readonly ILinkBrowserService _linkBrowserService;
 
@@ -63,6 +81,25 @@ public partial class ReadComposePanePageViewModel : MailBaseViewModel
         CurrentComposerFontSize = preferencesService.ComposerFontSize;
         CurrentSpellCheckLanguage = AvailableSpellCheckLanguages.Find(language =>
             string.Equals(language.Code, preferencesService.ComposerSpellCheckLanguageCode, System.StringComparison.OrdinalIgnoreCase));
+
+        SelectedReaderContentThemeIndex = Math.Max(0, Array.IndexOf(ReaderContentThemes, preferencesService.ReaderContentTheme));
+        SelectedReaderDarkModeMethodIndex = Math.Max(0, Array.IndexOf(ReaderDarkModeMethods, preferencesService.ReaderDarkModeMethod));
+    }
+
+    partial void OnSelectedReaderContentThemeIndexChanged(int value)
+    {
+        if (value < 0 || value >= ReaderContentThemes.Length) return;
+
+        if (PreferencesService.ReaderContentTheme != ReaderContentThemes[value])
+            PreferencesService.ReaderContentTheme = ReaderContentThemes[value];
+    }
+
+    partial void OnSelectedReaderDarkModeMethodIndexChanged(int value)
+    {
+        if (value < 0 || value >= ReaderDarkModeMethods.Length) return;
+
+        if (PreferencesService.ReaderDarkModeMethod != ReaderDarkModeMethods[value])
+            PreferencesService.ReaderDarkModeMethod = ReaderDarkModeMethods[value];
     }
 
     [RelayCommand]

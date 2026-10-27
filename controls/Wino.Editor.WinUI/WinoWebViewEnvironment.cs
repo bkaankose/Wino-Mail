@@ -39,6 +39,15 @@ public static class WinoWebViewEnvironment
             return _sharedEnvironmentTask;
         }
     }
+
+    internal static async Task EnsureInPrivateCoreWebView2Async(
+        Microsoft.UI.Xaml.Controls.WebView2 webView,
+        CoreWebView2Environment environment)
+    {
+        var options = environment.CreateCoreWebView2ControllerOptions();
+        options.IsInPrivateModeEnabled = true;
+        await webView.EnsureCoreWebView2Async(environment, options);
+    }
 }
 
 internal static class WinoWebViewSecurity

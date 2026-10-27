@@ -326,6 +326,8 @@ public interface IPreferencesService : INotifyPropertyChanged
 
     MailContentTheme ReaderContentTheme { get; set; }
 
+    MailDarkModeMethod ReaderDarkModeMethod { get; set; }
+
     /// <summary>
     /// Setting: Set whether 'style' tags in rendered HTMls should be removed.
     /// </summary>

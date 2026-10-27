@@ -114,6 +114,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     [ObservableProperty]
     public partial bool IsReaderViewEnabled { get; set; }
 
+    [ObservableProperty]
+    public partial MailDarkModeMethod ReaderDarkModeMethod { get; set; }
+
     /// <summary>
     /// False from the moment a message starts loading until its body has been handed to the renderer.
     /// The reader shows skeletons while it is false, so no half-populated header is ever on screen.
@@ -243,6 +246,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         _fileService = fileService;
         _requestDelegator = requestDelegator;
         IsDarkWebviewRenderer = GetReaderThemeIsDark(_underlyingThemeService.IsUnderlyingThemeDark());
+        ReaderDarkModeMethod = PreferencesService.ReaderDarkModeMethod;
     }
 
     public bool GetReaderThemeIsDark(bool isUnderlyingThemeDark) => PreferencesService.ReaderContentTheme switch
@@ -1208,6 +1212,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         else if (message.PropertyName == nameof(IPreferencesService.ReaderContentTheme))
         {
             _ = ExecuteUIThread(() => IsDarkWebviewRenderer = GetReaderThemeIsDark(_underlyingThemeService.IsUnderlyingThemeDark()));
+        }
+        else if (message.PropertyName == nameof(IPreferencesService.ReaderDarkModeMethod))
+        {
+            _ = ExecuteUIThread(() => ReaderDarkModeMethod = PreferencesService.ReaderDarkModeMethod);
         }
     }
 

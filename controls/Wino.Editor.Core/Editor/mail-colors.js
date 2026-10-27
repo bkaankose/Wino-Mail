@@ -19,7 +19,9 @@
         "IMG", "PICTURE", "VIDEO", "AUDIO", "CANVAS", "SVG", "MATH", "BR", "WBR",
         "STYLE", "SCRIPT", "TEMPLATE", "HEAD", "META", "TITLE", "SOURCE", "TRACK"
     ]);
+    const maximumDecorativeBackdropCoverage = 0.5;
     const parsedColors = new Map();
+    const backdropSizes = new Map();
     let probeContext = null;
 
     function clamp(value, minimum, maximum) {
@@ -207,6 +209,58 @@
         return best;
     }
 
+    function measureBackdrop(url) {
+        if (backdropSizes.has(url)) return backdropSizes.get(url);
+        backdropSizes.set(url, null);
+        const image = new Image();
+        const settle = size => {
+            backdropSizes.set(url, size);
+            document.dispatchEvent(new Event("wino-backdrop-measured"));
+        };
+        image.onload = () => settle({ width: image.naturalWidth, height: image.naturalHeight });
+        image.onerror = () => settle({ width: 0, height: 0 });
+        image.src = url;
+        return null;
+    }
+
+    function resolveBackdropLength(token, box) {
+        if (token.endsWith("%")) return box * parseFloat(token) / 100;
+        if (token.endsWith("px")) return parseFloat(token);
+        return null;
+    }
+
+    function isDecorativeBackdrop(element, style) {
+        const image = /^url\("?([^"]*)"?\)$/.exec(style.backgroundImage);
+        if (!image || !/^no-repeat( no-repeat)?$/.test(style.backgroundRepeat)) return false;
+        const sizing = style.backgroundSize.split(" ");
+        if (sizing.length > 2 || sizing[0] === "cover" || sizing[0] === "contain") return false;
+
+        const natural = measureBackdrop(image[1]);
+        if (!natural) return false;
+        const bounds = element.getBoundingClientRect();
+        if (bounds.width <= 0 || bounds.height <= 0) return false;
+        if (natural.width <= 0 || natural.height <= 0) return true;
+
+        let width = resolveBackdropLength(sizing[0], bounds.width);
+        let height = resolveBackdropLength(sizing[1] || "auto", bounds.height);
+        if (width === null && height === null) {
+            width = natural.width;
+            height = natural.height;
+        } else if (width === null) {
+            width = height * natural.width / natural.height;
+        } else if (height === null) {
+            height = width * natural.height / natural.width;
+        }
+
+        const covered = Math.min(width, bounds.width) * Math.min(height, bounds.height);
+        return covered / (bounds.width * bounds.height) < maximumDecorativeBackdropCoverage;
+    }
+
+    function paintsBackdrop(element, style) {
+        return !!style.backgroundImage && style.backgroundImage !== "none" &&
+            !isDecorativeBackdrop(element, style);
+    }
+
     const borderSides = ["top", "right", "bottom", "left"];
 
     // Returns [{ element, property, value }] that adapt `root` for a dark `surfaceColor`.
@@ -222,6 +276,7 @@
 
         function keepImageBackdrop(image, background, originalBackground) {
             if (sameColor(background, originalBackground)) return;
+            if (!image.complete || !image.currentSrc || image.naturalWidth <= 0 || image.naturalHeight <= 0) return;
             const bounds = image.getBoundingClientRect();
             if (Math.min(bounds.width, bounds.height) < minimumBackdropImageSize) return;
             const style = getComputedStyle(image);
@@ -241,7 +296,7 @@
             if (style.display === "none") return;
 
             // A background image or gradient decides the contrast for everything inside it.
-            if (style.backgroundImage && style.backgroundImage !== "none") return;
+            if (paintsBackdrop(element, style)) return;
 
             let background = parentBackground;
             let originalBackground = parentOriginalBackground;
@@ -297,7 +352,7 @@
             if (skippedTags.has(element.tagName.toUpperCase())) return;
             const style = getComputedStyle(element);
             if (style.display === "none") return;
-            if (style.backgroundImage && style.backgroundImage !== "none") return;
+            if (paintsBackdrop(element, style)) return;
 
             const background = parseColor(style.backgroundColor);
             if (background && background.a >= 0.5 && isLightSurface(toHsl(background))) {
@@ -315,6 +370,7 @@
 
     window.WinoMailColors = {
         computeDarkOverrides,
+        resetBackdropCache() { backdropSizes.clear(); },
         lightSurfaceCoverage,
         parseColor,
         contrast

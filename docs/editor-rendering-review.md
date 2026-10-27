@@ -136,7 +136,7 @@ Prose only in this review; no build or runtime check was run. Any implementation
 | R1 isolation | Done with a shadow root instead of an iframe. Chromium cannot split an iframe across printed or PDF pages, and Wino prints the reader. Script isolation comes from DOMPurify plus the new nonce CSP. |
 | R2 head styles and color-scheme meta | Done. The visitor keeps only `color-scheme` and `supported-color-schemes` meta tags. The reader keeps head and body `<style>` and rewrites `html`, `body` and `:root` selectors. |
 | R3 layout-altering reader CSS | Done. Original mode no longer forces `height: auto`, table `max-width`, or `overflow-wrap: anywhere`. |
-| R4 dark mode | Done. Dark Reader is removed. Sender dark styles are used when declared, `light only` is honored, and other mail gets the selective `mail-colors.js` engine. The existing per-message reader theme toggle is the "original colors" switch. |
+| R4 dark mode | Done. Dark Reader is removed. Sender dark styles are used when declared, and other mail (including `light only`) gets the selective `mail-colors.js` engine. The existing per-message reader theme toggle is the "original colors" switch. |
 | R5 hardening | Done. Nonce CSP in both documents, WebView2 settings hardened, and `BlockRemoteResources` blocks requests at the network layer for junk and image-blocked mail. Accelerator keys were left on so Ctrl+F and print keep working. |
 | E1 composer sanitization | Done for content loading, `insertHtml`, and paste. |
 | E2 composer dark mode | Changed approach. The app exposes a dark writing surface toggle, so it now uses the shared engine through removable attributes instead of a forced light card. |

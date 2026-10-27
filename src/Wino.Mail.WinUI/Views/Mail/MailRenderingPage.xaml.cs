@@ -410,8 +410,15 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     private async Task UpdateEditorThemeAsync()
     {
+        await _readerSession.SetDarkModeMethodAsync(ToRendererDarkModeMethod(ViewModel.ReaderDarkModeMethod));
         await _readerSession.SetThemeAsync(ViewModel.IsDarkWebviewRenderer);
     }
+
+    public HtmlMailDarkModeMethod ToRendererDarkModeMethod(MailDarkModeMethod method) => method switch
+    {
+        MailDarkModeMethod.Inverted => HtmlMailDarkModeMethod.Inverted,
+        _ => HtmlMailDarkModeMethod.Adaptive
+    };
 
     private async Task InitializeMailRendererAsync()
     {

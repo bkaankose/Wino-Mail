@@ -625,6 +625,7 @@
                     AutomationProperties.AutomationId="MailMessageRenderer"
                     AutomationProperties.HelpText="{x:Bind domain:Translator.Reader_MessageBodyAutomationHelpText, Mode=OneTime}"
                     AutomationProperties.Name="{x:Bind domain:Translator.Reader_MessageBodyAutomationName, Mode=OneTime}"
+                    DarkModeMethod="{x:Bind ToRendererDarkModeMethod(ViewModel.ReaderDarkModeMethod), Mode=OneWay}"
                     InitializationFailed="MailRenderer_InitializationFailed"
                     IsDarkMode="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=OneWay}"
                     NavigationRequested="MailRenderer_NavigationRequested"

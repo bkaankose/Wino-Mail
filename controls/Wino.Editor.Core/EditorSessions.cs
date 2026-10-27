@@ -1,6 +1,7 @@
 namespace Wino.Editor;
 
 public enum HtmlMailRenderMode { Original = 0, Readability = 1 }
+public enum HtmlMailDarkModeMethod { Adaptive = 0, Inverted = 1 }
 public enum RemoteContentPolicy { Blocked, ImagesAndFontsAllowed }
 public sealed record HtmlMailReaderRequest(string Html, RemoteContentPolicy ResourcePolicy,
     HtmlMailRenderMode RenderMode = HtmlMailRenderMode.Original, bool ShouldLinkify = true);
@@ -43,6 +44,7 @@ public interface IHtmlMailReaderSession : IAsyncDisposable
     Task ClearAsync(CancellationToken cancellationToken = default);
     Task<string> GetOriginalHtmlAsync(CancellationToken cancellationToken = default);
     Task SetThemeAsync(bool isDarkMode, CancellationToken cancellationToken = default);
+    Task SetDarkModeMethodAsync(HtmlMailDarkModeMethod method, CancellationToken cancellationToken = default) => Task.CompletedTask;
     Task SetReaderTypographyAsync(string? fontFamily, int fontSize, CancellationToken cancellationToken = default);
     Task SetAccessibilityContextAsync(ReaderAccessibilityContext context, CancellationToken cancellationToken = default);
     Task EnterIdleAsync(CancellationToken cancellationToken = default);

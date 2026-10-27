@@ -8,10 +8,8 @@ public static class EditorDocumentAssets
 
     private const string ResourcePrefix = "Wino.Editor.Assets.Editor.";
     private const string CharsetMetaTag = "<meta charset=\"utf-8\">";
-    private const string LightReaderDocumentTag =
+    private const string ReaderDocumentTag =
         "<html id=\"wino-document\" lang=\"en\" data-theme=\"light\">";
-    private const string DarkReaderDocumentTag =
-        "<html id=\"wino-document\" lang=\"en\" data-theme=\"dark\">";
 
     // Only scripts carrying this per-process nonce can run. Mail markup can never obtain it,
     // so inline event handlers, javascript: URLs and injected <script> elements stay inert
@@ -71,13 +69,23 @@ public static class EditorDocumentAssets
 
     public static Task<string> GetEditorDocumentAsync() => EditorDocument.Value;
 
-    public static async Task<string> GetReaderDocumentAsync(bool isDarkMode)
+    public static async Task<string> GetReaderDocumentAsync(
+        bool isDarkMode,
+        HtmlMailDarkModeMethod darkModeMethod = HtmlMailDarkModeMethod.Adaptive)
     {
         string document = await ReaderDocument.Value.ConfigureAwait(false);
-        return isDarkMode
-            ? document.Replace(LightReaderDocumentTag, DarkReaderDocumentTag, StringComparison.Ordinal)
-            : document;
+        string theme = isDarkMode ? "dark" : "light";
+        return document.Replace(
+            ReaderDocumentTag,
+            $"<html id=\"wino-document\" lang=\"en\" data-theme=\"{theme}\" data-dark-method=\"{GetDarkModeMethodName(darkModeMethod)}\">",
+            StringComparison.Ordinal);
     }
+
+    public static string GetDarkModeMethodName(HtmlMailDarkModeMethod method) => method switch
+    {
+        HtmlMailDarkModeMethod.Inverted => "inverted",
+        _ => "adaptive"
+    };
 
     internal static async Task<string> BuildDocumentAsync(
         string pageFileName,

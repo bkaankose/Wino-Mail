@@ -6,6 +6,10 @@
     // Share of a message still painted light under the sender's own dark rules at which those
     // rules are treated as ineffective.
     const ineffectiveDarkSupportCoverage = 0.5;
+    const darkMethods = ["adaptive", "inverted"];
+    const darkColorAttribute = "data-wino-dk";
+    const darkColorSpecificity = "#wino-dk#wino-dk:not(#wino-dk)";
+    const forcedColors = window.matchMedia("(forced-colors: active)");
     const sanitizeOptions = {
         USE_PROFILES: { html: true },
         FORBID_TAGS: [
@@ -26,6 +30,8 @@
     // clobber document or window properties. Unlike an iframe, the shadow tree paginates
     // normally when the host prints the message or exports it to PDF.
     const mailRoot = reader.attachShadow({ mode: "open" });
+    const darkColorStyle = document.createElement("style");
+    const schemeBackgroundStyle = document.createElement("style");
     const fontFaceStyle = document.createElement("style");
     fontFaceStyle.id = "wino-mail-fonts";
     document.head.appendChild(fontFaceStyle);
@@ -39,7 +45,16 @@
             min-height: 100vh;
             color-scheme: light;
         }
-        :host([data-mail-scheme="dark"]) .wino-mail-html { color-scheme: dark; }
+        @media screen {
+            :host([data-mail-scheme="dark"]) .wino-mail-html { color-scheme: dark; }
+            :host([data-mail-filter="inverted"]) .wino-mail-html { filter: invert(1) hue-rotate(180deg); }
+            :host([data-mail-filter="inverted"]) :is(img, video, canvas):not(svg *),
+            :host([data-mail-filter="inverted"]) svg:not(svg *) { filter: invert(1) hue-rotate(180deg) brightness(.85); }
+        }
+        @media (forced-colors: active) {
+            :host([data-mail-filter]) .wino-mail-html,
+            :host([data-mail-filter]) :is(img, video, canvas, svg) { filter: none; }
+        }
         /* A host inset (setContentInset) keeps text off the reader edge even when the mail zeroes its own padding. */
         :host([data-inset]) .wino-mail-html { padding: var(--wino-reader-inset, 0px) !important; }
         .wino-mail-body { flex: 1 0 auto; }
@@ -82,13 +97,22 @@
     let mailBodyElement = null;
     let schemeRules = [];
     let declaresDarkSupport = false;
-    let requiresLightOnly = false;
+    let darkMethod = darkMethods.includes(document.documentElement.dataset.darkMethod)
+        ? document.documentElement.dataset.darkMethod
+        : "adaptive";
     let adaptsColors = false;
-    let colorOverrides = [];
+    let invertsColors = false;
+    let darkColorElements = [];
+    let inlineColorRestores = [];
     let imageRefreshTimer = 0;
     let fallbackElement = null;
     let fallbackName = "Plain text message";
     let fallbackText = "";
+    const maxImageFetchesPerMessage = 32;
+    let remoteContentAllowed = false;
+    let imageFetchRequestId = 0;
+    let imageFetchesByUri = new Map();
+    let imageFetchesById = new Map();
 
     function post(message) {
         message.sessionId = window.winoSessionId;
@@ -129,8 +153,20 @@
         }
     }
 
+    let isStyleMarkerHookInstalled = false;
+
     function sanitize(html, options) {
         ensureSanitizer();
+        if (!isStyleMarkerHookInstalled) {
+            // SAFE_FOR_XML removes any element whose text contains "<!", so a <style> wrapped in
+            // /*<![CDATA[*/ or <!-- --> markers lost every rule. CSS ignores the markers.
+            window.DOMPurify.addHook("uponSanitizeElement", (node, data) => {
+                if (data.tagName === "style" && node.textContent) {
+                    node.textContent = node.textContent.replace(/<!\[CDATA\[|\]\]>|<!--|-->/g, "");
+                }
+            });
+            isStyleMarkerHookInstalled = true;
+        }
         const sanitized = window.DOMPurify.sanitize(html || "", options || sanitizeOptions);
         if (typeof sanitized !== "string") {
             throw new Error("DOMPurify returned an unexpected result; refusing to render untrusted HTML.");
@@ -142,7 +178,6 @@
     // are never inserted: only the hint values are kept.
     function readColorSchemeHints(html) {
         let supportsDark = false;
-        let lightOnly = false;
         try {
             const parsed = new DOMParser().parseFromString(html, "text/html");
             parsed.querySelectorAll("meta[name]").forEach(meta => {
@@ -150,12 +185,11 @@
                 if (name !== "color-scheme" && name !== "supported-color-schemes") return;
                 const tokens = (meta.getAttribute("content") || "").toLowerCase().split(/[\s,]+/).filter(Boolean);
                 if (tokens.includes("dark")) supportsDark = true;
-                else if (tokens.includes("only") && tokens.includes("light")) lightOnly = true;
             });
         } catch (_) {
             // Hints are optional. An unparsable document simply has none.
         }
-        return { supportsDark, lightOnly };
+        return { supportsDark };
     }
 
     function getReadabilityPresentation(sanitizedHtml) {
@@ -214,7 +248,7 @@
             } else if (rule instanceof CSSMediaRule) {
                 const media = rule.media.mediaText;
                 if (/prefers-color-scheme/i.test(media)) {
-                    schemeRules.push({ rule, media });
+                    schemeRules.push({ rule, queries: Array.from(rule.media) });
                     if (/prefers-color-scheme\s*:\s*dark/i.test(media)) context.hasDarkRules = true;
                 }
                 processRules(rule.cssRules, context);
@@ -316,50 +350,122 @@
         };
     }
 
-    function propagateBodyBackground() {
-        // In a real document the body background paints the whole canvas when <html> has none.
+    function getCanvasBackground() {
+        const htmlStyle = getComputedStyle(mailHtmlElement);
+        const htmlBackground = window.WinoMailColors.parseColor(htmlStyle.backgroundColor);
+        if ((htmlBackground && htmlBackground.a > 0) || htmlStyle.backgroundImage !== "none") return "";
+        const bodyStyle = getComputedStyle(mailBodyElement);
+        const bodyBackground = window.WinoMailColors.parseColor(bodyStyle.backgroundColor);
+        return bodyBackground && bodyBackground.a > 0 ? bodyStyle.backgroundColor : "";
+    }
+
+    // In a real document the body background paints the whole canvas when <html> has none.
+    function propagateBodyBackground(scheme) {
+        schemeBackgroundStyle.textContent = "";
         if (!mailHtmlElement || !mailBodyElement) return;
         mailHtmlElement.style.removeProperty("background-color");
         mailHtmlElement.style.removeProperty("background-image");
-        const htmlStyle = getComputedStyle(mailHtmlElement);
-        const htmlBackground = window.WinoMailColors.parseColor(htmlStyle.backgroundColor);
-        if ((htmlBackground && htmlBackground.a > 0) || htmlStyle.backgroundImage !== "none") return;
-        const bodyStyle = getComputedStyle(mailBodyElement);
-        const bodyBackground = window.WinoMailColors.parseColor(bodyStyle.backgroundColor);
-        if (bodyBackground && bodyBackground.a > 0) {
-            mailHtmlElement.style.setProperty("background-color", bodyStyle.backgroundColor);
+        forceColorScheme("light");
+        const lightBackground = getCanvasBackground();
+        if (scheme === "dark") {
+            forceColorScheme("dark");
+            const darkBackground = getCanvasBackground();
+            if (darkBackground) {
+                schemeBackgroundStyle.textContent =
+                    `@media screen { .wino-mail-html { background-color: ${darkBackground} !important; } }`;
+            }
         }
+        if (lightBackground) mailHtmlElement.style.setProperty("background-color", lightBackground);
+    }
+
+    function resolveColorScheme(query, scheme) {
+        return query.replace(/\(\s*prefers-color-scheme\s*:\s*(dark|light)\s*\)/gi,
+            (match, value) => value.toLowerCase() === scheme ? "(min-width: 0px)" : "(max-width: 0px)");
+    }
+
+    function restrictQuery(query, type) {
+        const typed = /^\s*(only\s+|not\s+)?([a-z][\w-]*)(?:\s+and\s+([\s\S]+?))?\s*$/i.exec(query);
+        if (!typed) {
+            return /^\s*\(/.test(query) && !/\bor\b/i.test(query)
+                ? `${type} and ${query.trim()}`
+                : `${type} and (${query.trim()})`;
+        }
+        const mediaType = typed[2].toLowerCase();
+        const matchesType = mediaType === "all" || mediaType === type;
+        const condition = typed[3];
+        if (!/^not/i.test(typed[1] || "")) {
+            if (!matchesType) return "not all";
+            return condition ? `${type} and ${condition}` : type;
+        }
+        if (!matchesType) return type;
+        return condition ? `${type} and (not (${condition}))` : "not all";
     }
 
     function forceColorScheme(scheme) {
         for (const entry of schemeRules) {
-            entry.rule.media.mediaText = entry.media.replace(
-                /\(\s*prefers-color-scheme\s*:\s*(dark|light)\s*\)/gi,
-                (match, value) => value.toLowerCase() === scheme ? "(min-width: 0px)" : "(max-width: 0px)");
+            const queries = scheme === "dark"
+                ? entry.queries.flatMap(query => [
+                    restrictQuery(resolveColorScheme(query, "dark"), "screen"),
+                    restrictQuery(resolveColorScheme(query, "light"), "print")])
+                : entry.queries.map(query => resolveColorScheme(query, "light"));
+            entry.rule.media.mediaText = queries.join(", ");
         }
     }
 
     function clearColorOverrides() {
-        for (const entry of colorOverrides) {
+        for (const entry of inlineColorRestores) {
             if (entry.style === null) entry.element.removeAttribute("style");
             else entry.element.setAttribute("style", entry.style);
         }
-        colorOverrides = [];
+        for (const element of darkColorElements) element.removeAttribute(darkColorAttribute);
+        inlineColorRestores = [];
+        darkColorElements = [];
+        darkColorStyle.textContent = "";
     }
 
     function applyColorOverrides(overrides) {
-        const saved = new Set();
+        const byElement = new Map();
         for (const override of overrides) {
-            if (!saved.has(override.element)) {
-                saved.add(override.element);
-                colorOverrides.push({ element: override.element, style: override.element.getAttribute("style") });
-            }
-            override.element.style.setProperty(override.property, override.value, "important");
+            let list = byElement.get(override.element);
+            if (!list) byElement.set(override.element, list = []);
+            list.push(override);
         }
+
+        const screenRules = [];
+        const printRules = [];
+        byElement.forEach((list, element) => {
+            const id = String(darkColorElements.length + 1);
+            const selector = `:is([${darkColorAttribute}="${id}"], ${darkColorSpecificity})`;
+            const screen = [];
+            const print = [];
+            const originalStyle = element.getAttribute("style");
+            for (const override of list) {
+                screen.push(`${override.property}: ${override.value} !important;`);
+                if (element.style.getPropertyPriority(override.property) !== "important") continue;
+                print.push(`${override.property}: ${element.style.getPropertyValue(override.property)} !important;`);
+                element.style.removeProperty(override.property);
+            }
+            if (print.length) {
+                inlineColorRestores.push({ element, style: originalStyle });
+                printRules.push(`${selector} { ${print.join(" ")} }`);
+            }
+            element.setAttribute(darkColorAttribute, id);
+            darkColorElements.push(element);
+            screenRules.push(`${selector} { ${screen.join(" ")} }`);
+        });
+
+        darkColorStyle.textContent =
+            `@media screen {\n${screenRules.join("\n")}\n}\n@media print {\n${printRules.join("\n")}\n}`;
+    }
+
+    function applyMailScheme(scheme) {
+        reader.dataset.mailScheme = scheme;
+        forceColorScheme(scheme);
+        propagateBodyBackground(scheme);
     }
 
     // Decides how the current message is shown:
-    // - light theme, or a sender that asked for "light only": the original colors;
+    // - light theme: the original colors;
     // - dark theme with sender dark support: the sender's own dark styles;
     // - dark theme otherwise: the original design with selective color adaptation.
     // Some senders declare dark support, but their dark rules only target other clients
@@ -367,39 +473,114 @@
     // white. Such a message keeps the sender's dark rules and is adapted on top of them.
     function applyColorPolicy() {
         clearColorOverrides();
-        const scheme = isDarkTheme && declaresDarkSupport && !requiresLightOnly ? "dark" : "light";
-        const surface = isDarkTheme && !requiresLightOnly ? "dark" : "light";
-
-        document.documentElement.dataset.surface = surface;
-        reader.dataset.mailScheme = scheme;
-        forceColorScheme(scheme);
+        delete reader.dataset.mailFilter;
         adaptsColors = false;
-        if (!mailHtmlElement) return;
+        invertsColors = false;
+        const darkens = isDarkTheme && !forcedColors.matches;
+        document.documentElement.dataset.surface = isDarkTheme ? "dark" : "light";
+        applyMailScheme(darkens && declaresDarkSupport ? "dark" : "light");
+        if (!mailHtmlElement || !darkens || !window.WinoMailColors) return;
 
-        propagateBodyBackground();
-        adaptsColors = isDarkTheme && !requiresLightOnly && !!window.WinoMailColors &&
-            (!declaresDarkSupport ||
-                window.WinoMailColors.lightSurfaceCoverage(mailHtmlElement) >= ineffectiveDarkSupportCoverage);
-        if (adaptsColors) {
-            const surfaceColor = getComputedStyle(document.documentElement).backgroundColor;
-            applyColorOverrides(window.WinoMailColors.computeDarkOverrides(mailHtmlElement, surfaceColor));
+        if (declaresDarkSupport &&
+            window.WinoMailColors.lightSurfaceCoverage(mailHtmlElement) < ineffectiveDarkSupportCoverage) return;
+
+        if (darkMethod === "inverted") {
+            if (declaresDarkSupport) applyMailScheme("light");
+            invertsColors = true;
+            reader.dataset.mailFilter = "inverted";
+            return;
         }
+
+        adaptsColors = true;
+        const surfaceColor = getComputedStyle(document.documentElement).backgroundColor;
+        applyColorOverrides(window.WinoMailColors.computeDarkOverrides(mailHtmlElement, surfaceColor));
+    }
+
+    function scheduleColorRefresh() {
+        window.clearTimeout(imageRefreshTimer);
+        imageRefreshTimer = window.setTimeout(() => {
+            if (mailHtmlElement) applyColorPolicy();
+        }, 150);
     }
 
     // Image backdrops depend on the rendered image size, which is unknown until it loads.
     function watchImageLoads() {
         if (!mailHtmlElement) return;
         const refresh = () => {
-            if (!isDarkTheme || requiresLightOnly || (declaresDarkSupport && !adaptsColors)) return;
-            window.clearTimeout(imageRefreshTimer);
-            imageRefreshTimer = window.setTimeout(() => {
-                if (mailHtmlElement) applyColorPolicy();
-            }, 150);
+            if (adaptsColors) scheduleColorRefresh();
         };
         mailHtmlElement.querySelectorAll("img").forEach(image => {
-            if (!image.complete) image.addEventListener("load", refresh, { once: true });
+            const fetchable = remoteContentAllowed && getRemoteImageUri(image) !== "";
+            if (image.complete) {
+                if (fetchable && image.naturalWidth === 0) requestImageFetch(image);
+                return;
+            }
+            image.addEventListener("load", refresh, { once: true });
+            image.addEventListener("error", refresh, { once: true });
+            if (fetchable) image.addEventListener("error", () => requestImageFetch(image), { once: true });
         });
     }
+
+    function getRemoteImageUri(image) {
+        const uri = image.currentSrc || image.src || "";
+        return /^https?:\/\//i.test(uri) ? uri : "";
+    }
+
+    function requestImageFetch(image) {
+        if (!remoteContentAllowed || !image.isConnected) return;
+        const uri = getRemoteImageUri(image);
+        if (!uri) return;
+        const existing = imageFetchesByUri.get(uri);
+        if (existing) {
+            if (existing.dataUri) applySuppliedImage(image, existing.dataUri);
+            else existing.images.push(image);
+            return;
+        }
+        if (imageFetchesByUri.size >= maxImageFetchesPerMessage) return;
+        imageFetchRequestId += 1;
+        const entry = { requestId: imageFetchRequestId, images: [image] };
+        imageFetchesByUri.set(uri, entry);
+        imageFetchesById.set(entry.requestId, entry);
+        post({ type: "imageFetch", requestId: entry.requestId, uri });
+    }
+
+    function supplyImage(requestId, dataUri) {
+        const entry = imageFetchesById.get(Number(requestId));
+        if (!entry || typeof dataUri !== "string" || !/^data:image\//i.test(dataUri)) return false;
+        imageFetchesById.delete(entry.requestId);
+        entry.dataUri = dataUri;
+        entry.images.forEach(image => applySuppliedImage(image, dataUri));
+        entry.images = [];
+        if (adaptsColors) scheduleColorRefresh();
+        return true;
+    }
+
+    function applySuppliedImage(image, dataUri) {
+        if (!image.isConnected) return;
+        image.removeAttribute("srcset");
+        image.removeAttribute("sizes");
+        const parent = image.parentElement;
+        if (parent && parent.localName === "picture") {
+            parent.querySelectorAll(":scope > source").forEach(source => source.remove());
+        }
+        image.addEventListener("load", () => {
+            if (adaptsColors) scheduleColorRefresh();
+        }, { once: true });
+        image.src = dataUri;
+    }
+
+    function resetImageFetches() {
+        imageFetchesByUri = new Map();
+        imageFetchesById = new Map();
+    }
+
+    document.addEventListener("wino-backdrop-measured", () => {
+        if (isDarkTheme) scheduleColorRefresh();
+    });
+
+    forcedColors.addEventListener("change", () => {
+        if (mailHtmlElement) applyColorPolicy();
+    });
 
     function scrollToFragment(fragment) {
         let name = fragment;
@@ -410,8 +591,10 @@
         if (target) target.scrollIntoView({ block: "start" });
     }
 
-    function render(base64Html, linkify, mode) {
+    function render(base64Html, linkify, mode, allowRemoteContent) {
         reportLink(null);
+        resetImageFetches();
+        remoteContentAllowed = allowRemoteContent === true;
         const decodedHtml = decode(base64Html);
         const useReadability = Number(mode) === readabilityMode;
         const hints = readColorSchemeHints(decodedHtml);
@@ -433,15 +616,15 @@
 
         const version = beginPresentationUpdate();
         clearColorOverrides();
+        if (window.WinoMailColors) window.WinoMailColors.resetBackdropCache();
         originalHtml = decodedHtml;
         declaresDarkSupport = !useReadability && (hints.supportsDark || context.hasDarkRules);
-        requiresLightOnly = !useReadability && hints.lightOnly && !declaresDarkSupport;
         applyDocumentLanguage(presentation.direction, presentation.language);
 
         const baseStyle = document.createElement("style");
         baseStyle.textContent = baseStyleText;
         fontFaceStyle.textContent = context.fontFaces.join("\n");
-        mailRoot.replaceChildren(baseStyle, tree.bodyHints, tree.htmlElement);
+        mailRoot.replaceChildren(baseStyle, tree.bodyHints, darkColorStyle, schemeBackgroundStyle, tree.htmlElement);
         mailRoot.adoptedStyleSheets = sheets;
         mailHtmlElement = tree.htmlElement;
         mailBodyElement = tree.bodyElement;
@@ -457,10 +640,12 @@
         return true;
     }
 
-    function setTheme(isDark) {
+    function setTheme(isDark, method) {
         const version = beginPresentationUpdate();
         isDarkTheme = Boolean(isDark);
+        if (darkMethods.includes(method)) darkMethod = method;
         document.documentElement.dataset.theme = isDarkTheme ? "dark" : "light";
+        document.documentElement.dataset.darkMethod = darkMethod;
         applyColorPolicy();
         revealAfterStylesSettle(version);
     }
@@ -585,13 +770,15 @@
         render,
         clear() {
             reportLink(null);
+            resetImageFetches();
+            remoteContentAllowed = false;
             beginPresentationUpdate();
             window.clearTimeout(imageRefreshTimer);
             clearColorOverrides();
+            if (window.WinoMailColors) window.WinoMailColors.resetBackdropCache();
             originalHtml = "";
             schemeRules = [];
             declaresDarkSupport = false;
-            requiresLightOnly = false;
             adaptsColors = false;
             mailHtmlElement = null;
             mailBodyElement = null;
@@ -604,8 +791,10 @@
             applyColorPolicy();
         },
         getOriginalHtml() { return originalHtml; },
+        supplyImage,
         getColorPolicy() {
-            if (!isDarkTheme || requiresLightOnly) return "original";
+            if (!isDarkTheme || forcedColors.matches) return "original";
+            if (invertsColors) return "inverted";
             return declaresDarkSupport && !adaptsColors ? "sender-dark" : "adapted";
         },
         setTheme,

@@ -11,6 +11,8 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
 {
     private static readonly TimeSpan InitializationTimeout = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan DisposalDelay = TimeSpan.FromSeconds(2);
+    private const int MaxImageFetchesPerMessage = 32;
+    private const int MaxConcurrentImageFetches = 4;
     private readonly SemaphoreSlim _browserOperationGate = new(1, 1);
     private Task? _initializationTask;
     private readonly TaskCompletionSource<bool> _loadedSource =
@@ -19,6 +21,7 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
     private CancellationTokenSource? _disposeDelayCancellation;
     private Task? _disposalTask;
     private bool _isDarkMode;
+    private HtmlMailDarkModeMethod _darkModeMethod;
     private bool _browserEventsAttached;
     private bool _disposeRequested;
     private bool _disposed;
@@ -40,6 +43,7 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
     private ulong _documentNavigationId;
     private bool _allowNextInternalNavigation;
     private bool _blockRemoteResources;
+    private ImageFetchScope? _imageFetchScope;
 
     public WinoMailRenderer() => InitializeComponent();
 
@@ -57,6 +61,17 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
         }
     }
 
+    public HtmlMailDarkModeMethod DarkModeMethod
+    {
+        get => _darkModeMethod;
+        set
+        {
+            if (_darkModeMethod == value) return;
+            _darkModeMethod = value;
+            if (_ready.Task.IsCompletedSuccessfully) _ = ApplyThemeWhenReadyAsync();
+        }
+    }
+
     /// <summary>
     /// Blocks every network request the rendered message makes, including CSS backgrounds and
     /// web fonts that image stripping cannot reach. Set it before rendering a message whose
@@ -65,7 +80,11 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
     public bool BlockRemoteResources
     {
         get => _blockRemoteResources;
-        set => _blockRemoteResources = value;
+        set
+        {
+            _blockRemoteResources = value;
+            if (value) CancelImageFetches();
+        }
     }
 
     /// <summary>
@@ -99,9 +118,25 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
         string html,
         HtmlMailRenderMode renderMode,
         bool shouldLinkify = true) =>
+        RenderHtmlCoreAsync(html, renderMode, shouldLinkify, null);
+
+    public Task RenderHtmlAsync(
+        string html,
+        HtmlMailRenderMode renderMode,
+        bool shouldLinkify,
+        bool blockRemoteResources) =>
+        RenderHtmlCoreAsync(html, renderMode, shouldLinkify, blockRemoteResources);
+
+    private Task RenderHtmlCoreAsync(
+        string html,
+        HtmlMailRenderMode renderMode,
+        bool shouldLinkify,
+        bool? blockRemoteResources) =>
         RunBrowserOperationAsync(async () =>
         {
             HideLinkTarget();
+            CancelImageFetches();
+            if (blockRemoteResources is bool block) _blockRemoteResources = block;
             _originalHtml = html ?? string.Empty;
             _shouldLinkify = shouldLinkify;
             _renderMode = renderMode;
@@ -124,6 +159,18 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
             if (wasReady && themeChanged) await ApplyThemeAsync();
         });
 
+    public Task SetDarkModeMethodAsync(HtmlMailDarkModeMethod method) =>
+        RunBrowserOperationAsync(async () =>
+        {
+            bool wasReady = _ready.Task.IsCompletedSuccessfully;
+            bool methodChanged = _darkModeMethod != method;
+            _darkModeMethod = method;
+
+            await EnsureInitializedCoreAsync();
+
+            if (wasReady && methodChanged) await ApplyThemeAsync();
+        });
+
     public Task RenderPlainTextAsync(string text, bool shouldLinkify = true)
     {
         string encodedText = System.Net.WebUtility.HtmlEncode(text ?? string.Empty)
@@ -138,6 +185,7 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
         RunBrowserOperationAsync(async () =>
         {
             HideLinkTarget();
+            CancelImageFetches();
             _originalHtml = string.Empty;
             _contentVersion++;
 
@@ -283,10 +331,12 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
     private async Task InitializeCoreAsync()
     {
         _documentSessionId = Guid.NewGuid().ToString("N");
-        string document = EditorAssetProvider.BindSession(await EditorAssetProvider.GetReaderDocumentAsync(IsDarkMode), _documentSessionId);
+        string document = EditorAssetProvider.BindSession(
+            await EditorDocumentAssets.GetReaderDocumentAsync(IsDarkMode, DarkModeMethod),
+            _documentSessionId);
         var environment = WebViewEnvironment ?? await WinoWebViewEnvironment.GetSharedEnvironmentAsync();
         var webView = RendererWebView2 ?? throw new ObjectDisposedException(nameof(WinoMailRenderer));
-        await webView.EnsureCoreWebView2Async(environment);
+        await WinoWebViewEnvironment.EnsureInPrivateCoreWebView2Async(webView, environment);
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         // The WebView2 can be closed while EnsureCoreWebView2Async is pending, which
@@ -319,22 +369,21 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
         if (_renderedContentVersion == version) return;
         string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(_originalHtml));
         string encodedJson = JsonSerializer.Serialize(encoded, EditorJsonContext.Default.String);
+        bool remoteContentAllowed = !_blockRemoteResources;
+        CancelImageFetches();
+        if (remoteContentAllowed) _imageFetchScope = new ImageFetchScope(version);
         await ExecuteDirectAsync(
-            $"window.WinoRenderer.render({encodedJson}, {_shouldLinkify.ToString().ToLowerInvariant()}, {(int)_renderMode})");
+            $"window.WinoRenderer.render({encodedJson}, {_shouldLinkify.ToString().ToLowerInvariant()}, {(int)_renderMode}, {remoteContentAllowed.ToString().ToLowerInvariant()})");
         if (version == _contentVersion) _renderedContentVersion = version;
     }
 
     private Task ApplyThemeAsync()
     {
-        if (RendererWebView2?.CoreWebView2 is not null)
-        {
-            RendererWebView2.CoreWebView2.Profile.PreferredColorScheme = IsDarkMode
-                ? CoreWebView2PreferredColorScheme.Dark
-                : CoreWebView2PreferredColorScheme.Light;
-        }
-
+        string methodJson = JsonSerializer.Serialize(
+            EditorDocumentAssets.GetDarkModeMethodName(DarkModeMethod),
+            EditorJsonContext.Default.String);
         return ExecuteDirectAsync(
-            $"window.WinoRenderer.setTheme({IsDarkMode.ToString().ToLowerInvariant()})");
+            $"window.WinoRenderer.setTheme({IsDarkMode.ToString().ToLowerInvariant()}, {methodJson})");
     }
 
     private Task ApplyTypographyAsync()
@@ -426,6 +475,92 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
         {
             ShowLinkTarget(message.Uri, message.Target);
         }
+        else if (message?.Type == "imageFetch")
+        {
+            RequestImageFetch(message.RequestId, message.Uri);
+        }
+    }
+
+    private void RequestImageFetch(int? requestId, string? value)
+    {
+        if (requestId is not int id ||
+            _imageFetchScope is not { } scope ||
+            !IsCurrentImageFetchScope(scope) ||
+            scope.RequestCount >= MaxImageFetchesPerMessage ||
+            !RemoteImageFetcher.IsFetchableUri(value, out Uri? uri)) return;
+
+        scope.RequestCount++;
+        _ = FetchAndSupplyImageAsync(scope, id, uri);
+    }
+
+    private async Task FetchAndSupplyImageAsync(ImageFetchScope scope, int requestId, Uri uri)
+    {
+        CancellationToken token = scope.Cancellation.Token;
+        bool entered = false;
+        long budget = 0;
+        long used = 0;
+        try
+        {
+            await scope.Concurrency.WaitAsync(token);
+            entered = true;
+            if (!IsCurrentImageFetchScope(scope)) return;
+
+            budget = Math.Min(RemoteImageFetcher.MaxImageBytes, RemoteImageFetcher.MaxMessageBytes - scope.ReservedBytes);
+            if (budget <= 0)
+            {
+                budget = 0;
+                return;
+            }
+
+            scope.ReservedBytes += budget;
+            var result = await RemoteImageFetcher.FetchAsync(uri, budget, token);
+            if (result is null) return;
+            used = result.ByteCount;
+
+            await SupplyImageAsync(scope, requestId, result.DataUri);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception) when (
+            exception is ObjectDisposedException or InvalidOperationException or COMException)
+        {
+        }
+        finally
+        {
+            scope.ReservedBytes -= budget - used;
+            if (entered) scope.Concurrency.Release();
+        }
+    }
+
+    private async Task SupplyImageAsync(ImageFetchScope scope, int requestId, string dataUri)
+    {
+        await _browserOperationGate.WaitAsync(scope.Cancellation.Token);
+        try
+        {
+            if (_initializationTask is null || !_ready.Task.IsCompletedSuccessfully || !IsCurrentImageFetchScope(scope))
+                return;
+
+            string dataUriJson = JsonSerializer.Serialize(dataUri, EditorJsonContext.Default.String);
+            await ExecuteDirectAsync($"window.WinoRenderer.supplyImage({requestId}, {dataUriJson})");
+        }
+        finally
+        {
+            _browserOperationGate.Release();
+        }
+    }
+
+    private bool IsCurrentImageFetchScope(ImageFetchScope scope) =>
+        !_disposed &&
+        !_blockRemoteResources &&
+        ReferenceEquals(_imageFetchScope, scope) &&
+        scope.ContentVersion == _contentVersion &&
+        !scope.Cancellation.IsCancellationRequested;
+
+    private void CancelImageFetches()
+    {
+        _imageFetchScope?.Cancellation.Cancel();
+        _imageFetchScope = null;
     }
 
     private void ShowLinkTarget(string? uri, string? safeLinkTarget)
@@ -659,6 +794,7 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
     private void DisposeBrowser()
     {
         _allowNextInternalNavigation = false;
+        CancelImageFetches();
         DetachBrowserEvents();
 
         if (RendererWebView2 is not null)
@@ -776,5 +912,14 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
 
         _disposeRequested = false;
         _disposeDelayCancellation?.Cancel();
+    }
+
+    private sealed class ImageFetchScope(int contentVersion)
+    {
+        public int ContentVersion { get; } = contentVersion;
+        public CancellationTokenSource Cancellation { get; } = new();
+        public SemaphoreSlim Concurrency { get; } = new(MaxConcurrentImageFetches, MaxConcurrentImageFetches);
+        public int RequestCount { get; set; }
+        public long ReservedBytes { get; set; }
     }
 }
