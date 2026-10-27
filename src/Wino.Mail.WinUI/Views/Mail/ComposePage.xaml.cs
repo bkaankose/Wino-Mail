@@ -337,7 +337,23 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
         static async Task<string> GetDataURL(StorageFile file)
         {
-            return $"data:image/{file.FileType.Replace(".", "")};base64,{Convert.ToBase64String(await file.ToByteArrayAsync())}";
+            var mimeType = file.ContentType;
+
+            if (string.IsNullOrWhiteSpace(mimeType) || !mimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            {
+                mimeType = file.FileType.ToLowerInvariant() switch
+                {
+                    ".jpg" or ".jpeg" => "image/jpeg",
+                    ".gif" => "image/gif",
+                    ".bmp" => "image/bmp",
+                    ".webp" => "image/webp",
+                    ".svg" => "image/svg+xml",
+                    ".ico" => "image/x-icon",
+                    _ => "image/png"
+                };
+            }
+
+            return $"data:{mimeType};base64,{Convert.ToBase64String(await file.ToByteArrayAsync())}";
         }
     }
 

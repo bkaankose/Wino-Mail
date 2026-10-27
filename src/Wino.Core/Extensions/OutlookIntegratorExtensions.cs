@@ -401,10 +401,14 @@ public static class OutlookIntegratorExtensions
     public static List<FileAttachment> ExtractAttachments(this MimeMessage mime)
     {
         var attachments = new List<FileAttachment>();
+        int generatedNameCount = 0;
 
         foreach (var part in mime.BodyParts)
         {
-            bool isInline = part.ContentDisposition?.Disposition == "inline";
+            bool isInline = string.Equals(part.ContentDisposition?.Disposition, "inline", StringComparison.OrdinalIgnoreCase)
+                || (!part.IsAttachment
+                    && !string.IsNullOrWhiteSpace(part.ContentId)
+                    && !part.ContentType.IsMimeType("text", "*"));
 
             if (!part.IsAttachment && !isInline)
                 continue;
@@ -415,9 +419,22 @@ public static class OutlookIntegratorExtensions
             using var memory = new MemoryStream();
             mimePart.Content.DecodeTo(memory);
 
+            var name = part.ContentDisposition?.FileName;
+
+            if (string.IsNullOrWhiteSpace(name))
+                name = part.ContentType.Name;
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                generatedNameCount++;
+                name = part.ContentType.IsMimeType("image", "*")
+                    ? $"image{generatedNameCount:000}.{MimeExtensions.GetImageFileExtension(part.ContentType.MediaSubtype)}"
+                    : $"attachment{generatedNameCount:000}.bin";
+            }
+
             attachments.Add(new FileAttachment()
             {
-                Name = part.ContentDisposition?.FileName ?? part.ContentType.Name,
+                Name = name,
                 ContentBytes = memory.ToArray(),
                 ContentType = part.ContentType.MimeType,
                 ContentId = part.ContentId,
