@@ -378,9 +378,6 @@ public sealed class HtmlPreviewVisitor : MimeVisitor
 
             writer.WriteAttribute(attribute);
         }
-
-        if (context.TagId == HtmlTagId.Body)
-            writer.WriteAttribute("oncontextmenu", "return false;");
     }
 
     private static bool TryGetColorSchemeMeta(HtmlTagContext context, out string name, out string content)
