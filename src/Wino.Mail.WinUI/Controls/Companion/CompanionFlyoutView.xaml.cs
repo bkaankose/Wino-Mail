@@ -7,12 +7,11 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.System;
-using Wino.Calendar.ViewModels.Data;
-using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Services.Companion;
 using WinRT;
+using CompanionEventItem = Wino.Mail.ViewModels.Companion.CompanionEventItem;
 
 namespace Wino.Mail.WinUI.Controls.Companion;
 
@@ -27,8 +26,6 @@ public sealed partial class CompanionFlyoutView : UserControl
     public CompanionDashboardViewModel ViewModel { get; }
 
     internal event EventHandler? HideRequested;
-
-    private async void OpenEvent_Click(object? sender, EventArgs e) => await OpenEventAsync();
 
     private void Root_KeyDown(object sender, KeyRoutedEventArgs e)
     {
@@ -92,23 +89,15 @@ public sealed partial class CompanionFlyoutView : UserControl
         }
     }
 
-    private async void LaterEvent_Click(object sender, RoutedEventArgs e)
+    private async void EventRow_Click(object sender, RoutedEventArgs e)
         => await ExecuteCommandAsync(
             sender,
-            static (viewModel, parameter) => viewModel.OpenCalendarEventCommand.ExecuteAsync((CalendarItemViewModel)parameter));
+            static (viewModel, parameter) => viewModel.OpenCalendarEventCommand.ExecuteAsync(((CompanionEventItem)parameter).Item));
 
-    private async Task OpenEventAsync()
-    {
-        try
-        {
-            if (ViewModel.NextEvent is { } calendarItem)
-                await ViewModel.OpenCalendarEventCommand.ExecuteAsync(calendarItem);
-        }
-        catch (Exception ex)
-        {
-            ViewModel.ReportActionError(ex);
-        }
-    }
+    private async void EventPrimary_Click(object sender, RoutedEventArgs e)
+        => await ExecuteCommandAsync(
+            sender,
+            static (viewModel, parameter) => viewModel.OpenPrimaryEventCommand.ExecuteAsync(((CompanionEventItem)parameter).Item));
 
     private async void Mail_Click(object sender, RoutedEventArgs e)
         => await ExecuteCommandAsync(

@@ -37,7 +37,10 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
     public const int MaximumMail = 3;
     public const int MaximumTasks = 3;
     public const int MaximumContacts = 5;
-    public const int MaximumEvents = 5;
+    public const int MaximumEvents = 50;
+
+    /// <summary>Events listed as rows; the rest of today goes behind a "more today" button.</summary>
+    public const int MaximumListedEvents = 3;
 
     /// <summary>Messages are coalesced for this long before the content reloads.</summary>
     public static readonly TimeSpan RefreshDebounce = TimeSpan.FromMilliseconds(250);
@@ -80,6 +83,8 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<MailItemViewModel> UnreadMail { get; } = [];
     public ObservableCollection<CalendarItemViewModel> LaterEvents { get; } = [];
+    public ObservableCollection<CompanionEventItem> ListedEvents { get; } = [];
+    public ObservableCollection<CompanionEventItem> MoreEvents { get; } = [];
     public ObservableCollection<TaskItemViewModel> Tasks { get; } = [];
     public ObservableCollection<AccountContactViewModel> Favorites { get; } = [];
 
@@ -147,6 +152,8 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorText);
     public string UnreadTotalText => UnreadTotal > 99 ? "99+" : UnreadTotal.ToString();
     public string LaterEventsText => string.Format(Translator.Companion_MoreEventsFormat, LaterEvents.Count);
+    public bool HasMoreEvents => MoreEvents.Count > 0;
+    public string MoreEventsText => string.Format(Translator.Companion_MoreEventsFormat, MoreEvents.Count);
     public string TaskProgressText => string.Format(
         Translator.Companion_TaskProgressFormat,
         Tasks.Count(static task => task.IsCompleted),
@@ -489,6 +496,9 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
         Replace(Favorites, contacts);
         NextEvent = events.FirstOrDefault();
         Replace(LaterEvents, events.Skip(1));
+        var rows = events.Select(item => new CompanionEventItem(item, loadedAt.LocalDateTime, HasJoinUri(item))).ToList();
+        Replace(ListedEvents, rows.Take(MaximumListedEvents));
+        Replace(MoreEvents, rows.Skip(MaximumListedEvents));
         UnreadTotal = unreadTotal;
         RefreshSnoozeState();
         GreetingText = loadedAt.Hour switch
@@ -509,6 +519,8 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
         Tasks.Clear();
         Favorites.Clear();
         LaterEvents.Clear();
+        ListedEvents.Clear();
+        MoreEvents.Clear();
         NextEvent = null;
         UnreadTotal = 0;
         RaiseContentProperties();
@@ -533,6 +545,8 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(ShowEventMailSeparator));
         OnPropertyChanged(nameof(ShowMailTaskSeparator));
         OnPropertyChanged(nameof(LaterEventsText));
+        OnPropertyChanged(nameof(HasMoreEvents));
+        OnPropertyChanged(nameof(MoreEventsText));
         OnPropertyChanged(nameof(TaskProgressText));
         RaiseNextEventProperties();
     }
