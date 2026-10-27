@@ -286,6 +286,8 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     public bool IsComposerSpellCheckEnabled => _preferencesService.IsComposerSpellCheckEnabled;
     public bool IsComposerAutoCorrectEnabled => _preferencesService.IsComposerAutoCorrectEnabled;
     public string ComposerSpellCheckLanguageCode => _preferencesService.ComposerSpellCheckLanguageCode;
+    public string ComposerFont => _preferencesService.ComposerFont;
+    public int ComposerFontSize => _preferencesService.ComposerFontSize;
 
     public CalendarEventComposePageViewModel(IAccountService accountService,
                                              ICalendarService calendarService,
@@ -323,6 +325,8 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
         ShowAsOptions.Add(new ShowAsOption(CalendarItemShowAs.Busy));
         ShowAsOptions.Add(new ShowAsOption(CalendarItemShowAs.OutOfOffice));
         ShowAsOptions.Add(new ShowAsOption(CalendarItemShowAs.WorkingElsewhere));
+
+        ReminderOptions.Add(new ReminderOption(0));
 
         foreach (var reminderMinutes in _calendarService.GetPredefinedReminderMinutes().OrderByDescending(x => x))
         {
@@ -1427,7 +1431,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
         if (reminderMinutes is not > 0)
         {
             if (isImportedEvent)
-                SelectedReminderOption = null;
+                SelectedReminderOption = ReminderOptions.FirstOrDefault(option => option.Minutes == 0);
 
             return;
         }
@@ -1671,7 +1675,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
 
     private List<Reminder> BuildSelectedReminders()
     {
-        if (SelectedReminderOption == null)
+        if (SelectedReminderOption is not { Minutes: > 0 })
             return [];
 
         return
@@ -1707,7 +1711,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     {
         var reminderMinutes = Math.Max(1, _preferencesService.DefaultReminderDurationInSeconds / 60);
         return ReminderOptions.FirstOrDefault(option => option.Minutes == reminderMinutes)
-               ?? ReminderOptions.FirstOrDefault();
+               ?? ReminderOptions.FirstOrDefault(option => option.Minutes > 0);
     }
 
     private void UpdateRecurrenceSummary()

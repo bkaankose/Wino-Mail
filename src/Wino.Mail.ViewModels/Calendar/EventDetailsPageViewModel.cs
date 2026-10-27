@@ -1139,6 +1139,8 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
 
 public partial class ReminderOption : ObservableObject
 {
+    public override string ToString() => DisplayText;
+
     public int Minutes { get; }
     public bool IsCustom { get; }
     public string AutomationId => $"EventDetailsReminderOption{Minutes}CheckBox";
@@ -1150,6 +1152,9 @@ public partial class ReminderOption : ObservableObject
     {
         get
         {
+            if (Minutes == 0)
+                return Translator.CalendarReminder_None;
+
             if (Minutes >= 60)
             {
                 var hours = Minutes / 60;
@@ -1169,6 +1174,8 @@ public partial class ReminderOption : ObservableObject
 
 public partial class ShowAsOption : ObservableObject
 {
+    public override string ToString() => DisplayText;
+
     public CalendarItemShowAs ShowAs { get; }
 
     public string DisplayText
