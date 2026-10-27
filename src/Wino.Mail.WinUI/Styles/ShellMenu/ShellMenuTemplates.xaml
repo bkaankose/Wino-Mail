@@ -296,14 +296,14 @@
                     <Grid
                         x:Name="BackgroundColorGrid"
                         x:Load="{x:Bind HasTextColor, Mode=OneWay}"
-                        Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(Parameter.BackgroundColorHex), Mode=OneWay}"
+                        Background="{x:Bind helpers:XamlHelpers.GetCategoryChipBackgroundBrush(Parameter.BackgroundColorHex), Mode=OneWay}"
                         CornerRadius="3">
                         <TextBlock
                             x:Name="CustomColorTitle"
                             Margin="4,0,0,0"
                             VerticalAlignment="Center"
                             FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightBySyncState(IsSelected), Mode=OneWay}"
-                            Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(Parameter.TextColorHex), Mode=OneWay}"
+                            Foreground="{x:Bind helpers:XamlHelpers.GetCategoryChipTextBrush(Parameter.TextColorHex, Parameter.BackgroundColorHex), Mode=OneWay}"
                             Style="{StaticResource BodyTextBlockStyle}"
                             Text="{x:Bind FolderName, Mode=OneWay}"
                             TextWrapping="WrapWholeWords" />
@@ -404,7 +404,7 @@
                         Grid.Column="1"
                         VerticalAlignment="Center"
                         FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightBySyncState(IsSelected), Mode=OneWay}"
-                        Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(TextColorHex), Mode=OneWay}"
+                        Foreground="{x:Bind helpers:XamlHelpers.GetCustomTextBrush(TextColorHex), Mode=OneWay}"
                         Style="{StaticResource BodyTextBlockStyle}"
                         Text="{x:Bind FolderName, Mode=OneWay}"
                         TextTrimming="CharacterEllipsis" />

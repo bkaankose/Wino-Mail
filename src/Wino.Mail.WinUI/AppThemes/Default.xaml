@@ -7,12 +7,11 @@
     <x:String x:Key="Wallpaper" />
     <x:String x:Key="PreviewImage">ms-appx:///BackgroundImages/Mica.jpg</x:String>
 
-    <SolidColorBrush x:Key="WinoApplicationBackgroundColor">Transparent</SolidColorBrush>
-    <SolidColorBrush x:Key="AppBarBackgroundColor">Transparent</SolidColorBrush>
-
     <!--  Mica Template  -->
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Name="Light">
+            <SolidColorBrush x:Key="WinoApplicationBackgroundColor">Transparent</SolidColorBrush>
+            <SolidColorBrush x:Key="AppBarBackgroundColor">Transparent</SolidColorBrush>
             <!--  Reading Page Date/Name Group Header Background  -->
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#ecf0f1</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush">#F7F9FA</SolidColorBrush>
@@ -27,6 +26,8 @@
             <SolidColorBrush x:Key="CompanionDividerBrush">#A8A8A8</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Name="Dark">
+            <SolidColorBrush x:Key="WinoApplicationBackgroundColor">Transparent</SolidColorBrush>
+            <SolidColorBrush x:Key="AppBarBackgroundColor">Transparent</SolidColorBrush>
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#1f1f1f</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush">#1F1F1F</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarHoverHourBackgroundBrush">#33399BFF</SolidColorBrush>
@@ -40,6 +41,8 @@
             <SolidColorBrush x:Key="CompanionDividerBrush">#515151</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Name="HighContrast">
+            <StaticResource x:Key="WinoApplicationBackgroundColor" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="AppBarBackgroundColor" ResourceKey="SystemColorWindowBrush" />
             <StaticResource x:Key="CalendarDefaultHourBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
             <StaticResource x:Key="CalendarHoverHourBackgroundBrush" ResourceKey="SystemColorHighlightBrush" />
             <StaticResource x:Key="CalendarSelectedHourBackgroundBrush" ResourceKey="SystemColorHighlightBrush" />

@@ -152,8 +152,6 @@
         <Setter Property="CornerRadius" Value="4" />
     </Style>
 
-    <StaticResource x:Key="WinoIntelligenceHeaderSparkleBrush" ResourceKey="WinoIntelligenceBrandIconBrush" />
-
     <Style
         x:Key="WinoIntelligenceHeaderTriggerButtonStyle"
         BasedOn="{StaticResource DefaultButtonStyle}"
@@ -678,7 +676,7 @@
                                         Width="16"
                                         Height="16"
                                         VerticalAlignment="Center"
-                                        Foreground="{StaticResource WinoIntelligenceHeaderSparkleBrush}"
+                                        Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}"
                                         Glyph="&#xE076;" />
                                     <TextBlock
                                         x:Name="PART_TitleTextBlock"

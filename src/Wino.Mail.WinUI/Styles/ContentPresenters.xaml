@@ -15,7 +15,7 @@
             VerticalAlignment="Center">
             <controls:WinoFontIcon
                 FontFamily="{ThemeResource WinoIconFontFamily}"
-                Foreground="{StaticResource FlaggedBrush}"
+                Foreground="{ThemeResource FlaggedBrush}"
                 Icon="Flag" />
         </Viewbox>
     </DataTemplate>
@@ -30,7 +30,7 @@
             VerticalAlignment="Center">
             <controls:WinoFontIcon
                 FontFamily="{ThemeResource WinoIconFontFamily}"
-                Foreground="{StaticResource AttachmentBrush}"
+                Foreground="{ThemeResource AttachmentBrush}"
                 Icon="Attachment" />
         </Viewbox>
     </DataTemplate>

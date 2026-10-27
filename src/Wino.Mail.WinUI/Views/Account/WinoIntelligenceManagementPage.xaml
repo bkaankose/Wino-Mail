@@ -521,7 +521,7 @@
                         Background="{ThemeResource DeleteBrush}"
                         Command="{x:Bind ViewModel.WipeIntelligenceDataCommand}"
                         Content="{x:Bind domain:Translator.SemanticIndex_WipeData, Mode=OneTime}"
-                        Foreground="White" />
+                        Foreground="{ThemeResource DeleteButtonForegroundBrush}" />
                 </controls:SettingsCard>
             </StackPanel>
         </ScrollViewer>

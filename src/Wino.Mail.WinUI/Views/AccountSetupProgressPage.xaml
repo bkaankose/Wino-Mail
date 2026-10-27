@@ -64,7 +64,7 @@
                                 <coreControls:WinoFontIcon
                                     FontFamily="{ThemeResource WinoIconFontFamily}"
                                     FontSize="16"
-                                    Foreground="#107C10"
+                                    Foreground="{ThemeResource SystemFillColorSuccessBrush}"
                                     Icon="Checkmark"
                                     Visibility="{x:Bind IsSucceeded, Mode=OneWay}" />
 
@@ -72,7 +72,7 @@
                                 <coreControls:WinoFontIcon
                                     FontFamily="{ThemeResource WinoIconFontFamily}"
                                     FontSize="16"
-                                    Foreground="#D13438"
+                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                     Icon="DismissCircle"
                                     Visibility="{x:Bind IsFailed, Mode=OneWay}" />
                             </Grid>
@@ -81,7 +81,7 @@
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock Text="{x:Bind Title}" />
                                 <TextBlock
-                                    Foreground="#D13438"
+                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                     Style="{StaticResource CaptionTextBlockStyle}"
                                     Text="{x:Bind ErrorMessage, Mode=OneWay}"
                                     TextWrapping="Wrap"

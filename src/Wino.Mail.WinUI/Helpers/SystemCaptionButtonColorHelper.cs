@@ -12,6 +12,12 @@ internal static class SystemCaptionButtonColorHelper
         if (titleBar == null)
             return;
 
+        if (ContrastThemeHelper.IsActive)
+        {
+            ResetToSystemColors(titleBar);
+            return;
+        }
+
         var foreground = isDarkTheme
             ? Color.FromArgb(255, 255, 255, 255)
             : Color.FromArgb(255, 0, 0, 0);
@@ -33,5 +39,17 @@ internal static class SystemCaptionButtonColorHelper
         titleBar.ButtonPressedForegroundColor = foreground;
         titleBar.ButtonHoverBackgroundColor = hoverBackground;
         titleBar.ButtonPressedBackgroundColor = pressedBackground;
+    }
+
+    private static void ResetToSystemColors(AppWindowTitleBar titleBar)
+    {
+        titleBar.ButtonBackgroundColor = null;
+        titleBar.ButtonInactiveBackgroundColor = null;
+        titleBar.ButtonForegroundColor = null;
+        titleBar.ButtonInactiveForegroundColor = null;
+        titleBar.ButtonHoverForegroundColor = null;
+        titleBar.ButtonPressedForegroundColor = null;
+        titleBar.ButtonHoverBackgroundColor = null;
+        titleBar.ButtonPressedBackgroundColor = null;
     }
 }

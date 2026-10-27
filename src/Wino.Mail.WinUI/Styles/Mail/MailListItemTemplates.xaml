@@ -23,10 +23,10 @@
         <Border
             Margin="0,0,4,0"
             Padding="6,2"
-            Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneTime}"
+            Background="{x:Bind helpers:XamlHelpers.GetCategoryChipBackgroundBrush(BackgroundColorHex), Mode=OneTime}"
             CornerRadius="4">
             <TextBlock
-                Foreground="{x:Bind helpers:XamlHelpers.GetCategoryTextBrush(TextColorHex, BackgroundColorHex), Mode=OneTime}"
+                Foreground="{x:Bind helpers:XamlHelpers.GetCategoryChipTextBrush(TextColorHex, BackgroundColorHex), Mode=OneTime}"
                 Style="{StaticResource CaptionTextBlockStyle}"
                 Text="{x:Bind Name, Mode=OneTime}"
                 TextTrimming="CharacterEllipsis" />
@@ -170,7 +170,7 @@
                         Grid.Column="1"
                         Margin="0,0,4,0"
                         x:Load="{x:Bind IsDraft, Mode=OneWay}"
-                        Foreground="{StaticResource DeleteBrush}"
+                        Foreground="{ThemeResource DeleteBrush}"
                         Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}" />
                     <TextBlock
                         Grid.Column="2"
@@ -271,7 +271,7 @@
                             Grid.Column="1"
                             x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsRead), Mode=OneWay}"
                             FontWeight="SemiBold"
-                            Foreground="{ThemeResource SystemAccentColor}"
+                            Foreground="{ThemeResource MailListUnreadSubjectBrush}"
                             Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
                             TextTrimming="CharacterEllipsis" />
                     </Grid>
@@ -290,7 +290,7 @@
                             Width="6"
                             Height="6"
                             VerticalAlignment="Center"
-                            Fill="{ThemeResource SystemAccentColor}"
+                            Fill="{ThemeResource WinoAccentIndicatorBrush}"
                             IsHitTestVisible="False"
                             Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsRead), Mode=OneWay}" />
                     </StackPanel>
@@ -334,7 +334,7 @@
                         Grid.Column="1"
                         Margin="0,0,4,0"
                         x:Load="{x:Bind IsDraft, Mode=OneWay}"
-                        Foreground="{StaticResource DeleteBrush}"
+                        Foreground="{ThemeResource DeleteBrush}"
                         Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}" />
                     <TextBlock
                         Grid.Column="2"
@@ -422,7 +422,7 @@
                             Grid.Column="1"
                             x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsRead), Mode=OneWay}"
                             FontWeight="SemiBold"
-                            Foreground="{ThemeResource SystemAccentColor}"
+                            Foreground="{ThemeResource MailListUnreadSubjectBrush}"
                             Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
                             TextTrimming="CharacterEllipsis" />
                     </Grid>
@@ -441,7 +441,7 @@
                             Width="6"
                             Height="6"
                             VerticalAlignment="Center"
-                            Fill="{ThemeResource SystemAccentColor}"
+                            Fill="{ThemeResource WinoAccentIndicatorBrush}"
                             IsHitTestVisible="False"
                             Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsRead), Mode=OneWay}" />
                     </StackPanel>
@@ -511,7 +511,7 @@
                             Grid.Column="1"
                             Margin="0,0,4,0"
                             x:Load="{x:Bind IsDraft, Mode=OneWay}"
-                            Foreground="{StaticResource DeleteBrush}"
+                            Foreground="{ThemeResource DeleteBrush}"
                             Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}" />
                         <TextBlock
                             Grid.Column="2"
@@ -604,7 +604,7 @@
                             Grid.Column="1"
                             x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsRead), Mode=OneWay}"
                             FontWeight="SemiBold"
-                            Foreground="{ThemeResource SystemAccentColor}"
+                            Foreground="{ThemeResource MailListUnreadSubjectBrush}"
                             Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
                             TextTrimming="CharacterEllipsis" />
                     </Grid>
@@ -623,7 +623,7 @@
                             Width="6"
                             Height="6"
                             VerticalAlignment="Center"
-                            Fill="{ThemeResource SystemAccentColor}"
+                            Fill="{ThemeResource WinoAccentIndicatorBrush}"
                             IsHitTestVisible="False"
                             Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsRead), Mode=OneWay}" />
                     </StackPanel>

@@ -358,12 +358,24 @@
                         Background="{ThemeResource DeleteBrush}"
                         Command="{x:Bind ViewModel.DeleteAccountCommand}"
                         Content="{x:Bind domain:Translator.Buttons_Delete}"
-                        Foreground="White">
+                        Foreground="{ThemeResource DeleteButtonForegroundBrush}">
                         <Button.Resources>
-                            <SolidColorBrush x:Key="ButtonForeground" Color="White" />
-                            <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="White" />
-                            <SolidColorBrush x:Key="ButtonForegroundPressed" Color="White" />
-                            <SolidColorBrush x:Key="ButtonForegroundDisabled" Color="White" />
+                            <ResourceDictionary>
+                                <ResourceDictionary.ThemeDictionaries>
+                                    <ResourceDictionary x:Key="Default">
+                                        <SolidColorBrush x:Key="ButtonForeground" Color="White" />
+                                        <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="White" />
+                                        <SolidColorBrush x:Key="ButtonForegroundPressed" Color="White" />
+                                        <SolidColorBrush x:Key="ButtonForegroundDisabled" Color="White" />
+                                    </ResourceDictionary>
+                                    <ResourceDictionary x:Key="HighContrast">
+                                        <StaticResource x:Key="ButtonForeground" ResourceKey="SystemColorWindowColorBrush" />
+                                        <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="SystemColorHighlightTextColorBrush" />
+                                        <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="SystemColorHighlightTextColorBrush" />
+                                        <StaticResource x:Key="ButtonForegroundDisabled" ResourceKey="SystemColorGrayTextColorBrush" />
+                                    </ResourceDictionary>
+                                </ResourceDictionary.ThemeDictionaries>
+                            </ResourceDictionary>
                         </Button.Resources>
                     </Button>
                 </controls:SettingsCard>

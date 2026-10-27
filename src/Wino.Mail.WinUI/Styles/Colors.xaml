@@ -3,8 +3,6 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Microsoft.UI.Xaml.Media">
 
-    <SolidColorBrush x:Key="FlaggedBrush">#e74c3c</SolidColorBrush>
-    <SolidColorBrush x:Key="DeleteBrush">#e74c3c</SolidColorBrush>
     <SolidColorBrush x:Key="AttentionBrush">#ff7675</SolidColorBrush>
 
     <SolidColorBrush x:Key="FolderSyncBrush">#1abc9c</SolidColorBrush>
@@ -24,6 +22,16 @@
             <SolidColorBrush x:Key="WelcomeOverlayBrush">Transparent</SolidColorBrush>
             <SolidColorBrush x:Key="MailItemFlaggedBackgroundBrush" Color="#ffffcc" />
             <SolidColorBrush x:Key="InformationBrush">#34495e</SolidColorBrush>
+            <SolidColorBrush x:Key="FlaggedBrush">#e74c3c</SolidColorBrush>
+            <SolidColorBrush x:Key="DeleteBrush">#e74c3c</SolidColorBrush>
+            <SolidColorBrush x:Key="DeleteButtonForegroundBrush">White</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoAccentIndicatorBrush" Color="{ThemeResource SystemAccentColor}" />
+            <SolidColorBrush x:Key="MailListUnreadSubjectBrush" Color="{ThemeResource SystemAccentColor}" />
+            <LinearGradientBrush x:Key="WinoAccountHeroBackgroundBrush" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Offset="0" Color="#1A6EE7B7" />
+                <GradientStop Offset="0.5" Color="#2038BDF8" />
+                <GradientStop Offset="1" Color="#1A818CF8" />
+            </LinearGradientBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Name="Dark">
             <SolidColorBrush x:Key="AttachmentBrush">#fdcb6e</SolidColorBrush>
@@ -34,6 +42,32 @@
             <SolidColorBrush x:Key="WelcomeOverlayBrush">Transparent</SolidColorBrush>
             <SolidColorBrush x:Key="MailItemFlaggedBackgroundBrush" Color="#576574" />
             <SolidColorBrush x:Key="InformationBrush">#ecf0f1</SolidColorBrush>
+            <SolidColorBrush x:Key="FlaggedBrush">#e74c3c</SolidColorBrush>
+            <SolidColorBrush x:Key="DeleteBrush">#e74c3c</SolidColorBrush>
+            <SolidColorBrush x:Key="DeleteButtonForegroundBrush">White</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoAccentIndicatorBrush" Color="{ThemeResource SystemAccentColor}" />
+            <SolidColorBrush x:Key="MailListUnreadSubjectBrush" Color="{ThemeResource SystemAccentColor}" />
+            <LinearGradientBrush x:Key="WinoAccountHeroBackgroundBrush" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Offset="0" Color="#1A6EE7B7" />
+                <GradientStop Offset="0.5" Color="#2038BDF8" />
+                <GradientStop Offset="1" Color="#1A818CF8" />
+            </LinearGradientBrush>
+        </ResourceDictionary>
+        <ResourceDictionary x:Name="HighContrast">
+            <StaticResource x:Key="AttachmentBrush" ResourceKey="SystemColorWindowTextColorBrush" />
+            <StaticResource x:Key="SwipeDeleteOperationBackgroundBrush" ResourceKey="SystemColorHighlightColorBrush" />
+            <StaticResource x:Key="SettingsPaneBorderBrush" ResourceKey="SystemColorWindowTextColorBrush" />
+            <StaticResource x:Key="WinoContentZoneBackgroud" ResourceKey="SystemColorWindowColorBrush" />
+            <StaticResource x:Key="ReadingPaneBackgroundColorBrush" ResourceKey="SystemColorWindowColorBrush" />
+            <StaticResource x:Key="WelcomeOverlayBrush" ResourceKey="SystemColorWindowColorBrush" />
+            <StaticResource x:Key="MailItemFlaggedBackgroundBrush" ResourceKey="SystemColorWindowColorBrush" />
+            <StaticResource x:Key="InformationBrush" ResourceKey="SystemColorWindowTextColorBrush" />
+            <StaticResource x:Key="FlaggedBrush" ResourceKey="SystemColorWindowTextColorBrush" />
+            <StaticResource x:Key="DeleteBrush" ResourceKey="SystemColorWindowTextColorBrush" />
+            <StaticResource x:Key="DeleteButtonForegroundBrush" ResourceKey="SystemColorWindowColorBrush" />
+            <StaticResource x:Key="WinoAccentIndicatorBrush" ResourceKey="SystemColorHighlightColorBrush" />
+            <StaticResource x:Key="MailListUnreadSubjectBrush" ResourceKey="SystemColorWindowTextColorBrush" />
+            <StaticResource x:Key="WinoAccountHeroBackgroundBrush" ResourceKey="SystemColorWindowColorBrush" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

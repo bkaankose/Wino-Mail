@@ -93,7 +93,7 @@ public class NewThemeService : INewThemeService
         get
         {
             var rootContent = TryGetShellRootContent();
-            if (rootContent == null)
+            if (rootContent == null || ContrastThemeHelper.IsActive)
                 return _configurationService.Get(UnderlyingThemeService.SelectedAppThemeKey, ApplicationElementTheme.Default);
 
             return rootContent.RequestedTheme.ToWinoElementTheme();
@@ -102,7 +102,7 @@ public class NewThemeService : INewThemeService
         {
             var rootContent = TryGetShellRootContent();
             if (rootContent != null)
-                rootContent.RequestedTheme = value.ToWindowsElementTheme();
+                rootContent.RequestedTheme = ContrastThemeHelper.IsActive ? ElementTheme.Default : value.ToWindowsElementTheme();
 
             _configurationService.Set(UnderlyingThemeService.SelectedAppThemeKey, value);
 
@@ -200,6 +200,7 @@ public class NewThemeService : INewThemeService
     private bool isInitialized = false;
 
     private const string ThemeNameKey = "ThemeName";
+    private const string DefaultThemeName = "Default";
     private const string DefaultThemeDictionaryUri = "ms-appx:///AppThemes/Default.xaml";
     private const string HighContrastThemeKey = "HighContrast";
 
@@ -268,6 +269,9 @@ public class NewThemeService : INewThemeService
         // Already initialized. There is no need.
         if (isInitialized) return;
 
+        isContrastThemeApplied = ContrastThemeHelper.IsActive;
+        contrastDispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+
         RootTheme = _configurationService.Get(UnderlyingThemeService.SelectedAppThemeKey, ApplicationElementTheme.Default);
         AccentColor = _configurationService.Get(AccentColorKey, string.Empty);
 
@@ -298,13 +302,113 @@ public class NewThemeService : INewThemeService
         //uiSettings.ColorValuesChanged -= UISettingsColorChanged;
         //uiSettings.ColorValuesChanged += UISettingsColorChanged;
 
+        // AccessibilitySettings.HighContrastChanged throws 0x80070490 when subscribed from a desktop
+        // window, which crashed every launch. A contrast theme change also changes the system colors,
+        // and this handler only queues work to the UI thread.
+        uiSettings.ColorValuesChanged -= SystemColorValuesChanged;
+        uiSettings.ColorValuesChanged += SystemColorValuesChanged;
+
         isInitialized = true;
+    }
+
+    private bool isContrastThemeApplied;
+    private Microsoft.UI.Dispatching.DispatcherQueue? contrastDispatcherQueue;
+
+    private static readonly string[] AccentColorResourceKeys =
+    [
+        "SystemAccentColor",
+        "SystemAccentColorLight1",
+        "SystemAccentColorLight2",
+        "SystemAccentColorLight3",
+        "SystemAccentColorDark1",
+        "SystemAccentColorDark2",
+        "SystemAccentColorDark3"
+    ];
+
+    private void SystemColorValuesChanged(UISettings sender, object args) => QueueContrastThemeCheck();
+
+    private void QueueContrastThemeCheck()
+    {
+        var dispatcherQueue = contrastDispatcherQueue ?? GetThemeWindow()?.DispatcherQueue;
+        dispatcherQueue?.TryEnqueue(() => _ = ApplyContrastThemeChangeAsync());
+    }
+
+    private async Task ApplyContrastThemeChangeAsync()
+    {
+        var isContrastThemeActive = ContrastThemeHelper.IsActive;
+        if (isContrastThemeActive == isContrastThemeApplied) return;
+
+        isContrastThemeApplied = isContrastThemeActive;
+
+        try
+        {
+            if (isContrastThemeActive)
+            {
+                RemoveAccentColorOverrides();
+                ApplyContrastThemeDictionary();
+                RootTheme = _configurationService.Get(UnderlyingThemeService.SelectedAppThemeKey, ApplicationElementTheme.Default);
+            }
+            else
+            {
+                // Initializing mode keeps the user's stored accent instead of the theme's default one.
+                await ApplyCustomThemeCoreAsync(isInitializing: true, forceReapply: true, throwOnError: false);
+                RootTheme = _configurationService.Get(UnderlyingThemeService.SelectedAppThemeKey, ApplicationElementTheme.Default);
+                UpdateAccentColor(string.IsNullOrWhiteSpace(accentColor) ? GetSystemAccentColorHex() : accentColor);
+            }
+
+            ApplyBackdrop(currentBackdropType);
+            RefreshThemeResource();
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Warning(ex, "Applying the contrast theme change failed.");
+            EnsureThemeResources();
+        }
+    }
+
+    // Wallpaper, acrylic and custom themes declare top-level brushes that win over their HighContrast
+    // dictionaries, so a contrast theme always runs on Default. The stored selection stays untouched.
+    private void ApplyContrastThemeDictionary()
+    {
+        var existingThemeDictionary = FindMergedThemeDictionary();
+
+        if (existingThemeDictionary != null
+            && existingThemeDictionary.TryGetValue(ThemeNameKey, out var themeName)
+            && themeName?.ToString() == DefaultThemeName)
+        {
+            EnsureHighContrastFallbacks(existingThemeDictionary);
+            return;
+        }
+
+        var contrastThemeDictionary = new ResourceDictionary { Source = new Uri(DefaultThemeDictionaryUri) };
+        EnsureHighContrastFallbacks(contrastThemeDictionary);
+        _applicationResourceManager.AddResource(contrastThemeDictionary);
+
+        if (existingThemeDictionary != null)
+            _applicationResourceManager.RemoveResource(existingThemeDictionary);
+    }
+
+    private void RemoveAccentColorOverrides()
+    {
+        var resources = Application.Current.Resources;
+
+        foreach (var key in AccentColorResourceKeys)
+        {
+            try
+            {
+                resources.Remove(key);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Accent override {key} was not removed: {ex.Message}");
+            }
+        }
     }
 
     [DynamicWindowsRuntimeCast(typeof(DesktopAcrylicBackdrop))]
     public void ApplyBackdrop(WindowBackdropType backdropType)
     {
-        backdropType = NormalizeBackdropType(backdropType);
+        backdropType = ContrastThemeHelper.IsActive ? WindowBackdropType.None : NormalizeBackdropType(backdropType);
 
         if (GetThemeWindow() is not WindowEx windowEx)
         {
@@ -408,6 +512,9 @@ public class NewThemeService : INewThemeService
             TrackAccentThemeSource(rootContent);
 
             appliedAccentHex = hex;
+
+            if (ContrastThemeHelper.IsActive) return;
+
             ApplyAccentPalette(hex, IsAccentThemeDark(rootContent));
 
             RefreshThemeResource();
@@ -440,7 +547,7 @@ public class NewThemeService : INewThemeService
     private void AccentThemeSourceActualThemeChanged(FrameworkElement sender, object args)
     {
         // Brush color changes propagate without a theme refresh, so this cannot loop.
-        if (!string.IsNullOrEmpty(appliedAccentHex))
+        if (!string.IsNullOrEmpty(appliedAccentHex) && !ContrastThemeHelper.IsActive)
             ApplyAccentPalette(appliedAccentHex, sender.ActualTheme == ElementTheme.Dark);
     }
 
@@ -604,6 +711,13 @@ public class NewThemeService : INewThemeService
     [DynamicWindowsRuntimeCast(typeof(ResourceDictionary))]
     private async Task ApplyCustomThemeCoreAsync(bool isInitializing, bool forceReapply, bool throwOnError)
     {
+        if (ContrastThemeHelper.IsActive)
+        {
+            ApplyContrastThemeDictionary();
+            UpdateSystemCaptionButtonColors();
+            return;
+        }
+
         // If no theme ID is set, don't apply any theme (for backward compatibility)
         if (currentApplicationThemeId == null)
         {
@@ -845,6 +959,9 @@ public class NewThemeService : INewThemeService
         byte[]? wallpaperData,
         ApplicationElementTheme elementTheme)
     {
+        if (ContrastThemeHelper.IsActive)
+            return;
+
         var wallpaperUri = metadata.Id == Guid.Empty
             ? $"ms-appdata:///local/{CustomThemeFolderName}/editor-preview.jpg"
             : $"ms-appdata:///local/{CustomThemeFolderName}/{metadata.Id}.jpg";

@@ -16,9 +16,9 @@
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch"
     FocusVisualMargin="8"
-    FocusVisualPrimaryBrush="{StaticResource SystemControlRevealFocusVisualBrush}"
+    FocusVisualPrimaryBrush="{ThemeResource SystemControlRevealFocusVisualBrush}"
     FocusVisualPrimaryThickness="2"
-    FocusVisualSecondaryBrush="{StaticResource SystemControlFocusVisualSecondaryBrush}"
+    FocusVisualSecondaryBrush="{ThemeResource SystemControlFocusVisualSecondaryBrush}"
     FocusVisualSecondaryThickness="1"
     Unloaded="OnUnloaded">
 
@@ -27,10 +27,10 @@
             <Border
                 Margin="0,0,4,0"
                 Padding="6,2"
-                Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneTime}"
+                Background="{x:Bind helpers:XamlHelpers.GetCategoryChipBackgroundBrush(BackgroundColorHex), Mode=OneTime}"
                 CornerRadius="4">
                 <TextBlock
-                    Foreground="{x:Bind helpers:XamlHelpers.GetCategoryTextBrush(TextColorHex, BackgroundColorHex), Mode=OneTime}"
+                    Foreground="{x:Bind helpers:XamlHelpers.GetCategoryChipTextBrush(TextColorHex, BackgroundColorHex), Mode=OneTime}"
                     Style="{StaticResource CaptionTextBlockStyle}"
                     Text="{x:Bind Name, Mode=OneTime}"
                     TextTrimming="CharacterEllipsis" />
@@ -63,7 +63,7 @@
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top"
                     Canvas.ZIndex="0"
-                    Fill="{ThemeResource SystemAccentColor}"
+                    Fill="{ThemeResource WinoAccentIndicatorBrush}"
                     Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(MailItemInformation.IsRead), Mode=OneWay}" />
             </Grid>
 
@@ -122,7 +122,7 @@
                                     x:Name="DraftTitle"
                                     Margin="0,0,4,0"
                                     x:Load="{x:Bind MailItemInformation.IsDraft, Mode=OneWay}"
-                                    Foreground="{StaticResource DeleteBrush}">
+                                    Foreground="{ThemeResource DeleteBrush}">
 
                                     <Run Text="[" /><Run Text="{x:Bind domain:Translator.Draft, Mode=OneTime}" /><Run Text="]" /> <Run Text=" " />
                                 </TextBlock>
@@ -301,7 +301,7 @@
                     </VisualState.StateTriggers>
 
                     <VisualState.Setters>
-                        <Setter Target="TitleText.Foreground" Value="{ThemeResource SystemAccentColor}" />
+                        <Setter Target="TitleText.Foreground" Value="{ThemeResource MailListUnreadSubjectBrush}" />
                         <Setter Target="TitleText.FontWeight" Value="Semibold" />
                         <Setter Target="SenderTextFromName.FontWeight" Value="Bold" />
                         <Setter Target="SenderTextFromAddress.FontWeight" Value="Bold" />

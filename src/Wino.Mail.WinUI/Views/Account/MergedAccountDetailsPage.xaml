@@ -94,7 +94,7 @@
             IsActionIconVisible="False"
             IsClickEnabled="True">
             <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon Foreground="{StaticResource DeleteBrush}" Icon="SubtractCircle" />
+                <coreControls:WinoFontIcon Foreground="{ThemeResource DeleteBrush}" Icon="SubtractCircle" />
             </controls:SettingsCard.HeaderIcon>
         </accessibilityControls:WinoSettingsCard>
         <controls:SettingsCard

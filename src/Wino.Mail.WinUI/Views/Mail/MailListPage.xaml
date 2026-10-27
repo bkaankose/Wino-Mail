@@ -303,12 +303,18 @@
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
                     <SolidColorBrush x:Key="UnreadMailSubjectForegroundBrush" Color="{ThemeResource SystemAccentColor}" />
+                    <SolidColorBrush x:Key="SystemControlRevealFocusVisualBrush" Color="#FF4C4A48" />
+                    <SolidColorBrush x:Key="SystemControlFocusVisualSecondaryBrush" Color="#FFFFFFFF" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="UnreadMailSubjectForegroundBrush" Color="{ThemeResource SystemAccentColorLight2}" />
+                    <SolidColorBrush x:Key="SystemControlRevealFocusVisualBrush" Color="#FF4C4A48" />
+                    <SolidColorBrush x:Key="SystemControlFocusVisualSecondaryBrush" Color="#FFFFFFFF" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="HighContrast">
                     <StaticResource x:Key="UnreadMailSubjectForegroundBrush" ResourceKey="SystemColorWindowTextColorBrush" />
+                    <StaticResource x:Key="SystemControlRevealFocusVisualBrush" ResourceKey="SystemColorWindowTextColorBrush" />
+                    <StaticResource x:Key="SystemControlFocusVisualSecondaryBrush" ResourceKey="SystemColorWindowColorBrush" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 
@@ -330,9 +336,6 @@
 
             <StaticResource x:Key="ExpanderContentBackground" ResourceKey="CardBackgroundFillColorSecondaryBrush" />
             <StaticResource x:Key="ExpanderHeaderBackground" ResourceKey="CardBackgroundFillColorDefaultBrush" />
-
-            <SolidColorBrush x:Key="SystemControlRevealFocusVisualBrush" Color="#FF4C4A48" />
-            <SolidColorBrush x:Key="SystemControlFocusVisualSecondaryBrush" Color="#FFFFFFFF" />
 
             <SolidColorBrush x:Key="ButtonBackgroundDisabled">Transparent</SolidColorBrush>
 
@@ -953,6 +956,20 @@
                                 </listview:ThreadedMailListView.ItemContainerTransitions>
                                 <listview:ThreadedMailListView.Resources>
                                     <ResourceDictionary>
+                                        <!--  Mail rows set explicit text brushes, so contrast themes keep rows on the window color and mark selection with the indicator.  -->
+                                        <ResourceDictionary.ThemeDictionaries>
+                                            <ResourceDictionary x:Key="Default" />
+                                            <ResourceDictionary x:Key="HighContrast">
+                                                <StaticResource x:Key="ListViewItemBackgroundPointerOver" ResourceKey="SystemColorWindowColorBrush" />
+                                                <StaticResource x:Key="ListViewItemBackgroundPressed" ResourceKey="SystemColorWindowColorBrush" />
+                                                <StaticResource x:Key="ListViewItemBackgroundSelected" ResourceKey="SystemColorWindowColorBrush" />
+                                                <StaticResource x:Key="ListViewItemBackgroundSelectedPointerOver" ResourceKey="SystemColorWindowColorBrush" />
+                                                <StaticResource x:Key="ListViewItemBackgroundSelectedPressed" ResourceKey="SystemColorWindowColorBrush" />
+                                                <StaticResource x:Key="ListViewItemForegroundPointerOver" ResourceKey="SystemColorWindowTextColorBrush" />
+                                                <StaticResource x:Key="ListViewItemForegroundSelected" ResourceKey="SystemColorWindowTextColorBrush" />
+                                                <StaticResource x:Key="ListViewItemSelectionIndicatorBrush" ResourceKey="SystemColorHighlightColorBrush" />
+                                            </ResourceDictionary>
+                                        </ResourceDictionary.ThemeDictionaries>
                                         <Style BasedOn="{StaticResource MailListHeaderStyle}" TargetType="ListViewHeaderItem" />
                                     </ResourceDictionary>
                                 </listview:ThreadedMailListView.Resources>

@@ -124,7 +124,7 @@
                             Grid.Row="1"
                             HorizontalAlignment="Right"
                             VerticalAlignment="Bottom"
-                            Foreground="Gray"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind ReadableSize}" />
                     </Grid>

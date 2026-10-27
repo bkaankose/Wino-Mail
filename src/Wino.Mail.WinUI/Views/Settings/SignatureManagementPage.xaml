@@ -48,10 +48,11 @@
                             <controls1:SettingsCard AutomationProperties.AutomationId="SignatureManagementPageSettingsCard2" Header="{x:Bind domain:Translator.SettingsSignature_DeleteSignature_Title}">
                                 <Button
                                     AutomationProperties.AutomationId="SignatureManagementPageButton2"
-                                    Background="Red"
+                                    Background="{ThemeResource DeleteBrush}"
                                     Click="DeleteSignature_Click"
                                     CommandParameter="{x:Bind}"
-                                    Content="{x:Bind domain:Translator.Buttons_Delete}" />
+                                    Content="{x:Bind domain:Translator.Buttons_Delete}"
+                                    Foreground="{ThemeResource DeleteButtonForegroundBrush}" />
                             </controls1:SettingsCard>
                         </controls1:SettingsExpander.Items>
                     </controls1:SettingsExpander>

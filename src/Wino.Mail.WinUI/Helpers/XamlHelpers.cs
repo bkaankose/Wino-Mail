@@ -485,6 +485,25 @@ public static class XamlHelpers
             : string.IsNullOrWhiteSpace(backgroundColorHex)
                 ? new SolidColorBrush(Colors.Black)
                 : GetReadableTextColor(backgroundColorHex);
+
+    public static SolidColorBrush GetCategoryChipBackgroundBrush(string? backgroundColorHex)
+        => Wino.Mail.WinUI.Helpers.ContrastThemeHelper.IsActive
+            ? GetSystemColorBrush(Windows.UI.ViewManagement.UIElementType.ButtonFace)
+            : GetSolidColorBrushFromHex(backgroundColorHex);
+
+    public static SolidColorBrush GetCategoryChipTextBrush(string? textColorHex, string? backgroundColorHex)
+        => Wino.Mail.WinUI.Helpers.ContrastThemeHelper.IsActive
+            ? GetSystemColorBrush(Windows.UI.ViewManagement.UIElementType.ButtonText)
+            : GetCategoryTextBrush(textColorHex ?? string.Empty, backgroundColorHex ?? string.Empty);
+
+    public static SolidColorBrush GetCustomTextBrush(string? textColorHex)
+        => Wino.Mail.WinUI.Helpers.ContrastThemeHelper.IsActive
+            ? GetSystemColorBrush(Windows.UI.ViewManagement.UIElementType.WindowText)
+            : GetSolidColorBrushFromHex(textColorHex);
+
+    private static SolidColorBrush GetSystemColorBrush(Windows.UI.ViewManagement.UIElementType elementType)
+        => new(Wino.Mail.WinUI.Helpers.ContrastThemeHelper.GetSystemColor(elementType));
+
     public static FontWeight GetFontWeightBySyncState(bool isSyncing) => isSyncing ? FontWeights.SemiBold : FontWeights.Normal;
 
     [DynamicWindowsRuntimeCast(typeof(Brush))]

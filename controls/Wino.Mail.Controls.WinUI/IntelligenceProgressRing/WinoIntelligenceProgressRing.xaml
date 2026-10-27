@@ -4,7 +4,14 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Wino.Mail.Controls.IntelligenceProgressRing">
 
-    <SolidColorBrush x:Key="WinoIntelligenceProgressRingDefaultBrush" Color="{ThemeResource SystemAccentColor}" />
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Default">
+            <SolidColorBrush x:Key="WinoIntelligenceProgressRingDefaultBrush" Color="{ThemeResource SystemAccentColor}" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="HighContrast">
+            <StaticResource x:Key="WinoIntelligenceProgressRingDefaultBrush" ResourceKey="SystemColorHighlightColorBrush" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
 
     <Style TargetType="local:WinoIntelligenceProgressRing">
         <Setter Property="Foreground" Value="{ThemeResource WinoIntelligenceProgressRingDefaultBrush}" />

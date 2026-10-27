@@ -198,7 +198,7 @@
                                         x:Name="DailyBriefingUnseenBadge"
                                         HorizontalAlignment="Right"
                                         VerticalAlignment="Top"
-                                        Background="{ThemeResource SystemAccentColor}"
+                                        Background="{ThemeResource WinoAccentIndicatorBrush}"
                                         Visibility="Collapsed" />
                                 </Grid>
                             </ToggleButton>
@@ -267,14 +267,8 @@
                                                 <Border
                                                     Margin="-16,-16,-16,0"
                                                     Padding="20"
+                                                    Background="{ThemeResource WinoAccountHeroBackgroundBrush}"
                                                     CornerRadius="8,8,0,0">
-                                                    <Border.Background>
-                                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                                            <GradientStop Offset="0" Color="#1A6EE7B7" />
-                                                            <GradientStop Offset="0.5" Color="#2038BDF8" />
-                                                            <GradientStop Offset="1" Color="#1A818CF8" />
-                                                        </LinearGradientBrush>
-                                                    </Border.Background>
                                                     <StackPanel Spacing="4">
                                                         <TextBlock
                                                             Margin="0,8,0,0"
@@ -391,14 +385,8 @@
                                                 <Border
                                                     Margin="-16,-16,-16,0"
                                                     Padding="20"
+                                                    Background="{ThemeResource WinoAccountHeroBackgroundBrush}"
                                                     CornerRadius="8,8,0,0">
-                                                    <Border.Background>
-                                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                                            <GradientStop Offset="0" Color="#1A6EE7B7" />
-                                                            <GradientStop Offset="0.5" Color="#2038BDF8" />
-                                                            <GradientStop Offset="1" Color="#1A818CF8" />
-                                                        </LinearGradientBrush>
-                                                    </Border.Background>
                                                     <StackPanel Orientation="Horizontal" Spacing="14">
                                                         <PersonPicture
                                                             x:Name="WinoAccountFlyoutPicture"
