@@ -882,6 +882,10 @@ public class NewThemeService : INewThemeService
             return;
 
         SetPaletteColor(dictionary, "MainCustomThemeColor", palette.MainCustomThemeColor, asColor: true);
+        SetPaletteColor(dictionary, "AppBarBackgroundColor", palette.MainCustomThemeColor);
+        SetPaletteColor(dictionary, "NavigationViewDefaultPaneBackground", palette.MainCustomThemeColor);
+        SetPaletteColor(dictionary, "NavigationViewExpandedPaneBackground", palette.MainCustomThemeColor);
+        SetPaletteColor(dictionary, "WelcomeOverlayBrush", palette.MainCustomThemeColor);
         SetPaletteColor(dictionary, "MailListHeaderBackgroundColor", palette.MailListHeaderBackgroundColor);
         SetPaletteColor(dictionary, "CalendarDefaultHourBackgroundBrush", palette.CalendarDefaultHourBackgroundBrush);
         SetPaletteColor(dictionary, "CalendarHoverHourBackgroundBrush", palette.CalendarHoverHourBackgroundBrush);

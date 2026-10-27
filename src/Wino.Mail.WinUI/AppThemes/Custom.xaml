@@ -35,26 +35,26 @@
             <SolidColorBrush
                 x:Key="CalendarDefaultHourBackgroundBrush"
                 Opacity="0.55"
-                Color="{StaticResource MainCustomThemeColor}" />
+                Color="#D9FFFFFF" />
             <SolidColorBrush
                 x:Key="CalendarHoverHourBackgroundBrush"
                 Opacity="0.7"
-                Color="{StaticResource MainCustomThemeColor}" />
+                Color="#D9FFFFFF" />
             <SolidColorBrush
                 x:Key="CalendarWorkHourBackgroundBrush"
                 Opacity="0.85"
-                Color="{StaticResource MainCustomThemeColor}" />
+                Color="#D9FFFFFF" />
             <SolidColorBrush x:Key="CalendarSelectedHourBackgroundBrush">#4D0078D4</SolidColorBrush>
 
             <!--  Wallpaper overlay surfaces  -->
-            <SolidColorBrush x:Key="WinoContentZoneBackgroud" Color="{StaticResource MainCustomThemeColor}" />
-            <SolidColorBrush x:Key="ReadingPaneBackgroundColorBrush" Color="{StaticResource MainCustomThemeColor}" />
+            <SolidColorBrush x:Key="WinoContentZoneBackgroud" Color="#D9FFFFFF" />
+            <SolidColorBrush x:Key="ReadingPaneBackgroundColorBrush" Color="#D9FFFFFF" />
 
-            <SolidColorBrush x:Key="AppBarBackgroundColor" Color="{StaticResource MainCustomThemeColor}" />
+            <SolidColorBrush x:Key="AppBarBackgroundColor" Color="#D9FFFFFF" />
             <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
-            <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="{StaticResource MainCustomThemeColor}" />
-            <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="{StaticResource MainCustomThemeColor}" />
-            <SolidColorBrush x:Key="WelcomeOverlayBrush" Color="{StaticResource MainCustomThemeColor}" />
+            <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="#D9FFFFFF" />
+            <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="#D9FFFFFF" />
+            <SolidColorBrush x:Key="WelcomeOverlayBrush" Color="#D9FFFFFF" />
             <SolidColorBrush x:Key="CompanionFlyoutBackgroundBrush">Transparent</SolidColorBrush>
             <SolidColorBrush x:Key="CompanionCardBackgroundBrush">#0B000000</SolidColorBrush>
             <SolidColorBrush x:Key="CompanionSubtleBackgroundBrush">#08000000</SolidColorBrush>
@@ -75,26 +75,26 @@
             <SolidColorBrush
                 x:Key="CalendarDefaultHourBackgroundBrush"
                 Opacity="0.55"
-                Color="{StaticResource MainCustomThemeColor}" />
+                Color="#E61F1F1F" />
             <SolidColorBrush
                 x:Key="CalendarHoverHourBackgroundBrush"
                 Opacity="0.7"
-                Color="{StaticResource MainCustomThemeColor}" />
+                Color="#E61F1F1F" />
             <SolidColorBrush
                 x:Key="CalendarWorkHourBackgroundBrush"
                 Opacity="0.85"
-                Color="{StaticResource MainCustomThemeColor}" />
+                Color="#E61F1F1F" />
             <SolidColorBrush x:Key="CalendarSelectedHourBackgroundBrush">#66399BFF</SolidColorBrush>
 
             <!--  Wallpaper overlay surfaces  -->
-            <SolidColorBrush x:Key="WinoContentZoneBackgroud" Color="{StaticResource MainCustomThemeColor}" />
-            <SolidColorBrush x:Key="ReadingPaneBackgroundColorBrush" Color="{StaticResource MainCustomThemeColor}" />
+            <SolidColorBrush x:Key="WinoContentZoneBackgroud" Color="#E61F1F1F" />
+            <SolidColorBrush x:Key="ReadingPaneBackgroundColorBrush" Color="#E61F1F1F" />
 
-            <SolidColorBrush x:Key="AppBarBackgroundColor" Color="{StaticResource MainCustomThemeColor}" />
+            <SolidColorBrush x:Key="AppBarBackgroundColor" Color="#E61F1F1F" />
             <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
-            <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="{StaticResource MainCustomThemeColor}" />
-            <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="{StaticResource MainCustomThemeColor}" />
-            <SolidColorBrush x:Key="WelcomeOverlayBrush" Color="{StaticResource MainCustomThemeColor}" />
+            <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="#E61F1F1F" />
+            <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="#E61F1F1F" />
+            <SolidColorBrush x:Key="WelcomeOverlayBrush" Color="#E61F1F1F" />
             <SolidColorBrush x:Key="CompanionFlyoutBackgroundBrush">Transparent</SolidColorBrush>
             <SolidColorBrush x:Key="CompanionCardBackgroundBrush">#10FFFFFF</SolidColorBrush>
             <SolidColorBrush x:Key="CompanionSubtleBackgroundBrush">#0CFFFFFF</SolidColorBrush>
