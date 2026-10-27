@@ -115,7 +115,8 @@
             Margin="6,3,4,0"
             VerticalAlignment="Top"
             Spacing="2">
-            <Grid x:Name="TitleRow" ColumnSpacing="4">
+            <!--  Spacing sits on the optional elements: Grid ColumnSpacing still applies around collapsed columns.  -->
+            <Grid x:Name="TitleRow">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
@@ -123,6 +124,7 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock
                     x:Name="StartTimeTextBlock"
+                    Margin="0,0,4,0"
                     VerticalAlignment="Center"
                     FontSize="11"
                     FontWeight="SemiBold"
@@ -132,7 +134,7 @@
                 <controls:WinoFontIcon
                     x:Name="PrivateGlyph"
                     Grid.Column="1"
-                    Margin="0,3,0,0"
+                    Margin="0,3,4,0"
                     VerticalAlignment="Top"
                     FontSize="11"
                     Foreground="{ThemeResource TextFillColorPrimaryBrush}"
@@ -382,7 +384,7 @@
                         <Setter Target="EventTextPanel.VerticalAlignment" Value="Center" />
                         <Setter Target="EventTextPanel.Margin" Value="5,0,4,0" />
                         <Setter Target="StartTimeTextBlock.Visibility" Value="Visible" />
-                        <Setter Target="PrivateGlyph.Margin" Value="0,2,0,0" />
+                        <Setter Target="PrivateGlyph.Margin" Value="0,2,4,0" />
                         <Setter Target="EventTitleTextblock.FontSize" Value="12" />
                         <Setter Target="AttributeStack.VerticalAlignment" Value="Center" />
                         <Setter Target="AttributeStack.Margin" Value="0,0,4,0" />
@@ -397,7 +399,7 @@
                         <Setter Target="BarHost.Margin" Value="3,0,0,0" />
                         <Setter Target="EventTextPanel.VerticalAlignment" Value="Center" />
                         <Setter Target="EventTextPanel.Margin" Value="5,0,4,0" />
-                        <Setter Target="PrivateGlyph.Margin" Value="0,2,0,0" />
+                        <Setter Target="PrivateGlyph.Margin" Value="0,2,4,0" />
                         <Setter Target="EventTitleTextblock.FontSize" Value="12" />
                         <Setter Target="EventTitleTextblock.HorizontalAlignment" Value="Stretch" />
                         <Setter Target="EventTitleTextblock.HorizontalTextAlignment" Value="Left" />
@@ -433,7 +435,7 @@
                     <VisualState.Setters>
                         <Setter Target="EventTitleTextblock.FontSize" Value="11" />
                         <Setter Target="EventTitleTextblock.MaxLines" Value="1" />
-                        <Setter Target="PrivateGlyph.Margin" Value="0,2,0,0" />
+                        <Setter Target="PrivateGlyph.Margin" Value="0,2,4,0" />
                         <Setter Target="EventTextPanel.Margin" Value="6,0,4,0" />
                         <Setter Target="EventTextPanel.VerticalAlignment" Value="Center" />
                         <Setter Target="AttributeStack.Margin" Value="0,0,5,0" />
