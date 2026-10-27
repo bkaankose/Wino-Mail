@@ -865,6 +865,19 @@ WHERE Id = ?;",
 
     private static async Task CreateMetadataTableAsync(SQLiteAsyncConnection connection)
     {
+        try
+        {
+            await EnsureMetadataTableAsync(connection).ConfigureAwait(false);
+        }
+        catch (SQLiteException ex) when (ex.Message.Contains("duplicate column name", StringComparison.OrdinalIgnoreCase))
+        {
+            // Another inspection on its own connection added the column first; the second pass finds it.
+            await EnsureMetadataTableAsync(connection).ConfigureAwait(false);
+        }
+    }
+
+    private static async Task EnsureMetadataTableAsync(SQLiteAsyncConnection connection)
+    {
         await connection.CreateTableAsync<MigrationMetadataRow>().ConfigureAwait(false);
 
         var columns = await connection.GetTableInfoAsync(MetadataTableName).ConfigureAwait(false);
