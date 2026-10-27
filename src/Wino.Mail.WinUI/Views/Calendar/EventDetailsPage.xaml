@@ -247,21 +247,25 @@
                         </StackPanel>
                     </Button>-->
 
-                    <!--  Edit Series  -->
-                    <Border
-                        Width="1"
-                        Height="24"
-                        Margin="4,0"
-                        VerticalAlignment="Center"
-                        Background="{ThemeResource DividerStrokeColorDefaultBrush}"
-                        Visibility="{x:Bind ViewModel.CanEditSeries, Mode=OneWay}" />
+                    <Button
+                        AutomationProperties.AutomationId="EventDetailsEditButton"
+                        AutomationProperties.Name="{x:Bind ViewModel.EditEventText, Mode=OneWay}"
+                        Command="{x:Bind ViewModel.EditEventCommand}"
+                        Style="{StaticResource TransparentActionButtonStyle}"
+                        Visibility="{x:Bind ViewModel.CanEditEvent, Mode=OneWay}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <coreControls:WinoFontIcon FontSize="16" Icon="Edit" />
+                            <TextBlock VerticalAlignment="Center" Text="{x:Bind ViewModel.EditEventText, Mode=OneWay}" />
+                        </StackPanel>
+                    </Button>
 
+                    <!--  Edit Series  -->
                     <Button
                         AutomationProperties.AutomationId="EventDetailsPageButton7"
                         AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventDetails_EditSeries, Mode=OneTime}"
-                        Command="{x:Bind ViewModel.ViewSeriesCommand}"
+                        Command="{x:Bind ViewModel.EditEventSeriesCommand}"
                         Style="{StaticResource TransparentActionButtonStyle}"
-                        Visibility="{x:Bind ViewModel.CanEditSeries, Mode=OneWay}">
+                        Visibility="{x:Bind ViewModel.CanEditEventSeries, Mode=OneWay}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <coreControls:WinoFontIcon FontSize="16" Icon="EventEditSeries" />
                             <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventDetails_EditSeries}" />

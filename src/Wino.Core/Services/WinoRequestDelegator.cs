@@ -196,7 +196,8 @@ public class WinoRequestDelegator : IWinoRequestDelegator
             {
                 OriginalItem = calendarPreparationRequest.OriginalItem,
                 OriginalAttendees = calendarPreparationRequest.OriginalAttendees,
-                OriginalReminders = calendarPreparationRequest.OriginalReminders
+                OriginalReminders = calendarPreparationRequest.OriginalReminders,
+                Attachments = calendarPreparationRequest.Attachments
             },
             CalendarSynchronizerOperation.ChangeStartAndEndDate => new ChangeStartAndEndDateRequest(
                 calendarPreparationRequest.CalendarItem,

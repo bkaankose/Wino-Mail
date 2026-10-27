@@ -76,12 +76,23 @@
                     VerticalScrollBarVisibility="Disabled"
                     VerticalScrollMode="Disabled">
                     <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            AutomationProperties.AutomationId="CalendarEventComposeEditTitle"
+                            AutomationProperties.HeadingLevel="Level1"
+                            Style="{StaticResource BodyStrongTextBlockStyle}"
+                            Text="{x:Bind ViewModel.EditPageTitle, Mode=OneWay}"
+                            Visibility="{x:Bind ViewModel.IsEditMode, Mode=OneWay}" />
+
+                        <AppBarSeparator VerticalAlignment="Center" Visibility="{x:Bind ViewModel.IsEditMode, Mode=OneWay}" />
+
                         <Button
                             Padding="10,4"
                             VerticalAlignment="Center"
                             HorizontalContentAlignment="Left"
                             AutomationProperties.AutomationId="CalendarEventComposePageButton"
                             AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_SelectCalendar, Mode=OneTime}"
+                            IsEnabled="{x:Bind ViewModel.CanChangeCalendar, Mode=OneWay}"
                             Style="{StaticResource DefaultButtonStyle}">
                             <Button.Flyout>
                                 <Flyout x:Name="CalendarSelectionFlyout" Placement="BottomEdgeAlignedLeft">
@@ -424,7 +435,19 @@
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Icon="CalendarEventRepeat" />
 
-                        <StackPanel Grid.Column="1" Spacing="8">
+                        <TextBlock
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            AutomationProperties.AutomationId="CalendarEventComposeOccurrenceRepeatInfo"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="{x:Bind domain:Translator.CalendarEventCompose_OccurrenceRepeatInfo, Mode=OneTime}"
+                            TextWrapping="Wrap"
+                            Visibility="{x:Bind ViewModel.IsEditingOccurrence, Mode=OneWay}" />
+
+                        <StackPanel
+                            Grid.Column="1"
+                            Spacing="8"
+                            Visibility="{x:Bind ViewModel.CanEditRecurrence, Mode=OneWay}">
                             <ComboBox
                                 MinWidth="260"
                                 AutomationProperties.AutomationId="CalendarEventComposeRepeatComboBox"
@@ -437,6 +460,14 @@
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
+
+                            <TextBlock
+                                AutomationProperties.AutomationId="CalendarEventComposePreservedRecurrenceInfo"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.CalendarEventCompose_RecurrencePreserved, Mode=OneTime}"
+                                TextWrapping="Wrap"
+                                Visibility="{x:Bind ViewModel.HasPreservedRecurrence, Mode=OneWay}" />
 
                             <Border
                                 Padding="16,12"

@@ -189,6 +189,9 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
     private void NotifyCapabilityPropertiesChanged()
     {
         OnPropertyChanged(nameof(IsCalendarReadOnly));
+        OnPropertyChanged(nameof(CanEditEvent));
+        OnPropertyChanged(nameof(CanEditEventSeries));
+        OnPropertyChanged(nameof(EditEventText));
         OnPropertyChanged(nameof(CanRespondToInvitation));
         OnPropertyChanged(nameof(SendsInvitations));
         OnPropertyChanged(nameof(HasResponseNotSentWarning));
@@ -213,6 +216,14 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
     /// Only visible for child occurrences of recurring events, not for master events or single events.
     /// </summary>
     public bool CanEditSeries => CurrentEvent?.IsRecurringChild ?? false;
+
+    public bool CanEditEvent => CurrentEvent?.CalendarItem is CalendarItem item && !IsCalendarReadOnly && item.CanChangeStartAndEndDate;
+
+    public bool CanEditEventSeries => CanEditEvent && CurrentEvent.IsRecurringChild;
+
+    public string EditEventText => CurrentEvent?.IsRecurringChild == true
+        ? Translator.CalendarEventDetails_EditOccurrence
+        : Translator.CalendarEventDetails_Edit;
 
     /// <summary>
     /// Returns true if the current user is the organizer of the event.
@@ -878,6 +889,78 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
         {
             Debug.WriteLine($"Error loading series: {ex.Message}");
         }
+    }
+
+    [RelayCommand]
+    private async Task EditEventAsync()
+    {
+        if (CurrentEvent?.CalendarItem is not CalendarItem item)
+            return;
+
+        await OpenEventEditorAsync(item);
+    }
+
+    [RelayCommand]
+    private async Task EditEventSeriesAsync()
+    {
+        if (CurrentEvent?.CalendarItem?.RecurringCalendarItemId is not Guid masterEventId)
+            return;
+
+        var masterEvent = await _calendarService.GetCalendarItemAsync(masterEventId);
+
+        if (masterEvent == null)
+        {
+            _dialogService.InfoBarMessage(
+                Translator.CalendarEventCompose_EditUnavailableTitle,
+                Translator.CalendarEventCompose_EditUnavailableMessage,
+                InfoBarMessageType.Warning);
+            return;
+        }
+
+        await OpenEventEditorAsync(masterEvent);
+    }
+
+    private async Task OpenEventEditorAsync(CalendarItem item)
+    {
+        await CapabilityLoadTask;
+
+        if (IsCalendarReadOnly)
+        {
+            _dialogService.ShowReadOnlyCalendarMessage();
+            return;
+        }
+
+        if (!CanEditEvent)
+        {
+            _dialogService.InfoBarMessage(
+                Translator.CalendarDragDropMoveNotAllowedTitle,
+                Translator.CalendarEventDetails_EditNotAllowedMessage,
+                InfoBarMessageType.Warning);
+            return;
+        }
+
+        if (!CanNavigateShell)
+            return;
+
+        _navigationService.Navigate(WinoPage.CalendarEventComposePage, new CalendarEventComposeNavigationArgs
+        {
+            EditCalendarItemId = item.Id,
+            SelectedCalendarId = item.CalendarId,
+            NotesHtml = GetEditableNotesHtml(item.Description)
+        });
+    }
+
+    private static string GetEditableNotesHtml(string description)
+    {
+        if (string.IsNullOrWhiteSpace(description))
+            return string.Empty;
+
+        if (description.Contains('<'))
+            return description;
+
+        return System.Net.WebUtility.HtmlEncode(description)
+            .Replace("\r\n", "\n")
+            .Replace("\n", "<br>");
     }
 
     [RelayCommand]

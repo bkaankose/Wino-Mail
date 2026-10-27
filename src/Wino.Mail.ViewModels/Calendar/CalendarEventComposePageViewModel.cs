@@ -21,6 +21,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Attachments;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Presentation;
 using Wino.Core.Domain.Validation;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Shell;
@@ -63,6 +64,12 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     private bool _isSyncingDateRange;
     private bool _isApplyingRecurrence;
     private DateTime? _lastEffectiveStart;
+
+    private CalendarItem _editingItem;
+    private CalendarComposeTimeZoneOption _editInitialTimeZoneOption;
+    private ReminderOption _editInitialReminderOption;
+    private string _editInitialRecurrenceInputs = string.Empty;
+    private HashSet<Guid> _editInitialAttachmentIds = [];
 
     public Func<Task<string>> GetHtmlNotesAsync { get; set; }
     public bool LastCreationSucceeded { get; private set; }
@@ -145,6 +152,21 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     [ObservableProperty]
     public partial CalendarEventComposeResult LastCreatedResult { get; set; }
 
+    [ObservableProperty]
+    public partial bool HasPreservedRecurrence { get; set; }
+
+    public bool IsEditMode => _editingItem != null;
+    public bool IsEditingOccurrence => _editingItem?.IsRecurringChild == true;
+    public bool CanEditRecurrence => !IsEditingOccurrence;
+    public bool CanChangeCalendar => !IsEditMode;
+    public string EditPageTitle => !IsEditMode
+        ? string.Empty
+        : IsEditingOccurrence
+            ? Translator.CalendarEventCompose_EditOccurrenceTitle
+            : _editingItem.IsRecurringParent
+                ? Translator.CalendarEventCompose_EditSeriesTitle
+                : Translator.CalendarEventCompose_EditEventTitle;
+
     private CalendarSettings _currentSettings;
 
     public CalendarSettings CurrentSettings
@@ -208,7 +230,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     public bool HasAttendees => Attendees.Count > 0;
     public int AttendeeCount => Attendees.Count;
     // Attendees only receive an invitation when the calendar's server sends one.
-    public string SaveButtonText => HasAttendees && SendsInvitations ? Translator.Buttons_Send : Translator.Buttons_Save;
+    public string SaveButtonText => !IsEditMode && HasAttendees && SendsInvitations ? Translator.Buttons_Send : Translator.Buttons_Save;
 
     /// <summary>
     /// What the selected calendar can do. Until the capability service answers, this holds the
@@ -231,12 +253,15 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     // Kept for the heads; attachment gating comes from the capabilities, not the provider.
     public bool IsSelectedCalendarCalDav => SelectedCalendar?.Account?.ProviderType == MailProviderType.IMAP4 &&
                                             SelectedCalendar.Account.ServerInformation?.CalendarSupportMode == ImapCalendarSupportMode.CalDav;
-    public bool CanAddAttachments => CalendarCapabilities.SupportsAttachments && !IsCalendarReadOnly;
+    // Only the CalDAV update path applies attachment changes; Outlook and Gmail updates leave attachments as they are.
+    public bool CanAddAttachments => CalendarCapabilities.SupportsAttachments && !IsCalendarReadOnly && (!IsEditMode || IsSelectedCalendarCalDav);
     public string AttachmentsDisabledTooltipText => CanAddAttachments
         ? string.Empty
         : IsCalendarReadOnly
             ? Translator.CalendarCapability_SummaryReadOnly
-            : Translator.CalendarCapability_AttachmentsNotSupported;
+            : IsEditMode && CalendarCapabilities.SupportsAttachments
+                ? Translator.CalendarCapability_AttachmentsNotEditable
+                : Translator.CalendarCapability_AttachmentsNotSupported;
     public bool CanAddAttendees => CalendarCapabilities.SupportsAttendees && !IsCalendarReadOnly;
     public bool SendsInvitations => CalendarCapabilities.SendsInvitations;
     public bool HasInvitationsNotSentWarning => HasAttendees && CalendarCapabilities.SupportsAttendees && !SendsInvitations;
@@ -248,7 +273,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     public bool IsCalendarReadOnly => CalendarCapabilities.IsReadOnly || SelectedCalendar?.IsReadOnly == true;
     public bool HasQuotaWarning => CalendarCapabilityPresenter.HasLowQuota(CalendarCapabilities);
     public string QuotaWarningText => CalendarCapabilityPresenter.GetQuotaWarningText(CalendarCapabilities);
-    public bool CanAddOnlineMeeting => CalendarCapabilities.SupportsOnlineMeeting;
+    public bool CanAddOnlineMeeting => CalendarCapabilities.SupportsOnlineMeeting && !IsEditMode;
     public string OnlineMeetingProviderText => SelectedCalendar?.Account?.ProviderType == MailProviderType.Gmail
         ? Translator.CalendarEventCompose_OnlineMeetingGoogleMeet
         : Translator.CalendarEventCompose_OnlineMeetingTeams;
@@ -378,8 +403,259 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
         await LoadAvailableCalendarsAsync();
 
         var args = parameters as CalendarEventComposeNavigationArgs;
+
+        if (args?.EditCalendarItemId is Guid editCalendarItemId)
+        {
+            await LoadEditTargetAsync(editCalendarItemId);
+            return;
+        }
+
+        await ExecuteUIThread(() =>
+        {
+            if (IsEditMode)
+            {
+                Attachments.Clear();
+                IsPrivate = false;
+            }
+
+            SetEditingItem(null);
+        });
+
         ApplyNavigationArgs(args);
         UpdateRecurrenceSummary();
+    }
+
+    private async Task LoadEditTargetAsync(Guid calendarItemId)
+    {
+        var item = await _calendarService.GetCalendarItemAsync(calendarItemId).ConfigureAwait(false);
+
+        if (item == null)
+        {
+            await ExecuteUIThread(() => LeaveUnavailableEditTarget()).ConfigureAwait(false);
+            return;
+        }
+
+        var attendees = await _calendarService.GetAttendeesAsync(item.Id).ConfigureAwait(false) ?? [];
+        var reminders = await _calendarService.GetRemindersAsync(item.Id).ConfigureAwait(false) ?? [];
+        var attachments = await _calendarService.GetAttachmentsAsync(item.Id).ConfigureAwait(false) ?? [];
+
+        await ExecuteUIThread(() => ApplyEditTarget(item, attendees, reminders, attachments)).ConfigureAwait(false);
+    }
+
+    private void LeaveUnavailableEditTarget()
+    {
+        SetEditingItem(null);
+        _dialogService.InfoBarMessage(
+            Translator.CalendarEventCompose_EditUnavailableTitle,
+            Translator.CalendarEventCompose_EditUnavailableMessage,
+            InfoBarMessageType.Warning);
+        _navigationService.GoBack();
+    }
+
+    private void SetEditingItem(CalendarItem item)
+    {
+        _editingItem = item;
+
+        if (item == null)
+        {
+            _editInitialTimeZoneOption = null;
+            _editInitialReminderOption = null;
+            _editInitialRecurrenceInputs = string.Empty;
+            _editInitialAttachmentIds = [];
+            HasPreservedRecurrence = false;
+        }
+
+        OnPropertyChanged(nameof(IsEditMode));
+        OnPropertyChanged(nameof(IsEditingOccurrence));
+        OnPropertyChanged(nameof(CanEditRecurrence));
+        OnPropertyChanged(nameof(CanChangeCalendar));
+        OnPropertyChanged(nameof(EditPageTitle));
+        NotifyCapabilityPropertiesChanged();
+    }
+
+    private void ApplyEditTarget(CalendarItem item, List<CalendarEventAttendee> attendees, List<Reminder> reminders, List<CalendarAttachment> attachments)
+    {
+        var calendar = AvailableCalendars.FirstOrDefault(candidate => candidate.Id == item.CalendarId);
+
+        if (calendar == null || !item.CanChangeStartAndEndDate)
+        {
+            LeaveUnavailableEditTarget();
+            return;
+        }
+
+        SetEditingItem(item);
+        SelectedCalendar = calendar;
+
+        Title = item.Title ?? string.Empty;
+        Location = item.Location ?? string.Empty;
+
+        _editInitialTimeZoneOption = ResolveTimeZoneOption(item.StartTimeZone);
+        SelectedTimeZoneOption = _editInitialTimeZoneOption;
+        ApplyDateRange(item.StartDate, item.EndDate, item.IsAllDayEvent);
+
+        SelectedShowAsOption = ShowAsOptions.FirstOrDefault(option => option.ShowAs == item.ShowAs) ?? SelectedShowAsOption;
+        IsPrivate = item.Visibility == CalendarItemVisibility.Private;
+        IsOnlineMeeting = false;
+
+        Attendees.Clear();
+        foreach (var attendee in attendees.Where(attendee => !attendee.IsOrganizer && !string.IsNullOrWhiteSpace(attendee.Email)))
+        {
+            if (Attendees.Any(existing => existing.Email.Equals(attendee.Email, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            Attendees.Add(new CalendarComposeAttendeeViewModel(attendee.Name, attendee.Email, attendee.ResolvedContact)
+            {
+                IsOptional = attendee.IsOptionalAttendee
+            });
+        }
+
+        Attachments.Clear();
+        foreach (var attachment in attachments)
+        {
+            Attachments.Add(CalendarComposeAttachmentViewModel.FromExisting(attachment));
+        }
+
+        ApplyEditRecurrence(item);
+
+        var reminderMinutes = reminders
+            .Where(reminder => reminder.DurationInSeconds > 0)
+            .OrderBy(reminder => reminder.ReminderType == CalendarItemReminderType.Popup ? 0 : 1)
+            .ThenBy(reminder => reminder.DurationInSeconds)
+            .Select(reminder => (int)(reminder.DurationInSeconds / 60))
+            .FirstOrDefault();
+
+        ApplyImportedReminder(reminderMinutes > 0 ? reminderMinutes : (int?)null, isImportedEvent: true);
+
+        _editInitialReminderOption = SelectedReminderOption;
+        _editInitialRecurrenceInputs = GetRecurrenceInputSignature();
+        _editInitialAttachmentIds = Attachments.Select(attachment => attachment.Id).ToHashSet();
+
+        UpdateRecurrenceSummary();
+    }
+
+    private void ApplyEditRecurrence(CalendarItem item)
+    {
+        if (item.IsRecurringChild || string.IsNullOrWhiteSpace(item.Recurrence))
+        {
+            ApplyImportedRecurrence(null);
+            HasPreservedRecurrence = false;
+            return;
+        }
+
+        CalendarEventRecurrenceDraft draft;
+
+        if (CalendarRecurrenceRuleParser.TryParse(item.Recurrence, out var rule) && rule != null)
+        {
+            draft = new CalendarEventRecurrenceDraft
+            {
+                Frequency = rule.Frequency,
+                Interval = rule.Interval,
+                Weekdays = [.. rule.Days],
+                EndDate = GetRecurrenceEndDate(rule.Until)
+            };
+        }
+        else
+        {
+            draft = new CalendarEventRecurrenceDraft { Frequency = CalendarItemRecurrenceFrequency.Weekly };
+        }
+
+        ApplyImportedRecurrence(draft);
+        HasPreservedRecurrence = !IsRecurrenceRepresentable(item.Recurrence);
+    }
+
+    private static DateTime? GetRecurrenceEndDate(DateTimeOffset? until)
+    {
+        if (until is not DateTimeOffset value)
+            return null;
+
+        // A date-only UNTIL is parsed as UTC midnight and names the last day itself.
+        return value.UtcDateTime.TimeOfDay == TimeSpan.Zero
+            ? value.UtcDateTime.Date
+            : value.ToLocalTime().Date;
+    }
+
+    internal static bool IsRecurrenceRepresentable(string recurrence)
+    {
+        var lines = recurrence.Split(
+            [Constants.CalendarEventRecurrenceRuleSeperator, "\r\n", "\n", "\r"],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (lines.Length != 1)
+            return false;
+
+        var line = lines[0];
+        var colon = line.IndexOf(':');
+        if (colon >= 0)
+        {
+            if (!line[..colon].Equals("RRULE", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            line = line[(colon + 1)..];
+        }
+
+        string frequency = null;
+        var hasByDay = false;
+
+        foreach (var part in line.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var equals = part.IndexOf('=');
+            if (equals <= 0)
+                return false;
+
+            var key = part[..equals].Trim().ToUpperInvariant();
+            var value = part[(equals + 1)..].Trim();
+
+            switch (key)
+            {
+                case "FREQ":
+                    frequency = value.ToUpperInvariant();
+                    break;
+                case "INTERVAL":
+                case "UNTIL":
+                case "WKST":
+                    break;
+                case "BYDAY":
+                    hasByDay = true;
+                    if (value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Any(day => day.Length != 2))
+                        return false;
+                    break;
+                default:
+                    return false;
+            }
+        }
+
+        return frequency switch
+        {
+            "WEEKLY" => true,
+            "DAILY" or "MONTHLY" or "YEARLY" => !hasByDay,
+            _ => false
+        };
+    }
+
+    private CalendarComposeTimeZoneOption ResolveTimeZoneOption(string timeZoneId)
+    {
+        // A stored time without a zone is UTC.
+        var id = string.IsNullOrWhiteSpace(timeZoneId) ? TimeZoneInfo.Utc.Id : timeZoneId;
+
+        var option = TimeZoneOptions.FirstOrDefault(candidate => string.Equals(candidate.Id, id, StringComparison.OrdinalIgnoreCase));
+        if (option != null)
+            return option;
+
+        if (TimeZoneInfo.TryConvertIanaIdToWindowsId(id, out var windowsId))
+        {
+            option = TimeZoneOptions.FirstOrDefault(candidate => string.Equals(candidate.Id, windowsId, StringComparison.OrdinalIgnoreCase));
+            if (option != null)
+                return option;
+        }
+
+        if (TimeZoneInfo.TryFindSystemTimeZoneById(id, out var timeZone))
+        {
+            option = new CalendarComposeTimeZoneOption(timeZone);
+            TimeZoneOptions.Insert(0, option);
+            return option;
+        }
+
+        return SelectedTimeZoneOption ?? TimeZoneOptions.First();
     }
 
     partial void OnSelectedCalendarChanged(AccountCalendarViewModel value)
@@ -459,7 +735,10 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
     {
         if (!CanAddAttachments && Attachments.Count > 0)
         {
-            Attachments.Clear();
+            foreach (var attachment in Attachments.Where(attachment => !attachment.IsExisting).ToList())
+            {
+                Attachments.Remove(attachment);
+            }
         }
 
         if (!CanAddOnlineMeeting)
@@ -637,6 +916,12 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
         if (attachment == null)
             return;
 
+        if (attachment.IsExisting && !CanAddAttachments)
+        {
+            ShowCapabilityRefusal(AttachmentsDisabledTooltipText);
+            return;
+        }
+
         Attachments.Remove(attachment);
     }
 
@@ -715,6 +1000,18 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
 
         LastCreatedResult = createdResult;
 
+        if (_editingItem is CalendarItem editingItem)
+        {
+            var navigationDate = await SaveEditedEventAsync(editingItem, createdResult);
+            if (navigationDate is DateTime savedStart)
+            {
+                LastCreationSucceeded = true;
+                NavigateBackToCalendar(savedStart);
+            }
+
+            return;
+        }
+
         await _winoRequestDelegator.ExecuteAsync(new CalendarOperationPreparationRequest(
             CalendarSynchronizerOperation.CreateEvent,
             ComposeResult: createdResult));
@@ -732,6 +1029,158 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
                 NavigationDate = targetDate,
                 ForceReload = true
             });
+    }
+
+    private async Task<DateTime?> SaveEditedEventAsync(CalendarItem editingItem, CalendarEventComposeResult result)
+    {
+        var originalItem = await _calendarService.GetCalendarItemAsync(editingItem.Id);
+        var updatedItem = await _calendarService.GetCalendarItemAsync(editingItem.Id);
+
+        if (originalItem == null || updatedItem == null)
+        {
+            _dialogService.InfoBarMessage(
+                Translator.CalendarEventCompose_EditUnavailableTitle,
+                Translator.CalendarEventCompose_EditUnavailableMessage,
+                InfoBarMessageType.Warning);
+            return null;
+        }
+
+        var originalAttendees = await _calendarService.GetAttendeesAsync(editingItem.Id) ?? [];
+        var originalReminders = await _calendarService.GetRemindersAsync(editingItem.Id) ?? [];
+
+        updatedItem.Title = result.Title;
+        updatedItem.Location = result.Location;
+        updatedItem.Description = result.HtmlNotes ?? string.Empty;
+        updatedItem.StartDate = result.StartDate;
+        updatedItem.DurationInSeconds = Math.Max(0, (result.EndDate - result.StartDate).TotalSeconds);
+        updatedItem.ShowAs = result.ShowAs;
+        updatedItem.Visibility = result.Visibility;
+        updatedItem.UpdatedAt = DateTimeOffset.UtcNow;
+
+        // An unchanged zone keeps the stored identifiers, which may be IANA names or differ between start and end.
+        if (!ReferenceEquals(SelectedTimeZoneOption, _editInitialTimeZoneOption))
+        {
+            updatedItem.StartTimeZone = result.TimeZoneId;
+            updatedItem.EndTimeZone = result.TimeZoneId;
+        }
+
+        // Recurrence belongs to the series master. An untouched rule is kept as stored, including parts the repeat options cannot show.
+        // The inputs are compared rather than the built rule, whose UNTIL also changes with the time zone and all-day.
+        if (!updatedItem.IsRecurringChild && !string.Equals(GetRecurrenceInputSignature(), _editInitialRecurrenceInputs, StringComparison.Ordinal))
+        {
+            updatedItem.Recurrence = result.Recurrence;
+        }
+
+        var updatedAttendees = BuildEditedAttendees(updatedItem.Id, originalAttendees, result.Attendees);
+        var updatedReminders = BuildEditedReminders(updatedItem.Id, originalReminders);
+        var attachmentDrafts = BuildEditedAttachmentDrafts();
+
+        await _calendarService.SaveRemindersAsync(updatedItem.Id, updatedReminders);
+        await _calendarService.UpdateCalendarItemAsync(updatedItem, updatedAttendees);
+
+        await _winoRequestDelegator.ExecuteAsync(new CalendarOperationPreparationRequest(
+            CalendarSynchronizerOperation.UpdateEvent,
+            updatedItem,
+            updatedAttendees,
+            ResponseMessage: null,
+            OriginalItem: originalItem,
+            OriginalAttendees: originalAttendees,
+            Reminders: updatedReminders,
+            OriginalReminders: originalReminders,
+            Attachments: attachmentDrafts));
+
+        return updatedItem.LocalStartDate;
+    }
+
+    private static List<CalendarEventAttendee> BuildEditedAttendees(
+        Guid calendarItemId,
+        List<CalendarEventAttendee> originalAttendees,
+        List<CalendarEventAttendee> editedAttendees)
+    {
+        var attendees = originalAttendees
+            .Where(attendee => attendee.IsOrganizer)
+            .Select(attendee => CopyAttendee(attendee, calendarItemId))
+            .ToList();
+
+        foreach (var edited in editedAttendees)
+        {
+            var stored = originalAttendees.FirstOrDefault(attendee =>
+                !attendee.IsOrganizer &&
+                string.Equals(attendee.Email, edited.Email, StringComparison.OrdinalIgnoreCase));
+
+            attendees.Add(new CalendarEventAttendee
+            {
+                Id = stored?.Id ?? Guid.NewGuid(),
+                CalendarItemId = calendarItemId,
+                Name = string.IsNullOrWhiteSpace(edited.Name) ? stored?.Name ?? string.Empty : edited.Name,
+                Email = edited.Email,
+                Comment = stored?.Comment,
+                AttendenceStatus = stored?.AttendenceStatus ?? AttendeeStatus.NeedsAction,
+                IsOrganizer = false,
+                IsOptionalAttendee = edited.IsOptionalAttendee,
+                ResolvedContact = edited.ResolvedContact ?? stored?.ResolvedContact
+            });
+        }
+
+        return attendees;
+    }
+
+    private static CalendarEventAttendee CopyAttendee(CalendarEventAttendee attendee, Guid calendarItemId) => new()
+    {
+        Id = attendee.Id,
+        CalendarItemId = calendarItemId,
+        Name = attendee.Name,
+        Email = attendee.Email,
+        Comment = attendee.Comment,
+        AttendenceStatus = attendee.AttendenceStatus,
+        IsOrganizer = attendee.IsOrganizer,
+        IsOptionalAttendee = attendee.IsOptionalAttendee,
+        ResolvedContact = attendee.ResolvedContact
+    };
+
+    private List<Reminder> BuildEditedReminders(Guid calendarItemId, List<Reminder> originalReminders)
+    {
+        if (ReferenceEquals(SelectedReminderOption, _editInitialReminderOption))
+        {
+            return originalReminders
+                .Select(reminder => new Reminder
+                {
+                    Id = reminder.Id,
+                    CalendarItemId = calendarItemId,
+                    DurationInSeconds = reminder.DurationInSeconds,
+                    ReminderType = reminder.ReminderType
+                })
+                .ToList();
+        }
+
+        if (SelectedReminderOption is not { Minutes: > 0 })
+            return [];
+
+        var durationInSeconds = SelectedReminderOption.Minutes * 60L;
+        var existing = originalReminders.FirstOrDefault(reminder => reminder.DurationInSeconds == durationInSeconds);
+
+        return
+        [
+            new Reminder
+            {
+                Id = existing?.Id ?? Guid.NewGuid(),
+                CalendarItemId = calendarItemId,
+                DurationInSeconds = durationInSeconds,
+                ReminderType = existing?.ReminderType ?? CalendarItemReminderType.Popup
+            }
+        ];
+    }
+
+    private List<CalendarEventComposeAttachmentDraft> BuildEditedAttachmentDrafts()
+    {
+        if (!CanAddAttachments)
+            return null;
+
+        var currentIds = Attachments.Select(attachment => attachment.Id).ToHashSet();
+        if (currentIds.SetEquals(_editInitialAttachmentIds))
+            return null;
+
+        return Attachments.Select(attachment => attachment.ToDraftModel()).ToList();
     }
 
     public async Task<List<AccountContact>> SearchContactsAsync(string queryText)
@@ -1213,7 +1662,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
             SelectedReminders = BuildSelectedReminders(),
             Attendees = BuildAttendees(uniqueAttendees),
             Attachments = CanAddAttachments
-                ? Attachments.Select(attachment => attachment.ToDraftModel()).ToList()
+                ? Attachments.Where(attachment => !attachment.IsExisting).Select(attachment => attachment.ToDraftModel()).ToList()
                 : [],
             Recurrence = BuildRecurrenceRule(),
             RecurrenceSummary = RecurrenceSummary
@@ -1311,6 +1760,20 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel,
             .ToArray();
 
         return (frequency, SelectedRecurrenceInterval, days.Length > 0 ? days : new[] { StartDate.DayOfWeek });
+    }
+
+    private string GetRecurrenceInputSignature()
+    {
+        if (!IsRecurring)
+            return string.Empty;
+
+        var (frequency, interval, days) = GetRecurrencePattern(SelectedRepeatOption.Kind);
+        return string.Join("|",
+            SelectedRepeatOption.Kind,
+            frequency,
+            interval,
+            string.Join(",", days.OrderBy(day => day)),
+            RecurrenceEndDate?.Date.ToString("yyyyMMdd", CultureInfo.InvariantCulture) ?? string.Empty);
     }
 
     private string BuildRecurrenceRule()

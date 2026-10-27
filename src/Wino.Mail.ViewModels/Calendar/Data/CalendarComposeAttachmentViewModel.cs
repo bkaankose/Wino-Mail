@@ -3,6 +3,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Attachments;
 using Wino.Core.Domain.Models.Calendar;
@@ -13,19 +14,34 @@ namespace Wino.Calendar.ViewModels.Data;
 
 public partial class CalendarComposeAttachmentViewModel : AttachmentViewModelBase
 {
-    public Guid Id { get; } = Guid.NewGuid();
+    public Guid Id { get; }
     public override string FileName { get; }
     public string FilePath { get; }
     public string FileExtension { get; }
     public long Size { get; }
     public string ReadableSize => Size.GetBytesReadable();
 
+    public bool IsExisting { get; }
+
     public CalendarComposeAttachmentViewModel(string fileName, string filePath, string fileExtension, long size)
+        : this(Guid.NewGuid(), fileName, filePath, fileExtension, size, isExisting: false)
     {
+    }
+
+    private CalendarComposeAttachmentViewModel(Guid id, string fileName, string filePath, string fileExtension, long size, bool isExisting)
+    {
+        Id = id;
         FileName = fileName;
         FilePath = filePath;
         FileExtension = fileExtension;
         Size = size;
+        IsExisting = isExisting;
+    }
+
+    public static CalendarComposeAttachmentViewModel FromExisting(CalendarAttachment attachment)
+    {
+        var fileName = attachment.FileName ?? string.Empty;
+        return new(attachment.Id, fileName, attachment.LocalFilePath ?? string.Empty, Path.GetExtension(fileName), attachment.Size, isExisting: true);
     }
 
     public CalendarEventComposeAttachmentDraft ToDraftModel() => new()

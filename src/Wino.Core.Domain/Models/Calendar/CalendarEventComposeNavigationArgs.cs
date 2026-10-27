@@ -22,6 +22,7 @@ public class CalendarEventComposeNavigationArgs
     public bool HasUnsupportedImportContent { get; set; }
     /// <summary>Transferred quick-event input remains unsaved until explicit creation or discard.</summary>
     public bool HasPendingInput { get; set; }
+    public Guid? EditCalendarItemId { get; set; }
 }
 
 public sealed record CalendarEventAttendeeDraft(string Name, string Email);

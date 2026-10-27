@@ -27,4 +27,5 @@ public record CalendarOperationPreparationRequest(
     List<CalendarEventAttendee> OriginalAttendees = null,
     CalendarEventComposeResult ComposeResult = null,
     List<Reminder> Reminders = null,
-    List<Reminder> OriginalReminders = null);
+    List<Reminder> OriginalReminders = null,
+    List<CalendarEventComposeAttachmentDraft> Attachments = null);

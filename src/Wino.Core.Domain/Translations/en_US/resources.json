@@ -4128,5 +4128,16 @@
   "Calendar_EarlierEvents_Plural": "{0} earlier events",
   "Calendar_LaterEvents_Singular": "{0} later event",
   "Calendar_LaterEvents_Plural": "{0} later events",
-  "Calendar_HiddenEvents_AccessibleName": "{0} on {1}"
+  "Calendar_HiddenEvents_AccessibleName": "{0} on {1}",
+  "CalendarEventDetails_Edit": "Edit",
+  "CalendarEventDetails_EditOccurrence": "Edit occurrence",
+  "CalendarEventDetails_EditNotAllowedMessage": "Only the organizer can change this event. You can still change how it shows in your calendar, its reminders and your response.",
+  "CalendarEventCompose_EditEventTitle": "Edit event",
+  "CalendarEventCompose_EditOccurrenceTitle": "Edit occurrence",
+  "CalendarEventCompose_EditSeriesTitle": "Edit series",
+  "CalendarEventCompose_EditUnavailableTitle": "Can't edit this event",
+  "CalendarEventCompose_EditUnavailableMessage": "The event is no longer available, or its calendar can't be changed. Synchronize the calendar and try again.",
+  "CalendarEventCompose_OccurrenceRepeatInfo": "This is one occurrence of a series. Use Edit series to change how it repeats.",
+  "CalendarEventCompose_RecurrencePreserved": "This series repeats in a way these options can't show in full. Its repeat rule stays as it is unless you change it here.",
+  "CalendarCapability_AttachmentsNotEditable": "Attachments of an existing event can't be changed for this account."
 }
