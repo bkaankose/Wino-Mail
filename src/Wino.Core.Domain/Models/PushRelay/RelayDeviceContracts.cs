@@ -12,6 +12,7 @@ public static class RelayDeviceAttestationKinds
     public const string None = "none";
     public const string AppAttest = "appattest";
     public const string PlayIntegrity = "playintegrity";
+    public const string BoundKey = "boundkey";
 }
 
 /// <summary>Headers that carry the device credential on API calls made without a Wino Account.</summary>
@@ -21,11 +22,11 @@ public static class RelayDeviceHeaders
     public const string Credential = "X-Relay-Device-Credential";
     public const string Assertion = "X-Relay-Device-Assertion";
 
-    /// <summary>The challenge nonce the assertion was made over (App Attest devices only).</summary>
+    /// <summary>The challenge nonce the assertion was made over (App Attest and bound-key devices only).</summary>
     public const string Nonce = "X-Relay-Device-Nonce";
 }
 
-/// <summary>An App Attest assertion for one credential call: the nonce it covers and the assertion (base64).</summary>
+/// <summary>An App Attest assertion or bound-key signature for one credential call: the nonce it covers and the assertion (base64).</summary>
 public sealed record RelayDeviceAssertion(string Nonce, string Assertion)
 {
     public override string ToString() => "RelayDeviceAssertion { }";
@@ -36,7 +37,8 @@ public sealed record RelayDeviceChallengeRequest(string Platform);
 
 public sealed record RelayDeviceChallengeDto(string Nonce, DateTimeOffset ExpiresUtc);
 
-public sealed record RelayDeviceAttestationRequest(string Kind, string? KeyId = null, string? AttestationObject = null, string? Token = null)
+public sealed record RelayDeviceAttestationRequest(string Kind, string? KeyId = null, string? AttestationObject = null, string? Token = null,
+    string? PublicKey = null, string? Signature = null)
 {
     public override string ToString() => $"RelayDeviceAttestationRequest {{ Kind = {Kind} }}";
 }

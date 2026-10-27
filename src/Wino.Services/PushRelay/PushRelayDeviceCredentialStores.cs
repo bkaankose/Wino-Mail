@@ -148,7 +148,7 @@ public sealed class ProtectedFilePushRelayDeviceCredentialStore(ISecretProtector
     }
 }
 
-/// <summary>Heads without a platform attestation service (Windows, macOS). The API accepts <c>none</c> for desktop platforms.</summary>
+/// <summary>Heads that register no attestation provider. The API accepts <c>none</c> for desktop platforms until it requires a bound key.</summary>
 public sealed class NoDeviceAttestationProvider : IDeviceAttestationProvider
 {
     public DeviceAttestationKind Kind => DeviceAttestationKind.None;

@@ -81,6 +81,8 @@ public interface IWinoAccountApiClient
     Task<ApiEnvelope<Models.PushRelay.RelayDeviceDto>> LinkRelayDeviceAsync(Guid deviceId, string credential, Models.PushRelay.RelayDeviceAssertion? assertion, CancellationToken cancellationToken = default);
     /// <summary>Device credential: removes the Wino Account from the device; the device keeps working anonymously.</summary>
     Task<ApiEnvelope<Models.PushRelay.RelayDeviceDto>> UnlinkRelayDeviceAsync(Guid deviceId, string credential, Models.PushRelay.RelayDeviceAssertion? assertion, CancellationToken cancellationToken = default);
+    /// <summary>Device credential: revokes the device itself (<c>DELETE api/v1/relay/devices/{id}</c>).</summary>
+    Task<ApiEnvelope<JsonElement>> RevokeRelayDeviceAsync(Guid deviceId, string credential, Models.PushRelay.RelayDeviceAssertion? assertion, CancellationToken cancellationToken = default);
     /// <summary>Signed in: the devices linked to the Wino Account (<c>GET api/v1/relay/devices</c>).</summary>
     Task<ApiEnvelope<Models.PushRelay.RelayDeviceListDto>> GetRelayDevicesAsync(CancellationToken cancellationToken = default);
     /// <summary>The stored sync snapshot bytes and revision, or null when the account has none.</summary>

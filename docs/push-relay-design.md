@@ -30,8 +30,9 @@ relay never reads message bodies. Delta sync remains the source of truth; the re
 
 The device is the primary identity on the relay. The Wino Account is a label on top of it.
 
-- On first use the app proves it is the genuine Wino app on a real device: App Attest on iOS and
-  macOS, Play Integrity on Android. The Wino API verifies the attestation against a nonce it
+- On first use the app proves it is the genuine Wino app on a real device: App Attest on iOS,
+  Play Integrity on Android; Windows and macOS register a machine-bound key instead
+  (see Windows and macOS below). The Wino API verifies the attestation against a nonce it
   issued seconds earlier and mints a relay token with a device subject. Windows and macOS DMG
   builds register Gmail and Outlook only, which verify themselves against Google and Microsoft and
   carry no secret, so they need no attestation.
@@ -216,8 +217,19 @@ Play Console app does not exist yet; the only Google Cloud project is the one us
 
 ### Windows and macOS
 
-- No attestation exists. Desktop devices register with attestation kind `none`, can hold only Gmail and
-  Graph registrations, and are rate limited per IP at creation.
+- No platform attestation exists, so desktop devices register a bound key (kind `boundkey`): a P-256 key
+  the machine holds, created at registration. Windows keeps it in CNG as `Wino.Mail.RelayDevice`, in the
+  TPM (Microsoft Platform Crypto Provider) when one is usable and in the software key store otherwise;
+  macOS keeps it in the Secure Enclave, or as a software key in the Keychain on Macs without one. The
+  registration sends the DER SubjectPublicKeyInfo and a signature over the challenge nonce; every later
+  credential call (relay token, link, unlink, delete) signs `"{deviceId}|{nonce}"` with a fresh nonce in
+  `X-Relay-Device-Assertion` and `X-Relay-Device-Nonce`. This proves continuity, not that the binary is
+  Wino: a stolen device credential is useless off the machine. The API marks those tokens `wr_tier=bound`.
+- Desktop always uses the device token for relay calls and the socket, signed in or not; the Wino Account
+  token never mints relay tokens on Windows or macOS. A desktop credential registered before bound keys
+  (kind `none`) is replaced once on upgrade: the app registers a bound-key device, revokes the old one,
+  and registers the relay device again under the new id. A machine whose key store fails registers with
+  kind `none` and logs a warning.
 
 ## Status
 

@@ -341,6 +341,10 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         => SendDeviceRequestAsync(HttpMethod.Post, $"api/v1/relay/devices/{deviceId:D}/unlink", deviceId, credential, assertion,
             WinoAccountApiJsonContext.Default.ApiEnvelopeRelayDeviceDto, cancellationToken);
 
+    public Task<ApiEnvelope<JsonElement>> RevokeRelayDeviceAsync(Guid deviceId, string credential, RelayDeviceAssertion? assertion, CancellationToken cancellationToken = default)
+        => SendDeviceRequestAsync(HttpMethod.Delete, $"api/v1/relay/devices/{deviceId:D}", deviceId, credential, assertion,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeJsonElement, cancellationToken);
+
     public Task<ApiEnvelope<RelayDeviceListDto>> GetRelayDevicesAsync(CancellationToken cancellationToken = default)
         => SendAuthorizedRequestAsync("api/v1/relay/devices", WinoAccountApiJsonContext.Default.ApiEnvelopeRelayDeviceListDto, cancellationToken);
 

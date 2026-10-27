@@ -520,8 +520,20 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
             catch (PushRelayApiException ex) { _logger.Information("Linking the relay device failed ({Code}); continuing on the device path.", ex.Code); }
         }
 
+        var identityReplaced = false;
+        if (identity is not null && await HasReplacedDeviceCredentialAsync(identity, cancellationToken).ConfigureAwait(false))
+        {
+            // The relay device is registered under the API device id, so the old identity cannot be reused.
+            _logger.Information("The relay device credential was replaced; registering the relay device again.");
+            await identityStore.DeleteAsync(cancellationToken).ConfigureAwait(false);
+            identity = null;
+            state.Mailboxes.Clear();
+            state.LastCheckInUtc = null;
+            identityReplaced = true;
+        }
+
         var now = UtcNow;
-        var forced = reasons.Overlaps(ForcingReasons);
+        var forced = identityReplaced || reasons.Overlaps(ForcingReasons);
         if (!forced && state.NextAttemptUtc is { } next && next > now)
         {
             Publish(ComputeAvailability(state, true), state, identity);
@@ -1141,6 +1153,26 @@ public sealed class PushRelayRegistrationService : IPushRelayRegistrationService
             : _pushTokens is { IsPushChannelAvailable: true, CurrentToken: { Length: > 0 } token } ? token : null;
 
     private bool IsDesktopDevice => _deviceInfo?.Describe().Platform is PushRelayPlatforms.Windows or PushRelayPlatforms.MacOS;
+
+    /// <summary>
+    /// Desktop only: the device credential now names another API device than the stored relay identity (the bound-key
+    /// upgrade, or a device the API registered again). Mobile identities may predate their credential and are left alone.
+    /// </summary>
+    private async Task<bool> HasReplacedDeviceCredentialAsync(PushRelayDeviceIdentity identity, CancellationToken cancellationToken)
+    {
+        if (!IsDesktopDevice)
+            return false;
+
+        try
+        {
+            return await _tokens.GetDeviceCredentialAsync(cancellationToken).ConfigureAwait(false) is { } credential
+                && credential.DeviceId != identity.DeviceId;
+        }
+        catch (PushRelayApiException)
+        {
+            return false;
+        }
+    }
 
     private string? ResolveLocale()
     {

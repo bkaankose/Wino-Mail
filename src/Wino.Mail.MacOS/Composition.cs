@@ -93,6 +93,7 @@ internal static class Composition
         // WinoRelay on the Mac is socket-only: no push token is registered, so nothing arrives while the app is not running.
         services.AddSingleton<IPushRelayDeviceIdentityStore, SecureItemPushRelayDeviceIdentityStore>();
         services.AddSingleton<IPushRelayDeviceInfo, MacPushRelayDeviceInfo>();
+        services.AddSingleton<IDeviceAttestationProvider, MacBoundKeyAttestationProvider>();
         // The desktop socket (Wino.PushRelay.Socket): the key lives in the Keychain; RelaySocketCoordinator starts it with relay-based sync.
         services.AddSingleton<IPushRelaySocketKeyStore, SecureItemPushRelaySocketKeyStore>();
         services.AddWinoRelaySocketClient();

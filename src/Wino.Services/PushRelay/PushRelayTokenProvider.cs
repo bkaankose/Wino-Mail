@@ -18,9 +18,9 @@ namespace Wino.Services.PushRelay;
 /// before they expire. Concurrent callers share one API call. Tokens, credentials and attestations are never logged.
 /// </summary>
 /// <remarks>
-/// Device first: the install registers itself as an attested device and uses its credential. The signed-in Wino
-/// Account is used only once the device is linked to it (or when the device path is unavailable on a platform that
-/// must attest). See <see cref="IPushRelayTokenProvider"/>.
+/// Device first: the install registers itself as an attested device and uses its credential. On mobile the signed-in
+/// Wino Account is used once the device is linked to it (or when the device path is unavailable on a platform that must
+/// attest). Desktop always uses the device credential, proven by its bound key. See <see cref="IPushRelayTokenProvider"/>.
 /// </remarks>
 public sealed class PushRelayTokenProvider : IPushRelayTokenProvider
 {
@@ -43,6 +43,7 @@ public sealed class PushRelayTokenProvider : IPushRelayTokenProvider
     private PushRelayDeviceCredential? _credential;
     private bool _credentialLoaded;
     private DateTimeOffset? _devicePathUnavailableUntil;
+    private bool _boundKeyUpgradeAttempted;
 
     public PushRelayTokenProvider(IWinoAccountApiClient apiClient, TimeProvider? timeProvider = null)
         : this(apiClient, null, null, null, null, timeProvider)
@@ -100,7 +101,7 @@ public sealed class PushRelayTokenProvider : IPushRelayTokenProvider
         return await CaptureSessionAsync(cancellationToken).ConfigureAwait(false) is null;
     }
 
-    /// <summary>Windows and macOS register without attestation and must work without a Wino Account.</summary>
+    /// <summary>Windows and macOS register with a bound key (or without attestation) and must work without a Wino Account.</summary>
     private bool IsDesktop => _deviceInfo?.Describe().Platform is PushRelayPlatforms.Windows or PushRelayPlatforms.MacOS;
 
     public async Task<PushRelayDeviceCredential?> GetDeviceCredentialAsync(CancellationToken cancellationToken = default)
@@ -120,6 +121,9 @@ public sealed class PushRelayTokenProvider : IPushRelayTokenProvider
                 }
                 _credentialLoaded = true;
             }
+
+            if (_credential is { } existing && NeedsBoundKeyUpgrade(existing))
+                await UpgradeToBoundKeyAsync(existing, cancellationToken).ConfigureAwait(false);
 
             if (_credential is not null)
                 return _credential;
@@ -230,8 +234,53 @@ public sealed class PushRelayTokenProvider : IPushRelayTokenProvider
         }
     }
 
-    /// <summary>Registers this install with the API: challenge, platform attestation, registration. Runs under <see cref="_deviceLock"/>.</summary>
-    private async Task<PushRelayDeviceCredential?> RegisterDeviceAsync(CancellationToken cancellationToken)
+    private bool NeedsBoundKeyUpgrade(PushRelayDeviceCredential credential)
+        => !_boundKeyUpgradeAttempted && IsDesktop && credential.AttestationKind == DeviceAttestationKind.None
+            && _attestation is { Kind: DeviceAttestationKind.BoundKey, IsSupported: true };
+
+    /// <summary>
+    /// Replaces a desktop credential registered before bound keys with a bound-key device, once per run. The new device
+    /// registers first, so a failure (key store, API) keeps the old credential working. Runs under <see cref="_deviceLock"/>.
+    /// </summary>
+    private async Task UpgradeToBoundKeyAsync(PushRelayDeviceCredential existing, CancellationToken cancellationToken)
+    {
+        _boundKeyUpgradeAttempted = true;
+
+        PushRelayDeviceCredential? replacement;
+        try
+        {
+            replacement = await RegisterDeviceAsync(cancellationToken, upgrading: true).ConfigureAwait(false);
+        }
+        catch (PushRelayApiException ex)
+        {
+            _logger.Information("The relay device keeps its unbound credential; the bound-key registration failed ({Code}).", ex.Code);
+            return;
+        }
+
+        if (replacement is null)
+            return;
+
+        try
+        {
+            var envelope = await _apiClient.RevokeRelayDeviceAsync(existing.DeviceId, existing.Secret, null, cancellationToken).ConfigureAwait(false);
+            if (!envelope.IsSuccess)
+                _logger.Information("Revoking the replaced relay device answered {ErrorCode}.", envelope.ErrorCode);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.Information("Revoking the replaced relay device failed ({Error}).", ex.GetType().Name);
+        }
+
+        _credential = replacement;
+        Invalidate();
+        _logger.Information("Relay device {OldDeviceId} replaced by bound-key device {DeviceId}.", existing.DeviceId, replacement.DeviceId);
+    }
+
+    /// <summary>
+    /// Registers this install with the API: challenge, platform attestation, registration. Runs under <see cref="_deviceLock"/>.
+    /// While <paramref name="upgrading"/>, only a bound-key registration counts and nothing marks the device path unavailable.
+    /// </summary>
+    private async Task<PushRelayDeviceCredential?> RegisterDeviceAsync(CancellationToken cancellationToken, bool upgrading = false)
     {
         if (_deviceInfo is null)
             return null;
@@ -264,6 +313,17 @@ public sealed class PushRelayTokenProvider : IPushRelayTokenProvider
                 {
                     statement = await attestation.AttestAsync(nonce.Nonce, cancellationToken).ConfigureAwait(false);
                 }
+                catch (Exception ex) when (ex is not OperationCanceledException && upgrading)
+                {
+                    _logger.Warning(ex, "The relay device key could not be created; the device keeps its unbound credential.");
+                    return null;
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException && !mustAttest)
+                {
+                    // A desktop with a broken key store still gets live notifications, unbound.
+                    _logger.Warning(ex, "The relay device key could not be created; registering without one.");
+                    statement = DeviceAttestation.None;
+                }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     _logger.Warning(ex, "Device attestation failed; relay tokens need a Wino Account until it works.");
@@ -272,11 +332,22 @@ public sealed class PushRelayTokenProvider : IPushRelayTokenProvider
                 }
             }
 
-            var request = new RegisterRelayDeviceRequest(platform, nonce.Nonce, new RelayDeviceAttestationRequest(
-                ToApiKind(statement.Kind), statement.KeyId, statement.AttestationObject, statement.Token));
+            if (upgrading && statement.Kind != DeviceAttestationKind.BoundKey)
+                return null;
+
+            // A bound key's KeyId names the local key; only the public key and the nonce signature go to the API.
+            var request = new RegisterRelayDeviceRequest(platform, nonce.Nonce, statement.Kind == DeviceAttestationKind.BoundKey
+                ? new RelayDeviceAttestationRequest(ToApiKind(statement.Kind), PublicKey: statement.PublicKey, Signature: statement.Signature)
+                : new RelayDeviceAttestationRequest(ToApiKind(statement.Kind), statement.KeyId, statement.AttestationObject, statement.Token));
             var registration = await _apiClient.RegisterRelayDeviceAsync(request, cancellationToken).ConfigureAwait(false);
             if (!registration.IsSuccess || registration.Result is not { } device || device.DeviceId == Guid.Empty || string.IsNullOrWhiteSpace(device.Credential))
             {
+                if (upgrading)
+                {
+                    _logger.Information("The API refused the bound-key registration ({ErrorCode}); the device keeps its unbound credential.", registration.ErrorCode);
+                    return null;
+                }
+
                 if (registration.ErrorCode is RelayDeviceErrorCodes.AttestationRequired or RelayDeviceErrorCodes.AttestationInvalid
                     or RelayDeviceErrorCodes.AttestationUnavailable or RelayDeviceErrorCodes.DeviceCreationLimit)
                 {
@@ -322,16 +393,19 @@ public sealed class PushRelayTokenProvider : IPushRelayTokenProvider
     {
         DeviceAttestationKind.AppAttest => RelayDeviceAttestationKinds.AppAttest,
         DeviceAttestationKind.PlayIntegrity => RelayDeviceAttestationKinds.PlayIntegrity,
+        DeviceAttestationKind.BoundKey => RelayDeviceAttestationKinds.BoundKey,
         _ => RelayDeviceAttestationKinds.None
     };
 
     /// <summary>
-    /// App Attest devices prove possession on every credential call: a fresh API nonce and an assertion whose client
-    /// data is "{deviceId}|{nonce}" (the provider hashes it with SHA-256). Other devices send nothing.
+    /// App Attest and bound-key devices prove possession on every credential call: a fresh API nonce and an assertion
+    /// (App Attest) or ECDSA signature (bound key) whose client data is "{deviceId}|{nonce}", hashed with SHA-256 by the
+    /// provider. Other devices send nothing.
     /// </summary>
     private async Task<RelayDeviceAssertion?> CreateAssertionAsync(PushRelayDeviceCredential credential, CancellationToken cancellationToken)
     {
-        if (credential.AttestationKind != DeviceAttestationKind.AppAttest || _attestation is null || string.IsNullOrEmpty(credential.AttestationKeyId))
+        if (credential.AttestationKind is not (DeviceAttestationKind.AppAttest or DeviceAttestationKind.BoundKey)
+            || _attestation is null || _attestation.Kind != credential.AttestationKind || string.IsNullOrEmpty(credential.AttestationKeyId))
             return null;
 
         var challenge = await _apiClient.CreateRelayDeviceChallengeAsync(credential.Platform, cancellationToken).ConfigureAwait(false);
@@ -386,25 +460,24 @@ public sealed class PushRelayTokenProvider : IPushRelayTokenProvider
             var credential = await GetDeviceCredentialAsync(cancellationToken).ConfigureAwait(false);
             var session = await CaptureSessionAsync(cancellationToken).ConfigureAwait(false);
 
-            // Device path: no link yet, or the signed-in account is not the linked one (the link call will follow).
-            var devicePath = credential is not null && (credential.LinkedWinoUserId is null || session is null || session.AccountId != credential.LinkedWinoUserId);
-            if (!devicePath && session is not null)
+            // Desktop never uses the Wino Account's token: its device token is bound to this machine's key.
+            // Mobile device path: no link yet, or the signed-in account is not the linked one (the link call will follow).
+            var desktop = IsDesktop;
+            var devicePath = credential is not null
+                && (desktop || credential.LinkedWinoUserId is null || session is null || session.AccountId != credential.LinkedWinoUserId);
+            if (!devicePath && !desktop && session is not null)
             {
                 var userEnvelope = await _apiClient.CreateRelayTokenAsync(cancellationToken).ConfigureAwait(false);
                 if (userEnvelope.IsSuccess && userEnvelope.Result is { } userResult && !string.IsNullOrWhiteSpace(userResult.Token))
                     return ToToken(userResult);
 
-                var failure = MapFailure(userEnvelope.IsSuccess ? WinoAccountClientErrorCodes.InvalidServiceResponse : userEnvelope.ErrorCode, devicePath: false);
-
-                // Desktop: the device credential keeps working when the linked account's session does not.
-                if (!failure.IsSignInRequired || !IsDesktop || credential is null)
-                    throw failure;
+                throw MapFailure(userEnvelope.IsSuccess ? WinoAccountClientErrorCodes.InvalidServiceResponse : userEnvelope.ErrorCode, devicePath: false);
             }
 
             if (credential is null)
             {
                 // Desktop never asks for a Wino Account: the device credential is missing for now (API device cap, unreachable API).
-                throw new PushRelayApiException(IsDesktop
+                throw new PushRelayApiException(desktop
                     ? new PushRelayProblem(PushRelayErrorCodes.ServiceUnavailable, 0, Detail: "The relay device credential is not available yet.")
                     : new PushRelayProblem(PushRelayErrorCodes.SignInRequired, 0, Detail: "No device credential and no Wino Account session."));
             }

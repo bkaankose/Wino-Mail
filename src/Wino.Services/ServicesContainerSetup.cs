@@ -163,7 +163,7 @@ public static class ServicesContainerSetup
             provider.GetRequiredService<IWinoAccountApiClient>(),
             provider.GetRequiredService<IWinoAccountSessionService>(),
             provider.GetRequiredService<IPushRelayDeviceCredentialStore>(),
-            // Heads with a platform attestation service (iOS, Android) register their provider; the rest attest with "none".
+            // Every head registers its provider (iOS App Attest, Android Play Integrity, Windows and macOS bound keys); "none" is the fallback.
             provider.GetService<IDeviceAttestationProvider>() ?? new NoDeviceAttestationProvider(),
             provider.GetService<IPushRelayDeviceInfo>()));
         services.AddSingleton<IPushRelayClient>(provider => new PushRelayClient(provider.GetRequiredService<IPushRelayTokenProvider>()));
