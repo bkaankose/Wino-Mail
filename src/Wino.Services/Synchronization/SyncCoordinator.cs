@@ -828,8 +828,9 @@ public sealed class SyncCoordinator : ISyncCoordinator,
     }
 
     /// <summary>
-    /// Called under <see cref="_gate"/>. The relay queues nothing for a desktop while its socket is down, so every reconnect
-    /// after a real outage catches up once. The flap cool-down bounds how often that can happen.
+    /// Called under <see cref="_gate"/>. The relay holds changes for a desktop only for a short grace after its socket closes, so
+    /// every reconnect after a real outage catches up once, relay-covered accounts included. The flap cool-down bounds how often
+    /// that can happen.
     /// </summary>
     private (SyncCatchUpReason? Reason, string? Note) DecideRecoveryCatchUp(DateTimeOffset now)
     {

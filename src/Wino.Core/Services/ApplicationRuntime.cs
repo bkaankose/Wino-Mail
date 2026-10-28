@@ -272,7 +272,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         lock (_gate)
         {
             if (_state != ApplicationRuntimeState.Running || !_hasAccounts) return;
-            Track(() => ExecuteAutoSynchronizationAsync(_lifetime.Token));
+            Track(() => ExecuteCatchUpSynchronizationAsync(_lifetime.Token));
         }
     }
 
@@ -1140,7 +1140,15 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         }
     }
 
-    private async Task ExecuteAutoSynchronizationAsync(CancellationToken cancellationToken)
+    private Task ExecuteAutoSynchronizationAsync(CancellationToken cancellationToken)
+        => ExecuteMailAutoSynchronizationAsync(includeLiveCovered: false, cancellationToken);
+
+    // A catch-up must reach the accounts the relay covers: they are the ones whose changes went missing while the socket was
+    // down. It also waits for a running pass, which would have skipped those accounts.
+    private Task ExecuteCatchUpSynchronizationAsync(CancellationToken cancellationToken)
+        => ExecuteMailAutoSynchronizationAsync(includeLiveCovered: true, cancellationToken);
+
+    private async Task ExecuteMailAutoSynchronizationAsync(bool includeLiveCovered, CancellationToken cancellationToken)
     {
         if (_synchronizationManager == null || _accountService == null)
             return;
@@ -1149,7 +1157,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
 
         try
         {
-            lockTaken = await _autoSynchronizationSemaphore.WaitAsync(0, cancellationToken);
+            lockTaken = await _autoSynchronizationSemaphore.WaitAsync(includeLiveCovered ? Timeout.Infinite : 0, cancellationToken);
             if (!lockTaken)
                 return;
 
@@ -1161,7 +1169,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
             }
 
             var synchronizationTasks = accounts
-                .Select(account => ExecuteAutoSynchronizationForAccountAsync(account, cancellationToken))
+                .Select(account => ExecuteAutoSynchronizationForAccountAsync(account, includeLiveCovered, cancellationToken))
                 .ToList();
 
             await Task.WhenAll(synchronizationTasks);
@@ -1218,7 +1226,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         }, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task ExecuteAutoSynchronizationForAccountAsync(Wino.Core.Domain.Entities.Shared.MailAccount account, CancellationToken cancellationToken)
+    private async Task ExecuteAutoSynchronizationForAccountAsync(Wino.Core.Domain.Entities.Shared.MailAccount account, bool includeLiveCovered, CancellationToken cancellationToken)
     {
         if (_synchronizationManager == null)
             return;
@@ -1242,7 +1250,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         var fullPassDue = _lastFullFolderSyncUtc.TryGetValue(account.Id, out var lastFullPass)
             && now - lastFullPass >= _coordinator.MailSyncInterval * InboxSyncsPerFullSync;
 
-        if (!fullPassDue && !_coordinator.ShouldRunTimerSync(account.Id))
+        if (!fullPassDue && !includeLiveCovered && !_coordinator.ShouldRunTimerSync(account.Id))
             return;
 
         var options = new MailSynchronizationOptions
