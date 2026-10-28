@@ -15,6 +15,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
+using Wino.Services;
 
 namespace Wino.Authentication;
 
@@ -196,9 +197,12 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
         }
 
         var previousToken = await ReadTokenAsync(credentialKey, cancellationToken).ConfigureAwait(false);
+        // A refresh token only works with the client that issued it.
+        var previousRefreshToken = previousToken != null && GetIssuingClientId(previousToken) == ClientId ? previousToken.RefreshToken : null;
         var storedToken = CreateStoredToken(
             tokenResponse,
-            string.IsNullOrWhiteSpace(tokenResponse.RefreshToken) ? previousToken?.RefreshToken : tokenResponse.RefreshToken,
+            ClientId,
+            string.IsNullOrWhiteSpace(tokenResponse.RefreshToken) ? previousRefreshToken : tokenResponse.RefreshToken,
             previousToken?.Scopes);
         await WriteTokenAsync(credentialKey, storedToken, cancellationToken).ConfigureAwait(false);
         return storedToken;
@@ -216,7 +220,7 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
 
         using var requestContent = new FormUrlEncodedContent(new Dictionary<string, string>
         {
-            ["client_id"] = ClientId,
+            ["client_id"] = GetIssuingClientId(currentToken),
             ["refresh_token"] = currentToken.RefreshToken,
             ["grant_type"] = "refresh_token"
         });
@@ -237,7 +241,7 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
         }
 
         var tokenResponse = await ReadTokenResponseAsync(response, cancellationToken).ConfigureAwait(false);
-        var storedToken = CreateStoredToken(tokenResponse, currentToken.RefreshToken, currentToken.Scopes);
+        var storedToken = CreateStoredToken(tokenResponse, GetIssuingClientId(currentToken), currentToken.RefreshToken, currentToken.Scopes);
         await WriteTokenAsync(credentialKey, storedToken, cancellationToken).ConfigureAwait(false);
         return storedToken;
     }
@@ -327,12 +331,20 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
             ?? throw new InvalidOperationException("Google OAuth returned an empty token response.");
     }
 
+    /// <summary>
+    /// Tokens stored before the Mac and iOS apps moved to the iOS client carry no client and came from the desktop client.
+    /// </summary>
+    private static string GetIssuingClientId(StoredGoogleToken token)
+        => string.IsNullOrWhiteSpace(token.ClientId) ? MailAuthenticatorConfiguration.DesktopGmailClientId : token.ClientId;
+
     private static StoredGoogleToken CreateStoredToken(
         GoogleOAuthTokenResponse response,
+        string clientId,
         string refreshToken,
         IReadOnlyCollection<string> existingScopes = null)
         => new()
         {
+            ClientId = clientId,
             AccessToken = response.AccessToken,
             RefreshToken = string.IsNullOrWhiteSpace(response.RefreshToken) ? refreshToken : response.RefreshToken,
             ExpiresAtUtc = DateTimeOffset.UtcNow.AddSeconds(Math.Max(response.ExpiresIn, 60)),
@@ -378,6 +390,7 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
 
 internal sealed class StoredGoogleToken
 {
+    public string ClientId { get; set; } = string.Empty;
     public string AccessToken { get; set; } = string.Empty;
     public string RefreshToken { get; set; } = string.Empty;
     public DateTimeOffset ExpiresAtUtc { get; set; }

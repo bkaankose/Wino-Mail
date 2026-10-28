@@ -42,10 +42,6 @@ internal static class Composition
         });
         services.RegisterSharedServices();
         services.RegisterCoreServices();
-        // Registers IAuthenticatorConfig → MailAuthenticatorConfiguration. Google sign-in on iOS needs an iOS OAuth client
-        // (custom-scheme redirect); until the user creates it, GmailAuthenticatorClientId is the desktop client and Google
-        // refuses the redirect. Register an IAuthenticatorConfig with the iOS client ID here once it exists, and put its
-        // reversed form in Info.plist CFBundleURLTypes.
         services.AddIOSPlatformServices(bootstrap, Presenter);
 
         services.RegisterWinoViewModels();

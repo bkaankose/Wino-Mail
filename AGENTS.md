@@ -139,6 +139,10 @@ Binding for every agent. Backend counterpart: `AGENTS.md` and `docs/social-sign-
 - **Never touch the Google UWP OAuth client `973025879644-s7b4ur9p3rlgop6a22u7iuptdc0brnrn`.** It is the Windows
   app's Gmail mailbox client. Do not change, rotate, replace or repurpose it, and never use it for Wino Accounts
   sign-in. Ask the user if a task seems to need it.
+- Gmail mailboxes on macOS and iOS use the Wino Mail iOS client (`WinoAccountExternalAuth.GoogleAppleClientId`) in an
+  `ASWebAuthenticationSession` (`WebSessionGoogleAuthorizationCodeReceiver`). Each stored Google token records the client
+  that issued it and refreshes with that client; tokens without one came from the UWP client. Android uses Play
+  services' `AuthorizationClient` and falls back to the UWP client's loopback flow.
 - Wino Account sign-in with Microsoft, Google and Apple on Windows always uses the API's browser flow: the shared
   `WinoAccountExternalSignInService` (`Wino.Services`) opens `WinoAccountExternalAuth.StartUri` in the default browser
   through `WindowsBrowserAuthBroker` (`Wino.Platform.Windows`), and the `wino://auth-complete` protocol activation

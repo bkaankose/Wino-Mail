@@ -7,6 +7,7 @@ using Serilog;
 using Wino.Authentication;
 using Wino.Core;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Platform;
 using Wino.Mail.MacOS.Infrastructure;
 using Wino.Platform.Apple;
@@ -70,7 +71,9 @@ internal static class Composition
         services.AddSingleton<IAccountCredentialPersistence, SecureItemAccountCredentialPersistence>();
         services.AddSingleton<IDavCredentialStore, SecureItemDavCredentialStore>();
         services.AddSingleton<IGoogleTokenStore, SecureItemGoogleTokenStore>();
-        services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
+        // Gmail mailboxes sign in with the Wino Mail iOS client in the web authentication sheet; Windows keeps the UWP client.
+        services.AddSingleton<IAuthenticatorConfig>(provider => new MailAuthenticatorConfiguration(
+            provider.GetService<IApplicationConfiguration>(), WinoAccountExternalAuth.GoogleAppleClientId));
         services.AddSingleton<IOutlookAuthenticationHost>(provider => new MacOSOutlookAuthenticationHost(
             provider.GetRequiredService<IApplicationConfiguration>(), provider.GetRequiredService<IAuthenticatorConfig>(),
             identity, () => owner() != null));
@@ -139,14 +142,14 @@ internal static class Composition
             , BundleString("CFBundleVersion"), "Mac"));
         services.AddSingleton<IMailDialogService>(provider => new AppKitDialogService(dispatcher, owner, error, provider));
         services.AddSingleton<IDialogServiceBase>(provider => provider.GetRequiredService<IMailDialogService>());
-        services.AddSingleton<IExternalBrowserAuthenticationPresenter>(_ => new AppKitExternalBrowserAuthenticationPresenter(dispatcher, owner, error));
-        services.AddLoopbackGoogleAuthorizationCodeReceiver();
         // Wino Account external sign-in. Google runs natively in a web authentication session with the Wino Accounts iOS
         // client. Apple is native in builds with the applesignin entitlement (the csproj defines WINO_APPLE_SIGNIN with
         // it) and goes through the API browser flow, in the same web session, everywhere else.
         var anchors = new MacPresentationAnchorProvider(owner);
         services.AddSingleton(anchors);
         services.AddSingleton<IWinoAccountBrowserAuthBroker>(new AppleWebAuthenticationBroker(dispatcher, anchors, () => anchors.HasAnchor));
+        services.Replace(ServiceDescriptor.Transient<IGoogleAuthorizationCodeReceiver>(provider => new WebSessionGoogleAuthorizationCodeReceiver(
+            provider.GetRequiredService<IAuthenticatorConfig>(), provider.GetRequiredService<IWinoAccountBrowserAuthBroker>())));
         services.AddSingleton<IGoogleNativeSignInProvider>(provider => new GoogleWebSessionSignInProvider(provider.GetRequiredService<IWinoAccountBrowserAuthBroker>()));
 #if WINO_APPLE_SIGNIN
         services.AddSingleton<IAppleNativeSignInProvider>(new AppleNativeSignInProvider(dispatcher, anchors));

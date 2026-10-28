@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using UIKit;
 using Wino.Authentication;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Platform;
 using Wino.Platform.Apple;
 using Wino.Platform.Apple.PushRelay;
@@ -86,7 +87,9 @@ public static class IOSPlatformRegistration
         services.AddSingleton<IAccountCredentialPersistence, SecureItemAccountCredentialPersistence>();
         services.AddSingleton<IDavCredentialStore, SecureItemDavCredentialStore>();
         services.AddSingleton<IGoogleTokenStore, SecureItemGoogleTokenStore>();
-        services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
+        // Gmail mailboxes sign in with the Wino Mail iOS client in the web authentication sheet; Windows keeps the UWP client.
+        services.AddSingleton<IAuthenticatorConfig>(provider => new MailAuthenticatorConfiguration(
+            provider.GetService<IApplicationConfiguration>(), WinoAccountExternalAuth.GoogleAppleClientId));
         services.AddSingleton<IReaderRuntimeService, AppleReaderRuntimeService>();
         services.AddSingleton<IStatePersistanceService, ConfigurationStatePersistenceService>();
         services.AddSingleton<AppleNotificationSounds>();
@@ -105,11 +108,12 @@ public static class IOSPlatformRegistration
             provider.GetRequiredService<IAuthenticatorConfig>(), identity, presenter));
         var anchors = new IOSPresentationAnchorProvider(presenter);
         services.AddSingleton(anchors);
-        services.Replace(ServiceDescriptor.Transient<IGoogleAuthorizationCodeReceiver, IOSGoogleAuthorizationCodeReceiver>());
         // Wino Account external sign-in, both native: Apple through AuthenticationServices (the entitlement is in both
         // iOS entitlements files), Google through a web authentication session with the Wino Accounts iOS client. The
         // browser broker also serves the API browser flow should a provider ever need it.
         services.AddSingleton<IWinoAccountBrowserAuthBroker>(provider => new AppleWebAuthenticationBroker(provider.GetRequiredService<IDispatcher>(), anchors, () => anchors.HasAnchor));
+        services.Replace(ServiceDescriptor.Transient<IGoogleAuthorizationCodeReceiver>(provider => new WebSessionGoogleAuthorizationCodeReceiver(
+            provider.GetRequiredService<IAuthenticatorConfig>(), provider.GetRequiredService<IWinoAccountBrowserAuthBroker>())));
         services.AddSingleton<IAppleNativeSignInProvider>(provider => new AppleNativeSignInProvider(provider.GetRequiredService<IDispatcher>(), anchors));
         services.AddSingleton<IGoogleNativeSignInProvider>(provider => new GoogleWebSessionSignInProvider(provider.GetRequiredService<IWinoAccountBrowserAuthBroker>()));
         services.AddSingleton<IWinoAccountExternalSignInService>(provider => new WinoAccountExternalSignInService(
