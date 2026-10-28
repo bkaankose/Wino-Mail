@@ -131,9 +131,6 @@ public static class WinoStyle
     /// <summary>The row hover fill shared by the pane, list and settings rows (cached: dynamic colours resolve at draw time).</summary>
     public static NSColor RowHoverFill { get; } = Dynamic(Hex(0x000000, 0.035), Hex(0xFFFFFF, 0.06));
 
-    /// <summary>The row selection fill of the pane and settings rows.</summary>
-    public static NSColor RowSelectionFill { get; } = Dynamic(Hex(0x000000, 0.07), Hex(0xFFFFFF, 0.11));
-
     /// <summary>Grouped settings rows and cards: the System Settings group surface.</summary>
     public static NSColor GroupFill => NSColor.ControlBackground;
     public static NSColor GroupStroke => NSColor.Separator;

@@ -117,13 +117,16 @@ internal sealed partial class ShellSidebarViewController : NSViewController
 #endif
     }
 
-    /// <summary>Selected titles use the accent colour, so visible rows are configured again when it changes.</summary>
+    /// <summary>Selected titles and the selection fill use the accent colour, so visible rows are redrawn when it changes.</summary>
     private void AccentChanged(object? sender, EventArgs args) => NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
     {
         if (!ViewLoaded) return;
         var visible = _outline.RowsInRect(_outline.VisibleRect());
         for (nint row = visible.Location; row < visible.Location + visible.Length; row++)
+        {
             if (_outline.ItemAtRow(row) is Node node) _selection.Configure(_outline.GetView(0, row, false), node.Item, row);
+            if (_outline.GetRowView(row, false) is { } rowView) rowView.NeedsDisplay = true;
+        }
     });
 
     /// <summary>Replaces the menu shown in the pane.</summary>
