@@ -1,0 +1,26 @@
+{
+  "version": "2.2.8",
+  "isStarred": false,
+  "features": [
+    {
+      "image": "instant-push-notifications.png",
+      "title": "Instant push notifications",
+      "description": "Hear about new mail the moment it arrives instead of waiting for the next sync. You don't need a Wino Account for it. Turn it on in Settings > Notifications > Instant Push Notifications."
+    },
+    {
+      "image": "dark-mode-for-messages.png",
+      "title": "Dark mode for messages",
+      "description": "More messages now get dark colors. Let messages follow Wino's theme or keep them always light or dark, and choose Invert everything to darken the rest. Find it in Settings > Reader & Composer."
+    },
+    {
+      "image": "windows-contrast-themes.png",
+      "title": "Windows contrast themes",
+      "description": "Turn on a contrast theme in Windows and Wino uses its colors everywhere. The change applies right away, with no restart."
+    },
+    {
+      "image": "update-and-restart.png",
+      "title": "Smoother updates",
+      "description": "Update and restart now shows download and install progress, and Wino opens again by itself when the update is done. If something goes wrong, Wino tells you."
+    }
+  ]
+}
