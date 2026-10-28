@@ -34,7 +34,7 @@ internal sealed class CalendarDatePanelView : UIView
     private readonly ICalendarPickerHost _host;
     private readonly UIView _scrim = new() { BackgroundColor = UIColor.Black.ColorWithAlpha(0.12f) };
     private readonly UIVisualEffectView _panel = new(UIBlurEffect.FromStyle(UIBlurEffectStyle.SystemThickMaterial));
-    private readonly UISegmentedControl _period = new([Translator.CalendarTypeSelector_Day, Translator.CalendarTypeSelector_Week, Translator.CalendarTypeSelector_Month]);
+    private readonly UISegmentedControl _period = new(CalendarPage.DisplayTypeTitles);
     private readonly UIButton _agenda = new() { TranslatesAutoresizingMaskIntoConstraints = false };
     private readonly CalendarMonthPickerView _month = new();
 

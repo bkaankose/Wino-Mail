@@ -72,6 +72,69 @@ public static class UIKitDebugBridge
     {
         Register("sleep", async args => { await Task.Delay(args.Length > 0 && int.TryParse(args[0], out var ms) ? ms : 500); return "ok"; });
         Register("snap", args => Task.FromResult(Snap(args.Length > 0 ? args[0] : "snap")));
+        // "who TYPE": a field path from the page's ViewModel, the shell ViewModel or the singletons to a live TYPE instance.
+        Register("who", args =>
+        {
+            var report = new System.Text.StringBuilder();
+            foreach (var instance in Wino.Presentation.UIKit.WinoLiveObjects.Instances(args[0]).Take(1))
+            {
+                var roots = new List<object>();
+                if (args.Length > 2 && args[2] == "services")
+                {
+                    if (_services?.GetService(typeof(UIKitNavigationService)) is { } navigation) roots.Add(navigation);
+                    if (_services is not null) roots.Add(_services);
+                    foreach (var root in roots)
+                        if (Wino.Presentation.UIKit.WinoLiveObjects.PathTo(root, instance, int.Parse(args[1])) is { } path) { report.AppendLine(path); break; }
+                    report.AppendLine("searched services");
+                    continue;
+                }
+                if (args.Length > 2 && args[2] == "timers")
+                {
+                    var queue = typeof(System.Threading.Timer).Assembly.GetType("System.Threading.TimerQueue");
+                    foreach (var field in queue?.GetFields(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public) ?? [])
+                        if (field.GetValue(null) is { } value) roots.Add(value);
+                    report.AppendLine($"timer roots={roots.Count}");
+                    foreach (var root in roots)
+                        if (Wino.Presentation.UIKit.WinoLiveObjects.PathTo(root, instance, int.Parse(args[1])) is { } path) { report.AppendLine(path); break; }
+                    continue;
+                }
+                roots.AddRange(Wino.Presentation.UIKit.WinoLiveObjects.Instances("PhoneShellViewController"));
+                if (instance is IViewModelHost host) roots.Add(host.AssociatedViewModel);
+                if (_services?.GetService(typeof(Wino.Shell.ViewModels.WinoAppShellViewModel)) is { } shell) roots.Add(shell);
+                if (_services?.GetService(typeof(Wino.Core.Domain.Interfaces.IStatePersistanceService)) is { } state) roots.Add(state);
+                if (_services?.GetService(typeof(Wino.Core.Domain.Interfaces.IPreferencesService)) is { } preferences) roots.Add(preferences);
+                foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies().Where(a => a.GetName().Name?.StartsWith("Wino", StringComparison.Ordinal) == true))
+                {
+                    Type[] types;
+                    try { types = assembly.GetTypes(); } catch (System.Reflection.ReflectionTypeLoadException exception) { types = exception.Types.Where(t => t is not null).ToArray()!; }
+                    foreach (var type in types)
+                    {
+                        if (type.ContainsGenericParameters) continue;
+                        foreach (var field in type.GetFields(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic))
+                        {
+                            if (field.FieldType.IsPrimitive || field.IsLiteral || field.Name == "_tracked") continue;
+                            object? value;
+                            try { value = field.GetValue(null); } catch { continue; }
+                            if (value is not null && value is not string) roots.Add(new KeyValuePair<string, object>($"{type.Name}.{field.Name}", value));
+                        }
+                    }
+                }
+                bool found = false;
+                foreach (var root in roots)
+                {
+                    if (found) break;
+                    if (Wino.Presentation.UIKit.WinoLiveObjects.PathTo(root, instance, args.Length > 1 ? int.Parse(args[1]) : 6) is { } path) { report.AppendLine(path); found = true; }
+                }
+                if (!found) report.AppendLine($"{instance.GetType().Name} {instance.GetHashCode():x}: no path from {roots.Count} roots");
+            }
+            return Task.FromResult(report.ToString());
+        });
+        // "live": forces a full collection and counts tracked pages and cells per type (N(Md): M native peers disposed).
+        Register("live", _ =>
+        {
+            var lines = Wino.Presentation.UIKit.WinoLiveObjects.Snapshot().Select(entry => $"{entry.Type}={entry.Count}({entry.Disposed}d)");
+            return Task.FromResult($"managed={GC.GetTotalMemory(false) / (1024 * 1024)}MB " + string.Join(' ', lines));
+        });
         Register("mode", args => Task.FromResult(
             args.Length > 0 && Enum.TryParse<WinoApplicationMode>(args[0], true, out var mode)
                 ? services.GetRequiredService<UIKitNavigationService>().ChangeApplicationMode(mode) ? "ok" : "refused"

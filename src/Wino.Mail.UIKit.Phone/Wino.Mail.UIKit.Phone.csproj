@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- The iPhone shell: a tab bar with Mail, Calendar, Contacts and To Do as navigation stacks, the phone page registry
-       (pushes and sheets) and its shell host. References Wino.Mail.UIKit, never Wino.Mail.UIKit.Pad. -->
+  <!-- The shell for iPhone and iPad: a tab bar with Mail, Calendar, Contacts and To Do as navigation stacks, the page
+       registry (pushes and sheets) and its shell host. On iPad a wide landscape window shows each tab's list beside
+       the item it opens (Shell/PadModeContainer). References Wino.Mail.UIKit. -->
   <PropertyGroup>
     <TargetFramework>net10.0-ios</TargetFramework>
     <SupportedOSPlatformVersion>17.0</SupportedOSPlatformVersion>

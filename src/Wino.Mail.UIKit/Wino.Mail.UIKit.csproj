@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Idiom-neutral UIKit infrastructure and view controllers shared by the iPhone (Wino.Mail.UIKit.Phone) and
-       iPad (Wino.Mail.UIKit.Pad) shells: dispatcher, controller lifecycle, navigation host over the shared
+  <!-- Idiom-neutral UIKit infrastructure and view controllers shared with the shell in Wino.Mail.UIKit.Phone,
+       which runs on iPhone and iPad: dispatcher, controller lifecycle, navigation host over the shared
        NavigationCoordinator, dialogs, theme, print and file presenters, and the onboarding pages. -->
   <PropertyGroup>
     <TargetFramework>net10.0-ios</TargetFramework>

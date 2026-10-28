@@ -22,8 +22,7 @@ src/Wino.Core.Apple.Bindings  StoreKit 2 (macOS and iOS) and Sparkle (macOS only
 src/Wino.Mail.WinUI        Windows application (WinUI 3)
 src/Wino.Mail.MacOS        macOS application (AppKit)
 src/Wino.Mail.UIKit        Idiom-neutral UIKit infrastructure and pages for iPhone and iPad
-src/Wino.Mail.UIKit.Phone  iPhone shell and pages
-src/Wino.Mail.UIKit.Pad    iPad shell and pages
+src/Wino.Mail.UIKit.Phone  Shell and pages for iPhone and iPad
 src/Wino.Mail.iOS          Universal iOS and iPadOS application head
 src/Wino.Mail.Android      Android application head (Views, XML layouts, AndroidX, Material)
 controls                   Shared control contracts and presentation helpers, editor engine, WinUI, AppKit, UIKit, WebKit and Android controls, playground

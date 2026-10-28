@@ -68,6 +68,9 @@ public sealed class WinoShellRowCell : UITableViewCell
     [Export("initWithStyle:reuseIdentifier:")]
     public WinoShellRowCell(UITableViewCellStyle style, NSString reuseIdentifier) : base(style, reuseIdentifier)
     {
+#if DEBUG
+        Wino.Presentation.UIKit.WinoLiveObjects.Track(this);
+#endif
         SelectionStyle = UITableViewCellSelectionStyle.None;
         BackgroundColor = UIColor.Clear;
 

@@ -78,7 +78,8 @@ public sealed class WinoShellRowView : NSTableRowView
     {
         if (!_highlightable) return;
         var rect = new CGRect(Bounds.X + HorizontalInset, Bounds.Y + 0.5, Bounds.Width - HorizontalInset * 2, Bounds.Height - 1);
-        WinoStyle.RowSelectionFill.SetFill();
+        // The selected title is semibold accent text, so the fill is a tint of the same accent rather than neutral grey.
+        WinoStyle.Accent.ColorWithAlphaComponent(WinoIcons.IsDark(EffectiveAppearance) ? 0.10f : 0.08f).SetFill();
         NSBezierPath.FromRoundedRect(rect, (nfloat)CornerRadius, (nfloat)CornerRadius).Fill();
     }
 

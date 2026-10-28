@@ -40,7 +40,10 @@ internal static class PhoneBarItems
             Alignment = UIStackViewAlignment.Center,
             Spacing = 4
         };
-        row.Frame = new CoreGraphics.CGRect(0, 0, buttons.Length * 48 + Math.Max(0, buttons.Length - 1) * 4, 44);
+        var width = buttons.Length * 48 + Math.Max(0, buttons.Length - 1) * 4;
+        row.Frame = new CoreGraphics.CGRect(0, 0, width, 44);
+        // The iPad toolbar would stretch the row over the whole width; it stays the iPhone's compact pill.
+        if (PhoneShellViewController.IsPad) row.WidthAnchor.ConstraintEqualTo(width + 12).Active = true;
         return [UIBarButtonItem.FlexibleSpaceItem, new UIBarButtonItem(row), UIBarButtonItem.FlexibleSpaceItem];
     }
 

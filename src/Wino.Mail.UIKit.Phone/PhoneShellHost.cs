@@ -41,6 +41,15 @@ public sealed class PhoneShellHost(IServiceProvider services) : UIKitShellHostBa
 
     protected override UIModalPresentationStyle SheetStyle => UIModalPresentationStyle.PageSheet;
 
+    /// <summary>
+    /// iPad (owner, 27 Oct 2026): compose and the editors that are full-screen sheets on the iPhone are page sheets over the
+    /// list. Settings stays full screen.
+    /// </summary>
+    protected override UIModalPresentationStyle PresentationStyle(UIKitPageHost style, UIViewController controller)
+        => PhoneShellViewController.IsPad && style == UIKitPageHost.FullScreenSheet && controller.GetType().Namespace?.StartsWith("Wino.Mail.UIKit.Views.Settings", StringComparison.Ordinal) != true
+            ? UIModalPresentationStyle.PageSheet
+            : base.PresentationStyle(style, controller);
+
     /// <summary>Presents <paramref name="controller"/> as a page sheet with the grabber and the given detents.</summary>
     public UINavigationController PresentSheet(UIViewController controller, PhoneSheetSize size, Action dismissedByUser)
     {

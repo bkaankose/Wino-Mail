@@ -9,6 +9,7 @@ using Wino.Mail.Controls.UIKit.Common;
 using Wino.Mail.Controls.UIKit.Extras;
 using Wino.Mail.Controls.UIKit.MailList;
 using Wino.Mail.UIKit.Infrastructure;
+using Wino.Mail.UIKit.Phone.Shell;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.UIKit;
 using Wino.Mail.UIKit.Views.Mail;
@@ -485,6 +486,8 @@ public sealed partial class MailListPageViewController
     {
         if (_projection is null || _dataSource is null) return;
         int previousCount = _rowsByKey.Count;
+        int previousSelectionCount = _selectionKeys.Count;
+        int previousFirst = FirstSelectedPosition();
         _rowsByKey.Clear();
         _sectionTitles.Clear();
         var snapshot = new NSDiffableDataSourceSnapshot<NSString, NSString>();
@@ -518,6 +521,7 @@ public sealed partial class MailListPageViewController
             if (animated) _dataSource.ApplySnapshot(snapshot, true);
             else _dataSource.ApplySnapshotUsingReloadData(snapshot);
             RestoreSelection();
+            SelectNeighbourAfterRemoval(previousCount, previousSelectionCount, previousFirst);
         }
         finally { _restoringSelection = false; }
 
@@ -535,6 +539,32 @@ public sealed partial class MailListPageViewController
             if (KeyAt(indexPath) is not { } key || !_selectionKeys.Contains(key)) _table.DeselectRow(indexPath, false);
         foreach (var key in _selectionKeys)
             if (_dataSource.GetIndexPath(new NSString(key)) is { } indexPath) _table.SelectRow(indexPath, false, UITableViewScrollPosition.None);
+    }
+
+    private int FirstSelectedPosition()
+    {
+        if (_dataSource is null || _selectionKeys.Count == 0) return -1;
+        var keys = _dataSource.Snapshot.ItemIdentifiers;
+        for (int index = 0; index < keys.Length; index++)
+            if (_selectionKeys.Contains(keys[index].ToString())) return index;
+        return -1;
+    }
+
+    /// <summary>
+    /// Beside the item zone (iPad landscape), removing the open message opens the row that takes its place when the
+    /// preference asks for it, as on the Mac. The iPhone returns to the list instead.
+    /// </summary>
+    private void SelectNeighbourAfterRemoval(int previousCount, int previousSelectionCount, int previousFirst)
+    {
+        if (_dataSource is null || previousFirst < 0 || (_table.IndexPathsForSelectedRows?.Length ?? 0) > 0) return;
+        int removed = previousCount - _rowsByKey.Count;
+        if (removed <= 0 || removed > previousSelectionCount + 1) return;
+        if (NavigationController is not ModeStackController { IsPaired: true } || !_preferences.AutoSelectNextItem
+            || ViewModel.IsInitializingFolder || _selectionMode) return;
+        var keys = _dataSource.Snapshot.ItemIdentifiers;
+        if (keys.Length == 0) return;
+        if (_dataSource.GetIndexPath(keys[Math.Min(previousFirst, keys.Length - 1)]) is { } indexPath)
+            _table.SelectRow(indexPath, false, UITableViewScrollPosition.None);
     }
 
     /// <summary>Rebinds realized cells whose row object changed (or all of them) and re-measures rows whose tile line changed.</summary>

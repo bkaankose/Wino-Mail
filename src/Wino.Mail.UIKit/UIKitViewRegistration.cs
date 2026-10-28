@@ -13,7 +13,7 @@ namespace Wino.Mail.UIKit;
 
 /// <summary>
 /// Registers the idiom-neutral UIKit layer. The head calls it after the shared, core and iOS platform registrations
-/// and <c>RegisterWinoViewModels()</c>; the idiom registration (AddPhoneShell or AddPadShell) then supplies the
+/// and <c>RegisterWinoViewModels()</c>; the idiom registration (AddPhoneShell) then supplies the
 /// <see cref="IUIKitPageRegistry"/> and <see cref="IUIKitShellHost"/> these services depend on.
 /// </summary>
 public static partial class UIKitViewRegistration

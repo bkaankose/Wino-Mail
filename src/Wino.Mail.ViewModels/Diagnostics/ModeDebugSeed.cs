@@ -19,9 +19,9 @@ namespace Wino.Mail.ViewModels.Diagnostics;
 /// </summary>
 public static class ModeDebugSeed
 {
-    public static async Task<string> SeedContactsAsync(IServiceProvider services)
+    public static async Task<string> SeedContactsAsync(IServiceProvider services, string? address = null)
     {
-        var account = await AccountAsync(services, item => { item.IsContactAccessGranted = true; item.IsContactAccessEnabled = true; });
+        var account = await AccountAsync(services, address, item => { item.IsContactAccessGranted = true; item.IsContactAccessEnabled = true; });
         if (account is null) return "no account";
         var contacts = services.GetRequiredService<IContactService>();
         var book = await contacts.EnsureLocalAddressBookAsync(account.Id, "Wino Demo");
@@ -66,9 +66,9 @@ public static class ModeDebugSeed
         return $"seeded {seeded.Count} contacts into {book.Id}";
     }
 
-    public static async Task<string> SeedTasksAsync(IServiceProvider services)
+    public static async Task<string> SeedTasksAsync(IServiceProvider services, string? address = null)
     {
-        var account = await AccountAsync(services, item => { item.IsTaskAccessGranted = true; item.IsTaskAccessEnabled = true; });
+        var account = await AccountAsync(services, address, item => { item.IsTaskAccessGranted = true; item.IsTaskAccessEnabled = true; });
         if (account is null) return "no account";
         var tasks = services.GetRequiredService<ITaskService>();
         var inbox = await tasks.GetOrCreateLocalTaskListAsync(account.Id, "Tasks");
@@ -107,12 +107,15 @@ public static class ModeDebugSeed
         return $"seeded {created} tasks into {inbox.Title} and {release.Title}";
     }
 
-    /// <summary>The first account with the mode granted; the demo account when there is none.</summary>
-    private static async Task<MailAccount?> AccountAsync(IServiceProvider services, Action<MailAccount> grant)
+    /// <summary>
+    /// The account with <paramref name="address"/>, or the first account, with the mode granted; the demo account when
+    /// there is none.
+    /// </summary>
+    private static async Task<MailAccount?> AccountAsync(IServiceProvider services, string? address, Action<MailAccount> grant)
     {
         var accounts = services.GetRequiredService<IAccountService>();
-        if ((await accounts.GetAccountsAsync()).Count == 0) await MailDebugSeed.SeedAsync(services);
-        var account = (await accounts.GetAccountsAsync()).FirstOrDefault();
+        if ((await accounts.GetAccountsAsync()).Count == 0) await MailDebugSeed.SeedAsync(services, includeOtherModes: false);
+        var account = (await accounts.GetAccountsAsync()).FirstOrDefault(item => address is null || string.Equals(item.Address, address, StringComparison.OrdinalIgnoreCase));
         if (account is null) return null;
         grant(account);
         await accounts.UpdateAccountAsync(account);

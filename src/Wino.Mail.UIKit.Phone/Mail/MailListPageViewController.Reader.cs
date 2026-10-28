@@ -2,6 +2,7 @@ using UIKit;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.UIKit.Infrastructure;
+using Wino.Mail.UIKit.Phone.Shell;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
@@ -39,7 +40,7 @@ public sealed partial class MailListPageViewController
 
     /// <summary>True while a page this list opened (the reader) is on top of it.</summary>
     internal bool IsCoveredByReader
-        => NavigationController is { } navigation && !ReferenceEquals(navigation.TopViewController, this)
+        => NavigationController is { } navigation && !ReferenceEquals(navigation.LogicalTop(), this)
            && Array.IndexOf(navigation.ViewControllers ?? [], this) >= 0;
 
     private void PopToList(bool animated)

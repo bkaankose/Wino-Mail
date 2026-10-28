@@ -6,7 +6,6 @@ using Wino.Core;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.UIKit;
 using Wino.Mail.UIKit.Infrastructure;
-using Wino.Mail.UIKit.Pad;
 using Wino.Mail.UIKit.Phone;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Lifecycle;
@@ -28,7 +27,6 @@ internal static class Composition
     {
         // Paths and protection precede database or credential service construction.
         var bootstrap = IOSPlatformBootstrap.Create(new AppleApplicationIdentity(BundleIdentifier));
-        var isPad = UIDevice.CurrentDevice.UserInterfaceIdiom == UIUserInterfaceIdiom.Pad;
 
         // Sign-in sessions present from the top-most controller of the scene window, resolved once the container exists.
         ServiceProvider? provider = null;
@@ -47,8 +45,8 @@ internal static class Composition
         services.RegisterWinoViewModels();
         services.RegisterUIKitServices(dispatcher);
         services.RegisterUIKitViews();
-        if (isPad) services.AddPadShell();
-        else services.AddPhoneShell();
+        // The iPad runs the iPhone shell with iPad sizing and a landscape list beside the open item (owner, 27 Oct 2026).
+        services.AddPhoneShell();
 
         // Head lifecycle hooks, run in order after the runtime started (ApplicationLifecycleCoordinator).
         services.AddSingleton<IApplicationLifecycleHook>(container => new NotificationsLifecycleHook(container, notificationResponses));

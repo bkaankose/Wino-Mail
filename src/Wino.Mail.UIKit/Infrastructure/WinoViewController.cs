@@ -47,6 +47,7 @@ public abstract class WinoViewController<TViewModel> : UIViewController, IWinoVi
 {
     private bool _active;
     private bool _released;
+    private Task? _releasing;
     private Task _initialization = Task.CompletedTask;
 
     protected WinoViewController(TViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
@@ -55,6 +56,9 @@ public abstract class WinoViewController<TViewModel> : UIViewController, IWinoVi
         Dispatcher = dispatcher;
         Logger = logger;
         ViewModel.Dispatcher = dispatcher;
+#if DEBUG
+        Wino.Presentation.UIKit.WinoLiveObjects.Track(this);
+#endif
     }
 
     protected TViewModel ViewModel { get; }
@@ -122,8 +126,9 @@ public abstract class WinoViewController<TViewModel> : UIViewController, IWinoVi
         base.ViewDidDisappear(animated);
         // Popped from a navigation stack (back button or swipe) or dismissed with its sheet: nothing routes here again.
         bool removed = IsMovingFromParentViewController || IsBeingDismissed
-            || (NavigationController is { } navigation && (navigation.IsBeingDismissed || navigation.IsMovingFromParentViewController));
-        if (removed && _active) _ = ReleaseQuietlyAsync();
+            || (NavigationController is { } navigation
+                && (navigation.IsBeingDismissed || navigation.IsMovingFromParentViewController));
+        if (removed && _active && !WinoPageMoves.IsMoving(this)) _ = ReleaseQuietlyAsync();
     }
 
     private async Task ReleaseQuietlyAsync()
@@ -132,7 +137,10 @@ public abstract class WinoViewController<TViewModel> : UIViewController, IWinoVi
         catch (Exception exception) { ReportError(exception); }
     }
 
-    public virtual async Task ReleaseAsync()
+    // A second caller waits for the release in flight, so a page is never disposed while its release still runs.
+    public virtual Task ReleaseAsync() => _releasing ??= ReleaseCoreAsync();
+
+    private async Task ReleaseCoreAsync()
     {
         if (_released) return;
         _released = true;

@@ -159,6 +159,8 @@ public static class ShellMenuRowPresentation
                 return row with { Glyph = WinoIconGlyph.Calendar, Title = calendar.Parameter.Name ?? string.Empty, IsExpanded = null };
             case AccountCalendarGroupMenuItem group:
                 return row with { Glyph = WinoIconGlyph.Calendar, Title = group.Parameter.Account?.Name ?? string.Empty, IsExpanded = null };
+            case ContactCategoriesExpanderMenuItem expander:
+                return row with { Glyph = WinoIconGlyph.Tag, Title = expander.Title, IsExpanded = expander.IsExpanded };
             case ContactFilterViewModel filter:
                 return row with { Glyph = filter.IsCategory ? WinoIconGlyph.Tag : WinoIconGlyph.People, Title = filter.Name ?? string.Empty, UnreadCount = filter.Count, IsExpanded = null };
             case MyDayTaskMenuItem myDay:

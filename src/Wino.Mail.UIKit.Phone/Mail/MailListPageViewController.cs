@@ -22,6 +22,7 @@ namespace Wino.Mail.UIKit.Phone.Mail;
 /// and Debug (bridge commands).
 /// </summary>
 public sealed partial class MailListPageViewController : WinoViewController<MailListPageViewModel>,
+    IPadPairingObserver,
     IRecipient<ActiveMailItemChangedEvent>,
     IRecipient<ClearMailSelectionsRequested>,
     IRecipient<DisposeRenderingFrameRequested>,
@@ -115,7 +116,8 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
     {
         base.ViewWillAppear(animated);
         // Back from the reader or the composer: the message is no longer "open", so a tap on it opens it again.
-        if (!IsMovingToParentViewController && !_selectionMode) ClearSelection();
+        // On a wide iPad the list never leaves the screen while the reader sits beside it.
+        if (!IsMovingToParentViewController && !_selectionMode && NavigationController is not ModeStackController { IsPaired: true }) ClearSelection();
         UpdateTitle();
     }
 
@@ -152,13 +154,25 @@ public sealed partial class MailListPageViewController : WinoViewController<Mail
         catch (Exception exception) { ReportError(exception); }
     }
 
+    void IPadPairingObserver.PadPairingChanged() => UpdateTitle();
+
     private void UpdateTitle()
     {
         if (!IsViewLoaded) return;
         // NavigationItem.Title, not Title: the list is the Mail stack's root, and its Title would rename the Mail tab.
-        NavigationItem.Title = _selectionMode
-            ? (ViewModel.SelectedItemsCount > 0 ? string.Format(Translator.MailsSelected, ViewModel.SelectedItemsCount) : Translator.NoMailSelected)
-            : ViewModel.ActiveFolder?.FolderName ?? Translator.IOS_MailboxesTitle;
+        var folder = ViewModel.ActiveFolder?.FolderName ?? Translator.IOS_MailboxesTitle;
+        var selection = ViewModel.SelectedItemsCount > 0 ? string.Format(Translator.MailsSelected, ViewModel.SelectedItemsCount) : Translator.NoMailSelected;
+        // Beside the item zone the count shows there; the 400pt list bar keeps the folder name, which fits beside its buttons.
+        if (NavigationController is ModeStackController { Pairing: { } pairing })
+        {
+            pairing.SetIdleTitle(_selectionMode ? selection : null);
+            if (pairing.IsPaired)
+            {
+                NavigationItem.Title = folder;
+                return;
+            }
+        }
+        NavigationItem.Title = _selectionMode ? selection : folder;
     }
 
     protected override void Dispose(bool disposing)

@@ -6,7 +6,7 @@ Wino Mail is a native mail, calendar, contacts, and To Do client with four appli
 | --- | --- | --- | --- |
 | Windows | `src/Wino.Mail.WinUI` (WinUI 3, MSIX, Native AOT) | `WinoMail.slnx` | [Windows development](docs/harness/development-windows.md) |
 | macOS | `src/Wino.Mail.MacOS` (AppKit, CoreCLR) | `WinoMail.MacOS.slnx` | [macOS development](docs/harness/development-macos.md) |
-| iOS and iPadOS | `src/Wino.Mail.iOS` (UIKit, Mono), UI projects `Wino.Mail.UIKit`, `.Phone`, `.Pad` | `WinoMail.iOS.slnx` | [iOS development](docs/harness/development-ios.md) |
+| iOS and iPadOS | `src/Wino.Mail.iOS` (UIKit, Mono), UI projects `Wino.Mail.UIKit` and `.Phone` (the shell for iPhone and iPad) | `WinoMail.iOS.slnx` | [iOS development](docs/harness/development-ios.md) |
 | Android | `src/Wino.Mail.Android` (Android Views with XML layouts, AndroidX, Material, Mono) | `WinoMail.Android.slnx` | [Android development](docs/harness/development-android.md) |
 
 All applications use the shared backend: `Wino.Core.Domain`, `Wino.Core`, `Wino.Services`, `Wino.Authentication`, `Wino.Messaging`, `Wino.Core.ML`, `Wino.Mail.ViewModels`, `controls/Wino.Mail.Controls.Core`, and `controls/Wino.Editor.Core`.

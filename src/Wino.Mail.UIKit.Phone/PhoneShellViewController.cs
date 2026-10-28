@@ -37,8 +37,14 @@ namespace Wino.Mail.UIKit.Phone;
 /// </summary>
 public sealed class PhoneShellViewController : UIKitShellViewController
 {
+    /// <summary>True on iPad, which runs this shell with iPad sizing (owner, 27 Oct 2026).</summary>
+    internal static readonly bool IsPad = UIDevice.CurrentDevice.UserInterfaceIdiom == UIUserInterfaceIdiom.Pad;
+
     private readonly UITabBarController _tabs = new();
     private readonly UINavigationController[] _stacks;
+    // The tab bar's view controllers: the stacks on iPhone, each stack's iPad container on iPad.
+    private readonly UIViewController[] _tabRoots;
+    private readonly PadModeContainer?[] _containers;
     private readonly UIViewController[] _roots;
     private readonly MailboxesViewController _mailboxes;
     private readonly ShellDrawer _drawer;
@@ -74,13 +80,31 @@ public sealed class PhoneShellViewController : UIKitShellViewController
             ? _mailRoot
             : (UIViewController)new ModePlaceholderViewController(segment)).ToArray();
         _stacks = _roots.Select((root, index) => CreateStack(root, _segments[index])).ToArray();
+        _containers = _stacks.Select((stack, index) => IsPad && stack is ModeStackController modeStack
+            ? new PadModeContainer(modeStack, _segments[index].Mode, _stackDelegate, PairingChanged)
+            : null).ToArray();
+        _tabRoots = _stacks.Select((stack, index) => (UIViewController?)_containers[index] ?? stack).ToArray();
     }
+
+    /// <summary>The list and item columns changed on iPad: the floating button follows the list column.</summary>
+    private void PairingChanged()
+    {
+        View?.SetNeedsLayout();
+        UpdateFloatingButton();
+    }
+
+    /// <summary>Every navigation controller that can hold a tab's pages (the iPad item zones too).</summary>
+    private IEnumerable<UINavigationController> AllNavigations
+        => _containers.Any(static container => container is not null)
+            ? _containers.Where(static container => container is not null).SelectMany(static container => container!.Navigations)
+            : _stacks;
 
     private UINavigationController CreateStack(UIViewController root, WinoModeSegment segment)
     {
         // The Mail root brings its own bar items.
         if (root is not MailRootViewController) root.NavigationItem.LeftBarButtonItem = MenuButton();
-        var stack = new UINavigationController(root) { Delegate = _stackDelegate };
+        UINavigationController stack = IsPad ? new ModeStackController(root) : new UINavigationController(root);
+        stack.Delegate = _stackDelegate;
         // Compact 44pt bars on every stack: large titles cost a whole row of the screen.
         stack.NavigationBar.PrefersLargeTitles = false;
         // Bars blur the wallpaper behind them (iOS design decisions: wallpaper backdrop, blurred bars).
@@ -188,8 +212,11 @@ public sealed class PhoneShellViewController : UIKitShellViewController
     {
         var root = new UIView();
         WinoLayout.Fill(UIKitThemeService.Track(new ThemeBackdropView()), root);
-        _tabs.ViewControllers = _stacks;
+        _tabs.ViewControllers = _tabRoots;
         _tabs.Delegate = new TabSelection(this);
+        // iPad (owner, 27 Oct 2026): the iPhone design at iPad size. A regular-width tab bar controller draws the floating
+        // top tab bar, so the tab bar controller takes the compact width class and keeps the iPhone's bottom tab bar.
+        if (IsPad) _tabs.TraitOverrides.HorizontalSizeClass = UIUserInterfaceSizeClass.Compact;
         AddChildViewController(_tabs);
         if (_tabs.View is { } tabsView)
         {
@@ -215,12 +242,12 @@ public sealed class PhoneShellViewController : UIKitShellViewController
     }
 
     public override UINavigationController? CurrentNavigationController
-        => _tabs.SelectedViewController as UINavigationController ?? _stacks[IndexOf(ActiveMode ?? WinoApplicationMode.Mail)];
+        => Array.IndexOf(_tabRoots, _tabs.SelectedViewController) is var tab and >= 0 ? _stacks[tab] : _stacks[IndexOf(ActiveMode ?? WinoApplicationMode.Mail)];
 
     /// <summary>The tab bar shows the visible modes only; the stacks keep every mode so a mode shown again keeps its pages.</summary>
     protected override void ModeVisibilityChanged(AppModeVisibility? visibility)
     {
-        var visible = _stacks.Where((_, index) => visibility is null || visibility.IsVisible(_segments[index].Mode)).ToArray();
+        var visible = _tabRoots.Where((_, index) => visibility is null || visibility.IsVisible(_segments[index].Mode)).ToArray();
         var current = _tabs.ViewControllers ?? [];
         if (!visible.SequenceEqual(current)) _tabs.ViewControllers = visible;
         if (ActiveMode is { } mode and not WinoApplicationMode.Settings) SelectTab(mode);
@@ -228,7 +255,7 @@ public sealed class PhoneShellViewController : UIKitShellViewController
 
     private void SelectTab(WinoApplicationMode mode)
     {
-        var tab = Array.IndexOf(_tabs.ViewControllers ?? [], _stacks[IndexOf(mode)]);
+        var tab = Array.IndexOf(_tabs.ViewControllers ?? [], _tabRoots[IndexOf(mode)]);
         if (tab >= 0 && _tabs.SelectedIndex != tab) _tabs.SelectedIndex = tab;
     }
 
@@ -246,6 +273,7 @@ public sealed class PhoneShellViewController : UIKitShellViewController
         var index = IndexOf(ActiveMode ?? WinoApplicationMode.Mail);
         var stack = _stacks[index];
         var root = _roots[index];
+        var replaced = PagesReplacedBy(index, controller);
         if (controller is null) stack.SetViewControllers([root], false);
         else if (root is MailRootViewController)
         {
@@ -263,6 +291,41 @@ public sealed class PhoneShellViewController : UIKitShellViewController
             if (stack.ViewControllers is not [var placed] || !ReferenceEquals(placed, controller)) stack.SetViewControllers([controller], false);
         }
         UpdateFloatingButton();
+        DisposeReplaced(replaced);
+    }
+
+    /// <summary>
+    /// The pages a new mode root replaces: the tab's previous page (already released by the router), the pages it pushed and,
+    /// on iPad, the item beside it. Each mode activation builds a fresh page, so these are never shown again.
+    /// </summary>
+    private UIViewController[] PagesReplacedBy(int index, UIViewController? controller)
+    {
+        var stack = _stacks[index];
+        var current = stack.ViewControllers ?? [];
+        if (controller is not null && current.Length > 0 && ReferenceEquals(current[0], controller)) return [.. current.Skip(1)];
+        IEnumerable<UIViewController> pages = current;
+        if (_containers[index] is { HasItem: true } container) pages = pages.Concat(container.DiscardItem());
+        return [.. pages.Where(page => !ReferenceEquals(page, _roots[index]) && !ReferenceEquals(page, controller))];
+    }
+
+    // As the Mac shell disposes its replaced content page: a popped page that is never shown again keeps its view tree and the
+    // services it subscribed to until it is disposed. Each page finishes its release first (the reader closes its web view
+    // asynchronously), and disposal waits until UIKit finished the stack change.
+    private async void DisposeReplaced(UIViewController[] pages)
+    {
+        if (pages.Length == 0) return;
+        try
+        {
+            foreach (var page in pages)
+                if (page is IWinoViewController wino) await wino.ReleaseAsync();
+            await Task.Yield();
+            await Dispatcher.ExecuteOnUIThread(() =>
+            {
+                foreach (var page in pages)
+                    if (page.Handle != IntPtr.Zero && page.ParentViewController is null) page.Dispose();
+            });
+        }
+        catch (Exception exception) { ReportError(exception); }
     }
 
     public override void ViewDidAppear(bool animated)
@@ -307,7 +370,11 @@ public sealed class PhoneShellViewController : UIKitShellViewController
         var top = tabBar.Hidden || tabBar.Window is null
             ? (double)(root.Bounds.Height - root.SafeAreaInsets.Bottom)
             : (double)root.ConvertRectFromView(tabBar.Bounds, tabBar).Top;
-        _floatingButton.Frame = new CGRect((double)(root.Bounds.Width - root.SafeAreaInsets.Right) - 16 - size, top - 16 - size, size, size);
+        double right = (double)(root.Bounds.Width - root.SafeAreaInsets.Right);
+        // iPad landscape: the button stays in the list column, beside the open item.
+        if (ActiveMode is { } mode && _containers[IndexOf(mode)] is { IsPaired: true, View: { } container } paired)
+            right = Math.Min(right, (double)root.ConvertRectFromView(paired.ListFrame, container).Right);
+        _floatingButton.Frame = new CGRect(right - 16 - size, top - 16 - size, size, size);
     }
 
     /// <summary>
@@ -378,7 +445,7 @@ public sealed class PhoneShellViewController : UIKitShellViewController
     /// </summary>
     private bool CanOpenDrawer()
     {
-        if (ActiveMode is not { } mode || mode == WinoApplicationMode.Settings || !ReferenceEquals(_tabs.SelectedViewController, _stacks[IndexOf(mode)]) || PresentedViewController is not null) return false;
+        if (ActiveMode is not { } mode || mode == WinoApplicationMode.Settings || !ReferenceEquals(_tabs.SelectedViewController, _tabRoots[IndexOf(mode)]) || PresentedViewController is not null) return false;
         var stack = _stacks[IndexOf(mode)];
         if ((stack.ViewControllers?.Length ?? 0) != 1) return false;
         return stack.TopViewController is not MailListPageViewController { IsInSelectionMode: true };
@@ -460,11 +527,17 @@ public sealed class PhoneShellViewController : UIKitShellViewController
         for (int index = _readerToolbars.Count - 1; index >= 0; index--)
         {
             var (reference, toolbar) = _readerToolbars[index];
-            if (reference.TryGetTarget(out var reader) && _stacks.Any(stack => Array.IndexOf(stack.ViewControllers ?? [], reader) >= 0)) continue;
+            if (reference.TryGetTarget(out var reader) && (WinoPageMoves.IsMoving(reader) || AllNavigations.Any(stack => Array.IndexOf(stack.ViewControllers ?? [], reader) >= 0))) continue;
             toolbar.Dispose();
             if (reference.TryGetTarget(out var gone)) gone.ToolbarItems = [];
             _readerToolbars.RemoveAt(index);
         }
+    }
+
+    private void SetTabBarHidden(bool hidden, bool animated)
+    {
+        if (OperatingSystem.IsIOSVersionAtLeast(18)) _tabs.SetTabBarHidden(hidden, animated);
+        else _tabs.TabBar.Hidden = hidden;
     }
 
     /// <summary>Shows the stack's toolbar only for pages that bring items (the reader, the list in edit mode).</summary>
@@ -473,6 +546,8 @@ public sealed class PhoneShellViewController : UIKitShellViewController
         public override void WillShowViewController(UINavigationController navigationController, UIViewController viewController, bool animated)
         {
             navigationController.SetToolbarHidden(viewController.ToolbarItems is not { Length: > 0 }, animated);
+            // The iPad stack sits in a container under the tab bar controller, which then ignores HidesBottomBarWhenPushed.
+            if (IsPad && navigationController is ModeStackController) shell.SetTabBarHidden(viewController.HidesBottomBarWhenPushed && (navigationController.ViewControllers?.Length ?? 0) > 1, animated);
             // A push hides the button at once; the root coming back shows it once it is on screen.
             if (navigationController.ViewControllers?.Length > 1) shell.UpdateFloatingButton();
         }
@@ -489,7 +564,7 @@ public sealed class PhoneShellViewController : UIKitShellViewController
     {
         public override bool ShouldSelectViewController(UITabBarController tabBarController, UIViewController viewController)
         {
-            var index = Array.IndexOf(shell._stacks, viewController);
+            var index = Array.IndexOf(shell._tabRoots, viewController);
             if (index >= 0 && shell._segments[index].Mode != shell.ActiveMode) shell.RequestMode(shell._segments[index].Mode);
             return true;
         }
@@ -497,6 +572,14 @@ public sealed class PhoneShellViewController : UIKitShellViewController
 
 #if DEBUG
     internal string DebugDescribeMailboxes() => _mailboxes.DebugDescribe();
+
+    internal string DebugPairing(string? action)
+    {
+        if (action == "close" && ActiveMode is { } mode && _containers[IndexOf(mode)] is { } active) active.DebugClose();
+        return DebugPairing();
+    }
+
+    internal string DebugPairing() => string.Join(" | ", _containers.Select((container, index) => $"{_segments[index].Mode}: {container?.DebugDescribe() ?? "none"}"));
 
     /// <summary>Debug: the active mode's menu root rows, or a row tap ("moderoot", "moderoot-tap N").</summary>
     internal string DebugModeRoot(int? tap)

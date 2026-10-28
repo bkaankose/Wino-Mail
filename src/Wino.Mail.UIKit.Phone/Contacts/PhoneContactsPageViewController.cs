@@ -40,12 +40,12 @@ public sealed class PhoneContactsPageViewController(ContactsPageViewModel viewMo
     protected override void ContactActivated(AccountContactViewModel contact)
     {
         if (NavigationController is not { } stack) return;
-        if (_card is not null && _card.TryGetTarget(out var open) && Array.IndexOf(stack.ViewControllers ?? [], open) >= 0) return;
+        if (_card is not null && _card.TryGetTarget(out var open) && Array.IndexOf(stack.LogicalViewControllers(), open) >= 0) return;
         var card = CreateCard(showsEmptyState: false);
         card.NavigationItem.LargeTitleDisplayMode = UINavigationItemLargeTitleDisplayMode.Never;
         card.SelectionCleared += (_, _) =>
         {
-            if (ReferenceEquals(stack.TopViewController, card)) stack.PopViewController(true);
+            if (ReferenceEquals(stack.LogicalTop(), card)) stack.PopViewController(true);
         };
         _card = new WeakReference<ContactCardViewController>(card);
         PhoneShellViewController.PrepareForTransition(card, stack);
@@ -55,7 +55,7 @@ public sealed class PhoneContactsPageViewController(ContactsPageViewModel viewMo
     public override void ViewWillAppear(bool animated)
     {
         base.ViewWillAppear(animated);
-        if (IsMovingToParentViewController) return;
+        if (IsMovingToParentViewController || NavigationController is ModeStackController { IsPaired: true }) return;
         // Back from the card: it stops following the selection, and the row is no longer "open".
         if (_card is not null && _card.TryGetTarget(out var card))
         {

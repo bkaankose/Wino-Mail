@@ -12,10 +12,10 @@ using Wino.Shell.ViewModels;
 namespace Wino.Mail.UIKit.Infrastructure;
 
 /// <summary>
-/// The shell behaviour both idioms share, over the shared <see cref="WinoAppShellViewModel"/> (the Mac
+/// The shell behaviour the idiom shell builds on, over the shared <see cref="WinoAppShellViewModel"/> (the Mac
 /// WinoAppShellViewController's mode logic): a mode activates like the Windows WinoAppShell, releasing the outgoing
 /// provider's menu, publishing the new provider and letting it navigate its root page into the content host.
-/// PhoneShellViewController places content in the selected tab's stack, PadShellViewController in the list column.
+/// PhoneShellViewController, on iPhone and iPad, places content in the selected tab's stack.
 /// </summary>
 public abstract class UIKitShellViewController : WinoViewController<WinoAppShellViewModel>
 {
