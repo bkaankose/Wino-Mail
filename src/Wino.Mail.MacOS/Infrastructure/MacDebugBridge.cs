@@ -104,6 +104,13 @@ public static class MacDebugBridge
             };
             return Task.FromResult("ok");
         });
+        // "seedmail" adds the shared demo account with its folders and mails (MailDebugSeed), then opens Mail.
+        Register("seedmail", async _ =>
+        {
+            var result = await Wino.Mail.ViewModels.Diagnostics.MailDebugSeed.SeedAsync(_services!);
+            Get<AppKitNavigationService>().ChangeApplicationMode(WinoApplicationMode.Mail);
+            return result;
+        });
         // "pref NAME" prints a preference; "pref NAME VALUE" sets it (bool, number, string or enum member name).
         Register("live", _ =>
         {

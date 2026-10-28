@@ -79,6 +79,9 @@ public class WinoMailRowCell : UITableViewCell
     [Export("initWithStyle:reuseIdentifier:")]
     public WinoMailRowCell(UITableViewCellStyle style, NSString reuseIdentifier) : base(style, reuseIdentifier)
     {
+#if DEBUG
+        Wino.Presentation.UIKit.WinoLiveObjects.Track(this);
+#endif
         SelectionStyle = UITableViewCellSelectionStyle.None;
         BackgroundColor = UIColor.Clear;
         ContentView.BackgroundColor = UIColor.Clear;

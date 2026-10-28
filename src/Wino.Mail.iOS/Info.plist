@@ -11,8 +11,8 @@
   <key>UILaunchScreen</key><dict/>
   <key>UIApplicationSceneManifest</key>
   <dict>
-    <!-- iPad: "Open in new window" opens the composer in its own window scene (PadShellHost pop-outs). iPhone never
-         shows a second scene; SceneDelegate also closes any extra main-window scene, so the app keeps one main window. -->
+    <!-- The app keeps one main window: SceneDelegate closes any extra main-window scene (the iPad app switcher's
+         New Window). No second scene opens today. -->
     <key>UIApplicationSupportsMultipleScenes</key><true/>
     <key>UISceneConfigurations</key>
     <dict>

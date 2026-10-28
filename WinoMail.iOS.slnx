@@ -4,7 +4,6 @@
     <Project Path="src/Wino.Mail.iOS.NotificationService/Wino.Mail.iOS.NotificationService.csproj" />
     <Project Path="src/Wino.Mail.UIKit/Wino.Mail.UIKit.csproj" />
     <Project Path="src/Wino.Mail.UIKit.Phone/Wino.Mail.UIKit.Phone.csproj" />
-    <Project Path="src/Wino.Mail.UIKit.Pad/Wino.Mail.UIKit.Pad.csproj" />
     <Project Path="src/Wino.Platform.iOS/Wino.Platform.iOS.csproj" />
     <Project Path="controls/Wino.Presentation.UIKit/Wino.Presentation.UIKit.csproj" />
     <Project Path="controls/Wino.Mail.Controls.UIKit/Wino.Mail.Controls.UIKit.csproj" />

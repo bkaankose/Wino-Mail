@@ -3,7 +3,7 @@ using UIKit;
 namespace Wino.Mail.UIKit.Infrastructure;
 
 /// <summary>
-/// The idiom shell's presentation surface (PhoneShellHost, PadShellHost). <see cref="UIKitNavigationService"/>
+/// The idiom shell's presentation surface (PhoneShellHost). <see cref="UIKitNavigationService"/>
 /// creates, activates and releases controllers; the host only places them. Members run on the main thread.
 /// </summary>
 public interface IUIKitShellHost

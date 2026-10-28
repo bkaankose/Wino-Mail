@@ -17,8 +17,8 @@ internal sealed class ContactsDebugCommands(IServiceProvider services) : IApplic
 {
     public Task ServicesReadyAsync()
     {
-        UIKitDebugBridge.Register("seedpeople", _ => SeedAsync(ModeDebugSeed.SeedContactsAsync, WinoApplicationMode.Contacts));
-        UIKitDebugBridge.Register("seedtasks", _ => SeedAsync(ModeDebugSeed.SeedTasksAsync, WinoApplicationMode.Tasks));
+        UIKitDebugBridge.Register("seedpeople", _ => SeedAsync(services => ModeDebugSeed.SeedContactsAsync(services), WinoApplicationMode.Contacts));
+        UIKitDebugBridge.Register("seedtasks", _ => SeedAsync(services => ModeDebugSeed.SeedTasksAsync(services), WinoApplicationMode.Tasks));
         return Task.CompletedTask;
     }
 

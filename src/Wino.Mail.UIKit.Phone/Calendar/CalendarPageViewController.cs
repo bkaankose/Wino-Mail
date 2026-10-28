@@ -26,7 +26,7 @@ namespace Wino.Mail.UIKit.Phone.Calendar;
 /// event sheet; a long press on a tile moves it (or resizes it from its bottom edge).
 /// Partial files: Agenda (the list), Search (the event search), Debug (bridge commands).
 /// </summary>
-public sealed partial class CalendarPageViewController : CalendarPageViewControllerBase, ICalendarPickerHost, IPhoneFloatingActionPage
+public sealed partial class CalendarPageViewController : CalendarPageViewControllerBase, ICalendarPickerHost, IPhoneFloatingActionPage, IPadItemOwner
 {
     private readonly PhoneShellHost _host;
     private CalendarPage? _page;
@@ -76,8 +76,10 @@ public sealed partial class CalendarPageViewController : CalendarPageViewControl
         if (!IsMovingToParentViewController && IsActive && CurrentDetails is null) ResetDetailsItem();
     }
 
+    void IPadItemOwner.PadItemClosed() => ResetDetailsItem();
+
     protected override EventDetailsPageViewController? CurrentDetails
-        => NavigationController?.ViewControllers?.OfType<EventDetailsPageViewController>().LastOrDefault();
+        => NavigationController?.LogicalViewControllers().OfType<EventDetailsPageViewController>().LastOrDefault();
 
     /// <summary>A tap on empty time does nothing on the phone; a long press (a range, even one slot) opens the quick event sheet.</summary>
     protected override (UIView? View, CGRect Rect)? QuickEventAnchor(CalendarSlotClickedEventArgs args)

@@ -65,7 +65,7 @@ public abstract class UIKitShellHostBase : IUIKitShellHost
         var presenter = TopViewController ?? throw new InvalidOperationException("Nothing is on screen to present a sheet from.");
         var sheet = new UINavigationController(controller)
         {
-            ModalPresentationStyle = style == UIKitPageHost.FullScreenSheet ? UIModalPresentationStyle.FullScreen : SheetStyle,
+            ModalPresentationStyle = PresentationStyle(style, controller),
         };
         // A full-screen navigation controller is black behind pages with a clear root (the composer's zone gutter).
         if (style == UIKitPageHost.FullScreenSheet && sheet.View is { } sheetView) sheetView.BackgroundColor = UIColor.SystemGroupedBackground;
@@ -79,6 +79,10 @@ public abstract class UIKitShellHostBase : IUIKitShellHost
         presenter.PresentViewController(sheet, true, null);
         return sheet;
     }
+
+    /// <summary>The presentation of <paramref name="controller"/> for <paramref name="style"/>.</summary>
+    protected virtual UIModalPresentationStyle PresentationStyle(UIKitPageHost style, UIViewController controller)
+        => style == UIKitPageHost.FullScreenSheet ? UIModalPresentationStyle.FullScreen : SheetStyle;
 
     /// <summary>The style of a <see cref="UIKitPageHost.Sheet"/>: a page sheet on iPhone, a form sheet on iPad.</summary>
     protected abstract UIModalPresentationStyle SheetStyle { get; }

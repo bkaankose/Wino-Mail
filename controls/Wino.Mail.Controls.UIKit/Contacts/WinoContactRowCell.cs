@@ -67,6 +67,9 @@ public sealed class WinoContactRowCell : UITableViewCell
     [Export("initWithStyle:reuseIdentifier:")]
     public WinoContactRowCell(UITableViewCellStyle style, NSString reuseIdentifier) : base(style, reuseIdentifier)
     {
+#if DEBUG
+        Wino.Presentation.UIKit.WinoLiveObjects.Track(this);
+#endif
         SelectionStyle = UITableViewCellSelectionStyle.None;
         BackgroundColor = UIColor.Clear;
         WinoLayout.Fill(_fill, ContentView, 1, 4, 1, 4);

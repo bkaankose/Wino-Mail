@@ -47,7 +47,7 @@ public sealed class PhoneToDoPageViewController(ToDoPageViewModel viewModel, IDi
     public override void ViewWillAppear(bool animated)
     {
         base.ViewWillAppear(animated);
-        if (IsMovingToParentViewController) return;
+        if (IsMovingToParentViewController || NavigationController is ModeStackController { IsPaired: true }) return;
         // Back from the detail: the task is no longer "open".
         if (_detail is not null && _detail.TryGetTarget(out var detail)) detail.Release();
         _detail = null;
@@ -58,11 +58,11 @@ public sealed class PhoneToDoPageViewController(ToDoPageViewModel viewModel, IDi
     protected override void TaskActivated(TaskItemViewModel task)
     {
         if (NavigationController is not { } stack) return;
-        if (_detail is not null && _detail.TryGetTarget(out var open) && Array.IndexOf(stack.ViewControllers ?? [], open) >= 0) return;
+        if (_detail is not null && _detail.TryGetTarget(out var open) && Array.IndexOf(stack.LogicalViewControllers(), open) >= 0) return;
         var detail = CreateDetail(showsCloseButton: false);
         detail.SelectionCleared += (_, _) =>
         {
-            if (ReferenceEquals(stack.TopViewController, detail)) stack.PopViewController(true);
+            if (ReferenceEquals(stack.LogicalTop(), detail)) stack.PopViewController(true);
         };
         _detail = new WeakReference<ToDoTaskDetailViewController>(detail);
         PhoneShellViewController.PrepareForTransition(detail, stack);

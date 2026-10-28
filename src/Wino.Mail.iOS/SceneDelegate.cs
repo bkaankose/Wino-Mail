@@ -2,16 +2,14 @@ using Foundation;
 using Microsoft.Extensions.DependencyInjection;
 using UIKit;
 using Wino.Mail.UIKit.Infrastructure;
-using Wino.Mail.UIKit.Pad;
 using Wino.Presentation.UIKit;
 
 namespace Wino.Mail.iOS;
 
 /// <summary>
-/// The window scene: creates the window over the theme backdrop and hands it to the idiom's shell host (Composition
-/// registered the phone or pad shell by <c>UIDevice.UserInterfaceIdiom</c>), routes URL contexts to the shared
-/// activation router, and asks for a background refresh when the scene leaves the foreground. On iPad a connecting scene
-/// may be a pop-out window (<see cref="PadShellHost.TryConnectPopOut"/>), which never becomes the main window.
+/// The window scene: creates the window over the theme backdrop and hands it to the shell host (the same shell on
+/// iPhone and iPad), routes URL contexts to the shared activation router, and asks for a background refresh when the
+/// scene leaves the foreground.
 /// </summary>
 [Register("SceneDelegate")]
 public sealed class SceneDelegate : UIResponder, IUIWindowSceneDelegate
@@ -23,9 +21,6 @@ public sealed class SceneDelegate : UIResponder, IUIWindowSceneDelegate
     public void WillConnect(UIScene scene, UISceneSession session, UISceneConnectionOptions connectionOptions)
     {
         if (scene is not UIWindowScene windowScene || AppDelegate.Services is not { } services) return;
-        // iPad pop-out windows (the composer's "Open in new window") get their window and page from the pad host.
-        if (services.GetService<PadShellHost>() is { } pad && pad.TryConnectPopOut(windowScene, connectionOptions)) return;
-
         var host = services.GetRequiredService<IUIKitShellHost>();
         if (host.Window is { WindowScene: { } existing } && !ReferenceEquals(existing, windowScene) && existing.ActivationState != UISceneActivationState.Unattached)
         {
@@ -53,13 +48,6 @@ public sealed class SceneDelegate : UIResponder, IUIWindowSceneDelegate
     public void OpenUrlContexts(UIScene scene, NSSet<UIOpenUrlContext> urlContexts)
     {
         if (AppDelegate.Services is { } services) Route(services, urlContexts);
-    }
-
-    [Export("sceneDidDisconnect:")]
-    public void DidDisconnect(UIScene scene)
-    {
-        // A closed pop-out window releases its page (a draft saves).
-        AppDelegate.Services?.GetService<PadShellHost>()?.SceneDisconnected(scene);
     }
 
     [Export("sceneDidEnterBackground:")]

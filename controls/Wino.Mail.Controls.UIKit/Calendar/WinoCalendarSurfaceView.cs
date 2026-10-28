@@ -100,6 +100,9 @@ public sealed partial class WinoCalendarSurfaceView : UIView
 
     public WinoCalendarSurfaceView()
     {
+#if DEBUG
+        Wino.Presentation.UIKit.WinoLiveObjects.Track(this);
+#endif
         TranslatesAutoresizingMaskIntoConstraints = false;
         _header = new HeaderView(this);
         _headerRail = new HeaderRailView(this);

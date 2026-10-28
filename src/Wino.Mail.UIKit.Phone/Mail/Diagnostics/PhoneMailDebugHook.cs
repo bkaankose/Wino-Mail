@@ -28,6 +28,7 @@ internal sealed class PhoneMailDebugHook(IServiceProvider services) : IApplicati
         UIKitDebugBridge.Register("stackinfo", _ => Task.FromResult(Shell?.CurrentNavigationController is { } stack
             ? string.Join(" > ", (stack.ViewControllers ?? []).Select(page => $"{page.GetType().Name}('{page.NavigationItem.Title}')")) + $" back='{stack.NavigationBar.BackItem?.Title}'"
             : "no stack"));
+        UIKitDebugBridge.Register("pairing", args => Task.FromResult(Shell?.DebugPairing(args.FirstOrDefault()) ?? "no shell"));
         UIKitDebugBridge.Register("pop", _ => Task.FromResult(Shell?.CurrentNavigationController?.PopViewController(true) is { } popped ? "ok " + popped.GetType().Name : "nothing to pop"));
         return Task.CompletedTask;
     }

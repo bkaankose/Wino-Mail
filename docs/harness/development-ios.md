@@ -1,7 +1,7 @@
 # iOS development
 
 This is the guide for the universal UIKit application in `src/Wino.Mail.iOS` and its solution `WinoMail.iOS.slnx`.
-One app bundle serves iPhone and iPad. `Composition.cs` registers the iPhone UI project (`Wino.Mail.UIKit.Phone`) or the iPad UI project (`Wino.Mail.UIKit.Pad`) by the device idiom; both build on the idiom-neutral `Wino.Mail.UIKit`.
+One app bundle serves iPhone and iPad. `Composition.cs` registers the UI project `Wino.Mail.UIKit.Phone` on both idioms (owner, 27 Oct 2026); on iPad it keeps the iPhone design and pairs the list with the open item in wide landscape windows. It builds on the idiom-neutral `Wino.Mail.UIKit`.
 The app uses the shared .NET services, ViewModels, translations, and editor engine through explicit UIKit adapters. It does not use Uno, MAUI, Mac Catalyst, or XAML.
 
 Shared rules for every platform are in [AGENTS.md](../../AGENTS.md) and the [implementation rules](implementation-rules.md).
@@ -81,7 +81,7 @@ The head bundles the WinoIcons fonts (`Fonts/`), `WinoLogo.png`, the theme wallp
 - Document types: `.ics`, vCard, and `.eml` as an alternate handler.
 - `UIFileSharingEnabled`: files Wino saves land in Documents, visible in the Files app. iOS has no save panel that returns a path.
 - `UIBackgroundModes`: `fetch`, `processing`, `remote-notification`. `BGTaskSchedulerPermittedIdentifiers`: `com.winomail.macos.refresh` and `com.winomail.macos.processing`; both run `IApplicationRuntime.SynchronizeOnceAsync`.
-- Scenes: `UIApplicationSupportsMultipleScenes` is true for the iPad pop-out composer. iPhone never opens a second scene, and `SceneDelegate` closes any extra main-window scene.
+- Scenes: `UIApplicationSupportsMultipleScenes` is true, but the app opens no second scene; `SceneDelegate` closes any extra main-window scene.
 - `ITSAppUsesNonExemptEncryption` is false.
 - Application data: `Library/Application Support/com.winomail.macos` in the app container (database, preferences, logs in `Logs/`, MIME files). `ApplePaths` (Wino.Platform.Apple) resolves it.
 - Temporary files: `tmp/com.winomail.macos` in the app container.
@@ -119,8 +119,8 @@ cat "$dir/out.log"
 | Mail pages | `open-reader`, `open-compose`, `open-idle`, `idle-dump`, `briefing [fake]`, `whatsnew`, `eml-sample`, `eml-open PATH`, `eml-activate [PATH]`, `close`, `reader-*` and `compose-*` |
 | Settings | `settingspage WinoPage`, `dialog NAME`, `dismiss`, `iconsize` |
 | Calendar | `calinfo`, `caltype Day\|Week\|WorkWeek\|Month`, `calprev`, `calnext`, `caltoday`, `calselect N`, `caldetails-close`, `calnew`, `calnew-notes`, `calcompose-close`, `calslot` (quick event at a slot), `calquick NAME`, `calmenu N`, `cal-*` (details, composer, search); iPhone `calagenda on\|off`, `calheader`, `calcalendars` |
-| iPhone | `mailboxes`, `openfolder`, `toolbarinfo`, `stackinfo`, `pop`, `readertoolbar`, `readertap N`, `newmail`, `moderoot`, `moderoot-tap N` (To Do Lists) |
-| iPad | `padinfo`, `padcolumns`, `padbriefing`, `orient`, `sidebar-*` |
+| Shell (iPhone and iPad) | `mailboxes`, `openfolder`, `drawer open\|close`, `toolbarinfo`, `stackinfo`, `pop`, `readertoolbar`, `readertap N`, `newmail`, `moderoot`, `moderoot-tap N` (To Do Lists), `selectmail N` |
+| iPad | `pairing` (list and item columns of every tab), `pairing close` (closes the item beside the list). Simulator taps may not land in landscape; drive landscape through the bridge. |
 | Contacts and To Do | `contacts-*`, `todo-*` |
 
 The seed commands create a local IMAP account with a closed loopback port and placeholder credentials, so synchronization fails by design. A walk on a fresh simulator runs `seedmail`, `seedpeople`, `seedtasks` and `seedcalendar`, then relaunches the app. The bridge runs a file's lines back to back (`sleep` does not delay the next line), so write one command file per step when a step waits for an animation, and note that `settingspage` opens Settings itself (after `settings` it stacks a second Settings root). The Debug bridge and the seed data compile only in Debug. Feature code adds commands with `UIKitDebugBridge.Register` inside `#if DEBUG`.
