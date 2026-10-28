@@ -50,30 +50,6 @@
             </controls:SettingsExpander.Items>
         </controls:SettingsExpander>
 
-        <controls:SettingsExpander
-            AutomationProperties.AutomationId="PersonalizationAppModesExpander"
-            Description="{x:Bind domain:Translator.SettingsPersonalization_AppModes_Description, Mode=OneTime}"
-            Header="{x:Bind domain:Translator.SettingsPersonalization_AppModes_Title, Mode=OneTime}"
-            IsExpanded="True"
-            ItemsSource="{x:Bind ViewModel.AppModeOptions}">
-            <controls:SettingsExpander.HeaderIcon>
-                <coreControls:WinoFontIcon Icon="Grid" />
-            </controls:SettingsExpander.HeaderIcon>
-            <controls:SettingsExpander.ItemTemplate>
-                <DataTemplate x:DataType="data:AppModeOptionViewModel">
-                    <controls:SettingsCard
-                        Description="{x:Bind Description, Mode=OneWay}"
-                        Header="{x:Bind Title}"
-                        IsEnabled="{x:Bind CanToggle, Mode=OneWay}">
-                        <controls:SettingsCard.HeaderIcon>
-                            <coreControls:WinoFontIcon Icon="{x:Bind Icon}" />
-                        </controls:SettingsCard.HeaderIcon>
-                        <ToggleSwitch IsOn="{x:Bind IsShown, Mode=TwoWay}" />
-                    </controls:SettingsCard>
-                </DataTemplate>
-            </controls:SettingsExpander.ItemTemplate>
-        </controls:SettingsExpander>
-
         <controls:SettingsCard
             AutomationProperties.AutomationId="PersonalizationElementThemeCard"
             Description="{x:Bind domain:Translator.SettingsElementTheme_SelectThemeDescription, Mode=OneTime}"
@@ -101,6 +77,41 @@
             Text="{x:Bind domain:Translator.SettingsElementThemeSelectionDisabled, Mode=OneTime}"
             TextWrapping="Wrap" />
 
+        <accessibilityControls:WinoSettingsCard
+            AutomationProperties.AutomationId="PersonalizationApplicationThemesCard"
+            Command="{x:Bind ViewModel.NavigateApplicationThemesCommand}"
+            Description="{x:Bind domain:Translator.ApplicationThemeGallery_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.ApplicationThemeGallery_Title, Mode=OneTime}"
+            IsClickEnabled="True">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="PaintBrush" />
+            </controls:SettingsCard.HeaderIcon>
+        </accessibilityControls:WinoSettingsCard>
+
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="PersonalizationAppModesExpander"
+            Description="{x:Bind domain:Translator.SettingsPersonalization_AppModes_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.SettingsPersonalization_AppModes_Title, Mode=OneTime}"
+            IsExpanded="True"
+            ItemsSource="{x:Bind ViewModel.AppModeOptions}">
+            <controls:SettingsExpander.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="Grid" />
+            </controls:SettingsExpander.HeaderIcon>
+            <controls:SettingsExpander.ItemTemplate>
+                <DataTemplate x:DataType="data:AppModeOptionViewModel">
+                    <controls:SettingsCard
+                        Description="{x:Bind Description, Mode=OneWay}"
+                        Header="{x:Bind Title}"
+                        IsEnabled="{x:Bind CanToggle, Mode=OneWay}">
+                        <controls:SettingsCard.HeaderIcon>
+                            <coreControls:WinoFontIcon Icon="{x:Bind Icon}" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <ToggleSwitch IsOn="{x:Bind IsShown, Mode=TwoWay}" />
+                    </controls:SettingsCard>
+                </DataTemplate>
+            </controls:SettingsExpander.ItemTemplate>
+        </controls:SettingsExpander>
+
         <controls:SettingsCard
             AutomationProperties.AutomationId="PersonalizationIconStyleCard"
             Description="{x:Bind domain:Translator.SettingsIconStyle_Description, Mode=OneTime}"
@@ -119,17 +130,6 @@
                 </ComboBox.ItemTemplate>
             </ComboBox>
         </controls:SettingsCard>
-
-        <accessibilityControls:WinoSettingsCard
-            AutomationProperties.AutomationId="PersonalizationApplicationThemesCard"
-            Command="{x:Bind ViewModel.NavigateApplicationThemesCommand}"
-            Description="{x:Bind domain:Translator.ApplicationThemeGallery_Description, Mode=OneTime}"
-            Header="{x:Bind domain:Translator.ApplicationThemeGallery_Title, Mode=OneTime}"
-            IsClickEnabled="True">
-            <controls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon Icon="PaintBrush" />
-            </controls:SettingsCard.HeaderIcon>
-        </accessibilityControls:WinoSettingsCard>
 
         <controls:SettingsCard
             AutomationProperties.AutomationId="PersonalizationBackdropCard"
