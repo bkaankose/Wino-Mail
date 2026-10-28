@@ -289,6 +289,48 @@ function ConvertTo-PlainText {
     return $text -replace '(?m)^\s*[-*]\s+', '• '
 }
 
+function Get-TitleWords {
+    param([string]$Text)
+    $skip = @('a', 'an', 'and', 'the', 'for', 'of', 'to', 'in', 'on', 'with', 'you', 'your', 'each', 'all', 'more')
+    return @(($Text.ToLowerInvariant() -replace '[^a-z0-9]+', ' ').Split(' ', [StringSplitOptions]::RemoveEmptyEntries) |
+        Where-Object { $_ -notin $skip } | ForEach-Object { $_ -replace '(?<=..)s$', '' } | Select-Object -Unique)
+}
+
+# Puts each What's New picture under its own highlight. Picture titles are rewritten for the app and rarely
+# match the notes, so pictures are matched in order to the remaining highlight that shares the most words with
+# the picture's title and file name. A highlight without a picture stays text only.
+function Format-Highlights {
+    param([string]$Content, [object[]]$Pictures)
+
+    $items = [Collections.Generic.List[string]]::new()
+    foreach ($line in $Content -split "`r?`n") {
+        if ($line -match '^\s*[-*]\s+(.*)$') { $items.Add($Matches[1]) }
+        elseif ($line.Trim() -and $items.Count) { $items[$items.Count - 1] += ' ' + $line.Trim() }
+    }
+    $assigned = @{}
+    $next = 0
+    foreach ($picture in $Pictures) {
+        $words = Get-TitleWords "$($picture.Title) $([IO.Path]::GetFileNameWithoutExtension($picture.Image) -replace '-', ' ')"
+        $best = -1; $bestScore = 0
+        for ($i = $next; $i -lt $items.Count; $i++) {
+            $title = if ($items[$i] -match '^\*\*(.+?)\*\*') { $Matches[1] } else { $items[$i] }
+            $score = @(Get-TitleWords $title | Where-Object { $_ -in $words }).Count
+            if ($score -gt $bestScore) { $best = $i; $bestScore = $score }
+        }
+        if ($best -lt 0 -and $next -lt $items.Count) { $best = $next }
+        if ($best -lt 0) { continue }
+        $assigned[$best] = $picture
+        $next = $best + 1
+    }
+
+    $text = [Text.StringBuilder]::new()
+    for ($i = 0; $i -lt $items.Count; $i++) {
+        [void]$text.AppendLine($items[$i]).AppendLine()
+        if ($assigned.ContainsKey($i)) { [void]$text.AppendLine($assigned[$i].Html).AppendLine() }
+    }
+    return $text.ToString().TrimEnd()
+}
+
 function Get-ReleaseBody {
     param([object]$Notes, [string]$Version, [string]$Tag)
 
@@ -305,15 +347,19 @@ function Get-ReleaseBody {
     foreach ($name in 'Highlights', 'New and improved', 'Fixes') {
         $content = Get-NotesSection $Notes $name
         if (-not $content) { continue }
-        [void]$body.AppendLine("## $name").AppendLine().AppendLine($content).AppendLine()
-        if ($name -ne 'Highlights') { continue }
         $whatsNew = Join-Path $script:WhatsNewFolder "$Version.json"
-        if (-not (Test-Path -LiteralPath $whatsNew)) { continue }
-        foreach ($feature in @((Get-Content -LiteralPath $whatsNew -Raw | ConvertFrom-Json).features)) {
-            $src = "https://raw.githubusercontent.com/$($script:Repository)/$Tag/src/Wino.Mail.WinUI/Assets/WhatsNew/$($feature.image)"
-            [void]$body.AppendLine("<img src=""$src"" width=""560"" alt=""$([Net.WebUtility]::HtmlEncode([string]$feature.title))"">")
+        if ($name -eq 'Highlights' -and (Test-Path -LiteralPath $whatsNew)) {
+            $pictures = @(foreach ($feature in @((Get-Content -LiteralPath $whatsNew -Raw | ConvertFrom-Json).features)) {
+                $src = "https://raw.githubusercontent.com/$($script:Repository)/$Tag/src/Wino.Mail.WinUI/Assets/WhatsNew/$($feature.image)"
+                [pscustomobject]@{
+                    Title = [string]$feature.title
+                    Image = [string]$feature.image
+                    Html = "<img src=""$src"" width=""560"" alt=""$([Net.WebUtility]::HtmlEncode([string]$feature.title))"">"
+                }
+            })
+            $content = Format-Highlights $content $pictures
         }
-        [void]$body.AppendLine()
+        [void]$body.AppendLine("## $name").AppendLine().AppendLine($content).AppendLine()
     }
     return $body.ToString().TrimEnd() + "`n"
 }

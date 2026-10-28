@@ -99,6 +99,6 @@ The PNG is the only output. The HTML scene is a scratch file: write it in the se
 
 - The PNGs are packaged by the Windows App SDK `**/*.png` Content glob. The JSON is packaged by `<Content Include="Assets\WhatsNew\*.json" />` in `Wino.Mail.WinUI.csproj`. Do not add per-file csproj entries.
 - Run `pwsh -NoProfile -File .\scripts\release\whats-new\validate.ps1`. It checks the JSON, the version, the image names, the 1120x600 size, and the csproj rules. Fix every failure.
-- `release.ps1 publish` also shows these PNGs under Highlights in the GitHub release.
+- `release.ps1 publish` also shows each PNG under its highlight in the GitHub release. It pairs a picture with the highlight that shares the most words with the picture's title and file name, so keep the title close to the highlight's wording.
 - Show the user the final titles, descriptions, and each PNG (send the PNGs to the user as files) for approval before they run the release script.
 - Do not build, deploy, or change `Package.appxmanifest`. The user runs the release scripts under `scripts/release/windows` or `scripts/release/macos`.
