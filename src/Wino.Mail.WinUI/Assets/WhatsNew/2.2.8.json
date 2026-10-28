@@ -5,7 +5,7 @@
     {
       "image": "instant-push-notifications.png",
       "title": "Instant push notifications",
-      "description": "Hear about new mail the moment it arrives instead of waiting for the next sync. You don't need a Wino Account for it. Turn it on in Settings > Notifications > Instant Push Notifications."
+      "description": "Hear about new mail the moment it arrives instead of waiting for the next sync. You don't need a Wino Account for it. Turn it on in Settings > Notifications > Realtime Push Notifications."
     },
     {
       "image": "dark-mode-for-messages.png",
