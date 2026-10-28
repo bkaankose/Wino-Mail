@@ -463,7 +463,7 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
             PushRelayProblemText = GetPushRelayProblemText(snapshot);
             PushRelayMailboxWarningText = GetPushRelayMailboxWarningText(snapshot);
             InstantPushDescription = IsPushRelayToggleVisible
-                ? Translator.NotificationSettings_InstantPush_Description
+                ? Translator.NotificationSettings_RealtimePush_Description
                 : IsPushRelaySignInRequired || !string.IsNullOrEmpty(PushRelayProblemText) ? string.Empty : PushRelayStatusText;
             OnPropertyChanged(nameof(PushRelayAvailability));
         }

@@ -154,9 +154,9 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
         NSView? toggle = null;
         if (vm.IsPushRelayToggleVisible)
             toggle = Bind.Enabled(
-                Bind.Switch(vm, nameof(vm.IsPushRelayEnabled), s => s.IsPushRelayEnabled, (s, v) => s.IsPushRelayEnabled = v, Translator.NotificationSettings_InstantPush_Title),
+                Bind.Switch(vm, nameof(vm.IsPushRelayEnabled), s => s.IsPushRelayEnabled, (s, v) => s.IsPushRelayEnabled = v, Translator.NotificationSettings_RealtimePush_Title),
                 vm, nameof(vm.IsPushRelayToggleEnabled), s => s.IsPushRelayToggleEnabled);
-        AddGroup(null, Card(Translator.NotificationSettings_InstantPush_Title, Translator.NotificationSettings_InstantPush_Description, WinoIconGlyph.Flash, toggle));
+        AddGroup(null, Card(Translator.NotificationSettings_RealtimePush_Title, Translator.NotificationSettings_RealtimePush_Description, WinoIconGlyph.Flash, toggle));
 
         var signIn = InfoBar(WinoInfoBarSeverity.Informational, null, Translator.NotificationSettings_PushRelay_SignInRequired);
         Bind.Visible(signIn, vm, nameof(vm.IsPushRelaySignInRequired), s => s.IsPushRelaySignInRequired);

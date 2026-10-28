@@ -152,7 +152,7 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
     private void AddInstantPush()
     {
         var vm = ViewModel;
-        var card = Card(Translator.NotificationSettings_InstantPush_Title, null, WinoIconGlyph.Flash);
+        var card = Card(Translator.NotificationSettings_RealtimePush_Title, null, WinoIconGlyph.Flash);
         Bind.Bind(vm, nameof(vm.InstantPushDescription), s => s.InstantPushDescription,
             text => card.Description = string.IsNullOrEmpty(text) ? null : text);
 

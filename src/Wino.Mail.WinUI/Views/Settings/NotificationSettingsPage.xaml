@@ -43,14 +43,14 @@
         <StackPanel Spacing="{StaticResource SettingsCardSpacing}" Visibility="{x:Bind ViewModel.IsPushRelaySectionVisible, Mode=OneTime}">
             <controls:SettingsCard
                 AutomationProperties.AutomationId="NotificationSettingsInstantPushCard"
-                Description="{x:Bind domain:Translator.NotificationSettings_InstantPush_Description, Mode=OneTime}"
-                Header="{x:Bind domain:Translator.NotificationSettings_InstantPush_Title, Mode=OneTime}">
+                Description="{x:Bind domain:Translator.NotificationSettings_RealtimePush_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.NotificationSettings_RealtimePush_Title, Mode=OneTime}">
                 <controls:SettingsCard.HeaderIcon>
                     <coreControls:WinoFontIcon Icon="Flash" />
                 </controls:SettingsCard.HeaderIcon>
                 <ToggleSwitch
                     AutomationProperties.AutomationId="NotificationSettingsInstantPushToggle"
-                    AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_InstantPush_Title, Mode=OneTime}"
+                    AutomationProperties.Name="{x:Bind domain:Translator.NotificationSettings_RealtimePush_Title, Mode=OneTime}"
                     IsEnabled="{x:Bind ViewModel.IsPushRelayToggleEnabled, Mode=OneWay}"
                     IsOn="{x:Bind ViewModel.IsPushRelayEnabled, Mode=TwoWay}"
                     Visibility="{x:Bind ViewModel.IsPushRelayToggleVisible, Mode=OneTime}" />
