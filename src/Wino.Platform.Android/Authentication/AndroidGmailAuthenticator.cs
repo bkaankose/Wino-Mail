@@ -96,6 +96,15 @@ public sealed class AndroidGmailAuthenticator(
         }, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Play services' <c>AuthorizationClient</c> returns access tokens only, so those accounts get no ID token.</summary>
+    public async Task<string?> GetIdentityTokenAsync(MailAccount account, CancellationToken cancellationToken = default)
+    {
+        if (!await UsesPlayServicesAsync(account, cancellationToken).ConfigureAwait(false))
+            return await loopbackAuthenticator.GetIdentityTokenAsync(account, cancellationToken).ConfigureAwait(false);
+
+        return null;
+    }
+
     public async Task DeleteTokenInformationAsync(MailAccount? account, CancellationToken cancellationToken = default)
     {
         await WithLockAsync(account, async () =>

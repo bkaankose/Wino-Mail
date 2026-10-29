@@ -88,10 +88,10 @@ public sealed record PushRelayImapCredentials(
 }
 
 /// <summary>
-/// Gmail registration: the app called <c>users.watch</c> with the relay's Pub/Sub topic; the relay verifies whose token it is
-/// and discards it. <see cref="ToString"/> never prints the token.
+/// Gmail registration: the app called <c>users.watch</c> with the relay's Pub/Sub topic. The Google ID token proves the
+/// address to the relay; the mailbox access token never leaves the device. <see cref="ToString"/> never prints the token.
 /// </summary>
-public sealed record PushRelayGmailRegistration(string AccessToken, DateTimeOffset? WatchExpiresAt)
+public sealed record PushRelayGmailRegistration(string IdToken, DateTimeOffset? WatchExpiresAt)
 {
     public override string ToString() => $"PushRelayGmailRegistration {{ WatchExpiresAt = {WatchExpiresAt:O} }}";
 }

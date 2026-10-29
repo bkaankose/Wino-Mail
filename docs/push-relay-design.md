@@ -84,6 +84,14 @@ One app-wide setting, **Sync method**: *Timer-based* or *Relay-based*.
 - Gmail and Outlook: the app registers the Gmail watch (`users.watch`) and the Graph subscription
   with its own token, pointing at the relay's Pub/Sub topic and webhook from `/.well-known/winorelay`.
   The relay stores no OAuth token and learns only "mailbox changed".
+- Gmail ownership proof (issue #1179): Pub/Sub notifications name only the address, so the relay
+  must know the registering app holds that account. The app sends a Google ID token from a new
+  refresh-token grant (Google issues one for the existing `userinfo.email` grant, so the scopes
+  and consent screen are unchanged); the relay verifies it offline (issuer,
+  audience on `Google:AllowedClientIds`, issued within 10 minutes, verified email). The mailbox
+  access and refresh tokens never leave the device, and there is no fallback to the access token.
+  An account whose grant yields no ID token, or one signed in through Play services on Android,
+  stays on timers.
 - Health: no indicator while connected. When the socket is down and the timer fallback is active,
   the shell shows a small red dot with a flyout: the relay is down and notifications may be
   degraded. Settings carries the full state.

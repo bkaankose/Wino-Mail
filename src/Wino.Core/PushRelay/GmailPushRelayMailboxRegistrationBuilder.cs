@@ -22,8 +22,8 @@ namespace Wino.Core.PushRelay;
 /// <summary>
 /// Builds relay registrations for Gmail accounts. The app owns the Gmail watch: it calls <c>users.watch</c> with the
 /// relay's Pub/Sub topic (INBOX only), renews it a day before the seven-day expiry or when the relay asks, and hands
-/// the relay a current access token so the relay can verify whose mailbox the watch belongs to. Nothing else leaves
-/// the device.
+/// the relay a newly issued Google ID token so the relay can verify whose mailbox the watch belongs to. Mailbox
+/// access and refresh tokens never leave the device.
 /// </summary>
 public sealed class GmailPushRelayMailboxRegistrationBuilder : IPushRelayMailboxRegistrationBuilder
 {
@@ -80,9 +80,15 @@ public sealed class GmailPushRelayMailboxRegistrationBuilder : IPushRelayMailbox
             _store.Save(account.Id, record);
         }
 
-        // The relay checks the token with Google's token-info endpoint and discards it; a fresh one is handed over every time.
-        var token = await authenticator.GetTokenInformationAsync(account, cancellationToken: cancellationToken).ConfigureAwait(false);
-        var registration = new PushRelayGmailRegistration(token.AccessToken, record!.ExpiresAt);
+        // Never fall back to the access token: it grants full mailbox access, and the relay only needs to know the address.
+        var idToken = await ((IGmailAuthenticator)authenticator).GetIdentityTokenAsync(account, cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrEmpty(idToken))
+        {
+            _logger.Information("Google issued no ID token for account {AccountId}; it stays on timers until it is signed in again.", account.Id);
+            return null;
+        }
+
+        var registration = new PushRelayGmailRegistration(idToken, record!.ExpiresAt);
         var create = new PushRelayCreateMailboxRequest(PushRelayProviders.Gmail, account.Id.ToString("D"), Imap: null, Gmail: registration);
         var fingerprint = Fingerprint(account.Address, record.ExpiresAt);
         return new PushRelayMailboxRegistrationRequest(create, new PushRelayUpdateCredentialsRequest(null), fingerprint);
