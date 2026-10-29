@@ -1,0 +1,52 @@
+<!doctype html>
+<!--
+  Source of background.tiff, the DMG window background. The window opens at 660x350 points, but Finder lets users
+  resize it and shows the image unscaled from the top-left corner, so the canvas is 1920x1200 to keep the sky behind
+  a larger window. The gradients use pixel sizes so the opening area looks the same at any canvas size.
+  Render it at 1x and 2x with any Chromium in headless mode, then combine both into one file:
+    tiffutil -cathidpicheck background.png background@2x.png -out background.tiff
+  The artwork around the icons must match DMG_APP_POSITION and DMG_APPLICATIONS_POSITION in build-macos-release.sh.
+-->
+<html><head><meta charset="utf-8"><style>
+:root{--sky-0:#f6f9ff;--sky-1:#e4eefe;--sky-2:#d3e3fc;--cloud:#c9dcfb;--cloud-soft:rgba(186,211,250,.55);
+--brand-deep:#0b5ad9;--brand:#1e7cf0;--brand-light:#3fb2ff;--sparkle:#7fb0f3}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1920px;height:1200px;overflow:hidden}
+body{position:relative;background:
+radial-gradient(330px 210px at 561px 52px,rgba(255,255,255,.9) 0%,transparent 70%),
+radial-gradient(396px 245px at 66px 332px,var(--cloud-soft) 0%,transparent 70%),
+linear-gradient(160deg,var(--sky-0) 0px,var(--sky-1) 305px,var(--sky-2) 555px,var(--sky-2) 100%)}
+.blob{position:absolute;border-radius:50%;background:var(--cloud)}
+.glow{position:absolute;width:220px;height:220px;border-radius:50%;filter:blur(28px);background:rgba(63,178,255,.28)}
+svg{position:absolute;left:0;top:0}
+</style></head><body>
+<div class="glow" style="left:60px;top:55px"></div>
+<div class="blob" style="width:170px;height:170px;left:85px;top:80px;opacity:.55"></div>
+<div class="blob" style="width:90px;height:90px;left:60px;top:150px;opacity:.45"></div>
+<div class="blob" style="width:70px;height:70px;left:220px;top:70px;opacity:.40"></div>
+<div class="blob" style="width:170px;height:170px;left:405px;top:80px;opacity:.40"></div>
+<div class="blob" style="width:80px;height:80px;left:540px;top:160px;opacity:.35"></div>
+<svg width="660" height="350" viewBox="0 0 660 350">
+<defs>
+<linearGradient id="env" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3fb2ff"/><stop offset="1" stop-color="#0b5ad9"/></linearGradient>
+<linearGradient id="arr" x1="0" x2="1"><stop offset="0" stop-color="#1e7cf0" stop-opacity=".25"/><stop offset="1" stop-color="#1e7cf0"/></linearGradient>
+<g id="mail"><rect x="-14" y="-10" width="28" height="20" rx="4" fill="url(#env)"/><path d="M-14 -7 L0 3 L14 -7 L14 -10 L-14 -10 Z" fill="#fff" opacity=".95"/></g>
+<path id="spark" d="M0 -7 C1 -2 2 -1 7 0 C2 1 1 2 0 7 C-1 2 -2 1 -7 0 C-2 -1 -1 -2 0 -7Z"/>
+</defs>
+<marker id="head" viewBox="0 0 12 12" refX="3" refY="6" markerWidth="5" markerHeight="5" markerUnits="strokeWidth" orient="auto">
+<path d="M0 0 L12 6 L0 12 L3 6 Z" fill="#1e7cf0"/></marker>
+<path d="M258 166 C 296 130, 356 128, 392 156" fill="none" stroke="url(#arr)" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="7 8" marker-end="url(#head)"/>
+<use href="#mail" transform="translate(58 62) rotate(-14) scale(1.05)"/>
+<use href="#mail" transform="translate(612 52) rotate(12) scale(.85)" opacity=".85"/>
+<use href="#mail" transform="translate(600 290) rotate(-10) scale(.75)" opacity=".7"/>
+<use href="#mail" transform="translate(318 292) rotate(8) scale(.6)" opacity=".55"/>
+<use href="#spark" transform="translate(250 58) scale(1.1)" fill="#7fb0f3"/>
+<use href="#spark" transform="translate(372 76) scale(.7)" fill="#7fb0f3" opacity=".8"/>
+<use href="#spark" transform="translate(40 250) scale(.8)" fill="#7fb0f3" opacity=".8"/>
+<use href="#spark" transform="translate(560 120) scale(.6)" fill="#7fb0f3" opacity=".7"/>
+<circle cx="292" cy="250" r="5" fill="#9cc2f7" opacity=".7"/>
+<circle cx="130" cy="300" r="3" fill="#9cc2f7" opacity=".8"/>
+<circle cx="520" cy="40" r="4" fill="#9cc2f7" opacity=".6"/>
+<circle cx="640" cy="200" r="3" fill="#9cc2f7" opacity=".7"/>
+</svg>
+</body></html>

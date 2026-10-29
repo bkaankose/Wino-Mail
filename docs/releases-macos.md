@@ -72,7 +72,11 @@ Outputs appear under `~/Wino Releases`, or `WINO_RELEASES_ROOT` or `--output-roo
 translations. A checkout copied with `git archive` has no repository, so its record has no commit.
 
 The script stops if the DMG already exists. Failed runs keep their logs under `.staging/macos-<run>` in the output root.
-The DMG opens a standard window with the app and an Applications link.
+The DMG opens a window with the app, an Applications link, and the background from `scripts/release/macos/dmg`, which
+shows dragging the app onto Applications. Finder lays out that window itself, so run the script in a logged-in desktop
+session, not over SSH. The first run asks to let Terminal control Finder; allow it, or turn it on later in
+System Settings > Privacy & Security > Automation. To change the artwork, edit `dmg/background.html`, render it at 1x
+and 2x, and combine both with `tiffutil` as its header comment describes. The icon positions are in the script.
 
 Codesign needs the login keychain, which is unavailable to SSH sessions (`errSecInternalComponent`).
 To build over SSH, start `screen -dmS winosign` in Terminal on the Mac and run the script inside that session.

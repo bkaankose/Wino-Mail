@@ -20,6 +20,15 @@ SPARKLE_VERSION_FILE="$REPO_ROOT/src/Wino.Core.Apple.Bindings/Sparkle/Native/Spa
 SPARKLE_ACCOUNT="com.winomail.macos"
 # The DMG and appcast.xml are uploaded here; Sparkle.plist's SUFeedURL points at the appcast.
 DOWNLOAD_BASE_URL="https://download.winomail.app/macos"
+# DMG window layout. The artwork in dmg/background.html is drawn around these icon centres; move them together.
+DMG_BACKGROUND="$REPO_ROOT/scripts/release/macos/dmg/background.tiff"
+DMG_WINDOW_WIDTH=660
+DMG_WINDOW_HEIGHT=350
+# Finder window bounds include the title bar (32 points on macOS 26).
+DMG_TITLE_BAR_HEIGHT=32
+DMG_ICON_SIZE=128
+DMG_APP_POSITION="170, 165"
+DMG_APPLICATIONS_POSITION="490, 165"
 
 ARCH=""
 BUILD_NUMBER=""
@@ -87,7 +96,7 @@ xcode-select -p >/dev/null 2>&1 || fail "Xcode command line tools are missing. R
 for tool in notarytool stapler; do
   xcrun --find "$tool" >/dev/null 2>&1 || fail "'xcrun $tool' is unavailable. Install Xcode or update the command line tools."
 done
-for tool in codesign hdiutil spctl ditto lipo plutil shasum security curl tar xmllint; do
+for tool in codesign hdiutil osascript spctl ditto lipo plutil shasum security curl tar xmllint; do
   command -v "$tool" >/dev/null 2>&1 || fail "'$tool' was not found."
 done
 info "Xcode tools: $(xcode-select -p)"
@@ -161,6 +170,7 @@ KEYCHAIN_PUBLIC_KEY="$("$SPARKLE_TOOLS/bin/generate_keys" --account "$SPARKLE_AC
 [ "$KEYCHAIN_PUBLIC_KEY" = "$SPARKLE_PUBLIC_KEY" ] ||
   fail "The keychain's Sparkle key does not match SUPublicEDKey in Sparkle.plist."
 info "Sparkle $SPARKLE_VERSION, update key $SPARKLE_PUBLIC_KEY"
+[ -f "$DMG_BACKGROUND" ] || fail "DMG background not found: $DMG_BACKGROUND"
 [ -f "$MANIFEST" ] || fail "Manifest not found: $MANIFEST"
 
 # ---------------------------------------------------------------- version
@@ -373,9 +383,50 @@ info "Ticket stapled to $APP_NAME"
 # ---------------------------------------------------------------- DMG
 step "Creating the DMG"
 ln -s /Applications "$STAGE/dmg/Applications"
-DMG="$STAGE/$DMG_NAME"
-hdiutil create -quiet -volname "$VOLUME_NAME" -srcfolder "$STAGE/dmg" -fs HFS+ -format UDZO -ov "$DMG" ||
+mkdir "$STAGE/dmg/.background"
+cp "$DMG_BACKGROUND" "$STAGE/dmg/.background/background.tiff"
+LAYOUT_DMG="$STAGE/layout.dmg"
+hdiutil create -quiet -volname "$VOLUME_NAME" -srcfolder "$STAGE/dmg" -fs HFS+ -format UDRW -ov "$LAYOUT_DMG" ||
   fail "hdiutil create failed."
+mkdir -p "$MOUNT"
+hdiutil attach -quiet -readwrite -noverify -noautoopen -mountpoint "$MOUNT" "$LAYOUT_DMG" || fail "Mounting the DMG for layout failed."
+# Finder writes the window layout into the volume's .DS_Store. Layout files written by other tools (dmgbuild) keep
+# the icon positions but lose the background on macOS 26, so Finder lays it out itself. The window is opened twice
+# because Finder draws the background only after a reopen.
+osascript >"$STAGE/dmg-layout.log" 2>&1 <<APPLESCRIPT || { cat "$STAGE/dmg-layout.log" >&2; fail "Finder could not lay out the DMG window. If Terminal may not control Finder, allow it in System Settings > Privacy & Security > Automation."; }
+tell application "Finder"
+  set volumeFolder to (POSIX file "$MOUNT" as alias)
+  open volumeFolder
+  set dmgWindow to container window of volumeFolder
+  set current view of dmgWindow to icon view
+  set toolbar visible of dmgWindow to false
+  set statusbar visible of dmgWindow to false
+  set bounds of dmgWindow to {200, 120, 200 + $DMG_WINDOW_WIDTH, 120 + $DMG_WINDOW_HEIGHT + $DMG_TITLE_BAR_HEIGHT}
+  set viewOptions to icon view options of dmgWindow
+  set arrangement of viewOptions to not arranged
+  set icon size of viewOptions to $DMG_ICON_SIZE
+  set text size of viewOptions to 12
+  set label position of viewOptions to bottom
+  set shows item info of viewOptions to false
+  set shows icon preview of viewOptions to false
+  set background picture of viewOptions to file ((volumeFolder as text) & ".background:background.tiff")
+  set position of item "$APP_NAME" of volumeFolder to {$DMG_APP_POSITION}
+  set position of item "Applications" of volumeFolder to {$DMG_APPLICATIONS_POSITION}
+  close dmgWindow
+  open volumeFolder
+  update volumeFolder without registering applications
+  delay 2
+  close container window of volumeFolder
+end tell
+APPLESCRIPT
+for _ in 1 2 3 4 5 6 7 8 9 10; do [ -f "$MOUNT/.DS_Store" ] && break; sleep 1; done
+[ -f "$MOUNT/.DS_Store" ] || fail "Finder did not save the DMG window layout."
+rm -rf "$MOUNT/.fseventsd"
+sync
+hdiutil detach -quiet "$MOUNT" || hdiutil detach -quiet -force "$MOUNT" || fail "Detaching the layout DMG failed."
+DMG="$STAGE/$DMG_NAME"
+hdiutil convert -quiet "$LAYOUT_DMG" -format UDZO -o "$DMG" || fail "Compressing the DMG failed."
+rm -f "$LAYOUT_DMG"
 codesign --sign "$IDENTITY" --timestamp "$DMG" || fail "Signing the DMG failed."
 codesign --verify --strict --verbose=2 "$DMG" >/dev/null 2>&1 || fail "DMG signature verification failed."
 info "$DMG_NAME ($(du -h "$DMG" | cut -f1 | tr -d ' '))"
