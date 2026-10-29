@@ -52,8 +52,20 @@ public sealed partial class RelayPolicyDialog : ContentDialog
         }
     }
 
+    private void DialogLoaded(object sender, RoutedEventArgs e)
+    {
+        PolicyDialogLayout.Fit(PolicyContent, XamlRoot);
+        XamlRoot.Changed += XamlRootChanged;
+    }
+
+    private void XamlRootChanged(XamlRoot sender, XamlRootChangedEventArgs args)
+        => PolicyDialogLayout.Fit(PolicyContent, sender);
+
     private void DialogClosed(ContentDialog sender, ContentDialogClosedEventArgs args)
     {
+        if (XamlRoot is not null)
+            XamlRoot.Changed -= XamlRootChanged;
+
         PolicyWebView.Source = null;
         PolicyWebView.Close();
     }

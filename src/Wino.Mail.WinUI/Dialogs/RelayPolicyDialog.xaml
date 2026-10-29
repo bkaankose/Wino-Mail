@@ -10,6 +10,7 @@
     Closed="DialogClosed"
     DefaultButton="Primary"
     IsPrimaryButtonEnabled="False"
+    Loaded="DialogLoaded"
     PrimaryButtonClick="AcceptClicked"
     PrimaryButtonText="{x:Bind domain:Translator.RelayPolicy_AcceptButton, Mode=OneTime}"
     Style="{StaticResource WinoDialogStyle}"
@@ -21,10 +22,7 @@
     <ContentDialog.Title>
         <TextBlock Text="{x:Bind domain:Translator.RelayPolicy_Title, Mode=OneTime}" TextWrapping="WrapWholeWords" />
     </ContentDialog.Title>
-    <Grid
-        Width="720"
-        Height="560"
-        RowSpacing="12">
+    <Grid x:Name="PolicyContent" RowSpacing="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
