@@ -171,6 +171,9 @@ KEYCHAIN_PUBLIC_KEY="$("$SPARKLE_TOOLS/bin/generate_keys" --account "$SPARKLE_AC
   fail "The keychain's Sparkle key does not match SUPublicEDKey in Sparkle.plist."
 info "Sparkle $SPARKLE_VERSION, update key $SPARKLE_PUBLIC_KEY"
 [ -f "$DMG_BACKGROUND" ] || fail "DMG background not found: $DMG_BACKGROUND"
+# Finder addresses disks by name, so the DMG layout would target an already mounted disk with the same name.
+osascript -e 'tell application "Finder" to get name of every disk' 2>/dev/null | tr ',' '\n' | sed 's/^ *//' | grep -qxF "$VOLUME_NAME" &&
+  fail "A disk named \"$VOLUME_NAME\" is mounted. Eject it in Finder and run again."
 [ -f "$MANIFEST" ] || fail "Manifest not found: $MANIFEST"
 
 # ---------------------------------------------------------------- version
