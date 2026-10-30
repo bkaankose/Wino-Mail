@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -12,11 +13,12 @@ using Microsoft.Identity.Client.Extensions.Msal;
 using Wino.Authentication;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Authentication;
 
 namespace Wino.Platform.Windows;
 
-/// <summary>Windows WAM presentation and the existing MSAL Extensions cache.</summary>
+/// <summary>Windows WAM presentation and the existing MSAL Extensions cache, shared by every Outlook client id.</summary>
 [SupportedOSPlatform("windows")]
 public sealed partial class WindowsOutlookAuthenticationHost : IOutlookAuthenticationHost, IDisposable
 {
@@ -25,6 +27,8 @@ public sealed partial class WindowsOutlookAuthenticationHost : IOutlookAuthentic
     private readonly IAuthenticatorConfig _authenticatorConfig;
     private readonly Func<nint> _parentLookup;
     private readonly SemaphoreSlim _cacheLock = new(1, 1);
+    private readonly ConcurrentDictionary<string, IPublicClientApplication> _clients = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _registeredClientIds = new(StringComparer.OrdinalIgnoreCase);
     private MsalCacheHelper _cache;
 
     public WindowsOutlookAuthenticationHost(IApplicationConfiguration configuration,
@@ -33,10 +37,35 @@ public sealed partial class WindowsOutlookAuthenticationHost : IOutlookAuthentic
         _configuration = configuration;
         _authenticatorConfig = authenticatorConfig;
         _parentLookup = parentLookup;
+    }
 
+    public bool CanAuthenticateInteractively => TryGetParent() != nint.Zero;
+
+    public string LegacyClientId => OutlookClientIds.Legacy;
+
+    public IPublicClientApplication Client => GetClient(OutlookClientIds.Current);
+
+    public Task EnsureTokenCacheAttachedAsync(CancellationToken cancellationToken = default)
+        => EnsureTokenCacheAttachedAsync(OutlookClientIds.Current, cancellationToken);
+
+    public Task<AuthenticationResult> AcquireTokenInteractiveAsync(IEnumerable<string> scopes, IAccount account,
+        string loginHint, CancellationToken cancellationToken = default)
+        => AcquireTokenInteractiveAsync(OutlookClientIds.Current, scopes, account, loginHint, cancellationToken);
+
+    public Task RemoveLocalAccountAsync(string authenticationAddress, CancellationToken cancellationToken = default)
+        => RemoveLocalAccountAsync(OutlookClientIds.Current, authenticationAddress, cancellationToken);
+
+    public IPublicClientApplication GetClient(string clientId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
+        return _clients.GetOrAdd(clientId, BuildClient);
+    }
+
+    private IPublicClientApplication BuildClient(string clientId)
+    {
         var options = new BrokerOptions(BrokerOptions.OperatingSystems.Windows)
         {
-            Title = authenticatorConfig.ApplicationDisplayName,
+            Title = _authenticatorConfig.ApplicationDisplayName,
             ListOperatingSystemAccounts = true,
         };
         var windowsOptions = new WindowsBrokerOptions
@@ -44,34 +73,36 @@ public sealed partial class WindowsOutlookAuthenticationHost : IOutlookAuthentic
             HeaderText = Translator.OutlookAuthentication_WamHeaderText,
             ListWindowsWorkAndSchoolAccounts = true,
         };
-        var builder = PublicClientApplicationBuilder.Create(authenticatorConfig.OutlookAuthenticatorClientId)
+        var builder = PublicClientApplicationBuilder.Create(clientId)
             .WithBroker(options)
             .WithDefaultRedirectUri();
 
-        if (parentLookup is not null)
+        if (_parentLookup is not null)
             builder = builder.WithParentActivityOrWindow(new Func<nint>(GetRequiredParent));
 
 #pragma warning disable CS0618
         builder = builder.WithWindowsBrokerOptions(windowsOptions);
 #pragma warning restore CS0618
-        Client = builder.WithAuthority(Authority).Build();
+        return builder.WithAuthority(Authority).Build();
     }
 
-    public IPublicClientApplication Client { get; }
-    public bool CanAuthenticateInteractively => TryGetParent() != nint.Zero;
-
-    public async Task EnsureTokenCacheAttachedAsync(CancellationToken cancellationToken = default)
+    public async Task EnsureTokenCacheAttachedAsync(string clientId, CancellationToken cancellationToken = default)
     {
+        var client = GetClient(clientId);
+
         await _cacheLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            if (_cache is not null) return;
+            if (_cache is null)
+            {
+                var path = AuthenticationTokenStorePaths.GetOutlookTokenCachePath(_configuration);
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                _cache = await CreateCacheAsync(path).WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
 
-            var path = AuthenticationTokenStorePaths.GetOutlookTokenCachePath(_configuration);
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            var cache = await CreateCacheAsync(path).WaitAsync(cancellationToken).ConfigureAwait(false);
-            cache.RegisterCache(Client.UserTokenCache);
-            _cache = cache;
+            // Both clients share OutlookCache.bin; MSAL keys every cache entry by client id.
+            if (_registeredClientIds.Add(clientId))
+                _cache.RegisterCache(client.UserTokenCache);
         }
         finally
         {
@@ -79,13 +110,13 @@ public sealed partial class WindowsOutlookAuthenticationHost : IOutlookAuthentic
         }
     }
 
-    public async Task<AuthenticationResult> AcquireTokenInteractiveAsync(IEnumerable<string> scopes,
+    public async Task<AuthenticationResult> AcquireTokenInteractiveAsync(string clientId, IEnumerable<string> scopes,
         IAccount account, string loginHint, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         _ = GetRequiredParent();
-        await EnsureTokenCacheAttachedAsync(cancellationToken).ConfigureAwait(false);
-        var builder = Client.AcquireTokenInteractive(scopes);
+        await EnsureTokenCacheAttachedAsync(clientId, cancellationToken).ConfigureAwait(false);
+        var builder = GetClient(clientId).AcquireTokenInteractive(scopes);
 
         if (account is not null) builder = builder.WithAccount(account);
         else if (!string.IsNullOrWhiteSpace(loginHint)) builder = builder.WithLoginHint(loginHint);
@@ -93,10 +124,11 @@ public sealed partial class WindowsOutlookAuthenticationHost : IOutlookAuthentic
         return await builder.ExecuteAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task RemoveLocalAccountAsync(string authenticationAddress, CancellationToken cancellationToken = default)
+    public async Task RemoveLocalAccountAsync(string clientId, string authenticationAddress, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var localClient = PublicClientApplicationBuilder.Create(_authenticatorConfig.OutlookAuthenticatorClientId)
+        ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
+        var localClient = PublicClientApplicationBuilder.Create(clientId)
             .WithDefaultRedirectUri().WithAuthority(Authority).Build();
         var path = AuthenticationTokenStorePaths.GetOutlookTokenCachePath(_configuration);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -119,7 +151,15 @@ public sealed partial class WindowsOutlookAuthenticationHost : IOutlookAuthentic
 
     public void Dispose()
     {
-        _cache?.UnregisterCache(Client.UserTokenCache);
+        if (_cache is not null)
+        {
+            foreach (var clientId in _registeredClientIds)
+            {
+                if (_clients.TryGetValue(clientId, out var client))
+                    _cache.UnregisterCache(client.UserTokenCache);
+            }
+        }
+
         _cacheLock.Dispose();
     }
 

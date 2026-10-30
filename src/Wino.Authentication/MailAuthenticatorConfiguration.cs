@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Authentication;
 
 namespace Wino.Services;
@@ -27,7 +28,7 @@ public class MailAuthenticatorConfiguration : IAuthenticatorConfig
         GmailAuthenticatorClientId = gmailAuthenticatorClientId;
     }
 
-    public string OutlookAuthenticatorClientId => "b19c2035-d740-49ff-b297-de6ec561b208";
+    public string OutlookAuthenticatorClientId => OutlookClientIds.Current;
     public string GmailAuthenticatorClientId { get; }
     public string GmailTokenStoreIdentifier => AuthenticationTokenStorePaths.GmailTokenStoreFolderName;
     public string ApplicationDisplayName => _applicationConfiguration?.ApplicationDisplayName ?? "Wino Mail";

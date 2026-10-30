@@ -121,6 +121,11 @@ internal sealed class SnapshotAccountCapabilities
     public string? CardDavServiceUrl { get; set; }
     public bool IsTasksEnabled { get; set; }
     public int TaskIntegrationSource { get; set; }
+
+    /// <summary>
+    /// The Entra app an Outlook mailbox signs in with. Absent for the legacy app, so restored accounts stay on their client.
+    /// </summary>
+    public string? OutlookClientId { get; set; }
 }
 
 internal sealed class SnapshotMailboxReference

@@ -143,6 +143,7 @@ keytool -exportcert -keystore "$ks" -alias androiddebugkey -storepass android | 
 ```
 
 For the release key, use the upload keystore and alias instead; with Play App Signing, also register the app signing certificate SHA-1 from the Play Console.
+Outlook signs in with the Entra app `497b333d-c689-4b27-8f59-7dace624111a` (`OutlookClientIds.Current`); register every signature-hash redirect on it.
 Gmail uses the Play services `AuthorizationClient` when Play services is available, and falls back to the shared `GmailAuthenticator` loopback flow (a Custom Tab with the existing desktop client) on devices without it or for accounts with a stored refresh token. The MSAL broker (Microsoft Authenticator) is off.
 Until the registrations exist, Outlook and Gmail sign-in cannot be verified; IMAP can.
 

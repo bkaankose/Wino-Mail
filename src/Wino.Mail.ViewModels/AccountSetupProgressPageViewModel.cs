@@ -246,7 +246,8 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 IsTaskAccessGranted = WizardContext.IsOAuthProvider &&
                     WizardContext.IsTaskAccessEnabled &&
                     WizardContext.TaskIntegrationSource == AccountIntegrationSource.Provider,
-                TaskIntegrationSource = WizardContext.TaskIntegrationSource
+                TaskIntegrationSource = WizardContext.TaskIntegrationSource,
+                OutlookClientId = WizardContext.SelectedProvider.Type == MailProviderType.Outlook ? OutlookClientIds.Current : null
             };
 
             if (WizardContext.IsOAuthProvider)

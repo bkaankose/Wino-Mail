@@ -444,7 +444,8 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                     ? account.ServerInformation?.CardDavServiceUrl
                     : null,
                 IsTasksEnabled = account.IsTaskAccessEnabled,
-                TaskIntegrationSource = (int)account.TaskIntegrationSource
+                TaskIntegrationSource = (int)account.TaskIntegrationSource,
+                OutlookClientId = account.ProviderType == MailProviderType.Outlook ? account.OutlookClientId : null
             })
             .ToList();
 
@@ -1267,6 +1268,12 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         account.TaskIntegrationSource = taskIntegrationSource;
         account.IsTaskAccessGranted = isRemoteTasks;
         account.IsTaskReauthorizationRequired = isRemoteTasks && isOAuthProvider;
+
+        if (account.ProviderType == MailProviderType.Outlook
+            && string.Equals(capabilities.OutlookClientId, OutlookClientIds.Current, StringComparison.OrdinalIgnoreCase))
+        {
+            account.OutlookClientId = OutlookClientIds.Current;
+        }
     }
 
     /// <summary>

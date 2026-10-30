@@ -493,6 +493,13 @@ WHERE ImapUid > 0 AND COALESCE(ImapUidValidity, 0) = 0
                 .ConfigureAwait(false);
         }
 
+        if (!accountColumns.Any(c => c.Name == nameof(MailAccount.OutlookClientId)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccount)} ADD COLUMN {nameof(MailAccount.OutlookClientId)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
         if (!accountColumns.Any(c => c.Name == nameof(MailAccount.IsProtocolLogEnabled)))
         {
             await Connection

@@ -20,7 +20,7 @@ namespace Wino.Mail.iOS.NotificationService;
 public sealed class NotificationService : UNNotificationServiceExtension
 {
     private const string AppBundleId = "com.winomail.macos";
-    private const string OutlookClientId = "b19c2035-d740-49ff-b297-de6ec561b208";
+    private const string OutlookClientId = "497b333d-c689-4b27-8f59-7dace624111a";
     private const string MsalKeychainGroup = "com.microsoft.adalcache";
     private const string DirectoryScope = "relay-extension";
     private const string NotifiedScope = "relay-notified";

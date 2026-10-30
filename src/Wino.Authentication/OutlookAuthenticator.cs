@@ -14,6 +14,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Authentication;
 
 namespace Wino.Authentication;
@@ -43,7 +44,6 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
 
     public override MailProviderType ProviderType => MailProviderType.Outlook;
 
-    private readonly IPublicClientApplication _publicClientApplication;
     private readonly IOutlookAuthenticationHost _host;
 
     public OutlookAuthenticator(IOutlookAuthenticationHost host, IAuthenticatorConfig authenticatorConfig)
@@ -51,8 +51,9 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
     {
         ArgumentNullException.ThrowIfNull(host);
         _host = host;
-        _publicClientApplication = host.Client;
     }
+
+    private string ResolveClientId(MailAccount account) => OutlookClientIds.Resolve(account, _host.LegacyClientId);
 
     private string[] GetScope(MailAccount account, IReadOnlyCollection<ProviderFeature> features = null)
         => AuthenticatorConfig.GetOutlookScopes(ProviderAuthorizationRequest.ForAccount(account, features));
@@ -61,7 +62,7 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
         MailAccount account,
         IReadOnlyCollection<ProviderFeature> requiredFeatures = null, CancellationToken cancellationToken = default)
     {
-        await _host.EnsureTokenCacheAttachedAsync(cancellationToken);
+        await _host.EnsureTokenCacheAttachedAsync(ResolveClientId(account), cancellationToken);
 
         var cachedTokenInfo = await TryGetCachedTokenInformationSafelyAsync(account, requiredFeatures, forceRefresh: false, cancellationToken)
             .ConfigureAwait(false);
@@ -85,7 +86,7 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
         MailAccount account,
         IReadOnlyCollection<ProviderFeature> requiredFeatures = null, CancellationToken cancellationToken = default)
     {
-        await _host.EnsureTokenCacheAttachedAsync(cancellationToken).ConfigureAwait(false);
+        await _host.EnsureTokenCacheAttachedAsync(ResolveClientId(account), cancellationToken).ConfigureAwait(false);
 
         var tokenInfo = await TryGetCachedTokenInformationSafelyAsync(account, requiredFeatures, forceRefresh: true, cancellationToken)
             .ConfigureAwait(false);
@@ -103,9 +104,11 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
         MailAccount account,
         IReadOnlyCollection<ProviderFeature> requestedFeatures = null, CancellationToken cancellationToken = default)
     {
+        var clientId = ResolveClientId(account);
+
         try
         {
-            await _host.EnsureTokenCacheAttachedAsync(cancellationToken);
+            await _host.EnsureTokenCacheAttachedAsync(clientId, cancellationToken);
 
             // Interactive authentication required but window doesn't exist.
             // This can happen when being called from a notification background task and the token is expired.
@@ -113,14 +116,14 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
 
             if (!_host.CanAuthenticateInteractively) throw new AuthenticationAttentionException(account);
 
-            var cachedAccounts = (await _publicClientApplication
+            var cachedAccounts = (await _host.GetClient(clientId)
                 .GetAccountsAsync().WaitAsync(cancellationToken)
                 .ConfigureAwait(false))
                 .ToList();
             var storedAccount = FindStoredAccount(cachedAccounts, account);
 
             AuthenticationResult authResult = await _host.AcquireTokenInteractiveAsync(
-                GetScope(account, requestedFeatures), storedAccount, GetAuthenticationAddress(account), cancellationToken)
+                clientId, GetScope(account, requestedFeatures), storedAccount, GetAuthenticationAddress(account), cancellationToken)
                 .ConfigureAwait(false);
 
             // Microsoft 365 work/school tenants can use a sign-in UPN that differs from
@@ -131,7 +134,7 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
 
             ClearCachedAccessTokens(account);
 
-            return new TokenInformationEx(authResult.AccessToken, mailboxAddress, authResult.Account.Username);
+            return new TokenInformationEx(authResult.AccessToken, mailboxAddress, authResult.Account.Username, clientId);
         }
         catch (MsalClientException msalClientException)
         {
@@ -159,15 +162,17 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
 
         try
         {
-            await _host.EnsureTokenCacheAttachedAsync(cancellationToken).ConfigureAwait(false);
+            var clientId = ResolveClientId(account);
+            await _host.EnsureTokenCacheAttachedAsync(clientId, cancellationToken).ConfigureAwait(false);
 
-            var cachedAccounts = (await _publicClientApplication.GetAccountsAsync().WaitAsync(cancellationToken).ConfigureAwait(false)).ToList();
+            var client = _host.GetClient(clientId);
+            var cachedAccounts = (await client.GetAccountsAsync().WaitAsync(cancellationToken).ConfigureAwait(false)).ToList();
             var storedAccount = FindStoredAccount(cachedAccounts, account);
 
             if (storedAccount is null)
                 return null;
 
-            var authResult = await _publicClientApplication
+            var authResult = await client
                 .AcquireTokenSilent(SubstrateTaskScopes, storedAccount)
                 .ExecuteAsync(cancellationToken)
                 .ConfigureAwait(false);
@@ -190,22 +195,24 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
         if (account is null)
             throw new ArgumentNullException(nameof(account));
 
-        await _host.EnsureTokenCacheAttachedAsync(cancellationToken).ConfigureAwait(false);
-        var cachedAccounts = (await _publicClientApplication.GetAccountsAsync().WaitAsync(cancellationToken).ConfigureAwait(false)).ToList();
+        var clientId = ResolveClientId(account);
+        await _host.EnsureTokenCacheAttachedAsync(clientId, cancellationToken).ConfigureAwait(false);
+        var cachedAccounts = (await _host.GetClient(clientId).GetAccountsAsync().WaitAsync(cancellationToken).ConfigureAwait(false)).ToList();
         var storedAccount = FindStoredAccount(cachedAccounts, account);
         if (!_host.CanAuthenticateInteractively)
             throw new AuthenticationAttentionException(account);
 
-        await _host.AcquireTokenInteractiveAsync(SubstrateTaskScopes, storedAccount,
+        await _host.AcquireTokenInteractiveAsync(clientId, SubstrateTaskScopes, storedAccount,
             GetAuthenticationAddress(account), cancellationToken).ConfigureAwait(false);
     }
 
     public async Task DeleteTokenInformationAsync(MailAccount account, CancellationToken cancellationToken = default)
     {
-        await _host.EnsureTokenCacheAttachedAsync(cancellationToken).ConfigureAwait(false);
-
         if (account == null)
             return;
+
+        var clientId = ResolveClientId(account);
+        await _host.EnsureTokenCacheAttachedAsync(clientId, cancellationToken).ConfigureAwait(false);
 
         ClearCachedAccessTokens(account);
 
@@ -213,7 +220,7 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
             ? account.Address
             : account.AuthenticationAddress;
 
-        await _host.RemoveLocalAccountAsync(authenticationAddress, cancellationToken).ConfigureAwait(false);
+        await _host.RemoveLocalAccountAsync(clientId, authenticationAddress, cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<string> ResolveMailboxAddressAsync(string accessToken, string fallbackAddress, CancellationToken cancellationToken)
@@ -260,8 +267,9 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
         IReadOnlyCollection<ProviderFeature> requiredFeatures,
         bool forceRefresh, CancellationToken cancellationToken)
     {
+        var clientId = ResolveClientId(account);
         var scopes = GetScope(account, requiredFeatures);
-        var cacheKey = GetAccessTokenCacheKey(account, scopes);
+        var cacheKey = GetAccessTokenCacheKey(account, clientId, scopes);
         var requestedOn = DateTimeOffset.UtcNow;
 
         if (!forceRefresh && TryGetReusableAccessToken(cacheKey, DateTimeOffset.MinValue, out var reusableToken))
@@ -277,7 +285,7 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
             if (TryGetReusableAccessToken(cacheKey, forceRefresh ? requestedOn : DateTimeOffset.MinValue, out reusableToken))
                 return reusableToken;
 
-            var acquisition = await TryGetCachedTokenInformationAsync(account, scopes, forceRefresh, cancellationToken).ConfigureAwait(false);
+            var acquisition = await TryGetCachedTokenInformationAsync(account, clientId, scopes, forceRefresh, cancellationToken).ConfigureAwait(false);
 
             if (acquisition == null)
             {
@@ -323,7 +331,7 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
         return true;
     }
 
-    private static string GetAccessTokenCacheKey(MailAccount account, IEnumerable<string> scopes)
+    private static string GetAccessTokenCacheKey(MailAccount account, string clientId, IEnumerable<string> scopes)
     {
         var normalizedScopes = scopes
             .Where(scope => !string.IsNullOrWhiteSpace(scope))
@@ -331,7 +339,7 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
             .Distinct()
             .OrderBy(scope => scope, StringComparer.Ordinal);
 
-        return $"{GetAccessTokenCacheAccountPrefix(account)}{string.Join(' ', normalizedScopes)}";
+        return $"{GetAccessTokenCacheAccountPrefix(account)}{clientId}|{string.Join(' ', normalizedScopes)}";
     }
 
     private static string GetAccessTokenCacheAccountPrefix(MailAccount account)
@@ -363,28 +371,30 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
 
     private async Task<TokenAcquisition> TryGetCachedTokenInformationAsync(
         MailAccount account,
+        string clientId,
         string[] scopes,
         bool forceRefresh, CancellationToken cancellationToken)
     {
-        var cachedAccounts = (await _publicClientApplication.GetAccountsAsync().WaitAsync(cancellationToken).ConfigureAwait(false)).ToList();
+        var client = _host.GetClient(clientId);
+        var cachedAccounts = (await client.GetAccountsAsync().WaitAsync(cancellationToken).ConfigureAwait(false)).ToList();
         var storedAccount = FindStoredAccount(cachedAccounts, account);
 
         if (storedAccount != null)
         {
-            var authResult = await _publicClientApplication
+            var authResult = await client
                 .AcquireTokenSilent(scopes, storedAccount)
                 .WithForceRefresh(forceRefresh)
                 .ExecuteAsync(cancellationToken)
                 .ConfigureAwait(false);
 
             return new TokenAcquisition(
-                new TokenInformationEx(authResult.AccessToken, account?.Address, authResult.Account.Username),
+                new TokenInformationEx(authResult.AccessToken, account?.Address, authResult.Account.Username, clientId),
                 authResult.ExpiresOn);
         }
 
         foreach (var cachedAccount in cachedAccounts)
         {
-            var tokenInfo = await TryGetMatchingTokenInformationAsync(account, scopes, cachedAccount, forceRefresh, cancellationToken)
+            var tokenInfo = await TryGetMatchingTokenInformationAsync(account, client, clientId, scopes, cachedAccount, forceRefresh, cancellationToken)
                 .ConfigureAwait(false);
 
             if (tokenInfo != null)
@@ -393,6 +403,8 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
 
         return await TryGetMatchingTokenInformationAsync(
             account,
+            client,
+            clientId,
             scopes,
             PublicClientApplication.OperatingSystemAccount,
             forceRefresh, cancellationToken).ConfigureAwait(false);
@@ -400,19 +412,21 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
 
     private async Task<TokenAcquisition> TryGetMatchingTokenInformationAsync(
         MailAccount account,
+        IPublicClientApplication client,
+        string clientId,
         IEnumerable<string> scopes,
         IAccount cachedAccount,
         bool forceRefresh, CancellationToken cancellationToken)
     {
         try
         {
-            var authResult = await _publicClientApplication
+            var authResult = await client
                 .AcquireTokenSilent(scopes, cachedAccount)
                 .WithForceRefresh(forceRefresh)
                 .ExecuteAsync(cancellationToken)
                 .ConfigureAwait(false);
 
-            var tokenInformation = await GetValidatedTokenInformationAsync(account, authResult, cancellationToken).ConfigureAwait(false);
+            var tokenInformation = await GetValidatedTokenInformationAsync(account, clientId, authResult, cancellationToken).ConfigureAwait(false);
 
             return tokenInformation == null ? null : new TokenAcquisition(tokenInformation, authResult.ExpiresOn);
         }
@@ -430,24 +444,24 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
         }
     }
 
-    private async Task<TokenInformationEx> GetValidatedTokenInformationAsync(MailAccount account, AuthenticationResult authResult, CancellationToken cancellationToken)
+    private async Task<TokenInformationEx> GetValidatedTokenInformationAsync(MailAccount account, string clientId, AuthenticationResult authResult, CancellationToken cancellationToken)
     {
         if (account == null)
-            return new TokenInformationEx(authResult.AccessToken, authResult.Account.Username, authResult.Account.Username);
+            return new TokenInformationEx(authResult.AccessToken, authResult.Account.Username, authResult.Account.Username, clientId);
 
         var authenticationAddress = GetAuthenticationAddress(account);
 
         if (AddressesMatch(authResult.Account.Username, authenticationAddress) ||
             AddressesMatch(authResult.Account.Username, account.Address))
         {
-            return new TokenInformationEx(authResult.AccessToken, account.Address, authResult.Account.Username);
+            return new TokenInformationEx(authResult.AccessToken, account.Address, authResult.Account.Username, clientId);
         }
 
         var mailboxAddress = await ResolveMailboxAddressAsync(authResult.AccessToken, authResult.Account.Username, cancellationToken)
             .ConfigureAwait(false);
 
         return AddressesMatch(mailboxAddress, account.Address)
-            ? new TokenInformationEx(authResult.AccessToken, mailboxAddress, authResult.Account.Username)
+            ? new TokenInformationEx(authResult.AccessToken, mailboxAddress, authResult.Account.Username, clientId)
             : null;
     }
 
