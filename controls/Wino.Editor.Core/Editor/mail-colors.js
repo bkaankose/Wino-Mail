@@ -6,8 +6,9 @@
 // - text is changed only when it no longer has readable contrast on its final background;
 // - blocks that paint a background image or gradient are left completely untouched,
 //   because the image determines the contrast of the text drawn over it;
-// - images whose surroundings were darkened keep their original backdrop, so transparent
-//   logos drawn in dark ink stay visible (the same trade-off Outlook makes).
+// - transparent images keep their original backdrop only when most of their ink would be
+//   illegible on the darkened surroundings. Images whose pixels cannot be read (remote
+//   images taint the canvas) are left as sent, as Apple Mail and Gmail do.
 // The engine only computes overrides. Callers decide how to apply and remove them.
 (function () {
     "use strict";
@@ -20,8 +21,13 @@
         "STYLE", "SCRIPT", "TEMPLATE", "HEAD", "META", "TITLE", "SOURCE", "TRACK"
     ]);
     const maximumDecorativeBackdropCoverage = 0.5;
+    const imageSampleSize = 64;
+    const minimumTransparentShare = 0.1;
+    const minimumInkContrast = 3;
+    const maximumIllegibleInkShare = 0.5;
     const parsedColors = new Map();
     const backdropSizes = new Map();
+    const imageInks = new Map();
     let probeContext = null;
 
     function clamp(value, minimum, maximum) {
@@ -256,6 +262,57 @@
         return covered / (bounds.width * bounds.height) < maximumDecorativeBackdropCoverage;
     }
 
+    // Returns { transparentShare, inks: [{ luminance, weight }] }, or null when the canvas is
+    // tainted by a cross-origin image.
+    function sampleImageInk(image) {
+        const source = image.currentSrc;
+        if (imageInks.has(source)) return imageInks.get(source);
+        let sample = null;
+        try {
+            const scale = Math.min(1, imageSampleSize / Math.max(image.naturalWidth, image.naturalHeight));
+            const width = Math.max(1, Math.round(image.naturalWidth * scale));
+            const height = Math.max(1, Math.round(image.naturalHeight * scale));
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            const context = canvas.getContext("2d", { willReadFrequently: true });
+            context.drawImage(image, 0, 0, width, height);
+            const pixels = context.getImageData(0, 0, width, height).data;
+            let transparent = 0;
+            const inks = [];
+            for (let index = 0; index < pixels.length; index += 4) {
+                const alpha = pixels[index + 3];
+                if (alpha < 128) transparent += 1;
+                if (alpha >= 32) {
+                    inks.push({
+                        luminance: luminance({ r: pixels[index], g: pixels[index + 1], b: pixels[index + 2] }),
+                        weight: alpha / 255
+                    });
+                }
+            }
+            sample = { transparentShare: transparent / (width * height), inks };
+        } catch (_) {
+            sample = null;
+        }
+        imageInks.set(source, sample);
+        return sample;
+    }
+
+    function hasIllegibleInk(image, background) {
+        const sample = sampleImageInk(image);
+        if (!sample || sample.transparentShare < minimumTransparentShare || !sample.inks.length) return false;
+        const backgroundLuminance = luminance(background);
+        let total = 0;
+        let illegible = 0;
+        for (const ink of sample.inks) {
+            const ratio = (Math.max(ink.luminance, backgroundLuminance) + 0.05) /
+                (Math.min(ink.luminance, backgroundLuminance) + 0.05);
+            total += ink.weight;
+            if (ratio < minimumInkContrast) illegible += ink.weight;
+        }
+        return illegible / total > maximumIllegibleInkShare;
+    }
+
     function paintsBackdrop(element, style) {
         return !!style.backgroundImage && style.backgroundImage !== "none" &&
             !isDecorativeBackdrop(element, style);
@@ -282,6 +339,7 @@
             const style = getComputedStyle(image);
             const own = parseColor(style.backgroundColor);
             if (style.display === "none" || (own && own.a > 0)) return;
+            if (!hasIllegibleInk(image, background)) return;
             overrides.push({ element: image, property: "background-color", value: serialize(originalBackground) });
         }
 
@@ -370,7 +428,10 @@
 
     window.WinoMailColors = {
         computeDarkOverrides,
-        resetBackdropCache() { backdropSizes.clear(); },
+        resetBackdropCache() {
+            backdropSizes.clear();
+            imageInks.clear();
+        },
         lightSurfaceCoverage,
         parseColor,
         contrast
