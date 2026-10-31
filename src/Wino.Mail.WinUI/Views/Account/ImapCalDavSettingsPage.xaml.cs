@@ -7,6 +7,8 @@ public sealed partial class ImapCalDavSettingsPage : ImapCalDavSettingsPageAbstr
     public ImapCalDavSettingsPage()
     {
         InitializeComponent();
+
+        ViewModel.IsSecureSignInSupportedByHost = true;
     }
 
     public double GetContentMaxWidth(bool isSignInStepVisible) => isSignInStepVisible ? 440 : 1000;

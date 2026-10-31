@@ -39,6 +39,7 @@ public class AccountService : BaseDatabaseService, IAccountService
     private readonly ICardDavSynchronizationStore _cardDavSynchronizationStore;
     private readonly IDavCredentialStore _davCredentialStore;
     private readonly Func<IPushRelayRegistrationService> _pushRelay;
+    private readonly Func<IOAuthTokenService> _oauthTokenService;
 
     private readonly ILogger _logger = Log.ForContext<AccountService>();
 
@@ -54,7 +55,8 @@ public class AccountService : BaseDatabaseService, IAccountService
                           IMailIntelligenceStore localIntelligenceStore = null,
                           ICardDavSynchronizationStore cardDavSynchronizationStore = null,
                           IDavCredentialStore davCredentialStore = null,
-                          Func<IPushRelayRegistrationService> pushRelay = null) : base(databaseService)
+                          Func<IPushRelayRegistrationService> pushRelay = null,
+                          Func<IOAuthTokenService> oauthTokenService = null) : base(databaseService)
     {
         _signatureService = signatureService;
         _authenticationProvider = authenticationProvider;
@@ -68,6 +70,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         _cardDavSynchronizationStore = cardDavSynchronizationStore;
         _davCredentialStore = davCredentialStore;
         _pushRelay = pushRelay;
+        _oauthTokenService = oauthTokenService;
     }
 
 
@@ -477,8 +480,18 @@ public class AccountService : BaseDatabaseService, IAccountService
             }
         }
 
+        AccountOAuthProfile oauthProfileToSignOut = null;
+        var signOutOAuth = false;
+
         if (account.ProviderType.IsCustomMailProvider())
         {
+            if (UsesOAuth(account.ServerInformation ?? await ReadServerInformationMetadataAsync(account.Id).ConfigureAwait(false)))
+            {
+                signOutOAuth = true;
+                oauthProfileToSignOut = await Connection.FindAsync<AccountOAuthProfile>(account.Id).ConfigureAwait(false);
+                await Connection.DeleteAsync<AccountOAuthProfile>(account.Id).ConfigureAwait(false);
+            }
+
             await Connection.Table<CustomServerInformation>().DeleteAsync(a => a.AccountId == account.Id);
             await Connection.Table<Pop3PendingServerDeletion>().DeleteAsync(a => a.AccountId == account.Id);
             await Connection.Table<Pop3RemoteMessageState>().DeleteAsync(a => a.AccountId == account.Id);
@@ -491,6 +504,8 @@ public class AccountService : BaseDatabaseService, IAccountService
         await Connection.DeleteAsync<MailAccount>(account.Id);
         await _credentialPersistence.DeleteMailAccountSecretsAsync(account.Id).ConfigureAwait(false);
         await DeleteProviderTokenAsync(account).ConfigureAwait(false);
+        if (signOutOAuth)
+            await SignOutOAuthAsync(account.Id, oauthProfileToSignOut).ConfigureAwait(false);
         if (_davCredentialStore is not null)
             await _davCredentialStore.DeleteAsync(account.Id).ConfigureAwait(false);
 
@@ -557,6 +572,14 @@ public class AccountService : BaseDatabaseService, IAccountService
         {
             var serverInformation = await ReadServerInformationMetadataAsync(account.Id).ConfigureAwait(false);
 
+            // The OAuth profile stays so "Sign in again" can rerun the browser sign-in with it.
+            if (UsesOAuth(serverInformation))
+            {
+                var tokenService = _oauthTokenService?.Invoke()
+                    ?? throw new InvalidOperationException("OAuth tokens cannot be deleted because no OAuth token service is registered.");
+                await tokenService.DeleteTokensAsync(account.Id).ConfigureAwait(false);
+            }
+
             if (serverInformation is not null)
             {
                 serverInformation.IncomingServerPassword = string.Empty;
@@ -571,6 +594,41 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         account.AttentionReason = AccountAttentionReason.InvalidCredentials;
         await UpdateAccountAsync(account).ConfigureAwait(false);
+    }
+
+    private static bool UsesOAuth(CustomServerInformation serverInformation)
+        => serverInformation is not null &&
+           (serverInformation.IncomingAuthenticationMethod == ImapAuthenticationMethod.OAuth2 ||
+            serverInformation.OutgoingAuthenticationMethod == ImapAuthenticationMethod.OAuth2);
+
+    private async Task SignOutOAuthAsync(Guid accountId, AccountOAuthProfile profile)
+    {
+        var tokenService = _oauthTokenService?.Invoke();
+        if (tokenService is null)
+        {
+            _logger.Warning("No OAuth token service is registered; OAuth tokens of account {AccountId} were not deleted.", accountId);
+            return;
+        }
+
+        try
+        {
+            // Revocation is a network call; it must never hold account removal for long.
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            await tokenService.SignOutAsync(accountId, profile, timeout.Token).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to sign out the OAuth grant of account {AccountId}. Continuing account deletion.", accountId);
+
+            try
+            {
+                await tokenService.DeleteTokensAsync(accountId).ConfigureAwait(false);
+            }
+            catch (Exception deleteException)
+            {
+                _logger.Warning(deleteException, "Failed to delete the OAuth tokens of account {AccountId}.", accountId);
+            }
+        }
     }
 
     private async Task DeleteProviderTokenAsync(MailAccount account)

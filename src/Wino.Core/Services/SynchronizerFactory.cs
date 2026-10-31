@@ -46,6 +46,7 @@ public class SynchronizerFactory : ISynchronizerFactory
     private readonly ISmtpTransport _smtpTransport;
     private readonly IMimeFileService _mimeFileService;
     private readonly ICalDavSynchronizationEngine _calDavSynchronizationEngine;
+    private readonly IOAuthTokenService _oauthTokenService;
 
     private readonly ConcurrentDictionary<Guid, IWinoSynchronizerBase> _synchronizers = new();
     internal IReadOnlyDictionary<Guid, IWinoSynchronizerBase> CachedSynchronizers => _synchronizers;
@@ -84,7 +85,8 @@ public class SynchronizerFactory : ISynchronizerFactory
                                IFolderService folderService = null,
                                ISmtpTransport smtpTransport = null,
                                IMimeFileService mimeFileService = null,
-                               ICalDavSynchronizationEngine calDavSynchronizationEngine = null)
+                               ICalDavSynchronizationEngine calDavSynchronizationEngine = null,
+                               IOAuthTokenService oauthTokenService = null)
     {
         _outlookChangeProcessor = outlookChangeProcessor;
         _gmailChangeProcessor = gmailChangeProcessor;
@@ -113,6 +115,7 @@ public class SynchronizerFactory : ISynchronizerFactory
         _smtpTransport = smtpTransport;
         _mimeFileService = mimeFileService;
         _calDavSynchronizationEngine = calDavSynchronizationEngine;
+        _oauthTokenService = oauthTokenService;
     }
 
     public async Task<IWinoSynchronizerBase> GetAccountSynchronizerAsync(Guid accountId)
@@ -176,7 +179,8 @@ public class SynchronizerFactory : ISynchronizerFactory
                     _contactService,
                     _taskService,
                     _smtpTransport,
-                    _calDavSynchronizationEngine);
+                    _calDavSynchronizationEngine,
+                    _oauthTokenService);
             case Domain.Enums.MailProviderType.POP3:
                 return new Pop3Synchronizer(
                     mailAccount,

@@ -73,7 +73,7 @@
     <dict>
       <key>CFBundleURLName</key><string>com.winomail.macos.google</string>
       <key>CFBundleTypeRole</key><string>Editor</string>
-      <!-- The Wino Accounts Google iOS client (WinoAccountExternalAuth.GoogleAppleClientId), reversed. -->
+      <!-- The Wino Accounts Google iOS client (WinoAuthenticationClientIds.Google.Apple), reversed. -->
       <key>CFBundleURLSchemes</key><array><string>com.googleusercontent.apps.973025879644-qlc58h7f2gepqgu3ocvlr7mqvd3fff1c</string></array>
     </dict>
   </array>

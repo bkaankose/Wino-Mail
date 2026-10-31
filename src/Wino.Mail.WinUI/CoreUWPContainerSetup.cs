@@ -51,7 +51,7 @@ public static class CoreUWPContainerSetup
             StartupIntegration: true, Tray: true, GlobalHotkeys: true, GeneralActivation: true,
             MicrosoftStore: true, RemoteNotifications: false, KeyboardShortcuts: true, FileBackup: true, Purchases: true,
             AppModeTaskbarIdentity: true, PointerHover: true, MailListDensity: true, PresentationDetection: true,
-            ConfigurableSyncIntervals: true, BadgeLaunchNavigation: true));
+            ConfigurableSyncIntervals: true, BadgeLaunchNavigation: true, AddressFirstAccountSetup: true));
         services.AddSingleton<IPushRelayDeviceIdentityStore, WindowsPushRelayDeviceIdentityStore>();
         services.AddSingleton<IPushRelayDeviceInfo, WindowsPushRelayDeviceInfo>();
         services.AddSingleton<IPushTokenProvider, NullPushTokenProvider>();
@@ -65,6 +65,7 @@ public static class CoreUWPContainerSetup
             provider.GetRequiredService<IAuthenticatorConfig>(),
             () => provider.GetRequiredService<NativeAppService>().GetCoreWindowHwnd?.Invoke() ?? IntPtr.Zero));
         services.AddSingleton<IGoogleTokenStore, WindowsGoogleTokenStore>();
+        services.AddSingleton<IOAuthTokenStore, WindowsOAuthTokenStore>();
         services.AddSingleton<INewThemeService, NewThemeService>();
         services.AddSingleton<IStatePersistanceService, StatePersistenceService>();
         services.AddSingleton<ISmimeCertificateService, SmimeCertificateService>();
@@ -79,6 +80,10 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<WindowsExternalAuthCallbacks>();
         services.AddSingleton<IWinoAccountBrowserAuthBroker>(provider => new WindowsBrowserAuthBroker(
             provider.GetRequiredService<IExternalLauncher>(), provider.GetRequiredService<WindowsExternalAuthCallbacks>()));
+        // IMAP and SMTP OAuth sign-in: wino://auth-complete/oauth callbacks complete only this broker's wait.
+        services.AddSingleton<IOAuthBrowserBroker>(provider => new WindowsOAuthBrowserBroker(
+            provider.GetRequiredService<IExternalLauncher>(), provider.GetRequiredService<WindowsExternalAuthCallbacks>(),
+            () => provider.GetService<IExternalBrowserAuthenticationPresenter>()));
         services.AddSingleton<IWinoAccountExternalSignInService>(provider => new WinoAccountExternalSignInService(
             provider.GetRequiredService<IWinoAccountApiClient>(), provider.GetRequiredService<IWinoAccountProfileService>(),
             apple: null, google: null, provider.GetRequiredService<IWinoAccountBrowserAuthBroker>()));

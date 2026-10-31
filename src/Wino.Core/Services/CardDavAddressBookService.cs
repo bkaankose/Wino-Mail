@@ -18,10 +18,13 @@ public sealed class CardDavAddressBookService : ICardDavAddressBookService
     private readonly IDavCredentialStore _credentials;
     private readonly IAccountService _accounts;
     private readonly IContactService _contacts;
+    private readonly IDavOAuthAuthenticationProvider _oauthAuthenticationProvider;
 
     public CardDavAddressBookService(ICardDavClient client, ICardDavSynchronizationStore store,
-        IDavCredentialStore credentials, IAccountService accounts, IContactService contacts)
+        IDavCredentialStore credentials, IAccountService accounts, IContactService contacts,
+        IDavOAuthAuthenticationProvider oauthAuthenticationProvider = null)
     {
+        _oauthAuthenticationProvider = oauthAuthenticationProvider;
         _client = client;
         _store = store;
         _credentials = credentials;
@@ -89,5 +92,5 @@ public sealed class CardDavAddressBookService : ICardDavAddressBookService
     }
 
     private Task<CardDavConnectionSettings> SettingsAsync(MailAccount account, CancellationToken cancellationToken)
-        => CardDavConnection.CreateSettingsAsync(account, _credentials, _accounts, cancellationToken);
+        => CardDavConnection.CreateSettingsAsync(account, _credentials, _accounts, cancellationToken, _oauthAuthenticationProvider);
 }

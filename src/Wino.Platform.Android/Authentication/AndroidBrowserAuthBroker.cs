@@ -25,7 +25,7 @@ public sealed class AndroidBrowserAuthBroker(Context context, IDispatcher dispat
         var wait = callbacks.WaitAsync(cancellationToken);
         try
         {
-            await dispatcher.ExecuteOnUIThread(() => Launch(authorizationUri)).ConfigureAwait(false);
+            await dispatcher.ExecuteOnUIThread(() => LaunchCustomTab(currentActivity, authorizationUri)).ConfigureAwait(false);
         }
         catch
         {
@@ -36,7 +36,8 @@ public sealed class AndroidBrowserAuthBroker(Context context, IDispatcher dispat
         return await wait.ConfigureAwait(false);
     }
 
-    private void Launch(Uri authorizationUri)
+    /// <summary>Opens <paramref name="authorizationUri"/> in a Custom Tab, or any browser without a Custom Tabs provider. UI thread only.</summary>
+    internal static void LaunchCustomTab(Func<Activity?> currentActivity, Uri authorizationUri)
     {
         var nativeUri = AndroidUri.Parse(authorizationUri.AbsoluteUri)
             ?? throw new InvalidOperationException("The sign-in address is not a valid URL.");

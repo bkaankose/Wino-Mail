@@ -554,7 +554,16 @@ public class ImapClientPool : IDisposable, IAsyncDisposable
                 _customServerInformation.IncomingServerUsername,
                 _customServerInformation.IncomingServerPassword);
 
-            if (correctedPolicy && authMethod is ImapAuthenticationMethod.NormalPassword or ImapAuthenticationMethod.Auto)
+            if (authMethod == ImapAuthenticationMethod.OAuth2)
+            {
+                await MailKitOAuthAuthenticator.AuthenticateAsync(
+                    client,
+                    _customServerInformation.IncomingServerUsername,
+                    ImapClientPoolOptions.OAuthTokenService,
+                    ImapClientPoolOptions.OAuthTokenKey,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            else if (correctedPolicy && authMethod is ImapAuthenticationMethod.NormalPassword or ImapAuthenticationMethod.Auto)
             {
                 client.AuthenticationMechanisms.Remove("XOAUTH2");
                 client.AuthenticationMechanisms.Remove("OAUTHBEARER");
@@ -690,7 +699,9 @@ public class ImapClientPool : IDisposable, IAsyncDisposable
     {
         ImapConnectionSecurity.Auto => SecureSocketOptions.Auto,
         ImapConnectionSecurity.None => SecureSocketOptions.None,
-        ImapConnectionSecurity.StartTls => _customServerInformation.ConnectionPolicyVersion == ImapConnectionPolicyVersion.Corrected
+        // OAuth2 accounts always use the corrected policy so a bearer token is never sent before STARTTLS.
+        ImapConnectionSecurity.StartTls => _customServerInformation.ConnectionPolicyVersion == ImapConnectionPolicyVersion.Corrected ||
+                                           _customServerInformation.IncomingAuthenticationMethod == ImapAuthenticationMethod.OAuth2
             ? SecureSocketOptions.StartTls
             : SecureSocketOptions.StartTlsWhenAvailable,
         ImapConnectionSecurity.SslTls => SecureSocketOptions.SslOnConnect,

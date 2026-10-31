@@ -89,6 +89,7 @@ public static class NavigationRouteTable
         new(WinoPage.WelcomeHostPage, typeof(WelcomeHostPage), null, NavigationReferenceFrame.ShellFrame, RouteKind.Standalone),
         Wizard(WinoPage.WelcomePageV2, typeof(WelcomePageV2)),
         Wizard(WinoPage.ProviderSelectionPage, typeof(ProviderSelectionPage)),
+        Wizard(WinoPage.AccountSetupPage, typeof(AccountSetupPage)),
         Wizard(WinoPage.AccountSetupProgressPage, typeof(AccountSetupProgressPage)),
         Wizard(WinoPage.SpecialImapCredentialsPage, typeof(SpecialImapCredentialsPage))
     ];

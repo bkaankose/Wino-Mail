@@ -1086,7 +1086,20 @@
       "calDavServiceUrl": "https://caldav.yandex.ru/",
       "cardDavServiceUrl": "https://carddav.yandex.ru/",
       "appPasswordHelpUrl": "https://yandex.com/support/id/authorization/app-passwords.html",
-      "folderAliases": []
+      "folderAliases": [],
+      "oAuth": {
+        "issuer": "https://oauth.yandex.com",
+        "authorizationEndpoint": "https://oauth.yandex.com/authorize",
+        "tokenEndpoint": "https://oauth.yandex.com/token",
+        "clientId": "40b203dafd7747ad87e167b97a2cf733",
+        "scopes": "mail:imap_full mail:smtp",
+        "redirectKind": "Loopback",
+        "loopbackPort": 47321,
+        "saslMechanism": "XOAuth2",
+        "calendarScope": "calendar:all",
+        "contactsScope": "addressbook:all",
+        "davAuthorizationScheme": "OAuth"
+      }
     },
     {
       "id": "zoho",

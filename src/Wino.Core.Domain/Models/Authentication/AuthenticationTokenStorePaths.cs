@@ -10,6 +10,7 @@ public static class AuthenticationTokenStorePaths
 {
     public const string OutlookTokenCacheFileName = "OutlookCache.bin";
     public const string GmailTokenStoreFolderName = "WinoMailGmailTokenStore";
+    public const string OAuthTokenStoreFolderName = "WinoMailOAuthTokenStore";
     public const string LegacyGoogleTokenFilePrefix = "Google.Apis.Auth.OAuth2.Responses.TokenResponse-";
 
     public static string GetOutlookTokenCachePath(IApplicationConfiguration configuration)
@@ -23,6 +24,9 @@ public static class AuthenticationTokenStorePaths
 
     public static string GetGmailTokenPath(IApplicationConfiguration configuration, Guid accountId)
         => Path.Combine(GetGmailTokenStorePath(configuration), $"{accountId:N}.json");
+
+    public static string GetOAuthTokenStorePath(IApplicationConfiguration configuration)
+        => Path.Combine(GetLocalStatePath(configuration), OAuthTokenStoreFolderName);
 
     public static string GetLegacyPublisherGmailTokenStorePath(IApplicationConfiguration configuration)
         => Path.Combine(configuration.PublisherSharedFolderPath, GmailTokenStoreFolderName);

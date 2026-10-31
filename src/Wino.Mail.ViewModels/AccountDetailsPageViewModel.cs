@@ -934,6 +934,16 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
                         Translator.ImapAuthenticationMethod_EncryptedPassword));
                 }
 
+                // Without the entry an OAuth account would read as Auto and be saved back as a password account.
+                if ((ServerInformation.IncomingAuthenticationMethod == ImapAuthenticationMethod.OAuth2 ||
+                     ServerInformation.OutgoingAuthenticationMethod == ImapAuthenticationMethod.OAuth2) &&
+                    AvailableAuthenticationMethods.All(item => item.ImapAuthenticationMethod != ImapAuthenticationMethod.OAuth2))
+                {
+                    AvailableAuthenticationMethods.Add(new ImapAuthenticationMethodModel(
+                        ImapAuthenticationMethod.OAuth2,
+                        Translator.ImapAuthenticationMethod_OAuth2));
+                }
+
                 SelectedIncomingServerAuthenticationMethodIndex = AvailableAuthenticationMethods
                     .Select((item, index) => (item, index))
                     .FirstOrDefault(pair => pair.item.ImapAuthenticationMethod == ServerInformation.IncomingAuthenticationMethod).index;

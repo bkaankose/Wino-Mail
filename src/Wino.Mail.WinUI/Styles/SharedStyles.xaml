@@ -15,6 +15,18 @@
         <Setter Property="MinHeight" Value="0" />
     </Style>
 
+    <!--
+        Sign in with Microsoft or Google: a standard button stretched to its column with the provider mark and text
+        centred, as the brand guidelines ask. The Wino Account dialogs and account setup share it.
+    -->
+    <Style
+        x:Key="SocialSignInButtonStyle"
+        BasedOn="{StaticResource DefaultButtonStyle}"
+        TargetType="Button">
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+
     <!--  Horizontally Stretched List View Item Container Style  -->
     <Style x:Key="StretchedItemContainerStyle" TargetType="ListViewItem">
         <Setter Property="FontFamily" Value="{ThemeResource ContentControlThemeFontFamily}" />

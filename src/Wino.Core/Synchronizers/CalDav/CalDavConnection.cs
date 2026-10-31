@@ -6,7 +6,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Serilog;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Authorization;
 using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Core.Synchronizers.CalDav;
@@ -129,10 +131,15 @@ internal static class CalDavConnection
     public static async Task<CalDavConnectionSettings> CreateRequiredSettingsAsync(
         MailAccount account,
         IAutoDiscoveryService autoDiscoveryService,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IDavOAuthAuthenticationProvider? oauthAuthenticationProvider = null)
     {
         var serviceUri = await ResolveServiceUriAsync(account, autoDiscoveryService, cancellationToken).ConfigureAwait(false)
                          ?? throw new InvalidOperationException("Cannot execute CalDAV operation because no CalDAV service URI is configured.");
+
+        var bearerSettings = await TryCreateBearerSettingsAsync(account, serviceUri, oauthAuthenticationProvider, cancellationToken).ConfigureAwait(false);
+        if (bearerSettings != null)
+            return bearerSettings;
 
         var username = ResolveUsername(account);
         var password = ResolvePassword(account);
@@ -146,6 +153,32 @@ internal static class CalDavConnection
             Username = username,
             Password = password
         };
+    }
+
+    /// <summary>
+    /// Settings that send the account's OAuth token, or null when <see cref="DavOAuthRule"/> keeps CalDAV on its password.
+    /// </summary>
+    public static async Task<CalDavConnectionSettings?> TryCreateBearerSettingsAsync(
+        MailAccount account,
+        Uri serviceUri,
+        IDavOAuthAuthenticationProvider? oauthAuthenticationProvider,
+        CancellationToken cancellationToken)
+    {
+        if (oauthAuthenticationProvider == null || account.ServerInformation?.IncomingAuthenticationMethod != ImapAuthenticationMethod.OAuth2)
+            return null;
+
+        var authentication = await oauthAuthenticationProvider
+            .TryCreateForAccountAsync(account.Id, account.ServerInformation, DavServiceKind.CalDav, serviceUri, cancellationToken)
+            .ConfigureAwait(false);
+
+        return authentication == null
+            ? null
+            : new CalDavConnectionSettings
+            {
+                ServiceUri = serviceUri,
+                Username = ResolveUsername(account),
+                Authentication = authentication
+            };
     }
 
     public static async Task<IDisposable> LockCalendarAsync(Guid calendarId, CancellationToken cancellationToken)

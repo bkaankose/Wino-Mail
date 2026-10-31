@@ -92,6 +92,24 @@ public partial class AccountCapabilitySelection : ObservableObject
     [ObservableProperty]
     public partial string MailDescription { get; set; } = Translator.ProviderSelection_MailStepDescription;
 
+    [ObservableProperty]
+    public partial string CalendarDescription { get; set; } = Translator.ProviderSelection_CalendarStepDescription;
+
+    [ObservableProperty]
+    public partial string ContactDescription { get; set; } = Translator.ProviderSelection_ContactsStepDescription;
+
+    [ObservableProperty]
+    public partial string TaskDescription { get; set; } = Translator.ProviderSelection_TasksStepDescription;
+
+    /// <summary>
+    /// The address-first setup offers its own server-address entry for Calendar when discovery found no CalDAV service.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsCalendarManualEntryAvailable { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsContactManualEntryAvailable { get; set; }
+
     /// <summary>
     /// Shown under To Do when the provider has no task service.
     /// </summary>

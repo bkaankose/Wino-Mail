@@ -53,4 +53,10 @@ public interface IPlatformCapabilities
 
     /// <summary>The unread badge sits on a taskbar or Dock button that launches the app, so a launch can open the counted folder.</summary>
     bool BadgeLaunchNavigation { get; }
+
+    /// <summary>
+    /// Add account opens the address-first setup page instead of the provider page. Each head switches when it renders
+    /// that page; the shared entry points read this flag.
+    /// </summary>
+    bool AddressFirstAccountSetup { get; }
 }

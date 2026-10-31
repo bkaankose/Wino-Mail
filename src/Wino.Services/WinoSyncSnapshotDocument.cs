@@ -33,6 +33,13 @@ internal sealed class WinoSyncSnapshotDocument
     /// </summary>
     public List<SnapshotAccountCapabilities>? AccountCapabilities { get; set; }
     public SyncSnapshotAppearance? Appearance { get; set; }
+
+    /// <summary>
+    /// The real authentication methods and OAuth registration of mailboxes that sign in with OAuth2.
+    /// <see cref="Mailboxes"/> carries <c>Auto</c> for them, because older builds fall back to PLAIN for IMAP and
+    /// throw for SMTP on a method they do not know. Never holds tokens.
+    /// </summary>
+    public List<SnapshotOAuthProfile>? OAuthProfiles { get; set; }
 }
 
 internal sealed class SnapshotTemplate
@@ -128,6 +135,30 @@ internal sealed class SnapshotAccountCapabilities
     public string? OutlookClientId { get; set; }
 }
 
+internal sealed class SnapshotOAuthProfile
+{
+    public string AccountAddress { get; set; } = string.Empty;
+    public int ProviderType { get; set; }
+    public int IncomingAuthenticationMethod { get; set; }
+    public int OutgoingAuthenticationMethod { get; set; }
+    public SnapshotOAuthClientProfile? Profile { get; set; }
+}
+
+internal sealed class SnapshotOAuthClientProfile
+{
+    public string Issuer { get; set; } = string.Empty;
+    public string? AuthorizationEndpoint { get; set; }
+    public string? TokenEndpoint { get; set; }
+    public string? RevocationEndpoint { get; set; }
+    public string ClientId { get; set; } = string.Empty;
+    public string Scopes { get; set; } = string.Empty;
+    public string? Resource { get; set; }
+    public int RedirectKind { get; set; }
+    public int? LoopbackPort { get; set; }
+    public int TrustSource { get; set; }
+    public int SaslMechanism { get; set; }
+}
+
 internal sealed class SnapshotMailboxReference
 {
     public string AccountAddress { get; set; } = string.Empty;
@@ -137,4 +168,5 @@ internal sealed class SnapshotMailboxReference
 [JsonSourceGenerationOptions(PropertyNameCaseInsensitive = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(WinoSyncSnapshotDocument))]
 [JsonSerializable(typeof(List<UserMailboxSyncItemDto>))]
+[JsonSerializable(typeof(List<SnapshotOAuthProfile>))]
 internal sealed partial class WinoSyncSnapshotJsonContext : JsonSerializerContext;

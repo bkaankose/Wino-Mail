@@ -59,6 +59,9 @@ public static class ServicesContainerSetup
         services.AddTransient<IUnreadBadgeService, UnreadBadgeService>();
         services.AddTransient<IAccountService, AccountService>();
         services.AddTransient<IServerCertificateTrustService, ServerCertificateTrustService>();
+        services.AddTransient<IAccountOAuthProfileService, AccountOAuthProfileService>();
+        // Lazy and optional: AccountService must not build the OAuth token graph, and heads without it still resolve.
+        services.AddSingleton<Func<IOAuthTokenService>>(provider => () => provider.GetService<IOAuthTokenService>());
         services.AddTransient<IContactService, ContactService>();
         services.AddTransient<IContactQueryService>(provider => provider.GetRequiredService<IContactService>());
         services.AddTransient<IRecipientHistoryService, RecipientHistoryService>();
@@ -111,6 +114,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<IDavMultistatusReader, DavMultistatusReader>();
         services.AddSingleton<IDavResponseHandler, DavResponseHandler>();
         services.AddSingleton<IDavCredentialStore, DavCredentialStore>();
+        services.AddTransient<IDavOAuthAuthenticationProvider, DavOAuthAuthenticationProvider>();
         services.AddSingleton<IVCardCodec, VCardCodec>();
         services.AddTransient<ICardDavSynchronizationStore, CardDavSynchronizationStore>();
         services.AddTransient<ICardDavClient, CardDavClient>();

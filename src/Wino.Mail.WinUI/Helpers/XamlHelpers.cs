@@ -507,18 +507,6 @@ public static class XamlHelpers
     public static FontWeight GetFontWeightBySyncState(bool isSyncing) => isSyncing ? FontWeights.SemiBold : FontWeights.Normal;
 
     [DynamicWindowsRuntimeCast(typeof(Brush))]
-    public static Brush GetWizardStepBadgeBrush(bool isActive)
-        => isActive
-            ? (Brush)Application.Current.Resources["AccentFillColorDefaultBrush"]
-            : new SolidColorBrush(Color.FromArgb(30, 128, 128, 128));
-
-    [DynamicWindowsRuntimeCast(typeof(Brush))]
-    public static Brush GetWizardStepNumberForeground(bool isActive)
-        => isActive
-            ? new SolidColorBrush(Colors.White)
-            : (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
-
-    [DynamicWindowsRuntimeCast(typeof(Brush))]
     public static Brush GetChoiceCardBorderBrush(bool isSelected)
         => (Brush)Application.Current.Resources[isSelected
             ? "AccentFillColorDefaultBrush"

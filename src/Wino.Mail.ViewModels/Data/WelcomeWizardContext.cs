@@ -83,6 +83,12 @@ public partial class WelcomeWizardContext : ObservableObject
 
     public bool IsGenericCustomMail => IsGenericImap || SelectedProvider?.Type == MailProviderType.POP3;
 
+    /// <summary>
+    /// A listed provider set up with the app password typed on its credentials page. One with secure sign-in goes
+    /// through the IMAP page instead, which leaves its result here.
+    /// </summary>
+    public bool IsSpecialImapProviderWithAppPassword => IsSpecialImapProvider && ImapCalDavSetupResult == null;
+
     public SpecialImapProviderDetails BuildSpecialImapProviderDetails()
     {
         if (!IsSpecialImapProvider) return null;

@@ -301,6 +301,7 @@ VALUES
             Connection.CreateTableAsync<AccountTaskStep>(),
             Connection.CreateTableAsync<CustomServerInformation>(),
             Connection.CreateTableAsync<MailServerCertificateTrust>(),
+            Connection.CreateTableAsync<AccountOAuthProfile>(),
             Connection.CreateTableAsync<AccountSignature>(),
             Connection.CreateTableAsync<EmailTemplate>(),
             Connection.CreateTableAsync<MergedInbox>(),

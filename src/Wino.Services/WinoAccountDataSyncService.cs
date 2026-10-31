@@ -18,6 +18,7 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Mail.Api.Contracts.Users;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.UI;
+using Wino.Core.Domain.Models.Authentication;
 
 namespace Wino.Services;
 
@@ -43,6 +44,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
     private readonly INewThemeService? _themeService;
     private readonly IStatePersistanceService? _stateService;
     private readonly IKnownImapProviderCatalog? _providerCatalog;
+    private readonly IAccountOAuthProfileService? _oauthProfileService;
     private readonly ILogger _logger = Log.ForContext<WinoAccountDataSyncService>();
 
     public WinoAccountDataSyncService(
@@ -58,7 +60,8 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         IMailCategoryService? categoryService = null,
         INewThemeService? themeService = null,
         IStatePersistanceService? stateService = null,
-        IKnownImapProviderCatalog? providerCatalog = null)
+        IKnownImapProviderCatalog? providerCatalog = null,
+        IAccountOAuthProfileService? oauthProfileService = null)
     {
         _profileService = profileService;
         _preferencesService = preferencesService;
@@ -73,6 +76,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         _themeService = themeService;
         _stateService = stateService;
         _providerCatalog = providerCatalog;
+        _oauthProfileService = oauthProfileService;
     }
 
     public async Task<WinoAccountSyncExportResult> ExportAsync(WinoAccountSyncSelection selection, SyncSnapshotSecretPrompt? secretPrompt = null, CancellationToken cancellationToken = default)
@@ -310,6 +314,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             document.Aliases = await ExportAliasesAsync(accounts).ConfigureAwait(false);
             document.MergedInboxes = ExportMergedInboxes(accounts);
             document.AccountCapabilities = ExportAccountCapabilities(accounts);
+            document.OAuthProfiles = await ExportOAuthProfilesAsync(accounts).ConfigureAwait(false);
 
             exportedAppDataCount += (document.Filters?.Count ?? 0) + (document.Categories?.Count ?? 0)
                 + (document.Aliases?.Count ?? 0) + (document.MergedInboxes?.Count ?? 0);
@@ -449,6 +454,56 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             })
             .ToList();
 
+    /// <summary>Null when no mailbox uses OAuth2, so password-only snapshots stay exactly as before.</summary>
+    private async Task<List<SnapshotOAuthProfile>?> ExportOAuthProfilesAsync(List<MailAccount> accounts)
+    {
+        List<SnapshotOAuthProfile>? profiles = null;
+
+        foreach (var account in accounts)
+        {
+            var serverInformation = account.ProviderType == MailProviderType.IMAP4 ? account.ServerInformation : null;
+            if (serverInformation == null || !UsesOAuth(serverInformation.IncomingAuthenticationMethod, serverInformation.OutgoingAuthenticationMethod))
+                continue;
+
+            var profile = _oauthProfileService == null
+                ? null
+                : await _oauthProfileService.GetAsync(account.Id).ConfigureAwait(false);
+
+            profiles ??= [];
+            profiles.Add(new SnapshotOAuthProfile
+            {
+                AccountAddress = account.Address ?? string.Empty,
+                ProviderType = (int)account.ProviderType,
+                IncomingAuthenticationMethod = (int)serverInformation.IncomingAuthenticationMethod,
+                OutgoingAuthenticationMethod = (int)serverInformation.OutgoingAuthenticationMethod,
+                Profile = profile == null
+                    ? null
+                    : new SnapshotOAuthClientProfile
+                    {
+                        Issuer = profile.Issuer,
+                        AuthorizationEndpoint = profile.AuthorizationEndpoint,
+                        TokenEndpoint = profile.TokenEndpoint,
+                        RevocationEndpoint = profile.RevocationEndpoint,
+                        ClientId = profile.ClientId,
+                        Scopes = profile.Scopes,
+                        Resource = profile.Resource,
+                        RedirectKind = (int)profile.RedirectKind,
+                        LoopbackPort = profile.LoopbackPort,
+                        TrustSource = (int)profile.TrustSource,
+                        SaslMechanism = (int)profile.SaslMechanism
+                    }
+            });
+        }
+
+        return profiles;
+    }
+
+    private static bool UsesOAuth(ImapAuthenticationMethod incoming, ImapAuthenticationMethod outgoing)
+        => incoming == ImapAuthenticationMethod.OAuth2 || outgoing == ImapAuthenticationMethod.OAuth2;
+
+    private static ImapAuthenticationMethod ToSnapshotMailboxMethod(ImapAuthenticationMethod method)
+        => method == ImapAuthenticationMethod.OAuth2 ? ImapAuthenticationMethod.Auto : method;
+
     private async Task<List<SnapshotAlias>> ExportAliasesAsync(List<MailAccount> accounts)
     {
         var aliases = new List<SnapshotAlias>();
@@ -533,6 +588,10 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                 .GroupBy(a => CreateMailboxKey(a.AccountAddress, a.ProviderType), StringComparer.Ordinal)
                 .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
 
+            var oauthProfilesByKey = (document.OAuthProfiles ?? [])
+                .GroupBy(a => CreateMailboxKey(a.AccountAddress, a.ProviderType), StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
+
             foreach (var mailbox in orderedMailboxes)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -547,8 +606,16 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                 var capabilities = capabilitiesByKey.GetValueOrDefault(mailboxKey);
                 var account = CreateImportedAccount(mailbox, capabilities);
                 var serverInformation = CreateImportedServerInformation(mailbox, account, capabilities);
+                var oauthProfile = serverInformation == null
+                    ? null
+                    : ApplyImportedOAuthProfile(serverInformation, account, oauthProfilesByKey.GetValueOrDefault(mailboxKey));
 
                 await _accountService.CreateAccountAsync(account, serverInformation).ConfigureAwait(false);
+
+                if (oauthProfile != null && _oauthProfileService != null)
+                {
+                    await _oauthProfileService.SaveAsync(oauthProfile).ConfigureAwait(false);
+                }
 
                 if (account.IsMailAccessGranted)
                 {
@@ -1144,12 +1211,12 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             IncomingServerPort = serverInformation?.IncomingServerPort,
             IncomingServerUsername = serverInformation?.IncomingServerUsername,
             IncomingServerSocketOption = serverInformation != null ? (int?)serverInformation.IncomingServerSocketOption : null,
-            IncomingAuthenticationMethod = serverInformation != null ? (int?)serverInformation.IncomingAuthenticationMethod : null,
+            IncomingAuthenticationMethod = serverInformation != null ? (int?)ToSnapshotMailboxMethod(serverInformation.IncomingAuthenticationMethod) : null,
             OutgoingServer = serverInformation?.OutgoingServer,
             OutgoingServerPort = serverInformation?.OutgoingServerPort,
             OutgoingServerUsername = serverInformation?.OutgoingServerUsername,
             OutgoingServerSocketOption = serverInformation != null ? (int?)serverInformation.OutgoingServerSocketOption : null,
-            OutgoingAuthenticationMethod = serverInformation != null ? (int?)serverInformation.OutgoingAuthenticationMethod : null,
+            OutgoingAuthenticationMethod = serverInformation != null ? (int?)ToSnapshotMailboxMethod(serverInformation.OutgoingAuthenticationMethod) : null,
             CalDavServiceUrl = serverInformation?.CalDavServiceUrl,
             CalDavUsername = serverInformation?.CalDavUsername,
             ProxyServer = serverInformation?.ProxyServer,
@@ -1270,9 +1337,9 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         account.IsTaskReauthorizationRequired = isRemoteTasks && isOAuthProvider;
 
         if (account.ProviderType == MailProviderType.Outlook
-            && string.Equals(capabilities.OutlookClientId, OutlookClientIds.Current, StringComparison.OrdinalIgnoreCase))
+            && string.Equals(capabilities.OutlookClientId, WinoAuthenticationClientIds.Outlook.Current, StringComparison.OrdinalIgnoreCase))
         {
-            account.OutlookClientId = OutlookClientIds.Current;
+            account.OutlookClientId = WinoAuthenticationClientIds.Outlook.Current;
         }
     }
 
@@ -1345,6 +1412,56 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             ConnectionPolicyVersion = ImapConnectionPolicyVersion.Legacy
         };
     }
+
+    /// <summary>
+    /// Restores OAuth2 on an imported IMAP mailbox from the snapshot's OAuth section and returns the profile to store.
+    /// Without a usable profile the mailbox keeps the methods from <see cref="WinoSyncSnapshotDocument.Mailboxes"/>
+    /// and asks for a password, as older builds do. Either way it waits for the user to sign in again.
+    /// </summary>
+    private AccountOAuthProfile? ApplyImportedOAuthProfile(CustomServerInformation serverInformation, MailAccount account, SnapshotOAuthProfile? snapshot)
+    {
+        if (_oauthProfileService == null
+            || snapshot?.Profile is not { } snapshotProfile
+            || account.ProviderType != MailProviderType.IMAP4
+            || string.IsNullOrWhiteSpace(snapshotProfile.Issuer)
+            || string.IsNullOrWhiteSpace(snapshotProfile.ClientId))
+        {
+            return null;
+        }
+
+        var incoming = ToKnownMethod(snapshot.IncomingAuthenticationMethod, serverInformation.IncomingAuthenticationMethod);
+        var outgoing = ToKnownMethod(snapshot.OutgoingAuthenticationMethod, serverInformation.OutgoingAuthenticationMethod);
+        if (!UsesOAuth(incoming, outgoing)
+            || !Enum.IsDefined((OAuthRedirectKind)snapshotProfile.RedirectKind)
+            || !Enum.IsDefined((OAuthTrustSource)snapshotProfile.TrustSource)
+            || !Enum.IsDefined((OAuthSaslMechanism)snapshotProfile.SaslMechanism))
+        {
+            return null;
+        }
+
+        serverInformation.IncomingAuthenticationMethod = incoming;
+        serverInformation.OutgoingAuthenticationMethod = outgoing;
+        serverInformation.ConnectionPolicyVersion = ImapConnectionPolicyVersion.Corrected;
+
+        return new AccountOAuthProfile
+        {
+            AccountId = account.Id,
+            Issuer = snapshotProfile.Issuer.Trim(),
+            AuthorizationEndpoint = snapshotProfile.AuthorizationEndpoint,
+            TokenEndpoint = snapshotProfile.TokenEndpoint,
+            RevocationEndpoint = snapshotProfile.RevocationEndpoint,
+            ClientId = snapshotProfile.ClientId.Trim(),
+            Scopes = snapshotProfile.Scopes ?? string.Empty,
+            Resource = snapshotProfile.Resource,
+            RedirectKind = (OAuthRedirectKind)snapshotProfile.RedirectKind,
+            LoopbackPort = snapshotProfile.LoopbackPort,
+            TrustSource = (OAuthTrustSource)snapshotProfile.TrustSource,
+            SaslMechanism = (OAuthSaslMechanism)snapshotProfile.SaslMechanism
+        };
+    }
+
+    private static ImapAuthenticationMethod ToKnownMethod(int value, ImapAuthenticationMethod fallback)
+        => Enum.IsDefined((ImapAuthenticationMethod)value) ? (ImapAuthenticationMethod)value : fallback;
 
     private async Task RepairStartupEntityAsync()
     {

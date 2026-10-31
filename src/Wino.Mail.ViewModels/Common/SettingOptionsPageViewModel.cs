@@ -168,7 +168,7 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
         Messenger.Send(new BreadcrumbNavigationRequested(Translator.SettingsManageAccountSettings_Title, WinoPage.ManageAccountsPage));
         Messenger.Send(new BreadcrumbNavigationRequested(
             Translator.WelcomeWizard_Step2Title,
-            WinoPage.ProviderSelectionPage,
+            AccountSetupNavigation.GetAddAccountPage(PlatformCapabilities),
             ProviderSelectionNavigationContext.CreateForSettingsAddAccount()));
     }
 

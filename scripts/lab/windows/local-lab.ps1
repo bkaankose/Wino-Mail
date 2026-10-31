@@ -11,9 +11,9 @@ Starts, seeds, and verifies the five-server local Docker mail lab, then generate
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('up', 'status', 'provision', 'seed', 'verify', 'generate-db', 'install-app', 'stop', 'reset', 'logs', 'help')]
+    [ValidateSet('up', 'status', 'provision', 'seed', 'verify', 'generate-db', 'install-app', 'trust', 'untrust', 'stop', 'reset', 'logs', 'help')]
     [string]$Command = 'help',
-    [ValidateSet('dovecot', 'condstore', 'stalwart', 'greenmail', 'james', 'baikal', 'radicale-condstore', 'radicale-greenmail', 'radicale-james')]
+    [ValidateSet('dovecot', 'condstore', 'stalwart', 'stalwart-oauth', 'lab-pki', 'greenmail', 'james', 'baikal', 'radicale-condstore', 'radicale-greenmail', 'radicale-james')]
     [string]$Service,
     [switch]$Force
 )
@@ -23,9 +23,13 @@ $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 $composeFile = Join-Path $labRoot 'compose.yaml'
 $stateRoot = Join-Path $labRoot '.state'
 $generatedRoot = Join-Path $labRoot 'generated'
-$servers = @('dovecot', 'condstore', 'stalwart', 'greenmail', 'james', 'baikal', 'radicale-condstore', 'radicale-greenmail', 'radicale-james')
-$publishedPorts = @(1143, 1587, 4025, 2143, 2587, 3143, 3587, 8803, 4143, 4080, 5143, 5587, 5800, 8800, 8802, 8804, 8805)
+$tlsRoot = Join-Path $labRoot 'tls'
+$servers = @('dovecot', 'condstore', 'stalwart', 'stalwart-oauth', 'lab-pki', 'greenmail', 'james', 'baikal', 'radicale-condstore', 'radicale-greenmail', 'radicale-james')
+$publishedPorts = @(1143, 1587, 4025, 2143, 2587, 3143, 3587, 8803, 443, 6993, 6465, 6587, 8806, 8807, 4143, 4080, 5143, 5587, 5800, 8800, 8802, 8804, 8805)
 $packageName = '58272BurakKSE.WinoMailPreview'
+# The OAuth server's issuer is https://mail.stalwartoauth.test, so Windows must resolve the name to 127.0.0.1.
+$labHostNames = @('mail.stalwartoauth.test', 'stalwartoauth.test')
+$hostsMarker = '# wino-local-lab'
 
 function Resolve-Docker {
     if (Get-Command docker -ErrorAction SilentlyContinue) { return }
@@ -82,11 +86,84 @@ function Initialize-Lab {
     Invoke-Compose -Arguments @('run', '--rm', '--no-deps', '--entrypoint', 'bash', 'dovecot', '/lab/mail.sh')
     Invoke-Compose -Arguments @('run', '--rm', '--no-deps', '--entrypoint', 'bash', 'condstore', '/lab/mail.sh')
     Invoke-Compose -Arguments @('run', '--rm', '--no-deps', '--entrypoint', 'php', 'baikal', '/lab/dav.php')
+    # Lab CA and the Stalwart OAuth server certificate (kept in tools/local-lab/tls across reset).
+    New-Item -ItemType Directory -Path $tlsRoot -Force | Out-Null
+    Invoke-Compose -Arguments @('run', '--rm', '--no-deps', 'lab-certs')
 }
 
 function Invoke-Seed {
     param([string]$SeedCommand)
     Invoke-Compose -Arguments @('run', '--rm', '--no-deps', 'seed', $SeedCommand)
+}
+
+function Invoke-StalwartOAuth {
+    param([string[]]$Steps)
+    # Settings of Stalwart 1.0 live in its data store and are applied through the management API. Listener,
+    # hostname, and certificate changes take effect only after a restart, which the provision step reports.
+    $marker = Join-Path $stateRoot 'stalwart-oauth.restart'
+    foreach ($step in $Steps) {
+        Invoke-Compose -Arguments @('run', '--rm', '--no-deps', '--entrypoint', 'python', 'seed', '/lab/stalwart_oauth.py', $step)
+        if ($step -eq 'provision' -and (Test-Path -LiteralPath $marker)) {
+            Invoke-Compose -Arguments @('restart', 'stalwart-oauth')
+            Invoke-Compose -Arguments @('up', '-d', '--wait', '--wait-timeout', '120', 'stalwart-oauth')
+            Remove-Item -LiteralPath $marker -Force
+        }
+    }
+}
+
+function Test-Elevated {
+    $principal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Set-LabHostsEntries {
+    param([switch]$Remove)
+    $hostsPath = Join-Path $env:SystemRoot 'System32/drivers/etc/hosts'
+    $lines = @(Get-Content -LiteralPath $hostsPath -ErrorAction Stop | Where-Object { $_ -notmatch [regex]::Escape($hostsMarker) })
+    if (!$Remove) { $lines += "127.0.0.1 $($labHostNames -join ' ') $hostsMarker" }
+    if (Test-Elevated) {
+        Set-Content -LiteralPath $hostsPath -Value $lines -Encoding ascii
+    } else {
+        # Writing the hosts file needs elevation; a UAC prompt asks for it.
+        $temporary = Join-Path ([IO.Path]::GetTempPath()) 'wino-lab-hosts.txt'
+        Set-Content -LiteralPath $temporary -Value $lines -Encoding ascii
+        $copy = "Copy-Item -LiteralPath '$temporary' -Destination '$hostsPath' -Force"
+        $process = Start-Process -FilePath 'powershell.exe' -Verb RunAs -Wait -PassThru -WindowStyle Hidden `
+            -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $copy)
+        Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+        if ($process.ExitCode -ne 0) { throw "Updating $hostsPath failed or was cancelled." }
+    }
+}
+
+function Install-LabTrust {
+    $caPath = Join-Path $tlsRoot 'ca.crt'
+    if (!(Test-Path -LiteralPath $caPath)) { throw 'The lab CA is missing. Run local-lab.ps1 up first.' }
+    $ca = [Security.Cryptography.X509Certificates.X509Certificate2]::new($caPath)
+    if (!(Get-ChildItem Cert:\CurrentUser\Root | Where-Object Thumbprint -eq $ca.Thumbprint)) {
+        # Windows shows its own confirmation dialog for a new root. The CA is name-constrained to *.test,
+        # localhost, and 127.0.0.0/8, so it cannot vouch for real sites.
+        $store = [Security.Cryptography.X509Certificates.X509Store]::new('Root', 'CurrentUser')
+        try {
+            $store.Open('ReadWrite')
+            $store.Add($ca)
+        } finally { $store.Dispose() }
+    }
+    Write-Output "Lab CA trusted for the current user: $($ca.Subject) ($($ca.Thumbprint))"
+    Set-LabHostsEntries
+    Write-Output "Hosts file maps $($labHostNames -join ', ') to 127.0.0.1"
+}
+
+function Remove-LabTrust {
+    $store = [Security.Cryptography.X509Certificates.X509Store]::new('Root', 'CurrentUser')
+    try {
+        $store.Open('ReadWrite')
+        foreach ($certificate in @($store.Certificates | Where-Object Subject -like '*Wino Local Lab CA*')) {
+            $store.Remove($certificate)
+            Write-Output "Removed lab CA $($certificate.Thumbprint) from the current user's root store"
+        }
+    } finally { $store.Dispose() }
+    Set-LabHostsEntries -Remove
+    Write-Output 'Removed the lab hosts entries'
 }
 
 function Generate-Database {
@@ -105,8 +182,22 @@ function Start-Lab {
     Assert-Ports
     Initialize-Lab
     Invoke-Compose -Arguments (@('up', '-d', '--wait', '--wait-timeout', '300') + $servers)
+    Invoke-StalwartOAuth -Steps @('provision', 'seed', 'verify')
     Invoke-Seed -SeedCommand 'all'
     Generate-Database
+    if (!(Test-LabTrust)) {
+        Write-Warning 'Windows does not yet trust https://mail.stalwartoauth.test. Run local-lab.ps1 trust once (UAC prompt for the hosts file, Windows prompt for the lab CA).'
+    }
+}
+
+function Test-LabTrust {
+    $caPath = Join-Path $tlsRoot 'ca.crt'
+    if (!(Test-Path -LiteralPath $caPath)) { return $false }
+    $ca = [Security.Cryptography.X509Certificates.X509Certificate2]::new($caPath)
+    $trusted = [bool](Get-ChildItem Cert:\CurrentUser\Root | Where-Object Thumbprint -eq $ca.Thumbprint)
+    $hostsPath = Join-Path $env:SystemRoot 'System32/drivers/etc/hosts'
+    $mapped = [bool](Select-String -LiteralPath $hostsPath -SimpleMatch $hostsMarker -Quiet)
+    return $trusted -and $mapped
 }
 
 function Install-App {
@@ -164,12 +255,15 @@ Run from any directory: scripts/lab/windows/local-lab.ps1 <command>
 up             Start all servers, provision accounts, seed ~150 messages + calendars + contacts per account,
                verify capabilities and cross-server delivery, generate client artifacts.
 status         Container state, endpoint reachability, artifact paths.
-provision      Re-run account provisioning on Stalwart and James.
+provision      Re-run account provisioning on Stalwart, Stalwart OAuth (settings, certificate), and James.
 seed           Add missing fixtures to running servers; preserve existing data/edits.
 verify         Print capabilities per server and send delivery probes between every account pair.
 generate-db    Generate Wino210.db, DAV credentials, and wino-lab-backup.winosnap (password 1).
 install-app    Build/register the Debug package, replace its database with the generated one (old data is
                backed up), copy artifacts to Desktop\wino-lab, and launch Wino.
+trust          Trust the lab CA (tools/local-lab/tls/ca.crt) for the current user and map
+               mail.stalwartoauth.test to 127.0.0.1 in the hosts file (UAC prompt). Needed once for OAuth.
+untrust        Remove the lab CA and the hosts entries again.
 stop           Stop services, retain data.
 reset -Force   Delete ONLY this lab's server volumes and seed state, rebuild everything.
 logs           Recent server logs. Optional: -Service <name>
@@ -179,6 +273,8 @@ Servers (IMAP / SMTP / DAV on 127.0.0.1), password 1 everywhere:
   dovecot    alice@dovecot.test     1143 / 1587 / http://127.0.0.1:8800/dav.php/   QRESYNC
   condstore  bob@condstore.test     2143 / 2587 / http://127.0.0.1:8802/           CONDSTORE only
   stalwart   carol@stalwart.test    3143 / 3587 / http://127.0.0.1:8803/dav/       QRESYNC (IMAP4rev2)
+  stalwart-oauth  frank@stalwartoauth.test  mail.stalwartoauth.test 6993 (TLS) / 6465 (TLS), 6587 (STARTTLS)
+             OAuth issuer https://mail.stalwartoauth.test (Stalwart 1.0.1; not in Wino210.db; needs trust)
   greenmail  dave@greenmail.test    4143 / 4025 (hub, no auth) / http://127.0.0.1:8804/  UID only
   james      eve@james.test         5143 / 5587 / http://127.0.0.1:8805/           probed
 Output: tools/local-lab/generated (Wino210.db, credentials/dav, wino-lab-backup.winosnap, manifest.json).
@@ -195,12 +291,14 @@ See tools/local-lab/README.md for details.
     }
     if ($Command -eq 'generate-db') { Generate-Database; return }
     if ($Command -eq 'install-app') { Install-App; return }
+    if ($Command -eq 'trust') { Install-LabTrust; return }
+    if ($Command -eq 'untrust') { Remove-LabTrust; return }
     Assert-Docker
     switch ($Command) {
         'up' { Start-Lab }
-        'provision' { Invoke-Seed -SeedCommand 'provision' }
-        'seed' { Invoke-Seed -SeedCommand 'seed' }
-        'verify' { Invoke-Seed -SeedCommand 'verify' }
+        'provision' { Invoke-Seed -SeedCommand 'provision'; Invoke-StalwartOAuth -Steps @('provision') }
+        'seed' { Invoke-Seed -SeedCommand 'seed'; Invoke-StalwartOAuth -Steps @('seed') }
+        'verify' { Invoke-Seed -SeedCommand 'verify'; Invoke-StalwartOAuth -Steps @('verify') }
         'stop' { Invoke-Compose -Arguments (@('stop') + $servers) }
         'logs' {
             $targets = $servers

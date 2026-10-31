@@ -46,6 +46,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
     private readonly IKnownImapProviderCatalog _providerCatalog;
     private readonly IAutoDiscoveryService _autoDiscoveryService;
     private readonly IPictureStorageService _pictureStorageService;
+    private readonly IDavOAuthAuthenticationProvider _oauthAuthenticationProvider;
 
     public CardDavSynchronizationEngine(
         ICardDavClient client,
@@ -58,8 +59,10 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         ICardDavContactListService listService = null,
         IKnownImapProviderCatalog providerCatalog = null,
         IAutoDiscoveryService autoDiscoveryService = null,
-        IPictureStorageService pictureStorageService = null)
+        IPictureStorageService pictureStorageService = null,
+        IDavOAuthAuthenticationProvider oauthAuthenticationProvider = null)
     {
+        _oauthAuthenticationProvider = oauthAuthenticationProvider;
         _listService = listService;
         _client = client;
         _store = store;
@@ -86,7 +89,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         try
         {
             await RestoreKnownServiceUrlAsync(account, cancellationToken).ConfigureAwait(false);
-            var settings = await CardDavConnection.CreateSettingsAsync(account, _credentialStore, _accountService, cancellationToken).ConfigureAwait(false);
+            var settings = await CardDavConnection.CreateSettingsAsync(account, _credentialStore, _accountService, cancellationToken, _oauthAuthenticationProvider).ConfigureAwait(false);
             var legacyPassword = account.ServerInformation?.CalDavPassword;
             var discovery = await RefreshAddressBooksAsync(account, settings, cancellationToken).ConfigureAwait(false);
             var remoteBooks = discovery.AddressBooks.ToDictionary(book => book.ExactHref, StringComparer.Ordinal);
@@ -523,7 +526,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(account);
-        var settings = await CardDavConnection.CreateSettingsAsync(account, _credentialStore, _accountService, cancellationToken).ConfigureAwait(false);
+        var settings = await CardDavConnection.CreateSettingsAsync(account, _credentialStore, _accountService, cancellationToken, _oauthAuthenticationProvider).ConfigureAwait(false);
 
         foreach (var request in requests)
         {

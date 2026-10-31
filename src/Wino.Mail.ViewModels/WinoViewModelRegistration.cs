@@ -56,6 +56,7 @@ public static class WinoViewModelRegistration
         services.AddTransient<WelcomeHostPageViewModel>();
         services.AddTransient<WelcomePageV2ViewModel>();
         services.AddTransient<ProviderSelectionPageViewModel>();
+        services.AddTransient<AccountSetupPageViewModel>();
         services.AddTransient<AccountSetupProgressPageViewModel>();
         services.AddTransient<SpecialImapCredentialsPageViewModel>();
         services.AddTransient<ImapCalDavSettingsPageViewModel>();

@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Serilog.Core;
 using Wino.Authentication;
+using Wino.Authentication.OAuth;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Integration;
@@ -89,12 +90,19 @@ public static class CoreContainerSetup
         services.AddSingleton<IDraftUpdateCoordinator, DraftUpdateCoordinator>();
         services.AddTransient<IDraftSyncRetryService, DraftSyncRetryService>();
         services.AddTransient<IMailServerTestService, MailServerTestService>();
+        services.AddTransient<IImapAuthCapabilityProbe, ImapAuthCapabilityProbe>();
         services.AddTransient<IPop3ClientFactory, MailKitPop3ClientFactory>();
         services.AddTransient<ISmtpTransport, MailKitSmtpTransport>();
         services.AddTransient<IAuthenticationProvider>(provider => new AuthenticationProvider(
             () => provider.GetRequiredService<IOutlookAuthenticator>(),
             () => provider.GetRequiredService<IGmailAuthenticator>()));
+        services.AddSingleton<IDnsLookupService, DnsLookupService>();
+        services.AddSingleton<IMicrosoftUserRealmService, MicrosoftUserRealmService>();
+        services.AddSingleton<IGoogleMailboxProfileService, GoogleMailboxProfileService>();
         services.AddTransient<IAutoDiscoveryService, AutoDiscoveryService>();
+        services.AddTransient<IImapSetupResolver, ImapSetupResolver>();
+        services.AddTransient<IAccountRouteResolver, AccountRouteResolver>();
+        services.AddTransient<IAccountSetupRunner, AccountSetupRunner>();
         services.AddTransient<IUnsubscriptionService, UnsubscriptionService>();
         services.AddTransient<IOutlookAuthenticator, OutlookAuthenticator>();
         // Desktop default; a head that cannot listen on loopback registers its own receiver.
@@ -103,6 +111,7 @@ public static class CoreContainerSetup
             provider.GetRequiredService<IAuthenticatorConfig>(),
             provider.GetRequiredService<IGoogleAuthorizationCodeReceiver>(),
             provider.GetRequiredService<IGoogleTokenStore>()));
+        services.AddWinoOAuth();
 
         services.AddTransient<UnifiedImapSynchronizer>();
         services.AddTransient<ICardDavSynchronizationEngine, CardDavSynchronizationEngine>();

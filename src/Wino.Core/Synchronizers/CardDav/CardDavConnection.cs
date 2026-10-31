@@ -21,16 +21,36 @@ internal static class CardDavConnection
         MailAccount account,
         IDavCredentialStore credentialStore,
         IAccountService accountService,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IDavOAuthAuthenticationProvider oauthAuthenticationProvider = null)
     {
         var server = account.ServerInformation
                      ?? await accountService.GetAccountCustomServerInformationAsync(account.Id).ConfigureAwait(false)
                      ?? throw new InvalidOperationException("CardDAV server settings are unavailable.");
+        var serviceUri = string.IsNullOrWhiteSpace(server.CardDavServiceUrl) ? null : new Uri(server.CardDavServiceUrl, UriKind.Absolute);
+
+        if (oauthAuthenticationProvider != null && server.IncomingAuthenticationMethod == ImapAuthenticationMethod.OAuth2)
+        {
+            var bearer = await oauthAuthenticationProvider
+                .TryCreateForAccountAsync(account.Id, server, DavServiceKind.CardDav, serviceUri, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (bearer != null)
+            {
+                return new CardDavConnectionSettings
+                {
+                    ServiceUri = serviceUri,
+                    AccountAddress = account.Address,
+                    Authentication = bearer
+                };
+            }
+        }
+
         var password = await credentialStore.GetPasswordAsync(account.Id, cancellationToken).ConfigureAwait(false);
 
         return new CardDavConnectionSettings
         {
-            ServiceUri = string.IsNullOrWhiteSpace(server.CardDavServiceUrl) ? null : new Uri(server.CardDavServiceUrl, UriKind.Absolute),
+            ServiceUri = serviceUri,
             AccountAddress = account.Address,
             Authentication = new DavAuthenticationProfile
             {

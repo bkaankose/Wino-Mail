@@ -981,9 +981,12 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                     WinoPage.ManageAccountsPage,
                     new AccountDetailsNavigationContext(account.Id, AccountDetailsTab.General, OpenServerSettings: true)));
 
+                var usesOAuth = account.ServerInformation?.IncomingAuthenticationMethod == ImapAuthenticationMethod.OAuth2 ||
+                                account.ServerInformation?.OutgoingAuthenticationMethod == ImapAuthenticationMethod.OAuth2;
+
                 _dialogService.InfoBarMessage(
                     Translator.Info_AccountIssueFixSuccessTitle,
-                    Translator.Info_AccountIssueFixImapMessage,
+                    usesOAuth ? Translator.Info_AccountIssueFixOAuthMessage : Translator.Info_AccountIssueFixImapMessage,
                     InfoBarMessageType.Information);
                 return;
             }

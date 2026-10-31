@@ -233,6 +233,14 @@ public sealed partial class CalDavClient : ICalDavClient
         if (connectionSettings?.ServiceUri == null)
             throw new ArgumentException("Service URI is required for CalDAV.");
 
+        if (connectionSettings.Authentication is { Kind: DavAuthenticationKind.Bearer } bearer)
+        {
+            if (string.IsNullOrWhiteSpace(bearer.BearerToken))
+                throw new ArgumentException("An access token is required for CalDAV.");
+
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(connectionSettings.Username))
             throw new ArgumentException("Username is required for CalDAV.");
 
@@ -367,7 +375,7 @@ public sealed partial class CalDavClient : ICalDavClient
     }
 
     private static DavAuthenticationProfile CreateAuthentication(CalDavConnectionSettings settings)
-        => new()
+        => settings.Authentication ?? new DavAuthenticationProfile
         {
             Kind = DavAuthenticationKind.Basic,
             Username = settings.Username,
