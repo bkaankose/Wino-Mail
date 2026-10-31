@@ -1110,7 +1110,6 @@
   "Notifications_WinoUpdatedTitle": "Wino Mail has been updated.",
   "Notifications_StoreUpdateAvailableTitle": "Update available",
   "Notifications_StoreUpdateAvailableMessage": "A newer version of Wino Mail is ready to install from Microsoft Store.",
-  "Notifications_StoreUpdateAvailableVersionMessage": "Version {0} is ready to install from Microsoft Store.",
   "Notifications_AppUpdateAvailableMessage": "A newer version of Wino Mail is ready to install.",
   "Notifications_AppUpdateInstallingMessage": "Installing the update. Wino Mail closes and opens again when it's done.",
   "Notifications_AppUpdateFailedMessage": "The update couldn't be installed. Try again later.",

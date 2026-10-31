@@ -406,18 +406,14 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
             if (_isShutdown || !hasAvailableUpdate || !PreferencesService.IsStoreUpdateNotificationsEnabled)
                 return;
 
-            var version = _storeService.AvailableUpdateVersion;
-
             await ExecuteUIThreadAsync(() =>
             {
                 if (_isShutdown || !PreferencesService.IsStoreUpdateNotificationsEnabled)
                     return Task.CompletedTask;
 
                 _hasShownStoreUpdatePrompt = true;
-                // Only Store updates report a version; App Installer feeds do not.
-                StoreUpdateCardMessage = string.IsNullOrEmpty(version)
-                    ? Translator.Notifications_AppUpdateAvailableMessage
-                    : string.Format(Translator.Notifications_StoreUpdateAvailableVersionMessage, version);
+                // The Store reports only the installed package of an update, never the offered version.
+                StoreUpdateCardMessage = Translator.Notifications_AppUpdateAvailableMessage;
                 IsStoreUpdateDontAskAgainChecked = false;
                 IsStoreUpdateCardVisible = true;
 

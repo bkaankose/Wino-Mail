@@ -49,7 +49,6 @@ public sealed class MicrosoftStoreService : IMicrosoftStoreService
     private int _isInstalling;
 
     public bool HasAvailableUpdate { get; private set; }
-    public string? AvailableUpdateVersion { get; private set; }
 
     public MicrosoftStoreService(IConfigurationService configurationService,
                                  IWinoLogger logger,
@@ -234,7 +233,6 @@ public sealed class MicrosoftStoreService : IMicrosoftStoreService
             {
                 case WindowsAppDistribution.Sideload:
                     HasAvailableUpdate = await AppInstallerUpdater.IsUpdateAvailableAsync();
-                    AvailableUpdateVersion = null;
                     return HasAvailableUpdate;
                 case WindowsAppDistribution.Beta:
                     return false;
@@ -243,7 +241,6 @@ public sealed class MicrosoftStoreService : IMicrosoftStoreService
             var updates = await RunOnMainWindowAsync(async context =>
                 await context.GetAppAndOptionalStorePackageUpdatesAsync());
             HasAvailableUpdate = updates?.Count > 0;
-            AvailableUpdateVersion = updates is { Count: > 0 } ? FormatVersion(updates[0].Package.Id.Version) : null;
 
             return HasAvailableUpdate;
         }
@@ -265,9 +262,6 @@ public sealed class MicrosoftStoreService : IMicrosoftStoreService
             _operationSemaphore.Release();
         }
     }
-
-    private static string FormatVersion(PackageVersion version)
-        => $"{version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
 
     // 0x803FB112: Store is not available on this machine/network. 0x80070422: the Store service is disabled.
     // 0x80070002: the Store components or package registration are missing.
