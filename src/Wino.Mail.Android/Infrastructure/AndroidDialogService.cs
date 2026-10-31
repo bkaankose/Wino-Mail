@@ -261,7 +261,7 @@ public sealed partial class AndroidDialogService(IDispatcher dispatcher, Android
         {
             foreach (var folder in folders)
             {
-                var name = folder.FolderName ?? string.Empty;
+                var name = folder.ResolvedDisplayName ?? string.Empty;
                 rows.Add((folder, new string(' ', depth * 4) + name,
                     folder.IsMoveTarget ? null : string.Format(Translator.MoveMailDialog_InvalidFolderMessage, name)));
                 Add(folder.ChildFolders ?? [], depth + 1);

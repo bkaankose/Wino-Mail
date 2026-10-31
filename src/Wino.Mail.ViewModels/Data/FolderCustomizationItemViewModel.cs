@@ -14,7 +14,7 @@ public partial class FolderCustomizationItemViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsHidden { get; set; }
 
-    public string FolderName => Folder.FolderName;
+    public string FolderName => Folder.ResolvedDisplayName;
     public bool IsSystemFolder => Folder.IsSystemFolder;
     public Core.Domain.Enums.SpecialFolderType SpecialFolderType => Folder.SpecialFolderType;
 

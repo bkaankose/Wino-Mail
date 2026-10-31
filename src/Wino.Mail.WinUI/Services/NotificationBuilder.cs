@@ -793,7 +793,7 @@ public class NotificationBuilder : INotificationBuilder
         var accountDisplayName = GetJumpListAccountDisplayName(account);
         var item = JumpListItem.CreateWithArguments(
             CreateMailFolderJumpListArguments(account.Id, folder.Id),
-            $"{folder.FolderName} - {accountDisplayName}");
+            $"{folder.ResolvedDisplayName} - {accountDisplayName}");
 
         item.GroupName = Translator.JumpList_QuickFoldersGroup;
 

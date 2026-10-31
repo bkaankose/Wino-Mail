@@ -108,7 +108,7 @@ public sealed class MailFiltersPageFragment : SettingsPageFragment<MailFiltersPa
             IReadOnlyDictionary<string, string> names = folders
                 .Where(folder => !string.IsNullOrWhiteSpace(folder.RemoteFolderId))
                 .GroupBy(folder => folder.RemoteFolderId, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(group => group.Key, group => group.First().FolderName, StringComparer.OrdinalIgnoreCase);
+                .ToDictionary(group => group.Key, group => group.First().ResolvedDisplayName, StringComparer.OrdinalIgnoreCase);
             await entry.Dispatcher.ExecuteOnUIThread(() =>
             {
                 if (entry.IsReleased) return;

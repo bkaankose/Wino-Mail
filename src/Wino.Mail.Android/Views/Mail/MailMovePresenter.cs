@@ -110,7 +110,7 @@ internal static class MailMovePresenter
             var text = search.Text?.Trim() ?? string.Empty;
             adapter.SetRows(text.Length == 0
                 ? all
-                : all.Where(entry => Selectable(entry.Folder) && (entry.Folder.FolderName ?? string.Empty).Contains(text, StringComparison.CurrentCultureIgnoreCase))
+                : all.Where(entry => Selectable(entry.Folder) && (entry.Folder.ResolvedDisplayName ?? string.Empty).Contains(text, StringComparison.CurrentCultureIgnoreCase))
                     .Select(static entry => (entry.Folder, 0)).ToList());
         };
 
@@ -174,7 +174,7 @@ internal static class MailMovePresenter
             if (holder is not Holder row) return;
             var (folder, depth) = _rows[position];
             row.View.Item = folder;
-            row.View.ConfigureFolder(SpecialFolderGlyphs.GetGlyphOrFolder(folder.SpecialFolderType), folder.FolderName ?? string.Empty, 0, depth);
+            row.View.ConfigureFolder(SpecialFolderGlyphs.GetGlyphOrFolder(folder.SpecialFolderType), folder.ResolvedDisplayName ?? string.Empty, 0, depth);
             bool enabled = selectable(folder);
             row.View.Alpha = enabled ? 1f : WinoColors.Fraction(row.View.RequireContext(), Resource.Fraction.wino_m3_disabled_alpha);
             row.View.Enabled = enabled;

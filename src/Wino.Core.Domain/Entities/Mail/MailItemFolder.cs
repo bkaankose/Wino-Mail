@@ -7,7 +7,7 @@ using Wino.Core.Domain.Models.Folders;
 
 namespace Wino.Core.Domain.Entities.Mail;
 
-[DebuggerDisplay("{FolderName} - {SpecialFolderType}")]
+[DebuggerDisplay("{ResolvedDisplayName} - {SpecialFolderType}")]
 public class MailItemFolder : IMailItemFolder
 {
     [PrimaryKey]
@@ -18,6 +18,15 @@ public class MailItemFolder : IMailItemFolder
 
     public Guid MailAccountId { get; set; }
     public string FolderName { get; set; }
+
+    /// <summary>
+    /// Local-only name the user chose for the folder. It is never sent to the server; empty shows <see cref="FolderName"/>.
+    /// </summary>
+    public string DisplayName { get; set; }
+
+    [Ignore]
+    public string ResolvedDisplayName => string.IsNullOrWhiteSpace(DisplayName) ? FolderName : DisplayName;
+
     public SpecialFolderType SpecialFolderType { get; set; }
     public bool IsSystemFolder { get; set; }
     public bool IsSticky { get; set; }
@@ -86,5 +95,5 @@ public class MailItemFolder : IMailItemFolder
     public static MailItemFolder CreateMoreFolder() => new MailItemFolder() { IsSticky = true, SpecialFolderType = SpecialFolderType.More, FolderName = Translator.MoreFolderNameOverride };
     public static MailItemFolder CreateCategoriesFolder() => new MailItemFolder() { IsSticky = true, SpecialFolderType = SpecialFolderType.Category, FolderName = Translator.CategoriesFolderNameOverride };
 
-    public override string ToString() => FolderName;
+    public override string ToString() => ResolvedDisplayName;
 }

@@ -277,10 +277,10 @@ public sealed partial class UIKitDialogService(IDispatcher dispatcher, IUIKitShe
     {
         var picked = await PickAsync(Translator.MoveMailDialog_Title, null, availableFolders ?? [],
             folder => folder.ChildFolders ?? [],
-            folder => folder.FolderName ?? string.Empty,
+            folder => folder.ResolvedDisplayName ?? string.Empty,
             folder => SpecialFolderGlyphs.GetGlyph(folder.SpecialFolderType) is var glyph && glyph != WinoIconGlyph.None ? glyph : WinoIconGlyph.Folder,
             folder => folder.IsMoveTarget,
-            folder => folder.IsMoveTarget ? null : string.Format(Translator.MoveMailDialog_InvalidFolderMessage, folder.FolderName));
+            folder => folder.IsMoveTarget ? null : string.Format(Translator.MoveMailDialog_InvalidFolderMessage, folder.ResolvedDisplayName));
         return picked;
     }
 

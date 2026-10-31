@@ -36,7 +36,7 @@
                     <TextBlock
                         VerticalAlignment="Center"
                         Style="{ThemeResource BodyTextBlockStyle}"
-                        Text="{x:Bind FolderName}" />
+                        Text="{x:Bind ResolvedDisplayName}" />
                 </StackPanel>
             </TreeViewItem>
         </DataTemplate>

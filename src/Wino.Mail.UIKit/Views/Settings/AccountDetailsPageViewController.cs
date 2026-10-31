@@ -279,7 +279,7 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
     {
         var icon = new WinoIconView(SpecialFolderGlyphs.GetGlyphOrFolder(folder.SpecialFolderType), 16);
         WinoLayout.Size(icon, 16, 16);
-        var name = WinoStyle.Label(folder.FolderName, WinoStyle.Body, WinoStyle.PrimaryText);
+        var name = WinoStyle.Label(folder.ResolvedDisplayName, WinoStyle.Body, WinoStyle.PrimaryText);
         name.LineBreakMode = UILineBreakMode.TailTruncation;
         WinoLayout.Priorities(name, UILayoutConstraintAxis.Horizontal, 1, 250);
 
@@ -304,7 +304,7 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
             catch (Exception ex) { ReportError(ex); }
         }, UIControlEvent.ValueChanged);
         toggle.Hidden = !folder.IsMoveTarget;
-        WinoAccessibility.Label(toggle, $"{folder.FolderName}, {column}");
+        WinoAccessibility.Label(toggle, $"{folder.ResolvedDisplayName}, {column}");
         var host = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
         host.AddSubview(toggle);
         NSLayoutConstraint.ActivateConstraints(

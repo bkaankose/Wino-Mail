@@ -106,7 +106,7 @@ public class SynchronizationIssue
 
         return errorContext.Request switch
         {
-            IFolderActionRequest folderRequest => folderRequest.Folder?.FolderName,
+            IFolderActionRequest folderRequest => folderRequest.Folder?.ResolvedDisplayName,
             IMailActionRequest mailRequest => mailRequest.Item?.Subject,
             ICalendarActionRequest calendarRequest => calendarRequest.Item?.Title,
             _ => null

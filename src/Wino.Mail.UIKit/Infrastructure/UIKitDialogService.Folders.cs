@@ -53,7 +53,7 @@ public sealed partial class UIKitDialogService
 
         // The first entry is "no folder", like the empty Windows ComboBox.
         var names = new List<string> { "—" };
-        names.AddRange(folders.Select(folder => folder.FolderName ?? string.Empty));
+        names.AddRange(folders.Select(folder => folder.ResolvedDisplayName ?? string.Empty));
         var images = new List<UIImage?> { null };
         images.AddRange(folders.Select(folder => (UIImage?)WinoIcons.Image(SpecialFolderGlyphs.GetGlyph(folder.SpecialFolderType) is var glyph && glyph != WinoIconGlyph.None ? glyph : WinoIconGlyph.Folder, 18)));
 

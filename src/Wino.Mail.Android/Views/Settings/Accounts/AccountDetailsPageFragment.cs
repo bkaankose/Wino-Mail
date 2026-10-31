@@ -273,14 +273,14 @@ public sealed class AccountDetailsPageFragment : SettingsPageFragment<AccountDet
         var inset = WinoTokens.Px(Ctx, Resource.Dimension.wino_space_l);
         row.SetPaddingRelative(inset + Math.Min(depth, 6) * WinoTokens.Px(Ctx, Resource.Dimension.wino_accounts_folder_indent), 0, inset, 0);
         row.AddView(AccountSettingsParts.Glyph(Ctx, SpecialFolderGlyphs.GetGlyphOrFolder(folder.SpecialFolderType), Resource.Dimension.wino_glyph_m));
-        var name = AccountSettingsParts.Label(Ctx, folder.FolderName, WinoTextStyle.Body, maxLines: 1);
+        var name = AccountSettingsParts.Label(Ctx, folder.ResolvedDisplayName, WinoTextStyle.Body, maxLines: 1);
         row.AddView(name, AccountSettingsParts.RowItem(Ctx, weight: 1, marginStart: Resource.Dimension.wino_space_s));
 
         // Folders that cannot hold mail (IsMoveTarget false) have no checks on Windows either.
         var check = new MaterialCheckBox(Ctx)
         {
             Checked = folder.IsSynchronizationEnabled,
-            ContentDescription = $"{folder.FolderName}, {Translator.SettingsFolderSynchronize_Title}",
+            ContentDescription = $"{folder.ResolvedDisplayName}, {Translator.SettingsFolderSynchronize_Title}",
             Visibility = folder.IsMoveTarget ? ViewStates.Visible : ViewStates.Invisible
         };
         WinoMaterialAccent.Tint(check);

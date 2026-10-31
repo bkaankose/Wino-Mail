@@ -38,6 +38,10 @@ public class FolderService : BaseDatabaseService, IFolderService
     public async Task ChangeStickyStatusAsync(Guid folderId, bool isSticky)
         => await Connection.ExecuteAsync("UPDATE MailItemFolder SET IsSticky = ? WHERE Id = ?", isSticky, folderId);
 
+    public Task ChangeFolderDisplayNameAsync(Guid folderId, string displayName)
+        => Connection.ExecuteAsync("UPDATE MailItemFolder SET DisplayName = ? WHERE Id = ?",
+            string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim(), folderId);
+
     public async Task ChangeFolderHiddenStatusAsync(Guid folderId, bool isHidden)
     {
         await Connection.ExecuteAsync("UPDATE MailItemFolder SET IsHidden = ? WHERE Id = ?", isHidden, folderId);
@@ -155,7 +159,7 @@ public class FolderService : BaseDatabaseService, IFolderService
             .OrderBy(a => a.Order == 0 ? 1 : 0)
             .ThenBy(a => a.Order)
             .ThenBy(GetDefaultFolderOrder)
-            .ThenBy(a => a.FolderName, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(a => a.ResolvedDisplayName, StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(a => a.SpecialFolderType);
 
     public async Task<int> GetFolderUnreadCountAsync(Guid folderId)
@@ -201,7 +205,7 @@ public class FolderService : BaseDatabaseService, IFolderService
         {
             var unreadCount = await GetFolderUnreadCountAsync(folder, account).ConfigureAwait(false);
 
-            contributions.Add(new UnreadBadgeFolderContribution(folder.Id, folder.FolderName, unreadCount));
+            contributions.Add(new UnreadBadgeFolderContribution(folder.Id, folder.ResolvedDisplayName, unreadCount));
         }
 
         return contributions;
@@ -911,6 +915,7 @@ public class FolderService : BaseDatabaseService, IFolderService
             // Now we need to match the properties that user might've set locally.
 
             folder.Id = existingFolder.Id;
+            folder.DisplayName = existingFolder.DisplayName;
             folder.IsSticky = existingFolder.IsSticky;
             folder.SpecialFolderType = existingFolder.SpecialFolderType;
             folder.ShowUnreadCount = existingFolder.ShowUnreadCount;

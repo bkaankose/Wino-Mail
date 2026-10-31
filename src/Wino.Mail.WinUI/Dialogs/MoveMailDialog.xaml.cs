@@ -60,7 +60,7 @@ public sealed partial class MoveMailDialog : ContentDialog
         if (!SelectedFolder.IsMoveTarget)
         {
             InvalidFolderBorder.Visibility = Visibility.Visible;
-            InvalidFolderText.Text = string.Format(Translator.MoveMailDialog_InvalidFolderMessage, SelectedFolder.FolderName);
+            InvalidFolderText.Text = string.Format(Translator.MoveMailDialog_InvalidFolderMessage, SelectedFolder.ResolvedDisplayName);
             SelectedFolder = null!;
         }
         else

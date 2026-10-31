@@ -1355,7 +1355,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                     existingLocalFolder.ParentRemoteFolderId = parentId;
                     if (ShouldUpdateFolder(remoteFolder, existingLocalFolder))
                     {
-                        existingLocalFolder.FolderName = remoteFolder.Name;
+                        existingLocalFolder.FolderName = remoteFolder.GetLocalFolderName();
                         needsUpdate = true;
                     }
 
@@ -1543,7 +1543,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
     /// <param name="remoteFolder">Remote folder</param>
     /// <param name="localFolder">Local folder.</param>
     public bool ShouldUpdateFolder(IMailFolder remoteFolder, MailItemFolder localFolder)
-        => !localFolder.FolderName.Equals(remoteFolder.Name, StringComparison.OrdinalIgnoreCase);
+        => !string.Equals(localFolder.FolderName, remoteFolder.GetLocalFolderName(), StringComparison.Ordinal);
 
     /// <summary>
     /// Local calendars have nothing to download. CalDAV calendars are synchronized by

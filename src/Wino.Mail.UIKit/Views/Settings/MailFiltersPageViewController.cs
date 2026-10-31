@@ -100,7 +100,7 @@ public sealed class MailFiltersPageViewController(MailFiltersPageViewModel viewM
             _folderNames = folders
                 .Where(folder => !string.IsNullOrWhiteSpace(folder.RemoteFolderId))
                 .GroupBy(folder => folder.RemoteFolderId, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(group => group.Key, group => group.First().FolderName, StringComparer.OrdinalIgnoreCase);
+                .ToDictionary(group => group.Key, group => group.First().ResolvedDisplayName, StringComparer.OrdinalIgnoreCase);
         }
         catch (Exception exception) { ReportError(exception); }
     }

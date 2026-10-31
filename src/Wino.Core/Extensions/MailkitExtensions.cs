@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 using MailKit;
 using Wino.Core.Domain.Entities.Mail;
 
@@ -9,27 +8,26 @@ public static class MailkitExtensions
 {
     public static MailItemFolder GetLocalFolder(this IMailFolder mailkitMailFolder)
     {
-        bool isAllCapital = mailkitMailFolder.Name?.All(a => char.IsUpper(a)) ?? false;
-
         return new MailItemFolder()
         {
             Id = Guid.NewGuid(),
-            FolderName = isAllCapital ? mailkitMailFolder.Name.OnlyCapitilizeFirstLetter() : mailkitMailFolder.Name,
+            FolderName = mailkitMailFolder.GetLocalFolderName(),
             RemoteFolderId = mailkitMailFolder.FullName,
             ParentRemoteFolderId = mailkitMailFolder.ParentFolder?.FullName,
             SpecialFolderType = Domain.Enums.SpecialFolderType.Other
         };
     }
 
-    public static string OnlyCapitilizeFirstLetter(this string s)
+    /// <summary>
+    /// Keeps the server's folder name as is. Only the top-level INBOX, a reserved case-insensitive
+    /// name rather than one the user chose (RFC 3501 5.1), is shown as "Inbox".
+    /// </summary>
+    public static string GetLocalFolderName(this IMailFolder mailkitMailFolder)
     {
-        if (string.IsNullOrEmpty(s))
-            return string.Empty;
+        var name = mailkitMailFolder.Name ?? string.Empty;
 
-        s = s.ToLower();
-
-        char[] a = s.ToCharArray();
-        a[0] = char.ToUpper(a[0]);
-        return new string(a);
+        return string.Equals(mailkitMailFolder.FullName, "INBOX", StringComparison.OrdinalIgnoreCase)
+            ? "Inbox"
+            : name;
     }
 }

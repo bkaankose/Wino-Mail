@@ -244,12 +244,12 @@ public sealed partial class AppKitDialogService(IDispatcher dispatcher, Func<NSW
     {
         var picked = await PickAsync(Translator.MoveMailDialog_Title, null, availableFolders,
             folder => folder.ChildFolders ?? (IEnumerable<IMailItemFolder>)Array.Empty<IMailItemFolder>(),
-            folder => folder.FolderName ?? string.Empty,
+            folder => folder.ResolvedDisplayName ?? string.Empty,
             folder => WinoIcons.Image(SpecialFolderGlyphs.GetGlyph(folder.SpecialFolderType), 14),
             folder => WinoStyle.FromHexString(folder.TextColorHex),
             folder => folder.IsMoveTarget,
             Translator.MailOperation_Move,
-            folder => folder.IsMoveTarget ? null : string.Format(Translator.MoveMailDialog_InvalidFolderMessage, folder.FolderName));
+            folder => folder.IsMoveTarget ? null : string.Format(Translator.MoveMailDialog_InvalidFolderMessage, folder.ResolvedDisplayName));
         return picked;
     }
 

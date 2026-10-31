@@ -212,16 +212,16 @@ public partial class IntelligenceFolderNode : ObservableObject
         IReadOnlyDictionary<string, MailItemFolder> foldersByRemoteId)
     {
         var duplicateNames = selectable
-            .GroupBy(static folder => folder.FolderName, StringComparer.CurrentCultureIgnoreCase)
+            .GroupBy(static folder => folder.ResolvedDisplayName, StringComparer.CurrentCultureIgnoreCase)
             .Where(static group => group.Count() > 1)
             .Select(static group => group.Key)
             .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
 
         return selectable.ToDictionary(
             static folder => folder.RemoteFolderId,
-            folder => duplicateNames.Contains(folder.FolderName)
+            folder => duplicateNames.Contains(folder.ResolvedDisplayName)
                 ? GetDisplayPath(folder, foldersByRemoteId)
-                : folder.FolderName,
+                : folder.ResolvedDisplayName,
             StringComparer.Ordinal);
     }
 
@@ -234,7 +234,7 @@ public partial class IntelligenceFolderNode : ObservableObject
 
         while (current is not null && visited.Add(current.RemoteFolderId))
         {
-            path.Push(current.FolderName);
+            path.Push(current.ResolvedDisplayName);
             current = !string.IsNullOrWhiteSpace(current.ParentRemoteFolderId) &&
                 foldersByRemoteId.TryGetValue(current.ParentRemoteFolderId, out var parent)
                 ? parent

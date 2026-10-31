@@ -201,7 +201,7 @@ internal static class MailContextFlyoutBuilder
                 continue;
             }
 
-            var folderName = folder.FolderName ?? string.Empty;
+            var folderName = folder.ResolvedDisplayName ?? string.Empty;
             var childItems = new List<ContextFlyoutMenuEntry>();
             if (folder.ChildFolders?.Count > 0)
             {
@@ -265,7 +265,7 @@ internal static class MailContextFlyoutBuilder
         => new()
         {
             Text = text,
-            SearchKeywords = $"folder destination {folder.FolderName}",
+            SearchKeywords = $"folder destination {folder.ResolvedDisplayName}",
             Icon = CreateIcon(XamlHelpers.GetSpecialFolderPathIconGeometry(folder.SpecialFolderType)),
             Command = CreateCommand(() => selected(new MailContextFlyoutSelection(
                 Operation: moveAction,

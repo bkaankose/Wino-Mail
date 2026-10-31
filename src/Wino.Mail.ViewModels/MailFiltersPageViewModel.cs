@@ -124,7 +124,7 @@ public partial class MailFiltersPageViewModel(
             var folderNames = folders
                 .Where(folder => !string.IsNullOrWhiteSpace(folder.RemoteFolderId))
                 .GroupBy(folder => folder.RemoteFolderId, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(group => group.Key, group => group.First().FolderName, StringComparer.OrdinalIgnoreCase);
+                .ToDictionary(group => group.Key, group => group.First().ResolvedDisplayName, StringComparer.OrdinalIgnoreCase);
             var items = filters
                 .Where(filter => providerEnabled || filter.ManagementType != MailFilterManagementType.Provider)
                 .Select(filter => CreateListItem(filter, folderNames))

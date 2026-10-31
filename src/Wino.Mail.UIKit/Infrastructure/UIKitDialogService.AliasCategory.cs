@@ -3,6 +3,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Mail.Controls.UIKit.Settings;
 using Wino.Mail.UIKit.Views.Dialogs;
@@ -84,6 +85,22 @@ public sealed partial class UIKitDialogService
 
         if (!await form.PresentAsync(presenter)) return null;
         return new MailCategoryDialogResult((name.Text ?? string.Empty).Trim(), selected.BackgroundColorHex, selected.TextColorHex);
+    }, null);
+
+    /// <summary>Windows RenameFolderDialog: the server folder name and the local-only display name; null when cancelled.</summary>
+    public Task<FolderRenameDialogResult?> ShowRenameFolderDialogAsync(string folderName, string? displayName) => PresentAsync<FolderRenameDialogResult?>(async presenter =>
+    {
+        var form = new FormSheet(Translator.DialogMessage_RenameFolderTitle, Translator.RenameFolderDialog_FolderNameDescription, Translator.FolderOperation_Rename);
+        var name = form.AddTextField(Translator.RenameFolderDialog_FolderNameHeader, folderName);
+        name.AutocapitalizationType = UITextAutocapitalizationType.None;
+        var display = form.AddTextField(Translator.RenameFolderDialog_DisplayNameHeader, displayName, Translator.RenameFolderDialog_DisplayNamePlaceholder);
+        display.AutocapitalizationType = UITextAutocapitalizationType.None;
+        form.AddFullWidth(WinoStyle.Label(Translator.RenameFolderDialog_DisplayNameDescription, WinoStyle.Description, WinoStyle.SecondaryText, 0));
+        name.EditingChanged += (_, _) => form.Refresh();
+        form.CanConfirm = () => !string.IsNullOrWhiteSpace(name.Text);
+
+        if (!await form.PresentAsync(presenter)) return null;
+        return new FolderRenameDialogResult((name.Text ?? string.Empty).Trim(), (display.Text ?? string.Empty).Trim());
     }, null);
 
     /// <summary>An address field: email keyboard, no capitalisation or autocorrection.</summary>

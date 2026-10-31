@@ -52,7 +52,7 @@ public sealed partial class AppKitDialogService
 
         // The first entry is "no folder", like the empty Windows ComboBox.
         var names = new List<string> { "—" };
-        names.AddRange(folders.Select(folder => folder.FolderName ?? string.Empty));
+        names.AddRange(folders.Select(folder => folder.ResolvedDisplayName ?? string.Empty));
         var images = new List<NSImage?> { null };
         images.AddRange(folders.Select(folder => WinoIcons.Image(SpecialFolderGlyphs.GetGlyph(folder.SpecialFolderType), 14)));
 

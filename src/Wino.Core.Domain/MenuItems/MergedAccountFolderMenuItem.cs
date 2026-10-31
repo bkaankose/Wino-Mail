@@ -72,7 +72,7 @@ public partial class MergedAccountFolderMenuItem : MenuItemBase<List<IMailItemFo
         else
         {
             // Folder only holds 1 Id, but it's displayed as merged account folder.
-            FolderName = HandlingFolders.First().FolderName;
+            FolderName = HandlingFolders.First().ResolvedDisplayName;
         }
     }
 
@@ -91,7 +91,7 @@ public partial class MergedAccountFolderMenuItem : MenuItemBase<List<IMailItemFo
             SpecialFolderType.Deleted => Translator.MergedAccountCommonFolderTrash,
             SpecialFolderType.Junk => Translator.MergedAccountCommonFolderJunk,
             SpecialFolderType.Archive => Translator.MergedAccountCommonFolderArchive,
-            _ => folder.FolderName,
+            _ => folder.ResolvedDisplayName,
         };
     }
 

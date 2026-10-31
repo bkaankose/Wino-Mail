@@ -53,6 +53,11 @@ public interface IFolderService
     Task ChangeStickyStatusAsync(Guid folderId, bool isSticky);
 
     /// <summary>
+    /// Stores the local-only display name of a folder. Null or whitespace clears it.
+    /// </summary>
+    Task ChangeFolderDisplayNameAsync(Guid folderId, string displayName);
+
+    /// <summary>
     /// Toggles a folder's visibility in the navigation menu.
     /// Hidden folders are still synchronized if sync is enabled.
     /// </summary>

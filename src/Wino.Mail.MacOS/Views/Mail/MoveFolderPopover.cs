@@ -99,7 +99,7 @@ internal sealed class MoveFolderPopover : NSObject
         text = text?.Trim() ?? string.Empty;
         _visibleRoots = text.Length == 0
             ? _roots
-            : Flatten(_roots).Where(node => IsSelectable(node) && (node.Folder.FolderName ?? string.Empty).Contains(text, StringComparison.CurrentCultureIgnoreCase))
+            : Flatten(_roots).Where(node => IsSelectable(node) && (node.Folder.ResolvedDisplayName ?? string.Empty).Contains(text, StringComparison.CurrentCultureIgnoreCase))
                 .Select(static node => new FolderNode(node.Folder, flat: true)).ToList();
         _outline.ReloadData();
         if (text.Length == 0) foreach (var node in _roots) _outline.ExpandItem(node, false);
@@ -178,11 +178,11 @@ internal sealed class MoveFolderPopover : NSObject
             var node = (FolderNode)item;
             bool selectable = owner.IsSelectable(node);
             var glyph = new WinoIconView(Glyph(node.Folder.SpecialFolderType), 14, selectable ? WinoStyle.Accent : WinoStyle.TertiaryText);
-            var label = WinoStyle.Label(node.Folder.FolderName, WinoStyle.Body, selectable ? WinoStyle.PrimaryText : WinoStyle.TertiaryText);
+            var label = WinoStyle.Label(node.Folder.ResolvedDisplayName, WinoStyle.Body, selectable ? WinoStyle.PrimaryText : WinoStyle.TertiaryText);
             var row = WinoLayout.HStack(6, glyph, label);
             var cell = new NSTableCellView();
             WinoLayout.Fill(row, cell, 0, 2, 0, 4);
-            cell.AccessibilityLabel = node.Folder.FolderName;
+            cell.AccessibilityLabel = node.Folder.ResolvedDisplayName;
             return cell;
         }
 

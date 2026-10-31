@@ -3,6 +3,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Mail.Controls.AppKit.Settings;
 using Wino.Mail.MacOS.Views.Dialogs;
@@ -83,6 +84,20 @@ public sealed partial class AppKitDialogService
 
         if (!await form.PresentAsync(window)) return null;
         return new MailCategoryDialogResult(name.StringValue.Trim(), selected.BackgroundColorHex, selected.TextColorHex);
+    });
+
+    /// <summary>Windows RenameFolderDialog: the server folder name and the local-only display name; null when cancelled.</summary>
+    public Task<FolderRenameDialogResult?> ShowRenameFolderDialogAsync(string folderName, string? displayName) => PresentAsync<FolderRenameDialogResult?>(async window =>
+    {
+        var form = new FormSheet(Translator.DialogMessage_RenameFolderTitle, Translator.RenameFolderDialog_FolderNameDescription, Translator.FolderOperation_Rename);
+        var name = form.AddTextField(Translator.RenameFolderDialog_FolderNameHeader, folderName);
+        var display = form.AddTextField(Translator.RenameFolderDialog_DisplayNameHeader, displayName, Translator.RenameFolderDialog_DisplayNamePlaceholder);
+        form.AddFullWidth(WinoStyle.Label(Translator.RenameFolderDialog_DisplayNameDescription, WinoStyle.Description, WinoStyle.SecondaryText, 0));
+        name.Changed += (_, _) => form.Refresh();
+        form.CanConfirm = () => !string.IsNullOrWhiteSpace(name.StringValue);
+
+        if (!await form.PresentAsync(window)) return null;
+        return new FolderRenameDialogResult(name.StringValue.Trim(), display.StringValue.Trim());
     });
 
     /// <summary>Mac result for the alias dialog contract; the alias is null when cancelled.</summary>

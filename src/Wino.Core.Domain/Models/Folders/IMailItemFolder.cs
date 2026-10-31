@@ -9,6 +9,8 @@ public interface IMailItemFolder
     string BackgroundColorHex { get; set; }
     string DeltaToken { get; set; }
     string FolderName { get; set; }
+    string DisplayName { get; set; }
+    string ResolvedDisplayName { get; }
     long HighestModeSeq { get; set; }
     uint HighestKnownUid { get; set; }
     Guid Id { get; set; }

@@ -117,6 +117,21 @@ public sealed partial class AndroidDialogService
         return form;
     }, null);
 
+    /// <summary>Windows RenameFolderDialog: the server folder name and the local-only display name; null when cancelled.</summary>
+    public Task<FolderRenameDialogResult?> ShowRenameFolderDialogAsync(string folderName, string? displayName) => FormAsync<FolderRenameDialogResult?>(activity =>
+    {
+        var form = new AndroidFormDialog<FolderRenameDialogResult?>(activity, Translator.DialogMessage_RenameFolderTitle, null, Translator.FolderOperation_Rename);
+        var name = form.AddTextField(Translator.RenameFolderDialog_FolderNameHeader, folderName, helper: Translator.RenameFolderDialog_FolderNameDescription);
+        var display = form.AddTextField(Translator.RenameFolderDialog_DisplayNameHeader, displayName, helper: Translator.RenameFolderDialog_DisplayNameDescription);
+        form.CanConfirm = () => !string.IsNullOrWhiteSpace(name.Text);
+        form.Primary = () =>
+        {
+            form.Finish(new FolderRenameDialogResult((name.Text ?? string.Empty).Trim(), (display.Text ?? string.Empty).Trim()));
+            return Task.CompletedTask;
+        };
+        return form;
+    }, null);
+
     /// <summary>
     /// Windows SystemFolderConfigurationDialog plus the DialogService post-flow: save the configuration, show the success
     /// message, announce the folder change and request a full folder synchronization.
@@ -151,7 +166,7 @@ public sealed partial class AndroidDialogService
         var form = new AndroidFormDialog<SystemFolderConfiguration?>(context, Translator.SettingsConfigureSpecialFolders_Title, description, Translator.Buttons_SaveConfiguration);
         // The first entry is "no folder", like the empty Windows ComboBox.
         var names = new List<string> { "—" };
-        names.AddRange(folders.Select(folder => folder.FolderName ?? string.Empty));
+        names.AddRange(folders.Select(folder => folder.ResolvedDisplayName ?? string.Empty));
 
         FormPopUp Picker(string header, SpecialFolderType type)
             => form.AddPopUp(header, names, folders.FindIndex(folder => folder.SpecialFolderType == type) + 1);

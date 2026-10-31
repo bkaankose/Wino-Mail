@@ -109,7 +109,7 @@ public sealed class MoveFolderSheetViewController : UIViewController
         text = text?.Trim() ?? string.Empty;
         _visible = text.Length == 0
             ? _all.ToList()
-            : _all.Where(entry => IsSelectable(entry.Folder) && (entry.Folder.FolderName ?? string.Empty).Contains(text, StringComparison.CurrentCultureIgnoreCase))
+            : _all.Where(entry => IsSelectable(entry.Folder) && (entry.Folder.ResolvedDisplayName ?? string.Empty).Contains(text, StringComparison.CurrentCultureIgnoreCase))
                 .Select(static entry => (entry.Folder, 0)).ToList();
         _table.ReloadData();
     }
@@ -153,7 +153,7 @@ public sealed class MoveFolderSheetViewController : UIViewController
         {
             var cell = (WinoShellRowCell)tableView.DequeueReusableCell(WinoShellRowCell.ReuseIdentifier, indexPath);
             var (folder, depth) = owner._visible[indexPath.Row];
-            cell.ConfigureFolder(SpecialFolderGlyphs.GetGlyphOrFolder(folder.SpecialFolderType), folder.FolderName ?? string.Empty, 0, depth);
+            cell.ConfigureFolder(SpecialFolderGlyphs.GetGlyphOrFolder(folder.SpecialFolderType), folder.ResolvedDisplayName ?? string.Empty, 0, depth);
             cell.BackgroundColor = UIColor.SecondarySystemGroupedBackground;
             bool selectable = owner.IsSelectable(folder);
             cell.ContentView.Alpha = selectable ? 1 : 0.4f;

@@ -72,6 +72,12 @@ public interface IMailDialogService : IDialogServiceBase
     Task<MailCategoryDialogResult?> ShowEditMailCategoryDialogAsync(MailCategory? category = null);
 
     /// <summary>
+    /// Asks for a folder's server name and its local-only display name.
+    /// </summary>
+    /// <returns>The entered names, or null when the user cancels.</returns>
+    Task<FolderRenameDialogResult?> ShowRenameFolderDialogAsync(string folderName, string? displayName);
+
+    /// <summary>
     /// Presents a dialog to the user to show email source.
     /// </summary>
     Task ShowMessageSourceDialogAsync(string messageSource);

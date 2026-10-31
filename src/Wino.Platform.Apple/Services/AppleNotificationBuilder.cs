@@ -566,7 +566,7 @@ public sealed class AppleNotificationBuilder : INotificationBuilder
                 var accountName = string.IsNullOrWhiteSpace(account.Name) ? account.Address : account.Name;
                 var folders = await _folderService.GetFoldersAsync(account.Id).ConfigureAwait(false);
                 foreach (var folder in folders.Where(folder => folder.IsMoveTarget && folder.IsJumpListEnabled))
-                    entries.Add(new AppleQuickFolderEntry(account.Id, folder.Id, $"{folder.FolderName} - {accountName}"));
+                    entries.Add(new AppleQuickFolderEntry(account.Id, folder.Id, $"{folder.ResolvedDisplayName} - {accountName}"));
             }
             QuickFolders = entries;
         }

@@ -37,7 +37,7 @@ public partial class FolderMenuItem : MenuItemBase<IMailItemFolder, FolderMenuIt
             else if (Parameter.SpecialFolderType == SpecialFolderType.Archive && ParentAccount.ProviderType == MailProviderType.Gmail)
                 return Translator.GmailArchiveFolderNameOverride;
             else
-                return Parameter.FolderName;
+                return Parameter.ResolvedDisplayName;
         }
         set => SetProperty(Parameter.FolderName, value, Parameter, (u, n) => u.FolderName = n);
     }

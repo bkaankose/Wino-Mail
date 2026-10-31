@@ -686,10 +686,10 @@ public partial class MailFilterEditorPageViewModel(
     private static List<MailFilterFolderOption> ToFolderOptions(IEnumerable<MailItemFolder> folders)
         => folders
             .Where(folder => folder.IsMoveTarget && !string.IsNullOrWhiteSpace(folder.RemoteFolderId))
-            .OrderBy(folder => folder.FolderName)
+            .OrderBy(folder => folder.ResolvedDisplayName)
             .Select(folder => new MailFilterFolderOption(
                 folder.RemoteFolderId,
-                folder.FolderName,
+                folder.ResolvedDisplayName,
                 folder.SpecialFolderType))
             .ToList();
 

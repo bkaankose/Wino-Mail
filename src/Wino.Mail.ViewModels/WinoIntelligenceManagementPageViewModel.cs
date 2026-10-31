@@ -1392,15 +1392,15 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         var foldersByRemoteId = folders.Where(folder => !string.IsNullOrWhiteSpace(folder.RemoteFolderId))
             .GroupBy(folder => folder.RemoteFolderId, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
-        var duplicateNames = foldersByRemoteId.Values.GroupBy(folder => folder.FolderName, StringComparer.CurrentCultureIgnoreCase)
+        var duplicateNames = foldersByRemoteId.Values.GroupBy(folder => folder.ResolvedDisplayName, StringComparer.CurrentCultureIgnoreCase)
             .Where(group => group.Count() > 1)
             .Select(group => group.Key)
             .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
 
         return foldersByRemoteId.Values.ToDictionary(folder => folder.RemoteFolderId,
-            folder => duplicateNames.Contains(folder.FolderName)
+            folder => duplicateNames.Contains(folder.ResolvedDisplayName)
                 ? GetIntelligenceFolderDisplayPath(folder, foldersByRemoteId)
-                : folder.FolderName,
+                : folder.ResolvedDisplayName,
             StringComparer.Ordinal);
     }
 
@@ -1413,7 +1413,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
 
         while (current is not null && visitedRemoteFolderIds.Add(current.RemoteFolderId))
         {
-            path.Push(current.FolderName);
+            path.Push(current.ResolvedDisplayName);
             current = !string.IsNullOrWhiteSpace(current.ParentRemoteFolderId) &&
                 foldersByRemoteId.TryGetValue(current.ParentRemoteFolderId, out var parent)
                 ? parent

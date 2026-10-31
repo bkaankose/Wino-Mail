@@ -403,7 +403,7 @@ public partial class UnreadBadgeFolderViewModel : ObservableObject
                                       Func<UnreadBadgeFolderViewModel, Task> badgeChanged)
     {
         FolderId = folder.Id;
-        FolderName = folder.FolderName;
+        FolderName = folder.ResolvedDisplayName;
         SpecialFolderType = folder.SpecialFolderType;
 
         StoredIsCounted = folder.IsCountedInAccountTotal;
