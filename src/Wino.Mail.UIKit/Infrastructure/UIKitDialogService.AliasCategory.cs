@@ -94,6 +94,8 @@ public sealed partial class UIKitDialogService
         var name = form.AddTextField(Translator.RenameFolderDialog_FolderNameHeader, folderName);
         name.AutocapitalizationType = UITextAutocapitalizationType.None;
         name.Enabled = canRenameOnServer;
+        // A disabled UITextField keeps its normal look; dim it like the Mac and Android forms.
+        if (!canRenameOnServer) name.TextColor = WinoStyle.TertiaryText;
         var display = form.AddTextField(Translator.RenameFolderDialog_DisplayNameHeader, displayName, Translator.RenameFolderDialog_DisplayNamePlaceholder);
         display.AutocapitalizationType = UITextAutocapitalizationType.None;
         form.AddFullWidth(WinoStyle.Label(Translator.RenameFolderDialog_DisplayNameDescription, WinoStyle.Description, WinoStyle.SecondaryText, 0));

@@ -1,10 +1,13 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using AppKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.Controls.AppKit.Settings;
+using Wino.Mail.MacOS.Infrastructure;
 using Wino.Mail.MacOS.Views.Shell;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
@@ -17,7 +20,7 @@ namespace Wino.Mail.MacOS.Views.Settings;
 /// Customize folder list (Manage accounts › account › Customize folder list, Windows
 /// FolderCustomizationPage): the account line with Reset to defaults, then Pinned, Categories (Gmail
 /// only) and More as expanded sections. Each folder row has a drag handle, the special-folder glyph,
-/// the name, System and Hidden tags, the hide toggle and Pin to top / Move to More. Rows reorder by
+/// the name, System and Hidden tags, Rename, the hide toggle and Pin to top / Move to More. Rows reorder by
 /// drag inside a section and move between Pinned and More by drag; every change persists at once.
 /// </summary>
 public sealed class FolderCustomizationPageViewController(FolderCustomizationPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
@@ -77,7 +80,44 @@ public sealed class FolderCustomizationPageViewController(FolderCustomizationPag
         expander.Add(list, 0, 0, 0, 0);
         _sections[key] = (list, items, count);
         Bindings.Own(list.Observe(items, Dispatcher, () => UpdateCount(key)));
+        Bindings.Own(ObserveFolderNames(key, items));
         return expander;
+    }
+
+    /// <summary>
+    /// Redraws a row when its name changes: a display name saves at once, a server rename lands after synchronization.
+    /// </summary>
+    private IDisposable ObserveFolderNames(string key, ObservableCollection<FolderCustomizationItemViewModel> items)
+    {
+        var observed = new HashSet<FolderCustomizationItemViewModel>();
+        PropertyChangedEventHandler nameChanged = (sender, args) =>
+        {
+            if (args.PropertyName == nameof(FolderCustomizationItemViewModel.FolderName) && sender is FolderCustomizationItemViewModel item)
+                _ = Dispatcher.ExecuteOnUIThread(() => _sections[key].List.ReloadRow(item));
+        };
+
+        void Sync()
+        {
+            foreach (var item in observed.Where(item => !items.Contains(item)).ToList())
+            {
+                item.PropertyChanged -= nameChanged;
+                observed.Remove(item);
+            }
+
+            foreach (var item in items.Where(observed.Add))
+                item.PropertyChanged += nameChanged;
+        }
+
+        NotifyCollectionChangedEventHandler collectionChanged = (_, _) => Sync();
+        items.CollectionChanged += collectionChanged;
+        Sync();
+
+        return new ActionDisposable(() =>
+        {
+            items.CollectionChanged -= collectionChanged;
+            foreach (var item in observed) item.PropertyChanged -= nameChanged;
+            observed.Clear();
+        });
     }
 
     /// <summary>The empty section: a dashed drop zone inset inside the section body.</summary>
@@ -98,7 +138,7 @@ public sealed class FolderCustomizationPageViewController(FolderCustomizationPag
     }
 
     /// <summary>
-    /// One 38pt folder row: hairline above, drag handle, glyph, name, tags, hide toggle, then the pin
+    /// One 38pt folder row: hairline above, drag handle, glyph, name, tags, Rename, hide toggle, then the pin
     /// action (Pinned: Move to More, More: Pin to top, Categories: an empty slot). Hidden rows dim to 55%.
     /// </summary>
     private NSView FolderRow(string key, FolderCustomizationItemViewModel item)
@@ -120,6 +160,10 @@ public sealed class FolderCustomizationPageViewController(FolderCustomizationPag
         content.Alignment = NSLayoutAttribute.CenterY;
         if (item.IsSystemFolder) content.AddArrangedSubview(SettingsRowParts.Tag(Translator.FolderCustomization_SystemTag));
         if (item.IsHidden) content.AddArrangedSubview(SettingsRowParts.Tag(Translator.FolderCustomization_HiddenTag));
+
+        var rename = new SettingsGlyphButton(WinoIconGlyph.Rename, Translator.FolderOperation_Rename);
+        rename.Activated += (_, _) => Run(ViewModel.RenameFolderAsync(item));
+        content.AddArrangedSubview(rename);
 
         var hide = new SettingsGlyphButton(WinoIconGlyph.EyeOff, item.IsHidden ? Translator.FolderCustomization_Show : Translator.FolderCustomization_Hide)
         {

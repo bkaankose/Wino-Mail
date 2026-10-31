@@ -9,6 +9,7 @@ using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.Android;
 using Wino.Presentation.Bindings;
+using Wino.Mail.Android.Infrastructure;
 using ActionDisposable = Wino.Mail.Android.Infrastructure.ActionDisposable;
 
 namespace Wino.Mail.Android.Views.Settings.Accounts;
@@ -16,7 +17,7 @@ namespace Wino.Mail.Android.Views.Settings.Accounts;
 /// <summary>
 /// Customize folder list (iOS FolderCustomizationPageViewController, Windows FolderCustomizationPage): the account line
 /// with Reset to defaults, then Pinned, Categories (Gmail only) and More as expanded sections. Each folder row has the
-/// special-folder glyph, the name, System and Hidden tags, the hide toggle, Pin to top / Move to More, and a reorder
+/// special-folder glyph, the name, System and Hidden tags, Rename, the hide toggle, Pin to top / Move to More, and a reorder
 /// button whose menu moves the row up or down inside its section (iOS drags the reorder handle). The pin button moves
 /// rows between Pinned and More. Every change persists at once.
 /// </summary>
@@ -105,7 +106,7 @@ public sealed class FolderCustomizationPageFragment : SettingsPageFragment<Folde
     }
 
     /// <summary>
-    /// One folder row: hairline above, glyph, name, tags, hide toggle, the pin action (Pinned: Move to More, More: Pin to
+    /// One folder row: hairline above, glyph, name, tags, Rename, hide toggle, the pin action (Pinned: Move to More, More: Pin to
     /// top, Categories: an empty slot) and the reorder menu. Hidden rows dim to 55%.
     /// </summary>
     private View FolderRow(SettingsBinder rows, string key, FolderCustomizationItemViewModel item, int index, int count)
@@ -122,11 +123,22 @@ public sealed class FolderCustomizationPageFragment : SettingsPageFragment<Folde
 
         var text = AccountSettingsParts.HRow(Ctx);
         var name = AccountSettingsParts.Label(Ctx, item.FolderName, WinoTextStyle.Body, maxLines: 1);
-        name.ContentDescription = item.IsHidden ? $"{item.FolderName}, {Translator.FolderCustomization_HiddenTag}" : item.FolderName;
+        // A display name saves at once; a server rename lands after synchronization.
+        rows.Bind(item, nameof(item.FolderName), s => s.FolderName, folderName =>
+        {
+            name.Text = folderName;
+            name.ContentDescription = item.IsHidden ? $"{folderName}, {Translator.FolderCustomization_HiddenTag}" : folderName;
+        });
         text.AddView(name, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1));
-        if (item.IsSystemFolder) text.AddView(AccountSettingsParts.Tag(Ctx, Translator.FolderCustomization_SystemTag), AccountSettingsParts.RowItem(Ctx, marginStart: Resource.Dimension.wino_space_xs));
+        // At phone width the System tag would truncate the name; the rename dialog says system folders keep their server name.
+        var isCompact = AndroidWindowSizeClassService.Classify(Ctx.Resources?.Configuration?.ScreenWidthDp ?? 0) == WindowWidthClass.Compact;
+        if (item.IsSystemFolder && !isCompact) text.AddView(AccountSettingsParts.Tag(Ctx, Translator.FolderCustomization_SystemTag), AccountSettingsParts.RowItem(Ctx, marginStart: Resource.Dimension.wino_space_xs));
         if (item.IsHidden) text.AddView(AccountSettingsParts.Tag(Ctx, Translator.FolderCustomization_HiddenTag), AccountSettingsParts.RowItem(Ctx, marginStart: Resource.Dimension.wino_space_xs));
         row.AddView(text, AccountSettingsParts.RowItem(Ctx, weight: 1, marginStart: Resource.Dimension.wino_space_m));
+
+        var rename = AccountSettingsParts.GlyphButton(Ctx, WinoIconGlyph.Rename, $"{Translator.FolderOperation_Rename}, {item.FolderName}");
+        rows.Views.Click(rename, () => AccountSettingsParts.Run(VM.RenameFolderAsync(item), ReportError));
+        row.AddView(rename);
 
         var hide = AccountSettingsParts.GlyphButton(Ctx, WinoIconGlyph.EyeOff,
             $"{(item.IsHidden ? Translator.FolderCustomization_Show : Translator.FolderCustomization_Hide)}, {item.FolderName}", item.IsHidden);
