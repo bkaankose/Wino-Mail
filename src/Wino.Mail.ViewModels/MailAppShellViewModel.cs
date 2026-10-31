@@ -642,20 +642,32 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             if (targetFolderId == null)
                 return false;
 
+            IAccountMenuItem accountMenuItem = null;
+
+            await ExecuteUIThread(() => MenuItems.TryGetAccountMenuItem(contributor.AccountId, out accountMenuItem));
+
+            if (accountMenuItem == null)
+                return false;
+
+            // The menu only holds the loaded account's folders, so the badge account must be loaded before its folder can be found.
+            if (latestSelectedAccountMenuItem != accountMenuItem)
+            {
+                await ChangeLoadedAccountAsync(accountMenuItem, navigateInbox: false).ConfigureAwait(false);
+            }
+
             IBaseFolderMenuItem targetFolderMenuItem = null;
 
             await ExecuteUIThread(() =>
             {
-                if (MenuItems.GetAllAccountMenuItems().FirstOrDefault(a => a.HoldingAccounts.Any(b => b.Id == contributor.AccountId)) is IAccountMenuItem accountMenuItem)
-                {
-                    accountMenuItem.Expand();
-                }
-
+                accountMenuItem.Expand();
                 MenuItems.TryGetFolderMenuItem(targetFolderId.Value, out targetFolderMenuItem);
             });
 
             if (targetFolderMenuItem == null)
-                return false;
+            {
+                await NavigateInboxAsync(accountMenuItem).ConfigureAwait(false);
+                return true;
+            }
 
             await ExecuteUIThread(() => targetFolderMenuItem.Expand());
             await NavigateFolderAsync(targetFolderMenuItem);
