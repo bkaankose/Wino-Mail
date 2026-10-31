@@ -129,8 +129,8 @@ dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Release -p:Platform=x
 ```
 
 Format changed XAML before building with `scripts/maintenance/windows/format-xaml.ps1 -Changed`, and run it with `-Check` before handoff.
-The repository has no automated test projects; do not add or run unit tests until the owner defines a new test project. Agent-driven UI automation is retired. The [local Docker lab](tools/local-lab/README.md) is the Windows application testing environment; use manual interaction for UI checks.
-A passing build does not prove UI behavior. Report manual verification as pending unless someone performed it.
+The repository has no automated test projects; do not add or run unit tests until the owner defines a new test project. The [local Docker lab](tools/local-lab/README.md) is the Windows application testing environment. On Windows, agents verify UI behavior themselves in the running Debug app with `winapp ui` (inspect, invoke, send-keys, screenshot, record) against the lab accounts; see the Windows guide. Do not add UI test projects or scripts to the repository; each check is run ad hoc and reported with its screenshots.
+A passing build does not prove UI behavior. Report a UI check as done only when it was performed, by an agent through `winapp ui` or by a person, and say which.
 
 ## Accounts, OAuth clients and signing (hard rules)
 

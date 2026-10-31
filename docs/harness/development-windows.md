@@ -53,7 +53,7 @@ Keep manual lab verification separate: successful compilation and generated acce
 - Close the Debug application, including its tray process, before deployment if it holds package files open.
 - Never launch the packaged executable directly. Release validation compiles and packages without launching.
 - The package declares no `Microsoft.VCLibs` dependency, and only `onnxruntime.dll` needs the Visual C++ runtime. `Wino.Core.ML` ships that runtime (`src/Wino.Core.ML/NativeRuntime/<rid>`) into the package root, and `OnnxNativeRuntimeSupport` refuses to load ONNX when the copy the loader would use is older than 14.40, because an older `msvcp140.dll` crashes the process natively instead of throwing. Keep the bundled files at least as new as the toolset `onnxruntime.dll` was built with; see [NativeRuntime/README.md](../../src/Wino.Core.ML/NativeRuntime/README.md).
-- Agent-driven UI automation is retired. Do not create or run UI test scripts or require `winapp ui` audits.
+- Verify UI behavior in the running Debug app with `winapp ui` (see [Agent UI checks](#agent-ui-checks)). Do not add UI test scripts or suites to the repository.
 
 ## VS Code F5
 
@@ -220,9 +220,23 @@ The editor extension is a convenience. The pinned command-line result is the for
 The repository has no automated test projects. Verify behavior with builds and manual checks in the running application.
 
 The [local Docker lab](../../tools/local-lab/README.md) is the application testing environment. It currently runs on Windows only.
-Its entry point is `scripts/lab/windows/local-lab.ps1`. `up` provisions five IMAP/SMTP/DAV servers (QRESYNC, CONDSTORE-only, and UID-only variants) with generated mail and generates account data; `install-app` installs that data into the Debug package and launches Wino. Nothing automates the UI.
-Agent-driven UI suites, recording scripts, automation-ID audits, and Sandbox test orchestration are retired.
-Report manual checks separately from compilation results.
+Its entry point is `scripts/lab/windows/local-lab.ps1`. `up` provisions five IMAP/SMTP/DAV servers (QRESYNC, CONDSTORE-only, and UID-only variants) with generated mail and generates account data; `install-app` installs that data into the Debug package and launches Wino.
+Report UI checks separately from compilation results.
+
+## Agent UI checks
+
+Agents check user-visible behavior themselves with WinApp CLI's UI Automation commands against the lab accounts, on the interactive, unlocked desktop. Typical sequence:
+
+```powershell
+winapp ui status -a Wino.Mail.WinUI
+winapp ui search "Inbox" -a Wino.Mail.WinUI
+winapp ui invoke <slug> -a Wino.Mail.WinUI
+winapp ui wait-for <slug> -a Wino.Mail.WinUI
+winapp ui screenshot -a Wino.Mail.WinUI --json
+winapp ui record -a Wino.Mail.WinUI --duration-sec 20
+```
+
+`inspect` and `search` resolve element slugs from the accessibility tree, so every interactive control needs an accessible name (`scripts/maintenance/windows/audit-xaml-accessibility.ps1` reports the gaps). Use `send-keys --via send-input` for text boxes and the editor. Keep the checks ad hoc: no test scripts or suites in the repository, and no `winapp ui` audits as a build gate. Attach the screenshots or recording to the report, and say what was clicked and what was observed. Sandbox execution (`--on sandbox`) is optional and not required for routine checks.
 
 ## Wino Account sign-in with Microsoft, Google and Apple
 
