@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
@@ -16,6 +17,7 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.CardDav;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Messaging.Client.Accounts;
 
 namespace Wino.Core.Services;
 
@@ -292,6 +294,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
 
         run.Start(AccountSetupStepKind.SavingAccount);
         await _accountService.CreateAccountAsync(account, null, enableMailFilters: account.IsMailAccessGranted);
+        WeakReferenceMessenger.Default.Send(new AccountSetupInProgressMessage(account.Id));
         run.IsSaved = true;
         run.Succeed();
 
@@ -392,6 +395,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
 
         run.Start(AccountSetupStepKind.SavingAccount);
         await _accountService.CreateAccountAsync(account, serverInformation, true);
+        WeakReferenceMessenger.Default.Send(new AccountSetupInProgressMessage(account.Id));
         run.IsSaved = true;
         run.Succeed();
 
@@ -433,6 +437,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
 
         run.Start(AccountSetupStepKind.SavingAccount);
         await _accountService.CreateAccountAsync(account, serverInformation, setupData.ShouldAppendMessagesToSentFolder);
+        WeakReferenceMessenger.Default.Send(new AccountSetupInProgressMessage(account.Id));
         run.IsSaved = true;
 
         if (oauthSession != null)
