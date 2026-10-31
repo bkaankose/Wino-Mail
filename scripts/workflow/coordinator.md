@@ -19,6 +19,7 @@ Interpret the message, call the matching command, and reply with one or two line
 | An issue number or GitHub issue URL, with optional free text | `work.ps1 start <N> -Instructions "<the free text>"`. Add `-Model` when the message names a model (opus, sonnet, haiku, or a full id), `-Effort` when it names low, medium, high or max, `-Design <n>` when it asks for a design (`design` = 1, `design x3` or `3 alternatives` = 3). |
 | `status` | `work.ps1 status`, reply with the table condensed to one line per issue. |
 | `stop N` | `work.ps1 stop N` |
+| `stop all` / `stop everything` | `work.ps1 stop all` (kills every worker and pauses new work; `resume` lifts the pause) |
 | `redo N <text>` | `work.ps1 stop N`, then `work.ps1 start N -Instructions "<text>"` (the branch is reused). |
 | `approve N` or `approve N B` | `work.ps1 answer N "approved"` or `work.ps1 answer N "approved: B"` |
 | Any reply inside an issue thread that is not a command | `work.ps1 answer N "<the message verbatim>"`, where N comes from the thread's name (`#N title`) or from `state.json` threadId. |

@@ -58,18 +58,25 @@ Setup and overview
   init                          Create the work root, config.json (never overwritten), and state.json.
   status                        Issues with status, step, worktree, worker, parity; Mac and queue summary.
   pause | resume                Stop or allow idle prototyping. start still works while paused.
+                                Prototyping never runs while an owner-queued issue is active.
 
 Issues
   start <N> [-Model <id>] [-Effort low|medium|high|xhigh|max] [-Design <count>] [-Instructions "<text>"] [-NoLaunch]
                                 Label the issue queued, create worktree wt\<N> on agent/<N>-<slug> from origin/main
                                 (or reuse it), write brief.md, create the Discord thread, launch the worker
                                 (claude -p --dangerously-skip-permissions --model <id> --effort <level>).
-  stop <N>                      Kill the worker process tree and mark the issue paused.
+  stop <N> | stop all           Kill the worker process tree and mark the issue paused; "all" also pauses new work.
+                                Closing the coordinator window does not stop workers: they run detached.
   ask <N> "<text>" [-TimeoutHours <h>]
                                 Post a question and wait for answer.md (exit code 2 on timeout).
   answer <N> "<text>"           Write the owner's answer for a waiting worker.
   publish <N> <path> [-As plan|design|screen|video|report|other] [-Name <name>]
                                 Upload to R2 under <N>/ (Markdown is rendered to HTML) and rebuild the indexes.
+                                plan, design and report publishes post their link to the issue thread.
+  lease acquire <N> [-TimeoutHours <h>] | lease release <N> | lease status
+                                The single deployment lease: hold it from deploy through the end of UI checks,
+                                never across a build. acquire waits (default 2 h, exit code 2 on timeout);
+                                tick frees a lease whose worker died.
 
 Discord
   notify <N> "<text>"           Post to the issue thread, or the issues channel without one.
@@ -184,7 +191,7 @@ function Read-StateFile {
     if (-not $state.Contains('issues') -or $null -eq $state.issues) { $state.issues = @{} }
     if (-not $state.Contains('pendingNotifications') -or $null -eq $state.pendingNotifications) { $state.pendingNotifications = @() }
     if (-not $state.Contains('mac') -or $null -eq $state.mac) { $state.mac = @{ reachable = $null; lastCheck = $null; lastChange = $null } }
-    foreach ($key in @('lastTick', 'lastBoot', 'lastBrief', 'paused')) { if (-not $state.Contains($key)) { $state[$key] = $null } }
+    foreach ($key in @('lastTick', 'lastBoot', 'lastBrief', 'paused', 'lease')) { if (-not $state.Contains($key)) { $state[$key] = $null } }
     $state.pendingNotifications = @($state.pendingNotifications)
     return $state
 }
@@ -426,8 +433,21 @@ function Get-ContentType {
 
 function ConvertTo-HtmlText { param($Value) return [Net.WebUtility]::HtmlEncode([string]$Value) }
 
+function Get-StatusChipHtml {
+    param([string]$Status)
+    $class = switch ($Status) {
+        { $_ -in $script:ActiveStatuses } { 'chip-active' }
+        'finished' { 'chip-finished' }
+        'paused' { 'chip-paused' }
+        'failed' { 'chip-failed' }
+        default { 'chip-other' }
+    }
+    return "<span class=`"chip $class`">$(ConvertTo-HtmlText ($Status ?? 'not tracked'))</span>"
+}
+
 function New-SitePage {
-    param([string]$Title, [string]$BodyHtml)
+    param([string]$Title, [string]$BodyHtml, [string]$MainClass = '')
+    $mainTag = if ($MainClass) { "<main class=`"$MainClass`">" } else { '<main>' }
     $css = Get-Content -LiteralPath (Join-Path $script:TemplateRoot 'site.css') -Raw
     return @"
 <!doctype html>
@@ -442,7 +462,7 @@ $css
 </style>
 </head>
 <body>
-<main>
+$mainTag
 $BodyHtml
 </main>
 </body>
@@ -461,6 +481,34 @@ function Get-IssueTitle {
 
 function Get-PublicUrl { param([string]$Key) return "$((Get-Config).r2.publicBaseUrl.TrimEnd('/'))/$Key" }
 
+function Get-RepositoryWebUrl {
+    $remote = (Invoke-Git @('remote', 'get-url', 'origin') -AllowFailure | Select-Object -First 1) ?? ''
+    if ($remote -match 'github\.com[:/](?<owner>[^/]+)/(?<repo>[^/]+?)(\.git)?$') { return "https://github.com/$($Matches.owner)/$($Matches.repo)" }
+    return $null
+}
+
+# GitHub's compare page shows the diff against main and pre-fills the pull request form when expand=1.
+function Get-ReviewLinks {
+    param([int]$Number)
+    $record = Get-IssueRecord $Number
+    $repoUrl = Get-RepositoryWebUrl
+    if (-not ${record}?.branch -or -not $repoUrl) { return $null }
+    $branch = [Uri]::EscapeDataString($record.branch).Replace('%2F', '/')
+    $title = [Uri]::EscapeDataString("$($record.title) (#$Number)")
+    return @{
+        Compare = "$repoUrl/compare/main...$branch"
+        PullRequest = "$repoUrl/compare/main...${branch}?expand=1&title=$title"
+        Issue = "$repoUrl/issues/$Number"
+    }
+}
+
+function Format-ReviewLinksHtml {
+    param([int]$Number)
+    $links = Get-ReviewLinks $Number
+    if (-not $links) { return '' }
+    return "<p class=`"meta`"><a href=`"$($links.PullRequest.Replace('&', '&amp;'))`">Open pull request</a> &middot; <a href=`"$($links.Compare)`">Compare with main</a> &middot; <a href=`"$($links.Issue)`">Issue #$Number</a></p>"
+}
+
 function Publish-Artifact {
     param([int]$Number, [string]$Path, [string]$Kind, [string]$PublishName)
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "File not found: $Path" }
@@ -478,6 +526,7 @@ function Publish-Artifact {
     if ($extension -eq '.md') {
         $depth = ($relative.Split('/').Count - 1)
         $nav = "<p class=`"nav`"><a href=`"$('../' * $depth)index.html`">$(ConvertTo-HtmlText $title)</a></p>"
+        if ($Kind -eq 'report') { $nav += "`n" + (Format-ReviewLinksHtml $Number) }
         $html = New-SitePage $title ($nav + "`n" + (ConvertFrom-Markdown -LiteralPath $source).Html)
         $staged = Join-Path $siteDir ($relative -replace '/', '\')
         Write-TextFile $staged $html
@@ -536,6 +585,18 @@ function Update-IssueAfterPublish {
         }
     }
     Update-Issue $Number $values
+    $message = switch ($Kind) {
+        'plan' { "Plan for #${Number} is ready: $(Get-PublicUrl "$Number/plan.html")" }
+        'design' { "Designs for #${Number} are ready: $(Get-PublicUrl "$Number/index.html")" }
+        'report' {
+            $links = Get-ReviewLinks $Number
+            $text = "Finished #${Number}: $($record.title). Report: $(Get-PublicUrl "$Number/report.html")"
+            if ($links) { $text += "`nReview and open the PR: $($links.PullRequest)" }
+            $text
+        }
+        default { $null }
+    }
+    if ($message) { try { $null = Send-Notification 'issues' $message $Number } catch { Write-Warning $_.Exception.Message } }
 }
 
 function New-IssuePage {
@@ -546,12 +607,14 @@ function New-IssuePage {
     $lines = [Collections.Generic.List[string]]::new()
     $lines.Add('<p class="nav"><a href="../index.html">Wino work</a></p>')
     $lines.Add("<h1>$(ConvertTo-HtmlText $title)</h1>")
-    $facts = @("Status: <strong>$(ConvertTo-HtmlText (${record}?.status ?? 'not tracked'))</strong>")
+    $facts = @((Get-StatusChipHtml ${record}?.status))
     if (${record}?.step) { $facts += "Step: $(ConvertTo-HtmlText $record.step)" }
     if (${record}?.branch) { $facts += "Branch: <code>$(ConvertTo-HtmlText $record.branch)</code>" }
     if (${record}?.parity) { $facts += "Parity: $(ConvertTo-HtmlText $record.parity)" }
     $facts += "Updated: $(Format-Stamp $Manifest.updatedAt)"
     $lines.Add("<p class=`"meta`">$($facts -join ' &middot; ')</p>")
+    $reviewLinks = Format-ReviewLinksHtml $Number
+    if ($reviewLinks) { $lines.Add($reviewLinks) }
     if (Test-Path -LiteralPath $issueFile) { $lines.Add("<p><a href=`"$(ConvertTo-HtmlText (Read-JsonFile $issueFile).url)`">GitHub issue</a></p>") }
     foreach ($kind in $script:KindTitles.Keys) {
         $items = @($Manifest.artifacts | Where-Object { $_.kind -eq $kind } | Sort-Object { $_.path })
@@ -575,11 +638,34 @@ function New-IssuePage {
 
 function New-RootPage {
     $state = Get-State
-    $rows = foreach ($record in ($state.issues.Values | Sort-Object { [int]$_.number } -Descending)) {
-        "<tr><td><a href=`"$($record.number)/index.html`">#$($record.number)</a></td><td>$(ConvertTo-HtmlText $record.title)</td><td>$(ConvertTo-HtmlText $record.status)</td><td>$(Format-Stamp $record.updatedAt)</td></tr>"
+    $records = @($state.issues.Values | Sort-Object { [int]$_.number } -Descending)
+    $cards = foreach ($record in $records) {
+        $number = [int]$record.number
+        $issueDir = Get-IssueDir $number
+        $links = [Collections.Generic.List[string]]::new()
+        if (Test-Path -LiteralPath (Join-Path $issueDir 'plan.md')) { $links.Add("<a href=`"$number/plan.html`">Plan</a>") }
+        if (Test-Path -LiteralPath (Join-Path $issueDir 'report.md')) { $links.Add("<a href=`"$number/report.html`">Report</a>") }
+        $review = Get-ReviewLinks $number
+        if ($review -and $record.status -eq 'finished') { $links.Add("<a href=`"$($review.PullRequest.Replace('&', '&amp;'))`">Open pull request</a>") }
+        if ($review) { $links.Add("<a href=`"$($review.Issue)`">GitHub issue</a>") }
+        $facts = @()
+        if ($record.step) { $facts += ConvertTo-HtmlText $record.step }
+        if ($record.branch) { $facts += "<code>$(ConvertTo-HtmlText $record.branch)</code>" }
+        $facts += "Updated $(Format-Stamp $record.updatedAt)"
+        @"
+<li class="issue">
+<div class="issue-head"><span class="issue-number">#$number</span>$(Get-StatusChipHtml $record.status)</div>
+<p class="issue-title"><a href="$number/index.html">$(ConvertTo-HtmlText $record.title)</a></p>
+<p class="meta">$($facts -join ' &middot; ')</p>
+$(if ($links.Count) { "<p class=`"links`">$($links -join "`n")</p>" })
+</li>
+"@
     }
-    $table = if ($rows) { "<div class=`"table-wrap`"><table><thead><tr><th>Issue</th><th>Title</th><th>Status</th><th>Updated</th></tr></thead><tbody>`n$($rows -join "`n")`n</tbody></table></div>" } else { '<p>No issues yet.</p>' }
-    return New-SitePage 'Wino work' "<h1>Wino work</h1>`n<p class=`"meta`">Updated $(Format-Stamp (Get-UtcStamp))</p>`n$table"
+    $active = @($records | Where-Object { $_.status -in $script:ActiveStatuses }).Count
+    $finished = @($records | Where-Object { $_.status -eq 'finished' }).Count
+    $summary = "Updated $(Format-Stamp (Get-UtcStamp)) &middot; $($records.Count) issue$(if ($records.Count -ne 1) { 's' }), $active active, $finished finished"
+    $body = if ($cards) { "<ul class=`"issues`">`n$($cards -join "`n")`n</ul>" } else { '<p class="empty">No issues yet. Queue one in Discord to see it here.</p>' }
+    return New-SitePage 'Wino work' "<div class=`"page-head`"><h1>Wino work</h1><p class=`"meta`">$summary</p></div>`n$body" -MainClass 'wide'
 }
 
 function Get-Slug {
@@ -699,13 +785,22 @@ function Invoke-Start {
     } catch { Write-Warning $_.Exception.Message }
 }
 
+function Stop-IssueWorker {
+    param([int]$Number)
+    $record = Get-IssueRecord $Number
+    if ($null -eq $record) { throw "Issue #$Number is not tracked." }
+    if (Test-WorkerAlive $record.pid) { Stop-ProcessTree $record.pid; Write-Output "Stopped worker of #$Number (pid $($record.pid))." } else { Write-Output "No live worker for #$Number." }
+    Update-Issue $Number @{ status = 'paused'; step = 'stopped by owner'; pid = $null }
+    try { $null = Send-Notification 'issues' "Stopped #${Number}." $Number } catch { Write-Warning $_.Exception.Message }
+}
+
 function Invoke-Stop {
-    $number = ConvertTo-IssueNumber (Get-Argument 0 'issue number')
-    $record = Get-IssueRecord $number
-    if ($null -eq $record) { throw "Issue #$number is not tracked." }
-    if (Test-WorkerAlive $record.pid) { Stop-ProcessTree $record.pid; Write-Output "Stopped worker pid $($record.pid)." } else { Write-Output 'No live worker.' }
-    Update-Issue $number @{ status = 'paused'; step = 'stopped by owner'; pid = $null }
-    try { $null = Send-Notification 'issues' "Stopped #${number}." $number } catch { Write-Warning $_.Exception.Message }
+    $target = Get-Argument 0 'issue number or "all"'
+    if ($target -ne 'all') { Stop-IssueWorker (ConvertTo-IssueNumber $target); return }
+    $null = Update-State { param($s) $s.paused = $true }
+    $live = @((Get-State).issues.Values | Where-Object { $_.status -in $script:ActiveStatuses -or (Test-WorkerAlive $_.pid) })
+    foreach ($record in $live) { Stop-IssueWorker ([int]$record.number) }
+    Write-Output "Stopped $($live.Count) worker(s) and paused new work. Run resume to allow prototyping again; start still works."
 }
 
 function Invoke-Ask {
@@ -757,7 +852,8 @@ function Invoke-Reap {
         $number = [int]$record.number
         if (Test-Path -LiteralPath (Join-Path (Get-IssueDir $number) 'report.md')) {
             Update-Issue $number @{ status = 'finished'; step = 'report written'; pid = $null; lastError = $null }
-            $message = "Finished #${number}: $($record.title). Report: $(Get-PublicUrl "$number/report.html")"
+            Write-Output "Worker for #$number finished; the report publish already announced it."
+            continue
         } else {
             $tail = Get-LogTail $number 8
             $lastError = if ($tail.Length -gt 1500) { $tail.Substring($tail.Length - 1500) } else { $tail }
@@ -786,11 +882,31 @@ function Invoke-BuildTimeouts {
     }
 }
 
+# A worker that deployed on the host registered the Debug package from its worktree; the registration and the
+# running app pin the folder, and the owner's next F5 re-registers the package from the main checkout.
+function Release-WorktreeFromHost {
+    param([string]$Worktree)
+    $prefix = $Worktree.TrimEnd('\', '/') + '\'
+    Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue
+    foreach ($package in @(Get-AppxPackage -Name '58272BurakKSE.WinoMailPreview' -ErrorAction SilentlyContinue)) {
+        if ($package.IsDevelopmentMode -and $package.InstallLocation -and $package.InstallLocation.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+            Remove-AppxPackage -Package $package.PackageFullName -PreserveApplicationData
+            Write-Output "Unregistered the Debug package that pointed into $Worktree (application data preserved)."
+        }
+    }
+}
+
 function Invoke-Prune {
     foreach ($record in @((Get-State).issues.Values | Where-Object { $_.status -in 'finished', 'failed' -and $_.worktree })) {
         if ((Test-WorkerAlive $record.pid) -or -not (Test-Path -LiteralPath $record.worktree)) { continue }
         if (-not (Test-RemoteBranch $record.branch)) { continue }
-        $null = Invoke-Git @('worktree', 'remove', '--force', $record.worktree)
+        Release-WorktreeFromHost $record.worktree
+        $null = Invoke-Git @('worktree', 'remove', '--force', $record.worktree) -AllowFailure
+        if (Test-Path -LiteralPath $record.worktree) {
+            Remove-Item -LiteralPath $record.worktree -Recurse -Force -ErrorAction SilentlyContinue
+            $null = Invoke-Git @('worktree', 'prune')
+        }
+        if (Test-Path -LiteralPath $record.worktree) { Write-Warning "Worktree of #$($record.number) is still pinned; it will be retried next tick."; continue }
         Write-Output "Removed worktree of #$($record.number) ($($record.branch) is on origin)."
     }
     $null = Invoke-Git @('worktree', 'prune')
@@ -829,7 +945,15 @@ function Send-PendingNotifications {
     Write-Output "Sent $($sent.Count) of $($pending.Count) queued posts."
 }
 
-function Start-IdlePrototypes { }
+function Test-PrototypingAllowed {
+    $state = Get-State
+    if ($state.paused) { return $false }
+    $busy = @($state.issues.Values | Where-Object { $_.status -in $script:ActiveStatuses -or (Test-WorkerAlive $_.pid) })
+    return $busy.Count -eq 0
+}
+
+# Phase 5. Prototyping only runs while nothing the owner queued is active; owner-queued work always has priority over idle work.
+function Start-IdlePrototypes { if (-not (Test-PrototypingAllowed)) { return } }
 
 function Invoke-Tick {
     $steps = [ordered]@{
@@ -837,7 +961,8 @@ function Invoke-Tick {
         'build timeout' = { Invoke-BuildTimeouts }
         prune = { Invoke-Prune }
         'mac ping' = { $null = Test-Mac }
-        prototypes = { if (-not (Get-State).paused) { Start-IdlePrototypes } }
+        lease = { Clear-StaleLease }
+        prototypes = { Start-IdlePrototypes }
         flush = { Send-PendingNotifications }
     }
     foreach ($step in $steps.Keys) {
@@ -937,7 +1062,8 @@ function Invoke-Status {
     Write-Output "Worktrees: $worktrees of $((Get-Config).limits.maxWorktrees)"
     Write-Output "Mac: $macText"
     Write-Output "Queued posts: $(@($state.pendingNotifications).Count)"
-    Write-Output "Prototyping: $(if ($state.paused) { 'paused' } else { 'allowed' })"
+    Write-Output $(if ($state.lease) { "Deployment lease: #$($state.lease.issue) since $(Format-Stamp $state.lease.acquiredAt)" } else { 'Deployment lease: free' })
+    Write-Output "Prototyping: $(if ($state.paused) { 'paused' } elseif (Test-PrototypingAllowed) { 'allowed' } else { 'waiting until queued issues finish' })"
     Write-Output "Last tick: $(Format-Stamp $state.lastTick)"
 }
 
@@ -960,6 +1086,63 @@ function Invoke-Init {
         if (-not [Environment]::GetEnvironmentVariable($variable)) { $todo.Add("$variable environment variable") }
     }
     if ($todo.Count) { Write-Output 'Still to fill in:'; $todo | ForEach-Object { Write-Output "  - $_" } } else { Write-Output 'Configuration is complete.' }
+}
+
+# One deployment target (the Windows Sandbox, or the host desktop) exists, so deploy-and-test phases run one at a time.
+function Test-LeaseStale {
+    param($Lease)
+    if ($null -eq $Lease) { return $false }
+    $holder = Get-IssueRecord ([int]$Lease.issue)
+    return ($null -eq $holder) -or -not (Test-WorkerAlive $holder.pid)
+}
+
+function Clear-StaleLease {
+    $freed = Update-State {
+        param($s)
+        if (Test-LeaseStale $s.lease) { $issue = $s.lease.issue; $s.lease = $null; $issue } else { $null }
+    }
+    if ($freed) { Write-Output "Freed the deployment lease held by #$freed (its worker is gone)." }
+}
+
+function Invoke-Lease {
+    $sub = if ($Arguments.Count) { $Arguments[0] } else { 'status' }
+    switch ($sub) {
+        'acquire' {
+            $number = ConvertTo-IssueNumber (Get-Argument 1 'issue number')
+            $hours = if ($TimeoutHours -gt 0) { $TimeoutHours } else { 2 }
+            $deadline = [DateTime]::UtcNow.AddHours($hours)
+            while ($true) {
+                $granted = Update-State {
+                    param($s)
+                    if (Test-LeaseStale $s.lease) { $s.lease = $null }
+                    if ($null -eq $s.lease -or [int]$s.lease.issue -eq $number) {
+                        $s.lease = @{ issue = $number; acquiredAt = Get-UtcStamp }
+                        $true
+                    } else { $false }
+                }
+                if ($granted) {
+                    if ((Get-IssueRecord $number).status -in $script:ActiveStatuses) { Update-Issue $number @{ step = 'holds the deployment lease' } }
+                    Write-Output "Lease granted to #$number."
+                    return
+                }
+                if ([DateTime]::UtcNow -gt $deadline) { Write-Output "Lease still held by #$((Get-State).lease.issue) after $hours h."; $script:ExitCode = 2; return }
+                Start-Sleep -Seconds 15
+            }
+        }
+        'release' {
+            $number = ConvertTo-IssueNumber (Get-Argument 1 'issue number')
+            $released = Update-State {
+                param($s)
+                if ($null -ne $s.lease -and [int]$s.lease.issue -eq $number) { $s.lease = $null; $true } else { $false }
+            }
+            Write-Output $(if ($released) { "Lease released by #$number." } else { "#$number does not hold the lease." })
+        }
+        'status' {
+            $lease = (Get-State).lease
+            Write-Output $(if ($lease) { "Lease: #$($lease.issue) since $(Format-Stamp $lease.acquiredAt)" } else { 'Lease: free' })
+        }
+        default { throw "Unknown lease command '$sub'. Use lease acquire <N>, lease release <N>, or lease status." }
+    }
 }
 
 function Invoke-Mac {
@@ -1002,6 +1185,7 @@ try {
         'pause' { $null = Update-State { param($s) $s.paused = $true }; Write-Output 'paused: true (idle prototyping stopped; start still works)' }
         'resume' { $null = Update-State { param($s) $s.paused = $false }; Write-Output 'paused: false' }
         'mac' { Invoke-Mac }
+        'lease' { Invoke-Lease }
         { $_ -in 'hardstops', 'merge' } { Write-Output "$_ is not implemented (phase 3)."; $script:ExitCode = 3 }
         'parity' { Write-Output 'parity is not implemented (phase 4).'; $script:ExitCode = 3 }
         'prototype' { Write-Output 'prototype is not implemented (phase 5).'; $script:ExitCode = 3 }

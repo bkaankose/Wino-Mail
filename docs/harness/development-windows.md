@@ -236,7 +236,7 @@ winapp ui screenshot -a Wino.Mail.WinUI --json
 winapp ui record -a Wino.Mail.WinUI --duration-sec 20
 ```
 
-`inspect` and `search` resolve element slugs from the accessibility tree, so every interactive control needs an accessible name (`scripts/maintenance/windows/audit-xaml-accessibility.ps1` reports the gaps). Use `send-keys --via send-input` for text boxes and the editor. Keep the checks ad hoc: no test scripts or suites in the repository, and no `winapp ui` audits as a build gate. Attach the screenshots or recording to the report, and say what was clicked and what was observed. Sandbox execution (`--on sandbox`) is optional and not required for routine checks.
+`inspect` and `search` resolve element slugs from the accessibility tree, so every interactive control needs an accessible name (`scripts/maintenance/windows/audit-xaml-accessibility.ps1` reports the gaps). Use `send-keys --via send-input` for text boxes and the editor, and set `WINAPP_UI_WORKFLOW_ID` so a burst of commands counts as one workflow. Keep the checks ad hoc: no test scripts or suites in the repository, and no `winapp ui` audits as a build gate. Attach the screenshots or recording to the report, and say what was clicked and what was observed. Unattended workers deploy one at a time under the workflow's deployment lease. Sandbox execution (`--on sandbox`) is optional and not required for routine checks.
 
 ## Wino Account sign-in with Microsoft, Google and Apple
 
