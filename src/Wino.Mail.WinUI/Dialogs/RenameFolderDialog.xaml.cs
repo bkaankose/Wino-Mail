@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml.Controls;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Models.Folders;
 
 namespace Wino.Dialogs;
@@ -8,13 +9,23 @@ public sealed partial class RenameFolderDialog : ContentDialog
 {
     public FolderRenameDialogResult? Result { get; private set; }
 
-    public RenameFolderDialog(string folderName, string? displayName)
+    public RenameFolderDialog(string folderName, string? displayName, bool canRenameOnServer)
     {
         InitializeComponent();
 
         FolderNameTextBox.Text = folderName;
         DisplayNameTextBox.Text = displayName ?? string.Empty;
-        FolderNameTextBox.SelectAll();
+
+        if (canRenameOnServer)
+        {
+            FolderNameTextBox.SelectAll();
+        }
+        else
+        {
+            FolderNameTextBox.IsEnabled = false;
+            FolderNameDescriptionText.Text = Translator.RenameFolderDialog_SystemFolderNameDescription;
+            DisplayNameTextBox.SelectAll();
+        }
     }
 
     private void InputChanged(object sender, TextChangedEventArgs e)

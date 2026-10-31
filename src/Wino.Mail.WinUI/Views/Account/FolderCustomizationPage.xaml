@@ -27,6 +27,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
                 <coreControls:WinoFontIcon
@@ -47,11 +48,23 @@
                 <TextBlock
                     Grid.Column="2"
                     VerticalAlignment="Center"
-                    Text="{x:Bind FolderName}"
+                    Text="{x:Bind FolderName, Mode=OneWay}"
                     TextTrimming="CharacterEllipsis" />
 
-                <ToggleButton
+                <Button
                     Grid.Column="3"
+                    AutomationProperties.AutomationId="FolderCustomizationPageRenameButton"
+                    Click="Rename_Click"
+                    Style="{StaticResource SubtleButtonStyle}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.FolderOperation_Rename}">
+                    <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        FontSize="16"
+                        Icon="Rename" />
+                </Button>
+
+                <ToggleButton
+                    Grid.Column="4"
                     AutomationProperties.AutomationId="FolderCustomizationPageToggleButton"
                     Click="HideToggle_Click"
                     IsChecked="{x:Bind IsHidden, Mode=OneWay}"
@@ -64,7 +77,7 @@
                 </ToggleButton>
 
                 <Button
-                    Grid.Column="4"
+                    Grid.Column="5"
                     AutomationProperties.AutomationId="FolderCustomizationPageButton"
                     Click="PinToggle_Click"
                     Style="{StaticResource SubtleButtonStyle}"

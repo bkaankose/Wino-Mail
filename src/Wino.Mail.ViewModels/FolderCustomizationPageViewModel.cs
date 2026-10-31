@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
@@ -12,6 +13,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels;
 
@@ -24,6 +26,7 @@ public partial class FolderCustomizationPageViewModel : MailBaseViewModel
     private readonly IMailDialogService _dialogService;
     private readonly IFolderService _folderService;
     private readonly IAccountService _accountService;
+    private readonly IWinoRequestDelegator _winoRequestDelegator;
 
     private static readonly SpecialFolderType[] GmailCategorySubTypes =
     [
@@ -50,11 +53,13 @@ public partial class FolderCustomizationPageViewModel : MailBaseViewModel
 
     public FolderCustomizationPageViewModel(IMailDialogService dialogService,
                                             IFolderService folderService,
-                                            IAccountService accountService)
+                                            IAccountService accountService,
+                                            IWinoRequestDelegator winoRequestDelegator)
     {
         _dialogService = dialogService;
         _folderService = folderService;
         _accountService = accountService;
+        _winoRequestDelegator = winoRequestDelegator;
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object? parameters)
@@ -177,6 +182,60 @@ public partial class FolderCustomizationPageViewModel : MailBaseViewModel
         item.Folder.IsHidden = item.IsHidden;
 
         await _folderService.ChangeFolderHiddenStatusAsync(item.Folder.Id, item.IsHidden);
+    }
+
+    public async Task RenameFolderAsync(FolderCustomizationItemViewModel item)
+    {
+        if (item == null) return;
+
+        var folder = item.Folder;
+        var canRenameOnServer = !folder.IsSystemFolder;
+
+        var result = await _dialogService.ShowRenameFolderDialogAsync(folder.FolderName, folder.DisplayName, canRenameOnServer);
+        if (result == null) return;
+
+        var newFolderName = result.FolderName.Trim();
+        string? newDisplayName = result.DisplayName.Trim();
+
+        // A display name that repeats the folder name is not an override.
+        if (newDisplayName.Length == 0 || string.Equals(newDisplayName, newFolderName, StringComparison.Ordinal))
+            newDisplayName = null;
+
+        var currentDisplayName = string.IsNullOrWhiteSpace(folder.DisplayName) ? null : folder.DisplayName;
+
+        if (!string.Equals(newDisplayName, currentDisplayName, StringComparison.Ordinal))
+        {
+            await _folderService.ChangeFolderDisplayNameAsync(folder.Id, newDisplayName);
+
+            folder.DisplayName = newDisplayName;
+            WeakReferenceMessenger.Default.Send(new FolderRenamed(folder));
+        }
+
+        if (canRenameOnServer && newFolderName.Length > 0 && !string.Equals(newFolderName, folder.FolderName, StringComparison.Ordinal))
+        {
+            await _winoRequestDelegator.ExecuteAsync(new FolderOperationPreperationRequest(FolderOperation.Rename, folder, newFolderName));
+        }
+    }
+
+    protected override void OnFolderRenamed(IMailItemFolder mailItemFolder)
+    {
+        base.OnFolderRenamed(mailItemFolder);
+
+        if (mailItemFolder == null) return;
+
+        _ = ExecuteUIThread(() =>
+        {
+            foreach (var item in PinnedFolders.Concat(CategoryFolders).Concat(MoreFolders).Where(a => a.Folder.Id == mailItemFolder.Id))
+            {
+                if (!ReferenceEquals(item.Folder, mailItemFolder))
+                {
+                    item.Folder.FolderName = mailItemFolder.FolderName;
+                    item.Folder.DisplayName = mailItemFolder.DisplayName;
+                }
+
+                item.NotifyFolderNameChanged();
+            }
+        });
     }
 
     public async Task TogglePinAsync(FolderCustomizationItemViewModel item)

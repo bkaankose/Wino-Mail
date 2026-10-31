@@ -647,6 +647,7 @@
   "DialogMessage_RenameFolderTitle": "Rename Folder",
   "RenameFolderDialog_FolderNameHeader": "Folder name",
   "RenameFolderDialog_FolderNameDescription": "Renames the folder on your mail server.",
+  "RenameFolderDialog_SystemFolderNameDescription": "System folders keep their name on the mail server.",
   "RenameFolderDialog_DisplayNameHeader": "Display name",
   "RenameFolderDialog_DisplayNamePlaceholder": "Same as folder name",
   "RenameFolderDialog_DisplayNameDescription": "Shown only in Wino on this device. The folder keeps its name on the server. Leave it empty to show the folder name.",

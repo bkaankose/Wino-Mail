@@ -87,10 +87,11 @@ public sealed partial class AppKitDialogService
     });
 
     /// <summary>Windows RenameFolderDialog: the server folder name and the local-only display name; null when cancelled.</summary>
-    public Task<FolderRenameDialogResult?> ShowRenameFolderDialogAsync(string folderName, string? displayName) => PresentAsync<FolderRenameDialogResult?>(async window =>
+    public Task<FolderRenameDialogResult?> ShowRenameFolderDialogAsync(string folderName, string? displayName, bool canRenameOnServer) => PresentAsync<FolderRenameDialogResult?>(async window =>
     {
-        var form = new FormSheet(Translator.DialogMessage_RenameFolderTitle, Translator.RenameFolderDialog_FolderNameDescription, Translator.FolderOperation_Rename);
+        var form = new FormSheet(Translator.DialogMessage_RenameFolderTitle, canRenameOnServer ? Translator.RenameFolderDialog_FolderNameDescription : Translator.RenameFolderDialog_SystemFolderNameDescription, Translator.FolderOperation_Rename);
         var name = form.AddTextField(Translator.RenameFolderDialog_FolderNameHeader, folderName);
+        name.Enabled = canRenameOnServer;
         var display = form.AddTextField(Translator.RenameFolderDialog_DisplayNameHeader, displayName, Translator.RenameFolderDialog_DisplayNamePlaceholder);
         form.AddFullWidth(WinoStyle.Label(Translator.RenameFolderDialog_DisplayNameDescription, WinoStyle.Description, WinoStyle.SecondaryText, 0));
         name.Changed += (_, _) => form.Refresh();

@@ -29,6 +29,15 @@ public sealed partial class FolderCustomizationPage : FolderCustomizationPageAbs
     }
 
     [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
+    private async void Rename_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement element && element.DataContext is FolderCustomizationItemViewModel item)
+        {
+            await ViewModel.RenameFolderAsync(item);
+        }
+    }
+
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     private async void HideToggle_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement element && element.DataContext is FolderCustomizationItemViewModel item)

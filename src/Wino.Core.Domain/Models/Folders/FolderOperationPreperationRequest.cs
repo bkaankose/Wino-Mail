@@ -8,4 +8,5 @@ namespace Wino.Core.Domain.Models.Folders;
 /// </summary>
 /// <param name="Action">Folder operation.</param>
 /// <param name="Folder">Target folder.</param>
-public record FolderOperationPreperationRequest(FolderOperation Action, MailItemFolder Folder) { }
+/// <param name="NewFolderName">New server name for Rename; null asks the user.</param>
+public record FolderOperationPreperationRequest(FolderOperation Action, MailItemFolder Folder, string? NewFolderName = null) { }

@@ -74,8 +74,9 @@ public interface IMailDialogService : IDialogServiceBase
     /// <summary>
     /// Asks for a folder's server name and its local-only display name.
     /// </summary>
+    /// <param name="canRenameOnServer">False keeps the server name read-only, as for system folders.</param>
     /// <returns>The entered names, or null when the user cancels.</returns>
-    Task<FolderRenameDialogResult?> ShowRenameFolderDialogAsync(string folderName, string? displayName);
+    Task<FolderRenameDialogResult?> ShowRenameFolderDialogAsync(string folderName, string? displayName, bool canRenameOnServer);
 
     /// <summary>
     /// Presents a dialog to the user to show email source.

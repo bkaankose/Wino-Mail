@@ -23,4 +23,6 @@ public partial class FolderCustomizationItemViewModel : ObservableObject
         Folder = folder;
         IsHidden = folder.IsHidden;
     }
+
+    public void NotifyFolderNameChanged() => OnPropertyChanged(nameof(FolderName));
 }

@@ -24,14 +24,23 @@
         <TextBox
             x:Name="FolderNameTextBox"
             AutomationProperties.AutomationId="RenameFolderName"
-            Description="{x:Bind domain:Translator.RenameFolderDialog_FolderNameDescription}"
             Header="{x:Bind domain:Translator.RenameFolderDialog_FolderNameHeader}"
-            TextChanged="InputChanged" />
+            TextChanged="InputChanged">
+            <TextBox.Description>
+                <TextBlock
+                    x:Name="FolderNameDescriptionText"
+                    Text="{x:Bind domain:Translator.RenameFolderDialog_FolderNameDescription}"
+                    TextWrapping="Wrap" />
+            </TextBox.Description>
+        </TextBox>
         <TextBox
             x:Name="DisplayNameTextBox"
             AutomationProperties.AutomationId="RenameFolderDisplayName"
-            Description="{x:Bind domain:Translator.RenameFolderDialog_DisplayNameDescription}"
             Header="{x:Bind domain:Translator.RenameFolderDialog_DisplayNameHeader}"
-            PlaceholderText="{x:Bind domain:Translator.RenameFolderDialog_DisplayNamePlaceholder}" />
+            PlaceholderText="{x:Bind domain:Translator.RenameFolderDialog_DisplayNamePlaceholder}">
+            <TextBox.Description>
+                <TextBlock Text="{x:Bind domain:Translator.RenameFolderDialog_DisplayNameDescription}" TextWrapping="Wrap" />
+            </TextBox.Description>
+        </TextBox>
     </StackPanel>
 </ContentDialog>

@@ -118,10 +118,11 @@ public sealed partial class AndroidDialogService
     }, null);
 
     /// <summary>Windows RenameFolderDialog: the server folder name and the local-only display name; null when cancelled.</summary>
-    public Task<FolderRenameDialogResult?> ShowRenameFolderDialogAsync(string folderName, string? displayName) => FormAsync<FolderRenameDialogResult?>(activity =>
+    public Task<FolderRenameDialogResult?> ShowRenameFolderDialogAsync(string folderName, string? displayName, bool canRenameOnServer) => FormAsync<FolderRenameDialogResult?>(activity =>
     {
         var form = new AndroidFormDialog<FolderRenameDialogResult?>(activity, Translator.DialogMessage_RenameFolderTitle, null, Translator.FolderOperation_Rename);
-        var name = form.AddTextField(Translator.RenameFolderDialog_FolderNameHeader, folderName, helper: Translator.RenameFolderDialog_FolderNameDescription);
+        var name = form.AddTextField(Translator.RenameFolderDialog_FolderNameHeader, folderName, helper: canRenameOnServer ? Translator.RenameFolderDialog_FolderNameDescription : Translator.RenameFolderDialog_SystemFolderNameDescription);
+        name.Enabled = canRenameOnServer;
         var display = form.AddTextField(Translator.RenameFolderDialog_DisplayNameHeader, displayName, helper: Translator.RenameFolderDialog_DisplayNameDescription);
         form.CanConfirm = () => !string.IsNullOrWhiteSpace(name.Text);
         form.Primary = () =>

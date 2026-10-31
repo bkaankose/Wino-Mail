@@ -247,9 +247,9 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
         return dialog.Result;
     }
 
-    public async Task<FolderRenameDialogResult?> ShowRenameFolderDialogAsync(string folderName, string? displayName)
+    public async Task<FolderRenameDialogResult?> ShowRenameFolderDialogAsync(string folderName, string? displayName, bool canRenameOnServer)
     {
-        var dialog = new RenameFolderDialog(folderName, displayName)
+        var dialog = new RenameFolderDialog(folderName, displayName, canRenameOnServer)
         {
             RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
         };

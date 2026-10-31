@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
@@ -16,7 +15,6 @@ using Wino.Core.Requests.Contact;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Requests.Tasks;
-using Wino.Messaging.UI;
 
 namespace Wino.Core.Services;
 
@@ -326,30 +324,10 @@ public class WinoRequestProcessor : IWinoRequestProcessor
                 break;
 
             case FolderOperation.Rename:
-                var renameResult = await _dialogService.ShowRenameFolderDialogAsync(folder.FolderName, folder.DisplayName);
+                var newFolderName = request.NewFolderName
+                    ?? await _dialogService.ShowTextInputDialogAsync(folder.FolderName, Translator.DialogMessage_RenameFolderTitle, Translator.DialogMessage_RenameFolderMessage, Translator.FolderOperation_Rename);
 
-                if (renameResult == null)
-                    break;
-
-                var newFolderName = renameResult.FolderName?.Trim();
-                var newDisplayName = renameResult.DisplayName?.Trim();
-
-                // A display name that repeats the folder name is not an override.
-                if (string.Equals(newDisplayName, newFolderName, StringComparison.Ordinal))
-                    newDisplayName = null;
-
-                if (string.IsNullOrWhiteSpace(newDisplayName))
-                    newDisplayName = null;
-
-                if (!string.Equals(newDisplayName, string.IsNullOrWhiteSpace(folder.DisplayName) ? null : folder.DisplayName, StringComparison.Ordinal))
-                {
-                    await _folderService.ChangeFolderDisplayNameAsync(folder.Id, newDisplayName);
-
-                    folder.DisplayName = newDisplayName;
-                    WeakReferenceMessenger.Default.Send(new FolderRenamed(folder));
-                }
-
-                if (!string.IsNullOrEmpty(newFolderName) && !string.Equals(newFolderName, folder.FolderName, StringComparison.Ordinal))
+                if (!string.IsNullOrEmpty(newFolderName))
                 {
                     change = new RenameFolderRequest(folder, folder.FolderName, newFolderName);
                 }
