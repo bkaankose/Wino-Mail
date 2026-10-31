@@ -98,6 +98,12 @@ internal sealed class MainTrayController
 
     private async Task ToggleFlyoutAsync()
     {
+        if (!_isCompanionEnabled || !_companion.IsAvailableForSession)
+        {
+            await OpenMailAsync();
+            return;
+        }
+
         var cancellation = new CancellationTokenSource();
         _pendingToggle = cancellation;
 
