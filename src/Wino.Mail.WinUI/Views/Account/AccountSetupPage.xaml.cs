@@ -53,6 +53,9 @@ public sealed partial class AccountSetupPage : AccountSetupPageAbstract
         ViewModel.PropertyChanged -= ViewModelPropertyChanged;
         ViewModel.PropertyChanged += ViewModelPropertyChanged;
 
+        // The wizard centres the panel in its window; Settings pages start at the top.
+        TopSpacerRow.Height = ViewModel.IsSettingsHost ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+
         RenderKnownItems(isAnnounced: false);
         ShowStep(ViewModel.Step);
     }

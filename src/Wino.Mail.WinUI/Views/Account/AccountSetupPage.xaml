@@ -693,6 +693,7 @@
             <DataTemplate x:Key="ProgressStepTemplate" x:DataType="local:AccountSetupStepContent">
                 <StackPanel Spacing="12">
                     <ItemsControl
+                        HorizontalAlignment="Center"
                         AutomationProperties.AutomationId="AccountSetupSteps"
                         AutomationProperties.LiveSetting="Polite"
                         ItemsSource="{x:Bind ViewModel.Steps}">
@@ -812,7 +813,7 @@
         VerticalScrollBarVisibility="Auto">
         <Grid Margin="16" RowSpacing="12">
             <Grid.RowDefinitions>
-                <RowDefinition Height="*" />
+                <RowDefinition x:Name="TopSpacerRow" Height="*" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
