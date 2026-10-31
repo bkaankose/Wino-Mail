@@ -99,6 +99,10 @@ public partial class App : WinoApplication,
     private readonly TaskCompletionSource _launchCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private MainTrayController? _companionIntegration;
     private Window? _backgroundLifetimeWindow;
+
+    // A logon start (startup task or session-start trigger) stays resident without any window,
+    // so neither a shell nor the background lifetime window shows that it must keep running.
+    private bool _isResidentBackgroundStart;
     private Microsoft.UI.Xaml.LaunchActivatedEventArgs? _pendingMigrationLaunchArgs;
     private PendingMigrationActivation? _pendingMigrationActivation;
     private readonly record struct ShellWindowActivationResult(IWinoShellWindow? ShellWindow, bool WasCreated);
@@ -1441,6 +1445,8 @@ public partial class App : WinoApplication,
             ExitApplication();
             return;
         }
+
+        _isResidentBackgroundStart = true;
 
         _ = ExecuteOnActivationUiThreadAsync(() =>
         {
