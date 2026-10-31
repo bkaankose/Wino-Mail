@@ -1137,6 +1137,8 @@
   "ProviderDetail_IMAP_Description": "Enter the server settings yourself, or let Wino discover them from your email address",
   "ProviderDetail_POP3_Title": "POP3",
   "ProviderDetail_POP3_Description": "POP3/SMTP mail with local folders and scheduled polling",
+  "ProviderDetail_Exchange_Title": "Exchange",
+  "ProviderDetail_Exchange_Description": "On-premises Exchange Server",
   "ProviderDetail_IMAP_Title": "IMAP / SMTP Server",
   "ProviderDetail_Yahoo_Description": "Yahoo Account",
   "ProviderDetail_Yahoo_Title": "Yahoo Mail",

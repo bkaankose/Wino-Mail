@@ -61,6 +61,38 @@ public class CustomServerInformation
     /// </summary>
     public int MaxConcurrentClients { get; set; }
 
+    /// <summary>True when an Exchange account signs in with OAuth bearer tokens instead of a password.</summary>
+    public bool UseOAuthAuthentication { get; set; }
+
+    /// <summary>OpenID Connect authority of an Exchange account, for example https://adfs.example.com/adfs.</summary>
+    public string? OAuthAuthority { get; set; }
+
+    public string? OAuthClientId { get; set; }
+
+    /// <summary>The protected resource Exchange tokens are requested for, for example https://mail.example.com/.</summary>
+    public string? OAuthResource { get; set; }
+
+    public string? OAuthRedirectUri { get; set; }
+
+    /// <summary>The user's transport choice for an Exchange account. Automatic follows detection.</summary>
+    public ExchangeTransport ExchangeTransport { get; set; }
+
+    /// <summary>
+    /// The transport Autodiscover reported for the mailbox, recorded by setup or by the MAPI synchronizer when it
+    /// learns the protocol is not offered. Automatic means not detected yet.
+    /// </summary>
+    public ExchangeTransport DetectedExchangeTransport { get; set; }
+
+    /// <summary>
+    /// The transport the synchronizer factory acts on: an explicit choice wins, detection decides under Automatic,
+    /// and an undecided account tries MAPI over HTTP first so the MAPI path can fall back to EWS itself.
+    /// </summary>
+    [Ignore]
+    public ExchangeTransport EffectiveExchangeTransport
+        => ExchangeTransport != ExchangeTransport.Automatic ? ExchangeTransport
+         : DetectedExchangeTransport == ExchangeTransport.Ews ? ExchangeTransport.Ews
+         : ExchangeTransport.MapiHttp;
+
     [Ignore]
     public List<MailServerCertificateTrust> PendingCertificateTrusts { get; set; } = [];
 
@@ -81,7 +113,14 @@ public class CustomServerInformation
             { "CalendarSupportMode", CalendarSupportMode.ToString() },
             { "CalDavServiceUrl", CalDavServiceUrl },
             { "ProxyServer", ProxyServer },
-            { "ProxyServerPort", ProxyServerPort }
+            { "ProxyServerPort", ProxyServerPort },
+            { "UseOAuthAuthentication", UseOAuthAuthentication.ToString() },
+            { "OAuthAuthority", OAuthAuthority },
+            { "OAuthClientId", OAuthClientId },
+            { "OAuthResource", OAuthResource },
+            { "OAuthRedirectUri", OAuthRedirectUri },
+            { "ExchangeTransport", ExchangeTransport.ToString() },
+            { "DetectedExchangeTransport", DetectedExchangeTransport.ToString() }
         };
 
         return connectionProperties;

@@ -106,6 +106,10 @@ public class ProviderDetail : IProviderDetail
                 Name = Translator.ProviderDetail_POP3_Title;
                 Description = Translator.ProviderDetail_POP3_Description;
                 break;
+            case MailProviderType.Exchange:
+                Name = Translator.ProviderDetail_Exchange_Title;
+                Description = Translator.ProviderDetail_Exchange_Description;
+                break;
         }
     }
 

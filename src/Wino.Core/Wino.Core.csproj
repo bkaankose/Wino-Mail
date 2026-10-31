@@ -35,6 +35,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\Wino.Authentication\Wino.Authentication.csproj" />
 		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+		<ProjectReference Include="..\Wino.Core.MAPI\Wino.Core.MAPI.csproj" />
 		<ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
 		<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
 	</ItemGroup>
