@@ -29,7 +29,11 @@ param(
     [ValidateSet('plan', 'design', 'screen', 'video', 'report', 'other')]
     [string]$As,
     [string]$Name,
-    [switch]$Critical
+    [switch]$Critical,
+    [ValidateSet('branch', 'main')]
+    [string]$Prefer,
+    [switch]$ApproveDestructive,
+    [switch]$DryRun
 )
 
 Set-StrictMode -Version Latest
@@ -73,6 +77,8 @@ Issues
   publish <N> <path> [-As plan|design|screen|video|report|other] [-Name <name>]
                                 Upload to R2 under <N>/ (Markdown is rendered to HTML) and rebuild the indexes.
                                 plan, design and report publishes post their link to the issue thread.
+  pages <N>                     Regenerate and upload the issue page and the site index from the current state
+                                (status changes from stop, tick and merge do this on their own).
   lease acquire <N> [-TimeoutHours <h>] | lease release <N> | lease status
                                 The single deployment lease: hold it from deploy through the end of UI checks,
                                 never across a build. acquire waits (default 2 h, exit code 2 on timeout);
@@ -93,7 +99,18 @@ Mac
   mac ping                      Exit code 0 when the Mac answers over SSH, 1 otherwise.
   mac sync|build|test           Not implemented (phase 4).
 
-Not implemented yet (exit code 3): hardstops, merge, parity (phase 3/4), prototype (phase 5), release (phase 7).
+Merge
+  hardstops <N>                 List the hard-stop categories the branch touches (exit code 2 when a destructive
+                                schema change is in the diff).
+  merge <N> [-Prefer branch|main] [-ApproveDestructive] [-DryRun]
+                                In the background: squash-merge origin/<branch> onto origin/main in a temporary
+                                worktree, build Debug x64, push main, mark the issue pending release, remove the
+                                queued label, delete the branch, post the result to the thread. A conflict on the
+                                same lines stops it; -Prefer picks a side. A destructive schema change needs
+                                -ApproveDestructive. -DryRun does everything except push, labels and branch
+                                deletion.
+
+Not implemented yet (exit code 3): parity (phase 4), prototype (phase 5), release (phase 7).
 
 Work root: D:\Wino-Work, or WINO_WORK_ROOT. Settings: <work root>\config.json.
 Secrets come only from the environment: WINO_R2_ACCOUNT_ID, WINO_R2_ACCESS_KEY_ID, WINO_R2_SECRET_ACCESS_KEY,
@@ -193,6 +210,7 @@ function Read-StateFile {
     if (-not $state.Contains('mac') -or $null -eq $state.mac) { $state.mac = @{ reachable = $null; lastCheck = $null; lastChange = $null } }
     foreach ($key in @('lastTick', 'lastBoot', 'lastBrief', 'paused', 'lease')) { if (-not $state.Contains($key)) { $state[$key] = $null } }
     $state.pendingNotifications = @($state.pendingNotifications)
+    foreach ($issue in @($state.issues.Values)) { foreach ($key in @('mergePid', 'mergeSha')) { if (-not $issue.Contains($key)) { $issue[$key] = $null } } }
     return $state
 }
 
@@ -437,7 +455,7 @@ function Get-StatusChipHtml {
     param([string]$Status)
     $class = switch ($Status) {
         { $_ -in $script:ActiveStatuses } { 'chip-active' }
-        'finished' { 'chip-finished' }
+        { $_ -in 'finished', 'merged' } { 'chip-finished' }
         'paused' { 'chip-paused' }
         'failed' { 'chip-failed' }
         default { 'chip-other' }
@@ -571,6 +589,33 @@ function Update-Manifest {
     }
 }
 
+function Publish-IssuePages {
+    param([int]$Number)
+    $file = Join-Path (Get-IssueDir $Number) 'manifest.json'
+    $manifest = Invoke-Locked {
+        $m = if (Test-Path -LiteralPath $file) { Read-JsonFile $file } else { [ordered]@{ number = $Number; artifacts = @() } }
+        $m.title = Get-IssueTitle $Number
+        $m.status = (Get-IssueRecord $Number)?.status
+        $m.updatedAt = Get-UtcStamp
+        Write-TextFile $file ($m | ConvertTo-Json -Depth 6)
+        $m
+    }
+    $siteDir = Join-Path (Get-IssueDir $Number) 'site'
+    $pages = @(
+        @{ Key = "$Number/index.html"; Stage = 'index.html'; Html = (New-IssuePage $Number $manifest) }
+        @{ Key = 'index.html'; Stage = 'site-root\index.html'; Html = (New-RootPage) }
+    )
+    foreach ($page in $pages) { Write-TextFile (Join-Path $siteDir $page.Stage) $page.Html }
+    $credentials = Get-R2Credentials
+    Send-R2Object $credentials "$Number/manifest.json" $script:Utf8.GetBytes(($manifest | ConvertTo-Json -Depth 6)) $script:ContentTypes['.json'] 'no-cache'
+    foreach ($page in $pages) { Send-R2Object $credentials $page.Key $script:Utf8.GetBytes($page.Html) $script:ContentTypes['.html'] 'no-cache' }
+}
+
+function Update-IssuePagesQuietly {
+    param([int]$Number)
+    try { Publish-IssuePages $Number } catch { Write-Warning "Work site pages for #$Number were not refreshed: $($_.Exception.Message)" }
+}
+
 function Update-IssueAfterPublish {
     param([int]$Number, [string]$Kind)
     $record = Get-IssueRecord $Number
@@ -607,7 +652,7 @@ function New-IssuePage {
     $lines = [Collections.Generic.List[string]]::new()
     $lines.Add('<p class="nav"><a href="../index.html">Wino work</a></p>')
     $lines.Add("<h1>$(ConvertTo-HtmlText $title)</h1>")
-    $facts = @((Get-StatusChipHtml ${record}?.status))
+    $facts = @((Get-StatusChipHtml (${record}?.status)))
     if (${record}?.step) { $facts += "Step: $(ConvertTo-HtmlText $record.step)" }
     if (${record}?.branch) { $facts += "Branch: <code>$(ConvertTo-HtmlText $record.branch)</code>" }
     if (${record}?.parity) { $facts += "Parity: $(ConvertTo-HtmlText $record.parity)" }
@@ -615,6 +660,7 @@ function New-IssuePage {
     $lines.Add("<p class=`"meta`">$($facts -join ' &middot; ')</p>")
     $reviewLinks = Format-ReviewLinksHtml $Number
     if ($reviewLinks) { $lines.Add($reviewLinks) }
+    elseif (${record}?.mergeSha -and (Get-RepositoryWebUrl)) { $lines.Add("<p class=`"meta`"><a href=`"$(Get-RepositoryWebUrl)/commit/$($record.mergeSha)`">Commit $($record.mergeSha)</a> &middot; <a href=`"$(Get-RepositoryWebUrl)/issues/$Number`">Issue #$Number</a></p>") }
     if (Test-Path -LiteralPath $issueFile) { $lines.Add("<p><a href=`"$(ConvertTo-HtmlText (Read-JsonFile $issueFile).url)`">GitHub issue</a></p>") }
     foreach ($kind in $script:KindTitles.Keys) {
         $items = @($Manifest.artifacts | Where-Object { $_.kind -eq $kind } | Sort-Object { $_.path })
@@ -646,8 +692,10 @@ function New-RootPage {
         if (Test-Path -LiteralPath (Join-Path $issueDir 'plan.md')) { $links.Add("<a href=`"$number/plan.html`">Plan</a>") }
         if (Test-Path -LiteralPath (Join-Path $issueDir 'report.md')) { $links.Add("<a href=`"$number/report.html`">Report</a>") }
         $review = Get-ReviewLinks $number
+        $repoUrl = Get-RepositoryWebUrl
         if ($review -and $record.status -eq 'finished') { $links.Add("<a href=`"$($review.PullRequest.Replace('&', '&amp;'))`">Open pull request</a>") }
-        if ($review) { $links.Add("<a href=`"$($review.Issue)`">GitHub issue</a>") }
+        if ($record.mergeSha -and $repoUrl) { $links.Add("<a href=`"$repoUrl/commit/$($record.mergeSha)`">Commit $($record.mergeSha)</a>") }
+        if ($repoUrl) { $links.Add("<a href=`"$repoUrl/issues/$number`">GitHub issue</a>") }
         $facts = @()
         if ($record.step) { $facts += ConvertTo-HtmlText $record.step }
         if ($record.branch) { $facts += "<code>$(ConvertTo-HtmlText $record.branch)</code>" }
@@ -791,6 +839,7 @@ function Stop-IssueWorker {
     if ($null -eq $record) { throw "Issue #$Number is not tracked." }
     if (Test-WorkerAlive $record.pid) { Stop-ProcessTree $record.pid; Write-Output "Stopped worker of #$Number (pid $($record.pid))." } else { Write-Output "No live worker for #$Number." }
     Update-Issue $Number @{ status = 'paused'; step = 'stopped by owner'; pid = $null }
+    Update-IssuePagesQuietly $Number
     try { $null = Send-Notification 'issues' "Stopped #${Number}." $Number } catch { Write-Warning $_.Exception.Message }
 }
 
@@ -852,12 +901,14 @@ function Invoke-Reap {
         $number = [int]$record.number
         if (Test-Path -LiteralPath (Join-Path (Get-IssueDir $number) 'report.md')) {
             Update-Issue $number @{ status = 'finished'; step = 'report written'; pid = $null; lastError = $null }
+            Update-IssuePagesQuietly $number
             Write-Output "Worker for #$number finished; the report publish already announced it."
             continue
         } else {
             $tail = Get-LogTail $number 8
             $lastError = if ($tail.Length -gt 1500) { $tail.Substring($tail.Length - 1500) } else { $tail }
             Update-Issue $number @{ status = 'failed'; step = 'worker exited without a report'; pid = $null; lastError = $lastError }
+            Update-IssuePagesQuietly $number
             $message = "Worker for #$number exited without a report. Last log lines:`n``````n$lastError`n``````"
         }
         Write-Output $message.Split("`n")[0]
@@ -1088,6 +1139,205 @@ function Invoke-Init {
     if ($todo.Count) { Write-Output 'Still to fill in:'; $todo | ForEach-Object { Write-Output "  - $_" } } else { Write-Output 'Configuration is complete.' }
 }
 
+$script:HardStopRules = @(
+    @{ Category = 'Database schema or migration'; Paths = @('^src/Wino\.Core\.Domain/Entities/', '^src/Wino\.Services/(Database|BaseDatabase)[^/]*\.cs$', '^src/Wino\.Services/MainDatabaseRelocationService\.cs$'); DiffPattern = $null }
+    @{ Category = 'Dependencies'; Paths = @('^Directory\.Packages\.props$', '^global\.json$', '^nuget\.config$'); DiffPattern = '^[+-].*<PackageReference\b' }
+    @{ Category = 'Authentication or OAuth clients'; Paths = @('^src/Wino\.Authentication/', '^src/Wino\.Core\.Domain/Models/Authentication/', '^src/Wino\.Services/Configuration/known-imap-providers\.json$', '/google-services\.json$'); DiffPattern = $null }
+    @{ Category = 'Push relay or Wino API'; Paths = @('^src/Wino\.Core/PushRelay/', '^src/Wino\.Services/PushRelay/', '^src/Wino\.Core\.Domain/Models/PushRelay/', '^src/Wino\.Services/WinoAccountApiClient\.cs$', '^src/Wino\.Core\.Domain/Models/Accounts/WinoAccountExternalAuth\.cs$'); DiffPattern = $null }
+    @{ Category = 'Translations other than en_US'; Paths = @('^src/Wino\.Core\.Domain/Translations/(?!en_US/)'); DiffPattern = $null }
+)
+$script:DestructiveSchemaPattern = '^\+.*(DropTable|DropColumn|DROP\s+TABLE|DROP\s+COLUMN|ALTER\s+TABLE\s+\S+\s+DROP|DELETE\s+FROM|DeleteAll\s*<|\.Execute\s*\(\s*"(DELETE|DROP)|UPDATE\s+\S+\s+SET)'
+
+function Get-HardStops {
+    param([int]$Number)
+    $record = Get-IssueRecord $Number
+    if ($null -eq $record -or -not $record.branch) { throw "Issue #$Number has no branch." }
+    $null = Invoke-Git @('fetch', 'origin', '--prune', '--quiet')
+    if (-not (Test-RemoteBranch $record.branch)) { throw "Branch $($record.branch) is not on origin." }
+    $range = "origin/main...origin/$($record.branch)"
+    $files = @(Invoke-Git @('diff', '--name-only', $range) | Where-Object { $_ })
+    $stops = [Collections.Generic.List[object]]::new()
+    foreach ($rule in $script:HardStopRules) {
+        $hits = [Collections.Generic.List[string]]::new()
+        foreach ($file in $files) {
+            $normalized = $file -replace '\\', '/'
+            if ($rule.Paths | Where-Object { $normalized -match $_ }) { $hits.Add($file); continue }
+            if ($rule.DiffPattern -and $normalized -match '\.csproj$') {
+                $diff = Invoke-Git @('diff', $range, '--', $file)
+                if ($diff | Where-Object { $_ -match $rule.DiffPattern }) { $hits.Add($file) }
+            }
+        }
+        if (-not $hits.Count) { continue }
+        $destructive = $false
+        if ($rule.Category -like 'Database*') {
+            $diff = Invoke-Git (@('diff', $range, '--') + $hits)
+            $destructive = [bool]($diff | Where-Object { $_ -match $script:DestructiveSchemaPattern })
+        }
+        $stops.Add(@{ Category = $rule.Category; Files = @($hits); Destructive = $destructive })
+    }
+    return @{ Files = $files; Stops = @($stops); Branch = $record.branch }
+}
+
+function Format-HardStops {
+    param($Result)
+    if (-not $Result.Stops.Count) { return "No hard stops. $($Result.Files.Count) file(s) changed." }
+    $lines = foreach ($stop in $Result.Stops) {
+        $flag = if ($stop.Destructive) { ' (DESTRUCTIVE: needs explicit approval)' } else { '' }
+        "- $($stop.Category)$flag`: $($stop.Files -join ', ')"
+    }
+    return "Hard stops touched ($($Result.Files.Count) file(s) changed):`n$($lines -join "`n")"
+}
+
+function Invoke-HardStops {
+    $number = ConvertTo-IssueNumber (Get-Argument 0 'issue number')
+    $result = Get-HardStops $number
+    Write-Output (Format-HardStops $result)
+    if ($result.Stops | Where-Object Destructive) { $script:ExitCode = 2 }
+}
+
+function Get-MergeCommitMessage {
+    param([int]$Number, [string]$Branch)
+    $subjects = @(Invoke-Git @('log', '--format=%s', '--reverse', "origin/main..origin/$Branch") | Where-Object { $_ })
+    $last = Invoke-Git @('log', '-1', '--format=%B', "origin/$Branch")
+    $body = @($last | Where-Object { $_ -notmatch '^\s*Refs:\s*#' })
+    $subject = if ($body.Count) { $body[0].Trim() } else { "Fix #$Number" }
+    $rest = @($body | Select-Object -Skip 1 | ForEach-Object { $_.TrimEnd() })
+    while ($rest.Count -and -not $rest[0]) { $rest = @($rest | Select-Object -Skip 1) }
+    while ($rest.Count -and -not $rest[-1]) { $rest = @($rest | Select-Object -SkipLast 1) }
+    $lines = [Collections.Generic.List[string]]::new()
+    $lines.Add($subject)
+    $lines.Add('')
+    if ($rest.Count) { $lines.AddRange([string[]]$rest); $lines.Add('') }
+    if ($subjects.Count -gt 1) {
+        $lines.Add('Squashed from:')
+        foreach ($s in $subjects) { $lines.Add("- $s") }
+        $lines.Add('')
+    }
+    $lines.Add("Refs: #$Number")
+    return ($lines -join "`n") + "`n"
+}
+
+function Remove-MergeWorktree {
+    param([string]$Path)
+    if (Test-Path -LiteralPath $Path) {
+        $null = Invoke-Git @('worktree', 'remove', '--force', $Path) -AllowFailure
+        if (Test-Path -LiteralPath $Path) { cmd /c rmdir /s /q "$Path" 2>$null }
+    }
+    $null = Invoke-Git @('worktree', 'prune')
+}
+
+function Invoke-MergeRun {
+    $number = ConvertTo-IssueNumber (Get-Argument 0 'issue number')
+    $record = Get-IssueRecord $number
+    $config = Get-Config
+    $issueDir = Get-IssueDir $number
+    $mergeDir = Join-Path $script:WorkRoot "merge\$number"
+    $branch = $record.branch
+    $fail = {
+        param([string]$Reason)
+        Update-Issue $number @{ status = 'finished'; step = "merge failed: $Reason"; mergePid = $null }
+        try { $null = Send-Notification 'issues' "Merge of #${number} stopped: $Reason" $number } catch { Write-Warning $_.Exception.Message }
+        Write-Output "Merge of #$number stopped: $Reason"
+    }
+    try {
+        $hardStops = Get-HardStops $number
+        $destructive = @($hardStops.Stops | Where-Object Destructive)
+        if ($destructive.Count -and -not $ApproveDestructive) {
+            & $fail "a destructive schema change is in the diff ($(($destructive | ForEach-Object { $_.Files }) -join ', ')). Say 'merge $number, approve the migration' to merge anyway."
+            return
+        }
+        Remove-MergeWorktree $mergeDir
+        $null = Invoke-Git @('worktree', 'add', '--detach', $mergeDir, 'origin/main')
+        $git = { param([string[]]$a) & git -C $mergeDir @a 2>&1 | ForEach-Object { "$_" } }
+        $strategy = @()
+        if ($Prefer -eq 'branch') { $strategy = @('-X', 'theirs') } elseif ($Prefer -eq 'main') { $strategy = @('-X', 'ours') }
+        $mergeOutput = & $git (@('merge', '--squash', '--no-commit') + $strategy + @("origin/$branch"))
+        if ($LASTEXITCODE -ne 0) {
+            $conflicts = @(& $git @('diff', '--name-only', '--diff-filter=U') | Where-Object { $_ })
+            $null = & $git @('reset', '--hard', '--quiet')
+            Remove-MergeWorktree $mergeDir
+            & $fail "both sides changed the same lines in $($conflicts -join ', '). Say 'merge $number, branch wins' or 'merge $number, main wins', or fix the branch and finish it again."
+            return
+        }
+        if (-not @(& $git @('diff', '--cached', '--name-only') | Where-Object { $_ }).Count) {
+            Remove-MergeWorktree $mergeDir
+            & $fail 'the branch has no changes against main.'
+            return
+        }
+        $message = Get-MergeCommitMessage $number $branch
+        Write-TextFile (Join-Path $issueDir 'merge-message.txt') $message
+        $null = & $git @('commit', '--quiet', '-F', (Join-Path $issueDir 'merge-message.txt'))
+        if ($LASTEXITCODE -ne 0) { Remove-MergeWorktree $mergeDir; & $fail 'the squash commit could not be created.'; return }
+
+        Update-Issue $number @{ step = 'merge: building merged main' }
+        $buildLog = Join-Path $issueDir 'merge-build.log'
+        Push-Location $mergeDir
+        try { & dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64 2>&1 | ForEach-Object { "$_" } | Set-Content -LiteralPath $buildLog -Encoding utf8 }
+        finally { Pop-Location }
+        if ($LASTEXITCODE -ne 0) {
+            $tail = (Get-Content -LiteralPath $buildLog -Tail 15) -join "`n"
+            Remove-MergeWorktree $mergeDir
+            & $fail "the Debug build of the merged result failed.`n``````n$tail`n``````"
+            return
+        }
+
+        if ($DryRun) {
+            $subject = (Get-Content -LiteralPath (Join-Path $issueDir 'merge-message.txt') -TotalCount 1)
+            Remove-MergeWorktree $mergeDir
+            Update-Issue $number @{ step = 'merge dry run passed'; mergePid = $null }
+            $text = "Dry run of merge #${number} passed: squash applies cleanly on main and the Debug build succeeds. Would commit as `"$subject`". Nothing was pushed."
+            $null = Send-Notification 'issues' $text $number
+            Write-Output $text
+            return
+        }
+        $pushOutput = & $git @('push', 'origin', 'HEAD:main')
+        if ($LASTEXITCODE -ne 0) { Remove-MergeWorktree $mergeDir; & $fail "the push to main was rejected: $(($pushOutput | Select-Object -Last 2) -join ' ')"; return }
+        $sha = (& $git @('rev-parse', '--short', 'HEAD') | Select-Object -First 1)
+        Remove-MergeWorktree $mergeDir
+
+        $null = Invoke-Gh @('issue', 'edit', "$number", '--remove-label', 'queued') -AllowFailure
+        $markScript = Join-Path $config.repoPath 'scripts\release\release.ps1'
+        & pwsh -NoProfile -File $markScript mark $number 2>&1 | Out-Null
+        $null = Invoke-Git @('push', 'origin', '--delete', $branch) -AllowFailure
+        $null = Invoke-Git @('branch', '-D', $branch) -AllowFailure
+        $null = Invoke-Git @('fetch', 'origin', '--prune', '--quiet')
+        $ownerBranch = (Invoke-Git @('branch', '--show-current') | Select-Object -First 1)
+        $dirty = @(Invoke-Git @('status', '--porcelain', '--untracked-files=no') | Where-Object { $_ })
+        $pulled = $false
+        if ($ownerBranch -eq 'main' -and -not $dirty.Count) { $null = Invoke-Git @('merge', '--ff-only', '--quiet', 'origin/main') -AllowFailure; $pulled = $LASTEXITCODE -eq 0 }
+
+        Update-Issue $number @{ status = 'merged'; step = "merged as $sha"; mergePid = $null; branch = $null; mergeSha = $sha }
+        Update-IssuePagesQuietly $number
+        $text = "Merged #${number} into main as $sha. The issue is marked pending release and the branch is deleted."
+        if (-not $pulled) { $text += " The main checkout on this machine was not fast-forwarded (on '$ownerBranch'$(if ($dirty.Count) { ' with uncommitted changes' })); pull when convenient." }
+        $null = Send-Notification 'issues' $text $number
+        Write-Output $text
+    } catch {
+        try { Remove-MergeWorktree $mergeDir } catch { }
+        & $fail $_.Exception.Message
+    }
+}
+
+function Invoke-Merge {
+    $number = ConvertTo-IssueNumber (Get-Argument 0 'issue number')
+    $record = Get-IssueRecord $number
+    if ($null -eq $record) { throw "Issue #$number is not tracked." }
+    if ($record.status -eq 'merged') { Write-Output "#$number is already merged ($($record.step))."; return }
+    if ($record.status -ne 'finished') { throw "#$number is $($record.status), not finished. Merge only finished work." }
+    if (Test-WorkerAlive $record.pid) { throw "The worker of #$number is still running." }
+    if (Test-WorkerAlive $record.mergePid) { Write-Output "A merge of #$number is already running (pid $($record.mergePid))."; return }
+    if (-not (Test-RemoteBranch $record.branch)) { throw "Branch $($record.branch) is not on origin." }
+    $log = Join-Path (Get-IssueDir $number) 'merge.log'
+    $extra = @()
+    if ($Prefer) { $extra += @('-Prefer', $Prefer) }
+    if ($ApproveDestructive) { $extra += '-ApproveDestructive' }
+    if ($DryRun) { $extra += '-DryRun' }
+    $arguments = @('-NoProfile', '-File', $PSCommandPath, 'merge-run', "$number") + $extra
+    $process = Start-Process -FilePath (Get-Command pwsh).Source -ArgumentList $arguments -WorkingDirectory (Get-Config).repoPath -WindowStyle Hidden -PassThru -RedirectStandardOutput $log -RedirectStandardError "$log.err"
+    Update-Issue $number @{ step = 'merge started'; mergePid = $process.Id }
+    Write-Output "Merge of #$number started (pid $($process.Id)); the result is posted in the issue thread. Log: $log"
+}
+
 # One deployment target (the Windows Sandbox, or the host desktop) exists, so deploy-and-test phases run one at a time.
 function Test-LeaseStale {
     param($Lease)
@@ -1186,7 +1436,10 @@ try {
         'resume' { $null = Update-State { param($s) $s.paused = $false }; Write-Output 'paused: false' }
         'mac' { Invoke-Mac }
         'lease' { Invoke-Lease }
-        { $_ -in 'hardstops', 'merge' } { Write-Output "$_ is not implemented (phase 3)."; $script:ExitCode = 3 }
+        'pages' { $n = ConvertTo-IssueNumber (Get-Argument 0 'issue number'); Publish-IssuePages $n; Write-Output "Refreshed $(Get-PublicUrl "$n/index.html") and the site index." }
+        'hardstops' { Invoke-HardStops }
+        'merge' { Invoke-Merge }
+        'merge-run' { Invoke-MergeRun }
         'parity' { Write-Output 'parity is not implemented (phase 4).'; $script:ExitCode = 3 }
         'prototype' { Write-Output 'prototype is not implemented (phase 5).'; $script:ExitCode = 3 }
         'release' { Write-Output 'release is not implemented (phase 7).'; $script:ExitCode = 3 }

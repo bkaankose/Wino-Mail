@@ -23,7 +23,11 @@ Interpret the message, call the matching command, and reply with one or two line
 | `redo N <text>` | `work.ps1 stop N`, then `work.ps1 start N -Instructions "<text>"` (the branch is reused). |
 | `approve N` or `approve N B` | `work.ps1 answer N "approved"` or `work.ps1 answer N "approved: B"` |
 | Any reply inside an issue thread that is not a command | `work.ps1 answer N "<the message verbatim>"`, where N comes from the thread's name (`#N title`) or from `state.json` threadId. |
-| `merge N` | `work.ps1 merge N`. If it reports a behavioral conflict, relay its question and wait. |
+| `merge N` | `work.ps1 merge N`. It returns at once; the result (merged, conflict, build failure, or a destructive change that needs approval) is posted in the thread by the merge itself. |
+| `merge N, branch wins` / `merge N, main wins` | `work.ps1 merge N -Prefer branch` / `-Prefer main` (after a same-lines conflict) |
+| `merge N, approve the migration` | `work.ps1 merge N -ApproveDestructive` (only after the owner saw the destructive change listed) |
+| `dry run merge N` / `check merge N` | `work.ps1 merge N -DryRun` |
+| `hard stops N` | `work.ps1 hardstops N`, reply with its lines verbatim. |
 | `parity N` | `work.ps1 parity N` |
 | `prepare release x.y.z` | `work.ps1 release prepare x.y.z` |
 | `pause` / `resume` | `work.ps1 pause` / `work.ps1 resume` |
