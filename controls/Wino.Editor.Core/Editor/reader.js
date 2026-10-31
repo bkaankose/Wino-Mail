@@ -617,6 +617,9 @@
         const version = beginPresentationUpdate();
         clearColorOverrides();
         if (window.WinoMailColors) window.WinoMailColors.resetBackdropCache();
+        // The document is reused across messages. Re-rendering the same message (images,
+        // reader view) keeps its position; a different message starts at the top.
+        const isNewContent = decodedHtml !== originalHtml;
         originalHtml = decodedHtml;
         declaresDarkSupport = !useReadability && (hints.supportsDark || context.hasDarkRules);
         applyDocumentLanguage(presentation.direction, presentation.language);
@@ -628,6 +631,7 @@
         mailRoot.adoptedStyleSheets = sheets;
         mailHtmlElement = tree.htmlElement;
         mailBodyElement = tree.bodyElement;
+        if (isNewContent) window.scrollTo(0, 0);
 
         if (linkify && window.linkifyElement) {
             window.linkifyElement(mailBodyElement, { target: "_blank", rel: "noopener noreferrer", ignoreTags: ["A", "SCRIPT", "STYLE", "TEXTAREA", "CODE", "PRE"] });
