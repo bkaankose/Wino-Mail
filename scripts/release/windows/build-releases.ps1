@@ -435,6 +435,18 @@ function Get-ReleaseBrandingPaths {
     } | Sort-Object)
 }
 
+function Get-WidgetDefinitionMode {
+    param([string]$DefinitionId)
+
+    switch ($DefinitionId) {
+        'Wino_Mail' { 'Mail' }
+        'Wino_Calendar' { 'Calendar' }
+        'Wino_People' { 'People' }
+        'Wino_ToDo' { 'Tasks' }
+        default { throw "Unknown widget definition: $DefinitionId" }
+    }
+}
+
 function Set-ReleaseLayoutProfile {
     param([string]$Layout, [xml]$Manifest, [object]$Profile, [object]$Plan)
 
@@ -449,11 +461,22 @@ function Set-ReleaseLayoutProfile {
         $visual.SetAttribute('DisplayName', $name)
         foreach ($startup in $app.SelectNodes(".//*[local-name()='StartupTask']")) { $startup.SetAttribute('DisplayName', "$name Startup Service") }
         foreach ($node in $app.SelectNodes(".//*[local-name()='ToastNotificationActivation']")) { $node.SetAttribute('ToastActivatorCLSID', $Profile.NotificationActivatorIds.$mode) }
+        foreach ($node in $app.SelectNodes(".//*[local-name()='WidgetProvider']/*[local-name()='Activation']/*[local-name()='CreateInstance']")) { $node.SetAttribute('ClassId', $Profile.WidgetProviderId) }
+        foreach ($extension in $app.SelectNodes(".//*[local-name()='AppExtension'][@Name='com.microsoft.windows.widgets']")) { $extension.SetAttribute('DisplayName', $name) }
+        foreach ($definition in $app.SelectNodes(".//*[local-name()='WidgetProvider']//*[local-name()='Definition']")) {
+            $widgetName = $Profile.DisplayNames.(Get-WidgetDefinitionMode $definition.GetAttribute('Id'))
+            $definition.SetAttribute('DisplayName', $widgetName)
+            foreach ($screenshot in $definition.SelectNodes(".//*[local-name()='Screenshot']")) { $screenshot.SetAttribute('DisplayAltText', $widgetName) }
+        }
         foreach ($server in $app.SelectNodes(".//*[local-name()='ExeServer']")) {
-            # The application itself hosts the session-start background task; every other server is the notification host.
-            $isStartupServer = $server.GetAttribute('Executable') -eq 'Wino.Mail.WinUI.exe'
-            $displayName = if ($isStartupServer) { "$name startup service" } else { "$name notification host" }
-            $classId = if ($isStartupServer) { $Profile.StartupTaskActivatorId } else { $Profile.NotificationActivatorIds.$mode }
+            # The application itself hosts the session-start background task, Wino.WidgetHost the widget provider;
+            # every other server is the notification host.
+            $executable = $server.GetAttribute('Executable')
+            $displayName, $classId = switch ($executable) {
+                'Wino.Mail.WinUI.exe' { "$name startup service", $Profile.StartupTaskActivatorId }
+                'Wino.WidgetHost.exe' { "$name widget provider", $Profile.WidgetProviderId }
+                default { "$name notification host", $Profile.NotificationActivatorIds.$mode }
+            }
             $server.SetAttribute('DisplayName', $displayName)
             foreach ($node in $server.SelectNodes("*[local-name()='Class']")) {
                 $node.SetAttribute('Id', $classId)
@@ -595,6 +618,7 @@ function Assert-PackagedReleaseProfile {
     $expected = Get-ReleaseProfile $Plan $profile.Distribution
     if ($profile.PackageName -cne $expected.PackageName -or $profile.Publisher -cne $expected.Publisher -or
         $profile.StartupTaskActivatorId -cne $expected.StartupTaskActivatorId -or
+        $profile.WidgetProviderId -cne $expected.WidgetProviderId -or
         $profile.PackageName -cne [string]$Manifest.Package.Identity.Name -or $profile.Publisher -cne [string]$Manifest.Package.Identity.Publisher) {
         throw 'The packaged release profile does not match its manifest or distribution.'
     }
@@ -609,8 +633,18 @@ function Assert-PackagedReleaseProfile {
         foreach ($node in $app.SelectNodes(".//*[local-name()='ToastNotificationActivation']")) {
             if ($node.GetAttribute('ToastActivatorCLSID') -cne $profile.NotificationActivatorIds.$mode) { throw 'Notification manifest and runtime IDs differ.' }
         }
+        foreach ($node in $app.SelectNodes(".//*[local-name()='WidgetProvider']/*[local-name()='Activation']/*[local-name()='CreateInstance']")) {
+            if ($node.GetAttribute('ClassId') -cne $profile.WidgetProviderId) { throw 'Widget provider manifest and runtime IDs differ.' }
+        }
+        foreach ($definition in $app.SelectNodes(".//*[local-name()='WidgetProvider']//*[local-name()='Definition']")) {
+            if ($definition.GetAttribute('DisplayName') -cne $profile.DisplayNames.(Get-WidgetDefinitionMode $definition.GetAttribute('Id'))) { throw 'Widget display name differs from release branding.' }
+        }
         foreach ($server in $app.SelectNodes(".//*[local-name()='ExeServer']")) {
-            $expectedId = if ($server.GetAttribute('Executable') -eq 'Wino.Mail.WinUI.exe') { $profile.StartupTaskActivatorId } else { $profile.NotificationActivatorIds.$mode }
+            $expectedId = switch ($server.GetAttribute('Executable')) {
+                'Wino.Mail.WinUI.exe' { $profile.StartupTaskActivatorId }
+                'Wino.WidgetHost.exe' { $profile.WidgetProviderId }
+                default { $profile.NotificationActivatorIds.$mode }
+            }
             foreach ($node in $server.SelectNodes("*[local-name()='Class']")) {
                 if ($node.GetAttribute('Id') -cne $expectedId) { throw 'COM manifest and runtime IDs differ.' }
             }

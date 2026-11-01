@@ -28,6 +28,9 @@ public static class WinoViewModelRegistration
         services.AddSingleton<IDateContextProvider, SystemDateContextProvider>();
         services.AddSingleton<ICalendarRangeTextFormatter, CalendarRangeTextFormatter>();
 
+        // Read by the companion and, on Windows, by the widgets and the Live Tile.
+        services.AddSingleton<Companion.CompanionContentService>();
+
         // Mode providers remain application services so background synchronization can keep
         // running; the app shell owns window-specific binding state and dies with its window.
         services.AddSingleton<MailAppShellViewModel>();

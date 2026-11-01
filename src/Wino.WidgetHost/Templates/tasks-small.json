@@ -1,0 +1,36 @@
+{
+  "type": "AdaptiveCard",
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "${title}",
+      "wrap": false,
+      "maxLines": 1,
+      "weight": "Bolder",
+      "size": "Medium"
+    },
+    {
+      "type": "TextBlock",
+      "text": "${progress}",
+      "wrap": false,
+      "maxLines": 1,
+      "isSubtle": true,
+      "spacing": "None"
+    },
+    {
+      "type": "TextBlock",
+      "text": "${next}",
+      "wrap": false,
+      "maxLines": 1,
+      "isSubtle": true,
+      "size": "Small",
+      "spacing": "Small"
+    }
+  ],
+  "selectAction": {
+    "type": "Action.Execute",
+    "verb": "openTasks"
+  }
+}

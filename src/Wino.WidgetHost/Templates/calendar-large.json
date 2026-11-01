@@ -1,0 +1,231 @@
+{
+  "type": "AdaptiveCard",
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "ColumnSet",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "stretch",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "${dateText}",
+              "wrap": false,
+              "maxLines": 1,
+              "weight": "Bolder"
+            }
+          ]
+        },
+        {
+          "type": "Column",
+          "width": "auto",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "${todayCount}",
+              "wrap": false,
+              "maxLines": 1,
+              "isSubtle": true,
+              "size": "Small"
+            }
+          ],
+          "verticalContentAlignment": "Center"
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "${noEvents}",
+      "wrap": true,
+      "maxLines": 2,
+      "isSubtle": true,
+      "spacing": "Medium",
+      "$when": "${!hasEvents}"
+    },
+    {
+      "type": "TextBlock",
+      "text": "${todayLabel}",
+      "wrap": false,
+      "maxLines": 1,
+      "isSubtle": true,
+      "size": "Small",
+      "weight": "Bolder",
+      "spacing": "Medium",
+      "$when": "${hasToday}"
+    },
+    {
+      "type": "Container",
+      "$data": "${today}",
+      "spacing": "Small",
+      "items": [
+        {
+          "type": "ColumnSet",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "4px",
+              "items": [
+                {
+                  "type": "Container",
+                  "style": "accent",
+                  "minHeight": "34px",
+                  "items": []
+                }
+              ],
+              "spacing": "None"
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "${title}",
+                  "wrap": false,
+                  "maxLines": 1,
+                  "weight": "Bolder"
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "${time}",
+                  "wrap": false,
+                  "maxLines": 1,
+                  "isSubtle": true,
+                  "size": "Small",
+                  "spacing": "None"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "auto",
+              "items": [
+                {
+                  "type": "ActionSet",
+                  "actions": [
+                    {
+                      "type": "Action.Execute",
+                      "verb": "joinEvent",
+                      "title": "${$root.join}",
+                      "iconUrl": "${$root.joinIcon}",
+                      "data": {
+                        "value": "${id}"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "verticalContentAlignment": "Center",
+              "$when": "${isOnline}"
+            }
+          ]
+        }
+      ],
+      "selectAction": {
+        "type": "Action.Execute",
+        "verb": "openEvent",
+        "data": {
+          "value": "${id}"
+        }
+      }
+    },
+    {
+      "type": "TextBlock",
+      "text": "${tomorrowLabel}",
+      "wrap": false,
+      "maxLines": 1,
+      "isSubtle": true,
+      "size": "Small",
+      "weight": "Bolder",
+      "spacing": "Medium",
+      "$when": "${hasTomorrow}"
+    },
+    {
+      "type": "Container",
+      "$data": "${tomorrow}",
+      "spacing": "Small",
+      "items": [
+        {
+          "type": "ColumnSet",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "4px",
+              "items": [
+                {
+                  "type": "Container",
+                  "style": "accent",
+                  "minHeight": "34px",
+                  "items": []
+                }
+              ],
+              "spacing": "None"
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "${title}",
+                  "wrap": false,
+                  "maxLines": 1,
+                  "weight": "Bolder"
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "${time}",
+                  "wrap": false,
+                  "maxLines": 1,
+                  "isSubtle": true,
+                  "size": "Small",
+                  "spacing": "None"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "auto",
+              "items": [
+                {
+                  "type": "ActionSet",
+                  "actions": [
+                    {
+                      "type": "Action.Execute",
+                      "verb": "joinEvent",
+                      "title": "${$root.join}",
+                      "iconUrl": "${$root.joinIcon}",
+                      "data": {
+                        "value": "${id}"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "verticalContentAlignment": "Center",
+              "$when": "${isOnline}"
+            }
+          ]
+        }
+      ],
+      "selectAction": {
+        "type": "Action.Execute",
+        "verb": "openEvent",
+        "data": {
+          "value": "${id}"
+        }
+      }
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.Execute",
+      "verb": "newEvent",
+      "title": "${newEvent}",
+      "iconUrl": "${newEventIcon}"
+    }
+  ]
+}

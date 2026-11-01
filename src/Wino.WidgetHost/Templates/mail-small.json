@@ -1,0 +1,67 @@
+{
+  "type": "AdaptiveCard",
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "ColumnSet",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "auto",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "${unreadCount}",
+              "wrap": false,
+              "maxLines": 1,
+              "size": "ExtraLarge",
+              "weight": "Bolder"
+            }
+          ],
+          "verticalContentAlignment": "Center"
+        },
+        {
+          "type": "Column",
+          "width": "stretch",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "${unreadLabel}",
+              "wrap": false,
+              "maxLines": 1,
+              "isSubtle": true
+            }
+          ],
+          "verticalContentAlignment": "Center",
+          "spacing": "Small"
+        }
+      ],
+      "spacing": "None",
+      "$when": "${hasUnread}"
+    },
+    {
+      "type": "TextBlock",
+      "text": "${newest}",
+      "wrap": false,
+      "maxLines": 1,
+      "isSubtle": true,
+      "size": "Small",
+      "spacing": "Small",
+      "$when": "${hasUnread}"
+    },
+    {
+      "type": "TextBlock",
+      "text": "${noItems}",
+      "wrap": true,
+      "maxLines": 2,
+      "isSubtle": true,
+      "$when": "${!hasUnread}"
+    }
+  ],
+  "selectAction": {
+    "type": "Action.Execute",
+    "verb": "openInbox"
+  },
+  "verticalContentAlignment": "Center"
+}

@@ -63,5 +63,6 @@ public enum WinoPage
     IntelligenceCoveragePage,
     CompanionSettingsPage,
     NotificationSettingsPage,
-    ReaderActionsPage
+    ReaderActionsPage,
+    WidgetsLiveTilesSettingsPage
 }

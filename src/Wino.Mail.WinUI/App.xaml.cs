@@ -549,6 +549,16 @@ public partial class App : WinoApplication,
             RequireCalendarPickerWhenUnresolved = calendarId == null
         };
 
+        // Switching into Calendar runs the shell's own first navigation; composing before it finishes leaves the
+        // user on the calendar page instead of the new event.
+        var dispatcherQueue = GetActivationDispatcherQueue();
+        if (dispatcherQueue != null)
+        {
+            var shellSettled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            if (dispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => shellSettled.SetResult()))
+                await shellSettled.Task;
+        }
+
         await ExecuteOnActivationUiThreadAsync(() =>
         {
             Services.GetRequiredService<INavigationService>()
@@ -743,6 +753,7 @@ public partial class App : WinoApplication,
         services.RegisterWinoViewModels();
         // Windows-only pages.
         services.AddTransient(typeof(MigrationPageViewModel));
+        services.AddTransient<WidgetsLiveTilesSettingsPageViewModel>();
     }
 
     #endregion
@@ -922,7 +933,10 @@ public partial class App : WinoApplication,
         // Keeps the session-start trigger in step with the startup task, including for installations
         // that predate it. Nothing waits on this; it logs its own failures.
         if (!_isExiting)
+        {
             _ = SessionStartActivation.SyncRegistrationAsync();
+            StartBackgroundActivities();
+        }
     }
 
     private async Task<bool> TryShowMigrationAsync(
@@ -1951,6 +1965,7 @@ public partial class App : WinoApplication,
     public void Receive(AccountCreatedMessage message)
     {
         _hasConfiguredAccounts = true;
+        OnBackgroundContentChanged();
         _ = _companionIntegration?.SetReadinessAsync(CompanionReadinessState.Ready);
         EnsurePreferenceChangedSubscription();
         QueueJumpListOptionsUpdateOnUiThread();
@@ -2078,6 +2093,7 @@ public partial class App : WinoApplication,
 
     public void Receive(AccountRemovedMessage message)
     {
+        OnBackgroundContentChanged();
         QueueJumpListOptionsUpdateOnUiThread();
 
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
@@ -2112,7 +2128,10 @@ public partial class App : WinoApplication,
     }
 
     public void Receive(AccountUpdatedMessage message)
-        => QueueJumpListOptionsUpdateOnUiThread();
+    {
+        OnBackgroundContentChanged();
+        QueueJumpListOptionsUpdateOnUiThread();
+    }
 
     private void QueueJumpListOptionsUpdateOnUiThread()
         => TryEnqueueActivationOnUiThread(() => _ = UpdateJumpListOptionsSafeAsync());

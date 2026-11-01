@@ -25,4 +25,5 @@ public sealed record PlatformCapabilities(
     bool MailListDensity = false,
     bool PresentationDetection = false,
     bool ConfigurableSyncIntervals = false,
-    bool BadgeLaunchNavigation = false) : IPlatformCapabilities;
+    bool BadgeLaunchNavigation = false,
+    bool WidgetsAndLiveTiles = false) : IPlatformCapabilities;

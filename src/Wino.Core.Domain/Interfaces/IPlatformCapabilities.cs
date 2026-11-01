@@ -53,4 +53,7 @@ public interface IPlatformCapabilities
 
     /// <summary>The unread badge sits on a taskbar or Dock button that launches the app, so a launch can open the counted folder.</summary>
     bool BadgeLaunchNavigation { get; }
+
+    /// <summary>Windows widgets on the Widgets Board and Live Tiles on the Start menu (the Widgets / Live Tiles settings page).</summary>
+    bool WidgetsAndLiveTiles { get; }
 }
