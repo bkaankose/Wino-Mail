@@ -89,6 +89,11 @@ The head bundles the WinoIcons fonts (`Fonts/`), `WinoLogo.png`, the theme wallp
 
 Preserve application data, Keychain items, and the bundle identifier.
 
+## Secure sign-in for IMAP
+
+- IMAP and SMTP OAuth with a custom-scheme redirect runs in an `ASWebAuthenticationSession` sheet (`AppleOAuthBrowserBroker` with the `wino` scheme, registered in `IOSPlatformRegistration`). The server page and the provider page set `IsSecureSignInSupportedByHost`.
+- Loopback redirects (`http://127.0.0.1`, used by catalog registrations such as Yandex and by discovered servers without PKCE S256) do not work on iOS, checked on 1 Nov 2026: `IOSExternalLauncher` opens Safari, which suspends Wino, and a suspended app neither accepts on its `TcpListener` nor keeps the listening socket reliably (Apple TN2277); the web authentication sheet completes only custom-scheme (or associated-domain https) callbacks. iOS therefore sets `PlatformCapabilities.OAuthLoopbackRedirect` to false. Discovery reports such issuers as not offered, dynamic registration never falls back to loopback, the provider page sends Yandex to its app password page, and an account restored with a loopback sign-in explains that it needs a password sign-in on this device. Registering a custom-scheme redirect with those providers would make them work here.
+
 ## Run in the Simulator
 
 ```sh

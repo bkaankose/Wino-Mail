@@ -21,6 +21,7 @@ public sealed class SettingsLifecycleHook(IServiceProvider services) : IApplicat
         SettingsSheetChrome.Close = () => ((INavigationHost)navigation).CloseSettingsAsync();
 #if DEBUG
         SettingsDebug.Register(services);
+        Onboarding.OnboardingDiagnostics.Register(services);
 #endif
         return Task.CompletedTask;
     }
