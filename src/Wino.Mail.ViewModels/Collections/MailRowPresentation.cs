@@ -165,11 +165,27 @@ public static class MailRowPresentation
         return key switch
         {
             DateTime date => new DateGroupHeader(date).DisplayName,
+            MailListDateBucket bucket => DateBucketTitle(bucket),
             string text => text,
             null => string.Empty,
             _ => key.ToString() ?? string.Empty
         };
     }
+
+    public static string DateBucketTitle(MailListDateBucket bucket) => bucket switch
+    {
+        MailListDateBucket.Today => Translator.Today,
+        MailListDateBucket.Yesterday => Translator.Yesterday,
+        MailListDateBucket.LastWeek => Translator.MailListGroup_LastWeek,
+        MailListDateBucket.LastMonth => Translator.MailListGroup_LastMonth,
+        MailListDateBucket.LastThreeMonths => Translator.MailListGroup_LastThreeMonths,
+        MailListDateBucket.LastSixMonths => Translator.MailListGroup_LastSixMonths,
+        MailListDateBucket.LastYear => Translator.MailListGroup_LastYear,
+        MailListDateBucket.LastTwoYears => Translator.MailListGroup_LastTwoYears,
+        MailListDateBucket.LastFiveYears => Translator.MailListGroup_LastFiveYears,
+        MailListDateBucket.LastTenYears => Translator.MailListGroup_LastTenYears,
+        _ => Translator.MailListGroup_OlderThanTenYears
+    };
 
     private static string FormatTime(DateTime local, TimeFormatPreference timeFormat, CultureInfo culture)
         => DateTimeDisplayFormatter.FormatTime(local, DateTimeDisplayFormatter.GetTimeDisplayType(timeFormat, culture), culture);

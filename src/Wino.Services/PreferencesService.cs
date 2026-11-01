@@ -206,6 +206,12 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(IsMailListGroupHeadersEnabled), value);
     }
 
+    public MailListDateGroupingType MailListDateGroupingType
+    {
+        get => _configurationService.Get(nameof(MailListDateGroupingType), MailListDateGroupingType.EachDay);
+        set => SetPropertyAndSave(nameof(MailListDateGroupingType), value);
+    }
+
     public bool IsOtherInboxUnreadNoticeEnabled
     {
         get => _configurationService.Get(nameof(IsOtherInboxUnreadNoticeEnabled), true);

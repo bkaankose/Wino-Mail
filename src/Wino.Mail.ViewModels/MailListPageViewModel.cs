@@ -118,6 +118,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly IDraftSyncRetryService _draftSyncRetryService;
     private MailItemViewModel _activeMailItem;
     private CancellationTokenSource markAsReadDelayCancellationTokenSource;
+    private CancellationTokenSource? _dayChangeWatchCancellationTokenSource;
     private IReadOnlyList<MailItemViewModel> _selectedItems = [];
     private IReadOnlySet<Guid> _selectedItemIds = new HashSet<Guid>();
     private IReadOnlySet<string> _fullySelectedThreadKeys = new HashSet<string>(StringComparer.Ordinal);
@@ -426,12 +427,19 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private void UpdateAccountNicknamePositionForItems()
         => MailCollection.UpdateAccountNicknamePosition(CurrentAccountNicknamePosition);
 
+    public override void OnNavigatedTo(NavigationMode mode, object? parameters)
+    {
+        base.OnNavigatedTo(mode, parameters);
+        StartDayChangeWatch();
+    }
+
     public override async void OnNavigatedFrom(NavigationMode mode, object? parameters)
         => await DeactivateAsync(mode, parameters);
 
     public async Task DeactivateAsync(NavigationMode mode, object? parameters)
     {
         base.OnNavigatedFrom(mode, parameters);
+        StopDayChangeWatch();
 
         CancelPendingMarkAsRead();
         CancelActiveMailLoad();
@@ -790,7 +798,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             return;
         }
 
-        if (propertyName == nameof(IPreferencesService.IsNewestThreadMailFirst))
+        if (propertyName is nameof(IPreferencesService.IsNewestThreadMailFirst)
+            or nameof(IPreferencesService.MailListDateGroupingType))
         {
             RefreshMailListOptions();
             return;
@@ -1505,6 +1514,50 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
     }
 
+    // A per-minute compare instead of a timer due at midnight also catches resume from sleep
+    // and time-zone changes.
+    private void StartDayChangeWatch()
+    {
+        StopDayChangeWatch();
+
+        var cancellationTokenSource = new CancellationTokenSource();
+        _dayChangeWatchCancellationTokenSource = cancellationTokenSource;
+        _ = WatchDayChangeAsync(cancellationTokenSource.Token);
+    }
+
+    private void StopDayChangeWatch()
+    {
+        _dayChangeWatchCancellationTokenSource?.Cancel();
+        _dayChangeWatchCancellationTokenSource?.Dispose();
+        _dayChangeWatchCancellationTokenSource = null;
+    }
+
+    private async Task WatchDayChangeAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
+            {
+                if (MailListOptions.ReferenceDate == DateTime.Today)
+                {
+                    continue;
+                }
+
+                await ExecuteUIThread(() =>
+                {
+                    if (!cancellationToken.IsCancellationRequested)
+                    {
+                        RefreshMailListOptions();
+                    }
+                }).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
     private void RefreshMailListOptions()
     {
         var sortByName = SelectedSortingOption?.Type == SortingOptionType.Sender;
@@ -1515,7 +1568,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 ? MailListGroupMode.None
                 : sortByName
                     ? MailListGroupMode.Name
-                    : MailListGroupMode.Date,
+                    : PreferencesService.MailListDateGroupingType == MailListDateGroupingType.DayGroups
+                        ? MailListGroupMode.DayGroups
+                        : MailListGroupMode.Date,
+            ReferenceDate = DateTime.Today,
             IsThreadingEnabled = PreferencesService.IsThreadingEnabled,
             ThreadMessageOrder = PreferencesService.IsNewestThreadMailFirst
                 ? ThreadMessageOrder.NewestFirst

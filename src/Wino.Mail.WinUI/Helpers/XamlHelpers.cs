@@ -634,6 +634,9 @@ public static class XamlHelpers
         if (groupObject is string stringObject)
             return stringObject;
 
+        if (groupObject is global::Wino.Mail.Controls.Core.MailListDateBucket dateBucket)
+            return global::Wino.Mail.ViewModels.Collections.MailRowPresentation.DateBucketTitle(dateBucket);
+
         object? dateObject = null;
 
         // From regular mail header template

@@ -17,7 +17,7 @@ public static class MailListLabFormat
 
     public static double UnreadOpacity(bool isRead) => isRead ? 0 : 1;
 
-    /// <summary>Formats a projection group key the way the list groups it: a date, a letter, or pinned.</summary>
+    /// <summary>Formats a projection group key the way the list groups it: a date, a day group, a letter, or pinned.</summary>
     public static string GroupHeader(object? key) => key switch
     {
         MailListProjectionGroupKey { IsPinned: true } => "Pinned",
