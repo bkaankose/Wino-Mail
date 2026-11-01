@@ -1,6 +1,8 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Authentication;
 using Wino.Dialogs;
 using Wino.Editor;
 
@@ -42,4 +44,11 @@ public interface IWinoDialogService
     /// </summary>
     /// <returns>The open dialog, or null when it could not be shown because another dialog owns the window.</returns>
     ExternalBrowserAuthenticationDialog? OpenExternalBrowserAuthenticationDialog(ExternalBrowserAuthenticationRequest request, Action cancelRequested);
+
+    /// <summary>
+    /// Shows <paramref name="startUri"/> in an embedded browser until it navigates to <paramref name="redirectUri"/>.
+    /// Cancelling <paramref name="cancellationToken"/> closes the dialog, or keeps a queued one from staying open.
+    /// Call on the UI thread.
+    /// </summary>
+    Task<EmbeddedBrowserAuthResult> ShowEmbeddedBrowserSignInDialogAsync(Uri startUri, Uri redirectUri, CancellationToken cancellationToken);
 }

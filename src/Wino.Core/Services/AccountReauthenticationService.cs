@@ -14,15 +14,17 @@ using Wino.Messaging.Server;
 namespace Wino.Core.Services;
 
 /// <summary>
-/// Re-authenticates an existing Gmail or Outlook account and replays the post-authentication
-/// work of account setup, so an account that was restored from a backup or lost its token ends up
-/// in the same state as a freshly added one. The account row and its local data are kept.
+/// Re-authenticates an existing Gmail or Outlook account, or a modern-auth Exchange account, and
+/// replays the post-authentication work of account setup, so an account that was restored from a
+/// backup or lost its token ends up in the same state as a freshly added one. The account row and
+/// its local data are kept.
 /// </summary>
 public sealed class AccountReauthenticationService(
     IAccountService accountService,
     IAccountProviderFeatureService featureService,
     ISynchronizationManager synchronizationManager,
-    IMessenger messenger) : IAccountReauthenticationService
+    IMessenger messenger,
+    IExchangeInteractiveSignInService exchangeSignInService) : IAccountReauthenticationService
 {
     private readonly ILogger _logger = Log.ForContext<AccountReauthenticationService>();
 
@@ -30,6 +32,9 @@ public sealed class AccountReauthenticationService(
     {
         var account = await accountService.GetAccountAsync(accountId).ConfigureAwait(false)
             ?? throw new InvalidOperationException(Translator.Exception_NullAssignedAccount);
+
+        if (account.ProviderType == MailProviderType.Exchange)
+            return await ReauthenticateExchangeAsync(account, cancellationToken).ConfigureAwait(false);
 
         if (account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook))
             throw new NotSupportedException("Only Gmail and Outlook accounts can be re-authenticated interactively.");
@@ -89,6 +94,32 @@ public sealed class AccountReauthenticationService(
         await accountService.UpdateAccountAsync(account).ConfigureAwait(false);
 
         // A synchronizer created while the account was blocked still holds the old sign-in identity.
+        await synchronizationManager.DestroySynchronizerAsync(account.Id).ConfigureAwait(false);
+
+        return account;
+    }
+
+    /// <summary>
+    /// Exchange has no provider scopes or consent flags: the embedded browser sign-in stores a new refresh token,
+    /// and the account keeps its address because the sign-in identity is often a UPN, not the mailbox.
+    /// </summary>
+    private async Task<MailAccount> ReauthenticateExchangeAsync(MailAccount account, CancellationToken cancellationToken)
+    {
+        if (account.ServerInformation is not { UseOAuthAuthentication: true } serverInformation)
+            throw new NotSupportedException("Only Exchange accounts that sign in with OAuth can be re-authenticated interactively.");
+
+        var loginHint = string.IsNullOrWhiteSpace(account.AuthenticationAddress) ? account.Address : account.AuthenticationAddress;
+        var identity = await exchangeSignInService
+            .SignInAsync(account.Id, serverInformation, loginHint, cancellationToken)
+            .ConfigureAwait(false);
+
+        _logger.Information("Exchange account {AccountId} signed in again{Identity}.",
+            account.Id, identity.UserName is null ? string.Empty : " as " + identity.UserName);
+
+        if (account.AttentionReason == AccountAttentionReason.InvalidCredentials)
+            account.AttentionReason = AccountAttentionReason.None;
+
+        await accountService.UpdateAccountAsync(account).ConfigureAwait(false);
         await synchronizationManager.DestroySynchronizerAsync(account.Id).ConfigureAwait(false);
 
         return account;

@@ -126,6 +126,13 @@ public static class CoreContainerSetup
         services.AddTransient<ExchangeNtlmAuthenticator>();
         services.AddTransient<ExchangeOAuthAuthenticator>();
         services.AddTransient<IExchangeAuthenticator, ExchangeAuthenticator>();
+        // Interactive Exchange sign-in needs the head's embedded browser; without one it reports itself unsupported
+        // and never falls back to the system-browser OAuth flow.
+        services.AddTransient<IExchangeInteractiveSignInService>(provider => new ExchangeInteractiveSignInService(
+            provider.GetRequiredService<IOAuthProtocolClient>(),
+            provider.GetRequiredService<IExchangeTokenStore>(),
+            provider.GetRequiredService<ExchangeTokenCache>(),
+            () => provider.GetService<IEmbeddedBrowserAuthBroker>()));
 
         services.AddTransient<UnifiedImapSynchronizer>();
         services.AddTransient<ICardDavSynchronizationEngine, CardDavSynchronizationEngine>();

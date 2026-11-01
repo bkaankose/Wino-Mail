@@ -84,6 +84,10 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<IOAuthBrowserBroker>(provider => new WindowsOAuthBrowserBroker(
             provider.GetRequiredService<IExternalLauncher>(), provider.GetRequiredService<WindowsExternalAuthCallbacks>(),
             () => provider.GetService<IExternalBrowserAuthenticationPresenter>()));
+        // Exchange modern-auth sign-in: a WebView2 dialog that captures the redirect in-process, apart from every
+        // system-browser flow above.
+        services.AddSingleton<IEmbeddedBrowserAuthBroker>(provider => new WindowsEmbeddedBrowserAuthBroker(
+            provider.GetRequiredService<IDispatcher>(), provider.GetRequiredService<Lazy<IWinoDialogService>>()));
         services.AddSingleton<IWinoAccountExternalSignInService>(provider => new WinoAccountExternalSignInService(
             provider.GetRequiredService<IWinoAccountApiClient>(), provider.GetRequiredService<IWinoAccountProfileService>(),
             apple: null, google: null, provider.GetRequiredService<IWinoAccountBrowserAuthBroker>()));

@@ -76,8 +76,9 @@ public sealed class ExchangeAuthenticator : IExchangeAuthenticator
         return await GetTokenInformationAsync(account, requiredFeatures, cancellationToken).ConfigureAwait(false);
     }
 
-    // Exchange's interactive sign-in is the embedded browser sign-in, which is not wired yet. Until it is, an account
-    // without a usable refresh token raises ExchangeInteractiveSignInRequiredException here instead of prompting.
+    // Exchange's interactive sign-in is IExchangeInteractiveSignInService, which only user-initiated flows (account
+    // setup, Fix account) call. Here an account without a usable refresh token raises
+    // ExchangeInteractiveSignInRequiredException instead of prompting, so background work never opens a sign-in page.
     public Task<TokenInformationEx> GenerateTokenInformationAsync(
         MailAccount account,
         IReadOnlyCollection<ProviderFeature>? requestedFeatures = null,
