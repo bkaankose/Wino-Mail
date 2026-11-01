@@ -10,7 +10,8 @@ namespace Wino.Mail.UIKit.Views.Onboarding;
 /// <summary>
 /// Debug bridge commands that open the server pages for snapshots without typing anything (Mac OnboardingDebug):
 /// <c>onboarding-imap</c> opens the custom server page as the wizard does, <c>onboarding-imap-edit</c> opens it for the
-/// first IMAP account. The page adds <c>imap-*</c> commands while it is open.
+/// first IMAP account, and <c>onboarding-exchange</c> opens Exchange setup. The pages add <c>imap-*</c> and
+/// <c>exchange-*</c> commands while they are open.
 /// </summary>
 internal static class OnboardingDiagnostics
 {
@@ -33,6 +34,13 @@ internal static class OnboardingDiagnostics
             var account = accounts.FirstOrDefault(item => item.ProviderType is MailProviderType.IMAP4 or MailProviderType.POP3);
             if (account is null) return "no IMAP account";
             return await Navigate(services, WinoPage.ImapCalDavSettingsPage, ImapCalDavSettingsNavigationContext.CreateForEditMode(account.Id));
+        });
+        UIKitDebugBridge.Register("onboarding-exchange", _ =>
+        {
+            var context = services.GetRequiredService<WelcomeWizardContext>();
+            context.AccountName ??= "Exchange";
+            context.IsMailAccessEnabled = true;
+            return Navigate(services, WinoPage.ExchangeSettingsPage, null);
         });
     }
 

@@ -25,6 +25,7 @@ public static partial class UIKitViewRegistration
         services.AddTransient<ProviderSelectionPageViewController>();
         services.AddTransient<AccountSetupProgressPageViewController>();
         services.AddTransient<SpecialImapCredentialsPageViewController>();
+        services.AddTransient<ExchangeSettingsPageViewController>();
         services.AddTransient<ImapCalDavSettingsPageViewController>();
 
         // Feature pages in their own partial files: Mail (reader, compose, idle, What's New, briefing) and Settings.
