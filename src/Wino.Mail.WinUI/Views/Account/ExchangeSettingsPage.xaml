@@ -1,0 +1,192 @@
+﻿<abstract:ExchangeSettingsPageAbstract
+    x:Class="Wino.Views.ExchangeSettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewModels="using:Wino.Mail.ViewModels"
+    mc:Ignorable="d">
+
+    <!--  Advanced setup for on-premises Exchange: the server first, then the sign-in the server asks for.  -->
+    <StackPanel
+        MaxWidth="440"
+        Margin="24,8,24,0"
+        Padding="0,0,0,24"
+        HorizontalAlignment="Stretch"
+        Spacing="16">
+        <StackPanel Spacing="4">
+            <TextBlock
+                AutomationProperties.HeadingLevel="Level1"
+                Style="{StaticResource SubtitleTextBlockStyle}"
+                Text="{x:Bind domain:Translator.ExchangeSetup_Title, Mode=OneTime}" />
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="{x:Bind domain:Translator.ExchangeSetup_Description, Mode=OneTime}"
+                TextWrapping="WrapWholeWords" />
+        </StackPanel>
+
+        <!--  ============ Server ============  -->
+        <StackPanel Spacing="16" Visibility="{x:Bind ViewModel.IsServerStageVisible, Mode=OneWay}">
+            <TextBox
+                AutomationProperties.AutomationId="ExchangeSetupSenderName"
+                Description="{x:Bind domain:Translator.ImapSetup_YourNameDescription, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.ImapSetup_YourName, Mode=OneTime}"
+                KeyDown="FieldKeyDown"
+                Text="{x:Bind ViewModel.DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBox
+                AutomationProperties.AutomationId="ExchangeSetupAddress"
+                Header="{x:Bind domain:Translator.AccountSetup_EmailHeader, Mode=OneTime}"
+                InputScope="EmailSmtpAddress"
+                IsSpellCheckEnabled="False"
+                KeyDown="FieldKeyDown"
+                PlaceholderText="{x:Bind domain:Translator.AccountSetup_EmailPlaceholder, Mode=OneTime}"
+                Text="{x:Bind ViewModel.EmailAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBox
+                AutomationProperties.AutomationId="ExchangeSetupServer"
+                Header="{x:Bind domain:Translator.ExchangeSetup_ServerHeader, Mode=OneTime}"
+                InputScope="Url"
+                IsSpellCheckEnabled="False"
+                KeyDown="FieldKeyDown"
+                PlaceholderText="{x:Bind domain:Translator.ExchangeSetup_ServerPlaceholder, Mode=OneTime}"
+                Text="{x:Bind ViewModel.ServerAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            <StackPanel Spacing="4">
+                <ComboBox
+                    HorizontalAlignment="Stretch"
+                    AutomationProperties.AutomationId="ExchangeSetupTransport"
+                    Header="{x:Bind domain:Translator.ExchangeSetup_TransportHeader, Mode=OneTime}"
+                    ItemsSource="{x:Bind ViewModel.TransportOptions}"
+                    SelectedItem="{x:Bind ViewModel.SelectedTransport, Mode=TwoWay}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="viewModels:ExchangeTransportOption">
+                            <TextBlock Text="{x:Bind Title}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.ExchangeSetup_TransportDescription, Mode=OneTime}"
+                    TextWrapping="WrapWholeWords" />
+            </StackPanel>
+        </StackPanel>
+
+        <!--  ============ Sign in ============  -->
+        <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.IsSignInStage, Mode=OneWay}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="{x:Bind ViewModel.ServerSummary, Mode=OneWay}"
+                    TextTrimming="CharacterEllipsis" />
+                <HyperlinkButton
+                    Padding="0"
+                    VerticalAlignment="Center"
+                    AutomationProperties.AutomationId="ExchangeSetupChangeServer"
+                    Command="{x:Bind ViewModel.ChangeServerCommand}"
+                    Content="{x:Bind domain:Translator.ImapSetup_ChangeAddress, Mode=OneTime}" />
+            </StackPanel>
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="{x:Bind ViewModel.SignInDescription, Mode=OneWay}"
+                TextWrapping="WrapWholeWords" />
+
+            <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.IsPasswordStageVisible, Mode=OneWay}">
+                <TextBox
+                    AutomationProperties.AutomationId="ExchangeSetupUserName"
+                    Description="{x:Bind domain:Translator.ExchangeSetup_UserNameDescription, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.ExchangeSetup_UserNameHeader, Mode=OneTime}"
+                    IsSpellCheckEnabled="False"
+                    KeyDown="FieldKeyDown"
+                    PlaceholderText="{x:Bind ViewModel.UserNamePlaceholder, Mode=OneWay}"
+                    Text="{x:Bind ViewModel.UserName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <PasswordBox
+                    AutomationProperties.AutomationId="ExchangeSetupPassword"
+                    Header="{x:Bind domain:Translator.ProviderSelection_PasswordHeader_Account, Mode=OneTime}"
+                    KeyDown="FieldKeyDown"
+                    Password="{x:Bind ViewModel.Password, Mode=TwoWay}" />
+            </StackPanel>
+
+            <Button
+                MaxWidth="360"
+                HorizontalAlignment="Center"
+                AutomationProperties.AutomationId="ExchangeSetupOrganizationSignIn"
+                AutomationProperties.Name="{x:Bind domain:Translator.ImapSetup_SignInWithOrganization, Mode=OneTime}"
+                Command="{x:Bind ViewModel.SignInWithOrganizationCommand}"
+                Style="{StaticResource SocialSignInButtonStyle}"
+                Visibility="{x:Bind ViewModel.IsModernAuthStageVisible, Mode=OneWay}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <coreControls:WinoFontIcon
+                        VerticalAlignment="Center"
+                        FontSize="16"
+                        Icon="Microsoft" />
+                    <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.ImapSetup_SignInWithOrganization, Mode=OneTime}" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
+
+        <InfoBar
+            Title="{x:Bind domain:Translator.AccountSetup_Failure_Title, Mode=OneTime}"
+            AutomationProperties.AutomationId="ExchangeSetupFailureInfoBar"
+            CloseButtonCommand="{x:Bind ViewModel.HideFailureCommand}"
+            IsClosable="True"
+            IsOpen="{x:Bind ViewModel.IsFailureOpen, Mode=OneWay}"
+            Message="{x:Bind ViewModel.FailureMessage, Mode=OneWay}"
+            Severity="Error" />
+
+        <!--  ============ Actions ============  -->
+        <Grid ColumnSpacing="8" RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Grid
+                Grid.ColumnSpan="3"
+                AutomationProperties.LiveSetting="Polite"
+                ColumnSpacing="8"
+                Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <ProgressRing
+                    Width="16"
+                    Height="16"
+                    VerticalAlignment="Center"
+                    IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" />
+                <TextBlock
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="{x:Bind ViewModel.BusyText, Mode=OneWay}"
+                    TextWrapping="WrapWholeWords" />
+            </Grid>
+
+            <Button
+                Grid.Row="1"
+                Grid.Column="1"
+                MinWidth="100"
+                AutomationProperties.AutomationId="ExchangeSetupBack"
+                Command="{x:Bind ViewModel.BackCommand}"
+                Content="{x:Bind domain:Translator.Buttons_Back, Mode=OneTime}" />
+            <Button
+                Grid.Row="1"
+                Grid.Column="2"
+                MinWidth="140"
+                AutomationProperties.AutomationId="ExchangeSetupPrimary"
+                Command="{x:Bind ViewModel.PrimaryCommand}"
+                Content="{x:Bind ViewModel.PrimaryText, Mode=OneWay}"
+                Style="{StaticResource AccentButtonStyle}"
+                Visibility="{x:Bind ViewModel.IsPrimaryVisible, Mode=OneWay}" />
+        </Grid>
+    </StackPanel>
+</abstract:ExchangeSettingsPageAbstract>

@@ -50,7 +50,7 @@ public partial class AccountSetupPageViewModel
         AccountSetupPhase.NotFound => AccountSetupStep.Discovery,
         AccountSetupPhase.Features => FeatureStep,
         // Gmail and Outlook sign in from the To Do step's footer, so the step stays on screen while that runs.
-        AccountSetupPhase.SignIn or AccountSetupPhase.Checking when IsNativeRoute => AccountSetupStep.Tasks,
+        AccountSetupPhase.SignIn or AccountSetupPhase.Checking when IsFooterSignInRoute => AccountSetupStep.Tasks,
         AccountSetupPhase.SignIn when ImapOptions.Count > 1 && !IsImapOptionChosen => AccountSetupStep.SignInMethod,
         AccountSetupPhase.SignIn or AccountSetupPhase.Checking => AccountSetupStep.SignIn,
         _ => AccountSetupStep.Progress
@@ -115,7 +115,7 @@ public partial class AccountSetupPageViewModel
     public string PrimaryText => Step switch
     {
         AccountSetupStep.Tasks when IsAddedFromTasksStep => Translator.ProviderSelection_AddAccountButton,
-        AccountSetupStep.SignIn when IsSignInValidated || !(IsPasswordPanelVisible || IsDavPasswordVisible) => Translator.ProviderSelection_AddAccountButton,
+        AccountSetupStep.SignIn when IsSignInValidated || !(IsPasswordPanelVisible || IsDavPasswordVisible || IsExchangePasswordVisible) => Translator.ProviderSelection_AddAccountButton,
         AccountSetupStep.Progress => IsSettingsHost ? Translator.AccountSetup_Done : Translator.AccountSetup_OpenWino,
         _ => Translator.ProviderSelection_ContinueButton
     };
@@ -123,7 +123,7 @@ public partial class AccountSetupPageViewModel
     public bool IsPrimaryVisible => Step switch
     {
         AccountSetupStep.Discovery => false,
-        AccountSetupStep.Tasks when IsNativeRoute => false,
+        AccountSetupStep.Tasks when IsFooterSignInRoute => false,
         AccountSetupStep.Progress => Phase == AccountSetupPhase.Added,
         _ => true
     };
@@ -144,6 +144,7 @@ public partial class AccountSetupPageViewModel
         AccountSetupStep.SignIn when IsSignInValidated => CanAddAccount(),
         AccountSetupStep.SignIn when IsDavPasswordVisible => CanCheckDavPassword(),
         AccountSetupStep.SignIn when IsPasswordPanelVisible => CanCheckPassword(),
+        AccountSetupStep.SignIn when IsExchangePasswordVisible => CanCheckExchangePassword(),
         AccountSetupStep.SignIn => false,
         AccountSetupStep.Progress => Phase == AccountSetupPhase.Added,
         AccountSetupStep.Discovery => false,
@@ -177,6 +178,9 @@ public partial class AccountSetupPageViewModel
                 break;
             case AccountSetupStep.SignIn when IsPasswordPanelVisible:
                 await CheckPasswordAsync();
+                break;
+            case AccountSetupStep.SignIn when IsExchangePasswordVisible:
+                await CheckExchangePasswordAsync();
                 break;
             case AccountSetupStep.Progress:
                 Finish();
@@ -423,9 +427,12 @@ public partial class AccountSetupPageViewModel
                 AddModeChoices(choices,
                     false,
                     Capabilities.IsTaskProviderModeAvailable,
-                    string.Format(Translator.AccountSetup_Choice_SyncedWith, Route == AccountRoute.Gmail
-                        ? Translator.AccountSetup_Provider_GoogleTasks
-                        : Translator.AccountSetup_Provider_MicrosoftToDo),
+                    string.Format(Translator.AccountSetup_Choice_SyncedWith, Route switch
+                    {
+                        AccountRoute.Gmail => Translator.AccountSetup_Provider_GoogleTasks,
+                        AccountRoute.Exchange => ExchangeProviderName,
+                        _ => Translator.AccountSetup_Provider_MicrosoftToDo
+                    }),
                     string.Empty);
                 selectedId = ToChoiceId(Capabilities.TaskMode);
                 break;
@@ -481,12 +488,16 @@ public partial class AccountSetupPageViewModel
     }
 
     private string GetCalendarSyncedText()
-        => IsNativeRoute
+        => IsExchangeRoute
+            ? string.Format(Translator.AccountSetup_Choice_SyncedWith, ExchangeProviderName)
+            : IsNativeRoute
             ? string.Format(Translator.AccountSetup_Choice_SyncedWith, NativeProviderName)
             : string.Format(Translator.AccountSetup_Choice_DavAt, _resolution?.Support.Calendar.ServiceUri?.Host ?? ImapHostName);
 
     private string GetContactSyncedText()
-        => IsNativeRoute
+        => IsExchangeRoute
+            ? string.Format(Translator.AccountSetup_Choice_SyncedWith, ExchangeProviderName)
+            : IsNativeRoute
             ? string.Format(Translator.AccountSetup_Choice_SyncedWith, NativeProviderName)
             : string.Format(Translator.AccountSetup_Choice_CardDavAt, _resolution?.Support.Contacts.ServiceUri?.Host ?? ImapHostName);
 

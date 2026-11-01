@@ -70,8 +70,13 @@ public partial class WelcomeWizardContext : ObservableObject
     // Generic IMAP — populated by ImapCalDavSettingsPage
     public ImapCalDavSetupResult ImapCalDavSetupResult { get; set; }
 
+    /// <summary>On-premises Exchange, checked and signed in by ExchangeSettingsPage.</summary>
+    public ExchangeAccountSetupData ExchangeSetup { get; set; }
+
     // Computed helpers
     public bool IsOAuthProvider => SelectedProvider?.Type is MailProviderType.Outlook or MailProviderType.Gmail;
+
+    public bool IsExchange => SelectedProvider?.Type == MailProviderType.Exchange;
 
     public bool IsSpecialImapProvider =>
         SelectedProvider?.Type == MailProviderType.IMAP4 &&
@@ -138,5 +143,6 @@ public partial class WelcomeWizardContext : ObservableObject
         CalendarSupportMode = ImapCalendarSupportMode.Disabled;
         RegionId = null;
         ImapCalDavSetupResult = null;
+        ExchangeSetup = null;
     }
 }

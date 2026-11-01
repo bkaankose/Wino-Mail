@@ -592,6 +592,29 @@
                             Password="{x:Bind ViewModel.Password, Mode=TwoWay}" />
                     </StackPanel>
 
+                    <!--  Exchange without modern auth: the sign-in name when it is not the address, then the password.  -->
+                    <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.IsExchangePasswordVisible, Mode=OneWay}">
+                        <TextBlock Style="{StaticResource AccountSetupCaptionStyle}" Text="{x:Bind ViewModel.ExchangePasswordCaption, Mode=OneWay}" />
+                        <StackPanel Spacing="4">
+                            <TextBox
+                                AutomationProperties.AutomationId="AccountSetupExchangeUserName"
+                                Header="{x:Bind domain:Translator.ExchangeSetup_UserNameHeader}"
+                                IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsConnectionStatusBusy), Mode=OneWay}"
+                                IsSpellCheckEnabled="False"
+                                KeyDown="StepTextBoxKeyDown"
+                                PlaceholderText="{x:Bind ViewModel.ExchangeUserNamePlaceholder, Mode=OneWay}"
+                                Text="{x:Bind ViewModel.ExchangeUserName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock Style="{StaticResource AccountSetupCaptionStyle}" Text="{x:Bind domain:Translator.ExchangeSetup_UserNameDescription}" />
+                        </StackPanel>
+                        <PasswordBox
+                            AutomationProperties.AutomationId="AccountSetupExchangePassword"
+                            Header="{x:Bind domain:Translator.ProviderSelection_PasswordHeader_Account}"
+                            IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsConnectionStatusBusy), Mode=OneWay}"
+                            KeyDown="StepTextBoxKeyDown"
+                            Loaded="FocusTargetLoaded"
+                            Password="{x:Bind ViewModel.Password, Mode=TwoWay}" />
+                    </StackPanel>
+
                     <StackPanel Spacing="8" Visibility="{x:Bind ViewModel.IsDavPasswordVisible, Mode=OneWay}">
                         <TextBlock Style="{StaticResource AccountSetupCaptionStyle}" Text="{x:Bind domain:Translator.AccountSetup_DavPasswordDescription}" />
                         <TextBox

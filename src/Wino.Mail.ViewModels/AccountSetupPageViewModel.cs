@@ -41,6 +41,8 @@ public partial class AccountSetupPageViewModel : CoreBaseViewModel
     private readonly IOAuthTokenService? _oauthTokenService;
     private readonly IDavOAuthAuthenticationProvider? _davOAuthAuthenticationProvider;
     private readonly IExternalLauncher? _externalLauncher;
+    private readonly IExchangeInteractiveSignInService? _exchangeSignInService;
+    private readonly IExchangeConnectionTester? _exchangeConnectionTester;
 
     private ProviderSelectionHostMode _hostMode = ProviderSelectionHostMode.Wizard;
     private CancellationTokenSource? _operation;
@@ -105,7 +107,9 @@ public partial class AccountSetupPageViewModel : CoreBaseViewModel
         ICardDavClient? cardDavClient = null,
         IOAuthTokenService? oauthTokenService = null,
         IDavOAuthAuthenticationProvider? davOAuthAuthenticationProvider = null,
-        IExternalLauncher? externalLauncher = null)
+        IExternalLauncher? externalLauncher = null,
+        IExchangeInteractiveSignInService? exchangeSignInService = null,
+        IExchangeConnectionTester? exchangeConnectionTester = null)
     {
         _accountService = accountService;
         _routeResolver = routeResolver;
@@ -120,6 +124,8 @@ public partial class AccountSetupPageViewModel : CoreBaseViewModel
         _oauthTokenService = oauthTokenService;
         _davOAuthAuthenticationProvider = davOAuthAuthenticationProvider;
         _externalLauncher = externalLauncher;
+        _exchangeSignInService = exchangeSignInService;
+        _exchangeConnectionTester = exchangeConnectionTester;
         WizardContext = wizardContext;
 
         SelectedInitialSynchronizationRange = InitialSynchronizationRanges.First(option => option.Range == InitialSynchronizationRange.SixMonths);
@@ -412,5 +418,6 @@ public partial class AccountSetupPageViewModel : CoreBaseViewModel
         CheckPasswordCommand.NotifyCanExecuteChanged();
         CheckDavPasswordCommand.NotifyCanExecuteChanged();
         AddAccountCommand.NotifyCanExecuteChanged();
+        NotifyExchangeSignInLayoutChanged();
     }
 }

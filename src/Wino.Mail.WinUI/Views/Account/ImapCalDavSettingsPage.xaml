@@ -196,6 +196,12 @@
                     PlaceholderText="{x:Bind domain:Translator.ImapSetup_ServerAddressPlaceholder, Mode=OneTime}"
                     Text="{x:Bind ViewModel.CalDavServiceUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                     Visibility="{x:Bind ViewModel.IsSignInServerAddressVisible, Mode=OneWay}" />
+                <HyperlinkButton
+                    Padding="0"
+                    AutomationProperties.AutomationId="ImapSetupOpenExchangeSetup"
+                    Command="{x:Bind ViewModel.OpenExchangeSetupCommand}"
+                    Content="{x:Bind domain:Translator.ExchangeSetup_OpenFromImap, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.IsCreateMode, Mode=OneWay}" />
             </StackPanel>
 
             <!--  How to sign in, shown once discovery has run.  -->

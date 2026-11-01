@@ -60,6 +60,7 @@ public static class WinoViewModelRegistration
         services.AddTransient<AccountSetupProgressPageViewModel>();
         services.AddTransient<SpecialImapCredentialsPageViewModel>();
         services.AddTransient<ImapCalDavSettingsPageViewModel>();
+        services.AddTransient<ExchangeSettingsPageViewModel>();
 
         // Mail.
         services.AddTransient<MailListPageViewModel>();

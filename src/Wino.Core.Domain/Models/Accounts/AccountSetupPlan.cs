@@ -16,7 +16,10 @@ public enum AccountSetupKind
     SpecialImap,
 
     /// <summary>Servers validated by the caller (<see cref="AccountSetupPlan.Imap"/>), including local-only accounts.</summary>
-    Imap
+    Imap,
+
+    /// <summary>An on-premises Exchange account the caller already checked (<see cref="AccountSetupPlan.Exchange"/>).</summary>
+    Exchange
 }
 
 /// <summary>
@@ -53,6 +56,20 @@ public sealed class ImapAccountSetupData
             ConnectionPolicyVersion = ImapConnectionPolicyVersion.Corrected
         }
     };
+}
+
+/// <summary>
+/// An on-premises Exchange account the caller already checked: its server information with the password, or, for
+/// modern auth, the OAuth settings and the id whose stored refresh token the interactive sign-in wrote.
+/// </summary>
+public sealed class ExchangeAccountSetupData
+{
+    public string? DisplayName { get; init; }
+    public string? EmailAddress { get; init; }
+    public CustomServerInformation? ServerInformation { get; init; }
+
+    /// <summary>The id the Exchange sign-in stored the refresh token under; the saved account takes it.</summary>
+    public Guid? SignedInAccountId { get; init; }
 }
 
 /// <summary>
@@ -104,6 +121,9 @@ public sealed class AccountSetupPlan
 
     /// <summary>For <see cref="AccountSetupKind.Imap"/>.</summary>
     public ImapAccountSetupData? Imap { get; init; }
+
+    /// <summary>For <see cref="AccountSetupKind.Exchange"/>.</summary>
+    public ExchangeAccountSetupData? Exchange { get; init; }
 
     /// <summary>The calendar mode the special IMAP steps are listed for (CalDAV adds the discovery and test steps).</summary>
     public ImapCalendarSupportMode CalendarSupportMode { get; init; } = ImapCalendarSupportMode.Disabled;

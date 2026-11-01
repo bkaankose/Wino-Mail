@@ -16,7 +16,7 @@ public enum AccountRoute
     Outlook,
     Imap,
 
-    /// <summary>Reserved for an EWS/MAPI route; the resolver never returns it yet.</summary>
+    /// <summary>On-premises Exchange Server, found by Exchange Autodiscover (<see cref="AccountRouteResolution.Exchange"/>).</summary>
     Exchange
 }
 
@@ -38,7 +38,10 @@ public enum AccountRouteEvidence
     UserRealm,
 
     /// <summary>Autodiscovery found the IMAP host.</summary>
-    ImapHost
+    ImapHost,
+
+    /// <summary>Exchange Autodiscover found the mailbox's Exchange server (on premises, or Microsoft 365 for the Outlook route).</summary>
+    ExchangeAutodiscover
 }
 
 public enum AccountRouteResolveStage
@@ -56,7 +59,10 @@ public enum AccountRouteResolveStage
     CheckingSignIn,
 
     /// <summary>"Looking for the provider's sign-in page".</summary>
-    LookingForSignInPage
+    LookingForSignInPage,
+
+    /// <summary>"Looking for an Exchange server". Reported only while the resolution waits for Exchange Autodiscover.</summary>
+    LookingForExchange
 }
 
 /// <summary>
@@ -80,7 +86,7 @@ public enum AccountCapabilitySupportKind
     /// <summary>Not available through the route; the mode picker offers "On this PC" or Off (or a typed DAV URL).</summary>
     None,
 
-    /// <summary>The route's own API (Gmail, Outlook) or, for Mail on the IMAP route, IMAP/SMTP.</summary>
+    /// <summary>The route's own API (Gmail, Outlook, Exchange) or, for Mail on the IMAP route, IMAP/SMTP.</summary>
     Provider,
 
     CalDav,
@@ -138,6 +144,9 @@ public sealed class AccountRouteResolution
 
     /// <summary>Set for <see cref="AccountRoute.Imap"/> only.</summary>
     public ImapSetupResolution? Imap { get; init; }
+
+    /// <summary>Set for <see cref="AccountRoute.Exchange"/> only.</summary>
+    public ExchangeRouteDetails? Exchange { get; init; }
 
     /// <summary>The hard deadline ended the resolution; <see cref="Route"/> is <see cref="AccountRoute.NotFound"/>.</summary>
     public bool IsTimedOut { get; init; }

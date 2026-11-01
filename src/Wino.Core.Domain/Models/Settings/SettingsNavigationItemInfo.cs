@@ -329,6 +329,7 @@ public static class SettingsNavigationInfoProvider
             WinoPage.ReaderActionsPage => WinoPage.ReadComposePanePage,
             WinoPage.ProviderSelectionPage => WinoPage.ManageAccountsPage,
             WinoPage.AccountSetupPage => WinoPage.ManageAccountsPage,
+            WinoPage.ExchangeSettingsPage => WinoPage.ManageAccountsPage,
             WinoPage.SpecialImapCredentialsPage => WinoPage.ManageAccountsPage,
             WinoPage.AccountSetupProgressPage => WinoPage.ManageAccountsPage,
             WinoPage.CreateEmailTemplatePage => WinoPage.EmailTemplatesPage,

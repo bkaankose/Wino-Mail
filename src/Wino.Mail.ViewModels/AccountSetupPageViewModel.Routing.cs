@@ -52,6 +52,7 @@ public partial class AccountSetupPageViewModel
     {
         AccountRoute.Gmail => MailProviderType.Gmail,
         AccountRoute.Outlook => MailProviderType.Outlook,
+        AccountRoute.Exchange => MailProviderType.Exchange,
         _ => MailProviderType.IMAP4
     };
 
@@ -74,6 +75,7 @@ public partial class AccountSetupPageViewModel
             return resolution.Route switch
             {
                 AccountRoute.Gmail or AccountRoute.Outlook => NativeProviderName,
+                AccountRoute.Exchange => ExchangeProviderName,
                 _ => string.IsNullOrWhiteSpace(resolution.ProviderDisplayName) ? ImapHostName : resolution.ProviderDisplayName
             };
         }
@@ -81,7 +83,7 @@ public partial class AccountSetupPageViewModel
 
     public bool HasRouteShortTitle => !string.IsNullOrWhiteSpace(RouteShortTitle);
 
-    private bool IsRouteFound => Route is AccountRoute.Gmail or AccountRoute.Outlook or AccountRoute.Imap;
+    private bool IsRouteFound => Route is AccountRoute.Gmail or AccountRoute.Outlook or AccountRoute.Imap or AccountRoute.Exchange;
     private bool IsNativeRoute => Route is AccountRoute.Gmail or AccountRoute.Outlook;
 
     private string AddressDomain => MailAccountAddressValidator.TryGetDomain(EmailAddress?.Trim() ?? string.Empty, out var domain)
@@ -195,6 +197,7 @@ public partial class AccountSetupPageViewModel
         AccountRouteResolveStage.AskingMicrosoft => string.Format(Translator.AccountSetup_Discovery_AskingMicrosoft, update.Domain),
         AccountRouteResolveStage.CheckingSignIn => Translator.AccountSetup_Resolve_CheckingSignIn,
         AccountRouteResolveStage.LookingForSignInPage => Translator.AccountSetup_Resolve_LookingForSignInPage,
+        AccountRouteResolveStage.LookingForExchange => Translator.AccountSetup_Resolve_LookingForExchange,
         _ => Translator.AccountSetup_Resolve_FindingServers
     };
 
@@ -239,6 +242,7 @@ public partial class AccountSetupPageViewModel
         DiscoveryHelpText = string.Empty;
         ResetFeatureEntries();
         ResetImapSignIn();
+        ExchangeUserName = string.Empty;
         NotifyRoutingLayoutChanged();
     }
 
@@ -265,6 +269,9 @@ public partial class AccountSetupPageViewModel
                 AccountRoute.Outlook => Translator.AccountSetup_Evidence_MicrosoftImapHost,
                 _ => string.Format(Translator.AccountSetup_Evidence_ImapHost, ImapHostName)
             },
+            AccountRouteEvidence.ExchangeAutodiscover => resolution.Route == AccountRoute.Exchange
+                ? string.Format(Translator.AccountSetup_Evidence_ExchangeAutodiscover, ExchangeHostName)
+                : string.Format(Translator.AccountSetup_Evidence_ExchangeOnline, resolution.Domain),
             _ => string.Empty
         };
     }
@@ -303,9 +310,12 @@ public partial class AccountSetupPageViewModel
 
     public bool IsNativeSignInVisible => IsSignInBlockVisible && IsNativeRoute;
 
-    public string NativeSignInButtonText => Route == AccountRoute.Gmail
-        ? Translator.WinoAccount_SignInWithGoogle
-        : Translator.WinoAccount_SignInWithMicrosoft;
+    public string NativeSignInButtonText => Route switch
+    {
+        AccountRoute.Gmail => Translator.WinoAccount_SignInWithGoogle,
+        AccountRoute.Exchange => Translator.ImapSetup_SignInWithOrganization,
+        _ => Translator.WinoAccount_SignInWithMicrosoft
+    };
 
     public bool IsOAuthWaiting => OAuthState == AccountSetupOAuthState.Waiting;
     public bool IsNativeSignInButtonVisible => IsNativeSignInVisible && OAuthState != AccountSetupOAuthState.SignedIn;
@@ -314,12 +324,12 @@ public partial class AccountSetupPageViewModel
     /// Gmail and Outlook sign in from the To Do step's footer, in the primary button's place; the account is added as
     /// soon as that succeeds, so there is no separate sign-in step.
     /// </summary>
-    public bool IsFooterSocialSignInVisible => Step == AccountSetupStep.Tasks && IsNativeRoute;
+    public bool IsFooterSocialSignInVisible => Step == AccountSetupStep.Tasks && IsFooterSignInRoute;
 
     public string SignedInTitle => string.Format(Translator.ImapSetup_OAuthSignedInAs,
         string.IsNullOrWhiteSpace(SignedInAddress) ? EmailAddress?.Trim() ?? string.Empty : SignedInAddress);
 
-    private bool CanSignInWithProvider() => IsNativeRoute &&
+    private bool CanSignInWithProvider() => IsFooterSignInRoute &&
                                             Phase is AccountSetupPhase.Features or AccountSetupPhase.SignIn &&
                                             OAuthState != AccountSetupOAuthState.Waiting;
 
@@ -330,6 +340,12 @@ public partial class AccountSetupPageViewModel
     [RelayCommand(CanExecute = nameof(CanSignInWithProvider))]
     private async Task SignInWithProviderAsync()
     {
+        if (IsExchangeRoute)
+        {
+            await SignInWithExchangeOrganizationAsync();
+            return;
+        }
+
         if (Phase == AccountSetupPhase.Features)
         {
             if (!ValidateFeatureSelection())

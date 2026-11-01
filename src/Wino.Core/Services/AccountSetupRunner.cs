@@ -116,6 +116,17 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
 
                 break;
 
+            case AccountSetupKind.Exchange:
+                Add(AccountSetupStepKind.SavingAccount);
+
+                if (shouldSetupMail)
+                    Add(AccountSetupStepKind.SyncingFolders);
+
+                if (shouldSetupCalendar && plan.CalendarIntegrationSource == AccountIntegrationSource.Provider)
+                    Add(AccountSetupStepKind.FetchingCalendarMetadata);
+
+                break;
+
             default:
                 Add(AccountSetupStepKind.SavingAccount);
 
@@ -185,18 +196,18 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
     {
         ArgumentNullException.ThrowIfNull(transientAccount);
 
-        if (transientAccount.ProviderType != MailProviderType.Gmail)
+        if (transientAccount.ProviderType is not (MailProviderType.Gmail or MailProviderType.Exchange))
             return;
 
         try
         {
             await _authenticationProvider
-                .GetAuthenticator(MailProviderType.Gmail)
+                .GetAuthenticator(transientAccount.ProviderType)
                 .DeleteTokenInformationAsync(transientAccount, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            Log.Warning(ex, "The Google token of an abandoned account setup could not be deleted.");
+            Log.Warning(ex, "The {ProviderType} token of an abandoned account setup could not be deleted.", transientAccount.ProviderType);
         }
     }
 
@@ -223,6 +234,9 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
                     break;
                 case AccountSetupKind.SpecialImap:
                     await RunSpecialImapAsync(run, confirmCertificateTrust, cancellationToken);
+                    break;
+                case AccountSetupKind.Exchange:
+                    await RunExchangeAsync(run, cancellationToken);
                     break;
                 default:
                     await RunImapAsync(run, cancellationToken);
@@ -465,9 +479,52 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
             await _accountService.CreateRootAliasAsync(account.Id, account.Address);
     }
 
+    /// <summary>
+    /// Saves an Exchange account the caller already checked. A modern-auth sign-in stored its refresh token under
+    /// <see cref="ExchangeAccountSetupData.SignedInAccountId"/>, so the account takes that id; a password goes to the
+    /// credential store with the server information.
+    /// </summary>
+    private async Task RunExchangeAsync(SetupRun run, CancellationToken cancellationToken)
+    {
+        var plan = run.Plan;
+        var account = BuildAccount(plan);
+        run.Account = account;
+
+        var setupData = plan.Exchange ?? throw new InvalidOperationException("Exchange setup was not completed.");
+        var serverInformation = setupData.ServerInformation ?? throw new InvalidOperationException("Server information is missing.");
+
+        if (setupData.SignedInAccountId is { } signedInAccountId)
+            account.Id = signedInAccountId;
+
+        serverInformation.Id = Guid.NewGuid();
+        serverInformation.AccountId = account.Id;
+        serverInformation.IncomingServerType = CustomIncomingServerType.Exchange;
+
+        account.Address = setupData.EmailAddress ?? string.Empty;
+        account.SenderName = setupData.DisplayName ?? string.Empty;
+        account.ServerInformation = serverInformation;
+
+        run.Start(AccountSetupStepKind.SavingAccount);
+
+        // Exchange files sent mail on the server itself, so no copy is appended to Sent.
+        await _accountService.CreateAccountAsync(account, serverInformation, shouldAppendMessagesToSentFolder: false);
+        WeakReferenceMessenger.Default.Send(new AccountSetupInProgressMessage(account.Id));
+        run.IsSaved = true;
+        run.Succeed();
+
+        if (account.IsMailAccessGranted)
+            await SynchronizeFoldersAsync(run, cancellationToken);
+
+        if (account.IsCalendarAccessGranted)
+            await SynchronizeCalendarMetadataAsync(run, cancellationToken);
+
+        if (account.IsMailAccessGranted)
+            await _accountService.CreateRootAliasAsync(account.Id, account.Address);
+    }
+
     private static MailAccount BuildAccount(AccountSetupPlan plan)
     {
-        var isProviderApi = plan.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail;
+        var isProviderApi = plan.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail or MailProviderType.Exchange;
 
         var account = new MailAccount
         {

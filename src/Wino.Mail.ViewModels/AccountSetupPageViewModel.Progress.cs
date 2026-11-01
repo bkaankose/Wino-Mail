@@ -35,7 +35,9 @@ public partial class AccountSetupPageViewModel
     public partial string SenderName { get; set; } = string.Empty;
 
     /// <summary>The sender name sits on the IMAP sign-in step, under the password or the browser button.</summary>
-    public bool IsSendAsVisible => !IsLocalOnlyMode && Route == AccountRoute.Imap && Capabilities.IsMailEnabled;
+    public bool IsSendAsVisible => !IsLocalOnlyMode &&
+                                   (Route == AccountRoute.Imap || (Route == AccountRoute.Exchange && !IsExchangeModernAuth)) &&
+                                   Capabilities.IsMailEnabled;
     public bool IsAddedVisible => Phase == AccountSetupPhase.Added;
     public bool IsSetupFailedVisible => Phase == AccountSetupPhase.Failed;
     public bool HasSetupFailureDetails => IsSetupFailedVisible && !string.IsNullOrWhiteSpace(_setupProtocolLog);
@@ -238,6 +240,9 @@ public partial class AccountSetupPageViewModel
             return BuildNativePlan(new NativeSignInResult(transientAccount, token with { AccountAddress = confirmedAddress }));
         }
 
+        if (IsExchangeRoute)
+            return BuildExchangePlan(accountName, colorHex, range);
+
         var server = _pendingServer ?? throw new InvalidOperationException(Translator.AccountSetup_Failure_Title);
         server.DisplayName = EffectiveSenderName;
 
@@ -309,6 +314,7 @@ public partial class AccountSetupPageViewModel
         _nativeToken = null;
         _oauthSession = null;
         _grantedScopes = Array.Empty<string>();
+        _exchangeTransientAccount = null;
     }
 
     #region Advanced setup
@@ -321,6 +327,12 @@ public partial class AccountSetupPageViewModel
     private async Task OpenAdvancedSetupAsync()
     {
         CancelOperation();
+
+        if (Route == AccountRoute.Exchange)
+        {
+            await OpenExchangeAdvancedSetupAsync();
+            return;
+        }
 
         var address = IsLocalOnlyMode ? string.Empty : EmailAddress?.Trim() ?? string.Empty;
         var isAddressValid = MailAccountAddressValidator.IsValid(address);

@@ -34,6 +34,9 @@ public static class KnownMailHosts
 
     private static readonly string[] MicrosoftImapHosts = ["outlook.office365.com", "imap-mail.outlook.com", "outlook.office.com"];
 
+    /// <summary>Exchange Online's EWS hosts, worldwide and in the national clouds.</summary>
+    private static readonly string[] MicrosoftExchangeOnlineSuffixes = ["outlook.office365.com", "outlook.office.com", "office365.us", "outlook.cn", "outlook.com"];
+
     /// <summary>Gmail or Outlook when the address domain belongs to their consumer service, otherwise null.</summary>
     public static MailProviderType? GetConsumerProvider(string domain)
     {
@@ -88,6 +91,10 @@ public static class KnownMailHosts
 
         return null;
     }
+
+    /// <summary>An EWS endpoint that Exchange Autodiscover returned belongs to Microsoft 365, not to an on-premises server.</summary>
+    public static bool IsExchangeOnlineHost(string host)
+        => HasAnySuffix(Normalize(host), MicrosoftExchangeOnlineSuffixes);
 
     private static bool HasAnySuffix(string host, string[] suffixes)
         => host.Length > 0 && Array.Exists(suffixes, suffix => host == suffix || host.EndsWith("." + suffix, StringComparison.Ordinal));

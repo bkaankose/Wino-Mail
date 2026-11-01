@@ -121,8 +121,10 @@ public partial class AccountSetupPageViewModel
     private void ConfigureFeatures(AccountRouteResolution resolution)
     {
         var support = resolution.Support;
-        var isNative = resolution.Route is AccountRoute.Gmail or AccountRoute.Outlook;
-        var providerName = isNative ? NativeProviderName : string.Empty;
+        var isNative = resolution.Route is AccountRoute.Gmail or AccountRoute.Outlook or AccountRoute.Exchange;
+        var providerName = resolution.Route == AccountRoute.Exchange
+            ? ExchangeProviderName
+            : isNative ? NativeProviderName : string.Empty;
 
         ResetFeatureEntries();
 
@@ -183,7 +185,7 @@ public partial class AccountSetupPageViewModel
         if (mode != AccountCapabilityMode.Provider)
             return AccountIntegrationSource.Local;
 
-        return IsNativeRoute ? AccountIntegrationSource.Provider : AccountIntegrationSource.Dav;
+        return IsNativeRoute || IsExchangeRoute ? AccountIntegrationSource.Provider : AccountIntegrationSource.Dav;
     }
 
     private void OnCapabilitiesPropertyChanged(object? sender, PropertyChangedEventArgs e)

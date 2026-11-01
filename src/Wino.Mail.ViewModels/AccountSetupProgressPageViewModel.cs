@@ -67,9 +67,11 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
     {
         var kind = WizardContext.IsOAuthProvider
             ? AccountSetupKind.Native
-            : WizardContext.IsSpecialImapProviderWithAppPassword
-                ? AccountSetupKind.SpecialImap
-                : AccountSetupKind.Imap;
+            : WizardContext.IsExchange
+                ? AccountSetupKind.Exchange
+                : WizardContext.IsSpecialImapProviderWithAppPassword
+                    ? AccountSetupKind.SpecialImap
+                    : AccountSetupKind.Imap;
 
         return new AccountSetupPlan
         {
@@ -91,7 +93,8 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
             EmailAddress = WizardContext.EmailAddress,
             DisplayName = WizardContext.DisplayName,
             SpecialImap = kind == AccountSetupKind.SpecialImap ? WizardContext.BuildAccountCreationDialogResult() : null,
-            Imap = WizardContext.ImapCalDavSetupResult?.ToAccountSetupData()
+            Imap = WizardContext.ImapCalDavSetupResult?.ToAccountSetupData(),
+            Exchange = kind == AccountSetupKind.Exchange ? WizardContext.ExchangeSetup : null
         };
     }
 

@@ -19,12 +19,16 @@ public sealed class AccountRouteResolver : IAccountRouteResolver
     private readonly IDnsLookupService _dnsLookupService;
     private readonly IMicrosoftUserRealmService _userRealmService;
     private readonly IImapSetupResolver _imapSetupResolver;
+    private readonly IExchangeAutoDiscoveryService? _exchangeAutoDiscoveryService;
+    private readonly IExchangeAuthCapabilityProbe? _exchangeAuthCapabilityProbe;
 
     public AccountRouteResolver(
         IKnownImapProviderCatalog catalog,
         IDnsLookupService dnsLookupService,
         IMicrosoftUserRealmService userRealmService,
-        IImapSetupResolver imapSetupResolver)
+        IImapSetupResolver imapSetupResolver,
+        IExchangeAutoDiscoveryService? exchangeAutoDiscoveryService = null,
+        IExchangeAuthCapabilityProbe? exchangeAuthCapabilityProbe = null)
     {
         ArgumentNullException.ThrowIfNull(catalog);
         ArgumentNullException.ThrowIfNull(dnsLookupService);
@@ -35,6 +39,8 @@ public sealed class AccountRouteResolver : IAccountRouteResolver
         _dnsLookupService = dnsLookupService;
         _userRealmService = userRealmService;
         _imapSetupResolver = imapSetupResolver;
+        _exchangeAutoDiscoveryService = exchangeAutoDiscoveryService;
+        _exchangeAuthCapabilityProbe = exchangeAuthCapabilityProbe;
     }
 
     public async Task<AccountRouteResolution> ResolveAsync(
@@ -124,20 +130,116 @@ public sealed class AccountRouteResolver : IAccountRouteResolver
             _ => AccountRouteResolveStage.FindingServers
         }));
 
-        var imap = await _imapSetupResolver.ResolveAsync(imapRequest, imapProgress, cancellationToken).ConfigureAwait(false);
         var primaryMxHost = mxRecords.FirstOrDefault()?.Host;
+        var wasMicrosoftAsked = filterHost is not null;
+
+        // Exchange Autodiscover starts only once the domain table, the catalog, MX and the user realm have not decided,
+        // and runs beside the IMAP discovery: an IMAP answer is never held for it, and it decides only when it
+        // answered first or IMAP found nothing.
+        using var exchangeCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var exchangeTask = DiscoverExchangeAsync(address, exchangeCancellation.Token);
+
+        ImapSetupResolution imap;
+        try
+        {
+            imap = await _imapSetupResolver.ResolveAsync(imapRequest, imapProgress, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            exchangeCancellation.Cancel();
+            throw;
+        }
+
+        if (exchangeTask.IsCompletedSuccessfully && exchangeTask.Result is { } earlyExchange)
+            return Exchange(address, domain, earlyExchange, stopwatch, primaryMxHost, wasMicrosoftAsked);
 
         if (imap.NativeProvider is { } nativeProvider)
         {
+            exchangeCancellation.Cancel();
             return Native(address, domain, nativeProvider, AccountRouteEvidence.ImapHost, stopwatch,
-                mxHost: primaryMxHost, imapHost: imap.IncomingHost, wasMicrosoftAsked: filterHost is not null);
+                mxHost: primaryMxHost, imapHost: imap.IncomingHost, wasMicrosoftAsked: wasMicrosoftAsked);
         }
 
-        if (!imap.IsFound)
-            return NotFound(address, domain, stopwatch, isTimedOut: false, wasMicrosoftAsked: filterHost is not null);
+        if (imap.IsFound)
+        {
+            exchangeCancellation.Cancel();
+            return Imap(imap, AccountRouteEvidence.ImapHost, stopwatch, primaryMxHost, wasMicrosoftAsked: wasMicrosoftAsked);
+        }
 
-        return Imap(imap, AccountRouteEvidence.ImapHost, stopwatch, primaryMxHost, wasMicrosoftAsked: filterHost is not null);
+        if (!exchangeTask.IsCompleted)
+            reporter.Report(AccountRouteResolveStage.LookingForExchange);
+
+        if (await exchangeTask.ConfigureAwait(false) is { } exchange)
+            return Exchange(address, domain, exchange, stopwatch, primaryMxHost, wasMicrosoftAsked);
+
+        return NotFound(address, domain, stopwatch, isTimedOut: false, wasMicrosoftAsked: wasMicrosoftAsked);
     }
+
+    /// <summary>
+    /// The mailbox's Exchange endpoint from Autodiscover and, for an on-premises server, how it accepts sign-in. Null
+    /// when Autodiscover finds nothing or fails; only cancellation throws.
+    /// </summary>
+    private async Task<ExchangeDiscovery?> DiscoverExchangeAsync(string address, CancellationToken cancellationToken)
+    {
+        if (_exchangeAutoDiscoveryService is null)
+            return null;
+
+        try
+        {
+            var ewsUrl = await _exchangeAutoDiscoveryService.TryDiscoverEwsUrlAsync(address, cancellationToken).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(ewsUrl) || !Uri.TryCreate(ewsUrl, UriKind.Absolute, out var ewsUri))
+                return null;
+
+            if (KnownMailHosts.IsExchangeOnlineHost(ewsUri.Host))
+                return new ExchangeDiscovery(ewsUrl, IsMicrosoft365: true, ExchangeAuthProbeResult.Unknown);
+
+            var probe = _exchangeAuthCapabilityProbe is null
+                ? ExchangeAuthProbeResult.Unknown
+                : await _exchangeAuthCapabilityProbe.ProbeAsync(ewsUrl, address, cancellationToken).ConfigureAwait(false);
+
+            return new ExchangeDiscovery(ewsUrl, IsMicrosoft365: false, probe);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Logger.Information("Exchange Autodiscover during account route resolution failed ({ErrorType}).", ex.GetType().Name);
+            return null;
+        }
+    }
+
+    /// <summary>Microsoft 365 keeps the Outlook route; only an on-premises server becomes the Exchange route.</summary>
+    private static AccountRouteResolution Exchange(
+        string address,
+        string domain,
+        ExchangeDiscovery discovery,
+        Stopwatch stopwatch,
+        string? mxHost,
+        bool wasMicrosoftAsked)
+    {
+        if (discovery.IsMicrosoft365)
+        {
+            return Native(address, domain, MailProviderType.Outlook, AccountRouteEvidence.ExchangeAutodiscover, stopwatch,
+                mxHost: mxHost, wasMicrosoftAsked: wasMicrosoftAsked);
+        }
+
+        return new AccountRouteResolution
+        {
+            Address = address,
+            Domain = domain,
+            Route = AccountRoute.Exchange,
+            Evidence = AccountRouteEvidence.ExchangeAutodiscover,
+            MxHost = mxHost,
+            WasMicrosoftAsked = wasMicrosoftAsked,
+            Support = AccountRouteSupport.AllProvider,
+            Exchange = new ExchangeRouteDetails(discovery.EwsUrl, discovery.AuthProbe),
+            Elapsed = stopwatch.Elapsed
+        };
+    }
+
+    private sealed record ExchangeDiscovery(string EwsUrl, bool IsMicrosoft365, ExchangeAuthProbeResult AuthProbe);
 
     private static AccountRouteResolution Native(
         string address,

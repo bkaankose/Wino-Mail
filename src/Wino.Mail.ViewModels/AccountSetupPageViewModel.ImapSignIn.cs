@@ -204,6 +204,7 @@ public partial class AccountSetupPageViewModel
     {
         AccountRoute.Gmail => "Google",
         AccountRoute.Outlook => "Microsoft",
+        AccountRoute.Exchange => ExchangeAuthorityHost,
         _ => SelectedOAuthDiscovery?.Profile?.TrustSource == OAuthTrustSource.BuiltIn && !string.IsNullOrWhiteSpace(ProviderLabel)
             ? ProviderLabel
             : string.IsNullOrWhiteSpace(IssuerHost) ? ProviderLabel : IssuerHost
@@ -371,6 +372,10 @@ public partial class AccountSetupPageViewModel
                 if (CanCheckPassword())
                     await RunImapChecksAsync(useOAuth: false);
                 break;
+            case AccountSetupRetryAction.ExchangePasswordCheck:
+                if (CanCheckExchangePassword())
+                    await CheckExchangePasswordAsync();
+                break;
             case AccountSetupRetryAction.DavCheck:
                 if (_pendingServer != null)
                 {
@@ -528,6 +533,12 @@ public partial class AccountSetupPageViewModel
             Checks.Add(new AccountSetupConnectionCheck(
                 AccountSetupCheckKind.ProviderAccount,
                 string.Format(Translator.AccountSetup_Check_ProviderAccount, NativeProviderName)));
+        }
+        else if (IsExchangeRoute)
+        {
+            Checks.Add(new AccountSetupConnectionCheck(
+                AccountSetupCheckKind.ProviderAccount,
+                string.Format(Translator.AccountSetup_Check_ProviderAccount, ExchangeProviderName)));
         }
         else
         {
@@ -960,6 +971,7 @@ public partial class AccountSetupPageViewModel
     private async Task DiscardSignInAsync()
     {
         await DiscardNativeSignInAsync();
+        await DiscardExchangeSignInAsync();
         DiscardOAuthSession();
 
         _pendingServer = null;
@@ -1084,6 +1096,7 @@ public partial class AccountSetupPageViewModel
         OnPropertyChanged(nameof(LoginAddressDescription));
         OnPropertyChanged(nameof(IsDavPasswordVisible));
         OnPropertyChanged(nameof(IsUseAnotherOptionVisible));
+        NotifyExchangeSignInLayoutChanged();
         NotifyConnectionStatusChanged();
         NotifyStepContentChanged();
     }

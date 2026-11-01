@@ -198,5 +198,6 @@ public enum AccountSetupRetryAction
     NativeSignIn,
     BrowserSignIn,
     PasswordCheck,
-    DavCheck
+    DavCheck,
+    ExchangePasswordCheck
 }

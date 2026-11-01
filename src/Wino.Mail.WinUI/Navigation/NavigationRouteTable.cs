@@ -70,6 +70,7 @@ public static class NavigationRouteTable
         Settings(WinoPage.MailFiltersPage, typeof(MailFiltersPage)),
         Settings(WinoPage.MailFilterEditorPage, typeof(MailFilterEditorPage)),
         Settings(WinoPage.ImapCalDavSettingsPage, typeof(ImapCalDavSettingsPage)),
+        Settings(WinoPage.ExchangeSettingsPage, typeof(ExchangeSettingsPage)),
         Settings(WinoPage.KeyboardShortcutsPage, typeof(KeyboardShortcutsPage)),
         Settings(WinoPage.EmailTemplatesPage, typeof(EmailTemplatesPage)),
         Settings(WinoPage.CreateEmailTemplatePage, typeof(CreateEmailTemplatePage)),
