@@ -18,6 +18,7 @@ public static partial class MacViewModelRegistration
         services.AddTransient<ProviderSelectionPageViewController>();
         services.AddTransient<AccountSetupProgressPageViewController>();
         services.AddTransient<SpecialImapCredentialsPageViewController>();
+        services.AddTransient<ExchangeSettingsPageViewController>();
         services.AddTransient<ImapCalDavSettingsPageViewController>();
 #if DEBUG
         OnboardingDebug.Register();

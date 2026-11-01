@@ -147,7 +147,9 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         var serverRow = grid.Row(Translator.ImapSetup_ServerAddressOptional, server);
         _form.Visible(serverRow, nameof(vm.IsSignInServerAddressVisible), s => s.IsSignInServerAddressVisible);
 
-        var stage = Column(grid);
+        var exchange = _form.Link(Translator.ExchangeSetup_OpenFromImap, vm.OpenExchangeSetupCommand);
+        _form.Visible(exchange, nameof(vm.IsCreateMode), s => s.IsCreateMode);
+        var stage = Column(grid, Leading(exchange));
 
         VisibleWhen(stage, s => s.IsSignInIdentityStageVisible, nameof(vm.IsSignInIdentityStageVisible), nameof(vm.SignInStage));
         return stage;

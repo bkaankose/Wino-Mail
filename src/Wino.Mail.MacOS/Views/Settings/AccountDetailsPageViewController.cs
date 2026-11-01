@@ -105,7 +105,7 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
 
         var capabilityApply = Bind.Button(Translator.Buttons_Apply, vm.ApplyCapabilitiesCommand);
         var capabilityNotice = InfoBar(WinoInfoBarSeverity.Warning, null, Translator.AccountDetailsPage_CapabilityReauthenticationMessage);
-        Bind.Visible(capabilityNotice, vm, nameof(vm.IsCapabilitySelectionChanged), s => s.IsCapabilitySelectionChanged);
+        Bind.Visible(capabilityNotice, vm, nameof(vm.IsCapabilityReauthenticationNoticeVisible), s => s.IsCapabilityReauthenticationNoticeVisible);
         var capabilities = Expander(Translator.AccountDetailsPage_CapabilityTitle, Translator.AccountDetailsPage_CapabilityDescription, WinoIconGlyph.Calendar, null,
             Card(Translator.ProviderSelection_UseForMail, null, WinoIconGlyph.Mail,
                 Bind.Switch(vm, nameof(vm.IsMailCapabilitySelected), s => s.IsMailCapabilitySelected, (s, v) => s.IsMailCapabilitySelected = v, Translator.ProviderSelection_UseForMail)),
@@ -116,7 +116,8 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
             Card(Translator.ProviderSelection_UseForTasks, null, WinoIconGlyph.Checkmark,
                 Bind.Switch(vm, nameof(vm.IsTasksCapabilitySelected), s => s.IsTasksCapabilitySelected, (s, v) => s.IsTasksCapabilitySelected = v, Translator.ProviderSelection_UseForTasks)),
             Card(string.Empty, null, WinoIconGlyph.None, Row(capabilityNotice, capabilityApply)));
-        Bind.Visible(capabilities, vm, nameof(vm.Account), s => s.IsOAuthCapabilityEditable);
+        Bind.Visible(capabilities, vm, nameof(vm.Account), s => s.IsCapabilityEditable);
+        Bind.Visible(capabilities, vm, nameof(vm.IsCapabilityEditable), s => s.IsCapabilityEditable);
 
         var swatches = new WinoColorSwatchPicker();
         swatches.WidthAnchor.ConstraintEqualTo(260).Active = true;
@@ -146,6 +147,7 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
             Card(Translator.AccountDetailsPage_Title, Translator.AccountEditDialog_Message, WinoIconGlyph.Person, name),
             capabilities,
             colorCard,
+            BuildExchangeSettings(),
             imap,
             protocolLog,
             protocolExport,
@@ -155,6 +157,62 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
         var delete = Bind.Button(Translator.Buttons_Delete, vm.DeleteAccountCommand);
         delete.ContentTintColor = NSColor.SystemRed;
         AddTo(0, Group(null, Card(Translator.SettingsDeleteAccount_Title, Translator.SettingsDeleteAccount_Description, WinoIconGlyph.Delete, delete)));
+    }
+
+    /// <summary>Exchange accounts: the connection method and the sign-in, a password or the organization sign-in.</summary>
+    private WinoSettingsExpander BuildExchangeSettings()
+    {
+        var vm = ViewModel;
+        var transport = Bind.PopUp<AccountDetailsPageViewModel, ExchangeTransportOption>(vm, s => s.ExchangeTransportOptions, option => option.Title,
+            nameof(vm.SelectedExchangeTransport), s => s.SelectedExchangeTransport, (s, v) => s.SelectedExchangeTransport = v, width: 220);
+        WinoAccessibility.Label(transport, Translator.ExchangeSetup_TransportHeader);
+        Bind.Bind(vm, nameof(vm.IsExchangeBusy), s => s.IsExchangeBusy, busy => transport.Enabled = !busy);
+        var transportCard = Card(Translator.ExchangeSetup_TransportHeader, Translator.ExchangeSetup_TransportDescription, WinoIconGlyph.None, transport);
+
+        var userName = Bind.TextField(vm, nameof(vm.ExchangeUserName), s => s.ExchangeUserName, (s, v) => s.ExchangeUserName = v, vm.Address, 240);
+        Bind.Bind(vm, nameof(vm.Address), s => s.Address, address => userName.PlaceholderString = address ?? string.Empty);
+        WinoAccessibility.Label(userName, Translator.ExchangeSetup_UserNameHeader);
+        WinoAccessibility.Help(userName, Translator.ExchangeSetup_UserNameDescription);
+        var password = new NSSecureTextField { Font = WinoStyle.Body, PlaceholderString = Translator.ProviderSelection_PasswordHeader_Account, TranslatesAutoresizingMaskIntoConstraints = false };
+        password.WidthAnchor.ConstraintEqualTo(240).Active = true;
+        WinoAccessibility.Label(password, Translator.ProviderSelection_PasswordHeader_Account);
+        Bind.Bind(vm, nameof(vm.ExchangePassword), s => s.ExchangePassword, value =>
+        {
+            if (password.StringValue != (value ?? string.Empty)) password.StringValue = value ?? string.Empty;
+        });
+        EventHandler passwordChanged = (_, _) => vm.ExchangePassword = password.StringValue;
+        password.Changed += passwordChanged;
+        Bindings.Own(new ActionDisposable(() => password.Changed -= passwordChanged));
+        var update = Bind.Button(Translator.AccountDetailsPage_ExchangePasswordUpdate, vm.UpdateExchangePasswordCommand, primary: true);
+        var passwordFields = WinoLayout.VStack(WinoStyle.Space2, userName, password, update);
+        passwordFields.Alignment = NSLayoutAttribute.Trailing;
+        var passwordCard = Card(Translator.ProviderSelection_PasswordHeader_Account, Translator.AccountDetailsPage_ExchangePasswordDescription, WinoIconGlyph.Key, passwordFields);
+        Bind.Visible(passwordCard, vm, nameof(vm.IsExchangePasswordAuth), s => s.IsExchangePasswordAuth);
+
+        var signInCard = Card(Translator.AccountDetailsPage_ExchangeSignInTitle, Translator.AccountDetailsPage_ExchangeSignInDescription, WinoIconGlyph.LockClosed,
+            Bind.Button(Translator.ImapSetup_OAuthSignInAgain, vm.SignInExchangeAgainCommand));
+        Bind.Visible(signInCard, vm, nameof(vm.IsExchangeModernAuth), s => s.IsExchangeModernAuth);
+
+        var spinner = new NSProgressIndicator { Style = NSProgressIndicatorStyle.Spinning, ControlSize = NSControlSize.Small, Indeterminate = true, TranslatesAutoresizingMaskIntoConstraints = false };
+        var busyCard = Card(Translator.ExchangeSetup_Checking, null, WinoIconGlyph.None, spinner);
+        Bind.Bind(vm, nameof(vm.IsExchangeBusy), s => s.IsExchangeBusy, busy =>
+        {
+            busyCard.Hidden = !busy;
+            if (busy) spinner.StartAnimation(null); else spinner.StopAnimation(null);
+        });
+
+        var expander = Expander(Translator.AccountDetailsPage_ExchangeTitle, null, WinoIconGlyph.GlobeDesktop, null, transportCard, passwordCard, signInCard, busyCard);
+        Bind.Bind(vm, nameof(vm.ExchangeServerDescription), s => s.ExchangeServerDescription, text => expander.HeaderCard.Description = text);
+        Bind.Bind(vm, nameof(vm.IsExchangeSettingsExpanded), s => s.IsExchangeSettingsExpanded, expanded =>
+        {
+            if (expander.IsExpanded != expanded) expander.IsExpanded = expanded;
+        });
+        EventHandler<bool> expandedChanged = (_, expanded) => { if (vm.IsExchangeSettingsExpanded != expanded) vm.IsExchangeSettingsExpanded = expanded; };
+        expander.IsExpandedChanged += expandedChanged;
+        Bindings.Own(new ActionDisposable(() => expander.IsExpandedChanged -= expandedChanged));
+        Bind.Visible(expander, vm, nameof(vm.IsExchangeAccount), s => s.IsExchangeAccount);
+        Bind.Visible(expander, vm, nameof(vm.Account), s => s.IsExchangeAccount);
+        return expander;
     }
 
     private void BuildMail()
