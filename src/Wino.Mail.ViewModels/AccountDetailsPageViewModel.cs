@@ -52,6 +52,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     private readonly IWinoAccountIntelligenceSnapshotService? _entitlementService;
     private readonly IExchangeConnectionTester? _exchangeConnectionTester;
     private readonly IAccountReauthenticationService? _reauthenticationService;
+    private readonly IExchangeInteractiveSignInService? _exchangeSignInService;
     private bool isLoaded = false;
     private readonly object _preferenceWriteGate = new();
     private Task _preferenceWrites = Task.CompletedTask;
@@ -259,8 +260,10 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         ISynchronizationManager synchronizationManager,
         IWinoAccountIntelligenceSnapshotService? entitlementService = null,
         IExchangeConnectionTester? exchangeConnectionTester = null,
-        IAccountReauthenticationService? reauthenticationService = null)
+        IAccountReauthenticationService? reauthenticationService = null,
+        IExchangeInteractiveSignInService? exchangeSignInService = null)
     {
+        _exchangeSignInService = exchangeSignInService;
         _dialogService = dialogService;
         _accountService = accountService;
         _folderService = folderService;

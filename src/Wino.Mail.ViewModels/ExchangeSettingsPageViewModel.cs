@@ -92,6 +92,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     [NotifyPropertyChangedFor(nameof(IsPrimaryVisible))]
     [NotifyPropertyChangedFor(nameof(PrimaryText))]
     [NotifyPropertyChangedFor(nameof(ServerSummary))]
+    [NotifyPropertyChangedFor(nameof(IsModernAuthUnavailableNoticeVisible))]
     [NotifyCanExecuteChangedFor(nameof(PrimaryCommand))]
     public partial bool IsSignInStage { get; set; }
 
@@ -101,7 +102,18 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     [NotifyPropertyChangedFor(nameof(IsPrimaryVisible))]
     [NotifyPropertyChangedFor(nameof(PrimaryText))]
     [NotifyPropertyChangedFor(nameof(SignInDescription))]
+    [NotifyPropertyChangedFor(nameof(IsModernAuthUnavailableNoticeVisible))]
     public partial bool IsModernAuth { get; set; }
+
+    /// <summary>
+    /// The server offers the organization sign-in, but this device has no embedded browser for it (iOS), so only the
+    /// password can be tried.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsModernAuthUnavailableNoticeVisible))]
+    public partial bool IsModernAuthUnavailableOnDevice { get; set; }
+
+    public bool IsModernAuthUnavailableNoticeVisible => IsPasswordStageVisible && IsModernAuthUnavailableOnDevice;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsIdle))]
@@ -357,6 +369,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
 
             _authority = probe.Capability == ExchangeAuthCapability.ModernAuthAvailable ? probe.Authority : null;
             IsModernAuth = !string.IsNullOrWhiteSpace(_authority) && _signInService?.IsSupported == true;
+            IsModernAuthUnavailableOnDevice = !string.IsNullOrWhiteSpace(_authority) && _signInService?.IsSupported != true;
             IsSignInStage = true;
             OnPropertyChanged(nameof(UserNamePlaceholder));
         }

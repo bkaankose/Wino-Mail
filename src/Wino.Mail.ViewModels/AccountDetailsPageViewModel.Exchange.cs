@@ -49,6 +49,13 @@ public partial class AccountDetailsPageViewModel
     public bool IsExchangeModernAuth => IsExchangeAccount && ServerInformation?.UseOAuthAuthentication == true;
     public bool IsExchangePasswordAuth => IsExchangeAccount && ServerInformation != null && !ServerInformation.UseOAuthAuthentication;
 
+    /// <summary>The organization sign-in needs an embedded browser, which some devices do not have (iOS).</summary>
+    public bool IsExchangeSignInAgainSupported => _exchangeSignInService?.IsSupported != false;
+
+    public string ExchangeSignInDescription => IsExchangeSignInAgainSupported
+        ? Translator.AccountDetailsPage_ExchangeSignInDescription
+        : Translator.AccountDetailsPage_ExchangeSignInUnavailable;
+
     public string ExchangeServerDescription => string.Format(Translator.AccountDetailsPage_ExchangeDescription, ExchangeServerHost);
 
     /// <summary>
@@ -220,7 +227,7 @@ public partial class AccountDetailsPageViewModel
         }
     }
 
-    private bool CanSignInExchangeAgain() => IsExchangeModernAuth && !IsExchangeBusy && _reauthenticationService != null;
+    private bool CanSignInExchangeAgain() => IsExchangeModernAuth && IsExchangeSignInAgainSupported && !IsExchangeBusy && _reauthenticationService != null;
 
     /// <summary>Runs the organization sign-in again through the same re-authentication Fix account uses.</summary>
     [RelayCommand(CanExecute = nameof(CanSignInExchangeAgain))]
