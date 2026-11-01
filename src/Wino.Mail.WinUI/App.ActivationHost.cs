@@ -44,6 +44,7 @@ internal interface IAppNotificationHandlerHost
     Task HandleMailToastComposeActionAsync(MailOperation action, Guid mailItemUniqueId);
     Task HandleMailToastBackgroundActionAsync(MailOperation action, Guid mailItemUniqueId);
     Task HandleNotificationModeActivationAsync(WinoApplicationMode mode);
+    Task HandleWidgetActionAsync(string action, string? value);
 }
 
 public partial class App : IAppActivationHandlerHost, IAppNotificationHandlerHost
@@ -98,4 +99,6 @@ public partial class App : IAppActivationHandlerHost, IAppNotificationHandlerHos
         => HandleToastActionAsync(action, mailItemUniqueId);
     Task IAppNotificationHandlerHost.HandleNotificationModeActivationAsync(WinoApplicationMode mode)
         => EnsureShellWindowAsync(mode, activateWindow: true);
+    Task IAppNotificationHandlerHost.HandleWidgetActionAsync(string action, string? value)
+        => HandleWidgetActionAsync(action, value);
 }

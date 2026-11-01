@@ -40,6 +40,9 @@
 	<NotificationHostPublishRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)\$(BaseIntermediateOutputPath)$(Platform)\$(Configuration)\NotificationHosts'))</NotificationHostPublishRoot>
 	<NotificationHostOutput Condition="'$(WinoIsReleaseBuild)' != 'true'">$(MSBuildProjectDirectory)\..\Wino.NotificationHost\$(NotificationHostBuildSuffix)</NotificationHostOutput>
 	<NotificationHostOutput Condition="'$(WinoIsReleaseBuild)' == 'true'">$(NotificationHostPublishRoot)</NotificationHostOutput>
+	<WidgetHostPublishRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)\$(BaseIntermediateOutputPath)$(Platform)\$(Configuration)\WidgetHosts'))</WidgetHostPublishRoot>
+	<WidgetHostOutput Condition="'$(WinoIsReleaseBuild)' != 'true'">$(MSBuildProjectDirectory)\..\Wino.WidgetHost\$(NotificationHostBuildSuffix)</WidgetHostOutput>
+	<WidgetHostOutput Condition="'$(WinoIsReleaseBuild)' == 'true'">$(WidgetHostPublishRoot)</WidgetHostOutput>
 </PropertyGroup>
 
   <ItemGroup>
@@ -237,6 +240,10 @@
     <Content Include="$(NotificationHostOutput)Wino.NotificationHost.dll" Link="Wino.NotificationHost.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoIsReleaseBuild)' != 'true'" />
     <Content Include="$(NotificationHostOutput)Wino.NotificationHost.deps.json" Link="Wino.NotificationHost.deps.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoIsReleaseBuild)' != 'true'" />
     <Content Include="$(NotificationHostOutput)Wino.NotificationHost.runtimeconfig.json" Link="Wino.NotificationHost.runtimeconfig.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoIsReleaseBuild)' != 'true'" />
+    <Content Include="$(WidgetHostOutput)Wino.WidgetHost.exe" Link="Wino.WidgetHost.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="$(WidgetHostOutput)Wino.WidgetHost.dll" Link="Wino.WidgetHost.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoIsReleaseBuild)' != 'true'" />
+    <Content Include="$(WidgetHostOutput)Wino.WidgetHost.deps.json" Link="Wino.WidgetHost.deps.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoIsReleaseBuild)' != 'true'" />
+    <Content Include="$(WidgetHostOutput)Wino.WidgetHost.runtimeconfig.json" Link="Wino.WidgetHost.runtimeconfig.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoIsReleaseBuild)' != 'true'" />
   </ItemGroup>
 
   <ItemGroup>
@@ -297,8 +304,9 @@
 	<ProjectReference Include="..\Wino.PushRelay.Socket\Wino.PushRelay.Socket.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Build the notification host before the app's packaging target publishes it. -->
+    <!-- Build the notification and widget hosts before the app's packaging target publishes them. -->
     <ProjectReference Include="..\Wino.NotificationHost\Wino.NotificationHost.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="..\Wino.WidgetHost\Wino.WidgetHost.csproj" ReferenceOutputAssembly="false" Private="false" />
   </ItemGroup>
   <ItemDefinitionGroup>
     <!-- Project-only runs have no solution/global Platform or RID. Propagate the
@@ -499,6 +507,11 @@
   <Target Name="PublishNotificationHost" BeforeTargets="PrepareForBuild" Condition="'$(WinoIsReleaseBuild)' == 'true'">
     <MakeDir Directories="$(NotificationHostOutput)" />
     <MSBuild Projects="$(MSBuildProjectDirectory)\..\Wino.NotificationHost\Wino.NotificationHost.csproj" Targets="Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);PublishDir=$(NotificationHostOutput);Restore=false" />
+  </Target>
+
+  <Target Name="PublishWidgetHost" BeforeTargets="PrepareForBuild" Condition="'$(WinoIsReleaseBuild)' == 'true'">
+    <MakeDir Directories="$(WidgetHostOutput)" />
+    <MSBuild Projects="$(MSBuildProjectDirectory)\..\Wino.WidgetHost\Wino.WidgetHost.csproj" Targets="Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);PublishDir=$(WidgetHostOutput);Restore=false" />
   </Target>
 
 	<ItemGroup>

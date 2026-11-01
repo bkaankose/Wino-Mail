@@ -27,4 +27,5 @@ public sealed record PlatformCapabilities(
     bool ConfigurableSyncIntervals = false,
     bool BadgeLaunchNavigation = false,
     bool AddressFirstAccountSetup = false,
-    bool OAuthLoopbackRedirect = true) : IPlatformCapabilities;
+    bool OAuthLoopbackRedirect = true,
+    bool WidgetsAndLiveTiles = false) : IPlatformCapabilities;

@@ -14,5 +14,6 @@
     "People": "427688f0-3b7f-4f5b-938f-f76535aa7970",
     "Tasks": "a5851908-6870-4384-912c-be36b23f142f"
   },
-  "StartupTaskActivatorId": "13437e7f-4198-4d62-bf1a-8cf5186397b3"
+  "StartupTaskActivatorId": "13437e7f-4198-4d62-bf1a-8cf5186397b3",
+  "WidgetProviderId": "976b4902-858b-44d2-af92-de5a1b20ee3d"
 }

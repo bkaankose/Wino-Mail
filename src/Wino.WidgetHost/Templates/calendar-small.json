@@ -1,0 +1,88 @@
+{
+  "type": "AdaptiveCard",
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "ColumnSet",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "auto",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "${dayName}",
+              "wrap": false,
+              "maxLines": 1,
+              "isSubtle": true,
+              "horizontalAlignment": "Center"
+            },
+            {
+              "type": "TextBlock",
+              "text": "${dayNumber}",
+              "wrap": false,
+              "maxLines": 1,
+              "size": "ExtraLarge",
+              "weight": "Bolder",
+              "spacing": "None",
+              "horizontalAlignment": "Center"
+            }
+          ],
+          "verticalContentAlignment": "Center"
+        },
+        {
+          "type": "Column",
+          "width": "stretch",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "${nextTitle}",
+              "wrap": false,
+              "maxLines": 1,
+              "weight": "Bolder",
+              "$when": "${hasEvents}"
+            },
+            {
+              "type": "TextBlock",
+              "text": "${nextWhen}",
+              "wrap": false,
+              "maxLines": 1,
+              "isSubtle": true,
+              "size": "Small",
+              "spacing": "None",
+              "$when": "${hasEvents}"
+            },
+            {
+              "type": "TextBlock",
+              "text": "${noEvents}",
+              "wrap": true,
+              "maxLines": 2,
+              "isSubtle": true,
+              "$when": "${!hasEvents}"
+            }
+          ],
+          "verticalContentAlignment": "Center",
+          "separator": true,
+          "spacing": "Medium"
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "${todayCount}",
+      "wrap": false,
+      "maxLines": 1,
+      "isSubtle": true,
+      "size": "Small",
+      "spacing": "Small"
+    }
+  ],
+  "selectAction": {
+    "type": "Action.Execute",
+    "verb": "openEvent",
+    "data": {
+      "value": "${nextId}"
+    }
+  }
+}

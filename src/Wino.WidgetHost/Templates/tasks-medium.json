@@ -1,0 +1,117 @@
+{
+  "type": "AdaptiveCard",
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "ColumnSet",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "stretch",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "${title}",
+              "wrap": false,
+              "maxLines": 1,
+              "weight": "Bolder"
+            }
+          ]
+        },
+        {
+          "type": "Column",
+          "width": "auto",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "${progress}",
+              "wrap": false,
+              "maxLines": 1,
+              "isSubtle": true,
+              "size": "Small"
+            }
+          ],
+          "verticalContentAlignment": "Center"
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "${noItems}",
+      "wrap": true,
+      "maxLines": 2,
+      "isSubtle": true,
+      "spacing": "Medium",
+      "$when": "${!hasItems}"
+    },
+    {
+      "type": "Container",
+      "$data": "${items}",
+      "separator": true,
+      "spacing": "Small",
+      "items": [
+        {
+          "type": "ColumnSet",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "items": [
+                {
+                  "type": "Image",
+                  "url": "${circleIcon}",
+                  "width": "16px",
+                  "height": "16px"
+                }
+              ],
+              "verticalContentAlignment": "Center"
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "${title}",
+                  "wrap": false,
+                  "maxLines": 1
+                }
+              ],
+              "verticalContentAlignment": "Center"
+            },
+            {
+              "type": "Column",
+              "width": "auto",
+              "items": [
+                {
+                  "type": "Image",
+                  "url": "${starIcon}",
+                  "width": "14px",
+                  "height": "14px"
+                }
+              ],
+              "verticalContentAlignment": "Center",
+              "$when": "${isImportant}"
+            }
+          ]
+        }
+      ],
+      "selectAction": {
+        "type": "Action.Execute",
+        "verb": "openTasks",
+        "data": {
+          "value": "${id}"
+        }
+      }
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.Execute",
+      "verb": "addTask",
+      "title": "${addTask}",
+      "iconUrl": "${addIcon}"
+    }
+  ]
+}

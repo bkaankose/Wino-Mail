@@ -1,0 +1,142 @@
+{
+  "type": "AdaptiveCard",
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "ColumnSet",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "auto",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "${unreadCount}",
+              "wrap": false,
+              "maxLines": 1,
+              "size": "ExtraLarge",
+              "weight": "Bolder"
+            }
+          ],
+          "verticalContentAlignment": "Center"
+        },
+        {
+          "type": "Column",
+          "width": "stretch",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "${unreadLabel}",
+              "wrap": false,
+              "maxLines": 1,
+              "isSubtle": true
+            }
+          ],
+          "verticalContentAlignment": "Center",
+          "spacing": "Small"
+        }
+      ],
+      "spacing": "None",
+      "$when": "${hasUnread}"
+    },
+    {
+      "type": "TextBlock",
+      "text": "${noItems}",
+      "wrap": true,
+      "maxLines": 2,
+      "isSubtle": true,
+      "spacing": "Medium",
+      "$when": "${!hasItems}"
+    },
+    {
+      "type": "Container",
+      "$data": "${items}",
+      "spacing": "Medium",
+      "items": [
+        {
+          "type": "ColumnSet",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "4px",
+              "items": [
+                {
+                  "type": "Container",
+                  "style": "accent",
+                  "minHeight": "34px",
+                  "items": []
+                }
+              ],
+              "spacing": "None"
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "items": [
+                {
+                  "type": "ColumnSet",
+                  "columns": [
+                    {
+                      "type": "Column",
+                      "width": "stretch",
+                      "items": [
+                        {
+                          "type": "TextBlock",
+                          "text": "${sender}",
+                          "wrap": false,
+                          "maxLines": 1,
+                          "weight": "Bolder"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "Column",
+                      "width": "auto",
+                      "items": [
+                        {
+                          "type": "TextBlock",
+                          "text": "${time}",
+                          "wrap": false,
+                          "maxLines": 1,
+                          "size": "Small",
+                          "isSubtle": true
+                        }
+                      ],
+                      "verticalContentAlignment": "Center"
+                    }
+                  ]
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "${subject}",
+                  "wrap": false,
+                  "maxLines": 1,
+                  "size": "Small",
+                  "spacing": "None",
+                  "$when": "${hasSubject}"
+                }
+              ],
+              "spacing": "Small"
+            }
+          ]
+        }
+      ],
+      "selectAction": {
+        "type": "Action.Execute",
+        "verb": "openMail",
+        "data": {
+          "value": "${id}"
+        }
+      }
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.Execute",
+      "verb": "newMail",
+      "title": "${newMail}",
+      "iconUrl": "${newMailIcon}"
+    }
+  ]
+}

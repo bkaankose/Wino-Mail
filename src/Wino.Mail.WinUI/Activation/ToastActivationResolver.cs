@@ -1,6 +1,7 @@
 using Microsoft.Windows.AppNotifications;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
+using Wino.NotificationHost.Contracts;
 
 namespace Wino.Mail.WinUI.Activation;
 
@@ -80,5 +81,6 @@ internal static class ToastActivationResolver
            toastArguments.TryGetValue(Constants.ToastCalendarActionKey, out string _) ||
            toastArguments.TryGetValue(Constants.ToastDismissActionKey, out string _) ||
            toastArguments.TryGetValue(Constants.ToastActionKey, out string _) ||
-           toastArguments.TryGetValue(Constants.ToastModeKey, out string _);
+           toastArguments.TryGetValue(Constants.ToastModeKey, out string _) ||
+           toastArguments.TryGetValue(WidgetActions.ActionKey, out string _);
 }

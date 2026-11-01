@@ -196,6 +196,31 @@ public partial class MessageListPageViewModel : MailBaseViewModel,
         }
     }
 
+    public List<string> DateGroupingTypeOptions { get; } =
+    [
+        Translator.SettingsMailListDateGroupingType_EachDay,
+        Translator.SettingsMailListDateGroupingType_DayGroups
+    ];
+
+    private readonly List<MailListDateGroupingType> dateGroupingTypes =
+    [
+        MailListDateGroupingType.EachDay,
+        MailListDateGroupingType.DayGroups
+    ];
+
+    private int selectedDateGroupingTypeIndex;
+    public int SelectedDateGroupingTypeIndex
+    {
+        get => selectedDateGroupingTypeIndex;
+        set
+        {
+            if (SetProperty(ref selectedDateGroupingTypeIndex, value) && value >= 0 && value < dateGroupingTypes.Count)
+            {
+                PreferencesService.MailListDateGroupingType = dateGroupingTypes[value];
+            }
+        }
+    }
+
     private int selectedMarkAsOptionIndex;
     public int SelectedMarkAsOptionIndex
     {
@@ -695,7 +720,7 @@ public partial class MessageListPageViewModel : MailBaseViewModel,
         SelectedMarkAsOptionIndex = Array.IndexOf(Enum.GetValues<MailMarkAsOption>(), PreferencesService.MarkAsPreference);
         selectedThreadItemSortingIndex = PreferencesService.IsNewestThreadMailFirst ? 0 : 1;
         selectedAccountNicknamePositionIndex = accountNicknamePositions.IndexOf(PreferencesService.AccountNicknamePosition);
-        selectedTimeFormatPreferenceIndex = timeFormatPreferenceOptions.IndexOf(PreferencesService.MailTimeFormatPreference);
+        selectedDateGroupingTypeIndex = Math.Max(0, dateGroupingTypes.IndexOf(PreferencesService.MailListDateGroupingType));        selectedTimeFormatPreferenceIndex = timeFormatPreferenceOptions.IndexOf(PreferencesService.MailTimeFormatPreference);
         selectedHoverActionAnimationIndex = hoverActionAnimations.IndexOf(PreferencesService.HoverActionAnimation);
         selectedHoverActionPositionIndex = hoverActionPositions.IndexOf(PreferencesService.HoverActionPosition);
         selectedHoverActionButtonSizeIndex = hoverActionButtonSizes.IndexOf(PreferencesService.HoverActionButtonSize);

@@ -315,6 +315,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsMailListGroupHeadersEnabled { get; set; }
 
     /// <summary>
+    /// Setting: Group the date-sorted mail list by each day or by fixed day ranges.
+    /// </summary>
+    MailListDateGroupingType MailListDateGroupingType { get; set; }
+
+    /// <summary>
     /// Setting: Show an unread message notice for the Other tab while viewing Focused Inbox.
     /// </summary>
     bool IsOtherInboxUnreadNoticeEnabled { get; set; }

@@ -307,6 +307,7 @@
                                     SelectedIndex="0"
                                     SelectionChanged="GroupChanged">
                                     <ComboBoxItem Content="Date" Tag="{x:Bind core:MailListGroupMode.Date}" />
+                                    <ComboBoxItem Content="Day groups" Tag="{x:Bind core:MailListGroupMode.DayGroups}" />
                                     <ComboBoxItem Content="Name" Tag="{x:Bind core:MailListGroupMode.Name}" />
                                     <ComboBoxItem Content="None" Tag="{x:Bind core:MailListGroupMode.None}" />
                                 </ComboBox>

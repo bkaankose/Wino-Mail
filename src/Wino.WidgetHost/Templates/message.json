@@ -1,0 +1,35 @@
+{
+  "type": "AdaptiveCard",
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "Image",
+      "url": "${icon}",
+      "width": "28px",
+      "height": "28px",
+      "horizontalAlignment": "Center",
+      "$when": "${!isSmall}"
+    },
+    {
+      "type": "TextBlock",
+      "text": "${text}",
+      "wrap": true,
+      "maxLines": 3,
+      "horizontalAlignment": "Center",
+      "spacing": "Medium"
+    },
+    {
+      "type": "ActionSet",
+      "horizontalAlignment": "Center",
+      "actions": [
+        {
+          "type": "Action.Execute",
+          "verb": "${verb}",
+          "title": "${button}"
+        }
+      ]
+    }
+  ],
+  "verticalContentAlignment": "Center"
+}

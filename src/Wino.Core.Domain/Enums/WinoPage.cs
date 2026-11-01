@@ -65,5 +65,6 @@ public enum WinoPage
     NotificationSettingsPage,
     ReaderActionsPage,
     AccountSetupPage,
-    ExchangeSettingsPage
+    ExchangeSettingsPage,
+    WidgetsLiveTilesSettingsPage
 }

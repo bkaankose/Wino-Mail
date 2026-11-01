@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Services;
+using Wino.Mail.WinUI.Services.WidgetsAndTiles;
 using Wino.Services;
 using Wino.Platform.Windows;
 using Wino.Platform.Windows.Authentication;
@@ -39,6 +40,8 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<IUserPresenceStateProvider>(provider => provider.GetRequiredService<NativeAppService>());
         services.AddSingleton<IPreferencesService, PreferencesService>();
         services.AddSingleton<WindowsShellPreferences>();
+        services.AddSingleton<ContactPictureThumbnailer>();
+        services.AddSingleton<WidgetsAndTilesService>();
         services.AddSingleton<ISecretProtector, DpapiSecretProtector>();
         services.AddSingleton<IAccountCredentialPersistence, WindowsAccountCredentialPersistence>();
         services.AddSingleton<IApplicationResourceResolver, WindowsApplicationResourceResolver>();
@@ -51,7 +54,7 @@ public static class CoreUWPContainerSetup
             StartupIntegration: true, Tray: true, GlobalHotkeys: true, GeneralActivation: true,
             MicrosoftStore: true, RemoteNotifications: false, KeyboardShortcuts: true, FileBackup: true, Purchases: true,
             AppModeTaskbarIdentity: true, PointerHover: true, MailListDensity: true, PresentationDetection: true,
-            ConfigurableSyncIntervals: true, BadgeLaunchNavigation: true, AddressFirstAccountSetup: true));
+            ConfigurableSyncIntervals: true, BadgeLaunchNavigation: true, AddressFirstAccountSetup: true, WidgetsAndLiveTiles: true));
         services.AddSingleton<IPushRelayDeviceIdentityStore, WindowsPushRelayDeviceIdentityStore>();
         services.AddSingleton<IPushRelayDeviceInfo, WindowsPushRelayDeviceInfo>();
         services.AddSingleton<IPushTokenProvider, NullPushTokenProvider>();

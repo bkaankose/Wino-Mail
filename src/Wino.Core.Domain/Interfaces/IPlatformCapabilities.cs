@@ -66,4 +66,7 @@ public interface IPlatformCapabilities
     /// sheet completes only custom-scheme redirects; registrations that need loopback are not offered there.
     /// </summary>
     bool OAuthLoopbackRedirect { get; }
+
+    /// <summary>Windows widgets on the Widgets Board and Live Tiles on the Start menu (the Widgets / Live Tiles settings page).</summary>
+    bool WidgetsAndLiveTiles { get; }
 }

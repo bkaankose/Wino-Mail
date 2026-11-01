@@ -16,6 +16,7 @@ public enum MailListGroupMode
     Date,
     Name,
     None,
+    DayGroups,
 }
 
 public enum ThreadMessageOrder
@@ -52,4 +53,10 @@ public sealed partial record MailListProjectionOptions
     public bool IsThreadingEnabled { get; init; } = true;
 
     public bool IsPinnedFirst { get; init; } = true;
+
+    /// <summary>
+    /// The local day that <see cref="MailListGroupMode.DayGroups"/> measures from. Null uses the
+    /// current day, read once per rebuild.
+    /// </summary>
+    public DateTime? ReferenceDate { get; init; }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
@@ -19,6 +20,7 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
     private readonly IWinoAccountIntelligenceSnapshotService _entitlementService;
     private IReadOnlyList<SettingsNavigationItemInfo> _accountSearchItems = [];
     private bool _isAccountSearchIndexInitialized;
+    private int _activePageGeneration;
 
     private readonly SettingsMenuProvider _settingsMenuProvider;
 
@@ -54,10 +56,16 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
 
     public async Task UpdateActivePageAsync(WinoPage pageType, object parameter = null, string pageTitle = null)
     {
+        var generation = Interlocked.Increment(ref _activePageGeneration);
         await RefreshAccountSummaryAsync();
 
+        // Navigations that follow each other quickly can finish out of order; only the latest page sets the description.
         var description = await GetPageDescriptionAsync(pageType, parameter, pageTitle).ConfigureAwait(false);
-        await ExecuteUIThread(() => CurrentDescription = description);
+        await ExecuteUIThread(() =>
+        {
+            if (generation == Volatile.Read(ref _activePageGeneration))
+                CurrentDescription = description;
+        });
     }
 
     public async Task<IReadOnlyList<SettingsNavigationItemInfo>> SearchSettingsAsync(string query)
