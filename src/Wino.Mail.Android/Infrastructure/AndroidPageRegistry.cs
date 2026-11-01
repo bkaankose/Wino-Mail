@@ -91,6 +91,8 @@ public sealed class AndroidPageRegistry
                 viewModel.IsSecureSignInSupportedByHost = true;
                 return viewModel.InitializeAsync(mode, parameter);
             });
+        // Exchange Server setup, opened from the server page's "Using Exchange Server?" link.
+        Register<ExchangeSetupFragment, ExchangeSettingsPageViewModel>(WinoPage.ExchangeSettingsPage, AndroidPageHost.Root);
         Register<AccountSetupFragment, AccountSetupProgressPageViewModel>(WinoPage.AccountSetupProgressPage, AndroidPageHost.Root,
             initialize: static (viewModel, mode, parameter) => viewModel.InitializeAsync(mode, parameter));
 

@@ -154,6 +154,8 @@ public sealed class ImapSetupFragment : WinoFragment<ImapCalDavSettingsPageViewM
         form.Group(() => form.Field(Translator.ImapSetup_ServerAddressOptional, nameof(viewModel.CalDavServiceUrl), vm => vm.CalDavServiceUrl,
                 (vm, value) => vm.CalDavServiceUrl = value, InputTypes.ClassText | InputTypes.TextVariationUri, Translator.ImapSetup_ServerAddressPlaceholder),
             nameof(viewModel.IsSignInServerAddressVisible), vm => vm.IsSignInServerAddressVisible);
+        var exchange = form.Link(Translator.ExchangeSetup_OpenFromImap, viewModel.OpenExchangeSetupCommand);
+        form.Binder.Visible(exchange, viewModel, nameof(viewModel.IsCreateMode), vm => vm.IsCreateMode);
     }
 
     private static void AddIdentityFields(OnboardingForm<ImapCalDavSettingsPageViewModel> form, ImapCalDavSettingsPageViewModel viewModel)

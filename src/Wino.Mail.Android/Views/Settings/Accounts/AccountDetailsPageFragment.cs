@@ -122,7 +122,7 @@ public sealed class AccountDetailsPageFragment : SettingsPageFragment<AccountDet
 
         var capabilityApply = Bind.Button(Translator.Buttons_Apply, vm.ApplyCapabilitiesCommand);
         var capabilityNotice = InfoBar(WinoInfoBarSeverity.Warning, null, Translator.AccountDetailsPage_CapabilityReauthenticationMessage);
-        Bind.Visible(capabilityNotice, vm, nameof(vm.IsCapabilitySelectionChanged), s => s.IsCapabilitySelectionChanged);
+        Bind.Visible(capabilityNotice, vm, nameof(vm.IsCapabilityReauthenticationNoticeVisible), s => s.IsCapabilityReauthenticationNoticeVisible);
         var applyRow = Stack(Resource.Dimension.wino_space_s, capabilityNotice, Row(capabilityApply));
         var capabilities = Expander(Translator.AccountDetailsPage_CapabilityTitle, Translator.AccountDetailsPage_CapabilityDescription, WinoIconGlyph.Calendar, null,
             Card(Translator.ProviderSelection_UseForMail, null, WinoIconGlyph.Mail,
@@ -134,7 +134,8 @@ public sealed class AccountDetailsPageFragment : SettingsPageFragment<AccountDet
             Card(Translator.ProviderSelection_UseForTasks, null, WinoIconGlyph.Checkmark,
                 Bind.Switch(vm, nameof(vm.IsTasksCapabilitySelected), s => s.IsTasksCapabilitySelected, (s, v) => s.IsTasksCapabilitySelected = v, Translator.ProviderSelection_UseForTasks)),
             applyRow);
-        Bind.Visible(capabilities, vm, nameof(vm.Account), s => s.IsOAuthCapabilityEditable);
+        Bind.Visible(capabilities, vm, nameof(vm.Account), s => s.IsCapabilityEditable);
+        Bind.Visible(capabilities, vm, nameof(vm.IsCapabilityEditable), s => s.IsCapabilityEditable);
 
         var swatches = new AccountColorSwatches(Ctx, Translator.AccountDetailsPage_ColorPicker_Title);
         Bind.Bind(vm, nameof(vm.AvailableColors), s => s.AvailableColors, colors => swatches.Colors = colors?.Select(color => color.Hex).ToList() ?? []);
@@ -164,6 +165,7 @@ public sealed class AccountDetailsPageFragment : SettingsPageFragment<AccountDet
             StackedCard(Translator.AccountDetailsPage_Title, Translator.AccountEditDialog_Message, WinoIconGlyph.Person, name),
             capabilities,
             colorCard,
+            BuildExchangeSettings(),
             imap,
             protocolLog,
             protocolExport,
@@ -171,6 +173,50 @@ public sealed class AccountDetailsPageFragment : SettingsPageFragment<AccountDet
 
         var delete = ActionCard(Translator.SettingsDeleteAccount_Title, vm.DeleteAccountCommand, destructive: true);
         AddToTab(0, Group(null, delete));
+    }
+
+    /// <summary>
+    /// Exchange accounts: the connection method and the sign-in, a new password or the organization sign-in. Android
+    /// cannot open the organization sign-in page, so a modern-auth account explains that instead of signing in again.
+    /// </summary>
+    private WinoSettingsExpander BuildExchangeSettings()
+    {
+        var vm = VM;
+        var transport = Bind.PopUp<AccountDetailsPageViewModel, ExchangeTransportOption>(vm, s => s.ExchangeTransportOptions, option => option.Title,
+            nameof(vm.SelectedExchangeTransport), s => s.SelectedExchangeTransport, (s, v) => s.SelectedExchangeTransport = v);
+        transport.ContentDescription = Translator.ExchangeSetup_TransportHeader;
+        Bind.Enabled(transport, vm, nameof(vm.IsExchangeBusy), s => !s.IsExchangeBusy);
+        var transportCard = StackedCard(Translator.ExchangeSetup_TransportHeader, Translator.ExchangeSetup_TransportDescription, WinoIconGlyph.None, transport);
+
+        var userName = Bind.TextField(vm, nameof(vm.ExchangeUserName), s => s.ExchangeUserName, (s, v) => s.ExchangeUserName = v, Translator.ExchangeSetup_UserNameHeader);
+        userName.HelperText = Translator.ExchangeSetup_UserNameDescription;
+        Bind.Bind(vm, nameof(vm.Address), s => s.Address, address => userName.PlaceholderText = address);
+        if (userName.EditText is { } userField)
+            userField.InputType = global::Android.Text.InputTypes.ClassText | global::Android.Text.InputTypes.TextVariationEmailAddress;
+        var password = Bind.TextField(vm, nameof(vm.ExchangePassword), s => s.ExchangePassword, (s, v) => s.ExchangePassword = v, Translator.ProviderSelection_PasswordHeader_Account);
+        if (password.EditText is { } passwordField)
+            passwordField.InputType = global::Android.Text.InputTypes.ClassText | global::Android.Text.InputTypes.TextVariationPassword;
+        password.EndIconMode = Google.Android.Material.TextField.TextInputLayout.EndIconPasswordToggle;
+        var update = Bind.Button(Translator.AccountDetailsPage_ExchangePasswordUpdate, vm.UpdateExchangePasswordCommand, primary: true);
+        var passwordCard = StackedCard(Translator.ProviderSelection_PasswordHeader_Account, Translator.AccountDetailsPage_ExchangePasswordDescription, WinoIconGlyph.Key,
+            Stack(Resource.Dimension.wino_space_s, userName, password, Row(update)));
+        Bind.Visible(passwordCard, vm, nameof(vm.IsExchangePasswordAuth), s => s.IsExchangePasswordAuth);
+
+        var signIn = Card(Translator.AccountDetailsPage_ExchangeSignInTitle, Translator.AccountDetailsPage_ExchangeSignInDescription, WinoIconGlyph.LockClosed,
+            Bind.Button(Translator.ImapSetup_OAuthSignInAgain, vm.SignInExchangeAgainCommand));
+        Bind.Visible(signIn, vm, nameof(vm.IsExchangeModernAuth), s => s.IsExchangeModernAuth && s.IsExchangeSignInAgainSupported);
+        var signInUnavailable = InfoBar(WinoInfoBarSeverity.Informational, Translator.AccountDetailsPage_ExchangeSignInTitle, vm.ExchangeSignInDescription);
+        Bind.Visible(signInUnavailable, vm, nameof(vm.IsExchangeModernAuth), s => s.IsExchangeModernAuth && !s.IsExchangeSignInAgainSupported);
+
+        var checking = InfoBar(WinoInfoBarSeverity.Informational, null, Translator.ExchangeSetup_Checking);
+        Bind.Visible(checking, vm, nameof(vm.IsExchangeBusy), s => s.IsExchangeBusy);
+
+        var expander = Expander(Translator.AccountDetailsPage_ExchangeTitle, null, WinoIconGlyph.GlobeDesktop, null,
+            transportCard, passwordCard, signIn, signInUnavailable, checking);
+        Bind.Bind(vm, nameof(vm.ExchangeServerDescription), s => s.ExchangeServerDescription, text => expander.HeaderCard.Description = text);
+        Bind.Visible(expander, vm, nameof(vm.Account), s => s.IsExchangeAccount);
+        Bind.Visible(expander, vm, nameof(vm.IsExchangeAccount), s => s.IsExchangeAccount);
+        return expander;
     }
 
     private void BuildMail()
