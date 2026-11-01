@@ -114,8 +114,8 @@ public sealed partial class MailListFragment
         var density = Chrome?.WidthClass == WindowWidthClass.Expanded
             ? Wino.Mail.ViewModels.Collections.MailRowPresentation.Density(_preferences.MailItemDisplayMode)
             : MailRowMapper.PhoneDensity;
-        var address = row.SourceItem is Wino.Mail.ViewModels.Data.MailItemViewModel item ? item.MailCopy.FromAddress : null;
-        return MailRowMapper.TryMap(row, _preferences, viewModel.IsMergedAccountView, density, _pictures?.Get(address));
+        var model = MailRowMapper.TryMap(row, _preferences, viewModel.IsMergedAccountView, density);
+        return model is { ShowPicture: true } ? model with { Picture = _pictures?.Get(model.SenderAddress) } : model;
     }
 
     private void PreferenceChanged(object? sender, string name)
