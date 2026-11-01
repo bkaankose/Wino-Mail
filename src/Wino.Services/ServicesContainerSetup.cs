@@ -11,6 +11,8 @@ using Wino.Mail.AI.ContentProcessing;
 using Wino.Services.CalDav;
 using Wino.Services.CardDav;
 using Wino.Services.Dav;
+using Wino.Services.Exchange;
+using Wino.Services.Security;
 using Wino.Core.ML;
 
 namespace Wino.Services;
@@ -114,6 +116,10 @@ public static class ServicesContainerSetup
         services.AddSingleton<IDavMultistatusReader, DavMultistatusReader>();
         services.AddSingleton<IDavResponseHandler, DavResponseHandler>();
         services.AddSingleton<IDavCredentialStore, DavCredentialStore>();
+        services.AddSingleton<IExchangeTokenStore>(provider => new SecureItemExchangeTokenStore(
+            provider.GetService<ISecureItemStore>() ?? new ProtectedFileSecureItemStore(
+                System.IO.Path.Combine(provider.GetRequiredService<IApplicationConfiguration>().ApplicationDataFolderPath, "credentials", "exchange"),
+                provider.GetRequiredService<ISecretProtector>())));
         services.AddTransient<IDavOAuthAuthenticationProvider, DavOAuthAuthenticationProvider>();
         services.AddSingleton<IVCardCodec, VCardCodec>();
         services.AddTransient<ICardDavSynchronizationStore, CardDavSynchronizationStore>();

@@ -570,6 +570,9 @@ public class AccountService : BaseDatabaseService, IAccountService
         }
         else if (account.ProviderType.IsCustomMailProvider())
         {
+            if (account.ProviderType == MailProviderType.Exchange)
+                await DeleteProviderTokenAsync(account).ConfigureAwait(false);
+
             var serverInformation = await ReadServerInformationMetadataAsync(account.Id).ConfigureAwait(false);
 
             // The OAuth profile stays so "Sign in again" can rerun the browser sign-in with it.
@@ -633,7 +636,7 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     private async Task DeleteProviderTokenAsync(MailAccount account)
     {
-        if (account == null || account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook))
+        if (account == null || account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook or MailProviderType.Exchange))
             return;
 
         try

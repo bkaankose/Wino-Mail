@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Serilog.Core;
 using Wino.Authentication;
+using Wino.Authentication.Exchange;
 using Wino.Authentication.OAuth;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
@@ -95,7 +96,8 @@ public static class CoreContainerSetup
         services.AddTransient<ISmtpTransport, MailKitSmtpTransport>();
         services.AddTransient<IAuthenticationProvider>(provider => new AuthenticationProvider(
             () => provider.GetRequiredService<IOutlookAuthenticator>(),
-            () => provider.GetRequiredService<IGmailAuthenticator>()));
+            () => provider.GetRequiredService<IGmailAuthenticator>(),
+            () => provider.GetRequiredService<IExchangeAuthenticator>()));
         services.AddSingleton<IDnsLookupService, DnsLookupService>();
         services.AddSingleton<IMicrosoftUserRealmService, MicrosoftUserRealmService>();
         services.AddSingleton<IGoogleMailboxProfileService, GoogleMailboxProfileService>();
@@ -112,6 +114,12 @@ public static class CoreContainerSetup
             provider.GetRequiredService<IGoogleAuthorizationCodeReceiver>(),
             provider.GetRequiredService<IGoogleTokenStore>()));
         services.AddWinoOAuth();
+
+        // Exchange: one access token cache per process; refresh tokens live in IExchangeTokenStore, never in IOAuthTokenStore.
+        services.AddSingleton<ExchangeTokenCache>();
+        services.AddTransient<ExchangeNtlmAuthenticator>();
+        services.AddTransient<ExchangeOAuthAuthenticator>();
+        services.AddTransient<IExchangeAuthenticator, ExchangeAuthenticator>();
 
         services.AddTransient<UnifiedImapSynchronizer>();
         services.AddTransient<ICardDavSynchronizationEngine, CardDavSynchronizationEngine>();
