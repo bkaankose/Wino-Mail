@@ -102,6 +102,8 @@ public static class CoreContainerSetup
         services.AddSingleton<IMicrosoftUserRealmService, MicrosoftUserRealmService>();
         services.AddSingleton<IGoogleMailboxProfileService, GoogleMailboxProfileService>();
         services.AddTransient<IAutoDiscoveryService, AutoDiscoveryService>();
+        services.AddTransient<IExchangeAutoDiscoveryService, ExchangeAutoDiscoveryService>();
+        services.AddTransient<IExchangeAuthCapabilityProbe, ExchangeAuthCapabilityProbe>();
         services.AddTransient<IImapSetupResolver, ImapSetupResolver>();
         services.AddTransient<IAccountRouteResolver, AccountRouteResolver>();
         services.AddTransient<IAccountSetupRunner, AccountSetupRunner>();

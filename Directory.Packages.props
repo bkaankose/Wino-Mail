@@ -57,6 +57,7 @@
     <PackageVersion Include="Serilog.Sinks.ApplicationInsights" Version="4.0.0" />
     <PackageVersion Include="SkiaSharp" Version="4.153.1" />
     <PackageVersion Include="sqlite-net-pcl" Version="1.11.285" />
+    <PackageVersion Include="System.DirectoryServices.Protocols" Version="10.0.13" />
     <PackageVersion Include="System.Drawing.Common" Version="10.0.5" />
     <!-- Transitive via MimeKit; 10.0.13 fixes CVE-2026-84008 and CVE-2026-70162. -->
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
