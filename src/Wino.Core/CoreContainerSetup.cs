@@ -9,12 +9,14 @@ using Wino.Core.Integration.Processors;
 using Wino.Core.Integration;
 using Wino.Core.Services;
 using Wino.Core.Synchronizers.Errors;
+using Wino.Core.Synchronizers.Errors.Exchange;
 using Wino.Core.Synchronizers.Errors.Gmail;
 using Wino.Core.Synchronizers.Errors.Imap;
 using Wino.Core.Synchronizers.Errors.Outlook;
 using Wino.Core.Synchronizers.ImapSync;
 using Wino.Core.Synchronizers.CalDav;
 using Wino.Core.Synchronizers.CardDav;
+using Wino.Core.Synchronizers.Mapi;
 using Wino.Services;
 
 namespace Wino.Core;
@@ -78,6 +80,7 @@ public static class CoreContainerSetup
         services.AddTransient<IGmailChangeProcessor, GmailChangeProcessor>();
         services.AddTransient<IImapChangeProcessor, ImapChangeProcessor>();
         services.AddTransient<IOutlookChangeProcessor, OutlookChangeProcessor>();
+        services.AddTransient<IExchangeChangeProcessor, ExchangeChangeProcessor>();
         services.AddTransient<IWinoRequestProcessor, WinoRequestProcessor>();
         services.AddTransient<IWinoRequestDelegator, WinoRequestDelegator>();
         services.AddTransient<IMailFilterExecutor, MailFilterExecutor>();
@@ -104,6 +107,7 @@ public static class CoreContainerSetup
         services.AddTransient<IAutoDiscoveryService, AutoDiscoveryService>();
         services.AddTransient<IExchangeAutoDiscoveryService, ExchangeAutoDiscoveryService>();
         services.AddTransient<IExchangeAuthCapabilityProbe, ExchangeAuthCapabilityProbe>();
+        services.AddTransient<IMapiConnectionProbe, MapiConnectionProbe>();
         services.AddTransient<IImapSetupResolver, ImapSetupResolver>();
         services.AddTransient<IAccountRouteResolver, AccountRouteResolver>();
         services.AddTransient<IAccountSetupRunner, AccountSetupRunner>();
@@ -148,6 +152,11 @@ public static class CoreContainerSetup
         services.AddTransient<ImapFolderNotFoundHandler>();
         services.AddTransient<ImapProtocolErrorHandler>();
 
+        // Register Exchange error handlers
+        services.AddTransient<ExchangeAuthenticationFailedHandler>();
+        services.AddTransient<ExchangeServerBusyHandler>();
+        services.AddTransient<ExchangeInvalidServerResponseHandler>();
+
         // Register Outlook auth handlers
         services.AddTransient<OutlookAuthenticationFailedHandler>();
 
@@ -155,6 +164,7 @@ public static class CoreContainerSetup
         services.AddTransient<IOutlookSynchronizerErrorHandlerFactory, OutlookSynchronizerErrorHandlingFactory>();
         services.AddTransient<IGmailSynchronizerErrorHandlerFactory, GmailSynchronizerErrorHandlingFactory>();
         services.AddTransient<IImapSynchronizerErrorHandlerFactory, ImapSynchronizerErrorHandlingFactory>();
+        services.AddTransient<IExchangeSynchronizerErrorHandlerFactory, ExchangeSynchronizerErrorHandlingFactory>();
 
         // Register retry executor
         services.AddTransient<IRetryExecutor, RetryExecutor>();
