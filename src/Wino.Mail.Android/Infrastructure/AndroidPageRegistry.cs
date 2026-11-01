@@ -77,10 +77,20 @@ public sealed class AndroidPageRegistry
         // own long work start it through InitializeAsync, as on iOS, so the entry reports pending work meanwhile.
         Register<WelcomePageFragment, WelcomePageV2ViewModel>(WinoPage.WelcomePageV2, AndroidPageHost.Root);
         Register<WelcomePageFragment, WelcomePageV2ViewModel>(WinoPage.WelcomeHostPage, AndroidPageHost.Root);
-        Register<ProviderSelectionFragment, ProviderSelectionPageViewModel>(WinoPage.ProviderSelectionPage, AndroidPageHost.Root);
+        // The server page offers secure sign-in in a Custom Tab, so catalog providers with a registration this device can
+        // complete go there from the provider list.
+        Register<ProviderSelectionFragment, ProviderSelectionPageViewModel>(WinoPage.ProviderSelectionPage, AndroidPageHost.Root,
+            preparing: static entry =>
+            {
+                if (entry.ViewModel is ProviderSelectionPageViewModel viewModel) viewModel.IsSecureSignInSupportedByHost = true;
+            });
         Register<SpecialImapCredentialsFragment, SpecialImapCredentialsPageViewModel>(WinoPage.SpecialImapCredentialsPage, AndroidPageHost.Root);
         Register<ImapSetupFragment, ImapCalDavSettingsPageViewModel>(WinoPage.ImapCalDavSettingsPage, AndroidPageHost.Root,
-            initialize: static (viewModel, mode, parameter) => viewModel.InitializeAsync(mode, parameter));
+            initialize: static (viewModel, mode, parameter) =>
+            {
+                viewModel.IsSecureSignInSupportedByHost = true;
+                return viewModel.InitializeAsync(mode, parameter);
+            });
         Register<AccountSetupFragment, AccountSetupProgressPageViewModel>(WinoPage.AccountSetupProgressPage, AndroidPageHost.Root,
             initialize: static (viewModel, mode, parameter) => viewModel.InitializeAsync(mode, parameter));
 

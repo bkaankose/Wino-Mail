@@ -24,6 +24,8 @@ internal sealed class OnboardingForm<T>(Context context, LinearLayout root, View
 
     public ViewBinder Binder => binder;
 
+    public Context Context => context;
+
     /// <summary>Appends a vertical block and adds the pieces <paramref name="build"/> creates to it.</summary>
     public LinearLayout Group(Action build, string? visibleProperty = null, Func<T, bool>? visible = null)
     {
@@ -38,14 +40,18 @@ internal sealed class OnboardingForm<T>(Context context, LinearLayout root, View
     }
 
     /// <summary>Appends a horizontal row (host and port) and adds the pieces <paramref name="build"/> creates to it.</summary>
-    public void Row(Action build)
+    public LinearLayout Row(Action build, int topDp = 0)
     {
         var row = new LinearLayout(context) { Orientation = Orientation.Horizontal };
-        _container.AddView(row, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent));
+        _container.AddView(row, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent)
+        {
+            TopMargin = Wino.Presentation.Android.WinoUnits.Dp(context, topDp)
+        });
         var previous = _container;
         _container = row;
         try { build(); }
         finally { _container = previous; }
+        return row;
     }
 
     /// <summary>An outlined text field, two-way with the property.</summary>
@@ -124,7 +130,7 @@ internal sealed class OnboardingForm<T>(Context context, LinearLayout root, View
     /// <summary>A text button that runs <paramref name="command"/> (help links).</summary>
     public MaterialButton Link(string text, ICommand command)
     {
-        var button = new MaterialButton(context, null, Resource.Attribute.borderlessButtonStyle) { Text = text };
+        var button = new MaterialButton(context, null, Resource.Attribute.borderlessButtonStyle) { Text = text, Gravity = GravityFlags.Start | GravityFlags.CenterVertical };
         button.SetTextAppearance(Resource.Style.TextAppearance_Wino_SectionLabel);
         button.SetPadding(0, button.PaddingTop, 0, button.PaddingBottom);
         binder.Command(button, command);
@@ -145,18 +151,123 @@ internal sealed class OnboardingForm<T>(Context context, LinearLayout root, View
         return bar;
     }
 
-    public void Add(View view, int? fixedWidthDimension = null)
+    /// <summary>
+    /// A vertical block shown while <paramref name="visible"/> is true. The value is re-read after any change, for
+    /// computed properties the ViewModel raises only through the properties they derive from.
+    /// </summary>
+    public LinearLayout GroupWhen(Func<T, bool> visible, Action build)
+    {
+        var group = Group(build);
+        ShowWhen(group, visible);
+        return group;
+    }
+
+    public TView ShowWhen<TView>(TView view, Func<T, bool> visible) where TView : View
+    {
+        binder.BindAny(source, visible, value => OnboardingViews.Show(view, value));
+        return view;
+    }
+
+    /// <summary>A filled (primary) or outlined button that runs <paramref name="command"/>.</summary>
+    public MaterialButton Button(string text, ICommand command, bool primary = false)
+    {
+        var button = primary
+            ? new MaterialButton(context) { Text = text }
+            : new MaterialButton(context, null, Resource.Attribute.materialButtonOutlinedStyle) { Text = text };
+        button.SetMinHeight(Wino.Presentation.Android.WinoUnits.Dp(context, 48));
+        binder.Command(button, command);
+        Add(button, wrap: true);
+        return button;
+    }
+
+    /// <summary>A small indeterminate spinner shown while <paramref name="active"/> is true.</summary>
+    public View Spinner(string property, Func<T, bool> active)
+    {
+        var spinner = new Google.Android.Material.ProgressIndicator.CircularProgressIndicator(context)
+        {
+            Indeterminate = true,
+            IndicatorSize = Wino.Presentation.Android.WinoUnits.Dp(context, 20)
+        };
+        binder.Visible(spinner, source, property, active);
+        Add(spinner, wrap: true);
+        return spinner;
+    }
+
+    /// <summary>
+    /// A rounded, tinted card with a leading glyph (the Windows secure sign-in and signed-in cards); the pieces
+    /// <paramref name="build"/> creates go to its content column.
+    /// </summary>
+    public LinearLayout Card(Wino.Core.Domain.Enums.WinoIconGlyph glyph, global::Android.Graphics.Color tint, Action build)
+    {
+        int Dp(double value) => Wino.Presentation.Android.WinoUnits.Dp(context, value);
+        var card = new LinearLayout(context) { Orientation = Orientation.Horizontal };
+        var background = new global::Android.Graphics.Drawables.GradientDrawable();
+        background.SetCornerRadius(Wino.Presentation.Android.WinoUnits.DpF(context, 12));
+        background.SetColor(Wino.Presentation.Android.WinoColors.WithAlpha(tint, 0.08));
+        background.SetStroke(Dp(1), tint);
+        card.Background = background;
+        card.SetPadding(Dp(14), Dp(14), Dp(14), Dp(14));
+        var icon = new Wino.Presentation.Android.WinoIconView(context)
+        {
+            Icon = glyph,
+            GlyphSize = 20,
+            Colorful = false,
+            ImportantForAccessibility = ImportantForAccessibility.No
+        };
+        icon.SetTextColor(tint);
+        card.AddView(icon, new LinearLayout.LayoutParams(Dp(24), Dp(24)) { MarginEnd = Dp(12) });
+        var column = new LinearLayout(context) { Orientation = Orientation.Vertical };
+        card.AddView(column, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1));
+        var parameters = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent) { TopMargin = Dp(12) };
+        _container.AddView(card, parameters);
+        var previous = _container;
+        _container = column;
+        try { build(); }
+        finally { _container = previous; }
+        return card;
+    }
+
+    /// <summary>Body text that follows <paramref name="read"/>.</summary>
+    public TextView Body(string property, Func<T, string?> read, bool strong = false, int topDp = 0)
+    {
+        var label = Text(string.Empty, Resource.Style.TextAppearance_Wino_Body, topDp);
+        if (strong)
+        {
+            label.SetTypeface(label.Typeface, global::Android.Graphics.TypefaceStyle.Bold);
+            label.SetTextColor(Wino.Presentation.Android.WinoColors.PrimaryText(context));
+        }
+        binder.Bind(source, property, read, value => label.Text = value ?? string.Empty);
+        return label;
+    }
+
+    /// <summary>A selectable monospaced line (a redirect address an administrator copies).</summary>
+    public TextView Mono(string text)
+    {
+        var label = Text(text, Resource.Style.TextAppearance_Wino_Body, 8);
+        label.Typeface = global::Android.Graphics.Typeface.Monospace;
+        label.SetTextIsSelectable(true);
+        return label;
+    }
+
+    public void Add(View view, int? fixedWidthDimension = null, bool wrap = false)
     {
         LinearLayout.LayoutParams parameters;
-        if (_container.Orientation == Orientation.Horizontal)
+        var horizontal = _container.Orientation == Orientation.Horizontal;
+        if (wrap)
+        {
+            parameters = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent);
+            if (horizontal) parameters.Gravity = GravityFlags.CenterVertical;
+            else parameters.TopMargin = Wino.Presentation.Android.WinoUnits.Dp(context, 8);
+        }
+        else if (horizontal)
         {
             parameters = fixedWidthDimension is { } dimension
                 ? new LinearLayout.LayoutParams(context.Resources?.GetDimensionPixelSize(dimension) ?? ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent)
                 : new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1);
-            if (_container.ChildCount > 0) parameters.MarginStart = Wino.Presentation.Android.WinoUnits.Dp(context, 12);
         }
         else parameters = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent);
-        if (view.LayoutParameters is ViewGroup.MarginLayoutParams margins) parameters.TopMargin = margins.TopMargin;
+        if (horizontal && _container.ChildCount > 0) parameters.MarginStart = Wino.Presentation.Android.WinoUnits.Dp(context, 12);
+        if (!wrap && view.LayoutParameters is ViewGroup.MarginLayoutParams margins) parameters.TopMargin = margins.TopMargin;
         _container.AddView(view, parameters);
     }
 

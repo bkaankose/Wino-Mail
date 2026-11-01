@@ -113,6 +113,12 @@ public sealed class DebugCommandActivity : Activity
                         relay.Snapshot.Availability, await relay.SendPushTestAsync());
                     break;
                 default:
+                    // Server and Exchange setup states (DebugOnboarding).
+                    if (await DebugOnboarding.RunAsync(services, navigation, command, kind) is { } onboarding)
+                    {
+                        Serilog.Log.Information("Debug command {Command} {Kind}: {Result}", command, kind, onboarding);
+                        break;
+                    }
                     Serilog.Log.Warning("Unknown debug command {Command}.", command);
                     break;
             }
