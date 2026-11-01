@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.ViewModels.Data;
@@ -66,6 +67,49 @@ public static class MailRowPresentation
         return row.SourceItem is MailItemViewModel item ? [item] : [];
     }
 
+    /// <summary>
+    /// The leaf whose sender a thread row shows: the newest mail the user did not write, so a conversation reads
+    /// as the other party rather than the user's own name. Falls back to the newest leaf when every mail is the user's.
+    /// </summary>
+    public static MailItemViewModel? DisplayParty(IEnumerable<MailItemViewModel> leaves)
+    {
+        ArgumentNullException.ThrowIfNull(leaves);
+
+        MailItemViewModel? newest = null;
+        MailItemViewModel? newestOther = null;
+
+        foreach (var leaf in leaves)
+        {
+            if (leaf?.MailCopy == null) continue;
+
+            if (newest == null || leaf.MailCopy.CreationDate > newest.MailCopy.CreationDate) newest = leaf;
+
+            if (!IsOwnMail(leaf.MailCopy) &&
+                (newestOther == null || leaf.MailCopy.CreationDate > newestOther.MailCopy.CreationDate))
+            {
+                newestOther = leaf;
+            }
+        }
+
+        return newestOther ?? newest;
+    }
+
+    /// <summary>
+    /// True for mail the user wrote: anything in Sent or Drafts, or sent from the account's address. The folder check
+    /// also covers aliases without an alias lookup.
+    /// </summary>
+    public static bool IsOwnMail(MailCopy mail)
+    {
+        ArgumentNullException.ThrowIfNull(mail);
+
+        if (mail.AssignedFolder?.SpecialFolderType is SpecialFolderType.Sent or SpecialFolderType.Draft) return true;
+
+        var accountAddress = mail.AssignedAccount?.Address;
+        return !string.IsNullOrWhiteSpace(accountAddress) &&
+               !string.IsNullOrWhiteSpace(mail.FromAddress) &&
+               string.Equals(mail.FromAddress.Trim(), accountAddress.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>True when a detailed row needs the extra tile line (categories or intelligence tiles).</summary>
     public static bool HasTiles(MailListRow row)
         => Leaves(row).Any(static leaf => leaf.HasCategories || leaf.HasRowIntelligenceTiles);
@@ -82,7 +126,8 @@ public static class MailRowPresentation
         bool hasAttachments = leaves.Any(static leaf => leaf.HasAttachments);
         int threadCount = row.IsThreadHead ? row.LeafItems.Count : 0;
 
-        var sender = string.IsNullOrWhiteSpace(item.FromName) ? item.FromAddress ?? string.Empty : item.FromName;
+        var party = row.IsThreadHead ? DisplayParty(leaves) ?? item : item;
+        var sender = string.IsNullOrWhiteSpace(party.FromName) ? party.FromAddress ?? string.Empty : party.FromName;
         var accessibleSubject = string.IsNullOrWhiteSpace(item.Subject) ? Translator.MailItemNoSubject : item.Subject;
         var accessibleDate = FormatAccessibleDate(item.CreationDate);
 
@@ -95,8 +140,8 @@ public static class MailRowPresentation
 
         return new MailRowContent(
             Kind(row.Kind),
-            item.IsDraft && string.IsNullOrWhiteSpace(item.FromName) ? Translator.Draft : sender,
-            item.FromAddress ?? string.Empty,
+            party.IsDraft && string.IsNullOrWhiteSpace(party.FromName) ? Translator.Draft : sender,
+            party.FromAddress ?? string.Empty,
             SubjectForListing(item.Subject),
             item.PreviewText ?? string.Empty,
             FormatListDate(item.CreationDate, timeFormat),

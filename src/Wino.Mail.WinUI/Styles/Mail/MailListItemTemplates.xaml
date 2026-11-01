@@ -172,18 +172,25 @@
                         x:Load="{x:Bind IsDraft, Mode=OneWay}"
                         Foreground="{ThemeResource DeleteBrush}"
                         Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}" />
+                    <Grid x:Name="OwnSenderHost" Grid.Column="2">
+                        <TextBlock
+                            FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
+                            Text="{x:Bind FromName, Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis"
+                            Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
+                        <TextBlock
+                            FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
+                            Text="{x:Bind FromAddress, Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis"
+                            Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
+                    </Grid>
                     <TextBlock
+                        x:Name="ThreadSenderText"
                         Grid.Column="2"
                         FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
-                        Text="{x:Bind FromName, Mode=OneWay}"
+                        Loaded="ThreadSenderTextLoaded"
                         TextTrimming="CharacterEllipsis"
-                        Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
-                    <TextBlock
-                        Grid.Column="2"
-                        FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
-                        Text="{x:Bind FromAddress, Mode=OneWay}"
-                        TextTrimming="CharacterEllipsis"
-                        Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
+                        Visibility="Collapsed" />
                     <controls:AccountNicknameIndicatorControl
                         x:Name="RightAccountNicknameIndicator"
                         Grid.Column="3"
@@ -336,18 +343,25 @@
                         x:Load="{x:Bind IsDraft, Mode=OneWay}"
                         Foreground="{ThemeResource DeleteBrush}"
                         Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}" />
+                    <Grid x:Name="OwnSenderHost" Grid.Column="2">
+                        <TextBlock
+                            FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
+                            Text="{x:Bind FromName, Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis"
+                            Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
+                        <TextBlock
+                            FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
+                            Text="{x:Bind FromAddress, Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis"
+                            Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
+                    </Grid>
                     <TextBlock
+                        x:Name="ThreadSenderText"
                         Grid.Column="2"
                         FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
-                        Text="{x:Bind FromName, Mode=OneWay}"
+                        Loaded="ThreadSenderTextLoaded"
                         TextTrimming="CharacterEllipsis"
-                        Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
-                    <TextBlock
-                        Grid.Column="2"
-                        FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
-                        Text="{x:Bind FromAddress, Mode=OneWay}"
-                        TextTrimming="CharacterEllipsis"
-                        Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
+                        Visibility="Collapsed" />
                     <controls:AccountNicknameIndicatorControl
                         x:Name="RightAccountNicknameIndicator"
                         Grid.Column="3"
@@ -513,18 +527,25 @@
                             x:Load="{x:Bind IsDraft, Mode=OneWay}"
                             Foreground="{ThemeResource DeleteBrush}"
                             Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}" />
+                        <Grid x:Name="OwnSenderHost" Grid.Column="2">
+                            <TextBlock
+                                FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
+                                Text="{x:Bind FromName, Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis"
+                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
+                            <TextBlock
+                                FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
+                                Text="{x:Bind FromAddress, Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis"
+                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
+                        </Grid>
                         <TextBlock
+                            x:Name="ThreadSenderText"
                             Grid.Column="2"
                             FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
-                            Text="{x:Bind FromName, Mode=OneWay}"
+                            Loaded="ThreadSenderTextLoaded"
                             TextTrimming="CharacterEllipsis"
-                            Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
-                        <TextBlock
-                            Grid.Column="2"
-                            FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
-                            Text="{x:Bind FromAddress, Mode=OneWay}"
-                            TextTrimming="CharacterEllipsis"
-                            Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
+                            Visibility="Collapsed" />
                         <controls:AccountNicknameIndicatorControl
                             x:Name="RightNicknameIndicator"
                             Grid.Column="3"
