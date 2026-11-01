@@ -3685,6 +3685,7 @@
   "Synchronizer_CalendarUnavailable": "The selected calendar service is not available. Check the account access and calendar source.",
   "Synchronizer_ContactsUnavailable": "The selected contacts service is not available. Check the account access and contacts source.",
   "Synchronizer_TasksUnavailable": "The selected task service is not available. Check the account access and task source.",
+  "Synchronizer_ExchangeInvalidServerResponse": "The Exchange server sent a response that is not valid XML. The mailbox server or a proxy in front of Exchange Web Services may be failing. Check that the server is reachable and healthy.",
   "DavError_AuthenticationRequired": "The DAV server rejected the account credentials.",
   "DavError_PermissionDenied": "The DAV server does not allow this operation.",
   "DavError_CollectionCreationDenied": "This DAV server does not allow creating a new collection.",

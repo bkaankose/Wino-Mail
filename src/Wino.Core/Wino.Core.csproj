@@ -13,6 +13,7 @@
 	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.Diagnostics" />
 		<PackageReference Include="CommunityToolkit.Mvvm" />
+		<PackageReference Include="Exchange.WebServices.NETCore" />
 		<PackageReference Include="HtmlAgilityPack" />
 		<PackageReference Include="HtmlKit" />
 		<PackageReference Include="MailKit" />
