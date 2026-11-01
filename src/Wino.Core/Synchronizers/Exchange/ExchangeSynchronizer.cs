@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -29,11 +29,12 @@ using Task = System.Threading.Tasks.Task;
 namespace Wino.Core.Synchronizers.Exchange;
 
 /// <summary>
-/// Synchronizes on-premises Exchange mail over Exchange Web Services: the transport for servers that do not offer MAPI
-/// over HTTP (before Exchange 2013 SP1, or with the protocol disabled) and for accounts pinned to EWS. The MAPI over
-/// HTTP synchronizer derives from it and replaces the mail surface.
+/// Synchronizes on-premises Exchange accounts over Exchange Web Services: the transport for servers that do not offer
+/// MAPI over HTTP (before Exchange 2013 SP1, or with the protocol disabled) and for accounts pinned to EWS. Mail,
+/// calendars (calendar views expand series on the server), the default Contacts folder and the default Tasks folder.
+/// The MAPI over HTTP synchronizer derives from it and replaces every surface.
 /// </summary>
-public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointment, AccountContact>
+public partial class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointment, AccountContact>
 {
     public override uint BatchModificationSize => 100;
     public override uint InitialMessageDownloadCountPerFolder => 500;
@@ -51,6 +52,9 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
     protected IExchangeAuthenticator ExchangeAuthenticator { get; }
     protected IExchangeChangeProcessor ExchangeChangeProcessor { get; }
     protected IExchangeSynchronizerErrorHandlerFactory ErrorHandlerFactory { get; }
+    protected IContactService? ContactService { get; }
+    protected IPictureStorageService? ContactPictureService { get; }
+    protected ITaskService? TaskService { get; }
 
     public ExchangeSynchronizer(MailAccount account,
                                 IExchangeAuthenticator exchangeAuthenticator,
@@ -64,6 +68,9 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         ExchangeAuthenticator = exchangeAuthenticator;
         ExchangeChangeProcessor = exchangeChangeProcessor;
         ErrorHandlerFactory = errorHandlerFactory;
+        ContactService = contactService;
+        ContactPictureService = contactPictureService;
+        TaskService = taskService;
         _localContactSynchronizer = new LocalContactSynchronizer(contactService, contactPictureService);
         _localTaskSynchronizer = new LocalTaskSynchronizer(taskService);
     }
@@ -83,7 +90,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         ItemSchema.ItemClass,
         EmailMessageSchema.InternetMessageId);
 
-    protected async Task<ExchangeService> CreateServiceAsync(CancellationToken cancellationToken = default)
+    protected async Task<ExchangeService> CreateServiceAsync(CancellationToken cancellationToken = default, TimeZoneInfo? timeZone = null)
     {
         var serverInformation = Account.ServerInformation
             ?? throw new InvalidOperationException("The Exchange account has no server information.");
@@ -93,11 +100,10 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
 
         var credential = await ExchangeAuthenticator.GetCredentialAsync(Account, cancellationToken).ConfigureAwait(false);
 
-        var service = new ExchangeService(TargetExchangeVersion)
-        {
-            Credentials = ToEwsCredentials(credential),
-            Url = serviceUrl
-        };
+        var credentials = ToEwsCredentials(credential);
+        var service = timeZone == null
+            ? new ExchangeService(TargetExchangeVersion) { Credentials = credentials, Url = serviceUrl }
+            : new ExchangeService(TargetExchangeVersion, timeZone) { Credentials = credentials, Url = serviceUrl };
 
         // Keeps every request on the mailbox's own backend; multi-server deployments can otherwise proxy to a
         // server that does not own the mailbox.
@@ -276,31 +282,6 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
 
         return MailSynchronizationResult.Completed(downloaded);
     }
-
-    protected override Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
-        => Task.FromResult(Account.CalendarIntegrationSource == AccountIntegrationSource.Local
-            ? CalendarSynchronizationResult.Empty
-            : CalendarSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_CalendarUnavailable)));
-
-    protected override Task<ContactSynchronizationResult> SynchronizeContactsInternalAsync(ContactSynchronizationOptions options, CancellationToken cancellationToken = default)
-        => Account.ContactIntegrationSource == AccountIntegrationSource.Local
-            ? _localContactSynchronizer.SynchronizeAsync(options, cancellationToken)
-            : Task.FromResult(ContactSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_ContactsUnavailable)));
-
-    protected override Task ExecuteContactRequestsInternalAsync(IReadOnlyList<IContactActionRequest> requests, CancellationToken cancellationToken = default)
-        => Account.ContactIntegrationSource == AccountIntegrationSource.Local
-            ? _localContactSynchronizer.ExecuteRequestsAsync(requests, cancellationToken)
-            : throw new InvalidOperationException(Translator.Synchronizer_ContactsUnavailable);
-
-    protected override Task<TaskSynchronizationResult> SynchronizeTasksInternalAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken = default)
-        => Account.TaskIntegrationSource == AccountIntegrationSource.Local
-            ? _localTaskSynchronizer.SynchronizeAsync(options, cancellationToken)
-            : Task.FromResult(TaskSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_TasksUnavailable)));
-
-    protected override Task ExecuteTaskRequestsInternalAsync(IReadOnlyList<ITaskActionRequest> requests, CancellationToken cancellationToken = default)
-        => Account.TaskIntegrationSource == AccountIntegrationSource.Local
-            ? _localTaskSynchronizer.ExecuteRequestsAsync(requests, cancellationToken)
-            : throw new InvalidOperationException(Translator.Synchronizer_TasksUnavailable);
 
     #region Folders
 
@@ -711,6 +692,8 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         var mimeMessage = await MimeMessage.LoadAsync(stream, cancellationToken).ConfigureAwait(false);
 
         await ExchangeChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
+
+        await TryMapCalendarInvitationAsync(service, mailItem, mimeMessage, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

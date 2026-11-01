@@ -337,6 +337,11 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         return calendarItem;
     }
 
+    public Task<List<CalendarItem>> GetRecurringMastersAsync(Guid accountCalendarId)
+        => Connection.Table<CalendarItem>()
+            .Where(c => c.CalendarId == accountCalendarId && c.Recurrence != null && c.Recurrence != "" && c.RecurringCalendarItemId == null)
+            .ToListAsync();
+
     public Task<List<CalendarItem>> GetRecurringChildrenAsync(Guid parentCalendarItemId)
         => Connection.Table<CalendarItem>()
             .Where(item => item.RecurringCalendarItemId == parentCalendarItemId && item.Id != parentCalendarItemId)

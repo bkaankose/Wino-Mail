@@ -1235,7 +1235,9 @@ public class AccountService : BaseDatabaseService, IAccountService
             await EnsurePop3LocalFoldersAsync(account.Id).ConfigureAwait(false);
         }
 
-        var shouldCreateLocalCalendar = account.ProviderType.IsCustomMailProvider()
+        // Exchange serves calendars like Outlook: a local calendar stands in only while calendar access is wanted but
+        // not granted, which is also how the request delegator routes its events locally.
+        var shouldCreateLocalCalendar = account.ProviderType.IsCustomMailProvider() && account.ProviderType != MailProviderType.Exchange
             ? customServerInformation?.CalendarSupportMode == ImapCalendarSupportMode.LocalOnly
             : account.IsCalendarAccessEnabled && !account.IsCalendarAccessGranted;
 

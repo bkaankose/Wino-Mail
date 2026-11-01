@@ -14,7 +14,8 @@ public enum CalendarCapabilitySource
     Local = 1,
     Outlook = 2,
     Gmail = 3,
-    CalDav = 4
+    CalDav = 4,
+    Exchange = 5
 }
 
 /// <summary>
@@ -87,6 +88,15 @@ public sealed record CalendarCapabilities
         SupportsReminders = true
     };
 
+    /// <summary>On-premises Exchange over EWS or MAPI over HTTP. Event attachments are not written to the server.</summary>
+    public static CalendarCapabilities Exchange { get; } = new()
+    {
+        Source = CalendarCapabilitySource.Exchange,
+        SupportsAttendees = true,
+        SendsInvitations = true,
+        SupportsReminders = true
+    };
+
     /// <summary>What every CalDAV server can do, used until the server has been discovered.</summary>
     public static CalendarCapabilities CalDavDefault { get; } = new()
     {
@@ -108,6 +118,7 @@ public sealed record CalendarCapabilities
             AccountIntegrationSource.Local => CalendarCapabilitySource.Local,
             AccountIntegrationSource.Provider when account.ProviderType == MailProviderType.Outlook => CalendarCapabilitySource.Outlook,
             AccountIntegrationSource.Provider when account.ProviderType == MailProviderType.Gmail => CalendarCapabilitySource.Gmail,
+            AccountIntegrationSource.Provider when account.ProviderType == MailProviderType.Exchange => CalendarCapabilitySource.Exchange,
             AccountIntegrationSource.Dav when account.ProviderType == MailProviderType.IMAP4 &&
                                               account.ServerInformation?.CalendarSupportMode == ImapCalendarSupportMode.CalDav => CalendarCapabilitySource.CalDav,
             _ => CalendarCapabilitySource.None
@@ -122,6 +133,7 @@ public sealed record CalendarCapabilities
             CalendarCapabilitySource.Outlook => Outlook,
             CalendarCapabilitySource.Gmail => Gmail,
             CalendarCapabilitySource.CalDav => CalDavDefault,
+            CalendarCapabilitySource.Exchange => Exchange,
             _ => None
         };
 }

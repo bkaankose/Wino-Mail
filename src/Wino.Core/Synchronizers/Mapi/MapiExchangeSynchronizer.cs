@@ -28,9 +28,9 @@ using Wino.Messaging.UI;
 namespace Wino.Core.Synchronizers.Mapi;
 
 /// <summary>
-/// Synchronizes on-premises Exchange mail over native MAPI over HTTP. It derives from the EWS synchronizer and replaces
-/// the mail surface: folder hierarchy, incremental message sync over ICS, message bodies with attachments,
-/// read/flag/move/delete, drafts with native send, and folder operations. A server found not to advertise MAPI over
+/// Synchronizes on-premises Exchange accounts over native MAPI over HTTP. It derives from the EWS synchronizer and replaces
+/// every surface: folder hierarchy, incremental message sync over ICS, message bodies with attachments,
+/// read/flag/move/delete, drafts with native send, folder operations, calendars, contacts and tasks. A server found not to advertise MAPI over
 /// HTTP is recorded on the account, and the next synchronizer built for it is the EWS one.
 ///
 /// Identity: a mail row's id is the MAPI message id, "mapi:" plus 16 hex digits. It is unique within the mailbox
@@ -41,7 +41,7 @@ namespace Wino.Core.Synchronizers.Mapi;
 /// only changes, deletions and read-state changes. A folder whose ICS pass fails falls back to a full read of its
 /// newest rows for that pass.
 /// </summary>
-public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
+public sealed partial class MapiExchangeSynchronizer : ExchangeSynchronizer
 {
     private static new readonly ILogger Logger = Log.ForContext<MapiExchangeSynchronizer>();
 
@@ -599,6 +599,9 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
                     var tags = await ResolveCalendarTagsAsync(session, cancellationToken).ConfigureAwait(false);
                     var meeting = await MapiCalendarOperations.ReadMeetingIdentityAsync(session, folderId, messageId, tags, cancellationToken, Diagnostics).ConfigureAwait(false);
                     calendarPart = MapiCalendarOperations.BuildICalendar(meeting, method, DateTime.UtcNow);
+
+                    if (method == "REQUEST" && (meeting.CleanGlobalObjectId ?? meeting.GlobalObjectId) is { Length: > 0 } goid)
+                        await TryMapCalendarInvitationAsync(session, tags, mailItem, Convert.ToHexString(goid), cancellationToken).ConfigureAwait(false);
                 }
                 catch (MapiException ex)
                 {

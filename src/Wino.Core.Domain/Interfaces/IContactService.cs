@@ -25,6 +25,12 @@ public interface IContactService : IContactQueryService
     Task SuppressContactPictureAsync(Guid contactId, string remotePhotoKey);
     Task StageDeleteAsync(Guid contactId);
     Task CompleteMutationAsync(Guid localContactId, AccountContact serverContact, bool deleted);
+    /// <summary>
+    /// Points a provider address book, and the listed contacts in it, at new remote ids without touching anything
+    /// else. Used when the same server folder becomes addressable under another id scheme (an Exchange account
+    /// switching between EWS and MAPI over HTTP), so favourites, list memberships and pictures survive.
+    /// </summary>
+    Task RekeyAddressBookAsync(Guid addressBookId, string remoteId, IReadOnlyDictionary<Guid, string> contactRemoteIds);
     Task ReplaceAddressBookAsync(Guid addressBookId, IReadOnlyList<AccountContact> contacts, string deltaToken);
     Task ApplyDeltaAsync(Guid addressBookId, ContactSynchronizationBatch batch, bool commitDeltaToken);
     Task DeleteAccountContactsAsync(Guid accountId);

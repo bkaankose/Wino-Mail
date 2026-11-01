@@ -738,6 +738,25 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
         await Connection.UpdateAsync(list, typeof(AccountTaskList)).ConfigureAwait(false);
     }
 
+    public Task RekeyTaskListAsync(Guid listId, string remoteId, IReadOnlyDictionary<Guid, string> taskRemoteIds)
+        => Connection.RunInTransactionAsync(transaction =>
+        {
+            // Versions and cursors belong to the old id scheme; the next pull is a full one.
+            transaction.Execute(
+                "UPDATE TaskList SET RemoteId = ?, RemoteVersion = NULL, DeltaLink = NULL, ListDeltaLink = NULL, TaskDeltaLink = NULL WHERE Id = ?",
+                remoteId,
+                listId);
+
+            foreach (var (taskId, taskRemoteId) in taskRemoteIds ?? new Dictionary<Guid, string>())
+            {
+                transaction.Execute(
+                    "UPDATE TaskCard SET RemoteId = ?, RemoteVersion = NULL WHERE Id = ? AND TaskListId = ?",
+                    taskRemoteId,
+                    taskId,
+                    listId);
+            }
+        });
+
     public async Task DeleteTaskListAsync(Guid listId)
     {
         var list = await GetTaskListAsync(listId).ConfigureAwait(false);
@@ -1431,6 +1450,7 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
         {
             MailProviderType.Gmail when account.IsTaskAccessGranted => TaskSourceKind.Gmail,
             MailProviderType.Outlook when account.IsTaskAccessGranted => TaskSourceKind.Outlook,
+            MailProviderType.Exchange when account.IsTaskAccessGranted => TaskSourceKind.Exchange,
             _ => TaskSourceKind.Local
         };
 }
