@@ -21,6 +21,8 @@ using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Helpers;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
+using Wino.Messaging.Client.Navigation;
+using Wino.Messaging.Client.Shell;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 
@@ -47,6 +49,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     // Accounts whose queued user actions were held back (attention gate, synchronizer teardown).
     // The first synchronization that is allowed to run again publishes their execution.
     private readonly ConcurrentDictionary<Guid, byte> _accountsWithDeferredRequests = new();
+    private readonly ConcurrentDictionary<string, string> _reportedDavCertificateFailures = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _initializationSemaphore = new(1, 1);
     private readonly object _undoActionPackLock = new();
     private readonly ILogger _logger = Log.ForContext<SynchronizationManager>();
@@ -172,21 +175,10 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                 certificateException.Failure.Port);
             return ImapConnectivityTestResults.CertificateUIRequired(certificateException.Failure);
         }
-        catch (ImapTestSSLCertificateException sslTestException)
-        {
-            _logger.Warning("IMAP connectivity test requires SSL certificate confirmation");
-            return CreateCertificateUIRequiredResult(sslTestException);
-        }
         catch (ImapClientPoolException clientPoolException)
         {
             if (TryGetCertificateException(clientPoolException, out var certificateException))
                 return ImapConnectivityTestResults.CertificateUIRequired(certificateException.Failure);
-
-            if (TryGetSslCertificateException(clientPoolException, out var sslTestException))
-            {
-                _logger.Warning("IMAP connectivity test requires SSL certificate confirmation");
-                return CreateCertificateUIRequiredResult(sslTestException);
-            }
 
             _logger.Error(clientPoolException, "IMAP connectivity test failed");
             return ImapConnectivityTestResults.Failure(clientPoolException.InnerException ?? clientPoolException);
@@ -195,12 +187,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         {
             if (TryGetCertificateException(exception, out var certificateException))
                 return ImapConnectivityTestResults.CertificateUIRequired(certificateException.Failure);
-
-            if (TryGetSslCertificateException(exception, out var sslTestException))
-            {
-                _logger.Warning("IMAP connectivity test requires SSL certificate confirmation");
-                return CreateCertificateUIRequiredResult(sslTestException);
-            }
 
             _logger.Error(exception, "IMAP connectivity test failed");
             return ImapConnectivityTestResults.Failure(exception);
@@ -216,21 +202,63 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         return certificateException != null;
     }
 
-    internal static bool TryGetSslCertificateException(Exception exception, out ImapTestSSLCertificateException sslException)
+    internal static bool IsDavProtocol(MailServerCertificateFailure failure)
+        => failure?.Protocol is MailServerProtocol.CalDav or MailServerProtocol.CardDav;
+
+    /// <summary>
+    /// A rejected calendar or contacts server certificate never sets account attention, because attention would stop
+    /// mail too. It is logged and shown once per certificate, with a way to the server settings where the user can
+    /// review it.
+    /// </summary>
+    private async Task<bool> ReportDavCertificateFailureAsync(Guid accountId, Exception exception)
     {
-        sslException = exception?
-            .GetInnerExceptions()
-            .OfType<ImapTestSSLCertificateException>()
-            .FirstOrDefault();
+        if (!TryGetCertificateException(exception, out var certificateException) || !IsDavProtocol(certificateException.Failure))
+            return false;
 
-        return sslException != null;
+        var failure = certificateException.Failure;
+        var endpoint = $"{accountId}|{failure.Protocol}|{failure.Host}|{failure.Port}";
+        var signature = $"{failure.CertificateSha256}|{failure.ChainStatusFlags}|{(int)failure.PolicyErrors}";
+
+        if (_reportedDavCertificateFailures.TryGetValue(endpoint, out var previous) && string.Equals(previous, signature, StringComparison.Ordinal))
+            return true;
+
+        _reportedDavCertificateFailures[endpoint] = signature;
+
+        _logger.Warning(
+            "{Protocol} synchronization of account {AccountId} is paused: the certificate of {Host}:{Port} was not accepted (tier {Tier}, problems {Problems})",
+            failure.Protocol,
+            accountId,
+            failure.Host,
+            failure.Port,
+            failure.Tier,
+            failure.Problems);
+
+        MailAccount account = null;
+        try
+        {
+            account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.Debug(ex, "Could not read account {AccountId} for the certificate notice", accountId);
+        }
+
+        var accountName = account?.Name ?? account?.Address ?? string.Empty;
+        var message = string.Format(
+            failure.Protocol == MailServerProtocol.CalDav
+                ? Translator.Info_CalDavCertificateRejectedMessage
+                : Translator.Info_CardDavCertificateRejectedMessage,
+            accountName);
+
+        WeakReferenceMessenger.Default.Send(new InfoBarMessageRequested(
+            InfoBarMessageType.Warning,
+            Translator.Info_DavCertificateRejectedTitle,
+            message,
+            Translator.Info_DavCertificateRejectedAction,
+            () => WeakReferenceMessenger.Default.Send(new AccountServerSettingsNavigationRequested(accountId))));
+
+        return true;
     }
-
-    private static ImapConnectivityTestResults CreateCertificateUIRequiredResult(ImapTestSSLCertificateException sslTestException)
-        => ImapConnectivityTestResults.CertificateUIRequired(
-            sslTestException.Issuer,
-            sslTestException.ExpirationDateString,
-            sslTestException.ValidFromDateString);
 
     /// <summary>
     /// Starts a new mail synchronization for the given account.
@@ -352,7 +380,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         }
         catch (Exception ex)
         {
-            if (TryGetCertificateException(ex, out _))
+            if (TryGetCertificateException(ex, out var certificateException) && !IsDavProtocol(certificateException.Failure))
             {
                 await SetAttentionAsync(synchronizer.Account, AccountAttentionReason.CertificateValidationFailed).ConfigureAwait(false);
                 if (_notificationsEnabled)
@@ -952,6 +980,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                     await _accountService.UpdateAccountAsync(account).ConfigureAwait(false);
                 }
             }
+
+            await ReportDavCertificateFailureAsync(options.AccountId, result.Exception).ConfigureAwait(false);
             return result;
         }
         catch (AuthenticationAttentionException ex)
@@ -972,7 +1002,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Contact synchronization failed for account {AccountId}.", options.AccountId);
+            if (!await ReportDavCertificateFailureAsync(options.AccountId, ex).ConfigureAwait(false))
+                _logger.Error(ex, "Contact synchronization failed for account {AccountId}.", options.AccountId);
+
             return ContactSynchronizationResult.Failed(ex);
         }
         finally
@@ -1175,6 +1207,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                               options.AccountId, result.CompletedState);
 
             await PersistSignInAttentionIfRequiredAsync(synchronizer.Account, result.Exception, result.AllIssues).ConfigureAwait(false);
+            await ReportDavCertificateFailureAsync(options.AccountId, result.Exception).ConfigureAwait(false);
 
             if (_notificationsEnabled && downloadedEventCount > 0)
             {
@@ -1211,7 +1244,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Calendar synchronization failed for account {AccountId}", options.AccountId);
+            if (!await ReportDavCertificateFailureAsync(options.AccountId, ex).ConfigureAwait(false))
+                _logger.Error(ex, "Calendar synchronization failed for account {AccountId}", options.AccountId);
+
             var result = CalendarSynchronizationResult
                 .Failed(ex)
                 .MergeIssues([SynchronizationIssue.FromException(ex, "CalendarSync")]);

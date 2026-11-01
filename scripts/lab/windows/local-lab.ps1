@@ -11,9 +11,9 @@ Starts, seeds, and verifies the five-server local Docker mail lab, then generate
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('up', 'status', 'provision', 'seed', 'verify', 'generate-db', 'install-app', 'stop', 'reset', 'logs', 'help')]
+    [ValidateSet('up', 'tls', 'status', 'provision', 'seed', 'verify', 'generate-db', 'install-app', 'stop', 'reset', 'logs', 'help')]
     [string]$Command = 'help',
-    [ValidateSet('dovecot', 'condstore', 'stalwart', 'greenmail', 'james', 'baikal', 'radicale-condstore', 'radicale-greenmail', 'radicale-james')]
+    [ValidateSet('dovecot', 'condstore', 'stalwart', 'greenmail', 'james', 'baikal', 'radicale-condstore', 'radicale-greenmail', 'radicale-james', 'tls', 'crl')]
     [string]$Service,
     [switch]$Force
 )
@@ -23,8 +23,10 @@ $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 $composeFile = Join-Path $labRoot 'compose.yaml'
 $stateRoot = Join-Path $labRoot '.state'
 $generatedRoot = Join-Path $labRoot 'generated'
-$servers = @('dovecot', 'condstore', 'stalwart', 'greenmail', 'james', 'baikal', 'radicale-condstore', 'radicale-greenmail', 'radicale-james')
-$publishedPorts = @(1143, 1587, 4025, 2143, 2587, 3143, 3587, 8803, 4143, 4080, 5143, 5587, 5800, 8800, 8802, 8804, 8805)
+$servers = @('dovecot', 'condstore', 'stalwart', 'greenmail', 'james', 'baikal', 'radicale-condstore', 'radicale-greenmail', 'radicale-james', 'tls', 'crl')
+$tlsServices = @('dovecot', 'baikal', 'tls', 'crl')
+$publishedPorts = @(1143, 1587, 4025, 2143, 2587, 3143, 3587, 8803, 4143, 4080, 5143, 5587, 5800, 8800, 8802, 8804, 8805,
+    1993, 2993, 3993, 4993, 1465, 2465, 3465, 4465, 8443, 8444, 8445, 8446, 8807)
 $packageName = '58272BurakKSE.WinoMailPreview'
 
 function Resolve-Docker {
@@ -82,6 +84,19 @@ function Initialize-Lab {
     Invoke-Compose -Arguments @('run', '--rm', '--no-deps', '--entrypoint', 'bash', 'dovecot', '/lab/mail.sh')
     Invoke-Compose -Arguments @('run', '--rm', '--no-deps', '--entrypoint', 'bash', 'condstore', '/lab/mail.sh')
     Invoke-Compose -Arguments @('run', '--rm', '--no-deps', '--entrypoint', 'php', 'baikal', '/lab/dav.php')
+    Initialize-Tls
+}
+
+function Initialize-Tls {
+    # Lab CA, the valid/wronghost/expired/revoked leaves, and the CRL. Existing ones are kept.
+    Invoke-Compose -Arguments @('run', '--rm', '--no-deps', 'certs')
+}
+
+function Start-Tls {
+    Assert-Ports
+    Initialize-Tls
+    Invoke-Compose -Arguments (@('up', '-d', '--wait', '--wait-timeout', '300') + $tlsServices)
+    Write-Output "TLS endpoints are up. Lab CA: $(Join-Path $labRoot 'tls/generated/wino-lab-ca.crt')"
 }
 
 function Invoke-Seed {
@@ -167,6 +182,8 @@ status         Container state, endpoint reachability, artifact paths.
 provision      Re-run account provisioning on Stalwart and James.
 seed           Add missing fixtures to running servers; preserve existing data/edits.
 verify         Print capabilities per server and send delivery probes between every account pair.
+tls            Generate the lab CA and TLS test certificates, then start the hub, Baikal, and the TLS
+               endpoints (no seeding). `up` does this too.
 generate-db    Generate Wino210.db, DAV credentials, and wino-lab-backup.winosnap (password 1).
 install-app    Build/register the Debug package, replace its database with the generated one (old data is
                backed up), copy artifacts to Desktop\wino-lab, and launch Wino.
@@ -181,6 +198,11 @@ Servers (IMAP / SMTP / DAV on 127.0.0.1), password 1 everywhere:
   stalwart   carol@stalwart.test    3143 / 3587 / http://127.0.0.1:8803/dav/       QRESYNC (IMAP4rev2)
   greenmail  dave@greenmail.test    4143 / 4025 (hub, no auth) / http://127.0.0.1:8804/  UID only
   james      eve@james.test         5143 / 5587 / http://127.0.0.1:8805/           probed
+TLS test endpoints (implicit TLS, account alice@dovecot.test / Baikal login alice, password 1):
+  valid      IMAP 1993 / SMTP 1465 / https://127.0.0.1:8443/dav.php/
+  wronghost  IMAP 2993 / SMTP 2465 / https://127.0.0.1:8444/dav.php/
+  expired    IMAP 3993 / SMTP 3465 / https://127.0.0.1:8445/dav.php/
+  revoked    IMAP 4993 / SMTP 4465 / https://127.0.0.1:8446/dav.php/   CRL http://127.0.0.1:8807/lab-ca.crl
 Output: tools/local-lab/generated (Wino210.db, credentials/dav, wino-lab-backup.winosnap, manifest.json).
 See tools/local-lab/README.md for details.
 '@ | Write-Output
@@ -198,6 +220,7 @@ See tools/local-lab/README.md for details.
     Assert-Docker
     switch ($Command) {
         'up' { Start-Lab }
+        'tls' { Start-Tls }
         'provision' { Invoke-Seed -SeedCommand 'provision' }
         'seed' { Invoke-Seed -SeedCommand 'seed' }
         'verify' { Invoke-Seed -SeedCommand 'verify' }

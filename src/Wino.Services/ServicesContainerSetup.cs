@@ -107,7 +107,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<AccountProfilePictureMaintenance>();
         services.AddSingleton<AccountSenderPictureDirectory>();
 
-        services.AddSingleton<IDavTransport>(_ => new DavTransport());
+        services.AddSingleton<IDavTransport>(provider => new DavTransport(provider.GetRequiredService<IServerCertificateTrustService>()));
         services.AddSingleton<IDavMultistatusReader, DavMultistatusReader>();
         services.AddSingleton<IDavResponseHandler, DavResponseHandler>();
         services.AddSingleton<IDavCredentialStore, DavCredentialStore>();

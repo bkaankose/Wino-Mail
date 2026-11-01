@@ -20,7 +20,9 @@ public sealed class MailServerCertificateFailure
     public DateTime ValidToUtc { get; init; }
     public string CertificateSha256 { get; init; }
     public byte[] CertificateRawData { get; init; }
-    public bool CanTrust { get; init; }
+    public MailServerCertificateTrustTier Tier { get; init; } = MailServerCertificateTrustTier.NotPossible;
+    public MailServerCertificateProblem Problems { get; init; }
+    public bool CanTrust => Tier != MailServerCertificateTrustTier.NotPossible;
 
     public MailServerCertificateTrust CreateTrust(Guid accountId) => new()
     {
@@ -37,6 +39,7 @@ public sealed class MailServerCertificateFailure
         ValidFromUtc = ValidFromUtc,
         ValidToUtc = ValidToUtc,
         AcceptedChainStatusFlags = ChainStatusFlags,
+        AcceptedPolicyErrors = (int)PolicyErrors,
         AcceptedAtUtc = DateTime.UtcNow
     };
 }

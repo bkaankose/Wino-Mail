@@ -165,7 +165,8 @@ internal static class SettingsDebug
                 "login" => dialogs.ShowWinoAccountLoginDialogAsync(),
                 "register" => dialogs.ShowWinoAccountRegistrationDialogAsync(),
                 "secret" => dialogs.ShowWinoAccountSyncSecretDialogAsync(new SyncSnapshotSecretRequest(true, false, true)),
-                "certificate" => dialogs.ShowServerCertificateTrustDialogAsync("Subject: CN=imap.example.test\nIssuer: CN=Example Test CA\nValid: 2026-01-01 – 2027-01-01", []),
+                "certificate" => dialogs.ShowServerCertificateTrustDialogAsync(SampleCertificatePrompt(dangerous: false)),
+                "certificate-dangerous" => dialogs.ShowServerCertificateTrustDialogAsync(SampleCertificatePrompt(dangerous: true)),
                 "purchase" => dialogs.ShowUnlimitedAccountsPurchaseChannelDialogAsync(),
                 "shortcut" => dialogs.ShowKeyboardShortcutDialogAsync(),
                 "text" => dialogs.ShowTextInputDialogAsync(string.Empty, "Rename", "Debug text input", "Save"),
@@ -241,5 +242,24 @@ internal static class SettingsDebug
         if (view is T match) found.Add(match);
         foreach (var child in view.Subviews) Collect(child, found);
     }
+
+    private static Wino.Core.Domain.Models.Connectivity.ServerCertificateTrustPrompt SampleCertificatePrompt(bool dangerous)
+        => Wino.Core.Domain.Models.Connectivity.ServerCertificateTrustPrompt.From(new Wino.Core.Domain.Models.Connectivity.MailServerCertificateFailure
+        {
+            Protocol = MailServerProtocol.Imap,
+            Host = "imap.example.test",
+            Port = 993,
+            PolicyErrors = System.Net.Security.SslPolicyErrors.RemoteCertificateChainErrors,
+            Subject = "CN=imap.example.test",
+            SubjectAlternativeNames = "DNS Name=imap.example.test",
+            Issuer = "CN=Example Test CA",
+            ValidFromUtc = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            ValidToUtc = new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            CertificateSha256 = new string('A', 64),
+            Tier = dangerous ? MailServerCertificateTrustTier.Dangerous : MailServerCertificateTrustTier.Normal,
+            Problems = dangerous
+                ? MailServerCertificateProblem.UntrustedRoot | MailServerCertificateProblem.Revoked
+                : MailServerCertificateProblem.UntrustedRoot
+        });
 }
 #endif

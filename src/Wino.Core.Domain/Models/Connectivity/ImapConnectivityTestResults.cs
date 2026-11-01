@@ -34,34 +34,13 @@ public class ImapConnectivityTestResults
         };
     }
 
-    public static ImapConnectivityTestResults CertificateUIRequired(string issuer,
-        string expirationString,
-        string validFromString)
-    {
-        return new ImapConnectivityTestResults()
-        {
-            IsSuccess = false,
-            IsCertificateUIRequired = true,
-            CertificateIssuer = issuer,
-            CertificateExpirationDateString = expirationString,
-            CertificateValidFromDateString = validFromString
-        };
-    }
-
     public static ImapConnectivityTestResults CertificateUIRequired(MailServerCertificateFailure failure)
     {
         return new ImapConnectivityTestResults
         {
             IsSuccess = false,
             IsCertificateUIRequired = true,
-            CertificateFailure = failure,
-            CertificateIssuer = failure?.Issuer,
-            CertificateExpirationDateString = failure?.ValidToUtc.ToString("u"),
-            CertificateValidFromDateString = failure?.ValidFromUtc.ToString("u")
+            CertificateFailure = failure
         };
     }
-
-    public string CertificateIssuer { get; set; }
-    public string CertificateValidFromDateString { get; set; }
-    public string CertificateExpirationDateString { get; set; }
 }

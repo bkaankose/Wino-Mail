@@ -14,6 +14,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Mail.ViewModels.Helpers;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
@@ -841,26 +842,12 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
                 return;
             }
 
-            var failure = result.CertificateFailure;
-            if (failure?.CanTrust != true)
-                throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateCannotBeTrusted);
-
-            var message = $"{Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row0}\n\n" +
-                $"{Translator.IMAPSetupDialog_CertificateProtocol}: {failure.Protocol}\n" +
-                $"{Translator.IMAPSetupDialog_CertificateEndpoint}: {failure.Host}:{failure.Port}\n" +
-                $"{Translator.IMAPSetupDialog_CertificateSubject}: {failure.Subject}\n" +
-                $"{Translator.IMAPSetupDialog_CertificateSans}: {failure.SubjectAlternativeNames}\n" +
-                $"{Translator.IMAPSetupDialog_CertificateIssuer}: {failure.Issuer}\n" +
-                $"{Translator.IMAPSetupDialog_CertificateValidFrom}: {failure.ValidFromUtc:u}\n" +
-                $"{Translator.IMAPSetupDialog_CertificateValidTo}: {failure.ValidToUtc:u}\n" +
-                $"{Translator.IMAPSetupDialog_CertificateFingerprint}: {failure.CertificateSha256}\n\n" +
-                Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row1;
-            if (!await _dialogService.ShowServerCertificateTrustDialogAsync(message, failure.CertificateRawData))
-                throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
-
-            candidate.PendingCertificateTrusts.RemoveAll(item => item.Protocol == failure.Protocol &&
-                string.Equals(item.Host, failure.Host, StringComparison.OrdinalIgnoreCase) && item.Port == failure.Port);
-            candidate.PendingCertificateTrusts.Add(failure.CreateTrust(Account.Id));
+            await ServerCertificateTrustFlow.AcceptAsync(
+                result.CertificateFailure,
+                result.FailedReason,
+                candidate,
+                Account.Id,
+                _dialogService.ShowServerCertificateTrustDialogAsync);
         }
     }
 

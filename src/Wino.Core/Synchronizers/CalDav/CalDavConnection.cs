@@ -6,8 +6,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Serilog;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models.CardDav;
 
 namespace Wino.Core.Synchronizers.CalDav;
 
@@ -144,7 +146,12 @@ internal static class CalDavConnection
         {
             ServiceUri = serviceUri,
             Username = username,
-            Password = password
+            Password = password,
+            EndpointTrust = new DavEndpointTrust
+            {
+                AccountId = account.Id,
+                Protocol = MailServerProtocol.CalDav
+            }
         };
     }
 

@@ -8,4 +8,5 @@ public sealed class DavAuthenticationProfile
     public string Username { get; init; }
     public string Password { get; init; }
     public string BearerToken { get; init; }
+    public DavEndpointTrust EndpointTrust { get; init; }
 }

@@ -3,3 +3,6 @@ generated-*/
 .state/
 .operation.lock
 app-backups/
+# Lab CA, TLS keys, certificates and CRL produced by tls/make-certs.sh, and older hand-made TLS material.
+tls/*
+!tls/make-certs.sh

@@ -561,7 +561,8 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
             calendarSyncResult = CalendarSynchronizationResult.Failed(ex);
         }
 
-        if (calendarSyncResult.CompletedState is SynchronizationCompletedState.Failed or SynchronizationCompletedState.PartiallyCompleted)
+        if (calendarSyncResult.CompletedState is SynchronizationCompletedState.Failed or SynchronizationCompletedState.PartiallyCompleted &&
+            !IsDavCertificateFailure(calendarSyncResult.Exception))
         {
             QueueSynchronizationFailure(
                 GetCalendarSynchronizationFailureMessage(message.Options.Type, calendarSyncResult.AllIssues, calendarSyncResult.Exception?.Message),
@@ -597,7 +598,8 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
             syncResult = ContactSynchronizationResult.Failed(ex);
         }
 
-        if (syncResult.CompletedState is SynchronizationCompletedState.Failed or SynchronizationCompletedState.PartiallyCompleted)
+        if (syncResult.CompletedState is SynchronizationCompletedState.Failed or SynchronizationCompletedState.PartiallyCompleted &&
+            !IsDavCertificateFailure(syncResult.Exception))
         {
             QueueSynchronizationFailure(
                 GetSynchronizationFailureMessage(syncResult.Issues, syncResult.Exception?.Message, Translator.Exception_FailedToSynchronizeContacts),
@@ -984,6 +986,12 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
             ? exceptionMessage
             : fallbackMessage;
     }
+
+    // The synchronization manager already showed its own notice with a way to the server settings.
+    private static bool IsDavCertificateFailure(Exception? exception)
+        => exception != null &&
+           SynchronizationManager.TryGetCertificateException(exception, out var certificateException) &&
+           SynchronizationManager.IsDavProtocol(certificateException.Failure);
 
     private void QueueSynchronizationFailure(string message, InfoBarMessageType severity)
         => _messenger.Send(new InfoBarMessageRequested(severity, Translator.Info_SyncFailedTitle, message));

@@ -44,7 +44,7 @@ internal static class MailKitPop3ConnectionPolicy
                                    item.Port == port);
 
         client.ServerCertificateValidationCallback = (_, certificate, chain, errors)
-            => MailKitServerCertificateValidator.Validate(
+            => global::Wino.Services.ServerCertificateValidator.Validate(
                 certificate, chain, errors, MailServerProtocol.Pop3, host, port, storedTrust, transientTrust);
 
         await client.ConnectAsync(host, port, GetSocketOptions(serverInformation), cancellationToken).ConfigureAwait(false);

@@ -10,6 +10,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
@@ -91,8 +92,9 @@ public interface IMailDialogService : IDialogServiceBase
     /// <summary>
     /// Shows a fail-closed server-certificate consent dialog and lets the user inspect
     /// the complete certificate before making an endpoint-scoped trust decision.
+    /// A dangerous prompt keeps its accept button disabled until the user acknowledges the risk.
     /// </summary>
-    Task<bool> ShowServerCertificateTrustDialogAsync(string summary, byte[] certificateRawData);
+    Task<bool> ShowServerCertificateTrustDialogAsync(ServerCertificateTrustPrompt prompt);
 
     /// <summary>
     /// Presents a dialog to the user for keyboard shortcut creation/modification.

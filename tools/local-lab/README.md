@@ -18,7 +18,7 @@ Every password in the lab is `1`: mailboxes, DAV logins, the Stalwart admin cons
 .\scripts\lab\windows\local-lab.ps1 up
 ```
 
-`up` pulls the pinned images, creates the mailboxes, starts nine containers, waits until every endpoint accepts the lab credentials, seeds mail/calendars/contacts, verifies the advertised IMAP capabilities, sends a delivery probe between every pair of accounts, and generates the client artifacts.
+`up` pulls the pinned images, creates the mailboxes and the TLS test certificates, starts eleven containers, waits until every endpoint accepts the lab credentials, seeds mail/calendars/contacts, verifies the advertised IMAP capabilities, sends a delivery probe between every pair of accounts, and generates the client artifacts.
 The first run takes several minutes (image downloads, James and Stalwart start-up, ~850 messages).
 
 Then install the artifacts into Wino:
@@ -40,7 +40,7 @@ It is the only command that touches application data.
 | 4 | `greenmail` | GreenMail 2.1.8 (`LITERAL+ UIDPLUS SORT IDLE MOVE QUOTA`) | `dave@greenmail.test` | `127.0.0.1:4143` | `127.0.0.1:4025` (hub port 25, no authentication) | `http://127.0.0.1:8804/` (Radicale, login `dave`) | UID only |
 | 5 | `james` | Apache James 3.9.1, memory backend | `eve@james.test` | `127.0.0.1:5143` | `127.0.0.1:5587` | `http://127.0.0.1:8805/` (Radicale, login `eve`) | QRESYNC (probed) |
 
-All connections are plaintext (`ImapConnectionSecurity.None`) with password authentication, except the GreenMail account's outgoing server, which is the hub's unauthenticated port.
+The account connections are plaintext (`ImapConnectionSecurity.None`) with password authentication (the [TLS test endpoints](#tls-test-endpoints) are separate), except the GreenMail account's outgoing server, which is the hub's unauthenticated port.
 Published ports bind only to `127.0.0.1`.
 
 Other endpoints:
@@ -51,6 +51,29 @@ Other endpoints:
 | `http://127.0.0.1:8800/admin/` | Baïkal admin (`admin` / `1`) |
 | `http://127.0.0.1:5800/` | James WebAdmin REST (send header `Password: 1`) |
 | `http://127.0.0.1:4080/` | GreenMail API |
+
+## TLS test endpoints
+
+The `tls` service (nginx) puts implicit TLS in front of the hub's IMAP and submission ports and Baïkal, with one port per certificate variant. They exercise Wino's server certificate trust prompt (normal and dangerous tiers). Use the `dovecot` account (`alice@dovecot.test`, password `1`, connection security SSL/TLS) and Baïkal login `alice` for DAV.
+
+| Variant | Certificate | IMAP | SMTP | CalDAV/CardDAV (Baïkal) |
+|---|---|---|---|---|
+| valid | Issued by the lab CA for `localhost` and `127.0.0.1` | `127.0.0.1:1993` | `127.0.0.1:1465` | `https://127.0.0.1:8443/dav.php/` |
+| wronghost | Issued for `wrong-host.wino.lab` only | `127.0.0.1:2993` | `127.0.0.1:2465` | `https://127.0.0.1:8444/dav.php/` |
+| expired | Valid from 1 Jan 2024 to 1 Jan 2025 | `127.0.0.1:3993` | `127.0.0.1:3465` | `https://127.0.0.1:8445/dav.php/` |
+| revoked | Listed in the lab CA's CRL | `127.0.0.1:4993` | `127.0.0.1:4465` | `https://127.0.0.1:8446/dav.php/` |
+
+The `crl` service serves the CRL at `http://127.0.0.1:8807/lab-ca.crl`, the distribution point every lab leaf names. Stop it (`docker compose --project-name wino-local-lab --file tools/local-lab/compose.yaml stop crl`) to see an unreachable revocation service.
+
+`up` generates the certificates and starts these services with the rest of the lab. To start only the TLS endpoints with the hub and Baïkal, without seeding:
+
+```powershell
+.\scripts\lab\windows\local-lab.ps1 tls
+```
+
+`tls/make-certs.sh` runs in the docker-mailserver image and writes the lab CA, the keys, the leaves, and the CRL into `tools/local-lab/tls/generated`, which Git ignores. It is idempotent: an existing CA and leaves are kept, so a certificate you already trusted in Wino stays the same; only the CRL is re-signed. Delete `tls/generated` to start over.
+
+The lab CA is not trusted by Windows, so every variant shows the untrusted-authority reason. The script never touches certificate stores. To see a variant's other reasons alone (for example the revoked tier without the untrusted root), import `tools/local-lab/tls/generated/wino-lab-ca.crt` into **Current User > Trusted Root Certification Authorities** yourself, and remove it when you are done.
 
 Capability notes:
 
@@ -70,6 +93,7 @@ Capability notes:
 | Command | Result |
 |---|---|
 | `up` | Start servers, provision, seed, verify, generate client artifacts |
+| `tls` | Generate the TLS test certificates and start the hub, Baïkal, and the TLS endpoints |
 | `status` | Container state, port reachability, artifact location |
 | `provision` | Re-create the Stalwart and James domain/account (James forgets them on restart) |
 | `seed` | Add missing fixtures to running servers; existing edits, moves, and deletions are preserved |
@@ -133,6 +157,7 @@ Server state lives in Compose-owned named volumes (`wino-local-lab_*`). `reset -
 ## Implementation references
 
 - [Compose configuration](compose.yaml)
+- [TLS endpoint configuration](provision/tls/nginx.conf), [certificate script](tls/make-certs.sh)
 - [docker-mailserver provisioning and capability patch](provision/mailserver/user-patches.sh)
 - [Stalwart configuration](provision/stalwart/config.toml)
 - [James configuration overrides](provision/james/)

@@ -1,4 +1,5 @@
 #if DEBUG
+using System.Net.Security;
 using System.Reflection;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.DependencyInjection;
@@ -6,6 +7,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Apple.Bindings.StoreKit2;
 using Wino.Core.ViewModels;
@@ -19,7 +21,7 @@ namespace Wino.Mail.MacOS.Views.Settings;
 /// <list type="bullet">
 /// <item><c>dlg-purchase</c>: the purchase channel sheet.</item>
 /// <item><c>dlg-secret new|existing|legacy|rejected</c>: the sync secret sheet (the entered value is never reported).</item>
-/// <item><c>dlg-cert &lt;pem-or-der-path&gt;</c>: the certificate trust sheet with a sample summary.</item>
+/// <item><c>dlg-cert [dangerous] &lt;pem-or-der-path&gt;</c>: the certificate trust sheet with a sample prompt (normal, or dangerous with the acknowledgement).</item>
 /// <item><c>winoacct-state</c>: the open Wino Account page's ViewModel flags.</item>
 /// <item><c>winoacct-checkout</c>: opens the page as the billing return does (CheckoutCompleted).</item>
 /// <item><c>winoacct-benefit &lt;index&gt;</c>: selects a signed-out offer.</item>
@@ -56,13 +58,15 @@ internal static class WinoAccountDebug
         });
         MacDebugBridge.Register("dlg-cert", args =>
         {
-            if (args.Length == 0) return Task.FromResult("usage: dlg-cert <pem-or-der-path>");
-            var path = string.Join(' ', args);
+            var dangerous = args.Length > 0 && args[0] == "dangerous";
+            var pathArgs = dangerous ? args[1..] : args;
+            if (pathArgs.Length == 0) return Task.FromResult("usage: dlg-cert [dangerous] <pem-or-der-path>");
+            var path = string.Join(' ', pathArgs);
             if (!File.Exists(path)) return Task.FromResult("no file: " + path);
             var raw = LoadCertificateBytes(path);
             using var certificate = X509CertificateLoader.LoadCertificate(raw);
-            var summary = SampleSummary(certificate);
-            return Run("cert", async () => await Dialogs.ShowServerCertificateTrustDialogAsync(summary, raw) ? "trusted" : "cancelled");
+            var prompt = ServerCertificateTrustPrompt.From(SampleFailure(certificate, dangerous));
+            return Run("cert", async () => await Dialogs.ShowServerCertificateTrustDialogAsync(prompt) ? "trusted" : "cancelled");
         });
         MacDebugBridge.Register("winoacct-state", _ => Task.FromResult(State()));
         MacDebugBridge.Register("winoacct-checkout", _ =>
@@ -102,21 +106,27 @@ internal static class WinoAccountDebug
             : File.ReadAllBytes(path);
     }
 
-    /// <summary>The same shape the account ViewModels send, so the sheet lays out real rows.</summary>
-    private static string SampleSummary(X509Certificate2 certificate)
+    /// <summary>A failure as the validator reports it for an untrusted (or revoked) certificate of mail.example.test.</summary>
+    private static MailServerCertificateFailure SampleFailure(X509Certificate2 certificate, bool dangerous) => new()
     {
-        return $"{Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row0}\n\n" +
-               $"{Translator.IMAPSetupDialog_CertificateProtocol}: IMAP\n" +
-               $"{Translator.IMAPSetupDialog_CertificateEndpoint}: mail.example.test:993\n" +
-               $"{Translator.IMAPSetupDialog_CertificateSubject}: {certificate.Subject}\n" +
-               $"{Translator.IMAPSetupDialog_CertificateSans}: mail.example.test\n" +
-               $"{Translator.IMAPSetupDialog_CertificateIssuer}: {certificate.Issuer}\n" +
-               $"{Translator.IMAPSetupDialog_CertificateValidFrom}: {certificate.NotBefore.ToUniversalTime():u}\n" +
-               $"{Translator.IMAPSetupDialog_CertificateValidTo}: {certificate.NotAfter.ToUniversalTime():u}\n" +
-               $"{Translator.IMAPSetupDialog_CertificateFingerprint}: {certificate.GetCertHashString(System.Security.Cryptography.HashAlgorithmName.SHA256)}\n" +
-               $"{Translator.IMAPSetupDialog_CertificateFailureReason}: UntrustedRoot\n\n" +
-               Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row1;
-    }
+        Protocol = MailServerProtocol.Imap,
+        Host = "mail.example.test",
+        Port = 993,
+        PolicyErrors = SslPolicyErrors.RemoteCertificateChainErrors,
+        ChainStatusFlags = (int)(dangerous ? X509ChainStatusFlags.UntrustedRoot | X509ChainStatusFlags.Revoked : X509ChainStatusFlags.UntrustedRoot),
+        ChainStatusDetails = string.Empty,
+        Subject = certificate.Subject,
+        SubjectAlternativeNames = "mail.example.test",
+        Issuer = certificate.Issuer,
+        ValidFromUtc = certificate.NotBefore.ToUniversalTime(),
+        ValidToUtc = certificate.NotAfter.ToUniversalTime(),
+        CertificateSha256 = certificate.GetCertHashString(System.Security.Cryptography.HashAlgorithmName.SHA256),
+        CertificateRawData = certificate.RawData,
+        Tier = dangerous ? MailServerCertificateTrustTier.Dangerous : MailServerCertificateTrustTier.Normal,
+        Problems = dangerous
+            ? MailServerCertificateProblem.UntrustedRoot | MailServerCertificateProblem.Revoked
+            : MailServerCertificateProblem.UntrustedRoot
+    };
 
     private static string State()
     {
