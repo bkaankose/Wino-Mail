@@ -152,6 +152,13 @@ internal static class Composition
         services.AddSingleton(anchors);
         services.AddSingleton<IWinoAccountBrowserAuthBroker>(new AppleWebAuthenticationBroker(dispatcher, anchors, () => anchors.HasAnchor));
         services.AddSingleton<IOAuthBrowserBroker>(new AppleOAuthBrowserBroker(new AppleWebAuthenticationBroker(dispatcher, anchors, () => anchors.HasAnchor)));
+        // Exchange modern-auth sign-in: a WKWebView sheet that captures the redirect in-process, apart from every
+        // system-browser flow above.
+        var embeddedBrowser = new MacEmbeddedBrowserAuthBroker(dispatcher, owner);
+#if DEBUG
+        embeddedBrowser.RegisterDebugCommands();
+#endif
+        services.AddSingleton<IEmbeddedBrowserAuthBroker>(embeddedBrowser);
         services.Replace(ServiceDescriptor.Transient<IGoogleAuthorizationCodeReceiver>(provider => new WebSessionGoogleAuthorizationCodeReceiver(
             provider.GetRequiredService<IAuthenticatorConfig>(), provider.GetRequiredService<IWinoAccountBrowserAuthBroker>())));
         services.AddSingleton<IGoogleNativeSignInProvider>(provider => new GoogleWebSessionSignInProvider(provider.GetRequiredService<IWinoAccountBrowserAuthBroker>()));
