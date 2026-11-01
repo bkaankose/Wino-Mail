@@ -282,6 +282,8 @@ public sealed class ProviderSelectionPageViewController(ProviderSelectionPageVie
 
     protected override Task InitializeAsync(NavigationMode mode, object? parameter)
     {
+        // The server page offers secure sign-in, so catalog providers with a sign-in registration go there.
+        ViewModel.IsSecureSignInSupportedByHost = true;
         ViewModel.OnNavigatedTo(mode, parameter!);
         foreach (var refresh in _catalogRefresh) refresh();
         // The palette is loaded by OnNavigatedTo and never raises a change of its own.
