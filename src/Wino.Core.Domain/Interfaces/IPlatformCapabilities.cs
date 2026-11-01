@@ -59,4 +59,11 @@ public interface IPlatformCapabilities
     /// that page; the shared entry points read this flag.
     /// </summary>
     bool AddressFirstAccountSetup { get; }
+
+    /// <summary>
+    /// OAuth sign-in can receive its redirect on a 127.0.0.1 listener while the browser is open. False on iOS, which
+    /// suspends the app (and may reclaim its listening socket) while Safari is in front, and whose web authentication
+    /// sheet completes only custom-scheme redirects; registrations that need loopback are not offered there.
+    /// </summary>
+    bool OAuthLoopbackRedirect { get; }
 }

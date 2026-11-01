@@ -73,8 +73,9 @@ public interface IOAuthProtocolClient
     /// <summary>
     /// RFC 7591 registration as a public native client. Registers the custom-scheme and loopback redirects when
     /// <paramref name="preferCustomScheme"/> is set and falls back to loopback only when the server refuses the scheme.
+    /// Without <paramref name="allowLoopback"/> a refused scheme fails the registration instead.
     /// </summary>
-    Task<OAuthClientRegistration> RegisterClientAsync(Uri registrationEndpoint, string? scopes, bool preferCustomScheme, CancellationToken cancellationToken = default);
+    Task<OAuthClientRegistration> RegisterClientAsync(Uri registrationEndpoint, string? scopes, bool preferCustomScheme, CancellationToken cancellationToken = default, bool allowLoopback = true);
 
     Uri BuildAuthorizationUri(
         OAuthEndpoints endpoints,
@@ -211,9 +212,9 @@ public sealed class OAuthProtocolClient : IOAuthProtocolClient
             metadata.RegistrationEndpoint, metadata, trustSource);
     }
 
-    public async Task<OAuthClientRegistration> RegisterClientAsync(Uri registrationEndpoint, string? scopes, bool preferCustomScheme, CancellationToken cancellationToken = default)
+    public async Task<OAuthClientRegistration> RegisterClientAsync(Uri registrationEndpoint, string? scopes, bool preferCustomScheme, CancellationToken cancellationToken = default, bool allowLoopback = true)
     {
-        if (preferCustomScheme)
+        if (preferCustomScheme || !allowLoopback)
         {
             try
             {
@@ -221,7 +222,7 @@ public sealed class OAuthProtocolClient : IOAuthProtocolClient
                     [OAuthRedirect.CustomSchemeRedirectUri.AbsoluteUri, LoopbackRedirectUri.AbsoluteUri], cancellationToken).ConfigureAwait(false);
                 return new OAuthClientRegistration(clientId, OAuthRedirectKind.CustomScheme);
             }
-            catch (OAuthProtocolException ex) when (ex.OAuthError == "invalid_redirect_uri")
+            catch (OAuthProtocolException ex) when (ex.OAuthError == "invalid_redirect_uri" && allowLoopback)
             {
                 // Some servers (Stalwart) accept only reverse-domain private-use schemes, so wino:// is refused.
             }

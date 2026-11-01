@@ -31,18 +31,21 @@ public sealed class OAuthTokenService : IOAuthTokenService
     private readonly Func<IOAuthBrowserBroker?> _browserBroker;
     private readonly Func<IExternalLauncher?> _launcher;
     private readonly Func<IExternalBrowserAuthenticationPresenter?> _presenter;
+    private readonly bool _allowLoopbackRedirect;
     private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _locks = new();
     private readonly ConcurrentDictionary<Guid, SetupSessionEntry> _sessions = new();
 
     /// <param name="browserBroker">Custom-scheme sign-in. Null on a head that has none.</param>
     /// <param name="launcher">Opens the browser for loopback sign-in. Null on a head that has none.</param>
     /// <param name="presenter">The optional waiting dialog shown during loopback sign-in.</param>
+    /// <param name="allowLoopbackRedirect">False where a loopback redirect cannot be received (iOS).</param>
     public OAuthTokenService(
         IOAuthProtocolClient protocol,
         IOAuthTokenStore store,
         Func<IOAuthBrowserBroker?> browserBroker,
         Func<IExternalLauncher?> launcher,
-        Func<IExternalBrowserAuthenticationPresenter?> presenter)
+        Func<IExternalBrowserAuthenticationPresenter?> presenter,
+        bool allowLoopbackRedirect = true)
     {
         ArgumentNullException.ThrowIfNull(protocol);
         ArgumentNullException.ThrowIfNull(store);
@@ -55,7 +58,11 @@ public sealed class OAuthTokenService : IOAuthTokenService
         _browserBroker = browserBroker;
         _launcher = launcher;
         _presenter = presenter;
+        _allowLoopbackRedirect = allowLoopbackRedirect;
     }
+
+    public bool IsRedirectSupported(OAuthRedirectKind redirectKind)
+        => redirectKind != OAuthRedirectKind.Loopback || _allowLoopbackRedirect;
 
     /// <summary>
     /// The <see cref="IOAuthTokenStore"/> key for an account: the account id in "N" format. Stored items already
@@ -317,6 +324,9 @@ public sealed class OAuthTokenService : IOAuthTokenService
 
         if (usedProfile.RedirectKind == OAuthRedirectKind.Loopback)
         {
+            if (!_allowLoopbackRedirect)
+                throw new OAuthSignInException(OAuthSignInFailureKind.Failed, "This device cannot receive the browser sign-in this server uses.");
+
             var launcher = _launcher()
                 ?? throw new OAuthSignInException(OAuthSignInFailureKind.Failed, "This device cannot open a browser for sign-in.");
             var receiver = new OAuthLoopbackReceiver(launcher, _presenter());
@@ -369,7 +379,7 @@ public sealed class OAuthTokenService : IOAuthTokenService
         try
         {
             return await _protocol.RegisterClientAsync(endpoints.RegistrationEndpoint, profile.Scopes,
-                profile.RedirectKind == OAuthRedirectKind.CustomScheme, cancellationToken).ConfigureAwait(false);
+                profile.RedirectKind == OAuthRedirectKind.CustomScheme, cancellationToken, _allowLoopbackRedirect).ConfigureAwait(false);
         }
         catch (OAuthProtocolException ex)
         {

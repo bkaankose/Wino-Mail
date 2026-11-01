@@ -21,12 +21,17 @@ public static class OAuthServiceCollectionExtensions
             provider.GetRequiredService<IOAuthTokenStore>(),
             () => provider.GetService<IOAuthBrowserBroker>(),
             () => provider.GetService<IExternalLauncher>(),
-            () => provider.GetService<IExternalBrowserAuthenticationPresenter>()));
+            () => provider.GetService<IExternalBrowserAuthenticationPresenter>(),
+            AllowsLoopbackRedirect(provider)));
 
         services.AddTransient<IOAuthIssuerDiscoveryService>(provider => new OAuthIssuerDiscoveryService(
             provider.GetRequiredService<IKnownImapProviderCatalog>(),
-            provider.GetRequiredService<IOAuthProtocolClient>()));
+            provider.GetRequiredService<IOAuthProtocolClient>(),
+            AllowsLoopbackRedirect(provider)));
 
         return services;
     }
+
+    private static bool AllowsLoopbackRedirect(System.IServiceProvider provider)
+        => provider.GetService<IPlatformCapabilities>()?.OAuthLoopbackRedirect ?? true;
 }

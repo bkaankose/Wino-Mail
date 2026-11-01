@@ -29,13 +29,19 @@ public sealed class OAuthIssuerDiscoveryService : IOAuthIssuerDiscoveryService
 
     private readonly IKnownImapProviderCatalog _catalog;
     private readonly IOAuthProtocolClient _protocol;
+    private readonly bool _allowLoopbackRedirect;
 
-    public OAuthIssuerDiscoveryService(IKnownImapProviderCatalog catalog, IOAuthProtocolClient protocol)
+    /// <param name="allowLoopbackRedirect">
+    /// False where a loopback redirect cannot be received (iOS): an issuer that needs one is reported as not offered,
+    /// so setup keeps the password path.
+    /// </param>
+    public OAuthIssuerDiscoveryService(IKnownImapProviderCatalog catalog, IOAuthProtocolClient protocol, bool allowLoopbackRedirect = true)
     {
         ArgumentNullException.ThrowIfNull(catalog);
         ArgumentNullException.ThrowIfNull(protocol);
         _catalog = catalog;
         _protocol = protocol;
+        _allowLoopbackRedirect = allowLoopbackRedirect;
     }
 
     public async Task<OAuthDiscoveryResult> DiscoverAsync(
@@ -51,6 +57,10 @@ public sealed class OAuthIssuerDiscoveryService : IOAuthIssuerDiscoveryService
         var builtIn = TryCreateCatalogProfile(emailAddress, host, capabilities);
         if (builtIn is not null)
         {
+            // The catalog registration is the provider's only client, so host discovery would not find another.
+            if (!_allowLoopbackRedirect && builtIn.RedirectKind == OAuthRedirectKind.Loopback)
+                return OAuthDiscoveryResult.NotOffered;
+
             return new OAuthDiscoveryResult
             {
                 Profile = builtIn,
@@ -115,6 +125,9 @@ public sealed class OAuthIssuerDiscoveryService : IOAuthIssuerDiscoveryService
             };
         }
 
+        if (!_allowLoopbackRedirect && !SupportsS256(metadata))
+            return OAuthDiscoveryResult.NotOffered;
+
         var profile = new AccountOAuthProfile
         {
             Issuer = issuer,
@@ -143,7 +156,7 @@ public sealed class OAuthIssuerDiscoveryService : IOAuthIssuerDiscoveryService
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(RegistrationTimeout);
             var registration = await _protocol.RegisterClientAsync(endpoints.RegistrationEndpoint, profile.Scopes,
-                profile.RedirectKind == OAuthRedirectKind.CustomScheme, timeout.Token).ConfigureAwait(false);
+                profile.RedirectKind == OAuthRedirectKind.CustomScheme, timeout.Token, _allowLoopbackRedirect).ConfigureAwait(false);
             profile.ClientId = registration.ClientId;
             profile.RedirectKind = registration.RedirectKind;
         }

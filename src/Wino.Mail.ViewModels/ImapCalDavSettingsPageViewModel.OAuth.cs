@@ -161,9 +161,18 @@ public partial class ImapCalDavSettingsPageViewModel
     public bool IsEditOAuthSignInVisible => IsEditSignInVisible && IsIncomingOAuthSelected;
     public bool IsEditPasswordSignInVisible => IsEditSignInVisible && !IsIncomingOAuthSelected;
 
-    public string EditOAuthDescription => _storedOAuthProfile != null
-        ? string.Format(Translator.ImapSetup_OAuthSignsInThrough, GetHost(_storedOAuthProfile.Issuer))
-        : Translator.ImapSetup_OAuthProfileMissing;
+    public string EditOAuthDescription => _storedOAuthProfile == null
+        ? Translator.ImapSetup_OAuthProfileMissing
+        : IsStoredOAuthSignInSupported
+            ? string.Format(Translator.ImapSetup_OAuthSignsInThrough, GetHost(_storedOAuthProfile.Issuer))
+            : string.Format(Translator.ImapSetup_OAuthSignInUnavailableOnDevice, GetHost(_storedOAuthProfile.Issuer));
+
+    /// <summary>
+    /// A stored sign-in that needs a loopback redirect cannot run again on a device without one (iOS); the account
+    /// then keeps working only after its servers switch to a password.
+    /// </summary>
+    private bool IsStoredOAuthSignInSupported => _storedOAuthProfile == null
+                                                 || _oauthTokenService?.IsRedirectSupported(_storedOAuthProfile.RedirectKind) != false;
 
     private bool IsOAuthSignInOffered => _oauthDiscovery.CanSignIn;
 
@@ -203,7 +212,7 @@ public partial class ImapCalDavSettingsPageViewModel
                                                && issuer.Scheme == Uri.UriSchemeHttps
                                                && !string.IsNullOrWhiteSpace(CustomOAuthClientId);
 
-    private bool CanReauthenticateOAuth => !IsBusy && !IsOAuthSigningIn && _storedOAuthProfile != null && _oauthTokenService != null;
+    private bool CanReauthenticateOAuth => !IsBusy && !IsOAuthSigningIn && _storedOAuthProfile != null && _oauthTokenService != null && IsStoredOAuthSignInSupported;
 
     [RelayCommand(CanExecute = nameof(CanStartDiscoveredOAuthSignIn))]
     private Task SignInWithOAuthAsync() => RunOAuthSignInAsync(_oauthDiscovery.Profile);

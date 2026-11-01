@@ -4120,6 +4120,7 @@
   "ImapSetup_OAuthSignInHeader": "Sign-in",
   "ImapSetup_OAuthSignedInAsThrough": "Signed in as {0} through {1}",
   "ImapSetup_OAuthSignsInThrough": "Signs in through {0} (OAuth 2.0)",
+  "ImapSetup_OAuthSignInUnavailableOnDevice": "This account signs in through {0}, which Wino can't open on this device. To use the account here, choose a password sign-in method for the incoming and outgoing servers.",
   "ImapSetup_OAuthProfileMissing": "The sign-in details for this account are missing. Choose a password sign-in method, or remove and add the account again.",
   "ImapSetup_OAuthReauthenticated": "Signed in again. Select Save to reconnect the account.",
   "ImapSetup_DavUsesSecureSignIn": "Uses your secure sign-in.",

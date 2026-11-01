@@ -35,6 +35,12 @@ public interface IOAuthBrowserBroker
 /// </summary>
 public interface IOAuthTokenService
 {
+    /// <summary>
+    /// Whether this device can complete a sign-in with <paramref name="redirectKind"/>. A loopback redirect needs a
+    /// 127.0.0.1 listener that stays alive while the browser is open, which iOS does not allow.
+    /// </summary>
+    bool IsRedirectSupported(OAuthRedirectKind redirectKind);
+
     /// <summary>Runs the browser sign-in and keeps the result in memory only.</summary>
     Task<OAuthSetupSession> SignInAsync(AccountOAuthProfile profile, string? loginHint, CancellationToken cancellationToken = default);
 

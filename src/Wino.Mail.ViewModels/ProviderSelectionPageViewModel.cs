@@ -31,6 +31,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     private readonly IDialogServiceBase _dialogService;
     private readonly IKnownImapProviderCatalog _providerCatalog;
     private readonly INewThemeService _themeService;
+    private readonly IOAuthTokenService _oauthTokenService;
     private ProviderSelectionHostMode _hostMode = ProviderSelectionHostMode.Wizard;
 
     public WelcomeWizardContext WizardContext { get; }
@@ -386,15 +387,20 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         IsSecureSignInSupportedByHost &&
         SelectedProvider?.Type == MailProviderType.IMAP4 &&
         SelectedProvider.SpecialImapProvider != SpecialImapProvider.None &&
-        !string.IsNullOrWhiteSpace(_providerCatalog.GetBySpecialProvider(SelectedProvider.SpecialImapProvider)?.OAuth?.ClientId);
+        _providerCatalog.GetBySpecialProvider(SelectedProvider.SpecialImapProvider)?.OAuth is { } registration &&
+        !string.IsNullOrWhiteSpace(registration.ClientId) &&
+        // A registration this device cannot complete (loopback on iOS) keeps the provider's app password page.
+        _oauthTokenService?.IsRedirectSupported(registration.RedirectKind) != false;
 
     public ProviderSelectionPageViewModel(
         IAccountService accountService,
         IDialogServiceBase dialogService,
         IKnownImapProviderCatalog providerCatalog,
         INewThemeService themeService,
-        WelcomeWizardContext wizardContext)
+        WelcomeWizardContext wizardContext,
+        IOAuthTokenService oauthTokenService = null)
     {
+        _oauthTokenService = oauthTokenService;
         _accountService = accountService;
         _dialogService = dialogService;
         _providerCatalog = providerCatalog;

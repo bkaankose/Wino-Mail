@@ -1427,7 +1427,9 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
     private bool HasCatalogOAuthRegistration(SpecialImapProvider provider)
         => provider != SpecialImapProvider.None
-           && !string.IsNullOrWhiteSpace(_knownImapProviderCatalog?.GetBySpecialProvider(provider)?.OAuth?.ClientId);
+           && _knownImapProviderCatalog?.GetBySpecialProvider(provider)?.OAuth is { } registration
+           && !string.IsNullOrWhiteSpace(registration.ClientId)
+           && _oauthTokenService?.IsRedirectSupported(registration.RedirectKind) != false;
 
     private string GetKnownProviderPasswordCandidate()
     {
