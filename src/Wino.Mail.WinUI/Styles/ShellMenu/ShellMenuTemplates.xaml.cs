@@ -317,7 +317,7 @@ public sealed partial class ShellMenuTemplates
             return;
 
         var items = new List<ContextFlyoutMenuEntry>();
-        if (list.RenameRequested is not null)
+        if (list.CanRename && list.RenameRequested is not null)
         {
             items.Add(CreateContextCommand(
                 Translator.ToDoPage_RenameList,

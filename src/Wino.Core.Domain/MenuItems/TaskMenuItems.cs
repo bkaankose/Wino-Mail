@@ -61,7 +61,7 @@ public sealed class AccountTaskListAccountMenuItem : MenuItemBase<MailAccount, I
     // A pending sign-in can only fail, so the row offers Fix instead of Sync.
     public bool SupportsAccountSynchronization => !IsAttentionRequired && Parameter is
     {
-        ProviderType: MailProviderType.Gmail or MailProviderType.Outlook,
+        ProviderType: MailProviderType.Gmail or MailProviderType.Outlook or MailProviderType.Exchange,
         IsTaskAccessGranted: true,
         IsTaskReauthorizationRequired: false
     };
@@ -143,7 +143,8 @@ public sealed partial class AccountTaskListMenuItem : MenuItemBase<AccountTaskLi
     public string AccountName { get; private set; }
     public string ColorHex => string.IsNullOrWhiteSpace(Parameter?.ColorHex) ? DefaultListColorHex : Parameter.ColorHex;
     public bool IsGrouped => Parameter?.GroupId is not null;
-    public bool CanDelete => Parameter is not null && !Parameter.IsReadOnly && !Parameter.IsOutlookDefaultList;
+    public bool CanRename => Parameter is { IsReadOnly: false, IsFixedProviderList: false };
+    public bool CanDelete => Parameter is { IsReadOnly: false, IsOutlookDefaultList: false, IsFixedProviderList: false };
     public bool CanMoveToGroup => Parameter is not null && !Parameter.IsOutlookDefaultList;
     public IReadOnlyList<AccountTaskListGroup> AvailableGroups { get; private set; } = [];
     public Func<AccountTaskListMenuItem, Task> RenameRequested { get; init; }
@@ -171,6 +172,7 @@ public sealed partial class AccountTaskListMenuItem : MenuItemBase<AccountTaskLi
         OnPropertyChanged(nameof(AccountName));
         OnPropertyChanged(nameof(ColorHex));
         OnPropertyChanged(nameof(IsGrouped));
+        OnPropertyChanged(nameof(CanRename));
         OnPropertyChanged(nameof(CanDelete));
         OnPropertyChanged(nameof(CanMoveToGroup));
         OnPropertyChanged(nameof(AvailableGroups));
