@@ -37,10 +37,11 @@
 	<!-- Single instancing -->
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
 	<NotificationHostBuildSuffix>bin\$(Platform)\$(Configuration)\net10.0-windows10.0.26100.0\$(RuntimeIdentifier)\</NotificationHostBuildSuffix>
-	<NotificationHostPublishRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)\$(BaseIntermediateOutputPath)$(Platform)\$(Configuration)\NotificationHosts'))</NotificationHostPublishRoot>
+	<NotificationHostPublishRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(BaseIntermediateOutputPath)', '$(Platform)', '$(Configuration)', 'NotificationHosts'))</NotificationHostPublishRoot>
 	<NotificationHostOutput Condition="'$(WinoIsReleaseBuild)' != 'true'">$(MSBuildProjectDirectory)\..\Wino.NotificationHost\$(NotificationHostBuildSuffix)</NotificationHostOutput>
 	<NotificationHostOutput Condition="'$(WinoIsReleaseBuild)' == 'true'">$(NotificationHostPublishRoot)</NotificationHostOutput>
-	<WidgetHostPublishRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)\$(BaseIntermediateOutputPath)$(Platform)\$(Configuration)\WidgetHosts'))</WidgetHostPublishRoot>
+	<!-- ArtifactsPath makes BaseIntermediateOutputPath absolute; NormalizeDirectory keeps an absolute part as is. -->
+	<WidgetHostPublishRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(BaseIntermediateOutputPath)', '$(Platform)', '$(Configuration)', 'WidgetHosts'))</WidgetHostPublishRoot>
 	<WidgetHostOutput Condition="'$(WinoIsReleaseBuild)' != 'true'">$(MSBuildProjectDirectory)\..\Wino.WidgetHost\$(NotificationHostBuildSuffix)</WidgetHostOutput>
 	<WidgetHostOutput Condition="'$(WinoIsReleaseBuild)' == 'true'">$(WidgetHostPublishRoot)</WidgetHostOutput>
 </PropertyGroup>
