@@ -7,10 +7,11 @@ using Wino.Presentation.AppKit;
 namespace Wino.Mail.Controls.AppKit.Settings;
 
 /// <summary>
-/// macOS counterpart of the Windows SettingsCard: its own rounded surface (6pt, card fill and
-/// stroke), a 20pt Wino glyph, a title and description column that fills and wraps, and a trailing
-/// control column pinned to the right edge (16pt inset) that hugs its content. Nested rows inside a
-/// <see cref="WinoSettingsExpander"/> drop the surface and indent to the header text column.
+/// macOS counterpart of the Windows SettingsCard: a raised 10pt card (fill, stroke and a soft shadow
+/// that lifts under the pointer), a 30pt tinted icon tile, a title and description column that fills
+/// and wraps, and a trailing control column pinned to the right edge (16pt inset) that hugs its content.
+/// Nested rows inside a <see cref="WinoSettingsExpander"/> drop the surface and the tile's gradient and
+/// indent to the header text column.
 /// </summary>
 public class WinoSettingsCard : NSView
 {
@@ -18,7 +19,7 @@ public class WinoSettingsCard : NSView
     private readonly NSStackView _text;
     private readonly NSTextField _header;
     private readonly NSTextField _description;
-    private readonly WinoIconView _icon;
+    private readonly WinoSettingsIconTile _icon;
     private readonly WinoIconView _chevron;
     private readonly NSLayoutConstraint _iconLeading, _textLeadingToIcon, _textLeadingToEdge, _minHeight;
     private readonly NSLayoutConstraint _textTop, _textBottom;
@@ -34,11 +35,14 @@ public class WinoSettingsCard : NSView
     private bool _isNested;
     private bool _pressed;
     private bool _isExpanderHeader;
+    private bool _hovered;
+    private bool _ownsShadow = true;
 
     public WinoSettingsCard(string header, string? description = null, WinoIconGlyph icon = WinoIconGlyph.None, NSView? content = null)
     {
         WinoLiveObjects.Track(this);
         TranslatesAutoresizingMaskIntoConstraints = false;
+        WantsLayer = true;
         _surface.CornerRadius = WinoSettingsStyle.CardRadius;
         WinoLayout.Fill(_surface, this);
 
@@ -66,8 +70,7 @@ public class WinoSettingsCard : NSView
             label.SetContentCompressionResistancePriority(1, NSLayoutConstraintOrientation.Horizontal);
         }
 
-        _icon = new WinoIconView(icon, WinoSettingsStyle.IconSize);
-        WinoLayout.Size(_icon, WinoSettingsStyle.IconSize, WinoSettingsStyle.IconSize);
+        _icon = new WinoSettingsIconTile(icon);
         _icon.Hidden = icon == WinoIconGlyph.None;
 
         _chevron = new WinoIconView(WinoIconGlyph.ChevronRight, 12, WinoStyle.SecondaryText);
@@ -103,6 +106,7 @@ public class WinoSettingsCard : NSView
         AccessibilityElement = true;
         AccessibilityLabel = header;
         UpdateAccessibilityRole();
+        AddTrackingArea(new NSTrackingArea(CGRect.Empty, NSTrackingAreaOptions.MouseEnteredAndExited | NSTrackingAreaOptions.ActiveInKeyWindow | NSTrackingAreaOptions.InVisibleRect, this, null));
         UpdateSurface();
     }
 
@@ -118,18 +122,32 @@ public class WinoSettingsCard : NSView
         set { _description.StringValue = value ?? string.Empty; _description.Hidden = string.IsNullOrEmpty(value); AccessibilityHelp = value; }
     }
 
-    /// <summary>The Windows HeaderIcon glyph (20pt). <see cref="WinoIconGlyph.None"/> removes the icon column.</summary>
+    /// <summary>The Windows HeaderIcon glyph, drawn on a tinted tile. <see cref="WinoIconGlyph.None"/> removes the icon column.</summary>
     public WinoIconGlyph HeaderIcon
     {
         set
         {
-            _icon.Icon = value;
+            _icon.Glyph = value;
             _icon.Hidden = value == WinoIconGlyph.None;
             UpdateLeading();
         }
     }
 
-    /// <summary>A custom leading view (an account picture) shown instead of the 20pt header icon.</summary>
+    /// <summary>The tile colour; by default it follows <see cref="WinoSettingsStyle.TintFor"/> of the glyph.</summary>
+    public WinoSettingsTint HeaderIconTint
+    {
+        get => _icon.Tint;
+        set => _icon.Tint = value;
+    }
+
+    /// <summary>Expander headers leave the shadow to the expander, which casts one for header and rows together.</summary>
+    internal bool OwnsShadow
+    {
+        get => _ownsShadow;
+        set { _ownsShadow = value; UpdateSurface(); }
+    }
+
+    /// <summary>A custom leading view (an account picture) shown instead of the header icon tile.</summary>
     public NSView? LeadingView
     {
         get => _leadingView;
@@ -277,6 +295,7 @@ public class WinoSettingsCard : NSView
         set
         {
             _isNested = value;
+            _icon.IsPlain = value;
             _minHeight.Constant = (nfloat)(value ? WinoSettingsStyle.NestedRowMinHeight : WinoSettingsStyle.CardMinHeight);
             var vpad = (nfloat)(value ? 8 : WinoSettingsStyle.CardVerticalPadding);
             _textTop.Constant = vpad;
@@ -341,12 +360,30 @@ public class WinoSettingsCard : NSView
         UpdateSurface();
     }
 
+    public override void MouseEntered(NSEvent theEvent)
+    {
+        _hovered = true;
+        UpdateSurface();
+    }
+
+    public override void MouseExited(NSEvent theEvent)
+    {
+        _hovered = false;
+        UpdateSurface();
+    }
+
+    public override void Layout()
+    {
+        base.Layout();
+        UpdateShadow();
+    }
+
     private void UpdateLeading()
     {
         var hasLeading = _leadingView is not null || !_icon.Hidden;
-        var leading = (nfloat)(_isNested ? WinoSettingsStyle.NestedIndent : WinoSettingsStyle.CardPadding);
-        _iconLeading.Constant = leading;
-        _textLeadingToEdge.Constant = leading;
+        // Nested rows keep their glyph in the header's icon column, so their text lines up with the header text.
+        _iconLeading.Constant = (nfloat)WinoSettingsStyle.CardPadding;
+        _textLeadingToEdge.Constant = (nfloat)(_isNested ? WinoSettingsStyle.NestedIndent : WinoSettingsStyle.CardPadding);
         if (_leadingView is not null)
         {
             _textLeadingToIcon.Active = false;
@@ -409,16 +446,32 @@ public class WinoSettingsCard : NSView
             _surface.Fill = _pressed ? WinoSettingsStyle.SelectedFill : null;
             _surface.Stroke = null;
             _surface.CornerRadius = 0;
+            UpdateShadow();
             return;
         }
+        bool lifted = _hovered && _isEnabled;
         _surface.CornerRadius = WinoSettingsStyle.CardRadius;
-        _surface.Fill = _pressed ? WinoSettingsStyle.SubtleFill : WinoSettingsStyle.CardFill;
-        _surface.Stroke = WinoSettingsStyle.CardStroke;
+        _surface.Fill = _pressed ? WinoSettingsStyle.CardPressedFill : WinoSettingsStyle.CardFill;
+        _surface.Stroke = lifted ? WinoSettingsStyle.CardStrokeHover : WinoSettingsStyle.CardStroke;
+        UpdateShadow();
+    }
+
+    private void UpdateShadow()
+    {
+        if (Layer is not { } layer) return;
+        if (_isNested || !_ownsShadow || Bounds.IsEmpty)
+        {
+            WinoSettingsStyle.ClearCardShadow(layer);
+            return;
+        }
+        WinoSettingsStyle.ApplyCardShadow(layer, Bounds, WinoIcons.IsDark(EffectiveAppearance), _hovered && _isEnabled && !_pressed);
     }
 
     private void ApplyEnabled()
     {
         AlphaValue = _isEnabled ? 1 : 0.55f;
+        _icon.IsMuted = !_isEnabled;
+        UpdateSurface();
         if (_content is not null) SetControlsEnabled(_content, _isEnabled);
         if (_bottomContent is not null) SetControlsEnabled(_bottomContent, _isEnabled);
         AccessibilityEnabled = _isEnabled;
