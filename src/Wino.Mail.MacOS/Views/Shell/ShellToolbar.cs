@@ -241,6 +241,11 @@ internal sealed class ShellToolbar : NSToolbarDelegate
             case AccountId:
                 _accountItem = Button(AccountId, WinoIconGlyph.Person, Translator.WinoAccount_Titlebar_SignedOutTitle, null);
                 var view = (NSButton)_accountItem.View!;
+                if ((NSImage.ImageNamed("AppIcon") ?? NSApplication.SharedApplication.ApplicationIconImage)?.Copy() is NSImage logo)
+                {
+                    logo.Size = new CGSize(22, 22);
+                    view.Image = logo;
+                }
                 view.Activated += (_, _) => Safe(() => _account(view));
                 _accountItem.Hidden = _accountHidden;
                 return _accountItem;
