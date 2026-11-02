@@ -63,10 +63,16 @@ public sealed class MacBoundKeyAttestationProvider : IDeviceAttestationProvider
         }, cancellationToken);
     }
 
-    /// <summary>Every registration starts from a fresh key; the previous one belongs to a device the API no longer uses.</summary>
+    /// <summary>
+    /// Registrations reuse the install's key while it can still sign, so the API recognises the install by its public key
+    /// and keeps its device id. A new key is made only when none is usable.
+    /// </summary>
     private DeviceAttestation Attest(string nonce)
     {
         var data = Encoding.UTF8.GetBytes(nonce);
+        if (TryAttestWithExistingKey(data) is { } existing)
+            return existing;
+
         DeleteEnclaveKey(ApplicationTag);
         DeleteSoftwareKey();
 
@@ -101,6 +107,43 @@ public sealed class MacBoundKeyAttestationProvider : IDeviceAttestationProvider
         return new DeviceAttestation(DeviceAttestationKind.BoundKey, KeyId: SoftwarePrefix + SoftwareAccount,
             PublicKey: Convert.ToBase64String(ecdsa.ExportSubjectPublicKeyInfo()),
             Signature: Convert.ToBase64String(ecdsa.SignData(data, HashAlgorithmName.SHA256)));
+    }
+
+    private DeviceAttestation? TryAttestWithExistingKey(byte[] data)
+    {
+        try
+        {
+            using (var key = LoadEnclaveKey(ApplicationTag))
+            {
+                if (key is not null)
+                {
+                    return new DeviceAttestation(DeviceAttestationKind.BoundKey, KeyId: EnclavePrefix + ApplicationTag,
+                        PublicKey: Convert.ToBase64String(ExportSubjectPublicKeyInfo(key)), Signature: Convert.ToBase64String(SignWithEnclave(key, data)));
+                }
+            }
+
+            var pkcs8 = _secureItems.Read(Scope, SoftwareAccount);
+            if (pkcs8 is null || pkcs8.Length == 0)
+                return null;
+
+            try
+            {
+                using var ecdsa = ECDsa.Create();
+                ecdsa.ImportPkcs8PrivateKey(pkcs8, out _);
+                return new DeviceAttestation(DeviceAttestationKind.BoundKey, KeyId: SoftwarePrefix + SoftwareAccount,
+                    PublicKey: Convert.ToBase64String(ecdsa.ExportSubjectPublicKeyInfo()),
+                    Signature: Convert.ToBase64String(ecdsa.SignData(data, HashAlgorithmName.SHA256)));
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(pkcs8);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.Information("The existing relay device key cannot sign ({Error}); creating a new one.", ex.GetType().Name);
+            return null;
+        }
     }
 
     private static SecKey CreateEnclaveKey(string tag)

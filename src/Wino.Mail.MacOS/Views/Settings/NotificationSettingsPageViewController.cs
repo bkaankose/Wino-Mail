@@ -163,6 +163,12 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
         Add(signIn);
 
         Add(TextInfoBar(nameof(vm.PushRelayProblemText), s => s.PushRelayProblemText));
+
+        var reconnect = Card(Translator.NotificationSettings_PushRelay_ReconnectTitle, Translator.NotificationSettings_PushRelay_ReconnectDescription, WinoIconGlyph.Flash,
+            Bind.Button(Translator.NotificationSettings_PushRelay_Reconnect, vm.ReconnectRelayCommand));
+        Bind.Visible(reconnect, vm, nameof(vm.IsRelayReconnectVisible), s => s.IsRelayReconnectVisible);
+        Add(reconnect);
+
         Add(TextInfoBar(nameof(vm.PushRelayMailboxWarningText), s => s.PushRelayMailboxWarningText));
     }
 

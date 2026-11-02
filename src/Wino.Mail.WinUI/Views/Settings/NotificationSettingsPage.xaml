@@ -69,6 +69,16 @@
                 Message="{x:Bind ViewModel.PushRelayProblemText, Mode=OneWay}"
                 Severity="Warning"
                 Visibility="{x:Bind helpers:XamlHelpers.TextToVisibility(ViewModel.PushRelayProblemText), Mode=OneWay}" />
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="NotificationSettingsRelayReconnectCard"
+                Description="{x:Bind domain:Translator.NotificationSettings_PushRelay_ReconnectDescription, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.NotificationSettings_PushRelay_ReconnectTitle, Mode=OneTime}"
+                Visibility="{x:Bind ViewModel.IsRelayReconnectVisible, Mode=OneWay}">
+                <Button
+                    AutomationProperties.AutomationId="NotificationSettingsRelayReconnectButton"
+                    Command="{x:Bind ViewModel.ReconnectRelayCommand}"
+                    Content="{x:Bind domain:Translator.NotificationSettings_PushRelay_Reconnect, Mode=OneTime}" />
+            </controls:SettingsCard>
             <InfoBar
                 AutomationProperties.AutomationId="NotificationSettingsInstantPushMailboxWarningInfoBar"
                 IsClosable="False"

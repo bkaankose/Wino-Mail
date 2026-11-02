@@ -443,6 +443,16 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
         });
     }
 
+    /// <summary>Desktop: live updates are selected but the relay socket is down, so the user may ask for an immediate retry.</summary>
+    [ObservableProperty]
+    public partial bool IsRelayReconnectVisible { get; set; }
+
+    [RelayCommand]
+    private void ReconnectRelay() => _syncCoordinator?.RequestRelayRetry(RelayRetryTrigger.UserRequested);
+
+    private void RelayHealthChanged(object? sender, EventArgs e)
+        => _ = ExecuteUIThread(() => IsRelayReconnectVisible = _syncCoordinator?.IsFallbackActive == true);
+
     private void PushRelaySnapshotChanged(object? sender, PushRelayRegistrationSnapshot snapshot)
         => _ = ExecuteUIThread(() => ApplyPushRelaySnapshot(snapshot));
 
@@ -521,6 +531,11 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
             return;
 
         _pushRelay.SnapshotChanged += PushRelaySnapshotChanged;
+        if (_syncCoordinator is not null)
+        {
+            _syncCoordinator.Changed += RelayHealthChanged;
+            IsRelayReconnectVisible = _syncCoordinator.IsFallbackActive;
+        }
         _isSubscribedToPushRelay = true;
     }
 
@@ -530,6 +545,8 @@ public partial class NotificationSettingsPageViewModel : CoreBaseViewModel,
             return;
 
         _pushRelay.SnapshotChanged -= PushRelaySnapshotChanged;
+        if (_syncCoordinator is not null)
+            _syncCoordinator.Changed -= RelayHealthChanged;
         _isSubscribedToPushRelay = false;
     }
 

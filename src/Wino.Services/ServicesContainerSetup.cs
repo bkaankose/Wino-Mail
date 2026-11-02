@@ -196,6 +196,7 @@ public static class ServicesContainerSetup
             () => provider.GetService<INotificationBuilder>(),
             provider.GetService<IPushRelayAppManagedRegistrationStore>(),
             provider.GetRequiredService<IRelayAlertCoverage>(),
-            provider.GetService<IPushRelayDeviceInfo>()));
+            provider.GetService<IPushRelayDeviceInfo>(),
+            provider.GetService<IPushRelayClient>()));
     }
 }
