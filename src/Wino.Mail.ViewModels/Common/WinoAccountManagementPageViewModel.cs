@@ -306,9 +306,8 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     }
 
     /// <summary>
-    /// Builds the four signed-out offers. Every call to action starts with sign-in,
-    /// including the two add-ons: a purchase cannot begin without an authenticated Wino
-    /// Account, which is what <see cref="PurchaseAddOnAsync"/> enforces anyway.
+    /// Builds the four signed-out offers. Every call to action starts with sign-in, except Unlimited Accounts on
+    /// App Store builds: the App Store sells it without a Wino Account, and it can be redeemed onto one later.
     /// </summary>
     private void SeedBenefits()
     {
@@ -386,7 +385,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             ],
             Translator.WinoAccount_Management_Benefit_Unlimited_Cta,
             WinoIconGlyph.BenefitUnlimitedAccounts)
-        { CtaCommand = SignInCommand });
+        { CtaCommand = IsAppStoreAvailable ? PurchaseUnlimitedAccountsFromAppStoreCommand : SignInCommand });
 
         SelectedBenefit = Benefits[0];
     }
@@ -676,6 +675,10 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
         return await _dialogService.ShowUnlimitedAccountsPurchaseChannelDialogAsync();
     }
+
+    [RelayCommand]
+    private Task PurchaseUnlimitedAccountsFromAppStoreAsync()
+        => IsCheckoutInProgress ? Task.CompletedTask : PurchaseFromAppStoreAsync(_unlimitedAccountsAddOn);
 
     private async Task PurchaseFromAppStoreAsync(WinoAddOnItemViewModel addOn)
     {
