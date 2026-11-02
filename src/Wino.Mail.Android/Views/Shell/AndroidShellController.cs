@@ -57,7 +57,7 @@ public sealed class AndroidShellController
     public async Task ActivateAsync()
     {
         await Dispatcher.ExecuteOnUIThread(() => ViewModel.OnNavigatedTo(NavigationMode.New, null));
-        var start = ShellModeActivator.StartMode(ViewModel.StatePersistenceService, _navigation.IsModeAvailable);
+        var start = ShellModeActivator.StartMode(ViewModel.StatePersistenceService, _navigation.IsModeAvailable, ViewModel.PreferencesService.HiddenApplicationModes);
         await ActivateModeAsync(start, new ShellModeActivationContext { IsInitialActivation = true });
     }
 

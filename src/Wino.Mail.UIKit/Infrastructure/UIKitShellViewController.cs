@@ -76,7 +76,7 @@ public abstract class UIKitShellViewController : WinoViewController<WinoAppShell
     protected override async Task InitializeAsync(NavigationMode mode, object? parameter)
     {
         ViewModel.OnNavigatedTo(mode, parameter);
-        await ActivateModeAsync(ShellModeActivator.StartMode(_state), new ShellModeActivationContext { IsInitialActivation = true });
+        await ActivateModeAsync(ShellModeActivator.StartMode(_state, hiddenModes: ViewModel.PreferencesService.HiddenApplicationModes), new ShellModeActivationContext { IsInitialActivation = true });
     }
 
     /// <summary>
