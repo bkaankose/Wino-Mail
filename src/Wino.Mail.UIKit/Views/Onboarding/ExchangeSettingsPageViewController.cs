@@ -24,7 +24,7 @@ public sealed class ExchangeSettingsPageViewController(ExchangeSettingsPageViewM
         var vm = ViewModel;
         var form = new FormBinder<ExchangeSettingsPageViewModel>(vm, Bindings, Dispatcher, ReportError);
 
-        var icon = new WinoIconView(WinoIconGlyph.Microsoft, 44);
+        var icon = new WinoIconView(WinoIconGlyph.Exchange, 44);
         WinoLayout.Size(icon, 44, 44);
         var header = OnboardingPageView.Header(icon, new UILabel { Text = Translator.ExchangeSetup_Title },
             new UILabel { Text = Translator.ExchangeSetup_Description });

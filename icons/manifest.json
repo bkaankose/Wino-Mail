@@ -2258,18 +2258,14 @@
       "layers": [
         {
           "svg": "Yandex.layer1.svg",
-          "color": "#FFDA3E"
+          "color": "#FC3F1D"
         },
         {
           "svg": "Yandex.layer2.svg",
-          "color": "#FFCC00"
-        },
-        {
-          "svg": "Yandex.layer3.svg",
-          "color": "#FF3333"
+          "color": "#FFFFFF"
         }
       ],
-      "source": "wikimedia-commons"
+      "source": "Traced from the current Yandex logo (Assets/Providers/Yandex.png)"
     },
     {
       "name": "BtMail",
@@ -2395,6 +2391,34 @@
       "codepoint": "E0CC",
       "svg": "ChevronLeft.svg",
       "source": "fluent:chevron_left"
+    },
+    {
+      "name": "Exchange",
+      "codepoint": "E0CD",
+      "svg": "Exchange.svg",
+      "layers": [
+        {
+          "svg": "Exchange.layer1.svg",
+          "color": "#50D9FF"
+        },
+        {
+          "svg": "Exchange.layer2.svg",
+          "color": "#28A8EA"
+        },
+        {
+          "svg": "Exchange.layer3.svg",
+          "color": "#0078D4"
+        },
+        {
+          "svg": "Exchange.layer4.svg",
+          "color": "#0364B8"
+        },
+        {
+          "svg": "Exchange.layer5.svg",
+          "color": "#FFFFFF"
+        }
+      ],
+      "source": "Traced from the Microsoft Exchange product logo (Assets/Providers/Exchange.png)"
     }
   ]
 }

@@ -156,7 +156,7 @@ public static class MailProviderGlyphs
             return providerType switch
             {
                 MailProviderType.Outlook => WinoIconGlyph.Microsoft,
-                MailProviderType.Exchange => WinoIconGlyph.Microsoft,
+                MailProviderType.Exchange => WinoIconGlyph.Exchange,
                 MailProviderType.Gmail => WinoIconGlyph.Google,
                 MailProviderType.IMAP4 => WinoIconGlyph.IMAP,
                 _ => WinoIconGlyph.None,

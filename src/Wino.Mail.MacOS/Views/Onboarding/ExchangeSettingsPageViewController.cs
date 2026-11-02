@@ -25,7 +25,7 @@ public sealed class ExchangeSettingsPageViewController(ExchangeSettingsPageViewM
         var vm = ViewModel;
         _form = new FormBinder<ExchangeSettingsPageViewModel>(vm, Bindings, Dispatcher, ReportError);
 
-        var icon = new WinoIconView(WinoIconGlyph.Microsoft, 48);
+        var icon = new WinoIconView(WinoIconGlyph.Exchange, 48);
         WinoLayout.Size(icon, 48, 48);
         var header = OnboardingPageView.Header(icon, NSTextField.CreateLabel(Translator.ExchangeSetup_Title),
             NSTextField.CreateLabel(Translator.ExchangeSetup_Description));
@@ -109,7 +109,7 @@ public sealed class ExchangeSettingsPageViewController(ExchangeSettingsPageViewM
 
         var organization = _form.Command(Translator.ImapSetup_SignInWithOrganization, vm.SignInWithOrganizationCommand);
         organization.ControlSize = NSControlSize.Large;
-        organization.Image = WinoIcons.Image(WinoIconGlyph.Microsoft, 16);
+        organization.Image = WinoIcons.Image(WinoIconGlyph.Exchange, 16);
         organization.ImagePosition = NSCellImagePosition.ImageLeading;
         var organizationRow = WinoLayout.HStack(0, WinoLayout.Spacer(), organization, WinoLayout.Spacer());
         _form.Visible(organizationRow, nameof(vm.IsModernAuthStageVisible), s => s.IsModernAuthStageVisible);
