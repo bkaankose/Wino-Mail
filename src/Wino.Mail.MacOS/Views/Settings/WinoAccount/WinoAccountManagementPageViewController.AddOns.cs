@@ -71,7 +71,7 @@ public sealed partial class WinoAccountManagementPageViewController
             WinoIntelligenceBrand.Chip(WinoIconGlyph.Translate, Translator.WinoAccount_Management_AiPackFeatureTranslate),
             WinoIntelligenceBrand.Chip(WinoIconGlyph.Edit, Translator.WinoAccount_Management_AiPackFeatureRewrite),
             WinoIntelligenceBrand.Chip(WinoIconGlyph.Tag, Translator.WinoAccount_Management_AiPackFeatureLabels),
-        ], 8, 400);
+        ], 8, ChipFlowWidth);
         var column = WinoLayout.VStack(12, pitch, chips);
         column.Alignment = NSLayoutAttribute.Leading;
         column.SetHuggingPriority(1, NSLayoutConstraintOrientation.Horizontal);
@@ -96,8 +96,7 @@ public sealed partial class WinoAccountManagementPageViewController
         WinoLayout.Size(side, 180);
         foreach (var view in new NSView[] { get, price, error }) view.WidthAnchor.ConstraintEqualTo(side.WidthAnchor).Active = true;
 
-        var row = WinoLayout.HStack(20, art, column, side);
-        row.Alignment = NSLayoutAttribute.CenterY;
+        var row = SettingsAdaptiveRow.IntelligencePromo(art, column, side, PromoBreakpoint);
         var surface = new WinoSurfaceView
         {
             // Windows WinoIntelligenceBrandSurfaceBrush: a faint wash of the brand colour.
@@ -107,7 +106,7 @@ public sealed partial class WinoAccountManagementPageViewController
         if (_capabilities.AppleAppStore)
         {
             // Guideline 3.1.2: the length, renewal and the Terms of Use and Privacy Policy links sit next to the purchase.
-            var stack = WinoLayout.VStack(14, row, AppStoreSubscriptionTerms());
+            var stack = WinoLayout.VStack(14, row, AppStoreSubscriptionTerms.Create());
             stack.Alignment = NSLayoutAttribute.Leading;
             row.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
             WinoLayout.Fill(stack, surface, 20);
@@ -119,27 +118,11 @@ public sealed partial class WinoAccountManagementPageViewController
         return surface;
     }
 
-    private NSView AppStoreSubscriptionTerms()
-    {
-        var terms = WinoStyle.Label(Translator.WinoAccount_Management_AiPackAppStoreTerms, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
-        var links = WinoLayout.HStack(16,
-            UrlLinkButton(Translator.WinoAccount_Management_TermsOfUse, AppUrls.AppleStandardEula),
-            UrlLinkButton(Translator.SettingsPrivacyPolicy_Title, AppUrls.PrivacyPolicy));
-        var stack = WinoLayout.VStack(4, terms, links);
-        stack.Alignment = NSLayoutAttribute.Leading;
-        terms.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
-        return stack;
-    }
+    /// <summary>The chip rows wrap at this width; with the illustration and button column it sets the row's minimum.</summary>
+    internal const double ChipFlowWidth = 300;
 
-    private NSButton UrlLinkButton(string title, string url)
-    {
-        var button = new NSButton { Bordered = false, TranslatesAutoresizingMaskIntoConstraints = false };
-        button.SetButtonType(NSButtonType.MomentaryChange);
-        button.AttributedTitle = new NSAttributedString(title, new NSStringAttributes { ForegroundColor = WinoStyle.Accent, Font = NSFont.SystemFontOfSize(12) });
-        WinoAccessibility.Label(button, title);
-        Bind.OnActivated(button, () => NSWorkspace.SharedWorkspace.OpenUrl(new NSUrl(url)));
-        return button;
-    }
+    /// <summary>Above the side-by-side minimum (illustration 96 + chips 300 + buttons 180 + spacing 40).</summary>
+    internal const double PromoBreakpoint = 640;
 
     /// <summary>Wino Intelligence, purchased: billing period, monthly allowance and usage, then where mailboxes and consent are managed.</summary>
     private NSView IntelligenceExpander()

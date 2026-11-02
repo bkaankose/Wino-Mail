@@ -658,6 +658,9 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
     private bool IsAppStoreAvailable => _platformCapabilities.AppleAppStore && _appStorePurchases?.IsAvailable == true;
 
+    /// <summary>The build sells add-ons through the App Store, which shows prices and subscription terms in the app.</summary>
+    public bool UsesAppStorePurchases => _platformCapabilities.AppleAppStore;
+
     /// <summary>App Store builds call the refresh "Restore Purchases", the wording App Review looks for.</summary>
     public string RefreshPurchasesText => _platformCapabilities.AppleAppStore
         ? Translator.WinoAccount_Management_RestorePurchases

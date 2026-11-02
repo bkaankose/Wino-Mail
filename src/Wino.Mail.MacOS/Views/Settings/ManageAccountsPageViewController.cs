@@ -34,12 +34,11 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
         var vm = ViewModel;
 
         // Windows header row: the square Add account tile, then the account-limit card filling the rest of the row.
+        // Narrow windows stack the card under the tile.
         var purchase = Bind.Visible(PurchasePanel(), vm, nameof(vm.IsPurchasePanelVisible), s => s.IsPurchasePanelVisible);
-        var header = WinoLayout.HStack(12, AddAccountTile(), purchase);
-        header.Alignment = NSLayoutAttribute.Top;
-        header.Distribution = NSStackViewDistribution.Fill;
         purchase.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
-        Add(header);
+        var header = Add(new SettingsAdaptiveRow(HeaderBreakpoint, 12, NSLayoutAttribute.Top, null, AddAccountTile(), purchase));
+        purchase.WidthAnchor.ConstraintLessThanOrEqualTo(header.WidthAnchor).Active = true;
 
         // Windows list header: Merge inboxes (with its "Mail only" scope tag) and Reorder, above the accounts.
         var merge = CommandCard(Translator.SettingsLinkAccounts_Title, Translator.SettingsLinkAccounts_Description, WinoIconGlyph.PeopleLink, vm.CreateMergedAccountCommand);
@@ -84,6 +83,9 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
 
     private const double TileSize = 200;
 
+    /// <summary>Above the side-by-side minimum: the tile, the gap and the card's widest bottom line.</summary>
+    private const double HeaderBreakpoint = 560;
+
     /// <summary>
     /// Account limits (Windows PurchasePanel): the free-account heading, which purchase channels are open, the used/free
     /// count with its meter (amber one below the limit, red at the limit) and the accent purchase button at the bottom
@@ -122,19 +124,20 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
 
         var purchase = Bind.Button(Translator.WinoUpgradeMessage, vm.PurchaseUnlimitedAccountCommand, primary: true, icon: WinoIconGlyph.Sparkle);
         purchase.SetValueForKey(new Foundation.NSString("AccountManagementPagePurchaseButton"), new Foundation.NSString("accessibilityIdentifier"));
-        var footer = WinoLayout.HStack(12);
+        // Two lines, so the card stays narrow enough to sit beside the tile: price and restore, then the purchase.
+        var footer = WinoLayout.VStack(8);
+        footer.Alignment = NSLayoutAttribute.Trailing;
         if (vm.IsAppStoreRestoreAvailable)
         {
-            footer.AddArrangedSubview(Bind.Label(vm, nameof(vm.AppStoreUnlimitedAccountsPriceText), s => s.AppStoreUnlimitedAccountsPriceText, WinoStyle.Caption, WinoStyle.SecondaryText));
-            footer.AddArrangedSubview(WinoLayout.Spacer());
-            footer.AddArrangedSubview(Bind.Button(Translator.WinoAccount_Management_RestorePurchases, vm.RestoreAppStorePurchasesCommand));
-        }
-        else
-        {
-            footer.AddArrangedSubview(WinoLayout.Spacer());
+            var store = WinoLayout.HStack(12,
+                Bind.Label(vm, nameof(vm.AppStoreUnlimitedAccountsPriceText), s => s.AppStoreUnlimitedAccountsPriceText, WinoStyle.Caption, WinoStyle.SecondaryText),
+                WinoLayout.Spacer(),
+                Bind.Button(Translator.WinoAccount_Management_RestorePurchases, vm.RestoreAppStorePurchasesCommand));
+            store.Alignment = NSLayoutAttribute.CenterY;
+            footer.AddArrangedSubview(store);
+            store.WidthAnchor.ConstraintEqualTo(footer.WidthAnchor).Active = true;
         }
         footer.AddArrangedSubview(purchase);
-        footer.Alignment = NSLayoutAttribute.CenterY;
 
         var stack = WinoLayout.VStack(6, heading, channels, WinoLayout.Spacer(), meterStack, WinoLayout.Spacer(), footer);
         stack.Alignment = NSLayoutAttribute.Leading;
