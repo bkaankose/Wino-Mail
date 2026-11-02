@@ -219,7 +219,9 @@ function Invoke-Notes {
 
     $refIssues = foreach ($number in @($windowsCommits | ForEach-Object Refs | Sort-Object -Unique)) {
         if ($known.ContainsKey($number)) { continue }
-        $issue = Get-GhJson @('issue', 'view', "$number", '--repo', $script:Repository, '--json', $issueFields)
+        # A Refs: trailer can name a discussion or pull request; gh issue view rejects those.
+        try { $issue = Get-GhJson @('issue', 'view', "$number", '--repo', $script:Repository, '--json', $issueFields) }
+        catch { Write-Warning "Skipping #${number} from a Refs: trailer: it is not an issue."; continue }
         $known[$number] = $issue
         $issue
     }
