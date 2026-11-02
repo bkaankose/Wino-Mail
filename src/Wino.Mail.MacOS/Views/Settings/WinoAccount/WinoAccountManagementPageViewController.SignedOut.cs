@@ -98,6 +98,8 @@ public sealed partial class WinoAccountManagementPageViewController
             if (row.ArrangedSubviews.Length == 1) row.AddArrangedSubview(new NSView { TranslatesAutoresizingMaskIntoConstraints = false });
             AddTo(grid, row);
         }
+        // Every offer takes the height of the tallest, so captions that wrap differently do not stagger the grid.
+        foreach (var tile in _benefitTiles.Skip(1)) tile.HeightAnchor.ConstraintEqualTo(_benefitTiles[0].HeightAnchor).Active = true;
         WinoAccessibility.Label(grid, Translator.WinoAccount_Management_BenefitsSectionHeader);
         grid.AccessibilityElement = true;
         grid.AccessibilityRole = NSAccessibilityRoles.RadioGroupRole;
