@@ -175,6 +175,13 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     [ObservableProperty]
     public partial string UnlimitedAccountsSubtitleText { get; set; } = string.Empty;
 
+    /// <summary>The App Store price line for Wino Intelligence; empty outside App Store builds or until StoreKit answers.</summary>
+    [ObservableProperty]
+    public partial string AppStoreAiPackPriceText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string AppStoreUnlimitedAccountsPriceText { get; set; } = string.Empty;
+
     /// <summary>
     /// Shown when this device has a Microsoft Store Unlimited Accounts purchase that the signed-in
     /// Wino Account can redeem. Redeeming is always the user's choice.
@@ -651,6 +658,11 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     public bool IsPurchaseAvailable => _platformCapabilities.Purchases;
 
     private bool IsAppStoreAvailable => _platformCapabilities.AppleAppStore && _appStorePurchases?.IsAvailable == true;
+
+    /// <summary>App Store builds call the refresh "Restore Purchases", the wording App Review looks for.</summary>
+    public string RefreshPurchasesText => _platformCapabilities.AppleAppStore
+        ? Translator.WinoAccount_Management_RestorePurchases
+        : Translator.WinoAccount_Management_RefreshPurchases;
 
     /// <summary>
     /// App Store builds offer other channels only where Apple allows it (the United States storefront);
@@ -1144,6 +1156,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     {
         if (IsAppStoreAvailable && _appStorePurchases is not null)
         {
+            await RefreshAppStorePricesAsync(_appStorePurchases, session).ConfigureAwait(false);
             await RefreshAppStoreRedeemCandidateAsync(_appStorePurchases, session).ConfigureAwait(false);
             return;
         }
@@ -1174,6 +1187,24 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     /// The service returns no candidate when signed out, when the account already has the add-on, or when
     /// the user already tried that purchase.
     /// </summary>
+    private async Task RefreshAppStorePricesAsync(IWinoAppStorePurchaseService appStorePurchases, WinoAccountSession? session)
+    {
+        var cancellationToken = session?.CancellationToken ?? default;
+        string? aiPackPrice, unlimitedPrice;
+        try
+        {
+            aiPackPrice = await appStorePurchases.GetDisplayPriceAsync(WinoAddOnProductType.AI_PACK, cancellationToken).ConfigureAwait(false);
+            unlimitedPrice = await appStorePurchases.GetDisplayPriceAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { return; }
+
+        await ApplySessionUIAsync(session, () =>
+        {
+            AppStoreAiPackPriceText = aiPackPrice is null ? string.Empty : string.Format(Translator.WinoAccount_Management_AiPackAppStorePrice, aiPackPrice);
+            AppStoreUnlimitedAccountsPriceText = unlimitedPrice is null ? string.Empty : string.Format(Translator.WinoAccount_Management_UnlimitedAppStorePrice, unlimitedPrice);
+        });
+    }
+
     private async Task RefreshAppStoreRedeemCandidateAsync(IWinoAppStorePurchaseService appStorePurchases, WinoAccountSession? session)
     {
         var hasCandidate = false;

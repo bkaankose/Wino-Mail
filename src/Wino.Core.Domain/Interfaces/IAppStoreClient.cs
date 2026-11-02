@@ -15,6 +15,9 @@ public interface IAppStoreClient
     /// <summary>The App Store storefront country (ISO 3166-1 alpha-3, such as "USA"), or null when unknown.</summary>
     Task<string?> GetStorefrontCountryCodeAsync();
 
+    /// <summary>The localized price of each product StoreKit returns, keyed by product ID.</summary>
+    Task<Dictionary<string, string>> GetDisplayPricesAsync(IEnumerable<string> productIds);
+
     /// <summary>The purchases the Apple Account currently owns, including active subscriptions.</summary>
     Task<IReadOnlyList<AppStoreTransactionInfo>> GetCurrentEntitlementsAsync();
 

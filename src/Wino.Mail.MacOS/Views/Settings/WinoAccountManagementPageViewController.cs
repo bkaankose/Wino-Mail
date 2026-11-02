@@ -57,7 +57,7 @@ public sealed partial class WinoAccountManagementPageViewController(WinoAccountM
 
         // Windows: the purchase status bar is not closable; the cached refresh error bar is.
         AddContent(CommandBar(WinoInfoBarSeverity.Informational, nameof(vm.PurchaseStatusMessage), s => s.PurchaseStatusMessage,
-            Translator.WinoAccount_Management_RefreshPurchases, vm.RefreshPurchasesCommand));
+            vm.RefreshPurchasesText, vm.RefreshPurchasesCommand));
         var refreshError = CommandBar(WinoInfoBarSeverity.Warning, nameof(vm.IntelligenceRefreshError), s => s.IntelligenceRefreshError,
             Translator.Buttons_Retry, vm.RetryIntelligenceRefreshCommand);
         refreshError.IsClosable = true;

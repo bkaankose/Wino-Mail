@@ -69,6 +69,21 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         _appStorePurchases = appStorePurchases;
     }
 
+    /// <summary>The App Store price line for Unlimited Accounts; empty outside App Store builds or until StoreKit answers.</summary>
+    [ObservableProperty]
+    public partial string AppStoreUnlimitedAccountsPriceText { get; set; } = string.Empty;
+
+    public bool IsAppStoreRestoreAvailable => PlatformCapabilities.AppleAppStore && _appStorePurchases?.IsAvailable == true;
+
+    [RelayCommand]
+    private async Task RestoreAppStorePurchasesAsync()
+    {
+        if (!IsAppStoreRestoreAvailable || _appStorePurchases is null) return;
+
+        await _appStorePurchases.RestoreAsync().ConfigureAwait(false);
+        await ManageStorePurchasesAsync().ConfigureAwait(false);
+    }
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ExportLocalDataCommand))]
     [NotifyCanExecuteChangedFor(nameof(ImportLocalDataCommand))]
@@ -438,6 +453,14 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
 
         await ManageStorePurchasesAsync().ConfigureAwait(false);
+
+        if (IsAppStoreRestoreAvailable && _appStorePurchases is not null)
+        {
+            var price = await _appStorePurchases.GetDisplayPriceAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS).ConfigureAwait(false);
+            await ExecuteUIThread(() => AppStoreUnlimitedAccountsPriceText = price is null
+                ? string.Empty
+                : string.Format(Translator.WinoAccount_Management_UnlimitedAppStorePrice, price));
+        }
     }
 
     private static string BuildExportSuccessMessage(Wino.Core.Domain.Models.Accounts.WinoAccountSyncExportResult result)

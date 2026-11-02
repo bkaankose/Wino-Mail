@@ -83,6 +83,14 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
         var bottom = WinoLayout.VStack(6, usage, meter);
         bottom.Alignment = NSLayoutAttribute.Leading;
         meter.WidthAnchor.ConstraintEqualTo(bottom.WidthAnchor).Active = true;
+        if (vm.IsAppStoreRestoreAvailable)
+        {
+            // Unlimited Accounts is bought without a Wino Account, so its price and Restore Purchases live here too.
+            var price = Bind.Label(vm, nameof(vm.AppStoreUnlimitedAccountsPriceText), s => s.AppStoreUnlimitedAccountsPriceText, NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText);
+            var restore = Bind.Button(Translator.WinoAccount_Management_RestorePurchases, vm.RestoreAppStorePurchasesCommand);
+            bottom.AddArrangedSubview(WinoLayout.HStack(12, price, WinoLayout.Spacer(), restore));
+            bottom.ArrangedSubviews[^1].WidthAnchor.ConstraintEqualTo(bottom.WidthAnchor).Active = true;
+        }
         card.BottomContent = bottom;
         return card;
     }
