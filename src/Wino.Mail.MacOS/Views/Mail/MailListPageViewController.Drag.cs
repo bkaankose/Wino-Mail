@@ -104,6 +104,7 @@ public sealed partial class MailListPageViewController
 
     private void DragWillBegin(NSDraggingSession session, CGPoint screenPoint, NSIndexSet rows)
     {
+        _dragBeganInClick = true;
         var mails = DraggedMails(rows);
         if (mails.Count == 0) return;
 
