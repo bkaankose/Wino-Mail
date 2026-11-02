@@ -1390,6 +1390,8 @@
   "CalendarSettings_CalendarRendering_Description": "Adjust calendar timeline rendering options.",
   "CalendarSettings_HourHeight_Header": "Hour height",
   "CalendarSettings_HourHeight_Description": "How many pixels should 1 hour representation occupy in daily/weekly calendars.",
+  "CalendarSettings_CurrentTimeLine_Header": "Current time line",
+  "CalendarSettings_CurrentTimeLine_Description": "Show a line at the current time in daily and weekly calendars.",
   "CalendarSettings_ClockIdentifierForHeaders_Header": "Clock identifier for headers",
   "CalendarSettings_ClockIdentifierForHeaders_Description": "Set whether you want to use AM/PM or 24 hour clock identifier.",
   "CalendarSettings_TimedDayHeaderFormat_Header": "Timed view day header format",

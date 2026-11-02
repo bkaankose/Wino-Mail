@@ -111,6 +111,8 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         _wheelSettleTimer.Interval = WheelSettleDelay;
         _wheelSettleTimer.IsRepeating = false;
         _wheelSettleTimer.Tick += WheelSettleTimerTick;
+
+        StartCurrentTimeTimer();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -329,6 +331,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         {
             TimedRoot.Visibility = Visibility.Collapsed;
             MonthRoot.Visibility = Visibility.Visible;
+            _isTimedScrollPositioned = false;
 
             var monthBodyHeight = Math.Max(0d, ActualHeight - MonthHeaderHeight);
 
@@ -365,11 +368,13 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             TimedAllDayHost.Width = timedSurfaceWidth;
 
             RenderHourLabels();
+            PositionTimedScrollOnce();
         }
 
         RecycleAllUnits();
         UpdateRailWindow(forceRelayout: true);
         UpdateRailClips();
+        UpdateCurrentTimeLine();
     }
 
     private static bool HasMeaningfulSizeChange(SizeChangedEventArgs e)
@@ -417,6 +422,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         _sizeRefreshTimer.Stop();
         _sizeRefreshTimer.Tick -= SizeRefreshTimerTick;
         _wheelSettleTimer.Tick -= WheelSettleTimerTick;
+        StopCurrentTimeTimer();
         ReleaseCanvases();
         ReleaseRail();
     }

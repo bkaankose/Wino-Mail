@@ -166,6 +166,18 @@
                 </controls:SettingsCard>
 
                 <controls:SettingsCard
+                    AutomationProperties.AutomationId="CalendarRenderingSettingsPageCurrentTimeLineCard"
+                    Description="{x:Bind domain:Translator.CalendarSettings_CurrentTimeLine_Description, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.CalendarSettings_CurrentTimeLine_Header, Mode=OneTime}">
+                    <ToggleSwitch
+                        AutomationProperties.AutomationId="CalendarRenderingSettingsPageCurrentTimeLineToggle"
+                        AutomationProperties.Name="{x:Bind domain:Translator.CalendarSettings_CurrentTimeLine_Header, Mode=OneTime}"
+                        IsOn="{x:Bind ViewModel.IsCurrentTimeLineEnabled, Mode=TwoWay}"
+                        OffContent="{x:Bind domain:Translator.CalendarSettings_Toggle_Off, Mode=OneTime}"
+                        OnContent="{x:Bind domain:Translator.CalendarSettings_Toggle_On, Mode=OneTime}" />
+                </controls:SettingsCard>
+
+                <controls:SettingsCard
                     AutomationProperties.AutomationId="CalendarRenderingSettingsPageSettingsCard4"
                     Description="{x:Bind domain:Translator.SettingsTimeFormat_Description, Mode=OneTime}"
                     Header="{x:Bind domain:Translator.SettingsTimeFormat_Title, Mode=OneTime}">
