@@ -523,7 +523,13 @@ public partial class AccountSetupPageViewModel
             items.Add(new AccountSetupKnownItem(AccountSetupKnownItemKind.Identity, EmailAddress?.Trim() ?? string.Empty));
 
             if (IsPast(AccountSetupStep.Discovery) && HasRouteShortTitle)
+            {
                 items.Add(new AccountSetupKnownItem(AccountSetupKnownItemKind.Provider, RouteShortTitle, RouteEvidenceText));
+
+                var reason = RouteReasonText;
+                if (step != AccountSetupStep.Progress && reason.Length > 0)
+                    items.Add(new AccountSetupKnownItem(AccountSetupKnownItemKind.Reason, reason));
+            }
 
             if (IsPast(AccountSetupStep.Mail) && Capabilities.IsMailEnabled)
                 items.Add(new AccountSetupKnownItem(AccountSetupKnownItemKind.Feature, string.Format(Translator.AccountSetup_Known_Mail, LowerFirst(GetRangeLabel()))));
@@ -605,6 +611,7 @@ public partial class AccountSetupPageViewModel
         OnPropertyChanged(nameof(CanGoBack));
         OnPropertyChanged(nameof(IsKnownCardVisible));
         OnPropertyChanged(nameof(IsChangeAddressVisible));
+        OnPropertyChanged(nameof(IsChangeProviderVisible));
         OnPropertyChanged(nameof(ChangeAddressAutomationName));
         OnPropertyChanged(nameof(IsFooterVisible));
         NotifyStepContentChanged();

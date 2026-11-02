@@ -26,6 +26,9 @@ public sealed partial class AccountSetupPage : AccountSetupPageAbstract
     private const double HeroLogoSize = 96;
     private const double AppLogoSize = 56;
 
+    // (empty strip 76 + body padding 24 + top margin 8 - step spacing 16) / 2
+    private const double AddressHeaderShift = 46;
+
     private readonly List<FrameworkElement> _focusCandidates = [];
 
     private bool _isFocusQueued;
@@ -280,7 +283,8 @@ public sealed partial class AccountSetupPage : AccountSetupPageAbstract
         }
         else
         {
-            var size = isHero ? HeroLogoSize : AppLogoSize;
+            // Settings keeps the address step compact so the provider shelf fits without moving the footer.
+            var size = isHero && !ViewModel.IsSettingsHost ? HeroLogoSize : AppLogoSize;
             StepLogo.Width = size;
             StepLogo.Height = size;
             StepLogo.Source = new SvgImageSource(new Uri($"ms-appx:///Assets/AppEntries/{logo}"));
@@ -290,6 +294,12 @@ public sealed partial class AccountSetupPage : AccountSetupPageAbstract
         HeroTitle.Visibility = isHero ? Visibility.Visible : Visibility.Collapsed;
         StepAppNameText.Visibility = logo != null && !isHero ? Visibility.Visible : Visibility.Collapsed;
         StepHeader.Visibility = logo != null || hasQuestion ? Visibility.Visible : Visibility.Collapsed;
+
+        // In Settings the empty identity strip sits above the address step's lockup. Shifting the lockup up by half the
+        // difference centres it between the panel top and the email field without moving the fields or the footer.
+        StepHeader.Margin = isHero && ViewModel.IsSettingsHost
+            ? new Thickness(0, -AddressHeaderShift, 0, AddressHeaderShift)
+            : new Thickness(0);
     }
 
     #endregion
@@ -313,6 +323,7 @@ public sealed partial class AccountSetupPage : AccountSetupPageAbstract
     {
         var chips = new List<AccountSetupKnownChip>();
         var identity = string.Empty;
+        var reason = string.Empty;
         var hasProvider = false;
 
         foreach (var item in ViewModel.KnownItems)
@@ -320,6 +331,12 @@ public sealed partial class AccountSetupPage : AccountSetupPageAbstract
             if (item.Kind == AccountSetupKnownItemKind.Identity)
             {
                 identity = item.Text;
+                continue;
+            }
+
+            if (item.Kind == AccountSetupKnownItemKind.Reason)
+            {
+                reason = item.Text;
                 continue;
             }
 
@@ -335,6 +352,9 @@ public sealed partial class AccountSetupPage : AccountSetupPageAbstract
         }
 
         KnownIdentityText.Text = identity;
+        KnownReasonText.Text = reason;
+        KnownReasonText.Visibility = reason.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        ToolTipService.SetToolTip(KnownReasonText, reason.Length > 0 ? reason : null);
         KnownProviderIcon.Icon = ViewModel.IsLocalOnlyMode
             ? WinoIconGlyph.Laptop
             : hasProvider
@@ -342,6 +362,23 @@ public sealed partial class AccountSetupPage : AccountSetupPageAbstract
                 : WinoIconGlyph.Mail;
 
         return chips;
+    }
+
+    /// <summary>The strip link owns the provider picker; the failure and not-found InfoBars open the same one at their button.</summary>
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
+    private void ChangeProviderClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement placementTarget)
+            ProviderFlyout.ShowAt(placementTarget);
+    }
+
+    private void ProviderChoiceClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is not AccountSetupProviderChoice choice)
+            return;
+
+        ProviderFlyout.Hide();
+        ViewModel.ChangeProviderCommand.Execute(choice);
     }
 
     /// <summary>On the chosen account colour the glyph takes black or white, whichever reads; otherwise it inherits the theme.</summary>

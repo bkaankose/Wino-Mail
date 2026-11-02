@@ -141,6 +141,8 @@ public static class XamlHelpers
 
     public static Visibility ReverseBoolToVisibilityConverter(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
     public static Visibility BoolToVisibilityConverter(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
+    public static double GetShelfItemOpacity(bool isDimmed) => isDimmed ? 0.4 : 1.0;
+    public static Thickness GetShelfItemBorderThickness(bool isMatched) => new(isMatched ? 2 : 0);
     public static Thickness GetCalendarPaneItemMargin(bool isPaneCompact) => isPaneCompact ? new Thickness(0) : new Thickness(8, 0, 8, 0);
     public static Visibility ReverseVisibilityConverter(Visibility visibility) => visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
     public static bool ReverseBoolConverter(bool value) => !value;

@@ -57,12 +57,6 @@ public sealed class AccountRouteResolver : IAccountRouteResolver
         if (domain.Length == 0)
             return NotFound(address, domain, stopwatch, isTimedOut: false);
 
-        var consumerProvider = KnownMailHosts.GetConsumerProvider(domain);
-        if (consumerProvider is { } consumer)
-        {
-            return Native(address, domain, consumer, AccountRouteEvidence.Domain, stopwatch);
-        }
-
         var imapRequest = new ImapSetupRequest
         {
             Address = address,
@@ -70,6 +64,15 @@ public sealed class AccountRouteResolver : IAccountRouteResolver
             DiscoverContacts = request.DiscoverContacts,
             AllowBrowserSignIn = request.AllowBrowserSignIn
         };
+
+        if (request.ForceRoute is { } forcedRoute)
+            return await ResolveForcedAsync(request, forcedRoute, address, domain, imapRequest, progress, stopwatch, cancellationToken).ConfigureAwait(false);
+
+        var consumerProvider = KnownMailHosts.GetConsumerProvider(domain);
+        if (consumerProvider is { } consumer)
+        {
+            return Native(address, domain, consumer, AccountRouteEvidence.Domain, stopwatch);
+        }
 
         if (_catalog.Match(address, string.Empty) is not null)
         {
@@ -89,6 +92,78 @@ public sealed class AccountRouteResolver : IAccountRouteResolver
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             Logger.Information("Account route resolution for {Domain} reached the {Seconds} s deadline.", domain, AccountRouteDeadlines.Hard.TotalSeconds);
+            return NotFound(address, domain, stopwatch, isTimedOut: true);
+        }
+    }
+
+    /// <summary>
+    /// The user's provider choice. Gmail, Outlook and a catalog provider need no network; Other (IMAP) runs only IMAP
+    /// discovery and keeps a Gmail or Outlook host on IMAP; Exchange runs only Exchange Autodiscover, and a Microsoft 365
+    /// answer still becomes the Outlook route because Exchange Online does not accept a password.
+    /// </summary>
+    private async Task<AccountRouteResolution> ResolveForcedAsync(
+        AccountRouteRequest request,
+        AccountRoute forcedRoute,
+        string address,
+        string domain,
+        ImapSetupRequest imapRequest,
+        IProgress<AccountRouteProgress>? progress,
+        Stopwatch stopwatch,
+        CancellationToken cancellationToken)
+    {
+        switch (forcedRoute)
+        {
+            case AccountRoute.Gmail:
+                return Native(address, domain, MailProviderType.Gmail, AccountRouteEvidence.None, stopwatch, isManual: true);
+            case AccountRoute.Outlook:
+                return Native(address, domain, MailProviderType.Outlook, AccountRouteEvidence.None, stopwatch, isManual: true);
+            case AccountRoute.Imap when request.ForcedImapProvider != SpecialImapProvider.None:
+                var catalogResolution = await _imapSetupResolver.ResolveAsync(
+                    imapRequest with { PreferredProvider = request.ForcedImapProvider },
+                    null,
+                    cancellationToken).ConfigureAwait(false);
+                return Imap(catalogResolution, AccountRouteEvidence.None, stopwatch, isManual: true);
+            case AccountRoute.Imap or AccountRoute.Exchange:
+                break;
+            default:
+                return NotFound(address, domain, stopwatch, isTimedOut: false);
+        }
+
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(AccountRouteDeadlines.Hard);
+
+        using var reporter = new StageReporter(progress, domain);
+
+        try
+        {
+            if (forcedRoute == AccountRoute.Exchange)
+            {
+                reporter.Report(AccountRouteResolveStage.LookingForExchange);
+
+                var exchange = await DiscoverExchangeAsync(address, deadline.Token).ConfigureAwait(false);
+                if (exchange is null)
+                    return NotFound(address, domain, stopwatch, isTimedOut: false);
+
+                return Exchange(address, domain, exchange, stopwatch, mxHost: null, wasMicrosoftAsked: false, isManual: !exchange.IsMicrosoft365);
+            }
+
+            var imapProgress = new SynchronousProgress<ImapSetupStage>(stage => reporter.Report(stage switch
+            {
+                ImapSetupStage.CheckingSignIn => AccountRouteResolveStage.CheckingSignIn,
+                ImapSetupStage.LookingForSignInPage => AccountRouteResolveStage.LookingForSignInPage,
+                _ => AccountRouteResolveStage.FindingServers
+            }));
+
+            var imap = await _imapSetupResolver.ResolveAsync(
+                imapRequest with { DetectsNativeProvider = false },
+                imapProgress,
+                deadline.Token).ConfigureAwait(false);
+
+            return Imap(imap, AccountRouteEvidence.ImapHost, stopwatch, isManual: true);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            Logger.Information("Forced {Route} resolution for {Domain} reached the {Seconds} s deadline.", forcedRoute, domain, AccountRouteDeadlines.Hard.TotalSeconds);
             return NotFound(address, domain, stopwatch, isTimedOut: true);
         }
     }
@@ -217,7 +292,8 @@ public sealed class AccountRouteResolver : IAccountRouteResolver
         ExchangeDiscovery discovery,
         Stopwatch stopwatch,
         string? mxHost,
-        bool wasMicrosoftAsked)
+        bool wasMicrosoftAsked,
+        bool isManual = false)
     {
         if (discovery.IsMicrosoft365)
         {
@@ -235,6 +311,7 @@ public sealed class AccountRouteResolver : IAccountRouteResolver
             WasMicrosoftAsked = wasMicrosoftAsked,
             Support = AccountRouteSupport.AllProvider,
             Exchange = new ExchangeRouteDetails(discovery.EwsUrl, discovery.AuthProbe),
+            IsManual = isManual,
             Elapsed = stopwatch.Elapsed
         };
     }
@@ -250,7 +327,8 @@ public sealed class AccountRouteResolver : IAccountRouteResolver
         string? mxHost = null,
         string? imapHost = null,
         string? organizationName = null,
-        bool wasMicrosoftAsked = false) => new()
+        bool wasMicrosoftAsked = false,
+        bool isManual = false) => new()
         {
             Address = address,
             Domain = domain,
@@ -261,6 +339,7 @@ public sealed class AccountRouteResolver : IAccountRouteResolver
             OrganizationName = organizationName,
             WasMicrosoftAsked = wasMicrosoftAsked,
             Support = AccountRouteSupport.AllProvider,
+            IsManual = isManual,
             Elapsed = stopwatch.Elapsed
         };
 
@@ -269,7 +348,8 @@ public sealed class AccountRouteResolver : IAccountRouteResolver
         AccountRouteEvidence evidence,
         Stopwatch stopwatch,
         string? mxHost = null,
-        bool wasMicrosoftAsked = false) => new()
+        bool wasMicrosoftAsked = false,
+        bool isManual = false) => new()
         {
             Address = imap.Address,
             Domain = imap.Domain,
@@ -281,6 +361,7 @@ public sealed class AccountRouteResolver : IAccountRouteResolver
             WasMicrosoftAsked = wasMicrosoftAsked,
             Support = imap.IsFound ? GetImapSupport(imap) : AccountRouteSupport.None,
             Imap = imap.IsFound ? imap : null,
+            IsManual = imap.IsFound && isManual,
             Elapsed = stopwatch.Elapsed
         };
 

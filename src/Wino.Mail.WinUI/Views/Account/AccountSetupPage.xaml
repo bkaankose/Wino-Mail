@@ -1,4 +1,4 @@
-<abstract:AccountSetupPageAbstract
+﻿<abstract:AccountSetupPageAbstract
     x:Class="Wino.Views.AccountSetupPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -210,6 +210,73 @@
                             Text="{x:Bind ViewModel.AccountNameError, Mode=OneWay}"
                             Visibility="{x:Bind ViewModel.HasAccountNameError, Mode=OneWay}" />
                     </StackPanel>
+
+                    <!--  Settings only: the providers Wino connects to; the typed domain lights its provider.  -->
+                    <StackPanel
+                        Margin="0,8,0,0"
+                        AutomationProperties.AutomationId="AccountSetupProviderShelf"
+                        Spacing="8"
+                        Visibility="{x:Bind ViewModel.IsProviderShelfVisible, Mode=OneWay}">
+                        <TextBlock
+                            HorizontalAlignment="Center"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind domain:Translator.AccountSetup_Shelf_Header}" />
+                        <ItemsControl
+                            HorizontalAlignment="Center"
+                            IsTabStop="False"
+                            ItemsSource="{x:Bind ViewModel.ProviderShelfItems, Mode=OneWay}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="12" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="data:AccountSetupProviderShelfItem">
+                                    <Grid
+                                        Height="36"
+                                        AutomationProperties.Name="{x:Bind Title}"
+                                        Opacity="{x:Bind helpers:XamlHelpers.GetShelfItemOpacity(IsDimmed)}"
+                                        ToolTipService.ToolTip="{x:Bind Title}">
+                                        <Grid Width="36" Visibility="{x:Bind HasGlyph}">
+                                            <Ellipse Fill="{ThemeResource SubtleFillColorSecondaryBrush}" />
+                                            <Ellipse
+                                                Stroke="{ThemeResource AccentFillColorDefaultBrush}"
+                                                StrokeThickness="2"
+                                                Visibility="{x:Bind IsMatched}" />
+                                            <coreControls:WinoFontIcon
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                FontFamily="{StaticResource WinoIconFontFamily}"
+                                                FontSize="18"
+                                                Icon="{x:Bind Glyph}" />
+                                        </Grid>
+                                        <Border
+                                            Padding="12,0"
+                                            Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                            BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                                            BorderThickness="{x:Bind helpers:XamlHelpers.GetShelfItemBorderThickness(IsMatched)}"
+                                            CornerRadius="18"
+                                            Visibility="{x:Bind HasLabel}">
+                                            <TextBlock
+                                                VerticalAlignment="Center"
+                                                FontWeight="SemiBold"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                Text="{x:Bind Label}" />
+                                        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock
+                            HorizontalAlignment="Center"
+                            AutomationProperties.LiveSetting="Polite"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind ViewModel.ProviderShelfCaption, Mode=OneWay}"
+                            TextAlignment="Center"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
                 </StackPanel>
             </DataTemplate>
 
@@ -254,27 +321,32 @@
                     </StackPanel>
 
                     <InfoBar
-                        Title="{x:Bind domain:Translator.AccountSetup_NotFoundTitle}"
+                        Title="{x:Bind ViewModel.NotFoundTitle, Mode=OneWay}"
                         AutomationProperties.AutomationId="AccountSetupNotFoundInfoBar"
                         IsClosable="False"
                         IsOpen="{x:Bind ViewModel.IsNotFoundVisible, Mode=OneWay}"
                         Message="{x:Bind ViewModel.NotFoundMessage, Mode=OneWay}"
                         Severity="Warning">
                         <InfoBar.Content>
-                            <StackPanel
+                            <primitives:WinoWrapPanel
                                 Margin="0,0,0,12"
-                                Orientation="Horizontal"
-                                Spacing="8">
+                                HorizontalSpacing="8"
+                                VerticalSpacing="8">
                                 <Button
                                     AutomationProperties.AutomationId="AccountSetupNotFoundSetUpManually"
                                     Command="{x:Bind ViewModel.OpenAdvancedSetupCommand}"
-                                    Content="{x:Bind domain:Translator.AccountSetup_SetUpManually}"
+                                    Content="{x:Bind ViewModel.NotFoundManualText, Mode=OneWay}"
                                     Style="{StaticResource AccentButtonStyle}" />
                                 <Button
                                     AutomationProperties.AutomationId="AccountSetupNotFoundRetry"
                                     Command="{x:Bind ViewModel.ResolveAgainCommand}"
                                     Content="{x:Bind domain:Translator.AccountSetup_Retry}" />
-                            </StackPanel>
+                                <HyperlinkButton
+                                    AutomationProperties.AutomationId="AccountSetupNotFoundChooseProvider"
+                                    Click="ChangeProviderClick"
+                                    Content="{x:Bind domain:Translator.AccountSetup_ChooseProvider}"
+                                    Visibility="{x:Bind ViewModel.IsChooseProviderVisible, Mode=OneWay}" />
+                            </primitives:WinoWrapPanel>
                         </InfoBar.Content>
                     </InfoBar>
                 </StackPanel>
@@ -465,20 +537,25 @@
                         Message="{x:Bind ViewModel.FailureMessage, Mode=OneWay}"
                         Severity="{x:Bind helpers:XamlHelpers.InfoBarSeverityConverter(ViewModel.FailureSeverity), Mode=OneWay}">
                         <InfoBar.Content>
-                            <StackPanel
+                            <primitives:WinoWrapPanel
                                 Margin="0,0,0,12"
-                                Orientation="Horizontal"
-                                Spacing="8">
+                                HorizontalSpacing="8"
+                                VerticalSpacing="8">
                                 <Button
                                     Command="{x:Bind ViewModel.RetryCommand}"
                                     Content="{x:Bind domain:Translator.AccountSetup_Retry}"
                                     Visibility="{x:Bind ViewModel.IsRetryVisible, Mode=OneWay}" />
+                                <Button
+                                    AutomationProperties.AutomationId="AccountSetupTasksFailureChangeProvider"
+                                    Click="ChangeProviderClick"
+                                    Content="{x:Bind domain:Translator.AccountSetup_ChangeProvider}"
+                                    Visibility="{x:Bind ViewModel.IsChangeProviderVisible, Mode=OneWay}" />
                                 <HyperlinkButton Command="{x:Bind ViewModel.OpenAdvancedSetupCommand}" Content="{x:Bind domain:Translator.AccountSetup_AdvancedSetup}" />
                                 <HyperlinkButton
                                     Command="{x:Bind ViewModel.ShowFailureDetailsCommand}"
                                     Content="{x:Bind domain:Translator.AccountSetup_ShowDetails}"
                                     Visibility="{x:Bind ViewModel.HasFailureDetails, Mode=OneWay}" />
-                            </StackPanel>
+                            </primitives:WinoWrapPanel>
                         </InfoBar.Content>
                     </InfoBar>
                 </StackPanel>
@@ -552,7 +629,7 @@
                                 AutomationProperties.AutomationId="AccountSetupPasswordHelp"
                                 Command="{x:Bind ViewModel.OpenHelpLinkCommand}"
                                 CommandParameter="{x:Bind ViewModel.HelpUrl, Mode=OneWay}"
-                                Content="{x:Bind domain:Translator.ImapSetup_AppPasswordHelpLink}"
+                                Content="{x:Bind ViewModel.HelpLinkText, Mode=OneWay}"
                                 FontSize="12"
                                 Visibility="{x:Bind ViewModel.IsHelpLinkVisible, Mode=OneWay}" />
                         </StackPanel>
@@ -683,10 +760,10 @@
                         Message="{x:Bind ViewModel.FailureMessage, Mode=OneWay}"
                         Severity="{x:Bind helpers:XamlHelpers.InfoBarSeverityConverter(ViewModel.FailureSeverity), Mode=OneWay}">
                         <InfoBar.Content>
-                            <StackPanel
+                            <primitives:WinoWrapPanel
                                 Margin="0,0,0,12"
-                                Orientation="Horizontal"
-                                Spacing="8">
+                                HorizontalSpacing="8"
+                                VerticalSpacing="8">
                                 <Button
                                     AutomationProperties.AutomationId="AccountSetupFailureRetry"
                                     Command="{x:Bind ViewModel.RetryCommand}"
@@ -697,6 +774,11 @@
                                     Command="{x:Bind ViewModel.UseAnotherOptionCommand}"
                                     Content="{x:Bind domain:Translator.AccountSetup_UseAnotherOption}"
                                     Visibility="{x:Bind ViewModel.IsUseAnotherOptionVisible, Mode=OneWay}" />
+                                <Button
+                                    AutomationProperties.AutomationId="AccountSetupFailureChangeProvider"
+                                    Click="ChangeProviderClick"
+                                    Content="{x:Bind domain:Translator.AccountSetup_ChangeProvider}"
+                                    Visibility="{x:Bind ViewModel.IsChangeProviderVisible, Mode=OneWay}" />
                                 <HyperlinkButton
                                     AutomationProperties.AutomationId="AccountSetupFailureAdvanced"
                                     Command="{x:Bind ViewModel.OpenAdvancedSetupCommand}"
@@ -706,7 +788,7 @@
                                     Command="{x:Bind ViewModel.ShowFailureDetailsCommand}"
                                     Content="{x:Bind domain:Translator.AccountSetup_ShowDetails}"
                                     Visibility="{x:Bind ViewModel.HasFailureDetails, Mode=OneWay}" />
-                            </StackPanel>
+                            </primitives:WinoWrapPanel>
                         </InfoBar.Content>
                     </InfoBar>
                 </StackPanel>
@@ -872,7 +954,7 @@
                             Visibility="{x:Bind ViewModel.IsKnownCardVisible, Mode=OneWay}" />
                         <Grid
                             x:Name="KnownCard"
-                            Padding="16,12"
+                            Padding="16,10"
                             VerticalAlignment="Center"
                             AutomationProperties.AutomationId="AccountSetupKnownCard"
                             AutomationProperties.HelpText="{x:Bind ViewModel.RouteEvidenceText, Mode=OneWay}"
@@ -915,18 +997,95 @@
                                     IsTabStop="False"
                                     ItemTemplate="{StaticResource AccountSetupKnownChipTemplate}"
                                     ItemsPanel="{StaticResource AccountSetupKnownPanelTemplate}" />
+                                <!--  Why Wino chose the provider: domain-level evidence or "Chosen by you". Information, not a warning.  -->
+                                <TextBlock
+                                    x:Name="KnownReasonText"
+                                    AutomationProperties.AccessibilityView="Raw"
+                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    TextTrimming="CharacterEllipsis"
+                                    TextWrapping="NoWrap"
+                                    Visibility="Collapsed" />
                             </StackPanel>
 
-                            <HyperlinkButton
+                            <StackPanel
                                 Grid.Column="2"
-                                Padding="4,2"
                                 VerticalAlignment="Center"
-                                AutomationProperties.AutomationId="AccountSetupChangeAddress"
-                                AutomationProperties.Name="{x:Bind ViewModel.ChangeAddressAutomationName, Mode=OneWay}"
-                                Command="{x:Bind ViewModel.ChangeAddressCommand}"
-                                Content="{x:Bind domain:Translator.AccountSetup_ChangeAddress}"
-                                FontSize="12"
-                                Visibility="{x:Bind ViewModel.IsChangeAddressVisible, Mode=OneWay}" />
+                                Spacing="2">
+                                <HyperlinkButton
+                                    Padding="4,2"
+                                    HorizontalAlignment="Right"
+                                    AutomationProperties.AutomationId="AccountSetupChangeProvider"
+                                    AutomationProperties.Name="{x:Bind ViewModel.ChangeProviderAutomationName, Mode=OneWay}"
+                                    Click="ChangeProviderClick"
+                                    Content="{x:Bind domain:Translator.AccountSetup_ChangeProvider}"
+                                    FontSize="12"
+                                    Visibility="{x:Bind ViewModel.IsChangeProviderVisible, Mode=OneWay}">
+                                    <FlyoutBase.AttachedFlyout>
+                                        <Flyout x:Name="ProviderFlyout" Placement="BottomEdgeAlignedRight">
+                                            <StackPanel Width="320" Spacing="8">
+                                                <TextBlock
+                                                    AutomationProperties.HeadingLevel="Level2"
+                                                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                                                    Text="{x:Bind domain:Translator.AccountSetup_ProviderPicker_Title}" />
+                                                <TextBlock Style="{StaticResource AccountSetupCaptionStyle}" Text="{x:Bind ViewModel.ProviderPickerCaption, Mode=OneWay}" />
+                                                <ListView
+                                                    Margin="-4,0"
+                                                    AutomationProperties.AutomationId="AccountSetupProviderChoices"
+                                                    AutomationProperties.Name="{x:Bind domain:Translator.AccountSetup_ProviderPicker_Title}"
+                                                    IsItemClickEnabled="True"
+                                                    ItemClick="ProviderChoiceClick"
+                                                    ItemsSource="{x:Bind ViewModel.ProviderChoices}"
+                                                    SelectedItem="{x:Bind ViewModel.CurrentProviderChoice, Mode=OneWay}"
+                                                    SelectionMode="Single">
+                                                    <ListView.ItemTemplate>
+                                                        <DataTemplate x:DataType="data:AccountSetupProviderChoice">
+                                                            <Grid
+                                                                MinHeight="36"
+                                                                AutomationProperties.Name="{x:Bind AutomationName}"
+                                                                ColumnSpacing="10">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="20" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <coreControls:WinoFontIcon
+                                                                    VerticalAlignment="Center"
+                                                                    FontFamily="{StaticResource WinoIconFontFamily}"
+                                                                    FontSize="16"
+                                                                    Icon="{x:Bind Glyph}" />
+                                                                <TextBlock
+                                                                    Grid.Column="1"
+                                                                    VerticalAlignment="Center"
+                                                                    Style="{StaticResource BodyTextBlockStyle}"
+                                                                    Text="{x:Bind Title}"
+                                                                    TextTrimming="CharacterEllipsis"
+                                                                    TextWrapping="NoWrap" />
+                                                                <TextBlock
+                                                                    Grid.Column="2"
+                                                                    VerticalAlignment="Center"
+                                                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                                    Text="{x:Bind Description}"
+                                                                    Visibility="{x:Bind HasDescription}" />
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ListView.ItemTemplate>
+                                                </ListView>
+                                            </StackPanel>
+                                        </Flyout>
+                                    </FlyoutBase.AttachedFlyout>
+                                </HyperlinkButton>
+                                <HyperlinkButton
+                                    Padding="4,2"
+                                    HorizontalAlignment="Right"
+                                    AutomationProperties.AutomationId="AccountSetupChangeAddress"
+                                    AutomationProperties.Name="{x:Bind ViewModel.ChangeAddressAutomationName, Mode=OneWay}"
+                                    Command="{x:Bind ViewModel.ChangeAddressCommand}"
+                                    Content="{x:Bind domain:Translator.AccountSetup_ChangeAddress}"
+                                    FontSize="12"
+                                    Visibility="{x:Bind ViewModel.IsChangeAddressVisible, Mode=OneWay}" />
+                            </StackPanel>
                         </Grid>
                     </Grid>
 
@@ -1050,10 +1209,37 @@
                     AutomationProperties.AutomationId="AccountSetupAdvancedSetup"
                     Command="{x:Bind ViewModel.OpenAdvancedSetupCommand}"
                     Content="{x:Bind domain:Translator.AccountSetup_AdvancedSetup}" />
-                <HyperlinkButton
-                    AutomationProperties.AutomationId="AccountSetupLocalAccountSetup"
-                    Command="{x:Bind ViewModel.StartLocalOnlyCommand}"
-                    Content="{x:Bind domain:Translator.AccountSetup_LocalAccountSetup}" />
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <HyperlinkButton
+                        AutomationProperties.AutomationId="AccountSetupLocalAccountSetup"
+                        Command="{x:Bind ViewModel.StartLocalOnlyCommand}"
+                        Content="{x:Bind domain:Translator.AccountSetup_LocalAccountSetup}" />
+                    <Button
+                        Width="28"
+                        Height="28"
+                        Padding="0"
+                        VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="AccountSetupLocalAccountInfo"
+                        AutomationProperties.HelpText="{x:Bind domain:Translator.AccountSetup_LocalAccountInfo}"
+                        AutomationProperties.Name="{x:Bind domain:Translator.AccountSetup_LocalAccountSetup}"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.AccountSetup_LocalAccountInfo}">
+                        <coreControls:WinoFontIcon
+                            FontFamily="{StaticResource WinoIconFontFamily}"
+                            FontSize="14"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Icon="Info" />
+                        <Button.Flyout>
+                            <Flyout Placement="Top">
+                                <TextBlock
+                                    MaxWidth="280"
+                                    Text="{x:Bind domain:Translator.AccountSetup_LocalAccountInfo}"
+                                    TextWrapping="WrapWholeWords" />
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+                </StackPanel>
             </StackPanel>
         </Grid>
     </ScrollViewer>

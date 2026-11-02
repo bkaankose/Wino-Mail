@@ -328,7 +328,7 @@ public partial class AccountSetupPageViewModel
     {
         CancelOperation();
 
-        if (Route == AccountRoute.Exchange)
+        if (Route == AccountRoute.Exchange || (Phase == AccountSetupPhase.NotFound && IsExchangeRediscovery))
         {
             await OpenExchangeAdvancedSetupAsync();
             return;

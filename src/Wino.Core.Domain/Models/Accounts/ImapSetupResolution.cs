@@ -20,6 +20,15 @@ public sealed record ImapSetupRequest
 
     /// <summary>False on heads without the secure sign-in surface; the browser option is then never offered.</summary>
     public bool AllowBrowserSignIn { get; init; } = true;
+
+    /// <summary>A catalog provider the user chose; it is used even when the address domain is not one of its own.</summary>
+    public SpecialImapProvider PreferredProvider { get; init; }
+
+    /// <summary>
+    /// False keeps a Gmail or Outlook IMAP host on the IMAP route (the user chose IMAP), so the result carries sign-in
+    /// options instead of <see cref="ImapSetupResolution.NativeProvider"/>.
+    /// </summary>
+    public bool DetectsNativeProvider { get; init; } = true;
 }
 
 public enum ImapSetupStage

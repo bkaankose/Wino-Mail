@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Models.Accounts;
 
@@ -79,6 +80,16 @@ public sealed record AccountRouteRequest
 
     /// <summary>False on heads without the secure sign-in surface; the IMAP browser option is then never offered.</summary>
     public bool AllowBrowserSignIn { get; init; } = true;
+
+    /// <summary>
+    /// The user's provider choice, which skips detection: Gmail and Outlook resolve without a network call, Imap runs
+    /// only IMAP discovery (or uses <see cref="ForcedImapProvider"/> from the catalog), Exchange runs only Exchange
+    /// Autodiscover. The result is marked <see cref="AccountRouteResolution.IsManual"/>.
+    /// </summary>
+    public AccountRoute? ForceRoute { get; init; }
+
+    /// <summary>The catalog provider for a forced <see cref="AccountRoute.Imap"/> route; None runs IMAP discovery.</summary>
+    public SpecialImapProvider ForcedImapProvider { get; init; }
 }
 
 public enum AccountCapabilitySupportKind
@@ -147,6 +158,9 @@ public sealed class AccountRouteResolution
 
     /// <summary>Set for <see cref="AccountRoute.Exchange"/> only.</summary>
     public ExchangeRouteDetails? Exchange { get; init; }
+
+    /// <summary>The user chose the provider (<see cref="AccountRouteRequest.ForceRoute"/>) instead of detection deciding it.</summary>
+    public bool IsManual { get; init; }
 
     /// <summary>The hard deadline ended the resolution; <see cref="Route"/> is <see cref="AccountRoute.NotFound"/>.</summary>
     public bool IsTimedOut { get; init; }

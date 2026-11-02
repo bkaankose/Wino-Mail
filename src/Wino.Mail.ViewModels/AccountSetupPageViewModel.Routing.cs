@@ -38,7 +38,12 @@ public partial class AccountSetupPageViewModel
     [ObservableProperty]
     public partial string DiscoveryHelpText { get; set; } = string.Empty;
 
-    public string DiscoveryText => string.Format(Translator.AccountSetup_Discovery_Text, AddressDomain);
+    public string DiscoveryText => string.Format(_forcedChoice?.Kind switch
+    {
+        AccountSetupProviderChoiceKind.Exchange => Translator.AccountSetup_Discovery_ExchangeText,
+        AccountSetupProviderChoiceKind.Imap => Translator.AccountSetup_Discovery_ImapText,
+        _ => Translator.AccountSetup_Discovery_Text
+    }, AddressDomain);
     public string DiscoverySlowText => Translator.AccountSetup_Discovery_Slow;
     public string AskingMicrosoftText => string.Format(Translator.AccountSetup_Discovery_AskingMicrosoft, AddressDomain);
 
@@ -46,7 +51,9 @@ public partial class AccountSetupPageViewModel
 
     public bool IsResolvingVisible => Phase == AccountSetupPhase.Resolving;
     public bool IsNotFoundVisible => Phase == AccountSetupPhase.NotFound;
-    public string NotFoundMessage => string.Format(Translator.AccountSetup_NotFoundMessage, _resolution?.Domain ?? AddressDomain);
+    public string NotFoundMessage => string.Format(
+        IsExchangeRediscovery ? Translator.AccountSetup_NotFound_ExchangeMessage : Translator.AccountSetup_NotFoundMessage,
+        _resolution?.Domain ?? AddressDomain);
 
     public MailProviderType RouteProviderType => Route switch
     {
@@ -102,19 +109,22 @@ public partial class AccountSetupPageViewModel
             return;
         }
 
-        await ResolveAsync(address);
+        await ResolveAsync(address, _forcedChoice);
     }
 
     [RelayCommand]
     private Task CancelDiscoveryToAdvancedAsync() => OpenAdvancedSetupAsync();
 
-    private async Task ResolveAsync(string address)
+    /// <param name="forcedChoice">The user's provider choice, which replaces detection; null detects the route.</param>
+    private async Task ResolveAsync(string address, AccountSetupProviderChoice? forcedChoice = null)
     {
         var operation = StartOperation();
 
         ClearRoute();
+        _forcedChoice = forcedChoice;
         var version = ++_resolveVersion;
         Phase = AccountSetupPhase.Resolving;
+        NotifyRoutingLayoutChanged();
         _ = ShowDiscoveryAfterGraceAsync(version);
 
         var progress = new Progress<AccountRouteProgress>(update => OnResolveProgress(version, update));
@@ -125,7 +135,9 @@ public partial class AccountSetupPageViewModel
             resolution = await _routeResolver.ResolveAsync(new AccountRouteRequest
             {
                 Address = address,
-                AllowBrowserSignIn = IsSecureSignInSupportedByHost && _oauthTokenService != null
+                AllowBrowserSignIn = IsSecureSignInSupportedByHost && _oauthTokenService != null,
+                ForceRoute = forcedChoice?.Route,
+                ForcedImapProvider = forcedChoice?.SpecialImapProvider ?? SpecialImapProvider.None
             }, progress, operation.Token);
         }
         catch (OperationCanceledException) when (operation.IsCancellationRequested)
@@ -237,6 +249,7 @@ public partial class AccountSetupPageViewModel
     {
         _resolveVersion++;
         _resolution = null;
+        _forcedChoice = null;
         IsResolveSlow = false;
         IsAskingMicrosoft = false;
         DiscoveryHelpText = string.Empty;
@@ -504,5 +517,6 @@ public partial class AccountSetupPageViewModel
         OnPropertyChanged(nameof(AskingMicrosoftText));
         OnPropertyChanged(nameof(SignInKind));
         OnPropertyChanged(nameof(NativeSignInButtonText));
+        NotifyProviderOverrideChanged();
     }
 }

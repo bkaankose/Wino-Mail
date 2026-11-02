@@ -162,6 +162,7 @@ public partial class AccountSetupPageViewModel : CoreBaseViewModel
 
         Phase = AccountSetupPhase.Identity;
         NotifyPhaseLayoutChanged();
+        RefreshProviderShelf();
     }
 
     public override void OnNavigatedFrom(NavigationMode mode, object? parameters)
@@ -386,6 +387,7 @@ public partial class AccountSetupPageViewModel : CoreBaseViewModel
     {
         OnPropertyChanged(nameof(IsEmailFieldVisible));
         OnPropertyChanged(nameof(RouteShortTitle));
+        OnPropertyChanged(nameof(IsProviderShelfVisible));
         ContinueCommand.NotifyCanExecuteChanged();
         PrimaryCommand.NotifyCanExecuteChanged();
     }
@@ -402,6 +404,8 @@ public partial class AccountSetupPageViewModel : CoreBaseViewModel
     {
         if (HasIdentityError)
             IdentityError = string.Empty;
+
+        RefreshProviderShelf();
     }
 
     private void NotifyPhaseLayoutChanged()

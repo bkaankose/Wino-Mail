@@ -146,6 +146,14 @@ public partial class AccountSetupPageViewModel
     public string HelpUrl => SelectedImapOption?.Option.HelpUrl ?? string.Empty;
     public bool IsHelpLinkVisible => IsPasswordPanelVisible && !string.IsNullOrWhiteSpace(HelpUrl);
 
+    /// <summary>The help link names what the provider's page explains: an app password, or turning IMAP on.</summary>
+    public string HelpLinkText => SelectedImapOption?.Option switch
+    {
+        { Kind: ImapSignInOptionKind.AppPassword } => Translator.ImapSetup_AppPasswordHelpLink,
+        { SetupHint: KnownImapSetupHint.ImapDisabledByDefault } => Translator.ImapSetup_TurnOnImapHelpLink,
+        _ => Translator.ImapSetup_ProviderHelpLink
+    };
+
     public bool IsRegionVisible => IsPasswordPanelVisible && Regions.Count > 0;
     public string RegionDescription => string.Format(Translator.ProviderSelection_RegionDescription, ProviderLabel);
 
@@ -1089,6 +1097,7 @@ public partial class AccountSetupPageViewModel
         OnPropertyChanged(nameof(SetupHintText));
         OnPropertyChanged(nameof(HelpUrl));
         OnPropertyChanged(nameof(IsHelpLinkVisible));
+        OnPropertyChanged(nameof(HelpLinkText));
         OnPropertyChanged(nameof(IsRegionVisible));
         OnPropertyChanged(nameof(RegionDescription));
         OnPropertyChanged(nameof(IsLoginAddressVisible));

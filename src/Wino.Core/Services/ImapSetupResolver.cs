@@ -60,7 +60,7 @@ public sealed class ImapSetupResolver : IImapSetupResolver
         if (domain.Length == 0)
             return ImapSetupResolution.NotFound(address, domain);
 
-        var catalogProvider = _catalog.Match(address, string.Empty);
+        var catalogProvider = _catalog.Match(address, string.Empty, request.PreferredProvider);
         if (catalogProvider is not null)
             return await ResolveCatalogProviderAsync(request, address, domain, catalogProvider, discovered: null, cancellationToken).ConfigureAwait(false);
 
@@ -105,7 +105,7 @@ public sealed class ImapSetupResolver : IImapSetupResolver
 
             var incomingHost = serverInformation.IncomingServer?.Trim() ?? string.Empty;
 
-            var nativeProvider = KnownMailHosts.GetProviderByImapHost(incomingHost);
+            var nativeProvider = request.DetectsNativeProvider ? KnownMailHosts.GetProviderByImapHost(incomingHost) : null;
             if (nativeProvider is not null)
             {
                 davCancellation.Cancel();

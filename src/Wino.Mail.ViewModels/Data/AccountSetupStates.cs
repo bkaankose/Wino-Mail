@@ -1,6 +1,7 @@
 #nullable enable
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Accounts;
 
 namespace Wino.Mail.ViewModels.Data;
@@ -99,7 +100,60 @@ public enum AccountSetupKnownItemKind
     Identity,
     Provider,
     Feature,
-    SignIn
+    SignIn,
+
+    /// <summary>Why the provider was chosen, for domain-level evidence or a manual choice; the strip's tertiary line.</summary>
+    Reason
+}
+
+public enum AccountSetupProviderChoiceKind
+{
+    Google,
+    Microsoft,
+    Exchange,
+    ICloud,
+    Yahoo,
+    Imap
+}
+
+/// <summary>One entry of the "Change provider" picker and the route it forces.</summary>
+/// <summary>One mark on the address step's "Works with" shelf; the typed domain lights its provider and dims the rest.</summary>
+public sealed record AccountSetupProviderShelfItem(string Title, WinoIconGlyph Glyph, string Label, bool IsMatched, bool IsDimmed)
+{
+    public bool HasLabel => !string.IsNullOrEmpty(Label);
+    public bool HasGlyph => !HasLabel;
+}
+
+public sealed class AccountSetupProviderChoice
+{
+    public AccountSetupProviderChoice(
+        AccountSetupProviderChoiceKind kind,
+        string title,
+        string description,
+        WinoIconGlyph glyph,
+        AccountRoute route,
+        SpecialImapProvider specialImapProvider = SpecialImapProvider.None)
+    {
+        Kind = kind;
+        Title = title;
+        Description = description;
+        Glyph = glyph;
+        Route = route;
+        SpecialImapProvider = specialImapProvider;
+    }
+
+    public AccountSetupProviderChoiceKind Kind { get; }
+    public string Title { get; }
+    public string Description { get; }
+    public WinoIconGlyph Glyph { get; }
+    public AccountRoute Route { get; }
+    public SpecialImapProvider SpecialImapProvider { get; }
+
+    public bool HasDescription => !string.IsNullOrEmpty(Description);
+
+    public string AutomationName => HasDescription ? $"{Title}, {Description}" : Title;
+
+    public override string ToString() => AutomationName;
 }
 
 /// <summary>One fact on the known-so-far card above the step.</summary>
