@@ -180,38 +180,18 @@ public sealed class WinoModeSwitcher : NSView
             if (item.IsShown) item.Hidden = false;
 
         int generation = ++_foldGeneration;
-        if (animated)
+        if (animated) BeginAnimation(SlideDuration, StandardEasing());
+        try
         {
-            NSAnimationContext.BeginGrouping();
-            NSAnimationContext.CurrentContext.Duration = SlideDuration;
-            NSAnimationContext.CurrentContext.TimingFunction = StandardEasing();
+            LayOutItems(shared, pinned, shownCount, each, inner, y);
         }
-
-        double x = CardPadding + CardStroke;
-        bool first = true;
-        foreach (var item in shared)
+        finally
         {
-            if (item.IsShown)
-            {
-                if (!first) x += ItemSpacing;
-                first = false;
-                SetFrame(item, new CGRect(x, y, each, ItemHeight), 1, animated);
-                x += each;
-            }
-            else
-            {
-                SetFrame(item, new CGRect(x, y, 0, ItemHeight), 0, animated);
-            }
+            if (animated) NSAnimationContext.EndGrouping();
         }
-
-        _divider.Hidden = !pinned.IsShown || shownCount == 0;
-        var dividerX = x + ItemSpacing;
-        SetFrame(_divider, new CGRect(dividerX, y + DividerInset, 1, ItemHeight - DividerInset * 2), 1, animated);
-        SetFrame(pinned, new CGRect(CardPadding + CardStroke + inner - PinnedWidth, y, pinned.IsShown ? PinnedWidth : 0, ItemHeight), pinned.IsShown ? 1 : 0, animated);
 
         if (animated)
         {
-            NSAnimationContext.EndGrouping();
             // Folded items stay in the tree until the slide ends, then leave the hit-test path.
             DispatchQueue.MainQueue.DispatchAfter(new DispatchTime(DispatchTime.Now, TimeSpan.FromSeconds(SlideDuration)), () =>
             {
@@ -225,17 +205,48 @@ public sealed class WinoModeSwitcher : NSView
         }
     }
 
-    private static void SetFrame(NSView view, CGRect frame, double alpha, bool animated)
+    private void LayOutItems(List<ModeItemView> shared, ModeItemView pinned, int shownCount, double each, double inner, double y)
     {
-        if (!animated)
+        double x = CardPadding + CardStroke;
+        bool first = true;
+        foreach (var item in shared)
         {
-            view.Frame = frame;
-            view.AlphaValue = (nfloat)alpha;
-            return;
+            if (item.IsShown)
+            {
+                if (!first) x += ItemSpacing;
+                first = false;
+                SetFrame(item, new CGRect(x, y, each, ItemHeight), 1);
+                x += each;
+            }
+            else
+            {
+                SetFrame(item, new CGRect(x, y, 0, ItemHeight), 0);
+            }
         }
-        var animator = (NSView)view.Animator;
-        animator.Frame = frame;
-        animator.AlphaValue = (nfloat)alpha;
+
+        _divider.Hidden = !pinned.IsShown || shownCount == 0;
+        var dividerX = x + ItemSpacing;
+        SetFrame(_divider, new CGRect(dividerX, y + DividerInset, 1, ItemHeight - DividerInset * 2), 1);
+        SetFrame(pinned, new CGRect(CardPadding + CardStroke + inner - PinnedWidth, y, pinned.IsShown ? PinnedWidth : 0, ItemHeight), pinned.IsShown ? 1 : 0);
+    }
+
+    /// <summary>
+    /// Opens an animation group in which plain frame and alpha changes animate. The views here are managed
+    /// subclasses, so their <c>animator</c> proxy cannot be wrapped as a managed view; casting it threw inside
+    /// the open group, which then never closed and froze every later change in the window.
+    /// </summary>
+    private static void BeginAnimation(double duration, CAMediaTimingFunction? timing = null)
+    {
+        NSAnimationContext.BeginGrouping();
+        NSAnimationContext.CurrentContext.Duration = duration;
+        NSAnimationContext.CurrentContext.AllowsImplicitAnimation = true;
+        if (timing is not null) NSAnimationContext.CurrentContext.TimingFunction = timing;
+    }
+
+    private static void SetFrame(NSView view, CGRect frame, double alpha)
+    {
+        view.Frame = frame;
+        view.AlphaValue = (nfloat)alpha;
     }
 
     private static CAMediaTimingFunction StandardEasing() => CAMediaTimingFunction.FromControlPoints(0.1f, 0.9f, 0.2f, 1f);
@@ -303,10 +314,9 @@ public sealed class WinoModeSwitcher : NSView
         if (!_thumb.Hidden && _thumb.AlphaValue >= 1) return;
         _thumb.Hidden = false;
         if (!animated) { _thumb.AlphaValue = 1; return; }
-        NSAnimationContext.BeginGrouping();
-        NSAnimationContext.CurrentContext.Duration = ThumbFadeDuration;
-        ((NSView)_thumb.Animator).AlphaValue = 1;
-        NSAnimationContext.EndGrouping();
+        BeginAnimation(ThumbFadeDuration);
+        try { _thumb.AlphaValue = 1; }
+        finally { NSAnimationContext.EndGrouping(); }
     }
 
     private void HideThumb(bool animated)
@@ -314,10 +324,9 @@ public sealed class WinoModeSwitcher : NSView
         _thumbPlaced = false;
         if (_thumb.Hidden) return;
         if (!animated) { _thumb.AlphaValue = 0; _thumb.Hidden = true; return; }
-        NSAnimationContext.BeginGrouping();
-        NSAnimationContext.CurrentContext.Duration = ThumbFadeDuration;
-        ((NSView)_thumb.Animator).AlphaValue = 0;
-        NSAnimationContext.EndGrouping();
+        BeginAnimation(ThumbFadeDuration);
+        try { _thumb.AlphaValue = 0; }
+        finally { NSAnimationContext.EndGrouping(); }
     }
 
     #endregion
