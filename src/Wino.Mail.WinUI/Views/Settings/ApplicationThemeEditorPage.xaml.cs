@@ -7,7 +7,6 @@ using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics.Imaging;
 using Windows.Storage;
@@ -35,6 +34,7 @@ public sealed partial class ApplicationThemeEditorPage : ApplicationThemeEditorP
     private bool _isPaletteModeSegmentedReady;
     private bool _isWallpaperFitSegmentedReady;
     private bool _isSynchronizingSegments;
+    private int _wallpaperLoadRevision;
 
     // The colour picker only writes while its own flyout is open, so nothing it reports
     // while loading is mistaken for an edit.
@@ -116,6 +116,26 @@ public sealed partial class ApplicationThemeEditorPage : ApplicationThemeEditorP
         ViewModel.PropertyChanged -= EditorViewModelPropertyChanged;
         _isPaletteModeSegmentedReady = false;
         _isWallpaperFitSegmentedReady = false;
+    }
+
+    // Leaving through anything other than Back or Cancel (another settings page, another mode,
+    // closing the window) must still end the live preview. It is a no-op after Save, Delete or Cancel.
+    protected override void ReleasePageResources()
+    {
+        base.ReleasePageResources();
+        _ = ReleasePreviewAsync();
+    }
+
+    private async Task ReleasePreviewAsync()
+    {
+        try
+        {
+            await ViewModel.ReleasePreviewAsync();
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Warning(ex, "Restoring the theme after leaving the theme editor failed.");
+        }
     }
 
     private void EditorViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -308,6 +328,7 @@ public sealed partial class ApplicationThemeEditorPage : ApplicationThemeEditorP
     /// </summary>
     private async Task UpdateWallpaperAsync()
     {
+        var revision = ++_wallpaperLoadRevision;
         var uri = ThemeWallpaperPreviewPath.GetAbsoluteUri(ViewModel.WallpaperPreviewPath);
 
         if (uri == null)
@@ -317,28 +338,57 @@ public sealed partial class ApplicationThemeEditorPage : ApplicationThemeEditorP
             return;
         }
 
-        WallpaperImageSource = new BitmapImage(uri);
+        byte[] data;
+        try
+        {
+            data = await ReadWallpaperAsync(uri);
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Warning(ex, "The theme editor could not read its wallpaper.");
+            if (revision == _wallpaperLoadRevision)
+            {
+                WallpaperImageSource = null;
+                ViewModel.WallpaperAverageColor = string.Empty;
+            }
+            return;
+        }
+
+        // Decoded from memory so the editor never holds the theme's wallpaper file open while Save replaces it.
+        var image = await Wino.Services.NewThemeService.CreateBitmapAsync(data);
+        if (revision != _wallpaperLoadRevision)
+            return;
+
+        WallpaperImageSource = image;
 
         try
         {
-            ViewModel.WallpaperAverageColor = await GetAverageColorAsync(uri);
+            var averageColor = await GetAverageColorAsync(data);
+            if (revision == _wallpaperLoadRevision)
+                ViewModel.WallpaperAverageColor = averageColor;
         }
         catch (Exception)
         {
             // The contrast report is optional. Without an average color it simply stays hidden.
-            ViewModel.WallpaperAverageColor = string.Empty;
+            if (revision == _wallpaperLoadRevision)
+                ViewModel.WallpaperAverageColor = string.Empty;
         }
     }
 
-    private static async Task<string> GetAverageColorAsync(Uri uri)
+    private static async Task<byte[]> ReadWallpaperAsync(Uri uri)
     {
-        // RandomAccessStreamReference does not read file:// URIs, and a freshly picked
-        // wallpaper is always one, so open the file itself.
-        var file = uri.IsFile
-            ? await StorageFile.GetFileFromPathAsync(uri.LocalPath)
-            : await StorageFile.GetFileFromApplicationUriAsync(uri);
+        // A freshly picked wallpaper is a file:// URI, which the application URI APIs do not read.
+        if (uri.IsFile)
+            return await File.ReadAllBytesAsync(uri.LocalPath);
 
-        using var stream = await file.OpenReadAsync();
+        var file = await StorageFile.GetFileFromApplicationUriAsync(uri);
+        return await File.ReadAllBytesAsync(file.Path);
+    }
+
+    private static async Task<string> GetAverageColorAsync(byte[] data)
+    {
+        using var memory = new MemoryStream(data);
+        using var stream = memory.AsRandomAccessStream();
         var decoder = await BitmapDecoder.CreateAsync(stream);
 
         var transform = new BitmapTransform { ScaledWidth = 8, ScaledHeight = 8 };
