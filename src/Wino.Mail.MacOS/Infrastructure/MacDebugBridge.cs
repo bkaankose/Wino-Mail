@@ -183,6 +183,29 @@ public static class MacDebugBridge
             foreach (var window in AllWindows().Where(item => item.IsVisible)) window.OrderFrontRegardless();
             return Task.FromResult("ok");
         });
+        // "fitwide CLASS MIN" writes the views (hidden ones marked) of that window whose own fitting width is at least MIN to fitwide.txt:
+        // the views that keep a window from getting narrower.
+        Register("fitwide", args =>
+        {
+            var window = AllWindows().FirstOrDefault(item => item.IsVisible && item.GetType().Name == args[0]);
+            if (window?.ContentView is null) return Task.FromResult("no window");
+            var minimum = double.Parse(args[1]);
+            var builder = new System.Text.StringBuilder();
+            void Walk(NSView view, int depth)
+            {
+                var width = view.FittingSize.Width;
+                if (width >= minimum)
+                    builder.Append(' ', depth * 2).Append(view.GetType().Name).Append(" fit=").Append(Math.Round(width))
+                        .Append(" frame=").Append(Math.Round(view.Frame.Width)).Append(view.Hidden ? " hidden" : string.Empty)
+                        .Append(' ').Append(view.AccessibilityIdentifier)
+                        .Append(view is NSTextField field ? $" \"{field.StringValue}\" lines={field.MaximumNumberOfLines} hres={view.GetContentCompressionResistancePriority(NSLayoutConstraintOrientation.Horizontal)}" : string.Empty)
+                        .AppendLine();
+                foreach (var child in view.Subviews) Walk(child, depth + 1);
+            }
+            Walk(window.ContentView, 0);
+            File.WriteAllText(Path.Combine(Folder, "fitwide.txt"), builder.ToString());
+            return Task.FromResult("fitwide.txt");
+        });
         // "tree CLASS [DEPTH]" writes the view tree of the first visible window of that class to tree.txt.
         Register("tree", args =>
         {
