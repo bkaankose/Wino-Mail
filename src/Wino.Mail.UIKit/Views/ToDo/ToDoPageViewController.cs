@@ -70,6 +70,26 @@ public abstract partial class ToDoPageViewController : WinoViewController<ToDoPa
     private UIBarButtonItem? _optionsItem;
     private UIBarButtonItem? _suggestionsItem;
 
+    /// <summary>The floating button and the Home Screen quick action: right after a mode switch readiness is still being checked.</summary>
+    protected async Task ShowQuickAddWhenReadyAsync()
+    {
+        if (!ViewModel.Readiness.IsReady && !await ViewModel.Readiness.EnsureReadyAsync()) return;
+        if (!ViewModel.CanCreateTask) await WaitForCanCreateTaskAsync();
+        ShowQuickAdd();
+    }
+
+    private async Task WaitForCanCreateTaskAsync()
+    {
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (ViewModel.CanCreateTask) ready.TrySetResult();
+        }
+        ViewModel.PropertyChanged += Changed;
+        try { await Task.WhenAny(ready.Task, Task.Delay(TimeSpan.FromSeconds(5))); }
+        finally { ViewModel.PropertyChanged -= Changed; }
+    }
+
     /// <summary>Opens the quick add bar on the keyboard (the iPhone's floating button).</summary>
     protected void ShowQuickAdd()
     {

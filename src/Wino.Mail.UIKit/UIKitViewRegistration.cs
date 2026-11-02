@@ -50,6 +50,8 @@ public static partial class UIKitViewRegistration
         services.AddSingleton<IApplicationShellHost, UIKitApplicationShellHost>();
         services.AddSingleton<ActivationRouter>();
         services.AddSingleton<UIKitActivationCoordinator>();
+        services.AddSingleton<UIKitQuickActionCoordinator>();
+        services.AddSingleton<UIKitQuickActionItems>();
         services.AddSingleton<INotificationResponseNavigator, NotificationResponseNavigator>();
         services.AddSingleton<ApplicationLifecycleCoordinator>();
         services.AddSingleton<UIKitApplicationLifecycleHost>();

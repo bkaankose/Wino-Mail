@@ -419,6 +419,16 @@ public sealed class PhoneShellViewController : UIKitShellViewController
         else if (mode == WinoApplicationMode.Mail) Compose();
     }
 
+    /// <summary>A Home Screen quick action: the floating button's action on the mode's root page.</summary>
+    public override void CreateNew()
+    {
+        if (ActiveMode is not { } mode) return;
+        _drawer.Close(false);
+        var stack = _stacks[IndexOf(mode)];
+        if (stack.TopViewController is not IPhoneFloatingActionPage) stack.PopToRootViewController(false);
+        FloatingActionInvoked();
+    }
+
     // ---- The shell drawer ----
 
     /// <summary>

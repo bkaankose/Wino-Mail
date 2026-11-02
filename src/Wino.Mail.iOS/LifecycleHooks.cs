@@ -44,6 +44,26 @@ internal sealed class ActivationLifecycleHook(IServiceProvider services) : IAppl
     public Task StoppingAsync(bool runtimeStarted) => Task.CompletedTask;
 }
 
+/// <summary>Runs the Home Screen quick action that launched the app and keeps the published set current.</summary>
+internal sealed class QuickActionsLifecycleHook(IServiceProvider services) : IApplicationLifecycleHook
+{
+    public async Task ServicesReadyAsync()
+    {
+        var items = services.GetRequiredService<UIKitQuickActionItems>();
+        items.Start();
+#if DEBUG
+        items.RegisterDebugCommands(services.GetRequiredService<UIKitQuickActionCoordinator>());
+#endif
+        await services.GetRequiredService<UIKitQuickActionCoordinator>().SetReady();
+    }
+
+    public Task StoppingAsync(bool runtimeStarted)
+    {
+        services.GetRequiredService<UIKitQuickActionItems>().Stop();
+        return Task.CompletedTask;
+    }
+}
+
 /// <summary>
 /// Background refresh: BGTaskScheduler wakes the app and the shared runtime runs one bounded synchronization
 /// (<see cref="IApplicationRuntime.SynchronizeOnceAsync"/>). The handlers are registered before launching finishes
@@ -56,11 +76,13 @@ internal sealed class BackgroundRefreshLifecycleHook(IServiceProvider services) 
     private static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(15);
     private static Func<IApplicationRuntime?>? _runtime;
     private static Func<IPushRelayRegistrationService?>? _pushRelay;
+    private static Func<UIKitQuickActionItems?>? _quickActions;
 
     public Task ServicesReadyAsync()
     {
         _runtime = () => services.GetService<IApplicationRuntime>();
         _pushRelay = () => services.GetService<IPushRelayRegistrationService>();
+        _quickActions = () => services.GetService<UIKitQuickActionItems>();
         Schedule();
         return Task.CompletedTask;
     }
@@ -69,6 +91,7 @@ internal sealed class BackgroundRefreshLifecycleHook(IServiceProvider services) 
     {
         _runtime = null;
         _pushRelay = null;
+        _quickActions = null;
         return Task.CompletedTask;
     }
 
@@ -107,6 +130,8 @@ internal sealed class BackgroundRefreshLifecycleHook(IServiceProvider services) 
                 await runtime.SynchronizeOnceAsync(cancellation.Token);
                 success = !cancellation.IsCancellationRequested;
             }
+            // The only chance to move the next-meeting quick action on while the app stays in the background.
+            if (!cancellation.IsCancellationRequested && _quickActions?.Invoke() is { } quickActions) await quickActions.RefreshAsync(cancellation.Token);
             // The daily relay check-in keeps the device alive on WinoRelay when no push woke the app for a while.
             if (!cancellation.IsCancellationRequested) await CheckInAsync(cancellation.Token);
         }
@@ -121,6 +146,9 @@ internal sealed class BackgroundRefreshLifecycleHook(IServiceProvider services) 
     /// </summary>
     public static void RequestForegroundRelaySync()
         => _pushRelay?.Invoke()?.RequestSync(PushRelaySyncReason.Foreground);
+
+    /// <summary>Republishes the quick actions for the next long-press on the icon. Ignored until services are ready.</summary>
+    public static void RequestQuickActionRefresh() => _quickActions?.Invoke()?.RequestRefresh();
 
     private static async Task CheckInAsync(CancellationToken cancellationToken)
     {
