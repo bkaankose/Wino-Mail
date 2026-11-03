@@ -877,21 +877,24 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
         DisposeBridge();
         DetachResourceFilter();
 
-        if (EditorWebView2 is not null)
-        {
-            EditorWebView2.DragOver -= EditorWebView_DragOver;
-            EditorWebView2.Drop -= EditorWebView_Drop;
+        var webView = EditorWebView2;
+        EditorWebView2 = null;
 
-            try { EditorWebView2.Close(); }
+        // Leave the visual tree before closing. XAML can still hand focus to a WebView2 in the tree, and
+        // moving that focus into a closed browser aborts the process (Sentry WINOMAIL-36Q).
+        Content = null;
+
+        if (webView is not null)
+        {
+            webView.DragOver -= EditorWebView_DragOver;
+            webView.Drop -= EditorWebView_Drop;
+
+            try { webView.Close(); }
             catch (Exception exception) when (
                 exception is InvalidOperationException or ObjectDisposedException)
             {
             }
-
-            EditorWebView2 = null;
         }
-
-        Content = null;
         GC.SuppressFinalize(this);
     }
 }

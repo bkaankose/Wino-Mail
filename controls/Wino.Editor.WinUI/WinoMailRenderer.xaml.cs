@@ -797,23 +797,29 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
         CancelImageFetches();
         DetachBrowserEvents();
 
-        if (RendererWebView2 is not null)
-        {
-            RendererWebView2.NavigationCompleted -= RendererWebView2_NavigationCompleted;
-            RendererWebView2.NavigationStarting -= RendererWebView2_NavigationStarting;
-
-            try { RendererWebView2.Close(); }
-            catch (Exception exception) when (
-                exception is InvalidOperationException or ObjectDisposedException)
-            {
-            }
-
-            RendererWebView2 = null;
-        }
-
+        var webView = RendererWebView2;
+        RendererWebView2 = null;
         Loaded -= WinoMailRenderer_Loaded;
         Unloaded -= WinoMailRenderer_Unloaded;
+
+        // Leave the visual tree before closing. XAML can still hand focus to a WebView2 in the tree, and
+        // moving that focus into a closed browser aborts the process (Sentry WINOMAIL-36Q).
         Content = null;
+        CloseWebView(webView);
+    }
+
+    private void CloseWebView(Microsoft.UI.Xaml.Controls.WebView2? webView)
+    {
+        if (webView is null) return;
+
+        webView.NavigationCompleted -= RendererWebView2_NavigationCompleted;
+        webView.NavigationStarting -= RendererWebView2_NavigationStarting;
+
+        try { webView.Close(); }
+        catch (Exception exception) when (
+            exception is InvalidOperationException or ObjectDisposedException or COMException)
+        {
+        }
     }
 
     private static TaskCompletionSource<bool> CreateReadySource() =>
