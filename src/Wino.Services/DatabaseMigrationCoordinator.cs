@@ -83,6 +83,14 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
             DeleteGeneratedDatabase(destinationPath);
         }
 
+        // Resuming from files an earlier attempt left behind caused more failed migrations than it saved
+        // (issue #1164), so every migration from the old database starts over from Wino200.db.
+        if (File.Exists(sourcePath) && !destination.IsReady)
+        {
+            DiscardIncompleteMigration(destination, destinationPath, stagingPath);
+            destination = await DatabaseService.ReadLifecycleAsync(destinationPath).ConfigureAwait(false);
+        }
+
         try
         {
             await _relocation.PrepareAsync(cancellationToken).ConfigureAwait(false);
@@ -1205,9 +1213,42 @@ WHERE Id = ?;",
         }
     }
 
+    private void DiscardIncompleteMigration(DatabaseLifecycleSnapshot destination, string destinationPath, string stagingPath)
+    {
+        try
+        {
+            if (File.Exists(stagingPath) && !IsFileInUse(stagingPath))
+                DeleteGeneratedDatabase(stagingPath);
+
+            if (!destination.Exists)
+            {
+                DeleteGeneratedDatabase(destinationPath);
+                return;
+            }
+
+            if (IsFileInUse(destinationPath))
+                return;
+
+            ReportDestinationNotReady(destination, "restarted_migration");
+
+            // A readable database that never finished migrating holds only copies of Wino200.db. One that can't
+            // be read may be a used database that later broke, so it is kept aside for recovery by hand.
+            if (destination.IsReadable)
+                DeleteGeneratedDatabase(destinationPath);
+            else
+                MoveDatabaseAside(destinationPath, $".stale-{DateTime.UtcNow:yyyyMMddHHmmss}");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            CaptureFailure(ex, "MigrationDiscardIncomplete", MigrationStepKind.CheckExistingData);
+        }
+    }
+
+    private static readonly string[] DatabaseFileSuffixes = ["", "-wal", "-shm", "-journal"];
+
     private static void MoveDatabaseAside(string databasePath, string suffix)
     {
-        foreach (var sidecar in new[] { "", "-wal", "-shm" })
+        foreach (var sidecar in DatabaseFileSuffixes)
         {
             if (File.Exists(databasePath + sidecar))
                 File.Move(databasePath + sidecar, databasePath + suffix + sidecar);
@@ -1216,10 +1257,10 @@ WHERE Id = ?;",
 
     private static void DeleteGeneratedDatabase(string databasePath)
     {
-        foreach (var path in new[] { databasePath, databasePath + "-wal", databasePath + "-shm" })
+        foreach (var sidecar in DatabaseFileSuffixes)
         {
-            if (File.Exists(path))
-                File.Delete(path);
+            if (File.Exists(databasePath + sidecar))
+                File.Delete(databasePath + sidecar);
         }
     }
 
