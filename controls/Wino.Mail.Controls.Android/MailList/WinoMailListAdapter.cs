@@ -37,6 +37,7 @@ public sealed class WinoMailListAdapter : RecyclerView.Adapter
 
     private readonly Func<MailListRow, WinoMailRowModel?> _map;
     private readonly Func<object?, string> _groupTitle;
+    private RecyclerView? _recyclerView;
     private readonly Handler _handler = new(Looper.MainLooper ?? throw new InvalidOperationException("The main looper is unavailable."));
     private readonly Dictionary<string, long> _ids = new(StringComparer.Ordinal);
     private readonly HashSet<string> _selectedKeys = new(StringComparer.Ordinal);
@@ -97,7 +98,7 @@ public sealed class WinoMailListAdapter : RecyclerView.Adapter
         {
             if (_isSelectionMode == value) return;
             _isSelectionMode = value;
-            NotifyItemRangeChanged(0, _entries.Count, SelectionPayload.Instance);
+            NotifyAllRows(SelectionPayload.Instance);
         }
     }
 
@@ -127,7 +128,7 @@ public sealed class WinoMailListAdapter : RecyclerView.Adapter
     }
 
     /// <summary>Re-maps every bound row (preferences, pictures or theme changed).</summary>
-    public void RefreshRows() => NotifyItemRangeChanged(0, _entries.Count, ContentPayload.Instance);
+    public void RefreshRows() => NotifyAllRows(ContentPayload.Instance);
 
     // ---- Selection ----
 
@@ -158,7 +159,7 @@ public sealed class WinoMailListAdapter : RecyclerView.Adapter
     {
         foreach (var entry in _entries)
             if (entry is WinoMailListRowEntry) _selectedKeys.Add(entry.Key);
-        NotifyItemRangeChanged(0, _entries.Count, SelectionPayload.Instance);
+        NotifyAllRows(SelectionPayload.Instance);
         SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -166,7 +167,7 @@ public sealed class WinoMailListAdapter : RecyclerView.Adapter
     {
         if (_selectedKeys.Count == 0) return;
         _selectedKeys.Clear();
-        NotifyItemRangeChanged(0, _entries.Count, SelectionPayload.Instance);
+        NotifyAllRows(SelectionPayload.Instance);
         SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -198,8 +199,28 @@ public sealed class WinoMailListAdapter : RecyclerView.Adapter
 
     private void NotifyKeyChanged(string key)
     {
+        if (_recyclerView is { IsComputingLayout: true })
+        {
+            _handler.Post(() => NotifyKeyChanged(key));
+            return;
+        }
         int index = _entries.FindIndex(entry => entry.Key == key);
         if (index >= 0) NotifyItemChanged(index, SelectionPayload.Instance);
+    }
+
+    /// <summary>
+    /// Re-binds every row with <paramref name="payload"/>. A row bind can raise this synchronously (a sender picture
+    /// served from the cache reports PictureChanged), and RecyclerView throws on notifications during its layout, so
+    /// those wait for the next main-loop turn.
+    /// </summary>
+    private void NotifyAllRows(Java.Lang.Object payload)
+    {
+        if (_recyclerView is { IsComputingLayout: true })
+        {
+            _handler.Post(() => NotifyAllRows(payload));
+            return;
+        }
+        NotifyItemRangeChanged(0, _entries.Count, payload);
     }
 
     // ---- Projection ----
@@ -352,8 +373,15 @@ public sealed class WinoMailListAdapter : RecyclerView.Adapter
     }
 
     /// <summary>The list view went away (page destroyed): rows stop following their mail items.</summary>
+    public override void OnAttachedToRecyclerView(RecyclerView recyclerView)
+    {
+        base.OnAttachedToRecyclerView(recyclerView);
+        _recyclerView = recyclerView;
+    }
+
     public override void OnDetachedFromRecyclerView(RecyclerView recyclerView)
     {
+        if (ReferenceEquals(_recyclerView, recyclerView)) _recyclerView = null;
         UnbindAll();
         base.OnDetachedFromRecyclerView(recyclerView);
     }
