@@ -55,7 +55,9 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private readonly WinoContactPicture _avatar = new(40);
     private readonly UILabel _senderName = WinoStyle.Label(string.Empty, WinoStyle.BodyStrong);
     private readonly UILabel _senderAddress = WinoStyle.Label(string.Empty, WinoStyle.Description, WinoStyle.SecondaryText);
-    private readonly UILabel _date = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
+    private readonly UILabel _date = WinoStyle.Label(string.Empty, WinoStyle.Description, WinoStyle.SecondaryText);
+    private readonly UILabel _barSubject = WinoStyle.Label(string.Empty, WinoStyle.Scaled(16, UIFontWeight.Semibold), WinoStyle.PrimaryText);
+    private bool _barSubjectShown;
     private readonly MailReaderStatusRow _statusRow = new();
     private readonly UIStackView _chips = WinoLayout.HStack(8);
     private readonly UIView _intelligenceHost = new() { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
@@ -108,14 +110,28 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _subject.UserInteractionEnabled = true;
         _senderAddress.SetContentCompressionResistancePriority(200, UILayoutConstraintAxis.Horizontal);
         _senderName.SetContentCompressionResistancePriority(400, UILayoutConstraintAxis.Horizontal);
-        var senderText = WinoLayout.VStack(1, _senderName, _senderAddress);
+        _senderName.SetContentHuggingPriority(1, UILayoutConstraintAxis.Horizontal);
+        var nameLine = WinoLayout.HStack(8, _senderName, _date);
+        nameLine.Alignment = UIStackViewAlignment.FirstBaseline;
+        var senderText = WinoLayout.VStack(1, nameLine, _senderAddress);
         senderText.SetContentHuggingPriority(1, UILayoutConstraintAxis.Horizontal);
         senderText.SetContentCompressionResistancePriority(200, UILayoutConstraintAxis.Horizontal);
         AttachSenderLink(senderText);
         _date.SetContentCompressionResistancePriority(1000, UILayoutConstraintAxis.Horizontal);
         _date.SetContentHuggingPriority(1000, UILayoutConstraintAxis.Horizontal);
-        var senderRow = WinoLayout.HStack(12, _avatar, senderText, _date);
+        var senderRow = WinoLayout.HStack(12, _avatar, senderText);
         senderRow.Alignment = UIStackViewAlignment.Center;
+
+        // Once the header subject scrolls under the bar it becomes the bar's title.
+        _barSubject.LineBreakMode = UILineBreakMode.TailTruncation;
+        _barSubject.TextAlignment = UITextAlignment.Center;
+        _barSubject.Alpha = 0;
+        _barSubject.IsAccessibilityElement = false;
+        _barSubject.SetContentCompressionResistancePriority(1, UILayoutConstraintAxis.Horizontal);
+        // The bar animates its title view's own alpha on push and pop, so the fade runs on the label inside it.
+        var barTitle = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
+        WinoLayout.Fill(_barSubject, barTitle);
+        NavigationItem.TitleView = barTitle;
 
         _statusRow.UnsubscribeInvoked += (_, _) => Observe(ViewModel.UnsubscribeCommand.ExecuteAsync(null));
         _statusRow.SignatureInvoked += (_, _) => Observe(ViewModel.ShowSmimeSigningCertificateInfoCommand.ExecuteAsync(null));
@@ -208,7 +224,11 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         ]);
         // The page scrolls the reader, not the document, so the bar sits on the visible scroll frame and hides on scroll.
         _linkTarget.Attach(root, _scroll, _webView);
-        _scroll.Scrolled += (_, _) => _linkTarget.Clear();
+        _scroll.Scrolled += (_, _) =>
+        {
+            _linkTarget.Clear();
+            UpdateBarSubject();
+        };
 
         _loadingHost.BackgroundColor = WinoStyle.ZoneFill;
         WinoLayout.Fill(_loading, _loadingHost);
@@ -248,6 +268,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         Bind(nameof(ViewModel.Subject), vm => vm.Subject, subject =>
         {
             _subject.Text = string.IsNullOrWhiteSpace(subject) ? Translator.MailItemNoSubject : subject;
+            _barSubject.Text = _subject.Text;
         });
         Bind(nameof(ViewModel.FromName), vm => vm.FromName, _ => UpdateSender());
         Bind(nameof(ViewModel.FromAddress), vm => vm.FromAddress, _ => UpdateSender());
@@ -263,6 +284,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         {
             _loadingHost.Hidden = ready;
             _loading.IsAnimating = !ready;
+            UpdateBarSubject();
         });
         Bind(nameof(ViewModel.CurrentRenderModel), vm => vm.CurrentRenderModel, _ =>
         {
@@ -324,7 +346,46 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private void UpdateRecipients()
     {
         UpdateRecipientRows();
-        _date.Text = MailRowPresentation.FormatReaderDate(ViewModel.CreationDate, ViewModel.PreferencesService.MailTimeFormatPreference);
+        _date.Text = HeaderDate(ViewModel.CreationDate, ViewModel.PreferencesService.MailTimeFormatPreference);
+        _date.AccessibilityLabel = MailRowPresentation.FormatAccessibleDate(ViewModel.CreationDate);
+    }
+
+    /// <summary>
+    /// The header date beside the sender name: the time today, then "Yesterday", the weekday this week, the short month
+    /// and day this year, with the time; the short date for older mail. The long form is the accessibility label.
+    /// </summary>
+    private static string HeaderDate(DateTime value, TimeFormatPreference timeFormat)
+    {
+        if (value == default) return string.Empty;
+
+        var culture = System.Globalization.CultureInfo.DefaultThreadCurrentUICulture ?? System.Globalization.CultureInfo.CurrentUICulture;
+        var local = value.ToLocalTime();
+        var today = DateTime.Today;
+        var time = DateTimeDisplayFormatter.FormatTime(local, DateTimeDisplayFormatter.GetTimeDisplayType(timeFormat, culture), culture);
+
+        if (local.Date == today) return time;
+        if (local.Date == today.AddDays(-1)) return $"{Translator.Yesterday} {time}";
+        if (local.Date > today.AddDays(-7)) return $"{local.ToString("ddd", culture)} {time}";
+        if (local.Year == today.Year) return $"{local.ToString(culture.DateTimeFormat.MonthDayPattern.Replace("MMMM", "MMM"), culture)} {time}";
+        return local.ToString("d", culture);
+    }
+
+    public override void ViewDidLayoutSubviews()
+    {
+        base.ViewDidLayoutSubviews();
+        UpdateBarSubject();
+    }
+
+    private void UpdateBarSubject()
+    {
+        if (_subject.Superview is null) return;
+        var subjectFoot = _subject.ConvertRectToView(_subject.Bounds, _scroll).GetMaxY();
+        bool shown = ViewModel.IsMailContentReady && _subject.Bounds.Height > 0
+            && _scroll.ContentOffset.Y + _scroll.AdjustedContentInset.Top >= subjectFoot - 4;
+        if (shown == _barSubjectShown) return;
+        _barSubjectShown = shown;
+        if (UIAccessibility.IsReduceMotionEnabled) _barSubject.Alpha = shown ? 1 : 0;
+        else UIView.Animate(0.18, () => _barSubject.Alpha = shown ? 1 : 0);
     }
 
     /// <summary>Category chips under the sender row. The intelligence tiles live in the Wino Intelligence header.</summary>

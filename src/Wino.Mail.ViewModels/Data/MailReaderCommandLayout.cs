@@ -33,8 +33,9 @@ public sealed record MailReaderCommandPlan(MailReaderCommandPlanKind Kind, IRead
 
 /// <summary>
 /// The Windows reader command bar (OperationCommandBar) as native heads lay it out from
-/// <see cref="MailRenderingPageViewModel.MenuItems"/>: Reply, Reply all and Forward, then the message actions in a fixed
-/// order, everything else in More. A saved message file (no list item) shows only its own operations; a reader without a
+/// <see cref="MailRenderingPageViewModel.MenuItems"/>: the actions the Reader actions setting shows, in its order (the
+/// ViewModel builds the menu from it), with a separator where the Reply, Reply all and Forward group starts or ends;
+/// the hidden ones in More. A saved message file (no list item) shows only its own operations; a reader without a
 /// loaded message shows the default set disabled. Shared by the Mac, iPhone, iPad and Android readers.
 /// </summary>
 public static class MailReaderCommandLayout
@@ -51,6 +52,9 @@ public static class MailReaderCommandLayout
         MailOperation.Reply, MailOperation.ReplyAll, MailOperation.Forward, MailOperation.None,
         MailOperation.Archive, MailOperation.SoftDelete, MailOperation.Move, MailOperation.SetFlag, MailOperation.MarkAsRead
     ];
+
+    private static bool IsReplyOperation(MailOperation operation)
+        => operation is MailOperation.Reply or MailOperation.ReplyAll or MailOperation.Forward;
 
     /// <summary>The short label the Windows command bar shows ("Flag" rather than "Set flag").</summary>
     public static string BarTitle(MailOperation operation)
@@ -87,19 +91,28 @@ public static class MailReaderCommandLayout
             items = [.. items, MailOperationMenuItem.Create(MailOperation.Move)];
 
         var shown = new HashSet<MailOperation>();
-        foreach (var operation in PrimaryOrder)
+        bool? previousWasReply = null;
+        foreach (var item in items)
         {
-            if (operation == MailOperation.None)
+            if (item.IsSecondaryMenuPreferred || item.Operation == MailOperation.Move || !shown.Add(item.Operation)) continue;
+            bool isReply = IsReplyOperation(item.Operation);
+            if (previousWasReply is { } previous && previous != isReply) primary.Add(null);
+            previousWasReply = isReply;
+            primary.Add(new MailReaderCommandSlot(item.Operation, item, item.IsEnabled));
+
+            if (item.Operation is MailOperation.SoftDelete or MailOperation.HardDelete
+                && !shown.Contains(MailOperation.Move)
+                && items.FirstOrDefault(static candidate => candidate.Operation == MailOperation.Move) is { } move)
             {
-                primary.Add(null);
-                continue;
+                shown.Add(MailOperation.Move);
+                primary.Add(new MailReaderCommandSlot(MailOperation.Move, move, move.IsEnabled));
             }
-            if (items.FirstOrDefault(candidate => candidate.Operation == operation) is not { } item) continue;
-            shown.Add(operation);
-            primary.Add(new MailReaderCommandSlot(operation, item, item.IsEnabled));
         }
-        if (primary.Count > 0 && primary[^1] is null) primary.RemoveAt(primary.Count - 1);
-        return new MailReaderCommandPlan(MailReaderCommandPlanKind.Message, primary, all.Where(item => !shown.Contains(item.Operation)).ToArray());
+        // Move joins Delete; with Delete hidden it waits in More.
+        var overflow = all.Where(item => !shown.Contains(item.Operation)).ToList();
+        if (!shown.Contains(MailOperation.Move) && items.FirstOrDefault(static item => item.Operation == MailOperation.Move) is { } unplacedMove && !overflow.Contains(unplacedMove))
+            overflow.Add(unplacedMove);
+        return new MailReaderCommandPlan(MailReaderCommandPlanKind.Message, primary, overflow.ToArray());
     }
 
     /// <summary>
