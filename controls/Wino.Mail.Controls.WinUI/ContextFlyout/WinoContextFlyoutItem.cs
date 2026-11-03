@@ -185,6 +185,9 @@ public sealed partial class WinoContextFlyoutSubItem : WinoContextFlyoutItemBase
     [GeneratedDependencyProperty(DefaultValue = true)]
     public partial bool IsEnabled { get; set; }
 
+    [GeneratedDependencyProperty(DefaultValue = false)]
+    public partial bool IsSearchable { get; set; }
+
     [GeneratedDependencyProperty(DefaultValue = "")]
     public partial string AutomationId { get; set; }
 
@@ -196,6 +199,7 @@ public sealed partial class WinoContextFlyoutSubItem : WinoContextFlyoutItemBase
             ? null
             : new ContextFlyoutIcon(IconGlyph, string.IsNullOrWhiteSpace(IconForegroundHex) ? null : IconForegroundHex),
         IsEnabled = IsEnabled,
+        IsSearchable = IsSearchable,
         AutomationId = AutomationId,
         Items = Items.Select(static item => item.CreateEntry()).ToArray()
     };
