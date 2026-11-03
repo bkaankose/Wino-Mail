@@ -43,9 +43,20 @@ public sealed class ModePlaceholderFragment : WinoFragment
             message.Text = mode == WinoApplicationMode.Mail ? string.Empty : Translator.Info_UnsupportedFunctionalityDescription;
             message.Visibility = mode == WinoApplicationMode.Mail ? ViewStates.Gone : ViewStates.Visible;
         }
+        if (view.FindViewById(Resource.Id.mode_placeholder_bar) is { } bar)
+        {
+            var context = view.RequireContext();
+            float radius = WinoUnits.Dp(context, 28);
+            var pill = new Google.Android.Material.Shape.MaterialShapeDrawable(Google.Android.Material.Shape.ShapeAppearanceModel.InvokeBuilder().SetAllCornerSizes(radius).Build())
+            {
+                FillColor = global::Android.Content.Res.ColorStateList.ValueOf(WinoColors.ZoneFill(context))
+            };
+            pill.SetStroke(Math.Max(1, WinoUnits.Dp(context, 1)), WinoColors.ZoneStroke(context));
+            bar.Background = pill;
+        }
         if (view.FindViewById<ImageButton>(Resource.Id.mode_placeholder_navigation) is { } navigation)
         {
-            navigation.SetImageDrawable(new AndroidX.AppCompat.Graphics.Drawable.DrawerArrowDrawable(view.RequireContext()) { Color = WinoColors.PrimaryText(view.RequireContext()) });
+            navigation.SetImageResource(Resource.Drawable.wino_ic_menu);
             navigation.ContentDescription = Translator.Android_Shell_OpenNavigation;
             navigation.Click += (_, _) => (FindChrome(view))?.ToggleNavigation();
         }
