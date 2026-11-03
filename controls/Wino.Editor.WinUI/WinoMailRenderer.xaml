@@ -5,7 +5,7 @@
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     Loaded="WinoMailRenderer_Loaded"
     Unloaded="WinoMailRenderer_Unloaded">
-    <Grid Background="Transparent">
+    <Grid x:Name="RendererHost" Background="Transparent">
         <muxc:WebView2
             x:Name="RendererWebView2"
             AutomationProperties.AutomationId="WinoMailRendererWebView"
