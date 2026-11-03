@@ -60,13 +60,13 @@
   <!-- Theme wallpapers shared with Windows and the Apple heads (BackgroundImages): the theme gallery and the backdrop.
        The system theme (Default) has no wallpaper. -->
   <ItemGroup>
-    <AndroidAsset Include="../Wino.Mail.WinUI/BackgroundImages/*.jpg" Link="Assets/Themes/%(Filename)%(Extension)" />
+    <AndroidAsset Include="../Wino.Mail.WinUI/BackgroundImages/*.jpg" Link="Assets\Themes\%(Filename)%(Extension)" />
   </ItemGroup>
   <!-- Files the shared services read as packaged resources (ms-appx:/// paths). APK assets are not files, so
        PackagedResourceInstaller copies everything under PackagedResources/ to AndroidPaths.PackagedResourceRoot. -->
   <ItemGroup>
-    <AndroidAsset Include="../Wino.Mail.WinUI/Assets/Providers/*.png" Link="Assets/PackagedResources/Assets/Providers/%(Filename)%(Extension)" />
+    <AndroidAsset Include="../Wino.Mail.WinUI/Assets/Providers/*.png" Link="Assets\PackagedResources\Assets\Providers\%(Filename)%(Extension)" />
     <!-- What's New release notes and illustrations (WhatsNewService reads them from PackagedResourceRoot). -->
-    <AndroidAsset Include="../Wino.Mail.WinUI/Assets/WhatsNew/*.json;../Wino.Mail.WinUI/Assets/WhatsNew/*.png" Link="Assets/PackagedResources/Assets/WhatsNew/%(Filename)%(Extension)" />
+    <AndroidAsset Include="../Wino.Mail.WinUI/Assets/WhatsNew/*.json;../Wino.Mail.WinUI/Assets/WhatsNew/*.png" Link="Assets\PackagedResources\Assets\WhatsNew\%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>
