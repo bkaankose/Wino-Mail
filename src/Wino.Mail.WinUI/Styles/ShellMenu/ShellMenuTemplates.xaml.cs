@@ -54,18 +54,38 @@ public sealed partial class ShellMenuTemplates
 
     #region Folder drag and drop
 
+    // Child folder items live inside their parent's template, so drag events bubble to every ancestor folder.
+    // The innermost folder handles them; otherwise the parent overrides the caption and moves the mails again.
     private void ItemDragEnterOnFolder(object sender, DragEventArgs e)
     {
-        if (sender is not WinoNavigationViewItem container || !CanContinueDragDrop(container, e))
+        if (sender is not WinoNavigationViewItem container)
             return;
 
-        container.IsDraggingItemOver = true;
+        e.Handled = true;
+        UpdateFolderDragState(container, e);
+    }
 
-        if (container.DataContext is IBaseFolderMenuItem draggingFolder)
+    private void ItemDragOverFolder(object sender, DragEventArgs e)
+    {
+        if (sender is not WinoNavigationViewItem container)
+            return;
+
+        e.Handled = true;
+        UpdateFolderDragState(container, e);
+    }
+
+    private static void UpdateFolderDragState(WinoNavigationViewItem container, DragEventArgs e)
+    {
+        if (!CanContinueDragDrop(container, e) || container.DataContext is not IBaseFolderMenuItem draggingFolder)
         {
-            e.AcceptedOperation = DataPackageOperation.Move;
-            e.DragUIOverride.Caption = string.Format(Translator.DragMoveToFolderCaption, draggingFolder.FolderName);
+            container.IsDraggingItemOver = false;
+            e.AcceptedOperation = DataPackageOperation.None;
+            return;
         }
+
+        container.IsDraggingItemOver = true;
+        e.AcceptedOperation = DataPackageOperation.Move;
+        e.DragUIOverride.Caption = string.Format(Translator.DragMoveToFolderCaption, draggingFolder.FolderName);
     }
 
     private void ItemDragLeaveFromFolder(object sender, DragEventArgs e)
@@ -81,6 +101,7 @@ public sealed partial class ShellMenuTemplates
         if (sender is not WinoNavigationViewItem droppedContainer)
             return;
 
+        e.Handled = true;
         droppedContainer.IsDraggingItemOver = false;
 
         if (!CanContinueDragDrop(droppedContainer, e) ||
