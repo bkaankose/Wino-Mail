@@ -13,6 +13,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Android.Infrastructure;
+using Wino.Mail.Controls.Android.Shell;
 using Wino.Mail.ViewModels.Data;
 using Wino.Presentation.Android;
 using Wino.Presentation.Controls;
@@ -65,7 +66,6 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
     private BottomNavigationView? _bottomNav;
     private NavigationRailView? _rail;
     private LinearLayout? _modeCard;
-    private TextView? _panelSubtitle;
     private View? _readerIdle;
     private bool _readerPane;
 
@@ -146,13 +146,10 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
 
     private void BuildPanel(View view, Context context, IServiceProvider services)
     {
-        if (view.FindViewById<TextView>(Resource.Id.shell_panel_title) is { } title) title.Text = "Wino Mail";
-        _panelSubtitle = view.FindViewById<TextView>(Resource.Id.shell_panel_subtitle);
-        foreach (var (avatarId, glyphSize) in new[] { (Resource.Id.shell_avatar, Resource.Dimension.wino_m3_drawer_avatar_glyph), (Resource.Id.shell_rail_avatar, Resource.Dimension.wino_m3_rail_avatar_glyph) })
+        if (view.FindViewById<WinoIconView>(Resource.Id.shell_rail_avatar) is { } avatar)
         {
-            if (view.FindViewById<WinoIconView>(avatarId) is not { } avatar) continue;
             avatar.Icon = WinoIconGlyph.Person;
-            avatar.GlyphSize = WinoTokens.Dp(context, glyphSize);
+            avatar.GlyphSize = WinoTokens.Dp(context, Resource.Dimension.wino_m3_rail_avatar_glyph);
             // The theme accent with its readable glyph colour (WinoIconView starts in the secondary text colour).
             avatar.BackgroundTintList = global::Android.Content.Res.ColorStateList.ValueOf(WinoColors.Accent(context));
             avatar.SetTextColor(WinoColors.OnAccent(context));
@@ -167,19 +164,30 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
             Bindings.Own(new ActionDisposable(() => avatar.Click -= open));
         }
 
-        if (view.FindViewById<WinoIconView>(Resource.Id.shell_panel_settings) is { } settings)
+        // Settings sits at the foot of the drawer; the expanded pane's mode card carries Settings instead.
+        if (view.FindViewById<FrameLayout>(Resource.Id.shell_panel_footer) is { } footer)
         {
-            settings.Icon = WinoIconGlyph.Settings;
-            settings.GlyphSize = WinoTokens.Dp(context, Resource.Dimension.wino_m3_glyph);
-            settings.ContentDescription = Translator.MenuSettings;
-            AndroidX.Core.View.ViewCompat.SetTooltipText(settings, Translator.MenuSettings);
-            EventHandler openSettings = (_, _) =>
+            if (view.FindViewById(Resource.Id.shell_pane) is not null)
             {
-                CloseDrawer(animate: false);
-                _shell?.OpenSettings();
-            };
-            settings.Click += openSettings;
-            Bindings.Own(new ActionDisposable(() => settings.Click -= openSettings));
+                footer.Visibility = ViewStates.Gone;
+            }
+            else
+            {
+                var settings = new WinoShellRowView(context)
+                {
+                    LayoutParameters = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent,
+                        WinoTokens.Px(context, WinoShellRowView.HeightResource(WinoShellRowKind.Folder)))
+                };
+                settings.ConfigureFolder(WinoIconGlyph.Settings, Translator.MenuSettings);
+                EventHandler openSettings = (_, _) =>
+                {
+                    CloseDrawer(animate: false);
+                    _shell?.OpenSettings();
+                };
+                settings.Click += openSettings;
+                Bindings.Own(new ActionDisposable(() => settings.Click -= openSettings));
+                footer.AddView(settings);
+            }
         }
 
         if (view.FindViewById<RecyclerView>(Resource.Id.shell_menu) is not { } list) return;
@@ -218,7 +226,6 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
         {
             case nameof(_shell.ViewModel.CurrentMenu) or nameof(_shell.ViewModel.CurrentProvider) or "":
                 ApplyMenu();
-                ApplyStatus();
                 break;
             case nameof(_shell.ViewModel.SelectedMenuItem):
                 _menuAdapter?.SetSelected(_shell.ViewModel.SelectedMenuItem);
@@ -229,20 +236,7 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
             case nameof(_shell.ViewModel.ModeVisibility):
                 ApplyModeVisibility();
                 break;
-            case nameof(IShellMenuProvider.SynchronizationState):
-                ApplyStatus();
-                break;
         }
-    }
-
-    /// <summary>The pane header's second line: the running synchronization, else the mode.</summary>
-    private void ApplyStatus()
-    {
-        if (_panelSubtitle is null || _shell is null) return;
-        var provider = _shell.CurrentProvider;
-        _panelSubtitle.Text = provider is { SynchronizationState.IsSynchronizing: true } && !string.IsNullOrWhiteSpace(provider.SynchronizationDescription)
-            ? provider.SynchronizationDescription
-            : Wino.Shell.ViewModels.ShellModeActivator.ModeTitle(_shell.ActiveMode ?? WinoApplicationMode.Mail);
     }
 
     private bool _fabSuppressed;
@@ -379,7 +373,7 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
             fab.Visibility = mode == WinoApplicationMode.Mail && !_fabSuppressed ? ViewStates.Visible : ViewStates.Gone;
         if (_readerIdle?.FindViewById<WinoIconView>(Resource.Id.shell_reader_idle_glyph) is { } idle)
             idle.Icon = _segments.FirstOrDefault(segment => segment.Mode == mode)?.Filled ?? WinoIconGlyph.MailFilled;
-        ApplyStatus();
+
     }
 
     private static int ItemId(WinoApplicationMode mode) => (int)mode + 1;
