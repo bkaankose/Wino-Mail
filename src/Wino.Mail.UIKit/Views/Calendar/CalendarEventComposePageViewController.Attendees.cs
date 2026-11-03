@@ -11,7 +11,8 @@ namespace Wino.Mail.UIKit.Views.Calendar;
 /// The invite field (Mac Attendees partial, Windows InviteBox AutoSuggestBox): contact suggestions under the field after
 /// 120 ms and two characters (the mail composer's suggestion list), Return takes the first suggestion or the typed
 /// addresses, and typed or pasted addresses split on ; , and whitespace. Return reports invalid addresses; leaving the
-/// field adds what it can quietly. Attendees themselves are listed under the field, not as tokens.
+/// field adds what it can quietly. Attendees themselves are listed under the field, not as tokens. The suggestions sit
+/// inside the Attendees card under the field, so they scroll and avoid the keyboard with the page.
 /// </summary>
 public sealed partial class CalendarEventComposePageViewController
 {
@@ -21,9 +22,6 @@ public sealed partial class CalendarEventComposePageViewController
     private const int SuggestionVisibleRows = 5;
 
     private ComposeRecipientSuggestionList? _inviteSuggestions;
-    private NSLayoutConstraint? _suggestionTop;
-    private NSLayoutConstraint? _suggestionLeading;
-    private NSLayoutConstraint? _suggestionWidth;
     private CancellationTokenSource? _inviteSearch;
     private int _inviteSearchVersion;
     private bool _closing;
@@ -40,38 +38,12 @@ public sealed partial class CalendarEventComposePageViewController
         _invite.EditingEnded += (_, _) => InviteEditingEnded();
     }
 
-    /// <summary>The suggestion list floats over the zone, so rows below the field stay tappable while it scrolls.</summary>
-    private void BuildInviteSuggestions(UIView host)
+    private UIView BuildInviteSuggestions()
     {
         var list = new ComposeRecipientSuggestionList(_pictures) { Hidden = true };
         list.Picked += InviteSuggestionPicked;
-        host.AddSubview(list);
-        var top = list.TopAnchor.ConstraintEqualTo(host.TopAnchor);
-        var leading = list.LeadingAnchor.ConstraintEqualTo(host.LeadingAnchor);
-        var width = list.WidthAnchor.ConstraintEqualTo(320);
-        NSLayoutConstraint.ActivateConstraints([top, leading, width]);
-        _suggestionTop = top;
-        _suggestionLeading = leading;
-        _suggestionWidth = width;
         _inviteSuggestions = list;
-        _formScroll.Scrolled += (_, _) => PositionInviteSuggestions();
-        _sideScroll.Scrolled += (_, _) => PositionInviteSuggestions();
-    }
-
-    /// <summary>Under the field, or above it when there is more room there (the keyboard is up).</summary>
-    private void PositionInviteSuggestions()
-    {
-        if (_inviteSuggestions is not { IsVisible: true } list || list.Superview is not { } host
-            || _suggestionTop is null || _suggestionLeading is null || _suggestionWidth is null) return;
-        var frame = _invite.ConvertRectToView(_invite.Bounds, host);
-        double fieldTop = frame.Y;
-        double fieldBottom = frame.GetMaxY();
-        double height = Math.Min(list.Items.Count, SuggestionVisibleRows) * SuggestionRowHeight;
-        double below = (double)host.Bounds.Height - fieldBottom;
-        double top = below >= height + 4 || below >= fieldTop ? fieldBottom + 2 : fieldTop - height - 2;
-        _suggestionTop.Constant = (nfloat)top;
-        _suggestionLeading.Constant = (nfloat)((double)frame.X + 6);
-        _suggestionWidth.Constant = (nfloat)Math.Max(200.0, (double)frame.Width - 12);
+        return list;
     }
 
     private void InviteReturn()
@@ -157,7 +129,6 @@ public sealed partial class CalendarEventComposePageViewController
                 .Where(suggestion => !suggestion.IsList)
                 .ToList();
             list.Show(_invite, rows, text);
-            PositionInviteSuggestions();
         });
     }
 
