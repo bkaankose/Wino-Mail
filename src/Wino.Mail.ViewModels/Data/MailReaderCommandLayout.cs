@@ -101,4 +101,39 @@ public static class MailReaderCommandLayout
         if (primary.Count > 0 && primary[^1] is null) primary.RemoveAt(primary.Count - 1);
         return new MailReaderCommandPlan(MailReaderCommandPlanKind.Message, primary, all.Where(item => !shown.Contains(item.Operation)).ToArray());
     }
+
+    /// <summary>
+    /// Like <see cref="Build"/>, but a listed message follows Settings → Reader actions: the visible actions are primary in
+    /// the user's order (no group separators) and the hidden ones go to More. The offered Move follows Delete, or goes to
+    /// More when Delete is hidden. A saved message file and the reader without a loaded message keep <see cref="Build"/>'s sets.
+    /// </summary>
+    public static MailReaderCommandPlan BuildInUserOrder(IEnumerable<IMenuOperation> menuItems, bool hasListItem, bool offerMove)
+    {
+        var source = menuItems.ToArray();
+        var plan = Build(source, hasListItem, offerMove);
+        if (plan.Kind != MailReaderCommandPlanKind.Message) return plan;
+
+        var items = source.OfType<MailOperationMenuItem>().Where(static item => item.Operation != MailOperation.Seperator).ToArray();
+        bool needsMove = offerMove && hasListItem && !items.Any(static item => item.Operation == MailOperation.Move)
+            && items.Any(static item => item.Operation is MailOperation.SoftDelete or MailOperation.HardDelete);
+        var primary = new List<MailReaderCommandSlot?>();
+        var overflow = new List<MailOperationMenuItem>();
+        foreach (var item in items)
+        {
+            if (item.IsSecondaryMenuPreferred)
+            {
+                overflow.Add(item);
+                continue;
+            }
+            primary.Add(new MailReaderCommandSlot(item.Operation, item, item.IsEnabled));
+            if (needsMove && item.Operation is MailOperation.SoftDelete or MailOperation.HardDelete)
+            {
+                var move = MailOperationMenuItem.Create(MailOperation.Move);
+                primary.Add(new MailReaderCommandSlot(MailOperation.Move, move, move.IsEnabled));
+                needsMove = false;
+            }
+        }
+        if (needsMove) overflow.Add(MailOperationMenuItem.Create(MailOperation.Move));
+        return new MailReaderCommandPlan(MailReaderCommandPlanKind.Message, primary, overflow);
+    }
 }
