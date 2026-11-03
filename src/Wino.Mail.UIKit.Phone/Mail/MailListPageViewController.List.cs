@@ -128,6 +128,9 @@ public sealed partial class MailListPageViewController
         _table.BackgroundColor = UIColor.Clear;
         _table.SeparatorStyle = UITableViewCellSeparatorStyle.None;
         _table.SectionHeaderTopPadding = 0;
+        // iOS 26 blurs the top edge of the bar's content scroll view; the zone starts below the bar, so the blur only
+        // left an empty band over the first row once the header row slid away.
+        if (OperatingSystem.IsIOSVersionAtLeast(26)) _table.TopEdgeEffect.Hidden = true;
         _table.EstimatedRowHeight = 90;
         _table.EstimatedSectionHeaderHeight = 0;
         _table.AllowsMultipleSelection = false;
