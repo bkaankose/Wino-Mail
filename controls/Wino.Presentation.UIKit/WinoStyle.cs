@@ -89,10 +89,10 @@ public static class WinoStyle
     public static event EventHandler? BackdropChanged;
 
     /// <summary>
-    /// The content zone (Windows WinoContentZoneBackgroud) unless the theme sets one: white in light, #1E1E23 in dark
-    /// (InboxDark board and the iOS decision record, 15 Oct 2026).
+    /// The content zone (Windows WinoContentZoneBackgroud) unless the theme sets one: white in light, #161618 in dark.
+    /// #1E1E23 read grey over the black backdrop (owner, 3 Nov 2026); cards and settings groups keep that lift on it.
     /// </summary>
-    public static UIColor ZoneFill => WinoThemeSurfaces.Dynamic(WinoThemeSurface.Workspace, Dynamic(UIColor.White, Hex(0x1E1E23)));
+    public static UIColor ZoneFill => WinoThemeSurfaces.Dynamic(WinoThemeSurface.Workspace, Dynamic(UIColor.White, Hex(0x161618)));
     public static UIColor ZoneStroke => Dynamic(Hex(0x000000, 0.08), Hex(0xFFFFFF, 0.08));
 
     /// <summary>A colour that resolves per light or dark appearance.</summary>
