@@ -40,7 +40,7 @@ public sealed class ContactCardViewController : UIViewController
     private readonly WinoContactPicture _avatar = new(88);
     private readonly UILabel _name = WinoStyle.Label(string.Empty, WinoStyle.Scaled(22, UIFontWeight.Semibold), maximumLines: 0);
     private readonly UILabel _job = WinoStyle.Label(string.Empty, WinoStyle.Body, WinoStyle.SecondaryText, 0);
-    private readonly UILabel _source = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.TertiaryText, 0);
+    private readonly UILabel _source = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
     private readonly UIStackView _chips = WinoLayout.HStack(4);
     private readonly UIStackView _actions = WinoLayout.HStack(10);
     private readonly UIStackView _cards = WinoLayout.VStack(14);

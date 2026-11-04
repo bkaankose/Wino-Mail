@@ -1037,7 +1037,7 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
             name.LineBreakMode = UILineBreakMode.MiddleTruncation;
             name.SetContentHuggingPriority(1, UILayoutConstraintAxis.Horizontal);
             name.SetContentCompressionResistancePriority(250, UILayoutConstraintAxis.Horizontal);
-            var size = WinoStyle.Label(attachment.ReadableSize, WinoStyle.Caption, WinoStyle.TertiaryText);
+            var size = WinoStyle.Label(attachment.ReadableSize, WinoStyle.Caption, WinoStyle.SecondaryText);
             size.SetContentCompressionResistancePriority(1000, UILayoutConstraintAxis.Horizontal);
             var remove = RemoveButton(Translator.CalendarEventCompose_RemoveAttachment, () => ViewModel.RemoveAttachmentCommand.Execute(captured));
             var row = WinoLayout.HStack(8, icon, name, size, remove);

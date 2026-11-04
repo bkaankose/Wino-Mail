@@ -132,9 +132,11 @@ public sealed class WinoAccountRowCell : UITableViewCell
         content.SecondaryTextProperties.Font = WinoStyle.Scaled(15);
         content.SecondaryTextProperties.Color = signedIn ? WinoStyle.SecondaryText : WinoStyle.Accent;
         content.PrefersSideBySideTextAndSecondaryText = true;
-        content.Image = signedIn ? Circle(picture, displayName, email) : WinoIcons.Image(WinoIconGlyph.Person, GlyphSize, WinoStyle.Accent);
-        content.ImageProperties.ReservedLayoutSize = new CGSize(28, GlyphSize);
-        content.ImageProperties.MaximumSize = signedIn ? new CGSize(PictureSize, PictureSize) : new CGSize(GlyphSize, GlyphSize);
+        var glyph = WinoStyle.ScaledIcon(GlyphSize, TraitCollection);
+        var pictureSize = WinoStyle.ScaledIcon(PictureSize, TraitCollection, 1.4);
+        content.Image = signedIn ? Circle(picture, displayName, email) : WinoIcons.Image(WinoIconGlyph.Person, glyph, WinoStyle.Accent);
+        content.ImageProperties.ReservedLayoutSize = new CGSize(glyph + 6, glyph);
+        content.ImageProperties.MaximumSize = signedIn ? new CGSize(pictureSize, pictureSize) : new CGSize(glyph, glyph);
         content.ImageToTextPadding = 12;
         content.DirectionalLayoutMargins = new NSDirectionalEdgeInsets(11, 14, 11, 12);
         ContentConfiguration = content;

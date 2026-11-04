@@ -61,7 +61,7 @@ public sealed class FolderCustomizationPageViewController(FolderCustomizationPag
         Bind.Visible(categories, vm, nameof(vm.IsGmailAccount), s => s.IsGmailAccount);
         Add(Section(MoreKey, vm.MoreFolders, Translator.FolderCustomization_SectionMore, Translator.FolderCustomization_SectionMoreDescription, WinoIconGlyph.More));
 
-        var footer = WinoStyle.Label(Translator.FolderCustomization_Footer, WinoStyle.Caption, WinoStyle.TertiaryText, 0);
+        var footer = WinoStyle.Label(Translator.FolderCustomization_Footer, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
         var footerHost = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
         WinoLayout.Fill(footer, footerHost, 6, 1, 0, 0);
         Add(footerHost);

@@ -43,6 +43,13 @@ public static class WinoStyle
     public static UIFont PageTitle => Scaled(28, UIFontWeight.Bold);
     public static UIFont ReaderSubject => Scaled(22, UIFontWeight.Bold);
 
+    /// <summary>
+    /// An icon or avatar size that follows the user's text size like body text does, capped at
+    /// <paramref name="maxScale"/> times the default so accessibility sizes do not crowd out the text.
+    /// </summary>
+    public static double ScaledIcon(double size, UITraitCollection? traits = null, double maxScale = 1.6)
+        => Math.Min(size * maxScale, (double)UIFontMetrics.DefaultMetrics.GetScaledValue((nfloat)size, traits ?? UITraitCollection.CurrentTraitCollection));
+
     /// <summary>The system font at <paramref name="size"/> points, scaled for the user's text size.</summary>
     public static UIFont Scaled(double size, UIFontWeight weight = UIFontWeight.Regular)
         => UIFontMetrics.DefaultMetrics.GetScaledFont(UIFont.SystemFontOfSize((nfloat)size, weight));

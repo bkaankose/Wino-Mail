@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using CoreGraphics;
 using Microsoft.Extensions.DependencyInjection;
 using UIKit;
@@ -365,7 +366,7 @@ public sealed class PhoneShellViewController : UIKitShellViewController
     /// <summary>Bottom right, 16pt above the floating tab bar and 16pt from the edge.</summary>
     private void LayoutFloatingButton(UIView root)
     {
-        var size = ShellFloatingButton.Diameter;
+        var size = WinoStyle.ScaledIcon(ShellFloatingButton.Diameter, root.TraitCollection, 1.3);
         var tabBar = _tabs.TabBar;
         var top = tabBar.Hidden || tabBar.Window is null
             ? (double)(root.Bounds.Height - root.SafeAreaInsets.Bottom)
@@ -375,6 +376,40 @@ public sealed class PhoneShellViewController : UIKitShellViewController
         if (ActiveMode is { } mode && _containers[IndexOf(mode)] is { IsPaired: true, View: { } container } paired)
             right = Math.Min(right, (double)root.ConvertRectFromView(paired.ListFrame, container).Right);
         _floatingButton.Frame = new CGRect(right - 16 - size, top - 16 - size, size, size);
+        ApplyFloatingClearance(root);
+    }
+
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<UIScrollView, StrongBox<nfloat>> _baseBottomInsets = new();
+
+    /// <summary>
+    /// The button floats over the root page; the page's lists get that much extra bottom inset, so their last row
+    /// (dates, flags, the last contact or task) can scroll clear of it instead of staying hidden behind it.
+    /// </summary>
+    private void ApplyFloatingClearance(UIView root)
+    {
+        if (ActiveMode is not { } mode || mode == WinoApplicationMode.Settings) return;
+        if (_stacks[IndexOf(mode)].ViewControllers is not { Length: > 0 } pages || pages[0].ViewIfLoaded is not { } page || page.Window is null) return;
+        var buttonTop = _floatingButton.Frame.Top - 8;
+        var pending = new Queue<(UIView View, int Depth)>();
+        pending.Enqueue((page, 0));
+        while (pending.Count > 0)
+        {
+            var (view, depth) = pending.Dequeue();
+            if (view is UITableView or UICollectionView)
+            {
+                var scroll = (UIScrollView)view;
+                var baseInset = _baseBottomInsets.GetValue(scroll, static target => new StrongBox<nfloat>(target.ContentInset.Bottom));
+                var bottom = root.ConvertRectFromView(scroll.Bounds, scroll).Bottom;
+                nfloat overlap = _floatingButtonVisible && !view.Hidden ? (nfloat)Math.Max(0, (double)(bottom - buttonTop)) : 0;
+                var inset = scroll.ContentInset;
+                if (Math.Abs((double)(inset.Bottom - (baseInset.Value + overlap))) < 0.5) continue;
+                inset.Bottom = baseInset.Value + overlap;
+                scroll.ContentInset = inset;
+                continue;
+            }
+            if (depth >= 12) continue;
+            foreach (var child in view.Subviews) pending.Enqueue((child, depth + 1));
+        }
     }
 
     /// <summary>
@@ -401,8 +436,13 @@ public sealed class PhoneShellViewController : UIKitShellViewController
             _ => (WinoIconGlyph.NewMail, Translator.MenuNewMail)
         };
         _floatingButton.Set(glyph, label);
-        if (_floatingButtonVisible == visible) return;
+        if (_floatingButtonVisible == visible)
+        {
+            if (View is { } current) ApplyFloatingClearance(current);
+            return;
+        }
         _floatingButtonVisible = visible;
+        if (View is { } host) ApplyFloatingClearance(host);
         _floatingButton.Hidden = false;
         if (View is { } root) root.BringSubviewToFront(_floatingButton);
         UIView.Animate(0.2, 0, UIViewAnimationOptions.BeginFromCurrentState, () =>

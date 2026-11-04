@@ -598,7 +598,29 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _webHeight.Constant = (nfloat)height;
     }
 
-    private bool IsDarkAppearance() => WinoTraits.IsDark(ViewIfLoaded?.TraitCollection ?? TraitCollection);
+    /// <summary>
+    /// A reader created before it enters a window has unspecified traits, which read as light; the window scene's
+    /// traits (which carry the app's appearance override) decide then.
+    /// </summary>
+    private bool IsDarkAppearance()
+    {
+        var traits = ViewIfLoaded?.TraitCollection ?? TraitCollection;
+        if (ViewIfLoaded?.Window is null || traits.UserInterfaceStyle == UIUserInterfaceStyle.Unspecified)
+        {
+            foreach (var scene in UIApplication.SharedApplication.ConnectedScenes)
+                if (scene is UIWindowScene windowScene && windowScene.Windows.FirstOrDefault(static window => window.IsKeyWindow) is { } key)
+                    return WinoTraits.IsDark(key.TraitCollection);
+        }
+        return WinoTraits.IsDark(traits);
+    }
+
+    public override void ViewIsAppearing(bool animated)
+    {
+        base.ViewIsAppearing(animated);
+        // The trait registration does not report the first resolved appearance, so a reader opened right after
+        // a switch to dark kept its white body (lab, 3 Nov 2026).
+        AppearanceChanged();
+    }
 
     private void AppearanceChanged()
     {

@@ -244,9 +244,10 @@ public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewM
             content.SecondaryTextProperties.Color = WinoStyle.SecondaryText;
             content.SecondaryTextProperties.NumberOfLines = IsSearching ? 2 : 1;
             content.PrefersSideBySideTextAndSecondaryText = !IsSearching;
-            content.Image = WinoIcons.Image(entry.Icon, GlyphSize, WinoStyle.Accent);
-            content.ImageProperties.ReservedLayoutSize = new CoreGraphics.CGSize(28, GlyphSize);
-            content.ImageProperties.MaximumSize = new CoreGraphics.CGSize(GlyphSize, GlyphSize);
+            var glyph = WinoStyle.ScaledIcon(GlyphSize, tableView.TraitCollection);
+            content.Image = WinoIcons.Image(entry.Icon, glyph, WinoStyle.Accent);
+            content.ImageProperties.ReservedLayoutSize = new CoreGraphics.CGSize(glyph + 6, glyph);
+            content.ImageProperties.MaximumSize = new CoreGraphics.CGSize(glyph, glyph);
             content.ImageToTextPadding = 12;
             content.DirectionalLayoutMargins = new NSDirectionalEdgeInsets(IsSearching ? 8 : 11, 14, IsSearching ? 8 : 11, 12);
             cell.ContentConfiguration = content;
