@@ -151,6 +151,22 @@ internal static class SettingsDebug
             return result;
         });
 
+        // settingsopen TITLE: activates the visible settings row whose title starts with TITLE (opens its page or runs it).
+        UIKitDebugBridge.Register("settingsopen", async args =>
+        {
+            var title = string.Join(' ', args);
+            string result = "no row";
+            await services.GetRequiredService<IDispatcher>().ExecuteOnUIThread(() =>
+            {
+                if (VisibleSettingsPage(services)?.View is not { } root) return;
+                var cards = new List<Wino.Mail.Controls.UIKit.Settings.WinoSettingsCard>();
+                Collect(root, cards);
+                if (cards.FirstOrDefault(card => card.Header.StartsWith(title, StringComparison.CurrentCultureIgnoreCase)) is not { } match) return;
+                result = match.AccessibilityActivate() ? "ok" : "not activatable";
+            });
+            return result;
+        });
+
         UIKitDebugBridge.Register("dialog", args =>
         {
             var dialogs = services.GetRequiredService<IMailDialogService>();
