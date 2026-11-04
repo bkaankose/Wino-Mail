@@ -38,8 +38,8 @@ public sealed class CalendarPreferenceSettingsPageViewController(CalendarPrefere
         Add(PreviewSurface(preview, modeDescription));
 
         var sync = StackedCard(Translator.CalendarSettings_SyncInterval_Title, Translator.CalendarSettings_SyncInterval_Description, WinoIconGlyph.Sync,
-            SettingsCardLayout.Leading(Bind.Stepper(vm, nameof(vm.CalendarSyncIntervalMinutes), s => s.CalendarSyncIntervalMinutes, (s, v) => s.CalendarSyncIntervalMinutes = v, 1, 1440,
-                accessibilityLabel: Translator.CalendarSettings_SyncInterval_Title)));
+            Bind.Stepper(vm, nameof(vm.CalendarSyncIntervalMinutes), s => s.CalendarSyncIntervalMinutes, (s, v) => s.CalendarSyncIntervalMinutes = v, 1, 1440,
+                accessibilityLabel: Translator.CalendarSettings_SyncInterval_Title));
 
         // Grouping is a switch row; the startup account follows as its own value row while accounts are not grouped.
         var grouping = Card(Translator.CalendarSettings_AccountGrouping_Header, Translator.CalendarSettings_AccountGrouping_Description, WinoIconGlyph.Folder,

@@ -26,7 +26,7 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
     IDispatcher dispatcher, IWinoLogger logger)
     : SettingsPageViewController<NotificationSettingsPageViewModel>(viewModel, dispatcher, logger)
 {
-    private readonly UIStackView _accounts = WinoLayout.VStack(WinoSettingsStyle.CardSpacing);
+    private readonly WinoSettingsGroup _accounts = new(Translator.NotificationSettings_Accounts_Title, Translator.NotificationSettings_Accounts_Description);
     private readonly List<Action> _soundRefreshers = [];
     private readonly List<Action> _accountSoundRefreshers = [];
     private BindingScope? _accountScope;
@@ -133,10 +133,6 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
         AddGroup(null, quiet, mail, calendar, tasks);
 
         // Per-account overrides.
-        var accountsHeader = new WinoSettingsGroup(Translator.NotificationSettings_Accounts_Title, Translator.NotificationSettings_Accounts_Description);
-        accountsHeader.Surface.Hidden = true;
-        Add(accountsHeader);
-        _accounts.Alignment = UIStackViewAlignment.Fill;
         Add(_accounts);
         Bind.Collection(vm.Accounts, RebuildAccounts);
 
@@ -348,7 +344,7 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
         _accountScope?.Dispose();
         _accountScope = Bindings.Own(new BindingScope());
         var rows = Bind.Child(_accountScope);
-        foreach (var view in _accounts.ArrangedSubviews) { _accounts.RemoveArrangedSubview(view); view.RemoveFromSuperview(); }
+        _accounts.Clear();
         _accountSoundRefreshers.Clear();
 
         foreach (var account in ViewModel.Accounts.ToList())
@@ -381,7 +377,7 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
                 OptionPopUp(account, a => a.QuietHoursOptions, nameof(account.SelectedQuietHoursStance), a => a.SelectedQuietHoursStance, (a, v) => a.SelectedQuietHoursStance = v, rows)),
                 account, nameof(account.AreNotificationsEnabled), Enabled));
 
-            _accounts.AddArrangedSubview(expander);
+            _accounts.Add(expander);
         }
     }
 }

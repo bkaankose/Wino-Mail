@@ -28,40 +28,42 @@ public sealed class MailPreferencesPageViewController(MailPreferencesPageViewMod
         AddGroup(null,
             StackedCard(Translator.SettingsStartupItem_Title, Translator.SettingsStartupItem_Description, WinoIconGlyph.Home, startup),
             vm.IsSyncIntervalAvailable ? StackedCard(Translator.SettingsAppPreferences_EmailSyncInterval_Title, Translator.SettingsAppPreferences_EmailSyncInterval_Description, WinoIconGlyph.Sync,
-                SettingsCardLayout.Leading(Bind.Stepper(vm, nameof(vm.EmailSyncIntervalMinutes), s => s.EmailSyncIntervalMinutes, (s, v) => s.EmailSyncIntervalMinutes = v, 1, 1440,
-                    accessibilityLabel: Translator.SettingsAppPreferences_EmailSyncInterval_Title))) : null,
+                Bind.Stepper(vm, nameof(vm.EmailSyncIntervalMinutes), s => s.EmailSyncIntervalMinutes, (s, v) => s.EmailSyncIntervalMinutes = v, 1, 1440,
+                    accessibilityLabel: Translator.SettingsAppPreferences_EmailSyncInterval_Title)) : null,
             StackedCard(Translator.SettingsAppPreferences_SearchMode_Title, Translator.SettingsAppPreferences_SearchMode_Description, WinoIconGlyph.Find,
                 Bind.PopUp<MailPreferencesPageViewModel, string>(vm, s => s.SearchModes, item => item,
                     nameof(vm.SelectedDefaultSearchMode), s => s.SelectedDefaultSearchMode, (s, v) => s.SelectedDefaultSearchMode = v)));
 
-        // Undo: the switch stays trailing; its interval stepper sits under the text.
-        var undoSend = Card(Translator.SettingsAppPreferences_UndoSendingDrafts_Title, Translator.SettingsAppPreferences_UndoSendingDrafts_Description, WinoIconGlyph.Send,
+        // Undo: each switch row is followed by its delay row, which explains the delay and is dimmed while the switch is off.
+        var undoSend = Card(Translator.SettingsAppPreferences_UndoSendingDrafts_Title, null, WinoIconGlyph.Send,
             Bind.Switch(p, nameof(p.IsUndoSendingDraftsEnabled), s => s.IsUndoSendingDraftsEnabled, (s, v) => s.IsUndoSendingDraftsEnabled = v, Translator.SettingsAppPreferences_UndoSendingDrafts_Title));
-        undoSend.BottomContent = SettingsCardLayout.Leading(Bind.Enabled(
+        var undoSendDelay = Bind.Enabled(Card(Translator.Settings_SecondsToWait_Title, Translator.SettingsAppPreferences_UndoSendingDrafts_Description, WinoIconGlyph.None,
             Bind.Stepper(vm, nameof(vm.UndoSendingDraftsIntervalInSeconds), s => s.UndoSendingDraftsIntervalInSeconds, (s, v) => s.UndoSendingDraftsIntervalInSeconds = v, 1, 10,
-                accessibilityLabel: Translator.SettingsAppPreferences_UndoSendingDrafts_Title),
-            p, nameof(p.IsUndoSendingDraftsEnabled), s => s.IsUndoSendingDraftsEnabled));
+                accessibilityLabel: Translator.SettingsAppPreferences_UndoSendingDrafts_Title)),
+            p, nameof(p.IsUndoSendingDraftsEnabled), s => s.IsUndoSendingDraftsEnabled);
 
-        var undoDelete = Card(Translator.SettingsAppPreferences_UndoDeletingMails_Title, Translator.SettingsAppPreferences_UndoDeletingMails_Description, WinoIconGlyph.Delete,
+        var undoDelete = Card(Translator.SettingsAppPreferences_UndoDeletingMails_Title, null, WinoIconGlyph.Delete,
             Bind.Switch(p, nameof(p.IsUndoDeletingMailsEnabled), s => s.IsUndoDeletingMailsEnabled, (s, v) => s.IsUndoDeletingMailsEnabled = v, Translator.SettingsAppPreferences_UndoDeletingMails_Title));
-        undoDelete.BottomContent = SettingsCardLayout.Leading(Bind.Enabled(
+        var undoDeleteDelay = Bind.Enabled(Card(Translator.Settings_SecondsToWait_Title, Translator.SettingsAppPreferences_UndoDeletingMails_Description, WinoIconGlyph.None,
             Bind.Stepper(vm, nameof(vm.UndoDeletingMailsIntervalInSeconds), s => s.UndoDeletingMailsIntervalInSeconds, (s, v) => s.UndoDeletingMailsIntervalInSeconds = v, 1, 10,
-                accessibilityLabel: Translator.SettingsAppPreferences_UndoDeletingMails_Title),
-            p, nameof(p.IsUndoDeletingMailsEnabled), s => s.IsUndoDeletingMailsEnabled));
+                accessibilityLabel: Translator.SettingsAppPreferences_UndoDeletingMails_Title)),
+            p, nameof(p.IsUndoDeletingMailsEnabled), s => s.IsUndoDeletingMailsEnabled);
 
         // Mark as read: the Windows radio buttons become a pop-up; the delay applies to the timer option.
         var markOptions = new[] { Translator.SettingsMarkAsRead_WhenSelected, Translator.SettingsMarkAsRead_DontChange, Translator.SettingsMarkAsRead_Timer };
         var delay = Bind.Stepper(vm, nameof(vm.MarkAsDelay), s => s.MarkAsDelay, (s, v) => s.MarkAsDelay = v, 0, 120,
-            accessibilityLabel: Translator.SettingsMarkAsRead_SecondsToWait);
+            accessibilityLabel: Translator.Settings_SecondsToWait_Title);
 
         AddGroup(null,
             Expander(Translator.SettingsAppPreferences_UndoActions_Title, Translator.SettingsAppPreferences_UndoActions_Description, WinoIconGlyph.ArrowUndo, null,
                 undoSend,
-                undoDelete),
+                undoSendDelay,
+                undoDelete,
+                undoDeleteDelay),
             Expander(Translator.SettingsMarkAsRead_Title, Translator.SettingsMarkAsRead_Description, WinoIconGlyph.MarkRead, null,
                 StackedCard(Translator.SettingsMarkAsRead_Title, null, WinoIconGlyph.None,
                     Bind.PopUp(vm, markOptions, nameof(vm.SelectedMarkAsOptionIndex), s => s.SelectedMarkAsOptionIndex, (s, v) => s.SelectedMarkAsOptionIndex = v)),
-                Bind.Enabled(StackedCard(Translator.SettingsMarkAsRead_SecondsToWait, null, WinoIconGlyph.None, SettingsCardLayout.Leading(delay)),
+                Bind.Enabled(Card(Translator.Settings_SecondsToWait_Title, null, WinoIconGlyph.None, delay),
                     vm, nameof(vm.SelectedMarkAsOptionIndex), s => s.SelectedMarkAsOptionIndex == 2)));
 
         AddGroup(null,

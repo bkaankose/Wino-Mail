@@ -7,11 +7,10 @@ using Wino.Presentation.UIKit;
 namespace Wino.Mail.Controls.UIKit.Settings;
 
 /// <summary>
-/// The settings-page row presentation of <see cref="WinoSettingsCard"/> (SettingsControls board, 15 Oct 2026): a title
-/// and, by the content's kind, a trailing switch, a value and a chevron, a chevron alone, or an accent action title. No
-/// header icon and no description on the page: anything that is not a switch pushes the generic
-/// <see cref="WinoSettingDetailViewController"/>, which shows the description and the real control. Rows with a leading
-/// picture (accounts) and rows without a control keep their subtitle.
+/// The settings-page row presentation of <see cref="WinoSettingsCard"/> (SettingsControls board, revised 4 Nov 2026): a
+/// title with the card's description under it and, by the content's kind, a trailing switch, a stepper or time picker on
+/// the row, a value and a chevron, a chevron alone, or an accent action title. Choices, fields and custom content push
+/// the generic <see cref="WinoSettingDetailViewController"/>.
 /// </summary>
 public partial class WinoSettingsCard
 {
@@ -25,9 +24,10 @@ public partial class WinoSettingsCard
     private NSLayoutConstraint[] _rowLeadingConstraints = [];
     private WinoSettingsRowKind _rowKind;
     private UIButton? _actionButton;
+    private bool _actionShowsButtonTitle;
+    private UILabel? _rowBelowLabel;
     private UIButton? _checkButton;
     private IDisposable? _actionEnabledObserver;
-    private bool _inlineValueControl;
 
     /// <summary>
     /// Renders the card as a settings-page row. One way: settings groups, settings pages and the detail page turn it on;
@@ -41,15 +41,6 @@ public partial class WinoSettingsCard
 
     /// <summary>The kind the row currently renders as.</summary>
     public WinoSettingsRowKind RowKind => _rowKind;
-
-    /// <summary>
-    /// On a detail page, a numeric stepper or a time picker is drawn on the row itself instead of pushing another page.
-    /// </summary>
-    public bool ShowsValueControlInline
-    {
-        get => _inlineValueControl;
-        set { _inlineValueControl = value; if (_listMode) ApplyListContent(); }
-    }
 
     /// <summary>Marks the action row red (Windows destructive buttons).</summary>
     public bool IsDestructive { get; set; }
@@ -122,7 +113,7 @@ public partial class WinoSettingsCard
 
         _header.Font = WinoSettingsStyle.CardTitle;
         _header.Lines = 2;
-        _description.Lines = 2;
+        _description.Lines = 0;
         _rowText = WinoLayout.VStack(2, _header, _description);
         _rowText.Alignment = UIStackViewAlignment.Fill;
         WinoLayout.Priorities(_header, UILayoutConstraintAxis.Horizontal, 250, 740);
@@ -198,9 +189,16 @@ public partial class WinoSettingsCard
             _rowTrailing.RemoveArrangedSubview(view);
             view.RemoveFromSuperview();
         }
+        if (_rowBelowLabel is not null && _rowText is not null)
+        {
+            _rowText.RemoveArrangedSubview(_rowBelowLabel);
+            _rowBelowLabel.RemoveFromSuperview();
+            _rowBelowLabel = null;
+        }
         _actionEnabledObserver?.Dispose();
         _actionEnabledObserver = null;
         _actionButton = null;
+        _actionShowsButtonTitle = false;
         _checkButton = null;
 
         var kind = WinoSettingsRowContent.Classify(_content, _bottomContent);
@@ -248,9 +246,11 @@ public partial class WinoSettingsCard
                         }
                     }
                     break;
-                case WinoSettingsRowKind.Value when _inlineValueControl && _content is { } inline
+                // A stepper or time picker is edited on the row; it never opens a page of its own.
+                case WinoSettingsRowKind.Value when _content is { } inline
                                                    && (WinoSettingsRowContent.Stepper(inline) is not null || WinoSettingsRowContent.ValueControl(inline) is UIDatePicker):
                     trailing = inline;
+                    _rowKind = kind = WinoSettingsRowKind.Inline;
                     break;
                 case WinoSettingsRowKind.Value:
                     showValue = true;
@@ -263,11 +263,30 @@ public partial class WinoSettingsCard
                     _actionButton = _content is null ? null : WinoSettingsRowContent.Controls(_content).OfType<UIButton>().FirstOrDefault();
                     if (_actionButton is { } button)
                     {
-                        if (string.IsNullOrEmpty(title)) _header.Text = title = WinoSettingsRowContent.ButtonTitle(button);
+                        var buttonTitle = WinoSettingsRowContent.ButtonTitle(button);
+                        if (string.IsNullOrEmpty(title)) _header.Text = title = buttonTitle;
+                        // A row named after the setting ("Suggested recipients") says what the tap does on its trailing side ("Clear").
+                        else if (!string.IsNullOrEmpty(buttonTitle) && !string.Equals(title, buttonTitle, StringComparison.CurrentCultureIgnoreCase))
+                        {
+                            _actionShowsButtonTitle = true;
+                            _rowValue.Text = buttonTitle;
+                            showValue = true;
+                        }
                         _actionEnabledObserver = button.AddObserver("enabled", Foundation.NSKeyValueObservingOptions.New, _ => ApplyListAppearance());
                     }
                     break;
             }
+        }
+
+        // A stacked text (a font preview, a sample) reads under the title at full width instead of truncating at the edge.
+        if (trailing is UILabel stackedText && _placement == WinoSettingsContentPlacement.Below && _rowText is not null)
+        {
+            stackedText.TranslatesAutoresizingMaskIntoConstraints = false;
+            stackedText.Lines = 0;
+            WinoLayout.Priorities(stackedText, UILayoutConstraintAxis.Horizontal, 250, 740);
+            _rowText.AddArrangedSubview(stackedText);
+            _rowBelowLabel = stackedText;
+            trailing = null;
         }
 
         if (trailing is not null)
@@ -293,16 +312,14 @@ public partial class WinoSettingsCard
         _rowChevron.Hidden = !showChevron;
         if (_actionIcon != WinoIconGlyph.None && showChevron) { _rowChevron.Icon = _actionIcon; _rowChevron.PointSize = 14; }
 
-        if (_content is not null && showValue)
+        if (_content is not null && showValue && !_actionShowsButtonTitle)
         {
             ValueOwners.AddOrUpdate(_content, new WeakReference<WinoSettingsCard>(this));
             if (WinoSettingsRowContent.ValueControl(_content) is { } valueControl)
                 ValueOwners.AddOrUpdate(valueControl, new WeakReference<WinoSettingsCard>(this));
         }
 
-        // Settings descriptions move to the detail page; information rows and picture rows keep their subtitle.
-        var keepsSubtitle = _leadingView is not null || kind is WinoSettingsRowKind.Static or WinoSettingsRowKind.Inline && !_isClickable;
-        _description.Hidden = !keepsSubtitle || string.IsNullOrEmpty(_description.Text);
+        _description.Hidden = string.IsNullOrEmpty(_description.Text);
         _description.Font = WinoSettingsStyle.CardDescription;
         RefreshValue();
         ApplyListEnabled();
@@ -310,6 +327,13 @@ public partial class WinoSettingsCard
 
     private void RemoveListContent(UIView content)
     {
+        if (content == _rowBelowLabel && _rowText is not null)
+        {
+            _rowText.RemoveArrangedSubview(content);
+            content.RemoveFromSuperview();
+            _rowBelowLabel = null;
+            return;
+        }
         if (_rowTrailing is not null && content.Superview == _rowTrailing)
         {
             _rowTrailing.RemoveArrangedSubview(content);
@@ -320,7 +344,7 @@ public partial class WinoSettingsCard
     /// <summary>Re-reads the value text from the content (after the detail page pops, or when the binder changes it).</summary>
     public void RefreshValue()
     {
-        if (!_listMode || _rowValue is null || _rowValue.Hidden || _content is null) return;
+        if (!_listMode || _rowValue is null || _rowValue.Hidden || _content is null || _actionShowsButtonTitle) return;
         _rowValue.Text = WinoSettingsRowContent.ValueText(_content);
         UpdateListAccessibility();
     }
@@ -359,7 +383,12 @@ public partial class WinoSettingsCard
         var actionDisabled = _rowKind == WinoSettingsRowKind.Action && _actionButton is { Enabled: false };
         Alpha = _isEnabled && !actionDisabled ? 1 : (nfloat)WinoSettingsStyle.DisabledAlpha;
         if (_rowKind == WinoSettingsRowKind.Action && !_isClickable && !_isExpanderHeader)
-            _header.TextColor = IsDestructive || _actionButton is { } button && WinoSettingsRowContent.IsDestructive(button) ? UIColor.SystemRed : WinoStyle.Accent;
+        {
+            var color = IsDestructive || _actionButton is { } button && WinoSettingsRowContent.IsDestructive(button) ? UIColor.SystemRed : WinoStyle.Accent;
+            if (_actionShowsButtonTitle && _rowValue is not null) _rowValue.TextColor = color;
+            else _header.TextColor = color;
+        }
+        else if (_rowValue is not null) _rowValue.TextColor = WinoStyle.SecondaryText;
         UpdateListAccessibility();
     }
 

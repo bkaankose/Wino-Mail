@@ -118,8 +118,8 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
             Bind.Button(Translator.AccountDetailsPage_ProfilePictureRemove, vm.RemoveProfilePictureCommand),
             Bind.Button(Translator.AccountDetailsPage_ProfilePictureRefresh, vm.RefreshProfilePictureCommand));
 
-        var name = Bind.TextField(vm, nameof(vm.AccountName), s => s.AccountName, (s, v) => s.AccountName = v, Translator.AccountSettingsDialog_AccountNamePlaceholder, 0);
-        WinoAccessibility.Label(name, Translator.AccountDetailsPage_Title);
+        var name = Bind.TextField(vm, nameof(vm.AccountName), s => s.AccountName, (s, v) => s.AccountName = v, Translator.AccountEditDialog_Message, 0);
+        WinoAccessibility.Label(name, Translator.AccountEditDialog_Message);
         SaveWhenEditingEnds(name);
 
         var capabilityApply = Bind.Button(Translator.Buttons_Apply, vm.ApplyCapabilitiesCommand);
@@ -170,7 +170,7 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
 
         AddTo(0, Group(null,
             pictureCard,
-            StackedCard(Translator.AccountDetailsPage_Title, Translator.AccountEditDialog_Message, WinoIconGlyph.Person, name),
+            StackedCard(Translator.AccountEditDialog_Message, null, WinoIconGlyph.Person, name),
             capabilities,
             colorCard,
             imap,
@@ -196,7 +196,7 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
 
         var senderField = Bind.TextField(vm, nameof(vm.SenderName), s => s.SenderName, (s, v) => s.SenderName = v, Translator.AccountSettingsDialog_AccountNamePlaceholder, 0);
         SaveWhenEditingEnds(senderField);
-        var senderName = StackedCard(Translator.AccountSettingsDialog_AccountName, Translator.SettingsEditAccountDetails_Description, WinoIconGlyph.Person, senderField);
+        var senderName = StackedCard(Translator.AccountSettingsDialog_AccountName, null, WinoIconGlyph.Person, senderField);
         Bind.Visible(senderName, vm, nameof(vm.Account), s => s.IsSenderNameEditable);
         var addressLabel = Bind.Label(vm, nameof(vm.Address), s => s.Address, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0);
         var address = StackedCard(Translator.IMAPSetupDialog_MailAddress, null, WinoIconGlyph.Mail, addressLabel);

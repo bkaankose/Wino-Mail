@@ -99,7 +99,6 @@ public sealed class CalendarRenderingSettingsPageViewController(CalendarRenderin
     {
         var row = Row(day, time);
         row.Distribution = UIStackViewDistribution.Fill;
-        WinoLayout.Priorities(day, UILayoutConstraintAxis.Horizontal, 1, 250);
         return row;
     }
 }

@@ -1581,6 +1581,7 @@
   "SettingsMarkAsRead_Description": "Change what should happen to the selected item.",
   "SettingsMarkAsRead_DontChange": "Don't automatically mark item as read",
   "SettingsMarkAsRead_SecondsToWait": "Seconds to wait: ",
+  "Settings_SecondsToWait_Title": "Seconds to wait",
   "SettingsMarkAsRead_Timer": "When viewed in the reading pane",
   "SettingsMarkAsRead_Title": "Mark item as read",
   "SettingsMarkAsRead_WhenSelected": "When selected",

@@ -159,12 +159,13 @@ public sealed class SettingsBinder
         var field = new UITextField
         {
             TextAlignment = UITextAlignment.Right,
-            Font = WinoStyle.Body,
+            Font = WinoSettingsStyle.RowValue,
+            TextColor = WinoStyle.SecondaryText,
             KeyboardType = UIKeyboardType.NumberPad,
-            BorderStyle = UITextBorderStyle.RoundedRect,
+            BorderStyle = UITextBorderStyle.None,
             TranslatesAutoresizingMaskIntoConstraints = false
         };
-        field.WidthAnchor.ConstraintEqualTo(60).Active = true;
+        field.WidthAnchor.ConstraintEqualTo(48).Active = true;
         var stepper = new UIStepper
         {
             MinimumValue = minimum,

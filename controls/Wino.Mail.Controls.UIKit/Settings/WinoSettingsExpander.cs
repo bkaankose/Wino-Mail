@@ -157,7 +157,7 @@ public sealed class WinoSettingsExpander : UIView
 
 /// <summary>
 /// A titled run of settings rows (UIKit twin of the AppKit <c>WinoSettingsGroup</c>): the 12pt semibold upper-case
-/// section header, then the rows on one inset-grouped surface with hairlines, and an optional 13pt footer. Cards and
+/// section header, an optional 13pt description, then the rows on one inset-grouped surface with hairlines. Cards and
 /// expanders become settings rows (<see cref="WinoSettingsCard.IsListRow"/>); other views (previews, info bars) stand
 /// on their own between the surfaces. Without a title it is only the rows.
 /// </summary>
@@ -184,11 +184,12 @@ public class WinoSettingsGroup : UIView
         _rows.Alignment = UIStackViewAlignment.Fill;
 
         // The page stack adds the space between groups; the header sits at the foot of that gap, aligned with the row text.
+        // The group's description follows the header, above the rows it explains.
         _titleWrapper = Inset(_title, 0, WinoSettingsStyle.CardPadding, 6);
-        _footerWrapper = Inset(_footer, 6, WinoSettingsStyle.CardPadding, 0);
+        _footerWrapper = Inset(_footer, 0, WinoSettingsStyle.CardPadding, 8);
         _titleWrapper.Hidden = string.IsNullOrEmpty(title);
         _footerWrapper.Hidden = string.IsNullOrEmpty(footer);
-        var outer = WinoLayout.VStack(0, _titleWrapper, _rows, _footerWrapper);
+        var outer = WinoLayout.VStack(0, _titleWrapper, _footerWrapper, _rows);
         outer.Alignment = UIStackViewAlignment.Fill;
         WinoLayout.Fill(outer, this);
     }
