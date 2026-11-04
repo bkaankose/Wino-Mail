@@ -93,7 +93,9 @@ internal sealed class AndroidForegroundLifecycle
     {
         try
         {
-            var target = await _coordinator.StartAsync(_host);
+            // The logger, Sentry and the runtime's service graph are built synchronously before the first await; on the
+            // main thread that held the first frame for about 300 ms. The host marshals its UI steps through the dispatcher.
+            var target = await Task.Run(() => _coordinator.StartAsync(_host));
             Serilog.Log.Information("Wino Mail Android started: {Target}", target);
         }
         catch (Exception error)

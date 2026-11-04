@@ -125,7 +125,8 @@
   <!-- Medium and expanded: the 48 dp period header inside the zone (previous, next, range, Today, display types). -->
   <style name="Widget.Wino.Calendar.PeriodHeader">
     <item name="android:layout_width">match_parent</item>
-    <item name="android:layout_height">@dimen/wino_calendar_surface_header_height</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:minHeight">@dimen/wino_calendar_surface_header_height</item>
     <item name="android:gravity">center_vertical</item>
     <item name="android:orientation">horizontal</item>
     <item name="android:paddingStart">@dimen/wino_space_xs</item>
@@ -134,7 +135,7 @@
 
 
   <style name="Widget.Wino.Calendar.HeaderButton" parent="Widget.Wino.Button.Outlined">
-    <item name="android:layout_height">@dimen/wino_m3_chip_height</item>
+    <item name="android:layout_height">wrap_content</item>
     <item name="android:minHeight">@dimen/wino_m3_chip_height</item>
     <item name="android:layout_marginStart">@dimen/wino_space_s</item>
     <item name="android:paddingStart">@dimen/wino_space_m</item>

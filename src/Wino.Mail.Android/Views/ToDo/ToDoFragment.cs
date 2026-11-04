@@ -254,7 +254,7 @@ public sealed class ToDoFragment : WinoFragment<ToDoPageViewModel>
                 chip.Checked = true;
                 Select(view);
             };
-            _chips.AddView(chip);
+            _chips.AddView(PeopleViews.WithTouchTarget(chip));
         }
         // Lists: every task list in the pane order; the chip names the open list.
         var lists = ShellMenuRowPresentation.Flatten(items).Select(row => row.Item).OfType<AccountTaskListMenuItem>().ToList();
@@ -275,7 +275,7 @@ public sealed class ToDoFragment : WinoFragment<ToDoPageViewModel>
                 open is null ? -1 : lists.IndexOf(open), index => Select(lists[index]));
             chip.Click += (_, _) => Pick();
             chip.SetOnCloseIconClickListener(new ClickListener(Pick));
-            _chips.AddView(chip);
+            _chips.AddView(PeopleViews.WithTouchTarget(chip));
         }
     }
 
@@ -315,6 +315,10 @@ public sealed class ToDoFragment : WinoFragment<ToDoPageViewModel>
         _adapter.CompletionToggled += (_, task) => PeopleViews.Observe(viewModel.ToggleTaskCommand.ExecuteAsync(task), ReportError);
         _adapter.ImportanceToggled += (_, task) => PeopleViews.Observe(viewModel.ToggleImportanceCommand.ExecuteAsync(task), ReportError);
         _list.SetAdapter(_adapter);
+        // Rows follow their long-lived task ViewModels; removing the adapter recycles every row, which drops those
+        // handlers. Without it each visit kept the previous page's rows and fragment alive.
+        var list = _list;
+        Bindings.Own(new ActionDisposable(() => list.SetAdapter(null)));
         if (_refresh is not null)
         {
             _refresh.SetColorSchemeColors(WinoColors.Accent(context).ToArgb());

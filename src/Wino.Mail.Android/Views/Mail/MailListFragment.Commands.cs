@@ -79,6 +79,12 @@ public sealed partial class MailListFragment
             BuildContextualMenu();
             Chrome?.SuppressFab(true);
             ShowSelectionToolbar(true);
+            // A status snackbar keeps the anchor it was shown with and would sit under the floating toolbar: show it again.
+            if (_infoSnackbar is { IsShown: true } shown)
+            {
+                shown.Dismiss();
+                UpdateInfoBar();
+            }
         }
         if (row is not null) _adapter.SetSelected(row, true);
         UpdateActionMode();

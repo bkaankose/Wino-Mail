@@ -78,6 +78,8 @@ public sealed class ContactsFragment : WinoFragment<ContactsPageViewModel>
             WinoMaterialAccent.Tint(fab);
             fab.ContentDescription = Translator.ContactsPane_NewContact;
             BindCommand(fab, viewModel.AddContactCommand, dispatcher);
+            // Beside the pinned pane its New Contact item is the one primary create action (Material 3).
+            if (Chrome?.NavigationPinned == true) fab.Visibility = ViewStates.Gone;
         }
 
         if (view.FindViewById(Resource.Id.contacts_empty) is { } emptyView)
@@ -196,7 +198,7 @@ public sealed class ContactsFragment : WinoFragment<ContactsPageViewModel>
                 chip.Checked = true;
                 PeopleViews.Observe(viewModel.OnMenuItemInvokedAsync(target), ReportError);
             };
-            _chips.AddView(chip);
+            _chips.AddView(PeopleViews.WithTouchTarget(chip));
         }
         if (accounts.Count > 1)
         {
@@ -208,7 +210,7 @@ public sealed class ContactsFragment : WinoFragment<ContactsPageViewModel>
                 accounts.IndexOf(active), index => PeopleViews.Observe(viewModel.OnMenuItemInvokedAsync(accounts[index]), ReportError));
             chip.Click += (_, _) => Pick();
             chip.SetOnCloseIconClickListener(new ClickListener(Pick));
-            _chips.AddView(chip);
+            _chips.AddView(PeopleViews.WithTouchTarget(chip));
         }
         if (_chipScroll is not null) _chipScroll.Visibility = _chips.ChildCount == 0 ? ViewStates.Gone : ViewStates.Visible;
     }

@@ -4128,6 +4128,8 @@
   "IOS_MoveSheet_OneMessage": "1 message",
   "IOS_MoveSheet_Messages": "{0} messages",
   "Android_Shell_OpenNavigation": "Open navigation",
+  "Android_Shell_NoTaskSelected": "Select a task to see its details",
+  "Android_Shell_NoFolderSelected": "Select a folder to see its mail",
   "Android_NotificationChannelGroup_Accounts": "Mail accounts",
   "Android_NotificationChannel_MailDescription": "New mail in {0}",
   "Android_NotificationChannel_Calendar": "Calendar reminders",

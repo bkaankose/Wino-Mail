@@ -378,7 +378,9 @@ public sealed partial class MailListFragment
         if (_snackbarHost is null) return null;
         var snackbar = Google.Android.Material.Snackbar.Snackbar.Make(_snackbarHost, text, durationMs);
         if (action is not null && invoked is not null) snackbar.SetAction(action, _ => invoked());
-        if (Chrome?.SnackbarAnchor is { } anchor) snackbar.SetAnchorView(anchor);
+        // Above the floating selection toolbar while selecting, else above the compact New mail button.
+        if (_selectionToolbar is { Visibility: ViewStates.Visible } selectionBar) snackbar.SetAnchorView(selectionBar);
+        else if (Chrome?.SnackbarAnchor is { } anchor) snackbar.SetAnchorView(anchor);
         snackbar.AddCallback(new SnackbarDismissed(dismissed));
         snackbar.Show();
         return snackbar;

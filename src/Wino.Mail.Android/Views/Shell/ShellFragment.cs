@@ -30,6 +30,12 @@ public interface IShellChrome
     /// <summary>Opens the navigation drawer (compact, medium) or shows and hides the pinned pane (expanded).</summary>
     void ToggleNavigation();
 
+    /// <summary>
+    /// True on expanded widths, where the navigation pane is pinned beside the pages: pages leave out their menu button
+    /// (a Material 3 standard drawer has none).
+    /// </summary>
+    bool NavigationPinned { get; }
+
     /// <summary>The view snackbars sit above (the compact New mail FAB while it shows), else null.</summary>
     View? SnackbarAnchor { get; }
 
@@ -249,6 +255,8 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
 
     public View? SnackbarAnchor => View?.FindViewById(Resource.Id.shell_fab) is { Visibility: ViewStates.Visible } fab ? fab : null;
 
+    public bool NavigationPinned => _drawer is null && _pane is not null;
+
     public void ToggleNavigation()
     {
         if (_drawer is { } drawer)
@@ -287,6 +295,10 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
 
         if (_rail is not null)
         {
+            // Material 3 rails label their items. A landscape phone (under 480 dp tall) keeps them unlabelled so the
+            // rail fits its height; taller windows (tablets in portrait) show the labels.
+            if ((context.Resources?.Configuration?.ScreenHeightDp ?? 0) >= AndroidWindowSizeClassService.ExpandedMinHeightDp)
+                _rail.LabelVisibilityMode = NavigationBarView.LabelVisibilityLabeled;
             // The rail header: New mail (canvas Landscape). The list's app bar keeps the drawer button, so the rail fits a
             // landscape phone's height with the avatar at its foot.
             var header = new LinearLayout(context) { Orientation = Orientation.Vertical };
@@ -323,20 +335,66 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
 
         if (_modeCard is not null && _pane is not null)
         {
-            // Expanded: the Windows mode switcher card at the foot of the pane, then the avatar for Settings.
+            // Expanded: the Windows mode switcher card at the foot of the pane, then Settings, labelled like the compact
+            // navigation bar (Material 3 navigation items always carry their label).
             _modeCard.RemoveAllViews();
             foreach (var segment in _segments)
             {
-                var button = new WinoIconView(context) { Icon = segment.Regular, GlyphSize = WinoTokens.Dp(context, Resource.Dimension.wino_glyph_l), ContentDescription = segment.Title, Clickable = true, Gravity = GravityFlags.Center, Tag = (int)segment.Mode };
                 var mode = segment.Mode;
-                button.Click += (_, _) => _shell?.RequestMode(mode);
-                _modeCard.AddView(button, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MatchParent, 1));
+                _modeCard.AddView(ModeCardItem(context, segment.Regular, segment.Title, (int)mode, () => _shell?.RequestMode(mode)),
+                    new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MatchParent, 1));
             }
-            var settings = new WinoIconView(context) { Icon = WinoIconGlyph.Settings, GlyphSize = WinoTokens.Dp(context, Resource.Dimension.wino_glyph_l), ContentDescription = Translator.MenuSettings, Clickable = true, Gravity = GravityFlags.Center };
-            settings.SetTextColor(WinoColors.SecondaryText(context));
-            settings.Click += (_, _) => _shell?.OpenSettings();
-            _modeCard.AddView(settings, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MatchParent, 1));
+            _modeCard.AddView(ModeCardItem(context, WinoIconGlyph.Settings, Translator.MenuSettings, null, () => _shell?.OpenSettings()),
+                new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MatchParent, 1));
         }
+    }
+
+    /// <summary>A mode card item: the glyph in a Material 3 active indicator pill, then the label.</summary>
+    private LinearLayout ModeCardItem(Context context, WinoIconGlyph glyph, string title, int? mode, Action invoke)
+    {
+        var item = new LinearLayout(context)
+        {
+            Orientation = Orientation.Vertical,
+            ContentDescription = title,
+            Clickable = true,
+            Focusable = true,
+            Tag = mode is { } value ? value : null
+        };
+        item.SetGravity(GravityFlags.Center);
+        using (var ripple = context.ObtainStyledAttributes([global::Android.Resource.Attribute.SelectableItemBackgroundBorderless]))
+            item.Background = ripple.GetDrawable(0);
+        var indicator = new WinoIconView(context)
+        {
+            Icon = glyph,
+            GlyphSize = WinoTokens.Dp(context, Resource.Dimension.wino_m3_nav_icon),
+            Gravity = GravityFlags.Center,
+            ImportantForAccessibility = ImportantForAccessibility.No
+        };
+        var pill = new global::Android.Graphics.Drawables.GradientDrawable();
+        pill.SetCornerRadius(WinoUnits.Dp(context, 16));
+        pill.SetColor(global::Android.Graphics.Color.Transparent);
+        indicator.Background = pill;
+        indicator.SetTextColor(WinoColors.SecondaryText(context));
+        item.AddView(indicator, new LinearLayout.LayoutParams(WinoUnits.Dp(context, 48), WinoUnits.Dp(context, 32)));
+        var label = new TextView(context)
+        {
+            Text = title,
+            Gravity = GravityFlags.Center,
+            ImportantForAccessibility = ImportantForAccessibility.No
+        };
+        label.SetMaxLines(1);
+        label.Ellipsize = global::Android.Text.TextUtils.TruncateAt.End;
+        label.SetTextAppearance(Resource.Style.TextAppearance_Material3_LabelMedium);
+        // Five items share 304 dp: past 115 % text the longer labels truncate, so they stop growing there. The item
+        // keeps its full name for TalkBack.
+        float fontScale = context.Resources?.Configuration?.FontScale ?? 1f;
+        label.SetTextSize(global::Android.Util.ComplexUnitType.Dip, 12f * Math.Min(fontScale, 1.15f));
+        label.SetTextColor(WinoColors.SecondaryText(context));
+        item.AddView(label, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent) { TopMargin = WinoUnits.Dp(context, 4) });
+        EventHandler click = (_, _) => invoke();
+        item.Click += click;
+        Bindings.Own(new ActionDisposable(() => item.Click -= click));
+        return item;
     }
 
     /// <summary>Offers only the modes the accounts provide and the user kept (Windows AppModeFooterSwitcherControl).</summary>
@@ -361,19 +419,46 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
         {
             for (int index = 0; index < _modeCard.ChildCount; index++)
             {
-                if (_modeCard.GetChildAt(index) is not WinoIconView button || button.Tag is null) continue;
-                bool active = (int)button.Tag == (int)mode;
-                var segment = _segments.FirstOrDefault(candidate => (int)candidate.Mode == (int)button.Tag!);
-                if (segment is not null) button.Icon = active ? segment.Filled : segment.Regular;
-                button.SetTextColor(active ? WinoColors.Accent(context) : WinoColors.SecondaryText(context));
-                button.Selected = active;
+                if (_modeCard.GetChildAt(index) is not LinearLayout item || item.Tag is null
+                    || item.GetChildAt(0) is not WinoIconView glyph || item.GetChildAt(1) is not TextView label) continue;
+                int itemMode = (int)item.Tag;
+                bool active = itemMode == (int)mode;
+                var segment = _segments.FirstOrDefault(candidate => (int)candidate.Mode == itemMode);
+                if (segment is not null) glyph.Icon = active ? segment.Filled : segment.Regular;
+                (glyph.Background as global::Android.Graphics.Drawables.GradientDrawable)?.SetColor(active ? WinoColors.SecondaryContainer(context) : global::Android.Graphics.Color.Transparent);
+                glyph.SetTextColor(active ? WinoColors.PrimaryText(context) : WinoColors.SecondaryText(context));
+                label.SetTextColor(active ? WinoColors.PrimaryText(context) : WinoColors.SecondaryText(context));
+                item.Selected = active;
             }
         }
         if (View?.FindViewById<FloatingActionButton>(Resource.Id.shell_fab) is { } fab)
             fab.Visibility = mode == WinoApplicationMode.Mail && !_fabSuppressed ? ViewStates.Visible : ViewStates.Gone;
-        if (_readerIdle?.FindViewById<WinoIconView>(Resource.Id.shell_reader_idle_glyph) is { } idle)
-            idle.Icon = _segments.FirstOrDefault(segment => segment.Mode == mode)?.Filled ?? WinoIconGlyph.MailFilled;
+        ApplyReaderIdle(mode);
 
+    }
+
+    /// <summary>
+    /// The empty reader pane: the mode glyph with a short hint. While the list pane shows the mode placeholder it stays an
+    /// empty zone, so the window never shows two empty states side by side.
+    /// </summary>
+    private void ApplyReaderIdle(WinoApplicationMode mode)
+    {
+        if (_readerIdle?.FindViewById(Resource.Id.shell_reader_idle_content) is not { } content) return;
+        bool listEmpty = _navigation?.ShellContentEntry is null;
+        content.Visibility = listEmpty ? ViewStates.Invisible : ViewStates.Visible;
+        if (_readerIdle.FindViewById<WinoIconView>(Resource.Id.shell_reader_idle_glyph) is { } idle)
+            idle.Icon = _segments.FirstOrDefault(segment => segment.Mode == mode)?.Filled ?? WinoIconGlyph.MailFilled;
+        if (_readerIdle.FindViewById<TextView>(Resource.Id.shell_reader_idle_text) is { } text)
+        {
+            text.Text = mode switch
+            {
+                WinoApplicationMode.Mail => Translator.NoMailSelected,
+                WinoApplicationMode.Contacts => Translator.ContactsPage_NoContactSelected,
+                WinoApplicationMode.Tasks => Translator.Android_Shell_NoTaskSelected,
+                _ => string.Empty
+            };
+            text.Visibility = string.IsNullOrEmpty(text.Text) ? ViewStates.Gone : ViewStates.Visible;
+        }
     }
 
     private static int ItemId(WinoApplicationMode mode) => (int)mode + 1;
@@ -384,14 +469,34 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
 
     private void PagesChanged(object? sender, EventArgs args) => PlacePages();
 
+    private bool _placeholderPending;
+
     /// <summary>Shows the navigation service's content page and reader page in this shell's panes. Main thread.</summary>
-    private void PlacePages()
+    private void PlacePages() => PlacePages(placeholderNow: false);
+
+    private void PlacePages(bool placeholderNow)
     {
         if (_navigation is null || View is null || !IsAdded) return;
         var manager = ChildFragmentManager;
         if (manager.IsDestroyed || manager.IsStateSaved) return;
 
-        Place(manager, Resource.Id.shell_list_host, _navigation.ShellContentEntry ?? null, emptyFallback: true);
+        var content = _navigation.ShellContentEntry;
+        if (content is null && !placeholderNow && manager.FindFragmentById(Resource.Id.shell_list_host) is WinoFragment { Entry: not null } && View is { } host)
+        {
+            // A mode switch releases the old page before it routes the new one: placing the placeholder in between
+            // inflated and replaced a whole page for one frame. It waits a frame and is skipped when a page arrived.
+            if (!_placeholderPending)
+            {
+                _placeholderPending = true;
+                host.PostOnAnimation(new Java.Lang.Runnable(() =>
+                {
+                    _placeholderPending = false;
+                    PlacePages(placeholderNow: true);
+                }));
+            }
+            return;
+        }
+        Place(manager, Resource.Id.shell_list_host, content, emptyFallback: true);
         ApplyContentColumns(manager.FindFragmentById(Resource.Id.shell_list_host) as IShellWideContent, _navigation.RenderingEntry is not null);
         if (_readerPane && _navigation.ShowsReaderPane)
         {
@@ -399,6 +504,7 @@ public sealed class ShellFragment : WinoFragment, IShellChrome
             Place(manager, Resource.Id.shell_reader_host, reader, emptyFallback: false);
             if (_readerIdle is not null) _readerIdle.Visibility = reader is null ? ViewStates.Visible : ViewStates.Gone;
         }
+        ApplyReaderIdle(_shell?.ActiveMode ?? WinoApplicationMode.Mail);
     }
 
     private int? _listColumnWidth;

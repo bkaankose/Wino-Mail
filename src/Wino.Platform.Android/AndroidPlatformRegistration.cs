@@ -55,7 +55,7 @@ public static class AndroidPlatformRegistration
     /// The head still registers the theme, dialog and navigation services, and the notification, background and relay
     /// services.
     /// </summary>
-    /// <param name="currentActivity">The started activity to launch other apps from; null while none is started.</param>
+    /// <param name="currentActivity">The started activity to launch other apps from; null while none is started. Read from any thread.</param>
     public static IServiceCollection AddAndroidPlatformServices(this IServiceCollection services, Context context, Func<Activity?> currentActivity)
         => services.AddAndroidPlatformServices(AndroidPlatformBootstrap.Create(context), currentActivity);
 

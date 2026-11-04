@@ -40,8 +40,8 @@ public sealed class ModePlaceholderFragment : WinoFragment
         if (view.FindViewById<TextView>(Resource.Id.mode_placeholder_title) is { } title) title.Text = segment?.Title ?? string.Empty;
         if (view.FindViewById<TextView>(Resource.Id.mode_placeholder_message) is { } message)
         {
-            message.Text = mode == WinoApplicationMode.Mail ? string.Empty : Translator.Info_UnsupportedFunctionalityDescription;
-            message.Visibility = mode == WinoApplicationMode.Mail ? ViewStates.Gone : ViewStates.Visible;
+            message.Text = mode == WinoApplicationMode.Mail ? Translator.Android_Shell_NoFolderSelected : Translator.Info_UnsupportedFunctionalityDescription;
+            message.Visibility = ViewStates.Visible;
         }
         if (view.FindViewById(Resource.Id.mode_placeholder_bar) is { } bar)
         {
@@ -54,7 +54,10 @@ public sealed class ModePlaceholderFragment : WinoFragment
             pill.SetStroke(Math.Max(1, WinoUnits.Dp(context, 1)), WinoColors.ZoneStroke(context));
             bar.Background = pill;
         }
-        if (view.FindViewById<ImageButton>(Resource.Id.mode_placeholder_navigation) is { } navigation)
+        bool pinned = FindChrome(view)?.NavigationPinned == true;
+        // The pinned pane needs no menu button; the empty bar keeps its place so the zone does not move when the page comes.
+        if (pinned && view.FindViewById(Resource.Id.mode_placeholder_bar) is { } emptyBar) emptyBar.Visibility = ViewStates.Invisible;
+        if (!pinned && view.FindViewById<ImageButton>(Resource.Id.mode_placeholder_navigation) is { } navigation)
         {
             navigation.SetImageResource(Resource.Drawable.wino_ic_menu);
             navigation.ContentDescription = Translator.Android_Shell_OpenNavigation;

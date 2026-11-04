@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The navigation pane content (modal Material 3 drawer on compact and medium widths, pinned pane on expanded; canvas
      Material pass Mailboxes): the drawer items starting with New mail (accounts show their own synchronization), then
-     Settings at the foot, or on expanded widths the mode switcher card, which carries Settings itself. -->
+     Settings at the foot, or on expanded widths the labelled mode switcher card, which carries Settings itself. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/shell_panel"
     android:layout_width="match_parent"
@@ -26,12 +26,15 @@
   <LinearLayout
       android:id="@+id/shell_mode_card"
       android:layout_width="match_parent"
-      android:layout_height="@dimen/wino_size_row"
+      android:layout_height="wrap_content"
+      android:minHeight="72dp"
       android:layout_margin="@dimen/wino_space_s"
       android:background="@drawable/wino_zone_background"
       android:gravity="center_vertical"
       android:orientation="horizontal"
       android:paddingStart="@dimen/wino_space_2xs"
+      android:paddingTop="@dimen/wino_space_s"
       android:paddingEnd="@dimen/wino_space_2xs"
+      android:paddingBottom="@dimen/wino_space_s"
       android:visibility="gone" />
 </LinearLayout>
