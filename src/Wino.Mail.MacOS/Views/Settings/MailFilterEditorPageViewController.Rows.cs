@@ -132,7 +132,7 @@ public sealed partial class MailFilterEditorPageViewController
         var line = WinoLayout.HStack(WinoStyle.Space2, tile, field, op, value, choice, remove);
         line.Alignment = NSLayoutAttribute.CenterY;
 
-        var conjunction = rows.Label(item, nameof(item.ConjunctionText), s => s.ConjunctionText, NSFont.SystemFontOfSize(11, NSFontWeight.Bold), WinoStyle.TertiaryText);
+        var conjunction = rows.Label(item, nameof(item.ConjunctionText), s => s.ConjunctionText, NSFont.SystemFontOfSize(11, NSFontWeight.Bold), WinoStyle.SecondaryText);
         var conjunctionHost = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
         WinoLayout.Fill(conjunction, conjunctionHost, 4, 40, 4, 0);
         rows.Visible(conjunctionHost, item, nameof(item.ShowConjunction), s => s.ShowConjunction);

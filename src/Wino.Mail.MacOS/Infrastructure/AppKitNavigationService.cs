@@ -77,7 +77,7 @@ public sealed class AppKitNavigationService : INavigationService, INavigationHos
         var application = NSApplication.SharedApplication;
         if (application.ActivationPolicy != NSApplicationActivationPolicy.Regular)
             application.ActivationPolicy = NSApplicationActivationPolicy.Regular;
-        application.ActivateIgnoringOtherApps(true);
+        application.Activate();
         if (window is null) return;
         if (window.IsMiniaturized) window.Deminiaturize(null);
         window.MakeKeyAndOrderFront(null);

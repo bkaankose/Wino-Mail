@@ -179,7 +179,7 @@ public static class MacDebugBridge
         Register("front", _ =>
         {
             // Lets a full-screen capture on the Mac show Wino without granting System Events access.
-            NSApplication.SharedApplication.ActivateIgnoringOtherApps(true);
+            NSApplication.SharedApplication.Activate();
             foreach (var window in AllWindows().Where(item => item.IsVisible)) window.OrderFrontRegardless();
             return Task.FromResult("ok");
         });
@@ -248,7 +248,7 @@ public static class MacDebugBridge
                 using var data = rep.RepresentationUsingTypeProperties(NSBitmapImageFileType.Png, new NSDictionary());
                 var name = args.Length > 0 ? args[0] : "lsnap";
                 var file = Path.Combine(Folder, index == 0 ? $"{name}.png" : $"{name}-{index}.png");
-                data?.Save(file, true);
+                data?.Save(NSUrl.FromFilename(file), true);
                 saved.Add($"{Path.GetFileName(file)} ({window.GetType().Name})");
                 index++;
             }
@@ -274,7 +274,7 @@ public static class MacDebugBridge
             document.CacheDisplay(document.Bounds, rep);
             using var data = rep.RepresentationUsingTypeProperties(NSBitmapImageFileType.Png, new NSDictionary());
             var file = Path.Combine(Folder, (args.Length > 1 ? args[1] : "dsnap") + ".png");
-            data?.Save(file, true);
+            data?.Save(NSUrl.FromFilename(file), true);
             return Task.FromResult(Path.GetFileName(file) + " " + document.Bounds.ToString());
         });
         // "menus" lists the main menu titles and their items.
@@ -287,7 +287,7 @@ public static class MacDebugBridge
             var title = string.Join(' ', args);
             var window = AllWindows().FirstOrDefault(item => item.IsVisible && item.Title.Contains(title, StringComparison.OrdinalIgnoreCase));
             if (window is null) return Task.FromResult("no window");
-            NSApplication.SharedApplication.ActivateIgnoringOtherApps(true);
+            NSApplication.SharedApplication.Activate();
             window.MakeKeyAndOrderFront(null);
             return Task.FromResult($"{window.Frame}");
         });
@@ -311,7 +311,7 @@ public static class MacDebugBridge
             view.CacheDisplay(view.Bounds, rep);
             using var data = rep.RepresentationUsingTypeProperties(NSBitmapImageFileType.Png, new NSDictionary());
             var file = Path.Combine(Folder, index == 0 ? $"{name}.png" : $"{name}-{index}.png");
-            data?.Save(file, true);
+            data?.Save(NSUrl.FromFilename(file), true);
             saved.Add($"{Path.GetFileName(file)} ({window.GetType().Name})");
             index++;
         }

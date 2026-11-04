@@ -39,7 +39,7 @@ public sealed class WinoContactFieldCard : WinoSurfaceView
         text.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
         var column = WinoLayout.VStack(1, text);
         column.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
-        if (!string.IsNullOrWhiteSpace(label)) column.AddArrangedSubview(WinoStyle.Label(label, WinoStyle.Caption, WinoStyle.TertiaryText));
+        if (!string.IsNullOrWhiteSpace(label)) column.AddArrangedSubview(WinoStyle.Label(label, WinoStyle.Caption, WinoStyle.SecondaryText));
         NSView row = column;
         if (glyph != WinoIconGlyph.None)
         {

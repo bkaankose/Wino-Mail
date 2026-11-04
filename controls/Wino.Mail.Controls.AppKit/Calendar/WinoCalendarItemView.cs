@@ -260,8 +260,9 @@ public sealed class WinoCalendarItemView : NSView
             fill.ColorWithAlphaComponent((nfloat)tint).SetFill();
             path.Fill();
             DrawBar(bounds, path, _model.IsBusy ? fill.ColorWithAlphaComponent(0.5f) : fill, _model.ShowAs);
-            textColor = TextOn(fill, dark ? 0.78 : 0.72);
-            detailColor = TextOn(fill, dark ? 0.62 : 0.55).ColorWithAlphaComponent(0.92f);
+            // Mixes measured against the tint: title and time stay above 4.5:1 in both appearances.
+            textColor = TextOn(fill, dark ? 0.62 : 0.66);
+            detailColor = TextOn(fill, 0.5);
         }
 
         if (_model.IsSelected)

@@ -322,7 +322,7 @@ internal sealed class ComposeRecipientSuggestionPopup : NSObject
             var text = WinoLayout.VStack(1, _name, _secondary);
             text.Alignment = NSLayoutAttribute.Leading;
             text.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
-            _source = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.TertiaryText);
+            _source = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
             _source.LineBreakMode = NSLineBreakMode.TruncatingTail;
             _source.WidthAnchor.ConstraintLessThanOrEqualTo(140).Active = true;
             _dismiss = new NSButton

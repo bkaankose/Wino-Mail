@@ -211,7 +211,7 @@ public sealed class ProviderSelectionPageViewController(ProviderSelectionPageVie
         EventHandler searched = (_, _) => searchBinding.UpdateSource(search.StringValue);
         search.Changed += searched;
         Bindings.Own(new ActionDisposable(() => search.Changed -= searched));
-        var count = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.TertiaryText);
+        var count = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
         count.SetContentHuggingPriorityForOrientation(750, NSLayoutConstraintOrientation.Horizontal);
         _catalogRefresh.Add(_form.Bind(nameof(vm.CatalogResultCountText), s => s.CatalogResultCountText, text => count.StringValue = text ?? string.Empty).Refresh);
         var searchRow = WinoLayout.HStack(WinoStyle.Space3, search, count);

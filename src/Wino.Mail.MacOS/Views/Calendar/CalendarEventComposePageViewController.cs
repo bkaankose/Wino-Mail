@@ -564,7 +564,7 @@ public sealed partial class CalendarEventComposePageViewController(CalendarEvent
             var captured = attachment;
             var icon = new WinoIconView(WinoIconGlyph.Attachment, 16, WinoStyle.SecondaryText);
             var name = WinoStyle.Label(attachment.FileName, WinoStyle.Body);
-            var size = WinoStyle.Label(attachment.ReadableSize, WinoStyle.Caption, WinoStyle.TertiaryText);
+            var size = WinoStyle.Label(attachment.ReadableSize, WinoStyle.Caption, WinoStyle.SecondaryText);
             var remove = new NSButton { Image = WinoIcons.Image(WinoIconGlyph.Dismiss, 12), Bordered = false, TranslatesAutoresizingMaskIntoConstraints = false, ToolTip = Translator.CalendarEventCompose_RemoveAttachment };
             remove.Activated += (_, _) => ViewModel.RemoveAttachmentCommand.Execute(captured);
             var row = WinoLayout.HStack(8, icon, name, size, WinoLayout.Spacer(), remove);

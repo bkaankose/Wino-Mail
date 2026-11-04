@@ -66,7 +66,7 @@ public sealed partial class MailListPageViewController
             using var tiff = image.AsTiff();
             using var rep = tiff is null ? null : new NSBitmapImageRep(tiff);
             using var png = rep?.RepresentationUsingTypeProperties(NSBitmapImageFileType.Png, new NSDictionary());
-            png?.Save(file, true);
+            png?.Save(NSUrl.FromFilename(file), true);
             return Task.FromResult($"{mails.Count} mails -> {file}");
         });
 #endif

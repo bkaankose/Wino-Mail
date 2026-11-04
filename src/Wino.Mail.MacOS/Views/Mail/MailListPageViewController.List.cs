@@ -96,7 +96,7 @@ public sealed partial class MailListPageViewController
         {
             Image = WinoIcons.Image(WinoIconGlyph.Filter, 16)
         });
-        _filterButton = NSPopUpButton.CreatePullDownButton(ViewModel.SelectedFilterOption?.Title ?? string.Empty, WinoIcons.Image(WinoIconGlyph.Filter, 14), _filterMenu);
+        _filterButton = CreateFilterButton(ViewModel.SelectedFilterOption?.Title ?? string.Empty, WinoIcons.Image(WinoIconGlyph.Filter, 14), _filterMenu);
         _filterButton.TranslatesAutoresizingMaskIntoConstraints = false;
         _filterButton.ControlSize = NSControlSize.Regular;
         _filterButton.Font = WinoStyle.Body;
@@ -372,6 +372,19 @@ public sealed partial class MailListPageViewController
         ViewModel.SelectedFolderPivot = pivots[index];
         _pivotBar.SelectedIndex = index;
         Observe(ViewModel.SelectedPivotChangedCommand.ExecuteAsync(pivots[index]));
+    }
+
+    private static NSPopUpButton CreateFilterButton(string title, NSImage image, NSMenu menu)
+    {
+        if (OperatingSystem.IsMacOSVersionAtLeast(15)) return NSPopUpButton.CreatePullDownButton(title, image, menu);
+        // macOS 14 has no pullDownButtonWithTitle; the cell's own menu item draws the title so the menu keeps only the commands.
+        var button = new NSPopUpButton(CGRect.Empty, true) { Menu = menu };
+        if (button.Cell is NSPopUpButtonCell cell)
+        {
+            cell.UsesItemFromMenu = false;
+            cell.MenuItem = new NSMenuItem(title) { Image = image };
+        }
+        return button;
     }
 
     private void UpdateFilterMenu()
@@ -1002,7 +1015,7 @@ public sealed partial class MailListPageViewController
             view.CacheDisplay(view.Bounds, rep);
             using var data = rep.RepresentationUsingTypeProperties(NSBitmapImageFileType.Png, new NSDictionary());
             var file = Path.Combine(Path.GetTempPath(), "wino-debug", (args.Length > 1 ? args[1] : "zone") + ".png");
-            data?.Save(file, true);
+            data?.Save(NSUrl.FromFilename(file), true);
             return Task.FromResult(Path.GetFileName(file));
         });
         MacDebugBridge.Register("dismiss", _ =>

@@ -29,7 +29,7 @@ public sealed class AppPreferencesPageViewController(AppPreferencesPageViewModel
             vm.ToggleStartupBehaviorCommand, Translator.SettingsAppPreferences_LaunchAtSignIn_Title);
 
         var closeBehavior = Bind.PopUp<AppPreferencesPageViewModel, string>(vm,
-            source => source.CloseBehaviorModes, item => item,
+            source => source.CloseBehaviorModes, item => CloseBehaviorTitle(vm, item),
             nameof(vm.SelectedCloseBehaviorMode), source => source.SelectedCloseBehaviorMode, (source, value) => source.SelectedCloseBehaviorMode = value,
             itemsProperty: nameof(vm.CloseBehaviorModes), width: 180);
 
@@ -39,13 +39,22 @@ public sealed class AppPreferencesPageViewController(AppPreferencesPageViewModel
                 ? Card(Translator.SettingsAppPreferences_LaunchAtSignIn_Title, Translator.SettingsAppPreferences_LaunchAtSignIn_Description, WinoIconGlyph.Power, startup)
                 : null,
             vm.IsCloseBehaviorAvailable
-                ? Card(Translator.SettingsAppPreferences_CloseBehavior_Title, Translator.SettingsAppPreferences_CloseBehavior_Description, WinoIconGlyph.Desktop, closeBehavior)
+                ? Card(Translator.SettingsAppPreferences_CloseBehavior_Title, Translator.MacOS_AppPreferences_CloseBehavior_Description, WinoIconGlyph.Desktop, closeBehavior)
                 : null);
 #if !WINO_APPSTORE
         AddUpdateCards();
 #endif
         // Mac App Store builds have no update cards: the App Store updates the app.
     }
+
+    // The shared titles say "tray"; a Mac shows the icon in the menu bar. Order follows AppCloseBehavior.
+    private static string CloseBehaviorTitle(AppPreferencesPageViewModel vm, string item) => vm.CloseBehaviorModes.IndexOf(item) switch
+    {
+        0 => Translator.MacOS_AppPreferences_CloseBehavior_MenuBar,
+        1 => Translator.MacOS_AppPreferences_CloseBehavior_Background,
+        2 => Translator.MacOS_AppPreferences_CloseBehavior_Quit,
+        _ => item
+    };
 
 #if !WINO_APPSTORE
     /// <summary>Sparkle's automatic-update settings (DMG builds). Sparkle stores them in the app's defaults.</summary>
