@@ -35,12 +35,12 @@ public sealed class MessageListPageViewController(MessageListPageViewModel viewM
 
         // Sender pictures
         var clearCache = Card(string.Empty, null, WinoIconGlyph.None, Bind.Button(Translator.SettingsMailList_ClearAvatarsCache_Button, vm.ClearAvatarsCacheCommand));
-        var senderPictures = Expander(Translator.SettingsShowSenderPictures_Title, Translator.SettingsShowSenderPictures_Description, WinoIconGlyph.Person,
+        var senderPictures = Expander(Translator.SettingsShowSenderPictures_Title, null, WinoIconGlyph.Person,
             Bind.Switch(p, nameof(p.IsShowSenderPicturesEnabled), s => s.IsShowSenderPicturesEnabled, (s, v) => s.IsShowSenderPicturesEnabled = v, Translator.SettingsShowSenderPictures_Title),
-            Bind.Enabled(Card(Translator.SettingsEnableGravatarAvatars_Title, Translator.SettingsEnableGravatarAvatars_Description, WinoIconGlyph.None,
+            Bind.Enabled(Card(Translator.SettingsEnableGravatarAvatars_Title, Translator.IOS_SettingsHint_Gravatar, WinoIconGlyph.None,
                     Bind.Switch(p, nameof(p.IsGravatarEnabled), s => s.IsGravatarEnabled, (s, v) => s.IsGravatarEnabled = v, Translator.SettingsEnableGravatarAvatars_Title)),
                 p, nameof(p.IsShowSenderPicturesEnabled), s => s.IsShowSenderPicturesEnabled),
-            Bind.Enabled(Card(Translator.SettingsEnableFavicons_Title, Translator.SettingsEnableFavicons_Description, WinoIconGlyph.None,
+            Bind.Enabled(Card(Translator.SettingsEnableFavicons_Title, Translator.IOS_SettingsHint_Favicons, WinoIconGlyph.None,
                     Bind.Switch(p, nameof(p.IsFaviconEnabled), s => s.IsFaviconEnabled, (s, v) => s.IsFaviconEnabled = v, Translator.SettingsEnableFavicons_Title)),
                 p, nameof(p.IsShowSenderPicturesEnabled), s => s.IsShowSenderPicturesEnabled),
             clearCache);
@@ -49,7 +49,7 @@ public sealed class MessageListPageViewController(MessageListPageViewModel viewM
 
         // Swipe actions
         bool SwipeOn(IPreferencesService s) => s.IsSwipeActionsEnabled;
-        AddGroup(null, Expander(Translator.SettingsSwipeActions_Title, Translator.SettingsSwipeActions_Description, WinoIconGlyph.ArrowSwap,
+        AddGroup(null, Expander(Translator.SettingsSwipeActions_Title, null, WinoIconGlyph.ArrowSwap,
             Bind.Switch(p, nameof(p.IsSwipeActionsEnabled), s => s.IsSwipeActionsEnabled, (s, v) => s.IsSwipeActionsEnabled = v, Translator.SettingsSwipeActions_Title),
             CustomisedAccountsNote(vm),
             Bind.Enabled(SwipeScopeCard(vm), p, nameof(p.IsSwipeActionsEnabled), SwipeOn),
@@ -61,30 +61,30 @@ public sealed class MessageListPageViewController(MessageListPageViewModel viewM
                 p, nameof(p.IsSwipeActionsEnabled), SwipeOn)));
 
         AddGroup(null,
-            Card(Translator.SettingsMailListActionBar_Title, Translator.SettingsMailListActionBar_Description, WinoIconGlyph.Window,
+            Card(Translator.SettingsMailListActionBar_Title, null, WinoIconGlyph.Window,
                 Bind.Switch(p, nameof(p.IsMailListActionBarEnabled), s => s.IsMailListActionBarEnabled, (s, v) => s.IsMailListActionBarEnabled = v, Translator.SettingsMailListActionBar_Title)),
-            StackedCard(Translator.SettingsShowAccountNickname_Title, Translator.SettingsShowAccountNickname_Description, WinoIconGlyph.PersonTag,
+            StackedCard(Translator.SettingsShowAccountNickname_Title, Translator.IOS_SettingsHint_AccountNickname, WinoIconGlyph.PersonTag,
                 Bind.PopUp(vm, vm.AccountNicknamePositionOptions, nameof(vm.SelectedAccountNicknamePositionIndex), s => s.SelectedAccountNicknamePositionIndex, (s, v) => s.SelectedAccountNicknamePositionIndex = v)),
-            Card(Translator.SettingsMailListGroupHeaders_Title, Translator.SettingsMailListGroupHeaders_Description, WinoIconGlyph.GroupList,
+            Card(Translator.SettingsMailListGroupHeaders_Title, null, WinoIconGlyph.GroupList,
                 Bind.Switch(p, nameof(p.IsMailListGroupHeadersEnabled), s => s.IsMailListGroupHeadersEnabled, (s, v) => s.IsMailListGroupHeadersEnabled = v, Translator.SettingsMailListGroupHeaders_Title)),
-            Bind.Enabled(StackedCard(Translator.SettingsMailListDateGroupingType_Title, Translator.SettingsMailListDateGroupingType_Description, WinoIconGlyph.CalendarWeek,
+            Bind.Enabled(StackedCard(Translator.SettingsMailListDateGroupingType_Title, null, WinoIconGlyph.CalendarWeek,
                 Bind.PopUp(vm, vm.DateGroupingTypeOptions, nameof(vm.SelectedDateGroupingTypeIndex), s => s.SelectedDateGroupingTypeIndex, (s, v) => s.SelectedDateGroupingTypeIndex = v)),
                 p, nameof(p.IsMailListGroupHeadersEnabled), s => s.IsMailListGroupHeadersEnabled),
-            StackedCard(Translator.SettingsTimeFormat_Title, Translator.SettingsTimeFormat_Description, WinoIconGlyph.Clock,
+            StackedCard(Translator.SettingsTimeFormat_Title, null, WinoIconGlyph.Clock,
                 Bind.PopUp(vm, vm.TimeFormatPreferenceOptions, nameof(vm.SelectedTimeFormatPreferenceIndex), s => s.SelectedTimeFormatPreferenceIndex, (s, v) => s.SelectedTimeFormatPreferenceIndex = v)),
-            Card(Translator.SettingsOtherInboxUnreadNotice_Title, Translator.SettingsOtherInboxUnreadNotice_Description, WinoIconGlyph.Mail,
+            Card(Translator.SettingsOtherInboxUnreadNotice_Title, Translator.IOS_SettingsHint_OtherInboxNotice, WinoIconGlyph.Mail,
                 Bind.Switch(p, nameof(p.IsOtherInboxUnreadNoticeEnabled), s => s.IsOtherInboxUnreadNoticeEnabled, (s, v) => s.IsOtherInboxUnreadNoticeEnabled = v, Translator.SettingsOtherInboxUnreadNotice_Title)));
 
         // Threads
-        AddGroup(null, Expander(Translator.SettingsThreads_Title, Translator.SettingsThreads_Description, WinoIconGlyph.TextBulletListTree, null,
-            Card(Translator.SettingsThreads_Enabled_Title, Translator.SettingsThreads_Enabled_Description, WinoIconGlyph.None,
+        AddGroup(null, Expander(Translator.SettingsThreads_Title, null, WinoIconGlyph.TextBulletListTree, null,
+            Card(Translator.SettingsThreads_Enabled_Title, null, WinoIconGlyph.None,
                 Bind.Switch(p, nameof(p.IsThreadingEnabled), s => s.IsThreadingEnabled, (s, v) => s.IsThreadingEnabled = v, Translator.SettingsThreads_Enabled_Title)),
-            Bind.Enabled(StackedCard(Translator.SettingsThreadOrder_Title, Translator.SettingsThreadOrder_Description, WinoIconGlyph.None,
+            Bind.Enabled(StackedCard(Translator.SettingsThreadOrder_Title, null, WinoIconGlyph.None,
                 Bind.PopUp(vm, vm.ThreadItemSortingOptions, nameof(vm.SelectedThreadItemSortingIndex), s => s.SelectedThreadItemSortingIndex, (s, v) => s.SelectedThreadItemSortingIndex = v)),
                 p, nameof(p.IsThreadingEnabled), s => s.IsThreadingEnabled)));
 
         AddGroup(null,
-            Card(Translator.SettingsShowPreviewText_Title, Translator.SettingsShowPreviewText_Description, WinoIconGlyph.TextDescription,
+            Card(Translator.SettingsShowPreviewText_Title, null, WinoIconGlyph.TextDescription,
                 Bind.Switch(p, nameof(p.IsShowPreviewEnabled), s => s.IsShowPreviewEnabled, (s, v) => s.IsShowPreviewEnabled = v, Translator.SettingsShowPreviewText_Title)));
     }
 

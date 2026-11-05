@@ -13,8 +13,9 @@ namespace Wino.Mail.UIKit.Views.Settings;
 
 /// <summary>
 /// The Settings root's first row, shaped like the Settings app's Apple Account card but for the mail accounts, which
-/// every user has: the first account's picture (two overlapping when there are more), its name, and the account count
-/// with the providers. It opens Manage accounts; without accounts it invites to add one.
+/// every user has: the first account's picture (two overlapping when there are more), the Manage Accounts title, and
+/// the account's address or the account count with the providers under it (5 Nov 2026: the title names the page, not
+/// the account, so one account still reads as a door to Manage Accounts). Without accounts it invites to add one.
 /// </summary>
 public sealed class MailAccountsCardCell : UITableViewCell
 {
@@ -26,7 +27,7 @@ public sealed class MailAccountsCardCell : UITableViewCell
     private readonly WinoContactPicture _front = new(PairSize) { Stroke = WinoSettingsStyle.CardFill, StrokeWidth = 2 };
     private readonly UIView _pair = new() { TranslatesAutoresizingMaskIntoConstraints = false };
     private readonly WinoSurfaceView _placeholder = new() { Fill = WinoStyle.Dynamic(WinoStyle.Hex(0xC7C7CC), WinoStyle.Hex(0x48484A)), CornerRadius = PictureSize / 2 };
-    private readonly UILabel _title = WinoStyle.Label(string.Empty, WinoStyle.Scaled(20, UIFontWeight.Medium), WinoStyle.PrimaryText, 2);
+    private readonly UILabel _title = WinoStyle.Label(string.Empty, WinoStyle.Scaled(17, UIFontWeight.Semibold), WinoStyle.PrimaryText, 2);
     private readonly UILabel _subtitle = WinoStyle.Label(string.Empty, WinoStyle.Scaled(13), WinoStyle.SecondaryText, 2);
 
     public MailAccountsCardCell() : base(UITableViewCellStyle.Default, (string?)null)
@@ -83,8 +84,8 @@ public sealed class MailAccountsCardCell : UITableViewCell
         else
         {
             var first = list[0];
-            _title.Text = first.StartupEntityTitle;
-            _title.Font = WinoStyle.Scaled(20, UIFontWeight.Medium);
+            _title.Text = SettingsCatalog.Title(WinoPage.ManageAccountsPage);
+            _title.Font = WinoStyle.Scaled(17, UIFontWeight.Semibold);
             _title.TextColor = WinoStyle.PrimaryText;
             var providers = string.Join(", ", list.Select(account => account.ProviderDetail?.Name).Where(name => !string.IsNullOrWhiteSpace(name)).Distinct());
             var lead = list.Count == 1 ? first.StartupEntityAddresses : string.Format(Translator.SettingsOptions_AccountsCardCount, list.Count);
@@ -98,7 +99,8 @@ public sealed class MailAccountsCardCell : UITableViewCell
             }
         }
 
-        AccessibilityLabel = $"{SettingsCatalog.Title(WinoPage.ManageAccountsPage)}, {_title.Text}";
+        var pageTitle = SettingsCatalog.Title(WinoPage.ManageAccountsPage);
+        AccessibilityLabel = list.Count == 0 ? $"{pageTitle}, {_title.Text}" : pageTitle;
         AccessibilityValue = _subtitle.Text;
     }
 }

@@ -37,7 +37,7 @@ public sealed class ReadComposePanePageViewController(ReadComposePanePageViewMod
         Bind.Bind(vm, nameof(vm.CurrentComposerFontSize), s => s.CurrentComposerFontSize, _ => UpdateComposer());
 
         AddGroup(null,
-            Expander(Translator.SettingsReaderFont_Title, Translator.SettingsReaderFontFamily_Description, WinoIconGlyph.TextFont, null,
+            Expander(Translator.SettingsReaderFont_Title, Translator.IOS_SettingsHint_ReaderFont, WinoIconGlyph.TextFont, null,
                 StackedCard(Translator.SettingsFontFamily_Title, null, WinoIconGlyph.None,
                     Bind.PopUp<ReadComposePanePageViewModel, string>(vm, _ => fonts, font => font,
                         nameof(vm.CurrentReaderFont), s => s.CurrentReaderFont, (s, v) => s.CurrentReaderFont = v)),
@@ -45,7 +45,7 @@ public sealed class ReadComposePanePageViewController(ReadComposePanePageViewMod
                     Bind.Stepper(vm, nameof(vm.CurrentReaderFontSize), s => s.CurrentReaderFontSize, (s, v) => s.CurrentReaderFontSize = v, 8, 48,
                         accessibilityLabel: Translator.SettingsFontSize_Title)),
                 StackedCard(Translator.SettingsFontPreview_Title, null, WinoIconGlyph.None, readerPreview)),
-            Expander(Translator.SettingsComposerFont_Title, Translator.SettingsComposerFontFamily_Description, WinoIconGlyph.TextFont, null,
+            Expander(Translator.SettingsComposerFont_Title, Translator.IOS_SettingsHint_ComposerFont, WinoIconGlyph.TextFont, null,
                 StackedCard(Translator.SettingsFontFamily_Title, null, WinoIconGlyph.None,
                     Bind.PopUp<ReadComposePanePageViewModel, string>(vm, _ => fonts, font => font,
                         nameof(vm.CurrentComposerFont), s => s.CurrentComposerFont, (s, v) => s.CurrentComposerFont = v)),
@@ -53,17 +53,17 @@ public sealed class ReadComposePanePageViewController(ReadComposePanePageViewMod
                     Bind.Stepper(vm, nameof(vm.CurrentComposerFontSize), s => s.CurrentComposerFontSize, (s, v) => s.CurrentComposerFontSize = v, 8, 48,
                         accessibilityLabel: Translator.SettingsFontSize_Title)),
                 StackedCard(Translator.SettingsFontPreview_Title, null, WinoIconGlyph.None, composerPreview)),
-            Expander(Translator.SettingsComposerSpellCheck_Title, Translator.SettingsComposerSpellCheck_Description, WinoIconGlyph.TextProofingTools, null,
+            Expander(Translator.SettingsComposerSpellCheck_Title, null, WinoIconGlyph.TextProofingTools, null,
                 Card(Translator.SettingsComposerSpellCheckEnabled_Title, null, WinoIconGlyph.None,
                     Bind.Switch(p, nameof(p.IsComposerSpellCheckEnabled), s => s.IsComposerSpellCheckEnabled, (s, v) => s.IsComposerSpellCheckEnabled = v, Translator.SettingsComposerSpellCheckEnabled_Title)),
-                Card(Translator.SettingsComposerAutoCorrect_Title, Translator.SettingsComposerAutoCorrect_Description, WinoIconGlyph.None,
+                Card(Translator.SettingsComposerAutoCorrect_Title, Translator.IOS_SettingsHint_AutoCorrect, WinoIconGlyph.None,
                     Bind.Switch(p, nameof(p.IsComposerAutoCorrectEnabled), s => s.IsComposerAutoCorrectEnabled, (s, v) => s.IsComposerAutoCorrectEnabled = v, Translator.SettingsComposerAutoCorrect_Title)),
                 StackedCard(Translator.SettingsComposerSpellCheckLanguage_Title, null, WinoIconGlyph.None,
                     Bind.PopUp<ReadComposePanePageViewModel, AppLanguageModel>(vm, s => s.AvailableSpellCheckLanguages, language => language.DisplayName,
                         nameof(vm.CurrentSpellCheckLanguage), s => s.CurrentSpellCheckLanguage, (s, v) => s.CurrentSpellCheckLanguage = v))));
 
         AddGroup(null,
-            NavigationCard(Translator.ReaderActions_Title, Translator.ReaderActions_EntryDescription, WinoIconGlyph.ReOrderDotsVertical,
+            NavigationCard(Translator.ReaderActions_Title, Translator.IOS_SettingsHint_ReaderActions, WinoIconGlyph.ReOrderDotsVertical,
                 () => vm.OpenReaderActionsCommand.Execute(null)),
             Card(Translator.SettingsLoadImages_Title, null, WinoIconGlyph.Image,
                 Bind.Switch(p, nameof(p.RenderImages), s => s.RenderImages, (s, v) => s.RenderImages = v, Translator.SettingsLoadImages_Title)),

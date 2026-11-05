@@ -36,27 +36,27 @@ public sealed class AboutPageViewController(AboutPageViewModel viewModel, IDispa
         Add(hero);
 
         AddGroup(null,
-            CommandCard(Translator.SettingsWhatsNew_Title, Translator.SettingsWhatsNew_Description, WinoIconGlyph.Announcement, vm.OpenWhatsNewCommand));
+            CommandCard(Translator.SettingsWhatsNew_Title, Translator.IOS_SettingsHint_WhatsNew, WinoIconGlyph.Announcement, vm.OpenWhatsNewCommand));
 
         var links = Group(null,
-            Link(Translator.SettingsWebsite_Title, Translator.SettingsWebsite_Description, WinoIconGlyph.Globe, () => vm.WebsiteUrl),
-            Link(Translator.SettingsAboutGithub_Title, Translator.SettingsAboutGithub_Description, WinoIconGlyph.GitHub, () => vm.GitHubUrl),
-            Link(Translator.SettingsDiscord_Title, Translator.SettingsDiscord_Description, WinoIconGlyph.Discord, () => vm.DiscordChannelUrl));
+            Link(Translator.SettingsWebsite_Title, null, WinoIconGlyph.Globe, () => vm.WebsiteUrl),
+            Link(Translator.SettingsAboutGithub_Title, Translator.IOS_SettingsHint_GitHub, WinoIconGlyph.GitHub, () => vm.GitHubUrl),
+            Link(Translator.SettingsDiscord_Title, Translator.IOS_SettingsHint_Discord, WinoIconGlyph.Discord, () => vm.DiscordChannelUrl));
         if (vm.IsMicrosoftStoreAvailable)
-            links.Add(Link(Translator.SettingsStore_Title, Translator.SettingsStore_Description, WinoIconGlyph.MicrosoftStore, () => "Store"));
-        links.Add(Link(Translator.SettingsPaypal_Title, Translator.SettingsPaypal_Description, WinoIconGlyph.PayPal, () => vm.PaypalUrl));
-        links.Add(Link(Translator.SettingsPrivacyPolicy_Title, Translator.SettingsPrivacyPolicy_Description, WinoIconGlyph.Eye, () => vm.PrivacyPolicyUrl));
+            links.Add(Link(Translator.SettingsStore_Title, null, WinoIconGlyph.MicrosoftStore, () => "Store"));
+        links.Add(Link(Translator.SettingsPaypal_Title, null, WinoIconGlyph.PayPal, () => vm.PaypalUrl));
+        links.Add(Link(Translator.SettingsPrivacyPolicy_Title, null, WinoIconGlyph.Eye, () => vm.PrivacyPolicyUrl));
         Add(links);
 
         // The Diagnostics page (18 Oct 2026): every item is a row of the one pushed page, nothing pushes further. The
         // Enable logs switch with its explanation as the footer, Share and Upload as action rows, then the identifier
         // row: the explanation under the title, the ID itself as the next row's title with a copy button.
-        var logsCard = Card(Translator.SettingsEnableLogs_Title, Translator.SettingsEnableLogs_Description, WinoIconGlyph.None,
+        var logsCard = Card(Translator.SettingsEnableLogs_Title, Translator.IOS_SettingsHint_EnableLogs, WinoIconGlyph.None,
             Bind.Switch(p, nameof(p.IsLoggingEnabled), s => s.IsLoggingEnabled, (s, v) => s.IsLoggingEnabled = v, Translator.SettingsEnableLogs_Title));
         var share = ActionRow(Bind.Button(Translator.Buttons_Share, vm.ShareWinoLogCommand));
         var upload = ActionRow(Bind.Button(Translator.Buttons_UploadLogs, vm.UploadWinoLogsCommand));
 
-        var diagnosticCard = Card(Translator.SettingsDiagnostics_DiagnosticId_Title, Translator.SettingsDiagnostics_DiagnosticId_Description);
+        var diagnosticCard = Card(Translator.SettingsDiagnostics_DiagnosticId_Title, Translator.IOS_SettingsHint_DiagnosticId);
         var copy = Bind.Button(string.Empty, vm.CopyDiagnosticIdCommand, icon: WinoIconGlyph.Copy);
         WinoAccessibility.Label(copy, $"{Translator.Buttons_Copy}: {Translator.SettingsDiagnostics_DiagnosticId_Title}");
         WinoLayout.Size(copy, 44, 44);
@@ -67,7 +67,7 @@ public sealed class AboutPageViewController(AboutPageViewModel viewModel, IDispa
             logsCard, share, upload, diagnosticCard, identifier));
     }
 
-    private WinoSettingsCard Link(string header, string description, WinoIconGlyph icon, Func<string> url)
+    private WinoSettingsCard Link(string header, string? description, WinoIconGlyph icon, Func<string> url)
     {
         var card = CommandCard(header, description, icon, ViewModel.NavigateCommand, () => url());
         card.SetActionIcon(WinoIconGlyph.Open);

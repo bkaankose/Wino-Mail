@@ -54,7 +54,7 @@ public sealed class StoragePageViewController(StoragePageViewModel viewModel, IP
             rows.Bind(item, nameof(item.SizeDescription), i => i.SizeDescription, text => expander.HeaderCard.Description = text);
 
             var deleteAll = rows.Button(Translator.SettingsStorage_DeleteAll_Button, item.DeleteAllCommand, () => item);
-            expander.Add(rows.Enabled(new WinoSettingsCard(Translator.SettingsStorage_DeleteAll_Title, Translator.SettingsStorage_DeleteAll_Description, WinoIconGlyph.None, deleteAll),
+            expander.Add(rows.Enabled(new WinoSettingsCard(Translator.SettingsStorage_DeleteAll_Title, Translator.IOS_SettingsHint_StorageDeleteAll, WinoIconGlyph.None, deleteAll),
                 item, nameof(item.IsBusy), i => !i.IsBusy));
 
             // Four period buttons do not fit beside the text on a phone: a 2×2 grid under it.
@@ -63,7 +63,7 @@ public sealed class StoragePageViewController(StoragePageViewModel viewModel, IP
                          rows.Button(Translator.SettingsStorage_DeleteOld_3Months, item.DeleteThreeMonthsCommand, () => item)),
                 EqualRow(rows.Button(Translator.SettingsStorage_DeleteOld_6Months, item.DeleteSixMonthsCommand, () => item),
                          rows.Button(Translator.SettingsStorage_DeleteOld_1Year, item.DeleteYearCommand, () => item)));
-            var olderCard = new WinoSettingsCard(Translator.SettingsStorage_DeleteOld_Title, Translator.SettingsStorage_DeleteOld_Description) { BottomContent = older };
+            var olderCard = new WinoSettingsCard(Translator.SettingsStorage_DeleteOld_Title, Translator.IOS_SettingsHint_StorageDeleteOld) { BottomContent = older };
             expander.Add(rows.Enabled(olderCard, item, nameof(item.IsBusy), i => !i.IsBusy));
             _accounts.Add(expander);
         }

@@ -25,7 +25,7 @@ public sealed class AppPreferencesPageViewController(AppPreferencesPageViewModel
             itemsProperty: nameof(vm.AvailableLanguages));
 
         AddGroup(null,
-            Card(Translator.SettingsLanguage_Title, Translator.SettingsLanguage_Description, WinoIconGlyph.Translate, language));
+            Card(Translator.SettingsLanguage_Title, null, WinoIconGlyph.Translate, language));
     }
 
     protected override Task InitializeAsync(NavigationMode mode, object? parameter)

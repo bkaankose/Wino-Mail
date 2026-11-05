@@ -64,7 +64,7 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
         }, UIControlEvent.ValueChanged);
         var presets = Bind.PopUp<NotificationSettingsPageViewModel, SnoozePresetOption>(vm, s => s.SnoozePresets, option => option.DisplayText,
             nameof(vm.SelectedSnoozePreset), s => s.SelectedSnoozePreset, (s, v) => s.StartSnoozeCommand.Execute(v.Value));
-        var snooze = Card(Translator.NotificationSettings_Snooze_Title, Translator.NotificationSettings_Snooze_ActiveDescription, WinoIconGlyph.AlertOff, snoozeSwitch);
+        var snooze = Card(Translator.NotificationSettings_Snooze_Title, Translator.IOS_SettingsHint_Snooze, WinoIconGlyph.AlertOff, snoozeSwitch);
         snooze.BottomContent = presets;
         AddGroup(null, snooze);
 
@@ -90,43 +90,43 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
         var quiet = Expander(Translator.NotificationSettings_QuietHours_Title, null, WinoIconGlyph.Clock,
             Bind.Switch(p, nameof(p.AreQuietHoursEnabled), QuietOn, (s, v) => { s.AreQuietHoursEnabled = v; vm.UpdateQuietHoursSummary(); }, Translator.NotificationSettings_QuietHours_Title),
             Bind.Enabled(StackedCard(Translator.NotificationSettings_QuietHours_From_Title, Translator.NotificationSettings_QuietHours_From_Description, WinoIconGlyph.None, hours), p, nameof(p.AreQuietHoursEnabled), QuietOn),
-            Bind.Enabled(StackedCard(Translator.NotificationSettings_QuietHours_Days_Title, Translator.NotificationSettings_QuietHours_Days_Description, WinoIconGlyph.None, days), p, nameof(p.AreQuietHoursEnabled), QuietOn));
+            Bind.Enabled(StackedCard(Translator.NotificationSettings_QuietHours_Days_Title, null, WinoIconGlyph.None, days), p, nameof(p.AreQuietHoursEnabled), QuietOn));
         Bind.Bind(vm, nameof(vm.QuietHoursSummary), s => s.QuietHoursSummary, text => quiet.HeaderCard.Description = text);
 
         // Mail.
         var mail = Expander(Translator.NotificationSettings_Mail_Title, null, WinoIconGlyph.Mail,
             Bind.Switch(p, nameof(p.AreNewMailNotificationsEnabled), s => s.AreNewMailNotificationsEnabled, (s, v) => { s.AreNewMailNotificationsEnabled = v; vm.UpdateSectionSummaries(); }, Translator.NotificationSettings_Mail_Title),
-            StackedCard(Translator.NotificationSettings_Mail_Scope_Title, Translator.NotificationSettings_Mail_Scope_Description, WinoIconGlyph.None,
+            StackedCard(Translator.NotificationSettings_Mail_Scope_Title, null, WinoIconGlyph.None,
                 OptionPopUp(vm, s => s.ScopeOptions, nameof(vm.SelectedMailScope), s => s.SelectedMailScope, (s, v) => s.SelectedMailScope = v)),
-            StackedCard(Translator.NotificationSettings_Mail_Content_Title, Translator.NotificationSettings_Mail_Content_Description, WinoIconGlyph.None,
+            StackedCard(Translator.NotificationSettings_Mail_Content_Title, Translator.IOS_SettingsHint_NotificationContent, WinoIconGlyph.None,
                 OptionPopUp(vm, s => s.ContentOptions, nameof(vm.SelectedMailContent), s => s.SelectedMailContent, (s, v) => s.SelectedMailContent = v)),
-            StackedCard(Translator.NotificationSettings_Mail_FirstAction_Title, Translator.NotificationSettings_Mail_FirstAction_Description, WinoIconGlyph.None,
+            StackedCard(Translator.NotificationSettings_Mail_FirstAction_Title, null, WinoIconGlyph.None,
                 OptionPopUp(vm, s => s.MailActionOptions, nameof(vm.SelectedFirstAction), s => s.SelectedFirstAction, (s, v) => s.SelectedFirstAction = v)),
-            StackedCard(Translator.NotificationSettings_Mail_SecondAction_Title, Translator.NotificationSettings_Mail_SecondAction_Description, WinoIconGlyph.None,
+            StackedCard(Translator.NotificationSettings_Mail_SecondAction_Title, Translator.IOS_SettingsHint_SecondAction, WinoIconGlyph.None,
                 OptionPopUp(vm, s => s.MailActionOptions, nameof(vm.SelectedSecondAction), s => s.SelectedSecondAction, (s, v) => s.SelectedSecondAction = v)),
-            StackedCard(Translator.NotificationSound_Title, Translator.NotificationSound_Description, WinoIconGlyph.None,
+            StackedCard(Translator.NotificationSound_Title, null, WinoIconGlyph.None,
                 TypeSoundPicker(NotificationSoundKind.Mail)));
         Bind.Bind(vm, nameof(vm.MailSummary), s => s.MailSummary, text => mail.HeaderCard.Description = text);
 
         // Calendar.
         var calendar = Expander(Translator.NotificationSettings_Calendar_Title, null, WinoIconGlyph.Calendar,
             Bind.Switch(p, nameof(p.AreCalendarRemindersEnabled), s => s.AreCalendarRemindersEnabled, (s, v) => { s.AreCalendarRemindersEnabled = v; vm.UpdateSectionSummaries(); }, Translator.NotificationSettings_Calendar_Title),
-            StackedCard(Translator.CalendarSettings_DefaultReminder_Header, Translator.CalendarSettings_DefaultReminder_Description, WinoIconGlyph.None,
+            StackedCard(Translator.CalendarSettings_DefaultReminder_Header, Translator.IOS_SettingsHint_DefaultReminder, WinoIconGlyph.None,
                 Bind.PopUp(vm, vm.ReminderOptions, nameof(vm.SelectedReminderIndex), s => s.SelectedReminderIndex, (s, v) => s.SelectedReminderIndex = v)),
-            StackedCard(Translator.CalendarSettings_DefaultSnoozeDuration_Header, Translator.CalendarSettings_DefaultSnoozeDuration_Description, WinoIconGlyph.None,
+            StackedCard(Translator.CalendarSettings_DefaultSnoozeDuration_Header, null, WinoIconGlyph.None,
                 Bind.PopUp(vm, vm.CalendarSnoozeOptions, nameof(vm.SelectedCalendarSnoozeIndex), s => s.SelectedCalendarSnoozeIndex, (s, v) => s.SelectedCalendarSnoozeIndex = v)),
-            StackedCard(Translator.NotificationSound_Title, Translator.NotificationSound_Description, WinoIconGlyph.None,
+            StackedCard(Translator.NotificationSound_Title, null, WinoIconGlyph.None,
                 TypeSoundPicker(NotificationSoundKind.Calendar)));
         Bind.Bind(vm, nameof(vm.CalendarSummary), s => s.CalendarSummary, text => calendar.HeaderCard.Description = text);
 
         // Tasks.
         var tasks = Expander(Translator.NotificationSettings_Tasks_Title, null, WinoIconGlyph.TaskList,
             Bind.Switch(p, nameof(p.AreTaskRemindersEnabled), s => s.AreTaskRemindersEnabled, (s, v) => { s.AreTaskRemindersEnabled = v; vm.UpdateSectionSummaries(); }, Translator.NotificationSettings_Tasks_Title),
-            StackedCard(Translator.NotificationSettings_Tasks_Timing_Title, Translator.NotificationSettings_Tasks_Timing_Description, WinoIconGlyph.None,
+            StackedCard(Translator.NotificationSettings_Tasks_Timing_Title, Translator.IOS_SettingsHint_TaskReminderTiming, WinoIconGlyph.None,
                 OptionPopUp(vm, s => s.TaskReminderTimingOptions, nameof(vm.SelectedTaskReminderTiming), s => s.SelectedTaskReminderTiming, (s, v) => s.SelectedTaskReminderTiming = v)),
-            StackedCard(Translator.NotificationSettings_Tasks_Snooze_Title, Translator.NotificationSettings_Tasks_Snooze_Description, WinoIconGlyph.None,
+            StackedCard(Translator.NotificationSettings_Tasks_Snooze_Title, null, WinoIconGlyph.None,
                 Bind.PopUp(vm, vm.TaskSnoozeOptions, nameof(vm.SelectedTaskSnoozeIndex), s => s.SelectedTaskSnoozeIndex, (s, v) => s.SelectedTaskSnoozeIndex = v)),
-            StackedCard(Translator.NotificationSound_Title, Translator.NotificationSound_Description, WinoIconGlyph.None,
+            StackedCard(Translator.NotificationSound_Title, null, WinoIconGlyph.None,
                 TypeSoundPicker(NotificationSoundKind.Task)));
         Bind.Bind(vm, nameof(vm.TaskSummary), s => s.TaskSummary, text => tasks.HeaderCard.Description = text);
 
@@ -136,7 +136,7 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
         Add(_accounts);
         Bind.Collection(vm.Accounts, RebuildAccounts);
 
-        AddGroup(null, StackedCard(Translator.NotificationSettings_Reset_Title, Translator.NotificationSettings_Reset_Description, WinoIconGlyph.ArrowReset,
+        AddGroup(null, StackedCard(Translator.NotificationSettings_Reset_Title, Translator.IOS_SettingsHint_ResetNotifications, WinoIconGlyph.ArrowReset,
             SettingsCardLayout.Leading(Bind.Button(Translator.NotificationSettings_Reset_Title, ResetAsync))));
     }
 
@@ -355,25 +355,25 @@ public sealed class NotificationSettingsPageViewController(NotificationSettingsP
             var expander = new WinoSettingsExpander(account.Account.Name ?? string.Empty, account.AccountAddress, WinoIconGlyph.Person,
                 rows.Switch(account, nameof(account.AreNotificationsEnabled), Enabled, (a, v) => a.AreNotificationsEnabled = v, account.Account.Name));
             rows.Bind(account, nameof(account.StatusText), a => a.StatusText, text => expander.HeaderCard.Description = string.IsNullOrEmpty(text) ? account.AccountAddress : text);
-            expander.Add(rows.Enabled(StackedCard(Translator.NotificationSettings_Account_Source_Title, Translator.NotificationSettings_Account_Source_Description, WinoIconGlyph.None,
+            expander.Add(rows.Enabled(StackedCard(Translator.NotificationSettings_Account_Source_Title, Translator.IOS_SettingsHint_AccountSource, WinoIconGlyph.None,
                 rows.PopUp(account, sources, nameof(account.HasCustomNotificationSettings), a => a.HasCustomNotificationSettings ? 1 : 0, (a, v) => a.HasCustomNotificationSettings = v == 1)),
                 account, nameof(account.AreNotificationsEnabled), Enabled));
-            expander.Add(rows.Enabled(Card(Translator.NotificationSettings_Account_NewMail_Title, Translator.NotificationSettings_Account_NewMail_Description, WinoIconGlyph.None,
+            expander.Add(rows.Enabled(Card(Translator.NotificationSettings_Account_NewMail_Title, null, WinoIconGlyph.None,
                 rows.Switch(account, nameof(account.IsNewMailNotificationEnabled), a => a.IsNewMailNotificationEnabled, (a, v) => a.IsNewMailNotificationEnabled = v, Translator.NotificationSettings_Account_NewMail_Title)),
                 account, nameof(account.AreOverrideFieldsEnabled), Overrides));
-            expander.Add(rows.Enabled(StackedCard(Translator.NotificationSettings_Mail_Scope_Title, Translator.NotificationSettings_Mail_Scope_Description, WinoIconGlyph.None,
+            expander.Add(rows.Enabled(StackedCard(Translator.NotificationSettings_Mail_Scope_Title, null, WinoIconGlyph.None,
                 OptionPopUp(account, a => a.ScopeOptions, nameof(account.SelectedScope), a => a.SelectedScope, (a, v) => a.SelectedScope = v, rows)),
                 account, nameof(account.AreOverrideFieldsEnabled), Overrides));
-            expander.Add(rows.Enabled(StackedCard(Translator.NotificationSettings_Mail_Content_Title, Translator.NotificationSettings_Mail_Content_Description, WinoIconGlyph.None,
+            expander.Add(rows.Enabled(StackedCard(Translator.NotificationSettings_Mail_Content_Title, Translator.IOS_SettingsHint_NotificationContent, WinoIconGlyph.None,
                 OptionPopUp(account, a => a.ContentOptions, nameof(account.SelectedContent), a => a.SelectedContent, (a, v) => a.SelectedContent = v, rows)),
                 account, nameof(account.AreOverrideFieldsEnabled), Overrides));
             expander.Add(rows.Enabled(StackedCard(Translator.NotificationSound_Title, Translator.NotificationSettings_Account_Sound_Description, WinoIconGlyph.None,
                 AccountSoundPicker(account)),
                 account, nameof(account.AreOverrideFieldsEnabled), Overrides));
-            expander.Add(rows.Enabled(Card(Translator.NotificationSettings_Account_Calendar_Title, Translator.NotificationSettings_Account_Calendar_Description, WinoIconGlyph.None,
+            expander.Add(rows.Enabled(Card(Translator.NotificationSettings_Account_Calendar_Title, null, WinoIconGlyph.None,
                 rows.Switch(account, nameof(account.AreCalendarRemindersEnabled), a => a.AreCalendarRemindersEnabled, (a, v) => a.AreCalendarRemindersEnabled = v, Translator.NotificationSettings_Account_Calendar_Title)),
                 account, nameof(account.AreOverrideFieldsEnabled), Overrides));
-            expander.Add(rows.Enabled(StackedCard(Translator.NotificationSettings_Account_QuietHours_Title, Translator.NotificationSettings_Account_QuietHours_Description, WinoIconGlyph.None,
+            expander.Add(rows.Enabled(StackedCard(Translator.NotificationSettings_Account_QuietHours_Title, Translator.IOS_SettingsHint_AccountQuietHours, WinoIconGlyph.None,
                 OptionPopUp(account, a => a.QuietHoursOptions, nameof(account.SelectedQuietHoursStance), a => a.SelectedQuietHoursStance, (a, v) => a.SelectedQuietHoursStance = v, rows)),
                 account, nameof(account.AreNotificationsEnabled), Enabled));
 
