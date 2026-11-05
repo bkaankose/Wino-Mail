@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Security;
 using System.Text;
 using Windows.Data.Xml.Dom;
 using Windows.UI.Notifications;
@@ -22,6 +21,7 @@ public sealed partial class WidgetsAndTilesService
     private const string CalendarTag = "calendar";
     private const string TasksTag = "tasks";
     private const string ClearedFingerprint = "cleared";
+    private const int MaximumTileTextLength = 64;
 
     private string? _tileFingerprint;
 
@@ -39,6 +39,10 @@ public sealed partial class WidgetsAndTilesService
         if (fingerprint == _tileFingerprint)
             return null;
 
+        // Parsed before the tile is cleared, so markup that fails to load leaves the previous tile in place.
+        var frameDocuments = frames.Select(static frame => (Frame: frame, Document: LoadTileXml(frame.Xml))).ToList();
+        var scheduledDocument = scheduled == null ? null : LoadTileXml(scheduled.Xml);
+
         var updater = TileUpdateManager.CreateTileUpdaterForApplication(AppEntryConstants.MailApplicationId);
         updater.Clear();
         foreach (var pending in updater.GetScheduledTileNotifications())
@@ -51,18 +55,18 @@ public sealed partial class WidgetsAndTilesService
         }
 
         updater.EnableNotificationQueue(true);
-        foreach (var frame in frames)
+        foreach (var (frame, document) in frameDocuments)
         {
-            updater.Update(new TileNotification(LoadTileXml(frame.Xml))
+            updater.Update(new TileNotification(document)
             {
                 Tag = frame.Tag,
                 ExpirationTime = frame.Expires
             });
         }
 
-        if (scheduled != null)
+        if (scheduled != null && scheduledDocument != null)
         {
-            updater.AddToSchedule(new ScheduledTileNotification(LoadTileXml(scheduled.Xml), scheduled.DeliveryTime)
+            updater.AddToSchedule(new ScheduledTileNotification(scheduledDocument, scheduled.DeliveryTime)
             {
                 Tag = CalendarTag,
                 Id = CalendarTag,
@@ -180,9 +184,67 @@ public sealed partial class WidgetsAndTilesService
     }
 
     private static string TileText(string value, string style)
-        => string.IsNullOrWhiteSpace(value)
+    {
+        var text = EscapeTileText(value);
+        return string.IsNullOrWhiteSpace(text)
             ? string.Empty
-            : $"<text hint-style=\"{style}\" hint-wrap=\"false\">{SecurityElement.Escape(value)}</text>";
+            : $"<text hint-style=\"{style}\" hint-wrap=\"false\">{text}</text>";
+    }
+
+    /// <summary>
+    /// Escapes the text for XML, drops characters XML forbids (including a surrogate left alone by a preview cut
+    /// mid-emoji), turns line breaks and other control characters into spaces, and stops at a length that keeps the
+    /// mail tile's seventeen lines well under the tile payload limit even in multi-byte scripts.
+    /// </summary>
+    private static string EscapeTileText(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        var builder = new StringBuilder(Math.Min(value.Length, MaximumTileTextLength) + 8);
+        for (var i = 0; i < value.Length && builder.Length < MaximumTileTextLength; i++)
+        {
+            var character = value[i];
+
+            if (char.IsHighSurrogate(character))
+            {
+                if (i + 1 < value.Length && char.IsLowSurrogate(value[i + 1]))
+                {
+                    if (builder.Length + 2 > MaximumTileTextLength)
+                        break;
+
+                    builder.Append(character).Append(value[i + 1]);
+                    i++;
+                }
+
+                continue;
+            }
+
+            if (char.IsLowSurrogate(character))
+                continue;
+
+            if (char.IsControl(character))
+            {
+                builder.Append(' ');
+                continue;
+            }
+
+            if (!global::System.Xml.XmlConvert.IsXmlChar(character))
+                continue;
+
+            switch (character)
+            {
+                case '&': builder.Append("&amp;"); break;
+                case '<': builder.Append("&lt;"); break;
+                case '>': builder.Append("&gt;"); break;
+                case '"': builder.Append("&quot;"); break;
+                case '\'': builder.Append("&apos;"); break;
+                default: builder.Append(character); break;
+            }
+        }
+
+        return builder.ToString();
+    }
 
     // Built from markup on purpose, as the badge is: node casts are not projected under Native AOT.
     private static XmlDocument LoadTileXml(string xml)

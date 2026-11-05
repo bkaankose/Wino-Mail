@@ -11,6 +11,7 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Notifications;
 using Wino.Mail.ViewModels.Companion;
 using Wino.NotificationHost.Contracts;
+using Wino.Services.Logging;
 
 namespace Wino.Mail.WinUI.Services.WidgetsAndTiles;
 
@@ -33,16 +34,20 @@ public sealed partial class WidgetsAndTilesService(
 
     private static readonly TimeSpan Debounce = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan MaximumDelay = TimeSpan.FromSeconds(10);
-    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan InitialRetryDelay = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan MaximumRetryDelay = TimeSpan.FromMinutes(10);
+    private const string UpdateFailedLogKey = "update-failed";
 
     private readonly SemaphoreSlim _updateGate = new(1, 1);
     private readonly Lock _scheduleGate = new();
+    private readonly ThrottledLog _failureLog = new(TimeSpan.FromMinutes(30));
     private CancellationTokenSource? _pending;
     private DateTimeOffset _pendingSince;
+    private DateTimeOffset _pendingDue;
     private Timer? _boundaryTimer;
     private string? _publishedWidgetContent;
     private bool _widgetsTurnedOffWritten;
-    private bool _lastUpdateFailed;
+    private TimeSpan _retryDelay = InitialRetryDelay;
 
     /// <summary>Live Tiles exist only on the Windows 10 Start menu. Windows 11 keeps the API but shows nothing.</summary>
     public static bool AreLiveTilesSupported { get; } = Environment.OSVersion.Version.Build < WindowsElevenBuild;
@@ -66,11 +71,13 @@ public sealed partial class WidgetsAndTilesService(
             return;
 
         CancellationTokenSource source;
+        CancellationToken token;
         lock (_scheduleGate)
         {
-            // A steady stream of changes, such as a first sync, still updates at least every few seconds.
+            // A steady stream of changes, such as a first sync, still updates at least every few seconds. A pending
+            // retry that is due later than this request does not hold it back.
             var now = DateTimeOffset.UtcNow;
-            if (_pending != null && !force && now - _pendingSince >= MaximumDelay)
+            if (_pending != null && !force && now - _pendingSince >= MaximumDelay && _pendingDue <= now + delay)
                 return;
 
             if (_pending == null)
@@ -79,29 +86,34 @@ public sealed partial class WidgetsAndTilesService(
             _pending?.Cancel();
             _pending?.Dispose();
             _pending = source = new CancellationTokenSource();
+            _pendingDue = now + delay;
+            token = source.Token;
         }
 
         _ = Task.Run(async () =>
         {
             try
             {
-                await Task.Delay(delay, source.Token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
+                await Task.Delay(delay, token).ConfigureAwait(false);
 
-            lock (_scheduleGate)
-            {
-                if (ReferenceEquals(_pending, source))
+                lock (_scheduleGate)
                 {
-                    _pending = null;
-                    source.Dispose();
+                    if (ReferenceEquals(_pending, source))
+                    {
+                        _pending = null;
+                        source.Dispose();
+                    }
                 }
-            }
 
-            await UpdateAsync().ConfigureAwait(false);
+                await UpdateAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException)
+            {
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Widgets and Live Tiles: scheduled update failed.");
+            }
         });
     }
 
@@ -138,17 +150,24 @@ public sealed partial class WidgetsAndTilesService(
             }
 
             ScheduleBoundary(snapshot);
-            _lastUpdateFailed = false;
+
+            if (_retryDelay != InitialRetryDelay)
+            {
+                _retryDelay = InitialRetryDelay;
+                _failureLog.Reset(UpdateFailedLogKey);
+                Log.Information("Widgets and Live Tiles: update succeeded after earlier failures.");
+            }
         }
         catch (Exception ex)
         {
-            if (!_lastUpdateFailed)
-            {
-                Log.Warning(ex, "Widgets and Live Tiles: update failed.");
-                Schedule(RetryDelay, force: true);
-            }
+            var retryDelay = _retryDelay;
+            _retryDelay = TimeSpan.FromTicks(Math.Min(retryDelay.Ticks * 2, MaximumRetryDelay.Ticks));
 
-            _lastUpdateFailed = true;
+            if (_failureLog.ShouldWrite(UpdateFailedLogKey, out var suppressed))
+                Log.Warning(ex, "Widgets and Live Tiles: update failed, retrying in {RetryDelay} ({Suppressed} more failures since the last report).",
+                    retryDelay, suppressed);
+
+            Schedule(retryDelay, force: true);
         }
         finally
         {
@@ -370,7 +389,20 @@ public sealed partial class WidgetsAndTilesService(
         var midnight = new DateTimeOffset(now.Date.AddDays(1).AddMinutes(1));
         var nextEnd = snapshot.Calendar.Events.Select(static item => item.End).Where(end => end > now).DefaultIfEmpty(midnight).Min();
         var due = nextEnd < midnight ? nextEnd : midnight;
-        _boundaryTimer = new Timer(static state => ((WidgetsAndTilesService)state!).RequestUpdate(), this, due - now, Timeout.InfiniteTimeSpan);
+        _boundaryTimer = new Timer(OnBoundaryReached, this, due - now, Timeout.InfiniteTimeSpan);
+    }
+
+    private static void OnBoundaryReached(object? state)
+    {
+        try
+        {
+            if (state is WidgetsAndTilesService service)
+                service.RequestUpdate();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Widgets and Live Tiles: boundary refresh failed.");
+        }
     }
 
     private static void LogChange(string? change)
