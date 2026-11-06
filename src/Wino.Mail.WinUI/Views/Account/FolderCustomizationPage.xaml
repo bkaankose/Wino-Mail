@@ -141,7 +141,7 @@
                 AllowDrop="True"
                 AutomationProperties.AutomationId="FolderCustomizationPageListView"
                 CanReorderItems="True"
-                DropCompleted="ListView_DropCompleted"
+                DragItemsCompleted="ListView_DragItemsCompleted"
                 ItemTemplate="{StaticResource FolderRowTemplate}"
                 ItemsSource="{x:Bind ViewModel.PinnedFolders}"
                 SelectionMode="None">
@@ -170,7 +170,7 @@
                 AllowDrop="True"
                 AutomationProperties.AutomationId="FolderCustomizationPageListView2"
                 CanReorderItems="True"
-                DropCompleted="ListView_DropCompleted"
+                DragItemsCompleted="ListView_DragItemsCompleted"
                 ItemTemplate="{StaticResource FolderRowTemplate}"
                 ItemsSource="{x:Bind ViewModel.CategoryFolders}"
                 SelectionMode="None">
@@ -198,7 +198,7 @@
                 AllowDrop="True"
                 AutomationProperties.AutomationId="FolderCustomizationPageListView3"
                 CanReorderItems="True"
-                DropCompleted="ListView_DropCompleted"
+                DragItemsCompleted="ListView_DragItemsCompleted"
                 ItemTemplate="{StaticResource FolderRowTemplate}"
                 ItemsSource="{x:Bind ViewModel.MoreFolders}"
                 SelectionMode="None">
