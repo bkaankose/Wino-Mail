@@ -65,9 +65,10 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     // Update is triggered when we leave the page.
     private bool isUpdatingMimeBlocked = false;
 
-    private bool canSendMail => ComposingAccount != null && !IsLocalDraft && CurrentMimeMessage != null && !IsDraftBusy;
+    private bool IsDraftKeptLocally => ComposingAccount?.ProviderType == MailProviderType.EAS;
+    private bool canSendMail => ComposingAccount != null && (!IsLocalDraft || IsDraftKeptLocally) && CurrentMimeMessage != null && !IsDraftBusy;
     private bool canSendWithRequestedSmime => canSendMail && CanUseRequestedSmime;
-    private bool canSendLocalDraftToServer => ComposingAccount != null && IsLocalDraft && CurrentMimeMessage != null && !IsDraftBusy && !IsRetryingSendToServer;
+    private bool canSendLocalDraftToServer => ComposingAccount != null && IsLocalDraft && !IsDraftKeptLocally && CurrentMimeMessage != null && !IsDraftBusy && !IsRetryingSendToServer;
 
     [NotifyCanExecuteChangedFor(nameof(DiscardCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
@@ -168,8 +169,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     public ObservableCollection<AccountContact> ToItems { get; set; } = [];
     public ObservableCollection<AccountContact> CCItems { get; set; } = [];
     public ObservableCollection<AccountContact> BCCItems { get; set; } = [];
-    public bool ShouldShowSendToServerButton => IsLocalDraft && !IsDraftBusy;
-    public bool ShouldShowSendButton => !IsLocalDraft;
+    public bool ShouldShowSendToServerButton => IsLocalDraft && !IsDraftKeptLocally && !IsDraftBusy;
+    public bool ShouldShowSendButton => !IsLocalDraft || IsDraftKeptLocally;
     public string DraftSyncErrorMessage
     {
         get
@@ -1054,7 +1055,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             if (!ReferenceEquals(CurrentMailDraftItem, draft)) return;
 
             var hasPendingOperation = synchronizer?.HasPendingOperation(draft.UniqueId) ?? false;
-            var keepBusyForInitialGracePeriod = !hasPendingOperation && draft.IsLocalDraft &&
+            var keepBusyForInitialGracePeriod = !IsDraftKeptLocally && !hasPendingOperation && draft.IsLocalDraft &&
                 IsWithinLocalDraftRetryGracePeriod(draft.MailCopy);
             IsDraftBusy = hasPendingOperation || keepBusyForInitialGracePeriod;
             NotifyComposeActionStateChanged();

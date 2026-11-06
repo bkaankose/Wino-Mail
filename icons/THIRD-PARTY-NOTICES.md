@@ -1,5 +1,7 @@
 # Third-party icon notices
 
+The ActiveSync brand mark is based on Microsoft's [ActiveSync icon](https://commons.wikimedia.org/wiki/File:Activesyncicon.svg), vectorized by Will Taylor and marked public domain on Wikimedia Commons. The font uses flat colors in place of gradients. The ActiveSync mark remains a Microsoft trademark.
+
 The WinoIcons fonts other than Classic are built from these packages (pinned in `sets.json`). Their outlines are
 redrawn onto the WinoIcons grid; brand marks in every font are the Classic artwork.
 

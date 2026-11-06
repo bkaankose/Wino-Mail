@@ -4256,5 +4256,9 @@
     "Info_DavCertificateRejectedTitle": "Certificato del server non attendibile",
     "Info_CalDavCertificateRejectedMessage": "La sincronizzazione del calendario per {0} è sospesa perché non è stato possibile verificare il certificato del server del calendario. La posta continua a essere sincronizzata. Controlla il certificato nelle impostazioni del server.",
     "Info_CardDavCertificateRejectedMessage": "La sincronizzazione dei contatti per {0} è sospesa perché non è stato possibile verificare il certificato del server dei contatti. La posta continua a essere sincronizzata. Controlla il certificato nelle impostazioni del server.",
-    "Info_DavCertificateRejectedAction": "Impostazioni del server"
+    "Info_DavCertificateRejectedAction": "Impostazioni del server",
+    "EAS_Description": "Posta, calendario, contatti e attività su un server Exchange ActiveSync. Accedi con nome utente e password tramite HTTPS.",
+    "EAS_ServerUrl": "URL del server ActiveSync",
+    "EAS_Username": "Nome utente",
+    "EAS_InvalidSettings": "Inserisci un indirizzo email valido, il nome del mittente, l'URL HTTPS del server, il nome utente e la password."
 }

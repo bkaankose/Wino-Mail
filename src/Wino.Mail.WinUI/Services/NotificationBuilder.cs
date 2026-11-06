@@ -909,7 +909,7 @@ public class NotificationBuilder : INotificationBuilder
 
         var iconName = account.SpecialImapProvider != SpecialImapProvider.None
             ? account.SpecialImapProvider.ToString()
-            : account.ProviderType.ToString();
+            : account.ProviderType.GetProviderAssetName();
 
         return new Uri($"{ProviderIconRootUri}{iconName}.png");
     }

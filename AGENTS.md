@@ -89,6 +89,7 @@ Read only references that apply to the task:
 | Intelligence jobs, artifacts, or the daily briefing | [mail intelligence](docs/mail-intelligence.md) |
 | Calendar period navigation, the rail model, or the loaded event window | [calendar rail navigation](docs/calendar-rail-navigation.md) |
 | Push relay, live notifications, sync method, or relay privacy acceptance | [push relay design](docs/push-relay-design.md) |
+| Exchange ActiveSync accounts and synchronization | [EAS integration and verification](docs/eas.md) |
 | Release packaging | [release guide](docs/releases.md); Android in the [Android release guide](docs/releases-android.md) |
 | Release notes, GitHub releases, or marking issues for a release | [release skill](.claude/skills/release/SKILL.md) and [release notes format](release-notes/README.md) |
 | What's New notes and illustrations | [whatsnew skill](.claude/skills/whatsnew/SKILL.md) |
@@ -129,7 +130,7 @@ dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Release -p:Platform=x
 ```
 
 Format changed XAML before building with `scripts/maintenance/windows/format-xaml.ps1 -Changed`, and run it with `-Check` before handoff.
-The repository has no automated test projects; do not add or run unit tests until the owner defines a new test project. The [local Docker lab](tools/local-lab/README.md) is the Windows application testing environment. On Windows, agents verify UI behavior themselves in the running Debug app with `winapp ui` (inspect, invoke, send-keys, screenshot, record) against the lab accounts; see the Windows guide. Do not add UI test projects or scripts to the repository; each check is run ad hoc and reported with its screenshots.
+The EAS regression executable is `tests/Wino.Eas.Tests`; run it with `dotnet run --project tests/Wino.Eas.Tests/Wino.Eas.Tests.csproj -p:Platform=x64`. It uses scripted HTTP and isolated SQLite databases, not real accounts. The repository has no general unit-test suite; do not add other test projects until the owner defines them. The [local Docker lab](tools/local-lab/README.md) is the Windows application testing environment. On Windows, agents verify UI behavior themselves in the running Debug app with `winapp ui` (inspect, invoke, send-keys, screenshot, record) against the lab accounts; see the Windows guide. Do not add UI test projects or scripts to the repository; each check is run ad hoc and reported with its screenshots.
 A passing build does not prove UI behavior. Report a UI check as done only when it was performed, by an agent through `winapp ui` or by a person, and say which.
 
 ## Accounts, OAuth clients and signing (hard rules)

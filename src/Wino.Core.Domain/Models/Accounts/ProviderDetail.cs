@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Connectivity;
 
@@ -26,7 +27,7 @@ public class ProviderDetail : IProviderDetail
             {
                 return Type == MailProviderType.POP3
                     ? "/Assets/Providers/IMAP4.png"
-                    : $"/Assets/Providers/{Type}.png";
+                    : $"/Assets/Providers/{Type.GetProviderAssetName()}.png";
             }
             else
             {
@@ -35,7 +36,7 @@ public class ProviderDetail : IProviderDetail
         }
     }
 
-    public bool IsSupported => Type is MailProviderType.Outlook or MailProviderType.Gmail or MailProviderType.IMAP4 or MailProviderType.POP3;
+    public bool IsSupported => Type is MailProviderType.Outlook or MailProviderType.Gmail or MailProviderType.IMAP4 or MailProviderType.POP3 or MailProviderType.EAS;
 
     /// <summary>
     /// A catalog provider. Its name and domains come from the catalog entry.
@@ -64,6 +65,11 @@ public class ProviderDetail : IProviderDetail
 
         switch (Type)
         {
+            case MailProviderType.EAS:
+                Name = "Exchange ActiveSync";
+                Description = Translator.EAS_Description;
+                IsFeatured = true;
+                break;
             case MailProviderType.Outlook:
                 Name = "Outlook";
                 Description = "Outlook.com, Live.com, Hotmail, MSN";

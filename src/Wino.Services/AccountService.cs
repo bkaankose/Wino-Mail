@@ -338,6 +338,7 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public async Task DeleteAccountMailCacheAsync(Guid accountId, AccountCacheResetReason accountCacheResetReason)
     {
+        await Connection.ExecuteAsync("UPDATE EasCollectionState SET SyncKey = '0', ResetGeneration = '' WHERE AccountId = ? AND FolderType IN (1, 2, 3, 4, 5, 6, 12)", accountId).ConfigureAwait(false);
         await Connection.ExecuteAsync(
             "DELETE FROM MailCopy WHERE Id IN (SELECT Id FROM MailCopy WHERE FolderId IN (SELECT Id FROM MailItemFolder WHERE MailAccountId = ?))",
             accountId);
@@ -456,6 +457,8 @@ public class AccountService : BaseDatabaseService, IAccountService
             transaction.Execute("DELETE FROM TaskStep WHERE MailAccountId = ?", account.Id);
             transaction.Execute("DELETE FROM TaskCard WHERE MailAccountId = ?", account.Id);
             transaction.Execute("DELETE FROM TaskList WHERE MailAccountId = ?", account.Id);
+            transaction.Execute("DELETE FROM EasCollectionState WHERE AccountId = ?", account.Id);
+            transaction.Execute("DELETE FROM EasItemShadow WHERE AccountId = ?", account.Id);
         }).ConfigureAwait(false);
 
         // Account belongs to a merged inbox.

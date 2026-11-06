@@ -268,6 +268,8 @@ VALUES
     {
         await Task.WhenAll(
             Connection.CreateTableAsync<MailCopy>(),
+            Connection.CreateTableAsync<EasCollectionState>(),
+            Connection.CreateTableAsync<EasItemShadow>(),
             Connection.CreateTableAsync<Pop3PendingServerDeletion>(),
             Connection.CreateTableAsync<Pop3RemoteMessageState>(),
             Connection.CreateTableAsync<MailCategory>(),

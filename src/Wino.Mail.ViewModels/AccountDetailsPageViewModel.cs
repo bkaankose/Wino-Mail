@@ -184,7 +184,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     /// hidden rather than shown as read-only. Per-alias sender names remain editable under Aliases.
     /// </para>
     /// </summary>
-    public bool IsSenderNameEditable => Account?.ProviderType is MailProviderType.IMAP4 or MailProviderType.POP3;
+    public bool IsSenderNameEditable => Account?.ProviderType is MailProviderType.IMAP4 or MailProviderType.POP3 or MailProviderType.EAS;
 
     public string ContactIntegrationSourceText => GetIntegrationSourceText(Account?.ContactIntegrationSource);
     public string TaskIntegrationSourceText => GetIntegrationSourceText(Account?.TaskIntegrationSource);
@@ -196,7 +196,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     public string ProviderIconPath => _resourceResolver.ResolvePackagedResource(
         Account?.SpecialImapProvider != SpecialImapProvider.None
             ? $"Assets/Providers/{Account?.SpecialImapProvider}.png"
-            : $"Assets/Providers/{Account?.ProviderType}.png").ToString();
+            : $"Assets/Providers/{Account?.ProviderType.GetProviderAssetName()}.png").ToString();
     public string Address => Account?.Address ?? string.Empty;
     public bool IsInitialSynchronizationSummaryVisible => Account?.CreatedAt.HasValue == true && Account.InitialSynchronizationRange != InitialSynchronizationRange.Everything;
     public string InitialSynchronizationSummary => Account?.CreatedAt is not DateTime createdAtUtc
@@ -343,7 +343,9 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
 
     [RelayCommand]
     private void EditImapCalDavSettings()
-        => Messenger.Send(new BreadcrumbNavigationRequested(
+        => Messenger.Send(Account?.ProviderType == MailProviderType.EAS
+            ? new BreadcrumbNavigationRequested("Exchange ActiveSync", WinoPage.EasSettingsPage, Account.Id)
+            : new BreadcrumbNavigationRequested(
             Translator.ImapCalDavSettingsPage_TitleEdit,
             WinoPage.ImapCalDavSettingsPage,
             ImapCalDavSettingsNavigationContext.CreateForEditMode(Account.Id)));

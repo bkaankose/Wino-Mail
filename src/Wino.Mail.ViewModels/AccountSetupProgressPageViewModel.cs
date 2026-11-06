@@ -228,7 +228,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
             // Build account in memory
             _createdAccount = new MailAccount
             {
-                Id = Guid.NewGuid(),
+                Id = WizardContext.IsEas ? WizardContext.EasAccountId : Guid.NewGuid(),
                 ProviderType = WizardContext.SelectedProvider.Type,
                 Name = WizardContext.AccountName,
                 SpecialImapProvider = WizardContext.SelectedProvider.SpecialImapProvider,
@@ -245,7 +245,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                     WizardContext.ContactIntegrationSource != AccountIntegrationSource.Local,
                 ContactIntegrationSource = WizardContext.ContactIntegrationSource,
                 IsTaskAccessEnabled = WizardContext.IsTaskAccessEnabled,
-                IsTaskAccessGranted = WizardContext.IsOAuthProvider &&
+                IsTaskAccessGranted = (WizardContext.IsOAuthProvider || WizardContext.IsEas) &&
                     WizardContext.IsTaskAccessEnabled &&
                     WizardContext.TaskIntegrationSource == AccountIntegrationSource.Provider,
                 TaskIntegrationSource = WizardContext.TaskIntegrationSource,

@@ -46,6 +46,7 @@ public class SynchronizerFactory : ISynchronizerFactory
     private readonly ISmtpTransport _smtpTransport;
     private readonly IMimeFileService _mimeFileService;
     private readonly ICalDavSynchronizationEngine _calDavSynchronizationEngine;
+    private readonly Wino.Services.IDatabaseService _databaseService;
 
     private readonly ConcurrentDictionary<Guid, IWinoSynchronizerBase> _synchronizers = new();
     internal IReadOnlyDictionary<Guid, IWinoSynchronizerBase> CachedSynchronizers => _synchronizers;
@@ -84,7 +85,8 @@ public class SynchronizerFactory : ISynchronizerFactory
                                IFolderService folderService = null,
                                ISmtpTransport smtpTransport = null,
                                IMimeFileService mimeFileService = null,
-                               ICalDavSynchronizationEngine calDavSynchronizationEngine = null)
+                               ICalDavSynchronizationEngine calDavSynchronizationEngine = null,
+                               Wino.Services.IDatabaseService databaseService = null)
     {
         _outlookChangeProcessor = outlookChangeProcessor;
         _gmailChangeProcessor = gmailChangeProcessor;
@@ -113,6 +115,7 @@ public class SynchronizerFactory : ISynchronizerFactory
         _smtpTransport = smtpTransport;
         _mimeFileService = mimeFileService;
         _calDavSynchronizationEngine = calDavSynchronizationEngine;
+        _databaseService = databaseService;
     }
 
     public async Task<IWinoSynchronizerBase> GetAccountSynchronizerAsync(Guid accountId)
@@ -154,6 +157,11 @@ public class SynchronizerFactory : ISynchronizerFactory
 
         switch (providerType)
         {
+            case MailProviderType.EAS:
+                return new Wino.Core.Synchronizers.Eas.EasSynchronizer(mailAccount,
+                    _databaseService ?? throw new InvalidOperationException("EAS database service is not registered."),
+                    _accountService, _folderService, _mailService, _calendarService, _contactService, _taskService,
+                    _mimeFileService, _contactPictureFileService, _imapChangeProcessor, _applicationConfiguration.ApplicationDataFolderPath);
             case Domain.Enums.MailProviderType.Outlook:
                 var outlookAuthenticator = _authenticationProvider.GetAuthenticator(Domain.Enums.MailProviderType.Outlook) as IOutlookAuthenticator;
                 return new OutlookSynchronizer(mailAccount, outlookAuthenticator, _outlookChangeProcessor, _outlookSynchronizerErrorHandlerFactory, _mailCategoryService, _mailFilterExecutor, _contactService, _contactPictureFileService, _taskService, _cardDavSynchronizationEngine);

@@ -69,6 +69,9 @@ public partial class WelcomeWizardContext : ObservableObject
 
     // Generic IMAP — populated by ImapCalDavSettingsPage
     public ImapCalDavSetupResult ImapCalDavSetupResult { get; set; }
+    public CustomServerInformation EasServerInformation { get; set; }
+    public System.Guid EasAccountId { get; set; } = System.Guid.NewGuid();
+    public bool IsEas => SelectedProvider?.Type == MailProviderType.EAS;
 
     // Computed helpers
     public bool IsOAuthProvider => SelectedProvider?.Type is MailProviderType.Outlook or MailProviderType.Gmail;
@@ -132,5 +135,7 @@ public partial class WelcomeWizardContext : ObservableObject
         CalendarSupportMode = ImapCalendarSupportMode.Disabled;
         RegionId = null;
         ImapCalDavSetupResult = null;
+        EasServerInformation = null;
+        EasAccountId = System.Guid.NewGuid();
     }
 }

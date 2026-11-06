@@ -2407,6 +2407,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             {
                 MailProviderType.Gmail => TaskSourceKind.Gmail,
                 MailProviderType.Outlook => TaskSourceKind.Outlook,
+                MailProviderType.EAS => TaskSourceKind.Eas,
                 _ => TaskSourceKind.Local
             }
             : TaskSourceKind.Local;
@@ -2482,8 +2483,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     private static bool RequiresLocalFallbackList(MailAccount account)
         => account.IsTaskAccessEnabled &&
-           (account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook) ||
-           !account.IsTaskAccessGranted ||
+           (ResolveTaskSource(account) == TaskSourceKind.Local ||
            account.IsTaskReauthorizationRequired);
 
     private string ResolveListName(AccountTask task)

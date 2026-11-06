@@ -2395,6 +2395,26 @@
       "codepoint": "E0CC",
       "svg": "ChevronLeft.svg",
       "source": "fluent:chevron_left"
+    },
+    {
+      "name": "ActiveSync",
+      "codepoint": "E0CD",
+      "svg": "ActiveSync.svg",
+      "layers": [
+        {
+          "svg": "ActiveSync.layer1.svg",
+          "color": "#DBDBDB"
+        },
+        {
+          "svg": "ActiveSync.layer2.svg",
+          "color": "#1A6B09"
+        },
+        {
+          "svg": "ActiveSync.layer3.svg",
+          "color": "#FFFFFF"
+        }
+      ],
+      "source": "Microsoft ActiveSync brand logo; https://commons.wikimedia.org/wiki/File:Activesyncicon.svg (flat colors)"
     }
   ]
 }

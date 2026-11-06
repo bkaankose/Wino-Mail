@@ -93,15 +93,15 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         new(InitialSynchronizationRange.Everything, Translator.AccountCreation_InitialSynchronization_Everything)
     ];
 
-    public List<string> CalendarSourceOptions => IsOAuthProvider
+    public List<string> CalendarSourceOptions => IsOAuthProvider || IsEas
         ? [Translator.ProviderSelection_SourceProviderCalendar, Translator.ProviderSelection_SourceLocalCalendar]
         : [Translator.ProviderSelection_SourceCalDav, Translator.ProviderSelection_SourceLocalCalendar];
 
-    public List<string> ContactSourceOptions => IsOAuthProvider
+    public List<string> ContactSourceOptions => IsOAuthProvider || IsEas
         ? [Translator.ProviderSelection_SourceProviderContacts, Translator.ProviderSelection_SourceLocalContacts]
         : [Translator.ProviderSelection_SourceCardDav, Translator.ProviderSelection_SourceLocalContacts];
 
-    public List<string> TaskSourceOptions => IsOAuthProvider
+    public List<string> TaskSourceOptions => IsOAuthProvider || IsEas
         ? [Translator.ProviderSelection_SourceProviderTasks, Translator.ProviderSelection_SourceLocalTasks]
         : [Translator.ProviderSelection_SourceLocalTasks];
 
@@ -166,7 +166,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         HasKnownProviderService(definition => definition.CalDavServiceUrl, region => region.CalDavServiceUrl);
     public bool IsContactProviderModeAvailable => !IsPop3 &&
         HasKnownProviderService(definition => definition.CardDavServiceUrl, region => region.CardDavServiceUrl);
-    public bool IsTaskProviderModeAvailable => IsOAuthProvider;
+    public bool IsTaskProviderModeAvailable => IsOAuthProvider || IsEas;
 
     /// <summary>
     /// A catalog provider only offers a DAV capability when its entry (or one of its regions) has that
@@ -187,19 +187,19 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
                (definition.Regions ?? []).Any(region => !string.IsNullOrWhiteSpace(regionEndpoint(region)));
     }
 
-    public string MailProviderModeLabel => IsOAuthProvider
+    public string MailProviderModeLabel => IsOAuthProvider || IsEas
         ? SelectedProviderName
         : IsPop3 ? Translator.ProviderSelection_ModePop3 : Translator.ProviderSelection_ModeImap;
 
-    public string CalendarProviderModeLabel => IsOAuthProvider
+    public string CalendarProviderModeLabel => IsOAuthProvider || IsEas
         ? SelectedProviderName
         : Translator.ProviderSelection_SourceCalDav;
 
-    public string ContactProviderModeLabel => IsOAuthProvider
+    public string ContactProviderModeLabel => IsOAuthProvider || IsEas
         ? SelectedProviderName
         : Translator.ProviderSelection_SourceCardDav;
 
-    public string TaskProviderModeLabel => IsOAuthProvider
+    public string TaskProviderModeLabel => IsOAuthProvider || IsEas
         ? SelectedProviderName
         : Translator.ProviderSelection_ModeImap;
 
@@ -281,7 +281,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     /// IMAP-family providers continue to a sign-in page unless every capability stays on this PC.
     /// </summary>
     private bool IsSignInStepNext =>
-        (IsImapFamily || IsPop3) &&
+        (IsImapFamily || IsPop3 || IsEas) &&
         (SelectedProvider?.SpecialImapProvider != SpecialImapProvider.None || Capabilities.RequiresRemoteService);
 
     #region Capability answers
@@ -357,6 +357,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 
     public string SelectedProviderCapabilityDescription => GetSelectedProviderCapabilityDescription();
     public bool IsOAuthProvider => SelectedProvider?.Type is MailProviderType.Outlook or MailProviderType.Gmail;
+    public bool IsEas => SelectedProvider?.Type == MailProviderType.EAS;
     public bool IsImapFamily => SelectedProvider?.Type == MailProviderType.IMAP4;
     public bool IsPop3 => SelectedProvider?.Type == MailProviderType.POP3;
     public bool IsDavContactChoiceAvailable => IsImapFamily;
@@ -508,6 +509,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         OnPropertyChanged(nameof(SelectedProviderSummaryDetail));
         OnPropertyChanged(nameof(SelectedProviderCapabilityDescription));
         OnPropertyChanged(nameof(IsOAuthProvider));
+        OnPropertyChanged(nameof(IsEas));
         OnPropertyChanged(nameof(IsImapFamily));
         OnPropertyChanged(nameof(IsPop3));
         OnPropertyChanged(nameof(IsDavContactChoiceAvailable));
@@ -743,7 +745,11 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
                 ? ImapCalendarSupportMode.LocalOnly
                 : ImapCalendarSupportMode.CalDav;
 
-        if (WizardContext.IsGenericCustomMail && !Capabilities.RequiresRemoteService)
+        if (IsEas)
+        {
+            Messenger.Send(new BreadcrumbNavigationRequested(SelectedProvider.Name, WinoPage.EasSettingsPage));
+        }
+        else if (WizardContext.IsGenericCustomMail && !Capabilities.RequiresRemoteService)
         {
             // Everything stays on this PC, so there is no server to sign in to.
             WizardContext.ImapCalDavSetupResult = CreateLocalOnlySetupResult();
@@ -833,7 +839,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         // treat a disabled CardDAV as enabled.
         if (mode != AccountCapabilityMode.Provider) return AccountIntegrationSource.Local;
 
-        return IsOAuthProvider ? AccountIntegrationSource.Provider : AccountIntegrationSource.Dav;
+        return IsOAuthProvider || IsEas ? AccountIntegrationSource.Provider : AccountIntegrationSource.Dav;
     }
 
     private string GetSelectedProviderCapabilityDescription()

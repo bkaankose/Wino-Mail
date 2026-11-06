@@ -135,6 +135,8 @@ public class KnownImapProviderCatalog : IKnownImapProviderCatalog
         providerList.AddRange(SetupProviders.Select(provider => new ProviderDetail(provider)));
         providerList.Add(new ProviderDetail(MailProviderType.IMAP4, SpecialImapProvider.None));
         providerList.Add(new ProviderDetail(MailProviderType.POP3, SpecialImapProvider.None));
+        if (System.OperatingSystem.IsWindows())
+            providerList.Add(new ProviderDetail(MailProviderType.EAS, SpecialImapProvider.None));
 
         return providerList;
     }

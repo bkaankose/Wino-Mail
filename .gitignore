@@ -432,6 +432,7 @@ docs/design-prototypes/*
 !/docs/android-port-investigation.md
 !/docs/macos-shared-logic-roadmap.md
 !/docs/push-relay-design.md
+!/docs/eas.md
 !/docs/push-relay/
 !/docs/calendar-rail-navigation.md
 

@@ -93,7 +93,8 @@ public static class NavigationRouteTable
         Wizard(WinoPage.WelcomePageV2, typeof(WelcomePageV2)),
         Wizard(WinoPage.ProviderSelectionPage, typeof(ProviderSelectionPage)),
         Wizard(WinoPage.AccountSetupProgressPage, typeof(AccountSetupProgressPage)),
-        Wizard(WinoPage.SpecialImapCredentialsPage, typeof(SpecialImapCredentialsPage))
+        Wizard(WinoPage.SpecialImapCredentialsPage, typeof(SpecialImapCredentialsPage)),
+        Wizard(WinoPage.EasSettingsPage, typeof(EasSettingsPage))
     ];
 
     private static readonly Dictionary<WinoPage, NavigationRoute> RoutesByPage = BuildPageIndex();

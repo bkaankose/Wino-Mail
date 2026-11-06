@@ -11,6 +11,10 @@
 	</PropertyGroup>
 	
 	<ItemGroup>
+		<InternalsVisibleTo Include="Wino.Eas.Tests" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.Diagnostics" />
 		<PackageReference Include="CommunityToolkit.Mvvm" />
 		<PackageReference Include="HtmlAgilityPack" />

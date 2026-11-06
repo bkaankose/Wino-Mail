@@ -52,8 +52,7 @@ public partial class ToDoPageViewModel
     /// to its Fix account entry, because synchronizing it can only fail.
     /// </summary>
     private static bool CanSynchronizeTasks(MailAccount account)
-        => account.ProviderType is (MailProviderType.Gmail or MailProviderType.Outlook) &&
-           account.IsTaskAccessGranted &&
+        => ResolveTaskSource(account) != TaskSourceKind.Local &&
            !account.IsTaskReauthorizationRequired &&
            !account.RequiresAttention(WinoApplicationMode.Tasks);
 

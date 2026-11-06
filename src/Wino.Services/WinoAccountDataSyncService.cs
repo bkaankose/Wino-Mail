@@ -579,7 +579,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                     await _accountService.CreateRootAliasAsync(account.Id, account.Address).ConfigureAwait(false);
                 }
 
-                if (account.ProviderType is MailProviderType.IMAP4 or MailProviderType.POP3)
+                if (account.ProviderType is MailProviderType.IMAP4 or MailProviderType.POP3 or MailProviderType.EAS)
                 {
                     var persistedAccount = await _accountService.GetAccountAsync(account.Id).ConfigureAwait(false);
                     if (persistedAccount != null && persistedAccount.AttentionReason != AccountAttentionReason.InvalidCredentials)
@@ -1193,7 +1193,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 
     private async Task<UserMailboxSyncItemDto> MapMailboxAsync(MailAccount account)
     {
-        var serverInformation = account.ProviderType is MailProviderType.IMAP4 or MailProviderType.POP3
+        var serverInformation = account.ProviderType is MailProviderType.IMAP4 or MailProviderType.POP3 or MailProviderType.EAS
             ? account.ServerInformation
             : null;
 
@@ -1365,7 +1365,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
     private CustomServerInformation? CreateImportedServerInformation(UserMailboxSyncItemDto mailbox, MailAccount account, SnapshotAccountCapabilities? capabilities)
     {
         var providerType = (MailProviderType)mailbox.ProviderType;
-        if (providerType is not (MailProviderType.IMAP4 or MailProviderType.POP3))
+        if (providerType is not (MailProviderType.IMAP4 or MailProviderType.POP3 or MailProviderType.EAS))
         {
             return null;
         }
@@ -1387,7 +1387,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             IncomingServerPort = mailbox.IncomingServerPort?.Trim() ?? string.Empty,
             IncomingServerUsername = mailbox.IncomingServerUsername?.Trim() ?? string.Empty,
             IncomingServerPassword = string.Empty,
-            IncomingServerType = providerType == MailProviderType.POP3
+            IncomingServerType = providerType == MailProviderType.EAS ? CustomIncomingServerType.EAS : providerType == MailProviderType.POP3
                 ? CustomIncomingServerType.POP3
                 : CustomIncomingServerType.IMAP4,
             IncomingServerSocketOption = mailbox.IncomingServerSocketOption is int incomingSocketOption

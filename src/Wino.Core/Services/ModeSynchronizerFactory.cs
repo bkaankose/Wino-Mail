@@ -105,7 +105,7 @@ public sealed class ModeSynchronizerFactory :
         };
 
     private static bool IsProviderAccount(MailAccount account)
-        => account.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail;
+        => account.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail or MailProviderType.EAS;
 
     private abstract class AdapterBase(MailAccount account, IWinoSynchronizerBase synchronizer, bool isAvailable, string unavailableReason)
         : IModeSynchronizer

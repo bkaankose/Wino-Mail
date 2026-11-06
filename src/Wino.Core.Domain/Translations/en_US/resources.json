@@ -4503,5 +4503,9 @@
   "OpenLinkDialog_OpensIn": "Opens in {0}.",
   "OpenLinkDialog_OpenLink": "Open link",
   "PrivacySecurity_AboutLogs_Title": "Diagnostic logs",
-  "PrivacySecurity_AboutLogs_Description": "Share or upload the local log when you report a problem. Turn logging on or off in Privacy & security."
+  "PrivacySecurity_AboutLogs_Description": "Share or upload the local log when you report a problem. Turn logging on or off in Privacy & security.",
+  "EAS_Description": "Mail, calendar, contacts and tasks on an Exchange ActiveSync server. Sign in with your username and password over HTTPS.",
+  "EAS_ServerUrl": "ActiveSync server URL",
+  "EAS_Username": "Username or DOMAIN\\username",
+  "EAS_InvalidSettings": "Enter a valid email address, sender name, HTTPS server URL, username and password."
 }

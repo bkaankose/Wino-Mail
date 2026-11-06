@@ -1431,6 +1431,7 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
         {
             MailProviderType.Gmail when account.IsTaskAccessGranted => TaskSourceKind.Gmail,
             MailProviderType.Outlook when account.IsTaskAccessGranted => TaskSourceKind.Outlook,
+            MailProviderType.EAS when account.IsTaskAccessGranted => TaskSourceKind.Eas,
             _ => TaskSourceKind.Local
         };
 }
