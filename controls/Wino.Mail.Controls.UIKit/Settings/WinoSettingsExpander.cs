@@ -157,7 +157,7 @@ public sealed class WinoSettingsExpander : UIView
 
 /// <summary>
 /// A titled run of settings rows (UIKit twin of the AppKit <c>WinoSettingsGroup</c>): the 12pt semibold upper-case
-/// section header, then the rows on one inset-grouped surface with hairlines, and an optional 13pt footer. Cards and
+/// section header, an optional 13pt description, then the rows on one inset-grouped surface with hairlines. Cards and
 /// expanders become settings rows (<see cref="WinoSettingsCard.IsListRow"/>); other views (previews, info bars) stand
 /// on their own between the surfaces. Without a title it is only the rows.
 /// </summary>
@@ -168,27 +168,34 @@ public class WinoSettingsGroup : UIView
     private readonly UIStackView _rows;
     private readonly UILabel _title;
     private readonly UILabel _footer;
+    private readonly UILabel _note;
     private readonly UIView _titleWrapper;
     private readonly UIView _footerWrapper;
+    private readonly UIView _noteWrapper;
     private int _rowCount;
 
-    public WinoSettingsGroup(string? title = null, string? footer = null, bool isInsetGrouped = false)
+    public WinoSettingsGroup(string? title = null, string? footer = null, bool isInsetGrouped = false, string? note = null)
     {
         _ = isInsetGrouped;
         TranslatesAutoresizingMaskIntoConstraints = false;
         _title = WinoStyle.Label(title?.ToUpper(System.Globalization.CultureInfo.CurrentCulture), WinoSettingsStyle.SectionHeader, WinoStyle.SecondaryText, 0);
         _title.AccessibilityTraits = UIAccessibilityTrait.Header;
         _footer = WinoStyle.Label(footer, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0);
+        _note = WinoStyle.Label(note, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0);
 
         _rows = WinoLayout.VStack(LooseSpacing);
         _rows.Alignment = UIStackViewAlignment.Fill;
 
         // The page stack adds the space between groups; the header sits at the foot of that gap, aligned with the row text.
+        // The group's description follows the header, above the rows it explains; the note explains the rows from under them
+        // (the Settings app footer: the text of a setting that was pushed sits under its option list).
         _titleWrapper = Inset(_title, 0, WinoSettingsStyle.CardPadding, 6);
-        _footerWrapper = Inset(_footer, 6, WinoSettingsStyle.CardPadding, 0);
+        _footerWrapper = Inset(_footer, 0, WinoSettingsStyle.CardPadding, 8);
+        _noteWrapper = Inset(_note, 7, WinoSettingsStyle.CardPadding, 0);
         _titleWrapper.Hidden = string.IsNullOrEmpty(title);
         _footerWrapper.Hidden = string.IsNullOrEmpty(footer);
-        var outer = WinoLayout.VStack(0, _titleWrapper, _rows, _footerWrapper);
+        _noteWrapper.Hidden = string.IsNullOrEmpty(note);
+        var outer = WinoLayout.VStack(0, _titleWrapper, _footerWrapper, _rows, _noteWrapper);
         outer.Alignment = UIStackViewAlignment.Fill;
         WinoLayout.Fill(outer, this);
     }
@@ -212,6 +219,13 @@ public class WinoSettingsGroup : UIView
     {
         get => _footer.Text;
         set { _footer.Text = value ?? string.Empty; _footerWrapper.Hidden = string.IsNullOrEmpty(value); }
+    }
+
+    /// <summary>Secondary text under the rows (the Settings app footer).</summary>
+    public string? Note
+    {
+        get => _note.Text;
+        set { _note.Text = value ?? string.Empty; _noteWrapper.Hidden = string.IsNullOrEmpty(value); }
     }
 
     public string? Title

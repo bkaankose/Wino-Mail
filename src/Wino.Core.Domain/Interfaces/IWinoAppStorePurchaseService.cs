@@ -21,6 +21,9 @@ public interface IWinoAppStorePurchaseService
     /// <summary>Whether purchases outside the App Store may be offered: the storefront is the United States.</summary>
     Task<bool> IsExternalPurchaseAllowedAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>The storefront's localized price for the product, or null when the App Store did not return it.</summary>
+    Task<string?> GetDisplayPriceAsync(WinoAddOnProductType productType, CancellationToken cancellationToken = default);
+
     Task<WinoAppStorePurchaseOutcome> PurchaseAsync(WinoAddOnProductType productType, CancellationToken cancellationToken = default);
 
     /// <summary>

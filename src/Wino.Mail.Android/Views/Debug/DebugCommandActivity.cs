@@ -14,7 +14,7 @@ namespace Wino.Mail.Android.Views.Debug;
 /// loopback port with placeholder test credentials, folders and mails; nothing leaves the device) and opens Mail.
 /// <c>--es command seedcalendar</c> adds the shared demo calendars and events
 /// (<see cref="Wino.Mail.ViewModels.Diagnostics.CalendarDebugSeed"/>; <c>--es kind ADDRESS</c> picks the account) and opens
-/// Calendar. <c>--es command mail</c> only opens Mail; <c>welcome</c> shows the welcome page; <c>seedrecipients</c> adds remembered correspondents for compose suggestions; <c>seedcontacts</c> and <c>seedtasks</c> fill a local address book and two task lists (shared <see cref="Wino.Mail.ViewModels.Diagnostics.ModeDebugSeed"/>) and open the mode. The activity finishes at once; results go to the log
+/// Calendar. <c>--es command mail</c> only opens Mail; <c>gc</c> collects and logs the live Java peers by type (leak checks); <c>welcome</c> shows the welcome page; <c>seedrecipients</c> adds remembered correspondents for compose suggestions; <c>seedcontacts</c> and <c>seedtasks</c> fill a local address book and two task lists (shared <see cref="Wino.Mail.ViewModels.Diagnostics.ModeDebugSeed"/>) and open the mode. The activity finishes at once; results go to the log
 /// (<c>adb logcat -s DOTNET</c>).
 /// </summary>
 [Activity(Name = "com.winomail.android.DebugCommand", Exported = true, NoHistory = true, Theme = "@android:style/Theme.Translucent.NoTitleBar")]
@@ -68,6 +68,36 @@ public sealed class DebugCommandActivity : Activity
                 case "seedtasks":
                     Serilog.Log.Information("Debug command seedtasks: {Result}", await Wino.Mail.ViewModels.Diagnostics.ModeDebugSeed.SeedTasksAsync(services));
                     await ReopenAsync(navigation, WinoApplicationMode.Tasks);
+                    break;
+                case "gc":
+                    // Leak checks: full managed and Java collections, then the live peer counts by type (the top 25).
+                    for (int pass = 0; pass < 3; pass++)
+                    {
+                        GC.Collect();
+                        GC.WaitForPendingFinalizers();
+                        Java.Lang.JavaSystem.Gc();
+                        await Task.Delay(300);
+                    }
+                    var peers = Java.Interop.JniRuntime.CurrentRuntime.ValueManager.GetSurfacedPeers();
+                    var byType = peers.Select(peer => peer.SurfacedPeer.TryGetTarget(out var target) ? target.GetType().Name : null)
+                        .Where(name => name is not null).GroupBy(name => name).OrderByDescending(group => group.Count()).Take(25);
+                    Serilog.Log.Information("Debug command gc: managed {Managed} KB, {Peers} Java peers: {Types}", GC.GetTotalMemory(false) / 1024, peers.Count,
+                        string.Join(", ", byType.Select(group => $"{group.Key}={group.Count()}")));
+                    var fragments = peers.Select(peer => peer.SurfacedPeer.TryGetTarget(out var target) ? target : null).OfType<AndroidX.Fragment.App.Fragment>()
+                        .GroupBy(fragment => $"{fragment.GetType().Name}(added={fragment.IsAdded},view={fragment.View is not null})");
+                    Serilog.Log.Information("Debug command gc: fragments {Fragments}", string.Join(", ", fragments.Select(group => $"{group.Key}={group.Count()}")));
+                    // Runnables posted with an Action: Mono.Android maps each Action to its Java runnable while the Action lives.
+                    var implementor = typeof(Java.Lang.Thread).Assembly.GetTypes().FirstOrDefault(type => type.Name == "RunnableImplementor");
+                    if (implementor?.GetField("instances", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)?.GetValue(null) is System.Collections.IEnumerable table)
+                    {
+                        var actions = new List<Delegate>();
+                        foreach (var entry in table)
+                            if (entry?.GetType().GetProperty("Key")?.GetValue(entry) is Delegate action) actions.Add(action);
+                        var owners = actions.GroupBy(action => $"{action.Method.DeclaringType?.FullName}.{action.Method.Name}")
+                            .OrderByDescending(group => group.Count()).Take(12);
+                        Serilog.Log.Information("Debug command gc: {Count} live Action runnables: {Owners}", actions.Count,
+                            string.Join(", ", owners.Select(group => $"{group.Key}={group.Count()}")));
+                    }
                     break;
                 case "mail":
                     await navigation.EnsureShellAsync(WinoApplicationMode.Mail);

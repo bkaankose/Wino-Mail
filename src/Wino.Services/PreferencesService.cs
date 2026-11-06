@@ -497,6 +497,12 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(IsWorkingHoursEnabled), value);
     }
 
+    public bool IsCalendarCurrentTimeLineEnabled
+    {
+        get => _configurationService.Get(nameof(IsCalendarCurrentTimeLineEnabled), true);
+        set => SetPropertyAndSave(nameof(IsCalendarCurrentTimeLineEnabled), value);
+    }
+
     public string CalendarTimedDayHeaderDateFormat
     {
         get => _configurationService.Get(nameof(CalendarTimedDayHeaderDateFormat), "ddd dd");
@@ -1028,7 +1034,8 @@ public partial class PreferencesService(IConfigurationService configurationServi
                                     DateTimeDisplayFormatter.GetTimeDisplayType(CalendarTimeFormatPreference, GetCurrentLanguageCulture()),
                                     GetCurrentLanguageCulture(),
                                     CalendarTimedDayHeaderDateFormat,
-                                    CalendarEventDisplayMode);
+                                    CalendarEventDisplayMode,
+                                    IsCalendarCurrentTimeLineEnabled);
     }
 
     private CultureInfo GetCurrentLanguageCulture()

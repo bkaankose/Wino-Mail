@@ -37,7 +37,7 @@ public sealed class WinoRelaySocketClient : IWinoRelaySocketClient
     private Session? _session;
     private int _state;
     private RelaySocketHello? _lastHello;
-    private DateTimeOffset? _lastReplacedReconnectAt;
+    private readonly Queue<DateTimeOffset> _replacedReconnects = new();
 
     public WinoRelaySocketClient(
         IPushRelayTokenProvider tokens,
@@ -428,22 +428,31 @@ public sealed class WinoRelaySocketClient : IWinoRelaySocketClient
         _logger.Information("Relay socket closed ({Reason}); reconnecting.", reason);
         Raise(Disconnected, new RelaySocketDisconnection(reason, true, attempt.ByeReason, error, attempt.CloseProblem));
         await session.ReleaseAsync(attempt).ConfigureAwait(false);
+        session.SpreadNextReconnect = reason == RelaySocketDisconnectReason.RelayRestarting;
         session.ReconnectTask = Task.Run(() => ReconnectLoopAsync(session));
     }
 
     /// <summary>
     /// The relay sends <c>bye(replaced)</c> both when the device's owner changed (reconnect under the new owner) and when
-    /// another socket of this device took over. The first gets one prompt reconnect; a second <c>replaced</c> within
-    /// <see cref="WinoRelaySocketOptions.ReplacedReconnectWindow"/> means another socket keeps taking over, so this one stays down.
+    /// another socket of this device took over. A few reconnects are allowed; more within
+    /// <see cref="WinoRelaySocketOptions.ReplacedReconnectWindow"/> mean another install shares this identity, so this one stays down.
     /// </summary>
     private bool TryClaimReplacedReconnect()
     {
         var now = _timeProvider.GetUtcNow();
         lock (_gate)
         {
-            if (_lastReplacedReconnectAt is { } last && now - last < _options.ReplacedReconnectWindow)
+            while (_replacedReconnects.TryPeek(out var oldest) && now - oldest >= _options.ReplacedReconnectWindow)
+                _replacedReconnects.Dequeue();
+
+            if (_replacedReconnects.Count >= _options.MaxReplacedReconnects)
+            {
+                _logger.Warning("Relay socket replaced {Count} times within {Window}; another install uses this device identity, staying disconnected.",
+                    _replacedReconnects.Count, _options.ReplacedReconnectWindow);
                 return false;
-            _lastReplacedReconnectAt = now;
+            }
+
+            _replacedReconnects.Enqueue(now);
             return true;
         }
     }
@@ -502,14 +511,17 @@ public sealed class WinoRelaySocketClient : IWinoRelaySocketClient
 
     private TimeSpan NextReconnectDelay(Session session)
     {
-        var delays = _options.ReconnectDelays is { Length: > 0 } configured ? configured : [TimeSpan.FromSeconds(5)];
-        var baseDelay = delays[Math.Min(session.FailedAttempts, delays.Length - 1)];
+        if (session.SpreadNextReconnect && session.FailedAttempts == 0)
+        {
+            session.SpreadNextReconnect = false;
+            return TimeSpan.FromMilliseconds(Random.Shared.NextDouble() * _options.RestartSpread.TotalMilliseconds);
+        }
+
+        var baseDelay = ReconnectBackoff.Delay(_options.ReconnectDelays, _options.ReconnectCeiling, session.FailedAttempts);
         if (session.RetryAfter is { } retryAfter && retryAfter > baseDelay)
             baseDelay = retryAfter > _options.MaxRetryAfter ? _options.MaxRetryAfter : retryAfter;
 
-        // ±20 % so that every desktop does not reconnect in the same second after a relay restart.
-        var jitter = 0.8 + Random.Shared.NextDouble() * 0.4;
-        return TimeSpan.FromMilliseconds(Math.Max(100, baseDelay.TotalMilliseconds * jitter));
+        return ReconnectBackoff.Jitter(baseDelay);
     }
 
     private async Task<byte[]> ResolveKeyAsync(Session session, IReadOnlyDictionary<string, string> envelope)
@@ -637,6 +649,7 @@ public sealed class WinoRelaySocketClient : IWinoRelaySocketClient
         public volatile bool Stopping;
         public int FailedAttempts;
         public TimeSpan? RetryAfter;
+        public bool SpreadNextReconnect;
         public Task? ReconnectTask;
 
         public IRelayHubConnection? Connection => _attempt?.Connection;

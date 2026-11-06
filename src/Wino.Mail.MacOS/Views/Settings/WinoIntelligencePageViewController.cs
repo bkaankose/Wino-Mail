@@ -64,7 +64,7 @@ public sealed class WinoIntelligencePageViewController(WinoAccountManagementPage
         });
         AddContent(updating);
         AddContent(CommandBar(WinoInfoBarSeverity.Informational, nameof(vm.PurchaseStatusMessage), s => s.PurchaseStatusMessage,
-            Translator.WinoAccount_Management_RefreshPurchases, vm.RefreshPurchasesCommand));
+            vm.RefreshPurchasesText, vm.RefreshPurchasesCommand));
         // Windows: the refresh error bar is IsClosable="True"; the purchase status bar is not closable.
         var refreshError = CommandBar(WinoInfoBarSeverity.Warning, nameof(vm.IntelligenceRefreshError), s => s.IntelligenceRefreshError,
             Translator.Buttons_Retry, vm.RetryIntelligenceRefreshCommand);
@@ -197,7 +197,7 @@ public sealed class WinoIntelligencePageViewController(WinoAccountManagementPage
             WinoIntelligenceBrand.Chip(WinoIconGlyph.Translate, Translator.WinoAccount_Management_AiPackFeatureTranslate),
             WinoIntelligenceBrand.Chip(WinoIconGlyph.Edit, Translator.WinoAccount_Management_AiPackFeatureRewrite),
             WinoIntelligenceBrand.Chip(WinoIconGlyph.Tag, Translator.WinoAccount_Management_AiPackFeatureLabels),
-        ], 8, 420);
+        ], 8, WinoAccountManagementPageViewController.ChipFlowWidth);
         var note = Secondary(Translator.WinoAccount_Management_AiPackLocalNote, 11);
         var column = WinoLayout.VStack(12, text, chips, note);
         column.Alignment = NSLayoutAttribute.Leading;
@@ -208,7 +208,9 @@ public sealed class WinoIntelligencePageViewController(WinoAccountManagementPage
         var learn = new NSButton { Bordered = false, TranslatesAutoresizingMaskIntoConstraints = false };
         learn.AttributedTitle = new NSAttributedString(Translator.Buttons_LearnMore, new NSStringAttributes { ForegroundColor = WinoStyle.Accent, Font = NSFont.SystemFontOfSize(12) });
         Bind.OnActivated(learn, () => NSWorkspace.SharedWorkspace.OpenUrl(new NSUrl(LearnMoreUrl)));
-        var price = Secondary(Translator.WinoAccount_Management_AiPackPriceAtCheckout, 11);
+        var price = vm.UsesAppStorePurchases
+            ? Bind.Label(vm, nameof(vm.AppStoreAiPackPriceText), s => s.AppStoreAiPackPriceText, NSFont.SystemFontOfSize(11), WinoStyle.SecondaryText, 0)
+            : Secondary(Translator.WinoAccount_Management_AiPackPriceAtCheckout, 11);
         price.Alignment = NSTextAlignment.Right;
         var side = WinoLayout.VStack(8, get, learn, price);
         side.Alignment = NSLayoutAttribute.CenterX;
@@ -216,9 +218,14 @@ public sealed class WinoIntelligencePageViewController(WinoAccountManagementPage
         get.WidthAnchor.ConstraintEqualTo(side.WidthAnchor).Active = true;
         price.WidthAnchor.ConstraintEqualTo(side.WidthAnchor).Active = true;
 
-        var row = WinoLayout.HStack(20, art, column, side);
-        row.Alignment = NSLayoutAttribute.CenterY;
-        return IntelligenceViews.Surface(row);
+        var row = SettingsAdaptiveRow.IntelligencePromo(art, column, side, WinoAccountManagementPageViewController.PromoBreakpoint);
+        if (!vm.UsesAppStorePurchases) return IntelligenceViews.Surface(row);
+
+        // Guideline 3.1.2: the length, renewal and the Terms of Use and Privacy Policy links sit next to the purchase.
+        var stack = WinoLayout.VStack(14, row, AppStoreSubscriptionTerms.Create());
+        stack.Alignment = NSLayoutAttribute.Leading;
+        row.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
+        return IntelligenceViews.Surface(stack);
     }
 
     /// <summary>Subscription and AI credits, with the "Available quota" pull-down that opens the usage flyout.</summary>

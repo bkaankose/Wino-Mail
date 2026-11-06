@@ -31,18 +31,18 @@ public sealed class ToDoPreferenceSettingsPageViewController(ToDoPreferenceSetti
         Bind.Visible(hideDelay, vm, nameof(vm.ShouldShowHideDelay), s => s.ShouldShowHideDelay);
 
         AddGroup(null,
-            StackedCard(Translator.ToDoSettings_NewTasks_Header, Translator.ToDoSettings_NewTasks_Description, WinoIconGlyph.Add,
+            StackedCard(Translator.ToDoSettings_NewTasks_Header, null, WinoIconGlyph.Add,
                 Pair(Bind.PopUp<ToDoPreferenceSettingsPageViewModel, DestinationBehaviorOption>(vm, s => s.DestinationBehaviors.ToList(), o => o.DisplayText,
                     nameof(vm.SelectedDestinationBehavior), s => s.SelectedDestinationBehavior, (s, v) => s.SelectedDestinationBehavior = v), creationList)),
-            StackedCard(Translator.ToDoSettings_StartView_Header, Translator.ToDoSettings_StartView_Description, WinoIconGlyph.Home,
+            StackedCard(Translator.ToDoSettings_StartView_Header, null, WinoIconGlyph.Home,
                 Pair(Bind.PopUp<ToDoPreferenceSettingsPageViewModel, ToDoStartViewOption>(vm, s => s.StartViews.ToList(), o => o.DisplayText,
                     nameof(vm.SelectedStartView), s => s.SelectedStartView, (s, v) => s.SelectedStartView = v), startList)),
-            StackedCard(Translator.ToDoSettings_Completed_Header, Translator.ToDoSettings_Completed_Description, WinoIconGlyph.Checkmark,
+            StackedCard(Translator.ToDoSettings_Completed_Header, Translator.IOS_SettingsHint_CompletedTasks, WinoIconGlyph.Checkmark,
                 Pair(Bind.PopUp<ToDoPreferenceSettingsPageViewModel, CompletedTaskTreatmentOption>(vm, s => s.CompletedTaskTreatments.ToList(), o => o.DisplayText,
                     nameof(vm.SelectedCompletedTaskTreatment), s => s.SelectedCompletedTaskTreatment, (s, v) => s.SelectedCompletedTaskTreatment = v), hideDelay)),
-            Card(Translator.ToDoSettings_Sound_Header, Translator.ToDoSettings_Sound_Description, WinoIconGlyph.Speaker,
+            Card(Translator.ToDoSettings_Sound_Header, null, WinoIconGlyph.Speaker,
                 Bind.Switch(vm, nameof(vm.IsTaskCompletionSoundEnabled), s => s.IsTaskCompletionSoundEnabled, (s, v) => s.IsTaskCompletionSoundEnabled = v, Translator.ToDoSettings_Sound_Header)),
-            Card(Translator.ToDoSettings_DeleteConfirmation_Header, Translator.ToDoSettings_DeleteConfirmation_Description, WinoIconGlyph.Delete,
+            Card(Translator.ToDoSettings_DeleteConfirmation_Header, null, WinoIconGlyph.Delete,
                 Bind.Switch(vm, nameof(vm.IsTaskDeleteConfirmationEnabled), s => s.IsTaskDeleteConfirmationEnabled, (s, v) => s.IsTaskDeleteConfirmationEnabled = v, Translator.ToDoSettings_DeleteConfirmation_Header)));
     }
 

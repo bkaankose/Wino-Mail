@@ -8,6 +8,7 @@ public sealed class CalDavConnectionSettings
     public Uri ServiceUri { get; init; }
     public string Username { get; init; } = string.Empty;
     public string Password { get; init; } = string.Empty;
+    public DavEndpointTrust EndpointTrust { get; init; }
 
     /// <summary>Bearer authentication for OAuth accounts. When null, Basic with <see cref="Username"/> and <see cref="Password"/>.</summary>
     public DavAuthenticationProfile? Authentication { get; init; }

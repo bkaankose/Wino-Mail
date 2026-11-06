@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
 using System.Runtime.InteropServices;
@@ -287,8 +288,8 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
 
             // Disposal takes the same gate, so an in-flight initialization or
             // render always finishes before the native control is closed.
-            if (!RestoreActiveBrowserState())
-                throw new ObjectDisposedException(nameof(WinoMailRenderer));
+            if (!RestoreActiveBrowserState() || HasLostInitializedBrowser())
+                ReplaceLostBrowser();
 
             await operation();
         }
@@ -296,6 +297,49 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
         {
             _browserOperationGate.Release();
         }
+    }
+
+    private bool HasLostInitializedBrowser() =>
+        _initializationTask is { IsCompletedSuccessfully: true } && RendererWebView2?.CoreWebView2 is null;
+
+    /// <summary>
+    /// The native browser can close under a renderer that is still in use, for example when the browser
+    /// process exits or an Unloaded race closes it. That WebView2 can't be used again, so a new one takes its
+    /// place and the next operation initializes it. The renderer itself stays usable (issue #1198).
+    /// </summary>
+    private void ReplaceLostBrowser()
+    {
+        _allowNextInternalNavigation = false;
+        CancelImageFetches();
+
+        try { DetachBrowserEvents(); }
+        catch (Exception exception) when (exception is COMException or InvalidOperationException)
+        {
+        }
+
+        _browserEventsAttached = false;
+        var lostWebView = RendererWebView2;
+        var index = lostWebView is null ? 0 : Math.Max(0, RendererHost.Children.IndexOf(lostWebView));
+        if (lostWebView is not null)
+            RendererHost.Children.Remove(lostWebView);
+
+        CloseWebView(lostWebView);
+
+        var webView = new Microsoft.UI.Xaml.Controls.WebView2
+        {
+            DefaultBackgroundColor = Microsoft.UI.Colors.Transparent
+        };
+        AutomationProperties.SetAutomationId(webView, "WinoMailRendererWebView");
+        webView.NavigationCompleted += RendererWebView2_NavigationCompleted;
+        webView.NavigationStarting += RendererWebView2_NavigationStarting;
+        RendererHost.Children.Insert(index, webView);
+        RendererWebView2 = webView;
+
+        FaultWithDisposed(_ready);
+        _ready = CreateReadySource();
+        _initializationTask = null;
+        _renderedContentVersion = -1;
+        _idleSinceTickCount = 0;
     }
 
     private async Task EnsureInitializedCoreAsync()
@@ -767,7 +811,7 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
     /// <summary>
     /// Restores the normal memory target and visibility. Returns false when the native
     /// WebView2 has already closed ("group or resource is not in the correct state"),
-    /// which callers treat as a disposed renderer.
+    /// which callers treat as a lost browser.
     /// </summary>
     private bool RestoreActiveBrowserState()
     {
@@ -785,7 +829,7 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
             webView.Visibility = Visibility.Visible;
             return true;
         }
-        catch (COMException)
+        catch (Exception exception) when (exception is COMException or InvalidOperationException)
         {
             return false;
         }
@@ -797,23 +841,29 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
         CancelImageFetches();
         DetachBrowserEvents();
 
-        if (RendererWebView2 is not null)
-        {
-            RendererWebView2.NavigationCompleted -= RendererWebView2_NavigationCompleted;
-            RendererWebView2.NavigationStarting -= RendererWebView2_NavigationStarting;
-
-            try { RendererWebView2.Close(); }
-            catch (Exception exception) when (
-                exception is InvalidOperationException or ObjectDisposedException)
-            {
-            }
-
-            RendererWebView2 = null;
-        }
-
+        var webView = RendererWebView2;
+        RendererWebView2 = null;
         Loaded -= WinoMailRenderer_Loaded;
         Unloaded -= WinoMailRenderer_Unloaded;
+
+        // Leave the visual tree before closing. XAML can still hand focus to a WebView2 in the tree, and
+        // moving that focus into a closed browser aborts the process (Sentry WINOMAIL-36Q).
         Content = null;
+        CloseWebView(webView);
+    }
+
+    private void CloseWebView(Microsoft.UI.Xaml.Controls.WebView2? webView)
+    {
+        if (webView is null) return;
+
+        webView.NavigationCompleted -= RendererWebView2_NavigationCompleted;
+        webView.NavigationStarting -= RendererWebView2_NavigationStarting;
+
+        try { webView.Close(); }
+        catch (Exception exception) when (
+            exception is InvalidOperationException or ObjectDisposedException or COMException)
+        {
+        }
     }
 
     private static TaskCompletionSource<bool> CreateReadySource() =>

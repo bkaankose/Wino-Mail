@@ -67,7 +67,8 @@ public enum RelayRetryTrigger
 {
     NetworkRestored,
     Foreground,
-    SettingsOpened
+    SettingsOpened,
+    UserRequested
 }
 
 /// <summary>The state of a desktop IMAP account's IDLE loop.</summary>

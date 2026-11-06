@@ -7,7 +7,8 @@ namespace Wino.Mail.Controls.AppKit.Settings;
 
 /// <summary>
 /// macOS counterpart of the Windows SettingsExpander: a header card with a chevron, and nested
-/// rows on a subtle fill under it, indented to the header text column and separated by hairlines.
+/// rows on a recessed fill under it, indented to the header text column and separated by hairlines.
+/// Header and rows cast one shadow together.
 /// Expansion toggles visibility only; nested rows keep their bindings.
 /// </summary>
 public sealed class WinoSettingsExpander : NSView
@@ -21,12 +22,13 @@ public sealed class WinoSettingsExpander : NSView
     public WinoSettingsExpander(string header, string? description = null, WinoIconGlyph icon = WinoIconGlyph.None, NSView? content = null, bool isExpanded = false)
     {
         TranslatesAutoresizingMaskIntoConstraints = false;
-        _header = new WinoSettingsCard(header, description, icon, content) { IsClickable = true, IsExpanderHeader = true };
+        WantsLayer = true;
+        _header = new WinoSettingsCard(header, description, icon, content) { IsClickable = true, IsExpanderHeader = true, OwnsShadow = false };
         _header.Activated += (_, _) => IsExpanded = !IsExpanded;
 
         _itemsSurface = new WinoSurfaceView
         {
-            Fill = WinoSettingsStyle.SubtleFill,
+            Fill = WinoSettingsStyle.ExpanderItemsFill,
             Stroke = WinoSettingsStyle.CardStroke,
             CornerRadius = WinoSettingsStyle.CardRadius,
             Corners = CACornerMask.MinXMaxYCorner | CACornerMask.MaxXMaxYCorner
@@ -60,6 +62,24 @@ public sealed class WinoSettingsExpander : NSView
     }
 
     public WinoSettingsCard HeaderCard => _header;
+
+    public override void Layout()
+    {
+        base.Layout();
+        UpdateShadow();
+    }
+
+    public override void ViewDidChangeEffectiveAppearance()
+    {
+        base.ViewDidChangeEffectiveAppearance();
+        UpdateShadow();
+    }
+
+    private void UpdateShadow()
+    {
+        if (Layer is { } layer && !Bounds.IsEmpty)
+            WinoSettingsStyle.ApplyCardShadow(layer, Bounds, WinoIcons.IsDark(EffectiveAppearance), hovered: false);
+    }
 
     public bool IsExpanded
     {

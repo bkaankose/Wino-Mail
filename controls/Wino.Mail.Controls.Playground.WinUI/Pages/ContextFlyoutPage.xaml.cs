@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.Input;
+﻿using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.Controls.AccountIcon;
@@ -91,6 +91,7 @@ public sealed partial class ContextFlyoutPage : Page
             Text = "Move to",
             SearchKeywords = "folder destination",
             Icon = new ContextFlyoutIcon(MoveGlyph),
+            IsSearchable = true,
             AutomationId = "ContextFlyoutMoveSubItem",
             Items = new ContextFlyoutMenuEntry[]
             {

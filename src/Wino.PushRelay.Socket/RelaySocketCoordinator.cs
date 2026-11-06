@@ -19,7 +19,12 @@ namespace Wino.PushRelay.Socket;
 public sealed class RelaySocketCoordinator : IRelaySocketCoordinator
 {
     private static readonly TimeSpan HandleBudget = TimeSpan.FromSeconds(25);
-    private static readonly TimeSpan RetryDelay = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan[] RetryDelays =
+        [TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(2)];
+
+    // While the socket is down the coordinator also serves as the probe that notices the relay is back.
+    private static readonly TimeSpan RetryCeiling = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan TerminalRetryDelay = TimeSpan.FromMinutes(5);
 
     private readonly IWinoRelaySocketClient _socket;
     private readonly IPushRelayRegistrationService _registration;
@@ -40,6 +45,7 @@ public sealed class RelaySocketCoordinator : IRelaySocketCoordinator
     private bool? _wanted;
     private DateTimeOffset? _lastChange;
     private Guid? _revokedDeviceId;
+    private int _failedReconciles;
 
     public RelaySocketCoordinator(IWinoRelaySocketClient socket, IPushRelayRegistrationService registration,
         IPushRelayNotificationHandler handler, IPreferencesService preferences, IPlatformCapabilities capabilities)
@@ -265,7 +271,7 @@ public sealed class RelaySocketCoordinator : IRelaySocketCoordinator
             var result = await _socket.StartAsync(lifetime).ConfigureAwait(false);
             if (result.IsConnected) return;
 
-            var delay = result.RetryAfterSeconds is { } seconds ? TimeSpan.FromSeconds(seconds) : RetryDelay;
+            var delay = NextRetryDelay(result.RetryAfterSeconds is { } seconds ? TimeSpan.FromSeconds(seconds) : null);
             if (result.Outcome == RelaySocketStartOutcome.DeviceNotRegistered)
             {
                 _registration.RequestSync(PushRelaySyncReason.UserRequested);
@@ -283,7 +289,7 @@ public sealed class RelaySocketCoordinator : IRelaySocketCoordinator
                 }
 
                 if (repeated)
-                    delay = RetryDelay * 5;
+                    delay = NextRetryDelay(TerminalRetryDelay);
                 else
                     _registration.RequestSync(PushRelaySyncReason.DeviceRevoked);
             }
@@ -297,9 +303,20 @@ public sealed class RelaySocketCoordinator : IRelaySocketCoordinator
         }
         catch (Exception ex)
         {
-            _logger.Warning(ex, "Relay socket reconcile failed; trying again in {Delay}.", RetryDelay);
-            ScheduleRetry(RetryDelay, lifetime);
+            var delay = NextRetryDelay(null);
+            _logger.Warning(ex, "Relay socket reconcile failed; trying again in {Delay}.", delay);
+            ScheduleRetry(delay, lifetime);
         }
+    }
+
+    /// <summary>The next retry on the shared desktop schedule, never sooner than <paramref name="minimum"/> (a Retry-After or a terminal refusal).</summary>
+    private TimeSpan NextRetryDelay(TimeSpan? minimum)
+    {
+        int failures;
+        lock (_gate) failures = _failedReconciles++;
+        var delay = ReconnectBackoff.Delay(RetryDelays, RetryCeiling, failures);
+        if (minimum is { } floor && floor > delay) delay = floor;
+        return ReconnectBackoff.Jitter(delay);
     }
 
     private void ScheduleRetry(TimeSpan delay, CancellationToken lifetime)
@@ -326,7 +343,11 @@ public sealed class RelaySocketCoordinator : IRelaySocketCoordinator
     private void SocketConnected(object? sender, RelaySocketHello? hello)
     {
         _logger.Information("Relay socket connected.");
-        lock (_gate) _revokedDeviceId = null;
+        lock (_gate)
+        {
+            _revokedDeviceId = null;
+            _failedReconciles = 0;
+        }
         SetState(true, RelaySocketOutageKind.None, false);
     }
 
@@ -361,7 +382,8 @@ public sealed class RelaySocketCoordinator : IRelaySocketCoordinator
             case RelaySocketDisconnectReason.Replaced when !disconnection.WillReconnect:
             case RelaySocketDisconnectReason.Abuse:
                 // The client stays down on these; look again later in case the state changed.
-                lock (_gate) { if (_lifetime is { } lifetime) ScheduleRetry(RetryDelay * 5, lifetime.Token); }
+                var retryDelay = NextRetryDelay(TerminalRetryDelay);
+                lock (_gate) { if (_lifetime is { } lifetime) ScheduleRetry(retryDelay, lifetime.Token); }
                 break;
         }
     }

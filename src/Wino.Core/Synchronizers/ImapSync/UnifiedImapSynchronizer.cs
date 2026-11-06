@@ -502,6 +502,7 @@ public class UnifiedImapSynchronizer
         var savedValidity = folder.UidValidity;
         var savedModSeq = folder.HighestModeSeq;
         var usedQResync = false;
+        var openedWithQResync = false;
 
         if (_mailboxFallbacks.TryGetValue(folder.Id, out var fallback) && fallback > strategy)
             strategy = fallback;
@@ -526,6 +527,7 @@ public class UnifiedImapSynchronizer
                     await remote.OpenAsync(FolderAccess.ReadOnly, savedValidity, (ulong)savedModSeq,
                         new UniqueIdSet(known.Keys.Select(uid => new UniqueId(uid)), SortOrder.Ascending), cancellationToken).ConfigureAwait(false);
                     usedQResync = true;
+                    openedWithQResync = true;
                 }
                 catch (Exception ex) when (IsExtensionRejection(ex) && client.IsConnected)
                 {
@@ -644,6 +646,20 @@ public class UnifiedImapSynchronizer
                 ? (long)modSeqBoundary : 0;
             return downloaded;
         }
+        catch (ImapCommandException ex) when (openedWithQResync && IsSelectedMailboxLost(ex) && client.IsConnected)
+        {
+            // iCloud can answer OK to a QRESYNC open that reports changes and then treat the session as having no
+            // mailbox selected. The restored checkpoint would send the same open on every sync, so the folder never
+            // recovers unless it stops using QRESYNC.
+            _mailboxFallbacks[folder.Id] = ImapSyncStrategy.Condstore;
+            _logger.Warning(ex, "Folder {FolderId} lost its selected mailbox after a QRESYNC open; synchronizing it without QRESYNC.", folder.Id);
+            remote.MessagesVanished -= OnVanished;
+            remote.MessageFlagsChanged -= OnFlags;
+
+            downloaded.AddRange(await SynchronizeMailboxAsync(client, folder, synchronizer, ImapSyncStrategy.Condstore,
+                cancellationToken, suppressMatchingLocalFilters).ConfigureAwait(false));
+            return downloaded;
+        }
         finally
         {
             remote.MessagesVanished -= OnVanished;
@@ -655,6 +671,11 @@ public class UnifiedImapSynchronizer
 
     private static bool IsExtensionRejection(Exception exception)
         => exception is NotSupportedException || exception is ImapCommandException { Response: ImapCommandResponse.Bad };
+
+    private static bool IsSelectedMailboxLost(ImapCommandException exception)
+        => exception.Response == ImapCommandResponse.Bad
+            && (exception.Message.Contains("select a mailbox", StringComparison.OrdinalIgnoreCase)
+                || exception.Message.Contains("no mailbox selected", StringComparison.OrdinalIgnoreCase));
 
     #endregion
 

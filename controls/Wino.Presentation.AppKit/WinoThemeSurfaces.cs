@@ -45,6 +45,16 @@ public static class WinoThemeSurfaces
     /// <summary>The reader zone: the ReadingPane override, else the normal zone fill.</summary>
     public static NSColor ReadingPaneFill => Dynamic(WinoThemeSurface.ReadingPane, WinoStyle.ZoneFill);
 
-    /// <summary>The sidebar tint: the Navigation override, else clear.</summary>
-    public static NSColor NavigationFill => Dynamic(WinoThemeSurface.Navigation, NSColor.Clear);
+    /// <summary>
+    /// The sidebar tint: the Navigation override; else, in light mode without a theme wallpaper or gradient, a white
+    /// veil, because the plain window background and the blurred desktop of the translucent window both read as a
+    /// murky gray beside the white message list. Wallpapers and dark mode keep a clear sidebar.
+    /// </summary>
+    public static NSColor NavigationFill { get; } = NSColor.GetColor(string.Empty, appearance =>
+    {
+        bool dark = appearance.FindBestMatch([NSAppearance.NameAqua, NSAppearance.NameDarkAqua]) == NSAppearance.NameDarkAqua;
+        return Resolve(WinoThemeSurface.Navigation, dark) ?? (dark || WinoStyle.FloatingZones ? NSColor.Clear : LightNavigationVeil);
+    });
+
+    private static readonly NSColor LightNavigationVeil = WinoStyle.Hex(0xFFFFFF, 0.6);
 }

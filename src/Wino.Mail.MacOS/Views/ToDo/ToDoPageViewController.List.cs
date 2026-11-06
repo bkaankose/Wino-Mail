@@ -157,6 +157,9 @@ public sealed partial class ToDoPageViewController
         _search.Changed += (_, _) => ViewModel.FilterText = _search.StringValue;
         _search.SearchingEnded += (_, _) => ViewModel.FilterText = _search.StringValue;
         WinoAccessibility.Label(_search, Translator.ToDoPage_FilterTasks);
+        // The toolbar field searches every list; this one only filters the list on screen, so it carries the filter glyph.
+        if (_search.Cell is NSSearchFieldCell { SearchButtonCell: { } searchButton })
+            searchButton.Image = WinoIcons.Image(WinoIconGlyph.Filter, 13, WinoStyle.SecondaryText, Translator.ToDoPage_FilterTasks);
         _search.WidthAnchor.ConstraintEqualTo(360).Active = true;
         _search.SetContentCompressionResistancePriority(240, NSLayoutConstraintOrientation.Horizontal);
 

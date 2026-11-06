@@ -198,7 +198,7 @@ internal sealed class CompanionTaskRowView : NSView
             var parts = new List<string>();
             if (!string.IsNullOrWhiteSpace(task.ListName)) parts.Add(task.ListName);
             if (task.HasDueDate && !string.IsNullOrWhiteSpace(task.DueDisplayText)) parts.Add(task.DueDisplayText);
-            detail = WinoStyle.Label(string.Join("  ", parts), WinoStyle.Description, WinoStyle.TertiaryText);
+            detail = WinoStyle.Label(string.Join("  ", parts), WinoStyle.Description, WinoStyle.SecondaryText);
             detail.Hidden = parts.Count == 0;
         }
         detail.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);

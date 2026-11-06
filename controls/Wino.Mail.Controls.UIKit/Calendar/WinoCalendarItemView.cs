@@ -152,6 +152,16 @@ public sealed class WinoCalendarItemView : UIView
     /// <summary>Black or white, whichever reads on the fill (the shared perceived-brightness rule).</summary>
     public static UIColor ReadableTextColor(UIColor fill, UITraitCollection? traits = null) => WinoStyle.ReadableText(fill, traits);
 
+    private static double LongestWordWidth(string? text, UIFont font)
+    {
+        double widest = 0;
+        if (string.IsNullOrEmpty(text)) return 0;
+        var attributes = new UIStringAttributes { Font = font };
+        foreach (var word in text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+            widest = Math.Max(widest, (double)new NSAttributedString(word, attributes).Size.Width);
+        return widest;
+    }
+
     public override void Draw(CGRect rect)
     {
         if (_model is null) return;
@@ -198,6 +208,17 @@ public sealed class WinoCalendarItemView : UIView
         var titleFont = WinoStyle.Fixed(narrow ? Math.Min(titleSize, 11) : titleSize, UIFontWeight.Semibold);
         double titleHeight = titleFont.LineHeight + 2;
         int titleLines = narrow && !compact ? Math.Clamp((int)Math.Floor((bounds.Height - 3) / titleFont.LineHeight), 1, 4) : 1;
+        if (titleLines > 1)
+        {
+            // Word wrap breaks inside a word that is wider than the column ("Spri/nt/plan/ning"): the font shrinks to 9pt
+            // until the longest word fits, and a word that still does not fit keeps one truncated line.
+            for (double size = (double)titleFont.PointSize; size > 9 && LongestWordWidth(_model.Title, titleFont) > textWidth; size -= 0.5)
+                titleFont = WinoStyle.Fixed(size - 0.5, UIFontWeight.Semibold);
+            titleLines = LongestWordWidth(_model.Title, titleFont) > textWidth
+                ? 1
+                : Math.Clamp((int)Math.Floor((bounds.Height - 3) / titleFont.LineHeight), 1, 4);
+            titleHeight = titleFont.LineHeight + 2;
+        }
         if (titleLines > 1)
         {
             paragraph.LineBreakMode = UILineBreakMode.WordWrap;

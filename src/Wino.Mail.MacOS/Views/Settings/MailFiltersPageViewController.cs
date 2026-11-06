@@ -184,8 +184,7 @@ public sealed class MailFiltersPageViewController(MailFiltersPageViewModel viewM
         var filter = item.Filter;
         var name = filter.Name ?? string.Empty;
 
-        var glyph = new WinoIconView(item.IsProviderManaged ? WinoIconGlyph.Cloud : WinoIconGlyph.Devices, WinoSettingsStyle.IconSize);
-        WinoLayout.Size(glyph, WinoSettingsStyle.IconSize, WinoSettingsStyle.IconSize);
+        var glyph = new WinoSettingsIconTile(item.IsProviderManaged ? WinoIconGlyph.Cloud : WinoIconGlyph.Devices);
 
         var title = WinoStyle.Label(name, WinoSettingsStyle.CardTitle, WinoStyle.PrimaryText);
         var fallback = item.Summary;

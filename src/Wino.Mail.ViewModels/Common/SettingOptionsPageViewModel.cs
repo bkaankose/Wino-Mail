@@ -18,6 +18,7 @@ using Wino.Core.Extensions;
 using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.ViewModels;
 
@@ -32,6 +33,7 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
     private readonly INewThemeService _newThemeService;
     private readonly IPreferencesService _preferencesService;
     private readonly IKnownImapProviderCatalog _providerCatalog;
+    private readonly IWinoAccountProfileService _winoAccountProfileService;
     public IPlatformCapabilities PlatformCapabilities { get; }
     private bool _isInitializingSettings;
     private bool _isAppearanceSelectionPaused;
@@ -64,6 +66,19 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
     public partial int AccountCount { get; set; }
 
     [ObservableProperty]
+    public partial bool IsWinoAccountSignedIn { get; set; }
+
+    /// <summary>The signed-in Wino Account's name, or its address when it has no name.</summary>
+    [ObservableProperty]
+    public partial string WinoAccountDisplayName { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string WinoAccountEmail { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string? WinoAccountAvatarPath { get; set; }
+
+    [ObservableProperty]
     public partial string StorageSummaryText { get; set; } = string.Empty;
 
     [ObservableProperty]
@@ -93,7 +108,8 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
                                           INewThemeService newThemeService,
                                           IPreferencesService preferencesService,
                                          IKnownImapProviderCatalog providerCatalog,
-                                         IPlatformCapabilities platformCapabilities)
+                                         IPlatformCapabilities platformCapabilities,
+                                         IWinoAccountProfileService winoAccountProfileService)
     {
         _externalLauncher = externalLauncher;
         _appMetadataService = appMetadataService;
@@ -104,6 +120,7 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
         _newThemeService = newThemeService;
         _preferencesService = preferencesService;
         _providerCatalog = providerCatalog;
+        _winoAccountProfileService = winoAccountProfileService;
         PlatformCapabilities = platformCapabilities;
     }
 
@@ -118,6 +135,45 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
         InitializeQuickSettings();
 
         _ = LoadDashboardAsync();
+        _ = LoadWinoAccountAsync();
+    }
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+        Messenger.Register<SettingOptionsPageViewModel, WinoAccountSignedInMessage>(this, static (vm, message) => _ = vm.LoadWinoAccountAsync());
+        Messenger.Register<SettingOptionsPageViewModel, WinoAccountSignedOutMessage>(this, static (vm, message) => _ = vm.LoadWinoAccountAsync());
+        Messenger.Register<SettingOptionsPageViewModel, WinoAccountProfileUpdatedMessage>(this, static (vm, message) => _ = vm.LoadWinoAccountAsync());
+        Messenger.Register<SettingOptionsPageViewModel, WinoAccountProfileDeletedMessage>(this, static (vm, message) => _ = vm.LoadWinoAccountAsync());
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+        Messenger.Unregister<WinoAccountSignedInMessage>(this);
+        Messenger.Unregister<WinoAccountSignedOutMessage>(this);
+        Messenger.Unregister<WinoAccountProfileUpdatedMessage>(this);
+        Messenger.Unregister<WinoAccountProfileDeletedMessage>(this);
+    }
+
+    private async Task LoadWinoAccountAsync()
+    {
+        try
+        {
+            var account = await _winoAccountProfileService.GetActiveAccountAsync().ConfigureAwait(false);
+            var avatarPath = account is null ? null : await _winoAccountProfileService.GetAvatarPathAsync(account.Id, account.AvatarRevision).ConfigureAwait(false);
+            await ExecuteUIThread(() =>
+            {
+                IsWinoAccountSignedIn = account is not null;
+                WinoAccountEmail = account?.Email ?? string.Empty;
+                WinoAccountDisplayName = string.IsNullOrWhiteSpace(account?.DisplayName) ? WinoAccountEmail : account.DisplayName;
+                WinoAccountAvatarPath = avatarPath;
+            });
+        }
+        catch (Exception exception)
+        {
+            Serilog.Log.Warning(exception, "Could not load the Wino Account for Settings.");
+        }
     }
 
     public void UpdateSearchSuggestions(string query)

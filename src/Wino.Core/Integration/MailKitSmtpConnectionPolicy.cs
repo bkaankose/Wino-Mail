@@ -44,7 +44,7 @@ internal static class MailKitSmtpConnectionPolicy
                                    item.Port == port);
 
         client.ServerCertificateValidationCallback = (_, certificate, chain, errors)
-            => MailKitServerCertificateValidator.Validate(
+            => global::Wino.Services.ServerCertificateValidator.Validate(
                 certificate, chain, errors, MailServerProtocol.Smtp, host, port, storedTrust, transientTrust);
 
         await client.ConnectAsync(host, port, GetSocketOptions(serverInformation), cancellationToken).ConfigureAwait(false);

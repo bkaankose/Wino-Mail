@@ -324,7 +324,7 @@ public sealed class AccountUnreadBadgePageViewController(AccountUnreadBadgePageV
 
     private static NSTextField ColumnLabel(string text)
     {
-        var label = WinoStyle.Label(text, WinoStyle.Caption, WinoStyle.TertiaryText);
+        var label = WinoStyle.Label(text, WinoStyle.Caption, WinoStyle.SecondaryText);
         label.WidthAnchor.ConstraintEqualTo((nfloat)CheckColumnWidth).Active = true;
         return label;
     }

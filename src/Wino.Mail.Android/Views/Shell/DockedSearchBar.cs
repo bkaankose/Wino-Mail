@@ -13,7 +13,7 @@ namespace Wino.Mail.Android.Views.Shell;
 
 /// <summary>
 /// The docked search bar every mode shows at the top (canvas Mail inbox redesign, Material 3 docked search bar): a
-/// 56 dp pill with the menu button that opens the navigation drawer (the accounts menu), the search field, the page's
+/// 56 dp pill with the menu button that opens the navigation drawer (the accounts menu; none beside the pinned pane), the search field, the page's
 /// action icons and its overflow. It turns a page's existing <see cref="MaterialToolbar"/> into the pill, so the page keeps
 /// adding its actions to <see cref="MaterialToolbar.Menu"/>. Focusing the field (or <see cref="Activate"/>) puts the bar in
 /// search: the menu button becomes Back, and Back (the button or the system gesture) clears the query and leaves search.
@@ -21,14 +21,14 @@ namespace Wino.Mail.Android.Views.Shell;
 internal sealed class DockedSearchBar
 {
     private readonly MaterialToolbar _toolbar;
-    private readonly Action _openNavigation;
+    private readonly Action? _openNavigation;
     private readonly AndroidX.Activity.OnBackPressedCallback _back;
     private bool _active;
     private bool _settingText;
     private Action? _closeContextual;
     private readonly MaterialShapeDrawable _shape;
 
-    private DockedSearchBar(MaterialToolbar toolbar, Fragment owner, string hint, Action openNavigation)
+    private DockedSearchBar(MaterialToolbar toolbar, Fragment owner, string hint, Action? openNavigation)
     {
         _toolbar = toolbar;
         _openNavigation = openNavigation;
@@ -83,7 +83,7 @@ internal sealed class DockedSearchBar
         {
             if (_closeContextual is { } close) close();
             else if (_active) Deactivate();
-            else _openNavigation();
+            else _openNavigation?.Invoke();
         };
 
         _back = new BackCallback(this);
@@ -91,9 +91,12 @@ internal sealed class DockedSearchBar
         ApplyNavigationIcon();
     }
 
-    /// <summary>Turns <paramref name="toolbar"/> into the docked search bar of <paramref name="owner"/>'s page.</summary>
+    /// <summary>
+    /// Turns <paramref name="toolbar"/> into the docked search bar of <paramref name="owner"/>'s page. The menu button
+    /// is left out while the shell pins its navigation pane (expanded widths).
+    /// </summary>
     public static DockedSearchBar Attach(MaterialToolbar toolbar, Fragment owner, string hint, Action openNavigation)
-        => new(toolbar, owner, hint, openNavigation);
+        => new(toolbar, owner, hint, (owner.ParentFragment as IShellChrome)?.NavigationPinned == true ? null : openNavigation);
 
     public MaterialToolbar Toolbar => _toolbar;
 
@@ -216,6 +219,14 @@ internal sealed class DockedSearchBar
             _toolbar.NavigationContentDescription = Translator.Buttons_Close;
             return;
         }
+        var context = _toolbar.RequireContext();
+        if (!_active && _openNavigation is null)
+        {
+            _toolbar.NavigationIcon = null;
+            Field.SetPadding(WinoUnits.Dp(context, 16), 0, WinoUnits.Dp(context, 4), 0);
+            return;
+        }
+        Field.SetPadding(WinoUnits.Dp(context, 4), 0, WinoUnits.Dp(context, 4), 0);
         _toolbar.SetNavigationIcon(_active ? Resource.Drawable.wino_ic_arrow_back : Resource.Drawable.wino_ic_menu);
         _toolbar.NavigationContentDescription = _active ? Translator.Buttons_Back : Translator.Android_Shell_OpenNavigation;
     }

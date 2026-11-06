@@ -299,7 +299,7 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
 
     private static NSTextField FolderColumnLabel(string text)
     {
-        var label = WinoStyle.Label(text, WinoStyle.Caption, WinoStyle.TertiaryText);
+        var label = WinoStyle.Label(text, WinoStyle.Caption, WinoStyle.SecondaryText);
         label.Alignment = NSTextAlignment.Center;
         label.WidthAnchor.ConstraintEqualTo((nfloat)FolderCheckColumnWidth).Active = true;
         return label;

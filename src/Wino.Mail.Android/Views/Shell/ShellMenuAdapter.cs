@@ -178,6 +178,10 @@ public sealed class ShellMenuAdapter : RecyclerView.Adapter
         var row = ShellMenuRowPresentation.Describe(item, depth, _pictures);
         switch (row.Kind)
         {
+            // Material 3 keeps one primary create action per screen: New Contact is the filled item, New list a plain row.
+            case ShellMenuRowKind.NewItem when item is NewAddressListMenuItem:
+                view.ConfigureFolder(row.Glyph, row.Title);
+                break;
             case ShellMenuRowKind.NewItem:
                 view.ConfigureNewItem(row.Title, row.Glyph);
                 break;
@@ -188,6 +192,11 @@ public sealed class ShellMenuAdapter : RecyclerView.Adapter
                 view.ConfigureAccount(icon, row.Title, row.Subtitle, row.UnreadCount);
                 view.SetSync(row.ShowsSync, row.IsSyncIndeterminate, row.SyncValue);
                 break;
+            case ShellMenuRowKind.Folder when item is FixAccountIssuesMenuItem && row.Title.IndexOf('\n') is int split and > 0:
+                // "Account credentials can not be verified.\nSelect here to fix it.": the action line must stay visible.
+                view.ConfigureFolder(row.Glyph, row.Title[..split].Trim(), row.UnreadCount, row.Indent, row.IsExpanded);
+                view.SetSupportingText(row.Title[(split + 1)..].Trim());
+                break;
             default:
                 view.ConfigureFolder(row.Glyph, row.Title, row.UnreadCount, row.Indent, row.IsExpanded);
                 break;
@@ -195,9 +204,18 @@ public sealed class ShellMenuAdapter : RecyclerView.Adapter
         // Mail folders are denser than the other drawer items.
         view.IsCompact = item is IBaseFolderMenuItem or MergedAccountMoreFolderMenuItem;
         view.IsRowSelected = row.IsHighlightable && ReferenceEquals(item, _selected);
-        view.ShowsIndicator = row.ShowsIndicator;
+        // The active-account bar marks the account of the selected folder; a selection outside that account (All contacts)
+        // keeps it off, so one item reads as selected.
+        view.ShowsIndicator = row.ShowsIndicator && (_selected is not IMenuItem selectedItem || IsWithin(selectedItem, item));
         view.Enabled = row.IsEnabled && ShellMenuItemRules.IsInteractive(item);
         view.Alpha = row.IsEnabled ? 1f : 0.45f;
+    }
+
+    private static bool IsWithin(IMenuItem selected, IMenuItem ancestor)
+    {
+        for (var current = selected; current is not null; current = current.ParentMenuItem)
+            if (ReferenceEquals(current, ancestor)) return true;
+        return false;
     }
 
     private sealed class PaneHolder(View view) : RecyclerView.ViewHolder(view)

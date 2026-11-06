@@ -14,22 +14,32 @@ public sealed class WinoRelaySocketOptions
 
     /// <summary>
     /// Whether a dropped socket is reopened automatically (never after <c>bye revoked|abuse</c>; after <c>bye replaced</c>
-    /// once per <see cref="ReplacedReconnectWindow"/>).
+    /// at most <see cref="MaxReplacedReconnects"/> times per <see cref="ReplacedReconnectWindow"/>).
     /// </summary>
     public bool AutoReconnect { get; set; } = true;
 
     /// <summary>
-    /// A <c>bye replaced</c> within this long of the last reconnect after one means another socket of this device keeps
-    /// taking over; the client then stays down instead of displacing it in a loop.
+    /// More <c>bye replaced</c> reconnects than <see cref="MaxReplacedReconnects"/> within this window mean another install
+    /// uses this device identity; the client then stays down instead of displacing it in a loop.
     /// </summary>
-    public TimeSpan ReplacedReconnectWindow { get; set; } = TimeSpan.FromMinutes(10);
+    public TimeSpan ReplacedReconnectWindow { get; set; } = TimeSpan.FromHours(1);
 
-    /// <summary>Delays before each reconnect attempt; the last one repeats. Each delay gets ±20 % jitter.</summary>
+    public int MaxReplacedReconnects { get; set; } = 3;
+
+    /// <summary>
+    /// The quick reconnect attempts. After the last one each delay doubles up to <see cref="ReconnectCeiling"/>. Every delay
+    /// gets ±50 % jitter.
+    /// </summary>
     public TimeSpan[] ReconnectDelays { get; set; } =
     [
-        TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(15),
-        TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(5)
+        TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(30),
+        TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(2)
     ];
+
+    public TimeSpan ReconnectCeiling { get; set; } = TimeSpan.FromMinutes(30);
+
+    /// <summary>After <c>bye restart</c> the first reconnect waits a uniform random delay up to this, so a relay restart is not a reconnect storm.</summary>
+    public TimeSpan RestartSpread { get; set; } = TimeSpan.FromSeconds(30);
 
     /// <summary>Longest wait honoured from a relay <c>Retry-After</c>.</summary>
     public TimeSpan MaxRetryAfter { get; set; } = TimeSpan.FromMinutes(30);

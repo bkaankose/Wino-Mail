@@ -535,6 +535,7 @@ public interface IPreferencesService : INotifyPropertyChanged
     DayOfWeek WorkingDayStart { get; set; }
     DayOfWeek WorkingDayEnd { get; set; }
     double HourHeight { get; set; }
+    bool IsCalendarCurrentTimeLineEnabled { get; set; }
     string CalendarTimedDayHeaderDateFormat { get; set; }
 
     /// <summary>

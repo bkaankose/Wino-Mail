@@ -87,10 +87,7 @@ public sealed partial class CalendarEventComposePageViewController
             var date = FromNSDate(_recurrenceEndDate.Date).Date;
             if (ViewModel.RecurrenceEndDate?.Date != date) ViewModel.RecurrenceEndDate = new DateTimeOffset(date, TimeZoneInfo.Local.GetUtcOffset(date));
         };
-        var row = Leading(WinoLayout.HStack(8, endsLabel, _recurrenceEndMode, _recurrenceEndDate));
-        row.Hidden = true;
-        _recurrenceEndRow = row;
-        return row;
+        return Leading(WinoLayout.HStack(8, endsLabel, _recurrenceEndMode, _recurrenceEndDate));
     }
 
     private void SetRecurrenceEnd(bool hasEnd)
@@ -110,7 +107,7 @@ public sealed partial class CalendarEventComposePageViewController
 
     private void BindRecurrence()
     {
-        Bind(nameof(ViewModel.IsCustomRecurrence), vm => vm.IsCustomRecurrence, custom => _customRecurrence.Hidden = !custom);
+        Bind(nameof(ViewModel.IsCustomRecurrence), vm => vm.IsCustomRecurrence, custom => { if (_customRecurrenceRow is { } row) row.Hidden = !custom; });
         Bind(nameof(ViewModel.IsWeeklyCustomRecurrence), vm => vm.IsWeeklyCustomRecurrence, weekly => { if (_weekdayBlock is { } block) block.Hidden = !weekly; });
         Bind(nameof(ViewModel.IsRecurring), vm => vm.IsRecurring, recurring => { if (_recurrenceEndRow is { } row) row.Hidden = !recurring; });
         Bind(nameof(ViewModel.SelectedRecurrenceInterval), vm => vm.SelectedRecurrenceInterval, ApplyInterval);

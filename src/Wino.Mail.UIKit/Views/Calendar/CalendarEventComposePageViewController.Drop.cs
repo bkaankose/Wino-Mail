@@ -15,9 +15,9 @@ public sealed partial class CalendarEventComposePageViewController
     private static readonly string DroppedAttachmentsRoot = Path.Combine(Path.GetTempPath(), "WinoEventAttachments");
 
     /// <summary>Adds the drop interaction to the zone. Called once at the end of LoadView.</summary>
-    private void SetUpAttachmentDrop() => _zone.AddInteraction(new UIDropInteraction(new EventFileDropDelegate(this)));
+    private void SetUpAttachmentDrop() => _formScroll.AddInteraction(new UIDropInteraction(new EventFileDropDelegate(this)));
 
-    private void SyncDropState(bool active) => _zone.Alpha = active ? 0.85f : 1;
+    private void SyncDropState(bool active) => _formScroll.Alpha = active ? 0.85f : 1;
 
     /// <summary>Copies one dropped item's file into <paramref name="folder"/>; null when it has no file representation.</summary>
     private static Task<string?> CopyDroppedFileAsync(NSItemProvider provider, string folder)

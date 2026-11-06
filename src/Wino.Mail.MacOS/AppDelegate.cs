@@ -101,7 +101,7 @@ public sealed partial class AppDelegate : NSApplicationDelegate, IRecipient<Lang
         UpdatesLaunching();
         // No window until startup knows which one to show (HostController creates it): the shell
         // with accounts, Welcome without. A placeholder window here flashed before the shell.
-        if (!StartsInBackground) NSApplication.SharedApplication.ActivateIgnoringOtherApps(true);
+        if (!StartsInBackground) NSApplication.SharedApplication.Activate();
         _startup = StartAsync();
     }
 

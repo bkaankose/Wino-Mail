@@ -11,6 +11,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
@@ -124,7 +125,8 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
             {
                 ServiceUri = serviceUri,
                 Username = username,
-                Password = password
+                Password = password,
+                EndpointTrust = new DavEndpointTrust { AccountId = account.Id, Protocol = MailServerProtocol.CalDav }
             };
         }
 
@@ -205,6 +207,10 @@ public sealed partial class CalDavSynchronizationEngine : ICalDavSynchronization
                 throw;
             }
             catch (DavRequestException ex) when (ex.StatusCode == 401)
+            {
+                throw;
+            }
+            catch (MailServerCertificateException)
             {
                 throw;
             }

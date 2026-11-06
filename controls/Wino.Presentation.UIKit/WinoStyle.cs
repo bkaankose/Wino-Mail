@@ -43,6 +43,13 @@ public static class WinoStyle
     public static UIFont PageTitle => Scaled(28, UIFontWeight.Bold);
     public static UIFont ReaderSubject => Scaled(22, UIFontWeight.Bold);
 
+    /// <summary>
+    /// An icon or avatar size that follows the user's text size like body text does, capped at
+    /// <paramref name="maxScale"/> times the default so accessibility sizes do not crowd out the text.
+    /// </summary>
+    public static double ScaledIcon(double size, UITraitCollection? traits = null, double maxScale = 1.6)
+        => Math.Min(size * maxScale, (double)UIFontMetrics.DefaultMetrics.GetScaledValue((nfloat)size, traits ?? UITraitCollection.CurrentTraitCollection));
+
     /// <summary>The system font at <paramref name="size"/> points, scaled for the user's text size.</summary>
     public static UIFont Scaled(double size, UIFontWeight weight = UIFontWeight.Regular)
         => UIFontMetrics.DefaultMetrics.GetScaledFont(UIFont.SystemFontOfSize((nfloat)size, weight));
@@ -89,10 +96,10 @@ public static class WinoStyle
     public static event EventHandler? BackdropChanged;
 
     /// <summary>
-    /// The content zone (Windows WinoContentZoneBackgroud) unless the theme sets one: white in light, #1E1E23 in dark
-    /// (InboxDark board and the iOS decision record, 15 Oct 2026).
+    /// The content zone (Windows WinoContentZoneBackgroud) unless the theme sets one: white in light, #161618 in dark.
+    /// #1E1E23 read grey over the black backdrop (owner, 3 Nov 2026); cards and settings groups keep that lift on it.
     /// </summary>
-    public static UIColor ZoneFill => WinoThemeSurfaces.Dynamic(WinoThemeSurface.Workspace, Dynamic(UIColor.White, Hex(0x1E1E23)));
+    public static UIColor ZoneFill => WinoThemeSurfaces.Dynamic(WinoThemeSurface.Workspace, Dynamic(UIColor.White, Hex(0x161618)));
     public static UIColor ZoneStroke => Dynamic(Hex(0x000000, 0.08), Hex(0xFFFFFF, 0.08));
 
     /// <summary>A colour that resolves per light or dark appearance.</summary>

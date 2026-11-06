@@ -22,7 +22,8 @@ public static class SettingsDebugDialogs
             "register" => dialogs.ShowWinoAccountRegistrationDialogAsync(),
             "secret" => dialogs.ShowWinoAccountSyncSecretDialogAsync(new Wino.Core.Domain.Models.Accounts.SyncSnapshotSecretRequest(false, false, false)),
             "secretnew" => dialogs.ShowWinoAccountSyncSecretDialogAsync(new Wino.Core.Domain.Models.Accounts.SyncSnapshotSecretRequest(true, true, false)),
-            "certificate" => dialogs.ShowServerCertificateTrustDialogAsync("Issuer: Debug CA\nExpires: 2030", []),
+            "certificate" => dialogs.ShowServerCertificateTrustDialogAsync(SampleCertificatePrompt(dangerous: false)),
+            "certificate-dangerous" => dialogs.ShowServerCertificateTrustDialogAsync(SampleCertificatePrompt(dangerous: true)),
             "text" => dialogs.ShowTextInputDialogAsync("Text", "Title", "Description", "OK"),
             _ => Task.CompletedTask
         };
@@ -43,6 +44,25 @@ public static class SettingsDebugDialogs
         var account = (await services.GetRequiredService<IAccountService>().GetAccountsAsync()).FirstOrDefault();
         if (account is not null) await dialogs.HandleSystemFolderConfigurationDialogAsync(account.Id, services.GetRequiredService<IFolderService>());
     }
+
+    private static Wino.Core.Domain.Models.Connectivity.ServerCertificateTrustPrompt SampleCertificatePrompt(bool dangerous)
+        => Wino.Core.Domain.Models.Connectivity.ServerCertificateTrustPrompt.From(new Wino.Core.Domain.Models.Connectivity.MailServerCertificateFailure
+        {
+            Protocol = Wino.Core.Domain.Enums.MailServerProtocol.Imap,
+            Host = "imap.example.test",
+            Port = 993,
+            PolicyErrors = System.Net.Security.SslPolicyErrors.RemoteCertificateChainErrors,
+            Subject = "CN=imap.example.test",
+            SubjectAlternativeNames = "DNS Name=imap.example.test",
+            Issuer = "CN=Example Test CA",
+            ValidFromUtc = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            ValidToUtc = new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            CertificateSha256 = new string('A', 64),
+            Tier = dangerous ? Wino.Core.Domain.Enums.MailServerCertificateTrustTier.Dangerous : Wino.Core.Domain.Enums.MailServerCertificateTrustTier.Normal,
+            Problems = dangerous
+                ? Wino.Core.Domain.Enums.MailServerCertificateProblem.UntrustedRoot | Wino.Core.Domain.Enums.MailServerCertificateProblem.Revoked
+                : Wino.Core.Domain.Enums.MailServerCertificateProblem.UntrustedRoot
+        });
 
     private static async Task Observe(Task task, string name)
     {

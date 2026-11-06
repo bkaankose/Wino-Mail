@@ -29,7 +29,7 @@ public sealed class UnreadBadgeSettingsPageViewController(UnreadBadgeSettingsPag
         if (!vm.IsLaunchNavigationAvailable) return;
 
         AddGroup(Translator.UnreadBadges_LaunchBehaviour_Title,
-            Card(Translator.UnreadBadges_Launch_Title, Translator.UnreadBadges_Launch_Description, WinoIconGlyph.Open,
+            Card(Translator.UnreadBadges_Launch_Title, Translator.IOS_SettingsHint_BadgeLaunch, WinoIconGlyph.Open,
                 Bind.Switch(vm, nameof(vm.IsLaunchNavigationEnabled), s => s.IsLaunchNavigationEnabled, (s, v) => s.IsLaunchNavigationEnabled = v, Translator.UnreadBadges_Launch_Title)));
     }
 

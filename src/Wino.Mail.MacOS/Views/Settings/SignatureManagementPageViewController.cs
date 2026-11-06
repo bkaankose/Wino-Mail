@@ -167,8 +167,7 @@ public sealed partial class SignatureManagementPageViewController(SignatureManag
     private NSView SignatureRow(SettingsBinder rows, AccountSignature signature, bool isDefault)
     {
         var name = signature.Name ?? string.Empty;
-        var icon = new WinoIconView(WinoIconGlyph.Signature, WinoSettingsStyle.IconSize);
-        WinoLayout.Size(icon, WinoSettingsStyle.IconSize, WinoSettingsStyle.IconSize);
+        var icon = new WinoSettingsIconTile(WinoIconGlyph.Signature);
 
         var nameLabel = WinoStyle.Label(name, WinoSettingsStyle.CardTitle, WinoStyle.PrimaryText);
         nameLabel.LineBreakMode = NSLineBreakMode.TruncatingTail;

@@ -158,7 +158,7 @@ public sealed class CompanionPopoverViewController : NSViewController
 
         // Header: greeting and date, snooze, settings (Windows padding 12,13,8,9).
         _greeting = WinoStyle.Label(string.Empty, NSFont.SystemFontOfSize(17, NSFontWeight.Semibold));
-        _date = WinoStyle.Label(string.Empty, NSFont.SystemFontOfSize(12), WinoStyle.TertiaryText);
+        _date = WinoStyle.Label(string.Empty, NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText);
         _greeting.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
         _date.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
         var titles = WinoLayout.VStack(0, _greeting, _date);
@@ -462,7 +462,7 @@ public sealed class CompanionPopoverViewController : NSViewController
         {
             var dot = new WinoSurfaceView { Fill = WinoStyle.FromHexString(_viewModel.NextEventCalendarColorHex) ?? WinoStyle.Accent, CornerRadius = 2 };
             WinoLayout.Size(dot, 8, 8);
-            var calendarName = WinoStyle.Label(_viewModel.NextEventCalendarName, WinoStyle.Description, WinoStyle.TertiaryText);
+            var calendarName = WinoStyle.Label(_viewModel.NextEventCalendarName, WinoStyle.Description, WinoStyle.SecondaryText);
             calendarName.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
             timeRow.AddArrangedSubview(WinoLayout.HStack(6, dot, calendarName));
         }
@@ -474,7 +474,7 @@ public sealed class CompanionPopoverViewController : NSViewController
             location.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
             card.AddArrangedSubview(location);
         }
-        var attendees = WinoStyle.Label(_viewModel.NextEventAttendeesText, WinoStyle.Description, WinoStyle.TertiaryText);
+        var attendees = WinoStyle.Label(_viewModel.NextEventAttendeesText, WinoStyle.Description, WinoStyle.SecondaryText);
         attendees.Hidden = !_viewModel.HasNextEventAttendees;
         var primary = CompanionStyle.AccentButton(_viewModel.NextEventPrimaryActionText, () => Run(_viewModel.OpenPrimaryEventCommand.ExecuteAsync(item)));
         var actionRow = WinoLayout.HStack(8, attendees, WinoLayout.Spacer(), primary);
@@ -538,7 +538,7 @@ public sealed class CompanionPopoverViewController : NSViewController
 
     private NSView BuildMailSection()
     {
-        var header = WinoStyle.Label(Translator.Companion_Unread, CompanionStyle.SectionHeader, WinoStyle.TertiaryText);
+        var header = WinoStyle.Label(Translator.Companion_Unread, CompanionStyle.SectionHeader, WinoStyle.SecondaryText);
         var countText = WinoStyle.Label(_viewModel.UnreadTotalText, NSFont.SystemFontOfSize(11, NSFontWeight.Bold), CompanionStyle.OnAccent);
         var count = CompanionStyle.Pill(countText, WinoStyle.Accent, 6, 1);
         var headerRow = WinoLayout.HStack(8, header, count, WinoLayout.Spacer());
@@ -559,8 +559,8 @@ public sealed class CompanionPopoverViewController : NSViewController
 
     private NSView BuildTaskSection()
     {
-        var header = WinoStyle.Label(Translator.Companion_MyDay, CompanionStyle.SectionHeader, WinoStyle.TertiaryText);
-        var progress = WinoStyle.Label(_viewModel.TaskProgressText, WinoStyle.Description, WinoStyle.TertiaryText);
+        var header = WinoStyle.Label(Translator.Companion_MyDay, CompanionStyle.SectionHeader, WinoStyle.SecondaryText);
+        var progress = WinoStyle.Label(_viewModel.TaskProgressText, WinoStyle.Description, WinoStyle.SecondaryText);
         var headerRow = WinoLayout.HStack(8, header, progress, WinoLayout.Spacer());
         var section = WinoLayout.VStack(2, headerRow);
         section.SetCustomSpacing(4, headerRow);

@@ -33,8 +33,8 @@ public sealed class WinoAccountBenefitTileView : WinoSurfaceView
         WinoLayout.Size(box, 36, 36);
         NSLayoutConstraint.ActivateConstraints([glyph.CenterXAnchor.ConstraintEqualTo(box.CenterXAnchor), glyph.CenterYAnchor.ConstraintEqualTo(box.CenterYAnchor)]);
 
-        var title = WinoStyle.Label(benefit.Title, WinoStyle.BodyStrong, WinoStyle.PrimaryText);
-        title.LineBreakMode = NSLineBreakMode.TruncatingTail;
+        // Narrow windows wrap the title rather than cutting it off.
+        var title = WinoStyle.Label(benefit.Title, WinoStyle.BodyStrong, WinoStyle.PrimaryText, 0);
         title.SetContentCompressionResistancePriority(1, NSLayoutConstraintOrientation.Horizontal);
         // Free and paid badges differ only in tint (Windows: success stroke for free, card stroke for add-ons).
         var badgeText = WinoStyle.Label(benefit.BadgeText, WinoStyle.Caption, benefit.IsFreeBadge ? WinoStyle.Success : WinoStyle.SecondaryText);
@@ -48,6 +48,7 @@ public sealed class WinoAccountBenefitTileView : WinoSurfaceView
         WinoLayout.Fill(badgeText, badge, 1, 8, 1, 8);
         badge.SetContentHuggingPriorityForOrientation(751, NSLayoutConstraintOrientation.Horizontal);
         var heading = WinoLayout.HStack(8, title, badge);
+        heading.Alignment = NSLayoutAttribute.Top;
 
         var caption = WinoStyle.Label(benefit.Caption, NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText, 0);
         caption.SetContentCompressionResistancePriority(1, NSLayoutConstraintOrientation.Horizontal);

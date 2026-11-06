@@ -844,6 +844,10 @@ public class AccountService : BaseDatabaseService, IAccountService
             DeleteChangedEndpointTrust(connection, account.Id, MailServerProtocol.Smtp,
                 previous?.OutgoingServer, previous?.OutgoingServerPort,
                 customServerInformation.OutgoingServer, customServerInformation.OutgoingServerPort);
+            DeleteChangedDavEndpointTrust(connection, account.Id, MailServerProtocol.CalDav,
+                previous?.CalDavServiceUrl, customServerInformation.CalDavServiceUrl);
+            DeleteChangedDavEndpointTrust(connection, account.Id, MailServerProtocol.CardDav,
+                previous?.CardDavServiceUrl, customServerInformation.CardDavServiceUrl);
 
             foreach (var trust in customServerInformation.PendingCertificateTrusts ?? [])
             {
@@ -871,6 +875,9 @@ public class AccountService : BaseDatabaseService, IAccountService
 
             if (!EndpointEquals(previous.OutgoingServer, previous.OutgoingServerPort, current.OutgoingServer, current.OutgoingServerPort))
                 await _serverCertificateTrustService.DeleteEndpointTrustAsync(current.AccountId, MailServerProtocol.Smtp, previous.OutgoingServer, ParsePort(previous.OutgoingServerPort)).ConfigureAwait(false);
+
+            await DeleteChangedDavEndpointTrustAsync(current.AccountId, MailServerProtocol.CalDav, previous.CalDavServiceUrl, current.CalDavServiceUrl).ConfigureAwait(false);
+            await DeleteChangedDavEndpointTrustAsync(current.AccountId, MailServerProtocol.CardDav, previous.CardDavServiceUrl, current.CardDavServiceUrl).ConfigureAwait(false);
         }
 
         await _serverCertificateTrustService.SaveTrustsAsync(current.AccountId, current.PendingCertificateTrusts).ConfigureAwait(false);
@@ -886,6 +893,45 @@ public class AccountService : BaseDatabaseService, IAccountService
         connection.Execute(
             $"DELETE FROM {nameof(MailServerCertificateTrust)} WHERE {nameof(MailServerCertificateTrust.AccountId)} = ? AND {nameof(MailServerCertificateTrust.Protocol)} = ? AND {nameof(MailServerCertificateTrust.Host)} = ? AND {nameof(MailServerCertificateTrust.Port)} = ?",
             accountId, (int)protocol, NormalizeHost(oldHost), ParsePort(oldPort));
+    }
+
+    private Task DeleteChangedDavEndpointTrustAsync(Guid accountId, MailServerProtocol protocol, string oldUrl, string newUrl)
+    {
+        if (!TryGetDavEndpoint(oldUrl, out var oldHost, out var oldPort) || DavEndpointEquals(oldUrl, newUrl))
+            return Task.CompletedTask;
+
+        return _serverCertificateTrustService.DeleteEndpointTrustAsync(accountId, protocol, oldHost, oldPort);
+    }
+
+    private static void DeleteChangedDavEndpointTrust(SQLite.SQLiteConnection connection, Guid accountId, MailServerProtocol protocol,
+        string oldUrl, string newUrl)
+    {
+        if (!TryGetDavEndpoint(oldUrl, out var oldHost, out var oldPort) || DavEndpointEquals(oldUrl, newUrl))
+            return;
+
+        connection.Execute(
+            $"DELETE FROM {nameof(MailServerCertificateTrust)} WHERE {nameof(MailServerCertificateTrust.AccountId)} = ? AND {nameof(MailServerCertificateTrust.Protocol)} = ? AND {nameof(MailServerCertificateTrust.Host)} = ? AND {nameof(MailServerCertificateTrust.Port)} = ?",
+            accountId, (int)protocol, NormalizeHost(oldHost), oldPort);
+    }
+
+    private static bool DavEndpointEquals(string firstUrl, string secondUrl)
+        => TryGetDavEndpoint(firstUrl, out var firstHost, out var firstPort) &&
+           TryGetDavEndpoint(secondUrl, out var secondHost, out var secondPort) &&
+           string.Equals(NormalizeHost(firstHost), NormalizeHost(secondHost), StringComparison.Ordinal) &&
+           firstPort == secondPort;
+
+    private static bool TryGetDavEndpoint(string url, out string host, out int port)
+    {
+        if (Uri.TryCreate(url?.Trim(), UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps)
+        {
+            host = uri.Host;
+            port = uri.Port;
+            return true;
+        }
+
+        host = string.Empty;
+        port = 0;
+        return false;
     }
 
     private static bool EndpointEquals(string firstHost, string firstPort, string secondHost, string secondPort)

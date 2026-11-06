@@ -10,3 +10,6 @@ src/Wino.Core.ML/Models/Magika/** -text
 
 # Redistributable Visual C++ runtime DLLs bundled for onnxruntime.dll.
 src/Wino.Core.ML/NativeRuntime/** -text
+
+# Lab shell scripts run inside Linux containers.
+tools/local-lab/**/*.sh text eol=lf

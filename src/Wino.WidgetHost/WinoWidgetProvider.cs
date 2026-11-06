@@ -29,6 +29,7 @@ internal sealed partial class WinoWidgetProvider : IWidgetProvider, IDisposable
     private readonly Timer _minuteTimer;
     private DateTimeOffset _idleSince = DateTimeOffset.UtcNow;
     private WidgetSnapshot? _lastSnapshot;
+    private volatile bool _disposed;
     private readonly Dictionary<string, WidgetCard> _sentCards = new(StringComparer.Ordinal);
 
     public WinoWidgetProvider()
@@ -173,6 +174,7 @@ internal sealed partial class WinoWidgetProvider : IWidgetProvider, IDisposable
 
     public void Dispose()
     {
+        _disposed = true;
         _watcher?.Dispose();
         _snapshotTimer.Dispose();
         _minuteTimer.Dispose();
@@ -188,7 +190,20 @@ internal sealed partial class WinoWidgetProvider : IWidgetProvider, IDisposable
         }
     }
 
-    private void ScheduleSnapshotRefresh() => _snapshotTimer.Change(SnapshotSettleDelay, Timeout.InfiniteTimeSpan);
+    private void ScheduleSnapshotRefresh()
+    {
+        if (_disposed)
+            return;
+
+        // A watcher callback already queued on the thread pool can still arrive after Dispose.
+        try
+        {
+            _snapshotTimer.Change(SnapshotSettleDelay, Timeout.InfiniteTimeSpan);
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
 
     private void RefreshActive()
     {
@@ -203,7 +218,36 @@ internal sealed partial class WinoWidgetProvider : IWidgetProvider, IDisposable
 
             var snapshot = ReadSnapshot();
             foreach (var widgetId in active)
-                Update(widgetId, snapshot);
+            {
+                try
+                {
+                    Update(widgetId, snapshot);
+                }
+                catch
+                {
+                    ForgetIfUnknown(widgetId);
+                }
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    /// <summary>A widget removed while the host was not running stays tracked until the Board no longer lists it.</summary>
+    private void ForgetIfUnknown(string widgetId)
+    {
+        try
+        {
+            var infos = WidgetManager.GetDefault().GetWidgetInfos() ?? [];
+            if (infos.Any(info => string.Equals(info.WidgetContext.Id, widgetId, StringComparison.Ordinal)))
+                return;
+
+            lock (_gate)
+            {
+                _widgets.Remove(widgetId);
+                _sentCards.Remove(widgetId);
+            }
         }
         catch
         {

@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Authentication;
 
 namespace Wino.Core.Domain.Interfaces;
@@ -42,12 +43,12 @@ public interface IAccountSetupRunner
 
     /// <summary>
     /// Runs the plan. Step changes go to <paramref name="progress"/>; a server certificate that needs the user's trust
-    /// goes to <paramref name="confirmCertificateTrust"/> (message, certificate bytes) and fails the step when it is null.
+    /// goes to <paramref name="confirmCertificateTrust"/> and fails the step when it is null.
     /// Never throws for setup failures; the result carries them. Continues on the caller's context.
     /// </summary>
     Task<AccountSetupRunResult> RunAsync(
         AccountSetupPlan plan,
         IProgress<AccountSetupStepUpdate>? progress = null,
-        Func<string, byte[], Task<bool>>? confirmCertificateTrust = null,
+        Func<ServerCertificateTrustPrompt, Task<bool>>? confirmCertificateTrust = null,
         CancellationToken cancellationToken = default);
 }

@@ -29,14 +29,14 @@ public sealed class ContactsPreferenceSettingsPageViewController(ContactsPrefere
         newContacts.Alignment = UIStackViewAlignment.Fill;
 
         AddGroup(null,
-            StackedCard(Translator.PeopleSettings_NewContacts_Header, Translator.PeopleSettings_NewContacts_Description, WinoIconGlyph.Add, newContacts),
-            StackedCard(Translator.PeopleSettings_NameDisplay_Header, Translator.PeopleSettings_NameDisplay_Description, WinoIconGlyph.Person,
+            StackedCard(Translator.PeopleSettings_NewContacts_Header, null, WinoIconGlyph.Add, newContacts),
+            StackedCard(Translator.PeopleSettings_NameDisplay_Header, null, WinoIconGlyph.Person,
                 Bind.PopUp<ContactsPreferenceSettingsPageViewModel, ContactNameDisplayOption>(vm, s => s.NameDisplayOptions.ToList(), o => o.DisplayText,
                     nameof(vm.SelectedNameDisplay), s => s.SelectedNameDisplay, (s, v) => s.SelectedNameDisplay = v)),
-            StackedCard(Translator.PeopleSettings_Sort_Header, Translator.PeopleSettings_Sort_Description, WinoIconGlyph.ArrowSort,
+            StackedCard(Translator.PeopleSettings_Sort_Header, null, WinoIconGlyph.ArrowSort,
                 Bind.PopUp<ContactsPreferenceSettingsPageViewModel, ContactSortOption>(vm, s => s.SortOptions.ToList(), o => o.DisplayText,
                     nameof(vm.SelectedSort), s => s.SelectedSort, (s, v) => s.SelectedSort = v)),
-            StackedCard(Translator.PeopleSettings_SuggestedRecipients_Header, Translator.PeopleSettings_SuggestedRecipients_Description, WinoIconGlyph.History,
+            StackedCard(Translator.PeopleSettings_SuggestedRecipients_Header, Translator.IOS_SettingsHint_SuggestedRecipients, WinoIconGlyph.History,
                 SettingsCardLayout.Leading(Bind.Button(Translator.PeopleSettings_SuggestedRecipients_Clear, vm.ClearSuggestedRecipientsCommand))));
     }
 

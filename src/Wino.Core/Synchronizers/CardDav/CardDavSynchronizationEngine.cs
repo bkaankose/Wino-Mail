@@ -10,6 +10,7 @@ using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.CardDav;
@@ -121,7 +122,10 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         }
         catch (Exception ex)
         {
-            Logger.Warning(ex, "CardDAV synchronization failed for account {AccountId}", account.Id);
+            // Certificate rejections are logged once by the synchronization manager, not on every cycle.
+            if (ex is not MailServerCertificateException)
+                Logger.Warning(ex, "CardDAV synchronization failed for account {AccountId}", account.Id);
+
             return ContactSynchronizationResult.Failed(ex).MergeIssues([Classify(ex, "Account")]);
         }
 

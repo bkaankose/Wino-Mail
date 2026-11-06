@@ -519,7 +519,7 @@ public class ImapClientPool : IDisposable, IAsyncDisposable
                                        item.Port == port);
 
             client.ServerCertificateValidationCallback = (_, certificate, chain, sslPolicyErrors)
-                => MailKitServerCertificateValidator.Validate(
+                => global::Wino.Services.ServerCertificateValidator.Validate(
                     certificate, chain, sslPolicyErrors, MailServerProtocol.Imap, host, port, storedTrust, transientTrust);
 
             await client.ConnectAsync(

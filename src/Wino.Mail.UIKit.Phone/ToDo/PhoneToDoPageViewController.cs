@@ -32,7 +32,7 @@ public sealed class PhoneToDoPageViewController(ToDoPageViewModel viewModel, IDi
     protected override bool QuickAddOnDemand => true;
 
     /// <summary>The shell's floating button: the quick add bar on the keyboard.</summary>
-    void IPhoneFloatingActionPage.FloatingActionInvoked() => ShowQuickAdd();
+    void IPhoneFloatingActionPage.FloatingActionInvoked() => Observe(ShowQuickAddWhenReadyAsync());
 
     protected override void PrepareLayout() => PageViewModel.SetCompactLayout(true);
 

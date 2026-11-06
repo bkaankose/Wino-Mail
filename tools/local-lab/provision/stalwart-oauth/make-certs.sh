@@ -3,13 +3,13 @@
 # Existing CA files are kept, so the CA trusted on Windows survives `up` and `reset`.
 # The CA is name-constrained to *.test, localhost and 127.0.0.1: trusting it cannot vouch for real sites.
 # Windows checks revocation online (MailKit asks for it), so the leaf names a CRL and the CA certificate on
-# the lab-pki service (http://127.0.0.1:8807/, served from /tls/pub). An IP keeps the URL independent of the hosts file.
+# the lab-pki service (http://127.0.0.1:8808/, served from /tls/pub). An IP keeps the URL independent of the hosts file.
 set -eu
 umask 077
 cd /tls
 HOST="${LAB_TLS_HOST:-mail.stalwartoauth.test}"
 DOMAIN="${LAB_TLS_DOMAIN:-stalwartoauth.test}"
-PKI_URL="${LAB_PKI_URL:-http://127.0.0.1:8807}"
+PKI_URL="${LAB_PKI_URL:-http://127.0.0.1:8808}"
 
 if [ ! -s ca.key ] || [ ! -s ca.crt ]; then
     openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 3650 \

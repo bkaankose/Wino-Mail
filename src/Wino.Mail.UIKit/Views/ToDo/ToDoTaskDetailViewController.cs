@@ -45,7 +45,7 @@ public sealed class ToDoTaskDetailViewController : UIViewController
     private readonly UIButton _calendar;
     private readonly UITextView _notes = new() { BackgroundColor = UIColor.Clear, TranslatesAutoresizingMaskIntoConstraints = false };
     private readonly UILabel _notesPlaceholder = WinoStyle.Label(Translator.ToDoPage_AddNote, WinoStyle.Body, WinoStyle.TertiaryText);
-    private readonly UILabel _created = WinoToDoStyle.Caption(null, WinoStyle.TertiaryText);
+    private readonly UILabel _created = WinoToDoStyle.Caption(null, WinoStyle.SecondaryText);
     private readonly UIScrollView _scroll = new() { TranslatesAutoresizingMaskIntoConstraints = false, AlwaysBounceVertical = true, KeyboardDismissMode = UIScrollViewKeyboardDismissMode.Interactive };
     private readonly UIView _single = new() { TranslatesAutoresizingMaskIntoConstraints = false };
     private readonly UIView _multi = new() { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };

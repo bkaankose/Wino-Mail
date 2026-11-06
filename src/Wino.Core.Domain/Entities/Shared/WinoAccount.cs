@@ -42,4 +42,10 @@ public class WinoAccount
     public DateTime RefreshTokenExpiresAtUtc { get; set; }
 
     public DateTime LastAuthenticatedUtc { get; set; }
+
+    /// <summary>
+    /// When the API refused this account's refresh token for good. Authorized calls stop until the user signs in again,
+    /// which stores a new row without it.
+    /// </summary>
+    public DateTime? SessionInvalidatedUtc { get; set; }
 }

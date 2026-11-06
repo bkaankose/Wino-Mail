@@ -40,6 +40,9 @@ public sealed partial class NavigationCoordinator : INavigationService, IDisposa
     private (WinoPage Page, object? Parameter) _secondaryRoute;
     private WinoPage _page;
     private object? _parameter;
+    // Mode the coordinator last activated; null until the first switch after the shell appeared.
+    private WinoApplicationMode? _mode;
+    private WinoApplicationMode? _pageMode;
     private NavigationResult? _result;
     private bool _stopping;
     private Task _pending = Task.CompletedTask;
@@ -129,8 +132,8 @@ public sealed partial class NavigationCoordinator : INavigationService, IDisposa
             if (_host.IsShellShown && host == NavigationHostKind.ShellContent)
             {
                 await _host.SetShellContentAsync(page, parameter);
-                if (addHistory) _history.Push((_page, _parameter));
-                _page = page; _parameter = parameter;
+                if (addHistory && _pageMode == _mode) _history.Push((_page, _parameter));
+                _page = page; _parameter = parameter; _pageMode = _mode;
                 return;
             }
             if (_host.IsShellShown && host == NavigationHostKind.Window)
@@ -188,6 +191,7 @@ public sealed partial class NavigationCoordinator : INavigationService, IDisposa
             {
                 _page = WinoPage.None; _parameter = null;
                 _history.Clear();
+                _mode = null; _pageMode = null;
                 activation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                 _shellActivated = activation.Task;
             });
@@ -223,7 +227,7 @@ public sealed partial class NavigationCoordinator : INavigationService, IDisposa
         await _shellActivated;
         if (_stopping || !_host.IsShellShown) return false;
         await _host.BringShellToFrontAsync();
-        await _host.ActivateShellModeAsync(mode, parameter is null ? null : new ShellModeActivationContext { Parameter = parameter });
+        await ActivateShellModeAsync(mode, parameter is null ? null : new ShellModeActivationContext { Parameter = parameter });
         return true;
     }
 
@@ -249,7 +253,23 @@ public sealed partial class NavigationCoordinator : INavigationService, IDisposa
     private async Task ActivateModeAsync(WinoApplicationMode mode, ShellModeActivationContext? activationContext)
     {
         await ShowShellAsync();
-        if (_host.IsShellShown && !_stopping) await _host.ActivateShellModeAsync(mode, activationContext);
+        if (_host.IsShellShown && !_stopping) await ActivateShellModeAsync(mode, activationContext);
+    }
+
+    /// <summary>
+    /// Shell content history belongs to one mode. Going back must never bring a page of the previous
+    /// mode into the new one (on iPhone it moved the Calendar page into the Mail tab).
+    /// </summary>
+    private async Task ActivateShellModeAsync(WinoApplicationMode mode, ShellModeActivationContext? activationContext)
+    {
+        if (_mode != mode)
+        {
+            await _gate.WaitAsync();
+            try { _history.Clear(); }
+            finally { _gate.Release(); }
+            _mode = mode;
+        }
+        await _host.ActivateShellModeAsync(mode, activationContext);
     }
 
     /// <summary>True when the mode's root page has a route in the head (feature registries add them as they are built).</summary>

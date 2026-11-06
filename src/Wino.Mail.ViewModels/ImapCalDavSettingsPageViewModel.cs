@@ -12,13 +12,14 @@ using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Connectivity;
+using Wino.Mail.ViewModels.Helpers;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.AutoDiscovery;
 using Wino.Core.Domain.Models.Calendar;
-using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.CardDav;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
@@ -864,28 +865,17 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                 return;
             }
 
-            var failure = connectivityResult.CertificateFailure;
-            if (failure?.CanTrust != true)
-                throw new InvalidOperationException(connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_CertificateCannotBeTrusted);
-
-            var certificateMessage = MailServerCertificateMessage.Build(failure);
-
-            var allowCertificate = await ExecuteUIThreadAsync(() =>
-                    _mailDialogService.ShowServerCertificateTrustDialogAsync(
-                        certificateMessage,
-                        failure.CertificateRawData))
-                .ConfigureAwait(false);
-
-            if (!allowCertificate)
-                throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
-
-            serverInformation.PendingCertificateTrusts.RemoveAll(item =>
-                item.Protocol == failure.Protocol &&
-                string.Equals(item.Host, failure.Host, StringComparison.OrdinalIgnoreCase) &&
-                item.Port == failure.Port);
-            serverInformation.PendingCertificateTrusts.Add(failure.CreateTrust(serverInformation.AccountId));
+            await ServerCertificateTrustFlow.AcceptAsync(
+                connectivityResult.CertificateFailure,
+                connectivityResult.FailedReason,
+                serverInformation,
+                serverInformation.AccountId,
+                ShowCertificatePromptAsync).ConfigureAwait(false);
         }
     }
+
+    private Task<bool> ShowCertificatePromptAsync(ServerCertificateTrustPrompt prompt)
+        => ExecuteUIThreadAsync(() => _mailDialogService.ShowServerCertificateTrustDialogAsync(prompt));
 
     private async Task ValidatePop3ConnectivityAsync(CustomServerInformation serverInformation)
     {
@@ -903,22 +893,12 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                 return;
             }
 
-            var failure = result.CertificateFailure;
-            if (failure?.CanTrust != true)
-                throw new InvalidOperationException(result.FailedReason ?? Translator.IMAPSetupDialog_CertificateCannotBeTrusted);
-
-            var certificateMessage = MailServerCertificateMessage.Build(failure);
-            var allowCertificate = await ExecuteUIThreadAsync(() =>
-                _mailDialogService.ShowServerCertificateTrustDialogAsync(certificateMessage, failure.CertificateRawData)).ConfigureAwait(false);
-
-            if (!allowCertificate)
-                throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
-
-            serverInformation.PendingCertificateTrusts.RemoveAll(item =>
-                item.Protocol == failure.Protocol &&
-                string.Equals(item.Host, failure.Host, StringComparison.OrdinalIgnoreCase) &&
-                item.Port == failure.Port);
-            serverInformation.PendingCertificateTrusts.Add(failure.CreateTrust(serverInformation.AccountId));
+            await ServerCertificateTrustFlow.AcceptAsync(
+                result.CertificateFailure,
+                result.FailedReason,
+                serverInformation,
+                serverInformation.AccountId,
+                ShowCertificatePromptAsync).ConfigureAwait(false);
         }
     }
 
@@ -945,15 +925,32 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         var username = serverInformation.CalDavUsername;
         var password = serverInformation.CalDavPassword;
 
-        var settings = new CalDavConnectionSettings
+        while (true)
         {
-            ServiceUri = uri,
-            Username = username,
-            Password = password,
-            Authentication = await TryCreateDavBearerAsync(serverInformation, DavServiceKind.CalDav, uri)
-        };
+            var settings = new CalDavConnectionSettings
+            {
+                ServiceUri = uri,
+                Username = username,
+                Password = password,
+                EndpointTrust = DavEndpointTrust.For(serverInformation, MailServerProtocol.CalDav),
+                Authentication = await TryCreateDavBearerAsync(serverInformation, DavServiceKind.CalDav, uri)
+            };
 
-        await _calDavClient.DiscoverCalendarsAsync(settings).ConfigureAwait(false);
+            try
+            {
+                await _calDavClient.DiscoverCalendarsAsync(settings).ConfigureAwait(false);
+                return;
+            }
+            catch (Exception ex) when (ServerCertificateTrustFlow.TryGetFailure(ex, out var failure))
+            {
+                await ServerCertificateTrustFlow.AcceptAsync(
+                    failure,
+                    null,
+                    serverInformation,
+                    serverInformation.AccountId,
+                    ShowCertificatePromptAsync).ConfigureAwait(false);
+            }
+        }
     }
 
     /// <summary>
@@ -1016,7 +1013,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         if (_cardDavClient == null)
             return;
 
-        try
+        while (true)
         {
             var settings = new CardDavConnectionSettings
             {
@@ -1024,19 +1021,33 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                 AccountAddress = serverInformation.Address,
                 Authentication = await TryCreateDavBearerAsync(serverInformation, DavServiceKind.CardDav, serviceUri)
                                  ?? new DavAuthenticationProfile
-                                 {
-                                     Kind = DavAuthenticationKind.Basic,
-                                     Username = serverInformation.CalDavUsername,
-                                     Password = serverInformation.CalDavPassword
-                                 }
+                {
+                    Kind = DavAuthenticationKind.Basic,
+                    Username = serverInformation.CalDavUsername,
+                    Password = serverInformation.CalDavPassword,
+                    EndpointTrust = DavEndpointTrust.For(serverInformation, MailServerProtocol.CardDav)
+                }
             };
 
-            await _cardDavClient.DiscoverAsync(settings).ConfigureAwait(false);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            await ExecuteUIThread(() => IsCardDavExpanded = true).ConfigureAwait(false);
-            throw new InvalidOperationException(string.Format(Translator.ImapSetup_CardDavConnectionFailed, ex.Message), ex);
+            try
+            {
+                await _cardDavClient.DiscoverAsync(settings).ConfigureAwait(false);
+                return;
+            }
+            catch (Exception ex) when (ServerCertificateTrustFlow.TryGetFailure(ex, out var failure))
+            {
+                await ServerCertificateTrustFlow.AcceptAsync(
+                    failure,
+                    null,
+                    serverInformation,
+                    serverInformation.AccountId,
+                    ShowCertificatePromptAsync).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                await ExecuteUIThread(() => IsCardDavExpanded = true).ConfigureAwait(false);
+                throw new InvalidOperationException(string.Format(Translator.ImapSetup_CardDavConnectionFailed, ex.Message), ex);
+            }
         }
     }
 

@@ -110,7 +110,7 @@ public sealed class WinoAccountPopoverViewController : NSViewController
         var descriptionLabel = WinoStyle.Label(description, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
         var text = WinoLayout.VStack(2, titleLabel, descriptionLabel);
         var row = WinoLayout.HStack(12, tile, text);
-        row.Alignment = NSLayoutAttribute.Top;
+        row.Alignment = NSLayoutAttribute.CenterY;
         row.EdgeInsets = new NSEdgeInsets(12, 12, 12, 12);
         WinoLayout.Fill(row, card);
         text.TrailingAnchor.ConstraintEqualTo(row.TrailingAnchor, -12).Active = true;

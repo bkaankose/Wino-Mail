@@ -348,6 +348,7 @@
         </Grid>
 
         <Grid
+            x:Name="EditorHost"
             Grid.Row="2"
             Background="Transparent"
             CornerRadius="{ThemeResource ControlCornerRadius}">

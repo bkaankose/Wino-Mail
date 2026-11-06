@@ -80,7 +80,7 @@ public sealed class ImapAuthCapabilityProbe : IImapAuthCapabilityProbe
                     return true;
                 }
 
-                return MailKitServerCertificateValidator.Validate(
+                return global::Wino.Services.ServerCertificateValidator.Validate(
                     certificate, chain, sslPolicyErrors, MailServerProtocol.Imap, host, port, storedTrust, transientTrust);
             };
 

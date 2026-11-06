@@ -135,7 +135,7 @@ public partial class AccountSetupPageViewModel
         var result = await _setupRunner.RunAsync(
             plan,
             new StepUpdateHandler(ApplyStepUpdate),
-            (message, certificateRawData) => _dialogService.ShowServerCertificateTrustDialogAsync(message, certificateRawData));
+            _dialogService.ShowServerCertificateTrustDialogAsync);
 
         _createdAccount = result.Account;
         _isCreatedAccountSaved = result.IsAccountSaved;

@@ -23,6 +23,7 @@ using Wino.Core.Domain.Models.CardDav;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Validation;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Helpers;
 
 namespace Wino.Mail.ViewModels;
 
@@ -903,19 +904,12 @@ public partial class AccountSetupPageViewModel
                 return;
             }
 
-            var failure = result.CertificateFailure;
-            if (failure?.CanTrust != true)
-                throw new InvalidOperationException(result.FailedReason ?? Translator.IMAPSetupDialog_CertificateCannotBeTrusted);
-
-            var isTrusted = await _dialogService.ShowServerCertificateTrustDialogAsync(MailServerCertificateMessage.Build(failure), failure.CertificateRawData);
-            if (!isTrusted)
-                throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
-
-            server.PendingCertificateTrusts.RemoveAll(item =>
-                item.Protocol == failure.Protocol &&
-                string.Equals(item.Host, failure.Host, StringComparison.OrdinalIgnoreCase) &&
-                item.Port == failure.Port);
-            server.PendingCertificateTrusts.Add(failure.CreateTrust(server.AccountId));
+            await ServerCertificateTrustFlow.AcceptAsync(
+                result.CertificateFailure,
+                result.FailedReason,
+                server,
+                server.AccountId,
+                _dialogService.ShowServerCertificateTrustDialogAsync);
         }
     }
 

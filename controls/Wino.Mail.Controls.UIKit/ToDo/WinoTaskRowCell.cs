@@ -209,7 +209,7 @@ public sealed class WinoTaskGroupHeaderView : UITableViewHeaderFooterView
     public new const string ReuseIdentifier = "WinoTaskGroupHeader";
 
     private readonly UILabel _key = WinoStyle.Label(string.Empty, WinoToDoStyle.GroupHeader, WinoStyle.SecondaryText);
-    private readonly UILabel _count = WinoStyle.Label(string.Empty, WinoToDoStyle.GroupHeader, WinoStyle.TertiaryText);
+    private readonly UILabel _count = WinoStyle.Label(string.Empty, WinoToDoStyle.GroupHeader, WinoStyle.SecondaryText);
 
     public WinoTaskGroupHeaderView() : this(new NSString(ReuseIdentifier)) { }
 

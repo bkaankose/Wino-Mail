@@ -15,6 +15,9 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.CardDav;
+using Wino.Core.Domain.Models.Connectivity;
+using Wino.Mail.ViewModels.Helpers;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
@@ -64,6 +67,21 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         _calDavClient = calDavClient;
         _storeService = storeService;
         _appStorePurchases = appStorePurchases;
+    }
+
+    /// <summary>The App Store price line for Unlimited Accounts; empty outside App Store builds or until StoreKit answers.</summary>
+    [ObservableProperty]
+    public partial string AppStoreUnlimitedAccountsPriceText { get; set; } = string.Empty;
+
+    public bool IsAppStoreRestoreAvailable => PlatformCapabilities.AppleAppStore && _appStorePurchases?.IsAvailable == true;
+
+    [RelayCommand]
+    private async Task RestoreAppStorePurchasesAsync()
+    {
+        if (!IsAppStoreRestoreAvailable || _appStorePurchases is null) return;
+
+        await _appStorePurchases.RestoreAsync().ConfigureAwait(false);
+        await ManageStorePurchasesAsync().ConfigureAwait(false);
     }
 
     [ObservableProperty]
@@ -190,28 +208,12 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                 break;
             }
 
-            var failure = connectivityResult.CertificateFailure;
-            if (failure?.CanTrust != true)
-                throw new InvalidOperationException(connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_CertificateCannotBeTrusted);
-
-            var certificateMessage =
-                $"{Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row0}\n\n" +
-                $"{Translator.IMAPSetupDialog_CertificateProtocol}: {failure.Protocol}\n{Translator.IMAPSetupDialog_CertificateEndpoint}: {failure.Host}:{failure.Port}\n{Translator.IMAPSetupDialog_CertificateSubject}: {failure.Subject}\n{Translator.IMAPSetupDialog_CertificateSans}: {failure.SubjectAlternativeNames}\n" +
-                $"{Translator.IMAPSetupDialog_CertificateIssuer}: {failure.Issuer}\n" +
-                $"{Translator.IMAPSetupDialog_CertificateValidFrom}: {failure.ValidFromUtc:u}\n" +
-                $"{Translator.IMAPSetupDialog_CertificateValidTo}: {failure.ValidToUtc:u}\n{Translator.IMAPSetupDialog_CertificateFingerprint}: {failure.CertificateSha256}\n{Translator.IMAPSetupDialog_CertificateFailureReason}: {failure.ChainStatusDetails}\n\n" +
-                $"{Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row1}";
-
-            var allowCertificate = await ExecuteUIThreadAsync(
-                () => MailDialogService.ShowServerCertificateTrustDialogAsync(certificateMessage, failure.CertificateRawData))
-                .ConfigureAwait(false);
-
-            if (!allowCertificate)
-                throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
-
-            serverInformation.PendingCertificateTrusts.RemoveAll(item => item.Protocol == failure.Protocol &&
-                string.Equals(item.Host, failure.Host, StringComparison.OrdinalIgnoreCase) && item.Port == failure.Port);
-            serverInformation.PendingCertificateTrusts.Add(failure.CreateTrust(serverInformation.AccountId));
+            await ServerCertificateTrustFlow.AcceptAsync(
+                connectivityResult.CertificateFailure,
+                connectivityResult.FailedReason,
+                serverInformation,
+                serverInformation.AccountId,
+                ShowCertificatePromptAsync).ConfigureAwait(false);
         }
 
         if (serverInformation.CalendarSupportMode != ImapCalendarSupportMode.CalDav)
@@ -220,15 +222,35 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         if (string.IsNullOrWhiteSpace(serverInformation.CalDavServiceUrl))
             throw new InvalidOperationException(Translator.ImapCalDavSettingsPage_CalDavUrlRequired);
 
-        var settings = new CalDavConnectionSettings
+        while (true)
         {
-            ServiceUri = new Uri(serverInformation.CalDavServiceUrl, UriKind.Absolute),
-            Username = serverInformation.CalDavUsername,
-            Password = serverInformation.CalDavPassword
-        };
+            var settings = new CalDavConnectionSettings
+            {
+                ServiceUri = new Uri(serverInformation.CalDavServiceUrl, UriKind.Absolute),
+                Username = serverInformation.CalDavUsername,
+                Password = serverInformation.CalDavPassword,
+                EndpointTrust = DavEndpointTrust.For(serverInformation, MailServerProtocol.CalDav)
+            };
 
-        await _calDavClient.DiscoverCalendarsAsync(settings).ConfigureAwait(false);
+            try
+            {
+                await _calDavClient.DiscoverCalendarsAsync(settings).ConfigureAwait(false);
+                return;
+            }
+            catch (Exception ex) when (ServerCertificateTrustFlow.TryGetFailure(ex, out var failure))
+            {
+                await ServerCertificateTrustFlow.AcceptAsync(
+                    failure,
+                    null,
+                    serverInformation,
+                    serverInformation.AccountId,
+                    ShowCertificatePromptAsync).ConfigureAwait(false);
+            }
+        }
     }
+
+    private Task<bool> ShowCertificatePromptAsync(ServerCertificateTrustPrompt prompt)
+        => ExecuteUIThreadAsync(() => MailDialogService.ShowServerCertificateTrustDialogAsync(prompt));
 
     [RelayCommand]
     private void EditMergedAccounts(MergedAccountProviderDetailViewModel mergedAccountProviderDetailViewModel)
@@ -431,6 +453,14 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
 
         await ManageStorePurchasesAsync().ConfigureAwait(false);
+
+        if (IsAppStoreRestoreAvailable && _appStorePurchases is not null)
+        {
+            var price = await _appStorePurchases.GetDisplayPriceAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS).ConfigureAwait(false);
+            await ExecuteUIThread(() => AppStoreUnlimitedAccountsPriceText = price is null
+                ? string.Empty
+                : string.Format(Translator.WinoAccount_Management_UnlimitedAppStorePrice, price));
+        }
     }
 
     private static string BuildExportSuccessMessage(Wino.Core.Domain.Models.Accounts.WinoAccountSyncExportResult result)

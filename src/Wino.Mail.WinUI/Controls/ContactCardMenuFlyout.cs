@@ -111,6 +111,7 @@ public partial class ContactCardMenuFlyout : WinoContextFlyout
             {
                 Text = Translator.ContactAction_AddToList,
                 Icon = CreateIcon(WinoIconGlyph.People),
+                IsSearchable = true,
                 Items = assignItems,
                 AutomationId = "ContactCardContextAssignToList"
             });
@@ -136,6 +137,7 @@ public partial class ContactCardMenuFlyout : WinoContextFlyout
             {
                 Text = Translator.MailCategoryMenuItem,
                 Icon = CreateIcon(WinoIconGlyph.SpecialFolderCategory),
+                IsSearchable = true,
                 Items = categoryItems,
                 AutomationId = "ContactCardContextCategories"
             });

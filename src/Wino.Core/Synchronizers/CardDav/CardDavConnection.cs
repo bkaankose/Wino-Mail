@@ -56,7 +56,8 @@ internal static class CardDavConnection
             {
                 Kind = DavAuthenticationKind.Basic,
                 Username = string.IsNullOrWhiteSpace(server.CalDavUsername) ? account.Address : server.CalDavUsername,
-                Password = password ?? server.CalDavPassword
+                Password = password ?? server.CalDavPassword,
+                EndpointTrust = new DavEndpointTrust { AccountId = account.Id, Protocol = MailServerProtocol.CardDav }
             }
         };
     }

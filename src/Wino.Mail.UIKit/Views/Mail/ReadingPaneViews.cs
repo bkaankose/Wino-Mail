@@ -486,8 +486,8 @@ public sealed class MailReaderCommand(MailOperation operation, WinoIconGlyph gly
 public interface IMailReaderCommands
 {
     /// <summary>
-    /// The primary commands in Windows order (Reply, Reply all, Forward | Archive, Delete, Move, Flag, Mark read); a null
-    /// entry is a group divider. Disabled defaults while nothing is loaded.
+    /// The primary commands in the order of the Reader actions setting (Move follows Delete); a null entry is a group
+    /// divider. Disabled defaults while nothing is loaded.
     /// </summary>
     IReadOnlyList<MailReaderCommand?> PrimaryCommands { get; }
 

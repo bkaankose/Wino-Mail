@@ -7,6 +7,8 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.CardDav;
+using Wino.Mail.ViewModels.Helpers;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
@@ -153,7 +155,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
         var result = await _accountSetupRunner.RunAsync(
             plan,
             new StepUpdateHandler(ApplyStepUpdate),
-            (message, certificateRawData) => _dialogService.ShowServerCertificateTrustDialogAsync(message, certificateRawData));
+            _dialogService.ShowServerCertificateTrustDialogAsync);
 
         _createdAccount = result.Account;
         _dbWritten = result.IsAccountSaved;

@@ -29,6 +29,7 @@ internal sealed class MailListSearchFilterPopover : NSObject
     private readonly NSDatePicker _startDate;
     private readonly NSDatePicker _endDate;
     private readonly NSStackView _customRange;
+    private readonly NSGridView _grid;
     private readonly NSPopUpButton _readStatus;
     private readonly NSButton _attachments;
     private readonly NSButton _flagged;
@@ -65,7 +66,7 @@ internal sealed class MailListSearchFilterPopover : NSObject
         _flagged = NSButton.CreateCheckbox(Translator.SearchBar_Flagged, () => { if (!_updating) _editor.IsFlagged = _flagged!.State == NSCellStateValue.On; });
         var onlyShow = WinoLayout.HStack(16, _attachments, _flagged);
 
-        var grid = NSGridView.Create(new NSView[][]
+        var grid = _grid = NSGridView.Create(new NSView[][]
         {
             [RowLabel(Translator.SearchBar_SearchIn), _scope],
             [RowLabel(Translator.SearchBar_From), _sender],
@@ -103,11 +104,13 @@ internal sealed class MailListSearchFilterPopover : NSObject
         var title = WinoStyle.Label(Translator.SearchBar_Filters, WinoStyle.BodyStrong);
         var separator = new WinoSeparator();
         var stack = WinoLayout.VStack(10, title, grid, separator, footer);
-        stack.EdgeInsets = new NSEdgeInsets(14, 16, 14, 16);
         foreach (var view in new NSView[] { separator, footer }) view.WidthAnchor.ConstraintEqualTo(grid.WidthAnchor).Active = true;
-        WinoAccessibility.Label(stack, Translator.SearchBar_Filters);
+        // Stack edge insets were not kept once the popover sized its content view, so the fields met the right edge.
+        var content = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
+        WinoLayout.Fill(stack, content, 16, 20, 16, 20);
+        WinoAccessibility.Label(content, Translator.SearchBar_Filters);
 
-        var controller = new NSViewController { View = stack };
+        var controller = new NSViewController { View = content };
         _popover = new NSPopover
         {
             Behavior = NSPopoverBehavior.Transient,
@@ -171,6 +174,7 @@ internal sealed class MailListSearchFilterPopover : NSObject
             _keywordsHint.Hidden = !_editor.IsLocalSearch;
             Select(_dateRange, _editor.DateRangeOptions, _editor.SelectedDateRange);
             _customRange.Hidden = !_editor.IsCustomDateRange;
+            _grid.GetRow(5).Hidden = !_editor.IsCustomDateRange;
             var today = DateTime.Today;
             _startDate.DateValue = ToNSDate(_editor.CustomStartDate?.Date ?? today.AddDays(-29));
             _endDate.DateValue = ToNSDate(_editor.CustomEndDate?.Date ?? today);

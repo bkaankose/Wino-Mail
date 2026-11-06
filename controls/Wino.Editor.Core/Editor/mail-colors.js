@@ -14,6 +14,7 @@
     "use strict";
 
     const minimumContrast = 4.5;
+    const replacedBackdropContrast = 5.5;
     // Spacer and tracking images are tiny; painting a backdrop would show them as light strips.
     const minimumBackdropImageSize = 8;
     const skippedTags = new Set([
@@ -181,10 +182,16 @@
 
     // The target never exceeds the contrast the sender's own pair had, so a color
     // combination that was designed that way (white on a bright red banner) stays untouched.
+    // Once the engine has replaced the backdrop, the sender's pair no longer exists, so the text
+    // gets the full minimum plus headroom for thin anti-aliased strokes (grey body text measured
+    // 3.98:1 and adapted links 4.15:1 on screen when the sender's weaker contrast was kept).
     function adjustText(color, background, originalBackground) {
         const opaque = color.a >= 1 ? color : blend(color, background);
         const original = color.a >= 1 ? color : blend(color, originalBackground);
-        const target = Math.min(minimumContrast, contrast(original, originalBackground));
+        const replacedBackdrop = background.r !== originalBackground.r || background.g !== originalBackground.g || background.b !== originalBackground.b;
+        const target = replacedBackdrop && luminance(background) < 0.18
+            ? replacedBackdropContrast
+            : Math.min(minimumContrast, contrast(original, originalBackground));
         if (contrast(opaque, background) >= target - 0.01) return null;
 
         const hsl = toHsl(color);

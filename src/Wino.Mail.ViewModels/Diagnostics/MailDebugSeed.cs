@@ -28,17 +28,20 @@ public static class MailDebugSeed
     public static async Task<string> SeedAsync(IServiceProvider services, bool includeOtherModes = true)
     {
         var accounts = services.GetRequiredService<IAccountService>();
-        if ((await accounts.GetAccountsAsync()).FirstOrDefault(account => account.Address == DemoAddress) is { } existing)
+        var existingAccounts = await accounts.GetAccountsAsync();
+        if (existingAccounts.FirstOrDefault(account => account.Address == DemoAddress) is { } existing)
         {
             // Accounts seeded before the root alias was added cannot create drafts (New Message, Reply).
             if (await accounts.GetPrimaryAccountAliasAsync(existing.Id) is null) await accounts.CreateRootAliasAsync(existing.Id, DemoAddress);
             return "already seeded";
         }
 
+        // Account names are unique; a lab device that already has a real "Personal" account gets the demo beside it.
+        var demoName = existingAccounts.Any(account => account.Name == "Personal") ? "Personal (demo)" : "Personal";
         var account = new MailAccount
         {
             Id = Guid.NewGuid(),
-            Name = "Personal",
+            Name = demoName,
             SenderName = "Alex Morgan",
             Address = DemoAddress,
             ProviderType = MailProviderType.IMAP4,
@@ -51,7 +54,7 @@ public static class MailDebugSeed
         var server = new CustomServerInformation
         {
             Id = Guid.NewGuid(),
-            DisplayName = "Personal",
+            DisplayName = demoName,
             Address = DemoAddress,
             IncomingServer = "127.0.0.1",
             IncomingServerPort = "1",

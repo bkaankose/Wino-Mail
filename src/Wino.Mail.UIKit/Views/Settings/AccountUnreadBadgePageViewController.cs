@@ -338,7 +338,7 @@ public sealed class AccountUnreadBadgePageViewController(AccountUnreadBadgePageV
 
     private static UILabel ColumnLabel(string text)
     {
-        var label = WinoStyle.Label(text, WinoStyle.Caption, WinoStyle.TertiaryText);
+        var label = WinoStyle.Label(text, WinoStyle.Caption, WinoStyle.SecondaryText);
         label.TextAlignment = UITextAlignment.Center;
         label.AdjustsFontSizeToFitWidth = true;
         label.MinimumScaleFactor = 0.8f;

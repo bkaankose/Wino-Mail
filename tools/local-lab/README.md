@@ -18,7 +18,7 @@ Every password in the lab is `1`: mailboxes, DAV logins, the Stalwart admin cons
 .\scripts\lab\windows\local-lab.ps1 up
 ```
 
-`up` pulls the pinned images, creates the mailboxes and the lab TLS certificates, starts eleven containers (including the [OAuth server](#oauth-server-stalwart-10) and its CRL server `lab-pki`), waits until every endpoint accepts the lab credentials, seeds mail/calendars/contacts, verifies the advertised IMAP capabilities, sends a delivery probe between every pair of accounts, and generates the client artifacts.
+`up` pulls the pinned images, creates the mailboxes, the TLS test certificates and the OAuth server certificate, starts the containers (including the [OAuth server](#oauth-server-stalwart-10) and its CRL server `lab-pki`), waits until every endpoint accepts the lab credentials, seeds mail/calendars/contacts, verifies the advertised IMAP capabilities, sends a delivery probe between every pair of accounts, and generates the client artifacts.
 The first run takes several minutes (image downloads, James and Stalwart start-up, ~850 messages).
 
 Then install the artifacts into Wino:
@@ -40,7 +40,7 @@ It is the only command that touches application data.
 | 4 | `greenmail` | GreenMail 2.1.8 (`LITERAL+ UIDPLUS SORT IDLE MOVE QUOTA`) | `dave@greenmail.test` | `127.0.0.1:4143` | `127.0.0.1:4025` (hub port 25, no authentication) | `http://127.0.0.1:8804/` (Radicale, login `dave`) | UID only |
 | 5 | `james` | Apache James 3.9.1, memory backend | `eve@james.test` | `127.0.0.1:5143` | `127.0.0.1:5587` | `http://127.0.0.1:8805/` (Radicale, login `eve`) | QRESYNC (probed) |
 
-All connections are plaintext (`ImapConnectionSecurity.None`) with password authentication, except the GreenMail account's outgoing server, which is the hub's unauthenticated port, and the OAuth server below, which is TLS only.
+The account connections are plaintext (`ImapConnectionSecurity.None`) with password authentication (the [TLS test endpoints](#tls-test-endpoints) are separate), except the GreenMail account's outgoing server, which is the hub's unauthenticated port, and the OAuth server below, which is TLS only.
 Published ports bind only to `127.0.0.1`.
 
 ## OAuth server (Stalwart 1.0)
@@ -62,7 +62,7 @@ This server is not part of `Wino210.db`, the backup, the delivery probes, or the
 | Token, registration, revocation | `/auth/token`, `/auth/register`, `/auth/revoke`, also `/auth/introspect`, `/auth/device` |
 | Scopes | `urn:ietf:params:oauth:scope:mail` is required for IMAP/SMTP; add `offline_access` for a refresh token |
 | Web admin | `https://mail.stalwartoauth.test/admin` (`admin` / `1`); management API also on `http://127.0.0.1:8806/` |
-| CRL and CA certificate | `http://127.0.0.1:8807/lab-ca.crl`, `http://127.0.0.1:8807/lab-ca.crt` (`lab-pki` service) |
+| CRL and CA certificate | `http://127.0.0.1:8808/lab-ca.crl`, `http://127.0.0.1:8808/lab-ca.crt` (`lab-pki` service) |
 
 ### Trust the lab CA once
 
@@ -74,7 +74,7 @@ This server is not part of `Wino210.db`, the backup, the delivery probes, or the
 `trust` adds `ca.crt` to the current user's Trusted Root store (Windows asks for confirmation) and adds `127.0.0.1 mail.stalwartoauth.test stalwartoauth.test # wino-local-lab` to the hosts file (UAC prompt).
 The CA is name-constrained to `*.test`, `localhost`, and `127.0.0.0/8`, so it cannot vouch for real sites.
 `untrust` removes both. Delete `tools/local-lab/tls` only together with `untrust`; the next `up` then issues a new CA that must be trusted again.
-Revocation can be checked online: the server certificate names a CRL distribution point `http://127.0.0.1:8807/lab-ca.crl` and AIA caIssuers `http://127.0.0.1:8807/lab-ca.crt`.
+Revocation can be checked online: the server certificate names a CRL distribution point `http://127.0.0.1:8808/lab-ca.crl` and AIA caIssuers `http://127.0.0.1:8808/lab-ca.crt`.
 The `lab-pki` container serves both from `tls/pub`; the CRL is empty, signed by the lab CA, and valid for ten years.
 `up` renews the CRL when less than a year is left and reissues the server certificate when it lacks these URLs; the CA itself is never replaced.
 Windows (`X509Chain` with `RevocationMode.Online`, MailKit with `CheckCertificateRevocation = true`, `curl.exe` without `--ssl-no-revoke`) then reports no chain errors once the CA is trusted.
@@ -123,6 +123,29 @@ Other endpoints:
 | `http://127.0.0.1:5800/` | James WebAdmin REST (send header `Password: 1`) |
 | `http://127.0.0.1:4080/` | GreenMail API |
 
+## TLS test endpoints
+
+The `tls` service (nginx) puts implicit TLS in front of the hub's IMAP and submission ports and Baïkal, with one port per certificate variant. They exercise Wino's server certificate trust prompt (normal and dangerous tiers). Use the `dovecot` account (`alice@dovecot.test`, password `1`, connection security SSL/TLS) and Baïkal login `alice` for DAV.
+
+| Variant | Certificate | IMAP | SMTP | CalDAV/CardDAV (Baïkal) |
+|---|---|---|---|---|
+| valid | Issued by the lab CA for `localhost` and `127.0.0.1` | `127.0.0.1:1993` | `127.0.0.1:1465` | `https://127.0.0.1:8443/dav.php/` |
+| wronghost | Issued for `wrong-host.wino.lab` only | `127.0.0.1:2993` | `127.0.0.1:2465` | `https://127.0.0.1:8444/dav.php/` |
+| expired | Valid from 1 Jan 2024 to 1 Jan 2025 | `127.0.0.1:3993` | `127.0.0.1:3465` | `https://127.0.0.1:8445/dav.php/` |
+| revoked | Listed in the lab CA's CRL | `127.0.0.1:4993` | `127.0.0.1:4465` | `https://127.0.0.1:8446/dav.php/` |
+
+The `crl` service serves the CRL at `http://127.0.0.1:8807/lab-ca.crl`, the distribution point every lab leaf names. Stop it (`docker compose --project-name wino-local-lab --file tools/local-lab/compose.yaml stop crl`) to see an unreachable revocation service.
+
+`up` generates the certificates and starts these services with the rest of the lab. To start only the TLS endpoints with the hub and Baïkal, without seeding:
+
+```powershell
+.\scripts\lab\windows\local-lab.ps1 tls
+```
+
+`tls/make-certs.sh` runs in the docker-mailserver image and writes the lab CA, the keys, the leaves, and the CRL into `tools/local-lab/tls/generated`, which Git ignores. It is idempotent: an existing CA and leaves are kept, so a certificate you already trusted in Wino stays the same; only the CRL is re-signed. Delete `tls/generated` to start over.
+
+The lab CA is not trusted by Windows, so every variant shows the untrusted-authority reason. The script never touches certificate stores. To see a variant's other reasons alone (for example the revoked tier without the untrusted root), import `tools/local-lab/tls/generated/wino-lab-ca.crt` into **Current User > Trusted Root Certification Authorities** yourself, and remove it when you are done.
+
 Capability notes:
 
 - Dovecot replaces its whole CAPABILITY list when `imap_capability` is set, so the `condstore` container reads the stock list from the `dovecot` container at start-up and removes `QRESYNC`. A `uidonly` role (removes `CONDSTORE` too) exists in `provision/mailserver/user-patches.sh` if you want a second UID-only server.
@@ -141,6 +164,7 @@ Capability notes:
 | Command | Result |
 |---|---|
 | `up` | Start servers, provision, seed, verify, generate client artifacts |
+| `tls` | Generate the TLS test certificates and start the hub, Baïkal, and the TLS endpoints |
 | `status` | Container state, port reachability, artifact location |
 | `provision` | Re-create the Stalwart and James domain/account (James forgets them on restart) and re-apply the Stalwart OAuth settings |
 | `seed` | Add missing fixtures to running servers; existing edits, moves, and deletions are preserved |
@@ -194,7 +218,7 @@ Message-IDs are `<key.NNNN@wino.lab>`. Invitations use the other lab accounts as
 | Docker engine unavailable or wrong mode | Start Docker Desktop in Linux-container mode; the script also looks for Docker under `%LOCALAPPDATA%\Programs\DockerDesktop` |
 | Port occupied | Free the port listed in the error (all lab ports are in the tables above; the OAuth server needs `127.0.0.1:443`) |
 | `mail.stalwartoauth.test` does not resolve, or its certificate is untrusted | Run `trust` once |
-| `RevocationStatusUnknown` / `OfflineRevocation` for `mail.stalwartoauth.test` | Start `lab-pki` (`up`), check `http://127.0.0.1:8807/lab-ca.crl`; a certificate issued before the CRL change is reissued by `up` |
+| `RevocationStatusUnknown` / `OfflineRevocation` for `mail.stalwartoauth.test` | Start `lab-pki` (`up`), check `http://127.0.0.1:8808/lab-ca.crl`; a certificate issued before the CRL change is reissued by `up` |
 | Readiness timeout | `logs -Service <name>`; James needs about a minute on first start |
 | James account or mail missing after a restart | James uses the memory backend. Run `up` (or `provision` then `seed`) again; Wino resynchronizes the account |
 | Stalwart warnings about "database key defined in local configuration" | Expected; the lab keeps its settings in `provision/stalwart/config.toml` |
@@ -207,6 +231,7 @@ Server state lives in Compose-owned named volumes (`wino-local-lab_*`). `reset -
 ## Implementation references
 
 - [Compose configuration](compose.yaml)
+- [TLS endpoint configuration](provision/tls/nginx.conf), [certificate script](tls/make-certs.sh)
 - [docker-mailserver provisioning and capability patch](provision/mailserver/user-patches.sh)
 - [Stalwart configuration](provision/stalwart/config.toml)
 - [Stalwart OAuth store configuration](provision/stalwart-oauth/config.json), [lab CA script](provision/stalwart-oauth/make-certs.sh), [OAuth provisioning and verification](seed/stalwart_oauth.py)

@@ -124,13 +124,14 @@ services:
       lab:
         aliases: [mail.stalwartoauth.test]
 
-  # Serves the lab CA's CRL and certificate (./tls/pub) at http://127.0.0.1:8807/ for online revocation
-  # checks on Windows. The leaf certificate's CRL distribution point and AIA caIssuers point here.
+  # Serves the lab CA's CRL and certificate (./tls/pub) at http://127.0.0.1:8808/ for online revocation
+  # checks on Windows. The leaf certificate's CRL distribution point and AIA caIssuers point here (port 8808;
+  # 8807 belongs to the crl service of the TLS test endpoints).
   lab-pki:
     image: python:3.13-slim
     command: ['python', '-m', 'http.server', '80', '--directory', '/pub']
     ports:
-      - '127.0.0.1:8807:80'
+      - '127.0.0.1:8808:80'
     volumes:
       - ./tls/pub:/pub:ro
     healthcheck:
@@ -244,6 +245,58 @@ services:
       - radicale-james-data:/data
       - ./provision/radicale:/config:ro
     healthcheck: *radicale-health
+    networks: [lab]
+
+  # TLS test endpoints in front of the hub (IMAP, SMTP) and Baikal (CalDAV/CardDAV): one port per
+  # certificate variant (valid, wrong host, expired, revoked). Certificates come from tls/make-certs.sh.
+  tls:
+    # nginx 1.28.0 (alpine), pinned to the inspected image rather than a moving tag.
+    image: nginx:1.28.0-alpine@sha256:30f1c0d78e0ad60901648be663a710bdadf19e4c10ac6782c235200619158284
+    ports:
+      - '127.0.0.1:1993:1993'
+      - '127.0.0.1:2993:2993'
+      - '127.0.0.1:3993:3993'
+      - '127.0.0.1:4993:4993'
+      - '127.0.0.1:1465:1465'
+      - '127.0.0.1:2465:2465'
+      - '127.0.0.1:3465:3465'
+      - '127.0.0.1:4465:4465'
+      - '127.0.0.1:8443:8443'
+      - '127.0.0.1:8444:8444'
+      - '127.0.0.1:8445:8445'
+      - '127.0.0.1:8446:8446'
+    volumes:
+      - ./provision/tls/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./tls/generated/certs:/certs:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'nc -z 127.0.0.1 1993 && nc -z 127.0.0.1 8443']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [lab]
+
+  # Serves the lab CA's CRL at the distribution point every lab leaf names.
+  crl:
+    image: python:3.13-slim
+    ports:
+      - '127.0.0.1:8807:8807'
+    volumes:
+      - ./tls/generated/crl:/crl:ro
+    entrypoint: ['python', '-m', 'http.server', '8807', '--bind', '0.0.0.0', '--directory', '/crl']
+    healthcheck:
+      test: ['CMD-SHELL', "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8807/lab-ca.crl')\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [lab]
+
+  # Issues the lab CA, TLS leaves, and CRL into tls/generated (keys never leave that ignored folder).
+  certs:
+    image: ghcr.io/docker-mailserver/docker-mailserver:16.0.1
+    profiles: [tools]
+    volumes:
+      - ./tls:/tls
+    entrypoint: ['bash', '/tls/make-certs.sh']
     networks: [lab]
 
   # Provisioning, seeding, and verification tool. Standard library Python only.

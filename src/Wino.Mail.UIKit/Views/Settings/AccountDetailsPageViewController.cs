@@ -118,8 +118,9 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
             Bind.Button(Translator.AccountDetailsPage_ProfilePictureRemove, vm.RemoveProfilePictureCommand),
             Bind.Button(Translator.AccountDetailsPage_ProfilePictureRefresh, vm.RefreshProfilePictureCommand));
 
-        var name = Bind.TextField(vm, nameof(vm.AccountName), s => s.AccountName, (s, v) => s.AccountName = v, Translator.AccountSettingsDialog_AccountNamePlaceholder, 0);
-        WinoAccessibility.Label(name, Translator.AccountDetailsPage_Title);
+        var name = Bind.TextField(vm, nameof(vm.AccountName), s => s.AccountName, (s, v) => s.AccountName = v, Translator.AccountEditDialog_Message, 0);
+        WinoAccessibility.Label(name, Translator.AccountEditDialog_Message);
+        SaveWhenEditingEnds(name);
 
         var capabilityApply = Bind.Button(Translator.Buttons_Apply, vm.ApplyCapabilitiesCommand);
         capabilityApply.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
@@ -162,6 +163,7 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
             Bind.Button(Translator.SettingsEditAccountDetails_ImapCalDavSettings_Action, vm.EditImapCalDavSettingsCommand));
         var protocolLog = StackedCard(Translator.ProtocolLog_EnableTitle, Translator.ProtocolLog_EnableDescription, WinoIconGlyph.Pulse,
             Bind.Checkbox(vm, Translator.ProtocolLog_EnableCheckbox, nameof(vm.IsProtocolLogEnabled), s => s.IsProtocolLogEnabled, (s, v) => s.IsProtocolLogEnabled = v));
+        Bind.Bind(vm, nameof(vm.IsProtocolLogEnabled), s => s.IsProtocolLogEnabled, _ => SaveIfChanged());
         var protocolExport = StackedCard(Translator.ProtocolLog_ExportTitle, Translator.ProtocolLog_ExportDescription, WinoIconGlyph.ArrowDownload,
             ButtonRow(Bind.Button(Translator.ProtocolLog_ExportAction, vm.ExportProtocolLogsCommand), Bind.Button(Translator.ProtocolLog_UploadAction, vm.UploadProtocolLogsCommand)));
         foreach (var card in new UIView[] { imap, protocolLog, protocolExport })
@@ -169,15 +171,13 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
 
         AddTo(0, Group(null,
             pictureCard,
-            StackedCard(Translator.AccountDetailsPage_Title, Translator.AccountEditDialog_Message, WinoIconGlyph.Person, name),
+            StackedCard(Translator.AccountEditDialog_Message, null, WinoIconGlyph.Person, name),
             capabilities,
             colorCard,
             BuildExchangeSettings(),
             imap,
             protocolLog,
-            protocolExport,
-            Card(Translator.SettingsEditAccountDetails_Title, Translator.Buttons_Save, WinoIconGlyph.Save,
-                Bind.Button(Translator.Buttons_Save, vm.SaveChangesCommand, primary: true))));
+            protocolExport));
 
         var delete = Destructive(Bind.Button(Translator.Buttons_Delete, vm.DeleteAccountCommand));
         AddTo(0, Group(null, Card(Translator.SettingsDeleteAccount_Title, Translator.SettingsDeleteAccount_Description, WinoIconGlyph.Delete, delete)));
@@ -251,8 +251,9 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
         });
         AddTo(1, summary);
 
-        var senderName = StackedCard(Translator.AccountSettingsDialog_AccountName, Translator.SettingsEditAccountDetails_Description, WinoIconGlyph.Person,
-            Bind.TextField(vm, nameof(vm.SenderName), s => s.SenderName, (s, v) => s.SenderName = v, Translator.AccountSettingsDialog_AccountNamePlaceholder, 0));
+        var senderField = Bind.TextField(vm, nameof(vm.SenderName), s => s.SenderName, (s, v) => s.SenderName = v, Translator.AccountSettingsDialog_AccountNamePlaceholder, 0);
+        SaveWhenEditingEnds(senderField);
+        var senderName = StackedCard(Translator.AccountSettingsDialog_AccountName, null, WinoIconGlyph.Person, senderField);
         Bind.Visible(senderName, vm, nameof(vm.Account), s => s.IsSenderNameEditable);
         var addressLabel = Bind.Label(vm, nameof(vm.Address), s => s.Address, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0);
         var address = StackedCard(Translator.IMAPSetupDialog_MailAddress, null, WinoIconGlyph.Mail, addressLabel);
@@ -304,9 +305,32 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
             append));
     }
 
+    // iOS settings apply edits without a Save button: the name fields save when editing ends, like the color does.
+    private void SaveWhenEditingEnds(UITextField field)
+    {
+        EventHandler ended = (_, _) => SaveIfChanged();
+        field.AddTarget(ended, UIControlEvent.EditingDidEnd);
+        Bindings.Own(new ActionDisposable(() => field.RemoveTarget(ended, UIControlEvent.EditingDidEnd)));
+    }
+
+    private void SaveIfChanged()
+    {
+        var vm = ViewModel;
+        if (vm.Account is not { } account) return;
+        if (string.IsNullOrWhiteSpace(vm.AccountName))
+        {
+            vm.AccountName = account.Name;
+            return;
+        }
+        if (vm.AccountName == account.Name && vm.SenderName == account.SenderName && vm.IsProtocolLogEnabled == account.IsProtocolLogEnabled) return;
+        if (!vm.SaveChangesCommand.CanExecute(null)) return;
+        vm.SaveChangesCommand.Execute(null);
+        PageTitleChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     private static UIView FolderColumnHeader()
     {
-        var label = WinoStyle.Label(Translator.SettingsFolderSynchronize_Title, WinoStyle.Caption, WinoStyle.TertiaryText);
+        var label = WinoStyle.Label(Translator.SettingsFolderSynchronize_Title, WinoStyle.Caption, WinoStyle.SecondaryText);
         label.TextAlignment = UITextAlignment.Center;
         label.AdjustsFontSizeToFitWidth = true;
         label.WidthAnchor.ConstraintEqualTo((nfloat)FolderCheckColumnWidth).Active = true;

@@ -1,17 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- A mode before its pages are built, or the empty content pane: the navigation button, then the mode glyph and title
-     in one Wino zone. -->
+<!-- A mode before its pages are built, or the empty content pane: the navigation button in an empty pill with the docked
+     search bar's geometry (Views/Shell/DockedSearchBar), so the button stays put while a mode switch places its page,
+     then the mode glyph and title in one Wino zone. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-  <ImageButton
-      android:id="@+id/mode_placeholder_navigation"
-      android:layout_width="48dp"
-      android:layout_height="48dp"
-      android:layout_marginStart="4dp"
-      android:background="?attr/selectableItemBackgroundBorderless" />
+  <FrameLayout
+      android:id="@+id/mode_placeholder_bar"
+      android:layout_width="match_parent"
+      android:layout_height="56dp"
+      android:layout_marginStart="16dp"
+      android:layout_marginTop="12dp"
+      android:layout_marginEnd="16dp"
+      android:layout_marginBottom="8dp"
+      android:paddingStart="4dp"
+      android:paddingEnd="4dp">
+
+    <ImageButton
+        android:id="@+id/mode_placeholder_navigation"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:background="?attr/selectableItemBackgroundBorderless" />
+  </FrameLayout>
 
   <com.winomail.presentation.WinoZoneLayout
       android:layout_width="match_parent"

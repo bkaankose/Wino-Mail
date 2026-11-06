@@ -425,7 +425,10 @@ public class WinoMailRowCell : UITableViewCell
         _contentBottom.Constant = -(nfloat)WinoMailRowMetrics.Padding(density);
 
         _avatar.Hidden = !model.ShowPicture;
-        _avatar.Size = WinoMailRowMetrics.AvatarSize(density);
+        _avatar.Size = WinoStyle.ScaledIcon(WinoMailRowMetrics.AvatarSize(density), TraitCollection, 1.5);
+        _pinGlyph.PointSize = WinoStyle.ScaledIcon(12, TraitCollection);
+        _attachmentGlyph.PointSize = WinoStyle.ScaledIcon(14, TraitCollection);
+        _flagGlyph.PointSize = WinoStyle.ScaledIcon(14, TraitCollection);
         _avatar.Image = model.Picture;
         _avatar.SetIdentity(string.IsNullOrWhiteSpace(model.Sender) ? model.SenderAddress : model.Sender,
             string.IsNullOrWhiteSpace(model.SenderAddress) ? model.Sender : model.SenderAddress);

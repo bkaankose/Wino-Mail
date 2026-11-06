@@ -1,0 +1,26 @@
+{
+  "version": "2.2.10",
+  "isStarred": false,
+  "features": [
+    {
+      "image": "widgets-and-live-tiles.png",
+      "title": "Widgets and Live Tiles",
+      "description": "See new mail, today's events and your tasks without opening Wino. Add Wino widgets to the Windows 11 Widgets Board, or pin the Live Tile on Windows 10. Set them up in Settings > Widgets / Live Tiles."
+    },
+    {
+      "image": "mail-list-date-groups.png",
+      "title": "Group mail by date ranges",
+      "description": "Keep a long inbox tidy. Your mail can now sit under Today, Yesterday, Last week, Last month and older ranges instead of one header per day. Choose By day groups in Settings > Message list > Date grouping type."
+    },
+    {
+      "image": "trust-server-certificates.png",
+      "title": "Trust your own servers",
+      "description": "Run your own mail server? You can now connect when its certificate is self-signed, expired or made for another name. Wino shows what is wrong with the certificate first, and you decide whether to trust it."
+    },
+    {
+      "image": "rename-folders.png",
+      "title": "Rename any folder",
+      "description": "Rename folders, including system folders, and give them a display name that only Wino shows. IMAP folders keep the names your server uses. Find it in your account's Folder Customization."
+    }
+  ]
+}

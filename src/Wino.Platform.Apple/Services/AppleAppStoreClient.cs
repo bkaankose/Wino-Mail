@@ -17,6 +17,9 @@ public sealed class AppleAppStoreClient : IAppStoreClient
     public async Task<string?> GetStorefrontCountryCodeAsync()
         => (await StoreKit2Client.GetStorefrontAsync().ConfigureAwait(false))?.CountryCode;
 
+    public async Task<Dictionary<string, string>> GetDisplayPricesAsync(IEnumerable<string> productIds)
+        => (await StoreKit2Client.GetProductsAsync(productIds).ConfigureAwait(false)).ToDictionary(p => p.Id, p => p.DisplayPrice);
+
     public async Task<IReadOnlyList<AppStoreTransactionInfo>> GetCurrentEntitlementsAsync()
         => Map(await StoreKit2Client.GetCurrentEntitlementsAsync().ConfigureAwait(false));
 

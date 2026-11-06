@@ -43,18 +43,18 @@ public sealed class PersonalizationPageViewController(PersonalizationPageViewMod
         Bindings.Own(new ActionDisposable(() => swatches.SelectionChanged -= picked));
         Bind.Enabled(swatches, _appearance, nameof(UIKitAppearanceModel.UseSystemAccent), s => !s.UseSystemAccent);
 
-        var accent = Expander(Translator.SettingsAccentColor_Title, Translator.SettingsAccentColor_Description, WinoIconGlyph.Color, null);
+        var accent = Expander(Translator.SettingsAccentColor_Title, null, WinoIconGlyph.Color, null);
         accent.Add(swatches, 12, WinoSettingsStyle.CardPadding, 12, WinoSettingsStyle.CardPadding);
         // The check button is its own row under the swatches (no empty card title above it).
         accent.Add(Bind.Checkbox(_appearance, Translator.SettingsAccentColor_UseSystemAccentColor, nameof(UIKitAppearanceModel.UseSystemAccent),
             s => s.UseSystemAccent, (s, v) => s.UseSystemAccent = v), 4, WinoSettingsStyle.CardPadding, 4, WinoSettingsStyle.CardPadding);
 
         // Three and two segments do not fit beside the text on a phone: the control goes under it.
-        var appearance = StackedCard(Translator.SettingsElementTheme_Title, Translator.SettingsElementTheme_SelectThemeDescription, WinoIconGlyph.DarkTheme,
+        var appearance = StackedCard(Translator.SettingsElementTheme_Title, null, WinoIconGlyph.DarkTheme,
             Bind.Segmented(_appearance, vm.ElementThemes.Select(theme => theme.Title).ToArray(),
                 nameof(UIKitAppearanceModel.ThemeIndex), s => s.ThemeIndex, (s, v) => s.ThemeIndex = v));
 
-        var iconStyle = StackedCard(Translator.SettingsIconStyle_Title, Translator.SettingsIconStyle_Description, WinoIconGlyph.IconStyle,
+        var iconStyle = StackedCard(Translator.SettingsIconStyle_Title, Translator.IOS_SettingsHint_IconStyle, WinoIconGlyph.IconStyle,
             Bind.Segmented(p, vm.IconStyles.Select(style => style.Title).ToArray(), nameof(p.IconStyle),
                 s => vm.IconStyles.FindIndex(style => style.IconStyle == s.IconStyle),
                 (s, v) => { if (v >= 0 && v < vm.IconStyles.Count) s.IconStyle = vm.IconStyles[v].IconStyle; }));
@@ -62,13 +62,13 @@ public sealed class PersonalizationPageViewController(PersonalizationPageViewMod
         AddGroup(null, accent, appearance, iconStyle);
 
         // App modes (Windows PersonalizationPage): the modes the tab bar or sidebar card offers; a mode no account provides stays off.
-        AddGroup(null, Expander(Translator.SettingsPersonalization_AppModes_Title, Translator.SettingsPersonalization_AppModes_Description, WinoIconGlyph.Grid, null,
+        AddGroup(null, Expander(Translator.SettingsPersonalization_AppModes_Title, Translator.IOS_SettingsHint_AppModes, WinoIconGlyph.Grid, null,
             vm.AppModeOptions.Select(AppModeCard).ToArray()));
 
         // Wino themes: one entry point into the theme gallery, like the Windows Personalization page.
         var themeContent = WinoLayout.HStack(WinoStyle.Space2, _currentThemeName, _currentThemePreview);
         themeContent.Alignment = UIStackViewAlignment.Center;
-        AddGroup(null, NavigationCard(Translator.ApplicationThemeGallery_Title, Translator.ApplicationThemeGallery_Description, WinoIconGlyph.PaintBrush,
+        AddGroup(null, NavigationCard(Translator.ApplicationThemeGallery_Title, Translator.IOS_SettingsHint_ApplicationThemes, WinoIconGlyph.PaintBrush,
             () => vm.NavigateApplicationThemesCommand.Execute(null), themeContent));
         EventHandler appearanceChanged = (_, _) => _ = RefreshCurrentThemeAsync();
         UIKitThemeService.AppearanceChanged += appearanceChanged;
@@ -80,9 +80,9 @@ public sealed class PersonalizationPageViewController(PersonalizationPageViewMod
 
         AddGroup(null,
             backdrop,
-            Card(Translator.SettingsCompactAccountMenuItem_Title, Translator.SettingsCompactAccountMenuItem_Description, WinoIconGlyph.List,
+            Card(Translator.SettingsCompactAccountMenuItem_Title, Translator.IOS_SettingsHint_CompactAccountMenu, WinoIconGlyph.List,
                 Bind.Switch(p, nameof(p.IsCompactAccountMenuItemEnabled), s => s.IsCompactAccountMenuItemEnabled, (s, v) => s.IsCompactAccountMenuItemEnabled = v, Translator.SettingsCompactAccountMenuItem_Title)),
-            Card(Translator.SettingsAppPreferences_HideWinoAccountButton_Title, Translator.SettingsAppPreferences_HideWinoAccountButton_Description, WinoIconGlyph.Person,
+            Card(Translator.SettingsAppPreferences_HideWinoAccountButton_Title, null, WinoIconGlyph.Person,
                 Bind.Switch(p, nameof(p.IsWinoAccountButtonHidden), s => s.IsWinoAccountButtonHidden, (s, v) => s.IsWinoAccountButtonHidden = v, Translator.SettingsAppPreferences_HideWinoAccountButton_Title)));
     }
 

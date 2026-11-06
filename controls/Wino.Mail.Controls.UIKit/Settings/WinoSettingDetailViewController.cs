@@ -10,12 +10,17 @@ namespace Wino.Mail.Controls.UIKit.Settings;
 /// The one generic detail page every settings push opens (SettingsControls board, 15 Oct 2026). It is built from the
 /// card or expander that pushed it, never per setting: the navigation title is the card's header, choices are an option
 /// list with an accent checkmark that selects through the control's own binding, fields, steppers, sliders and pickers
-/// sit in a single-cell group, vertical custom content is hosted in a group, and the description is the group footer.
-/// An expander's items become rows by the same rules as a settings page (a switch stays a switch, a stepper is drawn on
-/// the row, a choice is an option section with the item's title as its header).
+/// sit in a single-cell group, vertical custom content is hosted in a group, and the card's description is the note under
+/// that first section (5 Nov 2026: the Settings app footer, never a paragraph above the options). An expander's items
+/// become rows by the same rules as a settings page, each with its description under its title; a choice is an option
+/// section with the item's title as its header and its description under the options. The expander header's own
+/// description stays on the row that opened the page.
 /// </summary>
 public sealed class WinoSettingDetailViewController : UIViewController
 {
+    /// <summary>Longer choices in an expander page (fonts, languages) push their own list so the page's other rows stay in view.</summary>
+    private const int InlineOptionLimit = 6;
+
     /// <summary>Phone padding inside the zone and the readable width (the settings page values).</summary>
     private const double SidePadding = 10;
     private const double ContentMaxWidth = 836;
@@ -26,7 +31,6 @@ public sealed class WinoSettingDetailViewController : UIViewController
     private readonly List<Action> _disappearing = [];
     private UIStackView? _page;
     private UIResponder? _focus;
-    private WinoSettingsGroup? _firstGroup;
 
     private WinoSettingDetailViewController(string title, Action<WinoSettingDetailViewController> build)
     {
@@ -96,38 +100,39 @@ public sealed class WinoSettingDetailViewController : UIViewController
         _disappearing.Add(card.RefreshValue);
         var content = card.Content;
         var bottom = card.DetailBottomContent;
-        var footer = card.DescriptionText;
+        var note = card.DescriptionText;
         var kind = WinoSettingsRowContent.Classify(content, bottom);
         if (kind == WinoSettingsRowKind.Value && content is not null)
         {
             var control = WinoSettingsRowContent.ValueControl(content);
-            if (control is not null && WinoSettingsRowContent.IsChoiceControl(control)) AddOptions(null, control, footer, card);
-            else AddControlCell(card.Header, content, footer, card);
+            if (control is not null && WinoSettingsRowContent.IsChoiceControl(control)) AddChoices(content, card, note);
+            else AddControlCell(card.Header, content, card, note);
             return;
         }
 
         if (content is not null && bottom is not null)
         {
-            AddControlCell(card.Header, content, null, card);
-            AddHosted(bottom, footer, null, card);
+            AddControlCell(card.Header, content, card, note);
+            // A choice under the card's own control (the snooze length) is an option list, not a bare pop-up.
+            if (WinoSettingsRowContent.ValueControl(bottom) is { } bottomControl && WinoSettingsRowContent.IsChoiceControl(bottomControl))
+                AddOptions(null, bottomControl, null, card);
+            else AddHosted(bottom, null, card);
         }
-        else if ((content ?? bottom) is { } hosted) AddHosted(hosted, footer, null, card);
-        else AddFooterOnly(footer);
+        else if ((content ?? bottom) is { } hosted) AddHosted(hosted, null, card, note);
     }
 
     private void BuildExpander(WinoSettingsExpander expander)
     {
         var header = expander.HeaderCard;
         _disappearing.Add(header.RefreshValue);
-        var footer = header.DescriptionText;
 
-        // A value in the expander header (a pop-up beside its title) leads the page; a header switch stays on the parent row.
+        // A value in the expander header (a pop-up beside its title) leads the page, with the header's description under it;
+        // a header switch stays on the parent row.
         if (header.Content is { } headerContent && WinoSettingsRowContent.Classify(headerContent, null) == WinoSettingsRowKind.Value)
         {
             var control = WinoSettingsRowContent.ValueControl(headerContent);
-            if (control is not null && WinoSettingsRowContent.IsChoiceControl(control)) AddOptions(null, control, footer, header);
-            else AddControlCell(header.Header, headerContent, footer, header);
-            footer = null;
+            if (control is not null && WinoSettingsRowContent.IsChoiceControl(control)) AddOptions(null, control, header.DescriptionText, header);
+            else AddControlCell(header.Header, headerContent, header, header.DescriptionText);
         }
 
         WinoSettingsGroup? current = null;
@@ -139,7 +144,9 @@ public sealed class WinoSettingDetailViewController : UIViewController
                 {
                     var kind = WinoSettingsRowContent.Classify(card.Content, card.DetailBottomContent);
                     var control = card.Content is { } content ? WinoSettingsRowContent.ValueControl(content) : null;
-                    if (kind == WinoSettingsRowKind.Value && !card.IsClickable && WinoSettingsRowContent.IsChoiceControl(control) && control is not null)
+                    if (kind == WinoSettingsRowKind.Value && !card.IsClickable && WinoSettingsRowContent.IsChoiceControl(control) && control is not null
+                        && WinoSettingsRowContent.Options(control).Count <= InlineOptionLimit
+                        && card.Content is { } itemContent && WinoSettingsRowContent.Controls(itemContent).Count == 1)
                     {
                         current = null;
                         // A choice titled like the page needs no section header of its own.
@@ -147,14 +154,8 @@ public sealed class WinoSettingDetailViewController : UIViewController
                         AddOptions(sectionHeader, control, card.DescriptionText, card, followsVisibility: true);
                         break;
                     }
-                    card.ShowsValueControlInline = true;
                     current ??= NewGroup();
                     current.Add(card);
-                    if (card.RowKind is not (WinoSettingsRowKind.Static or WinoSettingsRowKind.Inline) && card.DescriptionText is { } description)
-                    {
-                        current.Footer = description;
-                        current = null;
-                    }
                     break;
                 }
                 case WinoSettingsExpander nested:
@@ -163,41 +164,59 @@ public sealed class WinoSettingDetailViewController : UIViewController
                     break;
                 default:
                     current = null;
-                    AddHosted(entry.View, null, entry.Insets, null);
+                    AddHosted(entry.View, entry.Insets, null);
                     break;
             }
         }
-
-        if (string.IsNullOrEmpty(footer)) return;
-        if (_firstGroup is { } first && string.IsNullOrEmpty(first.Footer)) first.Footer = footer;
-        else Page.InsertArrangedSubview(Note(footer), 0);
     }
 
     private WinoSettingsGroup NewGroup()
     {
         var group = new WinoSettingsGroup();
-        _firstGroup ??= group;
         Page.AddArrangedSubview(group);
         return group;
     }
 
-    /// <summary>One inset group with a row per option; the selected row carries the accent checkmark.</summary>
-    private void AddOptions(string? header, UIView control, string? footer, WinoSettingsCard owner, bool followsVisibility = false)
+    /// <summary>
+    /// An option section per choice of the content. A follow-up choice shows only while its control is visible (the
+    /// first choice asks for it) and takes the first choice's selected option as its header ("Specific list").
+    /// </summary>
+    private void AddChoices(UIView content, WinoSettingsCard owner, string? note)
     {
-        var group = new WinoSettingsGroup(header, footer);
-        _firstGroup ??= group;
+        var choices = WinoSettingsRowContent.Controls(content).Where(WinoSettingsRowContent.IsChoiceControl).ToList();
+        AddOptions(null, choices[0], note, owner);
+        foreach (var followUp in choices.Skip(1))
+        {
+            var group = AddOptions(null, followUp, null, owner);
+            var first = choices[0];
+            void Sync()
+            {
+                group.Hidden = followUp.Hidden;
+                var options = WinoSettingsRowContent.Options(first);
+                var selected = WinoSettingsRowContent.SelectedIndex(first);
+                group.Title = selected >= 0 && selected < options.Count ? options[selected] : null;
+            }
+            _subscriptions.Add(followUp.AddObserver("hidden", NSKeyValueObservingOptions.Initial | NSKeyValueObservingOptions.New, _ => Sync()));
+            _appearing.Add(Sync);
+        }
+    }
+
+    /// <summary>One inset group with a row per option and the setting's description under it; the selected row carries the accent checkmark.</summary>
+    private WinoSettingsGroup AddOptions(string? header, UIView control, string? note, WinoSettingsCard owner, bool followsVisibility = false)
+    {
+        var group = new WinoSettingsGroup(header, note: note);
         var list = new OptionList(control, owner.RefreshValue);
         group.Add(list);
         Page.AddArrangedSubview(group);
         _appearing.Add(list.Reload);
         Mirror(owner, group, list, followsVisibility);
+        return group;
     }
 
     /// <summary>A single-cell group with the control: compact controls trail the title, fields and sliders fill the cell.</summary>
-    private void AddControlCell(string title, UIView content, string? footer, WinoSettingsCard owner)
+    private void AddControlCell(string title, UIView content, WinoSettingsCard owner, string? note = null)
     {
-        var group = new WinoSettingsGroup(null, footer);
-        _firstGroup ??= group;
+        var group = new WinoSettingsGroup(note: note);
         var cell = Surface();
         content.RemoveFromSuperview();
         content.TranslatesAutoresizingMaskIntoConstraints = false;
@@ -218,6 +237,7 @@ public sealed class WinoSettingDetailViewController : UIViewController
         }
         else if (control is UIStepper or UIDatePicker or UISwitch || content is WinoLabeledSwitch)
         {
+            foreach (var toggle in WinoSettingsRowContent.Controls(content).OfType<UISwitch>()) toggle.OnTintColor = WinoStyle.Accent;
             if (control is UIDatePicker picker && picker.PreferredDatePickerStyle != UIDatePickerStyle.Compact)
                 picker.PreferredDatePickerStyle = UIDatePickerStyle.Compact;
             var label = WinoStyle.Label(title, WinoSettingsStyle.CardTitle, WinoStyle.PrimaryText, 2);
@@ -245,10 +265,9 @@ public sealed class WinoSettingDetailViewController : UIViewController
     }
 
     /// <summary>Custom content (tiles, previews, swatches, lists) in a group of its own.</summary>
-    private void AddHosted(UIView view, string? footer, UIEdgeInsets? insets, WinoSettingsCard? owner)
+    private void AddHosted(UIView view, UIEdgeInsets? insets, WinoSettingsCard? owner, string? note = null)
     {
-        var group = new WinoSettingsGroup(null, footer);
-        _firstGroup ??= group;
+        var group = new WinoSettingsGroup(note: note);
         var cell = Surface();
         view.RemoveFromSuperview();
         view.TranslatesAutoresizingMaskIntoConstraints = false;
@@ -260,18 +279,6 @@ public sealed class WinoSettingDetailViewController : UIViewController
         var observer = view.AddObserver("hidden", NSKeyValueObservingOptions.Initial | NSKeyValueObservingOptions.New, _ => group.Hidden = view.Hidden);
         _subscriptions.Add(observer);
         if (owner is not null) Mirror(owner, group, cell, false);
-    }
-
-    private void AddFooterOnly(string? footer)
-    {
-        if (!string.IsNullOrEmpty(footer)) Page.AddArrangedSubview(Note(footer));
-    }
-
-    private static UIView Note(string text)
-    {
-        var host = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
-        WinoLayout.Fill(WinoStyle.Label(text, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0), host, 0, WinoSettingsStyle.CardPadding, 0, WinoSettingsStyle.CardPadding);
-        return host;
     }
 
     private static WinoSurfaceView Surface() => new()

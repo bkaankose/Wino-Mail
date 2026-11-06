@@ -63,6 +63,8 @@ public sealed partial class ComposePage : ComposePageAbstract,
     private bool _isInitialFocusHandled;
     private bool _shouldApplyInitialFocus;
     private bool _isNavigatingFrom;
+    // EditorSession is created once per page instance, so a disposed editor stays disposed even if the page is navigated to again.
+    private bool _isEditorDisposed;
     private int _isExecutingEditorShortcut;
     private bool _isSpellCheckEnabled;
     private string _spellCheckLanguageCode = string.Empty;
@@ -70,6 +72,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
     private readonly Dictionary<TokenizingTextBox, RecipientSuggestionState> _recipientSuggestions = [];
 
     public bool SupportsPopOut => !_isPoppedOut;
+    private bool IsEditorUnavailable => _isNavigatingFrom || _isEditorDisposed;
     public bool HasEditorKeyboardFocus => WebViewEditor.FocusState != FocusState.Unfocused;
     public event EventHandler<PopOutRequestedEventArgs>? PopOutRequested;
     public event EventHandler<PopoutHostActionRequestedEventArgs>? HostActionRequested;
@@ -137,7 +140,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
     private async void ToggleEditorThemeClicked(object sender, RoutedEventArgs e)
     {
         try { await EditorSession.SetThemeAsync(!WebViewEditor.IsEditorDarkMode); }
-        catch (ObjectDisposedException) when (_isNavigatingFrom)
+        catch (ObjectDisposedException) when (IsEditorUnavailable)
         {
             // The click raced the composer closing; the editor is already gone.
         }
@@ -154,7 +157,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
             await EditorSession.RenderHtmlAsync(template.HtmlContent);
             await ViewModel.ReapplySignatureAsync();
         }
-        catch (ObjectDisposedException) when (_isNavigatingFrom) { }
+        catch (ObjectDisposedException) when (IsEditorUnavailable) { }
 
         comboBox.SelectedItem = null;
     }
@@ -173,7 +176,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         {
             await ViewModel.ApplySignatureCommand.ExecuteAsync(signature);
         }
-        catch (ObjectDisposedException) when (_isNavigatingFrom) { }
+        catch (ObjectDisposedException) when (IsEditorUnavailable) { }
     }
 
     private async Task ApplySignatureHtmlAsync(string? html, string? previousHtml)
@@ -182,7 +185,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         {
             await EditorSession.SetSignatureAsync(html, previousHtml);
         }
-        catch (ObjectDisposedException) when (_isNavigatingFrom) { }
+        catch (ObjectDisposedException) when (IsEditorUnavailable) { }
     }
 
     private async void SubjectTextBoxPreviewKeyDown(object sender, KeyRoutedEventArgs e)
@@ -428,6 +431,8 @@ public sealed partial class ComposePage : ComposePageAbstract,
         EditorSession.ApplicationShortcutRequested += WebViewEditor_ApplicationShortcutRequested;
         _keyboardShortcutService.KeyboardShortcutsChanged -= KeyboardShortcutService_KeyboardShortcutsChanged;
         _keyboardShortcutService.KeyboardShortcutsChanged += KeyboardShortcutService_KeyboardShortcutsChanged;
+        WebViewEditor.Restarted -= WebViewEditor_Restarted;
+        WebViewEditor.Restarted += WebViewEditor_Restarted;
 
         ViewModel.GetHTMLBodyFunction = GetEditorHtmlBodyAsync;
         var editorLifecycleToken = _editorLifecycleCancellationSource.Token;
@@ -832,10 +837,10 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     async void IRecipient<ApplicationThemeChanged>.Receive(ApplicationThemeChanged message)
     {
-        if (_isNavigatingFrom) return;
+        if (IsEditorUnavailable) return;
 
         try { await EditorSession.SetThemeAsync(message.IsUnderlyingThemeDark); }
-        catch (ObjectDisposedException) when (_isNavigatingFrom) { }
+        catch (ObjectDisposedException) when (IsEditorUnavailable) { }
     }
 
     public async Task RefreshDraftAsync(MailItemViewModel draftMailItemViewModel)
@@ -1018,12 +1023,25 @@ public sealed partial class ComposePage : ComposePageAbstract,
         {
             EditorSession.ApplicationShortcutRequested -= WebViewEditor_ApplicationShortcutRequested;
             _keyboardShortcutService.KeyboardShortcutsChanged -= KeyboardShortcutService_KeyboardShortcutsChanged;
+            WebViewEditor.Restarted -= WebViewEditor_Restarted;
             ViewModel.GetHTMLBodyFunction = null;
+            _isEditorDisposed = true;
             await EditorSession.DisposeAsync();
             DisposeDisposables();
             _editorLifecycleCancellationSource?.Dispose();
             _editorLifecycleCancellationSource = null;
         }
+    }
+
+    private async void WebViewEditor_Restarted(object? sender, EventArgs e)
+    {
+        if (IsEditorUnavailable || _editorLifecycleCancellationSource is not { } lifecycle)
+            return;
+
+        // The editor's browser restarted with an empty document. Show the last saved draft again, with the
+        // composer's typography, so typing continues on top of it instead of being replaced on the next save.
+        Serilog.Log.Warning("Compose editor restarted after its browser closed; rendering the saved draft again.");
+        await RenderComposeHtmlAsync(ViewModel.CurrentMimeMessage?.HtmlBody ?? string.Empty, lifecycle.Token);
     }
 
     private async Task<string> GetEditorHtmlBodyAsync()
@@ -1032,9 +1050,17 @@ public sealed partial class ComposePage : ComposePageAbstract,
         {
             return await EditorSession.GetHtmlBodyAsync() ?? string.Empty;
         }
-        catch (ObjectDisposedException) when (_isNavigatingFrom)
+        catch (ObjectDisposedException) when (IsEditorUnavailable)
         {
             return ViewModel.CurrentMimeMessage?.HtmlBody ?? string.Empty;
+        }
+        catch (InvalidOperationException) when (WebViewEditor.IsContentLost)
+        {
+            // The editor's browser restarted and lost what was typed since the last save. Put the
+            // saved body back so the composer keeps working and the draft is not overwritten.
+            var savedBody = ViewModel.CurrentMimeMessage?.HtmlBody ?? string.Empty;
+            await EditorSession.RenderHtmlAsync(savedBody);
+            return savedBody;
         }
     }
 
@@ -1243,7 +1269,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         catch (OperationCanceledException) when (editorLifecycleToken.IsCancellationRequested)
         {
         }
-        catch (ObjectDisposedException) when (editorLifecycleToken.IsCancellationRequested || _isNavigatingFrom)
+        catch (ObjectDisposedException) when (editorLifecycleToken.IsCancellationRequested || IsEditorUnavailable)
         {
             // Draft deletion can navigate away while initialization/rendering is
             // still in flight. Disposal is the expected completion of that work.
@@ -1266,6 +1292,9 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     private async void KeyboardShortcutService_KeyboardShortcutsChanged(object? sender, EventArgs e)
     {
+        if (IsEditorUnavailable)
+            return;
+
         if (!DispatcherQueue.HasThreadAccess)
         {
             DispatcherQueue.TryEnqueue(() => KeyboardShortcutService_KeyboardShortcutsChanged(sender, e));
@@ -1276,8 +1305,14 @@ public sealed partial class ComposePage : ComposePageAbstract,
         {
             await ConfigureEditorApplicationShortcutsAsync();
         }
-        catch (ObjectDisposedException) when (_isNavigatingFrom)
+        catch (ObjectDisposedException) when (IsEditorUnavailable)
         {
+        }
+        catch (ObjectDisposedException exception)
+        {
+            // The editor can close without this page observing it (Sentry WINOMAIL-36M); the next
+            // render configures the shortcuts again, so a lost update is not worth a report.
+            Serilog.Log.Warning(exception, "Compose editor was disposed before its shortcuts were refreshed.");
         }
         catch (Exception exception)
         {

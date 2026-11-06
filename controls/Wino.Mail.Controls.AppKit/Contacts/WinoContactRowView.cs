@@ -31,7 +31,7 @@ public static class WinoContactStyle
     public static NSImage StarImage(bool favorite, double size)
     {
         var glyph = WinoIcons.Glyph(favorite ? WinoIconGlyph.StarFilled : WinoIconGlyph.Star);
-        var color = favorite ? WinoStyle.Caution : WinoStyle.TertiaryText;
+        var color = favorite ? WinoStyle.Caution : WinoStyle.SecondaryText;
         var image = NSImage.ImageWithSize(new CGSize(size, size), false, rect => { WinoIcons.Draw(glyph, rect, color, null, colorful: false); return true; });
         image.Template = false;
         return image;
@@ -58,7 +58,7 @@ public sealed class WinoContactRowView : NSTableCellView
     private readonly WinoContactPicture _picture = new(40);
     private readonly NSTextField _name = WinoStyle.Label(string.Empty, WinoStyle.BodyStrong);
     private readonly NSTextField _secondary = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
-    private readonly NSTextField _source = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.TertiaryText);
+    private readonly NSTextField _source = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
     private readonly NSStackView _meta;
     private readonly NSButton _star;
     private NSStackView? _chips;

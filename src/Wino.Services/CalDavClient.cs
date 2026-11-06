@@ -45,7 +45,7 @@ public sealed partial class CalDavClient : ICalDavClient
     private readonly IDavResponseHandler _responseHandler;
 
     public CalDavClient(HttpClient httpClient = null)
-        : this(new DavTransport(httpClient), new DavResponseHandler())
+        : this(new DavTransport(httpClient: httpClient), new DavResponseHandler())
     {
     }
 
@@ -379,7 +379,8 @@ public sealed partial class CalDavClient : ICalDavClient
         {
             Kind = DavAuthenticationKind.Basic,
             Username = settings.Username,
-            Password = settings.Password
+            Password = settings.Password,
+            EndpointTrust = settings.EndpointTrust
         };
 
     /// <summary>Calendar collections that accept VEVENT; collections for other components are left out.</summary>

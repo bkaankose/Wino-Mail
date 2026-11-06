@@ -14,7 +14,6 @@
     xmlns:winoPrimitives="using:Wino.Mail.Controls.Primitives">
 
     <ResourceDictionary.MergedDictionaries>
-        <contextFlyout:WinoContextFlyoutResources />
         <controls:WinoItemTemplates />
         <ResourceDictionary Source="ms-appx:///Wino.Mail.Controls.WinUI/Themes/WinoIntelligenceBranding.xaml" />
         <ResourceDictionary Source="ms-appx:///Wino.Mail.Controls.WinUI/IntelligenceProgressRing/WinoIntelligenceProgressRing.xaml" />
@@ -1523,159 +1522,18 @@
         </Setter>
     </Style>
 
-    <Style TargetType="contextFlyout:WinoContextFlyoutPresenter">
-        <Setter Property="MinWidth" Value="75" />
+    <Style TargetType="contextFlyout:WinoContextFlyoutSearchItem">
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
         <Setter Property="Template">
             <Setter.Value>
-                <ControlTemplate TargetType="contextFlyout:WinoContextFlyoutPresenter">
-                    <Border
-                        MaxWidth="300"
-                        Padding="4"
-                        Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource SurfaceStrokeColorFlyoutBrush}"
-                        BorderThickness="1"
-                        CornerRadius="8">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-                            <Grid
-                                x:Name="PART_SearchRow"
-                                Margin="0,0,0,4"
-                                ColumnSpacing="4"
-                                Visibility="Collapsed">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Button
-                                    x:Name="PART_BackButton"
-                                    Width="0"
-                                    Height="36"
-                                    Padding="0,0,4,0"
-                                    AutomationProperties.AutomationId="WinoContextFlyoutBackButton"
-                                    Background="Transparent"
-                                    IsHitTestVisible="False"
-                                    IsTabStop="False"
-                                    Opacity="0"
-                                    RenderTransformOrigin="0.5,0.5">
-                                    <Button.Resources>
-                                        <Storyboard x:Key="ShowBackButtonStoryboard">
-                                            <DoubleAnimation
-                                                EnableDependentAnimation="True"
-                                                Storyboard.TargetProperty="Width"
-                                                From="0"
-                                                To="36"
-                                                Duration="0:0:0.16">
-                                                <DoubleAnimation.EasingFunction>
-                                                    <CubicEase EasingMode="EaseOut" />
-                                                </DoubleAnimation.EasingFunction>
-                                            </DoubleAnimation>
-                                            <DoubleAnimation
-                                                Storyboard.TargetProperty="Opacity"
-                                                From="0"
-                                                To="1"
-                                                Duration="0:0:0.12" />
-                                            <DoubleAnimation
-                                                Storyboard.TargetProperty="X"
-                                                From="-8"
-                                                To="0"
-                                                Duration="0:0:0.16">
-                                                <DoubleAnimation.EasingFunction>
-                                                    <CubicEase EasingMode="EaseOut" />
-                                                </DoubleAnimation.EasingFunction>
-                                            </DoubleAnimation>
-                                        </Storyboard>
-                                        <Storyboard x:Key="HideBackButtonStoryboard">
-                                            <DoubleAnimation
-                                                EnableDependentAnimation="True"
-                                                Storyboard.TargetProperty="Width"
-                                                From="36"
-                                                To="0"
-                                                Duration="0:0:0.14">
-                                                <DoubleAnimation.EasingFunction>
-                                                    <CubicEase EasingMode="EaseIn" />
-                                                </DoubleAnimation.EasingFunction>
-                                            </DoubleAnimation>
-                                            <DoubleAnimation
-                                                Storyboard.TargetProperty="Opacity"
-                                                From="1"
-                                                To="0"
-                                                Duration="0:0:0.1" />
-                                            <DoubleAnimation
-                                                Storyboard.TargetProperty="X"
-                                                From="0"
-                                                To="-8"
-                                                Duration="0:0:0.14">
-                                                <DoubleAnimation.EasingFunction>
-                                                    <CubicEase EasingMode="EaseIn" />
-                                                </DoubleAnimation.EasingFunction>
-                                            </DoubleAnimation>
-                                        </Storyboard>
-                                    </Button.Resources>
-                                    <Button.RenderTransform>
-                                        <TranslateTransform X="-8" />
-                                    </Button.RenderTransform>
-                                    <Viewbox Width="12" Height="12">
-                                        <accountIcon:WinoFontIcon Glyph="&#xE00D;" />
-                                    </Viewbox>
-                                </Button>
-                                <TextBox
-                                    x:Name="PART_SearchBox"
-                                    Grid.Column="1"
-                                    Height="36"
-                                    AutomationProperties.AutomationId="WinoContextFlyoutSearchBox" />
-                            </Grid>
-                            <ItemsRepeater
-                                x:Name="PART_HeaderItems"
-                                Grid.Row="1"
-                                Margin="0,0,0,4"
-                                HorizontalAlignment="Stretch"
-                                AutomationProperties.AutomationId="WinoContextFlyoutHeaderItems"
-                                ItemTemplate="{StaticResource WinoContextFlyoutHeaderItemTemplate}"
-                                Visibility="Collapsed">
-                                <ItemsRepeater.Layout>
-                                    <UniformGridLayout
-                                        ItemsStretch="Fill"
-                                        MaximumRowsOrColumns="3"
-                                        MinColumnSpacing="4"
-                                        MinRowSpacing="4" />
-                                </ItemsRepeater.Layout>
-                            </ItemsRepeater>
-                            <Grid Grid.Row="2">
-                                <ListView
-                                    x:Name="PART_ItemsList"
-                                    MaxHeight="360"
-                                    Padding="0"
-                                    AutomationProperties.AutomationId="WinoContextFlyoutItemsList"
-                                    IsItemClickEnabled="True"
-                                    ItemTemplateSelector="{StaticResource WinoContextFlyoutTemplateSelector}"
-                                    ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                    SelectionMode="None">
-                                    <ListView.ItemContainerStyle>
-                                        <!--  Rows are commands, not a selection. The container adds no height; each item template owns its own metrics.  -->
-                                        <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
-                                            <Setter Property="MinHeight" Value="0" />
-                                            <Setter Property="Padding" Value="0" />
-                                            <Setter Property="Margin" Value="0" />
-                                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                            <Setter Property="VerticalContentAlignment" Value="Stretch" />
-                                        </Style>
-                                    </ListView.ItemContainerStyle>
-                                </ListView>
-                                <TextBlock
-                                    x:Name="PART_EmptyText"
-                                    Margin="12,16"
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    AutomationProperties.AutomationId="WinoContextFlyoutEmptyText"
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Visibility="Collapsed" />
-                            </Grid>
-                        </Grid>
-                    </Border>
+                <ControlTemplate TargetType="contextFlyout:WinoContextFlyoutSearchItem">
+                    <TextBox
+                        x:Name="PART_SearchBox"
+                        MinWidth="240"
+                        Margin="4,2,4,2"
+                        AutomationProperties.AutomationId="WinoContextFlyoutSearchBox"
+                        PlaceholderText="{TemplateBinding PlaceholderText}" />
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

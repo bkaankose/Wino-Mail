@@ -21,4 +21,5 @@ public sealed class DavAuthenticationProfile
     /// Optional. Called once with the rejected token when a Bearer request gets 401; returns the token to retry with.
     /// </summary>
     public Func<string, CancellationToken, Task<string>> RefreshBearerTokenAsync { get; init; }
+    public DavEndpointTrust EndpointTrust { get; init; }
 }

@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -9,6 +10,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Authentication;
@@ -214,7 +216,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
     public async Task<AccountSetupRunResult> RunAsync(
         AccountSetupPlan plan,
         IProgress<AccountSetupStepUpdate>? progress = null,
-        Func<string, byte[], Task<bool>>? confirmCertificateTrust = null,
+        Func<ServerCertificateTrustPrompt, Task<bool>>? confirmCertificateTrust = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(plan);
@@ -239,7 +241,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
                     await RunExchangeAsync(run, cancellationToken);
                     break;
                 default:
-                    await RunImapAsync(run, cancellationToken);
+                    await RunImapAsync(run, confirmCertificateTrust, cancellationToken);
                     break;
             }
 
@@ -367,7 +369,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
         }
     }
 
-    private async Task RunSpecialImapAsync(SetupRun run, Func<string, byte[], Task<bool>>? confirmCertificateTrust, CancellationToken cancellationToken)
+    private async Task RunSpecialImapAsync(SetupRun run, Func<ServerCertificateTrustPrompt, Task<bool>>? confirmCertificateTrust, CancellationToken cancellationToken)
     {
         var plan = run.Plan;
         var account = BuildAccount(plan);
@@ -403,7 +405,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
             run.Succeed();
 
             run.Start(AccountSetupStepKind.TestingCalendarAuth);
-            await ValidateCalDavConnectivityAsync(serverInformation, cancellationToken);
+            await ValidateCalDavConnectivityAsync(serverInformation, confirmCertificateTrust, cancellationToken);
             run.Succeed();
         }
 
@@ -423,7 +425,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
             await _accountService.CreateRootAliasAsync(account.Id, account.Address);
     }
 
-    private async Task RunImapAsync(SetupRun run, CancellationToken cancellationToken)
+    private async Task RunImapAsync(SetupRun run, Func<ServerCertificateTrustPrompt, Task<bool>>? confirmCertificateTrust, CancellationToken cancellationToken)
     {
         var plan = run.Plan;
         var account = BuildAccount(plan);
@@ -468,7 +470,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
             run.Succeed();
 
             run.Start(AccountSetupStepKind.TestingCalendarAuth);
-            await ValidateCalDavConnectivityAsync(serverInformation, cancellationToken);
+            await ValidateCalDavConnectivityAsync(serverInformation, confirmCertificateTrust, cancellationToken);
             run.Succeed();
         }
 
@@ -619,7 +621,7 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
         }
     }
 
-    private async Task ValidateImapConnectivityAsync(CustomServerInformation serverInformation, Func<string, byte[], Task<bool>>? confirmCertificateTrust)
+    private async Task ValidateImapConnectivityAsync(CustomServerInformation serverInformation, Func<ServerCertificateTrustPrompt, Task<bool>>? confirmCertificateTrust)
     {
         while (true)
         {
@@ -632,21 +634,33 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
                 return;
             }
 
-            var failure = connectivityResult.CertificateFailure;
-            if (failure?.CanTrust != true || confirmCertificateTrust == null)
-                throw new InvalidOperationException(connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_CertificateCannotBeTrusted);
-
-            var allowCertificate = await confirmCertificateTrust(MailServerCertificateMessage.Build(failure), failure.CertificateRawData);
-            if (!allowCertificate)
-                throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
-
-            serverInformation.PendingCertificateTrusts.RemoveAll(item => item.Protocol == failure.Protocol &&
-                string.Equals(item.Host, failure.Host, StringComparison.OrdinalIgnoreCase) && item.Port == failure.Port);
-            serverInformation.PendingCertificateTrusts.Add(failure.CreateTrust(serverInformation.AccountId));
+            await AcceptCertificateAsync(connectivityResult.CertificateFailure, connectivityResult.FailedReason, serverInformation, confirmCertificateTrust);
         }
     }
 
-    private async Task ValidateCalDavConnectivityAsync(CustomServerInformation serverInformation, CancellationToken cancellationToken)
+    /// <summary>The same rules as the ViewModels' certificate flow: refuse what cannot be trusted, ask, keep the trust pending.</summary>
+    private static async Task AcceptCertificateAsync(
+        MailServerCertificateFailure? failure,
+        string? failedReason,
+        CustomServerInformation serverInformation,
+        Func<ServerCertificateTrustPrompt, Task<bool>>? confirmCertificateTrust)
+    {
+        if (failure == null || confirmCertificateTrust == null)
+            throw new InvalidOperationException(failedReason ?? Translator.IMAPSetupDialog_CertificateCannotBeTrusted);
+
+        var prompt = ServerCertificateTrustPrompt.From(failure);
+        if (!failure.CanTrust)
+            throw new InvalidOperationException(prompt.BlockedMessage);
+
+        if (!await confirmCertificateTrust(prompt))
+            throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
+
+        serverInformation.PendingCertificateTrusts.RemoveAll(item => item.Protocol == failure.Protocol &&
+            string.Equals(item.Host, failure.Host, StringComparison.OrdinalIgnoreCase) && item.Port == failure.Port);
+        serverInformation.PendingCertificateTrusts.Add(failure.CreateTrust(serverInformation.AccountId));
+    }
+
+    private async Task ValidateCalDavConnectivityAsync(CustomServerInformation serverInformation, Func<ServerCertificateTrustPrompt, Task<bool>>? confirmCertificateTrust, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(serverInformation.CalDavServiceUrl))
             throw new InvalidOperationException(Translator.ImapCalDavSettingsPage_CalDavUrlRequired);
@@ -658,15 +672,27 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
             ? null
             : await _davOAuthAuthenticationProvider.TryCreateForAccountAsync(serverInformation.AccountId, serverInformation, DavServiceKind.CalDav, serviceUri, cancellationToken);
 
-        var settings = new CalDavConnectionSettings
+        while (true)
         {
-            ServiceUri = serviceUri,
-            Username = serverInformation.CalDavUsername,
-            Password = serverInformation.CalDavPassword ?? string.Empty,
-            Authentication = bearer
-        };
+            var settings = new CalDavConnectionSettings
+            {
+                ServiceUri = serviceUri,
+                Username = serverInformation.CalDavUsername,
+                Password = serverInformation.CalDavPassword ?? string.Empty,
+                EndpointTrust = DavEndpointTrust.For(serverInformation, MailServerProtocol.CalDav),
+                Authentication = bearer
+            };
 
-        await _calDavClient.DiscoverCalendarsAsync(settings);
+            try
+            {
+                await _calDavClient.DiscoverCalendarsAsync(settings);
+                return;
+            }
+            catch (Exception ex) when (ex.GetInnerExceptions().OfType<MailServerCertificateException>().FirstOrDefault()?.Failure is { } failure)
+            {
+                await AcceptCertificateAsync(failure, null, serverInformation, confirmCertificateTrust);
+            }
+        }
     }
 
     private void CaptureAccountSetupException(Exception exception, SetupRun run)
