@@ -294,6 +294,7 @@ VALUES
             Connection.CreateTableAsync<CardDavAccountState>(),
             Connection.CreateTableAsync<CardDavAddressBookState>(),
             Connection.CreateTableAsync<CardDavResourceShadow>(),
+            Connection.CreateTableAsync<EasItemShadow>(),
             Connection.CreateTableAsync<AccountTaskListGroup>(),
             Connection.CreateTableAsync<AccountTaskSyncState>(),
             Connection.CreateTableAsync<AccountTaskList>(),
@@ -648,6 +649,11 @@ WHERE ImapUid > 0 AND COALESCE(ImapUidValidity, 0) = 0
         }
 
         var folderColumns = await Connection.GetTableInfoAsync(nameof(MailItemFolder)).ConfigureAwait(false);
+
+        if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.EasFolderType)))
+            await Connection.ExecuteAsync("ALTER TABLE MailItemFolder ADD COLUMN EasFolderType INTEGER NOT NULL DEFAULT 0").ConfigureAwait(false);
+        if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.EasSyncGeneration)))
+            await Connection.ExecuteAsync("ALTER TABLE MailItemFolder ADD COLUMN EasSyncGeneration TEXT NOT NULL DEFAULT ''").ConfigureAwait(false);
 
         if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.HighestKnownUid)))
         {

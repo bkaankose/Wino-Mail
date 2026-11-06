@@ -61,6 +61,13 @@ public class MailItemFolder : IMailItemFolder
     /// </summary>
     public string DeltaToken { get; set; }
 
+    public int EasFolderType { get; set; }
+    public string EasSyncGeneration { get; set; } = string.Empty;
+
+    [Ignore]
+    // FolderSync also returns non-mail collections, which must stay out of mail navigation.
+    public bool IsMailFolder => EasFolderType is 0 or 1 or 2 or 4 or 5 or 6 or 12;
+
     /// <summary>
     /// The MAPI folder id (16 hex digits) for on-premises Exchange accounts synchronized over MAPI over HTTP.
     /// Rows keyed by an EWS RemoteFolderId are re-keyed in place through this column when the transport changes.

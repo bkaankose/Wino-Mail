@@ -90,7 +90,7 @@ public class CustomServerInformation
     [Ignore]
     public ExchangeTransport EffectiveExchangeTransport
         => ExchangeTransport != ExchangeTransport.Automatic ? ExchangeTransport
-         : DetectedExchangeTransport == ExchangeTransport.Ews ? ExchangeTransport.Ews
+         : DetectedExchangeTransport is ExchangeTransport.Ews or ExchangeTransport.ActiveSync ? DetectedExchangeTransport
          : ExchangeTransport.MapiHttp;
 
     [Ignore]

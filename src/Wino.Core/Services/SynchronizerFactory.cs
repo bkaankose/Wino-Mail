@@ -11,9 +11,11 @@ using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Synchronizers.Exchange;
+using Wino.Core.Synchronizers.Exchange.ActiveSync;
 using Wino.Core.Synchronizers.ImapSync;
 using Wino.Core.Synchronizers.Mail;
 using Wino.Core.Synchronizers.Mapi;
+using Wino.Services;
 
 namespace Wino.Core.Services;
 
@@ -51,6 +53,7 @@ public class SynchronizerFactory : ISynchronizerFactory
     private readonly IMimeFileService _mimeFileService;
     private readonly ICalDavSynchronizationEngine _calDavSynchronizationEngine;
     private readonly IOAuthTokenService _oauthTokenService;
+    private readonly IDatabaseService _databaseService;
 
     private readonly ConcurrentDictionary<Guid, IWinoSynchronizerBase> _synchronizers = new();
     internal IReadOnlyDictionary<Guid, IWinoSynchronizerBase> CachedSynchronizers => _synchronizers;
@@ -92,9 +95,11 @@ public class SynchronizerFactory : ISynchronizerFactory
                                ICalDavSynchronizationEngine calDavSynchronizationEngine = null,
                                IOAuthTokenService oauthTokenService = null,
                                IExchangeChangeProcessor exchangeChangeProcessor = null,
-                               IExchangeSynchronizerErrorHandlerFactory exchangeSynchronizerErrorHandlerFactory = null)
+                               IExchangeSynchronizerErrorHandlerFactory exchangeSynchronizerErrorHandlerFactory = null,
+                               IDatabaseService databaseService = null)
     {
         _outlookChangeProcessor = outlookChangeProcessor;
+        _databaseService = databaseService;
         _gmailChangeProcessor = gmailChangeProcessor;
         _imapChangeProcessor = imapChangeProcessor;
         _authenticationProvider = authenticationProvider;
@@ -200,7 +205,11 @@ public class SynchronizerFactory : ISynchronizerFactory
                     _exchangeSynchronizerErrorHandlerFactory ?? throw new InvalidOperationException("The Exchange error handler factory is not registered."),
                     _contactService,
                     _contactPictureFileService,
-                    _taskService);
+                    _taskService,
+                    () => new ActiveSyncExchangeSynchronizer(mailAccount,
+                        _databaseService ?? throw new InvalidOperationException("The database service is not registered."),
+                        _accountService, _folderService, _mailService, _calendarService, _contactService, _taskService,
+                        _mimeFileService, _contactPictureFileService, _imapChangeProcessor, _applicationConfiguration.ApplicationDataFolderPath));
             case Domain.Enums.MailProviderType.POP3:
                 return new Pop3Synchronizer(
                     mailAccount,
@@ -228,8 +237,13 @@ public class SynchronizerFactory : ISynchronizerFactory
         if (account.ProviderType != Domain.Enums.MailProviderType.Exchange || account.ServerInformation == null)
             return false;
 
-        var wantsMapi = account.ServerInformation.EffectiveExchangeTransport != Domain.Enums.ExchangeTransport.Ews;
-        return wantsMapi != (existing is MapiExchangeSynchronizer);
+        var currentTransport = existing switch
+        {
+            ActiveSyncExchangeSynchronizer => ExchangeTransport.ActiveSync,
+            MapiExchangeSynchronizer => ExchangeTransport.MapiHttp,
+            _ => ExchangeTransport.Ews
+        };
+        return currentTransport != account.ServerInformation.EffectiveExchangeTransport;
     }
 
     public IWinoSynchronizerBase CreateNewSynchronizer(MailAccount account)

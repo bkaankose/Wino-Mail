@@ -8,8 +8,8 @@ using Wino.Core.Domain.Enums;
 namespace Wino.Core.Synchronizers.Exchange;
 
 /// <summary>
-/// The EWS and MAPI transports address the same server objects under different ids: EWS by its
-/// opaque item id, MAPI by "mapi:" plus the message id. When an account changes transport, the rows
+/// Exchange transports address the same server objects under different ids: EWS uses opaque ids,
+/// MAPI uses "mapi:" ids and ActiveSync uses "eas:" ids. When an account changes transport, the rows
 /// stored under the other scheme would be dropped and imported again, losing what only the client
 /// knows about them (contact favourites, list memberships and pictures; a task's My Day date and
 /// local identity). This matches such rows to the incoming ones by content so they can be re-keyed
@@ -23,7 +23,7 @@ public static class ExchangeTransportRekey
     public static bool IsOtherTransport(string storedRemoteId, string incomingRemoteId)
         => !string.IsNullOrWhiteSpace(storedRemoteId) &&
            !string.IsNullOrWhiteSpace(incomingRemoteId) &&
-           IsMapiId(storedRemoteId) != IsMapiId(incomingRemoteId);
+           IdScheme(storedRemoteId) != IdScheme(incomingRemoteId);
 
     /// <summary>
     /// Stored contacts to re-key, by local id, with the remote id they take. A contact is matched by
@@ -95,8 +95,9 @@ public static class ExchangeTransportRekey
         return result;
     }
 
-    private static bool IsMapiId(string remoteId)
-        => remoteId.StartsWith(MapiIdPrefix, StringComparison.Ordinal);
+    private static string IdScheme(string remoteId)
+        => remoteId.StartsWith(MapiIdPrefix, StringComparison.Ordinal) ? "mapi"
+            : remoteId.StartsWith("eas:", StringComparison.Ordinal) ? "eas" : "ews";
 
     private static string ContactKey(AccountContact contact)
     {

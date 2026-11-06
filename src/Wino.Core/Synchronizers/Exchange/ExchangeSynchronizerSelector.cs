@@ -27,8 +27,22 @@ public static class ExchangeSynchronizerSelector
         var serverInformation = account.ServerInformation
             ?? throw new InvalidOperationException("The Exchange account has no server information.");
 
+        if (serverInformation.EffectiveExchangeTransport == ExchangeTransport.ActiveSync)
+            throw new InvalidOperationException("ActiveSync requires its configured synchronizer factory.");
+
         return serverInformation.EffectiveExchangeTransport == ExchangeTransport.Ews
             ? new ExchangeSynchronizer(account, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureService, taskService)
             : new MapiExchangeSynchronizer(account, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureService, taskService);
+    }
+
+    public static IWinoSynchronizerBase Create(MailAccount account,
+        IExchangeAuthenticator exchangeAuthenticator, IExchangeChangeProcessor exchangeChangeProcessor,
+        IExchangeSynchronizerErrorHandlerFactory errorHandlerFactory, IContactService? contactService,
+        IPictureStorageService? contactPictureService, ITaskService? taskService, Func<IWinoSynchronizerBase> activeSyncFactory)
+    {
+        ArgumentNullException.ThrowIfNull(account);
+        return account.ServerInformation?.EffectiveExchangeTransport == ExchangeTransport.ActiveSync
+            ? activeSyncFactory()
+            : Create(account, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureService, taskService);
     }
 }

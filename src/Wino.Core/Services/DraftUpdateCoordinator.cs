@@ -103,6 +103,10 @@ public sealed class DraftUpdateCoordinator : IDraftUpdateCoordinator, IAsyncDisp
                 {
                     lock (_gate) { work.Stopped = true; work.Pending = null; }
                 }
+                else if (mail.AssignedAccount.UsesActiveSync)
+                {
+                    succeeded = true;
+                }
                 else if (mail.IsLocalDraft)
                 {
                     lock (_gate) work.Pending ??= snapshot;

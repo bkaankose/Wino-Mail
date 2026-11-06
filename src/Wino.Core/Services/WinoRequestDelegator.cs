@@ -154,6 +154,8 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
     public async Task ExecuteAsync(DraftPreparationRequest draftPreperationRequest)
     {
+        if (draftPreperationRequest.Account.UsesActiveSync)
+            return;
         var request = new CreateDraftRequest(draftPreperationRequest);
         var accountId = draftPreperationRequest.Account.Id;
 

@@ -13,6 +13,7 @@ using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.MAPI;
 using Wino.Core.MAPI.Transport;
 using Wino.Core.Synchronizers.Mapi;
+using Wino.Core.Synchronizers.Exchange.ActiveSync;
 using Task = System.Threading.Tasks.Task;
 
 namespace Wino.Core.Services;
@@ -38,6 +39,29 @@ public sealed class ExchangeConnectionTester(IExchangeAuthenticator exchangeAuth
         }
 
         var detected = ExchangeTransport.Automatic;
+
+        if (serverInformation.EffectiveExchangeTransport == ExchangeTransport.ActiveSync)
+        {
+            try
+            {
+                if (serverInformation.UseOAuthAuthentication)
+                    throw new NotSupportedException(Translator.ExchangeSetup_ActiveSyncPasswordRequired);
+                using var client = new EasClient(ewsUri.AbsoluteUri, serverInformation.IncomingServerUsername,
+                    serverInformation.IncomingServerPassword ?? string.Empty, account.Id);
+                await client.ConnectAsync(cancellationToken).ConfigureAwait(false);
+                await client.FolderSyncAsync("0", cancellationToken).ConfigureAwait(false);
+                return new ExchangeConnectionTestResult(ExchangeConnectionTestStatus.Succeeded, ExchangeTransport.ActiveSync);
+            }
+            catch (System.Net.Http.HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                return new ExchangeConnectionTestResult(ExchangeConnectionTestStatus.CredentialRejected);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Logger.Warning(ex, "The ActiveSync connection check against {Host} failed.", ewsUri.Host);
+                return new ExchangeConnectionTestResult(ExchangeConnectionTestStatus.Failed, ExchangeTransport.ActiveSync, ex.Message);
+            }
+        }
 
         if (serverInformation.ExchangeTransport != ExchangeTransport.Ews)
         {

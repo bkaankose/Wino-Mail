@@ -115,9 +115,24 @@ public partial class AccountDetailsPageViewModel
         if (account == null || server == null || !IsExchangeAccount || server.ExchangeTransport == selected.Transport)
             return;
 
+        if (selected.Transport == ExchangeTransport.ActiveSync && server.UseOAuthAuthentication)
+        {
+            RestoreExchangeTransport(previous);
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, Translator.ExchangeSetup_ActiveSyncPasswordRequired, InfoBarMessageType.Error);
+            return;
+        }
+
         var updated = server.CloneForCredentialStorage();
         updated.ExchangeTransport = selected.Transport;
         updated.DetectedExchangeTransport = ExchangeTransport.Automatic;
+        var endpoint = ExchangeServerEndpoint.Normalize(updated.IncomingServer, selected.Transport);
+        if (endpoint == null)
+        {
+            RestoreExchangeTransport(previous);
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, Translator.ExchangeSetup_ServerAddressInvalid, InfoBarMessageType.Error);
+            return;
+        }
+        updated.IncomingServer = endpoint.AbsoluteUri;
 
         var isTransportSwitch = updated.EffectiveExchangeTransport != server.EffectiveExchangeTransport;
         if (isTransportSwitch &&

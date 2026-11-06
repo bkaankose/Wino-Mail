@@ -10,5 +10,6 @@ public enum ExchangeTransport
 {
     Automatic = 0,
     MapiHttp = 1,
-    Ews = 2
+    Ews = 2,
+    ActiveSync = 3
 }

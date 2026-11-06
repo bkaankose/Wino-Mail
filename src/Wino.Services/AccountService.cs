@@ -342,6 +342,10 @@ public class AccountService : BaseDatabaseService, IAccountService
     public async Task DeleteAccountMailCacheAsync(Guid accountId, AccountCacheResetReason accountCacheResetReason)
     {
         await Connection.ExecuteAsync(
+            "DELETE FROM EasItemShadow WHERE CollectionId IN (SELECT Id FROM MailItemFolder WHERE MailAccountId = ? AND EasFolderType IN (1,2,3,4,5,6,12))", accountId).ConfigureAwait(false);
+        await Connection.ExecuteAsync(
+            "UPDATE MailItemFolder SET DeltaToken = '0', EasSyncGeneration = '' WHERE MailAccountId = ? AND EasFolderType IN (1,2,3,4,5,6,12)", accountId).ConfigureAwait(false);
+        await Connection.ExecuteAsync(
             "DELETE FROM MailCopy WHERE Id IN (SELECT Id FROM MailCopy WHERE FolderId IN (SELECT Id FROM MailItemFolder WHERE MailAccountId = ?))",
             accountId);
 
@@ -501,6 +505,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         if (account.Preferences != null)
             await Connection.DeleteAsync<MailAccountPreferences>(account.Preferences.Id);
 
+        await Connection.ExecuteAsync("DELETE FROM EasItemShadow WHERE AccountId = ?", account.Id).ConfigureAwait(false);
         await Connection.DeleteAsync<MailAccount>(account.Id);
         await _credentialPersistence.DeleteMailAccountSecretsAsync(account.Id).ConfigureAwait(false);
         await DeleteProviderTokenAsync(account).ConfigureAwait(false);
