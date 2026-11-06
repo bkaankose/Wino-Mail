@@ -29,12 +29,12 @@ namespace Wino.Mail.UIKit.Views.Mail;
 /// The message reader (Mac MailRenderingPageViewController, Windows MailRenderingPage), idiom-neutral: the command bar
 /// on top (iPad; on iPhone the phone shell shows the same <see cref="IMailReaderCommands"/> in its bottom toolbar), then
 /// one vertical scroll with the header (subject, sender avatar and name, recipients, date, the status row with
-/// Unsubscribe and S/MIME, category chips, the Wino Intelligence header, the remote-image banner), the HTML body in a
-/// card through the shared WebKit reader session (remote content by CSP, links through <see cref="IExternalLauncher"/>),
+/// Unsubscribe and S/MIME, category chips, the Wino Intelligence header, the remote content bars), the HTML body in a
+/// card through the shared WebKit reader session (remote content by CSP, links through the ViewModel's OpenLinkAsync),
 /// and the attachment strip with Save all; the loading skeleton covers the content while the message downloads. Print
 /// and PDF go through <see cref="UIKitMailPrintPresenter"/>. The controller is reused across selections
 /// (<see cref="RenavigateAsync"/>). Recipients and the contact card live in the .Recipients partial, the intelligence
-/// header in .Intelligence, debug commands in .Debug.
+/// header in .Intelligence, the privacy button and bars in .Privacy, debug commands in .Debug.
 /// </summary>
 public sealed partial class MailRenderingPageViewController(MailRenderingPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger, IServiceProvider services)
     : WinoViewController<MailRenderingPageViewModel>(viewModel, dispatcher, logger), IMailReaderCommands
@@ -61,7 +61,6 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private readonly MailReaderStatusRow _statusRow = new();
     private readonly UIStackView _chips = WinoLayout.HStack(8);
     private readonly UIView _intelligenceHost = new() { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
-    private readonly WinoInfoBar _imageBanner = new(WinoInfoBarSeverity.Warning, null, Translator.ImageRenderingDisabled);
     private readonly ReaderWebView _webView = new();
     private readonly ReaderLinkTargetBar _linkTarget = new();
     private readonly UIStackView _attachmentTiles = WinoLayout.HStack(10);
@@ -111,7 +110,11 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _senderAddress.SetContentCompressionResistancePriority(200, UILayoutConstraintAxis.Horizontal);
         _senderName.SetContentCompressionResistancePriority(400, UILayoutConstraintAxis.Horizontal);
         _senderName.SetContentHuggingPriority(1, UILayoutConstraintAxis.Horizontal);
-        var nameLine = WinoLayout.HStack(8, _senderName, _date);
+        // The date's line carries the privacy button; the stack's first baseline is the date's.
+        var dateLine = WinoLayout.HStack(4, _date, BuildPrivacyButton());
+        dateLine.Alignment = UIStackViewAlignment.Center;
+        WinoLayout.Priorities(dateLine, UILayoutConstraintAxis.Horizontal, 1000, 1000);
+        var nameLine = WinoLayout.HStack(8, _senderName, dateLine);
         nameLine.Alignment = UIStackViewAlignment.FirstBaseline;
         var senderText = WinoLayout.VStack(1, nameLine, _senderAddress);
         senderText.SetContentHuggingPriority(1, UILayoutConstraintAxis.Horizontal);
@@ -138,10 +141,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
 
         _chips.Hidden = true;
 
-        _imageBanner.ActionTitle = Translator.Buttons_EnableImageRendering;
-        _imageBanner.IsClosable = true;
-        _imageBanner.Hidden = true;
-        _imageBanner.ActionInvoked += (_, _) => Observe(ViewModel.ForceImageLoadingCommand.ExecuteAsync(null));
+        var privacyBars = BuildPrivacyBars();
 
         BuildIntelligenceHeader(_intelligenceHost);
 
@@ -149,7 +149,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         var recipients = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
         WinoLayout.Fill(BuildRecipientRows(), recipients, 0, 52, 0, 0);
 
-        var header = WinoLayout.Insets(WinoLayout.VStack(12, _subject, senderRow, recipients, _statusRow, _chips, _intelligenceHost, _imageBanner), 12, Gutter, 10, Gutter);
+        var header = WinoLayout.Insets(WinoLayout.VStack(12, _subject, senderRow, recipients, _statusRow, _chips, _intelligenceHost, privacyBars), 12, Gutter, 10, Gutter);
         header.Alignment = UIStackViewAlignment.Fill;
         header.SetCustomSpacing(4, senderRow);
         // The chip row hugs its chips from the leading edge.
@@ -258,6 +258,8 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         reader.OperationFailed += (_, exception) => ReportError(exception);
         reader.LinkHovered += (_, args) => _linkTarget.Show(args);
         reader.NavigationRequested += (_, _) => _linkTarget.Clear();
+        // Links go through the ViewModel: tracking parameters are stripped and the link is confirmed when asked.
+        reader.LinkOpener = (uri, text) => ViewModel.OpenLinkAsync(uri, text);
         _dark = IsDarkAppearance();
         ViewModel.IsDarkWebviewRenderer = _dark;
         ViewModel.RenderHtmlAsyncFunc = RenderAsync;
@@ -288,11 +290,12 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         });
         Bind(nameof(ViewModel.CurrentRenderModel), vm => vm.CurrentRenderModel, _ =>
         {
-            _imageBanner.Hidden = !ViewModel.IsImageRenderingDisabled;
+            UpdatePrivacy();
             _statusRow.Update(ViewModel.CanUnsubscribe, ViewModel.IsSmimeSigned, ViewModel.SmimeSignaturesValid, ViewModel.IsSmimeEncrypted);
             UpdateRecipients();
             UpdateAttachments();
         });
+        BindPrivacy();
         ObserveCollection(ViewModel.ToItems);
         ObserveCollection(ViewModel.CcItems);
         ObserveCollection(ViewModel.BccItems);
@@ -576,7 +579,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         if (_reader is null || _disposedReader) return;
         var html = await ResolveActiveHtmlAsync(_currentRenderedHtml);
         var options = ViewModel.CurrentRenderModel?.MailRenderingOptions;
-        var policy = (options?.LoadImages ?? true) ? RemoteContentPolicy.ImagesAndFontsAllowed : RemoteContentPolicy.Blocked;
+        var policy = options?.RemoteContent == RemoteContentMode.BlockAll ? RemoteContentPolicy.Blocked : RemoteContentPolicy.ImagesAndFontsAllowed;
         await _reader.RenderAsync(new HtmlMailReaderRequest(string.IsNullOrEmpty(html) ? " " : html, policy,
             ViewModel.IsReaderViewEnabled ? HtmlMailRenderMode.Readability : HtmlMailRenderMode.Original, options?.RenderPlaintextLinks ?? true));
         UpdateWebHeight();

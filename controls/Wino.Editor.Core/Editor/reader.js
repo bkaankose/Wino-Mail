@@ -717,7 +717,7 @@
             scrollToFragment(href.slice(1));
             return;
         }
-        post({ type: "navigation", uri: anchor.href });
+        post({ type: "navigation", uri: anchor.href, text: (anchor.textContent || "").replace(/\s+/g, " ").trim().slice(0, 200) });
     });
 
     // Hovering or focusing a link tells the host which link it is, and the host shows the

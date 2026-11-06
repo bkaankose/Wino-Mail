@@ -56,4 +56,7 @@ public interface IPlatformCapabilities
 
     /// <summary>Windows widgets on the Widgets Board and Live Tiles on the Start menu (the Widgets / Live Tiles settings page).</summary>
     bool WidgetsAndLiveTiles { get; }
+
+    /// <summary>Received attachments can be checked by the operating system before they open (Windows SmartScreen and the attachment manager).</summary>
+    bool AttachmentSecurityCheck { get; }
 }

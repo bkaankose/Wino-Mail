@@ -22,6 +22,7 @@ internal sealed class WinoSyncSnapshotDocument
     public List<UserMailboxSyncItemDto>? Mailboxes { get; set; }
     public List<SnapshotTemplate>? Templates { get; set; }
     public List<SnapshotShortcut>? Shortcuts { get; set; }
+    public List<SnapshotRemoteContentRule>? RemoteContentRules { get; set; }
     public List<SnapshotFilter>? Filters { get; set; }
     public List<SnapshotCategory>? Categories { get; set; }
     public List<SnapshotAlias>? Aliases { get; set; }
@@ -49,6 +50,17 @@ internal sealed class SnapshotShortcut
     public int ModifierKeys { get; set; }
     public int Action { get; set; }
     public bool IsEnabled { get; set; }
+}
+
+/// <summary>
+/// A remote content sender rule. Rules match by pattern on import.
+/// </summary>
+internal sealed class SnapshotRemoteContentRule
+{
+    public string Pattern { get; set; } = string.Empty;
+    public int Policy { get; set; }
+    public int Source { get; set; }
+    public DateTime CreatedUtc { get; set; }
 }
 
 internal sealed class SnapshotFilter

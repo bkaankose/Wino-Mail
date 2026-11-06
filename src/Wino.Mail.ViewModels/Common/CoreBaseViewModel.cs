@@ -1,7 +1,11 @@
 ﻿using System;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Navigation;
@@ -122,6 +126,31 @@ public partial class CoreBaseViewModel : ObservableRecipient, INavigationAware
     public void ReportUIChange<TMessage>(TMessage message) where TMessage : class, IUIMessage => Messenger.Send(message);
 
     protected virtual void OnDispatcherAssigned() { }
+
+    /// <summary>
+    /// Asks before an attachment that can run programs is opened, when the privacy setting asks for it.
+    /// </summary>
+    /// <returns>False when the user cancels.</returns>
+    protected static async Task<bool> ConfirmExecutableAttachmentAsync(IPreferencesService preferencesService,
+                                                                       IDialogServiceBase dialogService,
+                                                                       string? fileName)
+    {
+        if (!preferencesService.WarnBeforeOpeningExecutableAttachments || string.IsNullOrWhiteSpace(fileName))
+            return true;
+
+        var extension = Path.GetExtension(fileName.Trim());
+
+        if (string.IsNullOrEmpty(extension) ||
+            !Constants.ExecutableAttachmentExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+            return true;
+
+        return await dialogService.ShowWinoCustomMessageDialogAsync(
+            Translator.PrivacySecurity_ExecutableDialog_Title,
+            string.Format(Translator.PrivacySecurity_ExecutableDialog_Message, fileName),
+            Translator.PrivacySecurity_ExecutableDialog_OpenAnyway,
+            WinoCustomMessageDialogIcon.Warning,
+            Translator.Buttons_Cancel);
+    }
 
     /// <summary>
     /// Register message recipients for this view model. Override to register specific message types.

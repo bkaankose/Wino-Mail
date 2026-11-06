@@ -325,9 +325,44 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsOtherInboxUnreadNoticeEnabled { get; set; }
 
     /// <summary>
-    /// Setting: Set whether 'img' tags in rendered HTMLs should be removed.
+    /// Setting: What remote content messages may load when no sender rule applies.
     /// </summary>
-    bool RenderImages { get; set; }
+    RemoteContentMode RemoteContentMode { get; set; }
+
+    /// <summary>
+    /// Setting: Load everything from senders stored in the account's contacts.
+    /// </summary>
+    bool LoadRemoteContentFromContacts { get; set; }
+
+    /// <summary>
+    /// Setting: Load everything from addresses the account has sent mail to.
+    /// </summary>
+    bool LoadRemoteContentFromRecipients { get; set; }
+
+    /// <summary>
+    /// Setting: Remove known tracking parameters from links before they open.
+    /// </summary>
+    bool StripLinkTrackingParameters { get; set; }
+
+    /// <summary>
+    /// Setting: Show the destination of a link and ask before opening it.
+    /// </summary>
+    bool ConfirmBeforeOpeningLinks { get; set; }
+
+    /// <summary>
+    /// Setting: Show the sender's address next to their name.
+    /// </summary>
+    bool AlwaysShowSenderAddress { get; set; }
+
+    /// <summary>
+    /// Setting: Ask before opening attachments that can run programs.
+    /// </summary>
+    bool WarnBeforeOpeningExecutableAttachments { get; set; }
+
+    /// <summary>
+    /// Setting: Check received attachments with the platform's security services before opening or saving them. Windows only.
+    /// </summary>
+    bool CheckAttachmentsWithPlatformSecurity { get; set; }
 
     MailContentTheme ReaderContentTheme { get; set; }
 

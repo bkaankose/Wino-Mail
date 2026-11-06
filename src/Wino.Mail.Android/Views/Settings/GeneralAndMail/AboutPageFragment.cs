@@ -49,12 +49,10 @@ public sealed class AboutPageFragment : SettingsPageFragment<AboutPageViewModel>
         links.Add(Link(Translator.SettingsPrivacyPolicy_Title, Translator.SettingsPrivacyPolicy_Description, WinoIconGlyph.Eye, () => vm.PrivacyPolicyUrl));
         Add(links);
 
-        // Phone width: the switch stays trailing; the log buttons and the identifier go under the text.
-        var logsCard = Card(Translator.SettingsEnableLogs_Title, Translator.SettingsEnableLogs_Description, WinoIconGlyph.None,
-            Bind.Switch(p, nameof(p.IsLoggingEnabled), s => s.IsLoggingEnabled, (s, v) => s.IsLoggingEnabled = v, Translator.SettingsEnableLogs_Title));
-        logsCard.BottomContent = Row(
-            Bind.Button(Translator.Buttons_Share, vm.ShareWinoLogCommand),
-            Bind.Button(Translator.Buttons_UploadLogs, vm.UploadWinoLogsCommand));
+        // Logging is turned on and off in Privacy & security; About keeps sharing and uploading the log.
+        var logsCard = Card(Translator.PrivacySecurity_AboutLogs_Title, Translator.PrivacySecurity_AboutLogs_Description, WinoIconGlyph.None,
+            Row(Bind.Button(Translator.Buttons_Share, vm.ShareWinoLogCommand),
+                Bind.Button(Translator.Buttons_UploadLogs, vm.UploadWinoLogsCommand)));
 
         var copy = Bind.IconButton(WinoIconGlyph.Copy, Translator.SettingsDiagnostics_DiagnosticId_Title);
         Bind.Views.Command(copy, vm.CopyDiagnosticIdCommand);

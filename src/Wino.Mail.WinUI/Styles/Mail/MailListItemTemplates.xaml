@@ -175,7 +175,7 @@
                     <Grid x:Name="OwnSenderHost" Grid.Column="2">
                         <TextBlock
                             FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
-                            Text="{x:Bind FromName, Mode=OneWay}"
+                            Text="{x:Bind helpers:XamlHelpers.GetSenderDisplayName(FromName, FromAddress), Mode=OneWay}"
                             TextTrimming="CharacterEllipsis"
                             Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
                         <TextBlock
@@ -346,7 +346,7 @@
                     <Grid x:Name="OwnSenderHost" Grid.Column="2">
                         <TextBlock
                             FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
-                            Text="{x:Bind FromName, Mode=OneWay}"
+                            Text="{x:Bind helpers:XamlHelpers.GetSenderDisplayName(FromName, FromAddress), Mode=OneWay}"
                             TextTrimming="CharacterEllipsis"
                             Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
                         <TextBlock
@@ -530,7 +530,7 @@
                         <Grid x:Name="OwnSenderHost" Grid.Column="2">
                             <TextBlock
                                 FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
-                                Text="{x:Bind FromName, Mode=OneWay}"
+                                Text="{x:Bind helpers:XamlHelpers.GetSenderDisplayName(FromName, FromAddress), Mode=OneWay}"
                                 TextTrimming="CharacterEllipsis"
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
                             <TextBlock

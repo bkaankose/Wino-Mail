@@ -441,6 +441,16 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
         return dialog.Result;
     }
 
+    public async Task<bool> ShowOpenLinkConfirmationAsync(string? linkText, Uri originalUri, Uri cleanedUri, int removedParameterCount, string? browserName)
+    {
+        var dialog = new OpenLinkConfirmationDialog(linkText, originalUri, cleanedUri, removedParameterCount, browserName)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        return await HandleDialogPresentationAsync(dialog) == ContentDialogResult.Primary;
+    }
+
     public async Task<bool> ShowCautiousConfirmationDialogAsync(string title, string message, string confirmButtonText)
     {
         var informationContainer = new CustomMessageDialogInformationContainer(title, message, WinoCustomMessageDialogIcon.Warning, false);

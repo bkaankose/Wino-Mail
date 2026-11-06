@@ -112,6 +112,7 @@ public static class SettingsCatalog
     {
         if (page == WinoPage.WinoIntelligenceManagementPage) return Translator.SemanticIndex_PageDescription;
         if (page == WinoPage.IntelligenceCoveragePage) return Translator.SemanticIndex_CoverageEditorPageDescription;
+        if (page == WinoPage.RemoteContentRulesPage) return Translator.RemoteContentRules_Description;
         return RootPage(page) == page ? RootDescription(page) : string.Empty;
     }
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
@@ -187,9 +187,10 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         var shouldLinkifyText = ViewModel.CurrentRenderModel?.MailRenderingOptions?.RenderPlaintextLinks ?? true;
 
         // Image stripping cannot reach CSS backgrounds or web fonts, so blocked remote
-        // content is also enforced at the renderer's network layer.
-        var resourcePolicy = (ViewModel.CurrentRenderModel?.MailRenderingOptions?.LoadImages ?? true)
-            ? RemoteContentPolicy.ImagesAndFontsAllowed : RemoteContentPolicy.Blocked;
+        // content is also enforced at the renderer's network layer. Block trackers already
+        // removed the trackers from the HTML, so it allows the rest like Load everything.
+        var resourcePolicy = ViewModel.CurrentRenderModel?.MailRenderingOptions?.RemoteContent == RemoteContentMode.BlockAll
+            ? RemoteContentPolicy.Blocked : RemoteContentPolicy.ImagesAndFontsAllowed;
         await _readerSession.RenderAsync(new HtmlMailReaderRequest(
             string.IsNullOrEmpty(html) ? " " : html,
             resourcePolicy,
@@ -221,13 +222,42 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     {
         try
         {
-            (await ViewModel.OpenLinkAsync(args.Uri)).ThrowIfNotSucceeded();
+            (await ViewModel.OpenLinkAsync(args.Uri, args.LinkText)).ThrowIfNotSucceeded();
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to open a link from the mail renderer.");
         }
     }
+
+    private async void PrivacyMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: PrivacyMenuItem item })
+            return;
+
+        PrivacyFlyout.Hide();
+
+        try
+        {
+            await ViewModel.InvokePrivacyMenuItemCommand.ExecuteAsync(item);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "A privacy action from the reader failed.");
+        }
+    }
+
+    private void PrivacyButton_Click(object sender, RoutedEventArgs e)
+        => PrivacyFlyout.ShowAt(PrivacyButton);
+
+    private void EditSenderRule_Click(object sender, RoutedEventArgs e)
+        => PrivacyFlyout.ShowAt(PrivacyButton);
+
+    public Visibility GetPrivacyIconVisibility(PrivacyButtonState state, PrivacyButtonState visibleState)
+        => state == visibleState ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility GetPlainPrivacyIconVisibility(PrivacyButtonState state)
+        => state is PrivacyButtonState.Plain or PrivacyButtonState.Count ? Visibility.Visible : Visibility.Collapsed;
 
     private void MailRenderer_InitializationFailed(object? sender, Exception exception)
         => Log.Error(exception, "Mail rendering WebView2 initialization failed.");

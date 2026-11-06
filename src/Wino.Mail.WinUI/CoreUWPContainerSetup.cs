@@ -54,7 +54,8 @@ public static class CoreUWPContainerSetup
             StartupIntegration: true, Tray: true, GlobalHotkeys: true, GeneralActivation: true,
             MicrosoftStore: true, RemoteNotifications: false, KeyboardShortcuts: true, FileBackup: true, Purchases: true,
             AppModeTaskbarIdentity: true, PointerHover: true, MailListDensity: true, PresentationDetection: true,
-            ConfigurableSyncIntervals: true, BadgeLaunchNavigation: true, WidgetsAndLiveTiles: true));
+            ConfigurableSyncIntervals: true, BadgeLaunchNavigation: true, WidgetsAndLiveTiles: true,
+            AttachmentSecurityCheck: true));
         services.AddSingleton<IPushRelayDeviceIdentityStore, WindowsPushRelayDeviceIdentityStore>();
         services.AddSingleton<IPushRelayDeviceInfo, WindowsPushRelayDeviceInfo>();
         services.AddSingleton<IPushTokenProvider, NullPushTokenProvider>();

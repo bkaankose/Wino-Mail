@@ -62,6 +62,10 @@ public static class ServicesContainerSetup
         services.AddTransient<IContactService, ContactService>();
         services.AddTransient<IContactQueryService>(provider => provider.GetRequiredService<IContactService>());
         services.AddTransient<IRecipientHistoryService, RecipientHistoryService>();
+        services.AddTransient<IRemoteContentRuleStore, RemoteContentRuleStore>();
+        services.AddSingleton<IRemoteContentSessionService, RemoteContentSessionService>();
+        services.AddTransient<IRemoteContentPolicyService, RemoteContentPolicyService>();
+        services.AddSingleton<ILinkSanitizer, LinkSanitizer>();
         services.AddTransient<IRecipientSuggestionService, RecipientSuggestionService>();
         services.AddTransient<ITaskService, TaskService>();
         services.AddTransient<ITaskQueryService>(provider => provider.GetRequiredService<ITaskService>());

@@ -92,6 +92,11 @@ public sealed partial class UIKitDialogService(IDispatcher dispatcher, IUIKitShe
             _ => ThreeButtonDialogResult.Cancel
         };
 
+    public async Task<bool> ShowOpenLinkConfirmationAsync(string? linkText, System.Uri originalUri, System.Uri cleanedUri, int removedParameterCount, string? browserName)
+        => await AlertAsync(Translator.OpenLinkDialog_Title,
+            Wino.Core.Domain.Models.Reader.OpenLinkConfirmationText.GetMessage(linkText, cleanedUri, removedParameterCount, browserName),
+            new List<string> { Translator.OpenLinkDialog_OpenLink }, Translator.Buttons_Cancel) == 0;
+
     /// <summary>
     /// Same contract as Windows: a key already marked "don't ask again" answers false without showing. iOS alerts have
     /// no suppression checkbox, so a "Don't ask again" button records the choice and answers false.

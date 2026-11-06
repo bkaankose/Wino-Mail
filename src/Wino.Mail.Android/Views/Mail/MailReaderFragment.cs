@@ -35,7 +35,7 @@ namespace Wino.Mail.Android.Views.Mail;
 /// The message reader (canvas boards Reader, Landscape and Tablet; Windows MailRenderingPage, the iOS and Mac readers)
 /// over the shared <see cref="MailRenderingPageViewModel"/>. The body is the shared reader document in a WebView
 /// through <see cref="AndroidHtmlMailReaderSession"/> (Wino.Editor.Android): remote content by the message's policy,
-/// links through the external launcher. Commands come from the shared <see cref="MailReaderCommandLayout"/>: on compact
+/// links through the ViewModel's OpenLinkAsync. Commands come from the shared <see cref="MailReaderCommandLayout"/>: on compact
 /// widths the bottom app bar carries Archive, Delete, Move, Flag and Unread with Reply anchored and the rest in More; in
 /// the reader pane the Windows command bar sits at the top. Attachments open through the attachment platform service
 /// (ACTION_VIEW). The ViewModel renders through a <see cref="ReaderBridge"/> that lives with the page, so a rotation
@@ -68,7 +68,6 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
     private TextView? _recipients;
     private WinoContactPicture? _avatar;
     private LinearLayout? _chips;
-    private WinoInfoBar? _imageBanner;
     private View? _attachmentStrip;
     private LinearLayout? _attachments;
     private MaterialButton? _saveAll;
@@ -113,6 +112,7 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         BuildChrome(view, context);
         BuildHeader(context, viewModel, dispatcher);
         BuildHeaderExtras(view, context, viewModel, dispatcher, services);
+        BuildPrivacy(view, context, viewModel, dispatcher);
         BuildBody(view, viewModel);
 
         _bridge = Entry is { } current ? BridgeFor(current) : null;
@@ -160,7 +160,9 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         {
             date.Gravity = GravityFlags.End;
             date.SetMaxWidth(WinoTokens.Px(row.RequireContext(), Resource.Dimension.wino_reader_date_max_width));
-            row.AddView(date, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent) { MarginStart = WinoTokens.Px(row.RequireContext(), Resource.Dimension.wino_space_s) });
+            // The privacy button stays at the row's end.
+            int index = _privacyButton is not null && ReferenceEquals(_privacyButton.Parent, row) ? row.IndexOfChild(_privacyButton) : -1;
+            row.AddView(date, index, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent) { MarginStart = WinoTokens.Px(row.RequireContext(), Resource.Dimension.wino_space_s) });
         }
         else
         {
@@ -183,7 +185,7 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         _recipients = view.FindViewById<TextView>(Resource.Id.reader_recipients);
         _avatar = view.FindViewById<WinoContactPicture>(Resource.Id.reader_avatar);
         _chips = view.FindViewById<LinearLayout>(Resource.Id.reader_chips);
-        _imageBanner = view.FindViewById<WinoInfoBar>(Resource.Id.reader_image_banner);
+        FindPrivacyViews(view);
         _attachmentStrip = view.FindViewById(Resource.Id.reader_attachment_strip);
         _attachments = view.FindViewById<LinearLayout>(Resource.Id.reader_attachments);
         if (view.FindViewById<LinearLayout>(Resource.Id.reader_sender_row) is { } senderRow
@@ -462,14 +464,6 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
     private void BuildHeader(Context context, MailRenderingPageViewModel viewModel, IDispatcher dispatcher)
     {
         if (_avatar is not null) _avatar.Size = 40;
-        if (_imageBanner is not null)
-        {
-            _imageBanner.Severity = WinoInfoBarSeverity.Warning;
-            _imageBanner.Message = Translator.ImageRenderingDisabled;
-            _imageBanner.ActionTitle = Translator.Buttons_EnableImageRendering;
-            _imageBanner.IsClosable = true;
-            _imageBanner.ActionInvoked += (_, _) => Observe(ViewModel?.ForceImageLoadingCommand.ExecuteAsync(null));
-        }
         if (_saveAll is not null)
         {
             _saveAll.Text = Translator.Reader_SaveAllAttachmentButtonText;
@@ -491,7 +485,7 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         });
         Bind(viewModel, dispatcher, nameof(MailRenderingPageViewModel.CurrentRenderModel), vm => vm.CurrentRenderModel, _ =>
         {
-            if (_imageBanner is not null) _imageBanner.Visibility = ViewModel?.IsImageRenderingDisabled == true ? ViewStates.Visible : ViewStates.Gone;
+            UpdatePrivacy();
             UpdateRecipients();
             UpdateAttachments();
         });
@@ -625,7 +619,7 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         _web.VerticalScrollBarEnabled = false;
         _web.OverScrollMode = OverScrollMode.Never;
         var reader = _reader = new AndroidHtmlMailReaderSession(_web);
-        reader.Configure(viewModel.ExternalLauncher);
+        reader.Configure(viewModel.ExternalLauncher, OpenLinkAsync);
         reader.OperationFailed += (_, exception) => ReportError(exception);
         reader.NavigationRequested += (_, _) => _web?.Post(HideLinkTarget);
         reader.LinkHovered += (_, args) => _web?.Post(() => ShowLinkTarget(args));
@@ -691,7 +685,7 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         HideLinkTarget();
         if (_web is not null) SetWebHeight(120);
         var options = viewModel.CurrentRenderModel?.MailRenderingOptions;
-        var policy = (options?.LoadImages ?? true) ? RemoteContentPolicy.ImagesAndFontsAllowed : RemoteContentPolicy.Blocked;
+        var policy = ResourcePolicy(viewModel);
         await reader.SetThemeAsync(_dark);
         await reader.RenderAsync(new HtmlMailReaderRequest(string.IsNullOrEmpty(html) ? " " : html, policy,
             viewModel.IsReaderViewEnabled ? HtmlMailRenderMode.Readability : HtmlMailRenderMode.Original, options?.RenderPlaintextLinks ?? true));

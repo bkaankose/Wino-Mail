@@ -46,13 +46,12 @@ public sealed class AboutPageViewController(AboutPageViewModel viewModel, IDispa
 
         var logs = Row(
             Bind.Button(Translator.Buttons_Share, vm.ShareWinoLogCommand),
-            Bind.Button(Translator.Buttons_UploadLogs, vm.UploadWinoLogsCommand),
-            Bind.Switch(p, nameof(p.IsLoggingEnabled), s => s.IsLoggingEnabled, (s, v) => s.IsLoggingEnabled = v, Translator.SettingsEnableLogs_Title));
+            Bind.Button(Translator.Buttons_UploadLogs, vm.UploadWinoLogsCommand));
         var diagnosticId = Row(
             Bind.Label(p, nameof(p.DiagnosticId), s => s.DiagnosticId, WinoStyle.Description, WinoStyle.SecondaryText),
             Bind.Button(string.Empty, vm.CopyDiagnosticIdCommand, icon: WinoIconGlyph.Copy));
         AddGroup(null, Expander(Translator.SettingsDiagnostics_Title, Translator.SettingsDiagnostics_Description, WinoIconGlyph.Bug, null,
-            Card(Translator.SettingsEnableLogs_Title, Translator.SettingsEnableLogs_Description, WinoIconGlyph.None, logs),
+            Card(Translator.PrivacySecurity_AboutLogs_Title, Translator.PrivacySecurity_AboutLogs_Description, WinoIconGlyph.None, logs),
             Card(Translator.SettingsDiagnostics_DiagnosticId_Title, Translator.SettingsDiagnostics_DiagnosticId_Description, WinoIconGlyph.None, diagnosticId)));
     }
 

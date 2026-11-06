@@ -37,12 +37,6 @@ public sealed class MessageListPageViewController(MessageListPageViewModel viewM
         var clearCache = Card(string.Empty, null, WinoIconGlyph.None, Bind.Button(Translator.SettingsMailList_ClearAvatarsCache_Button, vm.ClearAvatarsCacheCommand));
         var senderPictures = Expander(Translator.SettingsShowSenderPictures_Title, null, WinoIconGlyph.Person,
             Bind.Switch(p, nameof(p.IsShowSenderPicturesEnabled), s => s.IsShowSenderPicturesEnabled, (s, v) => s.IsShowSenderPicturesEnabled = v, Translator.SettingsShowSenderPictures_Title),
-            Bind.Enabled(Card(Translator.SettingsEnableGravatarAvatars_Title, Translator.IOS_SettingsHint_Gravatar, WinoIconGlyph.None,
-                    Bind.Switch(p, nameof(p.IsGravatarEnabled), s => s.IsGravatarEnabled, (s, v) => s.IsGravatarEnabled = v, Translator.SettingsEnableGravatarAvatars_Title)),
-                p, nameof(p.IsShowSenderPicturesEnabled), s => s.IsShowSenderPicturesEnabled),
-            Bind.Enabled(Card(Translator.SettingsEnableFavicons_Title, Translator.IOS_SettingsHint_Favicons, WinoIconGlyph.None,
-                    Bind.Switch(p, nameof(p.IsFaviconEnabled), s => s.IsFaviconEnabled, (s, v) => s.IsFaviconEnabled = v, Translator.SettingsEnableFavicons_Title)),
-                p, nameof(p.IsShowSenderPicturesEnabled), s => s.IsShowSenderPicturesEnabled),
             clearCache);
 
         AddGroup(null, senderPictures);

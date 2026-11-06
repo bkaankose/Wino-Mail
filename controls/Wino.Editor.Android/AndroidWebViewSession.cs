@@ -39,6 +39,7 @@ internal sealed class AndroidWebViewSession
     private string? _document;
     private RemoteContentPolicy _policy = RemoteContentPolicy.Blocked;
     private IExternalLauncher? _launcher;
+    private Func<RendererNavigationRequestedEventArgs, Task>? _linkHandler;
     private bool _disposed;
 
     public AndroidWebViewSession(WebView browser)
@@ -99,6 +100,17 @@ internal sealed class AndroidWebViewSession
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(launcher);
         _launcher = launcher;
+    }
+
+    /// <summary>
+    /// The reader's links go to <paramref name="handler"/> instead of the launcher, so the host can clean and confirm them
+    /// (MailRenderingPageViewModel.OpenLinkAsync).
+    /// </summary>
+    public void Configure(IExternalLauncher launcher, Func<RendererNavigationRequestedEventArgs, Task> handler)
+    {
+        ArgumentNullException.ThrowIfNull(handler);
+        Configure(launcher);
+        _linkHandler = handler;
     }
 
     /// <summary>Loads a fresh reader or editor shell and waits until its scripts report ready.</summary>
@@ -180,7 +192,7 @@ internal sealed class AndroidWebViewSession
             else if (message.Type is "openLink" or "navigation")
             {
                 var reader = JsonSerializer.Deserialize(json, EditorJsonContext.Default.RendererMessage);
-                if (Uri.TryCreate(message.Url ?? reader?.Uri, UriKind.Absolute, out var uri)) OpenLink(uri);
+                if (Uri.TryCreate(message.Url ?? reader?.Uri, UriKind.Absolute, out var uri)) OpenLink(uri, NullIfBlank(reader?.Text));
             }
             else if (message.Type == "linkHover")
             {
@@ -195,12 +207,17 @@ internal sealed class AndroidWebViewSession
     private static string? NullIfBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
     /// <summary>A link the page asked to open, or a navigation the client cancelled: http, https and mailto leave the app.</summary>
-    private async void OpenLink(Uri uri)
+    private async void OpenLink(Uri uri, string? linkText = null)
     {
         if (uri.Scheme is not ("http" or "https" or "mailto")) return;
-        NavigationRequested?.Invoke(this, new(uri));
-        if (_launcher is null || _linkLifetime.IsCancellationRequested) return;
-        try { (await _launcher.LaunchUriAsync(uri, _linkLifetime.Token)).ThrowIfNotSucceeded(); }
+        var request = new RendererNavigationRequestedEventArgs(uri, linkText);
+        NavigationRequested?.Invoke(this, request);
+        if (_linkLifetime.IsCancellationRequested) return;
+        try
+        {
+            if (_linkHandler is { } handler) await handler(request);
+            else if (_launcher is not null) (await _launcher.LaunchUriAsync(uri, _linkLifetime.Token)).ThrowIfNotSucceeded();
+        }
         catch (Exception error) { if (!_linkLifetime.IsCancellationRequested) OperationFailed?.Invoke(this, error); }
     }
 
@@ -227,6 +244,7 @@ internal sealed class AndroidWebViewSession
             _disposed = true;
             _linkLifetime.Cancel();
             _launcher = null;
+            _linkHandler = null;
             _sessionId = null;
             _document = null;
             _ready.TrySetCanceled();

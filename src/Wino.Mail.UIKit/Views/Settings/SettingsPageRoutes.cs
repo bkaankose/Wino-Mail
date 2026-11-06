@@ -36,6 +36,8 @@ public static class SettingsPageRoutes
         Route<PersonalizationPageViewController>(registry, WinoPage.PersonalizationPage, host);
         Route<ApplicationThemeGalleryPageViewController>(registry, WinoPage.ApplicationThemeGalleryPage, host);
         Route<ApplicationThemeEditorPageViewController>(registry, WinoPage.ApplicationThemeEditorPage, host);
+        Route<PrivacySecurityPageViewController>(registry, WinoPage.PrivacySecurityPage, host);
+        Route<RemoteContentRulesPageViewController>(registry, WinoPage.RemoteContentRulesPage, host);
         Route<NotificationSettingsPageViewController>(registry, WinoPage.NotificationSettingsPage, host);
         Route<KeyboardShortcutsPageViewController>(registry, WinoPage.KeyboardShortcutsPage, host);
         Route<AboutPageViewController>(registry, WinoPage.AboutPage, host);

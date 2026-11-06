@@ -30,7 +30,7 @@ namespace Wino.Mail.MacOS.Views.Mail;
 /// read, Pop out, More at the trailing edge), the sender block (40pt avatar; name, address and the
 /// To, Cc and Bcc rows; the date with Unsubscribe and the S/MIME indicators at the top right),
 /// category chips, the Wino Intelligence header, the
-/// remote-image banner, the HTML body in a card through the shared reader engine, the attachment
+/// remote content bars (MailRenderingPageViewController.Privacy.cs), the HTML body in a card through the shared reader engine, the attachment
 /// strip with Save all, and the loading skeleton. Print and Save as PDF go through
 /// <see cref="MacMailPrintPresenter"/> while the reader is active.
 /// The controller is reused across selections; <see cref="RenavigateAsync"/> loads the next message.
@@ -51,7 +51,6 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private MailReaderStatusRow _statusRow = null!;
     private NSStackView _chips = null!;
     private NSView _intelligenceHost = null!;
-    private WinoInfoBar _imageBanner = null!;
     private WKWebView _webView = null!;
     private readonly ReaderLinkTargetBar _linkTarget = new();
     private AppKitHtmlMailReaderSession? _reader;
@@ -144,7 +143,10 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _statusRow = new MailReaderStatusRow();
         _statusRow.UnsubscribeInvoked += (_, _) => Observe(ViewModel.UnsubscribeCommand.ExecuteAsync(null));
         _statusRow.SignatureInvoked += (_, _) => Observe(ViewModel.ShowSmimeSigningCertificateInfoCommand.ExecuteAsync(null));
-        var details = WinoLayout.VStack(4, _date, _statusRow);
+        var dateLine = WinoLayout.HStack(4, _date, BuildPrivacyButton());
+        dateLine.Alignment = NSLayoutAttribute.CenterY;
+        dateLine.DetachesHiddenViews = true;
+        var details = WinoLayout.VStack(4, dateLine, _statusRow);
         details.Alignment = NSLayoutAttribute.Trailing;
         details.SetHuggingPriority(750, NSLayoutConstraintOrientation.Horizontal);
 
@@ -158,22 +160,15 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _chips.Hidden = true;
         _chips.SetClippingResistancePriority(200, NSLayoutConstraintOrientation.Horizontal);
 
-        _imageBanner = new WinoInfoBar(WinoInfoBarSeverity.Warning, null, Translator.ImageRenderingDisabled)
-        {
-            ActionTitle = Translator.Buttons_EnableImageRendering,
-            // Windows leaves this InfoBar at the default IsClosable="True".
-            IsClosable = true,
-            Hidden = true
-        };
-        _imageBanner.ActionInvoked += (_, _) => Observe(ViewModel.ForceImageLoadingCommand.ExecuteAsync(null));
+        var privacyBars = BuildPrivacyBars();
 
         // Hosts the Wino Intelligence header; hidden until the intelligence partial fills it.
         _intelligenceHost = new NSView { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
         BuildIntelligenceHeader(_intelligenceHost);
 
-        var header = _header = WinoLayout.VStack(12, senderRow, _chips, _intelligenceHost, _imageBanner);
+        var header = _header = WinoLayout.VStack(12, senderRow, _chips, _intelligenceHost, privacyBars);
         header.EdgeInsets = new NSEdgeInsets(14, 24, 10, 24);
-        foreach (var view in new NSView[] { senderRow, _intelligenceHost, _imageBanner })
+        foreach (var view in new NSView[] { senderRow, _intelligenceHost, privacyBars })
             _headerWidths.Add(view.WidthAnchor.ConstraintEqualTo(header.WidthAnchor, 1, -48));
         // The tile row hugs its chips from the leading edge; it is only capped (and clips) at the header width.
         _headerWidths.Add(_chips.WidthAnchor.ConstraintLessThanOrEqualTo(header.WidthAnchor, 1, -48));
@@ -269,6 +264,8 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _reader.OperationFailed += (_, exception) => ReportError(exception);
         _reader.LinkHovered += (_, args) => _linkTarget.Show(args);
         _reader.NavigationRequested += (_, _) => _linkTarget.Clear();
+        // Links go through the ViewModel: tracking parameters are stripped and the link is confirmed when asked.
+        _reader.LinkOpener = (uri, text) => ViewModel.OpenLinkAsync(uri, text);
         _commandBar.ShowsLabels = ViewModel.PreferencesService.IsShowActionLabelsEnabled;
         ViewModel.PreferencesService.PreferenceChanged -= PreferenceChanged;
         ViewModel.PreferencesService.PreferenceChanged += PreferenceChanged;
@@ -305,11 +302,12 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         });
         Bind(nameof(ViewModel.CurrentRenderModel), vm => vm.CurrentRenderModel, _ =>
         {
-            _imageBanner.Hidden = !ViewModel.IsImageRenderingDisabled;
+            UpdatePrivacy();
             _statusRow.Update(ViewModel.CanUnsubscribe, ViewModel.IsSmimeSigned, ViewModel.SmimeSignaturesValid, ViewModel.IsSmimeEncrypted);
             UpdateRecipients();
             UpdateAttachments();
         });
+        BindPrivacy();
         ObserveCollection(ViewModel.ToItems);
         ObserveCollection(ViewModel.CcItems);
         ObserveCollection(ViewModel.BccItems);
@@ -565,7 +563,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         if (_reader is null || _disposedReader) return;
         var html = await ResolveActiveHtmlAsync(_currentRenderedHtml);
         var options = ViewModel.CurrentRenderModel?.MailRenderingOptions;
-        var policy = (options?.LoadImages ?? true) ? RemoteContentPolicy.ImagesAndFontsAllowed : RemoteContentPolicy.Blocked;
+        var policy = options?.RemoteContent == RemoteContentMode.BlockAll ? RemoteContentPolicy.Blocked : RemoteContentPolicy.ImagesAndFontsAllowed;
         await _reader.RenderAsync(new HtmlMailReaderRequest(string.IsNullOrEmpty(html) ? " " : html, policy,
             ViewModel.IsReaderViewEnabled ? HtmlMailRenderMode.Readability : HtmlMailRenderMode.Original, options?.RenderPlaintextLinks ?? true));
     }

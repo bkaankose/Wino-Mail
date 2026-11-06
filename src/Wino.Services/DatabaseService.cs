@@ -291,6 +291,7 @@ VALUES
             Connection.CreateTableAsync<ContactListMember>(),
             Connection.CreateTableAsync<ContactCategoryAssignment>(),
             Connection.CreateTableAsync<RecipientHistory>(),
+            Connection.CreateTableAsync<RemoteContentSenderRule>(),
             Connection.CreateTableAsync<CardDavAccountState>(),
             Connection.CreateTableAsync<CardDavAddressBookState>(),
             Connection.CreateTableAsync<CardDavResourceShadow>(),
