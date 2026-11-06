@@ -57,14 +57,6 @@ public sealed class SettingsWindowPresenter : ISettingsWindowPresenter, IRecipie
             _isVisible = true;
         });
 
-        // The settings root with a page parameter is a deep link (the reader's Manage sender rules).
-        if (page is WinoPage.SettingOptionsPage or WinoPage.SettingsPage && parameter is WinoPage deepLink
-            && deepLink is not (WinoPage.SettingOptionsPage or WinoPage.SettingsPage))
-        {
-            page = deepLink;
-            parameter = null;
-        }
-
         if (page is null || page is WinoPage.SettingOptionsPage or WinoPage.SettingsPage)
         {
             if (_current is null) await NavigateAsync(new Entry(SettingsPageCatalog.DefaultPage, null), NavigationMode.New);

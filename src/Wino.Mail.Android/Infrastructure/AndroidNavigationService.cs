@@ -539,13 +539,6 @@ public sealed class AndroidNavigationService : INavigationService, INavigationHo
     async Task INavigationHost.ShowSettingsAsync(WinoPage? page, object? parameter)
     {
         var target = page is null or WinoPage.SettingOptionsPage ? WinoPage.SettingsPage : page.Value;
-        // Shared ViewModels deep-link with Navigate(SettingsPage, WinoPage.X); open X over the root list.
-        if (target == WinoPage.SettingsPage && parameter is WinoPage requested
-            && requested is not (WinoPage.SettingsPage or WinoPage.SettingOptionsPage) && _registry.TryGet(requested, out _))
-        {
-            target = requested;
-            parameter = null;
-        }
         if (!_registry.TryGet(target, out _)) return;
         var added = new List<PageEntry>();
         lock (_sync)

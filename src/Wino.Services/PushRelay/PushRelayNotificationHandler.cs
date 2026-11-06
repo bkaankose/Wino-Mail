@@ -26,7 +26,6 @@ public sealed class PushRelayNotificationHandler : IPushRelayNotificationHandler
     private readonly IRelayAlertCoverage? _coverage;
     private readonly bool _pushesAreAlerts;
     private readonly bool _boundSync;
-    private readonly IPushRelayClient? _relay;
     private readonly ILogger _logger = Log.ForContext<PushRelayNotificationHandler>();
 
     /// <summary>The relay's alert stays visible for about this long before the app may post its own notifications again.</summary>
@@ -34,7 +33,7 @@ public sealed class PushRelayNotificationHandler : IPushRelayNotificationHandler
 
     public PushRelayNotificationHandler(IPushRelayRegistrationService registration, IAccountService accountService, Func<IApplicationRuntime> runtime,
         Func<INotificationBuilder?>? notifications = null, IPushRelayAppManagedRegistrationStore? appManaged = null,
-        IRelayAlertCoverage? coverage = null, IPushRelayDeviceInfo? deviceInfo = null, IPushRelayClient? relay = null)
+        IRelayAlertCoverage? coverage = null, IPushRelayDeviceInfo? deviceInfo = null)
     {
         _registration = registration;
         _accountService = accountService;
@@ -47,39 +46,9 @@ public sealed class PushRelayNotificationHandler : IPushRelayNotificationHandler
         _pushesAreAlerts = platform == PushRelayPlatforms.Ios;
         // Phones get a short background window per push. The desktop socket keeps running, so its sync is never cut short.
         _boundSync = platform is not (PushRelayPlatforms.Windows or PushRelayPlatforms.MacOS);
-        // The desktop socket acknowledges its own events; phones acknowledge each push here.
-        _relay = _boundSync ? relay : null;
     }
 
     public async Task<PushRelayNotificationOutcome> HandleAsync(IReadOnlyDictionary<string, string> payload, CancellationToken cancellationToken = default)
-    {
-        var outcome = await HandleCoreAsync(payload, cancellationToken).ConfigureAwait(false);
-        await AcknowledgeAsync(payload).ConfigureAwait(false);
-        return outcome;
-    }
-
-    /// <summary>
-    /// Phones only: acknowledges the push so the relay drops it from the replay log, and the device counts as alive
-    /// even when the app is never opened. Best effort; an unacknowledged push only stays in the log until it expires.
-    /// </summary>
-    private async Task AcknowledgeAsync(IReadOnlyDictionary<string, string>? payload)
-    {
-        if (_relay is null || payload is null || Read(payload, PushRelayPayloadKeys.EventId) is not { } eid || !Guid.TryParse(eid, out var eventId)
-            || _registration.Snapshot.DeviceId is not { } deviceId)
-            return;
-
-        try
-        {
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            await _relay.AckDeviceEventsAsync(deviceId, new PushRelayAckEventsRequest([eventId], null), timeout.Token).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            _logger.Information("Acknowledging relay push {EventId} failed ({Error}).", eventId, ex.GetType().Name);
-        }
-    }
-
-    private async Task<PushRelayNotificationOutcome> HandleCoreAsync(IReadOnlyDictionary<string, string> payload, CancellationToken cancellationToken)
     {
         if (payload is null || !payload.TryGetValue(PushRelayPayloadKeys.Kind, out var kind) || string.IsNullOrWhiteSpace(kind))
             return PushRelayNotificationOutcome.Ignored;

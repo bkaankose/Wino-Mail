@@ -71,16 +71,6 @@ internal sealed class PeopleStatePanel
 internal static class PeopleViews
 {
     /// <summary>
-    /// A chip in a single-line 48 dp chip row: the Material inset touch target makes the view 48 dp tall around the
-    /// 32 dp chip, so the row looks the same and the chip meets the minimum touch target.
-    /// </summary>
-    public static Google.Android.Material.Chip.Chip WithTouchTarget(Google.Android.Material.Chip.Chip chip)
-    {
-        chip.SetEnsureMinTouchTargetSize(true);
-        return chip;
-    }
-
-    /// <summary>
     /// The Windows ModeReadinessPanel over a mode's zone: covers the content while the mode cannot be used (no account,
     /// access not granted, sign-in required) with the shared title, message and primary action.
     /// </summary>

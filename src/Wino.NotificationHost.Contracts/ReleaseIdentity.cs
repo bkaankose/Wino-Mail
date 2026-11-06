@@ -16,21 +16,18 @@ public sealed class ReleaseIdentity
     public IReadOnlyDictionary<string, Guid> NotificationActivatorIds { get; }
     /// <summary>COM class of the session-start background task, hosted by the Mail application itself.</summary>
     public Guid StartupTaskActivatorId { get; }
-    /// <summary>COM class of the Widgets Board provider, hosted by Wino.WidgetHost.</summary>
-    public Guid WidgetProviderId { get; }
     public bool AllowsLegacyMigration => Distribution is "Store" or "Sideload";
     public string SingleInstanceKey => $"WinoMail.{PackageFamilyName}.SingleInstance";
     public string MailHostMutexName => $"Local\\WinoMail.{PackageFamilyName}.MailHostRunning";
     public string AlternateModeEventName => $"Local\\WinoMail.{PackageFamilyName}.ForceAlternateMode";
 
-    private ReleaseIdentity(string distribution, string familyName, Dictionary<string, string> names, Dictionary<string, Guid> ids, Guid startupTaskActivatorId, Guid widgetProviderId)
+    private ReleaseIdentity(string distribution, string familyName, Dictionary<string, string> names, Dictionary<string, Guid> ids, Guid startupTaskActivatorId)
     {
         Distribution = distribution;
         PackageFamilyName = familyName;
         DisplayNames = new ReadOnlyDictionary<string, string>(names);
         NotificationActivatorIds = new ReadOnlyDictionary<string, Guid>(ids);
         StartupTaskActivatorId = startupTaskActivatorId;
-        WidgetProviderId = widgetProviderId;
     }
 
     public static void Initialize(string directory, string packageName, string publisher, string familyName)
@@ -74,10 +71,6 @@ public sealed class ReleaseIdentity
         if (startupTaskActivatorId == Guid.Empty || ids.ContainsValue(startupTaskActivatorId))
             throw new InvalidDataException("The startup task activator ID must be nonempty and distinct from the notification activator IDs.");
 
-        var widgetProviderId = root.GetProperty("WidgetProviderId").GetGuid();
-        if (widgetProviderId == Guid.Empty || widgetProviderId == startupTaskActivatorId || ids.ContainsValue(widgetProviderId))
-            throw new InvalidDataException("The widget provider ID must be nonempty and distinct from the other activator IDs.");
-
-        return new ReleaseIdentity(distribution!, familyName, names, ids, startupTaskActivatorId, widgetProviderId);
+        return new ReleaseIdentity(distribution!, familyName, names, ids, startupTaskActivatorId);
     }
 }

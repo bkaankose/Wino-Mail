@@ -45,7 +45,7 @@ public sealed partial class CalDavClient : ICalDavClient
     private readonly IDavResponseHandler _responseHandler;
 
     public CalDavClient(HttpClient httpClient = null)
-        : this(new DavTransport(httpClient: httpClient), new DavResponseHandler())
+        : this(new DavTransport(httpClient), new DavResponseHandler())
     {
     }
 
@@ -233,6 +233,14 @@ public sealed partial class CalDavClient : ICalDavClient
         if (connectionSettings?.ServiceUri == null)
             throw new ArgumentException("Service URI is required for CalDAV.");
 
+        if (connectionSettings.Authentication is { Kind: DavAuthenticationKind.Bearer } bearer)
+        {
+            if (string.IsNullOrWhiteSpace(bearer.BearerToken))
+                throw new ArgumentException("An access token is required for CalDAV.");
+
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(connectionSettings.Username))
             throw new ArgumentException("Username is required for CalDAV.");
 
@@ -367,12 +375,11 @@ public sealed partial class CalDavClient : ICalDavClient
     }
 
     private static DavAuthenticationProfile CreateAuthentication(CalDavConnectionSettings settings)
-        => new()
+        => settings.Authentication ?? new DavAuthenticationProfile
         {
             Kind = DavAuthenticationKind.Basic,
             Username = settings.Username,
-            Password = settings.Password,
-            EndpointTrust = settings.EndpointTrust
+            Password = settings.Password
         };
 
     /// <summary>Calendar collections that accept VEVENT; collections for other components are left out.</summary>

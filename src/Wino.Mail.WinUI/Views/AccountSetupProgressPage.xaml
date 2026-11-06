@@ -47,7 +47,7 @@
 
                                 <!--  Pending: gray circle  -->
                                 <coreControls:WinoFontIcon
-                                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                                    FontFamily="{StaticResource WinoIconFontFamily}"
                                     FontSize="16"
                                     Foreground="{ThemeResource TextFillColorDisabledBrush}"
                                     Icon="Circle"
@@ -62,7 +62,7 @@
 
                                 <!--  Succeeded: green check  -->
                                 <coreControls:WinoFontIcon
-                                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                                    FontFamily="{StaticResource WinoIconFontFamily}"
                                     FontSize="16"
                                     Foreground="{ThemeResource SystemFillColorSuccessBrush}"
                                     Icon="Checkmark"
@@ -70,7 +70,7 @@
 
                                 <!--  Failed: red error  -->
                                 <coreControls:WinoFontIcon
-                                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                                    FontFamily="{StaticResource WinoIconFontFamily}"
                                     FontSize="16"
                                     Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                     Icon="DismissCircle"

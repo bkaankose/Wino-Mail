@@ -136,23 +136,6 @@ public class WinoShellRowView : FrameLayout
         Apply();
     }
 
-    /// <summary>
-    /// A longer label (account attention rows): the title wraps to <paramref name="titleLines"/> lines and
-    /// <paramref name="supporting"/> shows under it, so an action such as "Select here to fix it" is never cut off.
-    /// Call after a Configure method; the next Configure resets it.
-    /// </summary>
-    public void SetSupportingText(string? supporting, int titleLines = 2)
-    {
-        var p = P;
-        p.Title.SetSingleLine(false);
-        p.Title.SetMaxLines(Math.Max(1, titleLines));
-        p.Subtitle.Text = supporting;
-        p.Subtitle.Visibility = string.IsNullOrWhiteSpace(supporting) ? ViewStates.Gone : ViewStates.Visible;
-        int vertical = WinoTokens.Px(this.RequireContext(), Resource.Dimension.wino_space_s);
-        p.Row.SetPaddingRelative(p.Row.PaddingStart, vertical, p.Row.PaddingEnd, vertical);
-        ContentDescription = string.IsNullOrWhiteSpace(supporting) ? p.Title.Text : $"{p.Title.Text} {supporting}";
-    }
-
     public void ConfigureHeader(string title)
     {
         Reset(WinoShellRowKind.Header);
@@ -202,8 +185,6 @@ public class WinoShellRowView : FrameLayout
         p.Disclosure.Visibility = ViewStates.Gone;
         p.Pill.IsSubtle = false;
         p.Pill.Count = 0;
-        p.Title.SetSingleLine(true);
-        p.Title.SetMaxLines(1);
         var context = this.RequireContext();
         p.Row.SetPaddingRelative(WinoTokens.Px(context, kind == WinoShellRowKind.Header ? Resource.Dimension.wino_m3_drawer_section_padding_start : Resource.Dimension.wino_m3_drawer_item_padding_start),
             0, WinoTokens.Px(context, Resource.Dimension.wino_m3_drawer_item_padding_end), 0);

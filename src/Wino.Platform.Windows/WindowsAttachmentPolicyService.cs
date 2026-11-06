@@ -117,7 +117,6 @@ public sealed class WindowsAttachmentPolicyException(int hresult)
     private const int VirusDeleted = unchecked((int)0x800700E2);
     private const int AccessDisabledByPolicy = unchecked((int)0x800704EC);
     private const int InvalidArgument = unchecked((int)0x80070057);
-    private const int InternetSecurityProblem = unchecked((int)0x800C000E);
 
     public int HResultCode { get; } = hresult;
 
@@ -130,14 +129,8 @@ public sealed class WindowsAttachmentPolicyException(int hresult)
     public bool IsPolicyBlock => HResultCode is AccessDenied or VirusInfected or VirusDeleted or AccessDisabledByPolicy;
 
     /// <summary>
-    /// INET_E_SECURITY_PROBLEM: the machine's zone or security configuration refused the check itself, without a
-    /// verdict on the file. It comes from machine policy or damaged Internet zone settings, not from Wino.
+    /// Expected outcomes that are not product defects: policy blocks, and E_INVALIDARG that Attachment Services
+    /// returns for some local paths.
     /// </summary>
-    public bool IsSecurityZoneFailure => HResultCode == InternetSecurityProblem;
-
-    /// <summary>
-    /// Expected outcomes that are not product defects: policy blocks, security zone failures, and E_INVALIDARG that
-    /// Attachment Services returns for some local paths.
-    /// </summary>
-    public bool IsExpectedFailure => IsCancellation || IsPolicyBlock || IsSecurityZoneFailure || HResultCode == InvalidArgument;
+    public bool IsExpectedFailure => IsCancellation || IsPolicyBlock || HResultCode == InvalidArgument;
 }

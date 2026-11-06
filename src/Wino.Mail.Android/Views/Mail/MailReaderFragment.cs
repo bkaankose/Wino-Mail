@@ -10,6 +10,7 @@ using Google.Android.Material.AppBar;
 using Google.Android.Material.BottomAppBar;
 using Google.Android.Material.Button;
 using Google.Android.Material.FloatingActionButton;
+using Google.Android.Material.ProgressIndicator;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
@@ -35,7 +36,7 @@ namespace Wino.Mail.Android.Views.Mail;
 /// The message reader (canvas boards Reader, Landscape and Tablet; Windows MailRenderingPage, the iOS and Mac readers)
 /// over the shared <see cref="MailRenderingPageViewModel"/>. The body is the shared reader document in a WebView
 /// through <see cref="AndroidHtmlMailReaderSession"/> (Wino.Editor.Android): remote content by the message's policy,
-/// links through the ViewModel's OpenLinkAsync. Commands come from the shared <see cref="MailReaderCommandLayout"/>: on compact
+/// links through the external launcher. Commands come from the shared <see cref="MailReaderCommandLayout"/>: on compact
 /// widths the bottom app bar carries Archive, Delete, Move, Flag and Unread with Reply anchored and the rest in More; in
 /// the reader pane the Windows command bar sits at the top. Attachments open through the attachment platform service
 /// (ACTION_VIEW). The ViewModel renders through a <see cref="ReaderBridge"/> that lives with the page, so a rotation
@@ -43,15 +44,16 @@ namespace Wino.Mail.Android.Views.Mail;
 /// </summary>
 public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageViewModel>
 {
-    private static bool IsReplyOperation(MailOperation operation)
-        => operation is MailOperation.Reply or MailOperation.ReplyAll or MailOperation.Forward;
+    private static readonly MailOperation[] BottomBarOrder =
+    [
+        MailOperation.Archive, MailOperation.UnArchive, MailOperation.SoftDelete, MailOperation.HardDelete, MailOperation.Move,
+        MailOperation.SetFlag, MailOperation.ClearFlag
+    ];
 
-    /// <summary>The compact reply button: the first visible of Reply, Reply all and Forward in the user's order.</summary>
-    private MailOperation? _fabOperation;
-    private bool _pillIconsOnly;
+    /// <summary>The compact top app bar's action before the overflow (canvas Material pass Reader).</summary>
+    private static readonly MailOperation[] TopBarOrder = [MailOperation.MarkAsUnread, MailOperation.MarkAsRead];
 
     private const int TopBarMoreId = -1;
-    private const int BottomBarSlots = 5;
 
     private AndroidHtmlMailReaderSession? _reader;
     private WebView? _web;
@@ -68,12 +70,11 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
     private TextView? _recipients;
     private WinoContactPicture? _avatar;
     private LinearLayout? _chips;
+    private WinoInfoBar? _imageBanner;
     private View? _attachmentStrip;
     private LinearLayout? _attachments;
     private MaterialButton? _saveAll;
-    private View? _loading;
-    private View? _content;
-    private global::Android.Animation.ObjectAnimator? _loadingPulse;
+    private CircularProgressIndicator? _loading;
     private TextView? _linkTarget;
     private bool _lastInputWasTouch;
     private MailReaderCommandPlan? _plan;
@@ -112,7 +113,6 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         BuildChrome(view, context);
         BuildHeader(context, viewModel, dispatcher);
         BuildHeaderExtras(view, context, viewModel, dispatcher, services);
-        BuildPrivacy(view, context, viewModel, dispatcher);
         BuildBody(view, viewModel);
 
         _bridge = Entry is { } current ? BridgeFor(current) : null;
@@ -121,28 +121,7 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         {
             _bridge?.Detach(this);
             _ = DisposeReaderAsync();
-            _loadingPulse?.Cancel();
-            _loadingPulse = null;
         }));
-    }
-
-    /// <summary>The reader content is hidden behind the pulsing skeleton until the message is rendered.</summary>
-    private void ApplyLoading(bool ready)
-    {
-        if (_content is not null) _content.Visibility = ready ? ViewStates.Visible : ViewStates.Invisible;
-        if (_loading is null) return;
-        _loading.Visibility = ready ? ViewStates.Gone : ViewStates.Visible;
-        if (ready)
-        {
-            _loadingPulse?.Cancel();
-            return;
-        }
-        if (_loadingPulse is { IsRunning: true }) return;
-        _loadingPulse ??= global::Android.Animation.ObjectAnimator.OfFloat(_loading, "alpha", 0.18f, 0.08f);
-        _loadingPulse.SetDuration(800);
-        _loadingPulse.RepeatMode = global::Android.Animation.ValueAnimatorRepeatMode.Reverse;
-        _loadingPulse.RepeatCount = global::Android.Animation.ValueAnimator.Infinite;
-        _loadingPulse.Start();
     }
 
     /// <summary>
@@ -160,9 +139,7 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         {
             date.Gravity = GravityFlags.End;
             date.SetMaxWidth(WinoTokens.Px(row.RequireContext(), Resource.Dimension.wino_reader_date_max_width));
-            // The privacy button stays at the row's end.
-            int index = _privacyButton is not null && ReferenceEquals(_privacyButton.Parent, row) ? row.IndexOfChild(_privacyButton) : -1;
-            row.AddView(date, index, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent) { MarginStart = WinoTokens.Px(row.RequireContext(), Resource.Dimension.wino_space_s) });
+            row.AddView(date, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent) { MarginStart = WinoTokens.Px(row.RequireContext(), Resource.Dimension.wino_space_s) });
         }
         else
         {
@@ -185,7 +162,7 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         _recipients = view.FindViewById<TextView>(Resource.Id.reader_recipients);
         _avatar = view.FindViewById<WinoContactPicture>(Resource.Id.reader_avatar);
         _chips = view.FindViewById<LinearLayout>(Resource.Id.reader_chips);
-        FindPrivacyViews(view);
+        _imageBanner = view.FindViewById<WinoInfoBar>(Resource.Id.reader_image_banner);
         _attachmentStrip = view.FindViewById(Resource.Id.reader_attachment_strip);
         _attachments = view.FindViewById<LinearLayout>(Resource.Id.reader_attachments);
         if (view.FindViewById<LinearLayout>(Resource.Id.reader_sender_row) is { } senderRow
@@ -197,8 +174,7 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
                 senderRow.Post(() => PlaceDate(senderRow, senderColumn, width));
             };
         _saveAll = view.FindViewById<MaterialButton>(Resource.Id.reader_save_all);
-        _loading = view.FindViewById(Resource.Id.reader_loading);
-        _content = view.FindViewById(Resource.Id.reader_scroll);
+        _loading = view.FindViewById<CircularProgressIndicator>(Resource.Id.reader_loading);
         _web = view.FindViewById<WebView>(Resource.Id.reader_web);
         _linkTarget = view.FindViewById<TextView>(Resource.Id.reader_link_target);
         // The page scrolls the reader, not the document, so the document never reports this scroll itself.
@@ -234,12 +210,7 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
                 _replyButton.SetImageDrawable(WinoIcons.Drawable(context, WinoIconGlyph.Reply, WinoTokens.Dp(context, Resource.Dimension.wino_m3_fab_glyph), WinoColors.OnPrimaryContainer(context)));
                 WinoMaterialAccent.Tint(_replyButton);
                 _replyButton.ContentDescription = Translator.MailOperation_Reply;
-                _replyButton.Click += (_, _) => { if (_fabOperation is { } operation) RunSlot(operation); };
-                _replyButton.LongClick += (_, args) =>
-                {
-                    args.Handled = true;
-                    ShowReplyMenu(_replyButton);
-                };
+                _replyButton.Click += (_, _) => RunSlot(MailOperation.Reply);
             }
             if (_bottomBar is not null) _bottomBar.MenuItemClick += (_, args) => { if (args.Item is { } item) RunSlot((MailOperation)item.ItemId); };
             return;
@@ -248,47 +219,38 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         if (_toolbar is not null) _toolbar.Visibility = ViewStates.Gone;
         if (_bottomBar is not null) _bottomBar.Visibility = ViewStates.Gone;
         if (_replyButton is not null) _replyButton.Visibility = ViewStates.Gone;
-        if (view.FindViewById(Resource.Id.reader_command_scroll) is { } pill)
-        {
-            pill.Visibility = ViewStates.Visible;
-            var surface = new Google.Android.Material.Shape.MaterialShapeDrawable(Google.Android.Material.Shape.ShapeAppearanceModel.InvokeBuilder().SetAllCornerSizes(WinoUnits.Dp(context, 28)).Build())
-            {
-                FillColor = global::Android.Content.Res.ColorStateList.ValueOf(WinoColors.ZoneFill(context))
-            };
-            surface.SetStroke(Math.Max(1, WinoUnits.Dp(context, 1)), WinoColors.ZoneStroke(context));
-            pill.Background = surface;
-            pill.ClipToOutline = true;
-            // The end of a message scrolls clear of the pill.
-            if (view.FindViewById(Resource.Id.reader_scroll) is { } content)
-                content.SetPadding(content.PaddingLeft, content.PaddingTop, content.PaddingRight, WinoUnits.Dp(context, 88));
-        }
+        if (view.FindViewById(Resource.Id.reader_command_scroll) is { } scroll) scroll.Visibility = ViewStates.Visible;
     }
 
     /// <summary>Rebuilds the commands from the shared layout (Windows OperationCommandBar).</summary>
     private void UpdateCommands()
     {
         if (ViewModel is not { } viewModel || View?.Context is not { } context) return;
-        _plan = MailReaderCommandLayout.BuildInUserOrder(viewModel.MenuItems, CurrentItem is not null, offerMove: true);
+        _plan = MailReaderCommandLayout.Build(viewModel.MenuItems, CurrentItem is not null, offerMove: true);
         if (_compact) UpdateBottomBar(context);
         else UpdateCommandBar(context);
     }
 
-    /// <summary>The compact top app bar: Back and More only; the message actions live in the bottom bar (option A, 3 Nov 2026).</summary>
     private void UpdateTopBar(Context context)
     {
-        if (_toolbar is null) return;
+        if (_toolbar is null || _plan is null) return;
         var menu = _toolbar.Menu;
         menu.Clear();
-        var more = menu.Add(0, TopBarMoreId, 0, Translator.More);
+        int order = 0;
+        foreach (var operation in TopBarOrder)
+        {
+            if (_plan.Primary.FirstOrDefault(slot => slot?.Operation == operation) is not { } slot) continue;
+            var item = menu.Add(0, (int)operation, order++, slot.Title);
+            item?.SetIcon(WinoIcons.Drawable(context, MailOperationDisplay.GetGlyph(operation), WinoTokens.Dp(context, Resource.Dimension.wino_m3_glyph), WinoColors.SecondaryText(context)));
+            item?.SetShowAsAction(ShowAsAction.Always);
+            item?.SetEnabled(slot.IsEnabled);
+        }
+        var more = menu.Add(0, TopBarMoreId, order, Translator.More);
         more?.SetIcon(Resource.Drawable.wino_ic_more_vert);
         more?.Icon?.SetTint(WinoColors.SecondaryText(context));
         more?.SetShowAsAction(ShowAsAction.Always);
     }
 
-    /// <summary>
-    /// The bottom bar shows the visible non-reply actions in the Reader actions order (past five, the bar's own overflow);
-    /// the FAB runs the first visible reply action and its long press offers the other two.
-    /// </summary>
     private void UpdateBottomBar(Context context)
     {
         if (_bottomBar is null || _plan is null) return;
@@ -296,53 +258,16 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         var menu = _bottomBar.Menu;
         menu.Clear();
         int order = 0;
-        foreach (var slot in _plan.Primary)
+        foreach (var operation in BottomBarOrder)
         {
-            if (slot is null || IsReplyOperation(slot.Operation)) continue;
-            var item = menu.Add(0, (int)slot.Operation, order++, slot.Title);
-            item?.SetIcon(WinoIcons.Drawable(context, MailOperationDisplay.GetGlyph(slot.Operation), WinoTokens.Dp(context, Resource.Dimension.wino_m3_glyph), WinoColors.SecondaryText(context)));
-            // Five icons beside the FAB fit from 360 dp; IfRoom would fold the bar after two.
-            item?.SetShowAsAction(order <= BottomBarSlots ? ShowAsAction.Always : ShowAsAction.Never);
+            if (_plan.Primary.FirstOrDefault(slot => slot?.Operation == operation) is not { } slot) continue;
+            var item = menu.Add(0, (int)operation, order++, slot.Title);
+            item?.SetIcon(WinoIcons.Drawable(context, MailOperationDisplay.GetGlyph(operation), WinoTokens.Dp(context, Resource.Dimension.wino_m3_glyph), WinoColors.SecondaryText(context)));
+            item?.SetShowAsAction(ShowAsAction.Always);
             item?.SetEnabled(slot.IsEnabled);
         }
-        if (_replyButton is null) return;
-        var reply = _plan.Primary.FirstOrDefault(static slot => slot is not null && IsReplyOperation(slot.Operation));
-        _fabOperation = reply?.Operation;
-        if (reply is null)
-        {
-            _replyButton.Hide();
-            return;
-        }
-        _replyButton.SetImageDrawable(WinoIcons.Drawable(context, MailOperationDisplay.GetGlyph(reply.Operation), WinoTokens.Dp(context, Resource.Dimension.wino_m3_fab_glyph), WinoColors.OnPrimaryContainer(context)));
-        _replyButton.ContentDescription = reply.Title;
-        AndroidX.AppCompat.Widget.TooltipCompat.SetTooltipText(_replyButton, reply.Title);
-        _replyButton.Enabled = reply.IsEnabled;
-        _replyButton.Show();
-    }
-
-    /// <summary>The reply actions other than the FAB's, visible or hidden, in the Reader actions order.</summary>
-    private IEnumerable<MailOperationMenuItem> OtherReplyItems()
-    {
-        if (_plan is null) yield break;
-        foreach (var slot in _plan.Primary)
-            if (slot is { Item: { } item } && IsReplyOperation(slot.Operation) && slot.Operation != _fabOperation) yield return item;
-        foreach (var item in _plan.Overflow)
-            if (IsReplyOperation(item.Operation) && item.Operation != _fabOperation) yield return item;
-    }
-
-    private void ShowReplyMenu(View anchor)
-    {
-        if (Context is not { } context || ViewModel is not { } viewModel) return;
-        var items = OtherReplyItems().ToArray();
-        if (items.Length == 0) return;
-        var popup = new PopupMenu(context, anchor);
-        for (int index = 0; index < items.Length; index++)
-            popup.Menu.Add(0, index, index, MailOperationDisplay.GetTitle(items[index].Operation))?.SetEnabled(items[index].IsEnabled);
-        popup.MenuItemClick += (_, args) =>
-        {
-            if (args.Item?.ItemId is int index && index >= 0 && index < items.Length) Observe(viewModel.OperationClickedCommand.ExecuteAsync(items[index]));
-        };
-        popup.Show();
+        bool canReply = _plan.Primary.Any(static slot => slot is { Operation: MailOperation.Reply, IsEnabled: true });
+        if (_replyButton is not null) _replyButton.Enabled = canReply;
     }
 
     private void UpdateCommandBar(Context context)
@@ -358,7 +283,7 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
                 _commands.AddView(new Space(context), new LinearLayout.LayoutParams(WinoTokens.Px(context, Resource.Dimension.wino_space_m), WinoTokens.Px(context, Resource.Dimension.wino_space_hairline)));
                 continue;
             }
-            bool labelled = !_pillIconsOnly && IsReplyOperation(slot.Operation) && ViewModel?.PreferencesService.IsShowActionLabelsEnabled != false;
+            bool labelled = slot.Operation is MailOperation.Reply or MailOperation.ReplyAll or MailOperation.Forward;
             var button = labelled
                 ? new MaterialButton(context, null, Resource.Attribute.borderlessButtonStyle) { Text = slot.Title }
                 : new MaterialButton(context, null, Resource.Attribute.borderlessButtonStyle);
@@ -390,14 +315,6 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         more.SetMinimumWidth(size);
         more.Click += (_, _) => ShowMore(more, includeReplies: false);
         _commands.AddView(more, new LinearLayout.LayoutParams(size, size));
-        // A pill wider than the reader pane drops the reply labels, as the Windows command bar does.
-        if (!_pillIconsOnly && _commands.Parent is View pill)
-            _commands.Post(() =>
-            {
-                if (_pillIconsOnly || pill.Width <= 0 || _commands is null || _commands.Width <= pill.Width) return;
-                _pillIconsOnly = true;
-                UpdateCommandBar(context);
-            });
     }
 
     /// <summary>Runs the primary command for <paramref name="operation"/>; Move opens the folder picker for the open message.</summary>
@@ -430,7 +347,7 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         }
         if (includeReplies)
             foreach (var slot in _plan.Primary)
-                if (slot is { Item: { } item } && IsReplyOperation(slot.Operation) && slot.Operation != _fabOperation) Add(item);
+                if (slot is { Item: { } item, Operation: MailOperation.ReplyAll or MailOperation.Forward }) Add(item);
         foreach (var item in _plan.Overflow)
             if (item.Operation != MailOperation.Seperator) Add(item);
         const int ReaderViewId = 1000;
@@ -464,6 +381,14 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
     private void BuildHeader(Context context, MailRenderingPageViewModel viewModel, IDispatcher dispatcher)
     {
         if (_avatar is not null) _avatar.Size = 40;
+        if (_imageBanner is not null)
+        {
+            _imageBanner.Severity = WinoInfoBarSeverity.Warning;
+            _imageBanner.Message = Translator.ImageRenderingDisabled;
+            _imageBanner.ActionTitle = Translator.Buttons_EnableImageRendering;
+            _imageBanner.IsClosable = true;
+            _imageBanner.ActionInvoked += (_, _) => Observe(ViewModel?.ForceImageLoadingCommand.ExecuteAsync(null));
+        }
         if (_saveAll is not null)
         {
             _saveAll.Text = Translator.Reader_SaveAllAttachmentButtonText;
@@ -481,11 +406,11 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         Bind(viewModel, dispatcher, nameof(MailRenderingPageViewModel.MenuItems), vm => vm.MenuItems, _ => UpdateCommands());
         Bind(viewModel, dispatcher, nameof(MailRenderingPageViewModel.IsMailContentReady), vm => vm.IsMailContentReady, ready =>
         {
-            ApplyLoading(ready);
+            if (_loading is not null) _loading.Visibility = ready ? ViewStates.Gone : ViewStates.Visible;
         });
         Bind(viewModel, dispatcher, nameof(MailRenderingPageViewModel.CurrentRenderModel), vm => vm.CurrentRenderModel, _ =>
         {
-            UpdatePrivacy();
+            if (_imageBanner is not null) _imageBanner.Visibility = ViewModel?.IsImageRenderingDisabled == true ? ViewStates.Visible : ViewStates.Gone;
             UpdateRecipients();
             UpdateAttachments();
         });
@@ -619,7 +544,7 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         _web.VerticalScrollBarEnabled = false;
         _web.OverScrollMode = OverScrollMode.Never;
         var reader = _reader = new AndroidHtmlMailReaderSession(_web);
-        reader.Configure(viewModel.ExternalLauncher, OpenLinkAsync);
+        reader.Configure(viewModel.ExternalLauncher);
         reader.OperationFailed += (_, exception) => ReportError(exception);
         reader.NavigationRequested += (_, _) => _web?.Post(HideLinkTarget);
         reader.LinkHovered += (_, args) => _web?.Post(() => ShowLinkTarget(args));
@@ -685,7 +610,7 @@ public sealed partial class MailReaderFragment : WinoFragment<MailRenderingPageV
         HideLinkTarget();
         if (_web is not null) SetWebHeight(120);
         var options = viewModel.CurrentRenderModel?.MailRenderingOptions;
-        var policy = ResourcePolicy(viewModel);
+        var policy = (options?.LoadImages ?? true) ? RemoteContentPolicy.ImagesAndFontsAllowed : RemoteContentPolicy.Blocked;
         await reader.SetThemeAsync(_dark);
         await reader.RenderAsync(new HtmlMailReaderRequest(string.IsNullOrEmpty(html) ? " " : html, policy,
             viewModel.IsReaderViewEnabled ? HtmlMailRenderMode.Readability : HtmlMailRenderMode.Original, options?.RenderPlaintextLinks ?? true));

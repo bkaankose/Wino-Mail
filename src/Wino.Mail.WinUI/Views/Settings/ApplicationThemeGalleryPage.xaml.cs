@@ -1,10 +1,6 @@
-using System;
-using System.IO;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Imaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Personalization;
@@ -17,36 +13,6 @@ namespace Wino.Views.Settings;
 public sealed partial class ApplicationThemeGalleryPage : ApplicationThemeGalleryPageAbstract
 {
     public ApplicationThemeGalleryPage() => InitializeComponent();
-
-    private const string CustomThemeAssetUriPrefix = "ms-appdata:///local/" + Wino.Services.NewThemeService.CustomThemeFolderName + "/";
-
-    // Custom theme thumbnails keep their file name across saves, so they are read into memory:
-    // a URI source would show the cached old thumbnail and keep the file open while it is replaced.
-    public static ImageSource? GetPreviewImage(string? previewImage)
-    {
-        if (string.IsNullOrWhiteSpace(previewImage))
-            return null;
-
-        if (!previewImage.StartsWith(CustomThemeAssetUriPrefix, StringComparison.OrdinalIgnoreCase))
-            return new BitmapImage(new Uri(previewImage));
-
-        try
-        {
-            var path = Wino.Services.NewThemeService.GetCustomThemeAssetPath(previewImage[CustomThemeAssetUriPrefix.Length..]);
-            if (!File.Exists(path))
-                return null;
-
-            using var stream = new MemoryStream(File.ReadAllBytes(path));
-            var bitmap = new BitmapImage();
-            bitmap.SetSource(stream.AsRandomAccessStream());
-            return bitmap;
-        }
-        catch (Exception ex)
-        {
-            Serilog.Log.Warning(ex, "Custom theme preview {PreviewImage} could not be loaded.", previewImage);
-            return null;
-        }
-    }
 
     public static Visibility CustomVisibility(AppThemeBase theme)
         => theme?.AppThemeType == AppThemeType.Custom ? Visibility.Visible : Visibility.Collapsed;

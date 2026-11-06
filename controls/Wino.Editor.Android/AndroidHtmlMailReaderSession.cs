@@ -39,10 +39,6 @@ public sealed class AndroidHtmlMailReaderSession : IHtmlMailReaderSession
     }
 
     public void Configure(IExternalLauncher launcher) => _host.Configure(launcher);
-
-    /// <summary>Links go to <paramref name="openLink"/> (with the anchor text when the click came from the document).</summary>
-    public void Configure(IExternalLauncher launcher, Func<RendererNavigationRequestedEventArgs, Task> openLink) => _host.Configure(launcher, openLink);
-
     public Task InitializeAsync(CancellationToken cancellationToken = default) =>
         _host.Queue.RunAsync(EnsureReadyAsync, cancellationToken);
 

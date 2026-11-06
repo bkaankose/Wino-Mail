@@ -153,7 +153,7 @@ public sealed class WinoMiniCalendarView : NSView
     {
         var dark = WinoIcons.IsDark(EffectiveAppearance);
         var text = NSColor.Label;
-        var secondary = WinoStyle.SecondaryText;
+        var secondary = NSColor.SecondaryLabel;
         var tertiary = NSColor.TertiaryLabel;
         var accent = WinoStyle.Accent;
 
@@ -173,13 +173,11 @@ public sealed class WinoMiniCalendarView : NSView
         if (_collapsed) return;
 
         var names = culture.DateTimeFormat.ShortestDayNames;
-        // The card sits on the vibrant sidebar, which lightens over a light desktop; secondary grey measured 3.4:1 there.
-        var weekday = text.ColorWithAlphaComponent(0.78f);
         for (int column = 0; column < 7; column++)
         {
             var day = WinoMiniCalendarGrid.DayNameIndex(column, _firstDayOfWeek);
             DrawText(names[day], new CGRect(GridLeft + column * ColumnWidth, WinoMiniCalendarGrid.NamesTop, ColumnWidth, NamesHeight),
-                NSFont.SystemFontOfSize(10), weekday, NSTextAlignment.Center);
+                NSFont.SystemFontOfSize(10), tertiary, NSTextAlignment.Center);
         }
 
         var today = DateOnly.FromDateTime(DateTime.Today);

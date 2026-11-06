@@ -21,11 +21,11 @@ public sealed class CalendarRenderingSettingsPageViewController(CalendarRenderin
         var vm = ViewModel;
         var days = vm.DayNames.ToList();
 
-        var firstDay = StackedCard(Translator.CalendarSettings_FirstDayOfWeek_Header, null, WinoIconGlyph.Calendar,
+        var firstDay = StackedCard(Translator.CalendarSettings_FirstDayOfWeek_Header, Translator.CalendarSettings_FirstDayOfWeek_Description, WinoIconGlyph.Calendar,
             Bind.PopUp(vm, days, nameof(vm.SelectedFirstDayOfWeekIndex), s => s.SelectedFirstDayOfWeekIndex, (s, v) => s.SelectedFirstDayOfWeekIndex = v));
 
         bool WorkingOn(CalendarRenderingSettingsPageViewModel s) => s.IsWorkingHoursEnabled;
-        var working = Expander(Translator.CalendarSettings_WorkingDays_Header, Translator.IOS_SettingsHint_WorkingDays, WinoIconGlyph.CalendarWorkWeek, null,
+        var working = Expander(Translator.CalendarSettings_WorkingDays_Header, Translator.CalendarSettings_WorkingDays_Description, WinoIconGlyph.CalendarWorkWeek, null,
             Card(Translator.CalendarSettings_HighlightWorkingHours_Label, null, WinoIconGlyph.None,
                 Bind.Switch(vm, nameof(vm.IsWorkingHoursEnabled), WorkingOn, (s, v) => s.IsWorkingHoursEnabled = v, Translator.CalendarSettings_HighlightWorkingHours_Label)),
             Bind.Enabled(StackedCard(Translator.CalendarSettings_WorkingDays_From, null, WinoIconGlyph.None, DayAndTime(
@@ -61,13 +61,13 @@ public sealed class CalendarRenderingSettingsPageViewController(CalendarRenderin
             sampleHeight.Constant = (nfloat)Math.Clamp(value, 40, 120);
         });
         Bind.OnActivated(slider, () => vm.CellHourHeight = Math.Round(slider.Value / 5) * 5, UIControlEvent.ValueChanged);
-        var hourHeight = Card(Translator.CalendarSettings_HourHeight_Header, Translator.IOS_SettingsHint_HourHeight);
+        var hourHeight = Card(Translator.CalendarSettings_HourHeight_Header, Translator.CalendarSettings_HourHeight_Description);
         var hourContent = WinoLayout.VStack(12, slider, sampleRow);
         // The slider takes the card's width (a leading stack would collapse it to its thumb).
         hourContent.Alignment = UIStackViewAlignment.Fill;
         hourHeight.BottomContent = hourContent;
 
-        var timeFormat = StackedCard(Translator.SettingsTimeFormat_Title, null, WinoIconGlyph.None, WinoLayout.VStack(WinoStyle.Space2,
+        var timeFormat = StackedCard(Translator.SettingsTimeFormat_Title, Translator.SettingsTimeFormat_Description, WinoIconGlyph.None, WinoLayout.VStack(WinoStyle.Space2,
             Bind.PopUp(vm, vm.TimeFormatPreferenceOptions, nameof(vm.SelectedTimeFormatPreferenceIndex), s => s.SelectedTimeFormatPreferenceIndex, (s, v) => s.SelectedTimeFormatPreferenceIndex = v),
             Bind.Label(vm, nameof(vm.TimedHourLabelPreview), s => s.TimedHourLabelPreview, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0)));
 
@@ -83,10 +83,10 @@ public sealed class CalendarRenderingSettingsPageViewController(CalendarRenderin
             Bind.Label(vm, nameof(vm.TimedDayHeaderFormatPreview), s => s.TimedDayHeaderFormatPreview, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0));
         // The format field spans the card; the preset pop-up keeps its width under it.
         format.WidthAnchor.ConstraintEqualTo(headerContent.WidthAnchor).Active = true;
-        var headerFormat = StackedCard(Translator.CalendarSettings_TimedDayHeaderFormat_Header, Translator.IOS_SettingsHint_DayHeaderFormat, WinoIconGlyph.None,
+        var headerFormat = StackedCard(Translator.CalendarSettings_TimedDayHeaderFormat_Header, Translator.CalendarSettings_TimedDayHeaderFormat_Description, WinoIconGlyph.None,
             headerContent);
 
-        var rendering = new WinoSettingsExpander(Translator.CalendarSettings_CalendarRendering_Header, null, WinoIconGlyph.CalendarSettings, isExpanded: true);
+        var rendering = new WinoSettingsExpander(Translator.CalendarSettings_CalendarRendering_Header, Translator.CalendarSettings_CalendarRendering_Description, WinoIconGlyph.CalendarSettings, isExpanded: true);
         rendering.Add(hourHeight);
         rendering.Add(timeFormat);
         rendering.Add(headerFormat);
@@ -99,6 +99,7 @@ public sealed class CalendarRenderingSettingsPageViewController(CalendarRenderin
     {
         var row = Row(day, time);
         row.Distribution = UIStackViewDistribution.Fill;
+        WinoLayout.Priorities(day, UILayoutConstraintAxis.Horizontal, 1, 250);
         return row;
     }
 }

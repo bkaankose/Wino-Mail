@@ -168,7 +168,7 @@ public sealed class AppModeReadinessService : IAppModeReadinessService
     /// <summary>Mirrors the To Do page's local fallback list rule.</summary>
     private static bool RequiresLocalTaskList(MailAccount account)
         => account.IsTaskAccessEnabled &&
-           (account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook) ||
+           (account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook or MailProviderType.Exchange) ||
             !account.IsTaskAccessGranted ||
             account.IsTaskReauthorizationRequired);
 

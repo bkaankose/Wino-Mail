@@ -31,8 +31,6 @@ public sealed partial class MacPageRegistry
         Register<MessageListPageViewController>(WinoPage.MessageListPage, MacPageHost.SettingsWindow);
         Register<AboutPageViewController>(WinoPage.AboutPage, MacPageHost.SettingsWindow);
         Register<PersonalizationPageViewController>(WinoPage.PersonalizationPage, MacPageHost.SettingsWindow);
-        Register<PrivacySecurityPageViewController>(WinoPage.PrivacySecurityPage, MacPageHost.SettingsWindow);
-        Register<RemoteContentRulesPageViewController>(WinoPage.RemoteContentRulesPage, MacPageHost.SettingsWindow);
         Register<ManageAccountsPageViewController>(WinoPage.ManageAccountsPage, MacPageHost.SettingsWindow);
         Register<ManageAccountsPageViewController>(WinoPage.AccountManagementPage, MacPageHost.SettingsWindow);
         Register<AccountDetailsPageViewController>(WinoPage.AccountDetailsPage, MacPageHost.SettingsWindow);

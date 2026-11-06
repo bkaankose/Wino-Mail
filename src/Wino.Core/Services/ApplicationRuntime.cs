@@ -14,6 +14,7 @@ using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
@@ -24,7 +25,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
     IRecipient<NewMailSynchronizationRequested>, IRecipient<NewCalendarSynchronizationRequested>,
     IRecipient<NewContactSynchronizationRequested>, IRecipient<NewTaskSynchronizationRequested>,
     IRecipient<AccountCreatedMessage>, IRecipient<AccountRemovedMessage>, IRecipient<AccountUpdatedMessage>,
-    IAsyncDisposable
+    IRecipient<AccountSetupInProgressMessage>, IAsyncDisposable
 {
     private const int InboxSyncsPerFullSync = 20;
     private static readonly TimeSpan RareModeSynchronizationInterval = TimeSpan.FromHours(6);
@@ -248,6 +249,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         _messenger.Register<AccountCreatedMessage>(this);
         _messenger.Register<AccountRemovedMessage>(this);
         _messenger.Register<AccountUpdatedMessage>(this);
+        _messenger.Register<AccountSetupInProgressMessage>(this);
         _preferencesService.PreferenceChanged += PreferencesChanged;
         _coordinator.CatchUpRequested += CatchUpRequested;
         _subscribed = true;
@@ -306,6 +308,13 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
             _pendingCreatedAccounts.Add(message.Account.Id);
         }
         // Initial account work starts only after the host's shell handoff.
+    }
+
+    // Setup saves the account and then updates it (profile, aliases) before AccountCreatedMessage. Without this, the
+    // first update starts the loops on a fresh install and their pass downloads the mailbox ahead of the setup steps.
+    public void Receive(AccountSetupInProgressMessage message)
+    {
+        lock (_gate) _pendingCreatedAccounts.Add(message.AccountId);
     }
 
     public void Receive(AccountRemovedMessage message)
@@ -561,8 +570,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
             calendarSyncResult = CalendarSynchronizationResult.Failed(ex);
         }
 
-        if (calendarSyncResult.CompletedState is SynchronizationCompletedState.Failed or SynchronizationCompletedState.PartiallyCompleted &&
-            !IsDavCertificateFailure(calendarSyncResult.Exception))
+        if (calendarSyncResult.CompletedState is SynchronizationCompletedState.Failed or SynchronizationCompletedState.PartiallyCompleted)
         {
             QueueSynchronizationFailure(
                 GetCalendarSynchronizationFailureMessage(message.Options.Type, calendarSyncResult.AllIssues, calendarSyncResult.Exception?.Message),
@@ -598,8 +606,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
             syncResult = ContactSynchronizationResult.Failed(ex);
         }
 
-        if (syncResult.CompletedState is SynchronizationCompletedState.Failed or SynchronizationCompletedState.PartiallyCompleted &&
-            !IsDavCertificateFailure(syncResult.Exception))
+        if (syncResult.CompletedState is SynchronizationCompletedState.Failed or SynchronizationCompletedState.PartiallyCompleted)
         {
             QueueSynchronizationFailure(
                 GetSynchronizationFailureMessage(syncResult.Issues, syncResult.Exception?.Message, Translator.Exception_FailedToSynchronizeContacts),
@@ -987,12 +994,6 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
             : fallbackMessage;
     }
 
-    // The synchronization manager already showed its own notice with a way to the server settings.
-    private static bool IsDavCertificateFailure(Exception? exception)
-        => exception != null &&
-           SynchronizationManager.TryGetCertificateException(exception, out var certificateException) &&
-           SynchronizationManager.IsDavProtocol(certificateException.Failure);
-
     private void QueueSynchronizationFailure(string message, InfoBarMessageType severity)
         => _messenger.Send(new InfoBarMessageRequested(severity, Translator.Info_SyncFailedTitle, message));
 
@@ -1114,12 +1115,19 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         await operation(cancellationToken);
     }
 
+    /// <summary>Accounts still in setup, or waiting for their initial work after it, are left to that work.</summary>
+    private async Task<List<Wino.Core.Domain.Entities.Shared.MailAccount>> GetAutoSynchronizedAccountsAsync()
+    {
+        var accounts = await _accountService.GetAccountsAsync();
+        lock (_gate) return accounts.Where(account => !_pendingCreatedAccounts.Contains(account.Id)).ToList();
+    }
+
     private async Task ExecuteTaskAutoSynchronizationAsync(CancellationToken cancellationToken)
     {
         if (_synchronizationManager == null || _accountService == null)
             return;
 
-        var accounts = await _accountService.GetAccountsAsync();
+        var accounts = await GetAutoSynchronizedAccountsAsync();
         foreach (var account in accounts.Where(a => a.IsTaskAccessGranted && !a.IsTaskReauthorizationRequired && !a.IsNetworkAccessBlocked()))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1136,7 +1144,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
         if (_synchronizationManager == null || _accountService == null)
             return;
 
-        var accounts = await _accountService.GetAccountsAsync();
+        var accounts = await GetAutoSynchronizedAccountsAsync();
         foreach (var account in accounts.Where(a => a.IsContactAccessGranted && !a.IsNetworkAccessBlocked()))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1169,7 +1177,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
             if (!lockTaken)
                 return;
 
-            var accounts = await _accountService.GetAccountsAsync();
+            var accounts = await GetAutoSynchronizedAccountsAsync();
             var currentAccountIds = accounts.Select(a => a.Id).ToHashSet();
             foreach (var staleAccountId in _lastFullFolderSyncUtc.Keys.Where(a => !currentAccountIds.Contains(a)).ToList())
             {
@@ -1200,7 +1208,7 @@ public sealed class ApplicationRuntime : IApplicationRuntime,
 
         try
         {
-            var accounts = await _accountService.GetAccountsAsync();
+            var accounts = await GetAutoSynchronizedAccountsAsync();
             // Accounts that need attention are left alone until the user fixes them; the timer never retries them.
             var synchronizationTasks = accounts
                 .Where(account => account.IsCalendarAccessGranted && !account.IsNetworkAccessBlocked())

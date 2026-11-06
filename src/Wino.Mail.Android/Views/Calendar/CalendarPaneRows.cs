@@ -94,7 +94,7 @@ internal static class CalendarPaneRows
             button.SetTextColor(WinoColors.SecondaryText(context));
             button.SetBackgroundResource(Shell.ShellViews.BorderlessRipple(context));
             button.Click += (_, _) => action();
-            int size = WinoTokens.Px(context, Resource.Dimension.wino_size_touch_large);
+            int size = WinoTokens.Px(context, Resource.Dimension.wino_size_control);
             button.LayoutParameters = new LayoutParams(size, size);
             return button;
         }

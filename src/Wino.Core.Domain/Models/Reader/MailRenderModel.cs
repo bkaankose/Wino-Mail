@@ -22,17 +22,6 @@ public class MailRenderModel
     // Indicates if the mail is S/MIME encrypted
     public bool IsSmimeEncrypted { get; set; }
 
-    /// <summary>
-    /// Remote references the purifier removed, one entry per reference.
-    /// </summary>
-    public List<BlockedRemoteResource> BlockedResources { get; } = [];
-
-    /// <summary>
-    /// Remote image references in the message before purification, blocked or not.
-    /// Zero when the HTML was not parsed (Load everything with styles on).
-    /// </summary>
-    public int RemoteImageCount { get; set; }
-
     public MailRenderModel(string renderHtml, MailRenderingOptions mailRenderingOptions = null, string accessibleText = "")
     {
         RenderHtml = renderHtml;

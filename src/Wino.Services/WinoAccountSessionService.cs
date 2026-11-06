@@ -36,7 +36,7 @@ public sealed class WinoAccountSessionService(IDatabaseService databaseService, 
         try
         {
             var account = await ReadMetadataAsync().ConfigureAwait(false);
-            return account is null ? null : new(account.Id, _generation, _sessionCancellation.Token, account.SessionInvalidatedUtc is not null);
+            return account is null ? null : new(account.Id, _generation, _sessionCancellation.Token);
         }
         finally { _stateLock.Release(); }
     }
@@ -93,7 +93,7 @@ public sealed class WinoAccountSessionService(IDatabaseService databaseService, 
             if (!await CommitAsync(session, async () => account = await ReadAsync().ConfigureAwait(false), linked.Token).ConfigureAwait(false))
                 return null;
 
-            if (account is null || account.SessionInvalidatedUtc is not null || string.IsNullOrWhiteSpace(account.RefreshToken)) return null;
+            if (account is null || string.IsNullOrWhiteSpace(account.RefreshToken)) return null;
             if (!string.IsNullOrWhiteSpace(account.AccessToken) &&
                 (rejectedAccessToken is null ? account.AccessTokenExpiresAtUtc > DateTime.UtcNow : account.AccessToken != rejectedAccessToken))
                 return account;
@@ -118,17 +118,6 @@ public sealed class WinoAccountSessionService(IDatabaseService databaseService, 
         }
         finally { _refreshLock.Release(); }
     }
-
-    public async Task<bool> MarkInvalidAsync(WinoAccountSession session, string reason, CancellationToken cancellationToken = default)
-        => await CommitAsync(session, async () =>
-        {
-            var account = await ReadMetadataAsync().ConfigureAwait(false);
-            if (account is null || account.SessionInvalidatedUtc is not null) return;
-
-            account.SessionInvalidatedUtc = DateTime.UtcNow;
-            await databaseService.Connection.UpdateAsync(account, typeof(WinoAccount)).ConfigureAwait(false);
-            Serilog.Log.ForContext<WinoAccountSessionService>().Warning("Wino account session is no longer accepted by the API ({Reason}); sign-in required.", reason);
-        }, cancellationToken).ConfigureAwait(false);
 
     private async Task<WinoAccount?> ReadAsync()
     {

@@ -103,7 +103,7 @@ public sealed class DraftUpdateCoordinator : IDraftUpdateCoordinator, IAsyncDisp
                 {
                     lock (_gate) { work.Stopped = true; work.Pending = null; }
                 }
-                else if (mail.AssignedAccount.ProviderType == MailProviderType.EAS)
+                else if (mail.AssignedAccount.UsesActiveSync)
                 {
                     succeeded = true;
                 }

@@ -73,11 +73,6 @@ public static class WinoSettingsRowContent
         if (Stepper(content) is not null) return WinoSettingsRowKind.Value;
         // Icon buttons side by side (edit, delete), with or without a switch, stay on the row (data rows).
         if (controls.All(control => control is UISwitch || control is UIButton button && !HasTitle(button) && !IsChoice(button))) return WinoSettingsRowKind.Inline;
-        // A choice with a follow-up choice (a list picked only for "Specific list") is one value row; its page lists each.
-        if (controls.All(IsChoiceControl)) return WinoSettingsRowKind.Value;
-        // A day pop-up beside a time picker (working hours) fits on the row; a page for it would hold only the same controls.
-        if (controls.Any(control => control is UIDatePicker) && controls.All(control => control is UIDatePicker || IsChoiceControl(control)))
-            return WinoSettingsRowKind.Inline;
         return WinoSettingsRowKind.Push;
     }
 
@@ -86,7 +81,6 @@ public static class WinoSettingsRowContent
     {
         var controls = Controls(content);
         if (Stepper(content) is { } stepper) return stepper;
-        if (controls.Count > 1 && controls.All(IsChoiceControl)) return controls[0];
         return controls.Count == 1 ? controls[0] : null;
     }
 

@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The message reader (canvas Material pass board Reader; Windows MailRenderingPage; option A, 3 Nov 2026). Compact: the
-     64 dp small top app bar with Back and the overflow, the message in one Wino zone, and the Material 3 bottom app bar
-     with the message actions and the tonal reply FAB. Medium and expanded: the actions in a floating pill at the foot of
-     the zone. Both follow the order and visibility of Settings, Reader actions. The header (subject headline, sender,
-     recipients, date, categories, the remote-image banner), the attachment chips and the body scroll together; the body
-     is the shared reader document in a WebView. -->
+<!-- The message reader (canvas Material pass board Reader; Windows MailRenderingPage). Compact: the 64 dp small top app
+     bar with Back, Mark unread/read and the overflow, the message in one Wino zone, and the Material 3 bottom app bar
+     with Archive, Delete, Move and Flag and the tonal Reply FAB. Medium and expanded: the Windows command bar at the top
+     of the zone. The header (subject headline, sender, recipients, date, categories, the remote-image banner), the
+     attachment chips and the body scroll together; the body is the shared reader document in a WebView. -->
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/reader_root"
@@ -32,6 +31,23 @@
           android:layout_width="match_parent"
           android:layout_height="match_parent"
           android:orientation="vertical">
+
+        <HorizontalScrollView
+            android:id="@+id/reader_command_scroll"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/wino_m3_chip_row_height"
+            android:scrollbars="none"
+            android:visibility="gone">
+
+          <LinearLayout
+              android:id="@+id/reader_commands"
+              android:layout_width="wrap_content"
+              android:layout_height="match_parent"
+              android:gravity="center_vertical"
+              android:orientation="horizontal"
+              android:paddingStart="@dimen/wino_space_s"
+              android:paddingEnd="@dimen/wino_space_s" />
+        </HorizontalScrollView>
 
         <FrameLayout
             android:layout_width="match_parent"
@@ -125,34 +141,12 @@
                   android:orientation="horizontal"
                   android:visibility="gone" />
 
-              <LinearLayout
-                  android:id="@+id/reader_privacy_bars"
+              <com.winomail.controls.WinoInfoBar
+                  android:id="@+id/reader_image_banner"
                   android:layout_width="match_parent"
                   android:layout_height="wrap_content"
                   android:layout_marginTop="@dimen/wino_space_m"
-                  android:orientation="vertical"
-                  android:visibility="gone">
-
-                <com.winomail.controls.WinoInfoBar
-                    android:id="@+id/reader_withheld_bar"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:visibility="gone" />
-
-                <com.winomail.controls.WinoInfoBar
-                    android:id="@+id/reader_junk_bar"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/wino_space_s"
-                    android:visibility="gone" />
-
-                <com.winomail.controls.WinoInfoBar
-                    android:id="@+id/reader_rule_bar"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/wino_space_s"
-                    android:visibility="gone" />
-              </LinearLayout>
+                  android:visibility="gone" />
 
               <LinearLayout
                   android:id="@+id/reader_attachment_strip"
@@ -197,106 +191,13 @@
             </LinearLayout>
           </androidx.core.widget.NestedScrollView>
 
-          <!-- The loading skeleton: the reader content stays hidden until the message is rendered, so the header never
-               shows "No subject" or an empty sender while it loads. -->
-          <LinearLayout
+          <com.google.android.material.progressindicator.CircularProgressIndicator
               android:id="@+id/reader_loading"
-              style="@style/Widget.Wino.Mail.ReaderContent"
-              android:layout_width="match_parent"
-              android:layout_height="wrap_content"
-              android:alpha="0.18"
-              android:importantForAccessibility="no"
-              android:orientation="vertical"
-              android:visibility="gone">
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="24dp"
-                android:layout_marginTop="@dimen/wino_space_xs"
-                android:background="@drawable/reader_skeleton_bar" />
-            <View
-                android:layout_width="200dp"
-                android:layout_height="24dp"
-                android:layout_marginTop="@dimen/wino_space_xs"
-                android:background="@drawable/reader_skeleton_bar" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/wino_space_l"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-              <View
-                  android:layout_width="40dp"
-                  android:layout_height="40dp"
-                  android:background="@drawable/reader_skeleton_circle" />
-
-              <LinearLayout
-                  android:layout_width="0dp"
-                  android:layout_height="wrap_content"
-                  android:layout_marginStart="@dimen/wino_space_m"
-                  android:layout_weight="1"
-                  android:orientation="vertical">
-
-                <View
-                    android:layout_width="160dp"
-                    android:layout_height="14dp"
-                    android:layout_marginTop="0dp"
-                    android:background="@drawable/reader_skeleton_bar" />
-                <View
-                    android:layout_width="110dp"
-                    android:layout_height="12dp"
-                    android:layout_marginTop="@dimen/wino_space_xs"
-                    android:background="@drawable/reader_skeleton_bar" />
-              </LinearLayout>
-            </LinearLayout>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="12dp"
-                android:layout_marginTop="@dimen/wino_space_xl"
-                android:background="@drawable/reader_skeleton_bar" />
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="12dp"
-                android:layout_marginTop="@dimen/wino_space_s"
-                android:background="@drawable/reader_skeleton_bar" />
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="12dp"
-                android:layout_marginTop="@dimen/wino_space_s"
-                android:background="@drawable/reader_skeleton_bar" />
-            <View
-                android:layout_width="240dp"
-                android:layout_height="12dp"
-                android:layout_marginTop="@dimen/wino_space_s"
-                android:background="@drawable/reader_skeleton_bar" />
-          </LinearLayout>
-
-          <!-- Medium and expanded widths: the reader actions in a floating pill at the foot of the zone (option A, 3 Nov
-               2026; the iPad reader), in the Reader actions order. Code draws its surface and pads the content clear. -->
-          <HorizontalScrollView
-              android:id="@+id/reader_command_scroll"
               android:layout_width="wrap_content"
-              android:layout_height="56dp"
-              android:layout_gravity="bottom|center_horizontal"
-              android:layout_marginStart="@dimen/wino_space_l"
-              android:layout_marginEnd="@dimen/wino_space_l"
-              android:layout_marginBottom="@dimen/wino_space_l"
-              android:elevation="6dp"
-              android:scrollbars="none"
-              android:visibility="gone">
-
-            <LinearLayout
-                android:id="@+id/reader_commands"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="@dimen/wino_space_s"
-                android:paddingEnd="@dimen/wino_space_s" />
-          </HorizontalScrollView>
+              android:layout_height="wrap_content"
+              android:layout_gravity="center"
+              android:indeterminate="true"
+              android:visibility="gone" />
 
           <!-- The hovered or focused link's address (Windows link bar): mouse, stylus and keyboard only, never touch. -->
           <TextView

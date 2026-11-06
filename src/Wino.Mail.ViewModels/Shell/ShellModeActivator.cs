@@ -1,13 +1,10 @@
 #nullable enable
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels;
 
@@ -25,21 +22,12 @@ public sealed class ShellModeActivator(WinoAppShellViewModel viewModel, IStatePe
     /// <summary>The mode on screen, or null before the first activation.</summary>
     public WinoApplicationMode? ActiveMode { get; private set; }
 
-    /// <summary>
-    /// The mode to start in: the persisted mode unless it is Settings, unavailable or hidden in Settings, else the first
-    /// switchable mode that is none of those. Starting in a hidden mode and leaving it once visibility is known raced:
-    /// Mail's root page could land after the fallback mode's and stay on screen under the other mode's menu.
-    /// </summary>
-    public static WinoApplicationMode StartMode(IStatePersistanceService state, Func<WinoApplicationMode, bool>? isAvailable = null,
-        IReadOnlyCollection<WinoApplicationMode>? hiddenModes = null)
+    /// <summary>The mode to start in: the persisted mode unless it is Settings or unavailable.</summary>
+    public static WinoApplicationMode StartMode(IStatePersistanceService state, Func<WinoApplicationMode, bool>? isAvailable = null)
     {
-        bool CanStart(WinoApplicationMode mode)
-            => mode != WinoApplicationMode.Settings && isAvailable?.Invoke(mode) != false && hiddenModes?.Contains(mode) != true;
-
-        if (CanStart(state.ApplicationMode)) return state.ApplicationMode;
-        foreach (var mode in AppModeVisibility.SwitchableModes)
-            if (CanStart(mode)) return mode;
-        return WinoApplicationMode.Mail;
+        var start = state.ApplicationMode;
+        if (start == WinoApplicationMode.Settings || isAvailable?.Invoke(start) == false) start = WinoApplicationMode.Mail;
+        return start;
     }
 
     /// <summary>The mode's title in the shell's own language (window and app bar titles).</summary>

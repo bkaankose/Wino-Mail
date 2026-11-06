@@ -96,21 +96,6 @@ public abstract class UIKitShellHostBase : IUIKitShellHost
         return completion.Task;
     }
 
-    public async Task<bool> CloseSheetsAsync(Func<UIViewController, bool> keepOpen)
-    {
-        while (TopViewController is { } top && !ReferenceEquals(top, Window?.RootViewController))
-        {
-            var index = _sheets.FindLastIndex(entry => ReferenceEquals(entry.Sheet, top));
-            if (index < 0) return false;
-            var (sheet, dismissal) = _sheets[index];
-            if ((sheet.ViewControllers ?? []).Any(keepOpen)) return false;
-            await DismissSheetAsync(sheet);
-            // The page's swipe-to-dismiss cleanup releases its ViewModel and navigation state.
-            dismissal.Dismissed();
-        }
-        return true;
-    }
-
     public virtual bool GoBack(UIKitShellViewController? shell)
     {
         var stack = OpenSheet ?? shell?.CurrentNavigationController;
@@ -133,7 +118,5 @@ public abstract class UIKitShellHostBase : IUIKitShellHost
     private sealed class SheetDismissal(Action dismissed) : UIAdaptivePresentationControllerDelegate
     {
         public override void DidDismiss(UIPresentationController presentationController) => dismissed();
-
-        public void Dismissed() => dismissed();
     }
 }

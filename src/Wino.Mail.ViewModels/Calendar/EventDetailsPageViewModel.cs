@@ -970,9 +970,6 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel,
 
         try
         {
-            if (!await ConfirmExecutableAttachmentAsync(_preferencesService, _dialogService, attachmentViewModel.FileName))
-                return;
-
             attachmentViewModel.IsBusy = true;
 
             // If not downloaded, download it first

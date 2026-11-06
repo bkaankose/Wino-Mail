@@ -1,7 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using UIKit;
 using Wino.Mail.UIKit.Infrastructure;
-using Wino.Mail.UIKit.Views.Calendar;
 using Wino.Mail.UIKit.Views.Mail;
 
 namespace Wino.Mail.UIKit.Phone;
@@ -36,15 +35,7 @@ public sealed class PhoneShellHost(IServiceProvider services) : UIKitShellHostBa
             phone.AttachReaderToolbar(controller, reader);
         }
         // Lay the page out at the stack's size first, so the push never animates its first layout from a zero frame.
-        if ((OpenSheet ?? shell?.CurrentNavigationController) is { } stack)
-        {
-            PhoneShellViewController.PrepareForTransition(controller, stack);
-            // A calendar target (notification, quick action, search result) routes the same details twice: once through
-            // the details binding and once through its own navigation. The second one arrives while the first is still
-            // being pushed and is dropped.
-            if (controller is EventDetailsPageViewController && stack.TopViewController is EventDetailsPageViewController && stack.GetTransitionCoordinator() is not null)
-                return false;
-        }
+        if ((OpenSheet ?? shell?.CurrentNavigationController) is { } stack) PhoneShellViewController.PrepareForTransition(controller, stack);
         return base.Push(shell, controller);
     }
 

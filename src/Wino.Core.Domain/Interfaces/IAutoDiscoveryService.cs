@@ -13,7 +13,7 @@ public interface IAutoDiscoveryService
     /// <summary>
     /// Tries to return the best mail server settings using different techniques.
     /// </summary>
-    Task<AutoDiscoverySettings> GetAutoDiscoverySettings(AutoDiscoveryMinimalSettings autoDiscoveryMinimalSettings);
+    Task<AutoDiscoverySettings> GetAutoDiscoverySettings(AutoDiscoveryMinimalSettings autoDiscoveryMinimalSettings, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Tries to resolve a CalDAV endpoint for the mailbox address.

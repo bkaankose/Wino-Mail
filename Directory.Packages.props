@@ -20,6 +20,7 @@
     <PackageVersion Include="CommunityToolkit.Labs.WinUI.Controls.MarkdownTextBlock" Version="0.1.250926-build.2293" />
     <PackageVersion Include="CommunityToolkit.Labs.WinUI.DependencyPropertyGenerator" Version="0.1.250926-build.2293" />
     <PackageVersion Include="EmailValidation" Version="1.4.0" />
+    <PackageVersion Include="Exchange.WebServices.NETCore" Version="3.3.1" />
     <PackageVersion Include="HtmlAgilityPack" Version="1.13.0" />
     <PackageVersion Include="Ical.Net" Version="5.2.3" />
     <PackageVersion Include="IsExternalInit" Version="1.0.3" />
@@ -57,10 +58,13 @@
     <PackageVersion Include="Serilog.Sinks.ApplicationInsights" Version="4.0.0" />
     <PackageVersion Include="SkiaSharp" Version="4.153.1" />
     <PackageVersion Include="sqlite-net-pcl" Version="1.11.285" />
+    <PackageVersion Include="System.DirectoryServices.Protocols" Version="10.0.13" />
     <PackageVersion Include="System.Drawing.Common" Version="10.0.5" />
     <!-- Transitive via MimeKit; 10.0.13 fixes CVE-2026-84008 and CVE-2026-70162. -->
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.13" />
+    <!-- Transitive via Exchange.WebServices.NETCore, which asks for the vulnerable 10.0.10. -->
+    <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.13" />
     <PackageVersion Include="System.Private.Uri" Version="4.3.2" />
     <PackageVersion Include="System.Text.Encoding.CodePages" Version="9.0.10" />
     <PackageVersion Include="System.Text.Json" Version="10.0.13" />

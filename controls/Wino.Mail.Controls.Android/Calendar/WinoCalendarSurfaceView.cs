@@ -418,26 +418,13 @@ public sealed partial class WinoCalendarSurfaceView : LinearLayout
         private int _placementsVersion = -1;
         private float _placementsUnit;
 
-        private readonly TileAccessibility? _accessibility;
-
         public AllDayView(Context context, WinoCalendarSurfaceView owner) : base(context)
         {
             _owner = owner;
             _gestures = new GestureDetector(context, new TapListener(this));
-            _accessibility = new TileAccessibility(this, owner, AccessibleTiles);
-            AndroidX.Core.View.ViewCompat.SetAccessibilityDelegate(this, _accessibility);
         }
 
         private AllDayView(IntPtr handle, JniHandleOwnership transfer) : base(handle, transfer) { _owner = null!; _gestures = null!; }
-
-        private List<AccessibleTile> AccessibleTiles()
-        {
-            float density = _owner.Density, left = _owner.ColumnLeft(0);
-            return _placements.Where(placement => placement.Kind != CalendarPlacementKind.MultiDayGhost).Select(placement => new AccessibleTile(placement.Item, placement.Date,
-                new RectF(left + (float)placement.Bounds.X * density, (float)placement.Bounds.Y * density, left + (float)placement.Bounds.Right * density, (float)placement.Bounds.Bottom * density))).ToList();
-        }
-
-        protected override bool DispatchHoverEvent(MotionEvent? e) => e is not null && _accessibility?.DispatchHoverEvent(e) == true || base.DispatchHoverEvent(e);
 
         protected override void OnMeasure(int widthMeasureSpec, int heightMeasureSpec)
         {
@@ -456,7 +443,6 @@ public sealed partial class WinoCalendarSurfaceView : LinearLayout
                 (_placements, _overflows) = CalendarSurfaceLayoutCalculator.CalculateAllDay(_owner.Dates, _owner.Snapshot(), dayWidth / density);
                 _placementsVersion = _owner._layoutVersion;
                 _placementsUnit = dayWidth;
-                _accessibility?.InvalidateRoot();
             }
             canvas.Save();
             canvas.ClipRect(_owner.GutterPx, 0, Width, Height);
@@ -536,26 +522,13 @@ public sealed partial class WinoCalendarSurfaceView : LinearLayout
         private int _placementsVersion = -1;
         private float _placementsUnit;
 
-        private readonly TileAccessibility? _accessibility;
-
         public TimedView(Context context, WinoCalendarSurfaceView owner) : base(context)
         {
             _owner = owner;
             _gestures = new GestureDetector(context, new TapListener(this));
-            _accessibility = new TileAccessibility(this, owner, AccessibleTiles);
-            AndroidX.Core.View.ViewCompat.SetAccessibilityDelegate(this, _accessibility);
         }
 
         private TimedView(IntPtr handle, JniHandleOwnership transfer) : base(handle, transfer) { _owner = null!; _gestures = null!; }
-
-        private List<AccessibleTile> AccessibleTiles()
-        {
-            float density = _owner.Density, left = _owner.ColumnLeft(0), padding = PaddingPx;
-            return _placements.Where(placement => placement.Kind != CalendarPlacementKind.MultiDayGhost).Select(placement => new AccessibleTile(placement.Item, placement.Date,
-                new RectF(left + (float)placement.Bounds.X * density, padding + (float)placement.Bounds.Y * density, left + (float)placement.Bounds.Right * density, padding + (float)placement.Bounds.Bottom * density))).ToList();
-        }
-
-        protected override bool DispatchHoverEvent(MotionEvent? e) => e is not null && _accessibility?.DispatchHoverEvent(e) == true || base.DispatchHoverEvent(e);
 
         private float PaddingPx => (float)WinoCalendarSurfaceGeometry.TimelinePadding * _owner.Density;
         private float HourPx => (float)_owner.HourHeightDp * _owner.Density;
@@ -589,7 +562,6 @@ public sealed partial class WinoCalendarSurfaceView : LinearLayout
                     .OrderBy(p => p.Kind == CalendarPlacementKind.MultiDayGhost ? 0 : 1).ToList();
                 _placementsVersion = _owner._layoutVersion;
                 _placementsUnit = dayWidth;
-                _accessibility?.InvalidateRoot();
             }
 
             // The realized columns move with the rail (shading under the hour lines, lines and tiles over them); the

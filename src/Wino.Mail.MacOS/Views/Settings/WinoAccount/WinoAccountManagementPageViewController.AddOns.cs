@@ -71,12 +71,12 @@ public sealed partial class WinoAccountManagementPageViewController
             WinoIntelligenceBrand.Chip(WinoIconGlyph.Translate, Translator.WinoAccount_Management_AiPackFeatureTranslate),
             WinoIntelligenceBrand.Chip(WinoIconGlyph.Edit, Translator.WinoAccount_Management_AiPackFeatureRewrite),
             WinoIntelligenceBrand.Chip(WinoIconGlyph.Tag, Translator.WinoAccount_Management_AiPackFeatureLabels),
-        ], 8, ChipFlowWidth);
+        ], 8, 400);
         var column = WinoLayout.VStack(12, pitch, chips);
         column.Alignment = NSLayoutAttribute.Leading;
         column.SetHuggingPriority(1, NSLayoutConstraintOrientation.Horizontal);
 
-        // Outside the App Store, Stripe Checkout states the price in the customer's currency; the app does not repeat it.
+        // Stripe Checkout states the price in the customer's currency; the app does not repeat it.
         var get = Bind.Button(Translator.WinoAccount_Management_AiPackGetButton, vm.PurchaseAddOnCommand, () => vm.AiPackAddOn, primary: true);
         get.SetValueForKey(new NSString("WinoAccountAddOnPurchaseButton"), new NSString("accessibilityIdentifier"));
         var learn = new NSButton { Bordered = false, TranslatesAutoresizingMaskIntoConstraints = false };
@@ -84,9 +84,7 @@ public sealed partial class WinoAccountManagementPageViewController
         learn.AttributedTitle = new NSAttributedString(Translator.Buttons_LearnMore, new NSStringAttributes { ForegroundColor = WinoStyle.Accent, Font = NSFont.SystemFontOfSize(12) });
         WinoAccessibility.Label(learn, Translator.Buttons_LearnMore);
         Bind.OnActivated(learn, () => NSWorkspace.SharedWorkspace.OpenUrl(new NSUrl(IntelligenceLearnMoreUrl)));
-        var price = _capabilities.AppleAppStore
-            ? Bind.Label(vm, nameof(vm.AppStoreAiPackPriceText), s => s.AppStoreAiPackPriceText, WinoStyle.Caption, WinoStyle.SecondaryText, 0)
-            : WinoStyle.Label(Translator.WinoAccount_Management_AiPackPriceAtCheckout, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
+        var price = WinoStyle.Label(Translator.WinoAccount_Management_AiPackPriceAtCheckout, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
         price.Alignment = NSTextAlignment.Right;
         var error = Bind.Label(addOn, nameof(addOn.ErrorText), a => a.ErrorText, WinoStyle.Caption, WinoStyle.Caution, 0);
         error.Alignment = NSTextAlignment.Right;
@@ -96,33 +94,17 @@ public sealed partial class WinoAccountManagementPageViewController
         WinoLayout.Size(side, 180);
         foreach (var view in new NSView[] { get, price, error }) view.WidthAnchor.ConstraintEqualTo(side.WidthAnchor).Active = true;
 
-        var row = SettingsAdaptiveRow.IntelligencePromo(art, column, side, PromoBreakpoint);
+        var row = WinoLayout.HStack(20, art, column, side);
+        row.Alignment = NSLayoutAttribute.CenterY;
         var surface = new WinoSurfaceView
         {
             // Windows WinoIntelligenceBrandSurfaceBrush: a faint wash of the brand colour.
             Fill = WinoStyle.Dynamic(WinoStyle.Hex(0x3B84E8, 0.07), WinoStyle.Hex(0x7FBAFF, 0.08)),
             CornerRadius = 4
         };
-        if (_capabilities.AppleAppStore)
-        {
-            // Guideline 3.1.2: the length, renewal and the Terms of Use and Privacy Policy links sit next to the purchase.
-            var stack = WinoLayout.VStack(14, row, AppStoreSubscriptionTerms.Create());
-            stack.Alignment = NSLayoutAttribute.Leading;
-            row.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
-            WinoLayout.Fill(stack, surface, 20);
-        }
-        else
-        {
-            WinoLayout.Fill(row, surface, 20);
-        }
+        WinoLayout.Fill(row, surface, 20);
         return surface;
     }
-
-    /// <summary>The chip rows wrap at this width; with the illustration and button column it sets the row's minimum.</summary>
-    internal const double ChipFlowWidth = 300;
-
-    /// <summary>Above the side-by-side minimum (illustration 96 + chips 300 + buttons 180 + spacing 40).</summary>
-    internal const double PromoBreakpoint = 640;
 
     /// <summary>Wino Intelligence, purchased: billing period, monthly allowance and usage, then where mailboxes and consent are managed.</summary>
     private NSView IntelligenceExpander()
@@ -222,10 +204,7 @@ public sealed partial class WinoAccountManagementPageViewController
         unlocked.AccessibilityIdentifier = "WinoAccountUnlimitedAccountsPurchasedBadge";
         Bind.Visible(unlocked, addOn, nameof(addOn.IsPurchased), a => a.IsPurchased);
 
-        var price = Bind.Label(vm, nameof(vm.AppStoreUnlimitedAccountsPriceText), s => s.AppStoreUnlimitedAccountsPriceText, NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText);
-        Bind.Visible(price, addOn, nameof(addOn.ShowPurchaseState), a => a.ShowPurchaseState && _capabilities.AppleAppStore);
-
-        var content = WinoLayout.HStack(16, usage, BusySpinner(addOn, nameof(addOn.IsLoading), a => a.IsLoading), price, purchase, unlocked);
+        var content = WinoLayout.HStack(16, usage, BusySpinner(addOn, nameof(addOn.IsLoading), a => a.IsLoading), purchase, unlocked);
         var card = Card(Translator.WinoAddOn_UNLIMITED_ACCOUNTS_Name, null, WinoIconGlyph.None, content);
         // Windows UnlimitedAccountsMarkBrush (amber); the lighter stop reads better on dark cards.
         card.LeadingView = new WinoIconView(WinoIconGlyph.People, 20, WinoStyle.Dynamic(WinoStyle.Hex(0xD97706), WinoStyle.Hex(0xFBBF24)));

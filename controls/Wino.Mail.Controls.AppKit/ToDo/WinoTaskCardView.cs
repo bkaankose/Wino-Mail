@@ -204,7 +204,7 @@ public sealed class WinoTaskGroupHeaderView : NSTableCellView
     public const string ReuseIdentifier = "WinoTaskGroupHeader";
 
     private readonly NSTextField _key = WinoStyle.Label(string.Empty, WinoStyle.BodyStrong, WinoStyle.SecondaryText);
-    private readonly NSTextField _count = WinoStyle.Label(string.Empty, WinoStyle.Body, WinoStyle.SecondaryText);
+    private readonly NSTextField _count = WinoStyle.Label(string.Empty, WinoStyle.Body, WinoStyle.TertiaryText);
 
     public WinoTaskGroupHeaderView()
     {

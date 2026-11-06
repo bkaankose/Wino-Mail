@@ -19,9 +19,10 @@ public sealed partial class ContactsPageViewController
 
     private readonly List<ListEntry> _entries = new();
     private readonly List<ContactGroup> _observedGroups = new();
+    private NSSearchField _search = null!;
     private NSButton _newAddressBook = null!;
-    private NSLayoutConstraint _listBelowButton = null!;
-    private NSLayoutConstraint _listAtTop = null!;
+    private NSLayoutConstraint _searchToButton = null!;
+    private NSLayoutConstraint _searchToEdge = null!;
     private NSTableView _table = null!;
     private NSScrollView _scroll = null!;
     private NSView _emptyPanel = null!;
@@ -39,8 +40,12 @@ public sealed partial class ContactsPageViewController
     {
         var pane = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
 
-        // People search is the toolbar field (IShellSearchTarget); a second field in the list duplicated it.
-        // Windows ContactsPage "New address book" (CardDAV accounts only): icon-only, above the list.
+        _search = new NSSearchField { PlaceholderString = Translator.ContactsPage_SearchPlaceholder, TranslatesAutoresizingMaskIntoConstraints = false, SendsSearchStringImmediately = true };
+        _search.Changed += (_, _) => Observe(RunSearchAsync(_search.StringValue, select: false));
+        WinoAccessibility.Label(_search, Translator.ContactsPage_SearchPlaceholder);
+        WinoLayout.Size(_search, -1, 30);
+
+        // Windows ContactsPage "New address book" (CardDAV accounts only): icon-only, beside the search field.
         _newAddressBook = CommandButton(string.Empty, ViewModel.CreateCardDavAddressBookCommand);
         _newAddressBook.BezelStyle = NSBezelStyle.Rounded;
         _newAddressBook.Image = WinoIcons.Image(WinoIconGlyph.Library, 15, null, Translator.ContactsPage_NewAddressBook);
@@ -91,18 +96,22 @@ public sealed partial class ContactsPageViewController
         _emptyPanel = new NSView { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
         _emptyPanel.AddSubview(emptyStack);
 
+        pane.AddSubview(_search);
         pane.AddSubview(_newAddressBook);
-        _listBelowButton = _scroll.TopAnchor.ConstraintEqualTo(_newAddressBook.BottomAnchor, 8);
-        _listAtTop = _scroll.TopAnchor.ConstraintEqualTo(pane.TopAnchor, 8);
+        _searchToButton = _search.TrailingAnchor.ConstraintEqualTo(_newAddressBook.LeadingAnchor, -8);
+        _searchToEdge = _search.TrailingAnchor.ConstraintEqualTo(pane.TrailingAnchor, -16);
         pane.AddSubview(_scroll);
         pane.AddSubview(_loadingMore);
         pane.AddSubview(_emptyPanel);
         pane.AddSubview(_loading);
         NSLayoutConstraint.ActivateConstraints(
         [
+            _search.TopAnchor.ConstraintEqualTo(pane.TopAnchor, 16),
+            _search.LeadingAnchor.ConstraintEqualTo(pane.LeadingAnchor, 16),
+            _searchToEdge,
             _newAddressBook.TrailingAnchor.ConstraintEqualTo(pane.TrailingAnchor, -16),
-            _newAddressBook.TopAnchor.ConstraintEqualTo(pane.TopAnchor, 12),
-            _listAtTop,
+            _newAddressBook.CenterYAnchor.ConstraintEqualTo(_search.CenterYAnchor),
+            _scroll.TopAnchor.ConstraintEqualTo(_search.BottomAnchor, 8),
             _scroll.LeadingAnchor.ConstraintEqualTo(pane.LeadingAnchor, 12),
             _scroll.TrailingAnchor.ConstraintEqualTo(pane.TrailingAnchor, -12),
             _scroll.BottomAnchor.ConstraintEqualTo(_loadingMore.TopAnchor, -4),
@@ -144,9 +153,9 @@ public sealed partial class ContactsPageViewController
         Bind(nameof(ViewModel.CanCreateCardDavAddressBook), vm => vm.CanCreateCardDavAddressBook, canCreate =>
         {
             _newAddressBook.Hidden = !canCreate;
-            // Deactivate before activating so the two top constraints never coexist.
-            (canCreate ? _listAtTop : _listBelowButton).Active = false;
-            (canCreate ? _listBelowButton : _listAtTop).Active = true;
+            // Deactivate before activating so the two trailing constraints never coexist.
+            (canCreate ? _searchToEdge : _searchToButton).Active = false;
+            (canCreate ? _searchToButton : _searchToEdge).Active = true;
         });
         Bind(nameof(ViewModel.IsSelectionMode), vm => vm.IsSelectionMode, selectionMode =>
         {
@@ -345,13 +354,23 @@ public sealed partial class ContactsPageViewController
         catch (OperationCanceledException) { }
     }
 
-    string? IShellSearchTarget.SearchPlaceholder => Translator.ContactsPage_SearchPlaceholder;
+    public Task SearchTextChangedAsync(string text)
+    {
+        _search.StringValue = text ?? string.Empty;
+        return RunSearchAsync(text, select: false);
+    }
 
-    public Task SearchTextChangedAsync(string text) => RunSearchAsync(text, select: false);
+    public Task SearchSubmittedAsync(string text)
+    {
+        _search.StringValue = text ?? string.Empty;
+        return RunSearchAsync(text, select: true);
+    }
 
-    public Task SearchSubmittedAsync(string text) => RunSearchAsync(text, select: true);
-
-    public Task SearchClearedAsync() => RunSearchAsync(string.Empty, select: false);
+    public Task SearchClearedAsync()
+    {
+        _search.StringValue = string.Empty;
+        return RunSearchAsync(string.Empty, select: false);
+    }
 
     // ---- Context menu (Windows ContactCardMenuFlyout) ----
 

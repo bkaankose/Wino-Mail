@@ -16,9 +16,9 @@ public static class CalendarContextMenuLabels
 {
     public static string Label(CalendarContextMenuAction action)
     {
-        if (action.ActionType == CalendarContextMenuActionType.ShowAs && action.ShowAs is { } showAs)
+        if (action.ActionType == CalendarContextMenuActionType.ShowAs && action.ShowAs is { } showAs && action.TargetType is null)
             return ShowAsText(showAs);
-        if (action.ActionType == CalendarContextMenuActionType.Respond && action.ResponseStatus is { } status)
+        if (action.ActionType == CalendarContextMenuActionType.Respond && action.ResponseStatus is { } status && action.TargetType is null)
             return status switch
             {
                 CalendarItemStatus.Accepted => Translator.CalendarEventResponse_Accept,

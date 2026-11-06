@@ -284,7 +284,6 @@ public sealed partial class CalendarPageViewController : WinoViewController<Cale
         else
         {
             var action = entry.Action;
-            if (action.ShowAs is { } showAs && item.CalendarItem.ShowAs == showAs) menuItem.State = NSCellStateValue.On;
             menuItem.Activated += (_, _) => WeakReferenceMessenger.Default.Send(new CalendarItemContextActionRequestedMessage(item, action));
         }
         return menuItem;
@@ -668,9 +667,9 @@ internal static class CalendarContextMenuLabels
 {
     public static string Label(CalendarContextMenuAction action)
     {
-        if (action.ActionType == CalendarContextMenuActionType.ShowAs && action.ShowAs is { } showAs)
+        if (action.ActionType == CalendarContextMenuActionType.ShowAs && action.ShowAs is { } showAs && action.TargetType is null)
             return ShowAsText(showAs);
-        if (action.ActionType == CalendarContextMenuActionType.Respond && action.ResponseStatus is { } status)
+        if (action.ActionType == CalendarContextMenuActionType.Respond && action.ResponseStatus is { } status && action.TargetType is null)
             return status switch
             {
                 CalendarItemStatus.Accepted => Wino.Core.Domain.Translator.CalendarEventResponse_Accept,

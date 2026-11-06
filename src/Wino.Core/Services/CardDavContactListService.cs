@@ -28,10 +28,13 @@ public sealed class CardDavContactListService : ICardDavContactListService
     private readonly IDavCredentialStore _credentials;
     private readonly IAccountService _accounts;
     private readonly IContactService _contacts;
+    private readonly IDavOAuthAuthenticationProvider _oauthAuthenticationProvider;
 
     public CardDavContactListService(ICardDavClient client, ICardDavSynchronizationStore store, IVCardCodec codec,
-        IDavCredentialStore credentials, IAccountService accounts, IContactService contacts)
+        IDavCredentialStore credentials, IAccountService accounts, IContactService contacts,
+        IDavOAuthAuthenticationProvider oauthAuthenticationProvider = null)
     {
+        _oauthAuthenticationProvider = oauthAuthenticationProvider;
         _client = client;
         _store = store;
         _codec = codec;
@@ -156,7 +159,7 @@ public sealed class CardDavContactListService : ICardDavContactListService
 
         var account = await _accounts.GetAccountAsync(book.MailAccountId).ConfigureAwait(false)
                       ?? throw new InvalidOperationException(Translator.DavError_NotFound);
-        var settings = await CardDavConnection.CreateSettingsAsync(account, _credentials, _accounts, cancellationToken).ConfigureAwait(false);
+        var settings = await CardDavConnection.CreateSettingsAsync(account, _credentials, _accounts, cancellationToken, _oauthAuthenticationProvider).ConfigureAwait(false);
         return (binding, settings);
     }
 

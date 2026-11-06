@@ -9,7 +9,6 @@ using HtmlAgilityPack;
 using MimeKit;
 using MimeKit.Cryptography;
 using Serilog;
-using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
@@ -223,8 +222,6 @@ public class MimeFileService : IMimeFileService
         var visitor = CreateHTMLPreviewVisitor(message, mimeLocalPath);
 
         string finalRenderHtml = visitor.HtmlBody;
-        var blockedResources = new List<BlockedRemoteResource>();
-        var remoteImageCount = 0;
 
         // Check whether we need to purify the generated HTML from visitor.
         // No need to create HtmlDocument if not required.
@@ -234,12 +231,10 @@ public class MimeFileService : IMimeFileService
             var document = new HtmlAgilityPack.HtmlDocument();
             document.LoadHtml(visitor.HtmlBody);
 
-            remoteImageCount = document.CountRemoteImages();
+            // Clear <img> src attribute.
 
-            if (options.RemoteContent == RemoteContentMode.BlockAll)
-                document.ClearRemoteContent((_, _) => BlockedResourceReason.RemoteContent, blockedResources);
-            else if (options.RemoteContent == RemoteContentMode.BlockTrackers)
-                document.ClearRemoteContent(TrackerDetector.Inspect, blockedResources);
+            if (!options.LoadImages)
+                document.ClearImages();
 
             if (!options.LoadStyles)
                 document.ClearStyles();
@@ -252,12 +247,7 @@ public class MimeFileService : IMimeFileService
             ? message.TextBody.Trim()
             : HtmlAgilityPackExtensions.GetAccessibleText(finalRenderHtml);
 
-        var renderingModel = new MailRenderModel(finalRenderHtml, options, accessibleText)
-        {
-            RemoteImageCount = remoteImageCount
-        };
-
-        renderingModel.BlockedResources.AddRange(blockedResources);
+        var renderingModel = new MailRenderModel(finalRenderHtml, options, accessibleText);
 
         renderingModel.Signatures = visitor.Signatures;
 

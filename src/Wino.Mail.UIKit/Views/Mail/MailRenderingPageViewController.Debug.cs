@@ -80,12 +80,6 @@ public sealed partial class MailRenderingPageViewController
                 (value, error) => result.TrySetResult(error is null ? value?.ToString() ?? "null" : "js error " + error.LocalizedDescription)));
             return native + " | " + await result.Task.WaitAsync(TimeSpan.FromSeconds(5));
         });
-        UIKitDebugBridge.Register("reader-scroll", args => ReaderDebugAsync(() =>
-        {
-            if (args.Length > 0 && double.TryParse(args[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var y))
-                _scroll.SetContentOffset(new CoreGraphics.CGPoint(0, y - _scroll.AdjustedContentInset.Top), false);
-            return $"offset={_scroll.ContentOffset.Y} barSubject={_barSubject.Alpha}";
-        }));
         UIKitDebugBridge.Register("reader-bar", args => ReaderDebugAsync(() =>
         {
             if (args.Length > 0) ShowsCommandBar = args[0] == "on";

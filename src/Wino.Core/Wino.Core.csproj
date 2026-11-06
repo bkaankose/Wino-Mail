@@ -11,12 +11,9 @@
 	</PropertyGroup>
 	
 	<ItemGroup>
-		<InternalsVisibleTo Include="Wino.Eas.Tests" />
-	</ItemGroup>
-
-	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.Diagnostics" />
 		<PackageReference Include="CommunityToolkit.Mvvm" />
+		<PackageReference Include="Exchange.WebServices.NETCore" />
 		<PackageReference Include="HtmlAgilityPack" />
 		<PackageReference Include="HtmlKit" />
 		<PackageReference Include="MailKit" />
@@ -32,6 +29,8 @@
 		<PackageReference Include="NodaTime" />
 		<PackageReference Include="Sentry.Serilog" />
 		<PackageReference Include="SkiaSharp" />
+		<!-- Exchange Autodiscover reads the directory service connection point; used on Windows only. -->
+		<PackageReference Include="System.DirectoryServices.Protocols" />
 		<PackageReference Include="Wino.Mail.AI.Abstractions" />
 		<PackageReference Include="Wino.Mail.AI.ContentProcessing" />
 	</ItemGroup>
@@ -39,6 +38,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\Wino.Authentication\Wino.Authentication.csproj" />
 		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+		<ProjectReference Include="..\Wino.Core.MAPI\Wino.Core.MAPI.csproj" />
 		<ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
 		<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
 	</ItemGroup>

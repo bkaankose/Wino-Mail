@@ -4,7 +4,6 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
-using Wino.Core.Domain.Models.Connectivity;
 using Wino.Mail.UIKit.Views.Account;
 
 namespace Wino.Mail.UIKit.Infrastructure;
@@ -17,8 +16,8 @@ namespace Wino.Mail.UIKit.Infrastructure;
 public sealed partial class UIKitDialogService
 {
     /// <summary>Fails closed: Cancel, swiping the sheet away or no window answers false.</summary>
-    public Task<bool> ShowServerCertificateTrustDialogAsync(ServerCertificateTrustPrompt prompt)
-        => PresentAsync(presenter => new ServerCertificateTrustSheet(prompt).PresentAsync(presenter), false);
+    public Task<bool> ShowServerCertificateTrustDialogAsync(string summary, byte[] certificateRawData)
+        => PresentAsync(presenter => new ServerCertificateTrustSheet(summary, certificateRawData).PresentAsync(presenter), false);
 
     /// <summary>The secret goes straight back to the caller; nothing here logs or keeps it. Null when cancelled.</summary>
     public Task<string?> ShowWinoAccountSyncSecretDialogAsync(SyncSnapshotSecretRequest request)

@@ -35,7 +35,7 @@ public class MailAccount
     public string AuthenticationAddress { get; set; }
 
     /// <summary>
-    /// Outlook only: the Microsoft Entra app the account signs in with. Null means the legacy app; see <see cref="Models.Accounts.OutlookClientIds"/>.
+    /// Outlook only: the Microsoft Entra app the account signs in with. Null means the legacy app; see <see cref="Models.Authentication.WinoAuthenticationClientIds.Outlook"/>.
     /// </summary>
     public string OutlookClientId { get; set; }
 
@@ -43,6 +43,10 @@ public class MailAccount
     /// Provider type of the account. Outlook,Gmail etc...
     /// </summary>
     public MailProviderType ProviderType { get; set; }
+
+    [Ignore]
+    public bool UsesActiveSync => ProviderType == MailProviderType.Exchange &&
+        ServerInformation?.EffectiveExchangeTransport == ExchangeTransport.ActiveSync;
 
     /// <summary>
     /// For tracking mail change delta.

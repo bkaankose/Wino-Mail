@@ -25,6 +25,7 @@ public static partial class UIKitViewRegistration
         services.AddTransient<ProviderSelectionPageViewController>();
         services.AddTransient<AccountSetupProgressPageViewController>();
         services.AddTransient<SpecialImapCredentialsPageViewController>();
+        services.AddTransient<ExchangeSettingsPageViewController>();
         services.AddTransient<ImapCalDavSettingsPageViewController>();
 
         // Feature pages in their own partial files: Mail (reader, compose, idle, What's New, briefing) and Settings.
@@ -50,8 +51,6 @@ public static partial class UIKitViewRegistration
         services.AddSingleton<IApplicationShellHost, UIKitApplicationShellHost>();
         services.AddSingleton<ActivationRouter>();
         services.AddSingleton<UIKitActivationCoordinator>();
-        services.AddSingleton<UIKitQuickActionCoordinator>();
-        services.AddSingleton<UIKitQuickActionItems>();
         services.AddSingleton<INotificationResponseNavigator, NotificationResponseNavigator>();
         services.AddSingleton<ApplicationLifecycleCoordinator>();
         services.AddSingleton<UIKitApplicationLifecycleHost>();

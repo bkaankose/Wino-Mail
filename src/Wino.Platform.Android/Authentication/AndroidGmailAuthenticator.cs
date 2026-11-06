@@ -171,10 +171,9 @@ public sealed class AndroidGmailAuthenticator(
             }
 
             var activityResult = await activityResults.StartIntentSenderAsync(intentSender, cancellationToken).ConfigureAwait(false);
-            if (activityResult.Data is null)
+            if (activityResult.ResultCode != Result.Ok || activityResult.Data is null)
                 throw new AccountSetupCanceledException();
 
-            // A failed authorization also finishes with RESULT_CANCELED; only the intent's status tells it from a cancel.
             try
             {
                 result = client.GetAuthorizationResultFromIntent(activityResult.Data);
@@ -186,11 +185,8 @@ public sealed class AndroidGmailAuthenticator(
             catch (ApiException error)
             {
                 LogApiException(account, error);
-                throw new GoogleAuthenticationException(string.Format(Translator.Exception_GoogleAuthError, error.Message));
+                throw;
             }
-
-            if (activityResult.ResultCode != Result.Ok)
-                throw new AccountSetupCanceledException();
         }
 
         var accessToken = result.AccessToken;
@@ -264,7 +260,7 @@ public sealed class AndroidGmailAuthenticator(
         if (error.StatusCode == CommonStatusCodes.DeveloperError)
             Logger.Error("Google Play services rejected the app registration (DEVELOPER_ERROR) for account {AccountId}. Register an Android OAuth client for this package and signing certificate.", account?.Id);
         else
-            Logger.Warning("Google Play services authorization failed for account {AccountId} with status {StatusCode}: {Message}", account?.Id, error.StatusCode, error.Message);
+            Logger.Warning("Google Play services authorization failed for account {AccountId} with status {StatusCode}.", account?.Id, error.StatusCode);
     }
 
     private static string GetCredentialKey(MailAccount? account) => account?.Id.ToString("N") ?? "default";

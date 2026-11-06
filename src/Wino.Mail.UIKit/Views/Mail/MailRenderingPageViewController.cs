@@ -29,12 +29,12 @@ namespace Wino.Mail.UIKit.Views.Mail;
 /// The message reader (Mac MailRenderingPageViewController, Windows MailRenderingPage), idiom-neutral: the command bar
 /// on top (iPad; on iPhone the phone shell shows the same <see cref="IMailReaderCommands"/> in its bottom toolbar), then
 /// one vertical scroll with the header (subject, sender avatar and name, recipients, date, the status row with
-/// Unsubscribe and S/MIME, category chips, the Wino Intelligence header, the remote content bars), the HTML body in a
-/// card through the shared WebKit reader session (remote content by CSP, links through the ViewModel's OpenLinkAsync),
+/// Unsubscribe and S/MIME, category chips, the Wino Intelligence header, the remote-image banner), the HTML body in a
+/// card through the shared WebKit reader session (remote content by CSP, links through <see cref="IExternalLauncher"/>),
 /// and the attachment strip with Save all; the loading skeleton covers the content while the message downloads. Print
 /// and PDF go through <see cref="UIKitMailPrintPresenter"/>. The controller is reused across selections
 /// (<see cref="RenavigateAsync"/>). Recipients and the contact card live in the .Recipients partial, the intelligence
-/// header in .Intelligence, the privacy button and bars in .Privacy, debug commands in .Debug.
+/// header in .Intelligence, debug commands in .Debug.
 /// </summary>
 public sealed partial class MailRenderingPageViewController(MailRenderingPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger, IServiceProvider services)
     : WinoViewController<MailRenderingPageViewModel>(viewModel, dispatcher, logger), IMailReaderCommands
@@ -55,12 +55,11 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private readonly WinoContactPicture _avatar = new(40);
     private readonly UILabel _senderName = WinoStyle.Label(string.Empty, WinoStyle.BodyStrong);
     private readonly UILabel _senderAddress = WinoStyle.Label(string.Empty, WinoStyle.Description, WinoStyle.SecondaryText);
-    private readonly UILabel _date = WinoStyle.Label(string.Empty, WinoStyle.Description, WinoStyle.SecondaryText);
-    private readonly UILabel _barSubject = WinoStyle.Label(string.Empty, WinoStyle.Scaled(16, UIFontWeight.Semibold), WinoStyle.PrimaryText);
-    private bool _barSubjectShown;
+    private readonly UILabel _date = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
     private readonly MailReaderStatusRow _statusRow = new();
     private readonly UIStackView _chips = WinoLayout.HStack(8);
     private readonly UIView _intelligenceHost = new() { TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };
+    private readonly WinoInfoBar _imageBanner = new(WinoInfoBarSeverity.Warning, null, Translator.ImageRenderingDisabled);
     private readonly ReaderWebView _webView = new();
     private readonly ReaderLinkTargetBar _linkTarget = new();
     private readonly UIStackView _attachmentTiles = WinoLayout.HStack(10);
@@ -109,39 +108,24 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _subject.UserInteractionEnabled = true;
         _senderAddress.SetContentCompressionResistancePriority(200, UILayoutConstraintAxis.Horizontal);
         _senderName.SetContentCompressionResistancePriority(400, UILayoutConstraintAxis.Horizontal);
-        _senderName.SetContentHuggingPriority(1, UILayoutConstraintAxis.Horizontal);
-        // The date's line carries the privacy button; the stack's first baseline is the date's.
-        var dateLine = WinoLayout.HStack(4, _date, BuildPrivacyButton());
-        dateLine.Alignment = UIStackViewAlignment.Center;
-        WinoLayout.Priorities(dateLine, UILayoutConstraintAxis.Horizontal, 1000, 1000);
-        var nameLine = WinoLayout.HStack(8, _senderName, dateLine);
-        nameLine.Alignment = UIStackViewAlignment.FirstBaseline;
-        var senderText = WinoLayout.VStack(1, nameLine, _senderAddress);
+        var senderText = WinoLayout.VStack(1, _senderName, _senderAddress);
         senderText.SetContentHuggingPriority(1, UILayoutConstraintAxis.Horizontal);
         senderText.SetContentCompressionResistancePriority(200, UILayoutConstraintAxis.Horizontal);
         AttachSenderLink(senderText);
         _date.SetContentCompressionResistancePriority(1000, UILayoutConstraintAxis.Horizontal);
         _date.SetContentHuggingPriority(1000, UILayoutConstraintAxis.Horizontal);
-        var senderRow = WinoLayout.HStack(12, _avatar, senderText);
+        var senderRow = WinoLayout.HStack(12, _avatar, senderText, _date);
         senderRow.Alignment = UIStackViewAlignment.Center;
-
-        // Once the header subject scrolls under the bar it becomes the bar's title.
-        _barSubject.LineBreakMode = UILineBreakMode.TailTruncation;
-        _barSubject.TextAlignment = UITextAlignment.Center;
-        _barSubject.Alpha = 0;
-        _barSubject.IsAccessibilityElement = false;
-        _barSubject.SetContentCompressionResistancePriority(1, UILayoutConstraintAxis.Horizontal);
-        // The bar animates its title view's own alpha on push and pop, so the fade runs on the label inside it.
-        var barTitle = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
-        WinoLayout.Fill(_barSubject, barTitle);
-        NavigationItem.TitleView = barTitle;
 
         _statusRow.UnsubscribeInvoked += (_, _) => Observe(ViewModel.UnsubscribeCommand.ExecuteAsync(null));
         _statusRow.SignatureInvoked += (_, _) => Observe(ViewModel.ShowSmimeSigningCertificateInfoCommand.ExecuteAsync(null));
 
         _chips.Hidden = true;
 
-        var privacyBars = BuildPrivacyBars();
+        _imageBanner.ActionTitle = Translator.Buttons_EnableImageRendering;
+        _imageBanner.IsClosable = true;
+        _imageBanner.Hidden = true;
+        _imageBanner.ActionInvoked += (_, _) => Observe(ViewModel.ForceImageLoadingCommand.ExecuteAsync(null));
 
         BuildIntelligenceHeader(_intelligenceHost);
 
@@ -149,7 +133,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         var recipients = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
         WinoLayout.Fill(BuildRecipientRows(), recipients, 0, 52, 0, 0);
 
-        var header = WinoLayout.Insets(WinoLayout.VStack(12, _subject, senderRow, recipients, _statusRow, _chips, _intelligenceHost, privacyBars), 12, Gutter, 10, Gutter);
+        var header = WinoLayout.Insets(WinoLayout.VStack(12, _subject, senderRow, recipients, _statusRow, _chips, _intelligenceHost, _imageBanner), 12, Gutter, 10, Gutter);
         header.Alignment = UIStackViewAlignment.Fill;
         header.SetCustomSpacing(4, senderRow);
         // The chip row hugs its chips from the leading edge.
@@ -224,11 +208,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         ]);
         // The page scrolls the reader, not the document, so the bar sits on the visible scroll frame and hides on scroll.
         _linkTarget.Attach(root, _scroll, _webView);
-        _scroll.Scrolled += (_, _) =>
-        {
-            _linkTarget.Clear();
-            UpdateBarSubject();
-        };
+        _scroll.Scrolled += (_, _) => _linkTarget.Clear();
 
         _loadingHost.BackgroundColor = WinoStyle.ZoneFill;
         WinoLayout.Fill(_loading, _loadingHost);
@@ -258,8 +238,6 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         reader.OperationFailed += (_, exception) => ReportError(exception);
         reader.LinkHovered += (_, args) => _linkTarget.Show(args);
         reader.NavigationRequested += (_, _) => _linkTarget.Clear();
-        // Links go through the ViewModel: tracking parameters are stripped and the link is confirmed when asked.
-        reader.LinkOpener = (uri, text) => ViewModel.OpenLinkAsync(uri, text);
         _dark = IsDarkAppearance();
         ViewModel.IsDarkWebviewRenderer = _dark;
         ViewModel.RenderHtmlAsyncFunc = RenderAsync;
@@ -270,7 +248,6 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         Bind(nameof(ViewModel.Subject), vm => vm.Subject, subject =>
         {
             _subject.Text = string.IsNullOrWhiteSpace(subject) ? Translator.MailItemNoSubject : subject;
-            _barSubject.Text = _subject.Text;
         });
         Bind(nameof(ViewModel.FromName), vm => vm.FromName, _ => UpdateSender());
         Bind(nameof(ViewModel.FromAddress), vm => vm.FromAddress, _ => UpdateSender());
@@ -286,16 +263,14 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         {
             _loadingHost.Hidden = ready;
             _loading.IsAnimating = !ready;
-            UpdateBarSubject();
         });
         Bind(nameof(ViewModel.CurrentRenderModel), vm => vm.CurrentRenderModel, _ =>
         {
-            UpdatePrivacy();
+            _imageBanner.Hidden = !ViewModel.IsImageRenderingDisabled;
             _statusRow.Update(ViewModel.CanUnsubscribe, ViewModel.IsSmimeSigned, ViewModel.SmimeSignaturesValid, ViewModel.IsSmimeEncrypted);
             UpdateRecipients();
             UpdateAttachments();
         });
-        BindPrivacy();
         ObserveCollection(ViewModel.ToItems);
         ObserveCollection(ViewModel.CcItems);
         ObserveCollection(ViewModel.BccItems);
@@ -349,46 +324,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
     private void UpdateRecipients()
     {
         UpdateRecipientRows();
-        _date.Text = HeaderDate(ViewModel.CreationDate, ViewModel.PreferencesService.MailTimeFormatPreference);
-        _date.AccessibilityLabel = MailRowPresentation.FormatAccessibleDate(ViewModel.CreationDate);
-    }
-
-    /// <summary>
-    /// The header date beside the sender name: the time today, then "Yesterday", the weekday this week, the short month
-    /// and day this year, with the time; the short date for older mail. The long form is the accessibility label.
-    /// </summary>
-    private static string HeaderDate(DateTime value, TimeFormatPreference timeFormat)
-    {
-        if (value == default) return string.Empty;
-
-        var culture = System.Globalization.CultureInfo.DefaultThreadCurrentUICulture ?? System.Globalization.CultureInfo.CurrentUICulture;
-        var local = value.ToLocalTime();
-        var today = DateTime.Today;
-        var time = DateTimeDisplayFormatter.FormatTime(local, DateTimeDisplayFormatter.GetTimeDisplayType(timeFormat, culture), culture);
-
-        if (local.Date == today) return time;
-        if (local.Date == today.AddDays(-1)) return $"{Translator.Yesterday} {time}";
-        if (local.Date > today.AddDays(-7)) return $"{local.ToString("ddd", culture)} {time}";
-        if (local.Year == today.Year) return $"{local.ToString(culture.DateTimeFormat.MonthDayPattern.Replace("MMMM", "MMM"), culture)} {time}";
-        return local.ToString("d", culture);
-    }
-
-    public override void ViewDidLayoutSubviews()
-    {
-        base.ViewDidLayoutSubviews();
-        UpdateBarSubject();
-    }
-
-    private void UpdateBarSubject()
-    {
-        if (_subject.Superview is null) return;
-        var subjectFoot = _subject.ConvertRectToView(_subject.Bounds, _scroll).GetMaxY();
-        bool shown = ViewModel.IsMailContentReady && _subject.Bounds.Height > 0
-            && _scroll.ContentOffset.Y + _scroll.AdjustedContentInset.Top >= subjectFoot - 4;
-        if (shown == _barSubjectShown) return;
-        _barSubjectShown = shown;
-        if (UIAccessibility.IsReduceMotionEnabled) _barSubject.Alpha = shown ? 1 : 0;
-        else UIView.Animate(0.18, () => _barSubject.Alpha = shown ? 1 : 0);
+        _date.Text = MailRowPresentation.FormatReaderDate(ViewModel.CreationDate, ViewModel.PreferencesService.MailTimeFormatPreference);
     }
 
     /// <summary>Category chips under the sender row. The intelligence tiles live in the Wino Intelligence header.</summary>
@@ -579,7 +515,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         if (_reader is null || _disposedReader) return;
         var html = await ResolveActiveHtmlAsync(_currentRenderedHtml);
         var options = ViewModel.CurrentRenderModel?.MailRenderingOptions;
-        var policy = options?.RemoteContent == RemoteContentMode.BlockAll ? RemoteContentPolicy.Blocked : RemoteContentPolicy.ImagesAndFontsAllowed;
+        var policy = (options?.LoadImages ?? true) ? RemoteContentPolicy.ImagesAndFontsAllowed : RemoteContentPolicy.Blocked;
         await _reader.RenderAsync(new HtmlMailReaderRequest(string.IsNullOrEmpty(html) ? " " : html, policy,
             ViewModel.IsReaderViewEnabled ? HtmlMailRenderMode.Readability : HtmlMailRenderMode.Original, options?.RenderPlaintextLinks ?? true));
         UpdateWebHeight();
@@ -601,29 +537,7 @@ public sealed partial class MailRenderingPageViewController(MailRenderingPageVie
         _webHeight.Constant = (nfloat)height;
     }
 
-    /// <summary>
-    /// A reader created before it enters a window has unspecified traits, which read as light; the window scene's
-    /// traits (which carry the app's appearance override) decide then.
-    /// </summary>
-    private bool IsDarkAppearance()
-    {
-        var traits = ViewIfLoaded?.TraitCollection ?? TraitCollection;
-        if (ViewIfLoaded?.Window is null || traits.UserInterfaceStyle == UIUserInterfaceStyle.Unspecified)
-        {
-            foreach (var scene in UIApplication.SharedApplication.ConnectedScenes)
-                if (scene is UIWindowScene windowScene && windowScene.Windows.FirstOrDefault(static window => window.IsKeyWindow) is { } key)
-                    return WinoTraits.IsDark(key.TraitCollection);
-        }
-        return WinoTraits.IsDark(traits);
-    }
-
-    public override void ViewIsAppearing(bool animated)
-    {
-        base.ViewIsAppearing(animated);
-        // The trait registration does not report the first resolved appearance, so a reader opened right after
-        // a switch to dark kept its white body (lab, 3 Nov 2026).
-        AppearanceChanged();
-    }
+    private bool IsDarkAppearance() => WinoTraits.IsDark(ViewIfLoaded?.TraitCollection ?? TraitCollection);
 
     private void AppearanceChanged()
     {

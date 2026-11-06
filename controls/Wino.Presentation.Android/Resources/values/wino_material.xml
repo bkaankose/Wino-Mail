@@ -67,8 +67,7 @@
 
   <!-- Navigation bar (compact) and rail (medium). -->
   <dimen name="wino_m3_nav_icon">24dp</dimen>
-  <!-- The rail avatar touch target; its circle is 40 dp (shell_avatar_background insets it). -->
-  <dimen name="wino_m3_rail_avatar">48dp</dimen>
+  <dimen name="wino_m3_rail_avatar">40dp</dimen>
   <dimen name="wino_m3_rail_avatar_glyph">20dp</dimen>
   <dimen name="wino_m3_rail_gap">8dp</dimen>
 

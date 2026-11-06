@@ -41,8 +41,7 @@
   <dimen name="wino_tasks_check_stroke">2dp</dimen>
   <dimen name="wino_tasks_check_glyph">14dp</dimen>
   <dimen name="wino_tasks_step_check">20dp</dimen>
-  <!-- Star and the add bar date button: 48 dp touch targets (Material minimum). -->
-  <dimen name="wino_tasks_star_button">48dp</dimen>
+  <dimen name="wino_tasks_star_button">40dp</dimen>
   <dimen name="wino_tasks_star_glyph">20dp</dimen>
   <dimen name="wino_tasks_title_text">16sp</dimen>
   <dimen name="wino_tasks_meta_text">12sp</dimen>
@@ -54,9 +53,9 @@
   <dimen name="wino_tasks_add_bar_height">56dp</dimen>
   <dimen name="wino_tasks_add_bar_radius">28dp</dimen>
   <dimen name="wino_tasks_add_bar_padding_start">20dp</dimen>
-  <dimen name="wino_tasks_add_bar_padding_end">4dp</dimen>
+  <dimen name="wino_tasks_add_bar_padding_end">8dp</dimen>
   <dimen name="wino_tasks_add_bar_gap">12dp</dimen>
-  <dimen name="wino_tasks_add_bar_button">48dp</dimen>
+  <dimen name="wino_tasks_add_bar_button">40dp</dimen>
 
   <!-- Task detail: headline title, 48 dp step rows indented to the title column, 56 dp setting rows. -->
   <dimen name="wino_tasks_detail_title_text">22sp</dimen>

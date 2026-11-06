@@ -16,8 +16,9 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!--  Wizard step indicator bar  -->
+        <!--  Wizard step indicator bar. Account setup carries its own header, so the bar steps aside for it.  -->
         <Border
+            x:Name="BreadcrumbHost"
             Padding="24,20"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="0,0,0,1">
@@ -35,29 +36,12 @@
                         <winuiControls:BreadcrumbBarItem>
                             <winuiControls:BreadcrumbBarItem.ContentTemplate>
                                 <DataTemplate x:DataType="viewModelData:BreadcrumbNavigationItemViewModel">
-                                    <StackPanel
+                                    <TextBlock
                                         Margin="8,0"
-                                        Orientation="Horizontal"
-                                        Spacing="8">
-                                        <Border
-                                            Width="24"
-                                            Height="24"
-                                            Background="{x:Bind helpers:XamlHelpers.GetWizardStepBadgeBrush(IsActive), Mode=OneWay}"
-                                            CornerRadius="12">
-                                            <TextBlock
-                                                HorizontalAlignment="Center"
-                                                VerticalAlignment="Center"
-                                                FontWeight="SemiBold"
-                                                Foreground="{x:Bind helpers:XamlHelpers.GetWizardStepNumberForeground(IsActive), Mode=OneWay}"
-                                                Style="{StaticResource CaptionTextBlockStyle}"
-                                                Text="{x:Bind StepNumber, Mode=OneWay}" />
-                                        </Border>
-                                        <TextBlock
-                                            VerticalAlignment="Center"
-                                            FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightBySyncState(IsActive), Mode=OneWay}"
-                                            Style="{StaticResource BodyTextBlockStyle}"
-                                            Text="{x:Bind Title, Mode=OneWay}" />
-                                    </StackPanel>
+                                        VerticalAlignment="Center"
+                                        FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightBySyncState(IsActive), Mode=OneWay}"
+                                        Style="{StaticResource BodyTextBlockStyle}"
+                                        Text="{x:Bind Title, Mode=OneWay}" />
                                 </DataTemplate>
                             </winuiControls:BreadcrumbBarItem.ContentTemplate>
                         </winuiControls:BreadcrumbBarItem>
@@ -72,8 +56,9 @@
             Grid.Row="1"
             AutomationProperties.AutomationId="WelcomeWizardScrollViewer"
             HorizontalScrollBarVisibility="Disabled"
+            SizeChanged="WizardScrollViewerSizeChanged"
             VerticalScrollBarVisibility="Auto">
-            <Frame x:Name="WizardFrame" />
+            <Frame x:Name="WizardFrame" Navigated="WizardFrameNavigated" />
         </ScrollViewer>
     </Grid>
 </abstract:WelcomeHostPageAbstract>

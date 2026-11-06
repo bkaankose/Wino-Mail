@@ -25,12 +25,6 @@ public sealed class AndroidActivityResults(IDispatcher dispatcher, Func<Activity
     private readonly ConcurrentDictionary<int, TaskCompletionSource<AndroidActivityResult>> _pending = new();
     private int _nextRequestCode = FirstRequestCode;
 
-    /// <summary>
-    /// The current activity, read on the calling thread without waiting for the main thread. The head's activity source
-    /// is safe to read from any thread; use it for checks that must not block (CanAuthenticateInteractively).
-    /// </summary>
-    public Activity? CurrentActivity => currentActivity();
-
     /// <summary>The current activity read on the main thread, or null while the app has none.</summary>
     public async Task<Activity?> GetCurrentActivityAsync()
     {

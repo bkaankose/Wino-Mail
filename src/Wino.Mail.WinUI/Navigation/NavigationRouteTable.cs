@@ -55,8 +55,6 @@ public static class NavigationRouteTable
         Settings(WinoPage.PersonalizationPage, typeof(PersonalizationPage)),
         Settings(WinoPage.ApplicationThemeGalleryPage, typeof(ApplicationThemeGalleryPage)),
         Settings(WinoPage.ApplicationThemeEditorPage, typeof(ApplicationThemeEditorPage)),
-        Settings(WinoPage.PrivacySecurityPage, typeof(PrivacySecurityPage)),
-        Settings(WinoPage.RemoteContentRulesPage, typeof(RemoteContentRulesPage)),
         Settings(WinoPage.MessageListPage, typeof(MessageListPage)),
         Settings(WinoPage.NotificationSettingsPage, typeof(NotificationSettingsPage)),
         Settings(WinoPage.UnreadBadgeSettingsPage, typeof(UnreadBadgeSettingsPage)),
@@ -65,7 +63,6 @@ public static class NavigationRouteTable
         Settings(WinoPage.ReaderActionsPage, typeof(ReaderActionsPage)),
         Settings(WinoPage.AppPreferencesPage, typeof(AppPreferencesPage)),
         Settings(WinoPage.CompanionSettingsPage, typeof(CompanionSettingsPage)),
-        Settings(WinoPage.WidgetsLiveTilesSettingsPage, typeof(WidgetsLiveTilesSettingsPage)),
         Settings(WinoPage.MailPreferencesPage, typeof(MailPreferencesPage)),
         Settings(WinoPage.BackupRestorePage, typeof(BackupRestorePage)),
         Settings(WinoPage.AliasManagementPage, typeof(AliasManagementPage)),
@@ -73,6 +70,7 @@ public static class NavigationRouteTable
         Settings(WinoPage.MailFiltersPage, typeof(MailFiltersPage)),
         Settings(WinoPage.MailFilterEditorPage, typeof(MailFilterEditorPage)),
         Settings(WinoPage.ImapCalDavSettingsPage, typeof(ImapCalDavSettingsPage)),
+        Settings(WinoPage.ExchangeSettingsPage, typeof(ExchangeSettingsPage)),
         Settings(WinoPage.KeyboardShortcutsPage, typeof(KeyboardShortcutsPage)),
         Settings(WinoPage.EmailTemplatesPage, typeof(EmailTemplatesPage)),
         Settings(WinoPage.CreateEmailTemplatePage, typeof(CreateEmailTemplatePage)),
@@ -92,9 +90,9 @@ public static class NavigationRouteTable
         new(WinoPage.WelcomeHostPage, typeof(WelcomeHostPage), null, NavigationReferenceFrame.ShellFrame, RouteKind.Standalone),
         Wizard(WinoPage.WelcomePageV2, typeof(WelcomePageV2)),
         Wizard(WinoPage.ProviderSelectionPage, typeof(ProviderSelectionPage)),
+        Wizard(WinoPage.AccountSetupPage, typeof(AccountSetupPage)),
         Wizard(WinoPage.AccountSetupProgressPage, typeof(AccountSetupProgressPage)),
-        Wizard(WinoPage.SpecialImapCredentialsPage, typeof(SpecialImapCredentialsPage)),
-        Wizard(WinoPage.EasSettingsPage, typeof(EasSettingsPage))
+        Wizard(WinoPage.SpecialImapCredentialsPage, typeof(SpecialImapCredentialsPage))
     ];
 
     private static readonly Dictionary<WinoPage, NavigationRoute> RoutesByPage = BuildPageIndex();

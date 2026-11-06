@@ -1,4 +1,4 @@
-﻿namespace Wino.Core.Domain;
+namespace Wino.Core.Domain;
 
 public static class Constants
 {
@@ -71,82 +71,5 @@ public static class Constants
     /// How many mail accounts can be added without the Unlimited Accounts add-on.
     /// </summary>
     public const int FreeAccountLimit = 3;
-
-    /// <summary>
-    /// Attachment extensions that can run code when opened. Lower-case, with the dot.
-    /// </summary>
-    public static readonly string[] ExecutableAttachmentExtensions =
-    [
-        ".exe", ".msi", ".msix", ".bat", ".cmd", ".ps1", ".js", ".jse", ".vbs", ".vbe", ".wsf",
-        ".scr", ".lnk", ".hta", ".iso", ".img", ".reg", ".com", ".pif", ".cpl", ".jar", ".appx"
-    ];
-
-    /// <summary>
-    /// Query keys that start with this prefix are tracking parameters.
-    /// </summary>
-    public const string LinkTrackingParameterPrefix = "utm_";
-
-    /// <summary>
-    /// Exact query keys removed from links as tracking parameters. Compared case-insensitively.
-    /// </summary>
-    public static readonly string[] LinkTrackingParameters =
-    [
-        "fbclid", "gclid", "dclid", "gbraid", "wbraid", "msclkid", "mc_cid", "mc_eid", "mkt_tok",
-        "_hsenc", "_hsmi", "vero_id", "yclid", "igshid", "ttclid", "twclid", "oly_enc_id", "oly_anon_id", "ss_email_id"
-    ];
-
-    /// <summary>
-    /// Hosts that exist to record message opens. A host matches itself and its subdomains.
-    /// Only services whose images are tracking pixels belong here: a content or CDN host would hide real pictures.
-    /// </summary>
-    public static readonly string[] TrackerHosts =
-    [
-        // Personal and sales open tracking
-        "mailtrack.io",
-        "t.yesware.com",
-        "mailfoogae.appspot.com",
-        "r.superhuman.com",
-        "track.mixmax.com",
-        "bl-1.com",
-        "mailstat.us",
-        "gml.email",
-        "tracking.cirrusinsight.com",
-        "t.hubspotemail.net",
-        "t.hubspotfree.net",
-        "tr.cloudmagic.com",
-        "bowtie.mailbutler.io",
-        "yamm-track.appspot.com",
-        "emltrk.com",
-        "eoapxl.com",
-        "pixel.app.returnpath.net",
-
-        // Bulk senders' open-tracking hosts
-        "list-manage.com",
-        "maillist-manage.com",
-        "mandrillapp.com",
-        "ct.sendgrid.net",
-        "email.mailgun.net",
-        "pstmrk.it",
-        "rs6.net",
-        "exct.net",
-        "t.eloqua.com",
-        "via.intercom.io",
-        "track.customer.io",
-        "trk.klaviyo.com",
-        "open.convertkit-mail.com",
-        "mjt.lu",
-        "sendibt2.com",
-        "sendibt3.com",
-        "sendibtd.com",
-        "awstrack.me",
-        "spgo.io",
-        "click.mailerlite.com",
-        "stat-pulse.com"
-    ];
-
-    /// <summary>
-    /// Image URL paths used only for open tracking. Kept narrow: a false positive hides a real picture.
-    /// </summary>
-    public const string TrackingPathPattern = @"^/(open|o|e/eo|wf/open|track/open|img/track)(/|\.(gif|png|php|aspx)$|$)";
 }
 

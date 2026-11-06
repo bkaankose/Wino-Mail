@@ -22,8 +22,7 @@
 
   <!-- Compact Focused / Other segment: the fill marks the selected one, so it carries no check. -->
   <style name="Widget.Wino.Mail.PivotSegment" parent="Widget.WinoKit.Segment">
-    <!-- Grows past the minimum at large font scales instead of clipping its label. -->
-    <item name="android:layout_height">wrap_content</item>
+    <item name="android:layout_height">@dimen/wino_mail_pivot_height</item>
     <item name="android:minHeight">@dimen/wino_mail_pivot_height</item>
     <item name="android:minWidth">0dp</item>
     <item name="android:paddingStart">@dimen/wino_mail_pivot_padding</item>

@@ -28,8 +28,7 @@
   <color name="wino_bar_tint">#4DFFFFFF</color>
   <color name="wino_critical">#C42B1C</color>
   <color name="wino_success">#0F7B0F</color>
-  <!-- Fluent SystemFillColorCaution (light): #E5A400 was 2.2:1 on white, under the 3:1 minimum for meaningful glyphs. -->
-  <color name="wino_caution">#9D5D00</color>
+  <color name="wino_caution">#E5A400</color>
   <color name="wino_flagged">#E74C3C</color>
   <color name="wino_info_background">#F2F7FC</color>
   <color name="wino_success_background">#DFF6DD</color>

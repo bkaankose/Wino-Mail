@@ -4,7 +4,6 @@ using Microsoft.UI.Xaml;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Services;
-using Wino.Mail.WinUI.Services.WidgetsAndTiles;
 using Wino.Services;
 using Wino.Platform.Windows;
 using Wino.Platform.Windows.Authentication;
@@ -40,8 +39,6 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<IUserPresenceStateProvider>(provider => provider.GetRequiredService<NativeAppService>());
         services.AddSingleton<IPreferencesService, PreferencesService>();
         services.AddSingleton<WindowsShellPreferences>();
-        services.AddSingleton<ContactPictureThumbnailer>();
-        services.AddSingleton<WidgetsAndTilesService>();
         services.AddSingleton<ISecretProtector, DpapiSecretProtector>();
         services.AddSingleton<IAccountCredentialPersistence, WindowsAccountCredentialPersistence>();
         services.AddSingleton<IApplicationResourceResolver, WindowsApplicationResourceResolver>();
@@ -54,8 +51,7 @@ public static class CoreUWPContainerSetup
             StartupIntegration: true, Tray: true, GlobalHotkeys: true, GeneralActivation: true,
             MicrosoftStore: true, RemoteNotifications: false, KeyboardShortcuts: true, FileBackup: true, Purchases: true,
             AppModeTaskbarIdentity: true, PointerHover: true, MailListDensity: true, PresentationDetection: true,
-            ConfigurableSyncIntervals: true, BadgeLaunchNavigation: true, WidgetsAndLiveTiles: true,
-            AttachmentSecurityCheck: true));
+            ConfigurableSyncIntervals: true, BadgeLaunchNavigation: true, AddressFirstAccountSetup: true));
         services.AddSingleton<IPushRelayDeviceIdentityStore, WindowsPushRelayDeviceIdentityStore>();
         services.AddSingleton<IPushRelayDeviceInfo, WindowsPushRelayDeviceInfo>();
         services.AddSingleton<IPushTokenProvider, NullPushTokenProvider>();
@@ -69,6 +65,7 @@ public static class CoreUWPContainerSetup
             provider.GetRequiredService<IAuthenticatorConfig>(),
             () => provider.GetRequiredService<NativeAppService>().GetCoreWindowHwnd?.Invoke() ?? IntPtr.Zero));
         services.AddSingleton<IGoogleTokenStore, WindowsGoogleTokenStore>();
+        services.AddSingleton<IOAuthTokenStore, WindowsOAuthTokenStore>();
         services.AddSingleton<INewThemeService, NewThemeService>();
         services.AddSingleton<IStatePersistanceService, StatePersistenceService>();
         services.AddSingleton<ISmimeCertificateService, SmimeCertificateService>();
@@ -83,6 +80,14 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<WindowsExternalAuthCallbacks>();
         services.AddSingleton<IWinoAccountBrowserAuthBroker>(provider => new WindowsBrowserAuthBroker(
             provider.GetRequiredService<IExternalLauncher>(), provider.GetRequiredService<WindowsExternalAuthCallbacks>()));
+        // IMAP and SMTP OAuth sign-in: wino://auth-complete/oauth callbacks complete only this broker's wait.
+        services.AddSingleton<IOAuthBrowserBroker>(provider => new WindowsOAuthBrowserBroker(
+            provider.GetRequiredService<IExternalLauncher>(), provider.GetRequiredService<WindowsExternalAuthCallbacks>(),
+            () => provider.GetService<IExternalBrowserAuthenticationPresenter>()));
+        // Exchange modern-auth sign-in: a WebView2 dialog that captures the redirect in-process, apart from every
+        // system-browser flow above.
+        services.AddSingleton<IEmbeddedBrowserAuthBroker>(provider => new WindowsEmbeddedBrowserAuthBroker(
+            provider.GetRequiredService<IDispatcher>(), provider.GetRequiredService<Lazy<IWinoDialogService>>()));
         services.AddSingleton<IWinoAccountExternalSignInService>(provider => new WinoAccountExternalSignInService(
             provider.GetRequiredService<IWinoAccountApiClient>(), provider.GetRequiredService<IWinoAccountProfileService>(),
             apple: null, google: null, provider.GetRequiredService<IWinoAccountBrowserAuthBroker>()));

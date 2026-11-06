@@ -268,8 +268,6 @@ VALUES
     {
         await Task.WhenAll(
             Connection.CreateTableAsync<MailCopy>(),
-            Connection.CreateTableAsync<EasCollectionState>(),
-            Connection.CreateTableAsync<EasItemShadow>(),
             Connection.CreateTableAsync<Pop3PendingServerDeletion>(),
             Connection.CreateTableAsync<Pop3RemoteMessageState>(),
             Connection.CreateTableAsync<MailCategory>(),
@@ -293,10 +291,10 @@ VALUES
             Connection.CreateTableAsync<ContactListMember>(),
             Connection.CreateTableAsync<ContactCategoryAssignment>(),
             Connection.CreateTableAsync<RecipientHistory>(),
-            Connection.CreateTableAsync<RemoteContentSenderRule>(),
             Connection.CreateTableAsync<CardDavAccountState>(),
             Connection.CreateTableAsync<CardDavAddressBookState>(),
             Connection.CreateTableAsync<CardDavResourceShadow>(),
+            Connection.CreateTableAsync<EasItemShadow>(),
             Connection.CreateTableAsync<AccountTaskListGroup>(),
             Connection.CreateTableAsync<AccountTaskSyncState>(),
             Connection.CreateTableAsync<AccountTaskList>(),
@@ -304,6 +302,7 @@ VALUES
             Connection.CreateTableAsync<AccountTaskStep>(),
             Connection.CreateTableAsync<CustomServerInformation>(),
             Connection.CreateTableAsync<MailServerCertificateTrust>(),
+            Connection.CreateTableAsync<AccountOAuthProfile>(),
             Connection.CreateTableAsync<AccountSignature>(),
             Connection.CreateTableAsync<EmailTemplate>(),
             Connection.CreateTableAsync<MergedInbox>(),
@@ -651,6 +650,11 @@ WHERE ImapUid > 0 AND COALESCE(ImapUidValidity, 0) = 0
 
         var folderColumns = await Connection.GetTableInfoAsync(nameof(MailItemFolder)).ConfigureAwait(false);
 
+        if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.EasFolderType)))
+            await Connection.ExecuteAsync("ALTER TABLE MailItemFolder ADD COLUMN EasFolderType INTEGER NOT NULL DEFAULT 0").ConfigureAwait(false);
+        if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.EasSyncGeneration)))
+            await Connection.ExecuteAsync("ALTER TABLE MailItemFolder ADD COLUMN EasSyncGeneration TEXT NOT NULL DEFAULT ''").ConfigureAwait(false);
+
         if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.HighestKnownUid)))
         {
             await Connection
@@ -680,6 +684,13 @@ WHERE ImapUid > 0 AND COALESCE(ImapUidValidity, 0) = 0
 
             await Connection
                 .ExecuteAsync($"UPDATE {nameof(MailItemFolder)} SET {nameof(MailItemFolder.IsJumpListEnabled)} = 1 WHERE {nameof(MailItemFolder.SpecialFolderType)} = {(int)SpecialFolderType.Inbox}")
+                .ConfigureAwait(false);
+        }
+
+        if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.MapiFolderId)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailItemFolder)} ADD COLUMN {nameof(MailItemFolder.MapiFolderId)} TEXT NULL")
                 .ConfigureAwait(false);
         }
 
@@ -726,6 +737,55 @@ WHERE ImapUid > 0 AND COALESCE(ImapUidValidity, 0) = 0
         {
             await Connection
                 .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.CalendarSupportMode)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.UseOAuthAuthentication)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.UseOAuthAuthentication)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.OAuthAuthority)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.OAuthAuthority)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.OAuthClientId)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.OAuthClientId)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.OAuthResource)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.OAuthResource)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.OAuthRedirectUri)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.OAuthRedirectUri)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.ExchangeTransport)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.ExchangeTransport)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.DetectedExchangeTransport)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.DetectedExchangeTransport)} INTEGER NOT NULL DEFAULT 0")
                 .ConfigureAwait(false);
         }
 

@@ -12,7 +12,7 @@
             <TextBlock Style="{ThemeResource TitleTextBlockStyle}" Text="Context flyout" />
             <TextBlock
                 MaxWidth="640"
-                Text="Right-click the card or use the button. Menus can use bound .NET definitions or declarative XAML items. The card has header commands and a searchable Move to submenu; the button demonstrates nested XAML items."
+                Text="Right-click the card or use the button. Menus can use bound .NET definitions or declarative XAML items. The card opts into root search and header commands; the button demonstrates nested XAML items."
                 TextWrapping="Wrap" />
 
             <Border
@@ -26,6 +26,7 @@
                     <contextFlyout:WinoContextFlyout
                         x:Name="CardContextFlyout"
                         HeaderItemsSource="{x:Bind HeaderItems, Mode=OneTime}"
+                        IsSearchEnabled="True"
                         ItemsSource="{x:Bind CardItems, Mode=OneTime}" />
                 </Border.ContextFlyout>
                 <TextBlock Text="Right-click this card" />
@@ -46,7 +47,6 @@
                         <contextFlyout:WinoContextFlyoutSubItem
                             AutomationId="DeclarativeMoveSubItem"
                             IconGlyph="&#xE7B8;"
-                            IsSearchable="True"
                             SearchKeywords="folder destination"
                             Text="Move to">
                             <contextFlyout:WinoContextFlyoutItem

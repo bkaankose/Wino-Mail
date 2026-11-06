@@ -324,12 +324,13 @@ internal sealed class ShellPaneCell : NSTableCellView
                 break;
         }
 
-        // Source-list selection: the label keeps its own colour on the tinted fill (accent text measured 2.96:1);
-        // the selected row is semibold and the active account above a selected folder is medium.
-        if (selected)
+        // The selected folder and the active account read as selected through a semibold accent title.
+        // A title on a coloured chip keeps its own colour so it stays readable.
+        if (selected || ShellMenuItemRules.ShowsIndicator(item))
+        {
             _title.Font = NSFont.SystemFontOfSize(_title.Font.PointSize, NSFontWeight.Semibold);
-        else if (ShellMenuItemRules.ShowsIndicator(item))
-            _title.Font = NSFont.SystemFontOfSize(_title.Font.PointSize, NSFontWeight.Medium);
+            if (_titleChip.Fill is null) _title.TextColor = WinoStyle.Accent;
+        }
         AccessibilityLabel = _pill.Hidden ? _title.StringValue : $"{_title.StringValue}, {_pill.AccessibilityLabel}";
     }
 
@@ -439,11 +440,11 @@ internal sealed class ShellPaneCell : NSTableCellView
     }
 }
 
-/// <summary>Section caption between groups (Windows ShellSectionHeaderTemplate: 11pt; secondary here for contrast), aligned with the row glyphs.</summary>
+/// <summary>Section caption between groups (Windows ShellSectionHeaderTemplate: 11pt tertiary), aligned with the row glyphs.</summary>
 internal sealed class ShellSectionHeaderCell : NSTableCellView
 {
     public const string ReuseIdentifier = "WinoShellSectionHeader";
-    private readonly NSTextField _label = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
+    private readonly NSTextField _label = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.TertiaryText);
 
     public ShellSectionHeaderCell()
     {

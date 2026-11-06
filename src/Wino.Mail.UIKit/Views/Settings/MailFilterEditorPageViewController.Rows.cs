@@ -125,7 +125,7 @@ public sealed partial class MailFilterEditorPageViewController
         var detail = WinoLayout.HStack(WinoStyle.Space2, op, value, choice);
         WinoLayout.Insets(detail, 0, 40, 0, 0);
 
-        var conjunction = rows.Label(item, nameof(item.ConjunctionText), s => s.ConjunctionText, WinoStyle.Scaled(11, UIFontWeight.Bold), WinoStyle.SecondaryText);
+        var conjunction = rows.Label(item, nameof(item.ConjunctionText), s => s.ConjunctionText, WinoStyle.Scaled(11, UIFontWeight.Bold), WinoStyle.TertiaryText);
         var conjunctionHost = new UIView { TranslatesAutoresizingMaskIntoConstraints = false };
         WinoLayout.Fill(conjunction, conjunctionHost, 4, 40, 4, 0);
         rows.Visible(conjunctionHost, item, nameof(item.ShowConjunction), s => s.ShowConjunction);

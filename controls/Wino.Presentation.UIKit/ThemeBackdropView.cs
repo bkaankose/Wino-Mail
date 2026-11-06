@@ -28,8 +28,7 @@ public sealed class ThemeBackdropView : UIView
     {
         TranslatesAutoresizingMaskIntoConstraints = false;
         ContentMode = UIViewContentMode.Redraw;
-        // Without a theme the zones sit on the grouped background, so a white zone still reads as a card in light.
-        BackgroundColor = UIColor.SystemGroupedBackground;
+        BackgroundColor = UIColor.SystemBackground;
         UserInteractionEnabled = false;
         Layer.AddSublayer(_gradient);
         WinoTraits.OnAppearanceChanged(this, static view => view.Refresh());
@@ -40,7 +39,7 @@ public sealed class ThemeBackdropView : UIView
 
     /// <summary>
     /// Shows <paramref name="image"/> (aspect fill, top anchored) or the four-stop <paramref name="gradient"/>
-    /// (light start, light end, dark start, dark end as 0xRRGGBB); both null shows the system grouped background.
+    /// (light start, light end, dark start, dark end as 0xRRGGBB); both null shows the system background.
     /// </summary>
     public void SetBackdrop(UIImage? image, uint[]? gradient)
     {

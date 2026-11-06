@@ -58,7 +58,5 @@
       android:id="@+id/tile_remove"
       android:layout_width="@dimen/wino_compose_tile_remove"
       android:layout_height="@dimen/wino_compose_tile_remove"
-      android:layout_marginTop="@dimen/wino_compose_tile_remove_overlap"
-      android:layout_marginBottom="@dimen/wino_compose_tile_remove_overlap"
       android:background="?attr/selectableItemBackgroundBorderless" />
 </LinearLayout>

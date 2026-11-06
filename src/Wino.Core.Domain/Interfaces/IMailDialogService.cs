@@ -10,7 +10,6 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Calendar;
-using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
@@ -92,9 +91,8 @@ public interface IMailDialogService : IDialogServiceBase
     /// <summary>
     /// Shows a fail-closed server-certificate consent dialog and lets the user inspect
     /// the complete certificate before making an endpoint-scoped trust decision.
-    /// A dangerous prompt keeps its accept button disabled until the user acknowledges the risk.
     /// </summary>
-    Task<bool> ShowServerCertificateTrustDialogAsync(ServerCertificateTrustPrompt prompt);
+    Task<bool> ShowServerCertificateTrustDialogAsync(string summary, byte[] certificateRawData);
 
     /// <summary>
     /// Presents a dialog to the user for keyboard shortcut creation/modification.
@@ -119,15 +117,4 @@ public interface IMailDialogService : IDialogServiceBase
     Task<string?> ShowWinoAccountSyncSecretDialogAsync(SyncSnapshotSecretRequest request);
 
     Task<UnlimitedAccountsPurchaseChannel?> ShowUnlimitedAccountsPurchaseChannelDialogAsync();
-
-    /// <summary>
-    /// Shows where a link from a message goes before it opens.
-    /// </summary>
-    /// <param name="linkText">The anchor's visible text, or null when the renderer had no anchor.</param>
-    /// <param name="originalUri">The link as written in the message.</param>
-    /// <param name="cleanedUri">The link that will open, after tracking parameters were removed.</param>
-    /// <param name="removedParameterCount">How many tracking parameters were removed.</param>
-    /// <param name="browserName">The browser chosen for the account, or null for the system default.</param>
-    /// <returns>True when the user chose to open the link.</returns>
-    Task<bool> ShowOpenLinkConfirmationAsync(string? linkText, Uri originalUri, Uri cleanedUri, int removedParameterCount, string? browserName);
 }

@@ -244,7 +244,7 @@ public sealed class SignatureAndEncryptionPageViewController(SignatureAndEncrypt
             WinoLayout.Size(scroll, -1, 160);
 
             // Windows left its empty-state text unfinished ("There are no items."); show a plain note in the table area.
-            _empty = WinoStyle.Label(Translator.ToDoPage_ListEmptyTitle, WinoStyle.Description, WinoStyle.SecondaryText);
+            _empty = WinoStyle.Label(Translator.ToDoPage_ListEmptyTitle, WinoStyle.Description, WinoStyle.TertiaryText);
             _empty.Alignment = NSTextAlignment.Center;
             _empty.TranslatesAutoresizingMaskIntoConstraints = false;
 

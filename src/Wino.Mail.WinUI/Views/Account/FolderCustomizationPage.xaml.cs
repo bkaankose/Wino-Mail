@@ -1,5 +1,4 @@
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Wino.Mail.ViewModels.Data;
 using Wino.Views.Abstract;
 using WinRT;
@@ -13,8 +12,10 @@ public sealed partial class FolderCustomizationPage : FolderCustomizationPageAbs
         InitializeComponent();
     }
 
-    private async void ListView_DragItemsCompleted(ListViewBase sender, DragItemsCompletedEventArgs args)
+    private async void ListView_DropCompleted(UIElement sender, DropCompletedEventArgs args)
     {
+        // ListView.CanReorderItems automatically mutates the backing
+        // ObservableCollection; persist the new order here.
         await ViewModel.PersistLayoutAsync();
     }
 

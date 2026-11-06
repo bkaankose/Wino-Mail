@@ -69,12 +69,14 @@ public partial class WelcomeWizardContext : ObservableObject
 
     // Generic IMAP — populated by ImapCalDavSettingsPage
     public ImapCalDavSetupResult ImapCalDavSetupResult { get; set; }
-    public CustomServerInformation EasServerInformation { get; set; }
-    public System.Guid EasAccountId { get; set; } = System.Guid.NewGuid();
-    public bool IsEas => SelectedProvider?.Type == MailProviderType.EAS;
+
+    /// <summary>On-premises Exchange, checked and signed in by ExchangeSettingsPage.</summary>
+    public ExchangeAccountSetupData ExchangeSetup { get; set; }
 
     // Computed helpers
     public bool IsOAuthProvider => SelectedProvider?.Type is MailProviderType.Outlook or MailProviderType.Gmail;
+
+    public bool IsExchange => SelectedProvider?.Type == MailProviderType.Exchange;
 
     public bool IsSpecialImapProvider =>
         SelectedProvider?.Type == MailProviderType.IMAP4 &&
@@ -85,6 +87,12 @@ public partial class WelcomeWizardContext : ObservableObject
         && SelectedProvider?.SpecialImapProvider == SpecialImapProvider.None;
 
     public bool IsGenericCustomMail => IsGenericImap || SelectedProvider?.Type == MailProviderType.POP3;
+
+    /// <summary>
+    /// A listed provider set up with the app password typed on its credentials page. One with secure sign-in goes
+    /// through the IMAP page instead, which leaves its result here.
+    /// </summary>
+    public bool IsSpecialImapProviderWithAppPassword => IsSpecialImapProvider && ImapCalDavSetupResult == null;
 
     public SpecialImapProviderDetails BuildSpecialImapProviderDetails()
     {
@@ -135,7 +143,6 @@ public partial class WelcomeWizardContext : ObservableObject
         CalendarSupportMode = ImapCalendarSupportMode.Disabled;
         RegionId = null;
         ImapCalDavSetupResult = null;
-        EasServerInformation = null;
-        EasAccountId = System.Guid.NewGuid();
+        ExchangeSetup = null;
     }
 }

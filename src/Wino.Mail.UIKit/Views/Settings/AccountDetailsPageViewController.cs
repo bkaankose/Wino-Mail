@@ -118,14 +118,13 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
             Bind.Button(Translator.AccountDetailsPage_ProfilePictureRemove, vm.RemoveProfilePictureCommand),
             Bind.Button(Translator.AccountDetailsPage_ProfilePictureRefresh, vm.RefreshProfilePictureCommand));
 
-        var name = Bind.TextField(vm, nameof(vm.AccountName), s => s.AccountName, (s, v) => s.AccountName = v, Translator.AccountEditDialog_Message, 0);
-        WinoAccessibility.Label(name, Translator.AccountEditDialog_Message);
-        SaveWhenEditingEnds(name);
+        var name = Bind.TextField(vm, nameof(vm.AccountName), s => s.AccountName, (s, v) => s.AccountName = v, Translator.AccountSettingsDialog_AccountNamePlaceholder, 0);
+        WinoAccessibility.Label(name, Translator.AccountDetailsPage_Title);
 
         var capabilityApply = Bind.Button(Translator.Buttons_Apply, vm.ApplyCapabilitiesCommand);
         capabilityApply.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
         var capabilityNotice = InfoBar(WinoInfoBarSeverity.Warning, null, Translator.AccountDetailsPage_CapabilityReauthenticationMessage);
-        Bind.Visible(capabilityNotice, vm, nameof(vm.IsCapabilitySelectionChanged), s => s.IsCapabilitySelectionChanged);
+        Bind.Visible(capabilityNotice, vm, nameof(vm.IsCapabilityReauthenticationNoticeVisible), s => s.IsCapabilityReauthenticationNoticeVisible);
         var applyRow = WinoLayout.VStack(WinoStyle.Space2, capabilityNotice, capabilityApply);
         applyRow.Alignment = UIStackViewAlignment.Fill;
         var capabilities = Expander(Translator.AccountDetailsPage_CapabilityTitle, Translator.AccountDetailsPage_CapabilityDescription, WinoIconGlyph.Calendar, null,
@@ -138,7 +137,8 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
             Card(Translator.ProviderSelection_UseForTasks, null, WinoIconGlyph.Checkmark,
                 Bind.Switch(vm, nameof(vm.IsTasksCapabilitySelected), s => s.IsTasksCapabilitySelected, (s, v) => s.IsTasksCapabilitySelected = v, Translator.ProviderSelection_UseForTasks)),
             applyRow);
-        Bind.Visible(capabilities, vm, nameof(vm.Account), s => s.IsOAuthCapabilityEditable);
+        Bind.Visible(capabilities, vm, nameof(vm.Account), s => s.IsCapabilityEditable);
+        Bind.Visible(capabilities, vm, nameof(vm.IsCapabilityEditable), s => s.IsCapabilityEditable);
 
         var swatches = new WinoColorSwatchPicker();
         WinoAccessibility.Label(swatches, Translator.AccountDetailsPage_ColorPicker_Title);
@@ -162,7 +162,6 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
             Bind.Button(Translator.SettingsEditAccountDetails_ImapCalDavSettings_Action, vm.EditImapCalDavSettingsCommand));
         var protocolLog = StackedCard(Translator.ProtocolLog_EnableTitle, Translator.ProtocolLog_EnableDescription, WinoIconGlyph.Pulse,
             Bind.Checkbox(vm, Translator.ProtocolLog_EnableCheckbox, nameof(vm.IsProtocolLogEnabled), s => s.IsProtocolLogEnabled, (s, v) => s.IsProtocolLogEnabled = v));
-        Bind.Bind(vm, nameof(vm.IsProtocolLogEnabled), s => s.IsProtocolLogEnabled, _ => SaveIfChanged());
         var protocolExport = StackedCard(Translator.ProtocolLog_ExportTitle, Translator.ProtocolLog_ExportDescription, WinoIconGlyph.ArrowDownload,
             ButtonRow(Bind.Button(Translator.ProtocolLog_ExportAction, vm.ExportProtocolLogsCommand), Bind.Button(Translator.ProtocolLog_UploadAction, vm.UploadProtocolLogsCommand)));
         foreach (var card in new UIView[] { imap, protocolLog, protocolExport })
@@ -170,15 +169,73 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
 
         AddTo(0, Group(null,
             pictureCard,
-            StackedCard(Translator.AccountEditDialog_Message, null, WinoIconGlyph.Person, name),
+            StackedCard(Translator.AccountDetailsPage_Title, Translator.AccountEditDialog_Message, WinoIconGlyph.Person, name),
             capabilities,
             colorCard,
+            BuildExchangeSettings(),
             imap,
             protocolLog,
-            protocolExport));
+            protocolExport,
+            Card(Translator.SettingsEditAccountDetails_Title, Translator.Buttons_Save, WinoIconGlyph.Save,
+                Bind.Button(Translator.Buttons_Save, vm.SaveChangesCommand, primary: true))));
 
         var delete = Destructive(Bind.Button(Translator.Buttons_Delete, vm.DeleteAccountCommand));
         AddTo(0, Group(null, Card(Translator.SettingsDeleteAccount_Title, Translator.SettingsDeleteAccount_Description, WinoIconGlyph.Delete, delete)));
+    }
+
+    /// <summary>
+    /// Exchange accounts: the connection method and the sign-in, a new password or the organization sign-in. iOS cannot
+    /// open the organization sign-in page, so a modern-auth account explains that instead of signing in again.
+    /// </summary>
+    private WinoSettingsExpander BuildExchangeSettings()
+    {
+        var vm = ViewModel;
+        var transport = Bind.PopUp<AccountDetailsPageViewModel, ExchangeTransportOption>(vm, s => s.ExchangeTransportOptions, option => option.Title,
+            nameof(vm.SelectedExchangeTransport), s => s.SelectedExchangeTransport, (s, v) => s.SelectedExchangeTransport = v);
+        WinoAccessibility.Label(transport, Translator.ExchangeSetup_TransportHeader);
+        Bind.Enabled(transport, vm, nameof(vm.IsExchangeBusy), s => !s.IsExchangeBusy);
+        var transportCard = Card(Translator.ExchangeSetup_TransportHeader, Translator.ExchangeSetup_TransportDescription, WinoIconGlyph.None, transport);
+
+        var userName = Bind.TextField(vm, nameof(vm.ExchangeUserName), s => s.ExchangeUserName, (s, v) => s.ExchangeUserName = v, vm.Address, 0);
+        userName.AutocapitalizationType = UITextAutocapitalizationType.None;
+        userName.AutocorrectionType = UITextAutocorrectionType.No;
+        userName.TextContentType = UITextContentType.Username;
+        Bind.Bind(vm, nameof(vm.Address), s => s.Address, address => userName.Placeholder = address ?? string.Empty);
+        WinoAccessibility.Label(userName, Translator.ExchangeSetup_UserNameHeader);
+        var userHelp = Caption(Translator.ExchangeSetup_UserNameDescription);
+        userHelp.Lines = 0;
+        var password = Bind.TextField(vm, nameof(vm.ExchangePassword), s => s.ExchangePassword, (s, v) => s.ExchangePassword = v,
+            Translator.ProviderSelection_PasswordHeader_Account, 0);
+        password.SecureTextEntry = true;
+        password.TextContentType = UITextContentType.Password;
+        WinoAccessibility.Label(password, Translator.ProviderSelection_PasswordHeader_Account);
+        var update = Bind.Button(Translator.AccountDetailsPage_ExchangePasswordUpdate, vm.UpdateExchangePasswordCommand, primary: true);
+        update.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
+        var passwordFields = WinoLayout.VStack(WinoStyle.Space2, userName, userHelp, password, Row(update, WinoLayout.Spacer()));
+        passwordFields.Alignment = UIStackViewAlignment.Fill;
+        var passwordCard = StackedCard(Translator.ProviderSelection_PasswordHeader_Account, Translator.AccountDetailsPage_ExchangePasswordDescription, WinoIconGlyph.Key, passwordFields);
+        Bind.Visible(passwordCard, vm, nameof(vm.IsExchangePasswordAuth), s => s.IsExchangePasswordAuth);
+
+        var signIn = Card(Translator.AccountDetailsPage_ExchangeSignInTitle, Translator.AccountDetailsPage_ExchangeSignInDescription, WinoIconGlyph.LockClosed,
+            Bind.Button(Translator.ImapSetup_OAuthSignInAgain, vm.SignInExchangeAgainCommand));
+        Bind.Visible(signIn, vm, nameof(vm.IsExchangeModernAuth), s => s.IsExchangeModernAuth && s.IsExchangeSignInAgainSupported);
+        var signInUnavailable = InfoBar(WinoInfoBarSeverity.Informational, Translator.AccountDetailsPage_ExchangeSignInTitle, vm.ExchangeSignInDescription);
+        Bind.Visible(signInUnavailable, vm, nameof(vm.IsExchangeModernAuth), s => s.IsExchangeModernAuth && !s.IsExchangeSignInAgainSupported);
+
+        var spinner = new UIActivityIndicatorView(UIActivityIndicatorViewStyle.Medium) { HidesWhenStopped = true, TranslatesAutoresizingMaskIntoConstraints = false };
+        var busyCard = Card(Translator.ExchangeSetup_Checking, null, WinoIconGlyph.None, spinner);
+        Bind.Bind(vm, nameof(vm.IsExchangeBusy), s => s.IsExchangeBusy, busy =>
+        {
+            busyCard.Hidden = !busy;
+            if (busy) spinner.StartAnimating(); else spinner.StopAnimating();
+        });
+
+        var expander = Expander(Translator.AccountDetailsPage_ExchangeTitle, null, WinoIconGlyph.GlobeDesktop, null,
+            transportCard, passwordCard, signIn, signInUnavailable, busyCard);
+        Bind.Bind(vm, nameof(vm.ExchangeServerDescription), s => s.ExchangeServerDescription, text => expander.HeaderCard.Description = text);
+        Bind.Visible(expander, vm, nameof(vm.IsExchangeAccount), s => s.IsExchangeAccount);
+        Bind.Visible(expander, vm, nameof(vm.Account), s => s.IsExchangeAccount);
+        return expander;
     }
 
     private void BuildMail()
@@ -194,9 +251,8 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
         });
         AddTo(1, summary);
 
-        var senderField = Bind.TextField(vm, nameof(vm.SenderName), s => s.SenderName, (s, v) => s.SenderName = v, Translator.AccountSettingsDialog_AccountNamePlaceholder, 0);
-        SaveWhenEditingEnds(senderField);
-        var senderName = StackedCard(Translator.AccountSettingsDialog_AccountName, null, WinoIconGlyph.Person, senderField);
+        var senderName = StackedCard(Translator.AccountSettingsDialog_AccountName, Translator.SettingsEditAccountDetails_Description, WinoIconGlyph.Person,
+            Bind.TextField(vm, nameof(vm.SenderName), s => s.SenderName, (s, v) => s.SenderName = v, Translator.AccountSettingsDialog_AccountNamePlaceholder, 0));
         Bind.Visible(senderName, vm, nameof(vm.Account), s => s.IsSenderNameEditable);
         var addressLabel = Bind.Label(vm, nameof(vm.Address), s => s.Address, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText, 0);
         var address = StackedCard(Translator.IMAPSetupDialog_MailAddress, null, WinoIconGlyph.Mail, addressLabel);
@@ -248,32 +304,9 @@ public sealed class AccountDetailsPageViewController(AccountDetailsPageViewModel
             append));
     }
 
-    // iOS settings apply edits without a Save button: the name fields save when editing ends, like the color does.
-    private void SaveWhenEditingEnds(UITextField field)
-    {
-        EventHandler ended = (_, _) => SaveIfChanged();
-        field.AddTarget(ended, UIControlEvent.EditingDidEnd);
-        Bindings.Own(new ActionDisposable(() => field.RemoveTarget(ended, UIControlEvent.EditingDidEnd)));
-    }
-
-    private void SaveIfChanged()
-    {
-        var vm = ViewModel;
-        if (vm.Account is not { } account) return;
-        if (string.IsNullOrWhiteSpace(vm.AccountName))
-        {
-            vm.AccountName = account.Name;
-            return;
-        }
-        if (vm.AccountName == account.Name && vm.SenderName == account.SenderName && vm.IsProtocolLogEnabled == account.IsProtocolLogEnabled) return;
-        if (!vm.SaveChangesCommand.CanExecute(null)) return;
-        vm.SaveChangesCommand.Execute(null);
-        PageTitleChanged?.Invoke(this, EventArgs.Empty);
-    }
-
     private static UIView FolderColumnHeader()
     {
-        var label = WinoStyle.Label(Translator.SettingsFolderSynchronize_Title, WinoStyle.Caption, WinoStyle.SecondaryText);
+        var label = WinoStyle.Label(Translator.SettingsFolderSynchronize_Title, WinoStyle.Caption, WinoStyle.TertiaryText);
         label.TextAlignment = UITextAlignment.Center;
         label.AdjustsFontSizeToFitWidth = true;
         label.WidthAnchor.ConstraintEqualTo((nfloat)FolderCheckColumnWidth).Active = true;

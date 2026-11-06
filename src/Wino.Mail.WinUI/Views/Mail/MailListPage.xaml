@@ -457,14 +457,13 @@
                         VerticalAlignment="Center"
                         x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                         x:Phase="1"
-                        ContactPicture="{x:Bind helpers:XamlHelpers.GetThreadHeadContactPicture(LeafItems, SourceItem), Mode=OneWay}"
+                        ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
                         FontSize="12"
                         IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
                         IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
                     <!--  The subject row of the shared body owns the thread chevron.  -->
                     <ContentPresenter
                         Grid.Column="1"
-                        helpers:MailRowSender.Override="{x:Bind helpers:XamlHelpers.GetThreadHeadSender(LeafItems, SourceItem), Mode=OneWay}"
                         Content="{x:Bind SourceItem}"
                         ContentTemplate="{StaticResource CompactSingleMailItemTemplate}"
                         DataContext="{x:Bind SourceItem}" />
@@ -485,14 +484,13 @@
                         VerticalAlignment="Center"
                         x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                         x:Phase="1"
-                        ContactPicture="{x:Bind helpers:XamlHelpers.GetThreadHeadContactPicture(LeafItems, SourceItem), Mode=OneWay}"
+                        ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
                         FontSize="12"
                         IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
                         IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
                     <!--  The subject row of the shared body owns the thread chevron.  -->
                     <ContentPresenter
                         Grid.Column="1"
-                        helpers:MailRowSender.Override="{x:Bind helpers:XamlHelpers.GetThreadHeadSender(LeafItems, SourceItem), Mode=OneWay}"
                         Content="{x:Bind SourceItem}"
                         ContentTemplate="{StaticResource MediumSingleMailItemTemplate}"
                         DataContext="{x:Bind SourceItem}" />
@@ -513,14 +511,13 @@
                         VerticalAlignment="Center"
                         x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
                         x:Phase="1"
-                        ContactPicture="{x:Bind helpers:XamlHelpers.GetThreadHeadContactPicture(LeafItems, SourceItem), Mode=OneWay}"
+                        ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
                         FontSize="12"
                         IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
                         IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
                     <!--  The subject row of the shared body owns the thread chevron.  -->
                     <ContentPresenter
                         Grid.Column="1"
-                        helpers:MailRowSender.Override="{x:Bind helpers:XamlHelpers.GetThreadHeadSender(LeafItems, SourceItem), Mode=OneWay}"
                         Content="{x:Bind SourceItem}"
                         ContentTemplate="{StaticResource SpaciousSingleMailItemTemplate}"
                         DataContext="{x:Bind SourceItem}" />

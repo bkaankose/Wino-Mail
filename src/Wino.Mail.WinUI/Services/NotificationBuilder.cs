@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -23,7 +22,6 @@ using Wino.Core.Domain.Models.Badges;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Notifications;
 using Wino.Helpers;
-using Wino.Mail.Controls.ContactPicture;
 using Wino.Mail.WinUI.Activation;
 using Wino.Messaging.UI;
 using Wino.NotificationHost.Contracts;
@@ -34,8 +32,6 @@ public class NotificationBuilder : INotificationBuilder
 {
     private const string NotificationIconRootUri = "ms-appx:///Assets/NotificationIcons/";
     private const string ProviderIconRootUri = "ms-appx:///Assets/Providers/";
-    private const string InitialsAvatarFolderName = "notification-avatars";
-    private const int InitialsAvatarPixelSize = 96;
     private static readonly Uri DefaultJumpListIconUri = new("ms-appx:///Assets/AppEntries/MailAssets/Square44x44Logo.scale-200.png");
     private static int _calendarTaskbarBadgeCount;
     private static readonly SemaphoreSlim TaskbarBadgeUpdateLock = new(1, 1);
@@ -59,7 +55,6 @@ public class NotificationBuilder : INotificationBuilder
     private readonly IPictureStorageService _pictureStorageService;
     private readonly INotificationHostClient _notificationHostClient;
     private readonly INotificationPolicyService _notificationPolicyService;
-    private readonly IApplicationConfiguration _applicationConfiguration;
 
     public NotificationBuilder(IAccountService accountService,
                                IFolderService folderService,
@@ -69,8 +64,7 @@ public class NotificationBuilder : INotificationBuilder
                                IPreferencesService preferencesService,
                                IPictureStorageService pictureStorageService,
                                INotificationHostClient notificationHostClient,
-                               INotificationPolicyService notificationPolicyService,
-                               IApplicationConfiguration applicationConfiguration)
+                               INotificationPolicyService notificationPolicyService)
     {
         _accountService = accountService;
         _folderService = folderService;
@@ -81,7 +75,6 @@ public class NotificationBuilder : INotificationBuilder
         _pictureStorageService = pictureStorageService;
         _notificationHostClient = notificationHostClient;
         _notificationPolicyService = notificationPolicyService;
-        _applicationConfiguration = applicationConfiguration;
 
         WeakReferenceMessenger.Default.Register<MailReadStatusChanged>(this, (r, msg) =>
         {
@@ -526,8 +519,6 @@ public class NotificationBuilder : INotificationBuilder
                 senderPictureUri = avatarThumbnail == null ? null : new Uri(avatarThumbnail.AppDataUri);
             }
 
-            senderPictureUri ??= GetInitialsAvatarUri(mailItem);
-
             if (senderPictureUri != null)
                 builder.SetAppLogoOverride(senderPictureUri, AppNotificationImageCrop.Circle);
         }
@@ -776,43 +767,6 @@ public class NotificationBuilder : INotificationBuilder
             ? _pictureStorageService.GetPictureUri(PictureKind.Contact, fileId)
             : null;
 
-    /// <summary>
-    /// Writes the sender's initials avatar to a file, because a toast logo can only be an image file.
-    /// </summary>
-    private Uri? GetInitialsAvatarUri(MailCopy mailItem)
-    {
-        var name = !string.IsNullOrWhiteSpace(mailItem.SenderContact?.Name)
-            ? mailItem.SenderContact.Name
-            : mailItem.FromName;
-        var address = !string.IsNullOrWhiteSpace(mailItem.SenderContact?.Address)
-            ? mailItem.SenderContact.Address
-            : mailItem.FromAddress;
-
-        try
-        {
-            var fileName = $"{ContactInitialsImageRenderer.GetCacheKey(name, address)}.png";
-            var folderPath = Path.Combine(_applicationConfiguration.ApplicationDataFolderPath, InitialsAvatarFolderName);
-            var filePath = Path.Combine(folderPath, fileName);
-
-            if (!File.Exists(filePath))
-            {
-                Directory.CreateDirectory(folderPath);
-
-                // Written under a unique name and moved into place, so a toast never reads a half-written file.
-                var temporaryPath = Path.Combine(folderPath, $"{Guid.NewGuid():N}.tmp");
-                File.WriteAllBytes(temporaryPath, ContactInitialsImageRenderer.Render(name, address, InitialsAvatarPixelSize));
-                File.Move(temporaryPath, filePath, overwrite: true);
-            }
-
-            return new Uri($"ms-appdata:///local/{InitialsAvatarFolderName}/{fileName}");
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "Failed to render the initials avatar for a mail notification.");
-            return null;
-        }
-    }
-
     private static Uri GetNotificationIconUri(string iconName)
         => new($"{NotificationIconRootUri}{iconName}.png");
 
@@ -909,7 +863,7 @@ public class NotificationBuilder : INotificationBuilder
 
         var iconName = account.SpecialImapProvider != SpecialImapProvider.None
             ? account.SpecialImapProvider.ToString()
-            : account.ProviderType.GetProviderAssetName();
+            : account.ProviderType.ToString();
 
         return new Uri($"{ProviderIconRootUri}{iconName}.png");
     }

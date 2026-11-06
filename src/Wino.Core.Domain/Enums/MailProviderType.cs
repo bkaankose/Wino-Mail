@@ -6,5 +6,9 @@ public enum MailProviderType
     Gmail,
     IMAP4 = 4, // 2-3 were removed after release. Don't change for backward compatibility.
     POP3 = 5,
-    EAS = 6
+
+    /// <summary>
+    /// On-premises Exchange Server over MAPI over HTTP, with Exchange Web Services as the fallback transport.
+    /// </summary>
+    Exchange = 6
 }

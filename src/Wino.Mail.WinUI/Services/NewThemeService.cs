@@ -786,11 +786,11 @@ public class NewThemeService : INewThemeService
 
                     if (applyingTheme is CustomAppTheme customTheme)
                     {
-                        resourceDictionary["Wallpaper"] = $"ms-appdata:///local/{CustomThemeFolderName}/{applyingTheme.Id}.jpg";
-                        resourceDictionary["PreviewImage"] = $"ms-appdata:///local/{CustomThemeFolderName}/{applyingTheme.Id}_preview.jpg";
-
-                        var wallpaper = await LoadThemeImageAsync(applyingTheme.Id, $"{applyingTheme.Id}.jpg");
-                        ConfigureCustomThemeDictionary(resourceDictionary, customTheme.Metadata, wallpaper);
+                        ConfigureCustomThemeDictionary(
+                            resourceDictionary,
+                            customTheme.Metadata,
+                            $"ms-appdata:///local/{CustomThemeFolderName}/{applyingTheme.Id}.jpg",
+                            $"ms-appdata:///local/{CustomThemeFolderName}/{applyingTheme.Id}_preview.jpg");
                     }
 
                     // Add the new theme before removing the old one, so there is never a moment
@@ -844,11 +844,15 @@ public class NewThemeService : INewThemeService
     private static void ConfigureCustomThemeDictionary(
         ResourceDictionary dictionary,
         CustomThemeMetadata metadata,
-        ImageSource? wallpaper)
+        string wallpaperUri,
+        string previewImageUri)
     {
+        dictionary["Wallpaper"] = wallpaperUri;
+        dictionary["PreviewImage"] = previewImageUri;
+
         if (dictionary["WinoApplicationBackgroundColor"] is ImageBrush imageBrush)
         {
-            imageBrush.ImageSource = wallpaper;
+            imageBrush.ImageSource = new BitmapImage(new Uri(wallpaperUri));
             imageBrush.Stretch = metadata.WallpaperFit == ThemeWallpaperFit.Fit ? Stretch.Uniform : Stretch.UniformToFill;
             imageBrush.AlignmentX = metadata.WallpaperFit == ThemeWallpaperFit.Fit
                 ? AlignmentX.Center
@@ -962,26 +966,23 @@ public class NewThemeService : INewThemeService
         if (ContrastThemeHelper.IsActive)
             return;
 
-        // The editor sends the picked bytes once and then null with an empty id, so the decoded
-        // image is kept for the rest of the session instead of decoding it on every color change.
+        var wallpaperUri = metadata.Id == Guid.Empty
+            ? $"ms-appdata:///local/{CustomThemeFolderName}/editor-preview.jpg"
+            : $"ms-appdata:///local/{CustomThemeFolderName}/{metadata.Id}.jpg";
+
         if (wallpaperData is { Length: > 0 })
         {
-            previewWallpaper = await CreateBitmapAsync(wallpaperData);
-            previewWallpaperKey = Guid.Empty;
-        }
-        else if (previewWallpaper == null || previewWallpaperKey != metadata.Id)
-        {
-            previewWallpaper = metadata.Id == Guid.Empty
-                ? null
-                : await LoadThemeImageAsync(metadata.Id, $"{metadata.Id}.jpg");
-            previewWallpaperKey = metadata.Id;
+            var themeFolder = await ApplicationData.Current.LocalFolder.CreateFolderAsync(CustomThemeFolderName, CreationCollisionOption.OpenIfExists);
+            const string previewFileName = "editor-preview.jpg";
+            await ReplaceBytesAtomicallyAsync(themeFolder, previewFileName, wallpaperData);
+            wallpaperUri = $"ms-appdata:///local/{CustomThemeFolderName}/{previewFileName}";
         }
 
         var customThemeFile = await StorageFile.GetFileFromApplicationUriAsync(new Uri("ms-appx:///AppThemes/Custom.xaml"));
         var content = await FileIO.ReadTextAsync(customThemeFile);
         var dictionary = XamlReader.Load(content) as ResourceDictionary
                          ?? throw new InvalidOperationException("Custom theme resources could not be loaded.");
-        ConfigureCustomThemeDictionary(dictionary, metadata, previewWallpaper);
+        ConfigureCustomThemeDictionary(dictionary, metadata, wallpaperUri, wallpaperUri);
 
         // Add first, then remove, so a theme dictionary is always merged.
         var existingDictionary = _applicationResourceManager.GetLastResource();
@@ -1003,42 +1004,8 @@ public class NewThemeService : INewThemeService
         currentApplicationThemeId = state.ThemeId;
         _configurationService.Set(CurrentApplicationThemeKey, currentApplicationThemeId);
 
-        previewWallpaper = null;
-        previewWallpaperKey = Guid.Empty;
-    }
-
-    private BitmapImage? previewWallpaper;
-    private Guid previewWallpaperKey;
-
-    public static string GetCustomThemeAssetPath(string fileName)
-        => Path.Combine(ApplicationData.Current.LocalFolder.Path, CustomThemeFolderName, fileName);
-
-    // Theme images are decoded from memory, never from their file. XAML keeps a file it decodes
-    // open for re-decoding at other sizes, which made saving the wallpaper of the active theme fail
-    // with E_ACCESSDENIED, and it caches by URI, which showed the old image after a save.
-    public static async Task<BitmapImage> CreateBitmapAsync(byte[] data)
-    {
-        using var stream = new MemoryStream(data);
-        var bitmap = new BitmapImage();
-        await bitmap.SetSourceAsync(stream.AsRandomAccessStream());
-        return bitmap;
-    }
-
-    private static async Task<BitmapImage?> LoadThemeImageAsync(Guid themeId, string fileName)
-    {
-        try
-        {
-            var path = GetCustomThemeAssetPath(fileName);
-            if (!File.Exists(path))
-                return null;
-
-            return await CreateBitmapAsync(await File.ReadAllBytesAsync(path));
-        }
-        catch (Exception ex)
-        {
-            Serilog.Log.Warning(ex, "Custom theme {ThemeId} image {FileName} could not be loaded.", themeId, fileName);
-            return null;
-        }
+        var themeFolder = await ApplicationData.Current.LocalFolder.CreateFolderAsync(CustomThemeFolderName, CreationCollisionOption.OpenIfExists);
+        await DeleteThemeAssetIfExistsAsync(themeFolder, "editor-preview.jpg");
     }
 
     public async Task<CustomThemeMetadata?> GetCustomThemeAsync(Guid themeId)

@@ -208,9 +208,9 @@
 
         <controls:SettingsCard
             AutomationProperties.AutomationId="MessageListMailSpacingCard"
+            Visibility="{x:Bind ViewModel.IsMailListDensityAvailable, Mode=OneTime}"
             Description="{x:Bind domain:Translator.SettingsMailSpacing_Description}"
-            Header="{x:Bind domain:Translator.SettingsMailSpacing_Title}"
-            Visibility="{x:Bind ViewModel.IsMailListDensityAvailable, Mode=OneTime}">
+            Header="{x:Bind domain:Translator.SettingsMailSpacing_Title}">
             <controls:SettingsCard.HeaderIcon>
                 <coreControls:WinoFontIcon Icon="TextLineSpacing" />
             </controls:SettingsCard.HeaderIcon>
@@ -228,9 +228,9 @@
             Spacing="{StaticResource SettingsCardSpacing}">
             <controls:SettingsExpander
                 AutomationProperties.AutomationId="MessageListPageSettingsExpander2"
+                Visibility="{x:Bind ViewModel.IsHoverActionsAvailable, Mode=OneTime}"
                 Description="{x:Bind domain:Translator.SettingsHoverActions_Description}"
-                Header="{x:Bind domain:Translator.SettingsHoverActions_Title}"
-                Visibility="{x:Bind ViewModel.IsHoverActionsAvailable, Mode=OneTime}">
+                Header="{x:Bind domain:Translator.SettingsHoverActions_Title}">
                 <controls:SettingsExpander.Content>
                     <ToggleSwitch
                         x:Name="HoverEnableToggle"
@@ -459,22 +459,6 @@
             </controls:SettingsCard>
 
             <controls:SettingsCard
-                AutomationProperties.AutomationId="MessageListPageDateGroupingTypeSettingsCard"
-                Description="{x:Bind domain:Translator.SettingsMailListDateGroupingType_Description, Mode=OneTime}"
-                Header="{x:Bind domain:Translator.SettingsMailListDateGroupingType_Title, Mode=OneTime}"
-                IsEnabled="{x:Bind ViewModel.PreferencesService.IsMailListGroupHeadersEnabled, Mode=OneWay}">
-                <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="CalendarWeek" />
-                </controls:SettingsCard.HeaderIcon>
-                <ComboBox
-                    Width="170"
-                    AutomationProperties.AutomationId="MessageListPageDateGroupingTypeComboBox"
-                    AutomationProperties.Name="{x:Bind domain:Translator.SettingsMailListDateGroupingType_Title, Mode=OneTime}"
-                    ItemsSource="{x:Bind ViewModel.DateGroupingTypeOptions, Mode=OneTime}"
-                    SelectedIndex="{x:Bind ViewModel.SelectedDateGroupingTypeIndex, Mode=TwoWay}" />
-            </controls:SettingsCard>
-
-            <controls:SettingsCard
                 AutomationProperties.AutomationId="MessageListPageTimeFormatSettingsCard"
                 Description="{x:Bind domain:Translator.SettingsTimeFormat_Description, Mode=OneTime}"
                 Header="{x:Bind domain:Translator.SettingsTimeFormat_Title, Mode=OneTime}">
@@ -496,16 +480,6 @@
                     <coreControls:WinoFontIcon Icon="Mail" />
                 </controls:SettingsCard.HeaderIcon>
                 <ToggleSwitch AutomationProperties.AutomationId="MessageListOtherInboxUnreadNoticeToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsOtherInboxUnreadNoticeEnabled, Mode=TwoWay}" />
-            </controls:SettingsCard>
-
-            <controls:SettingsCard
-                AutomationProperties.AutomationId="MessageListMarkAsReadOnMoveToTrashSettingsCard"
-                Description="{x:Bind domain:Translator.SettingsMarkAsReadOnMoveToTrash_Description, Mode=OneTime}"
-                Header="{x:Bind domain:Translator.SettingsMarkAsReadOnMoveToTrash_Title, Mode=OneTime}">
-                <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="Delete" />
-                </controls:SettingsCard.HeaderIcon>
-                <ToggleSwitch AutomationProperties.AutomationId="MessageListMarkAsReadOnMoveToTrashToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsMarkAsReadOnMoveToTrashEnabled, Mode=TwoWay}" />
             </controls:SettingsCard>
 
             <controls:SettingsExpander

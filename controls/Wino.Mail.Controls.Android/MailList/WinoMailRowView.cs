@@ -98,18 +98,8 @@ public class WinoMailRowView : FrameLayout
         Clickable = true;
         LongClickable = true;
         Focusable = true;
-        _touchTargets = new WinoTouchTargets(this, p.Avatar, p.Check, p.Chevron);
-        TouchDelegate = _touchTargets;
         ApplyColors();
         ApplySelection();
-    }
-
-    private WinoTouchTargets? _touchTargets;
-
-    protected override void OnLayout(bool changed, int left, int top, int right, int bottom)
-    {
-        base.OnLayout(changed, left, top, right, bottom);
-        _touchTargets?.Update();
     }
 
     private RowParts Parts => _parts ?? throw new InvalidOperationException("The mail row is not initialized.");

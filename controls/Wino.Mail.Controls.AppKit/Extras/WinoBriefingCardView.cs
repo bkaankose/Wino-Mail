@@ -53,7 +53,7 @@ public sealed class WinoBriefingCardView : WinoSurfaceView
         _newDot = new WinoSurfaceView { CornerRadius = 3, Fill = WinoStyle.Accent };
         WinoLayout.Size(_newDot, 6, 6);
         WinoAccessibility.Label(_newDot, Wino.Core.Domain.Translator.DailyBriefing_New);
-        _time = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
+        _time = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.TertiaryText);
         var meta = WinoLayout.HStack(6, _newDot, _time);
         meta.SetContentHuggingPriorityForOrientation(751, NSLayoutConstraintOrientation.Horizontal);
         var headlineRow = WinoLayout.HStack(8, _headline, meta);

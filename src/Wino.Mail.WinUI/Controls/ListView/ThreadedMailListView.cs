@@ -61,7 +61,7 @@ public sealed partial class ThreadedMailListView : WinoMailListView
         var mails = row.LeafItems.OfType<MailItemViewModel>().ToList();
         var details = new List<string>
         {
-            row.IsThreadHead ? XamlHelpers.GetThreadHeadSender(row.LeafItems, source) ?? mail.NameSortKey : mail.NameSortKey,
+            mail.NameSortKey,
             XamlHelpers.GetMailItemSubjectForListing(mail.Subject),
             XamlHelpers.GetCreationDateString(mail.CreationDate, XamlHelpers.CurrentMailTimeFormatPreference),
             mails.Any(item => !item.IsRead) ? Translator.Accessibility_MailItemReadState_Unread : Translator.Accessibility_MailItemReadState_Read

@@ -11,8 +11,7 @@ namespace Wino.Mail.UIKit.Views.Calendar;
 /// Debug bridge commands for the open event composer (the Mac names and outputs):
 /// calsave, cal-notes (ready, preserved, the HTML that would be saved), cal-recur custom INTERVAL FREQ [MO,TU…]
 /// [until yyyy-mm-dd|never], cal-tz ID (time zone and the local-time hint), cal-invite TEXT (suggestion rows),
-/// cal-invite-pick N. Extra: cal-layout (the open cards, and whether the sheet refuses swipe-down), cal-card
-/// when|attendees|details|attachments (opens or closes that card), cal-wheel start|end (shows or hides a wheel).
+/// cal-invite-pick N. Extra: cal-layout (one column or two, and whether the sheet refuses swipe-down).
 /// </summary>
 public sealed partial class CalendarEventComposePageViewController
 {
@@ -59,7 +58,7 @@ public sealed partial class CalendarEventComposePageViewController
             });
             await Task.Delay(150);
             await Dispatcher.ExecuteOnUIThread(() => result = string.IsNullOrEmpty(result)
-                ? $"summary='{ViewModel.RecurrenceSummary}' card={(_customRecurrenceRow is { Hidden: false })} weekdays={(_weekdayBlock is { Hidden: false })} ends={(_recurrenceEndRow is { Hidden: false })} endMode={ButtonTitle(_recurrenceEndMode)} interval={_intervalLabel.Text} frequency={ButtonTitle(_frequencyButton)}"
+                ? $"summary='{ViewModel.RecurrenceSummary}' card={!_customRecurrence.Hidden} weekdays={(_weekdayBlock is { Hidden: false })} ends={(_recurrenceEndRow is { Hidden: false })} endMode={ButtonTitle(_recurrenceEndMode)} interval={_intervalLabel.Text} frequency={ButtonTitle(_frequencyButton)}"
                 : result);
             return result;
         });
@@ -82,7 +81,6 @@ public sealed partial class CalendarEventComposePageViewController
         {
             await Dispatcher.ExecuteOnUIThread(() =>
             {
-                OpenCard(_attendeesCard);
                 _invite.Focus();
                 _invite.TextField.Text = string.Join(' ', args);
                 ScheduleInviteSearch();
@@ -112,44 +110,12 @@ public sealed partial class CalendarEventComposePageViewController
             await Task.Delay(500);
             return $"{result} attendees={string.Join(", ", ViewModel.Attendees.Select(attendee => attendee.Email))}";
         });
-        UIKitDebugBridge.Register("cal-card", async args =>
-        {
-            await Dispatcher.ExecuteOnUIThread(() =>
-            {
-                var card = args.FirstOrDefault()?.ToLowerInvariant() switch
-                {
-                    "when" => _whenCard,
-                    "attendees" => _attendeesCard,
-                    "details" => _detailsCard,
-                    "attachments" => _attachmentsCard,
-                    _ => null
-                };
-                if (card is not null) ToggleCard(card);
-            });
-            await Task.Delay(400);
-            return $"open={string.Join(",", OpenCardNames())}";
-        });
-        UIKitDebugBridge.Register("cal-wheel", async args =>
-        {
-            await Dispatcher.ExecuteOnUIThread(() => ToggleWheel(args.FirstOrDefault() != "end"));
-            await Task.Delay(400);
-            bool start = _startPickerRow is { Hidden: false }, end = _endPickerRow is { Hidden: false };
-            return $"start={start} end={end}";
-        });
         UIKitDebugBridge.Register("cal-layout", async _ =>
         {
             string result = string.Empty;
-            await Dispatcher.ExecuteOnUIThread(() => result = $"open={string.Join(",", OpenCardNames())} width={View?.Bounds.Width} edited={_edited} modal={ModalInPresentation} save={_saveItem?.Title}/{_saveItem?.Enabled}");
+            await Dispatcher.ExecuteOnUIThread(() => result = $"wide={_wide} width={View?.Bounds.Width} edited={_edited} modal={ModalInPresentation} save={_saveItem?.Title}/{_saveItem?.Enabled}");
             return result;
         });
-    }
-
-    private IEnumerable<string> OpenCardNames()
-    {
-        if (_whenCard.IsOpen) yield return "when";
-        if (_attendeesCard.IsOpen) yield return "attendees";
-        if (_detailsCard.IsOpen) yield return "details";
-        if (_attachmentsCard.IsOpen) yield return "attachments";
     }
 
     private static string ButtonTitle(UIButton button) => button.Configuration?.Title ?? string.Empty;

@@ -23,19 +23,6 @@ public static class WinoAccountClientErrorCodes
     /// <summary>The external provider's sign-in failed on the device before the API was reached (the message carries the provider's text).</summary>
     public const string ExternalSignInFailed = "WINO_EXTERNAL_SIGN_IN_FAILED";
 
-    /// <summary>The API's envelope for a rejected bearer token (any authorized endpoint).</summary>
-    public const string SessionInvalid = "SESSION_INVALID";
-
-    /// <summary>A refresh token that was already rotated was presented outside the grace window; the API revoked the whole family.</summary>
-    public const string RefreshTokenReused = "REFRESH_TOKEN_REUSED";
-
-    /// <summary>Another refresh rotated the token moments ago; the family is intact and the stored session may already be newer.</summary>
-    public const string RefreshTokenSuperseded = "REFRESH_TOKEN_SUPERSEDED";
-
-    /// <summary>The refresh token can never work again: the session is dead until the user signs in.</summary>
-    public static bool IsDeadSession(string? errorCode)
-        => errorCode is Wino.Mail.Api.Contracts.Common.ApiErrorCodes.RefreshTokenInvalid or RefreshTokenReused;
-
     public static bool IsServiceFailure(string? errorCode)
         => errorCode is ServiceUnavailable or InvalidServiceResponse;
 

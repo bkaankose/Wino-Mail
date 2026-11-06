@@ -175,13 +175,6 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     [ObservableProperty]
     public partial string UnlimitedAccountsSubtitleText { get; set; } = string.Empty;
 
-    /// <summary>The App Store price line for Wino Intelligence; empty outside App Store builds or until StoreKit answers.</summary>
-    [ObservableProperty]
-    public partial string AppStoreAiPackPriceText { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string AppStoreUnlimitedAccountsPriceText { get; set; } = string.Empty;
-
     /// <summary>
     /// Shown when this device has a Microsoft Store Unlimited Accounts purchase that the signed-in
     /// Wino Account can redeem. Redeeming is always the user's choice.
@@ -306,8 +299,9 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     }
 
     /// <summary>
-    /// Builds the four signed-out offers. Every call to action starts with sign-in, except Unlimited Accounts on
-    /// App Store builds: the App Store sells it without a Wino Account, and it can be redeemed onto one later.
+    /// Builds the four signed-out offers. Every call to action starts with sign-in,
+    /// including the two add-ons: a purchase cannot begin without an authenticated Wino
+    /// Account, which is what <see cref="PurchaseAddOnAsync"/> enforces anyway.
     /// </summary>
     private void SeedBenefits()
     {
@@ -385,7 +379,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             ],
             Translator.WinoAccount_Management_Benefit_Unlimited_Cta,
             WinoIconGlyph.BenefitUnlimitedAccounts)
-        { CtaCommand = IsAppStoreAvailable ? PurchaseUnlimitedAccountsFromAppStoreCommand : SignInCommand });
+        { CtaCommand = SignInCommand });
 
         SelectedBenefit = Benefits[0];
     }
@@ -658,14 +652,6 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
     private bool IsAppStoreAvailable => _platformCapabilities.AppleAppStore && _appStorePurchases?.IsAvailable == true;
 
-    /// <summary>The build sells add-ons through the App Store, which shows prices and subscription terms in the app.</summary>
-    public bool UsesAppStorePurchases => _platformCapabilities.AppleAppStore;
-
-    /// <summary>App Store builds call the refresh "Restore Purchases", the wording App Review looks for.</summary>
-    public string RefreshPurchasesText => _platformCapabilities.AppleAppStore
-        ? Translator.WinoAccount_Management_RestorePurchases
-        : Translator.WinoAccount_Management_RefreshPurchases;
-
     /// <summary>
     /// App Store builds offer other channels only where Apple allows it (the United States storefront);
     /// elsewhere the App Store is the only channel and no choice is shown.
@@ -678,10 +664,6 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
         return await _dialogService.ShowUnlimitedAccountsPurchaseChannelDialogAsync();
     }
-
-    [RelayCommand]
-    private Task PurchaseUnlimitedAccountsFromAppStoreAsync()
-        => IsCheckoutInProgress ? Task.CompletedTask : PurchaseFromAppStoreAsync(_unlimitedAccountsAddOn);
 
     private async Task PurchaseFromAppStoreAsync(WinoAddOnItemViewModel addOn)
     {
@@ -1162,7 +1144,6 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     {
         if (IsAppStoreAvailable && _appStorePurchases is not null)
         {
-            await RefreshAppStorePricesAsync(_appStorePurchases, session).ConfigureAwait(false);
             await RefreshAppStoreRedeemCandidateAsync(_appStorePurchases, session).ConfigureAwait(false);
             return;
         }
@@ -1193,24 +1174,6 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     /// The service returns no candidate when signed out, when the account already has the add-on, or when
     /// the user already tried that purchase.
     /// </summary>
-    private async Task RefreshAppStorePricesAsync(IWinoAppStorePurchaseService appStorePurchases, WinoAccountSession? session)
-    {
-        var cancellationToken = session?.CancellationToken ?? default;
-        string? aiPackPrice, unlimitedPrice;
-        try
-        {
-            aiPackPrice = await appStorePurchases.GetDisplayPriceAsync(WinoAddOnProductType.AI_PACK, cancellationToken).ConfigureAwait(false);
-            unlimitedPrice = await appStorePurchases.GetDisplayPriceAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS, cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) { return; }
-
-        await ApplySessionUIAsync(session, () =>
-        {
-            AppStoreAiPackPriceText = aiPackPrice is null ? string.Empty : string.Format(Translator.WinoAccount_Management_AiPackAppStorePrice, aiPackPrice);
-            AppStoreUnlimitedAccountsPriceText = unlimitedPrice is null ? string.Empty : string.Format(Translator.WinoAccount_Management_UnlimitedAppStorePrice, unlimitedPrice);
-        });
-    }
-
     private async Task RefreshAppStoreRedeemCandidateAsync(IWinoAppStorePurchaseService appStorePurchases, WinoAccountSession? session)
     {
         var hasCandidate = false;

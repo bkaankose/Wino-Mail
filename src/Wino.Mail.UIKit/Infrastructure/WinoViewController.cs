@@ -197,19 +197,8 @@ public static class ViewTreeDisposal
             DisposeController(child);
             if (child.Handle != IntPtr.Zero) { child.RemoveFromParentViewController(); child.Dispose(); }
         }
-        // Bar items and their menus hold managed handlers (UIAction, deferred menu blocks) whose native blocks keep a
-        // strong handle on the page; dropping them from the navigation item lets the native side release them.
-        // The items themselves stay intact: the phone shell moves shared bar items between pages.
-        var item = controller.NavigationItem;
-        if (!ShowsLiveView(item.LeftBarButtonItems)) item.LeftBarButtonItems = [];
-        if (!ShowsLiveView(item.RightBarButtonItems)) item.RightBarButtonItems = [];
-        if (!ShowsLiveView(controller.ToolbarItems)) controller.ToolbarItems = [];
         if (controller.IsViewLoaded && controller.View is { } view) DisposeTree(view);
     }
-
-    /// <summary>True when an item's custom view is on screen in another bar (a shared shell item), which must stay put.</summary>
-    private static bool ShowsLiveView(UIBarButtonItem[]? items)
-        => items?.Any(static barItem => barItem.CustomView?.Window is not null) == true;
 
     public static void DisposeTree(UIView root)
     {
@@ -232,12 +221,6 @@ public static class ViewTreeDisposal
                 collection.Delegate = null!;
                 break;
         }
-        // A menu's deferred element and actions are native blocks holding strong handles on managed closures that
-        // capture the page, so a page wrapper outlived its disposal (live: disposed list, calendar and To Do pages).
-        if (view is UIButton { Menu: not null } button) button.Menu = null;
-        if (view.GestureRecognizers is { Length: > 0 } recognizers)
-            foreach (var recognizer in recognizers) view.RemoveGestureRecognizer(recognizer);
-        foreach (var interaction in view.Interactions) view.RemoveInteraction(interaction);
         foreach (var child in view.Subviews) Dispose(child);
         view.Dispose();
     }

@@ -968,8 +968,6 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     {
         var session = await _sessions.CaptureAsync(cancellationToken).ConfigureAwait(false)
             ?? throw WinoAccountApiException.SignInRequired();
-        if (session.IsInvalid)
-            throw WinoAccountApiException.SignInRequired();
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, session.CancellationToken);
         cancellationToken = linked.Token;
         using var initialRequest = await requestFactory().ConfigureAwait(false)
@@ -1124,7 +1122,6 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
     private async Task<bool> TryRefreshAccessTokenAsync(WinoAccountSession session, string? rejectedAccessToken, CancellationToken cancellationToken)
     {
-        string? refreshError = null;
         var refreshed = await _sessions.RefreshCredentialsAsync(session, rejectedAccessToken, async (account, token) =>
         {
             var result = await RefreshAsync(account.RefreshToken, token).ConfigureAwait(false);
@@ -1135,12 +1132,8 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             if (WinoAccountClientErrorCodes.IsServiceFailure(result.ErrorCode))
                 throw new WinoAccountApiException(result.ErrorCode!);
 
-            refreshError = result.ErrorCode;
             return null;
         }, cancellationToken).ConfigureAwait(false);
-
-        if (refreshed is null && WinoAccountClientErrorCodes.IsDeadSession(refreshError))
-            await _sessions.MarkInvalidAsync(session, refreshError!, CancellationToken.None).ConfigureAwait(false);
 
         return refreshed is not null;
     }

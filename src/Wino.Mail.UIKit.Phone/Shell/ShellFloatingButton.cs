@@ -39,8 +39,7 @@ internal sealed class ShellFloatingButton : UIButton
     {
         if (Configuration is { } configuration)
         {
-            // Black or white by the accent's brightness: white on a yellow theme accent was unreadable.
-            configuration.Image = WinoIcons.Image(glyph, WinoStyle.ScaledIcon(24, TraitCollection, 1.3), WinoStyle.ReadableText(WinoStyle.Accent, TraitCollection));
+            configuration.Image = WinoIcons.Image(glyph, 24, UIColor.White);
             configuration.BaseBackgroundColor = WinoStyle.Accent;
             Configuration = configuration;
         }

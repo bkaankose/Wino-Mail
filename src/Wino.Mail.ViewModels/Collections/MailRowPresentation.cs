@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.ViewModels.Data;
@@ -67,49 +66,6 @@ public static class MailRowPresentation
         return row.SourceItem is MailItemViewModel item ? [item] : [];
     }
 
-    /// <summary>
-    /// The leaf whose sender a thread row shows: the newest mail the user did not write, so a conversation reads
-    /// as the other party rather than the user's own name. Falls back to the newest leaf when every mail is the user's.
-    /// </summary>
-    public static MailItemViewModel? DisplayParty(IEnumerable<MailItemViewModel> leaves)
-    {
-        ArgumentNullException.ThrowIfNull(leaves);
-
-        MailItemViewModel? newest = null;
-        MailItemViewModel? newestOther = null;
-
-        foreach (var leaf in leaves)
-        {
-            if (leaf?.MailCopy == null) continue;
-
-            if (newest == null || leaf.MailCopy.CreationDate > newest.MailCopy.CreationDate) newest = leaf;
-
-            if (!IsOwnMail(leaf.MailCopy) &&
-                (newestOther == null || leaf.MailCopy.CreationDate > newestOther.MailCopy.CreationDate))
-            {
-                newestOther = leaf;
-            }
-        }
-
-        return newestOther ?? newest;
-    }
-
-    /// <summary>
-    /// True for mail the user wrote: anything in Sent or Drafts, or sent from the account's address. The folder check
-    /// also covers aliases without an alias lookup.
-    /// </summary>
-    public static bool IsOwnMail(MailCopy mail)
-    {
-        ArgumentNullException.ThrowIfNull(mail);
-
-        if (mail.AssignedFolder?.SpecialFolderType is SpecialFolderType.Sent or SpecialFolderType.Draft) return true;
-
-        var accountAddress = mail.AssignedAccount?.Address;
-        return !string.IsNullOrWhiteSpace(accountAddress) &&
-               !string.IsNullOrWhiteSpace(mail.FromAddress) &&
-               string.Equals(mail.FromAddress.Trim(), accountAddress.Trim(), StringComparison.OrdinalIgnoreCase);
-    }
-
     /// <summary>True when a detailed row needs the extra tile line (categories or intelligence tiles).</summary>
     public static bool HasTiles(MailListRow row)
         => Leaves(row).Any(static leaf => leaf.HasCategories || leaf.HasRowIntelligenceTiles);
@@ -126,8 +82,7 @@ public static class MailRowPresentation
         bool hasAttachments = leaves.Any(static leaf => leaf.HasAttachments);
         int threadCount = row.IsThreadHead ? row.LeafItems.Count : 0;
 
-        var party = row.IsThreadHead ? DisplayParty(leaves) ?? item : item;
-        var sender = string.IsNullOrWhiteSpace(party.FromName) ? party.FromAddress ?? string.Empty : party.FromName;
+        var sender = string.IsNullOrWhiteSpace(item.FromName) ? item.FromAddress ?? string.Empty : item.FromName;
         var accessibleSubject = string.IsNullOrWhiteSpace(item.Subject) ? Translator.MailItemNoSubject : item.Subject;
         var accessibleDate = FormatAccessibleDate(item.CreationDate);
 
@@ -140,8 +95,8 @@ public static class MailRowPresentation
 
         return new MailRowContent(
             Kind(row.Kind),
-            party.IsDraft && string.IsNullOrWhiteSpace(party.FromName) ? Translator.Draft : sender,
-            party.FromAddress ?? string.Empty,
+            item.IsDraft && string.IsNullOrWhiteSpace(item.FromName) ? Translator.Draft : sender,
+            item.FromAddress ?? string.Empty,
             SubjectForListing(item.Subject),
             item.PreviewText ?? string.Empty,
             FormatListDate(item.CreationDate, timeFormat),
@@ -210,27 +165,11 @@ public static class MailRowPresentation
         return key switch
         {
             DateTime date => new DateGroupHeader(date).DisplayName,
-            MailListDateBucket bucket => DateBucketTitle(bucket),
             string text => text,
             null => string.Empty,
             _ => key.ToString() ?? string.Empty
         };
     }
-
-    public static string DateBucketTitle(MailListDateBucket bucket) => bucket switch
-    {
-        MailListDateBucket.Today => Translator.Today,
-        MailListDateBucket.Yesterday => Translator.Yesterday,
-        MailListDateBucket.LastWeek => Translator.MailListGroup_LastWeek,
-        MailListDateBucket.LastMonth => Translator.MailListGroup_LastMonth,
-        MailListDateBucket.LastThreeMonths => Translator.MailListGroup_LastThreeMonths,
-        MailListDateBucket.LastSixMonths => Translator.MailListGroup_LastSixMonths,
-        MailListDateBucket.LastYear => Translator.MailListGroup_LastYear,
-        MailListDateBucket.LastTwoYears => Translator.MailListGroup_LastTwoYears,
-        MailListDateBucket.LastFiveYears => Translator.MailListGroup_LastFiveYears,
-        MailListDateBucket.LastTenYears => Translator.MailListGroup_LastTenYears,
-        _ => Translator.MailListGroup_OlderThanTenYears
-    };
 
     private static string FormatTime(DateTime local, TimeFormatPreference timeFormat, CultureInfo culture)
         => DateTimeDisplayFormatter.FormatTime(local, DateTimeDisplayFormatter.GetTimeDisplayType(timeFormat, culture), culture);

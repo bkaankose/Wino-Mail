@@ -96,12 +96,6 @@ public sealed partial class ContextFlyoutSubMenuEntry : ContextFlyoutMenuEntry
 
     public string AutomationId { get; init; } = string.Empty;
 
-    /// <summary>
-    /// Searchable submenus get a search row that filters their descendants in place. Meant for
-    /// dynamic lists such as folders and categories, not for fixed command groups.
-    /// </summary>
-    public bool IsSearchable { get; init; }
-
     public IReadOnlyList<ContextFlyoutMenuEntry> Items { get; init; } = [];
 }
 

@@ -182,7 +182,6 @@ internal static class MailContextFlyoutBuilder
             Text = XamlHelpers.GetOperationString(MailOperation.Move),
             Icon = CreateIcon(XamlHelpers.GetWinoIconGlyph(MailOperation.Move)),
             IsEnabled = children.Any(CanActivate),
-            IsSearchable = true,
             Items = children,
             AutomationId = "MailContextMove"
         };
@@ -296,7 +295,6 @@ internal static class MailContextFlyoutBuilder
         {
             Text = Translator.MailCategoryMenuItem,
             Icon = CreateIcon(WinoIconGlyph.SpecialFolderCategory),
-            IsSearchable = true,
             Items = categoryItems,
             AutomationId = "MailContextCategories"
         };

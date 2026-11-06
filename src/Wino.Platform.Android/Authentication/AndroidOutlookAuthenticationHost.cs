@@ -74,7 +74,8 @@ public sealed class AndroidOutlookAuthenticationHost : IOutlookAuthenticationHos
     public IPublicClientApplication Client { get; }
 
     /// <summary>True while the app has a started activity to open the browser from.</summary>
-    public bool CanAuthenticateInteractively => _activityResults.CurrentActivity is not null;
+    public bool CanAuthenticateInteractively
+        => _activityResults.GetCurrentActivityAsync().GetAwaiter().GetResult() is not null;
 
     /// <summary>MSAL persists its own cache on Android; there is nothing to attach.</summary>
     public Task EnsureTokenCacheAttachedAsync(CancellationToken cancellationToken = default)

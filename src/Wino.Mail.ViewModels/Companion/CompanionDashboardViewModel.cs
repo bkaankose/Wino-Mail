@@ -8,12 +8,17 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Itenso.TimePeriod;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models.Contacts;
+using Wino.Core.Domain.Models.Folders;
+using Wino.Core.Domain.Models.MailItem;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Shell;
@@ -269,7 +274,7 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
 
         try
         {
-            var accounts = await _services.GetRequiredService<CompanionContentService>().GetAccountsAsync();
+            var accounts = await _services.GetRequiredService<IAccountService>().GetAccountsAsync();
             cancellationToken.ThrowIfCancellationRequested();
             if (accounts.Count == 0)
             {
@@ -287,24 +292,15 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
             _showTasks = preferences.ShowTasksInCompanion;
             _showFavoriteContacts = preferences.ShowFavoriteContactsInCompanion;
 
-            var content = _services.GetRequiredService<CompanionContentService>();
             var folders = _showUnreadMail || _showFavoriteContacts
-                ? await content.GetCountedFoldersAsync(cancellationToken)
+                ? await LoadCountedFoldersAsync(cancellationToken)
                 : [];
             var (mail, unreadTotal) = _showUnreadMail
-                ? await content.GetUnreadMailAsync(
-                    folders,
-                    MaximumMail,
-                    preferences.CompanionUnreadMessageBehavior == CompanionUnreadMessageBehavior.AfterAppSession ? _sessionStartedAtUtc : null,
-                    cancellationToken)
+                ? await LoadMailAsync(folders, preferences, cancellationToken)
                 : ([], 0);
-            var tasks = _showTasks
-                ? (await content.GetMyDayTasksAsync(cancellationToken)).Take(MaximumTasks).ToList()
-                : [];
-            var contacts = _showFavoriteContacts ? await content.GetFavoritesAsync(MaximumContacts, folders, cancellationToken) : [];
-            var events = _showCalendar
-                ? await content.GetUpcomingEventsAsync(accounts, DateTime.Now.Date.AddDays(1), MaximumEvents, cancellationToken)
-                : [];
+            var tasks = _showTasks ? await LoadTasksAsync(cancellationToken) : [];
+            var contacts = _showFavoriteContacts ? await LoadContactsAsync(folders, cancellationToken) : [];
+            var events = _showCalendar ? await LoadEventsAsync(accounts, cancellationToken) : [];
             var loadedAt = DateTimeOffset.Now;
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -330,6 +326,160 @@ public partial class CompanionDashboardViewModel : ObservableObject, IDisposable
             _refreshGate.Release();
             ContentRefreshed?.Invoke(this, EventArgs.Empty);
         }
+    }
+
+    private async Task<List<MailItemFolder>> LoadCountedFoldersAsync(CancellationToken cancellationToken)
+    {
+        var snapshot = await _services.GetRequiredService<IUnreadBadgeService>().GetSnapshotAsync();
+        var ids = snapshot.Accounts
+            .SelectMany(static account => account.Contributions)
+            .Select(static contribution => contribution.FolderId)
+            .Distinct()
+            .ToArray();
+        if (ids.Length == 0)
+            return [];
+
+        return await _services.GetRequiredService<IFolderService>()
+            .GetFoldersByIdsAsync(ids, cancellationToken);
+    }
+
+    private async Task<(List<MailItemViewModel> Mail, int Count)> LoadMailAsync(
+        IReadOnlyList<MailItemFolder> folders,
+        IPreferencesService preferences,
+        CancellationToken cancellationToken)
+    {
+        if (folders.Count == 0)
+            return ([], 0);
+
+        IReadOnlyList<IMailItemFolder> sources = folders.Cast<IMailItemFolder>().ToArray();
+        var options = new MailListInitializationOptions(
+            sources,
+            FilterOptionType.Unread,
+            SortingOptionType.ReceiveDate,
+            CreateThreads: false,
+            IsFocusedOnly: null,
+            SearchQuery: string.Empty,
+            DeduplicateByServerId: true,
+            Take: MaximumMail)
+        {
+            ExcludeDrafts = true,
+            ReceivedAfterUtc = preferences.CompanionUnreadMessageBehavior == CompanionUnreadMessageBehavior.AfterAppSession
+                ? _sessionStartedAtUtc
+                : null
+        };
+        var mailService = _services.GetRequiredService<IMailService>();
+        var mails = await mailService.FetchMailsAsync(options, cancellationToken);
+        var count = await mailService.CountMailsAsync(options, cancellationToken);
+
+        var viewModels = mails
+            .Take(MaximumMail)
+            .Select(mail => new MailItemViewModel(mail, preferences.AccountNicknamePosition))
+            .ToList();
+
+        return (viewModels, count);
+    }
+
+    private async Task<List<TaskItemViewModel>> LoadTasksAsync(CancellationToken cancellationToken)
+    {
+        var taskService = _services.GetRequiredService<ITaskQueryService>();
+        var tasks = await taskService.GetTasksAsync(view: TaskViewKind.MyDay, sort: TaskSortKind.Importance);
+        var lists = await taskService.GetTaskListsAsync();
+        var names = lists.ToDictionary(static list => list.Id, static list => list.Title ?? string.Empty);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return tasks
+            .OrderBy(static task => task.IsCompleted)
+            .ThenByDescending(static task => task.IsImportant)
+            .ThenBy(static task => task.DueDate ?? DateTime.MaxValue)
+            .ThenByDescending(static task => task.ModifiedAtUtc)
+            .Take(MaximumTasks)
+            .Select(task => new TaskItemViewModel(
+                task,
+                names.TryGetValue(task.TaskListId, out var name) ? name : string.Empty)
+            {
+                ShowListName = true
+            })
+            .ToList();
+    }
+
+    private async Task<List<AccountContactViewModel>> LoadContactsAsync(
+        IReadOnlyList<MailItemFolder> folders,
+        CancellationToken cancellationToken)
+    {
+        var preferences = _services.GetRequiredService<IPreferencesService>();
+        var query = await _services.GetRequiredService<IContactQueryService>().GetContactsPageAsync(
+            new ContactQueryFilter(FavoritesOnly: true),
+            0,
+            MaximumContacts,
+            preferences.ContactSortOrder);
+        var addresses = query.Contacts
+            .Select(static contact => contact.PrimaryEmailAddress)
+            .Where(static address => !string.IsNullOrWhiteSpace(address))
+            .ToArray();
+        var unread = await _services.GetRequiredService<IMailService>().GetUnreadSenderCountsAsync(
+            folders.Select(static folder => folder.Id).ToArray(),
+            addresses!,
+            cancellationToken);
+        var accounts = await _services.GetRequiredService<IAccountService>().GetAccountsAsync();
+        var accountNames = accounts.ToDictionary(static account => account.Id, static account => account.Name ?? string.Empty);
+
+        return query.Contacts.Select(contact =>
+        {
+            var viewModel = new AccountContactViewModel(
+                contact,
+                accountNames.TryGetValue(contact.MailAccountId, out var name) ? name : string.Empty,
+                displayFormat: preferences.ContactNameDisplayFormat,
+                sortOrder: preferences.ContactSortOrder);
+            var normalized = Wino.Core.Domain.Entities.Shared.ContactEmailAddress.Normalize(contact.PrimaryEmailAddress);
+            viewModel.UnreadCount = normalized is not null && unread.TryGetValue(normalized, out var count) ? count : 0;
+            return viewModel;
+        }).ToList();
+    }
+
+    private async Task<List<CalendarItemViewModel>> LoadEventsAsync(
+        IReadOnlyList<Wino.Core.Domain.Entities.Shared.MailAccount> accounts,
+        CancellationToken cancellationToken)
+    {
+        var calendarService = _services.GetRequiredService<ICalendarService>();
+        var now = DateTime.Now;
+        var end = now.Date.AddDays(1);
+        var period = new TimeRange(now, end);
+        var events = new List<CalendarItemViewModel>();
+
+        foreach (var account in accounts)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var calendars = await calendarService.GetAccountCalendarsAsync(account.Id);
+            // The calendars checked in the calendar's account list (IsExtended), so the companion lists what
+            // the calendar shows, including secondary and subscribed calendars and their recurring events.
+            foreach (var calendar in calendars.Where(static calendar => calendar.IsExtended))
+            {
+                var items = await calendarService.GetCalendarEventsAsync(calendar, period);
+                foreach (var item in items.Where(item =>
+                             !item.IsAllDayEvent &&
+                             item.LocalEndDate > now &&
+                             item.LocalStartDate < end))
+                {
+                    var attendees = await calendarService.GetAttendeesAsync(item.EventTrackingId);
+                    var isDeclined = attendees.Any(attendee =>
+                        attendee.AttendenceStatus == AttendeeStatus.Declined &&
+                        string.Equals(attendee.Email?.Trim(), account.Address?.Trim(), StringComparison.OrdinalIgnoreCase));
+                    if (isDeclined)
+                        continue;
+
+                    var viewModel = new CalendarItemViewModel(item) { DisplayingPeriod = period };
+                    foreach (var attendee in attendees)
+                        viewModel.Attendees.Add(attendee);
+                    events.Add(viewModel);
+                }
+            }
+        }
+
+        return events
+            .OrderBy(static item => item.StartDate)
+            .ThenBy(static item => item.Id)
+            .Take(MaximumEvents)
+            .ToList();
     }
 
     private void ApplyResults(

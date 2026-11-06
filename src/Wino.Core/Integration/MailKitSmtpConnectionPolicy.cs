@@ -18,11 +18,13 @@ internal static class MailKitSmtpConnectionPolicy
         SmtpClient client,
         CustomServerInformation serverInformation,
         IServerCertificateTrustService certificateTrustService = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IOAuthTokenService oauthTokenService = null,
+        Guid oauthTokenKey = default)
     {
         var host = serverInformation.OutgoingServer;
         var port = int.Parse(serverInformation.OutgoingServerPort);
-        var corrected = serverInformation.ConnectionPolicyVersion == ImapConnectionPolicyVersion.Corrected;
+        var corrected = UsesCorrectedPolicy(serverInformation);
 
         if (corrected && !string.IsNullOrWhiteSpace(serverInformation.ProxyServer))
         {
@@ -42,12 +44,23 @@ internal static class MailKitSmtpConnectionPolicy
                                    item.Port == port);
 
         client.ServerCertificateValidationCallback = (_, certificate, chain, errors)
-            => global::Wino.Services.ServerCertificateValidator.Validate(
+            => MailKitServerCertificateValidator.Validate(
                 certificate, chain, errors, MailServerProtocol.Smtp, host, port, storedTrust, transientTrust);
 
         await client.ConnectAsync(host, port, GetSocketOptions(serverInformation), cancellationToken).ConfigureAwait(false);
 
         var authentication = serverInformation.OutgoingAuthenticationMethod;
+        if (authentication == ImapAuthenticationMethod.OAuth2)
+        {
+            await MailKitOAuthAuthenticator.AuthenticateAsync(
+                client,
+                serverInformation.OutgoingServerUsername,
+                oauthTokenService,
+                oauthTokenKey,
+                cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         if (corrected && authentication == ImapAuthenticationMethod.None)
             return;
 
@@ -81,9 +94,16 @@ internal static class MailKitSmtpConnectionPolicy
         await client.AuthenticateAsync(SaslMechanism.Create(mechanism, credentials), cancellationToken).ConfigureAwait(false);
     }
 
+    // OAuth2 accounts always use the corrected policy so a bearer token is never sent without the configured TLS.
+    // GetSocketOptions applies the same rule.
+    private static bool UsesCorrectedPolicy(CustomServerInformation serverInformation)
+        => serverInformation.ConnectionPolicyVersion == ImapConnectionPolicyVersion.Corrected ||
+           serverInformation.OutgoingAuthenticationMethod == ImapAuthenticationMethod.OAuth2;
+
     internal static SecureSocketOptions GetSocketOptions(CustomServerInformation serverInformation)
     {
-        if (serverInformation.ConnectionPolicyVersion == ImapConnectionPolicyVersion.Legacy)
+        if (serverInformation.ConnectionPolicyVersion == ImapConnectionPolicyVersion.Legacy &&
+            serverInformation.OutgoingAuthenticationMethod != ImapAuthenticationMethod.OAuth2)
             return SecureSocketOptions.Auto;
 
         return serverInformation.OutgoingServerSocketOption switch

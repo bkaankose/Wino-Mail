@@ -16,11 +16,10 @@ using Wino.Core.Domain.Models.Settings;
 namespace Wino.Mail.UIKit.Views.Settings;
 
 /// <summary>
-/// The Settings sheet's first page on iPhone and iPad (the Mac Settings sidebar and the Windows settings pane), laid out
-/// like the iOS Settings app: a large title that folds into the bar, the mail accounts card first (in the place and
-/// shape of the Apple Account card) with the Wino Account row under it, then the Windows groups, names and order on
-/// inset-grouped surfaces. Search sits in the bottom toolbar on iOS 26 and under the title before it. A row pushes its
-/// page inside the sheet through the shared router; Close dismisses Settings.
+/// The Settings sheet's first page on iPhone and iPad (the Mac Settings sidebar and the Windows settings pane): a grouped
+/// list in the Windows groups, names and order inside a Wino zone, with settings search stacked under the compact
+/// navigation bar. Rows use the iOS inset-grouped density (44pt rows, 22pt glyph, 13pt section headers). A row pushes
+/// its page inside the sheet through the shared router; Close dismisses Settings.
 /// </summary>
 public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
     : WinoViewController<SettingOptionsPageViewModel>(viewModel, dispatcher, logger), IRecipient<LanguageChanged>, IRecipient<WinoIntelligenceEntitlementChanged>
@@ -35,7 +34,20 @@ public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewM
     public override void LoadView()
     {
         Title = Translator.MenuSettings;
-        _table.BackgroundColor = WinoStyle.ZoneFill;
+        var root = new UIView { BackgroundColor = UIColor.Clear };
+        var zone = new WinoZoneView();
+        root.AddSubview(zone);
+        var guide = root.SafeAreaLayoutGuide;
+        var gutter = (nfloat)WinoStyle.ZoneGutter;
+        NSLayoutConstraint.ActivateConstraints(
+        [
+            zone.TopAnchor.ConstraintEqualTo(guide.TopAnchor, gutter),
+            zone.LeadingAnchor.ConstraintEqualTo(guide.LeadingAnchor, gutter),
+            zone.TrailingAnchor.ConstraintEqualTo(guide.TrailingAnchor, -gutter),
+            zone.BottomAnchor.ConstraintEqualTo(root.BottomAnchor)
+        ]);
+
+        _table.BackgroundColor = UIColor.Clear;
         _table.RegisterClassForCellReuse(typeof(UITableViewCell), RootSource.CellId);
         // Inset-grouped density: rows size from their 44pt content, section spacing comes from the header heights.
         _table.RowHeight = UITableView.AutomaticDimension;
@@ -44,43 +56,36 @@ public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewM
         _table.EstimatedSectionHeaderHeight = (nfloat)RootSource.TitledHeaderHeight;
         _table.SectionFooterHeight = 0;
         _table.EstimatedSectionFooterHeight = 0;
+        // Small side margins inside the zone; the inset-grouped sections follow the table's layout margins.
+        _table.PreservesSuperviewLayoutMargins = false;
+        _table.InsetsLayoutMarginsFromSafeArea = false;
+        _table.DirectionalLayoutMargins = new NSDirectionalEdgeInsets(0, (nfloat)RootSource.SideMargin, 0, (nfloat)RootSource.SideMargin);
         _table.SeparatorInsetReference = UITableViewSeparatorInsetReference.CellEdges;
         _source.Selected = entry => { if (entry.Page is { } page) Navigate(page); };
         _table.Source = _source;
-        // The table is the page so the bars find it: the large title folds as it scrolls and the toolbar insets it.
-        View = _table;
+        WinoLayout.Fill(_table, zone.ContentView);
+        View = root;
 
         _search = new UISearchController((UIViewController?)null) { ObscuresBackgroundDuringPresentation = false };
         _search.SearchBar.Placeholder = Translator.SearchBarPlaceholder;
         _searchUpdater = new SearchUpdater(query =>
         {
-            if (_source.Query == query) return;
             _source.Query = query;
             _table.ReloadData();
-            // The full list may have been scrolled far past the end of a short result list.
-            _table.SetContentOffset(new CoreGraphics.CGPoint(0, -_table.AdjustedContentInset.Top), false);
         });
         _search.SearchResultsUpdater = _searchUpdater;
         NavigationItem.SearchController = _search;
-        if (UsesToolbarSearch)
-        {
-            NavigationItem.PreferredSearchBarPlacement = UINavigationItemSearchBarPlacement.Integrated;
-            NavigationItem.SearchBarPlacementAllowsToolbarIntegration = true;
-            NavigationItem.HidesSearchBarWhenScrolling = false;
-            ToolbarItems = [NavigationItem.SearchBarPlacementBarButtonItem];
-        }
-        else
-        {
-            NavigationItem.PreferredSearchBarPlacement = UINavigationItemSearchBarPlacement.Stacked;
-            NavigationItem.HidesSearchBarWhenScrolling = true;
-        }
-        NavigationItem.LargeTitleDisplayMode = UINavigationItemLargeTitleDisplayMode.Always;
+        // Inline under the compact title, never the floating bottom search of iOS 26 that overlaps the last rows.
+        NavigationItem.PreferredSearchBarPlacement = UINavigationItemSearchBarPlacement.Stacked;
+        if (OperatingSystem.IsIOSVersionAtLeast(26)) NavigationItem.SearchBarPlacementAllowsToolbarIntegration = false;
+        NavigationItem.HidesSearchBarWhenScrolling = true;
+        NavigationItem.LargeTitleDisplayMode = UINavigationItemLargeTitleDisplayMode.Never;
 
-        // HasAccounts is announced after the account list is refilled.
-        Bind(nameof(ViewModel.HasAccounts), vm => vm.HasAccounts, _ => _source.MailAccounts.Update(ViewModel.Accounts));
-        Bind(nameof(ViewModel.IsWinoAccountSignedIn), vm => vm.IsWinoAccountSignedIn, _ => UpdateWinoAccountCard());
-        Bind(nameof(ViewModel.WinoAccountDisplayName), vm => vm.WinoAccountDisplayName, _ => UpdateWinoAccountCard());
-        Bind(nameof(ViewModel.WinoAccountAvatarPath), vm => vm.WinoAccountAvatarPath, _ => UpdateWinoAccountCard());
+        Bind(nameof(ViewModel.AccountSummaryText), vm => vm.AccountSummaryText, summary =>
+        {
+            _source.ManageAccountsDetail = summary;
+            _table.ReloadData();
+        });
         Reload();
 
         WeakReferenceMessenger.Default.Register<LanguageChanged>(this);
@@ -88,46 +93,15 @@ public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewM
         Bindings.Own(new ActionDisposable(() => WeakReferenceMessenger.Default.UnregisterAll(this)));
     }
 
-    /// <summary>The iOS 26 Settings app search: a field in the bottom toolbar of the first page.</summary>
-    [System.Runtime.Versioning.SupportedOSPlatformGuard("ios26.0")]
-    [System.Runtime.Versioning.SupportedOSPlatformGuard("maccatalyst26.0")]
-    private static bool UsesToolbarSearch => OperatingSystem.IsIOSVersionAtLeast(26);
-
     public override void ViewWillAppear(bool animated)
     {
         base.ViewWillAppear(animated);
         if (NavigationController is { } navigation)
         {
-            navigation.NavigationBar.PrefersLargeTitles = true;
+            navigation.NavigationBar.PrefersLargeTitles = false;
             SettingsSheetChrome.Install(navigation);
-            if (UsesToolbarSearch) navigation.SetToolbarHidden(false, animated);
         }
         if (_table.IndexPathForSelectedRow is { } selected) _table.DeselectRow(selected, animated);
-    }
-
-    public override void ViewWillDisappear(bool animated)
-    {
-        base.ViewWillDisappear(animated);
-        if (UsesToolbarSearch) NavigationController?.SetToolbarHidden(true, animated);
-    }
-
-    private void UpdateWinoAccountCard()
-    {
-        var vm = ViewModel;
-        _source.WinoAccount.Update(vm.IsWinoAccountSignedIn, vm.WinoAccountDisplayName, vm.WinoAccountEmail, LoadPicture(vm.WinoAccountAvatarPath));
-    }
-
-    private UIImage? LoadPicture(string? path)
-    {
-        try
-        {
-            if (!string.IsNullOrWhiteSpace(path) && File.Exists(path)) return UIImage.FromFile(path);
-        }
-        catch (Exception exception)
-        {
-            Serilog.Log.Warning(exception, "Could not load the Wino Account picture.");
-        }
-        return null;
     }
 
     private void Reload()
@@ -163,6 +137,7 @@ public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewM
     {
         public const string CellId = "settings-root";
         public const double RowHeight = 44;
+        public const double SideMargin = 10;
         /// <summary>Space above a group without a title (the first group, search results).</summary>
         public const double UntitledHeaderHeight = 12;
         /// <summary>A titled header: about 35pt between groups with the 13pt title sitting at its foot.</summary>
@@ -172,9 +147,8 @@ public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewM
         private const double TextInset = 14 + 28 + 12;
 
         public List<SettingsCatalogSection> Sections { get; set; } = [];
-        public MailAccountsCardCell MailAccounts { get; } = new();
-        public WinoAccountRowCell WinoAccount { get; } = new();
         public string? Query { get; set; }
+        public string? ManageAccountsDetail { get; set; }
         public Action<SettingsCatalogEntry>? Selected { get; set; }
 
         private bool IsSearching => !string.IsNullOrWhiteSpace(Query);
@@ -198,7 +172,7 @@ public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewM
             var entry = Visible[indexPath.Section].Entries[indexPath.Row];
             var fixedHeight = !IsSearching
                 && UIFont.GetPreferredFontForTextStyle(UIFontTextStyle.Body, tableView.TraitCollection).PointSize <= 23
-                && entry.Page != WinoPage.ManageAccountsPage;
+                && (entry.Page != WinoPage.ManageAccountsPage || string.IsNullOrWhiteSpace(ManageAccountsDetail));
             return fixedHeight ? (nfloat)RowHeight : UITableView.AutomaticDimension;
         }
 
@@ -213,41 +187,32 @@ public sealed class SettingsRootViewController(SettingOptionsPageViewModel viewM
             if (string.IsNullOrEmpty(title)) return null;
             var label = WinoStyle.Label(title, WinoSettingsStyle.GroupHeader, WinoStyle.SecondaryText, 0);
             label.AccessibilityTraits = UIAccessibilityTrait.Header;
-            label.TranslatesAutoresizingMaskIntoConstraints = false;
-            // The header follows the table's margins, where the inset-grouped sections start; the title aligns with the rows' 14pt padding.
-            var header = new UIView { PreservesSuperviewLayoutMargins = true };
-            header.AddSubview(label);
-            var margins = header.LayoutMarginsGuide;
-            NSLayoutConstraint.ActivateConstraints(
-            [
-                label.TopAnchor.ConstraintEqualTo(header.TopAnchor, (nfloat)(TitledHeaderHeight - 22)),
-                label.BottomAnchor.ConstraintEqualTo(header.BottomAnchor, -6),
-                label.LeadingAnchor.ConstraintEqualTo(margins.LeadingAnchor, 14),
-                label.TrailingAnchor.ConstraintEqualTo(margins.TrailingAnchor, -14)
-            ]);
+            var header = new UIView();
+            // The table's layout margins put the groups at SideMargin; the title aligns with the rows' 14pt padding.
+            WinoLayout.Fill(label, header, TitledHeaderHeight - 22, SideMargin + 14, 6, SideMargin + 14);
             return header;
         }
 
         public override UITableViewCell GetCell(UITableView tableView, NSIndexPath indexPath)
         {
             var entry = Visible[indexPath.Section].Entries[indexPath.Row];
-            if (!IsSearching && entry.Page == WinoPage.WinoAccountManagementPage) return WinoAccount;
-            if (!IsSearching && entry.Page == WinoPage.ManageAccountsPage) return MailAccounts;
             var cell = tableView.DequeueReusableCell(CellId, indexPath);
-            // A search result explains itself with its description under the title.
+            // A search result explains itself with its description under the title; otherwise a short value sits
+            // before the chevron (the account summary on Manage accounts).
             var content = IsSearching ? UIListContentConfiguration.SubtitleCellConfiguration : UIListContentConfiguration.ValueCellConfiguration;
             content.Text = entry.Title;
             content.TextProperties.Font = WinoStyle.Scaled(16);
             content.TextProperties.Color = WinoStyle.PrimaryText;
-            content.SecondaryText = IsSearching ? entry.Description : null;
+            content.SecondaryText = entry.Page == WinoPage.ManageAccountsPage && !string.IsNullOrWhiteSpace(ManageAccountsDetail)
+                ? ManageAccountsDetail
+                : IsSearching ? entry.Description : null;
             content.SecondaryTextProperties.Font = WinoStyle.Scaled(IsSearching ? 13 : 15);
             content.SecondaryTextProperties.Color = WinoStyle.SecondaryText;
             content.SecondaryTextProperties.NumberOfLines = IsSearching ? 2 : 1;
             content.PrefersSideBySideTextAndSecondaryText = !IsSearching;
-            var glyph = WinoStyle.ScaledIcon(GlyphSize, tableView.TraitCollection);
-            content.Image = WinoIcons.Image(entry.Icon, glyph, WinoStyle.Accent);
-            content.ImageProperties.ReservedLayoutSize = new CoreGraphics.CGSize(glyph + 6, glyph);
-            content.ImageProperties.MaximumSize = new CoreGraphics.CGSize(glyph, glyph);
+            content.Image = WinoIcons.Image(entry.Icon, GlyphSize, WinoStyle.Accent);
+            content.ImageProperties.ReservedLayoutSize = new CoreGraphics.CGSize(28, GlyphSize);
+            content.ImageProperties.MaximumSize = new CoreGraphics.CGSize(GlyphSize, GlyphSize);
             content.ImageToTextPadding = 12;
             content.DirectionalLayoutMargins = new NSDirectionalEdgeInsets(IsSearching ? 8 : 11, 14, IsSearching ? 8 : 11, 12);
             cell.ContentConfiguration = content;

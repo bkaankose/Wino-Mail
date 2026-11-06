@@ -1,3 +1,4 @@
+using System.Collections.Specialized;
 using UIKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
@@ -15,8 +16,9 @@ namespace Wino.Mail.UIKit.Views.Onboarding;
 
 /// <summary>
 /// Custom IMAP / SMTP (and CalDAV / CardDAV) server page (Windows ImapCalDavSettingsPage, Mac twin). Adding an account
-/// it is a guided flow (sign in, then the discovered servers); editing an account it shows the features, the sign-in
-/// and every server section. Server sections are collapsible settings expanders.
+/// it is a guided flow (the address, then the secure sign-in or password the server offers, then the discovered
+/// servers); editing an account it shows the features, the sign-in and every server section. Server sections are
+/// collapsible settings expanders.
 /// </summary>
 public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageViewModel viewModel, IDispatcher dispatcher, IWinoLogger logger)
     : WinoViewController<ImapCalDavSettingsPageViewModel>(viewModel, dispatcher, logger)
@@ -43,6 +45,21 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         pageError.Closed += closeError;
         Bindings.Own(new ActionDisposable(() => pageError.Closed -= closeError));
         content.AddArrangedSubview(pageError);
+
+        var oauthNotice = new WinoInfoBar(WinoInfoBarSeverity.Informational) { IsClosable = true };
+        Form.Bind(nameof(vm.OAuthInfoBarMessage), s => s.OAuthInfoBarMessage, text => oauthNotice.Message = text);
+        Form.Bind(nameof(vm.OAuthInfoBarType), s => s.OAuthInfoBarType, type => oauthNotice.Severity = type switch
+        {
+            InfoBarMessageType.Success => WinoInfoBarSeverity.Success,
+            InfoBarMessageType.Warning => WinoInfoBarSeverity.Warning,
+            InfoBarMessageType.Error => WinoInfoBarSeverity.Error,
+            _ => WinoInfoBarSeverity.Informational
+        });
+        Form.Visible(oauthNotice, nameof(vm.IsOAuthInfoBarOpen), s => s.IsOAuthInfoBarOpen);
+        EventHandler<WinoInfoBarClosedEventArgs> closeOAuthNotice = (_, _) => vm.HideOAuthInfoBarCommand.Execute(null);
+        oauthNotice.Closed += closeOAuthNotice;
+        Bindings.Own(new ActionDisposable(() => oauthNotice.Closed -= closeOAuthNotice));
+        content.AddArrangedSubview(oauthNotice);
 
         var pop3 = new WinoInfoBar(WinoInfoBarSeverity.Informational, Translator.POP3Setup_LimitationsTitle, Translator.POP3Setup_LimitationsMessage);
         Form.Visible(pop3, nameof(vm.IsPop3), s => s.IsPop3);
@@ -82,28 +99,54 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         var cancel = Form.Command(Translator.Buttons_Cancel, vm.CancelCommand);
         Form.Visible(cancel, nameof(vm.IsEditMode), s => s.IsEditMode);
         var primary = Form.Command(Translator.ProviderSelection_ContinueButton, vm.PrimaryActionCommand, primary: true);
-        Form.Bind(nameof(vm.PrimaryActionText), s => s.PrimaryActionText, text =>
-        {
-            if (primary.Configuration is not { } configuration) return;
-            configuration.Title = text ?? string.Empty;
-            primary.Configuration = configuration;
-        });
+        Form.Bind(nameof(vm.PrimaryActionText), s => s.PrimaryActionText, text => SetTitle(primary, text));
+        // Until the user signs in on the secure sign-in card there is nothing to continue with.
+        VisibleWhen(primary, s => s.IsPrimaryActionVisible, nameof(vm.IsPrimaryActionVisible));
 
         View = new OnboardingPageView(header, content, busy, [back, cancel], primary, 640);
     }
 
-    /// <summary>Adding an account, first step: who is signing in. Discovery runs on Continue.</summary>
+    /// <summary>
+    /// Adding an account, first step. The address comes first: discovery decides whether the server offers secure
+    /// sign-in before a password is asked for, then the method stage shows the browser sign-in or the password.
+    /// </summary>
     private UIView BuildSignInStep()
     {
         var vm = ViewModel;
-        var grid = new FormGrid();
-        AddSignInRows(grid, includeServerAddress: true);
-        var group = OnboardingPageView.Group(null, grid);
+        var group = OnboardingPageView.Group(null, Column(BuildIdentityStage(), BuildMethodStage()));
         Form.Visible(group, nameof(vm.IsSignInStepVisible), s => s.IsSignInStepVisible);
         return group;
     }
 
-    private void AddSignInRows(FormGrid grid, bool includeServerAddress)
+    private UIView BuildIdentityStage()
+    {
+        var vm = ViewModel;
+        var grid = new FormGrid();
+        AddIdentityRows(grid);
+
+        var mailServer = Form.Text(nameof(vm.MailServerAddress), s => s.MailServerAddress, (s, v) => s.MailServerAddress = v,
+            Translator.ImapSetup_ServerAddressPlaceholder, Translator.ImapSetup_ServerAddressOptional);
+        mailServer.KeyboardType = UIKeyboardType.Url;
+        var mailServerRow = grid.Row(Translator.ImapSetup_ServerAddressOptional, mailServer);
+        Form.Visible(mailServerRow, nameof(vm.IsSignInMailServerAddressVisible), s => s.IsSignInMailServerAddressVisible);
+
+        // Without mail there is nothing to discover from reliably, so the CalDAV address can be typed here.
+        var server = Form.Text(nameof(vm.CalDavServiceUrl), s => s.CalDavServiceUrl, (s, v) => s.CalDavServiceUrl = v,
+            Translator.ImapSetup_ServerAddressPlaceholder, Translator.ImapSetup_ServerAddressOptional);
+        server.KeyboardType = UIKeyboardType.Url;
+        var serverRow = grid.Row(Translator.ImapSetup_ServerAddressOptional, server);
+        Form.Visible(serverRow, nameof(vm.IsSignInServerAddressVisible), s => s.IsSignInServerAddressVisible);
+
+        var exchange = Form.Link(Translator.ExchangeSetup_OpenFromImap, vm.OpenExchangeSetupCommand);
+        exchange.TitleLabel.Lines = 0;
+        Form.Visible(exchange, nameof(vm.IsCreateMode), s => s.IsCreateMode);
+
+        var stage = Column(grid, exchange);
+        VisibleWhen(stage, s => s.IsSignInIdentityStageVisible, nameof(vm.IsSignInIdentityStageVisible), nameof(vm.SignInStage));
+        return stage;
+    }
+
+    private void AddIdentityRows(FormGrid grid)
     {
         var vm = ViewModel;
         var name = Form.Text(nameof(vm.DisplayName), s => s.DisplayName, (s, v) => s.DisplayName = v,
@@ -121,19 +164,13 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         address.TextContentType = UITextContentType.EmailAddress;
         Form.Bind(nameof(vm.SignInAddressHeader), s => s.SignInAddressHeader, text => address.AccessibilityLabel = text);
         grid.Row(addressLabel, address);
+    }
 
-        if (includeServerAddress)
-        {
-            // Without mail there is nothing to discover from reliably, so the CalDAV address can be typed here.
-            var server = Form.Text(nameof(vm.CalDavServiceUrl), s => s.CalDavServiceUrl, (s, v) => s.CalDavServiceUrl = v,
-                Translator.ImapSetup_ServerAddressPlaceholder, Translator.ImapSetup_ServerAddressOptional);
-            server.KeyboardType = UIKeyboardType.Url;
-            var serverRow = grid.Row(Translator.ImapSetup_ServerAddressOptional, server);
-            Form.Visible(serverRow, nameof(vm.IsSignInServerAddressVisible), s => s.IsSignInServerAddressVisible);
-        }
-
+    private void AddPasswordRows(FormGrid grid, string visibleProperty, Func<ImapCalDavSettingsPageViewModel, bool> visible)
+    {
+        var vm = ViewModel;
         var password = Form.Secure(nameof(vm.Password), s => s.Password, (s, v) => s.Password = v, Translator.IMAPSetupDialog_Password);
-        grid.Row(Translator.IMAPSetupDialog_Password, password);
+        var passwordRow = grid.Row(Translator.IMAPSetupDialog_Password, password);
         var help = FormGrid.Help();
         Form.Label(help, nameof(vm.AppPasswordHelpText), s => s.AppPasswordHelpText);
         Form.Visible(help, nameof(vm.AppPasswordHelpText), s => !string.IsNullOrWhiteSpace(s.AppPasswordHelpText));
@@ -141,7 +178,180 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         Form.Visible(link, nameof(vm.HasAppPasswordHelpLink), s => s.HasAppPasswordHelpLink);
         var helpStack = WinoLayout.VStack(4, help, link);
         helpStack.Alignment = UIStackViewAlignment.Leading;
-        grid.Row((string?)null, helpStack);
+        var helpRow = grid.Row((string?)null, helpStack);
+        Form.Visible(passwordRow, visibleProperty, visible);
+        Form.Visible(helpRow, visibleProperty, visible);
+    }
+
+    /// <summary>How to sign in, once discovery has run: the browser sign-in the server offers, or the password.</summary>
+    private UIView BuildMethodStage()
+    {
+        var vm = ViewModel;
+
+        var summary = WinoStyle.Label(string.Empty, WinoStyle.Body, WinoStyle.SecondaryText);
+        summary.LineBreakMode = UILineBreakMode.MiddleTruncation;
+        summary.SetContentCompressionResistancePriority(250, UILayoutConstraintAxis.Horizontal);
+        Form.Label(summary, nameof(vm.SignInAddressSummary), s => s.SignInAddressSummary);
+        var change = Form.Link(Translator.ImapSetup_ChangeAddress, vm.ChangeAddressCommand);
+        change.SetContentCompressionResistancePriority(750, UILayoutConstraintAxis.Horizontal);
+        change.SetContentHuggingPriority(750, UILayoutConstraintAxis.Horizontal);
+        var addressRow = WinoLayout.HStack(WinoStyle.Space2, summary, change);
+        addressRow.Alignment = UIStackViewAlignment.FirstBaseline;
+
+        var passwordGrid = new FormGrid();
+        AddPasswordRows(passwordGrid, nameof(vm.IsPasswordMethodVisible), s => s.IsPasswordMethodVisible);
+        var useSecure = Form.Link(Translator.ImapSetup_UseSecureSignInInstead, vm.UseSecureSignInInsteadCommand);
+        VisibleWhen(useSecure, s => s.IsUseSecureSignInVisible, nameof(vm.IsUseSecureSignInVisible));
+        var organization = Form.Link(Translator.ImapSetup_OrganizationSignIn, vm.ToggleOrganizationSignInCommand);
+        VisibleWhen(organization, s => s.IsOrganizationSignInOptionVisible, nameof(vm.IsOrganizationSignInOptionVisible));
+        var passwordMethod = Column(passwordGrid, useSecure, organization);
+        VisibleWhen(passwordMethod, s => s.IsPasswordMethodVisible, nameof(vm.IsPasswordMethodVisible));
+
+        var stage = Column(addressRow, BuildOAuthChoice(), BuildOAuthSignedIn(), passwordMethod, BuildOrganizationSignIn());
+        VisibleWhen(stage, s => s.IsSignInMethodStageVisible, nameof(vm.IsSignInMethodStageVisible), nameof(vm.SignInStage));
+        return stage;
+    }
+
+    /// <summary>The server offers secure sign-in: the web authentication sheet opens only when the user taps.</summary>
+    private UIView BuildOAuthChoice()
+    {
+        var vm = ViewModel;
+        var title = WinoStyle.Label(string.Empty, WinoStyle.BodyStrong, WinoStyle.PrimaryText, 0);
+        Form.Label(title, nameof(vm.SecureSignInTitle), s => s.SecureSignInTitle);
+        var description = WinoStyle.Label(Translator.ImapSetup_SecureSignInDescription, WinoStyle.Description, WinoStyle.SecondaryText, 0);
+
+        var confirmation = Column(IssuerConfirmationSwitch(),
+            WinoStyle.Label(Translator.ImapSetup_OAuthConfirmIssuerDescription, WinoStyle.Description, WinoStyle.SecondaryText, 0));
+        VisibleWhen(confirmation, s => s.IsIssuerConfirmationVisible, nameof(vm.IsIssuerConfirmationVisible));
+
+        var signIn = Form.Command(string.Empty, vm.SignInWithOAuthCommand, primary: true);
+        signIn.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
+        Form.Bind(nameof(vm.OAuthSignInButtonText), s => s.OAuthSignInButtonText, text => SetTitle(signIn, text));
+        var issuer = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
+        Form.Label(issuer, nameof(vm.OAuthIssuerHost), s => s.OAuthIssuerHost);
+        var buttonRow = WinoLayout.HStack(WinoStyle.Space3, signIn, SigningInSpinner(), WinoLayout.Spacer());
+        buttonRow.Alignment = UIStackViewAlignment.Center;
+
+        var card = Card(WinoIconGlyph.LockClosed, WinoStyle.Accent, Column(title, description, confirmation, buttonRow, issuer));
+
+        var usePassword = Form.Link(Translator.ImapSetup_UsePasswordInstead, vm.UsePasswordInsteadCommand);
+        var choice = Column(card, usePassword);
+        VisibleWhen(choice, s => s.IsOAuthChoiceVisible, nameof(vm.IsOAuthChoiceVisible));
+        return choice;
+    }
+
+    /// <summary>"I trust this sign-in page": a switch whose title names the issuer the server pointed to.</summary>
+    private UIView IssuerConfirmationSwitch()
+    {
+        var vm = ViewModel;
+        var toggle = new UISwitch { TranslatesAutoresizingMaskIntoConstraints = false };
+        var binding = Bindings.Own(new PropertyBinding<ImapCalDavSettingsPageViewModel, bool>(vm, nameof(vm.IsIssuerConfirmed), s => s.IsIssuerConfirmed,
+            value => toggle.On = value, Dispatcher, ReportError, (s, v) => s.IsIssuerConfirmed = v));
+        EventHandler changed = (_, _) => binding.UpdateSource(toggle.On);
+        toggle.ValueChanged += changed;
+        Bindings.Own(new ActionDisposable(() => toggle.ValueChanged -= changed));
+        var label = WinoStyle.Label(string.Empty, WinoStyle.Body, WinoStyle.PrimaryText, 0);
+        Form.Bind(nameof(vm.IssuerConfirmationText), s => s.IssuerConfirmationText, text =>
+        {
+            label.Text = text ?? string.Empty;
+            toggle.AccessibilityLabel = label.Text;
+        });
+        var row = WinoLayout.HStack(WinoStyle.Space3, label, toggle);
+        row.Alignment = UIStackViewAlignment.Center;
+        return row;
+    }
+
+    /// <summary>Signed in: the session stays in memory until the account is saved.</summary>
+    private UIView BuildOAuthSignedIn()
+    {
+        var vm = ViewModel;
+        var title = WinoStyle.Label(string.Empty, WinoStyle.BodyStrong, WinoStyle.PrimaryText, 0);
+        Form.Label(title, nameof(vm.OAuthSignedInTitle), s => s.OAuthSignedInTitle);
+        var description = WinoStyle.Label(string.Empty, WinoStyle.Description, WinoStyle.SecondaryText, 0);
+        Form.Label(description, nameof(vm.OAuthSignedInDescription), s => s.OAuthSignedInDescription);
+        var again = Form.Link(Translator.ImapSetup_OAuthSignInAgain, vm.SignInAgainCommand);
+        var card = Card(WinoIconGlyph.CheckmarkCircle, WinoStyle.Success, Column(title, description, again));
+
+        var noRefresh = new WinoInfoBar(WinoInfoBarSeverity.Warning, null, Translator.ImapSetup_OAuthNoRefreshToken);
+        VisibleWhen(noRefresh, s => s.IsNoRefreshTokenWarningVisible, nameof(vm.IsNoRefreshTokenWarningVisible));
+        var davScope = new WinoInfoBar(WinoInfoBarSeverity.Warning, null, Translator.ImapSetup_OAuthDavScopeSignInRequired);
+        VisibleWhen(davScope, s => s.IsDavScopeSignInRequiredForSetupVisible, nameof(vm.IsDavScopeSignInRequiredForSetupVisible));
+
+        var usePassword = Form.Link(Translator.ImapSetup_UsePasswordInstead, vm.UsePasswordInsteadCommand);
+        var signedIn = Column(card, noRefresh, davScope, usePassword);
+        VisibleWhen(signedIn, s => s.IsOAuthSignedInVisible, nameof(vm.IsOAuthSignedInVisible));
+        return signedIn;
+    }
+
+    /// <summary>The server offers OAuth but Wino has no client for it: the organization registers one.</summary>
+    private UIView BuildOrganizationSignIn()
+    {
+        var vm = ViewModel;
+        var description = WinoStyle.Label(Translator.ImapSetup_OrganizationSignInDescription, WinoStyle.Description, WinoStyle.SecondaryText, 0);
+
+        var grid = new FormGrid();
+        var issuer = Form.Text(nameof(vm.CustomOAuthIssuer), s => s.CustomOAuthIssuer, (s, v) => s.CustomOAuthIssuer = v,
+            Translator.ImapSetup_OAuthIssuerPlaceholder, Translator.ImapSetup_OAuthIssuerHeader);
+        issuer.KeyboardType = UIKeyboardType.Url;
+        grid.Row(Translator.ImapSetup_OAuthIssuerHeader, issuer);
+        grid.Row(Translator.ImapSetup_OAuthClientIdHeader, Form.Text(nameof(vm.CustomOAuthClientId), s => s.CustomOAuthClientId,
+            (s, v) => s.CustomOAuthClientId = v, null, Translator.ImapSetup_OAuthClientIdHeader));
+        grid.Row(Translator.ImapSetup_OAuthScopesHeader, Form.Text(nameof(vm.CustomOAuthScopes), s => s.CustomOAuthScopes,
+            (s, v) => s.CustomOAuthScopes = v, Translator.ImapSetup_OAuthScopesPlaceholder, Translator.ImapSetup_OAuthScopesHeader));
+
+        var signIn = Form.Command(Translator.ImapSetup_OAuthSignInWithClient, vm.SignInWithOrganizationClientCommand);
+        signIn.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
+        var buttonRow = WinoLayout.HStack(WinoStyle.Space3, signIn, SigningInSpinner(), WinoLayout.Spacer());
+        buttonRow.Alignment = UIStackViewAlignment.Center;
+
+        // iOS signs in only through the custom scheme; the loopback address is listed for the organization's other devices.
+        var body = Column(description, RedirectText(vm.OAuthCustomSchemeRedirectUri), RedirectText(vm.OAuthLoopbackRedirectUri), grid, buttonRow);
+        var panel = new WinoSurfaceView { Fill = WinoStyle.SubtleFill, Stroke = WinoStyle.GroupStroke, CornerRadius = WinoStyle.GroupRadius };
+        WinoLayout.Fill(body, panel, 14);
+        VisibleWhen(panel, s => s.IsOrganizationSignInFieldsVisible, nameof(vm.IsOrganizationSignInFieldsVisible));
+        return panel;
+    }
+
+    /// <summary>A redirect address the administrator copies into the client registration.</summary>
+    private static UITextView RedirectText(string text)
+    {
+        var view = new UITextView
+        {
+            Text = text,
+            Font = UIFont.GetMonospacedSystemFont(13, UIFontWeight.Regular),
+            TextColor = WinoStyle.PrimaryText,
+            BackgroundColor = UIColor.Clear,
+            Editable = false,
+            Selectable = true,
+            ScrollEnabled = false,
+            TextContainerInset = UIEdgeInsets.Zero,
+            TranslatesAutoresizingMaskIntoConstraints = false
+        };
+        view.TextContainer.LineFragmentPadding = 0;
+        return view;
+    }
+
+    /// <summary>A rounded, tinted card with a leading glyph, as the Windows secure sign-in and signed-in cards.</summary>
+    private static UIView Card(WinoIconGlyph glyph, UIColor tint, UIView content)
+    {
+        var icon = new WinoIconView(glyph, 20, tint) { Colorful = false };
+        WinoLayout.Size(icon, 22, 22);
+        var row = WinoLayout.HStack(WinoStyle.Space3, icon, content);
+        row.Alignment = UIStackViewAlignment.Top;
+        var surface = new WinoSurfaceView { Fill = tint.ColorWithAlpha(0.08f), Stroke = tint, CornerRadius = WinoStyle.GroupRadius };
+        WinoLayout.Fill(row, surface, 14);
+        return surface;
+    }
+
+    private UIActivityIndicatorView SigningInSpinner()
+    {
+        var vm = ViewModel;
+        var spinner = new UIActivityIndicatorView(UIActivityIndicatorViewStyle.Medium) { HidesWhenStopped = true, TranslatesAutoresizingMaskIntoConstraints = false };
+        Form.Bind(nameof(vm.IsOAuthSigningIn), s => s.IsOAuthSigningIn, active =>
+        {
+            if (active) spinner.StartAnimating(); else spinner.StopAnimating();
+        });
+        return spinner;
     }
 
     /// <summary>Editing an account: what it is used for, as capability menus.</summary>
@@ -160,13 +370,32 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         return group;
     }
 
-    /// <summary>Editing an account: the sign-in shared by every server.</summary>
+    /// <summary>
+    /// Editing an account: the sign-in shared by every server, a password or the secure sign-in. "Sign in again" also
+    /// serves accounts restored from a backup, whose tokens stay on the device that signed in.
+    /// </summary>
     private UIView BuildEditSignIn()
     {
         var vm = ViewModel;
         var grid = new FormGrid();
-        AddSignInRows(grid, includeServerAddress: false);
-        var group = OnboardingPageView.Group(Translator.ImapSetup_SignInGroup, grid);
+        AddIdentityRows(grid);
+        AddPasswordRows(grid, nameof(vm.IsEditPasswordSignInVisible), s => s.IsEditPasswordSignInVisible);
+
+        var reauthenticate = Form.Command(Translator.ImapSetup_OAuthSignInAgain, vm.ReauthenticateOAuthCommand);
+        reauthenticate.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)WinoStyle.MinimumHitTarget).Active = true;
+        var oauthAction = WinoLayout.HStack(WinoStyle.Space3, reauthenticate, SigningInSpinner(), WinoLayout.Spacer());
+        oauthAction.Alignment = UIStackViewAlignment.Center;
+        var oauthDescription = FormGrid.Help();
+        Form.Label(oauthDescription, nameof(vm.EditOAuthDescription), s => s.EditOAuthDescription);
+        var oauthColumn = WinoLayout.VStack(6, oauthAction, oauthDescription);
+        oauthColumn.Alignment = UIStackViewAlignment.Fill;
+        var oauthRow = grid.Row(Translator.ImapSetup_OAuthSignInHeader, oauthColumn);
+        Form.Visible(oauthRow, nameof(vm.IsEditOAuthSignInVisible), s => s.IsEditOAuthSignInVisible);
+
+        var davScope = new WinoInfoBar(WinoInfoBarSeverity.Warning, null, Translator.ImapSetup_OAuthDavScopeSignInRequired);
+        Form.Visible(davScope, nameof(vm.IsDavScopeSignInRequiredForEditVisible), s => s.IsDavScopeSignInRequiredForEditVisible);
+
+        var group = OnboardingPageView.Group(Translator.ImapSetup_SignInGroup, Column(grid, davScope));
         Form.Visible(group, nameof(vm.IsEditSignInVisible), s => s.IsEditSignInVisible);
         return group;
     }
@@ -186,6 +415,10 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         Form.Bind(nameof(vm.DiscoveryNotFoundMessage), s => s.DiscoveryNotFoundMessage, text => notFound.Message = text);
         Form.Visible(notFound, nameof(vm.IsDiscoveryNotFoundVisible), s => s.IsDiscoveryNotFoundVisible);
         stack.AddArrangedSubview(notFound);
+        var oauthServers = new WinoInfoBar(WinoInfoBarSeverity.Informational);
+        Form.Bind(nameof(vm.OAuthServerSignInText), s => s.OAuthServerSignInText, text => oauthServers.Message = text);
+        Form.Visible(oauthServers, nameof(vm.IsOAuthServerSignInVisible), s => s.IsOAuthServerSignInVisible);
+        stack.AddArrangedSubview(oauthServers);
 
         var test = Form.Command(Translator.ImapSetup_TestConnections, vm.TestConnectionsCommand);
         var heading = WinoLayout.HStack(WinoStyle.Space2, WinoStyle.Label(Translator.ImapSetup_ConnectionsGroup, WinoStyle.BodyStrong), WinoLayout.Spacer(), test);
@@ -225,13 +458,15 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         grid.Row(Translator.ImapCalDavSettingsPage_ConnectionSecurityHeader, Form.PopUp(vm.AvailableConnectionSecurityDisplayNames.ToArray(),
             nameof(vm.SelectedIncomingServerConnectionSecurityIndex), s => s.SelectedIncomingServerConnectionSecurityIndex,
             (s, v) => s.SelectedIncomingServerConnectionSecurityIndex = v, Translator.ImapCalDavSettingsPage_ConnectionSecurityHeader));
-        grid.Row(Translator.ImapCalDavSettingsPage_AuthenticationMethodHeader, Form.PopUp(vm.AvailableAuthenticationMethodDisplayNames.ToArray(),
+        grid.Row(Translator.ImapCalDavSettingsPage_AuthenticationMethodHeader, AuthenticationMethodPopUp(
             nameof(vm.SelectedIncomingServerAuthenticationMethodIndex), s => s.SelectedIncomingServerAuthenticationMethodIndex,
-            (s, v) => s.SelectedIncomingServerAuthenticationMethodIndex = v, Translator.ImapCalDavSettingsPage_AuthenticationMethodHeader));
-        grid.Row(Translator.IMAPSetupDialog_Username, Form.Text(nameof(vm.IncomingServerUsername), s => s.IncomingServerUsername,
+            (s, v) => s.SelectedIncomingServerAuthenticationMethodIndex = v));
+        var user = grid.Row(Translator.IMAPSetupDialog_Username, Form.Text(nameof(vm.IncomingServerUsername), s => s.IncomingServerUsername,
             (s, v) => s.IncomingServerUsername = v, null, Translator.IMAPSetupDialog_Username));
-        grid.Row(Translator.IMAPSetupDialog_Password, Form.Secure(nameof(vm.IncomingServerPassword), s => s.IncomingServerPassword,
+        var password = grid.Row(Translator.IMAPSetupDialog_Password, Form.Secure(nameof(vm.IncomingServerPassword), s => s.IncomingServerPassword,
             (s, v) => s.IncomingServerPassword = v, Translator.IMAPSetupDialog_Password));
+        Form.Visible(user, nameof(vm.IsIncomingPasswordSignInVisible), s => s.IsIncomingPasswordSignInVisible);
+        Form.Visible(password, nameof(vm.IsIncomingPasswordSignInVisible), s => s.IsIncomingPasswordSignInVisible);
         expander.Add(grid);
         return expander;
     }
@@ -253,11 +488,12 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         grid.Row(Translator.ImapCalDavSettingsPage_ConnectionSecurityHeader, Form.PopUp(vm.AvailableConnectionSecurityDisplayNames.ToArray(),
             nameof(vm.SelectedOutgoingServerConnectionSecurityIndex), s => s.SelectedOutgoingServerConnectionSecurityIndex,
             (s, v) => s.SelectedOutgoingServerConnectionSecurityIndex = v, Translator.ImapCalDavSettingsPage_ConnectionSecurityHeader));
-        grid.Row(Translator.ImapCalDavSettingsPage_AuthenticationMethodHeader, Form.PopUp(vm.AvailableAuthenticationMethodDisplayNames.ToArray(),
+        grid.Row(Translator.ImapCalDavSettingsPage_AuthenticationMethodHeader, AuthenticationMethodPopUp(
             nameof(vm.SelectedOutgoingServerAuthenticationMethodIndex), s => s.SelectedOutgoingServerAuthenticationMethodIndex,
-            (s, v) => s.SelectedOutgoingServerAuthenticationMethodIndex = v, Translator.ImapCalDavSettingsPage_AuthenticationMethodHeader));
-        grid.Row((string?)null, Form.Check(Translator.ImapSetup_UseIncomingSignInForOutgoing, nameof(vm.UseIncomingCredentialsForOutgoing),
+            (s, v) => s.SelectedOutgoingServerAuthenticationMethodIndex = v));
+        var shared = grid.Row((string?)null, Form.Check(Translator.ImapSetup_UseIncomingSignInForOutgoing, nameof(vm.UseIncomingCredentialsForOutgoing),
             s => s.UseIncomingCredentialsForOutgoing, (s, v) => s.UseIncomingCredentialsForOutgoing = v));
+        Form.Visible(shared, nameof(vm.IsOutgoingSharedSignInOptionVisible), s => s.IsOutgoingSharedSignInOptionVisible);
         var user = grid.Row(Translator.IMAPSetupDialog_OutgoingMailServerUsername, Form.Text(nameof(vm.OutgoingServerUsername), s => s.OutgoingServerUsername,
             (s, v) => s.OutgoingServerUsername = v, null, Translator.IMAPSetupDialog_OutgoingMailServerUsername));
         var password = grid.Row(Translator.IMAPSetupDialog_OutgoingMailServerPassword, Form.Secure(nameof(vm.OutgoingServerPassword), s => s.OutgoingServerPassword,
@@ -287,6 +523,8 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         var url = Form.Text(nameof(vm.CalDavServiceUrl), s => s.CalDavServiceUrl, (s, v) => s.CalDavServiceUrl = v, null, Translator.ImapCalDavSettingsPage_CalDavServiceUrl);
         url.KeyboardType = UIKeyboardType.Url;
         grid.Row(Translator.ImapCalDavSettingsPage_CalDavServiceUrl, url);
+        var secureNote = grid.Row((string?)null, FormGrid.Help(Translator.ImapSetup_DavUsesSecureSignIn));
+        Form.Visible(secureNote, nameof(vm.IsCalDavOAuthSelected), s => s.IsCalDavOAuthSelected);
         AddDavCredentials(grid, nameof(vm.IsDavCredentialsOptionVisible), s => s.IsDavCredentialsOptionVisible,
             nameof(vm.IsDavCredentialsVisible), s => s.IsDavCredentialsVisible);
         expander.Add(grid);
@@ -306,7 +544,10 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
             Translator.ImapCalDavSettingsPage_CardDavDiscoveryPlaceholder, Translator.ImapCalDavSettingsPage_CardDavServiceUrl);
         url.KeyboardType = UIKeyboardType.Url;
         grid.Row(Translator.ImapCalDavSettingsPage_CardDavServiceUrl, url);
-        grid.Row((string?)null, FormGrid.Help(Translator.ImapSetup_CardDavSharedSignIn));
+        var help = FormGrid.Help();
+        Form.Label(help, nameof(vm.CardDavUrlDescription), s => s.CardDavUrlDescription);
+        var helpRow = grid.Row((string?)null, help);
+        Form.Visible(helpRow, nameof(vm.CardDavUrlDescription), s => !string.IsNullOrEmpty(s.CardDavUrlDescription));
         AddDavCredentials(grid, nameof(vm.IsCardDavCredentialsOptionVisible), s => s.IsCardDavCredentialsOptionVisible,
             nameof(vm.IsCardDavCredentialsVisible), s => s.IsCardDavCredentialsVisible);
         expander.Add(grid);
@@ -332,7 +573,10 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
     private UIView BuildAdvanced()
     {
         var vm = ViewModel;
-        var expander = new WinoSettingsExpander(Translator.ImapSetup_AdvancedTitle, Translator.ImapSetup_AdvancedDescription, WinoIconGlyph.Settings);
+        // Bound, because opening Advanced lists OAuth 2.0 among the authentication methods.
+        var expander = Expander(Translator.ImapSetup_AdvancedTitle, WinoIconGlyph.Settings, null,
+            nameof(vm.IsAdvancedExpanded), s => s.IsAdvancedExpanded, (s, v) => s.IsAdvancedExpanded = v);
+        expander.HeaderCard.Description = Translator.ImapSetup_AdvancedDescription;
         var grid = new FormGrid();
         var proxyPort = Form.Text(nameof(vm.ProxyServerPort), s => s.ProxyServerPort, (s, v) => s.ProxyServerPort = v,
             Translator.IMAPSetupDialog_IncomingMailServerPort, Translator.IMAPSetupDialog_IncomingMailServerPort);
@@ -369,6 +613,25 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         return expander;
     }
 
+    /// <summary>
+    /// The authentication method list changes while the page is open (OAuth 2.0 joins it once discovery, a sign-in or
+    /// Advanced offers it), so the menu rebuilds from the collection and reselects the current method.
+    /// </summary>
+    private UIButton AuthenticationMethodPopUp(string property, Func<ImapCalDavSettingsPageViewModel, int> read, Action<ImapCalDavSettingsPageViewModel, int> write)
+    {
+        var vm = ViewModel;
+        var methods = vm.AvailableAuthenticationMethodDisplayNames;
+        var popUp = new WinoPopUpButton(Translator.ImapCalDavSettingsPage_AuthenticationMethodHeader);
+        void Render() => popUp.SetItems(methods.ToArray(), read(vm));
+        var binding = Bindings.Own(new PropertyBinding<ImapCalDavSettingsPageViewModel, int>(vm, property, read, _ => Render(), Dispatcher, ReportError, write));
+        popUp.Chosen = index => binding.UpdateSource(index);
+        NotifyCollectionChangedEventHandler changed = (_, _) => popUp.BeginInvokeOnMainThread(Render);
+        methods.CollectionChanged += changed;
+        Bindings.Own(new ActionDisposable(() => methods.CollectionChanged -= changed));
+        Render();
+        return popUp;
+    }
+
     private WinoSettingsExpander Expander(string header, WinoIconGlyph icon, UIView? status,
         string expandedProperty, Func<ImapCalDavSettingsPageViewModel, bool> read, Action<ImapCalDavSettingsPageViewModel, bool> write)
     {
@@ -381,6 +644,30 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         return expander;
     }
 
+    /// <summary>
+    /// Visibility from a computed property. The step change is listened to as well, because the sign-in stages derive
+    /// from it without being raised when only the step moves.
+    /// </summary>
+    private void VisibleWhen(UIView view, Func<ImapCalDavSettingsPageViewModel, bool> read, params string[] properties)
+    {
+        foreach (var property in properties.Append(nameof(ViewModel.CurrentSetupStep)).Distinct())
+            Form.Visible(view, property, read);
+    }
+
+    private static UIStackView Column(params UIView[] views)
+    {
+        var stack = WinoLayout.VStack(WinoStyle.Space3, views);
+        stack.Alignment = UIStackViewAlignment.Fill;
+        return stack;
+    }
+
+    private static void SetTitle(UIButton button, string? text)
+    {
+        if (button.Configuration is not { } configuration) return;
+        configuration.Title = text ?? string.Empty;
+        button.Configuration = configuration;
+    }
+
     /// <summary>Host field and a narrow port field on one row.</summary>
     private static UIView HostAndPort(UITextField host, UITextField port)
     {
@@ -391,7 +678,79 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         return WinoLayout.HStack(WinoStyle.Space2, host, port);
     }
 
-    protected override Task InitializeAsync(NavigationMode mode, object? parameter) => ViewModel.InitializeAsync(mode, parameter);
+    protected override Task InitializeAsync(NavigationMode mode, object? parameter)
+    {
+#if DEBUG
+        RegisterDiagnostics();
+#endif
+        // The page renders the secure sign-in choice after the address step and in edit mode.
+        ViewModel.IsSecureSignInSupportedByHost = true;
+        return ViewModel.InitializeAsync(mode, parameter);
+    }
+
+#if DEBUG
+    /// <summary>imap-step signin|servers and imap-stage identity|method move the page without a server.</summary>
+    private void RegisterDiagnostics()
+    {
+        UIKitDebugBridge.Register("imap-step", async args =>
+        {
+            var step = args.Length > 0 && args[0].Equals("servers", StringComparison.OrdinalIgnoreCase) ? ImapSetupStep.Servers : ImapSetupStep.SignIn;
+            await Dispatcher.ExecuteOnUIThread(() => ViewModel.CurrentSetupStep = step);
+            return "ok " + step;
+        });
+        UIKitDebugBridge.Register("imap-stage", async args =>
+        {
+            var stage = args.Length > 0 && args[0].Equals("method", StringComparison.OrdinalIgnoreCase) ? ImapSignInStage.Method : ImapSignInStage.Identity;
+            await Dispatcher.ExecuteOnUIThread(() => ViewModel.SignInStage = stage);
+            return "ok " + stage;
+        });
+        // imap-oauth offered|confirm|org|signedin|stored|stored-loopback fakes what discovery or a stored sign-in left,
+        // so each secure sign-in state renders without a server. Private state, so reflection (Debug only).
+        UIKitDebugBridge.Register("imap-oauth", async args =>
+        {
+            var mode = args.Length > 0 ? args[0].ToLowerInvariant() : "offered";
+            const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            var type = typeof(ImapCalDavSettingsPageViewModel);
+            var vm = ViewModel;
+            var profile = new Wino.Core.Domain.Entities.Shared.AccountOAuthProfile
+            {
+                Issuer = "https://auth.example.com",
+                ClientId = "preview",
+                RedirectKind = mode == "stored-loopback" ? OAuthRedirectKind.Loopback : OAuthRedirectKind.CustomScheme,
+                TrustSource = OAuthTrustSource.Discovered
+            };
+            void Set(string field, object? value) => type.GetField(field, flags)!.SetValue(vm, value);
+            await Dispatcher.ExecuteOnUIThread(() =>
+            {
+                var offered = new Wino.Core.Domain.Models.Authorization.OAuthDiscoveryResult { Profile = profile, IssuerHost = "auth.example.com" };
+                switch (mode)
+                {
+                    case "org":
+                        Set("_oauthDiscovery", new Wino.Core.Domain.Models.Authorization.OAuthDiscoveryResult { OfferedWithoutClient = true, IssuerHost = "auth.example.com" });
+                        break;
+                    case "confirm":
+                        Set("_oauthDiscovery", new Wino.Core.Domain.Models.Authorization.OAuthDiscoveryResult { Profile = profile, IssuerHost = "auth.example.com", RequiresIssuerConfirmation = true });
+                        break;
+                    case "signedin":
+                        Set("_oauthDiscovery", offered);
+                        Set("_oauthSession", new Wino.Core.Domain.Models.Authorization.OAuthSetupSession(Guid.NewGuid(), profile) { HasRefreshToken = true });
+                        break;
+                    case "stored":
+                    case "stored-loopback":
+                        Set("_storedOAuthProfile", profile);
+                        type.GetMethod("EnsureOAuthMethodListed", flags)!.Invoke(vm, null);
+                        vm.SelectedIncomingServerAuthenticationMethodIndex = (int)type.GetMethod("FindAuthenticationMethodIndex", flags)!.Invoke(vm, [ImapAuthenticationMethod.OAuth2])!;
+                        break;
+                    default:
+                        Set("_oauthDiscovery", offered);
+                        break;
+                }
+                type.GetMethod("NotifySecureSignInLayoutChanged", flags)!.Invoke(vm, null);
+            });
+            return "ok " + mode;
+        });
+    }
+#endif
 
     private async Task RunAsync(Func<Task> action)
     {

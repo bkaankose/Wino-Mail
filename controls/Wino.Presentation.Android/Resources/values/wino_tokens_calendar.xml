@@ -38,7 +38,7 @@
   <dimen name="wino_calendar_pane_day_circle">28dp</dimen>
   <dimen name="wino_calendar_pane_padding">12dp</dimen>
   <dimen name="wino_calendar_pane_header_height">40dp</dimen>
-  <dimen name="wino_calendar_pane_row_height">48dp</dimen>
+  <dimen name="wino_calendar_pane_row_height">44dp</dimen>
   <dimen name="wino_calendar_pane_check">18dp</dimen>
   <dimen name="wino_calendar_pane_check_radius">4dp</dimen>
   <dimen name="wino_calendar_agenda_time_width">68dp</dimen>

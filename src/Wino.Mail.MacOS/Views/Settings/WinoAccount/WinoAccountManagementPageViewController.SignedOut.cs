@@ -52,7 +52,7 @@ public sealed partial class WinoAccountManagementPageViewController
 
         var title = WinoStyle.Label(Translator.WinoAccount_Management_SignedOutTitle, WinoStyle.BodyStrong, WinoStyle.PrimaryText, 0);
         var description = WinoStyle.Label(Translator.WinoAccount_Management_SignedOutDescription_Device, WinoStyle.Body, WinoStyle.SecondaryText, 0);
-        var privacy = WinoStyle.Label(Translator.WinoAccount_Management_SignedOutPrivacyNote, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
+        var privacy = WinoStyle.Label(Translator.WinoAccount_Management_SignedOutPrivacyNote, WinoStyle.Caption, WinoStyle.TertiaryText, 0);
         var signIn = Bind.Button(Translator.Buttons_SignIn, vm.SignInCommand, primary: true);
         var register = Bind.Button(Translator.Buttons_CreateAccount, vm.RegisterCommand);
         var buttons = WinoLayout.HStack(8, signIn, register);
@@ -98,8 +98,6 @@ public sealed partial class WinoAccountManagementPageViewController
             if (row.ArrangedSubviews.Length == 1) row.AddArrangedSubview(new NSView { TranslatesAutoresizingMaskIntoConstraints = false });
             AddTo(grid, row);
         }
-        // Every offer takes the height of the tallest, so captions that wrap differently do not stagger the grid.
-        foreach (var tile in _benefitTiles.Skip(1)) tile.HeightAnchor.ConstraintEqualTo(_benefitTiles[0].HeightAnchor).Active = true;
         WinoAccessibility.Label(grid, Translator.WinoAccount_Management_BenefitsSectionHeader);
         grid.AccessibilityElement = true;
         grid.AccessibilityRole = NSAccessibilityRoles.RadioGroupRole;

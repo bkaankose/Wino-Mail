@@ -168,14 +168,6 @@ internal sealed class AppNotificationHandler
             return true;
         }
 
-        if (toastArguments.TryGetValue(WidgetActions.ActionKey, out string widgetAction) &&
-            WidgetActions.IsKnown(widgetAction))
-        {
-            var widgetValue = toastArguments.TryGetValue(WidgetActions.ValueKey, out string value) ? value : null;
-            route = new NotificationActivationRoute(NotificationActivationPath.WidgetAction, true, () => _host.HandleWidgetActionAsync(widgetAction, widgetValue));
-            return true;
-        }
-
         if (ToastActivationResolver.TryResolveMode(toastArguments, out var mode))
         {
             route = new NotificationActivationRoute(

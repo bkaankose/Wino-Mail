@@ -299,13 +299,6 @@ internal sealed partial class ShellSidebarViewController : NSViewController
         }
     }
 
-    /// <summary>
-    /// The To Do view model lists the selected account's task lists flat below the account rows (Windows
-    /// pane); the account row's own sub-items would show them a second time as an expandable tree.
-    /// </summary>
-    private static IEnumerable<IMenuItem> PaneChildren(IMenuItem item)
-        => item is AccountTaskListAccountMenuItem ? Array.Empty<IMenuItem>() : ShellMenuItemRules.Children(item);
-
 #if DEBUG
     /// <summary>
     /// Debug bridge: "sidebar-menu ROW" lists the context menu of a visible pane row,
@@ -447,7 +440,7 @@ internal sealed partial class ShellSidebarViewController : NSViewController
 
         public bool TryGetNode(IMenuItem item, out Node node) => _nodes.TryGetValue(item, out node!);
 
-        public bool HasChildren(IMenuItem item) => PaneChildren(item).Any(ShellMenuItemRules.IsShown);
+        public bool HasChildren(IMenuItem item) => ShellMenuItemRules.Children(item).Any(ShellMenuItemRules.IsShown);
 
         /// <summary>True while an outline notification writes IsExpanded back to the model.</summary>
         public bool SuppressOutlineSync { get; set; }
@@ -513,7 +506,7 @@ internal sealed partial class ShellSidebarViewController : NSViewController
                 // Accounts start expanded like the Windows pane; folders follow their model state.
                 if (item.IsExpanded || item is IAccountMenuItem) owner._outline.ExpandItem(node);
                 else owner._outline.CollapseItem(node);
-                ExpandFromModel(PaneChildren(item));
+                ExpandFromModel(ShellMenuItemRules.Children(item));
             }
         }
 
@@ -524,7 +517,7 @@ internal sealed partial class ShellSidebarViewController : NSViewController
             {
                 if (!_nodes.ContainsKey(item)) _nodes.Add(item, new Node(item));
                 if (item is INotifyPropertyChanged property) { _properties.Add(property); property.PropertyChanged += PropertyChanged; }
-                Observe(PaneChildren(item));
+                Observe(ShellMenuItemRules.Children(item));
             }
         }
 
@@ -624,7 +617,7 @@ internal sealed partial class ShellSidebarViewController : NSViewController
             lock (_children)
             {
                 if (_children.TryGetValue(key, out var cached)) return cached;
-                var items = item is Node n ? PaneChildren(n.Item) : _items ?? (IEnumerable<IMenuItem>)Array.Empty<IMenuItem>();
+                var items = item is Node n ? ShellMenuItemRules.Children(n.Item) : _items ?? (IEnumerable<IMenuItem>)Array.Empty<IMenuItem>();
                 var list = items.Where(ShellMenuItemRules.IsShown).ToList();
                 _children[key] = list;
                 return list;

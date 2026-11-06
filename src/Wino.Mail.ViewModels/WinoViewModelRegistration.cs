@@ -28,9 +28,6 @@ public static class WinoViewModelRegistration
         services.AddSingleton<IDateContextProvider, SystemDateContextProvider>();
         services.AddSingleton<ICalendarRangeTextFormatter, CalendarRangeTextFormatter>();
 
-        // Read by the companion and, on Windows, by the widgets and the Live Tile.
-        services.AddSingleton<Companion.CompanionContentService>();
-
         // Mode providers remain application services so background synchronization can keep
         // running; the app shell owns window-specific binding state and dies with its window.
         services.AddSingleton<MailAppShellViewModel>();
@@ -59,10 +56,11 @@ public static class WinoViewModelRegistration
         services.AddTransient<WelcomeHostPageViewModel>();
         services.AddTransient<WelcomePageV2ViewModel>();
         services.AddTransient<ProviderSelectionPageViewModel>();
+        services.AddTransient<AccountSetupPageViewModel>();
         services.AddTransient<AccountSetupProgressPageViewModel>();
         services.AddTransient<SpecialImapCredentialsPageViewModel>();
-        services.AddTransient<EasSettingsPageViewModel>();
         services.AddTransient<ImapCalDavSettingsPageViewModel>();
+        services.AddTransient<ExchangeSettingsPageViewModel>();
 
         // Mail.
         services.AddTransient<MailListPageViewModel>();
@@ -90,8 +88,6 @@ public static class WinoViewModelRegistration
         services.AddTransient<PersonalizationPageViewModel>();
         services.AddTransient<ApplicationThemeGalleryPageViewModel>();
         services.AddTransient<ApplicationThemeEditorPageViewModel>();
-        services.AddTransient<PrivacySecurityPageViewModel>();
-        services.AddTransient<RemoteContentRulesPageViewModel>();
         services.AddTransient<MailPreferencesPageViewModel>();
         services.AddTransient<MessageListPageViewModel>();
         services.AddTransient<ReadComposePanePageViewModel>();

@@ -71,24 +71,6 @@ public sealed class WinoAppStorePurchaseService(
         }
     }
 
-    public async Task<string?> GetDisplayPriceAsync(WinoAddOnProductType productType, CancellationToken cancellationToken = default)
-    {
-        if (!IsAvailable || appStore is null) return null;
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var productId = GetProductId(productType);
-        try
-        {
-            var prices = await appStore.GetDisplayPricesAsync([productId]).ConfigureAwait(false);
-            return prices.TryGetValue(productId, out var price) ? price : null;
-        }
-        catch (Exception ex)
-        {
-            _logger.Warning(ex, "App Store price of {Product} could not be read.", productType);
-            return null;
-        }
-    }
-
     public async Task<WinoAppStorePurchaseOutcome> PurchaseAsync(WinoAddOnProductType productType, CancellationToken cancellationToken = default)
     {
         if (!IsAvailable || appStore is null) return WinoAppStorePurchaseOutcome.Failed;

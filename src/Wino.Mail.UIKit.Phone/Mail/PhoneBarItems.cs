@@ -17,9 +17,6 @@ internal static class PhoneBarItems
         var configuration = UIButtonConfiguration.PlainButtonConfiguration;
         configuration.Image = WinoIcons.TemplateImage(glyph, RowGlyphSize);
         configuration.ContentInsets = new NSDirectionalEdgeInsets(8, 8, 8, 8);
-        // Label colour, not the inherited tint: the bar glass flips its own appearance over light content, and the
-        // glyphs follow those traits (white glyphs on light glass measured 2:1).
-        configuration.BaseForegroundColor = UIColor.Label;
         var button = new UIButton { Configuration = configuration, TranslatesAutoresizingMaskIntoConstraints = false };
         button.WidthAnchor.ConstraintEqualTo(48).Active = true;
         button.HeightAnchor.ConstraintEqualTo(44).Active = true;

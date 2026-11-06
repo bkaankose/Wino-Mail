@@ -32,8 +32,6 @@ public static partial class SettingsPageRoutes
                 vm.OnNavigatedFrom(NavigationMode.New, null);
                 await vm.DrainPreferenceWritesAsync();
             });
-        registry.Register<PrivacySecurityPageFragment, PrivacySecurityPageViewModel>(WinoPage.PrivacySecurityPage, host);
-        registry.Register<RemoteContentRulesPageFragment, RemoteContentRulesPageViewModel>(WinoPage.RemoteContentRulesPage, host);
         registry.Register<ReadComposePanePageFragment, ReadComposePanePageViewModel>(WinoPage.ReadComposePanePage, host);
         registry.Register<ReaderActionsPageFragment, ReaderActionsPageViewModel>(WinoPage.ReaderActionsPage, host);
         // iOS InitializeAsync: OnNavigatedTo, then the load the page waits for (the fragment reads the result from the entry).

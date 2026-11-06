@@ -41,12 +41,6 @@ public interface IUIKitShellHost
     /// <summary>Dismisses a sheet presented by <see cref="PresentSheet"/>.</summary>
     Task DismissSheetAsync(UINavigationController sheet);
 
-    /// <summary>
-    /// Closes the open sheets top-down as if the user swiped them away. Stops and returns false at a sheet holding a page
-    /// <paramref name="keepOpen"/> matches, or at a presentation the host does not own (an alert). Main thread.
-    /// </summary>
-    Task<bool> CloseSheetsAsync(Func<UIViewController, bool> keepOpen);
-
     /// <summary>Pops the top page of the open sheet or the shell's current stack. False when it is at its root.</summary>
     bool GoBack(UIKitShellViewController? shell);
 

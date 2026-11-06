@@ -66,7 +66,7 @@ internal sealed class SignatureEditorSheet
         _editor.ReadyChanged += (_, _) => Refresh();
 
         // ---- Footer ----
-        var hint = WinoStyle.Label(Translator.SignatureEditorDialog_ImagesHint, WinoStyle.Caption, WinoStyle.SecondaryText);
+        var hint = WinoStyle.Label(Translator.SignatureEditorDialog_ImagesHint, WinoStyle.Caption, WinoStyle.TertiaryText);
         hint.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
         hint.LineBreakMode = NSLineBreakMode.TruncatingTail;
         _cancel = new NSButton { Title = Translator.Buttons_Cancel, BezelStyle = NSBezelStyle.Rounded, KeyEquivalent = "\u001b", TranslatesAutoresizingMaskIntoConstraints = false };

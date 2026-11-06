@@ -300,7 +300,6 @@ public sealed class SyncCoordinator : ISyncCoordinator,
         switch (trigger)
         {
             case RelayRetryTrigger.NetworkRestored:
-            case RelayRetryTrigger.UserRequested:
                 _registration.RequestSync(PushRelaySyncReason.UserRequested);
                 if (_socket is { } socket)
                     _ = ReconnectSocketAsync(socket);

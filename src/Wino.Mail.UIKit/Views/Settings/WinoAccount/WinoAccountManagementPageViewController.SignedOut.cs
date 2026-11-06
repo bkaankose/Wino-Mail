@@ -46,7 +46,7 @@ public sealed partial class WinoAccountManagementPageViewController
         var title = WinoStyle.Label(Translator.WinoAccount_Management_SignedOutTitle, WinoStyle.BodyStrong, WinoStyle.PrimaryText, 0);
         title.AccessibilityTraits = UIAccessibilityTrait.Header;
         var description = WinoStyle.Label(Translator.WinoAccount_Management_SignedOutDescription_Device, WinoStyle.Description, WinoStyle.SecondaryText, 0);
-        var privacy = WinoStyle.Label(Translator.WinoAccount_Management_SignedOutPrivacyNote, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
+        var privacy = WinoStyle.Label(Translator.WinoAccount_Management_SignedOutPrivacyNote, WinoStyle.Caption, WinoStyle.TertiaryText, 0);
         var signIn = Bind.Button(Translator.Buttons_SignIn, vm.SignInCommand, primary: true);
         var register = Bind.Button(Translator.Buttons_CreateAccount, vm.RegisterCommand);
         foreach (var button in new[] { signIn, register })

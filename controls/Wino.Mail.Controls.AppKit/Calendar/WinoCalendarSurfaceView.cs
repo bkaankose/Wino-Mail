@@ -629,7 +629,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
             FillRect(new CGRect(0, bounds.Height - 1, bounds.Width, 1));
             var font = NSFont.SystemFontOfSize(11);
             var size = Measure(Translator.CalendarItemAllDay, font);
-            DrawText(Translator.CalendarItemAllDay, font, WinoStyle.SecondaryText, new CGPoint(HourColumnWidth - 8 - size.Width, (bounds.Height - size.Height) / 2));
+            DrawText(Translator.CalendarItemAllDay, font, WinoStyle.TertiaryText, new CGPoint(HourColumnWidth - 8 - size.Width, (bounds.Height - size.Height) / 2));
         }
 
         public override void MouseDown(NSEvent theEvent) => owner.BeginRailPress(this, theEvent, null);
@@ -725,7 +725,7 @@ public sealed partial class WinoCalendarSurfaceView : NSView
                 double y = TimelinePadding + hour * hourHeight;
                 string text = HourLabel(settings, hour);
                 var size = Measure(text, labelFont);
-                DrawText(text, labelFont, WinoStyle.SecondaryText, new CGPoint(HourColumnWidth - 8 - size.Width, y - size.Height / 2));
+                DrawText(text, labelFont, WinoStyle.TertiaryText, new CGPoint(HourColumnWidth - 8 - size.Width, y - size.Height / 2));
             }
             LineColor.SetFill();
             FillRect(new CGRect(HourColumnWidth - 1, 0, 1, bounds.Height));

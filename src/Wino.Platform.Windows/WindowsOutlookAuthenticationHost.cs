@@ -41,19 +41,19 @@ public sealed partial class WindowsOutlookAuthenticationHost : IOutlookAuthentic
 
     public bool CanAuthenticateInteractively => TryGetParent() != nint.Zero;
 
-    public string LegacyClientId => OutlookClientIds.Legacy;
+    public string LegacyClientId => WinoAuthenticationClientIds.Outlook.Legacy;
 
-    public IPublicClientApplication Client => GetClient(OutlookClientIds.Current);
+    public IPublicClientApplication Client => GetClient(WinoAuthenticationClientIds.Outlook.Current);
 
     public Task EnsureTokenCacheAttachedAsync(CancellationToken cancellationToken = default)
-        => EnsureTokenCacheAttachedAsync(OutlookClientIds.Current, cancellationToken);
+        => EnsureTokenCacheAttachedAsync(WinoAuthenticationClientIds.Outlook.Current, cancellationToken);
 
     public Task<AuthenticationResult> AcquireTokenInteractiveAsync(IEnumerable<string> scopes, IAccount account,
         string loginHint, CancellationToken cancellationToken = default)
-        => AcquireTokenInteractiveAsync(OutlookClientIds.Current, scopes, account, loginHint, cancellationToken);
+        => AcquireTokenInteractiveAsync(WinoAuthenticationClientIds.Outlook.Current, scopes, account, loginHint, cancellationToken);
 
     public Task RemoveLocalAccountAsync(string authenticationAddress, CancellationToken cancellationToken = default)
-        => RemoveLocalAccountAsync(OutlookClientIds.Current, authenticationAddress, cancellationToken);
+        => RemoveLocalAccountAsync(WinoAuthenticationClientIds.Outlook.Current, authenticationAddress, cancellationToken);
 
     public IPublicClientApplication GetClient(string clientId)
     {

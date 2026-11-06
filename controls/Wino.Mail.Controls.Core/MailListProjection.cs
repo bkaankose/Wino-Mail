@@ -22,7 +22,6 @@ public sealed partial class MailListProjection : IDisposable
     private bool _isDisposed;
     private bool _isRebuildPending;
     private bool _isHardResetPending;
-    private DateTime _referenceDay;
 
     public MailListProjection(
         IMailListCollection source,
@@ -383,7 +382,6 @@ public sealed partial class MailListProjection : IDisposable
     {
         var isHardReset = _isHardResetPending;
         _isHardResetPending = false;
-        _referenceDay = (_options.ReferenceDate ?? DateTime.Today).Date;
 
         var sourceItems = _source.ToArray();
         var existingRows = isHardReset
@@ -613,7 +611,6 @@ public sealed partial class MailListProjection : IDisposable
                 string.IsNullOrWhiteSpace(block.Representative.NameSortKey)
                     ? "#"
                     : block.Representative.NameSortKey[..1].ToUpper(CultureInfo.CurrentCulture),
-            MailListGroupMode.DayGroups => MailListDateBuckets.For(block.DateSortKey.LocalDateTime.Date, _referenceDay),
             _ => block.DateSortKey.LocalDateTime.Date,
         };
         return new MailListProjectionGroupKey(false, value);

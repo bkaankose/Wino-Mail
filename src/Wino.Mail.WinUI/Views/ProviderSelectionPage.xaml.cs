@@ -20,6 +20,8 @@ public sealed partial class ProviderSelectionPage : ProviderSelectionPageAbstrac
     {
         InitializeComponent();
 
+        ViewModel.IsSecureSignInSupportedByHost = true;
+
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }

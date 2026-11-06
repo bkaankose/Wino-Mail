@@ -132,82 +132,6 @@ internal sealed class ShellToolbar : NSToolbarDelegate
 
     private string[] Identifiers() => [.. LeadingIdentifiers, .. CommandIdentifiers(), .. TrailingIdentifiers];
 
-    /// <summary>
-    /// NSToolbarItem.Hidden needs macOS 15. On macOS 14 a hidden item is left out of the toolbar instead,
-    /// and <see cref="ReconcileLegacyItems"/> removes or re-inserts it.
-    /// </summary>
-    private bool _legacyCommandsShown;
-    private bool _syncHidden;
-
-    [System.Runtime.Versioning.SupportedOSPlatformGuard("macos15.0")]
-    private static bool SupportsHiddenItems => OperatingSystem.IsMacOSVersionAtLeast(15);
-
-    private string[] VisibleIdentifiers()
-    {
-        if (SupportsHiddenItems) return Identifiers();
-        string[] commands = _legacyCommandsShown ? CommandIdentifiers() : [];
-        return [.. LeadingIdentifiers.Where(id => !LegacyHidden(id)), .. commands, .. TrailingIdentifiers.Where(id => !LegacyHidden(id))];
-    }
-
-    private bool LegacyHidden(string id) => id switch
-    {
-        SyncId => _syncHidden,
-        BriefingId => !_briefingVisible,
-        WhatsNewId => !_whatsNewVisible,
-        AccountId => _accountHidden,
-        _ => false
-    };
-
-    private void SetItemHidden(NSToolbarItem? item, bool hidden)
-    {
-        if (SupportsHiddenItems)
-        {
-            if (item is not null) item.Hidden = hidden;
-            return;
-        }
-        ReconcileLegacyItems();
-    }
-
-    /// <summary>macOS 14: brings the toolbar's items in line with <see cref="VisibleIdentifiers"/>, keeping the items that stay.</summary>
-    private void ReconcileLegacyItems()
-    {
-        if (_toolbar is null || _reconciling) return;
-        _reconciling = true;
-        try
-        {
-            var desired = VisibleIdentifiers();
-            int index = 0, next = 0;
-            while (next < desired.Length || index < _toolbar.Items.Length)
-            {
-                var items = _toolbar.Items;
-                if (next >= desired.Length) { RemoveToolbarItem(index); continue; }
-                if (index >= items.Length) { _toolbar.InsertItem(desired[next++], index++); continue; }
-                if (items[index].Identifier == desired[next]) { index++; next++; continue; }
-                bool laterPresent = false;
-                for (int scan = index + 1; scan < items.Length; scan++)
-                    if (items[scan].Identifier == desired[next]) { laterPresent = true; break; }
-                if (laterPresent) RemoveToolbarItem(index);
-                else _toolbar.InsertItem(desired[next++], index++);
-            }
-        }
-        finally { _reconciling = false; }
-    }
-
-    private bool _reconciling;
-
-    private void RemoveToolbarItem(int index)
-    {
-        if (_toolbar is null) return;
-        var id = _toolbar.Items[index].Identifier;
-        if (id.StartsWith(CommandIdPrefix, StringComparison.Ordinal))
-            foreach (var pair in _commandItems.Where(pair => CommandId(pair.Key) == id).ToList())
-            {
-                _commandItems.Remove(pair.Key);
-                if (pair.Value.View is NSButton button) _stableWidths.Remove(button);
-            }
-        _toolbar.RemoveItem(index);
-    }
-
     /// <summary>The visible command groups in the configured order, a space between groups.</summary>
     private string[] CommandIdentifiers()
     {
@@ -264,13 +188,6 @@ internal sealed class ShellToolbar : NSToolbarDelegate
     private void RebuildCommandItems()
     {
         if (_toolbar is null) return;
-        if (!SupportsHiddenItems)
-        {
-            for (int index = _toolbar.Items.Length - 1; index >= 0; index--)
-                if (_toolbar.Items[index].Identifier.StartsWith(CommandIdPrefix, StringComparison.Ordinal)) RemoveToolbarItem(index);
-            ReconcileLegacyItems();
-            return;
-        }
         var items = _toolbar.Items;
         for (int index = items.Length - 1; index >= LeadingIdentifiers.Length; index--)
         {
@@ -279,7 +196,6 @@ internal sealed class ShellToolbar : NSToolbarDelegate
                 _toolbar.RemoveItem(index);
         }
         _commandItems.Clear();
-        _stableWidths.Clear();
         int insertAt = LeadingIdentifiers.Length;
         foreach (var id in CommandIdentifiers()) _toolbar.InsertItem(id, insertAt++);
     }
@@ -298,7 +214,7 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         }
     }
 
-    public override string[] DefaultItemIdentifiers(NSToolbar toolbar) => VisibleIdentifiers();
+    public override string[] DefaultItemIdentifiers(NSToolbar toolbar) => Identifiers();
     public override string[] AllowedItemIdentifiers(NSToolbar toolbar) => Identifiers();
 
     public override NSToolbarItem WillInsertItem(NSToolbar toolbar, string itemIdentifier, bool willBeInserted)
@@ -318,20 +234,15 @@ internal sealed class ShellToolbar : NSToolbarDelegate
                 return _briefingItem = CreateBriefingItem();
             case WhatsNewId:
                 _whatsNewItem = Button(WhatsNewId, WinoIconGlyph.Announcement, Translator.WhatsNew_ShellButtonTooltip, () => _whatsNew());
-                if (SupportsHiddenItems) _whatsNewItem.Hidden = !_whatsNewVisible;
+                _whatsNewItem.Hidden = !_whatsNewVisible;
                 return _whatsNewItem;
             case var id when id.StartsWith(CommandIdPrefix, StringComparison.Ordinal):
                 return CreateCommandItem(id);
             case AccountId:
                 _accountItem = Button(AccountId, WinoIconGlyph.Person, Translator.WinoAccount_Titlebar_SignedOutTitle, null);
                 var view = (NSButton)_accountItem.View!;
-                if ((NSImage.ImageNamed("AppIcon") ?? NSApplication.SharedApplication.ApplicationIconImage)?.Copy() is NSImage logo)
-                {
-                    logo.Size = new CGSize(22, 22);
-                    view.Image = logo;
-                }
                 view.Activated += (_, _) => Safe(() => _account(view));
-                if (SupportsHiddenItems) _accountItem.Hidden = _accountHidden;
+                _accountItem.Hidden = _accountHidden;
                 return _accountItem;
         }
         return new NSToolbarItem(itemIdentifier);
@@ -371,32 +282,6 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         return item;
     }
 
-    private readonly Dictionary<NSButton, NSLayoutConstraint> _stableWidths = new();
-
-    /// <summary>
-    /// Flag and ToggleRead swap their title ("Flag" / "Clear flag"); the button keeps the wider title's width,
-    /// so the change does not shift every item after it.
-    /// </summary>
-    private void ApplyStableWidth(NSButton button)
-    {
-        var command = _commandItems.FirstOrDefault(pair => ReferenceEquals(pair.Value.View, button)).Key;
-        if (ToggledAppearance(command, false) is not var (offGlyph, offTitle) || ToggledAppearance(command, true) is not var (onGlyph, onTitle)) return;
-        if (_stableWidths.Remove(button, out var previous)) previous.Active = false;
-        var (title, image) = (button.Title, button.Image);
-        nfloat width = 0;
-        foreach (var (glyph, text) in new[] { (offGlyph, offTitle), (onGlyph, onTitle) })
-        {
-            button.Title = text;
-            button.Image = WinoIcons.Image(glyph, 17, null, text);
-            width = (nfloat)Math.Max(width, button.FittingSize.Width);
-        }
-        button.Title = title;
-        button.Image = image;
-        var constraint = button.WidthAnchor.ConstraintGreaterThanOrEqualTo((nfloat)Math.Ceiling(width));
-        constraint.Active = true;
-        _stableWidths[button] = constraint;
-    }
-
     /// <summary>Settings › Reader actions › "Show action labels": the mail action buttons show their title beside the glyph.</summary>
     public void SetCommandLabels(bool visible)
     {
@@ -407,14 +292,11 @@ internal sealed class ShellToolbar : NSToolbarDelegate
     }
 
     private void ApplyCommandLabel(NSButton button)
-    {
-        button.ImagePosition = _showsCommandLabels ? NSCellImagePosition.ImageLeading : NSCellImagePosition.ImageOnly;
-        ApplyStableWidth(button);
-    }
+        => button.ImagePosition = _showsCommandLabels ? NSCellImagePosition.ImageLeading : NSCellImagePosition.ImageOnly;
 
     private void ApplyCommandState(ShellCommand command, NSToolbarItem item)
     {
-        if (SupportsHiddenItems) item.Hidden = !_hasCommandTarget();
+        item.Hidden = !_hasCommandTarget();
         if (item.View is not NSButton button) return;
         button.Enabled = _canExecute(command);
         if (ToggledAppearance(command, _isActive(command)) is not var (glyph, title) || item.Label == title) return;
@@ -437,7 +319,7 @@ internal sealed class ShellToolbar : NSToolbarDelegate
 
     /// <summary>Debug: each command item's label, enabled and hidden state.</summary>
     internal string DumpCommands() => string.Join(" | ", _commandItems.Select(pair =>
-        $"{pair.Key}='{pair.Value.Label}' enabled={(pair.Value.View as NSButton)?.Enabled} hidden={(SupportsHiddenItems ? pair.Value.Hidden : !_legacyCommandsShown)}"));
+        $"{pair.Key}='{pair.Value.Label}' enabled={(pair.Value.View as NSButton)?.Enabled} hidden={pair.Value.Hidden}"));
 
     private void Safe(Action action)
     {
@@ -509,7 +391,7 @@ internal sealed class ShellToolbar : NSToolbarDelegate
             _briefingDot.TrailingAnchor.ConstraintEqualTo(_briefingButton.TrailingAnchor, -5),
             _briefingDot.TopAnchor.ConstraintEqualTo(_briefingButton.TopAnchor, 4)
         ]);
-        if (SupportsHiddenItems) item.Hidden = !_briefingVisible;
+        item.Hidden = !_briefingVisible;
         ApplyBriefing();
         return item;
     }
@@ -578,11 +460,6 @@ internal sealed class ShellToolbar : NSToolbarDelegate
     /// <summary>Re-reads search support from the current content page.</summary>
     public void Revalidate()
     {
-        if (!SupportsHiddenItems && _legacyCommandsShown != _hasCommandTarget())
-        {
-            _legacyCommandsShown = !_legacyCommandsShown;
-            ReconcileLegacyItems();
-        }
         foreach (var (command, item) in _commandItems) ApplyCommandState(command, item);
         if (_searchItem?.SearchField is not { } field) return;
         var target = _searchTarget();
@@ -594,8 +471,7 @@ internal sealed class ShellToolbar : NSToolbarDelegate
     public void SetSynchronization(bool supported, bool canSynchronize, bool isSynchronizing, string? toolTip)
     {
         if (_syncItem is null || _syncButton is null || _syncProgress is null) return;
-        _syncHidden = !supported;
-        SetItemHidden(_syncItem, !supported);
+        _syncItem.Hidden = !supported;
         _syncButton.Enabled = canSynchronize && !isSynchronizing;
         _syncButton.Image = isSynchronizing ? null : WinoIcons.Image(WinoIconGlyph.Sync, 17, null, "Synchronize");
         if (isSynchronizing) _syncProgress.StartAnimation(null); else _syncProgress.StopAnimation(null);
@@ -610,7 +486,7 @@ internal sealed class ShellToolbar : NSToolbarDelegate
         _briefingVisible = visible;
         _briefingUnseen = hasUnseen;
         _briefingOpen = isOpen;
-        SetItemHidden(_briefingItem, !visible);
+        if (_briefingItem is not null) _briefingItem.Hidden = !visible;
         ApplyBriefing();
     }
 
@@ -625,12 +501,12 @@ internal sealed class ShellToolbar : NSToolbarDelegate
     public void SetWhatsNewVisible(bool visible)
     {
         _whatsNewVisible = visible;
-        SetItemHidden(_whatsNewItem, !visible);
+        if (_whatsNewItem is not null) _whatsNewItem.Hidden = !visible;
     }
 
     public void SetAccountHidden(bool hidden)
     {
         _accountHidden = hidden;
-        SetItemHidden(_accountItem, hidden);
+        if (_accountItem is not null) _accountItem.Hidden = hidden;
     }
 }

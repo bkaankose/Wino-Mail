@@ -120,6 +120,7 @@ public abstract class UIKitPageRegistry : IUIKitPageRegistry
         Register<ProviderSelectionPageViewController>(WinoPage.ProviderSelectionPage, UIKitPageHost.Root);
         Register<AccountSetupProgressPageViewController>(WinoPage.AccountSetupProgressPage, UIKitPageHost.Root);
         Register<SpecialImapCredentialsPageViewController>(WinoPage.SpecialImapCredentialsPage, UIKitPageHost.Root);
+        Register<ExchangeSettingsPageViewController>(WinoPage.ExchangeSettingsPage, UIKitPageHost.Root);
         // Editing an account's servers belongs to Settings (a sheet); adding an account stays in onboarding.
         Register<ImapCalDavSettingsPageViewController>(WinoPage.ImapCalDavSettingsPage, UIKitPageHost.Sheet);
         RegisterHostResolver(WinoPage.ImapCalDavSettingsPage, parameter =>

@@ -181,7 +181,7 @@ public sealed partial class ToDoPageViewController
 
         _calendarRow = new WinoDrawerActionRow(WinoIconGlyph.Calendar, Translator.ToDoPage_CreateCalendarEvent, WinoStyle.Accent) { FollowsAccent = true };
         _calendarRow.Clicked += (_, _) => Observe(ViewModel.CreateCalendarEventCommand.ExecuteAsync(null));
-        _createdLabel = WinoToDoStyle.Caption(null, WinoStyle.SecondaryText);
+        _createdLabel = WinoToDoStyle.Caption(null, WinoStyle.TertiaryText);
 
         var body = WinoLayout.VStack(16, steps, schedule, notes, Indent(_calendarRow), Indent(_createdLabel, 12));
         body.EdgeInsets = new NSEdgeInsets(14, 0, 14, 0);

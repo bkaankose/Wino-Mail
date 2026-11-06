@@ -160,7 +160,7 @@ internal sealed class ComposeRecipientSuggestionList : WinoSurfaceView
         private readonly WinoIconView _listGlyph = new(WinoIconGlyph.People, 20, WinoStyle.SecondaryText);
         private readonly UILabel _name = WinoStyle.Label(string.Empty, WinoStyle.Body);
         private readonly UILabel _secondary = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
-        private readonly UILabel _sourceCaption = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
+        private readonly UILabel _sourceCaption = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.TertiaryText);
         private readonly UIButton _dismiss;
         private Action? _suppress;
 

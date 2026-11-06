@@ -20,10 +20,6 @@ public sealed class WindowsBoundKeyAttestationProvider : IDeviceAttestationProvi
 {
     public const string KeyName = "Wino.Mail.RelayDevice";
 
-    // CNG user keys are shared by every package of the Windows user, so the Store and a sideloaded build would delete
-    // each other's key; the package family name keeps them apart.
-    private static readonly string InstallKeyName = ResolveInstallKeyName();
-
     private static readonly CngProvider PlatformProvider = new("Microsoft Platform Crypto Provider");
     private static readonly CngProvider[] Providers = [PlatformProvider, CngProvider.MicrosoftSoftwareKeyStorageProvider];
 
@@ -58,52 +54,20 @@ public sealed class WindowsBoundKeyAttestationProvider : IDeviceAttestationProvi
     }
 
     /// <summary>
-    /// Registrations reuse the install's key while it can still sign, so the API recognises the install by its public key
-    /// and keeps its device id. A new key is made only when none is usable; a key that cannot be deleted keeps its name
-    /// and the new key gets a unique one.
+    /// Every registration starts from a fresh key; the previous one belongs to a device the API no longer uses. A key
+    /// that cannot be deleted keeps its name and the new key gets a unique one.
     /// </summary>
     private DeviceAttestation Attest(string nonce)
     {
-        var data = Encoding.UTF8.GetBytes(nonce);
-        var name = InstallKeyName;
-        try
-        {
-            using var existing = OpenKey(name);
-            if (existing is not null)
-                return Sign(existing, name, data);
-        }
-        catch (CryptographicException ex)
-        {
-            _logger.Information("The existing relay device key cannot sign (0x{HResult:X8}); creating a new one.", ex.HResult);
-        }
-
+        var name = KeyName;
         if (!TryDeleteKey(name))
-            name = $"{InstallKeyName}.{Guid.NewGuid():N}";
+            name = $"{KeyName}.{Guid.NewGuid():N}";
 
         using var key = CreateKey(name);
-        return Sign(key, name, data);
-    }
-
-    private static DeviceAttestation Sign(CngKey key, string name, byte[] data)
-    {
         using var ecdsa = new ECDsaCng(key);
         var publicKey = Convert.ToBase64String(ecdsa.ExportSubjectPublicKeyInfo());
-        var signature = Convert.ToBase64String(ecdsa.SignData(data, HashAlgorithmName.SHA256));
+        var signature = Convert.ToBase64String(ecdsa.SignData(Encoding.UTF8.GetBytes(nonce), HashAlgorithmName.SHA256));
         return new DeviceAttestation(DeviceAttestationKind.BoundKey, KeyId: name, PublicKey: publicKey, Signature: signature);
-    }
-
-    private static string ResolveInstallKeyName()
-    {
-        try
-        {
-            var familyName = global::Windows.ApplicationModel.Package.Current.Id.FamilyName;
-            return $"{KeyName}.{familyName}";
-        }
-        catch (InvalidOperationException)
-        {
-            // Unpackaged (tests, tools): no package identity.
-            return KeyName;
-        }
     }
 
     private CngKey CreateKey(string name)

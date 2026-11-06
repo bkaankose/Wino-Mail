@@ -4,44 +4,33 @@ using System.Security.Cryptography.X509Certificates;
 using UIKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.Connectivity;
 using Wino.Presentation.UIKit;
 
 namespace Wino.Mail.UIKit.Views.Account;
 
 /// <summary>
-/// Server certificate trust (Windows ServerCertificateTrustDialog, the Mac sheet): the shared prompt's intro, its
-/// problems, the certificate facts as a labelled list, a "Certificate details" disclosure with the full certificate
-/// dump in a monospaced view, Cancel and accept. It fails closed: Cancel, swiping the sheet away or anything but accept
-/// refuses, and Return never accepts (the sheet has no text field to submit from). A dangerous prompt shows its
-/// warning in red and keeps accept disabled until the acknowledgement switch is on.
+/// Server certificate trust (Windows DialogService.ShowServerCertificateTrustDialogAsync, the Mac sheet): a warning
+/// with the certificate facts as a labelled list, a "Certificate details" disclosure with the full certificate dump in
+/// a monospaced view, Cancel and Trust. It fails closed: Cancel, swiping the sheet away or anything but Trust refuses,
+/// and Return never trusts (the sheet has no text field to submit from).
 /// </summary>
 internal sealed class ServerCertificateTrustSheet : WinoAccountSheet<bool>
 {
-    private readonly UISwitch? _acknowledgement;
-
-    public ServerCertificateTrustSheet(ServerCertificateTrustPrompt prompt) : base(prompt.Title)
+    public ServerCertificateTrustSheet(string summary, byte[]? certificateRawData) : base(Translator.IMAPSetupDialog_CertificateTrustTitle)
     {
-        var caution = new UIImageView(WinoIcons.Image(WinoIconGlyph.Warning, 40, prompt.IsDangerous ? WinoStyle.Critical : WinoStyle.Caution)) { ContentMode = UIViewContentMode.ScaleAspectFit, IsAccessibilityElement = false };
+        var caution = new UIImageView(WinoIcons.Image(WinoIconGlyph.Warning, 40, WinoStyle.Caution)) { ContentMode = UIViewContentMode.ScaleAspectFit, IsAccessibilityElement = false };
         WinoLayout.Size(caution, 40, 40);
         AddRow(WinoLayout.HStack(0, caution, WinoLayout.Spacer()));
 
-        AddRow(prompt.IsDangerous
-            ? WinoStyle.Label(prompt.Intro, WinoStyle.Body, WinoStyle.Critical, 0)
-            : Paragraph(prompt.Intro));
+        using var certificate = TryLoad(certificateRawData);
+        var (paragraphs, rows, closing) = Parse(summary);
+        // A caller that sends only free text still gets the certificate facts from the raw data.
+        if (rows.Count == 0 && certificate is not null) rows = FactsFrom(certificate);
 
-        if (prompt.Problems.Length > 0)
-        {
-            var problems = WinoLayout.VStack(4, WinoStyle.Label(prompt.ProblemsHeader, WinoStyle.Subheadline, WinoStyle.PrimaryText, 0));
-            problems.Alignment = UIStackViewAlignment.Fill;
-            foreach (var problem in prompt.Problems) problems.AddArrangedSubview(Paragraph("• " + problem));
-            AddRow(problems);
-        }
+        foreach (var paragraph in paragraphs) AddRow(Paragraph(paragraph));
+        if (rows.Count > 0) AddRow(Facts(rows));
+        foreach (var paragraph in closing) AddRow(Paragraph(paragraph));
 
-        if (prompt.Facts.Length > 0) AddRow(Facts(prompt.Facts));
-        AddRow(Paragraph(prompt.Closing));
-
-        using var certificate = TryLoad(prompt.CertificateRawData);
         if (certificate is not null)
         {
             var details = DetailsView(certificate.ToString(verbose: true));
@@ -69,28 +58,13 @@ internal sealed class ServerCertificateTrustSheet : WinoAccountSheet<bool>
             AddRow(group);
         }
 
-        if (prompt.IsDangerous)
-        {
-            _acknowledgement = new UISwitch { TranslatesAutoresizingMaskIntoConstraints = false };
-            _acknowledgement.ValueChanged += (_, _) => Refresh();
-            var label = WinoStyle.Label(prompt.AcknowledgementText, WinoStyle.Body, WinoStyle.PrimaryText, 0);
-            label.IsAccessibilityElement = false;
-            _acknowledgement.AccessibilityLabel = prompt.AcknowledgementText;
-            var row = WinoLayout.HStack(12, label, _acknowledgement);
-            row.Alignment = UIStackViewAlignment.Center;
-            AddRow(row);
-        }
-
-        Primary.Title = prompt.AcceptButtonText;
+        Primary.Title = Translator.Buttons_Trust;
         Primary.Style = UIBarButtonItemStyle.Plain;
         Primary.TintColor = WinoStyle.Critical;
-        Refresh();
     }
 
     // Nothing gets focus: the risky choice always takes a deliberate tap.
     protected override UIView? InitialResponder => null;
-
-    protected override bool CanSubmit => _acknowledgement is null || _acknowledgement.On;
 
     protected override Task PrimaryAsync()
     {
@@ -105,22 +79,75 @@ internal sealed class ServerCertificateTrustSheet : WinoAccountSheet<bool>
         catch (CryptographicException) { return null; }
     }
 
+    /// <summary>
+    /// The shared ViewModels send "intro, blank line, Label: value lines, blank line, closing". Lines whose label is
+    /// one of the certificate labels become rows; other text stays as paragraphs (same parser as the Mac).
+    /// </summary>
+    private static (List<string> Intro, List<(string Label, string Value)> Rows, List<string> Closing) Parse(string? summary)
+    {
+        var labels = new[]
+        {
+            Translator.IMAPSetupDialog_CertificateProtocol, Translator.IMAPSetupDialog_CertificateEndpoint,
+            Translator.IMAPSetupDialog_CertificateSubject, Translator.IMAPSetupDialog_CertificateSans,
+            Translator.IMAPSetupDialog_CertificateIssuer, Translator.IMAPSetupDialog_CertificateValidFrom,
+            Translator.IMAPSetupDialog_CertificateValidTo, Translator.IMAPSetupDialog_CertificateFingerprint,
+            Translator.IMAPSetupDialog_CertificateFailureReason
+        };
+        var intro = new List<string>();
+        var rows = new List<(string, string)>();
+        var closing = new List<string>();
+        var paragraph = new List<string>();
+
+        void Flush()
+        {
+            if (paragraph.Count == 0) return;
+            (rows.Count == 0 ? intro : closing).Add(string.Join(Environment.NewLine, paragraph));
+            paragraph.Clear();
+        }
+
+        foreach (var raw in (summary ?? string.Empty).Replace("\r\n", "\n").Split('\n'))
+        {
+            var line = raw.TrimEnd();
+            var separator = line.IndexOf(": ", StringComparison.Ordinal);
+            var label = separator > 0 ? line[..separator] : null;
+            if (label is not null && labels.Contains(label, StringComparer.Ordinal))
+            {
+                Flush();
+                rows.Add((label, line[(separator + 2)..]));
+                continue;
+            }
+            if (line.Length == 0) { Flush(); continue; }
+            paragraph.Add(line);
+        }
+        Flush();
+        return (intro, rows, closing);
+    }
+
+    private static List<(string Label, string Value)> FactsFrom(X509Certificate2 certificate) =>
+    [
+        (Translator.IMAPSetupDialog_CertificateSubject, certificate.Subject),
+        (Translator.IMAPSetupDialog_CertificateIssuer, certificate.Issuer),
+        (Translator.IMAPSetupDialog_CertificateValidFrom, certificate.NotBefore.ToUniversalTime().ToString("u")),
+        (Translator.IMAPSetupDialog_CertificateValidTo, certificate.NotAfter.ToUniversalTime().ToString("u")),
+        (Translator.IMAPSetupDialog_CertificateFingerprint, certificate.GetCertHashString(HashAlgorithmName.SHA256))
+    ];
+
     private static UILabel Paragraph(string text) => WinoStyle.Label(text, WinoStyle.Body, WinoStyle.PrimaryText, 0);
 
     /// <summary>Each fact as a secondary caption above its value (fingerprints wrap by character), in a grouped card.</summary>
-    private static UIView Facts(ServerCertificateFact[] facts)
+    private static UIView Facts(List<(string Label, string Value)> rows)
     {
         var list = WinoLayout.Insets(WinoLayout.VStack(10), 12, 14, 12, 14);
         list.Alignment = UIStackViewAlignment.Fill;
-        foreach (var fact in facts)
+        foreach (var (label, value) in rows)
         {
-            var name = WinoStyle.Label(fact.Label, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
-            var text = WinoStyle.Label(fact.Value, WinoStyle.Subheadline, WinoStyle.PrimaryText, 0);
+            var name = WinoStyle.Label(label, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
+            var text = WinoStyle.Label(string.IsNullOrWhiteSpace(value) ? "—" : value, WinoStyle.Subheadline, WinoStyle.PrimaryText, 0);
             text.LineBreakMode = UILineBreakMode.CharacterWrap;
             var pair = WinoLayout.VStack(2, name, text);
             pair.Alignment = UIStackViewAlignment.Fill;
             pair.IsAccessibilityElement = true;
-            pair.AccessibilityLabel = fact.Label;
+            pair.AccessibilityLabel = label;
             pair.AccessibilityValue = text.Text;
             list.AddArrangedSubview(pair);
         }

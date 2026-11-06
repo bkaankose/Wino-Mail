@@ -282,16 +282,6 @@ public sealed class UIKitNavigationService : INavigationService, INavigationHost
     async Task INavigationHost.ShowSettingsAsync(WinoPage? page, object? parameter)
     {
         var target = page ?? WinoPage.SettingsPage;
-        // The settings root with a page parameter is a deep link (the reader's Manage sender rules): open the root
-        // when no sheet is up, then push the page so Back returns to the list.
-        if (target is WinoPage.SettingsPage or WinoPage.SettingOptionsPage && parameter is WinoPage deepLink
-            && deepLink is not (WinoPage.SettingsPage or WinoPage.SettingOptionsPage) && _registry.TryGet(deepLink, null, out _, out _))
-        {
-            var host = (INavigationHost)this;
-            if (_sheet is null or { PresentingViewController: null, IsBeingPresented: false }) await host.ShowSettingsAsync(target, null);
-            await host.ShowSettingsAsync(deepLink, null);
-            return;
-        }
         if (!_registry.TryGet(target, parameter, out _, out var hostKind)) return;
         var controller = await CreateControllerAsync(target);
         // The iPhone composer is a sheet page: Send and Cancel close it through the router's sheet bookkeeping.

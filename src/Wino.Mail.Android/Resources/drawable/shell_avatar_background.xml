@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The round account avatar at the rail foot: opens Settings. A 40 dp circle inset in the 48 dp touch target. -->
-<inset xmlns:android="http://schemas.android.com/apk/res/android" android:inset="4dp">
-  <shape android:shape="oval">
-    <solid android:color="@color/wino_accent" />
-  </shape>
-</inset>
+<!-- The round account avatar in the shell (drawer header, rail foot, mode card): opens Settings. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+  <solid android:color="@color/wino_accent" />
+</shape>

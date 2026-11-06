@@ -17,13 +17,20 @@ namespace Wino.Core.Services;
 public sealed class MailServerTestService : IMailServerTestService
 {
     private readonly IServerCertificateTrustService _certificateTrustService;
+    private readonly IOAuthTokenService _oauthTokenService;
 
-    public MailServerTestService(IServerCertificateTrustService certificateTrustService = null)
+    public MailServerTestService(
+        IServerCertificateTrustService certificateTrustService = null,
+        IOAuthTokenService oauthTokenService = null)
     {
         _certificateTrustService = certificateTrustService;
+        _oauthTokenService = oauthTokenService;
     }
 
-    public async Task TestImapAsync(CustomServerInformation serverInformation)
+    public Task TestImapAsync(CustomServerInformation serverInformation)
+        => TestImapAsync(serverInformation, _oauthTokenService, serverInformation?.AccountId ?? Guid.Empty);
+
+    public async Task TestImapAsync(CustomServerInformation serverInformation, IOAuthTokenService oauthTokenService, Guid oauthTokenKey)
     {
         using var protocolLogStream = new MemoryStream();
         var protocol = "IMAP";
@@ -33,7 +40,9 @@ public sealed class MailServerTestService : IMailServerTestService
             var poolOptions = ImapClientPoolOptions.CreateTestPool(
                 serverInformation,
                 () => new WinoProtocolLogger(protocolLogStream, MailProtocol.Imap),
-                _certificateTrustService);
+                _certificateTrustService,
+                oauthTokenService,
+                oauthTokenKey);
 
             await using (var clientPool = new ImapClientPool(poolOptions))
             {
@@ -51,7 +60,10 @@ public sealed class MailServerTestService : IMailServerTestService
                 await MailKitSmtpConnectionPolicy.ConnectAndAuthenticateAsync(
                     smtpClient,
                     serverInformation,
-                    _certificateTrustService).ConfigureAwait(false);
+                    _certificateTrustService,
+                    CancellationToken.None,
+                    oauthTokenService,
+                    oauthTokenKey).ConfigureAwait(false);
 
             await smtpClient.DisconnectAsync(true).ConfigureAwait(false);
         }

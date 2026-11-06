@@ -20,9 +20,6 @@ public partial class CalendarRenderingSettingsPageViewModel : CalendarSettingsSe
     public partial bool IsWorkingHoursEnabled { get; set; }
 
     [ObservableProperty]
-    public partial bool IsCurrentTimeLineEnabled { get; set; }
-
-    [ObservableProperty]
     public partial TimeSpan WorkingHourStart { get; set; }
 
     [ObservableProperty]
@@ -84,7 +81,6 @@ public partial class CalendarRenderingSettingsPageViewModel : CalendarSettingsSe
         WorkingHourStart = preferencesService.WorkingHourStart;
         WorkingHourEnd = preferencesService.WorkingHourEnd;
         CellHourHeight = preferencesService.HourHeight;
-        IsCurrentTimeLineEnabled = preferencesService.IsCalendarCurrentTimeLineEnabled;
         WorkingDayStartIndex = DayNames.IndexOf(CalendarCulture.DateTimeFormat.GetDayName(preferencesService.WorkingDayStart));
         WorkingDayEndIndex = DayNames.IndexOf(CalendarCulture.DateTimeFormat.GetDayName(preferencesService.WorkingDayEnd));
         TimedDayHeaderDateFormat = preferencesService.CalendarTimedDayHeaderDateFormat;
@@ -102,12 +98,6 @@ public partial class CalendarRenderingSettingsPageViewModel : CalendarSettingsSe
 
     partial void OnSelectedFirstDayOfWeekIndexChanged(int value) => SaveSettings();
     partial void OnIsWorkingHoursEnabledChanged(bool value) => SaveSettings();
-
-    partial void OnIsCurrentTimeLineEnabledChanged(bool value)
-    {
-        if (IsLoaded)
-            PreferencesService.IsCalendarCurrentTimeLineEnabled = value;
-    }
     partial void OnWorkingHourStartChanged(TimeSpan value) => SaveSettings();
     partial void OnWorkingHourEndChanged(TimeSpan value) => SaveSettings();
     partial void OnWorkingDayStartIndexChanged(int value) => SaveSettings();

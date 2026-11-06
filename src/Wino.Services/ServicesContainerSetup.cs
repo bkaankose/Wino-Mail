@@ -11,6 +11,8 @@ using Wino.Mail.AI.ContentProcessing;
 using Wino.Services.CalDav;
 using Wino.Services.CardDav;
 using Wino.Services.Dav;
+using Wino.Services.Exchange;
+using Wino.Services.Security;
 using Wino.Core.ML;
 
 namespace Wino.Services;
@@ -59,13 +61,12 @@ public static class ServicesContainerSetup
         services.AddTransient<IUnreadBadgeService, UnreadBadgeService>();
         services.AddTransient<IAccountService, AccountService>();
         services.AddTransient<IServerCertificateTrustService, ServerCertificateTrustService>();
+        services.AddTransient<IAccountOAuthProfileService, AccountOAuthProfileService>();
+        // Lazy and optional: AccountService must not build the OAuth token graph, and heads without it still resolve.
+        services.AddSingleton<Func<IOAuthTokenService>>(provider => () => provider.GetService<IOAuthTokenService>());
         services.AddTransient<IContactService, ContactService>();
         services.AddTransient<IContactQueryService>(provider => provider.GetRequiredService<IContactService>());
         services.AddTransient<IRecipientHistoryService, RecipientHistoryService>();
-        services.AddTransient<IRemoteContentRuleStore, RemoteContentRuleStore>();
-        services.AddSingleton<IRemoteContentSessionService, RemoteContentSessionService>();
-        services.AddTransient<IRemoteContentPolicyService, RemoteContentPolicyService>();
-        services.AddSingleton<ILinkSanitizer, LinkSanitizer>();
         services.AddTransient<IRecipientSuggestionService, RecipientSuggestionService>();
         services.AddTransient<ITaskService, TaskService>();
         services.AddTransient<ITaskQueryService>(provider => provider.GetRequiredService<ITaskService>());
@@ -111,10 +112,15 @@ public static class ServicesContainerSetup
         services.AddSingleton<AccountProfilePictureMaintenance>();
         services.AddSingleton<AccountSenderPictureDirectory>();
 
-        services.AddSingleton<IDavTransport>(provider => new DavTransport(provider.GetRequiredService<IServerCertificateTrustService>()));
+        services.AddSingleton<IDavTransport>(_ => new DavTransport());
         services.AddSingleton<IDavMultistatusReader, DavMultistatusReader>();
         services.AddSingleton<IDavResponseHandler, DavResponseHandler>();
         services.AddSingleton<IDavCredentialStore, DavCredentialStore>();
+        services.AddSingleton<IExchangeTokenStore>(provider => new SecureItemExchangeTokenStore(
+            provider.GetService<ISecureItemStore>() ?? new ProtectedFileSecureItemStore(
+                System.IO.Path.Combine(provider.GetRequiredService<IApplicationConfiguration>().ApplicationDataFolderPath, "credentials", "exchange"),
+                provider.GetRequiredService<ISecretProtector>())));
+        services.AddTransient<IDavOAuthAuthenticationProvider, DavOAuthAuthenticationProvider>();
         services.AddSingleton<IVCardCodec, VCardCodec>();
         services.AddTransient<ICardDavSynchronizationStore, CardDavSynchronizationStore>();
         services.AddTransient<ICardDavClient, CardDavClient>();
@@ -200,7 +206,6 @@ public static class ServicesContainerSetup
             () => provider.GetService<INotificationBuilder>(),
             provider.GetService<IPushRelayAppManagedRegistrationStore>(),
             provider.GetRequiredService<IRelayAlertCoverage>(),
-            provider.GetService<IPushRelayDeviceInfo>(),
-            provider.GetService<IPushRelayClient>()));
+            provider.GetService<IPushRelayDeviceInfo>()));
     }
 }

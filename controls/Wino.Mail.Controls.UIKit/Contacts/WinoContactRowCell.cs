@@ -26,9 +26,9 @@ public static class WinoContactStyle
 
     /// <summary>Star image: filled in the caution colour when favourite, otherwise a tertiary outline. Always mono.</summary>
     public static UIImage StarImage(bool favorite, double size)
-        => WinoIcons.MonoImage(favorite ? WinoIconGlyph.StarFilled : WinoIconGlyph.Star, size, favorite ? WinoStyle.Caution : WinoStyle.SecondaryText);
+        => WinoIcons.MonoImage(favorite ? WinoIconGlyph.StarFilled : WinoIconGlyph.Star, size, favorite ? WinoStyle.Caution : WinoStyle.TertiaryText);
 
-    /// <summary>Contacts board (15 Oct 2026): rows at least 58pt with a 36pt avatar; name, detail and source lines.</summary>
+    /// <summary>Contacts board (15 Oct 2026): 58pt rows with a 36pt avatar, name over one secondary line.</summary>
     public const double RowHeight = 58;
     public const double HeaderRowHeight = 30;
     public const double AvatarSize = 36;
@@ -75,12 +75,13 @@ public sealed class WinoContactRowCell : UITableViewCell
         WinoLayout.Fill(_fill, ContentView, 1, 4, 1, 4);
         WinoLayout.Priorities(_name, UILayoutConstraintAxis.Horizontal, 1, 250);
         WinoLayout.Priorities(_secondary, UILayoutConstraintAxis.Horizontal, 1, 250);
-        // The source ("Account · Address book") is the third line, as on the Mac: as a trailing column it was cut
-        // to 110pt ("Wino Demo · L…") and crowded the star against the section index.
-        WinoLayout.Priorities(_source, UILayoutConstraintAxis.Horizontal, 1, 250);
-        // The chips join the secondary line.
+        // A long source ("Account · Address book") gives way before the name and the address.
+        _source.SetContentCompressionResistancePriority(240, UILayoutConstraintAxis.Horizontal);
+        _source.WidthAnchor.ConstraintLessThanOrEqualTo(110).Active = true;
+        _source.SetContentHuggingPriority(750, UILayoutConstraintAxis.Horizontal);
+        // The chips join the secondary line, so a row keeps two lines.
         _meta = WinoLayout.HStack(6, _secondary);
-        var text = WinoLayout.VStack(2, _name, _meta, _source);
+        var text = WinoLayout.VStack(2, _name, _meta);
         WinoLayout.Priorities(text, UILayoutConstraintAxis.Horizontal, 1, 250);
 
         var configuration = UIButtonConfiguration.PlainButtonConfiguration;
@@ -89,7 +90,7 @@ public sealed class WinoContactRowCell : UITableViewCell
         _star.OnPrimaryAction(this, static cell => cell._toggleFavorite?.Invoke());
         WinoLayout.Size(_star, 44, 44);
 
-        var row = WinoLayout.Insets(WinoLayout.HStack(12, _picture, text, WinoLayout.Spacer(), _star), 6, 12, 6, 4);
+        var row = WinoLayout.Insets(WinoLayout.HStack(12, _picture, text, WinoLayout.Spacer(), _source, _star), 6, 12, 6, 0);
         row.Distribution = UIStackViewDistribution.Fill;
         WinoLayout.Fill(row, ContentView);
         IsAccessibilityElement = false;
@@ -328,7 +329,7 @@ public sealed class WinoContactFieldCard : WinoSurfaceView
         var text = WinoStyle.Label(value, WinoStyle.Body, maximumLines: wrap ? 0 : 1);
         text.SetContentCompressionResistancePriority(250, UILayoutConstraintAxis.Horizontal);
         var column = WinoLayout.VStack(1, text);
-        if (!string.IsNullOrWhiteSpace(label)) column.AddArrangedSubview(WinoStyle.Label(label, WinoStyle.Caption, WinoStyle.SecondaryText));
+        if (!string.IsNullOrWhiteSpace(label)) column.AddArrangedSubview(WinoStyle.Label(label, WinoStyle.Caption, WinoStyle.TertiaryText));
         UIView row = column;
         if (glyph != WinoIconGlyph.None)
         {

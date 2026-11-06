@@ -1,6 +1,5 @@
 namespace Wino.Editor;
-/// <param name="LinkText">The anchor's visible text when the reader captured the click, or null.</param>
-public sealed record RendererNavigationRequestedEventArgs(Uri Uri, string? LinkText = null);
+public sealed record RendererNavigationRequestedEventArgs(Uri Uri);
 
 /// <summary>
 /// The reader reported the link under the pointer or keyboard focus. <see cref="Uri"/> is null when no link is hovered
@@ -25,10 +24,6 @@ public sealed record RendererMessage
     /// <summary>For linkHover: the address an Outlook Safe Links redirect leads to, or empty.</summary>
     [System.Text.Json.Serialization.JsonPropertyName("target")]
     public string? Target { get; init; }
-
-    /// <summary>For navigation: the clicked anchor's visible text, or empty.</summary>
-    [System.Text.Json.Serialization.JsonPropertyName("text")]
-    public string? Text { get; init; }
 
     [System.Text.Json.Serialization.JsonPropertyName("requestId")]
     public int? RequestId { get; init; }

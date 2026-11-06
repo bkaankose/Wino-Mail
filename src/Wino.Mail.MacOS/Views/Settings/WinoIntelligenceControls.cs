@@ -1,7 +1,5 @@
 using AppKit;
 using CoreGraphics;
-using Foundation;
-using Wino.Core.Domain;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Presentation.AppKit;
 
@@ -208,34 +206,5 @@ internal static class IntelligenceViews
             used += w + spacing;
         }
         return rows;
-    }
-}
-
-/// <summary>
-/// What App Review requires next to an auto-renewable subscription (guideline 3.1.2): its length and renewal, and
-/// working Terms of Use (Apple's standard EULA) and Privacy Policy links. App Store builds only.
-/// </summary>
-internal static class AppStoreSubscriptionTerms
-{
-    public static NSView Create()
-    {
-        var terms = WinoStyle.Label(Translator.WinoAccount_Management_AiPackAppStoreTerms, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
-        var links = WinoLayout.HStack(16,
-            Link(Translator.WinoAccount_Management_TermsOfUse, AppUrls.AppleStandardEula),
-            Link(Translator.SettingsPrivacyPolicy_Title, AppUrls.PrivacyPolicy));
-        var stack = WinoLayout.VStack(4, terms, links);
-        stack.Alignment = NSLayoutAttribute.Leading;
-        terms.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
-        return stack;
-    }
-
-    private static NSButton Link(string title, string url)
-    {
-        var button = new NSButton { Bordered = false, TranslatesAutoresizingMaskIntoConstraints = false };
-        button.SetButtonType(NSButtonType.MomentaryChange);
-        button.AttributedTitle = new NSAttributedString(title, new NSStringAttributes { ForegroundColor = WinoStyle.Accent, Font = NSFont.SystemFontOfSize(12) });
-        WinoAccessibility.Label(button, title);
-        button.Activated += (_, _) => NSWorkspace.SharedWorkspace.OpenUrl(new NSUrl(url));
-        return button;
     }
 }

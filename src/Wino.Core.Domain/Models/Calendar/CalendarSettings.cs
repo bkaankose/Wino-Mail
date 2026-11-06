@@ -17,8 +17,7 @@ public record CalendarSettings(DayOfWeek FirstDayOfWeek,
                                DayHeaderDisplayType DayHeaderDisplayType,
                                CultureInfo CultureInfo,
                                string TimedDayHeaderDateFormat = "ddd dd",
-                               CalendarEventDisplayMode EventDisplayMode = CalendarEventDisplayMode.Stacked,
-                               bool IsCurrentTimeLineEnabled = true)
+                               CalendarEventDisplayMode EventDisplayMode = CalendarEventDisplayMode.Stacked)
 {
     /// <summary>
     /// Preference names that feed <see cref="IPreferencesService.GetCurrentCalendarSettings"/>.
@@ -36,7 +35,6 @@ public record CalendarSettings(DayOfWeek FirstDayOfWeek,
         nameof(IPreferencesService.CalendarTimedDayHeaderDateFormat),
         nameof(IPreferencesService.CalendarTimeFormatPreference),
         nameof(IPreferencesService.CalendarEventDisplayMode),
-        nameof(IPreferencesService.IsCalendarCurrentTimeLineEnabled),
     };
 
     public int WorkWeekDayCount

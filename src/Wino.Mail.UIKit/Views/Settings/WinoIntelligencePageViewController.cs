@@ -64,7 +64,7 @@ public sealed class WinoIntelligencePageViewController(WinoAccountManagementPage
         });
         AddContent(updating);
         AddContent(CommandBar(WinoInfoBarSeverity.Informational, nameof(vm.PurchaseStatusMessage), s => s.PurchaseStatusMessage,
-            vm.RefreshPurchasesText, vm.RefreshPurchasesCommand));
+            Translator.WinoAccount_Management_RefreshPurchases, vm.RefreshPurchasesCommand));
         // Windows: the refresh error bar is IsClosable="True"; the purchase status bar is not closable.
         var refreshError = CommandBar(WinoInfoBarSeverity.Warning, nameof(vm.IntelligenceRefreshError), s => s.IntelligenceRefreshError,
             Translator.Buttons_Retry, vm.RetryIntelligenceRefreshCommand);

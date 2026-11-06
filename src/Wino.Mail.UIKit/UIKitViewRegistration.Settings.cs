@@ -43,10 +43,8 @@ public static partial class UIKitViewRegistration
         services.AddTransient<MessageListPageViewController>();
         services.AddTransient<NotificationSettingsPageViewController>();
         services.AddTransient<PersonalizationPageViewController>();
-        services.AddTransient<PrivacySecurityPageViewController>();
         services.AddTransient<ReadComposePanePageViewController>();
         services.AddTransient<ReaderActionsPageViewController>();
-        services.AddTransient<RemoteContentRulesPageViewController>();
         services.AddTransient<SignatureManagementPageViewController>();
         services.AddTransient<StoragePageViewController>();
         services.AddTransient<ToDoPreferenceSettingsPageViewController>();

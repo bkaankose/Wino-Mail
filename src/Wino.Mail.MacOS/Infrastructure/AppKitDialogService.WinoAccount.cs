@@ -3,7 +3,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
-using Wino.Core.Domain.Models.Connectivity;
 using Wino.Mail.MacOS.Views.Account;
 
 namespace Wino.Mail.MacOS.Infrastructure;
@@ -18,8 +17,8 @@ public sealed partial class AppKitDialogService
     private Task<T> PresentOnTopAsync<T>(Func<NSWindow, Task<T>> present)
         => PresentAsync(window => present(window.AttachedSheet ?? window));
 
-    public Task<bool> ShowServerCertificateTrustDialogAsync(ServerCertificateTrustPrompt prompt)
-        => PresentOnTopAsync(window => new ServerCertificateTrustSheet(prompt).PresentAsync(window));
+    public Task<bool> ShowServerCertificateTrustDialogAsync(string summary, byte[] certificateRawData)
+        => PresentOnTopAsync(window => new ServerCertificateTrustSheet(summary, certificateRawData).PresentAsync(window));
 
     /// <summary>The secret goes straight back to the caller; nothing here logs or keeps it.</summary>
     public Task<string?> ShowWinoAccountSyncSecretDialogAsync(SyncSnapshotSecretRequest request)

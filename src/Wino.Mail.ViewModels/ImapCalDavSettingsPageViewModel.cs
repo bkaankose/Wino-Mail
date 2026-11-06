@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -11,14 +12,13 @@ using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.Connectivity;
-using Wino.Mail.ViewModels.Helpers;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.AutoDiscovery;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.CardDav;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
@@ -255,8 +255,18 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                                            IKnownImapProviderCatalog knownImapProviderCatalog = null,
                                            IAccountCapabilityService accountCapabilityService = null,
                                            IExternalLauncher externalLauncher = null,
-                                           ICardDavClient cardDavClient = null)
+                                           ICardDavClient cardDavClient = null,
+                                           IOAuthTokenService oauthTokenService = null,
+                                           IOAuthIssuerDiscoveryService oauthIssuerDiscoveryService = null,
+                                           IImapAuthCapabilityProbe imapAuthCapabilityProbe = null,
+                                           IAccountOAuthProfileService accountOAuthProfileService = null,
+                                           IDavOAuthAuthenticationProvider davOAuthAuthenticationProvider = null)
     {
+        _davOAuthAuthenticationProvider = davOAuthAuthenticationProvider;
+        _oauthTokenService = oauthTokenService;
+        _oauthIssuerDiscoveryService = oauthIssuerDiscoveryService;
+        _imapAuthCapabilityProbe = imapAuthCapabilityProbe;
+        _accountOAuthProfileService = accountOAuthProfileService;
         _knownImapProviderCatalog = knownImapProviderCatalog;
         _accountCapabilityService = accountCapabilityService;
         _externalLauncher = externalLauncher;
@@ -297,14 +307,20 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         _providerType = context.AccountCreationDialogResult?.ProviderType ?? MailProviderType.IMAP4;
         _isCardDavEnabled = _wizardContext.ContactIntegrationSource == AccountIntegrationSource.Dav;
         _isCompletionFinalized = false;
+        _isDavModeTrackingEnabled = false;
         IsPageInfoBarOpen = false;
 
         if (mode != NavigationMode.Back)
             ResetSetupProgress();
+        else
+            _isOAuthSessionHandedOff = false;
 
         if (_pageMode is ImapCalDavSettingsPageMode.Create or ImapCalDavSettingsPageMode.Wizard or ImapCalDavSettingsPageMode.AddAccount)
         {
             ApplyCreateContextDefaults(context.AccountCreationDialogResult);
+
+            if (mode != NavigationMode.Back && context.Prefill != null)
+                ApplyPrefill(context.Prefill);
         }
         else
         {
@@ -312,6 +328,13 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         }
 
         SyncCapabilitiesFromState(context.AccountCreationDialogResult);
+
+        ResetDavOAuthState();
+        if (IsEditMode)
+            RememberInitialDavModes();
+        await RefreshDavGrantedScopesAsync();
+        _isDavModeTrackingEnabled = true;
+
         Log.Debug("IMAP setup opened in {Mode}: wizard contacts source {Source}, contact mode {ContactMode}, CardDAV {IsCardDavEnabled}",
             _pageMode, _wizardContext.ContactIntegrationSource, Capabilities.ContactMode, _isCardDavEnabled);
         UpdateAppPasswordHelp();
@@ -327,6 +350,11 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
     public override void OnNavigatedFrom(NavigationMode mode, object? parameters)
     {
+        CancelOAuthSignIn();
+
+        if (!_isOAuthSessionHandedOff)
+            DiscardOAuthSession();
+
         if (_pageMode == ImapCalDavSettingsPageMode.Create && !_isCompletionFinalized)
         {
             _completionSource?.TrySetResult(null);
@@ -350,6 +378,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         try
         {
             ValidateCapabilitySelection();
+            await EnsureDavScopesSignedInAsync();
             await EnsureImapSettingsPreparedAsync();
             await ResolveCardDavServiceUrlAsync();
 
@@ -422,6 +451,9 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     [RelayCommand]
     private void Cancel()
     {
+        CancelOAuthSignIn();
+        DiscardOAuthSession();
+
         if (_pageMode == ImapCalDavSettingsPageMode.Create && !_isCompletionFinalized)
         {
             _completionSource?.TrySetResult(null);
@@ -449,7 +481,8 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             IsMailAccessGranted = IsMailSupportEnabled,
             IsCalendarAccessGranted = serverInformation.CalendarSupportMode != ImapCalendarSupportMode.Disabled,
             ShouldAppendMessagesToSentFolder = ShouldAppendMessagesToSentFolder,
-            ServerInformation = serverInformation
+            ServerInformation = serverInformation,
+            OAuthSession = TakeOAuthSessionForSave(serverInformation)
         };
 
         Messenger.Send(new BreadcrumbNavigationRequested(Translator.WelcomeWizard_Step3Title, WinoPage.AccountSetupProgressPage));
@@ -484,6 +517,8 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         {
             SelectedCalendarSupportMode = ImapCalendarSupportMode.CalDav;
         }
+
+        OnDavModesChanged();
     }
 
     partial void OnIsMailSupportEnabledChanged(bool value)
@@ -502,6 +537,8 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         {
             IsCalDavValidationSucceeded = false;
         }
+
+        OnDavModesChanged();
     }
 
     partial void OnEmailAddressChanged(string oldValue, string newValue)
@@ -548,6 +585,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         DisplayName = account.SenderName ?? string.Empty;
         EmailAddress = account.Address ?? string.Empty;
 
+        await LoadStoredOAuthProfileAsync(account);
         ApplyServerInformation(account.ServerInformation);
 
         // Preserve endpoint recovery for accounts restored from older snapshots.
@@ -721,6 +759,9 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             AvailableAuthenticationMethodDisplayNames.Insert(3, Translator.ImapAuthenticationMethod_EncryptedPassword);
         }
 
+        if (UsesOAuth(serverInformation))
+            EnsureOAuthMethodListed();
+
         // Shared sign-ins collapse to one checkbox; a server that uses its own keeps its fields open.
         UseIncomingCredentialsForOutgoing = IsSameCredential(OutgoingServerUsername, OutgoingServerPassword, IncomingServerUsername, IncomingServerPassword);
         UseMailCredentialsForDav = IsSameCredential(CalDavUsername, CalDavPassword, IncomingServerUsername, IncomingServerPassword);
@@ -754,7 +795,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         if (TryApplyKnownProviderSettings(alwaysApplyForKnownProvider: true))
             return;
 
-        var discoverySettings = await _autoDiscoveryService.GetAutoDiscoverySettings(minimalSettings).ConfigureAwait(false);
+        var discoverySettings = await _autoDiscoveryService.GetAutoDiscoverySettings(minimalSettings, CancellationToken.None).ConfigureAwait(false);
 
         if (discoverySettings == null)
             throw new InvalidOperationException(Translator.Exception_ImapAutoDiscoveryFailed);
@@ -809,9 +850,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
         while (true)
         {
-            var connectivityResult = await SynchronizationManager.Instance
-                .TestImapConnectivityAsync(serverInformation)
-                .ConfigureAwait(false);
+            var connectivityResult = await RunImapConnectivityTestAsync(serverInformation).ConfigureAwait(false);
 
             if (!connectivityResult.IsCertificateUIRequired)
             {
@@ -825,17 +864,28 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                 return;
             }
 
-            await ServerCertificateTrustFlow.AcceptAsync(
-                connectivityResult.CertificateFailure,
-                connectivityResult.FailedReason,
-                serverInformation,
-                serverInformation.AccountId,
-                ShowCertificatePromptAsync).ConfigureAwait(false);
+            var failure = connectivityResult.CertificateFailure;
+            if (failure?.CanTrust != true)
+                throw new InvalidOperationException(connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_CertificateCannotBeTrusted);
+
+            var certificateMessage = MailServerCertificateMessage.Build(failure);
+
+            var allowCertificate = await ExecuteUIThreadAsync(() =>
+                    _mailDialogService.ShowServerCertificateTrustDialogAsync(
+                        certificateMessage,
+                        failure.CertificateRawData))
+                .ConfigureAwait(false);
+
+            if (!allowCertificate)
+                throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
+
+            serverInformation.PendingCertificateTrusts.RemoveAll(item =>
+                item.Protocol == failure.Protocol &&
+                string.Equals(item.Host, failure.Host, StringComparison.OrdinalIgnoreCase) &&
+                item.Port == failure.Port);
+            serverInformation.PendingCertificateTrusts.Add(failure.CreateTrust(serverInformation.AccountId));
         }
     }
-
-    private Task<bool> ShowCertificatePromptAsync(ServerCertificateTrustPrompt prompt)
-        => ExecuteUIThreadAsync(() => _mailDialogService.ShowServerCertificateTrustDialogAsync(prompt));
 
     private async Task ValidatePop3ConnectivityAsync(CustomServerInformation serverInformation)
     {
@@ -853,12 +903,22 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                 return;
             }
 
-            await ServerCertificateTrustFlow.AcceptAsync(
-                result.CertificateFailure,
-                result.FailedReason,
-                serverInformation,
-                serverInformation.AccountId,
-                ShowCertificatePromptAsync).ConfigureAwait(false);
+            var failure = result.CertificateFailure;
+            if (failure?.CanTrust != true)
+                throw new InvalidOperationException(result.FailedReason ?? Translator.IMAPSetupDialog_CertificateCannotBeTrusted);
+
+            var certificateMessage = MailServerCertificateMessage.Build(failure);
+            var allowCertificate = await ExecuteUIThreadAsync(() =>
+                _mailDialogService.ShowServerCertificateTrustDialogAsync(certificateMessage, failure.CertificateRawData)).ConfigureAwait(false);
+
+            if (!allowCertificate)
+                throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
+
+            serverInformation.PendingCertificateTrusts.RemoveAll(item =>
+                item.Protocol == failure.Protocol &&
+                string.Equals(item.Host, failure.Host, StringComparison.OrdinalIgnoreCase) &&
+                item.Port == failure.Port);
+            serverInformation.PendingCertificateTrusts.Add(failure.CreateTrust(serverInformation.AccountId));
         }
     }
 
@@ -885,31 +945,15 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         var username = serverInformation.CalDavUsername;
         var password = serverInformation.CalDavPassword;
 
-        while (true)
+        var settings = new CalDavConnectionSettings
         {
-            var settings = new CalDavConnectionSettings
-            {
-                ServiceUri = uri,
-                Username = username,
-                Password = password,
-                EndpointTrust = DavEndpointTrust.For(serverInformation, MailServerProtocol.CalDav)
-            };
+            ServiceUri = uri,
+            Username = username,
+            Password = password,
+            Authentication = await TryCreateDavBearerAsync(serverInformation, DavServiceKind.CalDav, uri)
+        };
 
-            try
-            {
-                await _calDavClient.DiscoverCalendarsAsync(settings).ConfigureAwait(false);
-                return;
-            }
-            catch (Exception ex) when (ServerCertificateTrustFlow.TryGetFailure(ex, out var failure))
-            {
-                await ServerCertificateTrustFlow.AcceptAsync(
-                    failure,
-                    null,
-                    serverInformation,
-                    serverInformation.AccountId,
-                    ShowCertificatePromptAsync).ConfigureAwait(false);
-            }
-        }
+        await _calDavClient.DiscoverCalendarsAsync(settings).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -972,40 +1016,27 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         if (_cardDavClient == null)
             return;
 
-        while (true)
+        try
         {
             var settings = new CardDavConnectionSettings
             {
                 ServiceUri = serviceUri,
                 AccountAddress = serverInformation.Address,
-                Authentication = new DavAuthenticationProfile
-                {
-                    Kind = DavAuthenticationKind.Basic,
-                    Username = serverInformation.CalDavUsername,
-                    Password = serverInformation.CalDavPassword,
-                    EndpointTrust = DavEndpointTrust.For(serverInformation, MailServerProtocol.CardDav)
-                }
+                Authentication = await TryCreateDavBearerAsync(serverInformation, DavServiceKind.CardDav, serviceUri)
+                                 ?? new DavAuthenticationProfile
+                                 {
+                                     Kind = DavAuthenticationKind.Basic,
+                                     Username = serverInformation.CalDavUsername,
+                                     Password = serverInformation.CalDavPassword
+                                 }
             };
 
-            try
-            {
-                await _cardDavClient.DiscoverAsync(settings).ConfigureAwait(false);
-                return;
-            }
-            catch (Exception ex) when (ServerCertificateTrustFlow.TryGetFailure(ex, out var failure))
-            {
-                await ServerCertificateTrustFlow.AcceptAsync(
-                    failure,
-                    null,
-                    serverInformation,
-                    serverInformation.AccountId,
-                    ShowCertificatePromptAsync).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                await ExecuteUIThread(() => IsCardDavExpanded = true).ConfigureAwait(false);
-                throw new InvalidOperationException(string.Format(Translator.ImapSetup_CardDavConnectionFailed, ex.Message), ex);
-            }
+            await _cardDavClient.DiscoverAsync(settings).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            await ExecuteUIThread(() => IsCardDavExpanded = true).ConfigureAwait(false);
+            throw new InvalidOperationException(string.Format(Translator.ImapSetup_CardDavConnectionFailed, ex.Message), ex);
         }
     }
 
@@ -1024,7 +1055,8 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             IsMailAccessGranted = IsMailSupportEnabled,
             IsCalendarAccessGranted = serverInformation.CalendarSupportMode != ImapCalendarSupportMode.Disabled,
             ShouldAppendMessagesToSentFolder = ShouldAppendMessagesToSentFolder,
-            ServerInformation = serverInformation
+            ServerInformation = serverInformation,
+            OAuthSession = TakeOAuthSessionForSave(serverInformation)
         });
 
         _isCompletionFinalized = true;
@@ -1149,18 +1181,18 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         Messenger.Send(new BackBreadcrumNavigationRequested());
     }
 
-    private AutoDiscoveryMinimalSettings BuildMinimalSettingsOrThrow()
+    private AutoDiscoveryMinimalSettings BuildMinimalSettingsOrThrow(bool isPasswordRequired = true)
     {
         ValidateIdentitySettings();
 
-        if (string.IsNullOrWhiteSpace(Password))
+        if (isPasswordRequired && string.IsNullOrWhiteSpace(Password))
             throw new InvalidOperationException(Translator.IMAPAdvancedSetupDialog_ValidationPasswordRequired);
 
         return new AutoDiscoveryMinimalSettings
         {
             DisplayName = DisplayName.Trim(),
             Email = EmailAddress.Trim(),
-            Password = Password,
+            Password = Password ?? string.Empty,
             IncomingServerType = IsPop3 ? CustomIncomingServerType.POP3 : CustomIncomingServerType.IMAP4
         };
     }
@@ -1183,21 +1215,25 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             ? IncomingServerPassword
             : EffectiveDavPassword;
 
-        return new CustomServerInformation
+        // An OAuth side never stores a password, even one typed before the user chose secure sign-in.
+        var incomingPassword = incomingAuth == ImapAuthenticationMethod.OAuth2 ? string.Empty : IncomingServerPassword ?? string.Empty;
+        var outgoingPassword = outgoingAuth == ImapAuthenticationMethod.OAuth2 ? string.Empty : EffectiveOutgoingPassword ?? string.Empty;
+
+        var serverInformation = new CustomServerInformation
         {
             Id = Guid.NewGuid(),
             Address = (EmailAddress ?? string.Empty).Trim(),
             IncomingServer = (IncomingServer ?? string.Empty).Trim(),
             IncomingServerPort = (IncomingServerPort ?? string.Empty).Trim(),
             IncomingServerUsername = (IncomingServerUsername ?? string.Empty).Trim(),
-            IncomingServerPassword = IncomingServerPassword ?? string.Empty,
+            IncomingServerPassword = incomingPassword,
             IncomingServerType = IsPop3 ? CustomIncomingServerType.POP3 : CustomIncomingServerType.IMAP4,
             IncomingAuthenticationMethod = incomingAuth,
             IncomingServerSocketOption = incomingSecurity,
             OutgoingServer = (OutgoingServer ?? string.Empty).Trim(),
             OutgoingServerPort = (OutgoingServerPort ?? string.Empty).Trim(),
             OutgoingServerUsername = (EffectiveOutgoingUsername ?? string.Empty).Trim(),
-            OutgoingServerPassword = EffectiveOutgoingPassword ?? string.Empty,
+            OutgoingServerPassword = outgoingPassword,
             OutgoingAuthenticationMethod = outgoingAuth,
             OutgoingServerSocketOption = outgoingSecurity,
             ProxyServer = (ProxyServer ?? string.Empty).Trim(),
@@ -1210,6 +1246,9 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
             CalDavUsername = davEnabled ? calDavUser : string.Empty,
             CalDavPassword = davEnabled ? calDavPassword : string.Empty
         };
+
+        ApplyDavTokenCredentialPolicy(serverInformation);
+        return serverInformation;
     }
 
     /// <summary>
@@ -1253,7 +1292,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         if (serverInformation.IncomingAuthenticationMethod != ImapAuthenticationMethod.None && string.IsNullOrWhiteSpace(serverInformation.IncomingServerUsername))
             throw new InvalidOperationException(Translator.IMAPAdvancedSetupDialog_ValidationUsernameRequired);
 
-        if (serverInformation.IncomingAuthenticationMethod != ImapAuthenticationMethod.None && string.IsNullOrWhiteSpace(serverInformation.IncomingServerPassword))
+        if (serverInformation.IncomingAuthenticationMethod is not (ImapAuthenticationMethod.None or ImapAuthenticationMethod.OAuth2) && string.IsNullOrWhiteSpace(serverInformation.IncomingServerPassword))
             throw new InvalidOperationException(Translator.IMAPAdvancedSetupDialog_ValidationPasswordRequired);
 
         if (string.IsNullOrWhiteSpace(serverInformation.OutgoingServer))
@@ -1268,7 +1307,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         if (serverInformation.OutgoingAuthenticationMethod != ImapAuthenticationMethod.None && string.IsNullOrWhiteSpace(serverInformation.OutgoingServerUsername))
             throw new InvalidOperationException(Translator.IMAPAdvancedSetupDialog_ValidationOutgoingUsernameRequired);
 
-        if (serverInformation.OutgoingAuthenticationMethod != ImapAuthenticationMethod.None && string.IsNullOrWhiteSpace(serverInformation.OutgoingServerPassword))
+        if (serverInformation.OutgoingAuthenticationMethod is not (ImapAuthenticationMethod.None or ImapAuthenticationMethod.OAuth2) && string.IsNullOrWhiteSpace(serverInformation.OutgoingServerPassword))
             throw new InvalidOperationException(Translator.IMAPAdvancedSetupDialog_ValidationOutgoingPasswordRequired);
 
         if (serverInformation.IncomingAuthenticationMethod == ImapAuthenticationMethod.EncryptedPassword ||
@@ -1276,6 +1315,9 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         {
             throw new InvalidOperationException(Translator.IMAPSetupDialog_EncryptedPasswordPromotionBlocked);
         }
+
+        if (UsesOAuth(serverInformation) && !HasOAuthCredentialForTest)
+            throw new InvalidOperationException(Translator.ImapSetup_OAuthSignInRequired);
     }
 
     private void ValidateCalendarModeSpecificSettings(CustomServerInformation serverInformation)
@@ -1293,6 +1335,9 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
         if (!Uri.TryCreate(serverInformation.CalDavServiceUrl, UriKind.Absolute, out _))
             throw new InvalidOperationException(Translator.ImapCalDavSettingsPage_CalDavUrlInvalid);
+
+        if (UsesDavToken(serverInformation, DavServiceKind.CalDav))
+            return;
 
         if (string.IsNullOrWhiteSpace(serverInformation.CalDavUsername))
             throw new InvalidOperationException(Translator.ImapCalDavSettingsPage_CalDavUsernameRequired);
@@ -1323,9 +1368,13 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         if (_editingSpecialImapProvider == SpecialImapProvider.None)
             return false;
 
+        // A provider with secure sign-in has no password to carry, so its servers apply without one.
         var effectivePassword = GetKnownProviderPasswordCandidate();
-        if (string.IsNullOrWhiteSpace(EmailAddress) || string.IsNullOrWhiteSpace(effectivePassword))
+        var hasOAuthRegistration = HasCatalogOAuthRegistration(_editingSpecialImapProvider);
+        if (string.IsNullOrWhiteSpace(EmailAddress) || (string.IsNullOrWhiteSpace(effectivePassword) && !hasOAuthRegistration))
             return false;
+
+        var keepOAuthMethods = IsIncomingOAuthSelected;
 
         if (!alwaysApplyForKnownProvider && HasCompleteImapSettings() && HasCompleteCalDavSettings())
             return false;
@@ -1366,9 +1415,21 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         serverInformation.MaxConcurrentClients = MaxConcurrentClients <= 0 ? serverInformation.MaxConcurrentClients : MaxConcurrentClients;
 
         ApplyServerInformation(serverInformation);
-        Password = effectivePassword;
+
+        if (keepOAuthMethods)
+            SelectOAuthAuthenticationMethods();
+
+        if (!string.IsNullOrWhiteSpace(effectivePassword))
+            Password = effectivePassword;
+
         return true;
     }
+
+    private bool HasCatalogOAuthRegistration(SpecialImapProvider provider)
+        => provider != SpecialImapProvider.None
+           && _knownImapProviderCatalog?.GetBySpecialProvider(provider)?.OAuth is { } registration
+           && !string.IsNullOrWhiteSpace(registration.ClientId)
+           && _oauthTokenService?.IsRedirectSupported(registration.RedirectKind) != false;
 
     private string GetKnownProviderPasswordCandidate()
     {
@@ -1397,11 +1458,11 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
            || (!string.IsNullOrWhiteSpace(IncomingServer)
            && !string.IsNullOrWhiteSpace(IncomingServerPort)
            && !string.IsNullOrWhiteSpace(IncomingServerUsername)
-           && !string.IsNullOrWhiteSpace(IncomingServerPassword)
+           && (IsIncomingOAuthSelected || !string.IsNullOrWhiteSpace(IncomingServerPassword))
            && !string.IsNullOrWhiteSpace(OutgoingServer)
            && !string.IsNullOrWhiteSpace(OutgoingServerPort)
            && !string.IsNullOrWhiteSpace(EffectiveOutgoingUsername)
-           && !string.IsNullOrWhiteSpace(EffectiveOutgoingPassword)
+           && (IsOutgoingOAuthSelected || !string.IsNullOrWhiteSpace(EffectiveOutgoingPassword))
            && IsValidPort(IncomingServerPort)
            && IsValidPort(OutgoingServerPort));
 

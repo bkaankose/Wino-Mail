@@ -5,40 +5,28 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Net.Security;
 using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Serilog;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Exceptions;
-using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.CardDav;
-using Wino.Core.Domain.Models.Connectivity;
 
 namespace Wino.Services.Dav;
 
 public sealed class DavTransport : IDavTransport
 {
     private const int MaximumRedirects = 5;
-    private static readonly HttpRequestOptionsKey<DavCertificateContext> CertificateContextKey = new("Wino.DavCertificateContext");
-    private static readonly ILogger Logger = Log.ForContext<DavTransport>();
     private readonly HttpClient _httpClient;
-    private readonly IServerCertificateTrustService _certificateTrustService;
 
-    public DavTransport(IServerCertificateTrustService certificateTrustService = null, HttpClient httpClient = null)
+    public DavTransport(HttpClient httpClient = null)
     {
-        _certificateTrustService = certificateTrustService;
         _httpClient = httpClient ?? new HttpClient(new HttpClientHandler
         {
             AllowAutoRedirect = false,
-            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
-            ServerCertificateCustomValidationCallback = ValidateServerCertificate
+            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli
         });
     }
 
@@ -53,20 +41,15 @@ public sealed class DavTransport : IDavTransport
 
         var template = await DavRequestTemplate.CreateAsync(request, cancellationToken).ConfigureAwait(false);
         var target = request.RequestUri;
-        var certificateContext = await CreateCertificateContextAsync(authentication.EndpointTrust, target).ConfigureAwait(false);
         string digestAuthorization = null;
+        var isBearerRefreshed = false;
 
         for (var redirectCount = 0; redirectCount <= MaximumRedirects; redirectCount++)
         {
             using var outgoing = template.Create(target);
-            ApplyAuthentication(outgoing, authentication, digestAuthorization);
+            var bearerToken = authentication.BearerToken;
+            ApplyAuthentication(outgoing, authentication, bearerToken, digestAuthorization);
             HttpResponseMessage response;
-
-            if (certificateContext != null)
-            {
-                certificateContext.Failure = null;
-                outgoing.Options.Set(CertificateContextKey, certificateContext);
-            }
 
             try
             {
@@ -77,11 +60,6 @@ public sealed class DavTransport : IDavTransport
             }
             catch (HttpRequestException ex)
             {
-                var certificateFailure = certificateContext?.Failure
-                    ?? ex.GetInnerExceptions().OfType<MailServerCertificateException>().FirstOrDefault()?.Failure;
-                if (certificateFailure != null)
-                    throw new MailServerCertificateException(certificateFailure, ex);
-
                 throw new DavRequestException(0, Translator.DavError_Network, innerException: ex);
             }
 
@@ -93,6 +71,19 @@ public sealed class DavTransport : IDavTransport
                 if (digestAuthorization is not null)
                     continue;
                 throw new UnauthorizedAccessException("The DAV server did not return a supported Digest challenge.");
+            }
+
+            // An access token can be revoked or expire early; one refresh and retry, then the 401 is handled as today.
+            if (authentication.Kind == DavAuthenticationKind.Bearer &&
+                response.StatusCode == HttpStatusCode.Unauthorized &&
+                authentication.RefreshBearerTokenAsync is not null &&
+                !isBearerRefreshed)
+            {
+                response.Dispose();
+                isBearerRefreshed = true;
+                authentication.BearerToken = await authentication.RefreshBearerTokenAsync(bearerToken, cancellationToken).ConfigureAwait(false);
+                redirectCount--;
+                continue;
             }
 
             if (!IsRedirect(response.StatusCode) || response.Headers.Location is null)
@@ -113,53 +104,7 @@ public sealed class DavTransport : IDavTransport
         throw new DavRequestException(0, Translator.DavError_Network);
     }
 
-    private async Task<DavCertificateContext> CreateCertificateContextAsync(DavEndpointTrust endpointTrust, Uri target)
-    {
-        if (endpointTrust == null || target.Scheme != Uri.UriSchemeHttps)
-            return null;
-
-        MailServerCertificateTrust storedTrust = null;
-        if (endpointTrust.AccountId != Guid.Empty && _certificateTrustService != null)
-        {
-            try
-            {
-                storedTrust = await _certificateTrustService
-                    .GetTrustAsync(endpointTrust.AccountId, endpointTrust.Protocol, target.Host, target.Port)
-                    .ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                Logger.Warning(ex, "Could not read the stored {Protocol} certificate trust of account {AccountId}", endpointTrust.Protocol, endpointTrust.AccountId);
-            }
-        }
-
-        return new DavCertificateContext(endpointTrust.Protocol, storedTrust, endpointTrust.TransientTrust);
-    }
-
-    // Requests without a trust context (relay, discovery lookups, anonymous downloads) keep the system decision.
-    private static bool ValidateServerCertificate(HttpRequestMessage request, X509Certificate2 certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
-    {
-        if (request?.RequestUri == null ||
-            !request.Options.TryGetValue(CertificateContextKey, out var context) ||
-            context == null)
-        {
-            return sslPolicyErrors == SslPolicyErrors.None;
-        }
-
-        context.Failure = ServerCertificateValidator.Evaluate(
-            certificate,
-            chain,
-            sslPolicyErrors,
-            context.Protocol,
-            request.RequestUri.Host,
-            request.RequestUri.Port,
-            context.StoredTrust,
-            context.TransientTrust);
-
-        return context.Failure == null;
-    }
-
-    private static void ApplyAuthentication(HttpRequestMessage request, DavAuthenticationProfile authentication, string digestAuthorization)
+    private static void ApplyAuthentication(HttpRequestMessage request, DavAuthenticationProfile authentication, string bearerToken, string digestAuthorization)
     {
         switch (authentication.Kind)
         {
@@ -175,7 +120,8 @@ public sealed class DavTransport : IDavTransport
                 }
                 break;
             case DavAuthenticationKind.Bearer:
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authentication.BearerToken);
+                request.Headers.Authorization = new AuthenticationHeaderValue(
+                    string.IsNullOrWhiteSpace(authentication.BearerScheme) ? "Bearer" : authentication.BearerScheme, bearerToken);
                 break;
             case DavAuthenticationKind.Digest when !string.IsNullOrWhiteSpace(digestAuthorization):
                 request.Headers.TryAddWithoutValidation("Authorization", digestAuthorization);
@@ -272,17 +218,6 @@ public sealed class DavTransport : IDavTransport
            left.Host.Equals(right.Host, StringComparison.OrdinalIgnoreCase) && left.Port == right.Port;
 
     private static string EscapeQuoted(string value) => value?.Replace("\\", "\\\\").Replace("\"", "\\\"");
-
-    private sealed class DavCertificateContext(
-        MailServerProtocol protocol,
-        MailServerCertificateTrust storedTrust,
-        MailServerCertificateTrust transientTrust)
-    {
-        public MailServerProtocol Protocol { get; } = protocol;
-        public MailServerCertificateTrust StoredTrust { get; } = storedTrust;
-        public MailServerCertificateTrust TransientTrust { get; } = transientTrust;
-        public MailServerCertificateFailure Failure { get; set; }
-    }
 
     private sealed class DavRequestTemplate
     {

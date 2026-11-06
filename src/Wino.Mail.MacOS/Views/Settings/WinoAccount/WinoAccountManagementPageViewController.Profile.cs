@@ -20,7 +20,7 @@ public sealed partial class WinoAccountManagementPageViewController
         var panel = Panel();
         AddTo(panel, ProfileCard());
         AddTo(panel, SectionHeader(Translator.WinoAccount_Management_AddOnsSectionHeader,
-            LinkButton(ViewModel.RefreshPurchasesText, ViewModel.RefreshPurchasesCommand)));
+            LinkButton(Translator.WinoAccount_Management_RefreshPurchases, ViewModel.RefreshPurchasesCommand)));
         foreach (var view in AddOnCards()) AddTo(panel, view);
         AddTo(panel, SectionHeader(Translator.WinoAccount_Management_ManagementSectionHeader));
         foreach (var view in SyncCards()) AddTo(panel, view);

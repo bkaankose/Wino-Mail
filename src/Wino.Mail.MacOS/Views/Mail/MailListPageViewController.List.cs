@@ -51,7 +51,6 @@ public sealed partial class MailListPageViewController
     private int _projectionApplyScheduled;
     private long _lastProjectionApply;
     private bool _restoringSelection;
-    private bool _dragBeganInClick;
     private bool _listBound;
     private bool _selectionMode;
     private string _lastPublishedSelection = string.Empty;
@@ -96,7 +95,7 @@ public sealed partial class MailListPageViewController
         {
             Image = WinoIcons.Image(WinoIconGlyph.Filter, 16)
         });
-        _filterButton = CreateFilterButton(ViewModel.SelectedFilterOption?.Title ?? string.Empty, WinoIcons.Image(WinoIconGlyph.Filter, 14), _filterMenu);
+        _filterButton = NSPopUpButton.CreatePullDownButton(ViewModel.SelectedFilterOption?.Title ?? string.Empty, WinoIcons.Image(WinoIconGlyph.Filter, 14), _filterMenu);
         _filterButton.TranslatesAutoresizingMaskIntoConstraints = false;
         _filterButton.ControlSize = NSControlSize.Regular;
         _filterButton.Font = WinoStyle.Body;
@@ -146,6 +145,7 @@ public sealed partial class MailListPageViewController
         _contextMenuDelegate = new MailContextMenuDelegate(this);
         _contextMenu = new NSMenu { Delegate = _contextMenuDelegate, AutoEnablesItems = false };
         _table.Menu = _contextMenu;
+        _table.DoubleClick += (_, _) => OpenClickedRow();
 
         _scroll = new NSScrollView
         {
@@ -274,8 +274,7 @@ public sealed partial class MailListPageViewController
         {
             // A reader kept under the multi-selection overlay must not reappear once nothing is selected.
             if (count == 0 && _paneChild is MailRenderingPageViewController && !_detachedComposerActive) ShowIdleContent();
-            // The view model sets the pivot's selected count after it raises SelectedItemsCount.
-            NSApplication.SharedApplication.BeginInvokeOnMainThread(() => { if (!_released) UpdatePivots(); });
+            UpdatePivots();
             UpdateSelectAllCheckbox();
             UpdateMultiSelectionOverlay();
             CommandStateChanged?.Invoke(this, EventArgs.Empty);
@@ -372,19 +371,6 @@ public sealed partial class MailListPageViewController
         ViewModel.SelectedFolderPivot = pivots[index];
         _pivotBar.SelectedIndex = index;
         Observe(ViewModel.SelectedPivotChangedCommand.ExecuteAsync(pivots[index]));
-    }
-
-    private static NSPopUpButton CreateFilterButton(string title, NSImage image, NSMenu menu)
-    {
-        if (OperatingSystem.IsMacOSVersionAtLeast(15)) return NSPopUpButton.CreatePullDownButton(title, image, menu);
-        // macOS 14 has no pullDownButtonWithTitle; the cell's own menu item draws the title so the menu keeps only the commands.
-        var button = new NSPopUpButton(CGRect.Empty, true) { Menu = menu };
-        if (button.Cell is NSPopUpButtonCell cell)
-        {
-            cell.UsesItemFromMenu = false;
-            cell.MenuItem = new NSMenuItem(title) { Image = image };
-        }
-        return button;
     }
 
     private void UpdateFilterMenu()
@@ -677,22 +663,9 @@ public sealed partial class MailListPageViewController
         else _projection.ExpandThread(row.Thread.Key);
     }
 
-    /// <summary>
-    /// Windows thread click: a collapsed thread expands and selects its ordered representative message
-    /// (newest or oldest first, per the thread order preference); an expanded one collapses.
-    /// </summary>
-    private void ThreadHeadClicked(nint index)
+    private void OpenClickedRow()
     {
-        if (_projection is null || RowAt(index) is not { IsThreadHead: true, Thread: { Count: > 1 } thread } row) return;
-        if (row.IsExpanded)
-        {
-            _projection.CollapseThread(thread.Key);
-            return;
-        }
-        _selectionKeys.Clear();
-        _selectionKeys.Add("I:" + thread.RepresentativeItem.StableId.ToString("N"));
-        _projection.ExpandThread(thread.Key);
-        ApplyEntries(forceReload: false);
+        if (RowAt(_table.ClickedRow) is { IsThreadHead: true } row) ToggleThread(row);
     }
 
     private void CheckLoadMore()
@@ -1015,7 +988,7 @@ public sealed partial class MailListPageViewController
             view.CacheDisplay(view.Bounds, rep);
             using var data = rep.RepresentationUsingTypeProperties(NSBitmapImageFileType.Png, new NSDictionary());
             var file = Path.Combine(Path.GetTempPath(), "wino-debug", (args.Length > 1 ? args[1] : "zone") + ".png");
-            data?.Save(NSUrl.FromFilename(file), true);
+            data?.Save(file, true);
             return Task.FromResult(Path.GetFileName(file));
         });
         MacDebugBridge.Register("dismiss", _ =>
@@ -1101,12 +1074,7 @@ public sealed partial class MailListPageViewController
                 base.MouseDown(toggle);
                 return;
             }
-            owner._dragBeganInClick = false;
-            var row = GetRow(ConvertPointFromView(theEvent.LocationInWindow, null));
             base.MouseDown(theEvent);
-            if (!owner._selectionMode && theEvent.ClickCount == 1 && !owner._dragBeganInClick
-                && (theEvent.ModifierFlags & (NSEventModifierMask.CommandKeyMask | NSEventModifierMask.ShiftKeyMask)) == 0)
-                owner.ThreadHeadClicked(row);
         }
 
         public override void KeyDown(NSEvent theEvent)

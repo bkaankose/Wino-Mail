@@ -563,7 +563,7 @@ public sealed class EventDetailsPageViewController(EventDetailsPageViewModel vie
             var name = WinoStyle.Label(attachment.FileName, WinoStyle.Body);
             name.LineBreakMode = NSLineBreakMode.TruncatingMiddle;
             name.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
-            var size = WinoStyle.Label(attachment.ReadableSize, WinoStyle.Caption, WinoStyle.SecondaryText);
+            var size = WinoStyle.Label(attachment.ReadableSize, WinoStyle.Caption, WinoStyle.TertiaryText);
             var open = InlineButton(Translator.Buttons_Open, $"{Translator.Buttons_Open} {attachment.FileName}", () => OpenAttachment(captured));
             var save = InlineButton(Translator.Buttons_Save, $"{Translator.Buttons_Save} {attachment.FileName}", () => SaveAttachment(captured));
             var spinner = new NSProgressIndicator { Style = NSProgressIndicatorStyle.Spinning, ControlSize = NSControlSize.Small, TranslatesAutoresizingMaskIntoConstraints = false, Hidden = true };

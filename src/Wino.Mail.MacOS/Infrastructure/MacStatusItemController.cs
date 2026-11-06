@@ -142,7 +142,7 @@ public sealed class MacStatusItemController : IDisposable
             await _viewModel!.OpenAsync(_readiness, CancellationToken.None);
             if (_item?.Button is null || _popover is null) return;
             // The popover takes keyboard focus (snooze menu, Escape) only while Wino is active.
-            NSApplication.SharedApplication.Activate();
+            NSApplication.SharedApplication.ActivateIgnoringOtherApps(true);
             _content!.RefreshNow();
             _popover.ContentSize = _content.PreferredContentSize;
             _popover.Show(button.Bounds, button, NSRectEdge.MinYEdge);

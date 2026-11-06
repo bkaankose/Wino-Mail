@@ -35,11 +35,7 @@ public static class WinoStyle
     public static NSFont ReaderSubject => NSFont.SystemFontOfSize(19, NSFontWeight.Bold);
 
     public static NSColor PrimaryText => NSColor.Label;
-    /// <summary>
-    /// secondaryLabelColor in dark; in light it is black at 58% instead of 50%, because the system value
-    /// measures 3.95:1 on white and secondary captions (contact sources, hour labels) must reach 4.5:1.
-    /// </summary>
-    public static NSColor SecondaryText { get; } = Dynamic(NSColor.Black.ColorWithAlphaComponent(0.58f), NSColor.SecondaryLabel);
+    public static NSColor SecondaryText => NSColor.SecondaryLabel;
     public static NSColor TertiaryText => NSColor.TertiaryLabel;
     public static NSColor Separator => NSColor.Separator;
     /// <summary>The Wino theme accent when a theme sets one, otherwise the system accent.</summary>

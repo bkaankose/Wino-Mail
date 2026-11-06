@@ -21,8 +21,6 @@ namespace Wino.Services;
 
 public partial class PreferencesService(IConfigurationService configurationService) : ObservableObject, IPreferencesService
 {
-    private const string LegacyRenderImagesKey = "RenderImages";
-
     private readonly IConfigurationService _configurationService = configurationService;
 
     public event EventHandler<string>? PreferenceChanged;
@@ -59,7 +57,7 @@ public partial class PreferencesService(IConfigurationService configurationServi
     public MailRenderingOptions GetRenderingOptions()
         => new MailRenderingOptions()
         {
-            RemoteContent = RemoteContentMode,
+            LoadImages = RenderImages,
             LoadStyles = RenderStyles,
             RenderPlaintextLinks = RenderPlaintextLinks
         };
@@ -97,14 +95,6 @@ public partial class PreferencesService(IConfigurationService configurationServi
         var failedCount = 0;
         var hasAppCloseBehavior = rootElement.TryGetProperty(nameof(IPreferencesService.AppCloseBehavior), out var appCloseBehaviorElement)
                                   && appCloseBehaviorElement.ValueKind is not JsonValueKind.Null and not JsonValueKind.Undefined;
-
-        if (!rootElement.TryGetProperty(nameof(IPreferencesService.RemoteContentMode), out _)
-            && rootElement.TryGetProperty(LegacyRenderImagesKey, out var renderImagesElement)
-            && renderImagesElement.ValueKind is JsonValueKind.True or JsonValueKind.False)
-        {
-            RemoteContentMode = MapLegacyRenderImages(renderImagesElement.GetBoolean());
-            appliedCount++;
-        }
 
         foreach (var property in GetSyncablePreferenceProperties())
         {
@@ -216,22 +206,10 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(IsMailListGroupHeadersEnabled), value);
     }
 
-    public MailListDateGroupingType MailListDateGroupingType
-    {
-        get => _configurationService.Get(nameof(MailListDateGroupingType), MailListDateGroupingType.EachDay);
-        set => SetPropertyAndSave(nameof(MailListDateGroupingType), value);
-    }
-
     public bool IsOtherInboxUnreadNoticeEnabled
     {
         get => _configurationService.Get(nameof(IsOtherInboxUnreadNoticeEnabled), true);
         set => SetPropertyAndSave(nameof(IsOtherInboxUnreadNoticeEnabled), value);
-    }
-
-    public bool IsMarkAsReadOnMoveToTrashEnabled
-    {
-        get => _configurationService.Get(nameof(IsMarkAsReadOnMoveToTrashEnabled), false);
-        set => SetPropertyAndSave(nameof(IsMarkAsReadOnMoveToTrashEnabled), value);
     }
 
     public bool RenderStyles
@@ -246,76 +224,11 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(RenderPlaintextLinks), value);
     }
 
-    public RemoteContentMode RemoteContentMode
+    public bool RenderImages
     {
-        get
-        {
-            if (!_configurationService.Contains(nameof(RemoteContentMode)))
-            {
-                MigrateRemoteContentMode();
-            }
-
-            return GetDefinedEnum(nameof(RemoteContentMode), RemoteContentMode.BlockTrackers);
-        }
-        set => SetPropertyAndSave(nameof(RemoteContentMode), GetDefinedValue(value, RemoteContentMode.BlockTrackers));
+        get => _configurationService.Get(nameof(RenderImages), true);
+        set => SetPropertyAndSave(nameof(RenderImages), value);
     }
-
-    public bool LoadRemoteContentFromContacts
-    {
-        get => _configurationService.Get(nameof(LoadRemoteContentFromContacts), false);
-        set => SetPropertyAndSave(nameof(LoadRemoteContentFromContacts), value);
-    }
-
-    public bool LoadRemoteContentFromRecipients
-    {
-        get => _configurationService.Get(nameof(LoadRemoteContentFromRecipients), false);
-        set => SetPropertyAndSave(nameof(LoadRemoteContentFromRecipients), value);
-    }
-
-    public bool StripLinkTrackingParameters
-    {
-        get => _configurationService.Get(nameof(StripLinkTrackingParameters), true);
-        set => SetPropertyAndSave(nameof(StripLinkTrackingParameters), value);
-    }
-
-    public bool ConfirmBeforeOpeningLinks
-    {
-        get => _configurationService.Get(nameof(ConfirmBeforeOpeningLinks), false);
-        set => SetPropertyAndSave(nameof(ConfirmBeforeOpeningLinks), value);
-    }
-
-    public bool AlwaysShowSenderAddress
-    {
-        get => _configurationService.Get(nameof(AlwaysShowSenderAddress), false);
-        set => SetPropertyAndSave(nameof(AlwaysShowSenderAddress), value);
-    }
-
-    public bool WarnBeforeOpeningExecutableAttachments
-    {
-        get => _configurationService.Get(nameof(WarnBeforeOpeningExecutableAttachments), true);
-        set => SetPropertyAndSave(nameof(WarnBeforeOpeningExecutableAttachments), value);
-    }
-
-    public bool CheckAttachmentsWithPlatformSecurity
-    {
-        get => _configurationService.Get(nameof(CheckAttachmentsWithPlatformSecurity), true);
-        set => SetPropertyAndSave(nameof(CheckAttachmentsWithPlatformSecurity), value);
-    }
-
-    // RenderImages was replaced by RemoteContentMode. Upgraders keep what they chose; anyone else starts on Block trackers.
-    // Runs on the first read instead of at construction so no caller depends on construction order.
-    private void MigrateRemoteContentMode()
-    {
-        var mode = _configurationService.Contains(LegacyRenderImagesKey)
-            ? MapLegacyRenderImages(_configurationService.Get(LegacyRenderImagesKey, true))
-            : RemoteContentMode.BlockTrackers;
-
-        _configurationService.Set(nameof(RemoteContentMode), mode);
-        _configurationService.Remove(LegacyRenderImagesKey);
-    }
-
-    private static RemoteContentMode MapLegacyRenderImages(bool renderImages)
-        => renderImages ? RemoteContentMode.LoadEverything : RemoteContentMode.BlockAll;
 
     public MailContentTheme ReaderContentTheme
     {
@@ -576,12 +489,6 @@ public partial class PreferencesService(IConfigurationService configurationServi
     {
         get => _configurationService.Get(nameof(IsWorkingHoursEnabled), true);
         set => SetPropertyAndSave(nameof(IsWorkingHoursEnabled), value);
-    }
-
-    public bool IsCalendarCurrentTimeLineEnabled
-    {
-        get => _configurationService.Get(nameof(IsCalendarCurrentTimeLineEnabled), true);
-        set => SetPropertyAndSave(nameof(IsCalendarCurrentTimeLineEnabled), value);
     }
 
     public string CalendarTimedDayHeaderDateFormat
@@ -1115,8 +1022,7 @@ public partial class PreferencesService(IConfigurationService configurationServi
                                     DateTimeDisplayFormatter.GetTimeDisplayType(CalendarTimeFormatPreference, GetCurrentLanguageCulture()),
                                     GetCurrentLanguageCulture(),
                                     CalendarTimedDayHeaderDateFormat,
-                                    CalendarEventDisplayMode,
-                                    IsCalendarCurrentTimeLineEnabled);
+                                    CalendarEventDisplayMode);
     }
 
     private CultureInfo GetCurrentLanguageCulture()

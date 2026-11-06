@@ -161,27 +161,7 @@ public class WinoRequestProcessor : IWinoRequestProcessor
             requests.Add(singleRequest);
         }
 
-        return PrependMarkAsReadForTrashMoves(requests);
-    }
-
-    private List<IMailActionRequest> PrependMarkAsReadForTrashMoves(List<IMailActionRequest> requests)
-    {
-        if (!_preferencesService.IsMarkAsReadOnMoveToTrashEnabled)
-            return requests;
-
-        // IMAP and EWS identify the message by its source folder, so the read flag must reach the
-        // server before the move. All marks go first to keep each operation in a single batch.
-        var markAsReadRequests = requests
-            .OfType<MoveRequest>()
-            .Where(request => request.ToFolder?.SpecialFolderType == SpecialFolderType.Deleted && !request.Item.IsRead)
-            .Select(request => (IMailActionRequest)new MarkReadRequest(request.Item, true))
-            .ToList();
-
-        if (markAsReadRequests.Count == 0)
-            return requests;
-
-        markAsReadRequests.AddRange(requests);
-        return markAsReadRequests;
+        return requests;
     }
 
     private static void ValidateMoveTarget(
@@ -266,7 +246,8 @@ public class WinoRequestProcessor : IWinoRequestProcessor
             MailItemFolder archiveFolder = null;
 
             bool shouldRequireArchiveFolder = mailItem.AssignedAccount.ProviderType == MailProviderType.Outlook
-                                              || mailItem.AssignedAccount.ProviderType is (MailProviderType.IMAP4 or MailProviderType.POP3 or MailProviderType.EAS);
+                                              || mailItem.AssignedAccount.UsesActiveSync
+                                              || mailItem.AssignedAccount.ProviderType is (MailProviderType.IMAP4 or MailProviderType.POP3 or MailProviderType.Exchange);
 
             if (shouldRequireArchiveFolder)
             {

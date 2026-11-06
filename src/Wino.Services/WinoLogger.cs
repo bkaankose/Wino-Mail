@@ -332,6 +332,7 @@ public class WinoLogger : IWinoLogger
             or System.Security.Authentication.AuthenticationException
             or SynchronizerException
             or ImapValidationException
+            or ImapTestSSLCertificateException
             or ImapClientPoolException
             or DavRequestException
             or GoogleAuthenticationException)

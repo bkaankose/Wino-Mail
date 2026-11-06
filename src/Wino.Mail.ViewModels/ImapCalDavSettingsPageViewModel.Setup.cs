@@ -27,6 +27,7 @@ public partial class ImapCalDavSettingsPageViewModel
     // Discovery runs again only for a different address, so going back to fix a password keeps
     // the server values the user already edited.
     private string _lastDiscoveredAddress;
+    private bool _isSpecialImapProviderInferred;
 
     /// <summary>
     /// What this account is used for. Editable on the edit page through the capability picker;
@@ -127,7 +128,7 @@ public partial class ImapCalDavSettingsPageViewModel
     public string PrimaryActionText => IsEditMode
         ? Translator.Buttons_Save
         : CurrentSetupStep == ImapSetupStep.SignIn
-            ? Translator.ProviderSelection_ContinueButton
+            ? SignInStage == ImapSignInStage.Method ? Translator.ImapSetup_Next : Translator.ProviderSelection_ContinueButton
             : Translator.ProviderSelection_AddAccountButton;
 
     public bool IsDiscoveryFoundVisible => IsCreateMode && IsServersStepCurrent && DiscoveryState == ServerDiscoveryState.Found;
@@ -146,13 +147,19 @@ public partial class ImapCalDavSettingsPageViewModel
     /// </summary>
     public bool IsSignInServerAddressVisible => !IsMailSupportEnabled && IsCalDavSettingsVisible;
 
-    public bool IsOutgoingCredentialsVisible => !UseIncomingCredentialsForOutgoing;
-    public bool IsDavCredentialsOptionVisible => IsMailSupportEnabled;
-    public bool IsDavCredentialsVisible => IsMailSupportEnabled && !UseMailCredentialsForDav;
+    public bool IsOutgoingCredentialsVisible => !UseIncomingCredentialsForOutgoing && !IsOutgoingOAuthSelected;
 
-    // With no calendar row, the contacts row carries the shared DAV sign-in option.
-    public bool IsCardDavCredentialsOptionVisible => IsCardDavOnlySettingsVisible && IsMailSupportEnabled;
-    public bool IsCardDavCredentialsVisible => IsCardDavCredentialsOptionVisible && !UseMailCredentialsForDav;
+    // An OAuth mail sign-in has no password to share. DAV sends the token only where DavOAuthRule allows it and
+    // otherwise asks for its own password.
+    public bool IsDavCredentialsOptionVisible => IsMailSupportEnabled && !IsIncomingOAuthSelected;
+    public bool IsDavCredentialsVisible => IsMailSupportEnabled && (!UseMailCredentialsForDav || IsIncomingOAuthSelected) && !IsCalDavOAuthSelected;
+
+    // With no calendar row, the contacts row carries the shared DAV sign-in option. With a calendar row that uses the
+    // token, contacts without the token show their own fields.
+    public bool IsCardDavCredentialsOptionVisible => IsCardDavOnlySettingsVisible && IsMailSupportEnabled && !IsIncomingOAuthSelected;
+    public bool IsCardDavCredentialsVisible => IsMailSupportEnabled && !IsCardDavOAuthSelected && (IsCardDavOnlySettingsVisible
+        ? !UseMailCredentialsForDav || IsIncomingOAuthSelected
+        : IsCardDavSettingsVisible && IsCalDavOAuthSelected);
 
     /// <summary>
     /// NumberBox works in doubles; the server setting is a whole number of connections.
@@ -169,8 +176,8 @@ public partial class ImapCalDavSettingsPageViewModel
 
     public bool IsMailAdvancedOptionsVisible => IsMailSupportEnabled;
 
-    public string IncomingSummary => DescribeEndpoint(IncomingServer, IncomingServerPort, SelectedIncomingServerConnectionSecurityIndex);
-    public string OutgoingSummary => DescribeEndpoint(OutgoingServer, OutgoingServerPort, SelectedOutgoingServerConnectionSecurityIndex);
+    public string IncomingSummary => DescribeEndpoint(IncomingServer, IncomingServerPort, SelectedIncomingServerConnectionSecurityIndex, IsIncomingOAuthSelected);
+    public string OutgoingSummary => DescribeEndpoint(OutgoingServer, OutgoingServerPort, SelectedOutgoingServerConnectionSecurityIndex, IsOutgoingOAuthSelected);
     public string CalDavSummary => string.IsNullOrWhiteSpace(CalDavServiceUrl) ? Translator.ImapSetup_ServerNotSet : CalDavServiceUrl.Trim();
     // Discovery fills the URL in, so an empty one means nothing was found and it must be typed.
     public string CardDavSummary => string.IsNullOrWhiteSpace(CardDavServiceUrl) ? Translator.ImapSetup_ServerNotSet : CardDavServiceUrl.Trim();
@@ -179,8 +186,9 @@ public partial class ImapCalDavSettingsPageViewModel
     private string EffectiveOutgoingPassword => UseIncomingCredentialsForOutgoing ? IncomingServerPassword : OutgoingServerPassword;
 
     // Without mail the sign-in step is the DAV sign-in, so the DAV fields are used as they are.
-    private string EffectiveDavUsername => IsMailSupportEnabled && UseMailCredentialsForDav ? IncomingServerUsername : CalDavUsername;
-    private string EffectiveDavPassword => IsMailSupportEnabled && UseMailCredentialsForDav ? IncomingServerPassword : CalDavPassword;
+    private bool IsDavSharingMailCredentials => IsMailSupportEnabled && UseMailCredentialsForDav && !IsIncomingOAuthSelected;
+    private string EffectiveDavUsername => IsDavSharingMailCredentials ? IncomingServerUsername : CalDavUsername;
+    private string EffectiveDavPassword => IsDavSharingMailCredentials ? IncomingServerPassword : CalDavPassword;
 
     private string AddressDomain => MailAccountAddressValidator.TryGetDomain(EmailAddress?.Trim(), out var domain)
         ? domain
@@ -191,7 +199,11 @@ public partial class ImapCalDavSettingsPageViewModel
     {
         if (IsCreateMode && CurrentSetupStep == ImapSetupStep.SignIn)
         {
-            await ContinueToServersAsync();
+            if (SignInStage == ImapSignInStage.Identity)
+                await ContinueFromIdentityAsync();
+            else
+                await ContinueFromSignInMethodAsync();
+
             return;
         }
 
@@ -207,38 +219,66 @@ public partial class ImapCalDavSettingsPageViewModel
             return;
         }
 
+        if (IsCreateMode && SignInStage == ImapSignInStage.Method)
+        {
+            CancelOAuthSignIn();
+            HideOAuthInfoBar();
+            SignInStage = ImapSignInStage.Identity;
+            return;
+        }
+
         // The first step goes back to the provider page, where the capabilities were chosen.
         Cancel();
     }
 
-    private async Task ContinueToServersAsync()
+    /// <summary>
+    /// The address part of the sign-in step: finds the servers, then how they accept sign-in.
+    /// Nothing contacts a server before this.
+    /// </summary>
+    private async Task ContinueFromIdentityAsync()
     {
         await HidePageErrorAsync();
+        HideOAuthInfoBar();
 
         IsBusy = true;
         BusyText = string.Format(Translator.ImapSetup_LookingUp, AddressDomain);
 
         try
         {
-            ValidateSignIn();
+            ValidateIdentitySettings();
 
             var normalizedAddress = EmailAddress.Trim();
             if (!string.Equals(_lastDiscoveredAddress, normalizedAddress, StringComparison.OrdinalIgnoreCase))
             {
+                ResetSecureSignInState();
+
                 var isFound = await DiscoverServerSettingsAsync();
+                ApplyMailServerAddress();
 
                 _lastDiscoveredAddress = normalizedAddress;
                 DiscoveryState = isFound ? ServerDiscoveryState.Found : ServerDiscoveryState.NotFound;
                 ResetConnectionStates();
+                RememberDiscoveredAuthenticationMethods();
 
                 // What discovery could not fill in opens so it can be typed.
                 IsIncomingExpanded = !isFound && IsMailSupportEnabled;
                 IsOutgoingExpanded = !isFound && IsMailSupportEnabled;
                 IsCalDavExpanded = IsCalDavSettingsVisible && string.IsNullOrWhiteSpace(CalDavServiceUrl);
                 IsCardDavExpanded = IsCardDavSettingsVisible && string.IsNullOrWhiteSpace(CardDavServiceUrl);
+
+                await DiscoverSecureSignInAsync();
             }
 
-            CurrentSetupStep = ImapSetupStep.Servers;
+            // A head without the secure sign-in choice shows the password next to the address,
+            // so a typed password continues straight to the servers as before.
+            if (!IsSecureSignInSupportedByHost && !string.IsNullOrWhiteSpace(Password))
+            {
+                RestorePasswordAuthenticationMethods();
+                CurrentSetupStep = ImapSetupStep.Servers;
+                return;
+            }
+
+            SignInStage = ImapSignInStage.Method;
         }
         catch (Exception ex)
         {
@@ -247,6 +287,36 @@ public partial class ImapCalDavSettingsPageViewModel
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    private async Task ContinueFromSignInMethodAsync()
+    {
+        await HidePageErrorAsync();
+
+        try
+        {
+            if (IsOAuthMethodChosen)
+            {
+                if (_oauthSession == null)
+                    throw new InvalidOperationException(Translator.ImapSetup_OAuthSignInRequired);
+
+                if (IsDavScopeSignInRequired)
+                    throw new InvalidOperationException(Translator.ImapSetup_OAuthDavScopeSignInRequired);
+
+                SelectOAuthAuthenticationMethods();
+            }
+            else
+            {
+                ValidateSignIn();
+                RestorePasswordAuthenticationMethods();
+            }
+
+            CurrentSetupStep = ImapSetupStep.Servers;
+        }
+        catch (Exception ex)
+        {
+            await ShowImapValidationFailureAsync(ex);
         }
     }
 
@@ -389,11 +459,13 @@ public partial class ImapCalDavSettingsPageViewModel
         var isMailFound = true;
         var isCalendarFound = true;
 
+        InferSecureSignInProviderFromAddress();
+
         if (IsMailSupportEnabled)
         {
             try
             {
-                await AutoDiscoverAndApplySettingsAsync(BuildMinimalSettingsOrThrow());
+                await AutoDiscoverAndApplySettingsAsync(BuildMinimalSettingsOrThrow(isPasswordRequired: false));
             }
             catch (Exception)
             {
@@ -422,8 +494,34 @@ public partial class ImapCalDavSettingsPageViewModel
         return isMailFound && isCalendarFound;
     }
 
+    /// <summary>
+    /// An address typed on the generic IMAP page that belongs to a catalog provider with secure sign-in takes that
+    /// provider's servers, as if it had been picked from the list. Other catalog providers keep autodiscovery so
+    /// their existing setup does not change.
+    /// </summary>
+    private void InferSecureSignInProviderFromAddress()
+    {
+        if (_isSpecialImapProviderInferred)
+        {
+            _editingSpecialImapProvider = SpecialImapProvider.None;
+            _isSpecialImapProviderInferred = false;
+        }
+
+        if (_editingSpecialImapProvider != SpecialImapProvider.None || IsPop3 || !IsSecureSignInSupportedByHost)
+            return;
+
+        var provider = _knownImapProviderCatalog?.Match(EmailAddress?.Trim() ?? string.Empty, string.Empty);
+        if (provider == null || !HasCatalogOAuthRegistration(provider.SpecialImapProvider))
+            return;
+
+        _editingSpecialImapProvider = provider.SpecialImapProvider;
+        _isSpecialImapProviderInferred = true;
+    }
+
     private void ResetSetupProgress()
     {
+        ResetSecureSignInState();
+        SignInStage = ImapSignInStage.Identity;
         CurrentSetupStep = ImapSetupStep.SignIn;
         DiscoveryState = ServerDiscoveryState.NotRun;
         _lastDiscoveredAddress = null;
@@ -518,6 +616,7 @@ public partial class ImapCalDavSettingsPageViewModel
         }
 
         NotifySetupLayoutChanged();
+        OnDavModesChanged();
     }
 
     private void ApplyCalendarModeFromCapabilities()
@@ -560,6 +659,7 @@ public partial class ImapCalDavSettingsPageViewModel
         OnPropertyChanged(nameof(IsCardDavCredentialsOptionVisible));
         OnPropertyChanged(nameof(IsCardDavCredentialsVisible));
         OnPropertyChanged(nameof(IncomingSettingsTitle));
+        NotifySecureSignInLayoutChanged();
     }
 
     partial void OnMaxConcurrentClientsChanged(int value) => OnPropertyChanged(nameof(MaxConcurrentClientsValue));
@@ -574,7 +674,7 @@ public partial class ImapCalDavSettingsPageViewModel
         AppPasswordHelpUrl = help?.HelpUrl ?? string.Empty;
     }
 
-    private string DescribeEndpoint(string host, string port, int securityIndex)
+    private string DescribeEndpoint(string host, string port, int securityIndex, bool isOAuth)
     {
         if (string.IsNullOrWhiteSpace(host))
             return Translator.ImapSetup_ServerNotSet;
@@ -582,8 +682,9 @@ public partial class ImapCalDavSettingsPageViewModel
         var security = securityIndex >= 0 && securityIndex < AvailableConnectionSecurityDisplayNames.Count
             ? AvailableConnectionSecurityDisplayNames[securityIndex]
             : string.Empty;
+        var authentication = isOAuth ? Translator.ImapAuthenticationMethod_OAuth2 : string.Empty;
 
-        return string.Join(" · ", new[] { host.Trim(), port?.Trim(), security }.Where(part => !string.IsNullOrWhiteSpace(part)));
+        return string.Join(" · ", new[] { host.Trim(), port?.Trim(), security, authentication }.Where(part => !string.IsNullOrWhiteSpace(part)));
     }
 
     private static bool IsSameCredential(string username, string password, string referenceUsername, string referencePassword)
@@ -604,12 +705,25 @@ public partial class ImapCalDavSettingsPageViewModel
 
     partial void OnIsMailSupportEnabledChanged(bool oldValue, bool newValue) => NotifySetupLayoutChanged();
 
-    partial void OnIncomingServerChanged(string value) => OnPropertyChanged(nameof(IncomingSummary));
+    partial void OnIncomingServerChanged(string value)
+    {
+        OnPropertyChanged(nameof(IncomingSummary));
+        NotifyDavSignInLayoutChanged();
+    }
     partial void OnIncomingServerPortChanged(string value) => OnPropertyChanged(nameof(IncomingSummary));
     partial void OnSelectedIncomingServerConnectionSecurityIndexChanged(int value) => OnPropertyChanged(nameof(IncomingSummary));
     partial void OnOutgoingServerChanged(string value) => OnPropertyChanged(nameof(OutgoingSummary));
     partial void OnOutgoingServerPortChanged(string value) => OnPropertyChanged(nameof(OutgoingSummary));
     partial void OnSelectedOutgoingServerConnectionSecurityIndexChanged(int value) => OnPropertyChanged(nameof(OutgoingSummary));
-    partial void OnCalDavServiceUrlChanged(string value) => OnPropertyChanged(nameof(CalDavSummary));
-    partial void OnCardDavServiceUrlChanged(string value) => OnPropertyChanged(nameof(CardDavSummary));
+    partial void OnCalDavServiceUrlChanged(string value)
+    {
+        OnPropertyChanged(nameof(CalDavSummary));
+        NotifyDavSignInLayoutChanged();
+    }
+
+    partial void OnCardDavServiceUrlChanged(string value)
+    {
+        OnPropertyChanged(nameof(CardDavSummary));
+        NotifyDavSignInLayoutChanged();
+    }
 }

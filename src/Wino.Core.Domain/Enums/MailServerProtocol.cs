@@ -4,7 +4,5 @@ public enum MailServerProtocol
 {
     Imap = 0,
     Smtp = 1,
-    Pop3 = 2,
-    CalDav = 3,
-    CardDav = 4
+    Pop3 = 2
 }

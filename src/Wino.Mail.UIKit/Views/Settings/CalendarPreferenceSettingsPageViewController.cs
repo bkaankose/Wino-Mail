@@ -28,7 +28,7 @@ public sealed class CalendarPreferenceSettingsPageViewController(CalendarPrefere
         // the live preview sits on this page under it.
         var modePopup = Bind.PopUp<CalendarPreferenceSettingsPageViewModel, CalendarEventDisplayModeOption>(vm, s => s.EventDisplayModeOptions, option => option.DisplayName,
             nameof(vm.SelectedEventDisplayModeOption), s => s.SelectedEventDisplayModeOption, (s, v) => s.SelectedEventDisplayModeOption = v);
-        var overlap = Card(Translator.CalendarSettings_Overlap_Header, Translator.IOS_SettingsHint_Overlap, WinoIconGlyph.None, modePopup);
+        var overlap = Card(Translator.CalendarSettings_Overlap_Header, Translator.CalendarSettings_Overlap_Description, WinoIconGlyph.None, modePopup);
         AddGroup(null, overlap);
 
         var preview = new OverlapPreviewView();
@@ -37,28 +37,28 @@ public sealed class CalendarPreferenceSettingsPageViewController(CalendarPrefere
         Bind.Bind(vm, nameof(vm.SelectedEventDisplayModeOption), s => s.SelectedEventDisplayModeOption?.Description, text => modeDescription.Text = text ?? string.Empty);
         Add(PreviewSurface(preview, modeDescription));
 
-        var sync = StackedCard(Translator.CalendarSettings_SyncInterval_Title, Translator.IOS_SettingsHint_CalendarSyncInterval, WinoIconGlyph.Sync,
-            Bind.Stepper(vm, nameof(vm.CalendarSyncIntervalMinutes), s => s.CalendarSyncIntervalMinutes, (s, v) => s.CalendarSyncIntervalMinutes = v, 1, 1440,
-                accessibilityLabel: Translator.CalendarSettings_SyncInterval_Title));
+        var sync = StackedCard(Translator.CalendarSettings_SyncInterval_Title, Translator.CalendarSettings_SyncInterval_Description, WinoIconGlyph.Sync,
+            SettingsCardLayout.Leading(Bind.Stepper(vm, nameof(vm.CalendarSyncIntervalMinutes), s => s.CalendarSyncIntervalMinutes, (s, v) => s.CalendarSyncIntervalMinutes = v, 1, 1440,
+                accessibilityLabel: Translator.CalendarSettings_SyncInterval_Title)));
 
         // Grouping is a switch row; the startup account follows as its own value row while accounts are not grouped.
-        var grouping = Card(Translator.CalendarSettings_AccountGrouping_Header, Translator.IOS_SettingsHint_CalendarGrouping, WinoIconGlyph.Folder,
+        var grouping = Card(Translator.CalendarSettings_AccountGrouping_Header, Translator.CalendarSettings_AccountGrouping_Description, WinoIconGlyph.Folder,
             Bind.Switch(vm, nameof(vm.IsCalendarAccountsGrouped), s => s.IsCalendarAccountsGrouped, (s, v) => s.IsCalendarAccountsGrouped = v, Translator.CalendarSettings_AccountGrouping_Header));
         var startupPopup = Bind.PopUp<CalendarPreferenceSettingsPageViewModel, MailAccount>(vm, s => s.CalendarStartupAccounts.ToList(),
             account => string.IsNullOrWhiteSpace(account.Name) ? account.Address ?? string.Empty : $"{account.Name} — {account.Address}",
             nameof(vm.SelectedCalendarStartupAccount), s => s.SelectedCalendarStartupAccount, (s, v) => s.SelectedCalendarStartupAccount = v,
             itemsCollection: vm.CalendarStartupAccounts);
-        var startup = Card(Translator.CalendarSettings_StartupAccount_Header, Translator.IOS_SettingsHint_CalendarStartupAccount, WinoIconGlyph.None, startupPopup);
+        var startup = Card(Translator.CalendarSettings_StartupAccount_Header, Translator.CalendarSettings_StartupAccount_Description, WinoIconGlyph.None, startupPopup);
         Bind.Visible(startup, vm, nameof(vm.ShouldShowCalendarStartupAccount), s => s.ShouldShowCalendarStartupAccount);
 
         // The New Event behaviour and, when it names one, the calendar it opens: two value rows.
         var behavior = Bind.PopUp<CalendarPreferenceSettingsPageViewModel, CalendarNewEventBehaviorOption>(vm, s => s.NewEventBehaviorOptions.ToList(), option => option.DisplayText,
             nameof(vm.SelectedNewEventBehaviorOption), s => s.SelectedNewEventBehaviorOption, (s, v) => s.SelectedNewEventBehaviorOption = v, itemsCollection: vm.NewEventBehaviorOptions);
-        var newEvent = Card(Translator.CalendarSettings_NewEventBehavior_Header, null, WinoIconGlyph.Calendar, behavior);
+        var newEvent = Card(Translator.CalendarSettings_NewEventBehavior_Header, Translator.CalendarSettings_NewEventBehavior_Description, WinoIconGlyph.Calendar, behavior);
         var calendarPopup = Bind.PopUp<CalendarPreferenceSettingsPageViewModel, AccountCalendarViewModel>(vm, s => s.AvailableNewEventCalendars.ToList(),
             item => $"{item.Name} — {item.Account?.Address}",
             nameof(vm.SelectedNewEventCalendar), s => s.SelectedNewEventCalendar, (s, v) => s.SelectedNewEventCalendar = v, itemsCollection: vm.AvailableNewEventCalendars);
-        var calendar = Card(Translator.CalendarSettings_NewEventCalendar_Header, null, WinoIconGlyph.None, calendarPopup);
+        var calendar = Card(Translator.CalendarSettings_NewEventCalendar_Header, Translator.CalendarSettings_NewEventCalendar_Description, WinoIconGlyph.None, calendarPopup);
         Bind.Visible(calendar, vm, nameof(vm.ShouldShowSpecificNewEventCalendar), s => s.ShouldShowSpecificNewEventCalendar);
 
         AddGroup(null, vm.IsSyncIntervalAvailable ? sync : null, grouping, startup, newEvent, calendar);

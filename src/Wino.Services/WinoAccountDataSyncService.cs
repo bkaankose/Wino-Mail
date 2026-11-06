@@ -15,10 +15,10 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
-using Wino.Core.Domain.Models.Reader;
 using Wino.Mail.Api.Contracts.Users;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.UI;
+using Wino.Core.Domain.Models.Authentication;
 
 namespace Wino.Services;
 
@@ -44,7 +44,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
     private readonly INewThemeService? _themeService;
     private readonly IStatePersistanceService? _stateService;
     private readonly IKnownImapProviderCatalog? _providerCatalog;
-    private readonly IRemoteContentRuleStore? _remoteContentRuleStore;
+    private readonly IAccountOAuthProfileService? _oauthProfileService;
     private readonly ILogger _logger = Log.ForContext<WinoAccountDataSyncService>();
 
     public WinoAccountDataSyncService(
@@ -61,7 +61,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         INewThemeService? themeService = null,
         IStatePersistanceService? stateService = null,
         IKnownImapProviderCatalog? providerCatalog = null,
-        IRemoteContentRuleStore? remoteContentRuleStore = null)
+        IAccountOAuthProfileService? oauthProfileService = null)
     {
         _profileService = profileService;
         _preferencesService = preferencesService;
@@ -76,7 +76,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         _themeService = themeService;
         _stateService = stateService;
         _providerCatalog = providerCatalog;
-        _remoteContentRuleStore = remoteContentRuleStore;
+        _oauthProfileService = oauthProfileService;
     }
 
     public async Task<WinoAccountSyncExportResult> ExportAsync(WinoAccountSyncSelection selection, SyncSnapshotSecretPrompt? secretPrompt = null, CancellationToken cancellationToken = default)
@@ -289,10 +289,9 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             document.PreferencesJson = _preferencesService.ExportPreferences();
             document.Templates = await ExportTemplatesAsync().ConfigureAwait(false);
             document.Shortcuts = await ExportShortcutsAsync().ConfigureAwait(false);
-            document.RemoteContentRules = await ExportRemoteContentRulesAsync().ConfigureAwait(false);
             document.Appearance = ExportAppearance();
 
-            exportedAppDataCount += (document.Templates?.Count ?? 0) + (document.Shortcuts?.Count ?? 0) + (document.RemoteContentRules?.Count ?? 0);
+            exportedAppDataCount += (document.Templates?.Count ?? 0) + (document.Shortcuts?.Count ?? 0);
         }
 
         if (selection.IncludeAccounts)
@@ -315,6 +314,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             document.Aliases = await ExportAliasesAsync(accounts).ConfigureAwait(false);
             document.MergedInboxes = ExportMergedInboxes(accounts);
             document.AccountCapabilities = ExportAccountCapabilities(accounts);
+            document.OAuthProfiles = await ExportOAuthProfilesAsync(accounts).ConfigureAwait(false);
 
             exportedAppDataCount += (document.Filters?.Count ?? 0) + (document.Categories?.Count ?? 0)
                 + (document.Aliases?.Count ?? 0) + (document.MergedInboxes?.Count ?? 0);
@@ -359,24 +359,6 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                 ModifierKeys = (int)a.ModifierKeys,
                 Action = (int)a.Action,
                 IsEnabled = a.IsEnabled
-            })
-            .ToList();
-    }
-
-    private async Task<List<SnapshotRemoteContentRule>?> ExportRemoteContentRulesAsync()
-    {
-        if (_remoteContentRuleStore == null) return null;
-
-        var rules = await _remoteContentRuleStore.GetAllAsync().ConfigureAwait(false);
-
-        return rules
-            .Where(a => !string.IsNullOrWhiteSpace(a.Pattern))
-            .Select(a => new SnapshotRemoteContentRule
-            {
-                Pattern = a.Pattern,
-                Policy = (int)a.Policy,
-                Source = (int)a.Source,
-                CreatedUtc = a.CreatedUtc
             })
             .ToList();
     }
@@ -472,6 +454,56 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             })
             .ToList();
 
+    /// <summary>Null when no mailbox uses OAuth2, so password-only snapshots stay exactly as before.</summary>
+    private async Task<List<SnapshotOAuthProfile>?> ExportOAuthProfilesAsync(List<MailAccount> accounts)
+    {
+        List<SnapshotOAuthProfile>? profiles = null;
+
+        foreach (var account in accounts)
+        {
+            var serverInformation = account.ProviderType == MailProviderType.IMAP4 ? account.ServerInformation : null;
+            if (serverInformation == null || !UsesOAuth(serverInformation.IncomingAuthenticationMethod, serverInformation.OutgoingAuthenticationMethod))
+                continue;
+
+            var profile = _oauthProfileService == null
+                ? null
+                : await _oauthProfileService.GetAsync(account.Id).ConfigureAwait(false);
+
+            profiles ??= [];
+            profiles.Add(new SnapshotOAuthProfile
+            {
+                AccountAddress = account.Address ?? string.Empty,
+                ProviderType = (int)account.ProviderType,
+                IncomingAuthenticationMethod = (int)serverInformation.IncomingAuthenticationMethod,
+                OutgoingAuthenticationMethod = (int)serverInformation.OutgoingAuthenticationMethod,
+                Profile = profile == null
+                    ? null
+                    : new SnapshotOAuthClientProfile
+                    {
+                        Issuer = profile.Issuer,
+                        AuthorizationEndpoint = profile.AuthorizationEndpoint,
+                        TokenEndpoint = profile.TokenEndpoint,
+                        RevocationEndpoint = profile.RevocationEndpoint,
+                        ClientId = profile.ClientId,
+                        Scopes = profile.Scopes,
+                        Resource = profile.Resource,
+                        RedirectKind = (int)profile.RedirectKind,
+                        LoopbackPort = profile.LoopbackPort,
+                        TrustSource = (int)profile.TrustSource,
+                        SaslMechanism = (int)profile.SaslMechanism
+                    }
+            });
+        }
+
+        return profiles;
+    }
+
+    private static bool UsesOAuth(ImapAuthenticationMethod incoming, ImapAuthenticationMethod outgoing)
+        => incoming == ImapAuthenticationMethod.OAuth2 || outgoing == ImapAuthenticationMethod.OAuth2;
+
+    private static ImapAuthenticationMethod ToSnapshotMailboxMethod(ImapAuthenticationMethod method)
+        => method == ImapAuthenticationMethod.OAuth2 ? ImapAuthenticationMethod.Auto : method;
+
     private async Task<List<SnapshotAlias>> ExportAliasesAsync(List<MailAccount> accounts)
     {
         var aliases = new List<SnapshotAlias>();
@@ -532,7 +564,6 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         {
             appliedAppDataCount += await ApplyTemplatesAsync(document.Templates).ConfigureAwait(false);
             appliedAppDataCount += await ApplyShortcutsAsync(document.Shortcuts).ConfigureAwait(false);
-            appliedAppDataCount += await ApplyRemoteContentRulesAsync(document.RemoteContentRules).ConfigureAwait(false);
         }
 
         if (selection.IncludeAccounts)
@@ -557,6 +588,10 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                 .GroupBy(a => CreateMailboxKey(a.AccountAddress, a.ProviderType), StringComparer.Ordinal)
                 .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
 
+            var oauthProfilesByKey = (document.OAuthProfiles ?? [])
+                .GroupBy(a => CreateMailboxKey(a.AccountAddress, a.ProviderType), StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
+
             foreach (var mailbox in orderedMailboxes)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -571,15 +606,23 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                 var capabilities = capabilitiesByKey.GetValueOrDefault(mailboxKey);
                 var account = CreateImportedAccount(mailbox, capabilities);
                 var serverInformation = CreateImportedServerInformation(mailbox, account, capabilities);
+                var oauthProfile = serverInformation == null
+                    ? null
+                    : ApplyImportedOAuthProfile(serverInformation, account, oauthProfilesByKey.GetValueOrDefault(mailboxKey));
 
                 await _accountService.CreateAccountAsync(account, serverInformation).ConfigureAwait(false);
+
+                if (oauthProfile != null && _oauthProfileService != null)
+                {
+                    await _oauthProfileService.SaveAsync(oauthProfile).ConfigureAwait(false);
+                }
 
                 if (account.IsMailAccessGranted)
                 {
                     await _accountService.CreateRootAliasAsync(account.Id, account.Address).ConfigureAwait(false);
                 }
 
-                if (account.ProviderType is MailProviderType.IMAP4 or MailProviderType.POP3 or MailProviderType.EAS)
+                if (account.ProviderType is MailProviderType.IMAP4 or MailProviderType.POP3)
                 {
                     var persistedAccount = await _accountService.GetAccountAsync(account.Id).ConfigureAwait(false);
                     if (persistedAccount != null && persistedAccount.AttentionReason != AccountAttentionReason.InvalidCredentials)
@@ -642,54 +685,6 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             AppliedAppDataCount = appliedAppDataCount,
             Appearance = selection.IncludePreferences ? document.Appearance : null
         };
-    }
-
-    /// <summary>Rules match by pattern. Existing ones take the snapshot's policy, missing ones are created, none deleted.</summary>
-    private async Task<int> ApplyRemoteContentRulesAsync(List<SnapshotRemoteContentRule>? rules)
-    {
-        if (_remoteContentRuleStore == null || rules == null || rules.Count == 0) return 0;
-
-        var applied = 0;
-        var local = await _remoteContentRuleStore.GetAllAsync().ConfigureAwait(false);
-
-        foreach (var rule in rules)
-        {
-            var policy = (RemoteContentSenderPolicy)rule.Policy;
-            var source = (RemoteContentRuleSource)rule.Source;
-            var pattern = RemoteContentRulePattern.Normalize(rule.Pattern, out _);
-
-            if (pattern == null || !Enum.IsDefined(policy)) continue;
-            if (!Enum.IsDefined(source)) source = RemoteContentRuleSource.Manual;
-
-            try
-            {
-                var existing = local.FirstOrDefault(a => a.Pattern == pattern);
-                if (existing == null)
-                {
-                    await _remoteContentRuleStore.UpsertAsync(new RemoteContentSenderRule
-                    {
-                        Id = Guid.NewGuid(),
-                        Pattern = pattern,
-                        Policy = policy,
-                        Source = source,
-                        CreatedUtc = rule.CreatedUtc == default ? DateTime.UtcNow : rule.CreatedUtc
-                    }).ConfigureAwait(false);
-                    applied++;
-                }
-                else if (existing.Policy != policy)
-                {
-                    existing.Policy = policy;
-                    await _remoteContentRuleStore.UpsertAsync(existing).ConfigureAwait(false);
-                    applied++;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.Warning(ex, "Remote content rule {Pattern} could not be restored.", rule.Pattern);
-            }
-        }
-
-        return applied;
     }
 
     /// <summary>Templates match by name. Existing ones are updated, missing ones created, none deleted.</summary>
@@ -1193,7 +1188,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 
     private async Task<UserMailboxSyncItemDto> MapMailboxAsync(MailAccount account)
     {
-        var serverInformation = account.ProviderType is MailProviderType.IMAP4 or MailProviderType.POP3 or MailProviderType.EAS
+        var serverInformation = account.ProviderType is MailProviderType.IMAP4 or MailProviderType.POP3
             ? account.ServerInformation
             : null;
 
@@ -1216,12 +1211,12 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             IncomingServerPort = serverInformation?.IncomingServerPort,
             IncomingServerUsername = serverInformation?.IncomingServerUsername,
             IncomingServerSocketOption = serverInformation != null ? (int?)serverInformation.IncomingServerSocketOption : null,
-            IncomingAuthenticationMethod = serverInformation != null ? (int?)serverInformation.IncomingAuthenticationMethod : null,
+            IncomingAuthenticationMethod = serverInformation != null ? (int?)ToSnapshotMailboxMethod(serverInformation.IncomingAuthenticationMethod) : null,
             OutgoingServer = serverInformation?.OutgoingServer,
             OutgoingServerPort = serverInformation?.OutgoingServerPort,
             OutgoingServerUsername = serverInformation?.OutgoingServerUsername,
             OutgoingServerSocketOption = serverInformation != null ? (int?)serverInformation.OutgoingServerSocketOption : null,
-            OutgoingAuthenticationMethod = serverInformation != null ? (int?)serverInformation.OutgoingAuthenticationMethod : null,
+            OutgoingAuthenticationMethod = serverInformation != null ? (int?)ToSnapshotMailboxMethod(serverInformation.OutgoingAuthenticationMethod) : null,
             CalDavServiceUrl = serverInformation?.CalDavServiceUrl,
             CalDavUsername = serverInformation?.CalDavUsername,
             ProxyServer = serverInformation?.ProxyServer,
@@ -1342,9 +1337,9 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         account.IsTaskReauthorizationRequired = isRemoteTasks && isOAuthProvider;
 
         if (account.ProviderType == MailProviderType.Outlook
-            && string.Equals(capabilities.OutlookClientId, OutlookClientIds.Current, StringComparison.OrdinalIgnoreCase))
+            && string.Equals(capabilities.OutlookClientId, WinoAuthenticationClientIds.Outlook.Current, StringComparison.OrdinalIgnoreCase))
         {
-            account.OutlookClientId = OutlookClientIds.Current;
+            account.OutlookClientId = WinoAuthenticationClientIds.Outlook.Current;
         }
     }
 
@@ -1365,7 +1360,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
     private CustomServerInformation? CreateImportedServerInformation(UserMailboxSyncItemDto mailbox, MailAccount account, SnapshotAccountCapabilities? capabilities)
     {
         var providerType = (MailProviderType)mailbox.ProviderType;
-        if (providerType is not (MailProviderType.IMAP4 or MailProviderType.POP3 or MailProviderType.EAS))
+        if (providerType is not (MailProviderType.IMAP4 or MailProviderType.POP3))
         {
             return null;
         }
@@ -1387,7 +1382,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             IncomingServerPort = mailbox.IncomingServerPort?.Trim() ?? string.Empty,
             IncomingServerUsername = mailbox.IncomingServerUsername?.Trim() ?? string.Empty,
             IncomingServerPassword = string.Empty,
-            IncomingServerType = providerType == MailProviderType.EAS ? CustomIncomingServerType.EAS : providerType == MailProviderType.POP3
+            IncomingServerType = providerType == MailProviderType.POP3
                 ? CustomIncomingServerType.POP3
                 : CustomIncomingServerType.IMAP4,
             IncomingServerSocketOption = mailbox.IncomingServerSocketOption is int incomingSocketOption
@@ -1417,6 +1412,56 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             ConnectionPolicyVersion = ImapConnectionPolicyVersion.Legacy
         };
     }
+
+    /// <summary>
+    /// Restores OAuth2 on an imported IMAP mailbox from the snapshot's OAuth section and returns the profile to store.
+    /// Without a usable profile the mailbox keeps the methods from <see cref="WinoSyncSnapshotDocument.Mailboxes"/>
+    /// and asks for a password, as older builds do. Either way it waits for the user to sign in again.
+    /// </summary>
+    private AccountOAuthProfile? ApplyImportedOAuthProfile(CustomServerInformation serverInformation, MailAccount account, SnapshotOAuthProfile? snapshot)
+    {
+        if (_oauthProfileService == null
+            || snapshot?.Profile is not { } snapshotProfile
+            || account.ProviderType != MailProviderType.IMAP4
+            || string.IsNullOrWhiteSpace(snapshotProfile.Issuer)
+            || string.IsNullOrWhiteSpace(snapshotProfile.ClientId))
+        {
+            return null;
+        }
+
+        var incoming = ToKnownMethod(snapshot.IncomingAuthenticationMethod, serverInformation.IncomingAuthenticationMethod);
+        var outgoing = ToKnownMethod(snapshot.OutgoingAuthenticationMethod, serverInformation.OutgoingAuthenticationMethod);
+        if (!UsesOAuth(incoming, outgoing)
+            || !Enum.IsDefined((OAuthRedirectKind)snapshotProfile.RedirectKind)
+            || !Enum.IsDefined((OAuthTrustSource)snapshotProfile.TrustSource)
+            || !Enum.IsDefined((OAuthSaslMechanism)snapshotProfile.SaslMechanism))
+        {
+            return null;
+        }
+
+        serverInformation.IncomingAuthenticationMethod = incoming;
+        serverInformation.OutgoingAuthenticationMethod = outgoing;
+        serverInformation.ConnectionPolicyVersion = ImapConnectionPolicyVersion.Corrected;
+
+        return new AccountOAuthProfile
+        {
+            AccountId = account.Id,
+            Issuer = snapshotProfile.Issuer.Trim(),
+            AuthorizationEndpoint = snapshotProfile.AuthorizationEndpoint,
+            TokenEndpoint = snapshotProfile.TokenEndpoint,
+            RevocationEndpoint = snapshotProfile.RevocationEndpoint,
+            ClientId = snapshotProfile.ClientId.Trim(),
+            Scopes = snapshotProfile.Scopes ?? string.Empty,
+            Resource = snapshotProfile.Resource,
+            RedirectKind = (OAuthRedirectKind)snapshotProfile.RedirectKind,
+            LoopbackPort = snapshotProfile.LoopbackPort,
+            TrustSource = (OAuthTrustSource)snapshotProfile.TrustSource,
+            SaslMechanism = (OAuthSaslMechanism)snapshotProfile.SaslMechanism
+        };
+    }
+
+    private static ImapAuthenticationMethod ToKnownMethod(int value, ImapAuthenticationMethod fallback)
+        => Enum.IsDefined((ImapAuthenticationMethod)value) ? (ImapAuthenticationMethod)value : fallback;
 
     private async Task RepairStartupEntityAsync()
     {

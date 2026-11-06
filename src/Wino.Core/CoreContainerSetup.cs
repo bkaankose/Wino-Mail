@@ -2,17 +2,21 @@
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Serilog.Core;
 using Wino.Authentication;
+using Wino.Authentication.Exchange;
+using Wino.Authentication.OAuth;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Integration;
 using Wino.Core.Services;
 using Wino.Core.Synchronizers.Errors;
+using Wino.Core.Synchronizers.Errors.Exchange;
 using Wino.Core.Synchronizers.Errors.Gmail;
 using Wino.Core.Synchronizers.Errors.Imap;
 using Wino.Core.Synchronizers.Errors.Outlook;
 using Wino.Core.Synchronizers.ImapSync;
 using Wino.Core.Synchronizers.CalDav;
 using Wino.Core.Synchronizers.CardDav;
+using Wino.Core.Synchronizers.Mapi;
 using Wino.Services;
 
 namespace Wino.Core;
@@ -25,7 +29,6 @@ public static class CoreContainerSetup
 
         services.AddSingleton(loggerLevelSwitcher);
         services.AddSingleton<ISynchronizerFactory, SynchronizerFactory>();
-        services.AddSingleton<IEasConnectionService, Wino.Core.Synchronizers.Eas.EasConnectionService>();
 
         // Relay registrations the app manages itself (Gmail watch, Graph subscription). IMAP's builder lives in Wino.Services.
         services.AddSingleton<Wino.Core.PushRelay.PushRelayAppManagedRegistrationStore>();
@@ -77,6 +80,7 @@ public static class CoreContainerSetup
         services.AddTransient<IGmailChangeProcessor, GmailChangeProcessor>();
         services.AddTransient<IImapChangeProcessor, ImapChangeProcessor>();
         services.AddTransient<IOutlookChangeProcessor, OutlookChangeProcessor>();
+        services.AddTransient<IExchangeChangeProcessor, ExchangeChangeProcessor>();
         services.AddTransient<IWinoRequestProcessor, WinoRequestProcessor>();
         services.AddTransient<IWinoRequestDelegator, WinoRequestDelegator>();
         services.AddTransient<IMailFilterExecutor, MailFilterExecutor>();
@@ -90,12 +94,24 @@ public static class CoreContainerSetup
         services.AddSingleton<IDraftUpdateCoordinator, DraftUpdateCoordinator>();
         services.AddTransient<IDraftSyncRetryService, DraftSyncRetryService>();
         services.AddTransient<IMailServerTestService, MailServerTestService>();
+        services.AddTransient<IImapAuthCapabilityProbe, ImapAuthCapabilityProbe>();
         services.AddTransient<IPop3ClientFactory, MailKitPop3ClientFactory>();
         services.AddTransient<ISmtpTransport, MailKitSmtpTransport>();
         services.AddTransient<IAuthenticationProvider>(provider => new AuthenticationProvider(
             () => provider.GetRequiredService<IOutlookAuthenticator>(),
-            () => provider.GetRequiredService<IGmailAuthenticator>()));
+            () => provider.GetRequiredService<IGmailAuthenticator>(),
+            () => provider.GetRequiredService<IExchangeAuthenticator>()));
+        services.AddSingleton<IDnsLookupService, DnsLookupService>();
+        services.AddSingleton<IMicrosoftUserRealmService, MicrosoftUserRealmService>();
+        services.AddSingleton<IGoogleMailboxProfileService, GoogleMailboxProfileService>();
         services.AddTransient<IAutoDiscoveryService, AutoDiscoveryService>();
+        services.AddTransient<IExchangeAutoDiscoveryService, ExchangeAutoDiscoveryService>();
+        services.AddTransient<IExchangeAuthCapabilityProbe, ExchangeAuthCapabilityProbe>();
+        services.AddTransient<IMapiConnectionProbe, MapiConnectionProbe>();
+        services.AddTransient<IExchangeConnectionTester, ExchangeConnectionTester>();
+        services.AddTransient<IImapSetupResolver, ImapSetupResolver>();
+        services.AddTransient<IAccountRouteResolver, AccountRouteResolver>();
+        services.AddTransient<IAccountSetupRunner, AccountSetupRunner>();
         services.AddTransient<IUnsubscriptionService, UnsubscriptionService>();
         services.AddTransient<IOutlookAuthenticator, OutlookAuthenticator>();
         // Desktop default; a head that cannot listen on loopback registers its own receiver.
@@ -104,6 +120,20 @@ public static class CoreContainerSetup
             provider.GetRequiredService<IAuthenticatorConfig>(),
             provider.GetRequiredService<IGoogleAuthorizationCodeReceiver>(),
             provider.GetRequiredService<IGoogleTokenStore>()));
+        services.AddWinoOAuth();
+
+        // Exchange: one access token cache per process; refresh tokens live in IExchangeTokenStore, never in IOAuthTokenStore.
+        services.AddSingleton<ExchangeTokenCache>();
+        services.AddTransient<ExchangeNtlmAuthenticator>();
+        services.AddTransient<ExchangeOAuthAuthenticator>();
+        services.AddTransient<IExchangeAuthenticator, ExchangeAuthenticator>();
+        // Interactive Exchange sign-in needs the head's embedded browser; without one it reports itself unsupported
+        // and never falls back to the system-browser OAuth flow.
+        services.AddTransient<IExchangeInteractiveSignInService>(provider => new ExchangeInteractiveSignInService(
+            provider.GetRequiredService<IOAuthProtocolClient>(),
+            provider.GetRequiredService<IExchangeTokenStore>(),
+            provider.GetRequiredService<ExchangeTokenCache>(),
+            () => provider.GetService<IEmbeddedBrowserAuthBroker>()));
 
         services.AddTransient<UnifiedImapSynchronizer>();
         services.AddTransient<ICardDavSynchronizationEngine, CardDavSynchronizationEngine>();
@@ -130,6 +160,11 @@ public static class CoreContainerSetup
         services.AddTransient<ImapFolderNotFoundHandler>();
         services.AddTransient<ImapProtocolErrorHandler>();
 
+        // Register Exchange error handlers
+        services.AddTransient<ExchangeAuthenticationFailedHandler>();
+        services.AddTransient<ExchangeServerBusyHandler>();
+        services.AddTransient<ExchangeInvalidServerResponseHandler>();
+
         // Register Outlook auth handlers
         services.AddTransient<OutlookAuthenticationFailedHandler>();
 
@@ -137,6 +172,7 @@ public static class CoreContainerSetup
         services.AddTransient<IOutlookSynchronizerErrorHandlerFactory, OutlookSynchronizerErrorHandlingFactory>();
         services.AddTransient<IGmailSynchronizerErrorHandlerFactory, GmailSynchronizerErrorHandlingFactory>();
         services.AddTransient<IImapSynchronizerErrorHandlerFactory, ImapSynchronizerErrorHandlingFactory>();
+        services.AddTransient<IExchangeSynchronizerErrorHandlerFactory, ExchangeSynchronizerErrorHandlingFactory>();
 
         // Register retry executor
         services.AddTransient<IRetryExecutor, RetryExecutor>();

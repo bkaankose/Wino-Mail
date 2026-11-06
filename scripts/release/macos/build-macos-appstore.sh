@@ -127,8 +127,6 @@ for dir in "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" "$HOME
     security cms -D -i "$file" >"$PROFILE_PLIST" 2>/dev/null || continue
     [ "$(plutil -extract Entitlements.com\\.apple\\.application-identifier raw "$PROFILE_PLIST" 2>/dev/null)" = "$TEAM_ID.$BUNDLE_ID" ] || continue
     ! plutil -extract ProvisionedDevices raw "$PROFILE_PLIST" >/dev/null 2>&1 || continue
-    # Developer ID profiles list no devices either; they provision all devices instead.
-    [ "$(plutil -extract ProvisionsAllDevices raw "$PROFILE_PLIST" 2>/dev/null)" != "true" ] || continue
     [ "$(plutil -extract Entitlements.com\\.apple\\.security\\.get-task-allow raw "$PROFILE_PLIST" 2>/dev/null)" != "true" ] || continue
     expiry="$(plutil -extract ExpirationDate raw "$PROFILE_PLIST")"
     [[ "$expiry" > "$NOW" ]] || continue

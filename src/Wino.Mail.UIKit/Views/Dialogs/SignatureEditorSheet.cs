@@ -68,7 +68,7 @@ internal sealed class SignatureEditorSheet
         };
 
         // ---- Hint ----
-        var hint = WinoStyle.Label(Translator.SignatureEditorDialog_ImagesHint, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
+        var hint = WinoStyle.Label(Translator.SignatureEditorDialog_ImagesHint, WinoStyle.Caption, WinoStyle.TertiaryText, 0);
 
         var stack = WinoLayout.VStack(14, account, nameStack, _editor, hint);
         stack.Alignment = UIStackViewAlignment.Fill;

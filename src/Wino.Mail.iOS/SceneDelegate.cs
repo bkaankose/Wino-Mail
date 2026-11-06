@@ -42,15 +42,6 @@ public sealed class SceneDelegate : UIResponder, IUIWindowSceneDelegate
         host.AttachWindow(window);
         Console.WriteLine($"Wino Mail iOS: scene connected ({UIDevice.CurrentDevice.UserInterfaceIdiom})");
         Route(services, connectionOptions.UrlContexts);
-        // A cold launch from a Home Screen quick action delivers it here only, not to performActionForShortcutItem.
-        if (connectionOptions.ShortcutItem is { } shortcut) Route(services, shortcut);
-    }
-
-    [Export("windowScene:performActionForShortcutItem:completionHandler:")]
-    public void PerformActionForShortcutItem(UIWindowScene windowScene, UIApplicationShortcutItem shortcutItem, Action<bool> completionHandler)
-    {
-        if (AppDelegate.Services is { } services) Route(services, shortcutItem);
-        completionHandler(true);
     }
 
     [Export("scene:openURLContexts:")]
@@ -60,11 +51,7 @@ public sealed class SceneDelegate : UIResponder, IUIWindowSceneDelegate
     }
 
     [Export("sceneDidEnterBackground:")]
-    public void DidEnterBackground(UIScene scene)
-    {
-        BackgroundRefreshLifecycleHook.Schedule();
-        BackgroundRefreshLifecycleHook.RequestQuickActionRefresh();
-    }
+    public void DidEnterBackground(UIScene scene) => BackgroundRefreshLifecycleHook.Schedule();
 
     /// <summary>Returning to the foreground refreshes the relay registration (coalesced with any pass already queued).</summary>
     [Export("sceneWillEnterForeground:")]
@@ -75,12 +62,6 @@ public sealed class SceneDelegate : UIResponder, IUIWindowSceneDelegate
         var urls = contexts?.ToArray().Select(context => context.Url).ToArray() ?? [];
         if (urls.Length == 0) return;
         _ = RouteAsync(services.GetRequiredService<UIKitActivationCoordinator>(), urls);
-    }
-
-    private static async void Route(IServiceProvider services, UIApplicationShortcutItem shortcut)
-    {
-        try { await services.GetRequiredService<UIKitQuickActionCoordinator>().HandleAsync(shortcut); }
-        catch (Exception error) { Serilog.Log.Error(error, "Quick action handling failed."); }
     }
 
     private static async Task RouteAsync(UIKitActivationCoordinator coordinator, NSUrl[] urls)

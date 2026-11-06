@@ -15,14 +15,10 @@ namespace Wino.Mail.WinUI.Services;
 public sealed class WindowsAttachmentPlatformService(
     NativeAppService nativeAppService,
     IWindowsAttachmentPolicyService policy,
-    IPreferencesService preferencesService,
     IWinoLogger logger) : IAttachmentPlatformService
 {
     public async Task<AttachmentFileOperationResult> OpenReceivedAsync(string localPath, CancellationToken cancellationToken = default)
     {
-        if (!preferencesService.CheckAttachmentsWithPlatformSecurity)
-            return await LaunchWithoutAttachmentServicesAsync(localPath, null, cancellationToken);
-
         try
         {
             return await nativeAppService.ExecuteOnPlatformThreadAsync(() =>
@@ -55,9 +51,6 @@ public sealed class WindowsAttachmentPlatformService(
 
     public async Task<AttachmentFileOperationResult> ApplySavePolicyAsync(string localPath, CancellationToken cancellationToken = default)
     {
-        if (!preferencesService.CheckAttachmentsWithPlatformSecurity)
-            return new AttachmentFileOperationResult(AttachmentFileOperationStatus.Succeeded, localPath);
-
         try
         {
             return await nativeAppService.ExecuteOnPlatformThreadAsync(() =>
@@ -66,13 +59,6 @@ public sealed class WindowsAttachmentPlatformService(
                 return Task.FromResult(new AttachmentFileOperationResult(AttachmentFileOperationStatus.Succeeded, localPath));
             }, cancellationToken);
         }
-        catch (WindowsAttachmentPolicyException ex) when (ex.IsSecurityZoneFailure)
-        {
-            // The file is already written and keeps the zone mark it was given; only the policy check could not
-            // run, so the save is not reported as blocked.
-            Log.Warning("Attachment Services could not check the saved file (HRESULT 0x{HResult:X8}); keeping the file.", ex.HResultCode);
-            return new AttachmentFileOperationResult(AttachmentFileOperationStatus.Succeeded, localPath);
-        }
         catch (Exception ex)
         {
             return MapFailure(localPath, ex);
@@ -80,7 +66,7 @@ public sealed class WindowsAttachmentPlatformService(
     }
 
     private async Task<AttachmentFileOperationResult> LaunchWithoutAttachmentServicesAsync(
-        string path, WindowsAttachmentPolicyException? policyException, CancellationToken cancellationToken)
+        string path, WindowsAttachmentPolicyException policyException, CancellationToken cancellationToken)
     {
         IExternalLauncher launcher = nativeAppService;
         var launch = await launcher.LaunchFileAsync(path, cancellationToken);
@@ -92,24 +78,11 @@ public sealed class WindowsAttachmentPlatformService(
             case PlatformOperationStatus.Cancelled:
                 return new(AttachmentFileOperationStatus.Cancelled, path);
             case PlatformOperationStatus.Unavailable:
-                return new(AttachmentFileOperationStatus.Unavailable, path, ErrorMessage: launch.ErrorMessage ?? policyException?.Message);
+                return new(AttachmentFileOperationStatus.Unavailable, path, ErrorMessage: launch.ErrorMessage ?? policyException.Message);
             default:
-                if (policyException is null)
-                {
-                    Log.Warning("The default launcher could not open the attachment: {LaunchStatus} {LaunchError}", launch.Status, launch.ErrorMessage);
-                    return new(AttachmentFileOperationStatus.Failed, path, ErrorMessage: launch.ErrorMessage);
-                }
-
-                Log.Warning("The default launcher could not open the attachment after HRESULT 0x{HResult:X8}: {LaunchStatus} {LaunchError}",
-                    policyException.HResultCode, launch.Status, launch.ErrorMessage);
-
-                // A security zone failure is expected, so only the launcher's own failure is worth a report.
-                if (!policyException.IsExpectedFailure || policyException.IsSecurityZoneFailure)
-                {
-                    logger.CaptureException(new InvalidOperationException(
-                        $"The default launcher failed ({launch.Status}: {launch.ErrorMessage}) after Attachment Services returned HRESULT 0x{policyException.HResultCode:X8}.",
-                        policyException), "AttachmentFilePolicy");
-                }
+                // Both paths failed; report the Attachment Services result once unless it is a known HRESULT.
+                if (!policyException.IsExpectedFailure)
+                    logger.CaptureException(policyException, "AttachmentFilePolicy");
 
                 return new(AttachmentFileOperationStatus.Failed, path, ErrorMessage: launch.ErrorMessage ?? policyException.Message);
         }
@@ -122,7 +95,7 @@ public sealed class WindowsAttachmentPlatformService(
             case OperationCanceledException:
                 return new(AttachmentFileOperationStatus.Cancelled, path);
             case WindowsAttachmentPolicyException ex:
-                // Policy blocks, cancellations, security zone failures and E_INVALIDARG are expected outcomes, not defects.
+                // Policy blocks, cancellations and E_INVALIDARG are expected outcomes, not defects.
                 if (!ex.IsExpectedFailure)
                     logger.CaptureException(ex, "AttachmentFilePolicy");
                 else

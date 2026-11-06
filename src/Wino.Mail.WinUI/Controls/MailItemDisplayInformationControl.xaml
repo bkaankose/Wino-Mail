@@ -142,7 +142,7 @@
                             <TextBlock
                                 x:Name="SenderTextFromName"
                                 Grid.Column="1"
-                                Text="{x:Bind helpers:XamlHelpers.GetSenderDisplayName(MailItemInformation.FromName, MailItemInformation.FromAddress), Mode=OneWay}"
+                                Text="{x:Bind MailItemInformation.FromName, Mode=OneWay}"
                                 TextTrimming="WordEllipsis"
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(MailItemInformation.FromName), Mode=OneWay}" />
 

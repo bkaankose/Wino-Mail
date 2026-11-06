@@ -116,7 +116,8 @@ public sealed partial class EmailTemplatesPageViewController(
     private NSView TemplateCard(SettingsBinder rows, EmailTemplate template)
     {
         var name = string.IsNullOrWhiteSpace(template.Name) ? Translator.SettingsEmailTemplates_EditPageTitle : template.Name;
-        var icon = new WinoSettingsIconTile(WinoIconGlyph.Note);
+        var icon = new WinoIconView(WinoIconGlyph.Note, WinoSettingsStyle.IconSize);
+        WinoLayout.Size(icon, WinoSettingsStyle.IconSize, WinoSettingsStyle.IconSize);
 
         var nameLabel = OneLine(name, WinoSettingsStyle.CardTitle, WinoStyle.PrimaryText);
         var description = OneLine(template.Description, WinoSettingsStyle.CardDescription, WinoStyle.SecondaryText);

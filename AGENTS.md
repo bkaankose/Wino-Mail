@@ -89,7 +89,6 @@ Read only references that apply to the task:
 | Intelligence jobs, artifacts, or the daily briefing | [mail intelligence](docs/mail-intelligence.md) |
 | Calendar period navigation, the rail model, or the loaded event window | [calendar rail navigation](docs/calendar-rail-navigation.md) |
 | Push relay, live notifications, sync method, or relay privacy acceptance | [push relay design](docs/push-relay-design.md) |
-| Exchange ActiveSync accounts and synchronization | [EAS integration and verification](docs/eas.md) |
 | Release packaging | [release guide](docs/releases.md); Android in the [Android release guide](docs/releases-android.md) |
 | Release notes, GitHub releases, or marking issues for a release | [release skill](.claude/skills/release/SKILL.md) and [release notes format](release-notes/README.md) |
 | What's New notes and illustrations | [whatsnew skill](.claude/skills/whatsnew/SKILL.md) |
@@ -130,22 +129,28 @@ dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Release -p:Platform=x
 ```
 
 Format changed XAML before building with `scripts/maintenance/windows/format-xaml.ps1 -Changed`, and run it with `-Check` before handoff.
-The EAS regression executable is `tests/Wino.Eas.Tests`; run it with `dotnet run --project tests/Wino.Eas.Tests/Wino.Eas.Tests.csproj -p:Platform=x64`. It uses scripted HTTP and isolated SQLite databases, not real accounts. The repository has no general unit-test suite; do not add other test projects until the owner defines them. The [local Docker lab](tools/local-lab/README.md) is the Windows application testing environment. On Windows, agents verify UI behavior themselves in the running Debug app with `winapp ui` (inspect, invoke, send-keys, screenshot, record) against the lab accounts; see the Windows guide. Do not add UI test projects or scripts to the repository; each check is run ad hoc and reported with its screenshots.
+The repository has no automated test projects; do not add or run unit tests until the owner defines a new test project. The [local Docker lab](tools/local-lab/README.md) is the Windows application testing environment. On Windows, agents verify UI behavior themselves in the running Debug app with `winapp ui` (inspect, invoke, send-keys, screenshot, record) against the lab accounts; see the Windows guide. Do not add UI test projects or scripts to the repository; each check is run ad hoc and reported with its screenshots.
 A passing build does not prove UI behavior. Report a UI check as done only when it was performed, by an agent through `winapp ui` or by a person, and say which.
 
 ## Accounts, OAuth clients and signing (hard rules)
 
 Binding for every agent. Backend counterpart: `AGENTS.md` and `docs/social-sign-in-setup.md` in Wino-Mail-API.
 
+- Client ids live in three places only. Outlook, Gmail and Wino Account clients for every platform are in
+  `WinoAuthenticationClientIds` (`Wino.Core.Domain/Models/Authentication`); the iOS notification extension links that
+  file, so it stays dependency-free. OAuth registrations for IMAP providers are in
+  `src/Wino.Services/Configuration/known-imap-providers.json`. Android's Firebase setup reads `google-services.json`.
+  Do not add client ids anywhere else.
+
 - **Never touch the Google UWP OAuth client `973025879644-s7b4ur9p3rlgop6a22u7iuptdc0brnrn`.** It is the Windows
   app's Gmail mailbox client. Do not change, rotate, replace or repurpose it, and never use it for Wino Accounts
   sign-in. Ask the user if a task seems to need it.
 - Outlook mailboxes sign in with the verified Microsoft Entra app `497b333d-c689-4b27-8f59-7dace624111a`
-  (`OutlookClientIds.Current` in `Wino.Core.Domain`), which new accounts record before their first sign-in. Only
-  Windows keeps the legacy app `b19c2035-d740-49ff-b297-de6ec561b208` (`WindowsOutlookAuthenticationHost.LegacyClientId`)
+  (`WinoAuthenticationClientIds.Outlook.Current` in `Wino.Core.Domain`), which new accounts record before their first sign-in. Only
+  Windows keeps the legacy app `b19c2035-d740-49ff-b297-de6ec561b208` (`WinoAuthenticationClientIds.Outlook.Legacy`)
   for accounts whose `MailAccount.OutlookClientId` is NULL; never migrate those accounts. Never delete or disable the
   legacy app: Windows users depend on it and the API uses its secret for Store collections.
-- Gmail mailboxes on macOS and iOS use the Wino Mail iOS client (`WinoAccountExternalAuth.GoogleAppleClientId`) in an
+- Gmail mailboxes on macOS and iOS use the Wino Mail iOS client (`WinoAuthenticationClientIds.Google.Apple`) in an
   `ASWebAuthenticationSession` (`WebSessionGoogleAuthorizationCodeReceiver`). Each stored Google token records the client
   that issued it and refreshes with that client; tokens without one came from the UWP client. Android uses Play
   services' `AuthorizationClient` and falls back to the UWP client's loopback flow.
@@ -154,11 +159,11 @@ Binding for every agent. Backend counterpart: `AGENTS.md` and `docs/social-sign-
   through `WindowsBrowserAuthBroker` (`Wino.Platform.Windows`), and the `wino://auth-complete` protocol activation
   hands the completion code back through `WindowsExternalAuthCallbacks`. No native provider SDK is involved on Windows.
 - Wino Accounts Google sign-in: Windows uses the API's browser flow; iOS and
-  macOS use the iOS client `973025879644-qlc58h7f2gepqgu3ocvlr7mqvd3fff1c` (`WinoAccountExternalAuth.GoogleAppleClientId`,
+  macOS use the iOS client `973025879644-qlc58h7f2gepqgu3ocvlr7mqvd3fff1c` (`WinoAuthenticationClientIds.Google.Apple`,
   an `ASWebAuthenticationSession` with PKCE in `GoogleWebSessionSignInProvider`) and post the ID token to
   `/api/v1/auth/google/native`; Android uses Credential Manager (`AndroidGoogleSignInProvider`) with `serverClientId`
   = the web client `973025879644-92h0mdbvgaiq0p6efdv16hpiop65er6a.apps.googleusercontent.com`
-  (`WinoAccountExternalAuth.GoogleAndroidServerClientId`). The Android client ids are never named in code; Google
+  (`WinoAuthenticationClientIds.Google.AndroidServer`). The Android client ids are never named in code; Google
   matches package `com.winomail.android` and the signing certificate.
 - Apple: iOS and macOS share App ID `com.winomail.macos` (team `4VB7YWRAQ9`) with Sign in with Apple enabled. The
   iOS entitlements files and `Wino.Mail.MacOS/Entitlements.AppStore.plist` carry `com.apple.developer.applesignin`;

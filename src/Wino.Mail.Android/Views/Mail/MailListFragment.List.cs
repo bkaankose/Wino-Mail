@@ -114,8 +114,8 @@ public sealed partial class MailListFragment
         var density = Chrome?.WidthClass == WindowWidthClass.Expanded
             ? Wino.Mail.ViewModels.Collections.MailRowPresentation.Density(_preferences.MailItemDisplayMode)
             : MailRowMapper.PhoneDensity;
-        var model = MailRowMapper.TryMap(row, _preferences, viewModel.IsMergedAccountView, density);
-        return model is { ShowPicture: true } ? model with { Picture = _pictures?.Get(model.SenderAddress) } : model;
+        var address = row.SourceItem is Wino.Mail.ViewModels.Data.MailItemViewModel item ? item.MailCopy.FromAddress : null;
+        return MailRowMapper.TryMap(row, _preferences, viewModel.IsMergedAccountView, density, _pictures?.Get(address));
     }
 
     private void PreferenceChanged(object? sender, string name)
@@ -378,9 +378,7 @@ public sealed partial class MailListFragment
         if (_snackbarHost is null) return null;
         var snackbar = Google.Android.Material.Snackbar.Snackbar.Make(_snackbarHost, text, durationMs);
         if (action is not null && invoked is not null) snackbar.SetAction(action, _ => invoked());
-        // Above the floating selection toolbar while selecting, else above the compact New mail button.
-        if (_selectionToolbar is { Visibility: ViewStates.Visible } selectionBar) snackbar.SetAnchorView(selectionBar);
-        else if (Chrome?.SnackbarAnchor is { } anchor) snackbar.SetAnchorView(anchor);
+        if (Chrome?.SnackbarAnchor is { } anchor) snackbar.SetAnchorView(anchor);
         snackbar.AddCallback(new SnackbarDismissed(dismissed));
         snackbar.Show();
         return snackbar;

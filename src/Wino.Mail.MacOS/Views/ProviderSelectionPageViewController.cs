@@ -211,7 +211,7 @@ public sealed class ProviderSelectionPageViewController(ProviderSelectionPageVie
         EventHandler searched = (_, _) => searchBinding.UpdateSource(search.StringValue);
         search.Changed += searched;
         Bindings.Own(new ActionDisposable(() => search.Changed -= searched));
-        var count = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText);
+        var count = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.TertiaryText);
         count.SetContentHuggingPriorityForOrientation(750, NSLayoutConstraintOrientation.Horizontal);
         _catalogRefresh.Add(_form.Bind(nameof(vm.CatalogResultCountText), s => s.CatalogResultCountText, text => count.StringValue = text ?? string.Empty).Refresh);
         var searchRow = WinoLayout.HStack(WinoStyle.Space3, search, count);
@@ -282,6 +282,8 @@ public sealed class ProviderSelectionPageViewController(ProviderSelectionPageVie
 
     protected override Task InitializeAsync(NavigationMode mode, object? parameter)
     {
+        // The server page offers secure sign-in, so catalog providers with a sign-in registration go there.
+        ViewModel.IsSecureSignInSupportedByHost = true;
         ViewModel.OnNavigatedTo(mode, parameter!);
         foreach (var refresh in _catalogRefresh) refresh();
         // The palette is loaded by OnNavigatedTo and never raises a change of its own.

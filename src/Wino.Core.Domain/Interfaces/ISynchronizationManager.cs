@@ -37,6 +37,12 @@ public interface ISynchronizationManager
     Task<ImapConnectivityTestResults> TestImapConnectivityAsync(CustomServerInformation serverInformation);
 
     /// <summary>
+    /// Tests IMAP and SMTP connectivity, authenticating OAuth2 methods with tokens for <paramref name="oauthTokenKey"/>
+    /// (the setup session key before the account exists).
+    /// </summary>
+    Task<ImapConnectivityTestResults> TestImapConnectivityAsync(CustomServerInformation serverInformation, IOAuthTokenService oauthTokenService, Guid oauthTokenKey);
+
+    /// <summary>
     /// Starts a new mail synchronization for the given account.
     /// </summary>
     Task<MailSynchronizationResult> SynchronizeMailAsync(MailSynchronizationOptions options,

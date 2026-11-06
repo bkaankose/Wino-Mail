@@ -330,10 +330,7 @@ public abstract partial class ContactsPageViewController
 
     private sealed class ContactsDelegate(ContactsPageViewController owner) : UITableViewDelegate
     {
-        // Self-sizing: the row has three text lines (name, detail, source) that grow with Dynamic Type.
-        public override nfloat GetHeightForRow(UITableView tableView, NSIndexPath indexPath) => UITableView.AutomaticDimension;
-
-        public override nfloat EstimatedHeight(UITableView tableView, NSIndexPath indexPath) => (nfloat)WinoStyle.ScaledIcon(WinoContactStyle.RowHeight + 14, tableView.TraitCollection, 2);
+        public override nfloat GetHeightForRow(UITableView tableView, NSIndexPath indexPath) => (nfloat)WinoContactStyle.RowHeight;
 
         public override nfloat GetHeightForHeader(UITableView tableView, nint section) => (nfloat)WinoContactStyle.HeaderRowHeight;
 

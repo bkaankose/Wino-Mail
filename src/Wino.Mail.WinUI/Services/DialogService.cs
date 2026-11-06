@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Security.Cryptography.X509Certificates;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Xaml;
@@ -13,8 +15,8 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.Domain.Models.Calendar;
-using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
@@ -182,14 +184,37 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
         };
     }
 
-    public async Task<bool> ShowServerCertificateTrustDialogAsync(ServerCertificateTrustPrompt prompt)
+    public async Task<bool> ShowServerCertificateTrustDialogAsync(string summary, byte[] certificateRawData)
     {
-        var dialog = new ServerCertificateTrustDialog(prompt)
+        while (true)
         {
-            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
-        };
+            var informationContainer = new CustomMessageDialogInformationContainer(
+                Translator.GeneralTitle_Warning,
+                summary,
+                WinoCustomMessageDialogIcon.Warning,
+                false);
+            var dialog = new WinoMessageDialog(informationContainer,
+                                               Translator.Buttons_Allow,
+                                               Translator.IMAPSetupDialog_CertificateView,
+                                               Translator.Buttons_Cancel,
+                                               ContentDialogButton.Close)
+            {
+                RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+            };
 
-        return await HandleDialogPresentationAsync(dialog) == ContentDialogResult.Primary;
+            var result = await HandleDialogPresentationAsync(dialog);
+            if (result == ContentDialogResult.Primary)
+                return true;
+
+            if (result != ContentDialogResult.Secondary)
+                return false;
+
+            using var certificate = X509CertificateLoader.LoadCertificate(certificateRawData);
+            await ShowMessageAsync(
+                certificate.ToString(verbose: true),
+                Translator.IMAPSetupDialog_CertificateView,
+                WinoCustomMessageDialogIcon.Information);
+        }
     }
 
     public async Task<MailAccount?> ShowAccountPickerDialogAsync(List<MailAccount> availableAccounts)
@@ -441,16 +466,6 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
         return dialog.Result;
     }
 
-    public async Task<bool> ShowOpenLinkConfirmationAsync(string? linkText, Uri originalUri, Uri cleanedUri, int removedParameterCount, string? browserName)
-    {
-        var dialog = new OpenLinkConfirmationDialog(linkText, originalUri, cleanedUri, removedParameterCount, browserName)
-        {
-            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
-        };
-
-        return await HandleDialogPresentationAsync(dialog) == ContentDialogResult.Primary;
-    }
-
     public async Task<bool> ShowCautiousConfirmationDialogAsync(string title, string message, string confirmButtonText)
     {
         var informationContainer = new CustomMessageDialogInformationContainer(title, message, WinoCustomMessageDialogIcon.Warning, false);
@@ -539,5 +554,26 @@ public class DialogService : DialogServiceBase, IMailDialogService, IWinoDialogS
         // The sign-in waits for the browser redirect, which the user completes away from Wino,
         // so the surface opens on the main window rather than whichever window was last active.
         return StartSessionDialog(dialog, WinoApplication.MainWindow?.Content?.XamlRoot) == null ? null : dialog;
+    }
+
+    public async Task<EmbeddedBrowserAuthResult> ShowEmbeddedBrowserSignInDialogAsync(Uri startUri, Uri redirectUri, CancellationToken cancellationToken)
+    {
+        var dialog = new EmbeddedBrowserSignInDialog(startUri, redirectUri)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        var dispatcherQueue = dialog.DispatcherQueue;
+        using var cancellation = cancellationToken.Register(() =>
+        {
+            if (dispatcherQueue.HasThreadAccess)
+                dialog.Cancel();
+            else
+                dispatcherQueue.TryEnqueue(dialog.Cancel);
+        });
+
+        await HandleDialogPresentationAsync(dialog);
+
+        return dialog.Result;
     }
 }

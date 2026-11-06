@@ -42,6 +42,12 @@ public interface ICalendarService
     /// Returns every occurrence row linked to the given series master.
     /// </summary>
     Task<List<CalendarItem>> GetRecurringChildrenAsync(Guid parentCalendarItemId);
+
+    /// <summary>
+    /// The series masters stored for a calendar: rows that carry a recurrence rule and have no parent. Masters sit
+    /// outside any date-range query, so a provider that expands series itself uses this to reconcile deleted series.
+    /// </summary>
+    Task<List<CalendarItem>> GetRecurringMastersAsync(Guid accountCalendarId);
     Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);
 
     /// <summary>

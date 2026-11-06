@@ -55,7 +55,6 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
         new(TaskCreationOptions.RunContinuationsAsynchronously);
     private bool _updatingToolbar;
     private bool _disposed;
-    private bool _isContentLost;
     private bool _resourceFilterAttached;
     private bool _isApplyingTheme;
     private bool _autoCorrectEnabled;
@@ -82,12 +81,6 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
 
     /// <summary>Raised when the user opens a link from the link bubble or with Ctrl+click. The host launches it.</summary>
     public event EventHandler<Uri>? LinkOpenRequested;
-
-    /// <summary>
-    /// Raised when a new WebView2 replaced one whose browser failed or closed and it is ready. The new document is
-    /// empty, so the host renders its content and typography again.
-    /// </summary>
-    public event EventHandler? Restarted;
 
     /// <summary>Localized labels of the link bubble. Applied when the editor document is ready.</summary>
     public string OpenLinkLabel { get; set; } = "Open link";
@@ -134,14 +127,8 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
         ObjectDisposedException.ThrowIf(_disposed, this);
         await _loadedSource.Task.WaitAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
-
-        // Every caller that awaited a failed attempt saw its exception. The next call starts
-        // over in a new WebView2 instead of rethrowing that failure until the host closes.
-        if (_initializationTask is { IsFaulted: true } or { IsCanceled: true } || HasLostInitializedBrowser())
-            ReplaceEditorWebView();
-
-        var initialization = _initializationTask ??= InitializeCoreAsync();
-        await initialization;
+        _initializationTask ??= InitializeCoreAsync();
+        await _initializationTask;
         ObjectDisposedException.ThrowIf(_disposed, this);
         cancellationToken.ThrowIfCancellationRequested();
     }
@@ -150,7 +137,6 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
     {
         await InitializeAsync();
         await _bridge!.SetContentAsync(html, "replace");
-        _isContentLost = false;
     }
 
     public Task RenderHtmlAsync(string html) => SetHtmlAsync(html);
@@ -158,7 +144,6 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
     public async Task<string?> GetHtmlBodyAsync()
     {
         await InitializeAsync();
-        ThrowIfContentLost();
         return await _bridge!.GetBodyContentAsync();
     }
 
@@ -210,13 +195,11 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
     {
         await InitializeAsync();
         await _bridge!.SetContentAsync(previousMessageHtml, "reply");
-        _isContentLost = false;
     }
 
     public async Task<string> GetHtmlAsync()
     {
         await InitializeAsync();
-        ThrowIfContentLost();
         return await _bridge!.GetContentAsync();
     }
 
@@ -349,9 +332,6 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
         await _bridge.SetLinkLabelsAsync(OpenLinkLabel, RemoveLinkLabel);
         ApplyConfiguration();
         SetStatus("Ready (WebView2)", false);
-
-        if (_isContentLost)
-            Restarted?.Invoke(this, EventArgs.Empty);
     }
 
     private void DisposeBridge()
@@ -365,70 +345,6 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
         _bridge.ApplicationShortcutRequested -= Bridge_ApplicationShortcutRequested;
         _bridge.Dispose();
         _bridge = null;
-    }
-
-    /// <summary>
-    /// True for the failures a WebView2 that could not start or went away raises, such as a
-    /// missing runtime, "Expecting object to be local", or a document that never became ready.
-    /// </summary>
-    public static bool IsStartupFailure(Exception exception) =>
-        exception is FileNotFoundException or COMException or InvalidOperationException or TimeoutException;
-
-    private bool HasLostInitializedBrowser() =>
-        _initializationTask is { IsCompletedSuccessfully: true } && EditorWebView2?.CoreWebView2 is null;
-
-    /// <summary>
-    /// A WebView2 whose browser failed to start or closed under the editor can't be used again,
-    /// so a new one takes its place and the next call initializes it.
-    /// </summary>
-    private void ReplaceEditorWebView()
-    {
-        DisposeBridge();
-        DetachResourceFilter();
-
-        var lostWebView = EditorWebView2;
-        var index = lostWebView is null ? 0 : Math.Max(0, EditorHost.Children.IndexOf(lostWebView));
-        if (lostWebView is not null)
-        {
-            lostWebView.DragOver -= EditorWebView_DragOver;
-            lostWebView.Drop -= EditorWebView_Drop;
-
-            // Leave the visual tree before closing, as Dispose does (Sentry WINOMAIL-36Q).
-            EditorHost.Children.Remove(lostWebView);
-
-            try { lostWebView.Close(); }
-            catch (Exception exception) when (
-                exception is COMException or InvalidOperationException or ObjectDisposedException)
-            {
-            }
-        }
-
-        var webView = new Microsoft.UI.Xaml.Controls.WebView2
-        {
-            AllowDrop = true,
-            DefaultBackgroundColor = Microsoft.UI.Colors.Transparent
-        };
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(webView, "WinoMailEditorWebView");
-        webView.DragOver += EditorWebView_DragOver;
-        webView.Drop += EditorWebView_Drop;
-        EditorHost.Children.Insert(index, webView);
-        EditorWebView2 = webView;
-
-        _initializationTask = null;
-
-        // The new document starts empty. Reading it before the host renders its content again
-        // would save an empty body over the draft or signature.
-        _isContentLost = true;
-        ApplyConfiguration();
-    }
-
-    /// <summary>True after a restart until the host renders its content again.</summary>
-    public bool IsContentLost => _isContentLost;
-
-    private void ThrowIfContentLost()
-    {
-        if (_isContentLost)
-            throw new InvalidOperationException("The editor restarted before its content was loaded again.");
     }
 
     private void CoreWebView2_WebResourceRequested(CoreWebView2 sender, CoreWebView2WebResourceRequestedEventArgs args)
@@ -961,24 +877,21 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
         DisposeBridge();
         DetachResourceFilter();
 
-        var webView = EditorWebView2;
-        EditorWebView2 = null;
-
-        // Leave the visual tree before closing. XAML can still hand focus to a WebView2 in the tree, and
-        // moving that focus into a closed browser aborts the process (Sentry WINOMAIL-36Q).
-        Content = null;
-
-        if (webView is not null)
+        if (EditorWebView2 is not null)
         {
-            webView.DragOver -= EditorWebView_DragOver;
-            webView.Drop -= EditorWebView_Drop;
+            EditorWebView2.DragOver -= EditorWebView_DragOver;
+            EditorWebView2.Drop -= EditorWebView_Drop;
 
-            try { webView.Close(); }
+            try { EditorWebView2.Close(); }
             catch (Exception exception) when (
                 exception is InvalidOperationException or ObjectDisposedException)
             {
             }
+
+            EditorWebView2 = null;
         }
+
+        Content = null;
         GC.SuppressFinalize(this);
     }
 }

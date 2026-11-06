@@ -224,8 +224,7 @@ public sealed class WinoAppShellViewController : WinoViewController<WinoAppShell
     protected override async Task InitializeAsync(NavigationMode mode, object? parameter)
     {
         ViewModel.OnNavigatedTo(mode, parameter!);
-        var start = ShellModeActivator.StartMode(_state, candidate => _navigation is not AppKitNavigationService router || router.IsModeAvailable(candidate),
-            ViewModel.PreferencesService.HiddenApplicationModes);
+        var start = ShellModeActivator.StartMode(_state, candidate => _navigation is not AppKitNavigationService router || router.IsModeAvailable(candidate));
         await ActivateModeAsync(start, new ShellModeActivationContext { IsInitialActivation = true });
     }
 

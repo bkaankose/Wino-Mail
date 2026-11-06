@@ -36,16 +36,6 @@ public sealed class WebKitHtmlMailReaderSession : NSObject, IHtmlMailReaderSessi
     public void Configure(IExternalLauncher launcher) => _host.Configure(launcher);
 
     /// <summary>
-    /// Opens clicked links instead of the launcher, with the anchor's visible text when the reader captured it. The
-    /// reader pages route links through the ViewModel so tracking parameters are stripped and the link is confirmed.
-    /// </summary>
-    public Func<Uri, string?, Task<Wino.Core.Domain.Models.Platform.PlatformOperationResult>>? LinkOpener
-    {
-        get => _host.LinkOpener;
-        set => _host.LinkOpener = value;
-    }
-
-    /// <summary>
     /// Inset in CSS pixels around the whole mail, kept even when the mail zeroes its own body padding (the iOS reader
     /// card). Zero (the default, used by the Mac reader) keeps the shared document unchanged. Set it before
     /// <see cref="InitializeAsync"/>; it is applied to every document load.

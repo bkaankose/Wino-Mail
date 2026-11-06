@@ -27,8 +27,7 @@ internal static class CalendarTiles
             return new WinoCalendarTileModel(item.Title ?? string.Empty, null, WinoColors.Accent(context), CalendarItemShowAs.Busy, false);
         var period = new TimeRange(date.ToDateTime(TimeOnly.MinValue), date.AddDays(1).ToDateTime(TimeOnly.MinValue));
         string title = settings is null ? viewModel.Title ?? string.Empty : viewModel.GetDisplayTitle(period, settings) ?? string.Empty;
-        // "All day" for all-day and spanning items (the agenda rule), not "12:00 AM – 12:00 AM"; TalkBack reads it too.
-        string time = CalendarAgenda.TimeText(viewModel, date, settings);
+        string time = CalendarAgenda.TimeRangeText(viewModel.StartDate, viewModel.EndDate, settings);
         string detail = string.IsNullOrWhiteSpace(viewModel.Location) ? time : $"{time} · {viewModel.Location}";
         return new WinoCalendarTileModel(title, detail, Fill(context, viewModel), viewModel.CalendarItem.ShowAs, viewModel.IsSelected);
     }

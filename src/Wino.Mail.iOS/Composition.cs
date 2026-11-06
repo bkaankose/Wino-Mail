@@ -51,7 +51,6 @@ internal static class Composition
         // Head lifecycle hooks, run in order after the runtime started (ApplicationLifecycleCoordinator).
         services.AddSingleton<IApplicationLifecycleHook>(container => new NotificationsLifecycleHook(container, notificationResponses));
         services.AddSingleton<IApplicationLifecycleHook>(container => new ActivationLifecycleHook(container));
-        services.AddSingleton<IApplicationLifecycleHook>(container => new QuickActionsLifecycleHook(container));
         services.AddSingleton<IApplicationLifecycleHook, BackgroundRefreshLifecycleHook>();
 #if WINO_APPSTORE
         services.AddSingleton<IApplicationLifecycleHook>(container => new AppStoreLifecycleHook(container));

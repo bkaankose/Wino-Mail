@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Shared;
@@ -14,6 +15,12 @@ public interface IMailServerTestService
     /// Connects and authenticates against the IMAP and SMTP servers. Throws <see cref="Wino.Core.Domain.Exceptions.ImapValidationException"/> on failure.
     /// </summary>
     Task TestImapAsync(CustomServerInformation serverInformation);
+
+    /// <summary>
+    /// Same as <see cref="TestImapAsync(CustomServerInformation)"/>, authenticating OAuth2 methods with tokens for
+    /// <paramref name="oauthTokenKey"/> (the setup session key before the account exists).
+    /// </summary>
+    Task TestImapAsync(CustomServerInformation serverInformation, IOAuthTokenService oauthTokenService, Guid oauthTokenKey);
 
     /// <summary>
     /// Connects and authenticates against the POP3 server and verifies UIDL support.

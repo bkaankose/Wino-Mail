@@ -254,7 +254,7 @@ internal sealed class DashedDropZoneView : UIView
     {
         TranslatesAutoresizingMaskIntoConstraints = false;
         Layer.AddSublayer(_border);
-        _label = WinoStyle.Label(text, WinoStyle.Caption, WinoStyle.SecondaryText, 2);
+        _label = WinoStyle.Label(text, WinoStyle.Caption, WinoStyle.TertiaryText, 2);
         _label.TextAlignment = UITextAlignment.Center;
         _label.TranslatesAutoresizingMaskIntoConstraints = false;
         AddSubview(_label);

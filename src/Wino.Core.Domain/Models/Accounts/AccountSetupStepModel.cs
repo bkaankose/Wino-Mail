@@ -6,6 +6,8 @@ namespace Wino.Core.Domain.Models.Accounts;
 
 public partial class AccountSetupStepModel : ObservableObject
 {
+    public AccountSetupStepKind Kind { get; init; }
+
     public string Title { get; init; }
 
     [ObservableProperty]

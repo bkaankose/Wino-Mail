@@ -53,8 +53,7 @@
       <LinearLayout
           android:id="@+id/mail_list_header"
           style="@style/Widget.Wino.Mail.ChipRow"
-          android:layout_height="wrap_content"
-          android:minHeight="@dimen/wino_mail_header_height">
+          android:layout_height="@dimen/wino_mail_header_height">
 
         <com.google.android.material.chip.Chip
             android:id="@+id/mail_filter_chip"

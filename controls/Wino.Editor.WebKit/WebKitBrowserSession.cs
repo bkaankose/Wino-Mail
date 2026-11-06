@@ -2,7 +2,6 @@ using Foundation;
 using WebKit;
 using System.Text.Json;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Platform;
 
 namespace Wino.Editor.WebKit;
 
@@ -24,9 +23,6 @@ internal sealed class WebKitBrowserSession : NSObject, IWKScriptMessageHandler
 
     /// <summary>The reader's hovered or focused link changed (the host shows its address).</summary>
     public event EventHandler<RendererLinkHoverEventArgs>? LinkHovered;
-
-    /// <summary>Opens clicked links in place of the launcher (the reader's link cleaning and confirmation).</summary>
-    public Func<Uri, string?, Task<PlatformOperationResult>>? LinkOpener { get; set; }
     public WebKitBrowserSession(WKWebView browser)
     {
         Browser = browser;
@@ -105,7 +101,7 @@ internal sealed class WebKitBrowserSession : NSObject, IWKScriptMessageHandler
             {
                 var reader = JsonSerializer.Deserialize(json, EditorJsonContext.Default.RendererMessage);
                 if (Uri.TryCreate(message.Url ?? reader?.Uri, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https" or "mailto")
-                    OpenLink(uri, NullIfBlank(reader?.Text));
+                    OpenLink(uri);
             }
             else if (message.Type == "linkHover")
             {
@@ -118,15 +114,11 @@ internal sealed class WebKitBrowserSession : NSObject, IWKScriptMessageHandler
     }
     private static string? NullIfBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
-    private async void OpenLink(Uri uri, string? text)
+    private async void OpenLink(Uri uri)
     {
-        NavigationRequested?.Invoke(this, new(uri, text));
-        if (_linkLifetime.IsCancellationRequested) return;
-        try
-        {
-            if (LinkOpener is { } opener) (await opener(uri, text)).ThrowIfNotSucceeded();
-            else if (_launcher is not null) (await _launcher.LaunchUriAsync(uri, _linkLifetime.Token)).ThrowIfNotSucceeded();
-        }
+        NavigationRequested?.Invoke(this, new(uri));
+        if (_launcher is null || _linkLifetime.IsCancellationRequested) return;
+        try { (await _launcher.LaunchUriAsync(uri, _linkLifetime.Token)).ThrowIfNotSucceeded(); }
         catch (Exception error) { if (!_linkLifetime.IsCancellationRequested) OperationFailed?.Invoke(this, error); }
     }
     public ValueTask DisposeAsync(Action releaseVisual) => Queue.DisposeAsync(async () =>
@@ -136,7 +128,6 @@ internal sealed class WebKitBrowserSession : NSObject, IWKScriptMessageHandler
             _disposed = true;
             _linkLifetime.Cancel();
             _launcher = null;
-            LinkOpener = null;
             _sessionId = null;
             _ready.TrySetCanceled();
             Browser.StopLoading();

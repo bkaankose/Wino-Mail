@@ -12,6 +12,7 @@
     <Project Path="src/Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj" />
     <Project Path="src/Wino.Core.Domain/Wino.Core.Domain.csproj" />
     <Project Path="src/Wino.Core/Wino.Core.csproj" />
+    <Project Path="src/Wino.Core.MAPI/Wino.Core.MAPI.csproj" />
     <Project Path="src/Wino.Core.ML/Wino.Core.ML.csproj" />
     <Project Path="src/Wino.Services/Wino.Services.csproj" />
     <Project Path="src/Wino.PushRelay.Socket/Wino.PushRelay.Socket.csproj" />

@@ -59,9 +59,6 @@ public abstract class UIKitShellViewController : WinoViewController<WinoAppShell
     /// <summary>The published menu changed (sidebar rows, Mailboxes). Main thread.</summary>
     protected abstract void MenuChanged(ShellMenu? menu);
 
-    /// <summary>Creates a new item of the active mode (the Mac shell's NewItem): a mail, an event or a task. Main thread.</summary>
-    public virtual void CreateNew() { }
-
     /// <summary>The selected menu item changed. Main thread.</summary>
     protected virtual void SelectedItemChanged(object? item) { }
 
@@ -79,7 +76,7 @@ public abstract class UIKitShellViewController : WinoViewController<WinoAppShell
     protected override async Task InitializeAsync(NavigationMode mode, object? parameter)
     {
         ViewModel.OnNavigatedTo(mode, parameter);
-        await ActivateModeAsync(ShellModeActivator.StartMode(_state, hiddenModes: ViewModel.PreferencesService.HiddenApplicationModes), new ShellModeActivationContext { IsInitialActivation = true });
+        await ActivateModeAsync(ShellModeActivator.StartMode(_state), new ShellModeActivationContext { IsInitialActivation = true });
     }
 
     /// <summary>
@@ -94,47 +91,17 @@ public abstract class UIKitShellViewController : WinoViewController<WinoAppShell
     /// <summary>Hosts a shell-content page and activates it; the previous page is released first.</summary>
     public async Task SetContentAsync(UIViewController controller, object? parameter)
     {
-        var settled = BeginContentChange();
-        try
+        if (_child is IWinoViewController previous) await previous.ReleaseAsync();
+        await Dispatcher.ExecuteOnUIThread(() =>
         {
-            if (_child is IWinoViewController previous) await previous.ReleaseAsync();
-            await Dispatcher.ExecuteOnUIThread(() =>
-            {
-                _child = controller;
-                PlaceContent(controller);
-            });
-            if (controller is IWinoViewController next) await next.ActivateAsync(NavigationMode.New, parameter);
-        }
-        finally { settled.TrySetResult(); }
-    }
-
-    /// <summary>
-    /// Completes once the content page placed after the last mode switch finished activating. A mode switch returns
-    /// before modes other than Mail route their root page, so an action for the new mode waits for this first.
-    /// </summary>
-    public Task ContentSettled => _contentSettled.Task;
-
-    private TaskCompletionSource _contentSettled = CompletedContentChange();
-
-    private static TaskCompletionSource CompletedContentChange()
-    {
-        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        completed.SetResult();
-        return completed;
-    }
-
-    private TaskCompletionSource BeginContentChange()
-    {
-        var current = _contentSettled;
-        if (!current.Task.IsCompleted) return current;
-        var pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        _contentSettled = pending;
-        return pending;
+            _child = controller;
+            PlaceContent(controller);
+        });
+        if (controller is IWinoViewController next) await next.ActivateAsync(NavigationMode.New, parameter);
     }
 
     public async Task ClearContentAsync()
     {
-        BeginContentChange();
         if (_child is IWinoViewController previous) await previous.ReleaseAsync();
         await Dispatcher.ExecuteOnUIThread(() =>
         {

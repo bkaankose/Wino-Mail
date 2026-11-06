@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.Domain.Enums;
@@ -68,6 +69,13 @@ public sealed partial class WelcomeHostPage : WelcomeHostPageAbstract,
     {
         BreadcrumbNavigationHelper.GoBack(WizardFrame, PageHistory, NavigationTransitionEffect.FromLeft);
     }
+
+    // The scroller measures its content with infinite height; a viewport-tall frame lets pages center themselves.
+    private void WizardScrollViewerSizeChanged(object sender, SizeChangedEventArgs e)
+        => WizardFrame.MinHeight = e.NewSize.Height;
+
+    private void WizardFrameNavigated(object sender, Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+        => BreadcrumbHost.Visibility = e.Content is AccountSetupPage ? Visibility.Collapsed : Visibility.Visible;
 
     private void BreadItemClicked(Microsoft.UI.Xaml.Controls.BreadcrumbBar sender, Microsoft.UI.Xaml.Controls.BreadcrumbBarItemClickedEventArgs args)
     {

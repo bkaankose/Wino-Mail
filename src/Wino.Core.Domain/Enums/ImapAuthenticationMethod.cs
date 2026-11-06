@@ -8,5 +8,6 @@ public enum ImapAuthenticationMethod
     EncryptedPassword,
     Ntlm,
     CramMd5,
-    DigestMd5
+    DigestMd5,
+    OAuth2
 }

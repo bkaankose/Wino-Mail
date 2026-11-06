@@ -124,12 +124,10 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         }
     }
 
-    // While IsAllDay is on, SelectedQuickEventEndDate holds the last day of the event (inclusive), so turning
-    // all-day off keeps a one-day event on one day. The exclusive end providers expect is added here.
     private DateTime GetQuickEventAllDayEnd()
     {
         var start = SelectedQuickEventDate.Value.Date;
-        return (SelectedQuickEventEndDate is DateTime end && end.Date > start ? end.Date : start).AddDays(1);
+        return SelectedQuickEventEndDate is DateTime end && end.Date > start ? end.Date : start.AddDays(1);
     }
 
     partial void OnSelectedQuickEventDateChanged(DateTime? value)
@@ -154,18 +152,9 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             throw new ArgumentOutOfRangeException(nameof(end));
 
         SelectedQuickEventDate = start;
-
-        if (isAllDay)
-        {
-            SelectQuickEventTimeRange(TimeSpan.Zero, QuickEventDefaultDuration);
-            IsAllDay = true;
-            SelectedQuickEventEndDate = end.TimeOfDay == TimeSpan.Zero && end.Date > start.Date ? end.Date.AddDays(-1) : end.Date;
-        }
-        else
-        {
-            SelectQuickEventTimeRange(start.TimeOfDay, end.TimeOfDay);
-            SelectedQuickEventEndDate = end.Date;
-        }
+        SelectedQuickEventEndDate = end.Date;
+        IsAllDay = isAllDay;
+        SelectQuickEventTimeRange(start.TimeOfDay, end.TimeOfDay);
     }
 
     public bool CanSaveQuickEvent
@@ -1743,14 +1732,6 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     {
         if (value)
         {
-            if (SelectedQuickEventDate is DateTime start &&
-                SelectedQuickEventEndDate is DateTime endDate &&
-                endDate.Date > start.Date &&
-                CurrentSettings?.GetTimeSpan(SelectedEndTimeString) == TimeSpan.Zero)
-            {
-                SelectedQuickEventEndDate = endDate.Date.AddDays(-1);
-            }
-
             _previousSelectedStartTimeString = SelectedStartTimeString;
             _previousSelectedEndTimeString = SelectedEndTimeString;
             SelectedStartTimeString = HourSelectionStrings.FirstOrDefault();

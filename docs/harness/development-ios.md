@@ -89,6 +89,12 @@ The head bundles the WinoIcons fonts (`Fonts/`), `WinoLogo.png`, the theme wallp
 
 Preserve application data, Keychain items, and the bundle identifier.
 
+## Secure sign-in for IMAP and Exchange
+
+- IMAP and SMTP OAuth with a custom-scheme redirect runs in an `ASWebAuthenticationSession` sheet (`AppleOAuthBrowserBroker` with the `wino` scheme, registered in `IOSPlatformRegistration`). The server page and the provider page set `IsSecureSignInSupportedByHost`.
+- Loopback redirects (`http://127.0.0.1`, used by catalog registrations such as Yandex and by discovered servers without PKCE S256) do not work on iOS, checked on 1 Nov 2026: `IOSExternalLauncher` opens Safari, which suspends Wino, and a suspended app neither accepts on its `TcpListener` nor keeps the listening socket reliably (Apple TN2277); the web authentication sheet completes only custom-scheme (or associated-domain https) callbacks. iOS therefore sets `PlatformCapabilities.OAuthLoopbackRedirect` to false. Discovery reports such issuers as not offered, dynamic registration never falls back to loopback, the provider page sends Yandex to its app password page, and an account restored with a loopback sign-in explains that it needs a password sign-in on this device. Registering a custom-scheme redirect with those providers would make them work here.
+- Exchange modern auth needs an embedded browser (`IEmbeddedBrowserAuthBroker`), which iOS does not register yet. Exchange setup then offers only the password, with a notice when the server also offers the organization sign-in, and account details hide "Sign in again" for modern-auth accounts.
+
 ## Run in the Simulator
 
 ```sh
@@ -122,7 +128,6 @@ cat "$dir/out.log"
 | Shell (iPhone and iPad) | `mailboxes`, `openfolder`, `drawer open\|close`, `toolbarinfo`, `stackinfo`, `pop`, `readertoolbar`, `readertap N`, `newmail`, `moderoot`, `moderoot-tap N` (To Do Lists), `selectmail N` |
 | iPad | `pairing` (list and item columns of every tab), `pairing close` (closes the item beside the list). Simulator taps may not land in landscape; drive landscape through the bridge. |
 | Contacts and To Do | `contacts-*`, `todo-*` |
-| Quick actions | `quickactions` (republish and list the Home Screen quick actions), `quickaction new-mail\|new-event\|new-task\|next-meeting` (runs a published action as a tap would) |
 
 The seed commands create a local IMAP account with a closed loopback port and placeholder credentials, so synchronization fails by design. A walk on a fresh simulator runs `seedmail`, `seedpeople`, `seedtasks` and `seedcalendar`, then relaunches the app. The bridge runs a file's lines back to back (`sleep` does not delay the next line), so write one command file per step when a step waits for an animation, and note that `settingspage` opens Settings itself (after `settings` it stacks a second Settings root). The Debug bridge and the seed data compile only in Debug. Feature code adds commands with `UIKitDebugBridge.Register` inside `#if DEBUG`.
 

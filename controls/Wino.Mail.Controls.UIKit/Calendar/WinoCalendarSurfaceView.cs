@@ -1011,7 +1011,7 @@ public sealed partial class WinoCalendarSurfaceView : UIView
             FillRect(new CGRect(HourColumnWidth - 1, 0, 1, bounds.Height));
             var font = WinoStyle.Fixed(11);
             var size = Measure(Translator.CalendarItemAllDay, font);
-            DrawText(Translator.CalendarItemAllDay, font, WinoStyle.SecondaryText, new CGPoint(HourColumnWidth - 8 - size.Width, (bounds.Height - size.Height) / 2));
+            DrawText(Translator.CalendarItemAllDay, font, WinoStyle.TertiaryText, new CGPoint(HourColumnWidth - 8 - size.Width, (bounds.Height - size.Height) / 2));
         }
     }
 
@@ -1096,7 +1096,7 @@ public sealed partial class WinoCalendarSurfaceView : UIView
                 double y = TimelinePadding + hour * hourHeight;
                 string text = settings is null ? $"{hour:00}:00" : settings.GetTimeString(TimeSpan.FromHours(hour));
                 var size = Measure(text, labelFont);
-                DrawText(text, labelFont, WinoStyle.SecondaryText, new CGPoint(HourColumnWidth - 8 - size.Width, y - size.Height / 2));
+                DrawText(text, labelFont, WinoStyle.TertiaryText, new CGPoint(HourColumnWidth - 8 - size.Width, y - size.Height / 2));
             }
             LineColor.SetFill();
             FillRect(new CGRect(HourColumnWidth - 1, 0, 1, bounds.Height));
@@ -1314,7 +1314,7 @@ public sealed partial class WinoCalendarSurfaceView : UIView
             return Owner.Items.Count(item => item.StartDate < end && (item.EndDate > start || (item.EndDate <= item.StartDate && item.StartDate >= start)));
         }
 
-        /// <summary>The count badge: an accent-tinted capsule centred in the space under the day number.</summary>
+        /// <summary>The count badge: an accent capsule centred in the space under the day number.</summary>
         private static void DrawCount(CGRect cell, int count, bool inMonth)
         {
             string text = count > 99 ? "99+" : count.ToString(System.Globalization.CultureInfo.CurrentCulture);
@@ -1325,8 +1325,7 @@ public sealed partial class WinoCalendarSurfaceView : UIView
             var badge = new CGRect(cell.X + (cell.Width - width) / 2, top + Math.Max(0, (cell.Bottom - top - height) / 2 - 2), width, height);
             (inMonth ? WinoStyle.Accent.ColorWithAlpha(0.18f) : WinoStyle.Accent.ColorWithAlpha(0.08f)).SetFill();
             UIBezierPath.FromRoundedRect(badge, (nfloat)(height / 2)).Fill();
-            // Label-coloured digits on the accent tint: accent digits on it measured 2.26:1 in dark mode.
-            DrawCentered(text, font, WinoStyle.PrimaryText, badge);
+            DrawCentered(text, font, inMonth ? WinoStyle.Accent : WinoStyle.Accent.ColorWithAlpha(0.5f), badge);
         }
 
         /// <summary>Month tiles move by whole days to the cell under the finger, keeping their time of day.</summary>

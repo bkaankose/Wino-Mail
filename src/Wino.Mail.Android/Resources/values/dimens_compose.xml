@@ -69,9 +69,7 @@
   <dimen name="wino_compose_tile_icon_margin">8dp</dimen>
   <dimen name="wino_compose_tile_name_max_width">180dp</dimen>
   <dimen name="wino_compose_tile_warning_margin">4dp</dimen>
-  <!-- Remove: a 48 dp touch target that overlaps the tile padding, so the tile keeps its 40 dp button height. -->
-  <dimen name="wino_compose_tile_remove">48dp</dimen>
-  <dimen name="wino_compose_tile_remove_overlap">-4dp</dimen>
+  <dimen name="wino_compose_tile_remove">40dp</dimen>
   <dimen name="wino_compose_glyph_tile">22dp</dimen>
   <dimen name="wino_compose_glyph_tile_warning">12dp</dimen>
   <dimen name="wino_compose_glyph_tile_remove">12dp</dimen>
@@ -82,10 +80,9 @@
   <dimen name="wino_compose_body_padding_horizontal">6dp</dimen>
   <dimen name="wino_compose_format_bar_height">48dp</dimen>
   <dimen name="wino_compose_format_bar_padding">6dp</dimen>
-  <!-- 48 dp touch targets filling the bar height. -->
-  <dimen name="wino_compose_format_button">48dp</dimen>
-  <dimen name="wino_compose_format_button_radius">24dp</dimen>
-  <dimen name="wino_compose_format_button_margin">0dp</dimen>
+  <dimen name="wino_compose_format_button">40dp</dimen>
+  <dimen name="wino_compose_format_button_radius">20dp</dimen>
+  <dimen name="wino_compose_format_button_margin">2dp</dimen>
   <dimen name="wino_compose_glyph_format">20dp</dimen>
   <dimen name="wino_compose_format_divider_height">24dp</dimen>
   <dimen name="wino_compose_format_divider_margin_start">4dp</dimen>

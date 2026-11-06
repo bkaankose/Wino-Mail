@@ -26,11 +26,6 @@ public sealed class PushRelayTokenProvider : IPushRelayTokenProvider
 {
     private static readonly TimeSpan FetchTimeout = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan DevicePathRetryDelay = TimeSpan.FromMinutes(10);
-    private static readonly TimeSpan DevicePathRetryCeiling = TimeSpan.FromHours(24);
-    private static readonly TimeSpan LinkRetryDelay = TimeSpan.FromHours(6);
-    private const int CredentialFailuresBeforeReRegistration = 3;
-    private static readonly TimeSpan CredentialFailureWindow = TimeSpan.FromHours(1);
-    private static readonly TimeSpan ReRegistrationInterval = TimeSpan.FromHours(24);
 
     private readonly IWinoAccountApiClient _apiClient;
     private readonly IWinoAccountSessionService? _sessions;
@@ -49,11 +44,6 @@ public sealed class PushRelayTokenProvider : IPushRelayTokenProvider
     private bool _credentialLoaded;
     private DateTimeOffset? _devicePathUnavailableUntil;
     private bool _boundKeyUpgradeAttempted;
-    private int _devicePathFailures;
-    private DateTimeOffset? _linkNotBefore;
-    private int _credentialFailures;
-    private DateTimeOffset? _firstCredentialFailure;
-    private DateTimeOffset? _lastReRegistration;
 
     public PushRelayTokenProvider(IWinoAccountApiClient apiClient, TimeProvider? timeProvider = null)
         : this(apiClient, null, null, null, null, timeProvider)
@@ -158,30 +148,21 @@ public sealed class PushRelayTokenProvider : IPushRelayTokenProvider
             return false;
         if (credential.LinkedWinoUserId == session.AccountId)
             return true;
-        if (_linkNotBefore is { } notBefore && _timeProvider.GetUtcNow() < notBefore)
-            return false;
 
         var assertion = await CreateAssertionAsync(credential, cancellationToken).ConfigureAwait(false);
-        if (assertion is null && RequiresAssertion(credential))
-            return false;
-
         var envelope = await _apiClient.LinkRelayDeviceAsync(credential.DeviceId, credential.Secret, assertion, cancellationToken).ConfigureAwait(false);
         if (!envelope.IsSuccess)
         {
-            // Only the API's explicit device codes mean the device is gone. A 401 here is the Wino Account session, not the
-            // device: forgetting the credential on it registered a new device every hour for every dead session.
             if (IsDeviceGone(envelope.ErrorCode))
             {
                 await ForgetDeviceAsync(cancellationToken).ConfigureAwait(false);
                 return false;
             }
 
-            _linkNotBefore = _timeProvider.GetUtcNow() + LinkRetryDelay;
-            _logger.Warning("Linking the relay device to the Wino Account failed with error code {ErrorCode}; next attempt after {Delay}.", envelope.ErrorCode, LinkRetryDelay);
+            _logger.Warning("Linking the relay device to the Wino Account failed with error code {ErrorCode}.", envelope.ErrorCode);
             return false;
         }
 
-        _linkNotBefore = null;
         await StoreCredentialAsync(credential with { LinkedWinoUserId = session.AccountId }, cancellationToken).ConfigureAwait(false);
         Invalidate();
         _logger.Information("Relay device linked to the signed-in Wino Account.");
@@ -384,7 +365,6 @@ public sealed class PushRelayTokenProvider : IPushRelayTokenProvider
                 await _credentials.SaveAsync(credential, cancellationToken).ConfigureAwait(false);
 
             _devicePathUnavailableUntil = null;
-            _devicePathFailures = 0;
             _logger.Information("Registered this install as a relay device ({Attestation}).", statement.Kind);
             return credential;
         }
@@ -405,14 +385,9 @@ public sealed class PushRelayTokenProvider : IPushRelayTokenProvider
 
     private void MarkDevicePathUnavailable(string? reason)
     {
-        var delay = TimeSpan.FromTicks(Math.Min(DevicePathRetryCeiling.Ticks, DevicePathRetryDelay.Ticks << Math.Min(_devicePathFailures, 8)));
-        _devicePathFailures++;
-        _devicePathUnavailableUntil = _timeProvider.GetUtcNow() + delay;
-        _logger.Information("Relay device path unavailable ({Reason}); next attempt after {Delay}.", reason, delay);
+        _devicePathUnavailableUntil = _timeProvider.GetUtcNow() + DevicePathRetryDelay;
+        _logger.Information("Relay device path unavailable ({Reason}); next attempt after {Delay}.", reason, DevicePathRetryDelay);
     }
-
-    private static bool RequiresAssertion(PushRelayDeviceCredential credential)
-        => credential.AttestationKind is DeviceAttestationKind.AppAttest or DeviceAttestationKind.BoundKey;
 
     private static string ToApiKind(DeviceAttestationKind kind) => kind switch
     {
@@ -442,9 +417,8 @@ public sealed class PushRelayTokenProvider : IPushRelayTokenProvider
         return string.IsNullOrEmpty(assertion) ? null : new RelayDeviceAssertion(nonce.Nonce, assertion);
     }
 
-    /// <summary>The signed-in session the API still accepts; a dead session counts as none, so the device path is used.</summary>
-    private async Task<WinoAccountSession?> CaptureSessionAsync(CancellationToken cancellationToken)
-        => _sessions is null ? null : await _sessions.CaptureAsync(cancellationToken).ConfigureAwait(false) is { IsInvalid: false } session ? session : null;
+    private Task<WinoAccountSession?> CaptureSessionAsync(CancellationToken cancellationToken)
+        => _sessions is null ? Task.FromResult<WinoAccountSession?>(null) : _sessions.CaptureAsync(cancellationToken);
 
     private async Task<PushRelayAccessToken> FetchAsync(int generation)
     {
@@ -509,77 +483,29 @@ public sealed class PushRelayTokenProvider : IPushRelayTokenProvider
             }
 
             var assertion = await CreateAssertionAsync(credential, cancellationToken).ConfigureAwait(false);
-            string? errorCode;
-            if (assertion is null && RequiresAssertion(credential))
-            {
-                // The key behind this credential is gone (another install deleted it, TPM cleared): an unsigned call can never
-                // succeed, so the credential is replaced instead of retried.
-                errorCode = RelayDeviceErrorCodes.AttestationInvalid;
-                if (attempt == 0 && await TryReRegisterAsync(credential, "device key missing", force: true, cancellationToken).ConfigureAwait(false))
-                    continue;
-            }
-            else
-            {
-                var envelope = await _apiClient.CreateRelayTokenForDeviceAsync(credential.DeviceId, credential.Secret, assertion, cancellationToken).ConfigureAwait(false);
-                if (envelope.IsSuccess && envelope.Result is { } result && !string.IsNullOrWhiteSpace(result.Token))
-                {
-                    _credentialFailures = 0;
-                    _firstCredentialFailure = null;
-                    return ToToken(result);
-                }
+            var envelope = await _apiClient.CreateRelayTokenForDeviceAsync(credential.DeviceId, credential.Secret, assertion, cancellationToken).ConfigureAwait(false);
+            if (envelope.IsSuccess && envelope.Result is { } result && !string.IsNullOrWhiteSpace(result.Token))
+                return ToToken(result);
 
-                errorCode = envelope.IsSuccess ? WinoAccountClientErrorCodes.InvalidServiceResponse : envelope.ErrorCode;
-                if (IsDeviceGone(errorCode) && attempt == 0)
-                {
-                    // The API revoked or forgot this device: register again once.
-                    _logger.Information("The API no longer accepts this relay device ({ErrorCode}); registering again.", errorCode);
-                    await ForgetDeviceAsync(cancellationToken).ConfigureAwait(false);
-                    continue;
-                }
-
-                if (errorCode is ApiCredentialRejected or RelayDeviceErrorCodes.AttestationInvalid && attempt == 0
-                    && await TryReRegisterAsync(credential, errorCode, force: false, cancellationToken).ConfigureAwait(false))
-                    continue;
+            if (IsDeviceGone(envelope.ErrorCode) && attempt == 0)
+            {
+                // The API or the relay forgot this device: register again once.
+                _logger.Information("The API no longer knows this relay device ({ErrorCode}); registering again.", envelope.ErrorCode);
+                await ForgetDeviceAsync(cancellationToken).ConfigureAwait(false);
+                continue;
             }
 
-            throw MapFailure(errorCode, devicePath: true);
+            throw MapFailure(envelope.IsSuccess ? WinoAccountClientErrorCodes.InvalidServiceResponse : envelope.ErrorCode, devicePath: true);
         }
     }
 
     private static PushRelayAccessToken ToToken(RelayTokenDto result)
         => new(result.Token, result.ExpiresUtc, ResolveBaseUri(result.RelayUrl), ReadMailboxLimit(result.Token));
 
-    private const string ApiCredentialRejected = Wino.Mail.Api.Contracts.Common.ApiErrorCodes.InvalidCredentials;
-
-    /// <summary>Only the API's explicit device codes; a bare HTTP status can come from a proxy or the Wino Account session.</summary>
     private static bool IsDeviceGone(string? errorCode)
-        => errorCode is RelayDeviceErrorCodes.DeviceRevoked or RelayDeviceErrorCodes.DeviceNotFound;
-
-    /// <summary>
-    /// Replaces a credential the API keeps refusing: immediately when its key is missing, otherwise after
-    /// <see cref="CredentialFailuresBeforeReRegistration"/> refusals spread over <see cref="CredentialFailureWindow"/>.
-    /// At most once per <see cref="ReRegistrationInterval"/>, so a broken key store cannot turn into a registration loop.
-    /// </summary>
-    private async Task<bool> TryReRegisterAsync(PushRelayDeviceCredential credential, string reason, bool force, CancellationToken cancellationToken)
-    {
-        var now = _timeProvider.GetUtcNow();
-        if (!force)
-        {
-            _firstCredentialFailure ??= now;
-            if (++_credentialFailures < CredentialFailuresBeforeReRegistration || now - _firstCredentialFailure < CredentialFailureWindow)
-                return false;
-        }
-
-        if (_lastReRegistration is { } last && now - last < ReRegistrationInterval)
-            return false;
-
-        _lastReRegistration = now;
-        _credentialFailures = 0;
-        _firstCredentialFailure = null;
-        _logger.Warning("The relay device credential keeps failing ({Reason}); registering this install again.", reason);
-        await ForgetDeviceAsync(cancellationToken).ConfigureAwait(false);
-        return true;
-    }
+        => errorCode is RelayDeviceErrorCodes.DeviceRevoked or RelayDeviceErrorCodes.DeviceNotFound
+            || errorCode?.StartsWith("HTTP 401", StringComparison.Ordinal) == true
+            || errorCode?.StartsWith("HTTP 404", StringComparison.Ordinal) == true;
 
     private PushRelayApiException MapFailure(string? errorCode, bool devicePath)
     {

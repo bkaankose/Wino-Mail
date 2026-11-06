@@ -139,13 +139,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
             return Map(response.Result);
         }, cancellationToken).ConfigureAwait(false);
 
-        if (refreshed is null)
-        {
-            if (WinoAccountClientErrorCodes.IsDeadSession(failure?.ErrorCode))
-                await _sessions.MarkInvalidAsync(session, failure!.ErrorCode!, CancellationToken.None).ConfigureAwait(false);
-
-            return failure ?? WinoAccountOperationResult.Failure(ApiErrorCodes.RefreshTokenInvalid);
-        }
+        if (refreshed is null) return failure ?? WinoAccountOperationResult.Failure(ApiErrorCodes.RefreshTokenInvalid);
         await _sessions.CommitAsync(session, () =>
         {
             if (original is not null && !AreEquivalentProfiles(original, refreshed))

@@ -64,8 +64,6 @@ public enum WinoPage
     CompanionSettingsPage,
     NotificationSettingsPage,
     ReaderActionsPage,
-    WidgetsLiveTilesSettingsPage,
-    PrivacySecurityPage,
-    RemoteContentRulesPage,
-    EasSettingsPage
+    AccountSetupPage,
+    ExchangeSettingsPage
 }

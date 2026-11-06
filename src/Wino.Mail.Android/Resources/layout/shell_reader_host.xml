@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The reader pane (medium and expanded widths): the mode's rendering-frame page, or the idle glyph and a short hint in a Wino zone. -->
+<!-- The reader pane (medium and expanded widths): the mode's rendering-frame page, or the idle glyph in a Wino zone. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/shell_reader_pane"
     android:layout_width="0dp"
@@ -14,31 +14,13 @@
       android:layout_marginEnd="@dimen/wino_zone_gutter"
       android:layout_marginBottom="@dimen/wino_zone_gutter">
 
-    <LinearLayout
-        android:id="@+id/shell_reader_idle_content"
+    <com.winomail.presentation.WinoIconView
+        android:id="@+id/shell_reader_idle_glyph"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:gravity="center_horizontal"
-        android:orientation="vertical"
-        android:padding="24dp">
-
-      <com.winomail.presentation.WinoIconView
-          android:id="@+id/shell_reader_idle_glyph"
-          android:layout_width="wrap_content"
-          android:layout_height="wrap_content"
-          android:importantForAccessibility="no"
-          android:textColor="@color/wino_text_tertiary" />
-
-      <TextView
-          android:id="@+id/shell_reader_idle_text"
-          android:layout_width="wrap_content"
-          android:layout_height="wrap_content"
-          android:layout_marginTop="12dp"
-          android:gravity="center"
-          android:maxWidth="320dp"
-          android:textAppearance="@style/TextAppearance.Wino.Caption" />
-    </LinearLayout>
+        android:importantForAccessibility="no"
+        android:textColor="@color/wino_text_tertiary" />
   </com.winomail.presentation.WinoZoneLayout>
 
   <FrameLayout

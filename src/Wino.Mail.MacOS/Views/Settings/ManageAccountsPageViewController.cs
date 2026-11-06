@@ -6,7 +6,6 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels.Data;
 using Wino.Mail.Controls.AppKit.Common;
-using Wino.Mail.Controls.AppKit.Extras;
 using Wino.Mail.Controls.AppKit.Settings;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
@@ -33,12 +32,8 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
     {
         var vm = ViewModel;
 
-        // Windows header row: the square Add account tile, then the account-limit card filling the rest of the row.
-        // Narrow windows stack the card under the tile.
-        var purchase = Bind.Visible(PurchasePanel(), vm, nameof(vm.IsPurchasePanelVisible), s => s.IsPurchasePanelVisible);
-        purchase.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
-        var header = Add(new SettingsAdaptiveRow(HeaderBreakpoint, 12, NSLayoutAttribute.Top, null, AddAccountTile(), purchase));
-        purchase.WidthAnchor.ConstraintLessThanOrEqualTo(header.WidthAnchor).Active = true;
+        Add(Row(Bind.Button(Translator.Buttons_AddAccount, vm.AddNewAccountCommand, primary: true, icon: WinoIconGlyph.Add)));
+        Bind.Visible(Add(Group(null, PurchaseCard())), vm, nameof(vm.IsPurchasePanelVisible), s => s.IsPurchasePanelVisible);
 
         // Windows list header: Merge inboxes (with its "Mail only" scope tag) and Reorder, above the accounts.
         var merge = CommandCard(Translator.SettingsLinkAccounts_Title, Translator.SettingsLinkAccounts_Description, WinoIconGlyph.PeopleLink, vm.CreateMergedAccountCommand);
@@ -57,52 +52,18 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
         Bind.Collection(vm.Accounts, RebuildAccounts);
     }
 
-    /// <summary>The Windows square Add account button: the plus above its label, centred together in the tile.</summary>
-    private NSView AddAccountTile()
-    {
-        var vm = ViewModel;
-        var tile = new WinoPressableView
-        {
-            Fill = WinoSettingsStyle.CardFill,
-            Stroke = WinoSettingsStyle.CardStroke,
-            CornerRadius = WinoSettingsStyle.CardRadius,
-            TranslatesAutoresizingMaskIntoConstraints = false
-        };
-        var content = WinoLayout.VStack(12,
-            new WinoIconView(WinoIconGlyph.Add, 46, WinoStyle.PrimaryText),
-            WinoStyle.Label(Translator.Buttons_AddAccount, WinoStyle.BodyStrong, WinoStyle.PrimaryText));
-        content.Alignment = NSLayoutAttribute.CenterX;
-        tile.AddSubview(content);
-        NSLayoutConstraint.ActivateConstraints([content.CenterXAnchor.ConstraintEqualTo(tile.CenterXAnchor), content.CenterYAnchor.ConstraintEqualTo(tile.CenterYAnchor)]);
-        WinoLayout.Size(tile, TileSize, TileSize);
-        WinoAccessibility.Label(tile, Translator.Buttons_AddAccount);
-        tile.AccessibilityIdentifier = "AccountManagementPageAddAccountTile";
-        tile.Clicked += (_, _) => { if (vm.AddNewAccountCommand.CanExecute(null)) vm.AddNewAccountCommand.Execute(null); };
-        return tile;
-    }
-
-    private const double TileSize = 200;
-
-    /// <summary>Above the side-by-side minimum: the tile, the gap and the card's widest bottom line.</summary>
-    private const double HeaderBreakpoint = 560;
-
     /// <summary>
-    /// Account limits (Windows PurchasePanel): the free-account heading, which purchase channels are open, the used/free
-    /// count with its meter (amber one below the limit, red at the limit) and the accent purchase button at the bottom
-    /// right. App Store builds add the price and Restore Purchases, since Unlimited Accounts is bought here signed out.
+    /// Account limits (Windows PurchasePanel): what the add-on lifts, which purchase channels are open,
+    /// the used/free count with its meter (amber one below the limit, red at the limit) and the purchase button.
     /// </summary>
-    private NSView PurchasePanel()
+    private WinoSettingsCard PurchaseCard()
     {
         var vm = ViewModel;
+        var purchase = Bind.Button(Translator.WinoUpgradeMessage, vm.PurchaseUnlimitedAccountCommand, primary: true, icon: WinoIconGlyph.Sparkle);
+        var card = Card(Translator.WinoUpgradeDescription, vm.PurchaseChannelsDescription, WinoIconGlyph.PersonSquare, purchase);
+        Bind.Bind(vm, nameof(vm.PurchaseChannelsDescription), s => s.PurchaseChannelsDescription, text => card.Description = text);
 
-        var heading = WinoLayout.HStack(12,
-            new WinoIconView(WinoIconGlyph.PersonSquare, 32),
-            WinoStyle.Label(Translator.WinoUpgradeDescription, WinoStyle.BodyStrong, WinoStyle.PrimaryText, 0));
-        heading.Alignment = NSLayoutAttribute.CenterY;
-
-        var channels = Bind.Label(vm, nameof(vm.PurchaseChannelsDescription), s => s.PurchaseChannelsDescription, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
-
-        var usage = WinoStyle.Label(vm.UsedAccountsString, WinoStyle.Caption, WinoStyle.PrimaryText);
+        var usage = WinoStyle.Label(vm.UsedAccountsString, NSFont.SystemFontOfSize(12), WinoStyle.SecondaryText);
         var meter = new WinoBarView();
         WinoAccessibility.Label(meter, Translator.WinoUpgradeDescription);
         void UpdateUsage()
@@ -118,42 +79,11 @@ public sealed class ManageAccountsPageViewController(AccountManagementViewModel 
         Bind.Bind(vm, nameof(vm.IsAccountCreationBlocked), s => s.IsAccountCreationBlocked, _ => UpdateUsage());
         Bind.Bind(vm, nameof(vm.HasUnlimitedAccountProduct), s => s.HasUnlimitedAccountProduct, _ => UpdateUsage());
         Bind.Collection(vm.Accounts, UpdateUsage);
-        var meterStack = WinoLayout.VStack(12, usage, meter);
-        meterStack.Alignment = NSLayoutAttribute.Leading;
-        meter.WidthAnchor.ConstraintEqualTo(meterStack.WidthAnchor).Active = true;
 
-        var purchase = Bind.Button(Translator.WinoUpgradeMessage, vm.PurchaseUnlimitedAccountCommand, primary: true, icon: WinoIconGlyph.Sparkle);
-        purchase.SetValueForKey(new Foundation.NSString("AccountManagementPagePurchaseButton"), new Foundation.NSString("accessibilityIdentifier"));
-        // Two lines, so the card stays narrow enough to sit beside the tile: price and restore, then the purchase.
-        var footer = WinoLayout.VStack(8);
-        footer.Alignment = NSLayoutAttribute.Trailing;
-        if (vm.IsAppStoreRestoreAvailable)
-        {
-            var store = WinoLayout.HStack(12,
-                Bind.Label(vm, nameof(vm.AppStoreUnlimitedAccountsPriceText), s => s.AppStoreUnlimitedAccountsPriceText, WinoStyle.Caption, WinoStyle.SecondaryText),
-                WinoLayout.Spacer(),
-                Bind.Button(Translator.WinoAccount_Management_RestorePurchases, vm.RestoreAppStorePurchasesCommand));
-            store.Alignment = NSLayoutAttribute.CenterY;
-            footer.AddArrangedSubview(store);
-            store.WidthAnchor.ConstraintEqualTo(footer.WidthAnchor).Active = true;
-        }
-        footer.AddArrangedSubview(purchase);
-
-        var stack = WinoLayout.VStack(6, heading, channels, WinoLayout.Spacer(), meterStack, WinoLayout.Spacer(), footer);
-        stack.Alignment = NSLayoutAttribute.Leading;
-        stack.SetCustomSpacing(12, meterStack);
-        foreach (var view in new NSView[] { channels, meterStack, footer }) view.WidthAnchor.ConstraintEqualTo(stack.WidthAnchor).Active = true;
-
-        var card = new WinoSurfaceView
-        {
-            Fill = WinoSettingsStyle.CardFill,
-            Stroke = WinoSettingsStyle.CardStroke,
-            CornerRadius = WinoSettingsStyle.CardRadius,
-            TranslatesAutoresizingMaskIntoConstraints = false
-        };
-        WinoLayout.Fill(stack, card, WinoSettingsStyle.CardPadding);
-        card.HeightAnchor.ConstraintGreaterThanOrEqualTo((nfloat)TileSize).Active = true;
-        card.AccessibilityIdentifier = "AccountManagementPagePurchasePanel";
+        var bottom = WinoLayout.VStack(6, usage, meter);
+        bottom.Alignment = NSLayoutAttribute.Leading;
+        meter.WidthAnchor.ConstraintEqualTo(bottom.WidthAnchor).Active = true;
+        card.BottomContent = bottom;
         return card;
     }
 

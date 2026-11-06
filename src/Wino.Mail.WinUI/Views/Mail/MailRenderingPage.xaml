@@ -10,7 +10,6 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:editor="using:Wino.Editor"
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
-    xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:intelligenceControls="using:Wino.Mail.Controls.IntelligenceHeader"
     xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
@@ -153,84 +152,6 @@
                     Visibility="{x:Bind IsBusy, Mode=OneWay}" />
             </Grid>
         </DataTemplate>
-
-        <Style x:Key="InfoBarActionHostButtonStyle" TargetType="Button">
-            <Setter Property="IsTabStop" Value="False" />
-            <Setter Property="AutomationProperties.AccessibilityView" Value="Raw" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <ContentPresenter Content="{TemplateBinding Content}" />
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <DataTemplate x:Key="PrivacyBlockedHostTemplate" x:DataType="viewModelData:PrivacyBlockedHost">
-            <Grid Padding="0,2" ColumnSpacing="8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <coreControls:WinoFontIcon
-                    VerticalAlignment="Center"
-                    FontFamily="{ThemeResource WinoIconFontFamily}"
-                    FontSize="12"
-                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                    Icon="Dismiss" />
-                <TextBlock
-                    Grid.Column="1"
-                    VerticalAlignment="Center"
-                    FontFamily="Consolas"
-                    Style="{StaticResource CaptionTextBlockStyle}"
-                    Text="{x:Bind Host}"
-                    TextTrimming="CharacterEllipsis" />
-                <TextBlock
-                    Grid.Column="2"
-                    VerticalAlignment="Center"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Style="{StaticResource CaptionTextBlockStyle}"
-                    Text="{x:Bind Description}" />
-            </Grid>
-        </DataTemplate>
-
-        <DataTemplate x:Key="PrivacyMenuItemTemplate" x:DataType="viewModelData:PrivacyMenuItem">
-            <StackPanel>
-                <Border
-                    Height="1"
-                    Margin="0,4"
-                    Background="{ThemeResource DividerStrokeColorDefaultBrush}"
-                    Visibility="{x:Bind StartsGroup}" />
-                <Button
-                    Padding="8,6"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Left"
-                    AutomationProperties.Name="{x:Bind Text}"
-                    Background="Transparent"
-                    BorderThickness="0"
-                    Click="PrivacyMenuItem_Click">
-                    <Grid ColumnSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <coreControls:WinoFontIcon
-                            VerticalAlignment="Center"
-                            FontFamily="{ThemeResource WinoIconFontFamily}"
-                            FontSize="16"
-                            Icon="{x:Bind Icon}" />
-                        <TextBlock
-                            Grid.Column="1"
-                            VerticalAlignment="Center"
-                            TextWrapping="Wrap">
-                            <Run Text="{x:Bind Text}" />
-                            <Run Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind helpers:XamlHelpers.GetPrivacyMenuItemHint(Hint)}" />
-                        </TextBlock>
-                    </Grid>
-                </Button>
-            </StackPanel>
-        </DataTemplate>
     </Page.Resources>
 
     <!--  Attachments and WebView2  -->
@@ -239,7 +160,6 @@
         Margin="0,2,0,0"
         RowSpacing="7">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -274,7 +194,6 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
                     <TextBlock
@@ -304,7 +223,7 @@
                     </Grid>
 
                     <HyperlinkButton
-                        Grid.Column="2"
+                        Grid.Column="1"
                         Padding="5,1,5,1"
                         VerticalAlignment="Top"
                         AutomationProperties.AutomationId="MailRenderingPageHyperlinkButton"
@@ -315,7 +234,6 @@
                                 <coreControls:WinoFontIcon
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
-                                    FontFamily="{ThemeResource WinoIconFontFamily}"
                                     Icon="PersonDelete" />
                             </Viewbox>
                             <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Unsubscribe}" />
@@ -323,99 +241,9 @@
                     </HyperlinkButton>
 
 
-                    <HyperlinkButton
-                        x:Name="PrivacyButton"
-                        Grid.Column="1"
-                        Padding="5,1,5,1"
-                        VerticalAlignment="Stretch"
-                        VerticalContentAlignment="Center"
-                        AutomationProperties.AutomationId="MailRenderingPrivacyButton"
-                        AutomationProperties.Name="{x:Bind ViewModel.PrivacyButtonAutomationName, Mode=OneWay}"
-                        Click="PrivacyButton_Click"
-                        ToolTipService.ToolTip="{x:Bind ViewModel.PrivacyButtonAutomationName, Mode=OneWay}"
-                        Visibility="{x:Bind ViewModel.HasPrivacyDecision, Mode=OneWay}">
-                        <StackPanel Orientation="Horizontal" Spacing="3">
-                            <Grid Width="16" Height="16">
-                                <coreControls:WinoFontIcon
-                                    FontFamily="{ThemeResource WinoIconFontFamily}"
-                                    FontSize="16"
-                                    Icon="Shield"
-                                    Visibility="{x:Bind GetPlainPrivacyIconVisibility(ViewModel.PrivacyState), Mode=OneWay}" />
-                                <coreControls:WinoFontIcon
-                                    FontFamily="{ThemeResource WinoIconFontFamily}"
-                                    FontSize="16"
-                                    Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-                                    Icon="Shield"
-                                    Visibility="{x:Bind GetPrivacyIconVisibility(ViewModel.PrivacyState, enums:PrivacyButtonState.Rule), Mode=OneWay}" />
-                                <coreControls:WinoFontIcon
-                                    FontFamily="{ThemeResource WinoIconFontFamily}"
-                                    FontSize="16"
-                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                    Icon="ShieldError"
-                                    Visibility="{x:Bind GetPrivacyIconVisibility(ViewModel.PrivacyState, enums:PrivacyButtonState.Blocked), Mode=OneWay}" />
-                            </Grid>
-                            <TextBlock
-                                VerticalAlignment="Center"
-                                Text="{x:Bind ViewModel.BlockedTrackerCount, Mode=OneWay}"
-                                Visibility="{x:Bind ViewModel.IsPrivacyCountVisible, Mode=OneWay}" />
-                        </StackPanel>
-                        <FlyoutBase.AttachedFlyout>
-                            <Flyout x:Name="PrivacyFlyout" Placement="BottomEdgeAlignedRight">
-                                <StackPanel
-                                    Width="340"
-                                    AutomationProperties.AutomationId="MailRenderingPrivacyFlyout"
-                                    Spacing="8">
-                                    <Grid ColumnSpacing="10">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <coreControls:WinoFontIcon
-                                            VerticalAlignment="Top"
-                                            FontFamily="{ThemeResource WinoIconFontFamily}"
-                                            FontSize="18"
-                                            Icon="{x:Bind ViewModel.PrivacyButtonIcon, Mode=OneWay}" />
-                                        <StackPanel Grid.Column="1" Spacing="2">
-                                            <TextBlock
-                                                AutomationProperties.AutomationId="MailRenderingPrivacyPolicyLine"
-                                                Style="{StaticResource BodyStrongTextBlockStyle}"
-                                                Text="{x:Bind ViewModel.PrivacyPolicyLine, Mode=OneWay}"
-                                                TextWrapping="Wrap" />
-                                            <TextBlock
-                                                AutomationProperties.AutomationId="MailRenderingPrivacyReasonLine"
-                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                Style="{StaticResource CaptionTextBlockStyle}"
-                                                Text="{x:Bind ViewModel.PrivacyReasonLine, Mode=OneWay}"
-                                                TextWrapping="Wrap" />
-                                        </StackPanel>
-                                    </Grid>
-
-                                    <TextBlock
-                                        AutomationProperties.AutomationId="MailRenderingPrivacyDetailLine"
-                                        Text="{x:Bind ViewModel.PrivacyDetailLine, Mode=OneWay}"
-                                        TextWrapping="Wrap"
-                                        Visibility="{x:Bind ViewModel.HasPrivacyDetailLine, Mode=OneWay}" />
-
-                                    <ItemsControl
-                                        ItemTemplate="{StaticResource PrivacyBlockedHostTemplate}"
-                                        ItemsSource="{x:Bind ViewModel.PrivacyBlockedHosts, Mode=OneWay}"
-                                        Visibility="{x:Bind ViewModel.HasPrivacyBlockedHosts, Mode=OneWay}" />
-
-                                    <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
-
-                                    <ItemsControl
-                                        AutomationProperties.AutomationId="MailRenderingPrivacyActions"
-                                        IsTabStop="False"
-                                        ItemTemplate="{StaticResource PrivacyMenuItemTemplate}"
-                                        ItemsSource="{x:Bind ViewModel.PrivacyMenuItems, Mode=OneWay}" />
-                                </StackPanel>
-                            </Flyout>
-                        </FlyoutBase.AttachedFlyout>
-                    </HyperlinkButton>
-
                     <!--  S/MIME Signed Email Indicator  -->
                     <HyperlinkButton
-                        Grid.Column="3"
+                        Grid.Column="2"
                         Margin="0,0,0,4"
                         VerticalAlignment="Center"
                         AutomationProperties.AutomationId="XBindDomainTranslatorSmimeSignedTooltipModeOneTime"
@@ -432,7 +260,7 @@
                                 Width="16"
                                 Height="16"
                                 Margin="0,0,4,0">
-                                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Certificate" />
+                                <coreControls:WinoFontIcon Icon="Certificate" />
                             </Viewbox>
                             <muxc:InfoBadge
                                 Width="8"
@@ -453,14 +281,14 @@
 
                     <!--  S/MIME Encrypted Email Indicator  -->
                     <Viewbox
-                        Grid.Column="4"
+                        Grid.Column="3"
                         Width="16"
                         Height="16"
                         Margin="0,0,0,4"
                         VerticalAlignment="Center"
                         ToolTipService.ToolTip="{x:Bind domain:Translator.SmimeEncryptedTooltip}"
                         Visibility="{x:Bind ViewModel.IsSmimeEncrypted, Mode=OneWay}">
-                        <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="LockClosed" />
+                        <coreControls:WinoFontIcon Icon="LockClosed" />
                     </Viewbox>
                 </Grid>
                 <coreControls:OperationCommandBar
@@ -565,10 +393,7 @@
                                             </TextBlock>
                                         </Grid>
                                     </HyperlinkButton>
-                                    <TextBlock
-                                        VerticalAlignment="Center"
-                                        Style="{StaticResource CaptionTextBlockStyle}"
-                                        Text="{x:Bind helpers:XamlHelpers.GetCreationDateString(ViewModel.CreationDate, ViewModel.PreferencesService.MailTimeFormatPreference), Mode=OneWay}" />
+                                    <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind helpers:XamlHelpers.GetCreationDateString(ViewModel.CreationDate, ViewModel.PreferencesService.MailTimeFormatPreference), Mode=OneWay}" />
                                 </StackPanel>
                             </Grid>
                         </Grid>
@@ -711,6 +536,23 @@
                     </StackPanel>
                 </Grid>
 
+                <InfoBar
+                    x:Name="ImageLoadingDisabledMessage"
+                    Grid.Row="5"
+                    HorizontalContentAlignment="Stretch"
+                    x:Load="{x:Bind ViewModel.IsImageRenderingDisabled, Mode=OneWay}"
+                    IsOpen="True"
+                    Message="{x:Bind domain:Translator.ImageRenderingDisabled}"
+                    Severity="Warning">
+                    <InfoBar.ActionButton>
+                        <Button
+                            HorizontalAlignment="Right"
+                            AutomationProperties.AutomationId="MailRenderingPageButton"
+                            Command="{x:Bind ViewModel.ForceImageLoadingCommand}"
+                            Content="{x:Bind domain:Translator.Buttons_EnableImageRendering}" />
+                    </InfoBar.ActionButton>
+                </InfoBar>
+
                 <ProgressBar
                     x:Name="DownloadingProgressBar"
                     Grid.Row="4"
@@ -723,80 +565,9 @@
             </Grid>
         </Border>
 
-        <StackPanel
-            Grid.Row="1"
-            Spacing="4"
-            Visibility="{x:Bind ViewModel.IsRemoteContentBarVisible, Mode=OneWay}">
-            <InfoBar
-                x:Name="RemoteContentWithheldBar"
-                Title="{x:Bind domain:Translator.Reader_Privacy_WithheldTitle, Mode=OneTime}"
-                HorizontalContentAlignment="Stretch"
-                x:Load="{x:Bind ViewModel.IsRemoteContentWithheld, Mode=OneWay}"
-                AutomationProperties.AutomationId="RemoteContentWithheldBar"
-                IsClosable="False"
-                IsOpen="True"
-                Message="{x:Bind ViewModel.WithheldBarMessage, Mode=OneWay}"
-                Severity="Informational">
-                <InfoBar.ActionButton>
-                    <Button
-                        HorizontalAlignment="Right"
-                        AutomationProperties.AutomationId="RemoteContentWithheldLoadOnceButton"
-                        Command="{x:Bind ViewModel.LoadOnceCommand}"
-                        Content="{x:Bind domain:Translator.Reader_Privacy_LoadOnce, Mode=OneTime}"
-                        Style="{ThemeResource AccentButtonStyle}" />
-                </InfoBar.ActionButton>
-            </InfoBar>
-
-            <InfoBar
-                x:Name="RemoteContentJunkBar"
-                Title="{x:Bind domain:Translator.Reader_Privacy_JunkBarTitle, Mode=OneTime}"
-                HorizontalContentAlignment="Stretch"
-                x:Load="{x:Bind ViewModel.IsJunkBlocked, Mode=OneWay}"
-                AutomationProperties.AutomationId="RemoteContentJunkBar"
-                IsClosable="False"
-                IsOpen="True"
-                Message="{x:Bind domain:Translator.Reader_Privacy_JunkBarMessage, Mode=OneTime}"
-                Severity="Warning">
-                <InfoBar.ActionButton>
-                    <Button
-                        HorizontalAlignment="Right"
-                        AutomationProperties.AutomationId="RemoteContentJunkLoadOnceButton"
-                        Command="{x:Bind ViewModel.LoadOnceCommand}"
-                        Content="{x:Bind domain:Translator.Reader_Privacy_LoadOnce, Mode=OneTime}" />
-                </InfoBar.ActionButton>
-            </InfoBar>
-
-            <InfoBar
-                x:Name="RemoteContentRuleBar"
-                Title="{x:Bind ViewModel.RuleBarTitle, Mode=OneWay}"
-                HorizontalContentAlignment="Stretch"
-                x:Load="{x:Bind ViewModel.IsSenderBlockedByRule, Mode=OneWay}"
-                AutomationProperties.AutomationId="RemoteContentRuleBar"
-                IsClosable="False"
-                IsOpen="True"
-                Message="{x:Bind ViewModel.RuleBarMessage, Mode=OneWay}"
-                Severity="Error">
-                <InfoBar.ActionButton>
-                    <!--  InfoBar takes a single ButtonBase; this chromeless host only lays out the two real buttons.  -->
-                    <Button Style="{StaticResource InfoBarActionHostButtonStyle}">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button
-                                AutomationProperties.AutomationId="RemoteContentRuleLoadOnceButton"
-                                Command="{x:Bind ViewModel.LoadOnceCommand}"
-                                Content="{x:Bind domain:Translator.Reader_Privacy_LoadOnce, Mode=OneTime}" />
-                            <Button
-                                AutomationProperties.AutomationId="RemoteContentRuleEditButton"
-                                Click="EditSenderRule_Click"
-                                Content="{x:Bind domain:Translator.Reader_Privacy_EditRule, Mode=OneTime}" />
-                        </StackPanel>
-                    </Button>
-                </InfoBar.ActionButton>
-            </InfoBar>
-        </StackPanel>
-
         <intelligenceControls:WinoIntelligenceHeader
             x:Name="IntelligenceHeader"
-            Grid.Row="2"
+            Grid.Row="1"
             ActionHeadingText="{x:Bind domain:Translator.WinoIntelligence_AskWino, Mode=OneTime}"
             ActionInvoked="IntelligenceHeader_ActionInvoked"
             AddToCalendarButtonText="{x:Bind domain:Translator.WinoIntelligence_AddToCalendar, Mode=OneTime}"
@@ -842,7 +613,7 @@
             Visibility="Collapsed" />
 
         <Border
-            Grid.Row="3"
+            Grid.Row="2"
             Background="{ThemeResource ReadingPaneBackgroundColorBrush}"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"

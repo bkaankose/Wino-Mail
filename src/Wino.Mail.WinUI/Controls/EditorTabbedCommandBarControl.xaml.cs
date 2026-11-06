@@ -469,27 +469,12 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
 
     private async Task ExecuteAsync(EditorCommand command)
     {
-        if (_isApplyingState || CommandTarget is not { } target)
+        if (_isApplyingState || CommandTarget == null)
         {
             return;
         }
 
-        try
-        {
-            await target.ExecuteCommandAsync(command);
-        }
-        catch (ObjectDisposedException)
-        {
-            // The composer closed the editor while the command was pending.
-        }
-        catch (Exception exception) when (WinoMailEditor.IsStartupFailure(exception))
-        {
-            // Toolbar handlers are async void, so a WebView2 that failed to start must not escape.
-            if (target is WinoMailEditor editor)
-            {
-                editor.ReportInitializationFailure(exception);
-            }
-        }
+        await CommandTarget.ExecuteCommandAsync(command);
     }
 
     private async void BoldButton_Click(object sender, RoutedEventArgs e) => await ExecuteAsync(EditorCommand.ToggleBold());

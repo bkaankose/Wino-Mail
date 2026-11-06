@@ -14,12 +14,11 @@
       android:layout_height="match_parent"
       android:orientation="horizontal">
 
-    <!-- A landscape phone is too short for New mail, four modes and the avatar: the rail column scrolls there. It does
-         not fill the viewport: a filled column let the rail take the whole height and pushed the avatar off screen. -->
+    <!-- A landscape phone is too short for New mail, four modes and the avatar: the rail column scrolls there. -->
     <androidx.core.widget.NestedScrollView
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
-        android:fillViewport="false"
+        android:fillViewport="true"
         android:scrollbars="none">
 
       <LinearLayout
@@ -27,7 +26,7 @@
           android:layout_height="wrap_content"
           android:orientation="vertical">
 
-        <!-- Unlabelled here; ShellFragment labels the destinations when the window is at least 480 dp tall. -->
+        <!-- Unlabelled: a landscape phone is too short for labelled destinations under New mail. -->
         <com.google.android.material.navigationrail.NavigationRailView
             android:id="@+id/shell_rail"
             android:layout_width="wrap_content"

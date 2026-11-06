@@ -36,7 +36,7 @@ public sealed partial class ContactsPageViewController
 
         // Empty state (Windows WinoNoContactSelectedIllustration + caption).
         var emptyIcon = new WinoIconView(WinoIconGlyph.Person, 64, WinoStyle.TertiaryText);
-        var emptyText = WinoStyle.Label(Translator.ContactsPage_NoContactSelected, WinoStyle.Body, WinoStyle.SecondaryText, 0);
+        var emptyText = WinoStyle.Label(Translator.ContactsPage_NoContactSelected, WinoStyle.Body, WinoStyle.TertiaryText, 0);
         emptyText.Alignment = NSTextAlignment.Center;
         var emptyStack = WinoLayout.VStack(14, emptyIcon, emptyText);
         emptyStack.Alignment = NSLayoutAttribute.CenterX;
@@ -64,7 +64,7 @@ public sealed partial class ContactsPageViewController
         _detailName.Alignment = NSTextAlignment.Center;
         _detailJob = WinoStyle.Label(string.Empty, WinoStyle.Body, WinoStyle.SecondaryText, 0);
         _detailJob.Alignment = NSTextAlignment.Center;
-        _detailSource = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.SecondaryText, 0);
+        _detailSource = WinoStyle.Label(string.Empty, WinoStyle.Caption, WinoStyle.TertiaryText, 0);
         _detailSource.Alignment = NSTextAlignment.Center;
         _detailChipsHost = WinoLayout.HStack(4);
         var identity = WinoLayout.VStack(6, _detailPicture, _detailName, _detailJob, _detailSource, _detailChipsHost);

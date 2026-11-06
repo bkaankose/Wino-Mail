@@ -30,202 +30,196 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="/Styles/ComposeRecipientBoxStyles.xaml" />
-            </ResourceDictionary.MergedDictionaries>
+        <Style x:Key="ComposeFieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="MinWidth" Value="56" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+        </Style>
 
-            <Style x:Key="ComposeFieldLabelStyle" TargetType="TextBlock">
-                <Setter Property="MinWidth" Value="56" />
-                <Setter Property="HorizontalAlignment" Value="Right" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
-            </Style>
+        <DataTemplate x:Key="ContactTokenTemplate" x:DataType="entities:IContactDisplayItem">
+            <Grid ContextRequested="ContactTokenContextRequested">
 
-            <DataTemplate x:Key="ContactTokenTemplate" x:DataType="entities:IContactDisplayItem">
-                <Grid ContextRequested="ContactTokenContextRequested">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <ToolTipService.ToolTip>
+                    <ToolTip Content="{x:Bind Address}" />
+                </ToolTipService.ToolTip>
 
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <ToolTipService.ToolTip>
-                        <ToolTip Content="{x:Bind Address}" />
-                    </ToolTipService.ToolTip>
-
-                    <Viewbox Width="24">
-                        <contactControls:WinoContactPicture
-                            ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(PreviewContact, DisplayName, Address), Mode=OneTime}"
-                            IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                            IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
-                    </Viewbox>
-
-                    <TextBlock
-                        Grid.Column="1"
-                        Margin="6,0,8,0"
-                        VerticalAlignment="Center"
-                        Text="{x:Bind DisplayName}" />
-                </Grid>
-            </DataTemplate>
-
-            <!--  Recipient suggestion. The matched text is semibold, the source sits at the right, and a remembered correspondent can be dismissed without closing the list.  -->
-            <DataTemplate x:Key="RecipientSuggestionTemplate" x:DataType="contacts:RecipientSuggestion">
-                <Grid
-                    Padding="0,6"
-                    AutomationProperties.Name="{x:Bind DisplayName}"
-                    ColumnSpacing="12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
+                <Viewbox Width="24">
                     <contactControls:WinoContactPicture
-                        Width="32"
-                        Height="32"
-                        VerticalAlignment="Center"
                         ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(PreviewContact, DisplayName, Address), Mode=OneTime}"
                         IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
                         IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                </Viewbox>
 
-                    <StackPanel
-                        Grid.Column="1"
-                        VerticalAlignment="Center"
-                        Spacing="1">
-                        <TextBlock
-                            winuiHelpers:TextMatchHighlighter.Query="{x:Bind MatchQuery}"
-                            winuiHelpers:TextMatchHighlighter.Text="{x:Bind DisplayName}"
-                            MaxLines="1"
-                            TextTrimming="CharacterEllipsis" />
-                        <TextBlock
-                            winuiHelpers:TextMatchHighlighter.Query="{x:Bind MatchQuery}"
-                            winuiHelpers:TextMatchHighlighter.Text="{x:Bind SecondaryText}"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            MaxLines="1"
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            TextTrimming="CharacterEllipsis" />
-                    </StackPanel>
+                <TextBlock
+                    Grid.Column="1"
+                    Margin="6,0,8,0"
+                    VerticalAlignment="Center"
+                    Text="{x:Bind DisplayName}" />
+            </Grid>
+        </DataTemplate>
 
+        <!--  Recipient suggestion. The matched text is semibold, the source sits at the right, and a remembered correspondent can be dismissed without closing the list.  -->
+        <DataTemplate x:Key="RecipientSuggestionTemplate" x:DataType="contacts:RecipientSuggestion">
+            <Grid
+                Padding="0,6"
+                AutomationProperties.Name="{x:Bind DisplayName}"
+                ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <contactControls:WinoContactPicture
+                    Width="32"
+                    Height="32"
+                    VerticalAlignment="Center"
+                    ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(PreviewContact, DisplayName, Address), Mode=OneTime}"
+                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+
+                <StackPanel
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Spacing="1">
                     <TextBlock
-                        Grid.Column="2"
-                        MaxWidth="140"
-                        VerticalAlignment="Center"
-                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                        winuiHelpers:TextMatchHighlighter.Query="{x:Bind MatchQuery}"
+                        winuiHelpers:TextMatchHighlighter.Text="{x:Bind DisplayName}"
+                        MaxLines="1"
+                        TextTrimming="CharacterEllipsis" />
+                    <TextBlock
+                        winuiHelpers:TextMatchHighlighter.Query="{x:Bind MatchQuery}"
+                        winuiHelpers:TextMatchHighlighter.Text="{x:Bind SecondaryText}"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         MaxLines="1"
                         Style="{StaticResource CaptionTextBlockStyle}"
-                        Text="{x:Bind SourceCaption}"
                         TextTrimming="CharacterEllipsis" />
+                </StackPanel>
 
-                    <!--  Never takes focus, so pressing it keeps the list open and the caret in the box.  -->
+                <TextBlock
+                    Grid.Column="2"
+                    MaxWidth="140"
+                    VerticalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                    MaxLines="1"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind SourceCaption}"
+                    TextTrimming="CharacterEllipsis" />
+
+                <!--  Never takes focus, so pressing it keeps the list open and the caret in the box.  -->
+                <Button
+                    Grid.Column="3"
+                    Width="28"
+                    Height="28"
+                    Padding="0"
+                    VerticalAlignment="Center"
+                    AllowFocusOnInteraction="False"
+                    AutomationProperties.AutomationId="ComposeSuppressSuggestion"
+                    AutomationProperties.Name="{x:Bind domain:Translator.RecipientSuggestion_DontSuggest, Mode=OneTime}"
+                    Click="SuppressSuggestionClicked"
+                    IsTabStop="False"
+                    Style="{StaticResource TransparentActionButtonStyle}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.RecipientSuggestion_DontSuggest, Mode=OneTime}"
+                    Visibility="{x:Bind CanSuppress, Mode=OneTime}">
+                    <!--  The implicit icon style does not reach the suggestion popup, so the font is set here.  -->
+                    <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        FontSize="12"
+                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                        Icon="Dismiss" />
+                </Button>
+            </Grid>
+        </DataTemplate>
+
+        <!--  Attachment tile. Remove lives in the item menu so no destructive icon repeats across the tray.  -->
+        <DataTemplate x:Key="ComposerFileAttachmentTemplate" x:DataType="data:MailAttachmentViewModel">
+            <Grid
+                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                ContextRequested="AttachmentContextRequested"
+                CornerRadius="4">
+                <ToolTipService.ToolTip>
+                    <ToolTip Content="{x:Bind FileName}" />
+                </ToolTipService.ToolTip>
+
+                <Grid Padding="8,5,2,5" ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="20" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <ContentControl
+                        Width="20"
+                        Height="20"
+                        VerticalAlignment="Center"
+                        Content="{x:Bind AttachmentType}"
+                        ContentTemplateSelector="{StaticResource FileTypeIconSelector}"
+                        IsTabStop="False" />
+
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <!--  The full name wraps; it only trims past two lines.  -->
+                        <TextBlock
+                            AutomationProperties.AutomationId="ComposeAttachmentName"
+                            MaxLines="2"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind FileName}"
+                            TextTrimming="CharacterEllipsis"
+                            TextWrapping="Wrap" />
+
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <coreControls:WinoFontIcon
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="ComposeAttachmentContentTypeWarning"
+                                AutomationProperties.Name="{x:Bind ContentTypeWarningText, Mode=OneWay}"
+                                FontFamily="{ThemeResource WinoIconFontFamily}"
+                                FontSize="12"
+                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                Icon="Warning"
+                                ToolTipService.ToolTip="{x:Bind ContentTypeWarningText, Mode=OneWay}"
+                                Visibility="{x:Bind HasContentTypeMismatch, Mode=OneWay}" />
+                            <TextBlock
+                                FontSize="11"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ReadableSize}" />
+                        </StackPanel>
+                    </StackPanel>
+
                     <Button
-                        Grid.Column="3"
-                        Width="28"
-                        Height="28"
+                        Grid.Column="2"
+                        Width="24"
+                        Height="24"
                         Padding="0"
                         VerticalAlignment="Center"
-                        AllowFocusOnInteraction="False"
-                        AutomationProperties.AutomationId="ComposeSuppressSuggestion"
-                        AutomationProperties.Name="{x:Bind domain:Translator.RecipientSuggestion_DontSuggest, Mode=OneTime}"
-                        Click="SuppressSuggestionClicked"
-                        IsTabStop="False"
+                        AutomationProperties.AutomationId="ComposeAttachmentMoreButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.Composer_AttachmentMoreOptions, Mode=OneTime}"
+                        Click="AttachmentMoreButton_Click"
                         Style="{StaticResource TransparentActionButtonStyle}"
-                        ToolTipService.ToolTip="{x:Bind domain:Translator.RecipientSuggestion_DontSuggest, Mode=OneTime}"
-                        Visibility="{x:Bind CanSuppress, Mode=OneTime}">
-                        <!--  The implicit icon style does not reach the suggestion popup, so the font is set here.  -->
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AttachmentMoreOptions, Mode=OneTime}">
                         <coreControls:WinoFontIcon
                             FontFamily="{ThemeResource WinoIconFontFamily}"
-                            FontSize="12"
-                            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                            Icon="Dismiss" />
+                            FontSize="14"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Icon="More" />
                     </Button>
                 </Grid>
-            </DataTemplate>
 
-            <!--  Attachment tile. Remove lives in the item menu so no destructive icon repeats across the tray.  -->
-            <DataTemplate x:Key="ComposerFileAttachmentTemplate" x:DataType="data:MailAttachmentViewModel">
-                <Grid
-                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                    ContextRequested="AttachmentContextRequested"
-                    CornerRadius="4">
-                    <ToolTipService.ToolTip>
-                        <ToolTip Content="{x:Bind FileName}" />
-                    </ToolTipService.ToolTip>
-
-                    <Grid Padding="8,5,2,5" ColumnSpacing="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="20" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-
-                        <ContentControl
-                            Width="20"
-                            Height="20"
-                            VerticalAlignment="Center"
-                            Content="{x:Bind AttachmentType}"
-                            ContentTemplateSelector="{StaticResource FileTypeIconSelector}"
-                            IsTabStop="False" />
-
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <!--  The full name wraps; it only trims past two lines.  -->
-                            <TextBlock
-                                AutomationProperties.AutomationId="ComposeAttachmentName"
-                                MaxLines="2"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind FileName}"
-                                TextTrimming="CharacterEllipsis"
-                                TextWrapping="Wrap" />
-
-                            <StackPanel Orientation="Horizontal" Spacing="4">
-                                <coreControls:WinoFontIcon
-                                    VerticalAlignment="Center"
-                                    AutomationProperties.AutomationId="ComposeAttachmentContentTypeWarning"
-                                    AutomationProperties.Name="{x:Bind ContentTypeWarningText, Mode=OneWay}"
-                                    FontFamily="{ThemeResource WinoIconFontFamily}"
-                                    FontSize="12"
-                                    Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                                    Icon="Warning"
-                                    ToolTipService.ToolTip="{x:Bind ContentTypeWarningText, Mode=OneWay}"
-                                    Visibility="{x:Bind HasContentTypeMismatch, Mode=OneWay}" />
-                                <TextBlock
-                                    FontSize="11"
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="{x:Bind ReadableSize}" />
-                            </StackPanel>
-                        </StackPanel>
-
-                        <Button
-                            Grid.Column="2"
-                            Width="24"
-                            Height="24"
-                            Padding="0"
-                            VerticalAlignment="Center"
-                            AutomationProperties.AutomationId="ComposeAttachmentMoreButton"
-                            AutomationProperties.Name="{x:Bind domain:Translator.Composer_AttachmentMoreOptions, Mode=OneTime}"
-                            Click="AttachmentMoreButton_Click"
-                            Style="{StaticResource TransparentActionButtonStyle}"
-                            ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AttachmentMoreOptions, Mode=OneTime}">
-                            <coreControls:WinoFontIcon
-                                FontFamily="{ThemeResource WinoIconFontFamily}"
-                                FontSize="14"
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Icon="More" />
-                        </Button>
-                    </Grid>
-
-                    <!--  A content type mismatch outlines the whole tile, not only its icon.  -->
-                    <Border
-                        BorderBrush="{ThemeResource SystemFillColorCautionBrush}"
-                        BorderThickness="1"
-                        CornerRadius="4"
-                        IsHitTestVisible="False"
-                        Opacity="0.6"
-                        Visibility="{x:Bind HasContentTypeMismatch, Mode=OneWay}" />
-                </Grid>
-            </DataTemplate>
-        </ResourceDictionary>
+                <!--  A content type mismatch outlines the whole tile, not only its icon.  -->
+                <Border
+                    BorderBrush="{ThemeResource SystemFillColorCautionBrush}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    IsHitTestVisible="False"
+                    Opacity="0.6"
+                    Visibility="{x:Bind HasContentTypeMismatch, Mode=OneWay}" />
+            </Grid>
+        </DataTemplate>
     </Page.Resources>
 
     <Grid
@@ -650,7 +644,6 @@
                             Grid.Column="0"
                             VerticalAlignment="Center"
                             BorderThickness="0"
-                            ItemContainerStyleSelector="{StaticResource ComposeRecipientItemStyleSelector}"
                             ItemsSource="{x:Bind ViewModel.ToItems, Mode=OneTime}"
                             LostFocus="AddressBoxLostFocus"
                             PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"
@@ -697,7 +690,6 @@
                         Grid.Row="2"
                         Grid.Column="1"
                         VerticalAlignment="Center"
-                        ItemContainerStyleSelector="{StaticResource ComposeRecipientItemStyleSelector}"
                         ItemsSource="{x:Bind ViewModel.CCItems, Mode=OneTime}"
                         LostFocus="AddressBoxLostFocus"
                         PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"
@@ -723,7 +715,6 @@
                         Grid.Row="3"
                         Grid.Column="1"
                         VerticalAlignment="Center"
-                        ItemContainerStyleSelector="{StaticResource ComposeRecipientItemStyleSelector}"
                         ItemsSource="{x:Bind ViewModel.BCCItems, Mode=OneTime}"
                         LostFocus="AddressBoxLostFocus"
                         PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"

@@ -67,29 +67,8 @@ public abstract partial class ToDoPageViewController : WinoViewController<ToDoPa
     protected virtual bool QuickAddOnDemand => false;
 
     private bool _quickAddOpen;
-    private NSLayoutConstraint? _emptyAboveQuickAdd;
     private UIBarButtonItem? _optionsItem;
     private UIBarButtonItem? _suggestionsItem;
-
-    /// <summary>The floating button and the Home Screen quick action: right after a mode switch readiness is still being checked.</summary>
-    protected async Task ShowQuickAddWhenReadyAsync()
-    {
-        if (!ViewModel.Readiness.IsReady && !await ViewModel.Readiness.EnsureReadyAsync()) return;
-        if (!ViewModel.CanCreateTask) await WaitForCanCreateTaskAsync();
-        ShowQuickAdd();
-    }
-
-    private async Task WaitForCanCreateTaskAsync()
-    {
-        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
-        {
-            if (ViewModel.CanCreateTask) ready.TrySetResult();
-        }
-        ViewModel.PropertyChanged += Changed;
-        try { await Task.WhenAny(ready.Task, Task.Delay(TimeSpan.FromSeconds(5))); }
-        finally { ViewModel.PropertyChanged -= Changed; }
-    }
 
     /// <summary>Opens the quick add bar on the keyboard (the iPhone's floating button).</summary>
     protected void ShowQuickAdd()
@@ -101,10 +80,7 @@ public abstract partial class ToDoPageViewController : WinoViewController<ToDoPa
     }
 
     private void ApplyQuickAddVisibility()
-    {
-        _quickAdd.Hidden = !ViewModel.IsQuickAddVisible || QuickAddOnDemand && !_quickAddOpen;
-        if (_emptyAboveQuickAdd is not null) _emptyAboveQuickAdd.Active = QuickAddOnDemand && !_quickAdd.Hidden;
-    }
+        => _quickAdd.Hidden = !ViewModel.IsQuickAddVisible || QuickAddOnDemand && !_quickAddOpen;
 
     /// <summary>The phone bar: More, then Suggestions while My Day is shown (search is the bar's own glyph).</summary>
     private void ApplyCombinedBarItems()
@@ -182,20 +158,15 @@ public abstract partial class ToDoPageViewController : WinoViewController<ToDoPa
         rest.Active = true;
 
         _empty.UserInteractionEnabled = false;
-        content.InsertSubviewBelow(_empty, _quickAdd);
+        content.AddSubview(_empty);
         _empty.TranslatesAutoresizingMaskIntoConstraints = false;
-        var emptyFoot = _empty.BottomAnchor.ConstraintEqualTo(table.BottomAnchor);
-        emptyFoot.Priority = 750;
         NSLayoutConstraint.ActivateConstraints(
         [
             _empty.TopAnchor.ConstraintEqualTo(table.TopAnchor),
-            _empty.BottomAnchor.ConstraintLessThanOrEqualTo(table.BottomAnchor),
-            emptyFoot,
+            _empty.BottomAnchor.ConstraintEqualTo(table.BottomAnchor),
             _empty.LeadingAnchor.ConstraintEqualTo(table.LeadingAnchor),
             _empty.TrailingAnchor.ConstraintEqualTo(table.TrailingAnchor)
         ]);
-        // The on-demand bar floats over the list's foot and rides up on the keyboard: the empty state recentres above it.
-        _emptyAboveQuickAdd = _empty.BottomAnchor.ConstraintLessThanOrEqualTo(_quickAdd.TopAnchor, -8);
 
         // Windows ModeReadinessPanel.
         _blockedAction.PrimaryActionTriggered += (_, _) =>

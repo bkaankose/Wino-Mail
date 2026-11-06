@@ -230,7 +230,7 @@ public sealed partial class EventDetailsPageViewController
         var name = WinoStyle.Label(fileName, WinoStyle.Subheadline);
         name.LineBreakMode = UILineBreakMode.MiddleTruncation;
         WinoLayout.Priorities(name, UILayoutConstraintAxis.Horizontal, 1, 250);
-        var size = WinoStyle.Label(attachment.ReadableSize, WinoStyle.Caption, WinoStyle.SecondaryText);
+        var size = WinoStyle.Label(attachment.ReadableSize, WinoStyle.Caption, WinoStyle.TertiaryText);
         WinoLayout.Priorities(size, UILayoutConstraintAxis.Horizontal, 750, 750);
         var open = InlineButton(Translator.Buttons_Open, $"{Translator.Buttons_Open} {fileName}", () => OpenAttachment(attachment));
         var save = InlineButton(Translator.Buttons_Save, $"{Translator.Buttons_Save} {fileName}", () => SaveAttachment(attachment));

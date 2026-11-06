@@ -21,7 +21,6 @@ using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Common;
-using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
@@ -70,7 +69,7 @@ public sealed partial class AndroidDialogService(IDispatcher dispatcher, Android
 
     /// <summary>A prompt: 0 for the positive button, 1 for the neutral one, -1 for the negative button or dismissal.</summary>
     private Task<int> AlertAsync(string? title, string? message, string positive, string? negative = null, string? neutral = null,
-        Func<Context, View>? content = null, Action<int>? chosen = null, bool cancelable = true, Action<AlertDialog>? shown = null)
+        Func<Context, View>? content = null, Action<int>? chosen = null, bool cancelable = true)
         => PresentAsync<int>((activity, completion) =>
         {
             var builder = new MaterialAlertDialogBuilder(activity);
@@ -81,9 +80,7 @@ public sealed partial class AndroidDialogService(IDispatcher dispatcher, Android
             if (!string.IsNullOrEmpty(neutral)) builder.SetNeutralButton(neutral, (_, _) => { chosen?.Invoke(1); completion.TrySetResult(1); });
             if (!string.IsNullOrEmpty(negative)) builder.SetNegativeButton(negative, (_, _) => completion.TrySetResult(-1));
             builder.SetCancelable(cancelable);
-            var dialog = builder.Create();
-            if (shown is not null) dialog.ShowEvent += (_, _) => shown(dialog);
-            return dialog;
+            return builder.Create();
         }, -1);
 
     /// <summary>A single-choice list; null when cancelled. Items that cannot be chosen say why in a message.</summary>
@@ -135,11 +132,6 @@ public sealed partial class AndroidDialogService(IDispatcher dispatcher, Android
             1 => ThreeButtonDialogResult.Secondary,
             _ => ThreeButtonDialogResult.Cancel
         };
-
-    public async Task<bool> ShowOpenLinkConfirmationAsync(string? linkText, System.Uri originalUri, System.Uri cleanedUri, int removedParameterCount, string? browserName)
-        => await AlertAsync(Translator.OpenLinkDialog_Title,
-            Wino.Core.Domain.Models.Reader.OpenLinkConfirmationText.GetMessage(linkText, cleanedUri, removedParameterCount, browserName),
-            Translator.OpenLinkDialog_OpenLink, Translator.Buttons_Cancel) == 0;
 
     /// <summary>Same contract as Windows: a key already marked "don't ask again" answers false without showing.</summary>
     public async Task<bool> ShowWinoCustomMessageDialogAsync(string title, string description, string approveButtonText, WinoCustomMessageDialogIcon? icon, string cancelButtonText = "", string dontAskAgainConfigurationKey = "")
@@ -199,63 +191,9 @@ public sealed partial class AndroidDialogService(IDispatcher dispatcher, Android
         if (choice == 1) await CopyAsync($"{errorMessage}{Environment.NewLine}{Environment.NewLine}{log}");
     }
 
-    /// <summary>
-    /// Fails closed: Cancel or dismissal answers false. A dangerous prompt keeps the accept button disabled until its
-    /// acknowledgement checkbox is ticked.
-    /// </summary>
-    public async Task<bool> ShowServerCertificateTrustDialogAsync(ServerCertificateTrustPrompt prompt)
-    {
-        MaterialCheckBox? acknowledgement = null;
-        var choice = await AlertAsync(prompt.Title, null, prompt.AcceptButtonText, Translator.Buttons_Cancel,
-            content: context =>
-            {
-                var scroll = new ScrollView(context);
-                var body = Body(context);
-                var intro = new TextView(context) { Text = prompt.Intro };
-                if (prompt.IsDangerous)
-                {
-                    intro.SetTextColor(Wino.Presentation.Android.WinoColors.Critical(context));
-                    intro.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
-                }
-                body.AddView(intro);
-
-                if (prompt.Problems.Length > 0)
-                {
-                    var problems = $"{prompt.ProblemsHeader}\n" + string.Join("\n", prompt.Problems.Select(problem => "• " + problem));
-                    body.AddView(Section(context, problems));
-                }
-
-                if (prompt.Facts.Length > 0)
-                    body.AddView(Section(context, string.Join("\n", prompt.Facts.Select(fact => $"{fact.Label}: {fact.Value}")), selectable: true));
-
-                body.AddView(Section(context, prompt.Closing));
-
-                if (prompt.IsDangerous)
-                {
-                    acknowledgement = new MaterialCheckBox(context) { Text = prompt.AcknowledgementText };
-                    body.AddView(acknowledgement);
-                }
-
-                scroll.AddView(body);
-                return scroll;
-            },
-            shown: dialog =>
-            {
-                if (acknowledgement is null || dialog.GetButton((int)DialogButtonType.Positive) is not { } accept) return;
-                accept.Enabled = false;
-                acknowledgement.CheckedChange += (_, args) => accept.Enabled = args.IsChecked;
-            });
-
-        return choice == 0 && (acknowledgement is null || acknowledgement.Checked);
-    }
-
-    private static TextView Section(Context context, string text, bool selectable = false)
-    {
-        var view = new TextView(context) { Text = text };
-        view.SetPadding(0, Dp(context, 12), 0, 0);
-        if (selectable) view.SetTextIsSelectable(true);
-        return view;
-    }
+    /// <summary>Fails closed: Cancel or dismissal answers false.</summary>
+    public async Task<bool> ShowServerCertificateTrustDialogAsync(string summary, byte[] certificateRawData)
+        => await AlertAsync(Translator.IMAPSetupDialog_CertificateTrustTitle, summary, Translator.Buttons_Trust, Translator.Buttons_Cancel) == 0;
 
     public async Task ShowMessageSourceDialogAsync(string messageSource)
     {

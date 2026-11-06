@@ -179,32 +179,9 @@ public static class MacDebugBridge
         Register("front", _ =>
         {
             // Lets a full-screen capture on the Mac show Wino without granting System Events access.
-            NSApplication.SharedApplication.Activate();
+            NSApplication.SharedApplication.ActivateIgnoringOtherApps(true);
             foreach (var window in AllWindows().Where(item => item.IsVisible)) window.OrderFrontRegardless();
             return Task.FromResult("ok");
-        });
-        // "fitwide CLASS MIN" writes the views (hidden ones marked) of that window whose own fitting width is at least MIN to fitwide.txt:
-        // the views that keep a window from getting narrower.
-        Register("fitwide", args =>
-        {
-            var window = AllWindows().FirstOrDefault(item => item.IsVisible && item.GetType().Name == args[0]);
-            if (window?.ContentView is null) return Task.FromResult("no window");
-            var minimum = double.Parse(args[1]);
-            var builder = new System.Text.StringBuilder();
-            void Walk(NSView view, int depth)
-            {
-                var width = view.FittingSize.Width;
-                if (width >= minimum)
-                    builder.Append(' ', depth * 2).Append(view.GetType().Name).Append(" fit=").Append(Math.Round(width))
-                        .Append(" frame=").Append(Math.Round(view.Frame.Width)).Append(view.Hidden ? " hidden" : string.Empty)
-                        .Append(' ').Append(view.AccessibilityIdentifier)
-                        .Append(view is NSTextField field ? $" \"{field.StringValue}\" lines={field.MaximumNumberOfLines} hres={view.GetContentCompressionResistancePriority(NSLayoutConstraintOrientation.Horizontal)}" : string.Empty)
-                        .AppendLine();
-                foreach (var child in view.Subviews) Walk(child, depth + 1);
-            }
-            Walk(window.ContentView, 0);
-            File.WriteAllText(Path.Combine(Folder, "fitwide.txt"), builder.ToString());
-            return Task.FromResult("fitwide.txt");
         });
         // "tree CLASS [DEPTH]" writes the view tree of the first visible window of that class to tree.txt.
         Register("tree", args =>
@@ -248,7 +225,7 @@ public static class MacDebugBridge
                 using var data = rep.RepresentationUsingTypeProperties(NSBitmapImageFileType.Png, new NSDictionary());
                 var name = args.Length > 0 ? args[0] : "lsnap";
                 var file = Path.Combine(Folder, index == 0 ? $"{name}.png" : $"{name}-{index}.png");
-                data?.Save(NSUrl.FromFilename(file), true);
+                data?.Save(file, true);
                 saved.Add($"{Path.GetFileName(file)} ({window.GetType().Name})");
                 index++;
             }
@@ -274,7 +251,7 @@ public static class MacDebugBridge
             document.CacheDisplay(document.Bounds, rep);
             using var data = rep.RepresentationUsingTypeProperties(NSBitmapImageFileType.Png, new NSDictionary());
             var file = Path.Combine(Folder, (args.Length > 1 ? args[1] : "dsnap") + ".png");
-            data?.Save(NSUrl.FromFilename(file), true);
+            data?.Save(file, true);
             return Task.FromResult(Path.GetFileName(file) + " " + document.Bounds.ToString());
         });
         // "menus" lists the main menu titles and their items.
@@ -287,7 +264,7 @@ public static class MacDebugBridge
             var title = string.Join(' ', args);
             var window = AllWindows().FirstOrDefault(item => item.IsVisible && item.Title.Contains(title, StringComparison.OrdinalIgnoreCase));
             if (window is null) return Task.FromResult("no window");
-            NSApplication.SharedApplication.Activate();
+            NSApplication.SharedApplication.ActivateIgnoringOtherApps(true);
             window.MakeKeyAndOrderFront(null);
             return Task.FromResult($"{window.Frame}");
         });
@@ -311,7 +288,7 @@ public static class MacDebugBridge
             view.CacheDisplay(view.Bounds, rep);
             using var data = rep.RepresentationUsingTypeProperties(NSBitmapImageFileType.Png, new NSDictionary());
             var file = Path.Combine(Folder, index == 0 ? $"{name}.png" : $"{name}-{index}.png");
-            data?.Save(NSUrl.FromFilename(file), true);
+            data?.Save(file, true);
             saved.Add($"{Path.GetFileName(file)} ({window.GetType().Name})");
             index++;
         }

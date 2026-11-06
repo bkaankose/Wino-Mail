@@ -12,14 +12,14 @@ namespace Wino.Mail.Android.Views.Mail;
 /// <summary>
 /// Maps projected mail rows into the ViewModel-free <see cref="WinoMailRowModel"/> drawn by <c>WinoMailRowView</c> (the
 /// UIKit and Mac MailRowMapper twin). Text, dates and aggregation come from the shared <see cref="MailRowPresentation"/>;
-/// this adds Android colours and the density. Phones have no density option and use Medium rows;
+/// this adds Android colours, the sender picture and the density. Phones have no density option and use Medium rows;
 /// tablets (expanded width) follow the density preference, as on Windows and iPad.
 /// </summary>
 public static class MailRowMapper
 {
     public const WinoMailRowDensity PhoneDensity = WinoMailRowDensity.Medium;
 
-    public static WinoMailRowModel? TryMap(MailListRow row, IPreferencesService preferences, bool showAccountColor, WinoMailRowDensity density)
+    public static WinoMailRowModel? TryMap(MailListRow row, IPreferencesService preferences, bool showAccountColor, WinoMailRowDensity density, Bitmap? picture)
     {
         if (MailRowPresentation.Describe(row, preferences.MailTimeFormatPreference) is not { } content) return null;
         return new WinoMailRowModel
@@ -45,6 +45,7 @@ public static class MailRowMapper
             AccountNickname = content.AccountNickname,
             NicknamePosition = preferences.AccountNicknamePosition,
             ShowPicture = preferences.IsShowSenderPicturesEnabled,
+            Picture = preferences.IsShowSenderPicturesEnabled ? picture : null,
             ShowPreview = preferences.IsShowPreviewEnabled,
             DraftLabel = Translator.Draft,
             AccessibilityText = content.AccessibilityText
