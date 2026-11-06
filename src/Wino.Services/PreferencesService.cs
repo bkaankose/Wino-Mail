@@ -228,6 +228,12 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(IsOtherInboxUnreadNoticeEnabled), value);
     }
 
+    public bool IsMarkAsReadOnMoveToTrashEnabled
+    {
+        get => _configurationService.Get(nameof(IsMarkAsReadOnMoveToTrashEnabled), false);
+        set => SetPropertyAndSave(nameof(IsMarkAsReadOnMoveToTrashEnabled), value);
+    }
+
     public bool RenderStyles
     {
         get => _configurationService.Get(nameof(RenderStyles), true);

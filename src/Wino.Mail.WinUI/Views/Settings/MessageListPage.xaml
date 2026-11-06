@@ -498,6 +498,16 @@
                 <ToggleSwitch AutomationProperties.AutomationId="MessageListOtherInboxUnreadNoticeToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsOtherInboxUnreadNoticeEnabled, Mode=TwoWay}" />
             </controls:SettingsCard>
 
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="MessageListMarkAsReadOnMoveToTrashSettingsCard"
+                Description="{x:Bind domain:Translator.SettingsMarkAsReadOnMoveToTrash_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.SettingsMarkAsReadOnMoveToTrash_Title, Mode=OneTime}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="Delete" />
+                </controls:SettingsCard.HeaderIcon>
+                <ToggleSwitch AutomationProperties.AutomationId="MessageListMarkAsReadOnMoveToTrashToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsMarkAsReadOnMoveToTrashEnabled, Mode=TwoWay}" />
+            </controls:SettingsCard>
+
             <controls:SettingsExpander
                 AutomationProperties.AutomationId="MessageListPageSettingsExpander3"
                 Description="{x:Bind domain:Translator.SettingsThreads_Description}"

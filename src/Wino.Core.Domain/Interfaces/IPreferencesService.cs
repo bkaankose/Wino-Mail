@@ -325,6 +325,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsOtherInboxUnreadNoticeEnabled { get; set; }
 
     /// <summary>
+    /// Setting: Mark unread mails as read before Wino moves them to the Trash folder.
+    /// </summary>
+    bool IsMarkAsReadOnMoveToTrashEnabled { get; set; }
+
+    /// <summary>
     /// Setting: What remote content messages may load when no sender rule applies.
     /// </summary>
     RemoteContentMode RemoteContentMode { get; set; }

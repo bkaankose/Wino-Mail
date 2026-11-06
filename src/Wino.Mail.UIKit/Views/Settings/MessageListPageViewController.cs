@@ -67,7 +67,9 @@ public sealed class MessageListPageViewController(MessageListPageViewModel viewM
             StackedCard(Translator.SettingsTimeFormat_Title, null, WinoIconGlyph.Clock,
                 Bind.PopUp(vm, vm.TimeFormatPreferenceOptions, nameof(vm.SelectedTimeFormatPreferenceIndex), s => s.SelectedTimeFormatPreferenceIndex, (s, v) => s.SelectedTimeFormatPreferenceIndex = v)),
             Card(Translator.SettingsOtherInboxUnreadNotice_Title, Translator.IOS_SettingsHint_OtherInboxNotice, WinoIconGlyph.Mail,
-                Bind.Switch(p, nameof(p.IsOtherInboxUnreadNoticeEnabled), s => s.IsOtherInboxUnreadNoticeEnabled, (s, v) => s.IsOtherInboxUnreadNoticeEnabled = v, Translator.SettingsOtherInboxUnreadNotice_Title)));
+                Bind.Switch(p, nameof(p.IsOtherInboxUnreadNoticeEnabled), s => s.IsOtherInboxUnreadNoticeEnabled, (s, v) => s.IsOtherInboxUnreadNoticeEnabled = v, Translator.SettingsOtherInboxUnreadNotice_Title)),
+            Card(Translator.SettingsMarkAsReadOnMoveToTrash_Title, Translator.SettingsMarkAsReadOnMoveToTrash_Description, WinoIconGlyph.Delete,
+                Bind.Switch(p, nameof(p.IsMarkAsReadOnMoveToTrashEnabled), s => s.IsMarkAsReadOnMoveToTrashEnabled, (s, v) => s.IsMarkAsReadOnMoveToTrashEnabled = v, Translator.SettingsMarkAsReadOnMoveToTrash_Title)));
 
         // Threads
         AddGroup(null, Expander(Translator.SettingsThreads_Title, null, WinoIconGlyph.TextBulletListTree, null,

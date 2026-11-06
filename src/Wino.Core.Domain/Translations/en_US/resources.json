@@ -1516,6 +1516,8 @@
   "MailListGroup_OlderThanTenYears": "Older than 10 years",
   "SettingsOtherInboxUnreadNotice_Description": "Notify 'Other' unread messages in Focused",
   "SettingsOtherInboxUnreadNotice_Title": "Other inbox notice",
+  "SettingsMarkAsReadOnMoveToTrash_Description": "Mark unread messages as read when you delete them or move them to Trash in Wino",
+  "SettingsMarkAsReadOnMoveToTrash_Title": "Mark as read when moved to Trash",
   "OtherInboxUnreadNotice_Singular": "You have {0} unread message in the Other tab.",
   "OtherInboxUnreadNotice_Plural": "You have {0} unread messages in the Other tab.",
   "SettingsMailSpacing_Description": "Adjust the spacing for listing mails.",
