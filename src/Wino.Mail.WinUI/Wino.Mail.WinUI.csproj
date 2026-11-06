@@ -320,6 +320,7 @@
   </ItemDefinitionGroup>
   <ItemGroup Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(PublishAot)' == 'true'">
     <TrimmerRootAssembly Include="Ical.Net" />
+    <TrimmerRootAssembly Include="Exchange.WebServices.NETCore" />
     <TrimmerRootDescriptor Include="ILLink.AotRoots.xml" />
     <IlcArg Include="--substitution:$(MSBuildProjectDirectory)\ILLink.AotSubstitutions.xml" />
   </ItemGroup>
