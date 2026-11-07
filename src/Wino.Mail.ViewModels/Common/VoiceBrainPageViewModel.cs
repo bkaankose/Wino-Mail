@@ -235,7 +235,10 @@ public partial class VoiceBrainPageViewModel : CoreBaseViewModel, IRecipient<Voi
         if (brain is not null)
         {
             var local = accounts ?? [];
-            foreach (var fact in (brain.Facts ?? []).OrderBy(static fact => fact.Label, StringComparer.CurrentCultureIgnoreCase))
+            // An account removed from this device may still be in the brain until a device pushes again: not shown.
+            bool IsOnDevice(BrainMailboxKey mailbox) => local.Count == 0 || local.Any(account => VoiceProviderKinds.ToMailboxKey(account) is { } key && key.Matches(mailbox.Address, mailbox.Provider));
+
+            foreach (var fact in (brain.Facts ?? []).Where(fact => fact.Mailbox is null || IsOnDevice(fact.Mailbox)).OrderBy(static fact => fact.Label, StringComparer.CurrentCultureIgnoreCase))
             {
                 var item = ToItem(fact, local);
                 switch (fact.Kind)
@@ -255,7 +258,7 @@ public partial class VoiceBrainPageViewModel : CoreBaseViewModel, IRecipient<Voi
                 }
             }
 
-            foreach (var stored in (brain.Sections ?? []).OrderBy(static stored => stored.Section.Mailbox.Address, StringComparer.OrdinalIgnoreCase))
+            foreach (var stored in (brain.Sections ?? []).Where(stored => IsOnDevice(stored.Section.Mailbox)).OrderBy(static stored => stored.Section.Mailbox.Address, StringComparer.OrdinalIgnoreCase))
             {
                 var mailbox = stored.Section.Mailbox;
                 var title = MailboxTitle(mailbox, local);

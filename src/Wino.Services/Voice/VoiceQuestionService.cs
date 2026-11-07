@@ -97,9 +97,27 @@ public sealed class VoiceQuestionService(
             {
                 targets = matches;
             }
+            else if (matches.Count == 0 && command.Mail is { FolderName: null or "", FolderSpecialType: null or SpecialFolderKind.None } mail
+                && reference.Provider is null && string.IsNullOrWhiteSpace(reference.Address) && reference.Position is null
+                && !string.IsNullOrWhiteSpace(reference.Name)
+                && await AnyFolderNamedAsync(accounts, reference.Name.Trim(), cancellationToken).ConfigureAwait(false))
+            {
+                // "unread mails in demo": the planner took a folder for an account name. No account has the name and a
+                // folder does, so the command searches that folder in every account.
+                command = command with
+                {
+                    Mailbox = new MailboxSelection(MailboxScope.All, null, MailboxMatch.Unspecified, null),
+                    Mail = mail with { FolderName = reference.Name.Trim(), Scope = FolderScope.Folder }
+                };
+            }
             else if (accounts.Count > 1 && !string.IsNullOrWhiteSpace(reference.Name))
             {
                 added.Add(new UnresolvedReference(UnresolvedKind.Account, reference.Name.Trim()));
+            }
+            else if (matches.Count > 1 && reference.Provider is { } provider)
+            {
+                // "My Outlook" with two Outlook accounts: asked like an unknown name instead of failing as a banner.
+                added.Add(new UnresolvedReference(UnresolvedKind.Account, provider.ToString()));
             }
         }
 
@@ -122,10 +140,10 @@ public sealed class VoiceQuestionService(
 
             // The same sources the picker offers: correspondents and contacts. One person answering to the name is
             // used (by address hash, as Personal mode does); none or several are asked about.
-            var candidates = (await GetPeopleAsync(accounts, name, cancellationToken).ConfigureAwait(false))
+            var candidates = (await FindPeopleAsync(accounts, name, cancellationToken).ConfigureAwait(false))
                 .Where(static candidate => !string.IsNullOrWhiteSpace(candidate.Address))
                 .ToList();
-            var exact = candidates.Where(candidate => SamePhrase(candidate.Title, name)).ToList();
+            var exact = candidates.Where(candidate => SameName(candidate.Title, name)).ToList();
             var chosen = exact.Count == 1 ? exact[0] : candidates.Count == 1 ? candidates[0] : null;
             if (chosen?.Address is { } address)
                 identified.Add(new PersonIdentity(name, VoiceBrainHash.Address(address)));
@@ -198,6 +216,75 @@ public sealed class VoiceQuestionService(
         {
             Log.Warning(ex, "Could not load the choices for a voice question.");
             return [];
+        }
+    }
+
+    public async Task<VoiceKnownAnswers> AnswerKnownQuestionsAsync(VoicePlan plan, CancellationToken cancellationToken = default)
+    {
+        var facts = new List<AddBrainFactRequest>();
+        try
+        {
+            var accounts = await accountService.GetAccountsAsync().ConfigureAwait(false) ?? [];
+            foreach (var question in GetQuestions(plan))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var answer = await FindKnownAnswerAsync(question, accounts, cancellationToken).ConfigureAwait(false);
+                if (answer is null)
+                    continue;
+
+                plan = ApplyAnswer(plan, question, answer);
+                if (CreateFact(question, answer) is { } fact)
+                    facts.Add(fact);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Could not answer voice questions on the device.");
+        }
+
+        return new VoiceKnownAnswers(plan, facts);
+    }
+
+    private async Task<VoiceAnswerCandidate?> FindKnownAnswerAsync(VoiceQuestion question, List<MailAccount> accounts, CancellationToken cancellationToken)
+    {
+        var phrase = question.Phrase.Trim();
+        if (phrase.Length == 0 || accounts.Count == 0)
+            return null;
+
+        switch (question.Kind)
+        {
+            case UnresolvedKind.Account:
+            {
+                var named = accounts.Where(account => SameName(account.Name, phrase) || SameName(account.SenderName, phrase)
+                    || string.Equals(account.Address, phrase, StringComparison.OrdinalIgnoreCase)
+                    || (account.Address?.IndexOf('@') is int at && at > 0 && SameName(account.Address[..at], phrase))).ToList();
+                if (named is not [var account])
+                    return null;
+
+                return (await GetCandidatesAsync(question, null, cancellationToken).ConfigureAwait(false))
+                    .FirstOrDefault(candidate => candidate.Account?.Id == account.Id);
+            }
+            case UnresolvedKind.Folder:
+            {
+                var folders = (await GetCandidatesAsync(question, phrase, cancellationToken).ConfigureAwait(false))
+                    .Where(candidate => candidate.Folder is not null && SameName(candidate.Title, phrase))
+                    .ToList();
+                return folders is [var folder] ? folder : null;
+            }
+            case UnresolvedKind.Person when !question.IsRelationship:
+            {
+                var people = (await FindPeopleAsync(accounts, phrase, cancellationToken).ConfigureAwait(false))
+                    .Where(static candidate => !string.IsNullOrWhiteSpace(candidate.Address))
+                    .ToList();
+                var exact = people.Where(candidate => SameName(candidate.Title, phrase)).ToList();
+                return exact.Count == 1 ? exact[0] : people.Count == 1 ? people[0] : null;
+            }
+            default:
+                return null;
         }
     }
 
@@ -300,12 +387,87 @@ public sealed class VoiceQuestionService(
     // "Who is Burak?": the people answering to the name come first, then the usual frequent correspondents.
     private async Task<List<VoiceAnswerCandidate>> GetNamedPeopleFirstAsync(List<MailAccount> accounts, string name, CancellationToken cancellationToken)
     {
-        var named = await GetPeopleAsync(accounts, name, cancellationToken).ConfigureAwait(false);
+        var named = await FindPeopleAsync(accounts, name, cancellationToken).ConfigureAwait(false);
         var frequent = await GetPeopleAsync(accounts, string.Empty, cancellationToken).ConfigureAwait(false);
         return named.Concat(frequent)
             .DistinctBy(static person => person.Key, StringComparer.Ordinal)
             .Take(SearchLimit)
             .ToList();
+    }
+
+    /// <summary>
+    /// People answering to a spoken name. The stores match text as typed, so a name said without its accents
+    /// ("Christian Muller", "Ahmet Kose") or with a title ("Mr Kogan") finds nobody: the name is searched without
+    /// titles, then word by word, and kept only when every spoken word starts a word of the person's name or address,
+    /// accents ignored.
+    /// </summary>
+    private async Task<List<VoiceAnswerCandidate>> FindPeopleAsync(List<MailAccount> accounts, string name, CancellationToken cancellationToken)
+    {
+        var words = NameWords(name);
+        if (words.Count == 0)
+            return [];
+
+        var direct = await GetPeopleAsync(accounts, string.Join(' ', words), cancellationToken).ConfigureAwait(false);
+        if (direct.Count > 0)
+            return direct;
+
+        var found = new List<VoiceAnswerCandidate>();
+        foreach (var word in words.OrderByDescending(static word => word.Length))
+        {
+            if (word.Length < 2)
+                continue;
+
+            foreach (var query in new[] { word, Fold(word) }.Distinct(StringComparer.Ordinal))
+                found.AddRange(await GetPeopleAsync(accounts, query, cancellationToken).ConfigureAwait(false));
+        }
+
+        var folded = words.Select(Fold).ToList();
+        return found
+            .DistinctBy(static person => person.Key, StringComparer.Ordinal)
+            .Where(person => MatchesAll(person, folded))
+            .ToList();
+    }
+
+    private static bool MatchesAll(VoiceAnswerCandidate person, List<string> words)
+    {
+        var local = person.Address is { } address && address.IndexOf('@') is int at && at > 0 ? address[..at] : person.Address;
+        var targets = NameWords(person.Title).Concat(NameWords(local?.Replace('.', ' ').Replace('_', ' ').Replace('-', ' '))).Select(Fold).ToList();
+        return words.All(word => targets.Any(target => target.StartsWith(word, StringComparison.Ordinal)));
+    }
+
+    private static readonly HashSet<string> Titles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "mr", "mrs", "ms", "miss", "dr", "prof", "sir", "madam", "bay", "bayan", "sayın", "sayin", "herr", "frau", "pan", "pani",
+        "monsieur", "madame", "mme", "señor", "señora", "senor", "senora", "sr", "sra"
+    };
+
+    private static List<string> NameWords(string? text)
+        => string.IsNullOrWhiteSpace(text)
+            ? []
+            : text.Split([' ', '\t', ',', ';', '(', ')', '"'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(static word => word.TrimEnd('.'))
+                .Where(static word => word.Length > 0 && !Titles.Contains(word))
+                .ToList();
+
+    private static bool SameName(string? title, string name)
+    {
+        var left = NameWords(title).Select(Fold).ToList();
+        var right = NameWords(name).Select(Fold).ToList();
+        return left.Count > 0 && left.SequenceEqual(right, StringComparer.Ordinal);
+    }
+
+    /// <summary>Lower case without accents; Turkish dotless and dotted i fold to i.</summary>
+    private static string Fold(string text)
+    {
+        var normalized = text.Replace('ı', 'i').Replace('İ', 'i').Replace('ł', 'l').Replace('Ł', 'l').Normalize(System.Text.NormalizationForm.FormD);
+        var builder = new System.Text.StringBuilder(normalized.Length);
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                builder.Append(char.ToLowerInvariant(c));
+        }
+
+        return builder.ToString();
     }
 
     private async Task<List<VoiceAnswerCandidate>> GetPeopleAsync(List<MailAccount> accounts, string text, CancellationToken cancellationToken)

@@ -1,4 +1,5 @@
 #nullable enable
+using System.Collections.Generic;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -50,3 +51,6 @@ public static class VoiceProviderKinds
             ? null
             : new BrainMailboxKey(BrainMailboxKey.Normalize(account.Address), ToProviderKind(account.ProviderType));
 }
+
+/// <summary>A plan with the questions the device answered itself applied, and the facts those answers become.</summary>
+public sealed record VoiceKnownAnswers(VoicePlan Plan, IReadOnlyList<AddBrainFactRequest> Facts);

@@ -326,10 +326,14 @@ public sealed partial class VoicePlanExecutor
         switch (command.Action)
         {
             case VoiceAction.FindEvents:
-                await context.Host.OpenEventAsync(targets[0].Event).ConfigureAwait(false);
+            {
+                // Opening an event shows its day; a timed event is the one the user is after, not a holiday that spans it.
+                var shown = targets.OrderBy(static target => target.Event.IsAllDayEvent).ThenBy(static target => target.Event.StartDate).First().Event;
+                await context.Host.OpenEventAsync(shown).ConfigureAwait(false);
                 return StepResult.Done(targets.Count == 1
-                    ? string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_EventOpened, EventTitle(targets[0].Event), When(targets[0].Event))
-                    : string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_EventsFound, EventsText(targets.Count), EventTitle(targets[0].Event)));
+                    ? string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_EventOpened, EventTitle(shown), When(shown))
+                    : string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_EventsFound, EventsText(targets.Count), EventTitle(shown)));
+            }
 
             case VoiceAction.DeleteEvent:
                 foreach (var target in targets)

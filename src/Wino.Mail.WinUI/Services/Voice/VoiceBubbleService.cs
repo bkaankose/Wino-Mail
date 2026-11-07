@@ -302,6 +302,7 @@ internal sealed class VoiceBubbleService : IDisposable
                 level => Volatile.Write(ref _micLevel, level),
                 token);
             var sessionTask = _voiceCommands.StartAsync(token);
+            _brain.NotifyVoiceStarting();
 
             var capture = await captureTask;
             if (IsStale(cancellation))
@@ -458,11 +459,21 @@ internal sealed class VoiceBubbleService : IDisposable
             return;
         }
 
-        if (mode != VoiceMode.Personal)
+        // Names the plan leaves to the device (Private mode, and names Personal mode's brain doesn't know) become
+        // people or questions here; Personal mode then answers what the device can tell on its own.
+        plan = await _questions.AddLocalQuestionsAsync(plan, cancellation.Token);
+        if (IsStale(cancellation))
+            return;
+
+        if (mode == VoiceMode.Personal)
         {
-            plan = await _questions.AddLocalQuestionsAsync(plan, cancellation.Token);
+            var known = await _questions.AnswerKnownQuestionsAsync(plan, cancellation.Token);
             if (IsStale(cancellation))
                 return;
+
+            plan = known.Plan;
+            foreach (var fact in known.Facts)
+                _ = Task.Run(() => _brain.AddFactAsync(fact));
         }
 
         // Every open question is asked before anything runs, auto-confirm included.

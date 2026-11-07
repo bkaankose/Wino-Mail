@@ -115,9 +115,36 @@ public sealed class VoiceBrainSectionBuilder(
         return Trim(section);
     }
 
-    /// <summary>The SHA-256 of the section's JSON, used to skip pushes of an unchanged section.</summary>
-    public static string Hash(BrainSection section)
-        => Convert.ToHexString(SHA256.HashData(Serialize(section))).ToLowerInvariant();
+    /// <summary>
+    /// The SHA-256 of what the section says, not how it is ordered: folders, calendars and lists as sets, contacts as
+    /// members (a change of rank is no change), and only events that have not ended (an event that ages out is no
+    /// change). A section is pushed only when this differs from the last pushed value.
+    /// </summary>
+    public static string ValueHash(BrainSection section, DateTimeOffset now)
+    {
+        var text = new StringBuilder();
+        void Line(params object?[] parts) => text.Append(string.Join('\u001f', parts.Select(static part => part?.ToString() ?? string.Empty))).Append('\n');
+
+        Line("m", section.Mailbox.Provider, BrainMailboxKey.Normalize(section.Mailbox.Address), section.SenderName, section.IsCalendarEnabled, section.IsTasksEnabled);
+        foreach (var folder in section.Folders.OrderBy(static folder => folder.RemoteId, StringComparer.Ordinal))
+            Line("f", folder.RemoteId, folder.Name, folder.Path, folder.SpecialType);
+        foreach (var calendar in section.Calendars.OrderBy(static calendar => calendar.RemoteId, StringComparer.Ordinal))
+            Line("c", calendar.RemoteId, calendar.Name, calendar.IsPrimary, calendar.IsReadOnly);
+        foreach (var list in section.TaskLists.OrderBy(static list => list.RemoteId, StringComparer.Ordinal))
+            Line("l", list.RemoteId, list.Name, list.IsDefault);
+        foreach (var address in section.SendAsAddresses.Order(StringComparer.OrdinalIgnoreCase))
+            Line("s", address.ToLowerInvariant());
+        foreach (var category in section.Categories.Order(StringComparer.Ordinal))
+            Line("g", category);
+        foreach (var contact in section.TopContacts.OrderBy(static contact => contact.AddressHash, StringComparer.Ordinal))
+            Line("p", contact.AddressHash, contact.Name);
+        foreach (var ev in section.Events.Where(ev => ev.End > now).OrderBy(static ev => ev.Start).ThenBy(static ev => ev.Title, StringComparer.Ordinal))
+            Line("e", ev.Start.ToUnixTimeSeconds(), ev.End.ToUnixTimeSeconds(), ev.IsAllDay, ev.Title, ev.CalendarRemoteId, ev.Recurrence);
+        foreach (var capability in section.Capabilities.Order(StringComparer.Ordinal))
+            Line("x", capability);
+
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text.ToString()))).ToLowerInvariant();
+    }
 
     private static byte[] Serialize(BrainSection section)
         => JsonSerializer.SerializeToUtf8Bytes(section, WinoAccountApiJsonContext.Default.BrainSection);

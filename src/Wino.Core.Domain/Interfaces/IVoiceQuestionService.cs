@@ -17,10 +17,18 @@ public interface IVoiceQuestionService
     IReadOnlyList<VoiceQuestion> GetQuestions(VoicePlan plan);
 
     /// <summary>
-    /// Private mode: turns the names this device cannot match (an account, a folder, a person) into the same questions
-    /// Personal mode gets from the server. The answers are used for this command only.
+    /// Turns the names this device cannot match (an account, a folder, a person) into the same questions
+    /// Personal mode gets from the server, in both modes: Personal mode's brain doesn't know every name. Private answers
+    /// are used for this command only.
     /// </summary>
     Task<VoicePlan> AddLocalQuestionsAsync(VoicePlan plan, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Personal mode: answers the questions this device can answer itself (a phrase that names exactly one local
+    /// account, folder or person, as the account named "Work" does for "my work account") so the user isn't asked what
+    /// is obvious on the device. Relationships are always asked. The facts teach the brain the answers.
+    /// </summary>
+    Task<VoiceKnownAnswers> AnswerKnownQuestionsAsync(VoicePlan plan, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// The candidates for a question, filtered by <paramref name="filter"/>. People are searched in all contacts with

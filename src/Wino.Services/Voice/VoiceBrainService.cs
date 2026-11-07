@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
@@ -35,7 +36,10 @@ public sealed class VoiceBrainService : IVoiceBrainService,
     private const string ModeKey = "mode";
     private const string BrainKey = "brain";
     private const string SectionKeyPrefix = "section:";
+    private const string FactKeyPrefix = "fact:";
     private static readonly TimeSpan PushDebounce = TimeSpan.FromSeconds(4);
+    private static readonly TimeSpan DirtyRebuildInterval = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan VoiceFreshness = TimeSpan.FromMinutes(5);
 
     private readonly IWinoAccountApiClient _api;
     private readonly IWinoAccountProfileService _profiles;
@@ -49,6 +53,11 @@ public sealed class VoiceBrainService : IVoiceBrainService,
     private long _lastPushRequest;
     private bool _isPushScheduled;
     private bool _isStarted;
+
+    // Accounts whose local data changed since their section was last rebuilt; null in the set means every account.
+    private readonly HashSet<Guid?> _dirty = [];
+    private long _lastRebuild = Environment.TickCount64;
+    private Timer? _dirtyTimer;
 
     public VoiceBrainService(
         IWinoAccountApiClient api,
@@ -99,7 +108,32 @@ public sealed class VoiceBrainService : IVoiceBrainService,
         _messenger.Register<WinoAccountSignedInMessage>(this);
         _messenger.Register<WinoAccountSignedOutMessage>(this);
 
-        _ = Task.Run(() => RefreshThenPushAsync(CancellationToken.None), CancellationToken.None);
+        // Startup sends nothing: the cached mode stands until a voice response or the settings page reports it, and
+        // every section is only checked at the next rebuild, which sends it only when its value changed.
+        MarkDirty(null);
+        _dirtyTimer = new Timer(_ => PushDirty(force: false), null, DirtyRebuildInterval, DirtyRebuildInterval);
+    }
+
+    public void NotifyVoiceStarting()
+    {
+        if (_mode == VoiceMode.Personal && TimeSpan.FromMilliseconds(Environment.TickCount64 - Volatile.Read(ref _lastRebuild)) >= VoiceFreshness)
+            PushDirty(force: false);
+    }
+
+    private void MarkDirty(Guid? accountId)
+    {
+        lock (_gate)
+            _dirty.Add(accountId);
+    }
+
+    private void PushDirty(bool force)
+    {
+        bool any;
+        lock (_gate)
+            any = _dirty.Count > 0;
+
+        if ((any || force) && _mode == VoiceMode.Personal)
+            RequestPush();
     }
 
     public async Task<VoiceMode> RefreshModeAsync(CancellationToken cancellationToken = default)
@@ -211,9 +245,18 @@ public sealed class VoiceBrainService : IVoiceBrainService,
 
         try
         {
+            // The same answer again (the same label for the same person, account, folder or calendar) is already known.
+            var key = FactKey(request.Kind, request.Label);
+            var value = FactValue(request);
+            if (string.Equals(await _store.GetVoiceValueAsync(key, cancellationToken).ConfigureAwait(false), value, StringComparison.Ordinal))
+                return;
+
             var envelope = await _api.AddVoiceBrainFactAsync(request, cancellationToken).ConfigureAwait(false);
             if (envelope.IsSuccess)
+            {
+                await _store.SetVoiceValueAsync(key, value, cancellationToken).ConfigureAwait(false);
                 return;
+            }
 
             Log.Information("Could not save a learned voice fact: {ErrorCode}.", envelope.ErrorCode);
             if (envelope.ErrorCode == ApiErrorCodes.VoicePersonalModeOff)
@@ -231,7 +274,10 @@ public sealed class VoiceBrainService : IVoiceBrainService,
         {
             var envelope = await _api.DeleteVoiceBrainFactAsync(factId, cancellationToken).ConfigureAwait(false);
             if (envelope.IsSuccess || envelope.ErrorCode == ApiErrorCodes.VoiceBrainFactNotFound)
+            {
+                await ForgetFactAsync(factId, cancellationToken).ConfigureAwait(false);
                 return true;
+            }
 
             Log.Warning("Could not delete a learned voice fact: {ErrorCode}.", envelope.ErrorCode);
         }
@@ -265,25 +311,43 @@ public sealed class VoiceBrainService : IVoiceBrainService,
         }
     }
 
-    public void Receive(AccountCreatedMessage message) => RequestPush();
+    // Things the user did (an account added, a folder renamed, deleted or reconfigured) are pushed soon; routine
+    // synchronization only marks the account dirty for the next rebuild.
+    public void Receive(AccountCreatedMessage message)
+    {
+        MarkDirty(message.Account?.Id);
+        RequestPush();
+    }
 
-    public void Receive(AccountFolderConfigurationUpdated message) => RequestPush();
+    public void Receive(AccountFolderConfigurationUpdated message)
+    {
+        MarkDirty(null);
+        RequestPush();
+    }
 
-    public void Receive(FolderRenamed message) => RequestPush();
+    public void Receive(FolderRenamed message)
+    {
+        MarkDirty(null);
+        RequestPush();
+    }
 
-    public void Receive(FolderDeleted message) => RequestPush();
+    public void Receive(FolderDeleted message)
+    {
+        MarkDirty(null);
+        RequestPush();
+    }
 
     public void Receive(AccountSynchronizationCompleted message)
     {
         if (message.Type is MailSynchronizationType.FoldersOnly or MailSynchronizationType.FullFolders
             or MailSynchronizationType.Alias or MailSynchronizationType.Categories or MailSynchronizationType.UpdateProfile)
-            RequestPush();
+            MarkDirty(message.AccountId);
     }
 
     public void Receive(AccountCalendarSynchronizationStateChanged message)
     {
         if (!message.IsSynchronizationInProgress)
-            RequestPush();
+            MarkDirty(message.AccountId);
     }
 
     public void Receive(AccountRemovedMessage message) => _ = Task.Run(() => DeleteSectionAsync(message.Account));
@@ -295,6 +359,7 @@ public sealed class VoiceBrainService : IVoiceBrainService,
     private async Task RefreshThenPushAsync(CancellationToken cancellationToken)
     {
         await RefreshModeAsync(cancellationToken).ConfigureAwait(false);
+        MarkDirty(null);
         RequestPush();
     }
 
@@ -313,7 +378,10 @@ public sealed class VoiceBrainService : IVoiceBrainService,
 
         _messenger.Send(new VoiceModeChanged(mode));
         if (mode == VoiceMode.Personal)
+        {
+            MarkDirty(null);
             RequestPush();
+        }
     }
 
     private async Task ClearCachesAsync(bool keepMode)
@@ -388,14 +456,28 @@ public sealed class VoiceBrainService : IVoiceBrainService,
             if (_mode != VoiceMode.Personal || !await _profiles.HasActiveAccountAsync().ConfigureAwait(false))
                 return;
 
+            HashSet<Guid?> dirty;
+            lock (_gate)
+            {
+                dirty = [.. _dirty];
+                _dirty.Clear();
+            }
+
+            Volatile.Write(ref _lastRebuild, Environment.TickCount64);
             var accounts = await _accounts.GetAccountsAsync().ConfigureAwait(false) ?? [];
             foreach (var account in accounts.OrderBy(static account => account.Order))
             {
                 if (_mode != VoiceMode.Personal)
                     return;
 
+                if (!dirty.Contains(null) && !dirty.Contains(account.Id))
+                    continue;
+
                 if (!await PushSectionAsync(account, cancellationToken).ConfigureAwait(false))
+                {
+                    MarkDirty(account.Id);
                     return;
+                }
             }
         }
         finally
@@ -422,7 +504,7 @@ public sealed class VoiceBrainService : IVoiceBrainService,
             return true;
 
         var key = SectionKey(section.Mailbox);
-        var hash = VoiceBrainSectionBuilder.Hash(section);
+        var hash = VoiceBrainSectionBuilder.ValueHash(section, DateTimeOffset.Now);
         if (string.Equals(await _store.GetVoiceValueAsync(key, cancellationToken).ConfigureAwait(false), hash, StringComparison.Ordinal))
             return true;
 
@@ -466,4 +548,25 @@ public sealed class VoiceBrainService : IVoiceBrainService,
     }
 
     private static string SectionKey(BrainMailboxKey mailbox) => $"{SectionKeyPrefix}{mailbox.Provider}:{mailbox.Address}";
+
+    private static string FactKey(BrainFactKind kind, string label) => $"{FactKeyPrefix}{kind}:{label.Trim().ToLowerInvariant()}";
+
+    private static string FactValue(AddBrainFactRequest request)
+        => string.Join('|', request.PersonAddressHash, request.Mailbox?.Provider, request.Mailbox is { } mailbox ? BrainMailboxKey.Normalize(mailbox.Address) : null, request.TargetRemoteId);
+
+    /// <summary>Forgets the sent marker of a deleted fact, found by its id in the cached brain, so the answer can be learned again.</summary>
+    private async Task ForgetFactAsync(string factId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var cached = await _store.GetVoiceValueAsync(BrainKey, cancellationToken).ConfigureAwait(false);
+            var brain = string.IsNullOrWhiteSpace(cached) ? null : JsonSerializer.Deserialize(cached, WinoAccountApiJsonContext.Default.VoiceBrainDto);
+            if (brain?.Facts?.FirstOrDefault(fact => fact.Id == factId) is { } fact)
+                await _store.SetVoiceValueAsync(FactKey(fact.Kind, fact.Label), null, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            Log.Warning(ex, "Could not forget a deleted voice fact.");
+        }
+    }
 }

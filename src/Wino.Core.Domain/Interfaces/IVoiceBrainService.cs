@@ -10,13 +10,19 @@ namespace Wino.Core.Domain.Interfaces;
 /// Personal voice mode on this device: the Wino Account's mode (read from the server and cached), the brain sections
 /// this device derives from its local mailboxes and pushes, and the learned facts. Everything runs off the UI thread
 /// and never throws to the caller; failures are logged and retried on the next trigger.
+/// <para>
+/// No change, no sync: synchronization only marks an account's section dirty. Dirty sections are rebuilt at most every
+/// 30 minutes, or when a voice command starts and the last rebuild is older than five minutes, and a rebuilt section
+/// is sent only when what it says changed (<c>VoiceBrainSectionBuilder.ValueHash</c>). Facts the brain already has are
+/// not sent again.
+/// </para>
 /// </summary>
 public interface IVoiceBrainService
 {
     /// <summary>The last known mode of the signed-in Wino Account; Private until the server says otherwise.</summary>
     VoiceMode CurrentMode { get; }
 
-    /// <summary>Loads the cached mode, subscribes to account and sync changes and refreshes the mode from the server.</summary>
+    /// <summary>Loads the cached mode and subscribes to account and sync changes. Nothing is sent at startup.</summary>
     Task StartAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Reads the mode from the server. Returns the cached mode when the server can't be reached.</summary>
@@ -33,6 +39,9 @@ public interface IVoiceBrainService
 
     /// <summary>Asks for a debounced push of every mailbox section; unchanged sections are skipped.</summary>
     void RequestPush();
+
+    /// <summary>A voice command is starting: dirty sections are pushed when the last rebuild is older than five minutes.</summary>
+    void NotifyVoiceStarting();
 
     /// <summary>Downloads the brain, falling back to the cached copy when the server can't be reached.</summary>
     Task<VoiceBrainSnapshot?> GetBrainAsync(CancellationToken cancellationToken = default);
