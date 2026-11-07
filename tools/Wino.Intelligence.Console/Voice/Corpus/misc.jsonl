@@ -1,0 +1,14 @@
+{"id": "misc.outofscope-0001", "domain": "misc.outofscope", "text": "what's the weather like", "expect": {"actions": [["NotActionable"]], "checks": [{"path": "commands[0].reason", "equals": "OutOfScope"}]}}
+{"id": "misc.outofscope-0002", "domain": "misc.outofscope", "text": "tell me a joke", "expect": {"actions": [["NotActionable"]], "checks": [{"path": "commands[0].reason", "equals": "OutOfScope"}]}}
+{"id": "misc.outofscope-0003", "domain": "misc.outofscope", "text": "play some music", "expect": {"actions": [["NotActionable"]], "checks": [{"path": "commands[0].reason", "equals": "OutOfScope"}]}}
+{"id": "misc.outofscope-0004", "domain": "misc.outofscope", "text": "how tall is the Eiffel tower", "expect": {"actions": [["NotActionable"]], "checks": [{"path": "commands[0].reason", "equals": "OutOfScope"}]}}
+{"id": "misc.outofscope-0005", "domain": "misc.outofscope", "text": "order a pizza", "expect": {"actions": [["NotActionable"]], "checks": [{"path": "commands[0].reason", "equals": "OutOfScope"}]}}
+{"id": "misc.outofscope-0006", "domain": "misc.outofscope", "text": "turn off the lights", "expect": {"actions": [["NotActionable"]], "checks": [{"path": "commands[0].reason", "equals": "OutOfScope"}]}}
+{"id": "misc.cancel-0001", "domain": "misc.cancel", "text": "never mind", "expect": {"actions": [["CanceledByUser"], ["NotActionable"]]}}
+{"id": "misc.cancel-0002", "domain": "misc.cancel", "text": "cancel that", "expect": {"actions": [["CanceledByUser"], ["NotActionable"]]}}
+{"id": "misc.cancel-0003", "domain": "misc.cancel", "text": "stop, forget it", "expect": {"actions": [["CanceledByUser"], ["NotActionable"]]}}
+{"id": "misc.cancel-0004", "domain": "misc.cancel", "text": "oops, nothing", "expect": {"actions": [["CanceledByUser"], ["NotActionable"]]}}
+{"id": "misc.unclear-0001", "domain": "misc.unclear", "text": "send", "expect": {"actions": [["NotActionable"]]}}
+{"id": "misc.unclear-0002", "domain": "misc.unclear", "text": "delete", "expect": {"actions": [["NotActionable"]]}}
+{"id": "misc.unclear-0003", "domain": "misc.unclear", "text": "the thing from yesterday", "expect": {"actions": [["NotActionable"]]}}
+{"id": "misc.unclear-0004", "domain": "misc.unclear", "text": "uh can you", "expect": {"actions": [["NotActionable"]]}}

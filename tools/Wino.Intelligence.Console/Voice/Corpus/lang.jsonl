@@ -1,0 +1,50 @@
+{"id": "lang.tr-0001", "domain": "lang.tr", "text": "Jay'den gelen mailleri göster", "expect": {"actions": [["SearchMail"]], "checks": [{"path": "commands[0].mail.sender", "contains": "jay"}]}}
+{"id": "lang.tr-0002", "domain": "lang.tr", "text": "okunmamış maillerimi göster", "expect": {"actions": [["SearchMail"]], "checks": [{"path": "commands[0].mail.readStatus", "equals": "Unread"}]}}
+{"id": "lang.tr-0003", "domain": "lang.tr", "text": "NuGet maillerini okundu olarak işaretle", "expect": {"actions": [["MarkRead"], ["SearchMail", "MarkRead"]], "checks": [{"path": "commands[0].mail.sender", "contains": "nuget"}]}}
+{"id": "lang.tr-0004", "domain": "lang.tr", "text": "LinkedIn'den gelen tüm mailleri arşivle", "expect": {"actions": [["Archive"], ["SearchMail", "Archive"]], "checks": [{"path": "commands[0].mail.sender", "contains": "linkedin"}]}}
+{"id": "lang.tr-0005", "domain": "lang.tr", "text": "yarın saat 3'te Jay ile toplantı ayarla", "expect": {"actions": [["CreateEvent"]], "checks": [{"path": "commands[0].event.startLocal", "date": "+1"}, {"path": "commands[0].event.startLocal", "time": "15:00"}]}}
+{"id": "lang.tr-0006", "domain": "lang.tr", "text": "cuma günü kirayı ödemeyi hatırlat", "expect": {"actions": [["CreateTask"]], "checks": [{"path": "commands[0].task.dueDate", "weekday": "Friday"}]}}
+{"id": "lang.tr-0007", "domain": "lang.tr", "text": "yarın bankayı aramam lazım", "expect": {"actions": [["CreateTask"]], "checks": [{"path": "commands[0].task.dueDate", "date": "+1"}]}}
+{"id": "lang.tr-0008", "domain": "lang.tr", "text": "Christian'a fatura hakkında mail yaz", "expect": {"actions": [["CreateDraft"]], "checks": [{"path": "commands[0].draft.to", "minCount": 1}]}}
+{"id": "lang.tr-0009", "domain": "lang.tr", "text": "yarın takvimimde ne var", "expect": {"actions": [["FindEvents"]], "checks": [{"path": "commands[0].events.timeRange.startLocal", "date": "+1"}]}}
+{"id": "lang.tr-0010", "domain": "lang.tr", "text": "diş randevumu iptal et", "expect": {"actions": [["DeleteEvent"]], "checks": []}}
+{"id": "lang.tr-0011", "domain": "lang.tr", "text": "bütçe toplantısını saat 4'e al", "expect": {"actions": [["UpdateEvent"]], "checks": [{"path": "commands[0].change.newStartTime", "contains": "16:00"}]}}
+{"id": "lang.tr-0012", "domain": "lang.tr", "text": "gmail hesabımdaki okunmamış mailleri göster", "expect": {"actions": [["SearchMail"]], "checks": [{"path": "commands[0].mailbox.account.provider", "equals": "Gmail"}]}}
+{"id": "lang.pl-0001", "domain": "lang.pl", "text": "pokaż nieprzeczytane maile", "expect": {"actions": [["SearchMail"]], "checks": [{"path": "commands[0].mail.readStatus", "equals": "Unread"}]}}
+{"id": "lang.pl-0002", "domain": "lang.pl", "text": "przypomnij mi jutro zapłacić czynsz", "expect": {"actions": [["CreateTask"]], "checks": [{"path": "commands[0].task.dueDate", "date": "+1"}]}}
+{"id": "lang.pl-0003", "domain": "lang.pl", "text": "umów spotkanie z Jayem w piątek o 14", "expect": {"actions": [["CreateEvent"]], "checks": [{"path": "commands[0].event.startLocal", "time": "14:00"}]}}
+{"id": "lang.pl-0004", "domain": "lang.pl", "text": "zarchiwizuj wszystkie maile z LinkedIn", "expect": {"actions": [["Archive"], ["SearchMail", "Archive"]], "checks": [{"path": "commands[0].mail.sender", "contains": "linkedin"}]}}
+{"id": "lang.pl-0005", "domain": "lang.pl", "text": "co mam jutro w kalendarzu", "expect": {"actions": [["FindEvents"]], "checks": []}}
+{"id": "lang.de-0001", "domain": "lang.de", "text": "zeig mir ungelesene Mails", "expect": {"actions": [["SearchMail"]], "checks": [{"path": "commands[0].mail.readStatus", "equals": "Unread"}]}}
+{"id": "lang.de-0002", "domain": "lang.de", "text": "erinnere mich morgen an die Miete", "expect": {"actions": [["CreateTask"]], "checks": [{"path": "commands[0].task.dueDate", "date": "+1"}]}}
+{"id": "lang.de-0003", "domain": "lang.de", "text": "Termin mit Christian am Freitag um 10 Uhr", "expect": {"actions": [["CreateEvent"]], "checks": [{"path": "commands[0].event.startLocal", "time": "10:00"}]}}
+{"id": "lang.de-0004", "domain": "lang.de", "text": "lösche alle Mails von OLX", "expect": {"actions": [["Delete"], ["SearchMail", "Delete"]], "checks": [{"path": "commands[0].mail.sender", "contains": "olx"}]}}
+{"id": "lang.de-0005", "domain": "lang.de", "text": "schreib Jay eine Mail, dass ich später komme", "expect": {"actions": [["CreateDraft"]], "checks": []}}
+{"id": "lang.tr-0013", "domain": "lang.tr", "text": "GitHub'dan gelen okunmamış mailleri göster", "expect": {"actions": [["SearchMail"]], "checks": [{"path": "commands[0].mail.sender", "contains": "github"}, {"path": "commands[0].mail.readStatus", "equals": "Unread"}]}}
+{"id": "lang.tr-0014", "domain": "lang.tr", "text": "geçen haftaki LinkedIn maillerini sil", "expect": {"actions": [["Delete"], ["SearchMail", "Delete"]], "checks": [{"path": "commands[0].mail.sender", "contains": "linkedin"}]}}
+{"id": "lang.tr-0015", "domain": "lang.tr", "text": "Jay'in son mailini bayrakla", "expect": {"actions": [["Flag"], ["SearchMail", "Flag"]], "checks": [{"path": "commands[0].mail.sender", "contains": "jay"}]}}
+{"id": "lang.tr-0016", "domain": "lang.tr", "text": "cuma saat 2'de Christian ile öğle yemeği ekle", "expect": {"actions": [["CreateEvent"]], "checks": [{"path": "commands[0].event.startLocal", "time": "14:00"}]}}
+{"id": "lang.tr-0017", "domain": "lang.tr", "text": "yarın sabah 9'da diş randevusu ekle", "expect": {"actions": [["CreateEvent"]], "checks": [{"path": "commands[0].event.startLocal", "time": "09:00"}, {"path": "commands[0].event.startLocal", "date": "+1"}]}}
+{"id": "lang.tr-0018", "domain": "lang.tr", "text": "ürün demosunu reddet, seyahatteyim de", "expect": {"actions": [["RespondToEvent"]], "checks": [{"path": "commands[0].change.response", "equals": "Decline"}]}}
+{"id": "lang.tr-0019", "domain": "lang.tr", "text": "pazartesi pasaportu yenilemeyi hatırlat", "expect": {"actions": [["CreateTask"]], "checks": [{"path": "commands[0].task.dueDate", "date": "2026-11-16"}]}}
+{"id": "lang.tr-0020", "domain": "lang.tr", "text": "süt almayı görevlerime ekle", "expect": {"actions": [["CreateTask"]], "checks": []}}
+{"id": "lang.tr-0021", "domain": "lang.tr", "text": "Jay'e yarın geç kalacağımı söyleyen bir mail yaz", "expect": {"actions": [["CreateDraft"]], "checks": [{"path": "commands[0].draft.language", "equals": "tr"}]}}
+{"id": "lang.tr-0022", "domain": "lang.tr", "text": "Stripe'tan gelen son maili özetle", "expect": {"actions": [["Summarize"], ["SearchMail", "Summarize"]], "checks": []}}
+{"id": "lang.tr-0023", "domain": "lang.tr", "text": "bu hafta hangi toplantılarım var", "expect": {"actions": [["FindEvents"]], "checks": []}}
+{"id": "lang.tr-0024", "domain": "lang.tr", "text": "yoga dersini bir saat ertele", "expect": {"actions": [["UpdateEvent"]], "checks": [{"path": "commands[0].change.shiftMinutes", "equals": 60}]}}
+{"id": "lang.pl-0006", "domain": "lang.pl", "text": "pokaż maile od GitHub z zeszłego tygodnia", "expect": {"actions": [["SearchMail"]], "checks": [{"path": "commands[0].mail.sender", "contains": "github"}]}}
+{"id": "lang.pl-0007", "domain": "lang.pl", "text": "oznacz wszystkie maile z NuGet jako przeczytane", "expect": {"actions": [["MarkRead"], ["SearchMail", "MarkRead"]], "checks": [{"path": "commands[0].mail.sender", "contains": "nuget"}]}}
+{"id": "lang.pl-0008", "domain": "lang.pl", "text": "napisz maila do Jaya, że się spóźnię", "expect": {"actions": [["CreateDraft"]], "checks": [{"path": "commands[0].draft.language", "equals": "pl"}]}}
+{"id": "lang.pl-0009", "domain": "lang.pl", "text": "odwołaj wizytę u dentysty", "expect": {"actions": [["DeleteEvent"]], "checks": []}}
+{"id": "lang.pl-0010", "domain": "lang.pl", "text": "dodaj zadanie kupić mleko na jutro", "expect": {"actions": [["CreateTask"]], "checks": [{"path": "commands[0].task.dueDate", "date": "+1"}]}}
+{"id": "lang.pl-0011", "domain": "lang.pl", "text": "przesuń przegląd budżetu na 16", "expect": {"actions": [["UpdateEvent"]], "checks": [{"path": "commands[0].change.newStartTime", "contains": "16:00"}]}}
+{"id": "lang.de-0006", "domain": "lang.de", "text": "zeig mir die Mails von Stripe von gestern", "expect": {"actions": [["SearchMail"]], "checks": [{"path": "commands[0].mail.sender", "contains": "stripe"}]}}
+{"id": "lang.de-0007", "domain": "lang.de", "text": "archiviere alle Mails von LinkedIn", "expect": {"actions": [["Archive"], ["SearchMail", "Archive"]], "checks": [{"path": "commands[0].mail.sender", "contains": "linkedin"}]}}
+{"id": "lang.de-0008", "domain": "lang.de", "text": "sag den Zahnarzttermin ab", "expect": {"actions": [["DeleteEvent"]], "checks": []}}
+{"id": "lang.de-0009", "domain": "lang.de", "text": "was steht morgen in meinem Kalender", "expect": {"actions": [["FindEvents"]], "checks": []}}
+{"id": "lang.de-0010", "domain": "lang.de", "text": "verschiebe das Budget-Review um eine Stunde", "expect": {"actions": [["UpdateEvent"]], "checks": [{"path": "commands[0].change.shiftMinutes", "equals": 60}]}}
+{"id": "lang.de-0011", "domain": "lang.de", "text": "Aufgabe: Steuererklärung bis Freitag abgeben", "expect": {"actions": [["CreateTask"]], "checks": [{"path": "commands[0].task.dueDate", "weekday": "Friday"}]}}
+{"id": "lang.es-0001", "domain": "lang.es", "text": "muéstrame los correos no leídos", "expect": {"actions": [["SearchMail"]], "checks": [{"path": "commands[0].mail.readStatus", "equals": "Unread"}]}}
+{"id": "lang.es-0002", "domain": "lang.es", "text": "recuérdame pagar el alquiler el viernes", "expect": {"actions": [["CreateTask"]], "checks": [{"path": "commands[0].task.dueDate", "weekday": "Friday"}]}}
+{"id": "lang.fr-0001", "domain": "lang.fr", "text": "montre-moi les mails de GitHub", "expect": {"actions": [["SearchMail"]], "checks": [{"path": "commands[0].mail.sender", "contains": "github"}]}}
+{"id": "lang.fr-0002", "domain": "lang.fr", "text": "ajoute un rendez-vous avec Jay demain à 15h", "expect": {"actions": [["CreateEvent"]], "checks": [{"path": "commands[0].event.startLocal", "time": "15:00"}]}}

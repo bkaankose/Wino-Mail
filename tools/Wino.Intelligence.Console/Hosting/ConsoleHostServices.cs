@@ -157,7 +157,7 @@ internal sealed class ConsoleMicrosoftStoreService : IMicrosoftStoreService
     public Task PromptRatingDialogAsync() => Task.CompletedTask;
     public Task LaunchStorePageForReviewAsync() => Task.CompletedTask;
     public Task<bool> RefreshAvailabilityAsync() => Task.FromResult(false);
-    public Task<bool> StartUpdateAsync() => Task.FromResult(false);
+    public Task<bool> StartUpdateAsync(IProgress<double>? progress = null) => Task.FromResult(false);
 }
 
 internal sealed class ConsoleNotificationBuilder : INotificationBuilder
@@ -197,6 +197,7 @@ internal sealed class ConsoleNativeAppService : IAppMetadataService
     public Func<IntPtr> GetCoreWindowHwnd { get; set; }
     public string AppVersion => typeof(ConsoleNativeAppService).Assembly.GetName().Version?.ToString() ?? "1.0.0";
     public string PackageName => "Wino.Intelligence.Console";
+    public string PlatformDisplayName => "Windows";
     public string BuildConfiguration => "Debug";
     public string SentryEnvironment => "intelligence-console";
     public string SentryRelease => $"{PackageName}@{AppVersion}";
