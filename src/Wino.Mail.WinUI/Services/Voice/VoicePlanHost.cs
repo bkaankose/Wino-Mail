@@ -19,8 +19,7 @@ internal sealed class VoicePlanHost(App app) : IVoicePlanHost
 
     public Task OpenMailAsync(MailCopy mail) => app.OpenVoiceMailAsync(mail);
 
-    public Task OpenDraftAsync(MailAccount account, DraftCreationOptions options, MailCopy? referenceMail)
-        => app.OpenVoiceDraftAsync(account, options, referenceMail);
+    public Task OpenDraftAsync(MailAccount account, MailCopy draft) => app.OpenVoiceDraftAsync(account, draft);
 
     public Task OpenEventAsync(CalendarItem calendarItem) => app.OpenVoiceEventAsync(calendarItem);
 

@@ -23,10 +23,9 @@ public interface IVoicePlanHost
     Task OpenMailAsync(MailCopy mail);
 
     /// <summary>
-    /// Creates a draft through the request delegator and opens it in the composer. Nothing is sent.
-    /// <paramref name="referenceMail"/> is the mail a reply answers.
+    /// Opens a draft the plan has already created and queued in the composer, on the account's Drafts folder. Nothing is sent.
     /// </summary>
-    Task OpenDraftAsync(MailAccount account, DraftCreationOptions options, MailCopy? referenceMail);
+    Task OpenDraftAsync(MailAccount account, MailCopy draft);
 
     /// <summary>Opens the calendar on an existing event.</summary>
     Task OpenEventAsync(CalendarItem calendarItem);

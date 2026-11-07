@@ -5,6 +5,7 @@
   <key>CFBundleName</key><string>Wino Mail</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSHighResolutionCapable</key><true/>
+  <key>NSMicrophoneUsageDescription</key><string>Wino Mail listens to the voice commands you speak to manage your mail, calendar and tasks.</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.productivity</string>
   <!-- The languages of the Wino translation dictionary (AppLanguage). The app ships no .lproj folders, so this
        list is what macOS and the App Store read as the app's localizations. -->

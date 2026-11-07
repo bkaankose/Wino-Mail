@@ -58,13 +58,8 @@ public partial class App
         WeakReferenceMessenger.Default.Send(new MailSearchRequested(criteria, folders));
     }
 
-    internal async Task OpenVoiceDraftAsync(MailAccount account, DraftCreationOptions options, MailCopy? referenceMail)
+    internal async Task OpenVoiceDraftAsync(MailAccount account, MailCopy draft)
     {
-        var folderService = Services.GetRequiredService<IFolderService>();
-        var draftFolder = await folderService.GetSpecialFolderByAccountIdAsync(account.Id, SpecialFolderType.Draft);
-        if (draftFolder is null)
-            throw new InvalidOperationException(string.Format(Wino.Core.Domain.Translator.VoiceIssue_NoSpecialFolder, account.Name, Wino.Core.Domain.Translator.VoiceStep_Folder_Drafts));
-
         await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow: true);
 
         var shell = Services.GetRequiredService<MailAppShellViewModel>();
@@ -75,24 +70,12 @@ public partial class App
 
             if (shell.MenuItems.TryGetSpecialFolderMenuItem(account.Id, SpecialFolderType.Draft, out var draftFolderMenuItem))
                 await shell.NavigateFolderAsync(draftFolderMenuItem);
-        });
 
-        var mailService = Services.GetRequiredService<IMailService>();
-        var (draftMailCopy, draftBase64MimeMessage) = await mailService.CreateDraftAsync(account.Id, options);
-        var preparation = referenceMail is null
-            ? new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage, options.Reason)
-            : new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage, options.Reason, referenceMail);
-        await Services.GetRequiredService<IWinoRequestDelegator>().ExecuteAsync(preparation);
-
-        await ExecuteOnActivationUiThreadAsync(() =>
-        {
             Services.GetRequiredService<INavigationService>().Navigate(
                 WinoPage.ComposePage,
-                new MailItemViewModel(draftMailCopy) { ShouldFocusComposerOnOpen = true },
+                new MailItemViewModel(draft) { ShouldFocusComposerOnOpen = true },
                 NavigationReferenceFrame.RenderingFrame,
                 NavigationTransitionType.DrillIn);
-
-            return Task.CompletedTask;
         });
     }
 

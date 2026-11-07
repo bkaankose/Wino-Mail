@@ -758,8 +758,6 @@ public partial class App : WinoApplication,
         // Windows-only pages.
         services.AddTransient(typeof(MigrationPageViewModel));
         services.AddTransient<WidgetsLiveTilesSettingsPageViewModel>();
-        services.AddTransient<VoiceControlSettingsPageViewModel>();
-        services.AddTransient<VoiceBrainPageViewModel>();
     }
 
     #endregion

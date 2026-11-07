@@ -26,7 +26,7 @@ namespace Wino.Mail.Controls.VoiceBubble;
 /// to the request events. Success and failure dismiss themselves after their delay and raise
 /// <see cref="Dismissed"/>.
 /// </summary>
-public sealed partial class WinoVoiceBubble : UserControl
+public sealed partial class WinoVoiceBubble : UserControl, IVoiceBubbleView
 {
     private const double BarRestHeight = 3;
     private const double BarRange = 20;
@@ -215,6 +215,14 @@ public sealed partial class WinoVoiceBubble : UserControl
     /// for the current state and resizes the pill to fit.
     /// </summary>
     public void Refresh() => Present(State);
+
+    void IVoiceBubbleView.Present(VoiceBubbleState state)
+    {
+        if (State == state)
+            Refresh();
+        else
+            State = state;
+    }
 
     /// <summary>
     /// Replaces the question's choices in one batch and selects the first one that can be picked. The list keeps its

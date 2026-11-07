@@ -8,6 +8,8 @@
   <key>com.apple.security.network.server</key><true/>
   <key>com.apple.security.files.user-selected.read-write</key><true/>
   <key>com.apple.security.cs.allow-jit</key><true/>
+  <!-- Voice control records spoken commands. Without this entitlement the sandbox denies the microphone silently. -->
+  <key>com.apple.security.device.audio-input</key><true/>
   <!-- APNs for live notifications (WinoRelay). The App Store profile must include Push Notifications. Entitlements.plist
        has no APNs key: the project adds the development value only when a provisioning profile signs the build. -->
   <key>com.apple.developer.aps-environment</key><string>production</string>

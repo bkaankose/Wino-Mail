@@ -272,9 +272,27 @@ public sealed partial class VoicePlanExecutor
             ReferencedMessage = new ReferencedMessage { MimeMessage = mime.MimeMessage, MailCopy = mail }
         };
 
-        await context.Host.OpenDraftAsync(account, options, mail).ConfigureAwait(false);
+        await CreateAndOpenDraftAsync(context.Host, account, options, mail).ConfigureAwait(false);
         var recipient = string.IsNullOrWhiteSpace(mail.FromName) ? mail.FromAddress : mail.FromName;
         return StepResult.Done(string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_ReplyOpened, recipient));
+    }
+
+    /// <summary>
+    /// Creates the draft and queues it the way the composer's own new-mail and reply commands do, then lets the platform
+    /// open it. <paramref name="referenceMail"/> is the mail a reply answers.
+    /// </summary>
+    private async Task CreateAndOpenDraftAsync(IVoicePlanHost host, MailAccount account, DraftCreationOptions options, MailCopy? referenceMail)
+    {
+        if (await folderService.GetSpecialFolderByAccountIdAsync(account.Id, SpecialFolderType.Draft).ConfigureAwait(false) is null)
+            throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, Translator.VoiceIssue_NoSpecialFolder, account.Name, Translator.VoiceStep_Folder_Drafts));
+
+        var (draftMailCopy, draftBase64MimeMessage) = await mailService.CreateDraftAsync(account.Id, options).ConfigureAwait(false);
+        var preparation = referenceMail is null
+            ? new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage, options.Reason)
+            : new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage, options.Reason, referenceMail);
+        await requestDelegator.ExecuteAsync(preparation).ConfigureAwait(false);
+
+        await host.OpenDraftAsync(account, draftMailCopy).ConfigureAwait(false);
     }
 
     private async Task<StepResult> OpenDraftAsync(StepContext context)
@@ -303,7 +321,7 @@ public sealed partial class VoicePlanExecutor
             MailToUri = new MailToUri(mailTo)
         };
 
-        await context.Host.OpenDraftAsync(account, options, null).ConfigureAwait(false);
+        await CreateAndOpenDraftAsync(context.Host, account, options, null).ConfigureAwait(false);
         return StepResult.Done(to.Count > 0
             ? string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_DraftOpened, string.Join(", ", to))
             : Translator.VoiceResult_EmptyDraftOpened);
