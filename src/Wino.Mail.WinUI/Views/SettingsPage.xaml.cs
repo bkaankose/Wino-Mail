@@ -62,8 +62,8 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
                           ?? e.Parameter as WinoPage?
                           ?? WinoPage.SettingOptionsPage;
         await EntitlementService.GetEntitlementAsync();
-        if (IsIntelligencePage(initialPage) && !EntitlementService.CurrentEntitlement.CanAccessSurfaces)
-            initialPage = WinoPage.WinoAccountManagementPage;
+        if (IsIntelligenceSubPage(initialPage) && !EntitlementService.CurrentEntitlement.CanAccessSurfaces)
+            initialPage = WinoPage.WinoIntelligencePage;
         NavigateToRootPage(initialPage, activationContext?.PageParameter);
     }
 
@@ -214,9 +214,9 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
     public void Receive(SettingsRootNavigationRequested message)
     {
-        if (IsIntelligencePage(message.PageType) && !EntitlementService.CurrentEntitlement.CanAccessSurfaces)
+        if (IsIntelligenceSubPage(message.PageType) && !EntitlementService.CurrentEntitlement.CanAccessSurfaces)
         {
-            NavigateDirectlyToRootPage(WinoPage.WinoAccountManagementPage);
+            NavigateDirectlyToRootPage(WinoPage.WinoIntelligencePage);
             return;
         }
 
@@ -262,8 +262,8 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         DispatcherQueue.TryEnqueue(() =>
         {
             var activePage = PageHistory.LastOrDefault()?.Request.PageType;
-            if (activePage is WinoPage.WinoIntelligencePage or WinoPage.WinoIntelligenceManagementPage or WinoPage.IntelligenceCoveragePage)
-                NavigateDirectlyToRootPage(WinoPage.WinoAccountManagementPage);
+            if (activePage is WinoPage.WinoIntelligenceManagementPage or WinoPage.IntelligenceCoveragePage)
+                NavigateDirectlyToRootPage(WinoPage.WinoIntelligencePage);
         });
     }
 
@@ -308,9 +308,9 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
     private void NavigateBreadcrumb(BreadcrumbNavigationRequested message)
     {
-        if (IsIntelligencePage(message.PageType) && !EntitlementService.CurrentEntitlement.CanAccessSurfaces)
+        if (IsIntelligenceSubPage(message.PageType) && !EntitlementService.CurrentEntitlement.CanAccessSurfaces)
         {
-            NavigateDirectlyToRootPage(WinoPage.WinoAccountManagementPage);
+            NavigateDirectlyToRootPage(WinoPage.WinoIntelligencePage);
             return;
         }
 
@@ -324,9 +324,9 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
     private void NavigateToRootPage(WinoPage targetPage, object? pageParameter = null)
     {
-        if (IsIntelligencePage(targetPage) && !EntitlementService.CurrentEntitlement.CanAccessSurfaces)
+        if (IsIntelligenceSubPage(targetPage) && !EntitlementService.CurrentEntitlement.CanAccessSurfaces)
         {
-            NavigateDirectlyToRootPage(WinoPage.WinoAccountManagementPage);
+            NavigateDirectlyToRootPage(WinoPage.WinoIntelligencePage);
             return;
         }
 
@@ -350,9 +350,8 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
                 pageParameter)
         }));
 
-    private static bool IsIntelligencePage(WinoPage page)
-        => page is WinoPage.WinoIntelligencePage
-            or WinoPage.WinoIntelligenceManagementPage
+    private static bool IsIntelligenceSubPage(WinoPage page)
+        => page is WinoPage.WinoIntelligenceManagementPage
             or WinoPage.IntelligenceCoveragePage;
 
     private void NavigateToRoute(SettingsNavigationRoute route)
@@ -361,9 +360,9 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
             return;
 
         var destination = route.Destination;
-        if (IsIntelligencePage(destination.PageType) && !EntitlementService.CurrentEntitlement.CanAccessSurfaces)
+        if (IsIntelligenceSubPage(destination.PageType) && !EntitlementService.CurrentEntitlement.CanAccessSurfaces)
         {
-            NavigateDirectlyToRootPage(WinoPage.WinoAccountManagementPage);
+            NavigateDirectlyToRootPage(WinoPage.WinoIntelligencePage);
             return;
         }
 

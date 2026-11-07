@@ -27,19 +27,39 @@ public static class IntelligenceUsage
 {
     public const string IntelligenceBucket = AiQuotaBucketIds.Intelligence;
 
+    // The contracts package has no voice bucket id yet; the API reports voice commands under this name.
+    public const string VoiceBucket = "voice";
+
+    private static readonly string[] DisplayOrder =
+    [
+        AiQuotaBucketIds.Intelligence,
+        AiQuotaBucketIds.Summarize,
+        AiQuotaBucketIds.Translate,
+        AiQuotaBucketIds.Rewrite,
+        VoiceBucket
+    ];
+
     /// <summary>
-    /// Every bucket the API reports, in its order. Empty when the user has no entitlement.
+    /// Every bucket the API reports, known buckets in a fixed order and unknown ones after them.
+    /// Empty when the user has no entitlement.
     /// </summary>
     public static IReadOnlyList<IntelligenceUsageItem> Describe(AiUsageStatusDto? usage)
     {
         if (usage is null)
         {
-            return [];
+            return Array.Empty<IntelligenceUsageItem>();
         }
 
         return usage.Buckets
             .Select(bucket => new IntelligenceUsageItem(bucket.Bucket, DisplayName(bucket.Bucket), bucket.Used, bucket.Limit))
+            .OrderBy(item => DisplayRank(item.Bucket))
             .ToArray();
+    }
+
+    private static int DisplayRank(string bucket)
+    {
+        var index = Array.IndexOf(DisplayOrder, bucket);
+        return index < 0 ? DisplayOrder.Length : index;
     }
 
     /// <summary>The intelligence bucket, which is what indexing and analysis spend.</summary>
@@ -52,6 +72,7 @@ public static class IntelligenceUsage
         AiQuotaBucketIds.Summarize => Translator.WinoIntelligence_UsageBucketSummarize,
         AiQuotaBucketIds.Rewrite => Translator.WinoIntelligence_UsageBucketRewrite,
         AiQuotaBucketIds.Translate => Translator.WinoIntelligence_UsageBucketTranslate,
+        VoiceBucket => Translator.WinoIntelligence_UsageBucketVoice,
         _ => bucket,
     };
 }

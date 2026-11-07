@@ -2395,6 +2395,16 @@
       "codepoint": "E0CC",
       "svg": "ChevronLeft.svg",
       "source": "fluent:chevron_left"
+    },
+    {
+      "name": "Microphone",
+      "codepoint": "E0CD",
+      "svg": "Microphone.svg",
+      "accent": {
+        "svg": "Microphone.accent.svg",
+        "color": "purple"
+      },
+      "source": "fluent:mic"
     }
   ]
 }

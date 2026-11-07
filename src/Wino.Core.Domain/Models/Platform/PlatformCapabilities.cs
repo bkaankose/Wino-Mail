@@ -27,4 +27,5 @@ public sealed record PlatformCapabilities(
     bool ConfigurableSyncIntervals = false,
     bool BadgeLaunchNavigation = false,
     bool WidgetsAndLiveTiles = false,
-    bool AttachmentSecurityCheck = false) : IPlatformCapabilities;
+    bool AttachmentSecurityCheck = false,
+    bool VoiceControl = false) : IPlatformCapabilities;

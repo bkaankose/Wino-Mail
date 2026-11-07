@@ -78,8 +78,7 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
             .ToArray();
         return _entitlementService.CurrentEntitlement.CanAccessSurfaces
             ? results
-            : results.Where(item => item.PageType != WinoPage.WinoIntelligencePage &&
-                                    item.PageType != WinoPage.WinoIntelligenceManagementPage &&
+            : results.Where(item => item.PageType != WinoPage.WinoIntelligenceManagementPage &&
                                     item.PageType != WinoPage.IntelligenceCoveragePage)
                 .ToArray();
     }

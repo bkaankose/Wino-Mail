@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -47,6 +47,7 @@ namespace Wino.Mail.ViewModels;
 public partial class MailListPageViewModel : MailBaseViewModel,
     IShellMenuOwner,
     IRecipient<MailItemNavigationRequested>,
+    IRecipient<MailSearchRequested>,
     IRecipient<ActiveMailFolderChangedEvent>,
     IRecipient<AccountSynchronizationCompleted>,
     IRecipient<NewMailSynchronizationRequested>,
@@ -3592,11 +3593,22 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         });
     }
 
+    /// <summary>Runs a search another surface asked for (voice control), the same way the search box does.</summary>
+    public void Receive(MailSearchRequested message)
+    {
+        _ = ExecuteUIThread(() =>
+        {
+            SetSearchCriteria(message.Criteria, message.Folders);
+            if (PerformSearchCommand.CanExecute(null))
+                PerformSearchCommand.Execute(null);
+        });
+    }
     protected override void RegisterRecipients()
     {
         base.RegisterRecipients();
 
         Messenger.Register<MailItemNavigationRequested>(this);
+        Messenger.Register<MailSearchRequested>(this);
         Messenger.Register<ActiveMailFolderChangedEvent>(this);
         Messenger.Register<AccountSynchronizationCompleted>(this);
         Messenger.Register<NewMailSynchronizationRequested>(this);
@@ -3618,6 +3630,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         base.UnregisterRecipients();
 
         Messenger.Unregister<MailItemNavigationRequested>(this);
+        Messenger.Unregister<MailSearchRequested>(this);
         Messenger.Unregister<ActiveMailFolderChangedEvent>(this);
         Messenger.Unregister<AccountSynchronizationCompleted>(this);
         Messenger.Unregister<NewMailSynchronizationRequested>(this);

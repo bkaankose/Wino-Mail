@@ -182,3 +182,17 @@ public sealed class AccountIntelligenceSnapshotRow
     public string Payload { get; set; } = "{}";
     public DateTime UpdatedUtc { get; set; }
 }
+
+/// <summary>
+/// Voice preferences and caches: the Wino Account's voice mode, the hash of each brain section this device last
+/// pushed and the last downloaded brain.
+/// </summary>
+[Table("VoiceBrainState")]
+public sealed class VoiceBrainStateRow
+{
+    [PrimaryKey]
+    public string Key { get; set; } = string.Empty;
+
+    public string Value { get; set; } = string.Empty;
+    public DateTime UpdatedUtc { get; set; }
+}

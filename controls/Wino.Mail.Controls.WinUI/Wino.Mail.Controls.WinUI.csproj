@@ -45,5 +45,8 @@
     <Content Include="Assets\WinoIcons.ttf"
              TargetPath="Assets\WinoIcons.ttf"
              CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\WinoLogo.png"
+             TargetPath="Assets\WinoLogo.png"
+             CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

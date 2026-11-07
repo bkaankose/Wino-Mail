@@ -48,6 +48,7 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<IStartupIntegrationService, WindowsStartupIntegrationService>();
         services.AddSingleton<IReaderRuntimeService, WindowsReaderRuntimeService>();
         services.AddSingleton<IInstalledBrowserService, WindowsInstalledBrowserService>();
+        services.AddSingleton<IMicrophoneService, WindowsMicrophoneService>();
         services.AddSingleton<IPlatformCapabilities>(_ => new PlatformCapabilities(
             Printing: Windows.Graphics.Printing.PrintManager.IsSupported(), PdfExport: true,
             Smime: true, AdditionalWindows: true, Notifications: true, NotificationActions: true,
@@ -55,7 +56,7 @@ public static class CoreUWPContainerSetup
             MicrosoftStore: true, RemoteNotifications: false, KeyboardShortcuts: true, FileBackup: true, Purchases: true,
             AppModeTaskbarIdentity: true, PointerHover: true, MailListDensity: true, PresentationDetection: true,
             ConfigurableSyncIntervals: true, BadgeLaunchNavigation: true, WidgetsAndLiveTiles: true,
-            AttachmentSecurityCheck: true));
+            AttachmentSecurityCheck: true, VoiceControl: true));
         services.AddSingleton<IPushRelayDeviceIdentityStore, WindowsPushRelayDeviceIdentityStore>();
         services.AddSingleton<IPushRelayDeviceInfo, WindowsPushRelayDeviceInfo>();
         services.AddSingleton<IPushTokenProvider, NullPushTokenProvider>();

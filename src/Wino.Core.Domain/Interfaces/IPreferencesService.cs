@@ -96,6 +96,42 @@ public interface IPreferencesService : INotifyPropertyChanged
     ModifierKeys CompanionHotKeyModifiers { get; set; }
 
     /// <summary>
+    /// Setting: Whether voice control is on. Off turns off its global shortcut and its in-app button.
+    /// </summary>
+    bool IsVoiceControlEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Whether a voice plan runs as soon as it is planned, without Yes. Risky steps (large or permanent
+    /// deletes, emptying a folder, large archives) still ask.
+    /// </summary>
+    bool IsVoiceAutoConfirmEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Whether the voice bubble opens with a system-wide hot key.
+    /// </summary>
+    bool IsVoiceHotKeyEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: The non-modifier key of the voice bubble hot key.
+    /// </summary>
+    string VoiceHotKeyKey { get; set; }
+
+    /// <summary>
+    /// Setting: The modifiers of the voice bubble hot key.
+    /// </summary>
+    ModifierKeys VoiceHotKeyModifiers { get; set; }
+
+    /// <summary>
+    /// Setting: Where the voice bubble opens on the screen.
+    /// </summary>
+    VoiceBubblePosition VoiceBubblePosition { get; set; }
+
+    /// <summary>
+    /// Setting: The platform id of the microphone voice control listens with. Empty follows the system default.
+    /// </summary>
+    string VoiceMicrophoneDeviceId { get; set; }
+
+    /// <summary>
     /// Setting: The snooze currently in effect, or <see cref="NotificationSnoozePreset.None"/> when
     /// notifications are delivering. Persisted rather than held in memory so the choice survives a
     /// restart, and so the companion flyout and the shell agree on it without either owning the state.

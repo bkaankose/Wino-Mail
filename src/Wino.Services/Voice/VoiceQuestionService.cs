@@ -1,0 +1,446 @@
+#nullable enable
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Serilog;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Voice;
+using Wino.Mail.Api.Contracts.Voice;
+
+namespace Wino.Services.Voice;
+
+public sealed class VoiceQuestionService(
+    IAccountService accountService,
+    IFolderService folderService,
+    ICalendarService calendarService,
+    IContactService contactService,
+    IRecipientHistoryService recipientHistory) : IVoiceQuestionService
+{
+    private const int TopPeoplePerAccount = 25;
+    private const int SearchLimit = 40;
+
+    private static readonly HashSet<SpecialFolderType> HiddenFolderTypes =
+    [
+        SpecialFolderType.Chat,
+        SpecialFolderType.Category,
+        SpecialFolderType.More,
+        SpecialFolderType.Unread
+    ];
+
+    public IReadOnlyList<VoiceQuestion> GetQuestions(VoicePlan plan)
+    {
+        var questions = new List<VoiceQuestion>();
+        foreach (var command in plan.Commands ?? [])
+        {
+            foreach (var reference in command.Unresolved ?? [])
+            {
+                var phrase = reference.Phrase?.Trim() ?? string.Empty;
+                if (reference.Kind != UnresolvedKind.DefaultCalendar && phrase.Length == 0)
+                    continue;
+
+                if (questions.Any(existing => existing.Kind == reference.Kind && SamePhrase(existing.Phrase, phrase)))
+                    continue;
+
+                questions.Add(new VoiceQuestion(reference.Kind, phrase, reference.IsRelationship, Ask(reference.Kind, phrase, reference.IsRelationship)));
+            }
+        }
+
+        return questions;
+    }
+
+    public async Task<VoicePlan> AddLocalQuestionsAsync(VoicePlan plan, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var accounts = await accountService.GetAccountsAsync().ConfigureAwait(false) ?? [];
+            if (accounts.Count == 0)
+                return plan;
+
+            var commands = new List<VoiceCommand>();
+            foreach (var command in plan.Commands ?? [])
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                commands.Add(await AddLocalQuestionsAsync(command, accounts, cancellationToken).ConfigureAwait(false));
+            }
+
+            return plan with { Commands = commands };
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Could not check the voice plan against local accounts, folders and contacts.");
+            return plan;
+        }
+    }
+
+    private async Task<VoiceCommand> AddLocalQuestionsAsync(VoiceCommand command, List<MailAccount> accounts, CancellationToken cancellationToken)
+    {
+        if (command.Action is VoiceAction.NotActionable or VoiceAction.CanceledByUser)
+            return command;
+
+        var added = new List<UnresolvedReference>();
+        var targets = accounts;
+        if (command.Mailbox is { Scope: MailboxScope.Single, Account: { } reference })
+        {
+            var matches = VoicePlanPreviewBuilder.MatchAccounts(reference, accounts);
+            if (matches.Count == 1)
+            {
+                targets = matches;
+            }
+            else if (accounts.Count > 1 && !string.IsNullOrWhiteSpace(reference.Name))
+            {
+                added.Add(new UnresolvedReference(UnresolvedKind.Account, reference.Name.Trim()));
+            }
+        }
+
+        if (command.Mail is { FolderId: null, FolderName: { } folderName } && !string.IsNullOrWhiteSpace(folderName)
+            && !await AnyFolderNamedAsync(targets, folderName.Trim(), cancellationToken).ConfigureAwait(false))
+        {
+            added.Add(new UnresolvedReference(UnresolvedKind.Folder, folderName.Trim()));
+        }
+
+        var people = (command.Draft?.To ?? []).Concat(command.Draft?.Cc ?? []).Concat(command.Event?.Attendees ?? []);
+        var identified = command.People?.ToList() ?? [];
+        foreach (var raw in people.Distinct(StringComparer.CurrentCultureIgnoreCase))
+        {
+            var name = raw?.Trim();
+            if (string.IsNullOrWhiteSpace(name) || name.Contains('@')
+                || identified.Exists(person => SamePhrase(person.Name, name)))
+                continue;
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // The same sources the picker offers: correspondents and contacts. One person answering to the name is
+            // used (by address hash, as Personal mode does); none or several are asked about.
+            var candidates = (await GetPeopleAsync(accounts, name, cancellationToken).ConfigureAwait(false))
+                .Where(static candidate => !string.IsNullOrWhiteSpace(candidate.Address))
+                .ToList();
+            var exact = candidates.Where(candidate => SamePhrase(candidate.Title, name)).ToList();
+            var chosen = exact.Count == 1 ? exact[0] : candidates.Count == 1 ? candidates[0] : null;
+            if (chosen?.Address is { } address)
+                identified.Add(new PersonIdentity(name, VoiceBrainHash.Address(address)));
+            else
+                added.Add(new UnresolvedReference(UnresolvedKind.Person, name));
+        }
+
+        if (identified.Count > (command.People?.Count ?? 0))
+            command = command with { People = identified };
+
+        if (added.Count == 0)
+            return command;
+
+        var unresolved = command.Unresolved?.ToList() ?? [];
+        foreach (var question in added)
+        {
+            if (!unresolved.Exists(existing => existing.Kind == question.Kind && SamePhrase(existing.Phrase, question.Phrase)))
+                unresolved.Add(question);
+        }
+
+        return command with { Unresolved = unresolved };
+    }
+
+    private async Task<bool> AnyFolderNamedAsync(List<MailAccount> accounts, string name, CancellationToken cancellationToken)
+    {
+        foreach (var account in accounts)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var folders = await folderService.GetFoldersAsync(account.Id).ConfigureAwait(false) ?? [];
+            if (folders.Any(folder => NamedLike(folder.DisplayName, name) || NamedLike(folder.FolderName, name)))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool NamedLike(string? value, string name)
+        => !string.IsNullOrWhiteSpace(value) && value.Contains(name, StringComparison.CurrentCultureIgnoreCase);
+
+    public async Task<IReadOnlyList<VoiceAnswerCandidate>> GetCandidatesAsync(VoiceQuestion question, string? filter, CancellationToken cancellationToken = default)
+    {
+        var text = filter?.Trim() ?? string.Empty;
+        try
+        {
+            var accounts = (await accountService.GetAccountsAsync().ConfigureAwait(false) ?? [])
+                .OrderBy(static account => account.Order)
+                .ThenBy(static account => account.Name, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
+            cancellationToken.ThrowIfCancellationRequested();
+
+            return question.Kind switch
+            {
+                UnresolvedKind.Person when text.Length == 0 && !question.IsRelationship && question.Phrase.Length >= 2
+                    => await GetNamedPeopleFirstAsync(accounts, question.Phrase, cancellationToken).ConfigureAwait(false),
+                UnresolvedKind.Person => await GetPeopleAsync(accounts, text, cancellationToken).ConfigureAwait(false),
+                UnresolvedKind.Account => accounts
+                    .Where(account => Matches(text, AccountTitle(account), account.Address))
+                    .Select(static account => new VoiceAnswerCandidate($"a:{account.Id:N}", AccountTitle(account), Distinct(account.Address, AccountTitle(account)), null, account))
+                    .ToList(),
+                UnresolvedKind.Folder => await GetFoldersAsync(accounts, text, cancellationToken).ConfigureAwait(false),
+                UnresolvedKind.DefaultCalendar => await GetCalendarsAsync(accounts, text, cancellationToken).ConfigureAwait(false),
+                _ => []
+            };
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Could not load the choices for a voice question.");
+            return [];
+        }
+    }
+
+    public VoicePlan ApplyAnswer(VoicePlan plan, VoiceQuestion question, VoiceAnswerCandidate answer)
+    {
+        var commands = (plan.Commands ?? []).Select(command => Apply(command, question, answer)).ToList();
+        return plan with { Commands = commands };
+    }
+
+    public AddBrainFactRequest? CreateFact(VoiceQuestion question, VoiceAnswerCandidate answer)
+    {
+        var label = question.Phrase.Length > BrainFact.MaxLabelLength ? question.Phrase[..BrainFact.MaxLabelLength] : question.Phrase;
+        var mailbox = answer.Account is { } account ? VoiceProviderKinds.ToMailboxKey(account) : null;
+
+        return question.Kind switch
+        {
+            UnresolvedKind.Person when !string.IsNullOrWhiteSpace(answer.Address)
+                => new AddBrainFactRequest(BrainFactKind.Person, label, null, null, answer.Title, VoiceBrainHash.Address(answer.Address)),
+            UnresolvedKind.Account when mailbox is not null
+                => new AddBrainFactRequest(BrainFactKind.AccountNickname, label, mailbox, null, answer.Title, null),
+            UnresolvedKind.Folder when mailbox is not null && answer.Folder is { } folder && !string.IsNullOrWhiteSpace(folder.RemoteFolderId)
+                => new AddBrainFactRequest(BrainFactKind.FolderSynonym, label, mailbox, folder.RemoteFolderId, answer.Title, null),
+            UnresolvedKind.DefaultCalendar when mailbox is not null && answer.Calendar is { } calendar && !string.IsNullOrWhiteSpace(calendar.RemoteCalendarId)
+                => new AddBrainFactRequest(BrainFactKind.DefaultCalendar, string.Empty, mailbox, calendar.RemoteCalendarId, answer.Title, null),
+            _ => null
+        };
+    }
+
+    private static VoiceCommand Apply(VoiceCommand command, VoiceQuestion question, VoiceAnswerCandidate answer)
+    {
+        var asked = command.Unresolved?.Any(reference => reference.Kind == question.Kind && SamePhrase(reference.Phrase, question.Phrase)) == true;
+        var remaining = command.Unresolved?
+            .Where(reference => !(reference.Kind == question.Kind && SamePhrase(reference.Phrase, question.Phrase)))
+            .ToList();
+        var result = command with { Unresolved = remaining is { Count: > 0 } ? remaining : null };
+
+        switch (question.Kind)
+        {
+            case UnresolvedKind.Person when !string.IsNullOrWhiteSpace(answer.Address):
+                return ReplacePerson(result, question.Phrase, answer.Address);
+
+            case UnresolvedKind.Account when answer.Account is { } account:
+                if (asked || SamePhrase(result.Mailbox?.Account?.Name, question.Phrase))
+                    result = result with { Mailbox = ForAccount(result.Mailbox, account) };
+                return result;
+
+            case UnresolvedKind.Folder when answer.Account is { } account && answer.Folder is { } folder:
+                if (result.Mail is { } mail && (asked || SamePhrase(mail.FolderName, question.Phrase)))
+                {
+                    result = result with
+                    {
+                        Mail = mail with { FolderId = folder.RemoteFolderId, FolderName = FolderName(folder), FolderSpecialType = null },
+                        Mailbox = ForAccount(result.Mailbox, account)
+                    };
+                }
+                return result;
+
+            case UnresolvedKind.DefaultCalendar when answer.Account is { } account && answer.Calendar is { } calendar:
+                if (result.Event is { } details && (asked || string.IsNullOrWhiteSpace(details.CalendarId)) && result.Action == VoiceAction.CreateEvent)
+                {
+                    result = result with
+                    {
+                        Event = details with { CalendarId = calendar.RemoteCalendarId },
+                        Mailbox = ForAccount(result.Mailbox, account)
+                    };
+                }
+                return result;
+
+            default:
+                return result;
+        }
+    }
+
+    private static VoiceCommand ReplacePerson(VoiceCommand command, string phrase, string address)
+    {
+        List<string>? Replace(List<string>? values)
+            => values?.Select(value => SamePhrase(value, phrase) ? address : value).ToList();
+
+        var result = command;
+        if (command.Draft is { } draft)
+            result = result with { Draft = draft with { To = Replace(draft.To) ?? [], Cc = Replace(draft.Cc) ?? [] } };
+        if (command.Event is { } details)
+            result = result with { Event = details with { Attendees = Replace(details.Attendees) ?? [] } };
+        if (command.Mail is { } mail && SamePhrase(mail.Sender, phrase))
+            result = result with { Mail = mail with { Sender = address } };
+        if (command.Events is { } selection && SamePhrase(selection.Attendee, phrase))
+            result = result with { Events = selection with { Attendee = address } };
+
+        return result;
+    }
+
+    private static MailboxSelection ForAccount(MailboxSelection? current, MailAccount account)
+        => new(
+            MailboxScope.Single,
+            null,
+            MailboxMatch.Address,
+            current?.Hint,
+            new AccountReference(VoiceProviderKinds.ToProviderKind(account.ProviderType), account.Address, null, null));
+
+    // "Who is Burak?": the people answering to the name come first, then the usual frequent correspondents.
+    private async Task<List<VoiceAnswerCandidate>> GetNamedPeopleFirstAsync(List<MailAccount> accounts, string name, CancellationToken cancellationToken)
+    {
+        var named = await GetPeopleAsync(accounts, name, cancellationToken).ConfigureAwait(false);
+        var frequent = await GetPeopleAsync(accounts, string.Empty, cancellationToken).ConfigureAwait(false);
+        return named.Concat(frequent)
+            .DistinctBy(static person => person.Key, StringComparer.Ordinal)
+            .Take(SearchLimit)
+            .ToList();
+    }
+
+    private async Task<List<VoiceAnswerCandidate>> GetPeopleAsync(List<MailAccount> accounts, string text, CancellationToken cancellationToken)
+    {
+        var ranked = new List<(int Score, VoiceAnswerCandidate Candidate)>();
+        foreach (var account in accounts)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var rows = text.Length == 0
+                ? await recipientHistory.GetMostFrequentAsync(account.Id, TopPeoplePerAccount).ConfigureAwait(false)
+                : await recipientHistory.SearchAsync(account.Id, text, SearchLimit).ConfigureAwait(false);
+
+            foreach (var row in rows ?? [])
+            {
+                if (string.IsNullOrWhiteSpace(row.Address))
+                    continue;
+
+                ranked.Add((row.SentCount * 3 + row.ReceivedCount, Person(row.DisplayName, row.Address)));
+            }
+        }
+
+        var people = ranked
+            .OrderByDescending(static entry => entry.Score)
+            .Select(static entry => entry.Candidate)
+            .ToList();
+
+        if (text.Length >= 2)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var contacts = await contactService.ResolveRecipientCandidatesAsync(null, text, SearchLimit).ConfigureAwait(false) ?? [];
+            people.AddRange(contacts
+                .Where(static contact => !string.IsNullOrWhiteSpace(contact.PrimaryEmailAddress))
+                .Select(static contact => Person(contact.DisplayName, contact.PrimaryEmailAddress)));
+        }
+
+        return people
+            .DistinctBy(static person => person.Key, StringComparer.Ordinal)
+            .Take(SearchLimit)
+            .ToList();
+    }
+
+    private static VoiceAnswerCandidate Person(string? name, string address)
+    {
+        var trimmed = address.Trim();
+        var title = string.IsNullOrWhiteSpace(name) ? trimmed : name.Trim();
+        return new VoiceAnswerCandidate($"p:{BrainMailboxKey.Normalize(trimmed)}", title, Distinct(trimmed, title), null, null, Address: trimmed);
+    }
+
+    private async Task<List<VoiceAnswerCandidate>> GetFoldersAsync(List<MailAccount> accounts, string text, CancellationToken cancellationToken)
+    {
+        var result = new List<VoiceAnswerCandidate>();
+        foreach (var account in accounts)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var folders = await folderService.GetFoldersAsync(account.Id).ConfigureAwait(false) ?? [];
+            var byRemoteId = folders
+                .Where(static folder => !string.IsNullOrWhiteSpace(folder.RemoteFolderId))
+                .GroupBy(static folder => folder.RemoteFolderId, StringComparer.Ordinal)
+                .ToDictionary(static group => group.Key, static group => group.First(), StringComparer.Ordinal);
+
+            var title = AccountTitle(account);
+            result.AddRange(byRemoteId.Values
+                .Where(static folder => !folder.IsHidden && !HiddenFolderTypes.Contains(folder.SpecialFolderType))
+                .Select(folder => (Folder: folder, Parent: ParentPath(folder, byRemoteId)))
+                .Where(entry => Matches(text, FolderName(entry.Folder), entry.Parent))
+                .OrderBy(static entry => entry.Folder.SpecialFolderType == SpecialFolderType.Other ? 1 : 0)
+                .ThenBy(static entry => entry.Parent, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(static entry => FolderName(entry.Folder), StringComparer.CurrentCultureIgnoreCase)
+                .Select(entry => new VoiceAnswerCandidate($"f:{entry.Folder.Id:N}", FolderName(entry.Folder), entry.Parent, title, account, Folder: entry.Folder)));
+        }
+
+        return result;
+    }
+
+    private async Task<List<VoiceAnswerCandidate>> GetCalendarsAsync(List<MailAccount> accounts, string text, CancellationToken cancellationToken)
+    {
+        var result = new List<VoiceAnswerCandidate>();
+        foreach (var account in accounts.Where(static account => account.IsCalendarAccessGranted && account.IsCalendarAccessEnabled))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var calendars = await calendarService.GetAccountCalendarsAsync(account.Id).ConfigureAwait(false) ?? [];
+            var title = AccountTitle(account);
+            result.AddRange(calendars
+                .Where(static calendar => !calendar.IsReadOnly && !string.IsNullOrWhiteSpace(calendar.RemoteCalendarId))
+                .Where(calendar => Matches(text, calendar.Name, null))
+                .OrderByDescending(static calendar => calendar.IsPrimary)
+                .ThenBy(static calendar => calendar.Name, StringComparer.CurrentCultureIgnoreCase)
+                .Select(calendar => new VoiceAnswerCandidate($"c:{calendar.Id:N}", calendar.Name ?? string.Empty, null, title, account, Calendar: calendar)));
+        }
+
+        return result;
+    }
+
+    private static string? ParentPath(MailItemFolder folder, Dictionary<string, MailItemFolder> byRemoteId)
+    {
+        var names = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal) { folder.RemoteFolderId };
+        var parentId = folder.ParentRemoteFolderId;
+        while (!string.IsNullOrWhiteSpace(parentId) && seen.Add(parentId) && byRemoteId.TryGetValue(parentId, out var parent))
+        {
+            names.Insert(0, FolderName(parent));
+            parentId = parent.ParentRemoteFolderId;
+        }
+
+        return names.Count == 0 ? null : string.Join(" / ", names);
+    }
+
+    private static string FolderName(MailItemFolder folder)
+        => (string.IsNullOrWhiteSpace(folder.DisplayName) ? folder.FolderName : folder.DisplayName)?.Trim() ?? string.Empty;
+
+    private static string Ask(UnresolvedKind kind, string phrase, bool isRelationship) => kind switch
+    {
+        UnresolvedKind.Person => string.Format(CultureInfo.CurrentCulture, isRelationship ? Translator.VoiceQuestion_PersonRelationship : Translator.VoiceQuestion_Person, phrase),
+        UnresolvedKind.Account => string.Format(CultureInfo.CurrentCulture, Translator.VoiceQuestion_Account, phrase),
+        UnresolvedKind.Folder => string.Format(CultureInfo.CurrentCulture, Translator.VoiceQuestion_Folder, phrase),
+        _ => Translator.VoiceQuestion_DefaultCalendar
+    };
+
+    private static bool Matches(string filter, string? primary, string? secondary)
+        => filter.Length == 0
+           || Contains(primary, filter)
+           || Contains(secondary, filter);
+
+    private static bool Contains(string? text, string part)
+        => !string.IsNullOrWhiteSpace(text)
+           && CultureInfo.InvariantCulture.CompareInfo.IndexOf(text, part, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0;
+
+    private static bool SamePhrase(string? left, string? right)
+        => string.Equals(left?.Trim(), right?.Trim(), StringComparison.CurrentCultureIgnoreCase);
+
+    private static string? Distinct(string? detail, string title)
+        => string.IsNullOrWhiteSpace(detail) || string.Equals(detail, title, StringComparison.OrdinalIgnoreCase) ? null : detail;
+
+    private static string AccountTitle(MailAccount account)
+        => !string.IsNullOrWhiteSpace(account.Name) ? account.Name
+            : !string.IsNullOrWhiteSpace(account.SenderName) ? account.SenderName
+            : account.Address ?? string.Empty;
+}

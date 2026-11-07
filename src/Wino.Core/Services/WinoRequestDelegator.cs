@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -62,48 +62,29 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
     public async Task ExecuteAsync(MailOperationPreperationRequest request)
     {
-        var requests = new List<IMailActionRequest>();
+        var result = await ExecuteWithResultAsync(request);
+        if (result.Error is { } error)
+            ShowPreparationError(error);
+    }
+
+    public async Task<WinoRequestDelegationResult> ExecuteWithResultAsync(MailOperationPreperationRequest request)
+    {
+        List<IMailActionRequest> requests;
 
         try
         {
             requests = await _winoRequestProcessor.PrepareRequestsAsync(request);
         }
-        catch (UnavailableSpecialFolderException unavailableSpecialFolderException)
-        {
-            _dialogService.InfoBarMessage(Translator.Info_MissingFolderTitle,
-                                          string.Format(Translator.Info_MissingFolderMessage, unavailableSpecialFolderException.SpecialFolderType),
-                                          InfoBarMessageType.Warning,
-                                          Translator.SettingConfigureSpecialFolders_Button,
-                                          () =>
-                                          {
-                                              _dialogService.HandleSystemFolderConfigurationDialogAsync(unavailableSpecialFolderException.AccountId, _folderService);
-                                          });
-        }
-        catch (InvalidMoveTargetException invalidMoveTargetException)
-        {
-            switch (invalidMoveTargetException.Reason)
-            {
-                case InvalidMoveTargetReason.NonMoveTarget:
-                    _dialogService.InfoBarMessage(Translator.Info_InvalidMoveTargetTitle, Translator.Info_InvalidMoveTargetMessage, InfoBarMessageType.Warning);
-                    break;
-                case InvalidMoveTargetReason.MultipleAccounts:
-                    _dialogService.InfoBarMessage(Translator.Info_InvalidMoveTargetTitle, Translator.Exception_InvalidMultiAccountMoveTarget, InfoBarMessageType.Warning);
-                    break;
-                default:
-                    break;
-            }
-        }
-        catch (NotImplementedException)
-        {
-            _dialogService.ShowNotSupportedMessage();
-        }
         catch (Exception ex)
         {
-            Log.Error(ex, "Request creation failed.");
-            _dialogService.InfoBarMessage(Translator.Info_RequestCreationFailedTitle, ex.Message, InfoBarMessageType.Error);
+            if (ex is not (UnavailableSpecialFolderException or InvalidMoveTargetException or NotImplementedException))
+                Log.Error(ex, "Request creation failed.");
+
+            return new WinoRequestDelegationResult(0, ex);
         }
 
-        if (requests == null || !requests.Any()) return;
+        if (requests == null || !requests.Any())
+            return new WinoRequestDelegationResult(0, null);
 
         var accountGroups = requests
             .GroupBy(a => a.Item.AssignedAccount.Id)
@@ -113,10 +94,42 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
         await QueueRequestPackAsync(accountGroups).ConfigureAwait(false);
 
-        // Queue requests for each account and start synchronization.
         foreach (var accountGroup in requests.GroupBy(a => a.Item.AssignedAccount.Id))
         {
             await QueueSynchronizationAsync(accountGroup.Key);
+        }
+
+        return new WinoRequestDelegationResult(requests.Count, null);
+    }
+
+    private void ShowPreparationError(Exception error)
+    {
+        switch (error)
+        {
+            case UnavailableSpecialFolderException unavailableSpecialFolderException:
+                _dialogService.InfoBarMessage(Translator.Info_MissingFolderTitle,
+                                              string.Format(Translator.Info_MissingFolderMessage, unavailableSpecialFolderException.SpecialFolderType),
+                                              InfoBarMessageType.Warning,
+                                              Translator.SettingConfigureSpecialFolders_Button,
+                                              () =>
+                                              {
+                                                  _dialogService.HandleSystemFolderConfigurationDialogAsync(unavailableSpecialFolderException.AccountId, _folderService);
+                                              });
+                break;
+            case InvalidMoveTargetException { Reason: InvalidMoveTargetReason.NonMoveTarget }:
+                _dialogService.InfoBarMessage(Translator.Info_InvalidMoveTargetTitle, Translator.Info_InvalidMoveTargetMessage, InfoBarMessageType.Warning);
+                break;
+            case InvalidMoveTargetException { Reason: InvalidMoveTargetReason.MultipleAccounts }:
+                _dialogService.InfoBarMessage(Translator.Info_InvalidMoveTargetTitle, Translator.Exception_InvalidMultiAccountMoveTarget, InfoBarMessageType.Warning);
+                break;
+            case InvalidMoveTargetException:
+                break;
+            case NotImplementedException:
+                _dialogService.ShowNotSupportedMessage();
+                break;
+            default:
+                _dialogService.InfoBarMessage(Translator.Info_RequestCreationFailedTitle, error.Message, InfoBarMessageType.Error);
+                break;
         }
     }
 

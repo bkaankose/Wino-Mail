@@ -940,6 +940,48 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(CompanionHotKeyModifiers), value);
     }
 
+    public bool IsVoiceControlEnabled
+    {
+        get => _configurationService.Get(nameof(IsVoiceControlEnabled), true);
+        set => SetPropertyAndSave(nameof(IsVoiceControlEnabled), value);
+    }
+
+    public bool IsVoiceAutoConfirmEnabled
+    {
+        get => _configurationService.Get(nameof(IsVoiceAutoConfirmEnabled), false);
+        set => SetPropertyAndSave(nameof(IsVoiceAutoConfirmEnabled), value);
+    }
+
+    public bool IsVoiceHotKeyEnabled
+    {
+        get => _configurationService.Get(nameof(IsVoiceHotKeyEnabled), true);
+        set => SetPropertyAndSave(nameof(IsVoiceHotKeyEnabled), value);
+    }
+
+    public string VoiceHotKeyKey
+    {
+        get => _configurationService.Get(nameof(VoiceHotKeyKey), HotKeyGesture.VoiceDefault.Key);
+        set => SetPropertyAndSave(nameof(VoiceHotKeyKey), value);
+    }
+
+    public ModifierKeys VoiceHotKeyModifiers
+    {
+        get => _configurationService.Get(nameof(VoiceHotKeyModifiers), HotKeyGesture.VoiceDefault.Modifiers);
+        set => SetPropertyAndSave(nameof(VoiceHotKeyModifiers), value);
+    }
+
+    public VoiceBubblePosition VoiceBubblePosition
+    {
+        get => GetDefinedEnum(nameof(VoiceBubblePosition), VoiceBubblePosition.BottomRight);
+        set => SetPropertyAndSave(nameof(VoiceBubblePosition), value);
+    }
+
+    public string VoiceMicrophoneDeviceId
+    {
+        get => _configurationService.Get(nameof(VoiceMicrophoneDeviceId), string.Empty);
+        set => SetPropertyAndSave(nameof(VoiceMicrophoneDeviceId), value ?? string.Empty);
+    }
+
     public NotificationSnoozePreset NotificationSnoozePreset
     {
         get => GetDefinedEnum(nameof(NotificationSnoozePreset), NotificationSnoozePreset.None);

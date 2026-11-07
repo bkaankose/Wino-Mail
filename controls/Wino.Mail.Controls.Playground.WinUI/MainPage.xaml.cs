@@ -25,6 +25,7 @@ public sealed partial class MainPage : Page
         new("hotKeyInput", typeof(HotKeyInputPage)),
         new("shimmer", typeof(ShimmerPage)),
         new("modeSwitcher", typeof(ModeSwitcherPage)),
+        new("voiceBubble", typeof(VoiceBubblePage)),
     ];
 
     private readonly SemaphoreSlim _navigationGate = new(1, 1);

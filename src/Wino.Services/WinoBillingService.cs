@@ -53,6 +53,17 @@ public sealed class WinoBillingService(
         }
     }
 
+    public async Task<bool> OpenCustomerPortalAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await apiClient.CreateCustomerPortalSessionAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccess || response.Result is null ||
+            !Uri.TryCreate(response.Result.Url, UriKind.Absolute, out var portalUri) ||
+            portalUri.Scheme != Uri.UriSchemeHttps)
+            return false;
+
+        return (await externalLauncher.LaunchUriAsync(portalUri, cancellationToken).ConfigureAwait(false)).IsSuccess;
+    }
+
     public Task<ApiEnvelope<BillingStatusResultDto>> GetStatusAsync(CancellationToken cancellationToken = default)
         => apiClient.GetBillingStatusAsync(cancellationToken);
 
