@@ -951,7 +951,8 @@ public sealed class VoiceBubbleController : IDisposable
 
         _pendingNotes = null;
 
-        if (_preferences.IsVoiceAutoConfirmEnabled)
+        // A request about a selection already names what it acts on, so it runs without Yes; risky steps still ask.
+        if (_preferences.IsVoiceAutoConfirmEnabled || _selection is not null)
         {
             AutoConfirm(resolution, preview);
             return;

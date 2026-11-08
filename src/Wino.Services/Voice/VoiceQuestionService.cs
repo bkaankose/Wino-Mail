@@ -93,9 +93,21 @@ public sealed class VoiceQuestionService(
         if (command.Action is VoiceAction.NotActionable or VoiceAction.CanceledByUser)
             return command;
 
+        // A command on the selection acts on the selected items: their accounts and folders are known, so only a person
+        // (a forward recipient) can still be unknown.
+        if (command.UsesContext)
+        {
+            var askable = command.Unresolved?.Where(static reference => reference.Kind is UnresolvedKind.Person or UnresolvedKind.Group).ToList();
+            command = command with
+            {
+                Mailbox = new MailboxSelection(MailboxScope.All, null, MailboxMatch.Unspecified, null),
+                Unresolved = askable is { Count: > 0 } ? askable : null
+            };
+        }
+
         var added = new List<UnresolvedReference>();
         var targets = accounts;
-        if (command.Mailbox is { Scope: MailboxScope.Single, Account: { } reference })
+        if (!command.UsesContext && command.Mailbox is { Scope: MailboxScope.Single, Account: { } reference })
         {
             var matches = VoicePlanPreviewBuilder.MatchAccounts(reference, accounts);
             if (matches.Count == 1)
@@ -126,7 +138,7 @@ public sealed class VoiceQuestionService(
             }
         }
 
-        if (command.Mail is { FolderId: null, FolderName: { } folderName } && !string.IsNullOrWhiteSpace(folderName)
+        if (!command.UsesContext && command.Mail is { FolderId: null, FolderName: { } folderName } && !string.IsNullOrWhiteSpace(folderName)
             && !await AnyFolderNamedAsync(targets, folderName.Trim(), cancellationToken).ConfigureAwait(false))
         {
             added.Add(new UnresolvedReference(UnresolvedKind.Folder, folderName.Trim()));
