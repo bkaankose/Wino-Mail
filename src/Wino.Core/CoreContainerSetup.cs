@@ -61,8 +61,7 @@ public static class CoreContainerSetup
             () => provider.GetService<IRelaySocketCoordinator>(),
             () => provider.GetRequiredService<ISyncCoordinator>(),
             () => provider.GetService<IAppPolicyAcceptanceSyncService>(),
-            () => provider.GetServices<IStartupInitializer>(),
-            () => provider.GetService<IVoiceBrainService>()));
+            () => provider.GetServices<IStartupInitializer>()));
         services.AddSingleton<IApplicationRuntime>(provider => new ApplicationRuntime(
             provider.GetRequiredService<ISynchronizationManager>(),
             provider.GetRequiredService<IAccountService>(),

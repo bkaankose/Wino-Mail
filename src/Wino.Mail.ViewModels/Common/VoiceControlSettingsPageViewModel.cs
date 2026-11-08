@@ -55,6 +55,7 @@ public partial class VoiceControlSettingsPageViewModel : CoreBaseViewModel,
     private IDisposable? _levelMonitor;
     private CancellationTokenSource? _monitorCancellation;
     private bool _isActive;
+    private bool _isWatchingMicrophones;
     private bool _isLoadingMicrophones;
 
     public VoiceControlSettingsPageViewModel(
@@ -253,9 +254,8 @@ public partial class VoiceControlSettingsPageViewModel : CoreBaseViewModel,
         base.OnNavigatedTo(mode, parameters);
 
         _isActive = true;
-        _microphoneService.DevicesChanged += MicrophoneDevicesChanged;
+        ApplyAccess(Access);
         _ = RefreshAccessAsync();
-        _ = RefreshModeAsync();
     }
 
     private async Task RefreshModeAsync()
@@ -270,7 +270,7 @@ public partial class VoiceControlSettingsPageViewModel : CoreBaseViewModel,
 
         _isActive = false;
         _checkoutWatch?.Cancel();
-        _microphoneService.DevicesChanged -= MicrophoneDevicesChanged;
+        WatchMicrophones(false);
         IsTestingMicrophone = false;
         _ = StopLevelMonitorAsync();
     }
@@ -415,15 +415,37 @@ public partial class VoiceControlSettingsPageViewModel : CoreBaseViewModel,
         }
     }
 
+    // Microphones and the voice mode are only read for Wino Intelligence users; a locked page touches neither.
     private void ApplyAccess(VoiceControlAccess access)
     {
+        var wasUsable = _isWatchingMicrophones;
         Access = access;
         OnPropertyChanged(nameof(HasMicrophoneProblem));
 
-        if (_isActive && IsAvailable)
+        var isUsable = _isActive && IsAvailable;
+        WatchMicrophones(isUsable);
+        if (isUsable)
+        {
             _ = LoadMicrophonesAsync();
+            if (!wasUsable)
+                _ = RefreshModeAsync();
+        }
         else
+        {
             IsTestingMicrophone = false;
+        }
+    }
+
+    private void WatchMicrophones(bool watch)
+    {
+        if (watch == _isWatchingMicrophones)
+            return;
+
+        _isWatchingMicrophones = watch;
+        if (watch)
+            _microphoneService.DevicesChanged += MicrophoneDevicesChanged;
+        else
+            _microphoneService.DevicesChanged -= MicrophoneDevicesChanged;
     }
 
     private static VoiceControlAccess ToAccess(WinoIntelligenceEntitlementSnapshot? entitlement)

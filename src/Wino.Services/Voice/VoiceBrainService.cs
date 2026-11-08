@@ -101,22 +101,47 @@ public sealed class VoiceBrainService : IVoiceBrainService,
             Log.Warning(ex, "Could not read the cached voice mode.");
         }
 
-        _messenger.Register<AccountCreatedMessage>(this);
-        _messenger.Register<AccountRemovedMessage>(this);
-        _messenger.Register<AccountFolderConfigurationUpdated>(this);
-        _messenger.Register<AccountSynchronizationCompleted>(this);
-        _messenger.Register<AccountCalendarSynchronizationStateChanged>(this);
-        _messenger.Register<FolderRenamed>(this);
-        _messenger.Register<FolderDeleted>(this);
-        _messenger.Register<WinoAccountSignedInMessage>(this);
-        _messenger.Register<WinoAccountSignedOutMessage>(this);
-        _messenger.Register<AccountUpdatedMessage>(this);
-        _messenger.Register<AccountMenuItemsReordered>(this);
+        lock (_gate)
+        {
+            // Stop may have run while the cached mode was read.
+            if (!_isStarted)
+                return;
 
-        // Startup sends nothing: the cached mode stands until a voice response or the settings page reports it, and
-        // every section is only checked at the next rebuild, which sends it only when its value changed.
-        MarkDirty(null);
-        _dirtyTimer = new Timer(_ => PushDirty(force: false), null, DirtyRebuildInterval, DirtyRebuildInterval);
+            _messenger.Register<AccountCreatedMessage>(this);
+            _messenger.Register<AccountRemovedMessage>(this);
+            _messenger.Register<AccountFolderConfigurationUpdated>(this);
+            _messenger.Register<AccountSynchronizationCompleted>(this);
+            _messenger.Register<AccountCalendarSynchronizationStateChanged>(this);
+            _messenger.Register<FolderRenamed>(this);
+            _messenger.Register<FolderDeleted>(this);
+            _messenger.Register<WinoAccountSignedInMessage>(this);
+            _messenger.Register<WinoAccountSignedOutMessage>(this);
+            _messenger.Register<AccountUpdatedMessage>(this);
+            _messenger.Register<AccountMenuItemsReordered>(this);
+
+            // Starting sends nothing: the cached mode stands until a voice response or the settings page reports it,
+            // and every section is only checked at the next rebuild, which sends it only when its value changed.
+            _dirty.Add(null);
+            _dirtyTimer = new Timer(_ => PushDirty(force: false), null, DirtyRebuildInterval, DirtyRebuildInterval);
+        }
+    }
+
+    public void Stop()
+    {
+        Timer? timer;
+        lock (_gate)
+        {
+            if (!_isStarted)
+                return;
+
+            _isStarted = false;
+            timer = _dirtyTimer;
+            _dirtyTimer = null;
+            _dirty.Clear();
+            _messenger.UnregisterAll(this);
+        }
+
+        timer?.Dispose();
     }
 
     public void NotifyVoiceStarting()

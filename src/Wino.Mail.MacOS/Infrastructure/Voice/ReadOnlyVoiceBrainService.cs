@@ -27,6 +27,10 @@ internal sealed class ReadOnlyVoiceBrainService(IWinoAccountApiClient api, IVoic
             _mode = mode;
     }
 
+    public void Stop()
+    {
+    }
+
     public Task<VoiceMode> RefreshModeAsync(CancellationToken cancellationToken = default) => Task.FromResult(_mode);
 
     public Task<bool> SetModeAsync(VoiceMode mode, CancellationToken cancellationToken = default) => Task.FromResult(false);

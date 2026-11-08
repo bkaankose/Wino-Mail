@@ -14,6 +14,7 @@ using Wino.Core.Domain.Models;
 using Wino.Mail.WinUI.Services.Companion;
 using Wino.Mail.WinUI.Services.Voice;
 using Wino.Mail.ViewModels.Companion;
+using Wino.Mail.ViewModels.Voice;
 
 namespace Wino.Mail.WinUI.Services;
 
@@ -25,7 +26,8 @@ internal sealed class MainTrayController
     private readonly Func<Task> _openCalendar;
     private readonly Func<Task> _exit;
     private readonly IAppModeReadinessService _appModeReadinessService;
-    private readonly VoiceBubbleService? _voice;
+    private readonly VoiceAssistantActivation _voiceActivation;
+    private VoiceBubbleService? _voice;
     private CancellationTokenSource? _pendingToggle;
     private volatile bool _isCalendarModeVisible = true;
     private bool _isCompanionEnabled;
@@ -64,6 +66,25 @@ internal sealed class MainTrayController
         _icon.TaskbarRecreated += TrayIconTaskbarRecreated;
         _icon.Show();
 
+        _voiceActivation = new VoiceAssistantActivation(
+            services,
+            action =>
+            {
+                if (dispatcher.HasThreadAccess)
+                    action();
+                else
+                    dispatcher.TryEnqueue(() => action());
+            },
+            () => CreateVoice(services, dispatcher, nativeAppService),
+            DisposeVoice);
+        _voiceActivation.Start();
+    }
+
+    private void CreateVoice(IServiceProvider services, DispatcherQueue dispatcher, INativeAppService nativeAppService)
+    {
+        if (_voice is not null)
+            return;
+
         try
         {
             _voice = new VoiceBubbleService(
@@ -76,6 +97,13 @@ internal sealed class MainTrayController
         {
             Log.Error(ex, "Failed to create the voice bubble. Continuing without it.");
         }
+    }
+
+    private void DisposeVoice()
+    {
+        var voice = _voice;
+        _voice = null;
+        voice?.Dispose();
     }
 
     public Task SetCompanionEnabledAsync(bool enabled)
@@ -111,7 +139,7 @@ internal sealed class MainTrayController
         _companion.SessionDisabled -= CompanionSessionDisabled;
         _icon.TaskbarRecreated -= TrayIconTaskbarRecreated;
         _appModeReadinessService.ReadinessInvalidated -= AppModeReadinessInvalidated;
-        _voice?.Dispose();
+        _voiceActivation.Dispose();
         await _companion.ShutdownAsync();
         _icon.Dispose();
     }

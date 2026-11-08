@@ -25,6 +25,12 @@ public interface IVoiceBrainService
     /// <summary>Loads the cached mode and subscribes to account and sync changes. Nothing is sent at startup.</summary>
     Task StartAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Undoes <see cref="StartAsync"/> when Wino Intelligence access ends: no more account triggers and no rebuild
+    /// timer. The cached mode and hashes stay for the next start.
+    /// </summary>
+    void Stop();
+
     /// <summary>Reads the mode from the server. Returns the cached mode when the server can't be reached.</summary>
     Task<VoiceMode> RefreshModeAsync(CancellationToken cancellationToken = default);
 

@@ -1,4 +1,6 @@
+using AppKit;
 using CommunityToolkit.Mvvm.Messaging;
+using Foundation;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
@@ -24,37 +26,53 @@ namespace Wino.Mail.MacOS;
 /// </summary>
 public sealed partial class AppDelegate
 {
+    private VoiceAssistantActivation? _voiceActivation;
     private MacVoiceBubbleHost? _voiceHost;
     private VoiceBubbleController? _voiceController;
 
     /// <summary>UI thread, after the menu bar icon exists, so the bubble can open under it.</summary>
     private void StartVoice()
     {
-        if (_services is null || _voiceHost is not null)
+        if (_services is not { } services || _voiceActivation is not null)
             return;
 
-        try
-        {
-            _voiceHost = new MacVoiceBubbleHost(() => _statusItem?.ButtonScreenFrame, _services.GetRequiredService<IPreferencesService>());
-            _voiceController = new VoiceBubbleController(_voiceHost, new MacVoicePlanHost(this), _services);
-            _services.GetRequiredService<MacVoiceHotKeyAccess>().Attach(_voiceController, _voiceHost);
-        }
-        catch (Exception exception)
-        {
-            Serilog.Log.Error(exception, "Failed to create the voice bubble. Continuing without it.");
-            _voiceController?.Dispose();
-            _voiceHost?.Dispose();
-            _voiceController = null;
-            _voiceHost = null;
-        }
+        _voiceActivation = new VoiceAssistantActivation(
+            services,
+            action =>
+            {
+                if (NSThread.IsMain)
+                    action();
+                else
+                    NSApplication.SharedApplication.BeginInvokeOnMainThread(action);
+            },
+            CreateVoice,
+            DisposeVoice);
+        _voiceActivation.Start();
 
 #if DEBUG
         RegisterVoiceDebugCommands();
 #endif
     }
 
-    /// <summary>UI thread, while quitting.</summary>
-    private void StopVoice()
+    private void CreateVoice()
+    {
+        if (_services is not { } services || _voiceHost is not null)
+            return;
+
+        try
+        {
+            _voiceHost = new MacVoiceBubbleHost(() => _statusItem?.ButtonScreenFrame, services.GetRequiredService<IPreferencesService>());
+            _voiceController = new VoiceBubbleController(_voiceHost, new MacVoicePlanHost(this), services);
+            services.GetRequiredService<MacVoiceHotKeyAccess>().Attach(_voiceController, _voiceHost);
+        }
+        catch (Exception exception)
+        {
+            Serilog.Log.Error(exception, "Failed to create the voice bubble. Continuing without it.");
+            DisposeVoice();
+        }
+    }
+
+    private void DisposeVoice()
     {
         _services?.GetService<MacVoiceHotKeyAccess>()?.Attach(null, null);
         try
@@ -64,11 +82,18 @@ public sealed partial class AppDelegate
         }
         catch (Exception exception)
         {
-            Serilog.Log.Warning(exception, "Voice bubble cleanup failed while quitting.");
+            Serilog.Log.Warning(exception, "Voice bubble cleanup failed.");
         }
 
         _voiceController = null;
         _voiceHost = null;
+    }
+
+    /// <summary>UI thread, while quitting.</summary>
+    private void StopVoice()
+    {
+        _voiceActivation?.Dispose();
+        _voiceActivation = null;
     }
 
     private async Task OpenVoiceSearchAsync(MailAccount account, IReadOnlyList<IMailItemFolder> folders, MailSearchCriteria criteria)
