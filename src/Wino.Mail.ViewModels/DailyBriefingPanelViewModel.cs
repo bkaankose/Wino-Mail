@@ -12,6 +12,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Misc;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.MailItem;

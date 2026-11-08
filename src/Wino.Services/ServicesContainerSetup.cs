@@ -78,6 +78,12 @@ public static class ServicesContainerSetup
         services.AddSingleton<IKeyboardShortcutService, KeyboardShortcutService>();
         services.AddSingleton<IWinoAccountSessionService>(provider => WinoAccountSessionService.For(provider.GetRequiredService<IDatabaseService>(), provider.GetRequiredService<IAccountCredentialPersistence>()));
         services.AddSingleton<IWinoAccountApiClient, WinoAccountApiClient>();
+        services.AddSingleton<IVoiceCommandService, Voice.VoiceCommandService>();
+        services.AddSingleton<IVoicePlanPreviewService, Voice.VoicePlanPreviewService>();
+        services.AddTransient<Voice.VoiceBrainSectionBuilder>();
+        services.AddSingleton<IVoiceBrainService, Voice.VoiceBrainService>();
+        services.AddTransient<IVoiceQuestionService, Voice.VoiceQuestionService>();
+        services.AddSingleton<IVoiceBrainStore>(provider => provider.GetRequiredService<MailIntelligenceStore>());
         services.AddSingleton<IIntelligenceBackend, CloudIntelligenceBackend>();
         services.AddSingleton<IWinoAccountProfileService, WinoAccountProfileService>();
         RegisterPushRelayServices(services);

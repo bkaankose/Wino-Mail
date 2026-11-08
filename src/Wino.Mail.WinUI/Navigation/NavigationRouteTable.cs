@@ -65,6 +65,8 @@ public static class NavigationRouteTable
         Settings(WinoPage.ReaderActionsPage, typeof(ReaderActionsPage)),
         Settings(WinoPage.AppPreferencesPage, typeof(AppPreferencesPage)),
         Settings(WinoPage.CompanionSettingsPage, typeof(CompanionSettingsPage)),
+        Settings(WinoPage.VoiceControlSettingsPage, typeof(VoiceControlSettingsPage)),
+        Settings(WinoPage.VoiceBrainPage, typeof(VoiceBrainPage)),
         Settings(WinoPage.WidgetsLiveTilesSettingsPage, typeof(WidgetsLiveTilesSettingsPage)),
         Settings(WinoPage.MailPreferencesPage, typeof(MailPreferencesPage)),
         Settings(WinoPage.BackupRestorePage, typeof(BackupRestorePage)),

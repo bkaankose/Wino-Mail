@@ -1,0 +1,265 @@
+﻿<Page
+    x:Class="Wino.Mail.Controls.Playground.Pages.VoiceBubblePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:voice="using:Wino.Mail.Controls.VoiceBubble"
+    AutomationProperties.AutomationId="VoiceBubblePageRoot"
+    KeyDown="PageKeyDown"
+    Loaded="PageLoaded"
+    Unloaded="PageUnloaded"
+    mc:Ignorable="d">
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <LinearGradientBrush x:Key="VoiceBubbleDesktopBrush" StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Offset="0" Color="#16337A" />
+                        <GradientStop Offset="0.5" Color="#0B2250" />
+                        <GradientStop Offset="1" Color="#0A3A5E" />
+                    </LinearGradientBrush>
+                    <SolidColorBrush x:Key="VoiceBubbleCaptionBrush" Color="#D9FFFFFF" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <LinearGradientBrush x:Key="VoiceBubbleDesktopBrush" StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Offset="0" Color="#A9CCF7" />
+                        <GradientStop Offset="0.5" Color="#D9E7FB" />
+                        <GradientStop Offset="1" Color="#C3D3F7" />
+                    </LinearGradientBrush>
+                    <SolidColorBrush x:Key="VoiceBubbleCaptionBrush" Color="#CC1B1B1B" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <StaticResource x:Key="VoiceBubbleDesktopBrush" ResourceKey="SystemColorWindowColorBrush" />
+                    <StaticResource x:Key="VoiceBubbleCaptionBrush" ResourceKey="SystemColorWindowTextColorBrush" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
+            <Style x:Key="VoiceBubbleTileStyle" TargetType="Grid">
+                <Setter Property="Height" Value="270" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="Background" Value="{ThemeResource VoiceBubbleDesktopBrush}" />
+            </Style>
+            <Style
+                x:Key="VoiceBubbleCaptionStyle"
+                BasedOn="{StaticResource CaptionTextBlockStyle}"
+                TargetType="TextBlock">
+                <Setter Property="Margin" Value="14,10" />
+                <Setter Property="Foreground" Value="{ThemeResource VoiceBubbleCaptionBrush}" />
+            </Style>
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <ScrollViewer>
+        <StackPanel Padding="32" Spacing="20">
+            <StackPanel Spacing="6">
+                <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Voice bubble" />
+                <TextBlock
+                    MaxWidth="760"
+                    HorizontalAlignment="Left"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="The Dock pill for voice commands. Pick a command and run the flow with the shortcut button, or jump straight to a state. The bars move on a simulated voice; there is no microphone here. Click the icon to send, hover it for the cancel badge, and press Escape to cancel."
+                    TextWrapping="WrapWholeWords" />
+            </StackPanel>
+
+            <Border
+                Padding="16,12"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+                <StackPanel Spacing="14">
+                    <Grid ColumnSpacing="16" RowSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox
+                            x:Name="ScenarioBox"
+                            MinWidth="200"
+                            AutomationProperties.AutomationId="VoiceBubbleScenarioBox"
+                            Header="Command"
+                            SelectionChanged="ScenarioChanged" />
+                        <TextBlock
+                            x:Name="SpokenText"
+                            Grid.Column="1"
+                            Margin="0,0,0,6"
+                            VerticalAlignment="Bottom"
+                            FontStyle="Italic"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            TextWrapping="WrapWholeWords" />
+                    </Grid>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Jump to a state" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button
+                                AutomationProperties.AutomationId="VoiceBubbleListeningButton"
+                                Click="ListeningClicked"
+                                Content="Listening" />
+                            <Button
+                                AutomationProperties.AutomationId="VoiceBubbleAnalyzingButton"
+                                Click="AnalyzingClicked"
+                                Content="Analyzing" />
+                            <Button
+                                AutomationProperties.AutomationId="VoiceBubbleConfirmationButton"
+                                Click="ConfirmationClicked"
+                                Content="Confirmation" />
+                            <Button
+                                AutomationProperties.AutomationId="VoiceBubbleSuccessButton"
+                                Click="SuccessClicked"
+                                Content="Success" />
+                            <Button
+                                AutomationProperties.AutomationId="VoiceBubbleFailedButton"
+                                Click="FailedClicked"
+                                Content="Failed" />
+                            <AppBarSeparator />
+                            <Button
+                                AutomationProperties.AutomationId="VoiceBubbleShortcutButton"
+                                Click="ShortcutClicked"
+                                Content="Shortcut (Ctrl+Alt+Space)"
+                                Style="{StaticResource AccentButtonStyle}" />
+                            <Button
+                                AutomationProperties.AutomationId="VoiceBubbleCancelFlowButton"
+                                Click="CancelClicked"
+                                Content="Cancel (Esc)" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="24">
+                        <ComboBox
+                            x:Name="ExitBox"
+                            MinWidth="180"
+                            AutomationProperties.AutomationId="VoiceBubbleExitBox"
+                            Header="Success exit"
+                            SelectedIndex="0"
+                            SelectionChanged="ExitChanged">
+                            <ComboBoxItem Content="Collapse into icon" />
+                            <ComboBoxItem Content="Slide down" />
+                            <ComboBoxItem Content="Fade" />
+                        </ComboBox>
+                        <ComboBox
+                            x:Name="FailureBox"
+                            MinWidth="220"
+                            AutomationProperties.AutomationId="VoiceBubbleFailureBox"
+                            Header="Failure"
+                            SelectionChanged="FailureChanged" />
+                        <ToggleSwitch
+                            x:Name="CountdownToggle"
+                            AutomationProperties.AutomationId="VoiceBubbleCountdownToggle"
+                            Header="Countdown line"
+                            IsOn="True"
+                            Toggled="CountdownToggled" />
+                        <ToggleSwitch
+                            x:Name="AutoSendToggle"
+                            AutomationProperties.AutomationId="VoiceBubbleAutoSendToggle"
+                            Header="Send after silence" />
+                        <ToggleSwitch
+                            x:Name="LiveWordsToggle"
+                            AutomationProperties.AutomationId="VoiceBubbleLiveWordsToggle"
+                            Header="Live words"
+                            IsOn="True"
+                            Toggled="LiveWordsToggled" />
+                        <ToggleSwitch
+                            x:Name="ThemeToggle"
+                            AutomationProperties.AutomationId="VoiceBubbleThemeToggle"
+                            Header="Theme"
+                            IsOn="True"
+                            OffContent="Light"
+                            OnContent="Dark"
+                            Toggled="ThemeToggled" />
+                    </StackPanel>
+
+                    <TextBlock
+                        x:Name="StatusText"
+                        AutomationProperties.AutomationId="VoiceBubbleStatusText"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}" />
+                </StackPanel>
+            </Border>
+
+            <StackPanel
+                x:Name="SampleSurface"
+                RequestedTheme="Dark"
+                Spacing="20">
+                <Grid
+                    Height="380"
+                    Background="{ThemeResource VoiceBubbleDesktopBrush}"
+                    CornerRadius="8">
+                    <TextBlock
+                        x:Name="HintText"
+                        Margin="24"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Bottom"
+                        Foreground="{ThemeResource VoiceBubbleCaptionBrush}"
+                        Text="Press the shortcut to start listening"
+                        Visibility="Collapsed" />
+                    <voice:WinoVoiceBubble
+                        x:Name="LiveBubble"
+                        AutomationProperties.AutomationId="VoiceBubbleLive"
+                        CancelRequested="LiveCancelRequested"
+                        ConfirmRequested="LiveConfirmRequested"
+                        Dismissed="LiveDismissed"
+                        RetryRequested="LiveRetryRequested"
+                        SendRequested="LiveSendRequested" />
+                </Grid>
+
+                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Every state at rest" />
+                <Grid ColumnSpacing="12" RowSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Style="{StaticResource VoiceBubbleTileStyle}">
+                        <TextBlock Style="{StaticResource VoiceBubbleCaptionStyle}" Text="Listening" />
+                        <voice:WinoVoiceBubble x:Name="ListeningSample" />
+                    </Grid>
+                    <Grid Grid.Column="1" Style="{StaticResource VoiceBubbleTileStyle}">
+                        <TextBlock Style="{StaticResource VoiceBubbleCaptionStyle}" Text="Analyzing" />
+                        <voice:WinoVoiceBubble x:Name="AnalyzingSample" />
+                    </Grid>
+                    <Grid Grid.Column="2" Style="{StaticResource VoiceBubbleTileStyle}">
+                        <TextBlock Style="{StaticResource VoiceBubbleCaptionStyle}" Text="Confirmation, one action" />
+                        <voice:WinoVoiceBubble x:Name="InlineConfirmationSample" />
+                    </Grid>
+                    <Grid Grid.Row="1" Style="{StaticResource VoiceBubbleTileStyle}">
+                        <TextBlock Style="{StaticResource VoiceBubbleCaptionStyle}" Text="Confirmation, steps" />
+                        <voice:WinoVoiceBubble x:Name="StepsConfirmationSample" />
+                    </Grid>
+                    <Grid
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Style="{StaticResource VoiceBubbleTileStyle}">
+                        <TextBlock Style="{StaticResource VoiceBubbleCaptionStyle}" Text="Success" />
+                        <voice:WinoVoiceBubble x:Name="SuccessSample" />
+                    </Grid>
+                    <Grid
+                        Grid.Row="1"
+                        Grid.Column="2"
+                        Style="{StaticResource VoiceBubbleTileStyle}">
+                        <TextBlock Style="{StaticResource VoiceBubbleCaptionStyle}" Text="Failed" />
+                        <voice:WinoVoiceBubble x:Name="FailedSample" />
+                    </Grid>
+                    <Grid Grid.Row="2" Style="{StaticResource VoiceBubbleTileStyle}">
+                        <TextBlock Style="{StaticResource VoiceBubbleCaptionStyle}" Text="Listening, live words" />
+                        <voice:WinoVoiceBubble x:Name="LiveWordsListeningSample" ShowsTranscript="True" />
+                    </Grid>
+                    <Grid
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        Style="{StaticResource VoiceBubbleTileStyle}">
+                        <TextBlock Style="{StaticResource VoiceBubbleCaptionStyle}" Text="Analyzing, live words" />
+                        <voice:WinoVoiceBubble x:Name="LiveWordsAnalyzingSample" ShowsTranscript="True" />
+                    </Grid>
+                </Grid>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

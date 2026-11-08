@@ -82,6 +82,17 @@ public partial class CalendarItemCommandBarFlyout : WinoContextFlyout
             Command = new AsyncRelayCommand(createNotificationAsync)
         }];
     }
+
+    public void AddAssistantCommand(Wino.Core.Domain.Entities.Calendar.CalendarItem calendarItem)
+    {
+        ItemsSource = (ContextFlyoutMenuEntry[])[.. ItemsSource ?? [], new ContextFlyoutCommandEntry
+        {
+            Text = Translator.VoiceBubble_DebugOpenForSelection,
+            AutomationId = "CalendarEventOpenAssistant",
+            Command = new RelayCommand(() => WeakReferenceMessenger.Default.Send(new Wino.Messaging.UI.VoiceSelectionRequested(
+                Wino.Core.Domain.Models.Voice.VoiceLocalSelection.ForEvents(new List<Wino.Core.Domain.Entities.Calendar.CalendarItem> { calendarItem }))))
+        }];
+    }
 #endif
 
     public void ClearMenuItems()

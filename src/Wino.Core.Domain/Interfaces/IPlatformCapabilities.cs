@@ -59,4 +59,7 @@ public interface IPlatformCapabilities
 
     /// <summary>Received attachments can be checked by the operating system before they open (Windows SmartScreen and the attachment manager).</summary>
     bool AttachmentSecurityCheck { get; }
+
+    /// <summary>The app hosts the voice bubble (the Voice Control settings page).</summary>
+    bool VoiceControl { get; }
 }

@@ -1152,6 +1152,10 @@
       "material": "dock_to_left",
       "framework7": "sidebar_right"
     },
+    "Microphone": {
+      "material": "mic",
+      "framework7": "mic"
+    },
     "BenefitDeviceTransfer": {
       "material": "devices",
       "framework7": "arrow_right_arrow_left_square"

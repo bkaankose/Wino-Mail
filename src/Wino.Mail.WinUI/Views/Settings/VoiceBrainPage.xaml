@@ -1,0 +1,202 @@
+﻿<abstract:VoiceBrainPageAbstract
+    x:Class="Wino.Views.Settings.VoiceBrainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Mail.ViewModels.Data"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <DataTemplate x:Key="VoiceBrainFactTemplate" x:DataType="data:VoiceBrainFactItem">
+            <controls:SettingsCard
+                AutomationProperties.Name="{x:Bind Title}"
+                Description="{x:Bind Detail}"
+                Header="{x:Bind Title}">
+                <Button
+                    AutomationProperties.Name="{x:Bind DeleteAutomationName}"
+                    Command="{x:Bind DeleteCommand}"
+                    Style="{ThemeResource SubtleButtonStyle}"
+                    ToolTipService.ToolTip="{x:Bind DeleteAutomationName}">
+                    <coreControls:WinoFontIcon FontSize="16" Icon="Delete" />
+                </Button>
+            </controls:SettingsCard>
+        </DataTemplate>
+
+        <DataTemplate x:Key="VoiceBrainSectionTemplate" x:DataType="data:VoiceBrainSectionItem">
+            <controls:SettingsCard
+                AutomationProperties.Name="{x:Bind Title}"
+                Description="{x:Bind Detail}"
+                Header="{x:Bind Title}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="Mail" />
+                </controls:SettingsCard.HeaderIcon>
+            </controls:SettingsCard>
+        </DataTemplate>
+
+        <Style
+            x:Key="VoiceBrainGroupHeaderStyle"
+            BasedOn="{StaticResource BodyStrongTextBlockStyle}"
+            TargetType="TextBlock">
+            <Setter Property="Margin" Value="1,16,0,4" />
+        </Style>
+    </Page.Resources>
+
+    <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
+        <ProgressBar
+            AutomationProperties.AutomationId="VoiceBrainLoading"
+            AutomationProperties.Name="{x:Bind domain:Translator.VoiceBrain_Loading, Mode=OneTime}"
+            IsIndeterminate="True"
+            Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay}" />
+
+        <InfoBar
+            AutomationProperties.AutomationId="VoiceBrainOffline"
+            IsClosable="False"
+            IsOpen="{x:Bind ViewModel.IsOffline, Mode=OneWay}"
+            Message="{x:Bind domain:Translator.VoiceBrain_Offline, Mode=OneTime}"
+            Severity="Warning">
+            <InfoBar.ActionButton>
+                <Button
+                    AutomationProperties.AutomationId="VoiceBrainRetryButton"
+                    Command="{x:Bind ViewModel.RefreshCommand}"
+                    Content="{x:Bind domain:Translator.Buttons_TryAgain, Mode=OneTime}" />
+            </InfoBar.ActionButton>
+        </InfoBar>
+
+        <InfoBar
+            AutomationProperties.AutomationId="VoiceBrainActionFailed"
+            IsClosable="False"
+            IsOpen="{x:Bind ViewModel.IsActionFailed, Mode=OneWay}"
+            Message="{x:Bind domain:Translator.VoiceBrain_ActionFailed, Mode=OneTime}"
+            Severity="Error" />
+
+        <Border
+            Padding="24"
+            AutomationProperties.AutomationId="VoiceBrainEmptyState"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay}">
+            <StackPanel HorizontalAlignment="Center" Spacing="8">
+                <Viewbox
+                    Width="32"
+                    Height="32"
+                    HorizontalAlignment="Center">
+                    <coreControls:WinoFontIcon Icon="Lightbulb" />
+                </Viewbox>
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Style="{ThemeResource BodyStrongTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.VoiceBrain_Empty_Title, Mode=OneTime}" />
+                <TextBlock
+                    MaxWidth="420"
+                    HorizontalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="{x:Bind domain:Translator.VoiceBrain_Empty_Description, Mode=OneTime}"
+                    TextAlignment="Center"
+                    TextWrapping="WrapWholeWords" />
+            </StackPanel>
+        </Border>
+
+        <TextBlock
+            Style="{StaticResource VoiceBrainGroupHeaderStyle}"
+            Text="{x:Bind domain:Translator.VoiceBrain_Group_People, Mode=OneTime}"
+            Visibility="{x:Bind ViewModel.HasPeople, Mode=OneWay}" />
+        <ItemsRepeater
+            AutomationProperties.AutomationId="VoiceBrainPeople"
+            ItemTemplate="{StaticResource VoiceBrainFactTemplate}"
+            ItemsSource="{x:Bind ViewModel.People, Mode=OneTime}"
+            Visibility="{x:Bind ViewModel.HasPeople, Mode=OneWay}">
+            <ItemsRepeater.Layout>
+                <StackLayout Spacing="{StaticResource SettingsCardSpacing}" />
+            </ItemsRepeater.Layout>
+        </ItemsRepeater>
+
+        <TextBlock
+            Style="{StaticResource VoiceBrainGroupHeaderStyle}"
+            Text="{x:Bind domain:Translator.VoiceBrain_Group_Accounts, Mode=OneTime}"
+            Visibility="{x:Bind ViewModel.HasAccounts, Mode=OneWay}" />
+        <ItemsRepeater
+            AutomationProperties.AutomationId="VoiceBrainAccounts"
+            ItemTemplate="{StaticResource VoiceBrainFactTemplate}"
+            ItemsSource="{x:Bind ViewModel.Accounts, Mode=OneTime}"
+            Visibility="{x:Bind ViewModel.HasAccounts, Mode=OneWay}">
+            <ItemsRepeater.Layout>
+                <StackLayout Spacing="{StaticResource SettingsCardSpacing}" />
+            </ItemsRepeater.Layout>
+        </ItemsRepeater>
+
+        <TextBlock
+            Style="{StaticResource VoiceBrainGroupHeaderStyle}"
+            Text="{x:Bind domain:Translator.VoiceBrain_Group_Folders, Mode=OneTime}"
+            Visibility="{x:Bind ViewModel.HasFolders, Mode=OneWay}" />
+        <ItemsRepeater
+            AutomationProperties.AutomationId="VoiceBrainFolders"
+            ItemTemplate="{StaticResource VoiceBrainFactTemplate}"
+            ItemsSource="{x:Bind ViewModel.Folders, Mode=OneTime}"
+            Visibility="{x:Bind ViewModel.HasFolders, Mode=OneWay}">
+            <ItemsRepeater.Layout>
+                <StackLayout Spacing="{StaticResource SettingsCardSpacing}" />
+            </ItemsRepeater.Layout>
+        </ItemsRepeater>
+
+        <TextBlock
+            Style="{StaticResource VoiceBrainGroupHeaderStyle}"
+            Text="{x:Bind domain:Translator.VoiceBrain_Group_Defaults, Mode=OneTime}"
+            Visibility="{x:Bind ViewModel.HasDefaults, Mode=OneWay}" />
+        <ItemsRepeater
+            AutomationProperties.AutomationId="VoiceBrainDefaults"
+            ItemTemplate="{StaticResource VoiceBrainFactTemplate}"
+            ItemsSource="{x:Bind ViewModel.Defaults, Mode=OneTime}"
+            Visibility="{x:Bind ViewModel.HasDefaults, Mode=OneWay}">
+            <ItemsRepeater.Layout>
+                <StackLayout Spacing="{StaticResource SettingsCardSpacing}" />
+            </ItemsRepeater.Layout>
+        </ItemsRepeater>
+
+        <TextBlock
+            Style="{StaticResource VoiceBrainGroupHeaderStyle}"
+            Text="{x:Bind domain:Translator.VoiceBrain_Group_Mailboxes, Mode=OneTime}"
+            Visibility="{x:Bind ViewModel.HasSections, Mode=OneWay}" />
+        <ItemsRepeater
+            AutomationProperties.AutomationId="VoiceBrainMailboxes"
+            ItemTemplate="{StaticResource VoiceBrainSectionTemplate}"
+            ItemsSource="{x:Bind ViewModel.Sections, Mode=OneTime}"
+            Visibility="{x:Bind ViewModel.HasSections, Mode=OneWay}">
+            <ItemsRepeater.Layout>
+                <StackLayout Spacing="{StaticResource SettingsCardSpacing}" />
+            </ItemsRepeater.Layout>
+        </ItemsRepeater>
+
+        <TextBlock Style="{StaticResource VoiceBrainGroupHeaderStyle}" Text="{x:Bind domain:Translator.VoiceBrain_Group_Forget, Mode=OneTime}" />
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="VoiceBrainDeleteAllCard"
+            Description="{x:Bind domain:Translator.VoiceBrain_DeleteAll_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.VoiceBrain_DeleteAll_Title, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="Delete" />
+            </controls:SettingsCard.HeaderIcon>
+            <Button
+                AutomationProperties.AutomationId="VoiceBrainDeleteAllButton"
+                Command="{x:Bind ViewModel.DeleteEverythingCommand}"
+                Content="{x:Bind domain:Translator.VoiceBrain_DeleteAll_Button, Mode=OneTime}" />
+        </controls:SettingsCard>
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="VoiceBrainTurnOffCard"
+            Description="{x:Bind domain:Translator.VoiceBrain_TurnOff_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.VoiceBrain_TurnOff_Title, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="Power" />
+            </controls:SettingsCard.HeaderIcon>
+            <Button
+                AutomationProperties.AutomationId="VoiceBrainTurnOffButton"
+                Command="{x:Bind ViewModel.TurnOffPersonalModeCommand}"
+                Content="{x:Bind domain:Translator.VoiceBrain_TurnOff_Button, Mode=OneTime}" />
+        </controls:SettingsCard>
+    </StackPanel>
+</abstract:VoiceBrainPageAbstract>

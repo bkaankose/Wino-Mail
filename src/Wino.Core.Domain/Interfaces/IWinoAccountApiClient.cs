@@ -12,6 +12,7 @@ using Wino.Mail.Api.Contracts.Billing;
 using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Api.Contracts.Store;
 using Wino.Mail.Api.Contracts.Users;
+using Wino.Mail.Api.Contracts.Voice;
 using Wino.Mail.Contracts.Intelligence;
 using Wino.Mail.AI.Abstractions;
 
@@ -28,6 +29,38 @@ public interface IWinoAccountApiClient
     Task<ApiEnvelope<AuthUserDto>> DeleteAvatarAsync(CancellationToken cancellationToken = default)
         => throw new NotSupportedException();
     Task<(byte[] Payload, Guid Revision)?> GetAvatarAsync(CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+
+    /// <summary>
+    /// Opens the voice interpret WebSocket with the signed-in account's token, refreshing it once when the API rejects
+    /// it. The caller owns the returned socket.
+    /// </summary>
+    Task<Models.Voice.VoiceConnectResult> ConnectVoiceAsync(CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+
+    Task<ApiEnvelope<VoiceModeDto>> GetVoiceModeAsync(CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+
+    /// <summary>Switching to <see cref="VoiceMode.Private"/> deletes the brain on the server.</summary>
+    Task<ApiEnvelope<VoiceModeDto>> SetVoiceModeAsync(VoiceMode mode, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+
+    Task<ApiEnvelope<VoiceBrainDto>> GetVoiceBrainAsync(CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+
+    Task<ApiEnvelope<BrainSectionPushResult>> PushVoiceBrainSectionAsync(PushBrainSectionRequest request, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+
+    Task<ApiEnvelope<JsonElement>> DeleteVoiceBrainSectionAsync(BrainMailboxKey mailbox, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+
+    Task<ApiEnvelope<BrainFact>> AddVoiceBrainFactAsync(AddBrainFactRequest request, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+
+    Task<ApiEnvelope<JsonElement>> DeleteVoiceBrainFactAsync(string factId, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+
+    Task<ApiEnvelope<JsonElement>> DeleteVoiceBrainAsync(CancellationToken cancellationToken = default)
         => throw new NotSupportedException();
 
     Task<WinoAccountApiResult<AuthResultDto>> RegisterAsync(string email, string password, CancellationToken cancellationToken = default);
@@ -56,6 +89,7 @@ public interface IWinoAccountApiClient
     /// <param name="context">A <see cref="RewriteContexts"/> value: reading a received message or composing a draft.</param>
     Task<ApiEnvelope<AiTextResultDto>> RewriteAsync(string html, string mode, string language, string context, CancellationToken cancellationToken = default);
     Task<ApiEnvelope<CheckoutSessionResultDto>> CreateCheckoutSessionAsync(string productCode, CancellationToken cancellationToken = default);
+    Task<ApiEnvelope<CustomerPortalResultDto>> CreateCustomerPortalSessionAsync(CancellationToken cancellationToken = default);
     Task<ApiEnvelope<BillingStatusResultDto>> GetBillingStatusAsync(CancellationToken cancellationToken = default);
     Task<ApiEnvelope<StoreCollectionsIdTicketResultDto>> CreateStoreCollectionsIdTicketAsync(CancellationToken cancellationToken = default);
     /// <summary>Moves a Microsoft Store Unlimited Accounts purchase onto the signed-in Wino Account.</summary>

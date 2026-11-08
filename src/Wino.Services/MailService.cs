@@ -17,6 +17,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Misc;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.MailItem;
@@ -595,7 +596,9 @@ public class MailService : BaseDatabaseService, IMailService
 
         if (options.PreFetchMailCopies != null && !options.IsCategoryView)
         {
-            var prefetched = ApplyOptionsToPreFetchedMails(options);
+            var prefetched = ApplyOptionsToPreFetchedMails(options)
+                .Where(mail => MailSenderClassifier.Matches(options.SenderKind, mail.FromAddress, mail.FromName))
+                .ToList();
             var hydrated = await ExpandAndHydrateAsync(prefetched, options, existingIds, cancellationToken).ConfigureAwait(false);
             stopwatch.Stop();
             _logger.Debug(
@@ -622,9 +625,11 @@ public class MailService : BaseDatabaseService, IMailService
             existingIds,
             cancellationToken).ConfigureAwait(false);
 
+        // The sender kind has no column: it is decided per page, so a page can come back shorter than asked for.
         var seeds = pinned
             .Concat(regular)
             .Where(mail => !existingIds.Contains(mail.UniqueId))
+            .Where(mail => MailSenderClassifier.Matches(options.SenderKind, mail.FromAddress, mail.FromName))
             .DistinctBy(mail => mail.UniqueId)
             .ToList();
         var queryMilliseconds = stopwatch.ElapsedMilliseconds;

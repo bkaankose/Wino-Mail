@@ -15,6 +15,7 @@ public sealed partial class MacPageRegistry
     partial void RegisterBackupSettingsPages();
     partial void RegisterWinoAccountPages();
     partial void RegisterCompanionSettingsPages();
+    partial void RegisterVoiceSettingsPages();
     partial void RegisterAccountExtrasSettingsPages();
     partial void RegisterSignatureSettingsPages();
     partial void RegisterFilterSettingsPages();
@@ -59,6 +60,7 @@ public sealed partial class MacPageRegistry
         RegisterBackupSettingsPages();
         RegisterWinoAccountPages();
         RegisterCompanionSettingsPages();
+        RegisterVoiceSettingsPages();
         RegisterAccountExtrasSettingsPages();
         RegisterSignatureSettingsPages();
         RegisterFilterSettingsPages();

@@ -61,7 +61,8 @@ public static class CoreContainerSetup
             () => provider.GetService<IRelaySocketCoordinator>(),
             () => provider.GetRequiredService<ISyncCoordinator>(),
             () => provider.GetService<IAppPolicyAcceptanceSyncService>(),
-            () => provider.GetServices<IStartupInitializer>()));
+            () => provider.GetServices<IStartupInitializer>(),
+            () => provider.GetService<IVoiceBrainService>()));
         services.AddSingleton<IApplicationRuntime>(provider => new ApplicationRuntime(
             provider.GetRequiredService<ISynchronizationManager>(),
             provider.GetRequiredService<IAccountService>(),
@@ -78,6 +79,7 @@ public static class CoreContainerSetup
         services.AddTransient<IOutlookChangeProcessor, OutlookChangeProcessor>();
         services.AddTransient<IWinoRequestProcessor, WinoRequestProcessor>();
         services.AddTransient<IWinoRequestDelegator, WinoRequestDelegator>();
+        services.AddTransient<IVoicePlanExecutor, Services.Voice.VoicePlanExecutor>();
         services.AddTransient<IMailFilterExecutor, MailFilterExecutor>();
         services.AddTransient<IMailFilterProviderService, MailFilterProviderService>();
         services.AddTransient<IProviderFeatureAuthorizationService, ProviderFeatureAuthorizationService>();

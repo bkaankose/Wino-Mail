@@ -113,14 +113,16 @@ internal static class Composition
             isAppStoreBuild: false));
 #endif
         // The companion's global shortcut is a Carbon hotkey (MacCompanionHotKeyController).
+        services.AddSingleton<IMicrophoneService, AppleMicrophoneService>();
         services.AddSingleton<MacGlobalHotKeyService>();
         services.AddSingleton<MacCompanionHotKeyController>();
+        services.AddSingleton<Infrastructure.Voice.MacVoiceHotKeyAccess>();
         // The tray is the menu bar icon (MacStatusItemController), so every close behaviour is offered.
         // Additional windows are the pop-out reader, composer and event details windows; the global
         // hotkey is the companion shortcut. The Microsoft Store stays unsupported on macOS.
         services.AddSingleton<IPlatformCapabilities>(new PlatformCapabilities(
             Printing: true, PdfExport: true, Smime: true, AdditionalWindows: true, Notifications: true, NotificationActions: true,
-            StartupIntegration: true, Tray: true, GlobalHotkeys: true, GeneralActivation: true,
+            StartupIntegration: true, Tray: true, GlobalHotkeys: true, GeneralActivation: true, VoiceControl: true,
             // Live notifications need APNs and the user's opt-in (mailbox credentials go through Wino servers).
             RemoteNotifications: false, KeyboardShortcuts: true, FileBackup: true, Purchases: true,
             // The Dock badge launches the app; there is one Dock tile, so the taskbar identity never follows the mode.
@@ -160,6 +162,10 @@ internal static class Composition
         services.AddSingleton<AppKitNavigationService>(provider => new(provider, dispatcher, host));
         services.AddSingleton<INavigationService>(provider => provider.GetRequiredService<AppKitNavigationService>());
         services.RegisterMacViewModels();
+#if DEBUG
+        if (Environment.GetCommandLineArgs().Contains(Infrastructure.Voice.ReadOnlyVoiceBrainService.LaunchArgument))
+            services.AddSingleton<IVoiceBrainService, Infrastructure.Voice.ReadOnlyVoiceBrainService>();
+#endif
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 

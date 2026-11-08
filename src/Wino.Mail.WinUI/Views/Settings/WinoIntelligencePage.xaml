@@ -19,29 +19,6 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-        <!--  One feature chip, matching the add-on card on the Wino Account page. Only the glyph carries the brand.  -->
-        <Style x:Key="PromoChipStyle" TargetType="Border">
-            <Setter Property="Padding" Value="10,4" />
-            <Setter Property="Background" Value="{ThemeResource ControlFillColorDefaultBrush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="12" />
-        </Style>
-        <!--  An explicit Style replaces the implicit WinoFontIcon style, so it must carry the Wino icon font itself.  -->
-        <Style x:Key="PromoChipIconStyle" TargetType="coreControls:WinoFontIcon">
-            <Setter Property="FontFamily" Value="{ThemeResource WinoIconFontFamily}" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Foreground" Value="{ThemeResource WinoIntelligenceBrandIconBrush}" />
-        </Style>
-        <Style
-            x:Key="PromoChipTextStyle"
-            BasedOn="{StaticResource CaptionTextBlockStyle}"
-            TargetType="TextBlock">
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
-        </Style>
-
         <DataTemplate x:Key="IntelligenceMailboxTemplate" x:DataType="viewModelData:WinoIntelligenceMailboxItemViewModel">
             <controls:SettingsCard
                 AutomationProperties.AutomationId="{x:Bind ManageAutomationId}"
@@ -81,11 +58,23 @@
             </controls:SettingsCard>
         </DataTemplate>
 
+        <DataTemplate x:Key="IntelligencePerkTemplate" x:DataType="intelligence:IntelligencePerk">
+            <controls:SettingsCard Description="{x:Bind Description}" Header="{x:Bind Title}">
+                <controls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="{x:Bind Icon}" />
+                </controls:SettingsCard.HeaderIcon>
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="{x:Bind TrailingText}"
+                    TextAlignment="Right" />
+            </controls:SettingsCard>
+        </DataTemplate>
+
         <DataTemplate x:Key="IntelligenceUsageBucketTemplate" x:DataType="intelligence:IntelligenceUsageItem">
             <Grid
-                Margin="0,0,0,8"
+                Margin="0,0,0,12"
                 ColumnSpacing="12"
-                RowSpacing="4">
+                RowSpacing="6">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
@@ -109,6 +98,12 @@
                     Value="{x:Bind Percentage}" />
             </Grid>
         </DataTemplate>
+
+        <Style x:Key="IntelligenceBadgeStyle" TargetType="Border">
+            <Setter Property="Padding" Value="8,2" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="CornerRadius" Value="4" />
+        </Style>
     </Page.Resources>
 
     <Grid>
@@ -117,8 +112,9 @@
                 MaxWidth="1000"
                 Padding="0,16,24,40"
                 HorizontalAlignment="Stretch"
-                Spacing="12">
+                Spacing="4">
                 <StackPanel
+                    Margin="0,0,0,8"
                     Orientation="Horizontal"
                     Spacing="8"
                     Visibility="{x:Bind ViewModel.IsIntelligenceRefreshing, Mode=OneWay}">
@@ -156,218 +152,252 @@
                             Content="{x:Bind domain:Translator.Buttons_Retry, Mode=OneTime}" />
                     </InfoBar.ActionButton>
                 </InfoBar>
-                <StackPanel
-                    x:Name="SignedOutPanel"
-                    x:Load="{x:Bind ViewModel.IsSignedOut, Mode=OneWay}"
-                    Spacing="12">
-                    <Border
-                        Padding="20"
-                        Background="{ThemeResource WinoIntelligenceBrandSurfaceBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="4">
-                        <Grid ColumnSpacing="20">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <illustrations:WinoIntelligencePromotionIllustration
-                                Width="96"
-                                Height="96"
-                                VerticalAlignment="Top" />
-                            <StackPanel Grid.Column="1" Spacing="12">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.WinoIntelligence_PromotionTitle, Mode=OneTime}" />
-                                    <TextBlock
-                                        MaxWidth="640"
-                                        HorizontalAlignment="Left"
-                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Text="{x:Bind domain:Translator.WinoIntelligence_PromotionDescription, Mode=OneTime}"
-                                        TextWrapping="WrapWholeWords" />
-                                </StackPanel>
-                                <TextBlock
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="{x:Bind domain:Translator.WinoIntelligence_AccountRequired, Mode=OneTime}"
-                                    TextWrapping="WrapWholeWords" />
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Button
-                                        AutomationProperties.AutomationId="WinoIntelligenceCreateAccountButton"
-                                        Command="{x:Bind ViewModel.RegisterCommand}"
-                                        Content="{x:Bind domain:Translator.Buttons_CreateAccount, Mode=OneTime}"
-                                        Style="{StaticResource AccentButtonStyle}" />
-                                    <Button
-                                        AutomationProperties.AutomationId="WinoIntelligenceSignInButton"
-                                        Command="{x:Bind ViewModel.SignInCommand}"
-                                        Content="{x:Bind domain:Translator.Buttons_SignIn, Mode=OneTime}" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-                </StackPanel>
+                <InfoBar
+                    AutomationProperties.AutomationId="WinoIntelligenceSubscriptionEndedInfoBar"
+                    IsClosable="False"
+                    IsOpen="{x:Bind ViewModel.IsAiPackEnded, Mode=OneWay}"
+                    Message="{x:Bind ViewModel.SubscriptionEndedText, Mode=OneWay}"
+                    Severity="Warning"
+                    Visibility="{x:Bind helpers:XamlHelpers.TextToVisibility(ViewModel.SubscriptionEndedText), Mode=OneWay}" />
+                <InfoBar
+                    AutomationProperties.AutomationId="WinoIntelligenceConsentErrorInfoBar"
+                    IsClosable="False"
+                    IsOpen="{x:Bind ViewModel.HasConsentError, Mode=OneWay}"
+                    Message="{x:Bind ViewModel.ConsentErrorMessage, Mode=OneWay}"
+                    Severity="Error"
+                    Visibility="{x:Bind ViewModel.HasConsentError, Mode=OneWay}" />
+                <InfoBar
+                    AutomationProperties.AutomationId="WinoIntelligenceConsentDeletionPendingInfoBar"
+                    IsClosable="False"
+                    IsOpen="{x:Bind ViewModel.IsConsentDeletionPending, Mode=OneWay}"
+                    Message="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentDeletionPending, Mode=OneTime}"
+                    Severity="Warning"
+                    Visibility="{x:Bind ViewModel.IsConsentDeletionPending, Mode=OneWay}" />
+                <InfoBar
+                    AutomationProperties.AutomationId="WinoIntelligenceConsentDeletionFailedInfoBar"
+                    IsClosable="False"
+                    IsOpen="{x:Bind ViewModel.IsConsentDeletionFailed, Mode=OneWay}"
+                    Message="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentDeletionFailed, Mode=OneTime}"
+                    Severity="Error"
+                    Visibility="{x:Bind ViewModel.IsConsentDeletionFailed, Mode=OneWay}" />
 
+                <!--  Without access the page explains the subscription with the same rows it shows once subscribed, locked.  -->
                 <StackPanel
-                    x:Name="SignedInPanel"
-                    x:Load="{x:Bind ViewModel.IsSignedIn, Mode=OneWay}"
-                    Spacing="12">
-                    <!--
-                        Signed in, not subscribed. Same silhouette as the add-on card on the Wino Account page:
-                        illustration, what it does, the feature chips, and one accent action.
-                    -->
+                    x:Name="OfferPanel"
+                    x:Load="{x:Bind ViewModel.HasNoIntelligenceAccess, Mode=OneWay}"
+                    Spacing="4">
                     <Border
+                        Margin="0,0,0,8"
                         Padding="20"
+                        AutomationProperties.AutomationId="WinoIntelligenceHero"
                         Background="{ThemeResource WinoIntelligenceBrandSurfaceBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1"
-                        CornerRadius="4"
-                        Visibility="{x:Bind ViewModel.AiPackAddOn.IsNotPurchased, Mode=OneWay}">
+                        CornerRadius="8">
                         <Grid ColumnSpacing="20">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <illustrations:WinoIntelligencePromotionIllustration
                                 Width="96"
                                 Height="96"
                                 VerticalAlignment="Center" />
-                            <StackPanel Grid.Column="1" Spacing="12">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackPromoTitle, Mode=OneTime}" />
-                                    <TextBlock
-                                        MaxWidth="520"
-                                        HorizontalAlignment="Left"
-                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackPromoDescription, Mode=OneTime}"
-                                        TextWrapping="WrapWholeWords" />
-                                </StackPanel>
-                                <controls:WrapPanel HorizontalSpacing="8" VerticalSpacing="8">
-                                    <Border Style="{StaticResource PromoChipStyle}">
-                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <coreControls:WinoFontIcon Icon="DailyBriefing" Style="{StaticResource PromoChipIconStyle}" />
-                                            <TextBlock Style="{StaticResource PromoChipTextStyle}" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureBriefing, Mode=OneTime}" />
-                                        </StackPanel>
-                                    </Border>
-                                    <Border Style="{StaticResource PromoChipStyle}">
-                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <coreControls:WinoFontIcon Icon="Note" Style="{StaticResource PromoChipIconStyle}" />
-                                            <TextBlock Style="{StaticResource PromoChipTextStyle}" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureSummarize, Mode=OneTime}" />
-                                        </StackPanel>
-                                    </Border>
-                                    <Border Style="{StaticResource PromoChipStyle}">
-                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <coreControls:WinoFontIcon Icon="Translate" Style="{StaticResource PromoChipIconStyle}" />
-                                            <TextBlock Style="{StaticResource PromoChipTextStyle}" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureTranslate, Mode=OneTime}" />
-                                        </StackPanel>
-                                    </Border>
-                                    <Border Style="{StaticResource PromoChipStyle}">
-                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <coreControls:WinoFontIcon Icon="Edit" Style="{StaticResource PromoChipIconStyle}" />
-                                            <TextBlock Style="{StaticResource PromoChipTextStyle}" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureRewrite, Mode=OneTime}" />
-                                        </StackPanel>
-                                    </Border>
-                                    <Border Style="{StaticResource PromoChipStyle}">
-                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <coreControls:WinoFontIcon Icon="Tag" Style="{StaticResource PromoChipIconStyle}" />
-                                            <TextBlock Style="{StaticResource PromoChipTextStyle}" Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackFeatureLabels, Mode=OneTime}" />
-                                        </StackPanel>
-                                    </Border>
-                                </controls:WrapPanel>
-                                <TextBlock
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackLocalNote, Mode=OneTime}"
-                                    TextWrapping="WrapWholeWords" />
-                            </StackPanel>
                             <StackPanel
-                                Grid.Column="2"
-                                MinWidth="180"
+                                Grid.Column="1"
                                 VerticalAlignment="Center"
-                                Spacing="8">
-                                <Button
-                                    HorizontalAlignment="Stretch"
-                                    AutomationProperties.AutomationId="WinoIntelligenceSubscribeButton"
-                                    Command="{x:Bind ViewModel.PurchaseAddOnCommand}"
-                                    CommandParameter="{x:Bind ViewModel.AiPackAddOn}"
-                                    Content="{x:Bind domain:Translator.WinoAccount_Management_AiPackGetButton, Mode=OneTime}"
-                                    Style="{StaticResource AccentButtonStyle}" />
-                                <HyperlinkButton
-                                    HorizontalAlignment="Stretch"
-                                    HorizontalContentAlignment="Center"
-                                    AutomationProperties.AutomationId="WinoIntelligenceLearnMoreButton"
-                                    Content="{x:Bind domain:Translator.Buttons_LearnMore, Mode=OneTime}"
-                                    NavigateUri="https://www.winomail.app/intelligence" />
+                                Spacing="4">
+                                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.WinoIntelligence_Hero_Title, Mode=OneTime}" />
                                 <TextBlock
-                                    HorizontalAlignment="Right"
+                                    MaxWidth="640"
+                                    HorizontalAlignment="Left"
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="{x:Bind domain:Translator.WinoAccount_Management_AiPackPriceAtCheckout, Mode=OneTime}"
-                                    TextAlignment="Right"
+                                    Text="{x:Bind domain:Translator.WinoIntelligence_Hero_Description, Mode=OneTime}"
                                     TextWrapping="WrapWholeWords" />
                             </StackPanel>
                         </Grid>
                     </Border>
 
+                    <controls:SettingsExpander
+                        AutomationProperties.AutomationId="WinoIntelligenceIncludedExpander"
+                        Description="{x:Bind domain:Translator.WinoIntelligence_Included_Description, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.WinoIntelligence_Included_Title, Mode=OneTime}"
+                        IsExpanded="True"
+                        ItemTemplate="{StaticResource IntelligencePerkTemplate}"
+                        ItemsSource="{x:Bind ViewModel.OfferPerks}">
+                        <controls:SettingsExpander.HeaderIcon>
+                            <coreControls:WinoFontIcon Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" Icon="WinoIntelligence" />
+                        </controls:SettingsExpander.HeaderIcon>
+                    </controls:SettingsExpander>
+
                     <controls:SettingsCard
-                        AutomationProperties.AutomationId="WinoIntelligenceSubscriptionCard"
-                        Description="{x:Bind ViewModel.AiPackRenewalOrCancellationText, Mode=OneWay}"
-                        Header="{x:Bind domain:Translator.WinoIntelligence_SubscriptionTitle, Mode=OneTime}"
-                        Visibility="{x:Bind ViewModel.HasIntelligenceAccess, Mode=OneWay}">
+                        AutomationProperties.AutomationId="WinoIntelligencePrivacyCard"
+                        Description="{x:Bind domain:Translator.WinoIntelligence_Privacy_Card_Description, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.WinoIntelligence_Privacy_Card_Title, Mode=OneTime}">
+                        <controls:SettingsCard.HeaderIcon>
+                            <coreControls:WinoFontIcon Icon="Shield" />
+                        </controls:SettingsCard.HeaderIcon>
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard
+                        x:Name="SignedOutCtaCard"
+                        x:Load="{x:Bind ViewModel.IsSignedOut, Mode=OneWay}"
+                        AutomationProperties.AutomationId="WinoIntelligenceSignedOutCtaCard"
+                        Description="{x:Bind domain:Translator.WinoIntelligence_Cta_SignedOut_Description, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.WinoIntelligence_Cta_SignedOut_Title, Mode=OneTime}">
+                        <controls:SettingsCard.HeaderIcon>
+                            <coreControls:WinoFontIcon Icon="Person" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button
+                                AutomationProperties.AutomationId="WinoIntelligenceSignInButton"
+                                Command="{x:Bind ViewModel.GetWinoIntelligenceCommand}"
+                                Content="{x:Bind domain:Translator.WinoIntelligence_GetButton, Mode=OneTime}"
+                                Style="{StaticResource AccentButtonStyle}" />
+                            <Button
+                                AutomationProperties.AutomationId="WinoIntelligenceCreateAccountButton"
+                                Command="{x:Bind ViewModel.RegisterCommand}"
+                                Content="{x:Bind domain:Translator.Buttons_CreateAccount, Mode=OneTime}" />
+                        </StackPanel>
+                    </controls:SettingsCard>
+
+                    <!--  Stripe Checkout states the price in the customer's own currency; the app does not repeat it.  -->
+                    <controls:SettingsCard
+                        x:Name="SignedInCtaCard"
+                        x:Load="{x:Bind ViewModel.IsSignedIn, Mode=OneWay}"
+                        AutomationProperties.AutomationId="WinoIntelligenceSignedInCtaCard"
+                        Description="{x:Bind domain:Translator.WinoIntelligence_Cta_SignedIn_Description, Mode=OneTime}"
+                        Header="{x:Bind ViewModel.IntelligenceCtaTitle, Mode=OneWay}">
                         <controls:SettingsCard.HeaderIcon>
                             <coreControls:WinoFontIcon Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" Icon="WinoIntelligence" />
                         </controls:SettingsCard.HeaderIcon>
-                        <DropDownButton
-                            AutomationProperties.AutomationId="WinoIntelligenceQuotaButton"
-                            Content="{x:Bind domain:Translator.WinoIntelligence_AvailableQuota, Mode=OneTime}"
-                            IsEnabled="{x:Bind ViewModel.IsIntelligenceUsageAvailable, Mode=OneWay}">
-                            <DropDownButton.Flyout>
-                                <Flyout Placement="BottomEdgeAlignedRight">
-                                    <StackPanel Width="320" Spacing="6">
-                                        <ItemsControl
-                                            AutomationProperties.AutomationId="WinoIntelligenceQuotaList"
-                                            ItemTemplate="{StaticResource IntelligenceUsageBucketTemplate}"
-                                            ItemsSource="{x:Bind ViewModel.IntelligenceUsageItems}" />
-                                        <TextBlock
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Text="{x:Bind ViewModel.IntelligenceResetText, Mode=OneWay}"
-                                            Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ViewModel.IntelligenceResetText), Mode=OneWay}" />
-                                    </StackPanel>
-                                </Flyout>
-                            </DropDownButton.Flyout>
-                        </DropDownButton>
+                        <StackPanel HorizontalAlignment="Right" Spacing="4">
+                            <StackPanel
+                                HorizontalAlignment="Right"
+                                Orientation="Horizontal"
+                                Spacing="8">
+                                <HyperlinkButton
+                                    AutomationProperties.AutomationId="WinoIntelligenceLearnMoreButton"
+                                    Content="{x:Bind domain:Translator.Buttons_LearnMore, Mode=OneTime}"
+                                    NavigateUri="https://www.winomail.app/intelligence" />
+                                <Button
+                                    AutomationProperties.AutomationId="WinoIntelligenceSubscribeButton"
+                                    Command="{x:Bind ViewModel.PurchaseAddOnCommand}"
+                                    CommandParameter="{x:Bind ViewModel.AiPackAddOn}"
+                                    Content="{x:Bind ViewModel.IntelligenceCtaButtonText, Mode=OneWay}"
+                                    Style="{StaticResource AccentButtonStyle}" />
+                            </StackPanel>
+                            <TextBlock
+                                HorizontalAlignment="Right"
+                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ViewModel.AiPackAddOn.ErrorText, Mode=OneWay}"
+                                TextAlignment="Right"
+                                TextWrapping="WrapWholeWords"
+                                Visibility="{x:Bind ViewModel.AiPackAddOn.ShowErrorState, Mode=OneWay}" />
+                        </StackPanel>
                     </controls:SettingsCard>
 
-                    <InfoBar
-                        AutomationProperties.AutomationId="WinoIntelligenceConsentErrorInfoBar"
-                        IsClosable="False"
-                        IsOpen="{x:Bind ViewModel.HasConsentError, Mode=OneWay}"
-                        Message="{x:Bind ViewModel.ConsentErrorMessage, Mode=OneWay}"
-                        Severity="Error"
-                        Visibility="{x:Bind ViewModel.HasConsentError, Mode=OneWay}" />
-                    <InfoBar
-                        AutomationProperties.AutomationId="WinoIntelligenceConsentDeletionPendingInfoBar"
-                        IsClosable="False"
-                        IsOpen="{x:Bind ViewModel.IsConsentDeletionPending, Mode=OneWay}"
-                        Message="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentDeletionPending, Mode=OneTime}"
-                        Severity="Warning"
-                        Visibility="{x:Bind ViewModel.IsConsentDeletionPending, Mode=OneWay}" />
-                    <InfoBar
-                        AutomationProperties.AutomationId="WinoIntelligenceConsentDeletionFailedInfoBar"
-                        IsClosable="False"
-                        IsOpen="{x:Bind ViewModel.IsConsentDeletionFailed, Mode=OneWay}"
-                        Message="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentDeletionFailed, Mode=OneTime}"
-                        Severity="Error"
-                        Visibility="{x:Bind ViewModel.IsConsentDeletionFailed, Mode=OneWay}" />
+                    <controls:SettingsCard
+                        AutomationProperties.AutomationId="WinoIntelligenceLockedLanguagesCard"
+                        Description="{x:Bind domain:Translator.WinoIntelligence_Languages_Description, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.WinoIntelligence_Languages_Title, Mode=OneTime}"
+                        IsEnabled="False">
+                        <controls:SettingsCard.HeaderIcon>
+                            <coreControls:WinoFontIcon Icon="Translate" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind domain:Translator.WinoIntelligence_Locked_Caption, Mode=OneTime}" />
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard
+                        AutomationProperties.AutomationId="WinoIntelligenceLockedMailClassificationCard"
+                        Description="{x:Bind domain:Translator.WinoIntelligence_MailClassification_Description, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.WinoIntelligence_MailClassification_Title, Mode=OneTime}"
+                        IsEnabled="False">
+                        <controls:SettingsCard.HeaderIcon>
+                            <coreControls:WinoFontIcon Icon="Mail" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind domain:Translator.WinoIntelligence_Locked_Caption, Mode=OneTime}" />
+                    </controls:SettingsCard>
+                </StackPanel>
+
+                <StackPanel
+                    x:Name="SubscribedPanel"
+                    x:Load="{x:Bind ViewModel.HasIntelligenceAccess, Mode=OneWay}"
+                    Spacing="4">
+                    <controls:SettingsExpander
+                        AutomationProperties.AutomationId="WinoIntelligenceSubscriptionExpander"
+                        Description="{x:Bind ViewModel.SubscriptionRenewalLine, Mode=OneWay}"
+                        Header="{x:Bind domain:Translator.WinoIntelligence_Subscription_Title, Mode=OneTime}"
+                        IsExpanded="True">
+                        <controls:SettingsExpander.HeaderIcon>
+                            <coreControls:WinoFontIcon Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" Icon="WinoIntelligence" />
+                        </controls:SettingsExpander.HeaderIcon>
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Border
+                                AutomationProperties.AutomationId="WinoIntelligenceActiveBadge"
+                                Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
+                                Style="{StaticResource IntelligenceBadgeStyle}"
+                                Visibility="{x:Bind ViewModel.IsWithinLimits, Mode=OneWay}">
+                                <TextBlock
+                                    Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind domain:Translator.WinoAccount_Management_ActiveShort, Mode=OneTime}" />
+                            </Border>
+                            <Border
+                                AutomationProperties.AutomationId="WinoIntelligenceLimitReachedBadge"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                Style="{StaticResource IntelligenceBadgeStyle}"
+                                Visibility="{x:Bind ViewModel.IsLimitReached, Mode=OneWay}">
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind domain:Translator.WinoIntelligence_Status_LimitReached, Mode=OneTime}" />
+                            </Border>
+                            <HyperlinkButton
+                                x:Name="ManageSubscriptionButton"
+                                x:Load="{x:Bind ViewModel.CanManageSubscription, Mode=OneWay}"
+                                AutomationProperties.AutomationId="WinoIntelligenceManageSubscriptionButton"
+                                Command="{x:Bind ViewModel.ManageSubscriptionCommand}"
+                                Content="{x:Bind domain:Translator.WinoIntelligence_ManageSubscription, Mode=OneTime}" />
+                            <Button
+                                AutomationProperties.AutomationId="WinoIntelligenceRefreshButton"
+                                Command="{x:Bind ViewModel.RefreshPurchasesCommand}"
+                                Content="{x:Bind domain:Translator.Buttons_Refresh, Mode=OneTime}" />
+                        </StackPanel>
+                        <controls:SettingsExpander.Items>
+                            <controls:SettingsCard
+                                HorizontalContentAlignment="Stretch"
+                                AutomationProperties.AutomationId="WinoIntelligenceUsageCard"
+                                ContentAlignment="Vertical">
+                                <StackPanel Spacing="12">
+                                    <InfoBar
+                                        AutomationProperties.AutomationId="WinoIntelligenceQuotaExhaustedInfoBar"
+                                        IsClosable="False"
+                                        IsOpen="{x:Bind ViewModel.HasExhaustedBuckets, Mode=OneWay}"
+                                        Message="{x:Bind ViewModel.ExhaustedBucketsText, Mode=OneWay}"
+                                        Severity="Informational"
+                                        Visibility="{x:Bind ViewModel.HasExhaustedBuckets, Mode=OneWay}" />
+                                    <ItemsControl
+                                        AutomationProperties.AutomationId="WinoIntelligenceUsageList"
+                                        ItemTemplate="{StaticResource IntelligenceUsageBucketTemplate}"
+                                        ItemsSource="{x:Bind ViewModel.IntelligenceUsageItems}" />
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Text="{x:Bind domain:Translator.WinoAccount_Management_IntelligenceUsageUnavailable, Mode=OneTime}"
+                                        TextWrapping="WrapWholeWords"
+                                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsIntelligenceUsageAvailable), Mode=OneWay}" />
+                                </StackPanel>
+                            </controls:SettingsCard>
+                        </controls:SettingsExpander.Items>
+                    </controls:SettingsExpander>
 
                     <controls:SettingsExpander
-                        AutomationProperties.AutomationId="WinoIntelligenceMailboxesExpander"
+                        AutomationProperties.AutomationId="WinoIntelligenceProviderAccessExpander"
                         Description="{x:Bind ViewModel.IntelligenceConsentStatusText, Mode=OneWay}"
-                        Header="{x:Bind domain:Translator.WinoIntelligence_MailboxesTitle, Mode=OneTime}"
-                        IsExpanded="{x:Bind ViewModel.IsConsentGranted, Mode=OneWay}"
-                        ItemTemplate="{StaticResource IntelligenceMailboxTemplate}"
-                        ItemsSource="{x:Bind helpers:XamlHelpers.ItemsWhen(ViewModel.IsConsentGranted, ViewModel.IntelligenceMailboxes), Mode=OneWay}">
+                        Header="{x:Bind domain:Translator.WinoIntelligence_Privacy_Title, Mode=OneTime}">
                         <controls:SettingsExpander.HeaderIcon>
-                            <coreControls:WinoFontIcon Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" Icon="Mail" />
+                            <coreControls:WinoFontIcon Icon="Shield" />
                         </controls:SettingsExpander.HeaderIcon>
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <ProgressRing
@@ -378,20 +408,36 @@
                             <ToggleSwitch
                                 x:Name="IntelligenceConsentToggle"
                                 AutomationProperties.AutomationId="WinoIntelligenceConsentToggle"
+                                AutomationProperties.Name="{x:Bind domain:Translator.WinoIntelligence_Privacy_Title, Mode=OneTime}"
                                 IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsConsentBusy), Mode=OneWay}"
                                 IsOn="{x:Bind ViewModel.IsConsentGranted, Mode=OneWay}"
                                 OffContent="{x:Bind domain:Translator.WinoAccount_NotAllowed, Mode=OneTime}"
                                 OnContent="{x:Bind domain:Translator.WinoAccount_Allowed, Mode=OneTime}"
                                 Toggled="IntelligenceConsentToggle_Toggled" />
                         </StackPanel>
+                        <controls:SettingsExpander.Items>
+                            <controls:SettingsCard>
+                                <controls:SettingsCard.Description>
+                                    <TextBlock Text="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentDescription, Mode=OneTime}" TextWrapping="WrapWholeWords" />
+                                </controls:SettingsCard.Description>
+                            </controls:SettingsCard>
+                        </controls:SettingsExpander.Items>
+                    </controls:SettingsExpander>
+
+                    <controls:SettingsExpander
+                        AutomationProperties.AutomationId="WinoIntelligenceMailClassificationExpander"
+                        Description="{x:Bind ViewModel.MailClassificationSummary, Mode=OneWay}"
+                        Header="{x:Bind domain:Translator.WinoIntelligence_MailClassification_Title, Mode=OneTime}"
+                        ItemTemplate="{StaticResource IntelligenceMailboxTemplate}"
+                        ItemsSource="{x:Bind helpers:XamlHelpers.ItemsWhen(ViewModel.IsConsentGranted, ViewModel.IntelligenceMailboxes), Mode=OneWay}">
+                        <controls:SettingsExpander.HeaderIcon>
+                            <coreControls:WinoFontIcon Icon="Mail" />
+                        </controls:SettingsExpander.HeaderIcon>
                         <controls:SettingsExpander.ItemsHeader>
-                            <StackPanel
-                                Padding="16,12"
-                                Spacing="12"
-                                Visibility="{x:Bind ViewModel.IsConsentGranted, Mode=OneWay}">
+                            <StackPanel Padding="16,12" Spacing="12">
                                 <TextBlock
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Text="{x:Bind domain:Translator.WinoIntelligence_MailboxesDescription, Mode=OneTime}"
+                                    Text="{x:Bind domain:Translator.WinoIntelligence_MailClassification_ItemsDescription, Mode=OneTime}"
                                     TextWrapping="WrapWholeWords" />
                                 <InfoBar
                                     IsClosable="False"
@@ -402,52 +448,68 @@
                             </StackPanel>
                         </controls:SettingsExpander.ItemsHeader>
                     </controls:SettingsExpander>
+
+                    <controls:SettingsExpander
+                        AutomationProperties.AutomationId="WinoIntelligenceLanguagesExpander"
+                        Description="{x:Bind domain:Translator.WinoIntelligence_Languages_Description, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.WinoIntelligence_Languages_Title, Mode=OneTime}">
+                        <controls:SettingsExpander.HeaderIcon>
+                            <coreControls:WinoFontIcon Icon="Translate" />
+                        </controls:SettingsExpander.HeaderIcon>
+                        <controls:SettingsExpander.Items>
+                            <controls:SettingsCard
+                                AutomationProperties.AutomationId="WinoIntelligenceAiTranslationLanguageCard"
+                                Description="{x:Bind domain:Translator.SettingsAppPreferences_AiDefaultTranslationLanguage_Description, Mode=OneTime}"
+                                Header="{x:Bind domain:Translator.SettingsAppPreferences_AiDefaultTranslationLanguage_Title, Mode=OneTime}">
+                                <ComboBox
+                                    MinWidth="180"
+                                    AutomationProperties.AutomationId="WinoIntelligenceAiTranslationLanguageComboBox"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.SettingsAppPreferences_AiDefaultTranslationLanguage_Title, Mode=OneTime}"
+                                    ItemsSource="{x:Bind ViewModel.AvailableAiLanguages}"
+                                    SelectedItem="{x:Bind ViewModel.SelectedDefaultTranslationLanguage, Mode=TwoWay}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="models:AiTranslateLanguageOption">
+                                            <TextBlock Text="{x:Bind Label}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </controls:SettingsCard>
+
+                            <controls:SettingsCard
+                                AutomationProperties.AutomationId="WinoIntelligenceAiSummarizeLanguageCard"
+                                Description="{x:Bind domain:Translator.SettingsAppPreferences_AiSummarizeLanguage_Description, Mode=OneTime}"
+                                Header="{x:Bind domain:Translator.SettingsAppPreferences_AiSummarizeLanguage_Title, Mode=OneTime}">
+                                <ComboBox
+                                    MinWidth="180"
+                                    AutomationProperties.AutomationId="WinoIntelligenceAiSummarizeLanguageComboBox"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.SettingsAppPreferences_AiSummarizeLanguage_Title, Mode=OneTime}"
+                                    ItemsSource="{x:Bind ViewModel.AvailableAiLanguages}"
+                                    SelectedItem="{x:Bind ViewModel.SelectedSummarizeLanguage, Mode=TwoWay}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="models:AiTranslateLanguageOption">
+                                            <TextBlock Text="{x:Bind Label}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </controls:SettingsCard>
+                        </controls:SettingsExpander.Items>
+                    </controls:SettingsExpander>
+
+                    <controls:SettingsCard
+                        x:Name="VoiceCommandsCard"
+                        x:Load="{x:Bind ViewModel.ShowVoiceCommandsCard, Mode=OneWay}"
+                        AutomationProperties.AutomationId="WinoIntelligenceVoiceCommandsCard"
+                        Description="{x:Bind ViewModel.VoiceUsageText, Mode=OneWay}"
+                        Header="{x:Bind domain:Translator.WinoIntelligence_Voice_Title, Mode=OneTime}">
+                        <controls:SettingsCard.HeaderIcon>
+                            <coreControls:WinoFontIcon Icon="Microphone" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <Button
+                            AutomationProperties.AutomationId="WinoIntelligenceVoiceControlSettingsButton"
+                            Command="{x:Bind ViewModel.OpenVoiceControlCommand}"
+                            Content="{x:Bind domain:Translator.WinoIntelligence_Voice_OpenSettings, Mode=OneTime}" />
+                    </controls:SettingsCard>
                 </StackPanel>
-
-                <controls:SettingsExpander
-                    AutomationProperties.AutomationId="WinoIntelligenceTranslationsExpander"
-                    Description="{x:Bind domain:Translator.SettingsAppPreferences_AiActions_Description}"
-                    Header="{x:Bind domain:Translator.SettingsAppPreferences_AiActions_Title}"
-                    Visibility="{x:Bind ViewModel.HasIntelligenceAccess, Mode=OneWay}">
-                    <controls:SettingsExpander.HeaderIcon>
-                        <coreControls:WinoFontIcon Icon="Translate" />
-                    </controls:SettingsExpander.HeaderIcon>
-                    <controls:SettingsExpander.Items>
-                        <controls:SettingsCard
-                            AutomationProperties.AutomationId="WinoIntelligenceAiTranslationLanguageCard"
-                            Description="{x:Bind domain:Translator.SettingsAppPreferences_AiDefaultTranslationLanguage_Description}"
-                            Header="{x:Bind domain:Translator.SettingsAppPreferences_AiDefaultTranslationLanguage_Title}">
-                            <ComboBox
-                                MinWidth="180"
-                                AutomationProperties.AutomationId="WinoIntelligenceAiTranslationLanguageComboBox"
-                                ItemsSource="{x:Bind ViewModel.AvailableAiLanguages}"
-                                SelectedItem="{x:Bind ViewModel.SelectedDefaultTranslationLanguage, Mode=TwoWay}">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate x:DataType="models:AiTranslateLanguageOption">
-                                        <TextBlock Text="{x:Bind Label}" />
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                        </controls:SettingsCard>
-
-                        <controls:SettingsCard
-                            AutomationProperties.AutomationId="WinoIntelligenceAiSummarizeLanguageCard"
-                            Description="{x:Bind domain:Translator.SettingsAppPreferences_AiSummarizeLanguage_Description}"
-                            Header="{x:Bind domain:Translator.SettingsAppPreferences_AiSummarizeLanguage_Title}">
-                            <ComboBox
-                                MinWidth="180"
-                                AutomationProperties.AutomationId="WinoIntelligenceAiSummarizeLanguageComboBox"
-                                ItemsSource="{x:Bind ViewModel.AvailableAiLanguages}"
-                                SelectedItem="{x:Bind ViewModel.SelectedSummarizeLanguage, Mode=TwoWay}">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate x:DataType="models:AiTranslateLanguageOption">
-                                        <TextBlock Text="{x:Bind Label}" />
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                        </controls:SettingsCard>
-                    </controls:SettingsExpander.Items>
-                </controls:SettingsExpander>
             </StackPanel>
         </ScrollViewer>
     </Grid>

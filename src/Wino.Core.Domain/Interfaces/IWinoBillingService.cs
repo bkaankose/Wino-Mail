@@ -15,6 +15,9 @@ public interface IWinoBillingService
 
     Task<bool> OpenCheckoutAsync(WinoAddOnProductType productType, CancellationToken cancellationToken = default);
 
+    /// <summary>Opens the Stripe Customer Portal for the signed-in Wino Account in the default browser.</summary>
+    Task<bool> OpenCustomerPortalAsync(CancellationToken cancellationToken = default);
+
     Task<ApiEnvelope<BillingStatusResultDto>> GetStatusAsync(CancellationToken cancellationToken = default);
 
     Task<bool> HasUnlimitedAccountsAsync(CancellationToken cancellationToken = default);

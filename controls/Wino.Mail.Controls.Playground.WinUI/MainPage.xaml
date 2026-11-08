@@ -123,6 +123,14 @@
                     <accountIcon:WinoFontIcon Glyph="&#xE0AA;" />
                 </NavigationViewItem.Icon>
             </NavigationViewItem>
+            <NavigationViewItem
+                AutomationProperties.AutomationId="VoiceBubbleNavigationItem"
+                Content="Voice bubble"
+                Tag="voiceBubble">
+                <NavigationViewItem.Icon>
+                    <accountIcon:WinoFontIcon Glyph="&#xE08B;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
         </NavigationView.MenuItems>
         <Grid RowSpacing="8">
             <Grid.RowDefinitions>

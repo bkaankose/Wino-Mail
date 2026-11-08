@@ -81,6 +81,7 @@ public sealed partial class AppDelegate
             _statusItem.SetCompanionEnabled(preferences.IsCompanionEnabled);
             UpdateStatusItem();
             StartCompanionHotKey();
+            StartVoice();
             // Other windows (Settings, compose) keep the Dock icon; the last titled window closing finishes it.
             _windowClosingObserver = NSNotificationCenter.DefaultCenter.AddObserver(NSWindow.WillCloseNotification,
                 _ => NSApplication.SharedApplication.BeginInvokeOnMainThread(TryEnterBackground));
@@ -108,6 +109,7 @@ public sealed partial class AppDelegate
                 _windowClosingObserver.Dispose();
                 _windowClosingObserver = null;
             }
+            StopVoice();
             StopCompanionHotKey();
             // A teardown failure must not abort quitting.
             try { _statusItem?.Dispose(); }

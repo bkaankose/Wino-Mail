@@ -17,6 +17,12 @@ public interface IWinoRequestDelegator
     Task ExecuteAsync(MailOperationPreperationRequest prerperationRequest);
 
     /// <summary>
+    /// Like <see cref="ExecuteAsync(MailOperationPreperationRequest)"/>, but returns what happened instead of showing an
+    /// InfoBar when the requests can't be prepared.
+    /// </summary>
+    Task<WinoRequestDelegationResult> ExecuteWithResultAsync(MailOperationPreperationRequest preparationRequest);
+
+    /// <summary>
     /// Queues new draft creation request for synchronizer.
     /// </summary>
     /// <param name="draftPreperationRequest">A class that holds the parameters for creating a draft.</param>

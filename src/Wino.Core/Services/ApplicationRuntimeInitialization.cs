@@ -23,7 +23,8 @@ public sealed class ApplicationRuntimeInitialization(
     Func<IRelaySocketCoordinator?>? relaySocket = null,
     Func<ISyncCoordinator>? syncCoordinator = null,
     Func<IAppPolicyAcceptanceSyncService?>? policySync = null,
-    Func<IEnumerable<IStartupInitializer>>? startupInitializers = null)
+    Func<IEnumerable<IStartupInitializer>>? startupInitializers = null,
+    Func<IVoiceBrainService?>? voiceBrain = null)
 {
     private int _completedStep;
     private bool _startupInitializersCompleted;
@@ -79,7 +80,27 @@ public sealed class ApplicationRuntimeInitialization(
     public Task RunBackgroundStartupAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.WhenAll(_entitlementRefresh, pictures().BackfillAsync(), StartPushRelayAsync(cancellationToken));
+        return Task.WhenAll(_entitlementRefresh, pictures().BackfillAsync(), StartPushRelayAsync(cancellationToken), StartVoiceBrainAsync(cancellationToken));
+    }
+
+    /// <summary>The Personal voice brain must never fail startup; the service logs its own problems.</summary>
+    private async Task StartVoiceBrainAsync(CancellationToken cancellationToken)
+    {
+        if (voiceBrain?.Invoke() is not { } brain)
+            return;
+
+        try
+        {
+            await brain.StartAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Warning(ex, "The voice brain could not start.");
+        }
     }
 
     /// <summary>The desktop socket follows the relay registration; it starts after the registration service.</summary>

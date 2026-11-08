@@ -26,6 +26,7 @@ public sealed partial class AppDelegate
         RegisterHotKeyDebugCommands();
         // The pop-out windows' debug command lives with them; it needs the services only.
         Views.Calendar.EventDetailsWindow.RegisterDebugCommands(_services);
+        MicrophoneDebug.Register(_services);
 #endif
     }
 

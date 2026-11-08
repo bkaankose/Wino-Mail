@@ -66,5 +66,7 @@ public enum WinoPage
     ReaderActionsPage,
     WidgetsLiveTilesSettingsPage,
     PrivacySecurityPage,
-    RemoteContentRulesPage
+    RemoteContentRulesPage,
+    VoiceControlSettingsPage,
+    VoiceBrainPage
 }

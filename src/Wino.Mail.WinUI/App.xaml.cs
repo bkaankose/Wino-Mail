@@ -380,6 +380,10 @@ public partial class App : WinoApplication,
     internal bool TryConfigureCompanionHotKey(bool enabled, HotKeyGesture gesture)
         => _companionIntegration?.TryConfigureHotKey(enabled, gesture) ?? gesture.IsValid;
 
+    internal bool TryConfigureVoiceHotKey(bool enabled, HotKeyGesture gesture, Wino.Mail.Controls.Core.VoiceBubble.VoiceBubbleInputMode mode = Wino.Mail.Controls.Core.VoiceBubble.VoiceBubbleInputMode.Voice)
+        => _companionIntegration?.TryConfigureVoiceHotKey(enabled, gesture, mode)
+           ?? Wino.Mail.WinUI.Services.Voice.VoiceBubbleHost.IsRegistrable(gesture.Normalize(), out _);
+
     private HotKeyGesture GetConfiguredCompanionHotKey() => new(
         _preferencesService?.CompanionHotKeyKey ?? HotKeyGesture.Default.Key,
         _preferencesService?.CompanionHotKeyModifiers ?? HotKeyGesture.Default.Modifiers);
