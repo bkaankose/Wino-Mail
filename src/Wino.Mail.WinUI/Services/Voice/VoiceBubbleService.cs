@@ -51,12 +51,15 @@ internal sealed class VoiceBubbleService : IVoiceBubbleHost, IDisposable
 
     public IVoiceBubbleView Bubble => _host.Bubble;
 
-    public event EventHandler? HotKeyPressed;
+    public event EventHandler<VoiceBubbleInputMode>? HotKeyPressed;
 
     public event EventHandler<double>? FrameRendered;
 
-    /// <summary>Tries a shortcut before Settings saves it; see <see cref="VoiceBubbleController.TryConfigureHotKey"/>.</summary>
-    internal bool TryConfigureHotKey(bool enabled, HotKeyGesture gesture) => !_disposed && _controller.TryConfigureHotKey(enabled, gesture);
+    /// <summary>Tries a shortcut before Settings saves it; see <see cref="VoiceBubbleController.TryConfigureHotKey(VoiceBubbleInputMode, bool, HotKeyGesture)"/>.</summary>
+    internal bool TryConfigureHotKey(VoiceBubbleInputMode mode, bool enabled, HotKeyGesture gesture) => !_disposed && _controller.TryConfigureHotKey(mode, enabled, gesture);
+
+    /// <summary>Opens the assistant for speaking or typing (tray menu, Settings).</summary>
+    internal void Open(VoiceBubbleInputMode mode) => _controller.Open(mode);
 
     public void Show(VoiceBubblePosition position) => _host.Show(_getAnchor(), _nativeAppService.GetTaskbarPosition(), position);
 
@@ -64,7 +67,7 @@ internal sealed class VoiceBubbleService : IVoiceBubbleHost, IDisposable
 
     public bool CanRegisterHotKey(HotKeyGesture gesture) => VoiceBubbleHost.IsRegistrable(gesture, out _);
 
-    public bool TrySetHotKey(HotKeyGesture? gesture) => _host.TrySetHotKey(gesture);
+    public bool TrySetHotKey(VoiceBubbleInputMode mode, HotKeyGesture? gesture) => _host.TrySetHotKey(mode, gesture);
 
     public void StartFrames()
     {
@@ -106,7 +109,7 @@ internal sealed class VoiceBubbleService : IVoiceBubbleHost, IDisposable
         _host.Dispose();
     }
 
-    private void VoiceHostHotKeyPressed(object? sender, EventArgs e) => HotKeyPressed?.Invoke(this, EventArgs.Empty);
+    private void VoiceHostHotKeyPressed(object? sender, VoiceBubbleInputMode mode) => HotKeyPressed?.Invoke(this, mode);
 
     [WinRT.DynamicWindowsRuntimeCast(typeof(RenderingEventArgs))]
     private void OnRendering(object? sender, object e)

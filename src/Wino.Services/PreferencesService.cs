@@ -970,6 +970,24 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(VoiceHotKeyModifiers), value);
     }
 
+    public bool IsVoiceTextHotKeyEnabled
+    {
+        get => _configurationService.Get(nameof(IsVoiceTextHotKeyEnabled), true);
+        set => SetPropertyAndSave(nameof(IsVoiceTextHotKeyEnabled), value);
+    }
+
+    public string VoiceTextHotKeyKey
+    {
+        get => _configurationService.Get(nameof(VoiceTextHotKeyKey), HotKeyGesture.TextDefault.Key);
+        set => SetPropertyAndSave(nameof(VoiceTextHotKeyKey), value);
+    }
+
+    public ModifierKeys VoiceTextHotKeyModifiers
+    {
+        get => _configurationService.Get(nameof(VoiceTextHotKeyModifiers), HotKeyGesture.TextDefault.Modifiers);
+        set => SetPropertyAndSave(nameof(VoiceTextHotKeyModifiers), value);
+    }
+
     public VoiceBubblePosition VoiceBubblePosition
     {
         get => GetDefinedEnum(nameof(VoiceBubblePosition), VoiceBubblePosition.BottomRight);

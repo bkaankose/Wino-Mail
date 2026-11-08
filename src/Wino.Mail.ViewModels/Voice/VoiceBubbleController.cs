@@ -74,6 +74,15 @@ public sealed class VoiceBubbleController : IDisposable
     private IVoiceCommandSession? _session;
     private IDisposable? _capture;
     private string _heard = string.Empty;
+
+    // Typed text a voice request continues from (the user typed, then pressed the microphone), and the text of the
+    // request being typed. The last mode and text let Try again repeat a typed request.
+    private string _typedPrefix = string.Empty;
+    private string _composed = string.Empty;
+    private VoiceBubbleInputMode _lastInputMode = VoiceBubbleInputMode.Voice;
+
+    // The spoken requests of this period are used up: voice opens as text, with a note, until a plan reports more.
+    private bool _voiceExhausted;
     private double _micLevel;
     private bool _heardSpeech;
     private double _quietSeconds;
@@ -108,6 +117,9 @@ public sealed class VoiceBubbleController : IDisposable
         bubble.QuestionSearchPlaceholder = Translator.VoiceQuestion_Search;
         bubble.QuestionEmptyText = Translator.VoiceQuestion_NoMatches;
         bubble.QuestionCancelText = Translator.Buttons_Cancel;
+        bubble.ComposePlaceholder = Translator.VoiceBubble_ComposePlaceholder;
+        bubble.ComposedTextChanged += BubbleComposedTextChanged;
+        bubble.SwitchToVoiceRequested += BubbleSwitchToVoiceRequested;
         bubble.QuestionFilterChanged += BubbleQuestionFilterChanged;
         bubble.ChoiceSelected += BubbleChoiceSelected;
         bubble.SendRequested += BubbleSendRequested;
@@ -136,13 +148,37 @@ public sealed class VoiceBubbleController : IDisposable
     /// Tries a shortcut before Settings saves it. The shortcut is registered only while voice control is on and the
     /// Wino Account has Wino Intelligence; otherwise a valid shortcut is accepted and stays unregistered.
     /// </summary>
-    public bool TryConfigureHotKey(bool enabled, HotKeyGesture gesture)
+    public bool TryConfigureHotKey(bool enabled, HotKeyGesture gesture) => TryConfigureHotKey(VoiceBubbleInputMode.Voice, enabled, gesture);
+
+    /// <summary>
+    /// Tries the shortcut that opens the bubble in <paramref name="mode"/>. The voice and text shortcuts must differ.
+    /// </summary>
+    public bool TryConfigureHotKey(VoiceBubbleInputMode mode, bool enabled, HotKeyGesture gesture)
     {
-        if (_disposed || !_host.CanRegisterHotKey(gesture.Normalize()))
+        var normalized = gesture.Normalize();
+        if (_disposed || !_host.CanRegisterHotKey(normalized) || normalized == OtherGesture(mode).Normalize())
             return false;
 
-        return _host.TrySetHotKey(enabled && IsUsable ? gesture : null);
+        return _host.TrySetHotKey(mode, enabled && IsUsable ? gesture : null);
     }
+
+    /// <summary>Opens the bubble for speaking or typing; voice opens for typing when the spoken requests are used up.</summary>
+    public void Open(VoiceBubbleInputMode mode)
+    {
+        if (_disposed || !IsUsable)
+            return;
+
+        if (mode == VoiceBubbleInputMode.Text)
+            StartComposing(string.Empty, null);
+        else if (_voiceExhausted)
+            StartComposing(string.Empty, Translator.VoiceBubble_VoiceQuotaUsed);
+        else
+            StartListening();
+    }
+
+    private HotKeyGesture OtherGesture(VoiceBubbleInputMode mode) => mode == VoiceBubbleInputMode.Voice
+        ? new HotKeyGesture(_preferences.VoiceTextHotKeyKey, _preferences.VoiceTextHotKeyModifiers)
+        : new HotKeyGesture(_preferences.VoiceHotKeyKey, _preferences.VoiceHotKeyModifiers);
 
     public void Dispose()
     {
@@ -162,6 +198,8 @@ public sealed class VoiceBubbleController : IDisposable
         bubble.ExitCompleted -= BubbleExitCompleted;
         bubble.QuestionFilterChanged -= BubbleQuestionFilterChanged;
         bubble.ChoiceSelected -= BubbleChoiceSelected;
+        bubble.ComposedTextChanged -= BubbleComposedTextChanged;
+        bubble.SwitchToVoiceRequested -= BubbleSwitchToVoiceRequested;
         EndRequest();
     }
 
@@ -170,10 +208,17 @@ public sealed class VoiceBubbleController : IDisposable
         if (_disposed)
             return;
 
-        var gesture = new HotKeyGesture(_preferences.VoiceHotKeyKey, _preferences.VoiceHotKeyModifiers);
-        var shouldRegister = IsUsable && _preferences.IsVoiceHotKeyEnabled;
-        if (!_host.TrySetHotKey(shouldRegister ? gesture : null))
-            Log.Warning("Could not register {Modifiers}+{Key} for the voice bubble. Another application may own it.", gesture.Modifiers, gesture.Key);
+        RegisterHotKey(VoiceBubbleInputMode.Voice, _preferences.IsVoiceHotKeyEnabled, new HotKeyGesture(_preferences.VoiceHotKeyKey, _preferences.VoiceHotKeyModifiers));
+        RegisterHotKey(VoiceBubbleInputMode.Text, _preferences.IsVoiceTextHotKeyEnabled, new HotKeyGesture(_preferences.VoiceTextHotKeyKey, _preferences.VoiceTextHotKeyModifiers));
+    }
+
+    private void RegisterHotKey(VoiceBubbleInputMode mode, bool enabled, HotKeyGesture gesture)
+    {
+        // The text shortcut yields when it equals the voice one.
+        var clashes = mode == VoiceBubbleInputMode.Text && gesture.Normalize() == OtherGesture(mode).Normalize();
+        var shouldRegister = IsUsable && enabled && !clashes;
+        if (!_host.TrySetHotKey(mode, shouldRegister ? gesture : null))
+            Log.Warning("Could not register {Modifiers}+{Key} for the assistant ({Mode}). Another application may own it.", gesture.Modifiers, gesture.Key, mode);
     }
 
     private async Task RefreshAccessAsync()
@@ -216,6 +261,9 @@ public sealed class VoiceBubbleController : IDisposable
             case nameof(IPreferencesService.IsVoiceHotKeyEnabled):
             case nameof(IPreferencesService.VoiceHotKeyKey):
             case nameof(IPreferencesService.VoiceHotKeyModifiers):
+            case nameof(IPreferencesService.IsVoiceTextHotKeyEnabled):
+            case nameof(IPreferencesService.VoiceTextHotKeyKey):
+            case nameof(IPreferencesService.VoiceTextHotKeyModifiers):
                 ApplyHotKey();
                 break;
         }
@@ -227,10 +275,10 @@ public sealed class VoiceBubbleController : IDisposable
             return;
 
         if (State == VoiceBubbleState.Hidden)
-            StartListening();
+            Open(VoiceBubbleInputMode.Voice);
     }
 
-    private void HostHotKeyPressed(object? sender, EventArgs e)
+    private void HostHotKeyPressed(object? sender, VoiceBubbleInputMode mode)
     {
         if (_disposed || !IsUsable)
             return;
@@ -238,9 +286,15 @@ public sealed class VoiceBubbleController : IDisposable
         switch (State)
         {
             case VoiceBubbleState.Hidden:
-                StartListening();
+                Open(mode);
                 break;
-            case VoiceBubbleState.Listening:
+            case VoiceBubbleState.Listening when mode == VoiceBubbleInputMode.Voice:
+                Send();
+                break;
+            case VoiceBubbleState.Composing when mode == VoiceBubbleInputMode.Voice:
+                SwitchToVoice();
+                break;
+            case VoiceBubbleState.Composing when !string.IsNullOrWhiteSpace(_composed):
                 Send();
                 break;
             default:
@@ -249,10 +303,112 @@ public sealed class VoiceBubbleController : IDisposable
         }
     }
 
-    private void StartListening()
+    /// <summary>Shows the bubble for typing, keeping <paramref name="text"/> (typed or heard so far).</summary>
+    private void StartComposing(string text, string? notice)
     {
         EndRequest();
 
+        _lastInputMode = VoiceBubbleInputMode.Text;
+        _composed = text;
+        var bubble = _host.Bubble;
+        bubble.InputMode = VoiceBubbleInputMode.Text;
+        bubble.Transcript = null;
+        bubble.InterimTranscript = null;
+        bubble.ComposedText = text;
+        bubble.InputNotice = notice;
+        bubble.CanSwitchToVoice = !_voiceExhausted;
+        bubble.CanRetry = true;
+        if (State == VoiceBubbleState.Hidden)
+            _host.Show(_preferences.VoiceBubblePosition);
+        Present(VoiceBubbleState.Composing);
+    }
+
+    /// <summary>The microphone button: the typed text stays, and what the user says is appended to it.</summary>
+    private void SwitchToVoice()
+    {
+        if (State != VoiceBubbleState.Composing)
+            return;
+
+        if (_voiceExhausted)
+        {
+            _host.Bubble.InputNotice = Translator.VoiceBubble_VoiceQuotaUsed;
+            return;
+        }
+
+        StartListening(_composed.Trim());
+    }
+
+    /// <summary>Sends the typed request: no microphone, no transcription.</summary>
+    private void SendTyped()
+    {
+        var text = _composed.Trim();
+        if (text.Length == 0)
+        {
+            Close();
+            return;
+        }
+
+        EndRequest();
+        _lastInputMode = VoiceBubbleInputMode.Text;
+        var bubble = _host.Bubble;
+        bubble.InputNotice = null;
+        bubble.Transcript = text;
+        Present(VoiceBubbleState.Analyzing);
+
+        var cancellation = new CancellationTokenSource();
+        _requestCancellation = cancellation;
+        _ = RunTypedRequestAsync(text, cancellation);
+    }
+
+    private async Task RunTypedRequestAsync(string text, CancellationTokenSource cancellation)
+    {
+        var token = cancellation.Token;
+        try
+        {
+            _brain.NotifyVoiceStarting();
+            var start = await _voiceCommands.StartAsync(VoiceInputKind.Text, null, token);
+            if (IsStale(cancellation))
+            {
+                if (start.Session is { } staleSession)
+                    await staleSession.DisposeAsync();
+                return;
+            }
+
+            if (start.Session is not { } session)
+            {
+                Fail(GetErrorMessage(start.ErrorCode), CanRetry(start.ErrorCode));
+                return;
+            }
+
+            lock (_audioLock)
+                _session = session;
+
+            session.SendText(text);
+            await foreach (var frame in session.Frames.ReadAllAsync(token))
+            {
+                if (IsStale(cancellation))
+                    return;
+
+                await HandleFrameAsync(frame, cancellation);
+            }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "The typed assistant request failed.");
+            if (!IsStale(cancellation))
+                Fail(GetErrorMessage(VoiceClientErrorCodes.ConnectionLost), canRetry: true);
+        }
+    }
+
+    private void StartListening(string typedPrefix = "")
+    {
+        EndRequest();
+
+        _lastInputMode = VoiceBubbleInputMode.Voice;
+        _typedPrefix = typedPrefix;
         _heard = string.Empty;
         _micLevel = 0;
         _heardSpeech = false;
@@ -261,10 +417,13 @@ public sealed class VoiceBubbleController : IDisposable
         _bands.Reset();
 
         var bubble = _host.Bubble;
-        bubble.Transcript = null;
+        bubble.InputMode = VoiceBubbleInputMode.Voice;
+        bubble.InputNotice = null;
+        bubble.Transcript = _typedPrefix.Length > 0 ? _typedPrefix : null;
         bubble.InterimTranscript = null;
         bubble.CanRetry = true;
-        _host.Show(_preferences.VoiceBubblePosition);
+        if (State == VoiceBubbleState.Hidden)
+            _host.Show(_preferences.VoiceBubblePosition);
         Present(VoiceBubbleState.Listening);
         StartRendering();
 
@@ -288,7 +447,7 @@ public sealed class VoiceBubbleController : IDisposable
                 OnAudioAvailable,
                 level => Volatile.Write(ref _micLevel, level),
                 token);
-            var sessionTask = _voiceCommands.StartAsync(token);
+            var sessionTask = _voiceCommands.StartAsync(VoiceInputKind.Audio, _typedPrefix, token);
             _brain.NotifyVoiceStarting();
 
             var capture = await captureTask;
@@ -383,7 +542,7 @@ public sealed class VoiceBubbleController : IDisposable
             case VoiceFrameTypes.TranscriptDelta when State == VoiceBubbleState.Listening:
                 _heard += frame.Text;
                 _heardSpeech |= !string.IsNullOrWhiteSpace(frame.Text);
-                bubble.Transcript = _heard.Trim();
+                bubble.Transcript = JoinTyped(_typedPrefix, _heard);
                 break;
             case VoiceFrameTypes.TranscriptFinal:
                 if (!string.IsNullOrWhiteSpace(frame.Text))
@@ -396,14 +555,26 @@ public sealed class VoiceBubbleController : IDisposable
             case VoiceFrameTypes.Plan when frame.Plan is { } plan:
                 if (frame.Metrics?.Mode is { } mode)
                     _brain.ApplyReportedMode(mode);
+                if (frame.Metrics?.VoiceRemaining is int voiceRemaining)
+                    _voiceExhausted = voiceRemaining <= 0;
 
                 await ShowPlanAsync(plan, frame.Metrics?.Mode ?? _brain.CurrentMode, cancellation);
                 break;
             case VoiceFrameTypes.Error:
                 if (frame.Code == VoiceErrorCodes.Superseded)
+                {
                     Close();
+                }
+                else if (frame.Code == VoiceErrorCodes.VoiceQuotaExceeded)
+                {
+                    // The request can still be typed: keep what was typed and heard, and switch to typing.
+                    _voiceExhausted = true;
+                    StartComposing(JoinTyped(_typedPrefix, _heard), Translator.VoiceBubble_VoiceQuotaUsed);
+                }
                 else
+                {
                     Fail(GetErrorMessage(frame.Code), CanRetry(frame.Code));
+                }
                 break;
         }
     }
@@ -414,12 +585,22 @@ public sealed class VoiceBubbleController : IDisposable
     /// </summary>
     private void Send()
     {
+        if (State == VoiceBubbleState.Composing)
+        {
+            SendTyped();
+            return;
+        }
+
         if (State != VoiceBubbleState.Listening)
             return;
 
         if (_session is null || string.IsNullOrWhiteSpace(_heard))
         {
-            Close();
+            // Nothing was said after typing: back to the typed text instead of losing it.
+            if (_typedPrefix.Length > 0)
+                StartComposing(_typedPrefix, null);
+            else
+                Close();
             return;
         }
 
@@ -933,7 +1114,23 @@ public sealed class VoiceBubbleController : IDisposable
 
     private void BubbleConfirmRequested(object? sender, EventArgs e) => Confirm();
 
-    private void BubbleRetryRequested(object? sender, EventArgs e) => StartListening();
+    private void BubbleRetryRequested(object? sender, EventArgs e)
+    {
+        if (_lastInputMode == VoiceBubbleInputMode.Text)
+            StartComposing(_composed, null);
+        else
+            StartListening();
+    }
+
+    private void BubbleComposedTextChanged(object? sender, string text) => _composed = text ?? string.Empty;
+
+    private void BubbleSwitchToVoiceRequested(object? sender, EventArgs e) => SwitchToVoice();
+
+    private static string JoinTyped(string typed, string heard)
+    {
+        var spoken = heard.Trim();
+        return typed.Length == 0 ? spoken : spoken.Length == 0 ? typed : typed + " " + spoken;
+    }
 
     private void BubbleDismissed(object? sender, EventArgs e) => EndRequest();
 
@@ -980,7 +1177,13 @@ public sealed class VoiceBubbleController : IDisposable
         if ((hasWords && _quietSeconds >= AutoSendQuietSeconds) || _recordingSeconds >= MaxRecordingSeconds)
             Send();
         else if (!_heardSpeech && _recordingSeconds >= NoSpeechTimeoutSeconds)
-            Close();
+        {
+            // Nothing was said after switching from typing: keep the typed request instead of closing it.
+            if (_typedPrefix.Length > 0)
+                StartComposing(_typedPrefix, null);
+            else
+                Close();
+        }
     }
 
     private static bool CanRetry(string? code) => code is not (

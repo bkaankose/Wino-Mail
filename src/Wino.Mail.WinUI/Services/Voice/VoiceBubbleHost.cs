@@ -1,3 +1,4 @@
+using Wino.Mail.Controls.Core.VoiceBubble;
 using System;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
@@ -35,8 +36,9 @@ internal sealed partial class VoiceBubbleHost : IDisposable
     private const uint ModShift = 0x0004;
     private const uint ModWin = 0x0008;
     private const uint ModNoRepeat = 0x4000;
-    private const int PrimaryHotKeyId = 0x574B;
-    private const int SecondaryHotKeyId = 0x574C;
+    // Each shortcut alternates between two ids so a new gesture is registered before the old one is removed.
+    private readonly HotKeySlot _voiceHotKey = new(0x574B, 0x574C);
+    private readonly HotKeySlot _textHotKey = new(0x574D, 0x574E);
     private const uint MonitorDefaultToNearest = 2;
     private const int ErrorClassAlreadyExists = 1410;
     private const int MdtEffectiveDpi = 0;
@@ -63,8 +65,6 @@ internal sealed partial class VoiceBubbleHost : IDisposable
     private Size _targetSize = new(InitialSize, InitialSize);
     private (int Width, int Height) _windowSize;
     private bool _isPlaced;
-    private int _activeHotKeyId;
-    private HotKeyGesture? _activeHotKey;
     private bool _disposed;
 
     internal VoiceBubbleHost()
@@ -112,44 +112,54 @@ internal sealed partial class VoiceBubbleHost : IDisposable
         }
     }
 
-    internal event EventHandler? HotKeyPressed;
+    internal event EventHandler<VoiceBubbleInputMode>? HotKeyPressed;
 
     internal WinoVoiceBubble Bubble { get; }
 
     internal bool IsOpen { get; private set; }
 
     /// <summary>
-    /// Registers <paramref name="gesture"/> as the voice shortcut, or removes the shortcut when it is null. A failed
-    /// registration keeps the previous shortcut, the same rule as the companion shortcut in <see cref="NativeTrayIcon"/>.
+    /// Registers <paramref name="gesture"/> as the shortcut that opens the bubble in <paramref name="mode"/>, or removes it
+    /// when it is null. A failed registration keeps the previous shortcut, the same rule as the companion shortcut in
+    /// <see cref="NativeTrayIcon"/>.
     /// </summary>
-    internal bool TrySetHotKey(HotKeyGesture? gesture)
+    internal bool TrySetHotKey(VoiceBubbleInputMode mode, HotKeyGesture? gesture)
     {
         if (_disposed)
             return false;
 
+        var slot = mode == VoiceBubbleInputMode.Text ? _textHotKey : _voiceHotKey;
         var normalized = gesture?.Normalize();
-        if (normalized == _activeHotKey)
+        if (normalized == slot.Gesture)
             return true;
 
         if (normalized is null)
         {
-            UnregisterActiveHotKey();
+            Unregister(slot);
             return true;
         }
 
         if (!IsRegistrable(normalized.Value, out var key))
             return false;
 
-        var candidateId = _activeHotKeyId == PrimaryHotKeyId ? SecondaryHotKeyId : PrimaryHotKeyId;
+        var candidateId = slot.ActiveId == slot.PrimaryId ? slot.SecondaryId : slot.PrimaryId;
         if (!RegisterHotKey(_windowHandle, candidateId, ToNativeModifiers(normalized.Value.Modifiers) | ModNoRepeat, (uint)key))
             return false;
 
-        if (_activeHotKeyId != 0)
-            UnregisterHotKey(_windowHandle, _activeHotKeyId);
+        if (slot.ActiveId != 0)
+            UnregisterHotKey(_windowHandle, slot.ActiveId);
 
-        _activeHotKeyId = candidateId;
-        _activeHotKey = normalized;
+        slot.ActiveId = candidateId;
+        slot.Gesture = normalized;
         return true;
+    }
+
+    private sealed class HotKeySlot(int primaryId, int secondaryId)
+    {
+        public int PrimaryId { get; } = primaryId;
+        public int SecondaryId { get; } = secondaryId;
+        public int ActiveId { get; set; }
+        public HotKeyGesture? Gesture { get; set; }
     }
 
     internal static bool IsRegistrable(HotKeyGesture gesture, out Windows.System.VirtualKey key)
@@ -161,13 +171,13 @@ internal sealed partial class VoiceBubbleHost : IDisposable
                key is not (Windows.System.VirtualKey.None or Windows.System.VirtualKey.F12);
     }
 
-    private void UnregisterActiveHotKey()
+    private void Unregister(HotKeySlot slot)
     {
-        if (_activeHotKeyId != 0)
-            UnregisterHotKey(_windowHandle, _activeHotKeyId);
+        if (slot.ActiveId != 0)
+            UnregisterHotKey(_windowHandle, slot.ActiveId);
 
-        _activeHotKeyId = 0;
-        _activeHotKey = null;
+        slot.ActiveId = 0;
+        slot.Gesture = null;
     }
 
     private static uint ToNativeModifiers(ModifierKeys modifiers)
@@ -298,7 +308,8 @@ internal sealed partial class VoiceBubbleHost : IDisposable
 
         try
         {
-            UnregisterActiveHotKey();
+            Unregister(_voiceHotKey);
+            Unregister(_textHotKey);
 
             if (_xamlSource is not null)
             {
@@ -371,11 +382,12 @@ internal sealed partial class VoiceBubbleHost : IDisposable
     }
     private nint WindowProc(nint windowHandle, uint message, nuint wParam, nint lParam)
     {
-        if (message == WmHotKey && _activeHotKeyId != 0 && unchecked((int)wParam) == _activeHotKeyId)
+        var hotKeyId = unchecked((int)wParam);
+        if (message == WmHotKey && hotKeyId != 0 && (hotKeyId == _voiceHotKey.ActiveId || hotKeyId == _textHotKey.ActiveId))
         {
             try
             {
-                HotKeyPressed?.Invoke(this, EventArgs.Empty);
+                HotKeyPressed?.Invoke(this, hotKeyId == _textHotKey.ActiveId ? VoiceBubbleInputMode.Text : VoiceBubbleInputMode.Voice);
             }
             catch
             {

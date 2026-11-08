@@ -8,15 +8,18 @@ using Wino.Mail.Api.Contracts.Voice;
 namespace Wino.Core.Domain.Interfaces;
 
 /// <summary>
-/// Runs one spoken command against the voice API: one socket per command, audio in, transcript and plan out.
+/// Runs one assistant request against the voice API: one socket per request, audio or text in, transcript and plan out.
 /// </summary>
 public interface IVoiceCommandService
 {
     /// <summary>
-    /// Connects and sends the start frame with the device's time zone, clock and languages. On failure
+    /// Connects and sends the start frame with the device's time zone, clock and languages. A
+    /// <see cref="VoiceInputKind.Text"/> request then sends its words with <see cref="IVoiceCommandSession.SendText"/>
+    /// and never opens transcription. <paramref name="typedText"/> is what the user typed before switching to the
+    /// microphone; the server plans it followed by the transcript. On failure
     /// <see cref="VoiceCommandStartResult.ErrorCode"/> says why and no session is returned.
     /// </summary>
-    Task<VoiceCommandStartResult> StartAsync(CancellationToken cancellationToken = default);
+    Task<VoiceCommandStartResult> StartAsync(VoiceInputKind input = VoiceInputKind.Audio, string? typedText = null, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -33,6 +36,9 @@ public interface IVoiceCommandSession : IAsyncDisposable
 
     /// <summary>Tells the API the user stopped speaking. Later audio is dropped.</summary>
     void Commit();
+
+    /// <summary>Sends the words of a typed request. Only once, and only for a <see cref="VoiceInputKind.Text"/> request.</summary>
+    void SendText(string text);
 }
 
 public sealed record VoiceCommandStartResult(IVoiceCommandSession? Session, string? ErrorCode);

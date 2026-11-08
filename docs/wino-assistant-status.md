@@ -8,7 +8,7 @@ Progress of [the plan](wino-assistant-plan.md) on `feature/wino-assistant`.
 - The Mac (`burak-mac`) is only the build machine for the macOS head. It pulls this branch into `~/Desktop/Wino-Mail-assistant` and builds Debug arm64 there (ad hoc signing over SSH). No code is written on the Mac.
 - iOS and Android follow later, on the same shared layer.
 
-## Phase 1: Wino Assistant bubble (in progress)
+## Phase 1: Wino Assistant bubble (done on Windows, 8 Nov)
 
 Goal: the voice bubble becomes Wino Assistant with a text mode (plan section 2) and the new quota (section 3).
 
@@ -41,3 +41,5 @@ Goal: the voice bubble becomes Wino Assistant with a text mode (plan section 2) 
 ## Log
 
 - 8 Nov: branch created from `7b3add0d` (macOS voice port merged with the Windows work); plan and this file added. A headless agent briefly started on the Mac was stopped before making changes; all work now runs from the Windows session.
+- 8 Nov: API 45d73e3 deployed (typed requests, assistant 200 and voice 50 allowances, 1-hour prompt cache, planner accuracy fixes). Phase 1 checked in the Windows Debug app on production: typing shortcut opens the bubble focused, typed text uses the transcript style and scrolls past two lines, Enter sends a typed request (assistant allowance only, no transcription), the microphone switch keeps the typed text and returns to typing when nothing is said, cancelled voice attempts are refunded. The macOS head compiles against the new contract (built on burak-mac); further macOS work is paused.
+

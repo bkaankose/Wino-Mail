@@ -428,7 +428,7 @@ internal static class VoiceRunner
 
             using (socket)
             {
-                await SendAsync(socket, new VoiceClientFrame(VoiceFrameTypes.Start, new VoiceInterpretContext(TimeZoneInfo.Local.Id, now, options.Languages.ToList())), timeout.Token);
+                await SendAsync(socket, new VoiceClientFrame(VoiceFrameTypes.Start, new VoiceInterpretContext(TimeZoneInfo.Local.Id, now, options.Languages.ToList(), VoiceInputKind.Text)), timeout.Token);
                 var sentText = false;
                 while (true)
                 {

@@ -99,8 +99,8 @@ internal sealed class MainTrayController
         return true;
     }
 
-    public bool TryConfigureVoiceHotKey(bool enabled, HotKeyGesture gesture)
-        => _voice?.TryConfigureHotKey(enabled, gesture) ?? VoiceBubbleHost.IsRegistrable(gesture.Normalize(), out _);
+    public bool TryConfigureVoiceHotKey(bool enabled, HotKeyGesture gesture, Wino.Mail.Controls.Core.VoiceBubble.VoiceBubbleInputMode mode = Wino.Mail.Controls.Core.VoiceBubble.VoiceBubbleInputMode.Voice)
+        => _voice?.TryConfigureHotKey(mode, enabled, gesture) ?? VoiceBubbleHost.IsRegistrable(gesture.Normalize(), out _);
 
     public Task SetReadinessAsync(CompanionReadinessState state) => _companion.SetReadinessAsync(state);
 

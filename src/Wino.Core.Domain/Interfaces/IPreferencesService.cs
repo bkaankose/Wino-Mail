@@ -122,6 +122,21 @@ public interface IPreferencesService : INotifyPropertyChanged
     ModifierKeys VoiceHotKeyModifiers { get; set; }
 
     /// <summary>
+    /// Setting: Whether the system-wide shortcut that opens Wino Assistant for typing is registered.
+    /// </summary>
+    bool IsVoiceTextHotKeyEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: The key of the shortcut that opens Wino Assistant for typing.
+    /// </summary>
+    string VoiceTextHotKeyKey { get; set; }
+
+    /// <summary>
+    /// Setting: The modifiers of the shortcut that opens Wino Assistant for typing.
+    /// </summary>
+    ModifierKeys VoiceTextHotKeyModifiers { get; set; }
+
+    /// <summary>
     /// Setting: Where the voice bubble opens on the screen.
     /// </summary>
     VoiceBubblePosition VoiceBubblePosition { get; set; }

@@ -4,6 +4,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
+using Wino.Mail.Controls.Core.VoiceBubble;
 using Wino.Core.ViewModels;
 using Wino.Mail.Controls.AppKit.Common;
 using Wino.Mail.Controls.AppKit.Settings;
@@ -34,12 +35,11 @@ public sealed class VoiceControlSettingsPageViewController(VoiceControlSettingsP
         VoiceBubblePosition.Center
     ];
 
-    private WinoLabeledSwitch _hotKeySwitch = null!;
-    private WinoSettingsExpander _hotKeyExpander = null!;
-    private HotKeyRecorderView _recorder = null!;
-    private NSButton _resetButton = null!;
+    private ShortcutRow _voiceShortcut = null!;
+    private ShortcutRow _textShortcut = null!;
     private WinoInfoBar _hotKeyError = null!;
-    private bool _updatingHotKeySwitch;
+
+    private MacVoiceHotKeyAccess HotKeyAccess => hotKey;
 
     protected override void BuildPage()
     {
@@ -153,127 +153,32 @@ public sealed class VoiceControlSettingsPageViewController(VoiceControlSettingsP
 
     #region Shortcut
 
-    /// <summary>Windows VoiceHotKeyExpander: switch, recorder, reset, and the error bar under the card.</summary>
+    /// <summary>
+    /// Windows VoiceHotKeyExpander and TextHotKeyExpander: for speaking and for typing, each a switch, recorder and reset,
+    /// with one error bar under both cards.
+    /// </summary>
     private WinoSettingsGroup BuildShortcutGroup()
     {
         var vm = ViewModel;
-        _hotKeySwitch = new WinoLabeledSwitch { IsOn = vm.PreferencesService.IsVoiceHotKeyEnabled };
-        WinoAccessibility.Label(_hotKeySwitch.Switch, Translator.VoiceControlSettings_HotKey_Title);
-        Bind.OnActivated(_hotKeySwitch.Switch, () =>
-        {
-            if (!_updatingHotKeySwitch)
-                SetHotKeyEnabled(_hotKeySwitch.IsOn);
-        });
-
-        _recorder = new HotKeyRecorderView();
-        _recorder.CaptureStarted += RecorderCaptureStarted;
-        _recorder.CaptureCanceled += RecorderCaptureCanceled;
-        _recorder.Committed += RecorderCommitted;
-        _recorder.Cleared += RecorderCleared;
-        Bindings.Own(new ActionDisposable(() =>
-        {
-            _recorder.CaptureStarted -= RecorderCaptureStarted;
-            _recorder.CaptureCanceled -= RecorderCaptureCanceled;
-            _recorder.Committed -= RecorderCommitted;
-            _recorder.Cleared -= RecorderCleared;
-            // Leaving the page while listening must not leave the shortcut unregistered.
-            if (_recorder.IsRecording) ResumeStoredHotKey();
-        }));
-        _recorder.SetGesture(StoredGesture);
-
-        _resetButton = Bind.Button(Translator.Buttons_Reset, () => Commit(HotKeyGesture.VoiceDefault));
-
-        _hotKeyExpander = Expander(Translator.VoiceControlSettings_HotKey_Title, Translator.VoiceControlSettings_MacOS_HotKey_Description, WinoIconGlyph.Keyboard, _hotKeySwitch,
-            Card(Translator.VoiceControlSettings_HotKey_KeyCombination, null, WinoIconGlyph.None, _recorder),
-            Card(Translator.CompanionSettings_HotKey_ResetToDefault, MacHotKeyKeys.Format(HotKeyGesture.VoiceDefault), WinoIconGlyph.None, _resetButton));
-        _hotKeyExpander.IsExpanded = _hotKeySwitch.IsOn;
-
+        var preferences = vm.PreferencesService;
         _hotKeyError = InfoBar(WinoInfoBarSeverity.Error, null, null);
         _hotKeyError.IsClosable = false;
         _hotKeyError.Hidden = true;
 
+        _voiceShortcut = new ShortcutRow(this, VoiceBubbleInputMode.Voice, HotKeyGesture.VoiceDefault,
+            () => preferences.IsVoiceHotKeyEnabled, value => preferences.IsVoiceHotKeyEnabled = value,
+            () => new HotKeyGesture(preferences.VoiceHotKeyKey, preferences.VoiceHotKeyModifiers),
+            gesture => { preferences.VoiceHotKeyKey = gesture.Key; preferences.VoiceHotKeyModifiers = gesture.Modifiers; });
+        _textShortcut = new ShortcutRow(this, VoiceBubbleInputMode.Text, HotKeyGesture.TextDefault,
+            () => preferences.IsVoiceTextHotKeyEnabled, value => preferences.IsVoiceTextHotKeyEnabled = value,
+            () => new HotKeyGesture(preferences.VoiceTextHotKeyKey, preferences.VoiceTextHotKeyModifiers),
+            gesture => { preferences.VoiceTextHotKeyKey = gesture.Key; preferences.VoiceTextHotKeyModifiers = gesture.Modifiers; });
+
+        var voiceExpander = _voiceShortcut.Build(Translator.VoiceControlSettings_HotKey_Title, Translator.VoiceControlSettings_MacOS_HotKey_Description, Translator.VoiceControlSettings_HotKey_KeyCombination);
+        var textExpander = _textShortcut.Build(Translator.VoiceControlSettings_TextHotKey_Title, Translator.VoiceControlSettings_TextHotKey_Description, Translator.VoiceControlSettings_TextHotKey_KeyCombination);
+
         Bind.Bind(vm, nameof(vm.IsVoiceControlEnabled), s => s.IsVoiceControlEnabled, _ => UpdateHotKeyAvailability());
-        return Group(Translator.CompanionSettings_ShortcutGroup, _hotKeyExpander, _hotKeyError);
-    }
-
-    private HotKeyGesture StoredGesture => new(ViewModel.PreferencesService.VoiceHotKeyKey, ViewModel.PreferencesService.VoiceHotKeyModifiers);
-
-    private void SetHotKeyEnabled(bool enabled)
-    {
-        _hotKeyError.Hidden = true;
-        if (!hotKey.TryConfigure(enabled, StoredGesture))
-        {
-            ShowHotKeyError(Translator.CompanionSettings_MacOS_HotKey_Conflict);
-            SetSwitch(ViewModel.PreferencesService.IsVoiceHotKeyEnabled);
-            return;
-        }
-
-        ViewModel.PreferencesService.IsVoiceHotKeyEnabled = enabled;
-        SetSwitch(enabled);
-        _hotKeyExpander.IsExpanded = enabled;
-        UpdateHotKeyAvailability();
-    }
-
-    private void SetSwitch(bool on)
-    {
-        _updatingHotKeySwitch = true;
-        _hotKeySwitch.IsOn = on;
-        _updatingHotKeySwitch = false;
-    }
-
-    private void RecorderCaptureStarted(object? sender, EventArgs args)
-    {
-        _hotKeyError.Hidden = true;
-        hotKey.Suspend();
-    }
-
-    private void RecorderCaptureCanceled(object? sender, EventArgs args)
-    {
-        _recorder.SetGesture(StoredGesture);
-        ResumeStoredHotKey();
-    }
-
-    private void RecorderCommitted(object? sender, HotKeyGesture gesture) => Commit(gesture);
-
-    /// <summary>The ✕ in the recorder turns the shortcut off; the stored combination is kept for later.</summary>
-    private void RecorderCleared(object? sender, EventArgs args)
-    {
-        _recorder.SetGesture(StoredGesture);
-        SetHotKeyEnabled(false);
-    }
-
-    private void Commit(HotKeyGesture gesture)
-    {
-        _hotKeyError.Hidden = true;
-        var candidate = gesture.Normalize();
-        if (!candidate.IsValid)
-        {
-            ShowRefused(candidate, Translator.CompanionSettings_MacOS_HotKey_Invalid);
-            return;
-        }
-
-        if (!hotKey.TryConfigure(ViewModel.PreferencesService.IsVoiceHotKeyEnabled, candidate))
-        {
-            ShowRefused(candidate, Translator.CompanionSettings_MacOS_HotKey_Conflict);
-            return;
-        }
-
-        ViewModel.PreferencesService.VoiceHotKeyKey = candidate.Key;
-        ViewModel.PreferencesService.VoiceHotKeyModifiers = candidate.Modifiers;
-        _recorder.SetGesture(candidate);
-    }
-
-    private void ShowRefused(HotKeyGesture refused, string message)
-    {
-        _recorder.ShowRefused(refused);
-        ResumeStoredHotKey();
-        ShowHotKeyError(message);
-    }
-
-    private void ResumeStoredHotKey()
-    {
-        if (hotKey.TryConfigure(ViewModel.PreferencesService.IsVoiceHotKeyEnabled, StoredGesture)) return;
-        ShowHotKeyError(Translator.CompanionSettings_MacOS_HotKey_Conflict);
+        return Group(Translator.CompanionSettings_ShortcutGroup, voiceExpander, textExpander, _hotKeyError);
     }
 
     private void ShowHotKeyError(string message)
@@ -285,11 +190,146 @@ public sealed class VoiceControlSettingsPageViewController(VoiceControlSettingsP
     private void UpdateHotKeyAvailability()
     {
         var voice = ViewModel.IsVoiceControlEnabled;
-        _hotKeyExpander.IsEnabled = voice;
-        _hotKeySwitch.IsEnabled = voice;
-        var active = voice && _hotKeySwitch.IsOn;
-        _recorder.IsEnabled = active;
-        _resetButton.Enabled = active;
+        _voiceShortcut.UpdateAvailability(voice);
+        _textShortcut.UpdateAvailability(voice);
+    }
+
+    /// <summary>One shortcut's switch, recorder and reset; the voice and typing shortcuts behave the same way.</summary>
+    private sealed class ShortcutRow(
+        VoiceControlSettingsPageViewController page,
+        VoiceBubbleInputMode mode,
+        HotKeyGesture defaultGesture,
+        Func<bool> getEnabled,
+        Action<bool> setEnabled,
+        Func<HotKeyGesture> getGesture,
+        Action<HotKeyGesture> setGesture)
+    {
+        private WinoLabeledSwitch _switch = null!;
+        private WinoSettingsExpander _expander = null!;
+        private HotKeyRecorderView _recorder = null!;
+        private NSButton _resetButton = null!;
+        private bool _updatingSwitch;
+
+        public WinoSettingsExpander Build(string title, string description, string keyCombination)
+        {
+            _switch = new WinoLabeledSwitch { IsOn = getEnabled() };
+            WinoAccessibility.Label(_switch.Switch, title);
+            page.Bind.OnActivated(_switch.Switch, () =>
+            {
+                if (!_updatingSwitch)
+                    SetEnabled(_switch.IsOn);
+            });
+
+            _recorder = new HotKeyRecorderView();
+            _recorder.CaptureStarted += RecorderCaptureStarted;
+            _recorder.CaptureCanceled += RecorderCaptureCanceled;
+            _recorder.Committed += RecorderCommitted;
+            _recorder.Cleared += RecorderCleared;
+            page.Bindings.Own(new ActionDisposable(() =>
+            {
+                _recorder.CaptureStarted -= RecorderCaptureStarted;
+                _recorder.CaptureCanceled -= RecorderCaptureCanceled;
+                _recorder.Committed -= RecorderCommitted;
+                _recorder.Cleared -= RecorderCleared;
+                // Leaving the page while listening must not leave the shortcut unregistered.
+                if (_recorder.IsRecording) Resume();
+            }));
+            _recorder.SetGesture(getGesture());
+
+            _resetButton = page.Bind.Button(Translator.Buttons_Reset, () => Commit(defaultGesture));
+
+            _expander = page.Expander(title, description, WinoIconGlyph.Keyboard, _switch,
+                page.Card(keyCombination, null, WinoIconGlyph.None, _recorder),
+                page.Card(Translator.CompanionSettings_HotKey_ResetToDefault, MacHotKeyKeys.Format(defaultGesture), WinoIconGlyph.None, _resetButton));
+            _expander.IsExpanded = _switch.IsOn;
+            return _expander;
+        }
+
+        public void UpdateAvailability(bool voiceControlEnabled)
+        {
+            _expander.IsEnabled = voiceControlEnabled;
+            _switch.IsEnabled = voiceControlEnabled;
+            var active = voiceControlEnabled && _switch.IsOn;
+            _recorder.IsEnabled = active;
+            _resetButton.Enabled = active;
+        }
+
+        private void SetEnabled(bool enabled)
+        {
+            page._hotKeyError.Hidden = true;
+            if (!page.HotKeyAccess.TryConfigure(mode, enabled, getGesture()))
+            {
+                page.ShowHotKeyError(Translator.CompanionSettings_MacOS_HotKey_Conflict);
+                SetSwitch(getEnabled());
+                return;
+            }
+
+            setEnabled(enabled);
+            SetSwitch(enabled);
+            _expander.IsExpanded = enabled;
+            page.UpdateHotKeyAvailability();
+        }
+
+        private void SetSwitch(bool on)
+        {
+            _updatingSwitch = true;
+            _switch.IsOn = on;
+            _updatingSwitch = false;
+        }
+
+        private void RecorderCaptureStarted(object? sender, EventArgs args)
+        {
+            page._hotKeyError.Hidden = true;
+            page.HotKeyAccess.Suspend(mode);
+        }
+
+        private void RecorderCaptureCanceled(object? sender, EventArgs args)
+        {
+            _recorder.SetGesture(getGesture());
+            Resume();
+        }
+
+        private void RecorderCommitted(object? sender, HotKeyGesture gesture) => Commit(gesture);
+
+        /// <summary>The ✕ in the recorder turns the shortcut off; the stored combination is kept for later.</summary>
+        private void RecorderCleared(object? sender, EventArgs args)
+        {
+            _recorder.SetGesture(getGesture());
+            SetEnabled(false);
+        }
+
+        private void Commit(HotKeyGesture gesture)
+        {
+            page._hotKeyError.Hidden = true;
+            var candidate = gesture.Normalize();
+            if (!candidate.IsValid)
+            {
+                ShowRefused(candidate, Translator.CompanionSettings_MacOS_HotKey_Invalid);
+                return;
+            }
+
+            if (!page.HotKeyAccess.TryConfigure(mode, getEnabled(), candidate))
+            {
+                ShowRefused(candidate, Translator.CompanionSettings_MacOS_HotKey_Conflict);
+                return;
+            }
+
+            setGesture(candidate);
+            _recorder.SetGesture(candidate);
+        }
+
+        private void ShowRefused(HotKeyGesture refused, string message)
+        {
+            _recorder.ShowRefused(refused);
+            Resume();
+            page.ShowHotKeyError(message);
+        }
+
+        private void Resume()
+        {
+            if (page.HotKeyAccess.TryConfigure(mode, getEnabled(), getGesture())) return;
+            page.ShowHotKeyError(Translator.CompanionSettings_MacOS_HotKey_Conflict);
+        }
     }
 
     #endregion

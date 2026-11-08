@@ -8,6 +8,7 @@ using Windows.System;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models;
+using Wino.Mail.Controls.Core.VoiceBubble;
 using Wino.Mail.Controls.HotKeyInput;
 using Wino.Mail.WinUI;
 using Wino.Views.Abstract;
@@ -16,13 +17,23 @@ namespace Wino.Views.Settings;
 
 public sealed partial class VoiceControlSettingsPage : VoiceControlSettingsPageAbstract
 {
-    private bool _isUpdatingHotKeyToggle;
+    private readonly ShortcutRow _voiceShortcut;
+    private readonly ShortcutRow _textShortcut;
 
     public VoiceControlSettingsPage()
     {
         InitializeComponent();
-        HotKeyEnabledToggle.IsOn = ViewModel.PreferencesService.IsVoiceHotKeyEnabled;
-        RestoreHotKeyInput();
+        var preferences = ViewModel.PreferencesService;
+        _voiceShortcut = new ShortcutRow(this, VoiceBubbleInputMode.Voice, HotKeyEnabledToggle, HotKeyInput, VirtualKey.P,
+            () => preferences.IsVoiceHotKeyEnabled, value => preferences.IsVoiceHotKeyEnabled = value,
+            () => new HotKeyGesture(preferences.VoiceHotKeyKey, preferences.VoiceHotKeyModifiers),
+            gesture => { preferences.VoiceHotKeyKey = gesture.Key; preferences.VoiceHotKeyModifiers = gesture.Modifiers; });
+        _textShortcut = new ShortcutRow(this, VoiceBubbleInputMode.Text, TextHotKeyEnabledToggle, TextHotKeyInput, VirtualKey.T,
+            () => preferences.IsVoiceTextHotKeyEnabled, value => preferences.IsVoiceTextHotKeyEnabled = value,
+            () => new HotKeyGesture(preferences.VoiceTextHotKeyKey, preferences.VoiceTextHotKeyModifiers),
+            gesture => { preferences.VoiceTextHotKeyKey = gesture.Key; preferences.VoiceTextHotKeyModifiers = gesture.Modifiers; });
+        _voiceShortcut.Initialize();
+        _textShortcut.Initialize();
         UpdateHotKeyAvailability();
         UpdatePositionSpots();
     }
@@ -91,101 +102,138 @@ public sealed partial class VoiceControlSettingsPage : VoiceControlSettingsPageA
             spot.IsChecked = isSelected;
     }
 
-    private void HotKeyEnabled_Toggled(object sender, RoutedEventArgs e)
-    {
-        if (_isUpdatingHotKeyToggle || sender is not ToggleSwitch { IsLoaded: true } toggle)
-            return;
+    private void HotKeyEnabled_Toggled(object sender, RoutedEventArgs e) => _voiceShortcut.Toggled(sender);
 
-        HotKeyErrorInfoBar.IsOpen = false;
-        if (!TryConfigure(toggle.IsOn, GetStoredGesture()))
-        {
-            HotKeyErrorInfoBar.Message = Translator.CompanionSettings_HotKey_Conflict;
-            HotKeyErrorInfoBar.IsOpen = true;
-            _isUpdatingHotKeyToggle = true;
-            toggle.IsOn = ViewModel.PreferencesService.IsVoiceHotKeyEnabled;
-            _isUpdatingHotKeyToggle = false;
-            return;
-        }
+    private void HotKeyInput_CaptureStarted(object? sender, EventArgs e) => _voiceShortcut.CaptureStarted();
 
-        ViewModel.PreferencesService.IsVoiceHotKeyEnabled = toggle.IsOn;
-        UpdateHotKeyAvailability();
-    }
+    private void HotKeyInput_CaptureCanceled(object? sender, EventArgs e) => _voiceShortcut.CaptureCanceled();
 
-    private void HotKeyInput_CaptureStarted(object? sender, EventArgs e)
-    {
-        HotKeyErrorInfoBar.IsOpen = false;
+    private void HotKeyInput_HotKeyCommitted(object? sender, HotKeyCommittedEventArgs e) => _voiceShortcut.Committed(e);
 
-        // A registered global hotkey never reaches the window as key input, so pressing the
-        // current shortcut while listening would open the voice bubble instead of being captured.
-        TryConfigure(false, GetStoredGesture());
-    }
+    private void TextHotKeyEnabled_Toggled(object sender, RoutedEventArgs e) => _textShortcut.Toggled(sender);
 
-    private void HotKeyInput_CaptureCanceled(object? sender, EventArgs e)
-    {
-        RestoreHotKeyInput();
-        ResumeStoredHotKey();
-    }
+    private void TextHotKeyInput_CaptureStarted(object? sender, EventArgs e) => _textShortcut.CaptureStarted();
 
-    private void HotKeyInput_HotKeyCommitted(object? sender, HotKeyCommittedEventArgs e)
-    {
-        HotKeyErrorInfoBar.IsOpen = false;
+    private void TextHotKeyInput_CaptureCanceled(object? sender, EventArgs e) => _textShortcut.CaptureCanceled();
 
-        var candidate = new HotKeyGesture(e.Key.ToString(), ToDomainModifiers(e.Modifiers)).Normalize();
-        if (!candidate.IsValid)
-        {
-            ShowHotKeyError(Translator.CompanionSettings_HotKey_Invalid);
-            return;
-        }
-
-        if (!TryConfigure(ViewModel.PreferencesService.IsVoiceHotKeyEnabled, candidate))
-        {
-            ShowHotKeyError(Translator.CompanionSettings_HotKey_Conflict);
-            return;
-        }
-
-        ViewModel.PreferencesService.VoiceHotKeyKey = candidate.Key;
-        ViewModel.PreferencesService.VoiceHotKeyModifiers = candidate.Modifiers;
-        HotKeyInput.Key = e.Key;
-        HotKeyInput.Modifiers = e.Modifiers;
-    }
-
-    private void ShowHotKeyError(string message)
-    {
-        RestoreHotKeyInput();
-        ResumeStoredHotKey();
-
-        HotKeyErrorInfoBar.Message = message;
-        HotKeyErrorInfoBar.IsOpen = true;
-    }
-
-    private void ResumeStoredHotKey()
-    {
-        if (TryConfigure(ViewModel.PreferencesService.IsVoiceHotKeyEnabled, GetStoredGesture()))
-            return;
-
-        HotKeyErrorInfoBar.Message = Translator.CompanionSettings_HotKey_Conflict;
-        HotKeyErrorInfoBar.IsOpen = true;
-    }
-
-    private static bool TryConfigure(bool enabled, HotKeyGesture gesture) =>
-        WinoApplication.Current is App app && app.TryConfigureVoiceHotKey(enabled, gesture);
-
-    private HotKeyGesture GetStoredGesture() => new(
-        ViewModel.PreferencesService.VoiceHotKeyKey,
-        ViewModel.PreferencesService.VoiceHotKeyModifiers);
-
-    private void RestoreHotKeyInput()
-    {
-        var gesture = GetStoredGesture();
-        HotKeyInput.Key = Enum.TryParse(gesture.Key, true, out VirtualKey key) ? key : VirtualKey.P;
-        HotKeyInput.Modifiers = ToVirtualModifiers(gesture.Modifiers);
-    }
+    private void TextHotKeyInput_HotKeyCommitted(object? sender, HotKeyCommittedEventArgs e) => _textShortcut.Committed(e);
 
     private void UpdateHotKeyAvailability()
     {
         var isEnabled = ViewModel.IsVoiceControlEnabled;
         VoiceHotKeyExpander.IsEnabled = isEnabled;
         HotKeyInput.IsEnabled = isEnabled && HotKeyEnabledToggle.IsOn;
+        TextHotKeyExpander.IsEnabled = isEnabled;
+        TextHotKeyInput.IsEnabled = isEnabled && TextHotKeyEnabledToggle.IsOn;
+    }
+
+    /// <summary>
+    /// One shortcut's toggle and key recorder: the voice shortcut and the typing shortcut behave the same way and share
+    /// the page's error bar.
+    /// </summary>
+    private sealed class ShortcutRow(
+        VoiceControlSettingsPage page,
+        VoiceBubbleInputMode mode,
+        ToggleSwitch toggle,
+        WinoHotKeyInput input,
+        VirtualKey fallbackKey,
+        Func<bool> getEnabled,
+        Action<bool> setEnabled,
+        Func<HotKeyGesture> getGesture,
+        Action<HotKeyGesture> setGesture)
+    {
+        private bool _isUpdatingToggle;
+
+        public void Initialize()
+        {
+            toggle.IsOn = getEnabled();
+            Restore();
+        }
+
+        public void Toggled(object sender)
+        {
+            if (_isUpdatingToggle || sender is not ToggleSwitch { IsLoaded: true })
+                return;
+
+            page.HotKeyErrorInfoBar.IsOpen = false;
+            if (!TryConfigure(toggle.IsOn, getGesture()))
+            {
+                page.HotKeyErrorInfoBar.Message = Translator.CompanionSettings_HotKey_Conflict;
+                page.HotKeyErrorInfoBar.IsOpen = true;
+                _isUpdatingToggle = true;
+                toggle.IsOn = getEnabled();
+                _isUpdatingToggle = false;
+                return;
+            }
+
+            setEnabled(toggle.IsOn);
+            page.UpdateHotKeyAvailability();
+        }
+
+        public void CaptureStarted()
+        {
+            page.HotKeyErrorInfoBar.IsOpen = false;
+
+            // A registered global hotkey never reaches the window as key input, so pressing the current shortcut while
+            // listening would open the bubble instead of being captured.
+            TryConfigure(false, getGesture());
+        }
+
+        public void CaptureCanceled()
+        {
+            Restore();
+            Resume();
+        }
+
+        public void Committed(HotKeyCommittedEventArgs e)
+        {
+            page.HotKeyErrorInfoBar.IsOpen = false;
+
+            var candidate = new HotKeyGesture(e.Key.ToString(), ToDomainModifiers(e.Modifiers)).Normalize();
+            if (!candidate.IsValid)
+            {
+                ShowError(Translator.CompanionSettings_HotKey_Invalid);
+                return;
+            }
+
+            if (!TryConfigure(getEnabled(), candidate))
+            {
+                ShowError(Translator.CompanionSettings_HotKey_Conflict);
+                return;
+            }
+
+            setGesture(candidate);
+            input.Key = e.Key;
+            input.Modifiers = e.Modifiers;
+        }
+
+        private void ShowError(string message)
+        {
+            Restore();
+            Resume();
+
+            page.HotKeyErrorInfoBar.Message = message;
+            page.HotKeyErrorInfoBar.IsOpen = true;
+        }
+
+        private void Resume()
+        {
+            if (TryConfigure(getEnabled(), getGesture()))
+                return;
+
+            page.HotKeyErrorInfoBar.Message = Translator.CompanionSettings_HotKey_Conflict;
+            page.HotKeyErrorInfoBar.IsOpen = true;
+        }
+
+        private bool TryConfigure(bool enabled, HotKeyGesture gesture) =>
+            WinoApplication.Current is App app && app.TryConfigureVoiceHotKey(enabled, gesture, mode);
+
+        private void Restore()
+        {
+            var gesture = getGesture();
+            input.Key = Enum.TryParse(gesture.Key, true, out VirtualKey key) ? key : fallbackKey;
+            input.Modifiers = ToVirtualModifiers(gesture.Modifiers);
+        }
     }
 
     private static ModifierKeys ToDomainModifiers(VirtualKeyModifiers modifiers)

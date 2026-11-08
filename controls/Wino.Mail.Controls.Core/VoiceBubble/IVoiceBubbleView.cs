@@ -79,4 +79,27 @@ public interface IVoiceBubbleView
     event EventHandler<string>? QuestionFilterChanged;
 
     event EventHandler<VoiceBubbleChoice>? ChoiceSelected;
+
+    /// <summary>How the current request is entered; set before <see cref="Present"/>.</summary>
+    VoiceBubbleInputMode InputMode { get; set; }
+
+    /// <summary>
+    /// The text of a typed request, shown in <see cref="VoiceBubbleState.Composing"/> as an editable text with a caret in
+    /// the transcript's place and style. The controller sets it (for example when spoken words are appended); user edits
+    /// raise <see cref="ComposedTextChanged"/>.
+    /// </summary>
+    string ComposedText { get; set; }
+
+    string ComposePlaceholder { get; set; }
+
+    /// <summary>Shows the microphone button in <see cref="VoiceBubbleState.Composing"/>.</summary>
+    bool CanSwitchToVoice { get; set; }
+
+    /// <summary>One short line under the request, for example that the spoken requests of this month are used up.</summary>
+    string? InputNotice { get; set; }
+
+    event EventHandler<string>? ComposedTextChanged;
+
+    /// <summary>The microphone button in <see cref="VoiceBubbleState.Composing"/>.</summary>
+    event EventHandler? SwitchToVoiceRequested;
 }

@@ -18,7 +18,7 @@ namespace Wino.Services.Voice;
 
 public sealed class VoiceCommandService(IWinoAccountApiClient apiClient) : IVoiceCommandService
 {
-    public async Task<VoiceCommandStartResult> StartAsync(CancellationToken cancellationToken = default)
+    public async Task<VoiceCommandStartResult> StartAsync(VoiceInputKind input = VoiceInputKind.Audio, string? typedText = null, CancellationToken cancellationToken = default)
     {
         VoiceConnectResult connection;
         try
@@ -39,7 +39,7 @@ public sealed class VoiceCommandService(IWinoAccountApiClient apiClient) : IVoic
             return new VoiceCommandStartResult(null, connection.ErrorCode ?? WinoAccountClientErrorCodes.ServiceUnavailable);
 
         var session = new VoiceCommandSession(socket);
-        session.Start(CreateContext());
+        session.Start(CreateContext() with { Input = input, TypedText = string.IsNullOrWhiteSpace(typedText) ? null : typedText.Trim() });
         return new VoiceCommandStartResult(session, null);
     }
 
@@ -93,6 +93,12 @@ internal sealed class VoiceCommandSession(WebSocket socket) : IVoiceCommandSessi
     {
         if (Interlocked.Exchange(ref _isCommitted, 1) == 0)
             Enqueue(new VoiceClientFrame(VoiceFrameTypes.Commit));
+    }
+
+    public void SendText(string text)
+    {
+        if (Interlocked.Exchange(ref _isCommitted, 1) == 0)
+            Enqueue(new VoiceClientFrame(VoiceFrameTypes.Text, Text: text));
     }
 
     public async ValueTask DisposeAsync()

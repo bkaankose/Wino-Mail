@@ -1,4 +1,5 @@
 using Wino.Core.Domain.Models;
+using Wino.Mail.Controls.Core.VoiceBubble;
 using Wino.Mail.ViewModels.Voice;
 using Wino.Platform.MacOS.Services;
 
@@ -20,10 +21,10 @@ public sealed class MacVoiceHotKeyAccess
     }
 
     /// <summary>Registers <paramref name="gesture"/> when voice control is usable and <paramref name="enabled"/>; false when the system refused it.</summary>
-    public bool TryConfigure(bool enabled, HotKeyGesture gesture)
-        => _controller?.TryConfigureHotKey(enabled, gesture)
+    public bool TryConfigure(VoiceBubbleInputMode mode, bool enabled, HotKeyGesture gesture)
+        => _controller?.TryConfigureHotKey(mode, enabled, gesture)
            ?? (gesture.Normalize() is { IsValid: true } normalized && MacHotKeyKeys.TryGetKeyCode(normalized.Key, out _));
 
     /// <summary>Removes the shortcut while the recorder listens, since a registered shortcut never reaches the window.</summary>
-    public void Suspend() => _host?.TrySetHotKey(null);
+    public void Suspend(VoiceBubbleInputMode mode) => _host?.TrySetHotKey(mode, null);
 }

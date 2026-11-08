@@ -23,10 +23,14 @@ public interface IVoiceBubbleHost
     /// <summary>Whether the platform can register <paramref name="gesture"/> at all, without registering it.</summary>
     bool CanRegisterHotKey(HotKeyGesture gesture);
 
-    /// <summary>Registers <paramref name="gesture"/>, or removes the shortcut when it is null. False when the system refused.</summary>
-    bool TrySetHotKey(HotKeyGesture? gesture);
+    /// <summary>
+    /// Registers <paramref name="gesture"/> as the shortcut that opens the bubble in <paramref name="mode"/>, or removes
+    /// that shortcut when it is null. False when the system refused.
+    /// </summary>
+    bool TrySetHotKey(VoiceBubbleInputMode mode, HotKeyGesture? gesture);
 
-    event EventHandler? HotKeyPressed;
+    /// <summary>A registered shortcut was pressed; the argument says which.</summary>
+    event EventHandler<VoiceBubbleInputMode>? HotKeyPressed;
 
     /// <summary>Starts raising <see cref="FrameRendered"/> once per display frame.</summary>
     void StartFrames();

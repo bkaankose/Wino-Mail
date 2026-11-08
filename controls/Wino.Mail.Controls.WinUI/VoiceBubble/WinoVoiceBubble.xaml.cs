@@ -1,5 +1,6 @@
 using System.Numerics;
 using CommunityToolkit.WinUI;
+using Microsoft.UI.Input;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
@@ -11,6 +12,7 @@ using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Shapes;
 using Windows.Foundation;
 using Windows.System;
+using Windows.UI.Core;
 using Windows.UI.ViewManagement;
 using Wino.Mail.Controls.AccountIcon;
 using Wino.Mail.Controls.Core.VoiceBubble;
@@ -52,6 +54,8 @@ public sealed partial class WinoVoiceBubble : UserControl, IVoiceBubbleView
     private Storyboard? _transitionStoryboard;
     private Storyboard? _countdownStoryboard;
     private Storyboard? _transcriptScrollStoryboard;
+    private Storyboard? _composeScrollStoryboard;
+    private bool _settingComposeText;
     private int _visibleBarCount;
     private VoiceBubbleState _presentedState = VoiceBubbleState.Hidden;
     private int _version;
@@ -108,6 +112,25 @@ public sealed partial class WinoVoiceBubble : UserControl, IVoiceBubbleView
     [GeneratedDependencyProperty(DefaultValue = false)]
     public partial bool ShowsTranscript { get; set; }
 
+    /// <summary>How the current request is entered; <see cref="VoiceBubbleState.Composing"/> is the typed one.</summary>
+    [GeneratedDependencyProperty]
+    public partial VoiceBubbleInputMode InputMode { get; set; }
+
+    /// <summary>The typed request, edited in place of the transcript while composing.</summary>
+    [GeneratedDependencyProperty(DefaultValue = "")]
+    public partial string ComposedText { get; set; }
+
+    [GeneratedDependencyProperty(DefaultValue = "")]
+    public partial string ComposePlaceholder { get; set; }
+
+    /// <summary>Shows the microphone button while composing.</summary>
+    [GeneratedDependencyProperty(DefaultValue = true)]
+    public partial bool CanSwitchToVoice { get; set; }
+
+    /// <summary>A short line under the request, for example that the spoken requests are used up.</summary>
+    [GeneratedDependencyProperty]
+    public partial string? InputNotice { get; set; }
+
     /// <summary>The final words heard so far. The host updates it as the live transcription arrives.</summary>
     [GeneratedDependencyProperty]
     public partial string? Transcript { get; set; }
@@ -159,6 +182,12 @@ public sealed partial class WinoVoiceBubble : UserControl, IVoiceBubbleView
 
     /// <summary>The user clicked the icon while listening.</summary>
     public event EventHandler? SendRequested;
+
+    /// <summary>The user edited the typed request.</summary>
+    public event EventHandler<string>? ComposedTextChanged;
+
+    /// <summary>The microphone button while composing.</summary>
+    public event EventHandler? SwitchToVoiceRequested;
 
     /// <summary>The user cancelled with the corner badge, No or Escape.</summary>
     public event EventHandler? CancelRequested;
@@ -280,6 +309,31 @@ public sealed partial class WinoVoiceBubble : UserControl, IVoiceBubbleView
 
     partial void OnShowsTranscriptChanged(bool newValue) => RefreshTranscript();
 
+    partial void OnComposedTextChanged(string newValue)
+    {
+        var text = newValue ?? string.Empty;
+        if (ComposeBox.Text != text)
+        {
+            _settingComposeText = true;
+            ComposeBox.Text = text;
+            ComposeBox.SelectionStart = text.Length;
+            _settingComposeText = false;
+        }
+
+        ScrollCompose(animate: true);
+    }
+
+    partial void OnComposePlaceholderChanged(string newValue) => ComposeBox.PlaceholderText = newValue ?? string.Empty;
+
+    partial void OnCanSwitchToVoiceChanged(bool newValue) => UpdateComposeChrome();
+
+    partial void OnInputNoticeChanged(string? newValue)
+    {
+        UpdateComposeChrome();
+        if (_isLoaded && _isShown)
+            Resize(animate: true);
+    }
+
     partial void OnInterimTranscriptChanged(string? newValue) => RefreshTranscript();
 
     partial void OnListeningTextChanged(string newValue) => RefreshTranscript();
@@ -296,6 +350,24 @@ public sealed partial class WinoVoiceBubble : UserControl, IVoiceBubbleView
     /// <summary>Fills the transcript row for the state and returns whether the row appeared or went away.</summary>
     private bool UpdateTranscript(VoiceBubbleState state)
     {
+        if (state == VoiceBubbleState.Composing)
+        {
+            // Typing uses the transcript's row: the editable text replaces the words heard.
+            var appeared = TranscriptViewport.Visibility != Visibility.Visible;
+            TranscriptViewport.Visibility = Visibility.Visible;
+            TranscriptText.Visibility = Visibility.Collapsed;
+            ComposeBox.Visibility = Visibility.Visible;
+            StopStoryboard(ref _transcriptScrollStoryboard);
+            TranscriptOffset.Y = 0;
+            ScrollCompose(animate: false);
+            return appeared;
+        }
+
+        TranscriptText.Visibility = Visibility.Visible;
+        ComposeBox.Visibility = Visibility.Collapsed;
+        StopStoryboard(ref _composeScrollStoryboard);
+        ComposeOffset.Y = 0;
+
         var heard = Transcript?.Trim();
         var pending = InterimTranscript?.Trim();
         var hasWords = !string.IsNullOrEmpty(heard) || !string.IsNullOrEmpty(pending);
@@ -381,6 +453,107 @@ public sealed partial class WinoVoiceBubble : UserControl, IVoiceBubbleView
         _transcriptScrollStoryboard = storyboard;
         storyboard.Begin();
     }
+
+    /// <summary>
+    /// Keeps the caret's line inside the two visible lines, moving the text up or down the way the transcript scrolls.
+    /// </summary>
+    private void ScrollCompose(bool animate)
+    {
+        if (ComposeBox.Visibility != Visibility.Visible)
+        {
+            return;
+        }
+
+        ComposeBox.Measure(new Size(ComposeBox.Width, double.PositiveInfinity));
+        var viewport = TranscriptViewport.Height;
+        var overflow = Math.Max(0, ComposeBox.DesiredSize.Height - viewport);
+        var from = ComposeOffset.Y;
+        var target = from;
+
+        var text = ComposeBox.Text;
+        if (text.Length == 0)
+        {
+            target = 0;
+        }
+        else
+        {
+            try
+            {
+                var atEnd = ComposeBox.SelectionStart >= text.Length;
+                var index = Math.Clamp(atEnd ? text.Length - 1 : ComposeBox.SelectionStart, 0, text.Length - 1);
+                var caret = ComposeBox.GetRectFromCharacterIndex(index, atEnd);
+                if (caret.Bottom + from > viewport)
+                    target = viewport - caret.Bottom;
+                if (caret.Top + target < 0)
+                    target = -caret.Top;
+            }
+            catch (ArgumentException)
+            {
+                // Before the first layout pass there is no caret rectangle: show the end of the text.
+                target = -overflow;
+            }
+        }
+
+        target = Math.Clamp(target, -overflow, 0);
+        if (Math.Abs(from - target) < 0.5)
+        {
+            return;
+        }
+
+        StopStoryboard(ref _composeScrollStoryboard);
+        ComposeOffset.Y = target;
+        if (!animate || !_uiSettings.AnimationsEnabled)
+        {
+            return;
+        }
+
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(CreateSplineAnimation(ComposeOffset, "Y", from, target, TranscriptScrollDuration, DecelerateSpline));
+        _composeScrollStoryboard = storyboard;
+        storyboard.Begin();
+    }
+
+    private void UpdateComposeChrome()
+    {
+        var composing = _presentedState == VoiceBubbleState.Composing;
+        MicButton.Visibility = composing && CanSwitchToVoice ? Visibility.Visible : Visibility.Collapsed;
+        var notice = InputNotice;
+        InputNoticeText.Text = notice ?? string.Empty;
+        InputNoticeText.Visibility = composing && !string.IsNullOrWhiteSpace(notice) ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void ComposeBoxPreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != VirtualKey.Enter
+            || InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift).HasFlag(CoreVirtualKeyStates.Down))
+        {
+            return;
+        }
+
+        // Enter sends; Shift+Enter keeps the TextBox's line break.
+        e.Handled = true;
+        if (_presentedState == VoiceBubbleState.Composing)
+            SendRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ComposeBoxTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_settingComposeText)
+        {
+            return;
+        }
+
+        var text = ComposeBox.Text;
+        _settingComposeText = true;
+        ComposedText = text;
+        _settingComposeText = false;
+        ComposedTextChanged?.Invoke(this, text);
+        ScrollCompose(animate: true);
+    }
+
+    private void ComposeBoxSelectionChanged(object sender, RoutedEventArgs e) => ScrollCompose(animate: true);
+
+    private void MicButtonClicked(object sender, RoutedEventArgs e) => SwitchToVoiceRequested?.Invoke(this, EventArgs.Empty);
 
     private void ApplyBarLayout(bool wide)
     {
@@ -515,6 +688,7 @@ public sealed partial class WinoVoiceBubble : UserControl, IVoiceBubbleView
         var stateName = state switch
         {
             VoiceBubbleState.Listening => nameof(ListeningState),
+            VoiceBubbleState.Composing => nameof(ComposingState),
             VoiceBubbleState.Analyzing => nameof(AnalyzingState),
             VoiceBubbleState.Confirmation when HasSteps => nameof(ConfirmationStepsState),
             VoiceBubbleState.Confirmation => nameof(ConfirmationInlineState),
@@ -525,6 +699,11 @@ public sealed partial class WinoVoiceBubble : UserControl, IVoiceBubbleView
         };
         VisualStateManager.GoToState(this, stateName, false);
         UpdateTranscript(state);
+        UpdateComposeChrome();
+        if (state == VoiceBubbleState.Composing)
+        {
+            DispatcherQueue.TryEnqueue(() => ComposeBox.Focus(FocusState.Programmatic));
+        }
 
         if (state == VoiceBubbleState.Analyzing)
         {
@@ -982,7 +1161,7 @@ public sealed partial class WinoVoiceBubble : UserControl, IVoiceBubbleView
 
     private void UpdateCancelBadge()
     {
-        var visible = _isPointerOver && _presentedState is VoiceBubbleState.Listening or VoiceBubbleState.Analyzing;
+        var visible = _isPointerOver && _presentedState is VoiceBubbleState.Listening or VoiceBubbleState.Composing or VoiceBubbleState.Analyzing;
         CancelButton.Opacity = visible ? 1 : 0;
         CancelButton.IsHitTestVisible = visible;
     }
@@ -1052,6 +1231,7 @@ public sealed partial class WinoVoiceBubble : UserControl, IVoiceBubbleView
         switch (_presentedState)
         {
             case VoiceBubbleState.Listening:
+            case VoiceBubbleState.Composing:
             case VoiceBubbleState.Analyzing:
             case VoiceBubbleState.Confirmation:
             case VoiceBubbleState.Question:
@@ -1068,7 +1248,7 @@ public sealed partial class WinoVoiceBubble : UserControl, IVoiceBubbleView
 
     private void IconButtonClicked(object sender, RoutedEventArgs e)
     {
-        if (_presentedState == VoiceBubbleState.Listening)
+        if (_presentedState is VoiceBubbleState.Listening or VoiceBubbleState.Composing)
         {
             SendRequested?.Invoke(this, EventArgs.Empty);
         }

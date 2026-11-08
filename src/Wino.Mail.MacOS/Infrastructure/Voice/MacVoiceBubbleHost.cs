@@ -30,7 +30,9 @@ internal sealed class MacVoiceBubbleHost : IVoiceBubbleHost, IDisposable
 
     private readonly VoiceBubblePanel _panel;
     private readonly WinoVoiceBubbleView _bubble;
+    private const uint TextHotKeySignature = 0x57494E54; // 'WINT'
     private readonly MacGlobalHotKeyService _hotKeys = new(VoiceHotKeySignature);
+    private readonly MacGlobalHotKeyService _textHotKeys = new(TextHotKeySignature);
     private readonly Func<CGRect?> _menuBarIconFrame;
     private readonly IPreferencesService _preferences;
     private readonly Stopwatch _frameClock = new();
@@ -56,11 +58,12 @@ internal sealed class MacVoiceBubbleHost : IVoiceBubbleHost, IDisposable
         _panel = new VoiceBubblePanel(_bubble);
         _bubble.TargetSizeChanged += BubbleTargetSizeChanged;
         _hotKeys.Pressed += HotKeysPressed;
+        _textHotKeys.Pressed += TextHotKeysPressed;
     }
 
     public IVoiceBubbleView Bubble => _bubble;
 
-    public event EventHandler? HotKeyPressed;
+    public event EventHandler<VoiceBubbleInputMode>? HotKeyPressed;
 
     public event EventHandler<double>? FrameRendered;
 
@@ -106,7 +109,7 @@ internal sealed class MacVoiceBubbleHost : IVoiceBubbleHost, IDisposable
         return !(_preferences.IsCompanionHotKeyEnabled && companion == normalized);
     }
 
-    public bool TrySetHotKey(HotKeyGesture? gesture)
+    public bool TrySetHotKey(VoiceBubbleInputMode mode, HotKeyGesture? gesture)
     {
         if (_disposed)
             return false;
@@ -114,7 +117,7 @@ internal sealed class MacVoiceBubbleHost : IVoiceBubbleHost, IDisposable
         if (gesture is { } value && !CanRegisterHotKey(value))
             return false;
 
-        return _hotKeys.TrySetHotKey(gesture);
+        return (mode == VoiceBubbleInputMode.Text ? _textHotKeys : _hotKeys).TrySetHotKey(gesture);
     }
 
     public void StartFrames()
@@ -160,11 +163,15 @@ internal sealed class MacVoiceBubbleHost : IVoiceBubbleHost, IDisposable
         _bubble.TargetSizeChanged -= BubbleTargetSizeChanged;
         _hotKeys.Pressed -= HotKeysPressed;
         _hotKeys.Dispose();
+        _textHotKeys.Pressed -= TextHotKeysPressed;
+        _textHotKeys.Dispose();
         _panel.OrderOut(null);
         _panel.Close();
     }
 
-    private void HotKeysPressed(object? sender, EventArgs e) => HotKeyPressed?.Invoke(this, EventArgs.Empty);
+    private void HotKeysPressed(object? sender, EventArgs e) => HotKeyPressed?.Invoke(this, VoiceBubbleInputMode.Voice);
+
+    private void TextHotKeysPressed(object? sender, EventArgs e) => HotKeyPressed?.Invoke(this, VoiceBubbleInputMode.Text);
 
     private void BubbleTargetSizeChanged(object? sender, VoiceBubbleSizeChange change)
     {

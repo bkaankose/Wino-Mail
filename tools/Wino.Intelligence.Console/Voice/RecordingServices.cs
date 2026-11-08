@@ -57,7 +57,30 @@ internal sealed class RecordingRequestDelegator : IWinoRequestDelegator
 
     public Task ExecuteAsync(DraftPreparationRequest request)
     {
-        OperationLog.Add("Draft", Describer.Describe(request));
+        var text = request.Account?.Address ?? string.Empty;
+        if (request.ReferenceMailCopy is { } reference)
+            text += $" reply-to=\"{Describer.Clip(reference.Subject, 50)}\" from {reference.FromAddress}";
+        text += $" reason={request.Reason}";
+        try
+        {
+            if (request.CreatedLocalDraftMimeMessage is { } mime)
+            {
+                var to = string.Join(", ", mime.To.Mailboxes.Select(static mailbox => mailbox.Address));
+                var cc = string.Join(", ", mime.Cc.Mailboxes.Select(static mailbox => mailbox.Address));
+                text += $" to=[{to}]" + (cc.Length > 0 ? $" cc=[{cc}]" : string.Empty);
+                if (!string.IsNullOrWhiteSpace(mime.Subject))
+                    text += $" subject=\"{mime.Subject}\"";
+                var body = mime.TextBody ?? System.Text.RegularExpressions.Regex.Replace(mime.HtmlBody ?? string.Empty, "<[^>]+>", " ");
+                if (!string.IsNullOrWhiteSpace(body))
+                    text += $" body=\"{Describer.Clip(System.Net.WebUtility.HtmlDecode(body).Trim(), 120)}\"";
+            }
+        }
+        catch (Exception exception)
+        {
+            text += $" (mime unreadable: {exception.GetType().Name})";
+        }
+
+        OperationLog.Add("Draft", text);
         return Task.CompletedTask;
     }
 
@@ -149,15 +172,9 @@ internal sealed class RecordingPlanHost : IVoicePlanHost
         return Task.CompletedTask;
     }
 
-    public Task OpenDraftAsync(MailAccount account, DraftCreationOptions options, MailCopy? referenceMail)
+    public Task OpenDraftAsync(MailAccount account, MailCopy draft)
     {
-        var reply = referenceMail is null ? string.Empty : $" reply-to=\"{Describer.Clip(referenceMail.Subject, 50)}\" from {referenceMail.FromAddress}";
-        var mailTo = options.MailToUri is { } uri
-            ? $" to=[{string.Join(", ", uri.To)}]" + (uri.Cc.Count > 0 ? $" cc=[{string.Join(", ", uri.Cc)}]" : string.Empty)
-              + (string.IsNullOrWhiteSpace(uri.Subject) ? string.Empty : $" subject=\"{uri.Subject}\"")
-              + (string.IsNullOrWhiteSpace(uri.Body) ? string.Empty : $" body=\"{Describer.Clip(uri.Body, 120)}\"")
-            : string.Empty;
-        OperationLog.Add("OpenDraft", $"{account.Address}{reply} reason={options.Reason}{mailTo}");
+        OperationLog.Add("OpenDraft", $"{account.Address} \"{Describer.Clip(draft.Subject, 60)}\"");
         return Task.CompletedTask;
     }
 

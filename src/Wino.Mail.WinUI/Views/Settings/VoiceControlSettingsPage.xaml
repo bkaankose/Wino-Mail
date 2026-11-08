@@ -231,6 +231,39 @@
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>
 
+            <controls:SettingsExpander
+                x:Name="TextHotKeyExpander"
+                AutomationProperties.AutomationId="VoiceControlSettingsTextHotKeyCard"
+                Description="{x:Bind domain:Translator.VoiceControlSettings_TextHotKey_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.VoiceControlSettings_TextHotKey_Title, Mode=OneTime}"
+                IsExpanded="True">
+                <controls:SettingsExpander.HeaderIcon>
+                    <coreControls:WinoFontIcon Icon="Keyboard" />
+                </controls:SettingsExpander.HeaderIcon>
+                <ToggleSwitch
+                    x:Name="TextHotKeyEnabledToggle"
+                    AutomationProperties.AutomationId="VoiceControlSettingsTextHotKeyToggle"
+                    AutomationProperties.Name="{x:Bind domain:Translator.VoiceControlSettings_TextHotKey_Title, Mode=OneTime}"
+                    Toggled="TextHotKeyEnabled_Toggled" />
+                <controls:SettingsExpander.Items>
+                    <controls:SettingsCard
+                        AutomationProperties.AutomationId="VoiceControlSettingsTextHotKeyInputCard"
+                        Description="{x:Bind domain:Translator.VoiceControlSettings_TextHotKey_KeyCombination_Description, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.VoiceControlSettings_TextHotKey_KeyCombination, Mode=OneTime}">
+                        <hotKey:WinoHotKeyInput
+                            x:Name="TextHotKeyInput"
+                            MinWidth="240"
+                            AutomationProperties.AutomationId="VoiceControlSettingsTextHotKeyInput"
+                            AutomationProperties.Name="{x:Bind domain:Translator.VoiceControlSettings_TextHotKey_KeyCombination, Mode=OneTime}"
+                            CaptureCanceled="TextHotKeyInput_CaptureCanceled"
+                            CaptureStarted="TextHotKeyInput_CaptureStarted"
+                            HotKeyCommitted="TextHotKeyInput_HotKeyCommitted"
+                            ListeningPrompt="{x:Bind domain:Translator.CompanionSettings_HotKey_Listening, Mode=OneTime}"
+                            NormalPrompt="{x:Bind domain:Translator.KeyboardShortcuts_PressKeysHere, Mode=OneTime}" />
+                    </controls:SettingsCard>
+                </controls:SettingsExpander.Items>
+            </controls:SettingsExpander>
+
             <InfoBar
                 x:Name="HotKeyErrorInfoBar"
                 AutomationProperties.AutomationId="VoiceControlSettingsHotKeyError"

@@ -11,6 +11,16 @@ public enum VoiceBubbleState
 
     /// <summary>A question the plan needs answered before it runs, with a list to pick the answer from.</summary>
     Question,
+
+    /// <summary>The user types the request: the transcript area becomes an editable text with a caret.</summary>
+    Composing,
+}
+
+/// <summary>How the request is entered: spoken (transcribed) or typed.</summary>
+public enum VoiceBubbleInputMode
+{
+    Voice,
+    Text,
 }
 
 public enum VoiceBubbleExitAnimation

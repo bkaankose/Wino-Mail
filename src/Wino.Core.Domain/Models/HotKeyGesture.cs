@@ -20,6 +20,9 @@ public readonly record struct HotKeyGesture(string Key, ModifierKeys Modifiers)
     /// <summary>The voice bubble's default shortcut, Ctrl+Alt+P.</summary>
     public static HotKeyGesture VoiceDefault { get; } = new("P", ModifierKeys.Control | ModifierKeys.Alt);
 
+    /// <summary>Opens Wino Assistant for typing.</summary>
+    public static HotKeyGesture TextDefault { get; } = new("T", ModifierKeys.Control | ModifierKeys.Alt);
+
     public bool IsValid =>
         !string.IsNullOrWhiteSpace(Key) &&
         Modifiers != ModifierKeys.None &&

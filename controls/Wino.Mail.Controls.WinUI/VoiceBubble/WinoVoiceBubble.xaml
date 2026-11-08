@@ -1,4 +1,4 @@
-<UserControl
+﻿<UserControl
     x:Class="Wino.Mail.Controls.VoiceBubble.WinoVoiceBubble"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -384,6 +384,21 @@
                                 Spacing="2.33"
                                 Visibility="Collapsed" />
 
+                            <Button
+                                x:Name="MicButton"
+                                Width="28"
+                                Height="28"
+                                Padding="0"
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="WinoVoiceBubbleMicrophoneButton"
+                                AutomationProperties.Name="Speak instead"
+                                Click="MicButtonClicked"
+                                CornerRadius="8"
+                                Style="{StaticResource SubtleButtonStyle}"
+                                Visibility="Collapsed">
+                                <accountIcon:WinoFontIcon FontSize="14" Glyph="&#xE0CD;" />
+                            </Button>
+
                             <StackPanel
                                 x:Name="DotsPanel"
                                 Height="24"
@@ -659,7 +674,49 @@
                                     <TranslateTransform x:Name="TranscriptOffset" />
                                 </TextBlock.RenderTransform>
                             </TextBlock>
+                            <!--  Grows with its text; the canvas clips it to two lines and ComposeOffset keeps the caret line in view, like the transcript.  -->
+                            <TextBox
+                                x:Name="ComposeBox"
+                                Width="291"
+                                MinHeight="0"
+                                Padding="0"
+                                AcceptsReturn="True"
+                                AutomationProperties.AutomationId="WinoVoiceBubbleComposeBox"
+                                BorderThickness="0"
+                                FontSize="13"
+                                PreviewKeyDown="ComposeBoxPreviewKeyDown"
+                                ScrollViewer.HorizontalScrollMode="Disabled"
+                                ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                                ScrollViewer.VerticalScrollMode="Disabled"
+                                SelectionChanged="ComposeBoxSelectionChanged"
+                                TextChanged="ComposeBoxTextChanged"
+                                TextWrapping="Wrap"
+                                Visibility="Collapsed">
+                                <TextBox.Resources>
+                                    <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
+                                    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+                                    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+                                    <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
+                                    <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+                                    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+                                    <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
+                                </TextBox.Resources>
+                                <TextBox.RenderTransform>
+                                    <TranslateTransform x:Name="ComposeOffset" />
+                                </TextBox.RenderTransform>
+                            </TextBox>
                         </Canvas>
+
+                        <TextBlock
+                            x:Name="InputNoticeText"
+                            MaxWidth="291"
+                            Margin="4,0,0,2"
+                            HorizontalAlignment="Left"
+                            AutomationProperties.LiveSetting="Polite"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            TextWrapping="WrapWholeWords"
+                            Visibility="Collapsed" />
                     </StackPanel>
 
                     <Rectangle
@@ -683,6 +740,11 @@
                 <VisualState x:Name="ListeningState">
                     <VisualState.Setters>
                         <Setter Target="BarsPanel.Visibility" Value="Visible" />
+                        <Setter Target="IconButton.IsEnabled" Value="True" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="ComposingState">
+                    <VisualState.Setters>
                         <Setter Target="IconButton.IsEnabled" Value="True" />
                     </VisualState.Setters>
                 </VisualState>

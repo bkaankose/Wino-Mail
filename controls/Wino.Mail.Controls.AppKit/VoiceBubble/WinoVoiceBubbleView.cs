@@ -54,6 +54,10 @@ public sealed partial class WinoVoiceBubbleView : NSView, IVoiceBubbleView
     private readonly NSButton _dismiss;
     private readonly NSView _transcriptViewport;
     private readonly NSTextField _transcriptText;
+    private readonly NSTextField _composeField;
+    private readonly NSButton _micButton;
+    private readonly NSTextField _noticeText;
+    private bool _settingComposeText;
     private readonly CALayer _countdown;
     private NSLayoutConstraint? _contentWidth;
     private NSLayoutConstraint? _contentHeight;
@@ -111,7 +115,7 @@ public sealed partial class WinoVoiceBubbleView : NSView, IVoiceBubbleView
             logoCell.ImageDimsWhenDisabled = false;
         _logo.Activated += (_, _) =>
         {
-            if (_presentedState == VoiceBubbleState.Listening)
+            if (_presentedState is VoiceBubbleState.Listening or VoiceBubbleState.Composing)
                 SendRequested?.Invoke(this, EventArgs.Empty);
         };
         WinoAccessibility.Label(_logo, Translator.Buttons_Send);
@@ -146,7 +150,20 @@ public sealed partial class WinoVoiceBubbleView : NSView, IVoiceBubbleView
         BuildStepsPanel();
         BuildQuestionPanel();
 
-        _header = WinoLayout.HStack(8, _logo, _bars, _dots, _inlinePanel, _messagePanel, _stepsPanel, _questionPanel);
+        _micButton = new NSButton
+        {
+            Bordered = false,
+            Image = WinoStyle.Symbol("mic", Translator.VoiceBubble_SpeakInstead, 14),
+            ContentTintColor = NSColor.SecondaryLabel,
+            ToolTip = Translator.VoiceBubble_SpeakInstead,
+            Hidden = true,
+            TranslatesAutoresizingMaskIntoConstraints = false
+        };
+        _micButton.Activated += (_, _) => SwitchToVoiceRequested?.Invoke(this, EventArgs.Empty);
+        WinoAccessibility.Label(_micButton, Translator.VoiceBubble_SpeakInstead);
+        WinoLayout.Size(_micButton, 28, 28);
+
+        _header = WinoLayout.HStack(8, _logo, _micButton, _bars, _dots, _inlinePanel, _messagePanel, _stepsPanel, _questionPanel);
         _header.Alignment = NSLayoutAttribute.CenterY;
 
         _transcriptText = new NSTextField
@@ -164,11 +181,55 @@ public sealed partial class WinoVoiceBubbleView : NSView, IVoiceBubbleView
         _transcriptViewport = new FlippedView { WantsLayer = true, TranslatesAutoresizingMaskIntoConstraints = false };
         _transcriptViewport.Layer!.MasksToBounds = true;
         _transcriptViewport.AddSubview(_transcriptText);
+
+        // The typed request: an editable field in the transcript's place and font. Return sends (the field's action);
+        // Option+Return inserts a line break, the macOS convention for a single-line-first text field.
+        _composeField = new NSTextField
+        {
+            Editable = true,
+            Selectable = true,
+            Bordered = false,
+            Bezeled = false,
+            DrawsBackground = false,
+            FocusRingType = NSFocusRingType.None,
+            Font = WinoStyle.Body,
+            MaximumNumberOfLines = 0,
+            LineBreakMode = NSLineBreakMode.ByWordWrapping,
+            PreferredMaxLayoutWidth = (nfloat)TranscriptWidth,
+            Hidden = true
+        };
+        _composeField.Cell.Wraps = true;
+        _composeField.Cell.Scrollable = false;
+        _composeField.Changed += (_, _) => ComposeFieldChanged();
+        _composeField.Activated += (_, _) =>
+        {
+            if (_presentedState == VoiceBubbleState.Composing)
+                SendRequested?.Invoke(this, EventArgs.Empty);
+        };
+        _transcriptViewport.AddSubview(_composeField);
         WinoLayout.Size(_transcriptViewport, TranscriptWidth, TranscriptHeight);
         var transcriptRow = WinoLayout.HStack(0, new NSView { TranslatesAutoresizingMaskIntoConstraints = false }, _transcriptViewport);
         WinoLayout.Size(transcriptRow.ArrangedSubviews[0], 4, 1);
 
-        _stack = WinoLayout.VStack(6, _header, transcriptRow);
+        _noticeText = new NSTextField
+        {
+            Editable = false,
+            Selectable = false,
+            Bordered = false,
+            DrawsBackground = false,
+            Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
+            TextColor = NSColor.SecondaryLabel,
+            MaximumNumberOfLines = 0,
+            LineBreakMode = NSLineBreakMode.ByWordWrapping,
+            PreferredMaxLayoutWidth = (nfloat)TranscriptWidth,
+            Hidden = true,
+            TranslatesAutoresizingMaskIntoConstraints = false
+        };
+        _noticeText.Cell.Wraps = true;
+        var noticeRow = WinoLayout.HStack(0, new NSView { TranslatesAutoresizingMaskIntoConstraints = false }, _noticeText);
+        WinoLayout.Size(noticeRow.ArrangedSubviews[0], 4, 1);
+
+        _stack = WinoLayout.VStack(6, _header, transcriptRow, noticeRow);
         _stack.Alignment = NSLayoutAttribute.Leading;
         _stack.EdgeInsets = CompactInsets;
         _stack.DetachesHiddenViews = true;
@@ -234,6 +295,64 @@ public sealed partial class WinoVoiceBubbleView : NSView, IVoiceBubbleView
     public event EventHandler<string>? QuestionFilterChanged;
 
     public event EventHandler<VoiceBubbleChoice>? ChoiceSelected;
+
+    public event EventHandler<string>? ComposedTextChanged;
+
+    public event EventHandler? SwitchToVoiceRequested;
+
+    public VoiceBubbleInputMode InputMode { get; set; }
+
+    public string ComposedText
+    {
+        get => _composedText;
+        set
+        {
+            _composedText = value ?? string.Empty;
+            if (_composeField.StringValue != _composedText)
+            {
+                _settingComposeText = true;
+                _composeField.StringValue = _composedText;
+                _settingComposeText = false;
+            }
+
+            if (_presentedState == VoiceBubbleState.Composing)
+                UpdateTranscriptText(animate: true);
+        }
+    }
+
+    private string _composedText = string.Empty;
+
+    public string ComposePlaceholder
+    {
+        get => _composeField.PlaceholderString ?? string.Empty;
+        set => _composeField.PlaceholderString = value ?? string.Empty;
+    }
+
+    public bool CanSwitchToVoice
+    {
+        get => _canSwitchToVoice;
+        set
+        {
+            _canSwitchToVoice = value;
+            UpdateComposeChrome();
+        }
+    }
+
+    private bool _canSwitchToVoice = true;
+
+    public string? InputNotice
+    {
+        get => _inputNotice;
+        set
+        {
+            _inputNotice = value;
+            UpdateComposeChrome();
+            if (_isShown && _presentedState == VoiceBubbleState.Composing)
+                Resize(animate: true);
+        }
+    }
+
+    private string? _inputNotice;
 
     public VoiceBubbleState State { get; private set; } = VoiceBubbleState.Hidden;
 
@@ -356,7 +475,7 @@ public sealed partial class WinoVoiceBubbleView : NSView, IVoiceBubbleView
         var isCard = state == VoiceBubbleState.Question || (state == VoiceBubbleState.Confirmation && HasSteps);
 
         _logo.Hidden = isCard;
-        _logo.Enabled = state == VoiceBubbleState.Listening;
+        _logo.Enabled = state is VoiceBubbleState.Listening or VoiceBubbleState.Composing;
         _bars.Hidden = state != VoiceBubbleState.Listening;
         _dots.Hidden = state != VoiceBubbleState.Analyzing;
         _inlinePanel.Hidden = state != VoiceBubbleState.Confirmation || HasSteps;
@@ -399,12 +518,33 @@ public sealed partial class WinoVoiceBubbleView : NSView, IVoiceBubbleView
         _transcriptVisible = IsTranscriptVisible(state);
         _bars.SetWide(_transcriptVisible);
         UpdateTranscriptText(animate: false);
+        UpdateComposeChrome();
+    }
+
+    private void UpdateComposeChrome()
+    {
+        var composing = _presentedState == VoiceBubbleState.Composing;
+        _micButton.Hidden = !composing || !_canSwitchToVoice;
+        var notice = _inputNotice;
+        _noticeText.StringValue = notice ?? string.Empty;
+        _noticeText.Superview!.Hidden = !composing || string.IsNullOrWhiteSpace(notice);
+    }
+
+    private void ComposeFieldChanged()
+    {
+        if (_settingComposeText)
+            return;
+
+        _composedText = _composeField.StringValue;
+        ComposedTextChanged?.Invoke(this, _composedText);
+        UpdateTranscriptText(animate: true);
     }
 
     private bool HasSteps => ConfirmationGroups is { Count: > 0 } || ConfirmationSteps is { Count: > 0 };
 
     private NSResponder FocusTarget(VoiceBubbleState state) => state switch
     {
+        VoiceBubbleState.Composing => _composeField,
         VoiceBubbleState.Question when IsQuestionSearchable => _questionSearch,
         VoiceBubbleState.Question => _questionTable,
         _ => this
@@ -531,7 +671,7 @@ public sealed partial class WinoVoiceBubbleView : NSView, IVoiceBubbleView
 
     private void UpdateBadges()
     {
-        var showCancel = _isPointerOver && !_collapsed && _presentedState is VoiceBubbleState.Listening or VoiceBubbleState.Analyzing;
+        var showCancel = _isPointerOver && !_collapsed && _presentedState is VoiceBubbleState.Listening or VoiceBubbleState.Composing or VoiceBubbleState.Analyzing;
         _cancelBadge.AlphaValue = showCancel ? 1 : 0;
         _cancelBadge.Enabled = showCancel;
         if (!_collapsed)
@@ -560,7 +700,7 @@ public sealed partial class WinoVoiceBubbleView : NSView, IVoiceBubbleView
     {
         switch (_presentedState)
         {
-            case VoiceBubbleState.Listening or VoiceBubbleState.Analyzing or VoiceBubbleState.Confirmation or VoiceBubbleState.Question:
+            case VoiceBubbleState.Listening or VoiceBubbleState.Composing or VoiceBubbleState.Analyzing or VoiceBubbleState.Confirmation or VoiceBubbleState.Question:
                 CancelRequested?.Invoke(this, EventArgs.Empty);
                 break;
             case VoiceBubbleState.Success or VoiceBubbleState.Failed:
@@ -705,7 +845,8 @@ public sealed partial class WinoVoiceBubbleView : NSView, IVoiceBubbleView
     }
 
     private bool IsTranscriptVisible(VoiceBubbleState state)
-        => ShowsTranscript && (state == VoiceBubbleState.Listening || (state == VoiceBubbleState.Analyzing && HasWords));
+        => state == VoiceBubbleState.Composing
+           || (ShowsTranscript && (state == VoiceBubbleState.Listening || (state == VoiceBubbleState.Analyzing && HasWords)));
 
     private bool HasWords => !string.IsNullOrWhiteSpace(Transcript) || !string.IsNullOrWhiteSpace(InterimTranscript);
 
@@ -731,9 +872,39 @@ public sealed partial class WinoVoiceBubbleView : NSView, IVoiceBubbleView
     private void UpdateTranscriptText(bool animate)
     {
         _transcriptViewport.Superview!.Hidden = !_transcriptVisible;
+        var composing = _presentedState == VoiceBubbleState.Composing;
+        _composeField.Hidden = !composing;
+        _transcriptText.Hidden = composing;
         if (!_transcriptVisible)
         {
             _transcriptText.SetFrameOrigin(CGPoint.Empty);
+            _composeField.SetFrameOrigin(CGPoint.Empty);
+            return;
+        }
+
+        if (composing)
+        {
+            // Typing scrolls like the transcript: the field grows with its text and the newest line stays in view.
+            var fieldHeight = Math.Max(TranscriptLineHeight, Math.Ceiling(_composeField.Cell.CellSizeForBounds(new CGRect(0, 0, TranscriptWidth, 10000)).Height));
+            _composeField.SetFrameSize(new CGSize(TranscriptWidth, fieldHeight));
+            var fieldTarget = new CGPoint(0, -Math.Max(0, fieldHeight - TranscriptHeight));
+            if (Math.Abs(fieldTarget.Y - _composeField.Frame.Y) < 0.5)
+                return;
+
+            if (animate && AnimationsEnabled)
+            {
+                NSAnimationContext.RunAnimation(context =>
+                {
+                    context.Duration = 0.28;
+                    context.TimingFunction = CAMediaTimingFunction.FromControlPoints(0.1f, 0.9f, 0.2f, 1f);
+                    ((NSView)_composeField.Animator).SetFrameOrigin(fieldTarget);
+                });
+            }
+            else
+            {
+                _composeField.SetFrameOrigin(fieldTarget);
+            }
+
             return;
         }
 
