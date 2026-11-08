@@ -16,6 +16,7 @@ See the [Windows](../docs/harness/development-windows.md), [macOS](../docs/harne
 | Release | `release/release.ps1` | Both | PowerShell 7 | Bump the version, draft release notes with Claude Code, mark issues, and publish the GitHub release |
 | Release | `release/whats-new/validate.ps1` | Both | PowerShell 7 | Validate What's New notes and illustration references |
 | Lab | `lab/windows/local-lab.ps1` | Windows | PowerShell 7 | Start five Docker IMAP/SMTP/DAV servers, seed and verify them, generate test account data, and install it into the Debug app |
+| Lab | `lab/windows/exchange-lab.ps1` | Windows | PowerShell 7 | Build and manage the Hyper-V Exchange Server SE lab VM (AD forest, mailboxes, trusted certificate, mail-flow and Autodiscover checks) |
 | Maintenance | `maintenance/windows/format-xaml.ps1` | Windows | PowerShell 7 | Format WinUI XAML or check formatting with the pinned XAML Styler |
 | Maintenance | `maintenance/windows/audit-xaml-accessibility.ps1` | Windows | PowerShell | Report XAML controls without accessible labels |
 | Maintenance | `maintenance/windows/audit-xaml-icons.ps1` | Windows | PowerShell | Check use of the Wino icon system in WinUI code |
