@@ -451,9 +451,11 @@ public partial class ExchangeSynchronizer
         return Bundle(async (service, _) =>
         {
             var appointment = await Appointment.Bind(service, new ItemId(item.RemoteEventId.GetProviderRemoteEventId())).ConfigureAwait(false);
-            ApplyCalendarItem(appointment, item, attendees, reminders: null);
+            var isOrganizer = OrganizesAppointment(appointment);
+            ApplyCalendarItem(appointment, item, attendees, reminders: null, isOrganizer ? null : service.TimeZone);
 
-            var sendMode = HasAttendees(appointment)
+            // Only the organizer re-sends the request; an attendee editing their copy just saves it.
+            var sendMode = HasAttendees(appointment) && isOrganizer
                 ? SendInvitationsOrCancellationsMode.SendToAllAndSaveCopy
                 : SendInvitationsOrCancellationsMode.SendToNone;
             await appointment.Update(ConflictResolutionMode.AutoResolve, sendMode).ConfigureAwait(false);
@@ -469,8 +471,14 @@ public partial class ExchangeSynchronizer
 
         return Bundle(async (service, _) =>
         {
-            var appointment = await Appointment.Bind(service, new ItemId(remoteId.GetProviderRemoteEventId()), new PropertySet(BasePropertySet.IdOnly)).ConfigureAwait(false);
-            await appointment.Delete(DeleteMode.MoveToDeletedItems, SendCancellationsMode.SendToNone).ConfigureAwait(false);
+            var appointment = await Appointment.Bind(service, new ItemId(remoteId.GetProviderRemoteEventId()),
+                new PropertySet(BasePropertySet.IdOnly, AppointmentSchema.IsMeeting, AppointmentSchema.MyResponseType)).ConfigureAwait(false);
+
+            // An organizer deleting a meeting cancels it for the attendees, as Outlook does.
+            var sendMode = OrganizesAppointment(appointment) && appointment.IsMeeting
+                ? SendCancellationsMode.SendToAllAndSaveCopy
+                : SendCancellationsMode.SendToNone;
+            await appointment.Delete(DeleteMode.MoveToDeletedItems, sendMode).ConfigureAwait(false);
         }, request, request);
     }
 
@@ -512,7 +520,17 @@ public partial class ExchangeSynchronizer
     private static bool HasAttendees(Appointment appointment)
         => appointment.RequiredAttendees.Count > 0 || appointment.OptionalAttendees.Count > 0;
 
-    private static void ApplyCalendarItem(Appointment appointment, CalendarItem item, List<CalendarEventAttendee>? attendees, List<Reminder>? reminders)
+    // A new appointment has no response type yet and is the user's own.
+    private static bool OrganizesAppointment(Appointment appointment)
+        => appointment.IsNew || appointment.MyResponseType is MeetingResponseType.Organizer or MeetingResponseType.Unknown;
+
+    /// <param name="attendeeCopyServiceZone">
+    /// Set when the appointment is an attendee's copy of someone else's meeting. Exchange refuses changes to its time
+    /// zones and attendee list there ("Set action is invalid for property"), so the times are written in the service's
+    /// zone and the attendees are left alone.
+    /// </param>
+    private static void ApplyCalendarItem(Appointment appointment, CalendarItem item, List<CalendarEventAttendee>? attendees, List<Reminder>? reminders,
+                                          TimeZoneInfo? attendeeCopyServiceZone = null)
     {
         appointment.Subject = item.Title;
         appointment.Body = new MessageBody(BodyType.HTML, item.Description ?? string.Empty);
@@ -521,11 +539,27 @@ public partial class ExchangeSynchronizer
         // The start is wall clock in the item's zone; the appointment carries that zone so EWS reads it correctly
         // whatever the service zone is.
         var timeZone = ResolveTimeZoneInfo(item.StartTimeZone);
-        appointment.StartTimeZone = timeZone;
-        appointment.EndTimeZone = timeZone;
-        appointment.Start = item.StartDate;
-        appointment.End = item.StartDate.AddSeconds(item.DurationInSeconds);
+        if (attendeeCopyServiceZone is null)
+        {
+            appointment.StartTimeZone = timeZone;
+            appointment.EndTimeZone = timeZone;
+            appointment.Start = item.StartDate;
+            appointment.End = item.StartDate.AddSeconds(item.DurationInSeconds);
+        }
+        else
+        {
+            var start = TimeZoneInfo.ConvertTime(DateTime.SpecifyKind(item.StartDate, DateTimeKind.Unspecified), timeZone, attendeeCopyServiceZone);
+            appointment.Start = start;
+            appointment.End = start.AddSeconds(item.DurationInSeconds);
+            attendees = null;
+        }
         appointment.IsAllDayEvent = item.IsAllDayEvent;
+        appointment.Sensitivity = item.Visibility switch
+        {
+            CalendarItemVisibility.Private => Sensitivity.Private,
+            CalendarItemVisibility.Confidential => Sensitivity.Confidential,
+            _ => Sensitivity.Normal
+        };
 
         appointment.LegacyFreeBusyStatus = item.ShowAs switch
         {

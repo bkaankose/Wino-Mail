@@ -88,6 +88,7 @@ public partial class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, A
         EmailMessageSchema.IsRead,
         ItemSchema.Flag,
         ItemSchema.ItemClass,
+        ItemSchema.Preview,
         EmailMessageSchema.InternetMessageId);
 
     protected async Task<ExchangeService> CreateServiceAsync(CancellationToken cancellationToken = default, TimeZoneInfo? timeZone = null)
@@ -644,6 +645,7 @@ public partial class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, A
             ThreadId = SafeGet(() => item.ConversationId?.UniqueId),
             MessageId = SafeGet(() => email?.InternetMessageId),
             Subject = SafeGet(() => item.Subject),
+            PreviewText = SafeGet(() => item.Preview),
             FromName = SafeGet(() => email?.From?.Name),
             FromAddress = SafeGet(() => email?.From?.Address),
             CreationDate = SafeGet(() => item.DateTimeReceived.ToUniversalTime()),

@@ -63,7 +63,7 @@ public static class RopNotify
         => RopExecute.ExpectSuccess(reader, RopRegisterNotification, nameof(RopRegisterNotification));
 
     /// <summary>One decoded notification. Ids are this logon's short ids.</summary>
-    public sealed record Notification(NotificationTypes Type, bool IsMessage, ulong? FolderId, ulong? MessageId, ulong? ParentFolderId, bool IsTable);
+    public sealed record Notification(NotificationTypes Type, bool IsMessage, ulong? FolderId, ulong? MessageId, ulong? ParentFolderId, bool IsTable, ulong? OldFolderId = null);
 
     /// <summary>
     /// Reads every RopNotify (and skips RopPending) in a ROP response buffer. Any other ROP stops the
@@ -144,13 +144,14 @@ public static class RopNotify
                         && !(isMessage && !isSearch);
 
         ulong? parentFolderId = null;
+        ulong? oldFolderId = null;
         if (hasParent && type is NotificationTypes.ObjectCreated or NotificationTypes.ObjectDeleted)
             parentFolderId = reader.UInt64();
 
         if (type is NotificationTypes.ObjectMoved or NotificationTypes.ObjectCopied)
         {
             if (hasParent) parentFolderId = reader.UInt64();
-            reader.UInt64();                                      // OldFolderId
+            oldFolderId = reader.UInt64();                        // OldFolderId
             if (isMessage) reader.UInt64();                       // OldMessageId
             if (hasParent) reader.UInt64();                       // OldParentFolderId
         }
@@ -175,6 +176,6 @@ public static class RopNotify
             if (unicode) reader.UnicodeZ(); else reader.AsciiZ(); // MessageClass
         }
 
-        return new Notification(type, isMessage, folderId, messageId, parentFolderId, false);
+        return new Notification(type, isMessage, folderId, messageId, parentFolderId, false, oldFolderId);
     }
 }

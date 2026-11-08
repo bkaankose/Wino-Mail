@@ -18,8 +18,8 @@ internal static class MapiTaskMapper
         Title = row.Subject ?? string.Empty,
         Notes = string.IsNullOrWhiteSpace(row.Body) ? null : row.Body,
         DueDate = row.DueDate?.Date,
-        // PidTagImportance: 0 low, 1 normal, 2 high. The local model keeps one flag.
-        IsImportant = row.Importance == 2,
+        // PidTagImportance: 0 low, 1 normal, 2 high. The local model keeps one flag; the write keeps a low one low.
+        IsImportant = row.Importance == MapiTaskOperations.ImportanceHigh,
         IsCompleted = row.Completed,
         CompletedAtUtc = row.Completed ? row.CompletedDate : null,
         PendingMutation = TaskPendingMutation.None
@@ -30,7 +30,7 @@ internal static class MapiTaskMapper
         Subject = item.Title,
         Body = item.Notes,
         DueDate = item.DueDate,
-        Importance = item.IsImportant ? 2u : 1u,
+        Importance = item.IsImportant ? MapiTaskOperations.ImportanceHigh : MapiTaskOperations.ImportanceNormal,
         IsComplete = item.IsCompleted,
         CompletedDate = item.IsCompleted ? item.CompletedAtUtc ?? DateTime.UtcNow : null
     };

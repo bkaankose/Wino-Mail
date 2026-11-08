@@ -121,7 +121,8 @@ public class KnownImapProviderCatalog : IKnownImapProviderCatalog
     {
         var details = GetAvailableProviders();
 
-        return details.FirstOrDefault(a => a.Type == type) ?? throw new InvalidOperationException($"Provider detail not found for type: {type}");
+        // Exchange is not a pickable tile in the provider list, but its accounts still need a detail in account lists.
+        return details.FirstOrDefault(a => a.Type == type) ?? new ProviderDetail(type, SpecialImapProvider.None);
     }
 
     public List<IProviderDetail> GetAvailableProviders()

@@ -299,43 +299,63 @@ public sealed partial class MapiExchangeSynchronizer : ExchangeSynchronizer
         if (foldersToSync.Count == 0)
             return MailSynchronizationResult.Completed(downloaded);
 
-        await using var lease = await AcquireSessionAsync(cancellationToken).ConfigureAwait(false);
-        var session = lease.Session;
+        var remaining = new Queue<MailItemFolder>(foldersToSync);
 
-        foreach (var folder in foldersToSync)
+        // The kept session can expire on the server between passes (idle timeout, app pool recycle). The first
+        // ContextNotFound drops it (the lease sees it faulted) and the pass continues once on a new session.
+        for (var attempt = 0; attempt < 2 && remaining.Count > 0; attempt++)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            try
-            {
-                downloaded.AddRange(await SynchronizeFolderMessagesAsync(session, folder, cancellationToken).ConfigureAwait(false));
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (MapiRopException ex) when (ex.ReturnValue == MapiRopException.NotFound)
-            {
-                // The folder was deleted on the server. Dropping it locally stops it failing every sync.
-                Logger.Warning("MAPI folder {Folder} ({FolderId}) no longer exists on the server; removing it locally.", folder.FolderName, folder.MapiFolderId);
-                await ExchangeChangeProcessor.DeleteFolderAsync(Account.Id, folder.RemoteFolderId).ConfigureAwait(false);
-                Messenger.Send(new AccountFolderConfigurationUpdated(Account.Id));
-            }
-            catch (Exception ex)
-            {
-                var errorContext = new SynchronizerErrorContext
-                {
-                    Account = Account,
-                    ErrorMessage = ex.Message,
-                    Exception = ex,
-                    FolderId = folder.Id,
-                    FolderName = folder.FolderName,
-                    OperationType = "MapiFolderSync"
-                };
+            await using var lease = await AcquireSessionAsync(cancellationToken).ConfigureAwait(false);
+            var session = lease.Session;
+            var sessionLost = false;
 
-                await ErrorHandlerFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
-                CaptureSynchronizationIssue(errorContext);
-                Logger.Error(ex, "MAPI folder sync failed for {Folder} ({Account}).", folder.FolderName, Account.Name);
+            while (remaining.Count > 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var folder = remaining.Peek();
+                try
+                {
+                    downloaded.AddRange(await SynchronizeFolderMessagesAsync(session, folder, cancellationToken).ConfigureAwait(false));
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (MapiTransportException ex) when (ex.IsContextNotFound && attempt == 0)
+                {
+                    Logger.Information("MAPI session of {Account} no longer exists on the server; reopening it for the rest of this pass.", Account.Address);
+                    sessionLost = true;
+                    break;
+                }
+                catch (MapiRopException ex) when (ex.ReturnValue == MapiRopException.NotFound)
+                {
+                    // The folder was deleted on the server. Dropping it locally stops it failing every sync.
+                    Logger.Warning("MAPI folder {Folder} ({FolderId}) no longer exists on the server; removing it locally.", folder.FolderName, folder.MapiFolderId);
+                    await ExchangeChangeProcessor.DeleteFolderAsync(Account.Id, folder.RemoteFolderId).ConfigureAwait(false);
+                    Messenger.Send(new AccountFolderConfigurationUpdated(Account.Id));
+                }
+                catch (Exception ex)
+                {
+                    var errorContext = new SynchronizerErrorContext
+                    {
+                        Account = Account,
+                        ErrorMessage = ex.Message,
+                        Exception = ex,
+                        FolderId = folder.Id,
+                        FolderName = folder.FolderName,
+                        OperationType = "MapiFolderSync"
+                    };
+
+                    await ErrorHandlerFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+                    CaptureSynchronizationIssue(errorContext);
+                    Logger.Error(ex, "MAPI folder sync failed for {Folder} ({Account}).", folder.FolderName, Account.Name);
+                }
+
+                remaining.Dequeue();
             }
+
+            if (!sessionLost)
+                break;
         }
 
         return MailSynchronizationResult.Completed(downloaded);
@@ -356,8 +376,10 @@ public sealed partial class MapiExchangeSynchronizer : ExchangeSynchronizer
         {
             throw;
         }
-        catch (Exception ex) when (ex is MapiException or InvalidOperationException)
+        catch (Exception ex) when (ex is MapiException or InvalidOperationException && ex is not MapiTransportException)
         {
+            // A transport failure says nothing about the ICS state; resetting it would turn a dropped session into a
+            // full re-read of every folder.
             Logger.Warning(ex, "MAPI ICS sync failed for {Account}/{Folder}; falling back to a full read this pass and resetting the folder's state.", Account.Address, folder.FolderName);
             folder.DeltaToken = null;
             await ExchangeChangeProcessor.UpdateFolderAsync(folder).ConfigureAwait(false);
@@ -510,6 +532,7 @@ public sealed partial class MapiExchangeSynchronizer : ExchangeSynchronizer
             InReplyTo = message.InReplyTo,
             References = message.References,
             Subject = message.Subject,
+            PreviewText = message.Preview,
             FromName = message.FromName,
             FromAddress = message.FromAddress,
             CreationDate = DateTime.SpecifyKind(received, DateTimeKind.Utc),

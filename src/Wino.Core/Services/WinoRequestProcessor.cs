@@ -29,6 +29,7 @@ public class WinoRequestProcessor : IWinoRequestProcessor
     private readonly IPreferencesService _preferencesService;
     private readonly IMailDialogService _dialogService;
     private readonly IMailService _mailService;
+    private readonly IContactService _contactService;
 
     /// <summary>
     /// Set of rules that defines which action should be executed if user wants to toggle an action.
@@ -45,16 +46,18 @@ public class WinoRequestProcessor : IWinoRequestProcessor
                                 IShortcutPlatformService shortcutPlatformService,
                                 IPreferencesService preferencesService,
                                 IMailDialogService dialogService,
-                                IMailService mailService)
+                                IMailService mailService,
+                                IContactService contactService)
     {
         _folderService = folderService;
         _shortcutPlatformService = shortcutPlatformService;
         _preferencesService = preferencesService;
         _dialogService = dialogService;
         _mailService = mailService;
+        _contactService = contactService;
     }
 
-    public Task<IContactActionRequest> PrepareContactRequestAsync(ContactOperationPreparationRequest request)
+    public async Task<IContactActionRequest> PrepareContactRequestAsync(ContactOperationPreparationRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(request.Contact);
@@ -65,13 +68,16 @@ public class WinoRequestProcessor : IWinoRequestProcessor
         if (request.Contact.AddressBookId == Guid.Empty)
             throw new ArgumentException("A contact request requires an address book.", nameof(request));
 
-        IContactActionRequest prepared = new ContactActionRequest(
+        var addressBookId = request.Contact.AddressBookId;
+        var books = await _contactService.GetAddressBooksAsync(request.Contact.MailAccountId).ConfigureAwait(false);
+        if (books.FirstOrDefault(book => book.Id == addressBookId)?.IsReadOnly == true)
+            throw new InvalidOperationException(Translator.ContactsPage_ReadOnlyAddressBookMessage);
+
+        return new ContactActionRequest(
             request.Contact,
             request.Operation,
             request.OriginalContact,
             request.Photo);
-
-        return Task.FromResult(prepared);
     }
 
     public Task<ITaskActionRequest> PrepareTaskRequestAsync(TaskOperationPreparationRequest request)

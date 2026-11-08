@@ -167,6 +167,7 @@ public static class MapiContactOperations
                 RopFolder.ParseSetColumns(new RopReader(rops));
 
                 var contacts = new List<MapiContactInfo>((int)Math.Min(rowCount, 4096));
+                var partialNotes = new List<int>();
                 while (true)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -195,6 +196,9 @@ public static class MapiContactOperations
                         if (errors.Count > 0 && diagnostics is not null)
                             diagnostics($"contact 0x{mid:X16} cell errors: {string.Join(", ", errors)}");
 
+                        if (MapiMessageOperations.MayBeTruncatedStringCell(row[19]))
+                            partialNotes.Add(contacts.Count);
+
                         contacts.Add(new MapiContactInfo(
                             mid,
                             row[1].AsString ?? string.Empty,
@@ -208,6 +212,15 @@ public static class MapiContactOperations
                             row[19].AsString,
                             row[20].AsBoolean ?? false));
                     }
+                }
+
+                // A long note comes back from the table as an error cell or cut short; it is read off the message so
+                // the sync never stores (or later writes back) a partial note.
+                foreach (var index in partialNotes.Where(index => contacts[index].IsContact))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var notes = await MapiMessageOperations.ReadUnicodePropertyAsync(session, folderId, contacts[index].MessageId, PropertyTags.Body, cancellationToken).ConfigureAwait(false);
+                    contacts[index] = contacts[index] with { Notes = notes ?? contacts[index].Notes };
                 }
 
                 diagnostics?.Invoke($"contacts 0x{folderId:X16}: {contacts.Count} rows ({contacts.Count(c => c.IsContact)} contacts, RowCount {rowCount}, {contacts.Count(c => c.Email1 is not null)} with e-mail 1)");

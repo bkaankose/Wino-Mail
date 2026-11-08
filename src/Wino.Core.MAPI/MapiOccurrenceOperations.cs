@@ -163,9 +163,12 @@ public static class MapiOccurrenceOperations
             TaggedPropertyValue.Boolean(tags.AllDay, change.AllDay),
             TaggedPropertyValue.Long(tags.BusyStatus, change.BusyStatus),
             TaggedPropertyValue.Boolean(tags.Recurring, false),
-            TaggedPropertyValue.Boolean(tags.ReminderSet, change.ReminderMinutes is not null),
         };
-        if (change.ReminderMinutes is { } minutes) values.Add(TaggedPropertyValue.Long(tags.ReminderDelta, (uint)Math.Max(0, minutes)));
+        if (!change.KeepReminder)
+        {
+            values.Add(TaggedPropertyValue.Boolean(tags.ReminderSet, change.ReminderMinutes is not null));
+            if (change.ReminderMinutes is { } minutes) values.Add(TaggedPropertyValue.Long(tags.ReminderDelta, (uint)Math.Max(0, minutes)));
+        }
         if (tags.ExceptionReplaceTime != 0) values.Add(TaggedPropertyValue.SysTime(tags.ExceptionReplaceTime, DateTime.SpecifyKind(originalStartUtc, DateTimeKind.Utc)));
         values.AddRange(MapiCalendarOperations.BodyProperties(change.Body));
         return values;

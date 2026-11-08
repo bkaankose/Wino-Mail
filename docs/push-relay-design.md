@@ -67,8 +67,9 @@ One app-wide setting, **Sync method**: *Timer-based* or *Relay-based*.
 - *Timer-based* keeps today's behavior and the user's configured intervals.
 - *Relay-based* keeps a SignalR socket to the relay while the app runs (foreground, tray or dock).
   The shared `SyncCoordinator` decides per account whether live coverage exists: a Gmail or
-  Outlook mailbox that the relay watches (`active`) while the socket is stable, or a desktop IMAP
-  account whose IDLE loop is listening. Covered accounts skip their timer ticks; every other
+  Outlook mailbox that the relay watches (`active`) while the socket is stable, a desktop IMAP
+  account whose IDLE loop is listening, or a desktop on-premises Exchange account whose change
+  listener (MAPI notifications, or EWS streaming on the EWS transport) is listening. Covered accounts skip their timer ticks; every other
   account (POP3, IMAP without IDLE, a mailbox in `needs_reauth`/`error`, over the mailbox limit)
   keeps syncing on the user's configured Email interval. While the socket is down for more than
   30 s, flapping (6 transitions in 10 min starts a 10 min cool-down), or the registration is not
@@ -81,6 +82,14 @@ One app-wide setting, **Sync method**: *Timer-based* or *Relay-based*.
 - IMAP on desktop is never sent to the relay (the relay refuses it). The app's own IDLE client
   keeps watching it in both sync methods, exactly as before the relay existed; the timer keeps
   ticking as the safety net. No user-facing text points this out.
+- On-premises Exchange is never sent to the relay either. Each Exchange synchronizer runs its own
+  change listener in both sync methods, like IMAP IDLE: a store-wide MAPI notification session
+  (`NotificationWait` long poll) or an EWS streaming subscription. Server events are debounced
+  for 2 s and become folder-scoped requests: `CustomFolders` mail sync, `SingleCalendar` calendar
+  sync, contact or task sync of the changed book or list, and `FoldersOnly` for hierarchy changes.
+  After a reconnect that followed a failure the listener requests one catch-up of mail, calendar,
+  contacts and tasks. A rejected password stops the listener instead of retrying, so it cannot
+  lock the directory account out.
 - Gmail and Outlook: the app registers the Gmail watch (`users.watch`) and the Graph subscription
   with its own token, pointing at the relay's Pub/Sub topic and webhook from `/.well-known/winorelay`.
   The relay stores no OAuth token and learns only "mailbox changed".

@@ -57,7 +57,8 @@ public class ContactService : BaseDatabaseService, IContactService
         string remoteId,
         string displayName,
         bool isDefault,
-        string parentRemoteId = null)
+        string parentRemoteId = null,
+        bool? isReadOnly = null)
     {
         var books = await Connection.Table<ContactAddressBook>().Where(book => book.MailAccountId == accountId).ToListAsync().ConfigureAwait(false);
         var book = books.FirstOrDefault(item => item.SourceKind == sourceKind && string.Equals(item.RemoteId, remoteId, StringComparison.Ordinal));
@@ -66,6 +67,7 @@ public class ContactService : BaseDatabaseService, IContactService
             book.DisplayName = displayName;
             book.ParentRemoteId = parentRemoteId;
             book.IsDefault = isDefault;
+            book.IsReadOnly = isReadOnly ?? book.IsReadOnly;
             await Connection.UpdateAsync(book, typeof(ContactAddressBook)).ConfigureAwait(false);
             return book;
         }
@@ -78,7 +80,8 @@ public class ContactService : BaseDatabaseService, IContactService
             RemoteId = remoteId,
             ParentRemoteId = parentRemoteId,
             DisplayName = displayName,
-            IsDefault = isDefault
+            IsDefault = isDefault,
+            IsReadOnly = isReadOnly ?? false
         };
         await Connection.InsertAsync(book, typeof(ContactAddressBook)).ConfigureAwait(false);
         return book;
@@ -454,6 +457,78 @@ public class ContactService : BaseDatabaseService, IContactService
         return rows.OrderByDescending(contact => accountId.HasValue && contact.MailAccountId == accountId.Value)
             .ThenByDescending(contact => contact.SourceKind != ContactSourceKind.Local)
             .ThenBy(contact => contact.IsAutoCollected).FirstOrDefault();
+    }
+
+    public async Task<List<string>> GetDirectoryPhotoCandidatesAsync(Guid accountId, string domain, int limit)
+    {
+        if (string.IsNullOrWhiteSpace(domain) || limit <= 0)
+            return [];
+
+        var senders = await Connection.QueryScalarsAsync<string>(
+            "SELECT DISTINCT m.FromAddress FROM MailCopy m JOIN MailItemFolder f ON f.Id = m.FolderId " +
+            "WHERE f.MailAccountId = ? AND m.FromAddress LIKE ?",
+            accountId,
+            "%@" + domain.Trim()).ConfigureAwait(false);
+
+        if (senders.Count == 0)
+            return [];
+
+        var lookedUp = (await Connection.QueryScalarsAsync<string>(
+                "SELECT NormalizedAddress FROM DirectoryPhotoLookup WHERE MailAccountId = ?", accountId).ConfigureAwait(false))
+            .ToHashSet(StringComparer.Ordinal);
+        var pictured = (await Connection.QueryScalarsAsync<string>(
+                "SELECT e.NormalizedAddress FROM ContactEmailAddress e JOIN ContactCard c ON c.Id = e.ContactId " +
+                "WHERE c.ContactPictureFileId IS NOT NULL").ConfigureAwait(false))
+            .ToHashSet(StringComparer.Ordinal);
+
+        return senders
+            .Select(ContactEmailAddress.Normalize)
+            .Where(address => !string.IsNullOrEmpty(address) && !lookedUp.Contains(address) && !pictured.Contains(address))
+            .Distinct(StringComparer.Ordinal)
+            .Take(limit)
+            .ToList();
+    }
+
+    public async Task SaveDirectoryPhotoLookupAsync(Guid accountId, string address, byte[] photo)
+    {
+        var normalized = ContactEmailAddress.Normalize(address);
+        if (string.IsNullOrEmpty(normalized))
+            return;
+
+        Guid? pictureFileId = null;
+        if (photo is { Length: > 0 } && _pictureFileService is not null)
+            pictureFileId = await _pictureFileService.SavePictureAsync(PictureKind.Contact, photo).ConfigureAwait(false);
+
+        await Connection.RunInTransactionAsync(transaction =>
+        {
+            transaction.Execute("DELETE FROM DirectoryPhotoLookup WHERE MailAccountId = ? AND NormalizedAddress = ?", accountId, normalized);
+            transaction.Insert(new DirectoryPhotoLookup
+            {
+                MailAccountId = accountId,
+                NormalizedAddress = normalized,
+                PictureFileId = pictureFileId,
+                LookedUpAtUtc = DateTime.UtcNow
+            }, typeof(DirectoryPhotoLookup));
+        }).ConfigureAwait(false);
+    }
+
+    public async Task<Dictionary<string, Guid>> GetDirectoryPhotoIdsAsync(Guid accountId, IReadOnlyCollection<string> addresses)
+    {
+        var result = new Dictionary<string, Guid>(StringComparer.Ordinal);
+        var wanted = addresses?.Select(ContactEmailAddress.Normalize).Where(address => !string.IsNullOrEmpty(address)).ToHashSet(StringComparer.Ordinal);
+        if (wanted is null || wanted.Count == 0)
+            return result;
+
+        var rows = await Connection.QueryAsync<DirectoryPhotoLookup>(
+            "SELECT * FROM DirectoryPhotoLookup WHERE MailAccountId = ? AND PictureFileId IS NOT NULL", accountId).ConfigureAwait(false);
+
+        foreach (var row in rows)
+        {
+            if (row.PictureFileId is { } pictureFileId && wanted.Contains(row.NormalizedAddress))
+                result[row.NormalizedAddress] = pictureFileId;
+        }
+
+        return result;
     }
 
     public async Task<List<AccountContact>> GetContactsByAddressesAsync(Guid? accountId, IEnumerable<string> addresses)

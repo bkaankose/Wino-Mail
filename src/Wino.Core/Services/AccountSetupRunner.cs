@@ -522,6 +522,23 @@ public sealed class AccountSetupRunner : IAccountSetupRunner
 
         if (account.IsMailAccessGranted)
             await _accountService.CreateRootAliasAsync(account.Id, account.Address);
+
+        await TryFetchDirectoryProfilePictureAsync(account, cancellationToken);
+    }
+
+    // The directory photo is a nicety: a server without one, or without GetUserPhoto, must not fail the setup.
+    private async Task TryFetchDirectoryProfilePictureAsync(MailAccount account, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var profileResult = await _synchronizationManager.SynchronizeProfileAsync(account.Id, cancellationToken);
+            if (profileResult.ProfileInformation != null)
+                await _accountService.UpdateProfileInformationAsync(account.Id, profileResult.ProfileInformation);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Log.Warning(ex, "The Exchange profile picture could not be fetched during account setup.");
+        }
     }
 
     private static MailAccount BuildAccount(AccountSetupPlan plan)

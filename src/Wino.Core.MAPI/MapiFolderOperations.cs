@@ -160,7 +160,7 @@ public static class MapiFolderOperations
     // --- Folder mutations (the last EWS handlers on the mail side) ---
 
     /// <summary>Creates a folder under <paramref name="parentFolderId"/>; returns its id.</summary>
-    public static async Task<ulong> CreateFolderAsync(MapiSession session, ulong parentFolderId, string displayName, CancellationToken cancellationToken = default)
+    public static async Task<ulong> CreateFolderAsync(MapiSession session, ulong parentFolderId, string displayName, CancellationToken cancellationToken = default, string containerClass = "IPF.Note")
     {
         var handles = MapiSession.MergeHandles([session.LogonHandle], [], 3);
         var (rops, returned) = await session.ExecuteAsync(RopFolder.BuildOpenFolder(parentFolderId, 0, 1), handles, cancellationToken).ConfigureAwait(false);
@@ -177,7 +177,7 @@ public static class MapiFolderOperations
             {
                 // A folder without a container class is not a mail folder to anyone (the hierarchy sync's
                 // IsMailFolder filter would drop it, as would Outlook's mail view).
-                (rops, _) = await session.ExecuteAsync(RopMessageOps.BuildSetProperties(2, [TaggedPropertyValue.Unicode(PropertyTags.ContainerClass, "IPF.Note")]), handles, cancellationToken).ConfigureAwait(false);
+                (rops, _) = await session.ExecuteAsync(RopMessageOps.BuildSetProperties(2, [TaggedPropertyValue.Unicode(PropertyTags.ContainerClass, containerClass)]), handles, cancellationToken).ConfigureAwait(false);
                 var problems = RopMessageOps.ParseSetProperties(new RopReader(rops));
                 if (problems.Count > 0)
                     throw new MapiRopException("RopSetProperties(ContainerClass)", problems[0].Error);

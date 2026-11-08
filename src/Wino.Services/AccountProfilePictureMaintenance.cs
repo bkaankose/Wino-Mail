@@ -81,7 +81,7 @@ public sealed class AccountProfilePictureMaintenance
     }
 
     /// <summary>
-    /// Fetches profile pictures for Gmail and Outlook accounts that have none on disk yet.
+    /// Fetches profile pictures for Gmail, Outlook and Exchange accounts that have none on disk yet.
     /// </summary>
     public async Task BackfillAsync()
     {
@@ -92,7 +92,7 @@ public sealed class AccountProfilePictureMaintenance
         {
             var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
             var eligibleAccounts = accounts
-                .Where(account => account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook)
+                .Where(account => account.IsProfileInfoSyncSupported)
                 .Where(account => !account.IsProfilePictureBackfillComplete ||
                                   account.ProfilePictureFileId is { } fileId &&
                                   _pictureStorage.GetPicturePath(PictureKind.AccountProfile, fileId) == null)

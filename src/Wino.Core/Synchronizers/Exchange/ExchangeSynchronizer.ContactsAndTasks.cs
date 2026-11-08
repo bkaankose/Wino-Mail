@@ -32,9 +32,25 @@ public partial class ExchangeSynchronizer
         => Account.ContactIntegrationSource switch
         {
             AccountIntegrationSource.Local => _localContactSynchronizer.SynchronizeAsync(options, cancellationToken),
-            AccountIntegrationSource.Provider when Account.IsContactAccessGranted && ContactService is not null => SynchronizeProviderContactsAsync(options, cancellationToken),
+            AccountIntegrationSource.Provider when Account.IsContactAccessGranted && ContactService is not null => SynchronizeProviderAndDirectoryContactsAsync(options, cancellationToken),
             _ => Task.FromResult(ContactSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_ContactsUnavailable)))
         };
+
+    private async Task<ContactSynchronizationResult> SynchronizeProviderAndDirectoryContactsAsync(ContactSynchronizationOptions options, CancellationToken cancellationToken)
+    {
+        var result = await SynchronizeProviderContactsAsync(options, cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await SynchronizeDirectoryContactsAsync(options, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.Warning(ex, "Exchange directory contacts for {Account} were not synchronized.", Account.Name);
+        }
+
+        return result;
+    }
 
     protected override Task ExecuteContactRequestsInternalAsync(IReadOnlyList<IContactActionRequest> requests, CancellationToken cancellationToken = default)
         => Account.ContactIntegrationSource switch
@@ -59,7 +75,7 @@ public partial class ExchangeSynchronizer
     {
         var contactService = RequireContactService();
         var books = (await contactService.GetAddressBooksAsync(Account.Id).ConfigureAwait(false))
-            .Where(b => b.SourceKind == ContactSourceKind.Exchange)
+            .Where(b => b.SourceKind == ContactSourceKind.Exchange && !IsDirectoryBook(b))
             .ToList();
         var current = books.FirstOrDefault(b => string.Equals(b.RemoteId, remoteFolderId, StringComparison.Ordinal));
 
@@ -458,8 +474,13 @@ public partial class ExchangeSynchronizer
 
     #region Tasks
 
-    // The mailbox's default Tasks folder is the account's one provider task list. Exchange tasks have no checklist
-    // steps here, and task folders are not managed from this client.
+    // Every task folder of the mailbox (IPF.Task, outside Deleted Items) is a task list; the well-known Tasks folder is
+    // the default one. Exchange tasks have no checklist steps.
+
+    protected const string TaskFolderClass = "IPF.Task";
+
+    /// <summary>A task folder of the mailbox, keyed by the transport's folder id.</summary>
+    protected sealed record ExchangeTaskFolder(string RemoteId, string? Title, bool IsDefault);
 
     protected override Task<TaskSynchronizationResult> SynchronizeTasksInternalAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
@@ -493,48 +514,66 @@ public partial class ExchangeSynchronizer
     protected override bool ShouldReconcileTaskRequests(IReadOnlyList<ITaskActionRequest> requests)
         => !requests.All(IsLocalTaskRequest);
 
-    /// <summary>The account's Exchange task list for the given folder, replacing any list keyed by another folder id.</summary>
-    protected async Task<AccountTaskList> EnsureTaskListAsync(string remoteFolderId, string? title)
+    protected static bool IsTaskFolderClass(string? folderClass)
+        => folderClass is not null && folderClass.StartsWith(TaskFolderClass, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Reconciles the account's Exchange task lists with the mailbox's task folders and returns the lists in folder
+    /// order. Lists stored under the other transport's ids are re-keyed in place first (the default list to the default
+    /// folder, the others by title), so colour, group, placement and the tasks' My Day dates survive a transport change.
+    /// </summary>
+    protected async Task<List<AccountTaskList>> EnsureTaskListsAsync(IReadOnlyList<ExchangeTaskFolder> folders)
     {
         var taskService = RequireTaskService();
-
-        // The account has one Exchange list, the mailbox's Tasks folder. A list stored under another id is that folder
-        // as the other transport addressed it: it is re-pointed so the reconciliation below keeps the row (colour,
-        // group, placement) instead of replacing it.
-        var exchangeLists = (await taskService.GetTaskListsAsync(Account.Id).ConfigureAwait(false))
+        var stored = (await taskService.GetTaskListsAsync(Account.Id).ConfigureAwait(false))
             .Where(list => list.SourceKind == TaskSourceKind.Exchange)
             .ToList();
 
-        if (!exchangeLists.Any(list => string.Equals(list.RemoteId, remoteFolderId, StringComparison.Ordinal)) &&
-            exchangeLists.OrderByDescending(list => list.IsDefault).FirstOrDefault() is { } carried)
+        var rekeyed = ExchangeTransportRekey.MatchTaskLists(stored, folders.Select(folder => (folder.RemoteId, folder.Title ?? string.Empty, folder.IsDefault)).ToList());
+        foreach (var (listId, remoteId) in rekeyed)
         {
-            _logger.Information("Exchange tasks {Account}: re-keying the task list to the current transport.", Account.Name);
-            await taskService.RekeyTaskListAsync(carried.Id, remoteFolderId, new Dictionary<Guid, string>()).ConfigureAwait(false);
+            _logger.Information("Exchange tasks {Account}: re-keying task list {ListId} to the current transport.", Account.Name, listId);
+            await taskService.RekeyTaskListAsync(listId, remoteId, new Dictionary<Guid, string>()).ConfigureAwait(false);
         }
 
         await taskService.ApplyTaskTopologyDeltaAsync(new TaskTopologyDelta
         {
             MailAccountId = Account.Id,
             SourceKind = TaskSourceKind.Exchange,
-            Lists =
-            [
-                new AccountTaskList
-                {
-                    MailAccountId = Account.Id,
-                    SourceKind = TaskSourceKind.Exchange,
-                    RemoteId = remoteFolderId,
-                    Title = string.IsNullOrWhiteSpace(title) ? "Tasks" : title,
-                    IsDefault = true,
-                    IsReadOnly = false
-                }
-            ],
+            Lists = folders.Select(folder => new AccountTaskList
+            {
+                MailAccountId = Account.Id,
+                SourceKind = TaskSourceKind.Exchange,
+                RemoteId = folder.RemoteId,
+                Title = string.IsNullOrWhiteSpace(folder.Title) ? Translator.ToDoPage_Tasks : folder.Title,
+                IsDefault = folder.IsDefault,
+                IsReadOnly = false
+            }).ToList(),
             ReconcileLists = true
         }).ConfigureAwait(false);
 
-        return (await taskService.GetTaskListsAsync(Account.Id).ConfigureAwait(false))
-            .FirstOrDefault(list => list.SourceKind == TaskSourceKind.Exchange && string.Equals(list.RemoteId, remoteFolderId, StringComparison.Ordinal))
-            ?? throw new InvalidOperationException("The Exchange task list could not be stored.");
+        var listsByRemoteId = (await taskService.GetTaskListsAsync(Account.Id).ConfigureAwait(false))
+            .Where(list => list.SourceKind == TaskSourceKind.Exchange && !string.IsNullOrWhiteSpace(list.RemoteId))
+            .GroupBy(list => list.RemoteId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+
+        return folders
+            .Select(folder => listsByRemoteId.GetValueOrDefault(folder.RemoteId))
+            .OfType<AccountTaskList>()
+            .ToList();
     }
+
+    /// <summary>The lists a pass reads: the one a change notification named, or all of them.</summary>
+    protected static List<AccountTaskList> SelectTaskListsToSynchronize(List<AccountTaskList> lists, TaskSynchronizationOptions? options)
+        => options?.TaskListId is Guid listId && lists.Any(list => list.Id == listId)
+            ? lists.Where(list => list.Id == listId).ToList()
+            : lists;
+
+    protected static TaskSynchronizationResult CombineTaskResults(IReadOnlyList<TaskSynchronizationResult> results)
+        => TaskSynchronizationResult.Completed(
+            results.Sum(result => result.DownloadedCount),
+            results.Sum(result => result.ChangedCount),
+            results.Sum(result => result.DeletedCount));
 
     /// <summary>
     /// Replaces the list's rows with the server's, keeping the stored identity of rows already known by remote id so a
@@ -610,6 +649,70 @@ public partial class ExchangeSynchronizer
         return (localTask, list);
     }
 
+    /// <summary>
+    /// The list a task update moves the task out of, or null when the update keeps it in place. The server item lives in
+    /// that list's folder until it is moved, so the write and the move address it there.
+    /// </summary>
+    protected async Task<AccountTaskList?> ResolveMoveSourceListAsync(ITaskActionRequest request, AccountTask localTask)
+    {
+        if (request.Operation != TaskSynchronizerOperation.UpdateTask || string.IsNullOrWhiteSpace(localTask.RemoteId))
+            return null;
+
+        var taskService = RequireTaskService();
+        var storedTask = await taskService.GetTaskAsync(localTask.Id).ConfigureAwait(false);
+        var original = new[] { storedTask, (request as TaskActionRequest)?.OriginalTask }
+            .FirstOrDefault(task => task is not null && task.TaskListId != localTask.TaskListId);
+        if (original is null)
+            return null;
+
+        var source = await taskService.GetTaskListAsync(original.TaskListId).ConfigureAwait(false);
+        if (source?.RemoteId is null || source.SourceKind != TaskSourceKind.Exchange)
+            throw new InvalidOperationException($"Source task list {original.TaskListId} is unavailable for moving task {localTask.Id}.");
+
+        return source;
+    }
+
+    /// <summary>The list a list request acts on, with the stored server identity applied over the request's snapshot.</summary>
+    protected async Task<AccountTaskList> ResolveRequestedTaskListAsync(ITaskActionRequest request)
+    {
+        var typedRequest = request as TaskActionRequest;
+        var requestedList = typedRequest?.List ?? typedRequest?.OriginalList;
+        var storedList = await RequireTaskService().GetTaskListAsync(request.TaskListId ?? requestedList?.Id ?? Guid.Empty).ConfigureAwait(false);
+        var list = RequestEntityCloner.TaskList(requestedList ?? storedList)
+            ?? throw new InvalidOperationException($"Task list {request.TaskListId} is unavailable for {request.Operation}.");
+
+        if (storedList is not null)
+        {
+            list.RemoteId = storedList.RemoteId ?? list.RemoteId;
+            list.IsDefault = storedList.IsDefault;
+        }
+
+        if (request.Operation != TaskSynchronizerOperation.DeleteList && string.IsNullOrWhiteSpace(list.Title))
+            throw new InvalidOperationException($"Task list {list.Id} has no name for {request.Operation}.");
+
+        return list;
+    }
+
+    /// <summary>Exchange refuses to rename or delete a mailbox's default folders; Outlook does not offer it either.</summary>
+    protected static void EnsureTaskListIsNotDefault(AccountTaskList list)
+    {
+        if (list.IsDefault)
+            throw new NotSupportedException(Translator.Synchronizer_ExchangeDefaultTaskListLocked);
+    }
+
+    /// <summary>Commits a list create or rename under the folder's server identity, keeping the list's local placement.</summary>
+    protected Task CommitTaskListAsync(AccountTaskList requestedList, string remoteId)
+    {
+        var mapped = RequestEntityCloner.TaskList(requestedList);
+        mapped.RemoteId = remoteId;
+        mapped.SourceKind = TaskSourceKind.Exchange;
+        mapped.Title = requestedList.Title.Trim();
+        mapped.IsReadOnly = false;
+        mapped.PendingMutation = TaskPendingMutation.None;
+
+        return ExchangeChangeProcessor.CommitTaskListMutationAsync(requestedList.Id, mapped, false);
+    }
+
     /// <summary>Commits a task write: the local snapshot under its server identity, as the Gmail and Outlook paths do.</summary>
     protected async Task CommitTaskAsync(ITaskActionRequest request, AccountTask localTask, string remoteId, string? remoteVersion)
     {
@@ -624,8 +727,8 @@ public partial class ExchangeSynchronizer
     }
 
     /// <summary>
-    /// Lists, groups and steps have no Exchange counterpart this client writes. Group and placement edits are local
-    /// bookkeeping and complete locally, as on Gmail; the rest is refused. Task writes return false.
+    /// Group and placement edits are local bookkeeping and complete locally, as on Gmail. Steps have no Exchange
+    /// counterpart and are refused. List and task writes return false for the transport to perform.
     /// </summary>
     protected async Task<bool> TryCompleteLocalTaskRequestAsync(ITaskActionRequest request)
     {
@@ -643,12 +746,19 @@ public partial class ExchangeSynchronizer
             case TaskSynchronizerOperation.UpdateListPlacement when typedRequest?.List is { } placedList:
                 await taskService.CompleteTaskListPlacementMutationAsync(placedList.Id, placedList).ConfigureAwait(false);
                 return true;
+            case TaskSynchronizerOperation.CreateList:
+            case TaskSynchronizerOperation.UpdateList:
+            case TaskSynchronizerOperation.DeleteList:
             case TaskSynchronizerOperation.CreateTask:
             case TaskSynchronizerOperation.UpdateTask:
             case TaskSynchronizerOperation.DeleteTask:
                 return false;
+            case TaskSynchronizerOperation.CreateStep:
+            case TaskSynchronizerOperation.UpdateStep:
+            case TaskSynchronizerOperation.DeleteStep:
+                throw new NotSupportedException(Translator.Synchronizer_ExchangeTaskStepsUnsupported);
             default:
-                throw new NotSupportedException(Translator.Synchronizer_ExchangeTaskListsUnsupported);
+                throw new NotSupportedException($"Task operation {request.Operation} has no Exchange counterpart.");
         }
     }
 
@@ -664,44 +774,88 @@ public partial class ExchangeSynchronizer
         RequestedBodyType = BodyType.Text
     };
 
-    /// <summary>One-way pull of the default Tasks folder into the task list, as the contacts pull does.</summary>
-    protected virtual async Task<TaskSynchronizationResult> SynchronizeProviderTasksAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken)
+    private static readonly PropertySet TaskFolderPropertySet = new(BasePropertySet.IdOnly, FolderSchema.DisplayName, FolderSchema.FolderClass);
+
+    /// <summary>The mailbox's task folders: the default Tasks folder first, then every other one outside Deleted Items.</summary>
+    private static async Task<List<ExchangeTaskFolder>> ReadEwsTaskFoldersAsync(ExchangeService service, CancellationToken cancellationToken)
     {
-        var service = await CreateServiceAsync(cancellationToken).ConfigureAwait(false);
-        var tasksFolder = await TasksFolder
-            .Bind(service, WellKnownFolderName.Tasks, new PropertySet(BasePropertySet.IdOnly, FolderSchema.DisplayName))
-            .ConfigureAwait(false);
+        var defaultFolder = await Folder.Bind(service, WellKnownFolderName.Tasks, TaskFolderPropertySet).ConfigureAwait(false);
+        var filter = new SearchFilter.ContainsSubstring(FolderSchema.FolderClass, TaskFolderClass, ContainmentMode.Prefixed, ComparisonMode.IgnoreCase);
 
-        var list = await EnsureTaskListAsync(tasksFolder.Id.UniqueId, SafeGet(() => tasksFolder.DisplayName)).ConfigureAwait(false);
-        var tasks = new List<AccountTask>();
+        var discarded = (await FindEwsFoldersAsync(service, WellKnownFolderName.DeletedItems, filter, cancellationToken).ConfigureAwait(false))
+            .Select(folder => folder.Id.UniqueId)
+            .ToHashSet(StringComparer.Ordinal);
 
-        var view = new ItemView(ItemDownloadPageSize);
-        FindItemsResults<Item> results;
+        var folders = new List<ExchangeTaskFolder> { new(defaultFolder.Id.UniqueId, SafeGet(() => defaultFolder.DisplayName), true) };
+        foreach (var folder in await FindEwsFoldersAsync(service, WellKnownFolderName.MsgFolderRoot, filter, cancellationToken).ConfigureAwait(false))
+        {
+            var remoteId = folder.Id.UniqueId;
+            if (folders.Any(existing => string.Equals(existing.RemoteId, remoteId, StringComparison.Ordinal)) || discarded.Contains(remoteId))
+                continue;
+
+            folders.Add(new ExchangeTaskFolder(remoteId, SafeGet(() => folder.DisplayName), false));
+        }
+
+        return folders;
+    }
+
+    private static async Task<List<Folder>> FindEwsFoldersAsync(ExchangeService service, WellKnownFolderName root, SearchFilter filter, CancellationToken cancellationToken)
+    {
+        var folders = new List<Folder>();
+        var view = new FolderView(500) { Traversal = FolderTraversal.Deep, PropertySet = TaskFolderPropertySet };
+        FindFoldersResults page;
         do
         {
             cancellationToken.ThrowIfCancellationRequested();
-
-            results = await service.FindItems(tasksFolder.Id, view).ConfigureAwait(false);
-
-            var page = results.Items.OfType<EwsTask>().ToList();
-            if (page.Count > 0)
-            {
-                await service.LoadPropertiesForItems(page, TaskPropertySet).ConfigureAwait(false);
-
-                foreach (var task in page)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    tasks.Add(MapToAccountTask(task, list));
-                }
-            }
-
-            view.Offset += results.Items.Count;
+            page = await service.FindFolders(root, filter, view).ConfigureAwait(false);
+            folders.AddRange(page.Folders);
+            view.Offset += page.Folders.Count;
         }
-        while (results.MoreAvailable);
+        while (page.MoreAvailable && page.Folders.Count > 0);
 
-        var result = await ApplyTaskSnapshotAsync(list, tasks).ConfigureAwait(false);
+        return folders;
+    }
 
-        _logger.Information("Exchange tasks sync for {Account}: {Count} server tasks, {Removed} removed.", Account.Name, tasks.Count, result.DeletedCount);
+    /// <summary>One-way pull of every task folder into its task list, as the contacts pull does.</summary>
+    protected virtual async Task<TaskSynchronizationResult> SynchronizeProviderTasksAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken)
+    {
+        var service = await CreateServiceAsync(cancellationToken).ConfigureAwait(false);
+        var lists = await EnsureTaskListsAsync(await ReadEwsTaskFoldersAsync(service, cancellationToken).ConfigureAwait(false)).ConfigureAwait(false);
+
+        var results = new List<TaskSynchronizationResult>();
+        foreach (var list in SelectTaskListsToSynchronize(lists, options))
+        {
+            var tasks = new List<AccountTask>();
+            var view = new ItemView(ItemDownloadPageSize);
+            FindItemsResults<Item> page;
+            do
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                page = await service.FindItems(new FolderId(list.RemoteId), view).ConfigureAwait(false);
+
+                var items = page.Items.OfType<EwsTask>().ToList();
+                if (items.Count > 0)
+                {
+                    await service.LoadPropertiesForItems(items, TaskPropertySet).ConfigureAwait(false);
+
+                    foreach (var task in items)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        tasks.Add(MapToAccountTask(task, list));
+                    }
+                }
+
+                view.Offset += page.Items.Count;
+            }
+            while (page.MoreAvailable);
+
+            results.Add(await ApplyTaskSnapshotAsync(list, tasks).ConfigureAwait(false));
+        }
+
+        var result = CombineTaskResults(results);
+        _logger.Information("Exchange tasks sync for {Account}: {Lists} of {AllLists} lists, {Count} server tasks, {Removed} removed.",
+            Account.Name, results.Count, lists.Count, result.DownloadedCount, result.DeletedCount);
 
         return result;
     }
@@ -720,62 +874,178 @@ public partial class ExchangeSynchronizer
                 continue;
             }
 
-            var (localTask, _) = await ResolveRequestedTaskAsync(request).ConfigureAwait(false);
-
-            if (request.Operation == TaskSynchronizerOperation.DeleteTask)
+            switch (request.Operation)
             {
-                if (!string.IsNullOrWhiteSpace(localTask.RemoteId))
-                {
-                    try
-                    {
-                        var task = await EwsTask.Bind(service, new ItemId(localTask.RemoteId), new PropertySet(BasePropertySet.IdOnly)).ConfigureAwait(false);
-                        await task.Delete(DeleteMode.MoveToDeletedItems).ConfigureAwait(false);
-                    }
-                    catch (ServiceResponseException ex) when (ex.ErrorCode == ServiceError.ErrorItemNotFound)
-                    {
-                        _logger.Warning("Exchange task {RemoteTaskId} was already gone when it was deleted.", localTask.RemoteId);
-                    }
-                }
-
-                await ExchangeChangeProcessor.CommitTaskMutationAsync(localTask.Id, null, true, localTask, request.Operation).ConfigureAwait(false);
-                MarkTaskRequestProcessed(request);
-                continue;
+                case TaskSynchronizerOperation.CreateList:
+                    await CreateEwsTaskListAsync(service, request).ConfigureAwait(false);
+                    break;
+                case TaskSynchronizerOperation.UpdateList:
+                    await RenameEwsTaskListAsync(service, request).ConfigureAwait(false);
+                    break;
+                case TaskSynchronizerOperation.DeleteList:
+                    await DeleteEwsTaskListAsync(service, request).ConfigureAwait(false);
+                    break;
+                default:
+                    await ExecuteEwsTaskMutationAsync(service, request).ConfigureAwait(false);
+                    break;
             }
 
-            EwsTask ewsTask;
-            if (string.IsNullOrWhiteSpace(localTask.RemoteId))
-            {
-                ewsTask = new EwsTask(service);
-                ApplyTaskProperties(ewsTask, localTask);
-                await ewsTask.Save(WellKnownFolderName.Tasks).ConfigureAwait(false);
-            }
-            else
-            {
-                ewsTask = await EwsTask.Bind(service, new ItemId(localTask.RemoteId)).ConfigureAwait(false);
-                ApplyTaskProperties(ewsTask, localTask);
-                await ewsTask.Update(ConflictResolutionMode.AutoResolve).ConfigureAwait(false);
-            }
-
-            // Tasks have no natural key: the server id is stamped on the local row so the next pull reconciles it in
-            // place instead of creating a duplicate.
-            await CommitTaskAsync(request, localTask, ewsTask.Id.UniqueId, ewsTask.Id.ChangeKey).ConfigureAwait(false);
             MarkTaskRequestProcessed(request);
         }
     }
 
-    private static void ApplyTaskProperties(EwsTask task, AccountTask item)
+    private async Task CreateEwsTaskListAsync(ExchangeService service, ITaskActionRequest request)
+    {
+        var list = await ResolveRequestedTaskListAsync(request).ConfigureAwait(false);
+        var folder = new Folder(service) { DisplayName = list.Title.Trim(), FolderClass = TaskFolderClass };
+
+        try
+        {
+            await folder.Save(WellKnownFolderName.Tasks).ConfigureAwait(false);
+        }
+        catch (ServiceResponseException ex) when (ex.ErrorCode == ServiceError.ErrorFolderExists)
+        {
+            throw new InvalidOperationException(Translator.Synchronizer_ExchangeTaskListNameExists, ex);
+        }
+
+        await CommitTaskListAsync(list, folder.Id.UniqueId).ConfigureAwait(false);
+    }
+
+    private async Task RenameEwsTaskListAsync(ExchangeService service, ITaskActionRequest request)
+    {
+        var list = await ResolveRequestedTaskListAsync(request).ConfigureAwait(false);
+        EnsureTaskListIsNotDefault(list);
+        if (string.IsNullOrWhiteSpace(list.RemoteId))
+            throw new InvalidOperationException($"Task list {list.Id} has no Exchange folder to rename.");
+
+        var folder = await Folder.Bind(service, new FolderId(list.RemoteId), new PropertySet(BasePropertySet.IdOnly, FolderSchema.DisplayName)).ConfigureAwait(false);
+        folder.DisplayName = list.Title.Trim();
+
+        try
+        {
+            await folder.Update().ConfigureAwait(false);
+        }
+        catch (ServiceResponseException ex) when (ex.ErrorCode == ServiceError.ErrorFolderExists)
+        {
+            throw new InvalidOperationException(Translator.Synchronizer_ExchangeTaskListNameExists, ex);
+        }
+
+        await CommitTaskListAsync(list, list.RemoteId).ConfigureAwait(false);
+    }
+
+    /// <summary>The folder goes to Deleted Items with its tasks, as Outlook deletes a task folder.</summary>
+    private async Task DeleteEwsTaskListAsync(ExchangeService service, ITaskActionRequest request)
+    {
+        var list = await ResolveRequestedTaskListAsync(request).ConfigureAwait(false);
+        EnsureTaskListIsNotDefault(list);
+
+        if (!string.IsNullOrWhiteSpace(list.RemoteId))
+        {
+            try
+            {
+                var folder = await Folder.Bind(service, new FolderId(list.RemoteId), new PropertySet(BasePropertySet.IdOnly, FolderSchema.DisplayName)).ConfigureAwait(false);
+                try
+                {
+                    await folder.Delete(DeleteMode.MoveToDeletedItems).ConfigureAwait(false);
+                }
+                catch (ServiceResponseException ex) when (ex.ErrorCode == ServiceError.ErrorFolderExists)
+                {
+                    // Deleted Items already holds a folder of this name; a dated name lets this one join it.
+                    folder.DisplayName = $"{folder.DisplayName} ({DateTime.Now:yyyy-MM-dd HH.mm.ss})";
+                    await folder.Update().ConfigureAwait(false);
+                    await folder.Delete(DeleteMode.MoveToDeletedItems).ConfigureAwait(false);
+                }
+            }
+            catch (ServiceResponseException ex) when (ex.ErrorCode is ServiceError.ErrorFolderNotFound or ServiceError.ErrorItemNotFound)
+            {
+                _logger.Warning("Exchange task folder of list {ListId} was already gone when it was deleted.", list.Id);
+            }
+        }
+
+        await ExchangeChangeProcessor.CommitTaskListMutationAsync(list.Id, null, true).ConfigureAwait(false);
+    }
+
+    private async Task ExecuteEwsTaskMutationAsync(ExchangeService service, ITaskActionRequest request)
+    {
+        var (localTask, list) = await ResolveRequestedTaskAsync(request).ConfigureAwait(false);
+
+        if (request.Operation == TaskSynchronizerOperation.DeleteTask)
+        {
+            if (!string.IsNullOrWhiteSpace(localTask.RemoteId))
+            {
+                try
+                {
+                    var task = await EwsTask.Bind(service, new ItemId(localTask.RemoteId), new PropertySet(BasePropertySet.IdOnly)).ConfigureAwait(false);
+                    await task.Delete(DeleteMode.MoveToDeletedItems).ConfigureAwait(false);
+                }
+                catch (ServiceResponseException ex) when (ex.ErrorCode == ServiceError.ErrorItemNotFound)
+                {
+                    _logger.Warning("Exchange task {RemoteTaskId} was already gone when it was deleted.", localTask.RemoteId);
+                }
+            }
+
+            await ExchangeChangeProcessor.CommitTaskMutationAsync(localTask.Id, null, true, localTask, request.Operation).ConfigureAwait(false);
+            return;
+        }
+
+        var source = await ResolveMoveSourceListAsync(request, localTask).ConfigureAwait(false);
+        ItemId itemId;
+        if (string.IsNullOrWhiteSpace(localTask.RemoteId))
+        {
+            var created = new EwsTask(service);
+            ApplyTaskProperties(created, localTask, isNew: true);
+            await created.Save(new FolderId(list.RemoteId)).ConfigureAwait(false);
+            itemId = created.Id;
+        }
+        else
+        {
+            var existing = await EwsTask.Bind(service, new ItemId(localTask.RemoteId)).ConfigureAwait(false);
+            ApplyTaskProperties(existing, localTask, isNew: false);
+            await existing.Update(ConflictResolutionMode.AutoResolve).ConfigureAwait(false);
+            itemId = existing.Id;
+
+            if (source is not null)
+            {
+                var moved = await existing.Move(new FolderId(list.RemoteId)).ConfigureAwait(false);
+                itemId = moved?.Id ?? itemId;
+            }
+        }
+
+        // Tasks have no natural key: the server id is stamped on the local row so the next pull reconciles it in
+        // place instead of creating a duplicate.
+        await CommitTaskAsync(request, localTask, itemId.UniqueId, itemId.ChangeKey).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Writes the local fields. The local model has no start date, no in-progress state and no low importance, so an
+    /// update keeps the server's values for those unless the edit contradicts them.
+    /// </summary>
+    private static void ApplyTaskProperties(EwsTask task, AccountTask item, bool isNew)
     {
         task.Subject = item.Title ?? string.Empty;
         task.Body = new MessageBody(BodyType.Text, item.Notes ?? string.Empty);
 
         if (item.DueDate is DateTime due)
         {
-            task.StartDate = due;
+            DateTime? start = null;
+            if (!isNew && task.TryGetProperty(TaskSchema.StartDate, out DateTime? currentStart))
+                start = currentStart;
+
             task.DueDate = due;
+            if (start is null || start.Value.Date > due.Date)
+                task.StartDate = due;
         }
 
-        task.Importance = item.IsImportant ? Importance.High : Importance.Normal;
-        task.Status = item.IsCompleted ? EwsTaskStatus.Completed : EwsTaskStatus.NotStarted;
+        var currentImportance = isNew ? null : SafeGet(() => (Importance?)task.Importance);
+        task.Importance = item.IsImportant
+            ? Importance.High
+            : currentImportance == Importance.Low ? Importance.Low : Importance.Normal;
+
+        var currentStatus = isNew ? null : SafeGet(() => (EwsTaskStatus?)task.Status);
+        if (item.IsCompleted)
+            task.Status = EwsTaskStatus.Completed;
+        else if (currentStatus is null or EwsTaskStatus.Completed)
+            task.Status = EwsTaskStatus.NotStarted;
     }
 
     private AccountTask MapToAccountTask(EwsTask task, AccountTaskList list)

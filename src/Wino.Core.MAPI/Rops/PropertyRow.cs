@@ -196,6 +196,9 @@ public static class PropertyTags
     public const uint InternetReferences = 0x1039001F;           // PidTagInternetReferences
     public const uint FlagStatus = 0x10900003;                   // PidTagFlagStatus (1 complete, 2 flagged)
     public const uint ChangeKey = 0x65E20102;                    // PidTagChangeKey
+    // PR_PREVIEW: the body preview Exchange 2013+ computes on delivery (the value behind EWS Item.Preview). It is not
+    // in MS-OXPROPS, so older or non-Microsoft servers return it absent.
+    public const uint Preview = 0x3FD9001F;
     public const uint Body = 0x1000001F;                         // PidTagBody (plain text)
     public const uint Html = 0x10130102;                         // PidTagHtml (bytes in PidTagInternetCodepage)
     public const uint RtfCompressed = 0x10090102;                // PidTagRtfCompressed
@@ -226,7 +229,7 @@ public static class PropertyTags
         Mid, MessageClass, Subject, NormalizedSubject, SentRepresentingName, SentRepresentingSmtpAddress,
         SenderName, SenderSmtpAddress, ClientSubmitTime, MessageDeliveryTime, LastModificationTime,
         MessageFlags, MessageSize, HasAttachments, Importance, FlagStatus, ConversationId,
-        InternetMessageId, InReplyToId, InternetReferences, DisplayTo, ChangeKey,
+        InternetMessageId, InReplyToId, InternetReferences, DisplayTo, ChangeKey, Preview,
     ];
 
     /// <summary>The columns an attachment table read asks for.</summary>

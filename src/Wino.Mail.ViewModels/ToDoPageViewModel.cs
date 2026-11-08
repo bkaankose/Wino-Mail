@@ -289,7 +289,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     public bool CanEditSelectedList => SelectedList is { IsReadOnly: false };
     public bool CanDeleteSelectedList => SelectedList is { IsReadOnly: false, IsOutlookDefaultList: false, IsFixedProviderList: false };
 
-    /// <summary>An Exchange account's list is the mailbox's Tasks folder; the server names it.</summary>
+    /// <summary>An Exchange mailbox's default Tasks folder keeps the name the server gives it.</summary>
     public bool CanRenameSelectedList => SelectedList is { IsReadOnly: false, IsFixedProviderList: false };
     public bool CanEditSelectedTask => SelectedTask is { IsReadOnly: false };
 
@@ -1863,25 +1863,14 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             return;
 
         var account = Accounts.FirstOrDefault(account => account.Id == _selectedAccountId)
-            ?? Accounts.FirstOrDefault(account => account.IsTaskAccessEnabled && CanCreateListFor(account))
             ?? Accounts.FirstOrDefault(account => account.IsTaskAccessEnabled);
         if (account is null)
             return;
         await CreateListForAccountAsync(account, null).ConfigureAwait(false);
     }
 
-    /// <summary>An Exchange account serves the mailbox's one Tasks folder; this client adds no lists to it.</summary>
-    private static bool CanCreateListFor(MailAccount account)
-        => ResolveTaskSource(account) != TaskSourceKind.Exchange;
-
     private async Task CreateListForAccountAsync(MailAccount account, Guid? groupId)
     {
-        if (!CanCreateListFor(account))
-        {
-            _dialogService.InfoBarMessage(Translator.ToDoPage_NewList, Translator.Synchronizer_ExchangeTaskListsUnsupported, InfoBarMessageType.Information);
-            return;
-        }
-
         var title = await _dialogService.ShowTextInputDialogAsync(
             string.Empty,
             Translator.ToDoPage_NewList,

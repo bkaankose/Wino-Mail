@@ -340,6 +340,7 @@ public sealed partial class MapiExchangeSynchronizer
                 _ => 0u
             },
             ReminderMinutes = reminders?.FirstOrDefault() is { } reminder ? (int)(reminder.DurationInSeconds / 60) : null,
+            KeepReminder = reminders is null,
             ClientTrackingId = clientTrackingId
         };
 

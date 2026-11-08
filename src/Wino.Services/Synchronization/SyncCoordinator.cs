@@ -29,7 +29,7 @@ namespace Wino.Services.Synchronization;
 /// </summary>
 public sealed class SyncCoordinator : ISyncCoordinator,
     IRecipient<AccountCreatedMessage>, IRecipient<AccountRemovedMessage>, IRecipient<AccountUpdatedMessage>,
-    IRecipient<ImapIdleStateChanged>
+    IRecipient<ImapIdleStateChanged>, IRecipient<ExchangeNotificationStateChanged>
 {
     internal static readonly TimeSpan SocketDownGrace = TimeSpan.FromSeconds(30);
     internal static readonly TimeSpan SocketUpStable = TimeSpan.FromSeconds(15);
@@ -73,6 +73,7 @@ public sealed class SyncCoordinator : ISyncCoordinator,
     private readonly object _gate = new();
     private readonly Dictionary<Guid, AccountFacts> _accounts = new();
     private readonly Dictionary<Guid, ImapIdleStatus> _idle = new();
+    private readonly Dictionary<Guid, ExchangeNotificationStatus> _exchangeNotifications = new();
     private readonly Dictionary<string, string> _preferenceValues = new(StringComparer.Ordinal);
     private readonly Dictionary<RelayRetryTrigger, DateTimeOffset> _lastRetry = new();
     private readonly Queue<DateTimeOffset> _socketTransitions = new();
@@ -198,6 +199,8 @@ public sealed class SyncCoordinator : ISyncCoordinator,
             {
                 if (synchronizer is IImapSynchronizer imap && synchronizer.Account is { } account)
                     _idle[account.Id] = imap.IdleStatus;
+                else if (synchronizer is IExchangeSynchronizer exchange && synchronizer.Account is { } exchangeAccount)
+                    _exchangeNotifications[exchangeAccount.Id] = exchange.NotificationStatus;
             }
 
             _relay = _registration.Snapshot;
@@ -220,6 +223,7 @@ public sealed class SyncCoordinator : ISyncCoordinator,
         _messenger.Register<AccountRemovedMessage>(this);
         _messenger.Register<AccountUpdatedMessage>(this);
         _messenger.Register<ImapIdleStateChanged>(this);
+        _messenger.Register<ExchangeNotificationStateChanged>(this);
 
         if (HasChoice)
         {
@@ -360,6 +364,7 @@ public sealed class SyncCoordinator : ISyncCoordinator,
         {
             _accounts.Remove(message.Account.Id);
             _idle.Remove(message.Account.Id);
+            _exchangeNotifications.Remove(message.Account.Id);
         }
 
         Recompute($"account {message.Account.Name} removed");
@@ -393,6 +398,12 @@ public sealed class SyncCoordinator : ISyncCoordinator,
     {
         lock (_gate) _idle[message.AccountId] = message.Status;
         Recompute($"IMAP IDLE {message.Status.State} ({message.Status.Reason})");
+    }
+
+    public void Receive(ExchangeNotificationStateChanged message)
+    {
+        lock (_gate) _exchangeNotifications[message.AccountId] = message.Status;
+        Recompute($"Exchange notifications {message.Status.State} ({message.Status.Reason})");
     }
 
     private void PreferenceChanged(object? sender, string propertyName)
@@ -791,6 +802,11 @@ public sealed class SyncCoordinator : ISyncCoordinator,
                 if (idle.State == ImapIdleState.Listening)
                     return (LiveCoverageKind.ImapIdle, LiveCoverageGap.None);
                 return (LiveCoverageKind.None, IsIdleUnsupportedReason(idle.Reason) ? LiveCoverageGap.IdleUnsupported : LiveCoverageGap.IdleNotRunning);
+
+            case MailProviderType.Exchange:
+                if (_exchangeNotifications.TryGetValue(accountId, out var notifications) && notifications.State == ExchangeNotificationState.Listening)
+                    return (LiveCoverageKind.ExchangeNotifications, LiveCoverageGap.None);
+                return (LiveCoverageKind.None, LiveCoverageGap.ExchangeNotificationsNotRunning);
 
             default:
                 return (LiveCoverageKind.None, LiveCoverageGap.ProviderUnsupported);

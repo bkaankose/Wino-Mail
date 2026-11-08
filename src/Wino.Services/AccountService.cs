@@ -456,6 +456,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             transaction.Execute("DELETE FROM ContactCard WHERE MailAccountId = ?", account.Id);
             transaction.Execute("DELETE FROM ContactAddressBook WHERE MailAccountId = ?", account.Id);
             transaction.Execute("DELETE FROM RecipientHistory WHERE AccountId = ?", account.Id);
+            transaction.Execute("DELETE FROM DirectoryPhotoLookup WHERE MailAccountId = ?", account.Id);
             transaction.Execute("DELETE FROM TaskStep WHERE MailAccountId = ?", account.Id);
             transaction.Execute("DELETE FROM TaskCard WHERE MailAccountId = ?", account.Id);
             transaction.Execute("DELETE FROM TaskList WHERE MailAccountId = ?", account.Id);

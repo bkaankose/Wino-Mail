@@ -30,3 +30,9 @@ public sealed record ImapIdleStatus(ImapIdleState State, string? Reason, DateTim
 {
     public static ImapIdleStatus NeverStarted { get; } = new(ImapIdleState.Stopped, "not started", DateTimeOffset.MinValue);
 }
+
+/// <summary>The change listener state of one desktop Exchange account, with the reason for the last transition.</summary>
+public sealed record ExchangeNotificationStatus(ExchangeNotificationState State, string? Reason, DateTimeOffset ChangedUtc)
+{
+    public static ExchangeNotificationStatus NeverStarted { get; } = new(ExchangeNotificationState.Stopped, "not started", DateTimeOffset.MinValue);
+}

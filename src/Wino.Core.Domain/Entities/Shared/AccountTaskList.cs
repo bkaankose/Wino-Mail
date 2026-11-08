@@ -39,11 +39,11 @@ public class AccountTaskList
     public bool IsOutlookDefaultList => SourceKind == TaskSourceKind.Outlook && IsDefault;
 
     /// <summary>
-    /// An Exchange account's list is the mailbox's well-known Tasks folder. It can be neither renamed nor deleted, and
-    /// its tasks have no checklist steps; only the tasks in it are written back.
+    /// The Exchange list backed by the mailbox's well-known Tasks folder. Exchange refuses to rename or delete it, as
+    /// Outlook does; the mailbox's other task folders are ordinary lists.
     /// </summary>
     [Ignore]
-    public bool IsFixedProviderList => SourceKind == TaskSourceKind.Exchange;
+    public bool IsFixedProviderList => SourceKind == TaskSourceKind.Exchange && IsDefault;
 
     public string DeltaLink { get; set; }
 

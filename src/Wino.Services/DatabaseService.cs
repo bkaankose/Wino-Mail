@@ -290,6 +290,7 @@ VALUES
             Connection.CreateTableAsync<ContactList>(),
             Connection.CreateTableAsync<ContactListMember>(),
             Connection.CreateTableAsync<ContactCategoryAssignment>(),
+            Connection.CreateTableAsync<DirectoryPhotoLookup>(),
             Connection.CreateTableAsync<RecipientHistory>(),
             Connection.CreateTableAsync<CardDavAccountState>(),
             Connection.CreateTableAsync<CardDavAddressBookState>(),

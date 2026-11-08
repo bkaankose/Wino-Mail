@@ -10,6 +10,7 @@ public enum AccountIconProvider
     ICloud,
     Yahoo,
     Imap,
+    Exchange,
 }
 
 /// <summary>

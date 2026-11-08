@@ -144,6 +144,23 @@ public partial class AccountDetailsPageViewModel
                 await _accountService.DeleteAccountMailCacheAsync(account.Id, AccountCacheResetReason.ExpiredCache);
 
             RequestExchangeMailSynchronization(account);
+
+            // Calendars, address books and task lists keep the old transport's ids until their own pass re-keys them;
+            // until then the change listener's events do not match them.
+            if (isTransportSwitch && account.IsCalendarAccessGranted)
+            {
+                Messenger.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
+                {
+                    AccountId = account.Id,
+                    Type = CalendarSynchronizationType.Strict
+                }));
+            }
+
+            if (isTransportSwitch)
+            {
+                Messenger.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions { AccountId = account.Id, Type = ContactSynchronizationType.Full }));
+                Messenger.Send(new NewTaskSynchronizationRequested(new TaskSynchronizationOptions { AccountId = account.Id, Type = TaskSynchronizationType.Full }));
+            }
             _dialogService.InfoBarMessage(Translator.EditAccountDetailsPage_SaveSuccess_Title, Translator.AccountDetailsPage_ExchangeTransportSaved, InfoBarMessageType.Success);
         }
         catch (Exception ex)

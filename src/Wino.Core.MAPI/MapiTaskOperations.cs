@@ -34,6 +34,9 @@ public sealed record MapiTaskInfo(
     public bool Completed => IsComplete ?? Status == StatusComplete;
 }
 
+/// <summary>What a task holds on the server before a write, for the fields the local model cannot represent.</summary>
+public sealed record MapiTaskState(DateTime? StartDate, uint? Importance, uint? Status);
+
 /// <summary>The fields this client writes to a task.</summary>
 public sealed class MapiTaskWrite
 {
@@ -52,6 +55,10 @@ public sealed class MapiTaskWrite
 public static class MapiTaskOperations
 {
     private const int Slots = 3;
+
+    public const uint ImportanceLow = 0;
+    public const uint ImportanceNormal = 1;
+    public const uint ImportanceHigh = 2;
 
     public static async Task<MapiTaskTags> ResolveTagsAsync(MapiSession session, CancellationToken cancellationToken = default)
     {
@@ -98,6 +105,49 @@ public static class MapiTaskOperations
     public static async Task<List<MapiTaskInfo>> ReadTasksAsync(MapiSession session, ulong folderId, MapiTaskTags tags, CancellationToken cancellationToken = default, Action<string>? diagnostics = null)
     {
         var columns = Columns(tags);
+        var rows = await ReadTableAsync(session, folderId, columns, 25, cancellationToken).ConfigureAwait(false);
+
+        var tasks = new List<MapiTaskInfo>(rows.Count);
+        var partialBodies = 0;
+        foreach (var row in rows)
+        {
+            if (row[0].AsUInt64 is not { } mid)
+                continue;
+
+            var task = new MapiTaskInfo(
+                mid,
+                row[1].AsString ?? string.Empty,
+                row[2].AsString,
+                row[3].AsString,
+                row[4].Value as DateTime?,
+                row[5].Value as DateTime?,
+                row[6].Value as DateTime?,
+                row[7].AsUInt32,
+                row[8].AsUInt32,
+                row[9].Value as double?,
+                row[10].AsBoolean,
+                row[11].AsBoolean,
+                row[12].Value as DateTime?);
+
+            // The table refuses or cuts a long body. Taking that as the note would replace the local note with a
+            // partial or empty one, and the next write-back would push it to the server.
+            if (task.IsTask && MapiMessageOperations.MayBeTruncatedStringCell(row[3]))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                partialBodies++;
+                var body = await MapiMessageOperations.ReadUnicodePropertyAsync(session, folderId, mid, PropertyTags.Body, cancellationToken).ConfigureAwait(false);
+                task = task with { Body = body ?? task.Body };
+            }
+
+            tasks.Add(task);
+        }
+
+        diagnostics?.Invoke($"tasks 0x{folderId:X16}: {tasks.Count} rows ({tasks.Count(t => t.IsTask)} tasks, {tasks.Count(t => t.Completed)} complete, {partialBodies} bodies read off the message)");
+        return tasks;
+    }
+
+    private static async Task<List<PropertyValue[]>> ReadTableAsync(MapiSession session, ulong folderId, uint[] columns, ushort pageSize, CancellationToken cancellationToken)
+    {
         var handles = MapiSession.MergeHandles([session.LogonHandle], [], Slots);
 
         var (rops, returned) = await session.ExecuteAsync(RopFolder.BuildOpenFolder(folderId, 0, 1), handles, cancellationToken).ConfigureAwait(false);
@@ -115,44 +165,65 @@ public static class MapiTaskOperations
                 (rops, _) = await session.ExecuteAsync(RopFolder.BuildSetColumns(2, columns), handles, cancellationToken).ConfigureAwait(false);
                 RopFolder.ParseSetColumns(new RopReader(rops));
 
-                var tasks = new List<MapiTaskInfo>((int)Math.Min(rowCount, 4096));
+                var result = new List<PropertyValue[]>((int)Math.Min(rowCount, 4096));
                 while (true)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    (rops, _) = await session.ExecuteAsync(RopFolder.BuildQueryRows(2, 25), handles, cancellationToken).ConfigureAwait(false);
+                    (rops, _) = await session.ExecuteAsync(RopFolder.BuildQueryRows(2, pageSize), handles, cancellationToken).ConfigureAwait(false);
                     var rows = RopFolder.ParseQueryRows(new RopReader(rops), columns);
                     if (rows.Count == 0)
                         break;
 
-                    foreach (var row in rows)
-                    {
-                        if (row[0].AsUInt64 is not { } mid)
-                            continue;
-
-                        tasks.Add(new MapiTaskInfo(
-                            mid,
-                            row[1].AsString ?? string.Empty,
-                            row[2].AsString,
-                            row[3].AsString,
-                            row[4].Value as DateTime?,
-                            row[5].Value as DateTime?,
-                            row[6].Value as DateTime?,
-                            row[7].AsUInt32,
-                            row[8].AsUInt32,
-                            row[9].Value as double?,
-                            row[10].AsBoolean,
-                            row[11].AsBoolean,
-                            row[12].Value as DateTime?));
-                    }
+                    result.AddRange(rows);
                 }
 
-                diagnostics?.Invoke($"tasks 0x{folderId:X16}: {tasks.Count} rows ({tasks.Count(t => t.IsTask)} tasks, {tasks.Count(t => t.Completed)} complete, RowCount {rowCount})");
-                return tasks;
+                return result;
             }
             finally
             {
                 await session.ReleaseAsync(handles[2], cancellationToken).ConfigureAwait(false);
             }
+        }
+        finally
+        {
+            await session.ReleaseAsync(handles[1], cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Moves a task to another folder and returns its message id there, or null when it cannot be told apart. A move
+    /// gives the message a new id; its search key travels with it, so the moved copy is found by that.
+    /// </summary>
+    public static async Task<ulong?> MoveTaskAsync(MapiSession session, ulong sourceFolderId, ulong messageId, ulong destinationFolderId, CancellationToken cancellationToken = default)
+    {
+        uint[] tags = [PropertyTags.SearchKey];
+        var searchKey = (await ReadMessagePropertiesAsync(session, sourceFolderId, messageId, tags, cancellationToken).ConfigureAwait(false))[0].AsBinary;
+
+        await MapiMessageOperations.MoveAsync(session, sourceFolderId, destinationFolderId, [messageId], cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (searchKey is not { Length: > 0 })
+            return null;
+
+        var rows = await ReadTableAsync(session, destinationFolderId, [PropertyTags.Mid, PropertyTags.SearchKey], 100, cancellationToken).ConfigureAwait(false);
+
+        // A copy shares the search key; the moved message is the newest one, and message ids only grow.
+        return rows
+            .Where(row => row[1].AsBinary is { } key && key.AsSpan().SequenceEqual(searchKey))
+            .Select(row => row[0].AsUInt64)
+            .Where(mid => mid is not null)
+            .Max();
+    }
+
+    private static async Task<PropertyValue[]> ReadMessagePropertiesAsync(MapiSession session, ulong folderId, ulong messageId, uint[] tags, CancellationToken cancellationToken)
+    {
+        var handles = MapiSession.MergeHandles([session.LogonHandle], [], Slots);
+        var (rops, returned) = await session.ExecuteAsync(RopMessage.BuildOpenMessage(folderId, messageId, 0, 1), handles, cancellationToken).ConfigureAwait(false);
+        RopMessage.ParseOpenMessage(new RopReader(rops));
+        handles = MapiSession.MergeHandles(handles, returned, Slots);
+
+        try
+        {
+            (rops, _) = await session.ExecuteAsync(RopProperties.BuildGetPropertiesSpecific(1, tags), handles, cancellationToken).ConfigureAwait(false);
+            return RopProperties.ParseGetPropertiesSpecific(new RopReader(rops), tags);
         }
         finally
         {
@@ -170,7 +241,7 @@ public static class MapiTaskOperations
 
         try
         {
-            var savedId = await SetAndSaveAsync(session, handles, tags, task, includeClass: true, cancellationToken).ConfigureAwait(false);
+            var savedId = await SetAndSaveAsync(session, handles, tags, task, null, includeClass: true, cancellationToken).ConfigureAwait(false);
             return savedId != 0 ? savedId : createdId ?? 0;
         }
         finally
@@ -188,7 +259,12 @@ public static class MapiTaskOperations
 
         try
         {
-            await SetAndSaveAsync(session, handles, tags, task, includeClass: false, cancellationToken).ConfigureAwait(false);
+            uint[] stateTags = [tags.TaskStartDate, PropertyTags.Importance, tags.TaskStatus];
+            (rops, _) = await session.ExecuteAsync(RopProperties.BuildGetPropertiesSpecific(1, stateTags), handles, cancellationToken).ConfigureAwait(false);
+            var values = RopProperties.ParseGetPropertiesSpecific(new RopReader(rops), stateTags);
+            var existing = new MapiTaskState(values[0].AsDateTime, values[1].AsUInt32, values[2].AsUInt32);
+
+            await SetAndSaveAsync(session, handles, tags, task, existing, includeClass: false, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -196,9 +272,9 @@ public static class MapiTaskOperations
         }
     }
 
-    private static async Task<ulong> SetAndSaveAsync(MapiSession session, uint[] handles, MapiTaskTags tags, MapiTaskWrite task, bool includeClass, CancellationToken cancellationToken)
+    private static async Task<ulong> SetAndSaveAsync(MapiSession session, uint[] handles, MapiTaskTags tags, MapiTaskWrite task, MapiTaskState? existing, bool includeClass, CancellationToken cancellationToken)
     {
-        var (rops, _) = await session.ExecuteAsync(RopMessageOps.BuildSetProperties(1, Properties(tags, task, includeClass)), handles, cancellationToken).ConfigureAwait(false);
+        var (rops, _) = await session.ExecuteAsync(RopMessageOps.BuildSetProperties(1, Properties(tags, task, includeClass, existing)), handles, cancellationToken).ConfigureAwait(false);
         var problems = RopMessageOps.ParseSetProperties(new RopReader(rops));
         if (problems.Count > 0)
             throw new MapiFormatException($"The store refused task properties: {string.Join(", ", problems.Select(p => $"0x{p.Tag:X8}=0x{p.Error:X8}"))}");
@@ -210,8 +286,11 @@ public static class MapiTaskOperations
     /// <summary>
     /// The task properties (MS-OXOTASK 2.2.2): status, complete flag and percent kept in step, due and
     /// start dates mirrored into the PSETID_Common start/end Outlook reads for its views.
+    /// <paramref name="existing"/> is the task's server state on an update. The local model has no start date, no
+    /// in-progress state and no low importance, so those are kept as the server has them unless the edit contradicts
+    /// them (a completed task, or a start after the new due date).
     /// </summary>
-    public static List<TaggedPropertyValue> Properties(MapiTaskTags tags, MapiTaskWrite task, bool includeClass)
+    public static List<TaggedPropertyValue> Properties(MapiTaskTags tags, MapiTaskWrite task, bool includeClass, MapiTaskState? existing = null)
     {
         var values = new List<TaggedPropertyValue>();
         if (includeClass)
@@ -219,17 +298,37 @@ public static class MapiTaskOperations
 
         values.Add(TaggedPropertyValue.Unicode(PropertyTags.Subject, task.Subject ?? string.Empty));
         values.Add(TaggedPropertyValue.Unicode(PropertyTags.Body, task.Body ?? string.Empty));
-        values.Add(TaggedPropertyValue.Long(PropertyTags.Importance, task.Importance));
-        values.Add(TaggedPropertyValue.Long(tags.TaskStatus, task.IsComplete ? MapiTaskInfo.StatusComplete : MapiTaskInfo.StatusNotStarted));
-        values.Add(TaggedPropertyValue.Boolean(tags.TaskComplete, task.IsComplete));
-        values.Add(new TaggedPropertyValue(tags.PercentComplete, task.IsComplete ? 1.0 : 0.0));
+
+        var importance = task.Importance == ImportanceNormal && existing?.Importance == ImportanceLow ? ImportanceLow : task.Importance;
+        values.Add(TaggedPropertyValue.Long(PropertyTags.Importance, importance));
+
+        if (task.IsComplete)
+        {
+            values.Add(TaggedPropertyValue.Long(tags.TaskStatus, MapiTaskInfo.StatusComplete));
+            values.Add(TaggedPropertyValue.Boolean(tags.TaskComplete, true));
+            values.Add(new TaggedPropertyValue(tags.PercentComplete, 1.0));
+        }
+        else if (existing?.Status is null or MapiTaskInfo.StatusComplete)
+        {
+            values.Add(TaggedPropertyValue.Long(tags.TaskStatus, MapiTaskInfo.StatusNotStarted));
+            values.Add(TaggedPropertyValue.Boolean(tags.TaskComplete, false));
+            values.Add(new TaggedPropertyValue(tags.PercentComplete, 0.0));
+        }
+        else
+        {
+            values.Add(TaggedPropertyValue.Boolean(tags.TaskComplete, false));
+        }
 
         if (task.DueDate is { } due)
         {
             values.Add(TaggedPropertyValue.SysTime(tags.TaskDueDate, due));
             values.Add(TaggedPropertyValue.SysTime(tags.CommonEnd, due));
-            values.Add(TaggedPropertyValue.SysTime(tags.TaskStartDate, due));
-            values.Add(TaggedPropertyValue.SysTime(tags.CommonStart, due));
+
+            if (existing?.StartDate is not { } start || start.Date > due.Date)
+            {
+                values.Add(TaggedPropertyValue.SysTime(tags.TaskStartDate, due));
+                values.Add(TaggedPropertyValue.SysTime(tags.CommonStart, due));
+            }
         }
 
         if (task.IsComplete && task.CompletedDate is { } completed)

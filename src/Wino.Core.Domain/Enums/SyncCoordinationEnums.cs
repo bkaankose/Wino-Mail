@@ -29,7 +29,10 @@ public enum LiveCoverageKind
     RelayMailbox,
 
     /// <summary>Desktop IMAP account with a listening IDLE connection.</summary>
-    ImapIdle
+    ImapIdle,
+
+    /// <summary>Desktop on-premises Exchange account with an open MAPI notification session or EWS streaming subscription.</summary>
+    ExchangeNotifications
 }
 
 /// <summary>Why an account is not covered live. <see cref="None"/> means the timer tick may be skipped.</summary>
@@ -46,7 +49,8 @@ public enum LiveCoverageGap
     MailboxError,
     IdleUnsupported,
     IdleNotRunning,
-    AccountAttention
+    AccountAttention,
+    ExchangeNotificationsNotRunning
 }
 
 /// <summary>Why the coordinator asks the runtime for one bounded mail synchronization outside the timer.</summary>
@@ -81,6 +85,19 @@ public enum ImapIdleState
     Listening,
 
     /// <summary>The connection dropped and the loop is waiting to reconnect.</summary>
+    Reconnecting
+}
+
+/// <summary>The state of a desktop Exchange account's change listener (MAPI notifications or EWS streaming).</summary>
+public enum ExchangeNotificationState
+{
+    /// <summary>No listener runs; <c>Reason</c> on the status says why it ended.</summary>
+    Stopped,
+
+    /// <summary>The mailbox is subscribed; changes arrive without the timer.</summary>
+    Listening,
+
+    /// <summary>The session or subscription dropped and the listener is waiting to reconnect.</summary>
     Reconnecting
 }
 

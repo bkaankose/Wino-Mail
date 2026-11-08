@@ -89,6 +89,12 @@ public sealed class MapiSession : IAsyncDisposable
     }
 
     /// <summary>
+    /// Long-polls this session's notification channel; true when RopNotify responses are waiting for the next Execute.
+    /// </summary>
+    public Task<bool> NotificationWaitAsync(CancellationToken cancellationToken = default)
+        => _transport.NotificationWaitAsync(cancellationToken);
+
+    /// <summary>
     /// Sends one Execute and unwraps it. The returned handle table is the server's view: slots the
     /// ROPs filled carry new handles, the rest echo what was sent.
     /// </summary>

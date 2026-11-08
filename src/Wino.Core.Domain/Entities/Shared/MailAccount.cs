@@ -200,7 +200,7 @@ public class MailAccount
     /// <summary>
     /// Gets whether the account can perform ProfileInformation sync type.
     /// </summary>
-    public bool IsProfileInfoSyncSupported => ProviderType == MailProviderType.Outlook || ProviderType == MailProviderType.Gmail;
+    public bool IsProfileInfoSyncSupported => ProviderType is MailProviderType.Outlook or MailProviderType.Gmail or MailProviderType.Exchange;
 
     /// <summary>
     /// Gets whether the account can perform AliasInformation sync type.

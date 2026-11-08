@@ -94,10 +94,12 @@ public sealed class MapiRopException(string ropName, uint returnValue, string? t
     public const uint AccessDenied = 0x80070005;
     public const uint NotEnoughMemory = 0x8007000E;
     public const uint NotSupported = 0x80040102;
+    public const uint Collision = 0x80040604;
 
     public static string Describe(uint code) => code switch
     {
         NotFound => "MAPI_E_NOT_FOUND",
+        Collision => "MAPI_E_COLLISION",
         AccessDenied => "MAPI_E_NO_ACCESS",
         NotEnoughMemory => "MAPI_E_NOT_ENOUGH_MEMORY (a property too large to return inline; stream it)",
         NotSupported => "MAPI_E_NO_SUPPORT",

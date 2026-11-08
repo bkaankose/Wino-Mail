@@ -500,6 +500,9 @@ public static class MapiCalendarOperations
         public uint BusyStatus { get; set; } = 2;
         public uint Sensitivity { get; set; }
         public int? ReminderMinutes { get; set; }
+
+        /// <summary>Leaves the stored reminder untouched: an edit that carries no reminder must not clear the one other clients set.</summary>
+        public bool KeepReminder { get; set; }
         public string? ClientTrackingId { get; set; }
 
         /// <summary>
@@ -853,9 +856,12 @@ public static class MapiCalendarOperations
         values.Add(TaggedPropertyValue.Boolean(tags.AllDay, appointment.AllDay));
         values.Add(TaggedPropertyValue.Long(tags.BusyStatus, appointment.BusyStatus));
         values.Add(TaggedPropertyValue.Long(PropertyTags.Sensitivity, appointment.Sensitivity));
-        values.Add(TaggedPropertyValue.Boolean(tags.ReminderSet, appointment.ReminderMinutes is not null));
-        if (appointment.ReminderMinutes is { } minutes)
-            values.Add(TaggedPropertyValue.Long(tags.ReminderDelta, (uint)Math.Max(0, minutes)));
+        if (!appointment.KeepReminder)
+        {
+            values.Add(TaggedPropertyValue.Boolean(tags.ReminderSet, appointment.ReminderMinutes is not null));
+            if (appointment.ReminderMinutes is { } minutes)
+                values.Add(TaggedPropertyValue.Long(tags.ReminderDelta, (uint)Math.Max(0, minutes)));
+        }
         if (!string.IsNullOrEmpty(appointment.ClientTrackingId) && tags.ClientTrackingId != 0)
             values.Add(TaggedPropertyValue.Unicode(tags.ClientTrackingId, appointment.ClientTrackingId));
 

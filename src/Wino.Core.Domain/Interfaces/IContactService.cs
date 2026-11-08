@@ -11,7 +11,7 @@ namespace Wino.Core.Domain.Interfaces;
 public interface IContactService : IContactQueryService
 {
     Task<List<AccountContact>> GetContactsByAddressBookAsync(Guid addressBookId);
-    Task<ContactAddressBook> GetOrCreateProviderAddressBookAsync(Guid accountId, ContactSourceKind sourceKind, string remoteId, string displayName, bool isDefault, string parentRemoteId = null);
+    Task<ContactAddressBook> GetOrCreateProviderAddressBookAsync(Guid accountId, ContactSourceKind sourceKind, string remoteId, string displayName, bool isDefault, string parentRemoteId = null, bool? isReadOnly = null);
     Task<List<AccountContact>> ResolveRecipientCandidatesAsync(Guid? accountId, string queryText, int limit = 20);
 
     /// <summary>
@@ -39,6 +39,18 @@ public interface IContactService : IContactQueryService
     Task<ContactAddressBook> EnsureLocalAddressBookAsync(Guid accountId, string displayName);
 
     Task<AccountContact> GetContactByAddressAsync(Guid? accountId, string address);
+
+    /// <summary>
+    /// Sender addresses of the account's mail in <paramref name="domain"/> that were never looked up in the directory
+    /// and have no contact picture, up to <paramref name="limit"/>.
+    /// </summary>
+    Task<List<string>> GetDirectoryPhotoCandidatesAsync(Guid accountId, string domain, int limit);
+
+    /// <summary>Records the one directory lookup of an address; a null photo records that the directory has none.</summary>
+    Task SaveDirectoryPhotoLookupAsync(Guid accountId, string address, byte[] photo);
+
+    /// <summary>The directory picture ids found for the given addresses, keyed by normalized address.</summary>
+    Task<Dictionary<string, Guid>> GetDirectoryPhotoIdsAsync(Guid accountId, IReadOnlyCollection<string> addresses);
     Task<List<AccountContact>> GetContactsByAddressesAsync(Guid? accountId, IEnumerable<string> addresses);
 
     // Favorites. Local-only; never pushed to a provider.

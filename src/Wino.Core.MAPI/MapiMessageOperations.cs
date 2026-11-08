@@ -29,6 +29,7 @@ public sealed record MapiMessageInfo(ulong MessageId, PropertyValue[] Cells)
     public string? References => Cell(PropertyTags.InternetReferences).AsString;
     public string? DisplayTo => Cell(PropertyTags.DisplayTo).AsString;
     public byte[]? ChangeKey => Cell(PropertyTags.ChangeKey).AsBinary;
+    public string? Preview => Cell(PropertyTags.Preview).AsString;
 }
 
 /// <summary>An attachment's table row plus, once fetched, its bytes.</summary>
@@ -153,6 +154,37 @@ public static class MapiMessageOperations
             await session.ReleaseAsync(handles[1], cancellationToken).ConfigureAwait(false);
         }
     }
+
+    /// <summary>
+    /// One PT_UNICODE property of a message, read off the open message and streamed when it is too large to come back
+    /// inline. Contents tables truncate or refuse long strings, so a full body is read this way. Null when absent.
+    /// </summary>
+    public static async Task<string?> ReadUnicodePropertyAsync(MapiSession session, ulong folderId, ulong messageId, uint tag, CancellationToken cancellationToken = default)
+    {
+        var handles = MapiSession.MergeHandles([session.LogonHandle], [], Slots);
+        var (rops, returned) = await session.ExecuteAsync(RopMessage.BuildOpenMessage(folderId, messageId, 0, 1), handles, cancellationToken).ConfigureAwait(false);
+        RopMessage.ParseOpenMessage(new RopReader(rops));
+        handles = MapiSession.MergeHandles(handles, returned, Slots);
+        try
+        {
+            uint[] tags = [tag];
+            (rops, _) = await session.ExecuteAsync(RopProperties.BuildGetPropertiesSpecific(1, tags), handles, cancellationToken).ConfigureAwait(false);
+            var values = RopProperties.ParseGetPropertiesSpecific(new RopReader(rops), tags);
+            var bytes = await InlineOrStreamAsync(session, handles, 1, 2, values[0], tag, cancellationToken).ConfigureAwait(false);
+            return bytes is { Length: > 0 } ? DecodeUnicodeProperty(bytes) : null;
+        }
+        finally
+        {
+            await session.ReleaseAsync(handles[1], cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Whether a string cell of a contents table may not hold the whole value: the server refused it (too large to
+    /// return inline) or cut it at the 255-character table limit.
+    /// </summary>
+    public static bool MayBeTruncatedStringCell(PropertyValue cell)
+        => cell.Error is { } error ? error != MapiRopException.NotFound : cell.AsString is { Length: >= 255 };
 
     /// <summary>
     /// Reads a message's content: HTML and/or plain body, the original transport headers, and every

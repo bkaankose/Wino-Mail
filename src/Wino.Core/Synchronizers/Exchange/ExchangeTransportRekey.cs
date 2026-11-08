@@ -49,6 +49,53 @@ public static class ExchangeTransportRekey
             task => task.RemoteId,
             TaskKey);
 
+    /// <summary>
+    /// Stored task lists to re-key, by local id, with the folder id they take. The default list takes the default
+    /// folder; the others are matched by title, only when the title is unique on both sides. A list left unmatched is
+    /// dropped by the topology reconciliation and its folder imported as a new list.
+    /// </summary>
+    public static Dictionary<Guid, string> MatchTaskLists(IEnumerable<AccountTaskList> stored, IReadOnlyList<(string RemoteId, string Title, bool IsDefault)> incoming)
+    {
+        var result = new Dictionary<Guid, string>();
+        if (incoming.Count == 0)
+            return result;
+
+        var storedLists = stored.ToList();
+        var sample = incoming[0].RemoteId;
+        var claimed = storedLists.Select(list => list.RemoteId).Where(id => !string.IsNullOrWhiteSpace(id)).ToHashSet(StringComparer.Ordinal);
+        var candidates = storedLists
+            .Where(list => list.PendingMutation == TaskPendingMutation.None && IsOtherTransport(list.RemoteId, sample))
+            .ToList();
+        var open = incoming.Where(folder => !claimed.Contains(folder.RemoteId)).ToList();
+
+        var incomingDefault = open.FindIndex(folder => folder.IsDefault);
+        if (candidates.FirstOrDefault(list => list.IsDefault) is { } storedDefault && incomingDefault >= 0)
+        {
+            result[storedDefault.Id] = open[incomingDefault].RemoteId;
+            candidates.Remove(storedDefault);
+            open.RemoveAll(folder => folder.IsDefault);
+        }
+
+        static string TitleKey(string title) => title?.Trim().ToLowerInvariant() ?? string.Empty;
+
+        var openByTitle = open
+            .Where(folder => !folder.IsDefault && TitleKey(folder.Title).Length > 0)
+            .GroupBy(folder => TitleKey(folder.Title), StringComparer.Ordinal)
+            .Where(group => group.Count() == 1)
+            .ToDictionary(group => group.Key, group => group.First().RemoteId, StringComparer.Ordinal);
+
+        foreach (var group in candidates
+                     .Where(list => !list.IsDefault && TitleKey(list.Title).Length > 0)
+                     .GroupBy(list => TitleKey(list.Title), StringComparer.Ordinal)
+                     .Where(group => group.Count() == 1))
+        {
+            if (openByTitle.TryGetValue(group.Key, out var remoteId))
+                result[group.First().Id] = remoteId;
+        }
+
+        return result;
+    }
+
     private static Dictionary<Guid, string> Match<T>(
         IEnumerable<T> stored,
         IEnumerable<T> incoming,

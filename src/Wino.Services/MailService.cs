@@ -867,9 +867,43 @@ public class MailService : BaseDatabaseService, IMailService
                 if (contact is not null)
                     cache[(group.Key, ContactEmailAddress.Normalize(address))] = contact;
             }
+
+            await ApplyDirectoryPhotosAsync(group.Key, group, cache).ConfigureAwait(false);
         }
 
         return cache;
+    }
+
+    // Exchange senders whose picture came from the organization's directory (looked up once, in the background).
+    // The picture only decorates the in-memory sender contact; stored contacts are not changed.
+    private async Task ApplyDirectoryPhotosAsync(
+        Guid accountId,
+        IEnumerable<MailCopy> mails,
+        Dictionary<(Guid AccountId, string Address), AccountContact> cache)
+    {
+        var withoutPicture = mails
+            .GroupBy(mail => ContactEmailAddress.Normalize(mail.FromAddress), StringComparer.Ordinal)
+            .Where(sender => !cache.TryGetValue((accountId, sender.Key), out var contact) || contact.ContactPictureFileId is null)
+            .ToDictionary(sender => sender.Key, sender => sender.First(), StringComparer.Ordinal);
+
+        if (withoutPicture.Count == 0)
+            return;
+
+        var pictureIds = await _contactService.GetDirectoryPhotoIdsAsync(accountId, withoutPicture.Keys).ConfigureAwait(false);
+
+        foreach (var (address, pictureFileId) in pictureIds)
+        {
+            if (cache.TryGetValue((accountId, address), out var contact))
+            {
+                contact.ContactPictureFileId = pictureFileId;
+                continue;
+            }
+
+            var mail = withoutPicture[address];
+            var directoryContact = CreateUnknownContact(mail.FromName, mail.FromAddress);
+            directoryContact.ContactPictureFileId = pictureFileId;
+            cache[(accountId, address)] = directoryContact;
+        }
     }
 
     private void AssignPropertiesFromCaches(

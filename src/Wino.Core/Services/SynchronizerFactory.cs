@@ -270,6 +270,10 @@ public class SynchronizerFactory : ISynchronizerFactory
             // only the IDLE socket and one worker instead of competing handshakes.
             _ = imapSynchronizer.StartIdleClientAsync();
         }
+        else if (synchronizer is IExchangeSynchronizer exchangeSynchronizer && !account.IsNetworkAccessBlocked())
+        {
+            _ = exchangeSynchronizer.StartChangeListenerAsync();
+        }
         return synchronizer;
     }
 
@@ -300,7 +304,19 @@ public class SynchronizerFactory : ISynchronizerFactory
         cached.AttentionReason = current.AttentionReason;
         var isBlocked = cached.IsNetworkAccessBlocked();
 
-        if (wasBlocked == isBlocked || synchronizer is not IImapSynchronizer imapSynchronizer) return;
+        if (wasBlocked == isBlocked) return;
+
+        if (synchronizer is IExchangeSynchronizer exchangeSynchronizer)
+        {
+            if (isBlocked)
+                await exchangeSynchronizer.StopChangeListenerAsync().ConfigureAwait(false);
+            else
+                await exchangeSynchronizer.StartChangeListenerAsync().ConfigureAwait(false);
+
+            return;
+        }
+
+        if (synchronizer is not IImapSynchronizer imapSynchronizer) return;
 
         if (isBlocked)
         {

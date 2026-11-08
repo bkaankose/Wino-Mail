@@ -703,6 +703,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
             var synchronizationResult = await SynchronizeMailsInternalAsync(options, requestToken).ConfigureAwait(false);
 
             PublishUnreadItemChanges();
+            OnMailSynchronizationCompleted(synchronizationResult);
 
             return FinalizeMailResult(synchronizationResult);
         }
@@ -1017,6 +1018,9 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     }
 
     protected virtual void OnIdleSynchronizationDeferred() { }
+
+    /// <summary>Runs after a mail pass returns, on the sync path; overrides must hand any slow work off.</summary>
+    protected virtual void OnMailSynchronizationCompleted(MailSynchronizationResult result) { }
 
     #region Mail/Folder Operations
 

@@ -25,6 +25,18 @@ public sealed class NspiClient(MapiHttpTransport transport, Action<string>? diag
     public const uint CompanyName = 0x3A16001F;
     public const uint Title = 0x3A17001F;
     public const uint DepartmentName = 0x3A18001F;
+    public const uint GivenName = 0x3A06001F;
+    public const uint Surname = 0x3A11001F;
+    public const uint OfficeLocation = 0x3A19001F;
+    public const uint BusinessTelephoneNumber = 0x3A08001F;
+    public const uint HomeTelephoneNumber = 0x3A09001F;
+    public const uint MobileTelephoneNumber = 0x3A1C001F;
+
+    /// <summary>PidTagDisplayTypeEx: tells rooms (0x07) and equipment (0x08) apart from people, which share DT_MAILUSER.</summary>
+    public const uint DisplayTypeEx = 0x39050003;
+
+    /// <summary>MID_END_OF_TABLE: the STAT's CurrentRec once a QueryRows walk has passed the last row.</summary>
+    private const uint EndOfTable = 0x00000002;
 
     /// <summary>The columns a recipient suggestion needs; all strings or integers, which the row codec handles without guesswork.</summary>
     public static readonly uint[] SuggestionColumns =
@@ -261,9 +273,88 @@ public sealed class NspiClient(MapiHttpTransport transport, Action<string>? diag
                 for (var i = 0; i < count; i++) values[i] = r.UnicodeZ();
                 return values;
             }
+            case 0x000A:                                                      // PtypErrorCode: a column the entry lacks
+                return r.UInt32();
             default:
                 return PropertyRow.ReadValue(r, type);
         }
+    }
+
+    /// <summary>
+    /// QueryRows request body (MS-OXCMAPIHTTP 2.2.5.12.1): Flags, HasState + STAT, an empty explicit table (so the
+    /// rows are read from the STAT's position in the GAL), RowCount, HasColumns + LargePropertyTagArray.
+    /// </summary>
+    public static byte[] BuildQueryRows(ReadOnlySpan<byte> state, uint rowCount, IReadOnlyList<uint> columns)
+    {
+        var w = new RopWriter();
+        w.UInt32(0);                     // Flags
+        w.UInt8(1);                      // HasState
+        w.Bytes(state);
+        w.UInt32(0);                     // ExplicitTableCount
+        w.UInt32(rowCount);              // RowCount
+        w.UInt8(1);                      // HasColumns
+        w.UInt32((uint)columns.Count);   // LargePropertyTagArray.PropertyTagCount
+        foreach (var t in columns) w.UInt32(t);
+        w.UInt32(0);                     // AuxiliaryBufferSize
+        return w.ToArray();
+    }
+
+    /// <summary>
+    /// QueryRows response (2.2.5.12.2): status, the STAT advanced past the returned rows, then the columns and rows
+    /// when HasColsAndRows.
+    /// </summary>
+    public static (List<PropertyValue[]> Rows, byte[]? State) ParseQueryRows(byte[] body)
+    {
+        var r = new RopReader(body);
+        var status = r.UInt32();
+        var error = r.UInt32();
+        if (status != 0)
+            throw new MapiFormatException($"NSPI QueryRows returned StatusCode 0x{status:X8}.");
+        if (error != 0)
+            throw new MapiRopException("NspiQueryRows", error);
+
+        byte[]? state = r.UInt8() != 0 ? r.Bytes(36).ToArray() : null;
+
+        var rows = new List<PropertyValue[]>();
+        if (r.UInt8() == 0)                                                   // HasColsAndRows
+            return (rows, state);
+
+        var columnCount = r.UInt32();
+        var columns = new uint[columnCount];
+        for (var i = 0; i < columnCount; i++) columns[i] = r.UInt32();
+        var rowCount = r.UInt32();
+        for (var i = 0; i < rowCount; i++)
+            rows.Add(ReadRow(r, columns));
+        return (rows, state);
+    }
+
+    /// <summary>
+    /// Walks the whole GAL from its first row in pages of <paramref name="pageSize"/>, each request carrying the STAT
+    /// the previous response returned, until the end of the table or <paramref name="maxRows"/>.
+    /// </summary>
+    public async Task<List<PropertyValue[]>> QueryAllRowsAsync(IReadOnlyList<uint> columns, uint pageSize, int maxRows, CancellationToken cancellationToken = default)
+    {
+        var rows = new List<PropertyValue[]>();
+        var state = Stat();
+
+        while (rows.Count < maxRows)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var response = await _transport.SendAddressBookAsync("QueryRows", BuildQueryRows(state, pageSize, columns), cancellationToken).ConfigureAwait(false);
+            response.EnsureTransportSucceeded();
+
+            var (page, next) = ParseQueryRows(response.Body);
+            rows.AddRange(page);
+
+            if (page.Count == 0 || next is null || BitConverter.ToUInt32(next, 8) == EndOfTable)
+                break;
+
+            state = next;
+        }
+
+        _diagnostics?.Invoke($"NSPI QueryRows: {rows.Count} rows");
+        return rows;
     }
 
     public async ValueTask DisposeAsync()

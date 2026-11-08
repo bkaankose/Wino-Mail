@@ -327,7 +327,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         var destinations = await _contactService.GetCreateDestinationsAsync().ConfigureAwait(false);
         var hasDestinations = destinations?.Any(destination => !destination.IsReadOnly) == true;
         var listDestinations = destinations?
-            .Where(destination => !destination.IsReadOnly && destination.SourceKind is not ContactSourceKind.Outlook)
+            .Where(destination => !destination.IsReadOnly && destination.SourceKind is not (ContactSourceKind.Outlook or ContactSourceKind.Exchange))
             .ToList() ?? [];
 
         await ExecuteUIThread(() =>
