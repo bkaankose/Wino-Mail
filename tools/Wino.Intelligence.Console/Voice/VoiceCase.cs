@@ -112,6 +112,7 @@ internal static class VoiceCaseReader
         PropertyNameCaseInsensitive = true,
         ReadCommentHandling = JsonCommentHandling.Skip,
         AllowTrailingCommas = true,
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
     };
 
     public static List<VoiceCase> Read(IEnumerable<string> files)

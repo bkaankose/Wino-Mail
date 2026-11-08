@@ -18,7 +18,7 @@ namespace Wino.Services.Voice;
 
 public sealed class VoiceCommandService(IWinoAccountApiClient apiClient, IPreferencesService preferences) : IVoiceCommandService
 {
-    public async Task<VoiceCommandStartResult> StartAsync(VoiceInputKind input = VoiceInputKind.Audio, string? typedText = null, CancellationToken cancellationToken = default)
+    public async Task<VoiceCommandStartResult> StartAsync(VoiceInputKind input = VoiceInputKind.Audio, string? typedText = null, VoiceSelectionContext? selection = null, CancellationToken cancellationToken = default)
     {
         VoiceConnectResult connection;
         try
@@ -39,7 +39,7 @@ public sealed class VoiceCommandService(IWinoAccountApiClient apiClient, IPrefer
             return new VoiceCommandStartResult(null, connection.ErrorCode ?? WinoAccountClientErrorCodes.ServiceUnavailable);
 
         var session = new VoiceCommandSession(socket);
-        session.Start(CreateContext() with { Input = input, TypedText = string.IsNullOrWhiteSpace(typedText) ? null : typedText.Trim() });
+        session.Start(CreateContext() with { Input = input, TypedText = string.IsNullOrWhiteSpace(typedText) ? null : typedText.Trim(), Selection = selection });
         return new VoiceCommandStartResult(session, null);
     }
 

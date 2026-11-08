@@ -1,7 +1,11 @@
+using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Voice;
+using Wino.Mail.Api.Contracts.Voice;
 
 namespace Wino.Intelligence.ConsoleApp.Voice;
 
@@ -157,4 +161,118 @@ internal static class VoiceFixtures
         await contactService.CreateContactListAsync("Family");
         return count;
     }
+
+    /// <summary>
+    /// Stands in for the items a user would have selected: real items of the data copy that fit the described kind,
+    /// count and the flags that pick items (unread, draft, invitation, organizer, overdue, completed, favorite).
+    /// </summary>
+    public static async Task<VoiceLocalSelection?> CreateSelectionAsync(IServiceProvider services, VoiceSelectionContext context, DateTime now)
+    {
+        var count = Math.Max(1, context.Count);
+        var flags = context.Flags ?? [];
+        var accounts = await services.GetRequiredService<IAccountService>().GetAccountsAsync() ?? [];
+        var work = accounts.FirstOrDefault(static a => a.Name == "Work") ?? accounts.FirstOrDefault();
+
+        switch (context.Kind)
+        {
+            case VoiceContextKind.Mail:
+            {
+                var folderService = services.GetRequiredService<IFolderService>();
+                var mailService = services.GetRequiredService<IMailService>();
+                var folderType = flags.Contains(VoiceContextFlags.Draft) ? SpecialFolderType.Draft : SpecialFolderType.Inbox;
+                List<MailCopy> best = [];
+                foreach (var account in accounts)
+                {
+                    if (await folderService.GetSpecialFolderByAccountIdAsync(account.Id, folderType) is not { } folder)
+                        continue;
+
+                    var mails = await mailService.GetMailsByFolderIdAsync(folder.Id) ?? [];
+                    if (mails.Count <= best.Count)
+                        continue;
+
+                    foreach (var mail in mails)
+                    {
+                        mail.AssignedAccount = account;
+                        mail.AssignedFolder = folder;
+                    }
+
+                    best = mails;
+                }
+
+                var ordered = best.OrderByDescending(static mail => mail.CreationDate);
+                if (flags.Contains(VoiceContextFlags.Unread) && !flags.Contains(VoiceContextFlags.Read))
+                    ordered = ordered.OrderBy(static mail => mail.IsRead).ThenByDescending(static mail => mail.CreationDate);
+                return best.Count == 0 ? null : VoiceLocalSelection.ForMails(ordered.Take(count).ToList());
+            }
+
+            case VoiceContextKind.Event:
+            {
+                if (work is null)
+                    return null;
+
+                var calendarService = services.GetRequiredService<ICalendarService>();
+                var calendars = await calendarService.GetAccountCalendarsAsync(work.Id) ?? [];
+                var calendar = calendars.FirstOrDefault(static c => c.IsPrimary) ?? calendars.FirstOrDefault();
+                if (calendar is null)
+                    return null;
+
+                var items = (await calendarService.GetCalendarEventsAsync(calendar, new Itenso.TimePeriod.TimeRange(now, now.AddDays(14))) ?? [])
+                    .Where(static item => !item.IsAllDayEvent)
+                    .OrderBy(static item => item.StartDate)
+                    .ToList();
+                bool IsMine(CalendarItem item) => string.IsNullOrWhiteSpace(item.OrganizerEmail) || string.Equals(item.OrganizerEmail, work.Address, StringComparison.OrdinalIgnoreCase);
+                if (flags.Contains(VoiceContextFlags.Invitation))
+                    items = items.Where(item => !IsMine(item)).ToList();
+                else if (flags.Contains(VoiceContextFlags.Organizer))
+                    items = items.Where(IsMine).ToList();
+
+                foreach (var item in items)
+                    item.AssignedCalendar ??= calendar;
+                return items.Count == 0 ? null : VoiceLocalSelection.ForEvents(items.Take(count).ToList());
+            }
+
+            case VoiceContextKind.Task:
+            {
+                var tasks = await services.GetRequiredService<ITaskService>().GetTasksAsync() ?? [];
+                var completed = flags.Contains(VoiceContextFlags.Completed);
+                var picked = tasks.Where(task => task.IsCompleted == completed)
+                    .OrderByDescending(task => flags.Contains(VoiceContextFlags.Overdue) && task.DueDate is { } due && due.Date < now.Date)
+                    .ThenBy(static task => task.DueDate ?? DateTime.MaxValue)
+                    .Take(count)
+                    .ToList();
+                return picked.Count == 0 ? null : VoiceLocalSelection.ForTasks(picked);
+            }
+
+            case VoiceContextKind.Contact:
+            {
+                var contactService = services.GetRequiredService<IContactService>();
+                var picked = new List<AccountContact>();
+                foreach (var person in new[] { Jay, Christian, Shiva })
+                {
+                    var page = await contactService.GetContactsPageAsync(new Wino.Core.Domain.Models.Contacts.ContactQueryFilter(SearchQuery: person.Email), 0, 1);
+                    if (page?.Contacts.FirstOrDefault() is { } contact)
+                        picked.Add(contact);
+                }
+
+                return picked.Count == 0 ? null : VoiceLocalSelection.ForContacts(picked.Take(count).ToList());
+            }
+
+            default:
+            {
+                if (work is null || await services.GetRequiredService<IFolderService>().GetSpecialFolderByAccountIdAsync(work.Id, SpecialFolderType.Inbox) is not { } inbox)
+                    return null;
+
+                return VoiceLocalSelection.ForFolder(inbox);
+            }
+        }
+    }
+
+    public static string DescribeSelection(VoiceLocalSelection selection) => selection.Kind switch
+    {
+        VoiceContextKind.Mail => string.Join("; ", selection.Mails.Take(3).Select(static mail => $"\"{Describer.Clip(mail.Subject, 40)}\" from {mail.FromAddress}")) + (selection.Mails.Count > 3 ? " ..." : string.Empty),
+        VoiceContextKind.Event => string.Join("; ", selection.Events.Take(3).Select(Describer.Event)),
+        VoiceContextKind.Task => string.Join("; ", selection.Tasks.Take(3).Select(static task => $"\"{task.Title}\"")),
+        VoiceContextKind.Contact => string.Join("; ", selection.Contacts.Take(3).Select(static contact => contact.PrimaryEmailAddress ?? contact.DisplayName)),
+        _ => selection.Folder?.FolderName ?? string.Empty
+    };
 }

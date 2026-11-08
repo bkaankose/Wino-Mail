@@ -80,11 +80,11 @@ public sealed partial class VoicePlanExecutor : IVoicePlanExecutor
         SpecialFolderType.More
     ];
 
-    public async Task<VoicePlanResolution> ResolveAsync(VoicePlanPreview preview, CancellationToken cancellationToken = default)
+    public async Task<VoicePlanResolution> ResolveAsync(VoicePlanPreview preview, VoiceLocalSelection? selection = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(preview);
 
-        var state = new ResolveState();
+        var state = new ResolveState { Selection = selection };
         var outcomes = new Dictionary<VoicePlanPreviewStep, StepOutcome>();
 
         // Commands run in spoken order across accounts, and a chained command needs its source resolved first.
@@ -101,6 +101,12 @@ public sealed partial class VoicePlanExecutor : IVoicePlanExecutor
             StepOutcome outcome;
             if (unresolvedToken)
                 outcome = StepOutcome.Drop(string.Format(CultureInfo.CurrentCulture, Translator.VoiceIssue_NoResultPeople, PlainText(step)));
+            else if (step.Command.UsesContext && ActsOnSelection(action) is { } kind)
+            {
+                (step, outcome) = await ResolveContextStepAsync(step, kind, state).ConfigureAwait(false);
+                if (outcome.Issue is null && kind == VoiceContextKind.Mail)
+                    outcome = await ResolveMailChangeAsync(step, state, outcome).ConfigureAwait(false);
+            }
             else if (VoiceCommand.ActsOnEvents(action))
                 outcome = await ResolveEventStepAsync(group, step, state.EventTargets, cancellationToken).ConfigureAwait(false);
             else if (VoiceCommand.ActsOnTasks(action))
@@ -234,6 +240,8 @@ public sealed partial class VoicePlanExecutor : IVoicePlanExecutor
         public Dictionary<int, IReadOnlyList<VoiceFolderTarget>> FolderTargets { get; } = [];
         public Dictionary<int, IReadOnlyList<MailCategory>> CategoryTargets { get; } = [];
         public Dictionary<int, List<MailCopy>> Mails { get; } = [];
+        public VoiceLocalSelection? Selection { get; init; }
+        public HashSet<string>? OwnAddresses { get; set; }
     }
 
     private async Task<StepOutcome> ResolveStepAsync(
@@ -441,6 +449,8 @@ public sealed partial class VoicePlanExecutor : IVoicePlanExecutor
 
     private async Task<int> CountAsync(VoiceMailTarget target, CancellationToken cancellationToken)
     {
+        if (target.Items is { } items)
+            return items.Count;
         if (target.WithoutAttachments || target.NotFlagged || target.SenderKind != MailSenderKind.Any)
             return (await FetchAsync(target, cancellationToken).ConfigureAwait(false)).Count;
 
@@ -454,6 +464,9 @@ public sealed partial class VoicePlanExecutor : IVoicePlanExecutor
     /// </summary>
     private async Task<List<MailCopy>> FetchAsync(VoiceMailTarget target, CancellationToken cancellationToken)
     {
+        if (target.Items is { } items)
+            return items.ToList();
+
         var options = target.Query with { Take = PageSize };
         var mails = new List<MailCopy>();
         MailFetchCursor? cursor = null;

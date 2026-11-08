@@ -63,6 +63,18 @@ Plan section 5. The interactions in the app are still deferred; only a debug ent
 - People of the selection are named to the planner only as brain aliases (Personal mode, known people); everyone else is "unknown". No subjects, bodies, titles or names leave the device.
 - A command on the selection's kind acts on the selection (`UsesContext`) whatever selection the planner wrote; actions outside the kind's allowed set (plus creating something new) become NotActionable.
 
+## Phase 4, client (8 Nov)
+
+- The device keeps the selection locally (`VoiceLocalSelection`) and sends only kind, count, known flags and people hashes (`VoiceSelectionContextBuilder`). Commands with `UsesContext` resolve to the selected items; `@context.*` tokens expand from them.
+- Debug builds have a "Wino Assistant (debug)" item in the mail list and calendar event menus that opens the bubble for the selection. Checked in the Windows Debug app on production: "summarize this" on a selected mail planned "Summarize the selected mail" and ran it.
+
+## Verification (8 Nov, night)
+
+- Runner, full corpus against the production-equivalent API: Private 2488/2521 (98.7%), Personal 2458/2527 (97.3%). Catalog 63/66, context 22/23 in both modes; the misses are planner-side.
+- API tests 425/425. Windows Debug build and app checks through `winapp ui`: typed requests, a sender-kind search, FindTasks, the context debug entry.
+- Not done: macOS and iOS builds (handoff); print, PDF and EML export (UI-only, need host members); FindTasks and FindContacts show results only as text; translation shows as step text; "create a task from this mail" doesn't link the mail.
+- Found in production, unrelated to the assistant: the summarize provider's OpenAI key returns HTTP 401, so every Summarize fails with `AI_PROVIDER_UNAVAILABLE`.
+
 ## Log
 
 - 8 Nov: branch created from `7b3add0d` (macOS voice port merged with the Windows work); plan and this file added. A headless agent briefly started on the Mac was stopped before making changes; all work now runs from the Windows session.

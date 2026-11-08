@@ -191,7 +191,7 @@ public sealed partial class VoicePlanExecutor
             if (ResolveAccount(group) is not { } account)
                 return StepOutcome.Drop(Translator.VoiceIssue_AccountUnnamed);
 
-            state.TaskListTargets[step.CommandIndex] = [new VoiceTaskListTarget(null, account)];
+            state.TaskListTargets[step.CommandIndex] = new List<VoiceTaskListTarget> { new(null, account) };
             return StepOutcome.Keep(step.Detail);
         }
 
@@ -214,7 +214,7 @@ public sealed partial class VoicePlanExecutor
         if (command.Action == VoiceAction.DeleteTaskList && target.IsOutlookDefaultList)
             return StepOutcome.Drop(string.Format(CultureInfo.CurrentCulture, Translator.VoiceIssue_DefaultTaskList, target.Title));
 
-        state.TaskListTargets[step.CommandIndex] = [new VoiceTaskListTarget(target, accounts.First(account => account.Id == target.MailAccountId))];
+        state.TaskListTargets[step.CommandIndex] = new List<VoiceTaskListTarget> { new(target, accounts.First(account => account.Id == target.MailAccountId)) };
         return StepOutcome.Keep(step.Detail);
     }
 

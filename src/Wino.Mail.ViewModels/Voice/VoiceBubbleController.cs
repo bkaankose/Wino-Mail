@@ -53,6 +53,8 @@ public sealed class VoiceBubbleController : IDisposable
     private readonly IVoiceBrainService _brain;
     private readonly IVoiceQuestionService _questions;
     private readonly IPictureStorageService _pictureStorage;
+    private readonly IAccountService _accountService;
+    private readonly ICalendarService _calendarService;
     private VoicePlan? _questionPlan;
     private List<VoiceQuestion>? _openQuestions;
     private readonly List<VoiceAnswerCandidate> _picked = [];
@@ -76,6 +78,10 @@ public sealed class VoiceBubbleController : IDisposable
     private IVoiceCommandSession? _session;
     private IDisposable? _capture;
     private string _heard = string.Empty;
+
+    // The items a context-aware request was opened for. They stay on the device; the server only gets their description.
+    private VoiceLocalSelection? _selection;
+    private VoiceSelectionContext? _selectionContext;
 
     // Typed text a voice request continues from (the user typed, then pressed the microphone), and the text of the
     // request being typed. The last mode and text let Try again repeat a typed request.
@@ -105,6 +111,8 @@ public sealed class VoiceBubbleController : IDisposable
         _brain = services.GetRequiredService<IVoiceBrainService>();
         _questions = services.GetRequiredService<IVoiceQuestionService>();
         _pictureStorage = services.GetRequiredService<IPictureStorageService>();
+        _accountService = services.GetRequiredService<IAccountService>();
+        _calendarService = services.GetRequiredService<ICalendarService>();
         _hasAccess = _entitlementService.CurrentEntitlement.CanAccessSurfaces;
 
         var bubble = _host.Bubble;
@@ -137,6 +145,7 @@ public sealed class VoiceBubbleController : IDisposable
         messenger.Register<VoiceBubbleController, PreferenceChangedMessage>(this, static (controller, message) => controller._host.Post(() => controller.PreferenceChanged(message.PropertyName)));
         messenger.Register<VoiceBubbleController, WinoIntelligenceEntitlementChanged>(this, static (controller, message) => controller._host.Post(() => controller.ApplyAccess(message.Entitlement.CanAccessSurfaces)));
         messenger.Register<VoiceBubbleController, VoiceBubbleTryRequested>(this, static (controller, _) => controller._host.Post(controller.TryOpen));
+        messenger.Register<VoiceBubbleController, VoiceSelectionRequested>(this, static (controller, message) => controller._host.Post(() => controller.OpenForSelection(message.Selection)));
 
         ApplyHotKey();
         _ = RefreshAccessAsync();
@@ -170,12 +179,74 @@ public sealed class VoiceBubbleController : IDisposable
         if (_disposed || !IsUsable)
             return;
 
+        ClearSelection();
+
         if (mode == VoiceBubbleInputMode.Text)
             StartComposing(string.Empty, null);
         else if (_voiceExhausted)
             StartComposing(string.Empty, Translator.VoiceBubble_VoiceQuotaUsed);
         else
             StartListening();
+    }
+
+    /// <summary>
+    /// Opens the bubble for typing about <paramref name="selection"/>: the request carries a description of the items
+    /// (kind, count, flags, hashed people) and the plan's commands on the selection act on these items.
+    /// </summary>
+    public void OpenForSelection(VoiceLocalSelection selection)
+    {
+        if (_disposed || !IsUsable || selection.Count == 0)
+            return;
+
+        StartComposing(string.Empty, null);
+        _selection = selection;
+        _selectionContext = null;
+        _host.Bubble.ComposePlaceholder = SelectionPlaceholder(selection);
+    }
+
+    private static string SelectionPlaceholder(VoiceLocalSelection selection)
+    {
+        var count = selection.Count;
+        return selection.Kind switch
+        {
+            VoiceContextKind.Mail => count == 1 ? Translator.VoiceBubble_AskAbout_Mail : string.Format(CultureInfo.CurrentCulture, Translator.VoiceBubble_AskAbout_Mails, count),
+            VoiceContextKind.Event => count == 1 ? Translator.VoiceBubble_AskAbout_Event : string.Format(CultureInfo.CurrentCulture, Translator.VoiceBubble_AskAbout_Events, count),
+            VoiceContextKind.Task => count == 1 ? Translator.VoiceBubble_AskAbout_Task : string.Format(CultureInfo.CurrentCulture, Translator.VoiceBubble_AskAbout_Tasks, count),
+            VoiceContextKind.Contact => count == 1 ? Translator.VoiceBubble_AskAbout_Contact : string.Format(CultureInfo.CurrentCulture, Translator.VoiceBubble_AskAbout_Contacts, count),
+            _ => Translator.VoiceBubble_AskAbout_Folder
+        };
+    }
+
+    private void ClearSelection()
+    {
+        if (_selection is null)
+            return;
+
+        _selection = null;
+        _selectionContext = null;
+        _host.Bubble.ComposePlaceholder = Translator.VoiceBubble_ComposePlaceholder;
+    }
+
+    /// <summary>The description of the selection sent with the request, built once per selection.</summary>
+    private async Task<VoiceSelectionContext?> GetSelectionContextAsync(CancellationToken cancellationToken)
+    {
+        if (_selection is not { } selection)
+            return null;
+
+        if (_selectionContext is null)
+        {
+            try
+            {
+                _selectionContext = await Wino.Services.Voice.VoiceSelectionContextBuilder.BuildAsync(selection, _accountService, _calendarService, cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Log.Warning(ex, "Could not describe the selection for the assistant.");
+                _selectionContext = new VoiceSelectionContext(selection.Kind, selection.Count, []);
+            }
+        }
+
+        return _selectionContext;
     }
 
     private HotKeyGesture OtherGesture(VoiceBubbleInputMode mode) => mode == VoiceBubbleInputMode.Voice
@@ -368,7 +439,8 @@ public sealed class VoiceBubbleController : IDisposable
         try
         {
             _brain.NotifyVoiceStarting();
-            var start = await _voiceCommands.StartAsync(VoiceInputKind.Text, null, token);
+            var selection = await GetSelectionContextAsync(token);
+            var start = await _voiceCommands.StartAsync(VoiceInputKind.Text, null, selection, token);
             if (IsStale(cancellation))
             {
                 if (start.Session is { } staleSession)
@@ -449,7 +521,7 @@ public sealed class VoiceBubbleController : IDisposable
                 OnAudioAvailable,
                 level => Volatile.Write(ref _micLevel, level),
                 token);
-            var sessionTask = _voiceCommands.StartAsync(VoiceInputKind.Audio, _typedPrefix, token);
+            var sessionTask = _voiceCommands.StartAsync(VoiceInputKind.Audio, _typedPrefix, await GetSelectionContextAsync(token), token);
             _brain.NotifyVoiceStarting();
 
             var capture = await captureTask;
@@ -857,7 +929,7 @@ public sealed class VoiceBubbleController : IDisposable
     {
         var bubble = _host.Bubble;
 
-        var resolution = await _planExecutor.ResolveAsync(await _planPreview.CreateAsync(plan), cancellation.Token);
+        var resolution = await _planExecutor.ResolveAsync(await _planPreview.CreateAsync(plan), _selection, cancellation.Token);
         if (IsStale(cancellation))
             return;
 
@@ -1079,6 +1151,7 @@ public sealed class VoiceBubbleController : IDisposable
     private void Close()
     {
         EndRequest();
+        ClearSelection();
         if (State == VoiceBubbleState.Hidden)
             _host.Hide();
         else
@@ -1171,7 +1244,11 @@ public sealed class VoiceBubbleController : IDisposable
         return typed.Length == 0 ? spoken : spoken.Length == 0 ? typed : typed + " " + spoken;
     }
 
-    private void BubbleDismissed(object? sender, EventArgs e) => EndRequest();
+    private void BubbleDismissed(object? sender, EventArgs e)
+    {
+        EndRequest();
+        ClearSelection();
+    }
 
     private void BubbleExitCompleted(object? sender, EventArgs e)
     {

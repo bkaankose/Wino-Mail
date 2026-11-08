@@ -81,7 +81,9 @@ public sealed partial class VoicePlanExecutor
                     continue;
                 }
 
-                var isBroad = group.Kind == VoicePlanAccountKind.AllAccounts || selection is null || IsBroad(selection);
+                // Selected mails are exactly what the user pointed at, so only their number makes a delete risky.
+                var fromSelection = SourceCommand(step, resolution, acceptedGroups)?.UsesContext == true;
+                var isBroad = !fromSelection && (group.Kind == VoicePlanAccountKind.AllAccounts || selection is null || IsBroad(selection));
                 if (selection is not null && count >= EmptyFolderCount && IsFolderOnly(selection))
                     risks.Add(new VoicePlanRisk(step.CommandIndex, string.Format(CultureInfo.CurrentCulture, Translator.VoiceGuard_EmptyFolder, mails, folder, accounts), false, deleteButton));
                 else if (count >= LargeDeleteCount || isBroad)

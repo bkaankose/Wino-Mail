@@ -361,6 +361,13 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 await ViewModel.CreateTestNotificationsAsync(targetItems);
                 return;
             }
+
+            if (clickedAction.OpenAssistant)
+            {
+                WeakReferenceMessenger.Default.Send(new Wino.Messaging.UI.VoiceSelectionRequested(
+                    Wino.Core.Domain.Models.Voice.VoiceLocalSelection.ForMails(targetItems.Select(static item => item.MailCopy).ToList())));
+                return;
+            }
 #endif
 
             if (clickedAction.PinState.HasValue)

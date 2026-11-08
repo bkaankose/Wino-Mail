@@ -18,6 +18,7 @@ namespace Wino.Core.Domain.Models.Voice;
 /// <param name="WithoutAttachments">Keep only mails without attachments; the query can't express it.</param>
 /// <param name="NotFlagged">Keep only mails that aren't flagged; the query can't express it.</param>
 /// <param name="SenderKind">Keep only mails from that kind of sender, as <see cref="MailSenderClassifier"/> decides.</param>
+/// <param name="Items">The selected mails of a context-aware step: the step acts on exactly these, not on a query.</param>
 public sealed record VoiceMailTarget(
     MailAccount Account,
     MailListInitializationOptions Query,
@@ -26,7 +27,8 @@ public sealed record VoiceMailTarget(
     bool WithoutAttachments,
     bool NotFlagged,
     int Count,
-    MailSenderKind SenderKind = MailSenderKind.Any);
+    MailSenderKind SenderKind = MailSenderKind.Any,
+    IReadOnlyList<MailCopy>? Items = null);
 
 /// <summary>
 /// One calendar event a step acts on. <see cref="IsOrganizer"/>: the account organizes it, so deleting it cancels it

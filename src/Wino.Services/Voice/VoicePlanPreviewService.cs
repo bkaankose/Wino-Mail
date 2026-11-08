@@ -232,7 +232,8 @@ public static class VoicePlanPreviewBuilder
     }
 
     private static bool SearchesEveryAccount(VoiceCommand command)
-        => command.Action is VoiceAction.Undo or VoiceAction.SyncMail or VoiceAction.RenameTaskList or VoiceAction.DeleteTaskList
+        => command.UsesContext
+           || command.Action is VoiceAction.Undo or VoiceAction.SyncMail or VoiceAction.RenameTaskList or VoiceAction.DeleteTaskList
            || (command.UsesResultOf is null && (VoiceCommand.ActsOnTasks(command.Action) || VoiceCommand.ActsOnContacts(command.Action)))
            || (VoiceCommand.ActsOnFolder(command.Action) && command.Folder is { } folder
                && (!string.IsNullOrWhiteSpace(folder.FolderName) || !string.IsNullOrWhiteSpace(folder.FolderId)));
@@ -323,13 +324,20 @@ public static class VoicePlanPreviewBuilder
     }
 
     /// <summary>The step text and detail of a command, for a command the executor changed (its people filled in).</summary>
-    public static (string Text, string? Detail) DescribeCommand(VoiceCommand command) => DescribeStep(command);
+    /// <summary>
+    /// The step text and detail of a command the executor changed (its people filled in), or of a command on a
+    /// selection of <paramref name="selectedCount"/> items.
+    /// </summary>
+    public static (string Text, string? Detail) DescribeCommand(VoiceCommand command, int? selectedCount = null) => DescribeStep(command, selectedCount);
 
     public static string MinutesText(int minutes) => DescribeMinutes(minutes);
 
-    private static (string Text, string? Detail) DescribeStep(VoiceCommand command)
+    private static (string Text, string? Detail) DescribeStep(VoiceCommand command, int? selectedCount = null)
     {
         var verb = ActionVerb(command);
+
+        if (command.UsesContext && command.UsesResultOf is null && DescribeSelectionStep(command, verb, selectedCount) is { } onSelection)
+            return onSelection;
 
         if (VoiceCommand.ActsOnEvents(command.Action))
             return (Compose(verb, DescribeEventQuantity(command)), DescribeEventStep(command));
@@ -375,6 +383,26 @@ public static class VoicePlanPreviewBuilder
 
         var quantity = command.Action == VoiceAction.SendDrafts ? DescribeDraftQuantity(mail) : DescribeQuantity(mail);
         return (Compose(verb, quantity), Join(DescribeFilters(mail), change, DescribeForwardRecipients(command)));
+    }
+
+    /// <summary>A command on the items the request was started from: "Archive the selected mails".</summary>
+    private static (string Text, string? Detail)? DescribeSelectionStep(VoiceCommand command, string verb, int? count)
+    {
+        var single = count == 1;
+        if (VoiceCommand.ActsOnEvents(command.Action))
+            return (Compose(verb, single ? Translator.VoiceStep_Selected_Event : Translator.VoiceStep_Selected_Events), DescribeEventStep(command));
+        if (VoiceCommand.ActsOnTasks(command.Action))
+            return (Compose(verb, single ? Translator.VoiceStep_Selected_Task : Translator.VoiceStep_Selected_Tasks), DescribeTaskStep(command));
+        if (VoiceCommand.ActsOnContacts(command.Action))
+            return (Compose(verb, single ? Translator.VoiceStep_Selected_Contact : Translator.VoiceStep_Selected_Contacts), DescribeContactStep(command));
+        if (command.Action == VoiceAction.CreateFolder)
+            return (Compose(verb, Plain(command.Folder?.NewName)), Translator.VoiceStep_Selected_InFolder);
+        if (VoiceCommand.ActsOnFolder(command.Action))
+            return (Compose(verb, Translator.VoiceStep_Selected_Folder), command.Action == VoiceAction.RenameFolder ? Changed(command.Folder?.NewName) : null);
+        if (VoiceCommand.ActsOnMails(command.Action))
+            return (Compose(verb, single ? Translator.VoiceStep_Selected_Mail : Translator.VoiceStep_Selected_Mails), Join(DescribeMailChange(command), DescribeForwardRecipients(command)));
+
+        return null;
     }
 
     private static string ActionVerb(VoiceCommand command) => command.Action switch

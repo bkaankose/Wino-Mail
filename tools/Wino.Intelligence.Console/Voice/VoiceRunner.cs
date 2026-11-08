@@ -288,7 +288,7 @@ internal static class VoiceRunner
         var clock = Stopwatch.StartNew();
         try
         {
-            var (plan, metrics, serverError) = await InterpretAsync(services, options, item.Text, now);
+            var (plan, metrics, serverError) = await InterpretAsync(services, options, item.Text, now, item.Selection);
             result.InterpretMs = (int)clock.ElapsedMilliseconds;
             if (plan is null)
             {
@@ -387,7 +387,12 @@ internal static class VoiceRunner
 
             var executor = services.GetRequiredService<IVoicePlanExecutor>();
             var preview = await services.GetRequiredService<IVoicePlanPreviewService>().CreateAsync(plan);
-            var resolution = await executor.ResolveAsync(preview);
+            var localSelection = item.Selection is { } described
+                ? await VoiceFixtures.CreateSelectionAsync(services, described, now)
+                : null;
+            if (localSelection is not null)
+                result.SelectionNote = VoiceFixtures.DescribeSelection(localSelection);
+            var resolution = await executor.ResolveAsync(preview, localSelection);
             result.Groups = resolution.Preview.Groups.Select(DescribeGroup).ToList();
 
             var accepted = resolution.Preview.Groups.Where(static group => group.Steps.Count > 0).ToList();
@@ -441,7 +446,7 @@ internal static class VoiceRunner
     }
 
     /// <summary>One interpret request over the app's socket: start with the pinned clock, then the prompt as a text frame.</summary>
-    private static async Task<(VoicePlan? Plan, CommandMetrics? Metrics, string? Error)> InterpretAsync(IServiceProvider services, VoiceRunnerArguments options, string text, DateTime now)
+    private static async Task<(VoicePlan? Plan, CommandMetrics? Metrics, string? Error)> InterpretAsync(IServiceProvider services, VoiceRunnerArguments options, string text, DateTime now, VoiceSelectionContext? selection = null)
     {
         var api = services.GetRequiredService<IWinoAccountApiClient>();
         for (var attempt = 1; ; attempt++)
@@ -461,7 +466,7 @@ internal static class VoiceRunner
 
             using (socket)
             {
-                await SendAsync(socket, new VoiceClientFrame(VoiceFrameTypes.Start, new VoiceInterpretContext(TimeZoneInfo.Local.Id, now, options.Languages.ToList(), VoiceInputKind.Text, WorkDayStart: new TimeOnly(9, 0), WorkDayEnd: new TimeOnly(18, 0))), timeout.Token);
+                await SendAsync(socket, new VoiceClientFrame(VoiceFrameTypes.Start, new VoiceInterpretContext(TimeZoneInfo.Local.Id, now, options.Languages.ToList(), VoiceInputKind.Text, WorkDayStart: new TimeOnly(9, 0), WorkDayEnd: new TimeOnly(18, 0), Selection: selection)), timeout.Token);
                 var sentText = false;
                 while (true)
                 {
@@ -656,6 +661,7 @@ internal sealed class VoiceCaseResult(VoiceCase item, DateTime now)
     public List<string> Completed { get; set; } = [];
     public List<string> Failed { get; set; } = [];
     public string? Summary { get; set; }
+    public string? SelectionNote { get; set; }
     public string? Outcome { get; set; }
     public string? Error { get; set; }
     public List<CheckResult> Checks { get; set; } = [];
@@ -686,6 +692,9 @@ internal sealed class VoiceCaseResult(VoiceCase item, DateTime now)
                 builder.AppendLine($"   {index}. {DescribeCommand(command)}");
             }
         }
+
+        if (Case.Selection is { } selection)
+            builder.AppendLine($"  Selection  {selection.Kind} x{selection.Count} [{string.Join(", ", selection.Flags ?? [])}]{(SelectionNote is null ? string.Empty : $" -> {SelectionNote}")}");
 
         foreach (var line in AutoAnswered)
             builder.AppendLine($"  Answered   on the device: {line}");

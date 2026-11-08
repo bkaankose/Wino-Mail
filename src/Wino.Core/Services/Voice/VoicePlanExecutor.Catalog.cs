@@ -57,9 +57,9 @@ public sealed partial class VoicePlanExecutor
             var result = new List<string>();
             foreach (var value in values ?? [])
             {
-                if (VoiceResultTokens.TryParse(value, out var index, out var part))
-                    result.AddRange(await PeopleOfResultAsync(index - 1, part, state, cancellationToken).ConfigureAwait(false));
-                else if (!string.IsNullOrWhiteSpace(value) && !VoiceResultTokens.IsToken(value))
+                if (IsPeopleToken(value))
+                    result.AddRange(await PeopleOfTokenAsync(value, state, cancellationToken).ConfigureAwait(false));
+                else if (!string.IsNullOrWhiteSpace(value))
                     result.Add(value);
             }
 
@@ -68,12 +68,10 @@ public sealed partial class VoicePlanExecutor
 
         async Task<string?> ExpandOneAsync(string? value)
         {
-            if (!VoiceResultTokens.IsToken(value))
+            if (!IsPeopleToken(value))
                 return value;
 
-            var people = VoiceResultTokens.TryParse(value, out var index, out var part)
-                ? await PeopleOfResultAsync(index - 1, part, state, cancellationToken).ConfigureAwait(false)
-                : [];
+            var people = await PeopleOfTokenAsync(value, state, cancellationToken).ConfigureAwait(false);
             if (people.Count == 0)
                 unresolved = true;
             return people.FirstOrDefault();
@@ -84,9 +82,9 @@ public sealed partial class VoicePlanExecutor
             expanded = expanded with { Draft = draft with { To = await ExpandListAsync(draft.To).ConfigureAwait(false), Cc = await ExpandListAsync(draft.Cc).ConfigureAwait(false) } };
         if (command.Event is { } details)
             expanded = expanded with { Event = details with { Attendees = await ExpandListAsync(details.Attendees).ConfigureAwait(false) } };
-        if (command.Mail is { } mail && VoiceResultTokens.IsToken(mail.Sender))
+        if (command.Mail is { } mail && IsPeopleToken(mail.Sender))
             expanded = expanded with { Mail = mail with { Sender = await ExpandOneAsync(mail.Sender).ConfigureAwait(false) } };
-        if (command.Events is { } events && VoiceResultTokens.IsToken(events.Attendee))
+        if (command.Events is { } events && IsPeopleToken(events.Attendee))
             expanded = expanded with { Events = events with { Attendee = await ExpandOneAsync(events.Attendee).ConfigureAwait(false) } };
 
         var (text, detail) = VoicePlanPreviewBuilder.DescribeCommand(expanded);
@@ -96,7 +94,20 @@ public sealed partial class VoicePlanExecutor
     private static bool HasResultTokens(VoiceCommand command)
         => (command.Draft?.To ?? []).Concat(command.Draft?.Cc ?? []).Concat(command.Event?.Attendees ?? [])
             .Append(command.Mail?.Sender).Append(command.Events?.Attendee)
-            .Any(VoiceResultTokens.IsToken);
+            .Any(IsPeopleToken);
+
+    private static bool IsPeopleToken(string? value)
+        => VoiceResultTokens.IsToken(value) || (value is not null && value.StartsWith(VoiceContextTokens.Prefix, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>The people a token names; an unknown token names nobody.</summary>
+    private async Task<List<string>> PeopleOfTokenAsync(string? token, ResolveState state, CancellationToken cancellationToken)
+    {
+        if (VoiceResultTokens.TryParse(token, out var index, out var part))
+            return await PeopleOfResultAsync(index - 1, part, state, cancellationToken).ConfigureAwait(false);
+        if (VoiceContextTokens.TryParse(token, out var contextPart))
+            return await PeopleOfSelectionAsync(contextPart, state, cancellationToken).ConfigureAwait(false);
+        return [];
+    }
 
     /// <summary>The addresses of the people command <paramref name="index"/> (0-based) found, never the user's own.</summary>
     private async Task<List<string>> PeopleOfResultAsync(int index, string part, ResolveState state, CancellationToken cancellationToken)

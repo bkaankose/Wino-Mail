@@ -44,7 +44,7 @@ public sealed partial class VoicePlanExecutor
             if (ResolveAccount(group) is not { } account)
                 return StepOutcome.Drop(Translator.VoiceIssue_AccountUnnamed);
 
-            state.FolderTargets[step.CommandIndex] = [new VoiceFolderTarget(null, account)];
+            state.FolderTargets[step.CommandIndex] = new List<VoiceFolderTarget> { new(null, account) };
             return StepOutcome.Keep(step.Detail);
         }
 

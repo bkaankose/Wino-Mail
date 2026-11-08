@@ -16,10 +16,11 @@ public interface IVoiceCommandService
     /// Connects and sends the start frame with the device's time zone, clock and languages. A
     /// <see cref="VoiceInputKind.Text"/> request then sends its words with <see cref="IVoiceCommandSession.SendText"/>
     /// and never opens transcription. <paramref name="typedText"/> is what the user typed before switching to the
-    /// microphone; the server plans it followed by the transcript. On failure
+    /// microphone; the server plans it followed by the transcript. <paramref name="selection"/> describes the items a
+    /// context-aware request was started from, without their content. On failure
     /// <see cref="VoiceCommandStartResult.ErrorCode"/> says why and no session is returned.
     /// </summary>
-    Task<VoiceCommandStartResult> StartAsync(VoiceInputKind input = VoiceInputKind.Audio, string? typedText = null, CancellationToken cancellationToken = default);
+    Task<VoiceCommandStartResult> StartAsync(VoiceInputKind input = VoiceInputKind.Audio, string? typedText = null, VoiceSelectionContext? selection = null, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

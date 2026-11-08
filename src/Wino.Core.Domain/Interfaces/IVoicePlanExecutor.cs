@@ -14,9 +14,10 @@ public interface IVoicePlanExecutor
 {
     /// <summary>
     /// Finds the mails each step acts on without changing anything: counts them into the step text, and turns steps
-    /// with no matching mails, or with a folder the account doesn't have, into banners.
+    /// with no matching mails, or with a folder the account doesn't have, into banners. Steps with
+    /// <see cref="Wino.Mail.Api.Contracts.Voice.VoiceCommand.UsesContext"/> act on <paramref name="selection"/>.
     /// </summary>
-    Task<VoicePlanResolution> ResolveAsync(VoicePlanPreview preview, CancellationToken cancellationToken = default);
+    Task<VoicePlanResolution> ResolveAsync(VoicePlanPreview preview, VoiceLocalSelection? selection = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// The steps of the accepted groups that need a second confirmation: deleting 20 or more mails, emptying a folder
