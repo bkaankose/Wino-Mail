@@ -257,8 +257,12 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
             taskRequest.Step?.SourceKind ??
             taskRequest.Group?.SourceKind) == TaskSourceKind.Local;
 
-    protected override bool ShouldReconcileTaskRequests(IReadOnlyList<ITaskActionRequest> requests)
-        => !requests.All(IsLocalTaskRequest);
+    // Google Tasks shares one daily quota across every installation, so a mutation never triggers a pull: each one
+    // already commits the provider's IDs and ETags through the change processor.
+    protected override bool ShouldReconcileTaskRequests(IReadOnlyList<ITaskActionRequest> requests) => false;
+
+    protected override bool ShouldReconcileTasksAfterRequestFailure
+        => Account.TaskIntegrationSource != AccountIntegrationSource.Provider;
 
     private static bool IsTaskAuthenticationFailure(GoogleApiException exception)
         => GmailAuthenticationFailedHandler.IsAuthenticationFailure(exception);

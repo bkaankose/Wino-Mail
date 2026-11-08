@@ -29,12 +29,10 @@ public partial class ToDoPageViewModel
 
     public string SynchronizationToolTip => Translator.TitleBar_Sync_TasksToolTip;
 
-    public Task SynchronizeAsync()
+    public async Task SynchronizeAsync()
     {
-        Synchronize();
+        await Synchronize();
         RefreshShellSynchronizationState();
-
-        return Task.CompletedTask;
     }
 
     /// <summary>

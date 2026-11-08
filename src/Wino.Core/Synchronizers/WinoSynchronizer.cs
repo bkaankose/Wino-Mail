@@ -136,6 +136,9 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
     protected virtual bool ShouldReconcileTaskRequests(IReadOnlyList<ITaskActionRequest> requests) => true;
 
+    /// <summary>Whether a task request run that failed unexpectedly is followed by a strict pull from the provider.</summary>
+    protected virtual bool ShouldReconcileTasksAfterRequestFailure => true;
+
     protected virtual Task<TaskSynchronizationResult> SynchronizeTasksInternalAsync(
         TaskSynchronizationOptions options,
         CancellationToken cancellationToken = default) => Task.FromResult(TaskSynchronizationResult.Empty);
@@ -369,7 +372,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
         {
             Logger.Error(ex, "Task synchronization failed for {AccountId}.", Account.Id);
 
-            if (options?.Type == TaskSynchronizationType.ExecuteRequests)
+            if (options?.Type == TaskSynchronizationType.ExecuteRequests && ShouldReconcileTasksAfterRequestFailure)
             {
                 try
                 {

@@ -3999,6 +3999,8 @@
   "ToDoPage_PrintList": "Print list",
   "ToDoPage_EmailList": "Email list",
   "ToDoPage_NotAvailableYet": "This isn't available yet.",
+  "ToDoPage_GoogleTasksRefreshLimitTitle": "Google Tasks refreshes every 6 hours",
+  "ToDoPage_GoogleTasksRefreshLimitMessage": "Your changes still reach Google right away. The next refresh is available at {0}.",
   "ToDoPage_ComingSoon": "Soon",
   "ToDoPage_AddDueDate": "Add due date",
   "ToDoPage_DueToday": "Due today",
