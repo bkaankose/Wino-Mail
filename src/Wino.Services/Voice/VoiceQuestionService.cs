@@ -137,7 +137,7 @@ public sealed class VoiceQuestionService(
         foreach (var raw in people.Distinct(StringComparer.CurrentCultureIgnoreCase))
         {
             var name = raw?.Trim();
-            if (string.IsNullOrWhiteSpace(name) || name.Contains('@')
+            if (string.IsNullOrWhiteSpace(name) || name.Contains('@') || VoiceResultTokens.IsToken(name)
                 || identified.Exists(person => SamePhrase(person.Name, name))
                 || command.Unresolved?.Any(reference => reference.Kind == UnresolvedKind.Group && SamePhrase(reference.Phrase, name)) == true)
                 continue;

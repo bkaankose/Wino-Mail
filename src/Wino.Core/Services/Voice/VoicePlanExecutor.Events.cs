@@ -123,6 +123,14 @@ public sealed partial class VoicePlanExecutor
         rows = selection.Order == EventSortOrder.Latest
             ? rows.OrderByDescending(static row => row.Item.LocalStartDate).ToList()
             : rows.OrderBy(static row => row.Item.LocalStartDate).ToList();
+        // Every occurrence of a series is the same event when the whole series is meant.
+        if (command.Change?.Scope == EventScope.Series)
+            rows = rows.DistinctBy(static row => row.Item.RecurringCalendarItemId ?? row.Item.Id).ToList();
+
+        // "Join my next meeting" means the next one there is a link to join.
+        if (command.Action == VoiceAction.JoinMeeting && rows.Exists(static row => CalendarJoinLinkResolver.TryGetEffectiveJoinUri(row.Item, out _)))
+            rows = rows.Where(static row => CalendarJoinLinkResolver.TryGetEffectiveJoinUri(row.Item, out _)).ToList();
+
         if (selection.Limit > 0)
             rows = rows.Take(selection.Limit).ToList();
 
@@ -163,7 +171,7 @@ public sealed partial class VoicePlanExecutor
         issue = null;
         var result = targets.ToList();
 
-        if (command.Action is VoiceAction.DeleteEvent or VoiceAction.UpdateEvent or VoiceAction.SetEventShowAs or VoiceAction.RespondToEvent)
+        if (command.Action is VoiceAction.DeleteEvent or VoiceAction.UpdateEvent or VoiceAction.SetEventShowAs or VoiceAction.RespondToEvent or VoiceAction.SetEventReminder)
         {
             var writable = result.Where(static target => target.Event.AssignedCalendar?.IsReadOnly != true).ToList();
             if (writable.Count == 0)
@@ -177,6 +185,14 @@ public sealed partial class VoicePlanExecutor
             if (invited.Count == 0)
                 issue = string.Format(CultureInfo.CurrentCulture, Translator.VoiceIssue_OwnEvent, EventTitle(result[0].Event));
             result = invited;
+        }
+
+        if (command.Action == VoiceAction.JoinMeeting && result.Count > 0)
+        {
+            var online = result.Where(static target => CalendarJoinLinkResolver.TryGetEffectiveJoinUri(target.Event, out _)).ToList();
+            if (online.Count == 0)
+                issue = string.Format(CultureInfo.CurrentCulture, Translator.VoiceIssue_NoJoinLink, EventTitle(result[0].Event));
+            result = online;
         }
 
         return result;
@@ -294,6 +310,12 @@ public sealed partial class VoicePlanExecutor
                     false,
                     string.Format(CultureInfo.CurrentCulture, Translator.VoiceGuard_DeleteButton, events)));
                 break;
+            case VoiceAction.DeleteEvent when command.Change?.Scope == EventScope.Series:
+                risks.Add(new VoicePlanRisk(step.CommandIndex,
+                    string.Format(CultureInfo.CurrentCulture, Translator.VoiceGuard_DeleteSeries, targets.Count == 1 ? EventTitle(targets[0].Event) : events),
+                    false,
+                    string.Format(CultureInfo.CurrentCulture, Translator.VoiceGuard_DeleteButton, events)));
+                break;
             case VoiceAction.DeleteEvent when targets.Count > 1:
                 risks.Add(new VoicePlanRisk(step.CommandIndex,
                     string.Format(CultureInfo.CurrentCulture, Translator.VoiceGuard_DeleteEvents, events),
@@ -321,8 +343,12 @@ public sealed partial class VoicePlanExecutor
     {
         var command = context.Step.Command;
         var index = context.Step.CommandIndex;
-        if (!context.Resolution.EventTargets.TryGetValue(index, out var targets) || targets.Count == 0)
+        if (!context.Resolution.EventTargets.TryGetValue(index, out var found) || found.Count == 0)
             return StepResult.Failed(Translator.VoiceResult_NoEventsLeft);
+
+        var targets = command.Change?.Scope == EventScope.Series && command.Action != VoiceAction.FindEvents
+            ? await ToSeriesAsync(found).ConfigureAwait(false)
+            : found;
 
         switch (command.Action)
         {
@@ -390,9 +416,61 @@ public sealed partial class VoicePlanExecutor
                     return StepResult.Done(string.Format(CultureInfo.CurrentCulture, template,
                         targets.Count == 1 ? EventTitle(targets[0].Event) : EventsText(targets.Count)));
                 }
+
+            case VoiceAction.SetEventReminder:
+                {
+                    if (command.Change?.ReminderMinutes is not { } minutes || minutes < 0)
+                        return StepResult.Failed(Translator.VoiceIssue_Missing_Change);
+
+                    foreach (var target in targets)
+                    {
+                        var reminders = new List<Reminder>
+                        {
+                            new() { Id = Guid.NewGuid(), CalendarItemId = target.Event.Id, DurationInSeconds = minutes * 60L, ReminderType = CalendarItemReminderType.Popup }
+                        };
+                        await SaveEventAsync(target, CalendarSynchronizerOperation.UpdateEvent, static _ => { }, reminders).ConfigureAwait(false);
+                    }
+
+                    return StepResult.Done(string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_ReminderSet,
+                        targets.Count == 1 ? EventTitle(targets[0].Event) : EventsText(targets.Count),
+                        Wino.Services.Voice.VoicePlanPreviewBuilder.MinutesText(minutes)));
+                }
+
+            case VoiceAction.JoinMeeting:
+                {
+                    var meeting = targets.FirstOrDefault(static target => CalendarJoinLinkResolver.TryGetEffectiveJoinUri(target.Event, out _));
+                    if (meeting is null || !CalendarJoinLinkResolver.TryGetEffectiveJoinUri(meeting.Event, out var uri) || uri is null)
+                        return StepResult.Failed(string.Format(CultureInfo.CurrentCulture, Translator.VoiceIssue_NoJoinLink, EventTitle(targets[0].Event)));
+                    if (services.GetService<IExternalLauncher>() is not { } launcher)
+                        return StepResult.Failed(Translator.VoiceResult_LaunchUnavailable);
+
+                    var launched = await launcher.LaunchUriAsync(uri).ConfigureAwait(false);
+                    return launched.IsSuccess
+                        ? StepResult.Done(string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_Joined, EventTitle(meeting.Event)))
+                        : StepResult.Failed(launched.ErrorMessage ?? Translator.VoiceResult_LaunchUnavailable);
+                }
         }
 
         return StepResult.None;
+    }
+
+    /// <summary>The series events stand for, for a change meant for the whole series; single events stay as they are.</summary>
+    private async Task<IReadOnlyList<VoiceEventTarget>> ToSeriesAsync(IReadOnlyList<VoiceEventTarget> targets)
+    {
+        var result = new List<VoiceEventTarget>();
+        foreach (var target in targets)
+        {
+            if (!target.Event.IsRecurringEvent)
+            {
+                result.Add(target);
+                continue;
+            }
+
+            var series = await calendarService.GetCalendarItemTargetAsync(new CalendarItemTarget(target.Event, CalendarEventTargetType.Series)).ConfigureAwait(false);
+            result.Add(series is null ? target : target with { Event = series });
+        }
+
+        return result.DistinctBy(static target => target.Event.Id).ToList();
     }
 
     private async Task<StepResult> UpdateEventsAsync(VoiceCommand command, IReadOnlyList<VoiceEventTarget> targets)
@@ -507,7 +585,7 @@ public sealed partial class VoicePlanExecutor
     /// Changes an event the way the calendar page does: the stored copy is updated first, then the request carries the
     /// original so the synchronizer can send only what changed and roll back on failure.
     /// </summary>
-    private async Task SaveEventAsync(VoiceEventTarget target, CalendarSynchronizerOperation operation, Action<CalendarItem> change)
+    private async Task SaveEventAsync(VoiceEventTarget target, CalendarSynchronizerOperation operation, Action<CalendarItem> change, List<Reminder>? newReminders = null)
     {
         var item = await calendarService.GetCalendarItemAsync(target.Event.Id).ConfigureAwait(false) ?? target.Event;
         var original = await calendarService.GetCalendarItemAsync(target.Event.Id).ConfigureAwait(false) ?? target.Event;
@@ -520,6 +598,8 @@ public sealed partial class VoicePlanExecutor
 
         change(item);
         await calendarService.UpdateCalendarItemAsync(item, attendees).ConfigureAwait(false);
+        if (newReminders is not null)
+            await calendarService.SaveRemindersAsync(item.Id, newReminders).ConfigureAwait(false);
 
         await requestDelegator.ExecuteAsync(new CalendarOperationPreparationRequest(
             operation,
@@ -527,7 +607,7 @@ public sealed partial class VoicePlanExecutor
             attendees,
             OriginalItem: original,
             OriginalAttendees: originalAttendees,
-            Reminders: reminders,
+            Reminders: newReminders ?? reminders,
             OriginalReminders: reminders)).ConfigureAwait(false);
     }
 }

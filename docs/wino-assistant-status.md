@@ -46,6 +46,23 @@ Plan sections 4 and the brain part of 7. Contracts `3.0.0-alpha.20`.
 - New learned facts: sender alias (a domain the user picked, used for mail selections), group (people picked one by one, then Done), default account for new mails and tasks (asked by the server when several accounts could take it), filter word (a word for a kind of sender). "What Wino remembers" lists them.
 - Device intents in both modes: sender kind on mail selections (classified on the device from the sender's address and name), free-slot requests on new and moved events (the device picks the gap across every calendar, inside working hours or a part of the day), and the week start and working hours in each request.
 
+## Phase 3: action catalog (8 Nov)
+
+Plan section 6 and the command part of 7. Contracts `3.0.0-alpha.21`.
+
+- 43 new actions across mail (move, junk, Focused/Other, pin, categories, send drafts, translate, analyze, copy code, unsubscribe, reply all and forward through the draft kind, undo, sync), events (reminder, join, series scope), tasks (find, complete, reopen, update, step, delete, lists), contacts (find, favorite, lists, category, create, delete) and folders (mark read, empty, pin, rename, create, delete, sync).
+- Up to five commands; chains within a kind through `usesResultOf`, across kinds through `@result.N` person tokens.
+- The planner's grammar can't take more properties, so the details ride in the existing `events` JSON string as nested objects. The mapper accepts the shapes the planner actually writes (a nested object as a string, a mail change at the top level, a step through UpdateTask, a forward on another mail action).
+- Server mapping covered by unit tests; the client executor for the new actions is the remaining half.
+
+## Phase 4: context-aware requests, server side (8 Nov)
+
+Plan section 5. The interactions in the app are still deferred; only a debug entry point is planned for testing.
+
+- A start frame with a selection (kind, count, known flags, people as address hashes) is planned with its own prompt variant (the private prompt plus the selection rules) and the private schema, in both modes.
+- People of the selection are named to the planner only as brain aliases (Personal mode, known people); everyone else is "unknown". No subjects, bodies, titles or names leave the device.
+- A command on the selection's kind acts on the selection (`UsesContext`) whatever selection the planner wrote; actions outside the kind's allowed set (plus creating something new) become NotActionable.
+
 ## Log
 
 - 8 Nov: branch created from `7b3add0d` (macOS voice port merged with the Windows work); plan and this file added. A headless agent briefly started on the Mac was stopped before making changes; all work now runs from the Windows session.

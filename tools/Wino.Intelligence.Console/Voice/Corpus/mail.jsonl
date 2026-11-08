@@ -334,8 +334,8 @@
 {"id": "mail.action.markread-0010", "domain": "mail.action.markread", "text": "mark all as read", "expect": {"actions": [["MarkRead"]]}}
 {"id": "mail.action.markread-0011", "domain": "mail.action.markread", "text": "clear my unread mails", "expect": {"actions": [["MarkRead"]]}}
 {"id": "mail.action.delete-0009", "domain": "mail.action.delete", "text": "delete all spam", "expect": {"actions": [["Delete"]]}}
-{"id": "mail.action.delete-0010", "domain": "mail.action.delete", "text": "empty my junk folder", "expect": {"actions": [["Delete"]]}}
-{"id": "mail.action.delete-0011", "domain": "mail.action.delete", "text": "empty the trash", "expect": {"actions": [["Delete"]]}}
+{"id": "mail.action.delete-0010", "domain": "mail.action.delete", "text": "empty my junk folder", "expect": {"actions": [["Delete"], ["EmptyFolder"]]}}
+{"id": "mail.action.delete-0011", "domain": "mail.action.delete", "text": "empty the trash", "expect": {"actions": [["Delete"], ["EmptyFolder"]]}}
 {"id": "mail.action.vague-0001", "domain": "mail.action.vague", "text": "clean up my inbox", "expect": {"actions": [["NotActionable"], ["Archive"], ["MarkRead"], ["Delete"]]}, "note": "Unclear verb: expect MissingDetails with alternatives or a reasonable action"}
 {"id": "mail.action.vague-0002", "domain": "mail.action.vague", "text": "tidy up my mail", "expect": {"actions": [["NotActionable"], ["Archive"], ["MarkRead"], ["Delete"]]}, "note": "Unclear verb: expect MissingDetails with alternatives or a reasonable action"}
 {"id": "mail.action.vague-0003", "domain": "mail.action.vague", "text": "deal with the newsletters", "expect": {"actions": [["NotActionable"], ["Archive"], ["MarkRead"], ["Delete"]]}, "note": "Unclear verb: expect MissingDetails with alternatives or a reasonable action"}
@@ -1168,10 +1168,10 @@
 {"id": "mail.action.markread-0011-v2", "domain": "mail.action.markread", "text": "could you clear my unread mails please", "expect": {"actions": [["MarkRead"]]}}
 {"id": "mail.action.delete-0009-v1", "domain": "mail.action.delete", "text": "um, delete all spam please", "expect": {"actions": [["Delete"]]}}
 {"id": "mail.action.delete-0009-v2", "domain": "mail.action.delete", "text": "wino, delete all spam please", "expect": {"actions": [["Delete"]]}}
-{"id": "mail.action.delete-0010-v1", "domain": "mail.action.delete", "text": "um, empty my junk folder", "expect": {"actions": [["Delete"]]}}
-{"id": "mail.action.delete-0010-v2", "domain": "mail.action.delete", "text": "could you empty my junk folder thanks", "expect": {"actions": [["Delete"]]}}
-{"id": "mail.action.delete-0011-v1", "domain": "mail.action.delete", "text": "can you please empty the trash thanks", "expect": {"actions": [["Delete"]]}}
-{"id": "mail.action.delete-0011-v2", "domain": "mail.action.delete", "text": "hey wino, empty the trash", "expect": {"actions": [["Delete"]]}}
+{"id": "mail.action.delete-0010-v1", "domain": "mail.action.delete", "text": "um, empty my junk folder", "expect": {"actions": [["Delete"], ["EmptyFolder"]]}}
+{"id": "mail.action.delete-0010-v2", "domain": "mail.action.delete", "text": "could you empty my junk folder thanks", "expect": {"actions": [["Delete"], ["EmptyFolder"]]}}
+{"id": "mail.action.delete-0011-v1", "domain": "mail.action.delete", "text": "can you please empty the trash thanks", "expect": {"actions": [["Delete"], ["EmptyFolder"]]}}
+{"id": "mail.action.delete-0011-v2", "domain": "mail.action.delete", "text": "hey wino, empty the trash", "expect": {"actions": [["Delete"], ["EmptyFolder"]]}}
 {"id": "mail.action.vague-0001-v1", "domain": "mail.action.vague", "text": "can you please clean up my inbox", "expect": {"actions": [["NotActionable"], ["Archive"], ["MarkRead"], ["Delete"]]}, "note": "Unclear verb: expect MissingDetails with alternatives or a reasonable action"}
 {"id": "mail.action.vague-0001-v2", "domain": "mail.action.vague", "text": "please clean up my inbox thanks", "expect": {"actions": [["NotActionable"], ["Archive"], ["MarkRead"], ["Delete"]]}, "note": "Unclear verb: expect MissingDetails with alternatives or a reasonable action"}
 {"id": "mail.action.vague-0002-v1", "domain": "mail.action.vague", "text": "uh tidy up my mail please", "expect": {"actions": [["NotActionable"], ["Archive"], ["MarkRead"], ["Delete"]]}, "note": "Unclear verb: expect MissingDetails with alternatives or a reasonable action"}

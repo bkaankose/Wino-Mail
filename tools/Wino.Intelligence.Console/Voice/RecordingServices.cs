@@ -8,7 +8,12 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Platform;
+using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Domain.Models.Requests;
+using Wino.Core.Domain.Enums;
+using CommunityToolkit.Mvvm.Messaging;
+using Wino.Messaging.Server;
 
 namespace Wino.Intelligence.ConsoleApp.Voice;
 
@@ -92,7 +97,7 @@ internal sealed class RecordingRequestDelegator : IWinoRequestDelegator
 
     public Task ExecuteAsync(FolderOperationPreperationRequest request)
     {
-        OperationLog.Add("Folder", Describer.Describe(request));
+        OperationLog.Add("Folder." + request.Action, Describer.Describe(request));
         return Task.CompletedTask;
     }
 
@@ -116,14 +121,14 @@ internal sealed class RecordingRequestDelegator : IWinoRequestDelegator
 
     public Task ExecuteAsync(ContactOperationPreparationRequest request)
     {
-        OperationLog.Add("Contact", Describer.Describe(request));
+        OperationLog.Add("Contact." + request.Operation, Describer.Describe(request));
         return Task.CompletedTask;
     }
 
     public Task ExecuteAsync(IReadOnlyList<ContactOperationPreparationRequest> requests)
     {
         foreach (var request in requests)
-            OperationLog.Add("Contact", Describer.Describe(request));
+            OperationLog.Add("Contact." + request.Operation, Describer.Describe(request));
         return Task.CompletedTask;
     }
 
@@ -132,10 +137,13 @@ internal sealed class RecordingRequestDelegator : IWinoRequestDelegator
         foreach (var request in requests)
         {
             var kind = request.GetType().Name.Replace("Request", string.Empty);
-            if (request.GetType().GetProperty("Operation")?.GetValue(request) is { } operation)
+            if (request.GetType().GetProperty("Operation")?.GetValue(request) is { } operation && operation.ToString() != kind)
                 kind += "." + operation;
             var task = request.GetType().GetProperty("Task")?.GetValue(request);
-            OperationLog.Add(kind, task is null ? Describer.Describe(request) : Describer.Describe(task));
+            var text = task is null ? Describer.Describe(request) : Describer.Describe(task);
+            if (request.GetType().GetProperty("Step")?.GetValue(request) is { } step)
+                text += $" step=[{Describer.Describe(step)}]";
+            OperationLog.Add(kind, text);
         }
         return Task.CompletedTask;
     }
@@ -153,6 +161,57 @@ internal sealed class RecordingRequestDelegator : IWinoRequestDelegator
         var target = request.MoveTargetFolder is { } folder ? $" -> {folder.FolderName}" : string.Empty;
         OperationLog.Add("Mail." + request.Action, $"{mails.Count} mail(s){target}{(sample.Length > 0 ? ": " + sample : string.Empty)}{(mails.Count > 3 ? " ..." : string.Empty)}");
         return mails.Count;
+    }
+}
+
+/// <summary>Stands in for the clipboard: records the text instead of copying it.</summary>
+internal sealed class RecordingClipboardService : IClipboardService
+{
+    public Task<PlatformOperationResult> CopyTextAsync(string text, CancellationToken cancellationToken = default)
+    {
+        OperationLog.Add("Clipboard", $"\"{Describer.Clip(text, 60)}\"");
+        return Task.FromResult(new PlatformOperationResult(PlatformOperationStatus.Succeeded));
+    }
+}
+
+/// <summary>Stands in for the launcher: records the file or link instead of opening it.</summary>
+internal sealed class RecordingExternalLauncher : IExternalLauncher
+{
+    public Task<PlatformOperationResult> LaunchFileAsync(string path, CancellationToken cancellationToken = default)
+    {
+        OperationLog.Add("LaunchFile", path);
+        return Task.FromResult(new PlatformOperationResult(PlatformOperationStatus.Succeeded));
+    }
+
+    public Task<PlatformOperationResult> LaunchUriAsync(Uri uri, CancellationToken cancellationToken = default)
+    {
+        OperationLog.Add("LaunchUri", uri.ToString());
+        return Task.FromResult(new PlatformOperationResult(PlatformOperationStatus.Succeeded));
+    }
+}
+
+/// <summary>Stands in for the one-click unsubscribe: records the link and posts nothing.</summary>
+internal sealed class RecordingUnsubscriptionService : IUnsubscriptionService
+{
+    public Task<bool> OneClickUnsubscribeAsync(UnsubscribeInfo info)
+    {
+        OperationLog.Add("Unsubscribe", Describer.Clip(info.HttpLink, 120));
+        return Task.FromResult(true);
+    }
+}
+
+/// <summary>Records the synchronizations a plan asks for; the runner never synchronizes.</summary>
+internal sealed class RecordingMessageListener
+{
+    public static RecordingMessageListener Instance { get; } = new();
+
+    public void Register()
+    {
+        WeakReferenceMessenger.Default.Register<RecordingMessageListener, NewMailSynchronizationRequested>(this, static (_, message) =>
+        {
+            var folders = message.Options.SynchronizationFolderIds is { Count: > 0 } ids ? $" folders={ids.Count}" : string.Empty;
+            OperationLog.Add("Sync." + message.Options.Type, $"account={message.Options.AccountId}{folders}");
+        });
     }
 }
 

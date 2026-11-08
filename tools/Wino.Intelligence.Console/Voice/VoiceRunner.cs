@@ -76,8 +76,16 @@ internal static class VoiceRunner
         await using var services = ConsoleServices.Create(paths, ApiTarget.Local, collection =>
         {
             collection.AddSingleton<IWinoRequestDelegator, RecordingRequestDelegator>();
+            collection.AddSingleton<IClipboardService, RecordingClipboardService>();
+            collection.AddSingleton<IExternalLauncher, RecordingExternalLauncher>();
+            collection.AddSingleton<IUnsubscriptionService, RecordingUnsubscriptionService>();
             ReadOnlyServiceProxy<ICalendarService>.Decorate(collection);
+            ReadOnlyServiceProxy<IMailService>.Decorate(collection, nameof(IMailService.ChangePinnedStatusAsync));
+            ReadOnlyServiceProxy<IMailCategoryService>.Decorate(collection, nameof(IMailCategoryService.AssignCategoryAsync), nameof(IMailCategoryService.UnassignCategoryAsync));
+            ReadOnlyServiceProxy<ISynchronizationManager>.Decorate(collection, nameof(ISynchronizationManager.UndoLatestQueuedAction));
+            ReadOnlyServiceProxy<IWinoIntelligenceCoordinator>.Decorate(collection, nameof(IWinoIntelligenceCoordinator.RequestProcessingAsync));
         });
+        RecordingMessageListener.Instance.Register();
 
         await services.GetRequiredService<IDatabaseService>().InitializeAsync();
         await services.GetRequiredService<IMailIntelligenceStore>().InitializeAsync();
@@ -89,7 +97,14 @@ internal static class VoiceRunner
         var seeded = options.Seed
             ? await VoiceFixtures.SeedAsync(services.GetRequiredService<ICalendarService>(), services.GetRequiredService<IAccountService>(), now)
             : 0;
+        var seededItems = options.Seed
+            ? await VoiceFixtures.SeedItemsAsync(services.GetRequiredService<ITaskService>(), services.GetRequiredService<IContactService>(), services.GetRequiredService<IAccountService>(), now)
+            : 0;
         ReadOnlyServiceProxy<ICalendarService>.IsReadOnly = true;
+        ReadOnlyServiceProxy<IMailService>.IsReadOnly = true;
+        ReadOnlyServiceProxy<IMailCategoryService>.IsReadOnly = true;
+        ReadOnlyServiceProxy<ISynchronizationManager>.IsReadOnly = true;
+        ReadOnlyServiceProxy<IWinoIntelligenceCoordinator>.IsReadOnly = true;
 
         var textLog = new StreamWriter(Path.Combine(runFolder, "run.log"), append: false, Encoding.UTF8) { AutoFlush = true };
         var jsonLog = new StreamWriter(Path.Combine(runFolder, "run.jsonl"), append: false, Encoding.UTF8) { AutoFlush = true };
@@ -101,7 +116,7 @@ internal static class VoiceRunner
             header.AppendLine($"API {options.ApiUrl}  mode {options.Mode}  clock {now:ddd yyyy-MM-dd HH:mm} ({TimeZoneInfo.Local.Id})  languages {string.Join(",", options.Languages)}");
             header.AppendLine($"Data copy {dataFolder}");
             header.AppendLine($"Accounts: {string.Join("; ", accounts.Select(static account => $"{account.Name} <{account.Address}> {account.ProviderType}"))}");
-            header.AppendLine($"{cases.Count} prompt(s), {options.Parallel} at a time{(options.Learn ? ", answers saved as facts" : string.Empty)}{(seeded > 0 ? $", {seeded} fixture events in the copy" : string.Empty)}");
+            header.AppendLine($"{cases.Count} prompt(s), {options.Parallel} at a time{(options.Learn ? ", answers saved as facts" : string.Empty)}{(seeded > 0 ? $", {seeded} fixture events and {seededItems} tasks and contacts in the copy" : string.Empty)}");
             Emit(textLog, header.ToString(), ConsoleColor.Cyan);
 
             if (!await SignInAsync(services, options, textLog))

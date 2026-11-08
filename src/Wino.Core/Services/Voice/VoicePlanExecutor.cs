@@ -29,6 +29,7 @@ public sealed partial class VoicePlanExecutor : IVoicePlanExecutor
     private readonly ICalendarService calendarService;
     private readonly ITaskService taskService;
     private readonly IContactService contactService;
+    private readonly IMailCategoryService mailCategoryService;
     private readonly IMimeFileService mimeFileService;
     private readonly IPreferencesService preferencesService;
     private readonly IServiceProvider services;
@@ -40,6 +41,7 @@ public sealed partial class VoicePlanExecutor : IVoicePlanExecutor
         ICalendarService calendarService,
         ITaskService taskService,
         IContactService contactService,
+        IMailCategoryService mailCategoryService,
         IMimeFileService mimeFileService,
         IPreferencesService preferencesService,
         IServiceProvider services)
@@ -50,6 +52,7 @@ public sealed partial class VoicePlanExecutor : IVoicePlanExecutor
         this.calendarService = calendarService;
         this.taskService = taskService;
         this.contactService = contactService;
+        this.mailCategoryService = mailCategoryService;
         this.mimeFileService = mimeFileService;
         this.preferencesService = preferencesService;
         this.services = services;
@@ -81,9 +84,7 @@ public sealed partial class VoicePlanExecutor : IVoicePlanExecutor
     {
         ArgumentNullException.ThrowIfNull(preview);
 
-        var targets = new Dictionary<int, IReadOnlyList<VoiceMailTarget>>();
-        var counts = new Dictionary<int, int>();
-        var eventTargets = new Dictionary<int, IReadOnlyList<VoiceEventTarget>>();
+        var state = new ResolveState();
         var outcomes = new Dictionary<VoicePlanPreviewStep, StepOutcome>();
 
         // Commands run in spoken order across accounts, and a chained command needs its source resolved first.
@@ -91,17 +92,70 @@ public sealed partial class VoicePlanExecutor : IVoicePlanExecutor
             .SelectMany(static group => group.Steps.Select(step => (Group: group, Step: step)))
             .OrderBy(static entry => entry.Step.CommandIndex);
 
-        foreach (var (group, step) in steps)
+        foreach (var (group, original) in steps)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            outcomes[step] = VoiceCommand.ActsOnEvents(step.Command.Action)
-                ? await ResolveEventStepAsync(group, step, eventTargets, cancellationToken).ConfigureAwait(false)
-                : await ResolveStepAsync(group, step, targets, counts, cancellationToken).ConfigureAwait(false);
+
+            var (step, unresolvedToken) = await ExpandResultTokensAsync(original, state, cancellationToken).ConfigureAwait(false);
+            var action = step.Command.Action;
+            StepOutcome outcome;
+            if (unresolvedToken)
+                outcome = StepOutcome.Drop(string.Format(CultureInfo.CurrentCulture, Translator.VoiceIssue_NoResultPeople, PlainText(step)));
+            else if (VoiceCommand.ActsOnEvents(action))
+                outcome = await ResolveEventStepAsync(group, step, state.EventTargets, cancellationToken).ConfigureAwait(false);
+            else if (VoiceCommand.ActsOnTasks(action))
+                outcome = await ResolveTaskStepAsync(group, step, state, cancellationToken).ConfigureAwait(false);
+            else if (VoiceCommand.ActsOnContacts(action))
+                outcome = await ResolveContactStepAsync(group, step, state, cancellationToken).ConfigureAwait(false);
+            else if (VoiceCommand.ActsOnFolder(action))
+                outcome = await ResolveFolderStepAsync(group, step, state, cancellationToken).ConfigureAwait(false);
+            else if (action is VoiceAction.CreateTaskList or VoiceAction.RenameTaskList or VoiceAction.DeleteTaskList)
+                outcome = await ResolveTaskListStepAsync(group, step, state).ConfigureAwait(false);
+            else if (action == VoiceAction.CreateContact)
+                outcome = ResolveCreateContactStep(step);
+            else
+            {
+                outcome = await ResolveStepAsync(group, step, state.MailTargets, state.Counts, cancellationToken).ConfigureAwait(false);
+                if (outcome.Issue is null)
+                    outcome = await ResolveMailChangeAsync(step, state, outcome).ConfigureAwait(false);
+            }
+
+            outcomes[original] = ReferenceEquals(step, original) ? outcome : outcome with { Replaced = step };
         }
 
         var groups = preview.Groups.Select(group => Apply(group, outcomes)).ToList();
-        groups = Regroup(groups, targets, eventTargets);
-        return new VoicePlanResolution(new VoicePlanPreview(groups), targets, eventTargets);
+        groups = Regroup(groups, step => AccountsOf(step, state));
+        return new VoicePlanResolution(new VoicePlanPreview(groups), state.MailTargets.ToDictionary(), state.EventTargets.ToDictionary())
+        {
+            TaskTargets = state.TaskTargets.ToDictionary(),
+            TaskListTargets = state.TaskListTargets.ToDictionary(),
+            ContactTargets = state.ContactTargets.ToDictionary(),
+            FolderTargets = state.FolderTargets.ToDictionary(),
+            CategoryTargets = state.CategoryTargets.ToDictionary()
+        };
+    }
+
+    /// <summary>The accounts a resolved step touches, from whatever it found.</summary>
+    private static List<MailAccount> AccountsOf(VoicePlanPreviewStep step, ResolveState state)
+    {
+        var index = step.CommandIndex;
+        IEnumerable<MailAccount> accounts;
+        if (state.EventTargets.TryGetValue(index, out var events))
+            accounts = events.Select(static target => target.Account);
+        else if (state.MailTargets.TryGetValue(index, out var mails))
+            accounts = mails.Where(static target => target.Count > 0).Select(static target => target.Account);
+        else if (state.TaskTargets.TryGetValue(index, out var tasks))
+            accounts = tasks.Select(static target => target.Account);
+        else if (state.ContactTargets.TryGetValue(index, out var contacts))
+            accounts = contacts.Select(static target => target.Account).OfType<MailAccount>();
+        else if (state.TaskListTargets.TryGetValue(index, out var lists))
+            accounts = lists.Select(static target => target.Account);
+        else if (state.FolderTargets.TryGetValue(index, out var folders))
+            accounts = folders.Select(static target => target.Account);
+        else
+            return [];
+
+        return accounts.DistinctBy(static account => account.Id).ToList();
     }
 
     /// <summary>
@@ -109,22 +163,10 @@ public sealed partial class VoicePlanExecutor : IVoicePlanExecutor
     /// in one account moves under that account; the "all accounts" group keeps the rest and names only the accounts
     /// they touch.
     /// </summary>
-    private static List<VoicePlanPreviewGroup> Regroup(
-        List<VoicePlanPreviewGroup> groups,
-        Dictionary<int, IReadOnlyList<VoiceMailTarget>> mailTargets,
-        Dictionary<int, IReadOnlyList<VoiceEventTarget>> eventTargets)
+    private static List<VoicePlanPreviewGroup> Regroup(List<VoicePlanPreviewGroup> groups, Func<VoicePlanPreviewStep, List<MailAccount>> accountsOf)
     {
         if (!groups.Any(static group => group.Kind == VoicePlanAccountKind.AllAccounts))
             return groups;
-
-        List<MailAccount> AccountsOf(VoicePlanPreviewStep step)
-        {
-            if (eventTargets.TryGetValue(step.CommandIndex, out var events))
-                return events.Select(static target => target.Account).DistinctBy(static account => account.Id).ToList();
-            if (mailTargets.TryGetValue(step.CommandIndex, out var mails))
-                return mails.Where(static target => target.Count > 0).Select(static target => target.Account).DistinctBy(static account => account.Id).ToList();
-            return [];
-        }
 
         var result = new List<(VoicePlanPreviewGroup Group, List<VoicePlanPreviewStep> Steps)>();
         foreach (var group in groups.Where(static group => group.Kind != VoicePlanAccountKind.AllAccounts))
@@ -136,7 +178,7 @@ public sealed partial class VoicePlanExecutor : IVoicePlanExecutor
             var touched = new List<MailAccount>();
             foreach (var step in group.Steps)
             {
-                var accounts = AccountsOf(step);
+                var accounts = accountsOf(step);
                 if (accounts.Count != 1)
                 {
                     remaining.Add(step);
@@ -173,6 +215,27 @@ public sealed partial class VoicePlanExecutor : IVoicePlanExecutor
             .ToList();
     }
 
+    private static List<MailAccount> GroupAccounts(VoicePlanPreviewGroup group) => group.Kind switch
+    {
+        VoicePlanAccountKind.Account when group.Account is { } account => new List<MailAccount> { account },
+        VoicePlanAccountKind.AllAccounts => group.Candidates.ToList(),
+        _ => new List<MailAccount>()
+    };
+
+    /// <summary>What the steps resolved so far act on, by command index, so later steps can chain to them.</summary>
+    private sealed class ResolveState
+    {
+        public Dictionary<int, IReadOnlyList<VoiceMailTarget>> MailTargets { get; } = [];
+        public Dictionary<int, int> Counts { get; } = [];
+        public Dictionary<int, IReadOnlyList<VoiceEventTarget>> EventTargets { get; } = [];
+        public Dictionary<int, IReadOnlyList<VoiceTaskTarget>> TaskTargets { get; } = [];
+        public Dictionary<int, IReadOnlyList<VoiceTaskListTarget>> TaskListTargets { get; } = [];
+        public Dictionary<int, IReadOnlyList<VoiceContactTarget>> ContactTargets { get; } = [];
+        public Dictionary<int, IReadOnlyList<VoiceFolderTarget>> FolderTargets { get; } = [];
+        public Dictionary<int, IReadOnlyList<MailCategory>> CategoryTargets { get; } = [];
+        public Dictionary<int, List<MailCopy>> Mails { get; } = [];
+    }
+
     private async Task<StepOutcome> ResolveStepAsync(
         VoicePlanPreviewGroup group,
         VoicePlanPreviewStep step,
@@ -195,8 +258,17 @@ public sealed partial class VoicePlanExecutor : IVoicePlanExecutor
             return StepOutcome.Keep(WithCount(sourceCount, step.Detail));
         }
 
+        var selection = command.Mail;
+
+        // Sending drafts always reads the Drafts folder, whatever else the selection says.
+        if (command.Action == VoiceAction.SendDrafts)
+        {
+            selection = (selection ?? new MailSelection(null, null, FolderScope.Folder, null, null, null, ReadStatusFilter.Any, null, null, null, 0, MailSortOrder.Newest))
+                with { FolderSpecialType = SpecialFolderKind.Draft, FolderId = null, FolderName = null, Scope = FolderScope.Folder };
+        }
+
         // Summarize without a selection means the mail open in the app.
-        if (command.Mail is not { } selection)
+        if (selection is null)
             return StepOutcome.Keep(step.Detail);
 
         if (await ResolvePersonAsync(selection.Sender, command.People).ConfigureAwait(false) is { } senderAddress)
@@ -222,7 +294,7 @@ public sealed partial class VoicePlanExecutor : IVoicePlanExecutor
                     continue;
                 }
 
-                var target = CreateTarget(account, folders, selection);
+                var target = CreateTarget(account, folders, selection, command.Action);
                 found.Add(target with { Count = await CountAsync(target, cancellationToken).ConfigureAwait(false) });
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -330,7 +402,7 @@ public sealed partial class VoicePlanExecutor : IVoicePlanExecutor
         return false;
     }
 
-    private static VoiceMailTarget CreateTarget(MailAccount account, IReadOnlyList<IMailItemFolder> folders, MailSelection selection)
+    private static VoiceMailTarget CreateTarget(MailAccount account, IReadOnlyList<IMailItemFolder> folders, MailSelection selection, VoiceAction action)
     {
         var query = new MailListInitializationOptions(
             folders,
@@ -353,7 +425,7 @@ public sealed partial class VoicePlanExecutor : IVoicePlanExecutor
                 _ => MailReadStatusFilter.All
             },
             RequireFlagged = selection.IsFlagged == true,
-            ExcludeDrafts = true
+            ExcludeDrafts = action != VoiceAction.SendDrafts && selection.FolderSpecialType != SpecialFolderKind.Draft
         };
 
         return new VoiceMailTarget(
@@ -422,13 +494,14 @@ public sealed partial class VoicePlanExecutor : IVoicePlanExecutor
         foreach (var step in group.Steps)
         {
             var outcome = outcomes.TryGetValue(step, out var value) ? value : StepOutcome.Keep(step.Detail);
+            var current = outcome.Replaced ?? step;
             if (outcome.Issue is { } issue)
             {
-                issues.Add(new VoicePlanPreviewIssue(issue, step.Command));
+                issues.Add(new VoicePlanPreviewIssue(issue, current.Command));
                 continue;
             }
 
-            steps.Add(step with { Number = steps.Count + 1, Detail = outcome.Detail });
+            steps.Add(current with { Number = steps.Count + 1, Detail = outcome.Detail });
         }
 
         return group with { Steps = steps, Issues = issues };
@@ -481,7 +554,8 @@ public sealed partial class VoicePlanExecutor : IVoicePlanExecutor
         _ => string.Empty
     };
 
-    private readonly record struct StepOutcome(string? Detail, string? Issue)
+    /// <param name="Replaced">The step with its <c>@result</c> people filled in, when it had any.</param>
+    private readonly record struct StepOutcome(string? Detail, string? Issue, VoicePlanPreviewStep? Replaced = null)
     {
         public static StepOutcome Keep(string? detail) => new(detail, null);
 

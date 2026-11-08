@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
+using Wino.Mail.Api.Contracts.Voice;
 
 namespace Wino.Core.Domain.Models.MailItem;
 
@@ -109,6 +110,9 @@ public sealed record MailSearchCriteria(
     IReadOnlyList<Guid> FolderIds,
     IReadOnlyList<Guid> AccountIds)
 {
+    /// <summary>Only mails from this kind of sender; the assistant's "automated mails" and "newsletters".</summary>
+    public MailSenderKind SenderKind { get; init; }
+
     public static MailSearchCriteria Empty { get; } = new(
         string.Empty,
         SearchMode.Local,

@@ -93,4 +93,68 @@ internal static class VoiceFixtures
 
         return count;
     }
+
+    private sealed record TaskFixture(string Title, int? DueDay, bool Completed = false, bool Important = false);
+
+    private static readonly TaskFixture[] Tasks =
+    [
+        new("Renew passport", 4),
+        new("Buy milk", null, Completed: true),
+        new("File the tax return", 10),
+        new("Pay rent", -2),
+        new("Send the invoice to Jay", -3, Important: true),
+    ];
+
+    /// <summary>
+    /// Tasks and contacts for the task and contact prompts, in the data copy: tasks in the first writable list, and the
+    /// fixture people as contacts in a local address book, with a "Family" list.
+    /// </summary>
+    public static async Task<int> SeedItemsAsync(ITaskService taskService, IContactService contactService, IAccountService accountService, DateTime now)
+    {
+        var count = 0;
+        var list = (await taskService.GetTaskListsAsync() ?? []).FirstOrDefault(static list => !list.IsReadOnly);
+        if (list is not null)
+        {
+            foreach (var fixture in Tasks)
+            {
+                await taskService.CreateTaskAsync(new AccountTask
+                {
+                    Id = Guid.NewGuid(),
+                    MailAccountId = list.MailAccountId,
+                    TaskListId = list.Id,
+                    SourceKind = list.SourceKind,
+                    Title = fixture.Title,
+                    Notes = string.Empty,
+                    DueDate = fixture.DueDay is int day ? now.Date.AddDays(day) : null,
+                    IsCompleted = fixture.Completed,
+                    CompletedAtUtc = fixture.Completed ? DateTime.UtcNow : null,
+                    IsImportant = fixture.Important,
+                });
+                count++;
+            }
+        }
+
+        var accounts = await accountService.GetAccountsAsync() ?? [];
+        if ((accounts.FirstOrDefault(static a => a.Name == "Work") ?? accounts.FirstOrDefault()) is not { } account)
+            return count;
+
+        var book = await contactService.EnsureLocalAddressBookAsync(account.Id, "Voice fixtures");
+        foreach (var person in new[] { Jay, Christian, Shiva })
+        {
+            var id = Guid.NewGuid();
+            await contactService.StageCreateAsync(new AccountContact
+            {
+                Id = id,
+                MailAccountId = account.Id,
+                AddressBookId = book.Id,
+                SourceKind = ContactSourceKind.Local,
+                DisplayName = person.Name,
+                EmailAddresses = [new ContactEmailAddress { Id = Guid.NewGuid(), ContactId = id, Address = person.Email, NormalizedAddress = ContactEmailAddress.Normalize(person.Email), IsPrimary = true }],
+            });
+            count++;
+        }
+
+        await contactService.CreateContactListAsync("Family");
+        return count;
+    }
 }

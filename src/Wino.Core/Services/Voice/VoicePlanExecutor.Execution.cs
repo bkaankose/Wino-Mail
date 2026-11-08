@@ -7,11 +7,13 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using MimeKit;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
@@ -47,6 +49,9 @@ public sealed partial class VoicePlanExecutor
                     AddEventRisks(resolution, group, step, risks);
                     continue;
                 }
+
+                if (AddMailCatalogRisks(resolution, step, risks) || AddItemRisks(resolution, step, risks))
+                    continue;
 
                 if (command.Action is not (VoiceAction.Delete or VoiceAction.Archive))
                     continue;
@@ -151,7 +156,28 @@ public sealed partial class VoicePlanExecutor
             VoiceAction.Archive => RunMailOperationAsync(context, MailOperation.Archive, Translator.VoiceResult_Archived, cancellationToken),
             VoiceAction.Delete => RunMailOperationAsync(context, MailOperation.SoftDelete, Translator.VoiceResult_Deleted, cancellationToken),
             VoiceAction.Unarchive => RunMailOperationAsync(context, MailOperation.UnArchive, Translator.VoiceResult_Unarchived, cancellationToken),
-            VoiceAction.FindEvents or VoiceAction.DeleteEvent or VoiceAction.UpdateEvent or VoiceAction.SetEventShowAs or VoiceAction.RespondToEvent => RunEventStepAsync(context),
+            VoiceAction.MoveToFolder => MoveToFolderAsync(context, cancellationToken),
+            VoiceAction.MarkJunk => RunMailOperationAsync(context, MailOperation.MoveToJunk, Translator.VoiceResult_MarkedJunk, cancellationToken),
+            VoiceAction.MarkNotJunk => RunMailOperationAsync(context, MailOperation.MarkAsNotJunk, Translator.VoiceResult_MarkedNotJunk, cancellationToken),
+            VoiceAction.MoveToFocused => MoveToInboxTabAsync(context, focused: true, cancellationToken),
+            VoiceAction.MoveToOther => MoveToInboxTabAsync(context, focused: false, cancellationToken),
+            VoiceAction.Pin => PinMailsAsync(context, pin: true, cancellationToken),
+            VoiceAction.Unpin => PinMailsAsync(context, pin: false, cancellationToken),
+            VoiceAction.Categorize => CategorizeMailsAsync(context, assign: true, cancellationToken),
+            VoiceAction.Uncategorize => CategorizeMailsAsync(context, assign: false, cancellationToken),
+            VoiceAction.SendDrafts => SendDraftsAsync(context, cancellationToken),
+            VoiceAction.Translate => TranslateAsync(context, cancellationToken),
+            VoiceAction.AnalyzeMail => AnalyzeMailsAsync(context, cancellationToken),
+            VoiceAction.CopyCode => CopyCodeAsync(context, cancellationToken),
+            VoiceAction.Unsubscribe => UnsubscribeAsync(context, cancellationToken),
+            VoiceAction.Undo => UndoAsync(context),
+            VoiceAction.SyncMail => Task.FromResult(SyncMail(context)),
+            _ when VoiceCommand.ActsOnEvents(context.Step.Command.Action) => RunEventStepAsync(context),
+            _ when VoiceCommand.ActsOnTasks(context.Step.Command.Action) => RunTaskStepAsync(context),
+            VoiceAction.CreateTaskList or VoiceAction.RenameTaskList or VoiceAction.DeleteTaskList => RunTaskListStepAsync(context),
+            _ when VoiceCommand.ActsOnContacts(context.Step.Command.Action) => RunContactStepAsync(context),
+            VoiceAction.CreateContact => CreateContactAsync(context),
+            _ when VoiceCommand.ActsOnFolder(context.Step.Command.Action) => RunFolderStepAsync(context),
             VoiceAction.SearchMail => OpenSearchAsync(context, cancellationToken),
             VoiceAction.Summarize => SummarizeAsync(context, cancellationToken),
             VoiceAction.CreateReplyDraft => OpenReplyDraftAsync(context, cancellationToken),
@@ -207,7 +233,10 @@ public sealed partial class VoicePlanExecutor
             query.ReadStatus,
             query.RequireFlagged,
             folders.Select(static folder => folder.Id).ToList(),
-            targets.Select(static target => target.Account.Id).Distinct().ToList());
+            targets.Select(static target => target.Account.Id).Distinct().ToList())
+        {
+            SenderKind = targets[0].SenderKind
+        };
 
         await context.Host.OpenSearchAsync(targets[0].Account, folders, criteria).ConfigureAwait(false);
         return StepResult.Done(string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_Showing, CountText(mails.Count)));
@@ -222,31 +251,9 @@ public sealed partial class VoicePlanExecutor
         if (mail?.AssignedAccount is not { } account)
             return StepResult.Failed(Translator.VoiceResult_NoMailsLeft);
 
-        if (services.GetService<IWinoIntelligenceCoordinator>() is not { } coordinator)
+        if (services.GetService<IWinoIntelligenceCoordinator>() is not { } coordinator
+            || await CreateIntelligenceContextAsync(mail, account, cancellationToken).ConfigureAwait(false) is not { } intelligenceContext)
             return StepResult.Failed(Translator.VoiceResult_SummaryUnavailable);
-
-        var mime = await mimeFileService.GetMimeMessageInformationAsync(mail.FileId, account.Id, cancellationToken).ConfigureAwait(false);
-        var html = mime?.MimeMessage?.HtmlBody;
-        if (string.IsNullOrWhiteSpace(html) && mime?.MimeMessage?.TextBody is { } text)
-            html = WebUtility.HtmlEncode(text);
-        if (string.IsNullOrWhiteSpace(html))
-            return StepResult.Failed(Translator.VoiceResult_SummaryUnavailable);
-
-        var contentKey = $"{account.Id:N}:{mail.UniqueId:N}";
-        var intelligenceContext = new WinoIntelligenceContext(
-            contentKey,
-            account.Id,
-            mail.UniqueId,
-            mail.FileId,
-            mail.Id,
-            account.Address,
-            account.ProviderType,
-            account.Preferences?.IsSemanticIndexingEnabled == true,
-            mail.Subject ?? string.Empty,
-            string.IsNullOrWhiteSpace(mail.FromName) ? mail.FromAddress ?? string.Empty : mail.FromName,
-            new DateTimeOffset(DateTime.SpecifyKind(mail.CreationDate, DateTimeKind.Utc)),
-            html,
-            IntelligenceMetadata: mail.IntelligenceMetadata);
 
         var result = await coordinator.SummarizeAsync(intelligenceContext, Guid.NewGuid(), cancellationToken).ConfigureAwait(false);
         if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.Value))
@@ -261,32 +268,64 @@ public sealed partial class VoicePlanExecutor
         if (mail?.AssignedAccount is not { } account)
             return StepResult.Failed(Translator.VoiceResult_NoMailsLeft);
 
-        var mime = await mimeFileService.GetMimeMessageInformationAsync(mail.FileId, account.Id, cancellationToken).ConfigureAwait(false);
+        var mime = await ReadMimeInformationAsync(mail, cancellationToken).ConfigureAwait(false);
         if (mime?.MimeMessage is null)
             return StepResult.Failed(Translator.VoiceResult_MailNotDownloaded);
 
+        var draft = context.Step.Command.Draft;
+        var kind = draft?.Kind ?? DraftKind.Reply;
         var options = new DraftCreationOptions
         {
-            Reason = DraftCreationReason.Reply,
-            InitialBodyText = context.Step.Command.Draft?.Body ?? string.Empty,
+            Reason = kind switch
+            {
+                DraftKind.ReplyAll => DraftCreationReason.ReplyAll,
+                DraftKind.Forward => DraftCreationReason.Forward,
+                _ => DraftCreationReason.Reply
+            },
+            InitialBodyText = draft?.Body ?? string.Empty,
             ReferencedMessage = new ReferencedMessage { MimeMessage = mime.MimeMessage, MailCopy = mail }
         };
 
+        var subject = Subject(mail);
+        if (kind == DraftKind.Forward)
+        {
+            // A forward starts without recipients, so the ones the user named are written into the new draft.
+            var to = await ResolveAddressesAsync(account, draft?.To, context.Step.Command.People).ConfigureAwait(false);
+            var cc = await ResolveAddressesAsync(account, draft?.Cc, context.Step.Command.People).ConfigureAwait(false);
+            await CreateAndOpenDraftAsync(context.Host, account, options, mail, message =>
+            {
+                message.To.AddRange(to.Select(static address => new MailboxAddress(address, address)));
+                message.Cc.AddRange(cc.Select(static address => new MailboxAddress(address, address)));
+            }).ConfigureAwait(false);
+
+            return StepResult.Done(to.Count > 0
+                ? string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_ForwardOpened, subject, string.Join(", ", to))
+                : string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_ForwardDraftOpened, subject));
+        }
+
         await CreateAndOpenDraftAsync(context.Host, account, options, mail).ConfigureAwait(false);
         var recipient = string.IsNullOrWhiteSpace(mail.FromName) ? mail.FromAddress : mail.FromName;
-        return StepResult.Done(string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_ReplyOpened, recipient));
+        return StepResult.Done(string.Format(CultureInfo.CurrentCulture, kind == DraftKind.ReplyAll ? Translator.VoiceResult_ReplyAllOpened : Translator.VoiceResult_ReplyOpened, recipient));
     }
 
     /// <summary>
     /// Creates the draft and queues it the way the composer's own new-mail and reply commands do, then lets the platform
-    /// open it. <paramref name="referenceMail"/> is the mail a reply answers.
+    /// open it. <paramref name="referenceMail"/> is the mail a reply answers; <paramref name="adjust"/> changes the new
+    /// draft's message before it is saved and queued.
     /// </summary>
-    private async Task CreateAndOpenDraftAsync(IVoicePlanHost host, MailAccount account, DraftCreationOptions options, MailCopy? referenceMail)
+    private async Task CreateAndOpenDraftAsync(IVoicePlanHost host, MailAccount account, DraftCreationOptions options, MailCopy? referenceMail, Action<MimeMessage>? adjust = null)
     {
         if (await folderService.GetSpecialFolderByAccountIdAsync(account.Id, SpecialFolderType.Draft).ConfigureAwait(false) is null)
             throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, Translator.VoiceIssue_NoSpecialFolder, account.Name, Translator.VoiceStep_Folder_Drafts));
 
         var (draftMailCopy, draftBase64MimeMessage) = await mailService.CreateDraftAsync(account.Id, options).ConfigureAwait(false);
+        if (adjust is not null)
+        {
+            var message = draftBase64MimeMessage.GetMimeMessageFromBase64();
+            adjust(message);
+            await mimeFileService.SaveMimeMessageAsync(draftMailCopy.FileId, message, account.Id).ConfigureAwait(false);
+            draftBase64MimeMessage = message.GetBase64MimeMessage();
+        }
         var preparation = referenceMail is null
             ? new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage, options.Reason)
             : new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage, options.Reason, referenceMail);

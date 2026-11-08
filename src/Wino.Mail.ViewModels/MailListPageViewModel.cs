@@ -2833,6 +2833,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             RequireAttachments = context.SearchCriteria.HasAttachments,
             ReadStatus = context.SearchCriteria.ReadStatus,
             RequireFlagged = context.SearchCriteria.IsFlagged,
+            SenderKind = context.SearchCriteria.SenderKind,
         };
 
         if (context.CategoryIds.Count == 0)

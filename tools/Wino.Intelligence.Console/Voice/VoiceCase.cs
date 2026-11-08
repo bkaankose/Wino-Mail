@@ -28,6 +28,9 @@ internal sealed class VoiceCase
 
     public string? Note { get; set; }
 
+    /// <summary>A context-aware case: the selection the request is about, sent in the start frame.</summary>
+    public Wino.Mail.Api.Contracts.Voice.VoiceSelectionContext? Selection { get; set; }
+
     public VoiceExpectation? ExpectFor(Wino.Mail.Api.Contracts.Voice.VoiceMode mode)
         => (mode == Wino.Mail.Api.Contracts.Voice.VoiceMode.Personal ? ExpectPersonal : ExpectPrivate) ?? Expect;
 }
