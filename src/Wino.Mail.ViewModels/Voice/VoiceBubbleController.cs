@@ -55,6 +55,8 @@ public sealed class VoiceBubbleController : IDisposable
     private readonly IPictureStorageService _pictureStorage;
     private VoicePlan? _questionPlan;
     private List<VoiceQuestion>? _openQuestions;
+    private readonly List<VoiceAnswerCandidate> _picked = [];
+    private const string DoneChoiceKey = "done";
     private int _questionIndex;
     private bool _isPersonalPlan;
     private Dictionary<string, VoiceAnswerCandidate>? _candidates;
@@ -671,6 +673,7 @@ public sealed class VoiceBubbleController : IDisposable
         bubble.QuestionCaption = _isPersonalPlan ? Translator.VoiceQuestion_RememberCaption : null;
         bubble.ClearQuestionFilter();
         _candidates = null;
+        _picked.Clear();
         bubble.SetChoices([]);
         Present(VoiceBubbleState.Question);
         _ = LoadChoicesAsync(question, null, TimeSpan.Zero);
@@ -702,7 +705,20 @@ public sealed class VoiceBubbleController : IDisposable
             var (choices, byKey) = await Task.Run(async () =>
             {
                 var candidates = await _questions.GetCandidatesAsync(question, filter, token).ConfigureAwait(false);
-                return ToChoices(candidates);
+                if (!question.AllowsMany)
+                    return ToChoices(candidates);
+
+                // A group: the people already picked leave the list, and "Done" on top finishes once there is one.
+                var picked = _picked.ToList();
+                var (choices, byKey) = ToChoices(candidates.Where(candidate => !picked.Exists(p => p.Key == candidate.Key)).ToList());
+                if (picked.Count > 0)
+                {
+                    choices.Insert(0, new VoiceBubbleChoice(DoneChoiceKey,
+                        string.Format(CultureInfo.CurrentCulture, Translator.VoiceQuestion_GroupDone, picked.Count),
+                        string.Join(", ", picked.Select(static p => p.Title)), null));
+                }
+
+                return (choices, byKey);
             }, token);
 
             if (token.IsCancellationRequested || State != VoiceBubbleState.Question)
@@ -757,11 +773,33 @@ public sealed class VoiceBubbleController : IDisposable
     /// </summary>
     private void BubbleChoiceSelected(object? sender, VoiceBubbleChoice choice)
     {
-        if (_questionPlan is not { } plan || _openQuestions is not { } questions || _questionIndex >= questions.Count
-            || _candidates is null || !_candidates.TryGetValue(choice.Key, out var answer))
+        if (_questionPlan is not { } plan || _openQuestions is not { } questions || _questionIndex >= questions.Count || _candidates is null)
             return;
 
         var question = questions[_questionIndex];
+        VoiceAnswerCandidate? answer;
+        if (question.AllowsMany)
+        {
+            if (choice.Key != DoneChoiceKey)
+            {
+                if (_candidates.TryGetValue(choice.Key, out var member) && _picked.Count < BrainFact.MaxGroupMembers)
+                    _picked.Add(member);
+
+                _host.Bubble.ClearQuestionFilter();
+                _ = LoadChoicesAsync(question, null, TimeSpan.Zero);
+                return;
+            }
+
+            if (_picked.Count == 0)
+                return;
+
+            answer = VoiceAnswerCandidate.Group(_picked.ToList());
+        }
+        else if (!_candidates.TryGetValue(choice.Key, out answer))
+        {
+            return;
+        }
+
         plan = _questions.ApplyAnswer(plan, question, answer);
         _questionPlan = plan;
 
@@ -811,6 +849,7 @@ public sealed class VoiceBubbleController : IDisposable
         _questionPlan = null;
         _openQuestions = null;
         _candidates = null;
+        _picked.Clear();
         _questionIndex = 0;
     }
 

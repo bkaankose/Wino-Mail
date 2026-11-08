@@ -38,6 +38,14 @@ Goal: the voice bubble becomes Wino Assistant with a text mode (plan section 2) 
 - AppKit `Composing` state in the Mac bubble view, the text shortcut and its settings row, "Wino Assistant" naming.
 - Audit of the Mac voice code against plan section 0; logic that belongs in the shared layer moves there.
 
+## Phase 2: brain, learned facts and device intents (Windows, 8 Nov)
+
+Plan sections 4 and the brain part of 7. Contracts `3.0.0-alpha.20`.
+
+- Brain sections carry the account's name and order; events are gone from the contract, the renderer and the client. Accounts render in the user's order (`a1` is the first account) and the account name names the account. Top contacts leave out every own address and alias. Renaming or reordering accounts pushes, and only when the section's value changed.
+- New learned facts: sender alias (a domain the user picked, used for mail selections), group (people picked one by one, then Done), default account for new mails and tasks (asked by the server when several accounts could take it), filter word (a word for a kind of sender). "What Wino remembers" lists them.
+- Device intents in both modes: sender kind on mail selections (classified on the device from the sender's address and name), free-slot requests on new and moved events (the device picks the gap across every calendar, inside working hours or a part of the day), and the week start and working hours in each request.
+
 ## Log
 
 - 8 Nov: branch created from `7b3add0d` (macOS voice port merged with the Windows work); plan and this file added. A headless agent briefly started on the Mac was stopped before making changes; all work now runs from the Windows session.

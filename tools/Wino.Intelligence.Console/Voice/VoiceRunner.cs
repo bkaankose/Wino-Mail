@@ -47,6 +47,7 @@ internal static class VoiceRunner
         var cases = options.Texts.Count > 0
             ? options.Texts.Select((text, index) => new VoiceCase { Id = $"text-{index + 1}", Domain = "adhoc", Text = text }).ToList()
             : VoiceCaseReader.Read(ExpandCorpus(options.Corpus));
+        cases = cases.Where(item => string.IsNullOrWhiteSpace(item.Mode) || string.Equals(item.Mode, options.Mode.ToString(), StringComparison.OrdinalIgnoreCase)).ToList();
         if (options.Filter is { } filter)
             cases = cases.Where(item => item.Id.Contains(filter, StringComparison.OrdinalIgnoreCase)
                 || item.Domain.Equals(filter, StringComparison.OrdinalIgnoreCase)
@@ -252,7 +253,7 @@ internal static class VoiceRunner
         foreach (var section in sections)
         {
             var s = section.Section;
-            Emit(log, $"  {s.Mailbox.Address} ({s.Mailbox.Provider}): {s.Folders.Count} folders, {s.Calendars.Count} calendars, {s.TaskLists.Count} lists, {s.TopContacts.Count} contacts, {s.Events.Count} events", ConsoleColor.DarkGray);
+            Emit(log, $"  {s.Mailbox.Address} ({s.Mailbox.Provider}): {s.Folders.Count} folders, {s.Calendars.Count} calendars, {s.TaskLists.Count} lists, {s.TopContacts.Count} contacts, name \"{s.AccountName}\" order {s.Order}", ConsoleColor.DarkGray);
         }
 
         if (options.FactsFile is { } factsFile)
@@ -317,7 +318,24 @@ internal static class VoiceRunner
 
                 var wanted = answers.Count > 0 ? answers.Dequeue() : null;
                 VoiceAnswerCandidate? answer = null;
-                if (wanted is null)
+                if (question.AllowsMany)
+                {
+                    // A group answer names its people with "+" ("Jay+Christian"); without one, the first two candidates.
+                    var members = new List<VoiceAnswerCandidate>();
+                    foreach (var name in wanted?.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? [])
+                    {
+                        var member = candidates.FirstOrDefault(candidate => Matches(candidate, name))
+                            ?? (await questionService.GetCandidatesAsync(question, name)).FirstOrDefault();
+                        if (member is not null && !members.Exists(m => m.Key == member.Key))
+                            members.Add(member);
+                    }
+
+                    if (wanted is null)
+                        members.AddRange(candidates.Take(2));
+
+                    answer = members.Count > 0 ? VoiceAnswerCandidate.Group(members) : null;
+                }
+                else if (wanted is null)
                 {
                     answer = candidates.FirstOrDefault();
                 }
@@ -428,7 +446,7 @@ internal static class VoiceRunner
 
             using (socket)
             {
-                await SendAsync(socket, new VoiceClientFrame(VoiceFrameTypes.Start, new VoiceInterpretContext(TimeZoneInfo.Local.Id, now, options.Languages.ToList(), VoiceInputKind.Text)), timeout.Token);
+                await SendAsync(socket, new VoiceClientFrame(VoiceFrameTypes.Start, new VoiceInterpretContext(TimeZoneInfo.Local.Id, now, options.Languages.ToList(), VoiceInputKind.Text, WorkDayStart: new TimeOnly(9, 0), WorkDayEnd: new TimeOnly(18, 0))), timeout.Token);
                 var sentText = false;
                 while (true)
                 {

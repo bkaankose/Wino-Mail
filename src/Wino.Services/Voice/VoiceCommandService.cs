@@ -16,7 +16,7 @@ using Wino.Mail.Api.Contracts.Voice;
 
 namespace Wino.Services.Voice;
 
-public sealed class VoiceCommandService(IWinoAccountApiClient apiClient) : IVoiceCommandService
+public sealed class VoiceCommandService(IWinoAccountApiClient apiClient, IPreferencesService preferences) : IVoiceCommandService
 {
     public async Task<VoiceCommandStartResult> StartAsync(VoiceInputKind input = VoiceInputKind.Audio, string? typedText = null, CancellationToken cancellationToken = default)
     {
@@ -43,7 +43,7 @@ public sealed class VoiceCommandService(IWinoAccountApiClient apiClient) : IVoic
         return new VoiceCommandStartResult(session, null);
     }
 
-    private static VoiceInterpretContext CreateContext()
+    private VoiceInterpretContext CreateContext()
     {
         var languages = new List<string>();
         var uiLanguage = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
@@ -52,7 +52,15 @@ public sealed class VoiceCommandService(IWinoAccountApiClient apiClient) : IVoic
         if (!languages.Contains("en"))
             languages.Add("en");
 
-        return new VoiceInterpretContext(TimeZoneInfo.Local.Id, DateTime.Now, languages);
+        // The calendar's week start and working hours, so "this week" and "during work hours" mean what the calendar shows.
+        var workingHours = preferences.IsWorkingHoursEnabled && preferences.WorkingHourStart >= TimeSpan.Zero
+            && preferences.WorkingHourEnd > preferences.WorkingHourStart && preferences.WorkingHourEnd < TimeSpan.FromDays(1);
+        return new VoiceInterpretContext(TimeZoneInfo.Local.Id, DateTime.Now, languages)
+        {
+            WeekStart = preferences.FirstDayOfWeek,
+            WorkDayStart = workingHours ? TimeOnly.FromTimeSpan(preferences.WorkingHourStart) : null,
+            WorkDayEnd = workingHours ? TimeOnly.FromTimeSpan(preferences.WorkingHourEnd) : null,
+        };
     }
 }
 

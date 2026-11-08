@@ -7,9 +7,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Itenso.TimePeriod;
 using Serilog;
-using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -22,7 +20,8 @@ namespace Wino.Services.Voice;
 /// <summary>
 /// Derives the brain section of one mailbox from local data. Only provider ids (remote folder, calendar and list ids,
 /// IMAP paths) and names leave the device; other people appear as name and address hash. The section is ordered
-/// deterministically so an unchanged mailbox produces the same hash and is not pushed again.
+/// deterministically so an unchanged mailbox produces the same hash and is not pushed again. Events are never part of
+/// it: the device resolves event commands against its full calendar.
 /// </summary>
 public sealed class VoiceBrainSectionBuilder(
     IFolderService folderService,
@@ -32,9 +31,6 @@ public sealed class VoiceBrainSectionBuilder(
     IMailCategoryService categoryService,
     IRecipientHistoryService recipientHistory)
 {
-    private const int PastEventDays = 7;
-    private const int FutureEventDays = 30;
-
     private static readonly HashSet<SpecialFolderType> SkippedFolderTypes =
     [
         SpecialFolderType.Chat,
@@ -65,9 +61,8 @@ public sealed class VoiceBrainSectionBuilder(
         var aliases = await LoadAsync(() => accountService.GetAccountAliasesAsync(account.Id), "aliases").ConfigureAwait(false);
         var categories = await LoadAsync(() => categoryService.GetCategoriesAsync(account.Id), "categories").ConfigureAwait(false);
         var correspondents = await LoadAsync(() => recipientHistory.GetMostFrequentAsync(account.Id, BrainSection.MaxContacts * 3), "contacts").ConfigureAwait(false);
+        var ownAddresses = await OwnAddressesAsync().ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-
-        var events = await BuildEventsAsync(calendars, cancellationToken).ConfigureAwait(false);
 
         var brainFolders = BuildFolders(folders);
         var capabilities = new List<string>();
@@ -77,6 +72,8 @@ public sealed class VoiceBrainSectionBuilder(
         var section = new BrainSection(
             mailbox,
             string.IsNullOrWhiteSpace(account.SenderName) ? null : account.SenderName.Trim(),
+            string.IsNullOrWhiteSpace(account.Name) ? null : account.Name.Trim(),
+            Math.Max(0, account.Order),
             isCalendarEnabled,
             isTasksEnabled,
             brainFolders,
@@ -108,24 +105,22 @@ public sealed class VoiceBrainSectionBuilder(
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Order(StringComparer.OrdinalIgnoreCase)
                 .ToList(),
-            BuildContacts(correspondents, account),
-            events,
+            BuildContacts(correspondents, ownAddresses),
             capabilities);
 
         return Trim(section);
     }
 
     /// <summary>
-    /// The SHA-256 of what the section says, not how it is ordered: folders, calendars and lists as sets, contacts as
-    /// members (a change of rank is no change), and only events that have not ended (an event that ages out is no
-    /// change). A section is pushed only when this differs from the last pushed value.
+    /// The SHA-256 of what the section says, not how it is ordered: folders, calendars and lists as sets and contacts
+    /// as members (a change of rank is no change). A section is pushed only when this differs from the last pushed value.
     /// </summary>
-    public static string ValueHash(BrainSection section, DateTimeOffset now)
+    public static string ValueHash(BrainSection section)
     {
         var text = new StringBuilder();
         void Line(params object?[] parts) => text.Append(string.Join('\u001f', parts.Select(static part => part?.ToString() ?? string.Empty))).Append('\n');
 
-        Line("m", section.Mailbox.Provider, BrainMailboxKey.Normalize(section.Mailbox.Address), section.SenderName, section.IsCalendarEnabled, section.IsTasksEnabled);
+        Line("m", section.Mailbox.Provider, BrainMailboxKey.Normalize(section.Mailbox.Address), section.SenderName, section.AccountName, section.Order, section.IsCalendarEnabled, section.IsTasksEnabled);
         foreach (var folder in section.Folders.OrderBy(static folder => folder.RemoteId, StringComparer.Ordinal))
             Line("f", folder.RemoteId, folder.Name, folder.Path, folder.SpecialType);
         foreach (var calendar in section.Calendars.OrderBy(static calendar => calendar.RemoteId, StringComparer.Ordinal))
@@ -138,8 +133,6 @@ public sealed class VoiceBrainSectionBuilder(
             Line("g", category);
         foreach (var contact in section.TopContacts.OrderBy(static contact => contact.AddressHash, StringComparer.Ordinal))
             Line("p", contact.AddressHash, contact.Name);
-        foreach (var ev in section.Events.Where(ev => ev.End > now).OrderBy(static ev => ev.Start).ThenBy(static ev => ev.Title, StringComparer.Ordinal))
-            Line("e", ev.Start.ToUnixTimeSeconds(), ev.End.ToUnixTimeSeconds(), ev.IsAllDay, ev.Title, ev.CalendarRemoteId, ev.Recurrence);
         foreach (var capability in section.Capabilities.Order(StringComparer.Ordinal))
             Line("x", capability);
 
@@ -149,17 +142,11 @@ public sealed class VoiceBrainSectionBuilder(
     private static byte[] Serialize(BrainSection section)
         => JsonSerializer.SerializeToUtf8Bytes(section, WinoAccountApiJsonContext.Default.BrainSection);
 
-    /// <summary>Keeps the section within the server's size limit: events go first, then contacts, then custom folders.</summary>
+    /// <summary>Keeps the section within the server's size limit: contacts go first, then custom folders.</summary>
     private static BrainSection Trim(BrainSection section)
     {
         while (Serialize(section).Length > BrainSection.MaxBytes)
         {
-            if (section.Events.Count > 0)
-            {
-                section.Events.RemoveAt(section.Events.Count - 1);
-                continue;
-            }
-
             if (section.TopContacts.Count > 0)
             {
                 section.TopContacts.RemoveAt(section.TopContacts.Count - 1);
@@ -211,94 +198,34 @@ public sealed class VoiceBrainSectionBuilder(
     private static string Name(MailItemFolder folder)
         => (string.IsNullOrWhiteSpace(folder.DisplayName) ? folder.FolderName : folder.DisplayName)?.Trim() ?? string.Empty;
 
-    private static List<BrainContact> BuildContacts(List<RecipientHistory> correspondents, MailAccount account)
+    // The user writes to their own other accounts and aliases often; those are accounts, not people.
+    private static List<BrainContact> BuildContacts(List<RecipientHistory> correspondents, HashSet<string> ownAddresses)
     {
-        var own = BrainMailboxKey.Normalize(account.Address ?? string.Empty);
         return correspondents
             .Where(static row => !string.IsNullOrWhiteSpace(row.DisplayName) && !string.IsNullOrWhiteSpace(row.Address))
-            .Where(row => !string.Equals(BrainMailboxKey.Normalize(row.Address), own, StringComparison.Ordinal))
+            .Where(row => !ownAddresses.Contains(BrainMailboxKey.Normalize(row.Address)))
             .Select(static row => new BrainContact(row.DisplayName.Trim(), VoiceBrainHash.Address(row.Address)))
             .DistinctBy(static contact => contact.AddressHash)
             .Take(BrainSection.MaxContacts)
             .ToList();
     }
 
-    /// <summary>
-    /// Events from the past week and the next month. A recurring series is listed once, at its first occurrence in the
-    /// window, with its rule; items that have no provider id yet (not synchronized) are skipped.
-    /// </summary>
-    private async Task<List<BrainEvent>> BuildEventsAsync(List<AccountCalendar> calendars, CancellationToken cancellationToken)
+    private async Task<HashSet<string>> OwnAddressesAsync()
     {
-        var now = DateTime.Now;
-        var window = new TimeRange(now.Date.AddDays(-PastEventDays), now.Date.AddDays(FutureEventDays + 1));
-        var result = new List<(DateTime Start, string CalendarId, BrainEvent Event)>();
-        var seenSeries = new HashSet<Guid>();
-
-        foreach (var calendar in calendars.Where(static calendar => calendar.IsExtended && !string.IsNullOrWhiteSpace(calendar.RemoteCalendarId)))
+        var own = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var account in await LoadAsync(accountService.GetAccountsAsync, "accounts").ConfigureAwait(false))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var items = await LoadAsync(() => calendarService.GetCalendarEventsAsync(calendar, window), "events").ConfigureAwait(false);
-            var parents = new Dictionary<Guid, CalendarItem?>();
+            if (!string.IsNullOrWhiteSpace(account.Address))
+                own.Add(BrainMailboxKey.Normalize(account.Address));
 
-            foreach (var item in items.Where(static item => !item.IsHidden).OrderBy(static item => item.LocalStartDate))
+            foreach (var alias in await LoadAsync(() => accountService.GetAccountAliasesAsync(account.Id), "aliases").ConfigureAwait(false))
             {
-                string? recurrence = null;
-                var remoteId = item.RemoteEventId;
-                if (item.IsRecurringEvent)
-                {
-                    var seriesId = item.RecurringCalendarItemId ?? item.Id;
-                    if (!seenSeries.Add(seriesId))
-                        continue;
-
-                    var parent = item.IsRecurringParent ? item : await GetParentAsync(seriesId, parents).ConfigureAwait(false);
-                    recurrence = parent?.Recurrence;
-                    if (string.IsNullOrWhiteSpace(remoteId))
-                        remoteId = parent?.RemoteEventId;
-                }
-
-                if (string.IsNullOrWhiteSpace(remoteId) || string.IsNullOrWhiteSpace(item.Title))
-                    continue;
-
-                var start = item.LocalStartDate;
-                var end = item.LocalEndDate;
-                result.Add((start, calendar.RemoteCalendarId, new BrainEvent(
-                    item.Title.Trim(),
-                    new DateTimeOffset(DateTime.SpecifyKind(start, DateTimeKind.Unspecified), TimeZoneInfo.Local.GetUtcOffset(start)),
-                    new DateTimeOffset(DateTime.SpecifyKind(end, DateTimeKind.Unspecified), TimeZoneInfo.Local.GetUtcOffset(end)),
-                    item.IsAllDayEvent,
-                    calendar.RemoteCalendarId,
-                    string.IsNullOrWhiteSpace(recurrence) ? null : recurrence.Trim())));
+                if (!string.IsNullOrWhiteSpace(alias.AliasAddress))
+                    own.Add(BrainMailboxKey.Normalize(alias.AliasAddress));
             }
         }
 
-        // Upcoming events matter more to the planner than past ones, so the past ones are dropped first when trimming.
-        return result
-            .OrderBy(entry => entry.Start < now ? 1 : 0)
-            .ThenBy(entry => entry.Start < now ? -entry.Start.Ticks : entry.Start.Ticks)
-            .ThenBy(static entry => entry.Event.Title, StringComparer.Ordinal)
-            .ThenBy(static entry => entry.CalendarId, StringComparer.Ordinal)
-            .Take(BrainSection.MaxEvents)
-            .Select(static entry => entry.Event)
-            .ToList();
-    }
-
-    private async Task<CalendarItem?> GetParentAsync(Guid id, Dictionary<Guid, CalendarItem?> cache)
-    {
-        if (cache.TryGetValue(id, out var cached))
-            return cached;
-
-        CalendarItem? parent = null;
-        try
-        {
-            parent = await calendarService.GetCalendarItemAsync(id).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            Log.Debug(ex, "Could not read a recurring series for the voice brain.");
-        }
-
-        cache[id] = parent;
-        return parent;
+        return own;
     }
 
     private static async Task<List<T>> LoadAsync<T>(Func<Task<List<T>>> load, string what)

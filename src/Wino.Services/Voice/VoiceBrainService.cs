@@ -13,6 +13,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Voice;
 using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Api.Contracts.Voice;
+using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.UI;
 
 namespace Wino.Services.Voice;
@@ -31,7 +32,9 @@ public sealed class VoiceBrainService : IVoiceBrainService,
     IRecipient<FolderRenamed>,
     IRecipient<FolderDeleted>,
     IRecipient<WinoAccountSignedInMessage>,
-    IRecipient<WinoAccountSignedOutMessage>
+    IRecipient<WinoAccountSignedOutMessage>,
+    IRecipient<AccountUpdatedMessage>,
+    IRecipient<AccountMenuItemsReordered>
 {
     private const string ModeKey = "mode";
     private const string BrainKey = "brain";
@@ -107,6 +110,8 @@ public sealed class VoiceBrainService : IVoiceBrainService,
         _messenger.Register<FolderDeleted>(this);
         _messenger.Register<WinoAccountSignedInMessage>(this);
         _messenger.Register<WinoAccountSignedOutMessage>(this);
+        _messenger.Register<AccountUpdatedMessage>(this);
+        _messenger.Register<AccountMenuItemsReordered>(this);
 
         // Startup sends nothing: the cached mode stands until a voice response or the settings page reports it, and
         // every section is only checked at the next rebuild, which sends it only when its value changed.
@@ -246,7 +251,7 @@ public sealed class VoiceBrainService : IVoiceBrainService,
         try
         {
             // The same answer again (the same label for the same person, account, folder or calendar) is already known.
-            var key = FactKey(request.Kind, request.Label);
+            var key = FactKey(request.Kind, request.Label, request.DefaultUse);
             var value = FactValue(request);
             if (string.Equals(await _store.GetVoiceValueAsync(key, cancellationToken).ConfigureAwait(false), value, StringComparison.Ordinal))
                 return;
@@ -332,6 +337,20 @@ public sealed class VoiceBrainService : IVoiceBrainService,
     }
 
     public void Receive(FolderDeleted message)
+    {
+        MarkDirty(null);
+        RequestPush();
+    }
+
+    // A renamed account or a new account order changes how the user names accounts; an update that changed neither
+    // hashes the same and sends nothing.
+    public void Receive(AccountUpdatedMessage message)
+    {
+        MarkDirty(message.Account?.Id);
+        RequestPush();
+    }
+
+    public void Receive(AccountMenuItemsReordered message)
     {
         MarkDirty(null);
         RequestPush();
@@ -504,7 +523,7 @@ public sealed class VoiceBrainService : IVoiceBrainService,
             return true;
 
         var key = SectionKey(section.Mailbox);
-        var hash = VoiceBrainSectionBuilder.ValueHash(section, DateTimeOffset.Now);
+        var hash = VoiceBrainSectionBuilder.ValueHash(section);
         if (string.Equals(await _store.GetVoiceValueAsync(key, cancellationToken).ConfigureAwait(false), hash, StringComparison.Ordinal))
             return true;
 
@@ -549,10 +568,13 @@ public sealed class VoiceBrainService : IVoiceBrainService,
 
     private static string SectionKey(BrainMailboxKey mailbox) => $"{SectionKeyPrefix}{mailbox.Provider}:{mailbox.Address}";
 
-    private static string FactKey(BrainFactKind kind, string label) => $"{FactKeyPrefix}{kind}:{label.Trim().ToLowerInvariant()}";
+    // A default account is one per use, so the use is part of its key; every other fact is one per label.
+    private static string FactKey(BrainFactKind kind, string label, BrainDefaultUse? use)
+        => kind == BrainFactKind.DefaultAccount ? $"{FactKeyPrefix}{kind}:{use}" : $"{FactKeyPrefix}{kind}:{label.Trim().ToLowerInvariant()}";
 
     private static string FactValue(AddBrainFactRequest request)
-        => string.Join('|', request.PersonAddressHash, request.Mailbox?.Provider, request.Mailbox is { } mailbox ? BrainMailboxKey.Normalize(mailbox.Address) : null, request.TargetRemoteId);
+        => string.Join('|', request.PersonAddressHash, request.Mailbox?.Provider, request.Mailbox is { } mailbox ? BrainMailboxKey.Normalize(mailbox.Address) : null, request.TargetRemoteId,
+            request.SenderKind, string.Join(',', (request.Members ?? []).Select(static member => member.AddressHash).Order(StringComparer.Ordinal)));
 
     /// <summary>Forgets the sent marker of a deleted fact, found by its id in the cached brain, so the answer can be learned again.</summary>
     private async Task ForgetFactAsync(string factId, CancellationToken cancellationToken)
@@ -562,7 +584,7 @@ public sealed class VoiceBrainService : IVoiceBrainService,
             var cached = await _store.GetVoiceValueAsync(BrainKey, cancellationToken).ConfigureAwait(false);
             var brain = string.IsNullOrWhiteSpace(cached) ? null : JsonSerializer.Deserialize(cached, WinoAccountApiJsonContext.Default.VoiceBrainDto);
             if (brain?.Facts?.FirstOrDefault(fact => fact.Id == factId) is { } fact)
-                await _store.SetVoiceValueAsync(FactKey(fact.Kind, fact.Label), null, cancellationToken).ConfigureAwait(false);
+                await _store.SetVoiceValueAsync(FactKey(fact.Kind, fact.Label, fact.DefaultUse), null, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {

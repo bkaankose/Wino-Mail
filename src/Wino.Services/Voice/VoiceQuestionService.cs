@@ -11,6 +11,9 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Contacts;
+using Wino.Core.Domain.Models.Folders;
+using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Voice;
 using Wino.Mail.Api.Contracts.Voice;
 
@@ -21,10 +24,12 @@ public sealed class VoiceQuestionService(
     IFolderService folderService,
     ICalendarService calendarService,
     IContactService contactService,
-    IRecipientHistoryService recipientHistory) : IVoiceQuestionService
+    IRecipientHistoryService recipientHistory,
+    IMailService mailService) : IVoiceQuestionService
 {
     private const int TopPeoplePerAccount = 25;
     private const int SearchLimit = 40;
+    private const int RecentMailsPerAccount = 300;
 
     private static readonly HashSet<SpecialFolderType> HiddenFolderTypes =
     [
@@ -42,7 +47,7 @@ public sealed class VoiceQuestionService(
             foreach (var reference in command.Unresolved ?? [])
             {
                 var phrase = reference.Phrase?.Trim() ?? string.Empty;
-                if (reference.Kind != UnresolvedKind.DefaultCalendar && phrase.Length == 0)
+                if (reference.Kind is not (UnresolvedKind.DefaultCalendar or UnresolvedKind.DefaultAccount) && phrase.Length == 0)
                     continue;
 
                 if (questions.Any(existing => existing.Kind == reference.Kind && SamePhrase(existing.Phrase, phrase)))
@@ -133,7 +138,8 @@ public sealed class VoiceQuestionService(
         {
             var name = raw?.Trim();
             if (string.IsNullOrWhiteSpace(name) || name.Contains('@')
-                || identified.Exists(person => SamePhrase(person.Name, name)))
+                || identified.Exists(person => SamePhrase(person.Name, name))
+                || command.Unresolved?.Any(reference => reference.Kind == UnresolvedKind.Group && SamePhrase(reference.Phrase, name)) == true)
                 continue;
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -205,6 +211,19 @@ public sealed class VoiceQuestionService(
                     .ToList(),
                 UnresolvedKind.Folder => await GetFoldersAsync(accounts, text, cancellationToken).ConfigureAwait(false),
                 UnresolvedKind.DefaultCalendar => await GetCalendarsAsync(accounts, text, cancellationToken).ConfigureAwait(false),
+                UnresolvedKind.Group => await GetPeopleAsync(accounts, text, cancellationToken).ConfigureAwait(false),
+                UnresolvedKind.Sender => await GetSendersAsync(accounts, text, cancellationToken).ConfigureAwait(false),
+                UnresolvedKind.DefaultAccount => accounts
+                    .Where(account => question.Phrase != nameof(BrainDefaultUse.Task) || (account.IsTaskAccessGranted && account.IsTaskAccessEnabled))
+                    .Where(account => Matches(text, AccountTitle(account), account.Address))
+                    .Select(static account => new VoiceAnswerCandidate($"a:{account.Id:N}", AccountTitle(account), Distinct(account.Address, AccountTitle(account)), null, account))
+                    .ToList(),
+                UnresolvedKind.Filter =>
+                [
+                    new VoiceAnswerCandidate("k:Person", Translator.VoiceQuestion_Filter_Person, null, null, null, SenderKind: MailSenderKind.Person),
+                    new VoiceAnswerCandidate("k:Service", Translator.VoiceQuestion_Filter_Service, null, null, null, SenderKind: MailSenderKind.Service),
+                    new VoiceAnswerCandidate("k:Newsletter", Translator.VoiceQuestion_Filter_Newsletter, null, null, null, SenderKind: MailSenderKind.Newsletter),
+                ],
                 _ => []
             };
         }
@@ -309,6 +328,19 @@ public sealed class VoiceQuestionService(
                 => new AddBrainFactRequest(BrainFactKind.FolderSynonym, label, mailbox, folder.RemoteFolderId, answer.Title, null),
             UnresolvedKind.DefaultCalendar when mailbox is not null && answer.Calendar is { } calendar && !string.IsNullOrWhiteSpace(calendar.RemoteCalendarId)
                 => new AddBrainFactRequest(BrainFactKind.DefaultCalendar, string.Empty, mailbox, calendar.RemoteCalendarId, answer.Title, null),
+            UnresolvedKind.Sender when !string.IsNullOrWhiteSpace(answer.Address)
+                => new AddBrainFactRequest(BrainFactKind.SenderAlias, label, null, answer.Address, answer.Title, null),
+            UnresolvedKind.Group when answer.Members is { Count: > 0 } members
+                => new AddBrainFactRequest(BrainFactKind.Group, label, null, null, null, null,
+                    Members: members
+                        .Where(static member => !string.IsNullOrWhiteSpace(member.Address))
+                        .Take(BrainFact.MaxGroupMembers)
+                        .Select(static member => new BrainContact(member.Title, VoiceBrainHash.Address(member.Address!)))
+                        .ToList()),
+            UnresolvedKind.DefaultAccount when mailbox is not null && Enum.TryParse<BrainDefaultUse>(question.Phrase, out var use)
+                => new AddBrainFactRequest(BrainFactKind.DefaultAccount, string.Empty, mailbox, null, answer.Title, null, DefaultUse: use),
+            UnresolvedKind.Filter when answer.SenderKind is { } kind
+                => new AddBrainFactRequest(BrainFactKind.FilterSynonym, label, null, null, answer.Title, null, SenderKind: kind),
             _ => null
         };
     }
@@ -340,6 +372,22 @@ public sealed class VoiceQuestionService(
                         Mailbox = ForAccount(result.Mailbox, account)
                     };
                 }
+                return result;
+
+            case UnresolvedKind.Group when answer.Members is { Count: > 0 } members:
+                return ReplaceGroup(result, question.Phrase, members.Select(static member => member.Address).OfType<string>().ToList());
+
+            case UnresolvedKind.Sender when !string.IsNullOrWhiteSpace(answer.Address):
+                if (result.Mail is { } senderMail && (asked || SamePhrase(senderMail.Sender, question.Phrase)))
+                    result = result with { Mail = senderMail with { Sender = answer.Address } };
+                return result;
+
+            case UnresolvedKind.DefaultAccount when answer.Account is { } defaultAccount:
+                return result with { Mailbox = ForAccount(result.Mailbox, defaultAccount) };
+
+            case UnresolvedKind.Filter when answer.SenderKind is { } senderKind:
+                if (result.Mail is { } filtered)
+                    result = result with { Mail = filtered with { SenderKind = senderKind } };
                 return result;
 
             case UnresolvedKind.DefaultCalendar when answer.Account is { } account && answer.Calendar is { } calendar:
@@ -374,6 +422,62 @@ public sealed class VoiceQuestionService(
             result = result with { Events = selection with { Attendee = address } };
 
         return result;
+    }
+
+    private static VoiceCommand ReplaceGroup(VoiceCommand command, string phrase, List<string> addresses)
+    {
+        List<string> Replace(List<string> values)
+            => values.SelectMany(value => SamePhrase(value, phrase) ? addresses : [value]).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+        var result = command;
+        if (command.Draft is { } draft)
+            result = result with { Draft = draft with { To = Replace(draft.To ?? []), Cc = Replace(draft.Cc ?? []) } };
+        if (command.Event is { } details)
+            result = result with { Event = details with { Attendees = Replace(details.Attendees ?? []) } };
+
+        return result;
+    }
+
+    /// <summary>
+    /// Organizations the user gets mail from: automated senders of recent mail, one per domain, named as their mails
+    /// name them. The domain is what a sender alias remembers.
+    /// </summary>
+    private async Task<List<VoiceAnswerCandidate>> GetSendersAsync(List<MailAccount> accounts, string text, CancellationToken cancellationToken)
+    {
+        var senders = new Dictionary<string, (string Name, int Count)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var account in accounts)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var folders = (await folderService.GetFoldersAsync(account.Id).ConfigureAwait(false) ?? [])
+                .Where(static folder => folder.SpecialFolderType == SpecialFolderType.Inbox)
+                .Cast<IMailItemFolder>()
+                .ToList();
+            if (folders.Count == 0)
+                continue;
+
+            var options = new MailListInitializationOptions(folders, FilterOptionType.All, SortingOptionType.ReceiveDate,
+                CreateThreads: false, IsFocusedOnly: null, SearchQuery: string.Empty, DeduplicateByServerId: true) { Take = RecentMailsPerAccount };
+            var page = await mailService.FetchMailPageAsync(options, cancellationToken: cancellationToken).ConfigureAwait(false);
+            foreach (var mail in page.Items)
+            {
+                var address = mail.FromAddress?.Trim() ?? string.Empty;
+                var at = address.LastIndexOf('@');
+                if (at <= 0 || at == address.Length - 1 || MailSenderClassifier.Classify(address, mail.FromName) == MailSenderKind.Person)
+                    continue;
+
+                var domain = address[(at + 1)..].ToLowerInvariant();
+                var name = string.IsNullOrWhiteSpace(mail.FromName) ? domain : mail.FromName.Trim();
+                senders[domain] = senders.TryGetValue(domain, out var known) ? (known.Name, known.Count + 1) : (name, 1);
+            }
+        }
+
+        return senders
+            .Where(entry => Matches(text, entry.Value.Name, entry.Key))
+            .OrderByDescending(static entry => entry.Value.Count)
+            .ThenBy(static entry => entry.Value.Name, StringComparer.CurrentCultureIgnoreCase)
+            .Take(SearchLimit)
+            .Select(static entry => new VoiceAnswerCandidate($"s:{entry.Key}", entry.Value.Name, Distinct(entry.Key, entry.Value.Name), null, null, Address: entry.Key))
+            .ToList();
     }
 
     private static MailboxSelection ForAccount(MailboxSelection? current, MailAccount account)
@@ -583,6 +687,10 @@ public sealed class VoiceQuestionService(
         UnresolvedKind.Person => string.Format(CultureInfo.CurrentCulture, isRelationship ? Translator.VoiceQuestion_PersonRelationship : Translator.VoiceQuestion_Person, phrase),
         UnresolvedKind.Account => string.Format(CultureInfo.CurrentCulture, Translator.VoiceQuestion_Account, phrase),
         UnresolvedKind.Folder => string.Format(CultureInfo.CurrentCulture, Translator.VoiceQuestion_Folder, phrase),
+        UnresolvedKind.Sender => string.Format(CultureInfo.CurrentCulture, Translator.VoiceQuestion_Sender, phrase),
+        UnresolvedKind.Group => string.Format(CultureInfo.CurrentCulture, Translator.VoiceQuestion_Group, phrase),
+        UnresolvedKind.Filter => string.Format(CultureInfo.CurrentCulture, Translator.VoiceQuestion_Filter, phrase),
+        UnresolvedKind.DefaultAccount => phrase == nameof(BrainDefaultUse.Task) ? Translator.VoiceQuestion_DefaultAccountTask : Translator.VoiceQuestion_DefaultAccountMail,
         _ => Translator.VoiceQuestion_DefaultCalendar
     };
 

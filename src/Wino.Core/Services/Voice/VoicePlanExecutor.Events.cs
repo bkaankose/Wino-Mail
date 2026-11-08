@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Itenso.TimePeriod;
+using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
@@ -399,7 +400,8 @@ public sealed partial class VoicePlanExecutor
         if (command.Change is not { } change)
             return StepResult.Failed(Translator.VoiceIssue_Missing_Change);
 
-        var timeChanged = change.NewDate is not null || change.NewStartTime is not null || change.ShiftMinutes is not null || change.DurationMinutes is not null;
+        var timeChanged = change.NewDate is not null || change.NewStartTime is not null || change.ShiftMinutes is not null || change.DurationMinutes is not null
+            || change.Slot is not null;
         var detailsChanged = !string.IsNullOrWhiteSpace(change.NewTitle) || !string.IsNullOrWhiteSpace(change.NewLocation);
         if (!timeChanged && !detailsChanged)
             return StepResult.Failed(Translator.VoiceIssue_Missing_Change);
@@ -438,6 +440,20 @@ public sealed partial class VoicePlanExecutor
                 isAllDay = false;
             }
 
+            if (change.Slot is { } slot)
+            {
+                if (slot.DurationMinutes > 0)
+                    length = TimeSpan.FromMinutes(slot.DurationMinutes);
+                else if (isAllDay)
+                    length = TimeSpan.FromHours(1);
+
+                if (await FindFreeSlotAsync(slot, length, current.Id).ConfigureAwait(false) is not { } free)
+                    return StepResult.Failed(string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_NoFreeSlot, EventTitle(current)));
+
+                start = free;
+                isAllDay = false;
+            }
+
             var newStart = start;
             var newLength = isAllDay ? TimeSpan.FromDays(Math.Max(1, Math.Round(length.TotalDays))) : length;
             await SaveEventAsync(target, timeChanged && !detailsChanged ? CalendarSynchronizerOperation.ChangeStartAndEndDate : CalendarSynchronizerOperation.UpdateEvent, item =>
@@ -457,6 +473,34 @@ public sealed partial class VoicePlanExecutor
         return StepResult.Done(timeChanged && lastStart is { } moved && targets.Count == 1
             ? string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_EventMoved, name, moved.ToString("f", CultureInfo.CurrentCulture))
             : string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_EventUpdated, name));
+    }
+
+    /// <summary>
+    /// The start of a free slot across every calendar on this device. Free events and all-day events that don't show as
+    /// out of office leave the time free; <paramref name="excludedEventId"/> is the event being moved.
+    /// </summary>
+    private async Task<DateTime?> FindFreeSlotAsync(EventSlotRequest slot, TimeSpan length, Guid? excludedEventId)
+    {
+        var period = new TimeRange(slot.From.ToDateTime(TimeOnly.MinValue), slot.To.AddDays(1).ToDateTime(TimeOnly.MinValue));
+        var busy = new List<(DateTime Start, DateTime End)>();
+        var accounts = await services.GetRequiredService<IAccountService>().GetAccountsAsync().ConfigureAwait(false) ?? [];
+        foreach (var account in accounts.Where(static account => account.IsCalendarAccessGranted && account.IsCalendarAccessEnabled))
+        {
+            foreach (var calendar in await calendarService.GetAccountCalendarsAsync(account.Id).ConfigureAwait(false) ?? [])
+            {
+                var items = await calendarService.GetCalendarEventsAsync(calendar, period).ConfigureAwait(false) ?? [];
+                busy.AddRange(items
+                    .Where(item => !item.IsHidden && item.Id != excludedEventId && item.ShowAs != CalendarItemShowAs.Free
+                        && (!item.IsAllDayEvent || item.ShowAs == CalendarItemShowAs.OutOfOffice))
+                    .Select(static item => (item.LocalStartDate, item.LocalEndDate)));
+            }
+        }
+
+        var workingHours = preferencesService.IsWorkingHoursEnabled && preferencesService.WorkingHourStart >= TimeSpan.Zero
+            && preferencesService.WorkingHourEnd > preferencesService.WorkingHourStart && preferencesService.WorkingHourEnd < TimeSpan.FromDays(1);
+        return FreeSlotFinder.Find(slot, length, busy, DateTime.Now,
+            workingHours ? TimeOnly.FromTimeSpan(preferencesService.WorkingHourStart) : null,
+            workingHours ? TimeOnly.FromTimeSpan(preferencesService.WorkingHourEnd) : null);
     }
 
     /// <summary>

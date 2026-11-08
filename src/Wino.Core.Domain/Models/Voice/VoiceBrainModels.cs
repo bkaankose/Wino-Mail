@@ -1,5 +1,6 @@
 #nullable enable
 using System.Collections.Generic;
+using System.Linq;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -17,8 +18,11 @@ public sealed record VoiceBrainSnapshot(VoiceBrainDto Brain, bool IsCached);
 /// </summary>
 public sealed record VoiceQuestion(UnresolvedKind Kind, string Phrase, bool IsRelationship, string Text)
 {
-    /// <summary>People and folders can be many, so their pickers have a filter box.</summary>
-    public bool IsSearchable => Kind is UnresolvedKind.Person or UnresolvedKind.Folder;
+    /// <summary>People, groups, senders and folders can be many, so their pickers have a filter box.</summary>
+    public bool IsSearchable => Kind is UnresolvedKind.Person or UnresolvedKind.Folder or UnresolvedKind.Group or UnresolvedKind.Sender;
+
+    /// <summary>A group is answered with several people: each pick adds one until the user picks done.</summary>
+    public bool AllowsMany => Kind == UnresolvedKind.Group;
 }
 
 /// <summary>
@@ -33,7 +37,14 @@ public sealed record VoiceAnswerCandidate(
     MailAccount? Account,
     MailItemFolder? Folder = null,
     AccountCalendar? Calendar = null,
-    string? Address = null);
+    string? Address = null,
+    IReadOnlyList<VoiceAnswerCandidate>? Members = null,
+    MailSenderKind? SenderKind = null)
+{
+    /// <summary>The answer to a group question: the people picked, one candidate each.</summary>
+    public static VoiceAnswerCandidate Group(IReadOnlyList<VoiceAnswerCandidate> members)
+        => new("g:" + string.Join(",", members.Select(static member => member.Key)), string.Join(", ", members.Select(static member => member.Title)), null, null, null, Members: members);
+}
 
 public static class VoiceProviderKinds
 {

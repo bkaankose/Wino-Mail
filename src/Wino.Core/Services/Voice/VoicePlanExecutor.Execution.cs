@@ -394,6 +394,17 @@ public sealed partial class VoicePlanExecutor
             end = start.AddMinutes(30);
         }
 
+        // "Find a free hour tomorrow afternoon": the device picks the time from every calendar it has.
+        if (details.Slot is { } slot)
+        {
+            var length = TimeSpan.FromMinutes(slot.DurationMinutes > 0 ? slot.DurationMinutes : 60);
+            if (await FindFreeSlotAsync(slot, length, null).ConfigureAwait(false) is not { } free)
+                return StepResult.Failed(string.Format(CultureInfo.CurrentCulture, Translator.VoiceResult_NoFreeSlot, details.Title.Trim()));
+
+            start = free;
+            end = free + length;
+        }
+
         var attendees = new List<CalendarEventAttendeeDraft>();
         foreach (var name in details.Attendees ?? [])
         {

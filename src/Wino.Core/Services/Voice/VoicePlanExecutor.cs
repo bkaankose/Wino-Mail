@@ -13,6 +13,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Voice;
 using Wino.Mail.Api.Contracts.Voice;
 
@@ -362,12 +363,13 @@ public sealed partial class VoicePlanExecutor : IVoicePlanExecutor
             selection.Order == MailSortOrder.Oldest,
             WithoutAttachments: selection.HasAttachments == false,
             NotFlagged: selection.IsFlagged == false,
-            Count: 0);
+            Count: 0,
+            SenderKind: selection.SenderKind);
     }
 
     private async Task<int> CountAsync(VoiceMailTarget target, CancellationToken cancellationToken)
     {
-        if (target.WithoutAttachments || target.NotFlagged)
+        if (target.WithoutAttachments || target.NotFlagged || target.SenderKind != MailSenderKind.Any)
             return (await FetchAsync(target, cancellationToken).ConfigureAwait(false)).Count;
 
         var matches = await mailService.CountMailsAsync(target.Query, cancellationToken).ConfigureAwait(false);
@@ -399,7 +401,8 @@ public sealed partial class VoicePlanExecutor : IVoicePlanExecutor
         IEnumerable<MailCopy> result = mails
             .DistinctBy(static mail => mail.UniqueId)
             .Where(mail => !target.WithoutAttachments || !mail.HasAttachments)
-            .Where(mail => !target.NotFlagged || !mail.IsFlagged);
+            .Where(mail => !target.NotFlagged || !mail.IsFlagged)
+            .Where(mail => MailSenderClassifier.Matches(target.SenderKind, mail.FromAddress, mail.FromName));
 
         result = target.OldestFirst
             ? result.OrderBy(static mail => mail.CreationDate)

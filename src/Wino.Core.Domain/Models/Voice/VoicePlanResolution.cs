@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Mail.Api.Contracts.Voice;
 
 namespace Wino.Core.Domain.Models.Voice;
 
@@ -14,6 +16,7 @@ namespace Wino.Core.Domain.Models.Voice;
 /// <param name="OldestFirst">Take the oldest matches instead of the newest.</param>
 /// <param name="WithoutAttachments">Keep only mails without attachments; the query can't express it.</param>
 /// <param name="NotFlagged">Keep only mails that aren't flagged; the query can't express it.</param>
+/// <param name="SenderKind">Keep only mails from that kind of sender, as <see cref="MailSenderClassifier"/> decides.</param>
 public sealed record VoiceMailTarget(
     MailAccount Account,
     MailListInitializationOptions Query,
@@ -21,7 +24,8 @@ public sealed record VoiceMailTarget(
     bool OldestFirst,
     bool WithoutAttachments,
     bool NotFlagged,
-    int Count);
+    int Count,
+    MailSenderKind SenderKind = MailSenderKind.Any);
 
 /// <summary>
 /// One calendar event a step acts on. <see cref="IsOrganizer"/>: the account organizes it, so deleting it cancels it

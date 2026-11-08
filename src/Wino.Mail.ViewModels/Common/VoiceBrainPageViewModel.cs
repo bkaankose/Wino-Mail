@@ -243,7 +243,7 @@ public partial class VoiceBrainPageViewModel : CoreBaseViewModel, IRecipient<Voi
                 var item = ToItem(fact, local);
                 switch (fact.Kind)
                 {
-                    case BrainFactKind.Person:
+                    case BrainFactKind.Person or BrainFactKind.SenderAlias or BrainFactKind.Group:
                         People.Add(item);
                         break;
                     case BrainFactKind.AccountNickname:
@@ -252,7 +252,7 @@ public partial class VoiceBrainPageViewModel : CoreBaseViewModel, IRecipient<Voi
                     case BrainFactKind.FolderSynonym:
                         Folders.Add(item);
                         break;
-                    case BrainFactKind.DefaultCalendar:
+                    case BrainFactKind.DefaultCalendar or BrainFactKind.DefaultAccount or BrainFactKind.FilterSynonym:
                         Defaults.Add(item);
                         break;
                 }
@@ -288,6 +288,16 @@ public partial class VoiceBrainPageViewModel : CoreBaseViewModel, IRecipient<Voi
             BrainFactKind.Person => (fact.Label, target),
             BrainFactKind.AccountNickname => (fact.Label, mailbox ?? target),
             BrainFactKind.DefaultCalendar => (Translator.VoiceBrain_DefaultCalendar, Join(target, mailbox)),
+            BrainFactKind.SenderAlias => (fact.Label, Join(target, fact.TargetRemoteId)),
+            BrainFactKind.Group => (fact.Label, string.Join(", ", (fact.Members ?? []).Select(static member => member.Name))),
+            BrainFactKind.DefaultAccount => (fact.DefaultUse == BrainDefaultUse.Task ? Translator.VoiceBrain_DefaultTaskAccount : Translator.VoiceBrain_DefaultMailAccount, mailbox ?? target),
+            BrainFactKind.FilterSynonym => (fact.Label, fact.SenderKind switch
+            {
+                MailSenderKind.Person => Translator.VoiceQuestion_Filter_Person,
+                MailSenderKind.Service => Translator.VoiceQuestion_Filter_Service,
+                MailSenderKind.Newsletter => Translator.VoiceQuestion_Filter_Newsletter,
+                _ => null
+            }),
             _ => (fact.Label, Join(target, mailbox))
         };
 
