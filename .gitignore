@@ -429,6 +429,7 @@ docs/design-prototypes/*
 !/docs/macos-design-decisions.md
 !/docs/ios-design-decisions.md
 !/docs/wino-assistant-plan.md
+!/docs/wino-assistant-status.md
 !/docs/android-design-decisions.md
 !/docs/android-port-investigation.md
 !/docs/macos-shared-logic-roadmap.md
