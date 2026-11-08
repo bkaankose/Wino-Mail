@@ -114,6 +114,7 @@ public static class SettingsCatalog
         if (page == WinoPage.IntelligenceCoveragePage) return Translator.SemanticIndex_CoverageEditorPageDescription;
         if (page == WinoPage.RemoteContentRulesPage) return Translator.RemoteContentRules_Description;
         if (page == WinoPage.VoiceBrainPage) return Translator.VoiceBrain_Description;
+        if (page == WinoPage.VoiceControlSettingsPage) return Translator.VoiceControlSettings_Description;
         return RootPage(page) == page ? RootDescription(page) : string.Empty;
     }
 

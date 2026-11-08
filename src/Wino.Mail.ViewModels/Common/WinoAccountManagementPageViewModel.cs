@@ -15,6 +15,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Ai;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Settings;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.ViewModels.Data;
 using Wino.Mail.Api.Contracts.Billing;
@@ -853,7 +854,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     private void OpenVoiceControl()
     {
         if (IsVoiceControlAvailable)
-            Messenger.Send(new SettingsRootNavigationRequested(WinoPage.VoiceControlSettingsPage));
+            Messenger.Send(new BreadcrumbNavigationRequested(SettingsCatalog.Title(WinoPage.VoiceControlSettingsPage), WinoPage.VoiceControlSettingsPage));
     }
 
     [RelayCommand(CanExecute = nameof(CanManageSubscription))]
@@ -1654,10 +1655,15 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             !_platformCapabilities.AppleAppStore &&
             !string.Equals(aiPack?.Source, AiPackBillingSources.AppStore, StringComparison.OrdinalIgnoreCase);
 
+        var assistantUsage = IntelligenceUsageItems.FirstOrDefault(item => item.Bucket == IntelligenceUsage.AssistantBucket);
         var voiceUsage = IntelligenceUsageItems.FirstOrDefault(item => item.Bucket == IntelligenceUsage.VoiceBucket);
-        VoiceUsageText = voiceUsage is null
-            ? Translator.WinoIntelligence_Voice_Description
-            : string.Format(Translator.WinoIntelligence_Voice_UsageDescription, voiceUsage.Used, voiceUsage.Limit);
+        VoiceUsageText = (assistantUsage, voiceUsage) switch
+        {
+            ({ } requests, { } spoken) => string.Format(Translator.WinoIntelligence_Voice_UsageDescription, requests.Used, requests.Limit, spoken.Used, spoken.Limit),
+            ({ } requests, null) => string.Format(Translator.WinoIntelligence_Voice_RequestsDescription, requests.Used, requests.Limit),
+            (null, { } spoken) => string.Format(Translator.WinoIntelligence_Voice_SpokenDescription, spoken.Used, spoken.Limit),
+            _ => Translator.WinoIntelligence_Voice_Description
+        };
 
         ApplyOfferPerks();
         ApplyCtaTexts();

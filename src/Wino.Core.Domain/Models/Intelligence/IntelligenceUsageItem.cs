@@ -27,7 +27,9 @@ public static class IntelligenceUsage
 {
     public const string IntelligenceBucket = AiQuotaBucketIds.Intelligence;
 
-    // The contracts package has no voice bucket id yet; the API reports voice commands under this name.
+    public const string AssistantBucket = AiQuotaBucketIds.Assistant;
+
+    // The contracts package has no voice bucket id; the API reports spoken assistant requests under this name.
     public const string VoiceBucket = "voice";
 
     private static readonly string[] DisplayOrder =
@@ -36,6 +38,7 @@ public static class IntelligenceUsage
         AiQuotaBucketIds.Summarize,
         AiQuotaBucketIds.Translate,
         AiQuotaBucketIds.Rewrite,
+        AssistantBucket,
         VoiceBucket
     ];
 
@@ -72,6 +75,7 @@ public static class IntelligenceUsage
         AiQuotaBucketIds.Summarize => Translator.WinoIntelligence_UsageBucketSummarize,
         AiQuotaBucketIds.Rewrite => Translator.WinoIntelligence_UsageBucketRewrite,
         AiQuotaBucketIds.Translate => Translator.WinoIntelligence_UsageBucketTranslate,
+        AssistantBucket => Translator.WinoIntelligence_UsageBucketAssistant,
         VoiceBucket => Translator.WinoIntelligence_UsageBucketVoice,
         _ => bucket,
     };

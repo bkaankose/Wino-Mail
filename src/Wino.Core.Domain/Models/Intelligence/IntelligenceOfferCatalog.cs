@@ -42,7 +42,7 @@ public static class IntelligenceOfferCatalog
             Translator.WinoIntelligence_Perk_Rewrites_Title,
             Translator.WinoIntelligence_Perk_Rewrites_Description,
             Translator.WinoIntelligence_Perk_Rewrites_Allowance),
-        new(IntelligenceUsage.VoiceBucket, WinoIconGlyph.Microphone,
+        new(IntelligenceUsage.AssistantBucket, WinoIconGlyph.Microphone,
             Translator.WinoIntelligence_Perk_Voice_Title,
             Translator.WinoIntelligence_Perk_Voice_Description,
             Translator.WinoIntelligence_Perk_Voice_Allowance),
