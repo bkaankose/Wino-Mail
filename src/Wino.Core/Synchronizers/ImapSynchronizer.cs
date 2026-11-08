@@ -52,6 +52,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
     private readonly LocalContactSynchronizer _localContactSynchronizer;
     private readonly LocalTaskSynchronizer _localTaskSynchronizer;
     private readonly ICardDavSynchronizationEngine _cardDavSynchronizationEngine;
+    private readonly ICalDavTaskSynchronizationEngine _calDavTaskSynchronizationEngine;
 
     protected override Task ExecuteContactRequestsInternalAsync(IReadOnlyList<IContactActionRequest> requests, CancellationToken cancellationToken = default)
         => Account.ContactIntegrationSource switch
@@ -69,14 +70,19 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                 : Task.FromResult(ContactSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_ContactsUnavailable)));
 
     protected override Task ExecuteTaskRequestsInternalAsync(IReadOnlyList<ITaskActionRequest> requests, CancellationToken cancellationToken = default)
-        => Account.TaskIntegrationSource == AccountIntegrationSource.Local
-            ? _localTaskSynchronizer.ExecuteRequestsAsync(requests, cancellationToken)
-            : throw new InvalidOperationException(Translator.Synchronizer_TasksUnavailable);
+        => Account.TaskIntegrationSource switch
+        {
+            AccountIntegrationSource.Dav when _calDavTaskSynchronizationEngine is not null => _calDavTaskSynchronizationEngine.ExecuteRequestsAsync(Account, requests, cancellationToken),
+            AccountIntegrationSource.Local => _localTaskSynchronizer.ExecuteRequestsAsync(requests, cancellationToken),
+            _ => throw new InvalidOperationException(Translator.Synchronizer_TasksUnavailable)
+        };
 
     protected override Task<TaskSynchronizationResult> SynchronizeTasksInternalAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken = default)
-        => Account.TaskIntegrationSource == AccountIntegrationSource.Local
-            ? _localTaskSynchronizer.SynchronizeAsync(options, cancellationToken)
-            : Task.FromResult(TaskSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_TasksUnavailable)));
+        => Account.TaskIntegrationSource == AccountIntegrationSource.Dav && _calDavTaskSynchronizationEngine is not null
+            ? _calDavTaskSynchronizationEngine.SynchronizeAsync(Account, options, cancellationToken)
+            : Account.TaskIntegrationSource == AccountIntegrationSource.Local
+                ? _localTaskSynchronizer.SynchronizeAsync(options, cancellationToken)
+                : Task.FromResult(TaskSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_TasksUnavailable)));
     /// <summary>
     /// N/A for IMAP as it doesn't support batch modifications natively.
     /// </summary>
@@ -149,8 +155,10 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                             IContactService contactService = null,
                             ITaskService taskService = null,
                             ISmtpTransport smtpTransport = null,
-                            ICalDavSynchronizationEngine calDavSynchronizationEngine = null) : base(account, WeakReferenceMessenger.Default)
+                            ICalDavSynchronizationEngine calDavSynchronizationEngine = null,
+                            ICalDavTaskSynchronizationEngine calDavTaskSynchronizationEngine = null) : base(account, WeakReferenceMessenger.Default)
     {
+        _calDavTaskSynchronizationEngine = calDavTaskSynchronizationEngine;
         _imapChangeProcessor = imapChangeProcessor;
         _applicationConfiguration = applicationConfiguration;
         _unifiedSynchronizer = unifiedSynchronizer;

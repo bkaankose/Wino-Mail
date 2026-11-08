@@ -245,9 +245,10 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                     WizardContext.ContactIntegrationSource != AccountIntegrationSource.Local,
                 ContactIntegrationSource = WizardContext.ContactIntegrationSource,
                 IsTaskAccessEnabled = WizardContext.IsTaskAccessEnabled,
-                IsTaskAccessGranted = WizardContext.IsOAuthProvider &&
-                    WizardContext.IsTaskAccessEnabled &&
-                    WizardContext.TaskIntegrationSource == AccountIntegrationSource.Provider,
+                IsTaskAccessGranted = WizardContext.IsTaskAccessEnabled &&
+                    (WizardContext.IsOAuthProvider
+                        ? WizardContext.TaskIntegrationSource == AccountIntegrationSource.Provider
+                        : WizardContext.TaskIntegrationSource == AccountIntegrationSource.Dav),
                 TaskIntegrationSource = WizardContext.TaskIntegrationSource,
                 OutlookClientId = WizardContext.SelectedProvider.Type == MailProviderType.Outlook ? OutlookClientIds.Current : null
             };

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Models.Calendar;
@@ -23,6 +24,10 @@ public sealed class CalDavCalendar
     /// report the property, which RFC 4791 section 5.2.3 defines as "every component".
     /// </summary>
     public IReadOnlyList<string> SupportedComponents { get; init; } = Array.Empty<string>();
+
+    /// <summary>True when the collection accepts VTODO, or reported no component set (RFC 4791 section 5.2.3).</summary>
+    public bool SupportsTasks => SupportedComponents.Count == 0 ||
+                                 SupportedComponents.Any(component => string.Equals(component, "VTODO", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>REPORT names from DAV:supported-report-set, as "{namespace}local-name".</summary>
     public IReadOnlyList<string> SupportedReports { get; init; } = Array.Empty<string>();

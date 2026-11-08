@@ -496,7 +496,7 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
                         stored.DueDate = incoming.DueDate;
                         stored.IsCompleted = incoming.IsCompleted;
                         stored.CompletedAtUtc = incoming.CompletedAtUtc;
-                        if (stored.SourceKind == TaskSourceKind.Outlook)
+                        if (stored.SourceKind is TaskSourceKind.Outlook or TaskSourceKind.CalDav)
                             stored.IsImportant = incoming.IsImportant;
                     }
                     stored.ModifiedAtUtc = now;

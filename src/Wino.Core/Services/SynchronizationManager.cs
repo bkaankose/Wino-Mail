@@ -1064,7 +1064,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             }
             else if (result.CompletedState == SynchronizationCompletedState.Success &&
                      options.Type != TaskSynchronizationType.ExecuteRequests &&
-                     synchronizer.Account.TaskIntegrationSource == AccountIntegrationSource.Provider)
+                     synchronizer.Account.TaskIntegrationSource != AccountIntegrationSource.Local)
             {
                 synchronizer.Account.IsTaskReauthorizationRequired = false;
                 var persistedAccount = await _accountService.GetAccountAsync(options.AccountId).ConfigureAwait(false);

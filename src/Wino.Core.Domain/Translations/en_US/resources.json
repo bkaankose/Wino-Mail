@@ -3136,7 +3136,7 @@
   "ProviderSelection_TaskProviderUnavailable": "IMAP servers do not offer a task service, so To Do is available on this PC only.",
   "ProviderSelection_TaskProviderUnavailable_Device": "IMAP servers do not offer a task service, so To Do is available on this device only.",
   "ProviderSelection_MailRangeHeader": "Download mail from the last",
-  "ProviderSelection_CalendarOnlyServerHint": "If you continue with calendar only, the next page will not require an email address.",
+  "ProviderSelection_CalendarOnlyServerHint": "If you continue without mail, the next page will not require an email address.",
   "ProviderSelection_StepProgressOf": "Step {0} of {1}",
   "ProviderSelection_MailStepTitle": "Use this account in Wino Mail?",
   "ProviderSelection_MailStepDescription": "Read, write and send email from this account.",
@@ -5063,5 +5063,9 @@
   "OpenLinkDialog_OpensIn": "Opens in {0}.",
   "OpenLinkDialog_OpenLink": "Open link",
   "PrivacySecurity_AboutLogs_Title": "Diagnostic logs",
-  "PrivacySecurity_AboutLogs_Description": "Share or upload the local log when you report a problem. Turn logging on or off in Privacy & security."
+  "PrivacySecurity_AboutLogs_Description": "Share or upload the local log when you report a problem. Turn logging on or off in Privacy & security.",
+  "ImapSetup_CalDavTasksTitle": "To Do (CalDAV)",
+  "ImapSetup_CalDavCalendarAndTasksTitle": "Calendar and To Do (CalDAV)",
+  "CalDavTasks_ListManagementUnsupported": "This CalDAV server does not allow creating or deleting task lists.",
+  "CalDavTasks_UntitledTask": "Untitled"
 }

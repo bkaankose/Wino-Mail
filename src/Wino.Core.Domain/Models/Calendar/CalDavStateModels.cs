@@ -95,6 +95,10 @@ public sealed class CalDavCalendarState
                                   SupportedComponents.Contains("VEVENT", StringComparer.OrdinalIgnoreCase);
 
     [JsonIgnore]
+    public bool SupportsTasks => SupportedComponents.Count == 0 ||
+                                 SupportedComponents.Contains("VTODO", StringComparer.OrdinalIgnoreCase);
+
+    [JsonIgnore]
     public bool CanUseSyncCollection => SupportsSyncCollection && !SyncCollectionRefused;
 
     [JsonIgnore]

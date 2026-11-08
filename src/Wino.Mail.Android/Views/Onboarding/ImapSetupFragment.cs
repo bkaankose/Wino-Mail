@@ -177,7 +177,7 @@ public sealed class ImapSetupFragment : WinoFragment<ImapCalDavSettingsPageViewM
 
         form.Group(() =>
         {
-            form.Section(Translator.ImapSetup_CalDavTitle);
+            form.Section(viewModel.CalDavSectionTitle);
             ConnectionError(form, viewModel, nameof(viewModel.HasCalDavConnectionError), vm => vm.HasCalDavConnectionError, nameof(viewModel.CalDavConnectionError), vm => vm.CalDavConnectionError);
             form.Field(Translator.ImapCalDavSettingsPage_CalDavServiceUrl, nameof(viewModel.CalDavServiceUrl), vm => vm.CalDavServiceUrl, (vm, v) => vm.CalDavServiceUrl = v,
                 InputTypes.ClassText | InputTypes.TextVariationUri);

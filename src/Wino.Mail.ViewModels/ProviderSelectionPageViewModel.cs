@@ -103,7 +103,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 
     public List<string> TaskSourceOptions => IsOAuthProvider
         ? [Translator.ProviderSelection_SourceProviderTasks, Translator.ProviderSelection_SourceLocalTasks]
-        : [Translator.ProviderSelection_SourceLocalTasks];
+        : [Translator.ProviderSelection_SourceCalDav, Translator.ProviderSelection_SourceLocalTasks];
 
     [ObservableProperty]
     public partial IProviderDetail SelectedProvider { get; set; }
@@ -166,7 +166,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         HasKnownProviderService(definition => definition.CalDavServiceUrl, region => region.CalDavServiceUrl);
     public bool IsContactProviderModeAvailable => !IsPop3 &&
         HasKnownProviderService(definition => definition.CardDavServiceUrl, region => region.CardDavServiceUrl);
-    public bool IsTaskProviderModeAvailable => IsOAuthProvider;
+    public bool IsTaskProviderModeAvailable => IsOAuthProvider || (IsImapFamily && IsCalendarProviderModeAvailable);
 
     /// <summary>
     /// A catalog provider only offers a DAV capability when its entry (or one of its regions) has that
@@ -201,7 +201,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 
     public string TaskProviderModeLabel => IsOAuthProvider
         ? SelectedProviderName
-        : Translator.ProviderSelection_ModeImap;
+        : Translator.ProviderSelection_SourceCalDav;
 
     public bool IsCardDavDiscoveryHintVisible =>
         IsImapFamily && ContactMode == AccountCapabilityMode.Provider;
@@ -334,14 +334,15 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     public string TaskProviderChoiceDescription => string.Format(Translator.ProviderSelection_Why_TasksProvider, TaskProviderModeLabel);
 
     // The recommended option per capability. It is the provider option wherever the provider can
-    // serve the capability, and the local option otherwise.
+    // serve the capability, and the local option otherwise. CalDAV To Do is offered but never
+    // recommended: many CalDAV servers have no task lists, and existing IMAP accounts stay local.
     public bool IsMailProviderRecommended => true;
     public bool IsCalendarProviderRecommended => IsCalendarProviderModeAvailable;
     public bool IsCalendarLocalRecommended => !IsCalendarProviderModeAvailable;
     public bool IsContactProviderRecommended => IsContactProviderModeAvailable;
     public bool IsContactLocalRecommended => !IsContactProviderModeAvailable;
-    public bool IsTaskProviderRecommended => IsTaskProviderModeAvailable;
-    public bool IsTaskLocalRecommended => !IsTaskProviderModeAvailable;
+    public bool IsTaskProviderRecommended => IsOAuthProvider;
+    public bool IsTaskLocalRecommended => !IsOAuthProvider;
 
     #endregion
     public string SelectedProviderName => SelectedProvider?.Name ?? string.Empty;
@@ -360,7 +361,6 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     public bool IsImapFamily => SelectedProvider?.Type == MailProviderType.IMAP4;
     public bool IsPop3 => SelectedProvider?.Type == MailProviderType.POP3;
     public bool IsDavContactChoiceAvailable => IsImapFamily;
-    public bool IsFixedLocalTaskSource => IsImapFamily;
     public string DavContactAvailabilityMessage => Translator.ProviderSelection_CardDavSetupGuidance;
     public bool IsCapabilitySelectionMissing => !IsMailAccessEnabled && !IsCalendarAccessEnabled &&
         !IsContactAccessEnabled && !IsTaskAccessEnabled;
@@ -373,11 +373,11 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         Capabilities.HasAnyCapability &&
         !Capabilities.RequiresRemoteService;
 
-    // Only a CalDAV calendar leads to the server page; a local one skips it.
+    // Only a CalDAV calendar or CalDAV To Do leads to the server page; local ones skip it.
     public bool IsCalendarOnlyServerHintVisible =>
         SelectedProvider?.Type == MailProviderType.IMAP4 &&
         !IsMailAccessEnabled &&
-        CalendarMode == AccountCapabilityMode.Provider;
+        (CalendarMode == AccountCapabilityMode.Provider || TaskMode == AccountCapabilityMode.Provider);
 
     public ProviderSelectionPageViewModel(
         IAccountService accountService,
@@ -511,7 +511,6 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         OnPropertyChanged(nameof(IsImapFamily));
         OnPropertyChanged(nameof(IsPop3));
         OnPropertyChanged(nameof(IsDavContactChoiceAvailable));
-        OnPropertyChanged(nameof(IsFixedLocalTaskSource));
         OnPropertyChanged(nameof(DavContactAvailabilityMessage));
         OnPropertyChanged(nameof(CalendarSourceOptions));
         OnPropertyChanged(nameof(ContactSourceOptions));
@@ -571,6 +570,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         OnPropertyChanged(nameof(IsTaskChoiceProvider));
         OnPropertyChanged(nameof(IsTaskChoiceLocal));
         OnPropertyChanged(nameof(IsTaskChoiceOff));
+        OnPropertyChanged(nameof(IsCalendarOnlyServerHintVisible));
         NotifyCapabilitySelectionChanged();
     }
 
@@ -734,9 +734,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         WizardContext.IsTaskAccessEnabled = IsTaskAccessEnabled;
         WizardContext.CalendarIntegrationSource = ToIntegrationSource(CalendarMode);
         WizardContext.ContactIntegrationSource = ToIntegrationSource(ContactMode);
-        WizardContext.TaskIntegrationSource = IsImapFamily
-            ? AccountIntegrationSource.Local
-            : ToIntegrationSource(TaskMode);
+        WizardContext.TaskIntegrationSource = ToIntegrationSource(TaskMode);
         WizardContext.CalendarSupportMode = !IsCalendarAccessEnabled
             ? ImapCalendarSupportMode.Disabled
             : WizardContext.CalendarIntegrationSource == AccountIntegrationSource.Local
@@ -855,7 +853,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         MailMode = AccountCapabilityMode.Provider;
         CalendarMode = AccountCapabilityMode.Provider;
         ContactMode = AccountCapabilityMode.Provider;
-        TaskMode = IsTaskProviderModeAvailable
+        TaskMode = IsTaskProviderRecommended
             ? AccountCapabilityMode.Provider
             : AccountCapabilityMode.Local;
 

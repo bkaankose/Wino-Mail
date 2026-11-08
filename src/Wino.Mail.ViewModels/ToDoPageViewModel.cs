@@ -2402,14 +2402,17 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     }
 
     private static TaskSourceKind ResolveTaskSource(MailAccount account)
-        => account.TaskIntegrationSource == AccountIntegrationSource.Provider && account.IsTaskAccessGranted
-            ? account.ProviderType switch
+        => account.TaskIntegrationSource switch
+        {
+            AccountIntegrationSource.Provider when account.IsTaskAccessGranted => account.ProviderType switch
             {
                 MailProviderType.Gmail => TaskSourceKind.Gmail,
                 MailProviderType.Outlook => TaskSourceKind.Outlook,
                 _ => TaskSourceKind.Local
-            }
-            : TaskSourceKind.Local;
+            },
+            AccountIntegrationSource.Dav when account.IsTaskAccessGranted => TaskSourceKind.CalDav,
+            _ => TaskSourceKind.Local
+        };
 
     private AccountTaskList GetWritableDestinationList()
         => TaskLists
@@ -2482,7 +2485,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     private static bool RequiresLocalFallbackList(MailAccount account)
         => account.IsTaskAccessEnabled &&
-           (account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook) ||
+           (account.TaskIntegrationSource == AccountIntegrationSource.Local ||
            !account.IsTaskAccessGranted ||
            account.IsTaskReauthorizationRequired);
 

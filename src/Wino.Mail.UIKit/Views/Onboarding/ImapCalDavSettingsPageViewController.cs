@@ -273,7 +273,7 @@ public sealed class ImapCalDavSettingsPageViewController(ImapCalDavSettingsPageV
         var vm = ViewModel;
         var status = new ConnectionStatusView();
         Form.Bind(nameof(vm.CalDavConnectionState), s => s.CalDavConnectionState, state => status.State = state);
-        var expander = Expander(Translator.ImapSetup_CalDavTitle, WinoIconGlyph.Calendar, status,
+        var expander = Expander(vm.CalDavSectionTitle, WinoIconGlyph.Calendar, status,
             nameof(vm.IsCalDavExpanded), s => s.IsCalDavExpanded, (s, v) => s.IsCalDavExpanded = v);
         Form.Bind(nameof(vm.CalDavSummary), s => s.CalDavSummary, text => expander.HeaderCard.Description = text);
         Form.Visible(expander, nameof(vm.IsCalDavSettingsVisible), s => s.IsCalDavSettingsVisible);

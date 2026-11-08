@@ -52,10 +52,12 @@ public class SpecialImapProviderConfigResolver(IKnownImapProviderCatalog catalog
         resolvedConfig.CalDavUsername = loginAddress;
         resolvedConfig.CalDavPassword = details.Password;
 
+        var usesCalDavTasks = account.IsTaskAccessGranted && account.TaskIntegrationSource == AccountIntegrationSource.Dav;
         var requiresDavCredentials = details.CalendarSupportMode == ImapCalendarSupportMode.CalDav ||
+            usesCalDavTasks ||
             account.IsContactAccessGranted && account.ContactIntegrationSource == AccountIntegrationSource.Dav;
 
-        if (details.CalendarSupportMode != ImapCalendarSupportMode.CalDav)
+        if (details.CalendarSupportMode != ImapCalendarSupportMode.CalDav && !usesCalDavTasks)
         {
             resolvedConfig.CalDavServiceUrl = string.Empty;
         }

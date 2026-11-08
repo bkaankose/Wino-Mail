@@ -456,10 +456,10 @@ public partial class ImapCalDavSettingsPageViewModel
             Capabilities.ConfigureProvider(
                 isCalendarProviderAvailable: !IsPop3,
                 isContactProviderAvailable: !IsPop3,
-                isTaskProviderAvailable: false,
+                isTaskProviderAvailable: !IsPop3,
                 calendarProviderName: Translator.ProviderSelection_SourceCalDav,
                 contactProviderName: Translator.ProviderSelection_SourceCardDav,
-                taskProviderName: string.Empty);
+                taskProviderName: Translator.ProviderSelection_SourceCalDav);
 
             Capabilities.MailMode = IsMailSupportEnabled ? AccountCapabilityMode.Provider : AccountCapabilityMode.Off;
             Capabilities.CalendarMode = !IsCalendarSupportEnabled || SelectedCalendarSupportMode == ImapCalendarSupportMode.Disabled
@@ -473,9 +473,11 @@ public partial class ImapCalDavSettingsPageViewModel
                 Capabilities.ContactMode = !(creationResult?.IsContactAccessGranted ?? _wizardContext.IsContactAccessEnabled)
                     ? AccountCapabilityMode.Off
                     : _isCardDavEnabled ? AccountCapabilityMode.Provider : AccountCapabilityMode.Local;
-                Capabilities.TaskMode = (creationResult?.IsTaskAccessGranted ?? _wizardContext.IsTaskAccessEnabled)
-                    ? AccountCapabilityMode.Local
-                    : AccountCapabilityMode.Off;
+                Capabilities.TaskMode = !(creationResult?.IsTaskAccessGranted ?? _wizardContext.IsTaskAccessEnabled)
+                    ? AccountCapabilityMode.Off
+                    : _wizardContext.TaskIntegrationSource == AccountIntegrationSource.Dav
+                        ? AccountCapabilityMode.Provider
+                        : AccountCapabilityMode.Local;
             }
             else
             {
@@ -512,6 +514,12 @@ public partial class ImapCalDavSettingsPageViewModel
                 Serilog.Log.Debug("IMAP setup contact mode changed to {ContactMode}", Capabilities.ContactMode);
                 OnPropertyChanged(nameof(IsCardDavSettingsVisible));
                 OnPropertyChanged(nameof(IsCardDavOnlySettingsVisible));
+                break;
+            case nameof(AccountCapabilitySelection.TaskMode):
+                if (!IsCalDavSettingsVisible)
+                    IsCalDavValidationSucceeded = false;
+                else if (string.IsNullOrWhiteSpace(CalDavServiceUrl))
+                    IsCalDavExpanded = true;
                 break;
             default:
                 return;
@@ -555,6 +563,7 @@ public partial class ImapCalDavSettingsPageViewModel
         OnPropertyChanged(nameof(IsDiscoveryFoundVisible));
         OnPropertyChanged(nameof(IsDiscoveryNotFoundVisible));
         OnPropertyChanged(nameof(IsCalDavSettingsVisible));
+        OnPropertyChanged(nameof(CalDavSectionTitle));
         OnPropertyChanged(nameof(IsCardDavSettingsVisible));
         OnPropertyChanged(nameof(IsCardDavOnlySettingsVisible));
         OnPropertyChanged(nameof(IsCardDavCredentialsOptionVisible));

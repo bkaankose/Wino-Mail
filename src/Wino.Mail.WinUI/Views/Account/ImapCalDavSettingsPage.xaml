@@ -435,7 +435,7 @@
             <controls:SettingsExpander
                 AutomationProperties.AutomationId="ImapSetupCalDavExpander"
                 Description="{x:Bind ViewModel.CalDavSummary, Mode=OneWay}"
-                Header="{x:Bind domain:Translator.ImapSetup_CalDavTitle, Mode=OneTime}"
+                Header="{x:Bind ViewModel.CalDavSectionTitle, Mode=OneWay}"
                 IsExpanded="{x:Bind ViewModel.IsCalDavExpanded, Mode=TwoWay}"
                 Visibility="{x:Bind ViewModel.IsCalDavSettingsVisible, Mode=OneWay}">
                 <controls:SettingsExpander.HeaderIcon>
