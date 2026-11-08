@@ -25,6 +25,7 @@ public partial class App :
     IRecipient<CalendarItemUpdated>,
     IRecipient<CalendarItemDeleted>,
     IRecipient<TaskStateChanged>,
+    IRecipient<BulkTaskChanged>,
     IRecipient<TaskSynchronizationCompleted>,
     IRecipient<ContactSynchronizationCompleted>
 {
@@ -54,6 +55,7 @@ public partial class App :
         messenger.Register<CalendarItemUpdated>(this);
         messenger.Register<CalendarItemDeleted>(this);
         messenger.Register<TaskStateChanged>(this);
+        messenger.Register<BulkTaskChanged>(this);
         messenger.Register<TaskSynchronizationCompleted>(this);
         messenger.Register<ContactSynchronizationCompleted>(this);
 
@@ -81,6 +83,7 @@ public partial class App :
     public void Receive(CalendarItemUpdated message) => OnBackgroundContentChanged();
     public void Receive(CalendarItemDeleted message) => OnBackgroundContentChanged();
     public void Receive(TaskStateChanged message) => OnBackgroundContentChanged();
+    public void Receive(BulkTaskChanged message) => OnBackgroundContentChanged();
     public void Receive(TaskSynchronizationCompleted message) => OnBackgroundContentChanged();
     public void Receive(ContactSynchronizationCompleted message) => OnBackgroundContentChanged();
 }

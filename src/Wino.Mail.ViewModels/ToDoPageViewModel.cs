@@ -34,6 +34,7 @@ namespace Wino.Mail.ViewModels;
 public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, IShellMenuProvider,
     IRecipient<TaskSynchronizationCompleted>,
     IRecipient<TaskStateChanged>,
+    IRecipient<BulkTaskChanged>,
     IRecipient<AccountUpdatedMessage>,
     IRecipient<AccountRemovedMessage>,
     IRecipient<PreferenceChangedMessage>
@@ -548,6 +549,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         Messenger.Register<AccountUpdatedMessage>(this);
         Messenger.Register<AccountRemovedMessage>(this);
         Messenger.Register<PreferenceChangedMessage>(this);
+        Messenger.Register<BulkTaskChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -557,6 +559,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         Messenger.Unregister<AccountUpdatedMessage>(this);
         Messenger.Unregister<AccountRemovedMessage>(this);
         Messenger.Unregister<PreferenceChangedMessage>(this);
+        Messenger.Unregister<BulkTaskChanged>(this);
         base.UnregisterRecipients();
     }
 
@@ -578,6 +581,12 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     void IRecipient<AccountUpdatedMessage>.Receive(AccountUpdatedMessage message)
         => _ = ExecuteUIThread(() => ApplyAccountUpdate(message.Account));
 
+    void IRecipient<BulkTaskChanged>.Receive(BulkTaskChanged message)
+    {
+        if (!_isPreparedForShellShutdown)
+            _ = ReloadAsync();
+    }
+
     void IRecipient<AccountRemovedMessage>.Receive(AccountRemovedMessage message)
         => _ = ExecuteUIThread(() => ApplyAccountRemoval(message.Account.Id));
 
@@ -589,6 +598,12 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         TrackPendingState(message);
 
         if (message.List is not null)
+        if (message.Source == EntityUpdateSource.Server)
+            message = WithoutPendingEntities(message);
+
+        if (message is null)
+            return;
+
             ApplyTaskListState(message);
 
         if (message.Group is not null)
@@ -610,6 +625,27 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private void TrackPendingState(TaskStateChanged message)
     {
         if (message.Source == EntityUpdateSource.ClientReverted)
+    /// <summary>
+    /// A synchronization can store a row while a request for it still waits in the queue. The
+    /// request's optimistic state stays on screen until the request completes or reverts.
+    /// </summary>
+    private TaskStateChanged WithoutPendingEntities(TaskStateChanged message)
+    {
+        var task = message.Task is not null &&
+                   (_pendingTaskStates.ContainsKey(message.Task.Id) || _pendingDeletedTaskIds.ContainsKey(message.Task.Id))
+            ? null
+            : message.Task;
+        var list = message.List is not null &&
+                   (_pendingListStates.ContainsKey(message.List.Id) || _pendingDeletedListIds.ContainsKey(message.List.Id))
+            ? null
+            : message.List;
+
+        if (task is null && list is null && message.Group is null)
+            return null;
+
+        return message with { Task = task, List = list };
+    }
+
         {
             if (message.Task is not null)
             {
